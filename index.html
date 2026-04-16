@@ -60,42 +60,19 @@
     .header-shell {
       max-width: 1100px;
       margin: 0 auto;
-      padding: 2.4rem 1.8rem 3.4rem;
+      padding: 3rem 1.8rem 4rem;
       display: grid;
-      gap: 2.2rem;
+      gap: 2rem;
       position: relative;
       z-index: 1;
+      justify-items: center;
     }
 
-    .header-top {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 1rem;
-      flex-wrap: wrap;
-    }
-
-    .header-logo {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.65rem;
-      font-weight: 600;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      font-size: 0.78rem;
-    }
-
-    .header-logo img {
-      width: 112px;
-      height: 112px;
+    .hero-logo {
+      width: min(420px, 78vw);
+      height: auto;
       object-fit: contain;
-      border-radius: 10px;
-    }
-
-    .header-actions {
-      display: flex;
-      gap: 0.75rem;
-      flex-wrap: wrap;
+      filter: drop-shadow(0 30px 54px rgba(4, 10, 16, 0.28));
     }
 
     .header-pill {
@@ -112,17 +89,18 @@
     .hero-grid {
       display: grid;
       grid-template-columns: 1fr;
-      gap: 2rem;
+      gap: 1.5rem;
       align-items: center;
       justify-items: center;
+      width: 100%;
     }
 
     .hero-copy {
       display: grid;
-      gap: 1rem;
+      gap: 1.1rem;
       text-align: center;
       justify-items: center;
-      max-width: 640px;
+      max-width: 720px;
       margin: 0 auto;
     }
 
@@ -144,34 +122,20 @@
     .hero-lede {
       margin: 0;
       color: rgba(255, 255, 255, 0.78);
-      max-width: 560px;
+      max-width: 620px;
       margin-left: auto;
       margin-right: auto;
     }
 
-    .hero-metrics {
-      display: grid;
-      gap: 0.9rem;
+    .hero-login {
+      margin-top: 0.35rem;
+      min-width: 220px;
+      background: rgba(255, 255, 255, 0.96);
+      color: #0f141b;
     }
 
-    .metric {
-      background: rgba(255, 255, 255, 0.08);
-      border-radius: 16px;
-      padding: 1rem 1.1rem;
-      border: 1px solid rgba(255, 255, 255, 0.08);
-    }
-
-    .metric h4 {
-      margin: 0 0 0.25rem;
-      font-size: 0.9rem;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-    }
-
-    .metric p {
-      margin: 0;
-      color: rgba(255, 255, 255, 0.7);
-      font-size: 0.92rem;
+    .hero-login:hover {
+      background: #ffffff;
     }
 
     .container {
@@ -501,7 +465,7 @@
 
     @media (max-width: 800px) {
       .header-shell {
-        padding: 2.2rem 1.4rem 3rem;
+        padding: 2.4rem 1.4rem 3.3rem;
       }
     }
 
@@ -553,20 +517,13 @@
 <body>
   <header>
     <div class="header-shell">
-      <div class="header-top">
-        <div class="header-logo">
-          <img src="./assets/n3xra_logo_transparent.png" alt="n3xra.com logo" />
-        </div>
-        <div class="header-actions">
-          <a class="header-pill" href="/app">App Login</a>
-        </div>
-      </div>
-
       <div class="hero-grid">
+        <img class="hero-logo" src="./assets/n3xra_logo_transparent.png" alt="n3xra.com logo" />
         <div class="hero-copy">
           <p class="hero-kicker">Record keeping made easy</p>
           <h1 class="hero-title">Searchable records for small organizations</h1>
           <p class="hero-lede">Upload, search, and open records in one place. Built for small organizations that need a clean, searchable archive.</p>
+          <a class="cta hero-login" href="/app">Login</a>
         </div>
       </div>
     </div>
@@ -584,9 +541,9 @@
     </section>
 
     <section class="story-panel">
-      <h2 class="section-title">Why I built it</h2>
-      <p class="section-lede">I built this to solve a real problem for our Community Action Team: making minutes easy for the public to access while giving board members fast context from past meetings.</p>
-      <p class="section-lede">It is live on blyoregon.com (see the public example above), and after sharing it, another board member asked about using the same approach for their organization. This page is the productized version of that solution.</p>
+      <h2 class="section-title">Built for real-world record access</h2>
+      <p class="section-lede">n3xra.com is already being used to make public minutes easier to access while giving internal teams faster context from past meetings.</p>
+      <p class="section-lede">It is a live product shaped by actual record-keeping needs: searchable archives, faster retrieval, and a simpler experience for organizations that need records to stay organized and usable.</p>
     </section>
 
     <section class="grid">
