@@ -1,10 +1,10 @@
-# Records Database Build Sheet
+# n3xra.com Build Sheet
 
-This document is the working product sheet for the Records Database idea. It is meant to capture the current state, the target direction, and the build order so the product can be continued later without re-deriving the plan.
+This document is the working product sheet for the n3xra.com idea. It is meant to capture the current state, the target direction, and the build order so the product can be continued later without re-deriving the plan.
 
 ## Product summary
 
-Records Database is a records-management product for small organizations that need a simple, searchable archive for recurring documents such as minutes, agendas, packets, and internal records.
+n3xra.com is a records-management product for small organizations that need a simple, searchable archive for recurring documents such as minutes, agendas, packets, and internal records.
 
 It is not currently a full public-records portal product. The current direction is:
 

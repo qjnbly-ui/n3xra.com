@@ -188,7 +188,7 @@ async function shareFile(documentId) {
     try {
       await navigator.share({
         title: doc.title || doc.original_filename || "Shared file",
-        text: `Shared from Records Database: ${doc.title || doc.original_filename || "File"}`,
+        text: `Shared from n3xra.com: ${doc.title || doc.original_filename || "File"}`,
         url: signedUrl,
       });
       setStatus("Share sheet opened.", "success");

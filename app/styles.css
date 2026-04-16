@@ -93,6 +93,13 @@ a { color: inherit; }
   font-size: 0.96rem;
 }
 
+.brand-badge-image {
+  object-fit: contain;
+  padding: 0;
+  background: transparent;
+  border-radius: 10px;
+}
+
 .topbar-logout,
 .menu-toggle {
   display: none;

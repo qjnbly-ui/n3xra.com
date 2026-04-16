@@ -525,7 +525,7 @@ function renderOrganizationSelector() {
     })
     .join("");
 
-  activeMembershipRole.textContent = isSupportView() ? "Master Admin Support View" : formatRoleLabel(getActiveRole());
+  activeMembershipRole.textContent = isSupportView() ? "n3xra.com Support View" : formatRoleLabel(getActiveRole());
   const ownLibraries = memberships.filter((item) => item.role === "account_owner").length;
   sharedLibraryCount.textContent = String(Math.max(memberships.length - ownLibraries, 0));
   activeOrganizationSelect.disabled = !hasMultipleLibraries();
@@ -544,7 +544,7 @@ function updateEmbedAccess() {
 
   const embedUrl = getEmbedUrl();
   embedPreviewUrlInput.value = embedUrl;
-  embedCodeInput.value = `<iframe src="${embedUrl}" title="Records Database Embedded View" width="100%" height="820" style="border:0;border-radius:24px;"></iframe>`;
+  embedCodeInput.value = `<iframe src="${embedUrl}" title="n3xra.com Embedded View" width="100%" height="820" style="border:0;border-radius:24px;"></iframe>`;
   openEmbedPreview.href = embedUrl;
 }
 
@@ -598,7 +598,7 @@ function renderProfile() {
   accountName.textContent = currentProfile?.full_name || currentSession?.user?.email || "-";
   accountEmail.textContent = currentSession?.user?.email || currentProfile?.email || "-";
   accountOrganization.textContent = organization?.name || "-";
-  accountRole.textContent = isSupportView() ? "Master Admin Support View" : formatRoleLabel(getActiveRole());
+  accountRole.textContent = isSupportView() ? "n3xra.com Support View" : formatRoleLabel(getActiveRole());
   accountTier.textContent = formatPlanName(organization?.subscription_tier || "free");
   accountStatus.textContent = titleCase(organization?.account_status || "active");
   profileFullNameInput.value = currentProfile?.full_name || "";
@@ -647,7 +647,7 @@ function renderProfile() {
   show(platformAdminLink, isPlatformAdminEmail(currentSession.user.email));
 
   if (isSupportView()) {
-    supportBanner.textContent = `Support view active for ${organization?.name || "this library"}. You are viewing this tenant as Master Admin.`;
+    supportBanner.textContent = `Support view active for ${organization?.name || "this library"}. You are viewing this tenant through n3xra.com admin tools.`;
     show(supportBanner, true);
   } else {
     show(supportBanner, false);
@@ -928,7 +928,7 @@ async function handlePlanChange(planId) {
   const organization = getActiveOrganization();
   if (!organization) return;
   if (!canManageBilling(getActiveRole(), isPlatformAdminEmail(currentSession.user.email))) {
-    setStatus(contextStatus, "Only the account owner or Master Admin can change plan tiers.", "error");
+    setStatus(contextStatus, "Only the account owner or n3xra.com admin can change plan tiers.", "error");
     return;
   }
 
