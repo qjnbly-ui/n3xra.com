@@ -44,7 +44,7 @@ function toggleSignup(visible) {
   authTitle.textContent = visible ? "Create account" : "Sign in";
   authSubtitle.textContent = visible
     ? "Create your account, start your own library, or redeem an invite code for a shared one."
-    : "Use the account tied to your n3xra.com library.";
+    : "Use the account tied to your library.";
   setStatus("");
 }
 

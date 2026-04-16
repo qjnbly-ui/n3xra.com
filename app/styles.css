@@ -71,6 +71,22 @@ a { color: inherit; }
   position: relative;
 }
 
+.login-topbar-row {
+  justify-content: center;
+}
+
+.login-topbar-row .brand {
+  width: 100%;
+  justify-content: center;
+}
+
+.login-topbar-row .brand-badge-image {
+  width: clamp(170px, 24vw, 250px);
+  height: auto;
+  border-radius: 0;
+  filter: drop-shadow(0 14px 28px rgba(5, 10, 16, 0.22));
+}
+
 .brand {
   display: inline-flex;
   align-items: center;
@@ -1371,6 +1387,10 @@ code.inline {
 }
 
 @media (max-width: 640px) {
+  .login-topbar-row .brand-badge-image {
+    width: min(62vw, 220px);
+  }
+
   .topbar-inner,
   .main {
     width: min(100vw - 1.2rem, 1120px);
