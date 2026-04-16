@@ -99,7 +99,7 @@
               </div>
             </div>
             <div class="actions">
-              <a class="btn secondary button-link hidden" id="platform-admin-link" href="./admin">Platform admin</a>
+              <a class="btn secondary button-link hidden" id="platform-admin-link" href="./admin.html">Platform admin</a>
             </div>
             <p class="status" id="context-status"></p>
           </section>
@@ -267,7 +267,7 @@
               <button class="btn" id="open-upload-modal" type="button">Upload</button>
             </div>
             <div class="library-action-slot">
-              <a class="btn secondary button-link" href="./files">All files</a>
+              <a class="btn secondary button-link" href="./files.html">All files</a>
             </div>
           </div>
 
@@ -393,7 +393,7 @@
           </div>
           <div class="actions">
             <button class="btn secondary" id="copy-embed-code" type="button">Copy code</button>
-            <a class="btn secondary button-link" id="open-embed-preview" href="./embed" target="_blank" rel="noopener">Open view</a>
+            <a class="btn secondary button-link" id="open-embed-preview" href="./embed.html" target="_blank" rel="noopener">Open view</a>
           </div>
           <p class="status" id="embed-status"></p>
         </div>
@@ -417,7 +417,7 @@
             <button class="upload-mode-btn is-active" id="upload-mode-single" type="button" role="tab" aria-selected="true">Individual file</button>
             <button class="upload-mode-btn" id="upload-mode-batch" type="button" role="tab" aria-selected="false">Batch import</button>
           </div>
-          <div class="grid-3">
+          <div class="grid-3" id="upload-metadata-grid">
             <div class="field" id="upload-title-field">
               <label for="upload-title">Document title</label>
               <input id="upload-title" type="text" placeholder="Optional override">
@@ -439,7 +439,7 @@
             <label for="upload-folder">Folder (optional)</label>
             <input id="upload-folder" type="file" webkitdirectory directory multiple>
           </div>
-          <div class="field">
+          <div class="field" id="upload-public-field">
             <label class="toggle-pill">
               <input id="upload-is-public" type="checkbox">
               <span>Publish to public embed</span>

@@ -20,7 +20,7 @@ function isPlatformAdminEmail(email) {
 }
 
 function getPostAuthDestination(session) {
-  return isPlatformAdminEmail(session?.user?.email) ? "./admin" : "./dashboard";
+  return isPlatformAdminEmail(session?.user?.email) ? "./admin.html" : "./dashboard.html";
 }
 
 function setStatus(message, tone = "") {

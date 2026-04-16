@@ -103,6 +103,7 @@ const uploadForm = document.getElementById("upload-form");
 const searchQueryInput = document.getElementById("search-query");
 const searchYearSelect = document.getElementById("search-year");
 const searchResetButton = document.getElementById("search-reset");
+const uploadMetadataGrid = document.getElementById("upload-metadata-grid");
 const uploadTitleInput = document.getElementById("upload-title");
 const uploadTitleField = document.getElementById("upload-title-field");
 const uploadYearInput = document.getElementById("upload-year");
@@ -111,6 +112,7 @@ const uploadFileInput = document.getElementById("upload-file");
 const uploadFileLabel = document.getElementById("upload-file-label");
 const uploadFolderInput = document.getElementById("upload-folder");
 const uploadFolderField = document.getElementById("upload-folder-field");
+const uploadPublicField = document.getElementById("upload-public-field");
 const uploadIsPublicInput = document.getElementById("upload-is-public");
 const uploadModeNote = document.getElementById("upload-mode-note");
 const uploadModeSingleButton = document.getElementById("upload-mode-single");
@@ -217,17 +219,18 @@ function setUploadMode(mode) {
   uploadModeBatchButton.classList.toggle("is-active", isBatch);
   uploadModeBatchButton.setAttribute("aria-selected", String(isBatch));
 
+  show(uploadMetadataGrid, !isBatch);
   show(uploadTitleField, !isBatch);
   show(uploadFolderField, isBatch);
+  show(uploadPublicField, !isBatch);
 
   uploadFileLabel.textContent = isBatch ? "Files" : "File";
   if (isBatch) {
     uploadFileInput.setAttribute("multiple", "");
-    uploadModeNote.innerHTML = 'Supported in this first pass: <code class="inline">.docx</code>, <code class="inline">.txt</code>, <code class="inline">.md</code>, <code class="inline">.csv</code>, <code class="inline">.json</code>, <code class="inline">.html</code>. Batch mode reads both file selection and folder import.';
   } else {
     uploadFileInput.removeAttribute("multiple");
-    uploadModeNote.innerHTML = 'Supported in this first pass: <code class="inline">.docx</code>, <code class="inline">.txt</code>, <code class="inline">.md</code>, <code class="inline">.csv</code>, <code class="inline">.json</code>, <code class="inline">.html</code>.';
   }
+  uploadModeNote.innerHTML = getUploadSupportCopy(isBatch);
 
   clearUploadFileSelections();
   resetUploadFeedback();
@@ -333,6 +336,15 @@ function resetUploadFeedback() {
   clearUploadResults();
 }
 
+function getUploadSupportCopy(isBatch) {
+  const supported = '<code class="inline">.docx</code>, <code class="inline">.txt</code>, <code class="inline">.md</code>, <code class="inline">.csv</code>, <code class="inline">.json</code>, <code class="inline">.html</code>.';
+  const legacyDocNote = 'Legacy <code class="inline">.doc</code> files must be converted to <code class="inline">.docx</code> before upload.';
+  if (isBatch) {
+    return `Supported in this first pass: ${supported} Batch mode reads both file selection and folder import and saves defaults (no year/month, private). ${legacyDocNote}`;
+  }
+  return `Supported in this first pass: ${supported} ${legacyDocNote}`;
+}
+
 async function insertDocumentRecord(record, userId) {
   const modernPayload = {
     ...record,
@@ -399,7 +411,7 @@ function getPlanLimits(planId) {
 function getEmbedUrl() {
   const organization = getActiveOrganization();
   if (!organization) return "";
-  return new URL(`./embed?org=${encodeURIComponent(organization.id)}`, window.location.href).href;
+  return new URL(`./embed.html?org=${encodeURIComponent(organization.id)}`, window.location.href).href;
 }
 
 function buildPreviewUrl(doc, signedUrl) {
@@ -948,7 +960,7 @@ async function handleSignout() {
     setStatus(contextStatus, error.message, "error");
     return;
   }
-  window.location.replace("./login");
+  window.location.replace("./login.html");
 }
 
 async function handleProfileSave(event) {
@@ -1168,7 +1180,7 @@ async function deleteAccount() {
   }
 
   await supabase.auth.signOut();
-  window.location.replace("./login");
+  window.location.replace("./login.html");
 }
 
 async function copyEmbedCode() {
@@ -1218,9 +1230,9 @@ async function uploadDocument(event) {
   }
 
   const manualTitle = uploadTitleInput.value.trim();
-  const year = uploadYearInput.value.trim() || null;
-  const month = uploadMonthInput.value.trim() || null;
-  const isPublic = uploadIsPublicInput.checked;
+  const year = uploadMode === "single" ? uploadYearInput.value.trim() || null : null;
+  const month = uploadMode === "single" ? uploadMonthInput.value.trim() || null : null;
+  const isPublic = uploadMode === "single" ? uploadIsPublicInput.checked : false;
   const submitButton = uploadForm.querySelector("button[type='submit']");
   if (submitButton instanceof HTMLButtonElement) {
     submitButton.disabled = true;
@@ -1344,12 +1356,12 @@ async function init() {
   supabase = createBrowserSupabase();
   currentSession = await getSessionOrNull(supabase);
   if (!currentSession?.user) {
-    window.location.replace("./login");
+    window.location.replace("./login.html");
     return;
   }
 
   if (isPlatformAdminEmail(currentSession.user.email) && !getSupportOrganizationId()) {
-    window.location.replace("./admin");
+    window.location.replace("./admin.html");
     return;
   }
 
@@ -1446,7 +1458,7 @@ async function init() {
 
   supabase.auth.onAuthStateChange((_event, session) => {
     if (!session?.user) {
-      window.location.replace("./login");
+      window.location.replace("./login.html");
     }
   });
 }
