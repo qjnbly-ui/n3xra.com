@@ -11,6 +11,7 @@ const signupForm = document.getElementById("signup-form");
 const signinForm = document.getElementById("signin-form");
 const showSigninButton = document.getElementById("show-signin-button");
 const showSignupButton = document.getElementById("show-signup-button");
+const forgotPasswordButton = document.getElementById("forgot-password-button");
 
 let supabase = null;
 let isSubmittingAuth = false;
@@ -160,6 +161,30 @@ async function handleSignin(event) {
   window.location.replace(getPostAuthDestination(data.session));
 }
 
+async function handleForgotPassword() {
+  if (!supabase || isSubmittingAuth) return;
+
+  const email = document.getElementById("signin-email").value.trim();
+  if (!email) {
+    setStatus("Enter your email address first.", "error");
+    return;
+  }
+
+  isSubmittingAuth = true;
+  setStatus("Sending password reset...");
+
+  const redirectTo = `${window.location.origin}/app/reset-password.html`;
+  const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+
+  isSubmittingAuth = false;
+  if (error) {
+    setStatus(error.message || "Unable to send password reset.", "error");
+    return;
+  }
+
+  setStatus("Password reset email sent. Check your inbox.", "success");
+}
+
 async function init() {
   show(setupPanel, !hasConfig());
   show(authPanel, hasConfig());
@@ -172,6 +197,7 @@ async function init() {
 
   signupForm.addEventListener("submit", handleSignup);
   signinForm.addEventListener("submit", handleSignin);
+  forgotPasswordButton.addEventListener("click", handleForgotPassword);
   showSigninButton.addEventListener("click", () => toggleSignup(false));
   showSignupButton.addEventListener("click", () => toggleSignup(true));
 

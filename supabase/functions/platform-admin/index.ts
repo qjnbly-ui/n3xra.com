@@ -15,6 +15,22 @@ function jsonResponse(body: Record<string, unknown>, status = 200) {
   });
 }
 
+function getAppOrigin(request: Request) {
+  const origin = request.headers.get("Origin");
+  if (origin) return origin;
+
+  const referer = request.headers.get("Referer");
+  if (referer) {
+    try {
+      return new URL(referer).origin;
+    } catch {
+      // Ignore invalid referrers and fall back to the production domain.
+    }
+  }
+
+  return "https://n3xra.com";
+}
+
 Deno.serve(async (request) => {
   if (request.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -66,9 +82,9 @@ Deno.serve(async (request) => {
         return jsonResponse({ error: "email is required." }, 400);
       }
 
-      const { error } = await adminClient.auth.admin.generateLink({
-        type: "recovery",
-        email,
+      const redirectTo = `${getAppOrigin(request)}/app/reset-password.html`;
+      const { error } = await adminClient.auth.resetPasswordForEmail(email, {
+        redirectTo,
       });
 
       if (error) {
