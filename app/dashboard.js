@@ -104,11 +104,17 @@ const searchQueryInput = document.getElementById("search-query");
 const searchYearSelect = document.getElementById("search-year");
 const searchResetButton = document.getElementById("search-reset");
 const uploadTitleInput = document.getElementById("upload-title");
+const uploadTitleField = document.getElementById("upload-title-field");
 const uploadYearInput = document.getElementById("upload-year");
 const uploadMonthInput = document.getElementById("upload-month");
 const uploadFileInput = document.getElementById("upload-file");
+const uploadFileLabel = document.getElementById("upload-file-label");
 const uploadFolderInput = document.getElementById("upload-folder");
+const uploadFolderField = document.getElementById("upload-folder-field");
 const uploadIsPublicInput = document.getElementById("upload-is-public");
+const uploadModeNote = document.getElementById("upload-mode-note");
+const uploadModeSingleButton = document.getElementById("upload-mode-single");
+const uploadModeBatchButton = document.getElementById("upload-mode-batch");
 const uploadResults = document.getElementById("upload-results");
 const docList = document.getElementById("doc-list");
 const docEmpty = document.getElementById("doc-empty");
@@ -121,6 +127,7 @@ let activeMembership = null;
 let documentsCache = [];
 let inviteCache = [];
 let memberCache = [];
+let uploadMode = "single";
 
 function getInitialSection() {
   const params = new URLSearchParams(window.location.search);
@@ -196,6 +203,36 @@ function setUploadModalOpen(isOpen) {
   }
 }
 
+function clearUploadFileSelections() {
+  if (uploadFileInput) uploadFileInput.value = "";
+  if (uploadFolderInput) uploadFolderInput.value = "";
+}
+
+function setUploadMode(mode) {
+  uploadMode = mode === "batch" ? "batch" : "single";
+  const isBatch = uploadMode === "batch";
+
+  uploadModeSingleButton.classList.toggle("is-active", !isBatch);
+  uploadModeSingleButton.setAttribute("aria-selected", String(!isBatch));
+  uploadModeBatchButton.classList.toggle("is-active", isBatch);
+  uploadModeBatchButton.setAttribute("aria-selected", String(isBatch));
+
+  show(uploadTitleField, !isBatch);
+  show(uploadFolderField, isBatch);
+
+  uploadFileLabel.textContent = isBatch ? "Files" : "File";
+  if (isBatch) {
+    uploadFileInput.setAttribute("multiple", "");
+    uploadModeNote.innerHTML = 'Supported in this first pass: <code class="inline">.docx</code>, <code class="inline">.txt</code>, <code class="inline">.md</code>, <code class="inline">.csv</code>, <code class="inline">.json</code>, <code class="inline">.html</code>. Batch mode reads both file selection and folder import.';
+  } else {
+    uploadFileInput.removeAttribute("multiple");
+    uploadModeNote.innerHTML = 'Supported in this first pass: <code class="inline">.docx</code>, <code class="inline">.txt</code>, <code class="inline">.md</code>, <code class="inline">.csv</code>, <code class="inline">.json</code>, <code class="inline">.html</code>.';
+  }
+
+  clearUploadFileSelections();
+  resetUploadFeedback();
+}
+
 function setDeleteAccountModalOpen(isOpen) {
   deleteAccountModal.classList.toggle("is-open", isOpen);
   deleteAccountModal.setAttribute("aria-hidden", String(!isOpen));
@@ -269,6 +306,11 @@ function appendUploadResult(label, tone, message) {
 }
 
 function collectUploadFiles() {
+  if (uploadMode === "single") {
+    const file = uploadFileInput?.files?.[0];
+    return file ? [file] : [];
+  }
+
   const seen = new Set();
   const all = [];
   const inputs = [uploadFileInput, uploadFolderInput];
@@ -289,6 +331,31 @@ function collectUploadFiles() {
 function resetUploadFeedback() {
   setStatus(uploadStatus, "");
   clearUploadResults();
+}
+
+async function insertDocumentRecord(record, userId) {
+  const modernPayload = {
+    ...record,
+    uploaded_by_user_id: userId,
+  };
+  const { error: modernError } = await supabase.from("documents").insert(modernPayload);
+  if (!modernError) return { error: null };
+
+  const errorText = String(modernError.message || "").toLowerCase();
+  const legacyFallbackNeeded =
+    (errorText.includes("user_id") && errorText.includes("not-null")) ||
+    (errorText.includes("uploaded_by_user_id") && errorText.includes("does not exist"));
+
+  if (!legacyFallbackNeeded) {
+    return { error: modernError };
+  }
+
+  const legacyPayload = {
+    ...record,
+    user_id: userId,
+  };
+  const { error: legacyError } = await supabase.from("documents").insert(legacyPayload);
+  return { error: legacyError || null };
 }
 
 function getActiveOrganization() {
@@ -1167,7 +1234,7 @@ async function uploadDocument(event) {
       const file = files[index];
       const stepLabel = `[${index + 1}/${files.length}]`;
       const baseTitle = file.name.replace(/\.[^.]+$/, "");
-      const title = files.length === 1 && manualTitle ? manualTitle : baseTitle;
+      const title = uploadMode === "single" && manualTitle ? manualTitle : baseTitle;
       const safeFileName = file.name.replace(/[^a-zA-Z0-9._-]+/g, "-");
       const hasUuid = typeof crypto !== "undefined" && typeof crypto.randomUUID === "function";
       const uniqueToken = hasUuid ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
@@ -1192,9 +1259,8 @@ async function uploadDocument(event) {
         continue;
       }
 
-      const { error: insertError } = await supabase.from("documents").insert({
+      const { error: insertError } = await insertDocumentRecord({
         organization_id: organization.id,
-        uploaded_by_user_id: currentSession.user.id,
         title,
         original_filename: file.name,
         storage_path: storagePath,
@@ -1206,7 +1272,7 @@ async function uploadDocument(event) {
         status: "ready",
         processing_error: null,
         extracted_text: extractedText,
-      });
+      }, currentSession.user.id);
 
       if (insertError) {
         await supabase.storage.from("documents").remove([storagePath]);
@@ -1333,6 +1399,8 @@ async function init() {
     resetUploadFeedback();
   });
   uploadForm.addEventListener("submit", uploadDocument);
+  uploadModeSingleButton.addEventListener("click", () => setUploadMode("single"));
+  uploadModeBatchButton.addEventListener("click", () => setUploadMode("batch"));
   searchQueryInput.addEventListener("input", renderDocuments);
   searchYearSelect.addEventListener("change", renderDocuments);
   searchResetButton.addEventListener("click", () => {
@@ -1383,4 +1451,5 @@ async function init() {
   });
 }
 
+setUploadMode("single");
 init();

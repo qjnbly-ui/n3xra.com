@@ -412,11 +412,15 @@
       </div>
       <div class="settings-modal-body">
         <form class="stack" id="upload-form">
-          <p class="account-note">Supported in this first pass: <code class="inline">.docx</code>, <code class="inline">.txt</code>, <code class="inline">.md</code>, <code class="inline">.csv</code>, <code class="inline">.json</code>, <code class="inline">.html</code>. You can select multiple files.</p>
+          <p class="account-note" id="upload-mode-note">Supported in this first pass: <code class="inline">.docx</code>, <code class="inline">.txt</code>, <code class="inline">.md</code>, <code class="inline">.csv</code>, <code class="inline">.json</code>, <code class="inline">.html</code>.</p>
+          <div class="upload-mode-switch" role="tablist" aria-label="Upload mode">
+            <button class="upload-mode-btn is-active" id="upload-mode-single" type="button" role="tab" aria-selected="true">Individual file</button>
+            <button class="upload-mode-btn" id="upload-mode-batch" type="button" role="tab" aria-selected="false">Batch import</button>
+          </div>
           <div class="grid-3">
-            <div class="field">
+            <div class="field" id="upload-title-field">
               <label for="upload-title">Document title</label>
-              <input id="upload-title" type="text" placeholder="Optional for single-file uploads">
+              <input id="upload-title" type="text" placeholder="Optional override">
             </div>
             <div class="field">
               <label for="upload-year">Year</label>
@@ -428,10 +432,10 @@
             </div>
           </div>
           <div class="field">
-            <label for="upload-file">Files</label>
-            <input id="upload-file" type="file" multiple>
+            <label for="upload-file" id="upload-file-label">File</label>
+            <input id="upload-file" type="file">
           </div>
-          <div class="field">
+          <div class="field hidden" id="upload-folder-field">
             <label for="upload-folder">Folder (optional)</label>
             <input id="upload-folder" type="file" webkitdirectory directory multiple>
           </div>
