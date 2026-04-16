@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Records Database Login</title>
+  <meta name="description" content="Sign in or create an account for Records Database.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <div class="topbar-inner">
+        <div class="topbar-row">
+          <div class="brand">
+            <span class="brand-badge">RD</span>
+            Records Database
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="main">
+      <section class="panel stack" id="setup-panel">
+        <div class="panel-head">
+          <div>
+            <h2>Connect Supabase</h2>
+            <p>Add your project URL and anon key in <code class="inline">app/config.js</code> before using the app.</p>
+          </div>
+        </div>
+        <div class="notice">
+          <strong>Missing config.</strong> Copy <code class="inline">app/config.example.js</code> to
+          <code class="inline">app/config.js</code>, then paste your Supabase project URL and anon key.
+        </div>
+      </section>
+
+      <section class="panel auth-panel hidden" id="auth-panel">
+        <div class="auth-layout">
+          <div class="auth-intro">
+            <div class="stack">
+              <p class="auth-kicker">Records Database</p>
+              <h2>Records that stay organized and easy to search.</h2>
+              <p>Sign in to manage your document library, upload minutes and files, and keep extracted text ready for search.</p>
+            </div>
+            <div class="auth-points">
+              <div class="auth-point">
+                <p class="auth-point-title">Private by default</p>
+                <p class="auth-point-copy">Each account gets its own records space and private file access.</p>
+              </div>
+              <div class="auth-point">
+                <p class="auth-point-title">Upload once</p>
+                <p class="auth-point-copy">Save the original file and the extracted text together for faster retrieval later.</p>
+              </div>
+              <div class="auth-point">
+                <p class="auth-point-title">Ready for search</p>
+                <p class="auth-point-copy">Search the saved text instead of reprocessing the document every time.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="auth-card">
+            <div class="auth-card-head">
+              <h3 id="auth-title">Sign in</h3>
+              <p id="auth-subtitle">Use the account tied to your records library.</p>
+            </div>
+
+            <div class="auth-toggle" role="tablist" aria-label="Account options">
+              <button class="auth-toggle-btn is-active" id="show-signin-button" type="button" aria-pressed="true">Sign in</button>
+              <button class="auth-toggle-btn" id="show-signup-button" type="button" aria-pressed="false">Create account</button>
+            </div>
+
+            <form class="auth-form" id="signin-form">
+              <div class="field">
+                <label for="signin-email">Email</label>
+                <input id="signin-email" type="email" autocomplete="email" required>
+              </div>
+              <div class="field">
+                <label for="signin-password">Password</label>
+                <input id="signin-password" type="password" autocomplete="current-password" required>
+              </div>
+              <div class="actions">
+                <button class="btn block" type="submit">Sign in</button>
+              </div>
+            </form>
+
+            <form class="auth-form hidden" id="signup-form">
+              <div class="field">
+                <label for="signup-full-name">Full name</label>
+                <input id="signup-full-name" type="text" autocomplete="name" required>
+              </div>
+              <div class="field">
+                <label for="signup-organization">Organization name</label>
+                <input id="signup-organization" type="text" autocomplete="organization" required>
+              </div>
+              <div class="field">
+                <label for="signup-role">Role</label>
+                <input id="signup-role" type="text" placeholder="Secretary, Clerk, Member">
+              </div>
+              <div class="field">
+                <label for="signup-email">Email</label>
+                <input id="signup-email" type="email" autocomplete="email" required>
+              </div>
+              <div class="field">
+                <label for="signup-password">Password</label>
+                <input id="signup-password" type="password" autocomplete="new-password" minlength="8" required>
+              </div>
+              <div class="field">
+                <label for="signup-invite-code">Invite code</label>
+                <input id="signup-invite-code" type="text" placeholder="Optional shared library code">
+              </div>
+              <div class="actions">
+                <button class="btn block" type="submit">Create account</button>
+              </div>
+            </form>
+
+            <p class="status" id="auth-status"></p>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="./config.js"></script>
+  <script type="module" src="./login.js"></script>
+</body>
+</html>

@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Records Database Embedded View</title>
+  <meta name="description" content="Embedded records view with search and files in one page.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body class="embed-body">
+  <main class="embed-shell">
+    <section class="panel stack hidden" id="embed-setup-panel">
+      <div class="panel-head">
+        <div>
+          <h2>Connect Supabase</h2>
+          <p>Add your project URL and anon key in <code class="inline">app/config.js</code> before using the app.</p>
+        </div>
+      </div>
+      <div class="notice">
+        <strong>Missing config.</strong> Copy <code class="inline">app/config.example.js</code> to
+        <code class="inline">app/config.js</code>, then paste your Supabase project URL and anon key.
+      </div>
+    </section>
+
+    <section class="panel stack hidden" id="embed-panel">
+      <div class="embed-head">
+        <div>
+          <p class="settings-modal-kicker">Embedded records</p>
+          <h1>Search and files</h1>
+        </div>
+      </div>
+      <div class="search-row embed-search-row">
+        <div class="field">
+          <label for="embed-search-query">Keyword or phrase</label>
+          <input id="embed-search-query" type="search" placeholder="budget, grant, zoning, executive session">
+        </div>
+        <div class="field">
+          <label for="embed-search-year">Year</label>
+          <select id="embed-search-year">
+            <option value="all">All years</option>
+          </select>
+        </div>
+        <div class="actions">
+          <button class="btn secondary" id="embed-search-reset" type="button">Reset</button>
+        </div>
+      </div>
+      <div class="embed-records-list" id="embed-records-list"></div>
+      <p class="empty hidden" id="embed-empty">No records available.</p>
+      <p class="status" id="embed-status"></p>
+    </section>
+  </main>
+
+  <div class="file-modal" id="embed-file-modal" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="file-modal-dialog">
+      <div class="file-modal-header">
+        <p class="file-modal-title" id="embed-file-modal-title">File preview</p>
+        <div class="file-modal-actions">
+          <a class="file-modal-link" id="embed-file-modal-download" href="#" target="_blank" rel="noopener">Download</a>
+          <button class="file-modal-link" id="embed-file-modal-share" type="button">Share</button>
+          <button class="file-modal-close" id="embed-file-modal-close" type="button">Close</button>
+        </div>
+      </div>
+      <div class="file-modal-body">
+        <iframe class="file-modal-frame" id="embed-file-modal-frame" src="" title="File preview"></iframe>
+      </div>
+    </div>
+  </div>
+
+  <script src="./config.js"></script>
+  <script type="module" src="./embed.js"></script>
+</body>
+</html>

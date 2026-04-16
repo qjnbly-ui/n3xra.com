@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Records Database | Quentin Nichols</title>
+  <meta name="description" content="Records Database by Quentin Nichols: searchable, downloadable records portal." />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --ink: #0e1116;
+      --ink-soft: #1a1f26;
+      --slate: #5a6675;
+      --mist: #eef2f6;
+      --fog: #f7f9fc;
+      --gold: #f1a44b;
+      --teal: #1a7c72;
+      --mint: #bfe6dd;
+      --shadow: 0 24px 60px rgba(12, 18, 28, 0.18);
+      --radius-lg: 24px;
+      --radius-md: 16px;
+      --radius-pill: 999px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Manrope", "Trebuchet MS", sans-serif;
+      color: var(--ink);
+      line-height: 1.7;
+      background:
+        radial-gradient(900px 420px at 8% 12%, rgba(26, 124, 114, 0.18), transparent 60%),
+        radial-gradient(720px 460px at 90% -5%, rgba(241, 164, 75, 0.2), transparent 60%),
+        linear-gradient(180deg, #f9fafc 0%, #eef2f6 100%);
+    }
+
+    header {
+      position: relative;
+      overflow: hidden;
+      color: #ffffff;
+      background:
+        radial-gradient(600px 360px at 15% 20%, rgba(26, 124, 114, 0.4), transparent 60%),
+        radial-gradient(520px 300px at 85% 10%, rgba(241, 164, 75, 0.38), transparent 55%),
+        linear-gradient(135deg, #0c1218 0%, #101924 50%, #0c131a 100%);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    header::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(500px 280px at 70% 70%, rgba(255, 255, 255, 0.08), transparent 65%);
+      opacity: 0.8;
+      pointer-events: none;
+    }
+
+    .header-shell {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 2.4rem 1.8rem 3.4rem;
+      display: grid;
+      gap: 2.2rem;
+      position: relative;
+      z-index: 1;
+    }
+
+    .header-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .header-logo {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.65rem;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      font-size: 0.78rem;
+    }
+
+    .header-logo span {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.12);
+      font-family: "Fraunces", "Times New Roman", serif;
+      font-size: 0.95rem;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    .header-pill {
+      padding: 0.45rem 0.95rem;
+      border-radius: var(--radius-pill);
+      background: rgba(255, 255, 255, 0.12);
+      color: #ffffff;
+      text-decoration: none;
+      font-size: 0.8rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 2rem;
+      align-items: center;
+      justify-items: center;
+    }
+
+    .hero-copy {
+      display: grid;
+      gap: 1rem;
+      text-align: center;
+      justify-items: center;
+      max-width: 640px;
+      margin: 0 auto;
+    }
+
+    .hero-kicker {
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      font-size: 0.72rem;
+      color: rgba(255, 255, 255, 0.7);
+      margin: 0;
+    }
+
+    .hero-title {
+      margin: 0;
+      font-family: "Fraunces", "Times New Roman", serif;
+      font-size: clamp(2.3rem, 4vw, 3.4rem);
+      line-height: 1.05;
+    }
+
+    .hero-lede {
+      margin: 0;
+      color: rgba(255, 255, 255, 0.78);
+      max-width: 560px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .hero-metrics {
+      display: grid;
+      gap: 0.9rem;
+    }
+
+    .metric {
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 16px;
+      padding: 1rem 1.1rem;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .metric h4 {
+      margin: 0 0 0.25rem;
+      font-size: 0.9rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .metric p {
+      margin: 0;
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 0.92rem;
+    }
+
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 2rem 1.8rem 4rem;
+      display: grid;
+      gap: 1.6rem;
+    }
+
+    .hero {
+      background: #ffffff;
+      border-radius: var(--radius-lg);
+      padding: 2.4rem clamp(1.8rem, 3vw, 2.6rem);
+      box-shadow: var(--shadow);
+      text-align: center;
+      display: grid;
+      gap: 0.9rem;
+      justify-items: center;
+      border: 1px solid rgba(15, 22, 32, 0.08);
+    }
+
+    .hero h2 {
+      margin: 0;
+      font-family: "Fraunces", "Times New Roman", serif;
+      font-size: clamp(1.7rem, 2.8vw, 2.2rem);
+      color: var(--ink);
+    }
+
+    .hero p {
+      margin: 0;
+      color: var(--slate);
+    }
+
+    .cta-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.9rem;
+      justify-content: center;
+      margin-top: 0.3rem;
+    }
+
+    .cta {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.75rem 1.6rem;
+      border-radius: var(--radius-pill);
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 0.95rem;
+      color: #0f141b;
+      background: linear-gradient(135deg, rgba(241, 164, 75, 0.25), rgba(26, 124, 114, 0.25));
+      border: 1px solid rgba(15, 22, 32, 0.12);
+      box-shadow: 0 16px 28px rgba(15, 22, 32, 0.14);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .cta:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 22px 36px rgba(15, 22, 32, 0.18);
+    }
+
+    .link-btn {
+      background: #ffffff;
+      color: var(--ink-soft);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1.2rem;
+    }
+
+    .section-title {
+      margin: 0;
+      font-family: "Fraunces", "Times New Roman", serif;
+      font-size: clamp(1.5rem, 2.4vw, 2rem);
+      color: var(--ink);
+      text-align: center;
+    }
+
+    .section-lede {
+      margin: 0.4rem auto 0;
+      color: var(--slate);
+      text-align: center;
+      max-width: 70ch;
+    }
+
+    .card {
+      background: #ffffff;
+      border-radius: var(--radius-md);
+      padding: 1.5rem 1.6rem;
+      border: 1px solid rgba(15, 22, 32, 0.08);
+      box-shadow: 0 16px 35px rgba(15, 22, 32, 0.08);
+      display: grid;
+      gap: 0.6rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      background: radial-gradient(240px 140px at 100% 0%, rgba(191, 230, 221, 0.35), transparent 70%);
+      opacity: 0;
+      transition: opacity 0.2s ease;
+      pointer-events: none;
+    }
+
+    .card:hover::after {
+      opacity: 1;
+    }
+
+    .card h3 {
+      margin: 0;
+      font-size: 1.08rem;
+      color: var(--ink);
+    }
+
+    .card p {
+      margin: 0;
+      color: var(--slate);
+    }
+
+    .pricing-section {
+      display: grid;
+      gap: 1rem;
+    }
+
+    .pricing-lede {
+      margin: 0 auto;
+      max-width: 720px;
+      text-align: center;
+      color: var(--slate);
+    }
+
+    .pricing-card {
+      display: grid;
+      gap: 0.9rem;
+      padding: 1.3rem;
+    }
+
+    .pricing-tier {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      font-size: 0.78rem;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--teal);
+      font-weight: 700;
+    }
+
+    .pricing-price {
+      display: flex;
+      align-items: baseline;
+      gap: 0.35rem;
+      font-family: "Fraunces", "Times New Roman", serif;
+      color: var(--ink);
+    }
+
+    .pricing-price strong {
+      font-size: 2rem;
+      line-height: 1;
+    }
+
+    .pricing-price span {
+      color: var(--slate);
+      font-size: 0.96rem;
+    }
+
+    .pricing-copy {
+      margin: 0;
+      color: var(--slate);
+    }
+
+    .pricing-list {
+      margin: 0;
+      padding-left: 1.1rem;
+      color: var(--ink-soft);
+      display: grid;
+      gap: 0.45rem;
+    }
+
+    .card .price {
+      font-weight: 700;
+      color: var(--ink);
+      margin-top: 0.2rem;
+    }
+
+    .card .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.2rem 0.6rem;
+      border-radius: var(--radius-pill);
+      background: var(--fog);
+      border: 1px solid rgba(15, 22, 32, 0.1);
+      font-size: 0.72rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--teal);
+      font-weight: 700;
+    }
+
+    .story-panel {
+      background: linear-gradient(135deg, rgba(26, 124, 114, 0.08), rgba(241, 164, 75, 0.08));
+      border-radius: var(--radius-lg);
+      padding: 2rem 2.4rem;
+      border: 1px solid rgba(15, 22, 32, 0.08);
+      box-shadow: var(--shadow);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .story-panel::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(260px 180px at 90% 20%, rgba(191, 230, 221, 0.4), transparent 70%);
+      opacity: 0.7;
+      pointer-events: none;
+    }
+
+    .story-panel .section-title,
+    .story-panel .section-lede {
+      position: relative;
+      z-index: 1;
+      text-align: center;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .story-panel .section-lede {
+      max-width: 78ch;
+    }
+
+    footer {
+      text-align: center;
+      padding: 2rem 1.5rem 2.4rem;
+      color: #6c7787;
+      font-size: 0.9rem;
+    }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(9, 14, 20, 0.72);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+      z-index: 20;
+    }
+
+    .modal-backdrop.is-open {
+      display: flex;
+    }
+
+    .modal-card {
+      background: #ffffff;
+      width: min(1100px, 96vw);
+      height: min(80vh, 720px);
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 26px 70px rgba(12, 18, 28, 0.28);
+      border: 2px solid #ffffff;
+      position: relative;
+      display: grid;
+      grid-template-rows: auto 1fr;
+    }
+
+    .modal-header {
+      background: #0f141b;
+      color: #ffffff;
+      padding: 0.8rem 1.1rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+
+    .modal-title {
+      margin: 0;
+      font-size: 0.85rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+    }
+
+    .modal-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    .modal-link {
+      border: 1px solid rgba(255, 255, 255, 0.35);
+      border-radius: 999px;
+      padding: 0.35rem 0.85rem;
+      background: rgba(255, 255, 255, 0.1);
+      color: #ffffff;
+      text-decoration: none;
+      font-size: 0.75rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .modal-close {
+      border: none;
+      background: rgba(255, 255, 255, 0.18);
+      color: #ffffff;
+      width: 36px;
+      height: 36px;
+      border-radius: 999px;
+      font-size: 1.1rem;
+      cursor: pointer;
+    }
+
+    .modal-frame {
+      width: 100%;
+      height: 100%;
+      border: 0;
+    }
+
+    @media (max-width: 800px) {
+      .header-shell {
+        padding: 2.2rem 1.4rem 3rem;
+      }
+    }
+
+    @media (max-width: 700px) {
+      .header-top {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+      }
+
+      .header-logo {
+        justify-content: center;
+        text-align: center;
+      }
+
+      .header-actions {
+        justify-content: center;
+      }
+
+      .container {
+        padding: 2.8rem 1.2rem 3rem;
+      }
+      .hero {
+        padding: 2rem 1.4rem;
+      }
+      .cta-row {
+        flex-direction: column;
+        width: 100%;
+      }
+      .cta {
+        width: 100%;
+      }
+      .modal-actions {
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+    }
+  </style>
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-ESFM9WKBF9"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-ESFM9WKBF9');
+  </script>
+</head>
+<body>
+  <header>
+    <div class="header-shell">
+      <div class="header-top">
+        <div class="header-logo">
+          <span>RD</span>
+          Records Database — by Quentin Nichols
+        </div>
+        <div class="header-actions">
+          <a class="header-pill" href="/PublicRecordsApp/app/">App Login</a>
+        </div>
+      </div>
+
+      <div class="hero-grid">
+        <div class="hero-copy">
+          <p class="hero-kicker">Record keeping made easy</p>
+          <h1 class="hero-title">Records Database</h1>
+          <p class="hero-lede">Upload, search, and open records in one place. Built for small organizations that need a clean, searchable archive.</p>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="hero">
+      <h2>Keep records easy to find</h2>
+      <p>Upload, search, and download records from a simple archive built for recurring documents.</p>
+      <div class="cta-row">
+        <a class="cta" href="/PublicRecordsApp/demo/">Try a demo</a>
+        <button class="cta link-btn" type="button" data-open-modal>Public example</button>
+      </div>
+      <p class="page-subtitle">Try the demo or preview a live example and return here anytime.</p>
+    </section>
+
+    <section class="story-panel">
+      <h2 class="section-title">Why I built it</h2>
+      <p class="section-lede">I built this to solve a real problem for our Community Action Team: making minutes easy for the public to access while giving board members fast context from past meetings.</p>
+      <p class="section-lede">It is live on blyoregon.com (see the public example above), and after sharing it, another board member asked about using the same approach for their organization. This page is the productized version of that solution.</p>
+    </section>
+
+    <section class="grid">
+      <article class="card">
+        <h3>Instant Search</h3>
+        <p>Keyword search across every record, with fast filtering by year.</p>
+      </article>
+      <article class="card">
+        <h3>Preview & Download</h3>
+        <p>Open records in a built-in viewer or download the source file.</p>
+      </article>
+      <article class="card">
+        <h3>Simple Uploads</h3>
+        <p>Add DOCX and text-based files to your archive and keep extracted text searchable.</p>
+      </article>
+      <article class="card">
+        <h3>Private Accounts</h3>
+        <p>Each account gets its own private records space and document access.</p>
+      </article>
+    </section>
+
+    <section class="pricing-section">
+      <h2 class="section-title">Simple pricing</h2>
+      <p class="pricing-lede">Start with a limited free archive, move up when you need more room, and keep the pricing tied to what the product actually supports today.</p>
+      <div class="grid">
+        <article class="card pricing-card">
+          <div class="pricing-tier">Free Tier</div>
+          <div class="pricing-price"><strong>$0</strong><span>/month</span></div>
+          <p class="pricing-copy">A small single-account archive for trying the workflow and keeping a limited document set searchable.</p>
+          <ul class="pricing-list">
+            <li>1 account</li>
+            <li>Up to 25 documents</li>
+            <li>DOCX and text-file uploads</li>
+            <li>Saved text extraction and keyword search</li>
+            <li>Private file access</li>
+          </ul>
+        </article>
+        <article class="card pricing-card">
+          <div class="pricing-tier">Starter</div>
+          <div class="pricing-price"><strong>$24</strong><span>/month</span></div>
+          <p class="pricing-copy">For a working archive that needs more room and a larger document library.</p>
+          <ul class="pricing-list">
+            <li>1 account</li>
+            <li>Up to 250 documents</li>
+            <li>Everything in Free</li>
+            <li>Larger searchable archive</li>
+            <li>More room for active record keeping</li>
+          </ul>
+        </article>
+        <article class="card pricing-card">
+          <div class="pricing-tier">Organization</div>
+          <div class="pricing-price"><strong>$89</strong><span>/month</span></div>
+          <p class="pricing-copy">For larger archives and future organization-level tools as the product expands.</p>
+          <ul class="pricing-list">
+            <li>Higher document limits</li>
+            <li>Priority access to larger archive features</li>
+            <li>Prepared for future organization tools</li>
+            <li>Priority access to new features</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+  </main>
+
+  <div class="modal-backdrop" id="public-example-modal" role="dialog" aria-modal="true" aria-label="Public example preview">
+    <div class="modal-card">
+      <div class="modal-header">
+        <p class="modal-title">Public Example</p>
+        <div class="modal-actions">
+          <a class="modal-link" href="https://www.blyoregon.org/community/minutes/" target="_blank" rel="noopener">Go to site</a>
+          <button class="modal-close" type="button" aria-label="Close preview" data-close-modal>&times;</button>
+        </div>
+      </div>
+      <iframe class="modal-frame" src="https://www.blyoregon.org/community/minutes/" title="Public Records example"></iframe>
+    </div>
+  </div>
+
+  <footer>
+    <p>Records Database — by Quentin Nichols</p>
+  </footer>
+
+  <script>
+    const openButton = document.querySelector("[data-open-modal]");
+    const closeButton = document.querySelector("[data-close-modal]");
+    const modal = document.getElementById("public-example-modal");
+
+    const closeModal = () => {
+      modal.classList.remove("is-open");
+    };
+
+    if (openButton && closeButton && modal) {
+      openButton.addEventListener("click", () => modal.classList.add("is-open"));
+      closeButton.addEventListener("click", closeModal);
+      modal.addEventListener("click", (event) => {
+        if (event.target === modal) closeModal();
+      });
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") closeModal();
+      });
+    }
+  </script>
+</body>
+</html>
