@@ -50,7 +50,6 @@ const deleteAccountModal = document.getElementById("delete-account-modal");
 const deleteAccountCancel = document.getElementById("delete-account-cancel");
 const deleteAccountSubmit = document.getElementById("delete-account-submit");
 const deleteAccountStatus = document.getElementById("delete-account-status");
-const openEmbedModalButton = document.getElementById("open-embed-modal");
 const openEmbedCardButton = document.getElementById("open-embed-card-button");
 const embedAccessCard = document.getElementById("embed-access-card");
 const embedModal = document.getElementById("embed-modal");
@@ -662,7 +661,6 @@ function renderOrganizationSelector() {
 function updateEmbedAccess() {
   const organization = getActiveOrganization();
   const enabled = hasEmbeddedAccess();
-  show(openEmbedModalButton, enabled);
   show(embedAccessCard, enabled);
 
   if (!enabled || !organization) {
@@ -1398,7 +1396,6 @@ async function init() {
   openDeleteAccountModalButton.addEventListener("click", () => setDeleteAccountModalOpen(true));
   deleteAccountCancel.addEventListener("click", () => setDeleteAccountModalOpen(false));
   deleteAccountSubmit.addEventListener("click", deleteAccount);
-  openEmbedModalButton.addEventListener("click", () => setEmbedModalOpen(true));
   openEmbedCardButton.addEventListener("click", () => setEmbedModalOpen(true));
   embedModalClose.addEventListener("click", () => setEmbedModalOpen(false));
   copyEmbedCodeButton.addEventListener("click", copyEmbedCode);
