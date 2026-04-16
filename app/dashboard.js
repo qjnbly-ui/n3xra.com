@@ -107,7 +107,9 @@ const uploadTitleInput = document.getElementById("upload-title");
 const uploadYearInput = document.getElementById("upload-year");
 const uploadMonthInput = document.getElementById("upload-month");
 const uploadFileInput = document.getElementById("upload-file");
+const uploadFolderInput = document.getElementById("upload-folder");
 const uploadIsPublicInput = document.getElementById("upload-is-public");
+const uploadResults = document.getElementById("upload-results");
 const docList = document.getElementById("doc-list");
 const docEmpty = document.getElementById("doc-empty");
 
@@ -189,6 +191,9 @@ function setProfileSettingsOpen(isOpen) {
 function setUploadModalOpen(isOpen) {
   uploadModal.classList.toggle("is-open", isOpen);
   uploadModal.setAttribute("aria-hidden", String(!isOpen));
+  if (!isOpen) {
+    resetUploadFeedback();
+  }
 }
 
 function setDeleteAccountModalOpen(isOpen) {
@@ -240,6 +245,50 @@ function formatDate(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleString();
+}
+
+function fileLabel(file) {
+  return file.webkitRelativePath || file.name;
+}
+
+function clearUploadResults() {
+  if (!uploadResults) return;
+  uploadResults.innerHTML = "";
+}
+
+function appendUploadResult(label, tone, message) {
+  if (!uploadResults) return;
+  const item = document.createElement("li");
+  item.className = "upload-result";
+  item.innerHTML = `
+    <span class="upload-result-tone ${escapeHtml(tone)}">${escapeHtml(tone)}</span>
+    <span class="upload-result-name">${escapeHtml(label)}</span>
+    <span class="upload-result-message">${escapeHtml(message)}</span>
+  `;
+  uploadResults.append(item);
+}
+
+function collectUploadFiles() {
+  const seen = new Set();
+  const all = [];
+  const inputs = [uploadFileInput, uploadFolderInput];
+
+  inputs.forEach((input) => {
+    const files = Array.from(input?.files || []);
+    files.forEach((file) => {
+      const key = `${fileLabel(file)}::${file.size}::${file.lastModified}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      all.push(file);
+    });
+  });
+
+  return all;
+}
+
+function resetUploadFeedback() {
+  setStatus(uploadStatus, "");
+  clearUploadResults();
 }
 
 function getActiveOrganization() {
@@ -1080,55 +1129,117 @@ async function uploadDocument(event) {
     return;
   }
 
-  const file = uploadFileInput.files?.[0];
-  if (!file) {
-    setStatus(uploadStatus, "Choose a file before uploading.", "error");
+  resetUploadFeedback();
+  const selectedFiles = collectUploadFiles();
+  if (!selectedFiles.length) {
+    setStatus(uploadStatus, "Choose at least one file or folder before uploading.", "error");
     return;
   }
 
-  const storagePath = `${organization.id}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]+/g, "-")}`;
-  const title = uploadTitleInput.value.trim() || file.name.replace(/\.[^.]+$/, "");
+  const remainingSlots = Math.max(getDocumentLimit() - documentsCache.length, 0);
+  const files = selectedFiles.slice(0, remainingSlots);
+  const skippedForLimit = Math.max(selectedFiles.length - files.length, 0);
+  if (skippedForLimit > 0) {
+    selectedFiles.slice(files.length).forEach((file) => {
+      appendUploadResult(fileLabel(file), "skipped", "Plan limit reached.");
+    });
+  }
 
-  setStatus(uploadStatus, "Extracting text in browser...");
-  let extractedText = "";
+  if (!files.length) {
+    setStatus(uploadStatus, `This ${formatPlanName(organization.subscription_tier)} plan is limited to ${getDocumentLimit()} documents.`, "error");
+    return;
+  }
+
+  const manualTitle = uploadTitleInput.value.trim();
+  const year = uploadYearInput.value.trim() || null;
+  const month = uploadMonthInput.value.trim() || null;
+  const isPublic = uploadIsPublicInput.checked;
+  const submitButton = uploadForm.querySelector("button[type='submit']");
+  if (submitButton instanceof HTMLButtonElement) {
+    submitButton.disabled = true;
+  }
+
+  let successCount = 0;
+  const failedFiles = [];
+
   try {
-    extractedText = await extractTextFromFile(file);
-  } catch (error) {
-    setStatus(uploadStatus, error instanceof Error ? error.message : "Text extraction failed.", "error");
-    return;
+    for (let index = 0; index < files.length; index += 1) {
+      const file = files[index];
+      const stepLabel = `[${index + 1}/${files.length}]`;
+      const baseTitle = file.name.replace(/\.[^.]+$/, "");
+      const title = files.length === 1 && manualTitle ? manualTitle : baseTitle;
+      const safeFileName = file.name.replace(/[^a-zA-Z0-9._-]+/g, "-");
+      const hasUuid = typeof crypto !== "undefined" && typeof crypto.randomUUID === "function";
+      const uniqueToken = hasUuid ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+      const storagePath = `${organization.id}/${Date.now()}-${uniqueToken}-${safeFileName}`;
+
+      setStatus(uploadStatus, `${stepLabel} Extracting ${fileLabel(file)}...`);
+      let extractedText = "";
+      try {
+        extractedText = await extractTextFromFile(file);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Text extraction failed.";
+        failedFiles.push(`${fileLabel(file)}: ${message}`);
+        appendUploadResult(fileLabel(file), "failed", message);
+        continue;
+      }
+
+      setStatus(uploadStatus, `${stepLabel} Uploading ${fileLabel(file)}...`);
+      const { error: storageError } = await supabase.storage.from("documents").upload(storagePath, file, { upsert: false });
+      if (storageError) {
+        failedFiles.push(`${fileLabel(file)}: ${storageError.message}`);
+        appendUploadResult(fileLabel(file), "failed", storageError.message);
+        continue;
+      }
+
+      const { error: insertError } = await supabase.from("documents").insert({
+        organization_id: organization.id,
+        uploaded_by_user_id: currentSession.user.id,
+        title,
+        original_filename: file.name,
+        storage_path: storagePath,
+        mime_type: file.type || null,
+        file_size: file.size,
+        year,
+        month,
+        is_public: isPublic,
+        status: "ready",
+        processing_error: null,
+        extracted_text: extractedText,
+      });
+
+      if (insertError) {
+        await supabase.storage.from("documents").remove([storagePath]);
+        failedFiles.push(`${fileLabel(file)}: ${insertError.message}`);
+        appendUploadResult(fileLabel(file), "failed", insertError.message);
+        continue;
+      }
+
+      successCount += 1;
+      appendUploadResult(fileLabel(file), "uploaded", "Saved with extracted text.");
+    }
+
+    uploadForm.reset();
+    if (successCount > 0) {
+      await loadDocuments();
+    }
+
+    const summaryParts = [`Uploaded ${successCount} of ${selectedFiles.length} file${selectedFiles.length === 1 ? "" : "s"}.`];
+    if (skippedForLimit > 0) {
+      summaryParts.push(`${skippedForLimit} skipped due to plan limit.`);
+    }
+    if (failedFiles.length > 0) {
+      const failurePreview = failedFiles.slice(0, 3).join(" | ");
+      const failureTail = failedFiles.length > 3 ? ` | +${failedFiles.length - 3} more failure(s)` : "";
+      summaryParts.push(`Failed: ${failurePreview}${failureTail}`);
+    }
+
+    setStatus(uploadStatus, summaryParts.join(" "), failedFiles.length > 0 || skippedForLimit > 0 ? "error" : "success");
+  } finally {
+    if (submitButton instanceof HTMLButtonElement) {
+      submitButton.disabled = false;
+    }
   }
-
-  setStatus(uploadStatus, "Uploading file...");
-  const { error: storageError } = await supabase.storage.from("documents").upload(storagePath, file, { upsert: false });
-  if (storageError) {
-    setStatus(uploadStatus, storageError.message, "error");
-    return;
-  }
-
-  const { error: insertError } = await supabase.from("documents").insert({
-    organization_id: organization.id,
-    uploaded_by_user_id: currentSession.user.id,
-    title,
-    original_filename: file.name,
-    storage_path: storagePath,
-    mime_type: file.type || null,
-    file_size: file.size,
-    year: uploadYearInput.value.trim() || null,
-    month: uploadMonthInput.value.trim() || null,
-    is_public: uploadIsPublicInput.checked,
-    status: "ready",
-    processing_error: null,
-    extracted_text: extractedText,
-  });
-
-  if (insertError) {
-    setStatus(uploadStatus, insertError.message, "error");
-    return;
-  }
-
-  uploadForm.reset();
-  setStatus(uploadStatus, "Document uploaded.", "success");
-  await loadDocuments();
 }
 
 async function handleDocumentAction(event) {
@@ -1213,8 +1324,14 @@ async function init() {
   openEmbedCardButton.addEventListener("click", () => setEmbedModalOpen(true));
   embedModalClose.addEventListener("click", () => setEmbedModalOpen(false));
   copyEmbedCodeButton.addEventListener("click", copyEmbedCode);
-  openUploadModalButton.addEventListener("click", () => setUploadModalOpen(true));
-  uploadModalClose.addEventListener("click", () => setUploadModalOpen(false));
+  openUploadModalButton.addEventListener("click", () => {
+    resetUploadFeedback();
+    setUploadModalOpen(true);
+  });
+  uploadModalClose.addEventListener("click", () => {
+    setUploadModalOpen(false);
+    resetUploadFeedback();
+  });
   uploadForm.addEventListener("submit", uploadDocument);
   searchQueryInput.addEventListener("input", renderDocuments);
   searchYearSelect.addEventListener("change", renderDocuments);

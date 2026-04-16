@@ -406,17 +406,17 @@
       <div class="settings-modal-header">
         <div>
           <p class="settings-modal-kicker">Upload</p>
-          <h3 class="settings-modal-title">Add a document</h3>
+          <h3 class="settings-modal-title">Add documents</h3>
         </div>
         <button class="settings-modal-close" id="upload-modal-close" type="button">Close</button>
       </div>
       <div class="settings-modal-body">
         <form class="stack" id="upload-form">
-          <p class="account-note">Supported in this first pass: <code class="inline">.docx</code>, <code class="inline">.txt</code>, <code class="inline">.md</code>, <code class="inline">.csv</code>, <code class="inline">.json</code>, <code class="inline">.html</code>.</p>
+          <p class="account-note">Supported in this first pass: <code class="inline">.docx</code>, <code class="inline">.txt</code>, <code class="inline">.md</code>, <code class="inline">.csv</code>, <code class="inline">.json</code>, <code class="inline">.html</code>. You can select multiple files.</p>
           <div class="grid-3">
             <div class="field">
               <label for="upload-title">Document title</label>
-              <input id="upload-title" type="text" placeholder="April 2026 Minutes">
+              <input id="upload-title" type="text" placeholder="Optional for single-file uploads">
             </div>
             <div class="field">
               <label for="upload-year">Year</label>
@@ -428,8 +428,12 @@
             </div>
           </div>
           <div class="field">
-            <label for="upload-file">File</label>
-            <input id="upload-file" type="file" required>
+            <label for="upload-file">Files</label>
+            <input id="upload-file" type="file" multiple>
+          </div>
+          <div class="field">
+            <label for="upload-folder">Folder (optional)</label>
+            <input id="upload-folder" type="file" webkitdirectory directory multiple>
           </div>
           <div class="field">
             <label class="toggle-pill">
@@ -441,6 +445,7 @@
             <button class="btn" type="submit">Upload and save extracted text</button>
           </div>
           <p class="status" id="upload-status"></p>
+          <ul class="upload-results" id="upload-results"></ul>
         </form>
       </div>
     </div>

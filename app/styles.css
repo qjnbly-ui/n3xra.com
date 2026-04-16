@@ -392,6 +392,65 @@ textarea {
 .status.error { color: var(--danger); }
 .status.success { color: var(--teal); }
 
+.upload-results {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.45rem;
+  max-height: 220px;
+  overflow: auto;
+}
+
+.upload-result {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  padding: 0.5rem 0.7rem;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 0.55rem;
+  row-gap: 0.25rem;
+  align-items: start;
+}
+
+.upload-result-tone {
+  border-radius: var(--radius-pill);
+  padding: 0.16rem 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.upload-result-tone.uploaded {
+  background: rgba(23, 111, 102, 0.14);
+  color: var(--teal);
+}
+
+.upload-result-tone.failed {
+  background: rgba(168, 46, 66, 0.13);
+  color: var(--danger);
+}
+
+.upload-result-tone.skipped {
+  background: rgba(12, 18, 28, 0.1);
+  color: var(--ink-soft);
+}
+
+.upload-result-name {
+  font-weight: 700;
+  color: var(--ink);
+  word-break: break-word;
+}
+
+.upload-result-message {
+  grid-column: 2;
+  color: var(--slate);
+  font-size: 0.88rem;
+  word-break: break-word;
+}
+
 .hidden { display: none !important; }
 
 .account-summary,
