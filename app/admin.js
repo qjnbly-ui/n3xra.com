@@ -82,7 +82,7 @@ function renderOrganizations() {
       <td>${organization.member_count}</td>
       <td class="inline-actions">
         <button class="btn secondary" type="button" data-action="select" data-id="${organization.id}">Select</button>
-        <a class="btn secondary button-link" href="./dashboard.html?support_org=${encodeURIComponent(organization.id)}&section=account">Support view</a>
+        <a class="btn secondary button-link" href="./dashboard?support_org=${encodeURIComponent(organization.id)}&section=account">Support view</a>
       </td>
     `;
     organizationList.append(row);
@@ -133,7 +133,7 @@ async function handleLogout() {
     setStatus(adminStatus, error.message, "error");
     return;
   }
-  window.location.replace("./login.html");
+  window.location.replace("./login");
 }
 
 function handleOrganizationListClick(event) {
@@ -223,12 +223,12 @@ async function init() {
   supabase = createBrowserSupabase();
   currentSession = await getSessionOrNull(supabase);
   if (!currentSession?.user) {
-    window.location.replace("./login.html");
+    window.location.replace("./login");
     return;
   }
 
   if (!isPlatformAdminEmail(currentSession.user.email)) {
-    window.location.replace("./dashboard.html");
+    window.location.replace("./dashboard");
     return;
   }
 

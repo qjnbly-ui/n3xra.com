@@ -283,7 +283,7 @@ function getPlanLimits(planId) {
 function getEmbedUrl() {
   const organization = getActiveOrganization();
   if (!organization) return "";
-  return new URL(`./embed.html?org=${encodeURIComponent(organization.id)}`, window.location.href).href;
+  return new URL(`./embed?org=${encodeURIComponent(organization.id)}`, window.location.href).href;
 }
 
 function buildPreviewUrl(doc, signedUrl) {
@@ -832,7 +832,7 @@ async function handleSignout() {
     setStatus(contextStatus, error.message, "error");
     return;
   }
-  window.location.replace("./login.html");
+  window.location.replace("./login");
 }
 
 async function handleProfileSave(event) {
@@ -1052,7 +1052,7 @@ async function deleteAccount() {
   }
 
   await supabase.auth.signOut();
-  window.location.replace("./login.html");
+  window.location.replace("./login");
 }
 
 async function copyEmbedCode() {
@@ -1167,12 +1167,12 @@ async function init() {
   supabase = createBrowserSupabase();
   currentSession = await getSessionOrNull(supabase);
   if (!currentSession?.user) {
-    window.location.replace("./login.html");
+    window.location.replace("./login");
     return;
   }
 
   if (isPlatformAdminEmail(currentSession.user.email) && !getSupportOrganizationId()) {
-    window.location.replace("./admin.html");
+    window.location.replace("./admin");
     return;
   }
 
@@ -1261,7 +1261,7 @@ async function init() {
 
   supabase.auth.onAuthStateChange((_event, session) => {
     if (!session?.user) {
-      window.location.replace("./login.html");
+      window.location.replace("./login");
     }
   });
 }

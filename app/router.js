@@ -3,7 +3,7 @@ import { isPlatformAdminEmail } from "./lib/orgs.js";
 
 async function route() {
   if (!hasConfig()) {
-    window.location.replace("./login.html");
+    window.location.replace("./login");
     return;
   }
 
@@ -11,13 +11,13 @@ async function route() {
   try {
     const session = await getSessionOrNull(supabase);
     if (!session?.user) {
-      window.location.replace("./login.html");
+      window.location.replace("./login");
       return;
     }
 
-    window.location.replace(isPlatformAdminEmail(session.user.email) ? "./admin.html" : "./dashboard.html");
+    window.location.replace(isPlatformAdminEmail(session.user.email) ? "./admin" : "./dashboard");
   } catch {
-    window.location.replace("./login.html");
+    window.location.replace("./login");
   }
 }
 

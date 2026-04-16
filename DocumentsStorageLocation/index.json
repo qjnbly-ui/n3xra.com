@@ -4,7 +4,7 @@
     "year": 2025,
     "month_num": 3,
     "ext": "DOCX",
-    "path": "/PublicRecordsApp/DocumentsStorageLocation/samples/March-2025-Record.docx",
+    "path": "/DocumentsStorageLocation/samples/March-2025-Record.docx",
     "text": "Budget adjustments, broadband timeline, and grant review for March 2025."
   },
   {
@@ -12,7 +12,7 @@
     "year": 2025,
     "month_num": 1,
     "ext": "DOCX",
-    "path": "/PublicRecordsApp/DocumentsStorageLocation/samples/January-2025-Record.docx",
+    "path": "/DocumentsStorageLocation/samples/January-2025-Record.docx",
     "text": "Agenda, budget review, and action items for January 2025."
   },
   {
@@ -20,7 +20,7 @@
     "year": 2024,
     "month_num": 11,
     "ext": "DOCX",
-    "path": "/PublicRecordsApp/DocumentsStorageLocation/samples/November-2024-Record.docx",
+    "path": "/DocumentsStorageLocation/samples/November-2024-Record.docx",
     "text": "Ordinance updates, winter road plan, and facility projects for November 2024."
   },
   {
@@ -28,7 +28,7 @@
     "year": 2024,
     "month_num": 8,
     "ext": "DOCX",
-    "path": "/PublicRecordsApp/DocumentsStorageLocation/samples/August-2024-Record.docx",
+    "path": "/DocumentsStorageLocation/samples/August-2024-Record.docx",
     "text": "Summer events, water bids, and broadband survey updates for August 2024."
   },
   {
@@ -36,7 +36,7 @@
     "year": 2024,
     "month_num": 4,
     "ext": "DOCX",
-    "path": "/PublicRecordsApp/DocumentsStorageLocation/samples/April-2024-Record.docx",
+    "path": "/DocumentsStorageLocation/samples/April-2024-Record.docx",
     "text": "Attendance list, project updates, and discussion notes for April 2024."
   },
   {
@@ -44,7 +44,7 @@
     "year": 2023,
     "month_num": 10,
     "ext": "DOCX",
-    "path": "/PublicRecordsApp/DocumentsStorageLocation/samples/October-2023-Record.docx",
+    "path": "/DocumentsStorageLocation/samples/October-2023-Record.docx",
     "text": "Approvals, community requests, and next steps from October 2023."
   },
   {
@@ -52,7 +52,7 @@
     "year": 2023,
     "month_num": 6,
     "ext": "DOCX",
-    "path": "/PublicRecordsApp/DocumentsStorageLocation/samples/June-2023-Record.docx",
+    "path": "/DocumentsStorageLocation/samples/June-2023-Record.docx",
     "text": "Midyear budget check-in and zoning discussion for June 2023."
   },
   {
@@ -60,7 +60,7 @@
     "year": 2023,
     "month_num": 2,
     "ext": "DOCX",
-    "path": "/PublicRecordsApp/DocumentsStorageLocation/samples/February-2023-Record.docx",
+    "path": "/DocumentsStorageLocation/samples/February-2023-Record.docx",
     "text": "Capital plan and river cleanup items for February 2023."
   },
   {
@@ -68,7 +68,7 @@
     "year": 2022,
     "month_num": 12,
     "ext": "DOCX",
-    "path": "/PublicRecordsApp/DocumentsStorageLocation/samples/December-2022-Record.docx",
+    "path": "/DocumentsStorageLocation/samples/December-2022-Record.docx",
     "text": "Annual audit, ordinance review, and storm drainage for December 2022."
   },
   {
@@ -76,7 +76,7 @@
     "year": 2022,
     "month_num": 5,
     "ext": "DOCX",
-    "path": "/PublicRecordsApp/DocumentsStorageLocation/samples/May-2022-Record.docx",
+    "path": "/DocumentsStorageLocation/samples/May-2022-Record.docx",
     "text": "Parks upgrades and broadband pilot updates for May 2022."
   },
   {
@@ -84,7 +84,7 @@
     "year": 2021,
     "month_num": 9,
     "ext": "DOCX",
-    "path": "/PublicRecordsApp/DocumentsStorageLocation/samples/September-2021-Record.docx",
+    "path": "/DocumentsStorageLocation/samples/September-2021-Record.docx",
     "text": "Road resurfacing and housing study notes for September 2021."
   },
   {
@@ -92,7 +92,7 @@
     "year": 2021,
     "month_num": 3,
     "ext": "DOCX",
-    "path": "/PublicRecordsApp/DocumentsStorageLocation/samples/March-2021-Record.docx",
+    "path": "/DocumentsStorageLocation/samples/March-2021-Record.docx",
     "text": "Budget workshop and community permits for March 2021."
   },
   {
@@ -100,7 +100,7 @@
     "year": 2020,
     "month_num": 7,
     "ext": "DOCX",
-    "path": "/PublicRecordsApp/DocumentsStorageLocation/samples/July-2020-Record.docx",
+    "path": "/DocumentsStorageLocation/samples/July-2020-Record.docx",
     "text": "Emergency plan revisions and library expansion for July 2020."
   },
   {
@@ -108,7 +108,7 @@
     "year": 2019,
     "month_num": 4,
     "ext": "DOCX",
-    "path": "/PublicRecordsApp/DocumentsStorageLocation/samples/April-2019-Record.docx",
+    "path": "/DocumentsStorageLocation/samples/April-2019-Record.docx",
     "text": "Downtown parking study and community center repairs for April 2019."
   },
   {
@@ -116,7 +116,7 @@
     "year": 2018,
     "month_num": 11,
     "ext": "DOCX",
-    "path": "/PublicRecordsApp/DocumentsStorageLocation/samples/November-2018-Record.docx",
+    "path": "/DocumentsStorageLocation/samples/November-2018-Record.docx",
     "text": "Fire district equipment and small business grant review for November 2018."
   }
 ]

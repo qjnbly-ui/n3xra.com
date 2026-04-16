@@ -154,7 +154,7 @@ async function handleSignout() {
     setStatus(fileStatus, error.message, "error");
     return;
   }
-  window.location.replace("./login.html");
+  window.location.replace("./login");
 }
 
 async function loadDocuments() {
@@ -384,12 +384,12 @@ async function init() {
   supabase = createBrowserSupabase();
   currentSession = await getSessionOrNull(supabase);
   if (!currentSession?.user) {
-    window.location.replace("./login.html");
+    window.location.replace("./login");
     return;
   }
 
   if (isPlatformAdminEmail(currentSession.user.email)) {
-    window.location.replace("./admin.html");
+    window.location.replace("./admin");
     return;
   }
 
@@ -404,10 +404,10 @@ async function init() {
   mobileLogoutButton.addEventListener("click", handleSignout);
   mobileMenuToggle.addEventListener("click", toggleMobileMenu);
   mobileMenuAccount.addEventListener("click", () => {
-    window.location.href = "./dashboard.html?section=account";
+    window.location.href = "./dashboard?section=account";
   });
   mobileMenuLibrary.addEventListener("click", () => {
-    window.location.href = "./dashboard.html?section=library";
+    window.location.href = "./dashboard?section=library";
   });
   activeOrganizationSelect.addEventListener("change", handleOrganizationChange);
   fileList.addEventListener("click", handleFileAction);
@@ -461,7 +461,7 @@ async function init() {
 
   supabase.auth.onAuthStateChange((_event, session) => {
     if (!session?.user) {
-      window.location.replace("./login.html");
+      window.location.replace("./login");
     }
   });
 }
