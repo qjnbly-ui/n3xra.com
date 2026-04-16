@@ -126,53 +126,6 @@
               </div>
           </section>
 
-          <section class="account-card" id="library-settings-section">
-            <div class="panel-head">
-              <div>
-                <h3>Library settings</h3>
-                <p>Settings for the active library.</p>
-              </div>
-            </div>
-            <form class="stack" id="organization-settings-form">
-              <div class="grid-3">
-                <div class="field" id="organization-primary-color-field">
-                  <label for="organization-primary-color">Primary color</label>
-                  <input id="organization-primary-color" type="text" placeholder="#176f66">
-                </div>
-                <div class="field" id="organization-accent-color-field">
-                  <label for="organization-accent-color">Accent color</label>
-                  <input id="organization-accent-color" type="text" placeholder="#ea9b3f">
-                </div>
-              </div>
-              <div class="inline-actions setting-toggles" id="organization-advanced-settings">
-                <label class="toggle-pill">
-                  <input id="organization-public-embed" type="checkbox">
-                  <span>Public embed enabled</span>
-                </label>
-                <label class="toggle-pill">
-                  <input id="organization-keyword-search" type="checkbox">
-                  <span>Keyword search</span>
-                </label>
-                <label class="toggle-pill">
-                  <input id="organization-file-preview-cards" type="checkbox">
-                  <span>File preview cards</span>
-                </label>
-              </div>
-              <div class="actions">
-                <button class="btn" id="organization-settings-save" type="submit">Save library settings</button>
-              </div>
-              <p class="status" id="organization-settings-status"></p>
-            </form>
-            <div class="embed-access-card hidden" id="embed-access-card">
-              <div>
-                <p class="account-label">Embedded records view</p>
-                <p class="embed-access-title">Search and files together in one read-only view.</p>
-                <p class="embed-access-copy">Only documents marked public are shown in the embedded library.</p>
-              </div>
-              <button class="btn secondary" id="open-embed-card-button" type="button">Get embedded</button>
-            </div>
-          </section>
-
           <section class="account-card" id="library-access-card">
             <div class="panel-head">
               <div>
@@ -256,6 +209,56 @@
                 </table>
               </div>
               <p class="status" id="member-status"></p>
+            </div>
+          </section>
+
+          <section class="account-card" id="library-settings-section">
+            <button class="section-toggle" id="embed-settings-toggle" type="button" aria-expanded="false" aria-controls="embed-settings-body">
+              <div>
+                <h3>Embed settings</h3>
+                <p>Public embed controls and branding.</p>
+              </div>
+              <span class="section-toggle-indicator" aria-hidden="true">+</span>
+            </button>
+            <div class="stack hidden" id="embed-settings-body">
+              <div class="embed-access-card hidden" id="embed-access-card">
+                <div>
+                  <p class="account-label">Embedded records view</p>
+                  <p class="embed-access-title">Search and files together in one read-only view.</p>
+                  <p class="embed-access-copy">Only documents marked public are shown in the embedded library.</p>
+                </div>
+                <button class="btn secondary" id="open-embed-card-button" type="button">Get embedded</button>
+              </div>
+              <form class="stack" id="organization-settings-form">
+                <div class="grid-3">
+                  <div class="field" id="organization-primary-color-field">
+                    <label for="organization-primary-color">Primary color</label>
+                    <input id="organization-primary-color" type="text" placeholder="#176f66">
+                  </div>
+                  <div class="field" id="organization-accent-color-field">
+                    <label for="organization-accent-color">Accent color</label>
+                    <input id="organization-accent-color" type="text" placeholder="#ea9b3f">
+                  </div>
+                </div>
+                <div class="inline-actions setting-toggles" id="organization-advanced-settings">
+                  <label class="toggle-pill">
+                    <input id="organization-public-embed" type="checkbox">
+                    <span>Allow public embedded library</span>
+                  </label>
+                  <label class="toggle-pill">
+                    <input id="organization-keyword-search" type="checkbox">
+                    <span>Allow search in embedded library</span>
+                  </label>
+                  <label class="toggle-pill">
+                    <input id="organization-file-preview-cards" type="checkbox">
+                    <span>Show file preview cards</span>
+                  </label>
+                </div>
+                <div class="actions">
+                  <button class="btn" id="organization-settings-save" type="submit">Save embed settings</button>
+                </div>
+                <p class="status" id="organization-settings-status"></p>
+              </form>
             </div>
           </section>
         </section>

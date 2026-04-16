@@ -73,6 +73,19 @@ function setMenuActive(section) {
   mobileMenuLibrary.classList.toggle("is-active", section === "library");
 }
 
+function closeFileActionMenus(exceptId = "") {
+  fileList.querySelectorAll(".file-row-controls.is-open").forEach((controls) => {
+    const toggle = controls.querySelector("[data-menu-toggle]");
+    const row = controls.closest(".file-row");
+    if (!toggle) return;
+    if (exceptId && toggle.getAttribute("data-id") === exceptId) return;
+    controls.classList.remove("is-open");
+    row?.classList.remove("is-actions-open");
+    toggle.setAttribute("aria-expanded", "false");
+    toggle.textContent = "Action";
+  });
+}
+
 function escapeHtml(value) {
   return String(value || "")
     .replaceAll("&", "&amp;")
@@ -186,6 +199,7 @@ function renderFiles() {
   documentsCache.forEach((doc) => {
     const canEdit = canManageLibrary(activeMembership?.role, isPlatformAdminEmail(currentSession.user.email));
     const item = document.createElement("article");
+    const actionMenuId = `file-actions-${doc.id}`;
     item.className = "download-item file-row";
     item.setAttribute("data-open-id", doc.id);
     item.setAttribute("role", "button");
@@ -195,11 +209,14 @@ function renderFiles() {
         <p class="download-name">${escapeHtml(doc.title || doc.original_filename || "Untitled document")}</p>
         <p class="download-meta">${escapeHtml(doc.original_filename || "Unknown file")}${doc.year ? ` · ${escapeHtml(doc.year)}` : ""}${doc.month ? ` · ${escapeHtml(doc.month)}` : ""}${doc.is_public ? " · Public" : " · Private"}</p>
       </div>
-      <div class="doc-actions file-row-actions">
-        <button class="btn secondary" type="button" data-action="download" data-id="${doc.id}">Download</button>
-        <button class="btn secondary" type="button" data-action="share" data-id="${doc.id}">Share</button>
-        <button class="btn secondary" type="button" data-action="toggle-public" data-id="${doc.id}"${canEdit ? "" : " disabled"}>${doc.is_public ? "Make private" : "Make public"}</button>
-        <button class="btn warn" type="button" data-action="delete" data-id="${doc.id}"${canEdit ? "" : " disabled"}>Delete</button>
+      <div class="file-row-controls">
+        <button class="btn secondary file-row-menu-toggle" type="button" data-menu-toggle data-id="${doc.id}" aria-expanded="false" aria-controls="${actionMenuId}">Action</button>
+        <div class="doc-actions file-row-actions" id="${actionMenuId}">
+          <button class="btn secondary" type="button" data-action="download" data-id="${doc.id}">Download</button>
+          <button class="btn secondary" type="button" data-action="share" data-id="${doc.id}">Share</button>
+          <button class="btn secondary" type="button" data-action="toggle-public" data-id="${doc.id}"${canEdit ? "" : " disabled"}>${doc.is_public ? "Make private" : "Make public"}</button>
+          <button class="btn warn" type="button" data-action="delete" data-id="${doc.id}"${canEdit ? "" : " disabled"}>Delete</button>
+        </div>
       </div>
     `;
     fileList.append(item);
@@ -346,11 +363,29 @@ async function togglePublic(documentId) {
 }
 
 async function handleFileAction(event) {
-  const button = event.target.closest("button[data-action]");
+  const target = event.target;
+  if (!(target instanceof Element)) return;
+
+  const menuToggle = target.closest("button[data-menu-toggle]");
+  if (menuToggle) {
+    const controls = menuToggle.closest(".file-row-controls");
+    const row = menuToggle.closest(".file-row");
+    const id = menuToggle.getAttribute("data-id") || "";
+    const nextOpen = !controls?.classList.contains("is-open");
+    closeFileActionMenus(nextOpen ? id : "");
+    controls?.classList.toggle("is-open", nextOpen);
+    row?.classList.toggle("is-actions-open", nextOpen);
+    menuToggle.setAttribute("aria-expanded", String(nextOpen));
+    menuToggle.textContent = nextOpen ? "Close" : "Action";
+    return;
+  }
+
+  const button = target.closest("button[data-action]");
   if (button) {
     const action = button.getAttribute("data-action");
     const id = button.getAttribute("data-id");
     if (!id || !action) return;
+    closeFileActionMenus();
 
     if (action === "download") await downloadFile(id);
     if (action === "share") await shareFile(id);
@@ -359,7 +394,7 @@ async function handleFileAction(event) {
     return;
   }
 
-  const row = event.target.closest("[data-open-id]");
+  const row = target.closest("[data-open-id]");
   if (!row) return;
   const id = row.getAttribute("data-open-id");
   if (!id) return;
@@ -412,7 +447,10 @@ async function init() {
   activeOrganizationSelect.addEventListener("change", handleOrganizationChange);
   fileList.addEventListener("click", handleFileAction);
   fileList.addEventListener("keydown", async (event) => {
-    const row = event.target.closest("[data-open-id]");
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    if (target.closest("button[data-action], button[data-menu-toggle]")) return;
+    const row = target.closest("[data-open-id]");
     if (!row) return;
     if (event.key !== "Enter" && event.key !== " ") return;
     event.preventDefault();
@@ -449,11 +487,15 @@ async function init() {
       closeDeleteConfirm();
       return;
     }
+    if (event.key === "Escape") closeFileActionMenus();
     if (event.key === "Escape") closeMobileMenu();
   });
   document.addEventListener("click", (event) => {
-    if (!mobileMenu.classList.contains("is-open")) return;
     const target = event.target;
+    if (target instanceof Element && !target.closest(".file-row-controls")) {
+      closeFileActionMenus();
+    }
+    if (!mobileMenu.classList.contains("is-open")) return;
     if (!(target instanceof Element)) return;
     if (mobileMenu.contains(target) || mobileMenuToggle.contains(target)) return;
     closeMobileMenu();

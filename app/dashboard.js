@@ -29,6 +29,8 @@ const librarySection = document.getElementById("library-section");
 const accountLibraryContext = document.getElementById("account-library-context");
 const libraryAccessCard = document.getElementById("library-access-card");
 const librarySettingsSection = document.getElementById("library-settings-section");
+const embedSettingsToggle = document.getElementById("embed-settings-toggle");
+const embedSettingsBody = document.getElementById("embed-settings-body");
 const organizationPrimaryColorField = document.getElementById("organization-primary-color-field");
 const organizationAccentColorField = document.getElementById("organization-accent-color-field");
 const organizationAdvancedSettings = document.getElementById("organization-advanced-settings");
@@ -129,6 +131,7 @@ let documentsCache = [];
 let inviteCache = [];
 let memberCache = [];
 let uploadMode = "single";
+let isEmbedSettingsOpen = false;
 
 function getInitialSection() {
   const params = new URLSearchParams(window.location.search);
@@ -255,6 +258,17 @@ function setBillingPlanPickerOpen(isOpen) {
   billingPlanPicker.classList.toggle("hidden", !isOpen);
   changePlanButton.setAttribute("aria-expanded", String(isOpen));
   changePlanButton.textContent = isOpen ? "Hide plans" : "Change plan";
+}
+
+function setEmbedSettingsOpen(isOpen) {
+  isEmbedSettingsOpen = Boolean(isOpen);
+  embedSettingsBody.classList.toggle("hidden", !isEmbedSettingsOpen);
+  embedSettingsToggle.setAttribute("aria-expanded", String(isEmbedSettingsOpen));
+  embedSettingsToggle.classList.toggle("is-open", isEmbedSettingsOpen);
+  const indicator = embedSettingsToggle.querySelector(".section-toggle-indicator");
+  if (indicator) {
+    indicator.textContent = isEmbedSettingsOpen ? "-" : "+";
+  }
 }
 
 function escapeHtml(value) {
@@ -407,10 +421,20 @@ function getPlanLimits(planId) {
   };
 }
 
+function buildSiblingPageUrl(pageName) {
+  const currentUrl = new URL(window.location.href);
+  const currentPath = currentUrl.pathname;
+  const usesHtmlRoutes = currentPath.endsWith(".html");
+  const siblingPath = currentPath.replace(/[^/]+$/, usesHtmlRoutes ? `${pageName}.html` : pageName);
+  return new URL(siblingPath, currentUrl.origin);
+}
+
 function getEmbedUrl() {
   const organization = getActiveOrganization();
   if (!organization) return "";
-  return new URL(`./embed.html?org=${encodeURIComponent(organization.id)}`, window.location.href).href;
+  const embedUrl = buildSiblingPageUrl("embed");
+  embedUrl.searchParams.set("org", organization.id);
+  return embedUrl.href;
 }
 
 function buildPreviewUrl(doc, signedUrl) {
@@ -768,6 +792,10 @@ function renderProfile() {
     }
   });
 
+  if (isFreePlan) {
+    setEmbedSettingsOpen(false);
+  }
+
   renderBillingPlans();
   renderOrganizationSelector();
   show(platformAdminLink, isPlatformAdminEmail(currentSession.user.email));
@@ -1012,7 +1040,7 @@ async function handleOrganizationSettingsSave(event) {
   const isFreePlan = isFreePlanExperience();
   if (!organization) return;
   if (!canManageMembers(getActiveRole(), isPlatformAdminEmail(currentSession.user.email))) {
-    setStatus(organizationSettingsStatus, "You do not have permission to change library settings.", "error");
+    setStatus(organizationSettingsStatus, "You do not have permission to change embed settings.", "error");
     return;
   }
 
@@ -1029,7 +1057,7 @@ async function handleOrganizationSettingsSave(event) {
         file_preview_cards_enabled: organizationFilePreviewCardsInput.checked,
       };
 
-  setStatus(organizationSettingsStatus, "Saving library settings...");
+  setStatus(organizationSettingsStatus, "Saving embed settings...");
   const { data, error } = await supabase
     .from("organizations")
     .update(updates)
@@ -1047,7 +1075,7 @@ async function handleOrganizationSettingsSave(event) {
     membership.organization?.id === data.id ? { ...membership, organization: data } : membership
   );
   renderProfile();
-  setStatus(organizationSettingsStatus, "Library settings updated.", "success");
+  setStatus(organizationSettingsStatus, "Embed settings updated.", "success");
 }
 
 async function handlePlanChange(planId) {
@@ -1130,14 +1158,31 @@ async function handleCreateInvite(event) {
   }
 
   const invite = Array.isArray(data) ? data[0] : data;
+  let copiedToClipboard = false;
   if (invite?.code && navigator.clipboard?.writeText) {
-    await navigator.clipboard.writeText(invite.code);
+    try {
+      await navigator.clipboard.writeText(invite.code);
+      copiedToClipboard = true;
+    } catch {
+      copiedToClipboard = false;
+    }
   }
 
   inviteMaxUsesInput.value = "1";
   inviteExpiresAtInput.value = "";
-  setStatus(createInviteStatus, invite?.code ? `Invite code ${invite.code} created and copied.` : "Invite code created.", "success");
   await loadInvites();
+  if (invite?.code) {
+    setStatus(
+      createInviteStatus,
+      copiedToClipboard
+        ? `Invite code ${invite.code} created and copied.`
+        : `Invite code ${invite.code} created.`,
+      "success"
+    );
+    return;
+  }
+
+  setStatus(createInviteStatus, "Invite code created.", "success");
 }
 
 async function handleMemberRoleChange(event) {
@@ -1390,6 +1435,7 @@ async function init() {
   profileSettingsClose.addEventListener("click", () => setProfileSettingsOpen(false));
   profileForm.addEventListener("submit", handleProfileSave);
   organizationSettingsForm.addEventListener("submit", handleOrganizationSettingsSave);
+  embedSettingsToggle.addEventListener("click", () => setEmbedSettingsOpen(!isEmbedSettingsOpen));
   redeemInviteForm.addEventListener("submit", handleRedeemInvite);
   createInviteForm.addEventListener("submit", handleCreateInvite);
   memberList.addEventListener("change", handleMemberRoleChange);
