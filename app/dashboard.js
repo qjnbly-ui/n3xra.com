@@ -165,6 +165,16 @@ function show(el, visible) {
   el.classList.toggle("hidden", !visible);
 }
 
+function getErrorMessage(error, fallback) {
+  if (error && typeof error === "object" && "message" in error && typeof error.message === "string" && error.message.trim()) {
+    return error.message;
+  }
+  if (error instanceof Error && error.message.trim()) {
+    return error.message;
+  }
+  return fallback;
+}
+
 function closeMobileMenu() {
   if (!mobileMenu || !mobileMenuToggle) return;
   mobileMenu.classList.remove("is-open");
@@ -1742,7 +1752,10 @@ async function init() {
   try {
     await bootstrapAccess();
   } catch (error) {
-    setStatus(contextStatus, error instanceof Error ? error.message : "Unable to load account context.", "error");
+    show(setupPanel, false);
+    show(dashboardPanel, true);
+    showSection("account");
+    setStatus(contextStatus, getErrorMessage(error, "Unable to load account context."), "error");
     return;
   }
 
