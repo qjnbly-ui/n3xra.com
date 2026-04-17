@@ -424,8 +424,7 @@ function getPlanLimits(planId) {
 function buildSiblingPageUrl(pageName) {
   const currentUrl = new URL(window.location.href);
   const currentPath = currentUrl.pathname;
-  const usesHtmlRoutes = currentPath.endsWith(".html");
-  const siblingPath = currentPath.replace(/[^/]+$/, usesHtmlRoutes ? `${pageName}.html` : pageName);
+  const siblingPath = currentPath.replace(/[^/]*$/, `${pageName}.html`);
   return new URL(siblingPath, currentUrl.origin);
 }
 
