@@ -30,6 +30,7 @@ const accountSection = document.getElementById("account-section");
 const librarySection = document.getElementById("library-section");
 const accountLibraryContext = document.getElementById("account-library-context");
 const libraryContextPanel = document.getElementById("library-context-panel");
+const billingSection = document.getElementById("billing-section");
 const libraryAccessCard = document.getElementById("library-access-card");
 const librarySettingsSection = document.getElementById("library-settings-section");
 const embedSettingsToggle = document.getElementById("embed-settings-toggle");
@@ -45,6 +46,7 @@ const libraryActiveOrganizationSelect = document.getElementById("library-active-
 const libraryActiveMembershipRole = document.getElementById("library-active-membership-role");
 const librarySharedLibraryCount = document.getElementById("library-shared-library-count");
 const platformAdminLink = document.getElementById("platform-admin-link");
+const uploadActionSlot = document.getElementById("upload-action-slot");
 const fileModal = document.getElementById("file-modal");
 const fileModalTitle = document.getElementById("file-modal-title");
 const fileModalFrame = document.getElementById("file-modal-frame");
@@ -886,6 +888,10 @@ function renderProfile() {
   const canEditLibrary = canManageMembers(getActiveRole(), isPlatformAdminEmail(currentSession.user.email));
   const canEditBilling = canManageBilling(getActiveRole(), isPlatformAdminEmail(currentSession.user.email));
   const canUpload = canManageLibrary(getActiveRole(), isPlatformAdminEmail(currentSession.user.email));
+  const canSeeBilling = canEditBilling;
+  const canSeeLibrarySettings = !isFreePlan && canEditLibrary;
+  const canSeeInviteManagement = !isFreePlan && canEditSettings;
+  const canSeeMemberManagement = !isFreePlan && canEditSettings;
 
   accountName.textContent = currentProfile?.full_name || currentSession?.user?.email || "-";
   accountEmail.textContent = currentSession?.user?.email || currentProfile?.email || "-";
@@ -914,17 +920,21 @@ function renderProfile() {
 
   show(accountLibraryContext, showLibrarySwitcher);
   show(libraryContextPanel, showLibrarySwitcher);
+  show(billingSection, canSeeBilling);
   show(libraryAccessCard, true);
-  show(librarySettingsSection, !isFreePlan && canEditLibrary);
+  show(librarySettingsSection, canSeeLibrarySettings);
   show(changePlanButton, canEditBilling);
   show(organizationPrimaryColorField, !isFreePlan);
   show(organizationAccentColorField, !isFreePlan);
   show(organizationAdvancedSettings, !isFreePlan);
-  show(inviteManagementSection, !isFreePlan && canEditSettings);
-  show(memberManagementSection, !isFreePlan && canEditSettings);
+  show(inviteManagementSection, canSeeInviteManagement);
+  show(memberManagementSection, canSeeMemberManagement);
+  show(uploadActionSlot, canUpload);
   libraryAccessCopy.textContent = isFreePlan
     ? "Redeem invite codes for shared libraries."
-    : "Redeem invite codes and manage access for this library.";
+    : canEditSettings
+      ? "Redeem invite codes and manage access for this library."
+      : "Redeem invite codes for shared libraries.";
   if (!canEditBilling) {
     setBillingPlanPickerOpen(false);
   }
