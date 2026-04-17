@@ -1476,12 +1476,24 @@ async function deleteAccount() {
     const errorContext = error?.context;
     if (errorContext && typeof errorContext.json === "function") {
       try {
-        const payload = await errorContext.json();
+        const payload = await errorContext.clone().json();
         if (payload?.error) {
           errorMessage = String(payload.error);
         }
       } catch {
-        // Use fallback message when response body is unavailable.
+        if (typeof errorContext.text === "function") {
+          try {
+            const raw = await errorContext.clone().text();
+            if (raw) {
+              errorMessage = raw.slice(0, 320);
+            }
+          } catch {
+            // Use fallback message when response body is unavailable.
+          }
+        }
+      }
+      if (errorContext.status) {
+        errorMessage = `${errorMessage} (HTTP ${errorContext.status})`;
       }
     }
     deleteAccountSubmit.disabled = false;
