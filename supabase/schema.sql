@@ -376,6 +376,9 @@ declare
   existing_membership record;
   next_org_id uuid;
   next_org_name text;
+  next_invite_code text;
+  bootstrap_org_id uuid;
+  invite_result jsonb;
 begin
   if current_user_id is null then
     raise exception 'Authentication required.';
@@ -393,8 +396,14 @@ begin
     on conflict (user_id) do update set email = excluded.email;
   end if;
 
-  if nullif(trim(input_invite_code), '') is not null then
-    perform public.redeem_invite_code(input_invite_code);
+  next_invite_code := coalesce(
+    nullif(trim(input_invite_code), ''),
+    nullif(trim(auth.jwt() -> 'user_metadata' ->> 'invite_code'), '')
+  );
+
+  if next_invite_code is not null then
+    select public.redeem_invite_code(next_invite_code) into invite_result;
+    bootstrap_org_id := nullif(invite_result ->> 'organization_id', '')::uuid;
   end if;
 
   select om.organization_id, o.name
@@ -408,6 +417,7 @@ begin
   if existing_membership.organization_id is null then
     next_org_name := coalesce(
       nullif(trim(input_organization_name), ''),
+      nullif(trim(auth.jwt() -> 'user_metadata' ->> 'organization_name'), ''),
       'Personal'
     );
 
@@ -433,9 +443,13 @@ begin
       'account_owner',
       current_user_id
     );
+
+    bootstrap_org_id := coalesce(bootstrap_org_id, next_org_id);
+  else
+    bootstrap_org_id := coalesce(bootstrap_org_id, existing_membership.organization_id);
   end if;
 
-  return jsonb_build_object('ok', true);
+  return jsonb_build_object('ok', true, 'active_organization_id', bootstrap_org_id);
 end;
 $$;
 
@@ -626,6 +640,10 @@ begin
 
   if not public.can_manage_members(membership_record.organization_id) then
     raise exception 'Not allowed to update this membership.';
+  end if;
+
+  if input_role = 'account_owner' then
+    raise exception 'Use explicit ownership transfer for account owner changes.';
   end if;
 
   if membership_record.user_id = (

@@ -1,4 +1,5 @@
 import { createBrowserSupabase, hasConfig, getSessionOrNull } from "./lib/supabase-client.js";
+import { setStoredActiveOrganizationId } from "./lib/orgs.js";
 
 const PLATFORM_ADMIN_EMAIL = "quentin@quentinnichols.com";
 
@@ -99,10 +100,11 @@ async function bootstrapMemberships(organizationName, inviteCode) {
     input_organization_name: organizationName || null,
     input_invite_code: inviteCode || null,
   };
-  const { error } = await supabase.rpc("bootstrap_organization", payload);
+  const { data, error } = await supabase.rpc("bootstrap_organization", payload);
   if (error) {
     throw error;
   }
+  return data || null;
 }
 
 async function handleSignup(event) {
@@ -129,6 +131,7 @@ async function handleSignup(event) {
       data: {
         full_name: fullName,
         organization_name: organizationName,
+        invite_code: inviteCode,
         role,
       },
     },
@@ -158,7 +161,10 @@ async function handleSignup(event) {
 
   if (data?.session) {
     try {
-      await bootstrapMemberships(organizationName, inviteCode);
+      const bootstrapData = await bootstrapMemberships(organizationName, inviteCode);
+      if (bootstrapData?.active_organization_id) {
+        setStoredActiveOrganizationId(String(bootstrapData.active_organization_id));
+      }
     } catch (bootstrapError) {
       isSubmittingAuth = false;
       const message = bootstrapError instanceof Error ? bootstrapError.message : "Unable to finish library setup.";
@@ -192,7 +198,10 @@ async function handleSignin(event) {
   }
 
   try {
-    await bootstrapMemberships(null, null);
+    const bootstrapData = await bootstrapMemberships(null, null);
+    if (bootstrapData?.active_organization_id) {
+      setStoredActiveOrganizationId(String(bootstrapData.active_organization_id));
+    }
   } catch (bootstrapError) {
     isSubmittingAuth = false;
     const message = bootstrapError instanceof Error ? bootstrapError.message : "Unable to finish library setup.";

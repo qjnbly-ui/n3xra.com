@@ -8,6 +8,7 @@ import {
   canManageMembers,
   dedupeMembershipsByOrganization,
   formatRoleLabel,
+  getStoredActiveOrganizationId,
   isPlatformAdminEmail,
   resolveActiveOrganization,
   setStoredActiveOrganizationId,
@@ -640,7 +641,7 @@ function sortMemberships(items) {
 
 async function bootstrapAccess() {
   const supportOrgId = getSupportOrganizationId();
-  const { error: bootstrapError } = await supabase.rpc("bootstrap_organization", {
+  const { data: bootstrapData, error: bootstrapError } = await supabase.rpc("bootstrap_organization", {
     input_organization_name: null,
     input_invite_code: null,
   });
@@ -713,7 +714,10 @@ async function bootstrapAccess() {
     memberships = sortMemberships(memberships);
   }
 
-  activeMembership = resolveActiveOrganization(memberships, supportOrgId);
+  const bootstrapOrgId = String(bootstrapData?.active_organization_id || "");
+  const storedOrgId = getStoredActiveOrganizationId();
+  const preferredOrgId = supportOrgId || (!storedOrgId ? bootstrapOrgId : "");
+  activeMembership = resolveActiveOrganization(memberships, preferredOrgId);
   if (!activeMembership) {
     throw new Error("No organization memberships were found for this account.");
   }
@@ -1071,7 +1075,7 @@ function renderMembers() {
     const isSelf = member.user_id === currentSession?.user?.id;
     const canRemove = !isOwner && !isSelf;
     const row = document.createElement("tr");
-    const roleOptions = ["account_owner", "account_admin", "editor", "viewer"]
+    const roleOptions = ["account_admin", "editor", "viewer"]
       .map((role) => `<option value="${role}"${member.role === role ? " selected" : ""}>${escapeHtml(formatRoleLabel(role))}</option>`)
       .join("");
     const roleSelect = canEdit
