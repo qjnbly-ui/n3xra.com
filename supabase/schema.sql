@@ -209,10 +209,19 @@ stable
 security definer
 set search_path = public
 as $$
-  select om.role
-  from public.organization_memberships om
-  where om.organization_id = target_organization_id
-    and om.user_id = auth.uid()
+  select
+    case
+      when o.owner_user_id = auth.uid() then 'account_owner'
+      else (
+        select om.role
+        from public.organization_memberships om
+        where om.organization_id = target_organization_id
+          and om.user_id = auth.uid()
+        limit 1
+      )
+    end
+  from public.organizations o
+  where o.id = target_organization_id
   limit 1;
 $$;
 
@@ -242,13 +251,7 @@ set search_path = public
 as $$
   select
     public.is_platform_admin()
-    or exists (
-      select 1
-      from public.organization_memberships om
-      where om.organization_id = target_organization_id
-        and om.user_id = auth.uid()
-        and om.role in ('account_owner', 'account_admin')
-    );
+    or public.organization_role(target_organization_id) in ('account_owner', 'account_admin');
 $$;
 
 create or replace function public.can_manage_org_settings(target_organization_id uuid)
@@ -260,13 +263,7 @@ set search_path = public
 as $$
   select
     public.is_platform_admin()
-    or exists (
-      select 1
-      from public.organization_memberships om
-      where om.organization_id = target_organization_id
-        and om.user_id = auth.uid()
-        and om.role in ('account_owner', 'account_admin')
-    );
+    or public.organization_role(target_organization_id) in ('account_owner', 'account_admin');
 $$;
 
 create or replace function public.can_manage_billing(target_organization_id uuid)
@@ -278,13 +275,7 @@ set search_path = public
 as $$
   select
     public.is_platform_admin()
-    or exists (
-      select 1
-      from public.organization_memberships om
-      where om.organization_id = target_organization_id
-        and om.user_id = auth.uid()
-        and om.role = 'account_owner'
-    );
+    or public.organization_role(target_organization_id) = 'account_owner';
 $$;
 
 create or replace function public.can_manage_documents(target_organization_id uuid)
@@ -296,13 +287,7 @@ set search_path = public
 as $$
   select
     public.is_platform_admin()
-    or exists (
-      select 1
-      from public.organization_memberships om
-      where om.organization_id = target_organization_id
-        and om.user_id = auth.uid()
-        and om.role in ('account_owner', 'account_admin', 'editor')
-    );
+    or public.organization_role(target_organization_id) in ('account_owner', 'account_admin', 'editor');
 $$;
 
 create or replace function public.storage_object_org_id(storage_name text)
@@ -709,6 +694,36 @@ begin
 end;
 $$;
 
+create or replace function public.enforce_membership_owner_role()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+declare
+  org_owner_user_id uuid;
+begin
+  select owner_user_id
+  into org_owner_user_id
+  from public.organizations
+  where id = new.organization_id;
+
+  if org_owner_user_id is null then
+    raise exception 'Organization not found.';
+  end if;
+
+  if new.user_id = org_owner_user_id then
+    new.role := 'account_owner';
+    return new;
+  end if;
+
+  if new.role = 'account_owner' then
+    raise exception 'Only the current organization owner can hold account_owner role.';
+  end if;
+
+  return new;
+end;
+$$;
+
 create or replace function public.platform_set_organization_owner(
   input_organization_id uuid,
   input_user_id uuid
@@ -821,6 +836,11 @@ create trigger organization_memberships_set_updated_at
 before update on public.organization_memberships
 for each row execute procedure public.set_updated_at();
 
+drop trigger if exists organization_memberships_enforce_owner_role on public.organization_memberships;
+create trigger organization_memberships_enforce_owner_role
+before insert or update on public.organization_memberships
+for each row execute procedure public.enforce_membership_owner_role();
+
 drop trigger if exists documents_set_updated_at on public.documents;
 create trigger documents_set_updated_at
 before update on public.documents
@@ -830,6 +850,19 @@ drop trigger if exists organizations_protect_billing_fields on public.organizati
 create trigger organizations_protect_billing_fields
 before update on public.organizations
 for each row execute procedure public.protect_organization_billing_fields();
+
+update public.organization_memberships om
+set role = case
+  when o.owner_user_id = om.user_id then 'account_owner'
+  when om.role = 'account_owner' then 'account_admin'
+  else om.role
+end
+from public.organizations o
+where o.id = om.organization_id
+  and (
+    (o.owner_user_id = om.user_id and om.role <> 'account_owner')
+    or (o.owner_user_id <> om.user_id and om.role = 'account_owner')
+  );
 
 alter table public.profiles enable row level security;
 alter table public.platform_admins enable row level security;

@@ -395,8 +395,16 @@ function getActiveOrganization() {
   return activeMembership?.organization || null;
 }
 
+function getEffectiveMembershipRole(membership) {
+  if (!membership) return "";
+  if (membership.organization?.owner_user_id === currentSession?.user?.id) {
+    return "account_owner";
+  }
+  return membership.role || "";
+}
+
 function getActiveRole() {
-  return activeMembership?.role || "";
+  return getEffectiveMembershipRole(activeMembership);
 }
 
 function isSupportView() {
@@ -1075,18 +1083,21 @@ function renderMembers() {
     const isSelf = member.user_id === currentSession?.user?.id;
     const canRemove = !isOwner && !isSelf;
     const row = document.createElement("tr");
+    const effectiveRole = isOwner ? "account_owner" : member.role;
     const roleOptions = ["account_admin", "editor", "viewer"]
-      .map((role) => `<option value="${role}"${member.role === role ? " selected" : ""}>${escapeHtml(formatRoleLabel(role))}</option>`)
+      .map((role) => `<option value="${role}"${effectiveRole === role ? " selected" : ""}>${escapeHtml(formatRoleLabel(role))}</option>`)
       .join("");
-    const roleSelect = canEdit
-      ? `<select data-membership-id="${member.id}" data-current-role="${escapeHtml(member.role)}"${isOwner ? " disabled" : ""}>${roleOptions}${canRemove ? '<option value="__remove__">Remove user</option>' : ""}</select>`
-      : escapeHtml(formatRoleLabel(member.role));
+    const roleSelect = isOwner
+      ? escapeHtml(formatRoleLabel(effectiveRole))
+      : canEdit
+        ? `<select data-membership-id="${member.id}" data-current-role="${escapeHtml(effectiveRole)}">${roleOptions}${canRemove ? '<option value="__remove__">Remove user</option>' : ""}</select>`
+        : escapeHtml(formatRoleLabel(effectiveRole));
     const action = roleSelect;
 
     row.innerHTML = `
       <td>${escapeHtml(member.profile?.full_name || "Unknown")}</td>
       <td>${escapeHtml(member.profile?.email || "")}</td>
-      <td>${escapeHtml(formatRoleLabel(member.role))}${isOwner ? " (Owner)" : ""}</td>
+      <td>${escapeHtml(formatRoleLabel(effectiveRole))}${isOwner ? " (Owner)" : ""}</td>
       <td>${action}</td>
     `;
     memberList.append(row);
