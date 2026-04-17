@@ -313,6 +313,54 @@ as $$
   select nullif(split_part(storage_name, '/', 1), '')::uuid;
 $$;
 
+create or replace function public.get_public_embed_documents(input_organization_id uuid)
+returns table (
+  id uuid,
+  title text,
+  original_filename text,
+  storage_path text,
+  extracted_text text,
+  year text,
+  month text,
+  created_at timestamptz
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if input_organization_id is null then
+    return;
+  end if;
+
+  if not exists (
+    select 1
+    from public.organizations o
+    where o.id = input_organization_id
+      and o.public_embed_enabled = true
+  ) then
+    return;
+  end if;
+
+  return query
+  select
+    d.id,
+    d.title,
+    d.original_filename,
+    d.storage_path,
+    d.extracted_text,
+    d.year,
+    d.month,
+    d.created_at
+  from public.documents d
+  where d.organization_id = input_organization_id
+    and d.is_public = true
+  order by d.created_at desc;
+end;
+$$;
+
+grant execute on function public.get_public_embed_documents(uuid) to anon, authenticated;
+
 create or replace function public.bootstrap_organization(
   input_organization_name text default null,
   input_invite_code text default null

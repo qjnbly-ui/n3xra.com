@@ -28,12 +28,23 @@ const fileModalTitle = document.getElementById("file-modal-title");
 const fileModalFrame = document.getElementById("file-modal-frame");
 const fileModalDownload = document.getElementById("file-modal-download");
 const fileModalShare = document.getElementById("file-modal-share");
+const fileModalEdit = document.getElementById("file-modal-edit");
 const fileModalDelete = document.getElementById("file-modal-delete");
 const fileModalClose = document.getElementById("file-modal-close");
 const deleteConfirmModal = document.getElementById("delete-confirm-modal");
 const deleteConfirmCopy = document.getElementById("delete-confirm-copy");
 const deleteConfirmCancel = document.getElementById("delete-confirm-cancel");
 const deleteConfirmSubmit = document.getElementById("delete-confirm-submit");
+const fileEditModal = document.getElementById("file-edit-modal");
+const fileEditClose = document.getElementById("file-edit-close");
+const fileEditForm = document.getElementById("file-edit-form");
+const fileEditTitle = document.getElementById("file-edit-title");
+const fileEditYear = document.getElementById("file-edit-year");
+const fileEditMonth = document.getElementById("file-edit-month");
+const fileEditPublic = document.getElementById("file-edit-public");
+const fileEditFilename = document.getElementById("file-edit-filename");
+const fileEditSave = document.getElementById("file-edit-save");
+const fileEditStatus = document.getElementById("file-edit-status");
 
 let supabase = null;
 let currentSession = null;
@@ -42,6 +53,7 @@ let activeMembership = null;
 let documentsCache = [];
 let pendingDeleteId = null;
 let activeModalDocumentId = null;
+let pendingEditId = null;
 
 function setStatus(el, message, tone = "") {
   if (!el) return;
@@ -101,6 +113,70 @@ function buildPreviewUrl(doc, signedUrl) {
     return `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(signedUrl)}`;
   }
   return signedUrl;
+}
+
+function getMonthNumber(monthValue) {
+  const raw = String(monthValue || "").trim().toLowerCase();
+  if (!raw) return null;
+
+  if (/^\d{1,2}$/.test(raw)) {
+    const numeric = Number.parseInt(raw, 10);
+    return numeric >= 1 && numeric <= 12 ? numeric : null;
+  }
+
+  const monthMap = new Map([
+    ["jan", 1],
+    ["january", 1],
+    ["feb", 2],
+    ["february", 2],
+    ["mar", 3],
+    ["march", 3],
+    ["apr", 4],
+    ["april", 4],
+    ["may", 5],
+    ["jun", 6],
+    ["june", 6],
+    ["jul", 7],
+    ["july", 7],
+    ["aug", 8],
+    ["august", 8],
+    ["sep", 9],
+    ["sept", 9],
+    ["september", 9],
+    ["oct", 10],
+    ["october", 10],
+    ["nov", 11],
+    ["november", 11],
+    ["dec", 12],
+    ["december", 12],
+  ]);
+
+  return monthMap.get(raw) || null;
+}
+
+function getDocumentDateScore(doc) {
+  const yearRaw = String(doc?.year || "").trim();
+  if (!/^(19|20)\d{2}$/.test(yearRaw)) return null;
+  const year = Number.parseInt(yearRaw, 10);
+  const month = getMonthNumber(doc?.month) || 0;
+  return year * 100 + month;
+}
+
+function sortDocumentsNewestToOldest(docs) {
+  return [...docs].sort((a, b) => {
+    const aScore = getDocumentDateScore(a);
+    const bScore = getDocumentDateScore(b);
+
+    if (aScore !== bScore) {
+      if (aScore === null) return 1;
+      if (bScore === null) return -1;
+      return bScore - aScore;
+    }
+
+    const aCreatedAt = new Date(a.created_at || 0).getTime();
+    const bCreatedAt = new Date(b.created_at || 0).getTime();
+    return bCreatedAt - aCreatedAt;
+  });
 }
 
 function getActiveOrganization() {
@@ -186,7 +262,7 @@ async function loadDocuments() {
     return;
   }
 
-  documentsCache = Array.isArray(data) ? data : [];
+  documentsCache = sortDocumentsNewestToOldest(Array.isArray(data) ? data : []);
   documentCount.textContent = String(documentsCache.length);
   renderFiles();
   setStatus(fileStatus, `${documentsCache.length} file${documentsCache.length === 1 ? "" : "s"} loaded.`, "success");
@@ -212,6 +288,7 @@ function renderFiles() {
       <div class="file-row-controls">
         <button class="btn secondary file-row-menu-toggle" type="button" data-menu-toggle data-id="${doc.id}" aria-expanded="false" aria-controls="${actionMenuId}">Action</button>
         <div class="doc-actions file-row-actions" id="${actionMenuId}">
+          <button class="btn secondary" type="button" data-action="edit" data-id="${doc.id}"${canEdit ? "" : " disabled"}>Edit</button>
           <button class="btn secondary" type="button" data-action="download" data-id="${doc.id}">Download</button>
           <button class="btn secondary" type="button" data-action="share" data-id="${doc.id}">Share</button>
           <button class="btn secondary" type="button" data-action="toggle-public" data-id="${doc.id}"${canEdit ? "" : " disabled"}>${doc.is_public ? "Make private" : "Make public"}</button>
@@ -236,22 +313,40 @@ async function createSignedUrlForDocument(documentId) {
   return { doc, signedUrl: data.signedUrl };
 }
 
+async function createDownloadSignedUrlForDocument(documentId) {
+  const doc = documentsCache.find((item) => item.id === documentId);
+  if (!doc) return null;
+
+  const downloadName = doc.original_filename || "download";
+  const { data, error } = await supabase
+    .storage
+    .from("documents")
+    .createSignedUrl(doc.storage_path, 60 * 60, { download: downloadName });
+  if (error || !data?.signedUrl) {
+    setStatus(fileStatus, error?.message || "Unable to create download URL.", "error");
+    return null;
+  }
+
+  return { doc, signedUrl: data.signedUrl };
+}
+
 async function openFile(documentId) {
   const signed = await createSignedUrlForDocument(documentId);
   if (!signed) return;
+  const downloadSigned = await createDownloadSignedUrlForDocument(documentId);
   const { doc, signedUrl } = signed;
 
   activeModalDocumentId = documentId;
   fileModalTitle.textContent = doc.title || doc.original_filename || "File preview";
   fileModalFrame.src = buildPreviewUrl(doc, signedUrl);
-  fileModalDownload.href = signedUrl;
+  fileModalDownload.href = downloadSigned?.signedUrl || signedUrl;
   fileModalDownload.setAttribute("download", doc.original_filename || "download");
   fileModal.classList.add("is-open");
   fileModal.setAttribute("aria-hidden", "false");
 }
 
 async function downloadFile(documentId) {
-  const signed = await createSignedUrlForDocument(documentId);
+  const signed = await createDownloadSignedUrlForDocument(documentId);
   if (!signed) return;
   const { doc, signedUrl } = signed;
 
@@ -270,6 +365,58 @@ function closeFileModal() {
   fileModal.setAttribute("aria-hidden", "true");
   fileModalFrame.src = "";
   activeModalDocumentId = null;
+}
+
+function openFileEditModal(documentId) {
+  const doc = documentsCache.find((item) => item.id === documentId);
+  if (!doc) return;
+  pendingEditId = documentId;
+  fileEditTitle.value = doc.title || doc.original_filename || "";
+  fileEditYear.value = doc.year || "";
+  fileEditMonth.value = doc.month || "";
+  fileEditPublic.checked = Boolean(doc.is_public);
+  fileEditFilename.textContent = doc.original_filename || "-";
+  setStatus(fileEditStatus, "");
+  fileEditSave.disabled = false;
+  fileEditModal.classList.add("is-open");
+  fileEditModal.setAttribute("aria-hidden", "false");
+}
+
+function closeFileEditModal() {
+  pendingEditId = null;
+  fileEditModal.classList.remove("is-open");
+  fileEditModal.setAttribute("aria-hidden", "true");
+  fileEditForm.reset();
+  setStatus(fileEditStatus, "");
+}
+
+async function saveFileEdit(event) {
+  event.preventDefault();
+  if (!pendingEditId) return;
+
+  const doc = documentsCache.find((item) => item.id === pendingEditId);
+  if (!doc) return;
+
+  fileEditSave.disabled = true;
+  setStatus(fileEditStatus, "Saving...");
+
+  const updates = {
+    title: fileEditTitle.value.trim() || doc.original_filename || "Untitled document",
+    year: fileEditYear.value.trim() || null,
+    month: fileEditMonth.value.trim() || null,
+    is_public: fileEditPublic.checked,
+  };
+
+  const { error } = await supabase.from("documents").update(updates).eq("id", pendingEditId);
+  if (error) {
+    fileEditSave.disabled = false;
+    setStatus(fileEditStatus, error.message, "error");
+    return;
+  }
+
+  closeFileEditModal();
+  setStatus(fileStatus, "File details updated.", "success");
+  await loadDocuments();
 }
 
 function openDeleteConfirm(documentId) {
@@ -387,6 +534,7 @@ async function handleFileAction(event) {
     if (!id || !action) return;
     closeFileActionMenus();
 
+    if (action === "edit") openFileEditModal(id);
     if (action === "download") await downloadFile(id);
     if (action === "share") await shareFile(id);
     if (action === "delete") openDeleteConfirm(id);
@@ -463,6 +611,10 @@ async function init() {
     if (!activeModalDocumentId) return;
     await shareFile(activeModalDocumentId);
   });
+  fileModalEdit.addEventListener("click", () => {
+    if (!activeModalDocumentId) return;
+    openFileEditModal(activeModalDocumentId);
+  });
   fileModalDelete.addEventListener("click", () => {
     if (!activeModalDocumentId) return;
     openDeleteConfirm(activeModalDocumentId);
@@ -475,12 +627,21 @@ async function init() {
     if (!pendingDeleteId) return;
     await deleteFile(pendingDeleteId);
   });
+  fileEditClose.addEventListener("click", closeFileEditModal);
+  fileEditForm.addEventListener("submit", saveFileEdit);
   deleteConfirmModal.addEventListener("click", (event) => {
     if (event.target === deleteConfirmModal) closeDeleteConfirm();
+  });
+  fileEditModal.addEventListener("click", (event) => {
+    if (event.target === fileEditModal) closeFileEditModal();
   });
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && fileModal.classList.contains("is-open")) {
       closeFileModal();
+      return;
+    }
+    if (event.key === "Escape" && fileEditModal.classList.contains("is-open")) {
+      closeFileEditModal();
       return;
     }
     if (event.key === "Escape" && deleteConfirmModal.classList.contains("is-open")) {

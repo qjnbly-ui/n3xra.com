@@ -121,6 +121,8 @@ const uploadModeBatchButton = document.getElementById("upload-mode-batch");
 const uploadResults = document.getElementById("upload-results");
 const docList = document.getElementById("doc-list");
 const docEmpty = document.getElementById("doc-empty");
+const recentFilesList = document.getElementById("recent-files-list");
+const recentFilesEmpty = document.getElementById("recent-files-empty");
 
 let supabase = null;
 let currentSession = null;
@@ -353,7 +355,7 @@ function getUploadSupportCopy(isBatch) {
   const supported = '<code class="inline">.docx</code>, <code class="inline">.txt</code>, <code class="inline">.md</code>, <code class="inline">.csv</code>, <code class="inline">.json</code>, <code class="inline">.html</code>.';
   const legacyDocNote = 'Legacy <code class="inline">.doc</code> files must be converted to <code class="inline">.docx</code> before upload.';
   if (isBatch) {
-    return `Supported in this first pass: ${supported} Batch mode reads both file selection and folder import and saves defaults (no year/month, private). ${legacyDocNote}`;
+    return `Supported in this first pass: ${supported} Batch mode reads both file selection and folder import and auto-detects year/month from filenames when available (private by default). ${legacyDocNote}`;
   }
   return `Supported in this first pass: ${supported} ${legacyDocNote}`;
 }
@@ -505,6 +507,99 @@ function snippetFromText(text, query) {
   const prefix = start > 0 ? "... " : "";
   const suffix = end < text.length ? " ..." : "";
   return `${prefix}${before}<mark>${match}</mark>${after}${suffix}`;
+}
+
+function inferYearMonthFromFilename(filename) {
+  const baseName = String(filename || "").replace(/\.[^.]+$/, "");
+  const tokenized = baseName
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/[_\-./]+/g, " ")
+    .replace(/(\d{4})/g, " $1 ")
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  const monthMap = new Map([
+    ["jan", "January"],
+    ["january", "January"],
+    ["feb", "February"],
+    ["february", "February"],
+    ["mar", "March"],
+    ["march", "March"],
+    ["apr", "April"],
+    ["april", "April"],
+    ["may", "May"],
+    ["jun", "June"],
+    ["june", "June"],
+    ["jul", "July"],
+    ["july", "July"],
+    ["aug", "August"],
+    ["august", "August"],
+    ["sep", "September"],
+    ["sept", "September"],
+    ["september", "September"],
+    ["oct", "October"],
+    ["october", "October"],
+    ["nov", "November"],
+    ["november", "November"],
+    ["dec", "December"],
+    ["december", "December"],
+  ]);
+
+  const monthToken = tokenized.find((token) => monthMap.has(token));
+  const yearToken = tokenized.find((token) => /^(19|20)\d{2}$/.test(token));
+
+  return {
+    year: yearToken || null,
+    month: monthToken ? monthMap.get(monthToken) : null,
+  };
+}
+
+function getMonthNumber(monthValue) {
+  const raw = String(monthValue || "").trim().toLowerCase();
+  if (!raw) return null;
+
+  if (/^\d{1,2}$/.test(raw)) {
+    const numeric = Number.parseInt(raw, 10);
+    return numeric >= 1 && numeric <= 12 ? numeric : null;
+  }
+
+  const monthMap = new Map([
+    ["jan", 1],
+    ["january", 1],
+    ["feb", 2],
+    ["february", 2],
+    ["mar", 3],
+    ["march", 3],
+    ["apr", 4],
+    ["april", 4],
+    ["may", 5],
+    ["jun", 6],
+    ["june", 6],
+    ["jul", 7],
+    ["july", 7],
+    ["aug", 8],
+    ["august", 8],
+    ["sep", 9],
+    ["sept", 9],
+    ["september", 9],
+    ["oct", 10],
+    ["october", 10],
+    ["nov", 11],
+    ["november", 11],
+    ["dec", 12],
+    ["december", 12],
+  ]);
+
+  return monthMap.get(raw) || null;
+}
+
+function getDocumentDateScore(doc) {
+  const yearRaw = String(doc?.year || "").trim();
+  if (!/^(19|20)\d{2}$/.test(yearRaw)) return null;
+  const year = Number.parseInt(yearRaw, 10);
+  const month = getMonthNumber(doc?.month) || 0;
+  return year * 100 + month;
 }
 
 function sortMemberships(items) {
@@ -873,6 +968,43 @@ function renderDocuments() {
   renderProfile();
 }
 
+function renderRecentFiles() {
+  recentFilesList.innerHTML = "";
+  const recent = [...documentsCache]
+    .sort((a, b) => {
+      const aScore = getDocumentDateScore(a);
+      const bScore = getDocumentDateScore(b);
+
+      if (aScore !== bScore) {
+        if (aScore === null) return 1;
+        if (bScore === null) return -1;
+        return bScore - aScore;
+      }
+
+      const aCreatedAt = new Date(a.created_at || 0).getTime();
+      const bCreatedAt = new Date(b.created_at || 0).getTime();
+      return bCreatedAt - aCreatedAt;
+    })
+    .slice(0, 3);
+  show(recentFilesEmpty, recent.length === 0);
+  if (!recent.length) return;
+
+  recent.forEach((doc) => {
+    const item = document.createElement("article");
+    item.className = "download-item recent-file-item";
+    item.innerHTML = `
+      <div>
+        <p class="download-name">${escapeHtml(doc.title || doc.original_filename || "Untitled document")}</p>
+        <p class="download-meta">${escapeHtml(doc.original_filename || "Unknown file")}${doc.year ? ` · ${escapeHtml(doc.year)}` : ""}${doc.month ? ` · ${escapeHtml(doc.month)}` : ""}${doc.is_public ? " · Public" : " · Private"}</p>
+      </div>
+      <div class="actions">
+        <button class="btn secondary" type="button" data-action="open" data-id="${doc.id}">Open</button>
+      </div>
+    `;
+    recentFilesList.append(item);
+  });
+}
+
 function renderInvites() {
   inviteList.innerHTML = "";
   if (!inviteCache.length) {
@@ -939,6 +1071,7 @@ async function loadDocuments() {
   documentsCache = Array.isArray(data) ? data : [];
   updateYearFilterOptions();
   renderDocuments();
+  renderRecentFiles();
   setStatus(docsStatus, `${documentsCache.length} document${documentsCache.length === 1 ? "" : "s"} loaded.`, "success");
 }
 
@@ -960,14 +1093,32 @@ async function createSignedUrlForDocument(documentId) {
   return { doc, signedUrl: data.signedUrl };
 }
 
+async function createDownloadSignedUrlForDocument(documentId) {
+  const doc = documentsCache.find((item) => item.id === documentId);
+  if (!doc) return null;
+
+  const downloadName = doc.original_filename || "download";
+  const { data, error } = await supabase
+    .storage
+    .from("documents")
+    .createSignedUrl(doc.storage_path, 60 * 60, { download: downloadName });
+  if (error || !data?.signedUrl) {
+    setStatus(docsStatus, error?.message || "Unable to create download URL.", "error");
+    return null;
+  }
+
+  return { doc, signedUrl: data.signedUrl };
+}
+
 async function openFile(documentId) {
   const signed = await createSignedUrlForDocument(documentId);
   if (!signed) return;
+  const downloadSigned = await createDownloadSignedUrlForDocument(documentId);
   const { doc, signedUrl } = signed;
 
   fileModalTitle.textContent = doc.title || doc.original_filename || "File preview";
   fileModalFrame.src = buildPreviewUrl(doc, signedUrl);
-  fileModalDownload.href = signedUrl;
+  fileModalDownload.href = downloadSigned?.signedUrl || signedUrl;
   fileModalDownload.setAttribute("download", doc.original_filename || "download");
   fileModal.classList.add("is-open");
   fileModal.setAttribute("aria-hidden", "false");
@@ -1272,8 +1423,8 @@ async function uploadDocument(event) {
   }
 
   const manualTitle = uploadTitleInput.value.trim();
-  const year = uploadMode === "single" ? uploadYearInput.value.trim() || null : null;
-  const month = uploadMode === "single" ? uploadMonthInput.value.trim() || null : null;
+  const manualYear = uploadMode === "single" ? uploadYearInput.value.trim() : "";
+  const manualMonth = uploadMode === "single" ? uploadMonthInput.value.trim() : "";
   const isPublic = uploadMode === "single" ? uploadIsPublicInput.checked : false;
   const submitButton = uploadForm.querySelector("button[type='submit']");
   if (submitButton instanceof HTMLButtonElement) {
@@ -1289,6 +1440,9 @@ async function uploadDocument(event) {
       const stepLabel = `[${index + 1}/${files.length}]`;
       const baseTitle = file.name.replace(/\.[^.]+$/, "");
       const title = uploadMode === "single" && manualTitle ? manualTitle : baseTitle;
+      const inferred = inferYearMonthFromFilename(file.name);
+      const year = uploadMode === "single" ? manualYear || inferred.year : inferred.year;
+      const month = uploadMode === "single" ? manualMonth || inferred.month : inferred.month;
       const safeFileName = file.name.replace(/[^a-zA-Z0-9._-]+/g, "-");
       const hasUuid = typeof crypto !== "undefined" && typeof crypto.randomUUID === "function";
       const uniqueToken = hasUuid ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
@@ -1463,6 +1617,7 @@ async function init() {
     renderDocuments();
   });
   docList.addEventListener("click", handleDocumentAction);
+  recentFilesList.addEventListener("click", handleDocumentAction);
   fileModalClose.addEventListener("click", closeFileModal);
   fileModal.addEventListener("click", (event) => {
     if (event.target === fileModal) closeFileModal();

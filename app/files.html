@@ -87,6 +87,7 @@
         <div class="file-modal-actions">
           <a class="file-modal-link" id="file-modal-download" href="#" target="_blank" rel="noopener">Download</a>
           <button class="file-modal-link" id="file-modal-share" type="button">Share</button>
+          <button class="file-modal-link" id="file-modal-edit" type="button">Edit</button>
           <button class="file-modal-link file-modal-danger" id="file-modal-delete" type="button">Delete</button>
           <button class="file-modal-close" id="file-modal-close" type="button">Close</button>
         </div>
@@ -111,6 +112,47 @@
           <button class="btn secondary" id="delete-confirm-cancel" type="button">Cancel</button>
           <button class="btn btn-delete-solid" id="delete-confirm-submit" type="button">Delete</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="settings-modal" id="file-edit-modal" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="settings-modal-dialog">
+      <div class="settings-modal-header">
+        <div>
+          <p class="settings-modal-kicker">Edit file</p>
+          <h3 class="settings-modal-title">Update file details</h3>
+        </div>
+        <button class="settings-modal-close" id="file-edit-close" type="button">Close</button>
+      </div>
+      <div class="settings-modal-body">
+        <form class="stack" id="file-edit-form">
+          <div class="field">
+            <label for="file-edit-title">Name</label>
+            <input id="file-edit-title" type="text" required>
+          </div>
+          <div class="grid-3">
+            <div class="field">
+              <label for="file-edit-year">Year</label>
+              <input id="file-edit-year" type="text" placeholder="2026">
+            </div>
+            <div class="field">
+              <label for="file-edit-month">Month</label>
+              <input id="file-edit-month" type="text" placeholder="April">
+            </div>
+          </div>
+          <label class="toggle-pill">
+            <input id="file-edit-public" type="checkbox">
+            <span>Publish to public embed</span>
+          </label>
+          <div class="notice">
+            <strong>File:</strong> <span id="file-edit-filename">-</span>
+          </div>
+          <div class="actions">
+            <button class="btn" id="file-edit-save" type="submit">Save changes</button>
+          </div>
+          <p class="status" id="file-edit-status"></p>
+        </form>
       </div>
     </div>
   </div>

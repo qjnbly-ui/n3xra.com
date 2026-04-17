@@ -23,6 +23,10 @@ function getOrganizationId() {
   return new URLSearchParams(window.location.search).get("org") || "";
 }
 
+function isUuid(value) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || ""));
+}
+
 function setStatus(message, tone = "") {
   statusEl.textContent = message || "";
   statusEl.className = "status";
@@ -143,15 +147,33 @@ async function createSignedUrlForDocument(documentId) {
   return { doc, signedUrl: data.signedUrl };
 }
 
+async function createDownloadSignedUrlForDocument(documentId) {
+  const doc = documentsCache.find((item) => item.id === documentId);
+  if (!doc) return null;
+
+  const downloadName = doc.original_filename || "download";
+  const { data, error } = await supabase
+    .storage
+    .from("documents")
+    .createSignedUrl(doc.storage_path, 60 * 60, { download: downloadName });
+  if (error || !data?.signedUrl) {
+    setStatus(error?.message || "Unable to create download URL.", "error");
+    return null;
+  }
+
+  return { doc, signedUrl: data.signedUrl };
+}
+
 async function openFile(documentId) {
   const signed = await createSignedUrlForDocument(documentId);
   if (!signed) return;
+  const downloadSigned = await createDownloadSignedUrlForDocument(documentId);
   const { doc, signedUrl } = signed;
 
   activeModalDocumentId = documentId;
   fileModalTitle.textContent = doc.title || doc.original_filename || "File preview";
   fileModalFrame.src = buildPreviewUrl(doc, signedUrl);
-  fileModalDownload.href = signedUrl;
+  fileModalDownload.href = downloadSigned?.signedUrl || signedUrl;
   fileModalDownload.setAttribute("download", doc.original_filename || "download");
   fileModal.classList.add("is-open");
   fileModal.setAttribute("aria-hidden", "false");
@@ -165,7 +187,7 @@ function closeFileModal() {
 }
 
 async function downloadFile(documentId) {
-  const signed = await createSignedUrlForDocument(documentId);
+  const signed = await createDownloadSignedUrlForDocument(documentId);
   if (!signed) return;
   const { doc, signedUrl } = signed;
 
@@ -225,14 +247,30 @@ async function loadDocuments() {
     setStatus("Missing library id for the embedded view.", "error");
     return;
   }
+  if (!isUuid(organizationId)) {
+    setStatus("Invalid library id format for the embedded view.", "error");
+    return;
+  }
 
   setStatus("Loading records...");
-  const { data, error } = await supabase
-    .from("documents")
-    .select("id, title, original_filename, storage_path, extracted_text, year, month, created_at")
-    .eq("organization_id", organizationId)
-    .eq("is_public", true)
-    .order("created_at", { ascending: false });
+  const rpcResult = await supabase.rpc("get_public_embed_documents", {
+    input_organization_id: organizationId,
+  });
+
+  let data = rpcResult.data;
+  let error = rpcResult.error;
+
+  if (error) {
+    // Fallback to direct select for older database deployments.
+    const fallback = await supabase
+      .from("documents")
+      .select("id, title, original_filename, storage_path, extracted_text, year, month, created_at")
+      .eq("organization_id", organizationId)
+      .eq("is_public", true)
+      .order("created_at", { ascending: false });
+    data = fallback.data;
+    error = fallback.error;
+  }
 
   if (error) {
     setStatus(error.message, "error");

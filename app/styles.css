@@ -959,6 +959,22 @@ textarea {
   min-height: 0;
 }
 
+.recent-file-item .actions .btn {
+  box-shadow: none;
+}
+
+.recent-files-reminder {
+  margin: 0;
+  font-size: 0.94rem;
+}
+
+.recent-files-link {
+  color: var(--teal);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 .file-row {
   cursor: pointer;
   transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
