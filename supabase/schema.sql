@@ -502,14 +502,11 @@ begin
   into invite_record
   from public.organization_invites
   where lower(code) = lower(trim(input_code))
-    and is_disabled = false
-    and (expires_at is null or expires_at > now())
-    and redeemed_uses < max_uses
   order by created_at desc
   limit 1;
 
   if invite_record.id is null then
-    raise exception 'Invite code is invalid or expired.';
+    raise exception 'Invite code is invalid.';
   end if;
 
   if exists (
@@ -519,6 +516,12 @@ begin
       and user_id = current_user_id
   ) then
     return jsonb_build_object('ok', true, 'already_member', true, 'organization_id', invite_record.organization_id);
+  end if;
+
+  if invite_record.is_disabled = true
+    or (invite_record.expires_at is not null and invite_record.expires_at <= now())
+    or invite_record.redeemed_uses >= invite_record.max_uses then
+    raise exception 'Invite code is invalid or expired.';
   end if;
 
   select count(*), max(o.user_limit)
