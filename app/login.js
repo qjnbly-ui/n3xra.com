@@ -44,6 +44,16 @@ function show(el, visible) {
   el.classList.toggle("hidden", !visible);
 }
 
+function getErrorMessage(error, fallback) {
+  if (error && typeof error === "object" && "message" in error && typeof error.message === "string" && error.message.trim()) {
+    return error.message;
+  }
+  if (error instanceof Error && error.message.trim()) {
+    return error.message;
+  }
+  return fallback;
+}
+
 function toggleSignup(visible) {
   show(signupForm, visible);
   show(signinForm, !visible);
@@ -167,7 +177,7 @@ async function handleSignup(event) {
       }
     } catch (bootstrapError) {
       isSubmittingAuth = false;
-      const message = bootstrapError instanceof Error ? bootstrapError.message : "Unable to finish library setup.";
+      const message = getErrorMessage(bootstrapError, "Unable to finish library setup.");
       setStatus(`Account created, but library setup failed: ${message}`, "error");
       return;
     }
@@ -204,7 +214,7 @@ async function handleSignin(event) {
     }
   } catch (bootstrapError) {
     isSubmittingAuth = false;
-    const message = bootstrapError instanceof Error ? bootstrapError.message : "Unable to finish library setup.";
+    const message = getErrorMessage(bootstrapError, "Unable to finish library setup.");
     setStatus(message, "error");
     return;
   }
