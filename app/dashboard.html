@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>n3xra.com Dashboard</title>
   <meta name="description" content="n3xra.com dashboard for library access, billing, invites, uploads, search, and file management.">
+  <link rel="icon" type="image/png" href="../assets/n3xra_logo_transparent_small.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
@@ -166,7 +167,8 @@
                   </div>
                   <div class="field">
                     <label for="invite-expires-at">Expires at</label>
-                    <input id="invite-expires-at" type="text" placeholder="Optional ISO date">
+                    <input id="invite-expires-at" type="datetime-local">
+                    <p class="field-note invite-expires-note">Uses your local timezone. Leave blank for no expiration.</p>
                   </div>
                 </div>
                 <div class="actions">
@@ -182,6 +184,7 @@
                       <th>Role</th>
                       <th>Uses</th>
                       <th>Expires</th>
+                      <th>Action</th>
                     </tr>
                   </thead>
                   <tbody id="invite-list"></tbody>
@@ -264,6 +267,23 @@
         </section>
 
         <section class="section-view" id="library-section">
+          <section class="panel stack hidden" id="library-context-panel">
+            <div class="grid-3">
+              <div class="field">
+                <label for="library-active-organization-select">Active library</label>
+                <select id="library-active-organization-select"></select>
+              </div>
+              <div class="field">
+                <span class="field-title">Your access</span>
+                <p class="account-value" id="library-active-membership-role">-</p>
+              </div>
+              <div class="field">
+                <span class="field-title">Shared libraries</span>
+                <p class="account-value" id="library-shared-library-count">0</p>
+              </div>
+            </div>
+          </section>
+
           <div class="library-actions-grid">
             <div class="library-action-slot">
               <button class="btn" id="open-upload-modal" type="button">Upload</button>

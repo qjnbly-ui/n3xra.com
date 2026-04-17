@@ -329,6 +329,7 @@ input[type="email"],
 input[type="password"],
 input[type="search"],
 input[type="text"],
+input[type="datetime-local"],
 input[type="file"],
 textarea,
 select {
@@ -338,6 +339,12 @@ select {
   background: var(--fog);
   padding: 0.8rem 0.9rem;
   color: var(--ink);
+}
+
+.field-note {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--slate);
 }
 
 textarea {
@@ -845,6 +852,24 @@ textarea {
   border-bottom: 0;
 }
 
+#create-invite-form .grid-3 {
+  align-items: start;
+}
+
+#create-invite-form .field {
+  align-content: start;
+}
+
+.invite-expires-note {
+  margin-top: 0.15rem;
+}
+
+#invite-management-section .data-table th:last-child,
+#invite-management-section .data-table td:last-child {
+  width: 1%;
+  white-space: nowrap;
+}
+
 .is-selected-row {
   background: rgba(23, 111, 102, 0.06);
 }
@@ -1212,6 +1237,22 @@ code.inline {
   gap: 1rem;
 }
 
+.signup-mode-toggle {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.35rem;
+  padding: 0.35rem;
+  border-radius: 18px;
+  background: #e9ecef;
+  border: 1px solid rgba(15, 22, 32, 0.08);
+}
+
+.signup-mode-toggle .auth-toggle-btn {
+  padding: 0.62rem 0.55rem;
+  font-size: 0.78rem;
+  line-height: 1.15;
+}
+
 .route-status {
   display: grid;
   place-items: center;
@@ -1524,13 +1565,16 @@ code.inline {
   }
 
   .file-row {
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr);
     align-items: start;
+    gap: 0.5rem;
   }
 
   .file-row-controls {
-    align-items: flex-start;
-    flex-direction: row-reverse;
+    width: 100%;
+    align-items: center;
+    flex-direction: row;
+    justify-content: flex-end;
     gap: 0.35rem;
   }
 
@@ -1544,17 +1588,18 @@ code.inline {
   .file-row-actions {
     display: none;
     position: static;
-    min-width: 0;
-    max-width: min(58vw, 22rem);
-    justify-content: flex-end;
+    width: 100%;
+    justify-content: center;
     flex-direction: row;
     flex-wrap: nowrap;
-    gap: 0.35rem;
+    gap: 0.28rem;
     padding: 0;
     border: 0;
     border-radius: 0;
     background: transparent;
     box-shadow: none;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   .file-row-controls.is-open .file-row-actions {
@@ -1562,11 +1607,12 @@ code.inline {
   }
 
   .file-row-actions .btn {
-    width: auto;
+    flex: 0 0 auto;
     justify-content: center;
     padding: 0.42rem 0.58rem;
     font-size: 0.82rem;
     white-space: nowrap;
+    line-height: 1.1;
   }
 
   .file-row-main {
@@ -1575,7 +1621,7 @@ code.inline {
   }
 
   .file-row.is-actions-open .file-row-main {
-    display: none;
+    display: block;
   }
 
   .current-plan-actions {
@@ -1707,6 +1753,10 @@ code.inline {
   .auth-toggle-btn,
   .auth-toggle-btn.is-active {
     border-radius: 14px;
+  }
+
+  .signup-mode-toggle {
+    grid-template-columns: 1fr;
   }
 
   .file-modal-header {

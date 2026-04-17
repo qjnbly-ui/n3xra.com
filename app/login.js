@@ -12,9 +12,17 @@ const signinForm = document.getElementById("signin-form");
 const showSigninButton = document.getElementById("show-signin-button");
 const showSignupButton = document.getElementById("show-signup-button");
 const forgotPasswordButton = document.getElementById("forgot-password-button");
+const signupOrganizationField = document.getElementById("signup-organization-field");
+const signupOrganizationInput = document.getElementById("signup-organization");
+const signupInviteCodeField = document.getElementById("signup-invite-code-field");
+const signupInviteCodeInput = document.getElementById("signup-invite-code");
+const signupModeCreateOrgButton = document.getElementById("signup-mode-create-org");
+const signupModePersonalButton = document.getElementById("signup-mode-personal");
+const signupModeInviteButton = document.getElementById("signup-mode-invite");
 
 let supabase = null;
 let isSubmittingAuth = false;
+let signupMode = "create_org";
 
 function isPlatformAdminEmail(email) {
   return String(email || "").trim().toLowerCase() === PLATFORM_ADMIN_EMAIL;
@@ -44,9 +52,37 @@ function toggleSignup(visible) {
   showSigninButton.setAttribute("aria-pressed", String(!visible));
   authTitle.textContent = visible ? "Create account" : "Sign in";
   authSubtitle.textContent = visible
-    ? "Create your account, start your own library, or redeem an invite code for a shared one."
-    : "Use the account tied to your library.";
+    ? "Choose how to start: create an organization, use Personal, or join with an invite code."
+    : "Use your email and password to sign in.";
+  if (visible) setSignupMode(signupMode);
   setStatus("");
+}
+
+function setSignupMode(mode) {
+  signupMode = mode;
+  const isCreateOrg = mode === "create_org";
+  const isPersonal = mode === "personal";
+  const isInvite = mode === "invite";
+
+  signupModeCreateOrgButton.classList.toggle("is-active", isCreateOrg);
+  signupModePersonalButton.classList.toggle("is-active", isPersonal);
+  signupModeInviteButton.classList.toggle("is-active", isInvite);
+
+  signupModeCreateOrgButton.setAttribute("aria-pressed", String(isCreateOrg));
+  signupModePersonalButton.setAttribute("aria-pressed", String(isPersonal));
+  signupModeInviteButton.setAttribute("aria-pressed", String(isInvite));
+
+  show(signupOrganizationField, !isInvite);
+  show(signupInviteCodeField, isInvite);
+
+  signupInviteCodeInput.required = isInvite;
+
+  if (isPersonal && !signupOrganizationInput.value.trim()) {
+    signupOrganizationInput.value = "Personal";
+  }
+  if (isInvite) {
+    signupOrganizationInput.value = "";
+  }
 }
 
 async function redirectIfAuthed() {
@@ -73,11 +109,17 @@ async function handleSignup(event) {
   event.preventDefault();
   isSubmittingAuth = true;
   const fullName = document.getElementById("signup-full-name").value.trim();
-  const organizationName = document.getElementById("signup-organization").value.trim();
-  const role = document.getElementById("signup-role").value.trim();
+  const organizationName = signupMode === "invite" ? "" : signupOrganizationInput.value.trim();
+  const role = signupMode === "invite" ? "" : "account_owner";
   const email = document.getElementById("signup-email").value.trim();
   const password = document.getElementById("signup-password").value;
-  const inviteCode = document.getElementById("signup-invite-code").value.trim();
+  const inviteCode = signupMode === "invite" ? signupInviteCodeInput.value.trim() : "";
+
+  if (signupMode === "invite" && !inviteCode) {
+    isSubmittingAuth = false;
+    setStatus("Enter an invite code to join a shared library.", "error");
+    return;
+  }
 
   setStatus("Creating account...");
   const { data, error } = await supabase.auth.signUp({
@@ -198,6 +240,9 @@ async function init() {
   signupForm.addEventListener("submit", handleSignup);
   signinForm.addEventListener("submit", handleSignin);
   forgotPasswordButton.addEventListener("click", handleForgotPassword);
+  signupModeCreateOrgButton.addEventListener("click", () => setSignupMode("create_org"));
+  signupModePersonalButton.addEventListener("click", () => setSignupMode("personal"));
+  signupModeInviteButton.addEventListener("click", () => setSignupMode("invite"));
   showSigninButton.addEventListener("click", () => toggleSignup(false));
   showSignupButton.addEventListener("click", () => toggleSignup(true));
 

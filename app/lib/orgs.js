@@ -60,3 +60,33 @@ export function buildMembershipMap(memberships) {
     organization: Array.isArray(membership.organization) ? membership.organization[0] : membership.organization,
   }));
 }
+
+export function dedupeMembershipsByOrganization(memberships) {
+  const list = Array.isArray(memberships) ? memberships : [];
+  const roleRank = {
+    account_owner: 0,
+    account_admin: 1,
+    editor: 2,
+    viewer: 3,
+  };
+
+  const byOrg = new Map();
+  list.forEach((membership) => {
+    const orgId = membership?.organization?.id;
+    if (!orgId) return;
+
+    const existing = byOrg.get(orgId);
+    if (!existing) {
+      byOrg.set(orgId, membership);
+      return;
+    }
+
+    const existingRank = roleRank[existing.role] ?? 99;
+    const nextRank = roleRank[membership.role] ?? 99;
+    if (nextRank < existingRank) {
+      byOrg.set(orgId, membership);
+    }
+  });
+
+  return Array.from(byOrg.values());
+}

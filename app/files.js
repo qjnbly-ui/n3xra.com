@@ -2,6 +2,7 @@ import { createBrowserSupabase, hasConfig, getSessionOrNull } from "./lib/supaba
 import {
   buildMembershipMap,
   canManageLibrary,
+  dedupeMembershipsByOrganization,
   formatRoleLabel,
   isPlatformAdminEmail,
   resolveActiveOrganization,
@@ -231,7 +232,7 @@ async function bootstrapAccess() {
 
   if (error) throw error;
 
-  memberships = buildMembershipMap(data || []);
+  memberships = dedupeMembershipsByOrganization(buildMembershipMap(data || []));
   activeMembership = resolveActiveOrganization(memberships);
   if (!activeMembership) throw new Error("No libraries available for this account.");
   setStoredActiveOrganizationId(activeMembership.organization.id);

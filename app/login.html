@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Account Login</title>
   <meta name="description" content="Sign in or create an account.">
+  <link rel="icon" type="image/png" href="../assets/n3xra_logo_transparent_small.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
@@ -90,16 +91,20 @@
 
             <form class="auth-form hidden" id="signup-form">
               <div class="field">
+                <label>How do you want to start?</label>
+                <div class="signup-mode-toggle" role="tablist" aria-label="Signup mode">
+                  <button class="auth-toggle-btn is-active" id="signup-mode-create-org" type="button" aria-pressed="true">Create organization</button>
+                  <button class="auth-toggle-btn" id="signup-mode-personal" type="button" aria-pressed="false">Personal</button>
+                  <button class="auth-toggle-btn" id="signup-mode-invite" type="button" aria-pressed="false">Join by invite</button>
+                </div>
+              </div>
+              <div class="field">
                 <label for="signup-full-name">Full name</label>
                 <input id="signup-full-name" type="text" autocomplete="name" required>
               </div>
-              <div class="field">
+              <div class="field" id="signup-organization-field">
                 <label for="signup-organization">Organization name</label>
-                <input id="signup-organization" type="text" autocomplete="organization" required>
-              </div>
-              <div class="field">
-                <label for="signup-role">Role</label>
-                <input id="signup-role" type="text" placeholder="Secretary, Clerk, Member">
+                <input id="signup-organization" type="text" autocomplete="organization" placeholder="Optional (defaults to Personal)">
               </div>
               <div class="field">
                 <label for="signup-email">Email</label>
@@ -109,9 +114,9 @@
                 <label for="signup-password">Password</label>
                 <input id="signup-password" type="password" autocomplete="new-password" minlength="8" required>
               </div>
-              <div class="field">
+              <div class="field hidden" id="signup-invite-code-field">
                 <label for="signup-invite-code">Invite code</label>
-                <input id="signup-invite-code" type="text" placeholder="Optional shared library code">
+                <input id="signup-invite-code" type="text" placeholder="Enter invite code">
               </div>
               <div class="actions">
                 <button class="btn block" type="submit">Create account</button>

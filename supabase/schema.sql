@@ -393,6 +393,10 @@ begin
     on conflict (user_id) do update set email = excluded.email;
   end if;
 
+  if nullif(trim(input_invite_code), '') is not null then
+    perform public.redeem_invite_code(input_invite_code);
+  end if;
+
   select om.organization_id, o.name
   into existing_membership
   from public.organization_memberships om
@@ -404,9 +408,7 @@ begin
   if existing_membership.organization_id is null then
     next_org_name := coalesce(
       nullif(trim(input_organization_name), ''),
-      nullif(trim(auth.jwt() -> 'user_metadata' ->> 'organization_name'), ''),
-      nullif(trim(auth.jwt() -> 'user_metadata' ->> 'full_name'), ''),
-      split_part(coalesce(current_email, 'library'), '@', 1) || ' library'
+      'Personal'
     );
 
     insert into public.organizations (
@@ -433,11 +435,51 @@ begin
     );
   end if;
 
-  if nullif(trim(input_invite_code), '') is not null then
-    perform public.redeem_invite_code(input_invite_code);
+  return jsonb_build_object('ok', true);
+end;
+$$;
+
+create or replace function public.enforce_owned_organization_limit()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+declare
+  owned_total integer;
+  paid_owned_total integer;
+begin
+  if auth.role() = 'service_role' then
+    return new;
   end if;
 
-  return jsonb_build_object('ok', true);
+  if public.is_platform_admin() then
+    return new;
+  end if;
+
+  if new.owner_user_id is distinct from auth.uid() then
+    raise exception 'You can only create libraries for your own account.';
+  end if;
+
+  select count(*)
+  into owned_total
+  from public.organizations o
+  where o.owner_user_id = new.owner_user_id;
+
+  if coalesce(owned_total, 0) = 0 then
+    return new;
+  end if;
+
+  select count(*)
+  into paid_owned_total
+  from public.organizations o
+  where o.owner_user_id = new.owner_user_id
+    and o.subscription_tier in ('starter', 'organization');
+
+  if coalesce(paid_owned_total, 0) = 0 then
+    raise exception 'Upgrade plan to create another library.';
+  end if;
+
+  return new;
 end;
 $$;
 
@@ -534,9 +576,9 @@ begin
 
   if exists (
     select 1
-    from public.organizations
-    where id = input_organization_id
-      and subscription_tier = 'free'
+    from public.organizations o
+    where o.id = input_organization_id
+      and o.subscription_tier = 'free'
   ) then
     raise exception 'Invite codes are not available on the Free plan.';
   end if;
@@ -551,7 +593,7 @@ begin
     created_by
   ) values (
     input_organization_id,
-    upper(encode(gen_random_bytes(5), 'hex')),
+    upper(encode(extensions.gen_random_bytes(5), 'hex')),
     input_role,
     greatest(coalesce(input_max_uses, 1), 1),
     input_expires_at,
@@ -601,6 +643,51 @@ begin
   returning * into membership_record;
 
   return membership_record;
+end;
+$$;
+
+create or replace function public.remove_organization_member(
+  input_membership_id uuid
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  membership_record public.organization_memberships%rowtype;
+  organization_owner uuid;
+begin
+  select *
+  into membership_record
+  from public.organization_memberships
+  where id = input_membership_id;
+
+  if membership_record.id is null then
+    raise exception 'Membership not found.';
+  end if;
+
+  if not public.can_manage_members(membership_record.organization_id) then
+    raise exception 'Not allowed to remove this member.';
+  end if;
+
+  select owner_user_id
+  into organization_owner
+  from public.organizations
+  where id = membership_record.organization_id;
+
+  if membership_record.user_id = organization_owner then
+    raise exception 'Transfer ownership before removing the owner.';
+  end if;
+
+  if membership_record.user_id = auth.uid() then
+    raise exception 'You cannot remove your own membership from this screen.';
+  end if;
+
+  delete from public.organization_memberships
+  where id = membership_record.id;
+
+  return jsonb_build_object('ok', true);
 end;
 $$;
 
@@ -706,6 +793,11 @@ create trigger organizations_set_updated_at
 before update on public.organizations
 for each row execute procedure public.set_updated_at();
 
+drop trigger if exists organizations_enforce_owned_limit on public.organizations;
+create trigger organizations_enforce_owned_limit
+before insert on public.organizations
+for each row execute procedure public.enforce_owned_organization_limit();
+
 drop trigger if exists organization_memberships_set_updated_at on public.organization_memberships;
 create trigger organization_memberships_set_updated_at
 before update on public.organization_memberships
@@ -732,7 +824,18 @@ drop policy if exists "profiles_select_policy" on public.profiles;
 create policy "profiles_select_policy"
 on public.profiles
 for select
-using (auth.uid() = id or public.is_platform_admin());
+using (
+  auth.uid() = id
+  or public.is_platform_admin()
+  or exists (
+    select 1
+    from public.organization_memberships self_om
+    join public.organization_memberships target_om
+      on target_om.organization_id = self_om.organization_id
+    where self_om.user_id = auth.uid()
+      and target_om.user_id = profiles.id
+  )
+);
 
 drop policy if exists "profiles_update_policy" on public.profiles;
 create policy "profiles_update_policy"

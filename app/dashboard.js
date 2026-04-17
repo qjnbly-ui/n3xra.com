@@ -6,6 +6,7 @@ import {
   canManageBilling,
   canManageLibrary,
   canManageMembers,
+  dedupeMembershipsByOrganization,
   formatRoleLabel,
   isPlatformAdminEmail,
   resolveActiveOrganization,
@@ -27,6 +28,7 @@ const mobileMenuLibrary = document.getElementById("mobile-menu-library");
 const accountSection = document.getElementById("account-section");
 const librarySection = document.getElementById("library-section");
 const accountLibraryContext = document.getElementById("account-library-context");
+const libraryContextPanel = document.getElementById("library-context-panel");
 const libraryAccessCard = document.getElementById("library-access-card");
 const librarySettingsSection = document.getElementById("library-settings-section");
 const embedSettingsToggle = document.getElementById("embed-settings-toggle");
@@ -38,6 +40,9 @@ const libraryAccessCopy = document.getElementById("library-access-copy");
 const activeOrganizationSelect = document.getElementById("active-organization-select");
 const activeMembershipRole = document.getElementById("active-membership-role");
 const sharedLibraryCount = document.getElementById("shared-library-count");
+const libraryActiveOrganizationSelect = document.getElementById("library-active-organization-select");
+const libraryActiveMembershipRole = document.getElementById("library-active-membership-role");
+const librarySharedLibraryCount = document.getElementById("library-shared-library-count");
 const platformAdminLink = document.getElementById("platform-admin-link");
 const fileModal = document.getElementById("file-modal");
 const fileModalTitle = document.getElementById("file-modal-title");
@@ -423,6 +428,18 @@ function getPlanLimits(planId) {
   };
 }
 
+function toLocalDateTimeInputValue(date) {
+  const pad = (value) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function getDefaultInviteExpiresAtValue() {
+  const next = new Date();
+  next.setDate(next.getDate() + 7);
+  next.setHours(23, 59, 0, 0);
+  return toLocalDateTimeInputValue(next);
+}
+
 function buildSiblingPageUrl(pageName) {
   const currentUrl = new URL(window.location.href);
   const currentPath = currentUrl.pathname;
@@ -669,7 +686,7 @@ async function bootstrapAccess() {
   if (membershipError) throw membershipError;
 
   currentProfile = profileData || null;
-  memberships = buildMembershipMap(membershipData || []);
+  memberships = dedupeMembershipsByOrganization(buildMembershipMap(membershipData || []));
 
   if (supportOrgId && isPlatformAdminEmail(currentSession.user.email)) {
     const { data: supportOrg, error: supportError } = await supabase
@@ -762,18 +779,36 @@ async function loadMembers() {
 
 function renderOrganizationSelector() {
   const currentId = activeMembership?.organization?.id || "";
-  activeOrganizationSelect.innerHTML = memberships
+  const nameCounts = memberships.reduce((map, membership) => {
+    const key = String(membership.organization?.name || "Untitled library").trim().toLowerCase();
+    map.set(key, (map.get(key) || 0) + 1);
+    return map;
+  }, new Map());
+  const optionsMarkup = memberships
     .map((membership) => {
       const selected = membership.organization?.id === currentId ? " selected" : "";
       const supportTag = membership.isSupportView ? " (Support view)" : "";
-      return `<option value="${escapeHtml(membership.organization?.id || "")}"${selected}>${escapeHtml(membership.organization?.name || "Untitled library")}${supportTag}</option>`;
+      const rawName = String(membership.organization?.name || "Untitled library");
+      const key = rawName.trim().toLowerCase();
+      const needsSuffix = (nameCounts.get(key) || 0) > 1;
+      const idSuffix = String(membership.organization?.id || "").slice(0, 8);
+      const displayName = needsSuffix && idSuffix ? `${rawName} (${idSuffix})` : rawName;
+      return `<option value="${escapeHtml(membership.organization?.id || "")}"${selected}>${escapeHtml(displayName)}${supportTag}</option>`;
     })
     .join("");
+  activeOrganizationSelect.innerHTML = optionsMarkup;
+  libraryActiveOrganizationSelect.innerHTML = optionsMarkup;
 
-  activeMembershipRole.textContent = isSupportView() ? "n3xra.com Support View" : formatRoleLabel(getActiveRole());
+  const roleLabel = isSupportView() ? "n3xra.com Support View" : formatRoleLabel(getActiveRole());
+  activeMembershipRole.textContent = roleLabel;
+  libraryActiveMembershipRole.textContent = roleLabel;
   const ownLibraries = memberships.filter((item) => item.role === "account_owner").length;
-  sharedLibraryCount.textContent = String(Math.max(memberships.length - ownLibraries, 0));
-  activeOrganizationSelect.disabled = !hasMultipleLibraries();
+  const sharedCount = String(Math.max(memberships.length - ownLibraries, 0));
+  sharedLibraryCount.textContent = sharedCount;
+  librarySharedLibraryCount.textContent = sharedCount;
+  const hasMany = hasMultipleLibraries();
+  activeOrganizationSelect.disabled = !hasMany;
+  libraryActiveOrganizationSelect.disabled = !hasMany;
 }
 
 function updateEmbedAccess() {
@@ -837,6 +872,7 @@ function renderProfile() {
   const showLibrarySwitcher = hasMultipleLibraries();
   const canEditSettings = canManageMembers(getActiveRole(), isPlatformAdminEmail(currentSession.user.email));
   const canEditLibrary = canManageMembers(getActiveRole(), isPlatformAdminEmail(currentSession.user.email));
+  const canEditBilling = canManageBilling(getActiveRole(), isPlatformAdminEmail(currentSession.user.email));
   const canUpload = canManageLibrary(getActiveRole(), isPlatformAdminEmail(currentSession.user.email));
 
   accountName.textContent = currentProfile?.full_name || currentSession?.user?.email || "-";
@@ -865,18 +901,19 @@ function renderProfile() {
   uploadIsPublicInput.disabled = !canUpload || !hasEmbeddedAccess();
 
   show(accountLibraryContext, showLibrarySwitcher);
+  show(libraryContextPanel, showLibrarySwitcher);
   show(libraryAccessCard, true);
-  show(librarySettingsSection, !isFreePlan);
-  show(changePlanButton, canManageBilling(getActiveRole(), isPlatformAdminEmail(currentSession.user.email)));
+  show(librarySettingsSection, !isFreePlan && canEditLibrary);
+  show(changePlanButton, canEditBilling);
   show(organizationPrimaryColorField, !isFreePlan);
   show(organizationAccentColorField, !isFreePlan);
   show(organizationAdvancedSettings, !isFreePlan);
-  show(inviteManagementSection, !isFreePlan);
-  show(memberManagementSection, !isFreePlan);
+  show(inviteManagementSection, !isFreePlan && canEditSettings);
+  show(memberManagementSection, !isFreePlan && canEditSettings);
   libraryAccessCopy.textContent = isFreePlan
     ? "Redeem invite codes for shared libraries."
     : "Redeem invite codes and manage access for this library.";
-  if (!canManageBilling(getActiveRole(), isPlatformAdminEmail(currentSession.user.email))) {
+  if (!canEditBilling) {
     setBillingPlanPickerOpen(false);
   }
 
@@ -1008,7 +1045,7 @@ function renderRecentFiles() {
 function renderInvites() {
   inviteList.innerHTML = "";
   if (!inviteCache.length) {
-    inviteList.innerHTML = '<tr><td colspan="4">No active invite codes.</td></tr>';
+    inviteList.innerHTML = '<tr><td colspan="5">No active invite codes.</td></tr>';
     return;
   }
 
@@ -1019,6 +1056,7 @@ function renderInvites() {
       <td>${escapeHtml(formatRoleLabel(invite.role))}</td>
       <td>${invite.redeemed_uses}/${invite.max_uses}</td>
       <td>${invite.expires_at ? escapeHtml(new Date(invite.expires_at).toLocaleString()) : "Never"}</td>
+      <td><button class="btn secondary" type="button" data-action="delete-invite" data-invite-id="${invite.id}">Delete</button></td>
     `;
     inviteList.append(row);
   });
@@ -1030,13 +1068,16 @@ function renderMembers() {
 
   memberCache.forEach((member) => {
     const isOwner = member.user_id === getActiveOrganization()?.owner_user_id;
+    const isSelf = member.user_id === currentSession?.user?.id;
+    const canRemove = !isOwner && !isSelf;
     const row = document.createElement("tr");
-    const options = ["account_owner", "account_admin", "editor", "viewer"]
+    const roleOptions = ["account_owner", "account_admin", "editor", "viewer"]
       .map((role) => `<option value="${role}"${member.role === role ? " selected" : ""}>${escapeHtml(formatRoleLabel(role))}</option>`)
       .join("");
-    const action = canEdit
-      ? `<select data-membership-id="${member.id}"${isOwner ? " disabled" : ""}>${options}</select>`
+    const roleSelect = canEdit
+      ? `<select data-membership-id="${member.id}" data-current-role="${escapeHtml(member.role)}"${isOwner ? " disabled" : ""}>${roleOptions}${canRemove ? '<option value="__remove__">Remove user</option>' : ""}</select>`
       : escapeHtml(formatRoleLabel(member.role));
+    const action = roleSelect;
 
     row.innerHTML = `
       <td>${escapeHtml(member.profile?.full_name || "Unknown")}</td>
@@ -1295,11 +1336,20 @@ async function handleCreateInvite(event) {
   setStatus(createInviteStatus, "Creating invite code...");
   const maxUses = Number.parseInt(inviteMaxUsesInput.value.trim(), 10) || 1;
   const expiresAtValue = inviteExpiresAtInput.value.trim();
+  let expiresAtIso = null;
+  if (expiresAtValue) {
+    const expiresAtDate = new Date(expiresAtValue);
+    if (Number.isNaN(expiresAtDate.getTime())) {
+      setStatus(createInviteStatus, "Expires at date/time is invalid.", "error");
+      return;
+    }
+    expiresAtIso = expiresAtDate.toISOString();
+  }
   const { data, error } = await supabase.rpc("create_organization_invite", {
     input_organization_id: organization.id,
     input_role: inviteRoleInput.value,
     input_max_uses: maxUses,
-    input_expires_at: expiresAtValue || null,
+    input_expires_at: expiresAtIso,
   });
 
   if (error) {
@@ -1319,7 +1369,7 @@ async function handleCreateInvite(event) {
   }
 
   inviteMaxUsesInput.value = "1";
-  inviteExpiresAtInput.value = "";
+  inviteExpiresAtInput.value = getDefaultInviteExpiresAtValue();
   await loadInvites();
   if (invite?.code) {
     setStatus(
@@ -1335,6 +1385,33 @@ async function handleCreateInvite(event) {
   setStatus(createInviteStatus, "Invite code created.", "success");
 }
 
+async function handleInviteAction(event) {
+  const button = event.target.closest("button[data-action='delete-invite']");
+  if (!button) return;
+  const inviteId = button.getAttribute("data-invite-id");
+  const organization = getActiveOrganization();
+  if (!inviteId || !organization) return;
+
+  if (!window.confirm("Delete this invite code? This cannot be undone.")) return;
+
+  setStatus(createInviteStatus, "Deleting invite code...");
+  button.disabled = true;
+  const { error } = await supabase
+    .from("organization_invites")
+    .delete()
+    .eq("id", inviteId)
+    .eq("organization_id", organization.id);
+  button.disabled = false;
+
+  if (error) {
+    setStatus(createInviteStatus, error.message, "error");
+    return;
+  }
+
+  await loadInvites();
+  setStatus(createInviteStatus, "Invite code deleted.", "success");
+}
+
 async function handleMemberRoleChange(event) {
   const select = event.target.closest("select[data-membership-id]");
   if (!select) return;
@@ -1343,6 +1420,32 @@ async function handleMemberRoleChange(event) {
   if (!membershipId) return;
 
   const nextRole = select.value;
+  const currentRole = select.getAttribute("data-current-role") || "";
+
+  if (nextRole === "__remove__") {
+    if (!window.confirm("Remove this member's access to this library?")) {
+      if (currentRole) select.value = currentRole;
+      return;
+    }
+
+    setStatus(memberStatus, "Removing member...");
+    select.disabled = true;
+    const { error } = await supabase.rpc("remove_organization_member", {
+      input_membership_id: membershipId,
+    });
+    select.disabled = false;
+
+    if (error) {
+      setStatus(memberStatus, error.message, "error");
+      await loadMembers();
+      return;
+    }
+
+    setStatus(memberStatus, "Member removed.", "success");
+    await loadMembers();
+    return;
+  }
+
   setStatus(memberStatus, "Updating role...");
   const { error } = await supabase.rpc("update_membership_role", {
     input_membership_id: membershipId,
@@ -1524,8 +1627,7 @@ async function handleDocumentAction(event) {
   await openFile(id);
 }
 
-async function handleOrganizationChange() {
-  const nextOrganizationId = activeOrganizationSelect.value;
+async function handleOrganizationChange(nextOrganizationId) {
   const nextMembership = memberships.find((membership) => membership.organization?.id === nextOrganizationId);
   if (!nextMembership) return;
 
@@ -1571,13 +1673,19 @@ async function init() {
   show(setupPanel, false);
   show(dashboardPanel, true);
   showSection(getInitialSection());
+  inviteExpiresAtInput.value = getDefaultInviteExpiresAtValue();
   await loadActiveOrganizationData();
 
   mobileLogoutButton.addEventListener("click", handleSignout);
   mobileMenuToggle.addEventListener("click", toggleMobileMenu);
   mobileMenuAccount.addEventListener("click", () => showSection("account"));
   mobileMenuLibrary.addEventListener("click", () => showSection("library"));
-  activeOrganizationSelect.addEventListener("change", handleOrganizationChange);
+  activeOrganizationSelect.addEventListener("change", async () => {
+    await handleOrganizationChange(activeOrganizationSelect.value);
+  });
+  libraryActiveOrganizationSelect.addEventListener("change", async () => {
+    await handleOrganizationChange(libraryActiveOrganizationSelect.value);
+  });
   changePlanButton.addEventListener("click", () => setBillingPlanPickerOpen(billingPlanPicker.classList.contains("hidden")));
   billingPlanGrid.addEventListener("click", async (event) => {
     const button = event.target.closest("button[data-plan-id]");
@@ -1591,6 +1699,7 @@ async function init() {
   embedSettingsToggle.addEventListener("click", () => setEmbedSettingsOpen(!isEmbedSettingsOpen));
   redeemInviteForm.addEventListener("submit", handleRedeemInvite);
   createInviteForm.addEventListener("submit", handleCreateInvite);
+  inviteList.addEventListener("click", handleInviteAction);
   memberList.addEventListener("change", handleMemberRoleChange);
   openDeleteAccountModalButton.addEventListener("click", () => setDeleteAccountModalOpen(true));
   deleteAccountCancel.addEventListener("click", () => setDeleteAccountModalOpen(false));
