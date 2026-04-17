@@ -1474,58 +1474,55 @@ async function deleteAccount() {
     sessionData?.session?.access_token ||
     currentSession?.access_token ||
     "";
-  const { supabaseAnonKey = "" } = getConfig();
+  const { supabaseUrl = "", supabaseAnonKey = "" } = getConfig();
   if (!accessToken) {
     deleteAccountSubmit.disabled = false;
     deleteAccountCancel.disabled = false;
     setStatus(deleteAccountStatus, "Your session expired. Sign in again and retry.", "error");
     return;
   }
-  if (!supabaseAnonKey) {
+  if (!supabaseUrl || !supabaseAnonKey) {
     deleteAccountSubmit.disabled = false;
     deleteAccountCancel.disabled = false;
-    setStatus(deleteAccountStatus, "Missing app config for function auth headers.", "error");
+    setStatus(deleteAccountStatus, "Missing app config for delete-account request.", "error");
     return;
   }
 
-  const { data, error } = await supabase.functions.invoke("delete-account", {
-    body: {},
-    headers: {
-      apikey: supabaseAnonKey,
-      Authorization: `Bearer ${accessToken}`,
-    },
-  });
-  if (error || data?.error) {
-    let errorMessage = data?.error || "Unable to delete account.";
-    if (error?.message && error.message !== "Edge Function returned a non-2xx status code") {
-      errorMessage = error.message;
-    }
-    const errorContext = error?.context;
-    if (errorContext && typeof errorContext.json === "function") {
-      try {
-        const payload = await errorContext.clone().json();
-        if (payload?.error) {
-          errorMessage = String(payload.error);
-        }
-      } catch {
-        if (typeof errorContext.text === "function") {
-          try {
-            const raw = await errorContext.clone().text();
-            if (raw) {
-              errorMessage = raw.slice(0, 320);
-            }
-          } catch {
-            // Use fallback message when response body is unavailable.
-          }
-        }
-      }
-      if (errorContext.status) {
-        errorMessage = `${errorMessage} (HTTP ${errorContext.status})`;
-      }
-    }
+  let response;
+  try {
+    response = await fetch(`${supabaseUrl}/functions/v1/delete-account`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: supabaseAnonKey,
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: "{}",
+    });
+  } catch (error) {
     deleteAccountSubmit.disabled = false;
     deleteAccountCancel.disabled = false;
-    setStatus(deleteAccountStatus, errorMessage, "error");
+    setStatus(deleteAccountStatus, error instanceof Error ? error.message : "Unable to reach delete-account function.", "error");
+    return;
+  }
+
+  let payload = null;
+  let rawText = "";
+  try {
+    payload = await response.clone().json();
+  } catch {
+    try {
+      rawText = await response.clone().text();
+    } catch {
+      rawText = "";
+    }
+  }
+
+  if (!response.ok || payload?.error) {
+    const errorMessage = String(payload?.error || rawText || "Unable to delete account.");
+    deleteAccountSubmit.disabled = false;
+    deleteAccountCancel.disabled = false;
+    setStatus(deleteAccountStatus, `${errorMessage} (HTTP ${response.status})`, "error");
     return;
   }
 
