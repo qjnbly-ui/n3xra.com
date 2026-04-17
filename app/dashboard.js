@@ -1469,9 +1469,24 @@ async function deleteAccount() {
 
   const { data, error } = await supabase.functions.invoke("delete-account", { body: {} });
   if (error || data?.error) {
+    let errorMessage = data?.error || "Unable to delete account.";
+    if (error?.message && error.message !== "Edge Function returned a non-2xx status code") {
+      errorMessage = error.message;
+    }
+    const errorContext = error?.context;
+    if (errorContext && typeof errorContext.json === "function") {
+      try {
+        const payload = await errorContext.json();
+        if (payload?.error) {
+          errorMessage = String(payload.error);
+        }
+      } catch {
+        // Use fallback message when response body is unavailable.
+      }
+    }
     deleteAccountSubmit.disabled = false;
     deleteAccountCancel.disabled = false;
-    setStatus(deleteAccountStatus, error?.message || data?.error || "Unable to delete account.", "error");
+    setStatus(deleteAccountStatus, errorMessage, "error");
     return;
   }
 

@@ -23,10 +23,16 @@ Deno.serve(async (request) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
-    const serviceRoleKey = Deno.env.get("SERVICE_ROLE_KEY");
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || Deno.env.get("SERVICE_ROLE_KEY");
 
     if (!supabaseUrl || !anonKey || !serviceRoleKey) {
-      return jsonResponse({ error: "Supabase environment variables are missing." }, 500);
+      return jsonResponse(
+        {
+          error:
+            "Supabase environment variables are missing. Required: SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY.",
+        },
+        500
+      );
     }
 
     const authHeader = request.headers.get("Authorization");
@@ -64,27 +70,26 @@ Deno.serve(async (request) => {
 
     const ownedOrganizationIds = (ownedOrganizations || []).map((org) => org.id);
 
-    const { data: documents, error: documentsError } = await adminClient
-      .from("documents")
-      .select("storage_path")
-      .in("organization_id", ownedOrganizationIds.length ? ownedOrganizationIds : ["00000000-0000-0000-0000-000000000000"]);
-
-    if (documentsError) {
-      return jsonResponse({ error: documentsError.message }, 400);
-    }
-
-    const storagePaths = (documents || [])
-      .map((doc) => doc.storage_path)
-      .filter((path): path is string => Boolean(path));
-
-    if (storagePaths.length) {
-      const { error: storageError } = await adminClient.storage.from("documents").remove(storagePaths);
-      if (storageError) {
-        return jsonResponse({ error: storageError.message }, 400);
-      }
-    }
-
     if (ownedOrganizationIds.length) {
+      const { data: documents, error: documentsError } = await adminClient
+        .from("documents")
+        .select("storage_path")
+        .in("organization_id", ownedOrganizationIds);
+
+      if (documentsError) {
+        return jsonResponse({ error: documentsError.message }, 400);
+      }
+
+      const storagePaths = (documents || [])
+        .map((doc) => doc.storage_path)
+        .filter((path): path is string => Boolean(path));
+
+      if (storagePaths.length) {
+        const { error: storageError } = await adminClient.storage.from("documents").remove(storagePaths);
+        if (storageError) {
+          return jsonResponse({ error: storageError.message }, 400);
+        }
+      }
       const { error: deleteOrganizationsError } = await adminClient
         .from("organizations")
         .delete()
@@ -103,6 +108,7 @@ Deno.serve(async (request) => {
     return jsonResponse({ ok: true });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unexpected delete-account error.";
+    console.error("delete-account failed:", message);
     return jsonResponse({ error: message }, 500);
   }
 });
