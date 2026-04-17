@@ -1467,7 +1467,21 @@ async function deleteAccount() {
   deleteAccountSubmit.disabled = true;
   deleteAccountCancel.disabled = true;
 
-  const { data, error } = await supabase.functions.invoke("delete-account", { body: {} });
+  const { data: sessionData } = await supabase.auth.getSession();
+  const accessToken = sessionData?.session?.access_token || currentSession?.access_token || "";
+  if (!accessToken) {
+    deleteAccountSubmit.disabled = false;
+    deleteAccountCancel.disabled = false;
+    setStatus(deleteAccountStatus, "Your session expired. Sign in again and retry.", "error");
+    return;
+  }
+
+  const { data, error } = await supabase.functions.invoke("delete-account", {
+    body: {},
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
   if (error || data?.error) {
     let errorMessage = data?.error || "Unable to delete account.";
     if (error?.message && error.message !== "Edge Function returned a non-2xx status code") {
