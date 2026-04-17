@@ -137,7 +137,7 @@ At that point, a Vercel API route is probably the easiest next step for you.
 Right now:
 
 - the app enforces plan document limits
-- the UI reads tier, status, and Stripe metadata from `profiles`
+- the UI reads tier, status, and Stripe metadata from `organizations`
 - signed-in users can edit profile fields only
 - billing fields are meant to be changed outside the client app
 
@@ -146,3 +146,75 @@ Until Stripe is connected, use [supabase/manual_billing_updates.sql](/Users/quen
 - move an account between `free`, `starter`, and `organization`
 - change `account_status`
 - attach Stripe ids later when Stripe goes live
+
+## Stripe billing setup
+
+This repo now includes Supabase Edge Functions for Stripe:
+
+- `stripe-billing`: creates Checkout and Customer Portal sessions
+- `stripe-webhook`: receives Stripe webhook events and syncs the `organizations` table
+
+### Required app config
+
+Set this in [app/config.js](/Users/quentinnichols/Documents/Websites/n3xra.com/app/config.js):
+
+```js
+window.RECORDS_APP_CONFIG = {
+  supabaseUrl: "https://YOUR-PROJECT-REF.supabase.co",
+  supabaseAnonKey: "YOUR_SUPABASE_ANON_KEY",
+  billingEnabled: true,
+};
+```
+
+### Required Supabase function secrets
+
+Add these secrets before deploying the billing functions:
+
+- `SUPABASE_URL`
+- `SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `STRIPE_SECRET_KEY`
+- `STRIPE_WEBHOOK_SECRET`
+- `STRIPE_PRICE_STARTER`
+- `STRIPE_PRICE_ORGANIZATION`
+- `APP_ORIGIN`
+
+### Stripe product setup
+
+Create two recurring monthly prices in Stripe:
+
+- Starter: `$24/month`
+- Organization: `$89/month`
+
+Copy those price ids into:
+
+- `STRIPE_PRICE_STARTER`
+- `STRIPE_PRICE_ORGANIZATION`
+
+### Deploy functions
+
+```bash
+supabase functions deploy stripe-billing
+supabase functions deploy stripe-webhook
+```
+
+### Webhook endpoint
+
+Point Stripe to:
+
+```text
+https://YOUR-PROJECT-REF.supabase.co/functions/v1/stripe-webhook
+```
+
+Subscribe the webhook to:
+
+- `checkout.session.completed`
+- `customer.subscription.created`
+- `customer.subscription.updated`
+- `customer.subscription.deleted`
+
+### Billing behavior
+
+- Free libraries start paid plans through Stripe Checkout
+- Active paid libraries manage upgrades, downgrades, cancellation, and payment methods in Stripe Customer Portal
+- Stripe webhooks are the source of truth for `subscription_tier`, `account_status`, limits, and renewal date in `organizations`

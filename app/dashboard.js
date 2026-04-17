@@ -3,13 +3,13 @@ import { createBrowserSupabase, getConfig, hasConfig, getSessionOrNull } from ".
 import { PLAN_ORDER, getPlanConfig, formatPlanName } from "./lib/plan-config.js";
 import {
   buildMembershipMap,
-  canManageBilling,
-  canManageLibrary,
-  canManageMembers,
   dedupeMembershipsByOrganization,
   formatRoleLabel,
+  getCapabilities,
+  getMembershipRole,
   getStoredActiveOrganizationId,
   isPlatformAdminEmail,
+  MEMBERSHIP_ROLE_ORDER,
   resolveActiveOrganization,
   setStoredActiveOrganizationId,
   titleCase,
@@ -80,6 +80,7 @@ const accountTier = document.getElementById("account-tier");
 const accountStatus = document.getElementById("account-status");
 const currentPlanName = document.getElementById("current-plan-name");
 const currentPlanCopy = document.getElementById("current-plan-copy");
+const manageBillingButton = document.getElementById("manage-billing-button");
 const changePlanButton = document.getElementById("change-plan-button");
 const billingPlanPicker = document.getElementById("billing-plan-picker");
 const billingPlanGrid = document.getElementById("billing-plan-grid");
@@ -407,16 +408,16 @@ function getActiveOrganization() {
   return activeMembership?.organization || null;
 }
 
-function getEffectiveMembershipRole(membership) {
-  if (!membership) return "";
-  if (membership.organization?.owner_user_id === currentSession?.user?.id) {
-    return "account_owner";
-  }
-  return membership.role || "";
+function getActiveRole() {
+  return getMembershipRole(activeMembership);
 }
 
-function getActiveRole() {
-  return getEffectiveMembershipRole(activeMembership);
+function getActiveCapabilities() {
+  return getCapabilities(
+    activeMembership,
+    currentSession?.user?.id || "",
+    isPlatformAdminEmail(currentSession?.user?.email)
+  );
 }
 
 function isSupportView() {
@@ -439,14 +440,78 @@ function hasMultipleLibraries() {
   return memberships.length > 1;
 }
 
-function getPlanLimits(planId) {
-  const plan = getPlanConfig(planId);
-  return {
-    document_limit: plan.documentLimit,
-    user_limit: plan.userLimit,
-    storage_limit_mb: plan.storageLimitMb,
-    public_embed_enabled: plan.embedAllowed && organizationPublicEmbedInput.checked,
+function isBillingEnabled() {
+  return Boolean(getConfig().billingEnabled);
+}
+
+function formatBillingDate(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(date);
+}
+
+async function openBillingFlow(action, payload = {}) {
+  if (!isBillingEnabled()) {
+    setStatus(contextStatus, "Stripe billing is not enabled in app/config.js yet.", "error");
+    return false;
+  }
+
+  const { data, error } = await supabase.functions.invoke("stripe-billing", {
+    body: {
+      action,
+      ...payload,
+    },
+  });
+
+  if (error) {
+    setStatus(contextStatus, error.message, "error");
+    return false;
+  }
+
+  if (data?.error) {
+    setStatus(contextStatus, data.error, "error");
+    return false;
+  }
+
+  if (!data?.url) {
+    setStatus(contextStatus, "Billing session did not return a redirect URL.", "error");
+    return false;
+  }
+
+  window.location.assign(data.url);
+  return true;
+}
+
+function showBillingFlashFromUrl() {
+  const url = new URL(window.location.href);
+  const billingState = url.searchParams.get("billing");
+  if (!billingState) return;
+
+  const flashMessages = {
+    success: ["Checkout complete. Billing details should refresh in a few seconds.", "success"],
+    canceled: ["Stripe checkout was canceled.", ""],
+    portal: ["Returned from the billing portal.", "success"],
   };
+  const [message, tone] = flashMessages[billingState] || ["", ""];
+  if (message) {
+    setStatus(contextStatus, message, tone);
+  }
+
+  if (billingState === "success") {
+    window.setTimeout(() => {
+      loadActiveOrganizationData().catch(() => {
+        // Keep the initial success state if the delayed refresh fails.
+      });
+    }, 2500);
+  }
+
+  url.searchParams.delete("billing");
+  window.history.replaceState({}, "", url);
 }
 
 function toLocalDateTimeInputValue(date) {
@@ -642,18 +707,18 @@ function getDocumentDateScore(doc) {
 
 function sortMemberships(items) {
   const roleOrder = {
-    account_owner: 0,
-    account_admin: 1,
-    editor: 2,
-    viewer: 3,
+    account_admin: 0,
+    editor: 1,
+    viewer: 2,
+    guest: 3,
   };
 
   return [...items].sort((a, b) => {
     const aSupport = a.isSupportView ? 0 : 1;
     const bSupport = b.isSupportView ? 0 : 1;
     if (aSupport !== bSupport) return aSupport - bSupport;
-    const aRank = roleOrder[a.role] ?? 99;
-    const bRank = roleOrder[b.role] ?? 99;
+    const aRank = roleOrder[getMembershipRole(a)] ?? 99;
+    const bRank = roleOrder[getMembershipRole(b)] ?? 99;
     if (aRank !== bRank) return aRank - bRank;
     return String(a.organization?.name || "").localeCompare(String(b.organization?.name || ""));
   });
@@ -712,7 +777,7 @@ async function bootstrapAccess() {
   if (supportOrgId && isPlatformAdminEmail(currentSession.user.email)) {
     const { data: supportOrg, error: supportError } = await supabase
       .from("organizations")
-      .select("id, name, slug, owner_user_id, subscription_tier, account_status, document_limit, storage_limit_mb, user_limit, public_embed_enabled, public_embed_token, transcript_preview_enabled, keyword_search_enabled, file_preview_cards_enabled, hosted_public_portal_enabled, branded_primary_color, branded_accent_color")
+      .select("id, name, slug, owner_user_id, subscription_tier, account_status, document_limit, storage_limit_mb, user_limit, public_embed_enabled, public_embed_token, transcript_preview_enabled, keyword_search_enabled, file_preview_cards_enabled, hosted_public_portal_enabled, branded_primary_color, branded_accent_color, stripe_customer_id, stripe_subscription_id, stripe_price_id, subscription_current_period_end")
       .eq("id", supportOrgId)
       .maybeSingle();
 
@@ -747,7 +812,7 @@ async function bootstrapAccess() {
 
 async function loadInvites() {
   if (!activeMembership) return;
-  if (!canManageMembers(getActiveRole(), isPlatformAdminEmail(currentSession.user.email))) {
+  if (!getActiveCapabilities().canManageInvites) {
     inviteCache = [];
     inviteList.innerHTML = "";
     return;
@@ -826,7 +891,7 @@ function renderOrganizationSelector() {
   const roleLabel = isSupportView() ? "n3xra.com Support View" : formatRoleLabel(getActiveRole());
   activeMembershipRole.textContent = roleLabel;
   libraryActiveMembershipRole.textContent = roleLabel;
-  const ownLibraries = memberships.filter((item) => item.role === "account_owner").length;
+  const ownLibraries = memberships.filter((item) => item.organization?.owner_user_id === currentSession?.user?.id).length;
   const sharedCount = String(Math.max(memberships.length - ownLibraries, 0));
   sharedLibraryCount.textContent = sharedCount;
   librarySharedLibraryCount.textContent = sharedCount;
@@ -854,20 +919,39 @@ function updateEmbedAccess() {
 function renderBillingPlans() {
   const organization = getActiveOrganization();
   if (!organization) return;
+  const capabilities = getActiveCapabilities();
 
   const activePlanId = organization.subscription_tier || "free";
   const activePlan = getPlanConfig(activePlanId);
   const remaining = Math.max(getDocumentLimit() - documentsCache.length, 0);
+  const currentPeriodEndLabel = formatBillingDate(organization.subscription_current_period_end);
+  const statusLabel = titleCase(organization.account_status || "active");
+  const isPaidPlan = activePlanId !== "free";
 
   currentPlanName.textContent = activePlan.name;
-  currentPlanCopy.textContent = `${organization.document_limit} documents · ${organization.user_limit} users · ${organization.storage_limit_mb} MB · ${remaining} remaining`;
+  currentPlanCopy.textContent = [
+    `${organization.document_limit} documents`,
+    `${organization.user_limit} users`,
+    `${organization.storage_limit_mb} MB`,
+    `${remaining} remaining`,
+    isPaidPlan ? `Status: ${statusLabel}` : "",
+    isPaidPlan && currentPeriodEndLabel ? `Renews ${currentPeriodEndLabel}` : "",
+  ].filter(Boolean).join(" · ");
+  show(manageBillingButton, isBillingEnabled() && Boolean(organization.stripe_customer_id || organization.stripe_subscription_id));
   updateEmbedAccess();
 
   billingPlanGrid.innerHTML = PLAN_ORDER.map((planId) => {
     const plan = getPlanConfig(planId);
     const isCurrent = planId === activePlanId;
+    const isFreeTarget = planId === "free";
+    const isPaidAccount = activePlanId !== "free";
+    const buttonLabel = isCurrent
+      ? "Current plan"
+      : isPaidAccount
+        ? (isFreeTarget ? "Cancel in portal" : "Change in portal")
+        : (isFreeTarget ? "Included" : "Checkout");
     const badge = isCurrent ? '<span class="plan-badge">Current</span>' : "";
-    const disabled = !canManageBilling(getActiveRole(), isPlatformAdminEmail(currentSession.user.email)) ? " disabled" : "";
+    const disabled = !capabilities.canManageBilling ? " disabled" : "";
     return `
       <article class="plan-card${isCurrent ? " is-current" : ""}">
         <div class="plan-card-head">
@@ -883,7 +967,7 @@ function renderBillingPlans() {
           ${plan.features.map((feature) => `<li>${escapeHtml(feature)}</li>`).join("")}
         </ul>
         <div class="actions">
-          <button class="btn secondary" type="button" data-plan-id="${plan.id}"${disabled}>${isCurrent ? "Current plan" : "Switch plan"}</button>
+          <button class="btn secondary" type="button" data-plan-id="${plan.id}"${disabled}${isCurrent ? " disabled" : ""}>${buttonLabel}</button>
         </div>
       </article>
     `;
@@ -894,14 +978,11 @@ function renderProfile() {
   const organization = getActiveOrganization();
   const isFreePlan = isFreePlanExperience();
   const showLibrarySwitcher = hasMultipleLibraries();
-  const canEditSettings = canManageMembers(getActiveRole(), isPlatformAdminEmail(currentSession.user.email));
-  const canEditLibrary = canManageMembers(getActiveRole(), isPlatformAdminEmail(currentSession.user.email));
-  const canEditBilling = canManageBilling(getActiveRole(), isPlatformAdminEmail(currentSession.user.email));
-  const canUpload = canManageLibrary(getActiveRole(), isPlatformAdminEmail(currentSession.user.email));
-  const canSeeBilling = canEditBilling;
-  const canSeeLibrarySettings = !isFreePlan && canEditLibrary;
-  const canSeeInviteManagement = !isFreePlan && canEditSettings;
-  const canSeeMemberManagement = !isFreePlan && canEditSettings;
+  const capabilities = getActiveCapabilities();
+  const canSeeBilling = capabilities.canManageBilling;
+  const canSeeLibrarySettings = !isFreePlan && capabilities.canManageLibrarySettings;
+  const canSeeInviteManagement = !isFreePlan && capabilities.canManageInvites;
+  const canSeeMemberManagement = !isFreePlan && capabilities.canManageMembers;
 
   accountName.textContent = currentProfile?.full_name || currentSession?.user?.email || "-";
   accountEmail.textContent = currentSession?.user?.email || currentProfile?.email || "-";
@@ -918,40 +999,40 @@ function renderProfile() {
   organizationKeywordSearchInput.checked = Boolean(organization?.keyword_search_enabled);
   organizationFilePreviewCardsInput.checked = Boolean(organization?.file_preview_cards_enabled);
 
-  organizationNameInput.disabled = !canEditLibrary;
-  organizationPrimaryColorInput.disabled = !canEditLibrary || isFreePlan;
-  organizationAccentColorInput.disabled = !canEditLibrary || isFreePlan;
-  organizationPublicEmbedInput.disabled = !canEditLibrary || !hasEmbeddedAccess() || isFreePlan;
-  organizationKeywordSearchInput.disabled = !canEditLibrary || isFreePlan;
-  organizationFilePreviewCardsInput.disabled = !canEditLibrary || isFreePlan;
-  organizationSettingsSave.disabled = !canEditLibrary;
-  openUploadModalButton.disabled = !canUpload;
-  uploadIsPublicInput.disabled = !canUpload || !hasEmbeddedAccess();
+  organizationNameInput.disabled = !capabilities.canManageLibrarySettings;
+  organizationPrimaryColorInput.disabled = !capabilities.canManageLibrarySettings || isFreePlan;
+  organizationAccentColorInput.disabled = !capabilities.canManageLibrarySettings || isFreePlan;
+  organizationPublicEmbedInput.disabled = !capabilities.canManageLibrarySettings || !hasEmbeddedAccess() || isFreePlan;
+  organizationKeywordSearchInput.disabled = !capabilities.canManageLibrarySettings || isFreePlan;
+  organizationFilePreviewCardsInput.disabled = !capabilities.canManageLibrarySettings || isFreePlan;
+  organizationSettingsSave.disabled = !capabilities.canManageLibrarySettings;
+  openUploadModalButton.disabled = !capabilities.canUploadDocuments;
+  uploadIsPublicInput.disabled = !capabilities.canUploadDocuments || !hasEmbeddedAccess();
 
   show(accountLibraryContext, showLibrarySwitcher);
   show(libraryContextPanel, showLibrarySwitcher);
   show(billingSection, canSeeBilling);
   show(libraryAccessCard, true);
   show(librarySettingsSection, canSeeLibrarySettings);
-  show(changePlanButton, canEditBilling);
+  show(changePlanButton, capabilities.canManageBilling);
   show(organizationPrimaryColorField, !isFreePlan);
   show(organizationAccentColorField, !isFreePlan);
   show(organizationAdvancedSettings, !isFreePlan);
   show(inviteManagementSection, canSeeInviteManagement);
   show(memberManagementSection, canSeeMemberManagement);
-  show(uploadActionSlot, canUpload);
+  show(uploadActionSlot, capabilities.canUploadDocuments);
   libraryAccessCopy.textContent = isFreePlan
     ? "Redeem invite codes for shared libraries."
-    : canEditSettings
+    : capabilities.canManageMembers
       ? "Redeem invite codes and manage access for this library."
       : "Redeem invite codes for shared libraries.";
-  if (!canEditBilling) {
+  if (!capabilities.canManageBilling) {
     setBillingPlanPickerOpen(false);
   }
 
   Array.from(createInviteForm.elements).forEach((field) => {
     if (field instanceof HTMLInputElement || field instanceof HTMLSelectElement || field instanceof HTMLButtonElement) {
-      field.disabled = !canEditSettings || isFreePlan;
+      field.disabled = !capabilities.canManageInvites || isFreePlan;
     }
   });
 
@@ -1095,7 +1176,8 @@ function renderInvites() {
 }
 
 function renderMembers() {
-  const canEdit = canManageMembers(getActiveRole(), isPlatformAdminEmail(currentSession.user.email));
+  const capabilities = getActiveCapabilities();
+  const canEdit = capabilities.canManageMembers;
   memberList.innerHTML = "";
 
   memberCache.forEach((member) => {
@@ -1103,8 +1185,8 @@ function renderMembers() {
     const isSelf = member.user_id === currentSession?.user?.id;
     const canRemove = !isOwner && !isSelf;
     const row = document.createElement("tr");
-    const effectiveRole = isOwner ? "account_owner" : member.role;
-    const roleOptions = ["account_admin", "editor", "viewer"]
+    const effectiveRole = isOwner ? "billing_owner" : getMembershipRole(member);
+    const roleOptions = MEMBERSHIP_ROLE_ORDER
       .map((role) => `<option value="${role}"${effectiveRole === role ? " selected" : ""}>${escapeHtml(formatRoleLabel(role))}</option>`)
       .join("");
     const roleSelect = isOwner
@@ -1219,6 +1301,7 @@ async function handleProfileSave(event) {
   event.preventDefault();
   setStatus(profileStatus, "Saving profile...");
   const organization = getActiveOrganization();
+  const capabilities = getActiveCapabilities();
 
   const updates = {
     full_name: profileFullNameInput.value.trim() || null,
@@ -1226,14 +1309,14 @@ async function handleProfileSave(event) {
 
   const [{ error: profileError }, organizationResult] = await Promise.all([
     supabase.from("profiles").update(updates).eq("id", currentSession.user.id),
-    organization && canManageMembers(getActiveRole(), isPlatformAdminEmail(currentSession.user.email))
+    organization && capabilities.canManageLibrarySettings
       ? supabase
           .from("organizations")
           .update({
             name: organizationNameInput.value.trim() || organization.name,
           })
           .eq("id", organization.id)
-          .select("id, name, slug, owner_user_id, subscription_tier, account_status, document_limit, storage_limit_mb, user_limit, public_embed_enabled, public_embed_token, transcript_preview_enabled, keyword_search_enabled, file_preview_cards_enabled, hosted_public_portal_enabled, branded_primary_color, branded_accent_color")
+          .select("id, name, slug, owner_user_id, subscription_tier, account_status, document_limit, storage_limit_mb, user_limit, public_embed_enabled, public_embed_token, transcript_preview_enabled, keyword_search_enabled, file_preview_cards_enabled, hosted_public_portal_enabled, branded_primary_color, branded_accent_color, stripe_customer_id, stripe_subscription_id, stripe_price_id, subscription_current_period_end")
           .single()
       : Promise.resolve({ data: null, error: null }),
   ]);
@@ -1265,7 +1348,7 @@ async function handleOrganizationSettingsSave(event) {
   const organization = getActiveOrganization();
   const isFreePlan = isFreePlanExperience();
   if (!organization) return;
-  if (!canManageMembers(getActiveRole(), isPlatformAdminEmail(currentSession.user.email))) {
+  if (!getActiveCapabilities().canManageLibrarySettings) {
     setStatus(organizationSettingsStatus, "You do not have permission to change embed settings.", "error");
     return;
   }
@@ -1288,7 +1371,7 @@ async function handleOrganizationSettingsSave(event) {
     .from("organizations")
     .update(updates)
     .eq("id", organization.id)
-    .select("id, name, slug, owner_user_id, subscription_tier, account_status, document_limit, storage_limit_mb, user_limit, public_embed_enabled, public_embed_token, transcript_preview_enabled, keyword_search_enabled, file_preview_cards_enabled, hosted_public_portal_enabled, branded_primary_color, branded_accent_color")
+    .select("id, name, slug, owner_user_id, subscription_tier, account_status, document_limit, storage_limit_mb, user_limit, public_embed_enabled, public_embed_token, transcript_preview_enabled, keyword_search_enabled, file_preview_cards_enabled, hosted_public_portal_enabled, branded_primary_color, branded_accent_color, stripe_customer_id, stripe_subscription_id, stripe_price_id, subscription_current_period_end")
     .single();
 
   if (error) {
@@ -1307,39 +1390,22 @@ async function handleOrganizationSettingsSave(event) {
 async function handlePlanChange(planId) {
   const organization = getActiveOrganization();
   if (!organization) return;
-  if (!canManageBilling(getActiveRole(), isPlatformAdminEmail(currentSession.user.email))) {
+  if (!getActiveCapabilities().canManageBilling) {
     setStatus(contextStatus, "Only the account owner or n3xra.com admin can change plan tiers.", "error");
     return;
   }
 
-  const limits = getPlanLimits(planId);
-  const updates = {
-    subscription_tier: planId,
-    document_limit: limits.document_limit,
-    user_limit: limits.user_limit,
-    storage_limit_mb: limits.storage_limit_mb,
-    public_embed_enabled: limits.public_embed_enabled,
-  };
-
-  setStatus(contextStatus, "Updating plan...");
-  const { data, error } = await supabase
-    .from("organizations")
-    .update(updates)
-    .eq("id", organization.id)
-    .select("id, name, slug, owner_user_id, subscription_tier, account_status, document_limit, storage_limit_mb, user_limit, public_embed_enabled, public_embed_token, transcript_preview_enabled, keyword_search_enabled, file_preview_cards_enabled, hosted_public_portal_enabled, branded_primary_color, branded_accent_color")
-    .single();
-
-  if (error) {
-    setStatus(contextStatus, error.message, "error");
+  if (planId === "free" || organization.subscription_tier !== "free" || organization.stripe_customer_id) {
+    setStatus(contextStatus, "Opening Stripe billing portal...");
+    await openBillingFlow("create-portal-session", { organizationId: organization.id });
     return;
   }
 
-  activeMembership.organization = data;
-  memberships = memberships.map((membership) =>
-    membership.organization?.id === data.id ? { ...membership, organization: data } : membership
-  );
-  renderProfile();
-  setStatus(contextStatus, "Plan updated.", "success");
+  setStatus(contextStatus, "Opening Stripe checkout...");
+  await openBillingFlow("create-checkout-session", {
+    organizationId: organization.id,
+    planId,
+  });
 }
 
 async function handleRedeemInvite(event) {
@@ -1580,7 +1646,7 @@ async function uploadDocument(event) {
   const organization = getActiveOrganization();
   if (!organization) return;
 
-  if (!canManageLibrary(getActiveRole(), isPlatformAdminEmail(currentSession.user.email))) {
+  if (!getActiveCapabilities().canUploadDocuments) {
     setStatus(uploadStatus, "You do not have permission to upload into this library.", "error");
     return;
   }
@@ -1764,6 +1830,7 @@ async function init() {
   showSection(getInitialSection());
   inviteExpiresAtInput.value = getDefaultInviteExpiresAtValue();
   await loadActiveOrganizationData();
+  showBillingFlashFromUrl();
 
   mobileLogoutButton.addEventListener("click", handleSignout);
   mobileMenuToggle.addEventListener("click", toggleMobileMenu);
@@ -1776,6 +1843,12 @@ async function init() {
     await handleOrganizationChange(libraryActiveOrganizationSelect.value);
   });
   changePlanButton.addEventListener("click", () => setBillingPlanPickerOpen(billingPlanPicker.classList.contains("hidden")));
+  manageBillingButton.addEventListener("click", async () => {
+    const organization = getActiveOrganization();
+    if (!organization) return;
+    setStatus(contextStatus, "Opening Stripe billing portal...");
+    await openBillingFlow("create-portal-session", { organizationId: organization.id });
+  });
   billingPlanGrid.addEventListener("click", async (event) => {
     const button = event.target.closest("button[data-plan-id]");
     if (!button) return;

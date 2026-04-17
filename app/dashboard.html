@@ -119,6 +119,7 @@
                 <p class="current-plan-copy" id="current-plan-copy">25 documents included.</p>
               </div>
               <div class="current-plan-actions">
+                <button class="btn secondary hidden" id="manage-billing-button" type="button">Manage billing</button>
                 <button class="btn secondary" id="change-plan-button" type="button" aria-expanded="false">Change plan</button>
               </div>
             </div>
@@ -156,6 +157,7 @@
                   <div class="field">
                     <label for="invite-role">Role</label>
                     <select id="invite-role">
+                      <option value="guest">Guest</option>
                       <option value="viewer">Viewer</option>
                       <option value="editor">Editor</option>
                       <option value="account_admin">Account Admin</option>

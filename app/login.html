@@ -72,6 +72,16 @@
               <button class="auth-toggle-btn" id="show-signup-button" type="button" aria-pressed="false">Create account</button>
             </div>
 
+            <div class="auth-form hidden" id="authed-state">
+              <p class="account-note" id="authed-copy">You are already signed in.</p>
+              <div class="actions">
+                <button class="btn block" id="continue-session-button" type="button">Continue to dashboard</button>
+              </div>
+              <div class="actions">
+                <button class="btn secondary block" id="signout-for-signup-button" type="button">Sign out to use another account</button>
+              </div>
+            </div>
+
             <form class="auth-form" id="signin-form">
               <div class="field">
                 <label for="signin-email">Email</label>

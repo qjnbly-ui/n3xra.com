@@ -13,6 +13,10 @@ const signinForm = document.getElementById("signin-form");
 const showSigninButton = document.getElementById("show-signin-button");
 const showSignupButton = document.getElementById("show-signup-button");
 const forgotPasswordButton = document.getElementById("forgot-password-button");
+const authedState = document.getElementById("authed-state");
+const authedCopy = document.getElementById("authed-copy");
+const continueSessionButton = document.getElementById("continue-session-button");
+const signoutForSignupButton = document.getElementById("signout-for-signup-button");
 const signupOrganizationField = document.getElementById("signup-organization-field");
 const signupOrganizationInput = document.getElementById("signup-organization");
 const signupInviteCodeField = document.getElementById("signup-invite-code-field");
@@ -24,6 +28,7 @@ const signupModeInviteButton = document.getElementById("signup-mode-invite");
 let supabase = null;
 let isSubmittingAuth = false;
 let signupMode = "create_org";
+let currentAuthedSession = null;
 
 function isPlatformAdminEmail(email) {
   return String(email || "").trim().toLowerCase() === PLATFORM_ADMIN_EMAIL;
@@ -55,6 +60,9 @@ function getErrorMessage(error, fallback) {
 }
 
 function toggleSignup(visible) {
+  if (currentAuthedSession?.user) {
+    return;
+  }
   show(signupForm, visible);
   show(signinForm, !visible);
   showSignupButton.classList.toggle("is-active", visible);
@@ -66,6 +74,30 @@ function toggleSignup(visible) {
     ? "Choose how to start: create an organization, use Personal, or join with an invite code."
     : "Use your email and password to sign in.";
   if (visible) setSignupMode(signupMode);
+  setStatus("");
+}
+
+function setAuthedState(session) {
+  currentAuthedSession = session || null;
+  const isAuthed = Boolean(currentAuthedSession?.user);
+
+  show(authedState, isAuthed);
+  show(signinForm, !isAuthed && !showSignupButton.classList.contains("is-active"));
+  show(signupForm, !isAuthed && showSignupButton.classList.contains("is-active"));
+  showSigninButton.disabled = isAuthed;
+  showSignupButton.disabled = isAuthed;
+
+  if (!isAuthed) {
+    authTitle.textContent = showSignupButton.classList.contains("is-active") ? "Create account" : "Sign in";
+    authSubtitle.textContent = showSignupButton.classList.contains("is-active")
+      ? "Choose how to start: create an organization, use Personal, or join with an invite code."
+      : "Use your email and password to sign in.";
+    return;
+  }
+
+  authTitle.textContent = "Already signed in";
+  authSubtitle.textContent = "Continue to your dashboard or sign out to create another account.";
+  authedCopy.textContent = `Signed in as ${currentAuthedSession.user.email || "this account"}.`;
   setStatus("");
 }
 
@@ -96,13 +128,10 @@ function setSignupMode(mode) {
   }
 }
 
-async function redirectIfAuthed() {
+async function loadSessionState() {
   const session = await getSessionOrNull(supabase);
-  if (session?.user) {
-    window.location.replace(getPostAuthDestination(session));
-    return true;
-  }
-  return false;
+  setAuthedState(session);
+  return session;
 }
 
 async function bootstrapMemberships(organizationName, inviteCode) {
@@ -246,6 +275,23 @@ async function handleForgotPassword() {
   setStatus("Password reset email sent. Check your inbox.", "success");
 }
 
+async function handleSignoutForSignup() {
+  if (!supabase || isSubmittingAuth) return;
+  isSubmittingAuth = true;
+  setStatus("Signing out...");
+
+  const { error } = await supabase.auth.signOut();
+  isSubmittingAuth = false;
+
+  if (error) {
+    setStatus(error.message || "Unable to sign out.", "error");
+    return;
+  }
+
+  setAuthedState(null);
+  toggleSignup(true);
+}
+
 async function init() {
   show(setupPanel, !hasConfig());
   show(authPanel, hasConfig());
@@ -253,12 +299,17 @@ async function init() {
 
   supabase = createBrowserSupabase();
   toggleSignup(false);
-
-  if (await redirectIfAuthed()) return;
+  await loadSessionState();
 
   signupForm.addEventListener("submit", handleSignup);
   signinForm.addEventListener("submit", handleSignin);
   forgotPasswordButton.addEventListener("click", handleForgotPassword);
+  continueSessionButton.addEventListener("click", () => {
+    const session = currentAuthedSession;
+    if (!session?.user) return;
+    window.location.replace(getPostAuthDestination(session));
+  });
+  signoutForSignupButton.addEventListener("click", handleSignoutForSignup);
   signupModeCreateOrgButton.addEventListener("click", () => setSignupMode("create_org"));
   signupModePersonalButton.addEventListener("click", () => setSignupMode("personal"));
   signupModeInviteButton.addEventListener("click", () => setSignupMode("invite"));
@@ -266,9 +317,8 @@ async function init() {
   showSignupButton.addEventListener("click", () => toggleSignup(true));
 
   supabase.auth.onAuthStateChange((_event, session) => {
-    if (session?.user && !isSubmittingAuth) {
-      window.location.replace(getPostAuthDestination(session));
-    }
+    if (isSubmittingAuth) return;
+    setAuthedState(session);
   });
 }
 

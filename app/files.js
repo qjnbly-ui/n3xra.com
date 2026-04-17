@@ -1,9 +1,10 @@
 import { createBrowserSupabase, hasConfig, getSessionOrNull } from "./lib/supabase-client.js";
 import {
   buildMembershipMap,
-  canManageLibrary,
   dedupeMembershipsByOrganization,
   formatRoleLabel,
+  getCapabilities,
+  getMembershipRole,
   isPlatformAdminEmail,
   resolveActiveOrganization,
   setStoredActiveOrganizationId,
@@ -184,6 +185,14 @@ function getActiveOrganization() {
   return activeMembership?.organization || null;
 }
 
+function getActiveCapabilities() {
+  return getCapabilities(
+    activeMembership,
+    currentSession?.user?.id || "",
+    isPlatformAdminEmail(currentSession?.user?.email)
+  );
+}
+
 function isFreePlanExperience() {
   return getActiveOrganization()?.subscription_tier === "free";
 }
@@ -200,8 +209,8 @@ function renderOrganizationSelector() {
       return `<option value="${escapeHtml(membership.organization?.id || "")}"${selected}>${escapeHtml(membership.organization?.name || "Untitled library")}</option>`;
     })
     .join("");
-  activeMembershipRole.textContent = formatRoleLabel(activeMembership?.role || "viewer");
-  fileModalDelete.disabled = !canManageLibrary(activeMembership?.role, isPlatformAdminEmail(currentSession.user.email));
+  activeMembershipRole.textContent = formatRoleLabel(getMembershipRole(activeMembership));
+  fileModalDelete.disabled = !getActiveCapabilities().canDeleteDocuments;
   show(filesActiveOrganizationField, hasMultipleLibraries());
   show(filesActiveMembershipField, hasMultipleLibraries());
   activeOrganizationSelect.disabled = !hasMultipleLibraries();
@@ -274,7 +283,8 @@ function renderFiles() {
   show(fileEmpty, documentsCache.length === 0);
 
   documentsCache.forEach((doc) => {
-    const canEdit = canManageLibrary(activeMembership?.role, isPlatformAdminEmail(currentSession.user.email));
+    const capabilities = getActiveCapabilities();
+    const canEdit = capabilities.canEditDocuments;
     const item = document.createElement("article");
     const actionMenuId = `file-actions-${doc.id}`;
     item.className = "download-item file-row";
@@ -291,7 +301,7 @@ function renderFiles() {
         <div class="doc-actions file-row-actions" id="${actionMenuId}">
           <button class="btn secondary" type="button" data-action="edit" data-id="${doc.id}"${canEdit ? "" : " disabled"}>Edit</button>
           <button class="btn secondary" type="button" data-action="download" data-id="${doc.id}">Download</button>
-          <button class="btn secondary" type="button" data-action="share" data-id="${doc.id}">Share</button>
+          <button class="btn secondary" type="button" data-action="share" data-id="${doc.id}"${capabilities.canShareDocuments ? "" : " disabled"}>Share</button>
           <button class="btn secondary" type="button" data-action="toggle-public" data-id="${doc.id}"${canEdit ? "" : " disabled"}>${doc.is_public ? "Make private" : "Make public"}</button>
           <button class="btn warn" type="button" data-action="delete" data-id="${doc.id}"${canEdit ? "" : " disabled"}>Delete</button>
         </div>
@@ -336,12 +346,16 @@ async function openFile(documentId) {
   if (!signed) return;
   const downloadSigned = await createDownloadSignedUrlForDocument(documentId);
   const { doc, signedUrl } = signed;
+  const capabilities = getActiveCapabilities();
 
   activeModalDocumentId = documentId;
   fileModalTitle.textContent = doc.title || doc.original_filename || "File preview";
   fileModalFrame.src = buildPreviewUrl(doc, signedUrl);
   fileModalDownload.href = downloadSigned?.signedUrl || signedUrl;
   fileModalDownload.setAttribute("download", doc.original_filename || "download");
+  fileModalShare.disabled = !capabilities.canShareDocuments;
+  fileModalEdit.disabled = !capabilities.canEditDocuments;
+  fileModalDelete.disabled = !capabilities.canDeleteDocuments;
   fileModal.classList.add("is-open");
   fileModal.setAttribute("aria-hidden", "false");
 }
@@ -394,6 +408,10 @@ function closeFileEditModal() {
 async function saveFileEdit(event) {
   event.preventDefault();
   if (!pendingEditId) return;
+  if (!getActiveCapabilities().canEditDocuments) {
+    setStatus(fileEditStatus, "You do not have permission to edit this file.", "error");
+    return;
+  }
 
   const doc = documentsCache.find((item) => item.id === pendingEditId);
   if (!doc) return;
@@ -467,6 +485,10 @@ async function shareFile(documentId) {
 async function deleteFile(documentId) {
   const doc = documentsCache.find((item) => item.id === documentId);
   if (!doc) return;
+  if (!getActiveCapabilities().canDeleteDocuments) {
+    setStatus(fileStatus, "You do not have permission to delete files in this library.", "error");
+    return;
+  }
 
   setStatus(fileStatus, "Deleting file...");
   deleteConfirmSubmit.disabled = true;
@@ -499,6 +521,10 @@ async function deleteFile(documentId) {
 async function togglePublic(documentId) {
   const doc = documentsCache.find((item) => item.id === documentId);
   if (!doc) return;
+  if (!getActiveCapabilities().canEditDocuments) {
+    setStatus(fileStatus, "You do not have permission to change file visibility.", "error");
+    return;
+  }
 
   const { error } = await supabase.from("documents").update({ is_public: !doc.is_public }).eq("id", documentId);
   if (error) {

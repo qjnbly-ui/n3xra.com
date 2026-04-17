@@ -70,7 +70,7 @@ create table if not exists public.organization_memberships (
   updated_at timestamptz not null default now(),
   unique (organization_id, user_id),
   constraint organization_memberships_role_check
-    check (role in ('account_owner', 'account_admin', 'editor', 'viewer'))
+    check (role in ('account_admin', 'editor', 'viewer', 'guest'))
 );
 
 create table if not exists public.organization_invites (
@@ -85,7 +85,7 @@ create table if not exists public.organization_invites (
   created_by uuid references auth.users (id) on delete set null,
   created_at timestamptz not null default now(),
   constraint organization_invites_role_check
-    check (role in ('account_admin', 'editor', 'viewer')),
+    check (role in ('account_admin', 'editor', 'viewer', 'guest')),
   constraint organization_invites_max_uses_check
     check (max_uses > 0),
   constraint organization_invites_redeemed_uses_check
@@ -210,19 +210,19 @@ security definer
 set search_path = public
 as $$
   select
-    case
-      when o.owner_user_id = auth.uid() then 'account_owner'
-      else (
-        select om.role
+    coalesce(
+      (
+        select case
+          when om.role = 'account_owner' then 'account_admin'
+          else om.role
+        end
         from public.organization_memberships om
         where om.organization_id = target_organization_id
           and om.user_id = auth.uid()
         limit 1
-      )
-    end
-  from public.organizations o
-  where o.id = target_organization_id
-  limit 1;
+      ),
+      'guest'
+    );
 $$;
 
 create or replace function public.can_view_organization(target_organization_id uuid)
@@ -234,6 +234,12 @@ set search_path = public
 as $$
   select
     public.is_platform_admin()
+    or exists (
+      select 1
+      from public.organizations o
+      where o.id = target_organization_id
+        and o.owner_user_id = auth.uid()
+    )
     or exists (
       select 1
       from public.organization_memberships om
@@ -251,7 +257,7 @@ set search_path = public
 as $$
   select
     public.is_platform_admin()
-    or public.organization_role(target_organization_id) in ('account_owner', 'account_admin');
+    or public.organization_role(target_organization_id) = 'account_admin';
 $$;
 
 create or replace function public.can_manage_org_settings(target_organization_id uuid)
@@ -263,7 +269,7 @@ set search_path = public
 as $$
   select
     public.is_platform_admin()
-    or public.organization_role(target_organization_id) in ('account_owner', 'account_admin');
+    or public.organization_role(target_organization_id) = 'account_admin';
 $$;
 
 create or replace function public.can_manage_billing(target_organization_id uuid)
@@ -275,7 +281,12 @@ set search_path = public
 as $$
   select
     public.is_platform_admin()
-    or public.organization_role(target_organization_id) = 'account_owner';
+    or exists (
+      select 1
+      from public.organizations o
+      where o.id = target_organization_id
+        and o.owner_user_id = auth.uid()
+    );
 $$;
 
 create or replace function public.can_manage_documents(target_organization_id uuid)
@@ -287,7 +298,7 @@ set search_path = public
 as $$
   select
     public.is_platform_admin()
-    or public.organization_role(target_organization_id) in ('account_owner', 'account_admin', 'editor');
+    or public.organization_role(target_organization_id) in ('account_admin', 'editor');
 $$;
 
 create or replace function public.storage_object_org_id(storage_name text)
@@ -425,7 +436,7 @@ begin
     ) values (
       next_org_id,
       current_user_id,
-      'account_owner',
+      'account_admin',
       current_user_id
     );
 
@@ -634,14 +645,6 @@ begin
     raise exception 'Use explicit ownership transfer for account owner changes.';
   end if;
 
-  if membership_record.user_id = (
-    select owner_user_id
-    from public.organizations
-    where id = membership_record.organization_id
-  ) and input_role <> 'account_owner' then
-    raise exception 'Transfer ownership before changing the owner role.';
-  end if;
-
   update public.organization_memberships
   set role = input_role,
       updated_at = now()
@@ -702,25 +705,9 @@ returns trigger
 language plpgsql
 set search_path = public
 as $$
-declare
-  org_owner_user_id uuid;
 begin
-  select owner_user_id
-  into org_owner_user_id
-  from public.organizations
-  where id = new.organization_id;
-
-  if org_owner_user_id is null then
-    raise exception 'Organization not found.';
-  end if;
-
-  if new.user_id = org_owner_user_id then
-    new.role := 'account_owner';
-    return new;
-  end if;
-
   if new.role = 'account_owner' then
-    raise exception 'Only the current organization owner can hold account_owner role.';
+    new.role := 'account_admin';
   end if;
 
   return new;
@@ -755,9 +742,9 @@ begin
   previous_owner := org_record.owner_user_id;
 
   insert into public.organization_memberships (organization_id, user_id, role, created_by)
-  values (input_organization_id, input_user_id, 'account_owner', auth.uid())
+  values (input_organization_id, input_user_id, 'account_admin', auth.uid())
   on conflict (organization_id, user_id) do update
-    set role = 'account_owner',
+    set role = 'account_admin',
         updated_at = now();
 
   update public.organization_memberships
@@ -856,16 +843,26 @@ for each row execute procedure public.protect_organization_billing_fields();
 
 update public.organization_memberships om
 set role = case
-  when o.owner_user_id = om.user_id then 'account_owner'
   when om.role = 'account_owner' then 'account_admin'
   else om.role
 end
 from public.organizations o
 where o.id = om.organization_id
-  and (
-    (o.owner_user_id = om.user_id and om.role <> 'account_owner')
-    or (o.owner_user_id <> om.user_id and om.role = 'account_owner')
-  );
+  and om.role = 'account_owner';
+
+alter table public.organization_memberships
+  drop constraint if exists organization_memberships_role_check;
+
+alter table public.organization_memberships
+  add constraint organization_memberships_role_check
+  check (role in ('account_admin', 'editor', 'viewer', 'guest'));
+
+alter table public.organization_invites
+  drop constraint if exists organization_invites_role_check;
+
+alter table public.organization_invites
+  add constraint organization_invites_role_check
+  check (role in ('account_admin', 'editor', 'viewer', 'guest'));
 
 alter table public.profiles enable row level security;
 alter table public.platform_admins enable row level security;

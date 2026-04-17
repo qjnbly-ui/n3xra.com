@@ -1,5 +1,6 @@
 export const PLATFORM_ADMIN_EMAIL = "quentin@quentinnichols.com";
 export const ACTIVE_ORG_STORAGE_KEY = "records-active-organization-id";
+export const MEMBERSHIP_ROLE_ORDER = ["account_admin", "editor", "viewer", "guest"];
 
 export function isPlatformAdminEmail(email) {
   return String(email || "").trim().toLowerCase() === PLATFORM_ADMIN_EMAIL;
@@ -11,20 +12,53 @@ export function titleCase(value) {
     .replace(/\b\w/g, (match) => match.toUpperCase());
 }
 
+export function normalizeMembershipRole(role) {
+  const normalized = String(role || "").trim().toLowerCase();
+  if (normalized === "account_owner") {
+    return "account_admin";
+  }
+  return MEMBERSHIP_ROLE_ORDER.includes(normalized) ? normalized : "viewer";
+}
+
 export function formatRoleLabel(role) {
-  return titleCase(role || "viewer");
+  if (String(role || "").trim().toLowerCase() === "billing_owner") {
+    return "Billing Owner";
+  }
+  return titleCase(normalizeMembershipRole(role));
 }
 
-export function canManageMembers(role, isPlatformAdmin = false) {
-  return isPlatformAdmin || ["account_owner", "account_admin"].includes(role);
+export function isBillingOwner(membership, currentUserId, isPlatformAdmin = false) {
+  return isPlatformAdmin || membership?.organization?.owner_user_id === currentUserId;
 }
 
-export function canManageLibrary(role, isPlatformAdmin = false) {
-  return isPlatformAdmin || ["account_owner", "account_admin", "editor"].includes(role);
+export function getMembershipRole(membership) {
+  return normalizeMembershipRole(membership?.role);
 }
 
-export function canManageBilling(role, isPlatformAdmin = false) {
-  return isPlatformAdmin || role === "account_owner";
+export function getCapabilities(membership, currentUserId, isPlatformAdmin = false) {
+  const role = getMembershipRole(membership);
+  const billingOwner = isBillingOwner(membership, currentUserId, isPlatformAdmin);
+  const canManageMembers = isPlatformAdmin || role === "account_admin";
+  const canManageLibrarySettings = isPlatformAdmin || role === "account_admin";
+  const canManageDocuments = isPlatformAdmin || role === "account_admin" || role === "editor";
+
+  return {
+    role,
+    isPlatformAdmin,
+    isBillingOwner: billingOwner,
+    canViewLibrary: Boolean(membership),
+    canManageMembers,
+    canManageInvites: canManageMembers,
+    canManageLibrarySettings,
+    canManageDocuments,
+    canUploadDocuments: canManageDocuments,
+    canEditDocuments: canManageDocuments,
+    canDeleteDocuments: canManageDocuments,
+    canShareDocuments: Boolean(membership),
+    canDownloadDocuments: Boolean(membership),
+    canManageBilling: billingOwner,
+    canTransferOwnership: billingOwner,
+  };
 }
 
 export function getStoredActiveOrganizationId() {
@@ -50,8 +84,7 @@ export function resolveActiveOrganization(memberships, preferredOrganizationId =
   const fromStored = list.find((item) => item.organization?.id === storedId);
   if (fromStored) return fromStored;
 
-  const owned = list.find((item) => item.role === "account_owner");
-  return owned || list[0];
+  return list[0];
 }
 
 export function buildMembershipMap(memberships) {
@@ -64,10 +97,10 @@ export function buildMembershipMap(memberships) {
 export function dedupeMembershipsByOrganization(memberships) {
   const list = Array.isArray(memberships) ? memberships : [];
   const roleRank = {
-    account_owner: 0,
-    account_admin: 1,
-    editor: 2,
-    viewer: 3,
+    account_admin: 0,
+    editor: 1,
+    viewer: 2,
+    guest: 3,
   };
 
   const byOrg = new Map();
@@ -81,12 +114,15 @@ export function dedupeMembershipsByOrganization(memberships) {
       return;
     }
 
-    const existingRank = roleRank[existing.role] ?? 99;
-    const nextRank = roleRank[membership.role] ?? 99;
+    const existingRank = roleRank[normalizeMembershipRole(existing.role)] ?? 99;
+    const nextRank = roleRank[normalizeMembershipRole(membership.role)] ?? 99;
     if (nextRank < existingRank) {
-      byOrg.set(orgId, membership);
+      byOrg.set(orgId, { ...membership, role: normalizeMembershipRole(membership.role) });
     }
   });
 
-  return Array.from(byOrg.values());
+  return Array.from(byOrg.values()).map((membership) => ({
+    ...membership,
+    role: normalizeMembershipRole(membership.role),
+  }));
 }
