@@ -1,5 +1,5 @@
 import JSZip from "https://esm.sh/jszip@3.10.1";
-import { createBrowserSupabase, hasConfig, getSessionOrNull } from "./lib/supabase-client.js";
+import { createBrowserSupabase, getConfig, hasConfig, getSessionOrNull } from "./lib/supabase-client.js";
 import { PLAN_ORDER, getPlanConfig, formatPlanName } from "./lib/plan-config.js";
 import {
   buildMembershipMap,
@@ -1467,18 +1467,31 @@ async function deleteAccount() {
   deleteAccountSubmit.disabled = true;
   deleteAccountCancel.disabled = true;
 
+  const { data: refreshedSessionData } = await supabase.auth.refreshSession();
   const { data: sessionData } = await supabase.auth.getSession();
-  const accessToken = sessionData?.session?.access_token || currentSession?.access_token || "";
+  const accessToken =
+    refreshedSessionData?.session?.access_token ||
+    sessionData?.session?.access_token ||
+    currentSession?.access_token ||
+    "";
+  const { supabaseAnonKey = "" } = getConfig();
   if (!accessToken) {
     deleteAccountSubmit.disabled = false;
     deleteAccountCancel.disabled = false;
     setStatus(deleteAccountStatus, "Your session expired. Sign in again and retry.", "error");
     return;
   }
+  if (!supabaseAnonKey) {
+    deleteAccountSubmit.disabled = false;
+    deleteAccountCancel.disabled = false;
+    setStatus(deleteAccountStatus, "Missing app config for function auth headers.", "error");
+    return;
+  }
 
   const { data, error } = await supabase.functions.invoke("delete-account", {
     body: {},
     headers: {
+      apikey: supabaseAnonKey,
       Authorization: `Bearer ${accessToken}`,
     },
   });
