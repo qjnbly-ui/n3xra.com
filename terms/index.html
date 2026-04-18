@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Terms of Service | n3xra.com</title>
+  <meta name="description" content="Terms of Service for n3xra.com.">
+  <link rel="icon" type="image/png" href="../assets/n3xra_logo_transparent_small.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --ink: #0f1620;
+      --ink-soft: #1a2430;
+      --slate: #5e6a79;
+      --fog: #f6f8fb;
+      --line: rgba(15, 22, 32, 0.1);
+      --teal: #176f66;
+      --gold: #ea9b3f;
+      --white: #ffffff;
+      --shadow: 0 24px 60px rgba(12, 18, 28, 0.14);
+      --radius-lg: 24px;
+      --radius-md: 16px;
+      --radius-pill: 999px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Manrope", "Trebuchet MS", sans-serif;
+      color: var(--ink);
+      line-height: 1.7;
+      background:
+        radial-gradient(900px 420px at 8% 12%, rgba(23, 111, 102, 0.14), transparent 60%),
+        radial-gradient(720px 420px at 94% 0%, rgba(234, 155, 63, 0.16), transparent 60%),
+        linear-gradient(180deg, #f8fafc 0%, #ecf1f7 100%);
+    }
+
+    header {
+      color: var(--white);
+      background:
+        radial-gradient(640px 360px at 10% 18%, rgba(23, 111, 102, 0.38), transparent 58%),
+        radial-gradient(540px 300px at 92% 10%, rgba(234, 155, 63, 0.32), transparent 55%),
+        linear-gradient(135deg, #0b1219 0%, #101925 52%, #0c141c 100%);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .header-shell,
+    main,
+    footer {
+      width: min(980px, calc(100vw - 2rem));
+      margin: 0 auto;
+    }
+
+    .header-shell {
+      padding: 2rem 0 2.4rem;
+      display: grid;
+      gap: 1rem;
+    }
+
+    .top-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      color: inherit;
+      text-decoration: none;
+    }
+
+    .brand img {
+      width: 56px;
+      height: 56px;
+      object-fit: contain;
+    }
+
+    .page-title {
+      margin: 0;
+      font-family: "Fraunces", "Times New Roman", serif;
+      font-size: clamp(1.55rem, 3vw, 2rem);
+      line-height: 1;
+      color: var(--white);
+    }
+
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.7rem 1rem;
+      border-radius: var(--radius-pill);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      color: var(--white);
+      text-decoration: none;
+      background: rgba(255, 255, 255, 0.08);
+      font-weight: 700;
+    }
+
+    .hero-copy {
+      display: none;
+    }
+
+    main {
+      padding: 1.6rem 0 3rem;
+    }
+
+    .legal-card {
+      background: var(--white);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow);
+      padding: clamp(1.3rem, 2.8vw, 2rem);
+      display: grid;
+      gap: 1.35rem;
+    }
+
+    .legal-meta {
+      margin: 0;
+      color: var(--slate);
+      font-size: 0.95rem;
+    }
+
+    .legal-grid {
+      display: grid;
+      gap: 1.25rem;
+    }
+
+    .legal-section {
+      display: grid;
+      gap: 0.45rem;
+    }
+
+    .legal-section h2 {
+      margin: 0;
+      font-family: "Fraunces", "Times New Roman", serif;
+      font-size: 1.35rem;
+      line-height: 1.15;
+    }
+
+    .legal-section p,
+    .legal-section li {
+      margin: 0;
+      color: var(--ink-soft);
+    }
+
+    .legal-section ul {
+      margin: 0;
+      padding-left: 1.25rem;
+      display: grid;
+      gap: 0.45rem;
+    }
+
+    .notice {
+      border: 1px solid rgba(23, 111, 102, 0.14);
+      border-radius: var(--radius-md);
+      background: linear-gradient(180deg, #ffffff 0%, #f7fbfa 100%);
+      padding: 1rem 1.05rem;
+      color: var(--ink-soft);
+    }
+
+    footer {
+      padding: 0 0 2.4rem;
+      color: var(--slate);
+      font-size: 0.95rem;
+    }
+
+    footer a {
+      color: var(--teal);
+      text-decoration: none;
+      font-weight: 700;
+    }
+
+    @media (max-width: 640px) {
+      .header-shell {
+        padding: 1.25rem 0 1.5rem;
+      }
+
+      .top-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 0.85rem;
+        flex-wrap: nowrap;
+      }
+
+      .brand {
+        flex: 0 0 auto;
+      }
+
+      .brand img {
+        width: 42px;
+        height: 42px;
+      }
+
+      .page-title {
+        flex: 1 1 auto;
+        font-size: 1.1rem;
+        line-height: 1.1;
+        text-align: center;
+      }
+
+      .back-link {
+        flex: 0 0 auto;
+        width: auto;
+        padding: 0.62rem 0.85rem;
+        font-size: 0.88rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-shell">
+      <div class="top-row">
+        <a class="brand" href="/">
+          <img src="../assets/n3xra_logo_transparent.png" alt="n3xra.com logo">
+        </a>
+        <h1 class="page-title">Terms of Service</h1>
+        <a class="back-link" href="/">Back to homepage</a>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <article class="legal-card">
+      <p class="legal-meta"><strong>Effective date:</strong> April 18, 2026</p>
+
+      <div class="legal-grid">
+        <section class="legal-section">
+          <h2>1. Acceptance of Terms</h2>
+          <p>By creating an account, accessing the service, or using n3xra.com, you agree to these Terms of Service. If you do not agree, do not use the service.</p>
+        </section>
+
+        <section class="legal-section">
+          <h2>2. Service Description</h2>
+          <p>n3xra.com provides hosted tools for organizing, storing, searching, sharing, and presenting records and documents. Features may include personal libraries, shared libraries, role-based access, public or embedded views, and paid subscription tiers.</p>
+        </section>
+
+        <section class="legal-section">
+          <h2>3. Accounts and Access</h2>
+          <ul>
+            <li>You are responsible for maintaining the confidentiality of your account credentials.</li>
+            <li>You are responsible for activity that occurs under your account.</li>
+            <li>You must provide accurate account information and keep it reasonably current.</li>
+            <li>You may not access the service through unauthorized means or attempt to bypass security, permissions, or billing controls.</li>
+          </ul>
+        </section>
+
+        <section class="legal-section">
+          <h2>4. Libraries, Roles, and Shared Access</h2>
+          <p>Library owners and authorized administrators may grant other users access to a library. Access levels may include owner, account admin, editor, and viewer. You are responsible for assigning access appropriately and for reviewing who can view or manage your records.</p>
+        </section>
+
+        <section class="legal-section">
+          <h2>5. User Content</h2>
+          <p>You retain responsibility for the documents, records, text, metadata, and other content you upload or share through the service. You represent that you have the rights needed to upload, store, share, and display that content.</p>
+        </section>
+
+        <section class="legal-section">
+          <h2>6. Acceptable Use</h2>
+          <ul>
+            <li>You may not use the service for unlawful, fraudulent, infringing, or abusive purposes.</li>
+            <li>You may not upload malicious code, attempt unauthorized access, or interfere with the service.</li>
+            <li>You may not use the service to violate privacy, confidentiality, or records-related obligations that apply to you.</li>
+          </ul>
+        </section>
+
+        <section class="legal-section">
+          <h2>7. Billing and Subscriptions</h2>
+          <ul>
+            <li>Paid features may require an active subscription.</li>
+            <li>Subscriptions are billed through Stripe or another payment processor made available by n3xra.com.</li>
+            <li>You authorize recurring charges for paid plans until cancellation.</li>
+            <li>Plan limits, pricing, and included features may change prospectively.</li>
+            <li>If payment fails or an account becomes delinquent, access to paid features may be limited, suspended, or downgraded.</li>
+          </ul>
+        </section>
+
+        <section class="legal-section">
+          <h2>8. Availability and Changes</h2>
+          <p>n3xra.com may modify, suspend, or discontinue features at any time. We aim to keep the service available, but we do not guarantee uninterrupted or error-free operation.</p>
+        </section>
+
+        <section class="legal-section">
+          <h2>9. Termination</h2>
+          <p>We may suspend or terminate access if these terms are violated, if use presents legal or security risk, or if continued service is not practical. You may stop using the service at any time, subject to any outstanding billing obligations.</p>
+        </section>
+
+        <section class="legal-section">
+          <h2>10. Disclaimer</h2>
+          <p>The service is provided on an “as is” and “as available” basis. To the maximum extent permitted by law, n3xra.com disclaims warranties of merchantability, fitness for a particular purpose, non-infringement, and uninterrupted availability.</p>
+        </section>
+
+        <section class="legal-section">
+          <h2>11. Limitation of Liability</h2>
+          <p>To the maximum extent permitted by law, n3xra.com will not be liable for indirect, incidental, special, consequential, or punitive damages, or for loss of profits, data, business, or goodwill arising from or related to use of the service.</p>
+        </section>
+
+        <section class="legal-section">
+          <h2>12. Changes to These Terms</h2>
+          <p>We may update these terms from time to time. If we make material changes, the updated version will be posted here with a revised effective date. Continued use of the service after changes take effect means you accept the revised terms.</p>
+        </section>
+
+        <section class="legal-section">
+          <h2>13. Contact</h2>
+          <p>For questions about these terms, contact <a href="mailto:support@n3xra.com">support@n3xra.com</a>.</p>
+        </section>
+      </div>
+    </article>
+  </main>
+
+</body>
+</html>

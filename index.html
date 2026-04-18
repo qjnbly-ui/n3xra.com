@@ -580,9 +580,23 @@
 
     footer {
       text-align: center;
-      padding: 2rem 1.5rem 2.4rem;
-      color: #6c7787;
-      font-size: 0.9rem;
+      padding: 0 0 2.4rem;
+      color: var(--slate);
+      font-size: 0.95rem;
+    }
+
+    footer p {
+      margin: 0;
+    }
+
+    footer p + p {
+      margin-top: 0.35rem;
+    }
+
+    footer a {
+      color: var(--teal);
+      text-decoration: none;
+      font-weight: 700;
     }
 
     @media (max-width: 800px) {
@@ -819,7 +833,8 @@
   </main>
 
   <footer>
-    <p>Searchable records, simple archives.</p>
+    <p>&copy; 2026 n3xra.com. All rights reserved.</p>
+    <p><a href="/support">Customer Support</a> · <a href="/terms">Terms of Service</a> · <a href="/privacy">Privacy Policy</a></p>
   </footer>
 </body>
 </html>
