@@ -499,20 +499,58 @@ async function openBillingFlow(action, payload = {}) {
     return false;
   }
 
-  const { data, error } = await supabase.functions.invoke("stripe-billing", {
-    body: {
-      action,
-      ...payload,
-    },
-  });
+  const { data: refreshedSessionData } = await supabase.auth.refreshSession();
+  const { data: sessionData } = await supabase.auth.getSession();
+  const accessToken =
+    refreshedSessionData?.session?.access_token ||
+    sessionData?.session?.access_token ||
+    currentSession?.access_token ||
+    "";
+  const { supabaseUrl = "", supabaseAnonKey = "" } = getConfig();
 
-  if (error) {
-    setStatus(billingStatus, error.message, "error");
+  if (!accessToken) {
+    setStatus(billingStatus, "Your session expired. Sign in again and retry.", "error");
+    return false;
+  }
+  if (!supabaseUrl || !supabaseAnonKey) {
+    setStatus(billingStatus, "Missing app config for Stripe billing request.", "error");
     return false;
   }
 
-  if (data?.error) {
-    setStatus(billingStatus, data.error, "error");
+  let response;
+  try {
+    response = await fetch(`${supabaseUrl}/functions/v1/stripe-billing`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: supabaseAnonKey,
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({
+        action,
+        ...payload,
+      }),
+    });
+  } catch (error) {
+    setStatus(billingStatus, error instanceof Error ? error.message : "Unable to reach Stripe billing function.", "error");
+    return false;
+  }
+
+  let data = null;
+  let rawText = "";
+  try {
+    data = await response.clone().json();
+  } catch {
+    try {
+      rawText = await response.clone().text();
+    } catch {
+      rawText = "";
+    }
+  }
+
+  if (!response.ok || data?.error) {
+    const errorMessage = String(data?.error || rawText || "Unable to start Stripe billing.");
+    setStatus(billingStatus, `${errorMessage} (HTTP ${response.status})`, "error");
     return false;
   }
 
