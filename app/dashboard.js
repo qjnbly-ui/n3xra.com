@@ -1129,7 +1129,7 @@ function renderProfile() {
   });
 
   if (isFreePlan) {
-    setEmbedSettingsOpen(false);
+    setSectionToggleOpen(embedSettingsToggle, embedSettingsBody, false);
   }
 
   renderBillingPlans();
@@ -1526,7 +1526,7 @@ async function handleRedeemInvite(event) {
   }
 
   setStatus(redeemInviteStatus, "Redeeming invite code...");
-  const { error } = await supabase.rpc("redeem_invite_code", { input_code: code });
+  const { data, error } = await supabase.rpc("redeem_invite_code", { input_code: code });
   if (error) {
     setStatus(redeemInviteStatus, error.message, "error");
     return;
@@ -1534,6 +1534,14 @@ async function handleRedeemInvite(event) {
 
   redeemInviteCodeInput.value = "";
   await bootstrapAccess();
+  const nextOrganizationId = String(data?.organization_id || "");
+  if (nextOrganizationId) {
+    const nextMembership = memberships.find((membership) => membership.organization?.id === nextOrganizationId);
+    if (nextMembership) {
+      activeMembership = nextMembership;
+      setStoredActiveOrganizationId(nextOrganizationId);
+    }
+  }
   await loadActiveOrganizationData();
   setStatus(redeemInviteStatus, "Shared library added to your account.", "success");
 }
