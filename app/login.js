@@ -209,24 +209,6 @@ async function handleSignup(event) {
     return;
   }
 
-  if (data?.user) {
-    const { error: profileError } = await supabase
-      .from("profiles")
-      .upsert({
-        id: data.user.id,
-        email,
-        full_name: fullName || null,
-      })
-      .select("id")
-      .single();
-
-    if (profileError) {
-      isSubmittingAuth = false;
-      setStatus(`Account created, but profile save failed: ${profileError.message}`, "error");
-      return;
-    }
-  }
-
   if (data?.session) {
     try {
       const bootstrapData = await bootstrapMemberships(organizationName, inviteCode);

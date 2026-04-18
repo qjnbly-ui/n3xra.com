@@ -61,7 +61,7 @@ Deno.serve(async (request) => {
 
     const { data: ownedOrganizations, error: ownedOrganizationsError } = await adminClient
       .from("organizations")
-      .select("id, name, subscription_tier")
+      .select("id, name, subscription_tier, account_status")
       .eq("owner_user_id", user.id);
 
     if (ownedOrganizationsError) {
@@ -69,7 +69,8 @@ Deno.serve(async (request) => {
     }
 
     const paidOwnedOrganizations = (ownedOrganizations || []).filter((org) =>
-      ["starter", "organization"].includes(String(org.subscription_tier || ""))
+      ["starter", "organization"].includes(String(org.subscription_tier || "")) &&
+      !["canceled", "suspended"].includes(String(org.account_status || "active"))
     );
     if (paidOwnedOrganizations.length) {
       return jsonResponse({ error: "Cancel paid libraries before deleting this account." }, 400);

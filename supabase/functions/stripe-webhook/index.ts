@@ -90,7 +90,7 @@ async function syncOrganizationSubscription(
   const priceId = subscription.items.data[0]?.price?.id || null;
   const planId = getPlanIdFromPriceId(priceId);
   const planState = getPlanState(planId);
-  const accountStatus = getAccountStatus(subscription.status);
+  const accountStatus = subscription.cancel_at_period_end ? "canceled" : getAccountStatus(subscription.status);
   const periodEndSeconds = subscription.current_period_end || null;
   const updates: Record<string, unknown> = {
     ...planState,

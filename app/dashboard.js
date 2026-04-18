@@ -446,7 +446,11 @@ function getOwnedMemberships() {
 }
 
 function hasPaidOwnedLibraries() {
-  return getOwnedMemberships().some((membership) => ["starter", "organization"].includes(membership?.organization?.subscription_tier || ""));
+  return getOwnedMemberships().some((membership) => {
+    const tier = String(membership?.organization?.subscription_tier || "");
+    const status = String(membership?.organization?.account_status || "active");
+    return ["starter", "organization"].includes(tier) && !["canceled", "suspended"].includes(status);
+  });
 }
 
 function canCreateOwnedLibrary() {
@@ -849,18 +853,11 @@ async function bootstrapAccess() {
   if (membershipError) throw membershipError;
 
   if (!profileData) {
-    const { data: repairedProfile, error: repairError } = await supabase
-      .from("profiles")
-      .upsert({
-        id: currentSession.user.id,
-        email: currentSession.user.email || null,
-        full_name: currentSession.user.user_metadata?.full_name || null,
-      })
-      .select("id, email, full_name")
-      .single();
-
-    if (repairError) throw repairError;
-    currentProfile = repairedProfile || null;
+    currentProfile = {
+      id: currentSession.user.id,
+      email: currentSession.user.email || null,
+      full_name: currentSession.user.user_metadata?.full_name || null,
+    };
   } else {
     currentProfile = profileData;
   }
@@ -1041,8 +1038,10 @@ function renderBillingPlans() {
   const activePlan = getPlanConfig(activePlanId);
   const remaining = Math.max(getDocumentLimit() - documentsCache.length, 0);
   const currentPeriodEndLabel = formatBillingDate(organization.subscription_current_period_end);
-  const statusLabel = titleCase(organization.account_status || "active");
+  const accountStatus = organization.account_status || "active";
+  const statusLabel = titleCase(accountStatus);
   const isPaidPlan = activePlanId !== "free";
+  const periodLabel = accountStatus === "canceled" ? "Ends" : "Renews";
 
   currentPlanName.textContent = activePlan.name;
   currentPlanCopy.textContent = [
@@ -1051,7 +1050,7 @@ function renderBillingPlans() {
     `${organization.storage_limit_mb} MB`,
     `${remaining} remaining`,
     isPaidPlan ? `Status: ${statusLabel}` : "",
-    isPaidPlan && currentPeriodEndLabel ? `Renews ${currentPeriodEndLabel}` : "",
+    isPaidPlan && currentPeriodEndLabel ? `${periodLabel} ${currentPeriodEndLabel}` : "",
   ].filter(Boolean).join(" · ");
   show(manageBillingButton, isBillingEnabled() && Boolean(organization.stripe_customer_id || organization.stripe_subscription_id));
   updateEmbedAccess();
@@ -1094,11 +1093,13 @@ function renderProfile() {
   const organization = getActiveOrganization();
   const hasLibraryAccess = hasActiveLibraryAccess();
   const isFreePlan = isFreePlanExperience();
+  const isOrganizationPlan = (organization?.subscription_tier || "free") === "organization";
   const capabilities = getActiveCapabilities();
   const canSeeBilling = capabilities.canManageBilling;
   const canSeeLibrarySettings = !isFreePlan && capabilities.canManageLibrarySettings;
-  const canSeeInviteManagement = !isFreePlan && capabilities.canManageInvites;
-  const canSeeMemberManagement = !isFreePlan && capabilities.canManageMembers;
+  const canSeeInviteManagement = isOrganizationPlan && capabilities.canManageInvites;
+  const canSeeMemberManagement = isOrganizationPlan && capabilities.canManageMembers;
+  const canSeeEmbedSettings = hasLibraryAccess && isOrganizationPlan && canSeeLibrarySettings;
   const canSeePlanMeta = capabilities.canManageBilling || capabilities.canManageLibrarySettings;
   const canEditLibraryNameFromProfile = capabilities.canManageLibrarySettings;
   const canDeleteAccountNow = canDeleteOwnAccount();
@@ -1152,14 +1153,14 @@ function renderProfile() {
   show(inviteManagementBody, canSeeInviteManagement && !inviteManagementBody.classList.contains("hidden"));
   show(memberManagementToggle, canSeeMemberManagement);
   show(memberManagementBody, canSeeMemberManagement && !memberManagementBody.classList.contains("hidden"));
-  show(embedSettingsToggle, hasLibraryAccess && canSeeLibrarySettings);
-  show(embedSettingsBody, hasLibraryAccess && canSeeLibrarySettings && !embedSettingsBody.classList.contains("hidden"));
+  show(embedSettingsToggle, canSeeEmbedSettings);
+  show(embedSettingsBody, canSeeEmbedSettings && !embedSettingsBody.classList.contains("hidden"));
   show(inviteManagementSection, canSeeInviteManagement);
   show(memberManagementSection, canSeeMemberManagement);
   show(uploadActionSlot, capabilities.canUploadDocuments);
   show(openDeleteAccountModalButton, canDeleteAccountNow);
   show(deleteAccountBlockedNote, !canDeleteAccountNow);
-  libraryAccessCopy.textContent = isFreePlan
+  libraryAccessCopy.textContent = isFreePlan || !isOrganizationPlan
     ? "Join shared libraries from invite codes."
     : capabilities.canManageMembers
       ? "Join shared libraries and manage shared access for this library."
@@ -1173,17 +1174,17 @@ function renderProfile() {
   if (!canSeeMemberManagement) {
     setSectionToggleOpen(memberManagementToggle, memberManagementBody, false);
   }
-  if (!(hasLibraryAccess && canSeeLibrarySettings)) {
+  if (!canSeeEmbedSettings) {
     setSectionToggleOpen(embedSettingsToggle, embedSettingsBody, false);
   }
 
   Array.from(createInviteForm.elements).forEach((field) => {
     if (field instanceof HTMLInputElement || field instanceof HTMLSelectElement || field instanceof HTMLButtonElement) {
-      field.disabled = !capabilities.canManageInvites || isFreePlan;
+      field.disabled = !canSeeInviteManagement;
     }
   });
 
-  if (isFreePlan) {
+  if (!canSeeEmbedSettings) {
     setSectionToggleOpen(embedSettingsToggle, embedSettingsBody, false);
   }
 
@@ -1474,7 +1475,13 @@ async function handleProfileSave(event) {
   };
 
   const [{ error: profileError }, organizationResult] = await Promise.all([
-    supabase.from("profiles").upsert(updates).select("id, email, full_name").single(),
+    supabase
+      .from("profiles")
+      .update({
+        email: updates.email,
+        full_name: updates.full_name,
+      })
+      .eq("id", currentSession.user.id),
     organization && capabilities.canManageLibrarySettings
       ? supabase
           .from("organizations")
