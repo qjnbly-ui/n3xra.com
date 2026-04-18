@@ -712,7 +712,7 @@
       let activeDemoLibraryId = "personal";
 
       function persistDemoLibraryState() {
-        localStorage.setItem(
+        sessionStorage.setItem(
           DEMO_LIBRARY_STATE_KEY,
           JSON.stringify({
             availableLibraries: demoAvailableLibraries.filter((libraryId) => DEMO_LIBRARIES[libraryId]),
@@ -723,7 +723,7 @@
 
       function loadDemoLibraryState() {
         try {
-          const stored = JSON.parse(localStorage.getItem(DEMO_LIBRARY_STATE_KEY) || "null");
+          const stored = JSON.parse(sessionStorage.getItem(DEMO_LIBRARY_STATE_KEY) || "null");
           const availableLibraries = Array.isArray(stored?.availableLibraries)
             ? stored.availableLibraries.filter((libraryId) => DEMO_LIBRARIES[libraryId])
             : ["personal"];
