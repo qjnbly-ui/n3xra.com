@@ -270,7 +270,7 @@ async function bootstrapAccess() {
 }
 
 async function handleSignout() {
-  const { error } = await supabase.auth.signOut();
+  const { error } = await supabase.auth.signOut({ scope: "local" });
   if (error) {
     setStatus(fileStatus, error.message, "error");
     return;

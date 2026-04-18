@@ -1449,7 +1449,7 @@ function closeFileModal() {
 }
 
 async function handleSignout() {
-  const { error } = await supabase.auth.signOut();
+  const { error } = await supabase.auth.signOut({ scope: "local" });
   if (error) {
     setStatus(contextStatus, error.message, "error");
     return;
