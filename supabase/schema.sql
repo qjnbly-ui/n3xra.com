@@ -50,6 +50,7 @@ create table if not exists public.organizations (
   stripe_customer_id text,
   stripe_subscription_id text,
   stripe_price_id text,
+  cancel_at_period_end boolean not null default false,
   subscription_current_period_end timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -843,6 +844,7 @@ begin
       or new.stripe_customer_id is distinct from old.stripe_customer_id
       or new.stripe_subscription_id is distinct from old.stripe_subscription_id
       or new.stripe_price_id is distinct from old.stripe_price_id
+      or new.cancel_at_period_end is distinct from old.cancel_at_period_end
       or new.subscription_current_period_end is distinct from old.subscription_current_period_end then
       raise exception 'Billing fields require account owner or platform admin access.';
     end if;

@@ -449,7 +449,8 @@ function hasPaidOwnedLibraries() {
   return getOwnedMemberships().some((membership) => {
     const tier = String(membership?.organization?.subscription_tier || "");
     const status = String(membership?.organization?.account_status || "active");
-    return ["starter", "organization"].includes(tier) && !["canceled", "suspended"].includes(status);
+    const cancelAtPeriodEnd = Boolean(membership?.organization?.cancel_at_period_end);
+    return ["starter", "organization"].includes(tier) && !["canceled", "suspended"].includes(status) && !cancelAtPeriodEnd;
   });
 }
 
@@ -841,6 +842,7 @@ async function bootstrapAccess() {
           keyword_search_enabled,
           file_preview_cards_enabled,
           hosted_public_portal_enabled,
+          cancel_at_period_end,
           branded_primary_color,
           branded_accent_color
         )
@@ -866,7 +868,7 @@ async function bootstrapAccess() {
   if (supportOrgId && isPlatformAdminEmail(currentSession.user.email)) {
     const { data: supportOrg, error: supportError } = await supabase
       .from("organizations")
-      .select("id, name, slug, owner_user_id, subscription_tier, account_status, document_limit, storage_limit_mb, user_limit, public_embed_enabled, public_embed_token, transcript_preview_enabled, keyword_search_enabled, file_preview_cards_enabled, hosted_public_portal_enabled, branded_primary_color, branded_accent_color, stripe_customer_id, stripe_subscription_id, stripe_price_id, subscription_current_period_end")
+      .select("id, name, slug, owner_user_id, subscription_tier, account_status, document_limit, storage_limit_mb, user_limit, public_embed_enabled, public_embed_token, transcript_preview_enabled, keyword_search_enabled, file_preview_cards_enabled, hosted_public_portal_enabled, cancel_at_period_end, branded_primary_color, branded_accent_color, stripe_customer_id, stripe_subscription_id, stripe_price_id, subscription_current_period_end")
       .eq("id", supportOrgId)
       .maybeSingle();
 
@@ -1039,9 +1041,10 @@ function renderBillingPlans() {
   const remaining = Math.max(getDocumentLimit() - documentsCache.length, 0);
   const currentPeriodEndLabel = formatBillingDate(organization.subscription_current_period_end);
   const accountStatus = organization.account_status || "active";
+  const cancelsAtPeriodEnd = Boolean(organization.cancel_at_period_end);
   const statusLabel = titleCase(accountStatus);
   const isPaidPlan = activePlanId !== "free";
-  const periodLabel = accountStatus === "canceled" ? "Ends" : "Renews";
+  const periodLabel = cancelsAtPeriodEnd || accountStatus === "canceled" ? "Ends" : "Renews";
 
   currentPlanName.textContent = activePlan.name;
   currentPlanCopy.textContent = [
@@ -1050,6 +1053,7 @@ function renderBillingPlans() {
     `${organization.storage_limit_mb} MB`,
     `${remaining} remaining`,
     isPaidPlan ? `Status: ${statusLabel}` : "",
+    cancelsAtPeriodEnd ? "Cancels at end of billing cycle" : "",
     isPaidPlan && currentPeriodEndLabel ? `${periodLabel} ${currentPeriodEndLabel}` : "",
   ].filter(Boolean).join(" · ");
   show(manageBillingButton, isBillingEnabled() && Boolean(organization.stripe_customer_id || organization.stripe_subscription_id));
@@ -1111,7 +1115,11 @@ function renderProfile() {
     ? (isSupportView() ? "n3xra.com Support View" : formatRoleLabel(getActiveRole()))
     : "No library access";
   accountTier.textContent = organization ? formatPlanName(organization.subscription_tier || "free") : "-";
-  accountStatus.textContent = organization ? titleCase(organization.account_status || "active") : "-";
+  accountStatus.textContent = organization
+    ? (organization.cancel_at_period_end
+        ? "Cancels at end of billing cycle"
+        : titleCase(organization.account_status || "active"))
+    : "-";
   profileFullNameInput.value = currentProfile?.full_name || "";
 
   organizationNameInput.value = organization?.name || "";
@@ -1489,7 +1497,7 @@ async function handleProfileSave(event) {
             name: organizationNameInput.value.trim() || organization.name,
           })
           .eq("id", organization.id)
-          .select("id, name, slug, owner_user_id, subscription_tier, account_status, document_limit, storage_limit_mb, user_limit, public_embed_enabled, public_embed_token, transcript_preview_enabled, keyword_search_enabled, file_preview_cards_enabled, hosted_public_portal_enabled, branded_primary_color, branded_accent_color, stripe_customer_id, stripe_subscription_id, stripe_price_id, subscription_current_period_end")
+          .select("id, name, slug, owner_user_id, subscription_tier, account_status, document_limit, storage_limit_mb, user_limit, public_embed_enabled, public_embed_token, transcript_preview_enabled, keyword_search_enabled, file_preview_cards_enabled, hosted_public_portal_enabled, cancel_at_period_end, branded_primary_color, branded_accent_color, stripe_customer_id, stripe_subscription_id, stripe_price_id, subscription_current_period_end")
           .single()
       : Promise.resolve({ data: null, error: null }),
   ]);
@@ -1549,7 +1557,7 @@ async function handleOrganizationSettingsSave(event) {
     .from("organizations")
     .update(updates)
     .eq("id", organization.id)
-    .select("id, name, slug, owner_user_id, subscription_tier, account_status, document_limit, storage_limit_mb, user_limit, public_embed_enabled, public_embed_token, transcript_preview_enabled, keyword_search_enabled, file_preview_cards_enabled, hosted_public_portal_enabled, branded_primary_color, branded_accent_color, stripe_customer_id, stripe_subscription_id, stripe_price_id, subscription_current_period_end")
+    .select("id, name, slug, owner_user_id, subscription_tier, account_status, document_limit, storage_limit_mb, user_limit, public_embed_enabled, public_embed_token, transcript_preview_enabled, keyword_search_enabled, file_preview_cards_enabled, hosted_public_portal_enabled, cancel_at_period_end, branded_primary_color, branded_accent_color, stripe_customer_id, stripe_subscription_id, stripe_price_id, subscription_current_period_end")
     .single();
 
   if (error) {

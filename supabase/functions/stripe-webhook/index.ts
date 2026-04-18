@@ -76,6 +76,7 @@ async function syncOrganizationSubscription(
         public_embed_enabled: false,
         stripe_subscription_id: null,
         stripe_price_id: null,
+        cancel_at_period_end: false,
         subscription_current_period_end: null,
       })
       .eq("id", organizationId);
@@ -90,7 +91,7 @@ async function syncOrganizationSubscription(
   const priceId = subscription.items.data[0]?.price?.id || null;
   const planId = getPlanIdFromPriceId(priceId);
   const planState = getPlanState(planId);
-  const accountStatus = subscription.cancel_at_period_end ? "canceled" : getAccountStatus(subscription.status);
+  const accountStatus = getAccountStatus(subscription.status);
   const periodEndSeconds = subscription.current_period_end || null;
   const updates: Record<string, unknown> = {
     ...planState,
@@ -98,6 +99,7 @@ async function syncOrganizationSubscription(
     stripe_customer_id: customerId,
     stripe_subscription_id: subscription.id,
     stripe_price_id: priceId,
+    cancel_at_period_end: Boolean(subscription.cancel_at_period_end),
     subscription_current_period_end: periodEndSeconds ? new Date(periodEndSeconds * 1000).toISOString() : null,
   };
 
