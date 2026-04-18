@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>n3xra.com Demo Files</title>
+  <meta name="description" content="Interactive n3xra.com demo files page.">
+  <link rel="icon" type="image/png" href="../assets/n3xra_logo_transparent_small.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../app/styles.css">
+</head>
+<body>
+  <div class="shell demo-shell">
+    <header class="topbar">
+      <div class="topbar-inner">
+        <div class="topbar-row dashboard-topbar-row">
+          <div class="brand">
+            <img class="brand-badge brand-badge-image" src="../assets/n3xra_logo_transparent.png" alt="n3xra.com logo">
+          </div>
+          <a class="topbar-logout" href="/">Exit demo</a>
+          <button class="menu-toggle" id="mobile-menu-toggle" type="button" aria-expanded="false" aria-controls="mobile-menu" aria-label="Open menu">
+            <span></span>
+            <span></span>
+            <span></span>
+          </button>
+        </div>
+        <div class="mobile-menu hidden" id="mobile-menu">
+          <div class="mobile-menu-head">
+            <p class="mobile-menu-title">Navigate</p>
+          </div>
+          <a class="mobile-menu-link" href="./index.html?section=account">Account</a>
+          <a class="mobile-menu-link" href="./index.html?section=library">Library</a>
+          <a class="mobile-menu-link is-active" href="./files.html">All files</a>
+          <a class="mobile-menu-link" href="/">Exit demo</a>
+        </div>
+      </div>
+    </header>
+
+    <main class="main">
+      <section class="panel stack">
+        <div class="panel-head">
+          <div>
+            <h2>Library Files</h2>
+          </div>
+          <a class="btn secondary button-link" href="./index.html?section=library">Back to records</a>
+        </div>
+
+        <div class="grid-3">
+          <div class="field">
+            <label>Selected library</label>
+            <select class="hidden" id="active-library-select" aria-label="Select demo library"></select>
+            <p class="account-value" id="active-library-name">Personal</p>
+          </div>
+          <div class="field">
+            <span class="field-title">Your access</span>
+            <p class="account-value" id="active-membership-role">Owner</p>
+          </div>
+          <div class="field">
+            <span class="field-title">Document count</span>
+            <p class="account-value" id="document-count">0</p>
+          </div>
+        </div>
+
+        <div class="download-list" id="file-list"></div>
+        <p class="empty hidden" id="file-empty">No files in this library yet.</p>
+        <p class="status" id="file-status"></p>
+      </section>
+    </main>
+  </div>
+
+  <div class="file-modal" id="file-modal" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="file-modal-dialog">
+      <div class="file-modal-header">
+        <p class="file-modal-title" id="file-modal-title">File preview</p>
+        <div class="file-modal-actions">
+          <a class="file-modal-link" id="file-modal-download" href="#" target="_blank" rel="noopener">Download</a>
+          <button class="file-modal-link" id="file-modal-share" type="button">Share</button>
+          <button class="file-modal-close" id="file-modal-close" type="button">Close</button>
+        </div>
+      </div>
+      <div class="file-modal-body">
+        <iframe class="file-modal-frame" id="file-modal-frame" src="" title="File preview"></iframe>
+      </div>
+    </div>
+  </div>
+
+  <div class="confirm-modal" id="delete-confirm-modal" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="confirm-modal-dialog">
+      <div class="confirm-modal-header">
+        <div>
+          <p class="confirm-modal-kicker">Delete file</p>
+          <h3 class="confirm-modal-title">Remove this demo document?</h3>
+        </div>
+      </div>
+      <div class="confirm-modal-body">
+        <p class="confirm-modal-copy" id="delete-confirm-copy">This action only affects the demo in this browser.</p>
+        <div class="confirm-modal-actions">
+          <button class="btn secondary" id="delete-confirm-cancel" type="button">Cancel</button>
+          <button class="btn btn-delete-solid" id="delete-confirm-submit" type="button">Delete</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      const DEMO_STORAGE_KEY = "n3xra-demo-uploads-v1";
+      const DEMO_LIBRARY_STATE_KEY = "n3xra-demo-library-state-v1";
+      const DEMO_LIBRARIES = {
+        personal: {
+          id: "personal",
+          name: "Personal",
+          role: "Owner"
+        },
+        shared_admin: {
+          id: "shared_admin",
+          name: "Navarre Board Archive",
+          role: "Account Admin"
+        }
+      };
+
+      const mobileMenuToggle = document.getElementById("mobile-menu-toggle");
+      const mobileMenu = document.getElementById("mobile-menu");
+      const activeLibrarySelect = document.getElementById("active-library-select");
+      const activeLibraryName = document.getElementById("active-library-name");
+      const activeMembershipRole = document.getElementById("active-membership-role");
+      const documentCount = document.getElementById("document-count");
+      const fileList = document.getElementById("file-list");
+      const fileEmpty = document.getElementById("file-empty");
+      const fileStatus = document.getElementById("file-status");
+      const fileModal = document.getElementById("file-modal");
+      const fileModalTitle = document.getElementById("file-modal-title");
+      const fileModalFrame = document.getElementById("file-modal-frame");
+      const fileModalDownload = document.getElementById("file-modal-download");
+      const fileModalShare = document.getElementById("file-modal-share");
+      const fileModalClose = document.getElementById("file-modal-close");
+      const deleteConfirmModal = document.getElementById("delete-confirm-modal");
+      const deleteConfirmCopy = document.getElementById("delete-confirm-copy");
+      const deleteConfirmCancel = document.getElementById("delete-confirm-cancel");
+      const deleteConfirmSubmit = document.getElementById("delete-confirm-submit");
+
+      let sampleDocumentsByLibrary = {
+        personal: [],
+        shared_admin: []
+      };
+      let uploadedDocumentsByLibrary = {
+        personal: [],
+        shared_admin: []
+      };
+      let demoAvailableLibraries = ["personal"];
+      let activeDemoLibraryId = "personal";
+      let pendingDeleteId = null;
+      let activeModalDocumentId = null;
+
+      function setStatus(el, message, tone = "") {
+        if (!el) return;
+        el.textContent = message || "";
+        el.className = "status";
+        if (tone) el.classList.add(tone);
+      }
+
+      function escapeHtml(value) {
+        return String(value || "")
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#39;");
+      }
+
+      function monthNameFromNumber(monthNum) {
+        const months = ["", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+        return months[Number(monthNum)] || "";
+      }
+
+      function formatDateLabel(doc) {
+        const month = doc.month || monthNameFromNumber(doc.month_num);
+        if (month && doc.year) return `${month} ${doc.year}`;
+        if (doc.year) return String(doc.year);
+        return "Undated";
+      }
+
+      function persistDemoLibraryState() {
+        localStorage.setItem(
+          DEMO_LIBRARY_STATE_KEY,
+          JSON.stringify({
+            availableLibraries: demoAvailableLibraries.filter((libraryId) => DEMO_LIBRARIES[libraryId]),
+            activeLibraryId: DEMO_LIBRARIES[activeDemoLibraryId] ? activeDemoLibraryId : "personal"
+          })
+        );
+      }
+
+      function loadDemoLibraryState() {
+        try {
+          const stored = JSON.parse(localStorage.getItem(DEMO_LIBRARY_STATE_KEY) || "null");
+          const availableLibraries = Array.isArray(stored?.availableLibraries)
+            ? stored.availableLibraries.filter((libraryId) => DEMO_LIBRARIES[libraryId])
+            : ["personal"];
+          demoAvailableLibraries = availableLibraries.length ? Array.from(new Set(["personal", ...availableLibraries])) : ["personal"];
+          activeDemoLibraryId = DEMO_LIBRARIES[stored?.activeLibraryId] ? stored.activeLibraryId : "personal";
+          if (!demoAvailableLibraries.includes(activeDemoLibraryId)) {
+            activeDemoLibraryId = "personal";
+          }
+        } catch {
+          demoAvailableLibraries = ["personal"];
+          activeDemoLibraryId = "personal";
+        }
+      }
+
+      function hydrateUploadedDocument(raw) {
+        const inlineContent = String(raw.inlineContent || raw.text || "");
+        const encoded = encodeURIComponent(inlineContent);
+        const dataUrl = `data:text/plain;charset=utf-8,${encoded}`;
+        return {
+          id: raw.id,
+          title: raw.title,
+          year: raw.year,
+          month: raw.month,
+          month_num: raw.month_num,
+          ext: raw.ext || "TXT",
+          original_filename: raw.original_filename || "demo-upload.txt",
+          text: raw.text || inlineContent,
+          is_public: Boolean(raw.is_public),
+          status: raw.status || "ready",
+          source: raw.source || "uploaded",
+          inlineContent,
+          path: dataUrl,
+          previewUrl: dataUrl,
+          downloadUrl: dataUrl
+        };
+      }
+
+      function loadUploadedDocuments() {
+        try {
+          const stored = JSON.parse(localStorage.getItem(DEMO_STORAGE_KEY) || "[]");
+          if (Array.isArray(stored)) {
+            uploadedDocumentsByLibrary = {
+              personal: stored.map(hydrateUploadedDocument),
+              shared_admin: []
+            };
+            return;
+          }
+          uploadedDocumentsByLibrary = {
+            personal: Array.isArray(stored.personal) ? stored.personal.map(hydrateUploadedDocument) : [],
+            shared_admin: Array.isArray(stored.shared_admin) ? stored.shared_admin.map(hydrateUploadedDocument) : []
+          };
+        } catch {
+          uploadedDocumentsByLibrary = {
+            personal: [],
+            shared_admin: []
+          };
+        }
+      }
+
+      function persistUploadedDocuments() {
+        const safeUploads = Object.fromEntries(
+          Object.entries(uploadedDocumentsByLibrary).map(([libraryId, docs]) => [
+            libraryId,
+            docs.map((doc) => ({
+              id: doc.id,
+              title: doc.title,
+              year: doc.year,
+              month: doc.month,
+              month_num: doc.month_num,
+              ext: doc.ext,
+              original_filename: doc.original_filename,
+              text: doc.text,
+              is_public: doc.is_public,
+              status: doc.status,
+              source: doc.source,
+              inlineContent: doc.inlineContent
+            }))
+          ])
+        );
+        localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(safeUploads));
+      }
+
+      function buildFiveDemoDocs(sourceDocs, startIndex, idPrefix) {
+        if (!Array.isArray(sourceDocs) || !sourceDocs.length) return [];
+        return Array.from({ length: 5 }, (_, offset) => {
+          const source = sourceDocs[(startIndex + offset) % sourceDocs.length];
+          return {
+            ...source,
+            id: `${idPrefix}-${offset + 1}`
+          };
+        });
+      }
+
+      function getUploadedDocumentsForActiveLibrary() {
+        return uploadedDocumentsByLibrary[activeDemoLibraryId] || [];
+      }
+
+      function getSampleDocumentsForActiveLibrary() {
+        return sampleDocumentsByLibrary[activeDemoLibraryId] || [];
+      }
+
+      function allDocuments() {
+        return [...getUploadedDocumentsForActiveLibrary(), ...getSampleDocumentsForActiveLibrary()];
+      }
+
+      function buildPreviewUrl(doc) {
+        if (doc.previewUrl) return doc.previewUrl;
+        const absolute = new URL(doc.path, window.location.origin).toString();
+        if (String(doc.original_filename || "").toLowerCase().endsWith(".docx")) {
+          return `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(absolute)}`;
+        }
+        return absolute;
+      }
+
+      function closeMobileMenu() {
+        mobileMenu.classList.remove("is-open");
+        mobileMenu.classList.add("hidden");
+        mobileMenuToggle.setAttribute("aria-expanded", "false");
+      }
+
+      function toggleMobileMenu() {
+        const nextOpen = !mobileMenu.classList.contains("is-open");
+        mobileMenu.classList.toggle("is-open", nextOpen);
+        mobileMenu.classList.toggle("hidden", !nextOpen);
+        mobileMenuToggle.setAttribute("aria-expanded", String(nextOpen));
+      }
+
+      function closeFileActionMenus(exceptId = "") {
+        fileList.querySelectorAll(".file-row-controls.is-open").forEach((controls) => {
+          const toggle = controls.querySelector("[data-menu-toggle]");
+          const row = controls.closest(".file-row");
+          if (!toggle) return;
+          if (exceptId && toggle.getAttribute("data-id") === exceptId) return;
+          controls.classList.remove("is-open");
+          row?.classList.remove("is-actions-open");
+          toggle.setAttribute("aria-expanded", "false");
+          toggle.textContent = "Action";
+        });
+      }
+
+      function renderLibrarySelector() {
+        const hasMultipleLibraries = demoAvailableLibraries.length > 1;
+        activeLibrarySelect.innerHTML = "";
+        demoAvailableLibraries.forEach((libraryId) => {
+          const library = DEMO_LIBRARIES[libraryId];
+          if (!library) return;
+          const option = document.createElement("option");
+          option.value = library.id;
+          option.textContent = library.name;
+          activeLibrarySelect.append(option);
+        });
+        activeLibrarySelect.value = activeDemoLibraryId;
+        activeLibrarySelect.classList.toggle("hidden", !hasMultipleLibraries);
+        activeLibraryName.classList.toggle("hidden", hasMultipleLibraries);
+      }
+
+      function renderFiles() {
+        const activeLibrary = DEMO_LIBRARIES[activeDemoLibraryId] || DEMO_LIBRARIES.personal;
+        const docs = allDocuments();
+        activeLibraryName.textContent = activeLibrary.name;
+        activeMembershipRole.textContent = activeLibrary.role;
+        documentCount.textContent = String(docs.length);
+        fileList.innerHTML = "";
+        fileEmpty.classList.toggle("hidden", docs.length > 0);
+        renderLibrarySelector();
+
+        docs.forEach((doc) => {
+          const actionMenuId = `file-actions-${doc.id}`;
+          const item = document.createElement("article");
+          item.className = "download-item file-row";
+          item.setAttribute("data-open-id", doc.id);
+          item.setAttribute("role", "button");
+          item.setAttribute("tabindex", "0");
+          item.innerHTML = `
+            <div class="file-row-main">
+              <p class="download-name">${escapeHtml(doc.title || doc.original_filename || "Untitled document")}</p>
+              <p class="download-meta">${escapeHtml(doc.original_filename || "Unknown file")} · ${escapeHtml(formatDateLabel(doc))}${doc.is_public ? " · Public" : " · Private"} · ${escapeHtml(doc.source || "demo")}</p>
+            </div>
+            <div class="file-row-controls">
+              <button class="btn secondary file-row-menu-toggle" type="button" data-menu-toggle data-id="${escapeHtml(doc.id)}" aria-expanded="false" aria-controls="${actionMenuId}">Action</button>
+              <div class="doc-actions file-row-actions" id="${actionMenuId}">
+                <button class="btn secondary" type="button" data-action="download" data-id="${escapeHtml(doc.id)}">Download</button>
+                <button class="btn secondary" type="button" data-action="share" data-id="${escapeHtml(doc.id)}">Share</button>
+                <button class="btn warn" type="button" data-action="delete" data-id="${escapeHtml(doc.id)}">Delete</button>
+              </div>
+            </div>
+          `;
+          fileList.append(item);
+        });
+
+        setStatus(fileStatus, `${docs.length} file${docs.length === 1 ? "" : "s"} available in the demo library.`, "success");
+      }
+
+      function openFile(docId) {
+        const doc = allDocuments().find((item) => item.id === docId);
+        if (!doc) return;
+        activeModalDocumentId = docId;
+        fileModalTitle.textContent = doc.title || doc.original_filename || "File preview";
+        fileModalFrame.src = buildPreviewUrl(doc);
+        fileModalDownload.href = doc.downloadUrl || doc.path;
+        fileModalDownload.setAttribute("download", doc.original_filename || "download");
+        fileModal.classList.add("is-open");
+        fileModal.setAttribute("aria-hidden", "false");
+      }
+
+      function closeFileModal() {
+        fileModal.classList.remove("is-open");
+        fileModal.setAttribute("aria-hidden", "true");
+        fileModalFrame.src = "";
+        activeModalDocumentId = null;
+      }
+
+      async function shareDocument(docId) {
+        const doc = allDocuments().find((item) => item.id === docId);
+        if (!doc) return;
+        const shareUrl = doc.downloadUrl || new URL(doc.path, window.location.origin).toString();
+        if (navigator.share) {
+          try {
+            await navigator.share({
+              title: doc.title || doc.original_filename || "Demo file",
+              text: `Shared from the n3xra.com interactive demo: ${doc.title || doc.original_filename || "File"}`,
+              url: shareUrl
+            });
+            setStatus(fileStatus, "Share sheet opened.", "success");
+            return;
+          } catch (error) {
+            if (error instanceof Error && error.name === "AbortError") return;
+          }
+        }
+
+        try {
+          await navigator.clipboard.writeText(shareUrl);
+          setStatus(fileStatus, "Share link copied to clipboard.", "success");
+        } catch {
+          setStatus(fileStatus, "Unable to share on this device.", "error");
+        }
+      }
+
+      function openDeleteConfirm(docId) {
+        const doc = allDocuments().find((item) => item.id === docId);
+        if (!doc) return;
+        pendingDeleteId = docId;
+        deleteConfirmCopy.textContent = `Delete "${doc.title || doc.original_filename || "this file"}" from the interactive demo?`;
+        deleteConfirmModal.classList.add("is-open");
+        deleteConfirmModal.setAttribute("aria-hidden", "false");
+      }
+
+      function closeDeleteConfirm() {
+        pendingDeleteId = null;
+        deleteConfirmModal.classList.remove("is-open");
+        deleteConfirmModal.setAttribute("aria-hidden", "true");
+      }
+
+      function deleteDocument(docId) {
+        const activeUploads = getUploadedDocumentsForActiveLibrary();
+        const uploadIndex = activeUploads.findIndex((item) => item.id === docId);
+        if (uploadIndex >= 0) {
+          activeUploads.splice(uploadIndex, 1);
+          persistUploadedDocuments();
+          renderFiles();
+          closeDeleteConfirm();
+          closeFileModal();
+          setStatus(fileStatus, "Uploaded demo file deleted.", "success");
+          return;
+        }
+
+        const activeSamples = getSampleDocumentsForActiveLibrary();
+        const sampleDoc = activeSamples.find((item) => item.id === docId);
+        if (!sampleDoc) return;
+        sampleDocumentsByLibrary[activeDemoLibraryId] = activeSamples.filter((item) => item.id !== docId);
+        renderFiles();
+        closeDeleteConfirm();
+        closeFileModal();
+        setStatus(fileStatus, "Sample file removed from this demo session.", "success");
+      }
+
+      mobileMenuToggle.addEventListener("click", toggleMobileMenu);
+      activeLibrarySelect.addEventListener("change", (event) => {
+        const nextLibraryId = event.target.value;
+        if (!DEMO_LIBRARIES[nextLibraryId]) return;
+        activeDemoLibraryId = nextLibraryId;
+        persistDemoLibraryState();
+        renderFiles();
+      });
+
+      fileList.addEventListener("click", async (event) => {
+        const target = event.target;
+        if (!(target instanceof Element)) return;
+        const button = target.closest("button[data-action]");
+
+        const menuToggle = target.closest("button[data-menu-toggle]");
+        if (menuToggle) {
+          const controls = menuToggle.closest(".file-row-controls");
+          const row = menuToggle.closest(".file-row");
+          const id = menuToggle.getAttribute("data-id") || "";
+          const nextOpen = !controls?.classList.contains("is-open");
+          closeFileActionMenus(nextOpen ? id : "");
+          controls?.classList.toggle("is-open", nextOpen);
+          row?.classList.toggle("is-actions-open", nextOpen);
+          menuToggle.setAttribute("aria-expanded", String(nextOpen));
+          menuToggle.textContent = nextOpen ? "Close" : "Action";
+          return;
+        }
+
+        if (button) {
+          const action = button.getAttribute("data-action");
+          const id = button.getAttribute("data-id");
+          if (!id) return;
+          closeFileActionMenus();
+
+          if (action === "download") {
+            const doc = allDocuments().find((item) => item.id === id);
+            if (!doc) return;
+            const link = document.createElement("a");
+            link.href = doc.downloadUrl || doc.path;
+            link.download = doc.original_filename || "download";
+            link.target = "_blank";
+            link.rel = "noopener";
+            document.body.append(link);
+            link.click();
+            link.remove();
+            return;
+          }
+          if (action === "share") {
+            await shareDocument(id);
+            return;
+          }
+          if (action === "delete") {
+            openDeleteConfirm(id);
+          }
+          return;
+        }
+
+        const row = target.closest("[data-open-id]");
+        if (!row) return;
+        const id = row.getAttribute("data-open-id");
+        if (!id) return;
+        openFile(id);
+      });
+
+      fileList.addEventListener("keydown", (event) => {
+        const target = event.target;
+        if (!(target instanceof Element)) return;
+        if (target.closest("button[data-action], button[data-menu-toggle]")) return;
+        const row = target.closest("[data-open-id]");
+        if (!row) return;
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        const id = row.getAttribute("data-open-id");
+        if (!id) return;
+        openFile(id);
+      });
+
+      fileModalClose.addEventListener("click", closeFileModal);
+      fileModalShare.addEventListener("click", async () => {
+        if (!activeModalDocumentId) return;
+        await shareDocument(activeModalDocumentId);
+      });
+      fileModal.addEventListener("click", (event) => {
+        if (event.target === fileModal) closeFileModal();
+      });
+
+      deleteConfirmCancel.addEventListener("click", closeDeleteConfirm);
+      deleteConfirmSubmit.addEventListener("click", () => {
+        if (!pendingDeleteId) return;
+        deleteDocument(pendingDeleteId);
+      });
+      deleteConfirmModal.addEventListener("click", (event) => {
+        if (event.target === deleteConfirmModal) closeDeleteConfirm();
+      });
+
+      document.addEventListener("click", (event) => {
+        const target = event.target;
+        if (!(target instanceof Element)) return;
+        if (!target.closest(".file-row-controls")) {
+          closeFileActionMenus();
+        }
+        if (!mobileMenu.classList.contains("is-open")) return;
+        if (mobileMenu.contains(target) || mobileMenuToggle.contains(target)) return;
+        closeMobileMenu();
+      });
+
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && fileModal.classList.contains("is-open")) {
+          closeFileModal();
+          return;
+        }
+        if (event.key === "Escape" && deleteConfirmModal.classList.contains("is-open")) {
+          closeDeleteConfirm();
+          return;
+        }
+        if (event.key === "Escape") {
+          closeFileActionMenus();
+          closeMobileMenu();
+        }
+      });
+
+      loadDemoLibraryState();
+      loadUploadedDocuments();
+
+      fetch("../DocumentsStorageLocation/index-search.json?v=4")
+        .then((response) => {
+          if (!response.ok) throw new Error("Unable to load demo library.");
+          return response.json();
+        })
+        .then((data) => {
+          const mapped = (Array.isArray(data) ? data : []).map((item, index) => ({
+            id: `source-sample-${index + 1}`,
+            title: item.title,
+            year: item.year,
+            month_num: item.month_num,
+            month: monthNameFromNumber(item.month_num),
+            ext: item.ext,
+            original_filename: item.path.split("/").pop() || `${item.title}.docx`,
+            path: item.path,
+            downloadUrl: item.path,
+            text: item.text,
+            is_public: false,
+            status: "ready",
+            source: "sample"
+          }));
+          sampleDocumentsByLibrary = {
+            personal: buildFiveDemoDocs(mapped, 0, "personal-sample"),
+            shared_admin: buildFiveDemoDocs(mapped, 5, "shared-sample")
+          };
+          renderFiles();
+        })
+        .catch((error) => {
+          setStatus(fileStatus, error.message, "error");
+          fileEmpty.classList.remove("hidden");
+        });
+    })();
+  </script>
+</body>
+</html>
