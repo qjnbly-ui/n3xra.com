@@ -244,6 +244,7 @@ async function bootstrapAccess() {
     .from("organization_memberships")
     .select(`
       id,
+      user_id,
       organization_id,
       role,
       organization:organizations(
@@ -254,6 +255,7 @@ async function bootstrapAccess() {
         owner_user_id
       )
     `)
+    .eq("user_id", currentSession.user.id)
     .order("created_at", { ascending: true });
 
   if (error) throw error;

@@ -778,6 +778,7 @@ async function bootstrapAccess() {
       .from("organization_memberships")
       .select(`
         id,
+        user_id,
         organization_id,
         role,
         permissions,
@@ -802,6 +803,7 @@ async function bootstrapAccess() {
           branded_accent_color
         )
       `)
+      .eq("user_id", currentSession.user.id)
       .order("created_at", { ascending: true }),
   ]);
 
