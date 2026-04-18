@@ -92,14 +92,22 @@ async function syncOrganizationSubscription(
   const planId = getPlanIdFromPriceId(priceId);
   const planState = getPlanState(planId);
   const accountStatus = getAccountStatus(subscription.status);
-  const periodEndSeconds = subscription.current_period_end || null;
+  const cancelAtSeconds = subscription.cancel_at || null;
+  const scheduledCancel =
+    Boolean(subscription.cancel_at_period_end) ||
+    (typeof cancelAtSeconds === "number" && cancelAtSeconds > 0 && accountStatus === "active");
+  const periodEndSeconds =
+    subscription.current_period_end ||
+    subscription.items.data[0]?.current_period_end ||
+    cancelAtSeconds ||
+    null;
   const updates: Record<string, unknown> = {
     ...planState,
     account_status: accountStatus,
     stripe_customer_id: customerId,
     stripe_subscription_id: subscription.id,
     stripe_price_id: priceId,
-    cancel_at_period_end: Boolean(subscription.cancel_at_period_end),
+    cancel_at_period_end: scheduledCancel,
     subscription_current_period_end: periodEndSeconds ? new Date(periodEndSeconds * 1000).toISOString() : null,
   };
 
