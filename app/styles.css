@@ -742,6 +742,29 @@ textarea {
     linear-gradient(180deg, #fffefb 0%, #f9fafc 100%);
 }
 
+@media (min-width: 861px) {
+  #account-library-card .account-list {
+    grid-template-columns: 1.3fr 1fr 1fr;
+    align-items: start;
+  }
+
+  #account-library-card .account-list .account-item:nth-child(1) {
+    grid-column: 1;
+  }
+
+  #account-library-card .account-list .account-item:nth-child(2) {
+    grid-column: 2;
+  }
+
+  #account-library-card .account-list .account-item:nth-child(3) {
+    grid-column: 1;
+  }
+
+  #account-library-card .account-list .account-item:nth-child(4) {
+    grid-column: 2;
+  }
+}
+
 .embed-access-title,
 .embed-access-copy {
   margin: 0;

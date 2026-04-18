@@ -168,6 +168,29 @@
       }
     }
 
+    @media (min-width: 861px) {
+      #demo-account-section #account-library-card .account-list {
+        grid-template-columns: 1.3fr 1fr 1fr;
+        align-items: start;
+      }
+
+      #demo-account-section #account-library-card .account-list .account-item:nth-child(1) {
+        grid-column: 1;
+      }
+
+      #demo-account-section #account-library-card .account-list .account-item:nth-child(2) {
+        grid-column: 2;
+      }
+
+      #demo-account-section #account-library-card .account-list .account-item:nth-child(3) {
+        grid-column: 1;
+      }
+
+      #demo-account-section #account-library-card .account-list .account-item:nth-child(4) {
+        grid-column: 2;
+      }
+    }
+
     @media (max-width: 640px) {
       .demo-hero-actions,
       .demo-tabbar {
@@ -353,7 +376,7 @@
             </form>
           </div>
 
-          <div class="demo-admin-only demo-hidden" id="demo-admin-access-sections">
+          <div class="demo-admin-only demo-hidden stack" id="demo-admin-access-sections">
             <button class="section-toggle" id="demo-invite-management-toggle" type="button" aria-expanded="false" aria-controls="demo-invite-management-body">
               <div>
                 <h3>Invite codes</h3>
@@ -454,6 +477,7 @@
             </div>
           </div>
         </section>
+
       </section>
 
       <section class="section-view" id="library-section" hidden>
