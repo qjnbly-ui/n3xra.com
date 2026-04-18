@@ -199,7 +199,7 @@
           <div class="brand">
             <img class="brand-badge brand-badge-image" src="../assets/n3xra_logo_transparent.png" alt="n3xra.com logo">
           </div>
-          <a class="topbar-logout demo-link" href="/">Exit demo</a>
+          <a class="topbar-logout demo-link" data-exit-demo href="/">Exit demo</a>
           <button class="menu-toggle" id="mobile-menu-toggle" type="button" aria-expanded="false" aria-controls="mobile-menu" aria-label="Open menu">
             <span></span>
             <span></span>
@@ -212,7 +212,7 @@
           </div>
           <button class="mobile-menu-link" id="mobile-menu-account" type="button">Account</button>
           <button class="mobile-menu-link is-active" id="mobile-menu-library" type="button">Library</button>
-          <a class="mobile-menu-link demo-link" href="/">Exit demo</a>
+          <a class="mobile-menu-link demo-link" data-exit-demo href="/">Exit demo</a>
         </div>
       </div>
     </header>
@@ -735,6 +735,14 @@
         } catch {
           demoAvailableLibraries = ["personal"];
           activeDemoLibraryId = "personal";
+        }
+      }
+
+      function clearDemoLibraryState() {
+        try {
+          sessionStorage.removeItem(DEMO_LIBRARY_STATE_KEY);
+        } catch {
+          // Ignore storage issues in the demo.
         }
       }
 
@@ -1567,6 +1575,9 @@
         if (!DEMO_LIBRARIES[nextLibraryId]) return;
         activeDemoLibraryId = nextLibraryId;
         renderDemoLibraryContext();
+      });
+      document.querySelectorAll("[data-exit-demo]").forEach((link) => {
+        link.addEventListener("click", () => clearDemoLibraryState());
       });
       demoInviteManagementToggle.addEventListener("click", () => setSectionToggleOpen(demoInviteManagementToggle, demoInviteManagementBody, demoInviteManagementBody.classList.contains("hidden")));
       demoMemberManagementToggle.addEventListener("click", () => setSectionToggleOpen(demoMemberManagementToggle, demoMemberManagementBody, demoMemberManagementBody.classList.contains("hidden")));

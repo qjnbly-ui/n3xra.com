@@ -19,7 +19,7 @@
           <div class="brand">
             <img class="brand-badge brand-badge-image" src="../assets/n3xra_logo_transparent.png" alt="n3xra.com logo">
           </div>
-          <a class="topbar-logout" href="/">Exit demo</a>
+          <a class="topbar-logout" data-exit-demo href="/">Exit demo</a>
           <button class="menu-toggle" id="mobile-menu-toggle" type="button" aria-expanded="false" aria-controls="mobile-menu" aria-label="Open menu">
             <span></span>
             <span></span>
@@ -33,7 +33,7 @@
           <a class="mobile-menu-link" href="/demo?section=account">Account</a>
           <a class="mobile-menu-link" href="/demo?section=library">Library</a>
           <a class="mobile-menu-link is-active" href="/demo/files">All files</a>
-          <a class="mobile-menu-link" href="/">Exit demo</a>
+          <a class="mobile-menu-link" data-exit-demo href="/">Exit demo</a>
         </div>
       </div>
     </header>
@@ -206,6 +206,14 @@
         } catch {
           demoAvailableLibraries = ["personal"];
           activeDemoLibraryId = "personal";
+        }
+      }
+
+      function clearDemoLibraryState() {
+        try {
+          sessionStorage.removeItem(DEMO_LIBRARY_STATE_KEY);
+        } catch {
+          // Ignore storage issues in the demo.
         }
       }
 
@@ -478,6 +486,9 @@
         activeDemoLibraryId = nextLibraryId;
         persistDemoLibraryState();
         renderFiles();
+      });
+      document.querySelectorAll("[data-exit-demo]").forEach((link) => {
+        link.addEventListener("click", () => clearDemoLibraryState());
       });
 
       fileList.addEventListener("click", async (event) => {
