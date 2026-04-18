@@ -678,6 +678,13 @@ textarea {
   color: var(--slate);
 }
 
+.current-plan-note {
+  margin: 0.35rem 0 0;
+  color: var(--teal);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
 .current-plan-actions {
   display: flex;
   gap: 0.75rem;

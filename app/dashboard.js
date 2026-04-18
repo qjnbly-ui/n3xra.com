@@ -95,6 +95,7 @@ const accountStatusItem = document.getElementById("account-status-item");
 const accountStatus = document.getElementById("account-status");
 const currentPlanName = document.getElementById("current-plan-name");
 const currentPlanCopy = document.getElementById("current-plan-copy");
+const currentPlanNote = document.getElementById("current-plan-note");
 const manageBillingButton = document.getElementById("manage-billing-button");
 const changePlanButton = document.getElementById("change-plan-button");
 const billingPlanPicker = document.getElementById("billing-plan-picker");
@@ -1045,6 +1046,13 @@ function renderBillingPlans() {
   const statusLabel = titleCase(accountStatus);
   const isPaidPlan = activePlanId !== "free";
   const periodLabel = cancelsAtPeriodEnd || accountStatus === "canceled" ? "Ends" : "Renews";
+  const billingNote = cancelsAtPeriodEnd
+    ? (currentPeriodEndLabel
+        ? `Cancellation scheduled. Access remains active until ${currentPeriodEndLabel}.`
+        : "Cancellation scheduled. Access remains active until the current billing period ends.")
+    : (isPaidPlan && currentPeriodEndLabel
+        ? `${periodLabel} ${currentPeriodEndLabel}.`
+        : "");
 
   currentPlanName.textContent = activePlan.name;
   currentPlanCopy.textContent = [
@@ -1056,6 +1064,10 @@ function renderBillingPlans() {
     cancelsAtPeriodEnd ? "Cancels at end of billing cycle" : "",
     isPaidPlan && currentPeriodEndLabel ? `${periodLabel} ${currentPeriodEndLabel}` : "",
   ].filter(Boolean).join(" · ");
+  if (currentPlanNote) {
+    currentPlanNote.textContent = billingNote;
+    show(currentPlanNote, Boolean(billingNote));
+  }
   show(manageBillingButton, isBillingEnabled() && Boolean(organization.stripe_customer_id || organization.stripe_subscription_id));
   updateEmbedAccess();
 
