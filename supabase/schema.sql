@@ -372,7 +372,8 @@ declare
   existing_membership record;
   next_org_id uuid;
   next_org_name text;
-  next_invite_code text;
+  explicit_invite_code text;
+  metadata_invite_code text;
   bootstrap_org_id uuid;
   invite_result jsonb;
 begin
@@ -392,18 +393,8 @@ begin
     on conflict (user_id) do update set email = excluded.email;
   end if;
 
-  next_invite_code := coalesce(
-    nullif(trim(input_invite_code), ''),
-    nullif(trim(auth.jwt() -> 'user_metadata' ->> 'invite_code'), '')
-  );
-
-  if next_invite_code is not null then
-    select public.redeem_invite_code(next_invite_code) into invite_result;
-    bootstrap_org_id := nullif(invite_result ->> 'organization_id', '')::uuid;
-    if bootstrap_org_id is null then
-      raise exception 'Invite bootstrap did not return an organization.';
-    end if;
-  end if;
+  explicit_invite_code := nullif(trim(input_invite_code), '');
+  metadata_invite_code := nullif(trim(auth.jwt() -> 'user_metadata' ->> 'invite_code'), '');
 
   select om.organization_id, o.name
   into existing_membership
@@ -413,7 +404,22 @@ begin
   order by om.created_at asc
   limit 1;
 
-  if next_invite_code is not null then
+  if explicit_invite_code is not null then
+    select public.redeem_invite_code(explicit_invite_code) into invite_result;
+    bootstrap_org_id := nullif(invite_result ->> 'organization_id', '')::uuid;
+    if bootstrap_org_id is null then
+      raise exception 'Invite bootstrap did not return an organization.';
+    end if;
+  elsif existing_membership.organization_id is null and metadata_invite_code is not null then
+    begin
+      select public.redeem_invite_code(metadata_invite_code) into invite_result;
+      bootstrap_org_id := nullif(invite_result ->> 'organization_id', '')::uuid;
+    exception when others then
+      bootstrap_org_id := null;
+    end;
+  end if;
+
+  if bootstrap_org_id is not null then
     return jsonb_build_object('ok', true, 'active_organization_id', bootstrap_org_id);
   end if;
 

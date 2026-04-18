@@ -1980,8 +1980,6 @@ async function init() {
   show(dashboardPanel, true);
   showSection(getInitialSection());
   inviteExpiresAtInput.value = getDefaultInviteExpiresAtValue();
-  await loadActiveOrganizationData();
-  showBillingFlashFromUrl();
 
   mobileLogoutButton.addEventListener("click", handleSignout);
   mobileMenuToggle.addEventListener("click", toggleMobileMenu);
@@ -2077,6 +2075,13 @@ async function init() {
     if (mobileMenu.contains(target) || mobileMenuToggle.contains(target)) return;
     closeMobileMenu();
   });
+
+  try {
+    await loadActiveOrganizationData();
+    showBillingFlashFromUrl();
+  } catch (error) {
+    setStatus(contextStatus, getErrorMessage(error, "Unable to load account context."), "error");
+  }
 
   supabase.auth.onAuthStateChange((_event, session) => {
     if (!session?.user) {
