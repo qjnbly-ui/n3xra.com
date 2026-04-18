@@ -21,6 +21,8 @@ const signupOrganizationField = document.getElementById("signup-organization-fie
 const signupOrganizationInput = document.getElementById("signup-organization");
 const signupInviteCodeField = document.getElementById("signup-invite-code-field");
 const signupInviteCodeInput = document.getElementById("signup-invite-code");
+const signupPasswordInput = document.getElementById("signup-password");
+const signupPasswordConfirmInput = document.getElementById("signup-password-confirm");
 const signupModeCreateOrgButton = document.getElementById("signup-mode-create-org");
 const signupModePersonalButton = document.getElementById("signup-mode-personal");
 const signupModeInviteButton = document.getElementById("signup-mode-invite");
@@ -57,6 +59,24 @@ function getErrorMessage(error, fallback) {
     return error.message;
   }
   return fallback;
+}
+
+function setSignupPasswordsVisible(visible) {
+  const nextType = visible ? "text" : "password";
+  [signupPasswordInput, signupPasswordConfirmInput].forEach((input) => {
+    if (input instanceof HTMLInputElement) {
+      input.type = nextType;
+    }
+  });
+  document.querySelectorAll("[data-password-toggle]").forEach((button) => {
+    button.textContent = visible ? "Hide" : "Show";
+    button.setAttribute("aria-label", visible ? "Hide password" : "Show password");
+  });
+}
+
+function togglePasswordVisibility() {
+  const nextVisible = signupPasswordInput.type === "password";
+  setSignupPasswordsVisible(nextVisible);
 }
 
 function toggleSignup(visible) {
@@ -153,8 +173,15 @@ async function handleSignup(event) {
   const organizationName = signupMode === "invite" ? "" : signupOrganizationInput.value.trim();
   const role = signupMode === "invite" ? "" : "account_owner";
   const email = document.getElementById("signup-email").value.trim();
-  const password = document.getElementById("signup-password").value;
+  const password = signupPasswordInput.value;
+  const passwordConfirm = signupPasswordConfirmInput.value;
   const inviteCode = signupMode === "invite" ? signupInviteCodeInput.value.trim() : "";
+
+  if (password !== passwordConfirm) {
+    isSubmittingAuth = false;
+    setStatus("Passwords do not match.", "error");
+    return;
+  }
 
   if (signupMode === "invite" && !inviteCode) {
     isSubmittingAuth = false;
@@ -315,6 +342,9 @@ async function init() {
   signupModeInviteButton.addEventListener("click", () => setSignupMode("invite"));
   showSigninButton.addEventListener("click", () => toggleSignup(false));
   showSignupButton.addEventListener("click", () => toggleSignup(true));
+  document.querySelectorAll("[data-password-toggle]").forEach((button) => {
+    button.addEventListener("click", () => togglePasswordVisibility());
+  });
 
   supabase.auth.onAuthStateChange((_event, session) => {
     if (isSubmittingAuth) return;

@@ -341,6 +341,30 @@ select {
   color: var(--ink);
 }
 
+.password-field {
+  position: relative;
+}
+
+.password-field input {
+  padding-right: 4.8rem;
+}
+
+.password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 0.55rem;
+  transform: translateY(-50%);
+  border: 1px solid rgba(15, 22, 32, 0.12);
+  border-radius: 999px;
+  background: var(--white);
+  color: var(--ink-soft);
+  padding: 0.38rem 0.7rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: none;
+}
+
 .field-note {
   margin: 0;
   font-size: 0.82rem;

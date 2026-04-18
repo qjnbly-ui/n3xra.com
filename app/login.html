@@ -122,7 +122,17 @@
               </div>
               <div class="field">
                 <label for="signup-password">Password</label>
-                <input id="signup-password" type="password" autocomplete="new-password" minlength="8" required>
+                <div class="password-field">
+                  <input id="signup-password" type="password" autocomplete="new-password" minlength="8" required>
+                  <button class="password-toggle" type="button" data-password-toggle="signup-password" aria-label="Show password">Show</button>
+                </div>
+              </div>
+              <div class="field">
+                <label for="signup-password-confirm">Confirm password</label>
+                <div class="password-field">
+                  <input id="signup-password-confirm" type="password" autocomplete="new-password" minlength="8" required>
+                  <button class="password-toggle" type="button" data-password-toggle="signup-password-confirm" aria-label="Show password">Show</button>
+                </div>
               </div>
               <div class="field hidden" id="signup-invite-code-field">
                 <label for="signup-invite-code">Invite code</label>
