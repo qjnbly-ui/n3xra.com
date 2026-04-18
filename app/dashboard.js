@@ -77,6 +77,13 @@ const openEmbedCardButton = document.getElementById("open-embed-card-button");
 const embedAccessCard = document.getElementById("embed-access-card");
 const embedModal = document.getElementById("embed-modal");
 const embedModalClose = document.getElementById("embed-modal-close");
+const installAppModal = document.getElementById("install-app-modal");
+const installAppClose = document.getElementById("install-app-close");
+const installAppDismiss = document.getElementById("install-app-dismiss");
+const installAppAction = document.getElementById("install-app-action");
+const installAppCopy = document.getElementById("install-app-copy");
+const installAppIosNotice = document.getElementById("install-app-ios-notice");
+const installAppStatus = document.getElementById("install-app-status");
 const embedPreviewUrlInput = document.getElementById("embed-preview-url");
 const embedCodeInput = document.getElementById("embed-code");
 const openEmbedPreview = document.getElementById("open-embed-preview");
@@ -159,6 +166,8 @@ let documentsCache = [];
 let inviteCache = [];
 let memberCache = [];
 let uploadMode = "single";
+const POST_LOGIN_INSTALL_PROMPT_KEY = "n3xra-post-login-install-prompt";
+let shouldOfferInstallAfterLoad = false;
 function getInitialSection() {
   const params = new URLSearchParams(window.location.search);
   return params.get("section") === "library" ? "library" : "account";
@@ -221,6 +230,7 @@ function showSection(section) {
     setBillingPlanPickerOpen(false);
     setDeleteAccountModalOpen(false);
     setEmbedModalOpen(false);
+    setInstallAppModalOpen(false);
   }
   if (isAccount) {
     setUploadModalOpen(false);
@@ -288,6 +298,46 @@ function setEmbedModalOpen(isOpen) {
   embedModal.classList.toggle("is-open", isOpen);
   embedModal.setAttribute("aria-hidden", String(!isOpen));
   if (!isOpen) setStatus(embedStatus, "");
+}
+
+function setInstallAppModalOpen(isOpen) {
+  installAppModal.classList.toggle("is-open", isOpen);
+  installAppModal.setAttribute("aria-hidden", String(!isOpen));
+  if (!isOpen) setStatus(installAppStatus, "");
+}
+
+function consumePostLoginInstallFlag() {
+  try {
+    const shouldPrompt = window.sessionStorage.getItem(POST_LOGIN_INSTALL_PROMPT_KEY) === "1";
+    window.sessionStorage.removeItem(POST_LOGIN_INSTALL_PROMPT_KEY);
+    return shouldPrompt;
+  } catch {
+    return false;
+  }
+}
+
+function maybeShowInstallPrompt() {
+  if (!shouldOfferInstallAfterLoad) return;
+
+  const pwaState = window.__n3xraPwa || {};
+  if (pwaState.isStandalone) {
+    shouldOfferInstallAfterLoad = false;
+    return;
+  }
+
+  const canInstall = Boolean(pwaState.canInstall);
+  const isIos = Boolean(pwaState.isIos);
+  if (!canInstall && !isIos) return;
+
+  installAppCopy.textContent = canInstall
+    ? "Install N3XRA for quicker access and a more app-like experience."
+    : "Add N3XRA to your home screen so it opens like an app the next time you use it.";
+  show(installAppAction, canInstall);
+  show(installAppIosNotice, isIos);
+  installAppAction.textContent = "Install app";
+  setStatus(installAppStatus, "");
+  setInstallAppModalOpen(true);
+  shouldOfferInstallAfterLoad = false;
 }
 
 function setBillingPlanPickerOpen(isOpen) {
@@ -2022,6 +2072,24 @@ async function init() {
   deleteAccountSubmit.addEventListener("click", deleteAccount);
   openEmbedCardButton.addEventListener("click", () => setEmbedModalOpen(true));
   embedModalClose.addEventListener("click", () => setEmbedModalOpen(false));
+  installAppClose.addEventListener("click", () => setInstallAppModalOpen(false));
+  installAppDismiss.addEventListener("click", () => setInstallAppModalOpen(false));
+  installAppAction.addEventListener("click", async () => {
+    const pwaState = window.__n3xraPwa || {};
+    if (typeof pwaState.promptInstall !== "function") return;
+
+    setStatus(installAppStatus, "Opening install prompt...");
+    try {
+      const accepted = await pwaState.promptInstall();
+      setInstallAppModalOpen(false);
+      if (!accepted) {
+        setStatus(billingStatus, "Install was dismissed. You can add N3XRA later from your browser menu.");
+      }
+    } catch (error) {
+      setStatus(installAppStatus, getErrorMessage(error, "Unable to open the install prompt."), "error");
+    }
+  });
+  window.addEventListener("n3xra:pwa-state", maybeShowInstallPrompt);
   copyEmbedCodeButton.addEventListener("click", copyEmbedCode);
   openUploadModalButton.addEventListener("click", () => {
     resetUploadFeedback();
@@ -2064,6 +2132,10 @@ async function init() {
       setEmbedModalOpen(false);
       return;
     }
+    if (event.key === "Escape" && installAppModal.classList.contains("is-open")) {
+      setInstallAppModalOpen(false);
+      return;
+    }
     if (event.key === "Escape" && uploadModal.classList.contains("is-open")) {
       setUploadModalOpen(false);
       return;
@@ -2078,9 +2150,11 @@ async function init() {
     closeMobileMenu();
   });
 
+  shouldOfferInstallAfterLoad = consumePostLoginInstallFlag();
   try {
     await loadActiveOrganizationData();
     showBillingFlashFromUrl();
+    maybeShowInstallPrompt();
   } catch (error) {
     setStatus(contextStatus, getErrorMessage(error, "Unable to load account context."), "error");
   }
