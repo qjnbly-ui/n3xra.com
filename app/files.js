@@ -655,13 +655,22 @@ async function init() {
     return;
   }
 
-  await bootstrapAccess();
-
   show(setupPanel, false);
   show(filesPanel, true);
   setMenuActive("library");
-  renderOrganizationSelector();
-  await loadDocuments();
+  try {
+    await bootstrapAccess();
+    renderOrganizationSelector();
+    await loadDocuments();
+  } catch (error) {
+    memberships = [];
+    activeMembership = null;
+    documentsCache = [];
+    renderOrganizationSelector();
+    fileList.innerHTML = "";
+    show(fileEmpty, false);
+    setStatus(fileStatus, error?.message || "Unable to load files.", "error");
+  }
 
   mobileLogoutButton.addEventListener("click", handleSignout);
   mobileMenuToggle.addEventListener("click", toggleMobileMenu);

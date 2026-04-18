@@ -29,20 +29,12 @@ body {
     linear-gradient(180deg, #f8fafc 0%, #ecf1f7 100%);
 }
 
-html.app-standalone body {
-  min-height: 100dvh;
-}
-
 a { color: inherit; }
 
 .shell {
   min-height: 100vh;
   display: grid;
   grid-template-rows: auto 1fr;
-}
-
-html.app-standalone .shell {
-  min-height: 100dvh;
 }
 
 .topbar {
@@ -52,10 +44,6 @@ html.app-standalone .shell {
     radial-gradient(540px 300px at 92% 10%, rgba(234, 155, 63, 0.32), transparent 55%),
     linear-gradient(135deg, #0b1219 0%, #101925 52%, #0c141c 100%);
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-html.app-standalone .topbar {
-  padding-top: env(safe-area-inset-top);
 }
 
 .topbar-inner,
@@ -266,10 +254,6 @@ html.app-standalone .topbar {
   padding: 2rem 0 3rem;
   display: grid;
   gap: 1.4rem;
-}
-
-html.app-standalone .main {
-  padding-bottom: calc(3rem + env(safe-area-inset-bottom));
 }
 
 .panel {

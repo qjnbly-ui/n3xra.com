@@ -212,11 +212,13 @@ async function handleSignup(event) {
   if (data?.user) {
     const { error: profileError } = await supabase
       .from("profiles")
-      .update({
+      .upsert({
+        id: data.user.id,
         email,
         full_name: fullName || null,
       })
-      .eq("id", data.user.id);
+      .select("id")
+      .single();
 
     if (profileError) {
       isSubmittingAuth = false;
