@@ -55,10 +55,7 @@
 
         <section class="section-view" id="account-section" hidden>
           <div class="notice hidden" id="account-no-library-notice">
-            <strong>No active library.</strong> Your account is still available. Library-specific controls will appear when you create or join a library.
-            <div class="actions">
-              <button class="btn secondary hidden" id="create-library-notice-button" type="button">Create personal library</button>
-            </div>
+            <strong>No active library.</strong> Your account is still available. Library-specific controls will appear when you join a library.
           </div>
           <section class="account-card" id="library-settings-card">
             <div class="account-top">
@@ -76,7 +73,6 @@
               </div>
             </div>
             <div class="actions">
-              <button class="btn secondary hidden" id="create-library-button" type="button">Create personal library</button>
               <a class="btn secondary button-link hidden" id="platform-admin-link" href="./admin.html">Platform admin</a>
             </div>
             <p class="status" id="context-status"></p>
@@ -144,6 +140,7 @@
             <div class="billing-plan-picker hidden" id="billing-plan-picker">
               <div class="plan-grid" id="billing-plan-grid"></div>
             </div>
+            <p class="status" id="billing-status"></p>
           </section>
 
           <section class="account-card" id="library-access-card">
@@ -306,7 +303,7 @@
 
         <section class="section-view" id="library-section">
           <div class="notice hidden" id="library-no-access-notice">
-            <strong>No library access right now.</strong> This area will populate when you create a personal library or join another library by invite.
+            <strong>No library access right now.</strong> This area will populate when you join another library by invite.
           </div>
           <section class="panel stack hidden" id="library-context-panel">
             <div class="grid-3">

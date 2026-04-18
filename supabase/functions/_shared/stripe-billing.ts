@@ -57,14 +57,14 @@ export function getPlanState(planId: string) {
       return {
         subscription_tier: "starter",
         document_limit: 250,
-        user_limit: 6,
+        user_limit: 1,
         storage_limit_mb: 4096,
       };
     case "organization":
       return {
         subscription_tier: "organization",
         document_limit: 2500,
-        user_limit: 20,
+        user_limit: 10,
         storage_limit_mb: 20480,
       };
     default:

@@ -58,8 +58,6 @@ const libraryActiveOrganizationName = document.getElementById("library-active-or
 const libraryActiveMembershipRole = document.getElementById("library-active-membership-role");
 const librarySharedLibraryCount = document.getElementById("library-shared-library-count");
 const platformAdminLink = document.getElementById("platform-admin-link");
-const createLibraryButton = document.getElementById("create-library-button");
-const createLibraryNoticeButton = document.getElementById("create-library-notice-button");
 const uploadActionSlot = document.getElementById("upload-action-slot");
 const fileModal = document.getElementById("file-modal");
 const fileModalTitle = document.getElementById("file-modal-title");
@@ -101,6 +99,7 @@ const manageBillingButton = document.getElementById("manage-billing-button");
 const changePlanButton = document.getElementById("change-plan-button");
 const billingPlanPicker = document.getElementById("billing-plan-picker");
 const billingPlanGrid = document.getElementById("billing-plan-grid");
+const billingStatus = document.getElementById("billing-status");
 const profileForm = document.getElementById("profile-form");
 const profileFullNameInput = document.getElementById("profile-full-name");
 const profileStatus = document.getElementById("profile-status");
@@ -496,7 +495,7 @@ function formatBillingDate(value) {
 
 async function openBillingFlow(action, payload = {}) {
   if (!isBillingEnabled()) {
-    setStatus(contextStatus, "Stripe billing is not enabled in app/config.js yet.", "error");
+    setStatus(billingStatus, "Stripe billing is not enabled in app/config.js yet.", "error");
     return false;
   }
 
@@ -508,17 +507,17 @@ async function openBillingFlow(action, payload = {}) {
   });
 
   if (error) {
-    setStatus(contextStatus, error.message, "error");
+    setStatus(billingStatus, error.message, "error");
     return false;
   }
 
   if (data?.error) {
-    setStatus(contextStatus, data.error, "error");
+    setStatus(billingStatus, data.error, "error");
     return false;
   }
 
   if (!data?.url) {
-    setStatus(contextStatus, "Billing session did not return a redirect URL.", "error");
+    setStatus(billingStatus, "Billing session did not return a redirect URL.", "error");
     return false;
   }
 
@@ -538,7 +537,7 @@ function showBillingFlashFromUrl() {
   };
   const [message, tone] = flashMessages[billingState] || ["", ""];
   if (message) {
-    setStatus(contextStatus, message, tone);
+    setStatus(billingStatus, message, tone);
   }
 
   if (billingState === "success") {
@@ -1047,7 +1046,6 @@ function renderProfile() {
   const canSeeMemberManagement = !isFreePlan && capabilities.canManageMembers;
   const canSeePlanMeta = capabilities.canManageBilling || capabilities.canManageLibrarySettings;
   const canEditLibraryNameFromProfile = capabilities.canManageLibrarySettings;
-  const canCreateLibrary = canCreateOwnedLibrary();
   const canDeleteAccountNow = canDeleteOwnAccount();
 
   accountName.textContent = currentProfile?.full_name || currentSession?.user?.email || "-";
@@ -1090,8 +1088,6 @@ function renderProfile() {
   show(libraryRecentPanel, hasLibraryAccess);
   show(changePlanButton, capabilities.canManageBilling);
   show(organizationNameField, canEditLibraryNameFromProfile);
-  show(createLibraryButton, canCreateLibrary);
-  show(createLibraryNoticeButton, !hasLibraryAccess && canCreateLibrary);
   show(organizationPrimaryColorField, !isFreePlan);
   show(organizationAccentColorField, !isFreePlan);
   show(organizationAdvancedSettings, !isFreePlan);
@@ -1504,17 +1500,17 @@ async function handlePlanChange(planId) {
   const organization = getActiveOrganization();
   if (!organization) return;
   if (!getActiveCapabilities().canManageBilling) {
-    setStatus(contextStatus, "Only the account owner or n3xra.com admin can change plan tiers.", "error");
+    setStatus(billingStatus, "Only the account owner or n3xra.com admin can change plan tiers.", "error");
     return;
   }
 
   if (planId === "free" || organization.subscription_tier !== "free" || organization.stripe_customer_id) {
-    setStatus(contextStatus, "Opening Stripe billing portal...");
+    setStatus(billingStatus, "Opening Stripe billing portal...");
     await openBillingFlow("create-portal-session", { organizationId: organization.id });
     return;
   }
 
-  setStatus(contextStatus, "Opening Stripe checkout...");
+  setStatus(billingStatus, "Opening Stripe checkout...");
   await openBillingFlow("create-checkout-session", {
     organizationId: organization.id,
     planId,
@@ -1993,11 +1989,9 @@ async function init() {
   manageBillingButton.addEventListener("click", async () => {
     const organization = getActiveOrganization();
     if (!organization) return;
-    setStatus(contextStatus, "Opening Stripe billing portal...");
+    setStatus(billingStatus, "Opening Stripe billing portal...");
     await openBillingFlow("create-portal-session", { organizationId: organization.id });
   });
-  createLibraryButton.addEventListener("click", createPersonalLibrary);
-  createLibraryNoticeButton.addEventListener("click", createPersonalLibrary);
   billingPlanGrid.addEventListener("click", async (event) => {
     const button = event.target.closest("button[data-plan-id]");
     if (!button) return;

@@ -22,7 +22,7 @@ export function normalizeMembershipRole(role) {
 
 export function formatRoleLabel(role) {
   if (String(role || "").trim().toLowerCase() === "billing_owner") {
-    return "Billing Owner";
+    return "Owner";
   }
   return titleCase(normalizeMembershipRole(role));
 }
