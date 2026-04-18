@@ -1,4 +1,4 @@
-const CACHE_NAME = "n3xra-shell-v1";
+const CACHE_NAME = "n3xra-shell-v2";
 const APP_SHELL = [
   "/",
   "/index.html",
@@ -36,9 +36,30 @@ self.addEventListener("fetch", (event) => {
   const requestUrl = new URL(event.request.url);
   if (requestUrl.origin !== self.location.origin) return;
 
-  if (event.request.mode === "navigate") {
+  const shouldUseNetworkFirst = (
+    event.request.mode === "navigate"
+    || event.request.destination === "script"
+    || event.request.destination === "style"
+    || event.request.destination === "document"
+    || requestUrl.pathname.endsWith(".js")
+    || requestUrl.pathname.endsWith(".css")
+    || requestUrl.pathname.endsWith(".html")
+    || requestUrl.pathname.endsWith(".webmanifest")
+  );
+
+  if (shouldUseNetworkFirst) {
     event.respondWith(
-      fetch(event.request).catch(() => caches.match(event.request).then((cached) => cached || caches.match("/app/index.html")))
+      fetch(event.request)
+        .then((response) => {
+          if (response && response.status === 200 && response.type === "basic") {
+            const responseClone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseClone));
+          }
+          return response;
+        })
+        .catch(() =>
+          caches.match(event.request).then((cached) => cached || caches.match("/app/index.html"))
+        )
     );
     return;
   }

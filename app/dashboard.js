@@ -1465,11 +1465,13 @@ async function handleProfileSave(event) {
   const capabilities = getActiveCapabilities();
 
   const updates = {
+    id: currentSession.user.id,
+    email: currentSession.user.email || currentProfile?.email || null,
     full_name: profileFullNameInput.value.trim() || null,
   };
 
   const [{ error: profileError }, organizationResult] = await Promise.all([
-    supabase.from("profiles").update(updates).eq("id", currentSession.user.id),
+    supabase.from("profiles").upsert(updates).select("id, email, full_name").single(),
     organization && capabilities.canManageLibrarySettings
       ? supabase
           .from("organizations")
@@ -1491,7 +1493,12 @@ async function handleProfileSave(event) {
     return;
   }
 
-  currentProfile = { ...(currentProfile || {}), ...updates };
+  currentProfile = {
+    ...(currentProfile || {}),
+    id: updates.id,
+    email: updates.email,
+    full_name: updates.full_name,
+  };
   if (organizationResult?.data) {
     activeMembership.organization = organizationResult.data;
     memberships = memberships.map((membership) =>
