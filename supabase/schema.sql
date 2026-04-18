@@ -70,7 +70,7 @@ create table if not exists public.organization_memberships (
   updated_at timestamptz not null default now(),
   unique (organization_id, user_id),
   constraint organization_memberships_role_check
-    check (role in ('account_admin', 'editor', 'viewer', 'guest'))
+    check (role in ('account_admin', 'editor', 'viewer'))
 );
 
 create table if not exists public.organization_invites (
@@ -85,7 +85,7 @@ create table if not exists public.organization_invites (
   created_by uuid references auth.users (id) on delete set null,
   created_at timestamptz not null default now(),
   constraint organization_invites_role_check
-    check (role in ('account_admin', 'editor', 'viewer', 'guest')),
+    check (role in ('account_admin', 'editor', 'viewer')),
   constraint organization_invites_max_uses_check
     check (max_uses > 0),
   constraint organization_invites_redeemed_uses_check
@@ -221,7 +221,7 @@ as $$
           and om.user_id = auth.uid()
         limit 1
       ),
-      'guest'
+      'viewer'
     );
 $$;
 
@@ -400,6 +400,9 @@ begin
   if next_invite_code is not null then
     select public.redeem_invite_code(next_invite_code) into invite_result;
     bootstrap_org_id := nullif(invite_result ->> 'organization_id', '')::uuid;
+    if bootstrap_org_id is null then
+      raise exception 'Invite bootstrap did not return an organization.';
+    end if;
   end if;
 
   select om.organization_id, o.name
@@ -410,7 +413,7 @@ begin
   order by om.created_at asc
   limit 1;
 
-  if bootstrap_org_id is not null then
+  if next_invite_code is not null then
     return jsonb_build_object('ok', true, 'active_organization_id', bootstrap_org_id);
   end if;
 
@@ -859,14 +862,22 @@ alter table public.organization_memberships
 
 alter table public.organization_memberships
   add constraint organization_memberships_role_check
-  check (role in ('account_admin', 'editor', 'viewer', 'guest'));
+  check (role in ('account_admin', 'editor', 'viewer'));
+
+update public.organization_memberships
+set role = 'viewer'
+where role = 'guest';
 
 alter table public.organization_invites
   drop constraint if exists organization_invites_role_check;
 
 alter table public.organization_invites
   add constraint organization_invites_role_check
-  check (role in ('account_admin', 'editor', 'viewer', 'guest'));
+  check (role in ('account_admin', 'editor', 'viewer'));
+
+update public.organization_invites
+set role = 'viewer'
+where role = 'guest';
 
 alter table public.profiles enable row level security;
 alter table public.platform_admins enable row level security;

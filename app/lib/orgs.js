@@ -1,6 +1,6 @@
 export const PLATFORM_ADMIN_EMAIL = "quentin@quentinnichols.com";
 export const ACTIVE_ORG_STORAGE_KEY = "records-active-organization-id";
-export const MEMBERSHIP_ROLE_ORDER = ["account_admin", "editor", "viewer", "guest"];
+export const MEMBERSHIP_ROLE_ORDER = ["account_admin", "editor", "viewer"];
 
 export function isPlatformAdminEmail(email) {
   return String(email || "").trim().toLowerCase() === PLATFORM_ADMIN_EMAIL;
@@ -100,7 +100,6 @@ export function dedupeMembershipsByOrganization(memberships) {
     account_admin: 0,
     editor: 1,
     viewer: 2,
-    guest: 3,
   };
 
   const byOrg = new Map();

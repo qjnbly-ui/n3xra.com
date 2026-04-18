@@ -253,6 +253,7 @@ async function handleSignout() {
     setStatus(fileStatus, error.message, "error");
     return;
   }
+  setStoredActiveOrganizationId("");
   window.location.replace("./login.html");
 }
 

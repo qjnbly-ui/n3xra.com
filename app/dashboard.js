@@ -710,7 +710,6 @@ function sortMemberships(items) {
     account_admin: 0,
     editor: 1,
     viewer: 2,
-    guest: 3,
   };
 
   return [...items].sort((a, b) => {
@@ -1293,6 +1292,7 @@ async function handleSignout() {
     setStatus(contextStatus, error.message, "error");
     return;
   }
+  setStoredActiveOrganizationId("");
   window.location.replace("./login.html");
 }
 
