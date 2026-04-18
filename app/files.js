@@ -217,7 +217,7 @@ function renderOrganizationSelector() {
 }
 
 async function bootstrapAccess() {
-  const { error: bootstrapError } = await supabase.rpc("bootstrap_organization", {
+  const { data: bootstrapData, error: bootstrapError } = await supabase.rpc("bootstrap_organization", {
     input_organization_name: null,
     input_invite_code: null,
   });
@@ -242,7 +242,7 @@ async function bootstrapAccess() {
   if (error) throw error;
 
   memberships = dedupeMembershipsByOrganization(buildMembershipMap(data || []));
-  activeMembership = resolveActiveOrganization(memberships);
+  activeMembership = resolveActiveOrganization(memberships, String(bootstrapData?.active_organization_id || ""));
   if (!activeMembership) throw new Error("No libraries available for this account.");
   setStoredActiveOrganizationId(activeMembership.organization.id);
 }

@@ -800,8 +800,7 @@ async function bootstrapAccess() {
   }
 
   const bootstrapOrgId = String(bootstrapData?.active_organization_id || "");
-  const storedOrgId = getStoredActiveOrganizationId();
-  const preferredOrgId = supportOrgId || (!storedOrgId ? bootstrapOrgId : "");
+  const preferredOrgId = supportOrgId || bootstrapOrgId;
   activeMembership = resolveActiveOrganization(memberships, preferredOrgId);
   if (!activeMembership) {
     throw new Error("No organization memberships were found for this account.");

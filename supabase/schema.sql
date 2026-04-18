@@ -410,6 +410,10 @@ begin
   order by om.created_at asc
   limit 1;
 
+  if bootstrap_org_id is not null then
+    return jsonb_build_object('ok', true, 'active_organization_id', bootstrap_org_id);
+  end if;
+
   if existing_membership.organization_id is null then
     next_org_name := coalesce(
       nullif(trim(input_organization_name), ''),
