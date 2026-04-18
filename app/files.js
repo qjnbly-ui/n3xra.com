@@ -17,6 +17,7 @@ const mobileMenuToggle = document.getElementById("mobile-menu-toggle");
 const mobileMenu = document.getElementById("mobile-menu");
 const mobileMenuAccount = document.getElementById("mobile-menu-account");
 const mobileMenuLibrary = document.getElementById("mobile-menu-library");
+const filesNoAccessNotice = document.getElementById("files-no-access-notice");
 const filesActiveOrganizationField = document.getElementById("files-active-organization-field");
 const filesActiveMembershipField = document.getElementById("files-active-membership-field");
 const activeOrganizationSelect = document.getElementById("active-organization-select");
@@ -193,6 +194,10 @@ function getActiveCapabilities() {
   );
 }
 
+function hasActiveLibraryAccess() {
+  return Boolean(getActiveOrganization());
+}
+
 function isFreePlanExperience() {
   return getActiveOrganization()?.subscription_tier === "free";
 }
@@ -202,6 +207,17 @@ function hasMultipleLibraries() {
 }
 
 function renderOrganizationSelector() {
+  if (!memberships.length || !getActiveOrganization()) {
+    activeOrganizationSelect.innerHTML = '<option value="">No active library</option>';
+    activeMembershipRole.textContent = "No library access";
+    documentCount.textContent = "0";
+    activeOrganizationSelect.disabled = true;
+    show(filesNoAccessNotice, true);
+    show(filesActiveOrganizationField, false);
+    show(filesActiveMembershipField, false);
+    return;
+  }
+
   const currentId = getActiveOrganization()?.id || "";
   activeOrganizationSelect.innerHTML = memberships
     .map((membership) => {
@@ -211,6 +227,7 @@ function renderOrganizationSelector() {
     .join("");
   activeMembershipRole.textContent = formatRoleLabel(getMembershipRole(activeMembership));
   fileModalDelete.disabled = !getActiveCapabilities().canDeleteDocuments;
+  show(filesNoAccessNotice, false);
   show(filesActiveOrganizationField, hasMultipleLibraries());
   show(filesActiveMembershipField, hasMultipleLibraries());
   activeOrganizationSelect.disabled = !hasMultipleLibraries();
@@ -243,8 +260,11 @@ async function bootstrapAccess() {
 
   memberships = dedupeMembershipsByOrganization(buildMembershipMap(data || []));
   activeMembership = resolveActiveOrganization(memberships, String(bootstrapData?.active_organization_id || ""));
-  if (!activeMembership) throw new Error("No libraries available for this account.");
-  setStoredActiveOrganizationId(activeMembership.organization.id);
+  if (activeMembership?.organization?.id) {
+    setStoredActiveOrganizationId(activeMembership.organization.id);
+  } else {
+    setStoredActiveOrganizationId("");
+  }
 }
 
 async function handleSignout() {
@@ -259,7 +279,15 @@ async function handleSignout() {
 
 async function loadDocuments() {
   const organization = getActiveOrganization();
-  if (!organization) return;
+  if (!organization) {
+    documentsCache = [];
+    documentCount.textContent = "0";
+    fileList.innerHTML = "";
+    show(fileEmpty, false);
+    setStatus(fileStatus, "");
+    renderOrganizationSelector();
+    return;
+  }
 
   setStatus(fileStatus, "Loading files...");
   const { data, error } = await supabase
@@ -285,7 +313,24 @@ function renderFiles() {
 
   documentsCache.forEach((doc) => {
     const capabilities = getActiveCapabilities();
-    const canEdit = capabilities.canEditDocuments;
+    const actionButtons = [];
+    if (capabilities.canEditDocuments) {
+      actionButtons.push(`<button class="btn secondary" type="button" data-action="edit" data-id="${doc.id}">Edit</button>`);
+    }
+    if (capabilities.canDownloadDocuments) {
+      actionButtons.push(`<button class="btn secondary" type="button" data-action="download" data-id="${doc.id}">Download</button>`);
+    }
+    if (capabilities.canShareDocuments) {
+      actionButtons.push(`<button class="btn secondary" type="button" data-action="share" data-id="${doc.id}">Share</button>`);
+    }
+    if (capabilities.canEditDocuments) {
+      actionButtons.push(
+        `<button class="btn secondary" type="button" data-action="toggle-public" data-id="${doc.id}">${doc.is_public ? "Make private" : "Make public"}</button>`
+      );
+    }
+    if (capabilities.canDeleteDocuments) {
+      actionButtons.push(`<button class="btn warn" type="button" data-action="delete" data-id="${doc.id}">Delete</button>`);
+    }
     const item = document.createElement("article");
     const actionMenuId = `file-actions-${doc.id}`;
     item.className = "download-item file-row";
@@ -300,11 +345,7 @@ function renderFiles() {
       <div class="file-row-controls">
         <button class="btn secondary file-row-menu-toggle" type="button" data-menu-toggle data-id="${doc.id}" aria-expanded="false" aria-controls="${actionMenuId}">Action</button>
         <div class="doc-actions file-row-actions" id="${actionMenuId}">
-          <button class="btn secondary" type="button" data-action="edit" data-id="${doc.id}"${canEdit ? "" : " disabled"}>Edit</button>
-          <button class="btn secondary" type="button" data-action="download" data-id="${doc.id}">Download</button>
-          <button class="btn secondary" type="button" data-action="share" data-id="${doc.id}"${capabilities.canShareDocuments ? "" : " disabled"}>Share</button>
-          <button class="btn secondary" type="button" data-action="toggle-public" data-id="${doc.id}"${canEdit ? "" : " disabled"}>${doc.is_public ? "Make private" : "Make public"}</button>
-          <button class="btn warn" type="button" data-action="delete" data-id="${doc.id}"${canEdit ? "" : " disabled"}>Delete</button>
+          ${actionButtons.join("")}
         </div>
       </div>
     `;
@@ -354,9 +395,9 @@ async function openFile(documentId) {
   fileModalFrame.src = buildPreviewUrl(doc, signedUrl);
   fileModalDownload.href = downloadSigned?.signedUrl || signedUrl;
   fileModalDownload.setAttribute("download", doc.original_filename || "download");
-  fileModalShare.disabled = !capabilities.canShareDocuments;
-  fileModalEdit.disabled = !capabilities.canEditDocuments;
-  fileModalDelete.disabled = !capabilities.canDeleteDocuments;
+  show(fileModalShare, capabilities.canShareDocuments);
+  show(fileModalEdit, capabilities.canEditDocuments);
+  show(fileModalDelete, capabilities.canDeleteDocuments);
   fileModal.classList.add("is-open");
   fileModal.setAttribute("aria-hidden", "false");
 }
@@ -384,6 +425,10 @@ function closeFileModal() {
 }
 
 function openFileEditModal(documentId) {
+  if (!getActiveCapabilities().canEditDocuments) {
+    setStatus(fileStatus, "You do not have permission to edit this file.", "error");
+    return;
+  }
   const doc = documentsCache.find((item) => item.id === documentId);
   if (!doc) return;
   pendingEditId = documentId;
@@ -440,6 +485,10 @@ async function saveFileEdit(event) {
 }
 
 function openDeleteConfirm(documentId) {
+  if (!getActiveCapabilities().canDeleteDocuments) {
+    setStatus(fileStatus, "You do not have permission to delete files in this library.", "error");
+    return;
+  }
   const doc = documentsCache.find((item) => item.id === documentId);
   if (!doc) return;
 

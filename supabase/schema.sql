@@ -500,6 +500,54 @@ begin
 end;
 $$;
 
+create or replace function public.create_owned_organization(
+  input_organization_name text default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  current_user_id uuid := auth.uid();
+  next_org_id uuid;
+  next_org_name text;
+begin
+  if current_user_id is null then
+    raise exception 'Authentication required.';
+  end if;
+
+  next_org_name := coalesce(nullif(trim(input_organization_name), ''), 'Personal');
+
+  insert into public.organizations (
+    name,
+    slug,
+    owner_user_id
+  ) values (
+    next_org_name,
+    public.unique_org_slug(next_org_name),
+    current_user_id
+  )
+  returning id into next_org_id;
+
+  insert into public.organization_memberships (
+    organization_id,
+    user_id,
+    role,
+    created_by
+  ) values (
+    next_org_id,
+    current_user_id,
+    'account_admin',
+    current_user_id
+  );
+
+  return jsonb_build_object('ok', true, 'organization_id', next_org_id);
+end;
+$$;
+
+grant execute on function public.create_owned_organization(text) to authenticated;
+
 create or replace function public.redeem_invite_code(input_code text)
 returns jsonb
 language plpgsql

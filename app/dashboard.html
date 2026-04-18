@@ -54,6 +54,12 @@
         <div class="notice hidden" id="support-banner"></div>
 
         <section class="section-view" id="account-section" hidden>
+          <div class="notice hidden" id="account-no-library-notice">
+            <strong>No active library.</strong> Your account is still available. Library-specific controls will appear when you create or join a library.
+            <div class="actions">
+              <button class="btn secondary hidden" id="create-library-notice-button" type="button">Create personal library</button>
+            </div>
+          </div>
           <section class="account-card" id="library-settings-card">
             <div class="account-top">
               <h3>Profile</h3>
@@ -68,27 +74,25 @@
                 <span class="account-label">Email</span>
                 <p class="account-value" id="account-email">-</p>
               </div>
-              <div class="account-item">
-                <span class="account-label">Active library</span>
-                <p class="account-value" id="account-organization">-</p>
-              </div>
-              <div class="account-item">
-                <span class="account-label">Library role</span>
-                <p class="account-value" id="account-role">-</p>
-              </div>
-              <div class="account-item">
-                <span class="account-label">Plan</span>
-                <p class="account-value" id="account-tier">Free</p>
-              </div>
-              <div class="account-item">
-                <span class="account-label">Status</span>
-                <p class="account-value" id="account-status">Active</p>
+            </div>
+            <div class="actions">
+              <button class="btn secondary hidden" id="create-library-button" type="button">Create personal library</button>
+              <a class="btn secondary button-link hidden" id="platform-admin-link" href="./admin.html">Platform admin</a>
+            </div>
+            <p class="status" id="context-status"></p>
+          </section>
+
+          <section class="account-card" id="account-library-card">
+            <div class="panel-head">
+              <div>
+                <h3>Selected Library</h3>
               </div>
             </div>
             <div class="grid-3" id="account-library-context">
               <div class="field">
                 <label for="active-organization-select">Library</label>
                 <select id="active-organization-select"></select>
+                <p class="account-value hidden" id="active-organization-name">-</p>
               </div>
               <div class="field">
                 <span class="field-title">Your access</span>
@@ -99,10 +103,24 @@
                 <p class="account-value" id="shared-library-count">0</p>
               </div>
             </div>
-            <div class="actions">
-              <a class="btn secondary button-link hidden" id="platform-admin-link" href="./admin.html">Platform admin</a>
+            <div class="account-list">
+              <div class="account-item">
+                <span class="account-label">Library</span>
+                <p class="account-value" id="account-organization">-</p>
+              </div>
+              <div class="account-item">
+                <span class="account-label">Role</span>
+                <p class="account-value" id="account-role">-</p>
+              </div>
+              <div class="account-item" id="account-tier-item">
+                <span class="account-label">Plan</span>
+                <p class="account-value" id="account-tier">Free</p>
+              </div>
+              <div class="account-item" id="account-status-item">
+                <span class="account-label">Status</span>
+                <p class="account-value" id="account-status">Active</p>
+              </div>
             </div>
-            <p class="status" id="context-status"></p>
           </section>
 
           <section class="account-card" id="billing-section">
@@ -123,100 +141,115 @@
                 <button class="btn secondary" id="change-plan-button" type="button" aria-expanded="false">Change plan</button>
               </div>
             </div>
-              <div class="billing-plan-picker hidden" id="billing-plan-picker">
-                <div class="plan-grid" id="billing-plan-grid"></div>
-              </div>
+            <div class="billing-plan-picker hidden" id="billing-plan-picker">
+              <div class="plan-grid" id="billing-plan-grid"></div>
+            </div>
           </section>
 
           <section class="account-card" id="library-access-card">
             <div class="panel-head">
               <div>
                 <h3>Library access</h3>
-                <p id="library-access-copy">Redeem invite codes and manage access for this library.</p>
+                <p id="library-access-copy">Join shared libraries and manage shared access for this library.</p>
               </div>
             </div>
-            <form class="stack" id="redeem-invite-form">
-              <div class="field">
-                <label for="redeem-invite-code">Join shared library with code</label>
-                <input id="redeem-invite-code" type="text" placeholder="Enter invite code">
+            <button class="section-toggle" id="redeem-invite-toggle" type="button" aria-expanded="false" aria-controls="redeem-invite-body">
+              <div>
+                <h3>Join shared library with code</h3>
+                <p>Use an invite code to add another library to your account.</p>
               </div>
-              <div class="actions">
-                <button class="btn secondary" type="submit">Redeem code</button>
-              </div>
-              <p class="status" id="redeem-invite-status"></p>
-            </form>
-
-            <div class="stack" id="invite-management-section">
-              <div class="panel-head compact-head">
-                <div>
-                  <h3>Invite codes</h3>
-                </div>
-              </div>
-              <form class="stack" id="create-invite-form">
-                <div class="grid-3">
-                  <div class="field">
-                    <label for="invite-role">Role</label>
-                    <select id="invite-role">
-                      <option value="viewer">Viewer</option>
-                      <option value="editor">Editor</option>
-                      <option value="account_admin">Account Admin</option>
-                    </select>
-                  </div>
-                  <div class="field">
-                    <label for="invite-max-uses">Uses</label>
-                    <input id="invite-max-uses" type="text" value="1">
-                  </div>
-                  <div class="field">
-                    <label for="invite-expires-at">Expires at</label>
-                    <input id="invite-expires-at" type="datetime-local">
-                    <p class="field-note invite-expires-note">Uses your local timezone. Leave blank for no expiration.</p>
-                  </div>
+              <span class="section-toggle-indicator" aria-hidden="true">+</span>
+            </button>
+            <div class="stack hidden" id="redeem-invite-body">
+              <form class="stack" id="redeem-invite-form">
+                <div class="field">
+                  <label for="redeem-invite-code">Invite code</label>
+                  <input id="redeem-invite-code" type="text" placeholder="Enter invite code">
                 </div>
                 <div class="actions">
-                  <button class="btn secondary" type="submit">Create invite code</button>
+                  <button class="btn secondary" type="submit">Redeem code</button>
                 </div>
-                <p class="status" id="create-invite-status"></p>
+                <p class="status" id="redeem-invite-status"></p>
               </form>
-              <div class="table-shell">
-                <table class="data-table">
-                  <thead>
-                    <tr>
-                      <th>Code</th>
-                      <th>Role</th>
-                      <th>Uses</th>
-                      <th>Expires</th>
-                      <th>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody id="invite-list"></tbody>
-                </table>
-              </div>
             </div>
 
-            <div class="stack" id="member-management-section">
-              <div class="panel-head compact-head">
-                <div>
-                  <h3>Members</h3>
+            <button class="section-toggle" id="invite-management-toggle" type="button" aria-expanded="false" aria-controls="invite-management-body">
+              <div>
+                <h3>Invite codes</h3>
+                <p>Create and revoke library invite codes.</p>
+              </div>
+              <span class="section-toggle-indicator" aria-hidden="true">+</span>
+            </button>
+            <div class="stack hidden" id="invite-management-body">
+              <div class="stack" id="invite-management-section">
+                <form class="stack" id="create-invite-form">
+                  <div class="grid-3">
+                    <div class="field">
+                      <label for="invite-role">Role</label>
+                      <select id="invite-role">
+                        <option value="viewer">Viewer</option>
+                        <option value="editor">Editor</option>
+                        <option value="account_admin">Account Admin</option>
+                      </select>
+                    </div>
+                    <div class="field">
+                      <label for="invite-max-uses">Uses</label>
+                      <input id="invite-max-uses" type="text" value="1">
+                    </div>
+                    <div class="field">
+                      <label for="invite-expires-at">Expires at</label>
+                      <input id="invite-expires-at" type="datetime-local">
+                      <p class="field-note invite-expires-note">Uses your local timezone. Leave blank for no expiration.</p>
+                    </div>
+                  </div>
+                  <div class="actions">
+                    <button class="btn secondary" type="submit">Create invite code</button>
+                  </div>
+                  <p class="status" id="create-invite-status"></p>
+                </form>
+                <div class="table-shell">
+                  <table class="data-table">
+                    <thead>
+                      <tr>
+                        <th>Code</th>
+                        <th>Role</th>
+                        <th>Uses</th>
+                        <th>Expires</th>
+                        <th>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody id="invite-list"></tbody>
+                  </table>
                 </div>
               </div>
-              <div class="table-shell">
-                <table class="data-table">
-                  <thead>
-                    <tr>
-                      <th>Name</th>
-                      <th>Email</th>
-                      <th>Role</th>
-                      <th>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody id="member-list"></tbody>
-                </table>
-              </div>
-              <p class="status" id="member-status"></p>
             </div>
-          </section>
 
-          <section class="account-card" id="library-settings-section">
+            <button class="section-toggle" id="member-management-toggle" type="button" aria-expanded="false" aria-controls="member-management-body">
+              <div>
+                <h3>Shared access</h3>
+                <p>Review and adjust who can use this library.</p>
+              </div>
+              <span class="section-toggle-indicator" aria-hidden="true">+</span>
+            </button>
+            <div class="stack hidden" id="member-management-body">
+              <div class="stack" id="member-management-section">
+                <div class="table-shell">
+                  <table class="data-table">
+                    <thead>
+                      <tr>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Role</th>
+                        <th>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody id="member-list"></tbody>
+                  </table>
+                </div>
+                <p class="status" id="member-status"></p>
+              </div>
+            </div>
+
             <button class="section-toggle" id="embed-settings-toggle" type="button" aria-expanded="false" aria-controls="embed-settings-body">
               <div>
                 <h3>Embed settings</h3>
@@ -268,11 +301,15 @@
         </section>
 
         <section class="section-view" id="library-section">
+          <div class="notice hidden" id="library-no-access-notice">
+            <strong>No library access right now.</strong> This area will populate when you create a personal library or join another library by invite.
+          </div>
           <section class="panel stack hidden" id="library-context-panel">
             <div class="grid-3">
               <div class="field">
                 <label for="library-active-organization-select">Active library</label>
                 <select id="library-active-organization-select"></select>
+                <p class="account-value hidden" id="library-active-organization-name">-</p>
               </div>
               <div class="field">
                 <span class="field-title">Your access</span>
@@ -285,7 +322,7 @@
             </div>
           </section>
 
-          <div class="library-actions-grid">
+          <div class="library-actions-grid" id="library-actions-grid">
             <div class="library-action-slot" id="upload-action-slot">
               <button class="btn" id="open-upload-modal" type="button">Upload</button>
             </div>
@@ -294,7 +331,7 @@
             </div>
           </div>
 
-          <section class="panel stack">
+          <section class="panel stack" id="library-search-panel">
             <div class="panel-head">
               <div>
                 <h3>Search</h3>
@@ -321,7 +358,7 @@
             <p class="status" id="docs-status"></p>
           </section>
 
-          <section class="panel stack">
+          <section class="panel stack" id="library-recent-panel">
             <div class="panel-head">
               <div>
                 <h3>Newest files</h3>
@@ -367,10 +404,6 @@
             <label for="profile-full-name">Full name</label>
             <input id="profile-full-name" type="text" autocomplete="name">
           </div>
-          <div class="field">
-            <label for="organization-name-input">Library name</label>
-            <input id="organization-name-input" type="text" autocomplete="organization">
-          </div>
           <div class="actions">
             <button class="btn" type="submit">Save profile</button>
           </div>
@@ -383,6 +416,7 @@
           </div>
           <button class="btn btn-delete-solid" id="open-delete-account-modal" type="button">Delete account</button>
         </section>
+        <p class="status hidden" id="delete-account-blocked-note">Cancel your paid libraries before deleting this account.</p>
       </div>
     </div>
   </div>

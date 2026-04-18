@@ -18,6 +18,8 @@ import {
 const setupPanel = document.getElementById("setup-panel");
 const dashboardPanel = document.getElementById("dashboard-panel");
 const supportBanner = document.getElementById("support-banner");
+const accountNoLibraryNotice = document.getElementById("account-no-library-notice");
+const libraryNoAccessNotice = document.getElementById("library-no-access-notice");
 const contextStatus = document.getElementById("context-status");
 const uploadStatus = document.getElementById("upload-status");
 const docsStatus = document.getElementById("docs-status");
@@ -28,11 +30,19 @@ const mobileMenuAccount = document.getElementById("mobile-menu-account");
 const mobileMenuLibrary = document.getElementById("mobile-menu-library");
 const accountSection = document.getElementById("account-section");
 const librarySection = document.getElementById("library-section");
+const libraryActionsGrid = document.getElementById("library-actions-grid");
 const accountLibraryContext = document.getElementById("account-library-context");
 const libraryContextPanel = document.getElementById("library-context-panel");
+const librarySearchPanel = document.getElementById("library-search-panel");
+const libraryRecentPanel = document.getElementById("library-recent-panel");
 const billingSection = document.getElementById("billing-section");
 const libraryAccessCard = document.getElementById("library-access-card");
-const librarySettingsSection = document.getElementById("library-settings-section");
+const redeemInviteToggle = document.getElementById("redeem-invite-toggle");
+const redeemInviteBody = document.getElementById("redeem-invite-body");
+const inviteManagementToggle = document.getElementById("invite-management-toggle");
+const inviteManagementBody = document.getElementById("invite-management-body");
+const memberManagementToggle = document.getElementById("member-management-toggle");
+const memberManagementBody = document.getElementById("member-management-body");
 const embedSettingsToggle = document.getElementById("embed-settings-toggle");
 const embedSettingsBody = document.getElementById("embed-settings-body");
 const organizationPrimaryColorField = document.getElementById("organization-primary-color-field");
@@ -40,12 +50,16 @@ const organizationAccentColorField = document.getElementById("organization-accen
 const organizationAdvancedSettings = document.getElementById("organization-advanced-settings");
 const libraryAccessCopy = document.getElementById("library-access-copy");
 const activeOrganizationSelect = document.getElementById("active-organization-select");
+const activeOrganizationName = document.getElementById("active-organization-name");
 const activeMembershipRole = document.getElementById("active-membership-role");
 const sharedLibraryCount = document.getElementById("shared-library-count");
 const libraryActiveOrganizationSelect = document.getElementById("library-active-organization-select");
+const libraryActiveOrganizationName = document.getElementById("library-active-organization-name");
 const libraryActiveMembershipRole = document.getElementById("library-active-membership-role");
 const librarySharedLibraryCount = document.getElementById("library-shared-library-count");
 const platformAdminLink = document.getElementById("platform-admin-link");
+const createLibraryButton = document.getElementById("create-library-button");
+const createLibraryNoticeButton = document.getElementById("create-library-notice-button");
 const uploadActionSlot = document.getElementById("upload-action-slot");
 const fileModal = document.getElementById("file-modal");
 const fileModalTitle = document.getElementById("file-modal-title");
@@ -56,6 +70,7 @@ const profileSettingsToggle = document.getElementById("profile-settings-toggle")
 const profileSettingsModal = document.getElementById("profile-settings-modal");
 const profileSettingsClose = document.getElementById("profile-settings-close");
 const openDeleteAccountModalButton = document.getElementById("open-delete-account-modal");
+const deleteAccountBlockedNote = document.getElementById("delete-account-blocked-note");
 const deleteAccountModal = document.getElementById("delete-account-modal");
 const deleteAccountCancel = document.getElementById("delete-account-cancel");
 const deleteAccountSubmit = document.getElementById("delete-account-submit");
@@ -76,7 +91,9 @@ const accountName = document.getElementById("account-name");
 const accountEmail = document.getElementById("account-email");
 const accountOrganization = document.getElementById("account-organization");
 const accountRole = document.getElementById("account-role");
+const accountTierItem = document.getElementById("account-tier-item");
 const accountTier = document.getElementById("account-tier");
+const accountStatusItem = document.getElementById("account-status-item");
 const accountStatus = document.getElementById("account-status");
 const currentPlanName = document.getElementById("current-plan-name");
 const currentPlanCopy = document.getElementById("current-plan-copy");
@@ -88,6 +105,7 @@ const profileForm = document.getElementById("profile-form");
 const profileFullNameInput = document.getElementById("profile-full-name");
 const profileStatus = document.getElementById("profile-status");
 const organizationSettingsForm = document.getElementById("organization-settings-form");
+const organizationNameField = document.getElementById("organization-name-field");
 const organizationNameInput = document.getElementById("organization-name-input");
 const organizationPrimaryColorInput = document.getElementById("organization-primary-color");
 const organizationAccentColorInput = document.getElementById("organization-accent-color");
@@ -142,8 +160,6 @@ let documentsCache = [];
 let inviteCache = [];
 let memberCache = [];
 let uploadMode = "single";
-let isEmbedSettingsOpen = false;
-
 function getInitialSection() {
   const params = new URLSearchParams(window.location.search);
   return params.get("section") === "library" ? "library" : "account";
@@ -281,14 +297,15 @@ function setBillingPlanPickerOpen(isOpen) {
   changePlanButton.textContent = isOpen ? "Hide plans" : "Change plan";
 }
 
-function setEmbedSettingsOpen(isOpen) {
-  isEmbedSettingsOpen = Boolean(isOpen);
-  embedSettingsBody.classList.toggle("hidden", !isEmbedSettingsOpen);
-  embedSettingsToggle.setAttribute("aria-expanded", String(isEmbedSettingsOpen));
-  embedSettingsToggle.classList.toggle("is-open", isEmbedSettingsOpen);
-  const indicator = embedSettingsToggle.querySelector(".section-toggle-indicator");
+function setSectionToggleOpen(toggle, body, isOpen) {
+  if (!toggle || !body) return;
+  const nextOpen = Boolean(isOpen);
+  body.classList.toggle("hidden", !nextOpen);
+  toggle.setAttribute("aria-expanded", String(nextOpen));
+  toggle.classList.toggle("is-open", nextOpen);
+  const indicator = toggle.querySelector(".section-toggle-indicator");
   if (indicator) {
-    indicator.textContent = isEmbedSettingsOpen ? "-" : "+";
+    indicator.textContent = nextOpen ? "-" : "+";
   }
 }
 
@@ -418,6 +435,28 @@ function getActiveCapabilities() {
     currentSession?.user?.id || "",
     isPlatformAdminEmail(currentSession?.user?.email)
   );
+}
+
+function hasActiveLibraryAccess() {
+  return Boolean(getActiveOrganization());
+}
+
+function getOwnedMemberships() {
+  const currentUserId = currentSession?.user?.id || "";
+  return memberships.filter((membership) => membership?.organization?.owner_user_id === currentUserId && !membership?.isSupportView);
+}
+
+function hasPaidOwnedLibraries() {
+  return getOwnedMemberships().some((membership) => ["starter", "organization"].includes(membership?.organization?.subscription_tier || ""));
+}
+
+function canCreateOwnedLibrary() {
+  const ownedMemberships = getOwnedMemberships();
+  return ownedMemberships.length === 0 || ownedMemberships.some((membership) => ["starter", "organization"].includes(membership?.organization?.subscription_tier || ""));
+}
+
+function canDeleteOwnAccount() {
+  return !hasPaidOwnedLibraries();
 }
 
 function isSupportView() {
@@ -801,11 +840,11 @@ async function bootstrapAccess() {
   const bootstrapOrgId = String(bootstrapData?.active_organization_id || "");
   const preferredOrgId = supportOrgId || bootstrapOrgId;
   activeMembership = resolveActiveOrganization(memberships, preferredOrgId);
-  if (!activeMembership) {
-    throw new Error("No organization memberships were found for this account.");
+  if (activeMembership?.organization?.id) {
+    setStoredActiveOrganizationId(activeMembership.organization.id);
+  } else {
+    setStoredActiveOrganizationId("");
   }
-
-  setStoredActiveOrganizationId(activeMembership.organization.id);
 }
 
 async function loadInvites() {
@@ -865,6 +904,24 @@ async function loadMembers() {
 }
 
 function renderOrganizationSelector() {
+  if (!memberships.length || !activeMembership?.organization) {
+    activeOrganizationSelect.innerHTML = '<option value="">No active library</option>';
+    libraryActiveOrganizationSelect.innerHTML = '<option value="">No active library</option>';
+    activeOrganizationName.textContent = "No active library";
+    libraryActiveOrganizationName.textContent = "No active library";
+    activeMembershipRole.textContent = "No library access";
+    libraryActiveMembershipRole.textContent = "No library access";
+    sharedLibraryCount.textContent = "0";
+    librarySharedLibraryCount.textContent = "0";
+    activeOrganizationSelect.disabled = true;
+    libraryActiveOrganizationSelect.disabled = true;
+    show(activeOrganizationSelect, false);
+    show(libraryActiveOrganizationSelect, false);
+    show(activeOrganizationName, true);
+    show(libraryActiveOrganizationName, true);
+    return;
+  }
+
   const currentId = activeMembership?.organization?.id || "";
   const nameCounts = memberships.reduce((map, membership) => {
     const key = String(membership.organization?.name || "Untitled library").trim().toLowerCase();
@@ -885,6 +942,9 @@ function renderOrganizationSelector() {
     .join("");
   activeOrganizationSelect.innerHTML = optionsMarkup;
   libraryActiveOrganizationSelect.innerHTML = optionsMarkup;
+  const activeName = activeMembership.organization?.name || "Untitled library";
+  activeOrganizationName.textContent = activeName;
+  libraryActiveOrganizationName.textContent = activeName;
 
   const roleLabel = isSupportView() ? "n3xra.com Support View" : formatRoleLabel(getActiveRole());
   activeMembershipRole.textContent = roleLabel;
@@ -896,6 +956,10 @@ function renderOrganizationSelector() {
   const hasMany = hasMultipleLibraries();
   activeOrganizationSelect.disabled = !hasMany;
   libraryActiveOrganizationSelect.disabled = !hasMany;
+  show(activeOrganizationSelect, hasMany);
+  show(libraryActiveOrganizationSelect, hasMany);
+  show(activeOrganizationName, !hasMany);
+  show(libraryActiveOrganizationName, !hasMany);
 }
 
 function updateEmbedAccess() {
@@ -974,20 +1038,26 @@ function renderBillingPlans() {
 
 function renderProfile() {
   const organization = getActiveOrganization();
+  const hasLibraryAccess = hasActiveLibraryAccess();
   const isFreePlan = isFreePlanExperience();
-  const showLibrarySwitcher = hasMultipleLibraries();
   const capabilities = getActiveCapabilities();
   const canSeeBilling = capabilities.canManageBilling;
   const canSeeLibrarySettings = !isFreePlan && capabilities.canManageLibrarySettings;
   const canSeeInviteManagement = !isFreePlan && capabilities.canManageInvites;
   const canSeeMemberManagement = !isFreePlan && capabilities.canManageMembers;
+  const canSeePlanMeta = capabilities.canManageBilling || capabilities.canManageLibrarySettings;
+  const canEditLibraryNameFromProfile = capabilities.canManageLibrarySettings;
+  const canCreateLibrary = canCreateOwnedLibrary();
+  const canDeleteAccountNow = canDeleteOwnAccount();
 
   accountName.textContent = currentProfile?.full_name || currentSession?.user?.email || "-";
   accountEmail.textContent = currentSession?.user?.email || currentProfile?.email || "-";
-  accountOrganization.textContent = organization?.name || "-";
-  accountRole.textContent = isSupportView() ? "n3xra.com Support View" : formatRoleLabel(getActiveRole());
-  accountTier.textContent = formatPlanName(organization?.subscription_tier || "free");
-  accountStatus.textContent = titleCase(organization?.account_status || "active");
+  accountOrganization.textContent = organization?.name || "No active library";
+  accountRole.textContent = hasLibraryAccess
+    ? (isSupportView() ? "n3xra.com Support View" : formatRoleLabel(getActiveRole()))
+    : "No library access";
+  accountTier.textContent = organization ? formatPlanName(organization.subscription_tier || "free") : "-";
+  accountStatus.textContent = organization ? titleCase(organization.account_status || "active") : "-";
   profileFullNameInput.value = currentProfile?.full_name || "";
 
   organizationNameInput.value = organization?.name || "";
@@ -1007,25 +1077,53 @@ function renderProfile() {
   openUploadModalButton.disabled = !capabilities.canUploadDocuments;
   uploadIsPublicInput.disabled = !capabilities.canUploadDocuments || !hasEmbeddedAccess();
 
-  show(accountLibraryContext, showLibrarySwitcher);
-  show(libraryContextPanel, showLibrarySwitcher);
-  show(billingSection, canSeeBilling);
-  show(libraryAccessCard, true);
-  show(librarySettingsSection, canSeeLibrarySettings);
+  show(accountNoLibraryNotice, !hasLibraryAccess);
+  show(accountLibraryContext, hasLibraryAccess);
+  show(accountTierItem, canSeePlanMeta);
+  show(accountStatusItem, canSeePlanMeta);
+  show(libraryNoAccessNotice, !hasLibraryAccess);
+  show(libraryContextPanel, hasLibraryAccess);
+  show(billingSection, hasLibraryAccess && canSeeBilling);
+  show(libraryAccessCard, hasLibraryAccess);
+  show(libraryActionsGrid, hasLibraryAccess);
+  show(librarySearchPanel, hasLibraryAccess);
+  show(libraryRecentPanel, hasLibraryAccess);
   show(changePlanButton, capabilities.canManageBilling);
+  show(organizationNameField, canEditLibraryNameFromProfile);
+  show(createLibraryButton, canCreateLibrary);
+  show(createLibraryNoticeButton, !hasLibraryAccess && canCreateLibrary);
   show(organizationPrimaryColorField, !isFreePlan);
   show(organizationAccentColorField, !isFreePlan);
   show(organizationAdvancedSettings, !isFreePlan);
+  show(redeemInviteToggle, hasLibraryAccess);
+  show(redeemInviteBody, hasLibraryAccess && !redeemInviteBody.classList.contains("hidden"));
+  show(inviteManagementToggle, canSeeInviteManagement);
+  show(inviteManagementBody, canSeeInviteManagement && !inviteManagementBody.classList.contains("hidden"));
+  show(memberManagementToggle, canSeeMemberManagement);
+  show(memberManagementBody, canSeeMemberManagement && !memberManagementBody.classList.contains("hidden"));
+  show(embedSettingsToggle, hasLibraryAccess && canSeeLibrarySettings);
+  show(embedSettingsBody, hasLibraryAccess && canSeeLibrarySettings && !embedSettingsBody.classList.contains("hidden"));
   show(inviteManagementSection, canSeeInviteManagement);
   show(memberManagementSection, canSeeMemberManagement);
   show(uploadActionSlot, capabilities.canUploadDocuments);
+  show(openDeleteAccountModalButton, canDeleteAccountNow);
+  show(deleteAccountBlockedNote, !canDeleteAccountNow);
   libraryAccessCopy.textContent = isFreePlan
-    ? "Redeem invite codes for shared libraries."
+    ? "Join shared libraries from invite codes."
     : capabilities.canManageMembers
-      ? "Redeem invite codes and manage access for this library."
-      : "Redeem invite codes for shared libraries.";
+      ? "Join shared libraries and manage shared access for this library."
+      : "Join shared libraries from invite codes.";
   if (!capabilities.canManageBilling) {
     setBillingPlanPickerOpen(false);
+  }
+  if (!canSeeInviteManagement) {
+    setSectionToggleOpen(inviteManagementToggle, inviteManagementBody, false);
+  }
+  if (!canSeeMemberManagement) {
+    setSectionToggleOpen(memberManagementToggle, memberManagementBody, false);
+  }
+  if (!(hasLibraryAccess && canSeeLibrarySettings)) {
+    setSectionToggleOpen(embedSettingsToggle, embedSettingsBody, false);
   }
 
   Array.from(createInviteForm.elements).forEach((field) => {
@@ -1232,6 +1330,22 @@ async function loadDocuments() {
 }
 
 async function loadActiveOrganizationData() {
+  if (!hasActiveLibraryAccess()) {
+    documentsCache = [];
+    inviteCache = [];
+    memberCache = [];
+    updateYearFilterOptions();
+    renderDocuments();
+    renderRecentFiles();
+    renderInvites();
+    renderMembers();
+    renderProfile();
+    setStatus(docsStatus, "");
+    setStatus(createInviteStatus, "");
+    setStatus(memberStatus, "");
+    return;
+  }
+
   renderProfile();
   await Promise.all([loadDocuments(), loadInvites(), loadMembers()]);
 }
@@ -1562,6 +1676,40 @@ async function handleMemberRoleChange(event) {
   await loadMembers();
 }
 
+async function createPersonalLibrary() {
+  if (!canCreateOwnedLibrary()) {
+    setStatus(contextStatus, "Upgrade a paid library before creating another personal library.", "error");
+    return;
+  }
+
+  const suggestedName = getOwnedMemberships().length === 0 ? "Personal" : "New Library";
+  const nameInput = window.prompt("Library name", suggestedName);
+  if (nameInput === null) return;
+
+  const nextName = nameInput.trim() || suggestedName;
+  setStatus(contextStatus, "Creating library...");
+  const { data, error } = await supabase.rpc("create_owned_organization", {
+    input_organization_name: nextName,
+  });
+
+  if (error) {
+    setStatus(contextStatus, error.message, "error");
+    return;
+  }
+
+  const nextOrganizationId = String(data?.organization_id || "");
+  await bootstrapAccess();
+  if (nextOrganizationId) {
+    const nextMembership = memberships.find((membership) => membership.organization?.id === nextOrganizationId);
+    if (nextMembership) {
+      activeMembership = nextMembership;
+      setStoredActiveOrganizationId(nextOrganizationId);
+    }
+  }
+  await loadActiveOrganizationData();
+  setStatus(contextStatus, `Library "${nextName}" created.`, "success");
+}
+
 async function deleteAccount() {
   setStatus(deleteAccountStatus, "Deleting account...");
   deleteAccountSubmit.disabled = true;
@@ -1848,6 +1996,8 @@ async function init() {
     setStatus(contextStatus, "Opening Stripe billing portal...");
     await openBillingFlow("create-portal-session", { organizationId: organization.id });
   });
+  createLibraryButton.addEventListener("click", createPersonalLibrary);
+  createLibraryNoticeButton.addEventListener("click", createPersonalLibrary);
   billingPlanGrid.addEventListener("click", async (event) => {
     const button = event.target.closest("button[data-plan-id]");
     if (!button) return;
@@ -1857,7 +2007,10 @@ async function init() {
   profileSettingsClose.addEventListener("click", () => setProfileSettingsOpen(false));
   profileForm.addEventListener("submit", handleProfileSave);
   organizationSettingsForm.addEventListener("submit", handleOrganizationSettingsSave);
-  embedSettingsToggle.addEventListener("click", () => setEmbedSettingsOpen(!isEmbedSettingsOpen));
+  redeemInviteToggle.addEventListener("click", () => setSectionToggleOpen(redeemInviteToggle, redeemInviteBody, redeemInviteBody.classList.contains("hidden")));
+  inviteManagementToggle.addEventListener("click", () => setSectionToggleOpen(inviteManagementToggle, inviteManagementBody, inviteManagementBody.classList.contains("hidden")));
+  memberManagementToggle.addEventListener("click", () => setSectionToggleOpen(memberManagementToggle, memberManagementBody, memberManagementBody.classList.contains("hidden")));
+  embedSettingsToggle.addEventListener("click", () => setSectionToggleOpen(embedSettingsToggle, embedSettingsBody, embedSettingsBody.classList.contains("hidden")));
   redeemInviteForm.addEventListener("submit", handleRedeemInvite);
   createInviteForm.addEventListener("submit", handleCreateInvite);
   inviteList.addEventListener("click", handleInviteAction);
@@ -1930,5 +2083,9 @@ async function init() {
   });
 }
 
+setSectionToggleOpen(redeemInviteToggle, redeemInviteBody, false);
+setSectionToggleOpen(inviteManagementToggle, inviteManagementBody, false);
+setSectionToggleOpen(memberManagementToggle, memberManagementBody, false);
+setSectionToggleOpen(embedSettingsToggle, embedSettingsBody, false);
 setUploadMode("single");
 init();

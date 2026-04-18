@@ -61,11 +61,18 @@ Deno.serve(async (request) => {
 
     const { data: ownedOrganizations, error: ownedOrganizationsError } = await adminClient
       .from("organizations")
-      .select("id")
+      .select("id, name, subscription_tier")
       .eq("owner_user_id", user.id);
 
     if (ownedOrganizationsError) {
       return jsonResponse({ error: ownedOrganizationsError.message }, 400);
+    }
+
+    const paidOwnedOrganizations = (ownedOrganizations || []).filter((org) =>
+      ["starter", "organization"].includes(String(org.subscription_tier || ""))
+    );
+    if (paidOwnedOrganizations.length) {
+      return jsonResponse({ error: "Cancel paid libraries before deleting this account." }, 400);
     }
 
     const ownedOrganizationIds = (ownedOrganizations || []).map((org) => org.id);
