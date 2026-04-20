@@ -1378,6 +1378,12 @@ code.inline {
   padding: 0.7rem 0;
 }
 
+#embed-panel {
+  display: grid;
+  grid-template-rows: auto auto 1fr auto auto auto;
+  min-height: calc(100vh - 1.4rem);
+}
+
 .embed-head {
   display: grid;
   justify-items: center;
@@ -1400,18 +1406,11 @@ code.inline {
   display: flex;
   align-items: center;
   justify-content: center;
-  position: sticky;
-  bottom: 0;
-  z-index: 2;
-  margin-top: 0.35rem;
-  margin-left: -1.5rem;
-  margin-right: -1.5rem;
-  padding: 0.8rem 1rem 0.4rem;
-  background: linear-gradient(180deg, rgba(248, 250, 252, 0) 0%, rgba(248, 250, 252, 0.94) 36%, rgba(248, 250, 252, 0.98) 100%);
+  margin-top: auto;
+  padding-top: 0.5rem;
   color: var(--slate);
   font-size: 0.8rem;
   text-align: center;
-  pointer-events: none;
 }
 
 .embed-powered-footer a {
@@ -1420,7 +1419,6 @@ code.inline {
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  pointer-events: auto;
 }
 
 .embed-records-list {
