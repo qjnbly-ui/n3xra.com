@@ -61,6 +61,20 @@ function getErrorMessage(error, fallback) {
   return fallback;
 }
 
+async function notifyNewAccount(payload) {
+  try {
+    await fetch("/api/new-account", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+  } catch (_error) {
+    // Notifications should not block signup completion.
+  }
+}
+
 function setSignupPasswordsVisible(visible) {
   const nextType = visible ? "text" : "password";
   [signupPasswordInput, signupPasswordConfirmInput].forEach((input) => {
@@ -208,6 +222,15 @@ async function handleSignup(event) {
     setStatus(error.message, "error");
     return;
   }
+
+  notifyNewAccount({
+    fullName,
+    email,
+    signupMode,
+    organizationName,
+    inviteCode,
+    createdAt: new Date().toISOString(),
+  });
 
   if (data?.session) {
     try {

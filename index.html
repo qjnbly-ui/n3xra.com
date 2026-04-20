@@ -173,6 +173,39 @@
       border: 1px solid rgba(15, 22, 32, 0.08);
     }
 
+    .roadmap-note {
+      background:
+        radial-gradient(320px 140px at 0% 0%, rgba(26, 124, 114, 0.1), transparent 60%),
+        radial-gradient(260px 120px at 100% 100%, rgba(241, 164, 75, 0.12), transparent 60%),
+        linear-gradient(180deg, #ffffff 0%, #f7fafc 100%);
+      border-radius: var(--radius-lg);
+      padding: 1.35rem 1.5rem;
+      border: 1px solid rgba(15, 22, 32, 0.08);
+      box-shadow: 0 16px 35px rgba(15, 22, 32, 0.08);
+      display: grid;
+      gap: 0.55rem;
+      text-align: center;
+      justify-items: center;
+    }
+
+    .roadmap-note-label,
+    .roadmap-note p {
+      margin: 0;
+    }
+
+    .roadmap-note-label {
+      font-size: 0.76rem;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--teal);
+      font-weight: 700;
+    }
+
+    .roadmap-note p {
+      max-width: 76ch;
+      color: var(--ink-soft);
+    }
+
     .hero h2 {
       margin: 0;
       font-family: "Fraunces", "Times New Roman", serif;
@@ -245,6 +278,8 @@
       gap: 0.6rem;
       position: relative;
       overflow: hidden;
+      text-align: center;
+      justify-items: center;
     }
 
     .card::after {
@@ -273,6 +308,40 @@
       color: var(--slate);
     }
 
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1.2rem;
+    }
+
+    .feature-card {
+      gap: 0.8rem;
+    }
+
+    .feature-card-head {
+      display: grid;
+      gap: 0.32rem;
+      justify-items: center;
+    }
+
+    .feature-kicker {
+      margin: 0;
+      font-size: 0.74rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--teal);
+      font-weight: 700;
+    }
+
+    .feature-card h3 {
+      font-size: 1.14rem;
+      line-height: 1.2;
+    }
+
+    .feature-card p {
+      color: var(--ink-soft);
+    }
+
     .pricing-section {
       display: grid;
       gap: 1rem;
@@ -297,6 +366,8 @@
     .embed-copy {
       display: grid;
       gap: 0.9rem;
+      text-align: center;
+      justify-items: center;
     }
 
     .embed-copy h3,
@@ -324,6 +395,8 @@
       font-size: 0.88rem;
       line-height: 1.6;
       border: 1px solid rgba(255, 255, 255, 0.06);
+      text-align: left;
+      width: 100%;
     }
 
     .embed-preview-card {
@@ -334,6 +407,8 @@
     .embed-preview-head {
       display: grid;
       gap: 0.25rem;
+      text-align: center;
+      justify-items: center;
     }
 
     .embed-preview-head h3,
@@ -428,6 +503,20 @@
       gap: 0.75rem;
     }
 
+    .embed-preview-search-field {
+      display: grid;
+      gap: 0.38rem;
+      text-align: left;
+    }
+
+    .embed-preview-search-field label {
+      font-size: 0.76rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: var(--teal);
+    }
+
     .embed-preview-field,
     .embed-preview-button {
       border: 1px solid rgba(15, 22, 32, 0.1);
@@ -442,6 +531,7 @@
       background: #eef2f6;
       font-weight: 700;
       text-align: center;
+      align-self: end;
     }
 
     .embed-preview-list {
@@ -455,7 +545,21 @@
       padding: 0.9rem;
       background: linear-gradient(180deg, #ffffff 0%, #f8fbfa 100%);
       display: grid;
-      gap: 0.45rem;
+      gap: 0.8rem;
+    }
+
+    .embed-preview-heading {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .embed-preview-record-main {
+      display: grid;
+      gap: 0.7rem;
+      text-align: left;
     }
 
     .embed-preview-item h4 {
@@ -477,6 +581,17 @@
       background: #ffffff;
       color: var(--ink-soft);
       font-size: 0.84rem;
+      font-weight: 700;
+    }
+
+    .embed-preview-status {
+      border-radius: var(--radius-pill);
+      padding: 0.3rem 0.7rem;
+      background: var(--fog);
+      border: 1px solid rgba(15, 22, 32, 0.1);
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: var(--ink-soft);
     }
 
     .pricing-lede {
@@ -488,8 +603,12 @@
 
     .pricing-card {
       display: grid;
+      grid-template-rows: auto auto minmax(3.4rem, auto) 1fr;
       gap: 0.9rem;
       padding: 1.3rem;
+      text-align: center;
+      justify-items: center;
+      align-content: start;
     }
 
     .pricing-tier {
@@ -532,6 +651,8 @@
       color: var(--ink-soft);
       display: grid;
       gap: 0.45rem;
+      text-align: left;
+      justify-self: stretch;
     }
 
     .card .price {
@@ -587,6 +708,69 @@
       max-width: 78ch;
     }
 
+    .trust-strip {
+      display: grid;
+      grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+      gap: 1rem;
+      background:
+        radial-gradient(300px 140px at 100% 0%, rgba(241, 164, 75, 0.12), transparent 60%),
+        linear-gradient(180deg, #fbfcfe 0%, #f4f7fb 100%);
+      border-radius: var(--radius-lg);
+      padding: 1.4rem 1.5rem;
+      border: 1px solid rgba(15, 22, 32, 0.08);
+      box-shadow: 0 16px 35px rgba(15, 22, 32, 0.08);
+      align-items: center;
+    }
+
+    .trust-strip-head {
+      display: grid;
+      gap: 0.65rem;
+      align-content: start;
+      text-align: center;
+      justify-items: center;
+    }
+
+    .trust-strip-head h2,
+    .trust-strip-head p {
+      margin: 0;
+    }
+
+    .trust-strip-head h2 {
+      font-size: 1.1rem;
+      font-family: "Fraunces", "Times New Roman", serif;
+      color: var(--ink);
+    }
+
+    .trust-strip-head p {
+      color: var(--slate);
+    }
+
+    .trust-copy {
+      margin: 0;
+      color: var(--ink-soft);
+      max-width: 58ch;
+    }
+
+    .trust-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.65rem;
+      align-content: start;
+      justify-content: center;
+    }
+
+    .trust-pill {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.6rem 0.85rem;
+      border-radius: 16px;
+      border: 1px solid rgba(15, 22, 32, 0.1);
+      background: rgba(255, 255, 255, 0.78);
+      color: var(--ink-soft);
+      font-size: 0.92rem;
+      font-weight: 700;
+    }
+
     .site-footer {
       text-align: center;
       padding: 0 0 2.4rem;
@@ -635,9 +819,13 @@
       .embed-showcase {
         grid-template-columns: 1fr;
       }
+      .trust-strip {
+        grid-template-columns: 1fr;
+      }
       .embed-preview-search {
         grid-template-columns: 1fr;
       }
+
     }
   </style>
   <!-- Google tag (gtag.js) -->
@@ -668,36 +856,51 @@
   <main class="container">
     <section class="hero">
       <h2>Built for a specific records problem</h2>
-      <p>Small boards, nonprofits, HOAs, districts, councils, churches, committees, and member organizations everywhere run into the same issue: records pile up, retrieval gets harder, and public access stays clumsy.</p>
+      <p>N3XRA is built for organizations that need records to stay searchable and usable long after they are uploaded.</p>
       <div class="cta-row">
         <a class="cta" href="/demo">Try a demo</a>
       </div>
-      <p class="page-subtitle">Try the interactive demo and see how a searchable archive, shared access, and a public records URL work together before creating an account.</p>
+      <p class="page-subtitle">Explore the interactive demo to see how searchable records, shared access, and public-facing delivery work together in practice.</p>
     </section>
 
     <section class="story-panel">
       <h2 class="section-title">Why N3XRA</h2>
-      <p class="section-lede">n3xra.com is already being used to make public minutes easier to access while giving internal teams faster context from past meetings.</p>
-      <p class="section-lede">The “3” stands for the three problems most organizations struggle with: storing records, finding them later, and actually using them. Most systems handle storage. They break down on search and usability.</p>
-      <p class="section-lede">That is what N3XRA is built for: one place to store records, search them fast, and keep them usable for both internal teams and public-facing access.</p>
+      <p class="section-lede">The “3” in N3XRA points to the three parts of records management that usually break apart over time: storing records, finding them later, and keeping them useful once they are there.</p>
     </section>
 
-    <section class="grid">
-      <article class="card">
-        <h3>Instant Search</h3>
-        <p>Keyword search across every saved record, with fast year filtering when you need a specific meeting or filing period.</p>
+    <section class="roadmap-note" aria-label="Platform roadmap">
+      <p class="roadmap-note-label">Platform Roadmap</p>
+      <p>N3XRA starts with core records search, storage, sharing, and public access. Planned expansion includes broader file support, AI-assisted research across your records, transcription workflows, and more complete document handling tools.</p>
+    </section>
+
+    <section class="feature-grid">
+      <article class="card feature-card">
+        <div class="feature-card-head">
+          <p class="feature-kicker">Ingestion</p>
+          <h3>Upload records with structure</h3>
+        </div>
+        <p>Add DOCX and text-based files to an archive designed for recurring records, not general-purpose file dumping.</p>
       </article>
-      <article class="card">
-        <h3>Open, Preview, Download</h3>
-        <p>Open records in a built-in viewer, download the source file, and stop digging through folders to find the right version.</p>
+      <article class="card feature-card">
+        <div class="feature-card-head">
+          <p class="feature-kicker">Retrieval</p>
+          <h3>Search records quickly</h3>
+        </div>
+        <p>Search across saved records with keyword matching and year filters when you need a specific meeting or filing period.</p>
       </article>
-      <article class="card">
-        <h3>Purpose-Built Uploads</h3>
-        <p>Add DOCX and text-based files to a searchable archive built around recurring records instead of general file dumping.</p>
+      <article class="card feature-card">
+        <div class="feature-card-head">
+          <p class="feature-kicker">Access</p>
+          <h3>Open, preview, and download</h3>
+        </div>
+        <p>Review records in a built-in viewer, open the source file, and download what you need without digging through folders.</p>
       </article>
-      <article class="card">
-        <h3>Public And Internal Access</h3>
-        <p>Keep internal library access role-based while giving organizations a cleaner public-facing records destination.</p>
+      <article class="card feature-card">
+        <div class="feature-card-head">
+          <p class="feature-kicker">Delivery</p>
+          <h3>Support public and internal use</h3>
+        </div>
+        <p>Keep internal access role-based while providing a cleaner public-facing records destination when records need to be shared.</p>
       </article>
     </section>
 
@@ -726,12 +929,12 @@
 
     <section class="pricing-section">
       <h2 class="section-title">Simple pricing</h2>
-      <p class="pricing-lede">Start with a limited free archive, move up when you need more room, and keep the pricing tied to what the product actually supports today.</p>
+      <p class="pricing-lede">Start small, then move up when you need more documents, storage, and shared access.</p>
       <div class="grid">
         <article class="card pricing-card">
           <div class="pricing-tier">Free Tier</div>
           <div class="pricing-price"><strong>$0</strong><span>/month</span></div>
-          <p class="pricing-copy">A small single-user archive for trying the workflow and keeping a limited document set searchable.</p>
+          <p class="pricing-copy">A small single-user archive for getting started.</p>
           <ul class="pricing-list">
             <li>1 user</li>
             <li>Up to 25 documents</li>
@@ -743,7 +946,7 @@
         <article class="card pricing-card">
           <div class="pricing-tier">Starter</div>
           <div class="pricing-price"><strong>$12</strong><span>/month</span></div>
-          <p class="pricing-copy">For a single-user archive that needs more room and more storage without adding shared access yet.</p>
+          <p class="pricing-copy">For a single-user archive that needs more room.</p>
           <ul class="pricing-list">
             <li>1 user</li>
             <li>Up to 250 documents</li>
@@ -755,7 +958,7 @@
         <article class="card pricing-card">
           <div class="pricing-tier">Organization</div>
           <div class="pricing-price"><strong>$39</strong><span>/month</span></div>
-          <p class="pricing-copy">For shared libraries, active teams, and larger archives that need real collaboration controls.</p>
+          <p class="pricing-copy">For teams that need shared libraries and larger archives.</p>
           <ul class="pricing-list">
             <li>Up to 10 users</li>
             <li>Up to 2,500 documents</li>
@@ -765,6 +968,18 @@
             <li>Embedded search and records view with iframe support for your existing website</li>
           </ul>
         </article>
+      </div>
+    </section>
+
+    <section class="trust-strip" aria-label="Security and access">
+      <div class="trust-strip-head">
+        <h2>Security and access</h2>
+        <p class="trust-copy">Authentication, role-based access, and billing run on established infrastructure.</p>
+      </div>
+      <div class="trust-pills">
+        <span class="trust-pill">Supabase Auth for sign-in and sessions</span>
+        <span class="trust-pill">Role-based organization access</span>
+        <span class="trust-pill">Stripe for billing and payments</span>
       </div>
     </section>
 
@@ -802,33 +1017,60 @@
                 <p class="embed-preview-kicker">Embedded records</p>
                 <h3 class="embed-preview-title">Search and files</h3>
                 <div class="embed-preview-search">
-                  <div class="embed-preview-field">budget, grant, zoning, executive session</div>
-                  <div class="embed-preview-field">2026</div>
+                  <div class="embed-preview-search-field">
+                    <label>Keyword or phrase</label>
+                    <div class="embed-preview-field">budget, grant, zoning, executive session</div>
+                  </div>
+                  <div class="embed-preview-search-field">
+                    <label>Year</label>
+                    <div class="embed-preview-field">All years</div>
+                  </div>
                   <div class="embed-preview-button">Reset</div>
                 </div>
                 <div class="embed-preview-list">
                   <article class="embed-preview-item">
-                    <h4>Board Minutes - March 2026</h4>
-                    <p class="embed-preview-meta">board-minutes-march-2026.docx · March 2026</p>
+                    <div class="embed-preview-heading">
+                      <div class="embed-preview-record-main">
+                        <h4>Board Minutes - March 2026</h4>
+                        <p class="embed-preview-meta">board-minutes-march-2026.docx · Year 2026 · March · 3/28/2026</p>
+                        <p class="embed-preview-meta">Budget discussion, zoning review, and executive session follow-up are available in the public record.</p>
+                      </div>
+                      <span class="embed-preview-status">Public</span>
+                    </div>
                     <div class="embed-preview-actions">
-                      <span class="embed-preview-link">Open</span>
+                      <span class="embed-preview-link">View</span>
                       <span class="embed-preview-link">Download</span>
+                      <span class="embed-preview-link">Share</span>
                     </div>
                   </article>
                   <article class="embed-preview-item">
-                    <h4>Annual Budget Packet</h4>
-                    <p class="embed-preview-meta">budget-packet-2026.docx · February 2026</p>
+                    <div class="embed-preview-heading">
+                      <div class="embed-preview-record-main">
+                        <h4>Annual Budget Packet</h4>
+                        <p class="embed-preview-meta">budget-packet-2026.docx · Year 2026 · February · 2/14/2026</p>
+                        <p class="embed-preview-meta">Line items, supporting notes, and board packet attachments are searchable from the embedded panel.</p>
+                      </div>
+                      <span class="embed-preview-status">Public</span>
+                    </div>
                     <div class="embed-preview-actions">
-                      <span class="embed-preview-link">Open</span>
+                      <span class="embed-preview-link">View</span>
                       <span class="embed-preview-link">Download</span>
+                      <span class="embed-preview-link">Share</span>
                     </div>
                   </article>
                   <article class="embed-preview-item">
-                    <h4>Committee Agenda</h4>
-                    <p class="embed-preview-meta">committee-agenda-april-2026.docx · April 2026</p>
+                    <div class="embed-preview-heading">
+                      <div class="embed-preview-record-main">
+                        <h4>Committee Agenda</h4>
+                        <p class="embed-preview-meta">committee-agenda-april-2026.docx · Year 2026 · April · 4/02/2026</p>
+                        <p class="embed-preview-meta">Agendas, packets, and recurring committee records can appear in the same embedded records view.</p>
+                      </div>
+                      <span class="embed-preview-status">Public</span>
+                    </div>
                     <div class="embed-preview-actions">
-                      <span class="embed-preview-link">Open</span>
+                      <span class="embed-preview-link">View</span>
                       <span class="embed-preview-link">Download</span>
+                      <span class="embed-preview-link">Share</span>
                     </div>
                   </article>
                 </div>
