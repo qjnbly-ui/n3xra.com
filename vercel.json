@@ -4,7 +4,7 @@
   "rewrites": [
     {
       "source": "/library/:slug",
-      "destination": "/app/embed.html?slug=:slug"
+      "destination": "/app/embed?slug=:slug"
     },
     {
       "source": "/demo",
