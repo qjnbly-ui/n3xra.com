@@ -29,7 +29,16 @@ function getRequestedOrganizationId() {
 }
 
 function getRequestedSlug() {
-  return new URLSearchParams(window.location.search).get("slug") || "";
+  const fromQuery = new URLSearchParams(window.location.search).get("slug") || "";
+  if (fromQuery) return fromQuery;
+
+  const match = window.location.pathname.match(/^\/library\/([^/]+)$/i);
+  if (!match) return "";
+  try {
+    return decodeURIComponent(match[1] || "");
+  } catch {
+    return match[1] || "";
+  }
 }
 
 function getResolvedOrganizationId() {
