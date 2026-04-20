@@ -1060,8 +1060,8 @@ textarea {
 .doc-status {
   border-radius: var(--radius-pill);
   padding: 0.3rem 0.7rem;
-  background: var(--fog);
-  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--gold) 12%, var(--fog));
+  border: 1px solid color-mix(in srgb, var(--gold) 34%, rgba(15, 22, 32, 0.14));
   font-size: 0.82rem;
   font-weight: 700;
   text-transform: capitalize;
@@ -1385,6 +1385,15 @@ code.inline {
   gap: 0.35rem;
 }
 
+.embed-head::after {
+  content: "";
+  width: 88px;
+  height: 3px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--teal) 0%, var(--gold) 100%);
+  opacity: 0.9;
+}
+
 .embed-head h1 {
   margin: 0;
   font-family: "Fraunces", "Times New Roman", serif;
@@ -1420,12 +1429,13 @@ code.inline {
 }
 
 .embed-record-card {
-  border: 1px solid var(--line);
+  border: 1px solid color-mix(in srgb, var(--gold) 22%, rgba(15, 22, 32, 0.12));
   border-radius: var(--radius-md);
-  background: #fff;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--gold) 4%, #ffffff) 0%, #ffffff 100%);
   padding: 0.95rem 1rem;
   display: grid;
   gap: 0.8rem;
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--gold) 10%, transparent);
 }
 
 .embed-record-heading {
@@ -1445,6 +1455,22 @@ code.inline {
   display: flex;
   gap: 0.45rem;
   flex-wrap: wrap;
+}
+
+.embed-record-actions .btn.secondary:hover,
+.embed-record-actions .btn.secondary:focus-visible,
+.file-modal-actions .file-modal-link:hover,
+.file-modal-actions .file-modal-link:focus-visible {
+  border-color: color-mix(in srgb, var(--gold) 42%, rgba(15, 22, 32, 0.16));
+  background: color-mix(in srgb, var(--gold) 10%, #ffffff);
+  outline: none;
+}
+
+.embed-record-card mark {
+  background: color-mix(in srgb, var(--gold) 24%, #fff4cf);
+  color: inherit;
+  border-radius: 0.24rem;
+  padding: 0 0.16rem;
 }
 
 .file-modal {

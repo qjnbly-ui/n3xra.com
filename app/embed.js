@@ -45,6 +45,22 @@ function getResolvedOrganizationId() {
   return resolvedOrganizationId || getRequestedOrganizationId();
 }
 
+function getPublicPageUrl() {
+  const slug = getRequestedSlug().trim();
+  if (slug) {
+    return new URL(`/library/${encodeURIComponent(slug)}`, window.location.origin).href;
+  }
+
+  const organizationId = getResolvedOrganizationId();
+  if (organizationId) {
+    const url = new URL("/app/embed", window.location.origin);
+    url.searchParams.set("org", organizationId);
+    return url.href;
+  }
+
+  return window.location.href;
+}
+
 function getBrandingParam(key) {
   return new URLSearchParams(window.location.search).get(key) || "";
 }
@@ -244,7 +260,7 @@ async function openFile(documentId) {
   activeModalDocumentId = documentId;
   fileModalTitle.textContent = doc.title || doc.original_filename || "File preview";
   fileModalFrame.src = previewUrl || signedUrl;
-  fileModalOpenTab.href = previewUrl || signedUrl;
+  fileModalOpenTab.href = getPublicPageUrl();
   fileModalDownload.href = downloadSigned?.signedUrl || signedUrl;
   fileModalDownload.setAttribute("download", doc.original_filename || "download");
   fileModal.classList.add("is-open");
@@ -274,10 +290,7 @@ async function downloadFile(documentId) {
 }
 
 async function openFileInNewTab(documentId) {
-  const signed = await fetchPublicFileUrls(documentId, "view");
-  if (!signed) return;
-  const target = signed.previewUrl || signed.signedUrl;
-  window.open(target, "_blank", "noopener");
+  window.open(getPublicPageUrl(), "_blank", "noopener");
 }
 
 async function handleRecordAction(event) {
