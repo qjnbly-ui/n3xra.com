@@ -358,6 +358,34 @@ $$;
 
 grant execute on function public.get_public_embed_documents(uuid) to anon, authenticated;
 
+create or replace function public.get_public_embed_config(input_organization_id uuid)
+returns table (
+  name text,
+  branded_primary_color text,
+  branded_accent_color text
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if input_organization_id is null then
+    return;
+  end if;
+
+  return query
+  select
+    o.name,
+    o.branded_primary_color,
+    o.branded_accent_color
+  from public.organizations o
+  where o.id = input_organization_id
+    and o.public_embed_enabled = true;
+end;
+$$;
+
+grant execute on function public.get_public_embed_config(uuid) to anon, authenticated;
+
 create or replace function public.bootstrap_organization(
   input_organization_name text default null,
   input_invite_code text default null

@@ -364,6 +364,30 @@ select {
   color: var(--ink);
 }
 
+input[type="color"] {
+  width: 100%;
+  min-height: 3.15rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(15, 22, 32, 0.12);
+  background: var(--fog);
+  padding: 0.35rem;
+  cursor: pointer;
+}
+
+input[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+input[type="color"]::-webkit-color-swatch {
+  border: 0;
+  border-radius: calc(var(--radius-sm) - 4px);
+}
+
+input[type="color"]::-moz-color-swatch {
+  border: 0;
+  border-radius: calc(var(--radius-sm) - 4px);
+}
+
 .password-field {
   position: relative;
 }
@@ -1354,10 +1378,49 @@ code.inline {
   padding: 0.7rem 0;
 }
 
+.embed-head {
+  display: grid;
+  justify-items: center;
+  text-align: center;
+  gap: 0.35rem;
+}
+
 .embed-head h1 {
   margin: 0;
   font-family: "Fraunces", "Times New Roman", serif;
-  font-size: clamp(1.55rem, 2.4vw, 2rem);
+  font-size: clamp(1.7rem, 2.9vw, 2.3rem);
+}
+
+.embed-head-copy {
+  margin: 0.15rem 0 0;
+  color: var(--slate);
+}
+
+.embed-powered-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  margin-top: 0.35rem;
+  margin-left: -1.5rem;
+  margin-right: -1.5rem;
+  padding: 0.8rem 1rem 0.4rem;
+  background: linear-gradient(180deg, rgba(248, 250, 252, 0) 0%, rgba(248, 250, 252, 0.94) 36%, rgba(248, 250, 252, 0.98) 100%);
+  color: var(--slate);
+  font-size: 0.8rem;
+  text-align: center;
+  pointer-events: none;
+}
+
+.embed-powered-footer a {
+  color: var(--teal);
+  text-decoration: none;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  pointer-events: auto;
 }
 
 .embed-records-list {

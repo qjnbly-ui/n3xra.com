@@ -2,6 +2,8 @@ import { createBrowserSupabase, hasConfig } from "./lib/supabase-client.js";
 
 const setupPanel = document.getElementById("embed-setup-panel");
 const embedPanel = document.getElementById("embed-panel");
+const libraryNameEl = document.getElementById("embed-library-name");
+const embedHeadCopyEl = document.getElementById("embed-head-copy");
 const searchQueryInput = document.getElementById("embed-search-query");
 const searchYearSelect = document.getElementById("embed-search-year");
 const searchResetButton = document.getElementById("embed-search-reset");
@@ -18,13 +20,55 @@ const fileModalClose = document.getElementById("embed-file-modal-close");
 let supabase = null;
 let documentsCache = [];
 let activeModalDocumentId = null;
+const DEFAULT_PRIMARY_COLOR = "#176f66";
+const DEFAULT_ACCENT_COLOR = "#ea9b3f";
 
 function getOrganizationId() {
   return new URLSearchParams(window.location.search).get("org") || "";
 }
 
+function getBrandingParam(key) {
+  return new URLSearchParams(window.location.search).get(key) || "";
+}
+
 function isUuid(value) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || ""));
+}
+
+function normalizeHexColor(value, fallback) {
+  const raw = String(value || "").trim();
+  if (/^#[0-9a-f]{6}$/i.test(raw)) return raw.toLowerCase();
+  if (/^#[0-9a-f]{3}$/i.test(raw)) {
+    const [, r, g, b] = raw;
+    return `#${r}${r}${g}${g}${b}${b}`.toLowerCase();
+  }
+  return fallback;
+}
+
+function applyEmbedBranding(branding = {}) {
+  const libraryName = String(branding.name || getBrandingParam("name") || "").trim() || "Library records";
+  const primaryColor = normalizeHexColor(branding.branded_primary_color || getBrandingParam("primary"), DEFAULT_PRIMARY_COLOR);
+  const accentColor = normalizeHexColor(branding.branded_accent_color || getBrandingParam("accent"), DEFAULT_ACCENT_COLOR);
+
+  libraryNameEl.textContent = libraryName;
+  embedHeadCopyEl.textContent = "Search and files";
+  document.title = `${libraryName} | N3XRA Embedded View`;
+  document.documentElement.style.setProperty("--teal", primaryColor);
+  document.documentElement.style.setProperty("--gold", accentColor);
+}
+
+async function loadEmbedBranding() {
+  const organizationId = getOrganizationId();
+  if (!organizationId || !isUuid(organizationId)) return;
+
+  const { data, error } = await supabase.rpc("get_public_embed_config", {
+    input_organization_id: organizationId,
+  });
+
+  if (error) return;
+  const branding = Array.isArray(data) ? data[0] : null;
+  if (!branding) return;
+  applyEmbedBranding(branding);
 }
 
 function setStatus(message, tone = "") {
@@ -284,6 +328,7 @@ async function loadDocuments() {
 }
 
 async function init() {
+  applyEmbedBranding();
   show(setupPanel, !hasConfig());
   show(embedPanel, false);
   if (!hasConfig()) return;
@@ -292,6 +337,7 @@ async function init() {
 
   show(setupPanel, false);
   show(embedPanel, true);
+  await loadEmbedBranding();
   await loadDocuments();
 
   searchQueryInput.addEventListener("input", renderDocuments);

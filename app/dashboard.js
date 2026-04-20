@@ -47,7 +47,6 @@ const embedSettingsToggle = document.getElementById("embed-settings-toggle");
 const embedSettingsBody = document.getElementById("embed-settings-body");
 const organizationPrimaryColorField = document.getElementById("organization-primary-color-field");
 const organizationAccentColorField = document.getElementById("organization-accent-color-field");
-const organizationAdvancedSettings = document.getElementById("organization-advanced-settings");
 const libraryAccessCopy = document.getElementById("library-access-copy");
 const activeOrganizationSelect = document.getElementById("active-organization-select");
 const activeOrganizationName = document.getElementById("active-organization-name");
@@ -109,9 +108,6 @@ const organizationNameField = document.getElementById("organization-name-field")
 const organizationNameInput = document.getElementById("organization-name-input");
 const organizationPrimaryColorInput = document.getElementById("organization-primary-color");
 const organizationAccentColorInput = document.getElementById("organization-accent-color");
-const organizationPublicEmbedInput = document.getElementById("organization-public-embed");
-const organizationKeywordSearchInput = document.getElementById("organization-keyword-search");
-const organizationFilePreviewCardsInput = document.getElementById("organization-file-preview-cards");
 const organizationSettingsSave = document.getElementById("organization-settings-save");
 const organizationSettingsStatus = document.getElementById("organization-settings-status");
 const redeemInviteForm = document.getElementById("redeem-invite-form");
@@ -138,6 +134,8 @@ const uploadYearInput = document.getElementById("upload-year");
 const uploadMonthInput = document.getElementById("upload-month");
 const uploadFileInput = document.getElementById("upload-file");
 const uploadFileLabel = document.getElementById("upload-file-label");
+const DEFAULT_PRIMARY_COLOR = "#176f66";
+const DEFAULT_ACCENT_COLOR = "#ea9b3f";
 const uploadFolderInput = document.getElementById("upload-folder");
 const uploadFolderField = document.getElementById("upload-folder-field");
 const uploadPublicField = document.getElementById("upload-public-field");
@@ -613,6 +611,16 @@ function buildSiblingPageUrl(pageName) {
   const currentPath = currentUrl.pathname;
   const siblingPath = currentPath.replace(/[^/]*$/, `${pageName}.html`);
   return new URL(siblingPath, currentUrl.origin);
+}
+
+function normalizeHexColor(value, fallback) {
+  const raw = String(value || "").trim();
+  if (/^#[0-9a-f]{6}$/i.test(raw)) return raw.toLowerCase();
+  if (/^#[0-9a-f]{3}$/i.test(raw)) {
+    const [, r, g, b] = raw;
+    return `#${r}${r}${g}${g}${b}${b}`.toLowerCase();
+  }
+  return fallback;
 }
 
 function getEmbedUrl() {
@@ -1135,18 +1143,12 @@ function renderProfile() {
   profileFullNameInput.value = currentProfile?.full_name || "";
 
   organizationNameInput.value = organization?.name || "";
-  organizationPrimaryColorInput.value = organization?.branded_primary_color || "";
-  organizationAccentColorInput.value = organization?.branded_accent_color || "";
-  organizationPublicEmbedInput.checked = Boolean(organization?.public_embed_enabled);
-  organizationKeywordSearchInput.checked = Boolean(organization?.keyword_search_enabled);
-  organizationFilePreviewCardsInput.checked = Boolean(organization?.file_preview_cards_enabled);
+  organizationPrimaryColorInput.value = normalizeHexColor(organization?.branded_primary_color, DEFAULT_PRIMARY_COLOR);
+  organizationAccentColorInput.value = normalizeHexColor(organization?.branded_accent_color, DEFAULT_ACCENT_COLOR);
 
   organizationNameInput.disabled = !capabilities.canManageLibrarySettings;
   organizationPrimaryColorInput.disabled = !capabilities.canManageLibrarySettings || isFreePlan;
   organizationAccentColorInput.disabled = !capabilities.canManageLibrarySettings || isFreePlan;
-  organizationPublicEmbedInput.disabled = !capabilities.canManageLibrarySettings || !hasEmbeddedAccess() || isFreePlan;
-  organizationKeywordSearchInput.disabled = !capabilities.canManageLibrarySettings || isFreePlan;
-  organizationFilePreviewCardsInput.disabled = !capabilities.canManageLibrarySettings || isFreePlan;
   organizationSettingsSave.disabled = !capabilities.canManageLibrarySettings;
   openUploadModalButton.disabled = !capabilities.canUploadDocuments;
   uploadIsPublicInput.disabled = !capabilities.canUploadDocuments || !hasEmbeddedAccess();
@@ -1166,7 +1168,6 @@ function renderProfile() {
   show(organizationNameField, canEditLibraryNameFromProfile);
   show(organizationPrimaryColorField, !isFreePlan);
   show(organizationAccentColorField, !isFreePlan);
-  show(organizationAdvancedSettings, !isFreePlan);
   show(redeemInviteToggle, hasLibraryAccess);
   show(redeemInviteBody, hasLibraryAccess && !redeemInviteBody.classList.contains("hidden"));
   show(inviteManagementToggle, canSeeInviteManagement);
@@ -1557,11 +1558,11 @@ async function handleOrganizationSettingsSave(event) {
       }
     : {
         name: organizationNameInput.value.trim() || organization.name,
-        branded_primary_color: organizationPrimaryColorInput.value.trim() || null,
-        branded_accent_color: organizationAccentColorInput.value.trim() || null,
-        public_embed_enabled: hasEmbeddedAccess() ? organizationPublicEmbedInput.checked : false,
-        keyword_search_enabled: organizationKeywordSearchInput.checked,
-        file_preview_cards_enabled: organizationFilePreviewCardsInput.checked,
+        branded_primary_color: normalizeHexColor(organizationPrimaryColorInput.value, DEFAULT_PRIMARY_COLOR),
+        branded_accent_color: normalizeHexColor(organizationAccentColorInput.value, DEFAULT_ACCENT_COLOR),
+        public_embed_enabled: hasEmbeddedAccess(),
+        keyword_search_enabled: true,
+        file_preview_cards_enabled: true,
       };
 
   setStatus(organizationSettingsStatus, "Saving embed settings...");
