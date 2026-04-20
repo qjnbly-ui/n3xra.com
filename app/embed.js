@@ -13,18 +13,27 @@ const statusEl = document.getElementById("embed-status");
 const fileModal = document.getElementById("embed-file-modal");
 const fileModalTitle = document.getElementById("embed-file-modal-title");
 const fileModalFrame = document.getElementById("embed-file-modal-frame");
+const fileModalOpenTab = document.getElementById("embed-file-modal-open-tab");
 const fileModalDownload = document.getElementById("embed-file-modal-download");
-const fileModalShare = document.getElementById("embed-file-modal-share");
 const fileModalClose = document.getElementById("embed-file-modal-close");
 
 let supabase = null;
 let documentsCache = [];
 let activeModalDocumentId = null;
+let resolvedOrganizationId = "";
 const DEFAULT_PRIMARY_COLOR = "#176f66";
 const DEFAULT_ACCENT_COLOR = "#ea9b3f";
 
-function getOrganizationId() {
+function getRequestedOrganizationId() {
   return new URLSearchParams(window.location.search).get("org") || "";
+}
+
+function getRequestedSlug() {
+  return new URLSearchParams(window.location.search).get("slug") || "";
+}
+
+function getResolvedOrganizationId() {
+  return resolvedOrganizationId || getRequestedOrganizationId();
 }
 
 function getBrandingParam(key) {
@@ -58,16 +67,35 @@ function applyEmbedBranding(branding = {}) {
 }
 
 async function loadEmbedBranding() {
-  const organizationId = getOrganizationId();
-  if (!organizationId || !isUuid(organizationId)) return;
+  const organizationId = getRequestedOrganizationId();
+  const slug = getRequestedSlug().trim();
 
-  const { data, error } = await supabase.rpc("get_public_embed_config", {
-    input_organization_id: organizationId,
-  });
+  let data = null;
+  let error = null;
+
+  if (organizationId && isUuid(organizationId)) {
+    const result = await supabase.rpc("get_public_embed_config", {
+      input_organization_id: organizationId,
+    });
+    data = result.data;
+    error = result.error;
+    resolvedOrganizationId = organizationId;
+  } else if (slug) {
+    const result = await supabase.rpc("get_public_embed_config_by_slug", {
+      input_slug: slug,
+    });
+    data = result.data;
+    error = result.error;
+  } else {
+    return;
+  }
 
   if (error) return;
   const branding = Array.isArray(data) ? data[0] : null;
   if (!branding) return;
+  if (branding.id && isUuid(branding.id)) {
+    resolvedOrganizationId = branding.id;
+  }
   applyEmbedBranding(branding);
 }
 
@@ -171,7 +199,7 @@ function renderDocuments() {
       <div class="embed-record-actions">
         <button class="btn secondary" type="button" data-action="view" data-id="${doc.id}">View</button>
         <button class="btn secondary" type="button" data-action="download" data-id="${doc.id}">Download</button>
-        <button class="btn secondary" type="button" data-action="share" data-id="${doc.id}">Share</button>
+        <button class="btn secondary" type="button" data-action="open-tab" data-id="${doc.id}">Open in new tab</button>
       </div>
     `;
     recordsList.append(item);
@@ -182,7 +210,7 @@ async function fetchPublicFileUrls(documentId, mode = "view") {
   const doc = documentsCache.find((item) => item.id === documentId);
   if (!doc) return null;
 
-  const organizationId = getOrganizationId();
+  const organizationId = getResolvedOrganizationId();
   const response = await fetch(`/api/public-file?org=${encodeURIComponent(organizationId)}&doc=${encodeURIComponent(documentId)}&mode=${encodeURIComponent(mode)}`);
   const data = await response.json().catch(() => ({}));
   if (!response.ok || !data?.signedUrl) {
@@ -207,6 +235,7 @@ async function openFile(documentId) {
   activeModalDocumentId = documentId;
   fileModalTitle.textContent = doc.title || doc.original_filename || "File preview";
   fileModalFrame.src = previewUrl || signedUrl;
+  fileModalOpenTab.href = previewUrl || signedUrl;
   fileModalDownload.href = downloadSigned?.signedUrl || signedUrl;
   fileModalDownload.setAttribute("download", doc.original_filename || "download");
   fileModal.classList.add("is-open");
@@ -235,33 +264,11 @@ async function downloadFile(documentId) {
   link.remove();
 }
 
-async function shareFile(documentId) {
-  const signed = await fetchPublicFileUrls(documentId, "share");
+async function openFileInNewTab(documentId) {
+  const signed = await fetchPublicFileUrls(documentId, "view");
   if (!signed) return;
-  const { doc, shareUrl, signedUrl } = signed;
-  const shareTarget = shareUrl || signedUrl;
-
-  if (navigator.share) {
-    try {
-      await navigator.share({
-        title: doc.title || doc.original_filename || "Shared file",
-        text: `Shared from n3xra.com: ${doc.title || doc.original_filename || "File"}`,
-        url: shareTarget,
-      });
-      setStatus("Share sheet opened.", "success");
-      return;
-    } catch (error) {
-      if (error instanceof Error && error.name === "AbortError") return;
-    }
-  }
-
-  if (navigator.clipboard?.writeText) {
-    await navigator.clipboard.writeText(shareTarget);
-    setStatus("Share link copied to clipboard.", "success");
-    return;
-  }
-
-  setStatus("Sharing is not available on this device.", "error");
+  const target = signed.previewUrl || signed.signedUrl;
+  window.open(target, "_blank", "noopener");
 }
 
 async function handleRecordAction(event) {
@@ -273,13 +280,13 @@ async function handleRecordAction(event) {
 
   if (action === "view") await openFile(id);
   if (action === "download") await downloadFile(id);
-  if (action === "share") await shareFile(id);
+  if (action === "open-tab") await openFileInNewTab(id);
 }
 
 async function loadDocuments() {
-  const organizationId = getOrganizationId();
+  const organizationId = getResolvedOrganizationId();
   if (!organizationId) {
-    setStatus("Missing library id for the embedded view.", "error");
+    setStatus("Missing library reference for the embedded view.", "error");
     return;
   }
   if (!isUuid(organizationId)) {
@@ -340,10 +347,6 @@ async function init() {
   });
   recordsList.addEventListener("click", handleRecordAction);
   fileModalClose.addEventListener("click", closeFileModal);
-  fileModalShare.addEventListener("click", async () => {
-    if (!activeModalDocumentId) return;
-    await shareFile(activeModalDocumentId);
-  });
   fileModal.addEventListener("click", (event) => {
     if (event.target === fileModal) closeFileModal();
   });

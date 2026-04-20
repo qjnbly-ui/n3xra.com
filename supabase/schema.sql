@@ -386,6 +386,39 @@ $$;
 
 grant execute on function public.get_public_embed_config(uuid) to anon, authenticated;
 
+create or replace function public.get_public_embed_config_by_slug(input_slug text)
+returns table (
+  id uuid,
+  slug text,
+  name text,
+  branded_primary_color text,
+  branded_accent_color text
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if nullif(trim(input_slug), '') is null then
+    return;
+  end if;
+
+  return query
+  select
+    o.id,
+    o.slug,
+    o.name,
+    o.branded_primary_color,
+    o.branded_accent_color
+  from public.organizations o
+  where o.slug = nullif(trim(input_slug), '')
+    and o.public_embed_enabled = true
+  limit 1;
+end;
+$$;
+
+grant execute on function public.get_public_embed_config_by_slug(text) to anon, authenticated;
+
 create or replace function public.bootstrap_organization(
   input_organization_name text default null,
   input_invite_code text default null

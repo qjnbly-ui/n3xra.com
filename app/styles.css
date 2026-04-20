@@ -1378,6 +1378,13 @@ code.inline {
   padding: 0.7rem 0;
 }
 
+.embed-head {
+  display: grid;
+  justify-items: center;
+  text-align: center;
+  gap: 0.35rem;
+}
+
 .embed-head h1 {
   margin: 0;
   font-family: "Fraunces", "Times New Roman", serif;
@@ -1387,6 +1394,24 @@ code.inline {
 .embed-head-copy {
   margin: 0.15rem 0 0;
   color: var(--slate);
+}
+
+.embed-powered-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-top: 0.35rem;
+  color: var(--slate);
+  font-size: 0.8rem;
+  text-align: center;
+}
+
+.embed-powered-footer a {
+  color: var(--teal);
+  text-decoration: none;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .embed-records-list {

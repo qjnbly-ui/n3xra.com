@@ -3,6 +3,10 @@
   "trailingSlash": false,
   "rewrites": [
     {
+      "source": "/library/:slug",
+      "destination": "/app/embed.html?slug=:slug"
+    },
+    {
       "source": "/demo",
       "destination": "/demo/index.html"
     },

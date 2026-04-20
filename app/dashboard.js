@@ -631,6 +631,13 @@ function getEmbedUrl() {
   return embedUrl.href;
 }
 
+function getPublicLibraryUrl() {
+  const organization = getActiveOrganization();
+  if (!organization) return "";
+  if (!organization.slug) return getEmbedUrl();
+  return new URL(`/library/${encodeURIComponent(organization.slug)}`, window.location.origin).href;
+}
+
 function buildPreviewUrl(doc, signedUrl) {
   const lowerName = String(doc?.original_filename || "").toLowerCase();
   if (lowerName.endsWith(".docx") || lowerName.endsWith(".doc")) {
@@ -1035,9 +1042,10 @@ function updateEmbedAccess() {
   }
 
   const embedUrl = getEmbedUrl();
-  embedPreviewUrlInput.value = embedUrl;
+  const publicUrl = getPublicLibraryUrl();
+  embedPreviewUrlInput.value = publicUrl;
   embedCodeInput.value = `<iframe src="${embedUrl}" title="n3xra.com Embedded View" width="100%" height="820" style="border:0;border-radius:24px;"></iframe>`;
-  openEmbedPreview.href = embedUrl;
+  openEmbedPreview.href = publicUrl;
 }
 
 function renderBillingPlans() {
