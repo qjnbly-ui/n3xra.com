@@ -1433,6 +1433,8 @@ code.inline {
   padding: 0.95rem 1rem;
   display: grid;
   gap: 0.8rem;
+  position: relative;
+  z-index: 1;
 }
 
 .embed-record-heading {
@@ -1452,6 +1454,8 @@ code.inline {
   display: flex;
   gap: 0.45rem;
   flex-wrap: wrap;
+  position: relative;
+  z-index: 2;
 }
 
 .file-modal {

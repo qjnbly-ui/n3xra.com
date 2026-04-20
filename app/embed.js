@@ -174,6 +174,18 @@ function renderDocuments() {
         <button class="btn secondary" type="button" data-action="share" data-id="${doc.id}">Share</button>
       </div>
     `;
+    item.querySelectorAll("button[data-action]").forEach((button) => {
+      button.addEventListener("click", async (event) => {
+        event.preventDefault();
+        const action = button.getAttribute("data-action");
+        const id = button.getAttribute("data-id");
+        if (!id || !action) return;
+
+        if (action === "view") await openFile(id);
+        if (action === "download") await downloadFile(id);
+        if (action === "share") await shareFile(id);
+      });
+    });
     recordsList.append(item);
   });
 }
