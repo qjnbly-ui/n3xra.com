@@ -256,6 +256,29 @@ a { color: inherit; }
   gap: 1.4rem;
 }
 
+.site-footer {
+  width: min(1120px, calc(100vw - 2.4rem));
+  margin: 0 auto;
+  text-align: center;
+  padding: 0 0 2.4rem;
+  color: var(--slate);
+  font-size: 0.95rem;
+}
+
+.site-footer p {
+  margin: 0;
+}
+
+.site-footer p + p {
+  margin-top: 0.35rem;
+}
+
+.site-footer a {
+  color: var(--teal);
+  text-decoration: none;
+  font-weight: 700;
+}
+
 .panel {
   background: var(--white);
   border-radius: var(--radius-lg);

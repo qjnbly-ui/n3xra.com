@@ -164,13 +164,22 @@
       color: var(--ink-soft);
     }
 
-    footer {
+    .site-footer {
       padding: 0 0 2.4rem;
       color: var(--slate);
       font-size: 0.95rem;
+      text-align: center;
     }
 
-    footer a {
+    .site-footer p {
+      margin: 0;
+    }
+
+    .site-footer p + p {
+      margin-top: 0.35rem;
+    }
+
+    .site-footer a {
       color: var(--teal);
       text-decoration: none;
       font-weight: 700;
@@ -314,6 +323,11 @@
       </div>
     </article>
   </main>
+
+  <footer class="site-footer">
+    <p>&copy; 2026 n3xra.com. All rights reserved.</p>
+    <p><a href="/support">Customer Support</a> · <a href="/privacy">Privacy Policy</a></p>
+  </footer>
 
 </body>
 </html>
