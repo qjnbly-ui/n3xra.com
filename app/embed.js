@@ -50,8 +50,8 @@ function applyEmbedBranding(branding = {}) {
   const primaryColor = normalizeHexColor(branding.branded_primary_color || getBrandingParam("primary"), DEFAULT_PRIMARY_COLOR);
   const accentColor = normalizeHexColor(branding.branded_accent_color || getBrandingParam("accent"), DEFAULT_ACCENT_COLOR);
 
-  libraryNameEl.textContent = libraryName;
-  embedHeadCopyEl.textContent = "Search and files";
+  if (libraryNameEl) libraryNameEl.textContent = libraryName;
+  if (embedHeadCopyEl) embedHeadCopyEl.textContent = "Search and files";
   document.title = `${libraryName} | N3XRA Embedded View`;
   document.documentElement.style.setProperty("--teal", primaryColor);
   document.documentElement.style.setProperty("--gold", accentColor);
@@ -174,61 +174,39 @@ function renderDocuments() {
         <button class="btn secondary" type="button" data-action="share" data-id="${doc.id}">Share</button>
       </div>
     `;
-    item.querySelectorAll("button[data-action]").forEach((button) => {
-      button.addEventListener("click", async (event) => {
-        event.preventDefault();
-        const action = button.getAttribute("data-action");
-        const id = button.getAttribute("data-id");
-        if (!id || !action) return;
-
-        if (action === "view") await openFile(id);
-        if (action === "download") await downloadFile(id);
-        if (action === "share") await shareFile(id);
-      });
-    });
     recordsList.append(item);
   });
 }
 
-async function createSignedUrlForDocument(documentId) {
+async function fetchPublicFileUrls(documentId, mode = "view") {
   const doc = documentsCache.find((item) => item.id === documentId);
   if (!doc) return null;
 
-  const { data, error } = await supabase.storage.from("documents").createSignedUrl(doc.storage_path, 60 * 60);
-  if (error || !data?.signedUrl) {
-    setStatus(error?.message || "Unable to create signed URL.", "error");
+  const organizationId = getOrganizationId();
+  const response = await fetch(`/api/public-file?org=${encodeURIComponent(organizationId)}&doc=${encodeURIComponent(documentId)}&mode=${encodeURIComponent(mode)}`);
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || !data?.signedUrl) {
+    setStatus(String(data?.error || "Unable to access public file."), "error");
     return null;
   }
 
-  return { doc, signedUrl: data.signedUrl };
-}
-
-async function createDownloadSignedUrlForDocument(documentId) {
-  const doc = documentsCache.find((item) => item.id === documentId);
-  if (!doc) return null;
-
-  const downloadName = doc.original_filename || "download";
-  const { data, error } = await supabase
-    .storage
-    .from("documents")
-    .createSignedUrl(doc.storage_path, 60 * 60, { download: downloadName });
-  if (error || !data?.signedUrl) {
-    setStatus(error?.message || "Unable to create download URL.", "error");
-    return null;
-  }
-
-  return { doc, signedUrl: data.signedUrl };
+  return {
+    doc,
+    signedUrl: data.signedUrl,
+    previewUrl: data.previewUrl || buildPreviewUrl(doc, data.signedUrl),
+    shareUrl: data.shareUrl || "",
+  };
 }
 
 async function openFile(documentId) {
-  const signed = await createSignedUrlForDocument(documentId);
+  const signed = await fetchPublicFileUrls(documentId, "view");
   if (!signed) return;
-  const downloadSigned = await createDownloadSignedUrlForDocument(documentId);
-  const { doc, signedUrl } = signed;
+  const downloadSigned = await fetchPublicFileUrls(documentId, "download");
+  const { doc, previewUrl, signedUrl } = signed;
 
   activeModalDocumentId = documentId;
   fileModalTitle.textContent = doc.title || doc.original_filename || "File preview";
-  fileModalFrame.src = buildPreviewUrl(doc, signedUrl);
+  fileModalFrame.src = previewUrl || signedUrl;
   fileModalDownload.href = downloadSigned?.signedUrl || signedUrl;
   fileModalDownload.setAttribute("download", doc.original_filename || "download");
   fileModal.classList.add("is-open");
@@ -243,7 +221,7 @@ function closeFileModal() {
 }
 
 async function downloadFile(documentId) {
-  const signed = await createDownloadSignedUrlForDocument(documentId);
+  const signed = await fetchPublicFileUrls(documentId, "download");
   if (!signed) return;
   const { doc, signedUrl } = signed;
 
@@ -258,16 +236,17 @@ async function downloadFile(documentId) {
 }
 
 async function shareFile(documentId) {
-  const signed = await createSignedUrlForDocument(documentId);
+  const signed = await fetchPublicFileUrls(documentId, "share");
   if (!signed) return;
-  const { doc, signedUrl } = signed;
+  const { doc, shareUrl, signedUrl } = signed;
+  const shareTarget = shareUrl || signedUrl;
 
   if (navigator.share) {
     try {
       await navigator.share({
         title: doc.title || doc.original_filename || "Shared file",
         text: `Shared from n3xra.com: ${doc.title || doc.original_filename || "File"}`,
-        url: signedUrl,
+        url: shareTarget,
       });
       setStatus("Share sheet opened.", "success");
       return;
@@ -277,7 +256,7 @@ async function shareFile(documentId) {
   }
 
   if (navigator.clipboard?.writeText) {
-    await navigator.clipboard.writeText(signedUrl);
+    await navigator.clipboard.writeText(shareTarget);
     setStatus("Share link copied to clipboard.", "success");
     return;
   }

@@ -1378,47 +1378,15 @@ code.inline {
   padding: 0.7rem 0;
 }
 
-#embed-panel {
-  display: grid;
-  grid-template-rows: auto auto 1fr auto auto auto;
-  min-height: calc(100vh - 1.4rem);
-}
-
-.embed-head {
-  display: grid;
-  justify-items: center;
-  text-align: center;
-  gap: 0.35rem;
-}
-
 .embed-head h1 {
   margin: 0;
   font-family: "Fraunces", "Times New Roman", serif;
-  font-size: clamp(1.7rem, 2.9vw, 2.3rem);
+  font-size: clamp(1.55rem, 2.4vw, 2rem);
 }
 
 .embed-head-copy {
   margin: 0.15rem 0 0;
   color: var(--slate);
-}
-
-.embed-powered-footer {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-top: auto;
-  padding-top: 0.5rem;
-  color: var(--slate);
-  font-size: 0.8rem;
-  text-align: center;
-}
-
-.embed-powered-footer a {
-  color: var(--teal);
-  text-decoration: none;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
 }
 
 .embed-records-list {
@@ -1433,8 +1401,6 @@ code.inline {
   padding: 0.95rem 1rem;
   display: grid;
   gap: 0.8rem;
-  position: relative;
-  z-index: 1;
 }
 
 .embed-record-heading {
@@ -1454,8 +1420,6 @@ code.inline {
   display: flex;
   gap: 0.45rem;
   flex-wrap: wrap;
-  position: relative;
-  z-index: 2;
 }
 
 .file-modal {
