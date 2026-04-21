@@ -79,16 +79,24 @@ function normalizeHexColor(value, fallback) {
   return fallback;
 }
 
+function getCustomAccentColor(branding = {}) {
+  const raw = String(branding.branded_accent_color || getBrandingParam("accent") || "").trim();
+  if (!raw) return "";
+  return normalizeHexColor(raw, "");
+}
+
 function applyEmbedBranding(branding = {}) {
   const libraryName = String(branding.name || getBrandingParam("name") || "").trim() || "Library records";
   const primaryColor = normalizeHexColor(branding.branded_primary_color || getBrandingParam("primary"), DEFAULT_PRIMARY_COLOR);
-  const accentColor = normalizeHexColor(branding.branded_accent_color || getBrandingParam("accent"), DEFAULT_ACCENT_COLOR);
+  const accentColor = getCustomAccentColor(branding);
+  const hasCustomAccent = Boolean(accentColor);
 
   if (libraryNameEl) libraryNameEl.textContent = libraryName;
   if (embedHeadCopyEl) embedHeadCopyEl.textContent = "Search and files";
   document.title = `${libraryName} | N3XRA Embedded View`;
   document.documentElement.style.setProperty("--teal", primaryColor);
-  document.documentElement.style.setProperty("--gold", accentColor);
+  document.documentElement.style.setProperty("--gold", hasCustomAccent ? accentColor : DEFAULT_ACCENT_COLOR);
+  document.documentElement.dataset.embedAccent = hasCustomAccent ? "on" : "off";
 }
 
 async function loadEmbedBranding() {
@@ -151,6 +159,25 @@ function formatDate(value) {
   return date.toLocaleDateString();
 }
 
+function stripFileExtension(filename) {
+  return String(filename || "").replace(/\.[^.]+$/, "").trim();
+}
+
+function buildDocumentSubtitle(doc) {
+  const title = String(doc?.title || "").trim();
+  const filename = String(doc?.original_filename || "").trim();
+  const filenameBase = stripFileExtension(filename);
+  const showFilename = filename && filenameBase && filenameBase.toLowerCase() !== title.toLowerCase();
+
+  const parts = [];
+  if (showFilename) parts.push(filename);
+  if (doc?.month) parts.push(String(doc.month).trim());
+  if (doc?.year) parts.push(String(doc.year).trim());
+  parts.push(formatDate(doc?.created_at));
+
+  return parts.filter(Boolean).join(" · ");
+}
+
 function snippetFromText(text, query) {
   if (!text) return "No extracted text yet.";
   if (!query) return `${text.slice(0, 220).trim()}${text.length > 220 ? "..." : ""}`;
@@ -210,21 +237,19 @@ function renderDocuments() {
   filtered.forEach((doc) => {
     const item = document.createElement("article");
     item.className = "embed-record-card";
+    item.tabIndex = 0;
+    item.setAttribute("role", "button");
+    item.setAttribute("data-id", doc.id);
+    item.setAttribute("aria-label", `Open ${doc.title || doc.original_filename || "document"}`);
     item.innerHTML = `
       <div class="embed-record-main">
         <div class="embed-record-heading">
           <div>
             <p class="doc-title">${escapeHtml(doc.title || doc.original_filename || "Untitled document")}</p>
-            <p class="doc-subtitle">${escapeHtml(doc.original_filename || "Unknown file")} · ${doc.year ? `Year ${escapeHtml(doc.year)}` : "No year"}${doc.month ? ` · ${escapeHtml(doc.month)}` : ""} · ${escapeHtml(formatDate(doc.created_at))}</p>
+            <p class="doc-subtitle">${escapeHtml(buildDocumentSubtitle(doc))}</p>
           </div>
-          <span class="doc-status">Public</span>
         </div>
         <p class="doc-snippet">${snippetFromText(doc.extracted_text || "", query)}</p>
-      </div>
-      <div class="embed-record-actions">
-        <button class="btn secondary" type="button" data-action="view" data-id="${doc.id}">View</button>
-        <button class="btn secondary" type="button" data-action="download" data-id="${doc.id}">Download</button>
-        <button class="btn secondary" type="button" data-action="open-tab" data-id="${doc.id}">Open in new tab</button>
       </div>
     `;
     recordsList.append(item);
@@ -260,7 +285,7 @@ async function openFile(documentId) {
   activeModalDocumentId = documentId;
   fileModalTitle.textContent = doc.title || doc.original_filename || "File preview";
   fileModalFrame.src = previewUrl || signedUrl;
-  fileModalOpenTab.href = getPublicPageUrl();
+  fileModalOpenTab.href = previewUrl || signedUrl;
   fileModalDownload.href = downloadSigned?.signedUrl || signedUrl;
   fileModalDownload.setAttribute("download", doc.original_filename || "download");
   fileModal.classList.add("is-open");
@@ -274,35 +299,22 @@ function closeFileModal() {
   activeModalDocumentId = null;
 }
 
-async function downloadFile(documentId) {
-  const signed = await fetchPublicFileUrls(documentId, "download");
-  if (!signed) return;
-  const { doc, signedUrl } = signed;
-
-  const link = document.createElement("a");
-  link.href = signedUrl;
-  link.download = doc.original_filename || "download";
-  link.target = "_blank";
-  link.rel = "noopener";
-  document.body.append(link);
-  link.click();
-  link.remove();
-}
-
-async function openFileInNewTab(documentId) {
-  window.open(getPublicPageUrl(), "_blank", "noopener");
-}
-
 async function handleRecordAction(event) {
-  const button = event.target.closest("button[data-action]");
-  if (!button) return;
-  const action = button.getAttribute("data-action");
-  const id = button.getAttribute("data-id");
-  if (!id || !action) return;
+  const card = event.target.closest(".embed-record-card[data-id]");
+  if (!card) return;
+  const id = card.getAttribute("data-id");
+  if (!id) return;
+  await openFile(id);
+}
 
-  if (action === "view") await openFile(id);
-  if (action === "download") await downloadFile(id);
-  if (action === "open-tab") await openFileInNewTab(id);
+async function handleRecordKeydown(event) {
+  if (event.key !== "Enter" && event.key !== " ") return;
+  const card = event.target.closest(".embed-record-card[data-id]");
+  if (!card) return;
+  event.preventDefault();
+  const id = card.getAttribute("data-id");
+  if (!id) return;
+  await openFile(id);
 }
 
 async function loadDocuments() {
@@ -368,6 +380,7 @@ async function init() {
     renderDocuments();
   });
   recordsList.addEventListener("click", handleRecordAction);
+  recordsList.addEventListener("keydown", handleRecordKeydown);
   fileModalClose.addEventListener("click", closeFileModal);
   fileModal.addEventListener("click", (event) => {
     if (event.target === fileModal) closeFileModal();

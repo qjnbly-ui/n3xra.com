@@ -1390,8 +1390,12 @@ code.inline {
   width: 88px;
   height: 3px;
   border-radius: 999px;
-  background: linear-gradient(90deg, var(--teal) 0%, var(--gold) 100%);
+  background: var(--teal);
   opacity: 0.9;
+}
+
+:root[data-embed-accent="on"] .embed-head::after {
+  background: linear-gradient(90deg, var(--teal) 0%, var(--gold) 100%);
 }
 
 .embed-head h1 {
@@ -1406,21 +1410,43 @@ code.inline {
 }
 
 .embed-powered-footer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 12;
   display: flex;
-  align-items: center;
   justify-content: center;
-  padding-top: 0.35rem;
-  color: var(--slate);
-  font-size: 0.8rem;
-  text-align: center;
+  padding: 1.4rem 1rem calc(0.9rem + env(safe-area-inset-bottom, 0px));
+  background: linear-gradient(180deg, rgba(237, 242, 247, 0) 0%, rgba(237, 242, 247, 0.92) 48%, rgba(237, 242, 247, 0.98) 100%);
+  pointer-events: none;
 }
 
 .embed-powered-footer a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.7rem;
+  padding: 0.55rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid rgba(23, 111, 102, 0.18);
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 12px 28px rgba(15, 22, 32, 0.12);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   color: var(--teal);
   text-decoration: none;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+  pointer-events: auto;
+}
+
+.embed-powered-footer a:hover,
+.embed-powered-footer a:focus-visible {
+  background: rgba(255, 255, 255, 0.96);
+  border-color: rgba(23, 111, 102, 0.3);
+  outline: none;
 }
 
 .embed-records-list {
@@ -1429,13 +1455,37 @@ code.inline {
 }
 
 .embed-record-card {
-  border: 1px solid color-mix(in srgb, var(--gold) 22%, rgba(15, 22, 32, 0.12));
+  border: 1px solid rgba(15, 22, 32, 0.12);
   border-radius: var(--radius-md);
-  background: linear-gradient(180deg, color-mix(in srgb, var(--gold) 4%, #ffffff) 0%, #ffffff 100%);
+  background: #ffffff;
   padding: 0.95rem 1rem;
   display: grid;
   gap: 0.8rem;
+  box-shadow: 0 10px 24px rgba(15, 22, 32, 0.06);
+  cursor: pointer;
+  transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
+}
+
+:root[data-embed-accent="on"] .embed-record-card {
+  border: 1px solid color-mix(in srgb, var(--gold) 22%, rgba(15, 22, 32, 0.12));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--gold) 4%, #ffffff) 0%, #ffffff 100%);
   box-shadow: 0 10px 24px color-mix(in srgb, var(--gold) 10%, transparent);
+}
+
+.embed-record-card:hover {
+  transform: translateY(-1px);
+  border-color: rgba(23, 111, 102, 0.22);
+  box-shadow: 0 14px 28px rgba(15, 22, 32, 0.08);
+}
+
+.embed-record-card:focus-visible {
+  outline: 2px solid rgba(23, 111, 102, 0.32);
+  outline-offset: 2px;
+}
+
+:root[data-embed-accent="on"] .embed-record-card:hover {
+  border-color: color-mix(in srgb, var(--gold) 38%, rgba(15, 22, 32, 0.12));
+  box-shadow: 0 14px 28px color-mix(in srgb, var(--gold) 14%, transparent);
 }
 
 .embed-record-heading {
@@ -1451,26 +1501,28 @@ code.inline {
   gap: 0.7rem;
 }
 
-.embed-record-actions {
-  display: flex;
-  gap: 0.45rem;
-  flex-wrap: wrap;
-}
-
-.embed-record-actions .btn.secondary:hover,
-.embed-record-actions .btn.secondary:focus-visible,
 .file-modal-actions .file-modal-link:hover,
 .file-modal-actions .file-modal-link:focus-visible {
-  border-color: color-mix(in srgb, var(--gold) 42%, rgba(15, 22, 32, 0.16));
-  background: color-mix(in srgb, var(--gold) 10%, #ffffff);
+  border-color: rgba(15, 22, 32, 0.16);
+  background: rgba(15, 22, 32, 0.04);
   outline: none;
 }
 
 .embed-record-card mark {
-  background: color-mix(in srgb, var(--gold) 24%, #fff4cf);
+  background: #eef6f4;
   color: inherit;
   border-radius: 0.24rem;
   padding: 0 0.16rem;
+}
+
+:root[data-embed-accent="on"] .file-modal-actions .file-modal-link:hover,
+:root[data-embed-accent="on"] .file-modal-actions .file-modal-link:focus-visible {
+  border-color: color-mix(in srgb, var(--gold) 42%, rgba(15, 22, 32, 0.16));
+  background: color-mix(in srgb, var(--gold) 10%, #ffffff);
+}
+
+:root[data-embed-accent="on"] .embed-record-card mark {
+  background: color-mix(in srgb, var(--gold) 24%, #fff4cf);
 }
 
 .file-modal {

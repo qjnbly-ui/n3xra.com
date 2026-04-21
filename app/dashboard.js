@@ -79,6 +79,7 @@ const embedModalClose = document.getElementById("embed-modal-close");
 const embedPreviewUrlInput = document.getElementById("embed-preview-url");
 const embedCodeInput = document.getElementById("embed-code");
 const openEmbedPreview = document.getElementById("open-embed-preview");
+const copyEmbedPreviewUrlButton = document.getElementById("copy-embed-preview-url");
 const copyEmbedCodeButton = document.getElementById("copy-embed-code");
 const embedStatus = document.getElementById("embed-status");
 const openUploadModalButton = document.getElementById("open-upload-modal");
@@ -623,6 +624,11 @@ function normalizeHexColor(value, fallback) {
   return fallback;
 }
 
+function normalizeOptionalAccentColor(value) {
+  const normalized = normalizeHexColor(value, DEFAULT_ACCENT_COLOR);
+  return normalized === DEFAULT_ACCENT_COLOR ? null : normalized;
+}
+
 function getEmbedUrl() {
   const organization = getActiveOrganization();
   if (!organization) return "";
@@ -1037,6 +1043,9 @@ function updateEmbedAccess() {
   show(embedAccessCard, enabled);
 
   if (!enabled || !organization) {
+    embedPreviewUrlInput.value = "";
+    embedCodeInput.value = "";
+    openEmbedPreview.href = "./embed.html";
     setEmbedModalOpen(false);
     return;
   }
@@ -1567,7 +1576,7 @@ async function handleOrganizationSettingsSave(event) {
     : {
         name: organizationNameInput.value.trim() || organization.name,
         branded_primary_color: normalizeHexColor(organizationPrimaryColorInput.value, DEFAULT_PRIMARY_COLOR),
-        branded_accent_color: normalizeHexColor(organizationAccentColorInput.value, DEFAULT_ACCENT_COLOR),
+        branded_accent_color: normalizeOptionalAccentColor(organizationAccentColorInput.value),
         public_embed_enabled: hasEmbeddedAccess(),
         keyword_search_enabled: true,
         file_preview_cards_enabled: true,
@@ -1890,6 +1899,17 @@ async function copyEmbedCode() {
   }
 }
 
+async function copyPublicEmbedUrl() {
+  const value = embedPreviewUrlInput.value || "";
+  if (!value) return;
+  try {
+    await navigator.clipboard.writeText(value);
+    setStatus(embedStatus, "Public page link copied.", "success");
+  } catch {
+    setStatus(embedStatus, "Unable to copy public page link on this device.", "error");
+  }
+}
+
 async function uploadDocument(event) {
   event.preventDefault();
   const organization = getActiveOrganization();
@@ -2118,6 +2138,7 @@ async function init() {
   deleteAccountSubmit.addEventListener("click", deleteAccount);
   openEmbedCardButton.addEventListener("click", () => setEmbedModalOpen(true));
   embedModalClose.addEventListener("click", () => setEmbedModalOpen(false));
+  copyEmbedPreviewUrlButton.addEventListener("click", copyPublicEmbedUrl);
   copyEmbedCodeButton.addEventListener("click", copyEmbedCode);
   openUploadModalButton.addEventListener("click", () => {
     resetUploadFeedback();
