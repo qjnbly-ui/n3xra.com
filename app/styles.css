@@ -1423,29 +1423,21 @@ code.inline {
 }
 
 .embed-powered-footer a {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 2.7rem;
-  padding: 0.55rem 0.9rem;
-  border-radius: 999px;
-  border: 1px solid rgba(23, 111, 102, 0.18);
-  background: rgba(255, 255, 255, 0.88);
-  box-shadow: 0 12px 28px rgba(15, 22, 32, 0.12);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  display: inline-block;
   color: var(--teal);
   text-decoration: none;
   font-weight: 700;
+  font-size: 0.76rem;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   pointer-events: auto;
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 .embed-powered-footer a:hover,
 .embed-powered-footer a:focus-visible {
-  background: rgba(255, 255, 255, 0.96);
-  border-color: rgba(23, 111, 102, 0.3);
+  text-decoration: underline;
   outline: none;
 }
 
