@@ -1,3 +1,5 @@
+import { buildPreviewUrl, getDownloadFilename } from "../app/lib/document-links.js";
+
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://vdbjlgmbpykjblprqnak.supabase.co";
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY || "";
 
@@ -26,14 +28,6 @@ function toAbsoluteSignedUrl(value) {
   if (/^https?:\/\//i.test(raw)) return raw;
   if (raw.startsWith("/")) return `${SUPABASE_URL}/storage/v1${raw}`;
   return `${SUPABASE_URL}/storage/v1/${raw}`;
-}
-
-function buildPreviewUrl(originalFilename, signedUrl) {
-  const lowerName = String(originalFilename || "").toLowerCase();
-  if (lowerName.endsWith(".docx") || lowerName.endsWith(".doc")) {
-    return `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(signedUrl)}`;
-  }
-  return signedUrl;
 }
 
 async function fetchJson(url, options) {
@@ -68,7 +62,7 @@ async function createSignedUrl(doc, mode) {
     expiresIn: 60 * 60,
   };
   if (mode === "download") {
-    payload.download = doc.original_filename || "download";
+    payload.download = getDownloadFilename(doc);
   }
 
   const data = await fetchJson(signUrl, {
@@ -77,7 +71,12 @@ async function createSignedUrl(doc, mode) {
     body: JSON.stringify(payload),
   });
 
-  return toAbsoluteSignedUrl(data?.signedURL || data?.signedUrl || "");
+  const absoluteUrl = toAbsoluteSignedUrl(data?.signedURL || data?.signedUrl || "");
+  if (!absoluteUrl || mode !== "download") return absoluteUrl;
+
+  const downloadUrl = new URL(absoluteUrl);
+  downloadUrl.searchParams.set("download", getDownloadFilename(doc));
+  return downloadUrl.toString();
 }
 
 export default async function handler(req, res) {
@@ -99,7 +98,7 @@ export default async function handler(req, res) {
   try {
     const doc = await getPublicDocument(orgId, docId);
     const signedUrl = await createSignedUrl(doc, mode === "download" ? "download" : "view");
-    const previewUrl = buildPreviewUrl(doc.original_filename, signedUrl);
+    const previewUrl = buildPreviewUrl(doc, signedUrl);
     const proto = req.headers["x-forwarded-proto"] || "https";
     const host = req.headers.host || "";
     const shareUrl = `${proto}://${host}/api/public-file?org=${encodeURIComponent(orgId)}&doc=${encodeURIComponent(docId)}&mode=view&redirect=1`;
@@ -110,7 +109,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       ok: true,
-      filename: doc.original_filename || "download",
+      filename: getDownloadFilename(doc),
       signedUrl,
       previewUrl,
       shareUrl,

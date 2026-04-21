@@ -1,4 +1,5 @@
 import { createBrowserSupabase, hasConfig, getSessionOrNull } from "./lib/supabase-client.js";
+import { buildPreviewUrl, getDownloadFilename } from "./lib/document-links.js";
 import {
   buildMembershipMap,
   dedupeMembershipsByOrganization,
@@ -108,14 +109,6 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
-}
-
-function buildPreviewUrl(doc, signedUrl) {
-  const lowerName = String(doc?.original_filename || "").toLowerCase();
-  if (lowerName.endsWith(".docx") || lowerName.endsWith(".doc")) {
-    return `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(signedUrl)}`;
-  }
-  return signedUrl;
 }
 
 function getMonthNumber(monthValue) {
@@ -372,7 +365,7 @@ async function createDownloadSignedUrlForDocument(documentId) {
   const doc = documentsCache.find((item) => item.id === documentId);
   if (!doc) return null;
 
-  const downloadName = doc.original_filename || "download";
+  const downloadName = getDownloadFilename(doc);
   const { data, error } = await supabase
     .storage
     .from("documents")
@@ -396,7 +389,7 @@ async function openFile(documentId) {
   fileModalTitle.textContent = doc.title || doc.original_filename || "File preview";
   fileModalFrame.src = buildPreviewUrl(doc, signedUrl);
   fileModalDownload.href = downloadSigned?.signedUrl || signedUrl;
-  fileModalDownload.setAttribute("download", doc.original_filename || "download");
+  fileModalDownload.setAttribute("download", getDownloadFilename(doc));
   show(fileModalShare, capabilities.canShareDocuments);
   show(fileModalEdit, capabilities.canEditDocuments);
   show(fileModalDelete, capabilities.canDeleteDocuments);
@@ -411,7 +404,7 @@ async function downloadFile(documentId) {
 
   const link = document.createElement("a");
   link.href = signedUrl;
-  link.download = doc.original_filename || "download";
+  link.download = getDownloadFilename(doc);
   link.target = "_blank";
   link.rel = "noopener";
   document.body.append(link);

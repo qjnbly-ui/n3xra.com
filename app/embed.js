@@ -1,4 +1,5 @@
 import { createBrowserSupabase, hasConfig } from "./lib/supabase-client.js";
+import { buildPreviewUrl, getDownloadFilename } from "./lib/document-links.js";
 
 const setupPanel = document.getElementById("embed-setup-panel");
 const embedPanel = document.getElementById("embed-panel");
@@ -199,14 +200,6 @@ function snippetFromText(text, query) {
   return `${prefix}${before}<mark>${match}</mark>${after}${suffix}`;
 }
 
-function buildPreviewUrl(doc, signedUrl) {
-  const lowerName = String(doc?.original_filename || "").toLowerCase();
-  if (lowerName.endsWith(".docx") || lowerName.endsWith(".doc")) {
-    return `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(signedUrl)}`;
-  }
-  return signedUrl;
-}
-
 function updateYearFilterOptions() {
   const years = Array.from(new Set(documentsCache.map((doc) => String(doc.year || "").trim()).filter(Boolean))).sort((a, b) => Number(b) - Number(a));
   searchYearSelect.innerHTML = '<option value="all">All years</option>';
@@ -287,7 +280,7 @@ async function openFile(documentId) {
   fileModalFrame.src = previewUrl || signedUrl;
   fileModalOpenTab.href = previewUrl || signedUrl;
   fileModalDownload.href = downloadSigned?.signedUrl || signedUrl;
-  fileModalDownload.setAttribute("download", doc.original_filename || "download");
+  fileModalDownload.setAttribute("download", getDownloadFilename(doc));
   fileModal.classList.add("is-open");
   fileModal.setAttribute("aria-hidden", "false");
 }

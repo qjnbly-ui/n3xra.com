@@ -1,5 +1,6 @@
 import JSZip from "https://esm.sh/jszip@3.10.1";
 import { createBrowserSupabase, getConfig, hasConfig, getSessionOrNull } from "./lib/supabase-client.js";
+import { buildPreviewUrl, getDownloadFilename } from "./lib/document-links.js";
 import { PLAN_ORDER, getPlanConfig, formatPlanName } from "./lib/plan-config.js";
 import {
   buildMembershipMap,
@@ -642,14 +643,6 @@ function getPublicLibraryUrl() {
   if (!organization) return "";
   if (!organization.slug) return getEmbedUrl();
   return new URL(`/library/${encodeURIComponent(organization.slug)}`, window.location.origin).href;
-}
-
-function buildPreviewUrl(doc, signedUrl) {
-  const lowerName = String(doc?.original_filename || "").toLowerCase();
-  if (lowerName.endsWith(".docx") || lowerName.endsWith(".doc")) {
-    return `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(signedUrl)}`;
-  }
-  return signedUrl;
 }
 
 async function extractDocxText(file) {
@@ -1457,7 +1450,7 @@ async function createDownloadSignedUrlForDocument(documentId) {
   const doc = documentsCache.find((item) => item.id === documentId);
   if (!doc) return null;
 
-  const downloadName = doc.original_filename || "download";
+  const downloadName = getDownloadFilename(doc);
   const { data, error } = await supabase
     .storage
     .from("documents")
@@ -1479,7 +1472,7 @@ async function openFile(documentId) {
   fileModalTitle.textContent = doc.title || doc.original_filename || "File preview";
   fileModalFrame.src = buildPreviewUrl(doc, signedUrl);
   fileModalDownload.href = downloadSigned?.signedUrl || signedUrl;
-  fileModalDownload.setAttribute("download", doc.original_filename || "download");
+  fileModalDownload.setAttribute("download", getDownloadFilename(doc));
   fileModal.classList.add("is-open");
   fileModal.setAttribute("aria-hidden", "false");
 }
