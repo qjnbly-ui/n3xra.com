@@ -1,6 +1,8 @@
 import JSZip from "https://esm.sh/jszip@3.10.1";
 import { createBrowserSupabase, getConfig, hasConfig, getSessionOrNull } from "./lib/supabase-client.js";
 import { buildPreviewUrl, getDownloadFilename } from "./lib/document-links.js";
+import { buildDocumentMetadata, getDocumentDisplayTitle } from "./lib/document-presenters.js";
+import { closeFilePreviewModal, openFilePreviewModal } from "./lib/file-modal.js";
 import { PLAN_ORDER, getPlanConfig, formatPlanName } from "./lib/plan-config.js";
 import {
   buildMembershipMap,
@@ -100,6 +102,8 @@ const currentPlanNote = document.getElementById("current-plan-note");
 const manageBillingButton = document.getElementById("manage-billing-button");
 const changePlanButton = document.getElementById("change-plan-button");
 const billingPlanPicker = document.getElementById("billing-plan-picker");
+const billingCycleMonthlyButton = document.getElementById("billing-cycle-monthly");
+const billingCycleYearlyButton = document.getElementById("billing-cycle-yearly");
 const billingPlanGrid = document.getElementById("billing-plan-grid");
 const billingStatus = document.getElementById("billing-status");
 const profileForm = document.getElementById("profile-form");
@@ -160,6 +164,7 @@ let documentsCache = [];
 let inviteCache = [];
 let memberCache = [];
 let uploadMode = "single";
+let selectedBillingCycle = "monthly";
 function getInitialSection() {
   const params = new URLSearchParams(window.location.search);
   return params.get("section") === "library" ? "library" : "account";
@@ -297,6 +302,17 @@ function setBillingPlanPickerOpen(isOpen) {
   changePlanButton.textContent = isOpen ? "Hide plans" : "Change plan";
 }
 
+function setBillingCycle(cycle) {
+  selectedBillingCycle = cycle === "yearly" ? "yearly" : "monthly";
+  billingCycleMonthlyButton.classList.toggle("is-active", selectedBillingCycle === "monthly");
+  billingCycleYearlyButton.classList.toggle("is-active", selectedBillingCycle === "yearly");
+  billingCycleMonthlyButton.setAttribute("aria-pressed", String(selectedBillingCycle === "monthly"));
+  billingCycleYearlyButton.setAttribute("aria-pressed", String(selectedBillingCycle === "yearly"));
+  if (!billingPlanPicker.classList.contains("hidden")) {
+    renderBillingPlans();
+  }
+}
+
 function setSectionToggleOpen(toggle, body, isOpen) {
   if (!toggle || !body) return;
   const nextOpen = Boolean(isOpen);
@@ -329,13 +345,6 @@ function decodeXmlEntities(value) {
     .replaceAll("&gt;", ">")
     .replaceAll("&quot;", '"')
     .replaceAll("&apos;", "'");
-}
-
-function formatDate(value) {
-  if (!value) return "Unknown upload date";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString();
 }
 
 function fileLabel(file) {
@@ -1090,7 +1099,7 @@ function renderBillingPlans() {
   updateEmbedAccess();
 
   billingPlanGrid.innerHTML = PLAN_ORDER.map((planId) => {
-    const plan = getPlanConfig(planId);
+    const plan = getPlanConfig(planId, selectedBillingCycle);
     const isCurrent = planId === activePlanId;
     const isFreeTarget = planId === "free";
     const isPaidAccount = activePlanId !== "free";
@@ -1107,6 +1116,7 @@ function renderBillingPlans() {
           <div>
             <p class="plan-name">${plan.name}</p>
             <p class="plan-price">${plan.priceLabel}</p>
+            ${plan.priceNote ? `<p class="plan-price-note">${escapeHtml(plan.priceNote)}</p>` : ""}
           </div>
           ${badge}
         </div>
@@ -1268,21 +1278,13 @@ function renderDocuments() {
   }
 
   filtered.forEach((doc) => {
-    const metaBits = [
-      escapeHtml(doc.original_filename || "Unknown file"),
-      doc.year ? `Year ${escapeHtml(doc.year)}` : "",
-      doc.month ? escapeHtml(doc.month) : "",
-      doc.is_public ? "Public" : "Private",
-      formatDate(doc.created_at),
-    ].filter(Boolean);
-
     const card = document.createElement("article");
     card.className = "doc-card";
     card.innerHTML = `
       <div class="doc-meta">
         <div>
-          <p class="doc-title">${escapeHtml(doc.title || doc.original_filename || "Untitled document")}</p>
-          <p class="doc-subtitle">${metaBits.join(" · ")}</p>
+          <p class="doc-title">${escapeHtml(getDocumentDisplayTitle(doc))}</p>
+          <p class="doc-subtitle">${escapeHtml(buildDocumentMetadata(doc, { includeVisibility: true, includeYearLabel: true, createdAtWithTime: true }))}</p>
         </div>
         <span class="doc-status">${escapeHtml(doc.status || "uploaded")}</span>
       </div>
@@ -1323,8 +1325,8 @@ function renderRecentFiles() {
     item.className = "download-item recent-file-item";
     item.innerHTML = `
       <div>
-        <p class="download-name">${escapeHtml(doc.title || doc.original_filename || "Untitled document")}</p>
-        <p class="download-meta">${escapeHtml(doc.original_filename || "Unknown file")}${doc.year ? ` · ${escapeHtml(doc.year)}` : ""}${doc.month ? ` · ${escapeHtml(doc.month)}` : ""}${doc.is_public ? " · Public" : " · Private"}</p>
+        <p class="download-name">${escapeHtml(getDocumentDisplayTitle(doc))}</p>
+        <p class="download-meta">${escapeHtml(buildDocumentMetadata(doc, { includeVisibility: true, includeCreatedAt: false }))}</p>
       </div>
       <div class="actions">
         <button class="btn secondary" type="button" data-action="open" data-id="${doc.id}">Open</button>
@@ -1469,18 +1471,24 @@ async function openFile(documentId) {
   const downloadSigned = await createDownloadSignedUrlForDocument(documentId);
   const { doc, signedUrl } = signed;
 
-  fileModalTitle.textContent = doc.title || doc.original_filename || "File preview";
-  fileModalFrame.src = buildPreviewUrl(doc, signedUrl);
-  fileModalDownload.href = downloadSigned?.signedUrl || signedUrl;
-  fileModalDownload.setAttribute("download", getDownloadFilename(doc));
-  fileModal.classList.add("is-open");
-  fileModal.setAttribute("aria-hidden", "false");
+  openFilePreviewModal(
+    {
+      modal: fileModal,
+      title: fileModalTitle,
+      frame: fileModalFrame,
+      downloadLink: fileModalDownload,
+    },
+    {
+      doc,
+      previewUrl: buildPreviewUrl(doc, signedUrl),
+      fallbackUrl: signedUrl,
+      downloadUrl: downloadSigned?.signedUrl || signedUrl,
+    }
+  );
 }
 
 function closeFileModal() {
-  fileModal.classList.remove("is-open");
-  fileModal.setAttribute("aria-hidden", "true");
-  fileModalFrame.src = "";
+  closeFilePreviewModal({ modal: fileModal, frame: fileModalFrame });
 }
 
 async function handleSignout() {
@@ -1614,6 +1622,7 @@ async function handlePlanChange(planId) {
   await openBillingFlow("create-checkout-session", {
     organizationId: organization.id,
     planId,
+    billingCycle: selectedBillingCycle,
   });
 }
 
@@ -2109,6 +2118,8 @@ async function init() {
     setStatus(billingStatus, "Opening Stripe billing portal...");
     await openBillingFlow("create-portal-session", { organizationId: organization.id });
   });
+  billingCycleMonthlyButton.addEventListener("click", () => setBillingCycle("monthly"));
+  billingCycleYearlyButton.addEventListener("click", () => setBillingCycle("yearly"));
   billingPlanGrid.addEventListener("click", async (event) => {
     const button = event.target.closest("button[data-plan-id]");
     if (!button) return;
@@ -2207,4 +2218,5 @@ setSectionToggleOpen(inviteManagementToggle, inviteManagementBody, false);
 setSectionToggleOpen(memberManagementToggle, memberManagementBody, false);
 setSectionToggleOpen(embedSettingsToggle, embedSettingsBody, false);
 setUploadMode("single");
+setBillingCycle("monthly");
 init();

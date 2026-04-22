@@ -37,12 +37,14 @@ function isPlatformAdmin(email: string | null | undefined) {
   return String(email || "").toLowerCase() === "quentin@quentinnichols.com";
 }
 
-function requirePriceId(planId: string) {
-  const envName = PLAN_TO_PRICE_ENV[planId as keyof typeof PLAN_TO_PRICE_ENV];
-  if (!envName) {
+function requirePriceId(planId: string, billingCycle: string) {
+  const planPrices = PLAN_TO_PRICE_ENV[planId as keyof typeof PLAN_TO_PRICE_ENV];
+  if (!planPrices) {
     throw new Error("Unsupported Stripe plan.");
   }
 
+  const normalizedCycle = billingCycle === "yearly" ? "yearly" : "monthly";
+  const envName = planPrices[normalizedCycle];
   const priceId = Deno.env.get(envName);
   if (!priceId) {
     throw new Error(`Missing ${envName}.`);
@@ -125,15 +127,19 @@ Deno.serve(async (request) => {
 
     if (action === "create-checkout-session") {
       const planId = String(payload.planId || "").trim();
+      const billingCycle = String(payload.billingCycle || "monthly").trim().toLowerCase();
       if (!["starter", "organization"].includes(planId)) {
         return jsonResponse({ error: "planId must be starter or organization." }, 400, origin);
+      }
+      if (!["monthly", "yearly"].includes(billingCycle)) {
+        return jsonResponse({ error: "billingCycle must be monthly or yearly." }, 400, origin);
       }
 
       if (organization.subscription_tier !== "free" || organization.stripe_subscription_id) {
         return jsonResponse({ error: "Existing subscriptions should be managed in the Stripe billing portal." }, 400, origin);
       }
 
-      const priceId = requirePriceId(planId);
+      const priceId = requirePriceId(planId, billingCycle);
       let customerId = organization.stripe_customer_id;
 
       if (!customerId) {
@@ -174,11 +180,13 @@ Deno.serve(async (request) => {
         metadata: {
           organization_id: organization.id,
           plan_id: planId,
+          billing_cycle: billingCycle,
         },
         subscription_data: {
           metadata: {
             organization_id: organization.id,
             plan_id: planId,
+            billing_cycle: billingCycle,
           },
         },
       });

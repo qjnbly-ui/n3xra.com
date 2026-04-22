@@ -836,6 +836,35 @@ textarea {
 
 .billing-plan-picker {
   display: grid;
+  gap: 0.9rem;
+}
+
+.billing-cycle-toggle {
+  display: inline-grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.35rem;
+  padding: 0.35rem;
+  border-radius: 999px;
+  background: #e9ecef;
+  border: 1px solid rgba(15, 22, 32, 0.08);
+  width: min(280px, 100%);
+}
+
+.billing-cycle-btn {
+  border: 0;
+  border-radius: 999px;
+  padding: 0.75rem 0.95rem;
+  background: transparent;
+  color: var(--ink-soft);
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.billing-cycle-btn.is-active {
+  background: #123a33;
+  color: var(--white);
+  box-shadow: 0 10px 22px rgba(12, 18, 28, 0.14);
 }
 
 .plan-grid {
@@ -885,6 +914,13 @@ textarea {
 .plan-price {
   color: var(--teal);
   font-weight: 700;
+}
+
+.plan-price-note {
+  margin: 0.2rem 0 0;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--slate);
 }
 
 .plan-summary {

@@ -1,8 +1,14 @@
 export const STRIPE_API_VERSION = "2026-02-25.clover";
 
 export const PLAN_TO_PRICE_ENV = {
-  starter: "STRIPE_PRICE_STARTER",
-  organization: "STRIPE_PRICE_ORGANIZATION",
+  starter: {
+    monthly: "STRIPE_PRICE_STARTER",
+    yearly: "STRIPE_PRICE_STARTER_YEARLY",
+  },
+  organization: {
+    monthly: "STRIPE_PRICE_ORGANIZATION",
+    yearly: "STRIPE_PRICE_ORGANIZATION_YEARLY",
+  },
 };
 
 export function corsHeaders(origin = "*") {
@@ -42,9 +48,11 @@ export function getAppOrigin(request: Request) {
 export function getPlanIdFromPriceId(priceId: string | null | undefined) {
   if (!priceId) return "free";
 
-  for (const [planId, envName] of Object.entries(PLAN_TO_PRICE_ENV)) {
-    if (Deno.env.get(envName) === priceId) {
-      return planId;
+  for (const [planId, envNames] of Object.entries(PLAN_TO_PRICE_ENV)) {
+    for (const envName of Object.values(envNames)) {
+      if (Deno.env.get(envName) === priceId) {
+        return planId;
+      }
     }
   }
 

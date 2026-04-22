@@ -4,7 +4,8 @@ export const PLAN_CONFIG = {
   free: {
     id: "free",
     name: "Free",
-    priceLabel: "$0/month",
+    monthlyPriceLabel: "$0/month",
+    yearlyPriceLabel: "$0/month",
     documentLimit: 25,
     userLimit: 1,
     storageLimitMb: 512,
@@ -22,7 +23,9 @@ export const PLAN_CONFIG = {
   starter: {
     id: "starter",
     name: "Starter",
-    priceLabel: "$12/month",
+    monthlyPriceLabel: "$12/month",
+    yearlyPriceLabel: "$115/year",
+    yearlyNote: "20% off",
     documentLimit: 250,
     userLimit: 1,
     storageLimitMb: 4096,
@@ -39,7 +42,9 @@ export const PLAN_CONFIG = {
   organization: {
     id: "organization",
     name: "Organization",
-    priceLabel: "$39/month",
+    monthlyPriceLabel: "$39/month",
+    yearlyPriceLabel: "$375/year",
+    yearlyNote: "20% off",
     documentLimit: 2500,
     userLimit: 10,
     storageLimitMb: 10240,
@@ -58,8 +63,15 @@ export const PLAN_CONFIG = {
   },
 };
 
-export function getPlanConfig(planId) {
-  return PLAN_CONFIG[planId] || PLAN_CONFIG.free;
+export function getPlanConfig(planId, billingCycle = "monthly") {
+  const plan = PLAN_CONFIG[planId] || PLAN_CONFIG.free;
+  const normalizedCycle = billingCycle === "yearly" ? "yearly" : "monthly";
+  return {
+    ...plan,
+    billingCycle: normalizedCycle,
+    priceLabel: normalizedCycle === "yearly" ? (plan.yearlyPriceLabel || plan.monthlyPriceLabel) : plan.monthlyPriceLabel,
+    priceNote: normalizedCycle === "yearly" ? (plan.yearlyNote || "") : "",
+  };
 }
 
 export function formatPlanName(planId) {

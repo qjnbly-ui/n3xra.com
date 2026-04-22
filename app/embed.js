@@ -1,5 +1,7 @@
 import { createBrowserSupabase, hasConfig } from "./lib/supabase-client.js";
-import { buildPreviewUrl, getDownloadFilename } from "./lib/document-links.js";
+import { buildPreviewUrl } from "./lib/document-links.js";
+import { buildDocumentMetadata, getDocumentDisplayTitle } from "./lib/document-presenters.js";
+import { closeFilePreviewModal, openFilePreviewModal } from "./lib/file-modal.js";
 
 const setupPanel = document.getElementById("embed-setup-panel");
 const embedPanel = document.getElementById("embed-panel");
@@ -153,32 +155,6 @@ function escapeHtml(value) {
     .replaceAll("'", "&#39;");
 }
 
-function formatDate(value) {
-  if (!value) return "Unknown upload date";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString();
-}
-
-function stripFileExtension(filename) {
-  return String(filename || "").replace(/\.[^.]+$/, "").trim();
-}
-
-function buildDocumentSubtitle(doc) {
-  const title = String(doc?.title || "").trim();
-  const filename = String(doc?.original_filename || "").trim();
-  const filenameBase = stripFileExtension(filename);
-  const showFilename = filename && filenameBase && filenameBase.toLowerCase() !== title.toLowerCase();
-
-  const parts = [];
-  if (showFilename) parts.push(filename);
-  if (doc?.month) parts.push(String(doc.month).trim());
-  if (doc?.year) parts.push(String(doc.year).trim());
-  parts.push(formatDate(doc?.created_at));
-
-  return parts.filter(Boolean).join(" · ");
-}
-
 function snippetFromText(text, query) {
   if (!text) return "No extracted text yet.";
   if (!query) return `${text.slice(0, 220).trim()}${text.length > 220 ? "..." : ""}`;
@@ -238,8 +214,8 @@ function renderDocuments() {
       <div class="embed-record-main">
         <div class="embed-record-heading">
           <div>
-            <p class="doc-title">${escapeHtml(doc.title || doc.original_filename || "Untitled document")}</p>
-            <p class="doc-subtitle">${escapeHtml(buildDocumentSubtitle(doc))}</p>
+            <p class="doc-title">${escapeHtml(getDocumentDisplayTitle(doc))}</p>
+            <p class="doc-subtitle">${escapeHtml(buildDocumentMetadata(doc, { includeFilenameIfDifferent: true }))}</p>
           </div>
         </div>
         <p class="doc-snippet">${snippetFromText(doc.extracted_text || "", query)}</p>
@@ -276,19 +252,25 @@ async function openFile(documentId) {
   const { doc, previewUrl, signedUrl } = signed;
 
   activeModalDocumentId = documentId;
-  fileModalTitle.textContent = doc.title || doc.original_filename || "File preview";
-  fileModalFrame.src = previewUrl || signedUrl;
-  fileModalOpenTab.href = previewUrl || signedUrl;
-  fileModalDownload.href = downloadSigned?.signedUrl || signedUrl;
-  fileModalDownload.setAttribute("download", getDownloadFilename(doc));
-  fileModal.classList.add("is-open");
-  fileModal.setAttribute("aria-hidden", "false");
+  openFilePreviewModal(
+    {
+      modal: fileModal,
+      title: fileModalTitle,
+      frame: fileModalFrame,
+      downloadLink: fileModalDownload,
+      openTabLink: fileModalOpenTab,
+    },
+    {
+      doc,
+      previewUrl,
+      fallbackUrl: signedUrl,
+      downloadUrl: downloadSigned?.signedUrl || signedUrl,
+    }
+  );
 }
 
 function closeFileModal() {
-  fileModal.classList.remove("is-open");
-  fileModal.setAttribute("aria-hidden", "true");
-  fileModalFrame.src = "";
+  closeFilePreviewModal({ modal: fileModal, frame: fileModalFrame });
   activeModalDocumentId = null;
 }
 

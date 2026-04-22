@@ -37,7 +37,7 @@
     </header>
 
     <main class="main">
-      <section class="panel stack" id="setup-panel">
+      <section class="panel stack hidden" id="setup-panel">
         <div class="panel-head">
           <div>
             <h2>Connect Supabase</h2>
@@ -139,6 +139,10 @@
               </div>
             </div>
             <div class="billing-plan-picker hidden" id="billing-plan-picker">
+              <div class="billing-cycle-toggle" role="tablist" aria-label="Billing cycle">
+                <button class="billing-cycle-btn is-active" id="billing-cycle-monthly" type="button" aria-pressed="true">Monthly</button>
+                <button class="billing-cycle-btn" id="billing-cycle-yearly" type="button" aria-pressed="false">Yearly</button>
+              </div>
               <div class="plan-grid" id="billing-plan-grid"></div>
             </div>
             <p class="status" id="billing-status"></p>

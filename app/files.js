@@ -1,5 +1,7 @@
 import { createBrowserSupabase, hasConfig, getSessionOrNull } from "./lib/supabase-client.js";
 import { buildPreviewUrl, getDownloadFilename } from "./lib/document-links.js";
+import { buildDocumentMetadata, getDocumentDisplayTitle } from "./lib/document-presenters.js";
+import { closeFilePreviewModal, openFilePreviewModal } from "./lib/file-modal.js";
 import {
   buildMembershipMap,
   dedupeMembershipsByOrganization,
@@ -334,8 +336,8 @@ function renderFiles() {
     item.setAttribute("tabindex", "0");
     item.innerHTML = `
       <div class="file-row-main">
-        <p class="download-name">${escapeHtml(doc.title || doc.original_filename || "Untitled document")}</p>
-        <p class="download-meta">${escapeHtml(doc.original_filename || "Unknown file")}${doc.year ? ` · ${escapeHtml(doc.year)}` : ""}${doc.month ? ` · ${escapeHtml(doc.month)}` : ""}${doc.is_public ? " · Public" : " · Private"}</p>
+        <p class="download-name">${escapeHtml(getDocumentDisplayTitle(doc))}</p>
+        <p class="download-meta">${escapeHtml(buildDocumentMetadata(doc, { includeVisibility: true, includeCreatedAt: false }))}</p>
       </div>
       <div class="file-row-controls">
         <button class="btn secondary file-row-menu-toggle" type="button" data-menu-toggle data-id="${doc.id}" aria-expanded="false" aria-controls="${actionMenuId}">Action</button>
@@ -386,15 +388,23 @@ async function openFile(documentId) {
   const capabilities = getActiveCapabilities();
 
   activeModalDocumentId = documentId;
-  fileModalTitle.textContent = doc.title || doc.original_filename || "File preview";
-  fileModalFrame.src = buildPreviewUrl(doc, signedUrl);
-  fileModalDownload.href = downloadSigned?.signedUrl || signedUrl;
-  fileModalDownload.setAttribute("download", getDownloadFilename(doc));
+  openFilePreviewModal(
+    {
+      modal: fileModal,
+      title: fileModalTitle,
+      frame: fileModalFrame,
+      downloadLink: fileModalDownload,
+    },
+    {
+      doc,
+      previewUrl: buildPreviewUrl(doc, signedUrl),
+      fallbackUrl: signedUrl,
+      downloadUrl: downloadSigned?.signedUrl || signedUrl,
+    }
+  );
   show(fileModalShare, capabilities.canShareDocuments);
   show(fileModalEdit, capabilities.canEditDocuments);
   show(fileModalDelete, capabilities.canDeleteDocuments);
-  fileModal.classList.add("is-open");
-  fileModal.setAttribute("aria-hidden", "false");
 }
 
 async function downloadFile(documentId) {
@@ -413,9 +423,7 @@ async function downloadFile(documentId) {
 }
 
 function closeFileModal() {
-  fileModal.classList.remove("is-open");
-  fileModal.setAttribute("aria-hidden", "true");
-  fileModalFrame.src = "";
+  closeFilePreviewModal({ modal: fileModal, frame: fileModalFrame });
   activeModalDocumentId = null;
 }
 

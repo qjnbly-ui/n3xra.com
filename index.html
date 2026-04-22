@@ -78,6 +78,14 @@
       justify-items: center;
     }
 
+    .header-top {
+      width: 100%;
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.55rem;
+      margin-bottom: 0.25rem;
+    }
+
     .hero-logo {
       width: min(420px, 78vw);
       height: auto;
@@ -151,6 +159,28 @@
       color: #ffffff;
       box-shadow: 0 12px 24px rgba(6, 12, 20, 0.3);
       transform: none;
+    }
+
+    .header-social {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.48rem 0.82rem;
+      border-radius: var(--radius-pill);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      background: rgba(255, 255, 255, 0.08);
+      color: #ffffff;
+      text-decoration: none;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      transition: background 150ms ease, border-color 150ms ease, transform 150ms ease;
+    }
+
+    .header-social:hover {
+      background: rgba(255, 255, 255, 0.14);
+      border-color: rgba(255, 255, 255, 0.3);
+      transform: translateY(-1px);
     }
 
     .container {
@@ -799,6 +829,11 @@
     }
 
     @media (max-width: 700px) {
+      .header-top {
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+
       .hero-copy {
         margin-top: -1.1rem;
       }
@@ -841,6 +876,10 @@
 <body>
   <header>
     <div class="header-shell">
+      <div class="header-top">
+        <a class="header-social" href="https://x.com/getn3xra" target="_blank" rel="noopener">X @getn3xra</a>
+        <a class="header-social" href="https://www.facebook.com/getn3xra" target="_blank" rel="noopener">Facebook @getn3xra</a>
+      </div>
       <div class="hero-grid">
         <img class="hero-logo" src="./assets/n3xra_logo_transparent.png" alt="n3xra.com logo" />
         <div class="hero-copy">
