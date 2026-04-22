@@ -1,4 +1,4 @@
-import { createBrowserSupabase, getConfig, hasConfig, getSessionOrNull } from "./lib/supabase-client.js";
+import { createBrowserSupabase, hasConfig, getSessionOrNull } from "./lib/supabase-client.js";
 import { setStoredActiveOrganizationId } from "./lib/orgs.js";
 
 const PLATFORM_ADMIN_EMAIL = "quentin@quentinnichols.com";
@@ -26,69 +26,11 @@ const signupPasswordConfirmInput = document.getElementById("signup-password-conf
 const signupModeCreateOrgButton = document.getElementById("signup-mode-create-org");
 const signupModePersonalButton = document.getElementById("signup-mode-personal");
 const signupModeInviteButton = document.getElementById("signup-mode-invite");
-const authCaptchaField = document.getElementById("auth-captcha-field");
-const authTurnstile = document.getElementById("auth-turnstile");
 
 let supabase = null;
 let isSubmittingAuth = false;
 let signupMode = "create_org";
 let currentAuthedSession = null;
-let captchaToken = "";
-let captchaWidgetId = null;
-let captchaEnabled = false;
-
-function getTurnstileSiteKey() {
-  return String(getConfig().turnstileSiteKey || "").trim();
-}
-
-function resetCaptcha() {
-  captchaToken = "";
-  if (!window.turnstile || captchaWidgetId === null) return;
-  window.turnstile.reset(captchaWidgetId);
-}
-
-function getCaptchaTokenForRequest() {
-  if (!getTurnstileSiteKey()) return "";
-  if (!captchaToken) {
-    throw new Error("Complete the security check first.");
-  }
-  return captchaToken;
-}
-
-async function waitForTurnstile(maxWaitMs = 5000) {
-  const startedAt = Date.now();
-  while (!window.turnstile) {
-    if (Date.now() - startedAt > maxWaitMs) return false;
-    await new Promise((resolve) => window.setTimeout(resolve, 100));
-  }
-  return true;
-}
-
-async function initCaptcha() {
-  const siteKey = getTurnstileSiteKey();
-  captchaEnabled = Boolean(siteKey);
-  show(authCaptchaField, captchaEnabled);
-  if (!siteKey) return;
-
-  const ready = await waitForTurnstile();
-  if (!ready || !authTurnstile) {
-    setStatus("Security check failed to load. Refresh and try again.", "error");
-    return;
-  }
-
-  captchaWidgetId = window.turnstile.render(authTurnstile, {
-    sitekey: siteKey,
-    callback: (token) => {
-      captchaToken = token;
-    },
-    "expired-callback": () => {
-      captchaToken = "";
-    },
-    "error-callback": () => {
-      captchaToken = "";
-    },
-  });
-}
 
 function isPlatformAdminEmail(email) {
   return String(email || "").trim().toLowerCase() === PLATFORM_ADMIN_EMAIL;
@@ -176,7 +118,6 @@ function setAuthedState(session) {
   show(authedState, isAuthed);
   show(signinForm, !isAuthed && !showSignupButton.classList.contains("is-active"));
   show(signupForm, !isAuthed && showSignupButton.classList.contains("is-active"));
-  show(authCaptchaField, !isAuthed && captchaEnabled);
   showSigninButton.disabled = isAuthed;
   showSignupButton.disabled = isAuthed;
 
@@ -262,21 +203,11 @@ async function handleSignup(event) {
     return;
   }
 
-  let submitCaptchaToken = "";
-  try {
-    submitCaptchaToken = getCaptchaTokenForRequest();
-  } catch (captchaError) {
-    isSubmittingAuth = false;
-    setStatus(getErrorMessage(captchaError, "Complete the security check first."), "error");
-    return;
-  }
-
   setStatus("Creating account...");
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
-      ...(submitCaptchaToken ? { captchaToken: submitCaptchaToken } : {}),
       data: {
         full_name: fullName,
         organization_name: organizationName,
@@ -287,7 +218,6 @@ async function handleSignup(event) {
   });
 
   if (error) {
-    resetCaptcha();
     isSubmittingAuth = false;
     setStatus(error.message, "error");
     return;
@@ -310,7 +240,6 @@ async function handleSignup(event) {
       }
     } catch (bootstrapError) {
       isSubmittingAuth = false;
-      resetCaptcha();
       const message = getErrorMessage(bootstrapError, "Unable to finish library setup.");
       setStatus(`Account created, but library setup failed: ${message}`, "error");
       return;
@@ -321,7 +250,6 @@ async function handleSignup(event) {
   }
 
   isSubmittingAuth = false;
-  resetCaptcha();
   setStatus(
     "Account created. Check your email if confirmation is enabled, then sign in. Your library and invite access will be finished on first sign-in.",
     "success"
@@ -334,23 +262,9 @@ async function handleSignin(event) {
   const email = document.getElementById("signin-email").value.trim();
   const password = document.getElementById("signin-password").value;
 
-  let submitCaptchaToken = "";
-  try {
-    submitCaptchaToken = getCaptchaTokenForRequest();
-  } catch (captchaError) {
-    isSubmittingAuth = false;
-    setStatus(getErrorMessage(captchaError, "Complete the security check first."), "error");
-    return;
-  }
-
   setStatus("Signing in...");
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-    options: submitCaptchaToken ? { captchaToken: submitCaptchaToken } : undefined,
-  });
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) {
-    resetCaptcha();
     isSubmittingAuth = false;
     setStatus(error.message, "error");
     return;
@@ -363,7 +277,6 @@ async function handleSignin(event) {
     }
   } catch (bootstrapError) {
     isSubmittingAuth = false;
-    resetCaptcha();
     const message = getErrorMessage(bootstrapError, "Unable to finish library setup.");
     setStatus(message, "error");
     return;
@@ -382,25 +295,11 @@ async function handleForgotPassword() {
   }
 
   isSubmittingAuth = true;
-
-  let submitCaptchaToken = "";
-  try {
-    submitCaptchaToken = getCaptchaTokenForRequest();
-  } catch (captchaError) {
-    isSubmittingAuth = false;
-    setStatus(getErrorMessage(captchaError, "Complete the security check first."), "error");
-    return;
-  }
-
   setStatus("Sending password reset...");
 
   const redirectTo = `${window.location.origin}/app/reset-password.html`;
-  const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo,
-    ...(submitCaptchaToken ? { captchaToken: submitCaptchaToken } : {}),
-  });
+  const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
 
-  resetCaptcha();
   isSubmittingAuth = false;
   if (error) {
     setStatus(error.message || "Unable to send password reset.", "error");
@@ -434,7 +333,6 @@ async function init() {
 
   supabase = createBrowserSupabase();
   toggleSignup(false);
-  await initCaptcha();
   await loadSessionState();
 
   signupForm.addEventListener("submit", handleSignup);
