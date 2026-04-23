@@ -508,6 +508,17 @@ textarea {
 
 #auth-turnstile {
   min-height: 66px;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+#auth-turnstile > * {
+  margin-inline: auto;
+}
+
+.auth-captcha .field-note {
+  text-align: center;
 }
 
 .upload-mode-switch {
