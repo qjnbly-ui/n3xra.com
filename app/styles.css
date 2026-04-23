@@ -506,6 +506,11 @@ textarea {
   margin-top: 0.25rem;
 }
 
+.auth-captcha > label {
+  display: block;
+  text-align: center;
+}
+
 #auth-turnstile {
   min-height: 66px;
   width: 100%;
