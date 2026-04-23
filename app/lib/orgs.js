@@ -38,9 +38,11 @@ export function getMembershipRole(membership) {
 export function getCapabilities(membership, currentUserId, isPlatformAdmin = false) {
   const role = getMembershipRole(membership);
   const billingOwner = isBillingOwner(membership, currentUserId, isPlatformAdmin);
+  const subscriptionTier = String(membership?.organization?.subscription_tier || "").trim().toLowerCase();
   const canManageMembers = isPlatformAdmin || role === "account_admin";
   const canManageLibrarySettings = isPlatformAdmin || role === "account_admin";
   const canManageDocuments = isPlatformAdmin || role === "account_admin" || role === "editor";
+  const canUseRecordings = isPlatformAdmin || subscriptionTier === "organization";
 
   return {
     role,
@@ -56,6 +58,7 @@ export function getCapabilities(membership, currentUserId, isPlatformAdmin = fal
     canDeleteDocuments: canManageDocuments,
     canShareDocuments: Boolean(membership),
     canDownloadDocuments: Boolean(membership),
+    canUseRecordings,
     canManageBilling: billingOwner,
     canTransferOwnership: billingOwner,
   };

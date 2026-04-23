@@ -20,12 +20,14 @@ const mobileMenuToggle = document.getElementById("mobile-menu-toggle");
 const mobileMenu = document.getElementById("mobile-menu");
 const mobileMenuAccount = document.getElementById("mobile-menu-account");
 const mobileMenuLibrary = document.getElementById("mobile-menu-library");
+const mobileMenuRecordingsLink = document.getElementById("mobile-menu-recordings-link");
 const filesNoAccessNotice = document.getElementById("files-no-access-notice");
 const filesActiveOrganizationField = document.getElementById("files-active-organization-field");
 const filesActiveMembershipField = document.getElementById("files-active-membership-field");
 const activeOrganizationSelect = document.getElementById("active-organization-select");
 const activeMembershipRole = document.getElementById("active-membership-role");
 const documentCount = document.getElementById("document-count");
+const filesRecordingsLink = document.getElementById("files-recordings-link");
 const fileList = document.getElementById("file-list");
 const fileEmpty = document.getElementById("file-empty");
 const fileStatus = document.getElementById("file-status");
@@ -210,6 +212,8 @@ function renderOrganizationSelector() {
     show(filesNoAccessNotice, true);
     show(filesActiveOrganizationField, false);
     show(filesActiveMembershipField, false);
+    show(mobileMenuRecordingsLink, false);
+    show(filesRecordingsLink, false);
     return;
   }
 
@@ -221,10 +225,13 @@ function renderOrganizationSelector() {
     })
     .join("");
   activeMembershipRole.textContent = formatRoleLabel(getMembershipRole(activeMembership));
-  fileModalDelete.disabled = !getActiveCapabilities().canDeleteDocuments;
+  const capabilities = getActiveCapabilities();
+  fileModalDelete.disabled = !capabilities.canDeleteDocuments;
   show(filesNoAccessNotice, false);
   show(filesActiveOrganizationField, hasMultipleLibraries());
   show(filesActiveMembershipField, hasMultipleLibraries());
+  show(mobileMenuRecordingsLink, capabilities.canUseRecordings);
+  show(filesRecordingsLink, capabilities.canUseRecordings);
   activeOrganizationSelect.disabled = !hasMultipleLibraries();
 }
 
