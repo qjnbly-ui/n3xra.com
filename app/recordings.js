@@ -12,23 +12,24 @@ import {
 
 const setupPanel = document.getElementById("setup-panel");
 const recordingsPanel = document.getElementById("recordings-panel");
+const recordingsNoAccessNotice = document.getElementById("recordings-no-access-notice");
+const recordingsContextPanel = document.getElementById("recordings-context-panel");
 const mobileLogoutButton = document.getElementById("mobile-logout-button");
 const mobileMenuToggle = document.getElementById("mobile-menu-toggle");
 const mobileMenu = document.getElementById("mobile-menu");
-const recordingsNoAccessNotice = document.getElementById("recordings-no-access-notice");
 const activeOrganizationSelect = document.getElementById("active-organization-select");
 const activeMembershipRole = document.getElementById("active-membership-role");
-const recordingTitleInput = document.getElementById("recording-title");
 const recordingCount = document.getElementById("recording-count");
+const recordingTitleInput = document.getElementById("recording-title");
+const recorderStateLabel = document.getElementById("recorder-state-label");
+const recorderStateCopy = document.getElementById("recorder-state-copy");
 const recordingDuration = document.getElementById("recording-duration");
 const uploadStateValue = document.getElementById("upload-state-value");
 const recordingFormat = document.getElementById("recording-format");
 const startRecordingButton = document.getElementById("start-recording-button");
+const pauseRecordingButton = document.getElementById("pause-recording-button");
 const stopRecordingButton = document.getElementById("stop-recording-button");
-const recordingPreview = document.getElementById("recording-preview");
 const recordingStatus = document.getElementById("recording-status");
-const recorderStateLabel = document.getElementById("recorder-state-label");
-const recorderStateCopy = document.getElementById("recorder-state-copy");
 const recordingsList = document.getElementById("recordings-list");
 const recordingsEmpty = document.getElementById("recordings-empty");
 const recordingsListStatus = document.getElementById("recordings-list-status");
@@ -46,6 +47,7 @@ let currentSession = null;
 let memberships = [];
 let activeMembership = null;
 let recordingsCache = [];
+let totalRecordingCount = 0;
 let mediaRecorder = null;
 let activeStream = null;
 let activeChunks = [];
@@ -53,7 +55,15 @@ let activeRecordingId = "";
 let activeRecordingMimeType = "";
 let recordingStartedAt = null;
 let durationTimer = null;
-let activePreviewUrl = "";
+let elapsedRecordingMs = 0;
+
+function isPauseSupported() {
+  return Boolean(
+    window.MediaRecorder &&
+    typeof window.MediaRecorder.prototype.pause === "function" &&
+    typeof window.MediaRecorder.prototype.resume === "function"
+  );
+}
 
 function setStatus(el, message, tone = "") {
   if (!el) return;
@@ -139,6 +149,12 @@ function formatDateTime(value) {
   }).format(date);
 }
 
+function formatRecordingStatus(status) {
+  const normalized = String(status || "").trim().toLowerCase();
+  if (!normalized) return "Unknown";
+  return normalized.replaceAll("_", " ").replace(/\b\w/g, (match) => match.toUpperCase());
+}
+
 function formatBytes(bytes) {
   const size = Number(bytes || 0);
   if (!Number.isFinite(size) || size <= 0) return "0 B";
@@ -151,21 +167,6 @@ function formatBytes(bytes) {
   }
   const precision = value >= 10 || unitIndex === 0 ? 0 : 1;
   return `${value.toFixed(precision)} ${units[unitIndex]}`;
-}
-
-function formatRecordingStatus(status) {
-  const normalized = String(status || "").trim().toLowerCase();
-  if (!normalized) return "Unknown";
-  return normalized.replaceAll("_", " ").replace(/\b\w/g, (match) => match.toUpperCase());
-}
-
-function getDefaultRecordingTitle() {
-  const organizationName = getActiveOrganization()?.name || "Meeting";
-  const timestamp = new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date());
-  return `${organizationName} meeting ${timestamp}`;
 }
 
 function slugifySegment(value) {
@@ -191,44 +192,31 @@ function getFileExtension(mimeType) {
   return "webm";
 }
 
-function resetPreview() {
-  if (activePreviewUrl.startsWith("blob:")) {
-    URL.revokeObjectURL(activePreviewUrl);
-  }
-  activePreviewUrl = "";
-  recordingPreview.pause();
-  recordingPreview.removeAttribute("src");
-  recordingPreview.load();
-  show(recordingPreview, false);
-}
-
-function setPreviewSource(url) {
-  if (activePreviewUrl.startsWith("blob:") && activePreviewUrl !== url) {
-    URL.revokeObjectURL(activePreviewUrl);
-  }
-  activePreviewUrl = url;
-  recordingPreview.src = url;
-  show(recordingPreview, true);
-}
-
 function setRecorderState(label, copy) {
   recorderStateLabel.textContent = label;
   recorderStateCopy.textContent = copy;
 }
 
 function updateControls() {
-  const recordingActive = mediaRecorder?.state === "recording";
-  startRecordingButton.disabled = !canRecordInActiveOrganization() || recordingActive || !window.MediaRecorder || !navigator.mediaDevices?.getUserMedia;
-  stopRecordingButton.disabled = !recordingActive;
-  activeOrganizationSelect.disabled = recordingActive || memberships.length <= 1;
-  recordingTitleInput.disabled = recordingActive;
+  const recorderState = mediaRecorder?.state || "inactive";
+  const hasActiveSession = recorderState === "recording" || recorderState === "paused";
+  const pauseSupported = isPauseSupported();
+
+  startRecordingButton.disabled = !canRecordInActiveOrganization() || hasActiveSession || !window.MediaRecorder || !navigator.mediaDevices?.getUserMedia;
+  pauseRecordingButton.disabled = !hasActiveSession || !pauseSupported;
+  pauseRecordingButton.textContent = recorderState === "paused" ? "Resume recording" : "Pause recording";
+  stopRecordingButton.disabled = !hasActiveSession;
+  show(pauseRecordingButton, hasActiveSession && pauseSupported);
+  show(stopRecordingButton, hasActiveSession);
+  activeOrganizationSelect.disabled = hasActiveSession || memberships.length <= 1;
+  recordingTitleInput.disabled = hasActiveSession;
 }
 
 function startDurationTimer() {
   stopDurationTimer();
   durationTimer = window.setInterval(() => {
-    if (!recordingStartedAt) return;
-    const seconds = Math.max(Math.round((Date.now() - recordingStartedAt.getTime()) / 1000), 0);
+    const elapsedMs = getElapsedRecordingMs();
+    const seconds = Math.max(Math.round(elapsedMs / 1000), 0);
     recordingDuration.textContent = formatDuration(seconds);
   }, 500);
 }
@@ -246,6 +234,21 @@ function stopActiveStreamTracks() {
   activeStream = null;
 }
 
+function getElapsedRecordingMs() {
+  if (!recordingStartedAt) return elapsedRecordingMs;
+  return elapsedRecordingMs + (Date.now() - recordingStartedAt.getTime());
+}
+
+function pauseElapsedClock() {
+  if (!recordingStartedAt) return;
+  elapsedRecordingMs += Date.now() - recordingStartedAt.getTime();
+  recordingStartedAt = null;
+}
+
+function resumeElapsedClock() {
+  recordingStartedAt = new Date();
+}
+
 function renderOrganizationSelector() {
   if (!memberships.length || !getActiveOrganization()) {
     activeOrganizationSelect.innerHTML = '<option value="">No active library</option>';
@@ -253,6 +256,7 @@ function renderOrganizationSelector() {
     recordingCount.textContent = "0";
     activeOrganizationSelect.disabled = true;
     show(recordingsNoAccessNotice, true);
+    show(recordingsContextPanel, false);
     updateControls();
     return;
   }
@@ -266,6 +270,7 @@ function renderOrganizationSelector() {
     .join("");
   activeMembershipRole.textContent = formatRoleLabel(getMembershipRole(activeMembership));
   show(recordingsNoAccessNotice, !canRecordInActiveOrganization());
+  show(recordingsContextPanel, true);
   updateControls();
 }
 
@@ -308,13 +313,14 @@ async function loadRecordings() {
   const organization = getActiveOrganization();
   if (!organization) {
     recordingsCache = [];
+    totalRecordingCount = 0;
     renderRecordings();
     setStatus(recordingsListStatus, "");
     return;
   }
 
   setStatus(recordingsListStatus, "Loading recordings...");
-  const { data, error } = await supabase
+  const { data, error, count } = await supabase
     .from("meeting_recordings")
     .select(`
       id,
@@ -329,25 +335,27 @@ async function loadRecordings() {
       file_size,
       processing_error,
       created_at
-    `)
+    `, { count: "exact" })
     .eq("organization_id", organization.id)
     .order("created_at", { ascending: false })
-    .limit(20);
+    .limit(3);
 
   if (error) {
     recordingsCache = [];
+    totalRecordingCount = 0;
     renderRecordings();
     setStatus(recordingsListStatus, getErrorMessage(error, "Unable to load recordings."), "error");
     return;
   }
 
   recordingsCache = Array.isArray(data) ? data : [];
+  totalRecordingCount = Number(count || 0);
   renderRecordings();
-  setStatus(recordingsListStatus, recordingsCache.length ? `${recordingsCache.length} recording${recordingsCache.length === 1 ? "" : "s"} loaded.` : "");
+  setStatus(recordingsListStatus, totalRecordingCount ? `${totalRecordingCount} recording${totalRecordingCount === 1 ? "" : "s"} saved.` : "");
 }
 
 function renderRecordings() {
-  recordingCount.textContent = String(recordingsCache.length);
+  recordingCount.textContent = String(totalRecordingCount);
   if (!recordingsCache.length) {
     recordingsList.innerHTML = "";
     show(recordingsEmpty, true);
@@ -357,7 +365,6 @@ function renderRecordings() {
   show(recordingsEmpty, false);
   recordingsList.innerHTML = recordingsCache
     .map((recording) => {
-      const hasAudio = Boolean(recording.storage_path);
       const errorCopy = recording.processing_error
         ? `<p class="recording-row-note recording-row-note-error">${escapeHtml(recording.processing_error)}</p>`
         : "";
@@ -377,9 +384,6 @@ function renderRecordings() {
             <span>${escapeHtml(formatBytes(recording.file_size || 0))}</span>
           </div>
           ${errorCopy}
-          <div class="recording-row-actions">
-            <button class="btn secondary" type="button" data-action="open-audio" data-id="${escapeHtml(recording.id)}" ${hasAudio ? "" : "disabled"}>Open audio</button>
-          </div>
         </article>
       `;
     })
@@ -468,7 +472,7 @@ async function uploadRecordingBlob(recordingId, title, blob, mimeType, durationS
   });
 
   uploadStateValue.textContent = "Uploaded";
-  setRecorderState("Saved", "Audio uploaded. This recording is ready for the future transcript step.");
+  setRecorderState("Saved", "Audio uploaded. View playback and history on the all recordings page.");
   setStatus(recordingStatus, "Recording saved and uploaded.", "success");
 }
 
@@ -476,14 +480,12 @@ async function finalizeRecording() {
   if (!activeRecordingId) return;
 
   const recordingId = activeRecordingId;
-  const title = recordingTitleInput.value.trim() || getDefaultRecordingTitle();
+  const title = recordingTitleInput.value.trim();
   const endedAt = new Date();
-  const durationSeconds = recordingStartedAt ? Math.max(Math.round((endedAt.getTime() - recordingStartedAt.getTime()) / 1000), 0) : 0;
+  const durationSeconds = Math.max(Math.round(getElapsedRecordingMs() / 1000), 0);
   const blob = new Blob(activeChunks, { type: activeRecordingMimeType || "audio/webm" });
-  const previewUrl = URL.createObjectURL(blob);
 
   recordingDuration.textContent = formatDuration(durationSeconds);
-  setPreviewSource(previewUrl);
   uploadStateValue.textContent = "Pending";
   stopDurationTimer();
   stopActiveStreamTracks();
@@ -509,6 +511,8 @@ async function finalizeRecording() {
     activeRecordingId = "";
     activeRecordingMimeType = "";
     recordingStartedAt = null;
+    elapsedRecordingMs = 0;
+    recordingTitleInput.value = "";
     updateControls();
     await loadRecordings();
   }
@@ -519,16 +523,20 @@ async function handleStartRecording() {
     setStatus(recordingStatus, "You need editor access to record audio in this library.", "error");
     return;
   }
+  const title = recordingTitleInput.value.trim();
+  if (!title) {
+    recordingTitleInput.focus();
+    setStatus(recordingStatus, "Enter a meeting title before starting the recording.", "error");
+    return;
+  }
   if (!window.MediaRecorder || !navigator.mediaDevices?.getUserMedia) {
     setStatus(recordingStatus, "This browser does not support in-browser audio recording.", "error");
     return;
   }
   if (mediaRecorder?.state === "recording") return;
 
-  const title = recordingTitleInput.value.trim() || getDefaultRecordingTitle();
   const mimeType = getSupportedMimeType();
 
-  resetPreview();
   setStatus(recordingStatus, "Creating recording session...");
   setRecorderState("Preparing", "Creating a meeting row before microphone capture starts.");
   uploadStateValue.textContent = "Not started";
@@ -553,8 +561,21 @@ async function handleStartRecording() {
     mediaRecorder.addEventListener("stop", () => {
       void finalizeRecording();
     });
+    mediaRecorder.addEventListener("pause", () => {
+      pauseElapsedClock();
+      setRecorderState("Paused", "Recording is paused. Resume when you are ready to continue.");
+      setStatus(recordingStatus, "Recording paused.");
+      updateControls();
+    });
+    mediaRecorder.addEventListener("resume", () => {
+      resumeElapsedClock();
+      setRecorderState("Recording", "Microphone capture is active. Pause or stop when you are ready.");
+      setStatus(recordingStatus, "Recording resumed.");
+      updateControls();
+    });
 
-    recordingStartedAt = new Date();
+    elapsedRecordingMs = 0;
+    resumeElapsedClock();
     await updateMeetingRecording(createdRecording.id, {
       status: "recording",
       started_at: recordingStartedAt.toISOString(),
@@ -578,6 +599,7 @@ async function handleStartRecording() {
     activeChunks = [];
     activeRecordingMimeType = "";
     recordingStartedAt = null;
+    elapsedRecordingMs = 0;
     updateControls();
 
     if (createdRecording?.id) {
@@ -600,32 +622,27 @@ async function handleStartRecording() {
 }
 
 function handleStopRecording() {
-  if (!mediaRecorder || mediaRecorder.state !== "recording") return;
+  if (!mediaRecorder || (mediaRecorder.state !== "recording" && mediaRecorder.state !== "paused")) return;
+  const confirmed = window.confirm("Do you want to stop this recording?");
+  if (!confirmed) return;
   setRecorderState("Finishing", "Stopping microphone capture and preparing the upload.");
   setStatus(recordingStatus, "Stopping recording...");
+  pauseRecordingButton.disabled = true;
   stopRecordingButton.disabled = true;
   mediaRecorder.stop();
 }
 
-async function openRecordingAudio(recordingId) {
-  const recording = recordingsCache.find((item) => item.id === recordingId);
-  if (!recording?.storage_path) return;
-
-  setStatus(recordingsListStatus, "Loading saved audio...");
-  const { data, error } = await supabase.storage.from(RECORDINGS_BUCKET).createSignedUrl(recording.storage_path, 60 * 10);
-  if (error) {
-    setStatus(recordingsListStatus, getErrorMessage(error, "Unable to open the saved audio."), "error");
+function handlePauseRecording() {
+  if (!mediaRecorder || !isPauseSupported()) return;
+  if (mediaRecorder.state === "recording") {
+    setStatus(recordingStatus, "Pausing recording...");
+    mediaRecorder.pause();
     return;
   }
-
-  setPreviewSource(data.signedUrl);
-  recordingPreview.scrollIntoView({ behavior: "smooth", block: "center" });
-  try {
-    await recordingPreview.play();
-  } catch {
-    // Browsers may require a second interaction before autoplaying audio.
+  if (mediaRecorder.state === "paused") {
+    setStatus(recordingStatus, "Resuming recording...");
+    mediaRecorder.resume();
   }
-  setStatus(recordingsListStatus, "Saved audio loaded in the player above.", "success");
 }
 
 async function handleOrganizationChange(nextOrganizationId) {
@@ -636,12 +653,12 @@ async function handleOrganizationChange(nextOrganizationId) {
   activeMembership = nextMembership;
   setStoredActiveOrganizationId(nextOrganizationId);
   renderOrganizationSelector();
-  resetPreview();
   recordingDuration.textContent = "00:00";
   uploadStateValue.textContent = "Not started";
   recordingFormat.textContent = "Pending";
   setRecorderState("Idle", "Ready to create a new recording session.");
   setStatus(recordingStatus, "");
+  elapsedRecordingMs = 0;
   await loadRecordings();
 }
 
@@ -702,11 +719,7 @@ async function init() {
     void handleStartRecording();
   });
   stopRecordingButton.addEventListener("click", handleStopRecording);
-  recordingsList.addEventListener("click", (event) => {
-    const button = event.target.closest("button[data-action='open-audio']");
-    if (!button) return;
-    void openRecordingAudio(button.getAttribute("data-id") || "");
-  });
+  pauseRecordingButton.addEventListener("click", handlePauseRecording);
   window.addEventListener("beforeunload", (event) => {
     if (mediaRecorder?.state === "recording") {
       event.preventDefault();

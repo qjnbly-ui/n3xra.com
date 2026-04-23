@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>n3xra.com All Recordings</title>
+  <meta name="description" content="n3xra.com all recordings page.">
+  <link rel="icon" type="image/png" href="../assets/n3xra_logo_transparent_small.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body class="recordings-page">
+  <div class="shell">
+    <header class="topbar">
+      <div class="topbar-inner">
+        <div class="topbar-row dashboard-topbar-row">
+          <div class="brand">
+            <img class="brand-badge brand-badge-image" src="../assets/n3xra_logo_transparent.png" alt="n3xra.com logo">
+          </div>
+          <button class="topbar-logout" id="mobile-logout-button" type="button">Logout</button>
+          <button class="menu-toggle" id="mobile-menu-toggle" type="button" aria-expanded="false" aria-controls="mobile-menu" aria-label="Open menu">
+            <span></span>
+            <span></span>
+            <span></span>
+          </button>
+        </div>
+        <div class="mobile-menu hidden" id="mobile-menu">
+          <div class="mobile-menu-head">
+            <p class="mobile-menu-title">Navigate</p>
+          </div>
+          <button class="mobile-menu-link" id="mobile-menu-account" type="button">Account</button>
+          <button class="mobile-menu-link" id="mobile-menu-library" type="button">Library</button>
+          <a class="mobile-menu-link button-link is-active" id="mobile-menu-recordings-link" href="./recordings.html">Recordings</a>
+        </div>
+      </div>
+    </header>
+
+    <main class="main">
+      <section class="panel stack hidden" id="setup-panel">
+        <div class="panel-head">
+          <div>
+            <h2>Connect Supabase</h2>
+            <p>Add your project URL and anon key in <code class="inline">app/config.js</code> before using the app.</p>
+          </div>
+        </div>
+        <div class="notice">
+          <strong>Missing config.</strong> Copy <code class="inline">app/config.example.js</code> to
+          <code class="inline">app/config.js</code>, then paste your Supabase project URL and anon key.
+        </div>
+      </section>
+
+      <section class="panel hidden stack" id="all-recordings-panel">
+        <div class="panel-head">
+          <div>
+            <h2>All Recordings</h2>
+            <p>Playback and browse every saved recording in the active library.</p>
+          </div>
+          <div class="actions">
+            <a class="btn secondary button-link" href="./recordings.html">Back to recordings</a>
+          </div>
+        </div>
+
+        <div class="notice hidden" id="all-recordings-no-access-notice">
+          <strong>No library access right now.</strong> There are no recordings to show until you create or join a library.
+          <div class="actions">
+            <a class="btn secondary button-link" href="./dashboard.html?section=account">Go to account</a>
+          </div>
+        </div>
+
+        <div class="grid-3" id="all-recordings-context">
+          <div class="field" id="all-recordings-active-organization-field">
+            <label for="active-organization-select">Active library</label>
+            <select id="active-organization-select"></select>
+          </div>
+          <div class="field" id="all-recordings-active-membership-field">
+            <span class="field-title">Your access</span>
+            <p class="account-value" id="active-membership-role">-</p>
+          </div>
+          <div class="field">
+            <span class="field-title">Recording count</span>
+            <p class="account-value" id="recording-count">0</p>
+          </div>
+        </div>
+
+        <section class="recording-player-shell">
+          <div class="panel-head">
+            <div>
+              <h3>Player</h3>
+              <p id="selected-recording-copy">Select a recording below to load playback.</p>
+            </div>
+          </div>
+          <audio class="recording-player hidden" id="recording-player" controls preload="metadata"></audio>
+          <p class="status" id="recording-player-status"></p>
+        </section>
+
+        <div class="recordings-list" id="recordings-list"></div>
+        <p class="empty hidden" id="recordings-empty">No recordings saved in this library yet.</p>
+        <p class="status" id="recordings-status"></p>
+      </section>
+    </main>
+  </div>
+
+  <script src="./config.js"></script>
+  <script type="module" src="./all-recordings.js"></script>
+</body>
+</html>
