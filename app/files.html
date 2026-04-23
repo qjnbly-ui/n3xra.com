@@ -32,6 +32,7 @@
           </div>
           <button class="mobile-menu-link" id="mobile-menu-account" type="button">Account</button>
           <button class="mobile-menu-link" id="mobile-menu-library" type="button">Library</button>
+          <a class="mobile-menu-link button-link hidden" id="mobile-menu-recordings-link" href="./recordings.html">Recordings</a>
         </div>
       </div>
     </header>
@@ -56,7 +57,10 @@
             <h2>Library Files</h2>
             <p>Browse and manage the files in the active library.</p>
           </div>
-          <a class="btn secondary button-link" href="./dashboard.html?section=library">Back to records</a>
+          <div class="actions">
+            <a class="btn secondary button-link hidden" id="files-recordings-link" href="./recordings.html">Meeting recorder</a>
+            <a class="btn secondary button-link" href="./dashboard.html?section=library">Back to records</a>
+          </div>
         </div>
 
         <div class="notice hidden" id="files-no-access-notice">

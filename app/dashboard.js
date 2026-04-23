@@ -31,6 +31,7 @@ const mobileMenuToggle = document.getElementById("mobile-menu-toggle");
 const mobileMenu = document.getElementById("mobile-menu");
 const mobileMenuAccount = document.getElementById("mobile-menu-account");
 const mobileMenuLibrary = document.getElementById("mobile-menu-library");
+const mobileMenuRecordingsLink = document.getElementById("mobile-menu-recordings-link");
 const accountSection = document.getElementById("account-section");
 const librarySection = document.getElementById("library-section");
 const libraryActionsGrid = document.getElementById("library-actions-grid");
@@ -61,6 +62,7 @@ const libraryActiveMembershipRole = document.getElementById("library-active-memb
 const librarySharedLibraryCount = document.getElementById("library-shared-library-count");
 const platformAdminLink = document.getElementById("platform-admin-link");
 const uploadActionSlot = document.getElementById("upload-action-slot");
+const recordingsActionSlot = document.getElementById("recordings-action-slot");
 const fileModal = document.getElementById("file-modal");
 const fileModalTitle = document.getElementById("file-modal-title");
 const fileModalFrame = document.getElementById("file-modal-frame");
@@ -1199,6 +1201,8 @@ function renderProfile() {
   show(inviteManagementSection, canSeeInviteManagement);
   show(memberManagementSection, canSeeMemberManagement);
   show(uploadActionSlot, capabilities.canUploadDocuments);
+  show(recordingsActionSlot, hasLibraryAccess && capabilities.canUseRecordings);
+  show(mobileMenuRecordingsLink, capabilities.canUseRecordings);
   show(openDeleteAccountModalButton, canDeleteAccountNow);
   show(deleteAccountBlockedNote, !canDeleteAccountNow);
   libraryAccessCopy.textContent = isFreePlan || !isOrganizationPlan
