@@ -502,6 +502,30 @@ textarea {
 .status.error { color: var(--danger); }
 .status.success { color: var(--teal); }
 
+.auth-captcha {
+  margin-top: 0.25rem;
+}
+
+.auth-captcha > label {
+  display: block;
+  text-align: center;
+}
+
+#auth-turnstile {
+  min-height: 66px;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+#auth-turnstile > * {
+  margin-inline: auto;
+}
+
+.auth-captcha .field-note {
+  text-align: center;
+}
+
 .upload-mode-switch {
   display: inline-grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
