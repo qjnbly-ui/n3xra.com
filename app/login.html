@@ -152,6 +152,12 @@
               </div>
             </form>
 
+            <div class="field auth-captcha hidden" id="auth-captcha-field">
+              <label>Security check</label>
+              <div id="auth-turnstile"></div>
+              <p class="field-note">Complete this check before signing in, creating an account, or sending a password reset.</p>
+            </div>
+
             <p class="status" id="auth-status"></p>
           </div>
         </div>
@@ -165,6 +171,7 @@
   </footer>
 
   <script src="./config.js"></script>
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
   <script type="module" src="./login.js"></script>
 </body>
 </html>
