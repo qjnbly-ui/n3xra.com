@@ -25,11 +25,14 @@ const activeOrganizationName = document.getElementById("active-organization-name
 const activeMembershipRole = document.getElementById("active-membership-role");
 const recordingCount = document.getElementById("recording-count");
 const recordingTitleInput = document.getElementById("recording-title");
+const recordingFileInput = document.getElementById("recording-file-input");
+const recordingFileCopy = document.getElementById("recording-file-copy");
 const recorderStateLabel = document.getElementById("recorder-state-label");
 const recorderStateCopy = document.getElementById("recorder-state-copy");
 const recordingDuration = document.getElementById("recording-duration");
 const uploadStateValue = document.getElementById("upload-state-value");
 const startRecordingButton = document.getElementById("start-recording-button");
+const uploadRecordingButton = document.getElementById("upload-recording-button");
 const pauseRecordingButton = document.getElementById("pause-recording-button");
 const stopRecordingButton = document.getElementById("stop-recording-button");
 const recordingStatus = document.getElementById("recording-status");
@@ -235,6 +238,17 @@ function setRecorderState(label, copy) {
   recorderStateCopy.textContent = copy;
 }
 
+function getSelectedRecordingFile() {
+  return recordingFileInput?.files?.[0] || null;
+}
+
+function updateSelectedFileCopy() {
+  const selectedFile = getSelectedRecordingFile();
+  recordingFileCopy.textContent = selectedFile
+    ? `${selectedFile.name} · ${formatBytes(selectedFile.size || 0)}`
+    : "No file selected.";
+}
+
 function clearRecorderStats() {
   recorderStateLabel.textContent = "";
   recordingDuration.textContent = "";
@@ -246,9 +260,12 @@ function updateControls() {
   const isCaptureActive = recorderState === "recording" || recorderState === "paused";
   const hasActiveSession = isRecordingWorkflowActive || isCaptureActive;
   const pauseSupported = isPauseSupported();
+  const hasSelectedFile = Boolean(getSelectedRecordingFile());
 
   startRecordingButton.disabled = !canRecordInActiveOrganization() || hasActiveSession || !window.MediaRecorder || !navigator.mediaDevices?.getUserMedia;
+  uploadRecordingButton.disabled = !canRecordInActiveOrganization() || hasActiveSession || !hasSelectedFile;
   show(startRecordingButton, !hasActiveSession);
+  show(uploadRecordingButton, !hasActiveSession);
   pauseRecordingButton.disabled = !isCaptureActive || !pauseSupported;
   pauseRecordingButton.textContent = recorderState === "paused" ? "Resume recording" : "Pause recording";
   stopRecordingButton.disabled = !isCaptureActive;
@@ -256,6 +273,7 @@ function updateControls() {
   show(stopRecordingButton, isCaptureActive);
   activeOrganizationSelect.disabled = hasActiveSession || memberships.length <= 1;
   recordingTitleInput.disabled = hasActiveSession;
+  recordingFileInput.disabled = hasActiveSession;
 }
 
 function getRecordingById(recordingId) {
@@ -522,6 +540,32 @@ async function createMeetingRecording(title) {
   return data;
 }
 
+async function getAudioDurationSeconds(file) {
+  const objectUrl = URL.createObjectURL(file);
+  try {
+    const durationSeconds = await new Promise((resolve, reject) => {
+      const audio = document.createElement("audio");
+      audio.preload = "metadata";
+      audio.addEventListener("loadedmetadata", () => {
+        resolve(Number.isFinite(audio.duration) ? Math.max(Math.round(audio.duration), 0) : 0);
+      }, { once: true });
+      audio.addEventListener("error", () => {
+        reject(new Error("Unable to read the audio file metadata."));
+      }, { once: true });
+      audio.src = objectUrl;
+    });
+    return durationSeconds;
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
+function buildUploadTitle(file) {
+  const manualTitle = recordingTitleInput.value.trim();
+  if (manualTitle) return manualTitle;
+  return String(file?.name || "Uploaded recording").replace(/\.[^/.]+$/, "") || "Uploaded recording";
+}
+
 async function uploadRecordingBlob(recordingId, title, blob, mimeType, durationSeconds) {
   const organization = getActiveOrganization();
   if (!organization) throw new Error("No active library selected.");
@@ -719,6 +763,79 @@ async function handleStartRecording() {
   }
 }
 
+async function handleUploadRecording() {
+  if (!canRecordInActiveOrganization()) {
+    setStatus(recordingStatus, "You need editor access to upload audio in this library.", "error");
+    return;
+  }
+
+  const file = getSelectedRecordingFile();
+  if (!file) {
+    setStatus(recordingStatus, "Choose an audio file to upload.", "error");
+    return;
+  }
+
+  isRecordingWorkflowActive = true;
+  updateControls();
+  setStatus(recordingStatus, "Preparing upload...");
+  setRecorderState("Preparing", "Creating a recording row for the selected audio file.");
+  uploadStateValue.textContent = "Preparing";
+
+  const title = buildUploadTitle(file);
+  let createdRecording = null;
+
+  try {
+    const durationSeconds = await getAudioDurationSeconds(file);
+    const startedAt = new Date(file.lastModified || Date.now());
+    const endedAt = new Date(startedAt.getTime() + durationSeconds * 1000);
+
+    createdRecording = await createMeetingRecording(title);
+    activeRecordingId = createdRecording.id;
+    activeRecordingMimeType = file.type || "audio/mpeg";
+
+    recordingDuration.textContent = formatDuration(durationSeconds);
+    await updateMeetingRecording(createdRecording.id, {
+      status: "recorded",
+      started_at: startedAt.toISOString(),
+      ended_at: endedAt.toISOString(),
+      duration_seconds: durationSeconds,
+      audio_mime_type: activeRecordingMimeType,
+      file_size: file.size,
+      metadata: {
+        source: "uploaded_audio_file",
+        original_filename: file.name,
+      },
+      processing_error: null,
+    });
+
+    await uploadRecordingBlob(createdRecording.id, title, file, activeRecordingMimeType, durationSeconds);
+    recordingFileInput.value = "";
+    updateSelectedFileCopy();
+  } catch (error) {
+    if (createdRecording?.id) {
+      try {
+        await updateMeetingRecording(createdRecording.id, {
+          status: "failed",
+          processing_error: getErrorMessage(error, "Upload could not be completed."),
+        });
+      } catch {
+        // Keep the original error visible in the UI even if the failure update also fails.
+      }
+    }
+    setRecorderState("Failed", "The selected file could not be saved as a recording.");
+    uploadStateValue.textContent = "Failed";
+    setStatus(recordingStatus, getErrorMessage(error, "Unable to upload the audio file."), "error");
+  } finally {
+    isRecordingWorkflowActive = false;
+    activeRecordingId = "";
+    activeRecordingMimeType = "";
+    recordingTitleInput.value = "";
+    clearRecorderStats();
+    updateControls();
+    await loadRecordings();
+  }
+}
+
 function handleStopRecording() {
   if (!mediaRecorder || (mediaRecorder.state !== "recording" && mediaRecorder.state !== "paused")) return;
   const confirmed = window.confirm("Do you want to stop this recording?");
@@ -755,6 +872,8 @@ async function handleOrganizationChange(nextOrganizationId) {
   setRecorderState("", "Ready to create a new recording session.");
   setStatus(recordingStatus, "");
   elapsedRecordingMs = 0;
+  recordingFileInput.value = "";
+  updateSelectedFileCopy();
   if (recordingDetailModal.classList.contains("is-open")) {
     closeRecordingDetail();
   }
@@ -816,12 +935,19 @@ async function init() {
   mobileMenuLibrary?.addEventListener("click", () => {
     window.location.replace("./dashboard.html?section=library");
   });
+  recordingFileInput.addEventListener("change", () => {
+    updateSelectedFileCopy();
+    updateControls();
+  });
   activeOrganizationSelect.addEventListener("change", async () => {
     closeMobileMenu();
     await handleOrganizationChange(activeOrganizationSelect.value);
   });
   startRecordingButton.addEventListener("click", () => {
     void handleStartRecording();
+  });
+  uploadRecordingButton.addEventListener("click", () => {
+    void handleUploadRecording();
   });
   stopRecordingButton.addEventListener("click", handleStopRecording);
   pauseRecordingButton.addEventListener("click", handlePauseRecording);
@@ -856,6 +982,7 @@ async function init() {
   });
 
   setMenuActive("recordings");
+  updateSelectedFileCopy();
 }
 
 void init();

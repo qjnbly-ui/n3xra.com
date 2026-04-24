@@ -62,7 +62,6 @@ const libraryActiveMembershipRole = document.getElementById("library-active-memb
 const librarySharedLibraryCount = document.getElementById("library-shared-library-count");
 const platformAdminLink = document.getElementById("platform-admin-link");
 const uploadActionSlot = document.getElementById("upload-action-slot");
-const recordingsActionSlot = document.getElementById("recordings-action-slot");
 const fileModal = document.getElementById("file-modal");
 const fileModalTitle = document.getElementById("file-modal-title");
 const fileModalFrame = document.getElementById("file-modal-frame");
@@ -1201,7 +1200,6 @@ function renderProfile() {
   show(inviteManagementSection, canSeeInviteManagement);
   show(memberManagementSection, canSeeMemberManagement);
   show(uploadActionSlot, capabilities.canUploadDocuments);
-  show(recordingsActionSlot, hasLibraryAccess && capabilities.canUseRecordings);
   show(mobileMenuRecordingsLink, capabilities.canUseRecordings);
   show(openDeleteAccountModalButton, canDeleteAccountNow);
   show(deleteAccountBlockedNote, !canDeleteAccountNow);

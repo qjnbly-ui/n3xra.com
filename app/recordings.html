@@ -99,8 +99,15 @@
           <form class="stack" id="recording-form">
             <div class="field">
               <label for="recording-title">Meeting title</label>
-              <input id="recording-title" type="text" placeholder="Board meeting, staff sync, budget review" required>
-              <p class="field-note">Required.</p>
+              <input id="recording-title" type="text" placeholder="Board meeting, staff sync, budget review">
+              <p class="field-note">Required for live recording. Uploads can use the file name if left blank.</p>
+            </div>
+
+            <div class="field">
+              <label for="recording-file-input">Upload audio file</label>
+              <input id="recording-file-input" type="file" accept="audio/*,.mp3,.m4a,.wav,.ogg,.webm,.mp4,.aac,.mpeg">
+              <p class="field-note">Optional. Upload an existing audio file and save it as a recording.</p>
+              <p class="account-note" id="recording-file-copy">No file selected.</p>
             </div>
 
             <div class="recording-stats" aria-live="polite">
@@ -120,6 +127,7 @@
 
             <div class="recording-controls">
               <button class="btn" id="start-recording-button" type="button">Start recording</button>
+              <button class="btn secondary" id="upload-recording-button" type="button">Upload file</button>
               <button class="btn secondary hidden" id="pause-recording-button" type="button" disabled>Pause recording</button>
               <button class="btn secondary hidden" id="stop-recording-button" type="button" disabled>Stop recording</button>
             </div>

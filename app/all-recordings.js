@@ -200,6 +200,56 @@ function getRecordingById(recordingId) {
   return recordingsCache.find((item) => item.id === recordingId) || null;
 }
 
+function canPlaybackRecording(recording) {
+  return Boolean(recording?.storage_path) && String(recording?.status || "").trim().toLowerCase() === "uploaded";
+}
+
+function isMissingRecordingObjectError(error) {
+  const message = String(error?.message || "").toLowerCase();
+  return message.includes("object not found") || message.includes("no such object");
+}
+
+async function updateMeetingRecording(recordingId, patch) {
+  if (!recordingId) return;
+  const { error } = await supabase
+    .from("meeting_recordings")
+    .update(patch)
+    .eq("id", recordingId);
+  if (error) throw error;
+}
+
+async function reconcileMissingRecordingObject(recording, error) {
+  if (!recording?.id || !isMissingRecordingObjectError(error)) return false;
+
+  const nextError = "Audio file is missing from storage for this row. Delete it and record again.";
+  const currentStatus = String(recording.status || "").trim().toLowerCase();
+  if (!["uploading", "uploaded", "recorded"].includes(currentStatus)) return false;
+
+  try {
+    await updateMeetingRecording(recording.id, {
+      status: "failed",
+      processing_error: nextError,
+    });
+  } catch {
+    return false;
+  }
+
+  recordingsCache = recordingsCache.map((item) => (
+    item.id === recording.id
+      ? { ...item, status: "failed", processing_error: nextError }
+      : item
+  ));
+  renderRecordings();
+
+  if (activeDetailRecordingId === recording.id) {
+    const updatedRecording = getRecordingById(recording.id);
+    if (updatedRecording) populateRecordingDetails(updatedRecording);
+  }
+
+  setStatus(recordingsStatus, nextError, "error");
+  return true;
+}
+
 async function createRecordingSignedUrl(recording) {
   if (!recording?.storage_path) {
     throw new Error("No audio file is stored for this recording yet.");
@@ -398,7 +448,7 @@ function renderRecordings() {
       </div>
       ${recording.processing_error ? `<p class="recording-row-note recording-row-note-error">${escapeHtml(recording.processing_error)}</p>` : ""}
       <div class="recording-row-actions">
-        <button class="btn secondary" type="button" data-action="play-recording" data-id="${escapeHtml(recording.id)}" ${recording.storage_path ? "" : "disabled"}>Play</button>
+        <button class="btn secondary" type="button" data-action="play-recording" data-id="${escapeHtml(recording.id)}" ${canPlaybackRecording(recording) ? "" : "disabled"}>Play</button>
         <button class="btn secondary" type="button" data-action="open-recording" data-id="${escapeHtml(recording.id)}">Details</button>
         ${capabilities.canDeleteDocuments ? `<button class="btn btn-delete-solid" type="button" data-action="delete-recording" data-id="${escapeHtml(recording.id)}">Delete</button>` : ""}
       </div>
@@ -409,13 +459,18 @@ function renderRecordings() {
 
 async function playRecording(recordingId) {
   const recording = getRecordingById(recordingId);
-  if (!recording?.storage_path) return;
+  if (!canPlaybackRecording(recording)) return;
 
   setStatus(recordingPlayerStatus, "Loading audio...");
   let signedUrl = "";
   try {
     signedUrl = await createRecordingSignedUrl(recording);
   } catch (error) {
+    const reconciled = await reconcileMissingRecordingObject(recording, error);
+    if (reconciled) {
+      setStatus(recordingPlayerStatus, "Audio file is missing from storage for this row.", "error");
+      return;
+    }
     setStatus(recordingPlayerStatus, getErrorMessage(error, "Unable to load the audio file."), "error");
     return;
   }
@@ -445,7 +500,7 @@ function populateRecordingDetails(recording) {
   recordingDetailFormat.textContent = recording.audio_mime_type || "Pending";
   recordingDetailSize.textContent = formatBytes(recording.file_size || 0);
   recordingDetailStoragePath.textContent = recording.storage_path || "Not uploaded yet";
-  recordingDetailPlay.disabled = !Boolean(recording.storage_path);
+  recordingDetailPlay.disabled = !canPlaybackRecording(recording);
   recordingDetailPlay.textContent = "Play";
   recordingDetailDelete.disabled = !getActiveCapabilities().canDeleteDocuments;
   setStatus(recordingDetailStatusMessage, recording.processing_error || "");
@@ -460,13 +515,18 @@ async function openRecordingDetail(recordingId) {
   clearDetailPlayer();
   setRecordingDetailModalOpen(true);
 
-  if (!recording.storage_path) return;
+  if (!canPlaybackRecording(recording)) return;
 
   setStatus(recordingDetailStatusMessage, "Loading audio...");
   let signedUrl = "";
   try {
     signedUrl = await createRecordingSignedUrl(recording);
   } catch (error) {
+    const reconciled = await reconcileMissingRecordingObject(recording, error);
+    if (reconciled) {
+      setStatus(recordingDetailStatusMessage, "Audio file is missing from storage for this row.", "error");
+      return;
+    }
     setStatus(recordingDetailStatusMessage, getErrorMessage(error, "Unable to load the audio file."), "error");
     return;
   }
