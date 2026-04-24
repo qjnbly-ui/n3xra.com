@@ -41,6 +41,10 @@ const recordingsEmpty = document.getElementById("recordings-empty");
 const recordingsListStatus = document.getElementById("recordings-list-status");
 const recordingDetailModal = document.getElementById("recording-detail-modal");
 const recordingDetailClose = document.getElementById("recording-detail-close");
+const recordingUploadModal = document.getElementById("recording-upload-modal");
+const recordingUploadClose = document.getElementById("recording-upload-close");
+const recordingUploadSubmit = document.getElementById("recording-upload-submit");
+const recordingUploadStatus = document.getElementById("recording-upload-status");
 const recordingDetailTitle = document.getElementById("recording-detail-title");
 const recordingDetailStatus = document.getElementById("recording-detail-status");
 const recordingDetailTranscriptStatus = document.getElementById("recording-detail-transcript-status");
@@ -238,6 +242,14 @@ function setRecorderState(label, copy) {
   recorderStateCopy.textContent = copy;
 }
 
+function setRecordingUploadModalOpen(isOpen) {
+  recordingUploadModal.classList.toggle("is-open", isOpen);
+  recordingUploadModal.setAttribute("aria-hidden", String(!isOpen));
+  if (!isOpen) {
+    setStatus(recordingUploadStatus, "");
+  }
+}
+
 function getSelectedRecordingFile() {
   return recordingFileInput?.files?.[0] || null;
 }
@@ -260,10 +272,9 @@ function updateControls() {
   const isCaptureActive = recorderState === "recording" || recorderState === "paused";
   const hasActiveSession = isRecordingWorkflowActive || isCaptureActive;
   const pauseSupported = isPauseSupported();
-  const hasSelectedFile = Boolean(getSelectedRecordingFile());
 
   startRecordingButton.disabled = !canRecordInActiveOrganization() || hasActiveSession || !window.MediaRecorder || !navigator.mediaDevices?.getUserMedia;
-  uploadRecordingButton.disabled = !canRecordInActiveOrganization() || hasActiveSession || !hasSelectedFile;
+  uploadRecordingButton.disabled = !canRecordInActiveOrganization() || hasActiveSession;
   show(startRecordingButton, !hasActiveSession);
   show(uploadRecordingButton, !hasActiveSession);
   pauseRecordingButton.disabled = !isCaptureActive || !pauseSupported;
@@ -274,6 +285,7 @@ function updateControls() {
   activeOrganizationSelect.disabled = hasActiveSession || memberships.length <= 1;
   recordingTitleInput.disabled = hasActiveSession;
   recordingFileInput.disabled = hasActiveSession;
+  recordingUploadSubmit.disabled = hasActiveSession || !Boolean(getSelectedRecordingFile());
 }
 
 function getRecordingById(recordingId) {
@@ -771,12 +783,13 @@ async function handleUploadRecording() {
 
   const file = getSelectedRecordingFile();
   if (!file) {
-    setStatus(recordingStatus, "Choose an audio file to upload.", "error");
+    setStatus(recordingUploadStatus, "Choose an audio file to upload.", "error");
     return;
   }
 
   isRecordingWorkflowActive = true;
   updateControls();
+  setRecordingUploadModalOpen(false);
   setStatus(recordingStatus, "Preparing upload...");
   setRecorderState("Preparing", "Creating a recording row for the selected audio file.");
   uploadStateValue.textContent = "Preparing";
@@ -874,6 +887,7 @@ async function handleOrganizationChange(nextOrganizationId) {
   elapsedRecordingMs = 0;
   recordingFileInput.value = "";
   updateSelectedFileCopy();
+  setRecordingUploadModalOpen(false);
   if (recordingDetailModal.classList.contains("is-open")) {
     closeRecordingDetail();
   }
@@ -938,6 +952,7 @@ async function init() {
   recordingFileInput.addEventListener("change", () => {
     updateSelectedFileCopy();
     updateControls();
+    setStatus(recordingUploadStatus, "");
   });
   activeOrganizationSelect.addEventListener("change", async () => {
     closeMobileMenu();
@@ -947,6 +962,17 @@ async function init() {
     void handleStartRecording();
   });
   uploadRecordingButton.addEventListener("click", () => {
+    setRecordingUploadModalOpen(true);
+  });
+  recordingUploadClose.addEventListener("click", () => {
+    setRecordingUploadModalOpen(false);
+  });
+  recordingUploadModal.addEventListener("click", (event) => {
+    if (event.target === recordingUploadModal) {
+      setRecordingUploadModalOpen(false);
+    }
+  });
+  recordingUploadSubmit.addEventListener("click", () => {
     void handleUploadRecording();
   });
   stopRecordingButton.addEventListener("click", handleStopRecording);
@@ -976,6 +1002,10 @@ async function init() {
     }
   });
   window.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && recordingUploadModal.classList.contains("is-open")) {
+      setRecordingUploadModalOpen(false);
+      return;
+    }
     if (event.key === "Escape" && recordingDetailModal.classList.contains("is-open")) {
       closeRecordingDetail();
     }
