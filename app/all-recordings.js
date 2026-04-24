@@ -23,12 +23,33 @@ const allRecordingsActiveMembershipField = document.getElementById("all-recordin
 const activeOrganizationSelect = document.getElementById("active-organization-select");
 const activeMembershipRole = document.getElementById("active-membership-role");
 const recordingCount = document.getElementById("recording-count");
+const recordingPlayerHead = document.getElementById("recording-player-head");
 const selectedRecordingCopy = document.getElementById("selected-recording-copy");
 const recordingPlayer = document.getElementById("recording-player");
 const recordingPlayerStatus = document.getElementById("recording-player-status");
 const recordingsList = document.getElementById("recordings-list");
 const recordingsEmpty = document.getElementById("recordings-empty");
 const recordingsStatus = document.getElementById("recordings-status");
+const recordingDetailModal = document.getElementById("recording-detail-modal");
+const recordingDetailClose = document.getElementById("recording-detail-close");
+const recordingDetailTitle = document.getElementById("recording-detail-title");
+const recordingDetailStatus = document.getElementById("recording-detail-status");
+const recordingDetailTranscriptStatus = document.getElementById("recording-detail-transcript-status");
+const recordingDetailStartedAt = document.getElementById("recording-detail-started-at");
+const recordingDetailEndedAt = document.getElementById("recording-detail-ended-at");
+const recordingDetailDuration = document.getElementById("recording-detail-duration");
+const recordingDetailFormat = document.getElementById("recording-detail-format");
+const recordingDetailSize = document.getElementById("recording-detail-size");
+const recordingDetailStoragePath = document.getElementById("recording-detail-storage-path");
+const recordingDetailPlayer = document.getElementById("recording-detail-player");
+const recordingDetailPlay = document.getElementById("recording-detail-play");
+const recordingDetailDelete = document.getElementById("recording-detail-delete");
+const recordingDetailStatusMessage = document.getElementById("recording-detail-status-message");
+const recordingDeleteModal = document.getElementById("recording-delete-modal");
+const recordingDeleteCopy = document.getElementById("recording-delete-copy");
+const recordingDeleteCancel = document.getElementById("recording-delete-cancel");
+const recordingDeleteSubmit = document.getElementById("recording-delete-submit");
+const recordingDeleteStatus = document.getElementById("recording-delete-status");
 
 const RECORDINGS_BUCKET = "meeting-recordings";
 
@@ -38,6 +59,15 @@ let memberships = [];
 let activeMembership = null;
 let recordingsCache = [];
 let activePlayerUrl = "";
+let activeTopPlayerRecordingId = "";
+let detailPlayerUrl = "";
+let activeDetailRecordingId = "";
+let pendingDeleteRecordingId = "";
+
+function isIgnorableStorageDeleteError(error) {
+  const message = String(error?.message || "").toLowerCase();
+  return message.includes("not found") || message.includes("no such object") || message.includes("does not exist");
+}
 
 function setStatus(el, message, tone = "") {
   if (!el) return;
@@ -141,6 +171,36 @@ function getActiveCapabilities() {
   );
 }
 
+function getRecordingById(recordingId) {
+  return recordingsCache.find((item) => item.id === recordingId) || null;
+}
+
+async function createRecordingSignedUrl(recording) {
+  if (!recording?.storage_path) {
+    throw new Error("No audio file is stored for this recording yet.");
+  }
+
+  const { data, error } = await supabase.storage.from(RECORDINGS_BUCKET).createSignedUrl(recording.storage_path, 60 * 10);
+  if (error || !data?.signedUrl) {
+    throw error || new Error("Unable to create a playback link.");
+  }
+  return data.signedUrl;
+}
+
+function setRecordingDetailModalOpen(isOpen) {
+  recordingDetailModal.classList.toggle("is-open", isOpen);
+  recordingDetailModal.setAttribute("aria-hidden", String(!isOpen));
+}
+
+function setRecordingDeleteModalOpen(isOpen) {
+  recordingDeleteModal.classList.toggle("is-open", isOpen);
+  recordingDeleteModal.setAttribute("aria-hidden", String(!isOpen));
+  if (!isOpen) {
+    setStatus(recordingDeleteStatus, "");
+    pendingDeleteRecordingId = "";
+  }
+}
+
 function clearPlayer() {
   if (activePlayerUrl) {
     recordingPlayer.pause();
@@ -148,8 +208,21 @@ function clearPlayer() {
     recordingPlayer.load();
     activePlayerUrl = "";
   }
+  activeTopPlayerRecordingId = "";
+  show(recordingPlayerHead, false);
   show(recordingPlayer, false);
   selectedRecordingCopy.textContent = "Select a recording below to load playback.";
+}
+
+function clearDetailPlayer() {
+  if (detailPlayerUrl) {
+    recordingDetailPlayer.pause();
+    recordingDetailPlayer.removeAttribute("src");
+    recordingDetailPlayer.load();
+    detailPlayerUrl = "";
+  }
+  recordingDetailPlay.textContent = "Play";
+  show(recordingDetailPlayer, false);
 }
 
 function renderOrganizationSelector() {
@@ -261,8 +334,12 @@ function renderRecordings() {
   show(recordingsEmpty, recordingsCache.length === 0);
 
   recordingsCache.forEach((recording) => {
+    const capabilities = getActiveCapabilities();
     const item = document.createElement("article");
     item.className = "recording-row";
+    item.setAttribute("data-recording-id", recording.id);
+    item.setAttribute("role", "button");
+    item.setAttribute("tabindex", "0");
     item.innerHTML = `
       <div class="recording-row-main">
         <div>
@@ -279,6 +356,8 @@ function renderRecordings() {
       ${recording.processing_error ? `<p class="recording-row-note recording-row-note-error">${escapeHtml(recording.processing_error)}</p>` : ""}
       <div class="recording-row-actions">
         <button class="btn secondary" type="button" data-action="play-recording" data-id="${escapeHtml(recording.id)}" ${recording.storage_path ? "" : "disabled"}>Play</button>
+        <button class="btn secondary" type="button" data-action="open-recording" data-id="${escapeHtml(recording.id)}">Details</button>
+        ${capabilities.canDeleteDocuments ? `<button class="btn btn-delete-solid" type="button" data-action="delete-recording" data-id="${escapeHtml(recording.id)}">Delete</button>` : ""}
       </div>
     `;
     recordingsList.append(item);
@@ -286,18 +365,22 @@ function renderRecordings() {
 }
 
 async function playRecording(recordingId) {
-  const recording = recordingsCache.find((item) => item.id === recordingId);
+  const recording = getRecordingById(recordingId);
   if (!recording?.storage_path) return;
 
   setStatus(recordingPlayerStatus, "Loading audio...");
-  const { data, error } = await supabase.storage.from(RECORDINGS_BUCKET).createSignedUrl(recording.storage_path, 60 * 10);
-  if (error || !data?.signedUrl) {
+  let signedUrl = "";
+  try {
+    signedUrl = await createRecordingSignedUrl(recording);
+  } catch (error) {
     setStatus(recordingPlayerStatus, getErrorMessage(error, "Unable to load the audio file."), "error");
     return;
   }
 
-  activePlayerUrl = data.signedUrl;
+  activePlayerUrl = signedUrl;
+  activeTopPlayerRecordingId = recording.id;
   recordingPlayer.src = activePlayerUrl;
+  show(recordingPlayerHead, true);
   show(recordingPlayer, true);
   selectedRecordingCopy.textContent = `${recording.title || "Untitled recording"} · ${formatDateTime(recording.started_at || recording.created_at)}`;
   try {
@@ -308,6 +391,160 @@ async function playRecording(recordingId) {
   setStatus(recordingPlayerStatus, "Audio loaded.", "success");
 }
 
+function populateRecordingDetails(recording) {
+  recordingDetailTitle.textContent = recording.title || "Untitled recording";
+  recordingDetailStatus.textContent = formatRecordingStatus(recording.status);
+  recordingDetailTranscriptStatus.textContent = formatRecordingStatus(recording.transcript_status);
+  recordingDetailStartedAt.textContent = formatDateTime(recording.started_at || recording.created_at);
+  recordingDetailEndedAt.textContent = recording.ended_at ? formatDateTime(recording.ended_at) : "Not finished";
+  recordingDetailDuration.textContent = formatDuration(recording.duration_seconds || 0);
+  recordingDetailFormat.textContent = recording.audio_mime_type || "Pending";
+  recordingDetailSize.textContent = formatBytes(recording.file_size || 0);
+  recordingDetailStoragePath.textContent = recording.storage_path || "Not uploaded yet";
+  recordingDetailPlay.disabled = !Boolean(recording.storage_path);
+  recordingDetailPlay.textContent = "Play";
+  recordingDetailDelete.disabled = !getActiveCapabilities().canDeleteDocuments;
+  setStatus(recordingDetailStatusMessage, recording.processing_error || "");
+}
+
+async function openRecordingDetail(recordingId) {
+  const recording = getRecordingById(recordingId);
+  if (!recording) return;
+
+  activeDetailRecordingId = recording.id;
+  populateRecordingDetails(recording);
+  clearDetailPlayer();
+  setRecordingDetailModalOpen(true);
+
+  if (!recording.storage_path) return;
+
+  setStatus(recordingDetailStatusMessage, "Loading audio...");
+  let signedUrl = "";
+  try {
+    signedUrl = await createRecordingSignedUrl(recording);
+  } catch (error) {
+    setStatus(recordingDetailStatusMessage, getErrorMessage(error, "Unable to load the audio file."), "error");
+    return;
+  }
+
+  detailPlayerUrl = signedUrl;
+  recordingDetailPlayer.src = detailPlayerUrl;
+  show(recordingDetailPlayer, true);
+
+  const sameAsTopPlayer = activeTopPlayerRecordingId === recording.id && Boolean(recordingPlayer.currentSrc);
+  const resumeAt = sameAsTopPlayer ? recordingPlayer.currentTime : 0;
+  const shouldResumePlayback = sameAsTopPlayer && !recordingPlayer.paused;
+  if (sameAsTopPlayer) {
+    recordingPlayer.pause();
+  }
+
+  recordingDetailPlayer.addEventListener("loadedmetadata", () => {
+    if (resumeAt > 0) {
+      recordingDetailPlayer.currentTime = resumeAt;
+    }
+  }, { once: true });
+
+  if (shouldResumePlayback) {
+    try {
+      await recordingDetailPlayer.play();
+      recordingDetailPlay.textContent = "Pause";
+    } catch {
+      // Browsers may require a second interaction before autoplaying audio.
+    }
+  }
+  setStatus(recordingDetailStatusMessage, "");
+}
+
+async function syncDetailPlayerBackToTop() {
+  if (!activeDetailRecordingId || !detailPlayerUrl) {
+    clearDetailPlayer();
+    return;
+  }
+
+  const recording = getRecordingById(activeDetailRecordingId);
+  if (!recording) {
+    clearDetailPlayer();
+    return;
+  }
+
+  const resumeAt = recordingDetailPlayer.currentTime || 0;
+  const shouldResumePlayback = !recordingDetailPlayer.paused;
+  activePlayerUrl = detailPlayerUrl;
+  activeTopPlayerRecordingId = recording.id;
+  recordingPlayer.src = activePlayerUrl;
+  show(recordingPlayerHead, true);
+  show(recordingPlayer, true);
+  selectedRecordingCopy.textContent = `${recording.title || "Untitled recording"} · ${formatDateTime(recording.started_at || recording.created_at)}`;
+  recordingPlayer.addEventListener("loadedmetadata", () => {
+    if (resumeAt > 0) {
+      recordingPlayer.currentTime = resumeAt;
+    }
+  }, { once: true });
+  if (shouldResumePlayback) {
+    try {
+      await recordingPlayer.play();
+    } catch {
+      // Browsers may require a second interaction before autoplaying audio.
+    }
+  }
+  clearDetailPlayer();
+}
+
+async function closeRecordingDetail() {
+  await syncDetailPlayerBackToTop();
+  setRecordingDetailModalOpen(false);
+  activeDetailRecordingId = "";
+  setStatus(recordingDetailStatusMessage, "");
+}
+
+function promptDeleteRecording(recordingId) {
+  const recording = getRecordingById(recordingId);
+  if (!recording || !getActiveCapabilities().canDeleteDocuments) return;
+  pendingDeleteRecordingId = recording.id;
+  recordingDeleteCopy.textContent = `Delete "${recording.title || "Untitled recording"}"? This action cannot be undone.`;
+  setRecordingDeleteModalOpen(true);
+}
+
+async function deleteRecording(recordingId) {
+  const recording = getRecordingById(recordingId);
+  if (!recording) return;
+
+  setStatus(recordingDeleteStatus, "Deleting recording...");
+  recordingDeleteSubmit.disabled = true;
+  recordingDeleteCancel.disabled = true;
+
+  try {
+    if (recording.storage_path) {
+      const { error: storageError } = await supabase.storage.from(RECORDINGS_BUCKET).remove([recording.storage_path]);
+      if (storageError && !isIgnorableStorageDeleteError(storageError)) throw storageError;
+    }
+
+    const { error } = await supabase
+      .from("meeting_recordings")
+      .delete()
+      .eq("id", recording.id);
+    if (error) throw error;
+
+    if (activeTopPlayerRecordingId === recording.id) {
+      clearPlayer();
+    }
+    if (activeDetailRecordingId === recording.id) {
+      clearDetailPlayer();
+      setRecordingDetailModalOpen(false);
+      activeDetailRecordingId = "";
+    }
+
+    setRecordingDeleteModalOpen(false);
+    await loadRecordings();
+    setStatus(recordingsStatus, "Recording deleted.", "success");
+  } catch (error) {
+    setStatus(recordingDeleteStatus, getErrorMessage(error, "Unable to delete the recording."), "error");
+  } finally {
+    recordingDeleteSubmit.disabled = false;
+    recordingDeleteCancel.disabled = false;
+  }
+}
+
 async function handleOrganizationChange(nextOrganizationId) {
   if (!nextOrganizationId || nextOrganizationId === getActiveOrganization()?.id) return;
   const nextMembership = memberships.find((membership) => membership.organization?.id === nextOrganizationId);
@@ -315,6 +552,14 @@ async function handleOrganizationChange(nextOrganizationId) {
 
   activeMembership = nextMembership;
   setStoredActiveOrganizationId(nextOrganizationId);
+  if (recordingDetailModal.classList.contains("is-open")) {
+    setRecordingDetailModalOpen(false);
+    activeDetailRecordingId = "";
+    clearDetailPlayer();
+  }
+  if (recordingDeleteModal.classList.contains("is-open")) {
+    setRecordingDeleteModalOpen(false);
+  }
   clearPlayer();
   renderOrganizationSelector();
   await loadRecordings();
@@ -373,10 +618,92 @@ async function init() {
     await handleOrganizationChange(activeOrganizationSelect.value);
   });
   recordingsList.addEventListener("click", (event) => {
-    const button = event.target.closest("button[data-action='play-recording']");
-    if (!button) return;
-    void playRecording(button.getAttribute("data-id") || "");
+    const button = event.target.closest("button[data-action]");
+    if (button) {
+      event.stopPropagation();
+      const action = button.getAttribute("data-action") || "";
+      const recordingId = button.getAttribute("data-id") || "";
+      if (action === "play-recording") {
+        void playRecording(recordingId);
+        return;
+      }
+      if (action === "open-recording") {
+        void openRecordingDetail(recordingId);
+        return;
+      }
+      if (action === "delete-recording") {
+        promptDeleteRecording(recordingId);
+      }
+      return;
+    }
+
+    const row = event.target.closest("[data-recording-id]");
+    if (!row) return;
+    void openRecordingDetail(row.getAttribute("data-recording-id") || "");
   });
+  recordingsList.addEventListener("keydown", (event) => {
+    const row = event.target.closest("[data-recording-id]");
+    if (!row) return;
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    void openRecordingDetail(row.getAttribute("data-recording-id") || "");
+  });
+  recordingDetailClose.addEventListener("click", () => {
+    void closeRecordingDetail();
+  });
+  recordingDetailModal.addEventListener("click", (event) => {
+    if (event.target === recordingDetailModal) {
+      void closeRecordingDetail();
+    }
+  });
+  recordingDetailPlay.addEventListener("click", async () => {
+    if (!detailPlayerUrl && activeDetailRecordingId) {
+      await openRecordingDetail(activeDetailRecordingId);
+      return;
+    }
+    if (recordingDetailPlayer.paused) {
+      try {
+        await recordingDetailPlayer.play();
+        recordingDetailPlay.textContent = "Pause";
+      } catch {
+        // Browsers may require an extra interaction.
+      }
+      return;
+    }
+    recordingDetailPlayer.pause();
+    recordingDetailPlay.textContent = "Play";
+  });
+  recordingDetailPlayer.addEventListener("play", () => {
+    recordingDetailPlay.textContent = "Pause";
+  });
+  recordingDetailPlayer.addEventListener("pause", () => {
+    recordingDetailPlay.textContent = "Play";
+  });
+  recordingDetailPlayer.addEventListener("ended", () => {
+    recordingDetailPlay.textContent = "Play";
+  });
+  recordingDetailDelete.addEventListener("click", () => {
+    if (!activeDetailRecordingId) return;
+    promptDeleteRecording(activeDetailRecordingId);
+  });
+  recordingDeleteCancel.addEventListener("click", () => {
+    setRecordingDeleteModalOpen(false);
+  });
+  recordingDeleteSubmit.addEventListener("click", async () => {
+    if (!pendingDeleteRecordingId) return;
+    await deleteRecording(pendingDeleteRecordingId);
+  });
+  window.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    if (recordingDeleteModal.classList.contains("is-open")) {
+      setRecordingDeleteModalOpen(false);
+      return;
+    }
+    if (recordingDetailModal.classList.contains("is-open")) {
+      void closeRecordingDetail();
+    }
+  });
+
   setMenuActive("recordings");
 }
 

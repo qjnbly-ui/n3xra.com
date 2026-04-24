@@ -85,7 +85,7 @@
         </div>
 
         <section class="recording-player-shell">
-          <div class="panel-head">
+          <div class="panel-head hidden" id="recording-player-head">
             <div>
               <h3>Player</h3>
               <p id="selected-recording-copy">Select a recording below to load playback.</p>
@@ -100,6 +100,79 @@
         <p class="status" id="recordings-status"></p>
       </section>
     </main>
+  </div>
+
+  <div class="settings-modal" id="recording-detail-modal" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="settings-modal-dialog">
+      <div class="settings-modal-header">
+        <div>
+          <p class="settings-modal-kicker">Recording details</p>
+          <h3 class="settings-modal-title" id="recording-detail-title">Recording</h3>
+        </div>
+        <button class="settings-modal-close" id="recording-detail-close" type="button">Close</button>
+      </div>
+      <div class="settings-modal-body">
+        <div class="recording-detail-grid">
+          <div class="account-item">
+            <span class="account-label">Status</span>
+            <p class="account-value" id="recording-detail-status">-</p>
+          </div>
+          <div class="account-item">
+            <span class="account-label">Transcript</span>
+            <p class="account-value" id="recording-detail-transcript-status">-</p>
+          </div>
+          <div class="account-item">
+            <span class="account-label">Started</span>
+            <p class="account-value" id="recording-detail-started-at">-</p>
+          </div>
+          <div class="account-item">
+            <span class="account-label">Ended</span>
+            <p class="account-value" id="recording-detail-ended-at">-</p>
+          </div>
+          <div class="account-item">
+            <span class="account-label">Duration</span>
+            <p class="account-value" id="recording-detail-duration">-</p>
+          </div>
+          <div class="account-item">
+            <span class="account-label">Format</span>
+            <p class="account-value" id="recording-detail-format">-</p>
+          </div>
+          <div class="account-item">
+            <span class="account-label">Size</span>
+            <p class="account-value" id="recording-detail-size">-</p>
+          </div>
+          <div class="account-item">
+            <span class="account-label">Storage path</span>
+            <p class="account-value recording-detail-storage-path" id="recording-detail-storage-path">-</p>
+          </div>
+        </div>
+        <audio class="recording-player hidden" id="recording-detail-player" controls preload="metadata"></audio>
+        <div class="actions">
+          <button class="btn secondary" id="recording-detail-play" type="button">Play</button>
+          <button class="btn btn-delete-solid" id="recording-detail-delete" type="button">Delete</button>
+        </div>
+        <p class="status" id="recording-detail-status-message"></p>
+      </div>
+    </div>
+  </div>
+
+  <div class="confirm-modal" id="recording-delete-modal" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="confirm-modal-dialog">
+      <div class="confirm-modal-header">
+        <div>
+          <p class="confirm-modal-kicker">Delete recording</p>
+          <h3 class="confirm-modal-title">Remove this recording?</h3>
+        </div>
+      </div>
+      <div class="confirm-modal-body">
+        <p class="confirm-modal-copy" id="recording-delete-copy">This action cannot be undone.</p>
+        <div class="confirm-modal-actions">
+          <button class="btn secondary" id="recording-delete-cancel" type="button">Cancel</button>
+          <button class="btn btn-delete-solid" id="recording-delete-submit" type="button">Delete</button>
+        </div>
+        <p class="status" id="recording-delete-status"></p>
+      </div>
+    </div>
   </div>
 
   <script src="./config.js"></script>
