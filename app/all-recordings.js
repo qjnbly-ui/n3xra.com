@@ -17,10 +17,12 @@ const mobileMenuToggle = document.getElementById("mobile-menu-toggle");
 const mobileMenu = document.getElementById("mobile-menu");
 const mobileMenuAccount = document.getElementById("mobile-menu-account");
 const mobileMenuLibrary = document.getElementById("mobile-menu-library");
+const mobileMenuRecordingsLink = document.getElementById("mobile-menu-recordings-link");
 const allRecordingsNoAccessNotice = document.getElementById("all-recordings-no-access-notice");
 const allRecordingsActiveOrganizationField = document.getElementById("all-recordings-active-organization-field");
 const allRecordingsActiveMembershipField = document.getElementById("all-recordings-active-membership-field");
 const activeOrganizationSelect = document.getElementById("active-organization-select");
+const activeOrganizationName = document.getElementById("active-organization-name");
 const activeMembershipRole = document.getElementById("active-membership-role");
 const recordingCount = document.getElementById("recording-count");
 const recordingPlayerShell = document.getElementById("recording-player-shell");
@@ -64,6 +66,19 @@ let activeTopPlayerRecordingId = "";
 let detailPlayerUrl = "";
 let activeDetailRecordingId = "";
 let pendingDeleteRecordingId = "";
+let pendingLinkedRecordingId = "";
+
+function consumeLinkedRecordingId() {
+  if (!pendingLinkedRecordingId) return "";
+  const recordingId = pendingLinkedRecordingId;
+  pendingLinkedRecordingId = "";
+
+  const url = new URL(window.location.href);
+  url.searchParams.delete("recording");
+  window.history.replaceState({}, document.title, `${url.pathname}${url.search}${url.hash}`);
+
+  return recordingId;
+}
 
 function isIgnorableStorageDeleteError(error) {
   const message = String(error?.message || "").toLowerCase();
@@ -98,6 +113,15 @@ function toggleMobileMenu() {
 function setMenuActive(section) {
   mobileMenuAccount.classList.toggle("is-active", section === "account");
   mobileMenuLibrary.classList.toggle("is-active", section === "library");
+  if (mobileMenuRecordingsLink) {
+    const isRecordings = section === "recordings";
+    mobileMenuRecordingsLink.classList.toggle("is-active", isRecordings);
+    if (isRecordings) {
+      mobileMenuRecordingsLink.setAttribute("aria-current", "page");
+    } else {
+      mobileMenuRecordingsLink.removeAttribute("aria-current");
+    }
+  }
 }
 
 function escapeHtml(value) {
@@ -230,12 +254,16 @@ function clearDetailPlayer() {
 function renderOrganizationSelector() {
   if (!memberships.length || !getActiveOrganization()) {
     activeOrganizationSelect.innerHTML = '<option value="">No active library</option>';
+    activeOrganizationName.textContent = "No active library";
     activeMembershipRole.textContent = "No library access";
     recordingCount.textContent = "0";
     activeOrganizationSelect.disabled = true;
+    show(activeOrganizationSelect, false);
+    show(activeOrganizationName, true);
     show(allRecordingsNoAccessNotice, true);
     show(allRecordingsActiveOrganizationField, false);
     show(allRecordingsActiveMembershipField, false);
+    show(mobileMenuRecordingsLink, false);
     return;
   }
 
@@ -246,11 +274,16 @@ function renderOrganizationSelector() {
       return `<option value="${escapeHtml(membership.organization?.id || "")}"${selected}>${escapeHtml(membership.organization?.name || "Untitled library")}</option>`;
     })
     .join("");
+  const hasMany = memberships.length > 1;
+  activeOrganizationName.textContent = getActiveOrganization()?.name || "Untitled library";
   activeMembershipRole.textContent = formatRoleLabel(getMembershipRole(activeMembership));
   show(allRecordingsNoAccessNotice, false);
-  show(allRecordingsActiveOrganizationField, memberships.length > 1);
+  show(allRecordingsActiveOrganizationField, true);
   show(allRecordingsActiveMembershipField, memberships.length > 1);
-  activeOrganizationSelect.disabled = memberships.length <= 1;
+  show(mobileMenuRecordingsLink, getActiveCapabilities().canUseRecordings);
+  activeOrganizationSelect.disabled = !hasMany;
+  show(activeOrganizationSelect, hasMany);
+  show(activeOrganizationName, !hasMany);
 }
 
 async function bootstrapAccess() {
@@ -329,6 +362,15 @@ async function loadRecordings() {
   recordingCount.textContent = String(recordingsCache.length);
   renderRecordings();
   setStatus(recordingsStatus, `${recordingsCache.length} recording${recordingsCache.length === 1 ? "" : "s"} loaded.`, recordingsCache.length ? "success" : "");
+
+  const linkedRecordingId = consumeLinkedRecordingId();
+  if (linkedRecordingId) {
+    if (getRecordingById(linkedRecordingId)) {
+      void openRecordingDetail(linkedRecordingId);
+    } else {
+      setStatus(recordingsStatus, "Requested recording was not found in this library.", "error");
+    }
+  }
 }
 
 function renderRecordings() {
@@ -603,6 +645,8 @@ async function init() {
     window.location.replace("./dashboard.html?section=library");
     return;
   }
+
+  pendingLinkedRecordingId = new URLSearchParams(window.location.search).get("recording") || "";
 
   show(setupPanel, false);
   show(allRecordingsPanel, true);

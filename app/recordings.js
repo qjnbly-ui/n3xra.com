@@ -17,7 +17,11 @@ const recordingsContextPanel = document.getElementById("recordings-context-panel
 const mobileLogoutButton = document.getElementById("mobile-logout-button");
 const mobileMenuToggle = document.getElementById("mobile-menu-toggle");
 const mobileMenu = document.getElementById("mobile-menu");
+const mobileMenuAccount = document.getElementById("mobile-menu-account");
+const mobileMenuLibrary = document.getElementById("mobile-menu-library");
+const mobileMenuRecordingsLink = document.getElementById("mobile-menu-recordings-link");
 const activeOrganizationSelect = document.getElementById("active-organization-select");
+const activeOrganizationName = document.getElementById("active-organization-name");
 const activeMembershipRole = document.getElementById("active-membership-role");
 const recordingCount = document.getElementById("recording-count");
 const recordingTitleInput = document.getElementById("recording-title");
@@ -69,6 +73,13 @@ let durationTimer = null;
 let elapsedRecordingMs = 0;
 let activeDetailRecordingId = "";
 
+function buildAllRecordingsDetailHref(recordingId) {
+  const params = new URLSearchParams();
+  if (recordingId) params.set("recording", recordingId);
+  const query = params.toString();
+  return `./all-recordings.html${query ? `?${query}` : ""}`;
+}
+
 function isPauseSupported() {
   return Boolean(
     window.MediaRecorder &&
@@ -102,6 +113,20 @@ function toggleMobileMenu() {
   mobileMenu.classList.toggle("is-open", nextOpen);
   mobileMenu.classList.toggle("hidden", !nextOpen);
   mobileMenuToggle.setAttribute("aria-expanded", String(nextOpen));
+}
+
+function setMenuActive(section) {
+  mobileMenuAccount?.classList.toggle("is-active", section === "account");
+  mobileMenuLibrary?.classList.toggle("is-active", section === "library");
+  if (mobileMenuRecordingsLink) {
+    const isRecordings = section === "recordings";
+    mobileMenuRecordingsLink.classList.toggle("is-active", isRecordings);
+    if (isRecordings) {
+      mobileMenuRecordingsLink.setAttribute("aria-current", "page");
+    } else {
+      mobileMenuRecordingsLink.removeAttribute("aria-current");
+    }
+  }
 }
 
 function escapeHtml(value) {
@@ -273,11 +298,15 @@ function resumeElapsedClock() {
 function renderOrganizationSelector() {
   if (!memberships.length || !getActiveOrganization()) {
     activeOrganizationSelect.innerHTML = '<option value="">No active library</option>';
+    activeOrganizationName.textContent = "No active library";
     activeMembershipRole.textContent = "No library access";
     recordingCount.textContent = "0";
     activeOrganizationSelect.disabled = true;
+    show(activeOrganizationSelect, false);
+    show(activeOrganizationName, true);
     show(recordingsNoAccessNotice, true);
     show(recordingsContextPanel, false);
+    show(mobileMenuRecordingsLink, false);
     updateControls();
     return;
   }
@@ -289,9 +318,14 @@ function renderOrganizationSelector() {
       return `<option value="${escapeHtml(membership.organization?.id || "")}"${selected}>${escapeHtml(membership.organization?.name || "Untitled library")}</option>`;
     })
     .join("");
+  const hasMany = memberships.length > 1;
+  activeOrganizationName.textContent = getActiveOrganization()?.name || "Untitled library";
   activeMembershipRole.textContent = formatRoleLabel(getMembershipRole(activeMembership));
+  show(activeOrganizationSelect, hasMany);
+  show(activeOrganizationName, !hasMany);
   show(recordingsNoAccessNotice, !canRecordInActiveOrganization());
   show(recordingsContextPanel, true);
+  show(mobileMenuRecordingsLink, getActiveCapabilities().canUseRecordings);
   updateControls();
 }
 
@@ -429,6 +463,12 @@ function openRecordingDetail(recordingId) {
   activeDetailRecordingId = recording.id;
   populateRecordingDetails(recording);
   setRecordingDetailModalOpen(true);
+}
+
+function openRecordingInAllRecordings(recordingId) {
+  const recording = getRecordingById(recordingId);
+  if (!recording?.id) return;
+  window.location.href = buildAllRecordingsDetailHref(recording.id);
 }
 
 function closeRecordingDetail() {
@@ -758,6 +798,12 @@ async function init() {
 
   mobileLogoutButton.addEventListener("click", handleSignout);
   mobileMenuToggle.addEventListener("click", toggleMobileMenu);
+  mobileMenuAccount?.addEventListener("click", () => {
+    window.location.replace("./dashboard.html?section=account");
+  });
+  mobileMenuLibrary?.addEventListener("click", () => {
+    window.location.replace("./dashboard.html?section=library");
+  });
   activeOrganizationSelect.addEventListener("change", async () => {
     closeMobileMenu();
     await handleOrganizationChange(activeOrganizationSelect.value);
@@ -770,14 +816,14 @@ async function init() {
   recordingsList.addEventListener("click", (event) => {
     const row = event.target.closest("[data-recording-id]");
     if (!row) return;
-    openRecordingDetail(row.getAttribute("data-recording-id") || "");
+    openRecordingInAllRecordings(row.getAttribute("data-recording-id") || "");
   });
   recordingsList.addEventListener("keydown", (event) => {
     const row = event.target.closest("[data-recording-id]");
     if (!row) return;
     if (event.key !== "Enter" && event.key !== " ") return;
     event.preventDefault();
-    openRecordingDetail(row.getAttribute("data-recording-id") || "");
+    openRecordingInAllRecordings(row.getAttribute("data-recording-id") || "");
   });
   recordingDetailClose.addEventListener("click", closeRecordingDetail);
   recordingDetailModal.addEventListener("click", (event) => {
@@ -796,6 +842,8 @@ async function init() {
       closeRecordingDetail();
     }
   });
+
+  setMenuActive("recordings");
 }
 
 void init();

@@ -32,9 +32,9 @@
           <div class="mobile-menu-head">
             <p class="mobile-menu-title">Navigate</p>
           </div>
-          <a class="mobile-menu-link button-link" href="./dashboard.html?section=account">Account</a>
-          <a class="mobile-menu-link button-link" href="./dashboard.html?section=library">Library</a>
-          <a class="mobile-menu-link button-link is-active" href="./recordings.html" aria-current="page">Recordings</a>
+          <button class="mobile-menu-link" id="mobile-menu-account" type="button">Account</button>
+          <button class="mobile-menu-link" id="mobile-menu-library" type="button">Library</button>
+          <a class="mobile-menu-link button-link hidden" id="mobile-menu-recordings-link" href="./recordings.html">Recordings</a>
         </div>
       </div>
     </header>
@@ -66,6 +66,7 @@
             <div class="field">
               <label for="active-organization-select">Active library</label>
               <select id="active-organization-select"></select>
+              <p class="account-value hidden" id="active-organization-name">-</p>
             </div>
             <div class="field">
               <span class="field-title">Your access</span>
