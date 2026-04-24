@@ -198,8 +198,8 @@
     <div class="settings-modal-dialog">
       <div class="settings-modal-header">
         <div>
-          <p class="settings-modal-kicker">Upload recording</p>
-          <h3 class="settings-modal-title">Select audio file</h3>
+          <p class="settings-modal-kicker" id="recording-upload-kicker">Upload recording</p>
+          <h3 class="settings-modal-title" id="recording-upload-title">Select audio file</h3>
         </div>
         <button class="settings-modal-close" id="recording-upload-close" type="button">Close</button>
       </div>
@@ -207,7 +207,7 @@
         <div class="field">
           <label for="recording-file-input">Audio file</label>
           <input id="recording-file-input" type="file" accept="audio/*,.mp3,.m4a,.wav,.ogg,.webm,.mp4,.aac,.mpeg">
-          <p class="field-note">Choose an existing audio file and save it as a recording.</p>
+          <p class="field-note" id="recording-upload-note">Choose an existing audio file and save it as a recording.</p>
           <p class="account-note" id="recording-file-copy">No file selected.</p>
         </div>
         <div class="actions">

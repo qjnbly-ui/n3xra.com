@@ -316,6 +316,24 @@
       font-weight: 700;
     }
 
+    .support-social-links {
+      display: inline-flex;
+      flex-wrap: wrap;
+      gap: 0.45rem;
+      align-items: center;
+      color: var(--ink);
+      font-weight: 700;
+    }
+
+    .support-social-links a {
+      color: var(--ink);
+      text-decoration: none;
+    }
+
+    .support-social-links a:hover {
+      color: var(--teal);
+    }
+
     @media (max-width: 860px) {
       .support-grid,
       .grid-2 {
@@ -402,6 +420,22 @@
             <span class="support-label">Useful links</span>
             <p class="support-value"><a href="/terms">Terms of Service</a> · <a href="/privacy">Privacy Policy</a> · <a href="/app/login.html">Login</a></p>
           </div>
+
+          <div class="support-item">
+            <span class="support-label">Business</span>
+            <p class="support-value">N3XRA LLC, registered in Oregon</p>
+          </div>
+
+          <div class="support-item">
+            <span class="support-label">Follow us on</span>
+            <p class="support-value">
+              <span class="support-social-links">
+                <a href="https://x.com/getn3xra" target="_blank" rel="noopener">X</a>
+                <span>·</span>
+                <a href="https://www.facebook.com/getn3xra" target="_blank" rel="noopener">Facebook</a>
+              </span>
+            </p>
+          </div>
         </div>
       </section>
 
@@ -468,7 +502,7 @@
   </main>
 
   <footer class="site-footer">
-    <p>&copy; 2026 n3xra.com. All rights reserved.</p>
+    <p>&copy; 2026 N3XRA LLC, registered in Oregon. All rights reserved.</p>
     <p><a href="/terms">Terms of Service</a> · <a href="/privacy">Privacy Policy</a></p>
   </footer>
 

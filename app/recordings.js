@@ -45,6 +45,9 @@ const recordingDetailModal = document.getElementById("recording-detail-modal");
 const recordingDetailClose = document.getElementById("recording-detail-close");
 const recordingUploadModal = document.getElementById("recording-upload-modal");
 const recordingUploadClose = document.getElementById("recording-upload-close");
+const recordingUploadKicker = document.getElementById("recording-upload-kicker");
+const recordingUploadTitle = document.getElementById("recording-upload-title");
+const recordingUploadNote = document.getElementById("recording-upload-note");
 const recordingUploadSubmit = document.getElementById("recording-upload-submit");
 const recordingUploadStatus = document.getElementById("recording-upload-status");
 const recordingDetailTitle = document.getElementById("recording-detail-title");
@@ -81,6 +84,7 @@ let elapsedRecordingMs = 0;
 let activeDetailRecordingId = "";
 let isRecordingWorkflowActive = false;
 let pendingRetryUploadOpen = false;
+let isRetryUploadMode = false;
 
 function buildAllRecordingsDetailHref(recordingId) {
   const params = new URLSearchParams();
@@ -263,6 +267,16 @@ function setUploadProgressVisible(isVisible, copy = "") {
   } else {
     uploadProgressCopy.textContent = "Upload in progress. Do not leave this page until it finishes.";
   }
+}
+
+function setRecordingUploadMode(isRetryMode) {
+  isRetryUploadMode = isRetryMode;
+  recordingUploadKicker.textContent = isRetryMode ? "Retry upload" : "Upload recording";
+  recordingUploadTitle.textContent = isRetryMode ? "Select the file again" : "Select audio file";
+  recordingUploadNote.textContent = isRetryMode
+    ? "Browsers cannot keep the previous file attached. Choose the original audio file again to retry this upload."
+    : "Choose an existing audio file and save it as a recording.";
+  recordingUploadSubmit.textContent = isRetryMode ? "Retry upload" : "Final upload";
 }
 
 function setRecordingUploadModalOpen(isOpen) {
@@ -911,6 +925,7 @@ async function handleOrganizationChange(nextOrganizationId) {
   elapsedRecordingMs = 0;
   recordingFileInput.value = "";
   updateSelectedFileCopy();
+  setRecordingUploadMode(false);
   setRecordingUploadModalOpen(false);
   if (recordingDetailModal.classList.contains("is-open")) {
     closeRecordingDetail();
@@ -993,6 +1008,7 @@ async function init() {
     void handleStartRecording();
   });
   uploadRecordingButton.addEventListener("click", () => {
+    setRecordingUploadMode(false);
     setRecordingUploadModalOpen(true);
   });
   recordingUploadClose.addEventListener("click", () => {
@@ -1045,6 +1061,7 @@ async function init() {
   setMenuActive("recordings");
   updateSelectedFileCopy();
   if (consumeRetryUploadRequest()) {
+    setRecordingUploadMode(true);
     setRecordingUploadModalOpen(true);
     updateControls();
   }
