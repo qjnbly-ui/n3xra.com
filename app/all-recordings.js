@@ -41,11 +41,10 @@ const recordingDetailTranscriptStatus = document.getElementById("recording-detai
 const recordingDetailStartedAt = document.getElementById("recording-detail-started-at");
 const recordingDetailEndedAt = document.getElementById("recording-detail-ended-at");
 const recordingDetailDuration = document.getElementById("recording-detail-duration");
-const recordingDetailFormat = document.getElementById("recording-detail-format");
 const recordingDetailSize = document.getElementById("recording-detail-size");
-const recordingDetailStoragePath = document.getElementById("recording-detail-storage-path");
 const recordingDetailPlayer = document.getElementById("recording-detail-player");
 const recordingDetailPlay = document.getElementById("recording-detail-play");
+const recordingDetailRetry = document.getElementById("recording-detail-retry");
 const recordingDetailDelete = document.getElementById("recording-detail-delete");
 const recordingDetailStatusMessage = document.getElementById("recording-detail-status-message");
 const recordingDeleteModal = document.getElementById("recording-delete-modal");
@@ -198,6 +197,24 @@ function getActiveCapabilities() {
 
 function getRecordingById(recordingId) {
   return recordingsCache.find((item) => item.id === recordingId) || null;
+}
+
+function isRetryableRecording(recording) {
+  return String(recording?.status || "").trim().toLowerCase() === "failed";
+}
+
+function buildRetryRecordingHref(recording) {
+  const params = new URLSearchParams();
+  if (recording?.title) params.set("retryTitle", recording.title);
+  if (recording?.id) params.set("retryRecording", recording.id);
+  params.set("openUpload", "1");
+  return `./recordings.html?${params.toString()}`;
+}
+
+function retryRecording(recordingId) {
+  const recording = getRecordingById(recordingId);
+  if (!recording || !isRetryableRecording(recording)) return;
+  window.location.href = buildRetryRecordingHref(recording);
 }
 
 function canPlaybackRecording(recording) {
@@ -429,6 +446,7 @@ function renderRecordings() {
 
   recordingsCache.forEach((recording) => {
     const capabilities = getActiveCapabilities();
+    const canRetry = isRetryableRecording(recording);
     const item = document.createElement("article");
     item.className = "recording-row";
     item.setAttribute("data-recording-id", recording.id);
@@ -450,6 +468,7 @@ function renderRecordings() {
       <div class="recording-row-actions">
         <button class="btn secondary" type="button" data-action="play-recording" data-id="${escapeHtml(recording.id)}" ${canPlaybackRecording(recording) ? "" : "disabled"}>Play</button>
         <button class="btn secondary" type="button" data-action="open-recording" data-id="${escapeHtml(recording.id)}">Details</button>
+        ${canRetry ? `<button class="btn secondary" type="button" data-action="retry-recording" data-id="${escapeHtml(recording.id)}">Retry</button>` : ""}
         ${capabilities.canDeleteDocuments ? `<button class="btn btn-delete-solid" type="button" data-action="delete-recording" data-id="${escapeHtml(recording.id)}">Delete</button>` : ""}
       </div>
     `;
@@ -497,10 +516,9 @@ function populateRecordingDetails(recording) {
   recordingDetailStartedAt.textContent = formatDateTime(recording.started_at || recording.created_at);
   recordingDetailEndedAt.textContent = recording.ended_at ? formatDateTime(recording.ended_at) : "Not finished";
   recordingDetailDuration.textContent = formatDuration(recording.duration_seconds || 0);
-  recordingDetailFormat.textContent = recording.audio_mime_type || "Pending";
   recordingDetailSize.textContent = formatBytes(recording.file_size || 0);
-  recordingDetailStoragePath.textContent = recording.storage_path || "Not uploaded yet";
   recordingDetailPlay.disabled = !canPlaybackRecording(recording);
+  show(recordingDetailRetry, isRetryableRecording(recording));
   recordingDetailPlay.textContent = "Play";
   recordingDetailDelete.disabled = !getActiveCapabilities().canDeleteDocuments;
   setStatus(recordingDetailStatusMessage, recording.processing_error || "");
@@ -738,6 +756,10 @@ async function init() {
         void openRecordingDetail(recordingId);
         return;
       }
+      if (action === "retry-recording") {
+        retryRecording(recordingId);
+        return;
+      }
       if (action === "delete-recording") {
         promptDeleteRecording(recordingId);
       }
@@ -792,6 +814,10 @@ async function init() {
   recordingDetailDelete.addEventListener("click", () => {
     if (!activeDetailRecordingId) return;
     promptDeleteRecording(activeDetailRecordingId);
+  });
+  recordingDetailRetry.addEventListener("click", () => {
+    if (!activeDetailRecordingId) return;
+    retryRecording(activeDetailRecordingId);
   });
   recordingDeleteCancel.addEventListener("click", () => {
     setRecordingDeleteModalOpen(false);

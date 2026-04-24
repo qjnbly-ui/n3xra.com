@@ -53,9 +53,7 @@ const recordingDetailTranscriptStatus = document.getElementById("recording-detai
 const recordingDetailStartedAt = document.getElementById("recording-detail-started-at");
 const recordingDetailEndedAt = document.getElementById("recording-detail-ended-at");
 const recordingDetailDuration = document.getElementById("recording-detail-duration");
-const recordingDetailFormat = document.getElementById("recording-detail-format");
 const recordingDetailSize = document.getElementById("recording-detail-size");
-const recordingDetailStoragePath = document.getElementById("recording-detail-storage-path");
 const recordingDetailStatusMessage = document.getElementById("recording-detail-status-message");
 
 const RECORDINGS_BUCKET = "meeting-recordings";
@@ -82,12 +80,26 @@ let durationTimer = null;
 let elapsedRecordingMs = 0;
 let activeDetailRecordingId = "";
 let isRecordingWorkflowActive = false;
+let pendingRetryUploadOpen = false;
 
 function buildAllRecordingsDetailHref(recordingId) {
   const params = new URLSearchParams();
   if (recordingId) params.set("recording", recordingId);
   const query = params.toString();
   return `./all-recordings.html${query ? `?${query}` : ""}`;
+}
+
+function consumeRetryUploadRequest() {
+  if (!pendingRetryUploadOpen) return false;
+  pendingRetryUploadOpen = false;
+
+  const url = new URL(window.location.href);
+  url.searchParams.delete("openUpload");
+  url.searchParams.delete("retryTitle");
+  url.searchParams.delete("retryRecording");
+  window.history.replaceState({}, document.title, `${url.pathname}${url.search}${url.hash}`);
+
+  return true;
 }
 
 function isPauseSupported() {
@@ -502,9 +514,7 @@ function populateRecordingDetails(recording) {
   recordingDetailStartedAt.textContent = formatDateTime(recording.started_at || recording.created_at);
   recordingDetailEndedAt.textContent = recording.ended_at ? formatDateTime(recording.ended_at) : "Not finished";
   recordingDetailDuration.textContent = formatDuration(recording.duration_seconds || 0);
-  recordingDetailFormat.textContent = recording.audio_mime_type || "Pending";
   recordingDetailSize.textContent = formatBytes(recording.file_size || 0);
-  recordingDetailStoragePath.textContent = recording.storage_path || "Not uploaded yet";
   setStatus(recordingDetailStatusMessage, recording.processing_error || "");
 }
 
@@ -944,6 +954,13 @@ async function init() {
     return;
   }
 
+  const urlParams = new URLSearchParams(window.location.search);
+  const retryTitle = urlParams.get("retryTitle") || "";
+  pendingRetryUploadOpen = urlParams.get("openUpload") === "1";
+  if (retryTitle) {
+    recordingTitleInput.value = retryTitle;
+  }
+
   show(setupPanel, false);
   show(recordingsPanel, true);
   updateControls();
@@ -1027,6 +1044,10 @@ async function init() {
 
   setMenuActive("recordings");
   updateSelectedFileCopy();
+  if (consumeRetryUploadRequest()) {
+    setRecordingUploadModalOpen(true);
+    updateControls();
+  }
 }
 
 void init();
