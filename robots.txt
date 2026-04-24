@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /app/
+Disallow: /demo/
+Disallow: /api/
+
+Sitemap: https://n3xra.com/sitemap.xml
