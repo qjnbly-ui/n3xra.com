@@ -125,6 +125,13 @@
               <button class="btn secondary hidden" id="stop-recording-button" type="button" disabled>Stop recording</button>
             </div>
 
+            <div class="upload-progress hidden" id="upload-progress-shell" aria-live="polite">
+              <div class="upload-progress-bar" aria-hidden="true">
+                <span class="upload-progress-fill"></span>
+              </div>
+              <p class="upload-progress-copy" id="upload-progress-copy">Upload in progress. Do not leave this page until it finishes.</p>
+            </div>
+
             <p class="status" id="recording-status"></p>
             <p class="account-note" id="recorder-state-copy">Ready to create a new recording session.</p>
           </form>

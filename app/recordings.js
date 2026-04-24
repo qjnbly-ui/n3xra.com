@@ -31,6 +31,8 @@ const recorderStateLabel = document.getElementById("recorder-state-label");
 const recorderStateCopy = document.getElementById("recorder-state-copy");
 const recordingDuration = document.getElementById("recording-duration");
 const uploadStateValue = document.getElementById("upload-state-value");
+const uploadProgressShell = document.getElementById("upload-progress-shell");
+const uploadProgressCopy = document.getElementById("upload-progress-copy");
 const startRecordingButton = document.getElementById("start-recording-button");
 const uploadRecordingButton = document.getElementById("upload-recording-button");
 const pauseRecordingButton = document.getElementById("pause-recording-button");
@@ -242,6 +244,15 @@ function setRecorderState(label, copy) {
   recorderStateCopy.textContent = copy;
 }
 
+function setUploadProgressVisible(isVisible, copy = "") {
+  show(uploadProgressShell, isVisible);
+  if (copy) {
+    uploadProgressCopy.textContent = copy;
+  } else {
+    uploadProgressCopy.textContent = "Upload in progress. Do not leave this page until it finishes.";
+  }
+}
+
 function setRecordingUploadModalOpen(isOpen) {
   recordingUploadModal.classList.toggle("is-open", isOpen);
   recordingUploadModal.setAttribute("aria-hidden", String(!isOpen));
@@ -265,6 +276,7 @@ function clearRecorderStats() {
   recorderStateLabel.textContent = "";
   recordingDuration.textContent = "";
   uploadStateValue.textContent = "";
+  setUploadProgressVisible(false);
 }
 
 function updateControls() {
@@ -589,6 +601,7 @@ async function uploadRecordingBlob(recordingId, title, blob, mimeType, durationS
   uploadStateValue.textContent = "Uploading";
   setRecorderState("Uploading", "Audio is being sent to secure storage.");
   setStatus(recordingStatus, "Uploading audio...");
+  setUploadProgressVisible(true, "Upload in progress. Do not leave this page until it finishes.");
 
   await updateMeetingRecording(recordingId, {
     status: "uploading",
@@ -793,6 +806,7 @@ async function handleUploadRecording() {
   setStatus(recordingStatus, "Preparing upload...");
   setRecorderState("Preparing", "Creating a recording row for the selected audio file.");
   uploadStateValue.textContent = "Preparing";
+  setUploadProgressVisible(true, "Preparing upload. Do not leave this page until it finishes.");
 
   const title = buildUploadTitle(file);
   let createdRecording = null;
@@ -895,8 +909,8 @@ async function handleOrganizationChange(nextOrganizationId) {
 }
 
 async function handleSignout() {
-  if (mediaRecorder?.state === "recording") {
-    setStatus(recordingStatus, "Stop the active recording before logging out.", "error");
+  if (isRecordingWorkflowActive) {
+    setStatus(recordingStatus, "Wait for the active recording or upload to finish before logging out.", "error");
     return;
   }
 
@@ -996,7 +1010,7 @@ async function init() {
     }
   });
   window.addEventListener("beforeunload", (event) => {
-    if (mediaRecorder?.state === "recording") {
+    if (isRecordingWorkflowActive) {
       event.preventDefault();
       event.returnValue = "";
     }
