@@ -113,10 +113,6 @@
                 <span class="recording-stat-label">Upload</span>
                 <p class="recording-stat-value" id="upload-state-value">Not started</p>
               </div>
-              <div class="recording-stat">
-                <span class="recording-stat-label">Audio format</span>
-                <p class="recording-stat-value" id="recording-format">Pending</p>
-              </div>
             </div>
 
             <div class="recording-controls">
@@ -144,6 +140,55 @@
         </section>
       </section>
     </main>
+  </div>
+
+  <div class="settings-modal" id="recording-detail-modal" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="settings-modal-dialog">
+      <div class="settings-modal-header">
+        <div>
+          <p class="settings-modal-kicker">Recording details</p>
+          <h3 class="settings-modal-title" id="recording-detail-title">Recording</h3>
+        </div>
+        <button class="settings-modal-close" id="recording-detail-close" type="button">Close</button>
+      </div>
+      <div class="settings-modal-body">
+        <div class="recording-detail-grid">
+          <div class="account-item">
+            <span class="account-label">Status</span>
+            <p class="account-value" id="recording-detail-status">-</p>
+          </div>
+          <div class="account-item">
+            <span class="account-label">Transcript</span>
+            <p class="account-value" id="recording-detail-transcript-status">-</p>
+          </div>
+          <div class="account-item">
+            <span class="account-label">Started</span>
+            <p class="account-value" id="recording-detail-started-at">-</p>
+          </div>
+          <div class="account-item">
+            <span class="account-label">Ended</span>
+            <p class="account-value" id="recording-detail-ended-at">-</p>
+          </div>
+          <div class="account-item">
+            <span class="account-label">Duration</span>
+            <p class="account-value" id="recording-detail-duration">-</p>
+          </div>
+          <div class="account-item">
+            <span class="account-label">Format</span>
+            <p class="account-value" id="recording-detail-format">-</p>
+          </div>
+          <div class="account-item">
+            <span class="account-label">Size</span>
+            <p class="account-value" id="recording-detail-size">-</p>
+          </div>
+          <div class="account-item">
+            <span class="account-label">Storage path</span>
+            <p class="account-value recording-detail-storage-path" id="recording-detail-storage-path">-</p>
+          </div>
+        </div>
+        <p class="status" id="recording-detail-status-message"></p>
+      </div>
+    </div>
   </div>
 
   <script src="./config.js"></script>

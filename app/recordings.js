@@ -25,7 +25,6 @@ const recorderStateLabel = document.getElementById("recorder-state-label");
 const recorderStateCopy = document.getElementById("recorder-state-copy");
 const recordingDuration = document.getElementById("recording-duration");
 const uploadStateValue = document.getElementById("upload-state-value");
-const recordingFormat = document.getElementById("recording-format");
 const startRecordingButton = document.getElementById("start-recording-button");
 const pauseRecordingButton = document.getElementById("pause-recording-button");
 const stopRecordingButton = document.getElementById("stop-recording-button");
@@ -33,6 +32,18 @@ const recordingStatus = document.getElementById("recording-status");
 const recordingsList = document.getElementById("recordings-list");
 const recordingsEmpty = document.getElementById("recordings-empty");
 const recordingsListStatus = document.getElementById("recordings-list-status");
+const recordingDetailModal = document.getElementById("recording-detail-modal");
+const recordingDetailClose = document.getElementById("recording-detail-close");
+const recordingDetailTitle = document.getElementById("recording-detail-title");
+const recordingDetailStatus = document.getElementById("recording-detail-status");
+const recordingDetailTranscriptStatus = document.getElementById("recording-detail-transcript-status");
+const recordingDetailStartedAt = document.getElementById("recording-detail-started-at");
+const recordingDetailEndedAt = document.getElementById("recording-detail-ended-at");
+const recordingDetailDuration = document.getElementById("recording-detail-duration");
+const recordingDetailFormat = document.getElementById("recording-detail-format");
+const recordingDetailSize = document.getElementById("recording-detail-size");
+const recordingDetailStoragePath = document.getElementById("recording-detail-storage-path");
+const recordingDetailStatusMessage = document.getElementById("recording-detail-status-message");
 
 const RECORDINGS_BUCKET = "meeting-recordings";
 const MIME_TYPE_CANDIDATES = [
@@ -56,6 +67,7 @@ let activeRecordingMimeType = "";
 let recordingStartedAt = null;
 let durationTimer = null;
 let elapsedRecordingMs = 0;
+let activeDetailRecordingId = "";
 
 function isPauseSupported() {
   return Boolean(
@@ -210,6 +222,15 @@ function updateControls() {
   show(stopRecordingButton, hasActiveSession);
   activeOrganizationSelect.disabled = hasActiveSession || memberships.length <= 1;
   recordingTitleInput.disabled = hasActiveSession;
+}
+
+function getRecordingById(recordingId) {
+  return recordingsCache.find((item) => item.id === recordingId) || null;
+}
+
+function setRecordingDetailModalOpen(isOpen) {
+  recordingDetailModal.classList.toggle("is-open", isOpen);
+  recordingDetailModal.setAttribute("aria-hidden", String(!isOpen));
 }
 
 function startDurationTimer() {
@@ -370,7 +391,7 @@ function renderRecordings() {
         : "";
 
       return `
-        <article class="recording-row">
+        <article class="recording-row" data-recording-id="${escapeHtml(recording.id)}" role="button" tabindex="0">
           <div class="recording-row-main">
             <div>
               <p class="recording-row-title">${escapeHtml(recording.title || "Untitled recording")}</p>
@@ -380,7 +401,6 @@ function renderRecordings() {
           </div>
           <div class="recording-row-details">
             <span>${escapeHtml(formatDuration(recording.duration_seconds || 0))}</span>
-            <span>${escapeHtml(recording.audio_mime_type || "Audio pending")}</span>
             <span>${escapeHtml(formatBytes(recording.file_size || 0))}</span>
           </div>
           ${errorCopy}
@@ -388,6 +408,33 @@ function renderRecordings() {
       `;
     })
     .join("");
+}
+
+function populateRecordingDetails(recording) {
+  recordingDetailTitle.textContent = recording.title || "Untitled recording";
+  recordingDetailStatus.textContent = formatRecordingStatus(recording.status);
+  recordingDetailTranscriptStatus.textContent = formatRecordingStatus(recording.transcript_status);
+  recordingDetailStartedAt.textContent = formatDateTime(recording.started_at || recording.created_at);
+  recordingDetailEndedAt.textContent = recording.ended_at ? formatDateTime(recording.ended_at) : "Not finished";
+  recordingDetailDuration.textContent = formatDuration(recording.duration_seconds || 0);
+  recordingDetailFormat.textContent = recording.audio_mime_type || "Pending";
+  recordingDetailSize.textContent = formatBytes(recording.file_size || 0);
+  recordingDetailStoragePath.textContent = recording.storage_path || "Not uploaded yet";
+  setStatus(recordingDetailStatusMessage, recording.processing_error || "");
+}
+
+function openRecordingDetail(recordingId) {
+  const recording = getRecordingById(recordingId);
+  if (!recording) return;
+  activeDetailRecordingId = recording.id;
+  populateRecordingDetails(recording);
+  setRecordingDetailModalOpen(true);
+}
+
+function closeRecordingDetail() {
+  setRecordingDetailModalOpen(false);
+  activeDetailRecordingId = "";
+  setStatus(recordingDetailStatusMessage, "");
 }
 
 async function updateMeetingRecording(recordingId, patch) {
@@ -540,7 +587,6 @@ async function handleStartRecording() {
   setStatus(recordingStatus, "Creating recording session...");
   setRecorderState("Preparing", "Creating a meeting row before microphone capture starts.");
   uploadStateValue.textContent = "Not started";
-  recordingFormat.textContent = mimeType || "Browser default";
 
   let createdRecording = null;
 
@@ -586,7 +632,6 @@ async function handleStartRecording() {
     mediaRecorder.start(1000);
     recordingDuration.textContent = "00:00";
     uploadStateValue.textContent = "Waiting for stop";
-    recordingFormat.textContent = mediaRecorder.mimeType || mimeType || "Browser default";
     setRecorderState("Recording", "Microphone capture is active. Stop to upload and save.");
     setStatus(recordingStatus, "Recording in progress...");
     startDurationTimer();
@@ -655,10 +700,12 @@ async function handleOrganizationChange(nextOrganizationId) {
   renderOrganizationSelector();
   recordingDuration.textContent = "00:00";
   uploadStateValue.textContent = "Not started";
-  recordingFormat.textContent = "Pending";
   setRecorderState("Idle", "Ready to create a new recording session.");
   setStatus(recordingStatus, "");
   elapsedRecordingMs = 0;
+  if (recordingDetailModal.classList.contains("is-open")) {
+    closeRecordingDetail();
+  }
   await loadRecordings();
 }
 
@@ -720,10 +767,33 @@ async function init() {
   });
   stopRecordingButton.addEventListener("click", handleStopRecording);
   pauseRecordingButton.addEventListener("click", handlePauseRecording);
+  recordingsList.addEventListener("click", (event) => {
+    const row = event.target.closest("[data-recording-id]");
+    if (!row) return;
+    openRecordingDetail(row.getAttribute("data-recording-id") || "");
+  });
+  recordingsList.addEventListener("keydown", (event) => {
+    const row = event.target.closest("[data-recording-id]");
+    if (!row) return;
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    openRecordingDetail(row.getAttribute("data-recording-id") || "");
+  });
+  recordingDetailClose.addEventListener("click", closeRecordingDetail);
+  recordingDetailModal.addEventListener("click", (event) => {
+    if (event.target === recordingDetailModal) {
+      closeRecordingDetail();
+    }
+  });
   window.addEventListener("beforeunload", (event) => {
     if (mediaRecorder?.state === "recording") {
       event.preventDefault();
       event.returnValue = "";
+    }
+  });
+  window.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && recordingDetailModal.classList.contains("is-open")) {
+      closeRecordingDetail();
     }
   });
 }

@@ -23,6 +23,7 @@ const allRecordingsActiveMembershipField = document.getElementById("all-recordin
 const activeOrganizationSelect = document.getElementById("active-organization-select");
 const activeMembershipRole = document.getElementById("active-membership-role");
 const recordingCount = document.getElementById("recording-count");
+const recordingPlayerShell = document.getElementById("recording-player-shell");
 const recordingPlayerHead = document.getElementById("recording-player-head");
 const selectedRecordingCopy = document.getElementById("selected-recording-copy");
 const recordingPlayer = document.getElementById("recording-player");
@@ -209,6 +210,7 @@ function clearPlayer() {
     activePlayerUrl = "";
   }
   activeTopPlayerRecordingId = "";
+  show(recordingPlayerShell, false);
   show(recordingPlayerHead, false);
   show(recordingPlayer, false);
   selectedRecordingCopy.textContent = "Select a recording below to load playback.";
@@ -350,7 +352,6 @@ function renderRecordings() {
       </div>
       <div class="recording-row-details">
         <span>${escapeHtml(formatDuration(recording.duration_seconds || 0))}</span>
-        <span>${escapeHtml(recording.audio_mime_type || "Audio pending")}</span>
         <span>${escapeHtml(formatBytes(recording.file_size || 0))}</span>
       </div>
       ${recording.processing_error ? `<p class="recording-row-note recording-row-note-error">${escapeHtml(recording.processing_error)}</p>` : ""}
@@ -380,6 +381,7 @@ async function playRecording(recordingId) {
   activePlayerUrl = signedUrl;
   activeTopPlayerRecordingId = recording.id;
   recordingPlayer.src = activePlayerUrl;
+  show(recordingPlayerShell, true);
   show(recordingPlayerHead, true);
   show(recordingPlayer, true);
   selectedRecordingCopy.textContent = `${recording.title || "Untitled recording"} · ${formatDateTime(recording.started_at || recording.created_at)}`;
@@ -472,6 +474,7 @@ async function syncDetailPlayerBackToTop() {
   activePlayerUrl = detailPlayerUrl;
   activeTopPlayerRecordingId = recording.id;
   recordingPlayer.src = activePlayerUrl;
+  show(recordingPlayerShell, true);
   show(recordingPlayerHead, true);
   show(recordingPlayer, true);
   selectedRecordingCopy.textContent = `${recording.title || "Untitled recording"} · ${formatDateTime(recording.started_at || recording.created_at)}`;
