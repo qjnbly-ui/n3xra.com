@@ -2375,33 +2375,6 @@ code.inline {
 }
 
 @media (min-width: 641px) {
-  .recordings-page .topbar-inner {
-    gap: 0.9rem;
-  }
-
-  .recordings-page .dashboard-topbar-row {
-    grid-template-columns: auto 1fr auto;
-  }
-
-  .recordings-page .mobile-menu,
-  .recordings-page .mobile-menu.hidden {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(140px, max-content));
-    justify-content: center;
-    gap: 0.55rem;
-    padding-top: 0;
-    margin-top: 0;
-    border: 0;
-  }
-
-  .recordings-page .mobile-menu-head {
-    display: none;
-  }
-
-  .recordings-page .menu-toggle {
-    display: none;
-  }
-
   .file-row-controls {
     gap: 0.45rem;
   }

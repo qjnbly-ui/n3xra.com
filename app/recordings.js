@@ -72,6 +72,7 @@ let recordingStartedAt = null;
 let durationTimer = null;
 let elapsedRecordingMs = 0;
 let activeDetailRecordingId = "";
+let isRecordingWorkflowActive = false;
 
 function buildAllRecordingsDetailHref(recordingId) {
   const params = new URLSearchParams();
@@ -234,17 +235,25 @@ function setRecorderState(label, copy) {
   recorderStateCopy.textContent = copy;
 }
 
+function clearRecorderStats() {
+  recorderStateLabel.textContent = "";
+  recordingDuration.textContent = "";
+  uploadStateValue.textContent = "";
+}
+
 function updateControls() {
   const recorderState = mediaRecorder?.state || "inactive";
-  const hasActiveSession = recorderState === "recording" || recorderState === "paused";
+  const isCaptureActive = recorderState === "recording" || recorderState === "paused";
+  const hasActiveSession = isRecordingWorkflowActive || isCaptureActive;
   const pauseSupported = isPauseSupported();
 
   startRecordingButton.disabled = !canRecordInActiveOrganization() || hasActiveSession || !window.MediaRecorder || !navigator.mediaDevices?.getUserMedia;
-  pauseRecordingButton.disabled = !hasActiveSession || !pauseSupported;
+  show(startRecordingButton, !hasActiveSession);
+  pauseRecordingButton.disabled = !isCaptureActive || !pauseSupported;
   pauseRecordingButton.textContent = recorderState === "paused" ? "Resume recording" : "Pause recording";
-  stopRecordingButton.disabled = !hasActiveSession;
-  show(pauseRecordingButton, hasActiveSession && pauseSupported);
-  show(stopRecordingButton, hasActiveSession);
+  stopRecordingButton.disabled = !isCaptureActive;
+  show(pauseRecordingButton, isCaptureActive && pauseSupported);
+  show(stopRecordingButton, isCaptureActive);
   activeOrganizationSelect.disabled = hasActiveSession || memberships.length <= 1;
   recordingTitleInput.disabled = hasActiveSession;
 }
@@ -593,6 +602,7 @@ async function finalizeRecording() {
     uploadStateValue.textContent = "Failed";
     setStatus(recordingStatus, getErrorMessage(error, "Unable to finish saving the recording."), "error");
   } finally {
+    isRecordingWorkflowActive = false;
     mediaRecorder = null;
     activeChunks = [];
     activeRecordingId = "";
@@ -600,6 +610,7 @@ async function finalizeRecording() {
     recordingStartedAt = null;
     elapsedRecordingMs = 0;
     recordingTitleInput.value = "";
+    clearRecorderStats();
     updateControls();
     await loadRecordings();
   }
@@ -623,6 +634,7 @@ async function handleStartRecording() {
   if (mediaRecorder?.state === "recording") return;
 
   const mimeType = getSupportedMimeType();
+  isRecordingWorkflowActive = true;
 
   setStatus(recordingStatus, "Creating recording session...");
   setRecorderState("Preparing", "Creating a meeting row before microphone capture starts.");
@@ -678,6 +690,7 @@ async function handleStartRecording() {
     updateControls();
     await loadRecordings();
   } catch (error) {
+    isRecordingWorkflowActive = false;
     stopDurationTimer();
     stopActiveStreamTracks();
     mediaRecorder = null;
@@ -699,8 +712,8 @@ async function handleStartRecording() {
       activeRecordingId = "";
     }
 
-    uploadStateValue.textContent = "Not started";
-    setRecorderState("Idle", "Ready to create a new recording session.");
+    clearRecorderStats();
+    setRecorderState("", "Ready to create a new recording session.");
     setStatus(recordingStatus, getErrorMessage(error, "Unable to start recording."), "error");
     await loadRecordings();
   }
@@ -738,9 +751,8 @@ async function handleOrganizationChange(nextOrganizationId) {
   activeMembership = nextMembership;
   setStoredActiveOrganizationId(nextOrganizationId);
   renderOrganizationSelector();
-  recordingDuration.textContent = "00:00";
-  uploadStateValue.textContent = "Not started";
-  setRecorderState("Idle", "Ready to create a new recording session.");
+  clearRecorderStats();
+  setRecorderState("", "Ready to create a new recording session.");
   setStatus(recordingStatus, "");
   elapsedRecordingMs = 0;
   if (recordingDetailModal.classList.contains("is-open")) {
