@@ -55,6 +55,24 @@ function getCaptchaTokenForRequest() {
   return captchaToken;
 }
 
+async function verifyCaptchaServerSide(captchaToken) {
+  if (!getTurnstileSiteKey()) return;
+
+  const response = await fetch("/api/verify-captcha", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify({ captchaToken }),
+  });
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || !payload?.ok) {
+    throw new Error(payload?.error || "Captcha verification failed.");
+  }
+}
+
 async function waitForTurnstile(maxWaitMs = 5000) {
   const startedAt = Date.now();
   while (!window.turnstile) {
@@ -265,6 +283,7 @@ async function handleSignup(event) {
   let submitCaptchaToken = "";
   try {
     submitCaptchaToken = getCaptchaTokenForRequest();
+    await verifyCaptchaServerSide(submitCaptchaToken);
   } catch (captchaError) {
     isSubmittingAuth = false;
     setStatus(getErrorMessage(captchaError, "Complete the security check first."), "error");
@@ -275,9 +294,7 @@ async function handleSignup(event) {
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
-    options: {
-      ...(submitCaptchaToken ? { captchaToken: submitCaptchaToken } : {}),
-      data: {
+    options: {      data: {
         full_name: fullName,
         organization_name: organizationName,
         invite_code: inviteCode,
@@ -337,6 +354,7 @@ async function handleSignin(event) {
   let submitCaptchaToken = "";
   try {
     submitCaptchaToken = getCaptchaTokenForRequest();
+    await verifyCaptchaServerSide(submitCaptchaToken);
   } catch (captchaError) {
     isSubmittingAuth = false;
     setStatus(getErrorMessage(captchaError, "Complete the security check first."), "error");
@@ -347,8 +365,7 @@ async function handleSignin(event) {
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password,
-    options: submitCaptchaToken ? { captchaToken: submitCaptchaToken } : undefined,
-  });
+      });
   if (error) {
     resetCaptcha();
     isSubmittingAuth = false;
@@ -386,6 +403,7 @@ async function handleForgotPassword() {
   let submitCaptchaToken = "";
   try {
     submitCaptchaToken = getCaptchaTokenForRequest();
+    await verifyCaptchaServerSide(submitCaptchaToken);
   } catch (captchaError) {
     isSubmittingAuth = false;
     setStatus(getErrorMessage(captchaError, "Complete the security check first."), "error");
@@ -396,9 +414,7 @@ async function handleForgotPassword() {
 
   const redirectTo = `${window.location.origin}/app/reset-password.html`;
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo,
-    ...(submitCaptchaToken ? { captchaToken: submitCaptchaToken } : {}),
-  });
+    redirectTo,  });
 
   resetCaptcha();
   isSubmittingAuth = false;
