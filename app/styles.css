@@ -281,6 +281,18 @@ a { color: inherit; }
   font-weight: 700;
 }
 
+.site-footer .builder-link {
+  color: inherit;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.site-footer .owner-link {
+  color: inherit;
+  font-weight: 700;
+  text-decoration: none;
+}
+
 .panel {
   background: var(--white);
   border-radius: var(--radius-lg);
