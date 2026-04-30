@@ -3,889 +3,510 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>N3XRA | Secure Records Portal</title>
-  <meta name="description" content="N3XRA helps organizations store, search, and manage records, meeting files, and documents in one secure, organized platform." />
+  <title>N3XRA | Records, Projects, AI Tools</title>
+  <meta name="description" content="N3XRA is the home for N3XRA Records, selected project systems, and AI tools built by Quentin Nichols." />
   <meta name="robots" content="index, follow" />
   <link rel="canonical" href="https://n3xra.com/" />
   <meta property="og:type" content="website" />
-  <meta property="og:title" content="N3XRA | Secure Records Portal" />
-  <meta property="og:description" content="N3XRA helps organizations store, search, and manage records, meeting files, and documents in one secure, organized platform." />
+  <meta property="og:title" content="N3XRA | Records, Projects, AI Tools" />
+  <meta property="og:description" content="Records software, project systems, AI tools, and selected digital infrastructure built under N3XRA." />
   <meta property="og:image" content="https://n3xra.com/assets/ogimage.png" />
   <meta property="og:url" content="https://n3xra.com/" />
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="N3XRA | Secure Records Portal" />
-  <meta name="twitter:description" content="N3XRA helps organizations store, search, and manage records, meeting files, and documents in one secure, organized platform." />
+  <meta name="twitter:title" content="N3XRA | Records, Projects, AI Tools" />
+  <meta name="twitter:description" content="Records software, project systems, AI tools, and selected digital infrastructure built under N3XRA." />
   <meta name="twitter:image" content="https://n3xra.com/assets/ogimage.png" />
-  <link rel="icon" type="image/png" href="./assets/n3xra_logo_transparent_small.png">
+  <meta name="application-name" content="N3XRA" />
+  <meta name="apple-mobile-web-app-title" content="N3XRA" />
+  <meta name="theme-color" content="#070c12" />
+  <meta name="msapplication-TileColor" content="#070c12" />
+  <meta name="msapplication-TileImage" content="https://n3xra.com/assets/n3xra_logo_transparent_small.png" />
+  <link rel="icon" type="image/png" sizes="284x284" href="./assets/n3xra_logo_transparent_small.png">
+  <link rel="shortcut icon" type="image/png" href="./assets/n3xra_logo_transparent_small.png">
+  <link rel="apple-touch-icon" href="./assets/n3xra_logo_transparent_small.png">
+  <link rel="manifest" href="./site.webmanifest">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./assets/site-nav.css">
   <link rel="stylesheet" href="./assets/site-intro.css?v=2">
+  <script src="./assets/site-nav.js" defer></script>
   <style>
     :root {
-      --ink: #0e1116;
-      --ink-soft: #1a1f26;
-      --slate: #5a6675;
-      --mist: #eef2f6;
-      --fog: #f7f9fc;
-      --gold: #f1a44b;
-      --teal: #1a7c72;
-      --mint: #bfe6dd;
-      --shadow: 0 24px 60px rgba(12, 18, 28, 0.18);
-      --radius-lg: 24px;
-      --radius-md: 16px;
-      --radius-pill: 999px;
+      --ink: #0b1016;
+      --muted: #647082;
+      --paper: #f6f8fb;
+      --line: rgba(16, 24, 36, 0.13);
+      --cyan: #16b9ed;
+      --green: #16836f;
+      --gold: #e3a23a;
+      --deep: #070c12;
+      --radius: 8px;
+      --shadow: 0 24px 70px rgba(7, 12, 18, 0.22);
     }
 
-    * { box-sizing: border-box; }
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
 
     body {
       margin: 0;
-      font-family: "Manrope", "Trebuchet MS", sans-serif;
+      font-family: "Manrope", Arial, sans-serif;
       color: var(--ink);
-      line-height: 1.7;
-      background:
-        radial-gradient(900px 420px at 8% 12%, rgba(26, 124, 114, 0.18), transparent 60%),
-        radial-gradient(720px 460px at 90% -5%, rgba(241, 164, 75, 0.2), transparent 60%),
-        linear-gradient(180deg, #f9fafc 0%, #eef2f6 100%);
+      background: var(--paper);
+      line-height: 1.55;
+      min-height: 100svh;
+      display: flex;
+      flex-direction: column;
     }
 
-    header {
-      position: relative;
-      overflow: hidden;
-      color: #ffffff;
-      background:
-        radial-gradient(600px 360px at 15% 20%, rgba(26, 124, 114, 0.4), transparent 60%),
-        radial-gradient(520px 300px at 85% 10%, rgba(241, 164, 75, 0.38), transparent 55%),
-        linear-gradient(135deg, #0c1218 0%, #101924 50%, #0c131a 100%);
-      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    a {
+      color: inherit;
     }
 
-    header::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background: radial-gradient(500px 280px at 70% 70%, rgba(255, 255, 255, 0.08), transparent 65%);
-      opacity: 0.8;
-      pointer-events: none;
+    img {
+      display: block;
+      max-width: 100%;
     }
 
-    .header-shell {
-      max-width: 1100px;
+    .section-inner,
+    .footer-inner {
+      width: min(1120px, calc(100vw - 2rem));
       margin: 0 auto;
-      padding: 2rem 1.8rem 2.2rem;
-      display: grid;
-      gap: 0.8rem;
-      position: relative;
-      z-index: 1;
-      justify-items: center;
     }
 
-    .hero-logo {
-      width: min(420px, 78vw);
-      height: auto;
-      object-fit: contain;
-      filter: drop-shadow(0 30px 54px rgba(4, 10, 16, 0.28));
-    }
-
-    .header-pill {
-      padding: 0.45rem 0.95rem;
-      border-radius: var(--radius-pill);
-      background: rgba(255, 255, 255, 0.12);
-      color: #ffffff;
-      text-decoration: none;
-      font-size: 0.8rem;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
-
-    .hero-grid {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 0.35rem;
+    .button {
+      min-height: 42px;
+      display: inline-flex;
       align-items: center;
-      justify-items: center;
-      width: 100%;
+      justify-content: center;
+      padding: 0.72rem 1rem;
+      border-radius: 999px;
+      text-decoration: none;
+      font-size: 0.88rem;
+      font-weight: 800;
+      border: 1px solid rgba(255, 255, 255, 0.24);
     }
 
-    .hero-copy {
-      display: grid;
-      gap: 1.1rem;
-      text-align: center;
-      justify-items: center;
-      max-width: 720px;
-      margin: -2.1rem auto 0;
+    .button:hover {
+      transform: translateY(-1px);
     }
 
-    .hero-kicker {
-      letter-spacing: 0.28em;
+    .eyebrow {
+      margin: 0;
+      color: #98e9ff;
+      font-size: 0.76rem;
+      font-weight: 800;
+      letter-spacing: 0.22em;
       text-transform: uppercase;
-      font-size: 0.72rem;
-      color: rgba(255, 255, 255, 0.7);
-      margin: 0;
     }
 
-    .hero-title {
+    h1,
+    h2,
+    h3 {
       margin: 0;
-      font-family: "Fraunces", "Times New Roman", serif;
-      font-size: clamp(2.3rem, 4vw, 3.4rem);
-      line-height: 1.05;
+      line-height: 1.02;
+    }
+
+    h1,
+    h2 {
+      font-family: "Fraunces", Georgia, serif;
+      font-weight: 700;
+      letter-spacing: 0;
+    }
+
+    h1 {
+      max-width: 860px;
+      font-size: clamp(2.85rem, 6.4vw, 5.7rem);
     }
 
     .hero-lede {
+      max-width: 760px;
       margin: 0;
-      color: rgba(255, 255, 255, 0.78);
-      max-width: 620px;
-      margin-left: auto;
-      margin-right: auto;
-    }
-
-    .cta.hero-login {
-      margin-top: 0.35rem;
-      min-width: 220px;
-      background: rgba(255, 255, 255, 0.14);
-      color: #ffffff;
-      border-color: rgba(255, 255, 255, 0.3);
-      box-shadow: 0 10px 20px rgba(6, 12, 20, 0.26);
-    }
-
-    .cta.hero-login:hover {
-      background: rgba(255, 255, 255, 0.18);
-      color: #ffffff;
-      box-shadow: 0 12px 24px rgba(6, 12, 20, 0.3);
-      transform: none;
-    }
-
-    .social-select-row {
-      display: grid;
-      gap: 0.35rem;
-      justify-items: center;
-      margin-top: 0.9rem;
-    }
-
-    .social-select-label {
-      margin: 0;
-      font-size: 0.76rem;
-      letter-spacing: 0.16em;
-      text-transform: uppercase;
-      color: var(--teal);
+      color: rgba(255, 255, 255, 0.72);
+      font-size: clamp(1.02rem, 2vw, 1.22rem);
       font-weight: 700;
     }
 
-    .social-inline-links {
+    .button-row {
       display: flex;
       flex-wrap: wrap;
+      gap: 0.75rem;
+      align-items: center;
       justify-content: center;
-      gap: 0.6rem;
-      color: var(--ink);
-      font-weight: 700;
+      margin-top: 0.2rem;
     }
 
-    .social-inline-links a {
-      color: var(--ink);
-      text-decoration: none;
+    .button-primary {
+      color: #081018;
+      background: #ffffff;
+      border-color: #ffffff;
+      box-shadow: 0 18px 45px rgba(0, 0, 0, 0.28);
     }
 
-    .social-inline-links a:hover {
-      color: var(--teal);
+    .button-ghost {
+      color: #ffffff;
+      background: rgba(255, 255, 255, 0.1);
+      border-color: rgba(255, 255, 255, 0.28);
     }
 
-    .container {
-      max-width: 1100px;
-      margin: 0 auto;
-      padding: 2rem 1.8rem 4rem;
+    .microline {
+      margin: 0;
+      color: rgba(255, 255, 255, 0.56);
+      font-size: 0.9rem;
+    }
+
+    main {
+      display: grid;
+      flex: 1;
+    }
+
+    .software-band {
+      background: #ffffff;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .section {
+      padding: clamp(3rem, 7vw, 5.5rem) 0;
+    }
+
+    .section-inner {
       display: grid;
       gap: 1.6rem;
     }
 
-    .hero {
-      background: #ffffff;
-      border-radius: var(--radius-lg);
-      padding: 2.4rem clamp(1.8rem, 3vw, 2.6rem);
-      box-shadow: var(--shadow);
-      text-align: center;
+    .section-head {
+      max-width: 780px;
       display: grid;
-      gap: 0.9rem;
-      justify-items: center;
-      border: 1px solid rgba(15, 22, 32, 0.08);
+      gap: 0.75rem;
     }
 
-    .roadmap-note {
-      background:
-        radial-gradient(320px 140px at 0% 0%, rgba(26, 124, 114, 0.1), transparent 60%),
-        radial-gradient(260px 120px at 100% 100%, rgba(241, 164, 75, 0.12), transparent 60%),
-        linear-gradient(180deg, #ffffff 0%, #f7fafc 100%);
-      border-radius: var(--radius-lg);
-      padding: 1.35rem 1.5rem;
-      border: 1px solid rgba(15, 22, 32, 0.08);
-      box-shadow: 0 16px 35px rgba(15, 22, 32, 0.08);
-      display: grid;
-      gap: 0.55rem;
+    .section-head.center {
       text-align: center;
       justify-items: center;
+      margin: 0 auto;
     }
 
-    .roadmap-note-label,
-    .roadmap-note p {
+    .section-head .eyebrow {
+      color: var(--green);
+    }
+
+    h2 {
+      font-size: clamp(2rem, 4.6vw, 4rem);
+    }
+
+    .section-copy {
+      max-width: 68ch;
       margin: 0;
+      color: var(--muted);
+      font-size: 1.03rem;
     }
 
-    .roadmap-note-label {
-      font-size: 0.76rem;
+    .software-panel {
+      border-radius: 22px;
+      border: 1px solid rgba(63, 140, 255, 0.28);
+      padding: clamp(1.2rem, 3vw, 2.4rem);
+      color: #fff;
+      background:
+        url("./assets/MAINLOGO.png") right 7% center / min(430px, 35vw) no-repeat,
+        radial-gradient(circle at 16% 10%, rgba(34, 138, 255, 0.2), transparent 22rem),
+        radial-gradient(circle at 85% 20%, rgba(27, 90, 191, 0.16), transparent 20rem),
+        linear-gradient(180deg, #050d1a 0%, #01060f 100%);
+      box-shadow: 0 28px 72px rgba(1, 8, 20, 0.45);
+      display: grid;
+      gap: 1.3rem;
+    }
+
+    .software-lede {
+      display: grid;
+      gap: 0.8rem;
+      max-width: 22ch;
+    }
+
+    .software-lede h3 {
+      margin: 0;
+      font-size: clamp(1.9rem, 5vw, 3.4rem);
+      line-height: 1.05;
+      color: #f7fbff;
+    }
+
+    .software-lede strong {
+      color: #22aeff;
+      font-weight: 800;
+    }
+
+    .software-lede p {
+      margin: 0;
+      color: rgba(229, 242, 255, 0.86);
+      max-width: 58ch;
+      font-size: 1.06rem;
+    }
+
+    .software-features {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      border-top: 1px solid rgba(112, 176, 255, 0.16);
+      padding-top: 1rem;
+    }
+
+    .software-feature {
+      padding: 0.45rem 1rem;
+      display: grid;
+      gap: 0.42rem;
+    }
+
+    .software-feature + .software-feature {
+      border-left: 1px solid rgba(112, 176, 255, 0.18);
+    }
+
+    .software-feature h4 {
+      margin: 0;
+      font-size: 1.05rem;
+      color: #f1f8ff;
+    }
+
+    .software-feature p {
+      margin: 0;
+      font-size: 0.92rem;
+      color: rgba(203, 221, 238, 0.88);
+    }
+
+    .software-cta {
+      width: fit-content;
+      min-height: 50px;
+      padding: 0.72rem 1.3rem;
+      border-radius: 999px;
+      border: 1px solid rgba(66, 161, 255, 0.64);
+      color: #4fb7ff;
+      text-decoration: none;
+      font-size: 0.84rem;
+      font-weight: 800;
       letter-spacing: 0.16em;
       text-transform: uppercase;
-      color: var(--teal);
-      font-weight: 700;
-    }
-
-    .roadmap-note p {
-      max-width: 76ch;
-      color: var(--ink-soft);
-    }
-
-    .hero h2 {
-      margin: 0;
-      font-family: "Fraunces", "Times New Roman", serif;
-      font-size: clamp(1.7rem, 2.8vw, 2.2rem);
-      color: var(--ink);
-    }
-
-    .hero p {
-      margin: 0;
-      color: var(--slate);
-    }
-
-    .cta-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.9rem;
-      justify-content: center;
-      margin-top: 0.3rem;
-    }
-
-    .cta {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      padding: 0.75rem 1.6rem;
-      border-radius: var(--radius-pill);
-      text-decoration: none;
-      font-weight: 600;
-      font-size: 0.95rem;
-      color: #0f141b;
-      background: linear-gradient(135deg, rgba(241, 164, 75, 0.25), rgba(26, 124, 114, 0.25));
-      border: 1px solid rgba(15, 22, 32, 0.12);
-      box-shadow: 0 16px 28px rgba(15, 22, 32, 0.14);
-      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      background: rgba(17, 45, 87, 0.18);
     }
 
-    .cta:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 22px 36px rgba(15, 22, 32, 0.18);
+    .projects-band {
+      color: #ffffff;
+      background: var(--deep);
     }
 
-    .grid {
+    .projects-band .section-copy {
+      color: rgba(255, 255, 255, 0.68);
+    }
+
+    .projects-band .section-head .eyebrow {
+      color: #98e9ff;
+    }
+
+    .software-band .section-head .eyebrow {
+      color: #0b1016;
+    }
+
+    .project-strip {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 1.2rem;
-    }
-
-    .section-title {
-      margin: 0;
-      font-family: "Fraunces", "Times New Roman", serif;
-      font-size: clamp(1.5rem, 2.4vw, 2rem);
-      color: var(--ink);
-      text-align: center;
-    }
-
-    .section-lede {
-      margin: 0.4rem auto 0;
-      color: var(--slate);
-      text-align: center;
-      max-width: 70ch;
-    }
-
-    .card {
-      background: #ffffff;
-      border-radius: var(--radius-md);
-      padding: 1.5rem 1.6rem;
-      border: 1px solid rgba(15, 22, 32, 0.08);
-      box-shadow: 0 16px 35px rgba(15, 22, 32, 0.08);
-      display: grid;
-      gap: 0.6rem;
-      position: relative;
-      overflow: hidden;
-      text-align: center;
-      justify-items: center;
-    }
-
-    .card::after {
-      content: "";
-      position: absolute;
-      inset: 0;
-      border-radius: inherit;
-      background: radial-gradient(240px 140px at 100% 0%, rgba(191, 230, 221, 0.35), transparent 70%);
-      opacity: 0;
-      transition: opacity 0.2s ease;
-      pointer-events: none;
-    }
-
-    .card:hover::after {
-      opacity: 1;
-    }
-
-    .card h3 {
-      margin: 0;
-      font-size: 1.08rem;
-      color: var(--ink);
-    }
-
-    .card p {
-      margin: 0;
-      color: var(--slate);
-    }
-
-    .feature-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 1.2rem;
-    }
-
-    .feature-card {
-      gap: 0.8rem;
-    }
-
-    .feature-card-head {
-      display: grid;
-      gap: 0.32rem;
-      justify-items: center;
-    }
-
-    .feature-kicker {
-      margin: 0;
-      font-size: 0.74rem;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      color: var(--teal);
-      font-weight: 700;
-    }
-
-    .feature-card h3 {
-      font-size: 1.14rem;
-      line-height: 1.2;
-    }
-
-    .feature-card p {
-      color: var(--ink-soft);
-    }
-
-    .pricing-section {
-      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 1rem;
     }
 
-    .embed-showcase {
+    .project {
+      position: relative;
+      min-height: 350px;
+      display: flex;
+      align-items: flex-end;
+      overflow: hidden;
+      border-radius: var(--radius);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: #121a22;
+      text-decoration: none;
+      box-shadow: 0 24px 64px rgba(0, 0, 0, 0.28);
+    }
+
+    .project.availability {
+      background:
+        linear-gradient(155deg, rgba(10, 20, 32, 0.78) 10%, rgba(2, 8, 14, 0.95) 100%),
+        url("./assets/MAINLOGO.png") center center / cover no-repeat;
+    }
+
+    .project img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform 420ms ease;
+    }
+
+    .project::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(7, 12, 18, 0.08), rgba(7, 12, 18, 0.86));
+    }
+
+    .project:hover img {
+      transform: scale(1.04);
+    }
+
+    .project.availability:hover {
+      border-color: rgba(152, 233, 255, 0.4);
+    }
+
+    .project-body {
+      position: relative;
+      z-index: 1;
+      padding: 1.2rem;
       display: grid;
-      grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
-      gap: 1.2rem;
-      align-items: start;
+      gap: 0.45rem;
     }
 
-    .embed-copy,
-    .embed-preview-card {
-      background: #ffffff;
-      border-radius: var(--radius-lg);
-      padding: 1.4rem;
-      border: 1px solid rgba(15, 22, 32, 0.08);
-      box-shadow: 0 16px 35px rgba(15, 22, 32, 0.08);
+    .project-body span {
+      color: #98e9ff;
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
     }
 
-    .embed-copy {
-      display: grid;
-      gap: 0.9rem;
-      text-align: center;
-      justify-items: center;
-    }
-
-    .embed-copy h3,
-    .embed-copy p,
-    .embed-copy pre {
-      margin: 0;
-    }
-
-    .embed-copy h3,
-    .embed-preview-head h3 {
-      font-family: "Fraunces", "Times New Roman", serif;
-      color: var(--ink);
-    }
-
-    .embed-copy h3 {
+    .project-body h3 {
       font-size: 1.35rem;
     }
 
-    .embed-code-block {
-      overflow-x: auto;
-      border-radius: var(--radius-md);
-      background: #101924;
-      color: #eef2f6;
-      padding: 1rem;
-      font-size: 0.88rem;
-      line-height: 1.6;
-      border: 1px solid rgba(255, 255, 255, 0.06);
-      text-align: left;
-      width: 100%;
-    }
-
-    .embed-preview-card {
-      display: grid;
-      gap: 0.9rem;
-    }
-
-    .embed-preview-head {
-      display: grid;
-      gap: 0.25rem;
-      text-align: center;
-      justify-items: center;
-    }
-
-    .embed-preview-head h3,
-    .embed-preview-head p {
+    .project-body p {
       margin: 0;
+      color: rgba(255, 255, 255, 0.72);
+      font-size: 0.94rem;
     }
 
-    .embed-preview-head h3 {
-      font-size: 1.2rem;
-    }
-
-    .embed-preview-head p {
-      color: var(--slate);
-    }
-
-    .embed-browser-bar {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.7rem 0.85rem;
-      border-radius: var(--radius-md) var(--radius-md) 0 0;
-      background: linear-gradient(180deg, #f4f7fb 0%, #edf2f8 100%);
-      border: 1px solid rgba(15, 22, 32, 0.08);
-      border-bottom: 0;
-    }
-
-    .embed-browser-dots {
-      display: flex;
-      gap: 0.35rem;
-    }
-
-    .embed-browser-dots span {
-      width: 0.62rem;
-      height: 0.62rem;
-      border-radius: 50%;
-      background: rgba(15, 22, 32, 0.14);
-      display: inline-block;
-    }
-
-    .embed-browser-url {
-      min-width: 0;
-      flex: 1;
-      border-radius: var(--radius-pill);
-      background: #ffffff;
-      border: 1px solid rgba(15, 22, 32, 0.08);
-      padding: 0.42rem 0.8rem;
-      color: var(--slate);
-      font-size: 0.84rem;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .embed-preview-surface {
-      border: 1px solid rgba(15, 22, 32, 0.08);
-      border-radius: 0 0 var(--radius-md) var(--radius-md);
-      background: #f7f9fc;
-      padding: 0.95rem;
-    }
-
-    .embed-preview-shell {
-      background: #ffffff;
-      border: 1px solid rgba(15, 22, 32, 0.08);
-      border-radius: 18px;
-      padding: 1rem;
-      display: grid;
-      gap: 0.8rem;
-    }
-
-    .embed-preview-kicker,
-    .embed-preview-meta {
-      margin: 0;
-      color: var(--slate);
-    }
-
-    .embed-preview-kicker {
-      font-size: 0.74rem;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-    }
-
-    .embed-preview-title {
-      margin: 0;
-      font-family: "Fraunces", "Times New Roman", serif;
-      font-size: clamp(1.3rem, 2vw, 1.8rem);
-      color: var(--ink);
-    }
-
-    .embed-preview-search {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) 120px auto;
-      gap: 0.75rem;
-    }
-
-    .embed-preview-search-field {
-      display: grid;
-      gap: 0.38rem;
-      text-align: left;
-    }
-
-    .embed-preview-search-field label {
-      font-size: 0.76rem;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      font-weight: 700;
-      color: var(--teal);
-    }
-
-    .embed-preview-field,
-    .embed-preview-button {
-      border: 1px solid rgba(15, 22, 32, 0.1);
-      border-radius: 14px;
-      background: #ffffff;
-      padding: 0.8rem 0.9rem;
-      color: var(--slate);
-      font-size: 0.92rem;
-    }
-
-    .embed-preview-button {
-      background: #eef2f6;
-      font-weight: 700;
-      text-align: center;
-      align-self: end;
-    }
-
-    .embed-preview-list {
-      display: grid;
-      gap: 0.75rem;
-    }
-
-    .embed-preview-item {
-      border: 1px solid rgba(15, 22, 32, 0.08);
-      border-radius: 16px;
-      padding: 0.9rem;
-      background: linear-gradient(180deg, #ffffff 0%, #f8fbfa 100%);
-      display: grid;
-      gap: 0.8rem;
-    }
-
-    .embed-preview-heading {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 1rem;
-      flex-wrap: wrap;
-    }
-
-    .embed-preview-record-main {
-      display: grid;
-      gap: 0.7rem;
-      text-align: left;
-    }
-
-    .embed-preview-item h4 {
-      margin: 0;
-      color: var(--ink);
-      font-size: 1rem;
-    }
-
-    .embed-preview-actions {
-      display: flex;
-      gap: 0.55rem;
-      flex-wrap: wrap;
-    }
-
-    .embed-preview-link {
-      border: 1px solid rgba(15, 22, 32, 0.12);
-      border-radius: var(--radius-pill);
-      padding: 0.52rem 0.8rem;
-      background: #ffffff;
-      color: var(--ink-soft);
-      font-size: 0.84rem;
-      font-weight: 700;
-    }
-
-    .embed-preview-status {
-      border-radius: var(--radius-pill);
-      padding: 0.3rem 0.7rem;
-      background: var(--fog);
-      border: 1px solid rgba(15, 22, 32, 0.1);
-      font-size: 0.82rem;
-      font-weight: 700;
-      color: var(--ink-soft);
-    }
-
-    .pricing-lede {
-      margin: 0 auto;
-      max-width: 720px;
-      text-align: center;
-      color: var(--slate);
-    }
-
-    .pricing-card {
-      display: grid;
-      grid-template-rows: auto auto minmax(3.4rem, auto) 1fr;
-      gap: 0.9rem;
-      padding: 1.3rem;
-      text-align: center;
-      justify-items: center;
-      align-content: start;
-    }
-
-    .pricing-tier {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.45rem;
-      font-size: 0.78rem;
-      letter-spacing: 0.16em;
-      text-transform: uppercase;
-      color: var(--teal);
-      font-weight: 700;
-    }
-
-    .pricing-price {
-      display: flex;
-      align-items: baseline;
-      gap: 0.35rem;
-      font-family: "Fraunces", "Times New Roman", serif;
-      color: var(--ink);
-    }
-
-    .pricing-price strong {
-      font-size: 2rem;
-      line-height: 1;
-    }
-
-    .pricing-price span {
-      color: var(--slate);
-      font-size: 0.96rem;
-    }
-
-    .pricing-copy {
-      margin: 0;
-      color: var(--slate);
-    }
-
-    .pricing-list {
-      margin: 0;
-      padding-left: 1.1rem;
-      color: var(--ink-soft);
-      display: grid;
-      gap: 0.45rem;
-      text-align: left;
-      justify-self: stretch;
-    }
-
-    .card .price {
-      font-weight: 700;
-      color: var(--ink);
-      margin-top: 0.2rem;
-    }
-
-    .card .tag {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.4rem;
-      padding: 0.2rem 0.6rem;
-      border-radius: var(--radius-pill);
-      background: var(--fog);
-      border: 1px solid rgba(15, 22, 32, 0.1);
-      font-size: 0.72rem;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: var(--teal);
-      font-weight: 700;
-    }
-
-    .story-panel {
-      background: linear-gradient(135deg, rgba(26, 124, 114, 0.08), rgba(241, 164, 75, 0.08));
-      border-radius: var(--radius-lg);
-      padding: 2rem 2.4rem;
-      border: 1px solid rgba(15, 22, 32, 0.08);
-      box-shadow: var(--shadow);
-      position: relative;
-      overflow: hidden;
-    }
-
-    .story-panel::after {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background: radial-gradient(260px 180px at 90% 20%, rgba(191, 230, 221, 0.4), transparent 70%);
-      opacity: 0.7;
-      pointer-events: none;
-    }
-
-    .story-panel .section-title,
-    .story-panel .section-lede {
-      position: relative;
-      z-index: 1;
-      text-align: center;
-      margin-left: auto;
-      margin-right: auto;
-    }
-
-    .story-panel .section-lede {
-      max-width: 78ch;
-    }
-
-    .trust-strip {
-      display: grid;
-      grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
-      gap: 1rem;
+    .closing {
       background:
-        radial-gradient(300px 140px at 100% 0%, rgba(241, 164, 75, 0.12), transparent 60%),
-        linear-gradient(180deg, #fbfcfe 0%, #f4f7fb 100%);
-      border-radius: var(--radius-lg);
-      padding: 1.4rem 1.5rem;
-      border: 1px solid rgba(15, 22, 32, 0.08);
-      box-shadow: 0 16px 35px rgba(15, 22, 32, 0.08);
-      align-items: center;
+        linear-gradient(90deg, rgba(246, 248, 251, 0.96), rgba(246, 248, 251, 0.82)),
+        url("./assets/MAINLOGO.png") right center / min(560px, 65vw) no-repeat;
     }
 
-    .trust-strip-head {
+    .closing-panel {
+      max-width: 660px;
       display: grid;
-      gap: 0.65rem;
-      align-content: start;
-      text-align: center;
+      gap: 1rem;
+      margin: 0 auto;
       justify-items: center;
+      text-align: center;
     }
 
-    .trust-strip-head h2,
-    .trust-strip-head p {
-      margin: 0;
+    .closing .button-primary {
+      color: #ffffff;
+      background: var(--deep);
+      border-color: var(--deep);
     }
 
-    .trust-strip-head h2 {
-      font-size: 1.1rem;
-      font-family: "Fraunces", "Times New Roman", serif;
+    .closing .button-ghost {
       color: var(--ink);
-    }
-
-    .trust-strip-head p {
-      color: var(--slate);
-    }
-
-    .trust-copy {
-      margin: 0;
-      color: var(--ink-soft);
-      max-width: 58ch;
-    }
-
-    .trust-pills {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.65rem;
-      align-content: start;
-      justify-content: center;
-    }
-
-    .trust-pill {
-      display: inline-flex;
-      align-items: center;
-      padding: 0.6rem 0.85rem;
-      border-radius: 16px;
-      border: 1px solid rgba(15, 22, 32, 0.1);
       background: rgba(255, 255, 255, 0.78);
-      color: var(--ink-soft);
-      font-size: 0.92rem;
-      font-weight: 700;
+      border-color: var(--line);
+    }
+
+    .closing .eyebrow {
+      color: #0b1016;
     }
 
     .site-footer {
-      text-align: center;
-      padding: 0 0 2.4rem;
-      color: var(--slate);
-      font-size: 0.95rem;
+      padding: 1.35rem 0;
+      color: rgba(255, 255, 255, 0.58);
+      background: #070c12;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
     }
 
-    .site-footer p {
+    .footer-inner {
+      display: grid;
+      gap: 0.6rem;
+      justify-items: center;
+      font-size: 0.86rem;
+      text-align: center;
+    }
+
+    .footer-inner p {
       margin: 0;
     }
 
-    .site-footer p + p {
-      margin-top: 0.35rem;
-    }
-
-    .site-footer a {
-      color: var(--teal);
-      text-decoration: none;
-      font-weight: 700;
-    }
-
-    .site-footer .builder-link {
+    .footer-inner a {
       color: inherit;
-      font-weight: 700;
       text-decoration: none;
+      font-weight: 800;
     }
 
-    .site-footer .owner-link {
-      color: inherit;
-      font-weight: 700;
-      text-decoration: none;
+    @media (max-width: 900px) {
+      .software-panel {
+        background:
+          radial-gradient(circle at 16% 10%, rgba(34, 138, 255, 0.2), transparent 22rem),
+          radial-gradient(circle at 85% 20%, rgba(27, 90, 191, 0.16), transparent 20rem),
+          linear-gradient(180deg, #050d1a 0%, #01060f 100%);
+      }
+
+      .software-lede {
+        max-width: 100%;
+        justify-items: center;
+        text-align: center;
+        padding-top: clamp(6rem, 22vw, 8.75rem);
+      }
+
+      .software-features {
+        grid-template-columns: 1fr;
+        text-align: center;
+      }
+
+      .software-feature + .software-feature {
+        border-left: 0;
+        border-top: 1px solid rgba(112, 176, 255, 0.18);
+      }
+
+      .software-cta {
+        justify-self: center;
+      }
+
+      .project-strip {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .project {
+        min-height: 300px;
+      }
     }
 
-    @media (max-width: 800px) {
-      .header-shell {
-        padding: 1.8rem 1.4rem 2.1rem;
-      }
-    }
-
-    @media (max-width: 700px) {
-      .hero-copy {
-        margin-top: -1.1rem;
+    @media (max-width: 680px) {
+      h1 {
+        font-size: clamp(2.6rem, 14vw, 4.2rem);
       }
 
-      .container {
-        padding: 2.8rem 1.2rem 3rem;
+      .button-row,
+      .button {
+        width: 100%;
       }
-      .hero {
-        padding: 2rem 1.4rem;
+
+      .closing {
+        background:
+          linear-gradient(180deg, rgba(246, 248, 251, 0.96), rgba(246, 248, 251, 0.9)),
+          url("./assets/MAINLOGO.png") center center / 92vw no-repeat;
+        padding: 3.25rem 0;
       }
-      .cta-row {
+
+      .closing .section-inner {
+        display: grid;
+        place-items: center;
+      }
+
+      .footer-inner {
         flex-direction: column;
-        width: 100%;
       }
-      .cta {
-        width: 100%;
-      }
-      .embed-showcase {
-        grid-template-columns: 1fr;
-      }
-      .trust-strip {
-        grid-template-columns: 1fr;
-      }
-      .embed-preview-search {
-        grid-template-columns: 1fr;
-      }
-
     }
-  </style>
-  <!-- Google tag (gtag.js) -->
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-ESFM9WKBF9"></script>
-  <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
 
-    gtag('config', 'G-ESFM9WKBF9');
-  </script>
+  </style>
 </head>
 <body>
   <div class="entry-splash" aria-hidden="true" data-entry-splash>
@@ -893,262 +514,134 @@
   </div>
   <script src="./assets/site-intro.js?v=2"></script>
 
-  <header>
-    <div class="header-shell">
-      <div class="hero-grid">
-        <img class="hero-logo" src="./assets/n3xra_logo_transparent.png" alt="n3xra.com logo" />
-        <div class="hero-copy">
-          <p class="hero-kicker">Store. Search. Manage.</p>
-          <h1 class="hero-title">Records, meeting files, and documents in one secure platform</h1>
-          <p class="hero-lede">N3XRA helps organizations store, search, and manage recurring records, meeting packets, agendas, and shared documents without messy folders or hard-to-search archives.</p>
-          <a class="cta hero-login" href="/app/login.html">Account Login</a>
-        </div>
+  <header class="site-topbar">
+    <div class="site-topbar-inner">
+      <div class="site-topbar-row">
+        <a class="site-brand" href="/" aria-label="N3XRA home">
+          <img src="./assets/n3xra_logo_transparent.png" alt="N3XRA">
+        </a>
+        <nav class="site-desktop-menu" aria-label="Primary">
+          <a class="site-menu-link" href="/software/">N3XRA Records</a>
+          <a class="site-menu-link" href="/projects/">Projects</a>
+          <a class="site-menu-link" href="/ai-music-generator/">AI Music Generator</a>
+        </nav>
+        <button class="site-menu-toggle" type="button" aria-expanded="false" aria-controls="home-mobile-menu" aria-label="Open menu" data-site-menu-toggle>
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
       </div>
+      <nav class="site-mobile-menu" id="home-mobile-menu" aria-label="Mobile primary" hidden>
+        <div class="site-mobile-menu-head">
+          <p class="site-mobile-menu-title">Navigate</p>
+        </div>
+        <a class="site-menu-link" href="/software/">N3XRA Records</a>
+        <a class="site-menu-link" href="/projects/">Projects</a>
+        <a class="site-menu-link" href="/ai-music-generator/">AI Music Generator</a>
+      </nav>
     </div>
   </header>
 
-  <main class="container">
-    <section class="hero">
-      <h2>Built for a specific records problem</h2>
-      <p>N3XRA is built for organizations that need records, meeting files, and documents to stay organized, searchable, and usable long after they are uploaded.</p>
-      <div class="cta-row">
-        <a class="cta" href="/demo">Try a demo</a>
-      </div>
-      <p class="page-subtitle">Explore the interactive demo to see how searchable records, shared access, and public-facing delivery work together in practice.</p>
-    </section>
-
-    <section class="story-panel">
-      <h2 class="section-title">Why N3XRA</h2>
-      <p class="section-lede">The “3” in N3XRA points to the three parts of records management that usually break apart over time: storing records, finding them later, and keeping them useful once they are there.</p>
-      <div class="social-select-row">
-        <p class="social-select-label">Follow Us On</p>
-        <p class="social-inline-links">
-          <a href="https://x.com/getn3xra" target="_blank" rel="noopener">X</a>
-          <span>·</span>
-          <a href="https://www.facebook.com/getn3xra" target="_blank" rel="noopener">Facebook</a>
-        </p>
-      </div>
-    </section>
-
-    <section class="roadmap-note" aria-label="Platform roadmap">
-      <p class="roadmap-note-label">Platform Roadmap</p>
-      <p>N3XRA starts with core records search, storage, sharing, and public access. Planned expansion includes broader file support, AI-assisted research across your records, transcription workflows, and more complete document handling tools.</p>
-    </section>
-
-    <section class="feature-grid">
-      <article class="card feature-card">
-        <div class="feature-card-head">
-          <p class="feature-kicker">Ingestion</p>
-          <h3>Upload records with structure</h3>
+  <main>
+    <section class="section software-band" aria-label="The software">
+      <div class="section-inner">
+        <div class="section-head center">
+          <p class="eyebrow">The software</p>
         </div>
-        <p>Add DOCX and text-based files to an archive designed for recurring records, not general-purpose file dumping.</p>
-      </article>
-      <article class="card feature-card">
-        <div class="feature-card-head">
-          <p class="feature-kicker">Retrieval</p>
-          <h3>Search records quickly</h3>
-        </div>
-        <p>Search across saved records with keyword matching and year filters when you need a specific meeting or filing period.</p>
-      </article>
-      <article class="card feature-card">
-        <div class="feature-card-head">
-          <p class="feature-kicker">Access</p>
-          <h3>Open, preview, and download</h3>
-        </div>
-        <p>Review records in a built-in viewer, open the source file, and download what you need without digging through folders.</p>
-      </article>
-      <article class="card feature-card">
-        <div class="feature-card-head">
-          <p class="feature-kicker">Delivery</p>
-          <h3>Support public and internal use</h3>
-        </div>
-        <p>Keep internal access role-based while providing a cleaner public-facing records destination when records need to be shared.</p>
-      </article>
-    </section>
 
-    <section>
-      <h2 class="section-title">Shared access, clearly defined</h2>
-      <p class="section-lede">Libraries can already be shared with different permission levels, so billing, settings, file editing, and read-only access stay separated.</p>
-      <div class="grid">
-        <article class="card">
-          <h3>Owner</h3>
-          <p>Owns the library and controls billing, plan changes, and ownership-level decisions.</p>
-        </article>
-        <article class="card">
-          <h3>Account Admin</h3>
-          <p>Manages shared access, invite codes, library settings, and day-to-day administration without owning billing.</p>
-        </article>
-        <article class="card">
-          <h3>Editor</h3>
-          <p>Uploads, edits, deletes, downloads, and shares files, but does not manage billing or library access.</p>
-        </article>
-        <article class="card">
-          <h3>Viewer</h3>
-          <p>Gets read-only access to files with download and share access, without admin or editing controls.</p>
-        </article>
-      </div>
-    </section>
-
-    <section class="pricing-section">
-      <h2 class="section-title">Simple pricing</h2>
-      <p class="pricing-lede">Start small, then move up when you need more documents, storage, and shared access.</p>
-      <div class="grid">
-        <article class="card pricing-card">
-          <div class="pricing-tier">Free Tier</div>
-          <div class="pricing-price"><strong>$0</strong><span>/month</span></div>
-          <p class="pricing-copy">A small single-user archive for getting started.</p>
-          <ul class="pricing-list">
-            <li>1 user</li>
-            <li>Up to 25 documents</li>
-            <li>DOCX and text-file uploads</li>
-            <li>Saved text extraction and keyword search</li>
-            <li>Private file access</li>
-          </ul>
-        </article>
-        <article class="card pricing-card">
-          <div class="pricing-tier">Starter</div>
-          <div class="pricing-price"><strong>$12</strong><span>/month</span></div>
-          <p class="pricing-copy">For a single-user archive that needs more room.</p>
-          <ul class="pricing-list">
-            <li>1 user</li>
-            <li>Up to 250 documents</li>
-            <li>4 GB storage</li>
-            <li>Everything in Free</li>
-            <li>Larger searchable archive</li>
-          </ul>
-        </article>
-        <article class="card pricing-card">
-          <div class="pricing-tier">Organization</div>
-          <div class="pricing-price"><strong>$39</strong><span>/month</span></div>
-          <p class="pricing-copy">For teams that need shared libraries and larger archives.</p>
-          <ul class="pricing-list">
-            <li>Up to 10 users</li>
-            <li>Up to 2,500 documents</li>
-            <li>10 GB storage</li>
-            <li>Shared libraries and invite codes</li>
-            <li>Dedicated public records URL</li>
-            <li>Embedded search and records view with iframe support for your existing website</li>
-          </ul>
-        </article>
-      </div>
-    </section>
-
-    <section class="trust-strip" aria-label="Security and access">
-      <div class="trust-strip-head">
-        <h2>Security and access</h2>
-        <p class="trust-copy">Authentication, role-based access, and billing run on established infrastructure.</p>
-      </div>
-      <div class="trust-pills">
-        <span class="trust-pill">Supabase Auth for sign-in and sessions</span>
-        <span class="trust-pill">Role-based organization access</span>
-        <span class="trust-pill">Stripe for billing and payments</span>
-      </div>
-    </section>
-
-    <section>
-      <h2 class="section-title">Add records to your existing website</h2>
-      <p class="section-lede">Organization libraries can expose a dedicated public records URL and an embedded records view, so your archive can live inside the website you already have.</p>
-      <div class="embed-showcase">
-        <article class="embed-copy">
-          <h3>Embed the records view with an iframe</h3>
-          <p>Add a searchable records panel to an existing website page without rebuilding your public site from scratch.</p>
-          <pre class="embed-code-block"><code>&lt;iframe
-  src="https://n3xra.com/app/embed.html?org=your-library-id"
-  title="Public records"
-  width="100%"
-  height="820"
-  style="border:0;border-radius:24px;"
-&gt;&lt;/iframe&gt;</code></pre>
-        </article>
-        <article class="embed-preview-card">
-          <div class="embed-preview-head">
-            <h3>Example embedded records panel</h3>
-            <p>How searchable minutes and files can appear inside your current site.</p>
+        <article class="software-panel">
+          <div class="software-lede">
+            <h3>We saw an opportunity to make <strong>records management</strong> better and took the challenge.</h3>
+            <p>Now integrated across real projects, it is becoming a trusted system for teams that need clarity, structure, and control.</p>
           </div>
-          <div>
-            <div class="embed-browser-bar">
-              <div class="embed-browser-dots" aria-hidden="true">
-                <span></span>
-                <span></span>
-                <span></span>
-              </div>
-              <div class="embed-browser-url">yourorganization.org/records</div>
-            </div>
-            <div class="embed-preview-surface" aria-hidden="true">
-              <div class="embed-preview-shell">
-                <p class="embed-preview-kicker">Embedded records</p>
-                <h3 class="embed-preview-title">Search and files</h3>
-                <div class="embed-preview-search">
-                  <div class="embed-preview-search-field">
-                    <label>Keyword or phrase</label>
-                    <div class="embed-preview-field">budget, grant, zoning, executive session</div>
-                  </div>
-                  <div class="embed-preview-search-field">
-                    <label>Year</label>
-                    <div class="embed-preview-field">All years</div>
-                  </div>
-                  <div class="embed-preview-button">Reset</div>
-                </div>
-                <div class="embed-preview-list">
-                  <article class="embed-preview-item">
-                    <div class="embed-preview-heading">
-                      <div class="embed-preview-record-main">
-                        <h4>Board Minutes - March 2026</h4>
-                        <p class="embed-preview-meta">board-minutes-march-2026.docx · Year 2026 · March · 3/28/2026</p>
-                        <p class="embed-preview-meta">Budget discussion, zoning review, and executive session follow-up are available in the public record.</p>
-                      </div>
-                      <span class="embed-preview-status">Public</span>
-                    </div>
-                    <div class="embed-preview-actions">
-                      <span class="embed-preview-link">View</span>
-                      <span class="embed-preview-link">Download</span>
-                      <span class="embed-preview-link">Share</span>
-                    </div>
-                  </article>
-                  <article class="embed-preview-item">
-                    <div class="embed-preview-heading">
-                      <div class="embed-preview-record-main">
-                        <h4>Annual Budget Packet</h4>
-                        <p class="embed-preview-meta">budget-packet-2026.docx · Year 2026 · February · 2/14/2026</p>
-                        <p class="embed-preview-meta">Line items, supporting notes, and board packet attachments are searchable from the embedded panel.</p>
-                      </div>
-                      <span class="embed-preview-status">Public</span>
-                    </div>
-                    <div class="embed-preview-actions">
-                      <span class="embed-preview-link">View</span>
-                      <span class="embed-preview-link">Download</span>
-                      <span class="embed-preview-link">Share</span>
-                    </div>
-                  </article>
-                  <article class="embed-preview-item">
-                    <div class="embed-preview-heading">
-                      <div class="embed-preview-record-main">
-                        <h4>Committee Agenda</h4>
-                        <p class="embed-preview-meta">committee-agenda-april-2026.docx · Year 2026 · April · 4/02/2026</p>
-                        <p class="embed-preview-meta">Agendas, packets, and recurring committee records can appear in the same embedded records view.</p>
-                      </div>
-                      <span class="embed-preview-status">Public</span>
-                    </div>
-                    <div class="embed-preview-actions">
-                      <span class="embed-preview-link">View</span>
-                      <span class="embed-preview-link">Download</span>
-                      <span class="embed-preview-link">Share</span>
-                    </div>
-                  </article>
-                </div>
-              </div>
-            </div>
+
+          <div class="software-features" aria-label="Software capabilities">
+            <article class="software-feature">
+              <h4>Organize Records</h4>
+              <p>Keep everything in the right place.</p>
+            </article>
+            <article class="software-feature">
+              <h4>Find What You Need</h4>
+              <p>Search fast. Work faster.</p>
+            </article>
+            <article class="software-feature">
+              <h4>Secure Access</h4>
+              <p>Right people. Right information.</p>
+            </article>
+            <article class="software-feature">
+              <h4>Built for Real Teams</h4>
+              <p>Designed for the way you work.</p>
+            </article>
           </div>
+
+          <a class="software-cta" href="/software/">Explore N3XRA Records</a>
         </article>
       </div>
     </section>
 
+    <section class="section projects-band" aria-labelledby="projects-title">
+      <div class="section-inner">
+        <div class="section-head center">
+          <p class="eyebrow">Project systems</p>
+          <h2 id="projects-title">Custom websites and software.</h2>
+          <p class="section-copy">
+            Built by Quentin Nichols for community organizations, service businesses, and creator platforms.
+          </p>
+        </div>
+
+        <div class="project-strip">
+          <a class="project" href="https://ruthobenchainrc.com">
+            <img src="./projects/assets/RORCimage.png" alt="Ruth Obenchain Recreation Center website preview" loading="lazy" decoding="async">
+            <div class="project-body">
+              <span>Community system</span>
+              <h3>Ruth Obenchain Recreation Center</h3>
+              <p>Memberships, access control, and automated systems for daily use.</p>
+            </div>
+          </a>
+
+          <a class="project" href="https://www.blyoregon.org">
+            <img src="./projects/assets/blyoregon.org.png" alt="blyoregon.org website preview" loading="lazy" decoding="async">
+            <div class="project-body">
+              <span>Public information</span>
+              <h3>blyoregon.org</h3>
+              <p>A centralized platform for community records, updates, and local resources.</p>
+            </div>
+          </a>
+
+          <a class="project availability" href="/projects/">
+            <div class="project-body">
+              <span>Project availability</span>
+              <h3>View All Projects</h3>
+              <p>Explore active builds, published websites, and current implementation availability.</p>
+            </div>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <section class="section closing" aria-labelledby="closing-title">
+      <div class="section-inner">
+        <div class="closing-panel">
+          <p class="eyebrow">Start here</p>
+          <h2 id="closing-title">Choose the path that fits.</h2>
+          <p class="section-copy">
+            Open N3XRA Records, or review the project folder to start a website, tool, automation, dashboard, or infrastructure build.
+          </p>
+          <div class="button-row">
+            <a class="button button-primary" href="/software/">Open N3XRA Records</a>
+            <a class="button button-ghost" href="/projects/">See the projects</a>
+          </div>
+        </div>
+      </div>
+    </section>
   </main>
 
   <footer class="site-footer">
-    <p>&copy; 2026 <a class="owner-link" href="https://n3xra.co">N3XRA LLC</a>. All rights reserved.</p>
-    <p>Built by <a class="builder-link" href="https://quentinnichols.com">Quentin Nichols</a>.</p>
-    <p><a href="/support">Support</a> · <a href="/terms">Terms</a> · <a href="/privacy">Privacy</a></p>
+    <div class="footer-inner">
+      <p>&copy; 2026 <strong>N3XRA LLC.</strong> All rights reserved.</p>
+      <p><a href="/support">Support</a> · <a href="/terms">Terms</a> · <a href="/privacy">Privacy</a></p>
+      <p>Built by <a href="https://quentinnichols.com/">Quentin Nichols</a>.</p>
+    </div>
   </footer>
 </body>
 </html>
