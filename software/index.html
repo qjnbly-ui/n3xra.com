@@ -20,7 +20,11 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/site-nav.css">
   <link rel="stylesheet" href="../assets/site-intro.css?v=2">
+  <script src="../assets/site-nav.js" defer></script>
+  <script src="../app/config.js"></script>
+  <script type="module" src="../assets/site-auth-link.js"></script>
   <style>
     :root {
       --ink: #0e1116;
@@ -50,7 +54,7 @@
         linear-gradient(180deg, #f9fafc 0%, #eef2f6 100%);
     }
 
-    header {
+    .records-hero-shell {
       position: relative;
       overflow: hidden;
       color: #ffffff;
@@ -61,7 +65,7 @@
       border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     }
 
-    header::before {
+    .records-hero-shell::before {
       content: "";
       position: absolute;
       inset: 0;
@@ -88,38 +92,7 @@
       filter: drop-shadow(0 30px 54px rgba(4, 10, 16, 0.28));
     }
 
-    .records-page-nav {
-      width: 100%;
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 0.6rem;
-      margin-bottom: 0.35rem;
-    }
 
-    .records-page-nav a {
-      color: #ffffff;
-      text-decoration: none;
-      border: 1px solid rgba(255, 255, 255, 0.22);
-      border-radius: 999px;
-      padding: 0.48rem 0.9rem;
-      background: rgba(255, 255, 255, 0.1);
-      font-size: 0.78rem;
-      font-weight: 700;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
-
-    .header-pill {
-      padding: 0.45rem 0.95rem;
-      border-radius: var(--radius-pill);
-      background: rgba(255, 255, 255, 0.12);
-      color: #ffffff;
-      text-decoration: none;
-      font-size: 0.8rem;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
 
     .hero-grid {
       display: grid;
@@ -915,14 +888,34 @@
   </div>
   <script src="../assets/site-intro.js?v=2"></script>
 
-  <header>
-    <div class="header-shell">
-      <nav class="records-page-nav" aria-label="Primary">
-        <a href="/">Home</a>
-        <a href="/projects/">Projects</a>
-        <a href="/ai-music-generator/">AI Music Generator</a>
-        <a href="/app/login.html">Login</a>
+  <header class="site-topbar">
+    <div class="site-topbar-inner">
+      <div class="site-topbar-row">
+        <a class="site-brand" href="/" aria-label="N3XRA home">
+          <img src="../assets/n3xra_logo_transparent.png" alt="N3XRA">
+        </a>
+        <div class="site-nav-actions">
+          <a class="site-menu-link site-auth-link" href="/app/login.html" data-site-auth-link>Login</a>
+          <button class="site-menu-toggle" type="button" aria-expanded="false" aria-controls="records-mobile-menu" aria-label="Open menu" data-site-menu-toggle>
+            <span></span>
+            <span></span>
+            <span></span>
+          </button>
+        </div>
+      </div>
+      <nav class="site-mobile-menu" id="records-mobile-menu" aria-label="Primary menu" hidden>
+        <div class="site-mobile-menu-head">
+          <p class="site-mobile-menu-title">Navigate</p>
+        </div>
+        <a class="site-menu-link" href="/">Home</a>
+        <a class="site-menu-link" href="/projects/">Projects</a>
+        <a class="site-menu-link" href="/ai-music-generator/">AI Music Generator</a>
       </nav>
+    </div>
+  </header>
+
+  <section class="records-hero-shell">
+    <div class="header-shell">
       <div class="hero-grid">
         <img class="hero-logo" src="../assets/n3xra_logo_transparent.png" alt="N3XRA Records logo" />
         <div class="hero-copy">
@@ -933,7 +926,7 @@
         </div>
       </div>
     </div>
-  </header>
+  </section>
 
   <main class="container">
     <section class="hero">
