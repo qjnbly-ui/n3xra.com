@@ -52,6 +52,76 @@
       flex: 1;
     }
 
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    .music-hero-shell {
+      position: relative;
+      overflow: hidden;
+      color: #ffffff;
+      background:
+        radial-gradient(600px 360px at 15% 20%, rgba(22, 185, 237, 0.34), transparent 60%),
+        radial-gradient(520px 300px at 84% 10%, rgba(74, 112, 255, 0.28), transparent 55%),
+        linear-gradient(135deg, #07111d 0%, #0c1524 50%, #070c12 100%);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .music-hero-shell::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(500px 280px at 70% 70%, rgba(255, 255, 255, 0.08), transparent 65%);
+      opacity: 0.8;
+      pointer-events: none;
+    }
+
+    .music-hero-inner {
+      width: min(1100px, calc(100vw - 2rem));
+      margin: 0 auto;
+      padding: 2rem 0 2.2rem;
+      position: relative;
+      z-index: 1;
+    }
+
+    .music-hero-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 0.5rem;
+      justify-items: center;
+      text-align: center;
+    }
+
+    .music-hero-logo {
+      width: min(560px, 86vw);
+      height: auto;
+      object-fit: contain;
+      filter: drop-shadow(0 30px 54px rgba(4, 10, 16, 0.28));
+    }
+
+    .music-hero-copy {
+      display: grid;
+      gap: 1.2rem;
+      justify-items: center;
+      max-width: 720px;
+      margin: 0 auto;
+    }
+
+    .music-hero-lede {
+      margin: 0;
+      color: rgba(255, 255, 255, 0.78);
+      max-width: 620px;
+    }
+
+
     .generator-shell {
       width: min(1120px, calc(100vw - 2rem));
       margin: 0 auto;
@@ -358,7 +428,7 @@
 </head>
 <body>
   <div class="entry-splash" aria-hidden="true" data-entry-splash>
-    <img src="../assets/n3xra_logo_transparent.png" alt="">
+    <img src="../assets/aimusiclogo.png" alt="">
   </div>
   <script src="../assets/site-intro.js?v=2"></script>
 
@@ -388,14 +458,20 @@
     </div>
   </header>
 
-  <main>
-    <section class="generator-shell" aria-labelledby="generator-title">
-      <header class="generator-head">
-        <p class="generator-kicker">N3XRA Studio</p>
-        <h1 id="generator-title">AI Music Generator</h1>
-        <p>Generate a custom song from a prompt, simple style tags, or your own lyrics.</p>
-      </header>
+  <section class="music-hero-shell" aria-labelledby="generator-title">
+    <div class="music-hero-inner">
+      <div class="music-hero-grid">
+        <img class="music-hero-logo" src="../assets/aimusiclogo.png" alt="N3XRA AI Music Generator logo" />
+        <div class="music-hero-copy">
+          <h1 class="sr-only" id="generator-title">AI Music Generator</h1>
+          <p class="music-hero-lede">Generate custom songs from prompts, simple style tags, or your own lyrics from one N3XRA tool.</p>
+        </div>
+      </div>
+    </div>
+  </section>
 
+  <main>
+    <section class="generator-shell" aria-label="AI music generator tool">
       <div class="generator-layout">
         <section class="tool-panel" aria-label="Song request form">
           <div class="tool-band">
