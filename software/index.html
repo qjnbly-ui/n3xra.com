@@ -804,36 +804,30 @@
     }
 
     .site-footer {
-      text-align: center;
-      padding: 0 0 2.4rem;
-      color: var(--slate);
-      font-size: 0.95rem;
+      padding: 1.35rem 0;
+      color: rgba(255, 255, 255, 0.58);
+      background: #070c12;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
     }
 
-    .site-footer p {
+    .footer-inner {
+      width: min(1120px, calc(100vw - 2rem));
+      margin: 0 auto;
+      display: grid;
+      gap: 0.6rem;
+      justify-items: center;
+      font-size: 0.86rem;
+      text-align: center;
+    }
+
+    .footer-inner p {
       margin: 0;
     }
 
-    .site-footer p + p {
-      margin-top: 0.35rem;
-    }
-
-    .site-footer a {
-      color: var(--teal);
-      text-decoration: none;
-      font-weight: 700;
-    }
-
-    .site-footer .builder-link {
+    .footer-inner a {
       color: inherit;
-      font-weight: 700;
       text-decoration: none;
-    }
-
-    .site-footer .owner-link {
-      color: inherit;
-      font-weight: 700;
-      text-decoration: none;
+      font-weight: 800;
     }
 
     @media (max-width: 800px) {
@@ -1167,9 +1161,11 @@
   </main>
 
   <footer class="site-footer">
-    <p>&copy; 2026 <a class="owner-link" href="https://n3xra.com">N3XRA LLC</a>. All rights reserved.</p>
-    <p>Built by <a class="builder-link" href="https://quentinnichols.com">Quentin Nichols</a>.</p>
-    <p><a href="/support">Support</a> · <a href="/terms">Terms</a> · <a href="/privacy">Privacy</a></p>
+    <div class="footer-inner">
+      <p>&copy; 2026 <strong>N3XRA LLC.</strong> All rights reserved.</p>
+      <p><a href="/support">Support</a> · <a href="/terms">Terms</a> · <a href="/privacy">Privacy</a></p>
+      <p>Built by <a href="https://quentinnichols.com/">Quentin Nichols</a>.</p>
+    </div>
   </footer>
 </body>
 </html>
