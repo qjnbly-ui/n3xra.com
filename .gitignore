@@ -1,2 +1,4 @@
 supabase/.temp/
 .private-secrets/
+
+.DS_Store

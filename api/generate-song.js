@@ -124,12 +124,9 @@ module.exports = async function handler(req, res) {
   const prompt = typeof body.prompt === "string" ? body.prompt : "";
   const lyrics = typeof body.lyrics === "string" ? body.lyrics : "";
   const instrumental = Boolean(body.instrumental);
-  const tags = Array.isArray(body.tags)
-    ? body.tags.filter((tag) => typeof tag === "string" && tag.trim()).map((tag) => tag.trim())
-    : undefined;
 
-  if (!prompt.trim() && !lyrics.trim() && (!tags || tags.length === 0)) {
-    return sendJson(res, 400, { error: "Add a prompt, tags, or lyrics." });
+  if (!prompt.trim() && !lyrics.trim()) {
+    return sendJson(res, 400, { error: "Add a prompt or lyrics." });
   }
 
   if (instrumental && lyrics.trim()) {
@@ -138,7 +135,6 @@ module.exports = async function handler(req, res) {
 
   const payload = { instrumental };
   if (prompt || lyrics) payload.prompt = prompt;
-  if (tags && tags.length) payload.tags = tags;
   if (lyrics) payload.lyrics = lyrics;
 
   try {

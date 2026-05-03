@@ -7,5 +7,6 @@ document.querySelectorAll("[data-site-menu-toggle]").forEach((toggle) => {
     const isOpen = menu.classList.toggle("is-open");
     menu.hidden = !isOpen;
     toggle.setAttribute("aria-expanded", String(isOpen));
+    document.body.classList.toggle("site-menu-is-open", isOpen);
   });
 });

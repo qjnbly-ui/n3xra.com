@@ -3,12 +3,12 @@
 }
 
 .site-topbar {
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 50;
   color: var(--site-nav-white);
-  background:
-    radial-gradient(640px 360px at 10% 18%, rgba(23, 111, 102, 0.38), transparent 58%),
-    radial-gradient(540px 300px at 92% 10%, rgba(234, 155, 63, 0.32), transparent 55%),
-    linear-gradient(135deg, #0b1219 0%, #101925 52%, #0c141c 100%);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: transparent;
+  border-bottom: 0;
 }
 
 .site-topbar-inner {
@@ -135,6 +135,15 @@
   padding: 0.82rem 0.8rem;
 }
 
+
+body.site-menu-is-open .home-intro-inner,
+body.site-menu-is-open .records-hero-shell .header-shell,
+body.site-menu-is-open .projects-hero-inner,
+body.site-menu-is-open .music-hero-inner,
+body.site-menu-is-open .legal-hero .header-shell {
+  padding-top: 12rem !important;
+}
+
 @media (max-width: 760px) {
   .site-topbar-inner {
     width: min(1120px, calc(100vw - 1.5rem));
@@ -148,5 +157,13 @@
     min-height: 40px;
     padding: 0.45rem 0.7rem;
     font-size: 0.7rem;
+  }
+
+  body.site-menu-is-open .home-intro-inner,
+  body.site-menu-is-open .records-hero-shell .header-shell,
+  body.site-menu-is-open .projects-hero-inner,
+  body.site-menu-is-open .music-hero-inner,
+  body.site-menu-is-open .legal-hero .header-shell {
+    padding-top: 18rem !important;
   }
 }
