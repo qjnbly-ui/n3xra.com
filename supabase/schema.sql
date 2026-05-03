@@ -20,6 +20,7 @@ create table if not exists public.profiles (
 
 alter table public.profiles add column if not exists email text;
 alter table public.profiles add column if not exists full_name text;
+alter table public.profiles add column if not exists stripe_customer_id text;
 alter table public.profiles add column if not exists created_at timestamptz not null default now();
 alter table public.profiles add column if not exists updated_at timestamptz not null default now();
 
@@ -148,6 +149,48 @@ create table if not exists public.meeting_recordings (
     check (duration_seconds is null or duration_seconds >= 0)
 );
 
+create table if not exists public.music_profiles (
+  user_id uuid primary key references auth.users (id) on delete cascade,
+  display_name text,
+  plan text not null default 'free',
+  account_status text not null default 'active',
+  monthly_song_limit integer not null default 5,
+  songs_used integer not null default 0,
+  current_period_start timestamptz not null default date_trunc('month', now()),
+  current_period_end timestamptz not null default (date_trunc('month', now()) + interval '1 month'),
+  stripe_subscription_id text,
+  stripe_price_id text,
+  cancel_at_period_end boolean not null default false,
+  subscription_current_period_end timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint music_profiles_plan_check
+    check (plan in ('free', 'creator', 'studio')),
+  constraint music_profiles_account_status_check
+    check (account_status in ('active', 'trialing', 'past_due', 'canceled', 'suspended')),
+  constraint music_profiles_monthly_song_limit_check
+    check (monthly_song_limit >= 0),
+  constraint music_profiles_songs_used_check
+    check (songs_used >= 0)
+);
+
+create table if not exists public.music_generations (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  title text,
+  prompt text,
+  lyrics text,
+  instrumental boolean not null default false,
+  task_id text unique,
+  status text not null default 'reserved',
+  audio_url text,
+  error_message text,
+  sonauto_response jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  completed_at timestamptz
+);
+
 create index if not exists organizations_owner_user_id_idx on public.organizations (owner_user_id);
 create index if not exists organization_memberships_user_id_idx on public.organization_memberships (user_id);
 create index if not exists organization_memberships_org_id_idx on public.organization_memberships (organization_id);
@@ -158,6 +201,9 @@ create index if not exists documents_search_tsv_idx on public.documents using gi
 create index if not exists meeting_recordings_organization_id_idx on public.meeting_recordings (organization_id);
 create index if not exists meeting_recordings_created_by_user_id_idx on public.meeting_recordings (created_by_user_id);
 create index if not exists meeting_recordings_created_at_idx on public.meeting_recordings (created_at desc);
+create index if not exists music_generations_user_id_idx on public.music_generations (user_id);
+create index if not exists music_generations_task_id_idx on public.music_generations (task_id);
+create index if not exists music_generations_created_at_idx on public.music_generations (created_at desc);
 
 create or replace function public.handle_new_user()
 returns trigger
@@ -665,6 +711,136 @@ $$;
 
 grant execute on function public.create_owned_organization(text) to authenticated;
 
+create or replace function public.bootstrap_music_profile()
+returns public.music_profiles
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  current_user_id uuid := auth.uid();
+  current_email text := auth.jwt() ->> 'email';
+  current_full_name text := nullif(trim(auth.jwt() -> 'user_metadata' ->> 'full_name'), '');
+  profile_record public.music_profiles%rowtype;
+begin
+  if current_user_id is null then
+    raise exception 'Authentication required.';
+  end if;
+
+  insert into public.profiles (id, email, full_name)
+  values (current_user_id, current_email, current_full_name)
+  on conflict (id) do update
+    set email = excluded.email,
+        full_name = coalesce(excluded.full_name, public.profiles.full_name),
+        updated_at = now();
+
+  insert into public.music_profiles (user_id, display_name)
+  values (current_user_id, current_full_name)
+  on conflict (user_id) do nothing;
+
+  select *
+  into profile_record
+  from public.music_profiles
+  where user_id = current_user_id;
+
+  if profile_record.current_period_end <= now() then
+    update public.music_profiles
+    set songs_used = 0,
+        current_period_start = date_trunc('month', now()),
+        current_period_end = date_trunc('month', now()) + interval '1 month',
+        updated_at = now()
+    where user_id = current_user_id
+    returning * into profile_record;
+  end if;
+
+  return profile_record;
+end;
+$$;
+
+grant execute on function public.bootstrap_music_profile() to authenticated;
+
+create or replace function public.reserve_music_generation(
+  input_title text default null,
+  input_prompt text default null,
+  input_lyrics text default null,
+  input_instrumental boolean default false
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  current_user_id uuid := auth.uid();
+  profile_record public.music_profiles%rowtype;
+  next_generation_id uuid;
+begin
+  if current_user_id is null then
+    raise exception 'Authentication required.';
+  end if;
+
+  perform public.bootstrap_music_profile();
+
+  select *
+  into profile_record
+  from public.music_profiles
+  where user_id = current_user_id
+  for update;
+
+  if profile_record.current_period_end <= now() then
+    update public.music_profiles
+    set songs_used = 0,
+        current_period_start = date_trunc('month', now()),
+        current_period_end = date_trunc('month', now()) + interval '1 month',
+        updated_at = now()
+    where user_id = current_user_id
+    returning * into profile_record;
+  end if;
+
+  if profile_record.account_status not in ('active', 'trialing') then
+    raise exception 'This AI Music account is not active.';
+  end if;
+
+  if profile_record.songs_used >= profile_record.monthly_song_limit then
+    raise exception 'AI Music generation limit reached.';
+  end if;
+
+  insert into public.music_generations (
+    user_id,
+    title,
+    prompt,
+    lyrics,
+    instrumental,
+    status
+  ) values (
+    current_user_id,
+    nullif(trim(input_title), ''),
+    nullif(trim(input_prompt), ''),
+    nullif(trim(input_lyrics), ''),
+    coalesce(input_instrumental, false),
+    'reserved'
+  )
+  returning id into next_generation_id;
+
+  update public.music_profiles
+  set songs_used = songs_used + 1,
+      updated_at = now()
+  where user_id = current_user_id
+  returning * into profile_record;
+
+  return jsonb_build_object(
+    'generation_id', next_generation_id,
+    'songs_used', profile_record.songs_used,
+    'monthly_song_limit', profile_record.monthly_song_limit,
+    'current_period_end', profile_record.current_period_end,
+    'plan', profile_record.plan,
+    'account_status', profile_record.account_status
+  );
+end;
+$$;
+
+grant execute on function public.reserve_music_generation(text, text, text, boolean) to authenticated;
+
 create or replace function public.redeem_invite_code(input_code text)
 returns jsonb
 language plpgsql
@@ -979,10 +1155,32 @@ begin
 end;
 $$;
 
+create or replace function public.protect_profile_billing_fields()
+returns trigger
+language plpgsql
+as $$
+begin
+  if auth.role() = 'service_role' or public.is_platform_admin() then
+    return new;
+  end if;
+
+  if new.stripe_customer_id is distinct from old.stripe_customer_id then
+    raise exception 'Stripe customer fields require service access.';
+  end if;
+
+  return new;
+end;
+$$;
+
 drop trigger if exists profiles_set_updated_at on public.profiles;
 create trigger profiles_set_updated_at
 before update on public.profiles
 for each row execute procedure public.set_updated_at();
+
+drop trigger if exists profiles_protect_billing_fields on public.profiles;
+create trigger profiles_protect_billing_fields
+before update on public.profiles
+for each row execute procedure public.protect_profile_billing_fields();
 
 drop trigger if exists organizations_set_updated_at on public.organizations;
 create trigger organizations_set_updated_at
@@ -1012,6 +1210,16 @@ for each row execute procedure public.set_updated_at();
 drop trigger if exists meeting_recordings_set_updated_at on public.meeting_recordings;
 create trigger meeting_recordings_set_updated_at
 before update on public.meeting_recordings
+for each row execute procedure public.set_updated_at();
+
+drop trigger if exists music_profiles_set_updated_at on public.music_profiles;
+create trigger music_profiles_set_updated_at
+before update on public.music_profiles
+for each row execute procedure public.set_updated_at();
+
+drop trigger if exists music_generations_set_updated_at on public.music_generations;
+create trigger music_generations_set_updated_at
+before update on public.music_generations
 for each row execute procedure public.set_updated_at();
 
 drop trigger if exists organizations_protect_billing_fields on public.organizations;
@@ -1057,6 +1265,8 @@ alter table public.organization_memberships enable row level security;
 alter table public.organization_invites enable row level security;
 alter table public.documents enable row level security;
 alter table public.meeting_recordings enable row level security;
+alter table public.music_profiles enable row level security;
+alter table public.music_generations enable row level security;
 
 drop policy if exists "profiles_select_policy" on public.profiles;
 create policy "profiles_select_policy"
@@ -1081,6 +1291,18 @@ on public.profiles
 for update
 using (auth.uid() = id or public.is_platform_admin())
 with check (auth.uid() = id or public.is_platform_admin());
+
+drop policy if exists "music_profiles_select_policy" on public.music_profiles;
+create policy "music_profiles_select_policy"
+on public.music_profiles
+for select
+using (auth.uid() = user_id or public.is_platform_admin());
+
+drop policy if exists "music_generations_select_policy" on public.music_generations;
+create policy "music_generations_select_policy"
+on public.music_generations
+for select
+using (auth.uid() = user_id or public.is_platform_admin());
 
 drop policy if exists "platform_admins_select_policy" on public.platform_admins;
 create policy "platform_admins_select_policy"

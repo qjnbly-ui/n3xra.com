@@ -1,3 +1,12 @@
+const {
+  getBearerToken,
+  hasSupabaseAdminConfig,
+  refundMusicGeneration,
+  reserveMusicGeneration,
+  updateMusicGeneration,
+  verifySupabaseUser,
+} = require("./_music-supabase");
+
 function readBody(req) {
   if (req.body && typeof req.body === "object") return req.body;
 
@@ -88,17 +97,105 @@ function pruneLocks(now) {
   }
 }
 
-module.exports = async function handler(req, res) {
-  if (req.method !== "POST") {
-    res.setHeader("Allow", "POST");
-    return sendJson(res, 405, { error: "Method not allowed." });
+function normalizeSongRequest(body) {
+  const title = typeof body.title === "string" ? body.title.trim().slice(0, 160) : "";
+  const prompt = typeof body.prompt === "string" ? body.prompt : "";
+  const lyrics = typeof body.lyrics === "string" ? body.lyrics : "";
+  const instrumental = Boolean(body.instrumental);
+
+  if (!prompt.trim() && !lyrics.trim()) {
+    return { error: "Add a prompt or lyrics." };
   }
 
-  const apiKey = process.env.SONAUTO_API_KEY;
-  if (!apiKey) {
-    return sendJson(res, 500, { error: "Missing SONAUTO_API_KEY." });
+  if (instrumental && lyrics.trim()) {
+    return { error: "Instrumental songs cannot include lyrics." };
   }
 
+  const sonautoPayload = { instrumental };
+  if (prompt || lyrics) sonautoPayload.prompt = prompt;
+  if (lyrics) sonautoPayload.lyrics = lyrics;
+
+  return {
+    title,
+    prompt,
+    lyrics,
+    instrumental,
+    sonautoPayload,
+  };
+}
+
+async function callSonauto(apiKey, payload) {
+  const response = await fetch("https://api.sonauto.ai/v1/generations/v3", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const data = await response.json().catch(() => ({}));
+  return { response, data };
+}
+
+function getErrorStatus(error) {
+  const message = String(error?.message || "");
+  if (/limit reached/i.test(message)) return 429;
+  if (/not active/i.test(message)) return 403;
+  return Number(error?.status || 500);
+}
+
+async function handleAuthenticatedGeneration(req, res, apiKey, body, token) {
+  if (!hasSupabaseAdminConfig()) {
+    return sendJson(res, 500, { error: "Missing SUPABASE_SERVICE_ROLE_KEY." });
+  }
+
+  let user = null;
+  let reservation = null;
+
+  try {
+    user = await verifySupabaseUser(token);
+    reservation = await reserveMusicGeneration(token, body);
+  } catch (error) {
+    return sendJson(res, getErrorStatus(error), {
+      error: error instanceof Error ? error.message : "Unable to reserve AI Music usage.",
+    });
+  }
+
+  const generationId = reservation?.generation_id || null;
+
+  try {
+    const { response, data } = await callSonauto(apiKey, body.sonautoPayload);
+
+    if (response.ok && data.task_id && generationId) {
+      await updateMusicGeneration(generationId, {
+        task_id: data.task_id,
+        status: data.status || "TASK_SENT",
+        sonauto_response: data,
+      });
+    } else if (generationId) {
+      const message = String(data?.message || data?.error || "Generation request failed.");
+      await refundMusicGeneration(user.id, generationId, message);
+    }
+
+    return sendJson(res, response.status, {
+      ...data,
+      generation_id: generationId,
+      account: reservation,
+    });
+  } catch (error) {
+    if (generationId && user?.id) {
+      await refundMusicGeneration(user.id, generationId, error instanceof Error ? error.message : "Could not reach Sonauto.");
+    }
+
+    return sendJson(res, 502, {
+      error: "Could not reach Sonauto.",
+      message: error instanceof Error ? error.message : "Unknown upstream error.",
+    });
+  }
+}
+
+async function handleAnonymousGeneration(req, res, apiKey, body) {
   const now = Date.now();
   pruneLocks(now);
 
@@ -116,38 +213,13 @@ module.exports = async function handler(req, res) {
   if (usageCount >= GENERATION_LIMIT) {
     setUsageCookies(res, browserId, usageCount);
     return sendJson(res, 429, {
-      error: "This browser has reached the temporary free limit of 5 songs. Billing options are coming soon.",
+      error: "This browser has reached the temporary free limit of 5 songs. Sign in to continue with an AI Music account.",
+      requiresLogin: true,
     });
   }
-
-  const body = readBody(req);
-  const prompt = typeof body.prompt === "string" ? body.prompt : "";
-  const lyrics = typeof body.lyrics === "string" ? body.lyrics : "";
-  const instrumental = Boolean(body.instrumental);
-
-  if (!prompt.trim() && !lyrics.trim()) {
-    return sendJson(res, 400, { error: "Add a prompt or lyrics." });
-  }
-
-  if (instrumental && lyrics.trim()) {
-    return sendJson(res, 400, { error: "Instrumental songs cannot include lyrics." });
-  }
-
-  const payload = { instrumental };
-  if (prompt || lyrics) payload.prompt = prompt;
-  if (lyrics) payload.lyrics = lyrics;
 
   try {
-    const response = await fetch("https://api.sonauto.ai/v1/generations/v3", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-    });
-
-    const data = await response.json().catch(() => ({}));
+    const { response, data } = await callSonauto(apiKey, body.sonautoPayload);
     if (response.ok && data.task_id) {
       const nextUsageCount = Math.min(usageCount + 1, GENERATION_LIMIT);
       setLockRecord(browserKey, nextUsageCount, now);
@@ -162,4 +234,26 @@ module.exports = async function handler(req, res) {
       message: error instanceof Error ? error.message : "Unknown upstream error.",
     });
   }
+}
+
+module.exports = async function handler(req, res) {
+  if (req.method !== "POST") {
+    res.setHeader("Allow", "POST");
+    return sendJson(res, 405, { error: "Method not allowed." });
+  }
+
+  const apiKey = process.env.SONAUTO_API_KEY;
+  if (!apiKey) {
+    return sendJson(res, 500, { error: "Missing SONAUTO_API_KEY." });
+  }
+
+  const body = normalizeSongRequest(readBody(req));
+  if (body.error) {
+    return sendJson(res, 400, { error: body.error });
+  }
+
+  const token = getBearerToken(req);
+  if (token) return handleAuthenticatedGeneration(req, res, apiKey, body, token);
+
+  return handleAnonymousGeneration(req, res, apiKey, body);
 };

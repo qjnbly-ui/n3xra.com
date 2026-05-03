@@ -12,6 +12,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../assets/site-nav.css">
   <link rel="stylesheet" href="../assets/site-intro.css?v=2">
+  <script src="../app/config.js"></script>
   <script src="../assets/site-nav.js" defer></script>
   <style>
     :root {
@@ -26,9 +27,7 @@
       --shadow: 0 24px 70px rgba(7, 12, 18, 0.18);
     }
 
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
 
     body {
       margin: 0;
@@ -37,20 +36,15 @@
       flex-direction: column;
       font-family: "Manrope", Arial, sans-serif;
       color: var(--ink);
-      background:
-        linear-gradient(180deg, #f7f9fc 0%, #eef3f8 100%);
+      background: linear-gradient(180deg, #f7f9fc 0%, #eef3f8 100%);
       line-height: 1.55;
     }
 
     button,
     input,
-    textarea {
-      font: inherit;
-    }
+    textarea { font: inherit; }
 
-    main {
-      flex: 1;
-    }
+    main { flex: 1; }
 
     .sr-only {
       position: absolute;
@@ -63,6 +57,8 @@
       white-space: nowrap;
       border: 0;
     }
+
+    .hidden { display: none !important; }
 
     .music-hero-shell {
       position: relative;
@@ -121,7 +117,6 @@
       max-width: 620px;
     }
 
-
     .generator-shell {
       width: min(1120px, calc(100vw - 2rem));
       margin: 0 auto;
@@ -130,43 +125,8 @@
       gap: 1.25rem;
     }
 
-    .generator-head {
-      display: grid;
-      gap: 0.45rem;
-      text-align: center;
-      justify-items: center;
-    }
-
-    .generator-kicker {
-      margin: 0;
-      color: var(--deep);
-      font-size: 0.76rem;
-      font-weight: 800;
-      letter-spacing: 0.22em;
-      text-transform: uppercase;
-    }
-
-    .generator-head h1 {
-      margin: 0;
-      font-family: "Fraunces", Georgia, serif;
-      font-size: 3rem;
-      line-height: 1;
-    }
-
-    .generator-head p {
-      margin: 0;
-      max-width: 58ch;
-      color: var(--muted);
-      font-weight: 700;
-    }
-
-    .generator-layout {
-      display: grid;
-      grid-template-columns: minmax(0, 1.05fr) minmax(340px, 0.95fr);
-      gap: 1rem;
-      align-items: start;
-    }
-
+    .music-account-strip,
+    .music-auth-panel,
     .tool-panel,
     .output-panel,
     .history-panel {
@@ -176,9 +136,111 @@
       box-shadow: var(--shadow);
     }
 
-    .tool-panel {
-      overflow: hidden;
+    .music-account-strip {
+      padding: 1.2rem;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 1rem;
+      align-items: center;
     }
+
+    .account-kicker,
+    .generator-kicker {
+      margin: 0;
+      color: var(--deep);
+      font-size: 0.76rem;
+      font-weight: 800;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+    }
+
+    .music-account-strip h2,
+    .music-auth-panel h2 {
+      margin: 0.15rem 0 0;
+      font-family: "Fraunces", Georgia, serif;
+      font-size: 1.6rem;
+      line-height: 1.05;
+    }
+
+    .account-copy {
+      margin: 0.45rem 0 0;
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    .account-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.65rem;
+      justify-content: flex-end;
+    }
+
+    .music-auth-panel {
+      padding: 1.15rem;
+      display: grid;
+      gap: 1rem;
+    }
+
+    .music-auth-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 0.9fr) minmax(320px, 1fr);
+      gap: 1rem;
+      align-items: start;
+    }
+
+    .music-auth-copy p {
+      margin: 0.55rem 0 0;
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    .music-auth-card {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 1rem;
+      background: #f9fbfd;
+      display: grid;
+      gap: 0.85rem;
+    }
+
+    .auth-toggle {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.45rem;
+      padding: 0.35rem;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: #fff;
+    }
+
+    .auth-toggle button {
+      min-height: 40px;
+      border: 0;
+      border-radius: 999px;
+      background: transparent;
+      color: var(--muted);
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .auth-toggle button.is-active {
+      color: #fff;
+      background: var(--deep);
+    }
+
+    .music-auth-form {
+      display: grid;
+      gap: 0.85rem;
+    }
+
+    .generator-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.05fr) minmax(340px, 0.95fr);
+      gap: 1rem;
+      align-items: start;
+    }
+
+    .tool-panel { overflow: hidden; }
 
     .tool-band {
       color: #fff;
@@ -293,7 +355,7 @@
     }
 
     .primary-btn:disabled {
-      cursor: wait;
+      cursor: not-allowed;
       opacity: 0.7;
     }
 
@@ -310,6 +372,9 @@
       color: var(--muted);
       font-weight: 700;
     }
+
+    .status.error { color: #b42318; }
+    .status.success { color: #087443; }
 
     .side-stack {
       display: grid;
@@ -335,13 +400,9 @@
       gap: 0.75rem;
     }
 
-    .song-result.is-visible {
-      display: grid;
-    }
+    .song-result.is-visible { display: grid; }
 
-    audio {
-      width: 100%;
-    }
+    audio { width: 100%; }
 
     .result-note,
     .empty-note,
@@ -392,9 +453,7 @@
       text-align: center;
     }
 
-    .footer-inner p {
-      margin: 0;
-    }
+    .footer-inner p { margin: 0; }
 
     .footer-inner a {
       color: inherit;
@@ -403,21 +462,20 @@
     }
 
     @media (max-width: 900px) {
+      .music-account-strip,
+      .music-auth-grid,
       .generator-layout {
         grid-template-columns: 1fr;
       }
 
-      .generator-head h1 {
-        font-size: 2.35rem;
-      }
+      .account-actions { justify-content: flex-start; }
     }
 
     @media (max-width: 620px) {
-      .generator-shell {
-        padding: 2rem 0 3rem;
-      }
+      .generator-shell { padding: 2rem 0 3rem; }
 
       .form-actions,
+      .account-actions,
       .primary-btn,
       .secondary-btn,
       .song-link {
@@ -439,7 +497,7 @@
           <img src="../assets/n3xra_logo_transparent.png" alt="N3XRA">
         </a>
         <div class="site-nav-actions">
-          <span class="site-menu-link site-auth-link site-auth-link-disabled" aria-disabled="true">Login</span>
+          <a class="site-menu-link site-auth-link" href="#music-account" id="musicHeaderAuthLink">Login</a>
           <button class="site-menu-toggle" type="button" aria-expanded="false" aria-controls="ai-mobile-menu" aria-label="Open menu" data-site-menu-toggle>
             <span></span>
             <span></span>
@@ -472,6 +530,68 @@
 
   <main>
     <section class="generator-shell" aria-label="AI music generator tool">
+      <section class="music-account-strip" id="music-account" aria-live="polite">
+        <div>
+          <p class="account-kicker">Music Account</p>
+          <h2 id="musicAccountTitle">Start with 5 free songs.</h2>
+          <p class="account-copy" id="musicAccountCopy">Use this browser's free songs without an account. Sign in before generating when you want songs saved.</p>
+        </div>
+        <div class="account-actions">
+          <button class="secondary-btn" type="button" id="musicAuthJump">Sign in to save songs</button>
+          <button class="secondary-btn hidden" type="button" id="importLocalSongsBtn">Save browser songs</button>
+          <button class="secondary-btn hidden" type="button" id="musicSignoutBtn">Sign out</button>
+        </div>
+      </section>
+
+      <section class="music-auth-panel hidden" id="music-auth-panel" aria-label="AI Music account login">
+        <div class="music-auth-grid">
+          <div class="music-auth-copy">
+            <p class="account-kicker">Universal Login</p>
+            <h2>Use your N3XRA account for AI Music.</h2>
+          </div>
+          <div class="music-auth-card">
+            <div class="auth-toggle" role="tablist" aria-label="AI Music account options">
+              <button class="is-active" type="button" id="musicSigninToggle" aria-pressed="true">Sign in</button>
+              <button type="button" id="musicSignupToggle" aria-pressed="false">Create account</button>
+            </div>
+
+            <form class="music-auth-form" id="musicSigninForm">
+              <div class="field">
+                <label for="musicSigninEmail">Email</label>
+                <input id="musicSigninEmail" class="music-input" type="email" autocomplete="email" required>
+              </div>
+              <div class="field">
+                <label for="musicSigninPassword">Password</label>
+                <input id="musicSigninPassword" class="music-input" type="password" autocomplete="current-password" required>
+              </div>
+              <button class="primary-btn" type="submit">Sign in</button>
+            </form>
+
+            <form class="music-auth-form hidden" id="musicSignupForm">
+              <div class="field">
+                <label for="musicSignupName">Name</label>
+                <input id="musicSignupName" class="music-input" type="text" autocomplete="name" placeholder="Optional">
+              </div>
+              <div class="field">
+                <label for="musicSignupEmail">Email</label>
+                <input id="musicSignupEmail" class="music-input" type="email" autocomplete="email" required>
+              </div>
+              <div class="field">
+                <label for="musicSignupPassword">Password</label>
+                <input id="musicSignupPassword" class="music-input" type="password" autocomplete="new-password" required minlength="6">
+              </div>
+              <div class="field">
+                <label for="musicSignupPasswordConfirm">Confirm Password</label>
+                <input id="musicSignupPasswordConfirm" class="music-input" type="password" autocomplete="new-password" required minlength="6">
+              </div>
+              <button class="primary-btn" type="submit">Create AI Music account</button>
+            </form>
+
+            <p class="status" id="musicAuthStatus">Use the same Supabase login across N3XRA apps.</p>
+          </div>
+        </div>
+      </section>
+
       <div class="generator-layout">
         <section class="tool-panel" aria-label="Song request form">
           <div class="tool-band">
@@ -537,7 +657,9 @@
     </div>
   </footer>
 
-  <script>
+  <script type="module">
+    import { createBrowserSupabase, getSessionOrNull, hasConfig } from "../app/lib/supabase-client.js";
+
     const HISTORY_KEY = "n3xraSongHistory";
     const SONG_DRAFT_KEY = "n3xraMusicDraft";
     const ACTIVE_TASK_KEY = "n3xraActiveSongTask";
@@ -558,6 +680,23 @@
     const clearFieldsBtn = document.getElementById("clearFieldsBtn");
     const generateBtn = document.getElementById("generateBtn");
     const historyContainer = document.getElementById("historyContainer");
+    const musicHeaderAuthLink = document.getElementById("musicHeaderAuthLink");
+    const musicAccountTitle = document.getElementById("musicAccountTitle");
+    const musicAccountCopy = document.getElementById("musicAccountCopy");
+    const musicAuthJump = document.getElementById("musicAuthJump");
+    const musicSignoutBtn = document.getElementById("musicSignoutBtn");
+    const importLocalSongsBtn = document.getElementById("importLocalSongsBtn");
+    const musicAuthPanel = document.getElementById("music-auth-panel");
+    const musicSigninToggle = document.getElementById("musicSigninToggle");
+    const musicSignupToggle = document.getElementById("musicSignupToggle");
+    const musicSigninForm = document.getElementById("musicSigninForm");
+    const musicSignupForm = document.getElementById("musicSignupForm");
+    const musicAuthStatus = document.getElementById("musicAuthStatus");
+
+    let supabase = null;
+    let currentSession = null;
+    let musicAccount = null;
+    let isGenerating = false;
 
     function readJson(key, fallback) {
       try {
@@ -569,6 +708,14 @@
 
     function writeJson(key, value) {
       localStorage.setItem(key, JSON.stringify(value));
+    }
+
+    function getLocalHistory() {
+      return readJson(HISTORY_KEY, []);
+    }
+
+    function getImportableLocalSongs() {
+      return getLocalHistory().filter((song) => /^https?:\/\//i.test(String(song.url || "")));
     }
 
     function saveDraft() {
@@ -588,10 +735,33 @@
       if (draft.instrumental) instrumentalEl.checked = true;
     }
 
-    function setGenerating(isGenerating) {
-      generateBtn.disabled = isGenerating;
-      generateBtn.setAttribute("aria-busy", String(isGenerating));
-      generateBtn.textContent = isGenerating ? "Generating..." : "Generate Song";
+    function setAuthStatus(message, tone = "") {
+      musicAuthStatus.textContent = message || "";
+      musicAuthStatus.className = "status";
+      if (tone) musicAuthStatus.classList.add(tone);
+    }
+
+    function showAuthPanel(visible) {
+      musicAuthPanel.classList.toggle("hidden", !visible);
+      if (visible) musicAuthPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    function setAuthMode(mode) {
+      const signup = mode === "signup";
+      musicSigninToggle.classList.toggle("is-active", !signup);
+      musicSignupToggle.classList.toggle("is-active", signup);
+      musicSigninToggle.setAttribute("aria-pressed", String(!signup));
+      musicSignupToggle.setAttribute("aria-pressed", String(signup));
+      musicSigninForm.classList.toggle("hidden", signup);
+      musicSignupForm.classList.toggle("hidden", !signup);
+      setAuthStatus(signup ? "Create an N3XRA login and activate AI Music." : "Use your existing N3XRA login.");
+    }
+
+    function setGenerating(isActive) {
+      isGenerating = isActive;
+      generateBtn.disabled = isActive;
+      generateBtn.setAttribute("aria-busy", String(isActive));
+      generateBtn.textContent = isActive ? "Generating..." : "Generate Song";
     }
 
     function getGenerationCount() {
@@ -616,17 +786,38 @@
       return nextCount;
     }
 
-    function hasReachedGenerationLimit() {
+    function hasReachedLocalLimit() {
       return getGenerationCount() >= GENERATION_LIMIT;
     }
 
-    function applyGenerationLimit() {
-      if (!hasReachedGenerationLimit()) return;
+    function hasReachedAccountLimit() {
+      const profile = musicAccount?.profile;
+      if (!currentSession?.user || !profile) return false;
+      return Number(profile.songs_used || 0) >= Number(profile.monthly_song_limit || 0);
+    }
 
-      generateBtn.disabled = true;
+    function refreshGenerateAvailability() {
+      if (isGenerating) return;
+
+      if (hasReachedAccountLimit()) {
+        generateBtn.disabled = true;
+        generateBtn.removeAttribute("aria-busy");
+        generateBtn.textContent = "Limit Reached";
+        statusEl.textContent = "This AI Music account has reached its current song limit.";
+        return;
+      }
+
+      if (!currentSession?.user && hasReachedLocalLimit()) {
+        generateBtn.disabled = true;
+        generateBtn.removeAttribute("aria-busy");
+        generateBtn.textContent = "Limit Reached";
+        statusEl.textContent = "This browser has reached the free limit of 5 songs. Sign in to continue with an AI Music account.";
+        return;
+      }
+
+      generateBtn.disabled = false;
       generateBtn.removeAttribute("aria-busy");
-      generateBtn.textContent = "Limit Reached";
-      statusEl.textContent = "This browser has reached the temporary free limit of 5 songs. Billing options are coming soon.";
+      generateBtn.textContent = "Generate Song";
     }
 
     function updateFormState() {
@@ -681,7 +872,7 @@
     }
 
     function saveSongHistory(url, prompt, title = "") {
-      const history = readJson(HISTORY_KEY, []);
+      const history = getLocalHistory();
       history.unshift({
         id: Date.now().toString(),
         title: title || "Untitled song",
@@ -693,9 +884,10 @@
     }
 
     function deleteHistorySong(songId) {
-      const history = readJson(HISTORY_KEY, []);
+      const history = getLocalHistory();
       writeJson(HISTORY_KEY, history.filter((song) => String(song.id) !== String(songId)));
       renderHistory();
+      renderAccountState();
     }
 
     function escapeHtml(value) {
@@ -707,24 +899,54 @@
         .replace(/'/g, "&#39;");
     }
 
+    function formatDate(value) {
+      if (!value) return "Saved recently";
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return "Saved recently";
+      return date.toLocaleString();
+    }
+
     function renderHistory() {
-      const history = readJson(HISTORY_KEY, []);
       historyContainer.innerHTML = "";
 
+      if (currentSession?.user) {
+        const generations = Array.isArray(musicAccount?.generations) ? musicAccount.generations : [];
+        if (!generations.length) {
+          historyContainer.innerHTML = '<p class="empty-note">No songs saved to this account yet.</p>';
+          return;
+        }
+
+        generations.forEach((song) => {
+          const item = document.createElement("article");
+          item.className = "history-item";
+          const audio = song.audio_url ? `<audio controls src="${escapeHtml(song.audio_url)}"></audio>` : "";
+          const status = song.status ? `<p class="history-meta"><strong>Status:</strong> ${escapeHtml(prettyStatus(song.status))}</p>` : "";
+          item.innerHTML = `
+            <p class="history-name">${escapeHtml(song.title || "Untitled song")}</p>
+            ${audio}
+            <p class="history-meta"><strong>Prompt:</strong> ${escapeHtml(song.prompt || "Generated song")}</p>
+            ${status}
+            <p class="history-meta"><strong>Saved:</strong> ${escapeHtml(formatDate(song.completed_at || song.created_at))}</p>
+          `;
+          historyContainer.appendChild(item);
+        });
+        return;
+      }
+
+      const history = getLocalHistory();
       if (!history.length) {
         historyContainer.innerHTML = '<p class="empty-note">No songs saved on this device yet.</p>';
         return;
       }
 
       history.forEach((song) => {
-        const savedDate = song.savedAt ? new Date(song.savedAt).toLocaleString() : "Saved recently";
         const item = document.createElement("article");
         item.className = "history-item";
         item.innerHTML = `
           <p class="history-name">${escapeHtml(song.title || "Untitled song")}</p>
           <audio controls src="${escapeHtml(song.url)}"></audio>
           <p class="history-meta"><strong>Prompt:</strong> ${escapeHtml(song.prompt || "Generated song")}</p>
-          <p class="history-meta"><strong>Saved:</strong> ${escapeHtml(savedDate)}</p>
+          <p class="history-meta"><strong>Saved:</strong> ${escapeHtml(formatDate(song.savedAt))}</p>
           <div class="history-actions">
             <button type="button" class="history-btn" data-song-id="${escapeHtml(song.id)}">Delete</button>
           </div>
@@ -733,11 +955,75 @@
       });
     }
 
-    async function pollStatus(taskId, prompt, title) {
+    function renderAccountState() {
+      if (currentSession?.user) {
+        const profile = musicAccount?.profile;
+        const used = Number(profile?.songs_used || 0);
+        const limit = Number(profile?.monthly_song_limit || 0);
+        const email = currentSession.user.email || "this account";
+        musicHeaderAuthLink.textContent = "Music Account";
+        musicHeaderAuthLink.href = "#music-account";
+        musicAuthJump.classList.add("hidden");
+        musicSignoutBtn.classList.remove("hidden");
+        importLocalSongsBtn.classList.toggle("hidden", getImportableLocalSongs().length === 0);
+        musicAccountTitle.textContent = "AI Music account active.";
+        musicAccountCopy.textContent = `Signed in as ${email}. ${profile?.plan || "Free"} plan: ${used} of ${limit} songs used this period. Completed songs save to Supabase.`;
+        return;
+      }
+
+      const count = getGenerationCount();
+      musicHeaderAuthLink.textContent = "Login";
+      musicHeaderAuthLink.href = "#music-account";
+      musicAuthJump.classList.remove("hidden");
+      musicSignoutBtn.classList.add("hidden");
+      importLocalSongsBtn.classList.add("hidden");
+      musicAccountTitle.textContent = hasReachedLocalLimit() ? "Free browser limit reached." : "Start with 5 free songs.";
+      musicAccountCopy.textContent = `Browser usage: ${count} of ${GENERATION_LIMIT} free songs used. Sign in before generating when you want songs saved.`;
+      if (hasReachedLocalLimit()) musicAuthPanel.classList.remove("hidden");
+    }
+
+    async function refreshSession() {
+      if (!supabase) return null;
+      const session = await getSessionOrNull(supabase);
+      currentSession = session;
+      return session;
+    }
+
+    function authHeaders(accountTask = true) {
+      if (!accountTask || !currentSession?.access_token) return {};
+      return { Authorization: `Bearer ${currentSession.access_token}` };
+    }
+
+    async function loadMusicAccount() {
+      if (!currentSession?.access_token) {
+        musicAccount = null;
+        renderAccountState();
+        renderHistory();
+        refreshGenerateAvailability();
+        return;
+      }
+
+      const response = await fetch("/api/music-account", {
+        headers: authHeaders(),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(getErrorMessage(data, "Unable to load AI Music account."));
+      }
+
+      musicAccount = data;
+      renderAccountState();
+      renderHistory();
+      refreshGenerateAvailability();
+    }
+
+    async function pollStatus(taskId, prompt, title, accountTask) {
       for (let attempt = 0; attempt < 120; attempt += 1) {
         await new Promise((resolve) => setTimeout(resolve, 4000));
 
-        const response = await fetch(`/api/song-status?task_id=${encodeURIComponent(taskId)}`);
+        const response = await fetch(`/api/song-status?task_id=${encodeURIComponent(taskId)}`, {
+          headers: authHeaders(accountTask),
+        });
         const data = await response.json().catch(() => ({}));
 
         if (!response.ok) {
@@ -754,15 +1040,21 @@
             throw new Error("The song finished, but no audio URL was returned.");
           }
 
-          saveSongHistory(audioUrl, prompt, title);
           showResult(audioUrl);
-          renderHistory();
-          statusEl.textContent = "Song ready.";
+          if (accountTask) {
+            await loadMusicAccount();
+          } else {
+            saveSongHistory(audioUrl, prompt, title);
+            renderHistory();
+            renderAccountState();
+          }
+          statusEl.textContent = accountTask ? "Song ready and saved to your account." : "Song ready.";
           return;
         }
 
         if (data.status === "FAILURE") {
           localStorage.removeItem(ACTIVE_TASK_KEY);
+          if (accountTask) await loadMusicAccount().catch(() => null);
           throw new Error(data?.error_message || "Generation failed.");
         }
       }
@@ -771,8 +1063,23 @@
     }
 
     async function generateSong() {
-      if (hasReachedGenerationLimit()) {
-        applyGenerationLimit();
+      await refreshSession().catch(() => null);
+      const accountTask = Boolean(currentSession?.access_token);
+
+      if (!accountTask && hasReachedLocalLimit()) {
+        renderAccountState();
+        refreshGenerateAvailability();
+        showAuthPanel(true);
+        return;
+      }
+
+      if (accountTask && !musicAccount?.profile) {
+        await loadMusicAccount();
+      }
+
+      if (accountTask && hasReachedAccountLimit()) {
+        renderAccountState();
+        refreshGenerateAvailability();
         return;
       }
 
@@ -791,7 +1098,7 @@
         return;
       }
 
-      const payload = { instrumental };
+      const payload = { title, instrumental };
       if (prompt) payload.prompt = prompt;
       if (lyrics) {
         if (!prompt) payload.prompt = "";
@@ -800,18 +1107,22 @@
 
       hideResult();
       setGenerating(true);
-      statusEl.textContent = "Sending request...";
+      statusEl.textContent = accountTask ? "Sending request from your AI Music account..." : "Sending request...";
 
       try {
         const response = await fetch("/api/generate-song", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", ...authHeaders(accountTask) },
           body: JSON.stringify(payload),
         });
         const data = await response.json().catch(() => ({}));
 
         if (!response.ok) {
-          if (response.status === 429) setGenerationCount(GENERATION_LIMIT);
+          if (!accountTask && response.status === 429) {
+            setGenerationCount(GENERATION_LIMIT);
+            renderAccountState();
+            showAuthPanel(true);
+          }
           throw new Error(getErrorMessage(data, "Generation request failed."));
         }
 
@@ -823,36 +1134,186 @@
           taskId: data.task_id,
           prompt,
           title,
+          accountTask,
           startedAt: new Date().toISOString(),
         });
-        incrementGenerationCount();
 
-        await pollStatus(data.task_id, prompt, title);
+        if (accountTask && data.account && musicAccount?.profile) {
+          musicAccount.profile.songs_used = Number(data.account.songs_used || musicAccount.profile.songs_used || 0);
+          musicAccount.profile.monthly_song_limit = Number(data.account.monthly_song_limit || musicAccount.profile.monthly_song_limit || 0);
+          renderAccountState();
+        }
+
+        if (!accountTask) incrementGenerationCount();
+
+        await pollStatus(data.task_id, prompt, title, accountTask);
       } catch (error) {
         statusEl.textContent = error instanceof Error ? error.message : "Request failed.";
       } finally {
         setGenerating(false);
-        applyGenerationLimit();
+        renderAccountState();
+        refreshGenerateAvailability();
       }
     }
 
     function resumeActiveTask() {
       const activeTask = readJson(ACTIVE_TASK_KEY, null);
       if (!activeTask?.taskId) {
-        applyGenerationLimit();
+        refreshGenerateAvailability();
+        return;
+      }
+
+      if (activeTask.accountTask && !currentSession?.access_token) {
+        statusEl.textContent = "Sign in to resume your account song request.";
+        showAuthPanel(true);
+        refreshGenerateAvailability();
         return;
       }
 
       setGenerating(true);
       statusEl.textContent = "Resuming your last song request...";
-      pollStatus(activeTask.taskId, activeTask.prompt || "", activeTask.title || "")
+      pollStatus(activeTask.taskId, activeTask.prompt || "", activeTask.title || "", Boolean(activeTask.accountTask))
         .catch((error) => {
           statusEl.textContent = error instanceof Error ? error.message : "Could not resume request.";
         })
         .finally(() => {
           setGenerating(false);
-          applyGenerationLimit();
+          renderAccountState();
+          refreshGenerateAvailability();
         });
+    }
+
+    async function handleSignin(event) {
+      event.preventDefault();
+      if (!supabase) return setAuthStatus("Supabase is not configured.", "error");
+
+      setAuthStatus("Signing in...");
+      const email = document.getElementById("musicSigninEmail").value.trim();
+      const password = document.getElementById("musicSigninPassword").value;
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+      if (error) {
+        setAuthStatus(error.message, "error");
+        return;
+      }
+
+      currentSession = data.session;
+      await loadMusicAccount();
+      showAuthPanel(false);
+      setAuthStatus("Signed in.", "success");
+    }
+
+    async function handleSignup(event) {
+      event.preventDefault();
+      if (!supabase) return setAuthStatus("Supabase is not configured.", "error");
+
+      const fullName = document.getElementById("musicSignupName").value.trim();
+      const email = document.getElementById("musicSignupEmail").value.trim();
+      const password = document.getElementById("musicSignupPassword").value;
+      const confirm = document.getElementById("musicSignupPasswordConfirm").value;
+
+      if (password !== confirm) {
+        setAuthStatus("Passwords do not match.", "error");
+        return;
+      }
+
+      setAuthStatus("Creating account...");
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: fullName,
+            app_signup: "ai_music",
+          },
+        },
+      });
+
+      if (error) {
+        setAuthStatus(error.message, "error");
+        return;
+      }
+
+      if (!data?.session) {
+        setAuthStatus("Account created. Check your email if confirmation is enabled, then sign in to activate AI Music.", "success");
+        setAuthMode("signin");
+        return;
+      }
+
+      currentSession = data.session;
+      await loadMusicAccount();
+      showAuthPanel(false);
+      setAuthStatus("AI Music account created.", "success");
+    }
+
+    async function handleSignout() {
+      if (!supabase) return;
+      await supabase.auth.signOut({ scope: "local" });
+      currentSession = null;
+      musicAccount = null;
+      renderAccountState();
+      renderHistory();
+      refreshGenerateAvailability();
+      setAuthStatus("Signed out.");
+    }
+
+    async function importLocalSongs() {
+      const songs = getImportableLocalSongs();
+      if (!songs.length || !currentSession?.access_token) return;
+
+      importLocalSongsBtn.disabled = true;
+      setAuthStatus("Saving browser songs to your account...");
+      try {
+        const response = await fetch("/api/music-import", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...authHeaders() },
+          body: JSON.stringify({ songs }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(getErrorMessage(data, "Unable to import songs."));
+
+        localStorage.removeItem(HISTORY_KEY);
+        musicAccount = data;
+        renderAccountState();
+        renderHistory();
+        setAuthStatus(`${data.imported || 0} browser songs saved to your account.`, "success");
+      } catch (error) {
+        setAuthStatus(error instanceof Error ? error.message : "Unable to import songs.", "error");
+      } finally {
+        importLocalSongsBtn.disabled = false;
+      }
+    }
+
+    async function initAuth() {
+      if (!hasConfig()) {
+        setAuthStatus("Supabase config is missing.", "error");
+        renderAccountState();
+        return;
+      }
+
+      supabase = createBrowserSupabase();
+      currentSession = await getSessionOrNull(supabase).catch(() => null);
+      if (currentSession?.user) {
+        await loadMusicAccount().catch((error) => {
+          setAuthStatus(error instanceof Error ? error.message : "Unable to load AI Music account.", "error");
+        });
+      } else {
+        renderAccountState();
+        renderHistory();
+        refreshGenerateAvailability();
+      }
+
+      supabase.auth.onAuthStateChange(async (_event, session) => {
+        currentSession = session;
+        if (session?.user) {
+          await loadMusicAccount().catch(() => null);
+        } else {
+          musicAccount = null;
+          renderAccountState();
+          renderHistory();
+          refreshGenerateAvailability();
+        }
+      });
     }
 
     form.addEventListener("submit", (event) => {
@@ -870,7 +1331,7 @@
       hideResult();
       updateFormState();
       statusEl.textContent = "Fields cleared.";
-      applyGenerationLimit();
+      refreshGenerateAvailability();
     });
 
     [titleEl, promptEl, lyricsEl].forEach((input) => {
@@ -884,12 +1345,25 @@
       deleteHistorySong(button.dataset.songId);
     });
 
-    window.addEventListener("load", () => {
+    musicAuthJump.addEventListener("click", () => showAuthPanel(true));
+    musicHeaderAuthLink.addEventListener("click", () => {
+      if (!currentSession?.user) window.setTimeout(() => showAuthPanel(true), 50);
+    });
+    musicSigninToggle.addEventListener("click", () => setAuthMode("signin"));
+    musicSignupToggle.addEventListener("click", () => setAuthMode("signup"));
+    musicSigninForm.addEventListener("submit", handleSignin);
+    musicSignupForm.addEventListener("submit", handleSignup);
+    musicSignoutBtn.addEventListener("click", handleSignout);
+    importLocalSongsBtn.addEventListener("click", importLocalSongs);
+
+    window.addEventListener("load", async () => {
       loadDraft();
       updateFormState();
       renderHistory();
+      setAuthMode("signin");
+      await initAuth();
       resumeActiveTask();
-      applyGenerationLimit();
+      refreshGenerateAvailability();
     });
   </script>
 </body>
