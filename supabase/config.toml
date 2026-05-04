@@ -6,3 +6,9 @@ verify_jwt = false
 
 [functions.stripe-billing]
 verify_jwt = false
+
+[functions.music-billing]
+verify_jwt = false
+
+[functions.music-stripe-webhook]
+verify_jwt = false

@@ -158,6 +158,7 @@ create table if not exists public.music_profiles (
   songs_used integer not null default 0,
   current_period_start timestamptz not null default date_trunc('month', now()),
   current_period_end timestamptz not null default (date_trunc('month', now()) + interval '1 month'),
+  stripe_customer_id text,
   stripe_subscription_id text,
   stripe_price_id text,
   cancel_at_period_end boolean not null default false,
@@ -173,6 +174,12 @@ create table if not exists public.music_profiles (
   constraint music_profiles_songs_used_check
     check (songs_used >= 0)
 );
+
+alter table public.music_profiles add column if not exists stripe_customer_id text;
+alter table public.music_profiles add column if not exists stripe_subscription_id text;
+alter table public.music_profiles add column if not exists stripe_price_id text;
+alter table public.music_profiles add column if not exists cancel_at_period_end boolean not null default false;
+alter table public.music_profiles add column if not exists subscription_current_period_end timestamptz;
 
 create table if not exists public.music_generations (
   id uuid primary key default gen_random_uuid(),
@@ -204,6 +211,10 @@ create index if not exists meeting_recordings_created_at_idx on public.meeting_r
 create index if not exists music_generations_user_id_idx on public.music_generations (user_id);
 create index if not exists music_generations_task_id_idx on public.music_generations (task_id);
 create index if not exists music_generations_created_at_idx on public.music_generations (created_at desc);
+create index if not exists profiles_stripe_customer_id_idx on public.profiles (stripe_customer_id);
+create index if not exists music_profiles_stripe_customer_id_idx on public.music_profiles (stripe_customer_id);
+create index if not exists music_profiles_stripe_subscription_id_idx on public.music_profiles (stripe_subscription_id);
+create index if not exists music_profiles_stripe_price_id_idx on public.music_profiles (stripe_price_id);
 
 create or replace function public.handle_new_user()
 returns trigger
@@ -628,7 +639,7 @@ declare
   owned_total integer;
   paid_owned_total integer;
 begin
-  if auth.role() = 'service_role' then
+  if auth.role() = 'service_role' or current_user in ('postgres', 'supabase_admin', 'service_role') then
     return new;
   end if;
 
@@ -1117,7 +1128,7 @@ returns trigger
 language plpgsql
 as $$
 begin
-  if auth.role() = 'service_role' then
+  if auth.role() = 'service_role' or current_user in ('postgres', 'supabase_admin', 'service_role') then
     return new;
   end if;
 
@@ -1160,12 +1171,36 @@ returns trigger
 language plpgsql
 as $$
 begin
-  if auth.role() = 'service_role' or public.is_platform_admin() then
+  if auth.role() = 'service_role' or current_user in ('postgres', 'supabase_admin', 'service_role') or public.is_platform_admin() then
     return new;
   end if;
 
   if new.stripe_customer_id is distinct from old.stripe_customer_id then
     raise exception 'Stripe customer fields require service access.';
+  end if;
+
+  return new;
+end;
+$$;
+
+create or replace function public.protect_music_profile_billing_fields()
+returns trigger
+language plpgsql
+as $$
+begin
+  if auth.role() = 'service_role' or current_user in ('postgres', 'supabase_admin', 'service_role') or public.is_platform_admin() then
+    return new;
+  end if;
+
+  if new.plan is distinct from old.plan
+    or new.account_status is distinct from old.account_status
+    or new.monthly_song_limit is distinct from old.monthly_song_limit
+    or new.stripe_customer_id is distinct from old.stripe_customer_id
+    or new.stripe_subscription_id is distinct from old.stripe_subscription_id
+    or new.stripe_price_id is distinct from old.stripe_price_id
+    or new.cancel_at_period_end is distinct from old.cancel_at_period_end
+    or new.subscription_current_period_end is distinct from old.subscription_current_period_end then
+    raise exception 'AI Music billing fields require service access.';
   end if;
 
   return new;
@@ -1216,6 +1251,11 @@ drop trigger if exists music_profiles_set_updated_at on public.music_profiles;
 create trigger music_profiles_set_updated_at
 before update on public.music_profiles
 for each row execute procedure public.set_updated_at();
+
+drop trigger if exists music_profiles_protect_billing_fields on public.music_profiles;
+create trigger music_profiles_protect_billing_fields
+before update on public.music_profiles
+for each row execute procedure public.protect_music_profile_billing_fields();
 
 drop trigger if exists music_generations_set_updated_at on public.music_generations;
 create trigger music_generations_set_updated_at

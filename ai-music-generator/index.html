@@ -376,6 +376,22 @@
     .status.error { color: #b42318; }
     .status.success { color: #087443; }
 
+    .legal-disclosure,
+    .provider-disclosure {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.82rem;
+      line-height: 1.5;
+      font-weight: 700;
+    }
+
+    .legal-disclosure a,
+    .provider-disclosure a {
+      color: var(--deep);
+      font-weight: 900;
+      text-decoration: none;
+    }
+
     .side-stack {
       display: grid;
       gap: 1rem;
@@ -587,6 +603,7 @@
               <button class="primary-btn" type="submit">Create AI Music account</button>
             </form>
 
+            <p class="legal-disclosure" id="musicAuthLegal">By signing in, you agree to the <a href="/terms/">N3XRA Terms</a> and <a href="/privacy/">Privacy Policy</a>.</p>
             <p class="status" id="musicAuthStatus">Use the same Supabase login across N3XRA apps.</p>
           </div>
         </div>
@@ -597,6 +614,7 @@
           <div class="tool-band">
             <h2>Build the song request.</h2>
             <p>Use a detailed prompt for best results. Lyrics are for words you have already written.</p>
+            <p class="provider-disclosure">Prompts, lyrics, titles, and generated song data may be processed by our AI music provider to create and save songs. Do not submit lyrics or content you do not have rights to use.</p>
           </div>
 
           <form class="music-form" id="musicForm">
@@ -693,6 +711,7 @@
     const musicSigninForm = document.getElementById("musicSigninForm");
     const musicSignupForm = document.getElementById("musicSignupForm");
     const musicAuthStatus = document.getElementById("musicAuthStatus");
+    const musicAuthLegal = document.getElementById("musicAuthLegal");
 
     let supabase = null;
     let currentSession = null;
@@ -772,6 +791,9 @@
       musicSignupToggle.setAttribute("aria-pressed", String(signup));
       musicSigninForm.classList.toggle("hidden", signup);
       musicSignupForm.classList.toggle("hidden", !signup);
+      musicAuthLegal.innerHTML = signup
+        ? 'By creating an account, you agree to the <a href="/terms/">N3XRA Terms</a> and <a href="/privacy/">Privacy Policy</a>.'
+        : 'By signing in, you agree to the <a href="/terms/">N3XRA Terms</a> and <a href="/privacy/">Privacy Policy</a>.';
       setAuthStatus(signup ? "Create an N3XRA login and activate AI Music." : "Use your existing N3XRA login.");
     }
 
@@ -924,6 +946,12 @@
       return date.toLocaleString();
     }
 
+    function formatPlan(value) {
+      const planMap = { free: "Free", creator: "Creator", studio: "Studio" };
+      const raw = String(value || "free").trim().toLowerCase();
+      return planMap[raw] || (raw ? raw.charAt(0).toUpperCase() + raw.slice(1) : "Free");
+    }
+
     function renderHistory() {
       historyContainer.innerHTML = "";
 
@@ -985,7 +1013,7 @@
         musicSignoutBtn.classList.remove("hidden");
         importLocalSongsBtn.classList.toggle("hidden", getImportableLocalSongs().length === 0);
         musicAccountTitle.textContent = "AI Music account active.";
-        musicAccountCopy.textContent = `${profile?.plan || "Free"} plan: ${used} of ${limit} songs used this period. Open the app for saved songs and account generation.`;
+        musicAccountCopy.textContent = `${formatPlan(profile?.plan)} plan: ${used} of ${limit} songs used this period. Open the app for saved songs and account generation.`;
         return;
       }
 
