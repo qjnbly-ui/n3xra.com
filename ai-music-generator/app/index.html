@@ -3,17 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AI Music Generator | N3XRA</title>
+  <title>AI Music App | N3XRA</title>
   <meta name="description" content="Generate custom songs with prompts and optional user-written lyrics." />
-  <link rel="canonical" href="https://n3xra.com/ai-music-generator/" />
-  <link rel="icon" type="image/png" sizes="284x284" href="../assets/n3xra_logo_transparent_small.png">
+  <meta name="robots" content="noindex, nofollow, noarchive, nosnippet" />
+  <link rel="canonical" href="https://n3xra.com/ai-music-generator/app/" />
+  <link rel="icon" type="image/png" sizes="284x284" href="../../assets/n3xra_logo_transparent_small.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="../assets/site-nav.css">
-  <link rel="stylesheet" href="../assets/site-intro.css?v=2">
-  <script src="../app/config.js"></script>
-  <script src="../assets/site-nav.js" defer></script>
+  <link rel="stylesheet" href="../../assets/site-nav.css">
+  <link rel="stylesheet" href="../../assets/site-intro.css?v=2">
+  <script src="../../app/config.js"></script>
+  <script src="../../assets/site-nav.js" defer></script>
   <style>
     :root {
       --ink: #0b1016;
@@ -144,6 +145,16 @@
       align-items: center;
     }
 
+    .music-account-strip.is-signed-in {
+      grid-template-columns: 1fr;
+      justify-items: center;
+      text-align: center;
+    }
+
+    .music-account-strip.is-signed-in .account-actions {
+      display: none;
+    }
+
     .account-kicker,
     .generator-kicker {
       margin: 0;
@@ -173,6 +184,147 @@
       flex-wrap: wrap;
       gap: 0.65rem;
       justify-content: flex-end;
+    }
+
+    .account-modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 1000;
+      display: grid;
+      place-items: center;
+      padding: 1rem;
+      background: rgba(3, 7, 12, 0.68);
+      backdrop-filter: blur(14px);
+    }
+
+    .account-modal {
+      width: min(560px, 100%);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 22px;
+      background:
+        radial-gradient(460px 240px at 16% 0%, rgba(22, 185, 237, 0.22), transparent 62%),
+        linear-gradient(145deg, #0b1219 0%, #060b12 100%);
+      color: #fff;
+      box-shadow: 0 34px 90px rgba(0, 0, 0, 0.42);
+      padding: 1.1rem;
+    }
+
+    .account-modal-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 0.35rem 0.35rem 1rem;
+    }
+
+    .account-modal-kicker {
+      margin: 0 0 0.25rem;
+      color: #9eeeff;
+      font-size: 0.74rem;
+      font-weight: 800;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+    }
+
+    .account-modal h2 {
+      margin: 0;
+      font-family: "Fraunces", Georgia, serif;
+      font-size: 1.7rem;
+      line-height: 1.05;
+    }
+
+    .account-modal-close {
+      min-height: 38px;
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.08);
+      color: #fff;
+      cursor: pointer;
+      font-weight: 800;
+      padding: 0.45rem 0.75rem;
+    }
+
+    .account-detail-grid {
+      display: grid;
+      gap: 0.7rem;
+    }
+
+    .account-detail {
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 16px;
+      padding: 0.85rem;
+      background: rgba(255, 255, 255, 0.06);
+    }
+
+    .account-detail-label {
+      margin: 0 0 0.25rem;
+      color: rgba(255, 255, 255, 0.58);
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+
+    .account-detail-value {
+      margin: 0;
+      color: #fff;
+      font-weight: 800;
+      overflow-wrap: anywhere;
+    }
+
+    .account-profile-form {
+      display: grid;
+      gap: 0.7rem;
+    }
+
+    .account-input {
+      width: 100%;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.08);
+      color: #fff;
+      padding: 0.78rem 0.85rem;
+      outline: none;
+      font-weight: 800;
+    }
+
+    .account-input:not(.hidden) {
+      display: block;
+      margin-top: 0.3rem;
+    }
+
+    .account-input:focus {
+      border-color: rgba(158, 238, 255, 0.68);
+      box-shadow: 0 0 0 3px rgba(22, 185, 237, 0.16);
+    }
+
+    .account-status {
+      margin: 0;
+      color: rgba(255, 255, 255, 0.62);
+      font-weight: 700;
+    }
+
+    .account-status.error { color: #ffb4aa; }
+    .account-status.success { color: #9ff2c8; }
+
+    .account-modal-actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 0.65rem;
+      padding-top: 1rem;
+    }
+
+    .account-modal .primary-btn {
+      color: #07111d;
+      background: #fff;
+      border-color: #fff;
+    }
+
+    .account-modal .secondary-btn {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(255, 255, 255, 0.2);
     }
 
     .music-auth-panel {
@@ -486,18 +638,18 @@
 </head>
 <body>
   <div class="entry-splash" aria-hidden="true" data-entry-splash>
-    <img src="../assets/aimusiclogo.png" alt="">
+    <img src="../../assets/aimusiclogo.png" alt="">
   </div>
-  <script src="../assets/site-intro.js?v=2"></script>
+  <script src="../../assets/site-intro.js?v=2"></script>
 
   <header class="site-topbar">
     <div class="site-topbar-inner">
       <div class="site-topbar-row">
-        <a class="site-brand" href="/" aria-label="N3XRA home">
-          <img src="../assets/n3xra_logo_transparent.png" alt="N3XRA">
+        <a class="site-brand" href="/ai-music-generator/app/" aria-label="AI Music app">
+          <img src="../../assets/n3xra_logo_transparent.png" alt="N3XRA">
         </a>
         <div class="site-nav-actions">
-          <a class="site-menu-link site-auth-link" href="/ai-music-generator/login/" id="musicHeaderAuthLink">Login</a>
+          <a class="site-menu-link site-auth-link" href="/ai-music-generator/login/?next=/ai-music-generator/app/" id="musicHeaderAuthLink">Login</a>
           <button class="site-menu-toggle" type="button" aria-expanded="false" aria-controls="ai-mobile-menu" aria-label="Open menu" data-site-menu-toggle>
             <span></span>
             <span></span>
@@ -505,13 +657,13 @@
           </button>
         </div>
       </div>
-      <nav class="site-mobile-menu" id="ai-mobile-menu" aria-label="Mobile primary" hidden>
+      <nav class="site-mobile-menu" id="ai-mobile-menu" aria-label="AI Music app navigation" hidden>
         <div class="site-mobile-menu-head">
-          <p class="site-mobile-menu-title">Navigate</p>
+          <p class="site-mobile-menu-title">AI Music</p>
         </div>
-        <a class="site-menu-link" href="/">Home</a>
-        <a class="site-menu-link" href="/software/">N3XRA Records</a>
-        <a class="site-menu-link" href="/projects/">Projects</a>
+        <a class="site-menu-link" href="/ai-music-generator/app/">Generator</a>
+        <a class="site-menu-link" href="#history-title">Saved Songs</a>
+        <a class="site-menu-link" href="#music-account-settings" id="musicMenuAccountLink">Account</a>
       </nav>
     </div>
   </header>
@@ -519,10 +671,10 @@
   <section class="music-hero-shell" aria-labelledby="generator-title">
     <div class="music-hero-inner">
       <div class="music-hero-grid">
-        <img class="music-hero-logo" src="../assets/aimusiclogo.png" alt="N3XRA AI Music Generator logo" />
+        <img class="music-hero-logo" src="../../assets/aimusiclogo.png" alt="N3XRA AI Music Generator logo" />
         <div class="music-hero-copy">
-          <h1 class="sr-only" id="generator-title">AI Music Generator</h1>
-          <p class="music-hero-lede">Generate custom songs from a prompt or your own lyrics from one N3XRA tool.</p>
+          <h1 class="sr-only" id="generator-title">AI Music App</h1>
+          <p class="music-hero-lede">Your signed-in AI Music workspace for saved songs, usage, and generation history.</p>
         </div>
       </div>
     </div>
@@ -532,14 +684,13 @@
     <section class="generator-shell" aria-label="AI music generator tool">
       <section class="music-account-strip" id="music-account" aria-live="polite">
         <div>
-          <p class="account-kicker">Music Account</p>
-          <h2 id="musicAccountTitle">Start with 5 free songs.</h2>
-          <p class="account-copy" id="musicAccountCopy">Use this browser's free songs without an account. Sign in before generating when you want songs saved.</p>
+          <p class="account-kicker" id="musicAccountKicker">Music Account</p>
+          <h2 id="musicAccountTitle">Sign in to AI Music.</h2>
+          <p class="account-copy" id="musicAccountCopy">Use your N3XRA login to open the generator workspace.</p>
         </div>
         <div class="account-actions">
-          <button class="secondary-btn" type="button" id="musicAuthJump">Sign in to save songs</button>
+          <button class="secondary-btn" type="button" id="musicAuthJump">Sign in</button>
           <button class="secondary-btn hidden" type="button" id="importLocalSongsBtn">Save browser songs</button>
-          <button class="secondary-btn hidden" type="button" id="musicSignoutBtn">Sign out</button>
         </div>
       </section>
 
@@ -592,7 +743,7 @@
         </div>
       </section>
 
-      <div class="generator-layout">
+      <div class="generator-layout hidden" id="musicWorkspace">
         <section class="tool-panel" aria-label="Song request form">
           <div class="tool-band">
             <h2>Build the song request.</h2>
@@ -657,8 +808,56 @@
     </div>
   </footer>
 
+  <div class="account-modal-backdrop hidden" id="musicAccountModal" role="dialog" aria-modal="true" aria-labelledby="musicAccountModalTitle">
+    <section class="account-modal" id="music-account-settings">
+      <div class="account-modal-head">
+        <div>
+          <p class="account-modal-kicker">Account</p>
+          <h2 id="musicAccountModalTitle">Profile settings</h2>
+        </div>
+        <button class="account-modal-close" type="button" id="musicAccountModalClose">Close</button>
+      </div>
+
+      <div class="account-detail-grid">
+        <div class="account-detail">
+          <p class="account-detail-label">Signed in as</p>
+          <p class="account-detail-value" id="musicAccountModalEmail">-</p>
+        </div>
+        <form class="account-profile-form" id="musicAccountProfileForm">
+          <div class="account-detail">
+            <label class="account-detail-label" for="musicAccountDisplayName">Display name</label>
+            <p class="account-detail-value" id="musicAccountDisplayNameText">-</p>
+            <input class="account-input hidden" id="musicAccountDisplayName" type="text" autocomplete="name" maxlength="120" placeholder="Quentin" required>
+          </div>
+        </form>
+        <div class="account-detail">
+          <p class="account-detail-label">Plan</p>
+          <p class="account-detail-value" id="musicAccountModalPlan">Free</p>
+        </div>
+        <div class="account-detail">
+          <p class="account-detail-label">Current usage</p>
+          <p class="account-detail-value" id="musicAccountModalUsage">0 of 5 songs used</p>
+        </div>
+        <div class="account-detail">
+          <p class="account-detail-label">Usage period</p>
+          <p class="account-detail-value" id="musicAccountModalPeriod">-</p>
+        </div>
+      </div>
+
+      <p class="account-status" id="musicAccountProfileStatus" aria-live="polite"></p>
+
+      <div class="account-modal-actions">
+        <button class="secondary-btn" type="button" id="musicAccountModalSignout">Sign out</button>
+        <button class="secondary-btn" type="button" id="musicAccountEditProfile">Edit profile</button>
+        <button class="secondary-btn hidden" type="button" id="musicAccountCancelProfile">Cancel</button>
+        <button class="primary-btn hidden" type="submit" form="musicAccountProfileForm" id="musicAccountSaveProfile">Save profile</button>
+        <button class="primary-btn" type="button" id="musicAccountModalDone">Done</button>
+      </div>
+    </section>
+  </div>
+
   <script type="module">
-    import { createBrowserSupabase, getSessionOrNull, hasConfig } from "../app/lib/supabase-client.js";
+    import { createBrowserSupabase, getSessionOrNull, hasConfig } from "../../app/lib/supabase-client.js";
 
     const HISTORY_KEY = "n3xraSongHistory";
     const SONG_DRAFT_KEY = "n3xraMusicDraft";
@@ -666,7 +865,6 @@
     const GENERATION_COUNT_KEY = "n3xraMusicGenerationCount";
     const LEGACY_GENERATION_LOCK_KEY = "n3xraMusicGenerated";
     const GENERATION_LIMIT = 5;
-    const MUSIC_LOGIN_PATH = "/ai-music-generator/login/";
 
     const form = document.getElementById("musicForm");
     const titleEl = document.getElementById("songTitle");
@@ -681,11 +879,14 @@
     const clearFieldsBtn = document.getElementById("clearFieldsBtn");
     const generateBtn = document.getElementById("generateBtn");
     const historyContainer = document.getElementById("historyContainer");
+    const musicWorkspace = document.getElementById("musicWorkspace");
+    const musicAccountStrip = document.getElementById("music-account");
     const musicHeaderAuthLink = document.getElementById("musicHeaderAuthLink");
+    const musicMenuAccountLink = document.getElementById("musicMenuAccountLink");
+    const musicAccountKicker = document.getElementById("musicAccountKicker");
     const musicAccountTitle = document.getElementById("musicAccountTitle");
     const musicAccountCopy = document.getElementById("musicAccountCopy");
     const musicAuthJump = document.getElementById("musicAuthJump");
-    const musicSignoutBtn = document.getElementById("musicSignoutBtn");
     const importLocalSongsBtn = document.getElementById("importLocalSongsBtn");
     const musicAuthPanel = document.getElementById("music-auth-panel");
     const musicSigninToggle = document.getElementById("musicSigninToggle");
@@ -693,27 +894,35 @@
     const musicSigninForm = document.getElementById("musicSigninForm");
     const musicSignupForm = document.getElementById("musicSignupForm");
     const musicAuthStatus = document.getElementById("musicAuthStatus");
+    const musicAccountModal = document.getElementById("musicAccountModal");
+    const musicAccountModalClose = document.getElementById("musicAccountModalClose");
+    const musicAccountModalDone = document.getElementById("musicAccountModalDone");
+    const musicAccountModalSignout = document.getElementById("musicAccountModalSignout");
+    const musicAccountModalEmail = document.getElementById("musicAccountModalEmail");
+    const musicAccountDisplayNameText = document.getElementById("musicAccountDisplayNameText");
+    const musicAccountDisplayName = document.getElementById("musicAccountDisplayName");
+    const musicAccountProfileForm = document.getElementById("musicAccountProfileForm");
+    const musicAccountProfileStatus = document.getElementById("musicAccountProfileStatus");
+    const musicAccountEditProfile = document.getElementById("musicAccountEditProfile");
+    const musicAccountCancelProfile = document.getElementById("musicAccountCancelProfile");
+    const musicAccountSaveProfile = document.getElementById("musicAccountSaveProfile");
+    const musicAccountModalPlan = document.getElementById("musicAccountModalPlan");
+    const musicAccountModalUsage = document.getElementById("musicAccountModalUsage");
+    const musicAccountModalPeriod = document.getElementById("musicAccountModalPeriod");
 
     let supabase = null;
     let currentSession = null;
     let musicAccount = null;
     let isGenerating = false;
+    let isAccountEditing = false;
 
-    function openMusicApp(replace = false) {
-      const destination = "/ai-music-generator/app/";
+    function openMusicLogin(replace = false) {
+      const destination = "/ai-music-generator/login/?next=/ai-music-generator/app/";
       if (replace) {
         window.location.replace(destination);
         return;
       }
       window.location.assign(destination);
-    }
-
-    function openMusicLogin(replace = false) {
-      if (replace) {
-        window.location.replace(MUSIC_LOGIN_PATH);
-        return;
-      }
-      window.location.assign(MUSIC_LOGIN_PATH);
     }
 
     function readJson(key, fallback) {
@@ -760,8 +969,8 @@
     }
 
     function showAuthPanel(visible) {
-      musicAuthPanel.classList.add("hidden");
-      if (visible) openMusicLogin();
+      musicAuthPanel.classList.toggle("hidden", !visible);
+      if (visible) musicAuthPanel.scrollIntoView({ behavior: "smooth", block: "start" });
     }
 
     function setAuthMode(mode) {
@@ -825,11 +1034,11 @@
         return;
       }
 
-      if (!currentSession?.user && hasReachedLocalLimit()) {
+      if (!currentSession?.user) {
         generateBtn.disabled = true;
         generateBtn.removeAttribute("aria-busy");
-        generateBtn.textContent = "Limit Reached";
-        statusEl.textContent = "This browser has reached the free limit of 5 songs. Sign in to continue with an AI Music account.";
+        generateBtn.textContent = "Sign In Required";
+        statusEl.textContent = "Sign in to use the AI Music app.";
         return;
       }
 
@@ -924,6 +1133,75 @@
       return date.toLocaleString();
     }
 
+    function formatPlan(value) {
+      const raw = String(value || "free").trim();
+      return raw ? raw.charAt(0).toUpperCase() + raw.slice(1) : "Free";
+    }
+
+    function getSessionDisplayName() {
+      const metadata = currentSession?.user?.user_metadata || {};
+      return String(metadata.full_name || metadata.name || "").trim();
+    }
+
+    function getMusicDisplayName() {
+      return String(musicAccount?.profile?.display_name || getSessionDisplayName() || "").trim();
+    }
+
+    function getFirstDisplayName(displayName) {
+      return String(displayName || "").trim().split(/\s+/)[0] || "Your";
+    }
+
+    function formatMusicAccountKicker(displayName) {
+      return `${getFirstDisplayName(displayName)}'s Music Account`;
+    }
+
+    function renderAccountModal() {
+      const profile = musicAccount?.profile || {};
+      const email = currentSession?.user?.email || "this account";
+      const displayName = getMusicDisplayName() || "Not set";
+      const used = Number(profile.songs_used ?? 0);
+      const limit = Number(profile.monthly_song_limit ?? GENERATION_LIMIT);
+
+      musicAccountModalEmail.textContent = email;
+      musicAccountDisplayNameText.textContent = displayName;
+      musicAccountDisplayName.value = displayName === "Not set" ? "" : displayName;
+      musicAccountModalPlan.textContent = formatPlan(profile.plan);
+      musicAccountModalUsage.textContent = `${used} of ${limit} songs used`;
+      musicAccountModalPeriod.textContent = profile.current_period_end
+        ? `Renews ${formatDate(profile.current_period_end)}`
+        : "Current monthly period";
+    }
+
+    function setAccountProfileStatus(message, tone = "") {
+      musicAccountProfileStatus.textContent = message || "";
+      musicAccountProfileStatus.className = "account-status";
+      if (tone) musicAccountProfileStatus.classList.add(tone);
+    }
+
+    function setAccountEditMode(isEditing) {
+      isAccountEditing = Boolean(isEditing);
+      musicAccountDisplayNameText.classList.toggle("hidden", isAccountEditing);
+      musicAccountDisplayName.classList.toggle("hidden", !isAccountEditing);
+      musicAccountEditProfile.classList.toggle("hidden", isAccountEditing);
+      musicAccountCancelProfile.classList.toggle("hidden", !isAccountEditing);
+      musicAccountSaveProfile.classList.toggle("hidden", !isAccountEditing);
+      if (isAccountEditing) musicAccountDisplayName.focus();
+    }
+
+    function openAccountModal() {
+      if (!currentSession?.user) return;
+      renderAccountModal();
+      setAccountProfileStatus("");
+      setAccountEditMode(false);
+      musicAccountModal.classList.remove("hidden");
+      musicAccountModalClose.focus();
+    }
+
+    function closeAccountModal() {
+      setAccountEditMode(false);
+      musicAccountModal.classList.add("hidden");
+    }
+
     function renderHistory() {
       historyContainer.innerHTML = "";
 
@@ -951,53 +1229,40 @@
         return;
       }
 
-      const history = getLocalHistory();
-      if (!history.length) {
-        historyContainer.innerHTML = '<p class="empty-note">No songs saved on this device yet.</p>';
-        return;
-      }
-
-      history.forEach((song) => {
-        const item = document.createElement("article");
-        item.className = "history-item";
-        item.innerHTML = `
-          <p class="history-name">${escapeHtml(song.title || "Untitled song")}</p>
-          <audio controls src="${escapeHtml(song.url)}"></audio>
-          <p class="history-meta"><strong>Prompt:</strong> ${escapeHtml(song.prompt || "Generated song")}</p>
-          <p class="history-meta"><strong>Saved:</strong> ${escapeHtml(formatDate(song.savedAt))}</p>
-          <div class="history-actions">
-            <button type="button" class="history-btn" data-song-id="${escapeHtml(song.id)}">Delete</button>
-          </div>
-        `;
-        historyContainer.appendChild(item);
-      });
+      historyContainer.innerHTML = '<p class="empty-note">Sign in to view saved songs.</p>';
     }
 
     function renderAccountState() {
       if (currentSession?.user) {
         const profile = musicAccount?.profile;
-        const used = Number(profile?.songs_used || 0);
-        const limit = Number(profile?.monthly_song_limit || 0);
-        musicHeaderAuthLink.textContent = "Open App";
-        musicHeaderAuthLink.href = "/ai-music-generator/app/";
-        musicAuthJump.textContent = "Open AI Music app";
-        musicAuthJump.classList.remove("hidden");
-        musicSignoutBtn.classList.remove("hidden");
+        const used = Number(profile?.songs_used ?? 0);
+        const limit = Number(profile?.monthly_song_limit ?? GENERATION_LIMIT);
+        const displayName = getMusicDisplayName();
+        musicHeaderAuthLink.textContent = "Account";
+        musicHeaderAuthLink.href = "#music-account-settings";
+        musicAccountStrip.classList.add("is-signed-in");
+        musicWorkspace.classList.remove("hidden");
+        musicAuthPanel.classList.add("hidden");
+        musicAuthJump.classList.add("hidden");
         importLocalSongsBtn.classList.toggle("hidden", getImportableLocalSongs().length === 0);
-        musicAccountTitle.textContent = "AI Music account active.";
-        musicAccountCopy.textContent = `${profile?.plan || "Free"} plan: ${used} of ${limit} songs used this period. Open the app for saved songs and account generation.`;
+        musicAccountKicker.textContent = formatMusicAccountKicker(displayName);
+        musicAccountTitle.textContent = "AI Music workspace.";
+        musicAccountCopy.textContent = `${formatPlan(profile?.plan)} plan: ${used} of ${limit} songs used this period. Completed songs save to your account.`;
+        renderAccountModal();
         return;
       }
 
-      const count = getGenerationCount();
       musicHeaderAuthLink.textContent = "Login";
-      musicHeaderAuthLink.href = MUSIC_LOGIN_PATH;
+      musicHeaderAuthLink.href = "/ai-music-generator/login/?next=/ai-music-generator/app/";
+      musicAccountKicker.textContent = "Music Account";
+      musicAccountStrip.classList.remove("is-signed-in");
+      musicWorkspace.classList.add("hidden");
       musicAuthJump.classList.remove("hidden");
-      musicSignoutBtn.classList.add("hidden");
       importLocalSongsBtn.classList.add("hidden");
-      musicAccountTitle.textContent = hasReachedLocalLimit() ? "Free browser limit reached." : "Start with 5 free songs.";
-      musicAccountCopy.textContent = `Browser usage: ${count} of ${GENERATION_LIMIT} free songs used. Sign in before generating when you want songs saved.`;
+      musicAccountTitle.textContent = "Sign in to AI Music.";
+      musicAccountCopy.textContent = "Use your N3XRA login to open the generator workspace.";
       musicAuthPanel.classList.add("hidden");
+      closeAccountModal();
     }
 
     async function refreshSession() {
@@ -1082,12 +1347,10 @@
 
     async function generateSong() {
       await refreshSession().catch(() => null);
-      const accountTask = Boolean(currentSession?.access_token);
+      const accountTask = true;
 
-      if (!accountTask && hasReachedLocalLimit()) {
-        renderAccountState();
-        refreshGenerateAvailability();
-        showAuthPanel(true);
+      if (!currentSession?.access_token) {
+        openMusicLogin();
         return;
       }
 
@@ -1136,11 +1399,6 @@
         const data = await response.json().catch(() => ({}));
 
         if (!response.ok) {
-          if (!accountTask && response.status === 429) {
-            setGenerationCount(GENERATION_LIMIT);
-            renderAccountState();
-            showAuthPanel(true);
-          }
           throw new Error(getErrorMessage(data, "Generation request failed."));
         }
 
@@ -1162,8 +1420,6 @@
           renderAccountState();
         }
 
-        if (!accountTask) incrementGenerationCount();
-
         await pollStatus(data.task_id, prompt, title, accountTask);
       } catch (error) {
         statusEl.textContent = error instanceof Error ? error.message : "Request failed.";
@@ -1181,16 +1437,20 @@
         return;
       }
 
-      if (activeTask.accountTask && !currentSession?.access_token) {
-        statusEl.textContent = "Sign in to resume your account song request.";
-        showAuthPanel(true);
+      if (!activeTask.accountTask) {
+        localStorage.removeItem(ACTIVE_TASK_KEY);
         refreshGenerateAvailability();
+        return;
+      }
+
+      if (!currentSession?.access_token) {
+        openMusicLogin();
         return;
       }
 
       setGenerating(true);
       statusEl.textContent = "Resuming your last song request...";
-      pollStatus(activeTask.taskId, activeTask.prompt || "", activeTask.title || "", Boolean(activeTask.accountTask))
+      pollStatus(activeTask.taskId, activeTask.prompt || "", activeTask.title || "", true)
         .catch((error) => {
           statusEl.textContent = error instanceof Error ? error.message : "Could not resume request.";
         })
@@ -1216,8 +1476,9 @@
       }
 
       currentSession = data.session;
-      setAuthStatus("Opening AI Music app...", "success");
-      openMusicApp();
+      await loadMusicAccount();
+      showAuthPanel(false);
+      setAuthStatus("Signed in.", "success");
     }
 
     async function handleSignup(event) {
@@ -1263,8 +1524,44 @@
       }
 
       currentSession = data.session;
-      setAuthStatus("Opening AI Music app...", "success");
-      openMusicApp();
+      await loadMusicAccount();
+      showAuthPanel(false);
+      setAuthStatus("AI Music account created.", "success");
+    }
+
+    async function handleProfileSave(event) {
+      event.preventDefault();
+      if (!currentSession?.access_token) return openMusicLogin();
+
+      const displayName = musicAccountDisplayName.value.trim();
+      if (!displayName) {
+        setAccountProfileStatus("Display name is required.", "error");
+        musicAccountDisplayName.focus();
+        return;
+      }
+
+      musicAccountSaveProfile.disabled = true;
+      setAccountProfileStatus("Saving profile...");
+
+      try {
+        const response = await fetch("/api/music-account", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", ...authHeaders() },
+          body: JSON.stringify({ display_name: displayName }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(getErrorMessage(data, "Unable to update profile."));
+
+        musicAccount = data;
+        renderAccountState();
+        renderHistory();
+        setAccountEditMode(false);
+        setAccountProfileStatus("Profile updated.", "success");
+      } catch (error) {
+        setAccountProfileStatus(error instanceof Error ? error.message : "Unable to update profile.", "error");
+      } finally {
+        musicAccountSaveProfile.disabled = false;
+      }
     }
 
     async function handleSignout() {
@@ -1272,10 +1569,8 @@
       await supabase.auth.signOut({ scope: "local" });
       currentSession = null;
       musicAccount = null;
-      renderAccountState();
-      renderHistory();
-      refreshGenerateAvailability();
-      setAuthStatus("Signed out.");
+      closeAccountModal();
+      openMusicLogin(true);
     }
 
     async function importLocalSongs() {
@@ -1314,24 +1609,25 @@
 
       supabase = createBrowserSupabase();
       currentSession = await getSessionOrNull(supabase).catch(() => null);
-      if (currentSession?.user) {
-        openMusicApp(true);
+      if (!currentSession?.user) {
+        openMusicLogin(true);
         return true;
-      } else {
+      }
+
+      await loadMusicAccount().catch((error) => {
+        setAuthStatus(error instanceof Error ? error.message : "Unable to load AI Music account.", "error");
         renderAccountState();
         renderHistory();
         refreshGenerateAvailability();
-      }
+      });
 
       supabase.auth.onAuthStateChange(async (_event, session) => {
         currentSession = session;
         if (session?.user) {
-          openMusicApp(true);
+          await loadMusicAccount().catch(() => null);
         } else {
           musicAccount = null;
-          renderAccountState();
-          renderHistory();
-          refreshGenerateAvailability();
+          openMusicLogin(true);
         }
       });
 
@@ -1367,23 +1663,48 @@
       deleteHistorySong(button.dataset.songId);
     });
 
-    musicAuthJump.addEventListener("click", () => {
+    musicAuthJump.addEventListener("click", () => openMusicLogin());
+    musicHeaderAuthLink.addEventListener("click", (event) => {
+      event.preventDefault();
       if (currentSession?.user) {
-        openMusicApp();
+        openAccountModal();
         return;
       }
       openMusicLogin();
     });
-    musicHeaderAuthLink.addEventListener("click", (event) => {
-      if (currentSession?.user) return;
+    musicMenuAccountLink.addEventListener("click", (event) => {
       event.preventDefault();
+      if (currentSession?.user) {
+        openAccountModal();
+        return;
+      }
       openMusicLogin();
+    });
+    musicAccountModalClose.addEventListener("click", closeAccountModal);
+    musicAccountModalDone.addEventListener("click", closeAccountModal);
+    musicAccountModalSignout.addEventListener("click", handleSignout);
+    musicAccountEditProfile.addEventListener("click", () => {
+      setAccountProfileStatus("");
+      setAccountEditMode(true);
+    });
+    musicAccountCancelProfile.addEventListener("click", () => {
+      renderAccountModal();
+      setAccountProfileStatus("");
+      setAccountEditMode(false);
+    });
+    musicAccountProfileForm.addEventListener("submit", handleProfileSave);
+    musicAccountModal.addEventListener("click", (event) => {
+      if (event.target === musicAccountModal) closeAccountModal();
+    });
+    window.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && !musicAccountModal.classList.contains("hidden")) {
+        closeAccountModal();
+      }
     });
     musicSigninToggle.addEventListener("click", () => setAuthMode("signin"));
     musicSignupToggle.addEventListener("click", () => setAuthMode("signup"));
     musicSigninForm.addEventListener("submit", handleSignin);
     musicSignupForm.addEventListener("submit", handleSignup);
-    musicSignoutBtn.addEventListener("click", handleSignout);
     importLocalSongsBtn.addEventListener("click", importLocalSongs);
 
     window.addEventListener("load", async () => {

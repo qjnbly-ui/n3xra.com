@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Music Login | N3XRA</title>
+  <meta name="description" content="Sign in to the N3XRA AI Music Generator workspace." />
+  <meta name="robots" content="noindex, nofollow, noarchive, nosnippet" />
+  <link rel="canonical" href="https://n3xra.com/ai-music-generator/login/" />
+  <link rel="icon" type="image/png" sizes="284x284" href="../../assets/n3xra_logo_transparent_small.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/site-nav.css">
+  <link rel="stylesheet" href="../../assets/site-intro.css?v=2">
+  <script src="../../app/config.js"></script>
+  <script src="../../assets/site-nav.js" defer></script>
+  <style>
+    :root {
+      --ink: #f7fbff;
+      --muted: rgba(247, 251, 255, 0.72);
+      --soft: rgba(255, 255, 255, 0.1);
+      --line: rgba(255, 255, 255, 0.16);
+      --cyan: #16b9ed;
+      --deep: #070c12;
+      --panel: rgba(7, 12, 18, 0.78);
+      --radius: 14px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100svh;
+      display: flex;
+      flex-direction: column;
+      font-family: "Manrope", Arial, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(780px 460px at 16% 18%, rgba(22, 185, 237, 0.34), transparent 62%),
+        radial-gradient(720px 390px at 88% 4%, rgba(74, 112, 255, 0.32), transparent 60%),
+        linear-gradient(135deg, #07111d 0%, #0c1524 50%, #070c12 100%);
+      line-height: 1.55;
+    }
+
+    button,
+    input { font: inherit; }
+
+    main {
+      flex: 1;
+      display: grid;
+      align-items: center;
+      padding: 7.5rem 0 4rem;
+    }
+
+    .hidden { display: none !important; }
+
+    .login-shell {
+      width: min(980px, calc(100vw - 2rem));
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: minmax(0, 0.9fr) minmax(320px, 440px);
+      gap: 1.2rem;
+      align-items: stretch;
+      transition: padding-top 180ms ease;
+    }
+
+    body.site-menu-is-open .login-shell { padding-top: 8rem; }
+
+    .login-intro,
+    .login-card {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--panel);
+      box-shadow: 0 34px 90px rgba(0, 0, 0, 0.34);
+      backdrop-filter: blur(18px);
+    }
+
+    .login-intro {
+      padding: clamp(1.4rem, 5vw, 3.2rem);
+      display: grid;
+      place-items: center;
+      min-height: 430px;
+      overflow: hidden;
+      position: relative;
+      background: #070c12;
+    }
+
+    .login-logo {
+      width: min(390px, 100%);
+      max-width: 100%;
+      height: auto;
+      display: block;
+      filter: drop-shadow(0 24px 48px rgba(0, 0, 0, 0.26));
+      position: relative;
+      z-index: 1;
+    }
+
+    .login-kicker {
+      margin: 0;
+      color: #98e9ff;
+      font-size: 0.76rem;
+      font-weight: 800;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+      position: relative;
+      z-index: 1;
+    }
+
+    h1 {
+      margin: 0;
+      max-width: 11ch;
+      font-family: "Fraunces", Georgia, serif;
+      font-size: clamp(2.2rem, 7vw, 4.8rem);
+      line-height: 0.96;
+      letter-spacing: -0.04em;
+      position: relative;
+      z-index: 1;
+    }
+
+    .login-copy {
+      margin: 0;
+      max-width: 50ch;
+      color: var(--muted);
+      font-weight: 700;
+      position: relative;
+      z-index: 1;
+    }
+
+    .login-card {
+      padding: clamp(1rem, 3vw, 1.35rem);
+      display: grid;
+      gap: 1rem;
+      align-content: center;
+    }
+
+    .auth-toggle {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.45rem;
+      padding: 0.35rem;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .auth-toggle button {
+      min-height: 42px;
+      border: 0;
+      border-radius: 999px;
+      background: transparent;
+      color: var(--muted);
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .auth-toggle button.is-active {
+      color: #07111d;
+      background: #ffffff;
+    }
+
+    .music-auth-form {
+      display: grid;
+      gap: 0.85rem;
+    }
+
+    .field {
+      display: grid;
+      gap: 0.38rem;
+    }
+
+    label {
+      color: #98e9ff;
+      font-size: 0.74rem;
+      font-weight: 800;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+
+    .music-input {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.08);
+      color: #ffffff;
+      padding: 0.85rem 0.9rem;
+      outline: none;
+    }
+
+    .music-input::placeholder { color: rgba(255, 255, 255, 0.42); }
+
+    .music-input:focus {
+      border-color: rgba(22, 185, 237, 0.74);
+      box-shadow: 0 0 0 3px rgba(22, 185, 237, 0.13);
+    }
+
+    .primary-btn,
+    .secondary-btn {
+      min-height: 48px;
+      border-radius: 999px;
+      padding: 0.76rem 1rem;
+      border: 1px solid transparent;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-size: 0.78rem;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    }
+
+    .primary-btn {
+      color: #07111d;
+      background: #ffffff;
+      border-color: #ffffff;
+    }
+
+    .secondary-btn {
+      color: #ffffff;
+      background: rgba(255, 255, 255, 0.08);
+      border-color: var(--line);
+    }
+
+    .status {
+      margin: 0;
+      color: var(--muted);
+      font-weight: 700;
+      text-align: center;
+    }
+
+    .status.error { color: #ffb4aa; }
+    .status.success { color: #9ff2c8; }
+
+    .site-footer {
+      padding: 1.35rem 0;
+      color: rgba(255, 255, 255, 0.58);
+      background: #070c12;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .footer-inner {
+      width: min(1120px, calc(100vw - 2rem));
+      margin: 0 auto;
+      display: grid;
+      gap: 0.6rem;
+      justify-items: center;
+      font-size: 0.86rem;
+      text-align: center;
+    }
+
+    .footer-inner p { margin: 0; }
+
+    .footer-inner a {
+      color: inherit;
+      text-decoration: none;
+      font-weight: 800;
+    }
+
+    @media (max-width: 800px) {
+      main { padding-top: 6.5rem; }
+      .login-shell { grid-template-columns: 1fr; }
+      .login-intro {
+        display: grid;
+        min-height: 150px;
+        padding: 1.2rem;
+      }
+      .login-logo { width: min(310px, 82vw); }
+      .primary-btn,
+      .secondary-btn { width: 100%; }
+      body.site-menu-is-open .login-shell { padding-top: 12rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="entry-splash" aria-hidden="true" data-entry-splash>
+    <img src="../../assets/aimusiclogo.png" alt="">
+  </div>
+  <script src="../../assets/site-intro.js?v=2"></script>
+
+  <header class="site-topbar">
+    <div class="site-topbar-inner">
+      <div class="site-topbar-row">
+        <a class="site-brand" href="/" aria-label="N3XRA home">
+          <img src="../../assets/n3xra_logo_transparent.png" alt="N3XRA">
+        </a>
+        <div class="site-nav-actions">
+          <button class="site-menu-toggle" type="button" aria-expanded="false" aria-controls="ai-login-menu" aria-label="Open menu" data-site-menu-toggle>
+            <span></span>
+            <span></span>
+            <span></span>
+          </button>
+        </div>
+      </div>
+      <nav class="site-mobile-menu" id="ai-login-menu" aria-label="Mobile primary" hidden>
+        <div class="site-mobile-menu-head">
+          <p class="site-mobile-menu-title">Navigate</p>
+        </div>
+        <a class="site-menu-link" href="/">Home</a>
+        <a class="site-menu-link" href="/software/">N3XRA Records</a>
+        <a class="site-menu-link" href="/projects/">Projects</a>
+        <a class="site-menu-link" href="/ai-music-generator/">AI Music Generator</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="login-shell" aria-label="AI Music account login">
+      <div class="login-intro">
+        <img class="login-logo" src="../../assets/aimusiclogo.png" alt="N3XRA AI Music Generator">
+      </div>
+
+      <div class="login-card">
+        <div class="auth-toggle" role="tablist" aria-label="AI Music account options">
+          <button class="is-active" type="button" id="musicSigninToggle" aria-pressed="true">Sign in</button>
+          <button type="button" id="musicSignupToggle" aria-pressed="false">Create account</button>
+        </div>
+
+        <form class="music-auth-form" id="musicSigninForm">
+          <div class="field">
+            <label for="musicSigninEmail">Email</label>
+            <input id="musicSigninEmail" class="music-input" type="email" autocomplete="email" required>
+          </div>
+          <div class="field">
+            <label for="musicSigninPassword">Password</label>
+            <input id="musicSigninPassword" class="music-input" type="password" autocomplete="current-password" required>
+          </div>
+          <button class="primary-btn" type="submit">Sign in</button>
+        </form>
+
+        <form class="music-auth-form hidden" id="musicSignupForm">
+          <div class="field">
+            <label for="musicSignupName">Display name</label>
+            <input id="musicSignupName" class="music-input" type="text" autocomplete="name" placeholder="Quentin" required>
+          </div>
+          <div class="field">
+            <label for="musicSignupEmail">Email</label>
+            <input id="musicSignupEmail" class="music-input" type="email" autocomplete="email" required>
+          </div>
+          <div class="field">
+            <label for="musicSignupPassword">Password</label>
+            <input id="musicSignupPassword" class="music-input" type="password" autocomplete="new-password" required minlength="6">
+          </div>
+          <div class="field">
+            <label for="musicSignupPasswordConfirm">Confirm Password</label>
+            <input id="musicSignupPasswordConfirm" class="music-input" type="password" autocomplete="new-password" required minlength="6">
+          </div>
+          <button class="primary-btn" type="submit">Create AI Music account</button>
+        </form>
+
+        <p class="status" id="musicAuthStatus">Sign in to continue to the AI Music app.</p>
+        <a class="secondary-btn" href="/ai-music-generator/">Use free songs first</a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <p>&copy; 2026 <strong>N3XRA LLC.</strong> All rights reserved.</p>
+      <p><a href="/support">Support</a> &middot; <a href="/terms">Terms</a> &middot; <a href="/privacy">Privacy</a></p>
+      <p>Built by <a href="https://quentinnichols.com/">Quentin Nichols</a>.</p>
+    </div>
+  </footer>
+
+  <script type="module">
+    import { createBrowserSupabase, getSessionOrNull, hasConfig } from "../../app/lib/supabase-client.js";
+
+    const DEFAULT_NEXT_PATH = "/ai-music-generator/app/";
+    const musicSigninToggle = document.getElementById("musicSigninToggle");
+    const musicSignupToggle = document.getElementById("musicSignupToggle");
+    const musicSigninForm = document.getElementById("musicSigninForm");
+    const musicSignupForm = document.getElementById("musicSignupForm");
+    const musicAuthStatus = document.getElementById("musicAuthStatus");
+    let supabase = null;
+
+    function getNextPath() {
+      const params = new URLSearchParams(window.location.search);
+      const next = params.get("next") || DEFAULT_NEXT_PATH;
+      if (!next.startsWith("/ai-music-generator/") || next.startsWith("//")) return DEFAULT_NEXT_PATH;
+      return next;
+    }
+
+    function setAuthStatus(message, tone = "") {
+      musicAuthStatus.textContent = message || "";
+      musicAuthStatus.className = "status";
+      if (tone) musicAuthStatus.classList.add(tone);
+    }
+
+    function setAuthMode(mode) {
+      const signup = mode === "signup";
+      musicSigninToggle.classList.toggle("is-active", !signup);
+      musicSignupToggle.classList.toggle("is-active", signup);
+      musicSigninToggle.setAttribute("aria-pressed", String(!signup));
+      musicSignupToggle.setAttribute("aria-pressed", String(signup));
+      musicSigninForm.classList.toggle("hidden", signup);
+      musicSignupForm.classList.toggle("hidden", !signup);
+      setAuthStatus(signup ? "Create an N3XRA login and activate AI Music." : "Sign in to continue to the AI Music app.");
+    }
+
+    function getErrorMessage(data, fallback) {
+      return data?.error || data?.message || fallback;
+    }
+
+    async function ensureMusicAccount(session) {
+      if (!session?.access_token) return;
+      try {
+        const response = await fetch("/api/music-account", {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          console.warn(getErrorMessage(data, "AI Music account activation was skipped."));
+        }
+      } catch (error) {
+        console.warn("AI Music account activation was skipped.", error);
+      }
+    }
+
+    async function openApp(session, replace = false) {
+      if (!session?.access_token) throw new Error("No active session was returned.");
+      await ensureMusicAccount(session);
+      const next = getNextPath();
+      if (replace) {
+        window.location.replace(next);
+        return;
+      }
+      window.location.assign(next);
+    }
+
+    async function initAuth() {
+      if (!hasConfig()) {
+        setAuthStatus("Supabase config is missing.", "error");
+        musicSigninForm.querySelector("button").disabled = true;
+        musicSignupForm.querySelector("button").disabled = true;
+        return;
+      }
+
+      supabase = createBrowserSupabase();
+      const session = await getSessionOrNull(supabase).catch(() => null);
+      if (session?.user) {
+        await openApp(session, true).catch((error) => {
+          setAuthStatus(error instanceof Error ? error.message : "Unable to open AI Music.", "error");
+        });
+      }
+
+      supabase.auth.onAuthStateChange(async (_event, session) => {
+        if (session?.user) {
+          await openApp(session, true).catch((error) => {
+            setAuthStatus(error instanceof Error ? error.message : "Unable to open AI Music.", "error");
+          });
+        }
+      });
+    }
+
+    async function handleSignin(event) {
+      event.preventDefault();
+      if (!supabase) return setAuthStatus("Supabase is not configured.", "error");
+
+      setAuthStatus("Signing in...");
+      const email = document.getElementById("musicSigninEmail").value.trim();
+      const password = document.getElementById("musicSigninPassword").value;
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+      if (error) {
+        setAuthStatus(error.message, "error");
+        return;
+      }
+
+      setAuthStatus("Opening AI Music app...", "success");
+      await openApp(data.session).catch((error) => {
+        setAuthStatus(error instanceof Error ? error.message : "Unable to open AI Music.", "error");
+      });
+    }
+
+    async function handleSignup(event) {
+      event.preventDefault();
+      if (!supabase) return setAuthStatus("Supabase is not configured.", "error");
+
+      const fullName = document.getElementById("musicSignupName").value.trim();
+      const email = document.getElementById("musicSignupEmail").value.trim();
+
+      if (!fullName) {
+        setAuthStatus("Display name is required.", "error");
+        return;
+      }
+      const password = document.getElementById("musicSignupPassword").value;
+      const confirm = document.getElementById("musicSignupPasswordConfirm").value;
+
+      if (password !== confirm) {
+        setAuthStatus("Passwords do not match.", "error");
+        return;
+      }
+
+      setAuthStatus("Creating account...");
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: fullName,
+            app_signup: "ai_music",
+          },
+        },
+      });
+
+      if (error) {
+        setAuthStatus(error.message, "error");
+        return;
+      }
+
+      if (!data?.session) {
+        setAuthStatus("Account created. Check your email if confirmation is enabled, then sign in to activate AI Music.", "success");
+        setAuthMode("signin");
+        return;
+      }
+
+      setAuthStatus("Opening AI Music app...", "success");
+      await openApp(data.session).catch((error) => {
+        setAuthStatus(error instanceof Error ? error.message : "Unable to open AI Music.", "error");
+      });
+    }
+
+    musicSigninToggle.addEventListener("click", () => setAuthMode("signin"));
+    musicSignupToggle.addEventListener("click", () => setAuthMode("signup"));
+    musicSigninForm.addEventListener("submit", handleSignin);
+    musicSignupForm.addEventListener("submit", handleSignup);
+    window.addEventListener("load", initAuth);
+  </script>
+</body>
+</html>

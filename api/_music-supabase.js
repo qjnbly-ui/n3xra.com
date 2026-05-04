@@ -64,6 +64,10 @@ function encodeFilter(value) {
   return encodeURIComponent(String(value || ""));
 }
 
+function getUserDisplayName(user) {
+  return String(user?.user_metadata?.full_name || user?.user_metadata?.name || "").trim();
+}
+
 function addOneMonth(date) {
   const next = new Date(date);
   next.setUTCMonth(next.getUTCMonth() + 1);
@@ -125,7 +129,7 @@ async function ensureProfileRow(user) {
     id: user.id,
     email: user.email || null,
   };
-  const fullName = user.user_metadata?.full_name || user.user_metadata?.name || "";
+  const fullName = getUserDisplayName(user);
   if (fullName) payload.full_name = fullName;
 
   await fetchJson(`${SUPABASE_URL}/rest/v1/profiles?on_conflict=id`, {
@@ -135,6 +139,13 @@ async function ensureProfileRow(user) {
   });
 }
 
+async function loadProfileRow(userId) {
+  const rows = await fetchJson(`${SUPABASE_URL}/rest/v1/profiles?select=id,email,full_name&id=eq.${encodeFilter(userId)}&limit=1`, {
+    headers: serviceHeaders(),
+  });
+  return Array.isArray(rows) ? rows[0] || null : null;
+}
+
 async function loadMusicProfile(userId) {
   const rows = await fetchJson(`${SUPABASE_URL}/rest/v1/music_profiles?select=*&user_id=eq.${encodeFilter(userId)}&limit=1`, {
     headers: serviceHeaders(),
@@ -142,8 +153,20 @@ async function loadMusicProfile(userId) {
   return Array.isArray(rows) ? rows[0] || null : null;
 }
 
+async function patchMusicProfileDisplayName(userId, displayName) {
+  const rows = await fetchJson(`${SUPABASE_URL}/rest/v1/music_profiles?user_id=eq.${encodeFilter(userId)}`, {
+    method: "PATCH",
+    headers: serviceHeaders({ Prefer: "return=representation" }),
+    body: JSON.stringify({
+      display_name: displayName,
+      updated_at: new Date().toISOString(),
+    }),
+  });
+  return Array.isArray(rows) ? rows[0] || null : null;
+}
+
 async function createMusicProfile(user) {
-  const displayName = user.user_metadata?.full_name || user.user_metadata?.name || "";
+  const displayName = getUserDisplayName(user);
   const rows = await fetchJson(`${SUPABASE_URL}/rest/v1/music_profiles`, {
     method: "POST",
     headers: serviceHeaders({ Prefer: "return=representation" }),
@@ -176,6 +199,15 @@ async function ensureMusicProfile(user) {
   let profile = await loadMusicProfile(user.id);
   if (!profile) profile = await createMusicProfile(user);
   if (isPeriodExpired(profile)) profile = await resetMusicPeriod(user.id);
+
+  if (profile && !String(profile.display_name || "").trim()) {
+    const sharedProfile = await loadProfileRow(user.id).catch(() => null);
+    const displayName = getUserDisplayName(user) || String(sharedProfile?.full_name || "").trim();
+    if (displayName) {
+      profile = await patchMusicProfileDisplayName(user.id, displayName);
+    }
+  }
+
   return normalizeProfile(profile);
 }
 
@@ -191,6 +223,37 @@ async function getMusicAccount(user) {
   const profile = await ensureMusicProfile(user);
   const generations = await listMusicGenerations(user.id);
   return { profile, generations };
+}
+
+async function updateMusicProfile(user, updates = {}) {
+  await ensureProfileRow(user);
+  await ensureMusicProfile(user);
+
+  const displayName = String(updates.display_name || "").trim().slice(0, 120);
+  const fullName = displayName || null;
+  const now = new Date().toISOString();
+
+  await fetchJson(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${encodeFilter(user.id)}`, {
+    method: "PATCH",
+    headers: serviceHeaders(),
+    body: JSON.stringify({
+      email: user.email || null,
+      full_name: fullName,
+      updated_at: now,
+    }),
+  });
+
+  const rows = await fetchJson(`${SUPABASE_URL}/rest/v1/music_profiles?user_id=eq.${encodeFilter(user.id)}`, {
+    method: "PATCH",
+    headers: serviceHeaders({ Prefer: "return=representation" }),
+    body: JSON.stringify({
+      display_name: fullName,
+      updated_at: now,
+    }),
+  });
+
+  const profile = Array.isArray(rows) ? rows[0] || null : null;
+  return normalizeProfile(profile || (await loadMusicProfile(user.id)));
 }
 
 async function reserveMusicGeneration(token, payload) {
@@ -275,6 +338,7 @@ module.exports = {
   SupabaseApiError,
   getBearerToken,
   getMusicAccount,
+  updateMusicProfile,
   getMusicGenerationByTask,
   hasSupabaseAdminConfig,
   importMusicGenerations,
