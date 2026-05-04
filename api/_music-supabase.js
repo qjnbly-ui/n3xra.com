@@ -92,6 +92,7 @@ function normalizeProfile(profile) {
     current_period_end: profile.current_period_end || null,
     cancel_at_period_end: Boolean(profile.cancel_at_period_end),
     subscription_current_period_end: profile.subscription_current_period_end || null,
+    billing_portal_available: Boolean(profile.stripe_subscription_id || profile.stripe_price_id),
   };
 }
 
@@ -140,7 +141,7 @@ async function ensureProfileRow(user) {
 }
 
 async function loadProfileRow(userId) {
-  const rows = await fetchJson(`${SUPABASE_URL}/rest/v1/profiles?select=id,email,full_name&id=eq.${encodeFilter(userId)}&limit=1`, {
+  const rows = await fetchJson(`${SUPABASE_URL}/rest/v1/profiles?select=id,email,full_name,stripe_customer_id&id=eq.${encodeFilter(userId)}&limit=1`, {
     headers: serviceHeaders(),
   });
   return Array.isArray(rows) ? rows[0] || null : null;
@@ -336,13 +337,18 @@ async function importMusicGenerations(userId, songs) {
 
 module.exports = {
   SupabaseApiError,
+  encodeFilter,
+  fetchJson,
   getBearerToken,
   getMusicAccount,
   updateMusicProfile,
   getMusicGenerationByTask,
   hasSupabaseAdminConfig,
   importMusicGenerations,
+  loadMusicProfile,
+  loadProfileRow,
   reserveMusicGeneration,
+  serviceHeaders,
   updateMusicGeneration,
   refundMusicGeneration,
   verifySupabaseUser,

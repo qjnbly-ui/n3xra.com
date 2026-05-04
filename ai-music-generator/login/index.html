@@ -234,6 +234,20 @@
     .status.error { color: #ffb4aa; }
     .status.success { color: #9ff2c8; }
 
+    .legal-disclosure {
+      margin: -0.15rem 0 0;
+      color: rgba(255, 255, 255, 0.62);
+      font-size: 0.78rem;
+      line-height: 1.45;
+      text-align: center;
+    }
+
+    .legal-disclosure a {
+      color: #98e9ff;
+      font-weight: 800;
+      text-decoration: none;
+    }
+
     .site-footer {
       padding: 1.35rem 0;
       color: rgba(255, 255, 255, 0.58);
@@ -350,6 +364,7 @@
           <button class="primary-btn" type="submit">Create AI Music account</button>
         </form>
 
+        <p class="legal-disclosure" id="musicAuthLegal">By signing in, you agree to the <a href="/terms/">N3XRA Terms</a> and <a href="/privacy/">Privacy Policy</a>.</p>
         <p class="status" id="musicAuthStatus">Sign in to continue to the AI Music app.</p>
       </div>
     </section>
@@ -372,6 +387,7 @@
     const musicSigninForm = document.getElementById("musicSigninForm");
     const musicSignupForm = document.getElementById("musicSignupForm");
     const musicAuthStatus = document.getElementById("musicAuthStatus");
+    const musicAuthLegal = document.getElementById("musicAuthLegal");
     let supabase = null;
 
     function getNextPath() {
@@ -395,6 +411,9 @@
       musicSignupToggle.setAttribute("aria-pressed", String(signup));
       musicSigninForm.classList.toggle("hidden", signup);
       musicSignupForm.classList.toggle("hidden", !signup);
+      musicAuthLegal.innerHTML = signup
+        ? 'By creating an account, you agree to the <a href="/terms/">N3XRA Terms</a> and <a href="/privacy/">Privacy Policy</a>.'
+        : 'By signing in, you agree to the <a href="/terms/">N3XRA Terms</a> and <a href="/privacy/">Privacy Policy</a>.';
       setAuthStatus(signup ? "Create an N3XRA login and activate AI Music." : "Sign in to continue to the AI Music app.");
     }
 

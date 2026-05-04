@@ -218,3 +218,79 @@ Subscribe the webhook to:
 - Free libraries start paid plans through Stripe Checkout
 - Active paid libraries manage upgrades, downgrades, cancellation, and payment methods in Stripe Customer Portal
 - Stripe webhooks are the source of truth for `subscription_tier`, `account_status`, limits, and renewal date in `organizations`
+
+## AI Music Stripe billing setup
+
+AI Music billing uses separate Supabase Edge Functions so it does not change the existing N3XRA Records billing flow:
+
+- `music-billing`: creates AI Music Checkout and Customer Portal sessions
+- `music-stripe-webhook`: receives AI Music Stripe webhook events and syncs `music_profiles`
+
+The existing Records functions remain separate:
+
+- `stripe-billing`
+- `stripe-webhook`
+
+### AI Music plans
+
+Create two recurring monthly Stripe prices:
+
+- Creator: `$10/month`, 100 songs per billing period
+- Studio: `$25/month`, 400 songs per billing period
+
+Copy those Stripe price ids into Supabase function secrets:
+
+- `STRIPE_PRICE_MUSIC_CREATOR`
+- `STRIPE_PRICE_MUSIC_STUDIO`
+
+### Required Supabase function secrets
+
+Add these secrets before deploying the AI Music billing functions:
+
+- `SUPABASE_URL`
+- `SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `STRIPE_SECRET_KEY`
+- `STRIPE_MUSIC_WEBHOOK_SECRET`
+- `STRIPE_PRICE_MUSIC_CREATOR`
+- `STRIPE_PRICE_MUSIC_STUDIO`
+- `APP_ORIGIN` set to `https://n3xra.com`
+
+`STRIPE_WEBHOOK_SECRET` remains for the existing Records webhook. `STRIPE_MUSIC_WEBHOOK_SECRET` should be the signing secret from the AI Music webhook endpoint.
+
+`SONAUTO_API_KEY` stays in Vercel because generation still runs through Vercel API routes.
+
+### Webhook endpoint
+
+Point a new Stripe webhook endpoint to the AI Music Supabase webhook:
+
+```text
+https://YOUR-PROJECT-REF.supabase.co/functions/v1/music-stripe-webhook
+```
+
+Subscribe the AI Music webhook to:
+
+- `checkout.session.completed`
+- `customer.subscription.created`
+- `customer.subscription.updated`
+- `customer.subscription.deleted`
+- `invoice.payment_succeeded`
+
+### Deploy commands
+
+```bash
+supabase functions deploy music-billing
+supabase functions deploy music-stripe-webhook
+```
+
+### AI Music billing behavior
+
+- Free AI Music accounts get 5 songs per monthly period.
+- Creator accounts get 100 songs per billing period.
+- Studio accounts get 400 songs per billing period.
+- The app uses Stripe Checkout for new paid subscriptions.
+- The app uses Stripe Customer Portal for plan changes, cancellation, and payment method updates.
+- Stripe webhooks are the source of truth for `music_profiles.plan`, `monthly_song_limit`, subscription status, renewal date, and cancellation state.
+- Overages are not enabled yet; the app hard-stops at the current plan limit.
+- AI Music stores its Stripe customer on `music_profiles.stripe_customer_id` to avoid changing or risking the existing Records billing customer flow.
+- Normal browser users cannot directly edit billing fields, but Supabase service-role functions and admin SQL can update them for setup or support.

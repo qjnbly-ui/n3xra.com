@@ -199,6 +199,8 @@
 
     .account-modal {
       width: min(560px, 100%);
+      max-height: calc(100vh - 2rem);
+      overflow-y: auto;
       border: 1px solid rgba(255, 255, 255, 0.14);
       border-radius: 22px;
       background:
@@ -207,6 +209,10 @@
       color: #fff;
       box-shadow: 0 34px 90px rgba(0, 0, 0, 0.42);
       padding: 1.1rem;
+    }
+
+    .account-modal.is-billing-page {
+      width: min(900px, calc(100vw - 2rem));
     }
 
     .account-modal-head {
@@ -256,7 +262,44 @@
       background: rgba(255, 255, 255, 0.06);
     }
 
+    .account-modal-page {
+      display: grid;
+      gap: 0.9rem;
+    }
+
+    .account-modal-page.hidden {
+      display: none;
+    }
+
+    .account-detail-button {
+      width: 100%;
+      text-align: left;
+      color: inherit;
+      font: inherit;
+      cursor: pointer;
+      transition: border-color 180ms ease, background 180ms ease, transform 180ms ease;
+    }
+
+    .account-detail-button:hover,
+    .account-detail-button:focus-visible {
+      border-color: rgba(158, 238, 255, 0.42);
+      background: rgba(158, 238, 255, 0.08);
+      outline: none;
+      transform: translateY(-1px);
+    }
+
+    .account-detail-action {
+      display: block;
+      margin-top: 0.45rem;
+      color: #9eeeff;
+      font-size: 0.72rem;
+      font-weight: 900;
+      letter-spacing: 0.13em;
+      text-transform: uppercase;
+    }
+
     .account-detail-label {
+      display: block;
       margin: 0 0 0.25rem;
       color: rgba(255, 255, 255, 0.58);
       font-size: 0.72rem;
@@ -266,10 +309,299 @@
     }
 
     .account-detail-value {
+      display: block;
       margin: 0;
       color: #fff;
       font-weight: 800;
       overflow-wrap: anywhere;
+    }
+
+    .billing-panel {
+      border: 1px solid rgba(158, 238, 255, 0.2);
+      border-radius: 18px;
+      padding: 0.95rem;
+      background: linear-gradient(135deg, rgba(22, 185, 237, 0.12), rgba(255, 255, 255, 0.06));
+      display: grid;
+      gap: 0.85rem;
+      overflow: hidden;
+    }
+
+    .billing-copy {
+      margin: 0;
+      color: rgba(255, 255, 255, 0.72);
+      font-weight: 700;
+      line-height: 1.45;
+    }
+
+    .billing-plan-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      align-items: stretch;
+      gap: 0.7rem;
+    }
+
+    .billing-plan-card {
+      position: relative;
+      border: 1px solid rgba(255, 255, 255, 0.13);
+      border-radius: 16px;
+      padding: 1rem;
+      background: rgba(255, 255, 255, 0.055);
+      display: grid;
+      grid-template-rows: auto auto minmax(4.2em, 1fr) auto;
+      gap: 0.7rem;
+      min-height: 100%;
+      min-width: 0;
+    }
+
+    .billing-plan-card.is-current {
+      border-color: rgba(158, 238, 255, 0.42);
+      background:
+        radial-gradient(160px 100px at 18% 0%, rgba(22, 185, 237, 0.18), transparent 70%),
+        rgba(255, 255, 255, 0.07);
+      box-shadow: 0 16px 32px rgba(22, 185, 237, 0.08);
+    }
+
+    .billing-plan-head {
+      display: block;
+      min-width: 0;
+    }
+
+    .billing-plan-card.is-current .billing-plan-head {
+      padding-right: 5rem;
+    }
+
+    .billing-plan-name,
+    .billing-plan-price,
+    .billing-plan-copy,
+    .billing-plan-limit {
+      margin: 0;
+    }
+
+    .billing-plan-name {
+      color: #fff;
+      font-weight: 900;
+      font-size: 1rem;
+      overflow-wrap: normal;
+      word-break: normal;
+    }
+
+    .billing-plan-price {
+      color: #9eeeff;
+      font-weight: 900;
+      overflow-wrap: normal;
+      white-space: nowrap;
+    }
+
+    .billing-plan-copy,
+    .billing-plan-limit {
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 0.92rem;
+      line-height: 1.35;
+    }
+
+    .billing-plan-copy {
+      min-height: 5.5em;
+    }
+
+    .billing-plan-limit {
+      font-weight: 800;
+      min-height: 2.35em;
+    }
+
+    .billing-plan-badge {
+      position: absolute;
+      top: 0.85rem;
+      right: 0.85rem;
+      border-radius: 999px;
+      padding: 0.28rem 0.5rem;
+      background: rgba(158, 238, 255, 0.16);
+      color: #9eeeff;
+      font-size: 0.62rem;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .billing-plan-card .secondary-btn,
+    .billing-manage-row .secondary-btn {
+      align-self: end;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      min-height: 54px;
+      margin-top: 0;
+      padding: 0.72rem 0.78rem;
+      font-size: 0.72rem;
+      letter-spacing: 0.1em;
+      line-height: 1.15;
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    .billing-plan-card button:disabled,
+    .billing-manage-row button:disabled {
+      cursor: not-allowed;
+      opacity: 0.65;
+    }
+
+    .billing-manage-row {
+      display: flex;
+    }
+
+    .billing-manage-row .secondary-btn {
+      width: 100%;
+    }
+
+    @media (min-width: 761px) {
+      .account-modal.is-billing-page .account-modal-actions {
+        align-items: center;
+      }
+
+      .billing-panel {
+        padding: 1.25rem;
+      }
+
+      .billing-plan-grid {
+        gap: 0.85rem;
+      }
+
+      .billing-plan-card .secondary-btn {
+        max-width: 100%;
+      }
+    }
+
+    @media (max-width: 760px) {
+      .account-modal-backdrop {
+        place-items: center;
+        padding: 0.6rem;
+      }
+
+      .account-modal,
+      .account-modal.is-billing-page {
+        width: 100%;
+        max-height: calc(100dvh - 1.2rem);
+        border-radius: 18px;
+        padding: 0.85rem;
+      }
+
+      .account-modal-head {
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.2rem 0.15rem 0.75rem;
+      }
+
+      .account-modal h2 {
+        font-size: clamp(1.35rem, 8vw, 1.7rem);
+      }
+
+      .account-modal-close {
+        min-height: 34px;
+        padding: 0.38rem 0.62rem;
+      }
+
+      .account-detail-grid,
+      .account-modal-page {
+        gap: 0.55rem;
+      }
+
+      .account-detail,
+      .billing-panel {
+        border-radius: 14px;
+        padding: 0.72rem;
+      }
+
+      .billing-copy {
+        font-size: 0.9rem;
+        line-height: 1.35;
+      }
+
+      .billing-plan-grid {
+        grid-template-columns: 1fr;
+        gap: 0.55rem;
+      }
+
+      .billing-plan-card {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 132px;
+        grid-template-rows: auto auto auto;
+        align-items: center;
+        gap: 0.35rem 0.65rem;
+        padding: 0.68rem;
+      }
+
+      .billing-plan-head {
+        grid-column: 1 / -1;
+        padding-right: 4.75rem;
+      }
+
+      .billing-plan-copy {
+        grid-column: 1 / 2;
+        font-size: 0.82rem;
+      }
+
+      .billing-plan-limit {
+        grid-column: 1 / 2;
+        font-size: 0.82rem;
+      }
+
+      .billing-plan-card .secondary-btn {
+        grid-column: 2 / 3;
+        grid-row: 2 / 4;
+        align-self: stretch;
+        min-width: 0;
+        min-height: 48px;
+        margin-top: 0;
+        padding: 0.55rem 0.58rem;
+        font-size: 0.64rem;
+        white-space: normal;
+      }
+
+      .account-modal-actions {
+        padding-top: 0.55rem;
+        gap: 0.45rem;
+      }
+
+      .account-modal-actions .secondary-btn,
+      .account-modal-actions .primary-btn {
+        flex: 1 1 auto;
+        min-height: 38px;
+        padding: 0.6rem 0.7rem;
+        font-size: 0.72rem;
+      }
+    }
+
+    @media (max-width: 420px) {
+      .account-modal-kicker,
+      .account-detail-label {
+        font-size: 0.62rem;
+      }
+
+      .billing-plan-copy {
+        display: none;
+      }
+
+      .billing-plan-card {
+        grid-template-rows: auto auto;
+      }
+
+      .billing-plan-head {
+        padding-right: 4.4rem;
+      }
+
+      .billing-plan-badge {
+        top: 0.68rem;
+        right: 0.68rem;
+      }
+
+      .billing-plan-card {
+        grid-template-columns: minmax(0, 1fr) 118px;
+      }
+
+      .billing-plan-card .secondary-btn {
+        grid-row: 2 / 3;
+      }
     }
 
     .account-profile-form {
@@ -528,6 +860,22 @@
     .status.error { color: #b42318; }
     .status.success { color: #087443; }
 
+    .legal-disclosure,
+    .provider-disclosure {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.82rem;
+      line-height: 1.5;
+      font-weight: 700;
+    }
+
+    .legal-disclosure a,
+    .provider-disclosure a {
+      color: var(--deep);
+      font-weight: 900;
+      text-decoration: none;
+    }
+
     .side-stack {
       display: grid;
       gap: 1rem;
@@ -738,6 +1086,7 @@
               <button class="primary-btn" type="submit">Create AI Music account</button>
             </form>
 
+            <p class="legal-disclosure" id="musicAuthLegal">By signing in, you agree to the <a href="/terms/">N3XRA Terms</a> and <a href="/privacy/">Privacy Policy</a>.</p>
             <p class="status" id="musicAuthStatus">Use the same Supabase login across N3XRA apps.</p>
           </div>
         </div>
@@ -812,52 +1161,74 @@
     <section class="account-modal" id="music-account-settings">
       <div class="account-modal-head">
         <div>
-          <p class="account-modal-kicker">Account</p>
+          <p class="account-modal-kicker" id="musicAccountModalKicker">Account</p>
           <h2 id="musicAccountModalTitle">Profile settings</h2>
         </div>
         <button class="account-modal-close" type="button" id="musicAccountModalClose">Close</button>
       </div>
 
-      <div class="account-detail-grid">
-        <div class="account-detail">
-          <p class="account-detail-label">Signed in as</p>
-          <p class="account-detail-value" id="musicAccountModalEmail">-</p>
-        </div>
-        <form class="account-profile-form" id="musicAccountProfileForm">
+      <div class="account-modal-page" id="musicAccountProfilePage">
+        <div class="account-detail-grid">
           <div class="account-detail">
-            <label class="account-detail-label" for="musicAccountDisplayName">Display name</label>
-            <p class="account-detail-value" id="musicAccountDisplayNameText">-</p>
-            <input class="account-input hidden" id="musicAccountDisplayName" type="text" autocomplete="name" maxlength="120" placeholder="Your name" required>
+            <p class="account-detail-label">Signed in as</p>
+            <p class="account-detail-value" id="musicAccountModalEmail">-</p>
           </div>
-        </form>
-        <div class="account-detail">
-          <p class="account-detail-label">Plan</p>
-          <p class="account-detail-value" id="musicAccountModalPlan">Free</p>
+          <form class="account-profile-form" id="musicAccountProfileForm">
+            <div class="account-detail">
+              <label class="account-detail-label" for="musicAccountDisplayName">Display name</label>
+              <p class="account-detail-value" id="musicAccountDisplayNameText">-</p>
+              <input class="account-input hidden" id="musicAccountDisplayName" type="text" autocomplete="name" maxlength="120" placeholder="Your name" required>
+            </div>
+          </form>
+          <button class="account-detail account-detail-button" type="button" id="musicAccountPlanButton">
+            <span class="account-detail-label">Plan</span>
+            <span class="account-detail-value" id="musicAccountModalPlan">Free</span>
+            <span class="account-detail-action">View plan options</span>
+          </button>
+          <div class="account-detail">
+            <p class="account-detail-label">Current usage</p>
+            <p class="account-detail-value" id="musicAccountModalUsage">0 of 5 songs used</p>
+          </div>
+          <div class="account-detail">
+            <p class="account-detail-label">Usage period</p>
+            <p class="account-detail-value" id="musicAccountModalPeriod">-</p>
+          </div>
         </div>
-        <div class="account-detail">
-          <p class="account-detail-label">Current usage</p>
-          <p class="account-detail-value" id="musicAccountModalUsage">0 of 5 songs used</p>
-        </div>
-        <div class="account-detail">
-          <p class="account-detail-label">Usage period</p>
-          <p class="account-detail-value" id="musicAccountModalPeriod">-</p>
+
+        <p class="account-status" id="musicAccountProfileStatus" aria-live="polite"></p>
+
+        <div class="account-modal-actions">
+          <button class="secondary-btn" type="button" id="musicAccountModalSignout">Sign out</button>
+          <button class="secondary-btn" type="button" id="musicAccountEditProfile">Edit profile</button>
+          <button class="secondary-btn hidden" type="button" id="musicAccountCancelProfile">Cancel</button>
+          <button class="primary-btn hidden" type="submit" form="musicAccountProfileForm" id="musicAccountSaveProfile">Save profile</button>
+          <button class="primary-btn" type="button" id="musicAccountModalDone">Done</button>
         </div>
       </div>
 
-      <p class="account-status" id="musicAccountProfileStatus" aria-live="polite"></p>
+      <div class="account-modal-page hidden" id="musicAccountBillingPage">
+        <div class="billing-panel" aria-label="AI Music billing">
+          <div>
+            <p class="account-detail-label">Billing</p>
+            <p class="billing-copy" id="musicBillingSummary">Free includes 5 songs per month.</p>
+          </div>
+          <div class="billing-plan-grid" id="musicBillingPlanGrid" aria-label="AI Music plans"></div>
+          <div class="billing-manage-row">
+            <button class="secondary-btn hidden" type="button" id="musicBillingManage">Manage current billing</button>
+          </div>
+          <p class="account-status" id="musicBillingStatus" aria-live="polite"></p>
+        </div>
 
-      <div class="account-modal-actions">
-        <button class="secondary-btn" type="button" id="musicAccountModalSignout">Sign out</button>
-        <button class="secondary-btn" type="button" id="musicAccountEditProfile">Edit profile</button>
-        <button class="secondary-btn hidden" type="button" id="musicAccountCancelProfile">Cancel</button>
-        <button class="primary-btn hidden" type="submit" form="musicAccountProfileForm" id="musicAccountSaveProfile">Save profile</button>
-        <button class="primary-btn" type="button" id="musicAccountModalDone">Done</button>
+        <div class="account-modal-actions">
+          <button class="secondary-btn" type="button" id="musicBillingBack">Back to account</button>
+          <button class="primary-btn" type="button" id="musicBillingDone">Done</button>
+        </div>
       </div>
     </section>
   </div>
 
   <script type="module">
-    import { createBrowserSupabase, getSessionOrNull, hasConfig } from "../../app/lib/supabase-client.js";
+    import { createBrowserSupabase, getConfig, getSessionOrNull, hasConfig } from "../../app/lib/supabase-client.js";
 
     const HISTORY_KEY = "n3xraSongHistory";
     const SONG_DRAFT_KEY = "n3xraMusicDraft";
@@ -894,7 +1265,12 @@
     const musicSigninForm = document.getElementById("musicSigninForm");
     const musicSignupForm = document.getElementById("musicSignupForm");
     const musicAuthStatus = document.getElementById("musicAuthStatus");
+    const musicAuthLegal = document.getElementById("musicAuthLegal");
     const musicAccountModal = document.getElementById("musicAccountModal");
+    const musicAccountModalKicker = document.getElementById("musicAccountModalKicker");
+    const musicAccountModalTitle = document.getElementById("musicAccountModalTitle");
+    const musicAccountProfilePage = document.getElementById("musicAccountProfilePage");
+    const musicAccountBillingPage = document.getElementById("musicAccountBillingPage");
     const musicAccountModalClose = document.getElementById("musicAccountModalClose");
     const musicAccountModalDone = document.getElementById("musicAccountModalDone");
     const musicAccountModalSignout = document.getElementById("musicAccountModalSignout");
@@ -906,9 +1282,41 @@
     const musicAccountEditProfile = document.getElementById("musicAccountEditProfile");
     const musicAccountCancelProfile = document.getElementById("musicAccountCancelProfile");
     const musicAccountSaveProfile = document.getElementById("musicAccountSaveProfile");
+    const musicAccountPlanButton = document.getElementById("musicAccountPlanButton");
     const musicAccountModalPlan = document.getElementById("musicAccountModalPlan");
     const musicAccountModalUsage = document.getElementById("musicAccountModalUsage");
     const musicAccountModalPeriod = document.getElementById("musicAccountModalPeriod");
+    const musicBillingSummary = document.getElementById("musicBillingSummary");
+    const musicBillingPlanGrid = document.getElementById("musicBillingPlanGrid");
+    const musicBillingManage = document.getElementById("musicBillingManage");
+    const musicBillingBack = document.getElementById("musicBillingBack");
+    const musicBillingDone = document.getElementById("musicBillingDone");
+    const musicBillingStatus = document.getElementById("musicBillingStatus");
+
+    const MUSIC_PLAN_ORDER = ["free", "creator", "studio"];
+    const BILLING_PLANS = {
+      free: {
+        id: "free",
+        name: "Free",
+        price: "$0/month",
+        songs: 5,
+        summary: "Try AI Music and save a small set of finished songs.",
+      },
+      creator: {
+        id: "creator",
+        name: "Creator",
+        price: "$10/month",
+        songs: 100,
+        summary: "More monthly generations for regular song creation.",
+      },
+      studio: {
+        id: "studio",
+        name: "Studio",
+        price: "$25/month",
+        songs: 400,
+        summary: "Higher volume for heavy creation and testing.",
+      },
+    };
 
     let supabase = null;
     let currentSession = null;
@@ -981,6 +1389,9 @@
       musicSignupToggle.setAttribute("aria-pressed", String(signup));
       musicSigninForm.classList.toggle("hidden", signup);
       musicSignupForm.classList.toggle("hidden", !signup);
+      musicAuthLegal.innerHTML = signup
+        ? 'By creating an account, you agree to the <a href="/terms/">N3XRA Terms</a> and <a href="/privacy/">Privacy Policy</a>.'
+        : 'By signing in, you agree to the <a href="/terms/">N3XRA Terms</a> and <a href="/privacy/">Privacy Policy</a>.';
       setAuthStatus(signup ? "Create an N3XRA login and activate AI Music." : "Use your existing N3XRA login.");
     }
 
@@ -1023,8 +1434,21 @@
       return Number(profile.songs_used || 0) >= Number(profile.monthly_song_limit || 0);
     }
 
+    function isAccountUsable() {
+      const status = String(musicAccount?.profile?.account_status || "active").trim().toLowerCase();
+      return ["active", "trialing"].includes(status);
+    }
+
     function refreshGenerateAvailability() {
       if (isGenerating) return;
+
+      if (currentSession?.user && !isAccountUsable()) {
+        generateBtn.disabled = true;
+        generateBtn.removeAttribute("aria-busy");
+        generateBtn.textContent = "Billing Required";
+        statusEl.textContent = "Your AI Music billing needs attention. Open Account to manage billing.";
+        return;
+      }
 
       if (hasReachedAccountLimit()) {
         generateBtn.disabled = true;
@@ -1134,8 +1558,9 @@
     }
 
     function formatPlan(value) {
-      const raw = String(value || "free").trim();
-      return raw ? raw.charAt(0).toUpperCase() + raw.slice(1) : "Free";
+      const planMap = { free: "Free", creator: "Creator", studio: "Studio" };
+      const raw = String(value || "free").trim().toLowerCase();
+      return planMap[raw] || (raw ? raw.charAt(0).toUpperCase() + raw.slice(1) : "Free");
     }
 
     function getSessionDisplayName() {
@@ -1155,6 +1580,26 @@
       return `${getFirstDisplayName(displayName)}'s Music Account`;
     }
 
+    function setAccountModalPage(page = "profile") {
+      const showBilling = page === "billing";
+      musicAccountProfilePage.classList.toggle("hidden", showBilling);
+      musicAccountBillingPage.classList.toggle("hidden", !showBilling);
+      musicAccountModal.classList.toggle("is-billing-page", showBilling);
+      musicAccountModalKicker.textContent = showBilling ? "Billing" : "Account";
+      musicAccountModalTitle.textContent = showBilling ? "Plan options" : "Profile settings";
+
+      if (showBilling) {
+        setAccountEditMode(false);
+        setAccountProfileStatus("");
+        renderBillingControls(musicAccount?.profile || {});
+        requestAnimationFrame(() => musicBillingBack.focus());
+        return;
+      }
+
+      setBillingStatus("");
+      requestAnimationFrame(() => musicAccountModalClose.focus());
+    }
+
     function renderAccountModal() {
       const profile = musicAccount?.profile || {};
       const email = currentSession?.user?.email || "this account";
@@ -1170,6 +1615,140 @@
       musicAccountModalPeriod.textContent = profile.current_period_end
         ? `Renews ${formatDate(profile.current_period_end)}`
         : "Current monthly period";
+      renderBillingControls(profile);
+    }
+
+    function setBillingStatus(message, tone = "") {
+      musicBillingStatus.textContent = message || "";
+      musicBillingStatus.className = "account-status";
+      if (tone) musicBillingStatus.classList.add(tone);
+    }
+
+    function setBillingButtonsDisabled(disabled) {
+      [...musicBillingPlanGrid.querySelectorAll("button[data-plan-id]"), musicBillingManage].forEach((button) => {
+        if (button) button.disabled = Boolean(disabled) || button.dataset.currentPlan === "true";
+      });
+    }
+
+    function renderBillingControls(profile = {}) {
+      const planId = String(profile.plan || "free").trim().toLowerCase();
+      const activePlanId = BILLING_PLANS[planId] ? planId : "free";
+      const isPaid = ["creator", "studio"].includes(activePlanId);
+      const limit = Number(profile.monthly_song_limit ?? GENERATION_LIMIT);
+      const status = String(profile.account_status || "active").trim().toLowerCase();
+      const cancelNote = profile.cancel_at_period_end ? " Cancellation is scheduled at the end of this billing period." : "";
+      const statusNote = !["active", "trialing"].includes(status) ? " Billing needs attention before more songs can be generated." : "";
+
+      musicBillingSummary.textContent = isPaid
+        ? `${formatPlan(activePlanId)} includes ${limit} songs per month.${cancelNote}${statusNote}`
+        : "Free includes 5 songs per month. Select a plan when you need more saved generations.";
+
+      musicBillingPlanGrid.innerHTML = MUSIC_PLAN_ORDER.map((targetPlanId) => {
+        const plan = BILLING_PLANS[targetPlanId];
+        const isCurrent = targetPlanId === activePlanId;
+        const isFreeTarget = targetPlanId === "free";
+        const buttonLabel = isCurrent
+          ? "Current plan"
+          : isPaid
+            ? (isFreeTarget ? "Manage in portal" : "Change in portal")
+            : (isFreeTarget ? "Included" : "Select plan");
+        const badge = isCurrent ? '<span class="billing-plan-badge">Current</span>' : "";
+
+        return `
+          <article class="billing-plan-card${isCurrent ? " is-current" : ""}">
+            <div class="billing-plan-head">
+              <div>
+                <p class="billing-plan-name">${escapeHtml(plan.name)}</p>
+                <p class="billing-plan-price">${escapeHtml(plan.price)}</p>
+              </div>
+              ${badge}
+            </div>
+            <p class="billing-plan-copy">${escapeHtml(plan.summary)}</p>
+            <p class="billing-plan-limit">${plan.songs} songs per month</p>
+            <button class="secondary-btn" type="button" data-plan-id="${plan.id}" data-current-plan="${isCurrent ? "true" : "false"}"${isCurrent ? " disabled" : ""}>${buttonLabel}</button>
+          </article>
+        `;
+      }).join("");
+
+      musicBillingManage.classList.toggle("hidden", !isPaid && !profile.billing_portal_available);
+    }
+
+    async function handleBillingPlanSelection(planId) {
+      const targetPlanId = String(planId || "").trim().toLowerCase();
+      const profile = musicAccount?.profile || {};
+      const currentPlanId = String(profile.plan || "free").trim().toLowerCase();
+      const hasCustomer = Boolean(profile.billing_portal_available);
+      const isPaidAccount = ["creator", "studio"].includes(currentPlanId);
+
+      if (!BILLING_PLANS[targetPlanId] || targetPlanId === currentPlanId) return;
+
+      if (targetPlanId === "free" || isPaidAccount || hasCustomer) {
+        await openMusicBilling("create-portal-session");
+        return;
+      }
+
+      await openMusicBilling("create-checkout-session", targetPlanId);
+    }
+
+    async function openMusicBilling(action, planId = "") {
+      await refreshSession().catch(() => null);
+      const config = getConfig();
+      const { supabaseUrl = "", supabaseAnonKey = "" } = config;
+      const accessToken = currentSession?.access_token || "";
+
+      if (!accessToken) {
+        openMusicLogin();
+        return;
+      }
+
+      if (!supabaseUrl || !supabaseAnonKey) {
+        setBillingStatus("Missing Supabase config for billing.", "error");
+        return;
+      }
+
+      const label = action === "create-portal-session" ? "Opening Stripe billing portal..." : "Opening Stripe checkout...";
+      setBillingStatus(label);
+      setBillingButtonsDisabled(true);
+
+      try {
+        const response = await fetch(`${supabaseUrl}/functions/v1/music-billing`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            apikey: supabaseAnonKey,
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({ app: "ai_music", action, planId }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(getErrorMessage(data, "Unable to open billing."));
+        if (!data.url) throw new Error("Billing session did not return a redirect URL.");
+        window.location.assign(data.url);
+      } catch (error) {
+        setBillingStatus(error instanceof Error ? error.message : "Unable to open billing.", "error");
+      } finally {
+        setBillingButtonsDisabled(false);
+      }
+    }
+
+    function handleBillingReturn() {
+      const url = new URL(window.location.href);
+      const billingState = url.searchParams.get("billing");
+      if (!billingState) return;
+
+      const messages = {
+        success: ["Checkout complete. Your AI Music plan will update after Stripe confirms payment.", "success"],
+        canceled: ["Stripe checkout was canceled.", ""],
+        portal: ["Returned from the billing portal. Subscription changes may take a moment to appear.", "success"],
+      };
+      const [message, tone] = messages[billingState] || ["", ""];
+      if (message) {
+        statusEl.textContent = message;
+        setBillingStatus(message, tone);
+      }
+
+      url.searchParams.delete("billing");
+      window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
     }
 
     function setAccountProfileStatus(message, tone = "") {
@@ -1193,12 +1772,14 @@
       renderAccountModal();
       setAccountProfileStatus("");
       setAccountEditMode(false);
+      setAccountModalPage("profile");
       musicAccountModal.classList.remove("hidden");
       musicAccountModalClose.focus();
     }
 
     function closeAccountModal() {
       setAccountEditMode(false);
+      setAccountModalPage("profile");
       musicAccountModal.classList.add("hidden");
     }
 
@@ -1682,6 +2263,9 @@
     });
     musicAccountModalClose.addEventListener("click", closeAccountModal);
     musicAccountModalDone.addEventListener("click", closeAccountModal);
+    musicAccountPlanButton.addEventListener("click", () => setAccountModalPage("billing"));
+    musicBillingBack.addEventListener("click", () => setAccountModalPage("profile"));
+    musicBillingDone.addEventListener("click", closeAccountModal);
     musicAccountModalSignout.addEventListener("click", handleSignout);
     musicAccountEditProfile.addEventListener("click", () => {
       setAccountProfileStatus("");
@@ -1693,6 +2277,12 @@
       setAccountEditMode(false);
     });
     musicAccountProfileForm.addEventListener("submit", handleProfileSave);
+    musicBillingPlanGrid.addEventListener("click", async (event) => {
+      const button = event.target.closest("button[data-plan-id]");
+      if (!button || button.disabled) return;
+      await handleBillingPlanSelection(button.getAttribute("data-plan-id"));
+    });
+    musicBillingManage.addEventListener("click", () => openMusicBilling("create-portal-session"));
     musicAccountModal.addEventListener("click", (event) => {
       if (event.target === musicAccountModal) closeAccountModal();
     });
@@ -1714,6 +2304,7 @@
       setAuthMode("signin");
       const redirected = await initAuth();
       if (redirected) return;
+      handleBillingReturn();
       resumeActiveTask();
       refreshGenerateAvailability();
     });
