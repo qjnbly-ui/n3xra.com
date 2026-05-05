@@ -74,6 +74,7 @@ const openDeleteAccountModalButton = document.getElementById("open-delete-accoun
 const deleteAccountBlockedNote = document.getElementById("delete-account-blocked-note");
 const deleteAccountModal = document.getElementById("delete-account-modal");
 const deleteAccountCancel = document.getElementById("delete-account-cancel");
+const deleteRecordsSubmit = document.getElementById("delete-records-submit");
 const deleteAccountSubmit = document.getElementById("delete-account-submit");
 const deleteAccountStatus = document.getElementById("delete-account-status");
 const openEmbedCardButton = document.getElementById("open-embed-card-button");
@@ -286,6 +287,7 @@ function setDeleteAccountModalOpen(isOpen) {
   deleteAccountModal.setAttribute("aria-hidden", String(!isOpen));
   if (!isOpen) {
     setStatus(deleteAccountStatus, "");
+    deleteRecordsSubmit.disabled = false;
     deleteAccountSubmit.disabled = false;
     deleteAccountCancel.disabled = false;
   }
@@ -1825,8 +1827,10 @@ async function createPersonalLibrary() {
   setStatus(contextStatus, `Library "${nextName}" created.`, "success");
 }
 
-async function deleteAccount() {
-  setStatus(deleteAccountStatus, "Deleting account...");
+async function deleteAccount(scope = "full") {
+  const isAppOnly = String(scope) === "app";
+  setStatus(deleteAccountStatus, isAppOnly ? "Deleting Records account..." : "Deleting entire account...");
+  deleteRecordsSubmit.disabled = true;
   deleteAccountSubmit.disabled = true;
   deleteAccountCancel.disabled = true;
 
@@ -1839,12 +1843,14 @@ async function deleteAccount() {
     "";
   const { supabaseUrl = "", supabaseAnonKey = "" } = getConfig();
   if (!accessToken) {
+    deleteRecordsSubmit.disabled = false;
     deleteAccountSubmit.disabled = false;
     deleteAccountCancel.disabled = false;
     setStatus(deleteAccountStatus, "Your session expired. Sign in again and retry.", "error");
     return;
   }
   if (!supabaseUrl || !supabaseAnonKey) {
+    deleteRecordsSubmit.disabled = false;
     deleteAccountSubmit.disabled = false;
     deleteAccountCancel.disabled = false;
     setStatus(deleteAccountStatus, "Missing app config for delete-account request.", "error");
@@ -1860,9 +1866,10 @@ async function deleteAccount() {
         apikey: supabaseAnonKey,
         Authorization: `Bearer ${accessToken}`,
       },
-      body: "{}",
+      body: JSON.stringify(isAppOnly ? { scope: "app", app: "records" } : {}),
     });
   } catch (error) {
+    deleteRecordsSubmit.disabled = false;
     deleteAccountSubmit.disabled = false;
     deleteAccountCancel.disabled = false;
     setStatus(deleteAccountStatus, error instanceof Error ? error.message : "Unable to reach delete-account function.", "error");
@@ -1883,9 +1890,16 @@ async function deleteAccount() {
 
   if (!response.ok || payload?.error) {
     const errorMessage = String(payload?.error || rawText || "Unable to delete account.");
+    deleteRecordsSubmit.disabled = false;
     deleteAccountSubmit.disabled = false;
     deleteAccountCancel.disabled = false;
     setStatus(deleteAccountStatus, `${errorMessage} (HTTP ${response.status})`, "error");
+    return;
+  }
+
+  if (isAppOnly) {
+    await supabase.auth.signOut();
+    window.location.replace("./login.html");
     return;
   }
 
@@ -2141,7 +2155,8 @@ async function init() {
   memberList.addEventListener("change", handleMemberRoleChange);
   openDeleteAccountModalButton.addEventListener("click", () => setDeleteAccountModalOpen(true));
   deleteAccountCancel.addEventListener("click", () => setDeleteAccountModalOpen(false));
-  deleteAccountSubmit.addEventListener("click", deleteAccount);
+  deleteRecordsSubmit.addEventListener("click", () => deleteAccount("app"));
+  deleteAccountSubmit.addEventListener("click", () => deleteAccount("full"));
   openEmbedCardButton.addEventListener("click", () => setEmbedModalOpen(true));
   embedModalClose.addEventListener("click", () => setEmbedModalOpen(false));
   copyEmbedPreviewUrlButton.addEventListener("click", copyPublicEmbedUrl);

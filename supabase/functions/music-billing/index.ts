@@ -6,7 +6,7 @@ import {
   getAppOrigin,
   jsonResponse,
 } from "../_shared/stripe-billing.ts";
-import { requireMusicPriceId } from "../_shared/music-billing.ts";
+import { getMusicAccountStatus, getMusicPlanIdFromPriceId, getMusicPlanState, requireMusicPriceId } from "../_shared/music-billing.ts";
 
 type SharedProfileRecord = {
   id: string;
@@ -137,6 +137,85 @@ async function getOrCreateMusicCustomer(
   return customer.id;
 }
 
+function getSubscriptionCustomerId(subscription: Stripe.Subscription) {
+  return typeof subscription.customer === "string" ? subscription.customer : subscription.customer?.id || null;
+}
+
+function getSubscriptionPriceId(subscription: Stripe.Subscription) {
+  return subscription.items.data[0]?.price?.id || null;
+}
+
+function getSubscriptionPeriodStart(subscription: Stripe.Subscription) {
+  return subscription.current_period_start || subscription.items.data[0]?.current_period_start || null;
+}
+
+function getSubscriptionPeriodEnd(subscription: Stripe.Subscription) {
+  return subscription.current_period_end || subscription.items.data[0]?.current_period_end || subscription.cancel_at || null;
+}
+
+function isMusicSubscription(subscription: Stripe.Subscription) {
+  const app = String(subscription.metadata?.app || "").trim().toLowerCase();
+  return app === "ai_music" || Boolean(getMusicPlanIdFromPriceId(getSubscriptionPriceId(subscription)));
+}
+
+async function syncMusicSubscription(
+  adminClient: ReturnType<typeof createClient>,
+  userId: string,
+  subscription: Stripe.Subscription | null
+) {
+  const now = new Date();
+  if (!subscription) {
+    const freeState = getMusicPlanState("free");
+    const next = new Date(now);
+    next.setUTCMonth(next.getUTCMonth() + 1);
+    const { error } = await adminClient
+      .from("music_profiles")
+      .update({
+        ...freeState,
+        account_status: "active",
+        songs_used: 0,
+        current_period_start: now.toISOString(),
+        current_period_end: next.toISOString(),
+        stripe_subscription_id: null,
+        stripe_price_id: null,
+        cancel_at_period_end: false,
+        subscription_current_period_end: null,
+      })
+      .eq("user_id", userId);
+    if (error) throw new Error(error.message);
+    return;
+  }
+
+  const customerId = getSubscriptionCustomerId(subscription);
+  const priceId = getSubscriptionPriceId(subscription);
+  const planId = getMusicPlanIdFromPriceId(priceId);
+  const planState = getMusicPlanState(planId);
+  const periodStartSeconds = getSubscriptionPeriodStart(subscription);
+  const periodEndSeconds = getSubscriptionPeriodEnd(subscription);
+  const periodStart = periodStartSeconds ? new Date(periodStartSeconds * 1000) : now;
+  const periodEnd = periodEndSeconds ? new Date(periodEndSeconds * 1000) : new Date(periodStart);
+  if (!periodEndSeconds) periodEnd.setUTCMonth(periodEnd.getUTCMonth() + 1);
+
+  const updates: Record<string, unknown> = {
+    ...planState,
+    account_status: getMusicAccountStatus(subscription.status),
+    stripe_customer_id: customerId,
+    stripe_subscription_id: subscription.id,
+    stripe_price_id: priceId,
+    current_period_start: periodStart.toISOString(),
+    current_period_end: periodEnd.toISOString(),
+    cancel_at_period_end: Boolean(subscription.cancel_at_period_end || subscription.cancel_at),
+    subscription_current_period_end: periodEnd.toISOString(),
+  };
+
+  const { error } = await adminClient
+    .from("music_profiles")
+    .update(updates)
+    .eq("user_id", userId);
+
+  if (error) throw new Error(error.message);
+}
+
 Deno.serve(async (request) => {
   const origin = getAppOrigin(request);
   if (request.method === "OPTIONS") {
@@ -181,7 +260,7 @@ Deno.serve(async (request) => {
 
     const payload = await request.json().catch(() => ({}));
     const action = String(payload.action || "").trim();
-    if (!["create-checkout-session", "create-portal-session"].includes(action)) {
+    if (!["create-checkout-session", "create-portal-session", "sync-subscription"].includes(action)) {
       return jsonResponse({ error: "Unsupported AI Music billing action." }, 400, origin);
     }
 
@@ -228,6 +307,24 @@ Deno.serve(async (request) => {
       });
 
       return jsonResponse({ url: session.url }, 200, origin);
+    }
+
+    if (action === "sync-subscription") {
+      if (!musicProfile.stripe_customer_id) {
+        return jsonResponse({ ok: true, synced: false, reason: "no_customer" }, 200, origin);
+      }
+
+      const subscriptions = await stripe.subscriptions.list({
+        customer: musicProfile.stripe_customer_id,
+        status: "all",
+        limit: 20,
+      });
+      const musicSubscriptions = subscriptions.data.filter(isMusicSubscription);
+      const activeLike = musicSubscriptions.find((sub) => ["active", "trialing", "past_due", "unpaid"].includes(sub.status));
+      const latest = activeLike || musicSubscriptions[0] || null;
+
+      await syncMusicSubscription(adminClient, user.id, latest);
+      return jsonResponse({ ok: true, synced: true, status: latest?.status || "free" }, 200, origin);
     }
 
     if (!musicProfile.stripe_customer_id) {

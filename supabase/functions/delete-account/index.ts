@@ -59,6 +59,10 @@ Deno.serve(async (request) => {
       return jsonResponse({ error: userError?.message || "Unable to resolve user." }, 401);
     }
 
+    const payload = await request.json().catch(() => ({}));
+    const deleteScope = String(payload?.scope || "full").trim().toLowerCase();
+    const deleteApp = String(payload?.app || "").trim().toLowerCase();
+
     const { data: ownedOrganizations, error: ownedOrganizationsError } = await adminClient
       .from("organizations")
       .select("id, name, subscription_tier, account_status, cancel_at_period_end")
@@ -75,6 +79,25 @@ Deno.serve(async (request) => {
     );
     if (paidOwnedOrganizations.length) {
       return jsonResponse({ error: "Cancel paid libraries before deleting this account." }, 400);
+    }
+
+    const { data: musicProfile, error: musicProfileError } = await adminClient
+      .from("music_profiles")
+      .select("plan, account_status, cancel_at_period_end")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (musicProfileError) {
+      return jsonResponse({ error: musicProfileError.message }, 400);
+    }
+
+    const hasActivePaidMusicPlan =
+      ["creator", "studio"].includes(String(musicProfile?.plan || "free")) &&
+      !["canceled", "suspended"].includes(String(musicProfile?.account_status || "active")) &&
+      !Boolean(musicProfile?.cancel_at_period_end);
+
+    if (hasActivePaidMusicPlan) {
+      return jsonResponse({ error: "Cancel your paid AI Music plan before deleting this account." }, 400);
     }
 
     const ownedOrganizationIds = (ownedOrganizations || []).map((org) => org.id);
@@ -107,6 +130,17 @@ Deno.serve(async (request) => {
       if (deleteOrganizationsError) {
         return jsonResponse({ error: deleteOrganizationsError.message }, 400);
       }
+    }
+
+    if (deleteScope === "app" && deleteApp === "records") {
+      const { error: membershipDeleteError } = await adminClient
+        .from("organization_memberships")
+        .delete()
+        .eq("user_id", user.id);
+      if (membershipDeleteError) {
+        return jsonResponse({ error: membershipDeleteError.message }, 400);
+      }
+      return jsonResponse({ ok: true, scope: "app", app: "records" });
     }
 
     const { error: deleteUserError } = await adminClient.auth.admin.deleteUser(user.id);

@@ -659,6 +659,40 @@
       border-color: rgba(255, 255, 255, 0.2);
     }
 
+    .account-modal .secondary-btn.account-delete-btn {
+      color: #fff;
+      border-color: rgba(255, 255, 255, 0.2);
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .delete-choice-panel {
+      margin-top: 0.85rem;
+      padding: 0.9rem;
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      background: rgba(255, 255, 255, 0.05);
+      display: grid;
+      gap: 0.65rem;
+      text-align: center;
+      justify-items: center;
+    }
+
+    .delete-choice-panel p {
+      margin: 0;
+      color: rgba(255, 255, 255, 0.86);
+      font-weight: 700;
+      line-height: 1.45;
+      max-width: 54ch;
+    }
+
+    .delete-choice-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.55rem;
+      justify-content: center;
+      width: 100%;
+    }
+
     .music-auth-panel {
       padding: 1.15rem;
       display: grid;
@@ -1196,8 +1230,17 @@
         </div>
 
         <p class="account-status" id="musicAccountProfileStatus" aria-live="polite"></p>
+        <div class="delete-choice-panel hidden" id="musicDeleteChoicePanel">
+          <p>Choose what to delete. App-only keeps your main N3XRA login. Entire account removes all N3XRA app access.</p>
+          <div class="delete-choice-actions">
+            <button class="secondary-btn account-delete-btn" type="button" id="musicDeleteAppOnly">Delete this account</button>
+            <button class="secondary-btn account-delete-btn" type="button" id="musicDeleteEntire">Delete entire N3XRA account</button>
+            <button class="secondary-btn" type="button" id="musicDeleteChoiceCancel">Cancel</button>
+          </div>
+        </div>
 
         <div class="account-modal-actions">
+          <button class="secondary-btn account-delete-btn" type="button" id="musicAccountDelete">Delete account</button>
           <button class="secondary-btn" type="button" id="musicAccountModalSignout">Sign out</button>
           <button class="secondary-btn" type="button" id="musicAccountEditProfile">Edit profile</button>
           <button class="secondary-btn hidden" type="button" id="musicAccountCancelProfile">Cancel</button>
@@ -1274,6 +1317,7 @@
     const musicAccountModalClose = document.getElementById("musicAccountModalClose");
     const musicAccountModalDone = document.getElementById("musicAccountModalDone");
     const musicAccountModalSignout = document.getElementById("musicAccountModalSignout");
+    const musicAccountDelete = document.getElementById("musicAccountDelete");
     const musicAccountModalEmail = document.getElementById("musicAccountModalEmail");
     const musicAccountDisplayNameText = document.getElementById("musicAccountDisplayNameText");
     const musicAccountDisplayName = document.getElementById("musicAccountDisplayName");
@@ -1286,6 +1330,10 @@
     const musicAccountModalPlan = document.getElementById("musicAccountModalPlan");
     const musicAccountModalUsage = document.getElementById("musicAccountModalUsage");
     const musicAccountModalPeriod = document.getElementById("musicAccountModalPeriod");
+    const musicDeleteChoicePanel = document.getElementById("musicDeleteChoicePanel");
+    const musicDeleteAppOnly = document.getElementById("musicDeleteAppOnly");
+    const musicDeleteEntire = document.getElementById("musicDeleteEntire");
+    const musicDeleteChoiceCancel = document.getElementById("musicDeleteChoiceCancel");
     const musicBillingSummary = document.getElementById("musicBillingSummary");
     const musicBillingPlanGrid = document.getElementById("musicBillingPlanGrid");
     const musicBillingManage = document.getElementById("musicBillingManage");
@@ -1706,7 +1754,11 @@
         return;
       }
 
-      const label = action === "create-portal-session" ? "Opening Stripe billing portal..." : "Opening Stripe checkout...";
+      const label = action === "create-portal-session"
+        ? "Opening Stripe billing portal..."
+        : action === "sync-subscription"
+          ? "Syncing billing status..."
+          : "Opening Stripe checkout...";
       setBillingStatus(label);
       setBillingButtonsDisabled(true);
 
@@ -1722,6 +1774,11 @@
         });
         const data = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(getErrorMessage(data, "Unable to open billing."));
+        if (action === "sync-subscription") {
+          await loadMusicAccount();
+          setBillingStatus("Billing synced.", "success");
+          return;
+        }
         if (!data.url) throw new Error("Billing session did not return a redirect URL.");
         window.location.assign(data.url);
       } catch (error) {
@@ -1731,7 +1788,7 @@
       }
     }
 
-    function handleBillingReturn() {
+    async function handleBillingReturn() {
       const url = new URL(window.location.href);
       const billingState = url.searchParams.get("billing");
       if (!billingState) return;
@@ -1745,6 +1802,10 @@
       if (message) {
         statusEl.textContent = message;
         setBillingStatus(message, tone);
+      }
+
+      if (billingState === "success" || billingState === "portal") {
+        await openMusicBilling("sync-subscription");
       }
 
       url.searchParams.delete("billing");
@@ -1767,11 +1828,16 @@
       if (isAccountEditing) musicAccountDisplayName.focus();
     }
 
+    function setDeleteChoiceOpen(isOpen) {
+      musicDeleteChoicePanel.classList.toggle("hidden", !isOpen);
+    }
+
     function openAccountModal() {
       if (!currentSession?.user) return;
       renderAccountModal();
       setAccountProfileStatus("");
       setAccountEditMode(false);
+      setDeleteChoiceOpen(false);
       setAccountModalPage("profile");
       musicAccountModal.classList.remove("hidden");
       musicAccountModalClose.focus();
@@ -1779,6 +1845,7 @@
 
     function closeAccountModal() {
       setAccountEditMode(false);
+      setDeleteChoiceOpen(false);
       setAccountModalPage("profile");
       musicAccountModal.classList.add("hidden");
     }
@@ -2098,13 +2165,21 @@
         return;
       }
 
-      if (!data?.session) {
-        setAuthStatus("Account created. Check your email if confirmation is enabled, then sign in to activate AI Music.", "success");
-        setAuthMode("signin");
-        return;
+      let nextSession = data?.session || null;
+      if (!nextSession) {
+        const signInResult = await supabase.auth.signInWithPassword({ email, password });
+        if (signInResult.error || !signInResult.data?.session) {
+          setAuthStatus(
+            signInResult.error?.message || "Account created, but auto sign-in is unavailable. Sign in manually.",
+            "error",
+          );
+          setAuthMode("signin");
+          return;
+        }
+        nextSession = signInResult.data.session;
       }
 
-      currentSession = data.session;
+      currentSession = nextSession;
       await loadMusicAccount();
       showAuthPanel(false);
       setAuthStatus("AI Music account created.", "success");
@@ -2152,6 +2227,67 @@
       musicAccount = null;
       closeAccountModal();
       openMusicLogin(true);
+    }
+
+    async function handleDeleteAccount(scope = "full") {
+      if (!currentSession?.access_token) return openMusicLogin();
+      const normalizedChoice = String(scope || "full").trim().toLowerCase();
+
+      const config = getConfig();
+      const { supabaseUrl = "", supabaseAnonKey = "" } = config;
+      if (!supabaseUrl || !supabaseAnonKey) {
+        setAccountProfileStatus("Missing app config for delete-account request.", "error");
+        return;
+      }
+
+      const deletingAppOnly = normalizedChoice === "app";
+      if (!["app", "full", "entire"].includes(normalizedChoice)) {
+        setAccountProfileStatus("Invalid delete option.", "error");
+        return;
+      }
+
+      setAccountProfileStatus(deletingAppOnly ? "Deleting AI Music profile..." : "Deleting entire account...");
+      setDeleteChoiceOpen(false);
+      musicAccountDelete.disabled = true;
+      musicAccountModalSignout.disabled = true;
+      musicDeleteAppOnly.disabled = true;
+      musicDeleteEntire.disabled = true;
+      musicDeleteChoiceCancel.disabled = true;
+
+      try {
+        const response = deletingAppOnly
+          ? await fetch("/api/music-account-delete", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", ...authHeaders() },
+            body: JSON.stringify({ scope: "app" }),
+          })
+          : await fetch(`${supabaseUrl}/functions/v1/delete-account`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              apikey: supabaseAnonKey,
+              Authorization: `Bearer ${currentSession.access_token}`,
+            },
+          });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(getErrorMessage(data, deletingAppOnly ? "Unable to delete AI Music profile." : "Unable to delete account."));
+        }
+        if (!supabase) throw new Error("Supabase is not configured.");
+        await supabase.auth.signOut({ scope: "local" });
+        window.location.replace("/ai-music-generator/login/?deleted=1");
+      } catch (error) {
+        setAccountProfileStatus(
+          error instanceof Error ? error.message : (deletingAppOnly ? "Unable to delete AI Music profile." : "Unable to delete account."),
+          "error",
+        );
+      } finally {
+        musicAccountDelete.disabled = false;
+        musicAccountModalSignout.disabled = false;
+        musicDeleteAppOnly.disabled = false;
+        musicDeleteEntire.disabled = false;
+        musicDeleteChoiceCancel.disabled = false;
+      }
     }
 
     async function importLocalSongs() {
@@ -2267,6 +2403,13 @@
     musicBillingBack.addEventListener("click", () => setAccountModalPage("profile"));
     musicBillingDone.addEventListener("click", closeAccountModal);
     musicAccountModalSignout.addEventListener("click", handleSignout);
+    musicAccountDelete.addEventListener("click", () => {
+      setAccountProfileStatus("");
+      setDeleteChoiceOpen(true);
+    });
+    musicDeleteChoiceCancel.addEventListener("click", () => setDeleteChoiceOpen(false));
+    musicDeleteAppOnly.addEventListener("click", () => handleDeleteAccount("app"));
+    musicDeleteEntire.addEventListener("click", () => handleDeleteAccount("full"));
     musicAccountEditProfile.addEventListener("click", () => {
       setAccountProfileStatus("");
       setAccountEditMode(true);
@@ -2304,7 +2447,7 @@
       setAuthMode("signin");
       const redirected = await initAuth();
       if (redirected) return;
-      handleBillingReturn();
+      await handleBillingReturn();
       resumeActiveTask();
       refreshGenerateAvailability();
     });

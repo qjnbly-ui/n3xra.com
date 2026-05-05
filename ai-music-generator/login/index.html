@@ -528,14 +528,22 @@
         return;
       }
 
-      if (!data?.session) {
-        setAuthStatus("Account created. Check your email if confirmation is enabled, then sign in to activate AI Music.", "success");
-        setAuthMode("signin");
-        return;
+      let nextSession = data?.session || null;
+      if (!nextSession) {
+        const signInResult = await supabase.auth.signInWithPassword({ email, password });
+        if (signInResult.error || !signInResult.data?.session) {
+          setAuthStatus(
+            signInResult.error?.message || "Account created, but auto sign-in is unavailable. Sign in manually.",
+            "error",
+          );
+          setAuthMode("signin");
+          return;
+        }
+        nextSession = signInResult.data.session;
       }
 
       setAuthStatus("Opening AI Music app...", "success");
-      await openApp(data.session).catch((error) => {
+      await openApp(nextSession).catch((error) => {
         setAuthStatus(error instanceof Error ? error.message : "Unable to open AI Music.", "error");
       });
     }
