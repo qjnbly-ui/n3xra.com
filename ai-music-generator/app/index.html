@@ -968,6 +968,8 @@
     .history-actions {
       display: flex;
       justify-content: flex-end;
+      gap: 0.45rem;
+      flex-wrap: wrap;
     }
 
     .site-footer {
@@ -1374,6 +1376,7 @@
     let latestRequestedTaskId = "";
     let isAccountEditing = false;
     let activeStreamTaskId = "";
+    const activeGenerationTasks = new Map();
 
     function openMusicLogin(replace = false) {
       const destination = "/ai-music-generator/login/?next=/ai-music-generator/app/";
@@ -1877,23 +1880,52 @@
       historyContainer.innerHTML = "";
 
       if (currentSession?.user) {
+        const pendingTasks = Array.from(activeGenerationTasks.values())
+          .sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime());
         const generations = Array.isArray(musicAccount?.generations) ? musicAccount.generations : [];
-        if (!generations.length) {
+        if (!generations.length && !pendingTasks.length) {
           historyContainer.innerHTML = '<p class="empty-note">No songs saved to this account yet.</p>';
           return;
         }
+
+        pendingTasks.forEach((task) => {
+          const item = document.createElement("article");
+          item.className = "history-item";
+          const isSelected = task.taskId === latestRequestedTaskId;
+          const canStream = task.status === "GENERATING_STREAMING_READY" || task.taskId === activeStreamTaskId;
+          item.innerHTML = `
+            <p class="history-name">${escapeHtml(task.title || "Untitled song")} <strong>(In progress)</strong></p>
+            <p class="history-meta"><strong>Prompt:</strong> ${escapeHtml(task.prompt || "Generated song")}</p>
+            <p class="history-meta"><strong>Status:</strong> ${escapeHtml(prettyStatus(task.status || "WORKING"))}</p>
+            <p class="history-meta"><strong>Started:</strong> ${escapeHtml(formatDate(task.startedAt))}</p>
+            <div class="history-actions">
+              <button class="secondary-btn" type="button" data-watch-task-id="${escapeHtml(task.taskId)}">
+                ${isSelected ? "Selected for Preview" : "Select for Preview"}
+              </button>
+              ${canStream ? `<button class="secondary-btn" type="button" data-stream-task-id="${escapeHtml(task.taskId)}">Play Live</button>` : ""}
+              <button class="secondary-btn" type="button" data-delete-pending-task-id="${escapeHtml(task.taskId)}">Delete</button>
+            </div>
+          `;
+          historyContainer.appendChild(item);
+        });
 
         generations.forEach((song) => {
           const item = document.createElement("article");
           item.className = "history-item";
           const audio = song.audio_url ? `<audio controls src="${escapeHtml(song.audio_url)}"></audio>` : "";
           const status = song.status ? `<p class="history-meta"><strong>Status:</strong> ${escapeHtml(prettyStatus(song.status))}</p>` : "";
+          const canPlay = Boolean(song.audio_url);
           item.innerHTML = `
             <p class="history-name">${escapeHtml(song.title || "Untitled song")}</p>
             ${audio}
             <p class="history-meta"><strong>Prompt:</strong> ${escapeHtml(song.prompt || "Generated song")}</p>
             ${status}
             <p class="history-meta"><strong>Saved:</strong> ${escapeHtml(formatDate(song.completed_at || song.created_at))}</p>
+            <div class="history-actions">
+              ${canPlay ? `<button class="secondary-btn" type="button" data-play-saved-song-url="${escapeHtml(song.audio_url)}">Play</button>` : ""}
+              ${canPlay ? `<a class="secondary-btn" href="${escapeHtml(song.audio_url)}" download>Download</a>` : ""}
+              <button class="secondary-btn" type="button" data-delete-generation-id="${escapeHtml(song.id)}">Delete</button>
+            </div>
           `;
           historyContainer.appendChild(item);
         });
@@ -1985,6 +2017,14 @@
           throw new Error(getErrorMessage(data, "Status request failed."));
         }
 
+        if (activeGenerationTasks.has(taskId)) {
+          activeGenerationTasks.set(taskId, {
+            ...activeGenerationTasks.get(taskId),
+            status: data.status || "WORKING",
+          });
+          renderHistory();
+        }
+
         if (ownsPlayer) statusEl.textContent = prettyStatus(data.status);
 
         if (ownsPlayer && data.status === "GENERATING_STREAMING_READY") {
@@ -2010,6 +2050,8 @@
             renderHistory();
             renderAccountState();
           }
+          activeGenerationTasks.delete(taskId);
+          renderHistory();
           if (ownsPlayer) statusEl.textContent = accountTask ? "Song ready and saved to your account." : "Song ready.";
           return;
         }
@@ -2017,10 +2059,14 @@
         if (data.status === "FAILURE") {
           if (ownsPlayer) localStorage.removeItem(ACTIVE_TASK_KEY);
           if (accountTask) await loadMusicAccount().catch(() => null);
+          activeGenerationTasks.delete(taskId);
+          renderHistory();
           throw new Error(data?.error_message || "Generation failed.");
         }
       }
 
+      activeGenerationTasks.delete(taskId);
+      renderHistory();
       throw new Error("Generation is still running. Refresh later to resume the status check.");
     }
 
@@ -2087,6 +2133,14 @@
         latestRequestedTaskId = data.task_id;
         const controlsPlayer = true;
         activeTaskCount += 1;
+        activeGenerationTasks.set(data.task_id, {
+          taskId: data.task_id,
+          title,
+          prompt,
+          startedAt: new Date().toISOString(),
+          status: data.status || "TASK_SENT",
+        });
+        renderHistory();
 
         writeJson(ACTIVE_TASK_KEY, {
           taskId: data.task_id,
@@ -2104,6 +2158,9 @@
 
         await pollStatus(data.task_id, prompt, title, accountTask, controlsPlayer);
       } catch (error) {
+        activeGenerationTasks.forEach((task, key) => {
+          if (key === latestRequestedTaskId && !task.status) activeGenerationTasks.delete(key);
+        });
         statusEl.textContent = error instanceof Error ? error.message : "Request failed.";
       } finally {
         setGenerationRequestInFlight(false);
@@ -2134,6 +2191,14 @@
       setGenerationRequestInFlight(true);
       activeTaskCount += 1;
       latestRequestedTaskId = activeTask.taskId;
+      activeGenerationTasks.set(activeTask.taskId, {
+        taskId: activeTask.taskId,
+        title: activeTask.title || "",
+        prompt: activeTask.prompt || "",
+        startedAt: activeTask.startedAt || new Date().toISOString(),
+        status: "WORKING",
+      });
+      renderHistory();
       statusEl.textContent = "Resuming your last song request...";
       pollStatus(activeTask.taskId, activeTask.prompt || "", activeTask.title || "", true, true)
         .catch((error) => {
@@ -2355,6 +2420,19 @@
       }
     }
 
+    async function deleteSavedGeneration(generationId) {
+      if (!generationId || !currentSession?.access_token) return;
+      const response = await fetch("/api/music-generation-delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders() },
+        body: JSON.stringify({ generation_id: generationId }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(getErrorMessage(data, "Unable to delete song."));
+      }
+    }
+
     async function initAuth() {
       if (!hasConfig()) {
         setAuthStatus("Supabase config is missing.", "error");
@@ -2412,10 +2490,72 @@
     });
     instrumentalEl.addEventListener("change", updateFormState);
 
-    historyContainer.addEventListener("click", (event) => {
+    historyContainer.addEventListener("click", async (event) => {
       const button = event.target.closest("[data-song-id]");
-      if (!button) return;
-      deleteHistorySong(button.dataset.songId);
+      if (button) {
+        deleteHistorySong(button.dataset.songId);
+        return;
+      }
+
+      const watchButton = event.target.closest("[data-watch-task-id]");
+      if (watchButton) {
+        const taskId = String(watchButton.dataset.watchTaskId || "");
+        if (!taskId) return;
+        latestRequestedTaskId = taskId;
+        statusEl.textContent = "Selected task for live preview.";
+        renderHistory();
+        return;
+      }
+
+      const streamButton = event.target.closest("[data-stream-task-id]");
+      if (streamButton) {
+        const taskId = String(streamButton.dataset.streamTaskId || "");
+        if (!taskId) return;
+        latestRequestedTaskId = taskId;
+        startStreamingPreview(taskId);
+        renderHistory();
+        return;
+      }
+
+      const deletePendingButton = event.target.closest("[data-delete-pending-task-id]");
+      if (deletePendingButton) {
+        const taskId = String(deletePendingButton.dataset.deletePendingTaskId || "");
+        if (!taskId) return;
+        activeGenerationTasks.delete(taskId);
+        if (latestRequestedTaskId === taskId) {
+          latestRequestedTaskId = "";
+          if (activeStreamTaskId === taskId) activeStreamTaskId = "";
+        }
+        renderHistory();
+        statusEl.textContent = "Removed pending song card. Usage credit remains used.";
+        return;
+      }
+
+      const playSavedButton = event.target.closest("[data-play-saved-song-url]");
+      if (playSavedButton) {
+        const audioUrl = String(playSavedButton.dataset.playSavedSongUrl || "");
+        if (!audioUrl) return;
+        showResult(audioUrl);
+        statusEl.textContent = "Playing selected saved song.";
+        return;
+      }
+
+      const deleteSavedButton = event.target.closest("[data-delete-generation-id]");
+      if (deleteSavedButton) {
+        const generationId = String(deleteSavedButton.dataset.deleteGenerationId || "");
+        if (!generationId) return;
+        deleteSavedButton.setAttribute("disabled", "disabled");
+        deleteSavedButton.textContent = "Deleting...";
+        try {
+          await deleteSavedGeneration(generationId);
+          await loadMusicAccount();
+          statusEl.textContent = "Song deleted. Usage credits remain unchanged.";
+        } catch (error) {
+          deleteSavedButton.removeAttribute("disabled");
+          deleteSavedButton.textContent = "Delete";
+          statusEl.textContent = error instanceof Error ? error.message : "Unable to delete song.";
+        }
+      }
     });
 
     musicAuthJump.addEventListener("click", () => openMusicLogin());
