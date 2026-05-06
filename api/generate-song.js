@@ -102,39 +102,9 @@ function normalizeSongRequest(body) {
   const prompt = typeof body.prompt === "string" ? body.prompt : "";
   const lyrics = typeof body.lyrics === "string" ? body.lyrics : "";
   const instrumental = Boolean(body.instrumental);
-  const tags = Array.isArray(body.tags)
-    ? body.tags.map((tag) => String(tag || "").trim()).filter(Boolean).slice(0, 12)
-    : [];
-  const promptStrengthRaw = Number(body.prompt_strength);
-  const promptStrength = Number.isFinite(promptStrengthRaw) ? Math.max(0.2, Math.min(8, promptStrengthRaw)) : 2.0;
-  const outputFormat = String(body.output_format || "ogg").toLowerCase();
-  const streamFormat = String(body.stream_format || "ogg").toLowerCase();
-  const alignLyrics = Boolean(body.align_lyrics);
-  const outputBitRateRaw = Number.parseInt(String(body.output_bit_rate || ""), 10);
 
-  const allowedOutputFormats = new Set(["mp3", "flac", "wav", "ogg", "m4a"]);
-  if (!allowedOutputFormats.has(outputFormat)) {
-    return { error: "Invalid output format." };
-  }
-
-  if (!["ogg", "mp3"].includes(streamFormat)) {
-    return { error: "Invalid stream format." };
-  }
-
-  let outputBitRate = null;
-  if (Number.isFinite(outputBitRateRaw)) {
-    if (!["mp3", "m4a"].includes(outputFormat)) {
-      return { error: "Bit rate is only supported for mp3 or m4a output." };
-    }
-    const allowedBitRates = new Set([128, 192, 256, 320]);
-    if (!allowedBitRates.has(outputBitRateRaw)) {
-      return { error: "Invalid output bit rate." };
-    }
-    outputBitRate = outputBitRateRaw;
-  }
-
-  if (!prompt.trim() && !lyrics.trim() && tags.length === 0) {
-    return { error: "Add a prompt, lyrics, or tags." };
+  if (!prompt.trim() && !lyrics.trim()) {
+    return { error: "Add a prompt or lyrics." };
   }
 
   if (instrumental && lyrics.trim()) {
@@ -144,15 +114,9 @@ function normalizeSongRequest(body) {
   const sonautoPayload = {
     instrumental,
     enable_streaming: true,
-    stream_format: streamFormat,
-    prompt_strength: promptStrength,
-    output_format: outputFormat,
   };
-  if (outputBitRate !== null) sonautoPayload.output_bit_rate = outputBitRate;
-  if (prompt || lyrics || tags.length > 0) sonautoPayload.prompt = prompt;
+  if (prompt || lyrics) sonautoPayload.prompt = prompt;
   if (lyrics) sonautoPayload.lyrics = lyrics;
-  if (tags.length > 0) sonautoPayload.tags = tags;
-  if (alignLyrics && !instrumental && lyrics.trim()) sonautoPayload.align_lyrics = true;
 
   return {
     title,
