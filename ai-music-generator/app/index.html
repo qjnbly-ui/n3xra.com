@@ -972,6 +972,50 @@
       flex-wrap: wrap;
     }
 
+    .confirm-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 95;
+      background: rgba(1, 6, 12, 0.72);
+      display: grid;
+      place-items: center;
+      padding: 1rem;
+    }
+
+    .confirm-card {
+      width: min(520px, 100%);
+      border-radius: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      background:
+        radial-gradient(circle at 16% 8%, rgba(22, 185, 237, 0.2), transparent 18rem),
+        linear-gradient(145deg, #0b1219 0%, #05080d 100%);
+      color: #fff;
+      padding: 1rem;
+      display: grid;
+      gap: 0.75rem;
+    }
+
+    .confirm-title {
+      margin: 0;
+      font-family: "Fraunces", Georgia, serif;
+      font-size: 1.6rem;
+      line-height: 1.08;
+    }
+
+    .confirm-copy {
+      margin: 0;
+      color: rgba(255, 255, 255, 0.78);
+      line-height: 1.45;
+      font-weight: 700;
+    }
+
+    .confirm-actions {
+      display: flex;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+      gap: 0.55rem;
+    }
+
     .site-footer {
       padding: 1.35rem 0;
       color: rgba(255, 255, 255, 0.58);
@@ -1171,7 +1215,6 @@
             <div class="song-result" id="audioPlayer">
               <audio controls id="player"></audio>
               <a class="song-link" id="downloadSong" href="#" download>Download Song</a>
-              <p class="result-note">Song links are temporary, so download anything you want to keep.</p>
             </div>
             <p class="empty-note" id="emptyResult">Generated audio will appear here.</p>
           </section>
@@ -1272,6 +1315,17 @@
     </section>
   </div>
 
+  <div class="confirm-overlay hidden" id="historyDeleteConfirm" role="dialog" aria-modal="true" aria-labelledby="historyDeleteTitle">
+    <section class="confirm-card">
+      <h3 class="confirm-title" id="historyDeleteTitle">Delete song?</h3>
+      <p class="confirm-copy" id="historyDeleteCopy">This removes the song entry from Recent Songs. Usage credits remain used.</p>
+      <div class="confirm-actions">
+        <button class="secondary-btn" type="button" id="historyDeleteCancel">Cancel</button>
+        <button class="primary-btn" type="button" id="historyDeleteConfirmButton">Delete</button>
+      </div>
+    </section>
+  </div>
+
   <script type="module">
     import { createBrowserSupabase, getConfig, getSessionOrNull, hasConfig } from "../../app/lib/supabase-client.js";
 
@@ -1342,6 +1396,10 @@
     const musicBillingBack = document.getElementById("musicBillingBack");
     const musicBillingDone = document.getElementById("musicBillingDone");
     const musicBillingStatus = document.getElementById("musicBillingStatus");
+    const historyDeleteConfirm = document.getElementById("historyDeleteConfirm");
+    const historyDeleteCopy = document.getElementById("historyDeleteCopy");
+    const historyDeleteCancel = document.getElementById("historyDeleteCancel");
+    const historyDeleteConfirmButton = document.getElementById("historyDeleteConfirmButton");
 
     const MUSIC_PLAN_ORDER = ["free", "creator", "studio"];
     const BILLING_PLANS = {
@@ -1377,6 +1435,7 @@
     let isAccountEditing = false;
     let activeStreamTaskId = "";
     const activeGenerationTasks = new Map();
+    let pendingDeleteAction = null;
 
     function openMusicLogin(replace = false) {
       const destination = "/ai-music-generator/login/?next=/ai-music-generator/app/";
@@ -1586,6 +1645,45 @@
         // Autoplay may be blocked by browser policy; controls remain visible.
       }
       statusEl.textContent = "Streaming preview is now playing.";
+    }
+
+    async function playSelectedSong(audioUrl, statusMessage = "Playing selected song.") {
+      if (!audioUrl) return;
+      showResult(audioUrl);
+      try {
+        await player.play();
+      } catch {
+        // Browser may require manual interaction after autoplay restrictions.
+      }
+      statusEl.textContent = statusMessage;
+    }
+
+    async function forceDownloadSong(audioUrl, title = "song") {
+      if (!audioUrl) return;
+      const response = await fetch(audioUrl);
+      if (!response.ok) throw new Error("Unable to download song.");
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = objectUrl;
+      anchor.download = `${String(title || "song").replace(/[^a-z0-9-_]+/gi, "_")}.mp3`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(objectUrl);
+    }
+
+    function openDeleteConfirm(action, message) {
+      pendingDeleteAction = action;
+      historyDeleteCopy.textContent = message || "This removes the song entry from Recent Songs. Usage credits remain used.";
+      historyDeleteConfirm.classList.remove("hidden");
+    }
+
+    function closeDeleteConfirm() {
+      pendingDeleteAction = null;
+      historyDeleteConfirm.classList.add("hidden");
+      historyDeleteConfirmButton.disabled = false;
+      historyDeleteConfirmButton.textContent = "Delete";
     }
 
     function hideResult() {
@@ -1923,7 +2021,7 @@
             <p class="history-meta"><strong>Saved:</strong> ${escapeHtml(formatDate(song.completed_at || song.created_at))}</p>
             <div class="history-actions">
               ${canPlay ? `<button class="secondary-btn" type="button" data-play-saved-song-url="${escapeHtml(song.audio_url)}">Play</button>` : ""}
-              ${canPlay ? `<a class="secondary-btn" href="${escapeHtml(song.audio_url)}" download>Download</a>` : ""}
+              ${canPlay ? `<button class="secondary-btn" type="button" data-download-saved-song-url="${escapeHtml(song.audio_url)}" data-download-song-title="${escapeHtml(song.title || "song")}">Download</button>` : ""}
               <button class="secondary-btn" type="button" data-delete-generation-id="${escapeHtml(song.id)}">Delete</button>
             </div>
           `;
@@ -2521,13 +2619,18 @@
       if (deletePendingButton) {
         const taskId = String(deletePendingButton.dataset.deletePendingTaskId || "");
         if (!taskId) return;
-        activeGenerationTasks.delete(taskId);
-        if (latestRequestedTaskId === taskId) {
-          latestRequestedTaskId = "";
-          if (activeStreamTaskId === taskId) activeStreamTaskId = "";
-        }
-        renderHistory();
-        statusEl.textContent = "Removed pending song card. Usage credit remains used.";
+        openDeleteConfirm(
+          async () => {
+            activeGenerationTasks.delete(taskId);
+            if (latestRequestedTaskId === taskId) {
+              latestRequestedTaskId = "";
+              if (activeStreamTaskId === taskId) activeStreamTaskId = "";
+            }
+            renderHistory();
+            statusEl.textContent = "Removed pending song card. Usage credit remains used.";
+          },
+          "Remove this in-progress song card? Generation usage remains used.",
+        );
         return;
       }
 
@@ -2535,8 +2638,28 @@
       if (playSavedButton) {
         const audioUrl = String(playSavedButton.dataset.playSavedSongUrl || "");
         if (!audioUrl) return;
-        showResult(audioUrl);
-        statusEl.textContent = "Playing selected saved song.";
+        await playSelectedSong(audioUrl, "Playing selected saved song.");
+        renderHistory();
+        return;
+      }
+
+      const downloadSavedButton = event.target.closest("[data-download-saved-song-url]");
+      if (downloadSavedButton) {
+        const audioUrl = String(downloadSavedButton.dataset.downloadSavedSongUrl || "");
+        const title = String(downloadSavedButton.dataset.downloadSongTitle || "song");
+        if (!audioUrl) return;
+        downloadSavedButton.setAttribute("disabled", "disabled");
+        const previousText = downloadSavedButton.textContent;
+        downloadSavedButton.textContent = "Downloading...";
+        try {
+          await forceDownloadSong(audioUrl, title);
+          statusEl.textContent = "Download started.";
+        } catch (error) {
+          statusEl.textContent = error instanceof Error ? error.message : "Unable to download song.";
+        } finally {
+          downloadSavedButton.removeAttribute("disabled");
+          downloadSavedButton.textContent = previousText || "Download";
+        }
         return;
       }
 
@@ -2544,18 +2667,33 @@
       if (deleteSavedButton) {
         const generationId = String(deleteSavedButton.dataset.deleteGenerationId || "");
         if (!generationId) return;
-        deleteSavedButton.setAttribute("disabled", "disabled");
-        deleteSavedButton.textContent = "Deleting...";
-        try {
-          await deleteSavedGeneration(generationId);
-          await loadMusicAccount();
-          statusEl.textContent = "Song deleted. Usage credits remain unchanged.";
-        } catch (error) {
-          deleteSavedButton.removeAttribute("disabled");
-          deleteSavedButton.textContent = "Delete";
-          statusEl.textContent = error instanceof Error ? error.message : "Unable to delete song.";
-        }
+        openDeleteConfirm(
+          async () => {
+            await deleteSavedGeneration(generationId);
+            await loadMusicAccount();
+            statusEl.textContent = "Song deleted. Usage credits remain unchanged.";
+          },
+          "Delete this saved song? Usage credits remain used.",
+        );
       }
+    });
+
+    historyDeleteCancel.addEventListener("click", closeDeleteConfirm);
+    historyDeleteConfirmButton.addEventListener("click", async () => {
+      if (!pendingDeleteAction) return;
+      historyDeleteConfirmButton.disabled = true;
+      historyDeleteConfirmButton.textContent = "Deleting...";
+      try {
+        await pendingDeleteAction();
+        closeDeleteConfirm();
+      } catch (error) {
+        statusEl.textContent = error instanceof Error ? error.message : "Unable to complete delete action.";
+        historyDeleteConfirmButton.disabled = false;
+        historyDeleteConfirmButton.textContent = "Delete";
+      }
+    });
+    historyDeleteConfirm.addEventListener("click", (event) => {
+      if (event.target === historyDeleteConfirm) closeDeleteConfirm();
     });
 
     musicAuthJump.addEventListener("click", () => openMusicLogin());
