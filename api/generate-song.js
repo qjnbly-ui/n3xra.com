@@ -111,7 +111,10 @@ function normalizeSongRequest(body) {
     return { error: "Instrumental songs cannot include lyrics." };
   }
 
-  const sonautoPayload = { instrumental };
+  const sonautoPayload = {
+    instrumental,
+    enable_streaming: true,
+  };
   if (prompt || lyrics) sonautoPayload.prompt = prompt;
   if (lyrics) sonautoPayload.lyrics = lyrics;
 
