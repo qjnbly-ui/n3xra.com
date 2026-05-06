@@ -45,7 +45,7 @@ export function getMusicPlanState(planId: string | null | undefined) {
     default:
       return {
         plan: "free",
-        monthly_song_limit: 5,
+        monthly_song_limit: 2,
       };
   }
 }

@@ -27,7 +27,7 @@ function sendJson(res, status, body) {
 
 const generationLocks = globalThis.__n3xraMusicGenerationLocks || new Map();
 globalThis.__n3xraMusicGenerationLocks = generationLocks;
-const GENERATION_LIMIT = 5;
+const GENERATION_LIMIT = 2;
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 30;
 
 function getCookie(req, name) {
@@ -216,7 +216,7 @@ async function handleAnonymousGeneration(req, res, apiKey, body) {
   if (usageCount >= GENERATION_LIMIT) {
     setUsageCookies(res, browserId, usageCount);
     return sendJson(res, 429, {
-      error: "This browser has reached the temporary free limit of 5 songs. Sign in to continue with an AI Music account.",
+      error: "This browser has reached the temporary free limit of 2 songs. Sign in to continue with an AI Music account.",
       requiresLogin: true,
     });
   }

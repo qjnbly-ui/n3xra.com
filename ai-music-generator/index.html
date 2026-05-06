@@ -549,7 +549,7 @@
       <section class="music-account-strip" id="music-account" aria-live="polite">
         <div>
           <p class="account-kicker">Music Account</p>
-          <h2 id="musicAccountTitle">Start with 5 free songs.</h2>
+          <h2 id="musicAccountTitle">Start with 2 free songs.</h2>
           <p class="account-copy" id="musicAccountCopy">Use this browser's free songs without an account. Sign in before generating when you want songs saved.</p>
         </div>
         <div class="account-actions">
@@ -683,7 +683,7 @@
     const ACTIVE_TASK_KEY = "n3xraActiveSongTask";
     const GENERATION_COUNT_KEY = "n3xraMusicGenerationCount";
     const LEGACY_GENERATION_LOCK_KEY = "n3xraMusicGenerated";
-    const GENERATION_LIMIT = 5;
+    const GENERATION_LIMIT = 2;
     const MUSIC_LOGIN_PATH = "/ai-music-generator/login/";
 
     const form = document.getElementById("musicForm");
@@ -851,7 +851,7 @@
         generateBtn.disabled = true;
         generateBtn.removeAttribute("aria-busy");
         generateBtn.textContent = "Limit Reached";
-        statusEl.textContent = "This browser has reached the free limit of 5 songs. Sign in to continue with an AI Music account.";
+        statusEl.textContent = "This browser has reached the free limit of 2 songs. Sign in to continue with an AI Music account.";
         return;
       }
 
@@ -1023,7 +1023,7 @@
       musicAuthJump.classList.remove("hidden");
       musicSignoutBtn.classList.add("hidden");
       importLocalSongsBtn.classList.add("hidden");
-      musicAccountTitle.textContent = hasReachedLocalLimit() ? "Free browser limit reached." : "Start with 5 free songs.";
+      musicAccountTitle.textContent = hasReachedLocalLimit() ? "Free browser limit reached." : "Start with 2 free songs.";
       musicAccountCopy.textContent = `Browser usage: ${count} of ${GENERATION_LIMIT} free songs used. Sign in before generating when you want songs saved.`;
       musicAuthPanel.classList.add("hidden");
     }

@@ -1221,7 +1221,7 @@
           </button>
           <div class="account-detail">
             <p class="account-detail-label">Current usage</p>
-            <p class="account-detail-value" id="musicAccountModalUsage">0 of 5 songs used</p>
+            <p class="account-detail-value" id="musicAccountModalUsage">0 of 2 songs used</p>
           </div>
           <div class="account-detail">
             <p class="account-detail-label">Usage period</p>
@@ -1253,7 +1253,7 @@
         <div class="billing-panel" aria-label="AI Music billing">
           <div>
             <p class="account-detail-label">Billing</p>
-            <p class="billing-copy" id="musicBillingSummary">Free includes 5 songs per month.</p>
+            <p class="billing-copy" id="musicBillingSummary">Free includes 2 songs per month.</p>
           </div>
           <div class="billing-plan-grid" id="musicBillingPlanGrid" aria-label="AI Music plans"></div>
           <div class="billing-manage-row">
@@ -1278,7 +1278,7 @@
     const ACTIVE_TASK_KEY = "n3xraActiveSongTask";
     const GENERATION_COUNT_KEY = "n3xraMusicGenerationCount";
     const LEGACY_GENERATION_LOCK_KEY = "n3xraMusicGenerated";
-    const GENERATION_LIMIT = 5;
+    const GENERATION_LIMIT = 2;
 
     const form = document.getElementById("musicForm");
     const titleEl = document.getElementById("songTitle");
@@ -1347,7 +1347,7 @@
         id: "free",
         name: "Free",
         price: "$0/month",
-        songs: 5,
+        songs: 2,
         summary: "Try AI Music and save a small set of finished songs.",
       },
       creator: {
@@ -1707,7 +1707,7 @@
 
       musicBillingSummary.textContent = isPaid
         ? `${formatPlan(activePlanId)} includes ${limit} songs per month.${cancelNote}${statusNote}`
-        : "Free includes 5 songs per month. Select a plan when you need more saved generations.";
+        : "Free includes 2 songs per month. Select a plan when you need more saved generations.";
 
       musicBillingPlanGrid.innerHTML = MUSIC_PLAN_ORDER.map((targetPlanId) => {
         const plan = BILLING_PLANS[targetPlanId];
