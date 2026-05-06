@@ -35,12 +35,12 @@ export function getMusicPlanState(planId: string | null | undefined) {
     case "creator":
       return {
         plan: "creator",
-        monthly_song_limit: 100,
+        monthly_song_limit: 25,
       };
     case "studio":
       return {
         plan: "studio",
-        monthly_song_limit: 400,
+        monthly_song_limit: 100,
       };
     default:
       return {
