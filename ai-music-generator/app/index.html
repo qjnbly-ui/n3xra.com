@@ -1369,7 +1369,9 @@
     let supabase = null;
     let currentSession = null;
     let musicAccount = null;
-    let isGenerating = false;
+    let generationRequestInFlight = false;
+    let activeTaskCount = 0;
+    let latestRequestedTaskId = "";
     let isAccountEditing = false;
     let activeStreamTaskId = "";
 
@@ -1444,11 +1446,9 @@
       setAuthStatus(signup ? "Create an N3XRA login and activate AI Music." : "Use your existing N3XRA login.");
     }
 
-    function setGenerating(isActive) {
-      isGenerating = isActive;
-      generateBtn.disabled = isActive;
-      generateBtn.setAttribute("aria-busy", String(isActive));
-      generateBtn.textContent = isActive ? "Generating..." : "Generate Song";
+    function setGenerationRequestInFlight(isActive) {
+      generationRequestInFlight = Boolean(isActive);
+      generateBtn.setAttribute("aria-busy", String(generationRequestInFlight));
     }
 
     function getGenerationCount() {
@@ -1489,8 +1489,6 @@
     }
 
     function refreshGenerateAvailability() {
-      if (isGenerating) return;
-
       if (currentSession?.user && !isAccountUsable()) {
         generateBtn.disabled = true;
         generateBtn.removeAttribute("aria-busy");
@@ -1517,7 +1515,13 @@
 
       generateBtn.disabled = false;
       generateBtn.removeAttribute("aria-busy");
-      generateBtn.textContent = "Generate Song";
+      if (generationRequestInFlight) {
+        generateBtn.textContent = "Sending...";
+      } else if (activeTaskCount > 0) {
+        generateBtn.textContent = "Generate Another Song";
+      } else {
+        generateBtn.textContent = "Generate Song";
+      }
     }
 
     function updateFormState() {
@@ -1570,6 +1574,7 @@
 
     async function startStreamingPreview(taskId) {
       if (!taskId || activeStreamTaskId === taskId) return;
+      if (taskId !== latestRequestedTaskId) return;
       activeStreamTaskId = taskId;
       showResult(getStreamUrl(taskId));
       try {
@@ -1966,8 +1971,9 @@
       refreshGenerateAvailability();
     }
 
-    async function pollStatus(taskId, prompt, title, accountTask) {
+    async function pollStatus(taskId, prompt, title, accountTask, controlsPlayer = true) {
       for (let attempt = 0; attempt < 120; attempt += 1) {
+        const ownsPlayer = controlsPlayer && taskId === latestRequestedTaskId;
         await new Promise((resolve) => setTimeout(resolve, 4000));
 
         const response = await fetch(`/api/song-status?task_id=${encodeURIComponent(taskId)}`, {
@@ -1979,22 +1985,24 @@
           throw new Error(getErrorMessage(data, "Status request failed."));
         }
 
-        statusEl.textContent = prettyStatus(data.status);
+        if (ownsPlayer) statusEl.textContent = prettyStatus(data.status);
 
-        if (data.status === "GENERATING_STREAMING_READY") {
+        if (ownsPlayer && data.status === "GENERATING_STREAMING_READY") {
           await startStreamingPreview(taskId);
         }
 
         if (data.status === "SUCCESS") {
-          activeStreamTaskId = "";
+          if (ownsPlayer) {
+            activeStreamTaskId = "";
+            localStorage.removeItem(ACTIVE_TASK_KEY);
+          }
           const audioUrl = Array.isArray(data.song_paths) ? data.song_paths[0] : "";
-          localStorage.removeItem(ACTIVE_TASK_KEY);
 
           if (!audioUrl) {
             throw new Error("The song finished, but no audio URL was returned.");
           }
 
-          showResult(audioUrl);
+          if (ownsPlayer) showResult(audioUrl);
           if (accountTask) {
             await loadMusicAccount();
           } else {
@@ -2002,12 +2010,12 @@
             renderHistory();
             renderAccountState();
           }
-          statusEl.textContent = accountTask ? "Song ready and saved to your account." : "Song ready.";
+          if (ownsPlayer) statusEl.textContent = accountTask ? "Song ready and saved to your account." : "Song ready.";
           return;
         }
 
         if (data.status === "FAILURE") {
-          localStorage.removeItem(ACTIVE_TASK_KEY);
+          if (ownsPlayer) localStorage.removeItem(ACTIVE_TASK_KEY);
           if (accountTask) await loadMusicAccount().catch(() => null);
           throw new Error(data?.error_message || "Generation failed.");
         }
@@ -2057,8 +2065,7 @@
         payload.lyrics = lyrics;
       }
 
-      hideResult();
-      setGenerating(true);
+      setGenerationRequestInFlight(true);
       statusEl.textContent = accountTask ? "Sending request from your AI Music account..." : "Sending request...";
 
       try {
@@ -2077,6 +2084,10 @@
           throw new Error("No task ID returned from the API.");
         }
 
+        latestRequestedTaskId = data.task_id;
+        const controlsPlayer = true;
+        activeTaskCount += 1;
+
         writeJson(ACTIVE_TASK_KEY, {
           taskId: data.task_id,
           prompt,
@@ -2091,11 +2102,12 @@
           renderAccountState();
         }
 
-        await pollStatus(data.task_id, prompt, title, accountTask);
+        await pollStatus(data.task_id, prompt, title, accountTask, controlsPlayer);
       } catch (error) {
         statusEl.textContent = error instanceof Error ? error.message : "Request failed.";
       } finally {
-        setGenerating(false);
+        setGenerationRequestInFlight(false);
+        activeTaskCount = Math.max(0, activeTaskCount - 1);
         renderAccountState();
         refreshGenerateAvailability();
       }
@@ -2119,14 +2131,17 @@
         return;
       }
 
-      setGenerating(true);
+      setGenerationRequestInFlight(true);
+      activeTaskCount += 1;
+      latestRequestedTaskId = activeTask.taskId;
       statusEl.textContent = "Resuming your last song request...";
-      pollStatus(activeTask.taskId, activeTask.prompt || "", activeTask.title || "", true)
+      pollStatus(activeTask.taskId, activeTask.prompt || "", activeTask.title || "", true, true)
         .catch((error) => {
           statusEl.textContent = error instanceof Error ? error.message : "Could not resume request.";
         })
         .finally(() => {
-          setGenerating(false);
+          setGenerationRequestInFlight(false);
+          activeTaskCount = Math.max(0, activeTaskCount - 1);
           renderAccountState();
           refreshGenerateAvailability();
         });
