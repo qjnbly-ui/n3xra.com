@@ -164,6 +164,40 @@
       gap: 0.85rem;
     }
 
+    .password-field {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 0.5rem;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.08);
+      padding: 0.3rem 0.35rem 0.3rem 0.75rem;
+    }
+
+    .password-field .music-input {
+      border: 0;
+      box-shadow: none;
+      padding: 0;
+      min-height: 40px;
+      background: transparent;
+      color: #ffffff;
+    }
+
+    .password-toggle {
+      min-height: 34px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.12);
+      color: #ffffff;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      font-size: 0.68rem;
+      padding: 0 0.8rem;
+      cursor: pointer;
+    }
+
     .field {
       display: grid;
       gap: 0.38rem;
@@ -339,7 +373,10 @@
           </div>
           <div class="field">
             <label for="musicSigninPassword">Password</label>
-            <input id="musicSigninPassword" class="music-input" type="password" autocomplete="current-password" required>
+            <div class="password-field">
+              <input id="musicSigninPassword" class="music-input" type="password" autocomplete="current-password" required>
+              <button class="password-toggle" type="button" data-password-toggle="musicSigninPassword" aria-label="Show password">Show</button>
+            </div>
           </div>
           <button class="primary-btn" type="submit">Sign in</button>
         </form>
@@ -355,11 +392,17 @@
           </div>
           <div class="field">
             <label for="musicSignupPassword">Password</label>
-            <input id="musicSignupPassword" class="music-input" type="password" autocomplete="new-password" required minlength="6">
+            <div class="password-field">
+              <input id="musicSignupPassword" class="music-input" type="password" autocomplete="new-password" required minlength="6">
+              <button class="password-toggle" type="button" data-password-toggle="musicSignupPassword" aria-label="Show password">Show</button>
+            </div>
           </div>
           <div class="field">
             <label for="musicSignupPasswordConfirm">Confirm Password</label>
-            <input id="musicSignupPasswordConfirm" class="music-input" type="password" autocomplete="new-password" required minlength="6">
+            <div class="password-field">
+              <input id="musicSignupPasswordConfirm" class="music-input" type="password" autocomplete="new-password" required minlength="6">
+              <button class="password-toggle" type="button" data-password-toggle="musicSignupPasswordConfirm" aria-label="Show password">Show</button>
+            </div>
           </div>
           <button class="primary-btn" type="submit">Create AI Music account</button>
         </form>
@@ -552,6 +595,18 @@
     musicSignupToggle.addEventListener("click", () => setAuthMode("signup"));
     musicSigninForm.addEventListener("submit", handleSignin);
     musicSignupForm.addEventListener("submit", handleSignup);
+    document.querySelectorAll("[data-password-toggle]").forEach((toggleButton) => {
+      toggleButton.addEventListener("click", () => {
+        const targetId = toggleButton.getAttribute("data-password-toggle");
+        const target = targetId ? document.getElementById(targetId) : null;
+        if (!target) return;
+        const nextType = target.type === "password" ? "text" : "password";
+        target.type = nextType;
+        const isVisible = nextType === "text";
+        toggleButton.textContent = isVisible ? "Hide" : "Show";
+        toggleButton.setAttribute("aria-label", isVisible ? "Hide password" : "Show password");
+      });
+    });
     window.addEventListener("load", initAuth);
   </script>
 </body>

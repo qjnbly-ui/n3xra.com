@@ -233,6 +233,39 @@
       gap: 0.85rem;
     }
 
+    .password-field {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 0.5rem;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+      padding: 0.3rem 0.35rem 0.3rem 0.75rem;
+    }
+
+    .password-field .music-input {
+      border: 0;
+      box-shadow: none;
+      padding: 0;
+      min-height: 40px;
+      background: transparent;
+    }
+
+    .password-toggle {
+      min-height: 34px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: #f4f7fb;
+      color: var(--ink);
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      font-size: 0.68rem;
+      padding: 0 0.8rem;
+      cursor: pointer;
+    }
+
     .generator-layout {
       display: grid;
       grid-template-columns: minmax(0, 1.05fr) minmax(340px, 0.95fr);
@@ -578,7 +611,10 @@
               </div>
               <div class="field">
                 <label for="musicSigninPassword">Password</label>
-                <input id="musicSigninPassword" class="music-input" type="password" autocomplete="current-password" required>
+                <div class="password-field">
+                  <input id="musicSigninPassword" class="music-input" type="password" autocomplete="current-password" required>
+                  <button class="password-toggle" type="button" data-password-toggle="musicSigninPassword" aria-label="Show password">Show</button>
+                </div>
               </div>
               <button class="primary-btn" type="submit">Sign in</button>
             </form>
@@ -594,11 +630,17 @@
               </div>
               <div class="field">
                 <label for="musicSignupPassword">Password</label>
-                <input id="musicSignupPassword" class="music-input" type="password" autocomplete="new-password" required minlength="6">
+                <div class="password-field">
+                  <input id="musicSignupPassword" class="music-input" type="password" autocomplete="new-password" required minlength="6">
+                  <button class="password-toggle" type="button" data-password-toggle="musicSignupPassword" aria-label="Show password">Show</button>
+                </div>
               </div>
               <div class="field">
                 <label for="musicSignupPasswordConfirm">Confirm Password</label>
-                <input id="musicSignupPasswordConfirm" class="music-input" type="password" autocomplete="new-password" required minlength="6">
+                <div class="password-field">
+                  <input id="musicSignupPasswordConfirm" class="music-input" type="password" autocomplete="new-password" required minlength="6">
+                  <button class="password-toggle" type="button" data-password-toggle="musicSignupPasswordConfirm" aria-label="Show password">Show</button>
+                </div>
               </div>
               <button class="primary-btn" type="submit">Create AI Music account</button>
             </form>
@@ -632,6 +674,49 @@
               <label for="lyrics">Lyrics</label>
               <textarea id="lyrics" class="music-textarea" placeholder="Optional: paste your own lyrics"></textarea>
             </div>
+
+            <details class="field">
+              <summary class="option-label" style="cursor:pointer;">Advanced output settings</summary>
+              <div class="field">
+                <label for="tags">Tags</label>
+                <input id="tags" class="music-input" autocomplete="off" placeholder="e.g. cinematic, emotional, female vocal">
+              </div>
+              <div class="field">
+                <label for="promptStrength">Prompt Strength</label>
+                <input id="promptStrength" class="music-input" type="number" min="0.2" max="8" step="0.1" value="2.0">
+              </div>
+              <div class="field">
+                <label for="outputFormat">Output Format</label>
+                <select id="outputFormat" class="music-input">
+                  <option value="ogg" selected>OGG</option>
+                  <option value="mp3">MP3</option>
+                  <option value="m4a">M4A</option>
+                  <option value="wav">WAV</option>
+                  <option value="flac">FLAC</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="outputBitRate">Bit Rate (MP3/M4A only)</label>
+                <select id="outputBitRate" class="music-input">
+                  <option value="">Auto</option>
+                  <option value="128">128 kbps</option>
+                  <option value="192">192 kbps</option>
+                  <option value="256">256 kbps</option>
+                  <option value="320">320 kbps</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="streamFormat">Live Stream Format</label>
+                <select id="streamFormat" class="music-input">
+                  <option value="ogg" selected>OGG</option>
+                  <option value="mp3">MP3</option>
+                </select>
+              </div>
+              <label class="option-row">
+                <span class="option-label">Align lyrics timing</span>
+                <input type="checkbox" id="alignLyrics">
+              </label>
+            </details>
 
             <label class="option-row">
               <span class="option-label">Instrumental</span>
@@ -690,6 +775,12 @@
     const titleEl = document.getElementById("songTitle");
     const promptEl = document.getElementById("prompt");
     const lyricsEl = document.getElementById("lyrics");
+    const tagsEl = document.getElementById("tags");
+    const promptStrengthEl = document.getElementById("promptStrength");
+    const outputFormatEl = document.getElementById("outputFormat");
+    const outputBitRateEl = document.getElementById("outputBitRate");
+    const streamFormatEl = document.getElementById("streamFormat");
+    const alignLyricsEl = document.getElementById("alignLyrics");
     const instrumentalEl = document.getElementById("instrumental");
     const statusEl = document.getElementById("status");
     const audioWrap = document.getElementById("audioPlayer");
@@ -760,6 +851,12 @@
         title: titleEl.value,
         prompt: promptEl.value,
         lyrics: lyricsEl.value,
+        tags: tagsEl.value,
+        promptStrength: promptStrengthEl.value,
+        outputFormat: outputFormatEl.value,
+        outputBitRate: outputBitRateEl.value,
+        streamFormat: streamFormatEl.value,
+        alignLyrics: alignLyricsEl.checked,
         instrumental: instrumentalEl.checked,
       });
     }
@@ -769,6 +866,12 @@
       if (draft.title) titleEl.value = draft.title;
       if (draft.prompt) promptEl.value = draft.prompt;
       if (draft.lyrics) lyricsEl.value = draft.lyrics;
+      if (draft.tags) tagsEl.value = draft.tags;
+      if (draft.promptStrength) promptStrengthEl.value = draft.promptStrength;
+      if (draft.outputFormat) outputFormatEl.value = draft.outputFormat;
+      if (draft.outputBitRate) outputBitRateEl.value = draft.outputBitRate;
+      if (draft.streamFormat) streamFormatEl.value = draft.streamFormat;
+      if (draft.alignLyrics) alignLyricsEl.checked = true;
       if (draft.instrumental) instrumentalEl.checked = true;
     }
 
@@ -897,11 +1000,26 @@
       return data?.detail?.[0]?.msg || data?.error || data?.message || fallback;
     }
 
-    function showResult(audioUrl) {
+    function setMediaSessionMetadata(trackTitle = "N3XRA AI Music", trackPrompt = "") {
+      if (!("mediaSession" in navigator) || typeof window.MediaMetadata === "undefined") return;
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: String(trackTitle || "N3XRA AI Music"),
+        artist: "N3XRA AI Music",
+        album: trackPrompt ? String(trackPrompt).slice(0, 80) : "Generated song",
+      });
+    }
+
+    function clearMediaSessionMetadata() {
+      if (!("mediaSession" in navigator)) return;
+      navigator.mediaSession.metadata = null;
+    }
+
+    function showResult(audioUrl, trackTitle = "Generated song", trackPrompt = "") {
       player.src = audioUrl;
       downloadSong.href = audioUrl;
       audioWrap.classList.add("is-visible");
       emptyResult.style.display = "none";
+      setMediaSessionMetadata(trackTitle, trackPrompt);
     }
 
     function hideResult() {
@@ -909,6 +1027,7 @@
       downloadSong.href = "#";
       audioWrap.classList.remove("is-visible");
       emptyResult.style.display = "block";
+      clearMediaSessionMetadata();
     }
 
     function saveSongHistory(url, prompt, title = "") {
@@ -1086,7 +1205,7 @@
             throw new Error("The song finished, but no audio URL was returned.");
           }
 
-          showResult(audioUrl);
+          showResult(audioUrl, title || "Generated song", prompt || "");
           if (accountTask) {
             await loadMusicAccount();
           } else {
@@ -1132,10 +1251,20 @@
       const title = titleEl.value.trim();
       const prompt = promptEl.value.trim();
       const lyrics = lyricsEl.value.trim();
+      const tags = tagsEl.value
+        .split(",")
+        .map((tag) => tag.trim())
+        .filter(Boolean)
+        .slice(0, 12);
       const instrumental = instrumentalEl.checked;
+      const promptStrength = Number(promptStrengthEl.value || 2.0);
+      const outputFormat = outputFormatEl.value || "ogg";
+      const outputBitRate = outputBitRateEl.value;
+      const streamFormat = streamFormatEl.value || "ogg";
+      const alignLyrics = alignLyricsEl.checked;
 
-      if (!prompt && !lyrics) {
-        statusEl.textContent = "Add a prompt or lyrics.";
+      if (!prompt && !lyrics && tags.length === 0) {
+        statusEl.textContent = "Add a prompt, lyrics, or tags.";
         return;
       }
 
@@ -1150,6 +1279,12 @@
         if (!prompt) payload.prompt = "";
         payload.lyrics = lyrics;
       }
+      if (tags.length) payload.tags = tags;
+      payload.prompt_strength = Number.isFinite(promptStrength) ? promptStrength : 2.0;
+      payload.output_format = outputFormat;
+      payload.stream_format = streamFormat;
+      if (outputBitRate) payload.output_bit_rate = Number.parseInt(outputBitRate, 10);
+      if (alignLyrics && !instrumental && lyrics) payload.align_lyrics = true;
 
       hideResult();
       setGenerating(true);
@@ -1419,6 +1554,18 @@
     musicSignupToggle.addEventListener("click", () => setAuthMode("signup"));
     musicSigninForm.addEventListener("submit", handleSignin);
     musicSignupForm.addEventListener("submit", handleSignup);
+    document.querySelectorAll("[data-password-toggle]").forEach((toggleButton) => {
+      toggleButton.addEventListener("click", () => {
+        const targetId = toggleButton.getAttribute("data-password-toggle");
+        const target = targetId ? document.getElementById(targetId) : null;
+        if (!target) return;
+        const nextType = target.type === "password" ? "text" : "password";
+        target.type = nextType;
+        const isVisible = nextType === "text";
+        toggleButton.textContent = isVisible ? "Hide" : "Show";
+        toggleButton.setAttribute("aria-label", isVisible ? "Hide password" : "Show password");
+      });
+    });
     musicSignoutBtn.addEventListener("click", handleSignout);
     importLocalSongsBtn.addEventListener("click", importLocalSongs);
 
