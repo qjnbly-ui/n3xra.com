@@ -2048,18 +2048,13 @@
         pendingTasks.forEach((task) => {
           const item = document.createElement("article");
           item.className = "history-item";
-          const isSelected = task.taskId === latestRequestedTaskId;
-          const canStream = task.status === "GENERATING_STREAMING_READY" || task.taskId === activeStreamTaskId;
           item.innerHTML = `
             <p class="history-name">${escapeHtml(task.title || "Untitled song")} <strong>(In progress)</strong></p>
             <p class="history-meta"><strong>Prompt:</strong> ${escapeHtml(task.prompt || "Generated song")}</p>
             <p class="history-meta"><strong>Status:</strong> ${escapeHtml(prettyStatus(task.status || "WORKING"))}</p>
             <p class="history-meta"><strong>Started:</strong> ${escapeHtml(formatDate(task.startedAt))}</p>
             <div class="history-actions">
-              <button class="secondary-btn" type="button" data-watch-task-id="${escapeHtml(task.taskId)}">
-                ${isSelected ? "Selected for Preview" : "Select for Preview"}
-              </button>
-              ${canStream ? `<button class="secondary-btn" type="button" data-stream-task-id="${escapeHtml(task.taskId)}">Play Live</button>` : ""}
+              <button class="secondary-btn" type="button" data-stream-task-id="${escapeHtml(task.taskId)}" data-task-status="${escapeHtml(task.status || "WORKING")}" data-task-title="${escapeHtml(task.title || "Untitled song")}" data-task-prompt="${escapeHtml(task.prompt || "")}" data-task-started-at="${escapeHtml(task.startedAt || "")}">Play</button>
               <button class="secondary-btn" type="button" data-delete-pending-task-id="${escapeHtml(task.taskId)}">Delete</button>
             </div>
           `;
@@ -2072,13 +2067,16 @@
           const audio = song.audio_url ? `<audio controls src="${escapeHtml(song.audio_url)}"></audio>` : "";
           const status = song.status ? `<p class="history-meta"><strong>Status:</strong> ${escapeHtml(prettyStatus(song.status))}</p>` : "";
           const canPlay = Boolean(song.audio_url);
+          const canTrackLive = Boolean(song.task_id && !song.audio_url && !["SUCCESS", "FAILURE"].includes(String(song.status || "")));
+          const dateLabel = canTrackLive ? "Started" : "Saved";
           item.innerHTML = `
             <p class="history-name">${escapeHtml(song.title || "Untitled song")}</p>
             ${audio}
             <p class="history-meta"><strong>Prompt:</strong> ${escapeHtml(song.prompt || "Generated song")}</p>
             ${status}
-            <p class="history-meta"><strong>Saved:</strong> ${escapeHtml(formatDate(song.completed_at || song.created_at))}</p>
+            <p class="history-meta"><strong>${dateLabel}:</strong> ${escapeHtml(formatDate(song.completed_at || song.created_at))}</p>
             <div class="history-actions">
+              ${canTrackLive ? `<button class="secondary-btn" type="button" data-stream-task-id="${escapeHtml(song.task_id)}" data-task-status="${escapeHtml(song.status || "WORKING")}" data-task-title="${escapeHtml(song.title || "Untitled song")}" data-task-prompt="${escapeHtml(song.prompt || "")}" data-task-started-at="${escapeHtml(song.created_at || "")}">Play</button>` : ""}
               ${canPlay ? `<button class="secondary-btn" type="button" data-play-saved-song-url="${escapeHtml(song.audio_url)}" data-song-title="${escapeHtml(song.title || "Saved song")}" data-song-prompt="${escapeHtml(song.prompt || "")}">Play</button>` : ""}
               ${canPlay ? `<button class="secondary-btn" type="button" data-download-saved-song-url="${escapeHtml(song.audio_url)}" data-download-song-title="${escapeHtml(song.title || "song")}">Download</button>` : ""}
               <button class="secondary-btn" type="button" data-delete-generation-id="${escapeHtml(song.id)}">Delete</button>
@@ -2230,6 +2228,7 @@
     async function generateSong() {
       await refreshSession().catch(() => null);
       const accountTask = true;
+      let pollingStarted = false;
 
       if (!currentSession?.access_token) {
         openMusicLogin();
@@ -2313,17 +2312,29 @@
           renderAccountState();
         }
 
-        await pollStatus(data.task_id, prompt, title, accountTask, controlsPlayer);
+        pollingStarted = true;
+        setGenerationRequestInFlight(false);
+        refreshGenerateAvailability();
+        pollStatus(data.task_id, prompt, title, accountTask, controlsPlayer)
+          .catch((error) => {
+            statusEl.textContent = error instanceof Error ? error.message : "Could not finish status check.";
+          })
+          .finally(() => {
+            activeTaskCount = Math.max(0, activeTaskCount - 1);
+            renderAccountState();
+            refreshGenerateAvailability();
+          });
       } catch (error) {
         activeGenerationTasks.forEach((task, key) => {
           if (key === latestRequestedTaskId && !task.status) activeGenerationTasks.delete(key);
         });
         statusEl.textContent = error instanceof Error ? error.message : "Request failed.";
       } finally {
-        setGenerationRequestInFlight(false);
-        activeTaskCount = Math.max(0, activeTaskCount - 1);
-        renderAccountState();
-        refreshGenerateAvailability();
+        if (!pollingStarted) {
+          setGenerationRequestInFlight(false);
+          renderAccountState();
+          refreshGenerateAvailability();
+        }
       }
     }
 
@@ -2345,7 +2356,6 @@
         return;
       }
 
-      setGenerationRequestInFlight(true);
       activeTaskCount += 1;
       latestRequestedTaskId = activeTask.taskId;
       activeGenerationTasks.set(activeTask.taskId, {
@@ -2362,7 +2372,6 @@
           statusEl.textContent = error instanceof Error ? error.message : "Could not resume request.";
         })
         .finally(() => {
-          setGenerationRequestInFlight(false);
           activeTaskCount = Math.max(0, activeTaskCount - 1);
           renderAccountState();
           refreshGenerateAvailability();
@@ -2654,22 +2663,38 @@
         return;
       }
 
-      const watchButton = event.target.closest("[data-watch-task-id]");
-      if (watchButton) {
-        const taskId = String(watchButton.dataset.watchTaskId || "");
-        if (!taskId) return;
-        latestRequestedTaskId = taskId;
-        statusEl.textContent = "Selected task for live preview.";
-        renderHistory();
-        return;
-      }
-
       const streamButton = event.target.closest("[data-stream-task-id]");
       if (streamButton) {
         const taskId = String(streamButton.dataset.streamTaskId || "");
         if (!taskId) return;
+        const taskStatus = String(streamButton.dataset.taskStatus || "WORKING");
+        const taskTitle = String(streamButton.dataset.taskTitle || "Untitled song");
+        const taskPrompt = String(streamButton.dataset.taskPrompt || "");
+        const taskStartedAt = String(streamButton.dataset.taskStartedAt || new Date().toISOString());
+        const startedTracking = !activeGenerationTasks.has(taskId);
         latestRequestedTaskId = taskId;
-        startStreamingPreview(taskId);
+        activeGenerationTasks.set(taskId, {
+          taskId,
+          title: taskTitle,
+          prompt: taskPrompt,
+          startedAt: taskStartedAt,
+          status: taskStatus,
+        });
+        if (startedTracking) activeTaskCount += 1;
+        if (taskStatus === "GENERATING_STREAMING_READY") {
+          startStreamingPreview(taskId);
+        } else {
+          statusEl.textContent = "Tracking song progress...";
+          pollStatus(taskId, taskPrompt, taskTitle, true, true)
+            .catch((error) => {
+              statusEl.textContent = error instanceof Error ? error.message : "Could not finish status check.";
+            })
+            .finally(() => {
+              if (startedTracking) activeTaskCount = Math.max(0, activeTaskCount - 1);
+              renderAccountState();
+              refreshGenerateAvailability();
+            });
+        }
         renderHistory();
         return;
       }
