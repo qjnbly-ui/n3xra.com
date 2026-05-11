@@ -444,6 +444,7 @@
     let captchaToken = "";
     let captchaWidgetId = null;
     let captchaEnabled = false;
+    const MUSIC_CONFIRM_REDIRECT_PATH = "/ai-music-generator/login/?confirmed=1";
 
     function getTurnstileSiteKey() {
       return String(getConfig().turnstileSiteKey || "").trim();
@@ -649,6 +650,7 @@
           email,
           password,
           options: {
+            emailRedirectTo: `${window.location.origin}${MUSIC_CONFIRM_REDIRECT_PATH}`,
             data: {
               full_name: fullName,
               app_signup: "ai_music",
@@ -702,13 +704,30 @@
     document.querySelectorAll("[data-password-toggle]").forEach((toggleButton) => {
       toggleButton.addEventListener("click", () => {
         const targetId = toggleButton.getAttribute("data-password-toggle");
-        const target = targetId ? document.getElementById(targetId) : null;
+        if (!targetId) return;
+        const isSignupPasswordToggle = targetId === "musicSignupPassword" || targetId === "musicSignupPasswordConfirm";
+
+        if (isSignupPasswordToggle) {
+          const signupPassword = document.getElementById("musicSignupPassword");
+          const signupPasswordConfirm = document.getElementById("musicSignupPasswordConfirm");
+          if (!signupPassword || !signupPasswordConfirm) return;
+          const show = signupPassword.type === "password";
+          const nextType = show ? "text" : "password";
+          signupPassword.type = nextType;
+          signupPasswordConfirm.type = nextType;
+          document.querySelectorAll('[data-password-toggle="musicSignupPassword"], [data-password-toggle="musicSignupPasswordConfirm"]').forEach((button) => {
+            button.textContent = show ? "Hide" : "Show";
+            button.setAttribute("aria-label", show ? "Hide password" : "Show password");
+          });
+          return;
+        }
+
+        const target = document.getElementById(targetId);
         if (!target) return;
-        const nextType = target.type === "password" ? "text" : "password";
-        target.type = nextType;
-        const isVisible = nextType === "text";
-        toggleButton.textContent = isVisible ? "Hide" : "Show";
-        toggleButton.setAttribute("aria-label", isVisible ? "Hide password" : "Show password");
+        const show = target.type === "password";
+        target.type = show ? "text" : "password";
+        toggleButton.textContent = show ? "Hide" : "Show";
+        toggleButton.setAttribute("aria-label", show ? "Hide password" : "Show password");
       });
     });
     window.addEventListener("load", initAuth);

@@ -28,6 +28,7 @@ const signupModePersonalButton = document.getElementById("signup-mode-personal")
 const signupModeInviteButton = document.getElementById("signup-mode-invite");
 const authCaptchaField = document.getElementById("auth-captcha-field");
 const authTurnstile = document.getElementById("auth-turnstile");
+const RECORDS_CONFIRM_REDIRECT_PATH = "/app/login/?confirmed=1";
 
 let supabase = null;
 let isSubmittingAuth = false;
@@ -291,10 +292,13 @@ async function handleSignup(event) {
   }
 
   setStatus("Creating account...");
+  const emailRedirectTo = `${window.location.origin}${RECORDS_CONFIRM_REDIRECT_PATH}`;
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
-    options: {      data: {
+    options: {
+      emailRedirectTo,
+      data: {
         full_name: fullName,
         organization_name: organizationName,
         invite_code: inviteCode,

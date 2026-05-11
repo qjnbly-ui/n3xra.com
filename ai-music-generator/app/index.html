@@ -1486,6 +1486,7 @@
     let activeStreamTaskId = "";
     const activeGenerationTasks = new Map();
     let pendingDeleteAction = null;
+    const MUSIC_CONFIRM_REDIRECT_PATH = "/ai-music-generator/login/?confirmed=1";
     let captchaToken = "";
     let captchaWidgetId = null;
     let captchaEnabled = false;
@@ -2510,6 +2511,7 @@
           email,
           password,
           options: {
+            emailRedirectTo: `${window.location.origin}${MUSIC_CONFIRM_REDIRECT_PATH}`,
             data: {
               full_name: fullName,
               app_signup: "ai_music",
@@ -2948,6 +2950,23 @@
       toggleButton.addEventListener("click", () => {
         const targetId = toggleButton.getAttribute("data-password-toggle");
         if (!targetId) return;
+        const isSignupPasswordToggle = targetId === "musicSignupPassword" || targetId === "musicSignupPasswordConfirm";
+
+        if (isSignupPasswordToggle) {
+          const signupPassword = document.getElementById("musicSignupPassword");
+          const signupPasswordConfirm = document.getElementById("musicSignupPasswordConfirm");
+          if (!signupPassword || !signupPasswordConfirm) return;
+          const show = signupPassword.type === "password";
+          const nextType = show ? "text" : "password";
+          signupPassword.type = nextType;
+          signupPasswordConfirm.type = nextType;
+          document.querySelectorAll('[data-password-toggle="musicSignupPassword"], [data-password-toggle="musicSignupPasswordConfirm"]').forEach((button) => {
+            button.textContent = show ? "Hide" : "Show";
+            button.setAttribute("aria-label", show ? "Hide password" : "Show password");
+          });
+          return;
+        }
+
         const input = document.getElementById(targetId);
         if (!input) return;
         const show = input.type === "password";
