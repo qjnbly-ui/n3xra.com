@@ -1018,6 +1018,39 @@ textarea {
   font-size: 1.02rem;
 }
 
+.records-help-card {
+  background: linear-gradient(180deg, #ffffff 0%, #f7fbfa 100%);
+}
+
+.records-help-form {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.records-help-form textarea {
+  min-height: 96px;
+}
+
+.records-help-prompts {
+  display: flex;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+}
+
+.records-help-prompts .btn {
+  padding: 0.55rem 0.85rem;
+  font-size: 0.86rem;
+}
+
+.records-help-answer {
+  border: 1px solid rgba(23, 111, 102, 0.18);
+  border-radius: var(--radius-sm);
+  background: #f4fbf8;
+  color: var(--ink-soft);
+  padding: 0.9rem 1rem;
+  white-space: pre-wrap;
+}
+
 .account-note {
   margin: 0;
   color: var(--slate);

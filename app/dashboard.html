@@ -126,6 +126,30 @@
             </div>
           </section>
 
+          <section class="account-card records-help-card" id="records-help-card">
+            <div class="panel-head">
+              <div>
+                <h3>Records Help</h3>
+              </div>
+            </div>
+            <form class="records-help-form" id="records-help-form">
+              <div class="field">
+                <label for="records-help-question">Question</label>
+                <textarea id="records-help-question" maxlength="900" placeholder="Ask about invite roles, uploads, search, billing, or public records."></textarea>
+              </div>
+              <div class="records-help-prompts" aria-label="Suggested questions">
+                <button class="btn secondary" type="button" data-records-help-prompt="What is the difference between Viewer, Editor, Account Admin, and Owner?">Roles</button>
+                <button class="btn secondary" type="button" data-records-help-prompt="How should I set up an invite code for someone?">Invite codes</button>
+                <button class="btn secondary" type="button" data-records-help-prompt="How do public records and embedded records work?">Public records</button>
+              </div>
+              <div class="actions">
+                <button class="btn" id="records-help-submit" type="submit">Ask Records AI</button>
+              </div>
+              <p class="status" id="records-help-status"></p>
+            </form>
+            <div class="records-help-answer hidden" id="records-help-answer"></div>
+          </section>
+
           <section class="account-card" id="billing-section">
             <div class="panel-head">
               <div>

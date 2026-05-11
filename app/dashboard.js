@@ -98,6 +98,11 @@ const accountTierItem = document.getElementById("account-tier-item");
 const accountTier = document.getElementById("account-tier");
 const accountStatusItem = document.getElementById("account-status-item");
 const accountStatus = document.getElementById("account-status");
+const recordsHelpForm = document.getElementById("records-help-form");
+const recordsHelpQuestion = document.getElementById("records-help-question");
+const recordsHelpSubmit = document.getElementById("records-help-submit");
+const recordsHelpStatus = document.getElementById("records-help-status");
+const recordsHelpAnswer = document.getElementById("records-help-answer");
 const currentPlanName = document.getElementById("current-plan-name");
 const currentPlanCopy = document.getElementById("current-plan-copy");
 const currentPlanNote = document.getElementById("current-plan-note");
@@ -167,6 +172,8 @@ let inviteCache = [];
 let memberCache = [];
 let uploadMode = "single";
 let selectedBillingCycle = "monthly";
+const recordsHelpHistory = [];
+const RECORDS_HELP_HISTORY_LIMIT = 8;
 function getInitialSection() {
   const params = new URLSearchParams(window.location.search);
   return params.get("section") === "library" ? "library" : "account";
@@ -182,6 +189,12 @@ function setStatus(el, message, tone = "") {
   el.textContent = message || "";
   el.className = "status";
   if (tone) el.classList.add(tone);
+}
+
+function setRecordsHelpAnswer(message = "") {
+  if (!recordsHelpAnswer) return;
+  recordsHelpAnswer.textContent = message;
+  recordsHelpAnswer.classList.toggle("hidden", !message);
 }
 
 function show(el, visible) {
@@ -441,12 +454,80 @@ function getActiveRole() {
   return getMembershipRole(activeMembership);
 }
 
+async function getFreshAccessToken() {
+  const { data: refreshedSessionData } = await supabase.auth.refreshSession();
+  const { data: sessionData } = await supabase.auth.getSession();
+  return (
+    refreshedSessionData?.session?.access_token ||
+    sessionData?.session?.access_token ||
+    currentSession?.access_token ||
+    ""
+  );
+}
+
 function getActiveCapabilities() {
   return getCapabilities(
     activeMembership,
     currentSession?.user?.id || "",
     isPlatformAdminEmail(currentSession?.user?.email)
   );
+}
+
+async function handleRecordsHelpSubmit(event) {
+  event?.preventDefault();
+  if (!recordsHelpQuestion || !recordsHelpSubmit) return;
+
+  const question = recordsHelpQuestion.value.trim();
+  if (!question) {
+    setStatus(recordsHelpStatus, "Enter a Records question first.", "error");
+    return;
+  }
+
+  const organization = getActiveOrganization();
+  recordsHelpSubmit.disabled = true;
+  setStatus(recordsHelpStatus, "Checking Records help...");
+  setRecordsHelpAnswer("");
+
+  try {
+    const accessToken = await getFreshAccessToken();
+    if (!accessToken) throw new Error("Your session expired. Sign in again and retry.");
+
+    const response = await fetch("/api/records-help", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({
+        question,
+        history: recordsHelpHistory,
+        context: {
+          libraryName: organization?.name || "",
+          role: formatRoleLabel(getActiveRole()),
+          plan: organization ? formatPlanName(organization.subscription_tier || "free") : "",
+        },
+      }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data?.error || "Records help is unavailable right now.");
+
+    const answer = String(data.answer || "").trim();
+    setRecordsHelpAnswer(answer);
+    setStatus(recordsHelpStatus, answer ? "" : "No answer returned.", answer ? "" : "error");
+
+    if (answer) {
+      recordsHelpHistory.push({ role: "user", content: question });
+      recordsHelpHistory.push({ role: "assistant", content: answer });
+      if (recordsHelpHistory.length > RECORDS_HELP_HISTORY_LIMIT) {
+        recordsHelpHistory.splice(0, recordsHelpHistory.length - RECORDS_HELP_HISTORY_LIMIT);
+      }
+      recordsHelpQuestion.value = "";
+    }
+  } catch (error) {
+    setStatus(recordsHelpStatus, getErrorMessage(error, "Unable to ask Records help."), "error");
+  } finally {
+    recordsHelpSubmit.disabled = false;
+  }
 }
 
 function hasActiveLibraryAccess() {
@@ -2144,6 +2225,14 @@ async function init() {
   profileSettingsToggle.addEventListener("click", () => setProfileSettingsOpen(!profileSettingsModal.classList.contains("is-open")));
   profileSettingsClose.addEventListener("click", () => setProfileSettingsOpen(false));
   profileForm.addEventListener("submit", handleProfileSave);
+  recordsHelpForm?.addEventListener("submit", handleRecordsHelpSubmit);
+  document.querySelectorAll("[data-records-help-prompt]").forEach((button) => {
+    button.addEventListener("click", () => {
+      if (!recordsHelpQuestion) return;
+      recordsHelpQuestion.value = button.getAttribute("data-records-help-prompt") || "";
+      handleRecordsHelpSubmit();
+    });
+  });
   organizationSettingsForm.addEventListener("submit", handleOrganizationSettingsSave);
   redeemInviteToggle.addEventListener("click", () => setSectionToggleOpen(redeemInviteToggle, redeemInviteBody, redeemInviteBody.classList.contains("hidden")));
   inviteManagementToggle.addEventListener("click", () => setSectionToggleOpen(inviteManagementToggle, inviteManagementBody, inviteManagementBody.classList.contains("hidden")));
