@@ -28,7 +28,7 @@ const signupModePersonalButton = document.getElementById("signup-mode-personal")
 const signupModeInviteButton = document.getElementById("signup-mode-invite");
 const authCaptchaField = document.getElementById("auth-captcha-field");
 const authTurnstile = document.getElementById("auth-turnstile");
-const RECORDS_CONFIRM_REDIRECT_PATH = "/app/login/?confirmed=1";
+const RECORDS_CONFIRM_REDIRECT_PATH = "/app/login/";
 
 let supabase = null;
 let isSubmittingAuth = false;
@@ -324,25 +324,12 @@ async function handleSignup(event) {
   });
 
   if (data?.session) {
-    try {
-      const bootstrapData = await bootstrapMemberships(organizationName, inviteCode);
-      if (bootstrapData?.active_organization_id) {
-        setStoredActiveOrganizationId(String(bootstrapData.active_organization_id));
-      }
-    } catch (bootstrapError) {
-      isSubmittingAuth = false;
-      resetCaptcha();
-      const message = getErrorMessage(bootstrapError, "Unable to finish library setup.");
-      setStatus(`Account created, but library setup failed: ${message}`, "error");
-      return;
-    }
-
-    window.location.replace(getPostAuthDestination(data.session));
-    return;
+    await supabase.auth.signOut({ scope: "local" }).catch(() => null);
   }
 
   isSubmittingAuth = false;
   resetCaptcha();
+  toggleSignup(false);
   setStatus(
     "Account created. Check your email if confirmation is enabled, then sign in. Your library and invite access will be finished on first sign-in.",
     "success"

@@ -21,10 +21,22 @@ function getBaseOrigin(req) {
   return `${proto}://${host}`;
 }
 
-function normalizeRedirectPath(raw, fallback) {
+function normalizeRedirectPath(raw, fallback, origin) {
   const value = String(raw || "").trim();
-  if (!value.startsWith("/") || value.startsWith("//")) return fallback;
-  return value;
+  if (!value) return fallback;
+
+  if (value.startsWith("/") && !value.startsWith("//")) {
+    return value;
+  }
+
+  try {
+    const parsed = new URL(value);
+    const originUrl = new URL(origin);
+    if (parsed.origin !== originUrl.origin) return fallback;
+    return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+  } catch (_error) {
+    return fallback;
+  }
 }
 
 module.exports = async function handler(req, res) {
@@ -39,7 +51,7 @@ module.exports = async function handler(req, res) {
   const origin = getBaseOrigin(req);
   const tokenHash = String(req.query?.token_hash || "").trim();
   const type = String(req.query?.type || "email").trim();
-  const successRedirect = normalizeRedirectPath(req.query?.redirect_to, DEFAULT_SUCCESS_REDIRECT);
+  const successRedirect = normalizeRedirectPath(req.query?.redirect_to, DEFAULT_SUCCESS_REDIRECT, origin);
 
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !tokenHash || !type) {
     return redirect(res, `${origin}${DEFAULT_ERROR_REDIRECT}`);
