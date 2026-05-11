@@ -162,6 +162,11 @@ async function buildSiteContext() {
     "Do not overfocus on AI music unless the user explicitly asks about music or creative generation.",
     "For broad questions, default recommended next step to /software, /services, or /projects based on the question intent.",
     "Do not overuse route lists. Mention routes only after the explanation, and only when useful.",
+    "Do not say you are uncertain about sharing links or routes.",
+    "You are allowed to provide direct internal routes on n3xra.com.",
+    "Avoid repeating the same point in different wording.",
+    "If a route list is needed, keep it short (max 3 items) and tailored to the question.",
+    "Do not end with generic filler like 'let me know if you need anything else' unless the user explicitly asks for more.",
     "Formatting rules for responses: do not use markdown asterisks for bold.",
     "If you need emphasis, use plain words or HTML <strong>text</strong>.",
     "When referencing internal pages, include direct route text like /software or /support in the sentence.",
@@ -213,6 +218,29 @@ async function getSiteContext() {
     siteContextPromise = buildSiteContext();
   }
   return siteContextPromise;
+}
+
+function dedupeAnswer(text) {
+  const raw = String(text || "").trim();
+  if (!raw) return "";
+
+  const lines = raw.split(/\n+/).map((line) => line.trim()).filter(Boolean);
+  const seen = new Set();
+  const kept = [];
+
+  for (const line of lines) {
+    const key = line
+      .toLowerCase()
+      .replace(/<[^>]+>/g, "")
+      .replace(/[^\w/\s]/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    kept.push(line);
+  }
+
+  return kept.join("\n");
 }
 
 function normalizeHistory(input) {
@@ -300,7 +328,7 @@ module.exports = async function handler(req, res) {
       return;
     }
 
-    const answer = String(data?.choices?.[0]?.message?.content || "").trim();
+    const answer = dedupeAnswer(String(data?.choices?.[0]?.message?.content || "").trim());
     if (!answer) {
       res.statusCode = 502;
       res.setHeader("Content-Type", "application/json");
