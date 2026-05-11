@@ -1092,14 +1092,41 @@
       const submit = document.getElementById("ask-submit");
       const status = document.getElementById("ask-status");
       const answer = document.getElementById("ask-answer");
+      const chatHistory = [];
+      const MAX_HISTORY_MESSAGES = 10;
 
       if (!form || !input || !submit || !status || !answer) return;
+
+      function escapeHtml(value) {
+        return String(value || "")
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#39;");
+      }
+
+      function renderAnswer(text) {
+        let html = escapeHtml(text);
+        html = html.replace(/&lt;strong&gt;([\s\S]*?)&lt;\/strong&gt;/gi, "<strong>$1</strong>");
+        html = html.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+        html = html.replace(
+          /\b(https?:\/\/[^\s<]+)/gi,
+          '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>'
+        );
+        html = html.replace(
+          /(^|[\s(])\/(software|services|projects|support|terms|privacy|ai-music-generator)\b/gi,
+          '$1<a href="/$2">/$2</a>'
+        );
+        html = html.replace(/\n/g, "<br>");
+        return html;
+      }
 
       form.addEventListener("submit", async function (event) {
         event.preventDefault();
         const question = input.value.trim();
         answer.hidden = true;
-        answer.textContent = "";
+        answer.innerHTML = "";
         status.textContent = "";
 
         if (!question) {
@@ -1114,7 +1141,7 @@
           const response = await fetch("/api/ask", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ question }),
+            body: JSON.stringify({ question, history: chatHistory }),
           });
           const data = await response.json().catch(function () { return {}; });
 
@@ -1123,9 +1150,15 @@
             return;
           }
 
-          answer.textContent = String(data.answer || "").trim();
-          answer.hidden = !answer.textContent;
-          if (answer.textContent) {
+          const answerText = String(data.answer || "").trim();
+          answer.innerHTML = renderAnswer(answerText);
+          answer.hidden = !answerText;
+          if (answerText) {
+            chatHistory.push({ role: "user", content: question });
+            chatHistory.push({ role: "assistant", content: answerText });
+            if (chatHistory.length > MAX_HISTORY_MESSAGES) {
+              chatHistory.splice(0, chatHistory.length - MAX_HISTORY_MESSAGES);
+            }
             input.value = "";
             input.focus();
           }
