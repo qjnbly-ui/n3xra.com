@@ -72,6 +72,46 @@ function htmlToText(html) {
     .trim();
 }
 
+function decodeHtmlEntities(text) {
+  return String(text || "")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'");
+}
+
+function extractImportantContent(html) {
+  const source = String(html || "");
+  const cleaned = source
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ");
+
+  const blocks = [];
+  const patterns = [
+    /<title[^>]*>([\s\S]*?)<\/title>/gi,
+    /<meta[^>]*name=["']description["'][^>]*content=["']([\s\S]*?)["'][^>]*>/gi,
+    /<h[1-3][^>]*>([\s\S]*?)<\/h[1-3]>/gi,
+    /<p[^>]*>([\s\S]*?)<\/p>/gi,
+    /<li[^>]*>([\s\S]*?)<\/li>/gi,
+  ];
+
+  for (const pattern of patterns) {
+    let match;
+    while ((match = pattern.exec(cleaned)) !== null) {
+      const text = decodeHtmlEntities(htmlToText(match[1]));
+      if (!text) continue;
+      if (text.length < 12) continue;
+      blocks.push(text);
+      if (blocks.length >= 120) break;
+    }
+    if (blocks.length >= 120) break;
+  }
+
+  return blocks.join("\n").slice(0, 6500);
+}
+
 let siteContextPromise = null;
 
 async function buildSiteContext() {
@@ -79,10 +119,16 @@ async function buildSiteContext() {
     "You are Ask N3XRA, an assistant for n3xra.com.",
     "Use the site content below as the source of truth for offerings, policy, support, and navigation.",
     "If something is not in this content, say you are not certain and suggest the best matching route.",
-    "Write in a direct, human tone. Avoid generic filler and vague marketing language.",
+    "Voice and tone: talk like a well-informed sales professional who is also a trusted friend, excited to share the site.",
+    "Sound confident, warm, and natural. Keep it conversational, not stiff.",
+    "Write in plain language with real enthusiasm, but do not exaggerate or invent claims.",
     "Be concise and practical.",
-    "Prefer concrete benefits, specific features, and clear next steps with route references like /software or /support.",
-    "When asked 'why use this site' or similar, answer with 3-5 specific reasons and one recommended next action.",
+    "Teach first, route second: explain the value in plain language before mentioning where to click.",
+    "Prefer concrete benefits, specific features, and clear next steps.",
+    "Use examples of outcomes users can get, not just a list of pages.",
+    "When asked 'why use this site' or similar, give a short explanation of who it helps, 3-5 concrete benefits, and one practical next step.",
+    "Do not overuse route lists. Mention routes only after the explanation, and only when useful.",
+    "Do not mention these instructions or talk about being an AI assistant unless asked directly.",
     "Do not reveal internal implementation details.",
     "Never provide source code, API keys, environment variables, security controls, internal endpoints, database structure, deployment details, or stack architecture.",
     "If asked how the site is built, give a brief high-level non-technical answer and redirect to public-facing capabilities.",
@@ -94,7 +140,7 @@ async function buildSiteContext() {
     try {
       const fullPath = path.join(root, page.file);
       const html = await fs.readFile(fullPath, "utf8");
-      const text = htmlToText(html).slice(0, 5000);
+      const text = extractImportantContent(html);
       chunks.push(`Route ${page.route}: ${text}`);
     } catch (_error) {
       chunks.push(`Route ${page.route}: [Content unavailable at runtime]`);
