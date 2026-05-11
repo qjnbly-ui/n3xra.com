@@ -322,6 +322,130 @@
       border-bottom: 1px solid var(--line);
     }
 
+    .ask-band {
+      background:
+        radial-gradient(circle at 8% 14%, rgba(47, 168, 255, 0.12), transparent 26rem),
+        radial-gradient(circle at 90% 10%, rgba(22, 131, 111, 0.1), transparent 22rem),
+        #f4f8fb;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .ask-shell {
+      border: 1px solid rgba(11, 16, 22, 0.12);
+      border-radius: 22px;
+      background: #ffffff;
+      box-shadow: 0 24px 70px rgba(7, 12, 18, 0.09);
+      padding: clamp(1rem, 3vw, 1.8rem);
+      display: grid;
+      gap: 1rem;
+    }
+
+    .ask-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(220px, 0.52fr);
+      gap: 1rem;
+      align-items: start;
+    }
+
+    .ask-form {
+      display: grid;
+      gap: 0.75rem;
+    }
+
+    .ask-form label {
+      font-weight: 700;
+      font-size: 0.9rem;
+    }
+
+    .ask-form textarea {
+      width: 100%;
+      min-height: 125px;
+      resize: vertical;
+      border: 1px solid rgba(11, 16, 22, 0.24);
+      border-radius: 12px;
+      padding: 0.85rem 0.92rem;
+      font: inherit;
+      color: var(--ink);
+      background: #fcfdff;
+    }
+
+    .ask-form textarea:focus {
+      outline: 2px solid rgba(22, 185, 237, 0.34);
+      border-color: rgba(22, 185, 237, 0.54);
+    }
+
+    .ask-controls {
+      display: flex;
+      gap: 0.68rem;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .ask-submit {
+      min-height: 44px;
+      border: 0;
+      border-radius: 999px;
+      padding: 0.72rem 1.2rem;
+      font: inherit;
+      font-size: 0.84rem;
+      font-weight: 800;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: #ffffff;
+      background: linear-gradient(135deg, #0b1016 0%, #1a2d43 100%);
+      cursor: pointer;
+    }
+
+    .ask-submit[disabled] {
+      opacity: 0.55;
+      cursor: wait;
+    }
+
+    .ask-hint {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .ask-status {
+      margin: 0;
+      min-height: 1.25rem;
+      color: #9a3412;
+      font-size: 0.9rem;
+      font-weight: 700;
+    }
+
+    .ask-side {
+      border: 1px solid rgba(11, 16, 22, 0.1);
+      border-radius: 14px;
+      padding: 0.85rem;
+      background: linear-gradient(180deg, #f7fbff 0%, #eff5fa 100%);
+      display: grid;
+      gap: 0.6rem;
+    }
+
+    .ask-side h3 {
+      font-size: 1.05rem;
+      line-height: 1.2;
+    }
+
+    .ask-side p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    .ask-answer {
+      margin: 0;
+      border: 1px solid rgba(22, 131, 111, 0.22);
+      border-radius: 12px;
+      background: #f3fbf7;
+      color: #123c31;
+      padding: 0.85rem 0.92rem;
+      font-size: 0.96rem;
+      white-space: pre-wrap;
+    }
+
     .section {
       padding: clamp(3rem, 7vw, 5.5rem) 0;
     }
@@ -642,6 +766,10 @@
           linear-gradient(180deg, #050d1a 0%, #01060f 100%);
       }
 
+      .ask-grid {
+        grid-template-columns: 1fr;
+      }
+
       .software-lede {
         max-width: 100%;
         justify-items: center;
@@ -944,6 +1072,36 @@
         </div>
       </div>
     </section>
+
+    <section class="section ask-band" aria-labelledby="ask-title">
+      <div class="section-inner">
+        <div class="section-head center">
+          <p class="eyebrow">Ask N3XRA</p>
+          <h2 id="ask-title"></h2>
+          <p class="section-copy">Ask about software, services, project work, or where to find things across N3XRA.</p>
+        </div>
+
+        <div class="ask-shell">
+          <div class="ask-grid">
+            <form class="ask-form" id="ask-form">
+              <label for="ask-input">Your question</label>
+              <textarea id="ask-input" name="question" maxlength="800" placeholder="What does N3XRA Records do?" required></textarea>
+              <div class="ask-controls">
+                <button class="ask-submit" id="ask-submit" type="submit">Ask</button>
+              </div>
+              <p class="ask-status" id="ask-status" role="status" aria-live="polite"></p>
+            </form>
+
+            <aside class="ask-side" aria-label="How this assistant helps">
+              <h3>What it can help with</h3>
+              <p>Find the right route in this site, understand N3XRA tools, and get a quick summary of offerings.</p>
+              <p>Best prompts: direct questions about services, projects, or records software capabilities.</p>
+            </aside>
+          </div>
+          <p class="ask-answer" id="ask-answer" hidden></p>
+        </div>
+      </div>
+    </section>
   </main>
 
   <footer class="site-footer">
@@ -953,5 +1111,54 @@
       <p>Built by <a href="https://quentinnichols.com/">Quentin Nichols</a>.</p>
     </div>
   </footer>
+  <script>
+    (function () {
+      const form = document.getElementById("ask-form");
+      const input = document.getElementById("ask-input");
+      const submit = document.getElementById("ask-submit");
+      const status = document.getElementById("ask-status");
+      const answer = document.getElementById("ask-answer");
+
+      if (!form || !input || !submit || !status || !answer) return;
+
+      form.addEventListener("submit", async function (event) {
+        event.preventDefault();
+        const question = input.value.trim();
+        answer.hidden = true;
+        answer.textContent = "";
+        status.textContent = "";
+
+        if (!question) {
+          status.textContent = "Enter a question first.";
+          return;
+        }
+
+        submit.disabled = true;
+        submit.textContent = "Thinking...";
+
+        try {
+          const response = await fetch("/api/ask", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ question }),
+          });
+          const data = await response.json().catch(function () { return {}; });
+
+          if (!response.ok) {
+            status.textContent = data && data.error ? String(data.error) : "Unable to get an answer right now.";
+            return;
+          }
+
+          answer.textContent = String(data.answer || "").trim();
+          answer.hidden = !answer.textContent;
+        } catch (_error) {
+          status.textContent = "Request failed. Please try again.";
+        } finally {
+          submit.disabled = false;
+          submit.textContent = "Ask";
+        }
+      });
+    })();
+  </script>
 </body>
 </html>
