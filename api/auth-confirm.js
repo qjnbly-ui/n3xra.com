@@ -5,8 +5,9 @@ const SUPABASE_ANON_KEY = String(
   ""
 ).trim();
 
-const DEFAULT_SUCCESS_REDIRECT = "/ai-music-generator/login/?confirmed=1";
+const DEFAULT_SUCCESS_REDIRECT = "/app/login/?confirmed=1";
 const DEFAULT_ERROR_REDIRECT = "/ai-music-generator/login/?error=confirmation_failed";
+const MUSIC_SUCCESS_REDIRECT = "/ai-music-generator/login/?confirmed=1";
 
 function redirect(res, location) {
   res.statusCode = 302;
@@ -51,7 +52,7 @@ module.exports = async function handler(req, res) {
   const origin = getBaseOrigin(req);
   const tokenHash = String(req.query?.token_hash || "").trim();
   const type = String(req.query?.type || "email").trim();
-  const successRedirect = normalizeRedirectPath(req.query?.redirect_to, DEFAULT_SUCCESS_REDIRECT, origin);
+  const requestedRedirect = normalizeRedirectPath(req.query?.redirect_to, "", origin);
 
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !tokenHash || !type) {
     return redirect(res, `${origin}${DEFAULT_ERROR_REDIRECT}`);
@@ -70,8 +71,17 @@ module.exports = async function handler(req, res) {
       }),
     });
 
+    const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
       return redirect(res, `${origin}${DEFAULT_ERROR_REDIRECT}`);
+    }
+
+    let successRedirect = requestedRedirect || DEFAULT_SUCCESS_REDIRECT;
+    if (!requestedRedirect) {
+      const appSignup = String(payload?.user?.user_metadata?.app_signup || "").trim().toLowerCase();
+      if (appSignup === "ai_music") {
+        successRedirect = MUSIC_SUCCESS_REDIRECT;
+      }
     }
 
     return redirect(res, `${origin}${successRedirect}`);
