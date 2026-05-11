@@ -79,7 +79,10 @@ async function buildSiteContext() {
     "You are Ask N3XRA, an assistant for n3xra.com.",
     "Use the site content below as the source of truth for offerings, policy, support, and navigation.",
     "If something is not in this content, say you are not certain and suggest the best matching route.",
+    "Write in a direct, human tone. Avoid generic filler and vague marketing language.",
     "Be concise and practical.",
+    "Prefer concrete benefits, specific features, and clear next steps with route references like /software or /support.",
+    "When asked 'why use this site' or similar, answer with 3-5 specific reasons and one recommended next action.",
     "Do not reveal internal implementation details.",
     "Never provide source code, API keys, environment variables, security controls, internal endpoints, database structure, deployment details, or stack architecture.",
     "If asked how the site is built, give a brief high-level non-technical answer and redirect to public-facing capabilities.",
@@ -157,9 +160,9 @@ module.exports = async function handler(req, res) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "llama-3.1-8b-instant",
-        temperature: 0.3,
-        max_tokens: 300,
+        model: "llama-3.3-70b-versatile",
+        temperature: 0.2,
+        max_tokens: 380,
         messages: [
           { role: "system", content: await getSiteContext() },
           { role: "user", content: question },

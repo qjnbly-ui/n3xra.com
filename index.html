@@ -1151,6 +1151,10 @@
 
           answer.textContent = String(data.answer || "").trim();
           answer.hidden = !answer.textContent;
+          if (answer.textContent) {
+            input.value = "";
+            input.focus();
+          }
         } catch (_error) {
           status.textContent = "Request failed. Please try again.";
         } finally {
