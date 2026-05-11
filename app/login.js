@@ -159,7 +159,7 @@ function setSignupPasswordsVisible(visible) {
       input.type = nextType;
     }
   });
-  document.querySelectorAll("[data-password-toggle]").forEach((button) => {
+  document.querySelectorAll('[data-password-toggle="signup-password"], [data-password-toggle="signup-password-confirm"]').forEach((button) => {
     button.textContent = visible ? "Hide" : "Show";
     button.setAttribute("aria-label", visible ? "Hide password" : "Show password");
   });
@@ -168,6 +168,18 @@ function setSignupPasswordsVisible(visible) {
 function togglePasswordVisibility() {
   const nextVisible = signupPasswordInput.type === "password";
   setSignupPasswordsVisible(nextVisible);
+}
+
+function toggleSigninPasswordVisibility() {
+  const signinPasswordInput = document.getElementById("signin-password");
+  const signinPasswordToggle = document.querySelector('[data-password-toggle="signin-password"]');
+  if (!(signinPasswordInput instanceof HTMLInputElement) || !(signinPasswordToggle instanceof HTMLButtonElement)) {
+    return;
+  }
+  const visible = signinPasswordInput.type === "password";
+  signinPasswordInput.type = visible ? "text" : "password";
+  signinPasswordToggle.textContent = visible ? "Hide" : "Show";
+  signinPasswordToggle.setAttribute("aria-label", visible ? "Hide password" : "Show password");
 }
 
 function toggleSignup(visible) {
@@ -476,7 +488,11 @@ async function init() {
   signupModeInviteButton.addEventListener("click", () => setSignupMode("invite"));
   showSigninButton.addEventListener("click", () => toggleSignup(false));
   showSignupButton.addEventListener("click", () => toggleSignup(true));
-  document.querySelectorAll("[data-password-toggle]").forEach((button) => {
+  const signinPasswordToggle = document.querySelector('[data-password-toggle="signin-password"]');
+  if (signinPasswordToggle) {
+    signinPasswordToggle.addEventListener("click", () => toggleSigninPasswordVisibility());
+  }
+  document.querySelectorAll('[data-password-toggle="signup-password"], [data-password-toggle="signup-password-confirm"]').forEach((button) => {
     button.addEventListener("click", () => togglePasswordVisibility());
   });
 

@@ -1,5 +1,34 @@
 const NEW_ACCOUNT_NOTIFY_TO = "quentin@n3xra.com";
 
+function getSignupSummary(signupMode) {
+  const mode = String(signupMode || "").trim().toLowerCase();
+  if (mode === "ai_music") {
+    return {
+      product: "AI Music Generator",
+      flow: "AI Music Signup",
+    };
+  }
+
+  if (mode === "invite") {
+    return {
+      product: "N3XRA Records",
+      flow: "Join by Invite",
+    };
+  }
+
+  if (mode === "personal") {
+    return {
+      product: "N3XRA Records",
+      flow: "Personal Account",
+    };
+  }
+
+  return {
+    product: "N3XRA Records",
+    flow: "Create Organization",
+  };
+}
+
 function escapeHtml(value) {
   return String(value || "")
     .replaceAll("&", "&amp;")
@@ -10,91 +39,66 @@ function escapeHtml(value) {
 }
 
 function buildTextEmail(payload) {
-  return [
-    "New n3xra.com account created",
+  const summary = getSignupSummary(payload.signupMode);
+  const lines = [
+    `New signup: ${summary.product}`,
     "",
+    `Product: ${summary.product}`,
+    `Flow: ${summary.flow}`,
     `Name: ${payload.fullName || "-"}`,
     `Email: ${payload.email}`,
-    `Signup mode: ${payload.signupMode}`,
-    `Organization: ${payload.organizationName || "-"}`,
-    `Invite code: ${payload.inviteCode || "-"}`,
     `Created at: ${payload.createdAt}`,
-  ].join("\n");
+  ];
+
+  if (summary.product === "N3XRA Records") {
+    lines.push(`Organization: ${payload.organizationName || "-"}`);
+    lines.push(`Invite code: ${payload.inviteCode || "-"}`);
+  }
+
+  lines.push(`Raw signup mode: ${payload.signupMode}`);
+  return lines.join("\n");
+}
+
+function detailCard(label, value) {
+  return `
+    <div style="padding:14px 16px;border:1px solid #d6dde8;border-radius:14px;background:#ffffff;">
+      <p style="margin:0 0 5px;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;font-weight:700;color:#415267;">${escapeHtml(label)}</p>
+      <p style="margin:0;font-size:16px;font-weight:700;color:#0e1622;">${escapeHtml(value || "-")}</p>
+    </div>
+  `;
 }
 
 function buildHtmlEmail(payload) {
-  return `
-    <div style="margin:0;padding:32px 16px;background:#edf2f8;font-family:Arial,sans-serif;color:#0f1620;line-height:1.6;">
+  const summary = getSignupSummary(payload.signupMode);
+  const recordsOnly = summary.product === "N3XRA Records";
+
+  return [
+    `<div style="margin:0;padding:28px 14px;background:#f3f6fb;font-family:Manrope,Arial,sans-serif;color:#0f1620;line-height:1.5;">
       <div style="max-width:640px;margin:0 auto;">
-        <div style="background:linear-gradient(135deg,#0b1219 0%,#101925 52%,#0c141c 100%);border-radius:24px 24px 0 0;padding:28px 32px;color:#ffffff;">
-          <p style="margin:0 0 10px;font-size:12px;letter-spacing:0.18em;text-transform:uppercase;font-weight:700;color:#bfe6dd;">N3XRA Notification</p>
-          <h1 style="margin:0;font-size:28px;line-height:1.15;font-weight:700;">New account created</h1>
-          <p style="margin:12px 0 0;font-size:15px;color:rgba(255,255,255,0.78);">
-            A new user finished the account creation flow on n3xra.com.
+        <div style="background:#0f1a28;border-radius:20px 20px 0 0;padding:24px 26px;color:#ffffff;">
+          <p style="margin:0 0 8px;font-size:11px;letter-spacing:0.16em;text-transform:uppercase;font-weight:700;color:#9ed8c9;">N3XRA New Signup</p>
+          <h1 style="margin:0;font-size:30px;line-height:1.1;font-weight:700;color:#ffffff;">${escapeHtml(summary.product)}</h1>
+          <p style="margin:10px 0 0;font-size:15px;color:#d8e3f1;">
+            New account created from <strong style="color:#ffffff;">${escapeHtml(summary.flow)}</strong>.
           </p>
         </div>
 
-        <div style="background:#ffffff;border:1px solid rgba(15,22,32,0.08);border-top:0;border-radius:0 0 24px 24px;padding:28px 32px;box-shadow:0 24px 60px rgba(12,18,28,0.12);">
-          <div style="margin:0 0 20px;padding:16px 18px;border-radius:18px;background:linear-gradient(180deg,#f8fbfa 0%,#f4f7fb 100%);border:1px solid #dce6f0;">
-            <p style="margin:0;font-size:14px;color:#5d6979;">
-              Review the account details below. Replying to this email will go to the new user's address.
-            </p>
+        <div style="background:#ffffff;border:1px solid #d6dde8;border-top:0;border-radius:0 0 20px 20px;padding:22px 24px;box-shadow:0 16px 40px rgba(10,18,28,0.12);">
+          <div style="display:grid;gap:10px;">
+            ${detailCard("Product", summary.product)}
+            ${detailCard("Flow", summary.flow)}
+            ${detailCard("Name", payload.fullName || "-")}
+            ${detailCard("Email", payload.email)}
+            ${detailCard("Created At", payload.createdAt)}
+            ${recordsOnly ? detailCard("Organization", payload.organizationName || "-") : ""}
+            ${recordsOnly ? detailCard("Invite Code", payload.inviteCode || "-") : ""}
+            ${detailCard("Raw Signup Mode", payload.signupMode)}
           </div>
-
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
-            <tr>
-              <td style="padding:0 0 14px;">
-                <div style="padding:16px 18px;border:1px solid #e5e7eb;border-radius:18px;background:#ffffff;">
-                  <p style="margin:0 0 6px;font-size:12px;letter-spacing:0.14em;text-transform:uppercase;font-weight:700;color:#176f66;">Name</p>
-                  <p style="margin:0;font-size:16px;font-weight:700;color:#0f1620;">${escapeHtml(payload.fullName || "-")}</p>
-                </div>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:0 0 14px;">
-                <div style="padding:16px 18px;border:1px solid #e5e7eb;border-radius:18px;background:#ffffff;">
-                  <p style="margin:0 0 6px;font-size:12px;letter-spacing:0.14em;text-transform:uppercase;font-weight:700;color:#176f66;">Email</p>
-                  <p style="margin:0;font-size:16px;font-weight:700;color:#0f1620;">${escapeHtml(payload.email)}</p>
-                </div>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:0 0 14px;">
-                <div style="padding:16px 18px;border:1px solid #e5e7eb;border-radius:18px;background:#ffffff;">
-                  <p style="margin:0 0 6px;font-size:12px;letter-spacing:0.14em;text-transform:uppercase;font-weight:700;color:#176f66;">Signup Mode</p>
-                  <p style="margin:0;font-size:16px;font-weight:700;color:#0f1620;">${escapeHtml(payload.signupMode)}</p>
-                </div>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:0 0 14px;">
-                <div style="padding:16px 18px;border:1px solid #e5e7eb;border-radius:18px;background:#ffffff;">
-                  <p style="margin:0 0 6px;font-size:12px;letter-spacing:0.14em;text-transform:uppercase;font-weight:700;color:#176f66;">Organization</p>
-                  <p style="margin:0;font-size:16px;font-weight:700;color:#0f1620;">${escapeHtml(payload.organizationName || "-")}</p>
-                </div>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:0 0 14px;">
-                <div style="padding:16px 18px;border:1px solid #e5e7eb;border-radius:18px;background:#ffffff;">
-                  <p style="margin:0 0 6px;font-size:12px;letter-spacing:0.14em;text-transform:uppercase;font-weight:700;color:#176f66;">Invite Code</p>
-                  <p style="margin:0;font-size:16px;font-weight:700;color:#0f1620;">${escapeHtml(payload.inviteCode || "-")}</p>
-                </div>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:0;">
-                <div style="padding:16px 18px;border:1px solid #e5e7eb;border-radius:18px;background:#ffffff;">
-                  <p style="margin:0 0 6px;font-size:12px;letter-spacing:0.14em;text-transform:uppercase;font-weight:700;color:#176f66;">Created At</p>
-                  <p style="margin:0;font-size:16px;font-weight:700;color:#0f1620;">${escapeHtml(payload.createdAt)}</p>
-                </div>
-              </td>
-            </tr>
-          </table>
+          <p style="margin:16px 0 0;font-size:13px;color:#4c5f76;">Replying to this email will send to ${escapeHtml(payload.email)}.</p>
         </div>
       </div>
-    </div>
-  `;
+    </div>`,
+  ].join("\n");
 }
 
 export default async function handler(req, res) {
@@ -127,6 +131,8 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "Invalid email configuration." });
   }
 
+  const summary = getSignupSummary(payload.signupMode);
+
   try {
     const response = await fetch("https://api.resend.com/emails", {
       method: "POST",
@@ -137,7 +143,7 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         from: "n3xra.com <noreply@n3xra.com>",
         to: [NEW_ACCOUNT_NOTIFY_TO],
-        subject: `[New Account] ${payload.email}`,
+        subject: `[New Signup • ${summary.product}] ${payload.email}`,
         html: buildHtmlEmail(payload),
         text: buildTextEmail(payload),
         reply_to: payload.email,

@@ -110,7 +110,10 @@
               </div>
               <div class="field">
                 <label for="signin-password">Password</label>
-                <input id="signin-password" type="password" autocomplete="current-password" required>
+                <div class="password-field">
+                  <input id="signin-password" type="password" autocomplete="current-password" required>
+                  <button class="password-toggle" type="button" data-password-toggle="signin-password" aria-label="Show password">Show</button>
+                </div>
               </div>
               <div class="actions">
                 <button class="btn block" type="submit">Sign in</button>
