@@ -15,6 +15,7 @@
   <link rel="stylesheet" href="../../assets/site-intro.css?v=2">
   <script src="../../app/config.js"></script>
   <script src="../../assets/site-nav.js" defer></script>
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
   <style>
     :root {
       --ink: #f7fbff;
@@ -405,6 +406,10 @@
               <button class="password-toggle" type="button" data-password-toggle="musicSignupPasswordConfirm" aria-label="Show password">Show</button>
             </div>
           </div>
+          <div class="field hidden" id="musicAuthCaptchaField">
+            <label for="musicAuthTurnstile">Security Check</label>
+            <div id="musicAuthTurnstile"></div>
+          </div>
           <button class="primary-btn" type="submit">Create AI Music account</button>
         </form>
 
@@ -423,7 +428,7 @@
   </footer>
 
   <script type="module">
-    import { createBrowserSupabase, getSessionOrNull, hasConfig } from "../../app/lib/supabase-client.js";
+    import { createBrowserSupabase, getConfig, getSessionOrNull, hasConfig } from "../../app/lib/supabase-client.js";
 
     const DEFAULT_NEXT_PATH = "/ai-music-generator/app/";
     const musicSigninToggle = document.getElementById("musicSigninToggle");
@@ -432,7 +437,79 @@
     const musicSignupForm = document.getElementById("musicSignupForm");
     const musicAuthStatus = document.getElementById("musicAuthStatus");
     const musicAuthLegal = document.getElementById("musicAuthLegal");
+    const musicAuthCaptchaField = document.getElementById("musicAuthCaptchaField");
+    const musicAuthTurnstile = document.getElementById("musicAuthTurnstile");
     let supabase = null;
+    let captchaToken = "";
+    let captchaWidgetId = null;
+    let captchaEnabled = false;
+
+    function getTurnstileSiteKey() {
+      return String(getConfig().turnstileSiteKey || "").trim();
+    }
+
+    function resetCaptcha() {
+      captchaToken = "";
+      if (!window.turnstile || captchaWidgetId === null) return;
+      window.turnstile.reset(captchaWidgetId);
+    }
+
+    async function verifyCaptchaServerSide(token) {
+      if (!captchaEnabled) return;
+      if (!token) throw new Error("Complete the security check first.");
+      const response = await fetch("/api/verify-captcha", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ captchaToken: token }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload?.ok) {
+        throw new Error(payload?.error || "Captcha verification failed.");
+      }
+    }
+
+    async function waitForTurnstile(maxWaitMs = 5000) {
+      const startedAt = Date.now();
+      while (!window.turnstile) {
+        if (Date.now() - startedAt > maxWaitMs) return false;
+        await new Promise((resolve) => window.setTimeout(resolve, 100));
+      }
+      return true;
+    }
+
+    async function initCaptcha() {
+      const siteKey = getTurnstileSiteKey();
+      captchaEnabled = Boolean(siteKey);
+      if (musicAuthCaptchaField) {
+        musicAuthCaptchaField.classList.toggle("hidden", !captchaEnabled);
+      }
+      if (!captchaEnabled) return;
+
+      const ready = await waitForTurnstile();
+      if (!ready || !musicAuthTurnstile) {
+        setAuthStatus("Security check failed to load. Refresh and try again.", "error");
+        return;
+      }
+
+      captchaWidgetId = window.turnstile.render(musicAuthTurnstile, {
+        sitekey: siteKey,
+        callback: (token) => { captchaToken = token; },
+        "expired-callback": () => { captchaToken = ""; },
+        "error-callback": () => { captchaToken = ""; },
+      });
+    }
+
+    async function notifyNewAccount(payload) {
+      try {
+        await fetch("/api/new-account", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+      } catch (_error) {
+        // Notification should never block account creation.
+      }
+    }
 
     function getNextPath() {
       const params = new URLSearchParams(window.location.search);
@@ -500,6 +577,7 @@
       }
 
       supabase = createBrowserSupabase();
+      await initCaptcha();
       const session = await getSessionOrNull(supabase).catch(() => null);
       if (session?.user) {
         await openApp(session, true).catch((error) => {
@@ -552,44 +630,61 @@
 
       if (password !== confirm) {
         setAuthStatus("Passwords do not match.", "error");
+        resetCaptcha();
         return;
       }
 
-      setAuthStatus("Creating account...");
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            full_name: fullName,
-            app_signup: "ai_music",
+      try {
+        await verifyCaptchaServerSide(captchaToken);
+        setAuthStatus("Creating account...");
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              full_name: fullName,
+              app_signup: "ai_music",
+            },
           },
-        },
-      });
+        });
 
-      if (error) {
-        setAuthStatus(error.message, "error");
-        return;
-      }
-
-      let nextSession = data?.session || null;
-      if (!nextSession) {
-        const signInResult = await supabase.auth.signInWithPassword({ email, password });
-        if (signInResult.error || !signInResult.data?.session) {
-          setAuthStatus(
-            signInResult.error?.message || "Account created, but auto sign-in is unavailable. Sign in manually.",
-            "error",
-          );
-          setAuthMode("signin");
+        if (error) {
+          setAuthStatus(error.message, "error");
           return;
         }
-        nextSession = signInResult.data.session;
-      }
 
-      setAuthStatus("Opening AI Music app...", "success");
-      await openApp(nextSession).catch((error) => {
-        setAuthStatus(error instanceof Error ? error.message : "Unable to open AI Music.", "error");
-      });
+        let nextSession = data?.session || null;
+        if (!nextSession) {
+          const signInResult = await supabase.auth.signInWithPassword({ email, password });
+          if (signInResult.error || !signInResult.data?.session) {
+            setAuthStatus(
+              signInResult.error?.message || "Account created, but auto sign-in is unavailable. Sign in manually.",
+              "error",
+            );
+            setAuthMode("signin");
+            return;
+          }
+          nextSession = signInResult.data.session;
+        }
+
+        await notifyNewAccount({
+          fullName,
+          email,
+          signupMode: "ai_music",
+          organizationName: "",
+          inviteCode: "",
+          createdAt: new Date().toISOString(),
+        });
+
+        setAuthStatus("Opening AI Music app...", "success");
+        await openApp(nextSession).catch((error) => {
+          setAuthStatus(error instanceof Error ? error.message : "Unable to open AI Music.", "error");
+        });
+      } catch (error) {
+        setAuthStatus(error instanceof Error ? error.message : "Unable to create account.", "error");
+      } finally {
+        resetCaptcha();
+      }
     }
 
     musicSigninToggle.addEventListener("click", () => setAuthMode("signin"));
