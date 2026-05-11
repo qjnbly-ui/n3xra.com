@@ -324,14 +324,32 @@ async function handleSignup(event) {
   });
 
   if (data?.session) {
-    await supabase.auth.signOut({ scope: "local" }).catch(() => null);
+    try {
+      const bootstrapData = await bootstrapMemberships(organizationName, inviteCode);
+      if (bootstrapData?.active_organization_id) {
+        setStoredActiveOrganizationId(String(bootstrapData.active_organization_id));
+      }
+    } catch (bootstrapError) {
+      isSubmittingAuth = false;
+      resetCaptcha();
+      const message = getErrorMessage(bootstrapError, "Unable to finish library setup.");
+      setStatus(`Account created, but library setup failed: ${message}`, "error");
+      return;
+    }
+
+    window.location.replace(getPostAuthDestination(data.session));
+    return;
   }
 
   isSubmittingAuth = false;
   resetCaptcha();
   toggleSignup(false);
+  const signinEmailInput = document.getElementById("signin-email");
+  const signinPasswordInput = document.getElementById("signin-password");
+  if (signinEmailInput) signinEmailInput.value = email;
+  if (signinPasswordInput) signinPasswordInput.value = password;
   setStatus(
-    "Account created. Check your email if confirmation is enabled, then sign in. Your library and invite access will be finished on first sign-in.",
+    "Account created. Confirm your email, then click Sign in. Your email and password are already filled in.",
     "success"
   );
 }
