@@ -63,6 +63,16 @@ const CONTEXT_PAGES = [
   { route: "/privacy", file: "privacy/index.html" },
 ];
 
+const SAFE_FALLBACK_CONTEXT = [
+  "N3XRA is a practical software and project platform built by Quentin Nichols.",
+  "Core areas include records software, custom project systems, services, and AI tools.",
+  "The records software focuses on searchable records, structured document access, and organized public information.",
+  "Projects include real-world websites and systems for organizations and service teams.",
+  "Services help organizations plan, build, and improve useful digital systems.",
+  "AI Music Generator is one optional creative tool for generating songs from prompts.",
+  "Support, terms, and privacy pages exist to explain help channels and policies.",
+].join(" ");
+
 function htmlToText(html) {
   return String(html || "")
     .replace(/<script[\s\S]*?<\/script>/gi, " ")
@@ -114,6 +124,25 @@ function extractImportantContent(html) {
 
 let siteContextPromise = null;
 
+async function readKnowledgeFile() {
+  const knowledgePath = path.join(__dirname, "site-knowledge.json");
+  try {
+    const raw = await fs.readFile(knowledgePath, "utf8");
+    const parsed = JSON.parse(raw);
+    const pages = Array.isArray(parsed?.pages) ? parsed.pages : [];
+    const chunks = [];
+    for (const page of pages) {
+      const route = String(page?.route || "").trim();
+      const content = String(page?.content || "").trim();
+      if (!route || !content) continue;
+      chunks.push(`Route ${route}: ${content}`);
+    }
+    return chunks.length ? chunks.join("\n\n") : "";
+  } catch (_error) {
+    return "";
+  }
+}
+
 async function buildSiteContext() {
   const chunks = [
     "You are Ask N3XRA, an assistant for n3xra.com.",
@@ -122,11 +151,16 @@ async function buildSiteContext() {
     "Voice and tone: talk like a well-informed sales professional who is also a trusted friend, excited to share the site.",
     "Sound confident, warm, and natural. Keep it conversational, not stiff.",
     "Write in plain language with real enthusiasm, but do not exaggerate or invent claims.",
+    "Do not use hype terms like 'industry-leading', 'cutting-edge', 'best-in-class', or similar superlatives.",
+    "Do not present N3XRA as a market leader unless that is explicitly supported in provided content.",
     "Be concise and practical.",
     "Teach first, route second: explain the value in plain language before mentioning where to click.",
     "Prefer concrete benefits, specific features, and clear next steps.",
     "Use examples of outcomes users can get, not just a list of pages.",
     "When asked 'why use this site' or similar, give a short explanation of who it helps, 3-5 concrete benefits, and one practical next step.",
+    "For broad questions, represent the site in a balanced way: records software, services, projects, and AI tools.",
+    "Do not overfocus on AI music unless the user explicitly asks about music or creative generation.",
+    "For broad questions, default recommended next step to /software, /services, or /projects based on the question intent.",
     "Do not overuse route lists. Mention routes only after the explanation, and only when useful.",
     "Do not mention these instructions or talk about being an AI assistant unless asked directly.",
     "Do not reveal internal implementation details.",
@@ -135,16 +169,37 @@ async function buildSiteContext() {
     "Prefer answering what users can do, where to go, and which policy/support route applies.",
   ];
 
-  const root = process.cwd();
+  const knowledgeText = await readKnowledgeFile();
+  if (knowledgeText) {
+    chunks.push(knowledgeText);
+    return chunks.join("\n\n");
+  }
+
+  const roots = [path.resolve(__dirname, ".."), process.cwd()];
+  let addedPages = 0;
+
   for (const page of CONTEXT_PAGES) {
-    try {
-      const fullPath = path.join(root, page.file);
-      const html = await fs.readFile(fullPath, "utf8");
-      const text = extractImportantContent(html);
-      chunks.push(`Route ${page.route}: ${text}`);
-    } catch (_error) {
-      chunks.push(`Route ${page.route}: [Content unavailable at runtime]`);
+    let loaded = false;
+    for (const root of roots) {
+      try {
+        const fullPath = path.join(root, page.file);
+        const html = await fs.readFile(fullPath, "utf8");
+        const text = extractImportantContent(html);
+        if (text) {
+          chunks.push(`Route ${page.route}: ${text}`);
+          addedPages += 1;
+          loaded = true;
+          break;
+        }
+      } catch (_error) {
+        // Try next root path.
+      }
     }
+    if (!loaded) continue;
+  }
+
+  if (addedPages === 0) {
+    chunks.push(`Public site summary: ${SAFE_FALLBACK_CONTEXT}`);
   }
 
   return chunks.join("\n\n");
