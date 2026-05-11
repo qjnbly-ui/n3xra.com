@@ -1369,19 +1369,26 @@
       event.preventDefault();
       if (!supabase) return setAuthStatus("Supabase is not configured.", "error");
 
-      setAuthStatus("Signing in...");
-      const email = document.getElementById("musicSigninEmail").value.trim();
-      const password = document.getElementById("musicSigninPassword").value;
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      try {
+        await verifyCaptchaServerSide(captchaToken);
+        setAuthStatus("Signing in...");
+        const email = document.getElementById("musicSigninEmail").value.trim();
+        const password = document.getElementById("musicSigninPassword").value;
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
-      if (error) {
-        setAuthStatus(error.message, "error");
-        return;
+        if (error) {
+          setAuthStatus(error.message, "error");
+          return;
+        }
+
+        currentSession = data.session;
+        setAuthStatus("Opening AI Music app...", "success");
+        openMusicApp();
+      } catch (error) {
+        setAuthStatus(error instanceof Error ? error.message : "Unable to sign in.", "error");
+      } finally {
+        resetCaptcha();
       }
-
-      currentSession = data.session;
-      setAuthStatus("Opening AI Music app...", "success");
-      openMusicApp();
     }
 
     async function handleSignup(event) {
