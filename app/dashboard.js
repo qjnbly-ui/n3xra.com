@@ -278,17 +278,74 @@ function rowStartsWithMonthLikeValue(row) {
   return /^(jan|january|feb|february|mar|march|apr|april|may|jun|june|jul|july|aug|august|sep|sept|september|oct|october|nov|november|dec|december)\b/.test(value);
 }
 
-function trimTrailingSparseColumns(header, rows) {
-  let nextHeader = [...header];
-  let nextRows = rows.map((row) => [...row]);
-  while (nextHeader.length > 2) {
-    const col = nextHeader.length - 1;
-    const filled = nextRows.reduce((count, row) => count + (String(row[col] || "").trim() ? 1 : 0), 0);
-    if (filled > 0) break;
-    nextHeader.pop();
-    nextRows = nextRows.map((row) => row.slice(0, nextHeader.length));
+function isYearHeaderCell(value) {
+  return normalizeHeaderCellLabel(value) === "year";
+}
+
+function isMonthHeaderCell(value) {
+  return normalizeHeaderCellLabel(value) === "month";
+}
+
+function getMostCommonRowLength(rows) {
+  const counts = new Map();
+  rows.forEach((row) => {
+    if (!Array.isArray(row) || !row.length) return;
+    counts.set(row.length, (counts.get(row.length) || 0) + 1);
+  });
+  return Array.from(counts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || 0;
+}
+
+function fitRowToHeader(row, width) {
+  const cells = Array.isArray(row) ? [...row] : [];
+  if (cells.length === width) return cells;
+  if (cells.length < width) return [...cells, ...Array.from({ length: width - cells.length }, () => "")];
+  if (width <= 1) return [cells.join(" | ")];
+  return [...cells.slice(0, width - 1), cells.slice(width - 1).join(" | ")];
+}
+
+function normalizeRenderedTable(headerCells, rowCells) {
+  let header = Array.isArray(headerCells) ? headerCells.map((cell) => String(cell || "").trim()) : [];
+  let rows = Array.isArray(rowCells) ? rowCells.map((row) => row.map((cell) => String(cell || "").trim())) : [];
+  if (!header.length) return { header, rows };
+
+  const commonRowLength = getMostCommonRowLength(rows);
+  const majorityYearLike = rows.length ? rows.filter((row) => rowLooksLikeYearValueRow(row)).length / rows.length : 0;
+  const majorityMonthLike = rows.length ? rows.filter((row) => rowStartsWithMonthLikeValue(row)).length / rows.length : 0;
+  const firstHeaderIsNoise = isBogusTableHeaderLabel(header[0]) || isDescriptiveHeaderCell(header[0]);
+
+  if (firstHeaderIsNoise && header.length > 1) {
+    if ((isYearHeaderCell(header[1]) && majorityYearLike >= 0.5) || (isMonthHeaderCell(header[1]) && majorityMonthLike >= 0.5)) {
+      header = header.slice(1);
+    } else if (commonRowLength && commonRowLength < header.length) {
+      header = header.slice(header.length - commonRowLength);
+    } else {
+      header = header.slice(1);
+    }
   }
-  return { header: nextHeader, rows: nextRows };
+
+  if (header.length > 1 && !isYearHeaderCell(header[0]) && isYearHeaderCell(header[1]) && majorityYearLike >= 0.5) {
+    header = header.slice(1);
+  }
+
+  if (header.length > 1 && !isMonthHeaderCell(header[0]) && isMonthHeaderCell(header[1]) && majorityMonthLike >= 0.5) {
+    header = header.slice(1);
+  }
+
+  const maxRowLength = Math.max(0, ...rows.map((row) => row.length));
+  while (header.length < maxRowLength) {
+    header.push(header.length === maxRowLength - 1 ? "Notes" : `Detail ${header.length + 1}`);
+  }
+
+  while (header.length > 2) {
+    const col = header.length - 1;
+    const headerLabel = normalizeHeaderCellLabel(header[col]);
+    const filled = rows.reduce((count, row) => count + (String(row[col] || "").trim() ? 1 : 0), 0);
+    if (filled > 0 || headerLabel === "notes") break;
+    header.pop();
+  }
+
+  rows = rows.map((row) => fitRowToHeader(row, header.length));
+  return { header, rows };
 }
 
 function renderAnswerMarkup(container, message = "") {
@@ -321,50 +378,12 @@ function renderAnswerMarkup(container, message = "") {
       return;
     }
 
-    let header = parseTableRow(tableRows[0]) || [];
-    let bodyRows = tableRows
+    const parsedHeader = parseTableRow(tableRows[0]) || [];
+    const parsedRows = tableRows
       .slice(2)
       .map(parseTableRow)
       .filter((row) => row && row.length && !isDividerLikeTableRow(row));
-    const hasBogusTableHeaderCell = header.length > 1 && isBogusTableHeaderLabel(header[0]);
-    if (hasBogusTableHeaderCell) {
-      const previousHeaderLength = header.length;
-      header = header.slice(1);
-      bodyRows = bodyRows.map((row) => {
-        if (!row || !row.length) return row;
-        if (row.length === previousHeaderLength) return row.slice(1);
-        if (row.length > header.length) return row.slice(1);
-        return row;
-      });
-    }
-    if (header.length > 2 && isDescriptiveHeaderCell(header[0])) {
-      const majorityYearLike = bodyRows.length
-        ? bodyRows.filter((row) => rowLooksLikeYearValueRow(row)).length / bodyRows.length
-        : 0;
-      const majorityMonthLike = bodyRows.length
-        ? bodyRows.filter((row) => rowStartsWithMonthLikeValue(row)).length / bodyRows.length
-        : 0;
-
-      if (majorityMonthLike >= 0.6) {
-        // Pattern: [long sentence | Month | Event] with rows [Month | Event | optional note]
-        // Keep row cells intact and rebuild a sane header.
-        const second = String(header[1] || "").trim() || "Month";
-        const third = String(header[2] || "").trim() || "Event";
-        header = [second, third, "Notes"];
-      } else if (majorityYearLike >= 0.6) {
-        header = header.slice(1);
-        bodyRows = bodyRows.map((row) => (row && row.length ? row.slice(0, header.length) : row));
-      }
-    }
-    bodyRows = bodyRows.map((row) => {
-      if (!row || !row.length) return row;
-      if (row.length === header.length) return row;
-      if (row.length > header.length) return row.slice(0, header.length);
-      return [...row, ...Array.from({ length: header.length - row.length }, () => "")];
-    });
-    const compact = trimTrailingSparseColumns(header, bodyRows);
-    header = compact.header;
-    bodyRows = compact.rows;
+    const { header, rows: bodyRows } = normalizeRenderedTable(parsedHeader, parsedRows);
     if (!header.length) {
       tableRows = [];
       return;

@@ -15,7 +15,7 @@ const {
   sendRecordsAiUsageError,
 } = require("./_records-ai-usage");
 
-const RECORDS_SEARCH_MODEL = "llama-3.3-70b-versatile";
+const RECORDS_SEARCH_MODEL = String(process.env.GROQ_RECORDS_MODEL || "llama-3.3-70b-versatile").trim();
 const MAX_CONTEXT_CHARS = 110000;
 const MAX_DOC_SNIPPET_CHARS = 3000;
 const MAX_HISTORY = 12;
@@ -259,6 +259,10 @@ function buildPrompt({ user, question, context, history, documents, documentCoun
     "Put each heading on its own line.",
     "Put each bullet/numbered item on its own line.",
     "For tables, use standard markdown table rows on separate lines.",
+    "A table header row must contain column names only, such as Year, Month, Event, Cost, Status, Notes.",
+    "Never put a table title, caption, full sentence, warning, or explanation inside a table header cell.",
+    "Every table row must use the same number of columns as the header row.",
+    "If a row needs explanation, put that explanation in a Notes column.",
     "When drafting posts/messages, produce polished copy the user can use immediately.",
     "When asked follow-up questions, use conversation memory to stay coherent.",
     "",
