@@ -1604,12 +1604,6 @@ textarea {
   width: 100%;
 }
 
-.ai-answer-actions {
-  display: flex;
-  gap: 0.6rem;
-  flex-wrap: wrap;
-}
-
 .ai-search-sources-label {
   margin: 0.35rem 0 0.05rem;
   color: var(--teal);

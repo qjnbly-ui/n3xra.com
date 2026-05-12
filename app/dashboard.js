@@ -146,9 +146,6 @@ const searchModeKeywordButton = document.getElementById("search-mode-keyword");
 const searchModeAiButton = document.getElementById("search-mode-ai");
 const aiSearchSubmitButton = document.getElementById("ai-search-submit");
 const aiSearchAnswer = document.getElementById("ai-search-answer");
-const aiAnswerActions = document.getElementById("ai-answer-actions");
-const aiAnswerCopyButton = document.getElementById("ai-answer-copy");
-const aiAnswerDownloadButton = document.getElementById("ai-answer-download");
 const uploadMetadataGrid = document.getElementById("upload-metadata-grid");
 const uploadTitleInput = document.getElementById("upload-title");
 const uploadTitleField = document.getElementById("upload-title-field");
@@ -185,7 +182,6 @@ let uploadMode = "single";
 let selectedBillingCycle = "monthly";
 const libraryAiSearchHistory = [];
 const LIBRARY_AI_SEARCH_HISTORY_LIMIT = 8;
-let lastAiAnswerRaw = "";
 let lastAiSearchMatches = [];
 const recordsHelpHistory = [];
 const RECORDS_HELP_HISTORY_LIMIT = 8;
@@ -214,8 +210,6 @@ function setRecordsHelpAnswer(message = "") {
 function setAiSearchAnswer(message = "") {
   if (!aiSearchAnswer) return;
   renderAnswerMarkup(aiSearchAnswer, message);
-  lastAiAnswerRaw = String(message || "").trim();
-  show(aiAnswerActions, Boolean(lastAiAnswerRaw));
 }
 
 function applyInlineMarkdown(text) {
@@ -2757,32 +2751,6 @@ async function init() {
   searchModeKeywordButton?.addEventListener("click", () => setSearchMode("keyword"));
   searchModeAiButton?.addEventListener("click", () => setSearchMode("ai"));
   aiSearchSubmitButton?.addEventListener("click", handleAiSearchSubmit);
-  aiAnswerCopyButton?.addEventListener("click", async () => {
-    if (!lastAiAnswerRaw) return;
-    try {
-      await navigator.clipboard.writeText(lastAiAnswerRaw);
-      setStatus(docsStatus, "AI answer copied to clipboard.", "success");
-    } catch (_error) {
-      setStatus(docsStatus, "Unable to copy answer from this browser.", "error");
-    }
-  });
-  aiAnswerDownloadButton?.addEventListener("click", () => {
-    if (!lastAiAnswerRaw) return;
-    const organization = getActiveOrganization();
-    const stamp = new Date().toISOString().slice(0, 10);
-    const slug = (organization?.name || "library").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-    const fileName = `${slug || "library"}-ai-search-${stamp}.md`;
-    const blob = new Blob([lastAiAnswerRaw], { type: "text/markdown;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = fileName;
-    document.body.append(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
-    setStatus(docsStatus, "AI answer downloaded.", "success");
-  });
   searchQueryInput.addEventListener("input", () => {
     if (searchMode === "keyword") {
       renderDocuments();
