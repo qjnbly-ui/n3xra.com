@@ -1498,9 +1498,18 @@ textarea {
   white-space: pre-wrap;
 }
 
+.ai-search-sources-label {
+  margin: 0.35rem 0 0.05rem;
+  color: var(--teal);
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
 .search-row {
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) 180px auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   gap: 0.8rem;
   align-items: end;
 }

@@ -137,7 +137,9 @@ const inviteList = document.getElementById("invite-list");
 const memberList = document.getElementById("member-list");
 const memberStatus = document.getElementById("member-status");
 const uploadForm = document.getElementById("upload-form");
+const searchQueryLabel = document.getElementById("search-query-label");
 const searchQueryInput = document.getElementById("search-query");
+const searchYearField = document.getElementById("search-year-field");
 const searchYearSelect = document.getElementById("search-year");
 const searchResetButton = document.getElementById("search-reset");
 const searchModeKeywordButton = document.getElementById("search-mode-keyword");
@@ -1411,6 +1413,11 @@ function renderAiSearchMatches(matches = []) {
     return;
   }
 
+  const sourceLabel = document.createElement("p");
+  sourceLabel.className = "ai-search-sources-label";
+  sourceLabel.textContent = "Source files AI Search used";
+  docList.append(sourceLabel);
+
   matches.forEach((doc) => {
     const card = document.createElement("article");
     card.className = "doc-card ai-search-card";
@@ -1440,11 +1447,19 @@ function setSearchMode(mode) {
   searchModeKeywordButton?.setAttribute("aria-pressed", String(!isAiMode));
   searchModeAiButton?.setAttribute("aria-pressed", String(isAiMode));
   show(aiSearchSubmitButton, isAiMode);
+  show(searchYearField, !isAiMode);
+  show(searchResetButton, !isAiMode);
 
+  if (searchQueryLabel) {
+    searchQueryLabel.textContent = isAiMode ? "Ask AI about your files" : "Keyword or phrase";
+  }
   if (searchQueryInput) {
     searchQueryInput.placeholder = isAiMode
       ? "What files mention budget approvals or grant deadlines?"
       : "budget, grant, zoning, executive session";
+  }
+  if (isAiMode && searchYearSelect) {
+    searchYearSelect.value = "all";
   }
 
   setAiSearchAnswer("");
@@ -1488,7 +1503,7 @@ async function handleAiSearchSubmit() {
       body: JSON.stringify({
         question,
         organizationId: organization.id,
-        year: searchYearSelect.value || "all",
+        year: "all",
         context: {
           libraryName: organization.name || "",
           role: formatRoleLabel(getActiveRole()),
