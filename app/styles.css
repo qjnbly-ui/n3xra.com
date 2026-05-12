@@ -1456,6 +1456,20 @@ textarea {
   gap: 0.8rem;
 }
 
+#library-search-panel {
+  justify-items: center;
+}
+
+#library-search-panel .panel-head {
+  justify-content: center;
+  text-align: center;
+  width: 100%;
+}
+
+#library-search-panel .panel-head > div {
+  width: min(760px, 100%);
+}
+
 .search-mode-toggle {
   display: inline-grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1496,6 +1510,7 @@ textarea {
   color: var(--ink-soft);
   padding: 0.95rem 1rem;
   white-space: pre-wrap;
+  width: 100%;
 }
 
 .ai-search-sources-label {
@@ -1512,6 +1527,7 @@ textarea {
   grid-template-columns: minmax(0, 1fr) auto auto;
   gap: 0.8rem;
   align-items: end;
+  width: min(860px, 100%);
 }
 
 .doc-list,

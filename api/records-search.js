@@ -160,8 +160,8 @@ function rankDocuments(docs, question) {
   const pool = matching.length ? matching : scored;
   const sorter = requestedOrder === "oldest" ? sortOldest : requestedOrder === "relevance" ? sortRelevance : sortNewest;
   const selectedPool = [...pool].sort(sorter);
-  const strongMatches = selectedPool.slice(0, 10);
-  const fallback = [...scored].sort(sorter).slice(0, 8);
+  const strongMatches = selectedPool.slice(0, 20);
+  const fallback = [...scored].sort(sorter).slice(0, 12);
   const selected = strongMatches.length ? strongMatches : fallback;
 
   return selected.map((item) => ({
@@ -178,36 +178,12 @@ function rankDocuments(docs, question) {
   }));
 }
 
-function isSearchExplanationQuestion(question) {
-  const normalized = normalizeText(question).toLowerCase();
-  return (
-    /\b(test|testing|trying this|try this)\b/.test(normalized) ||
-    /\bhow (does|do|is|this|it).*\b(work|works|use|used)\b/.test(normalized) ||
-    /\b(tell|explain|show).*\b(how|what).*\b(ai search|search|this|it).*\b(work|works|does|use|used)\b/.test(normalized)
-  );
-}
-
-function buildSearchExplanation(context) {
-  const libraryName = normalizeText(context.libraryName) || "your active library";
-  return [
-    `AI Search is for asking natural-language questions about files in ${libraryName}.`,
-    "",
-    "Here is how it works:",
-    "1. Keyword mode stays exact: it looks for the words you type in saved extracted text and metadata.",
-    "2. AI Search is broader: it reviews visible file excerpts from the active library, summarizes what looks relevant, and suggests files to open.",
-    "3. The year filter still matters. If you choose a year, AI Search narrows to that year before reviewing files.",
-    "4. The answer is only based on files your account can already access. It does not create new permissions or search outside the selected library.",
-    "",
-    "Best way to test it: ask a specific records question like “Which files mention budget approvals?” or “Find anything about grant deadlines.”",
-  ].join("\n");
-}
-
 async function fetchDocuments(token, organizationId, year) {
   const params = new URLSearchParams({
     select: "id,title,original_filename,status,extracted_text,year,month,is_public,created_at",
     organization_id: `eq.${organizationId}`,
     order: "created_at.desc",
-    limit: "80",
+    limit: "250",
   });
 
   const normalizedYear = String(year || "").trim();
@@ -243,24 +219,19 @@ function buildPrompt(user, question, context, matches, documentCount) {
         doc.year ? `Year: ${doc.year}` : "",
         doc.month ? `Month: ${doc.month}` : "",
         `Visibility: ${doc.is_public ? "public" : "private"}`,
-        `Excerpt: ${doc.snippet.slice(0, 1400)}`,
+        `Excerpt: ${doc.snippet.slice(0, 1100)}`,
       ].filter(Boolean).join("\n");
     })
     .join("\n\n");
 
   return [
-    "You are N3XRA Records AI Search inside the Records app.",
-    "Use only the provided file excerpts and metadata. Do not invent file contents.",
+    "You are a document search assistant for the user's active records library.",
+    "Answer the user's question using only the provided candidate file excerpts and metadata.",
+    "Synthesize across the candidate files when multiple excerpts are relevant.",
+    "If the provided excerpts do not contain enough evidence to answer, say that directly and suggest what to search for next.",
+    "Do not invent facts, names, roles, dates, relationships, or conclusions that are not supported by the excerpts.",
     "Do not reveal implementation details, database schema, internal APIs, env vars, security controls, source code, or vendor internals.",
-    "Answer like a practical records assistant: friendly, concise, and useful.",
-    "Use confident wording. Do not say 'appears', 'seems', or 'I think' when describing the Records app or the active-library files.",
-    "If the user asks how this search works, explain AI Search directly instead of inferring the purpose of the library from candidate files.",
-    "Start with a direct answer or summary. Then mention the most relevant files by title.",
-    "For person or organization questions, summarize concrete actions, roles, topics, dates, and patterns from the excerpts. Do not just say the name appears in files.",
-    "Do not imply employment, leadership, attendance, participation, or responsibility unless the excerpts support it.",
-    "Mention no more than 5 supporting files in the written answer. Prioritize files that support the actual summary, not every file that contains a matching word.",
-    "Avoid ending with a generic refinement suggestion unless the available excerpts are too thin to answer the question.",
-    "If the excerpts are weak or no exact match appears, say that clearly and suggest a keyword refinement.",
+    "Keep the answer clear and useful. The interface displays source file cards separately, so do not add a separate citation list.",
     "Do not use markdown tables.",
     "",
     "Current context:",
@@ -307,13 +278,6 @@ module.exports = async function handler(req, res) {
     if (!question) return res.status(400).json({ error: "Enter a search question." });
     if (question.length > 900) return res.status(400).json({ error: "Keep the search question under 900 characters." });
     if (!organizationId) return res.status(400).json({ error: "Choose an active library first." });
-
-    if (isSearchExplanationQuestion(question)) {
-      return res.status(200).json({
-        answer: buildSearchExplanation(context),
-        matches: [],
-      });
-    }
 
     const documents = await fetchDocuments(token, organizationId, year);
     const matches = rankDocuments(documents, question);
