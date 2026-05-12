@@ -78,6 +78,37 @@ async function fetchSupabaseJson(url, options = {}) {
   return data;
 }
 
+function isLegacyDocumentUserColumnError(error) {
+  const message = String(error?.message || "").toLowerCase();
+  return (
+    (message.includes("user_id") && message.includes("not-null")) ||
+    message.includes('null value in column "user_id"') ||
+    (message.includes("uploaded_by_user_id") && message.includes("does not exist")) ||
+    (message.includes("uploaded_by_user_id") && message.includes("schema cache"))
+  );
+}
+
+async function writeDocumentWithUserFallback(url, options, payload, userId) {
+  try {
+    return await fetchSupabaseJson(url, {
+      ...options,
+      body: JSON.stringify({
+        ...payload,
+        uploaded_by_user_id: userId,
+      }),
+    });
+  } catch (error) {
+    if (!isLegacyDocumentUserColumnError(error)) throw error;
+    return fetchSupabaseJson(url, {
+      ...options,
+      body: JSON.stringify({
+        ...payload,
+        user_id: userId,
+      }),
+    });
+  }
+}
+
 async function verifyUser(token) {
   if (!token) throw new Error("Authentication required.");
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) throw new Error("Missing Supabase auth config.");
@@ -238,7 +269,6 @@ async function uploadTranscriptDocument(recording, user, transcriptText) {
 
   const documentPayload = {
     organization_id: recording.organization_id,
-    uploaded_by_user_id: user.id,
     title,
     original_filename: fileName,
     storage_path: storagePath,
@@ -262,22 +292,27 @@ async function uploadTranscriptDocument(recording, user, transcriptText) {
   }
 
   if (existingDocumentId) {
-    const rows = await fetchSupabaseJson(
+    const rows = await writeDocumentWithUserFallback(
       `${SUPABASE_URL}/rest/v1/documents?id=eq.${encodeFilter(existingDocumentId)}`,
       {
         method: "PATCH",
         headers: serviceHeaders({ Prefer: "return=representation" }),
-        body: JSON.stringify(documentPayload),
-      }
+      },
+      documentPayload,
+      user.id
     );
     return Array.isArray(rows) ? rows[0] || null : null;
   }
 
-  const rows = await fetchSupabaseJson(`${SUPABASE_URL}/rest/v1/documents`, {
-    method: "POST",
-    headers: serviceHeaders({ Prefer: "return=representation" }),
-    body: JSON.stringify(documentPayload),
-  });
+  const rows = await writeDocumentWithUserFallback(
+    `${SUPABASE_URL}/rest/v1/documents`,
+    {
+      method: "POST",
+      headers: serviceHeaders({ Prefer: "return=representation" }),
+    },
+    documentPayload,
+    user.id
+  );
   return Array.isArray(rows) ? rows[0] || null : null;
 }
 
