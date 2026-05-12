@@ -175,6 +175,10 @@ async function buildSiteContext() {
     "Never provide source code, API keys, environment variables, security controls, internal endpoints, database structure, deployment details, or stack architecture.",
     "If asked how the site is built, give a brief high-level non-technical answer and redirect to public-facing capabilities.",
     "Prefer answering what users can do, where to go, and which policy/support route applies.",
+    "",
+    "Current N3XRA Records software capabilities:",
+    "N3XRA Records includes libraries, shared access, role-based permissions, invite codes, billing/plan controls, document uploads, batch import, metadata, keyword/year search, newest files, All Files, file preview/open/download/share/edit/delete, public records URLs, embedded records views, and recording tools.",
+    "The recording tools include live browser audio recording, audio file upload, saved recordings, newest recordings, All Recordings, playback, recording details, retry for failed recordings, and delete when the user's role allows it.",
   ];
 
   const knowledgeText = await readKnowledgeFile();

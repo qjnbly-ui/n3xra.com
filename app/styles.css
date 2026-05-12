@@ -998,6 +998,10 @@ textarea {
   gap: 0.8rem;
 }
 
+#account-library-card .account-list {
+  grid-template-columns: 1.3fr 1fr 1fr;
+}
+
 .account-item {
   display: grid;
   gap: 0.2rem;
@@ -2182,6 +2186,10 @@ code.inline {
   .billing-meta-grid,
   .current-plan-card,
   .embed-access-card {
+    grid-template-columns: 1fr;
+  }
+
+  #account-library-card .account-list {
     grid-template-columns: 1fr;
   }
 

@@ -426,6 +426,18 @@
       white-space: pre-wrap;
     }
 
+    .ask-answer a {
+      color: inherit;
+      font-weight: 800;
+      text-decoration: none;
+      border-bottom: 1px solid rgba(18, 60, 49, 0.28);
+    }
+
+    .ask-answer a:hover,
+    .ask-answer a:focus-visible {
+      border-bottom-color: currentColor;
+    }
+
     .section {
       padding: clamp(3rem, 7vw, 5.5rem) 0;
     }
@@ -1062,6 +1074,7 @@
         </div>
 
         <div class="ask-shell">
+          <p class="ask-answer" id="ask-answer" hidden></p>
           <div class="ask-grid">
             <form class="ask-form" id="ask-form">
               <label for="ask-input">Your question</label>
@@ -1072,7 +1085,6 @@
               <p class="ask-status" id="ask-status" role="status" aria-live="polite"></p>
             </form>
           </div>
-          <p class="ask-answer" id="ask-answer" hidden></p>
         </div>
       </div>
     </section>
@@ -1114,13 +1126,13 @@
           /\b(https?:\/\/[^\s<]+)/gi,
           '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>'
         );
-        html = html.replace(/(^|[\s(])\/software\b/gi, "$1<strong>Software</strong>");
-        html = html.replace(/(^|[\s(])\/services\b/gi, "$1<strong>Services</strong>");
-        html = html.replace(/(^|[\s(])\/projects\b/gi, "$1<strong>Projects</strong>");
-        html = html.replace(/(^|[\s(])\/support\b/gi, "$1<strong>Support</strong>");
-        html = html.replace(/(^|[\s(])\/terms\b/gi, "$1<strong>Terms</strong>");
-        html = html.replace(/(^|[\s(])\/privacy\b/gi, "$1<strong>Privacy</strong>");
-        html = html.replace(/(^|[\s(])\/ai-music-generator\b/gi, "$1<strong>AI Music Generator</strong>");
+        html = html.replace(/(^|[\s(])\/ai-music-generator\/?(?=[\s).,!?;:]|$)/gi, '$1<a class="ask-route-link" href="/ai-music-generator/">AI Music Generator</a>');
+        html = html.replace(/(^|[\s(])\/software\/?(?=[\s).,!?;:]|$)/gi, '$1<a class="ask-route-link" href="/software/">N3XRA Records</a>');
+        html = html.replace(/(^|[\s(])\/services\/?(?=[\s).,!?;:]|$)/gi, '$1<a class="ask-route-link" href="/services/">Services</a>');
+        html = html.replace(/(^|[\s(])\/projects\/?(?=[\s).,!?;:]|$)/gi, '$1<a class="ask-route-link" href="/projects/">Projects</a>');
+        html = html.replace(/(^|[\s(])\/support\/?(?=[\s).,!?;:]|$)/gi, '$1<a class="ask-route-link" href="/support/">Support</a>');
+        html = html.replace(/(^|[\s(])\/terms\/?(?=[\s).,!?;:]|$)/gi, '$1<a class="ask-route-link" href="/terms/">Terms</a>');
+        html = html.replace(/(^|[\s(])\/privacy\/?(?=[\s).,!?;:]|$)/gi, '$1<a class="ask-route-link" href="/privacy/">Privacy</a>');
         html = html.replace(/\n/g, "<br>");
         return html;
       }
