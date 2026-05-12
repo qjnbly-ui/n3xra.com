@@ -58,6 +58,19 @@ function normalizeText(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
 }
 
+function sanitizeExtractedText(value) {
+  const raw = String(value || "");
+  if (!raw) return "";
+  const rawTagHits = (raw.match(/<w:[a-z0-9]+/gi) || []).length;
+  if (rawTagHits < 4) return normalizeText(raw);
+  const stripped = raw
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&(?:lt|gt|amp|quot|apos);/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return normalizeText(stripped);
+}
+
 function normalizeHistory(input) {
   if (!Array.isArray(input)) return [];
   return input
@@ -128,7 +141,7 @@ function rankDocuments(docs, question) {
   const terms = tokenize(question);
   const scored = docs.map((doc) => {
     const title = `${doc.title || ""} ${doc.original_filename || ""}`.toLowerCase();
-    const text = String(doc.extracted_text || "").toLowerCase();
+    const text = sanitizeExtractedText(doc.extracted_text || "").toLowerCase();
     let relevance = terms.reduce((sum, term) => {
       const inTitle = countTermMatches(title, term) * 8;
       const inText = Math.min(countTermMatches(text, term), 10);
@@ -163,7 +176,7 @@ function rankDocuments(docs, question) {
     is_public: Boolean(item.doc.is_public),
     created_at: item.doc.created_at || "",
     relevance: item.relevance,
-    snippet: normalizeText(item.doc.extracted_text || "").slice(0, MAX_DOC_SNIPPET_CHARS),
+    snippet: sanitizeExtractedText(item.doc.extracted_text || "").slice(0, MAX_DOC_SNIPPET_CHARS),
   }));
 }
 

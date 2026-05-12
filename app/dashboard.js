@@ -383,6 +383,18 @@ function cleanWhitespace(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
 }
 
+function sanitizeExtractedText(value) {
+  const raw = String(value || "");
+  if (!raw) return "";
+  const xmlTagHits = (raw.match(/<w:[a-z0-9]+/gi) || []).length;
+  if (xmlTagHits < 4) return cleanWhitespace(raw);
+  return cleanWhitespace(
+    raw
+      .replace(/<[^>]+>/g, " ")
+      .replace(/&(?:lt|gt|amp|quot|apos);/gi, " ")
+  );
+}
+
 function decodeXmlEntities(value) {
   return value
     .replaceAll("&amp;", "&")
@@ -819,23 +831,24 @@ async function extractTextFromFile(file) {
 }
 
 function snippetFromText(text, query) {
-  if (!text) return "No extracted text yet.";
-  if (!query) return `${text.slice(0, 220).trim()}${text.length > 220 ? "..." : ""}`;
+  const safeText = sanitizeExtractedText(text);
+  if (!safeText) return "No extracted text yet.";
+  if (!query) return `${safeText.slice(0, 220).trim()}${safeText.length > 220 ? "..." : ""}`;
 
-  const lower = text.toLowerCase();
+  const lower = safeText.toLowerCase();
   const q = query.toLowerCase();
   const index = lower.indexOf(q);
-  if (index === -1) return `${text.slice(0, 220).trim()}${text.length > 220 ? "..." : ""}`;
+  if (index === -1) return `${safeText.slice(0, 220).trim()}${safeText.length > 220 ? "..." : ""}`;
 
   const start = Math.max(0, index - 80);
-  const end = Math.min(text.length, index + q.length + 120);
-  const snippet = text.slice(start, end).trim();
+  const end = Math.min(safeText.length, index + q.length + 120);
+  const snippet = safeText.slice(start, end).trim();
   const relativeIndex = index - start;
   const before = escapeHtml(snippet.slice(0, relativeIndex));
   const match = escapeHtml(snippet.slice(relativeIndex, relativeIndex + q.length));
   const after = escapeHtml(snippet.slice(relativeIndex + q.length));
   const prefix = start > 0 ? "... " : "";
-  const suffix = end < text.length ? " ..." : "";
+  const suffix = end < safeText.length ? " ..." : "";
   return `${prefix}${before}<mark>${match}</mark>${after}${suffix}`;
 }
 
@@ -1420,7 +1433,7 @@ function renderDocuments() {
   const filtered = documentsCache.filter((doc) => {
     const yearMatch = selectedYear === "all" || String(doc.year || "") === selectedYear;
     if (!yearMatch) return false;
-    const haystack = `${doc.title || ""} ${doc.original_filename || ""} ${doc.extracted_text || ""}`.toLowerCase();
+    const haystack = `${doc.title || ""} ${doc.original_filename || ""} ${sanitizeExtractedText(doc.extracted_text || "")}`.toLowerCase();
     return haystack.includes(query);
   });
 
