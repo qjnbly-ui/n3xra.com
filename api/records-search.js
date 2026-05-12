@@ -39,8 +39,60 @@ const STOP_WORDS = new Set([
   "when",
   "where",
   "which",
+  "who",
   "with",
   "you",
+]);
+
+const ROLE_LIST_TERMS = [
+  "account administrators",
+  "account admins",
+  "administrators",
+  "admins",
+  "board members",
+  "board member",
+  "committee members",
+  "committee member",
+  "directors",
+  "director",
+  "members",
+  "member",
+  "officers",
+  "officer",
+  "owners",
+  "owner",
+  "president",
+  "secretary",
+  "treasurer",
+  "trustees",
+  "trustee",
+  "vice president",
+];
+
+const NAME_PREFIX_BLOCKLIST = new Set([
+  "A",
+  "Active",
+  "AI",
+  "All",
+  "Candidate",
+  "Current",
+  "File",
+  "For",
+  "Good",
+  "I",
+  "If",
+  "More",
+  "N3XRA",
+  "No",
+  "Question",
+  "Records",
+  "Source",
+  "The",
+  "This",
+  "Use",
+  "User",
+  "Visible",
+  "What",
 ]);
 
 function parseJson(req) {
@@ -93,6 +145,18 @@ function normalizeText(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
 }
 
+function escapeRegExp(value) {
+  return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function termRegExp(term) {
+  return new RegExp(`\\b${escapeRegExp(term)}\\b`, "i");
+}
+
+function containsTerm(value, term) {
+  return termRegExp(term).test(String(value || ""));
+}
+
 function tokenize(value) {
   return normalizeText(value)
     .toLowerCase()
@@ -107,11 +171,10 @@ function getDocumentTitle(doc) {
 
 function countMatches(haystack, needle) {
   if (!haystack || !needle) return 0;
+  const matcher = new RegExp(`\\b${escapeRegExp(needle)}\\b`, "gi");
   let count = 0;
-  let index = haystack.indexOf(needle);
-  while (index !== -1 && count < 10) {
+  while (matcher.exec(haystack) && count < 10) {
     count += 1;
-    index = haystack.indexOf(needle, index + needle.length);
   }
   return count;
 }
@@ -120,7 +183,7 @@ function scoreDocument(doc, terms) {
   const title = `${doc.title || ""} ${doc.original_filename || ""}`.toLowerCase();
   const body = String(doc.extracted_text || "").toLowerCase();
   return terms.reduce((score, term) => {
-    const titleScore = title.includes(term) ? 8 : 0;
+    const titleScore = containsTerm(title, term) ? 8 : 0;
     const bodyScore = Math.min(countMatches(body, term), 5);
     return score + titleScore + bodyScore;
   }, 0);
@@ -136,6 +199,68 @@ function getRequestedOrder(question) {
   if (/\b(newest|latest|recent|most recent)\b/.test(normalized)) return "newest";
   if (/\b(oldest|earliest|first|chronological|from the beginning)\b/.test(normalized)) return "oldest";
   return "relevance";
+}
+
+function isRoleListQuestion(question) {
+  const normalized = normalizeText(question).toLowerCase();
+  return /\b(who|which|list|name|identify)\b/.test(normalized) &&
+    ROLE_LIST_TERMS.some((term) => containsTerm(normalized, term));
+}
+
+function getFactQuestionType(question) {
+  const normalized = normalizeText(question).toLowerCase();
+  if (isRoleListQuestion(normalized)) return "role_list";
+  if (/\b(who|which|list|name|identify)\b/.test(normalized)) return "identity";
+  if (/\b(when|date|month|year|timeline|deadline)\b/.test(normalized)) return "date";
+  if (/\b(how many|how much|amount|cost|price|budget|total|percent|percentage|number)\b/.test(normalized)) return "quantity";
+  if (/\b(approved|denied|decided|decision|vote|voted|passed|motion|status|outcome)\b/.test(normalized)) return "decision";
+  return "general";
+}
+
+function getRequestedRoleTerms(question) {
+  const normalized = normalizeText(question).toLowerCase();
+  return ROLE_LIST_TERMS
+    .filter((term) => containsTerm(normalized, term))
+    .sort((a, b) => b.length - a.length);
+}
+
+function expandRoleEvidenceTerms(terms) {
+  const expanded = new Set(terms);
+  terms.forEach((term) => {
+    if (term.endsWith("s")) expanded.add(term.slice(0, -1));
+    if (!term.endsWith("s")) expanded.add(`${term}s`);
+  });
+  return Array.from(expanded);
+}
+
+function hasExplicitRoleEvidence(question, matches, context) {
+  if (!isRoleListQuestion(question)) return true;
+  const requestedTerms = getRequestedRoleTerms(question);
+  if (!requestedTerms.length) return false;
+  const specificRequestedTerms = requestedTerms.filter((term) => term.includes(" "));
+  const evidenceTerms = expandRoleEvidenceTerms(specificRequestedTerms.length ? specificRequestedTerms : requestedTerms);
+  const evidence = buildEvidenceText(matches, context);
+  return evidenceTerms.some((term) => containsTerm(evidence, term));
+}
+
+function getQuestionGuidance(question) {
+  const questionType = getFactQuestionType(question);
+  const baseGuidance = [
+    `Question type: ${questionType}.`,
+    "Evidence standard: answer only with facts that are directly supported by the candidate file text or metadata.",
+    "Do not use outside knowledge, likely assumptions, memory, or plausible completions.",
+  ];
+
+  if (questionType !== "role_list") return baseGuidance;
+
+  return [
+    ...baseGuidance,
+    "For role/list questions, only list a person or organization when an excerpt explicitly connects them to the requested role, title, group, or membership.",
+    "Do not infer someone is a board member, officer, director, owner, admin, or member just because they attended, spoke, voted, made a motion, was thanked, volunteered, donated, or appeared near a related word.",
+    "Copy names exactly as written in the excerpts. Never correct, approximate, rename, or substitute a person's name.",
+    "Separate confirmed people from ambiguous mentions when needed.",
+    "If the excerpts only show attendance or participation, say the excerpts do not explicitly identify the requested role list.",
+  ];
 }
 
 function getAiSearchIntent(question) {
@@ -233,9 +358,10 @@ function makeSnippet(text, terms) {
   const clean = normalizeText(text);
   if (!clean) return "No extracted text is available for this file yet.";
   const lower = clean.toLowerCase();
-  const match = terms.find((term) => lower.includes(term));
+  const match = terms.find((term) => containsTerm(lower, term));
   if (!match) return `${clean.slice(0, 260)}${clean.length > 260 ? "..." : ""}`;
-  const index = lower.indexOf(match);
+  const matchResult = termRegExp(match).exec(lower);
+  const index = matchResult?.index ?? lower.indexOf(match);
   const start = Math.max(0, index - 90);
   const end = Math.min(clean.length, index + match.length + 190);
   return `${start > 0 ? "... " : ""}${clean.slice(start, end)}${end < clean.length ? " ..." : ""}`;
@@ -333,6 +459,8 @@ function buildPrompt(user, question, context, matches, documentCount) {
     "Synthesize across candidate files when multiple excerpts are relevant. Do not rely on only one excerpt when several excerpts address the same question.",
     "If the provided excerpts do not contain enough evidence to answer, say that directly and suggest a better records search.",
     "Do not invent facts, names, roles, dates, relationships, or conclusions that are not supported by the excerpts.",
+    "Every person name in the answer must appear exactly in the candidate files below.",
+    "Never change the spelling of a name from the excerpts.",
     "Do not reveal implementation details, database schema, internal APIs, env vars, security controls, source code, or vendor internals.",
     "Avoid weak phrasing like 'appears to be' unless the evidence is genuinely uncertain.",
     "Keep the answer clear and useful. The interface displays source file cards separately, so do not add a separate citation list or repeat every source filename.",
@@ -346,11 +474,99 @@ function buildPrompt(user, question, context, matches, documentCount) {
     `Source file order: ${getRequestedOrder(question)}`,
     `Visible documents considered: ${documentCount}`,
     "",
+    "Question guidance:",
+    ...getQuestionGuidance(question),
+    "",
     `User question: ${question}`,
     "",
     "Candidate files:",
     docs || "No files were available for this search.",
   ].join("\n");
+}
+
+function buildEvidenceText(matches, context = {}) {
+  const evidence = matches
+    .map((doc) => [
+      doc.title,
+      doc.original_filename,
+      doc.year,
+      doc.month,
+      doc.snippet,
+    ].filter(Boolean).join(" "))
+    .join("\n");
+
+  return [
+    context.libraryName,
+    context.role,
+    context.year,
+    evidence,
+  ].filter(Boolean).join("\n");
+}
+
+function extractNameCandidates(text) {
+  const matches = String(text || "").match(/\b[A-Z][a-z]+(?:\s+(?:[A-Z][a-z]+|[A-Z]\.)){1,3}\b/g) || [];
+  return Array.from(new Set(matches.map((name) => normalizeText(name)).filter((name) => {
+    const first = name.split(/\s+/)[0];
+    return !NAME_PREFIX_BLOCKLIST.has(first);
+  })));
+}
+
+function extractYearCandidates(text) {
+  return Array.from(new Set(String(text || "").match(/\b(?:19|20)\d{2}\b/g) || []));
+}
+
+function extractMoneyAndPercentCandidates(text) {
+  return Array.from(new Set(String(text || "").match(/\$\s?\d[\d,]*(?:\.\d+)?|\b\d+(?:\.\d+)?\s?%/g) || []));
+}
+
+function valuesNotInEvidence(values, evidenceText) {
+  const evidence = ` ${normalizeText(evidenceText).toLowerCase()} `;
+  return values.filter((value) => {
+    const normalizedValue = normalizeText(value).toLowerCase();
+    return normalizedValue && !evidence.includes(normalizedValue);
+  });
+}
+
+function getUnsupportedFacts(answer, evidenceText) {
+  return {
+    names: valuesNotInEvidence(extractNameCandidates(answer), evidenceText),
+    years: valuesNotInEvidence(extractYearCandidates(answer), evidenceText),
+    amounts: valuesNotInEvidence(extractMoneyAndPercentCandidates(answer), evidenceText),
+  };
+}
+
+function hasUnsupportedFacts(result) {
+  return Boolean(result?.names?.length || result?.years?.length || result?.amounts?.length);
+}
+
+function formatUnsupportedFacts(result) {
+  return [
+    result.names?.length ? `names: ${result.names.join(", ")}` : "",
+    result.years?.length ? `years: ${result.years.join(", ")}` : "",
+    result.amounts?.length ? `amounts: ${result.amounts.join(", ")}` : "",
+  ].filter(Boolean).join("; ");
+}
+
+function mergeUsage(a, b) {
+  return {
+    promptTokens: Math.max(0, Number(a?.promptTokens || 0)) + Math.max(0, Number(b?.promptTokens || 0)),
+    completionTokens: Math.max(0, Number(a?.completionTokens || 0)) + Math.max(0, Number(b?.completionTokens || 0)),
+    totalTokens: Math.max(0, Number(a?.totalTokens || 0)) + Math.max(0, Number(b?.totalTokens || 0)),
+  };
+}
+
+function buildUnsupportedFactFallback(question) {
+  if (isRoleListQuestion(question)) {
+    return [
+      "I cannot confirm a complete role list from the provided excerpts without risking an incorrect name.",
+      "",
+      "For this kind of question, I need the records to explicitly label people with the requested role, such as board member, officer, president, secretary, treasurer, director, or committee member.",
+      "",
+      "Try a narrower search such as \"board members\", \"officers\", \"president\", \"secretary\", or \"treasurer\" so the source files can be reviewed more directly.",
+    ].join("\n");
+  }
+
+  return "I found potentially relevant files, but I cannot safely answer without risking unsupported facts. Try a more specific search using the exact name, role, date, amount, or topic you want confirmed.";
 }
 
 module.exports = async function handler(req, res) {
@@ -403,8 +619,21 @@ module.exports = async function handler(req, res) {
       });
     }
 
+    if (!hasExplicitRoleEvidence(question, matches, { ...context, year })) {
+      return res.status(200).json({
+        answer: buildUnsupportedFactFallback(question),
+        matches: [],
+        showSources: false,
+      });
+    }
+
     const usageContext = await prepareRecordsAiUsage({ organizationId, user });
     const prompt = buildPrompt(user, question, { ...context, year }, matches, documents.length);
+    const evidenceText = buildEvidenceText(matches, { ...context, year });
+    const messages = [
+      { role: "system", content: "You are N3XRA Records AI Search. Follow the user's instructions using only the provided Records file context." },
+      { role: "user", content: prompt },
+    ];
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -415,10 +644,7 @@ module.exports = async function handler(req, res) {
         model: RECORDS_SEARCH_MODEL,
         temperature: 0.2,
         max_tokens: 650,
-        messages: [
-          { role: "system", content: "You are N3XRA Records AI Search. Follow the user's instructions using only the provided Records file context." },
-          { role: "user", content: prompt },
-        ],
+        messages,
       }),
     });
 
@@ -427,9 +653,52 @@ module.exports = async function handler(req, res) {
       return res.status(502).json({ error: String(data?.error?.message || data?.message || "Unable to reach Records AI Search.") });
     }
 
-    const answer = String(data?.choices?.[0]?.message?.content || "").trim();
+    let answer = String(data?.choices?.[0]?.message?.content || "").trim();
     if (!answer) return res.status(502).json({ error: "Records AI Search returned an empty answer." });
-    const usage = normalizeGroqUsage(data, prompt, answer);
+    let usage = normalizeGroqUsage(data, prompt, answer);
+    let unsupportedFacts = getUnsupportedFacts(answer, evidenceText);
+
+    if (hasUnsupportedFacts(unsupportedFacts)) {
+      const correctionPrompt = [
+        "Rewrite the previous answer.",
+        `The previous answer included facts that do not appear exactly in the provided excerpts or metadata: ${formatUnsupportedFacts(unsupportedFacts)}.`,
+        "Remove unsupported names, years, dates, amounts, percentages, and role claims.",
+        "Use only facts that appear directly in the excerpts or metadata.",
+        "If the excerpts do not explicitly support the requested answer, say that clearly instead of guessing.",
+      ].join("\n");
+      const correctionMessages = [
+        ...messages,
+        { role: "assistant", content: answer },
+        { role: "user", content: correctionPrompt },
+      ];
+      const correctionResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${groqApiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: RECORDS_SEARCH_MODEL,
+          temperature: 0,
+          max_tokens: 520,
+          messages: correctionMessages,
+        }),
+      });
+      const correctionData = await correctionResponse.json().catch(() => ({}));
+      if (correctionResponse.ok) {
+        const correctedAnswer = String(correctionData?.choices?.[0]?.message?.content || "").trim();
+        if (correctedAnswer) {
+          answer = correctedAnswer;
+          usage = mergeUsage(usage, normalizeGroqUsage(correctionData, correctionMessages.map((item) => item.content).join("\n\n"), answer));
+        }
+      }
+
+      unsupportedFacts = getUnsupportedFacts(answer, evidenceText);
+      if (hasUnsupportedFacts(unsupportedFacts)) {
+        answer = buildUnsupportedFactFallback(question);
+      }
+    }
+
     const recorded = await recordRecordsAiUsage({
       usageContext,
       user,
