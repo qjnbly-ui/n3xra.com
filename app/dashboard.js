@@ -295,10 +295,15 @@ function renderAnswerMarkup(container, message = "") {
       if (tableRows.length) flushTable();
       const pipeIndex = value.indexOf("|");
       const headingPart = value.slice(0, pipeIndex).trim();
-      const tablePart = `|${value.slice(pipeIndex + 1).trim()}`;
+      let tablePart = `|${value.slice(pipeIndex + 1).trim()}`;
       if (headingPart) {
         const level = Math.min(3, headingPart.match(/^#+/)[0].length);
         html.push(`<h${level + 2} class="ai-answer-heading">${applyInlineMarkdown(headingPart.replace(/^#{1,3}\s+/, ""))}</h${level + 2}>`);
+      }
+      const headingLabel = headingPart.replace(/^#{1,3}\s+/, "").trim().toLowerCase();
+      const cells = parseTableRow(tablePart);
+      if (cells && cells.length > 1 && headingLabel.endsWith("table") && String(cells[0] || "").trim().toLowerCase() === "table") {
+        tablePart = `| ${cells.slice(1).join(" | ")} |`;
       }
       if (tablePart.includes("|")) tableRows.push(tablePart);
       return;
