@@ -107,14 +107,6 @@
               </div>
             </div>
             <div class="account-list">
-              <div class="account-item">
-                <span class="account-label">Library</span>
-                <p class="account-value" id="account-organization">-</p>
-              </div>
-              <div class="account-item">
-                <span class="account-label">Role</span>
-                <p class="account-value" id="account-role">-</p>
-              </div>
               <div class="account-item" id="account-tier-item">
                 <span class="account-label">Plan</span>
                 <p class="account-value" id="account-tier">Free</p>
@@ -127,27 +119,26 @@
           </section>
 
           <section class="account-card records-help-card" id="records-help-card">
-            <div class="panel-head">
+            <button class="section-toggle records-help-toggle" id="records-help-toggle" type="button" aria-expanded="false" aria-controls="records-help-body">
               <div>
-                <h3>Records Help</h3>
+                <h3>Need help?</h3>
+                <p>Ask any question to our AI.</p>
               </div>
+              <span class="section-toggle-indicator" aria-hidden="true">+</span>
+            </button>
+            <div class="stack hidden" id="records-help-body">
+              <form class="records-help-form" id="records-help-form">
+                <div class="field">
+                  <label for="records-help-question">Question</label>
+                  <textarea id="records-help-question" maxlength="900" placeholder="Ask about invite roles, uploads, search, billing, or public records."></textarea>
+                </div>
+                <div class="actions">
+                  <button class="btn" id="records-help-submit" type="submit">Ask Records AI</button>
+                </div>
+                <p class="status" id="records-help-status"></p>
+              </form>
+              <div class="records-help-answer hidden" id="records-help-answer"></div>
             </div>
-            <form class="records-help-form" id="records-help-form">
-              <div class="field">
-                <label for="records-help-question">Question</label>
-                <textarea id="records-help-question" maxlength="900" placeholder="Ask about invite roles, uploads, search, billing, or public records."></textarea>
-              </div>
-              <div class="records-help-prompts" aria-label="Suggested questions">
-                <button class="btn secondary" type="button" data-records-help-prompt="What is the difference between Viewer, Editor, Account Admin, and Owner?">Roles</button>
-                <button class="btn secondary" type="button" data-records-help-prompt="How should I set up an invite code for someone?">Invite codes</button>
-                <button class="btn secondary" type="button" data-records-help-prompt="How do public records and embedded records work?">Public records</button>
-              </div>
-              <div class="actions">
-                <button class="btn" id="records-help-submit" type="submit">Ask Records AI</button>
-              </div>
-              <p class="status" id="records-help-status"></p>
-            </form>
-            <div class="records-help-answer hidden" id="records-help-answer"></div>
           </section>
 
           <section class="account-card" id="billing-section">

@@ -92,13 +92,13 @@ const uploadModal = document.getElementById("upload-modal");
 const uploadModalClose = document.getElementById("upload-modal-close");
 const accountName = document.getElementById("account-name");
 const accountEmail = document.getElementById("account-email");
-const accountOrganization = document.getElementById("account-organization");
-const accountRole = document.getElementById("account-role");
 const accountTierItem = document.getElementById("account-tier-item");
 const accountTier = document.getElementById("account-tier");
 const accountStatusItem = document.getElementById("account-status-item");
 const accountStatus = document.getElementById("account-status");
 const recordsHelpForm = document.getElementById("records-help-form");
+const recordsHelpToggle = document.getElementById("records-help-toggle");
+const recordsHelpBody = document.getElementById("records-help-body");
 const recordsHelpQuestion = document.getElementById("records-help-question");
 const recordsHelpSubmit = document.getElementById("records-help-submit");
 const recordsHelpStatus = document.getElementById("records-help-status");
@@ -1234,10 +1234,6 @@ function renderProfile() {
 
   accountName.textContent = currentProfile?.full_name || currentSession?.user?.email || "-";
   accountEmail.textContent = currentSession?.user?.email || currentProfile?.email || "-";
-  accountOrganization.textContent = organization?.name || "No active library";
-  accountRole.textContent = hasLibraryAccess
-    ? (isSupportView() ? "n3xra.com Support View" : formatRoleLabel(getActiveRole()))
-    : "No library access";
   accountTier.textContent = organization ? formatPlanName(organization.subscription_tier || "free") : "-";
   accountStatus.textContent = organization
     ? (organization.cancel_at_period_end
@@ -2225,14 +2221,8 @@ async function init() {
   profileSettingsToggle.addEventListener("click", () => setProfileSettingsOpen(!profileSettingsModal.classList.contains("is-open")));
   profileSettingsClose.addEventListener("click", () => setProfileSettingsOpen(false));
   profileForm.addEventListener("submit", handleProfileSave);
+  recordsHelpToggle?.addEventListener("click", () => setSectionToggleOpen(recordsHelpToggle, recordsHelpBody, recordsHelpBody.classList.contains("hidden")));
   recordsHelpForm?.addEventListener("submit", handleRecordsHelpSubmit);
-  document.querySelectorAll("[data-records-help-prompt]").forEach((button) => {
-    button.addEventListener("click", () => {
-      if (!recordsHelpQuestion) return;
-      recordsHelpQuestion.value = button.getAttribute("data-records-help-prompt") || "";
-      handleRecordsHelpSubmit();
-    });
-  });
   organizationSettingsForm.addEventListener("submit", handleOrganizationSettingsSave);
   redeemInviteToggle.addEventListener("click", () => setSectionToggleOpen(redeemInviteToggle, redeemInviteBody, redeemInviteBody.classList.contains("hidden")));
   inviteManagementToggle.addEventListener("click", () => setSectionToggleOpen(inviteManagementToggle, inviteManagementBody, inviteManagementBody.classList.contains("hidden")));
