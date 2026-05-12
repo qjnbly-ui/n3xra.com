@@ -272,6 +272,12 @@ function rowLooksLikeYearValueRow(row) {
   return /^\d{4}(?:\s*(?:-|to|and)\s*\d{4}| and beyond)?$/i.test(String(row[0] || "").trim());
 }
 
+function rowStartsWithMonthLikeValue(row) {
+  if (!Array.isArray(row) || !row.length) return false;
+  const value = String(row[0] || "").trim().toLowerCase();
+  return /^(jan|january|feb|february|mar|march|apr|april|may|jun|june|jul|july|aug|august|sep|sept|september|oct|october|nov|november|dec|december)\b/.test(value);
+}
+
 function trimTrailingSparseColumns(header, rows) {
   let nextHeader = [...header];
   let nextRows = rows.map((row) => [...row]);
@@ -335,7 +341,17 @@ function renderAnswerMarkup(container, message = "") {
       const majorityYearLike = bodyRows.length
         ? bodyRows.filter((row) => rowLooksLikeYearValueRow(row)).length / bodyRows.length
         : 0;
-      if (majorityYearLike >= 0.6) {
+      const majorityMonthLike = bodyRows.length
+        ? bodyRows.filter((row) => rowStartsWithMonthLikeValue(row)).length / bodyRows.length
+        : 0;
+
+      if (majorityMonthLike >= 0.6) {
+        // Pattern: [long sentence | Month | Event] with rows [Month | Event | optional note]
+        // Keep row cells intact and rebuild a sane header.
+        const second = String(header[1] || "").trim() || "Month";
+        const third = String(header[2] || "").trim() || "Event";
+        header = [second, third, "Notes"];
+      } else if (majorityYearLike >= 0.6) {
         header = header.slice(1);
         bodyRows = bodyRows.map((row) => (row && row.length ? row.slice(0, header.length) : row));
       }
