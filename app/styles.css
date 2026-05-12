@@ -1002,6 +1002,25 @@ textarea {
   grid-template-columns: 1.3fr 1fr 1fr;
 }
 
+#library-settings-card,
+#billing-section {
+  align-content: start;
+}
+
+#library-settings-card {
+  gap: 0.75rem;
+}
+
+#billing-section .panel-head {
+  margin-bottom: 0;
+}
+
+#library-settings-card .actions:has(.hidden:only-child),
+#library-settings-card .status:empty,
+#billing-section > .status:empty {
+  display: none;
+}
+
 .account-item {
   display: grid;
   gap: 0.2rem;
