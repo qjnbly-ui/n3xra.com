@@ -146,6 +146,9 @@ const searchModeKeywordButton = document.getElementById("search-mode-keyword");
 const searchModeAiButton = document.getElementById("search-mode-ai");
 const aiSearchSubmitButton = document.getElementById("ai-search-submit");
 const aiSearchAnswer = document.getElementById("ai-search-answer");
+const aiAnswerActions = document.getElementById("ai-answer-actions");
+const aiAnswerCopyButton = document.getElementById("ai-answer-copy");
+const aiAnswerDownloadButton = document.getElementById("ai-answer-download");
 const uploadMetadataGrid = document.getElementById("upload-metadata-grid");
 const uploadTitleInput = document.getElementById("upload-title");
 const uploadTitleField = document.getElementById("upload-title-field");
@@ -182,6 +185,8 @@ let uploadMode = "single";
 let selectedBillingCycle = "monthly";
 const libraryAiSearchHistory = [];
 const LIBRARY_AI_SEARCH_HISTORY_LIMIT = 8;
+let lastAiAnswerRaw = "";
+let lastAiSearchMatches = [];
 const recordsHelpHistory = [];
 const RECORDS_HELP_HISTORY_LIMIT = 8;
 function getInitialSection() {
@@ -209,6 +214,8 @@ function setRecordsHelpAnswer(message = "") {
 function setAiSearchAnswer(message = "") {
   if (!aiSearchAnswer) return;
   renderAnswerMarkup(aiSearchAnswer, message);
+  lastAiAnswerRaw = String(message || "").trim();
+  show(aiAnswerActions, Boolean(lastAiAnswerRaw));
 }
 
 function applyInlineMarkdown(text) {
@@ -1627,7 +1634,7 @@ function renderDocuments() {
 function renderAiSearchIdle() {
   docList.innerHTML = "";
   show(docEmpty, true);
-  docEmpty.textContent = "Ask AI Search a question about files in this library.";
+  docEmpty.textContent = "Ask AI Search for summaries, tables, plans, drafts, and file-based answers.";
   renderProfile();
 }
 
@@ -1677,20 +1684,23 @@ function setSearchMode(mode) {
   show(searchResetButton, !isAiMode);
 
   if (searchQueryLabel) {
-    searchQueryLabel.textContent = isAiMode ? "Ask AI about your files" : "Keyword or phrase";
+    searchQueryLabel.textContent = isAiMode ? "Ask AI anything about these files" : "Keyword or phrase";
   }
   if (searchQueryInput) {
     searchQueryInput.placeholder = isAiMode
-      ? "What files mention budget approvals or grant deadlines?"
+      ? "Summarize this topic, draft a post, build a table, or answer from records..."
       : "budget, grant, zoning, executive session";
   }
   if (isAiMode && searchYearSelect) {
     searchYearSelect.value = "all";
   }
 
-  setAiSearchAnswer("");
   if (isAiMode) {
-    renderAiSearchIdle();
+    if (lastAiSearchMatches.length) {
+      renderAiSearchMatches(lastAiSearchMatches);
+    } else {
+      renderAiSearchIdle();
+    }
   } else {
     renderDocuments();
   }
@@ -1742,6 +1752,7 @@ async function handleAiSearchSubmit() {
 
     const answer = String(data.answer || "").trim();
     const matches = Array.isArray(data.matches) ? data.matches : [];
+    lastAiSearchMatches = matches;
     const shouldShowSources = data.showSources !== false;
     if (data?.usage?.organizationId) {
       recordsAiUsageSummary = data.usage;
@@ -2645,13 +2656,37 @@ async function init() {
   searchModeKeywordButton?.addEventListener("click", () => setSearchMode("keyword"));
   searchModeAiButton?.addEventListener("click", () => setSearchMode("ai"));
   aiSearchSubmitButton?.addEventListener("click", handleAiSearchSubmit);
+  aiAnswerCopyButton?.addEventListener("click", async () => {
+    if (!lastAiAnswerRaw) return;
+    try {
+      await navigator.clipboard.writeText(lastAiAnswerRaw);
+      setStatus(docsStatus, "AI answer copied to clipboard.", "success");
+    } catch (_error) {
+      setStatus(docsStatus, "Unable to copy answer from this browser.", "error");
+    }
+  });
+  aiAnswerDownloadButton?.addEventListener("click", () => {
+    if (!lastAiAnswerRaw) return;
+    const organization = getActiveOrganization();
+    const stamp = new Date().toISOString().slice(0, 10);
+    const slug = (organization?.name || "library").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+    const fileName = `${slug || "library"}-ai-search-${stamp}.md`;
+    const blob = new Blob([lastAiAnswerRaw], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = fileName;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    setStatus(docsStatus, "AI answer downloaded.", "success");
+  });
   searchQueryInput.addEventListener("input", () => {
     if (searchMode === "keyword") {
       renderDocuments();
       return;
     }
-    setAiSearchAnswer("");
-    renderAiSearchIdle();
     setStatus(docsStatus, "");
   });
   searchQueryInput.addEventListener("keydown", (event) => {
@@ -2665,14 +2700,13 @@ async function init() {
       renderDocuments();
       return;
     }
-    setAiSearchAnswer("");
-    renderAiSearchIdle();
     setStatus(docsStatus, "");
   });
   searchResetButton.addEventListener("click", () => {
     searchQueryInput.value = "";
     searchYearSelect.value = "all";
     setAiSearchAnswer("");
+    lastAiSearchMatches = [];
     if (searchMode === "keyword") {
       renderDocuments();
     } else {

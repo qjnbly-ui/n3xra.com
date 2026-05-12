@@ -352,7 +352,7 @@
             <div class="panel-head">
               <div>
                 <h3>Search</h3>
-                <p>Use keyword search by default, or switch to AI Search for a summary across files in the active library.</p>
+                <p>Use keyword search by default, or switch to AI Search for summaries, tables, drafts, and structured answers across files in the active library.</p>
               </div>
             </div>
             <div class="search-mode-toggle" role="tablist" aria-label="Search mode">
@@ -360,6 +360,10 @@
               <button class="search-mode-btn" id="search-mode-ai" type="button" aria-pressed="false">AI Search</button>
             </div>
             <div class="ai-search-answer hidden" id="ai-search-answer"></div>
+            <div class="ai-answer-actions hidden" id="ai-answer-actions">
+              <button class="btn secondary" id="ai-answer-copy" type="button">Copy answer</button>
+              <button class="btn secondary" id="ai-answer-download" type="button">Download .md</button>
+            </div>
             <div class="search-row">
               <div class="field">
                 <label for="search-query" id="search-query-label">Keyword or phrase</label>
