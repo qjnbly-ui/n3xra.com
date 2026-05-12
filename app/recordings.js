@@ -178,6 +178,17 @@ function getActiveOrganization() {
   return activeMembership?.organization || null;
 }
 
+async function getFreshAccessToken() {
+  const { data: refreshedSessionData } = await supabase.auth.refreshSession();
+  const { data: sessionData } = await supabase.auth.getSession();
+  return (
+    refreshedSessionData?.session?.access_token ||
+    sessionData?.session?.access_token ||
+    currentSession?.access_token ||
+    ""
+  );
+}
+
 function getActiveCapabilities() {
   return getCapabilities(
     activeMembership,
@@ -561,6 +572,23 @@ async function updateMeetingRecording(recordingId, patch) {
   if (error) throw error;
 }
 
+async function requestRecordingTranscription(recordingId) {
+  const accessToken = await getFreshAccessToken();
+  if (!accessToken) throw new Error("Your session expired. Sign in again and retry.");
+
+  const response = await fetch("/api/transcribe-recording", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({ recordingId }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data?.error || "Unable to transcribe recording.");
+  return data;
+}
+
 async function createMeetingRecording(title) {
   const organization = getActiveOrganization();
   if (!organization) {
@@ -661,8 +689,19 @@ async function uploadRecordingBlob(recordingId, title, blob, mimeType, durationS
   });
 
   uploadStateValue.textContent = "Uploaded";
-  setRecorderState("Saved", "Audio uploaded. View playback and history on the all recordings page.");
-  setStatus(recordingStatus, "Recording saved and uploaded.", "success");
+  setRecorderState("Transcribing", "Audio uploaded. Creating a searchable transcript file.");
+  setStatus(recordingStatus, "Audio uploaded. Transcribing recording...");
+
+  try {
+    await requestRecordingTranscription(recordingId);
+    uploadStateValue.textContent = "Transcript ready";
+    setRecorderState("Saved", "Transcript created as a searchable file in this library.");
+    setStatus(recordingStatus, "Recording saved and transcript created.", "success");
+  } catch (error) {
+    uploadStateValue.textContent = "Transcript failed";
+    setRecorderState("Saved", "Audio uploaded. Transcript could not be created automatically.");
+    setStatus(recordingStatus, getErrorMessage(error, "Recording saved, but transcription failed."), "error");
+  }
 }
 
 async function finalizeRecording() {

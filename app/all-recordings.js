@@ -44,6 +44,7 @@ const recordingDetailDuration = document.getElementById("recording-detail-durati
 const recordingDetailSize = document.getElementById("recording-detail-size");
 const recordingDetailPlayer = document.getElementById("recording-detail-player");
 const recordingDetailPlay = document.getElementById("recording-detail-play");
+const recordingDetailTranscribe = document.getElementById("recording-detail-transcribe");
 const recordingDetailRetry = document.getElementById("recording-detail-retry");
 const recordingDetailDelete = document.getElementById("recording-detail-delete");
 const recordingDetailStatusMessage = document.getElementById("recording-detail-status-message");
@@ -187,6 +188,17 @@ function getActiveOrganization() {
   return activeMembership?.organization || null;
 }
 
+async function getFreshAccessToken() {
+  const { data: refreshedSessionData } = await supabase.auth.refreshSession();
+  const { data: sessionData } = await supabase.auth.getSession();
+  return (
+    refreshedSessionData?.session?.access_token ||
+    sessionData?.session?.access_token ||
+    currentSession?.access_token ||
+    ""
+  );
+}
+
 function getActiveCapabilities() {
   return getCapabilities(
     activeMembership,
@@ -218,7 +230,17 @@ function retryRecording(recordingId) {
 }
 
 function canPlaybackRecording(recording) {
-  return Boolean(recording?.storage_path) && String(recording?.status || "").trim().toLowerCase() === "uploaded";
+  const status = String(recording?.status || "").trim().toLowerCase();
+  return Boolean(recording?.storage_path) && ["uploaded", "transcribing", "ready"].includes(status);
+}
+
+function canTranscribeRecording(recording) {
+  const status = String(recording?.status || "").trim().toLowerCase();
+  const transcriptStatus = String(recording?.transcript_status || "").trim().toLowerCase();
+  return Boolean(recording?.storage_path) &&
+    ["uploaded", "ready"].includes(status) &&
+    !["processing", "ready"].includes(transcriptStatus) &&
+    getActiveCapabilities().canManageDocuments;
 }
 
 function isMissingRecordingObjectError(error) {
@@ -233,6 +255,23 @@ async function updateMeetingRecording(recordingId, patch) {
     .update(patch)
     .eq("id", recordingId);
   if (error) throw error;
+}
+
+async function requestRecordingTranscription(recordingId) {
+  const accessToken = await getFreshAccessToken();
+  if (!accessToken) throw new Error("Your session expired. Sign in again and retry.");
+
+  const response = await fetch("/api/transcribe-recording", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({ recordingId }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data?.error || "Unable to transcribe recording.");
+  return data;
 }
 
 async function reconcileMissingRecordingObject(recording, error) {
@@ -447,6 +486,7 @@ function renderRecordings() {
   recordingsCache.forEach((recording) => {
     const capabilities = getActiveCapabilities();
     const canRetry = isRetryableRecording(recording);
+    const canTranscribe = canTranscribeRecording(recording);
     const item = document.createElement("article");
     item.className = "recording-row";
     item.setAttribute("data-recording-id", recording.id);
@@ -468,6 +508,7 @@ function renderRecordings() {
       <div class="recording-row-actions">
         <button class="btn secondary" type="button" data-action="play-recording" data-id="${escapeHtml(recording.id)}" ${canPlaybackRecording(recording) ? "" : "disabled"}>Play</button>
         <button class="btn secondary" type="button" data-action="open-recording" data-id="${escapeHtml(recording.id)}">Details</button>
+        ${canTranscribe ? `<button class="btn secondary" type="button" data-action="transcribe-recording" data-id="${escapeHtml(recording.id)}">Create transcript</button>` : ""}
         ${canRetry ? `<button class="btn secondary" type="button" data-action="retry-recording" data-id="${escapeHtml(recording.id)}">Retry</button>` : ""}
         ${capabilities.canDeleteDocuments ? `<button class="btn btn-delete-solid" type="button" data-action="delete-recording" data-id="${escapeHtml(recording.id)}">Delete</button>` : ""}
       </div>
@@ -518,10 +559,40 @@ function populateRecordingDetails(recording) {
   recordingDetailDuration.textContent = formatDuration(recording.duration_seconds || 0);
   recordingDetailSize.textContent = formatBytes(recording.file_size || 0);
   recordingDetailPlay.disabled = !canPlaybackRecording(recording);
+  show(recordingDetailTranscribe, canTranscribeRecording(recording));
   show(recordingDetailRetry, isRetryableRecording(recording));
   recordingDetailPlay.textContent = "Play";
   recordingDetailDelete.disabled = !getActiveCapabilities().canDeleteDocuments;
   setStatus(recordingDetailStatusMessage, recording.processing_error || "");
+}
+
+async function transcribeRecording(recordingId) {
+  const recording = getRecordingById(recordingId);
+  if (!recording || !canTranscribeRecording(recording)) return;
+
+  setStatus(recordingsStatus, "Creating transcript...");
+  if (activeDetailRecordingId === recordingId) {
+    setStatus(recordingDetailStatusMessage, "Creating transcript...");
+    recordingDetailTranscribe.disabled = true;
+  }
+
+  try {
+    await requestRecordingTranscription(recordingId);
+    await loadRecordings();
+    setStatus(recordingsStatus, "Transcript created as a searchable file.", "success");
+    if (activeDetailRecordingId === recordingId) {
+      const updated = getRecordingById(recordingId);
+      if (updated) populateRecordingDetails(updated);
+      setStatus(recordingDetailStatusMessage, "Transcript created as a searchable file.", "success");
+    }
+  } catch (error) {
+    const message = getErrorMessage(error, "Unable to create transcript.");
+    setStatus(recordingsStatus, message, "error");
+    if (activeDetailRecordingId === recordingId) {
+      setStatus(recordingDetailStatusMessage, message, "error");
+      recordingDetailTranscribe.disabled = false;
+    }
+  }
 }
 
 async function openRecordingDetail(recordingId) {
@@ -760,6 +831,10 @@ async function init() {
         retryRecording(recordingId);
         return;
       }
+      if (action === "transcribe-recording") {
+        void transcribeRecording(recordingId);
+        return;
+      }
       if (action === "delete-recording") {
         promptDeleteRecording(recordingId);
       }
@@ -818,6 +893,10 @@ async function init() {
   recordingDetailRetry.addEventListener("click", () => {
     if (!activeDetailRecordingId) return;
     retryRecording(activeDetailRecordingId);
+  });
+  recordingDetailTranscribe.addEventListener("click", () => {
+    if (!activeDetailRecordingId) return;
+    void transcribeRecording(activeDetailRecordingId);
   });
   recordingDeleteCancel.addEventListener("click", () => {
     setRecordingDeleteModalOpen(false);
