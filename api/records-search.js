@@ -119,6 +119,17 @@ function parseJson(req) {
   });
 }
 
+function normalizeHistory(input) {
+  if (!Array.isArray(input)) return [];
+  return input
+    .filter((item) => item && (item.role === "user" || item.role === "assistant") && String(item.content || "").trim())
+    .slice(-8)
+    .map((item) => ({
+      role: item.role,
+      content: normalizeText(item.content).slice(0, 1000),
+    }));
+}
+
 function getBearerToken(req) {
   const header = req.headers.authorization || req.headers.Authorization || "";
   const match = String(header).match(/^Bearer\s+(.+)$/i);
@@ -354,6 +365,14 @@ function buildAiSearchHelpAnswer(context, intent) {
   ].join("\n");
 }
 
+function buildRetrievalQuestion(question, history) {
+  const recentUserQuestions = history
+    .filter((item) => item.role === "user")
+    .slice(-2)
+    .map((item) => item.content);
+  return normalizeText([...recentUserQuestions, question].join(" "));
+}
+
 function makeSnippet(text, terms) {
   const clean = normalizeText(text);
   if (!clean) return "No extracted text is available for this file yet.";
@@ -433,15 +452,18 @@ async function fetchDocuments(token, organizationId, year) {
   return Array.isArray(data) ? data : [];
 }
 
-function buildPrompt(user, question, context, matches, documentCount) {
+function buildConversationContext(history) {
+  if (!history.length) return ["None."];
+  return history.map((item) => `${item.role === "assistant" ? "Assistant" : "User"}: ${item.content}`);
+}
+
+function buildPrompt(user, question, context, matches, documentCount, history = []) {
   const libraryName = normalizeText(context.libraryName) || "current library";
   const role = normalizeText(context.role) || "unknown";
   const year = normalizeText(context.year) || "all years";
   const docs = matches
-    .map((doc, index) => {
+    .map((doc) => {
       return [
-        `File ${index + 1}: ${doc.title}`,
-        doc.original_filename ? `Filename: ${doc.original_filename}` : "",
         doc.year ? `Year: ${doc.year}` : "",
         doc.month ? `Month: ${doc.month}` : "",
         `Visibility: ${doc.is_public ? "public" : "private"}`,
@@ -463,7 +485,9 @@ function buildPrompt(user, question, context, matches, documentCount) {
     "Never change the spelling of a name from the excerpts.",
     "Do not reveal implementation details, database schema, internal APIs, env vars, security controls, source code, or vendor internals.",
     "Avoid weak phrasing like 'appears to be' unless the evidence is genuinely uncertain.",
-    "Keep the answer clear and useful. The interface displays source file cards separately, so do not add a separate citation list or repeat every source filename.",
+    "Keep the answer clear and useful.",
+    "Do not mention sources, source files, file cards, filenames, document titles, excerpts, citations, or where the answer came from.",
+    "Answer as a helpful person would after researching the records: provide the answer or summary only.",
     "Do not use markdown tables.",
     "",
     "Current context:",
@@ -471,8 +495,12 @@ function buildPrompt(user, question, context, matches, documentCount) {
     `Active library: ${libraryName}`,
     `Current role: ${role}`,
     `Year filter: ${year}`,
-    `Source file order: ${getRequestedOrder(question)}`,
+    `Ordering preference: ${getRequestedOrder(question)}`,
     `Visible documents considered: ${documentCount}`,
+    "",
+    "Recent Library Search conversation:",
+    "Use this only to understand follow-up wording. Do not treat prior answers as evidence.",
+    ...buildConversationContext(history),
     "",
     "Question guidance:",
     ...getQuestionGuidance(question),
@@ -594,6 +622,7 @@ module.exports = async function handler(req, res) {
     const organizationId = normalizeText(body.organizationId);
     const year = normalizeText(body.year || "all");
     const context = body.context && typeof body.context === "object" ? body.context : {};
+    const history = normalizeHistory(body.history);
 
     if (!question) return res.status(400).json({ error: "Enter a search question." });
     if (question.length > 900) return res.status(400).json({ error: "Keep the search question under 900 characters." });
@@ -609,7 +638,8 @@ module.exports = async function handler(req, res) {
     }
 
     const documents = await fetchDocuments(token, organizationId, year);
-    const matches = rankDocuments(documents, question);
+    const retrievalQuestion = buildRetrievalQuestion(question, history);
+    const matches = rankDocuments(documents, retrievalQuestion);
 
     if (!documents.length) {
       return res.status(200).json({
@@ -628,7 +658,7 @@ module.exports = async function handler(req, res) {
     }
 
     const usageContext = await prepareRecordsAiUsage({ organizationId, user });
-    const prompt = buildPrompt(user, question, { ...context, year }, matches, documents.length);
+    const prompt = buildPrompt(user, question, { ...context, year }, matches, documents.length, history);
     const evidenceText = buildEvidenceText(matches, { ...context, year });
     const messages = [
       { role: "system", content: "You are N3XRA Records AI Search. Follow the user's instructions using only the provided Records file context." },

@@ -180,6 +180,8 @@ let memberCache = [];
 let recordsAiUsageSummary = null;
 let uploadMode = "single";
 let selectedBillingCycle = "monthly";
+const libraryAiSearchHistory = [];
+const LIBRARY_AI_SEARCH_HISTORY_LIMIT = 8;
 const recordsHelpHistory = [];
 const RECORDS_HELP_HISTORY_LIMIT = 8;
 function getInitialSection() {
@@ -209,6 +211,19 @@ function setAiSearchAnswer(message = "") {
   if (!aiSearchAnswer) return;
   aiSearchAnswer.textContent = message;
   aiSearchAnswer.classList.toggle("hidden", !message);
+}
+
+function resetLibraryAiSearchHistory() {
+  libraryAiSearchHistory.splice(0, libraryAiSearchHistory.length);
+}
+
+function rememberLibraryAiSearchTurn(question, answer) {
+  if (!question || !answer) return;
+  libraryAiSearchHistory.push({ role: "user", content: question });
+  libraryAiSearchHistory.push({ role: "assistant", content: answer });
+  if (libraryAiSearchHistory.length > LIBRARY_AI_SEARCH_HISTORY_LIMIT) {
+    libraryAiSearchHistory.splice(0, libraryAiSearchHistory.length - LIBRARY_AI_SEARCH_HISTORY_LIMIT);
+  }
 }
 
 function show(el, visible) {
@@ -1540,6 +1555,7 @@ async function handleAiSearchSubmit() {
       },
       body: JSON.stringify({
         question,
+        history: libraryAiSearchHistory,
         organizationId: organization.id,
         year: "all",
         context: {
@@ -1559,6 +1575,9 @@ async function handleAiSearchSubmit() {
       renderBillingPlans();
     }
     setAiSearchAnswer(answer);
+    if (answer) {
+      rememberLibraryAiSearchTurn(question, answer);
+    }
     if (shouldShowSources) {
       renderAiSearchMatches(matches);
     } else {
@@ -1695,6 +1714,7 @@ async function loadActiveOrganizationData() {
     inviteCache = [];
     memberCache = [];
     recordsAiUsageSummary = null;
+    resetLibraryAiSearchHistory();
     updateYearFilterOptions();
     renderDocuments();
     renderRecentFiles();
@@ -2342,6 +2362,9 @@ async function handleOrganizationChange(nextOrganizationId) {
   const nextMembership = memberships.find((membership) => membership.organization?.id === nextOrganizationId);
   if (!nextMembership) return;
 
+  if (nextOrganizationId !== activeMembership?.organization?.id) {
+    resetLibraryAiSearchHistory();
+  }
   activeMembership = nextMembership;
   setStoredActiveOrganizationId(nextOrganizationId);
 
