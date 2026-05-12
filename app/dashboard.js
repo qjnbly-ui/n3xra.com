@@ -177,6 +177,7 @@ let documentsCache = [];
 let searchMode = "keyword";
 let inviteCache = [];
 let memberCache = [];
+let recordsAiUsageSummary = null;
 let uploadMode = "single";
 let selectedBillingCycle = "monthly";
 const recordsHelpHistory = [];
@@ -515,6 +516,7 @@ async function handleRecordsHelpSubmit(event) {
         question,
         history: recordsHelpHistory,
         context: {
+          organizationId: organization?.id || "",
           libraryName: organization?.name || "",
           role: formatRoleLabel(getActiveRole()),
           plan: organization ? formatPlanName(organization.subscription_tier || "free") : "",
@@ -525,6 +527,10 @@ async function handleRecordsHelpSubmit(event) {
     if (!response.ok) throw new Error(data?.error || "Records help is unavailable right now.");
 
     const answer = String(data.answer || "").trim();
+    if (data?.usage?.organizationId) {
+      recordsAiUsageSummary = data.usage;
+      renderBillingPlans();
+    }
     setRecordsHelpAnswer(answer);
     setStatus(recordsHelpStatus, answer ? "" : "No answer returned.", answer ? "" : "error");
 
@@ -592,6 +598,10 @@ function hasMultipleLibraries() {
 
 function isBillingEnabled() {
   return Boolean(getConfig().billingEnabled);
+}
+
+function formatWholeNumber(value) {
+  return Number(value || 0).toLocaleString();
 }
 
 function formatBillingDate(value) {
@@ -1077,6 +1087,29 @@ async function loadMembers() {
   renderMembers();
 }
 
+async function loadRecordsAiUsage() {
+  const organization = getActiveOrganization();
+  recordsAiUsageSummary = null;
+  if (!organization?.id) return;
+
+  try {
+    const accessToken = await getFreshAccessToken();
+    if (!accessToken) return;
+    const response = await fetch(`/api/records-ai-usage?organizationId=${encodeURIComponent(organization.id)}`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) return;
+    recordsAiUsageSummary = data?.usage || null;
+  } catch (_error) {
+    recordsAiUsageSummary = null;
+  }
+
+  renderBillingPlans();
+}
+
 function renderOrganizationSelector() {
   if (!memberships.length || !activeMembership?.organization) {
     activeOrganizationSelect.innerHTML = '<option value="">No active library</option>';
@@ -1170,6 +1203,10 @@ function renderBillingPlans() {
   const statusLabel = titleCase(accountStatus);
   const isPaidPlan = activePlanId !== "free";
   const periodLabel = cancelsAtPeriodEnd || accountStatus === "canceled" ? "Ends" : "Renews";
+  const hasCurrentAiUsage = recordsAiUsageSummary?.organizationId === organization.id;
+  const aiUsageLabel = hasCurrentAiUsage
+    ? `${formatWholeNumber(recordsAiUsageSummary.requestCount)}/${formatWholeNumber(recordsAiUsageSummary.requestLimit)} AI requests this month`
+    : `${formatWholeNumber(activePlan.aiMonthlyRequestLimit)} AI requests/month`;
   const billingNote = cancelsAtPeriodEnd
     ? (currentPeriodEndLabel
         ? `Cancellation scheduled. Access remains active until ${currentPeriodEndLabel}.`
@@ -1184,6 +1221,7 @@ function renderBillingPlans() {
     `${organization.user_limit} users`,
     `${organization.storage_limit_mb} MB`,
     `${remaining} remaining`,
+    aiUsageLabel,
     isPaidPlan ? `Status: ${statusLabel}` : "",
     cancelsAtPeriodEnd ? "Cancels at end of billing cycle" : "",
     isPaidPlan && currentPeriodEndLabel ? `${periodLabel} ${currentPeriodEndLabel}` : "",
@@ -1218,7 +1256,7 @@ function renderBillingPlans() {
           ${badge}
         </div>
         <p class="plan-summary">${plan.summary}</p>
-        <p class="plan-limit">${plan.documentLimit} documents · ${plan.userLimit} users · ${plan.storageLimitMb} MB</p>
+        <p class="plan-limit">${formatWholeNumber(plan.documentLimit)} documents · ${formatWholeNumber(plan.userLimit)} users · ${formatWholeNumber(plan.storageLimitMb)} MB · ${formatWholeNumber(plan.aiMonthlyRequestLimit)} AI requests</p>
         <ul class="plan-features">
           ${plan.features.map((feature) => `<li>${escapeHtml(feature)}</li>`).join("")}
         </ul>
@@ -1515,8 +1553,18 @@ async function handleAiSearchSubmit() {
 
     const answer = String(data.answer || "").trim();
     const matches = Array.isArray(data.matches) ? data.matches : [];
+    const shouldShowSources = data.showSources !== false;
+    if (data?.usage?.organizationId) {
+      recordsAiUsageSummary = data.usage;
+      renderBillingPlans();
+    }
     setAiSearchAnswer(answer);
-    renderAiSearchMatches(matches);
+    if (shouldShowSources) {
+      renderAiSearchMatches(matches);
+    } else {
+      docList.innerHTML = "";
+      show(docEmpty, false);
+    }
     setStatus(docsStatus, answer ? "" : "No AI answer returned.", answer ? "" : "error");
   } catch (error) {
     setStatus(docsStatus, getErrorMessage(error, "Unable to run AI Search."), "error");
@@ -1646,6 +1694,7 @@ async function loadActiveOrganizationData() {
     documentsCache = [];
     inviteCache = [];
     memberCache = [];
+    recordsAiUsageSummary = null;
     updateYearFilterOptions();
     renderDocuments();
     renderRecentFiles();
@@ -1659,7 +1708,7 @@ async function loadActiveOrganizationData() {
   }
 
   renderProfile();
-  await Promise.all([loadDocuments(), loadInvites(), loadMembers()]);
+  await Promise.all([loadDocuments(), loadInvites(), loadMembers(), loadRecordsAiUsage()]);
 }
 
 async function createSignedUrlForDocument(documentId) {

@@ -149,6 +149,22 @@ create table if not exists public.meeting_recordings (
     check (duration_seconds is null or duration_seconds >= 0)
 );
 
+create table if not exists public.records_ai_usage_events (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations (id) on delete cascade,
+  user_id uuid references auth.users (id) on delete set null,
+  feature text not null,
+  model text,
+  prompt_tokens integer not null default 0,
+  completion_tokens integer not null default 0,
+  total_tokens integer not null default 0,
+  created_at timestamptz not null default now(),
+  constraint records_ai_usage_events_feature_check
+    check (feature in ('help', 'search')),
+  constraint records_ai_usage_events_token_check
+    check (prompt_tokens >= 0 and completion_tokens >= 0 and total_tokens >= 0)
+);
+
 create table if not exists public.music_profiles (
   user_id uuid primary key references auth.users (id) on delete cascade,
   display_name text,
@@ -208,6 +224,8 @@ create index if not exists documents_search_tsv_idx on public.documents using gi
 create index if not exists meeting_recordings_organization_id_idx on public.meeting_recordings (organization_id);
 create index if not exists meeting_recordings_created_by_user_id_idx on public.meeting_recordings (created_by_user_id);
 create index if not exists meeting_recordings_created_at_idx on public.meeting_recordings (created_at desc);
+create index if not exists records_ai_usage_events_org_created_at_idx on public.records_ai_usage_events (organization_id, created_at desc);
+create index if not exists records_ai_usage_events_user_created_at_idx on public.records_ai_usage_events (user_id, created_at desc);
 create index if not exists music_generations_user_id_idx on public.music_generations (user_id);
 create index if not exists music_generations_task_id_idx on public.music_generations (task_id);
 create index if not exists music_generations_created_at_idx on public.music_generations (created_at desc);
@@ -1305,6 +1323,7 @@ alter table public.organization_memberships enable row level security;
 alter table public.organization_invites enable row level security;
 alter table public.documents enable row level security;
 alter table public.meeting_recordings enable row level security;
+alter table public.records_ai_usage_events enable row level security;
 alter table public.music_profiles enable row level security;
 alter table public.music_generations enable row level security;
 
@@ -1467,6 +1486,12 @@ create policy "meeting_recordings_delete_policy"
 on public.meeting_recordings
 for delete
 using (public.can_manage_recordings(organization_id));
+
+drop policy if exists "records_ai_usage_events_select_policy" on public.records_ai_usage_events;
+create policy "records_ai_usage_events_select_policy"
+on public.records_ai_usage_events
+for select
+using (public.can_view_organization(organization_id));
 
 insert into storage.buckets (id, name, public)
 values ('documents', 'documents', false)

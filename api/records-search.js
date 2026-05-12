@@ -6,6 +6,15 @@ const SUPABASE_ANON_KEY = String(
   process.env.SERVICE_ROLE_KEY ||
   ""
 ).trim();
+const {
+  getClientUsageSummary,
+  normalizeGroqUsage,
+  prepareRecordsAiUsage,
+  recordRecordsAiUsage,
+  sendRecordsAiUsageError,
+} = require("./_records-ai-usage");
+
+const RECORDS_SEARCH_MODEL = "llama-3.3-70b-versatile";
 
 const STOP_WORDS = new Set([
   "about",
@@ -129,6 +138,97 @@ function getRequestedOrder(question) {
   return "relevance";
 }
 
+function getAiSearchIntent(question) {
+  const normalized = normalizeText(question)
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  const assistantHelpPatterns = [
+    /^(what|so what) can (you|ai search|this ai|the ai) do( for me| here| in this app)?$/,
+    /^what do (you|ai search|this ai|the ai) do$/,
+    /^what does (ai search|this ai|the ai) do$/,
+    /^how can (you|ai search|this ai|the ai) help( me)?$/,
+    /^how does (ai search|this ai|the ai) help( me)?$/,
+    /^(what can|what should) i ask( you| ai search| this ai| the ai)?$/,
+    /^(show|give me|list) (some )?(examples|sample questions|prompts)$/,
+    /^how (does|do) (ai search|you|this ai|the ai|this search) work$/,
+    /^what is ai search$/,
+    /^help$/,
+  ];
+
+  if (assistantHelpPatterns.some((pattern) => pattern.test(normalized))) {
+    return "assistant_help";
+  }
+
+  const appHelpTerms = [
+    "account",
+    "account admin",
+    "billing",
+    "download",
+    "embed",
+    "invite",
+    "library",
+    "login",
+    "member",
+    "password",
+    "profile",
+    "public record",
+    "recording",
+    "role",
+    "share",
+    "sign in",
+    "upload",
+    "viewer",
+  ];
+  const asksHowToUseApp = /\b(can i|how do i|how can i|where do i|what is the difference|what does|explain|show me how|help me)\b/.test(normalized);
+  const mentionsAppFeature = appHelpTerms.some((term) => normalized.includes(term));
+
+  if (asksHowToUseApp && mentionsAppFeature) {
+    return "app_help";
+  }
+
+  return "document_question";
+}
+
+function buildAiSearchHelpAnswer(context, intent) {
+  const libraryName = normalizeText(context.libraryName) || "this active library";
+  if (intent === "app_help") {
+    return [
+      "I can help with that, but this AI Search box is mainly for questions about the contents of your files.",
+      "",
+      "Use AI Search when you want answers like:",
+      "- What do our records say about a person, event, project, policy, invoice, or decision?",
+      "- Which files mention a topic?",
+      "- Summarize the notes about a subject across the library.",
+      "",
+      "For app controls like uploads, invite codes, roles, billing, public records, embeds, recordings, or account settings, use the Need help? AI on the Profile page. That assistant is built for product/functionality questions.",
+      "",
+      "If you want to search the files instead, ask the question as a records question. For example: \"Which files mention invite codes?\" or \"Summarize records about public meetings.\"",
+    ].join("\n");
+  }
+
+  return [
+    `Think of AI Search as a research helper for files in ${libraryName}.`,
+    "",
+    "What I can do:",
+    "- Find files that mention a person, topic, date, event, project, policy, invoice, decision, or issue.",
+    "- Summarize what the visible records say about something.",
+    "- Compare information across files when there is enough evidence.",
+    "- Point you to the most likely source files to open next.",
+    "- Tell you when the records do not contain enough information instead of guessing.",
+    "",
+    "Strong questions to ask:",
+    "\"What did these files say about the budget last year?\"",
+    "\"Which documents mention Quentin Nichols?\"",
+    "\"Summarize the decisions about the building project.\"",
+    "\"Find files about insurance, grants, or equipment.\"",
+    "",
+    "I only use files you can access in the active library. For app questions like uploads, billing, roles, invite codes, or recordings, use the Need help? AI on the Profile page.",
+  ].join("\n");
+}
+
 function makeSnippet(text, terms) {
   const clean = normalizeText(text);
   if (!clean) return "No extracted text is available for this file yet.";
@@ -226,12 +326,16 @@ function buildPrompt(user, question, context, matches, documentCount) {
 
   return [
     "You are a document search assistant for the user's active records library.",
-    "Answer the user's question using only the provided candidate file excerpts and metadata.",
-    "Synthesize across the candidate files when multiple excerpts are relevant.",
-    "If the provided excerpts do not contain enough evidence to answer, say that directly and suggest what to search for next.",
+    "Decision rule: answer document-content questions from the file excerpts. Do not answer app/tool-help questions from file excerpts.",
+    "The user's current role and email are app context only. Do not treat them as facts from the records and do not tell the user what they personally can do based on document excerpts.",
+    "Answer the user's document question using only the provided candidate file excerpts and metadata.",
+    "Start with the clearest direct answer the excerpts support, then add concise supporting detail.",
+    "Synthesize across candidate files when multiple excerpts are relevant. Do not rely on only one excerpt when several excerpts address the same question.",
+    "If the provided excerpts do not contain enough evidence to answer, say that directly and suggest a better records search.",
     "Do not invent facts, names, roles, dates, relationships, or conclusions that are not supported by the excerpts.",
     "Do not reveal implementation details, database schema, internal APIs, env vars, security controls, source code, or vendor internals.",
-    "Keep the answer clear and useful. The interface displays source file cards separately, so do not add a separate citation list.",
+    "Avoid weak phrasing like 'appears to be' unless the evidence is genuinely uncertain.",
+    "Keep the answer clear and useful. The interface displays source file cards separately, so do not add a separate citation list or repeat every source filename.",
     "Do not use markdown tables.",
     "",
     "Current context:",
@@ -279,6 +383,15 @@ module.exports = async function handler(req, res) {
     if (question.length > 900) return res.status(400).json({ error: "Keep the search question under 900 characters." });
     if (!organizationId) return res.status(400).json({ error: "Choose an active library first." });
 
+    const aiSearchIntent = getAiSearchIntent(question);
+    if (aiSearchIntent !== "document_question") {
+      return res.status(200).json({
+        answer: buildAiSearchHelpAnswer(context, aiSearchIntent),
+        matches: [],
+        showSources: false,
+      });
+    }
+
     const documents = await fetchDocuments(token, organizationId, year);
     const matches = rankDocuments(documents, question);
 
@@ -286,9 +399,12 @@ module.exports = async function handler(req, res) {
       return res.status(200).json({
         answer: "I do not see any files in this library for that search yet. Upload documents first, then AI Search can summarize likely matches.",
         matches: [],
+        showSources: false,
       });
     }
 
+    const usageContext = await prepareRecordsAiUsage({ organizationId, user });
+    const prompt = buildPrompt(user, question, { ...context, year }, matches, documents.length);
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -296,12 +412,12 @@ module.exports = async function handler(req, res) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
+        model: RECORDS_SEARCH_MODEL,
         temperature: 0.2,
         max_tokens: 650,
         messages: [
           { role: "system", content: "You are N3XRA Records AI Search. Follow the user's instructions using only the provided Records file context." },
-          { role: "user", content: buildPrompt(user, question, { ...context, year }, matches, documents.length) },
+          { role: "user", content: prompt },
         ],
       }),
     });
@@ -313,9 +429,18 @@ module.exports = async function handler(req, res) {
 
     const answer = String(data?.choices?.[0]?.message?.content || "").trim();
     if (!answer) return res.status(502).json({ error: "Records AI Search returned an empty answer." });
+    const usage = normalizeGroqUsage(data, prompt, answer);
+    const recorded = await recordRecordsAiUsage({
+      usageContext,
+      user,
+      feature: "search",
+      model: RECORDS_SEARCH_MODEL,
+      usage,
+    });
 
-    return res.status(200).json({ answer, matches });
+    return res.status(200).json({ answer, matches, usage: getClientUsageSummary(recorded?.usage || usageContext.usage) });
   } catch (error) {
+    if (sendRecordsAiUsageError(res, error, "Records AI Search usage check failed.")) return;
     return res.status(500).json({ error: error instanceof Error ? error.message : "Server error." });
   }
 };

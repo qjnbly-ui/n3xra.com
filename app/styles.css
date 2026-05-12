@@ -1456,10 +1456,6 @@ textarea {
   gap: 0.8rem;
 }
 
-#library-search-panel {
-  justify-items: center;
-}
-
 #library-search-panel .panel-head {
   justify-content: center;
   text-align: center;
@@ -1471,10 +1467,12 @@ textarea {
 }
 
 .search-mode-toggle {
+  align-self: center;
   display: inline-grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.35rem;
   width: min(360px, 100%);
+  margin-inline: auto;
   padding: 0.35rem;
   border-radius: var(--radius-pill);
   background: #e9ecef;
@@ -1527,7 +1525,7 @@ textarea {
   grid-template-columns: minmax(0, 1fr) auto auto;
   gap: 0.8rem;
   align-items: end;
-  width: min(860px, 100%);
+  width: 100%;
 }
 
 .doc-list,
