@@ -1060,7 +1060,100 @@ textarea {
   background: #f4fbf8;
   color: var(--ink-soft);
   padding: 0.9rem 1rem;
-  white-space: pre-wrap;
+  line-height: 1.55;
+}
+
+.records-help-answer p,
+.ai-search-answer p {
+  margin: 0 0 0.55rem;
+}
+
+.records-help-answer p:last-child,
+.ai-search-answer p:last-child {
+  margin-bottom: 0;
+}
+
+.records-help-answer ul,
+.ai-search-answer ul {
+  margin: 0 0 0.65rem;
+  padding-left: 1.2rem;
+}
+
+.records-help-answer li,
+.ai-search-answer li {
+  margin: 0.25rem 0;
+}
+
+.records-help-answer ol,
+.ai-search-answer ol {
+  margin: 0 0 0.65rem;
+  padding-left: 1.25rem;
+}
+
+.records-help-answer em,
+.ai-search-answer em {
+  font-style: italic;
+}
+
+.records-help-answer .ai-answer-heading,
+.ai-search-answer .ai-answer-heading {
+  margin: 0.2rem 0 0.55rem;
+  color: var(--ink);
+  font-size: 1.02rem;
+  line-height: 1.25;
+  font-weight: 800;
+}
+
+.ai-rich-table-wrap {
+  margin: 0.35rem 0 0.75rem;
+  overflow-x: auto;
+}
+
+.ai-rich-table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid rgba(15, 22, 32, 0.12);
+  border-radius: 12px;
+  overflow: hidden;
+  background: #ffffff;
+}
+
+.ai-rich-table th,
+.ai-rich-table td {
+  padding: 0.5rem 0.58rem;
+  border-bottom: 1px solid rgba(15, 22, 32, 0.08);
+  border-right: 1px solid rgba(15, 22, 32, 0.08);
+  text-align: left;
+  vertical-align: top;
+  font-size: 0.95rem;
+}
+
+.ai-rich-table th:last-child,
+.ai-rich-table td:last-child {
+  border-right: 0;
+}
+
+.ai-rich-table th {
+  color: var(--ink);
+  font-weight: 800;
+  background: #f4fbf8;
+}
+
+.ai-rich-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.records-help-answer strong,
+.ai-search-answer strong {
+  font-weight: 800;
+}
+
+.records-help-answer a,
+.ai-search-answer a {
+  color: var(--teal);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .account-note {
@@ -1507,7 +1600,7 @@ textarea {
     linear-gradient(180deg, #f4fbf8 0%, #ffffff 100%);
   color: var(--ink-soft);
   padding: 0.95rem 1rem;
-  white-space: pre-wrap;
+  line-height: 1.55;
   width: 100%;
 }
 

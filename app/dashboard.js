@@ -203,14 +203,124 @@ function setStatus(el, message, tone = "") {
 
 function setRecordsHelpAnswer(message = "") {
   if (!recordsHelpAnswer) return;
-  recordsHelpAnswer.textContent = message;
-  recordsHelpAnswer.classList.toggle("hidden", !message);
+  renderAnswerMarkup(recordsHelpAnswer, message);
 }
 
 function setAiSearchAnswer(message = "") {
   if (!aiSearchAnswer) return;
-  aiSearchAnswer.textContent = message;
-  aiSearchAnswer.classList.toggle("hidden", !message);
+  renderAnswerMarkup(aiSearchAnswer, message);
+}
+
+function applyInlineMarkdown(text) {
+  const escaped = escapeHtml(text);
+  const withBold = escaped.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+  const withItalic = withBold.replace(/(^|[\s(])\*([^*]+)\*(?=[\s).,!?:;]|$)/g, "$1<em>$2</em>");
+  return withItalic.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+}
+
+function parseTableRow(line) {
+  const trimmed = String(line || "").trim();
+  if (!trimmed.includes("|")) return null;
+  const normalized = trimmed.replace(/^\|/, "").replace(/\|$/, "");
+  const cells = normalized.split("|").map((cell) => cell.trim());
+  if (!cells.length || cells.every((cell) => !cell)) return null;
+  return cells;
+}
+
+function isMarkdownTableDivider(line) {
+  const cells = parseTableRow(line);
+  if (!cells || !cells.length) return false;
+  return cells.every((cell) => /^:?-{3,}:?$/.test(cell.replace(/\s+/g, "")));
+}
+
+function renderAnswerMarkup(container, message = "") {
+  if (!container) return;
+  const raw = String(message || "").trim();
+  container.classList.toggle("hidden", !raw);
+  if (!raw) {
+    container.innerHTML = "";
+    return;
+  }
+
+  const lines = raw.split(/\r?\n/);
+  const html = [];
+  let listItems = [];
+  let listType = "";
+  let tableRows = [];
+
+  function flushList() {
+    if (!listItems.length) return;
+    const tag = listType === "ol" ? "ol" : "ul";
+    html.push(`<${tag}>${listItems.map((item) => `<li>${item}</li>`).join("")}</${tag}>`);
+    listItems = [];
+    listType = "";
+  }
+
+  function flushTable() {
+    if (tableRows.length < 2 || !isMarkdownTableDivider(tableRows[1])) {
+      tableRows.forEach((row) => html.push(`<p>${applyInlineMarkdown(row)}</p>`));
+      tableRows = [];
+      return;
+    }
+
+    const header = parseTableRow(tableRows[0]) || [];
+    const bodyRows = tableRows.slice(2).map(parseTableRow).filter((row) => row && row.length);
+    if (!header.length) {
+      tableRows = [];
+      return;
+    }
+    const thead = `<thead><tr>${header.map((cell) => `<th>${applyInlineMarkdown(cell)}</th>`).join("")}</tr></thead>`;
+    const tbody = `<tbody>${bodyRows.map((row) => `<tr>${row.map((cell) => `<td>${applyInlineMarkdown(cell)}</td>`).join("")}</tr>`).join("")}</tbody>`;
+    html.push(`<div class="ai-rich-table-wrap"><table class="ai-rich-table">${thead}${tbody}</table></div>`);
+    tableRows = [];
+  }
+
+  lines.forEach((line) => {
+    const value = line.trim();
+    const isTableLine = value.includes("|");
+
+    if (tableRows.length) {
+      if (value && isTableLine) {
+        tableRows.push(value);
+        return;
+      }
+      flushTable();
+    }
+
+    if (!value) {
+      flushList();
+      return;
+    }
+    if (isTableLine) {
+      flushList();
+      tableRows.push(value);
+      return;
+    }
+    if (/^[-*]\s+/.test(value)) {
+      if (listType && listType !== "ul") flushList();
+      listType = "ul";
+      listItems.push(applyInlineMarkdown(value.replace(/^[-*]\s+/, "")));
+      return;
+    }
+    if (/^\d+\.\s+/.test(value)) {
+      if (listType && listType !== "ol") flushList();
+      listType = "ol";
+      listItems.push(applyInlineMarkdown(value.replace(/^\d+\.\s+/, "")));
+      return;
+    }
+    if (/^#{1,3}\s+/.test(value)) {
+      flushList();
+      const level = Math.min(3, value.match(/^#+/)[0].length);
+      html.push(`<h${level + 2} class="ai-answer-heading">${applyInlineMarkdown(value.replace(/^#{1,3}\s+/, ""))}</h${level + 2}>`);
+      return;
+    }
+    flushList();
+    html.push(`<p>${applyInlineMarkdown(value)}</p>`);
+  });
+
+  flushTable();
+  flushList();
+  container.innerHTML = html.join("");
 }
 
 function resetLibraryAiSearchHistory() {
