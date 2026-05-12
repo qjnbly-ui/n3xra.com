@@ -278,11 +278,19 @@ function renderAnswerMarkup(container, message = "") {
       return;
     }
 
-    const header = parseTableRow(tableRows[0]) || [];
-    const bodyRows = tableRows
+    let header = parseTableRow(tableRows[0]) || [];
+    let bodyRows = tableRows
       .slice(2)
       .map(parseTableRow)
       .filter((row) => row && row.length && !isDividerLikeTableRow(row));
+    const hasBogusTableHeaderCell = header.length > 1 && String(header[0] || "").trim().toLowerCase() === "table";
+    if (hasBogusTableHeaderCell) {
+      header = header.slice(1);
+      bodyRows = bodyRows.map((row) => {
+        if (!row || !row.length) return row;
+        return row.length > header.length ? row.slice(1) : row;
+      });
+    }
     if (!header.length) {
       tableRows = [];
       return;
