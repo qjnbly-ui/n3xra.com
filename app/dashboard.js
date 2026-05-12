@@ -233,6 +233,14 @@ function isMarkdownTableDivider(line) {
   return cells.every((cell) => /^:?-{3,}:?$/.test(cell.replace(/\s+/g, "")));
 }
 
+function isDividerLikeTableRow(cells) {
+  if (!Array.isArray(cells) || !cells.length) return false;
+  return cells.every((cell) => {
+    const value = String(cell || "").trim();
+    return !value || /^:?-{2,}:?$/.test(value);
+  });
+}
+
 function renderAnswerMarkup(container, message = "") {
   if (!container) return;
   const raw = normalizeAiAnswerMarkdown(message);
@@ -264,7 +272,10 @@ function renderAnswerMarkup(container, message = "") {
     }
 
     const header = parseTableRow(tableRows[0]) || [];
-    const bodyRows = tableRows.slice(2).map(parseTableRow).filter((row) => row && row.length);
+    const bodyRows = tableRows
+      .slice(2)
+      .map(parseTableRow)
+      .filter((row) => row && row.length && !isDividerLikeTableRow(row));
     if (!header.length) {
       tableRows = [];
       return;
@@ -278,6 +289,20 @@ function renderAnswerMarkup(container, message = "") {
   lines.forEach((line) => {
     const value = line.trim();
     const isTableLine = value.includes("|");
+
+    if (/^#{1,3}\s+/.test(value) && isTableLine) {
+      flushList();
+      if (tableRows.length) flushTable();
+      const pipeIndex = value.indexOf("|");
+      const headingPart = value.slice(0, pipeIndex).trim();
+      const tablePart = `|${value.slice(pipeIndex + 1).trim()}`;
+      if (headingPart) {
+        const level = Math.min(3, headingPart.match(/^#+/)[0].length);
+        html.push(`<h${level + 2} class="ai-answer-heading">${applyInlineMarkdown(headingPart.replace(/^#{1,3}\s+/, ""))}</h${level + 2}>`);
+      }
+      if (tablePart.includes("|")) tableRows.push(tablePart);
+      return;
+    }
 
     if (tableRows.length) {
       if (value && isTableLine) {
@@ -305,7 +330,7 @@ function renderAnswerMarkup(container, message = "") {
     if (/^\d+\.\s+/.test(value)) {
       if (listType && listType !== "ol") flushList();
       listType = "ol";
-      listItems.push(applyInlineMarkdown(value.replace(/^\d+\.\s+/, "")));
+      listItems.push(applyInlineMarkdown(value.replace(/^\d+\.\s+/, "").replace(/^\d+\.\s+/, "")));
       return;
     }
     if (/^#{1,3}\s+/.test(value)) {
@@ -332,6 +357,9 @@ function normalizeAiAnswerMarkdown(message = "") {
     .replace(/\s+(#{1,4}\s+)/g, "\n$1")
     .replace(/\s+(\d+\.\s+)/g, "\n$1")
     .replace(/\s+([*-]\s+)/g, "\n$1");
+
+  // Split common "heading + paragraph" lines into a heading line and body line.
+  text = text.replace(/^(#{1,4}\s+[A-Za-z][A-Za-z0-9/&' -]{2,42})\s+([A-Z][^\n]+)$/gm, "$1\n$2");
 
   // If table headers are provided inline, place each row on separate lines.
   text = text.replace(/\s+\|\s+---/g, "\n| ---");
