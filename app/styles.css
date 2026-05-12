@@ -1613,6 +1613,27 @@ textarea {
   text-transform: uppercase;
 }
 
+.ai-evidence {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.ai-evidence-label {
+  margin: 0;
+  color: var(--teal);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.ai-search-card mark {
+  border-radius: 0.25rem;
+  background: rgba(234, 155, 63, 0.24);
+  color: inherit;
+  padding: 0 0.12em;
+}
+
 .search-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;

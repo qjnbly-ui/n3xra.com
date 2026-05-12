@@ -1114,6 +1114,44 @@ function snippetFromText(text, query) {
   return `${prefix}${before}<mark>${match}</mark>${after}${suffix}`;
 }
 
+function escapeRegExp(value) {
+  return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function getAiEvidenceTerms() {
+  const stopWords = new Set([
+    "about", "after", "also", "and", "any", "are", "ask", "can", "create", "draft", "for", "from", "give", "have",
+    "how", "into", "make", "more", "need", "only", "please", "show", "summarize", "table", "tell", "that", "the",
+    "this", "use", "using", "what", "when", "where", "which", "with", "you", "your",
+  ]);
+  const queryTerms = String(searchQueryInput?.value || "")
+    .toLowerCase()
+    .split(/[^a-z0-9]+/i)
+    .filter((word) => word.length > 2 && !stopWords.has(word));
+  return Array.from(new Set(queryTerms)).slice(0, 10);
+}
+
+function highlightedAiEvidenceSnippet(text) {
+  const safeText = sanitizeExtractedText(text);
+  if (!safeText) return "No excerpt available.";
+
+  const terms = getAiEvidenceTerms();
+  const lower = safeText.toLowerCase();
+  const matchedTerm = terms.find((term) => lower.includes(term));
+  const index = matchedTerm ? lower.indexOf(matchedTerm) : 0;
+  const start = Math.max(0, index - 170);
+  const end = Math.min(safeText.length, index + 520);
+  let snippet = safeText.slice(start, end).trim();
+  if (start > 0) snippet = `... ${snippet}`;
+  if (end < safeText.length) snippet = `${snippet} ...`;
+
+  let escaped = escapeHtml(snippet);
+  terms.forEach((term) => {
+    escaped = escaped.replace(new RegExp(`\\b(${escapeRegExp(term)})\\b`, "gi"), "<mark>$1</mark>");
+  });
+  return escaped;
+}
+
 function inferYearMonthFromFilename(filename) {
   const baseName = String(filename || "").replace(/\.[^.]+$/, "");
   const tokenized = baseName
@@ -1757,7 +1795,10 @@ function renderAiSearchMatches(matches = []) {
         </div>
         <span class="doc-status">${doc.is_public ? "public" : "private"}</span>
       </div>
-      <p class="doc-snippet">${escapeHtml(doc.snippet || "No excerpt available.")}</p>
+      <div class="ai-evidence">
+        <p class="ai-evidence-label">Highlighted excerpt sent to AI</p>
+        <p class="doc-snippet">${highlightedAiEvidenceSnippet(doc.snippet || "")}</p>
+      </div>
       <div class="doc-actions">
         <button class="btn secondary" type="button" data-action="open" data-id="${escapeHtml(doc.id)}">Open file</button>
       </div>
