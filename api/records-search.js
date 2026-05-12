@@ -17,8 +17,18 @@ const {
 
 const RECORDS_SEARCH_MODEL = "llama-3.3-70b-versatile";
 const MAX_CONTEXT_CHARS = 110000;
-const MAX_DOC_SNIPPET_CHARS = 1800;
+const MAX_DOC_SNIPPET_CHARS = 3000;
 const MAX_HISTORY = 12;
+const STOP_WORDS = new Set([
+  "a", "about", "all", "and", "any", "are", "as", "at", "be", "but", "by", "can", "did", "do", "for", "from", "have",
+  "how", "i", "if", "in", "is", "it", "its", "let", "me", "more", "of", "on", "or", "please", "tell", "that", "the",
+  "them", "there", "they", "this", "to", "us", "was", "we", "what", "when", "where", "who", "why", "with", "would",
+  "you", "your",
+]);
+const MONTH_TERMS = [
+  "january", "february", "march", "april", "may", "june",
+  "july", "august", "september", "october", "november", "december",
+];
 
 function parseJson(req) {
   if (req.body && typeof req.body === "object") return Promise.resolve(req.body);
@@ -85,8 +95,8 @@ function tokenize(value) {
   return normalizeText(value)
     .toLowerCase()
     .split(/[^a-z0-9]+/i)
-    .filter((word) => word.length > 2)
-    .slice(0, 16);
+    .filter((word) => word.length > 2 && !STOP_WORDS.has(word))
+    .slice(0, 24);
 }
 
 function getDocumentTitle(doc) {
@@ -108,15 +118,31 @@ function countTermMatches(text, term) {
 }
 
 function rankDocuments(docs, question) {
+  const questionText = normalizeText(question).toLowerCase();
+  const hasYearTerm = /\b(19|20)\d{2}\b/.test(questionText);
+  const hasMonthTerm = MONTH_TERMS.some((month) => questionText.includes(month));
+  const monthYearPhrases = MONTH_TERMS.flatMap((month) => {
+    const years = questionText.match(/\b(19|20)\d{2}\b/g) || [];
+    return years.map((year) => `${month} ${year}`);
+  });
   const terms = tokenize(question);
   const scored = docs.map((doc) => {
     const title = `${doc.title || ""} ${doc.original_filename || ""}`.toLowerCase();
     const text = String(doc.extracted_text || "").toLowerCase();
-    const relevance = terms.reduce((sum, term) => {
+    let relevance = terms.reduce((sum, term) => {
       const inTitle = countTermMatches(title, term) * 8;
       const inText = Math.min(countTermMatches(text, term), 10);
       return sum + inTitle + inText;
     }, 0);
+    const monthValue = normalizeText(doc.month).toLowerCase();
+    const yearValue = normalizeText(doc.year).toLowerCase();
+    const metaText = `${title} ${monthValue} ${yearValue}`.trim();
+    const exactPhraseBoost = monthYearPhrases.reduce((boost, phrase) => (
+      boost + (metaText.includes(phrase) || text.includes(phrase) ? 30 : 0)
+    ), 0);
+    relevance += exactPhraseBoost;
+    if (hasYearTerm && yearValue && questionText.includes(yearValue)) relevance += 20;
+    if (hasMonthTerm && monthValue && questionText.includes(monthValue)) relevance += 20;
 
     return { doc, relevance, dateScore: getDocumentDateScore(doc) };
   });
@@ -128,7 +154,7 @@ function rankDocuments(docs, question) {
     return b.dateScore - a.dateScore;
   });
 
-  return pool.slice(0, 60).map((item) => ({
+  return pool.slice(0, 120).map((item) => ({
     id: item.doc.id,
     title: getDocumentTitle(item.doc),
     original_filename: normalizeText(item.doc.original_filename),
@@ -173,6 +199,7 @@ async function fetchDocuments(token, organizationId, year) {
 function buildDocumentContext(matches) {
   let total = 0;
   const sections = [];
+  const usedMatches = [];
   for (const doc of matches) {
     const block = [
       `Title: ${doc.title || "Untitled"}`,
@@ -187,8 +214,12 @@ function buildDocumentContext(matches) {
     if (total + block.length > MAX_CONTEXT_CHARS) break;
     total += block.length;
     sections.push(block);
+    usedMatches.push(doc);
   }
-  return sections.join("\n\n---\n\n");
+  return {
+    contextText: sections.join("\n\n---\n\n"),
+    usedMatches,
+  };
 }
 
 function buildPrompt({ user, question, context, history, documents, documentCount }) {
@@ -273,7 +304,7 @@ module.exports = async function handler(req, res) {
     }
 
     const usageContext = await prepareRecordsAiUsage({ organizationId, user });
-    const documentsContext = buildDocumentContext(matches);
+    const { contextText: documentsContext, usedMatches } = buildDocumentContext(matches);
     const prompt = buildPrompt({
       user,
       question,
@@ -319,8 +350,8 @@ module.exports = async function handler(req, res) {
 
     return res.status(200).json({
       answer,
-      matches,
-      showSources: matches.length > 0,
+      matches: usedMatches,
+      showSources: usedMatches.length > 0,
       usage: getClientUsageSummary(recorded?.usage || usageContext.usage),
     });
   } catch (error) {
