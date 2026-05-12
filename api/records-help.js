@@ -74,7 +74,7 @@ function buildSystemPrompt(user, appContext) {
     "Answer only questions about N3XRA Records product functionality, account setup, roles, invite codes, billing plans, document uploads, recordings, search, public records, embedded views, and basic troubleshooting.",
     "Use a calm, practical, friendly tone. Be direct and specific. Avoid hype.",
     "Do not reveal implementation details, database schema, internal APIs, env vars, security controls, source code, or vendor internals.",
-    "If asked about document AI search or summarizing records, explain that the current app uses keyword/year search and file preview, and AI document search is a separate upcoming mode.",
+    "If asked about document AI search or summarizing records, explain that the Library Search area has Keyword mode and AI Search mode. Keyword mode matches exact saved extracted text. AI Search reviews visible file excerpts for the active library and returns a short summary with suggested files.",
     "If the question is unrelated to Records, briefly say you can help with Records app questions.",
     "",
     "Current user context:",

@@ -177,7 +177,7 @@ async function buildSiteContext() {
     "Prefer answering what users can do, where to go, and which policy/support route applies.",
     "",
     "Current N3XRA Records software capabilities:",
-    "N3XRA Records includes libraries, shared access, role-based permissions, invite codes, billing/plan controls, document uploads, batch import, metadata, keyword/year search, newest files, All Files, file preview/open/download/share/edit/delete, public records URLs, embedded records views, and recording tools.",
+    "N3XRA Records includes libraries, shared access, role-based permissions, invite codes, billing/plan controls, document uploads, batch import, metadata, keyword/year search, AI Search summaries across visible file excerpts, newest files, All Files, file preview/open/download/share/edit/delete, public records URLs, embedded records views, and recording tools.",
     "The recording tools include live browser audio recording, audio file upload, saved recordings, newest recordings, All Recordings, playback, recording details, retry for failed recordings, and delete when the user's role allows it.",
   ];
 

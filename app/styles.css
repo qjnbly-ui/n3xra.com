@@ -1456,6 +1456,48 @@ textarea {
   gap: 0.8rem;
 }
 
+.search-mode-toggle {
+  display: inline-grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.35rem;
+  width: min(360px, 100%);
+  padding: 0.35rem;
+  border-radius: var(--radius-pill);
+  background: #e9ecef;
+  border: 1px solid rgba(15, 22, 32, 0.08);
+}
+
+.search-mode-btn {
+  border: 0;
+  border-radius: var(--radius-pill);
+  padding: 0.62rem 0.9rem;
+  background: transparent;
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.search-mode-btn.is-active {
+  background: #123a33;
+  color: var(--white);
+  box-shadow: 0 10px 22px rgba(12, 18, 28, 0.14);
+}
+
+.ai-search-answer {
+  border: 1px solid rgba(23, 111, 102, 0.18);
+  border-radius: var(--radius-sm);
+  background:
+    radial-gradient(220px 120px at 96% 8%, rgba(234, 155, 63, 0.12), transparent 60%),
+    linear-gradient(180deg, #f4fbf8 0%, #ffffff 100%);
+  color: var(--ink-soft);
+  padding: 0.95rem 1rem;
+  white-space: pre-wrap;
+}
+
 .search-row {
   display: grid;
   grid-template-columns: minmax(0, 1.4fr) 180px auto;
