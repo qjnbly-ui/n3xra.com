@@ -60,6 +60,7 @@ const recordingDetailSize = document.getElementById("recording-detail-size");
 const recordingDetailStatusMessage = document.getElementById("recording-detail-status-message");
 
 const RECORDINGS_BUCKET = "meeting-recordings";
+const RECORDER_AUDIO_BITS_PER_SECOND = 48000;
 const MIME_TYPE_CANDIDATES = [
   "audio/webm;codecs=opus",
   "audio/webm",
@@ -781,7 +782,9 @@ async function handleStartRecording() {
     activeStream = stream;
     activeChunks = [];
     activeRecordingMimeType = mimeType;
-    mediaRecorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+    const recorderOptions = { audioBitsPerSecond: RECORDER_AUDIO_BITS_PER_SECOND };
+    if (mimeType) recorderOptions.mimeType = mimeType;
+    mediaRecorder = new MediaRecorder(stream, recorderOptions);
 
     mediaRecorder.addEventListener("dataavailable", (event) => {
       if (event.data && event.data.size > 0) {

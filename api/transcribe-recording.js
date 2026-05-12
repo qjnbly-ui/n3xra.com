@@ -10,6 +10,10 @@ const GROQ_TRANSCRIPTION_MODEL = String(process.env.GROQ_RECORDS_TRANSCRIPTION_M
 const RECORDINGS_BUCKET = "meeting-recordings";
 const DOCUMENTS_BUCKET = "documents";
 const MAX_AUDIO_BYTES = 100 * 1024 * 1024;
+const DIRECT_TRANSCRIPTION_MAX_BYTES = Math.min(
+  MAX_AUDIO_BYTES,
+  Math.max(1, Number(process.env.GROQ_RECORDS_DIRECT_UPLOAD_MAX_BYTES || 20 * 1024 * 1024) || 20 * 1024 * 1024)
+);
 
 function parseJson(req) {
   if (req.body && typeof req.body === "object") return Promise.resolve(req.body);
@@ -209,16 +213,37 @@ async function downloadRecordingAudio(recording) {
   return arrayBuffer;
 }
 
-async function transcribeAudio(arrayBuffer, recording) {
+async function createRecordingSignedUrl(recording) {
+  if (!recording?.storage_path) throw new Error("No audio file is stored for this recording.");
+  const response = await fetch(`${SUPABASE_URL}/storage/v1/object/sign/${encodeStoragePath(RECORDINGS_BUCKET, recording.storage_path)}`, {
+    method: "POST",
+    headers: serviceHeaders(),
+    body: JSON.stringify({ expiresIn: 60 * 20 }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(String(data?.message || data?.error || "Unable to create a temporary audio URL."));
+  }
+  const signedPath = String(data?.signedURL || data?.signedUrl || data?.url || "").trim();
+  if (!signedPath) throw new Error("Unable to create a temporary audio URL.");
+  return signedPath.startsWith("http") ? signedPath : `${SUPABASE_URL}${signedPath}`;
+}
+
+function getGroqTranscriptionError(data, response) {
+  const message = String(data?.error?.message || data?.message || response.statusText || "Unable to transcribe recording.").trim();
+  if (response.status === 413 || message.toLowerCase().includes("request entity too large")) {
+    return "This recording is too large for a direct transcription upload. The app now retries large recordings through a temporary storage link; if this still appears, the current transcription provider limit is lower than this audio file.";
+  }
+  return message;
+}
+
+async function sendGroqTranscription(form) {
   const groqApiKey = String(process.env.GROQ_RECORDS_API_KEY || "").trim();
   if (!groqApiKey) throw new Error("Missing GROQ_RECORDS_API_KEY.");
 
-  const fileName = String(recording.storage_path || "recording.webm").split("/").pop() || "recording.webm";
-  const form = new FormData();
   form.append("model", GROQ_TRANSCRIPTION_MODEL);
   form.append("temperature", "0");
   form.append("response_format", "json");
-  form.append("file", new Blob([arrayBuffer], { type: recording.audio_mime_type || "audio/webm" }), fileName);
 
   const response = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
     method: "POST",
@@ -229,11 +254,41 @@ async function transcribeAudio(arrayBuffer, recording) {
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(String(data?.error?.message || data?.message || "Unable to transcribe recording."));
+    throw new Error(getGroqTranscriptionError(data, response));
   }
   const text = String(data?.text || "").trim();
   if (!text) throw new Error("Transcription returned no text.");
   return text;
+}
+
+async function transcribeAudioFile(arrayBuffer, recording) {
+  const fileName = String(recording.storage_path || "recording.webm").split("/").pop() || "recording.webm";
+  const form = new FormData();
+  form.append("file", new Blob([arrayBuffer], { type: recording.audio_mime_type || "audio/webm" }), fileName);
+  return sendGroqTranscription(form);
+}
+
+async function transcribeAudioUrl(recording) {
+  const form = new FormData();
+  form.append("url", await createRecordingSignedUrl(recording));
+  return sendGroqTranscription(form);
+}
+
+async function transcribeRecordingAudio(recording) {
+  const recordedSize = Number(recording?.file_size || 0);
+  if (recordedSize > MAX_AUDIO_BYTES) {
+    throw new Error("This audio file is larger than the transcription limit.");
+  }
+
+  if (recordedSize > DIRECT_TRANSCRIPTION_MAX_BYTES) {
+    return transcribeAudioUrl(recording);
+  }
+
+  const audio = await downloadRecordingAudio(recording);
+  if (audio.byteLength > DIRECT_TRANSCRIPTION_MAX_BYTES) {
+    return transcribeAudioUrl(recording);
+  }
+  return transcribeAudioFile(audio, recording);
 }
 
 async function uploadTranscriptDocument(recording, user, transcriptText) {
@@ -353,8 +408,7 @@ async function handler(req, res) {
       processing_error: null,
     });
 
-    const audio = await downloadRecordingAudio(recording);
-    const transcriptText = await transcribeAudio(audio, recording);
+    const transcriptText = await transcribeRecordingAudio(recording);
     const document = await uploadTranscriptDocument(recording, user, transcriptText);
     const updatedRecording = await updateRecording(recording.id, {
       document_id: document?.id || recording.document_id || null,
