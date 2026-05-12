@@ -260,6 +260,31 @@ function isBogusTableHeaderLabel(value) {
   return label === "table" || label === "trend table" || label === "data table" || label === "table header";
 }
 
+function isDescriptiveHeaderCell(value) {
+  const text = String(value || "").trim();
+  if (!text) return false;
+  if (text.length < 28) return false;
+  return /table|summar|following|below|over the years|overview/i.test(text);
+}
+
+function rowLooksLikeYearValueRow(row) {
+  if (!Array.isArray(row) || row.length < 2) return false;
+  return /^\d{4}(?:\s*(?:-|to|and)\s*\d{4}| and beyond)?$/i.test(String(row[0] || "").trim());
+}
+
+function trimTrailingSparseColumns(header, rows) {
+  let nextHeader = [...header];
+  let nextRows = rows.map((row) => [...row]);
+  while (nextHeader.length > 2) {
+    const col = nextHeader.length - 1;
+    const filled = nextRows.reduce((count, row) => count + (String(row[col] || "").trim() ? 1 : 0), 0);
+    if (filled > 0) break;
+    nextHeader.pop();
+    nextRows = nextRows.map((row) => row.slice(0, nextHeader.length));
+  }
+  return { header: nextHeader, rows: nextRows };
+}
+
 function renderAnswerMarkup(container, message = "") {
   if (!container) return;
   const raw = normalizeAiAnswerMarkdown(message);
@@ -306,12 +331,24 @@ function renderAnswerMarkup(container, message = "") {
         return row;
       });
     }
+    if (header.length > 2 && isDescriptiveHeaderCell(header[0])) {
+      const majorityYearLike = bodyRows.length
+        ? bodyRows.filter((row) => rowLooksLikeYearValueRow(row)).length / bodyRows.length
+        : 0;
+      if (majorityYearLike >= 0.6) {
+        header = header.slice(1);
+        bodyRows = bodyRows.map((row) => (row && row.length ? row.slice(0, header.length) : row));
+      }
+    }
     bodyRows = bodyRows.map((row) => {
       if (!row || !row.length) return row;
       if (row.length === header.length) return row;
       if (row.length > header.length) return row.slice(0, header.length);
       return [...row, ...Array.from({ length: header.length - row.length }, () => "")];
     });
+    const compact = trimTrailingSparseColumns(header, bodyRows);
+    header = compact.header;
+    bodyRows = compact.rows;
     if (!header.length) {
       tableRows = [];
       return;
