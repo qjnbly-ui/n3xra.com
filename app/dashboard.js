@@ -248,6 +248,18 @@ function isDividerLikeTableRow(cells) {
   });
 }
 
+function normalizeHeaderCellLabel(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[:\-\s]+$/g, "");
+}
+
+function isBogusTableHeaderLabel(value) {
+  const label = normalizeHeaderCellLabel(value);
+  return label === "table" || label === "trend table" || label === "data table" || label === "table header";
+}
+
 function renderAnswerMarkup(container, message = "") {
   if (!container) return;
   const raw = normalizeAiAnswerMarkdown(message);
@@ -283,14 +295,23 @@ function renderAnswerMarkup(container, message = "") {
       .slice(2)
       .map(parseTableRow)
       .filter((row) => row && row.length && !isDividerLikeTableRow(row));
-    const hasBogusTableHeaderCell = header.length > 1 && String(header[0] || "").trim().toLowerCase() === "table";
+    const hasBogusTableHeaderCell = header.length > 1 && isBogusTableHeaderLabel(header[0]);
     if (hasBogusTableHeaderCell) {
+      const previousHeaderLength = header.length;
       header = header.slice(1);
       bodyRows = bodyRows.map((row) => {
         if (!row || !row.length) return row;
-        return row.length > header.length ? row.slice(1) : row;
+        if (row.length === previousHeaderLength) return row.slice(1);
+        if (row.length > header.length) return row.slice(1);
+        return row;
       });
     }
+    bodyRows = bodyRows.map((row) => {
+      if (!row || !row.length) return row;
+      if (row.length === header.length) return row;
+      if (row.length > header.length) return row.slice(0, header.length);
+      return [...row, ...Array.from({ length: header.length - row.length }, () => "")];
+    });
     if (!header.length) {
       tableRows = [];
       return;
@@ -317,7 +338,7 @@ function renderAnswerMarkup(container, message = "") {
       }
       const headingLabel = headingPart.replace(/^#{1,3}\s+/, "").trim().toLowerCase();
       const cells = parseTableRow(tablePart);
-      if (cells && cells.length > 1 && headingLabel.endsWith("table") && String(cells[0] || "").trim().toLowerCase() === "table") {
+      if (cells && cells.length > 1 && headingLabel.endsWith("table") && isBogusTableHeaderLabel(cells[0])) {
         tablePart = `| ${cells.slice(1).join(" | ")} |`;
       }
       if (tablePart.includes("|")) tableRows.push(tablePart);
