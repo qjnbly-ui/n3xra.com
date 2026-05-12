@@ -60,7 +60,7 @@ const recordingDetailSize = document.getElementById("recording-detail-size");
 const recordingDetailStatusMessage = document.getElementById("recording-detail-status-message");
 
 const RECORDINGS_BUCKET = "meeting-recordings";
-const RECORDER_AUDIO_BITS_PER_SECOND = 48000;
+const RECORDER_AUDIO_BITS_PER_SECOND = 64000;
 const MIME_TYPE_CANDIDATES = [
   "audio/webm;codecs=opus",
   "audio/webm",
