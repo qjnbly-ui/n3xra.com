@@ -235,7 +235,7 @@ function isMarkdownTableDivider(line) {
 
 function renderAnswerMarkup(container, message = "") {
   if (!container) return;
-  const raw = String(message || "").trim();
+  const raw = normalizeAiAnswerMarkdown(message);
   container.classList.toggle("hidden", !raw);
   if (!raw) {
     container.innerHTML = "";
@@ -321,6 +321,23 @@ function renderAnswerMarkup(container, message = "") {
   flushTable();
   flushList();
   container.innerHTML = html.join("");
+}
+
+function normalizeAiAnswerMarkdown(message = "") {
+  let text = String(message || "").trim();
+  if (!text) return "";
+
+  // Ensure markdown headings and list markers start on their own lines.
+  text = text
+    .replace(/\s+(#{1,4}\s+)/g, "\n$1")
+    .replace(/\s+(\d+\.\s+)/g, "\n$1")
+    .replace(/\s+([*-]\s+)/g, "\n$1");
+
+  // If table headers are provided inline, place each row on separate lines.
+  text = text.replace(/\s+\|\s+---/g, "\n| ---");
+  text = text.replace(/\s+\|\s+\|/g, " |\n| ");
+
+  return text.trim();
 }
 
 function resetLibraryAiSearchHistory() {
