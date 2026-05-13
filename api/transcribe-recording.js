@@ -226,7 +226,10 @@ async function createRecordingSignedUrl(recording) {
   }
   const signedPath = String(data?.signedURL || data?.signedUrl || data?.url || "").trim();
   if (!signedPath) throw new Error("Unable to create a temporary audio URL.");
-  return signedPath.startsWith("http") ? signedPath : `${SUPABASE_URL}${signedPath}`;
+  if (signedPath.startsWith("http")) return signedPath;
+  const normalizedPath = signedPath.startsWith("/") ? signedPath : `/${signedPath}`;
+  const storagePath = normalizedPath.startsWith("/storage/v1/") ? normalizedPath : `/storage/v1${normalizedPath}`;
+  return `${SUPABASE_URL}${storagePath}`;
 }
 
 function getGroqTranscriptionError(data, response) {
