@@ -201,8 +201,15 @@
                 </div>
                 <div class="field">
                   <label for="organization-ai-memory">Saved AI memory</label>
-                  <textarea id="organization-ai-memory" maxlength="2400" placeholder="Stable facts, aliases, preferred names, recurring events, or context the AI should keep in mind."></textarea>
-                  <p class="field-note">Use this for facts that should persist across searches. Keep it curated so the AI does not inherit outdated assumptions.</p>
+                  <textarea class="hidden" id="organization-ai-memory" maxlength="2400"></textarea>
+                  <div class="ai-memory-manager">
+                    <div class="ai-memory-list" id="organization-ai-memory-list"></div>
+                    <div class="ai-memory-add-row">
+                      <input id="organization-ai-memory-new" type="text" maxlength="700" placeholder="Add a memory the AI should keep in mind">
+                      <button class="btn secondary" id="organization-ai-memory-add" type="button">Add memory</button>
+                    </div>
+                  </div>
+                  <p class="field-note">Each memory saves into the same library memory field. Keep these curated so the AI does not inherit outdated assumptions.</p>
                 </div>
                 <div class="actions">
                   <button class="btn" id="organization-ai-settings-save" type="submit">Save AI settings</button>
@@ -590,7 +597,7 @@
       </div>
       <div class="settings-modal-body">
         <form class="stack" id="ai-memory-form">
-          <p class="account-note">The AI suggested adding this to the library memory. Edit it first if needed, then save it for future AI Search answers.</p>
+          <p class="account-note">The AI prepared this saved-memory version. Edit it if needed, then save it for future AI Search answers.</p>
           <div class="field">
             <label for="ai-memory-suggestion">Memory to save</label>
             <textarea id="ai-memory-suggestion" maxlength="700"></textarea>

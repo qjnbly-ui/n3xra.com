@@ -129,6 +129,9 @@ const organizationAiSettingsForm = document.getElementById("organization-ai-sett
 const organizationAiContextInput = document.getElementById("organization-ai-context");
 const organizationAiResponseStyleInput = document.getElementById("organization-ai-response-style");
 const organizationAiMemoryInput = document.getElementById("organization-ai-memory");
+const organizationAiMemoryList = document.getElementById("organization-ai-memory-list");
+const organizationAiMemoryNewInput = document.getElementById("organization-ai-memory-new");
+const organizationAiMemoryAdd = document.getElementById("organization-ai-memory-add");
 const organizationAiSettingsSave = document.getElementById("organization-ai-settings-save");
 const organizationAiSettingsStatus = document.getElementById("organization-ai-settings-status");
 const redeemInviteForm = document.getElementById("redeem-invite-form");
@@ -807,15 +810,125 @@ function normalizeAiMemoryText(value) {
   return String(value || "").replace(/\s+/g, " ").trim().slice(0, 700);
 }
 
+function parseAiMemoryItems(value) {
+  return String(value || "")
+    .split(/\r?\n+/)
+    .map((line) => normalizeAiMemoryText(line.replace(/^\s*(?:[-*]|\d+\.)\s+/, "")))
+    .filter(Boolean)
+    .filter((item, index, list) => list.findIndex((entry) => entry.toLowerCase() === item.toLowerCase()) === index);
+}
+
+function serializeAiMemoryItems(items) {
+  return (Array.isArray(items) ? items : [])
+    .map(normalizeAiMemoryText)
+    .filter(Boolean)
+    .filter((item, index, list) => list.findIndex((entry) => entry.toLowerCase() === item.toLowerCase()) === index)
+    .map((item) => `- ${item}`)
+    .join("\n");
+}
+
 function appendAiMemory(existingMemory, memoryItem) {
-  const existing = String(existingMemory || "").trim();
   const item = normalizeAiMemoryText(memoryItem);
-  if (!item) return existing;
-  const itemLower = item.toLowerCase();
-  const existingLower = existing.toLowerCase();
-  if (existingLower.includes(itemLower)) return existing;
-  const line = `- ${item}`;
-  return existing ? `${existing}\n${line}` : line;
+  if (!item) return String(existingMemory || "").trim();
+  return serializeAiMemoryItems([...parseAiMemoryItems(existingMemory), item]);
+}
+
+function getAiMemoryItemsFromInput() {
+  return parseAiMemoryItems(organizationAiMemoryInput?.value || "");
+}
+
+function setAiMemoryItems(items) {
+  if (organizationAiMemoryInput) {
+    organizationAiMemoryInput.value = serializeAiMemoryItems(items);
+  }
+  renderAiMemoryBubbles();
+}
+
+function renderAiMemoryBubbles() {
+  if (!organizationAiMemoryList) return;
+  const canEdit = getActiveCapabilities().canManageLibrarySettings;
+  const items = getAiMemoryItemsFromInput();
+  if (!items.length) {
+    organizationAiMemoryList.innerHTML = '<p class="ai-memory-empty">No saved memories yet.</p>';
+    return;
+  }
+
+  organizationAiMemoryList.innerHTML = items.map((item, index) => `
+    <article class="ai-memory-bubble" data-memory-index="${index}">
+      <p>${escapeHtml(item)}</p>
+      <div class="ai-memory-actions">
+        <button type="button" data-memory-action="edit"${canEdit ? "" : " disabled"}>Edit</button>
+        <button type="button" data-memory-action="delete"${canEdit ? "" : " disabled"}>Delete</button>
+      </div>
+    </article>
+  `).join("");
+}
+
+function addAiMemoryFromInput() {
+  if (!organizationAiMemoryNewInput) return;
+  const item = normalizeAiMemoryText(organizationAiMemoryNewInput.value);
+  if (!item) return;
+  setAiMemoryItems([...getAiMemoryItemsFromInput(), item]);
+  organizationAiMemoryNewInput.value = "";
+}
+
+function handleAiMemoryBubbleAction(event) {
+  const button = event.target.closest("button[data-memory-action]");
+  if (!button || !organizationAiMemoryList?.contains(button)) return;
+  if (!getActiveCapabilities().canManageLibrarySettings) return;
+
+  const bubble = button.closest("[data-memory-index]");
+  const index = Number.parseInt(bubble?.getAttribute("data-memory-index") || "", 10);
+  const items = getAiMemoryItemsFromInput();
+  if (!Number.isInteger(index) || !items[index]) return;
+
+  const action = button.getAttribute("data-memory-action");
+  if (action === "cancel") {
+    renderAiMemoryBubbles();
+    return;
+  }
+
+  if (action === "save") {
+    const editInput = bubble.querySelector(".ai-memory-edit-input");
+    const normalized = normalizeAiMemoryText(editInput?.value || "");
+    if (!normalized) {
+      items.splice(index, 1);
+    } else {
+      items[index] = normalized;
+    }
+    setAiMemoryItems(items);
+    return;
+  }
+
+  if (action === "delete") {
+    items.splice(index, 1);
+    setAiMemoryItems(items);
+    return;
+  }
+
+  if (action === "edit") {
+    bubble.classList.add("is-editing");
+    bubble.innerHTML = `
+      <input class="ai-memory-edit-input" type="text" maxlength="700" value="${escapeHtml(items[index])}">
+      <div class="ai-memory-actions">
+        <button type="button" data-memory-action="save">Save</button>
+        <button type="button" data-memory-action="cancel">Cancel</button>
+      </div>
+    `;
+    const editInput = bubble.querySelector(".ai-memory-edit-input");
+    editInput?.focus();
+    editInput?.select();
+  }
+}
+
+function handleAiMemoryBubbleKeydown(event) {
+  const input = event.target.closest(".ai-memory-edit-input");
+  if (!input || !organizationAiMemoryList?.contains(input)) return;
+  if (event.key !== "Enter" && event.key !== "Escape") return;
+  event.preventDefault();
+  const bubble = input.closest("[data-memory-index]");
+  const action = event.key === "Enter" ? "save" : "cancel";
+  bubble?.querySelector(`button[data-memory-action="${action}"]`)?.click();
 }
 
 function isMissingAiSettingsSchemaError(error) {
@@ -1730,6 +1843,7 @@ function renderProfile() {
   organizationAiContextInput.value = organization?.records_ai_context || "";
   organizationAiResponseStyleInput.value = organization?.records_ai_response_style || "";
   organizationAiMemoryInput.value = organization?.records_ai_memory || "";
+  renderAiMemoryBubbles();
 
   organizationNameInput.disabled = !capabilities.canManageLibrarySettings;
   organizationPrimaryColorInput.disabled = !capabilities.canManageLibrarySettings || isFreePlan;
@@ -1738,6 +1852,8 @@ function renderProfile() {
   organizationAiContextInput.disabled = !capabilities.canManageLibrarySettings;
   organizationAiResponseStyleInput.disabled = !capabilities.canManageLibrarySettings;
   organizationAiMemoryInput.disabled = !capabilities.canManageLibrarySettings;
+  organizationAiMemoryNewInput.disabled = !capabilities.canManageLibrarySettings;
+  organizationAiMemoryAdd.disabled = !capabilities.canManageLibrarySettings;
   organizationAiSettingsSave.disabled = !capabilities.canManageLibrarySettings;
   openUploadModalButton.disabled = !capabilities.canUploadDocuments;
   uploadIsPublicInput.disabled = !capabilities.canUploadDocuments || !hasEmbeddedAccess();
@@ -3015,6 +3131,14 @@ async function init() {
   recordsHelpForm?.addEventListener("submit", handleRecordsHelpSubmit);
   aiSettingsToggle?.addEventListener("click", () => setSectionToggleOpen(aiSettingsToggle, aiSettingsBody, aiSettingsBody.classList.contains("hidden")));
   organizationAiSettingsForm?.addEventListener("submit", handleOrganizationAiSettingsSave);
+  organizationAiMemoryAdd?.addEventListener("click", addAiMemoryFromInput);
+  organizationAiMemoryNewInput?.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    addAiMemoryFromInput();
+  });
+  organizationAiMemoryList?.addEventListener("click", handleAiMemoryBubbleAction);
+  organizationAiMemoryList?.addEventListener("keydown", handleAiMemoryBubbleKeydown);
   organizationSettingsForm.addEventListener("submit", handleOrganizationSettingsSave);
   redeemInviteToggle.addEventListener("click", () => setSectionToggleOpen(redeemInviteToggle, redeemInviteBody, redeemInviteBody.classList.contains("hidden")));
   inviteManagementToggle.addEventListener("click", () => setSectionToggleOpen(inviteManagementToggle, inviteManagementBody, inviteManagementBody.classList.contains("hidden")));
