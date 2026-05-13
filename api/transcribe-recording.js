@@ -1,3 +1,8 @@
+const { spawn } = require("child_process");
+const fs = require("fs/promises");
+const os = require("os");
+const path = require("path");
+
 const SUPABASE_URL = String(process.env.SUPABASE_URL || "https://vdbjlgmbpykjblprqnak.supabase.co").trim();
 const SUPABASE_ANON_KEY = String(
   process.env.SUPABASE_ANON_KEY ||
@@ -10,10 +15,19 @@ const GROQ_TRANSCRIPTION_MODEL = String(process.env.GROQ_RECORDS_TRANSCRIPTION_M
 const RECORDINGS_BUCKET = "meeting-recordings";
 const DOCUMENTS_BUCKET = "documents";
 const MAX_AUDIO_BYTES = 100 * 1024 * 1024;
+const GROQ_MEDIA_LIMIT_BYTES = 25 * 1024 * 1024;
 const DIRECT_TRANSCRIPTION_MAX_BYTES = Math.min(
   MAX_AUDIO_BYTES,
+  GROQ_MEDIA_LIMIT_BYTES - 1024 * 1024,
   Math.max(1, Number(process.env.GROQ_RECORDS_DIRECT_UPLOAD_MAX_BYTES || 20 * 1024 * 1024) || 20 * 1024 * 1024)
 );
+const TRANSCRIPTION_SEGMENT_SECONDS = Math.max(
+  60,
+  Number(process.env.GROQ_RECORDS_TRANSCRIPTION_SEGMENT_SECONDS || 10 * 60) || 10 * 60
+);
+const TRANSCRIPTION_SEGMENT_BITRATE = String(process.env.GROQ_RECORDS_TRANSCRIPTION_SEGMENT_BITRATE || "48k").trim();
+const TRANSCRIPTION_SEGMENT_EXTENSION = "mp3";
+const TRANSCRIPTION_SEGMENT_MIME_TYPE = "audio/mpeg";
 
 function parseJson(req) {
   if (req.body && typeof req.body === "object") return Promise.resolve(req.body);
@@ -181,6 +195,50 @@ function slugify(value) {
     .slice(0, 70) || "recording-transcript";
 }
 
+function getAudioExtension(recording) {
+  const source = `${recording?.audio_mime_type || ""} ${recording?.storage_path || ""}`.toLowerCase();
+  if (source.includes("mp3") || source.includes("mpeg")) return "mp3";
+  if (source.includes("m4a")) return "m4a";
+  if (source.includes("mp4")) return "mp4";
+  if (source.includes("wav")) return "wav";
+  if (source.includes("ogg")) return "ogg";
+  if (source.includes("webm")) return "webm";
+  return "audio";
+}
+
+function getFfmpegPath() {
+  try {
+    return require("ffmpeg-static");
+  } catch (_error) {
+    return "";
+  }
+}
+
+function runFfmpeg(args) {
+  const ffmpegPath = getFfmpegPath();
+  if (!ffmpegPath) {
+    throw new Error("Large recording transcription needs the ffmpeg-static dependency to split audio before sending it to Groq.");
+  }
+
+  return new Promise((resolve, reject) => {
+    const child = spawn(ffmpegPath, args, { stdio: ["ignore", "ignore", "pipe"] });
+    let stderr = "";
+
+    child.stderr.on("data", (chunk) => {
+      stderr += String(chunk || "");
+      if (stderr.length > 4000) stderr = stderr.slice(-4000);
+    });
+    child.on("error", reject);
+    child.on("close", (code) => {
+      if (code === 0) {
+        resolve();
+        return;
+      }
+      reject(new Error(`Unable to prepare audio for transcription.${stderr ? ` ${stderr.trim()}` : ""}`));
+    });
+  });
+}
+
 async function updateRecording(recordingId, patch) {
   const rows = await fetchSupabaseJson(
     `${SUPABASE_URL}/rest/v1/meeting_recordings?id=eq.${encodeFilter(recordingId)}`,
@@ -213,29 +271,11 @@ async function downloadRecordingAudio(recording) {
   return arrayBuffer;
 }
 
-async function createRecordingSignedUrl(recording) {
-  if (!recording?.storage_path) throw new Error("No audio file is stored for this recording.");
-  const response = await fetch(`${SUPABASE_URL}/storage/v1/object/sign/${encodeStoragePath(RECORDINGS_BUCKET, recording.storage_path)}`, {
-    method: "POST",
-    headers: serviceHeaders(),
-    body: JSON.stringify({ expiresIn: 60 * 20 }),
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new Error(String(data?.message || data?.error || "Unable to create a temporary audio URL."));
-  }
-  const signedPath = String(data?.signedURL || data?.signedUrl || data?.url || "").trim();
-  if (!signedPath) throw new Error("Unable to create a temporary audio URL.");
-  if (signedPath.startsWith("http")) return signedPath;
-  const normalizedPath = signedPath.startsWith("/") ? signedPath : `/${signedPath}`;
-  const storagePath = normalizedPath.startsWith("/storage/v1/") ? normalizedPath : `/storage/v1${normalizedPath}`;
-  return `${SUPABASE_URL}${storagePath}`;
-}
-
 function getGroqTranscriptionError(data, response) {
   const message = String(data?.error?.message || data?.message || response.statusText || "Unable to transcribe recording.").trim();
-  if (response.status === 413 || message.toLowerCase().includes("request entity too large")) {
-    return "This recording is too large for a direct transcription upload. The app now retries large recordings through a temporary storage link; if this still appears, the current transcription provider limit is lower than this audio file.";
+  const lowerMessage = message.toLowerCase();
+  if (response.status === 413 || lowerMessage.includes("request entity too large") || lowerMessage.includes("media file too large")) {
+    return "Groq can only transcribe media files up to 25 MB. This app splits large recordings before transcription, but one prepared segment was still too large.";
   }
   return message;
 }
@@ -264,17 +304,68 @@ async function sendGroqTranscription(form) {
   return text;
 }
 
-async function transcribeAudioFile(arrayBuffer, recording) {
-  const fileName = String(recording.storage_path || "recording.webm").split("/").pop() || "recording.webm";
+async function transcribeAudioFile(arrayBuffer, recording, fileOptions = {}) {
+  const fileName = String(fileOptions.fileName || recording.storage_path || "recording.webm").split("/").pop() || "recording.webm";
+  const mimeType = fileOptions.mimeType || recording.audio_mime_type || "audio/webm";
   const form = new FormData();
-  form.append("file", new Blob([arrayBuffer], { type: recording.audio_mime_type || "audio/webm" }), fileName);
+  form.append("file", new Blob([arrayBuffer], { type: mimeType }), fileName);
   return sendGroqTranscription(form);
 }
 
-async function transcribeAudioUrl(recording) {
-  const form = new FormData();
-  form.append("url", await createRecordingSignedUrl(recording));
-  return sendGroqTranscription(form);
+async function transcribeSegmentedAudio(arrayBuffer, recording) {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "n3xra-transcription-"));
+  const inputPath = path.join(tempDir, `source.${getAudioExtension(recording)}`);
+  const outputPattern = path.join(tempDir, `part-%03d.${TRANSCRIPTION_SEGMENT_EXTENSION}`);
+
+  try {
+    await fs.writeFile(inputPath, Buffer.from(arrayBuffer));
+    await runFfmpeg([
+      "-hide_banner",
+      "-loglevel",
+      "error",
+      "-i",
+      inputPath,
+      "-vn",
+      "-ac",
+      "1",
+      "-ar",
+      "16000",
+      "-b:a",
+      TRANSCRIPTION_SEGMENT_BITRATE,
+      "-f",
+      "segment",
+      "-segment_time",
+      String(TRANSCRIPTION_SEGMENT_SECONDS),
+      "-reset_timestamps",
+      "1",
+      outputPattern,
+    ]);
+
+    const files = (await fs.readdir(tempDir))
+      .filter((file) => file.endsWith(`.${TRANSCRIPTION_SEGMENT_EXTENSION}`))
+      .sort();
+    if (!files.length) throw new Error("No audio segments were created for transcription.");
+
+    const transcriptParts = [];
+    for (let index = 0; index < files.length; index += 1) {
+      const file = files[index];
+      const segmentPath = path.join(tempDir, file);
+      const stat = await fs.stat(segmentPath);
+      if (stat.size > GROQ_MEDIA_LIMIT_BYTES) {
+        throw new Error("A prepared audio segment is still larger than Groq's 25 MB transcription limit.");
+      }
+      const segmentBuffer = await fs.readFile(segmentPath);
+      const segmentText = await transcribeAudioFile(segmentBuffer, recording, {
+        fileName: `${slugify(recording.title)}-part-${String(index + 1).padStart(2, "0")}.${TRANSCRIPTION_SEGMENT_EXTENSION}`,
+        mimeType: TRANSCRIPTION_SEGMENT_MIME_TYPE,
+      });
+      transcriptParts.push(segmentText);
+    }
+
+    return transcriptParts.filter(Boolean).join("\n\n").trim();
+  } finally {
+    await fs.rm(tempDir, { recursive: true, force: true }).catch(() => null);
+  }
 }
 
 async function transcribeRecordingAudio(recording) {
@@ -283,15 +374,11 @@ async function transcribeRecordingAudio(recording) {
     throw new Error("This audio file is larger than the transcription limit.");
   }
 
-  if (recordedSize > DIRECT_TRANSCRIPTION_MAX_BYTES) {
-    return transcribeAudioUrl(recording);
-  }
-
   const audio = await downloadRecordingAudio(recording);
-  if (audio.byteLength > DIRECT_TRANSCRIPTION_MAX_BYTES) {
-    return transcribeAudioUrl(recording);
+  if (audio.byteLength <= DIRECT_TRANSCRIPTION_MAX_BYTES) {
+    return transcribeAudioFile(audio, recording);
   }
-  return transcribeAudioFile(audio, recording);
+  return transcribeSegmentedAudio(audio, recording);
 }
 
 async function uploadTranscriptDocument(recording, user, transcriptText) {
