@@ -579,6 +579,33 @@
     </div>
   </div>
 
+  <div class="settings-modal" id="ai-memory-modal" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="settings-modal-dialog">
+      <div class="settings-modal-header">
+        <div>
+          <p class="settings-modal-kicker">AI memory</p>
+          <h3 class="settings-modal-title">Save this for future searches?</h3>
+        </div>
+        <button class="settings-modal-close" id="ai-memory-modal-close" type="button">Close</button>
+      </div>
+      <div class="settings-modal-body">
+        <form class="stack" id="ai-memory-form">
+          <p class="account-note">The AI suggested adding this to the library memory. Edit it first if needed, then save it for future AI Search answers.</p>
+          <div class="field">
+            <label for="ai-memory-suggestion">Memory to save</label>
+            <textarea id="ai-memory-suggestion" maxlength="700"></textarea>
+            <p class="field-note">This appends to the library's Saved AI memory in Additional settings.</p>
+          </div>
+          <div class="actions">
+            <button class="btn secondary" id="ai-memory-dismiss" type="button">Do not save</button>
+            <button class="btn" id="ai-memory-save" type="submit">Save memory</button>
+          </div>
+          <p class="status" id="ai-memory-status"></p>
+        </form>
+      </div>
+    </div>
+  </div>
+
   <script src="./config.js"></script>
   <script type="module" src="./dashboard.js"></script>
 </body>

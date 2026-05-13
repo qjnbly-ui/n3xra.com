@@ -154,6 +154,13 @@ const searchModeKeywordButton = document.getElementById("search-mode-keyword");
 const searchModeAiButton = document.getElementById("search-mode-ai");
 const aiSearchSubmitButton = document.getElementById("ai-search-submit");
 const aiSearchAnswer = document.getElementById("ai-search-answer");
+const aiMemoryModal = document.getElementById("ai-memory-modal");
+const aiMemoryModalClose = document.getElementById("ai-memory-modal-close");
+const aiMemoryForm = document.getElementById("ai-memory-form");
+const aiMemorySuggestionInput = document.getElementById("ai-memory-suggestion");
+const aiMemoryDismiss = document.getElementById("ai-memory-dismiss");
+const aiMemorySave = document.getElementById("ai-memory-save");
+const aiMemoryStatus = document.getElementById("ai-memory-status");
 const uploadMetadataGrid = document.getElementById("upload-metadata-grid");
 const uploadTitleInput = document.getElementById("upload-title");
 const uploadTitleField = document.getElementById("upload-title-field");
@@ -191,6 +198,7 @@ let selectedBillingCycle = "monthly";
 const libraryAiSearchHistory = [];
 const LIBRARY_AI_SEARCH_HISTORY_LIMIT = 8;
 let lastAiSearchMatches = [];
+let pendingAiMemorySuggestion = "";
 const recordsHelpHistory = [];
 const RECORDS_HELP_HISTORY_LIMIT = 8;
 function getInitialSection() {
@@ -541,9 +549,11 @@ function showSection(section) {
     setBillingPlanPickerOpen(false);
     setDeleteAccountModalOpen(false);
     setEmbedModalOpen(false);
+    setAiMemoryModalOpen(false);
   }
   if (isAccount) {
     setUploadModalOpen(false);
+    setAiMemoryModalOpen(false);
   }
   closeMobileMenu();
 }
@@ -609,6 +619,19 @@ function setEmbedModalOpen(isOpen) {
   embedModal.classList.toggle("is-open", isOpen);
   embedModal.setAttribute("aria-hidden", String(!isOpen));
   if (!isOpen) setStatus(embedStatus, "");
+}
+
+function setAiMemoryModalOpen(isOpen) {
+  if (!aiMemoryModal) return;
+  aiMemoryModal.classList.toggle("is-open", isOpen);
+  aiMemoryModal.setAttribute("aria-hidden", String(!isOpen));
+  if (!isOpen) {
+    pendingAiMemorySuggestion = "";
+    if (aiMemorySuggestionInput) aiMemorySuggestionInput.value = "";
+    setStatus(aiMemoryStatus, "");
+    if (aiMemorySave) aiMemorySave.disabled = false;
+    if (aiMemoryDismiss) aiMemoryDismiss.disabled = false;
+  }
 }
 
 function setBillingPlanPickerOpen(isOpen) {
@@ -778,6 +801,21 @@ function mergeActiveOrganizationUpdate(update) {
 function trimOrNull(value) {
   const trimmed = String(value || "").trim();
   return trimmed || null;
+}
+
+function normalizeAiMemoryText(value) {
+  return String(value || "").replace(/\s+/g, " ").trim().slice(0, 700);
+}
+
+function appendAiMemory(existingMemory, memoryItem) {
+  const existing = String(existingMemory || "").trim();
+  const item = normalizeAiMemoryText(memoryItem);
+  if (!item) return existing;
+  const itemLower = item.toLowerCase();
+  const existingLower = existing.toLowerCase();
+  if (existingLower.includes(itemLower)) return existing;
+  const line = `- ${item}`;
+  return existing ? `${existing}\n${line}` : line;
 }
 
 function isMissingAiSettingsSchemaError(error) {
@@ -1917,6 +1955,97 @@ function setSearchMode(mode) {
   }
 }
 
+function handleAiMemorySuggestion(suggestion) {
+  const memoryText = normalizeAiMemoryText(suggestion?.text || suggestion);
+  if (!memoryText) return;
+
+  if (!getActiveCapabilities().canManageLibrarySettings) {
+    setStatus(docsStatus, "AI memory suggestion not saved. Only a library settings manager can update saved AI memory.", "error");
+    return;
+  }
+
+  pendingAiMemorySuggestion = memoryText;
+  if (aiMemorySuggestionInput) aiMemorySuggestionInput.value = memoryText;
+  setStatus(aiMemoryStatus, "");
+  setAiMemoryModalOpen(true);
+}
+
+async function handleAiMemorySave(event) {
+  event.preventDefault();
+  const organization = getActiveOrganization();
+  if (!organization) return;
+  if (!getActiveCapabilities().canManageLibrarySettings) {
+    setStatus(aiMemoryStatus, "You do not have permission to update AI memory.", "error");
+    return;
+  }
+
+  const memoryText = normalizeAiMemoryText(aiMemorySuggestionInput?.value || pendingAiMemorySuggestion);
+  if (!memoryText) {
+    setStatus(aiMemoryStatus, "Enter memory text before saving.", "error");
+    return;
+  }
+
+  if (aiMemorySave) aiMemorySave.disabled = true;
+  if (aiMemoryDismiss) aiMemoryDismiss.disabled = true;
+  setStatus(aiMemoryStatus, "Checking current AI memory...");
+
+  const { data: currentAiSettings, error: loadError } = await supabase
+    .from("organizations")
+    .select("id, records_ai_memory")
+    .eq("id", organization.id)
+    .single();
+
+  if (loadError) {
+    if (aiMemorySave) aiMemorySave.disabled = false;
+    if (aiMemoryDismiss) aiMemoryDismiss.disabled = false;
+    setStatus(
+      aiMemoryStatus,
+      isMissingAiSettingsSchemaError(loadError)
+        ? "Run the Records AI settings schema before saving AI memory."
+        : loadError.message,
+      "error"
+    );
+    return;
+  }
+
+  const currentMemory = currentAiSettings?.records_ai_memory || organization.records_ai_memory || "";
+  const nextMemory = appendAiMemory(currentMemory, memoryText);
+  if (nextMemory === String(currentMemory || "").trim()) {
+    mergeActiveOrganizationUpdate({ id: organization.id, records_ai_memory: currentMemory });
+    renderProfile();
+    setAiMemoryModalOpen(false);
+    setStatus(docsStatus, "That memory already appears to be saved.", "success");
+    return;
+  }
+
+  setStatus(aiMemoryStatus, "Saving AI memory...");
+
+  const { data, error } = await supabase
+    .from("organizations")
+    .update({ records_ai_memory: nextMemory })
+    .eq("id", organization.id)
+    .select("id, records_ai_memory")
+    .single();
+
+  if (error) {
+    if (aiMemorySave) aiMemorySave.disabled = false;
+    if (aiMemoryDismiss) aiMemoryDismiss.disabled = false;
+    setStatus(
+      aiMemoryStatus,
+      isMissingAiSettingsSchemaError(error)
+        ? "Run the Records AI settings schema before saving AI memory."
+        : error.message,
+      "error"
+    );
+    return;
+  }
+
+  mergeActiveOrganizationUpdate(data);
+  renderProfile();
+  setAiMemoryModalOpen(false);
+  setStatus(docsStatus, "Saved to library AI memory.", "success");
+}
+
 async function handleAiSearchSubmit() {
   const question = searchQueryInput.value.trim();
   const organization = getActiveOrganization();
@@ -1963,6 +2092,7 @@ async function handleAiSearchSubmit() {
 
     const answer = String(data.answer || "").trim();
     const matches = Array.isArray(data.matches) ? data.matches : [];
+    const memorySuggestion = data.memorySuggestion?.text ? data.memorySuggestion : null;
     lastAiSearchMatches = matches;
     const shouldShowSources = data.showSources !== false;
     if (data?.usage?.organizationId) {
@@ -1980,6 +2110,9 @@ async function handleAiSearchSubmit() {
       show(docEmpty, false);
     }
     setStatus(docsStatus, answer ? "" : "No AI answer returned.", answer ? "" : "error");
+    if (memorySuggestion) {
+      handleAiMemorySuggestion(memorySuggestion);
+    }
   } catch (error) {
     setStatus(docsStatus, getErrorMessage(error, "Unable to run AI Search."), "error");
     renderAiSearchIdle();
@@ -2250,12 +2383,7 @@ async function handleProfileSave(event) {
     full_name: updates.full_name,
   };
   if (organizationResult?.data) {
-    activeMembership.organization = organizationResult.data;
-    memberships = memberships.map((membership) =>
-      membership.organization?.id === organizationResult.data.id
-        ? { ...membership, organization: organizationResult.data }
-        : membership
-    );
+    mergeActiveOrganizationUpdate(organizationResult.data);
   }
   renderProfile();
   setStatus(profileStatus, "Profile updated.", "success");
@@ -2339,10 +2467,7 @@ async function handleOrganizationSettingsSave(event) {
     return;
   }
 
-  activeMembership.organization = data;
-  memberships = memberships.map((membership) =>
-    membership.organization?.id === data.id ? { ...membership, organization: data } : membership
-  );
+  mergeActiveOrganizationUpdate(data);
   renderProfile();
   setStatus(organizationSettingsStatus, "Embed settings updated.", "success");
 }
@@ -2905,6 +3030,9 @@ async function init() {
   deleteAccountSubmit.addEventListener("click", () => deleteAccount("full"));
   openEmbedCardButton.addEventListener("click", () => setEmbedModalOpen(true));
   embedModalClose.addEventListener("click", () => setEmbedModalOpen(false));
+  aiMemoryModalClose?.addEventListener("click", () => setAiMemoryModalOpen(false));
+  aiMemoryDismiss?.addEventListener("click", () => setAiMemoryModalOpen(false));
+  aiMemoryForm?.addEventListener("submit", handleAiMemorySave);
   copyEmbedPreviewUrlButton.addEventListener("click", copyPublicEmbedUrl);
   copyEmbedCodeButton.addEventListener("click", copyEmbedCode);
   openUploadModalButton.addEventListener("click", () => {
@@ -2959,6 +3087,9 @@ async function init() {
   fileModal.addEventListener("click", (event) => {
     if (event.target === fileModal) closeFileModal();
   });
+  aiMemoryModal?.addEventListener("click", (event) => {
+    if (event.target === aiMemoryModal) setAiMemoryModalOpen(false);
+  });
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && fileModal.classList.contains("is-open")) {
       closeFileModal();
@@ -2978,6 +3109,10 @@ async function init() {
     }
     if (event.key === "Escape" && uploadModal.classList.contains("is-open")) {
       setUploadModalOpen(false);
+      return;
+    }
+    if (event.key === "Escape" && aiMemoryModal?.classList.contains("is-open")) {
+      setAiMemoryModalOpen(false);
       return;
     }
     if (event.key === "Escape") closeMobileMenu();
