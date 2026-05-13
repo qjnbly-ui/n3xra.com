@@ -176,9 +176,39 @@
           <section class="account-card" id="library-access-card">
             <div class="panel-head">
               <div>
-                <h3>Library access</h3>
-                <p id="library-access-copy">Join shared libraries and manage shared access for this library.</p>
+                <h3>Additional settings</h3>
+                <p id="library-access-copy">Manage library AI guidance, shared access, invite codes, and public settings.</p>
               </div>
+            </div>
+            <button class="section-toggle" id="ai-settings-toggle" type="button" aria-expanded="false" aria-controls="ai-settings-body">
+              <div>
+                <h3>AI settings</h3>
+                <p>Teach the Records AI how to understand this specific library.</p>
+              </div>
+              <span class="section-toggle-indicator" aria-hidden="true">+</span>
+            </button>
+            <div class="stack hidden" id="ai-settings-body">
+              <form class="stack" id="organization-ai-settings-form">
+                <div class="field">
+                  <label for="organization-ai-context">Library background</label>
+                  <textarea id="organization-ai-context" maxlength="1800" placeholder="What is this library for? Add the organization type, common record types, recurring topics, acronyms, and anything the AI should understand before answering."></textarea>
+                  <p class="field-note">Example: This library contains board packets, minutes, grant records, and project updates for a community organization.</p>
+                </div>
+                <div class="field">
+                  <label for="organization-ai-response-style">Answer style</label>
+                  <textarea id="organization-ai-response-style" maxlength="1200" placeholder="How should the AI respond for this library?"></textarea>
+                  <p class="field-note">Example: Be thorough, use plain language, make uncertainty clear, and format complex answers with tables when helpful.</p>
+                </div>
+                <div class="field">
+                  <label for="organization-ai-memory">Saved AI memory</label>
+                  <textarea id="organization-ai-memory" maxlength="2400" placeholder="Stable facts, aliases, preferred names, recurring events, or context the AI should keep in mind."></textarea>
+                  <p class="field-note">Use this for facts that should persist across searches. Keep it curated so the AI does not inherit outdated assumptions.</p>
+                </div>
+                <div class="actions">
+                  <button class="btn" id="organization-ai-settings-save" type="submit">Save AI settings</button>
+                </div>
+                <p class="status" id="organization-ai-settings-status"></p>
+              </form>
             </div>
             <button class="section-toggle" id="redeem-invite-toggle" type="button" aria-expanded="false" aria-controls="redeem-invite-body">
               <div>

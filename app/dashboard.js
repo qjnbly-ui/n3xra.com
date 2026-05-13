@@ -123,6 +123,14 @@ const organizationPrimaryColorInput = document.getElementById("organization-prim
 const organizationAccentColorInput = document.getElementById("organization-accent-color");
 const organizationSettingsSave = document.getElementById("organization-settings-save");
 const organizationSettingsStatus = document.getElementById("organization-settings-status");
+const aiSettingsToggle = document.getElementById("ai-settings-toggle");
+const aiSettingsBody = document.getElementById("ai-settings-body");
+const organizationAiSettingsForm = document.getElementById("organization-ai-settings-form");
+const organizationAiContextInput = document.getElementById("organization-ai-context");
+const organizationAiResponseStyleInput = document.getElementById("organization-ai-response-style");
+const organizationAiMemoryInput = document.getElementById("organization-ai-memory");
+const organizationAiSettingsSave = document.getElementById("organization-ai-settings-save");
+const organizationAiSettingsStatus = document.getElementById("organization-ai-settings-status");
 const redeemInviteForm = document.getElementById("redeem-invite-form");
 const redeemInviteCodeInput = document.getElementById("redeem-invite-code");
 const redeemInviteStatus = document.getElementById("redeem-invite-status");
@@ -751,6 +759,38 @@ async function insertDocumentRecord(record, userId) {
 
 function getActiveOrganization() {
   return activeMembership?.organization || null;
+}
+
+function mergeActiveOrganizationUpdate(update) {
+  if (!update?.id || !activeMembership?.organization) return;
+  const nextOrganization = {
+    ...activeMembership.organization,
+    ...update,
+  };
+  activeMembership.organization = nextOrganization;
+  memberships = memberships.map((membership) =>
+    membership.organization?.id === update.id
+      ? { ...membership, organization: { ...membership.organization, ...update } }
+      : membership
+  );
+}
+
+function trimOrNull(value) {
+  const trimmed = String(value || "").trim();
+  return trimmed || null;
+}
+
+function isMissingAiSettingsSchemaError(error) {
+  const message = String(error?.message || "").toLowerCase();
+  return (
+    (message.includes("records_ai_context") || message.includes("records_ai_response_style") || message.includes("records_ai_memory")) &&
+    (message.includes("does not exist") || message.includes("schema cache"))
+  );
+}
+
+function isMissingAiNoteSchemaError(error) {
+  const message = String(error?.message || "").toLowerCase();
+  return message.includes("records_ai_note") && (message.includes("does not exist") || message.includes("schema cache"));
 }
 
 function getActiveRole() {
@@ -1438,6 +1478,31 @@ async function loadRecordsAiUsage() {
   renderBillingPlans();
 }
 
+async function loadOrganizationAiSettings() {
+  const organization = getActiveOrganization();
+  if (!organization?.id || !getActiveCapabilities().canManageLibrarySettings) return;
+
+  const { data, error } = await supabase
+    .from("organizations")
+    .select("id, records_ai_context, records_ai_response_style, records_ai_memory")
+    .eq("id", organization.id)
+    .maybeSingle();
+
+  if (error) {
+    if (isMissingAiSettingsSchemaError(error)) {
+      setStatus(organizationAiSettingsStatus, "Run the Records AI settings schema before saving library AI guidance.", "error");
+      return;
+    }
+    setStatus(organizationAiSettingsStatus, error.message, "error");
+    return;
+  }
+
+  if (data) {
+    mergeActiveOrganizationUpdate(data);
+    renderProfile();
+  }
+}
+
 function renderOrganizationSelector() {
   if (!memberships.length || !activeMembership?.organization) {
     activeOrganizationSelect.innerHTML = '<option value="">No active library</option>';
@@ -1624,11 +1689,18 @@ function renderProfile() {
   organizationNameInput.value = organization?.name || "";
   organizationPrimaryColorInput.value = normalizeHexColor(organization?.branded_primary_color, DEFAULT_PRIMARY_COLOR);
   organizationAccentColorInput.value = normalizeHexColor(organization?.branded_accent_color, DEFAULT_ACCENT_COLOR);
+  organizationAiContextInput.value = organization?.records_ai_context || "";
+  organizationAiResponseStyleInput.value = organization?.records_ai_response_style || "";
+  organizationAiMemoryInput.value = organization?.records_ai_memory || "";
 
   organizationNameInput.disabled = !capabilities.canManageLibrarySettings;
   organizationPrimaryColorInput.disabled = !capabilities.canManageLibrarySettings || isFreePlan;
   organizationAccentColorInput.disabled = !capabilities.canManageLibrarySettings || isFreePlan;
   organizationSettingsSave.disabled = !capabilities.canManageLibrarySettings;
+  organizationAiContextInput.disabled = !capabilities.canManageLibrarySettings;
+  organizationAiResponseStyleInput.disabled = !capabilities.canManageLibrarySettings;
+  organizationAiMemoryInput.disabled = !capabilities.canManageLibrarySettings;
+  organizationAiSettingsSave.disabled = !capabilities.canManageLibrarySettings;
   openUploadModalButton.disabled = !capabilities.canUploadDocuments;
   uploadIsPublicInput.disabled = !capabilities.canUploadDocuments || !hasEmbeddedAccess();
 
@@ -1647,6 +1719,8 @@ function renderProfile() {
   show(organizationNameField, canEditLibraryNameFromProfile);
   show(organizationPrimaryColorField, !isFreePlan);
   show(organizationAccentColorField, !isFreePlan);
+  show(aiSettingsToggle, hasLibraryAccess && canSeeLibrarySettings);
+  show(aiSettingsBody, hasLibraryAccess && canSeeLibrarySettings && !aiSettingsBody.classList.contains("hidden"));
   show(redeemInviteToggle, hasLibraryAccess);
   show(redeemInviteBody, hasLibraryAccess && !redeemInviteBody.classList.contains("hidden"));
   show(inviteManagementToggle, canSeeInviteManagement);
@@ -1661,11 +1735,9 @@ function renderProfile() {
   show(mobileMenuRecordingsLink, capabilities.canUseRecordings);
   show(openDeleteAccountModalButton, canDeleteAccountNow);
   show(deleteAccountBlockedNote, !canDeleteAccountNow);
-  libraryAccessCopy.textContent = isFreePlan || !isOrganizationPlan
-    ? "Join shared libraries from invite codes."
-    : capabilities.canManageMembers
-      ? "Join shared libraries and manage shared access for this library."
-      : "Join shared libraries from invite codes.";
+  libraryAccessCopy.textContent = capabilities.canManageLibrarySettings
+    ? "Manage AI guidance, shared access, invite codes, and public settings for this library."
+    : "Join shared libraries from invite codes and review available settings.";
   if (!capabilities.canManageBilling) {
     setBillingPlanPickerOpen(false);
   }
@@ -1677,6 +1749,9 @@ function renderProfile() {
   }
   if (!canSeeEmbedSettings) {
     setSectionToggleOpen(embedSettingsToggle, embedSettingsBody, false);
+  }
+  if (!canSeeLibrarySettings) {
+    setSectionToggleOpen(aiSettingsToggle, aiSettingsBody, false);
   }
 
   Array.from(createInviteForm.elements).forEach((field) => {
@@ -1733,7 +1808,7 @@ function renderDocuments() {
   const filtered = documentsCache.filter((doc) => {
     const yearMatch = selectedYear === "all" || String(doc.year || "") === selectedYear;
     if (!yearMatch) return false;
-    const haystack = `${doc.title || ""} ${doc.original_filename || ""} ${sanitizeExtractedText(doc.extracted_text || "")}`.toLowerCase();
+    const haystack = `${doc.title || ""} ${doc.original_filename || ""} ${doc.records_ai_note || ""} ${sanitizeExtractedText(doc.extracted_text || "")}`.toLowerCase();
     return haystack.includes(query);
   });
 
@@ -2010,11 +2085,21 @@ async function loadDocuments() {
   if (!organization) return;
 
   setStatus(docsStatus, "Loading documents...");
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from("documents")
-    .select("id, title, original_filename, storage_path, status, processing_error, extracted_text, year, month, is_public, created_at")
+    .select("id, title, original_filename, storage_path, status, processing_error, extracted_text, records_ai_note, year, month, is_public, created_at")
     .eq("organization_id", organization.id)
     .order("created_at", { ascending: false });
+
+  if (error && isMissingAiNoteSchemaError(error)) {
+    const fallback = await supabase
+      .from("documents")
+      .select("id, title, original_filename, storage_path, status, processing_error, extracted_text, year, month, is_public, created_at")
+      .eq("organization_id", organization.id)
+      .order("created_at", { ascending: false });
+    data = fallback.data;
+    error = fallback.error;
+  }
 
   if (error) {
     setStatus(docsStatus, error.message, "error");
@@ -2048,7 +2133,7 @@ async function loadActiveOrganizationData() {
   }
 
   renderProfile();
-  await Promise.all([loadDocuments(), loadInvites(), loadMembers(), loadRecordsAiUsage()]);
+  await Promise.all([loadDocuments(), loadInvites(), loadMembers(), loadRecordsAiUsage(), loadOrganizationAiSettings()]);
 }
 
 async function createSignedUrlForDocument(documentId) {
@@ -2174,6 +2259,48 @@ async function handleProfileSave(event) {
   }
   renderProfile();
   setStatus(profileStatus, "Profile updated.", "success");
+}
+
+async function handleOrganizationAiSettingsSave(event) {
+  event.preventDefault();
+  const organization = getActiveOrganization();
+  if (!organization) return;
+  if (!getActiveCapabilities().canManageLibrarySettings) {
+    setStatus(organizationAiSettingsStatus, "You do not have permission to change AI settings.", "error");
+    return;
+  }
+
+  organizationAiSettingsSave.disabled = true;
+  setStatus(organizationAiSettingsStatus, "Saving AI settings...");
+
+  const updates = {
+    records_ai_context: trimOrNull(organizationAiContextInput.value),
+    records_ai_response_style: trimOrNull(organizationAiResponseStyleInput.value),
+    records_ai_memory: trimOrNull(organizationAiMemoryInput.value),
+  };
+
+  const { data, error } = await supabase
+    .from("organizations")
+    .update(updates)
+    .eq("id", organization.id)
+    .select("id, records_ai_context, records_ai_response_style, records_ai_memory")
+    .single();
+
+  organizationAiSettingsSave.disabled = false;
+  if (error) {
+    setStatus(
+      organizationAiSettingsStatus,
+      isMissingAiSettingsSchemaError(error)
+        ? "Run the Records AI settings schema before saving library AI guidance."
+        : error.message,
+      "error"
+    );
+    return;
+  }
+
+  mergeActiveOrganizationUpdate(data);
+  renderProfile();
+  setStatus(organizationAiSettingsStatus, "AI settings updated.", "success");
 }
 
 async function handleOrganizationSettingsSave(event) {
@@ -2761,6 +2888,8 @@ async function init() {
   profileForm.addEventListener("submit", handleProfileSave);
   recordsHelpToggle?.addEventListener("click", () => setSectionToggleOpen(recordsHelpToggle, recordsHelpBody, recordsHelpBody.classList.contains("hidden")));
   recordsHelpForm?.addEventListener("submit", handleRecordsHelpSubmit);
+  aiSettingsToggle?.addEventListener("click", () => setSectionToggleOpen(aiSettingsToggle, aiSettingsBody, aiSettingsBody.classList.contains("hidden")));
+  organizationAiSettingsForm?.addEventListener("submit", handleOrganizationAiSettingsSave);
   organizationSettingsForm.addEventListener("submit", handleOrganizationSettingsSave);
   redeemInviteToggle.addEventListener("click", () => setSectionToggleOpen(redeemInviteToggle, redeemInviteBody, redeemInviteBody.classList.contains("hidden")));
   inviteManagementToggle.addEventListener("click", () => setSectionToggleOpen(inviteManagementToggle, inviteManagementBody, inviteManagementBody.classList.contains("hidden")));

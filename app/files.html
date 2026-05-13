@@ -163,6 +163,11 @@
             <input id="file-edit-public" type="checkbox">
             <span>Publish to public embed</span>
           </label>
+          <div class="field">
+            <label for="file-edit-ai-note">AI note</label>
+            <textarea id="file-edit-ai-note" maxlength="1600" placeholder="Add context the AI should know when this file is used in search. Example: This file is a draft, this person is also known as..., or this record replaced an older version."></textarea>
+            <p class="field-note">This note is not shown in the public embed. It helps AI Search interpret this file correctly.</p>
+          </div>
           <div class="notice">
             <strong>File:</strong> <span id="file-edit-filename">-</span>
           </div>

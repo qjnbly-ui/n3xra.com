@@ -48,6 +48,9 @@ create table if not exists public.organizations (
   hosted_public_portal_enabled boolean not null default false,
   branded_primary_color text,
   branded_accent_color text,
+  records_ai_context text,
+  records_ai_response_style text,
+  records_ai_memory text,
   stripe_customer_id text,
   stripe_subscription_id text,
   stripe_price_id text,
@@ -109,10 +112,11 @@ create table if not exists public.documents (
   status text not null default 'uploaded',
   processing_error text,
   extracted_text text,
+  records_ai_note text,
   search_tsv tsvector generated always as (
     to_tsvector(
       'english',
-      coalesce(title, '') || ' ' || coalesce(original_filename, '') || ' ' || coalesce(extracted_text, '')
+      coalesce(title, '') || ' ' || coalesce(original_filename, '') || ' ' || coalesce(extracted_text, '') || ' ' || coalesce(records_ai_note, '')
     )
   ) stored,
   created_at timestamptz not null default now(),
@@ -148,6 +152,11 @@ create table if not exists public.meeting_recordings (
   constraint meeting_recordings_duration_check
     check (duration_seconds is null or duration_seconds >= 0)
 );
+
+alter table public.organizations add column if not exists records_ai_context text;
+alter table public.organizations add column if not exists records_ai_response_style text;
+alter table public.organizations add column if not exists records_ai_memory text;
+alter table public.documents add column if not exists records_ai_note text;
 
 create table if not exists public.records_ai_usage_events (
   id uuid primary key default gen_random_uuid(),

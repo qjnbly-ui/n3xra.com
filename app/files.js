@@ -50,6 +50,7 @@ const fileEditTitle = document.getElementById("file-edit-title");
 const fileEditYear = document.getElementById("file-edit-year");
 const fileEditMonth = document.getElementById("file-edit-month");
 const fileEditPublic = document.getElementById("file-edit-public");
+const fileEditAiNote = document.getElementById("file-edit-ai-note");
 const fileEditFilename = document.getElementById("file-edit-filename");
 const fileEditSave = document.getElementById("file-edit-save");
 const fileEditStatus = document.getElementById("file-edit-status");
@@ -160,6 +161,11 @@ function getDocumentDateScore(doc) {
   const year = Number.parseInt(yearRaw, 10);
   const month = getMonthNumber(doc?.month) || 0;
   return year * 100 + month;
+}
+
+function isMissingAiNoteSchemaError(error) {
+  const message = String(error?.message || "").toLowerCase();
+  return message.includes("records_ai_note") && (message.includes("does not exist") || message.includes("schema cache"));
 }
 
 function sortDocumentsNewestToOldest(docs) {
@@ -294,11 +300,21 @@ async function loadDocuments() {
   }
 
   setStatus(fileStatus, "Loading files...");
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from("documents")
-    .select("id, title, original_filename, storage_path, year, month, is_public, created_at")
+    .select("id, title, original_filename, storage_path, year, month, is_public, records_ai_note, created_at")
     .eq("organization_id", organization.id)
     .order("created_at", { ascending: false });
+
+  if (error && isMissingAiNoteSchemaError(error)) {
+    const fallback = await supabase
+      .from("documents")
+      .select("id, title, original_filename, storage_path, year, month, is_public, created_at")
+      .eq("organization_id", organization.id)
+      .order("created_at", { ascending: false });
+    data = fallback.data;
+    error = fallback.error;
+  }
 
   if (error) {
     setStatus(fileStatus, error.message, "error");
@@ -446,6 +462,7 @@ function openFileEditModal(documentId) {
   fileEditYear.value = doc.year || "";
   fileEditMonth.value = doc.month || "";
   fileEditPublic.checked = Boolean(doc.is_public);
+  fileEditAiNote.value = doc.records_ai_note || "";
   fileEditFilename.textContent = doc.original_filename || "-";
   setStatus(fileEditStatus, "");
   fileEditSave.disabled = false;
@@ -480,12 +497,17 @@ async function saveFileEdit(event) {
     year: fileEditYear.value.trim() || null,
     month: fileEditMonth.value.trim() || null,
     is_public: fileEditPublic.checked,
+    records_ai_note: fileEditAiNote.value.trim() || null,
   };
 
   const { error } = await supabase.from("documents").update(updates).eq("id", pendingEditId);
   if (error) {
     fileEditSave.disabled = false;
-    setStatus(fileEditStatus, error.message, "error");
+    setStatus(
+      fileEditStatus,
+      isMissingAiNoteSchemaError(error) ? "Run the Records AI settings schema before saving file AI notes." : error.message,
+      "error"
+    );
     return;
   }
 

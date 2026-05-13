@@ -116,6 +116,11 @@ function getDocumentTitle(doc) {
   return normalizeText(doc.title || doc.original_filename || "Untitled file");
 }
 
+function isMissingSchemaColumnMessage(message, columnName) {
+  const lower = String(message || "").toLowerCase();
+  return lower.includes(String(columnName || "").toLowerCase()) && (lower.includes("does not exist") || lower.includes("schema cache"));
+}
+
 function getDocumentDateScore(doc) {
   const value = doc.created_at ? new Date(doc.created_at).getTime() : 0;
   return Number.isFinite(value) ? value : 0;
@@ -141,7 +146,8 @@ function rankDocuments(docs, question) {
   const terms = tokenize(question);
   const scored = docs.map((doc) => {
     const title = `${doc.title || ""} ${doc.original_filename || ""}`.toLowerCase();
-    const text = sanitizeExtractedText(doc.extracted_text || "").toLowerCase();
+    const aiNote = normalizeText(doc.records_ai_note || "").toLowerCase();
+    const text = `${aiNote} ${sanitizeExtractedText(doc.extracted_text || "").toLowerCase()}`.trim();
     let relevance = terms.reduce((sum, term) => {
       const inTitle = countTermMatches(title, term) * 8;
       const inText = Math.min(countTermMatches(text, term), 10);
@@ -177,12 +183,13 @@ function rankDocuments(docs, question) {
     created_at: item.doc.created_at || "",
     relevance: item.relevance,
     snippet: sanitizeExtractedText(item.doc.extracted_text || "").slice(0, MAX_DOC_SNIPPET_CHARS),
+    ai_note: normalizeText(item.doc.records_ai_note || ""),
   }));
 }
 
 async function fetchDocuments(token, organizationId, year) {
   const params = new URLSearchParams({
-    select: "id,title,original_filename,status,extracted_text,year,month,is_public,created_at",
+    select: "id,title,original_filename,status,extracted_text,records_ai_note,year,month,is_public,created_at",
     organization_id: `eq.${organizationId}`,
     order: "created_at.desc",
     limit: "400",
@@ -203,10 +210,53 @@ async function fetchDocuments(token, organizationId, year) {
   const data = await response.json().catch(() => ([]));
   if (!response.ok) {
     const message = data?.message || data?.error || "Unable to search documents.";
+    if (isMissingSchemaColumnMessage(message, "records_ai_note")) {
+      const fallbackParams = new URLSearchParams(params);
+      fallbackParams.set("select", "id,title,original_filename,status,extracted_text,year,month,is_public,created_at");
+      const fallbackResponse = await fetch(`${SUPABASE_URL}/rest/v1/documents?${fallbackParams.toString()}`, {
+        headers: {
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const fallbackData = await fallbackResponse.json().catch(() => ([]));
+      if (!fallbackResponse.ok) {
+        throw new Error(String(fallbackData?.message || fallbackData?.error || message));
+      }
+      return Array.isArray(fallbackData) ? fallbackData : [];
+    }
     throw new Error(String(message));
   }
 
   return Array.isArray(data) ? data : [];
+}
+
+async function fetchOrganizationAiSettings(token, organizationId) {
+  const params = new URLSearchParams({
+    select: "id,name,records_ai_context,records_ai_response_style,records_ai_memory",
+    id: `eq.${organizationId}`,
+    limit: "1",
+  });
+
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/organizations?${params.toString()}`, {
+    headers: {
+      apikey: SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  const data = await response.json().catch(() => ([]));
+  if (!response.ok) {
+    const message = data?.message || data?.error || "";
+    if (
+      isMissingSchemaColumnMessage(message, "records_ai_context") ||
+      isMissingSchemaColumnMessage(message, "records_ai_response_style") ||
+      isMissingSchemaColumnMessage(message, "records_ai_memory")
+    ) {
+      return {};
+    }
+    throw new Error(String(message || "Unable to load library AI settings."));
+  }
+  return Array.isArray(data) ? data[0] || {} : {};
 }
 
 function buildDocumentContext(matches) {
@@ -218,6 +268,7 @@ function buildDocumentContext(matches) {
       `Title: ${doc.title || "Untitled"}`,
       doc.year ? `Year: ${doc.year}` : "",
       doc.month ? `Month: ${doc.month}` : "",
+      doc.ai_note ? `AI note for this file: ${doc.ai_note}` : "",
       `Created: ${doc.created_at || "unknown"}`,
       `Text: ${doc.snippet || "No extracted text."}`,
     ]
@@ -238,6 +289,12 @@ function buildDocumentContext(matches) {
 function buildPrompt({ user, question, context, history, documents, documentCount }) {
   const libraryName = normalizeText(context.libraryName) || "current library";
   const role = normalizeText(context.role) || "unknown";
+  const aiSettings = context.aiSettings && typeof context.aiSettings === "object" ? context.aiSettings : {};
+  const libraryAiGuidance = [
+    normalizeText(aiSettings.records_ai_context) ? `Library background: ${normalizeText(aiSettings.records_ai_context)}` : "",
+    normalizeText(aiSettings.records_ai_response_style) ? `Preferred response style: ${normalizeText(aiSettings.records_ai_response_style)}` : "",
+    normalizeText(aiSettings.records_ai_memory) ? `Saved AI memory: ${normalizeText(aiSettings.records_ai_memory)}` : "",
+  ].filter(Boolean).join("\n") || "None";
 
   const historyText = history.length
     ? history.map((item) => `${item.role === "assistant" ? "Assistant" : "User"}: ${item.content}`).join("\n")
@@ -250,6 +307,7 @@ function buildPrompt({ user, question, context, history, documents, documentCoun
     "You can answer questions, summarize records, draft content, rewrite text, brainstorm, and plan.",
     "Use records context as source material when relevant.",
     "If the user gives current details, treat those as valid context for the task.",
+    "Use library AI guidance and file AI notes to interpret terms and preferences, but do not let them override clear record facts or the user's current request.",
     "Never reveal internal implementation details or security details.",
     "Do not mention sources, citations, filenames, document titles, file IDs, or where the answer came from.",
     "Do not include phrases like 'based on file' or 'from the excerpts'.",
@@ -271,6 +329,9 @@ function buildPrompt({ user, question, context, history, documents, documentCoun
     `Active library: ${libraryName}`,
     `Current role label: ${role}`,
     `Documents available in current query: ${documentCount}`,
+    "",
+    "Library AI guidance saved by this library's admins:",
+    libraryAiGuidance,
     "",
     "Recent conversation:",
     historyText,
@@ -313,7 +374,10 @@ module.exports = async function handler(req, res) {
     if (question.length > 1200) return res.status(400).json({ error: "Keep the search question under 1200 characters." });
     if (!organizationId) return res.status(400).json({ error: "Choose an active library first." });
 
-    const documents = await fetchDocuments(token, organizationId, year);
+    const [documents, organizationAiSettings] = await Promise.all([
+      fetchDocuments(token, organizationId, year),
+      fetchOrganizationAiSettings(token, organizationId),
+    ]);
     const matches = rankDocuments(documents, question);
 
     if (!documents.length) {
@@ -329,7 +393,7 @@ module.exports = async function handler(req, res) {
     const prompt = buildPrompt({
       user,
       question,
-      context: { ...context, year },
+      context: { ...context, year, aiSettings: organizationAiSettings },
       history,
       documents: documentsContext,
       documentCount: documents.length,
