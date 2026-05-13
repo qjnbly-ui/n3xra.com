@@ -12,6 +12,7 @@ const SUPABASE_ANON_KEY = String(
 const SUPABASE_SERVICE_ROLE_KEY = String(process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY || "").trim();
 
 const GROQ_TRANSCRIPTION_MODEL = String(process.env.GROQ_RECORDS_TRANSCRIPTION_MODEL || "whisper-large-v3-turbo").trim();
+const GROQ_LARGE_TRANSCRIPTION_MODEL = String(process.env.GROQ_RECORDS_LARGE_TRANSCRIPTION_MODEL || "whisper-large-v3").trim();
 const RECORDINGS_BUCKET = "meeting-recordings";
 const DOCUMENTS_BUCKET = "documents";
 const MAX_AUDIO_BYTES = 100 * 1024 * 1024;
@@ -275,16 +276,45 @@ function getGroqTranscriptionError(data, response) {
   const message = String(data?.error?.message || data?.message || response.statusText || "Unable to transcribe recording.").trim();
   const lowerMessage = message.toLowerCase();
   if (response.status === 413 || lowerMessage.includes("request entity too large") || lowerMessage.includes("media file too large")) {
-    return "Groq can only transcribe media files up to 25 MB. This app splits large recordings before transcription, but one prepared segment was still too large.";
+    return "Groq rejected this media file because it is over the active transcription size limit.";
   }
   return message;
 }
 
-async function sendGroqTranscription(form) {
+function isGroqMediaLimitError(error) {
+  const message = String(error?.message || error || "").toLowerCase();
+  return (
+    message.includes("media file too large") ||
+    message.includes("request entity too large") ||
+    message.includes("size limit") ||
+    message.includes("active transcription size limit")
+  );
+}
+
+async function createRecordingSignedUrl(recording) {
+  if (!recording?.storage_path) throw new Error("No audio file is stored for this recording.");
+  const response = await fetch(`${SUPABASE_URL}/storage/v1/object/sign/${encodeStoragePath(RECORDINGS_BUCKET, recording.storage_path)}`, {
+    method: "POST",
+    headers: serviceHeaders(),
+    body: JSON.stringify({ expiresIn: 60 * 20 }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(String(data?.message || data?.error || "Unable to create a temporary audio URL."));
+  }
+  const signedPath = String(data?.signedURL || data?.signedUrl || data?.url || "").trim();
+  if (!signedPath) throw new Error("Unable to create a temporary audio URL.");
+  if (signedPath.startsWith("http")) return signedPath;
+  const normalizedPath = signedPath.startsWith("/") ? signedPath : `/${signedPath}`;
+  const storagePath = normalizedPath.startsWith("/storage/v1/") ? normalizedPath : `/storage/v1${normalizedPath}`;
+  return `${SUPABASE_URL}${storagePath}`;
+}
+
+async function sendGroqTranscription(form, model = GROQ_TRANSCRIPTION_MODEL) {
   const groqApiKey = String(process.env.GROQ_RECORDS_API_KEY || "").trim();
   if (!groqApiKey) throw new Error("Missing GROQ_RECORDS_API_KEY.");
 
-  form.append("model", GROQ_TRANSCRIPTION_MODEL);
+  form.append("model", model);
   form.append("temperature", "0");
   form.append("response_format", "json");
 
@@ -307,12 +337,19 @@ async function sendGroqTranscription(form) {
 async function transcribeAudioFile(arrayBuffer, recording, fileOptions = {}) {
   const fileName = String(fileOptions.fileName || recording.storage_path || "recording.webm").split("/").pop() || "recording.webm";
   const mimeType = fileOptions.mimeType || recording.audio_mime_type || "audio/webm";
+  const model = fileOptions.model || GROQ_TRANSCRIPTION_MODEL;
   const form = new FormData();
   form.append("file", new Blob([arrayBuffer], { type: mimeType }), fileName);
-  return sendGroqTranscription(form);
+  return sendGroqTranscription(form, model);
 }
 
-async function transcribeSegmentedAudio(arrayBuffer, recording) {
+async function transcribeAudioUrl(recording, model = GROQ_LARGE_TRANSCRIPTION_MODEL) {
+  const form = new FormData();
+  form.append("url", await createRecordingSignedUrl(recording));
+  return sendGroqTranscription(form, model);
+}
+
+async function transcribeSegmentedAudio(arrayBuffer, recording, model = GROQ_LARGE_TRANSCRIPTION_MODEL) {
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "n3xra-transcription-"));
   const inputPath = path.join(tempDir, `source.${getAudioExtension(recording)}`);
   const outputPattern = path.join(tempDir, `part-%03d.${TRANSCRIPTION_SEGMENT_EXTENSION}`);
@@ -358,6 +395,7 @@ async function transcribeSegmentedAudio(arrayBuffer, recording) {
       const segmentText = await transcribeAudioFile(segmentBuffer, recording, {
         fileName: `${slugify(recording.title)}-part-${String(index + 1).padStart(2, "0")}.${TRANSCRIPTION_SEGMENT_EXTENSION}`,
         mimeType: TRANSCRIPTION_SEGMENT_MIME_TYPE,
+        model,
       });
       transcriptParts.push(segmentText);
     }
@@ -378,7 +416,13 @@ async function transcribeRecordingAudio(recording) {
   if (audio.byteLength <= DIRECT_TRANSCRIPTION_MAX_BYTES) {
     return transcribeAudioFile(audio, recording);
   }
-  return transcribeSegmentedAudio(audio, recording);
+
+  try {
+    return await transcribeAudioUrl(recording, GROQ_LARGE_TRANSCRIPTION_MODEL);
+  } catch (error) {
+    if (!isGroqMediaLimitError(error)) throw error;
+    return transcribeSegmentedAudio(audio, recording, GROQ_LARGE_TRANSCRIPTION_MODEL);
+  }
 }
 
 async function uploadTranscriptDocument(recording, user, transcriptText) {
