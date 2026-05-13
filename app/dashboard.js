@@ -206,7 +206,11 @@ const recordsHelpHistory = [];
 const RECORDS_HELP_HISTORY_LIMIT = 8;
 function getInitialSection() {
   const params = new URLSearchParams(window.location.search);
-  return params.get("section") === "library" ? "library" : "account";
+  const explicitSection = params.get("section");
+  if (explicitSection === "account" || explicitSection === "library") {
+    return explicitSection;
+  }
+  return hasActiveLibraryAccess() ? "library" : "account";
 }
 
 function getSupportOrganizationId() {
@@ -844,6 +848,43 @@ function setAiMemoryItems(items) {
   renderAiMemoryBubbles();
 }
 
+async function saveAiMemoryItems(items, successMessage = "AI memory updated.") {
+  const organization = getActiveOrganization();
+  if (!organization) return false;
+  if (!getActiveCapabilities().canManageLibrarySettings) {
+    setStatus(organizationAiSettingsStatus, "You do not have permission to update AI memory.", "error");
+    return false;
+  }
+
+  const nextMemory = serializeAiMemoryItems(items);
+  setAiMemoryItems(items);
+  setStatus(organizationAiSettingsStatus, "Saving AI memory...");
+
+  const { data, error } = await supabase
+    .from("organizations")
+    .update({ records_ai_memory: nextMemory || null })
+    .eq("id", organization.id)
+    .select("id, records_ai_memory")
+    .single();
+
+  if (error) {
+    setStatus(
+      organizationAiSettingsStatus,
+      isMissingAiSettingsSchemaError(error)
+        ? "Run the Records AI settings schema before saving AI memory."
+        : error.message,
+      "error"
+    );
+    renderProfile();
+    return false;
+  }
+
+  mergeActiveOrganizationUpdate(data);
+  renderProfile();
+  setStatus(organizationAiSettingsStatus, successMessage, "success");
+  return true;
+}
+
 function renderAiMemoryBubbles() {
   if (!organizationAiMemoryList) return;
   const canEdit = getActiveCapabilities().canManageLibrarySettings;
@@ -864,15 +905,16 @@ function renderAiMemoryBubbles() {
   `).join("");
 }
 
-function addAiMemoryFromInput() {
+async function addAiMemoryFromInput() {
   if (!organizationAiMemoryNewInput) return;
   const item = normalizeAiMemoryText(organizationAiMemoryNewInput.value);
   if (!item) return;
-  setAiMemoryItems([...getAiMemoryItemsFromInput(), item]);
+  const saved = await saveAiMemoryItems([...getAiMemoryItemsFromInput(), item], "AI memory added.");
+  if (!saved) return;
   organizationAiMemoryNewInput.value = "";
 }
 
-function handleAiMemoryBubbleAction(event) {
+async function handleAiMemoryBubbleAction(event) {
   const button = event.target.closest("button[data-memory-action]");
   if (!button || !organizationAiMemoryList?.contains(button)) return;
   if (!getActiveCapabilities().canManageLibrarySettings) return;
@@ -896,13 +938,13 @@ function handleAiMemoryBubbleAction(event) {
     } else {
       items[index] = normalized;
     }
-    setAiMemoryItems(items);
+    await saveAiMemoryItems(items, normalized ? "AI memory updated." : "AI memory deleted.");
     return;
   }
 
   if (action === "delete") {
     items.splice(index, 1);
-    setAiMemoryItems(items);
+    await saveAiMemoryItems(items, "AI memory deleted.");
     return;
   }
 
