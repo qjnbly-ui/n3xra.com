@@ -87,6 +87,31 @@ const profileSettingsClose = document.getElementById("profile-settings-close");
 const openDeleteAccountModalButton = document.getElementById("open-delete-account-modal");
 const deleteAccountBlockedNote = document.getElementById("delete-account-blocked-note");
 const deleteAccountModal = document.getElementById("delete-account-modal");
+const appConfirmModal = document.getElementById("app-confirm-modal");
+const appConfirmKicker = document.getElementById("app-confirm-kicker");
+const appConfirmTitle = document.getElementById("app-confirm-title");
+const appConfirmCopy = document.getElementById("app-confirm-copy");
+const appConfirmCancel = document.getElementById("app-confirm-cancel");
+const appConfirmOk = document.getElementById("app-confirm-ok");
+const appInputModal = document.getElementById("app-input-modal");
+const appInputKicker = document.getElementById("app-input-kicker");
+const appInputTitle = document.getElementById("app-input-title");
+const appInputLabel = document.getElementById("app-input-label");
+const appInputValue = document.getElementById("app-input-value");
+const appInputClose = document.getElementById("app-input-close");
+const appInputForm = document.getElementById("app-input-form");
+const appInputCancel = document.getElementById("app-input-cancel");
+const appInputSubmit = document.getElementById("app-input-submit");
+const inviteEmailModal = document.getElementById("invite-email-modal");
+const inviteEmailModalClose = document.getElementById("invite-email-modal-close");
+const inviteEmailForm = document.getElementById("invite-email-form");
+const inviteEmailCodeInput = document.getElementById("invite-email-code");
+const inviteEmailRecipientInput = document.getElementById("invite-email-recipient");
+const inviteEmailNameInput = document.getElementById("invite-email-name");
+const inviteEmailMessageInput = document.getElementById("invite-email-message");
+const inviteEmailCancel = document.getElementById("invite-email-cancel");
+const inviteEmailSubmit = document.getElementById("invite-email-submit");
+const inviteEmailStatus = document.getElementById("invite-email-status");
 const deleteAccountCancel = document.getElementById("delete-account-cancel");
 const deleteRecordsSubmit = document.getElementById("delete-records-submit");
 const deleteAccountSubmit = document.getElementById("delete-account-submit");
@@ -239,6 +264,9 @@ const libraryAiSearchHistory = [];
 const LIBRARY_AI_SEARCH_HISTORY_LIMIT = 8;
 let lastAiSearchMatches = [];
 let pendingAiMemorySuggestion = "";
+let pendingConfirmResolve = null;
+let pendingInviteEmailCode = "";
+let pendingInputResolve = null;
 const recordsHelpHistory = [];
 const RECORDS_HELP_HISTORY_LIMIT = 8;
 function getInitialSection() {
@@ -594,6 +622,20 @@ function getErrorMessage(error, fallback) {
   return fallback;
 }
 
+function getEdgeFunctionErrorMessage(error, fallback) {
+  const raw = getErrorMessage(error, fallback);
+  const lower = raw.toLowerCase();
+  if (
+    lower.includes("failed to send a request to the edge function")
+    || lower.includes("functions fetch failed")
+    || lower.includes("failed to fetch")
+    || lower.includes("network")
+  ) {
+    return "Invite email service is not reachable. Deploy `send-records-invite` and set `RESEND_API_KEY` in Supabase secrets.";
+  }
+  return raw;
+}
+
 function closeMobileMenu() {
   if (!mobileMenu || !mobileMenuToggle) return;
   mobileMenu.classList.remove("is-open");
@@ -690,6 +732,82 @@ function setDeleteAccountModalOpen(isOpen) {
   }
 }
 
+function setAppConfirmModalOpen(isOpen) {
+  if (!appConfirmModal) return;
+  appConfirmModal.classList.toggle("is-open", isOpen);
+  appConfirmModal.setAttribute("aria-hidden", String(!isOpen));
+}
+
+function confirmAction({
+  title = "Are you sure?",
+  message = "Please confirm to continue.",
+  confirmLabel = "Confirm",
+  cancelLabel = "Cancel",
+  kicker = "Confirm action",
+  danger = true,
+} = {}) {
+  if (!appConfirmModal) return Promise.resolve(false);
+  if (appConfirmKicker) appConfirmKicker.textContent = kicker;
+  if (appConfirmTitle) appConfirmTitle.textContent = title;
+  if (appConfirmCopy) appConfirmCopy.textContent = message;
+  if (appConfirmCancel) appConfirmCancel.textContent = cancelLabel;
+  if (appConfirmOk) {
+    appConfirmOk.textContent = confirmLabel;
+    appConfirmOk.classList.toggle("btn-delete-solid", danger);
+    appConfirmOk.classList.toggle("btn", true);
+    appConfirmOk.classList.toggle("secondary", !danger);
+  }
+  return new Promise((resolve) => {
+    pendingConfirmResolve = resolve;
+    setAppConfirmModalOpen(true);
+  });
+}
+
+function setAppInputModalOpen(isOpen) {
+  if (!appInputModal) return;
+  appInputModal.classList.toggle("is-open", isOpen);
+  appInputModal.setAttribute("aria-hidden", String(!isOpen));
+  if (!isOpen && appInputValue) {
+    appInputValue.value = "";
+  }
+}
+
+function requestTextInput({
+  title = "Enter a value",
+  label = "Value",
+  initialValue = "",
+  submitLabel = "Continue",
+  kicker = "Input required",
+} = {}) {
+  if (!appInputModal || !appInputValue) return Promise.resolve(null);
+  if (appInputKicker) appInputKicker.textContent = kicker;
+  if (appInputTitle) appInputTitle.textContent = title;
+  if (appInputLabel) appInputLabel.textContent = label;
+  if (appInputSubmit) appInputSubmit.textContent = submitLabel;
+  appInputValue.value = initialValue;
+  setAppInputModalOpen(true);
+  window.setTimeout(() => appInputValue.focus(), 0);
+  return new Promise((resolve) => {
+    pendingInputResolve = resolve;
+  });
+}
+
+function resolveTextInput(value) {
+  if (pendingInputResolve) {
+    pendingInputResolve(value);
+  }
+  pendingInputResolve = null;
+  setAppInputModalOpen(false);
+}
+
+function resolveConfirm(value) {
+  if (pendingConfirmResolve) {
+    pendingConfirmResolve(Boolean(value));
+  }
+  pendingConfirmResolve = null;
+  setAppConfirmModalOpen(false);
+}
+
 function setEmbedModalOpen(isOpen) {
   embedModal.classList.toggle("is-open", isOpen);
   embedModal.setAttribute("aria-hidden", String(!isOpen));
@@ -706,6 +824,78 @@ function setAiMemoryModalOpen(isOpen) {
     setStatus(aiMemoryStatus, "");
     if (aiMemorySave) aiMemorySave.disabled = false;
     if (aiMemoryDismiss) aiMemoryDismiss.disabled = false;
+  }
+}
+
+function setInviteEmailModalOpen(isOpen) {
+  if (!inviteEmailModal) return;
+  inviteEmailModal.classList.toggle("is-open", isOpen);
+  inviteEmailModal.setAttribute("aria-hidden", String(!isOpen));
+  if (!isOpen) {
+    pendingInviteEmailCode = "";
+    if (inviteEmailCodeInput) inviteEmailCodeInput.value = "";
+    if (inviteEmailRecipientInput) inviteEmailRecipientInput.value = "";
+    if (inviteEmailNameInput) inviteEmailNameInput.value = "";
+    if (inviteEmailMessageInput) inviteEmailMessageInput.value = "";
+    setStatus(inviteEmailStatus, "");
+    if (inviteEmailSubmit) inviteEmailSubmit.disabled = false;
+    if (inviteEmailCancel) inviteEmailCancel.disabled = false;
+    if (inviteEmailModalClose) inviteEmailModalClose.disabled = false;
+  }
+}
+
+function openInviteEmailModal(inviteCode) {
+  pendingInviteEmailCode = String(inviteCode || "").trim();
+  if (!pendingInviteEmailCode) return;
+  if (inviteEmailCodeInput) inviteEmailCodeInput.value = pendingInviteEmailCode;
+  setStatus(inviteEmailStatus, "");
+  setInviteEmailModalOpen(true);
+}
+
+async function sendInviteEmailForCode(organization, inviteCode, recipientEmail, recipientName, customMessage) {
+  const inviteLink = buildInviteSignupUrl(inviteCode, recipientEmail);
+  const { data: sendResult, error: sendError } = await supabase.functions.invoke("send-records-invite", {
+    body: {
+      organizationId: organization.id,
+      inviteCode,
+      recipientEmail,
+      recipientName,
+      customMessage,
+      inviteLink,
+    },
+  });
+
+  if (sendError || sendResult?.error) {
+    throw new Error(getEdgeFunctionErrorMessage(sendError || { message: sendResult?.error }, "Unable to send invite email."));
+  }
+}
+
+async function handleInviteEmailSubmit(event) {
+  event.preventDefault();
+  const organization = getActiveOrganization();
+  if (!organization) return;
+  const inviteCode = pendingInviteEmailCode || String(inviteEmailCodeInput?.value || "").trim();
+  const recipientEmail = String(inviteEmailRecipientInput?.value || "").trim();
+  const recipientName = String(inviteEmailNameInput?.value || "").trim();
+  const customMessage = String(inviteEmailMessageInput?.value || "").trim();
+  if (!inviteCode || !recipientEmail) {
+    setStatus(inviteEmailStatus, "Invite code and recipient email are required.", "error");
+    return;
+  }
+
+  setStatus(inviteEmailStatus, "Sending invite email...");
+  if (inviteEmailSubmit) inviteEmailSubmit.disabled = true;
+  if (inviteEmailCancel) inviteEmailCancel.disabled = true;
+  if (inviteEmailModalClose) inviteEmailModalClose.disabled = true;
+  try {
+    await sendInviteEmailForCode(organization, inviteCode, recipientEmail, recipientName, customMessage);
+    setStatus(createInviteStatus, `Invite email sent to ${recipientEmail}.`, "success");
+    setInviteEmailModalOpen(false);
+  } catch (error) {
+    setStatus(inviteEmailStatus, getErrorMessage(error, "Unable to send invite email."), "error");
+    if (inviteEmailSubmit) inviteEmailSubmit.disabled = false;
+    if (inviteEmailCancel) inviteEmailCancel.disabled = false;
+    if (inviteEmailModalClose) inviteEmailModalClose.disabled = false;
   }
 }
 
@@ -3233,7 +3423,11 @@ async function handleCreateInvite(event) {
       },
     });
     if (sendError || sendResult?.error) {
-      setStatus(createInviteStatus, sendError?.message || sendResult?.error || "Unable to send invite email.", "error");
+      setStatus(
+        createInviteStatus,
+        getEdgeFunctionErrorMessage(sendError || { message: sendResult?.error }, "Unable to send invite email."),
+        "error"
+      );
       await loadInvites();
       return;
     }
@@ -3288,35 +3482,19 @@ async function handleInviteAction(event) {
 
   if (action === "email-invite-link") {
     if (!inviteCode) return;
-    const recipientEmail = window.prompt("Enter recipient email:");
-    if (!recipientEmail) return;
-    const recipientName = window.prompt("Recipient name (optional):") || "";
-    const customMessage = window.prompt("Custom message (optional):") || "";
-    const inviteLink = buildInviteSignupUrl(inviteCode, recipientEmail);
-    setStatus(createInviteStatus, "Sending invite email...");
-    button.disabled = true;
-    const { data: sendResult, error: sendError } = await supabase.functions.invoke("send-records-invite", {
-      body: {
-        organizationId: organization.id,
-        inviteCode,
-        recipientEmail,
-        recipientName,
-        customMessage,
-        inviteLink,
-      },
-    });
-    button.disabled = false;
-    if (sendError || sendResult?.error) {
-      setStatus(createInviteStatus, sendError?.message || sendResult?.error || "Unable to send invite email.", "error");
-      return;
-    }
-    setStatus(createInviteStatus, `Invite email sent to ${recipientEmail}.`, "success");
+    openInviteEmailModal(inviteCode);
     return;
   }
 
   if (action !== "delete-invite" || !inviteId) return;
 
-  if (!window.confirm("Delete this invite code? This cannot be undone.")) return;
+  if (!(await confirmAction({
+    title: "Delete this invite code?",
+    message: "This cannot be undone.",
+    confirmLabel: "Delete",
+    kicker: "Invite codes",
+    danger: true,
+  }))) return;
 
   setStatus(createInviteStatus, "Deleting invite code...");
   button.disabled = true;
@@ -3347,7 +3525,13 @@ async function handleMemberRoleChange(event) {
   const currentRole = select.getAttribute("data-current-role") || "";
 
   if (nextRole === "__remove__") {
-    if (!window.confirm("Remove this member's access to this library?")) {
+    if (!(await confirmAction({
+      title: "Remove this member?",
+      message: "This removes their access to the library.",
+      confirmLabel: "Remove",
+      kicker: "Shared access",
+      danger: true,
+    }))) {
       if (currentRole) select.value = currentRole;
       return;
     }
@@ -3393,7 +3577,13 @@ async function createPersonalLibrary() {
   }
 
   const suggestedName = getOwnedMemberships().length === 0 ? "Personal" : "New Library";
-  const nameInput = window.prompt("Library name", suggestedName);
+  const nameInput = await requestTextInput({
+    title: "Create library",
+    label: "Library name",
+    initialValue: suggestedName,
+    submitLabel: "Create",
+    kicker: "Library setup",
+  });
   if (nameInput === null) return;
 
   const nextName = nameInput.trim() || suggestedName;
@@ -3832,6 +4022,26 @@ async function init() {
   aiMemoryModal?.addEventListener("click", (event) => {
     if (event.target === aiMemoryModal) setAiMemoryModalOpen(false);
   });
+  inviteEmailForm?.addEventListener("submit", handleInviteEmailSubmit);
+  inviteEmailCancel?.addEventListener("click", () => setInviteEmailModalOpen(false));
+  inviteEmailModalClose?.addEventListener("click", () => setInviteEmailModalOpen(false));
+  inviteEmailModal?.addEventListener("click", (event) => {
+    if (event.target === inviteEmailModal) setInviteEmailModalOpen(false);
+  });
+  appConfirmCancel?.addEventListener("click", () => resolveConfirm(false));
+  appConfirmOk?.addEventListener("click", () => resolveConfirm(true));
+  appInputForm?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    resolveTextInput(String(appInputValue?.value || ""));
+  });
+  appInputCancel?.addEventListener("click", () => resolveTextInput(null));
+  appInputClose?.addEventListener("click", () => resolveTextInput(null));
+  appInputModal?.addEventListener("click", (event) => {
+    if (event.target === appInputModal) resolveTextInput(null);
+  });
+  appConfirmModal?.addEventListener("click", (event) => {
+    if (event.target === appConfirmModal) resolveConfirm(false);
+  });
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && fileModal.classList.contains("is-open")) {
       closeFileModal();
@@ -3855,6 +4065,18 @@ async function init() {
     }
     if (event.key === "Escape" && aiMemoryModal?.classList.contains("is-open")) {
       setAiMemoryModalOpen(false);
+      return;
+    }
+    if (event.key === "Escape" && inviteEmailModal?.classList.contains("is-open")) {
+      setInviteEmailModalOpen(false);
+      return;
+    }
+    if (event.key === "Escape" && appConfirmModal?.classList.contains("is-open")) {
+      resolveConfirm(false);
+      return;
+    }
+    if (event.key === "Escape" && appInputModal?.classList.contains("is-open")) {
+      resolveTextInput(null);
       return;
     }
     if (event.key === "Escape") closeMobileMenu();

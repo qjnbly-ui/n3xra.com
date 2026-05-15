@@ -58,6 +58,9 @@ const recordingDetailEndedAt = document.getElementById("recording-detail-ended-a
 const recordingDetailDuration = document.getElementById("recording-detail-duration");
 const recordingDetailSize = document.getElementById("recording-detail-size");
 const recordingDetailStatusMessage = document.getElementById("recording-detail-status-message");
+const recordingsConfirmModal = document.getElementById("recordings-confirm-modal");
+const recordingsConfirmCancel = document.getElementById("recordings-confirm-cancel");
+const recordingsConfirmOk = document.getElementById("recordings-confirm-ok");
 
 const RECORDINGS_BUCKET = "meeting-recordings";
 const RECORDER_AUDIO_BITS_PER_SECOND = 64000;
@@ -86,6 +89,7 @@ let activeDetailRecordingId = "";
 let isRecordingWorkflowActive = false;
 let pendingRetryUploadOpen = false;
 let isRetryUploadMode = false;
+let pendingRecordingsConfirmResolve = null;
 
 function buildAllRecordingsDetailHref(recordingId) {
   const params = new URLSearchParams();
@@ -173,6 +177,28 @@ function getErrorMessage(error, fallback) {
     return error.message;
   }
   return fallback;
+}
+
+function setRecordingsConfirmModalOpen(isOpen) {
+  if (!recordingsConfirmModal) return;
+  recordingsConfirmModal.classList.toggle("is-open", isOpen);
+  recordingsConfirmModal.setAttribute("aria-hidden", String(!isOpen));
+}
+
+function confirmRecordingsAction() {
+  if (!recordingsConfirmModal) return Promise.resolve(false);
+  setRecordingsConfirmModalOpen(true);
+  return new Promise((resolve) => {
+    pendingRecordingsConfirmResolve = resolve;
+  });
+}
+
+function resolveRecordingsConfirm(value) {
+  if (pendingRecordingsConfirmResolve) {
+    pendingRecordingsConfirmResolve(Boolean(value));
+  }
+  pendingRecordingsConfirmResolve = null;
+  setRecordingsConfirmModalOpen(false);
 }
 
 function getActiveOrganization() {
@@ -929,9 +955,9 @@ async function handleUploadRecording() {
   }
 }
 
-function handleStopRecording() {
+async function handleStopRecording() {
   if (!mediaRecorder || (mediaRecorder.state !== "recording" && mediaRecorder.state !== "paused")) return;
-  const confirmed = window.confirm("Do you want to stop this recording?");
+  const confirmed = await confirmRecordingsAction();
   if (!confirmed) return;
   setRecorderState("Finishing", "Stopping microphone capture and preparing the upload.");
   setStatus(recordingStatus, "Stopping recording...");
@@ -1084,6 +1110,13 @@ async function init() {
       closeRecordingDetail();
     }
   });
+  recordingsConfirmCancel?.addEventListener("click", () => resolveRecordingsConfirm(false));
+  recordingsConfirmOk?.addEventListener("click", () => resolveRecordingsConfirm(true));
+  recordingsConfirmModal?.addEventListener("click", (event) => {
+    if (event.target === recordingsConfirmModal) {
+      resolveRecordingsConfirm(false);
+    }
+  });
   window.addEventListener("beforeunload", (event) => {
     if (isRecordingWorkflowActive) {
       event.preventDefault();
@@ -1097,6 +1130,10 @@ async function init() {
     }
     if (event.key === "Escape" && recordingDetailModal.classList.contains("is-open")) {
       closeRecordingDetail();
+      return;
+    }
+    if (event.key === "Escape" && recordingsConfirmModal?.classList.contains("is-open")) {
+      resolveRecordingsConfirm(false);
     }
   });
 

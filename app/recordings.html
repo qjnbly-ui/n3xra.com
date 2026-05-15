@@ -222,6 +222,24 @@
     </div>
   </div>
 
+  <div class="confirm-modal" id="recordings-confirm-modal" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="confirm-modal-dialog">
+      <div class="confirm-modal-header">
+        <div>
+          <p class="confirm-modal-kicker">Recording</p>
+          <h3 class="confirm-modal-title">Stop this recording?</h3>
+        </div>
+      </div>
+      <div class="confirm-modal-body">
+        <p class="confirm-modal-copy">This will end microphone capture and begin upload/transcription prep.</p>
+        <div class="confirm-modal-actions">
+          <button class="btn secondary" id="recordings-confirm-cancel" type="button">Cancel</button>
+          <button class="btn btn-delete-solid" id="recordings-confirm-ok" type="button">Stop recording</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script src="./config.js"></script>
   <script type="module" src="./recordings.js"></script>
 </body>

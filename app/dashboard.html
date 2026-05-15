@@ -624,6 +624,85 @@
     </div>
   </div>
 
+  <div class="confirm-modal" id="app-confirm-modal" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="confirm-modal-dialog">
+      <div class="confirm-modal-header">
+        <div>
+          <p class="confirm-modal-kicker" id="app-confirm-kicker">Confirm action</p>
+          <h3 class="confirm-modal-title" id="app-confirm-title">Are you sure?</h3>
+        </div>
+      </div>
+      <div class="confirm-modal-body">
+        <p class="confirm-modal-copy" id="app-confirm-copy">Please confirm to continue.</p>
+        <div class="confirm-modal-actions">
+          <button class="btn secondary" id="app-confirm-cancel" type="button">Cancel</button>
+          <button class="btn btn-delete-solid" id="app-confirm-ok" type="button">Confirm</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="settings-modal" id="app-input-modal" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="settings-modal-dialog">
+      <div class="settings-modal-header">
+        <div>
+          <p class="settings-modal-kicker" id="app-input-kicker">Input required</p>
+          <h3 class="settings-modal-title" id="app-input-title">Enter a value</h3>
+        </div>
+        <button class="settings-modal-close" id="app-input-close" type="button">Close</button>
+      </div>
+      <div class="settings-modal-body">
+        <form class="stack" id="app-input-form">
+          <div class="field">
+            <label for="app-input-value" id="app-input-label">Value</label>
+            <input id="app-input-value" type="text" maxlength="120">
+          </div>
+          <div class="actions">
+            <button class="btn secondary" id="app-input-cancel" type="button">Cancel</button>
+            <button class="btn" id="app-input-submit" type="submit">Continue</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="settings-modal" id="invite-email-modal" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="settings-modal-dialog">
+      <div class="settings-modal-header">
+        <div>
+          <p class="settings-modal-kicker">Invite codes</p>
+          <h3 class="settings-modal-title">Email invite link</h3>
+        </div>
+        <button class="settings-modal-close" id="invite-email-modal-close" type="button">Close</button>
+      </div>
+      <div class="settings-modal-body">
+        <form class="stack" id="invite-email-form">
+          <div class="field">
+            <label for="invite-email-code">Invite code</label>
+            <input id="invite-email-code" type="text" readonly>
+          </div>
+          <div class="field">
+            <label for="invite-email-recipient">Recipient email</label>
+            <input id="invite-email-recipient" type="email" placeholder="name@example.com" required>
+          </div>
+          <div class="field">
+            <label for="invite-email-name">Recipient name (optional)</label>
+            <input id="invite-email-name" type="text" maxlength="100" placeholder="First name">
+          </div>
+          <div class="field">
+            <label for="invite-email-message">Custom message (optional)</label>
+            <textarea id="invite-email-message" rows="3" maxlength="500" placeholder="Add a short custom note for the invite email."></textarea>
+          </div>
+          <div class="actions">
+            <button class="btn secondary" id="invite-email-cancel" type="button">Cancel</button>
+            <button class="btn" id="invite-email-submit" type="submit">Send invite email</button>
+          </div>
+          <p class="status" id="invite-email-status"></p>
+        </form>
+      </div>
+    </div>
+  </div>
+
   <div class="settings-modal" id="embed-modal" role="dialog" aria-modal="true" aria-hidden="true">
     <div class="settings-modal-dialog">
       <div class="settings-modal-header">
