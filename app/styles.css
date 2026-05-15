@@ -1150,6 +1150,14 @@ textarea {
   min-height: 96px;
 }
 
+.review-meta-field {
+  align-self: end;
+}
+
+#organization-review-text {
+  min-height: 120px;
+}
+
 .records-help-answer {
   border: 1px solid rgba(23, 111, 102, 0.18);
   border-radius: var(--radius-sm);

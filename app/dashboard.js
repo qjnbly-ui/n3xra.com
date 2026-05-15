@@ -134,6 +134,14 @@ const organizationAiMemoryNewInput = document.getElementById("organization-ai-me
 const organizationAiMemoryAdd = document.getElementById("organization-ai-memory-add");
 const organizationAiSettingsSave = document.getElementById("organization-ai-settings-save");
 const organizationAiSettingsStatus = document.getElementById("organization-ai-settings-status");
+const reviewSettingsToggle = document.getElementById("review-settings-toggle");
+const reviewSettingsBody = document.getElementById("review-settings-body");
+const organizationReviewForm = document.getElementById("organization-review-form");
+const organizationReviewRating = document.getElementById("organization-review-rating");
+const organizationReviewText = document.getElementById("organization-review-text");
+const organizationReviewMeta = document.getElementById("organization-review-meta");
+const organizationReviewSave = document.getElementById("organization-review-save");
+const organizationReviewStatus = document.getElementById("organization-review-status");
 const redeemInviteForm = document.getElementById("redeem-invite-form");
 const redeemInviteCodeInput = document.getElementById("redeem-invite-code");
 const redeemInviteStatus = document.getElementById("redeem-invite-status");
@@ -196,6 +204,7 @@ let searchMode = "keyword";
 let inviteCache = [];
 let memberCache = [];
 let recordsAiUsageSummary = null;
+let organizationReview = null;
 let uploadMode = "single";
 let selectedBillingCycle = "monthly";
 const libraryAiSearchHistory = [];
@@ -1017,6 +1026,11 @@ function isMissingAiNoteSchemaError(error) {
   return message.includes("records_ai_note") && (message.includes("does not exist") || message.includes("schema cache"));
 }
 
+function isMissingReviewsSchemaError(error) {
+  const message = String(error?.message || "").toLowerCase();
+  return message.includes("reviews") && (message.includes("does not exist") || message.includes("schema cache"));
+}
+
 function getActiveRole() {
   return getMembershipRole(activeMembership);
 }
@@ -1727,6 +1741,55 @@ async function loadOrganizationAiSettings() {
   }
 }
 
+function renderOrganizationReviewForm() {
+  if (!organizationReviewRating || !organizationReviewText || !organizationReviewMeta || !organizationReviewSave) return;
+  const capabilities = getActiveCapabilities();
+  const canManageReview = hasActiveLibraryAccess() && capabilities.canManageLibrarySettings;
+  organizationReviewRating.disabled = !canManageReview;
+  organizationReviewText.disabled = !canManageReview;
+  organizationReviewSave.disabled = !canManageReview;
+
+  organizationReviewRating.value = String(organizationReview?.rating || 5);
+  organizationReviewText.value = organizationReview?.review_text || "";
+  organizationReviewSave.textContent = organizationReview?.id ? "Update review" : "Save review";
+  const dateLabel = formatBillingDate(organizationReview?.updated_at || organizationReview?.created_at);
+  organizationReviewMeta.textContent = organizationReview?.id
+    ? `Published${dateLabel ? ` · Updated ${dateLabel}` : ""}`
+    : "No review yet";
+}
+
+async function loadOrganizationReview() {
+  const organization = getActiveOrganization();
+  organizationReview = null;
+  if (!organization?.id) {
+    renderOrganizationReviewForm();
+    return;
+  }
+
+  const { data, error } = await supabase
+    .from("reviews")
+    .select("id, rating, review_text, reviewer_name_snapshot, organization_name_snapshot, status, created_at, updated_at")
+    .eq("app", "records")
+    .eq("review_target_type", "organization")
+    .eq("review_target_id", organization.id)
+    .maybeSingle();
+
+  if (error) {
+    if (isMissingReviewsSchemaError(error)) {
+      setStatus(organizationReviewStatus, "Run the reviews schema before saving library reviews.", "error");
+      renderOrganizationReviewForm();
+      return;
+    }
+    setStatus(organizationReviewStatus, error.message, "error");
+    renderOrganizationReviewForm();
+    return;
+  }
+
+  organizationReview = data || null;
+  renderOrganizationReviewForm();
+  setStatus(organizationReviewStatus, "");
+}
+
 function renderOrganizationSelector() {
   if (!memberships.length || !activeMembership?.organization) {
     activeOrganizationSelect.innerHTML = '<option value="">No active library</option>';
@@ -1896,6 +1959,7 @@ function renderProfile() {
   const canSeeInviteManagement = isOrganizationPlan && capabilities.canManageInvites;
   const canSeeMemberManagement = isOrganizationPlan && capabilities.canManageMembers;
   const canSeeEmbedSettings = hasLibraryAccess && isOrganizationPlan && canSeeLibrarySettings;
+  const canSeeReviewSettings = hasLibraryAccess && capabilities.canManageLibrarySettings;
   const canSeePlanMeta = capabilities.canManageBilling || capabilities.canManageLibrarySettings;
   const canEditLibraryNameFromProfile = capabilities.canManageLibrarySettings;
   const canDeleteAccountNow = canDeleteOwnAccount();
@@ -1928,6 +1992,7 @@ function renderProfile() {
   organizationAiMemoryNewInput.disabled = !capabilities.canManageLibrarySettings;
   organizationAiMemoryAdd.disabled = !capabilities.canManageLibrarySettings;
   organizationAiSettingsSave.disabled = !capabilities.canManageLibrarySettings;
+  renderOrganizationReviewForm();
   openUploadModalButton.disabled = !capabilities.canUploadDocuments;
   uploadIsPublicInput.disabled = !capabilities.canUploadDocuments || !hasEmbeddedAccess();
 
@@ -1948,6 +2013,8 @@ function renderProfile() {
   show(organizationAccentColorField, !isFreePlan);
   show(aiSettingsToggle, hasLibraryAccess && canSeeLibrarySettings);
   show(aiSettingsBody, hasLibraryAccess && canSeeLibrarySettings && !aiSettingsBody.classList.contains("hidden"));
+  show(reviewSettingsToggle, canSeeReviewSettings);
+  show(reviewSettingsBody, canSeeReviewSettings && !reviewSettingsBody.classList.contains("hidden"));
   show(redeemInviteToggle, hasLibraryAccess);
   show(redeemInviteBody, hasLibraryAccess && !redeemInviteBody.classList.contains("hidden"));
   show(inviteManagementToggle, canSeeInviteManagement);
@@ -1963,7 +2030,7 @@ function renderProfile() {
   show(openDeleteAccountModalButton, canDeleteAccountNow);
   show(deleteAccountBlockedNote, !canDeleteAccountNow);
   libraryAccessCopy.textContent = capabilities.canManageLibrarySettings
-    ? "Manage AI guidance, shared access, invite codes, and public settings for this library."
+    ? "Manage AI guidance, reviews, shared access, invite codes, and public settings for this library."
     : "Join shared libraries from invite codes and review available settings.";
   if (!capabilities.canManageBilling) {
     setBillingPlanPickerOpen(false);
@@ -1979,6 +2046,9 @@ function renderProfile() {
   }
   if (!canSeeLibrarySettings) {
     setSectionToggleOpen(aiSettingsToggle, aiSettingsBody, false);
+  }
+  if (!canSeeReviewSettings) {
+    setSectionToggleOpen(reviewSettingsToggle, reviewSettingsBody, false);
   }
 
   Array.from(createInviteForm.elements).forEach((field) => {
@@ -2441,6 +2511,7 @@ async function loadActiveOrganizationData() {
     inviteCache = [];
     memberCache = [];
     recordsAiUsageSummary = null;
+    organizationReview = null;
     resetLibraryAiSearchHistory();
     updateYearFilterOptions();
     renderDocuments();
@@ -2455,7 +2526,7 @@ async function loadActiveOrganizationData() {
   }
 
   renderProfile();
-  await Promise.all([loadDocuments(), loadInvites(), loadMembers(), loadRecordsAiUsage(), loadOrganizationAiSettings()]);
+  await Promise.all([loadDocuments(), loadInvites(), loadMembers(), loadRecordsAiUsage(), loadOrganizationAiSettings(), loadOrganizationReview()]);
 }
 
 async function createSignedUrlForDocument(documentId) {
@@ -2618,6 +2689,64 @@ async function handleOrganizationAiSettingsSave(event) {
   mergeActiveOrganizationUpdate(data);
   renderProfile();
   setStatus(organizationAiSettingsStatus, "AI settings updated.", "success");
+}
+
+async function handleOrganizationReviewSave(event) {
+  event.preventDefault();
+  const organization = getActiveOrganization();
+  if (!organization) return;
+  if (!getActiveCapabilities().canManageLibrarySettings) {
+    setStatus(organizationReviewStatus, "You do not have permission to update this library review.", "error");
+    return;
+  }
+
+  const rating = Number.parseInt(organizationReviewRating.value || "5", 10);
+  const reviewText = organizationReviewText.value.trim();
+  if (!Number.isFinite(rating) || rating < 1 || rating > 5) {
+    setStatus(organizationReviewStatus, "Choose a rating from 1 to 5 stars.", "error");
+    return;
+  }
+  if (reviewText.length < 10) {
+    setStatus(organizationReviewStatus, "Add a short review before saving.", "error");
+    organizationReviewText.focus();
+    return;
+  }
+
+  organizationReviewSave.disabled = true;
+  setStatus(organizationReviewStatus, "Saving review...");
+
+  const payload = {
+    app: "records",
+    review_target_type: "organization",
+    review_target_id: organization.id,
+    organization_id: organization.id,
+    user_id: currentSession.user.id,
+    rating,
+    review_text: reviewText,
+    reviewer_name_snapshot: currentProfile?.full_name || currentSession.user.email || "N3XRA Records user",
+    organization_name_snapshot: organization.name || "N3XRA Records library",
+    status: "published",
+  };
+
+  const { data, error } = await supabase
+    .from("reviews")
+    .upsert(payload, { onConflict: "app,review_target_type,review_target_id" })
+    .select("id, rating, review_text, reviewer_name_snapshot, organization_name_snapshot, status, created_at, updated_at")
+    .single();
+
+  organizationReviewSave.disabled = false;
+  if (error) {
+    setStatus(
+      organizationReviewStatus,
+      isMissingReviewsSchemaError(error) ? "Run the reviews schema before saving library reviews." : error.message,
+      "error"
+    );
+    return;
+  }
+
+  organizationReview = data;
+  renderOrganizationReviewForm();
+  setStatus(organizationReviewStatus, "Review saved.", "success");
 }
 
 async function handleOrganizationSettingsSave(event) {
@@ -3204,6 +3333,8 @@ async function init() {
   recordsHelpForm?.addEventListener("submit", handleRecordsHelpSubmit);
   aiSettingsToggle?.addEventListener("click", () => setSectionToggleOpen(aiSettingsToggle, aiSettingsBody, aiSettingsBody.classList.contains("hidden")));
   organizationAiSettingsForm?.addEventListener("submit", handleOrganizationAiSettingsSave);
+  reviewSettingsToggle?.addEventListener("click", () => setSectionToggleOpen(reviewSettingsToggle, reviewSettingsBody, reviewSettingsBody.classList.contains("hidden")));
+  organizationReviewForm?.addEventListener("submit", handleOrganizationReviewSave);
   organizationAiMemoryAdd?.addEventListener("click", addAiMemoryFromInput);
   organizationAiMemoryNewInput?.addEventListener("keydown", (event) => {
     if (event.key !== "Enter") return;
@@ -3340,6 +3471,7 @@ setSectionToggleOpen(redeemInviteToggle, redeemInviteBody, false);
 setSectionToggleOpen(inviteManagementToggle, inviteManagementBody, false);
 setSectionToggleOpen(memberManagementToggle, memberManagementBody, false);
 setSectionToggleOpen(embedSettingsToggle, embedSettingsBody, false);
+setSectionToggleOpen(reviewSettingsToggle, reviewSettingsBody, false);
 setUploadMode("single");
 setBillingCycle("monthly");
 init();

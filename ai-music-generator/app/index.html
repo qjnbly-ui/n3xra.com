@@ -640,6 +640,57 @@
     .account-status.error { color: #ffb4aa; }
     .account-status.success { color: #9ff2c8; }
 
+    .account-review-panel {
+      margin-top: 0.85rem;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.05);
+      overflow: hidden;
+    }
+
+    .account-review-toggle {
+      width: 100%;
+      border: 0;
+      background: transparent;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.85rem;
+      padding: 0.9rem;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .account-review-toggle p {
+      margin: 0.15rem 0 0;
+      color: rgba(255, 255, 255, 0.64);
+      font-weight: 700;
+      line-height: 1.4;
+    }
+
+    .account-review-indicator {
+      width: 36px;
+      height: 36px;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 999px;
+      display: grid;
+      place-items: center;
+      flex: 0 0 auto;
+      font-weight: 900;
+    }
+
+    .account-review-form {
+      padding: 0 0.9rem 0.9rem;
+      display: grid;
+      gap: 0.75rem;
+    }
+
+    .account-review-form textarea {
+      min-height: 120px;
+      resize: vertical;
+    }
+
     .account-modal-actions {
       display: flex;
       flex-wrap: wrap;
@@ -1322,6 +1373,30 @@
           </div>
         </div>
 
+        <div class="account-review-panel">
+          <button class="account-review-toggle" type="button" id="musicReviewToggle" aria-expanded="false" aria-controls="musicReviewBody">
+            <span>
+              <span class="account-detail-label">Review AI Music</span>
+              <p id="musicReviewSummary">Share one review for this AI Music profile.</p>
+            </span>
+            <span class="account-review-indicator" id="musicReviewIndicator" aria-hidden="true">+</span>
+          </button>
+          <form class="account-review-form hidden" id="musicReviewBody">
+            <label class="account-detail-label" for="musicReviewRating">Rating</label>
+            <select class="account-input" id="musicReviewRating">
+              <option value="5">5 stars</option>
+              <option value="4">4 stars</option>
+              <option value="3">3 stars</option>
+              <option value="2">2 stars</option>
+              <option value="1">1 star</option>
+            </select>
+            <label class="account-detail-label" for="musicReviewText">Review</label>
+            <textarea class="account-input" id="musicReviewText" maxlength="1200" placeholder="Share what AI Music helps you create."></textarea>
+            <button class="primary-btn" type="submit" id="musicReviewSave">Save review</button>
+            <p class="account-status" id="musicReviewStatus" aria-live="polite"></p>
+          </form>
+        </div>
+
         <p class="account-status" id="musicAccountProfileStatus" aria-live="polite"></p>
         <div class="delete-choice-panel hidden" id="musicDeleteChoicePanel">
           <p>Choose what to delete. App-only keeps your main N3XRA login. Entire account removes all N3XRA app access.</p>
@@ -1436,6 +1511,14 @@
     const musicAccountModalPlan = document.getElementById("musicAccountModalPlan");
     const musicAccountModalUsage = document.getElementById("musicAccountModalUsage");
     const musicAccountModalPeriod = document.getElementById("musicAccountModalPeriod");
+    const musicReviewToggle = document.getElementById("musicReviewToggle");
+    const musicReviewBody = document.getElementById("musicReviewBody");
+    const musicReviewIndicator = document.getElementById("musicReviewIndicator");
+    const musicReviewSummary = document.getElementById("musicReviewSummary");
+    const musicReviewRating = document.getElementById("musicReviewRating");
+    const musicReviewText = document.getElementById("musicReviewText");
+    const musicReviewSave = document.getElementById("musicReviewSave");
+    const musicReviewStatus = document.getElementById("musicReviewStatus");
     const musicDeleteChoicePanel = document.getElementById("musicDeleteChoicePanel");
     const musicDeleteAppOnly = document.getElementById("musicDeleteAppOnly");
     const musicDeleteEntire = document.getElementById("musicDeleteEntire");
@@ -1479,6 +1562,7 @@
     let supabase = null;
     let currentSession = null;
     let musicAccount = null;
+    let musicReview = null;
     let generationRequestInFlight = false;
     let activeTaskCount = 0;
     let latestRequestedTaskId = "";
@@ -1890,6 +1974,64 @@
       return `${getFirstDisplayName(displayName)}'s Music Account`;
     }
 
+    function isMissingReviewsSchemaError(error) {
+      const message = String(error?.message || "").toLowerCase();
+      return message.includes("reviews") && (message.includes("does not exist") || message.includes("schema cache"));
+    }
+
+    function setMusicReviewStatus(message, tone = "") {
+      musicReviewStatus.textContent = message || "";
+      musicReviewStatus.className = "account-status";
+      if (tone) musicReviewStatus.classList.add(tone);
+    }
+
+    function setMusicReviewOpen(isOpen) {
+      const nextOpen = Boolean(isOpen);
+      musicReviewBody.classList.toggle("hidden", !nextOpen);
+      musicReviewToggle.setAttribute("aria-expanded", String(nextOpen));
+      musicReviewIndicator.textContent = nextOpen ? "-" : "+";
+    }
+
+    function renderMusicReview() {
+      musicReviewRating.value = String(musicReview?.rating || 5);
+      musicReviewText.value = musicReview?.review_text || "";
+      musicReviewSave.textContent = musicReview?.id ? "Update review" : "Save review";
+      const updated = musicReview?.updated_at || musicReview?.created_at;
+      const updatedLabel = updated ? formatDate(updated) : "";
+      musicReviewSummary.textContent = musicReview?.id
+        ? `Published${updatedLabel ? ` · Updated ${updatedLabel}` : ""}`
+        : "Share one review for this AI Music profile.";
+    }
+
+    async function loadMusicReview() {
+      musicReview = null;
+      if (!currentSession?.user?.id || !supabase) {
+        renderMusicReview();
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("reviews")
+        .select("id, rating, review_text, reviewer_name_snapshot, status, created_at, updated_at")
+        .eq("app", "ai_music")
+        .eq("review_target_type", "profile")
+        .eq("review_target_id", currentSession.user.id)
+        .maybeSingle();
+
+      if (error) {
+        setMusicReviewStatus(
+          isMissingReviewsSchemaError(error) ? "Run the reviews schema before saving reviews." : error.message,
+          "error"
+        );
+        renderMusicReview();
+        return;
+      }
+
+      musicReview = data || null;
+      renderMusicReview();
+      setMusicReviewStatus("");
+    }
+
     function setAccountModalPage(page = "profile") {
       const showBilling = page === "billing";
       musicAccountProfilePage.classList.toggle("hidden", showBilling);
@@ -1926,6 +2068,7 @@
         ? `Renews ${formatDate(profile.current_period_end)}`
         : "Current monthly period";
       renderBillingControls(profile);
+      renderMusicReview();
     }
 
     function setBillingStatus(message, tone = "") {
@@ -2217,6 +2360,7 @@
     async function loadMusicAccount() {
       if (!currentSession?.access_token) {
         musicAccount = null;
+        musicReview = null;
         renderAccountState();
         renderHistory();
         refreshGenerateAvailability();
@@ -2232,6 +2376,7 @@
       }
 
       musicAccount = data;
+      await loadMusicReview();
       renderAccountState();
       renderHistory();
       refreshGenerateAvailability();
@@ -2593,11 +2738,67 @@
       }
     }
 
+    async function handleMusicReviewSave(event) {
+      event.preventDefault();
+      if (!currentSession?.user?.id || !supabase) return openMusicLogin();
+
+      const rating = Number.parseInt(musicReviewRating.value || "5", 10);
+      const reviewText = musicReviewText.value.trim();
+      if (!Number.isFinite(rating) || rating < 1 || rating > 5) {
+        setMusicReviewStatus("Choose a rating from 1 to 5 stars.", "error");
+        return;
+      }
+      if (reviewText.length < 10) {
+        setMusicReviewStatus("Add a short review before saving.", "error");
+        musicReviewText.focus();
+        return;
+      }
+
+      musicReviewSave.disabled = true;
+      setMusicReviewStatus("Saving review...");
+
+      try {
+        const payload = {
+          app: "ai_music",
+          review_target_type: "profile",
+          review_target_id: currentSession.user.id,
+          user_id: currentSession.user.id,
+          organization_id: null,
+          rating,
+          review_text: reviewText,
+          reviewer_name_snapshot: getMusicDisplayName() || currentSession.user.email || "AI Music user",
+          organization_name_snapshot: null,
+          status: "published",
+        };
+        const { data, error } = await supabase
+          .from("reviews")
+          .upsert(payload, { onConflict: "app,review_target_type,review_target_id" })
+          .select("id, rating, review_text, reviewer_name_snapshot, status, created_at, updated_at")
+          .single();
+
+        if (error) {
+          throw error;
+        }
+
+        musicReview = data;
+        renderMusicReview();
+        setMusicReviewStatus("Review saved.", "success");
+      } catch (error) {
+        setMusicReviewStatus(
+          isMissingReviewsSchemaError(error) ? "Run the reviews schema before saving reviews." : (error instanceof Error ? error.message : "Unable to save review."),
+          "error"
+        );
+      } finally {
+        musicReviewSave.disabled = false;
+      }
+    }
+
     async function handleSignout() {
       if (!supabase) return;
       await supabase.auth.signOut({ scope: "local" });
       currentSession = null;
       musicAccount = null;
+      musicReview = null;
       closeAccountModal();
       openMusicLogin(true);
     }
@@ -2731,6 +2932,7 @@
           await loadMusicAccount().catch(() => null);
         } else {
           musicAccount = null;
+          musicReview = null;
           openMusicLogin(true);
         }
       });
@@ -2930,6 +3132,8 @@
       setAccountEditMode(false);
     });
     musicAccountProfileForm.addEventListener("submit", handleProfileSave);
+    musicReviewToggle.addEventListener("click", () => setMusicReviewOpen(musicReviewBody.classList.contains("hidden")));
+    musicReviewBody.addEventListener("submit", handleMusicReviewSave);
     musicBillingPlanGrid.addEventListener("click", async (event) => {
       const button = event.target.closest("button[data-plan-id]");
       if (!button || button.disabled) return;

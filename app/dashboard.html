@@ -177,7 +177,7 @@
             <div class="panel-head">
               <div>
                 <h3>Additional settings</h3>
-                <p id="library-access-copy">Manage library AI guidance, shared access, invite codes, and public settings.</p>
+                <p id="library-access-copy">Manage library AI guidance, reviews, shared access, invite codes, and public settings.</p>
               </div>
             </div>
             <button class="section-toggle" id="ai-settings-toggle" type="button" aria-expanded="false" aria-controls="ai-settings-body">
@@ -215,6 +215,42 @@
                   <button class="btn" id="organization-ai-settings-save" type="submit">Save AI settings</button>
                 </div>
                 <p class="status" id="organization-ai-settings-status"></p>
+              </form>
+            </div>
+            <button class="section-toggle" id="review-settings-toggle" type="button" aria-expanded="false" aria-controls="review-settings-body">
+              <div>
+                <h3>Review N3XRA Records</h3>
+                <p>One review is attached to this library and can be updated by a library settings manager.</p>
+              </div>
+              <span class="section-toggle-indicator" aria-hidden="true">+</span>
+            </button>
+            <div class="stack hidden" id="review-settings-body">
+              <form class="stack" id="organization-review-form">
+                <div class="grid-3">
+                  <div class="field">
+                    <label for="organization-review-rating">Rating</label>
+                    <select id="organization-review-rating">
+                      <option value="5">5 stars</option>
+                      <option value="4">4 stars</option>
+                      <option value="3">3 stars</option>
+                      <option value="2">2 stars</option>
+                      <option value="1">1 star</option>
+                    </select>
+                  </div>
+                  <div class="field review-meta-field">
+                    <span class="field-title">Review status</span>
+                    <p class="account-value" id="organization-review-meta">No review yet</p>
+                  </div>
+                </div>
+                <div class="field">
+                  <label for="organization-review-text">Review</label>
+                  <textarea id="organization-review-text" maxlength="1200" placeholder="Share what N3XRA Records helps this library do."></textarea>
+                  <p class="field-note">The review keeps snapshot details so it can remain visible even if the account or library is later removed.</p>
+                </div>
+                <div class="actions">
+                  <button class="btn" id="organization-review-save" type="submit">Save review</button>
+                </div>
+                <p class="status" id="organization-review-status"></p>
               </form>
             </div>
             <button class="section-toggle" id="redeem-invite-toggle" type="button" aria-expanded="false" aria-controls="redeem-invite-body">

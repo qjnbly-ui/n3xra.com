@@ -3,7 +3,7 @@ const path = require("path");
 
 const PAGES = [
   { route: "/", file: "index.html" },
-  { route: "/software", file: "software/index.html" },
+  { route: "/records", file: "records/index.html" },
   { route: "/services", file: "services/index.html" },
   { route: "/projects", file: "projects/index.html" },
   { route: "/ai-music-generator", file: "ai-music-generator/index.html" },

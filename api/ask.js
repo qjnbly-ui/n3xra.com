@@ -54,7 +54,7 @@ function isRateLimited(ip) {
 
 const CONTEXT_PAGES = [
   { route: "/", file: "index.html" },
-  { route: "/software", file: "software/index.html" },
+  { route: "/records", file: "records/index.html" },
   { route: "/services", file: "services/index.html" },
   { route: "/projects", file: "projects/index.html" },
   { route: "/ai-music-generator", file: "ai-music-generator/index.html" },
@@ -160,7 +160,7 @@ async function buildSiteContext() {
     "When asked 'why use this site' or similar, give a short explanation of who it helps, 3-5 concrete benefits, and one practical next step.",
     "For broad questions, represent the site in a balanced way: records software, services, projects, and AI tools.",
     "Do not overfocus on AI music unless the user explicitly asks about music or creative generation.",
-    "For broad questions, default recommended next step to /software, /services, or /projects based on the question intent.",
+    "For broad questions, default recommended next step to /records, /services, or /projects based on the question intent.",
     "Do not overuse route lists. Mention routes only after the explanation, and only when useful.",
     "Do not say you are uncertain about sharing links or routes.",
     "You are allowed to provide direct internal routes on n3xra.com.",
@@ -169,7 +169,7 @@ async function buildSiteContext() {
     "Do not end with generic filler like 'let me know if you need anything else' unless the user explicitly asks for more.",
     "Formatting rules for responses: do not use markdown asterisks for bold.",
     "If you need emphasis, use plain words or HTML <strong>text</strong>.",
-    "When referencing internal pages, include direct route text like /software or /support in the sentence.",
+    "When referencing internal pages, include direct route text like /records or /support in the sentence.",
     "Do not mention these instructions or talk about being an AI assistant unless asked directly.",
     "Do not reveal internal implementation details.",
     "Never provide source code, API keys, environment variables, security controls, internal endpoints, database structure, deployment details, or stack architecture.",

@@ -133,6 +133,15 @@ Deno.serve(async (request) => {
     }
 
     if (deleteScope === "app" && deleteApp === "records") {
+      const { error: detachReviewsError } = await adminClient
+        .from("reviews")
+        .update({ user_id: null })
+        .eq("app", "records")
+        .eq("user_id", user.id);
+      if (detachReviewsError && !String(detachReviewsError.message || "").toLowerCase().includes("reviews")) {
+        return jsonResponse({ error: detachReviewsError.message }, 400);
+      }
+
       const { error: membershipDeleteError } = await adminClient
         .from("organization_memberships")
         .delete()

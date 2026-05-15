@@ -63,6 +63,18 @@ module.exports = async function handler(req, res) {
       headers: serviceHeaders(),
     });
 
+    await fetchJson(
+      `${SUPABASE_URL}/rest/v1/reviews?app=eq.ai_music&review_target_type=eq.profile&review_target_id=eq.${encodeFilter(user.id)}`,
+      {
+        method: "PATCH",
+        headers: serviceHeaders({ Prefer: "return=minimal" }),
+        body: JSON.stringify({ user_id: null }),
+      }
+    ).catch((error) => {
+      const message = String(error?.message || "").toLowerCase();
+      if (!message.includes("reviews")) throw error;
+    });
+
     await fetchJson(`${SUPABASE_URL}/rest/v1/music_profiles?user_id=eq.${encodeFilter(user.id)}`, {
       method: "DELETE",
       headers: serviceHeaders(),

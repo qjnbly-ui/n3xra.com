@@ -1,6 +1,18 @@
 {
   "cleanUrls": true,
   "trailingSlash": false,
+  "redirects": [
+    {
+      "source": "/software",
+      "destination": "/records",
+      "permanent": true
+    },
+    {
+      "source": "/software/:path*",
+      "destination": "/records/:path*",
+      "permanent": true
+    }
+  ],
   "rewrites": [
     {
       "source": "/library/:slug",

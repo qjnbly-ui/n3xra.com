@@ -37,6 +37,7 @@ This matches your existing pattern of storing extracted text once and searching 
 - [app/styles.css](/Users/quentinnichols/Documents/Websites/PublicRecordsApp/app/styles.css): shared app styles
 - [app/config.js](/Users/quentinnichols/Documents/Websites/PublicRecordsApp/app/config.js): client config
 - [supabase/schema.sql](/Users/quentinnichols/Documents/Websites/PublicRecordsApp/supabase/schema.sql): tables, storage bucket, and RLS policies
+- [supabase/reviews.sql](/Users/quentinnichols/Documents/Websites/n3xra.com/supabase/reviews.sql): standalone review table/RLS update if your database already ran the main schema
 - [supabase/manual_billing_updates.sql](/Users/quentinnichols/Documents/Websites/PublicRecordsApp/supabase/manual_billing_updates.sql): pre-Stripe manual tier changes
 
 ## What you need to configure
@@ -60,6 +61,8 @@ You do **not** need to add anything to Vercel environment variables for this ver
 6. Upload a supported file
 
 If billing fields were added before this pass, rerun [supabase/schema.sql](/Users/quentinnichols/Documents/Websites/PublicRecordsApp/supabase/schema.sql) so the new billing-protection trigger is installed.
+
+If reviews are missing in an already deployed database, run [supabase/reviews.sql](/Users/quentinnichols/Documents/Websites/n3xra.com/supabase/reviews.sql) in the Supabase SQL Editor. This creates one shared `reviews` table for N3XRA Records organization reviews and AI Music profile reviews.
 
 If you already ran the schema before the signup form was expanded, also add these columns to `profiles`:
 
