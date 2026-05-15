@@ -736,10 +736,12 @@ begin
   into paid_owned_total
   from public.organizations o
   where o.owner_user_id = new.owner_user_id
-    and o.subscription_tier in ('starter', 'organization');
+    and o.subscription_tier in ('starter', 'organization')
+    and o.account_status not in ('canceled', 'suspended')
+    and o.cancel_at_period_end = false;
 
   if coalesce(paid_owned_total, 0) = 0 then
-    raise exception 'Upgrade plan to create another library.';
+    raise exception 'Upgrade one owned library to Starter or Organization before creating another library.';
   end if;
 
   return new;

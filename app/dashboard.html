@@ -237,6 +237,27 @@
               </form>
             </div>
 
+            <button class="section-toggle" id="additional-library-toggle" type="button" aria-expanded="false" aria-controls="additional-library-body">
+              <div>
+                <h3>Additional libraries</h3>
+                <p>Create another separate library when this account already owns an active paid library.</p>
+              </div>
+              <span class="section-toggle-indicator" aria-hidden="true">+</span>
+            </button>
+            <div class="stack hidden" id="additional-library-body">
+              <form class="stack" id="additional-library-form">
+                <p class="field-note" id="additional-library-note">An active paid library is required before creating another library.</p>
+                <div class="field">
+                  <label for="additional-library-name">New library name</label>
+                  <input id="additional-library-name" type="text" maxlength="120" placeholder="New Library">
+                </div>
+                <div class="actions">
+                  <button class="btn secondary" id="additional-library-save" type="submit">Create library</button>
+                </div>
+                <p class="status" id="additional-library-status"></p>
+              </form>
+            </div>
+
             <button class="section-toggle" id="invite-management-toggle" type="button" aria-expanded="false" aria-controls="invite-management-body">
               <div>
                 <h3>Invite codes</h3>

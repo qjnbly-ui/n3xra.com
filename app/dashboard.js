@@ -145,6 +145,13 @@ const organizationReviewStatus = document.getElementById("organization-review-st
 const redeemInviteForm = document.getElementById("redeem-invite-form");
 const redeemInviteCodeInput = document.getElementById("redeem-invite-code");
 const redeemInviteStatus = document.getElementById("redeem-invite-status");
+const additionalLibraryToggle = document.getElementById("additional-library-toggle");
+const additionalLibraryBody = document.getElementById("additional-library-body");
+const additionalLibraryForm = document.getElementById("additional-library-form");
+const additionalLibraryNote = document.getElementById("additional-library-note");
+const additionalLibraryNameInput = document.getElementById("additional-library-name");
+const additionalLibrarySave = document.getElementById("additional-library-save");
+const additionalLibraryStatus = document.getElementById("additional-library-status");
 const inviteManagementSection = document.getElementById("invite-management-section");
 const memberManagementSection = document.getElementById("member-management-section");
 const createInviteForm = document.getElementById("create-invite-form");
@@ -1136,7 +1143,7 @@ function hasPaidOwnedLibraries() {
 
 function canCreateOwnedLibrary() {
   const ownedMemberships = getOwnedMemberships();
-  return ownedMemberships.length === 0 || ownedMemberships.some((membership) => ["starter", "organization"].includes(membership?.organization?.subscription_tier || ""));
+  return ownedMemberships.length === 0 || hasPaidOwnedLibraries();
 }
 
 function canDeleteOwnAccount() {
@@ -1960,6 +1967,7 @@ function renderProfile() {
   const canSeeMemberManagement = isOrganizationPlan && capabilities.canManageMembers;
   const canSeeEmbedSettings = hasLibraryAccess && isOrganizationPlan && canSeeLibrarySettings;
   const canSeeReviewSettings = hasLibraryAccess && capabilities.canManageLibrarySettings;
+  const canCreateAdditionalLibrary = canCreateOwnedLibrary();
   const canSeePlanMeta = capabilities.canManageBilling || capabilities.canManageLibrarySettings;
   const canEditLibraryNameFromProfile = capabilities.canManageLibrarySettings;
   const canDeleteAccountNow = canDeleteOwnAccount();
@@ -1993,6 +2001,11 @@ function renderProfile() {
   organizationAiMemoryAdd.disabled = !capabilities.canManageLibrarySettings;
   organizationAiSettingsSave.disabled = !capabilities.canManageLibrarySettings;
   renderOrganizationReviewForm();
+  additionalLibraryNameInput.disabled = !canCreateAdditionalLibrary;
+  additionalLibrarySave.disabled = !canCreateAdditionalLibrary;
+  additionalLibraryNote.textContent = canCreateAdditionalLibrary
+    ? "This creates a separate library with its own plan, users, documents, settings, and billing controls."
+    : "Upgrade one owned library to Starter or Organization before creating another library.";
   openUploadModalButton.disabled = !capabilities.canUploadDocuments;
   uploadIsPublicInput.disabled = !capabilities.canUploadDocuments || !hasEmbeddedAccess();
 
@@ -2017,6 +2030,8 @@ function renderProfile() {
   show(reviewSettingsBody, canSeeReviewSettings && !reviewSettingsBody.classList.contains("hidden"));
   show(redeemInviteToggle, hasLibraryAccess);
   show(redeemInviteBody, hasLibraryAccess && !redeemInviteBody.classList.contains("hidden"));
+  show(additionalLibraryToggle, hasLibraryAccess);
+  show(additionalLibraryBody, hasLibraryAccess && !additionalLibraryBody.classList.contains("hidden"));
   show(inviteManagementToggle, canSeeInviteManagement);
   show(inviteManagementBody, canSeeInviteManagement && !inviteManagementBody.classList.contains("hidden"));
   show(memberManagementToggle, canSeeMemberManagement);
@@ -2841,6 +2856,43 @@ async function handleRedeemInvite(event) {
   setStatus(redeemInviteStatus, "Shared library added to your account.", "success");
 }
 
+async function handleCreateAdditionalLibrary(event) {
+  event.preventDefault();
+  if (!canCreateOwnedLibrary()) {
+    setStatus(additionalLibraryStatus, "Upgrade one owned library to Starter or Organization before creating another library.", "error");
+    return;
+  }
+
+  const suggestedName = getOwnedMemberships().length === 0 ? "Personal" : "New Library";
+  const nextName = additionalLibraryNameInput.value.trim() || suggestedName;
+
+  additionalLibrarySave.disabled = true;
+  setStatus(additionalLibraryStatus, "Creating library...");
+
+  const { data, error } = await supabase.rpc("create_owned_organization", {
+    input_organization_name: nextName,
+  });
+
+  additionalLibrarySave.disabled = false;
+  if (error) {
+    setStatus(additionalLibraryStatus, error.message, "error");
+    return;
+  }
+
+  const nextOrganizationId = String(data?.organization_id || "");
+  await bootstrapAccess();
+  if (nextOrganizationId) {
+    const nextMembership = memberships.find((membership) => membership.organization?.id === nextOrganizationId);
+    if (nextMembership) {
+      activeMembership = nextMembership;
+      setStoredActiveOrganizationId(nextOrganizationId);
+    }
+  }
+  additionalLibraryNameInput.value = "";
+  await loadActiveOrganizationData();
+  setStatus(additionalLibraryStatus, `Library "${nextName}" created.`, "success");
+}
+
 async function handleCreateInvite(event) {
   event.preventDefault();
   const organization = getActiveOrganization();
@@ -3345,6 +3397,8 @@ async function init() {
   organizationAiMemoryList?.addEventListener("keydown", handleAiMemoryBubbleKeydown);
   organizationSettingsForm.addEventListener("submit", handleOrganizationSettingsSave);
   redeemInviteToggle.addEventListener("click", () => setSectionToggleOpen(redeemInviteToggle, redeemInviteBody, redeemInviteBody.classList.contains("hidden")));
+  additionalLibraryToggle?.addEventListener("click", () => setSectionToggleOpen(additionalLibraryToggle, additionalLibraryBody, additionalLibraryBody.classList.contains("hidden")));
+  additionalLibraryForm?.addEventListener("submit", handleCreateAdditionalLibrary);
   inviteManagementToggle.addEventListener("click", () => setSectionToggleOpen(inviteManagementToggle, inviteManagementBody, inviteManagementBody.classList.contains("hidden")));
   memberManagementToggle.addEventListener("click", () => setSectionToggleOpen(memberManagementToggle, memberManagementBody, memberManagementBody.classList.contains("hidden")));
   embedSettingsToggle.addEventListener("click", () => setSectionToggleOpen(embedSettingsToggle, embedSettingsBody, embedSettingsBody.classList.contains("hidden")));
@@ -3468,6 +3522,7 @@ async function init() {
 }
 
 setSectionToggleOpen(redeemInviteToggle, redeemInviteBody, false);
+setSectionToggleOpen(additionalLibraryToggle, additionalLibraryBody, false);
 setSectionToggleOpen(inviteManagementToggle, inviteManagementBody, false);
 setSectionToggleOpen(memberManagementToggle, memberManagementBody, false);
 setSectionToggleOpen(embedSettingsToggle, embedSettingsBody, false);
