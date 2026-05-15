@@ -173,6 +173,9 @@ const createInviteForm = document.getElementById("create-invite-form");
 const inviteRoleInput = document.getElementById("invite-role");
 const inviteMaxUsesInput = document.getElementById("invite-max-uses");
 const inviteExpiresAtInput = document.getElementById("invite-expires-at");
+const inviteRecipientEmailInput = document.getElementById("invite-recipient-email");
+const inviteRecipientNameInput = document.getElementById("invite-recipient-name");
+const inviteCustomMessageInput = document.getElementById("invite-custom-message");
 const createInviteStatus = document.getElementById("create-invite-status");
 const inviteList = document.getElementById("invite-list");
 const memberList = document.getElementById("member-list");
@@ -1378,6 +1381,18 @@ function getDefaultInviteExpiresAtValue() {
   next.setDate(next.getDate() + 7);
   next.setHours(23, 59, 0, 0);
   return toLocalDateTimeInputValue(next);
+}
+
+function buildInviteSignupUrl(inviteCode, recipientEmail = "") {
+  const code = String(inviteCode || "").trim();
+  if (!code) return "";
+  const url = new URL("/app/login/", window.location.origin);
+  url.searchParams.set("signup", "invite");
+  url.searchParams.set("invite", code);
+  if (recipientEmail) {
+    url.searchParams.set("email", recipientEmail.trim());
+  }
+  return url.toString();
 }
 
 function buildSiblingPageUrl(pageName) {
@@ -2588,7 +2603,11 @@ function renderInvites() {
       <td>${escapeHtml(formatRoleLabel(invite.role))}</td>
       <td>${invite.redeemed_uses}/${invite.max_uses}</td>
       <td>${invite.expires_at ? escapeHtml(new Date(invite.expires_at).toLocaleString()) : "Never"}</td>
-      <td><button class="btn secondary" type="button" data-action="delete-invite" data-invite-id="${invite.id}">Delete</button></td>
+      <td>
+        <button class="btn secondary" type="button" data-action="copy-invite-link" data-invite-code="${escapeHtml(invite.code)}">Copy link</button>
+        <button class="btn secondary" type="button" data-action="email-invite-link" data-invite-code="${escapeHtml(invite.code)}">Email</button>
+        <button class="btn secondary" type="button" data-action="delete-invite" data-invite-id="${invite.id}">Delete</button>
+      </td>
     `;
     inviteList.append(row);
   });
@@ -3151,6 +3170,16 @@ async function handleCreateInvite(event) {
   event.preventDefault();
   const organization = getActiveOrganization();
   if (!organization) return;
+  const submitAction = event.submitter?.dataset?.action || "create-only";
+  const shouldSendEmail = submitAction === "create-send";
+  const recipientEmail = inviteRecipientEmailInput?.value.trim() || "";
+  const recipientName = inviteRecipientNameInput?.value.trim() || "";
+  const customMessage = inviteCustomMessageInput?.value.trim() || "";
+
+  if (shouldSendEmail && !recipientEmail) {
+    setStatus(createInviteStatus, "Enter a recipient email to send this invite.", "error");
+    return;
+  }
 
   setStatus(createInviteStatus, "Creating invite code...");
   const maxUses = Number.parseInt(inviteMaxUsesInput.value.trim(), 10) || 1;
@@ -3189,13 +3218,41 @@ async function handleCreateInvite(event) {
 
   inviteMaxUsesInput.value = "1";
   inviteExpiresAtInput.value = getDefaultInviteExpiresAtValue();
+  let emailSent = false;
+  if (shouldSendEmail && invite?.code) {
+    setStatus(createInviteStatus, "Sending invite email...");
+    const inviteLink = buildInviteSignupUrl(invite.code, recipientEmail);
+    const { data: sendResult, error: sendError } = await supabase.functions.invoke("send-records-invite", {
+      body: {
+        organizationId: organization.id,
+        inviteCode: invite.code,
+        recipientEmail,
+        recipientName,
+        customMessage,
+        inviteLink,
+      },
+    });
+    if (sendError || sendResult?.error) {
+      setStatus(createInviteStatus, sendError?.message || sendResult?.error || "Unable to send invite email.", "error");
+      await loadInvites();
+      return;
+    }
+    emailSent = true;
+    if (inviteRecipientEmailInput) inviteRecipientEmailInput.value = "";
+    if (inviteRecipientNameInput) inviteRecipientNameInput.value = "";
+    if (inviteCustomMessageInput) inviteCustomMessageInput.value = "";
+  }
+
   await loadInvites();
   if (invite?.code) {
+    const inviteLink = buildInviteSignupUrl(invite.code);
     setStatus(
       createInviteStatus,
-      copiedToClipboard
-        ? `Invite code ${invite.code} created and copied.`
-        : `Invite code ${invite.code} created.`,
+      emailSent
+        ? `Invite code ${invite.code} created and emailed.`
+        : copiedToClipboard
+          ? `Invite code ${invite.code} created and copied. Link: ${inviteLink}`
+          : `Invite code ${invite.code} created.`,
       "success"
     );
     return;
@@ -3205,11 +3262,59 @@ async function handleCreateInvite(event) {
 }
 
 async function handleInviteAction(event) {
-  const button = event.target.closest("button[data-action='delete-invite']");
+  const button = event.target.closest("button[data-action]");
   if (!button) return;
+  const action = button.getAttribute("data-action");
   const inviteId = button.getAttribute("data-invite-id");
+  const inviteCode = button.getAttribute("data-invite-code") || "";
   const organization = getActiveOrganization();
-  if (!inviteId || !organization) return;
+  if (!organization) return;
+
+  if (action === "copy-invite-link") {
+    const inviteLink = buildInviteSignupUrl(inviteCode);
+    if (!inviteLink) return;
+    if (navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(inviteLink);
+        setStatus(createInviteStatus, "Invite link copied.", "success");
+        return;
+      } catch {
+        // fall through and print link
+      }
+    }
+    setStatus(createInviteStatus, inviteLink, "success");
+    return;
+  }
+
+  if (action === "email-invite-link") {
+    if (!inviteCode) return;
+    const recipientEmail = window.prompt("Enter recipient email:");
+    if (!recipientEmail) return;
+    const recipientName = window.prompt("Recipient name (optional):") || "";
+    const customMessage = window.prompt("Custom message (optional):") || "";
+    const inviteLink = buildInviteSignupUrl(inviteCode, recipientEmail);
+    setStatus(createInviteStatus, "Sending invite email...");
+    button.disabled = true;
+    const { data: sendResult, error: sendError } = await supabase.functions.invoke("send-records-invite", {
+      body: {
+        organizationId: organization.id,
+        inviteCode,
+        recipientEmail,
+        recipientName,
+        customMessage,
+        inviteLink,
+      },
+    });
+    button.disabled = false;
+    if (sendError || sendResult?.error) {
+      setStatus(createInviteStatus, sendError?.message || sendResult?.error || "Unable to send invite email.", "error");
+      return;
+    }
+    setStatus(createInviteStatus, `Invite email sent to ${recipientEmail}.`, "success");
+    return;
+  }
+
+  if (action !== "delete-invite" || !inviteId) return;
 
   if (!window.confirm("Delete this invite code? This cannot be undone.")) return;
 

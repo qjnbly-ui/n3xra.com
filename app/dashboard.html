@@ -312,8 +312,23 @@
                         <p class="field-note invite-expires-note">Uses your local timezone. Leave blank for no expiration.</p>
                       </div>
                     </div>
+                    <div class="grid-2">
+                      <div class="field">
+                        <label for="invite-recipient-email">Recipient email (optional)</label>
+                        <input id="invite-recipient-email" type="email" placeholder="name@example.com">
+                      </div>
+                      <div class="field">
+                        <label for="invite-recipient-name">Recipient name (optional)</label>
+                        <input id="invite-recipient-name" type="text" maxlength="100" placeholder="First name">
+                      </div>
+                    </div>
+                    <div class="field">
+                      <label for="invite-custom-message">Custom invite message (optional)</label>
+                      <textarea id="invite-custom-message" rows="3" maxlength="500" placeholder="Add a short custom note for the invite email."></textarea>
+                    </div>
                     <div class="actions">
                       <button class="btn secondary" type="submit">Create invite code</button>
+                      <button class="btn" type="submit" data-action="create-send">Create code + send email</button>
                     </div>
                     <p class="status" id="create-invite-status"></p>
                   </form>
@@ -325,7 +340,7 @@
                           <th>Role</th>
                           <th>Uses</th>
                           <th>Expires</th>
-                          <th>Action</th>
+                          <th>Actions</th>
                         </tr>
                       </thead>
                       <tbody id="invite-list"></tbody>

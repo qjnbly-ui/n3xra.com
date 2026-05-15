@@ -252,6 +252,34 @@ function setSignupMode(mode) {
   }
 }
 
+function applyInviteLinkPrefill() {
+  const params = new URLSearchParams(window.location.search);
+  const requestedSignup = String(params.get("signup") || params.get("mode") || "").toLowerCase();
+  const inviteCode = String(
+    params.get("invite")
+    || params.get("invite_code")
+    || params.get("code")
+    || ""
+  ).trim();
+  const email = String(params.get("email") || "").trim();
+
+  if (requestedSignup === "invite" || inviteCode) {
+    toggleSignup(true);
+    setSignupMode("invite");
+  }
+
+  if (inviteCode && signupInviteCodeInput) {
+    signupInviteCodeInput.value = inviteCode;
+  }
+
+  if (email) {
+    const signupEmailInput = document.getElementById("signup-email");
+    if (signupEmailInput instanceof HTMLInputElement) {
+      signupEmailInput.value = email;
+    }
+  }
+}
+
 async function loadSessionState() {
   const session = await getSessionOrNull(supabase);
   setAuthedState(session);
@@ -500,6 +528,8 @@ async function init() {
     if (isSubmittingAuth) return;
     setAuthedState(session);
   });
+
+  applyInviteLinkPrefill();
 }
 
 init();
