@@ -1175,6 +1175,37 @@ textarea {
   align-items: center;
 }
 
+.settings-group,
+.settings-subsection {
+  display: grid;
+  gap: 1rem;
+}
+
+.settings-subsection {
+  padding: 1rem;
+  border: 1px solid rgba(15, 22, 32, 0.08);
+  border-radius: 18px;
+  background:
+    radial-gradient(220px 120px at 94% 8%, rgba(234, 155, 63, 0.07), transparent 58%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.82) 0%, rgba(248, 251, 250, 0.92) 100%);
+}
+
+.settings-subsection-head h4,
+.settings-subsection-head p {
+  margin: 0;
+}
+
+.settings-subsection-head h4 {
+  color: var(--ink);
+  font-size: 1.02rem;
+}
+
+.settings-subsection-head p {
+  margin-top: 0.25rem;
+  color: var(--slate);
+  line-height: 1.5;
+}
+
 #library-settings-card,
 #billing-section {
   align-content: start;
@@ -1190,7 +1221,7 @@ textarea {
 
 #library-settings-card .actions:has(.hidden:only-child),
 #library-settings-card .status:empty,
-#billing-section > .status:empty {
+#billing-section .status:empty {
   display: none;
 }
 

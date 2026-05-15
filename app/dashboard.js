@@ -48,13 +48,15 @@ const libraryLogoFileInput = document.getElementById("library-logo-file");
 const libraryLogoUpload = document.getElementById("library-logo-upload");
 const libraryLogoRemove = document.getElementById("library-logo-remove");
 const libraryLogoStatus = document.getElementById("library-logo-status");
-const redeemInviteToggle = document.getElementById("redeem-invite-toggle");
+const accessSettingsToggle = document.getElementById("access-settings-toggle");
+const accessSettingsBody = document.getElementById("access-settings-body");
+const publishingSettingsToggle = document.getElementById("publishing-settings-toggle");
+const publishingSettingsBody = document.getElementById("publishing-settings-body");
+const billingSettingsToggle = document.getElementById("billing-settings-toggle");
+const billingSettingsBody = document.getElementById("billing-settings-body");
 const redeemInviteBody = document.getElementById("redeem-invite-body");
-const inviteManagementToggle = document.getElementById("invite-management-toggle");
 const inviteManagementBody = document.getElementById("invite-management-body");
-const memberManagementToggle = document.getElementById("member-management-toggle");
 const memberManagementBody = document.getElementById("member-management-body");
-const embedSettingsToggle = document.getElementById("embed-settings-toggle");
 const embedSettingsBody = document.getElementById("embed-settings-body");
 const organizationPrimaryColorField = document.getElementById("organization-primary-color-field");
 const organizationAccentColorField = document.getElementById("organization-accent-color-field");
@@ -159,7 +161,6 @@ const libraryLogoPreviewFallback = document.getElementById("library-logo-preview
 const redeemInviteForm = document.getElementById("redeem-invite-form");
 const redeemInviteCodeInput = document.getElementById("redeem-invite-code");
 const redeemInviteStatus = document.getElementById("redeem-invite-status");
-const additionalLibraryToggle = document.getElementById("additional-library-toggle");
 const additionalLibraryBody = document.getElementById("additional-library-body");
 const additionalLibraryForm = document.getElementById("additional-library-form");
 const additionalLibraryNote = document.getElementById("additional-library-note");
@@ -807,9 +808,8 @@ function renderLibraryLogo() {
   renderLogoElement(libraryContextLogoImage, libraryContextLogoFallback, organization);
   renderLogoElement(libraryLogoPreviewImage, libraryLogoPreviewFallback, organization);
   if (selectedLibraryLogoCaption) {
-    selectedLibraryLogoCaption.textContent = organization?.logo_storage_path
-      ? "Custom library logo"
-      : "No library logo uploaded";
+    selectedLibraryLogoCaption.textContent = organization?.logo_storage_path ? "Custom library logo" : "";
+    selectedLibraryLogoCaption.style.display = organization?.logo_storage_path ? "" : "none";
   }
   if (libraryLogoRemove) {
     libraryLogoRemove.disabled = !organization?.logo_storage_path || !getActiveCapabilities().canManageLibrarySettings;
@@ -2100,6 +2100,9 @@ function renderProfile() {
   const canSeeInviteManagement = isOrganizationPlan && capabilities.canManageInvites;
   const canSeeMemberManagement = isOrganizationPlan && capabilities.canManageMembers;
   const canSeeEmbedSettings = hasLibraryAccess && isOrganizationPlan && canSeeLibrarySettings;
+  const canSeeAccessSettings = hasLibraryAccess;
+  const canSeePublishingSettings = canSeeEmbedSettings;
+  const canSeeBillingSettings = hasLibraryAccess && canSeeBilling;
   const canSeeReviewSettings = hasLibraryAccess && capabilities.canManageLibrarySettings;
   const canCreateAdditionalLibrary = canCreateOwnedLibrary();
   const canSeePlanMeta = capabilities.canManageBilling || capabilities.canManageLibrarySettings;
@@ -2153,7 +2156,7 @@ function renderProfile() {
   show(accountStatusItem, canSeePlanMeta);
   show(libraryNoAccessNotice, !hasLibraryAccess);
   show(libraryContextPanel, hasLibraryAccess);
-  show(billingSection, hasLibraryAccess && canSeeBilling);
+  show(billingSection, canSeeBillingSettings);
   show(libraryAccessCard, hasLibraryAccess);
   show(libraryActionsGrid, hasLibraryAccess);
   show(librarySearchPanel, hasLibraryAccess);
@@ -2166,18 +2169,18 @@ function renderProfile() {
   show(libraryProfileBody, canSeeLibraryProfileSettings && !libraryProfileBody.classList.contains("hidden"));
   show(aiSettingsToggle, hasLibraryAccess && canSeeLibrarySettings);
   show(aiSettingsBody, hasLibraryAccess && canSeeLibrarySettings && !aiSettingsBody.classList.contains("hidden"));
+  show(accessSettingsToggle, canSeeAccessSettings);
+  show(accessSettingsBody, canSeeAccessSettings && !accessSettingsBody.classList.contains("hidden"));
+  show(publishingSettingsToggle, canSeePublishingSettings);
+  show(publishingSettingsBody, canSeePublishingSettings && !publishingSettingsBody.classList.contains("hidden"));
+  show(billingSettingsBody, canSeeBillingSettings && !billingSettingsBody.classList.contains("hidden"));
   show(reviewSettingsToggle, canSeeReviewSettings);
   show(reviewSettingsBody, canSeeReviewSettings && !reviewSettingsBody.classList.contains("hidden"));
-  show(redeemInviteToggle, hasLibraryAccess);
-  show(redeemInviteBody, hasLibraryAccess && !redeemInviteBody.classList.contains("hidden"));
-  show(additionalLibraryToggle, hasLibraryAccess);
-  show(additionalLibraryBody, hasLibraryAccess && !additionalLibraryBody.classList.contains("hidden"));
-  show(inviteManagementToggle, canSeeInviteManagement);
-  show(inviteManagementBody, canSeeInviteManagement && !inviteManagementBody.classList.contains("hidden"));
-  show(memberManagementToggle, canSeeMemberManagement);
-  show(memberManagementBody, canSeeMemberManagement && !memberManagementBody.classList.contains("hidden"));
-  show(embedSettingsToggle, canSeeEmbedSettings);
-  show(embedSettingsBody, canSeeEmbedSettings && !embedSettingsBody.classList.contains("hidden"));
+  show(redeemInviteBody, hasLibraryAccess);
+  show(additionalLibraryBody, hasLibraryAccess);
+  show(inviteManagementBody, canSeeInviteManagement);
+  show(memberManagementBody, canSeeMemberManagement);
+  show(embedSettingsBody, canSeeEmbedSettings);
   show(inviteManagementSection, canSeeInviteManagement);
   show(memberManagementSection, canSeeMemberManagement);
   show(uploadActionSlot, capabilities.canUploadDocuments);
@@ -2185,22 +2188,22 @@ function renderProfile() {
   show(openDeleteAccountModalButton, canDeleteAccountNow);
   show(deleteAccountBlockedNote, !canDeleteAccountNow);
   libraryAccessCopy.textContent = capabilities.canManageLibrarySettings
-    ? "Manage AI guidance, reviews, shared access, invite codes, and public settings for this library."
+    ? "Manage profile, AI, access, publishing, billing, and review settings for this library."
     : "Join shared libraries from invite codes and review available settings.";
   if (!capabilities.canManageBilling) {
     setBillingPlanPickerOpen(false);
   }
-  if (!canSeeInviteManagement) {
-    setSectionToggleOpen(inviteManagementToggle, inviteManagementBody, false);
-  }
-  if (!canSeeMemberManagement) {
-    setSectionToggleOpen(memberManagementToggle, memberManagementBody, false);
-  }
   if (!canSeeEmbedSettings) {
-    setSectionToggleOpen(embedSettingsToggle, embedSettingsBody, false);
+    setSectionToggleOpen(publishingSettingsToggle, publishingSettingsBody, false);
   }
   if (!canSeeLibrarySettings) {
     setSectionToggleOpen(aiSettingsToggle, aiSettingsBody, false);
+  }
+  if (!canSeeAccessSettings) {
+    setSectionToggleOpen(accessSettingsToggle, accessSettingsBody, false);
+  }
+  if (!canSeeBillingSettings) {
+    setSectionToggleOpen(billingSettingsToggle, billingSettingsBody, false);
   }
   if (!canSeeLibraryProfileSettings) {
     setSectionToggleOpen(libraryProfileToggle, libraryProfileBody, false);
@@ -2214,10 +2217,6 @@ function renderProfile() {
       field.disabled = !canSeeInviteManagement;
     }
   });
-
-  if (!canSeeEmbedSettings) {
-    setSectionToggleOpen(embedSettingsToggle, embedSettingsBody, false);
-  }
 
   renderBillingPlans();
   renderOrganizationSelector();
@@ -2921,7 +2920,7 @@ async function handleOrganizationSettingsSave(event) {
   const isFreePlan = isFreePlanExperience();
   if (!organization) return;
   if (!getActiveCapabilities().canManageLibrarySettings) {
-    setStatus(organizationSettingsStatus, "You do not have permission to change embed settings.", "error");
+    setStatus(organizationSettingsStatus, "You do not have permission to change library profile settings.", "error");
     return;
   }
 
@@ -2938,7 +2937,7 @@ async function handleOrganizationSettingsSave(event) {
         file_preview_cards_enabled: true,
       };
 
-  setStatus(organizationSettingsStatus, "Saving embed settings...");
+  setStatus(organizationSettingsStatus, "Saving library profile...");
   const { data, error } = await supabase
     .from("organizations")
     .update(updates)
@@ -2953,7 +2952,7 @@ async function handleOrganizationSettingsSave(event) {
 
   mergeActiveOrganizationUpdate(data);
   renderProfile();
-  setStatus(organizationSettingsStatus, "Embed settings updated.", "success");
+  setStatus(organizationSettingsStatus, "Library profile updated.", "success");
 }
 
 function getLibraryLogoValidationError(file) {
@@ -3643,6 +3642,9 @@ async function init() {
   libraryLogoRemove?.addEventListener("click", handleLibraryLogoRemove);
   aiSettingsToggle?.addEventListener("click", () => setSectionToggleOpen(aiSettingsToggle, aiSettingsBody, aiSettingsBody.classList.contains("hidden")));
   organizationAiSettingsForm?.addEventListener("submit", handleOrganizationAiSettingsSave);
+  accessSettingsToggle?.addEventListener("click", () => setSectionToggleOpen(accessSettingsToggle, accessSettingsBody, accessSettingsBody.classList.contains("hidden")));
+  publishingSettingsToggle?.addEventListener("click", () => setSectionToggleOpen(publishingSettingsToggle, publishingSettingsBody, publishingSettingsBody.classList.contains("hidden")));
+  billingSettingsToggle?.addEventListener("click", () => setSectionToggleOpen(billingSettingsToggle, billingSettingsBody, billingSettingsBody.classList.contains("hidden")));
   reviewSettingsToggle?.addEventListener("click", () => setSectionToggleOpen(reviewSettingsToggle, reviewSettingsBody, reviewSettingsBody.classList.contains("hidden")));
   organizationReviewForm?.addEventListener("submit", handleOrganizationReviewSave);
   organizationAiMemoryAdd?.addEventListener("click", addAiMemoryFromInput);
@@ -3654,12 +3656,7 @@ async function init() {
   organizationAiMemoryList?.addEventListener("click", handleAiMemoryBubbleAction);
   organizationAiMemoryList?.addEventListener("keydown", handleAiMemoryBubbleKeydown);
   organizationSettingsForm.addEventListener("submit", handleOrganizationSettingsSave);
-  redeemInviteToggle.addEventListener("click", () => setSectionToggleOpen(redeemInviteToggle, redeemInviteBody, redeemInviteBody.classList.contains("hidden")));
-  additionalLibraryToggle?.addEventListener("click", () => setSectionToggleOpen(additionalLibraryToggle, additionalLibraryBody, additionalLibraryBody.classList.contains("hidden")));
   additionalLibraryForm?.addEventListener("submit", handleCreateAdditionalLibrary);
-  inviteManagementToggle.addEventListener("click", () => setSectionToggleOpen(inviteManagementToggle, inviteManagementBody, inviteManagementBody.classList.contains("hidden")));
-  memberManagementToggle.addEventListener("click", () => setSectionToggleOpen(memberManagementToggle, memberManagementBody, memberManagementBody.classList.contains("hidden")));
-  embedSettingsToggle.addEventListener("click", () => setSectionToggleOpen(embedSettingsToggle, embedSettingsBody, embedSettingsBody.classList.contains("hidden")));
   redeemInviteForm.addEventListener("submit", handleRedeemInvite);
   createInviteForm.addEventListener("submit", handleCreateInvite);
   inviteList.addEventListener("click", handleInviteAction);
@@ -3779,12 +3776,10 @@ async function init() {
   });
 }
 
-setSectionToggleOpen(redeemInviteToggle, redeemInviteBody, false);
-setSectionToggleOpen(additionalLibraryToggle, additionalLibraryBody, false);
-setSectionToggleOpen(inviteManagementToggle, inviteManagementBody, false);
-setSectionToggleOpen(memberManagementToggle, memberManagementBody, false);
 setSectionToggleOpen(libraryProfileToggle, libraryProfileBody, false);
-setSectionToggleOpen(embedSettingsToggle, embedSettingsBody, false);
+setSectionToggleOpen(accessSettingsToggle, accessSettingsBody, false);
+setSectionToggleOpen(publishingSettingsToggle, publishingSettingsBody, false);
+setSectionToggleOpen(billingSettingsToggle, billingSettingsBody, false);
 setSectionToggleOpen(reviewSettingsToggle, reviewSettingsBody, false);
 setUploadMode("single");
 setBillingCycle("monthly");

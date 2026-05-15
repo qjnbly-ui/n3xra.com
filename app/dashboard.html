@@ -148,43 +148,11 @@
             </div>
           </section>
 
-          <section class="account-card" id="billing-section">
-            <div class="panel-head">
-              <div>
-                <h3>Billing</h3>
-                <p>Plan details for the active library.</p>
-              </div>
-            </div>
-            <div class="current-plan-card">
-              <div>
-                <p class="account-label">Current plan</p>
-                <p class="current-plan-name" id="current-plan-name">Free</p>
-                <p class="current-plan-copy" id="current-plan-copy">25 documents included.</p>
-                <p class="current-plan-note hidden" id="current-plan-note"></p>
-              </div>
-              <div class="current-plan-actions">
-                <button class="btn secondary hidden" id="manage-billing-button" type="button">Manage billing</button>
-                <button class="btn secondary" id="change-plan-button" type="button" aria-expanded="false">Change plan</button>
-              </div>
-            </div>
-            <div class="billing-plan-picker hidden" id="billing-plan-picker">
-              <div class="billing-cycle-head">
-                <p class="billing-cycle-label">Billing cycle</p>
-              </div>
-              <div class="billing-cycle-toggle" role="tablist" aria-label="Billing cycle">
-                <button class="billing-cycle-btn is-active" id="billing-cycle-monthly" type="button" aria-pressed="true">Monthly</button>
-                <button class="billing-cycle-btn" id="billing-cycle-yearly" type="button" aria-pressed="false">Yearly <span class="billing-cycle-save">Save 20%</span></button>
-              </div>
-              <div class="plan-grid" id="billing-plan-grid"></div>
-            </div>
-            <p class="status" id="billing-status"></p>
-          </section>
-
           <section class="account-card" id="library-access-card">
             <div class="panel-head">
               <div>
-                <h3>Additional settings</h3>
-                <p id="library-access-copy">Manage library AI guidance, reviews, shared access, invite codes, and public settings.</p>
+                <h3>Library settings</h3>
+                <p id="library-access-copy">Manage profile, AI, access, publishing, billing, and review settings for the selected library.</p>
               </div>
             </div>
             <button class="section-toggle" id="library-profile-toggle" type="button" aria-expanded="false" aria-controls="library-profile-body">
@@ -212,6 +180,30 @@
                   <button class="btn secondary" id="library-logo-remove" type="button">Remove logo</button>
                 </div>
                 <p class="status" id="library-logo-status"></p>
+              </form>
+              <form class="stack settings-subsection" id="organization-settings-form">
+                <div class="settings-subsection-head">
+                  <h4>Identity and colors</h4>
+                  <p>Name the library and set the visual colors used in the app and public views.</p>
+                </div>
+                <div class="grid-3">
+                  <div class="field" id="organization-name-field">
+                    <label for="organization-name-input">Library name</label>
+                    <input id="organization-name-input" type="text" autocomplete="organization">
+                  </div>
+                  <div class="field" id="organization-primary-color-field">
+                    <label for="organization-primary-color">Primary color</label>
+                    <input id="organization-primary-color" type="color" value="#176f66">
+                  </div>
+                  <div class="field" id="organization-accent-color-field">
+                    <label for="organization-accent-color">Accent color</label>
+                    <input id="organization-accent-color" type="color" value="#ea9b3f">
+                  </div>
+                </div>
+                <div class="actions">
+                  <button class="btn" id="organization-settings-save" type="submit">Save library profile</button>
+                </div>
+                <p class="status" id="organization-settings-status"></p>
               </form>
             </div>
             <button class="section-toggle" id="ai-settings-toggle" type="button" aria-expanded="false" aria-controls="ai-settings-body">
@@ -251,165 +243,184 @@
                 <p class="status" id="organization-ai-settings-status"></p>
               </form>
             </div>
-            <button class="section-toggle" id="redeem-invite-toggle" type="button" aria-expanded="false" aria-controls="redeem-invite-body">
+            <button class="section-toggle" id="access-settings-toggle" type="button" aria-expanded="false" aria-controls="access-settings-body">
               <div>
-                <h3>Join shared library with code</h3>
-                <p>Use an invite code to add another library to your account.</p>
+                <h3>Access</h3>
+                <p>Join shared libraries, create invite codes, and manage who can use this library.</p>
               </div>
               <span class="section-toggle-indicator" aria-hidden="true">+</span>
             </button>
-            <div class="stack hidden" id="redeem-invite-body">
-              <form class="stack" id="redeem-invite-form">
-                <div class="field">
-                  <label for="redeem-invite-code">Invite code</label>
-                  <input id="redeem-invite-code" type="text" placeholder="Enter invite code">
+            <div class="stack hidden" id="access-settings-body">
+              <div class="settings-subsection" id="redeem-invite-body">
+                <div class="settings-subsection-head">
+                  <h4>Join shared library</h4>
+                  <p>Use an invite code from another library owner to add that library to this account.</p>
                 </div>
-                <div class="actions">
-                  <button class="btn secondary" type="submit">Redeem code</button>
-                </div>
-                <p class="status" id="redeem-invite-status"></p>
-              </form>
-            </div>
-
-            <button class="section-toggle" id="additional-library-toggle" type="button" aria-expanded="false" aria-controls="additional-library-body">
-              <div>
-                <h3>Additional libraries</h3>
-                <p>Create one extra Free library when this account owns an active paid library and has no other Free library.</p>
-              </div>
-              <span class="section-toggle-indicator" aria-hidden="true">+</span>
-            </button>
-            <div class="stack hidden" id="additional-library-body">
-              <form class="stack" id="additional-library-form">
-                <p class="field-note" id="additional-library-note">One Free library is allowed at a time. Upgrade your Free library before creating another.</p>
-                <div class="field">
-                  <label for="additional-library-name">New library name</label>
-                  <input id="additional-library-name" type="text" maxlength="120" placeholder="New Library">
-                </div>
-                <div class="actions">
-                  <button class="btn secondary" id="additional-library-save" type="submit">Create library</button>
-                </div>
-                <p class="status" id="additional-library-status"></p>
-              </form>
-            </div>
-
-            <button class="section-toggle" id="invite-management-toggle" type="button" aria-expanded="false" aria-controls="invite-management-body">
-              <div>
-                <h3>Invite codes</h3>
-                <p>Create and revoke library invite codes.</p>
-              </div>
-              <span class="section-toggle-indicator" aria-hidden="true">+</span>
-            </button>
-            <div class="stack hidden" id="invite-management-body">
-              <div class="stack" id="invite-management-section">
-                <form class="stack" id="create-invite-form">
-                  <div class="grid-3">
-                    <div class="field">
-                      <label for="invite-role">Role</label>
-                      <select id="invite-role">
-                        <option value="viewer">Viewer</option>
-                        <option value="editor">Editor</option>
-                        <option value="account_admin">Account Admin</option>
-                      </select>
-                    </div>
-                    <div class="field">
-                      <label for="invite-max-uses">Uses</label>
-                      <input id="invite-max-uses" type="text" value="1">
-                    </div>
-                    <div class="field">
-                      <label for="invite-expires-at">Expires at</label>
-                      <input id="invite-expires-at" type="datetime-local">
-                      <p class="field-note invite-expires-note">Uses your local timezone. Leave blank for no expiration.</p>
-                    </div>
+                <form class="stack" id="redeem-invite-form">
+                  <div class="field">
+                    <label for="redeem-invite-code">Invite code</label>
+                    <input id="redeem-invite-code" type="text" placeholder="Enter invite code">
                   </div>
                   <div class="actions">
-                    <button class="btn secondary" type="submit">Create invite code</button>
+                    <button class="btn secondary" type="submit">Redeem code</button>
                   </div>
-                  <p class="status" id="create-invite-status"></p>
+                  <p class="status" id="redeem-invite-status"></p>
                 </form>
-                <div class="table-shell">
-                  <table class="data-table">
-                    <thead>
-                      <tr>
-                        <th>Code</th>
-                        <th>Role</th>
-                        <th>Uses</th>
-                        <th>Expires</th>
-                        <th>Action</th>
-                      </tr>
-                    </thead>
-                    <tbody id="invite-list"></tbody>
-                  </table>
+              </div>
+
+              <div class="settings-subsection" id="additional-library-body">
+                <div class="settings-subsection-head">
+                  <h4>Additional libraries</h4>
+                  <p>Create one extra Free library when this account owns an active paid library and has no other Free library.</p>
+                </div>
+                <form class="stack" id="additional-library-form">
+                  <p class="field-note" id="additional-library-note">One Free library is allowed at a time. Upgrade your Free library before creating another.</p>
+                  <div class="field">
+                    <label for="additional-library-name">New library name</label>
+                    <input id="additional-library-name" type="text" maxlength="120" placeholder="New Library">
+                  </div>
+                  <div class="actions">
+                    <button class="btn secondary" id="additional-library-save" type="submit">Create library</button>
+                  </div>
+                  <p class="status" id="additional-library-status"></p>
+                </form>
+              </div>
+
+              <div class="settings-subsection" id="invite-management-body">
+                <div class="settings-subsection-head">
+                  <h4>Invite codes</h4>
+                  <p>Create and revoke codes for people who should join this library.</p>
+                </div>
+                <div class="stack" id="invite-management-section">
+                  <form class="stack" id="create-invite-form">
+                    <div class="grid-3">
+                      <div class="field">
+                        <label for="invite-role">Role</label>
+                        <select id="invite-role">
+                          <option value="viewer">Viewer</option>
+                          <option value="editor">Editor</option>
+                          <option value="account_admin">Account Admin</option>
+                        </select>
+                      </div>
+                      <div class="field">
+                        <label for="invite-max-uses">Uses</label>
+                        <input id="invite-max-uses" type="text" value="1">
+                      </div>
+                      <div class="field">
+                        <label for="invite-expires-at">Expires at</label>
+                        <input id="invite-expires-at" type="datetime-local">
+                        <p class="field-note invite-expires-note">Uses your local timezone. Leave blank for no expiration.</p>
+                      </div>
+                    </div>
+                    <div class="actions">
+                      <button class="btn secondary" type="submit">Create invite code</button>
+                    </div>
+                    <p class="status" id="create-invite-status"></p>
+                  </form>
+                  <div class="table-shell">
+                    <table class="data-table">
+                      <thead>
+                        <tr>
+                          <th>Code</th>
+                          <th>Role</th>
+                          <th>Uses</th>
+                          <th>Expires</th>
+                          <th>Action</th>
+                        </tr>
+                      </thead>
+                      <tbody id="invite-list"></tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+
+              <div class="settings-subsection" id="member-management-body">
+                <div class="settings-subsection-head">
+                  <h4>Shared access</h4>
+                  <p>Review and adjust who can use this library.</p>
+                </div>
+                <div class="stack" id="member-management-section">
+                  <div class="table-shell">
+                    <table class="data-table">
+                      <thead>
+                        <tr>
+                          <th>Name</th>
+                          <th>Email</th>
+                          <th>Role</th>
+                          <th>Action</th>
+                        </tr>
+                      </thead>
+                      <tbody id="member-list"></tbody>
+                    </table>
+                  </div>
+                  <p class="status" id="member-status"></p>
                 </div>
               </div>
             </div>
 
-            <button class="section-toggle" id="member-management-toggle" type="button" aria-expanded="false" aria-controls="member-management-body">
+            <button class="section-toggle" id="publishing-settings-toggle" type="button" aria-expanded="false" aria-controls="publishing-settings-body">
               <div>
-                <h3>Shared access</h3>
-                <p>Review and adjust who can use this library.</p>
+                <h3>Publishing</h3>
+                <p>Public records URL, embedded records view, and publishing controls.</p>
               </div>
               <span class="section-toggle-indicator" aria-hidden="true">+</span>
             </button>
-            <div class="stack hidden" id="member-management-body">
-              <div class="stack" id="member-management-section">
-                <div class="table-shell">
-                  <table class="data-table">
-                    <thead>
-                      <tr>
-                        <th>Name</th>
-                        <th>Email</th>
-                        <th>Role</th>
-                        <th>Action</th>
-                      </tr>
-                    </thead>
-                    <tbody id="member-list"></tbody>
-                  </table>
+            <div class="stack hidden" id="publishing-settings-body">
+              <div class="settings-subsection" id="embed-settings-body">
+                <div class="settings-subsection-head">
+                  <h4>Public records and embed</h4>
+                  <p>Share public records or embed a searchable records view on another site.</p>
                 </div>
-                <p class="status" id="member-status"></p>
+                <div class="embed-access-card hidden" id="embed-access-card">
+                  <div>
+                    <p class="account-label">Embedded records view</p>
+                    <p class="embed-access-title">Search and files together in one read-only view.</p>
+                    <p class="embed-access-copy">Only documents marked public are shown. Branding uses the Library profile colors.</p>
+                  </div>
+                  <button class="btn secondary" id="open-embed-card-button" type="button">Share or embed</button>
+                </div>
               </div>
             </div>
 
-            <button class="section-toggle" id="embed-settings-toggle" type="button" aria-expanded="false" aria-controls="embed-settings-body">
-              <div>
-                <h3>Embed settings</h3>
-                <p>Public embed controls and branding.</p>
-              </div>
-              <span class="section-toggle-indicator" aria-hidden="true">+</span>
-            </button>
-            <div class="stack hidden" id="embed-settings-body">
-              <div class="embed-access-card hidden" id="embed-access-card">
+            <div class="settings-group hidden" id="billing-section">
+              <button class="section-toggle" id="billing-settings-toggle" type="button" aria-expanded="false" aria-controls="billing-settings-body">
                 <div>
-                  <p class="account-label">Embedded records view</p>
-                  <p class="embed-access-title">Search and files together in one read-only view.</p>
-                  <p class="embed-access-copy">Only documents marked public are shown in the embedded library.</p>
+                  <h3>Billing</h3>
+                  <p>Plan, usage, billing portal, and library limits.</p>
                 </div>
-                <button class="btn secondary" id="open-embed-card-button" type="button">Share or embed</button>
+                <span class="section-toggle-indicator" aria-hidden="true">+</span>
+              </button>
+              <div class="stack hidden" id="billing-settings-body">
+                <div class="current-plan-card">
+                  <div>
+                    <p class="account-label">Current plan</p>
+                    <p class="current-plan-name" id="current-plan-name">Free</p>
+                    <p class="current-plan-copy" id="current-plan-copy">25 documents included.</p>
+                    <p class="current-plan-note hidden" id="current-plan-note"></p>
+                  </div>
+                  <div class="current-plan-actions">
+                    <button class="btn secondary hidden" id="manage-billing-button" type="button">Manage billing</button>
+                    <button class="btn secondary" id="change-plan-button" type="button" aria-expanded="false">Change plan</button>
+                  </div>
+                </div>
+                <div class="billing-plan-picker hidden" id="billing-plan-picker">
+                  <div class="billing-cycle-head">
+                    <p class="billing-cycle-label">Billing cycle</p>
+                  </div>
+                  <div class="billing-cycle-toggle" role="tablist" aria-label="Billing cycle">
+                    <button class="billing-cycle-btn is-active" id="billing-cycle-monthly" type="button" aria-pressed="true">Monthly</button>
+                    <button class="billing-cycle-btn" id="billing-cycle-yearly" type="button" aria-pressed="false">Yearly <span class="billing-cycle-save">Save 20%</span></button>
+                  </div>
+                  <div class="plan-grid" id="billing-plan-grid"></div>
+                </div>
+                <p class="status" id="billing-status"></p>
               </div>
-              <form class="stack" id="organization-settings-form">
-                <div class="grid-3">
-                  <div class="field" id="organization-name-field">
-                    <label for="organization-name-input">Library name</label>
-                    <input id="organization-name-input" type="text" autocomplete="organization">
-                  </div>
-                  <div class="field" id="organization-primary-color-field">
-                    <label for="organization-primary-color">Primary color</label>
-                    <input id="organization-primary-color" type="color" value="#176f66">
-                  </div>
-                  <div class="field" id="organization-accent-color-field">
-                    <label for="organization-accent-color">Accent color</label>
-                    <input id="organization-accent-color" type="color" value="#ea9b3f">
-                  </div>
-                </div>
-                <div class="actions">
-                  <button class="btn" id="organization-settings-save" type="submit">Save embed settings</button>
-                </div>
-                <p class="status" id="organization-settings-status"></p>
-              </form>
             </div>
+
             <button class="section-toggle" id="review-settings-toggle" type="button" aria-expanded="false" aria-controls="review-settings-body">
               <div>
-                <h3>Review N3XRA Records</h3>
-                <p>One review is attached to this library and can be updated by a library settings manager.</p>
+                <h3>Review</h3>
+                <p>Review N3XRA Records for this library.</p>
               </div>
               <span class="section-toggle-indicator" aria-hidden="true">+</span>
             </button>
