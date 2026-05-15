@@ -415,6 +415,10 @@ function renderAnswerMarkup(container, message = "") {
     const value = line.trim();
     const isTableLine = value.includes("|");
 
+    if (tableRows.length && !value) {
+      return;
+    }
+
     if (/^#{1,3}\s+/.test(value) && isTableLine) {
       flushList();
       if (tableRows.length) flushTable();
@@ -494,8 +498,35 @@ function normalizeAiAnswerMarkdown(message = "") {
   // If table headers are provided inline, place each row on separate lines.
   text = text.replace(/\s+\|\s+---/g, "\n| ---");
   text = text.replace(/\s+\|\s+\|/g, " |\n| ");
+  text = splitInlineTableFragments(text);
 
   return text.trim();
+}
+
+function splitInlineTableFragments(text) {
+  return String(text || "")
+    .split(/\r?\n/)
+    .flatMap((line) => {
+      const value = String(line || "").trim();
+      if (!value.includes("|")) return [line];
+
+      const firstPipeIndex = value.indexOf("|");
+      const output = [];
+      let tablePart = value;
+      if (firstPipeIndex > 0) {
+        const prefix = value.slice(0, firstPipeIndex).trim();
+        if (prefix) output.push(prefix);
+        tablePart = value.slice(firstPipeIndex).trim();
+      }
+
+      tablePart = tablePart
+        .replace(/(\|\s*:?-{2,}:?\s*(?:\|\s*:?-{2,}:?\s*)+\|?)\s*\|\s*(?=[^|\s])/g, "$1\n| ")
+        .replace(/\|\s*\|\s*(?=[A-Za-z0-9$])/g, "|\n| ");
+
+      const parts = tablePart.split(/\n/).map((part) => part.trim()).filter(Boolean);
+      return [...output, ...parts];
+    })
+    .join("\n");
 }
 
 function resetLibraryAiSearchHistory() {
