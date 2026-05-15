@@ -63,10 +63,19 @@ Deno.serve(async (request) => {
     const deleteScope = String(payload?.scope || "full").trim().toLowerCase();
     const deleteApp = String(payload?.app || "").trim().toLowerCase();
 
-    const { data: ownedOrganizations, error: ownedOrganizationsError } = await adminClient
+    let { data: ownedOrganizations, error: ownedOrganizationsError } = await adminClient
       .from("organizations")
-      .select("id, name, subscription_tier, account_status, cancel_at_period_end")
+      .select("id, name, subscription_tier, account_status, cancel_at_period_end, logo_storage_path")
       .eq("owner_user_id", user.id);
+
+    if (ownedOrganizationsError && String(ownedOrganizationsError.message || "").includes("logo_storage_path")) {
+      const fallbackResult = await adminClient
+        .from("organizations")
+        .select("id, name, subscription_tier, account_status, cancel_at_period_end")
+        .eq("owner_user_id", user.id);
+      ownedOrganizations = fallbackResult.data;
+      ownedOrganizationsError = fallbackResult.error;
+    }
 
     if (ownedOrganizationsError) {
       return jsonResponse({ error: ownedOrganizationsError.message }, 400);
@@ -122,6 +131,18 @@ Deno.serve(async (request) => {
           return jsonResponse({ error: storageError.message }, 400);
         }
       }
+
+      const logoStoragePaths = (ownedOrganizations || [])
+        .map((org) => org.logo_storage_path)
+        .filter((path): path is string => Boolean(path));
+
+      if (logoStoragePaths.length) {
+        const { error: logoStorageError } = await adminClient.storage.from("organization-assets").remove(logoStoragePaths);
+        if (logoStorageError) {
+          return jsonResponse({ error: logoStorageError.message }, 400);
+        }
+      }
+
       const { error: deleteOrganizationsError } = await adminClient
         .from("organizations")
         .delete()

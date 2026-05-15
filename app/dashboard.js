@@ -41,6 +41,13 @@ const librarySearchPanel = document.getElementById("library-search-panel");
 const libraryRecentPanel = document.getElementById("library-recent-panel");
 const billingSection = document.getElementById("billing-section");
 const libraryAccessCard = document.getElementById("library-access-card");
+const libraryProfileToggle = document.getElementById("library-profile-toggle");
+const libraryProfileBody = document.getElementById("library-profile-body");
+const libraryLogoForm = document.getElementById("library-logo-form");
+const libraryLogoFileInput = document.getElementById("library-logo-file");
+const libraryLogoUpload = document.getElementById("library-logo-upload");
+const libraryLogoRemove = document.getElementById("library-logo-remove");
+const libraryLogoStatus = document.getElementById("library-logo-status");
 const redeemInviteToggle = document.getElementById("redeem-invite-toggle");
 const redeemInviteBody = document.getElementById("redeem-invite-body");
 const inviteManagementToggle = document.getElementById("invite-management-toggle");
@@ -54,10 +61,15 @@ const organizationAccentColorField = document.getElementById("organization-accen
 const libraryAccessCopy = document.getElementById("library-access-copy");
 const activeOrganizationSelect = document.getElementById("active-organization-select");
 const activeOrganizationName = document.getElementById("active-organization-name");
+const selectedLibraryLogoImage = document.getElementById("selected-library-logo-image");
+const selectedLibraryLogoFallback = document.getElementById("selected-library-logo-fallback");
+const selectedLibraryLogoCaption = document.getElementById("selected-library-logo-caption");
 const activeMembershipRole = document.getElementById("active-membership-role");
 const sharedLibraryCount = document.getElementById("shared-library-count");
 const libraryActiveOrganizationSelect = document.getElementById("library-active-organization-select");
 const libraryActiveOrganizationName = document.getElementById("library-active-organization-name");
+const libraryContextLogoImage = document.getElementById("library-context-logo-image");
+const libraryContextLogoFallback = document.getElementById("library-context-logo-fallback");
 const libraryActiveMembershipRole = document.getElementById("library-active-membership-role");
 const librarySharedLibraryCount = document.getElementById("library-shared-library-count");
 const platformAdminLink = document.getElementById("platform-admin-link");
@@ -142,6 +154,8 @@ const organizationReviewText = document.getElementById("organization-review-text
 const organizationReviewMeta = document.getElementById("organization-review-meta");
 const organizationReviewSave = document.getElementById("organization-review-save");
 const organizationReviewStatus = document.getElementById("organization-review-status");
+const libraryLogoPreviewImage = document.getElementById("library-logo-preview-image");
+const libraryLogoPreviewFallback = document.getElementById("library-logo-preview-fallback");
 const redeemInviteForm = document.getElementById("redeem-invite-form");
 const redeemInviteCodeInput = document.getElementById("redeem-invite-code");
 const redeemInviteStatus = document.getElementById("redeem-invite-status");
@@ -188,6 +202,8 @@ const uploadFileInput = document.getElementById("upload-file");
 const uploadFileLabel = document.getElementById("upload-file-label");
 const DEFAULT_PRIMARY_COLOR = "#176f66";
 const DEFAULT_ACCENT_COLOR = "#ea9b3f";
+const ORGANIZATION_ASSETS_BUCKET = "organization-assets";
+const MAX_LIBRARY_LOGO_BYTES = 2 * 1024 * 1024;
 const uploadFolderInput = document.getElementById("upload-folder");
 const uploadFolderField = document.getElementById("upload-folder-field");
 const uploadPublicField = document.getElementById("upload-public-field");
@@ -212,6 +228,7 @@ let inviteCache = [];
 let memberCache = [];
 let recordsAiUsageSummary = null;
 let organizationReview = null;
+let organizationLogoUrls = new Map();
 let uploadMode = "single";
 let selectedBillingCycle = "monthly";
 const libraryAiSearchHistory = [];
@@ -755,6 +772,56 @@ function fileLabel(file) {
   return file.webkitRelativePath || file.name;
 }
 
+function sanitizeStorageFileName(value) {
+  return String(value || "file").replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/^-+|-+$/g, "") || "file";
+}
+
+function getLibraryInitials(name) {
+  const words = String(name || "Library")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  const initials = words.slice(0, 2).map((word) => word[0]).join("").toUpperCase();
+  return initials || "N";
+}
+
+function getActiveLibraryLogoUrl() {
+  const path = getActiveOrganization()?.logo_storage_path;
+  return path ? organizationLogoUrls.get(path) || "" : "";
+}
+
+function renderLogoElement(imageEl, fallbackEl, organization) {
+  if (!imageEl || !fallbackEl) return;
+  const logoUrl = getActiveLibraryLogoUrl();
+  const hasLogo = Boolean(logoUrl);
+  imageEl.src = hasLogo ? logoUrl : "";
+  imageEl.alt = hasLogo ? `${organization?.name || "Library"} logo` : "";
+  fallbackEl.textContent = getLibraryInitials(organization?.name);
+  show(imageEl, hasLogo);
+  show(fallbackEl, !hasLogo);
+}
+
+function renderLibraryLogo() {
+  const organization = getActiveOrganization();
+  renderLogoElement(selectedLibraryLogoImage, selectedLibraryLogoFallback, organization);
+  renderLogoElement(libraryContextLogoImage, libraryContextLogoFallback, organization);
+  renderLogoElement(libraryLogoPreviewImage, libraryLogoPreviewFallback, organization);
+  if (selectedLibraryLogoCaption) {
+    selectedLibraryLogoCaption.textContent = organization?.logo_storage_path
+      ? "Custom library logo"
+      : "No library logo uploaded";
+  }
+  if (libraryLogoRemove) {
+    libraryLogoRemove.disabled = !organization?.logo_storage_path || !getActiveCapabilities().canManageLibrarySettings;
+  }
+  if (libraryLogoUpload) {
+    libraryLogoUpload.disabled = !getActiveCapabilities().canManageLibrarySettings;
+  }
+  if (libraryLogoFileInput) {
+    libraryLogoFileInput.disabled = !getActiveCapabilities().canManageLibrarySettings;
+  }
+}
+
 function clearUploadResults() {
   if (!uploadResults) return;
   uploadResults.innerHTML = "";
@@ -1141,9 +1208,24 @@ function hasPaidOwnedLibraries() {
   });
 }
 
+function hasFreeOwnedLibrary() {
+  return getOwnedMemberships().some((membership) => {
+    const tier = String(membership?.organization?.subscription_tier || "free");
+    const status = String(membership?.organization?.account_status || "active");
+    return tier === "free" && !["canceled", "suspended"].includes(status);
+  });
+}
+
 function canCreateOwnedLibrary() {
   const ownedMemberships = getOwnedMemberships();
-  return ownedMemberships.length === 0 || hasPaidOwnedLibraries();
+  return ownedMemberships.length === 0 || (hasPaidOwnedLibraries() && !hasFreeOwnedLibrary());
+}
+
+function getCreateOwnedLibraryBlockedMessage() {
+  if (hasFreeOwnedLibrary()) {
+    return "Upgrade or remove your existing Free library before creating another library.";
+  }
+  return "Upgrade one owned library to Starter or Organization before creating another library.";
 }
 
 function canDeleteOwnAccount() {
@@ -1797,6 +1879,57 @@ async function loadOrganizationReview() {
   setStatus(organizationReviewStatus, "");
 }
 
+async function loadActiveOrganizationLogo() {
+  const organization = getActiveOrganization();
+  if (!organization?.id) {
+    renderLibraryLogo();
+    return;
+  }
+
+  let path = organization.logo_storage_path || "";
+  if (typeof organization.logo_storage_path === "undefined") {
+    const { data, error } = await supabase
+      .from("organizations")
+      .select("id, logo_storage_path")
+      .eq("id", organization.id)
+      .maybeSingle();
+
+    if (error) {
+      renderLibraryLogo();
+      return;
+    }
+
+    if (data) {
+      mergeActiveOrganizationUpdate(data);
+      path = data.logo_storage_path || "";
+    }
+  }
+
+  if (!path) {
+    renderLibraryLogo();
+    return;
+  }
+
+  if (organizationLogoUrls.has(path)) {
+    renderLibraryLogo();
+    return;
+  }
+
+  const { data, error } = await supabase
+    .storage
+    .from(ORGANIZATION_ASSETS_BUCKET)
+    .createSignedUrl(path, 60 * 60);
+
+  if (error || !data?.signedUrl) {
+    setStatus(libraryLogoStatus, error?.message || "Unable to load library logo.", "error");
+    renderLibraryLogo();
+    return;
+  }
+
+  organizationLogoUrls.set(path, data.signedUrl);
+  renderLibraryLogo();
+}
+
 function renderOrganizationSelector() {
   if (!memberships.length || !activeMembership?.organization) {
     activeOrganizationSelect.innerHTML = '<option value="">No active library</option>';
@@ -1962,6 +2095,7 @@ function renderProfile() {
   const isOrganizationPlan = (organization?.subscription_tier || "free") === "organization";
   const capabilities = getActiveCapabilities();
   const canSeeBilling = capabilities.canManageBilling;
+  const canSeeLibraryProfileSettings = hasLibraryAccess && capabilities.canManageLibrarySettings;
   const canSeeLibrarySettings = !isFreePlan && capabilities.canManageLibrarySettings;
   const canSeeInviteManagement = isOrganizationPlan && capabilities.canManageInvites;
   const canSeeMemberManagement = isOrganizationPlan && capabilities.canManageMembers;
@@ -1988,12 +2122,16 @@ function renderProfile() {
   organizationAiContextInput.value = organization?.records_ai_context || "";
   organizationAiResponseStyleInput.value = organization?.records_ai_response_style || "";
   organizationAiMemoryInput.value = organization?.records_ai_memory || "";
+  renderLibraryLogo();
   renderAiMemoryBubbles();
 
   organizationNameInput.disabled = !capabilities.canManageLibrarySettings;
   organizationPrimaryColorInput.disabled = !capabilities.canManageLibrarySettings || isFreePlan;
   organizationAccentColorInput.disabled = !capabilities.canManageLibrarySettings || isFreePlan;
   organizationSettingsSave.disabled = !capabilities.canManageLibrarySettings;
+  if (libraryLogoFileInput) libraryLogoFileInput.disabled = !capabilities.canManageLibrarySettings;
+  if (libraryLogoUpload) libraryLogoUpload.disabled = !capabilities.canManageLibrarySettings;
+  if (libraryLogoRemove) libraryLogoRemove.disabled = !organization?.logo_storage_path || !capabilities.canManageLibrarySettings;
   organizationAiContextInput.disabled = !capabilities.canManageLibrarySettings;
   organizationAiResponseStyleInput.disabled = !capabilities.canManageLibrarySettings;
   organizationAiMemoryInput.disabled = !capabilities.canManageLibrarySettings;
@@ -2005,7 +2143,7 @@ function renderProfile() {
   additionalLibrarySave.disabled = !canCreateAdditionalLibrary;
   additionalLibraryNote.textContent = canCreateAdditionalLibrary
     ? "This creates a separate library with its own plan, users, documents, settings, and billing controls."
-    : "Upgrade one owned library to Starter or Organization before creating another library.";
+    : getCreateOwnedLibraryBlockedMessage();
   openUploadModalButton.disabled = !capabilities.canUploadDocuments;
   uploadIsPublicInput.disabled = !capabilities.canUploadDocuments || !hasEmbeddedAccess();
 
@@ -2024,6 +2162,8 @@ function renderProfile() {
   show(organizationNameField, canEditLibraryNameFromProfile);
   show(organizationPrimaryColorField, !isFreePlan);
   show(organizationAccentColorField, !isFreePlan);
+  show(libraryProfileToggle, canSeeLibraryProfileSettings);
+  show(libraryProfileBody, canSeeLibraryProfileSettings && !libraryProfileBody.classList.contains("hidden"));
   show(aiSettingsToggle, hasLibraryAccess && canSeeLibrarySettings);
   show(aiSettingsBody, hasLibraryAccess && canSeeLibrarySettings && !aiSettingsBody.classList.contains("hidden"));
   show(reviewSettingsToggle, canSeeReviewSettings);
@@ -2061,6 +2201,9 @@ function renderProfile() {
   }
   if (!canSeeLibrarySettings) {
     setSectionToggleOpen(aiSettingsToggle, aiSettingsBody, false);
+  }
+  if (!canSeeLibraryProfileSettings) {
+    setSectionToggleOpen(libraryProfileToggle, libraryProfileBody, false);
   }
   if (!canSeeReviewSettings) {
     setSectionToggleOpen(reviewSettingsToggle, reviewSettingsBody, false);
@@ -2541,7 +2684,15 @@ async function loadActiveOrganizationData() {
   }
 
   renderProfile();
-  await Promise.all([loadDocuments(), loadInvites(), loadMembers(), loadRecordsAiUsage(), loadOrganizationAiSettings(), loadOrganizationReview()]);
+  await Promise.all([
+    loadDocuments(),
+    loadInvites(),
+    loadMembers(),
+    loadRecordsAiUsage(),
+    loadOrganizationAiSettings(),
+    loadOrganizationReview(),
+    loadActiveOrganizationLogo(),
+  ]);
 }
 
 async function createSignedUrlForDocument(documentId) {
@@ -2805,6 +2956,110 @@ async function handleOrganizationSettingsSave(event) {
   setStatus(organizationSettingsStatus, "Embed settings updated.", "success");
 }
 
+function getLibraryLogoValidationError(file) {
+  if (!file) return "Choose a transparent PNG logo first.";
+  const isPng = file.type === "image/png" || /\.png$/i.test(file.name);
+  if (!isPng) return "Use a PNG file for the library logo.";
+  if (file.size > MAX_LIBRARY_LOGO_BYTES) return "Library logo must be 2 MB or smaller.";
+  return "";
+}
+
+async function handleLibraryLogoUpload(event) {
+  event.preventDefault();
+  const organization = getActiveOrganization();
+  if (!organization) return;
+  if (!getActiveCapabilities().canManageLibrarySettings) {
+    setStatus(libraryLogoStatus, "You do not have permission to change the library logo.", "error");
+    return;
+  }
+
+  const file = libraryLogoFileInput?.files?.[0] || null;
+  const validationError = getLibraryLogoValidationError(file);
+  if (validationError) {
+    setStatus(libraryLogoStatus, validationError, "error");
+    return;
+  }
+
+  const oldPath = organization.logo_storage_path || "";
+  const safeFileName = sanitizeStorageFileName(file.name || "library-logo.png");
+  const storagePath = `${organization.id}/logos/${Date.now()}-${safeFileName}`;
+
+  libraryLogoUpload.disabled = true;
+  libraryLogoRemove.disabled = true;
+  setStatus(libraryLogoStatus, "Uploading library logo...");
+
+  const { error: uploadError } = await supabase.storage.from(ORGANIZATION_ASSETS_BUCKET).upload(storagePath, file, {
+    contentType: "image/png",
+    upsert: false,
+  });
+
+  if (uploadError) {
+    libraryLogoUpload.disabled = false;
+    renderLibraryLogo();
+    setStatus(libraryLogoStatus, uploadError.message, "error");
+    return;
+  }
+
+  const { data, error: updateError } = await supabase
+    .from("organizations")
+    .update({ logo_storage_path: storagePath })
+    .eq("id", organization.id)
+    .select("id, logo_storage_path")
+    .single();
+
+  if (updateError) {
+    await supabase.storage.from(ORGANIZATION_ASSETS_BUCKET).remove([storagePath]);
+    libraryLogoUpload.disabled = false;
+    renderLibraryLogo();
+    setStatus(libraryLogoStatus, updateError.message, "error");
+    return;
+  }
+
+  if (oldPath && oldPath !== storagePath) {
+    await supabase.storage.from(ORGANIZATION_ASSETS_BUCKET).remove([oldPath]);
+    organizationLogoUrls.delete(oldPath);
+  }
+  libraryLogoFileInput.value = "";
+  mergeActiveOrganizationUpdate(data);
+  organizationLogoUrls.delete(storagePath);
+  await loadActiveOrganizationLogo();
+  renderProfile();
+  setStatus(libraryLogoStatus, "Library logo updated.", "success");
+}
+
+async function handleLibraryLogoRemove() {
+  const organization = getActiveOrganization();
+  if (!organization?.logo_storage_path) return;
+  if (!getActiveCapabilities().canManageLibrarySettings) {
+    setStatus(libraryLogoStatus, "You do not have permission to remove the library logo.", "error");
+    return;
+  }
+
+  const oldPath = organization.logo_storage_path;
+  libraryLogoUpload.disabled = true;
+  libraryLogoRemove.disabled = true;
+  setStatus(libraryLogoStatus, "Removing library logo...");
+
+  const { data, error } = await supabase
+    .from("organizations")
+    .update({ logo_storage_path: null })
+    .eq("id", organization.id)
+    .select("id, logo_storage_path")
+    .single();
+
+  if (error) {
+    renderLibraryLogo();
+    setStatus(libraryLogoStatus, error.message, "error");
+    return;
+  }
+
+  await supabase.storage.from(ORGANIZATION_ASSETS_BUCKET).remove([oldPath]);
+  organizationLogoUrls.delete(oldPath);
+  mergeActiveOrganizationUpdate(data);
+  renderProfile();
+  setStatus(libraryLogoStatus, "Library logo removed.", "success");
+}
+
 async function handlePlanChange(planId) {
   const organization = getActiveOrganization();
   if (!organization) return;
@@ -2859,7 +3114,7 @@ async function handleRedeemInvite(event) {
 async function handleCreateAdditionalLibrary(event) {
   event.preventDefault();
   if (!canCreateOwnedLibrary()) {
-    setStatus(additionalLibraryStatus, "Upgrade one owned library to Starter or Organization before creating another library.", "error");
+    setStatus(additionalLibraryStatus, getCreateOwnedLibraryBlockedMessage(), "error");
     return;
   }
 
@@ -3029,7 +3284,7 @@ async function handleMemberRoleChange(event) {
 
 async function createPersonalLibrary() {
   if (!canCreateOwnedLibrary()) {
-    setStatus(contextStatus, "Upgrade a paid library before creating another personal library.", "error");
+    setStatus(contextStatus, getCreateOwnedLibraryBlockedMessage(), "error");
     return;
   }
 
@@ -3219,7 +3474,7 @@ async function uploadDocument(event) {
       const inferred = inferYearMonthFromFilename(file.name);
       const year = uploadMode === "single" ? manualYear || inferred.year : inferred.year;
       const month = uploadMode === "single" ? manualMonth || inferred.month : inferred.month;
-      const safeFileName = file.name.replace(/[^a-zA-Z0-9._-]+/g, "-");
+      const safeFileName = sanitizeStorageFileName(file.name);
       const hasUuid = typeof crypto !== "undefined" && typeof crypto.randomUUID === "function";
       const uniqueToken = hasUuid ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
       const storagePath = `${organization.id}/${Date.now()}-${uniqueToken}-${safeFileName}`;
@@ -3383,6 +3638,9 @@ async function init() {
   profileForm.addEventListener("submit", handleProfileSave);
   recordsHelpToggle?.addEventListener("click", () => setSectionToggleOpen(recordsHelpToggle, recordsHelpBody, recordsHelpBody.classList.contains("hidden")));
   recordsHelpForm?.addEventListener("submit", handleRecordsHelpSubmit);
+  libraryProfileToggle?.addEventListener("click", () => setSectionToggleOpen(libraryProfileToggle, libraryProfileBody, libraryProfileBody.classList.contains("hidden")));
+  libraryLogoForm?.addEventListener("submit", handleLibraryLogoUpload);
+  libraryLogoRemove?.addEventListener("click", handleLibraryLogoRemove);
   aiSettingsToggle?.addEventListener("click", () => setSectionToggleOpen(aiSettingsToggle, aiSettingsBody, aiSettingsBody.classList.contains("hidden")));
   organizationAiSettingsForm?.addEventListener("submit", handleOrganizationAiSettingsSave);
   reviewSettingsToggle?.addEventListener("click", () => setSectionToggleOpen(reviewSettingsToggle, reviewSettingsBody, reviewSettingsBody.classList.contains("hidden")));
@@ -3525,6 +3783,7 @@ setSectionToggleOpen(redeemInviteToggle, redeemInviteBody, false);
 setSectionToggleOpen(additionalLibraryToggle, additionalLibraryBody, false);
 setSectionToggleOpen(inviteManagementToggle, inviteManagementBody, false);
 setSectionToggleOpen(memberManagementToggle, memberManagementBody, false);
+setSectionToggleOpen(libraryProfileToggle, libraryProfileBody, false);
 setSectionToggleOpen(embedSettingsToggle, embedSettingsBody, false);
 setSectionToggleOpen(reviewSettingsToggle, reviewSettingsBody, false);
 setUploadMode("single");

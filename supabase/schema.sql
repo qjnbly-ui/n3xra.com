@@ -48,6 +48,7 @@ create table if not exists public.organizations (
   hosted_public_portal_enabled boolean not null default false,
   branded_primary_color text,
   branded_accent_color text,
+  logo_storage_path text,
   records_ai_context text,
   records_ai_response_style text,
   records_ai_memory text,
@@ -156,6 +157,7 @@ create table if not exists public.meeting_recordings (
 alter table public.organizations add column if not exists records_ai_context text;
 alter table public.organizations add column if not exists records_ai_response_style text;
 alter table public.organizations add column if not exists records_ai_memory text;
+alter table public.organizations add column if not exists logo_storage_path text;
 alter table public.documents add column if not exists records_ai_note text;
 
 create table if not exists public.records_ai_usage_events (
@@ -710,6 +712,7 @@ as $$
 declare
   owned_total integer;
   paid_owned_total integer;
+  free_owned_total integer;
 begin
   if auth.role() = 'service_role' or current_user in ('postgres', 'supabase_admin', 'service_role') then
     return new;
@@ -742,6 +745,17 @@ begin
 
   if coalesce(paid_owned_total, 0) = 0 then
     raise exception 'Upgrade one owned library to Starter or Organization before creating another library.';
+  end if;
+
+  select count(*)
+  into free_owned_total
+  from public.organizations o
+  where o.owner_user_id = new.owner_user_id
+    and o.subscription_tier = 'free'
+    and o.account_status not in ('canceled', 'suspended');
+
+  if coalesce(free_owned_total, 0) > 0 then
+    raise exception 'Upgrade or remove your existing Free library before creating another library.';
   end if;
 
   return new;
@@ -1231,7 +1245,8 @@ begin
       or new.file_preview_cards_enabled is distinct from old.file_preview_cards_enabled
       or new.hosted_public_portal_enabled is distinct from old.hosted_public_portal_enabled
       or new.branded_primary_color is distinct from old.branded_primary_color
-      or new.branded_accent_color is distinct from old.branded_accent_color then
+      or new.branded_accent_color is distinct from old.branded_accent_color
+      or new.logo_storage_path is distinct from old.logo_storage_path then
       raise exception 'Library settings require admin access.';
     end if;
   end if;
@@ -1635,6 +1650,10 @@ insert into storage.buckets (id, name, public)
 values ('meeting-recordings', 'meeting-recordings', false)
 on conflict (id) do nothing;
 
+insert into storage.buckets (id, name, public)
+values ('organization-assets', 'organization-assets', false)
+on conflict (id) do nothing;
+
 drop policy if exists "storage_select_documents_policy" on storage.objects;
 create policy "storage_select_documents_policy"
 on storage.objects
@@ -1683,6 +1702,46 @@ for delete
 using (
   bucket_id = 'documents'
   and public.can_manage_documents(public.storage_object_org_id(name))
+);
+
+drop policy if exists "storage_select_organization_assets_policy" on storage.objects;
+create policy "storage_select_organization_assets_policy"
+on storage.objects
+for select
+using (
+  bucket_id = 'organization-assets'
+  and public.can_view_organization(public.storage_object_org_id(name))
+);
+
+drop policy if exists "storage_insert_organization_assets_policy" on storage.objects;
+create policy "storage_insert_organization_assets_policy"
+on storage.objects
+for insert
+with check (
+  bucket_id = 'organization-assets'
+  and public.can_manage_org_settings(public.storage_object_org_id(name))
+);
+
+drop policy if exists "storage_update_organization_assets_policy" on storage.objects;
+create policy "storage_update_organization_assets_policy"
+on storage.objects
+for update
+using (
+  bucket_id = 'organization-assets'
+  and public.can_manage_org_settings(public.storage_object_org_id(name))
+)
+with check (
+  bucket_id = 'organization-assets'
+  and public.can_manage_org_settings(public.storage_object_org_id(name))
+);
+
+drop policy if exists "storage_delete_organization_assets_policy" on storage.objects;
+create policy "storage_delete_organization_assets_policy"
+on storage.objects
+for delete
+using (
+  bucket_id = 'organization-assets'
+  and public.can_manage_org_settings(public.storage_object_org_id(name))
 );
 
 drop policy if exists "storage_select_meeting_recordings_policy" on storage.objects;

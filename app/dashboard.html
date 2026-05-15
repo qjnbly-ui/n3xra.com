@@ -87,8 +87,15 @@
 
           <section class="account-card" id="account-library-card">
             <div class="panel-head">
-              <div>
-                <h3>Selected Library</h3>
+              <div class="selected-library-head">
+                <div class="library-logo-mark" id="selected-library-logo-mark">
+                  <img class="library-logo-image hidden" id="selected-library-logo-image" alt="">
+                  <span class="library-logo-fallback" id="selected-library-logo-fallback">N</span>
+                </div>
+                <div>
+                  <h3>Selected Library</h3>
+                  <p id="selected-library-logo-caption">Active library identity</p>
+                </div>
               </div>
             </div>
             <div class="grid-3" id="account-library-context">
@@ -180,6 +187,33 @@
                 <p id="library-access-copy">Manage library AI guidance, reviews, shared access, invite codes, and public settings.</p>
               </div>
             </div>
+            <button class="section-toggle" id="library-profile-toggle" type="button" aria-expanded="false" aria-controls="library-profile-body">
+              <div>
+                <h3>Library profile</h3>
+                <p>Upload a library logo for the selected library.</p>
+              </div>
+              <span class="section-toggle-indicator" aria-hidden="true">+</span>
+            </button>
+            <div class="stack hidden" id="library-profile-body">
+              <form class="stack" id="library-logo-form">
+                <div class="library-logo-settings">
+                  <div class="library-logo-preview" aria-hidden="true">
+                    <img class="library-logo-image hidden" id="library-logo-preview-image" alt="">
+                    <span class="library-logo-fallback" id="library-logo-preview-fallback">N</span>
+                  </div>
+                  <div class="field">
+                    <label for="library-logo-file">Library logo</label>
+                    <input id="library-logo-file" type="file" accept="image/png,.png">
+                    <p class="field-note">Transparent PNG recommended. Keep it simple and readable at small sizes. Max 2 MB.</p>
+                  </div>
+                </div>
+                <div class="actions">
+                  <button class="btn" id="library-logo-upload" type="submit">Upload logo</button>
+                  <button class="btn secondary" id="library-logo-remove" type="button">Remove logo</button>
+                </div>
+                <p class="status" id="library-logo-status"></p>
+              </form>
+            </div>
             <button class="section-toggle" id="ai-settings-toggle" type="button" aria-expanded="false" aria-controls="ai-settings-body">
               <div>
                 <h3>AI settings</h3>
@@ -240,13 +274,13 @@
             <button class="section-toggle" id="additional-library-toggle" type="button" aria-expanded="false" aria-controls="additional-library-body">
               <div>
                 <h3>Additional libraries</h3>
-                <p>Create another separate library when this account already owns an active paid library.</p>
+                <p>Create one extra Free library when this account owns an active paid library and has no other Free library.</p>
               </div>
               <span class="section-toggle-indicator" aria-hidden="true">+</span>
             </button>
             <div class="stack hidden" id="additional-library-body">
               <form class="stack" id="additional-library-form">
-                <p class="field-note" id="additional-library-note">An active paid library is required before creating another library.</p>
+                <p class="field-note" id="additional-library-note">One Free library is allowed at a time. Upgrade your Free library before creating another.</p>
                 <div class="field">
                   <label for="additional-library-name">New library name</label>
                   <input id="additional-library-name" type="text" maxlength="120" placeholder="New Library">
@@ -416,19 +450,25 @@
             <strong>No library access right now.</strong> This area will populate when you join another library by invite.
           </div>
           <section class="panel stack hidden" id="library-context-panel">
-            <div class="grid-3">
-              <div class="field">
-                <label for="library-active-organization-select">Active library</label>
-                <select id="library-active-organization-select"></select>
-                <p class="account-value hidden" id="library-active-organization-name">-</p>
+            <div class="library-context-head">
+              <div class="library-logo-mark library-context-logo" id="library-context-logo-mark">
+                <img class="library-logo-image hidden" id="library-context-logo-image" alt="">
+                <span class="library-logo-fallback" id="library-context-logo-fallback">N</span>
               </div>
-              <div class="field">
-                <span class="field-title">Your access</span>
-                <p class="account-value" id="library-active-membership-role">-</p>
-              </div>
-              <div class="field">
-                <span class="field-title">Shared libraries</span>
-                <p class="account-value" id="library-shared-library-count">0</p>
+              <div class="grid-3">
+                <div class="field">
+                  <label for="library-active-organization-select">Active library</label>
+                  <select id="library-active-organization-select"></select>
+                  <p class="account-value hidden" id="library-active-organization-name">-</p>
+                </div>
+                <div class="field">
+                  <span class="field-title">Your access</span>
+                  <p class="account-value" id="library-active-membership-role">-</p>
+                </div>
+                <div class="field">
+                  <span class="field-title">Shared libraries</span>
+                  <p class="account-value" id="library-shared-library-count">0</p>
+                </div>
               </div>
             </div>
           </section>
