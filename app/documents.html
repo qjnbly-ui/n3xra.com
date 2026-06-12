@@ -89,16 +89,30 @@
           <button class="btn" id="new-document-button" type="button">New document</button>
           <button class="btn secondary" id="new-minutes-button" type="button">Meeting minutes</button>
           <button class="btn secondary" id="new-letter-button" type="button">Letter</button>
+          <div class="document-template-create" id="document-template-create">
+            <select id="document-template-select" aria-label="Template"></select>
+            <button class="btn secondary" id="create-from-template-button" type="button">Use template</button>
+          </div>
+          <button class="btn secondary hidden" id="new-template-button" type="button">New template</button>
         </div>
 
         <div class="documents-workspace">
           <aside class="document-sidebar" aria-label="Editable documents">
-            <div class="field">
-              <label for="document-search">Find document</label>
-              <input id="document-search" type="search" placeholder="Search title or text">
+            <div class="document-list-section">
+              <div class="field">
+                <label for="document-search">Find document</label>
+                <input id="document-search" type="search" placeholder="Search title or text">
+              </div>
+              <div class="document-list" id="app-document-list"></div>
+              <p class="empty hidden" id="app-document-empty">No editable documents yet.</p>
             </div>
-            <div class="document-list" id="app-document-list"></div>
-            <p class="empty hidden" id="app-document-empty">No editable documents yet.</p>
+            <div class="document-list-section hidden" id="template-management-section">
+              <div class="document-list-section-head">
+                <p class="document-list-section-title">Templates</p>
+              </div>
+              <div class="document-list" id="app-template-list"></div>
+              <p class="empty hidden" id="app-template-empty">No templates yet.</p>
+            </div>
           </aside>
 
           <section class="document-editor-panel" aria-label="Document editor">
@@ -175,6 +189,6 @@
   </div>
 
   <script src="./config.js"></script>
-  <script type="module" src="./documents.js?v=20260611-docx-structure"></script>
+  <script type="module" src="./documents.js?v=20260611-template-management"></script>
 </body>
 </html>

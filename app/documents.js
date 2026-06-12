@@ -35,6 +35,13 @@ const editorStatus = document.getElementById("document-editor-status");
 const newDocumentButton = document.getElementById("new-document-button");
 const newMinutesButton = document.getElementById("new-minutes-button");
 const newLetterButton = document.getElementById("new-letter-button");
+const documentTemplateCreate = document.getElementById("document-template-create");
+const documentTemplateSelect = document.getElementById("document-template-select");
+const createFromTemplateButton = document.getElementById("create-from-template-button");
+const newTemplateButton = document.getElementById("new-template-button");
+const templateManagementSection = document.getElementById("template-management-section");
+const appTemplateList = document.getElementById("app-template-list");
+const appTemplateEmpty = document.getElementById("app-template-empty");
 const documentSave = document.getElementById("document-save");
 const documentPrint = document.getElementById("document-print");
 const documentEmail = document.getElementById("document-email");
@@ -98,7 +105,9 @@ let currentSession = null;
 let memberships = [];
 let activeMembership = null;
 let appDocuments = [];
+let appTemplates = [];
 let activeDocumentId = "";
+let activeDocumentKind = "document";
 let tiptapEditor = null;
 let pendingDocumentConfirmResolve = null;
 
@@ -249,6 +258,13 @@ function contentJsonToTiptapContent(value) {
   return EMPTY_DOCUMENT;
 }
 
+function cloneContentJson(value) {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    return JSON.parse(JSON.stringify(value));
+  }
+  return JSON.parse(JSON.stringify(EMPTY_DOCUMENT));
+}
+
 function textFromTiptapJson(node, parts = []) {
   if (!node || typeof node !== "object") return parts;
   if (node.type === "text" && node.text) {
@@ -337,6 +353,7 @@ function initTiptapEditor() {
 
 function documentToEditor(doc) {
   activeDocumentId = doc?.id || "";
+  activeDocumentKind = doc?.document_kind === "template" ? "template" : "document";
   documentTitle.value = doc?.title || "";
   documentStatus.value = doc?.status || "draft";
   initTiptapEditor();
@@ -344,6 +361,7 @@ function documentToEditor(doc) {
   show(editorEmpty, false);
   show(editorForm, true);
   renderAppDocuments();
+  renderAppTemplates();
   setStatus(editorStatus, "");
 }
 
@@ -388,6 +406,7 @@ async function bootstrapAccess() {
 
 function renderOrganizationSelector() {
   const organization = getActiveOrganization();
+  const capabilities = getActiveCapabilities();
   show(noAccessNotice, !organization);
   activeOrganizationSelect.disabled = !memberships.length;
   activeOrganizationSelect.innerHTML = "";
@@ -395,6 +414,7 @@ function renderOrganizationSelector() {
     activeOrganizationSelect.innerHTML = '<option value="">No active library</option>';
     activeMembershipRole.textContent = "No library access";
     appDocumentCount.textContent = "0";
+    show(templateManagementSection, false);
     return;
   }
 
@@ -406,15 +426,21 @@ function renderOrganizationSelector() {
     activeOrganizationSelect.append(option);
   });
 
-  const capabilities = getActiveCapabilities();
   activeMembershipRole.textContent = formatRoleLabel(activeMembership.role);
   newDocumentButton.disabled = !capabilities.canEditDocuments;
   newMinutesButton.disabled = !capabilities.canEditDocuments;
   newLetterButton.disabled = !capabilities.canEditDocuments;
-  documentSave.disabled = !capabilities.canEditDocuments;
-  documentDelete.disabled = !capabilities.canDeleteDocuments;
-  tiptapEditor?.setEditable(capabilities.canEditDocuments);
-  documentEditor.classList.toggle("is-readonly", !capabilities.canEditDocuments);
+  newTemplateButton.disabled = !capabilities.canManageTemplates;
+  createFromTemplateButton.disabled = !capabilities.canEditDocuments || !appTemplates.length;
+  documentTemplateSelect.disabled = !capabilities.canEditDocuments || !appTemplates.length;
+  show(newTemplateButton, capabilities.canManageTemplates);
+  show(templateManagementSection, capabilities.canManageTemplates);
+  show(documentTemplateCreate, capabilities.canEditDocuments && appTemplates.length > 0);
+  documentDelete.disabled = activeDocumentKind === "template" ? !capabilities.canManageTemplates : !capabilities.canDeleteDocuments;
+  const canEditActive = activeDocumentKind === "template" ? capabilities.canManageTemplates : capabilities.canEditDocuments;
+  documentSave.disabled = !canEditActive;
+  tiptapEditor?.setEditable(canEditActive);
+  documentEditor.classList.toggle("is-readonly", !canEditActive);
   updateToolbarStates();
 }
 
@@ -443,11 +469,50 @@ function renderAppDocuments() {
   });
 }
 
+function renderAppTemplates() {
+  const capabilities = getActiveCapabilities();
+  appTemplateList.innerHTML = "";
+  documentTemplateSelect.innerHTML = "";
+  show(appTemplateEmpty, appTemplates.length === 0);
+  show(templateManagementSection, capabilities.canManageTemplates);
+  show(documentTemplateCreate, capabilities.canEditDocuments && appTemplates.length > 0);
+
+  if (!appTemplates.length) {
+    documentTemplateSelect.innerHTML = '<option value="">No templates</option>';
+    createFromTemplateButton.disabled = true;
+    return;
+  }
+
+  appTemplates.forEach((template) => {
+    const option = document.createElement("option");
+    option.value = template.id;
+    option.textContent = template.title || "Untitled template";
+    documentTemplateSelect.append(option);
+
+    if (!capabilities.canManageTemplates) return;
+    const button = document.createElement("button");
+    button.className = "document-list-item";
+    button.type = "button";
+    button.setAttribute("data-template-id", template.id);
+    button.classList.toggle("is-active", template.id === activeDocumentId);
+    button.innerHTML = `
+      <span class="document-list-title">${escapeHtml(template.title || "Untitled template")}</span>
+      <span class="document-list-meta">${escapeHtml(template.status || "draft")} · ${escapeHtml(new Date(template.updated_at || template.created_at).toLocaleDateString())}</span>
+    `;
+    appTemplateList.append(button);
+  });
+
+  createFromTemplateButton.disabled = !capabilities.canEditDocuments;
+  documentTemplateSelect.disabled = !capabilities.canEditDocuments;
+}
+
 async function loadAppDocuments(preferredId = "") {
   const organization = getActiveOrganization();
   if (!organization) {
     appDocuments = [];
+    appTemplates = [];
     renderAppDocuments();
+    renderAppTemplates();
     return;
   }
 
@@ -466,23 +531,29 @@ async function loadAppDocuments(preferredId = "") {
     return;
   }
 
-  appDocuments = Array.isArray(data) ? data : [];
+  const rows = Array.isArray(data) ? data : [];
+  appDocuments = rows.filter((doc) => doc.document_kind !== "template");
+  appTemplates = rows.filter((doc) => doc.document_kind === "template");
   renderAppDocuments();
-  const target = appDocuments.find((doc) => doc.id === preferredId) || appDocuments.find((doc) => doc.id === activeDocumentId);
+  renderAppTemplates();
+  const allRows = [...appDocuments, ...appTemplates];
+  const target = allRows.find((doc) => doc.id === preferredId) || allRows.find((doc) => doc.id === activeDocumentId);
   if (target) {
     documentToEditor(target);
-  } else if (!appDocuments.length) {
+  } else if (!allRows.length) {
     activeDocumentId = "";
+    activeDocumentKind = "document";
     show(editorEmpty, true);
     show(editorForm, false);
   }
-  setStatus(documentsStatus, `${appDocuments.length} editable document${appDocuments.length === 1 ? "" : "s"} loaded.`, "success");
+  renderOrganizationSelector();
+  setStatus(documentsStatus, `${appDocuments.length} editable document${appDocuments.length === 1 ? "" : "s"} and ${appTemplates.length} template${appTemplates.length === 1 ? "" : "s"} loaded.`, "success");
 }
 
 async function createAppDocument(kind = "blank") {
   const organization = getActiveOrganization();
   if (!organization || !getActiveCapabilities().canEditDocuments) return;
-  const template = TEMPLATES[kind] || TEMPLATES.blank;
+  const template = cloneContentJson(TEMPLATES[kind] || TEMPLATES.blank);
   const title = kind === "minutes" ? "Meeting Minutes" : kind === "letter" ? "Letter" : "Untitled document";
   const { data, error } = await supabase
     .from("app_documents")
@@ -492,6 +563,7 @@ async function createAppDocument(kind = "blank") {
       title,
       content_json: template,
       plain_text: plainTextFromTiptapJson(template),
+      document_kind: "document",
       status: "draft",
     })
     .select("id, title, content_json, plain_text, status, document_kind, source_document_id, created_at, updated_at")
@@ -505,9 +577,69 @@ async function createAppDocument(kind = "blank") {
   await loadAppDocuments(data.id);
 }
 
+async function createTemplate() {
+  const organization = getActiveOrganization();
+  if (!organization || !getActiveCapabilities().canManageTemplates) return;
+  const template = cloneContentJson(EMPTY_DOCUMENT);
+  const { data, error } = await supabase
+    .from("app_documents")
+    .insert({
+      organization_id: organization.id,
+      created_by_user_id: currentSession.user.id,
+      title: "Untitled template",
+      content_json: template,
+      plain_text: "",
+      document_kind: "template",
+      status: "draft",
+    })
+    .select("id, title, content_json, plain_text, status, document_kind, source_document_id, created_at, updated_at")
+    .single();
+
+  if (error) {
+    setStatus(documentsStatus, isMissingAppDocumentsSchemaError(error) ? "Run the template management migration before creating templates." : error.message, "error");
+    return;
+  }
+
+  await loadAppDocuments(data.id);
+}
+
+async function createDocumentFromTemplate() {
+  const organization = getActiveOrganization();
+  if (!organization || !getActiveCapabilities().canEditDocuments) return;
+  const template = appTemplates.find((item) => item.id === documentTemplateSelect.value);
+  if (!template) {
+    setStatus(documentsStatus, "Choose a template first.", "error");
+    return;
+  }
+
+  const contentJson = cloneContentJson(template.content_json || EMPTY_DOCUMENT);
+  const { data, error } = await supabase
+    .from("app_documents")
+    .insert({
+      organization_id: organization.id,
+      created_by_user_id: currentSession.user.id,
+      title: template.title || "Untitled document",
+      content_json: contentJson,
+      plain_text: template.plain_text || plainTextFromTiptapJson(contentJson),
+      document_kind: "document",
+      status: "draft",
+    })
+    .select("id, title, content_json, plain_text, status, document_kind, source_document_id, created_at, updated_at")
+    .single();
+
+  if (error) {
+    setStatus(documentsStatus, error.message, "error");
+    return;
+  }
+
+  await loadAppDocuments(data.id);
+}
+
 async function saveActiveDocument(event) {
   event.preventDefault();
-  if (!activeDocumentId || !getActiveCapabilities().canEditDocuments) return;
+  const capabilities = getActiveCapabilities();
+  const canSave = activeDocumentKind === "template" ? capabilities.canManageTemplates : capabilities.canEditDocuments;
+  if (!activeDocumentId || !canSave) return;
   setStatus(editorStatus, "Saving...");
   documentSave.disabled = true;
   const payload = editorToPayload();
@@ -524,18 +656,22 @@ async function saveActiveDocument(event) {
     return;
   }
 
-  const index = appDocuments.findIndex((doc) => doc.id === data.id);
-  if (index >= 0) appDocuments[index] = data;
+  const list = data.document_kind === "template" ? appTemplates : appDocuments;
+  const index = list.findIndex((doc) => doc.id === data.id);
+  if (index >= 0) list[index] = data;
   renderAppDocuments();
+  renderAppTemplates();
   setStatus(editorStatus, "Saved.", "success");
 }
 
 async function deleteActiveDocument() {
-  if (!activeDocumentId || !getActiveCapabilities().canDeleteDocuments) return;
+  const capabilities = getActiveCapabilities();
+  const canDelete = activeDocumentKind === "template" ? capabilities.canManageTemplates : capabilities.canDeleteDocuments;
+  if (!activeDocumentId || !canDelete) return;
   const ok = await requestDocumentConfirm({
-    kicker: "Delete document",
-    title: "Remove this editable document?",
-    copy: "The uploaded source file is not deleted. This only removes the app-native editable draft.",
+    kicker: activeDocumentKind === "template" ? "Delete template" : "Delete document",
+    title: activeDocumentKind === "template" ? "Remove this reusable template?" : "Remove this editable document?",
+    copy: activeDocumentKind === "template" ? "Users will no longer be able to create documents from this template." : "The uploaded source file is not deleted. This only removes the app-native editable draft.",
     confirmLabel: "Delete",
   });
   if (!ok) return;
@@ -545,6 +681,7 @@ async function deleteActiveDocument() {
     return;
   }
   activeDocumentId = "";
+  activeDocumentKind = "document";
   show(editorEmpty, true);
   show(editorForm, false);
   await loadAppDocuments();
@@ -570,6 +707,7 @@ async function handleOrganizationChange() {
   if (!nextMembership) return;
   activeMembership = nextMembership;
   activeDocumentId = "";
+  activeDocumentKind = "document";
   setStoredActiveOrganizationId(nextOrganizationId);
   renderOrganizationSelector();
   await loadAppDocuments();
@@ -642,6 +780,8 @@ async function init() {
   newDocumentButton.addEventListener("click", () => createAppDocument("blank"));
   newMinutesButton.addEventListener("click", () => createAppDocument("minutes"));
   newLetterButton.addEventListener("click", () => createAppDocument("letter"));
+  newTemplateButton.addEventListener("click", createTemplate);
+  createFromTemplateButton.addEventListener("click", createDocumentFromTemplate);
   editorForm.addEventListener("submit", saveActiveDocument);
   documentDelete.addEventListener("click", deleteActiveDocument);
   documentConfirmCancel.addEventListener("click", () => resolveDocumentConfirm(false));
@@ -657,6 +797,12 @@ async function init() {
     const id = target?.getAttribute("data-id");
     const doc = appDocuments.find((item) => item.id === id);
     if (doc) documentToEditor(doc);
+  });
+  appTemplateList.addEventListener("click", (event) => {
+    const target = event.target instanceof Element ? event.target.closest("[data-template-id]") : null;
+    const id = target?.getAttribute("data-template-id");
+    const template = appTemplates.find((item) => item.id === id);
+    if (template) documentToEditor(template);
   });
   document.addEventListener("keydown", (event) => {
     if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s" && activeDocumentId) {

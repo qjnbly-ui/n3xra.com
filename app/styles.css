@@ -2609,6 +2609,18 @@ code.inline {
   display: flex;
   gap: 0.55rem;
   flex-wrap: wrap;
+  align-items: center;
+}
+
+.document-template-create {
+  display: flex;
+  gap: 0.45rem;
+  align-items: center;
+}
+
+.document-template-create select {
+  min-height: 44px;
+  min-width: min(260px, 100%);
 }
 
 .documents-workspace {
@@ -2631,6 +2643,32 @@ code.inline {
   gap: 0.75rem;
   max-height: 74vh;
   overflow: auto;
+}
+
+.document-list-section {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.document-list-section + .document-list-section {
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(15, 22, 32, 0.08);
+}
+
+.document-list-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.document-list-section-title {
+  margin: 0;
+  color: var(--teal);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
 }
 
 .document-list {
@@ -2879,6 +2917,12 @@ code.inline {
 
   .library-context-head {
     grid-template-columns: 1fr;
+  }
+
+  .document-template-create,
+  .document-template-create select,
+  .document-template-create .btn {
+    width: 100%;
   }
 
   .auth-intro p {

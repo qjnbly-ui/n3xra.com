@@ -42,6 +42,7 @@ export function getCapabilities(membership, currentUserId, isPlatformAdmin = fal
   const canManageMembers = isPlatformAdmin || role === "account_admin";
   const canManageLibrarySettings = isPlatformAdmin || role === "account_admin";
   const canManageDocuments = isPlatformAdmin || role === "account_admin" || role === "editor";
+  const canManageTemplates = isPlatformAdmin || role === "account_admin";
   const canUseRecordings = isPlatformAdmin || subscriptionTier === "organization";
 
   return {
@@ -56,6 +57,7 @@ export function getCapabilities(membership, currentUserId, isPlatformAdmin = fal
     canUploadDocuments: canManageDocuments,
     canEditDocuments: canManageDocuments,
     canDeleteDocuments: canManageDocuments,
+    canManageTemplates,
     canShareDocuments: Boolean(membership),
     canDownloadDocuments: Boolean(membership),
     canUseRecordings,
