@@ -129,6 +129,14 @@
             <p class="account-value" id="recording-detail-transcript-status">-</p>
           </div>
           <div class="account-item">
+            <span class="account-label">Template</span>
+            <p class="account-value" id="recording-detail-template">-</p>
+          </div>
+          <div class="account-item">
+            <span class="account-label">AI review</span>
+            <p class="account-value" id="recording-detail-ai-status">-</p>
+          </div>
+          <div class="account-item">
             <span class="account-label">Started</span>
             <p class="account-value" id="recording-detail-started-at">-</p>
           </div>
@@ -146,10 +154,32 @@
           </div>
         </div>
         <audio class="recording-player hidden" id="recording-detail-player" controls preload="metadata"></audio>
+        <div class="recording-detail-section">
+          <div class="panel-head compact-head">
+            <div>
+              <h4>Notetaker notes</h4>
+              <p>Original notes are kept even if the AI draft is not useful.</p>
+            </div>
+          </div>
+          <pre class="recording-notes-preview" id="recording-detail-notes">No notes saved yet.</pre>
+        </div>
+        <div class="recording-detail-section hidden" id="recording-ai-review-panel">
+          <div class="panel-head compact-head">
+            <div>
+              <h4>AI review</h4>
+              <p>Suggested additions and conflicts found after comparing notes with the transcript.</p>
+            </div>
+          </div>
+          <div class="recording-review-list" id="recording-ai-suggestions"></div>
+          <div class="recording-review-list" id="recording-ai-conflicts"></div>
+        </div>
         <div class="actions">
           <button class="btn secondary" id="recording-detail-play" type="button">Play</button>
           <button class="btn secondary hidden" id="recording-detail-transcribe" type="button">Create transcript</button>
           <button class="btn secondary hidden" id="recording-detail-retry" type="button">Retry</button>
+          <button class="btn secondary" id="recording-detail-ai-review" type="button">Review with AI</button>
+          <a class="btn secondary button-link hidden" id="recording-detail-ai-draft" href="./documents.html" rel="noopener">Open AI draft</a>
+          <a class="btn secondary button-link hidden" id="recording-detail-transcript-document" href="./files.html" rel="noopener">Open transcript</a>
           <button class="btn btn-delete-solid" id="recording-detail-delete" type="button">Delete</button>
         </div>
         <p class="status" id="recording-detail-status-message"></p>

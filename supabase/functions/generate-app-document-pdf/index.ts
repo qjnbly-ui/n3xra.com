@@ -77,6 +77,18 @@ function pdfSafeText(value: unknown) {
     .replace(/[^\x09\x0a\x0d\x20-\x7e\xa0-\xff\u2022]/g, "?");
 }
 
+function fitText(font: any, value: unknown, size: number, maxWidth: number) {
+  const text = pdfSafeText(value);
+  if (font.widthOfTextAtSize(text, size) <= maxWidth) return text;
+
+  const suffix = "...";
+  let trimmed = text;
+  while (trimmed.length && font.widthOfTextAtSize(`${trimmed}${suffix}`, size) > maxWidth) {
+    trimmed = trimmed.slice(0, -1).trimEnd();
+  }
+  return trimmed ? `${trimmed}${suffix}` : "";
+}
+
 function decodeHtml(value: string) {
   return value
     .replace(/&nbsp;/g, " ")
@@ -124,11 +136,27 @@ function addPage(state: RenderState) {
   state.pageNumber += 1;
   state.y = PAGE_HEIGHT - MARGIN_TOP;
 
-  state.page.drawText(pdfSafeText(state.organizationName || "N3XRA Records"), {
+  const headerSize = 8.5;
+  const headerTitle = fitText(state.fonts.bold, state.title || "Untitled document", headerSize, 220);
+  const headerMeta = fitText(
+    state.fonts.regular,
+    ` | ${state.organizationName || "N3XRA Records"} | Generated ${new Date().toLocaleDateString("en-US")}`,
+    headerSize,
+    PAGE_WIDTH - MARGIN_X * 2 - state.fonts.bold.widthOfTextAtSize(headerTitle, headerSize) - 4,
+  );
+
+  state.page.drawText(headerTitle, {
     x: MARGIN_X,
     y: PAGE_HEIGHT - 34,
-    size: 8,
+    size: headerSize,
     font: state.fonts.bold,
+    color: rgb(0.28, 0.34, 0.41),
+  });
+  state.page.drawText(headerMeta, {
+    x: MARGIN_X + state.fonts.bold.widthOfTextAtSize(headerTitle, headerSize) + 4,
+    y: PAGE_HEIGHT - 34,
+    size: headerSize,
+    font: state.fonts.regular,
     color: rgb(0.28, 0.34, 0.41),
   });
   state.page.drawText(`Page ${state.pageNumber}`, {
@@ -458,19 +486,6 @@ async function buildPdf(options: {
     organizationName: options.organizationName,
   };
   addPage(state);
-
-  drawInlineBlock(state, [{ text: options.title || "Untitled document" }], {
-    size: 22,
-    lineHeight: 27,
-    fallbackBold: true,
-    spacingAfter: 5,
-  });
-  drawInlineBlock(state, [{ text: `Generated ${new Date().toLocaleDateString("en-US")}` }], {
-    size: 9.5,
-    lineHeight: 13,
-    spacingAfter: 8,
-  });
-  drawRule(state);
 
   const content = options.contentJson;
   if (content?.type === "doc" && Array.isArray(content.content)) {

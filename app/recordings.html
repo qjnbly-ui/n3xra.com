@@ -227,6 +227,7 @@
             <p class="account-value" id="recording-detail-size">-</p>
           </div>
         </div>
+        <audio class="recording-player hidden" id="recording-detail-player" controls preload="metadata"></audio>
         <div class="recording-detail-section">
           <div class="panel-head compact-head">
             <div>
@@ -247,6 +248,9 @@
           <div class="recording-review-list" id="recording-ai-conflicts"></div>
         </div>
         <div class="actions">
+          <button class="btn secondary" id="recording-detail-play" type="button">Play</button>
+          <button class="btn secondary hidden" id="recording-detail-transcribe" type="button">Create transcript</button>
+          <button class="btn secondary hidden" id="recording-detail-retry" type="button">Retry</button>
           <button class="btn secondary" id="recording-detail-ai-review" type="button">Review with AI</button>
           <a class="btn secondary button-link hidden" id="recording-detail-ai-draft" href="./documents.html" rel="noopener">Open AI draft</a>
           <a class="btn secondary button-link hidden" id="recording-detail-transcript-document" href="./files.html" rel="noopener">Open transcript</a>

@@ -169,6 +169,16 @@ function normalizeWhitespace(value) {
     .trim();
 }
 
+function stripMarkdownArtifacts(value) {
+  return normalizeWhitespace(
+    String(value || "")
+      .replace(/\*\*([^*\n]+)\*\*/g, "$1")
+      .replace(/__([^_\n]+)__/g, "$1")
+      .replace(/`([^`\n]+)`/g, "$1")
+      .replace(/^\s{0,3}#{1,6}\s+/gm, "")
+  );
+}
+
 function clipText(value, maxChars) {
   const text = normalizeWhitespace(value);
   if (text.length <= maxChars) return text;
@@ -316,12 +326,15 @@ function buildPrompt({ recording, organization, template, notesText, transcriptT
     "Finalize an organizational meeting document from these sources.",
     "",
     "Rules:",
-    "- The document template and notetaker notes are the primary source of truth for structure and intentional content.",
+    "- The document template and notetaker notes are the primary source of truth for structure, section order, labels, and intentional content.",
     "- The transcript is supporting evidence. Use it to fill obvious missing detail, names, dates, decisions, and action items only when it does not conflict with notes.",
     "- Do not invent motions, votes, attendance, dates, dollar amounts, decisions, or action owners.",
     "- If transcript details conflict with notes, keep the notes in the draft and list the conflict.",
     "- Preserve the notetaker's meaning. Improve clarity and organization, not facts.",
-    "- The final_document_text should be editable meeting/document text using Markdown-style headings (#, ##) and simple bullet lists where helpful.",
+    "- Keep the final document close to the template/notes layout. Do not reorganize short notes into new sections unless those sections already exist in the template or notes.",
+    "- Return final_document_text as plain editable document text. Do not use Markdown markers such as #, **, __, or backticks.",
+    "- Keep labels as normal text, for example Date: June 12, 2026. Do not wrap labels in formatting characters.",
+    "- Use simple bullet lists only when the template or notes already use a list, or when the notes clearly describe multiple action items.",
     "- suggested_additions are details that appear useful from the transcript but should be accepted by a human.",
     "- conflicts are places where the transcript and notes do not agree or where confidence is low.",
     "",
@@ -463,14 +476,14 @@ async function reviewRecordingNotes(prompt) {
 
 function normalizeReview(value, fallbackTitle) {
   const review = value && typeof value === "object" ? value : {};
-  const finalText = normalizeWhitespace(review.final_document_text);
+  const finalText = stripMarkdownArtifacts(review.final_document_text);
   if (!finalText) throw new Error("Records AI did not return a draft document.");
 
   const normalizeItems = (items) => (Array.isArray(items) ? items : [])
     .map((item) => ({
-      text: normalizeWhitespace(item?.text || item?.note || item?.issue),
-      reason: normalizeWhitespace(item?.reason),
-      source: normalizeWhitespace(item?.source),
+      text: stripMarkdownArtifacts(item?.text || item?.note || item?.issue),
+      reason: stripMarkdownArtifacts(item?.reason),
+      source: stripMarkdownArtifacts(item?.source),
     }))
     .filter((item) => item.text);
 

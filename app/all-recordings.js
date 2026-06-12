@@ -38,14 +38,23 @@ const recordingDetailClose = document.getElementById("recording-detail-close");
 const recordingDetailTitle = document.getElementById("recording-detail-title");
 const recordingDetailStatus = document.getElementById("recording-detail-status");
 const recordingDetailTranscriptStatus = document.getElementById("recording-detail-transcript-status");
+const recordingDetailTemplate = document.getElementById("recording-detail-template");
+const recordingDetailAiStatus = document.getElementById("recording-detail-ai-status");
 const recordingDetailStartedAt = document.getElementById("recording-detail-started-at");
 const recordingDetailEndedAt = document.getElementById("recording-detail-ended-at");
 const recordingDetailDuration = document.getElementById("recording-detail-duration");
 const recordingDetailSize = document.getElementById("recording-detail-size");
 const recordingDetailPlayer = document.getElementById("recording-detail-player");
+const recordingDetailNotes = document.getElementById("recording-detail-notes");
+const recordingAiReviewPanel = document.getElementById("recording-ai-review-panel");
+const recordingAiSuggestions = document.getElementById("recording-ai-suggestions");
+const recordingAiConflicts = document.getElementById("recording-ai-conflicts");
 const recordingDetailPlay = document.getElementById("recording-detail-play");
 const recordingDetailTranscribe = document.getElementById("recording-detail-transcribe");
 const recordingDetailRetry = document.getElementById("recording-detail-retry");
+const recordingDetailAiReview = document.getElementById("recording-detail-ai-review");
+const recordingDetailAiDraft = document.getElementById("recording-detail-ai-draft");
+const recordingDetailTranscriptDocument = document.getElementById("recording-detail-transcript-document");
 const recordingDetailDelete = document.getElementById("recording-detail-delete");
 const recordingDetailStatusMessage = document.getElementById("recording-detail-status-message");
 const recordingDeleteModal = document.getElementById("recording-delete-modal");
@@ -61,6 +70,7 @@ let currentSession = null;
 let memberships = [];
 let activeMembership = null;
 let recordingsCache = [];
+let recordingTemplates = [];
 let activePlayerUrl = "";
 let activeTopPlayerRecordingId = "";
 let detailPlayerUrl = "";
@@ -211,6 +221,12 @@ function getRecordingById(recordingId) {
   return recordingsCache.find((item) => item.id === recordingId) || null;
 }
 
+function getTemplateLabel(templateId) {
+  if (!templateId) return "No template";
+  const template = recordingTemplates.find((item) => item.id === templateId);
+  return template?.title || "Template";
+}
+
 function isRetryableRecording(recording) {
   return String(recording?.status || "").trim().toLowerCase() === "failed";
 }
@@ -271,6 +287,23 @@ async function requestRecordingTranscription(recordingId) {
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data?.error || "Unable to transcribe recording.");
+  return data;
+}
+
+async function requestRecordingAiReview(recordingId) {
+  const accessToken = await getFreshAccessToken();
+  if (!accessToken) throw new Error("Your session expired. Sign in again and retry.");
+
+  const response = await fetch("/api/finalize-recording-notes", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({ recordingId }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data?.error || "Unable to review recording notes.");
   return data;
 }
 
@@ -427,6 +460,23 @@ async function bootstrapAccess() {
   renderOrganizationSelector();
 }
 
+async function loadRecordingTemplates() {
+  const organization = getActiveOrganization();
+  if (!organization) {
+    recordingTemplates = [];
+    return;
+  }
+
+  const { data, error } = await supabase
+    .from("app_documents")
+    .select("id, title")
+    .eq("organization_id", organization.id)
+    .eq("document_kind", "template")
+    .order("title", { ascending: true });
+
+  recordingTemplates = error || !Array.isArray(data) ? [] : data;
+}
+
 async function loadRecordings() {
   const organization = getActiveOrganization();
   if (!organization) {
@@ -442,10 +492,12 @@ async function loadRecordings() {
     .from("meeting_recordings")
     .select(`
       id,
+      document_id,
       title,
       status,
       transcript_status,
       ai_review_status,
+      selected_template_id,
       started_at,
       ended_at,
       duration_seconds,
@@ -453,6 +505,10 @@ async function loadRecordings() {
       audio_mime_type,
       file_size,
       processing_error,
+      notes_plain_text,
+      ai_review_json,
+      ai_draft_document_id,
+      final_document_id,
       created_at
     `)
     .eq("organization_id", organization.id)
@@ -513,6 +569,37 @@ function renderRecordings() {
   });
 }
 
+function renderReviewItems(container, title, items, emptyCopy) {
+  if (!container) return;
+  const safeItems = Array.isArray(items) ? items : [];
+  container.innerHTML = `
+    <p class="recording-review-title">${escapeHtml(title)}</p>
+    ${
+      safeItems.length
+        ? safeItems.map((item) => `
+            <article class="recording-review-item">
+              <p>${escapeHtml(item?.text || item?.note || item?.issue || "")}</p>
+              ${item?.reason ? `<span>${escapeHtml(item.reason)}</span>` : ""}
+            </article>
+          `).join("")
+        : `<p class="empty">${escapeHtml(emptyCopy)}</p>`
+    }
+  `;
+}
+
+function renderAiReview(review) {
+  const hasReview = review && typeof review === "object" && (Array.isArray(review.suggested_additions) || Array.isArray(review.conflicts));
+  show(recordingAiReviewPanel, Boolean(hasReview));
+  if (!hasReview) {
+    if (recordingAiSuggestions) recordingAiSuggestions.innerHTML = "";
+    if (recordingAiConflicts) recordingAiConflicts.innerHTML = "";
+    return;
+  }
+
+  renderReviewItems(recordingAiSuggestions, "Suggested additions", review.suggested_additions, "No additions suggested.");
+  renderReviewItems(recordingAiConflicts, "Possible conflicts", review.conflicts, "No conflicts found.");
+}
+
 async function playRecording(recordingId) {
   const recording = getRecordingById(recordingId);
   if (!canPlaybackRecording(recording)) return;
@@ -550,13 +637,26 @@ function populateRecordingDetails(recording) {
   recordingDetailTitle.textContent = recording.title || "Untitled recording";
   recordingDetailStatus.textContent = formatRecordingStatus(recording.status);
   recordingDetailTranscriptStatus.textContent = formatRecordingStatus(recording.transcript_status);
+  recordingDetailTemplate.textContent = getTemplateLabel(recording.selected_template_id || "");
+  recordingDetailAiStatus.textContent = formatRecordingStatus(recording.ai_review_status || "not_started");
   recordingDetailStartedAt.textContent = formatDateTime(recording.started_at || recording.created_at);
   recordingDetailEndedAt.textContent = recording.ended_at ? formatDateTime(recording.ended_at) : "Not finished";
   recordingDetailDuration.textContent = formatDuration(recording.duration_seconds || 0);
   recordingDetailSize.textContent = formatBytes(recording.file_size || 0);
+  recordingDetailNotes.textContent = String(recording.notes_plain_text || "").trim() || "No notes saved yet.";
   recordingDetailPlay.disabled = !canPlaybackRecording(recording);
   show(recordingDetailTranscribe, canTranscribeRecording(recording));
   show(recordingDetailRetry, isRetryableRecording(recording));
+  show(recordingDetailTranscriptDocument, Boolean(recording.document_id));
+  if (recording.document_id) {
+    recordingDetailTranscriptDocument.href = `./files.html?id=${encodeURIComponent(recording.document_id)}`;
+  }
+  show(recordingDetailAiDraft, Boolean(recording.ai_draft_document_id));
+  if (recording.ai_draft_document_id) {
+    recordingDetailAiDraft.href = `./documents.html?id=${encodeURIComponent(recording.ai_draft_document_id)}`;
+  }
+  renderAiReview(recording.ai_review_json || null);
+  recordingDetailAiReview.disabled = recording.transcript_status !== "ready";
   recordingDetailPlay.textContent = "Play";
   recordingDetailDelete.disabled = !getActiveCapabilities().canDeleteDocuments;
   setStatus(recordingDetailStatusMessage, recording.processing_error || "");
@@ -588,6 +688,37 @@ async function transcribeRecording(recordingId) {
       setStatus(recordingDetailStatusMessage, message, "error");
       recordingDetailTranscribe.disabled = false;
     }
+  }
+}
+
+async function handleRecordingAiReview(recordingId) {
+  const recording = getRecordingById(recordingId);
+  if (!recording) return;
+  if (recording.transcript_status !== "ready") {
+    setStatus(recordingDetailStatusMessage, "The transcript must be ready before AI can review this recording.", "error");
+    return;
+  }
+
+  recordingDetailAiReview.disabled = true;
+  recordingDetailAiStatus.textContent = "Processing";
+  setStatus(recordingDetailStatusMessage, "Reviewing notes against the transcript...");
+
+  try {
+    const result = await requestRecordingAiReview(recording.id);
+    await loadRecordingTemplates();
+    await loadRecordings();
+    const updated = getRecordingById(recording.id) || result?.recording;
+    if (updated) {
+      activeDetailRecordingId = updated.id;
+      populateRecordingDetails(updated);
+    }
+    setStatus(recordingDetailStatusMessage, "AI draft is ready.", "success");
+  } catch (error) {
+    recordingDetailAiStatus.textContent = "Failed";
+    setStatus(recordingDetailStatusMessage, getErrorMessage(error, "Unable to review recording notes."), "error");
+  } finally {
+    const updated = getRecordingById(recording.id) || recording;
+    recordingDetailAiReview.disabled = updated.transcript_status !== "ready";
   }
 }
 
@@ -752,6 +883,7 @@ async function handleOrganizationChange(nextOrganizationId) {
   }
   clearPlayer();
   renderOrganizationSelector();
+  await loadRecordingTemplates();
   await loadRecordings();
 }
 
@@ -795,6 +927,7 @@ async function init() {
 
   show(setupPanel, false);
   show(allRecordingsPanel, true);
+  await loadRecordingTemplates();
   await loadRecordings();
 
   mobileLogoutButton.addEventListener("click", handleSignout);
@@ -893,6 +1026,10 @@ async function init() {
   recordingDetailTranscribe.addEventListener("click", () => {
     if (!activeDetailRecordingId) return;
     void transcribeRecording(activeDetailRecordingId);
+  });
+  recordingDetailAiReview.addEventListener("click", () => {
+    if (!activeDetailRecordingId) return;
+    void handleRecordingAiReview(activeDetailRecordingId);
   });
   recordingDeleteCancel.addEventListener("click", () => {
     setRecordingDeleteModalOpen(false);
