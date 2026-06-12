@@ -9,6 +9,14 @@ import {
   resolveActiveOrganization,
   setStoredActiveOrganizationId,
 } from "./lib/orgs.js";
+import {
+  applyRecordingSuggestions,
+  dismissRecordingSuggestion,
+  getOpenSuggestionIndexes,
+  getSuggestionStatus,
+  getSuggestionText,
+  isSuggestionResolved,
+} from "./lib/recording-suggestions.js";
 
 const setupPanel = document.getElementById("setup-panel");
 const recordingsPanel = document.getElementById("recordings-panel");
@@ -117,6 +125,7 @@ let pendingRecordingsConfirmResolve = null;
 let recordingNotesSaveTimer = null;
 let lastAppliedTemplateId = "";
 let recordingWorkflowSchemaAvailable = true;
+let reviewActionPending = false;
 
 function buildAllRecordingsDetailHref(recordingId) {
   const params = new URLSearchParams();
@@ -1004,19 +1013,55 @@ function renderRecordings() {
     .join("");
 }
 
-function renderReviewItems(container, title, items, emptyCopy) {
+function formatSuggestionStatus(status) {
+  if (status === "applied") return "Applied";
+  if (status === "dismissed") return "Dismissed";
+  return "";
+}
+
+function renderReviewItems(container, title, items, emptyCopy, options = {}) {
   if (!container) return;
   const safeItems = Array.isArray(items) ? items : [];
+  const isSuggestions = options.kind === "suggestions";
+  const canAct = Boolean(options.canAct);
+  const openIndexes = isSuggestions ? safeItems
+    .map((item, index) => ({ item, index }))
+    .filter(({ item }) => getSuggestionText(item) && !isSuggestionResolved(item))
+    .map(({ index }) => index) : [];
   container.innerHTML = `
-    <p class="recording-review-title">${escapeHtml(title)}</p>
+    <div class="recording-review-heading">
+      <p class="recording-review-title">${escapeHtml(title)}</p>
+      ${
+        isSuggestions && canAct && openIndexes.length
+          ? '<button class="btn secondary recording-review-action" type="button" data-review-action="apply-all">Apply all</button>'
+          : ""
+      }
+    </div>
     ${
       safeItems.length
-        ? safeItems.map((item) => `
+        ? safeItems.map((item, index) => {
+            const status = getSuggestionStatus(item);
+            const statusLabel = formatSuggestionStatus(status);
+            const statusClass = status.replace(/[^a-z0-9_-]/g, "");
+            const text = isSuggestions ? getSuggestionText(item) : String(item?.text || item?.note || item?.issue || "").trim();
+            return `
             <article class="recording-review-item">
-              <p>${escapeHtml(item?.text || item?.note || item?.issue || "")}</p>
+              ${statusLabel ? `<span class="recording-review-status is-${escapeHtml(statusClass)}">${escapeHtml(statusLabel)}</span>` : ""}
+              <p>${escapeHtml(text)}</p>
               ${item?.reason ? `<span>${escapeHtml(item.reason)}</span>` : ""}
+              ${
+                isSuggestions && canAct && !isSuggestionResolved(item)
+                  ? `
+                    <div class="recording-review-actions">
+                      <button class="btn secondary recording-review-action" type="button" data-review-action="apply" data-review-index="${index}">Apply</button>
+                      <button class="btn secondary recording-review-action" type="button" data-review-action="dismiss" data-review-index="${index}">Dismiss</button>
+                    </div>
+                  `
+                  : ""
+              }
             </article>
-          `).join("")
+          `;
+          }).join("")
         : `<p class="empty">${escapeHtml(emptyCopy)}</p>`
     }
   `;
@@ -1031,7 +1076,10 @@ function renderAiReview(review) {
     return;
   }
 
-  renderReviewItems(recordingAiSuggestions, "Suggested additions", review.suggested_additions, "No additions suggested.");
+  renderReviewItems(recordingAiSuggestions, "Suggested additions", review.suggested_additions, "No additions suggested.", {
+    kind: "suggestions",
+    canAct: getActiveCapabilities().canEditDocuments,
+  });
   renderReviewItems(recordingAiConflicts, "Possible conflicts", review.conflicts, "No conflicts found.");
 }
 
@@ -1097,6 +1145,74 @@ function closeRecordingDetail() {
   setRecordingDetailModalOpen(false);
   activeDetailRecordingId = "";
   setStatus(recordingDetailStatusMessage, "");
+}
+
+function setReviewActionsDisabled(isDisabled) {
+  recordingAiReviewPanel?.querySelectorAll("[data-review-action]").forEach((button) => {
+    button.disabled = Boolean(isDisabled);
+  });
+}
+
+function updateActiveRecordingReview(review) {
+  const recording = getRecordingById(activeDetailRecordingId);
+  if (!recording) return;
+  mergeRecordingUpdate({
+    ...recording,
+    ai_review_json: review,
+  });
+  const updated = getRecordingById(recording.id);
+  if (updated) {
+    populateRecordingDetails(updated);
+    renderRecordings();
+  }
+}
+
+async function handleReviewSuggestionAction(action, index = null) {
+  if (reviewActionPending) return;
+  const recording = getRecordingById(activeDetailRecordingId);
+  if (!recording) return;
+  if (!getActiveCapabilities().canEditDocuments) {
+    setStatus(recordingDetailStatusMessage, "You need editor access to apply AI suggestions.", "error");
+    return;
+  }
+
+  reviewActionPending = true;
+  setReviewActionsDisabled(true);
+
+  try {
+    if (action === "apply-all") {
+      const indexes = getOpenSuggestionIndexes(recording.ai_review_json || {});
+      if (!indexes.length) {
+        setStatus(recordingDetailStatusMessage, "No unapplied suggestions remain.");
+        return;
+      }
+      setStatus(recordingDetailStatusMessage, "Applying suggestions to the document...");
+      const result = await applyRecordingSuggestions({ supabase, recording, indexes });
+      updateActiveRecordingReview(result.review);
+      setStatus(recordingDetailStatusMessage, `${result.appliedCount} suggestion${result.appliedCount === 1 ? "" : "s"} applied to the document.`, "success");
+      return;
+    }
+
+    if (action === "apply") {
+      setStatus(recordingDetailStatusMessage, "Applying suggestion to the document...");
+      const result = await applyRecordingSuggestions({ supabase, recording, indexes: [index] });
+      updateActiveRecordingReview(result.review);
+      setStatus(recordingDetailStatusMessage, "Suggestion applied to the document.", "success");
+      return;
+    }
+
+    if (action === "dismiss") {
+      setStatus(recordingDetailStatusMessage, "Dismissing suggestion...");
+      const result = await dismissRecordingSuggestion({ supabase, recording, index });
+      updateActiveRecordingReview(result.review);
+      setStatus(recordingDetailStatusMessage, "Suggestion dismissed.", "success");
+    }
+  } catch (error) {
+    setStatus(recordingDetailStatusMessage, getErrorMessage(error, "Unable to update the suggestion."), "error");
+  } finally {
+    reviewActionPending = false;
+    setReviewActionsDisabled(false);
+  }
 }
 
 async function updateMeetingRecording(recordingId, patch) {
@@ -1763,6 +1879,14 @@ async function init() {
     if (event.key !== "Enter" && event.key !== " ") return;
     event.preventDefault();
     void openRecordingDetail(row.getAttribute("data-recording-id") || "");
+  });
+  recordingAiReviewPanel?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-review-action]");
+    if (!button) return;
+    void handleReviewSuggestionAction(
+      button.getAttribute("data-review-action") || "",
+      button.getAttribute("data-review-index")
+    );
   });
   recordingDetailAiReview.addEventListener("click", () => {
     if (!activeDetailRecordingId) return;

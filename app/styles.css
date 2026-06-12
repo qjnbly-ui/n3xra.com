@@ -990,6 +990,13 @@ textarea {
   gap: 0.55rem;
 }
 
+.recording-review-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
 .recording-review-title {
   margin: 0;
   color: var(--teal);
@@ -1021,6 +1028,38 @@ textarea {
   margin-top: 0.35rem;
   color: var(--slate);
   font-size: 0.9rem;
+}
+
+.recording-review-item .recording-review-status {
+  display: inline-flex;
+  width: fit-content;
+  margin: 0 0 0.45rem;
+  border-radius: 999px;
+  padding: 0.18rem 0.55rem;
+  background: rgba(20, 94, 80, 0.1);
+  color: var(--teal);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.recording-review-item .recording-review-status.is-dismissed {
+  background: rgba(100, 116, 139, 0.14);
+  color: var(--slate);
+}
+
+.recording-review-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.65rem;
+}
+
+.recording-review-action {
+  min-height: 0;
+  padding: 0.48rem 0.78rem;
+  font-size: 0.85rem;
 }
 
 .recording-detail-storage-path {
