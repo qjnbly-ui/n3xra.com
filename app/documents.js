@@ -33,8 +33,6 @@ const documentStatus = document.getElementById("document-status");
 const documentEditor = document.getElementById("document-editor");
 const editorStatus = document.getElementById("document-editor-status");
 const newDocumentButton = document.getElementById("new-document-button");
-const newMinutesButton = document.getElementById("new-minutes-button");
-const newLetterButton = document.getElementById("new-letter-button");
 const documentTemplateCreate = document.getElementById("document-template-create");
 const documentTemplateSelect = document.getElementById("document-template-select");
 const createFromTemplateButton = document.getElementById("create-from-template-button");
@@ -477,8 +475,6 @@ function renderOrganizationSelector() {
 
   activeMembershipRole.textContent = formatRoleLabel(activeMembership.role);
   newDocumentButton.disabled = !capabilities.canEditDocuments;
-  newMinutesButton.disabled = !capabilities.canEditDocuments;
-  newLetterButton.disabled = !capabilities.canEditDocuments;
   newTemplateButton.disabled = !capabilities.canManageTemplates;
   createFromTemplateButton.disabled = !capabilities.canEditDocuments || !appTemplates.length;
   documentTemplateSelect.disabled = !capabilities.canEditDocuments || !appTemplates.length;
@@ -921,8 +917,6 @@ async function init() {
   activeOrganizationSelect.addEventListener("change", handleOrganizationChange);
   documentSearch.addEventListener("input", renderAppDocuments);
   newDocumentButton.addEventListener("click", () => createAppDocument("blank"));
-  newMinutesButton.addEventListener("click", () => createAppDocument("minutes"));
-  newLetterButton.addEventListener("click", () => createAppDocument("letter"));
   newTemplateButton.addEventListener("click", createTemplate);
   createFromTemplateButton.addEventListener("click", createDocumentFromTemplate);
   editorForm.addEventListener("submit", saveActiveDocument);
