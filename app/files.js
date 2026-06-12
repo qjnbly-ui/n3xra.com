@@ -336,6 +336,7 @@ function renderFiles() {
     const actionButtons = [];
     if (capabilities.canEditDocuments) {
       actionButtons.push(`<button class="btn secondary" type="button" data-action="edit" data-id="${doc.id}">Edit</button>`);
+      actionButtons.push(`<button class="btn secondary" type="button" data-action="make-editable" data-id="${doc.id}">Make editable</button>`);
     }
     if (capabilities.canDownloadDocuments) {
       actionButtons.push(`<button class="btn secondary" type="button" data-action="download" data-id="${doc.id}">Download</button>`);
@@ -618,6 +619,67 @@ async function togglePublic(documentId) {
   await loadDocuments();
 }
 
+function textToDocumentBlocks(text) {
+  const paragraphs = String(text || "")
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  return {
+    type: "records_document",
+    version: 1,
+    blocks: paragraphs.length
+      ? paragraphs.map((line) => ({ type: "paragraph", text: line }))
+      : [{ type: "paragraph", text: "" }],
+  };
+}
+
+async function makeFileEditable(documentId) {
+  if (!getActiveCapabilities().canEditDocuments) {
+    setStatus(fileStatus, "You do not have permission to create editable documents in this library.", "error");
+    return;
+  }
+
+  setStatus(fileStatus, "Creating editable document...");
+  const { data: sourceDoc, error: sourceError } = await supabase
+    .from("documents")
+    .select("id, organization_id, title, original_filename, extracted_text")
+    .eq("id", documentId)
+    .single();
+
+  if (sourceError || !sourceDoc) {
+    setStatus(fileStatus, sourceError?.message || "Unable to load source file text.", "error");
+    return;
+  }
+
+  const contentJson = textToDocumentBlocks(sourceDoc.extracted_text || "");
+  const plainText = String(sourceDoc.extracted_text || "").trim();
+  const title = sourceDoc.title || String(sourceDoc.original_filename || "Untitled document").replace(/\.[^.]+$/, "");
+  const { data, error } = await supabase
+    .from("app_documents")
+    .insert({
+      organization_id: sourceDoc.organization_id,
+      source_document_id: sourceDoc.id,
+      created_by_user_id: currentSession.user.id,
+      title,
+      content_json: contentJson,
+      plain_text: plainText,
+      status: "draft",
+    })
+    .select("id")
+    .single();
+
+  if (error) {
+    const message = String(error.message || "").toLowerCase().includes("app_documents")
+      ? "Run the app_documents migration before converting files to editable documents."
+      : error.message;
+    setStatus(fileStatus, message, "error");
+    return;
+  }
+
+  window.location.href = `./documents.html?id=${encodeURIComponent(data.id)}`;
+}
+
 async function handleFileAction(event) {
   const target = event.target;
   if (!(target instanceof Element)) return;
@@ -648,6 +710,7 @@ async function handleFileAction(event) {
     if (action === "share") await shareFile(id);
     if (action === "delete") openDeleteConfirm(id);
     if (action === "toggle-public") await togglePublic(id);
+    if (action === "make-editable") await makeFileEditable(id);
     return;
   }
 

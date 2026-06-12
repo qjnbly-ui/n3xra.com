@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>N3XRA Records Documents</title>
+  <meta name="description" content="Create, edit, and send documents inside N3XRA Records.">
+  <meta name="robots" content="noindex, nofollow, noarchive, nosnippet" />
+  <link rel="canonical" href="https://n3xra.com/app/documents" />
+  <meta name="application-name" content="N3XRA Records" />
+  <meta name="apple-mobile-web-app-title" content="N3XRA Records" />
+  <meta name="theme-color" content="#070c12" />
+  <link rel="manifest" href="./site.webmanifest">
+  <link rel="icon" type="image/png" href="../assets/n3xra_logo_transparent_small.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="shell documents-shell">
+    <header class="topbar">
+      <div class="topbar-inner">
+        <div class="topbar-row dashboard-topbar-row">
+          <div class="brand">
+            <img class="brand-badge brand-badge-image" src="../assets/n3xra_logo_transparent.png" alt="n3xra.com logo">
+          </div>
+          <button class="topbar-logout" id="mobile-logout-button" type="button">Logout</button>
+          <button class="menu-toggle" id="mobile-menu-toggle" type="button" aria-expanded="false" aria-controls="mobile-menu" aria-label="Open menu">
+            <span></span>
+            <span></span>
+            <span></span>
+          </button>
+        </div>
+        <div class="mobile-menu hidden" id="mobile-menu">
+          <div class="mobile-menu-head">
+            <p class="mobile-menu-title">Navigate</p>
+          </div>
+          <button class="mobile-menu-link" id="mobile-menu-account" type="button">Account</button>
+          <button class="mobile-menu-link is-active" id="mobile-menu-library" type="button">Library</button>
+          <a class="mobile-menu-link button-link" href="./files.html">Files</a>
+          <a class="mobile-menu-link button-link hidden" id="mobile-menu-recordings-link" href="./recordings.html">Recordings</a>
+        </div>
+      </div>
+    </header>
+
+    <main class="main">
+      <section class="panel stack hidden" id="setup-panel">
+        <div class="panel-head">
+          <div>
+            <h2>Connect Supabase</h2>
+            <p>Add your project URL and anon key in <code class="inline">app/config.js</code> before using the app.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel stack hidden" id="documents-panel">
+        <div class="panel-head documents-page-head">
+          <div>
+            <h2>Documents</h2>
+            <p>Create, edit, and send app-native documents for the active library.</p>
+          </div>
+          <div class="actions">
+            <a class="btn secondary button-link" href="./files.html">Files</a>
+            <a class="btn secondary button-link" href="./dashboard.html?section=library">Back to records</a>
+          </div>
+        </div>
+
+        <div class="notice hidden" id="documents-no-access-notice">
+          <strong>No library access right now.</strong> Create or join a library before editing documents.
+        </div>
+
+        <div class="grid-3" id="documents-library-context">
+          <div class="field">
+            <label for="active-organization-select">Active library</label>
+            <select id="active-organization-select"></select>
+          </div>
+          <div class="field">
+            <span class="field-title">Your access</span>
+            <p class="account-value" id="active-membership-role">-</p>
+          </div>
+          <div class="field">
+            <span class="field-title">Editable documents</span>
+            <p class="account-value" id="app-document-count">0</p>
+          </div>
+        </div>
+
+        <div class="document-create-bar">
+          <button class="btn" id="new-document-button" type="button">New document</button>
+          <button class="btn secondary" id="new-minutes-button" type="button">Meeting minutes</button>
+          <button class="btn secondary" id="new-letter-button" type="button">Letter</button>
+        </div>
+
+        <div class="documents-workspace">
+          <aside class="document-sidebar" aria-label="Editable documents">
+            <div class="field">
+              <label for="document-search">Find document</label>
+              <input id="document-search" type="search" placeholder="Search title or text">
+            </div>
+            <div class="document-list" id="app-document-list"></div>
+            <p class="empty hidden" id="app-document-empty">No editable documents yet.</p>
+          </aside>
+
+          <section class="document-editor-panel" aria-label="Document editor">
+            <div class="document-editor-empty" id="document-editor-empty">
+              <p>Select a document or create a new one.</p>
+            </div>
+            <form class="document-editor hidden" id="document-editor-form">
+              <div class="document-editor-top">
+                <div class="field document-title-field">
+                  <label for="document-title">Title</label>
+                  <input id="document-title" type="text" maxlength="160" required>
+                </div>
+                <div class="field document-status-field">
+                  <label for="document-status">Status</label>
+                  <select id="document-status">
+                    <option value="draft">Draft</option>
+                    <option value="final">Final</option>
+                    <option value="archived">Archived</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="document-toolbar" aria-label="Formatting">
+                <button type="button" data-command="bold" aria-label="Bold">B</button>
+                <button type="button" data-command="italic" aria-label="Italic">I</button>
+                <button type="button" data-command="underline" aria-label="Underline">U</button>
+                <button type="button" data-block="h2">H2</button>
+                <button type="button" data-block="p">P</button>
+                <button type="button" data-command="insertUnorderedList">List</button>
+              </div>
+
+              <div class="document-page" id="document-editor" contenteditable="true" spellcheck="true" aria-label="Document body"></div>
+
+              <div class="document-editor-actions">
+                <button class="btn" id="document-save" type="submit">Save</button>
+                <button class="btn secondary" id="document-print" type="button">Print / PDF</button>
+                <button class="btn secondary" id="document-email" type="button">Email text</button>
+                <button class="btn warn" id="document-delete" type="button">Delete</button>
+              </div>
+              <p class="status" id="document-editor-status"></p>
+            </form>
+          </section>
+        </div>
+        <p class="status" id="documents-status"></p>
+      </section>
+    </main>
+  </div>
+
+  <script src="./config.js"></script>
+  <script type="module" src="./documents.js"></script>
+</body>
+</html>
