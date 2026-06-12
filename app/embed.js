@@ -323,7 +323,7 @@ async function openFile(documentId) {
   const signed = await fetchPublicFileUrls(documentId, "view");
   if (!signed) return;
   const downloadSigned = await fetchPublicFileUrls(documentId, "download");
-  const { doc, previewUrl, signedUrl } = signed;
+  const { doc: signedDoc, previewUrl, signedUrl } = signed;
 
   activeModalDocumentId = documentId;
   openFilePreviewModal(
@@ -335,7 +335,7 @@ async function openFile(documentId) {
       openTabLink: fileModalOpenTab,
     },
     {
-      doc,
+      doc: signedDoc,
       previewUrl,
       fallbackUrl: signedUrl,
       downloadUrl: downloadSigned?.signedUrl || signedUrl,
