@@ -1160,6 +1160,10 @@ async function makeFileEditable(documentId) {
     setStatus(fileStatus, sourceError?.message || "Unable to load source file text.", "error");
     return;
   }
+  if (!isDocxDocument(sourceDoc) && !String(sourceDoc.extracted_text || "").trim()) {
+    setStatus(fileStatus, "This file has no extracted text yet. Run OCR before making it editable.", "error");
+    return;
+  }
 
   let conversion = null;
   try {

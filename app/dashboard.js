@@ -287,6 +287,8 @@ let pendingInviteEmailCode = "";
 let pendingInputResolve = null;
 const recordsHelpHistory = [];
 const RECORDS_HELP_HISTORY_LIMIT = 8;
+let pdfJsLibraryPromise = null;
+
 function getInitialSection() {
   const params = new URLSearchParams(window.location.search);
   const explicitSection = params.get("section");
@@ -1079,12 +1081,13 @@ function resetUploadFeedback() {
 }
 
 function getUploadSupportCopy(isBatch) {
-  const supported = '<code class="inline">.docx</code>, <code class="inline">.txt</code>, <code class="inline">.md</code>, <code class="inline">.csv</code>, <code class="inline">.json</code>, <code class="inline">.html</code>.';
+  const supported = '<code class="inline">.pdf</code>, <code class="inline">.docx</code>, <code class="inline">.txt</code>, <code class="inline">.md</code>, <code class="inline">.csv</code>, <code class="inline">.json</code>, <code class="inline">.html</code>.';
+  const pdfNote = 'PDFs with selectable text become searchable. Scanned PDFs upload as records but need OCR before search or editing.';
   const legacyDocNote = 'Legacy <code class="inline">.doc</code> files must be converted to <code class="inline">.docx</code> before upload.';
   if (isBatch) {
-    return `Supported in this first pass: ${supported} Batch mode reads both file selection and folder import and auto-detects year/month from filenames when available (private by default). ${legacyDocNote}`;
+    return `Supported in this pass: ${supported} ${pdfNote} Batch mode reads both file selection and folder import and auto-detects year/month from filenames when available (private by default). ${legacyDocNote}`;
   }
-  return `Supported in this first pass: ${supported} ${legacyDocNote}`;
+  return `Supported in this pass: ${supported} ${pdfNote} ${legacyDocNote}`;
 }
 
 async function insertDocumentRecord(record, userId) {
@@ -1675,9 +1678,64 @@ async function extractDocxText(file) {
   );
 }
 
+function isPdfFile(file) {
+  return file?.type === "application/pdf" || /\.pdf$/i.test(file?.name || "");
+}
+
+function createPdfNeedsOcrError() {
+  const error = new Error("No selectable text found. This PDF is likely scanned and needs OCR before search or editing.");
+  error.code = "pdf-needs-ocr";
+  return error;
+}
+
+function isPdfNeedsOcrError(error) {
+  return error?.code === "pdf-needs-ocr";
+}
+
+async function getPdfJsLibrary() {
+  if (!pdfJsLibraryPromise) {
+    pdfJsLibraryPromise = import("https://esm.sh/pdfjs-dist@4.10.38/build/pdf.mjs").then((module) => {
+      module.GlobalWorkerOptions.workerSrc = "https://esm.sh/pdfjs-dist@4.10.38/build/pdf.worker.mjs";
+      return module;
+    });
+  }
+  return pdfJsLibraryPromise;
+}
+
+async function extractPdfText(file) {
+  const pdfjsLib = await getPdfJsLibrary();
+  const buffer = await file.arrayBuffer();
+  const loadingTask = pdfjsLib.getDocument({
+    data: new Uint8Array(buffer),
+    disableFontFace: true,
+  });
+  const pdf = await loadingTask.promise;
+  const pageTexts = [];
+
+  try {
+    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+      const page = await pdf.getPage(pageNumber);
+      const textContent = await page.getTextContent();
+      const pageText = (textContent.items || [])
+        .map((item) => String(item?.str || "").trim())
+        .filter(Boolean)
+        .join(" ");
+      if (pageText) pageTexts.push(pageText);
+      page.cleanup?.();
+    }
+  } finally {
+    await pdf.destroy?.();
+  }
+
+  const text = cleanWhitespace(pageTexts.join("\n\n"));
+  if (!text || text.length < 12) throw createPdfNeedsOcrError();
+  return text;
+}
+
 async function extractTextFromFile(file) {
   const lowerName = file.name.toLowerCase();
   if (lowerName.endsWith(".docx")) return extractDocxText(file);
+  if (isPdfFile(file)) return extractPdfText(file);
   if (
     lowerName.endsWith(".txt") ||
     lowerName.endsWith(".md") ||
@@ -1691,10 +1749,7 @@ async function extractTextFromFile(file) {
   if (lowerName.endsWith(".doc")) {
     throw new Error("Legacy .doc files are not supported in the browser version. Convert them to .docx first.");
   }
-  if (lowerName.endsWith(".pdf")) {
-    throw new Error("PDF extraction is not set up in the browser version yet. Start with .docx or plain-text files.");
-  }
-  throw new Error("Unsupported file type. Use .docx, .txt, .md, .csv, .json, or .html.");
+  throw new Error("Unsupported file type. Use .pdf, .docx, .txt, .md, .csv, .json, or .html.");
 }
 
 function snippetFromText(text, query) {
@@ -2515,6 +2570,13 @@ function updateYearFilterOptions() {
   });
 }
 
+function getDocumentStatusLabel(doc) {
+  const status = doc?.status || "uploaded";
+  const processingError = String(doc?.processing_error || "").toLowerCase();
+  if (status === "failed" && processingError.includes("ocr")) return "Needs OCR";
+  return status;
+}
+
 function renderDocuments() {
   if (searchMode === "ai") {
     renderAiSearchIdle();
@@ -2554,7 +2616,7 @@ function renderDocuments() {
           <p class="doc-title">${escapeHtml(getDocumentDisplayTitle(doc))}</p>
           <p class="doc-subtitle">${escapeHtml(buildDocumentMetadata(doc, { includeVisibility: true, includeYearLabel: true, createdAtWithTime: true }))}</p>
         </div>
-        <span class="doc-status">${escapeHtml(doc.status || "uploaded")}</span>
+        <span class="doc-status">${escapeHtml(getDocumentStatusLabel(doc))}</span>
       </div>
       <p class="doc-snippet">${snippetFromText(doc.extracted_text || "", query)}</p>
       <div class="doc-actions">
@@ -4112,6 +4174,7 @@ async function uploadDocument(event) {
   }
 
   let successCount = 0;
+  let needsOcrCount = 0;
   const failedFiles = [];
 
   try {
@@ -4130,13 +4193,25 @@ async function uploadDocument(event) {
 
       setStatus(uploadStatus, `${stepLabel} Extracting ${fileLabel(file)}...`);
       let extractedText = "";
+      let documentStatus = "ready";
+      let processingError = null;
+      let uploadTone = "uploaded";
+      let uploadMessage = "Saved with extracted text.";
       try {
         extractedText = await extractTextFromFile(file);
       } catch (error) {
         const message = error instanceof Error ? error.message : "Text extraction failed.";
-        failedFiles.push(`${fileLabel(file)}: ${message}`);
-        appendUploadResult(fileLabel(file), "failed", message);
-        continue;
+        if (isPdfFile(file) && isPdfNeedsOcrError(error)) {
+          documentStatus = "failed";
+          processingError = message;
+          uploadTone = "needs-ocr";
+          uploadMessage = "Uploaded. OCR is needed before this PDF can be searched or edited.";
+          needsOcrCount += 1;
+        } else {
+          failedFiles.push(`${fileLabel(file)}: ${message}`);
+          appendUploadResult(fileLabel(file), "failed", message);
+          continue;
+        }
       }
 
       setStatus(uploadStatus, `${stepLabel} Uploading ${fileLabel(file)}...`);
@@ -4157,8 +4232,8 @@ async function uploadDocument(event) {
         year,
         month,
         is_public: isPublic,
-        status: "ready",
-        processing_error: null,
+        status: documentStatus,
+        processing_error: processingError,
         extracted_text: extractedText,
       }, currentSession.user.id);
 
@@ -4170,7 +4245,7 @@ async function uploadDocument(event) {
       }
 
       successCount += 1;
-      appendUploadResult(fileLabel(file), "uploaded", "Saved with extracted text.");
+      appendUploadResult(fileLabel(file), uploadTone, uploadMessage);
     }
 
     uploadForm.reset();
@@ -4182,13 +4257,16 @@ async function uploadDocument(event) {
     if (skippedForLimit > 0) {
       summaryParts.push(`${skippedForLimit} skipped due to plan limit.`);
     }
+    if (needsOcrCount > 0) {
+      summaryParts.push(`${needsOcrCount} PDF${needsOcrCount === 1 ? "" : "s"} need OCR before search or editing.`);
+    }
     if (failedFiles.length > 0) {
       const failurePreview = failedFiles.slice(0, 3).join(" | ");
       const failureTail = failedFiles.length > 3 ? ` | +${failedFiles.length - 3} more failure(s)` : "";
       summaryParts.push(`Failed: ${failurePreview}${failureTail}`);
     }
 
-    setStatus(uploadStatus, summaryParts.join(" "), failedFiles.length > 0 || skippedForLimit > 0 ? "error" : "success");
+    setStatus(uploadStatus, summaryParts.join(" "), failedFiles.length > 0 || skippedForLimit > 0 || needsOcrCount > 0 ? "error" : "success");
   } finally {
     if (submitButton instanceof HTMLButtonElement) {
       submitButton.disabled = false;

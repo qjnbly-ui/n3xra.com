@@ -702,6 +702,11 @@ textarea {
   color: var(--ink-soft);
 }
 
+.upload-result-tone.needs-ocr {
+  background: rgba(234, 155, 63, 0.18);
+  color: #9a5c00;
+}
+
 .upload-result-name {
   font-weight: 700;
   color: var(--ink);

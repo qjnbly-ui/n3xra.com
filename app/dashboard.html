@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./styles.css?v=20260612-unified-records">
+  <link rel="stylesheet" href="./styles.css?v=20260612-pdf-upload">
 </head>
 <body>
   <div class="shell">
@@ -803,7 +803,7 @@
       </div>
       <div class="settings-modal-body">
         <form class="stack" id="upload-form">
-          <p class="account-note" id="upload-mode-note">Supported in this first pass: <code class="inline">.docx</code>, <code class="inline">.txt</code>, <code class="inline">.md</code>, <code class="inline">.csv</code>, <code class="inline">.json</code>, <code class="inline">.html</code>.</p>
+          <p class="account-note" id="upload-mode-note">Supported in this pass: <code class="inline">.pdf</code>, <code class="inline">.docx</code>, <code class="inline">.txt</code>, <code class="inline">.md</code>, <code class="inline">.csv</code>, <code class="inline">.json</code>, <code class="inline">.html</code>. Scanned PDFs upload but need OCR before search or editing.</p>
           <div class="upload-mode-switch" role="tablist" aria-label="Upload mode">
             <button class="upload-mode-btn is-active" id="upload-mode-single" type="button" role="tab" aria-selected="true">Individual file</button>
             <button class="upload-mode-btn" id="upload-mode-batch" type="button" role="tab" aria-selected="false">Batch import</button>
@@ -824,11 +824,11 @@
           </div>
           <div class="field">
             <label for="upload-file" id="upload-file-label">File</label>
-            <input id="upload-file" type="file">
+            <input id="upload-file" type="file" accept=".pdf,.docx,.txt,.md,.csv,.json,.html,.htm,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown,text/csv,application/json,text/html">
           </div>
           <div class="field hidden" id="upload-folder-field">
             <label for="upload-folder">Folder (optional)</label>
-            <input id="upload-folder" type="file" webkitdirectory directory multiple>
+            <input id="upload-folder" type="file" webkitdirectory directory multiple accept=".pdf,.docx,.txt,.md,.csv,.json,.html,.htm,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown,text/csv,application/json,text/html">
           </div>
           <div class="field" id="upload-public-field">
             <label class="toggle-pill">
@@ -874,6 +874,6 @@
   </div>
 
   <script src="./config.js"></script>
-  <script type="module" src="./dashboard.js?v=20260612-unified-records"></script>
+  <script type="module" src="./dashboard.js?v=20260612-pdf-upload"></script>
 </body>
 </html>
