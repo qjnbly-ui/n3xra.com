@@ -168,9 +168,11 @@ create table if not exists public.meeting_recordings (
   organization_id uuid not null references public.organizations (id) on delete cascade,
   created_by_user_id uuid not null references auth.users (id) on delete cascade,
   document_id uuid references public.documents (id) on delete set null,
+  selected_template_id uuid references public.app_documents (id) on delete set null,
   title text not null,
   status text not null default 'created',
   transcript_status text not null default 'not_started',
+  ai_review_status text not null default 'not_started',
   started_at timestamptz,
   ended_at timestamptz,
   duration_seconds integer,
@@ -181,6 +183,13 @@ create table if not exists public.meeting_recordings (
   processing_error text,
   transcript_text text,
   transcript_generated_at timestamptz,
+  notes_content_json jsonb not null default '{"type":"doc","content":[{"type":"paragraph"}]}'::jsonb,
+  notes_plain_text text,
+  notes_updated_at timestamptz,
+  ai_review_json jsonb not null default '{}'::jsonb,
+  ai_reviewed_at timestamptz,
+  ai_draft_document_id uuid references public.app_documents (id) on delete set null,
+  final_document_id uuid references public.app_documents (id) on delete set null,
   metadata jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -188,6 +197,12 @@ create table if not exists public.meeting_recordings (
     check (status in ('created', 'recording', 'recorded', 'uploading', 'uploaded', 'transcribing', 'ready', 'failed')),
   constraint meeting_recordings_transcript_status_check
     check (transcript_status in ('not_started', 'queued', 'processing', 'ready', 'failed')),
+  constraint meeting_recordings_ai_review_status_check
+    check (ai_review_status in ('not_started', 'processing', 'ready', 'failed')),
+  constraint meeting_recordings_notes_content_json_object_check
+    check (jsonb_typeof(notes_content_json) = 'object'),
+  constraint meeting_recordings_ai_review_json_object_check
+    check (jsonb_typeof(ai_review_json) = 'object'),
   constraint meeting_recordings_duration_check
     check (duration_seconds is null or duration_seconds >= 0)
 );
@@ -209,7 +224,7 @@ create table if not exists public.records_ai_usage_events (
   total_tokens integer not null default 0,
   created_at timestamptz not null default now(),
   constraint records_ai_usage_events_feature_check
-    check (feature in ('help', 'search')),
+    check (feature in ('help', 'search', 'recording_notes')),
   constraint records_ai_usage_events_token_check
     check (prompt_tokens >= 0 and completion_tokens >= 0 and total_tokens >= 0)
 );
@@ -320,7 +335,11 @@ create index if not exists app_documents_updated_at_idx on public.app_documents 
 create index if not exists app_documents_search_tsv_idx on public.app_documents using gin (search_tsv);
 create index if not exists meeting_recordings_organization_id_idx on public.meeting_recordings (organization_id);
 create index if not exists meeting_recordings_created_by_user_id_idx on public.meeting_recordings (created_by_user_id);
+create index if not exists meeting_recordings_document_id_idx on public.meeting_recordings (document_id);
 create index if not exists meeting_recordings_created_at_idx on public.meeting_recordings (created_at desc);
+create index if not exists meeting_recordings_selected_template_id_idx on public.meeting_recordings (selected_template_id);
+create index if not exists meeting_recordings_ai_draft_document_id_idx on public.meeting_recordings (ai_draft_document_id);
+create index if not exists meeting_recordings_final_document_id_idx on public.meeting_recordings (final_document_id);
 create index if not exists records_ai_usage_events_org_created_at_idx on public.records_ai_usage_events (organization_id, created_at desc);
 create index if not exists records_ai_usage_events_user_created_at_idx on public.records_ai_usage_events (user_id, created_at desc);
 create index if not exists music_generations_user_id_idx on public.music_generations (user_id);

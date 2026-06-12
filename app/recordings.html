@@ -107,6 +107,31 @@
               <p class="field-note">Required for live recording. Uploads can use the file name if left blank.</p>
             </div>
 
+            <div class="recording-notes-grid">
+              <div class="field">
+                <label for="recording-template-select">Document template</label>
+                <select id="recording-template-select">
+                  <option value="">No template</option>
+                </select>
+                <p class="field-note">The template guides the notes and the after-meeting AI draft.</p>
+              </div>
+              <div class="recording-notes-state">
+                <span class="recording-stat-label">Notes</span>
+                <p class="recording-stat-value" id="recording-notes-state">Not saved yet</p>
+              </div>
+            </div>
+
+            <div class="field">
+              <label for="recording-notes">Notetaker notes</label>
+              <textarea id="recording-notes" rows="12" placeholder="Use this as the live notes section while the recording runs."></textarea>
+              <p class="field-note">These notes are preserved separately from the transcript. After the meeting, AI uses them as primary truth and the transcript as supporting detail.</p>
+            </div>
+
+            <div class="recording-note-actions">
+              <button class="btn secondary" id="save-recording-notes-button" type="button" disabled>Save notes</button>
+              <button class="btn secondary" id="apply-recording-template-button" type="button">Apply template to notes</button>
+            </div>
+
             <div class="recording-stats" aria-live="polite">
               <div class="recording-stat">
                 <span class="recording-stat-label">Recorder state</span>
@@ -177,6 +202,14 @@
             <p class="account-value" id="recording-detail-transcript-status">-</p>
           </div>
           <div class="account-item">
+            <span class="account-label">Template</span>
+            <p class="account-value" id="recording-detail-template">-</p>
+          </div>
+          <div class="account-item">
+            <span class="account-label">AI review</span>
+            <p class="account-value" id="recording-detail-ai-status">-</p>
+          </div>
+          <div class="account-item">
             <span class="account-label">Started</span>
             <p class="account-value" id="recording-detail-started-at">-</p>
           </div>
@@ -192,6 +225,30 @@
             <span class="account-label">Size</span>
             <p class="account-value" id="recording-detail-size">-</p>
           </div>
+        </div>
+        <div class="recording-detail-section">
+          <div class="panel-head compact-head">
+            <div>
+              <h4>Notetaker notes</h4>
+              <p>Original notes are kept even if the AI draft is not useful.</p>
+            </div>
+          </div>
+          <pre class="recording-notes-preview" id="recording-detail-notes">No notes saved yet.</pre>
+        </div>
+        <div class="recording-detail-section hidden" id="recording-ai-review-panel">
+          <div class="panel-head compact-head">
+            <div>
+              <h4>AI review</h4>
+              <p>Suggested additions and conflicts found after comparing notes with the transcript.</p>
+            </div>
+          </div>
+          <div class="recording-review-list" id="recording-ai-suggestions"></div>
+          <div class="recording-review-list" id="recording-ai-conflicts"></div>
+        </div>
+        <div class="actions">
+          <button class="btn secondary" id="recording-detail-ai-review" type="button">Review with AI</button>
+          <a class="btn secondary button-link hidden" id="recording-detail-ai-draft" href="./documents.html" rel="noopener">Open AI draft</a>
+          <a class="btn secondary button-link hidden" id="recording-detail-transcript-document" href="./files.html" rel="noopener">Open transcript</a>
         </div>
         <p class="status" id="recording-detail-status-message"></p>
       </div>

@@ -25,6 +25,11 @@ const activeOrganizationName = document.getElementById("active-organization-name
 const activeMembershipRole = document.getElementById("active-membership-role");
 const recordingCount = document.getElementById("recording-count");
 const recordingTitleInput = document.getElementById("recording-title");
+const recordingTemplateSelect = document.getElementById("recording-template-select");
+const recordingNotesInput = document.getElementById("recording-notes");
+const recordingNotesState = document.getElementById("recording-notes-state");
+const saveRecordingNotesButton = document.getElementById("save-recording-notes-button");
+const applyRecordingTemplateButton = document.getElementById("apply-recording-template-button");
 const recordingFileInput = document.getElementById("recording-file-input");
 const recordingFileCopy = document.getElementById("recording-file-copy");
 const recorderStateLabel = document.getElementById("recorder-state-label");
@@ -53,10 +58,19 @@ const recordingUploadStatus = document.getElementById("recording-upload-status")
 const recordingDetailTitle = document.getElementById("recording-detail-title");
 const recordingDetailStatus = document.getElementById("recording-detail-status");
 const recordingDetailTranscriptStatus = document.getElementById("recording-detail-transcript-status");
+const recordingDetailTemplate = document.getElementById("recording-detail-template");
+const recordingDetailAiStatus = document.getElementById("recording-detail-ai-status");
 const recordingDetailStartedAt = document.getElementById("recording-detail-started-at");
 const recordingDetailEndedAt = document.getElementById("recording-detail-ended-at");
 const recordingDetailDuration = document.getElementById("recording-detail-duration");
 const recordingDetailSize = document.getElementById("recording-detail-size");
+const recordingDetailNotes = document.getElementById("recording-detail-notes");
+const recordingAiReviewPanel = document.getElementById("recording-ai-review-panel");
+const recordingAiSuggestions = document.getElementById("recording-ai-suggestions");
+const recordingAiConflicts = document.getElementById("recording-ai-conflicts");
+const recordingDetailAiReview = document.getElementById("recording-detail-ai-review");
+const recordingDetailAiDraft = document.getElementById("recording-detail-ai-draft");
+const recordingDetailTranscriptDocument = document.getElementById("recording-detail-transcript-document");
 const recordingDetailStatusMessage = document.getElementById("recording-detail-status-message");
 const recordingsConfirmModal = document.getElementById("recordings-confirm-modal");
 const recordingsConfirmCancel = document.getElementById("recordings-confirm-cancel");
@@ -76,6 +90,7 @@ let currentSession = null;
 let memberships = [];
 let activeMembership = null;
 let recordingsCache = [];
+let recordingTemplates = [];
 let totalRecordingCount = 0;
 let mediaRecorder = null;
 let activeStream = null;
@@ -90,6 +105,9 @@ let isRecordingWorkflowActive = false;
 let pendingRetryUploadOpen = false;
 let isRetryUploadMode = false;
 let pendingRecordingsConfirmResolve = null;
+let recordingNotesSaveTimer = null;
+let lastAppliedTemplateId = "";
+let recordingWorkflowSchemaAvailable = true;
 
 function buildAllRecordingsDetailHref(recordingId) {
   const params = new URLSearchParams();
@@ -177,6 +195,109 @@ function getErrorMessage(error, fallback) {
     return error.message;
   }
   return fallback;
+}
+
+function isMissingRecordingWorkflowSchemaError(error) {
+  const message = String(error?.message || "").toLowerCase();
+  return (
+    message.includes("selected_template_id") ||
+    message.includes("notes_content_json") ||
+    message.includes("ai_review_status") ||
+    message.includes("ai_review_json") ||
+    message.includes("ai_draft_document_id") ||
+    message.includes("schema cache")
+  );
+}
+
+function textFromTiptapNode(node) {
+  if (!node || typeof node !== "object") return "";
+  if (node.type === "text") return node.text || "";
+  if (node.type === "hardBreak") return "\n";
+  const children = Array.isArray(node.content) ? node.content.map(textFromTiptapNode).join("") : "";
+  if (["paragraph", "heading", "listItem"].includes(node.type)) return `${children.trim()}\n`;
+  if (node.type === "bulletList" || node.type === "orderedList") return `${children.trim()}\n`;
+  return children;
+}
+
+function plainTextFromContentJson(contentJson) {
+  return String(textFromTiptapNode(contentJson || {}))
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function noteTextToContentJson(text) {
+  const content = String(text || "")
+    .split(/\n{2,}/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean)
+    .map((paragraph) => ({
+      type: "paragraph",
+      content: [{ type: "text", text: paragraph }],
+    }));
+
+  return {
+    type: "doc",
+    content: content.length ? content : [{ type: "paragraph" }],
+  };
+}
+
+function getSelectedTemplate() {
+  const id = recordingTemplateSelect?.value || "";
+  return recordingTemplates.find((template) => template.id === id) || null;
+}
+
+function getTemplateLabel(templateId) {
+  if (!templateId) return "No template";
+  const template = recordingTemplates.find((item) => item.id === templateId);
+  return template?.title || "Template";
+}
+
+function getCurrentNotesPayload() {
+  const notesText = String(recordingNotesInput?.value || "").trim();
+  return {
+    selected_template_id: recordingTemplateSelect?.value || null,
+    notes_content_json: noteTextToContentJson(notesText),
+    notes_plain_text: notesText,
+    notes_updated_at: new Date().toISOString(),
+  };
+}
+
+function renderTemplateSelect() {
+  if (!recordingTemplateSelect) return;
+  const selectedValue = recordingTemplateSelect.value;
+  recordingTemplateSelect.innerHTML = '<option value="">No template</option>';
+  recordingTemplates.forEach((template) => {
+    const option = document.createElement("option");
+    option.value = template.id;
+    option.textContent = template.title || "Untitled template";
+    recordingTemplateSelect.append(option);
+  });
+  if (selectedValue && recordingTemplates.some((template) => template.id === selectedValue)) {
+    recordingTemplateSelect.value = selectedValue;
+  }
+}
+
+function applySelectedTemplateToNotes(force = false) {
+  const template = getSelectedTemplate();
+  if (!template) return;
+  const currentNotes = String(recordingNotesInput?.value || "").trim();
+  if (currentNotes && !force && lastAppliedTemplateId !== template.id) return;
+
+  const templateText = String(template.plain_text || plainTextFromContentJson(template.content_json || {})).trim();
+  if (!templateText) return;
+  recordingNotesInput.value = templateText;
+  lastAppliedTemplateId = template.id;
+  setStatus(recordingStatus, "Template copied into notes.");
+  queueActiveRecordingNotesSave();
+  updateControls();
+}
+
+function setRecordingNotesState(message, tone = "") {
+  if (!recordingNotesState) return;
+  recordingNotesState.textContent = message || "";
+  recordingNotesState.className = "recording-stat-value";
+  if (tone) recordingNotesState.classList.add(tone);
 }
 
 function setRecordingsConfirmModalOpen(isOpen) {
@@ -360,8 +481,12 @@ function updateControls() {
   show(stopRecordingButton, isCaptureActive);
   activeOrganizationSelect.disabled = hasActiveSession || memberships.length <= 1;
   recordingTitleInput.disabled = hasActiveSession;
+  recordingTemplateSelect.disabled = hasActiveSession || !recordingWorkflowSchemaAvailable;
+  recordingNotesInput.disabled = !canRecordInActiveOrganization() || !recordingWorkflowSchemaAvailable;
   recordingFileInput.disabled = hasActiveSession;
   recordingUploadSubmit.disabled = hasActiveSession || !Boolean(getSelectedRecordingFile());
+  saveRecordingNotesButton.disabled = !recordingWorkflowSchemaAvailable || !activeRecordingId;
+  applyRecordingTemplateButton.disabled = !recordingWorkflowSchemaAvailable || !recordingTemplateSelect.value;
 }
 
 function getRecordingById(recordingId) {
@@ -479,6 +604,40 @@ async function bootstrapAccess() {
   renderOrganizationSelector();
 }
 
+async function loadRecordingTemplates() {
+  const organization = getActiveOrganization();
+  recordingTemplates = [];
+  renderTemplateSelect();
+  if (!organization) return;
+
+  const { data, error } = await supabase
+    .from("app_documents")
+    .select("id, title, content_json, plain_text, updated_at, created_at")
+    .eq("organization_id", organization.id)
+    .eq("document_kind", "template")
+    .order("updated_at", { ascending: false });
+
+  if (error) {
+    recordingTemplates = [];
+    renderTemplateSelect();
+    return;
+  }
+
+  recordingTemplates = Array.isArray(data) ? data : [];
+  renderTemplateSelect();
+  updateControls();
+}
+
+function mergeRecordingUpdate(recording) {
+  if (!recording?.id) return;
+  const index = recordingsCache.findIndex((item) => item.id === recording.id);
+  if (index === -1) return;
+  recordingsCache[index] = {
+    ...recordingsCache[index],
+    ...recording,
+  };
+}
+
 async function loadRecordings() {
   const organization = getActiveOrganization();
   if (!organization) {
@@ -490,13 +649,16 @@ async function loadRecordings() {
   }
 
   setStatus(recordingsListStatus, "Loading recordings...");
-  const { data, error, count } = await supabase
+  let { data, error, count } = await supabase
     .from("meeting_recordings")
     .select(`
       id,
+      document_id,
       title,
       status,
       transcript_status,
+      ai_review_status,
+      selected_template_id,
       started_at,
       ended_at,
       duration_seconds,
@@ -504,11 +666,45 @@ async function loadRecordings() {
       audio_mime_type,
       file_size,
       processing_error,
+      notes_plain_text,
+      ai_review_json,
+      ai_draft_document_id,
+      final_document_id,
       created_at
     `, { count: "exact" })
     .eq("organization_id", organization.id)
     .order("created_at", { ascending: false })
     .limit(3);
+
+  if (error && isMissingRecordingWorkflowSchemaError(error)) {
+    recordingWorkflowSchemaAvailable = false;
+    const fallback = await supabase
+      .from("meeting_recordings")
+      .select(`
+        id,
+        document_id,
+        title,
+        status,
+        transcript_status,
+        started_at,
+        ended_at,
+        duration_seconds,
+        storage_path,
+        audio_mime_type,
+        file_size,
+        processing_error,
+        created_at
+      `, { count: "exact" })
+      .eq("organization_id", organization.id)
+      .order("created_at", { ascending: false })
+      .limit(3);
+    data = fallback.data;
+    error = fallback.error;
+    count = fallback.count;
+    setRecordingNotesState("Migration needed", "error");
+  } else {
+    recordingWorkflowSchemaAvailable = true;
+  }
 
   if (error) {
     recordingsCache = [];
@@ -551,6 +747,8 @@ function renderRecordings() {
           <div class="recording-row-details">
             <span>${escapeHtml(formatDuration(recording.duration_seconds || 0))}</span>
             <span>${escapeHtml(formatBytes(recording.file_size || 0))}</span>
+            <span>${escapeHtml(formatRecordingStatus(recording.transcript_status))} transcript</span>
+            <span>${escapeHtml(formatRecordingStatus(recording.ai_review_status || "not_started"))} AI review</span>
           </div>
           ${errorCopy}
         </article>
@@ -559,14 +757,58 @@ function renderRecordings() {
     .join("");
 }
 
+function renderReviewItems(container, title, items, emptyCopy) {
+  if (!container) return;
+  const safeItems = Array.isArray(items) ? items : [];
+  container.innerHTML = `
+    <p class="recording-review-title">${escapeHtml(title)}</p>
+    ${
+      safeItems.length
+        ? safeItems.map((item) => `
+            <article class="recording-review-item">
+              <p>${escapeHtml(item?.text || item?.note || item?.issue || "")}</p>
+              ${item?.reason ? `<span>${escapeHtml(item.reason)}</span>` : ""}
+            </article>
+          `).join("")
+        : `<p class="empty">${escapeHtml(emptyCopy)}</p>`
+    }
+  `;
+}
+
+function renderAiReview(review) {
+  const hasReview = review && typeof review === "object" && (Array.isArray(review.suggested_additions) || Array.isArray(review.conflicts));
+  show(recordingAiReviewPanel, Boolean(hasReview));
+  if (!hasReview) {
+    if (recordingAiSuggestions) recordingAiSuggestions.innerHTML = "";
+    if (recordingAiConflicts) recordingAiConflicts.innerHTML = "";
+    return;
+  }
+
+  renderReviewItems(recordingAiSuggestions, "Suggested additions", review.suggested_additions, "No additions suggested.");
+  renderReviewItems(recordingAiConflicts, "Possible conflicts", review.conflicts, "No conflicts found.");
+}
+
 function populateRecordingDetails(recording) {
   recordingDetailTitle.textContent = recording.title || "Untitled recording";
   recordingDetailStatus.textContent = formatRecordingStatus(recording.status);
   recordingDetailTranscriptStatus.textContent = formatRecordingStatus(recording.transcript_status);
+  recordingDetailTemplate.textContent = getTemplateLabel(recording.selected_template_id || "");
+  recordingDetailAiStatus.textContent = formatRecordingStatus(recording.ai_review_status || "not_started");
   recordingDetailStartedAt.textContent = formatDateTime(recording.started_at || recording.created_at);
   recordingDetailEndedAt.textContent = recording.ended_at ? formatDateTime(recording.ended_at) : "Not finished";
   recordingDetailDuration.textContent = formatDuration(recording.duration_seconds || 0);
   recordingDetailSize.textContent = formatBytes(recording.file_size || 0);
+  recordingDetailNotes.textContent = String(recording.notes_plain_text || "").trim() || "No notes saved yet.";
+  show(recordingDetailTranscriptDocument, Boolean(recording.document_id));
+  if (recording.document_id) {
+    recordingDetailTranscriptDocument.href = `./files.html?id=${encodeURIComponent(recording.document_id)}`;
+  }
+  show(recordingDetailAiDraft, Boolean(recording.ai_draft_document_id));
+  if (recording.ai_draft_document_id) {
+    recordingDetailAiDraft.href = `./documents.html?id=${encodeURIComponent(recording.ai_draft_document_id)}`;
+  }
+  renderAiReview(recording.ai_review_json || null);
+  recordingDetailAiReview.disabled = !recordingWorkflowSchemaAvailable || recording.transcript_status !== "ready";
   setStatus(recordingDetailStatusMessage, recording.processing_error || "");
 }
 
@@ -599,6 +841,32 @@ async function updateMeetingRecording(recordingId, patch) {
   if (error) throw error;
 }
 
+async function saveActiveRecordingNotes() {
+  if (!activeRecordingId || !recordingWorkflowSchemaAvailable) return;
+  const payload = getCurrentNotesPayload();
+  setRecordingNotesState("Saving...");
+  await updateMeetingRecording(activeRecordingId, payload);
+  setRecordingNotesState("Saved", "success");
+}
+
+function queueActiveRecordingNotesSave() {
+  if (recordingNotesSaveTimer) {
+    window.clearTimeout(recordingNotesSaveTimer);
+  }
+  if (!activeRecordingId || !recordingWorkflowSchemaAvailable) {
+    setRecordingNotesState(recordingNotesInput?.value?.trim() ? "Ready for start" : "Not saved yet");
+    updateControls();
+    return;
+  }
+  setRecordingNotesState("Unsaved");
+  recordingNotesSaveTimer = window.setTimeout(() => {
+    void saveActiveRecordingNotes().catch((error) => {
+      setRecordingNotesState("Save failed", "error");
+      setStatus(recordingStatus, getErrorMessage(error, "Unable to save notes."), "error");
+    });
+  }, 900);
+}
+
 async function requestRecordingTranscription(recordingId) {
   const accessToken = await getFreshAccessToken();
   if (!accessToken) throw new Error("Your session expired. Sign in again and retry.");
@@ -616,6 +884,52 @@ async function requestRecordingTranscription(recordingId) {
   return data;
 }
 
+async function requestRecordingAiReview(recordingId) {
+  const accessToken = await getFreshAccessToken();
+  if (!accessToken) throw new Error("Your session expired. Sign in again and retry.");
+
+  const response = await fetch("/api/finalize-recording-notes", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({ recordingId }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data?.error || "Unable to review recording notes.");
+  return data;
+}
+
+async function handleRecordingAiReview(recordingId) {
+  const recording = getRecordingById(recordingId);
+  if (!recording) return;
+  if (recording.transcript_status !== "ready") {
+    setStatus(recordingDetailStatusMessage, "The transcript must be ready before AI can review this recording.", "error");
+    return;
+  }
+
+  recordingDetailAiReview.disabled = true;
+  recordingDetailAiStatus.textContent = "Processing";
+  setStatus(recordingDetailStatusMessage, "Reviewing notes against the transcript...");
+
+  try {
+    const result = await requestRecordingAiReview(recording.id);
+    if (result?.recording) {
+      mergeRecordingUpdate(result.recording);
+      populateRecordingDetails(getRecordingById(recording.id) || result.recording);
+      renderRecordings();
+    }
+    setStatus(recordingDetailStatusMessage, "AI draft is ready.", "success");
+  } catch (error) {
+    recordingDetailAiStatus.textContent = "Failed";
+    setStatus(recordingDetailStatusMessage, getErrorMessage(error, "Unable to review recording notes."), "error");
+  } finally {
+    const updated = getRecordingById(recording.id) || recording;
+    recordingDetailAiReview.disabled = !recordingWorkflowSchemaAvailable || updated.transcript_status !== "ready";
+  }
+}
+
 async function createMeetingRecording(title) {
   const organization = getActiveOrganization();
   if (!organization) {
@@ -628,6 +942,7 @@ async function createMeetingRecording(title) {
     title,
     status: "created",
     transcript_status: "not_started",
+    ...(recordingWorkflowSchemaAvailable ? getCurrentNotesPayload() : {}),
     metadata: {
       source: "browser_media_recorder",
     },
@@ -754,6 +1069,13 @@ async function finalizeRecording() {
       file_size: blob.size,
       processing_error: null,
     });
+    try {
+      await saveActiveRecordingNotes();
+    } catch (error) {
+      const notesError = getErrorMessage(error, "Notes could not be saved.");
+      setRecordingNotesState("Save failed", "error");
+      setStatus(recordingStatus, `${notesError} Audio upload will continue.`, "error");
+    }
 
     await uploadRecordingBlob(recordingId, title, blob, blob.type || activeRecordingMimeType || "audio/webm", durationSeconds);
   } catch (error) {
@@ -769,6 +1091,10 @@ async function finalizeRecording() {
     recordingStartedAt = null;
     elapsedRecordingMs = 0;
     recordingTitleInput.value = "";
+    recordingTemplateSelect.value = "";
+    recordingNotesInput.value = "";
+    lastAppliedTemplateId = "";
+    setRecordingNotesState("Not saved yet");
     clearRecorderStats();
     updateControls();
     await loadRecordings();
@@ -804,6 +1130,8 @@ async function handleStartRecording() {
   try {
     createdRecording = await createMeetingRecording(title);
     activeRecordingId = createdRecording.id;
+    setRecordingNotesState(recordingWorkflowSchemaAvailable ? "Saved" : "Migration needed", recordingWorkflowSchemaAvailable ? "success" : "error");
+    updateControls();
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     activeStream = stream;
     activeChunks = [];
@@ -911,6 +1239,8 @@ async function handleUploadRecording() {
     createdRecording = await createMeetingRecording(title);
     activeRecordingId = createdRecording.id;
     activeRecordingMimeType = file.type || "audio/mpeg";
+    setRecordingNotesState(recordingWorkflowSchemaAvailable ? "Saved" : "Migration needed", recordingWorkflowSchemaAvailable ? "success" : "error");
+    updateControls();
 
     recordingDuration.textContent = formatDuration(durationSeconds);
     await updateMeetingRecording(createdRecording.id, {
@@ -949,6 +1279,10 @@ async function handleUploadRecording() {
     activeRecordingId = "";
     activeRecordingMimeType = "";
     recordingTitleInput.value = "";
+    recordingTemplateSelect.value = "";
+    recordingNotesInput.value = "";
+    lastAppliedTemplateId = "";
+    setRecordingNotesState("Not saved yet");
     clearRecorderStats();
     updateControls();
     await loadRecordings();
@@ -998,6 +1332,11 @@ async function handleOrganizationChange(nextOrganizationId) {
   if (recordingDetailModal.classList.contains("is-open")) {
     closeRecordingDetail();
   }
+  recordingTemplateSelect.value = "";
+  recordingNotesInput.value = "";
+  lastAppliedTemplateId = "";
+  setRecordingNotesState("Not saved yet");
+  await loadRecordingTemplates();
   await loadRecordings();
 }
 
@@ -1047,6 +1386,7 @@ async function init() {
   show(setupPanel, false);
   show(recordingsPanel, true);
   updateControls();
+  await loadRecordingTemplates();
   await loadRecordings();
 
   if (!window.MediaRecorder || !navigator.mediaDevices?.getUserMedia) {
@@ -1067,6 +1407,21 @@ async function init() {
     updateSelectedFileCopy();
     updateControls();
     setStatus(recordingUploadStatus, "");
+  });
+  recordingTemplateSelect.addEventListener("change", () => {
+    applySelectedTemplateToNotes(false);
+    queueActiveRecordingNotesSave();
+    updateControls();
+  });
+  recordingNotesInput.addEventListener("input", queueActiveRecordingNotesSave);
+  saveRecordingNotesButton.addEventListener("click", () => {
+    void saveActiveRecordingNotes().catch((error) => {
+      setRecordingNotesState("Save failed", "error");
+      setStatus(recordingStatus, getErrorMessage(error, "Unable to save notes."), "error");
+    });
+  });
+  applyRecordingTemplateButton.addEventListener("click", () => {
+    applySelectedTemplateToNotes(true);
   });
   activeOrganizationSelect.addEventListener("change", async () => {
     closeMobileMenu();
@@ -1095,14 +1450,17 @@ async function init() {
   recordingsList.addEventListener("click", (event) => {
     const row = event.target.closest("[data-recording-id]");
     if (!row) return;
-    openRecordingInAllRecordings(row.getAttribute("data-recording-id") || "");
+    openRecordingDetail(row.getAttribute("data-recording-id") || "");
   });
   recordingsList.addEventListener("keydown", (event) => {
     const row = event.target.closest("[data-recording-id]");
     if (!row) return;
     if (event.key !== "Enter" && event.key !== " ") return;
     event.preventDefault();
-    openRecordingInAllRecordings(row.getAttribute("data-recording-id") || "");
+    openRecordingDetail(row.getAttribute("data-recording-id") || "");
+  });
+  recordingDetailAiReview.addEventListener("click", () => {
+    void handleRecordingAiReview(activeDetailRecordingId);
   });
   recordingDetailClose.addEventListener("click", closeRecordingDetail);
   recordingDetailModal.addEventListener("click", (event) => {

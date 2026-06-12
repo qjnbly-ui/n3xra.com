@@ -241,6 +241,7 @@ function normalizeGroqUsage(data, fallbackPromptText = "", fallbackCompletionTex
 
 async function recordRecordsAiUsage({ usageContext, user, feature, model, usage }) {
   if (!usageContext?.organization?.id) return null;
+  const normalizedFeature = ["help", "search", "recording_notes"].includes(feature) ? feature : "help";
   const normalizedUsage = {
     prompt_tokens: Math.max(0, Number(usage?.promptTokens || 0)),
     completion_tokens: Math.max(0, Number(usage?.completionTokens || 0)),
@@ -254,7 +255,7 @@ async function recordRecordsAiUsage({ usageContext, user, feature, model, usage 
       body: JSON.stringify({
         organization_id: usageContext.organization.id,
         user_id: user?.id || null,
-        feature: feature === "search" ? "search" : "help",
+        feature: normalizedFeature,
         model: String(model || "").trim() || null,
         ...normalizedUsage,
       }),
