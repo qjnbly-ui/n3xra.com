@@ -62,6 +62,21 @@ function textValue(value: unknown) {
   return String(value || "").replace(/\s+/g, " ").trim();
 }
 
+function pdfSafeText(value: unknown) {
+  return String(value || "")
+    .normalize("NFKC")
+    .replace(/\u2011/g, "-")
+    .replace(/[\u2010\u2012\u2013\u2014\u2212]/g, "-")
+    .replace(/[‘’‚‛]/g, "'")
+    .replace(/[“”„‟]/g, '"')
+    .replace(/\u2026/g, "...")
+    .replace(/\u2032/g, "'")
+    .replace(/\u2033/g, '"')
+    .replace(/[\u00a0\u202f\u2007]/g, " ")
+    .replace(/[\u200b-\u200f\u2060\ufeff]/g, "")
+    .replace(/[^\x09\x0a\x0d\x20-\x7e\xa0-\xff\u2022]/g, "?");
+}
+
 function decodeHtml(value: string) {
   return value
     .replace(/&nbsp;/g, " ")
@@ -109,7 +124,7 @@ function addPage(state: RenderState) {
   state.pageNumber += 1;
   state.y = PAGE_HEIGHT - MARGIN_TOP;
 
-  state.page.drawText(state.organizationName || "N3XRA Records", {
+  state.page.drawText(pdfSafeText(state.organizationName || "N3XRA Records"), {
     x: MARGIN_X,
     y: PAGE_HEIGHT - 34,
     size: 8,
@@ -143,7 +158,7 @@ function drawRule(state: RenderState) {
 function normalizeSegments(segments: InlineSegment[]) {
   const result: InlineSegment[] = [];
   segments.forEach((segment) => {
-    const text = String(segment.text || "").replace(/\t/g, "    ");
+    const text = pdfSafeText(segment.text).replace(/\t/g, "    ");
     if (!text) return;
     result.push({ ...segment, text });
   });
@@ -269,7 +284,7 @@ function inlineSegments(node: any, inherited: Partial<InlineSegment> = {}): Inli
 }
 
 function nodeText(node: any) {
-  return inlineSegments(node).map((segment) => segment.text).join("").replace(/\s+/g, " ").trim();
+  return pdfSafeText(inlineSegments(node).map((segment) => segment.text).join("")).replace(/\s+/g, " ").trim();
 }
 
 function textAlign(node: any) {
@@ -323,7 +338,7 @@ function renderTable(state: RenderState, tableNode: any) {
       });
       const font = isHeader ? state.fonts.bold : state.fonts.regular;
       cellLines[index].forEach((line: string, lineIndex: number) => {
-        state.page.drawText(line, {
+        state.page.drawText(pdfSafeText(line), {
           x: x + 6,
           y: state.y - 7 - lineIndex * 12,
           size: 9.5,
@@ -386,7 +401,7 @@ function renderNode(state: RenderState, node: any, context: { indent?: number; o
   }
 
   if (node.type === "listItem") {
-    const label = context.orderedIndex ? `${context.orderedIndex}.` : "•";
+    const label = pdfSafeText(context.orderedIndex ? `${context.orderedIndex}.` : "•");
     ensureSpace(state, LINE_HEIGHT);
     state.page.drawText(label, {
       x: MARGIN_X + Math.max(0, indent - 16),
@@ -415,7 +430,7 @@ function renderPlainText(state: RenderState, plainText: string) {
     .map((part) => part.trim())
     .filter(Boolean)
     .forEach((paragraph) => {
-      drawInlineBlock(state, [{ text: paragraph }], { spacingAfter: 7 });
+      drawInlineBlock(state, [{ text: pdfSafeText(paragraph) }], { spacingAfter: 7 });
     });
 }
 
