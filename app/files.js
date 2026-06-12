@@ -23,6 +23,7 @@ const mobileMenuToggle = document.getElementById("mobile-menu-toggle");
 const mobileMenu = document.getElementById("mobile-menu");
 const mobileMenuAccount = document.getElementById("mobile-menu-account");
 const mobileMenuLibrary = document.getElementById("mobile-menu-library");
+const mobileMenuFilesLink = document.getElementById("mobile-menu-files-link");
 const mobileMenuRecordingsLink = document.getElementById("mobile-menu-recordings-link");
 const filesNoAccessNotice = document.getElementById("files-no-access-notice");
 const filesActiveOrganizationField = document.getElementById("files-active-organization-field");
@@ -117,6 +118,7 @@ function toggleMobileMenu() {
 function setMenuActive(section) {
   mobileMenuAccount.classList.toggle("is-active", section === "account");
   mobileMenuLibrary.classList.toggle("is-active", section === "library");
+  mobileMenuFilesLink?.classList.toggle("is-active", section === "files");
 }
 
 function closeFileActionMenus(exceptId = "") {
@@ -1424,7 +1426,7 @@ async function init() {
 
   show(setupPanel, false);
   show(filesPanel, true);
-  setMenuActive("library");
+  setMenuActive("files");
   try {
     await bootstrapAccess();
     renderOrganizationSelector();

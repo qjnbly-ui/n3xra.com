@@ -17,6 +17,7 @@ const mobileMenuToggle = document.getElementById("mobile-menu-toggle");
 const mobileMenu = document.getElementById("mobile-menu");
 const mobileMenuAccount = document.getElementById("mobile-menu-account");
 const mobileMenuLibrary = document.getElementById("mobile-menu-library");
+const mobileMenuFilesLink = document.getElementById("mobile-menu-files-link");
 const mobileMenuRecordingsLink = document.getElementById("mobile-menu-recordings-link");
 const allRecordingsNoAccessNotice = document.getElementById("all-recordings-no-access-notice");
 const allRecordingsActiveOrganizationField = document.getElementById("all-recordings-active-organization-field");
@@ -123,6 +124,7 @@ function toggleMobileMenu() {
 function setMenuActive(section) {
   mobileMenuAccount.classList.toggle("is-active", section === "account");
   mobileMenuLibrary.classList.toggle("is-active", section === "library");
+  mobileMenuFilesLink?.classList.toggle("is-active", section === "files");
   if (mobileMenuRecordingsLink) {
     const isRecordings = section === "recordings";
     mobileMenuRecordingsLink.classList.toggle("is-active", isRecordings);

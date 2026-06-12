@@ -32,6 +32,7 @@ const mobileMenuToggle = document.getElementById("mobile-menu-toggle");
 const mobileMenu = document.getElementById("mobile-menu");
 const mobileMenuAccount = document.getElementById("mobile-menu-account");
 const mobileMenuLibrary = document.getElementById("mobile-menu-library");
+const mobileMenuFilesLink = document.getElementById("mobile-menu-files-link");
 const mobileMenuRecordingsLink = document.getElementById("mobile-menu-recordings-link");
 const accountSection = document.getElementById("account-section");
 const librarySection = document.getElementById("library-section");
@@ -674,6 +675,7 @@ function toggleMobileMenu() {
 function setMenuActive(section) {
   mobileMenuAccount.classList.toggle("is-active", section === "account");
   mobileMenuLibrary.classList.toggle("is-active", section === "library");
+  mobileMenuFilesLink?.classList.toggle("is-active", section === "files");
 }
 
 function showSection(section) {

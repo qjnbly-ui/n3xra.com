@@ -75,6 +75,7 @@ const mobileMenuToggle = document.getElementById("mobile-menu-toggle");
 const mobileMenu = document.getElementById("mobile-menu");
 const mobileMenuAccount = document.getElementById("mobile-menu-account");
 const mobileMenuLibrary = document.getElementById("mobile-menu-library");
+const mobileMenuFilesLink = document.getElementById("mobile-menu-files-link");
 const mobileMenuRecordingsLink = document.getElementById("mobile-menu-recordings-link");
 
 const EMPTY_DOCUMENT = {
@@ -504,6 +505,7 @@ function renderOrganizationSelector() {
     activeMembershipRole.textContent = "No library access";
     appDocumentCount.textContent = "0";
     show(templateManagementSection, false);
+    show(mobileMenuRecordingsLink, false);
     return;
   }
 
@@ -516,6 +518,8 @@ function renderOrganizationSelector() {
   });
 
   activeMembershipRole.textContent = formatRoleLabel(activeMembership.role);
+  mobileMenuFilesLink?.classList.toggle("is-active", false);
+  show(mobileMenuRecordingsLink, capabilities.canUseRecordings);
   newDocumentButton.disabled = !capabilities.canEditDocuments;
   newTemplateButton.disabled = !capabilities.canManageTemplates;
   createFromTemplateButton.disabled = !capabilities.canEditDocuments || !appTemplates.length;
