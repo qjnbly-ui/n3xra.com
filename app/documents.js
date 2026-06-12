@@ -373,6 +373,9 @@ function documentToEditor(doc) {
   activeDocumentKind = doc?.document_kind === "template" ? "template" : "document";
   documentTitle.value = doc?.title || "";
   documentStatus.value = doc?.status || "draft";
+  const isTemplate = activeDocumentKind === "template";
+  documentSave.textContent = isTemplate ? "Save template" : "Save";
+  documentDelete.textContent = isTemplate ? "Delete template" : "Delete";
   initTiptapEditor();
   tiptapEditor.commands.setContent(contentJsonToTiptapContent(doc?.content_json || EMPTY_DOCUMENT));
   show(editorEmpty, false);
@@ -481,7 +484,7 @@ function renderOrganizationSelector() {
   documentTemplateSelect.disabled = !capabilities.canEditDocuments || !appTemplates.length;
   show(newTemplateButton, capabilities.canManageTemplates);
   show(templateManagementSection, capabilities.canManageTemplates);
-  show(documentTemplateCreate, capabilities.canEditDocuments && appTemplates.length > 0);
+  show(documentTemplateCreate, capabilities.canManageTemplates || (capabilities.canEditDocuments && appTemplates.length > 0));
   documentDelete.disabled = activeDocumentKind === "template" ? !capabilities.canManageTemplates : !capabilities.canDeleteDocuments;
   const canEditActive = activeDocumentKind === "template" ? capabilities.canManageTemplates : capabilities.canEditDocuments;
   documentSave.disabled = !canEditActive;
@@ -521,7 +524,7 @@ function renderAppTemplates() {
   documentTemplateSelect.innerHTML = "";
   show(appTemplateEmpty, appTemplates.length === 0);
   show(templateManagementSection, capabilities.canManageTemplates);
-  show(documentTemplateCreate, capabilities.canEditDocuments && appTemplates.length > 0);
+  show(documentTemplateCreate, capabilities.canManageTemplates || (capabilities.canEditDocuments && appTemplates.length > 0));
 
   if (!appTemplates.length) {
     documentTemplateSelect.innerHTML = '<option value="">No templates</option>';
@@ -536,16 +539,20 @@ function renderAppTemplates() {
     documentTemplateSelect.append(option);
 
     if (!capabilities.canManageTemplates) return;
-    const button = document.createElement("button");
-    button.className = "document-list-item";
-    button.type = "button";
-    button.setAttribute("data-template-id", template.id);
-    button.classList.toggle("is-active", template.id === activeDocumentId);
-    button.innerHTML = `
-      <span class="document-list-title">${escapeHtml(template.title || "Untitled template")}</span>
-      <span class="document-list-meta">${escapeHtml(template.status || "draft")} · ${escapeHtml(new Date(template.updated_at || template.created_at).toLocaleDateString())}</span>
+    const item = document.createElement("div");
+    item.className = "document-list-item document-template-item";
+    item.classList.toggle("is-active", template.id === activeDocumentId);
+    item.innerHTML = `
+      <button class="document-template-edit" type="button" data-template-id="${escapeHtml(template.id)}">
+        <span class="document-list-title">${escapeHtml(template.title || "Untitled template")}</span>
+        <span class="document-list-meta">${escapeHtml(template.status || "draft")} · ${escapeHtml(new Date(template.updated_at || template.created_at).toLocaleDateString())}</span>
+      </button>
+      <div class="document-template-actions">
+        <button class="document-template-action" type="button" data-template-id="${escapeHtml(template.id)}">Edit</button>
+        <button class="document-template-action danger" type="button" data-template-delete-id="${escapeHtml(template.id)}">Delete</button>
+      </div>
     `;
-    appTemplateList.append(button);
+    appTemplateList.append(item);
   });
 
   createFromTemplateButton.disabled = !capabilities.canEditDocuments;
@@ -679,6 +686,38 @@ async function createDocumentFromTemplate() {
   }
 
   await loadAppDocuments(data.id);
+}
+
+async function deleteTemplate(template) {
+  if (!template || !getActiveCapabilities().canManageTemplates) return;
+  const ok = await requestDocumentConfirm({
+    kicker: "Delete template",
+    title: "Remove this reusable template?",
+    copy: "Existing documents created from this template will stay. Users will no longer be able to create new documents from it.",
+    confirmLabel: "Delete",
+  });
+  if (!ok) return;
+
+  const { error } = await supabase
+    .from("app_documents")
+    .delete()
+    .eq("id", template.id)
+    .eq("document_kind", "template");
+
+  if (error) {
+    setStatus(documentsStatus, error.message, "error");
+    return;
+  }
+
+  if (activeDocumentId === template.id) {
+    activeDocumentId = "";
+    activeDocumentKind = "document";
+    documentSave.textContent = "Save";
+    documentDelete.textContent = "Delete";
+    show(editorEmpty, true);
+    show(editorForm, false);
+  }
+  await loadAppDocuments();
 }
 
 async function saveActiveDocument(event) {
@@ -908,6 +947,14 @@ async function init() {
     if (doc) documentToEditor(doc);
   });
   appTemplateList.addEventListener("click", (event) => {
+    const deleteTarget = event.target instanceof Element ? event.target.closest("[data-template-delete-id]") : null;
+    if (deleteTarget) {
+      const id = deleteTarget.getAttribute("data-template-delete-id");
+      const template = appTemplates.find((item) => item.id === id);
+      if (template) deleteTemplate(template);
+      return;
+    }
+
     const target = event.target instanceof Element ? event.target.closest("[data-template-id]") : null;
     const id = target?.getAttribute("data-template-id");
     const template = appTemplates.find((item) => item.id === id);
