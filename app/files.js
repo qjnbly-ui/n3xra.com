@@ -396,7 +396,7 @@ function renderFiles() {
       actionButtons.push(`<button class="btn secondary" type="button" data-action="edit" data-id="${doc.id}">Edit details</button>`);
       actionButtons.push(
         editableDoc
-          ? `<button class="btn secondary" type="button" data-action="open-editable" data-id="${doc.id}">Open</button>`
+          ? `<button class="btn secondary" type="button" data-action="open-preview" data-id="${doc.id}">Open</button>`
           : `<button class="btn secondary" type="button" data-action="make-editable" data-id="${doc.id}">Make editable</button>`
       );
     }
@@ -1227,10 +1227,7 @@ async function handleFileAction(event) {
     closeFileActionMenus();
 
     if (action === "edit") openFileEditModal(id);
-    if (action === "open-editable") {
-      const editableDoc = getEditableDocumentForSource(id);
-      if (editableDoc) window.location.href = `./documents.html?id=${encodeURIComponent(editableDoc.id)}`;
-    }
+    if (action === "open-preview") await openFile(id);
     if (action === "download") await downloadFile(id);
     if (action === "share") await shareFile(id);
     if (action === "delete") openDeleteConfirm(id);
