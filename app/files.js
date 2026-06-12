@@ -1,4 +1,5 @@
 import { createBrowserSupabase, hasConfig, getSessionOrNull } from "./lib/supabase-client.js";
+import JSZip from "https://esm.sh/jszip@3.10.1";
 import { buildPreviewUrl, getDownloadFilename } from "./lib/document-links.js";
 import { buildDocumentMetadata, getDocumentDisplayTitle } from "./lib/document-presenters.js";
 import { closeFilePreviewModal, openFilePreviewModal } from "./lib/file-modal.js";
@@ -622,6 +623,331 @@ function textToTiptapDocument(text) {
   };
 }
 
+function elementChildren(element, localName = "") {
+  return Array.from(element?.children || []).filter((child) => !localName || child.localName === localName);
+}
+
+function firstChild(element, localName) {
+  return elementChildren(element, localName)[0] || null;
+}
+
+function descendants(element, localName) {
+  return Array.from(element?.getElementsByTagName("*") || []).filter((child) => child.localName === localName);
+}
+
+function wordAttr(element, name) {
+  if (!element) return "";
+  return element.getAttribute(`w:${name}`) || element.getAttribute(name) || element.getAttributeNS("http://schemas.openxmlformats.org/wordprocessingml/2006/main", name) || "";
+}
+
+function wordVal(element) {
+  return wordAttr(element, "val");
+}
+
+function parseXml(xmlText, label) {
+  const doc = new DOMParser().parseFromString(xmlText, "application/xml");
+  const parserError = doc.querySelector("parsererror");
+  if (parserError) throw new Error(`Unable to read ${label}.`);
+  return doc;
+}
+
+function isEnabledWordToggle(element) {
+  if (!element) return false;
+  const value = wordVal(element).toLowerCase();
+  return !["0", "false", "off", "none"].includes(value);
+}
+
+function marksFromRunProperties(runProperties) {
+  if (!runProperties) return [];
+  const marks = [];
+  if (isEnabledWordToggle(firstChild(runProperties, "b"))) marks.push({ type: "bold" });
+  if (isEnabledWordToggle(firstChild(runProperties, "i"))) marks.push({ type: "italic" });
+  const underline = firstChild(runProperties, "u");
+  if (underline && !["none", "0", "false", "off"].includes(wordVal(underline).toLowerCase())) {
+    marks.push({ type: "underline" });
+  }
+  return marks;
+}
+
+function marksKey(marks = []) {
+  return marks.map((mark) => mark.type).sort().join("|");
+}
+
+function pushTextNode(nodes, text, marks = []) {
+  if (!text) return;
+  const cleanMarks = marks.filter(Boolean);
+  const last = nodes[nodes.length - 1];
+  if (last?.type === "text" && marksKey(last.marks || []) === marksKey(cleanMarks)) {
+    last.text += text;
+    return;
+  }
+  const node = { type: "text", text };
+  if (cleanMarks.length) node.marks = cleanMarks;
+  nodes.push(node);
+}
+
+function pushHardBreak(nodes) {
+  nodes.push({ type: "hardBreak" });
+}
+
+function parseRun(run) {
+  const nodes = [];
+  const marks = marksFromRunProperties(firstChild(run, "rPr"));
+  Array.from(run.childNodes || []).forEach((child) => {
+    if (child.nodeType !== Node.ELEMENT_NODE || child.localName === "rPr") return;
+    if (child.localName === "t") pushTextNode(nodes, child.textContent || "", marks);
+    if (child.localName === "tab") pushTextNode(nodes, "\t", marks);
+    if (["br", "cr"].includes(child.localName)) pushHardBreak(nodes);
+  });
+  return nodes;
+}
+
+function parseInlineContent(element) {
+  const nodes = [];
+  Array.from(element?.childNodes || []).forEach((child) => {
+    if (child.nodeType !== Node.ELEMENT_NODE) return;
+    if (child.localName === "r") {
+      parseRun(child).forEach((node) => nodes.push(node));
+      return;
+    }
+    if (["hyperlink", "smartTag", "sdt", "ins", "fldSimple"].includes(child.localName)) {
+      parseInlineContent(child).forEach((node) => nodes.push(node));
+    }
+  });
+  return nodes;
+}
+
+function paragraphAlignment(paragraphProperties) {
+  const value = wordVal(firstChild(paragraphProperties, "jc")).toLowerCase();
+  if (value === "center") return "center";
+  if (value === "right" || value === "end") return "right";
+  if (["both", "distribute", "mediumKashida", "highKashida", "lowKashida"].includes(value)) return "justify";
+  return "";
+}
+
+function headingLevelFromParagraph(paragraphProperties) {
+  const style = wordVal(firstChild(paragraphProperties, "pStyle"));
+  const styleMatch = style.match(/heading\s*([1-6])/i) || style.match(/^h([1-6])$/i);
+  if (styleMatch) return Math.min(Number.parseInt(styleMatch[1], 10), 3);
+  if (/^title$/i.test(style)) return 1;
+
+  const outlineValue = wordVal(firstChild(paragraphProperties, "outlineLvl"));
+  if (/^\d+$/.test(outlineValue)) {
+    return Math.min(Number.parseInt(outlineValue, 10) + 1, 3);
+  }
+
+  return 0;
+}
+
+function listInfoFromParagraph(paragraphProperties, numberingMap) {
+  const numPr = firstChild(paragraphProperties, "numPr");
+  if (!numPr) return null;
+
+  const numId = wordVal(firstChild(numPr, "numId"));
+  const level = Number.parseInt(wordVal(firstChild(numPr, "ilvl")) || "0", 10) || 0;
+  const format = numberingMap.get(`${numId}:${level}`) || numberingMap.get(`${numId}:0`) || "";
+  const type = format.toLowerCase().includes("bullet") ? "bulletList" : "orderedList";
+  return { type, level };
+}
+
+function parseParagraph(paragraph, numberingMap = new Map()) {
+  const paragraphProperties = firstChild(paragraph, "pPr");
+  const content = parseInlineContent(paragraph);
+  const attrs = {};
+  const textAlign = paragraphAlignment(paragraphProperties);
+  if (textAlign) attrs.textAlign = textAlign;
+
+  const headingLevel = headingLevelFromParagraph(paragraphProperties);
+  const list = listInfoFromParagraph(paragraphProperties, numberingMap);
+  const node = headingLevel && !list
+    ? { type: "heading", attrs: { level: headingLevel, ...attrs } }
+    : { type: "paragraph", ...(Object.keys(attrs).length ? { attrs } : {}) };
+  if (content.length) node.content = content;
+  return { node, list };
+}
+
+function parseNumberingMap(numberingXml) {
+  if (!numberingXml) return new Map();
+  const numberingDoc = parseXml(numberingXml, "DOCX numbering");
+  const abstractFormats = new Map();
+  descendants(numberingDoc, "abstractNum").forEach((abstractNum) => {
+    const abstractId = wordAttr(abstractNum, "abstractNumId");
+    elementChildren(abstractNum, "lvl").forEach((level) => {
+      const ilvl = wordAttr(level, "ilvl") || "0";
+      abstractFormats.set(`${abstractId}:${ilvl}`, wordVal(firstChild(level, "numFmt")));
+    });
+  });
+
+  const numberingMap = new Map();
+  descendants(numberingDoc, "num").forEach((num) => {
+    const numId = wordAttr(num, "numId");
+    const abstractId = wordVal(firstChild(num, "abstractNumId"));
+    for (const [key, format] of abstractFormats.entries()) {
+      const [keyAbstractId, ilvl] = key.split(":");
+      if (keyAbstractId === abstractId) numberingMap.set(`${numId}:${ilvl}`, format);
+    }
+  });
+  return numberingMap;
+}
+
+function parseTableCell(cell, numberingMap) {
+  const cellProperties = firstChild(cell, "tcPr");
+  const colspan = Number.parseInt(wordVal(firstChild(cellProperties, "gridSpan")) || "1", 10) || 1;
+  const width = Number.parseInt(wordAttr(firstChild(cellProperties, "tcW"), "w") || "", 10);
+  const content = elementChildren(cell)
+    .filter((child) => child.localName === "p")
+    .map((paragraph) => parseParagraph(paragraph, numberingMap).node);
+
+  return {
+    attrs: {
+      colspan,
+      rowspan: 1,
+      colwidth: Number.isFinite(width) && width > 0 ? [Math.round(width / 15)] : null,
+    },
+    content: content.length ? content : [{ type: "paragraph" }],
+  };
+}
+
+function parseTable(table, numberingMap) {
+  const rows = elementChildren(table, "tr").map((row) => {
+    const isHeaderRow = Boolean(firstChild(firstChild(row, "trPr"), "tblHeader"));
+    return {
+      type: "tableRow",
+      content: elementChildren(row, "tc").map((cell) => ({
+        type: isHeaderRow ? "tableHeader" : "tableCell",
+        ...parseTableCell(cell, numberingMap),
+      })),
+    };
+  }).filter((row) => row.content.length);
+
+  return rows.length ? { type: "table", content: rows } : null;
+}
+
+function flushList(content, activeList) {
+  if (!activeList) return null;
+  content.push({
+    type: activeList.type,
+    content: activeList.items,
+  });
+  return null;
+}
+
+function appendParagraphOrListItem(content, paragraphInfo, activeList) {
+  if (!paragraphInfo.list) {
+    flushList(content, activeList);
+    return null;
+  }
+
+  const listKey = `${paragraphInfo.list.type}:${paragraphInfo.list.level}`;
+  if (!activeList || activeList.key !== listKey) {
+    activeList = flushList(content, activeList);
+    activeList = { key: listKey, type: paragraphInfo.list.type, items: [] };
+  }
+
+  activeList.items.push({
+    type: "listItem",
+    content: [{ ...paragraphInfo.node, type: "paragraph" }],
+  });
+  return activeList;
+}
+
+async function parseDocxArrayBufferToTiptap(arrayBuffer) {
+  const zip = await JSZip.loadAsync(arrayBuffer);
+  const documentFile = zip.file("word/document.xml");
+  if (!documentFile) throw new Error("DOCX document body was not found.");
+
+  const documentXml = await documentFile.async("string");
+  const numberingXml = await zip.file("word/numbering.xml")?.async("string");
+  const numberingMap = parseNumberingMap(numberingXml);
+  const xmlDoc = parseXml(documentXml, "DOCX document");
+  const body = descendants(xmlDoc, "body")[0];
+  if (!body) throw new Error("DOCX document body was not readable.");
+
+  const content = [];
+  let activeList = null;
+
+  elementChildren(body).forEach((child) => {
+    if (child.localName === "p") {
+      activeList = appendParagraphOrListItem(content, parseParagraph(child, numberingMap), activeList);
+      return;
+    }
+
+    if (child.localName === "tbl") {
+      activeList = flushList(content, activeList);
+      const table = parseTable(child, numberingMap);
+      if (table) content.push(table);
+    }
+  });
+
+  flushList(content, activeList);
+  return {
+    type: "doc",
+    content: content.length ? content : [{ type: "paragraph" }],
+  };
+}
+
+function textFromTiptapJson(node, parts = []) {
+  if (!node || typeof node !== "object") return parts;
+  if (node.type === "text" && node.text) parts.push(node.text);
+  if (node.type === "hardBreak") parts.push("\n");
+  if (Array.isArray(node.content)) {
+    node.content.forEach((child) => textFromTiptapJson(child, parts));
+  }
+  if (["paragraph", "heading", "listItem", "tableRow"].includes(node.type)) parts.push("\n");
+  if (["tableCell", "tableHeader"].includes(node.type)) parts.push("\t");
+  return parts;
+}
+
+function plainTextFromTiptapJson(contentJson) {
+  return textFromTiptapJson(contentJson, [])
+    .join("")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\t+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function isDocxDocument(doc) {
+  return /\.docx$/i.test(doc?.original_filename || "") || /\.docx$/i.test(doc?.storage_path || "");
+}
+
+async function downloadDocumentArrayBuffer(doc) {
+  if (!doc?.storage_path) throw new Error("Source file storage path is missing.");
+  const { data, error } = await supabase.storage.from("documents").createSignedUrl(doc.storage_path, 60 * 10);
+  if (error || !data?.signedUrl) throw new Error(error?.message || "Unable to create a DOCX download URL.");
+
+  const response = await fetch(data.signedUrl);
+  if (!response.ok) throw new Error(`Unable to download DOCX (${response.status}).`);
+  return response.arrayBuffer();
+}
+
+async function convertSourceDocumentToTiptap(sourceDoc) {
+  const fallback = textToTiptapDocument(sourceDoc.extracted_text || "");
+  if (!isDocxDocument(sourceDoc)) {
+    return {
+      contentJson: fallback,
+      plainText: String(sourceDoc.extracted_text || "").trim(),
+    };
+  }
+
+  try {
+    setStatus(fileStatus, "Reading DOCX structure...");
+    const arrayBuffer = await downloadDocumentArrayBuffer(sourceDoc);
+    const contentJson = await parseDocxArrayBufferToTiptap(arrayBuffer);
+    const plainText = plainTextFromTiptapJson(contentJson);
+    if (plainText || contentJson.content?.some((node) => node.type === "table")) {
+      return { contentJson, plainText };
+    }
+  } catch (error) {
+    console.warn("DOCX structure conversion failed; falling back to extracted text.", error);
+  }
+
+  return {
+    contentJson: fallback,
+    plainText: String(sourceDoc.extracted_text || "").trim(),
+  };
+}
+
 async function makeFileEditable(documentId) {
   if (!getActiveCapabilities().canEditDocuments) {
     setStatus(fileStatus, "You do not have permission to create editable documents in this library.", "error");
@@ -631,7 +957,7 @@ async function makeFileEditable(documentId) {
   setStatus(fileStatus, "Creating editable document...");
   const { data: sourceDoc, error: sourceError } = await supabase
     .from("documents")
-    .select("id, organization_id, title, original_filename, extracted_text")
+    .select("id, organization_id, title, original_filename, storage_path, extracted_text")
     .eq("id", documentId)
     .single();
 
@@ -640,8 +966,10 @@ async function makeFileEditable(documentId) {
     return;
   }
 
-  const contentJson = textToTiptapDocument(sourceDoc.extracted_text || "");
-  const plainText = String(sourceDoc.extracted_text || "").trim();
+  const conversion = await convertSourceDocumentToTiptap(sourceDoc);
+  setStatus(fileStatus, "Creating editable document...");
+  const contentJson = conversion.contentJson;
+  const plainText = conversion.plainText;
   const title = sourceDoc.title || String(sourceDoc.original_filename || "Untitled document").replace(/\.[^.]+$/, "");
   const { data, error } = await supabase
     .from("app_documents")

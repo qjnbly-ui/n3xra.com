@@ -1,5 +1,10 @@
 import { Editor } from "https://esm.sh/@tiptap/core";
 import StarterKit from "https://esm.sh/@tiptap/starter-kit";
+import Table from "https://esm.sh/@tiptap/extension-table";
+import TableCell from "https://esm.sh/@tiptap/extension-table-cell";
+import TableHeader from "https://esm.sh/@tiptap/extension-table-header";
+import TableRow from "https://esm.sh/@tiptap/extension-table-row";
+import TextAlign from "https://esm.sh/@tiptap/extension-text-align";
 import Underline from "https://esm.sh/@tiptap/extension-underline";
 import { createBrowserSupabase, hasConfig, getSessionOrNull } from "./lib/supabase-client.js";
 import {
@@ -267,6 +272,10 @@ function updateToolbarStates() {
       command === "bulletList" ? tiptapEditor?.isActive("bulletList") :
       command === "orderedList" ? tiptapEditor?.isActive("orderedList") :
       command === "blockquote" ? tiptapEditor?.isActive("blockquote") :
+      command === "alignLeft" ? tiptapEditor?.isActive({ textAlign: "left" }) :
+      command === "alignCenter" ? tiptapEditor?.isActive({ textAlign: "center" }) :
+      command === "alignRight" ? tiptapEditor?.isActive({ textAlign: "right" }) :
+      command === "alignJustify" ? tiptapEditor?.isActive({ textAlign: "justify" }) :
       false;
     button.classList.toggle("is-active", Boolean(isActive));
   });
@@ -282,6 +291,15 @@ function initTiptapEditor() {
           levels: [1, 2, 3],
         },
       }),
+      TextAlign.configure({
+        types: ["heading", "paragraph"],
+      }),
+      Table.configure({
+        resizable: false,
+      }),
+      TableRow,
+      TableHeader,
+      TableCell,
       Underline,
     ],
     content: EMPTY_DOCUMENT,
@@ -557,6 +575,10 @@ function applyToolbarAction(event) {
   if (command === "bulletList") chain.toggleBulletList().run();
   if (command === "orderedList") chain.toggleOrderedList().run();
   if (command === "blockquote") chain.toggleBlockquote().run();
+  if (command === "alignLeft") chain.setTextAlign("left").run();
+  if (command === "alignCenter") chain.setTextAlign("center").run();
+  if (command === "alignRight") chain.setTextAlign("right").run();
+  if (command === "alignJustify") chain.setTextAlign("justify").run();
   if (command === "undo") tiptapEditor.chain().focus().undo().run();
   if (command === "redo") tiptapEditor.chain().focus().redo().run();
   updateToolbarStates();

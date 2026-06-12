@@ -2759,6 +2759,36 @@ code.inline {
   color: var(--slate);
 }
 
+.document-page .tiptap table {
+  width: 100%;
+  margin: 0 0 1rem;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.document-page .tiptap th,
+.document-page .tiptap td {
+  position: relative;
+  min-width: 1.5rem;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid rgba(15, 22, 32, 0.22);
+  vertical-align: top;
+}
+
+.document-page .tiptap th {
+  background: #eef6f5;
+  font-weight: 800;
+}
+
+.document-page .tiptap .selectedCell::after {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  content: "";
+  background: rgba(23, 111, 102, 0.14);
+}
+
 .document-toolbar button.is-active {
   border-color: rgba(23, 111, 102, 0.36);
   background: color-mix(in srgb, var(--teal) 12%, #ffffff);
