@@ -579,33 +579,63 @@ function renderSendContacts() {
 
   const groups = [
     {
+      source: "account_user",
       title: "Account users",
       recipients: appRecipients.filter((recipient) => recipient.source === "account_user"),
+      collapsed: true,
     },
     {
+      source: "contact",
       title: "Contacts",
       recipients: appRecipients.filter((recipient) => recipient.source === "contact"),
+      collapsed: false,
     },
   ].filter((group) => group.recipients.length);
 
   groups.forEach((group) => {
-    const heading = document.createElement("p");
-    heading.className = "document-send-contact-group";
-    heading.textContent = group.title;
-    documentSendContactList.append(heading);
+    const wrapper = document.createElement("details");
+    wrapper.className = "document-send-recipient-group";
+    wrapper.open = !group.collapsed;
+    wrapper.innerHTML = `
+      <summary class="document-send-recipient-summary">
+        <span>${escapeHtml(group.title)} <small>${group.recipients.length}</small></span>
+        ${group.source === "account_user" ? `<button class="btn secondary document-send-select-all" type="button" data-recipient-action="select-all" data-recipient-source="${escapeHtml(group.source)}">Select all</button>` : ""}
+      </summary>
+    `;
+
+    const options = document.createElement("div");
+    options.className = "document-send-recipient-options";
 
     group.recipients.forEach((recipient) => {
       const label = document.createElement("label");
       label.className = "document-send-contact";
       label.innerHTML = `
-        <input type="checkbox" value="${escapeHtml(recipient.email || "")}">
+        <input type="checkbox" value="${escapeHtml(recipient.email || "")}" data-recipient-source="${escapeHtml(group.source)}">
         <span>
           <strong>${escapeHtml(recipient.name || recipient.email || "Recipient")}</strong>
           <small>${escapeHtml(recipient.email || "")}</small>
         </span>
       `;
-      documentSendContactList.append(label);
+      options.append(label);
     });
+
+    wrapper.append(options);
+    documentSendContactList.append(wrapper);
+  });
+}
+
+function handleSendRecipientListClick(event) {
+  const button = event.target instanceof Element ? event.target.closest("[data-recipient-action='select-all']") : null;
+  if (!button) return;
+  event.preventDefault();
+  event.stopPropagation();
+
+  const source = button.getAttribute("data-recipient-source") || "";
+  const group = button.closest(".document-send-recipient-group");
+  if (group instanceof HTMLDetailsElement) group.open = true;
+
+  documentSendContactList?.querySelectorAll("input[type='checkbox'][data-recipient-source]").forEach((input) => {
+    if (input.getAttribute("data-recipient-source") === source) input.checked = true;
   });
 }
 
@@ -1179,6 +1209,7 @@ async function init() {
   });
   documentEmail.addEventListener("click", openDocumentSendModal);
   documentSendForm.addEventListener("submit", sendActiveDocument);
+  documentSendContactList.addEventListener("click", handleSendRecipientListClick);
   documentSendClose.addEventListener("click", closeDocumentSendModal);
   documentSendCancel.addEventListener("click", closeDocumentSendModal);
   documentSendModal.addEventListener("click", (event) => {
