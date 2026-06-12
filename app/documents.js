@@ -1,9 +1,6 @@
 import { Editor } from "https://esm.sh/@tiptap/core";
 import StarterKit from "https://esm.sh/@tiptap/starter-kit";
-import Table from "https://esm.sh/@tiptap/extension-table";
-import TableCell from "https://esm.sh/@tiptap/extension-table-cell";
-import TableHeader from "https://esm.sh/@tiptap/extension-table-header";
-import TableRow from "https://esm.sh/@tiptap/extension-table-row";
+import { Table, TableCell, TableHeader, TableRow } from "https://esm.sh/@tiptap/extension-table";
 import TextAlign from "https://esm.sh/@tiptap/extension-text-align";
 import Underline from "https://esm.sh/@tiptap/extension-underline";
 import { createBrowserSupabase, hasConfig, getSessionOrNull } from "./lib/supabase-client.js";
