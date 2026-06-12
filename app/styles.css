@@ -2506,6 +2506,16 @@ code.inline {
   gap: 0.55rem;
 }
 
+.document-send-contact-group {
+  grid-column: 1 / -1;
+  margin: 0.15rem 0 0;
+  color: var(--teal);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
 .document-send-contact {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);

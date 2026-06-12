@@ -2899,6 +2899,11 @@ function renderContacts() {
   const capabilities = getActiveCapabilities();
   const canManageContacts = capabilities.canManageMembers;
   const canInviteContacts = capabilities.canManageInvites && (getActiveOrganization()?.subscription_tier || "free") === "organization";
+  const accountUserEmails = new Set(
+    memberCache
+      .map((member) => String(member.profile?.email || "").trim().toLowerCase())
+      .filter(Boolean)
+  );
 
   contactList.innerHTML = "";
   if (!contactCache.length) {
@@ -2907,6 +2912,7 @@ function renderContacts() {
   }
 
   contactCache.forEach((contact) => {
+    const isAccountUser = accountUserEmails.has(String(contact.email || "").trim().toLowerCase());
     const row = document.createElement("tr");
     row.innerHTML = `
       <td>${escapeHtml(contact.full_name || "Unnamed contact")}</td>
@@ -2914,7 +2920,7 @@ function renderContacts() {
       <td>${escapeHtml(contact.notes || "")}</td>
       <td>
         <button class="btn secondary" type="button" data-contact-action="edit" data-contact-id="${escapeHtml(contact.id)}"${canManageContacts ? "" : " disabled"}>Edit</button>
-        <button class="btn secondary" type="button" data-contact-action="invite" data-contact-id="${escapeHtml(contact.id)}"${canInviteContacts ? "" : " disabled"}>Invite as user</button>
+        <button class="btn secondary" type="button" data-contact-action="invite" data-contact-id="${escapeHtml(contact.id)}"${canInviteContacts && !isAccountUser ? "" : " disabled"}>${isAccountUser ? "Already user" : "Invite as user"}</button>
         <button class="btn secondary" type="button" data-contact-action="delete" data-contact-id="${escapeHtml(contact.id)}"${canManageContacts ? "" : " disabled"}>Delete</button>
       </td>
     `;
@@ -2988,6 +2994,7 @@ async function loadActiveOrganizationData() {
     loadOrganizationReview(),
     loadActiveOrganizationLogo(),
   ]);
+  renderContacts();
 }
 
 async function createSignedUrlForDocument(documentId) {

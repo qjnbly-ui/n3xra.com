@@ -124,7 +124,7 @@ let memberships = [];
 let activeMembership = null;
 let appDocuments = [];
 let appTemplates = [];
-let appContacts = [];
+let appRecipients = [];
 let activeDocumentId = "";
 let activeDocumentKind = "document";
 let tiptapEditor = null;
@@ -574,43 +574,126 @@ function renderAppTemplates() {
 
 function renderSendContacts() {
   if (!documentSendContactList) return;
-  show(documentSendContactsField, appContacts.length > 0);
+  show(documentSendContactsField, appRecipients.length > 0);
   documentSendContactList.innerHTML = "";
-  appContacts.forEach((contact) => {
-    const label = document.createElement("label");
-    label.className = "document-send-contact";
-    label.innerHTML = `
-      <input type="checkbox" value="${escapeHtml(contact.email || "")}">
-      <span>
-        <strong>${escapeHtml(contact.full_name || contact.email || "Contact")}</strong>
-        <small>${escapeHtml(contact.email || "")}</small>
-      </span>
-    `;
-    documentSendContactList.append(label);
+
+  const groups = [
+    {
+      title: "Account users",
+      recipients: appRecipients.filter((recipient) => recipient.source === "account_user"),
+    },
+    {
+      title: "Contacts",
+      recipients: appRecipients.filter((recipient) => recipient.source === "contact"),
+    },
+  ].filter((group) => group.recipients.length);
+
+  groups.forEach((group) => {
+    const heading = document.createElement("p");
+    heading.className = "document-send-contact-group";
+    heading.textContent = group.title;
+    documentSendContactList.append(heading);
+
+    group.recipients.forEach((recipient) => {
+      const label = document.createElement("label");
+      label.className = "document-send-contact";
+      label.innerHTML = `
+        <input type="checkbox" value="${escapeHtml(recipient.email || "")}">
+        <span>
+          <strong>${escapeHtml(recipient.name || recipient.email || "Recipient")}</strong>
+          <small>${escapeHtml(recipient.email || "")}</small>
+        </span>
+      `;
+      documentSendContactList.append(label);
+    });
   });
+}
+
+function mergeSendRecipients(accountUsers = [], contacts = []) {
+  const byEmail = new Map();
+
+  accountUsers.forEach((user) => {
+    const email = String(user.email || "").trim().toLowerCase();
+    if (!email) return;
+    byEmail.set(email, {
+      id: user.id || email,
+      source: "account_user",
+      name: user.full_name || email,
+      email,
+    });
+  });
+
+  contacts.forEach((contact) => {
+    const email = String(contact.email || "").trim().toLowerCase();
+    if (!email || byEmail.has(email)) return;
+    byEmail.set(email, {
+      id: contact.id || email,
+      source: "contact",
+      name: contact.full_name || email,
+      email,
+    });
+  });
+
+  return Array.from(byEmail.values()).sort((first, second) => {
+    if (first.source !== second.source) {
+      return first.source === "account_user" ? -1 : 1;
+    }
+    return String(first.name || first.email).localeCompare(String(second.name || second.email));
+  });
+}
+
+async function loadAccountUserRecipients(organizationId) {
+  const { data: membershipRows, error: membershipError } = await supabase
+    .from("organization_memberships")
+    .select("user_id")
+    .eq("organization_id", organizationId);
+
+  if (membershipError) throw membershipError;
+
+  const userIds = Array.from(new Set((membershipRows || []).map((item) => item.user_id).filter(Boolean)));
+  if (!userIds.length) return [];
+
+  const { data: profiles, error: profileError } = await supabase
+    .from("profiles")
+    .select("id, email, full_name")
+    .in("id", userIds);
+
+  if (profileError) throw profileError;
+
+  return Array.isArray(profiles) ? profiles : [];
+}
+
+async function loadContactRecipients(organizationId) {
+  const { data, error } = await supabase
+    .from("organization_contacts")
+    .select("id, full_name, email")
+    .eq("organization_id", organizationId)
+    .order("full_name", { ascending: true });
+
+  if (error) throw error;
+  return Array.isArray(data) ? data : [];
 }
 
 async function loadAppContacts() {
   const organization = getActiveOrganization();
   if (!organization || !getActiveCapabilities().canEditDocuments) {
-    appContacts = [];
+    appRecipients = [];
     renderSendContacts();
     return;
   }
 
-  const { data, error } = await supabase
-    .from("organization_contacts")
-    .select("id, full_name, email")
-    .eq("organization_id", organization.id)
-    .order("full_name", { ascending: true });
-
-  if (error) {
-    appContacts = [];
-    renderSendContacts();
-    return;
+  try {
+    const [accountUsersResult, contactsResult] = await Promise.allSettled([
+      loadAccountUserRecipients(organization.id),
+      loadContactRecipients(organization.id),
+    ]);
+    const accountUsers = accountUsersResult.status === "fulfilled" ? accountUsersResult.value : [];
+    const contacts = contactsResult.status === "fulfilled" ? contactsResult.value : [];
+    appRecipients = mergeSendRecipients(accountUsers, contacts);
+  } catch (error) {
+    appRecipients = [];
   }
 
-  appContacts = Array.isArray(data) ? data : [];
   renderSendContacts();
 }
 
@@ -619,7 +702,7 @@ async function loadAppDocuments(preferredId = "") {
   if (!organization) {
     appDocuments = [];
     appTemplates = [];
-    appContacts = [];
+    appRecipients = [];
     renderAppDocuments();
     renderAppTemplates();
     renderSendContacts();
