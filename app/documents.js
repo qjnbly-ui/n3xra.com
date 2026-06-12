@@ -46,6 +46,12 @@ const documentSave = document.getElementById("document-save");
 const documentPrint = document.getElementById("document-print");
 const documentEmail = document.getElementById("document-email");
 const documentDelete = document.getElementById("document-delete");
+const documentPdfModal = document.getElementById("document-pdf-modal");
+const documentPdfTitle = document.getElementById("document-pdf-title");
+const documentPdfDownload = document.getElementById("document-pdf-download");
+const documentPdfPrint = document.getElementById("document-pdf-print");
+const documentPdfClose = document.getElementById("document-pdf-close");
+const documentPdfFrame = document.getElementById("document-pdf-frame");
 const documentConfirmModal = document.getElementById("document-confirm-modal");
 const documentConfirmKicker = document.getElementById("document-confirm-kicker");
 const documentConfirmTitle = document.getElementById("document-confirm-title");
@@ -110,6 +116,7 @@ let activeDocumentId = "";
 let activeDocumentKind = "document";
 let tiptapEditor = null;
 let pendingDocumentConfirmResolve = null;
+let activePdfUrl = "";
 
 function show(el, visible) {
   if (!el) return;
@@ -703,7 +710,31 @@ async function deleteActiveDocument() {
   await loadAppDocuments();
 }
 
-async function downloadActiveDocumentPdf() {
+function closeDocumentPdfModal() {
+  if (!documentPdfModal) return;
+  documentPdfModal.classList.remove("is-open");
+  documentPdfModal.setAttribute("aria-hidden", "true");
+  if (documentPdfFrame) documentPdfFrame.removeAttribute("src");
+  if (documentPdfDownload) documentPdfDownload.removeAttribute("href");
+  if (activePdfUrl) {
+    URL.revokeObjectURL(activePdfUrl);
+    activePdfUrl = "";
+  }
+}
+
+function printDocumentPdf() {
+  if (!activePdfUrl) return;
+  try {
+    const frameWindow = documentPdfFrame?.contentWindow;
+    if (!frameWindow) throw new Error("PDF frame is not ready.");
+    frameWindow.focus();
+    frameWindow.print();
+  } catch (_error) {
+    window.open(activePdfUrl, "_blank", "noopener");
+  }
+}
+
+async function openActiveDocumentPdf() {
   if (!activeDocumentId) return;
   const config = getConfig();
   if (!config.supabaseUrl || !config.supabaseAnonKey) {
@@ -743,15 +774,21 @@ async function downloadActiveDocumentPdf() {
     }
 
     const blob = await response.blob();
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = downloadFilename((saved || currentDoc)?.title || documentTitle.value);
-    document.body.append(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
-    setStatus(editorStatus, "PDF downloaded.", "success");
+    closeDocumentPdfModal();
+    activePdfUrl = URL.createObjectURL(blob);
+    const filename = downloadFilename((saved || currentDoc)?.title || documentTitle.value);
+    const title = (saved || currentDoc)?.title || documentTitle.value || "PDF preview";
+    if (documentPdfTitle) documentPdfTitle.textContent = `${title} PDF`;
+    if (documentPdfDownload) {
+      documentPdfDownload.href = activePdfUrl;
+      documentPdfDownload.download = filename;
+    }
+    if (documentPdfFrame) documentPdfFrame.src = activePdfUrl;
+    if (documentPdfModal) {
+      documentPdfModal.classList.add("is-open");
+      documentPdfModal.setAttribute("aria-hidden", "false");
+    }
+    setStatus(editorStatus, "PDF ready.", "success");
   } catch (error) {
     setStatus(editorStatus, error?.message || "Unable to generate PDF.", "error");
   } finally {
@@ -856,7 +893,12 @@ async function init() {
   documentConfirmModal.addEventListener("click", (event) => {
     if (event.target === documentConfirmModal) resolveDocumentConfirm(false);
   });
-  documentPrint.addEventListener("click", downloadActiveDocumentPdf);
+  documentPrint.addEventListener("click", openActiveDocumentPdf);
+  documentPdfClose.addEventListener("click", closeDocumentPdfModal);
+  documentPdfPrint.addEventListener("click", printDocumentPdf);
+  documentPdfModal.addEventListener("click", (event) => {
+    if (event.target === documentPdfModal) closeDocumentPdfModal();
+  });
   documentEmail.addEventListener("click", emailActiveDocument);
   document.querySelector(".document-toolbar")?.addEventListener("click", applyToolbarAction);
   appDocumentList.addEventListener("click", (event) => {
@@ -879,6 +921,10 @@ async function init() {
     }
     if (event.key === "Escape" && documentConfirmModal.classList.contains("is-open")) {
       resolveDocumentConfirm(false);
+      return;
+    }
+    if (event.key === "Escape" && documentPdfModal.classList.contains("is-open")) {
+      closeDocumentPdfModal();
       return;
     }
     if (event.key === "Escape") closeMobileMenu();

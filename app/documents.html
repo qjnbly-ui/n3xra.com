@@ -157,7 +157,7 @@
 
               <div class="document-editor-actions">
                 <button class="btn" id="document-save" type="submit">Save</button>
-                <button class="btn secondary" id="document-print" type="button">Download PDF</button>
+                <button class="btn secondary" id="document-print" type="button">Print / PDF</button>
                 <button class="btn secondary" id="document-email" type="button">Email text</button>
                 <button class="btn warn" id="document-delete" type="button">Delete</button>
               </div>
@@ -168,6 +168,22 @@
         <p class="status" id="documents-status"></p>
       </section>
     </main>
+  </div>
+
+  <div class="file-modal" id="document-pdf-modal" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="file-modal-dialog document-pdf-dialog">
+      <div class="file-modal-header">
+        <p class="file-modal-title" id="document-pdf-title">PDF preview</p>
+        <div class="file-modal-actions">
+          <a class="file-modal-link" id="document-pdf-download" href="#" download="document.pdf">Download</a>
+          <button class="file-modal-link" id="document-pdf-print" type="button">Print</button>
+          <button class="file-modal-close" id="document-pdf-close" type="button">Close</button>
+        </div>
+      </div>
+      <div class="file-modal-body">
+        <iframe class="file-modal-frame document-pdf-frame" id="document-pdf-frame" src="" title="PDF preview"></iframe>
+      </div>
+    </div>
   </div>
 
   <div class="confirm-modal" id="document-confirm-modal" role="dialog" aria-modal="true" aria-hidden="true">
@@ -189,6 +205,6 @@
   </div>
 
   <script src="./config.js"></script>
-  <script type="module" src="./documents.js?v=20260611-server-pdf"></script>
+  <script type="module" src="./documents.js?v=20260611-pdf-preview"></script>
 </body>
 </html>

@@ -2449,6 +2449,14 @@ code.inline {
   display: block;
 }
 
+.document-pdf-dialog {
+  width: min(1180px, 96vw);
+}
+
+.document-pdf-frame {
+  height: 78vh;
+}
+
 .confirm-modal {
   position: fixed;
   inset: 0;
