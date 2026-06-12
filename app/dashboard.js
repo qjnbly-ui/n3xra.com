@@ -173,6 +173,17 @@ const organizationAiMemoryNewInput = document.getElementById("organization-ai-me
 const organizationAiMemoryAdd = document.getElementById("organization-ai-memory-add");
 const organizationAiSettingsSave = document.getElementById("organization-ai-settings-save");
 const organizationAiSettingsStatus = document.getElementById("organization-ai-settings-status");
+const contactsSettingsToggle = document.getElementById("contacts-settings-toggle");
+const contactsSettingsBody = document.getElementById("contacts-settings-body");
+const contactForm = document.getElementById("contact-form");
+const contactIdInput = document.getElementById("contact-id");
+const contactNameInput = document.getElementById("contact-name");
+const contactEmailInput = document.getElementById("contact-email");
+const contactNotesInput = document.getElementById("contact-notes");
+const contactSave = document.getElementById("contact-save");
+const contactCancelEdit = document.getElementById("contact-cancel-edit");
+const contactStatus = document.getElementById("contact-status");
+const contactList = document.getElementById("contact-list");
 const reviewSettingsToggle = document.getElementById("review-settings-toggle");
 const reviewSettingsBody = document.getElementById("review-settings-body");
 const organizationReviewForm = document.getElementById("organization-review-form");
@@ -255,6 +266,7 @@ let documentsCache = [];
 let searchMode = "keyword";
 let inviteCache = [];
 let memberCache = [];
+let contactCache = [];
 let recordsAiUsageSummary = null;
 let organizationReview = null;
 let organizationLogoUrls = new Map();
@@ -1987,6 +1999,33 @@ async function loadMembers() {
   renderMembers();
 }
 
+async function loadContacts() {
+  if (!activeMembership) return;
+
+  const { data, error } = await supabase
+    .from("organization_contacts")
+    .select("id, full_name, email, notes, created_at, updated_at")
+    .eq("organization_id", activeMembership.organization.id)
+    .order("full_name", { ascending: true });
+
+  if (error) {
+    const message = String(error.message || "").toLowerCase();
+    setStatus(
+      contactStatus,
+      message.includes("organization_contacts") && (message.includes("does not exist") || message.includes("schema cache"))
+        ? "Run the contacts migration before managing contacts."
+        : error.message,
+      "error"
+    );
+    contactCache = [];
+    renderContacts();
+    return;
+  }
+
+  contactCache = Array.isArray(data) ? data : [];
+  renderContacts();
+}
+
 async function loadRecordsAiUsage() {
   const organization = getActiveOrganization();
   recordsAiUsageSummary = null;
@@ -2304,6 +2343,8 @@ function renderProfile() {
   const canSeeLibrarySettings = !isFreePlan && capabilities.canManageLibrarySettings;
   const canSeeInviteManagement = isOrganizationPlan && capabilities.canManageInvites;
   const canSeeMemberManagement = isOrganizationPlan && capabilities.canManageMembers;
+  const canSeeContactsSettings = capabilities.canManageMembers;
+  const canManageContacts = capabilities.canManageMembers;
   const canSeeEmbedSettings = hasLibraryAccess && isOrganizationPlan && canSeeLibrarySettings;
   const canSeeAccessSettings = hasLibraryAccess;
   const canSeePublishingSettings = canSeeEmbedSettings;
@@ -2346,6 +2387,11 @@ function renderProfile() {
   organizationAiMemoryNewInput.disabled = !capabilities.canManageLibrarySettings;
   organizationAiMemoryAdd.disabled = !capabilities.canManageLibrarySettings;
   organizationAiSettingsSave.disabled = !capabilities.canManageLibrarySettings;
+  contactNameInput.disabled = !canManageContacts;
+  contactEmailInput.disabled = !canManageContacts;
+  contactNotesInput.disabled = !canManageContacts;
+  contactSave.disabled = !canManageContacts;
+  contactCancelEdit.disabled = !canManageContacts;
   renderOrganizationReviewForm();
   additionalLibraryNameInput.disabled = !canCreateAdditionalLibrary;
   additionalLibrarySave.disabled = !canCreateAdditionalLibrary;
@@ -2374,6 +2420,8 @@ function renderProfile() {
   show(libraryProfileBody, canSeeLibraryProfileSettings && !libraryProfileBody.classList.contains("hidden"));
   show(aiSettingsToggle, hasLibraryAccess && canSeeLibrarySettings);
   show(aiSettingsBody, hasLibraryAccess && canSeeLibrarySettings && !aiSettingsBody.classList.contains("hidden"));
+  show(contactsSettingsToggle, canSeeContactsSettings);
+  show(contactsSettingsBody, canSeeContactsSettings && !contactsSettingsBody.classList.contains("hidden"));
   show(accessSettingsToggle, canSeeAccessSettings);
   show(accessSettingsBody, canSeeAccessSettings && !accessSettingsBody.classList.contains("hidden"));
   show(publishingSettingsToggle, canSeePublishingSettings);
@@ -2838,6 +2886,42 @@ function renderMembers() {
   }
 }
 
+function resetContactForm() {
+  if (!contactForm) return;
+  contactForm.reset();
+  contactIdInput.value = "";
+  contactSave.textContent = "Add contact";
+  show(contactCancelEdit, false);
+}
+
+function renderContacts() {
+  if (!contactList) return;
+  const capabilities = getActiveCapabilities();
+  const canManageContacts = capabilities.canManageMembers;
+  const canInviteContacts = capabilities.canManageInvites && (getActiveOrganization()?.subscription_tier || "free") === "organization";
+
+  contactList.innerHTML = "";
+  if (!contactCache.length) {
+    contactList.innerHTML = '<tr><td colspan="4">No contacts yet.</td></tr>';
+    return;
+  }
+
+  contactCache.forEach((contact) => {
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td>${escapeHtml(contact.full_name || "Unnamed contact")}</td>
+      <td><a href="mailto:${escapeHtml(contact.email || "")}">${escapeHtml(contact.email || "")}</a></td>
+      <td>${escapeHtml(contact.notes || "")}</td>
+      <td>
+        <button class="btn secondary" type="button" data-contact-action="edit" data-contact-id="${escapeHtml(contact.id)}"${canManageContacts ? "" : " disabled"}>Edit</button>
+        <button class="btn secondary" type="button" data-contact-action="invite" data-contact-id="${escapeHtml(contact.id)}"${canInviteContacts ? "" : " disabled"}>Invite as user</button>
+        <button class="btn secondary" type="button" data-contact-action="delete" data-contact-id="${escapeHtml(contact.id)}"${canManageContacts ? "" : " disabled"}>Delete</button>
+      </td>
+    `;
+    contactList.append(row);
+  });
+}
+
 async function loadDocuments() {
   const organization = getActiveOrganization();
   if (!organization) return;
@@ -2876,6 +2960,7 @@ async function loadActiveOrganizationData() {
     documentsCache = [];
     inviteCache = [];
     memberCache = [];
+    contactCache = [];
     recordsAiUsageSummary = null;
     organizationReview = null;
     resetLibraryAiSearchHistory();
@@ -2884,6 +2969,7 @@ async function loadActiveOrganizationData() {
     renderRecentFiles();
     renderInvites();
     renderMembers();
+    renderContacts();
     renderProfile();
     setStatus(docsStatus, "");
     setStatus(createInviteStatus, "");
@@ -2896,6 +2982,7 @@ async function loadActiveOrganizationData() {
     loadDocuments(),
     loadInvites(),
     loadMembers(),
+    loadContacts(),
     loadRecordsAiUsage(),
     loadOrganizationAiSettings(),
     loadOrganizationReview(),
@@ -3455,6 +3542,155 @@ async function handleCreateInvite(event) {
   setStatus(createInviteStatus, "Invite code created.", "success");
 }
 
+async function handleContactSave(event) {
+  event.preventDefault();
+  const organization = getActiveOrganization();
+  if (!organization) return;
+  if (!getActiveCapabilities().canManageMembers) {
+    setStatus(contactStatus, "You do not have permission to manage contacts.", "error");
+    return;
+  }
+
+  const contactId = contactIdInput.value.trim();
+  const payload = {
+    full_name: contactNameInput.value.trim(),
+    email: contactEmailInput.value.trim().toLowerCase(),
+    notes: contactNotesInput.value.trim() || null,
+  };
+
+  if (!payload.full_name || !payload.email) {
+    setStatus(contactStatus, "Name and email are required.", "error");
+    return;
+  }
+
+  contactSave.disabled = true;
+  setStatus(contactStatus, contactId ? "Updating contact..." : "Adding contact...");
+
+  const query = contactId
+    ? supabase
+        .from("organization_contacts")
+        .update(payload)
+        .eq("id", contactId)
+        .eq("organization_id", organization.id)
+    : supabase
+        .from("organization_contacts")
+        .insert({
+          ...payload,
+          organization_id: organization.id,
+          created_by_user_id: currentSession.user.id,
+        });
+
+  const { error } = await query;
+  contactSave.disabled = false;
+  if (error) {
+    setStatus(contactStatus, error.message, "error");
+    return;
+  }
+
+  resetContactForm();
+  await loadContacts();
+  setStatus(contactStatus, contactId ? "Contact updated." : "Contact added.", "success");
+}
+
+async function inviteContactAsUser(contact) {
+  const organization = getActiveOrganization();
+  if (!organization || !contact) return;
+  if (!getActiveCapabilities().canManageInvites) {
+    setStatus(contactStatus, "You do not have permission to invite users.", "error");
+    return;
+  }
+
+  setStatus(contactStatus, `Creating invite for ${contact.email}...`);
+  const expiresAtDate = new Date();
+  expiresAtDate.setDate(expiresAtDate.getDate() + 7);
+  expiresAtDate.setHours(23, 59, 0, 0);
+
+  const { data, error } = await supabase.rpc("create_organization_invite", {
+    input_organization_id: organization.id,
+    input_role: "viewer",
+    input_max_uses: 1,
+    input_expires_at: expiresAtDate.toISOString(),
+  });
+
+  if (error) {
+    setStatus(contactStatus, error.message, "error");
+    return;
+  }
+
+  const invite = Array.isArray(data) ? data[0] : data;
+  if (!invite?.code) {
+    setStatus(contactStatus, "Invite code could not be created.", "error");
+    return;
+  }
+
+  try {
+    setStatus(contactStatus, `Sending invite to ${contact.email}...`);
+    await sendInviteEmailForCode(
+      organization,
+      invite.code,
+      contact.email,
+      contact.full_name || "",
+      `You have been invited to join ${organization.name || "this library"} on N3XRA Records.`
+    );
+    await loadInvites();
+    setStatus(contactStatus, `Invite sent to ${contact.email}.`, "success");
+  } catch (error) {
+    await loadInvites();
+    setStatus(contactStatus, getErrorMessage(error, "Invite code was created, but the email failed to send."), "error");
+  }
+}
+
+async function handleContactAction(event) {
+  const button = event.target.closest("button[data-contact-action]");
+  if (!button) return;
+  const contact = contactCache.find((item) => item.id === button.getAttribute("data-contact-id"));
+  if (!contact) return;
+  const action = button.getAttribute("data-contact-action");
+
+  if (action === "edit") {
+    contactIdInput.value = contact.id;
+    contactNameInput.value = contact.full_name || "";
+    contactEmailInput.value = contact.email || "";
+    contactNotesInput.value = contact.notes || "";
+    contactSave.textContent = "Save contact";
+    show(contactCancelEdit, true);
+    contactNameInput.focus();
+    return;
+  }
+
+  if (action === "invite") {
+    await inviteContactAsUser(contact);
+    return;
+  }
+
+  if (action !== "delete") return;
+  if (!(await confirmAction({
+    title: "Delete this contact?",
+    message: "This removes the contact from saved document recipients. It does not remove any user access.",
+    confirmLabel: "Delete",
+    kicker: "Contacts",
+    danger: true,
+  }))) return;
+
+  const organization = getActiveOrganization();
+  if (!organization) return;
+  button.disabled = true;
+  setStatus(contactStatus, "Deleting contact...");
+  const { error } = await supabase
+    .from("organization_contacts")
+    .delete()
+    .eq("id", contact.id)
+    .eq("organization_id", organization.id);
+  button.disabled = false;
+  if (error) {
+    setStatus(contactStatus, error.message, "error");
+    return;
+  }
+  if (contactIdInput.value === contact.id) resetContactForm();
+  await loadContacts();
+  setStatus(contactStatus, "Contact deleted.", "success");
+}
+
 async function handleInviteAction(event) {
   const button = event.target.closest("button[data-action]");
   if (!button) return;
@@ -3937,6 +4173,13 @@ async function init() {
   libraryLogoRemove?.addEventListener("click", handleLibraryLogoRemove);
   aiSettingsToggle?.addEventListener("click", () => setSectionToggleOpen(aiSettingsToggle, aiSettingsBody, aiSettingsBody.classList.contains("hidden")));
   organizationAiSettingsForm?.addEventListener("submit", handleOrganizationAiSettingsSave);
+  contactsSettingsToggle?.addEventListener("click", () => setSectionToggleOpen(contactsSettingsToggle, contactsSettingsBody, contactsSettingsBody.classList.contains("hidden")));
+  contactForm?.addEventListener("submit", handleContactSave);
+  contactCancelEdit?.addEventListener("click", () => {
+    resetContactForm();
+    setStatus(contactStatus, "");
+  });
+  contactList?.addEventListener("click", handleContactAction);
   accessSettingsToggle?.addEventListener("click", () => setSectionToggleOpen(accessSettingsToggle, accessSettingsBody, accessSettingsBody.classList.contains("hidden")));
   publishingSettingsToggle?.addEventListener("click", () => setSectionToggleOpen(publishingSettingsToggle, publishingSettingsBody, publishingSettingsBody.classList.contains("hidden")));
   billingSettingsToggle?.addEventListener("click", () => setSectionToggleOpen(billingSettingsToggle, billingSettingsBody, billingSettingsBody.classList.contains("hidden")));
@@ -4104,6 +4347,7 @@ async function init() {
 }
 
 setSectionToggleOpen(libraryProfileToggle, libraryProfileBody, false);
+setSectionToggleOpen(contactsSettingsToggle, contactsSettingsBody, false);
 setSectionToggleOpen(accessSettingsToggle, accessSettingsBody, false);
 setSectionToggleOpen(publishingSettingsToggle, publishingSettingsBody, false);
 setSectionToggleOpen(billingSettingsToggle, billingSettingsBody, false);

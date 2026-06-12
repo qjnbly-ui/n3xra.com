@@ -1738,6 +1738,28 @@ textarea {
   margin-right: 0;
 }
 
+#contact-form .grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem;
+  align-items: start;
+}
+
+.contact-table th:last-child,
+.contact-table td:last-child {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.contact-table td:last-child .btn {
+  margin-right: 0.35rem;
+  padding-inline: 0.7rem;
+}
+
+.contact-table td:last-child .btn:last-child {
+  margin-right: 0;
+}
+
 .is-selected-row {
   background: rgba(23, 111, 102, 0.06);
 }
@@ -2478,6 +2500,38 @@ code.inline {
   flex-wrap: wrap;
 }
 
+.document-send-contact-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.55rem;
+}
+
+.document-send-contact {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.55rem;
+  align-items: center;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid rgba(15, 22, 32, 0.1);
+  border-radius: var(--radius-sm);
+  background: #ffffff;
+}
+
+.document-send-contact input {
+  width: auto;
+}
+
+.document-send-contact span {
+  display: grid;
+  gap: 0.08rem;
+  min-width: 0;
+}
+
+.document-send-contact small {
+  color: var(--slate);
+  overflow-wrap: anywhere;
+}
+
 .document-send-option {
   display: inline-flex;
   gap: 0.45rem;
@@ -3053,6 +3107,10 @@ code.inline {
 
   .document-create-actions .btn {
     width: 100%;
+  }
+
+  #contact-form .grid-2 {
+    grid-template-columns: 1fr;
   }
 
   .document-template-item {

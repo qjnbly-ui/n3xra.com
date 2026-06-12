@@ -98,6 +98,20 @@ create table if not exists public.organization_invites (
     check (redeemed_uses >= 0 and redeemed_uses <= max_uses)
 );
 
+create table if not exists public.organization_contacts (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations (id) on delete cascade,
+  full_name text not null,
+  email text not null,
+  notes text,
+  created_by_user_id uuid references auth.users (id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint organization_contacts_email_check check (email ~* '^[^@[:space:]]+@[^@[:space:]]+[.][^@[:space:]]+$'),
+  constraint organization_contacts_full_name_check check (length(trim(full_name)) > 0),
+  unique (organization_id, email)
+);
+
 create table if not exists public.documents (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references public.organizations (id) on delete cascade,
@@ -294,6 +308,8 @@ create index if not exists organizations_owner_user_id_idx on public.organizatio
 create index if not exists organization_memberships_user_id_idx on public.organization_memberships (user_id);
 create index if not exists organization_memberships_org_id_idx on public.organization_memberships (organization_id);
 create index if not exists organization_invites_org_id_idx on public.organization_invites (organization_id);
+create index if not exists organization_contacts_organization_id_idx on public.organization_contacts (organization_id);
+create index if not exists organization_contacts_email_idx on public.organization_contacts (lower(email));
 create index if not exists documents_organization_id_idx on public.documents (organization_id);
 create index if not exists documents_created_at_idx on public.documents (created_at desc);
 create index if not exists documents_search_tsv_idx on public.documents using gin (search_tsv);
@@ -1377,6 +1393,11 @@ create trigger app_documents_set_updated_at
 before update on public.app_documents
 for each row execute procedure public.set_updated_at();
 
+drop trigger if exists organization_contacts_set_updated_at on public.organization_contacts;
+create trigger organization_contacts_set_updated_at
+before update on public.organization_contacts
+for each row execute procedure public.set_updated_at();
+
 drop trigger if exists meeting_recordings_set_updated_at on public.meeting_recordings;
 create trigger meeting_recordings_set_updated_at
 before update on public.meeting_recordings
@@ -1443,6 +1464,7 @@ alter table public.platform_admins enable row level security;
 alter table public.organizations enable row level security;
 alter table public.organization_memberships enable row level security;
 alter table public.organization_invites enable row level security;
+alter table public.organization_contacts enable row level security;
 alter table public.documents enable row level security;
 alter table public.app_documents enable row level security;
 alter table public.meeting_recordings enable row level security;
@@ -1615,6 +1637,37 @@ on public.organization_invites
 for all
 using (public.can_manage_members(organization_id))
 with check (public.can_manage_members(organization_id));
+
+drop policy if exists "organization_contacts_select_policy" on public.organization_contacts;
+create policy "organization_contacts_select_policy"
+on public.organization_contacts
+for select
+using (
+  public.can_manage_members(organization_id)
+  or public.can_manage_documents(organization_id)
+);
+
+drop policy if exists "organization_contacts_insert_policy" on public.organization_contacts;
+create policy "organization_contacts_insert_policy"
+on public.organization_contacts
+for insert
+with check (
+  public.can_manage_members(organization_id)
+  and created_by_user_id = auth.uid()
+);
+
+drop policy if exists "organization_contacts_update_policy" on public.organization_contacts;
+create policy "organization_contacts_update_policy"
+on public.organization_contacts
+for update
+using (public.can_manage_members(organization_id))
+with check (public.can_manage_members(organization_id));
+
+drop policy if exists "organization_contacts_delete_policy" on public.organization_contacts;
+create policy "organization_contacts_delete_policy"
+on public.organization_contacts
+for delete
+using (public.can_manage_members(organization_id));
 
 drop policy if exists "documents_select_policy" on public.documents;
 create policy "documents_select_policy"

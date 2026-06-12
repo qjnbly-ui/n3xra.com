@@ -53,6 +53,8 @@ const documentPdfFrame = document.getElementById("document-pdf-frame");
 const documentSendModal = document.getElementById("document-send-modal");
 const documentSendForm = document.getElementById("document-send-form");
 const documentSendTo = document.getElementById("document-send-to");
+const documentSendContactsField = document.getElementById("document-send-contacts-field");
+const documentSendContactList = document.getElementById("document-send-contact-list");
 const documentSendSubject = document.getElementById("document-send-subject");
 const documentSendMessage = document.getElementById("document-send-message");
 const documentSendAttachPdf = document.getElementById("document-send-attach-pdf");
@@ -122,6 +124,7 @@ let memberships = [];
 let activeMembership = null;
 let appDocuments = [];
 let appTemplates = [];
+let appContacts = [];
 let activeDocumentId = "";
 let activeDocumentKind = "document";
 let tiptapEditor = null;
@@ -569,16 +572,61 @@ function renderAppTemplates() {
   documentTemplateSelect.disabled = !capabilities.canEditDocuments;
 }
 
+function renderSendContacts() {
+  if (!documentSendContactList) return;
+  show(documentSendContactsField, appContacts.length > 0);
+  documentSendContactList.innerHTML = "";
+  appContacts.forEach((contact) => {
+    const label = document.createElement("label");
+    label.className = "document-send-contact";
+    label.innerHTML = `
+      <input type="checkbox" value="${escapeHtml(contact.email || "")}">
+      <span>
+        <strong>${escapeHtml(contact.full_name || contact.email || "Contact")}</strong>
+        <small>${escapeHtml(contact.email || "")}</small>
+      </span>
+    `;
+    documentSendContactList.append(label);
+  });
+}
+
+async function loadAppContacts() {
+  const organization = getActiveOrganization();
+  if (!organization || !getActiveCapabilities().canEditDocuments) {
+    appContacts = [];
+    renderSendContacts();
+    return;
+  }
+
+  const { data, error } = await supabase
+    .from("organization_contacts")
+    .select("id, full_name, email")
+    .eq("organization_id", organization.id)
+    .order("full_name", { ascending: true });
+
+  if (error) {
+    appContacts = [];
+    renderSendContacts();
+    return;
+  }
+
+  appContacts = Array.isArray(data) ? data : [];
+  renderSendContacts();
+}
+
 async function loadAppDocuments(preferredId = "") {
   const organization = getActiveOrganization();
   if (!organization) {
     appDocuments = [];
     appTemplates = [];
+    appContacts = [];
     renderAppDocuments();
     renderAppTemplates();
+    renderSendContacts();
     return;
   }
 
+  await loadAppContacts();
   setStatus(documentsStatus, "Loading editable documents...");
   const { data, error } = await supabase
     .from("app_documents")
@@ -787,6 +835,7 @@ function openDocumentSendModal() {
   documentSendMessage.value = `Please see the attached ${title} document.`;
   documentSendAttachPdf.checked = true;
   documentSendIncludeLink.checked = true;
+  renderSendContacts();
   documentSendFromNote.textContent = currentSession?.user?.email
     ? `Replies will go to ${currentSession.user.email}.`
     : "Replies will go to the sender account.";
@@ -795,6 +844,17 @@ function openDocumentSendModal() {
   documentSendModal.classList.add("is-open");
   documentSendModal.setAttribute("aria-hidden", "false");
   documentSendTo.focus();
+}
+
+function getSelectedSendRecipients() {
+  const emails = [];
+  const typedEmail = documentSendTo.value.trim().toLowerCase();
+  if (typedEmail) emails.push(typedEmail);
+  documentSendContactList?.querySelectorAll("input[type='checkbox']:checked").forEach((input) => {
+    const email = String(input.value || "").trim().toLowerCase();
+    if (email) emails.push(email);
+  });
+  return Array.from(new Set(emails));
 }
 
 function printDocumentPdf() {
@@ -880,11 +940,11 @@ async function sendActiveDocument(event) {
     return;
   }
 
-  const recipientEmail = documentSendTo.value.trim();
+  const recipientEmails = getSelectedSendRecipients();
   const subject = documentSendSubject.value.trim();
   const message = documentSendMessage.value.trim();
-  if (!recipientEmail || !subject) {
-    setStatus(documentSendStatus, "Recipient and subject are required.", "error");
+  if (!recipientEmails.length || !subject) {
+    setStatus(documentSendStatus, "At least one recipient and subject are required.", "error");
     return;
   }
 
@@ -912,7 +972,7 @@ async function sendActiveDocument(event) {
       },
       body: JSON.stringify({
         documentId: activeDocumentId,
-        recipientEmail,
+        recipientEmails,
         subject,
         message,
         attachPdf: documentSendAttachPdf.checked,
@@ -926,10 +986,15 @@ async function sendActiveDocument(event) {
       throw new Error(payload?.error || "Document could not be sent.");
     }
 
-    setStatus(editorStatus, `Sent to ${recipientEmail}.`, "success");
-    setStatus(documentSendStatus, "Sent.", "success");
+    const sentCount = Number(payload?.sentCount || 0);
+    const failed = Array.isArray(payload?.failed) ? payload.failed : [];
+    const summary = failed.length
+      ? `Sent to ${sentCount}; failed: ${failed.map((item) => item.email).join(", ")}.`
+      : `Sent to ${sentCount} recipient${sentCount === 1 ? "" : "s"}.`;
+    setStatus(editorStatus, summary, failed.length ? "error" : "success");
+    setStatus(documentSendStatus, summary, failed.length ? "error" : "success");
     await loadAppDocuments(activeDocumentId);
-    closeDocumentSendModal();
+    if (!failed.length) closeDocumentSendModal();
   } catch (error) {
     setStatus(documentSendStatus, error?.message || "Unable to send document.", "error");
   } finally {

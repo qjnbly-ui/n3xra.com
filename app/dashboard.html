@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./styles.css">
+  <link rel="stylesheet" href="./styles.css?v=20260612-contact-batch-send">
 </head>
 <body>
   <div class="shell">
@@ -242,6 +242,56 @@
                 </div>
                 <p class="status" id="organization-ai-settings-status"></p>
               </form>
+            </div>
+            <button class="section-toggle" id="contacts-settings-toggle" type="button" aria-expanded="false" aria-controls="contacts-settings-body">
+              <div>
+                <h3>Contacts</h3>
+                <p>Save account contacts for document sending and user invites.</p>
+              </div>
+              <span class="section-toggle-indicator" aria-hidden="true">+</span>
+            </button>
+            <div class="stack hidden" id="contacts-settings-body">
+              <div class="settings-subsection" id="contact-management-body">
+                <div class="settings-subsection-head">
+                  <h4>Account contacts</h4>
+                  <p>These contacts are available when sending documents from this library.</p>
+                </div>
+                <form class="stack" id="contact-form">
+                  <input id="contact-id" type="hidden">
+                  <div class="grid-2">
+                    <div class="field">
+                      <label for="contact-name">Name</label>
+                      <input id="contact-name" type="text" maxlength="120" placeholder="Jane Smith" required>
+                    </div>
+                    <div class="field">
+                      <label for="contact-email">Email</label>
+                      <input id="contact-email" type="email" placeholder="jane@example.org" required>
+                    </div>
+                  </div>
+                  <div class="field">
+                    <label for="contact-notes">Notes</label>
+                    <textarea id="contact-notes" rows="3" maxlength="500" placeholder="Board member, donor, city contact..."></textarea>
+                  </div>
+                  <div class="actions">
+                    <button class="btn" id="contact-save" type="submit">Add contact</button>
+                    <button class="btn secondary hidden" id="contact-cancel-edit" type="button">Cancel edit</button>
+                  </div>
+                  <p class="status" id="contact-status"></p>
+                </form>
+                <div class="table-shell">
+                  <table class="data-table contact-table">
+                    <thead>
+                      <tr>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Notes</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody id="contact-list"></tbody>
+                  </table>
+                </div>
+              </div>
             </div>
             <button class="section-toggle" id="access-settings-toggle" type="button" aria-expanded="false" aria-controls="access-settings-body">
               <div>
@@ -822,6 +872,6 @@
   </div>
 
   <script src="./config.js"></script>
-  <script type="module" src="./dashboard.js"></script>
+  <script type="module" src="./dashboard.js?v=20260612-contact-batch-send"></script>
 </body>
 </html>

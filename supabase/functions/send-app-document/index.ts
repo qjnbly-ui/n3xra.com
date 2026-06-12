@@ -46,6 +46,17 @@ function bytesToBase64(bytes: Uint8Array) {
   return btoa(binary);
 }
 
+function normalizeRecipientEmails(payload: Record<string, unknown>) {
+  const raw = Array.isArray(payload.recipientEmails)
+    ? payload.recipientEmails
+    : [payload.recipientEmail];
+  return Array.from(new Set(
+    raw
+      .map((value) => String(value || "").trim().toLowerCase())
+      .filter(Boolean)
+  ));
+}
+
 function buildTextEmail(options: {
   senderName: string;
   organizationName: string;
@@ -144,17 +155,18 @@ Deno.serve(async (request) => {
 
     const payload = await request.json().catch(() => ({}));
     const documentId = String(payload.documentId || "").trim();
-    const recipientEmail = String(payload.recipientEmail || "").trim().toLowerCase();
+    const recipientEmails = normalizeRecipientEmails(payload);
     const subject = textValue(payload.subject).slice(0, 180);
     const message = String(payload.message || "").trim().slice(0, 5000);
     const attachPdf = payload.attachPdf !== false;
     const includeLink = payload.includeLink !== false;
 
-    if (!documentId || !recipientEmail || !subject) {
-      return jsonResponse({ error: "documentId, recipientEmail, and subject are required." }, 400);
+    if (!documentId || !recipientEmails.length || !subject) {
+      return jsonResponse({ error: "documentId, recipientEmails, and subject are required." }, 400);
     }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipientEmail)) {
-      return jsonResponse({ error: "Recipient email is invalid." }, 400);
+    const invalidEmail = recipientEmails.find((email) => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email));
+    if (invalidEmail) {
+      return jsonResponse({ error: `Recipient email is invalid: ${invalidEmail}` }, 400);
     }
 
     const { data: document, error: documentError } = await adminClient
@@ -219,36 +231,53 @@ Deno.serve(async (request) => {
     const senderName = textValue(profile?.full_name) || textValue(user.email) || "N3XRA Records";
     const organizationName = textValue(organization?.name) || "N3XRA Records";
     const appLink = `${appBaseUrl}/app/documents?id=${encodeURIComponent(documentId)}`;
-    const emailPayload: Record<string, unknown> = {
+    const baseEmailPayload: Record<string, unknown> = {
       from: fromEmail,
-      to: [recipientEmail],
       subject,
       html: buildHtmlEmail({ senderName, organizationName, documentTitle, message, includeLink, appLink }),
       text: buildTextEmail({ senderName, organizationName, documentTitle, message, includeLink, appLink }),
       reply_to: user.email,
     };
-    if (attachments.length) emailPayload.attachments = attachments;
+    if (attachments.length) baseEmailPayload.attachments = attachments;
 
-    const emailResponse = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${resendApiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(emailPayload),
-    });
+    const sent: Array<{ email: string; id: string | null }> = [];
+    const failed: Array<{ email: string; error: string }> = [];
 
-    const emailResult = await emailResponse.json().catch(() => ({}));
-    if (!emailResponse.ok) {
-      return jsonResponse({ error: String(emailResult?.message || emailResult?.error || "Document email failed to send.") }, 400);
+    for (const email of recipientEmails) {
+      const emailResponse = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${resendApiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ...baseEmailPayload,
+          to: [email],
+        }),
+      });
+
+      const emailResult = await emailResponse.json().catch(() => ({}));
+      if (emailResponse.ok) {
+        sent.push({ email, id: typeof emailResult?.id === "string" ? emailResult.id : null });
+      } else {
+        failed.push({ email, error: String(emailResult?.message || emailResult?.error || "Document email failed to send.") });
+      }
     }
 
-    await adminClient
-      .from("app_documents")
-      .update({ last_sent_at: new Date().toISOString() })
-      .eq("id", documentId);
+    if (sent.length) {
+      await adminClient
+        .from("app_documents")
+        .update({ last_sent_at: new Date().toISOString() })
+        .eq("id", documentId);
+    }
 
-    return jsonResponse({ ok: true, emailId: emailResult?.id || null });
+    return jsonResponse({
+      ok: failed.length === 0,
+      sent,
+      failed,
+      sentCount: sent.length,
+      failedCount: failed.length,
+    }, sent.length ? 200 : 400);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unexpected document send error.";
     return jsonResponse({ error: message }, 500);
