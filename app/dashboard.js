@@ -2620,7 +2620,7 @@ function renderDocuments() {
       </div>
       <p class="doc-snippet">${snippetFromText(doc.extracted_text || "", query)}</p>
       <div class="doc-actions">
-        <button class="btn secondary" type="button" data-action="open" data-id="${doc.id}">${getEditableDocumentForSource(doc.id) ? "Open editable" : "Open file"}</button>
+        <button class="btn secondary" type="button" data-action="open" data-id="${doc.id}">Open</button>
       </div>
     `;
     docList.append(card);
@@ -2665,7 +2665,7 @@ function renderAiSearchMatches(matches = []) {
         <p class="doc-snippet">${highlightedAiEvidenceSnippet(doc.snippet || "")}</p>
       </div>
       <div class="doc-actions">
-        <button class="btn secondary" type="button" data-action="open" data-id="${escapeHtml(doc.id)}">${getEditableDocumentForSource(doc.id) ? "Open editable" : "Open file"}</button>
+        <button class="btn secondary" type="button" data-action="open" data-id="${escapeHtml(doc.id)}">Open</button>
       </div>
     `;
     docList.append(card);
@@ -2904,7 +2904,7 @@ function renderRecentFiles() {
         <p class="download-meta">${escapeHtml(buildDocumentMetadata(doc, { includeVisibility: true, includeCreatedAt: false }))}${editableDoc ? " · Editable version" : ""}</p>
       </div>
       <div class="actions">
-        <button class="btn secondary" type="button" data-action="open" data-id="${doc.id}">${editableDoc ? "Open editable" : "Open"}</button>
+        <button class="btn secondary" type="button" data-action="open" data-id="${doc.id}">Open</button>
       </div>
     `;
     recentFilesList.append(item);
@@ -3162,7 +3162,7 @@ async function openSourceFilePreview(documentId) {
   show(fileModalOpenEditable, Boolean(editableDoc));
   if (editableDoc) {
     fileModalOpenEditable.href = `./documents.html?id=${encodeURIComponent(editableDoc.id)}`;
-    fileModalOpenEditable.textContent = getActiveCapabilities().canEditDocuments ? "Edit document" : "Open editable";
+    fileModalOpenEditable.textContent = getActiveCapabilities().canEditDocuments ? "Edit document" : "Open";
   }
   show(fileModalOriginal, false);
 }
@@ -3202,7 +3202,7 @@ async function openEditableFilePreview(documentId, editableDoc) {
     fileModalDownload.textContent = "Download PDF";
     show(fileModalOpenEditable, true);
     fileModalOpenEditable.href = `./documents.html?id=${encodeURIComponent(editableDoc.id)}`;
-    fileModalOpenEditable.textContent = getActiveCapabilities().canEditDocuments ? "Edit document" : "Open editable";
+    fileModalOpenEditable.textContent = getActiveCapabilities().canEditDocuments ? "Edit document" : "Open";
     show(fileModalOriginal, true);
     setStatus(docsStatus, "");
     return true;

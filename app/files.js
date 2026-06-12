@@ -396,7 +396,7 @@ function renderFiles() {
       actionButtons.push(`<button class="btn secondary" type="button" data-action="edit" data-id="${doc.id}">Edit details</button>`);
       actionButtons.push(
         editableDoc
-          ? `<button class="btn secondary" type="button" data-action="open-editable" data-id="${doc.id}">Open editable</button>`
+          ? `<button class="btn secondary" type="button" data-action="open-editable" data-id="${doc.id}">Open</button>`
           : `<button class="btn secondary" type="button" data-action="make-editable" data-id="${doc.id}">Make editable</button>`
       );
     }
@@ -496,7 +496,7 @@ async function openSourceFilePreview(documentId) {
   show(fileModalOpenEditable, Boolean(editableDoc));
   if (editableDoc) {
     fileModalOpenEditable.href = `./documents.html?id=${encodeURIComponent(editableDoc.id)}`;
-    fileModalOpenEditable.textContent = capabilities.canEditDocuments ? "Edit document" : "Open editable";
+    fileModalOpenEditable.textContent = capabilities.canEditDocuments ? "Edit document" : "Open";
   }
   show(fileModalOriginal, false);
   show(fileModalEdit, capabilities.canEditDocuments);
@@ -540,7 +540,7 @@ async function openEditableFilePreview(documentId, editableDoc) {
     show(fileModalShare, false);
     show(fileModalOpenEditable, true);
     fileModalOpenEditable.href = `./documents.html?id=${encodeURIComponent(editableDoc.id)}`;
-    fileModalOpenEditable.textContent = capabilities.canEditDocuments ? "Edit document" : "Open editable";
+    fileModalOpenEditable.textContent = capabilities.canEditDocuments ? "Edit document" : "Open";
     show(fileModalOriginal, true);
     show(fileModalEdit, capabilities.canEditDocuments);
     show(fileModalDelete, capabilities.canDeleteDocuments);
