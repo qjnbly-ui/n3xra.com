@@ -1,6 +1,8 @@
 import { Editor } from "https://esm.sh/@tiptap/core";
 import StarterKit from "https://esm.sh/@tiptap/starter-kit";
 import { Table, TableCell, TableHeader, TableRow } from "https://esm.sh/@tiptap/extension-table";
+import { Color, TextStyle } from "https://esm.sh/@tiptap/extension-text-style";
+import Superscript from "https://esm.sh/@tiptap/extension-superscript";
 import TextAlign from "https://esm.sh/@tiptap/extension-text-align";
 import Underline from "https://esm.sh/@tiptap/extension-underline";
 import { createBrowserSupabase, hasConfig, getSessionOrNull } from "./lib/supabase-client.js";
@@ -195,12 +197,28 @@ function blocksToHtml(contentJson) {
 function sanitizeHtml(html) {
   const template = document.createElement("template");
   template.innerHTML = String(html || "");
-  const allowed = new Set(["P", "DIV", "H1", "H2", "H3", "UL", "OL", "LI", "STRONG", "B", "EM", "I", "U", "A", "BR"]);
+  const allowed = new Set([
+    "P", "DIV", "H1", "H2", "H3", "UL", "OL", "LI", "STRONG", "B", "EM", "I", "U", "A", "BR",
+    "TABLE", "TBODY", "THEAD", "TFOOT", "TR", "TH", "TD", "SUP", "SPAN",
+  ]);
 
   template.content.querySelectorAll("*").forEach((node) => {
     if (!allowed.has(node.tagName)) {
       node.replaceWith(document.createTextNode(node.textContent || ""));
       return;
+    }
+
+    const style = node.getAttribute("style") || "";
+    const cleanStyles = [];
+    const colorMatch = style.match(/(?:^|;)\s*color\s*:\s*([^;]+)/i);
+    const alignMatch = style.match(/(?:^|;)\s*text-align\s*:\s*([^;]+)/i);
+    if (node.tagName === "SPAN" && colorMatch) {
+      const color = colorMatch[1].trim();
+      if (/^(#[0-9a-f]{3,8}|rgb\([^)]+\)|rgba\([^)]+\)|[a-z]+)$/i.test(color)) cleanStyles.push(`color: ${color}`);
+    }
+    if (["P", "DIV", "H1", "H2", "H3", "TH", "TD"].includes(node.tagName) && alignMatch) {
+      const align = alignMatch[1].trim().toLowerCase();
+      if (["left", "center", "right", "justify"].includes(align)) cleanStyles.push(`text-align: ${align}`);
     }
 
     Array.from(node.attributes).forEach((attr) => {
@@ -209,8 +227,11 @@ function sanitizeHtml(html) {
         const href = attr.value.trim();
         if (/^(https?:|mailto:)/i.test(href)) return;
       }
+      if (["TD", "TH"].includes(node.tagName) && ["colspan", "rowspan"].includes(name) && /^\d+$/.test(attr.value)) return;
       node.removeAttribute(attr.name);
     });
+
+    if (cleanStyles.length) node.setAttribute("style", cleanStyles.join("; "));
 
     if (node.tagName === "A") {
       node.setAttribute("target", "_blank");
@@ -233,12 +254,16 @@ function textFromTiptapJson(node, parts = []) {
   if (node.type === "text" && node.text) {
     parts.push(node.text);
   }
+  if (node.type === "hardBreak") {
+    parts.push("\n");
+  }
   if (Array.isArray(node.content)) {
     node.content.forEach((child) => textFromTiptapJson(child, parts));
   }
-  if (["paragraph", "heading", "listItem"].includes(node.type)) {
+  if (["paragraph", "heading", "listItem", "tableRow"].includes(node.type)) {
     parts.push("\n");
   }
+  if (["tableCell", "tableHeader"].includes(node.type)) parts.push("\t");
   return parts;
 }
 
@@ -297,6 +322,9 @@ function initTiptapEditor() {
       TableRow,
       TableHeader,
       TableCell,
+      TextStyle,
+      Color,
+      Superscript,
       Underline,
     ],
     content: EMPTY_DOCUMENT,

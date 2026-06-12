@@ -1,5 +1,6 @@
 import { createBrowserSupabase, hasConfig, getSessionOrNull } from "./lib/supabase-client.js";
 import JSZip from "https://esm.sh/jszip@3.10.1";
+import mammoth from "https://esm.sh/mammoth@1.8.0/mammoth.browser";
 import { buildPreviewUrl, getDownloadFilename } from "./lib/document-links.js";
 import { buildDocumentMetadata, getDocumentDisplayTitle } from "./lib/document-presenters.js";
 import { closeFilePreviewModal, openFilePreviewModal } from "./lib/file-modal.js";
@@ -651,6 +652,20 @@ function parseXml(xmlText, label) {
   return doc;
 }
 
+function documentBlockChildren(element) {
+  const blocks = [];
+  elementChildren(element).forEach((child) => {
+    if (["p", "tbl"].includes(child.localName)) {
+      blocks.push(child);
+      return;
+    }
+    if (["customXml", "ins", "sdt", "sdtContent"].includes(child.localName)) {
+      blocks.push(...documentBlockChildren(child));
+    }
+  });
+  return blocks;
+}
+
 function isEnabledWordToggle(element) {
   if (!element) return false;
   const value = wordVal(element).toLowerCase();
@@ -666,11 +681,24 @@ function marksFromRunProperties(runProperties) {
   if (underline && !["none", "0", "false", "off"].includes(wordVal(underline).toLowerCase())) {
     marks.push({ type: "underline" });
   }
+  const colorValue = wordVal(firstChild(runProperties, "color"));
+  if (colorValue && !["auto", "none"].includes(colorValue.toLowerCase())) {
+    marks.push({
+      type: "textStyle",
+      attrs: { color: colorValue.startsWith("#") ? colorValue : `#${colorValue}` },
+    });
+  }
+  if (wordVal(firstChild(runProperties, "vertAlign")).toLowerCase() === "superscript") {
+    marks.push({ type: "superscript" });
+  }
   return marks;
 }
 
 function marksKey(marks = []) {
-  return marks.map((mark) => mark.type).sort().join("|");
+  return marks
+    .map((mark) => `${mark.type}:${JSON.stringify(mark.attrs || {})}`)
+    .sort()
+    .join("|");
 }
 
 function pushTextNode(nodes, text, marks = []) {
@@ -794,9 +822,9 @@ function parseTableCell(cell, numberingMap) {
   const cellProperties = firstChild(cell, "tcPr");
   const colspan = Number.parseInt(wordVal(firstChild(cellProperties, "gridSpan")) || "1", 10) || 1;
   const width = Number.parseInt(wordAttr(firstChild(cellProperties, "tcW"), "w") || "", 10);
-  const content = elementChildren(cell)
-    .filter((child) => child.localName === "p")
-    .map((paragraph) => parseParagraph(paragraph, numberingMap).node);
+  const content = documentBlockChildren(cell)
+    .map((block) => block.localName === "tbl" ? parseTable(block, numberingMap) : parseParagraph(block, numberingMap).node)
+    .filter(Boolean);
 
   return {
     attrs: {
@@ -858,7 +886,12 @@ async function parseDocxArrayBufferToTiptap(arrayBuffer) {
 
   const documentXml = await documentFile.async("string");
   const numberingXml = await zip.file("word/numbering.xml")?.async("string");
-  const numberingMap = parseNumberingMap(numberingXml);
+  let numberingMap = new Map();
+  try {
+    numberingMap = parseNumberingMap(numberingXml);
+  } catch (error) {
+    console.warn("DOCX numbering could not be read; continuing without list type details.", error);
+  }
   const xmlDoc = parseXml(documentXml, "DOCX document");
   const body = descendants(xmlDoc, "body")[0];
   if (!body) throw new Error("DOCX document body was not readable.");
@@ -866,7 +899,7 @@ async function parseDocxArrayBufferToTiptap(arrayBuffer) {
   const content = [];
   let activeList = null;
 
-  elementChildren(body).forEach((child) => {
+  documentBlockChildren(body).forEach((child) => {
     if (child.localName === "p") {
       activeList = appendParagraphOrListItem(content, parseParagraph(child, numberingMap), activeList);
       return;
@@ -884,6 +917,22 @@ async function parseDocxArrayBufferToTiptap(arrayBuffer) {
     type: "doc",
     content: content.length ? content : [{ type: "paragraph" }],
   };
+}
+
+async function parseDocxArrayBufferToHtml(arrayBuffer) {
+  const result = await mammoth.convertToHtml({ arrayBuffer });
+  const html = String(result?.value || "").trim();
+  if (!html) throw new Error("DOCX HTML conversion produced no content.");
+  return { html };
+}
+
+function plainTextFromHtml(html) {
+  const template = document.createElement("template");
+  template.innerHTML = String(html || "");
+  return (template.content.textContent || "")
+    .replace(/\s+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 function textFromTiptapJson(node, parts = []) {
@@ -930,22 +979,34 @@ async function convertSourceDocumentToTiptap(sourceDoc) {
     };
   }
 
+  const errors = [];
+  let arrayBuffer = null;
   try {
     setStatus(fileStatus, "Reading DOCX structure...");
-    const arrayBuffer = await downloadDocumentArrayBuffer(sourceDoc);
+    arrayBuffer = await downloadDocumentArrayBuffer(sourceDoc);
     const contentJson = await parseDocxArrayBufferToTiptap(arrayBuffer);
     const plainText = plainTextFromTiptapJson(contentJson);
     if (plainText || contentJson.content?.some((node) => node.type === "table")) {
       return { contentJson, plainText };
     }
   } catch (error) {
-    console.warn("DOCX structure conversion failed; falling back to extracted text.", error);
+    errors.push(error?.message || "DOCX structure conversion failed.");
+    console.warn("DOCX structure conversion failed.", error);
   }
 
-  return {
-    contentJson: fallback,
-    plainText: String(sourceDoc.extracted_text || "").trim(),
-  };
+  if (arrayBuffer) {
+    try {
+      setStatus(fileStatus, "Trying DOCX HTML conversion...");
+      const contentJson = await parseDocxArrayBufferToHtml(arrayBuffer);
+      const plainText = plainTextFromHtml(contentJson.html);
+      if (plainText) return { contentJson, plainText };
+    } catch (error) {
+      errors.push(error?.message || "DOCX HTML conversion failed.");
+      console.warn("DOCX HTML conversion failed.", error);
+    }
+  }
+
+  throw new Error(`Could not convert this DOCX without losing its structure. ${errors.join(" ")}`.trim());
 }
 
 async function makeFileEditable(documentId) {
@@ -966,7 +1027,13 @@ async function makeFileEditable(documentId) {
     return;
   }
 
-  const conversion = await convertSourceDocumentToTiptap(sourceDoc);
+  let conversion = null;
+  try {
+    conversion = await convertSourceDocumentToTiptap(sourceDoc);
+  } catch (error) {
+    setStatus(fileStatus, error?.message || "Unable to convert this document.", "error");
+    return;
+  }
   setStatus(fileStatus, "Creating editable document...");
   const contentJson = conversion.contentJson;
   const plainText = conversion.plainText;
