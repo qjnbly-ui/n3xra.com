@@ -24,6 +24,9 @@ const activeOrganizationSelect = document.getElementById("active-organization-se
 const activeOrganizationName = document.getElementById("active-organization-name");
 const activeMembershipRole = document.getElementById("active-membership-role");
 const recordingCount = document.getElementById("recording-count");
+const newRecordingAction = document.getElementById("new-recording-action");
+const recordPanelToggle = document.getElementById("record-panel-toggle");
+const recordPanelBody = document.getElementById("record-panel-body");
 const recordingTitleInput = document.getElementById("recording-title");
 const recordingTemplateSelect = document.getElementById("recording-template-select");
 const recordingNotesInput = document.getElementById("recording-notes");
@@ -147,6 +150,23 @@ function setStatus(el, message, tone = "") {
 function show(el, visible) {
   if (!el) return;
   el.classList.toggle("hidden", !visible);
+}
+
+function setRecordPanelOpen(isOpen, options = {}) {
+  if (!recordPanelToggle || !recordPanelBody) return;
+  const nextOpen = Boolean(isOpen);
+  show(recordPanelBody, nextOpen);
+  recordPanelToggle.classList.toggle("is-open", nextOpen);
+  recordPanelToggle.setAttribute("aria-expanded", String(nextOpen));
+  const indicator = recordPanelToggle.querySelector(".section-toggle-indicator");
+  if (indicator) indicator.textContent = nextOpen ? "-" : "+";
+
+  if (nextOpen && options.scroll) {
+    recordPanelToggle.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+  if (nextOpen && options.focus) {
+    window.setTimeout(() => recordingTitleInput?.focus({ preventScroll: true }), 120);
+  }
 }
 
 function closeMobileMenu() {
@@ -1427,6 +1447,12 @@ async function init() {
     closeMobileMenu();
     await handleOrganizationChange(activeOrganizationSelect.value);
   });
+  newRecordingAction?.addEventListener("click", () => {
+    setRecordPanelOpen(true, { scroll: true, focus: true });
+  });
+  recordPanelToggle?.addEventListener("click", () => {
+    setRecordPanelOpen(recordPanelBody?.classList.contains("hidden"));
+  });
   startRecordingButton.addEventListener("click", () => {
     void handleStartRecording();
   });
@@ -1498,6 +1524,7 @@ async function init() {
   setMenuActive("recordings");
   updateSelectedFileCopy();
   if (consumeRetryUploadRequest()) {
+    setRecordPanelOpen(true, { scroll: true });
     setRecordingUploadMode(true);
     setRecordingUploadModalOpen(true);
     updateControls();

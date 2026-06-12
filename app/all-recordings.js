@@ -445,6 +445,7 @@ async function loadRecordings() {
       title,
       status,
       transcript_status,
+      ai_review_status,
       started_at,
       ended_at,
       duration_seconds,
@@ -484,9 +485,9 @@ function renderRecordings() {
   show(recordingsEmpty, recordingsCache.length === 0);
 
   recordingsCache.forEach((recording) => {
-    const capabilities = getActiveCapabilities();
-    const canRetry = isRetryableRecording(recording);
-    const canTranscribe = canTranscribeRecording(recording);
+    const errorCopy = recording.processing_error
+      ? `<p class="recording-row-note recording-row-note-error">${escapeHtml(recording.processing_error)}</p>`
+      : "";
     const item = document.createElement("article");
     item.className = "recording-row";
     item.setAttribute("data-recording-id", recording.id);
@@ -503,15 +504,10 @@ function renderRecordings() {
       <div class="recording-row-details">
         <span>${escapeHtml(formatDuration(recording.duration_seconds || 0))}</span>
         <span>${escapeHtml(formatBytes(recording.file_size || 0))}</span>
+        <span>${escapeHtml(formatRecordingStatus(recording.transcript_status))} transcript</span>
+        <span>${escapeHtml(formatRecordingStatus(recording.ai_review_status || "not_started"))} AI review</span>
       </div>
-      ${recording.processing_error ? `<p class="recording-row-note recording-row-note-error">${escapeHtml(recording.processing_error)}</p>` : ""}
-      <div class="recording-row-actions">
-        <button class="btn secondary" type="button" data-action="play-recording" data-id="${escapeHtml(recording.id)}" ${canPlaybackRecording(recording) ? "" : "disabled"}>Play</button>
-        <button class="btn secondary" type="button" data-action="open-recording" data-id="${escapeHtml(recording.id)}">Details</button>
-        ${canTranscribe ? `<button class="btn secondary" type="button" data-action="transcribe-recording" data-id="${escapeHtml(recording.id)}">Create transcript</button>` : ""}
-        ${canRetry ? `<button class="btn secondary" type="button" data-action="retry-recording" data-id="${escapeHtml(recording.id)}">Retry</button>` : ""}
-        ${capabilities.canDeleteDocuments ? `<button class="btn btn-delete-solid" type="button" data-action="delete-recording" data-id="${escapeHtml(recording.id)}">Delete</button>` : ""}
-      </div>
+      ${errorCopy}
     `;
     recordingsList.append(item);
   });

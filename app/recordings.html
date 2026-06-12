@@ -85,7 +85,7 @@
 
         <div class="library-actions-grid" id="recordings-actions-grid">
           <div class="library-action-slot">
-            <a class="btn button-link" href="#record-panel">Record</a>
+            <button class="btn" id="new-recording-action" type="button">New recording</button>
           </div>
           <div class="library-action-slot">
             <a class="btn secondary button-link" href="./all-recordings.html">All recordings</a>
@@ -93,14 +93,15 @@
         </div>
 
         <section class="panel stack" id="record-panel">
-          <div class="panel-head">
+          <button class="section-toggle" id="record-panel-toggle" type="button" aria-expanded="false" aria-controls="record-panel-body">
             <div>
-              <h3>Record</h3>
+              <h3>New recording</h3>
               <p>Start, monitor, and stop a recording for the active library.</p>
             </div>
-          </div>
+            <span class="section-toggle-indicator" aria-hidden="true">+</span>
+          </button>
 
-          <form class="stack" id="recording-form">
+          <form class="stack hidden" id="record-panel-body">
             <div class="field">
               <label for="recording-title">Meeting title</label>
               <input id="recording-title" type="text" placeholder="Board meeting, staff sync, budget review">
