@@ -19,6 +19,8 @@ const GROQ_RECORDING_NOTES_MODEL = String(process.env.GROQ_RECORDS_NOTES_MODEL |
 const MAX_TEMPLATE_CHARS = 20000;
 const MAX_NOTES_CHARS = 30000;
 const MAX_TRANSCRIPT_CHARS = 70000;
+const MAX_CURRENT_DRAFT_CHARS = 45000;
+const MAX_REVIEW_DECISION_CHARS = 14000;
 
 function parseJson(req) {
   if (req.body && typeof req.body === "object") return Promise.resolve(req.body);
@@ -500,9 +502,12 @@ function cleanTitle(value, fallback) {
     .slice(0, 120) || "Meeting notes";
 }
 
-function buildPrompt({ recording, organization, template, notesText, transcriptText }) {
+function buildPrompt({ recording, organization, template, notesText, transcriptText, previousReview = null, currentDraftText = "" }) {
   const templateText = template
     ? normalizeWhitespace(templateNotesTextFromContentJson(template.content_json) || template.plain_text || plainTextFromContentJson(template.content_json))
+    : "";
+  const reviewDecisionContext = previousReview
+    ? buildReviewDecisionContext(previousReview, currentDraftText)
     : "";
   return [
     "Finalize an organizational meeting document from these sources.",
@@ -537,6 +542,7 @@ function buildPrompt({ recording, organization, template, notesText, transcriptT
     "",
     "Transcript:",
     clipText(transcriptText, MAX_TRANSCRIPT_CHARS),
+    reviewDecisionContext,
   ].join("\n");
 }
 
@@ -683,6 +689,237 @@ function normalizeReview(value, fallbackTitle) {
   };
 }
 
+function getSuggestionText(item) {
+  return stripMarkdownArtifacts(item?.text || item?.note || item?.issue);
+}
+
+function getSuggestionStatus(item) {
+  return String(item?.status || "").trim().toLowerCase();
+}
+
+function isSuggestionResolved(item) {
+  return ["applied", "dismissed"].includes(getSuggestionStatus(item));
+}
+
+function suggestionKey(value) {
+  return normalizeWhitespace(value).toLowerCase();
+}
+
+function cloneReview(review) {
+  return JSON.parse(JSON.stringify(review && typeof review === "object" ? review : {}));
+}
+
+function getReviewSuggestions(review) {
+  return Array.isArray(review?.suggested_additions) ? review.suggested_additions : [];
+}
+
+function getActionableSuggestionIndexes(review, indexes) {
+  const items = getReviewSuggestions(review);
+  return Array.from(new Set((Array.isArray(indexes) ? indexes : [])
+    .map((index) => Number(index))
+    .filter((index) => Number.isInteger(index) && index >= 0)))
+    .filter((index) => items[index] && getSuggestionText(items[index]) && !isSuggestionResolved(items[index]));
+}
+
+function getResolvedSuggestionItems(review, status = "") {
+  const targetStatus = String(status || "").trim().toLowerCase();
+  return getReviewSuggestions(review)
+    .filter((item) => getSuggestionText(item) && (!targetStatus || getSuggestionStatus(item) === targetStatus))
+    .map((item) => ({ ...item, text: getSuggestionText(item) }));
+}
+
+function formatSuggestionList(items, fallback = "None") {
+  const lines = (Array.isArray(items) ? items : [])
+    .map((item) => getSuggestionText(item))
+    .filter(Boolean)
+    .map((text) => `- ${text}`);
+  return lines.length ? clipText(lines.join("\n"), MAX_REVIEW_DECISION_CHARS) : fallback;
+}
+
+function markSuggestions(review, indexes, status) {
+  const nextReview = cloneReview(review);
+  const items = getReviewSuggestions(nextReview);
+  const now = new Date().toISOString();
+  indexes.forEach((index) => {
+    if (!items[index]) return;
+    items[index] = {
+      ...items[index],
+      status,
+      resolved_at: now,
+    };
+    if (status === "applied") items[index].applied_at = now;
+    if (status === "dismissed") items[index].dismissed_at = now;
+  });
+  nextReview.suggested_additions = items;
+  return nextReview;
+}
+
+function mergeResolvedSuggestionStatuses(nextReview, previousReview) {
+  const merged = cloneReview(nextReview);
+  const nextItems = getReviewSuggestions(merged);
+  const seenKeys = new Set(nextItems.map((item) => suggestionKey(getSuggestionText(item))).filter(Boolean));
+
+  getResolvedSuggestionItems(previousReview).forEach((previousItem) => {
+    const key = suggestionKey(getSuggestionText(previousItem));
+    if (!key) return;
+    const existing = nextItems.find((item) => suggestionKey(getSuggestionText(item)) === key);
+    if (existing) {
+      existing.status = previousItem.status;
+      existing.resolved_at = previousItem.resolved_at;
+      if (previousItem.applied_at) existing.applied_at = previousItem.applied_at;
+      if (previousItem.dismissed_at) existing.dismissed_at = previousItem.dismissed_at;
+      return;
+    }
+    if (!seenKeys.has(key)) {
+      nextItems.push(previousItem);
+      seenKeys.add(key);
+    }
+  });
+
+  merged.suggested_additions = nextItems;
+  return merged;
+}
+
+async function loadTargetDocument(recording) {
+  const documentId = recording.final_document_id || recording.ai_draft_document_id || "";
+  if (!documentId) return null;
+  const rows = await fetchSupabaseJson(
+    `${SUPABASE_URL}/rest/v1/app_documents?select=id,title,content_json,plain_text,status&organization_id=eq.${encodeFilter(recording.organization_id)}&id=eq.${encodeFilter(documentId)}&limit=1`,
+    { headers: serviceHeaders() }
+  );
+  return Array.isArray(rows) ? rows[0] || null : null;
+}
+
+function buildReviewDecisionContext(previousReview, currentDraftText = "") {
+  const appliedItems = getResolvedSuggestionItems(previousReview, "applied");
+  const dismissedItems = getResolvedSuggestionItems(previousReview, "dismissed");
+  return [
+    "",
+    "Existing AI review decisions:",
+    "Already accepted additions:",
+    formatSuggestionList(appliedItems),
+    "",
+    "Dismissed additions:",
+    formatSuggestionList(dismissedItems),
+    "",
+    "Current AI draft text:",
+    clipText(currentDraftText || "No current AI draft exists yet.", MAX_CURRENT_DRAFT_CHARS),
+    "",
+    "Decision preservation rules:",
+    "- Already accepted additions are human-approved and must remain in final_document_text.",
+    "- Integrate accepted additions into the appropriate existing section, paragraph, or list.",
+    "- Do not create an 'Accepted additions', 'Suggested additions', or 'AI review' section in the final document.",
+    "- Dismissed additions should not be added or suggested again unless the notes directly require them.",
+  ].join("\n");
+}
+
+function buildMergePrompt({ recording, organization, template, notesText, transcriptText, currentDraftText, acceptedItems, dismissedItems }) {
+  const templateText = template
+    ? normalizeWhitespace(templateNotesTextFromContentJson(template.content_json) || template.plain_text || plainTextFromContentJson(template.content_json))
+    : "";
+  return [
+    "Rewrite the current organizational meeting document after human approval of AI suggestions.",
+    "",
+    "Rules:",
+    "- The notetaker notes and template remain the source of truth for structure, section order, labels, and intentional content.",
+    "- The current AI draft is the starting document to improve, not a disposable scratchpad.",
+    "- Accepted additions are human-approved and MUST be integrated into final_document_text.",
+    "- Integrate accepted additions naturally into the most relevant existing section, paragraph, or list.",
+    "- Do not append accepted additions at the bottom.",
+    "- Do not create a section named Accepted additions, Suggested additions, AI review, Transcript details, or similar.",
+    "- Preserve all existing useful draft content unless it conflicts with the notes or accepted additions.",
+    "- Keep the same plain-text template style. Do not use Markdown markers such as #, **, __, or backticks.",
+    "- Do not invent motions, votes, attendance, dates, dollar amounts, decisions, or action owners.",
+    "- Use the transcript only as supporting evidence for the accepted additions and obvious missing details.",
+    "- Keep labels as normal text, for example Date: June 12, 2026.",
+    "",
+    `Library: ${organization?.name || "Current library"}`,
+    `Recording title: ${recording.title || "Untitled recording"}`,
+    template ? `Template title: ${template.title || "Untitled template"}` : "Template title: No template selected",
+    "",
+    "Template text:",
+    clipText(templateText || "No template text.", MAX_TEMPLATE_CHARS),
+    "",
+    "Notetaker notes:",
+    clipText(notesText || "No notetaker notes were saved.", MAX_NOTES_CHARS),
+    "",
+    "Current draft:",
+    clipText(currentDraftText || "No current draft text.", MAX_CURRENT_DRAFT_CHARS),
+    "",
+    "Accepted additions to integrate:",
+    formatSuggestionList(acceptedItems),
+    "",
+    "Dismissed additions to avoid:",
+    formatSuggestionList(dismissedItems),
+    "",
+    "Transcript:",
+    clipText(transcriptText, MAX_TRANSCRIPT_CHARS),
+    "",
+    "Return valid JSON only with document_title, final_document_text, and confidence_notes.",
+  ].join("\n");
+}
+
+function getRewriteResponseFormat() {
+  return {
+    type: "json_schema",
+    json_schema: {
+      name: "recording_notes_rewrite",
+      strict: true,
+      schema: {
+        type: "object",
+        additionalProperties: false,
+        required: ["document_title", "final_document_text", "confidence_notes"],
+        properties: {
+          document_title: { type: "string" },
+          final_document_text: { type: "string" },
+          confidence_notes: { type: "string" },
+        },
+      },
+    },
+  };
+}
+
+async function rewriteRecordingDocument(prompt) {
+  try {
+    return await sendGroqReviewRequest(prompt, getRewriteResponseFormat());
+  } catch (error) {
+    if (!isStructuredOutputError(error)) throw error;
+    return sendGroqReviewRequest(
+      `${prompt}\n\nReturn valid JSON only with document_title, final_document_text, and confidence_notes.`,
+      { type: "json_object" }
+    );
+  }
+}
+
+function normalizeRewrite(value, fallbackTitle) {
+  const rewrite = value && typeof value === "object" ? value : {};
+  const finalText = stripMarkdownArtifacts(rewrite.final_document_text);
+  if (!finalText) throw new Error("Records AI did not return a rewritten document.");
+  return {
+    document_title: cleanTitle(rewrite.document_title, fallbackTitle),
+    final_document_text: finalText,
+    confidence_notes: normalizeWhitespace(rewrite.confidence_notes),
+  };
+}
+
+async function updateTargetDocument(document, recording, rewrite, template = null) {
+  const contentJson = plainTextToTiptapDoc(rewrite.final_document_text, template?.content_json || null);
+  const rows = await fetchSupabaseJson(
+    `${SUPABASE_URL}/rest/v1/app_documents?id=eq.${encodeFilter(document.id)}&organization_id=eq.${encodeFilter(recording.organization_id)}`,
+    {
+      method: "PATCH",
+      headers: serviceHeaders({ Prefer: "return=representation" }),
+      body: JSON.stringify({
+        title: rewrite.document_title,
+        content_json: contentJson,
+        plain_text: rewrite.final_document_text,
+        updated_at: new Date().toISOString(),
+      }),
+    }
+  );
+  return Array.isArray(rows) ? rows[0] || null : null;
+}
+
 async function upsertAiDraftDocument(recording, user, review, template = null) {
   const title = cleanTitle(review.document_title, `${recording.title || "Untitled recording"} Notes`);
   const contentJson = plainTextToTiptapDoc(review.final_document_text, template?.content_json || null);
@@ -744,6 +981,7 @@ async function handler(req, res) {
   try {
     const body = await parseJson(req);
     const recordingId = String(body.recordingId || "").trim();
+    const acceptedSuggestionIndexes = Array.isArray(body.acceptedSuggestionIndexes) ? body.acceptedSuggestionIndexes : [];
     if (!recordingId) return res.status(400).json({ error: "recordingId is required." });
 
     recording = await loadRecording(recordingId);
@@ -767,16 +1005,108 @@ async function handler(req, res) {
 
     const template = await loadTemplate(recording.selected_template_id, recording.organization_id);
     const notesText = normalizeWhitespace(recording.notes_plain_text || plainTextFromContentJson(recording.notes_content_json));
+    const previousReview = recording.ai_review_json && typeof recording.ai_review_json === "object" ? recording.ai_review_json : null;
+    const currentDraftDocument = await loadTargetDocument(recording).catch(() => null);
+    const currentDraftText = normalizeWhitespace(
+      currentDraftDocument?.plain_text || plainTextFromContentJson(currentDraftDocument?.content_json)
+    );
+
+    if (acceptedSuggestionIndexes.length) {
+      if (!previousReview) {
+        const error = new Error("Run AI review before applying suggestions.");
+        error.statusCode = 400;
+        throw error;
+      }
+      if (!currentDraftDocument?.id) {
+        const error = new Error("Create an AI draft before applying suggestions.");
+        error.statusCode = 400;
+        throw error;
+      }
+
+      const actionableIndexes = getActionableSuggestionIndexes(previousReview, acceptedSuggestionIndexes);
+      if (!actionableIndexes.length) {
+        const updatedRecording = await updateRecording(recording.id, {
+          ai_review_status: "ready",
+          processing_error: null,
+        });
+        return res.status(200).json({
+          recording: updatedRecording,
+          draftDocument: currentDraftDocument,
+          review: previousReview,
+          appliedCount: 0,
+          usage: getClientUsageSummary(usageContext.usage),
+        });
+      }
+
+      const selectedItems = actionableIndexes.map((index) => getReviewSuggestions(previousReview)[index]).filter(Boolean);
+      const acceptedItems = [
+        ...getResolvedSuggestionItems(previousReview, "applied"),
+        ...selectedItems,
+      ];
+      const dismissedItems = getResolvedSuggestionItems(previousReview, "dismissed");
+      const prompt = buildMergePrompt({
+        recording,
+        organization,
+        template,
+        notesText,
+        transcriptText: recording.transcript_text,
+        currentDraftText,
+        acceptedItems,
+        dismissedItems,
+      });
+
+      const rewriteResult = await rewriteRecordingDocument(prompt);
+      const rewrite = normalizeRewrite(rewriteResult.review, previousReview.document_title || `${recording.title || "Untitled recording"} Notes`);
+      const updatedDocument = await updateTargetDocument(currentDraftDocument, recording, rewrite, template);
+      const markedReview = markSuggestions(previousReview, actionableIndexes, "applied");
+      const reviewJson = {
+        ...markedReview,
+        document_title: rewrite.document_title,
+        final_document_text: rewrite.final_document_text,
+        confidence_notes: rewrite.confidence_notes || markedReview.confidence_notes || "",
+        model: GROQ_RECORDING_NOTES_MODEL,
+        template_id: template?.id || markedReview.template_id || null,
+        transcript_document_id: recording.document_id || markedReview.transcript_document_id || null,
+        draft_document_id: updatedDocument?.id || currentDraftDocument.id,
+        merged_at: new Date().toISOString(),
+      };
+      const recorded = await recordRecordsAiUsage({
+        usageContext,
+        user,
+        feature: "recording_notes",
+        model: GROQ_RECORDING_NOTES_MODEL,
+        usage: rewriteResult.usage,
+      });
+      const updatedRecording = await updateRecording(recording.id, {
+        ai_review_status: "ready",
+        ai_review_json: reviewJson,
+        ai_reviewed_at: new Date().toISOString(),
+        ai_draft_document_id: updatedDocument?.id || recording.ai_draft_document_id || null,
+        processing_error: null,
+      });
+
+      return res.status(200).json({
+        recording: updatedRecording,
+        draftDocument: updatedDocument,
+        review: reviewJson,
+        appliedCount: actionableIndexes.length,
+        usage: getClientUsageSummary(recorded?.usage || usageContext.usage),
+      });
+    }
+
     const prompt = buildPrompt({
       recording,
       organization,
       template,
       notesText,
       transcriptText: recording.transcript_text,
+      previousReview,
+      currentDraftText,
     });
 
     const reviewResult = await reviewRecordingNotes(prompt);
-    const review = normalizeReview(reviewResult.review, `${recording.title || "Untitled recording"} Notes`);
+    const normalizedReview = normalizeReview(reviewResult.review, `${recording.title || "Untitled recording"} Notes`);
+    const review = previousReview ? mergeResolvedSuggestionStatuses(normalizedReview, previousReview) : normalizedReview;
     const recorded = await recordRecordsAiUsage({
       usageContext,
       user,

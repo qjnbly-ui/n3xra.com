@@ -1109,6 +1109,10 @@ function populateRecordingDetails(recording) {
     recordingDetailAiDraft.textContent = recording.final_document_id ? "Open final" : "Open AI draft";
   }
   renderAiReview(recording.ai_review_json || null);
+  recordingDetailAiReview.textContent = recording.ai_review_status === "ready" ? "Regenerate AI review" : "Review with AI";
+  recordingDetailAiReview.title = recording.ai_review_status === "ready"
+    ? "Regenerate the AI draft while preserving applied suggestions."
+    : "";
   recordingDetailAiReview.disabled = !recordingWorkflowSchemaAvailable || recording.transcript_status !== "ready";
   setStatus(recordingDetailStatusMessage, recording.processing_error || "");
 }
@@ -1186,18 +1190,20 @@ async function handleReviewSuggestionAction(action, index = null) {
         setStatus(recordingDetailStatusMessage, "No unapplied suggestions remain.");
         return;
       }
-      setStatus(recordingDetailStatusMessage, "Applying suggestions to the document...");
+      setStatus(recordingDetailStatusMessage, "Rewriting the document with approved suggestions...");
       const result = await applyRecordingSuggestions({ supabase, recording, indexes });
+      if (result.recording) mergeRecordingUpdate(result.recording);
       updateActiveRecordingReview(result.review);
-      setStatus(recordingDetailStatusMessage, `${result.appliedCount} suggestion${result.appliedCount === 1 ? "" : "s"} applied to the document.`, "success");
+      setStatus(recordingDetailStatusMessage, `${result.appliedCount} suggestion${result.appliedCount === 1 ? "" : "s"} integrated into the document.`, "success");
       return;
     }
 
     if (action === "apply") {
-      setStatus(recordingDetailStatusMessage, "Applying suggestion to the document...");
+      setStatus(recordingDetailStatusMessage, "Rewriting the document with the approved suggestion...");
       const result = await applyRecordingSuggestions({ supabase, recording, indexes: [index] });
+      if (result.recording) mergeRecordingUpdate(result.recording);
       updateActiveRecordingReview(result.review);
-      setStatus(recordingDetailStatusMessage, "Suggestion applied to the document.", "success");
+      setStatus(recordingDetailStatusMessage, "Suggestion integrated into the document.", "success");
       return;
     }
 
@@ -1294,7 +1300,12 @@ async function handleRecordingAiReview(recordingId) {
 
   recordingDetailAiReview.disabled = true;
   recordingDetailAiStatus.textContent = "Processing";
-  setStatus(recordingDetailStatusMessage, "Reviewing notes against the transcript...");
+  setStatus(
+    recordingDetailStatusMessage,
+    recording.ai_review_status === "ready"
+      ? "Regenerating the AI draft while preserving applied suggestions..."
+      : "Reviewing notes against the transcript..."
+  );
 
   try {
     const result = await requestRecordingAiReview(recording.id);
@@ -1303,7 +1314,7 @@ async function handleRecordingAiReview(recordingId) {
       populateRecordingDetails(getRecordingById(recording.id) || result.recording);
       renderRecordings();
     }
-    setStatus(recordingDetailStatusMessage, "AI draft is ready.", "success");
+    setStatus(recordingDetailStatusMessage, recording.ai_review_status === "ready" ? "AI draft regenerated." : "AI draft is ready.", "success");
   } catch (error) {
     recordingDetailAiStatus.textContent = "Failed";
     setStatus(recordingDetailStatusMessage, getErrorMessage(error, "Unable to review recording notes."), "error");

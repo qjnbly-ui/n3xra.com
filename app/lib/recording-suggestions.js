@@ -224,18 +224,33 @@ export async function applyRecordingSuggestions({ supabase, recording, indexes }
   const actionableIndexes = safeIndexes.filter((index) => items[index] && getSuggestionText(items[index]) && !isSuggestionResolved(items[index]));
   if (!actionableIndexes.length) return { review, appliedCount: 0, document: null };
 
-  const documentId = getTargetDocumentId(recording);
-  if (!documentId) throw new Error("Create an AI draft before applying suggestions.");
+  if (!recording?.id) throw new Error("Recording is missing.");
+  if (!getTargetDocumentId(recording)) throw new Error("Create an AI draft before applying suggestions.");
 
-  const document = await loadDraftDocument(supabase, documentId);
-  const suggestionTexts = actionableIndexes.map((index) => getSuggestionText(items[index]));
-  const updatedDocument = await saveDraftDocument(supabase, document, suggestionTexts);
-  const nextReview = markSuggestions(review, actionableIndexes, "applied");
-  await saveReviewJson(supabase, recording.id, nextReview);
+  const { data: sessionData } = await supabase.auth.getSession();
+  const accessToken = sessionData?.session?.access_token || "";
+  if (!accessToken) throw new Error("Your session expired. Sign in again and retry.");
+
+  const response = await fetch("/api/finalize-recording-notes", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({
+      recordingId: recording.id,
+      acceptedSuggestionIndexes: actionableIndexes,
+    }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data?.error || "Unable to apply suggestions.");
+
   return {
-    review: nextReview,
-    appliedCount: actionableIndexes.length,
-    document: updatedDocument,
+    review: data.review || review,
+    appliedCount: Number(data.appliedCount || actionableIndexes.length),
+    document: data.draftDocument || null,
+    recording: data.recording || null,
+    usage: data.usage || null,
   };
 }
 
