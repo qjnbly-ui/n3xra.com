@@ -251,6 +251,181 @@ function plainTextFromContentJson(contentJson) {
     .trim();
 }
 
+function inlineTextFromTiptapNode(node) {
+  if (!node || typeof node !== "object") return "";
+  if (node.type === "text") return node.text || "";
+  if (node.type === "hardBreak") return "\n";
+  return Array.isArray(node.content) ? node.content.map(inlineTextFromTiptapNode).join("") : "";
+}
+
+function appendNotesLine(lines, value = "") {
+  const line = String(value || "").replace(/[ \t]+$/g, "");
+  if (!line && lines[lines.length - 1] === "") return;
+  lines.push(line);
+}
+
+function appendParagraphNodeToNotes(node, lines, prefix = "") {
+  const text = inlineTextFromTiptapNode(node).trim();
+  if (!text) {
+    appendNotesLine(lines);
+    return;
+  }
+  text.split("\n").forEach((line, index) => {
+    appendNotesLine(lines, `${index === 0 ? prefix : " ".repeat(prefix.length)}${line.trim()}`);
+  });
+}
+
+function getListItemTextNodes(node) {
+  return (Array.isArray(node?.content) ? node.content : []).filter((child) => {
+    return child?.type !== "bulletList" && child?.type !== "orderedList";
+  });
+}
+
+function getNestedListNodes(node) {
+  return (Array.isArray(node?.content) ? node.content : []).filter((child) => {
+    return child?.type === "bulletList" || child?.type === "orderedList";
+  });
+}
+
+function appendListItemToNotes(node, lines, marker, depth) {
+  const indent = "  ".repeat(depth);
+  const textLines = getListItemTextNodes(node)
+    .map((child) => templateNotesTextFromNode(child))
+    .join("\n")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (textLines.length) {
+    appendNotesLine(lines, `${indent}${marker} ${textLines[0]}`);
+    textLines.slice(1).forEach((line) => appendNotesLine(lines, `${indent}  ${line}`));
+  } else {
+    appendNotesLine(lines, `${indent}${marker}`);
+  }
+
+  getNestedListNodes(node).forEach((child) => appendListNodeToNotes(child, lines, depth + 1));
+}
+
+function appendListNodeToNotes(node, lines, depth = 0) {
+  const items = Array.isArray(node?.content) ? node.content.filter((child) => child?.type === "listItem") : [];
+  const start = Number(node?.attrs?.start) || 1;
+  items.forEach((item, index) => {
+    const marker = node.type === "orderedList" ? `${start + index}.` : "-";
+    appendListItemToNotes(item, lines, marker, depth);
+  });
+}
+
+function appendTableNodeToNotes(node, lines) {
+  const rows = Array.isArray(node?.content) ? node.content.filter((child) => child?.type === "tableRow") : [];
+  rows.forEach((row) => {
+    const cells = (Array.isArray(row.content) ? row.content : [])
+      .filter((cell) => cell?.type === "tableCell" || cell?.type === "tableHeader")
+      .map((cell) => templateNotesTextFromNode(cell).replace(/\s*\n\s*/g, " ").trim());
+    if (cells.length) appendNotesLine(lines, cells.join("\t"));
+  });
+}
+
+function appendTemplateNotesNode(node, lines, options = {}) {
+  if (!node || typeof node !== "object") return;
+
+  if (node.type === "doc") {
+    (Array.isArray(node.content) ? node.content : []).forEach((child) => appendTemplateNotesNode(child, lines));
+    return;
+  }
+
+  if (node.type === "paragraph" || node.type === "heading") {
+    appendParagraphNodeToNotes(node, lines, options.prefix || "");
+    appendNotesLine(lines);
+    return;
+  }
+
+  if (node.type === "bulletList" || node.type === "orderedList") {
+    appendListNodeToNotes(node, lines, options.depth || 0);
+    appendNotesLine(lines);
+    return;
+  }
+
+  if (node.type === "blockquote") {
+    const quoteLines = [];
+    (Array.isArray(node.content) ? node.content : []).forEach((child) => appendTemplateNotesNode(child, quoteLines));
+    const quoteText = normalizeTemplateNotesLines(quoteLines);
+    quoteText.split("\n").forEach((line) => appendNotesLine(lines, line));
+    appendNotesLine(lines);
+    return;
+  }
+
+  if (node.type === "table") {
+    appendTableNodeToNotes(node, lines);
+    appendNotesLine(lines);
+    return;
+  }
+
+  if (node.type === "horizontalRule") {
+    appendNotesLine(lines);
+    return;
+  }
+
+  if (node.type === "text" || node.type === "hardBreak") {
+    appendNotesLine(lines, inlineTextFromTiptapNode(node));
+    return;
+  }
+
+  (Array.isArray(node.content) ? node.content : []).forEach((child) => appendTemplateNotesNode(child, lines));
+}
+
+function normalizeTemplateNotesLines(lines) {
+  const normalized = [];
+  lines.forEach((line) => {
+    const nextLine = String(line || "").replace(/[ \t]+$/g, "");
+    if (!nextLine && normalized[normalized.length - 1] === "") return;
+    normalized.push(nextLine);
+  });
+  while (normalized[0] === "") normalized.shift();
+  while (normalized[normalized.length - 1] === "") normalized.pop();
+  return normalized.join("\n");
+}
+
+function templateNotesTextFromNode(node) {
+  const lines = [];
+  appendTemplateNotesNode(node, lines);
+  return normalizeTemplateNotesLines(lines);
+}
+
+function templateNotesTextFromBlocks(contentJson) {
+  const blocks = Array.isArray(contentJson?.blocks) ? contentJson.blocks : [];
+  const lines = [];
+  blocks.forEach((block) => {
+    if (block?.type === "list") {
+      (Array.isArray(block.items) ? block.items : []).forEach((item) => appendNotesLine(lines, `- ${String(item || "").trim()}`));
+      appendNotesLine(lines);
+      return;
+    }
+    if (typeof block?.text === "string") {
+      appendNotesLine(lines, block.text.trim());
+      appendNotesLine(lines);
+      return;
+    }
+    if (typeof block?.html === "string") {
+      const template = document.createElement("template");
+      template.innerHTML = block.html;
+      appendNotesLine(lines, template.content.textContent.trim());
+      appendNotesLine(lines);
+    }
+  });
+  return normalizeTemplateNotesLines(lines);
+}
+
+function templateNotesTextFromContentJson(contentJson) {
+  if (contentJson?.type === "doc") return templateNotesTextFromNode(contentJson);
+  if (Array.isArray(contentJson?.blocks)) return templateNotesTextFromBlocks(contentJson);
+  if (typeof contentJson?.html === "string") {
+    const template = document.createElement("template");
+    template.innerHTML = contentJson.html;
+    return template.content.textContent.trim();
+  }
+  return "";
+}
+
 function noteTextToContentJson(text) {
   const content = String(text || "")
     .split(/\n{2,}/)
@@ -309,7 +484,11 @@ function applySelectedTemplateToNotes(force = false) {
   const currentNotes = String(recordingNotesInput?.value || "").trim();
   if (currentNotes && !force && lastAppliedTemplateId !== template.id) return;
 
-  const templateText = String(template.plain_text || plainTextFromContentJson(template.content_json || {})).trim();
+  const templateText = String(
+    templateNotesTextFromContentJson(template.content_json || {}) ||
+    template.plain_text ||
+    plainTextFromContentJson(template.content_json || {})
+  ).trim();
   if (!templateText) return;
   recordingNotesInput.value = templateText;
   lastAppliedTemplateId = template.id;

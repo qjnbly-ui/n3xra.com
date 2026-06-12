@@ -205,6 +205,177 @@ function plainTextFromContentJson(contentJson) {
   return normalizeWhitespace(textFromTiptapNode(contentJson || {}, []).join(""));
 }
 
+function inlineTextFromTiptapNode(node) {
+  if (!node || typeof node !== "object") return "";
+  if (node.type === "text") return node.text || "";
+  if (node.type === "hardBreak") return "\n";
+  return Array.isArray(node.content) ? node.content.map(inlineTextFromTiptapNode).join("") : "";
+}
+
+function htmlToPlainText(html) {
+  return normalizeWhitespace(
+    String(html || "")
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<\/(p|div|h[1-6]|li|tr)>/gi, "\n")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/&nbsp;/gi, " ")
+      .replace(/&amp;/gi, "&")
+      .replace(/&lt;/gi, "<")
+      .replace(/&gt;/gi, ">")
+      .replace(/&quot;/gi, '"')
+      .replace(/&#39;/gi, "'")
+  );
+}
+
+function appendNotesLine(lines, value = "") {
+  const line = String(value || "").replace(/[ \t]+$/g, "");
+  if (!line && lines[lines.length - 1] === "") return;
+  lines.push(line);
+}
+
+function normalizeTemplateNotesLines(lines) {
+  const normalized = [];
+  lines.forEach((line) => {
+    const nextLine = String(line || "").replace(/[ \t]+$/g, "");
+    if (!nextLine && normalized[normalized.length - 1] === "") return;
+    normalized.push(nextLine);
+  });
+  while (normalized[0] === "") normalized.shift();
+  while (normalized[normalized.length - 1] === "") normalized.pop();
+  return normalized.join("\n");
+}
+
+function appendListNodeToTemplateNotes(node, lines, depth = 0) {
+  const items = Array.isArray(node?.content) ? node.content.filter((child) => child?.type === "listItem") : [];
+  const start = Number(node?.attrs?.start) || 1;
+  items.forEach((item, index) => {
+    const textNodes = (Array.isArray(item.content) ? item.content : []).filter((child) => {
+      return child?.type !== "bulletList" && child?.type !== "orderedList";
+    });
+    const text = normalizeTemplateNotesLines(textNodes.map(templateNotesTextFromNode).join("\n").split("\n")).trim();
+    const marker = node.type === "orderedList" ? `${start + index}.` : "-";
+    const indent = "  ".repeat(depth);
+    appendNotesLine(lines, `${indent}${marker} ${text}`.trimEnd());
+    (Array.isArray(item.content) ? item.content : [])
+      .filter((child) => child?.type === "bulletList" || child?.type === "orderedList")
+      .forEach((child) => appendListNodeToTemplateNotes(child, lines, depth + 1));
+  });
+}
+
+function appendTemplateNotesNode(node, lines) {
+  if (!node || typeof node !== "object") return;
+  if (node.type === "doc") {
+    (Array.isArray(node.content) ? node.content : []).forEach((child) => appendTemplateNotesNode(child, lines));
+    return;
+  }
+
+  if (node.type === "paragraph" || node.type === "heading") {
+    const text = inlineTextFromTiptapNode(node).trim();
+    if (text) appendNotesLine(lines, text);
+    appendNotesLine(lines);
+    return;
+  }
+
+  if (node.type === "bulletList" || node.type === "orderedList") {
+    appendListNodeToTemplateNotes(node, lines);
+    appendNotesLine(lines);
+    return;
+  }
+
+  if (node.type === "table") {
+    (Array.isArray(node.content) ? node.content : [])
+      .filter((row) => row?.type === "tableRow")
+      .forEach((row) => {
+        const cells = (Array.isArray(row.content) ? row.content : [])
+          .filter((cell) => cell?.type === "tableCell" || cell?.type === "tableHeader")
+          .map((cell) => templateNotesTextFromNode(cell).replace(/\s*\n\s*/g, " ").trim());
+        if (cells.length) appendNotesLine(lines, cells.join("\t"));
+      });
+    appendNotesLine(lines);
+    return;
+  }
+
+  (Array.isArray(node.content) ? node.content : []).forEach((child) => appendTemplateNotesNode(child, lines));
+}
+
+function templateNotesTextFromNode(node) {
+  const lines = [];
+  appendTemplateNotesNode(node, lines);
+  return normalizeTemplateNotesLines(lines);
+}
+
+function templateNotesTextFromBlocks(contentJson) {
+  const lines = [];
+  (Array.isArray(contentJson?.blocks) ? contentJson.blocks : []).forEach((block) => {
+    if (block?.type === "list") {
+      (Array.isArray(block.items) ? block.items : []).forEach((item) => appendNotesLine(lines, `- ${String(item || "").trim()}`));
+      appendNotesLine(lines);
+      return;
+    }
+    if (typeof block?.text === "string") {
+      appendNotesLine(lines, block.text.trim());
+      appendNotesLine(lines);
+      return;
+    }
+    if (typeof block?.html === "string") {
+      appendNotesLine(lines, htmlToPlainText(block.html));
+      appendNotesLine(lines);
+    }
+  });
+  return normalizeTemplateNotesLines(lines);
+}
+
+function templateNotesTextFromContentJson(contentJson) {
+  if (contentJson?.type === "doc") return templateNotesTextFromNode(contentJson);
+  if (Array.isArray(contentJson?.blocks)) return templateNotesTextFromBlocks(contentJson);
+  if (typeof contentJson?.html === "string") return htmlToPlainText(contentJson.html);
+  return "";
+}
+
+function normalizeTemplateLineKey(value) {
+  return stripMarkdownArtifacts(value)
+    .toLowerCase()
+    .replace(/[^\w\s:.-]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function collectTemplateLineStyles(node, styles = []) {
+  if (!node || typeof node !== "object") return styles;
+  if (node.type === "heading" || node.type === "paragraph") {
+    const text = inlineTextFromTiptapNode(node).trim();
+    const key = normalizeTemplateLineKey(text);
+    if (key) {
+      styles.push({
+        key,
+        text,
+        type: node.type,
+        level: Number(node?.attrs?.level) || 2,
+      });
+    }
+    return styles;
+  }
+  (Array.isArray(node.content) ? node.content : []).forEach((child) => collectTemplateLineStyles(child, styles));
+  return styles;
+}
+
+function buildTemplateStyleIndex(contentJson) {
+  const styles = collectTemplateLineStyles(contentJson || {});
+  return {
+    exact: new Map(styles.map((style) => [style.key, style])),
+    labels: styles.filter((style) => style.key.endsWith(":")),
+  };
+}
+
+function findTemplateLineStyle(styleIndex, line) {
+  if (!styleIndex) return null;
+  const key = normalizeTemplateLineKey(line);
+  if (!key) return null;
+  const exact = styleIndex.exact.get(key);
+  if (exact) return exact;
+  return styleIndex.labels.find((style) => key.startsWith(`${style.key} `)) || null;
+}
+
 function inlineContentFromText(text) {
   const parts = String(text || "").split("\n");
   const content = [];
@@ -238,12 +409,13 @@ function listNode(type, items) {
   };
 }
 
-function plainTextToTiptapDoc(text) {
+function plainTextToTiptapDoc(text, templateContentJson = null) {
   const lines = normalizeWhitespace(text).split("\n");
   const content = [];
   let paragraphLines = [];
   let bulletItems = [];
   let orderedItems = [];
+  const templateStyleIndex = buildTemplateStyleIndex(templateContentJson);
 
   function flushParagraph() {
     if (!paragraphLines.length) return;
@@ -273,6 +445,14 @@ function plainTextToTiptapDoc(text) {
     if (!trimmed) {
       flushParagraph();
       flushLists();
+      return;
+    }
+
+    const templateStyle = findTemplateLineStyle(templateStyleIndex, trimmed);
+    if (templateStyle?.type === "heading") {
+      flushParagraph();
+      flushLists();
+      content.push(headingNode(trimmed, templateStyle.level));
       return;
     }
 
@@ -321,12 +501,19 @@ function cleanTitle(value, fallback) {
 }
 
 function buildPrompt({ recording, organization, template, notesText, transcriptText }) {
-  const templateText = template ? normalizeWhitespace(template.plain_text || plainTextFromContentJson(template.content_json)) : "";
+  const templateText = template
+    ? normalizeWhitespace(templateNotesTextFromContentJson(template.content_json) || template.plain_text || plainTextFromContentJson(template.content_json))
+    : "";
   return [
     "Finalize an organizational meeting document from these sources.",
     "",
     "Rules:",
     "- The document template and notetaker notes are the primary source of truth for structure, section order, labels, and intentional content.",
+    "- Treat the template as a form to fill, not as a topic suggestion.",
+    "- Keep the same top-level headings, labels, and section order from the template/notetaker notes whenever they exist.",
+    "- Do not replace the opening template lines with the recording title.",
+    "- final_document_text should begin with the first meaningful line from the notetaker notes when notes exist; do not prepend document_title.",
+    "- Do not rename the template, invent a new title, or add new high-level sections unless that section already exists in the template or notetaker notes.",
     "- The transcript is supporting evidence. Use it to fill obvious missing detail, names, dates, decisions, and action items only when it does not conflict with notes.",
     "- Do not invent motions, votes, attendance, dates, dollar amounts, decisions, or action owners.",
     "- If transcript details conflict with notes, keep the notes in the draft and list the conflict.",
@@ -496,9 +683,9 @@ function normalizeReview(value, fallbackTitle) {
   };
 }
 
-async function upsertAiDraftDocument(recording, user, review) {
+async function upsertAiDraftDocument(recording, user, review, template = null) {
   const title = cleanTitle(review.document_title, `${recording.title || "Untitled recording"} Notes`);
-  const contentJson = plainTextToTiptapDoc(review.final_document_text);
+  const contentJson = plainTextToTiptapDoc(review.final_document_text, template?.content_json || null);
   const payload = {
     organization_id: recording.organization_id,
     source_document_id: recording.document_id || null,
@@ -598,7 +785,7 @@ async function handler(req, res) {
       usage: reviewResult.usage,
     });
 
-    const draftDocument = await upsertAiDraftDocument(recording, user, review);
+    const draftDocument = await upsertAiDraftDocument(recording, user, review, template);
     const reviewJson = {
       ...review,
       model: GROQ_RECORDING_NOTES_MODEL,
