@@ -132,6 +132,16 @@ function closeFileActionMenus(exceptId = "") {
   });
 }
 
+function consumeLinkedDocumentId() {
+  const url = new URL(window.location.href);
+  const documentId = url.searchParams.get("id") || "";
+  if (!documentId) return "";
+
+  url.searchParams.delete("id");
+  window.history.replaceState({}, document.title, `${url.pathname}${url.search}${url.hash}`);
+  return documentId;
+}
+
 function resetDeleteAssociations() {
   pendingDeleteAssociations = {
     documentId: "",
@@ -435,6 +445,16 @@ async function loadDocuments() {
   documentCount.textContent = String(documentsCache.length);
   renderFiles();
   setStatus(fileStatus, `${documentsCache.length} file${documentsCache.length === 1 ? "" : "s"} loaded.`, "success");
+}
+
+async function openLinkedDocumentFromUrl() {
+  const documentId = consumeLinkedDocumentId();
+  if (!documentId) return;
+  if (!documentsCache.some((doc) => doc.id === documentId)) {
+    setStatus(fileStatus, "That transcript file was not found in the active library.", "error");
+    return;
+  }
+  await openFile(documentId, "source");
 }
 
 async function loadEditableDocumentMap(organizationId) {
@@ -1409,6 +1429,7 @@ async function init() {
     await bootstrapAccess();
     renderOrganizationSelector();
     await loadDocuments();
+    await openLinkedDocumentFromUrl();
   } catch (error) {
     memberships = [];
     activeMembership = null;
