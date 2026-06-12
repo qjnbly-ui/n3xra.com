@@ -46,6 +46,9 @@ const fileModalDelete = document.getElementById("file-modal-delete");
 const fileModalClose = document.getElementById("file-modal-close");
 const deleteConfirmModal = document.getElementById("delete-confirm-modal");
 const deleteConfirmCopy = document.getElementById("delete-confirm-copy");
+const deleteAssociatedOption = document.getElementById("delete-associated-option");
+const deleteAssociatedInput = document.getElementById("delete-associated-data");
+const deleteAssociatedSummary = document.getElementById("delete-associated-summary");
 const deleteConfirmCancel = document.getElementById("delete-confirm-cancel");
 const deleteConfirmSubmit = document.getElementById("delete-confirm-submit");
 const fileEditModal = document.getElementById("file-edit-modal");
@@ -70,12 +73,27 @@ let activeModalDocumentId = null;
 let pendingEditId = null;
 let activeModalObjectUrl = "";
 let editableDocumentsBySourceId = new Map();
+let pendingDeleteAssociations = {
+  documentId: "",
+  appDocuments: [],
+  recordings: [],
+};
 
 function setStatus(el, message, tone = "") {
   if (!el) return;
   el.textContent = message || "";
   el.className = "status";
   if (tone) el.classList.add(tone);
+}
+
+function getErrorMessage(error, fallback) {
+  if (error && typeof error === "object" && "message" in error && typeof error.message === "string" && error.message.trim()) {
+    return error.message;
+  }
+  if (error instanceof Error && error.message.trim()) {
+    return error.message;
+  }
+  return fallback;
 }
 
 function show(el, visible) {
@@ -112,6 +130,63 @@ function closeFileActionMenus(exceptId = "") {
     toggle.setAttribute("aria-expanded", "false");
     toggle.textContent = "Action";
   });
+}
+
+function resetDeleteAssociations() {
+  pendingDeleteAssociations = {
+    documentId: "",
+    appDocuments: [],
+    recordings: [],
+  };
+  if (deleteAssociatedInput) {
+    deleteAssociatedInput.checked = false;
+  }
+  show(deleteAssociatedOption, false);
+  if (deleteAssociatedSummary) {
+    deleteAssociatedSummary.textContent = "";
+  }
+}
+
+function isIgnorableStorageDeleteError(error) {
+  const message = String(error?.message || "").toLowerCase();
+  return message.includes("not found") || message.includes("no such object") || message.includes("does not exist");
+}
+
+function formatDeleteAssociationSummary(associations) {
+  const parts = [];
+  const editableCount = associations.appDocuments.length;
+  const recordingCount = associations.recordings.length;
+
+  if (editableCount) {
+    parts.push(`${editableCount} editable document${editableCount === 1 ? "" : "s"}`);
+  }
+  if (recordingCount) {
+    parts.push(`${recordingCount} linked recording${recordingCount === 1 ? "" : "s"} and audio file${recordingCount === 1 ? "" : "s"}`);
+  }
+  if (!parts.length) return "";
+  return `${parts.join(" and ")} will also be deleted. If unchecked, they stay in the app but lose this file link.`;
+}
+
+async function loadDeleteAssociations(documentId) {
+  const [appDocumentsResult, recordingsResult] = await Promise.all([
+    supabase
+      .from("app_documents")
+      .select("id, title, document_kind")
+      .eq("source_document_id", documentId),
+    supabase
+      .from("meeting_recordings")
+      .select("id, title, storage_path")
+      .eq("document_id", documentId),
+  ]);
+
+  if (appDocumentsResult.error) throw appDocumentsResult.error;
+  if (recordingsResult.error) throw recordingsResult.error;
+
+  return {
+    documentId,
+    appDocuments: Array.isArray(appDocumentsResult.data) ? appDocumentsResult.data : [],
+    recordings: Array.isArray(recordingsResult.data) ? recordingsResult.data : [],
+  };
 }
 
 function escapeHtml(value) {
@@ -648,7 +723,7 @@ async function saveFileEdit(event) {
   await loadDocuments();
 }
 
-function openDeleteConfirm(documentId) {
+async function openDeleteConfirm(documentId) {
   if (!getActiveCapabilities().canDeleteDocuments) {
     setStatus(fileStatus, "You do not have permission to delete files in this library.", "error");
     return;
@@ -657,13 +732,34 @@ function openDeleteConfirm(documentId) {
   if (!doc) return;
 
   pendingDeleteId = documentId;
+  resetDeleteAssociations();
   deleteConfirmCopy.textContent = `Delete "${doc.title || doc.original_filename || "this file"}"? This action cannot be undone.`;
   deleteConfirmModal.classList.add("is-open");
   deleteConfirmModal.setAttribute("aria-hidden", "false");
+  deleteConfirmSubmit.disabled = true;
+
+  try {
+    const associations = await loadDeleteAssociations(documentId);
+    if (pendingDeleteId !== documentId) return;
+    pendingDeleteAssociations = associations;
+    const summary = formatDeleteAssociationSummary(pendingDeleteAssociations);
+    show(deleteAssociatedOption, Boolean(summary));
+    if (deleteAssociatedSummary) {
+      deleteAssociatedSummary.textContent = summary;
+    }
+  } catch (error) {
+    if (pendingDeleteId !== documentId) return;
+    setStatus(fileStatus, getErrorMessage(error, "Unable to check linked file data."), "error");
+  } finally {
+    if (pendingDeleteId === documentId) {
+      deleteConfirmSubmit.disabled = false;
+    }
+  }
 }
 
 function closeDeleteConfirm() {
   pendingDeleteId = null;
+  resetDeleteAssociations();
   deleteConfirmModal.classList.remove("is-open");
   deleteConfirmModal.setAttribute("aria-hidden", "true");
 }
@@ -682,7 +778,31 @@ async function shareFile(documentId) {
   setStatus(fileStatus, "Sharing is not available on this device.", "error");
 }
 
-async function deleteFile(documentId) {
+async function deleteAssociatedFileData(documentId) {
+  let associations = pendingDeleteAssociations.documentId === documentId
+    ? pendingDeleteAssociations
+    : await loadDeleteAssociations(documentId);
+
+  const appDocumentIds = associations.appDocuments.map((item) => item.id).filter(Boolean);
+  if (appDocumentIds.length) {
+    const { error } = await supabase.from("app_documents").delete().in("id", appDocumentIds);
+    if (error) throw error;
+  }
+
+  const recordingIds = associations.recordings.map((item) => item.id).filter(Boolean);
+  if (recordingIds.length) {
+    const recordingPaths = associations.recordings.map((item) => item.storage_path).filter(Boolean);
+    if (recordingPaths.length) {
+      const { error: recordingStorageError } = await supabase.storage.from("meeting-recordings").remove(recordingPaths);
+      if (recordingStorageError && !isIgnorableStorageDeleteError(recordingStorageError)) throw recordingStorageError;
+    }
+
+    const { error } = await supabase.from("meeting_recordings").delete().in("id", recordingIds);
+    if (error) throw error;
+  }
+}
+
+async function deleteFile(documentId, options = {}) {
   const doc = documentsCache.find((item) => item.id === documentId);
   if (!doc) return;
   if (!getActiveCapabilities().canDeleteDocuments) {
@@ -694,8 +814,20 @@ async function deleteFile(documentId) {
   deleteConfirmSubmit.disabled = true;
   deleteConfirmCancel.disabled = true;
 
+  if (options.deleteAssociated) {
+    try {
+      setStatus(fileStatus, "Deleting linked data...");
+      await deleteAssociatedFileData(documentId);
+    } catch (error) {
+      deleteConfirmSubmit.disabled = false;
+      deleteConfirmCancel.disabled = false;
+      setStatus(fileStatus, getErrorMessage(error, "Unable to delete linked file data."), "error");
+      return;
+    }
+  }
+
   const { error: storageError } = await supabase.storage.from("documents").remove([doc.storage_path]);
-  if (storageError) {
+  if (storageError && !isIgnorableStorageDeleteError(storageError)) {
     deleteConfirmSubmit.disabled = false;
     deleteConfirmCancel.disabled = false;
     setStatus(fileStatus, storageError.message, "error");
@@ -714,7 +846,7 @@ async function deleteFile(documentId) {
   deleteConfirmCancel.disabled = false;
   closeDeleteConfirm();
   closeFileModal();
-  setStatus(fileStatus, "File deleted.", "success");
+  setStatus(fileStatus, options.deleteAssociated ? "File and linked data deleted." : "File deleted.", "success");
   await loadDocuments();
 }
 
@@ -1230,7 +1362,7 @@ async function handleFileAction(event) {
     if (action === "open-preview") await openFile(id);
     if (action === "download") await downloadFile(id);
     if (action === "share") await shareFile(id);
-    if (action === "delete") openDeleteConfirm(id);
+    if (action === "delete") void openDeleteConfirm(id);
     if (action === "toggle-public") await togglePublic(id);
     if (action === "make-editable") await makeFileEditable(id);
     return;
@@ -1324,7 +1456,7 @@ async function init() {
   });
   fileModalDelete.addEventListener("click", () => {
     if (!activeModalDocumentId) return;
-    openDeleteConfirm(activeModalDocumentId);
+    void openDeleteConfirm(activeModalDocumentId);
   });
   fileModal.addEventListener("click", (event) => {
     if (event.target === fileModal) closeFileModal();
@@ -1332,7 +1464,7 @@ async function init() {
   deleteConfirmCancel.addEventListener("click", closeDeleteConfirm);
   deleteConfirmSubmit.addEventListener("click", async () => {
     if (!pendingDeleteId) return;
-    await deleteFile(pendingDeleteId);
+    await deleteFile(pendingDeleteId, { deleteAssociated: Boolean(deleteAssociatedInput?.checked) });
   });
   fileEditClose.addEventListener("click", closeFileEditModal);
   fileEditForm.addEventListener("submit", saveFileEdit);

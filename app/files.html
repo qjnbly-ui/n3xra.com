@@ -128,6 +128,13 @@
       </div>
       <div class="confirm-modal-body">
         <p class="confirm-modal-copy" id="delete-confirm-copy">This action cannot be undone.</p>
+        <label class="confirm-modal-option hidden" id="delete-associated-option">
+          <input id="delete-associated-data" type="checkbox">
+          <span>
+            <strong>Also delete linked editable documents and recording data</strong>
+            <small id="delete-associated-summary">Checking linked items...</small>
+          </span>
+        </label>
         <div class="confirm-modal-actions">
           <button class="btn secondary" id="delete-confirm-cancel" type="button">Cancel</button>
           <button class="btn btn-delete-solid" id="delete-confirm-submit" type="button">Delete</button>
