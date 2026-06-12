@@ -5,7 +5,7 @@ import { Color, TextStyle } from "https://esm.sh/@tiptap/extension-text-style";
 import Superscript from "https://esm.sh/@tiptap/extension-superscript";
 import TextAlign from "https://esm.sh/@tiptap/extension-text-align";
 import Underline from "https://esm.sh/@tiptap/extension-underline";
-import { createBrowserSupabase, hasConfig, getSessionOrNull } from "./lib/supabase-client.js";
+import { createBrowserSupabase, getConfig, hasConfig, getSessionOrNull } from "./lib/supabase-client.js";
 import {
   buildMembershipMap,
   dedupeMembershipsByOrganization,
@@ -291,6 +291,16 @@ function plainTextFromTiptapJson(contentJson) {
     .trim();
 }
 
+function downloadFilename(value, extension = "pdf") {
+  const base = String(value || "document")
+    .replace(/\.[^.]+$/, "")
+    .replace(/[^a-z0-9 _.-]/gi, "")
+    .trim()
+    .replace(/\s+/g, "-")
+    .slice(0, 80) || "document";
+  return `${base}.${extension}`;
+}
+
 function updateToolbarStates() {
   const buttons = document.querySelectorAll("[data-tiptap-button]");
   buttons.forEach((button) => {
@@ -373,6 +383,35 @@ function editorToPayload() {
     content_json: contentJson,
     plain_text: plainTextFromTiptapJson(contentJson),
   };
+}
+
+async function persistActiveDocument(statusTarget = editorStatus) {
+  const capabilities = getActiveCapabilities();
+  const canSave = activeDocumentKind === "template" ? capabilities.canManageTemplates : capabilities.canEditDocuments;
+  if (!activeDocumentId || !canSave) return null;
+
+  setStatus(statusTarget, "Saving...");
+  documentSave.disabled = true;
+  const payload = editorToPayload();
+  const { data, error } = await supabase
+    .from("app_documents")
+    .update(payload)
+    .eq("id", activeDocumentId)
+    .select("id, title, content_json, plain_text, status, document_kind, source_document_id, created_at, updated_at")
+    .single();
+
+  documentSave.disabled = false;
+  if (error) {
+    setStatus(statusTarget, error.message, "error");
+    return null;
+  }
+
+  const list = data.document_kind === "template" ? appTemplates : appDocuments;
+  const index = list.findIndex((doc) => doc.id === data.id);
+  if (index >= 0) list[index] = data;
+  renderAppDocuments();
+  renderAppTemplates();
+  return data;
 }
 
 function isMissingAppDocumentsSchemaError(error) {
@@ -637,31 +676,8 @@ async function createDocumentFromTemplate() {
 
 async function saveActiveDocument(event) {
   event.preventDefault();
-  const capabilities = getActiveCapabilities();
-  const canSave = activeDocumentKind === "template" ? capabilities.canManageTemplates : capabilities.canEditDocuments;
-  if (!activeDocumentId || !canSave) return;
-  setStatus(editorStatus, "Saving...");
-  documentSave.disabled = true;
-  const payload = editorToPayload();
-  const { data, error } = await supabase
-    .from("app_documents")
-    .update(payload)
-    .eq("id", activeDocumentId)
-    .select("id, title, content_json, plain_text, status, document_kind, source_document_id, created_at, updated_at")
-    .single();
-
-  documentSave.disabled = false;
-  if (error) {
-    setStatus(editorStatus, error.message, "error");
-    return;
-  }
-
-  const list = data.document_kind === "template" ? appTemplates : appDocuments;
-  const index = list.findIndex((doc) => doc.id === data.id);
-  if (index >= 0) list[index] = data;
-  renderAppDocuments();
-  renderAppTemplates();
-  setStatus(editorStatus, "Saved.", "success");
+  const data = await persistActiveDocument(editorStatus);
+  if (data) setStatus(editorStatus, "Saved.", "success");
 }
 
 async function deleteActiveDocument() {
@@ -687,9 +703,60 @@ async function deleteActiveDocument() {
   await loadAppDocuments();
 }
 
-function printActiveDocument() {
+async function downloadActiveDocumentPdf() {
   if (!activeDocumentId) return;
-  window.print();
+  const config = getConfig();
+  if (!config.supabaseUrl || !config.supabaseAnonKey) {
+    setStatus(editorStatus, "Supabase config is missing.", "error");
+    return;
+  }
+
+  const currentDoc = [...appDocuments, ...appTemplates].find((doc) => doc.id === activeDocumentId);
+  const saved = await persistActiveDocument(editorStatus);
+  if (!saved && tiptapEditor?.isEditable) return;
+
+  setStatus(editorStatus, "Generating PDF...");
+  documentPrint.disabled = true;
+
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+  const accessToken = sessionData?.session?.access_token || currentSession?.access_token || "";
+  if (sessionError || !accessToken) {
+    documentPrint.disabled = false;
+    setStatus(editorStatus, sessionError?.message || "Sign in again before generating a PDF.", "error");
+    return;
+  }
+
+  try {
+    const response = await fetch(`${config.supabaseUrl}/functions/v1/generate-app-document-pdf`, {
+      method: "POST",
+      headers: {
+        apikey: config.supabaseAnonKey,
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ documentId: activeDocumentId }),
+    });
+
+    if (!response.ok) {
+      const errorPayload = await response.json().catch(() => ({}));
+      throw new Error(errorPayload?.error || "PDF generation failed.");
+    }
+
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = downloadFilename((saved || currentDoc)?.title || documentTitle.value);
+    document.body.append(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    setStatus(editorStatus, "PDF downloaded.", "success");
+  } catch (error) {
+    setStatus(editorStatus, error?.message || "Unable to generate PDF.", "error");
+  } finally {
+    documentPrint.disabled = false;
+  }
 }
 
 async function emailActiveDocument() {
@@ -789,7 +856,7 @@ async function init() {
   documentConfirmModal.addEventListener("click", (event) => {
     if (event.target === documentConfirmModal) resolveDocumentConfirm(false);
   });
-  documentPrint.addEventListener("click", printActiveDocument);
+  documentPrint.addEventListener("click", downloadActiveDocumentPdf);
   documentEmail.addEventListener("click", emailActiveDocument);
   document.querySelector(".document-toolbar")?.addEventListener("click", applyToolbarAction);
   appDocumentList.addEventListener("click", (event) => {
