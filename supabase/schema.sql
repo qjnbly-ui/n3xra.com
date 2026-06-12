@@ -566,6 +566,8 @@ as $$
   select nullif(split_part(storage_name, '/', 1), '')::uuid;
 $$;
 
+drop function if exists public.get_public_embed_documents(uuid);
+
 create or replace function public.get_public_embed_documents(input_organization_id uuid)
 returns table (
   id uuid,
@@ -575,7 +577,12 @@ returns table (
   extracted_text text,
   year text,
   month text,
-  created_at timestamptz
+  created_at timestamptz,
+  editable_document_id uuid,
+  effective_title text,
+  effective_original_filename text,
+  effective_text text,
+  has_editable_document boolean
 )
 language plpgsql
 security definer
@@ -604,8 +611,31 @@ begin
     d.extracted_text,
     d.year,
     d.month,
-    d.created_at
+    d.created_at,
+    ad.id as editable_document_id,
+    coalesce(nullif(ad.title, ''), d.title) as effective_title,
+    coalesce(
+      case
+        when ad.id is not null then nullif(trim(regexp_replace(coalesce(ad.title, ''), '\.[^.]+$', '')), '') || '.pdf'
+        else null
+      end,
+      d.original_filename
+    ) as effective_original_filename,
+    coalesce(nullif(btrim(ad.plain_text), ''), d.extracted_text) as effective_text,
+    ad.id is not null as has_editable_document
   from public.documents d
+  left join lateral (
+    select linked.id, linked.title, linked.plain_text, linked.status, linked.updated_at, linked.created_at
+    from public.app_documents linked
+    where linked.organization_id = d.organization_id
+      and linked.source_document_id = d.id
+      and linked.document_kind = 'document'
+    order by
+      (linked.status = 'final') desc,
+      linked.updated_at desc nulls last,
+      linked.created_at desc nulls last
+    limit 1
+  ) ad on true
   where d.organization_id = input_organization_id
     and d.is_public = true
   order by d.created_at desc;

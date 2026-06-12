@@ -1,4 +1,5 @@
-import { createBrowserSupabase, hasConfig } from "./lib/supabase-client.js";
+import { createBrowserSupabase, getConfig, hasConfig } from "./lib/supabase-client.js";
+import { createPublicAppDocumentPdfObjectUrl, getAppDocumentPdfFilename } from "./lib/app-document-pdf.js";
 import { buildPreviewUrl } from "./lib/document-links.js";
 import { buildDocumentMetadata, getDocumentDisplayTitle } from "./lib/document-presenters.js";
 import { closeFilePreviewModal, openFilePreviewModal } from "./lib/file-modal.js";
@@ -23,6 +24,7 @@ const fileModalClose = document.getElementById("embed-file-modal-close");
 let supabase = null;
 let documentsCache = [];
 let activeModalDocumentId = null;
+let activeModalObjectUrl = "";
 let resolvedOrganizationId = "";
 const DEFAULT_PRIMARY_COLOR = "#176f66";
 const DEFAULT_ACCENT_COLOR = "#ea9b3f";
@@ -155,6 +157,10 @@ function escapeHtml(value) {
     .replaceAll("'", "&#39;");
 }
 
+function getErrorMessage(error, fallback) {
+  return error instanceof Error ? error.message || fallback : fallback;
+}
+
 function snippetFromText(text, query) {
   if (!text) return "No extracted text yet.";
   if (!query) return `${text.slice(0, 220).trim()}${text.length > 220 ? "..." : ""}`;
@@ -225,6 +231,62 @@ function renderDocuments() {
   });
 }
 
+function normalizePublicDocument(doc) {
+  const effectiveTitle = String(doc?.effective_title || "").trim();
+  const effectiveFilename = String(doc?.effective_original_filename || "").trim();
+  const effectiveText = String(doc?.effective_text || "").trim();
+
+  return {
+    ...doc,
+    source_title: doc?.source_title || doc?.title || "",
+    source_original_filename: doc?.source_original_filename || doc?.original_filename || "",
+    source_extracted_text: doc?.source_extracted_text || doc?.extracted_text || "",
+    title: effectiveTitle || doc?.title || "",
+    original_filename: effectiveFilename || doc?.original_filename || "",
+    extracted_text: effectiveText || doc?.extracted_text || "",
+    has_editable_document: Boolean(doc?.editable_document_id || doc?.has_editable_document),
+  };
+}
+
+function revokeActiveModalObjectUrl() {
+  if (!activeModalObjectUrl) return;
+  URL.revokeObjectURL(activeModalObjectUrl);
+  activeModalObjectUrl = "";
+}
+
+async function openEditablePublicFile(doc) {
+  const objectUrl = await createPublicAppDocumentPdfObjectUrl({
+    config: getConfig(),
+    organizationId: getResolvedOrganizationId(),
+    sourceDocumentId: doc.id,
+    documentId: doc.editable_document_id,
+  });
+  revokeActiveModalObjectUrl();
+  activeModalObjectUrl = objectUrl;
+
+  const modalDoc = {
+    ...doc,
+    original_filename: getAppDocumentPdfFilename(doc),
+  };
+
+  activeModalDocumentId = doc.id;
+  openFilePreviewModal(
+    {
+      modal: fileModal,
+      title: fileModalTitle,
+      frame: fileModalFrame,
+      downloadLink: fileModalDownload,
+      openTabLink: fileModalOpenTab,
+    },
+    {
+      doc: modalDoc,
+      previewUrl: objectUrl,
+      fallbackUrl: objectUrl,
+      downloadUrl: objectUrl,
+    }
+  );
+}
+
 async function fetchPublicFileUrls(documentId, mode = "view") {
   const doc = documentsCache.find((item) => item.id === documentId);
   if (!doc) return null;
@@ -246,6 +308,18 @@ async function fetchPublicFileUrls(documentId, mode = "view") {
 }
 
 async function openFile(documentId) {
+  const doc = documentsCache.find((item) => item.id === documentId);
+  if (doc?.editable_document_id) {
+    setStatus("Opening current document...");
+    try {
+      await openEditablePublicFile(doc);
+      setStatus("");
+      return;
+    } catch (error) {
+      setStatus(getErrorMessage(error, "Unable to open the current document. Opening original file instead."), "error");
+    }
+  }
+
   const signed = await fetchPublicFileUrls(documentId, "view");
   if (!signed) return;
   const downloadSigned = await fetchPublicFileUrls(documentId, "download");
@@ -271,6 +345,7 @@ async function openFile(documentId) {
 
 function closeFileModal() {
   closeFilePreviewModal({ modal: fileModal, frame: fileModalFrame });
+  revokeActiveModalObjectUrl();
   activeModalDocumentId = null;
 }
 
@@ -328,7 +403,7 @@ async function loadDocuments() {
     return;
   }
 
-  documentsCache = Array.isArray(data) ? data : [];
+  documentsCache = (Array.isArray(data) ? data : []).map(normalizePublicDocument);
   updateYearFilterOptions();
   renderDocuments();
   setStatus(`${documentsCache.length} public record${documentsCache.length === 1 ? "" : "s"} loaded.`, "success");

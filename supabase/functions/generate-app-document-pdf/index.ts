@@ -62,6 +62,10 @@ function textValue(value: unknown) {
   return String(value || "").replace(/\s+/g, " ").trim();
 }
 
+function isUuid(value: unknown) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || ""));
+}
+
 function pdfSafeText(value: unknown) {
   return String(value || "")
     .normalize("NFKC")
@@ -513,36 +517,16 @@ Deno.serve(async (request) => {
       return jsonResponse({ error: "Supabase environment variables are missing." }, 500);
     }
 
-    const authHeader = request.headers.get("Authorization");
-    if (!authHeader) {
-      return jsonResponse({ error: "Missing Authorization header." }, 401);
-    }
-
-    const userClient = createClient(supabaseUrl, anonKey, {
-      global: {
-        headers: {
-          Authorization: authHeader,
-        },
-      },
-    });
-    const adminClient = createClient(supabaseUrl, serviceRoleKey);
-
-    const {
-      data: { user },
-      error: userError,
-    } = await userClient.auth.getUser();
-
-    if (userError || !user) {
-      return jsonResponse({ error: userError?.message || "Unable to resolve user." }, 401);
-    }
-
     const payload = await request.json().catch(() => ({}));
     const documentId = String(payload.documentId || "").trim();
     if (!documentId) return jsonResponse({ error: "documentId is required." }, 400);
 
+    const isPublicEmbedRequest = payload.publicEmbed === true;
+    const adminClient = createClient(supabaseUrl, serviceRoleKey);
+
     const { data: document, error: documentError } = await adminClient
       .from("app_documents")
-      .select("id, organization_id, title, content_json, plain_text, document_kind, organization:organizations(id, name, owner_user_id)")
+      .select("id, organization_id, source_document_id, title, content_json, plain_text, document_kind, organization:organizations(id, name, owner_user_id, public_embed_enabled)")
       .eq("id", documentId)
       .maybeSingle();
 
@@ -550,20 +534,71 @@ Deno.serve(async (request) => {
       return jsonResponse({ error: documentError?.message || "Document not found." }, 404);
     }
 
-    const { data: membership, error: membershipError } = await adminClient
-      .from("organization_memberships")
-      .select("role")
-      .eq("organization_id", document.organization_id)
-      .eq("user_id", user.id)
-      .maybeSingle();
-
-    if (membershipError) return jsonResponse({ error: membershipError.message }, 400);
-
-    const isPlatformAdmin = String(user.email || "").toLowerCase() === "quentin@quentinnichols.com";
     const organization = Array.isArray(document.organization) ? document.organization[0] : document.organization;
-    const isOwner = organization?.owner_user_id === user.id;
-    if (!membership && !isOwner && !isPlatformAdmin) {
-      return jsonResponse({ error: "You do not have access to this document." }, 403);
+
+    if (isPublicEmbedRequest) {
+      const organizationId = String(payload.organizationId || "").trim();
+      const sourceDocumentId = String(payload.sourceDocumentId || "").trim();
+      if (!isUuid(organizationId) || !isUuid(sourceDocumentId)) {
+        return jsonResponse({ error: "Invalid public document reference." }, 400);
+      }
+      if (
+        document.organization_id !== organizationId ||
+        document.source_document_id !== sourceDocumentId ||
+        document.document_kind !== "document" ||
+        organization?.public_embed_enabled !== true
+      ) {
+        return jsonResponse({ error: "Public document not found." }, 404);
+      }
+
+      const { data: sourceDocument, error: sourceDocumentError } = await adminClient
+        .from("documents")
+        .select("id, organization_id, is_public")
+        .eq("id", sourceDocumentId)
+        .eq("organization_id", organizationId)
+        .eq("is_public", true)
+        .maybeSingle();
+
+      if (sourceDocumentError || !sourceDocument) {
+        return jsonResponse({ error: sourceDocumentError?.message || "Public document not found." }, 404);
+      }
+    } else {
+      const authHeader = request.headers.get("Authorization");
+      if (!authHeader) {
+        return jsonResponse({ error: "Missing Authorization header." }, 401);
+      }
+
+      const userClient = createClient(supabaseUrl, anonKey, {
+        global: {
+          headers: {
+            Authorization: authHeader,
+          },
+        },
+      });
+
+      const {
+        data: { user },
+        error: userError,
+      } = await userClient.auth.getUser();
+
+      if (userError || !user) {
+        return jsonResponse({ error: userError?.message || "Unable to resolve user." }, 401);
+      }
+
+      const { data: membership, error: membershipError } = await adminClient
+        .from("organization_memberships")
+        .select("role")
+        .eq("organization_id", document.organization_id)
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (membershipError) return jsonResponse({ error: membershipError.message }, 400);
+
+      const isPlatformAdmin = String(user.email || "").toLowerCase() === "quentin@quentinnichols.com";
+      const isOwner = organization?.owner_user_id === user.id;
+      if (!membership && !isOwner && !isPlatformAdmin) {
+        return jsonResponse({ error: "You do not have access to this document." }, 403);
+      }
     }
 
     const pdfBytes = await buildPdf({
@@ -573,13 +608,14 @@ Deno.serve(async (request) => {
       plainText: String(document.plain_text || ""),
     });
     const filename = `${cleanFilename(document.title)}.pdf`;
+    const disposition = payload.disposition === "inline" ? "inline" : "attachment";
 
     return new Response(pdfBytes, {
       status: 200,
       headers: {
         ...corsHeaders,
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="${filename}"`,
+        "Content-Disposition": `${disposition}; filename="${filename}"`,
         "Cache-Control": "no-store",
       },
     });

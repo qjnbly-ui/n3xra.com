@@ -488,6 +488,9 @@ function renderFiles() {
   documentsCache.forEach((doc) => {
     const capabilities = getActiveCapabilities();
     const editableDoc = getEditableDocumentForSource(doc.id);
+    const displayDoc = editableDoc
+      ? { ...doc, title: editableDoc.title || doc.title, original_filename: getAppDocumentPdfFilename(editableDoc) }
+      : doc;
     const actionButtons = [];
     if (capabilities.canEditDocuments) {
       actionButtons.push(`<button class="btn secondary" type="button" data-action="edit" data-id="${doc.id}">Edit details</button>`);
@@ -519,7 +522,7 @@ function renderFiles() {
     item.setAttribute("tabindex", "0");
     item.innerHTML = `
       <div class="file-row-main">
-        <p class="download-name">${escapeHtml(getDocumentDisplayTitle(doc))}</p>
+        <p class="download-name">${escapeHtml(getDocumentDisplayTitle(displayDoc))}</p>
         <p class="download-meta">${escapeHtml(buildDocumentMetadata(doc, { includeVisibility: true, includeCreatedAt: false }))}${editableDoc ? " · Editable version" : ""}</p>
       </div>
       <div class="file-row-controls">

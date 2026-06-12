@@ -1348,6 +1348,23 @@ function getEditableDocumentForSource(sourceDocumentId) {
   return editableDocumentsBySourceId.get(sourceDocumentId) || null;
 }
 
+function getEffectiveDocument(doc) {
+  const editableDoc = getEditableDocumentForSource(doc?.id);
+  if (!editableDoc) return doc;
+  return {
+    ...doc,
+    editable_document_id: editableDoc.id,
+    title: editableDoc.title || doc?.title || "",
+    original_filename: getAppDocumentPdfFilename(editableDoc),
+    extracted_text: editableDoc.plain_text || doc?.extracted_text || "",
+  };
+}
+
+function getEffectiveDocumentSearchText(doc) {
+  const editableDoc = getEditableDocumentForSource(doc?.id);
+  return editableDoc?.plain_text || doc?.extracted_text || "";
+}
+
 function isMissingAppDocumentsSchemaError(error) {
   const message = String(error?.message || "").toLowerCase();
   return message.includes("app_documents") && (message.includes("does not exist") || message.includes("schema cache"));
@@ -2600,7 +2617,8 @@ function renderDocuments() {
   const filtered = documentsCache.filter((doc) => {
     const yearMatch = selectedYear === "all" || String(doc.year || "") === selectedYear;
     if (!yearMatch) return false;
-    const haystack = `${doc.title || ""} ${doc.original_filename || ""} ${doc.records_ai_note || ""} ${sanitizeExtractedText(doc.extracted_text || "")}`.toLowerCase();
+    const effectiveDoc = getEffectiveDocument(doc);
+    const haystack = `${effectiveDoc.title || ""} ${doc.original_filename || ""} ${doc.records_ai_note || ""} ${sanitizeExtractedText(getEffectiveDocumentSearchText(doc))}`.toLowerCase();
     return haystack.includes(query);
   });
 
@@ -2610,17 +2628,18 @@ function renderDocuments() {
   }
 
   filtered.forEach((doc) => {
+    const effectiveDoc = getEffectiveDocument(doc);
     const card = document.createElement("article");
     card.className = "doc-card";
     card.innerHTML = `
       <div class="doc-meta">
         <div>
-          <p class="doc-title">${escapeHtml(getDocumentDisplayTitle(doc))}</p>
+          <p class="doc-title">${escapeHtml(getDocumentDisplayTitle(effectiveDoc))}</p>
           <p class="doc-subtitle">${escapeHtml(buildDocumentMetadata(doc, { includeVisibility: true, includeYearLabel: true, createdAtWithTime: true }))}</p>
         </div>
         <span class="doc-status">${escapeHtml(getDocumentStatusLabel(doc))}</span>
       </div>
-      <p class="doc-snippet">${snippetFromText(doc.extracted_text || "", query)}</p>
+      <p class="doc-snippet">${snippetFromText(getEffectiveDocumentSearchText(doc), query)}</p>
       <div class="doc-actions">
         <button class="btn secondary" type="button" data-action="open" data-id="${doc.id}">Open</button>
       </div>
@@ -2899,10 +2918,11 @@ function renderRecentFiles() {
   recent.forEach((doc) => {
     const editableDoc = getEditableDocumentForSource(doc.id);
     const item = document.createElement("article");
+    const effectiveDoc = getEffectiveDocument(doc);
     item.className = "download-item recent-file-item";
     item.innerHTML = `
       <div>
-        <p class="download-name">${escapeHtml(getDocumentDisplayTitle(doc))}</p>
+        <p class="download-name">${escapeHtml(getDocumentDisplayTitle(effectiveDoc))}</p>
         <p class="download-meta">${escapeHtml(buildDocumentMetadata(doc, { includeVisibility: true, includeCreatedAt: false }))}${editableDoc ? " · Editable version" : ""}</p>
       </div>
       <div class="actions">
@@ -3052,7 +3072,7 @@ async function loadEditableDocumentMap(organizationId) {
   editableDocumentsBySourceId = new Map();
   const { data, error } = await supabase
     .from("app_documents")
-    .select("id, title, source_document_id, status, updated_at, created_at")
+    .select("id, title, source_document_id, plain_text, status, updated_at, created_at")
     .eq("organization_id", organizationId)
     .eq("document_kind", "document")
     .not("source_document_id", "is", null)

@@ -222,7 +222,13 @@ function tokenize(value) {
 }
 
 function getDocumentTitle(doc) {
-  return normalizeText(doc.title || doc.original_filename || "Untitled file");
+  return normalizeText(doc.effective_title || doc.title || doc.original_filename || "Untitled file");
+}
+
+function getDocumentSearchText(doc) {
+  const effectiveText = normalizeText(doc.effective_text || "");
+  if (effectiveText) return effectiveText;
+  return sanitizeExtractedText(doc.extracted_text || "");
 }
 
 function isMissingSchemaColumnMessage(message, columnName) {
@@ -254,9 +260,9 @@ function rankDocuments(docs, question) {
   });
   const terms = tokenize(question);
   const scored = docs.map((doc) => {
-    const title = `${doc.title || ""} ${doc.original_filename || ""}`.toLowerCase();
+    const title = `${doc.effective_title || doc.title || ""} ${doc.original_filename || ""}`.toLowerCase();
     const aiNote = normalizeText(doc.records_ai_note || "").toLowerCase();
-    const text = `${aiNote} ${sanitizeExtractedText(doc.extracted_text || "").toLowerCase()}`.trim();
+    const text = `${aiNote} ${getDocumentSearchText(doc).toLowerCase()}`.trim();
     let relevance = terms.reduce((sum, term) => {
       const inTitle = countTermMatches(title, term) * 8;
       const inText = Math.min(countTermMatches(text, term), 10);
@@ -291,9 +297,81 @@ function rankDocuments(docs, question) {
     is_public: Boolean(item.doc.is_public),
     created_at: item.doc.created_at || "",
     relevance: item.relevance,
-    snippet: sanitizeExtractedText(item.doc.extracted_text || "").slice(0, MAX_DOC_SNIPPET_CHARS),
+    snippet: getDocumentSearchText(item.doc).slice(0, MAX_DOC_SNIPPET_CHARS),
     ai_note: normalizeText(item.doc.records_ai_note || ""),
+    editable_document_id: item.doc.editable_document_id || "",
   }));
+}
+
+function preferEditableDocument(existing, candidate) {
+  if (!existing) return candidate;
+  const existingFinal = existing.status === "final" ? 1 : 0;
+  const candidateFinal = candidate.status === "final" ? 1 : 0;
+  if (candidateFinal !== existingFinal) return candidateFinal > existingFinal ? candidate : existing;
+
+  const existingUpdated = new Date(existing.updated_at || existing.created_at || 0).getTime() || 0;
+  const candidateUpdated = new Date(candidate.updated_at || candidate.created_at || 0).getTime() || 0;
+  return candidateUpdated > existingUpdated ? candidate : existing;
+}
+
+async function fetchEditableDocumentsForSources(token, organizationId, sourceIds) {
+  const uniqueSourceIds = Array.from(new Set(sourceIds.filter(Boolean)));
+  if (!uniqueSourceIds.length) return new Map();
+
+  const results = new Map();
+  const chunkSize = 80;
+  for (let index = 0; index < uniqueSourceIds.length; index += chunkSize) {
+    const chunk = uniqueSourceIds.slice(index, index + chunkSize);
+    const params = new URLSearchParams({
+      select: "id,title,source_document_id,plain_text,status,updated_at,created_at",
+      organization_id: `eq.${organizationId}`,
+      document_kind: "eq.document",
+      source_document_id: `in.(${chunk.join(",")})`,
+      order: "updated_at.desc",
+    });
+
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/app_documents?${params.toString()}`, {
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    const data = await response.json().catch(() => ([]));
+    if (!response.ok) {
+      const message = String(data?.message || data?.error || "");
+      if (isMissingSchemaColumnMessage(message, "app_documents")) return results;
+      throw new Error(message || "Unable to load editable documents.");
+    }
+
+    (Array.isArray(data) ? data : []).forEach((doc) => {
+      const sourceId = doc.source_document_id;
+      if (!sourceId) return;
+      results.set(sourceId, preferEditableDocument(results.get(sourceId), doc));
+    });
+  }
+
+  return results;
+}
+
+async function attachEditableDocuments(token, organizationId, documents) {
+  if (!documents.length) return documents;
+  const editableBySourceId = await fetchEditableDocumentsForSources(
+    token,
+    organizationId,
+    documents.map((doc) => doc.id)
+  );
+
+  if (!editableBySourceId.size) return documents;
+  return documents.map((doc) => {
+    const editable = editableBySourceId.get(doc.id);
+    if (!editable) return doc;
+    return {
+      ...doc,
+      editable_document_id: editable.id,
+      effective_title: normalizeText(editable.title) || doc.title,
+      effective_text: normalizeText(editable.plain_text) || doc.extracted_text,
+    };
+  });
 }
 
 async function fetchDocuments(token, organizationId, year) {
@@ -332,12 +410,12 @@ async function fetchDocuments(token, organizationId, year) {
       if (!fallbackResponse.ok) {
         throw new Error(String(fallbackData?.message || fallbackData?.error || message));
       }
-      return Array.isArray(fallbackData) ? fallbackData : [];
+      return attachEditableDocuments(token, organizationId, Array.isArray(fallbackData) ? fallbackData : []);
     }
     throw new Error(String(message));
   }
 
-  return Array.isArray(data) ? data : [];
+  return attachEditableDocuments(token, organizationId, Array.isArray(data) ? data : []);
 }
 
 async function fetchOrganizationAiSettings(token, organizationId) {
