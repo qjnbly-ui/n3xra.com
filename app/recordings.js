@@ -873,9 +873,11 @@ function populateRecordingDetails(recording) {
   if (recording.document_id) {
     recordingDetailTranscriptDocument.href = `./files.html?id=${encodeURIComponent(recording.document_id)}`;
   }
-  show(recordingDetailAiDraft, Boolean(recording.ai_draft_document_id));
-  if (recording.ai_draft_document_id) {
-    recordingDetailAiDraft.href = `./documents.html?id=${encodeURIComponent(recording.ai_draft_document_id)}`;
+  const reviewDocumentId = recording.final_document_id || recording.ai_draft_document_id || "";
+  show(recordingDetailAiDraft, Boolean(reviewDocumentId));
+  if (reviewDocumentId) {
+    recordingDetailAiDraft.href = `./documents.html?id=${encodeURIComponent(reviewDocumentId)}`;
+    recordingDetailAiDraft.textContent = recording.final_document_id ? "Open final" : "Open AI draft";
   }
   renderAiReview(recording.ai_review_json || null);
   recordingDetailAiReview.disabled = !recordingWorkflowSchemaAvailable || recording.transcript_status !== "ready";

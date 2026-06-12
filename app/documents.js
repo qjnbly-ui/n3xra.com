@@ -409,6 +409,25 @@ function editorToPayload() {
   };
 }
 
+async function syncRecordingFinalDocument(savedDocument) {
+  if (!savedDocument || savedDocument.document_kind === "template") return;
+
+  if (savedDocument.status === "final") {
+    const { error } = await supabase
+      .from("meeting_recordings")
+      .update({ final_document_id: savedDocument.id })
+      .eq("ai_draft_document_id", savedDocument.id);
+    if (error) throw error;
+    return;
+  }
+
+  const { error } = await supabase
+    .from("meeting_recordings")
+    .update({ final_document_id: null })
+    .eq("final_document_id", savedDocument.id);
+  if (error) throw error;
+}
+
 async function persistActiveDocument(statusTarget = editorStatus) {
   const capabilities = getActiveCapabilities();
   const canSave = activeDocumentKind === "template" ? capabilities.canManageTemplates : capabilities.canEditDocuments;
@@ -427,6 +446,13 @@ async function persistActiveDocument(statusTarget = editorStatus) {
   documentSave.disabled = false;
   if (error) {
     setStatus(statusTarget, error.message, "error");
+    return null;
+  }
+
+  try {
+    await syncRecordingFinalDocument(data);
+  } catch (syncError) {
+    setStatus(statusTarget, syncError?.message || "Document saved, but the recording final link could not be updated.", "error");
     return null;
   }
 
