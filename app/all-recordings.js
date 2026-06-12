@@ -55,6 +55,8 @@ const recordingDetailDuration = document.getElementById("recording-detail-durati
 const recordingDetailSize = document.getElementById("recording-detail-size");
 const recordingDetailPlayer = document.getElementById("recording-detail-player");
 const recordingDetailNotes = document.getElementById("recording-detail-notes");
+const recordingDetailAiDraftSection = document.getElementById("recording-detail-ai-draft-section");
+const recordingDetailAiDraftPreview = document.getElementById("recording-detail-ai-draft-preview");
 const recordingAiReviewPanel = document.getElementById("recording-ai-review-panel");
 const recordingAiSuggestions = document.getElementById("recording-ai-suggestions");
 const recordingAiConflicts = document.getElementById("recording-ai-conflicts");
@@ -650,7 +652,7 @@ function renderAiReview(review) {
     return;
   }
 
-  renderReviewItems(recordingAiSuggestions, "Suggested additions", review.suggested_additions, "No additions suggested.", {
+  renderReviewItems(recordingAiSuggestions, "Suggested additions", review.suggested_additions, "No new additions suggested.", {
     kind: "suggestions",
     canAct: getActiveCapabilities().canEditDocuments,
   });
@@ -701,6 +703,11 @@ function populateRecordingDetails(recording) {
   recordingDetailDuration.textContent = formatDuration(recording.duration_seconds || 0);
   recordingDetailSize.textContent = formatBytes(recording.file_size || 0);
   recordingDetailNotes.textContent = String(recording.notes_plain_text || "").trim() || "No notes saved yet.";
+  const aiDraftPreview = String(recording.ai_review_json?.final_document_text || "").trim();
+  show(recordingDetailAiDraftSection, Boolean(aiDraftPreview));
+  if (recordingDetailAiDraftPreview) {
+    recordingDetailAiDraftPreview.textContent = aiDraftPreview;
+  }
   recordingDetailPlay.disabled = !canPlaybackRecording(recording);
   show(recordingDetailTranscribe, canTranscribeRecording(recording));
   show(recordingDetailRetry, isRetryableRecording(recording));

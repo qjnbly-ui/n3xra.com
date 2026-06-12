@@ -985,6 +985,11 @@ textarea {
   white-space: pre-wrap;
 }
 
+.recording-ai-draft-preview {
+  min-height: 92px;
+  max-height: min(32vh, 320px);
+}
+
 .recording-review-list {
   display: grid;
   gap: 0.55rem;

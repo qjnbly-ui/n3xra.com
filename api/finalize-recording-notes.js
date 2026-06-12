@@ -519,7 +519,7 @@ function buildPrompt({ recording, organization, template, notesText, transcriptT
     "- Do not replace the opening template lines with the recording title.",
     "- final_document_text should begin with the first meaningful line from the notetaker notes when notes exist; do not prepend document_title.",
     "- Do not rename the template, invent a new title, or add new high-level sections unless that section already exists in the template or notetaker notes.",
-    "- The transcript is supporting evidence. Use it to fill obvious missing detail, names, dates, decisions, and action items only when it does not conflict with notes.",
+    "- The transcript is supporting evidence. Use it to fill safe missing detail, names, dates, decisions, and action items only when it does not conflict with notes.",
     "- Do not invent motions, votes, attendance, dates, dollar amounts, decisions, or action owners.",
     "- If transcript details conflict with notes, keep the notes in the draft and list the conflict.",
     "- Preserve the notetaker's meaning. Improve clarity and organization, not facts.",
@@ -527,7 +527,11 @@ function buildPrompt({ recording, organization, template, notesText, transcriptT
     "- Return final_document_text as plain editable document text. Do not use Markdown markers such as #, **, __, or backticks.",
     "- Keep labels as normal text, for example Date: June 12, 2026. Do not wrap labels in formatting characters.",
     "- Use simple bullet lists only when the template or notes already use a list, or when the notes clearly describe multiple action items.",
-    "- suggested_additions are details that appear useful from the transcript but should be accepted by a human.",
+    "- suggested_additions are transcript details that add meaningful substance beyond the notetaker notes and should be accepted by a human.",
+    "- Include suggested_additions for useful context, reasons, implementation details, action timing, or specific wording that the notes only mention broadly.",
+    "- Do not suppress a suggestion only because final_document_text already summarizes the same topic; if the transcript is more specific than the notes, list the specific detail for review.",
+    "- On regeneration, compare transcript details against the original template/notetaker notes and previous human decisions, not only against the current AI draft.",
+    "- Do not return an empty suggested_additions array when the transcript contains unresolved details that would materially improve the document.",
     "- conflicts are places where the transcript and notes do not agree or where confidence is low.",
     "",
     `Library: ${organization?.name || "Current library"}`,
@@ -810,6 +814,8 @@ function buildReviewDecisionContext(previousReview, currentDraftText = "") {
     "- Integrate accepted additions into the appropriate existing section, paragraph, or list.",
     "- Do not create an 'Accepted additions', 'Suggested additions', or 'AI review' section in the final document.",
     "- Dismissed additions should not be added or suggested again unless the notes directly require them.",
+    "- Use the current AI draft to preserve document continuity, not as the baseline for hiding unresolved transcript details.",
+    "- Continue to list unresolved transcript details as suggested_additions when they add meaning beyond the original notetaker notes.",
   ].join("\n");
 }
 
