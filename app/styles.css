@@ -2457,6 +2457,52 @@ code.inline {
   height: 78vh;
 }
 
+.document-send-dialog {
+  width: min(680px, 96vw);
+}
+
+.document-send-body {
+  display: grid;
+  gap: 0.85rem;
+  padding: 1.1rem;
+}
+
+.document-send-body textarea {
+  min-height: 130px;
+  resize: vertical;
+}
+
+.document-send-options {
+  display: flex;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+}
+
+.document-send-option {
+  display: inline-flex;
+  gap: 0.45rem;
+  align-items: center;
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.document-send-option input {
+  width: auto;
+}
+
+.document-send-note {
+  margin: 0;
+  color: var(--slate);
+  font-size: 0.9rem;
+}
+
+.document-send-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+}
+
 .confirm-modal {
   position: fixed;
   inset: 0;

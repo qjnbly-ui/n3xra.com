@@ -50,6 +50,18 @@ const documentPdfDownload = document.getElementById("document-pdf-download");
 const documentPdfPrint = document.getElementById("document-pdf-print");
 const documentPdfClose = document.getElementById("document-pdf-close");
 const documentPdfFrame = document.getElementById("document-pdf-frame");
+const documentSendModal = document.getElementById("document-send-modal");
+const documentSendForm = document.getElementById("document-send-form");
+const documentSendTo = document.getElementById("document-send-to");
+const documentSendSubject = document.getElementById("document-send-subject");
+const documentSendMessage = document.getElementById("document-send-message");
+const documentSendAttachPdf = document.getElementById("document-send-attach-pdf");
+const documentSendIncludeLink = document.getElementById("document-send-include-link");
+const documentSendFromNote = document.getElementById("document-send-from-note");
+const documentSendClose = document.getElementById("document-send-close");
+const documentSendCancel = document.getElementById("document-send-cancel");
+const documentSendSubmit = document.getElementById("document-send-submit");
+const documentSendStatus = document.getElementById("document-send-status");
 const documentConfirmModal = document.getElementById("document-confirm-modal");
 const documentConfirmKicker = document.getElementById("document-confirm-kicker");
 const documentConfirmTitle = document.getElementById("document-confirm-title");
@@ -374,6 +386,7 @@ function documentToEditor(doc) {
   const isTemplate = activeDocumentKind === "template";
   documentSave.textContent = isTemplate ? "Save template" : "Save";
   documentDelete.textContent = isTemplate ? "Delete template" : "Delete";
+  documentEmail.disabled = isTemplate;
   initTiptapEditor();
   tiptapEditor.commands.setContent(contentJsonToTiptapContent(doc?.content_json || EMPTY_DOCUMENT));
   show(editorEmpty, false);
@@ -482,6 +495,7 @@ function renderOrganizationSelector() {
   show(templateManagementSection, capabilities.canManageTemplates);
   show(documentTemplateCreate, capabilities.canManageTemplates || (capabilities.canEditDocuments && appTemplates.length > 0));
   documentDelete.disabled = activeDocumentKind === "template" ? !capabilities.canManageTemplates : !capabilities.canDeleteDocuments;
+  documentEmail.disabled = activeDocumentKind === "template" || !capabilities.canShareDocuments;
   const canEditActive = activeDocumentKind === "template" ? capabilities.canManageTemplates : capabilities.canEditDocuments;
   documentSave.disabled = !canEditActive;
   tiptapEditor?.setEditable(canEditActive);
@@ -757,6 +771,32 @@ function closeDocumentPdfModal() {
   }
 }
 
+function closeDocumentSendModal() {
+  if (!documentSendModal) return;
+  documentSendModal.classList.remove("is-open");
+  documentSendModal.setAttribute("aria-hidden", "true");
+  setStatus(documentSendStatus, "");
+}
+
+function openDocumentSendModal() {
+  if (!activeDocumentId || activeDocumentKind === "template") return;
+  const payload = editorToPayload();
+  const title = payload.title || "Untitled document";
+  documentSendForm.reset();
+  documentSendSubject.value = title;
+  documentSendMessage.value = `Please see the attached ${title} document.`;
+  documentSendAttachPdf.checked = true;
+  documentSendIncludeLink.checked = true;
+  documentSendFromNote.textContent = currentSession?.user?.email
+    ? `Replies will go to ${currentSession.user.email}.`
+    : "Replies will go to the sender account.";
+  setStatus(documentSendStatus, "");
+  documentSendSubmit.disabled = false;
+  documentSendModal.classList.add("is-open");
+  documentSendModal.setAttribute("aria-hidden", "false");
+  documentSendTo.focus();
+}
+
 function printDocumentPdf() {
   if (!activePdfUrl) return;
   try {
@@ -831,13 +871,70 @@ async function openActiveDocumentPdf() {
   }
 }
 
-async function emailActiveDocument() {
-  if (!activeDocumentId) return;
-  const payload = editorToPayload();
-  const subject = encodeURIComponent(payload.title);
-  const body = encodeURIComponent(payload.plain_text || payload.title);
-  window.location.href = `mailto:?subject=${subject}&body=${body}`;
-  await supabase.from("app_documents").update({ last_sent_at: new Date().toISOString() }).eq("id", activeDocumentId);
+async function sendActiveDocument(event) {
+  event.preventDefault();
+  if (!activeDocumentId || activeDocumentKind === "template") return;
+  const config = getConfig();
+  if (!config.supabaseUrl || !config.supabaseAnonKey) {
+    setStatus(documentSendStatus, "Supabase config is missing.", "error");
+    return;
+  }
+
+  const recipientEmail = documentSendTo.value.trim();
+  const subject = documentSendSubject.value.trim();
+  const message = documentSendMessage.value.trim();
+  if (!recipientEmail || !subject) {
+    setStatus(documentSendStatus, "Recipient and subject are required.", "error");
+    return;
+  }
+
+  const saved = await persistActiveDocument(documentSendStatus);
+  if (!saved && tiptapEditor?.isEditable) return;
+
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+  const accessToken = sessionData?.session?.access_token || currentSession?.access_token || "";
+  if (sessionError || !accessToken) {
+    setStatus(documentSendStatus, sessionError?.message || "Sign in again before sending.", "error");
+    return;
+  }
+
+  setStatus(documentSendStatus, "Sending document...");
+  documentSendSubmit.disabled = true;
+
+  try {
+    const appLink = `${window.location.origin}/app/documents?id=${encodeURIComponent(activeDocumentId)}`;
+    const response = await fetch(`${config.supabaseUrl}/functions/v1/send-app-document`, {
+      method: "POST",
+      headers: {
+        apikey: config.supabaseAnonKey,
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        documentId: activeDocumentId,
+        recipientEmail,
+        subject,
+        message,
+        attachPdf: documentSendAttachPdf.checked,
+        includeLink: documentSendIncludeLink.checked,
+        appLink,
+      }),
+    });
+
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(payload?.error || "Document could not be sent.");
+    }
+
+    setStatus(editorStatus, `Sent to ${recipientEmail}.`, "success");
+    setStatus(documentSendStatus, "Sent.", "success");
+    await loadAppDocuments(activeDocumentId);
+    closeDocumentSendModal();
+  } catch (error) {
+    setStatus(documentSendStatus, error?.message || "Unable to send document.", "error");
+  } finally {
+    documentSendSubmit.disabled = false;
+  }
 }
 
 async function handleOrganizationChange() {
@@ -932,7 +1029,13 @@ async function init() {
   documentPdfModal.addEventListener("click", (event) => {
     if (event.target === documentPdfModal) closeDocumentPdfModal();
   });
-  documentEmail.addEventListener("click", emailActiveDocument);
+  documentEmail.addEventListener("click", openDocumentSendModal);
+  documentSendForm.addEventListener("submit", sendActiveDocument);
+  documentSendClose.addEventListener("click", closeDocumentSendModal);
+  documentSendCancel.addEventListener("click", closeDocumentSendModal);
+  documentSendModal.addEventListener("click", (event) => {
+    if (event.target === documentSendModal) closeDocumentSendModal();
+  });
   document.querySelector(".document-toolbar")?.addEventListener("click", applyToolbarAction);
   appDocumentList.addEventListener("click", (event) => {
     const target = event.target instanceof Element ? event.target.closest("[data-id]") : null;
@@ -966,6 +1069,10 @@ async function init() {
     }
     if (event.key === "Escape" && documentPdfModal.classList.contains("is-open")) {
       closeDocumentPdfModal();
+      return;
+    }
+    if (event.key === "Escape" && documentSendModal.classList.contains("is-open")) {
+      closeDocumentSendModal();
       return;
     }
     if (event.key === "Escape") closeMobileMenu();
