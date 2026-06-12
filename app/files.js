@@ -1,6 +1,7 @@
-import { createBrowserSupabase, hasConfig, getSessionOrNull } from "./lib/supabase-client.js";
+import { createBrowserSupabase, getConfig, hasConfig, getSessionOrNull } from "./lib/supabase-client.js";
 import JSZip from "https://esm.sh/jszip@3.10.1";
 import mammoth from "https://esm.sh/mammoth@1.8.0/mammoth.browser";
+import { createAppDocumentPdfObjectUrl, getAppDocumentPdfFilename } from "./lib/app-document-pdf.js";
 import { buildPreviewUrl, getDownloadFilename } from "./lib/document-links.js";
 import { buildDocumentMetadata, getDocumentDisplayTitle } from "./lib/document-presenters.js";
 import { closeFilePreviewModal, openFilePreviewModal } from "./lib/file-modal.js";
@@ -38,6 +39,8 @@ const fileModalTitle = document.getElementById("file-modal-title");
 const fileModalFrame = document.getElementById("file-modal-frame");
 const fileModalDownload = document.getElementById("file-modal-download");
 const fileModalShare = document.getElementById("file-modal-share");
+const fileModalOpenEditable = document.getElementById("file-modal-open-editable");
+const fileModalOriginal = document.getElementById("file-modal-original");
 const fileModalEdit = document.getElementById("file-modal-edit");
 const fileModalDelete = document.getElementById("file-modal-delete");
 const fileModalClose = document.getElementById("file-modal-close");
@@ -65,6 +68,8 @@ let documentsCache = [];
 let pendingDeleteId = null;
 let activeModalDocumentId = null;
 let pendingEditId = null;
+let activeModalObjectUrl = "";
+let editableDocumentsBySourceId = new Map();
 
 function setStatus(el, message, tone = "") {
   if (!el) return;
@@ -203,6 +208,32 @@ function hasActiveLibraryAccess() {
   return Boolean(getActiveOrganization());
 }
 
+async function getFreshAccessToken() {
+  const { data: refreshedSessionData } = await supabase.auth.refreshSession();
+  const { data: sessionData } = await supabase.auth.getSession();
+  return (
+    refreshedSessionData?.session?.access_token ||
+    sessionData?.session?.access_token ||
+    currentSession?.access_token ||
+    ""
+  );
+}
+
+function getEditableDocumentForSource(sourceDocumentId) {
+  return editableDocumentsBySourceId.get(sourceDocumentId) || null;
+}
+
+function isMissingAppDocumentsSchemaError(error) {
+  const message = String(error?.message || "").toLowerCase();
+  return message.includes("app_documents") && (message.includes("does not exist") || message.includes("schema cache"));
+}
+
+function revokeActiveModalObjectUrl() {
+  if (!activeModalObjectUrl) return;
+  URL.revokeObjectURL(activeModalObjectUrl);
+  activeModalObjectUrl = "";
+}
+
 function isFreePlanExperience() {
   return getActiveOrganization()?.subscription_tier === "free";
 }
@@ -293,6 +324,7 @@ async function loadDocuments() {
   const organization = getActiveOrganization();
   if (!organization) {
     documentsCache = [];
+    editableDocumentsBySourceId = new Map();
     documentCount.textContent = "0";
     fileList.innerHTML = "";
     show(fileEmpty, false);
@@ -324,9 +356,32 @@ async function loadDocuments() {
   }
 
   documentsCache = sortDocumentsNewestToOldest(Array.isArray(data) ? data : []);
+  await loadEditableDocumentMap(organization.id);
   documentCount.textContent = String(documentsCache.length);
   renderFiles();
   setStatus(fileStatus, `${documentsCache.length} file${documentsCache.length === 1 ? "" : "s"} loaded.`, "success");
+}
+
+async function loadEditableDocumentMap(organizationId) {
+  editableDocumentsBySourceId = new Map();
+  const { data, error } = await supabase
+    .from("app_documents")
+    .select("id, title, source_document_id, status, updated_at, created_at")
+    .eq("organization_id", organizationId)
+    .eq("document_kind", "document")
+    .not("source_document_id", "is", null)
+    .order("updated_at", { ascending: false });
+
+  if (error) {
+    if (!isMissingAppDocumentsSchemaError(error)) setStatus(fileStatus, error.message, "error");
+    return;
+  }
+
+  (Array.isArray(data) ? data : []).forEach((doc) => {
+    if (doc.source_document_id && !editableDocumentsBySourceId.has(doc.source_document_id)) {
+      editableDocumentsBySourceId.set(doc.source_document_id, doc);
+    }
+  });
 }
 
 function renderFiles() {
@@ -335,10 +390,15 @@ function renderFiles() {
 
   documentsCache.forEach((doc) => {
     const capabilities = getActiveCapabilities();
+    const editableDoc = getEditableDocumentForSource(doc.id);
     const actionButtons = [];
     if (capabilities.canEditDocuments) {
-      actionButtons.push(`<button class="btn secondary" type="button" data-action="edit" data-id="${doc.id}">Edit</button>`);
-      actionButtons.push(`<button class="btn secondary" type="button" data-action="make-editable" data-id="${doc.id}">Make editable</button>`);
+      actionButtons.push(`<button class="btn secondary" type="button" data-action="edit" data-id="${doc.id}">Edit details</button>`);
+      actionButtons.push(
+        editableDoc
+          ? `<button class="btn secondary" type="button" data-action="open-editable" data-id="${doc.id}">Open editable</button>`
+          : `<button class="btn secondary" type="button" data-action="make-editable" data-id="${doc.id}">Make editable</button>`
+      );
     }
     if (capabilities.canDownloadDocuments) {
       actionButtons.push(`<button class="btn secondary" type="button" data-action="download" data-id="${doc.id}">Download</button>`);
@@ -363,7 +423,7 @@ function renderFiles() {
     item.innerHTML = `
       <div class="file-row-main">
         <p class="download-name">${escapeHtml(getDocumentDisplayTitle(doc))}</p>
-        <p class="download-meta">${escapeHtml(buildDocumentMetadata(doc, { includeVisibility: true, includeCreatedAt: false }))}</p>
+        <p class="download-meta">${escapeHtml(buildDocumentMetadata(doc, { includeVisibility: true, includeCreatedAt: false }))}${editableDoc ? " · Editable version" : ""}</p>
       </div>
       <div class="file-row-controls">
         <button class="btn secondary file-row-menu-toggle" type="button" data-menu-toggle data-id="${doc.id}" aria-expanded="false" aria-controls="${actionMenuId}">Action</button>
@@ -406,14 +466,16 @@ async function createDownloadSignedUrlForDocument(documentId) {
   return { doc, signedUrl: data.signedUrl };
 }
 
-async function openFile(documentId) {
+async function openSourceFilePreview(documentId) {
   const signed = await createSignedUrlForDocument(documentId);
   if (!signed) return;
   const downloadSigned = await createDownloadSignedUrlForDocument(documentId);
   const { doc, signedUrl } = signed;
   const capabilities = getActiveCapabilities();
+  const editableDoc = getEditableDocumentForSource(documentId);
 
   activeModalDocumentId = documentId;
+  revokeActiveModalObjectUrl();
   openFilePreviewModal(
     {
       modal: fileModal,
@@ -428,9 +490,75 @@ async function openFile(documentId) {
       downloadUrl: downloadSigned?.signedUrl || signedUrl,
     }
   );
+  fileModalDownload.textContent = "Download original";
   show(fileModalShare, capabilities.canShareDocuments);
+  fileModalShare.textContent = "Share";
+  show(fileModalOpenEditable, Boolean(editableDoc));
+  if (editableDoc) {
+    fileModalOpenEditable.href = `./documents.html?id=${encodeURIComponent(editableDoc.id)}`;
+    fileModalOpenEditable.textContent = capabilities.canEditDocuments ? "Edit document" : "Open editable";
+  }
+  show(fileModalOriginal, false);
   show(fileModalEdit, capabilities.canEditDocuments);
   show(fileModalDelete, capabilities.canDeleteDocuments);
+}
+
+async function openEditableFilePreview(documentId, editableDoc) {
+  const sourceDoc = documentsCache.find((item) => item.id === documentId);
+  if (!sourceDoc || !editableDoc) return false;
+  const capabilities = getActiveCapabilities();
+
+  activeModalDocumentId = documentId;
+  setStatus(fileStatus, "Generating editable preview...");
+
+  try {
+    const objectUrl = await createAppDocumentPdfObjectUrl({
+      config: getConfig(),
+      accessToken: await getFreshAccessToken(),
+      documentId: editableDoc.id,
+    });
+    revokeActiveModalObjectUrl();
+    activeModalObjectUrl = objectUrl;
+    openFilePreviewModal(
+      {
+        modal: fileModal,
+        title: fileModalTitle,
+        frame: fileModalFrame,
+        downloadLink: fileModalDownload,
+      },
+      {
+        doc: {
+          title: editableDoc.title || sourceDoc.title || sourceDoc.original_filename || "Editable document",
+          original_filename: getAppDocumentPdfFilename(editableDoc),
+        },
+        previewUrl: objectUrl,
+        fallbackUrl: objectUrl,
+        downloadUrl: objectUrl,
+      }
+    );
+    fileModalDownload.textContent = "Download PDF";
+    show(fileModalShare, false);
+    show(fileModalOpenEditable, true);
+    fileModalOpenEditable.href = `./documents.html?id=${encodeURIComponent(editableDoc.id)}`;
+    fileModalOpenEditable.textContent = capabilities.canEditDocuments ? "Edit document" : "Open editable";
+    show(fileModalOriginal, true);
+    show(fileModalEdit, capabilities.canEditDocuments);
+    show(fileModalDelete, capabilities.canDeleteDocuments);
+    setStatus(fileStatus, "");
+    return true;
+  } catch (error) {
+    setStatus(fileStatus, error?.message || "Unable to generate editable preview.", "error");
+    return false;
+  }
+}
+
+async function openFile(documentId, preferredView = "auto") {
+  const editableDoc = getEditableDocumentForSource(documentId);
+  if (editableDoc && preferredView !== "source") {
+    const opened = await openEditableFilePreview(documentId, editableDoc);
+    if (opened) return;
+  }
+  await openSourceFilePreview(documentId);
 }
 
 async function downloadFile(documentId) {
@@ -450,6 +578,7 @@ async function downloadFile(documentId) {
 
 function closeFileModal() {
   closeFilePreviewModal({ modal: fileModal, frame: fileModalFrame });
+  revokeActiveModalObjectUrl();
   activeModalDocumentId = null;
 }
 
@@ -1014,6 +1143,11 @@ async function makeFileEditable(documentId) {
     setStatus(fileStatus, "You do not have permission to create editable documents in this library.", "error");
     return;
   }
+  const existing = getEditableDocumentForSource(documentId);
+  if (existing) {
+    window.location.href = `./documents.html?id=${encodeURIComponent(existing.id)}`;
+    return;
+  }
 
   setStatus(fileStatus, "Creating editable document...");
   const { data: sourceDoc, error: sourceError } = await supabase
@@ -1089,6 +1223,10 @@ async function handleFileAction(event) {
     closeFileActionMenus();
 
     if (action === "edit") openFileEditModal(id);
+    if (action === "open-editable") {
+      const editableDoc = getEditableDocumentForSource(id);
+      if (editableDoc) window.location.href = `./documents.html?id=${encodeURIComponent(editableDoc.id)}`;
+    }
     if (action === "download") await downloadFile(id);
     if (action === "share") await shareFile(id);
     if (action === "delete") openDeleteConfirm(id);
@@ -1174,6 +1312,10 @@ async function init() {
   fileModalShare.addEventListener("click", async () => {
     if (!activeModalDocumentId) return;
     await shareFile(activeModalDocumentId);
+  });
+  fileModalOriginal.addEventListener("click", async () => {
+    if (!activeModalDocumentId) return;
+    await openFile(activeModalDocumentId, "source");
   });
   fileModalEdit.addEventListener("click", () => {
     if (!activeModalDocumentId) return;
