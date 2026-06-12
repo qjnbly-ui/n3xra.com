@@ -122,15 +122,20 @@
               </div>
 
               <div class="document-toolbar" aria-label="Formatting">
-                <button type="button" data-command="bold" aria-label="Bold">B</button>
-                <button type="button" data-command="italic" aria-label="Italic">I</button>
-                <button type="button" data-command="underline" aria-label="Underline">U</button>
-                <button type="button" data-block="h2">H2</button>
-                <button type="button" data-block="p">P</button>
-                <button type="button" data-command="insertUnorderedList">List</button>
+                <button type="button" data-tiptap-button="bold" aria-label="Bold">B</button>
+                <button type="button" data-tiptap-button="italic" aria-label="Italic">I</button>
+                <button type="button" data-tiptap-button="underline" aria-label="Underline">U</button>
+                <button type="button" data-tiptap-button="h1">H1</button>
+                <button type="button" data-tiptap-button="h2">H2</button>
+                <button type="button" data-tiptap-button="paragraph">P</button>
+                <button type="button" data-tiptap-button="bulletList">Bullets</button>
+                <button type="button" data-tiptap-button="orderedList">Numbers</button>
+                <button type="button" data-tiptap-button="blockquote">Quote</button>
+                <button type="button" data-tiptap-button="undo">Undo</button>
+                <button type="button" data-tiptap-button="redo">Redo</button>
               </div>
 
-              <div class="document-page" id="document-editor" contenteditable="true" spellcheck="true" aria-label="Document body"></div>
+              <div class="document-page" id="document-editor" aria-label="Document body"></div>
 
               <div class="document-editor-actions">
                 <button class="btn" id="document-save" type="submit">Save</button>
@@ -145,6 +150,24 @@
         <p class="status" id="documents-status"></p>
       </section>
     </main>
+  </div>
+
+  <div class="confirm-modal" id="document-confirm-modal" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="confirm-modal-dialog">
+      <div class="confirm-modal-header">
+        <div>
+          <p class="confirm-modal-kicker" id="document-confirm-kicker">Confirm action</p>
+          <h3 class="confirm-modal-title" id="document-confirm-title">Are you sure?</h3>
+        </div>
+      </div>
+      <div class="confirm-modal-body">
+        <p class="confirm-modal-copy" id="document-confirm-copy">Please confirm to continue.</p>
+        <div class="confirm-modal-actions">
+          <button class="btn secondary" id="document-confirm-cancel" type="button">Cancel</button>
+          <button class="btn btn-delete-solid" id="document-confirm-ok" type="button">Confirm</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script src="./config.js"></script>

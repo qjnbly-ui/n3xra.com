@@ -1,3 +1,6 @@
+import { Editor } from "https://esm.sh/@tiptap/core";
+import StarterKit from "https://esm.sh/@tiptap/starter-kit";
+import Underline from "https://esm.sh/@tiptap/extension-underline";
 import { createBrowserSupabase, hasConfig, getSessionOrNull } from "./lib/supabase-client.js";
 import {
   buildMembershipMap,
@@ -32,6 +35,12 @@ const documentSave = document.getElementById("document-save");
 const documentPrint = document.getElementById("document-print");
 const documentEmail = document.getElementById("document-email");
 const documentDelete = document.getElementById("document-delete");
+const documentConfirmModal = document.getElementById("document-confirm-modal");
+const documentConfirmKicker = document.getElementById("document-confirm-kicker");
+const documentConfirmTitle = document.getElementById("document-confirm-title");
+const documentConfirmCopy = document.getElementById("document-confirm-copy");
+const documentConfirmCancel = document.getElementById("document-confirm-cancel");
+const documentConfirmOk = document.getElementById("document-confirm-ok");
 const mobileLogoutButton = document.getElementById("mobile-logout-button");
 const mobileMenuToggle = document.getElementById("mobile-menu-toggle");
 const mobileMenu = document.getElementById("mobile-menu");
@@ -40,39 +49,42 @@ const mobileMenuLibrary = document.getElementById("mobile-menu-library");
 const mobileMenuRecordingsLink = document.getElementById("mobile-menu-recordings-link");
 
 const EMPTY_DOCUMENT = {
-  type: "records_document",
-  version: 1,
-  blocks: [
-    { type: "paragraph", text: "" },
+  type: "doc",
+  content: [
+    { type: "paragraph" },
   ],
 };
 
 const TEMPLATES = {
   blank: EMPTY_DOCUMENT,
   minutes: {
-    type: "records_document",
-    version: 1,
-    blocks: [
-      { type: "heading", level: 1, text: "Meeting Minutes" },
-      { type: "paragraph", text: "Date:" },
-      { type: "paragraph", text: "Attendees:" },
-      { type: "heading", level: 2, text: "Agenda" },
-      { type: "list", items: ["Call to order", "Reports", "Old business", "New business", "Adjournment"] },
-      { type: "heading", level: 2, text: "Decisions" },
-      { type: "paragraph", text: "" },
-      { type: "heading", level: 2, text: "Action Items" },
-      { type: "paragraph", text: "" },
+    type: "doc",
+    content: [
+      { type: "heading", attrs: { level: 1 }, content: [{ type: "text", text: "Meeting Minutes" }] },
+      { type: "paragraph", content: [{ type: "text", text: "Date:" }] },
+      { type: "paragraph", content: [{ type: "text", text: "Attendees:" }] },
+      { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Agenda" }] },
+      {
+        type: "bulletList",
+        content: ["Call to order", "Reports", "Old business", "New business", "Adjournment"].map((text) => ({
+          type: "listItem",
+          content: [{ type: "paragraph", content: [{ type: "text", text }] }],
+        })),
+      },
+      { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Decisions" }] },
+      { type: "paragraph" },
+      { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Action Items" }] },
+      { type: "paragraph" },
     ],
   },
   letter: {
-    type: "records_document",
-    version: 1,
-    blocks: [
-      { type: "paragraph", text: "Date:" },
-      { type: "paragraph", text: "Recipient:" },
-      { type: "paragraph", text: "Dear," },
-      { type: "paragraph", text: "" },
-      { type: "paragraph", text: "Sincerely," },
+    type: "doc",
+    content: [
+      { type: "paragraph", content: [{ type: "text", text: "Date:" }] },
+      { type: "paragraph", content: [{ type: "text", text: "Recipient:" }] },
+      { type: "paragraph", content: [{ type: "text", text: "Dear," }] },
+      { type: "paragraph" },
+      { type: "paragraph", content: [{ type: "text", text: "Sincerely," }] },
     ],
   },
 };
@@ -83,7 +95,8 @@ let memberships = [];
 let activeMembership = null;
 let appDocuments = [];
 let activeDocumentId = "";
-let lastSavedHtml = "";
+let tiptapEditor = null;
+let pendingDocumentConfirmResolve = null;
 
 function show(el, visible) {
   if (!el) return;
@@ -119,6 +132,30 @@ function toggleMobileMenu() {
   mobileMenuToggle.setAttribute("aria-expanded", String(nextOpen));
 }
 
+function resolveDocumentConfirm(value) {
+  if (!pendingDocumentConfirmResolve) return;
+  const resolve = pendingDocumentConfirmResolve;
+  pendingDocumentConfirmResolve = null;
+  documentConfirmModal.classList.remove("is-open");
+  documentConfirmModal.setAttribute("aria-hidden", "true");
+  resolve(value);
+}
+
+function requestDocumentConfirm(options = {}) {
+  if (pendingDocumentConfirmResolve) resolveDocumentConfirm(false);
+  documentConfirmKicker.textContent = options.kicker || "Confirm action";
+  documentConfirmTitle.textContent = options.title || "Are you sure?";
+  documentConfirmCopy.textContent = options.copy || "Please confirm to continue.";
+  documentConfirmOk.textContent = options.confirmLabel || "Confirm";
+  documentConfirmCancel.textContent = options.cancelLabel || "Cancel";
+  documentConfirmModal.classList.add("is-open");
+  documentConfirmModal.setAttribute("aria-hidden", "false");
+  documentConfirmCancel.focus();
+  return new Promise((resolve) => {
+    pendingDocumentConfirmResolve = resolve;
+  });
+}
+
 function getActiveOrganization() {
   return activeMembership?.organization || null;
 }
@@ -129,15 +166,6 @@ function getActiveCapabilities() {
     currentSession?.user?.id || "",
     isPlatformAdminEmail(currentSession?.user?.email)
   );
-}
-
-function normalizeContentJson(value) {
-  if (!value || typeof value !== "object") return EMPTY_DOCUMENT;
-  if (Array.isArray(value.blocks)) return value;
-  if (typeof value.html === "string") {
-    return { type: "records_document", version: 1, blocks: htmlToBlocks(value.html) };
-  }
-  return EMPTY_DOCUMENT;
 }
 
 function blockToHtml(block) {
@@ -157,7 +185,7 @@ function blockToHtml(block) {
 }
 
 function blocksToHtml(contentJson) {
-  const blocks = normalizeContentJson(contentJson).blocks;
+  const blocks = Array.isArray(contentJson?.blocks) ? contentJson.blocks : [];
   if (!blocks.length) return "<p><br></p>";
   return blocks.map(blockToHtml).join("");
 }
@@ -191,46 +219,85 @@ function sanitizeHtml(html) {
   return template.innerHTML.trim() || "<p><br></p>";
 }
 
-function htmlToBlocks(html) {
-  const clean = sanitizeHtml(html);
-  const template = document.createElement("template");
-  template.innerHTML = clean;
-  const blocks = [];
+function contentJsonToTiptapContent(value) {
+  if (value?.type === "doc" && Array.isArray(value.content)) return value;
+  if (typeof value?.html === "string") return sanitizeHtml(value.html);
+  if (Array.isArray(value?.blocks)) return sanitizeHtml(blocksToHtml(value));
+  return EMPTY_DOCUMENT;
+}
 
-  Array.from(template.content.children).forEach((node) => {
-    const tag = node.tagName;
-    if (tag === "H1" || tag === "H2" || tag === "H3") {
-      blocks.push({ type: "heading", level: tag === "H1" ? 1 : 2, text: node.textContent.trim() });
-      return;
-    }
-    if (tag === "UL" || tag === "OL") {
-      const items = Array.from(node.querySelectorAll("li")).map((item) => item.textContent.trim()).filter(Boolean);
-      blocks.push({ type: "list", items });
-      return;
-    }
-    const text = node.textContent.trim();
-    const inner = node.innerHTML.trim();
-    if (inner && inner !== escapeHtml(text)) {
-      blocks.push({ type: "html", html: node.outerHTML });
-      return;
-    }
-    blocks.push({ type: "paragraph", text });
-  });
-
-  if (!blocks.length) {
-    const text = template.content.textContent.trim();
-    blocks.push({ type: "paragraph", text });
+function textFromTiptapJson(node, parts = []) {
+  if (!node || typeof node !== "object") return parts;
+  if (node.type === "text" && node.text) {
+    parts.push(node.text);
   }
-  return blocks;
+  if (Array.isArray(node.content)) {
+    node.content.forEach((child) => textFromTiptapJson(child, parts));
+  }
+  if (["paragraph", "heading", "listItem"].includes(node.type)) {
+    parts.push("\n");
+  }
+  return parts;
+}
+
+function plainTextFromTiptapJson(contentJson) {
+  return textFromTiptapJson(contentJson, [])
+    .join("")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function updateToolbarStates() {
+  const buttons = document.querySelectorAll("[data-tiptap-button]");
+  buttons.forEach((button) => {
+    const command = button.getAttribute("data-tiptap-button");
+    const editable = Boolean(tiptapEditor?.isEditable);
+    const disabledForHistory =
+      (command === "undo" && !tiptapEditor?.can().undo()) ||
+      (command === "redo" && !tiptapEditor?.can().redo());
+    button.disabled = !editable || disabledForHistory;
+    const isActive =
+      command === "bold" ? tiptapEditor?.isActive("bold") :
+      command === "italic" ? tiptapEditor?.isActive("italic") :
+      command === "underline" ? tiptapEditor?.isActive("underline") :
+      command === "h1" ? tiptapEditor?.isActive("heading", { level: 1 }) :
+      command === "h2" ? tiptapEditor?.isActive("heading", { level: 2 }) :
+      command === "paragraph" ? tiptapEditor?.isActive("paragraph") :
+      command === "bulletList" ? tiptapEditor?.isActive("bulletList") :
+      command === "orderedList" ? tiptapEditor?.isActive("orderedList") :
+      command === "blockquote" ? tiptapEditor?.isActive("blockquote") :
+      false;
+    button.classList.toggle("is-active", Boolean(isActive));
+  });
+}
+
+function initTiptapEditor() {
+  if (tiptapEditor) return;
+  tiptapEditor = new Editor({
+    element: documentEditor,
+    extensions: [
+      StarterKit.configure({
+        heading: {
+          levels: [1, 2, 3],
+        },
+      }),
+      Underline,
+    ],
+    content: EMPTY_DOCUMENT,
+    editable: false,
+    onCreate: updateToolbarStates,
+    onSelectionUpdate: updateToolbarStates,
+    onUpdate: updateToolbarStates,
+  });
 }
 
 function documentToEditor(doc) {
   activeDocumentId = doc?.id || "";
   documentTitle.value = doc?.title || "";
   documentStatus.value = doc?.status || "draft";
-  const html = sanitizeHtml(blocksToHtml(doc?.content_json || EMPTY_DOCUMENT));
-  documentEditor.innerHTML = html;
-  lastSavedHtml = html;
+  initTiptapEditor();
+  tiptapEditor.commands.setContent(contentJsonToTiptapContent(doc?.content_json || EMPTY_DOCUMENT));
   show(editorEmpty, false);
   show(editorForm, true);
   renderAppDocuments();
@@ -238,20 +305,12 @@ function documentToEditor(doc) {
 }
 
 function editorToPayload() {
-  const html = sanitizeHtml(documentEditor.innerHTML);
-  if (documentEditor.innerHTML !== html) {
-    documentEditor.innerHTML = html;
-  }
+  const contentJson = tiptapEditor?.getJSON() || EMPTY_DOCUMENT;
   return {
     title: documentTitle.value.trim() || "Untitled document",
     status: documentStatus.value,
-    content_json: {
-      type: "records_document",
-      version: 1,
-      blocks: htmlToBlocks(html),
-      html,
-    },
-    plain_text: documentEditor.innerText.replace(/\s+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim(),
+    content_json: contentJson,
+    plain_text: plainTextFromTiptapJson(contentJson),
   };
 }
 
@@ -311,7 +370,9 @@ function renderOrganizationSelector() {
   newLetterButton.disabled = !capabilities.canEditDocuments;
   documentSave.disabled = !capabilities.canEditDocuments;
   documentDelete.disabled = !capabilities.canDeleteDocuments;
-  documentEditor.contentEditable = capabilities.canEditDocuments ? "true" : "false";
+  tiptapEditor?.setEditable(capabilities.canEditDocuments);
+  documentEditor.classList.toggle("is-readonly", !capabilities.canEditDocuments);
+  updateToolbarStates();
 }
 
 function renderAppDocuments() {
@@ -380,15 +441,14 @@ async function createAppDocument(kind = "blank") {
   if (!organization || !getActiveCapabilities().canEditDocuments) return;
   const template = TEMPLATES[kind] || TEMPLATES.blank;
   const title = kind === "minutes" ? "Meeting Minutes" : kind === "letter" ? "Letter" : "Untitled document";
-  const html = blocksToHtml(template);
   const { data, error } = await supabase
     .from("app_documents")
     .insert({
       organization_id: organization.id,
       created_by_user_id: currentSession.user.id,
       title,
-      content_json: { ...template, html },
-      plain_text: new DOMParser().parseFromString(html, "text/html").body.textContent.trim(),
+      content_json: template,
+      plain_text: plainTextFromTiptapJson(template),
       status: "draft",
     })
     .select("id, title, content_json, plain_text, status, document_kind, source_document_id, created_at, updated_at")
@@ -423,14 +483,18 @@ async function saveActiveDocument(event) {
 
   const index = appDocuments.findIndex((doc) => doc.id === data.id);
   if (index >= 0) appDocuments[index] = data;
-  lastSavedHtml = payload.content_json.html;
   renderAppDocuments();
   setStatus(editorStatus, "Saved.", "success");
 }
 
 async function deleteActiveDocument() {
   if (!activeDocumentId || !getActiveCapabilities().canDeleteDocuments) return;
-  const ok = window.confirm("Delete this editable document? The uploaded source file is not deleted.");
+  const ok = await requestDocumentConfirm({
+    kicker: "Delete document",
+    title: "Remove this editable document?",
+    copy: "The uploaded source file is not deleted. This only removes the app-native editable draft.",
+    confirmLabel: "Delete",
+  });
   if (!ok) return;
   const { error } = await supabase.from("app_documents").delete().eq("id", activeDocumentId);
   if (error) {
@@ -480,12 +544,22 @@ async function handleSignout() {
 
 function applyToolbarAction(event) {
   const button = event.target.closest("button");
-  if (!button || !documentEditor.isContentEditable) return;
-  const command = button.getAttribute("data-command");
-  const block = button.getAttribute("data-block");
-  documentEditor.focus();
-  if (command) document.execCommand(command, false, null);
-  if (block) document.execCommand("formatBlock", false, block);
+  if (!button || !tiptapEditor?.isEditable) return;
+  const command = button.getAttribute("data-tiptap-button");
+  const chain = tiptapEditor.chain().focus();
+
+  if (command === "bold") chain.toggleBold().run();
+  if (command === "italic") chain.toggleItalic().run();
+  if (command === "underline") chain.toggleUnderline().run();
+  if (command === "h1") chain.toggleHeading({ level: 1 }).run();
+  if (command === "h2") chain.toggleHeading({ level: 2 }).run();
+  if (command === "paragraph") chain.setParagraph().run();
+  if (command === "bulletList") chain.toggleBulletList().run();
+  if (command === "orderedList") chain.toggleOrderedList().run();
+  if (command === "blockquote") chain.toggleBlockquote().run();
+  if (command === "undo") tiptapEditor.chain().focus().undo().run();
+  if (command === "redo") tiptapEditor.chain().focus().redo().run();
+  updateToolbarStates();
 }
 
 async function init() {
@@ -506,6 +580,7 @@ async function init() {
 
   show(setupPanel, false);
   show(documentsPanel, true);
+  initTiptapEditor();
 
   mobileLogoutButton.addEventListener("click", handleSignout);
   mobileMenuToggle.addEventListener("click", toggleMobileMenu);
@@ -522,6 +597,11 @@ async function init() {
   newLetterButton.addEventListener("click", () => createAppDocument("letter"));
   editorForm.addEventListener("submit", saveActiveDocument);
   documentDelete.addEventListener("click", deleteActiveDocument);
+  documentConfirmCancel.addEventListener("click", () => resolveDocumentConfirm(false));
+  documentConfirmOk.addEventListener("click", () => resolveDocumentConfirm(true));
+  documentConfirmModal.addEventListener("click", (event) => {
+    if (event.target === documentConfirmModal) resolveDocumentConfirm(false);
+  });
   documentPrint.addEventListener("click", printActiveDocument);
   documentEmail.addEventListener("click", emailActiveDocument);
   document.querySelector(".document-toolbar")?.addEventListener("click", applyToolbarAction);
@@ -535,6 +615,10 @@ async function init() {
     if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s" && activeDocumentId) {
       event.preventDefault();
       editorForm.requestSubmit();
+      return;
+    }
+    if (event.key === "Escape" && documentConfirmModal.classList.contains("is-open")) {
+      resolveDocumentConfirm(false);
       return;
     }
     if (event.key === "Escape") closeMobileMenu();
@@ -562,13 +646,5 @@ async function init() {
     }
   });
 }
-
-window.addEventListener("beforeunload", (event) => {
-  if (!activeDocumentId) return;
-  const currentHtml = sanitizeHtml(documentEditor.innerHTML);
-  if (currentHtml === lastSavedHtml) return;
-  event.preventDefault();
-  event.returnValue = "";
-});
 
 init();

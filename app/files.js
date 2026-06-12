@@ -540,21 +540,7 @@ function closeDeleteConfirm() {
 async function shareFile(documentId) {
   const signed = await createSignedUrlForDocument(documentId);
   if (!signed) return;
-  const { doc, signedUrl } = signed;
-
-  if (navigator.share) {
-    try {
-      await navigator.share({
-        title: doc.title || doc.original_filename || "Shared file",
-        text: `Shared from n3xra.com: ${doc.title || doc.original_filename || "File"}`,
-        url: signedUrl,
-      });
-      setStatus(fileStatus, "Share sheet opened.", "success");
-      return;
-    } catch (error) {
-      if (error instanceof Error && error.name === "AbortError") return;
-    }
-  }
+  const { signedUrl } = signed;
 
   if (navigator.clipboard?.writeText) {
     await navigator.clipboard.writeText(signedUrl);
@@ -619,18 +605,20 @@ async function togglePublic(documentId) {
   await loadDocuments();
 }
 
-function textToDocumentBlocks(text) {
+function textToTiptapDocument(text) {
   const paragraphs = String(text || "")
     .split(/\n+/)
     .map((line) => line.trim())
     .filter(Boolean);
 
   return {
-    type: "records_document",
-    version: 1,
-    blocks: paragraphs.length
-      ? paragraphs.map((line) => ({ type: "paragraph", text: line }))
-      : [{ type: "paragraph", text: "" }],
+    type: "doc",
+    content: paragraphs.length
+      ? paragraphs.map((line) => ({
+        type: "paragraph",
+        content: [{ type: "text", text: line }],
+      }))
+      : [{ type: "paragraph" }],
   };
 }
 
@@ -652,7 +640,7 @@ async function makeFileEditable(documentId) {
     return;
   }
 
-  const contentJson = textToDocumentBlocks(sourceDoc.extracted_text || "");
+  const contentJson = textToTiptapDocument(sourceDoc.extracted_text || "");
   const plainText = String(sourceDoc.extracted_text || "").trim();
   const title = sourceDoc.title || String(sourceDoc.original_filename || "Untitled document").replace(/\.[^.]+$/, "");
   const { data, error } = await supabase
