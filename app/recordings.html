@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>n3xra.com Recordings</title>
-  <meta name="description" content="n3xra.com recordings page.">
+  <title>n3xra.com Meeting Notes</title>
+  <meta name="description" content="n3xra.com meeting notes page.">
   <meta name="robots" content="noindex, nofollow, noarchive, nosnippet" />
   <link rel="canonical" href="https://n3xra.com/app/recordings" />
   <meta name="application-name" content="N3XRA Records" />
@@ -39,7 +39,7 @@
           <button class="mobile-menu-link" id="mobile-menu-account" type="button">Account</button>
           <button class="mobile-menu-link" id="mobile-menu-library" type="button">Library</button>
           <a class="mobile-menu-link button-link" id="mobile-menu-files-link" href="./files.html">Files</a>
-          <a class="mobile-menu-link button-link hidden" id="mobile-menu-recordings-link" href="./recordings.html">Recordings</a>
+          <a class="mobile-menu-link button-link hidden" id="mobile-menu-recordings-link" href="./recordings.html">Meeting Notes</a>
         </div>
       </div>
     </header>
@@ -60,7 +60,7 @@
 
       <section class="panel stack hidden" id="recordings-panel">
         <div class="notice hidden" id="recordings-no-access-notice">
-          <strong>No library access right now.</strong> Recording will unlock when you create or join a library with editor access.
+          <strong>No library access right now.</strong> Meeting notes unlock when you create or join a library with editor access.
           <div class="actions">
             <a class="btn secondary button-link" href="./dashboard.html?section=account">Go to account</a>
           </div>
@@ -78,7 +78,7 @@
               <p class="account-value" id="active-membership-role">-</p>
             </div>
             <div class="field">
-              <span class="field-title">Saved recordings</span>
+              <span class="field-title">Saved meeting notes</span>
               <p class="account-value" id="recording-count">0</p>
             </div>
           </div>
@@ -86,18 +86,18 @@
 
         <div class="library-actions-grid" id="recordings-actions-grid">
           <div class="library-action-slot">
-            <button class="btn" id="new-recording-action" type="button">New recording</button>
+            <button class="btn" id="new-recording-action" type="button">New meeting note</button>
           </div>
           <div class="library-action-slot">
-            <a class="btn secondary button-link" href="./all-recordings.html">All recordings</a>
+            <a class="btn secondary button-link" href="./all-recordings.html">All meeting notes</a>
           </div>
         </div>
 
         <section class="panel stack" id="record-panel">
           <button class="section-toggle" id="record-panel-toggle" type="button" aria-expanded="false" aria-controls="record-panel-body">
             <div>
-              <h3>New recording</h3>
-              <p>Start, monitor, and stop a recording for the active library.</p>
+              <h3>New meeting note</h3>
+              <p>Draft notes, record audio, and create a final document for the active library.</p>
             </div>
             <span class="section-toggle-indicator" aria-hidden="true">+</span>
           </button>
@@ -106,7 +106,7 @@
             <div class="field">
               <label for="recording-title">Meeting title</label>
               <input id="recording-title" type="text" placeholder="Board meeting, staff sync, budget review">
-              <p class="field-note">Required for live recording. Uploads can use the file name if left blank.</p>
+              <p class="field-note">Required before starting audio. Uploads can use the file name if left blank.</p>
             </div>
 
             <div class="recording-notes-grid">
@@ -125,7 +125,7 @@
 
             <div class="field">
               <label for="recording-notes">Notetaker notes</label>
-              <textarea id="recording-notes" rows="12" placeholder="Use this as the live notes section while the recording runs."></textarea>
+              <textarea id="recording-notes" rows="12" placeholder="Use this as the live notes section while audio is recorded."></textarea>
               <p class="field-note">These notes are preserved separately from the transcript. After the meeting, AI uses them as primary truth and the transcript as supporting detail.</p>
             </div>
 
@@ -164,20 +164,20 @@
             </div>
 
             <p class="status" id="recording-status"></p>
-            <p class="account-note" id="recorder-state-copy">Ready to create a new recording session.</p>
+            <p class="account-note" id="recorder-state-copy">Ready to create a new meeting note.</p>
           </form>
         </section>
 
         <section class="panel stack" id="recordings-recent-panel">
           <div class="panel-head">
             <div>
-              <h3>Newest recordings</h3>
-              <p>The latest 3 recordings from your active library.</p>
+              <h3>Newest meeting notes</h3>
+              <p>The latest 3 meeting notes from your active library.</p>
             </div>
           </div>
           <div class="recordings-list" id="recordings-list"></div>
-          <p class="empty hidden" id="recordings-empty">No recordings saved in this library yet.</p>
-          <p class="recent-files-reminder"><a class="recent-files-link" href="./all-recordings.html">Go To All Recordings</a></p>
+          <p class="empty hidden" id="recordings-empty">No meeting notes saved in this library yet.</p>
+          <p class="recent-files-reminder"><a class="recent-files-link" href="./all-recordings.html">Go To All Meeting Notes</a></p>
           <p class="status" id="recordings-list-status"></p>
         </section>
       </section>
@@ -188,8 +188,8 @@
     <div class="settings-modal-dialog">
       <div class="settings-modal-header">
         <div>
-          <p class="settings-modal-kicker">Recording details</p>
-          <h3 class="settings-modal-title" id="recording-detail-title">Recording</h3>
+          <p class="settings-modal-kicker">Meeting note details</p>
+          <h3 class="settings-modal-title" id="recording-detail-title">Meeting note</h3>
         </div>
         <button class="settings-modal-close" id="recording-detail-close" type="button">Close</button>
       </div>
@@ -273,7 +273,7 @@
     <div class="settings-modal-dialog">
       <div class="settings-modal-header">
         <div>
-          <p class="settings-modal-kicker" id="recording-upload-kicker">Upload recording</p>
+          <p class="settings-modal-kicker" id="recording-upload-kicker">Upload audio</p>
           <h3 class="settings-modal-title" id="recording-upload-title">Select audio file</h3>
         </div>
         <button class="settings-modal-close" id="recording-upload-close" type="button">Close</button>
@@ -282,7 +282,7 @@
         <div class="field">
           <label for="recording-file-input">Audio file</label>
           <input id="recording-file-input" type="file" accept="audio/*,.mp3,.m4a,.wav,.ogg,.webm,.mp4,.aac,.mpeg">
-          <p class="field-note" id="recording-upload-note">Choose an existing audio file and save it as a recording.</p>
+          <p class="field-note" id="recording-upload-note">Choose an existing audio file and save it with this meeting note.</p>
           <p class="account-note" id="recording-file-copy">No file selected.</p>
         </div>
         <div class="actions">
@@ -297,7 +297,7 @@
     <div class="confirm-modal-dialog">
       <div class="confirm-modal-header">
         <div>
-          <p class="confirm-modal-kicker">Recording</p>
+          <p class="confirm-modal-kicker">Audio recording</p>
           <h3 class="confirm-modal-title">Stop this recording?</h3>
         </div>
       </div>
@@ -312,6 +312,6 @@
   </div>
 
   <script src="./config.js"></script>
-  <script type="module" src="./recordings.js?v=20260612c"></script>
+  <script type="module" src="./recordings.js?v=20260612d"></script>
 </body>
 </html>

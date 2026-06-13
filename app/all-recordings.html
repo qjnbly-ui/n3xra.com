@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>n3xra.com All Recordings</title>
-  <meta name="description" content="n3xra.com all recordings page.">
+  <title>n3xra.com All Meeting Notes</title>
+  <meta name="description" content="n3xra.com all meeting notes page.">
   <meta name="robots" content="noindex, nofollow, noarchive, nosnippet" />
   <link rel="canonical" href="https://n3xra.com/app/all-recordings" />
   <meta name="application-name" content="N3XRA Records" />
@@ -39,7 +39,7 @@
           <button class="mobile-menu-link" id="mobile-menu-account" type="button">Account</button>
           <button class="mobile-menu-link" id="mobile-menu-library" type="button">Library</button>
           <a class="mobile-menu-link button-link" id="mobile-menu-files-link" href="./files.html">Files</a>
-          <a class="mobile-menu-link button-link hidden" id="mobile-menu-recordings-link" href="./recordings.html">Recordings</a>
+          <a class="mobile-menu-link button-link hidden" id="mobile-menu-recordings-link" href="./recordings.html">Meeting Notes</a>
         </div>
       </div>
     </header>
@@ -61,16 +61,16 @@
       <section class="panel hidden stack" id="all-recordings-panel">
         <div class="panel-head">
           <div>
-            <h2>All Recordings</h2>
-            <p>Playback and browse every saved recording in the active library.</p>
+            <h2>All Meeting Notes</h2>
+            <p>Playback audio and browse every saved meeting note in the active library.</p>
           </div>
           <div class="actions">
-            <a class="btn secondary button-link" href="./recordings.html">Back to recordings</a>
+            <a class="btn secondary button-link" href="./recordings.html">Back to meeting notes</a>
           </div>
         </div>
 
         <div class="notice hidden" id="all-recordings-no-access-notice">
-          <strong>No library access right now.</strong> There are no recordings to show until you create or join a library.
+          <strong>No library access right now.</strong> There are no meeting notes to show until you create or join a library.
           <div class="actions">
             <a class="btn secondary button-link" href="./dashboard.html?section=account">Go to account</a>
           </div>
@@ -87,7 +87,7 @@
             <p class="account-value" id="active-membership-role">-</p>
           </div>
           <div class="field">
-            <span class="field-title">Recording count</span>
+            <span class="field-title">Meeting note count</span>
             <p class="account-value" id="recording-count">0</p>
           </div>
         </div>
@@ -96,7 +96,7 @@
           <div class="panel-head hidden" id="recording-player-head">
             <div>
               <h3>Player</h3>
-              <p id="selected-recording-copy">Select a recording below to load playback.</p>
+              <p id="selected-recording-copy">Select a meeting note below to load playback.</p>
             </div>
           </div>
           <audio class="recording-player hidden" id="recording-player" controls preload="metadata"></audio>
@@ -104,7 +104,7 @@
         </section>
 
         <div class="recordings-list" id="recordings-list"></div>
-        <p class="empty hidden" id="recordings-empty">No recordings saved in this library yet.</p>
+        <p class="empty hidden" id="recordings-empty">No meeting notes saved in this library yet.</p>
         <p class="status" id="recordings-status"></p>
       </section>
     </main>
@@ -114,8 +114,8 @@
     <div class="settings-modal-dialog">
       <div class="settings-modal-header">
         <div>
-          <p class="settings-modal-kicker">Recording details</p>
-          <h3 class="settings-modal-title" id="recording-detail-title">Recording</h3>
+          <p class="settings-modal-kicker">Meeting note details</p>
+          <h3 class="settings-modal-title" id="recording-detail-title">Meeting note</h3>
         </div>
         <button class="settings-modal-close" id="recording-detail-close" type="button">Close</button>
       </div>
@@ -200,8 +200,8 @@
     <div class="confirm-modal-dialog">
       <div class="confirm-modal-header">
         <div>
-          <p class="confirm-modal-kicker">Delete recording</p>
-          <h3 class="confirm-modal-title">Remove this recording?</h3>
+          <p class="confirm-modal-kicker">Delete meeting note</p>
+          <h3 class="confirm-modal-title">Remove this meeting note?</h3>
         </div>
       </div>
       <div class="confirm-modal-body">
@@ -216,6 +216,6 @@
   </div>
 
   <script src="./config.js"></script>
-  <script type="module" src="./all-recordings.js?v=20260612c"></script>
+  <script type="module" src="./all-recordings.js?v=20260612d"></script>
 </body>
 </html>

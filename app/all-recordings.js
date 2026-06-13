@@ -306,7 +306,7 @@ async function requestRecordingTranscription(recordingId) {
     body: JSON.stringify({ recordingId }),
   });
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data?.error || "Unable to transcribe recording.");
+  if (!response.ok) throw new Error(data?.error || "Unable to transcribe audio.");
   return data;
 }
 
@@ -323,7 +323,7 @@ async function requestRecordingAiReview(recordingId) {
     body: JSON.stringify({ recordingId }),
   });
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data?.error || "Unable to review recording notes.");
+  if (!response.ok) throw new Error(data?.error || "Unable to review meeting notes.");
   return data;
 }
 
@@ -361,7 +361,7 @@ async function reconcileMissingRecordingObject(recording, error) {
 
 async function createRecordingSignedUrl(recording) {
   if (!recording?.storage_path) {
-    throw new Error("No audio file is stored for this recording yet.");
+    throw new Error("No audio file is stored for this meeting note yet.");
   }
 
   const { data, error } = await supabase.storage.from(RECORDINGS_BUCKET).createSignedUrl(recording.storage_path, 60 * 10);
@@ -396,7 +396,7 @@ function clearPlayer() {
   show(recordingPlayerShell, false);
   show(recordingPlayerHead, false);
   show(recordingPlayer, false);
-  selectedRecordingCopy.textContent = "Select a recording below to load playback.";
+  selectedRecordingCopy.textContent = "Select a meeting note below to load playback.";
 }
 
 function clearDetailPlayer() {
@@ -507,7 +507,7 @@ async function loadRecordings() {
     return;
   }
 
-  setStatus(recordingsStatus, "Loading recordings...");
+  setStatus(recordingsStatus, "Loading meeting notes...");
   const { data, error } = await supabase
     .from("meeting_recordings")
     .select(`
@@ -537,21 +537,21 @@ async function loadRecordings() {
   if (error) {
     recordingsCache = [];
     renderRecordings();
-    setStatus(recordingsStatus, getErrorMessage(error, "Unable to load recordings."), "error");
+    setStatus(recordingsStatus, getErrorMessage(error, "Unable to load meeting notes."), "error");
     return;
   }
 
   recordingsCache = Array.isArray(data) ? data : [];
   recordingCount.textContent = String(recordingsCache.length);
   renderRecordings();
-  setStatus(recordingsStatus, `${recordingsCache.length} recording${recordingsCache.length === 1 ? "" : "s"} loaded.`, recordingsCache.length ? "success" : "");
+  setStatus(recordingsStatus, `${recordingsCache.length} meeting note${recordingsCache.length === 1 ? "" : "s"} loaded.`, recordingsCache.length ? "success" : "");
 
   const linkedRecordingId = consumeLinkedRecordingId();
   if (linkedRecordingId) {
     if (getRecordingById(linkedRecordingId)) {
       void openRecordingDetail(linkedRecordingId);
     } else {
-      setStatus(recordingsStatus, "Requested recording was not found in this library.", "error");
+      setStatus(recordingsStatus, "Requested meeting note was not found in this library.", "error");
     }
   }
 }
@@ -572,7 +572,7 @@ function renderRecordings() {
     item.innerHTML = `
       <div class="recording-row-main">
         <div>
-          <p class="recording-row-title">${escapeHtml(recording.title || "Untitled recording")}</p>
+          <p class="recording-row-title">${escapeHtml(recording.title || "Untitled meeting note")}</p>
           <p class="recording-row-meta">${escapeHtml(formatDateTime(recording.started_at || recording.created_at))}</p>
         </div>
         <span class="recording-row-status status-${escapeHtml(String(recording.status || "").toLowerCase())}">${escapeHtml(formatRecordingStatus(recording.status))}</span>
@@ -683,7 +683,7 @@ async function playRecording(recordingId) {
   show(recordingPlayerShell, true);
   show(recordingPlayerHead, true);
   show(recordingPlayer, true);
-  selectedRecordingCopy.textContent = `${recording.title || "Untitled recording"} · ${formatDateTime(recording.started_at || recording.created_at)}`;
+  selectedRecordingCopy.textContent = `${recording.title || "Untitled meeting note"} · ${formatDateTime(recording.started_at || recording.created_at)}`;
   try {
     await recordingPlayer.play();
   } catch {
@@ -693,7 +693,7 @@ async function playRecording(recordingId) {
 }
 
 function populateRecordingDetails(recording) {
-  recordingDetailTitle.textContent = recording.title || "Untitled recording";
+  recordingDetailTitle.textContent = recording.title || "Untitled meeting note";
   recordingDetailStatus.textContent = formatRecordingStatus(recording.status);
   recordingDetailTranscriptStatus.textContent = formatRecordingStatus(recording.transcript_status);
   recordingDetailTemplate.textContent = getTemplateLabel(recording.selected_template_id || "");
@@ -765,7 +765,7 @@ async function handleRecordingAiReview(recordingId) {
   const recording = getRecordingById(recordingId);
   if (!recording) return;
   if (recording.transcript_status !== "ready") {
-    setStatus(recordingDetailStatusMessage, "The transcript must be ready before AI can review this recording.", "error");
+    setStatus(recordingDetailStatusMessage, "The transcript must be ready before AI can review this meeting note.", "error");
     return;
   }
 
@@ -790,7 +790,7 @@ async function handleRecordingAiReview(recordingId) {
     setStatus(recordingDetailStatusMessage, recording.ai_review_status === "ready" ? "AI draft regenerated." : "AI draft is ready.", "success");
   } catch (error) {
     recordingDetailAiStatus.textContent = "Failed";
-    setStatus(recordingDetailStatusMessage, getErrorMessage(error, "Unable to review recording notes."), "error");
+    setStatus(recordingDetailStatusMessage, getErrorMessage(error, "Unable to review meeting notes."), "error");
   } finally {
     const updated = getRecordingById(recording.id) || recording;
     recordingDetailAiReview.disabled = updated.transcript_status !== "ready";
@@ -870,7 +870,7 @@ async function syncDetailPlayerBackToTop() {
   show(recordingPlayerShell, true);
   show(recordingPlayerHead, true);
   show(recordingPlayer, true);
-  selectedRecordingCopy.textContent = `${recording.title || "Untitled recording"} · ${formatDateTime(recording.started_at || recording.created_at)}`;
+  selectedRecordingCopy.textContent = `${recording.title || "Untitled meeting note"} · ${formatDateTime(recording.started_at || recording.created_at)}`;
   recordingPlayer.addEventListener("loadedmetadata", () => {
     if (resumeAt > 0) {
       recordingPlayer.currentTime = resumeAt;
@@ -966,7 +966,7 @@ function promptDeleteRecording(recordingId) {
   const recording = getRecordingById(recordingId);
   if (!recording || !getActiveCapabilities().canDeleteDocuments) return;
   pendingDeleteRecordingId = recording.id;
-  recordingDeleteCopy.textContent = `Delete "${recording.title || "Untitled recording"}"? This action cannot be undone.`;
+  recordingDeleteCopy.textContent = `Delete "${recording.title || "Untitled meeting note"}"? This action cannot be undone.`;
   setRecordingDeleteModalOpen(true);
 }
 
@@ -974,7 +974,7 @@ async function deleteRecording(recordingId) {
   const recording = getRecordingById(recordingId);
   if (!recording) return;
 
-  setStatus(recordingDeleteStatus, "Deleting recording...");
+  setStatus(recordingDeleteStatus, "Deleting meeting note...");
   recordingDeleteSubmit.disabled = true;
   recordingDeleteCancel.disabled = true;
 
@@ -1001,9 +1001,9 @@ async function deleteRecording(recordingId) {
 
     setRecordingDeleteModalOpen(false);
     await loadRecordings();
-    setStatus(recordingsStatus, "Recording deleted.", "success");
+    setStatus(recordingsStatus, "Meeting note deleted.", "success");
   } catch (error) {
-    setStatus(recordingDeleteStatus, getErrorMessage(error, "Unable to delete the recording."), "error");
+    setStatus(recordingDeleteStatus, getErrorMessage(error, "Unable to delete the meeting note."), "error");
   } finally {
     recordingDeleteSubmit.disabled = false;
     recordingDeleteCancel.disabled = false;
@@ -1058,7 +1058,7 @@ async function init() {
   } catch (error) {
     show(setupPanel, false);
     show(allRecordingsPanel, true);
-    setStatus(recordingsStatus, getErrorMessage(error, "Unable to load recording context."), "error");
+    setStatus(recordingsStatus, getErrorMessage(error, "Unable to load meeting note context."), "error");
     return;
   }
 

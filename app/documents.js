@@ -453,7 +453,7 @@ async function persistActiveDocument(statusTarget = editorStatus) {
   try {
     await syncRecordingFinalDocument(data);
   } catch (syncError) {
-    setStatus(statusTarget, syncError?.message || "Document saved, but the recording final link could not be updated.", "error");
+    setStatus(statusTarget, syncError?.message || "Document saved, but the meeting note final link could not be updated.", "error");
     return null;
   }
 

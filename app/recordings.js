@@ -647,11 +647,11 @@ function setUploadProgressVisible(isVisible, copy = "") {
 
 function setRecordingUploadMode(isRetryMode) {
   isRetryUploadMode = isRetryMode;
-  recordingUploadKicker.textContent = isRetryMode ? "Retry upload" : "Upload recording";
+  recordingUploadKicker.textContent = isRetryMode ? "Retry upload" : "Upload audio";
   recordingUploadTitle.textContent = isRetryMode ? "Select the file again" : "Select audio file";
   recordingUploadNote.textContent = isRetryMode
     ? "Browsers cannot keep the previous file attached. Choose the original audio file again to retry this upload."
-    : "Choose an existing audio file and save it as a recording.";
+    : "Choose an existing audio file and save it with this meeting note.";
   recordingUploadSubmit.textContent = isRetryMode ? "Retry upload" : "Final upload";
 }
 
@@ -746,7 +746,7 @@ function clearDetailPlayer() {
 
 async function createRecordingSignedUrl(recording) {
   if (!recording?.storage_path) {
-    throw new Error("No audio file is stored for this recording yet.");
+    throw new Error("No audio file is stored for this meeting note yet.");
   }
 
   const { data, error } = await supabase.storage.from(RECORDINGS_BUCKET).createSignedUrl(recording.storage_path, 60 * 10);
@@ -906,7 +906,7 @@ async function loadRecordings() {
     return;
   }
 
-  setStatus(recordingsListStatus, "Loading recordings...");
+  setStatus(recordingsListStatus, "Loading meeting notes...");
   let { data, error, count } = await supabase
     .from("meeting_recordings")
     .select(`
@@ -968,14 +968,14 @@ async function loadRecordings() {
     recordingsCache = [];
     totalRecordingCount = 0;
     renderRecordings();
-    setStatus(recordingsListStatus, getErrorMessage(error, "Unable to load recordings."), "error");
+    setStatus(recordingsListStatus, getErrorMessage(error, "Unable to load meeting notes."), "error");
     return;
   }
 
   recordingsCache = Array.isArray(data) ? data : [];
   totalRecordingCount = Number(count || 0);
   renderRecordings();
-  setStatus(recordingsListStatus, totalRecordingCount ? `${totalRecordingCount} recording${totalRecordingCount === 1 ? "" : "s"} saved.` : "");
+  setStatus(recordingsListStatus, totalRecordingCount ? `${totalRecordingCount} meeting note${totalRecordingCount === 1 ? "" : "s"} saved.` : "");
 }
 
 function renderRecordings() {
@@ -997,7 +997,7 @@ function renderRecordings() {
         <article class="recording-row" data-recording-id="${escapeHtml(recording.id)}" role="button" tabindex="0">
           <div class="recording-row-main">
             <div>
-              <p class="recording-row-title">${escapeHtml(recording.title || "Untitled recording")}</p>
+              <p class="recording-row-title">${escapeHtml(recording.title || "Untitled meeting note")}</p>
               <p class="recording-row-meta">${escapeHtml(formatDateTime(recording.started_at || recording.created_at))}</p>
             </div>
             <span class="recording-row-status status-${escapeHtml(String(recording.status || "").toLowerCase())}">${escapeHtml(formatRecordingStatus(recording.status))}</span>
@@ -1086,7 +1086,7 @@ function renderAiReview(review) {
 }
 
 function populateRecordingDetails(recording) {
-  recordingDetailTitle.textContent = recording.title || "Untitled recording";
+  recordingDetailTitle.textContent = recording.title || "Untitled meeting note";
   recordingDetailStatus.textContent = formatRecordingStatus(recording.status);
   recordingDetailTranscriptStatus.textContent = formatRecordingStatus(recording.transcript_status);
   recordingDetailTemplate.textContent = getTemplateLabel(recording.selected_template_id || "");
@@ -1276,7 +1276,7 @@ async function requestRecordingTranscription(recordingId) {
     body: JSON.stringify({ recordingId }),
   });
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data?.error || "Unable to transcribe recording.");
+  if (!response.ok) throw new Error(data?.error || "Unable to transcribe audio.");
   return data;
 }
 
@@ -1293,7 +1293,7 @@ async function requestRecordingAiReview(recordingId) {
     body: JSON.stringify({ recordingId }),
   });
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data?.error || "Unable to review recording notes.");
+  if (!response.ok) throw new Error(data?.error || "Unable to review meeting notes.");
   return data;
 }
 
@@ -1301,7 +1301,7 @@ async function handleRecordingAiReview(recordingId) {
   const recording = getRecordingById(recordingId);
   if (!recording) return;
   if (recording.transcript_status !== "ready") {
-    setStatus(recordingDetailStatusMessage, "The transcript must be ready before AI can review this recording.", "error");
+    setStatus(recordingDetailStatusMessage, "The transcript must be ready before AI can review this meeting note.", "error");
     return;
   }
 
@@ -1324,7 +1324,7 @@ async function handleRecordingAiReview(recordingId) {
     setStatus(recordingDetailStatusMessage, recording.ai_review_status === "ready" ? "AI draft regenerated." : "AI draft is ready.", "success");
   } catch (error) {
     recordingDetailAiStatus.textContent = "Failed";
-    setStatus(recordingDetailStatusMessage, getErrorMessage(error, "Unable to review recording notes."), "error");
+    setStatus(recordingDetailStatusMessage, getErrorMessage(error, "Unable to review meeting notes."), "error");
   } finally {
     const updated = getRecordingById(recording.id) || recording;
     recordingDetailAiReview.disabled = !recordingWorkflowSchemaAvailable || updated.transcript_status !== "ready";
@@ -1366,7 +1366,7 @@ function retryRecording(recordingId) {
 async function createMeetingRecording(title) {
   const organization = getActiveOrganization();
   if (!organization) {
-    throw new Error("Select a library before recording.");
+    throw new Error("Select a library before creating a meeting note.");
   }
 
   const payload = {
@@ -1414,7 +1414,7 @@ async function getAudioDurationSeconds(file) {
 function buildUploadTitle(file) {
   const manualTitle = recordingTitleInput.value.trim();
   if (manualTitle) return manualTitle;
-  return String(file?.name || "Uploaded recording").replace(/\.[^/.]+$/, "") || "Uploaded recording";
+  return String(file?.name || "Uploaded meeting note").replace(/\.[^/.]+$/, "") || "Uploaded meeting note";
 }
 
 async function uploadRecordingBlob(recordingId, title, blob, mimeType, durationSeconds) {
@@ -1465,17 +1465,17 @@ async function uploadRecordingBlob(recordingId, title, blob, mimeType, durationS
 
   uploadStateValue.textContent = "Uploaded";
   setRecorderState("Transcribing", "Audio uploaded. Creating a searchable transcript file.");
-  setStatus(recordingStatus, "Audio uploaded. Transcribing recording...");
+  setStatus(recordingStatus, "Audio uploaded. Creating transcript...");
 
   try {
     await requestRecordingTranscription(recordingId);
     uploadStateValue.textContent = "Transcript ready";
     setRecorderState("Saved", "Transcript created as a searchable file in this library.");
-    setStatus(recordingStatus, "Recording saved and transcript created.", "success");
+    setStatus(recordingStatus, "Meeting note saved and transcript created.", "success");
   } catch (error) {
     uploadStateValue.textContent = "Transcript failed";
     setRecorderState("Saved", "Audio uploaded. Transcript could not be created automatically.");
-    setStatus(recordingStatus, getErrorMessage(error, "Recording saved, but transcription failed."), "error");
+    setStatus(recordingStatus, getErrorMessage(error, "Meeting note saved, but transcription failed."), "error");
   }
 }
 
@@ -1512,9 +1512,9 @@ async function finalizeRecording() {
 
     await uploadRecordingBlob(recordingId, title, blob, blob.type || activeRecordingMimeType || "audio/webm", durationSeconds);
   } catch (error) {
-    setRecorderState("Failed", "The recording row was created, but saving the audio did not finish.");
+    setRecorderState("Failed", "The meeting note was created, but saving the audio did not finish.");
     uploadStateValue.textContent = "Failed";
-    setStatus(recordingStatus, getErrorMessage(error, "Unable to finish saving the recording."), "error");
+    setStatus(recordingStatus, getErrorMessage(error, "Unable to finish saving the audio."), "error");
   } finally {
     isRecordingWorkflowActive = false;
     mediaRecorder = null;
@@ -1554,8 +1554,8 @@ async function handleStartRecording() {
   const mimeType = getSupportedMimeType();
   isRecordingWorkflowActive = true;
 
-  setStatus(recordingStatus, "Creating recording session...");
-  setRecorderState("Preparing", "Creating a meeting row before microphone capture starts.");
+  setStatus(recordingStatus, "Creating meeting note...");
+  setRecorderState("Preparing", "Creating a meeting note before microphone capture starts.");
   uploadStateValue.textContent = "Not started";
 
   let createdRecording = null;
@@ -1626,7 +1626,7 @@ async function handleStartRecording() {
       try {
         await updateMeetingRecording(createdRecording.id, {
           status: "failed",
-          processing_error: getErrorMessage(error, "Recording could not start."),
+          processing_error: getErrorMessage(error, "Audio recording could not start."),
         });
       } catch {
         // Keep the original error visible in the UI even if the failure update also fails.
@@ -1635,8 +1635,8 @@ async function handleStartRecording() {
     }
 
     clearRecorderStats();
-    setRecorderState("", "Ready to create a new recording session.");
-    setStatus(recordingStatus, getErrorMessage(error, "Unable to start recording."), "error");
+    setRecorderState("", "Ready to create a new meeting note.");
+    setStatus(recordingStatus, getErrorMessage(error, "Unable to start audio recording."), "error");
     await loadRecordings();
   }
 }
@@ -1657,7 +1657,7 @@ async function handleUploadRecording() {
   updateControls();
   setRecordingUploadModalOpen(false);
   setStatus(recordingStatus, "Preparing upload...");
-  setRecorderState("Preparing", "Creating a recording row for the selected audio file.");
+  setRecorderState("Preparing", "Creating a meeting note for the selected audio file.");
   uploadStateValue.textContent = "Preparing";
   setUploadProgressVisible(true, "Preparing upload. Do not leave this page until it finishes.");
 
@@ -1704,7 +1704,7 @@ async function handleUploadRecording() {
         // Keep the original error visible in the UI even if the failure update also fails.
       }
     }
-    setRecorderState("Failed", "The selected file could not be saved as a recording.");
+    setRecorderState("Failed", "The selected file could not be saved with this meeting note.");
     uploadStateValue.textContent = "Failed";
     setStatus(recordingStatus, getErrorMessage(error, "Unable to upload the audio file."), "error");
   } finally {
@@ -1755,7 +1755,7 @@ async function handleOrganizationChange(nextOrganizationId) {
   setStoredActiveOrganizationId(nextOrganizationId);
   renderOrganizationSelector();
   clearRecorderStats();
-  setRecorderState("", "Ready to create a new recording session.");
+  setRecorderState("", "Ready to create a new meeting note.");
   setStatus(recordingStatus, "");
   elapsedRecordingMs = 0;
   recordingFileInput.value = "";
@@ -1775,7 +1775,7 @@ async function handleOrganizationChange(nextOrganizationId) {
 
 async function handleSignout() {
   if (isRecordingWorkflowActive) {
-    setStatus(recordingStatus, "Wait for the active recording or upload to finish before logging out.", "error");
+    setStatus(recordingStatus, "Wait for the active audio recording or upload to finish before logging out.", "error");
     return;
   }
 
@@ -1800,7 +1800,7 @@ async function init() {
   } catch (error) {
     show(setupPanel, false);
     show(recordingsPanel, true);
-    setStatus(recordingStatus, getErrorMessage(error, "Unable to load recording context."), "error");
+    setStatus(recordingStatus, getErrorMessage(error, "Unable to load meeting note context."), "error");
     return;
   }
 
@@ -1825,7 +1825,7 @@ async function init() {
   if (!window.MediaRecorder || !navigator.mediaDevices?.getUserMedia) {
     startRecordingButton.disabled = true;
     setRecorderState("Unsupported", "This browser does not expose the MediaRecorder API required for capture.");
-    setStatus(recordingStatus, "Recording is unavailable in this browser.", "error");
+    setStatus(recordingStatus, "Audio recording is unavailable in this browser.", "error");
   }
 
   mobileLogoutButton.addEventListener("click", handleSignout);

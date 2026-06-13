@@ -173,7 +173,7 @@ function formatDeleteAssociationSummary(associations) {
     parts.push(`${editableCount} editable document${editableCount === 1 ? "" : "s"}`);
   }
   if (recordingCount) {
-    parts.push(`${recordingCount} linked recording${recordingCount === 1 ? "" : "s"} and audio file${recordingCount === 1 ? "" : "s"}`);
+    parts.push(`${recordingCount} linked meeting note${recordingCount === 1 ? "" : "s"} and audio file${recordingCount === 1 ? "" : "s"}`);
   }
   if (!parts.length) return "";
   return `${parts.join(" and ")} will also be deleted. If unchecked, they stay in the app but lose this file link.`;
