@@ -283,6 +283,7 @@ let organizationLogoUrls = new Map();
 let uploadMode = "single";
 let selectedBillingCycle = "monthly";
 let activeAdminTab = "users";
+let adminTargetTimer = null;
 const libraryAiSearchHistory = [];
 const LIBRARY_AI_SEARCH_HISTORY_LIMIT = 8;
 let lastAiSearchMatches = [];
@@ -703,6 +704,33 @@ function updateAdminTabs(availability = {}) {
     activeAdminTab = adminTabs.find((tab) => !tab.classList.contains("hidden"))?.getAttribute("data-admin-tab") || "";
   }
   setAdminTab(activeAdminTab);
+}
+
+function openAdminDisclosure(section) {
+  if (section instanceof HTMLDetailsElement) {
+    section.open = true;
+  }
+}
+
+function highlightAdminSection(section) {
+  if (!section) return;
+  section.classList.add("is-targeted");
+  if (adminTargetTimer) window.clearTimeout(adminTargetTimer);
+  adminTargetTimer = window.setTimeout(() => {
+    section.classList.remove("is-targeted");
+    adminTargetTimer = null;
+  }, 1600);
+}
+
+function openInviteCodesFromUsers() {
+  setAdminTab("access");
+  openAdminDisclosure(inviteManagementBody);
+  window.setTimeout(() => {
+    inviteManagementBody?.scrollIntoView({ behavior: "smooth", block: "start" });
+    highlightAdminSection(inviteManagementBody);
+    const fieldToFocus = inviteRecipientEmailInput?.disabled ? inviteRoleInput : inviteRecipientEmailInput;
+    fieldToFocus?.focus({ preventScroll: true });
+  }, 0);
 }
 
 function getErrorMessage(error, fallback) {
@@ -4581,7 +4609,7 @@ async function init() {
   adminTabs.forEach((tab) => {
     tab.addEventListener("click", () => setAdminTab(tab.getAttribute("data-admin-tab") || ""));
   });
-  adminUsersInviteButton?.addEventListener("click", () => setAdminTab("access"));
+  adminUsersInviteButton?.addEventListener("click", openInviteCodesFromUsers);
   adminNewTemplateButton?.addEventListener("click", () => {
     window.location.href = "./documents?new=template";
   });

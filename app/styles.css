@@ -1806,6 +1806,69 @@ textarea {
   display: none;
 }
 
+.admin-disclosure {
+  padding: 0;
+  overflow: hidden;
+}
+
+.admin-disclosure-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem;
+  cursor: pointer;
+  list-style: none;
+}
+
+.admin-disclosure-summary::-webkit-details-marker {
+  display: none;
+}
+
+.admin-disclosure-summary::after {
+  content: "+";
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: 1px solid rgba(15, 22, 32, 0.1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink);
+  font-weight: 900;
+}
+
+.admin-disclosure[open] > .admin-disclosure-summary::after {
+  content: "-";
+}
+
+.admin-disclosure-summary span {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.admin-disclosure-summary strong {
+  color: var(--ink);
+  font-size: 1.02rem;
+}
+
+.admin-disclosure-summary small {
+  color: var(--slate);
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+.admin-disclosure-content {
+  padding: 0 1rem 1rem;
+}
+
+.admin-disclosure.is-targeted {
+  border-color: rgba(23, 111, 102, 0.45);
+  box-shadow: 0 0 0 3px rgba(23, 111, 102, 0.12);
+}
+
 .embed-access-card {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
