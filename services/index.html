@@ -23,6 +23,7 @@
   <link rel="stylesheet" href="../assets/site-nav.css">
   <link rel="stylesheet" href="../assets/site-intro.css?v=2">
   <script src="../assets/site-nav.js" defer></script>
+  <script type="module" src="/assets/master-auth-link.js"></script>
   <style>
     :root { --ink: #0f1620; --ink-soft: #1a2430; --line: rgba(15,22,32,.1); --teal: #176f66; --white: #fff; --shadow: 0 24px 60px rgba(12,18,28,.14); --radius-lg: 24px; }
     * { box-sizing: border-box; }
@@ -55,7 +56,7 @@
       <div class="site-topbar-row">
         <a class="site-brand" href="/" aria-label="N3XRA home"><img src="../assets/n3xra_logo_transparent.png" alt="N3XRA"></a>
         <div class="site-nav-actions">
-          <a class="site-menu-link site-auth-link" href="/account">Login</a>
+          <a class="site-menu-link site-auth-link" href="/account" data-master-auth-link>Login</a>
           <button class="site-menu-toggle" type="button" aria-expanded="false" aria-controls="services-mobile-menu" aria-label="Open menu" data-site-menu-toggle><span></span><span></span><span></span></button>
         </div>
       </div>

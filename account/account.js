@@ -61,7 +61,7 @@ function setStatus(message, tone = "") {
 
 function updateAccountNav(isSignedIn = false) {
   if (!accountNavLink) return;
-  accountNavLink.textContent = isSignedIn ? "Dashboard" : "Login";
+  accountNavLink.textContent = isSignedIn ? "Sign out" : "Login";
   accountNavLink.href = "/account";
   accountNavLink.dataset.authState = isSignedIn ? "signed-in" : "signed-out";
 }
@@ -558,6 +558,11 @@ async function handleSignout() {
 }
 
 function bindEvents() {
+  accountNavLink?.addEventListener("click", (event) => {
+    if (accountNavLink.dataset.authState !== "signed-in") return;
+    event.preventDefault();
+    handleSignout();
+  });
   signinForm.addEventListener("submit", handleSignin);
   signupForm.addEventListener("submit", handleSignup);
   forgotPasswordButton.addEventListener("click", handleForgotPassword);
