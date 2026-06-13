@@ -97,6 +97,13 @@ a { color: inherit; }
   font-weight: 700;
 }
 
+.brand-home-link {
+  display: inline-flex;
+  align-items: center;
+  line-height: 0;
+  text-decoration: none;
+}
+
 .brand-badge {
   width: 38px;
   height: 38px;

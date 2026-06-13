@@ -1,7 +1,7 @@
 body {
   min-height: 100svh;
   background:
-    linear-gradient(180deg, #07111d 0, #07111d 9.5rem, transparent 9.5rem),
+    linear-gradient(180deg, #07111d 0, #07111d 6.5rem, transparent 6.5rem),
     radial-gradient(760px 360px at 9% 8%, rgba(23, 111, 102, 0.14), transparent 58%),
     radial-gradient(680px 340px at 92% 6%, rgba(234, 155, 63, 0.12), transparent 58%),
     linear-gradient(180deg, #f8fafc 0%, #edf2f7 100%);
@@ -16,9 +16,9 @@ body {
 }
 
 .account-main {
-  width: min(1180px, calc(100vw - 2rem));
+  width: min(1280px, calc(100vw - 2rem));
   margin: 0 auto;
-  padding: clamp(7rem, 12vw, 9rem) 0 clamp(2rem, 5vw, 4rem);
+  padding: clamp(5.2rem, 8vw, 6.8rem) 0 clamp(2rem, 5vw, 4rem);
 }
 
 .account-panel {
@@ -76,6 +76,10 @@ body {
   align-content: start;
 }
 
+.account-dashboard {
+  gap: clamp(1rem, 2.4vw, 1.5rem);
+}
+
 .account-card h2,
 .app-card h3 {
   margin: 0;
@@ -90,8 +94,22 @@ body {
   flex-wrap: wrap;
 }
 
+.account-overview {
+  border: 1px solid rgba(15, 22, 32, 0.08);
+  border-radius: var(--radius-md);
+  background:
+    radial-gradient(420px 180px at 0% 0%, rgba(23, 111, 102, 0.12), transparent 58%),
+    linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  padding: clamp(1rem, 2.5vw, 1.4rem);
+}
+
+.account-identity {
+  min-width: min(100%, 360px);
+}
+
 .dashboard-head h2 {
   margin: 0.2rem 0;
+  font-size: clamp(1.55rem, 3vw, 2.2rem);
 }
 
 .dashboard-head p {
@@ -99,14 +117,53 @@ body {
   color: var(--slate);
 }
 
+.account-overview-meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(130px, 1fr));
+  gap: 0.7rem;
+  width: min(100%, 390px);
+}
+
+.account-overview-meta div {
+  border: 1px solid rgba(15, 22, 32, 0.08);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.72);
+  padding: 0.85rem;
+  display: grid;
+  gap: 0.2rem;
+}
+
+.account-overview-meta span,
+.account-settings summary small {
+  color: var(--slate);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.account-overview-meta strong {
+  color: var(--ink);
+  font-size: 1.02rem;
+}
+
+.dashboard-apps {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr);
+  gap: 1rem;
+  align-items: stretch;
+}
+
 .dashboard-section {
   display: grid;
   gap: 0.85rem;
+  align-content: start;
 }
 
 .dashboard-section-head {
-  display: grid;
-  gap: 0.25rem;
+  min-height: 3.1rem;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.8rem;
 }
 
 .dashboard-section-head h3 {
@@ -122,17 +179,25 @@ body {
 
 .app-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: 1fr;
   gap: 0.85rem;
 }
 
 .app-card {
   border: 1px solid rgba(15, 22, 32, 0.1);
   border-radius: var(--radius-md);
-  padding: 1rem;
+  padding: clamp(1rem, 2.2vw, 1.25rem);
   background: #fbfcfd;
   display: grid;
   gap: 1rem;
+  min-height: 210px;
+  align-content: space-between;
+}
+
+.primary-app-card {
+  background:
+    radial-gradient(420px 180px at 12% 0%, rgba(23, 111, 102, 0.1), transparent 62%),
+    #fbfcfd;
 }
 
 .app-card p:not(.auth-kicker) {
@@ -142,16 +207,25 @@ body {
 
 .account-settings {
   border-top: 1px solid var(--line);
-  padding-top: 1rem;
+  padding-top: 0.9rem;
 }
 
 .account-settings summary {
   cursor: pointer;
   font-weight: 800;
+  display: grid;
+  gap: 0.15rem;
+}
+
+.settings-grid {
+  margin-top: 1rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 0.8fr);
+  gap: 1rem;
+  align-items: start;
 }
 
 .settings-disclosure {
-  margin-top: 0.9rem;
   border: 1px solid rgba(15, 22, 32, 0.09);
   border-radius: var(--radius-md);
   background: #fbfcfd;
@@ -163,7 +237,6 @@ body {
 }
 
 .settings-form {
-  margin-top: 1rem;
   padding: 1rem;
   border: 1px solid rgba(15, 22, 32, 0.09);
   border-radius: var(--radius-md);
@@ -184,6 +257,11 @@ body {
     grid-template-columns: 1fr;
   }
 
+  .dashboard-apps,
+  .settings-grid {
+    grid-template-columns: 1fr;
+  }
+
   .account-hero {
     min-height: 320px;
   }
@@ -194,11 +272,20 @@ body {
 }
 
 @media (max-width: 620px) {
-  .account-main {
-    width: min(100vw - 1rem, 1180px);
+  body {
+    background:
+      linear-gradient(180deg, #07111d 0, #07111d 5.4rem, transparent 5.4rem),
+      radial-gradient(760px 360px at 9% 8%, rgba(23, 111, 102, 0.14), transparent 58%),
+      radial-gradient(680px 340px at 92% 6%, rgba(234, 155, 63, 0.12), transparent 58%),
+      linear-gradient(180deg, #f8fafc 0%, #edf2f7 100%);
   }
 
-  .app-grid {
+  .account-main {
+    width: min(100vw - 1rem, 1180px);
+    padding-top: 4.9rem;
+  }
+
+  .account-overview-meta {
     grid-template-columns: 1fr;
   }
 

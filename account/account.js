@@ -33,6 +33,7 @@ const passwordForm = document.getElementById("password-form");
 const accountName = document.getElementById("account-name");
 const accountEmail = document.getElementById("account-email");
 const profileFullNameInput = document.getElementById("profile-full-name");
+const appAccessCount = document.getElementById("app-access-count");
 const recordsSummary = document.getElementById("records-summary");
 const musicSummary = document.getElementById("music-summary");
 const openRecordsButton = document.getElementById("open-records-button");
@@ -290,6 +291,11 @@ async function renderDashboard(message = "") {
     ? `${musicProfile.plan || "Free"} plan. ${Number(musicProfile.songs_used || 0)} of ${Number(musicProfile.monthly_song_limit || 0)} songs used.`
     : "Not active yet. Activate it only if you want to create and save songs.";
   openMusicButton.textContent = hasMusicProfile ? "Open AI Music" : "Activate AI Music";
+
+  const connectedAppCount = Number(Boolean(recordsOrgName)) + Number(hasMusicProfile);
+  if (appAccessCount) {
+    appAccessCount.textContent = connectedAppCount === 1 ? "1 app" : `${connectedAppCount} apps`;
+  }
 }
 
 async function maybeRouteAfterAuth(session) {
