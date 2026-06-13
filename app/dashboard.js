@@ -2519,8 +2519,8 @@ function renderProfile() {
   additionalLibraryNote.textContent = canCreateAdditionalLibrary
     ? "This creates a separate library with its own plan, users, documents, settings, and billing controls."
     : getCreateOwnedLibraryBlockedMessage();
-  openUploadModalButton.disabled = !capabilities.canUploadDocuments;
-  uploadIsPublicInput.disabled = !capabilities.canUploadDocuments || !hasEmbeddedAccess();
+  if (openUploadModalButton) openUploadModalButton.disabled = !capabilities.canUploadDocuments;
+  if (uploadIsPublicInput) uploadIsPublicInput.disabled = !capabilities.canUploadDocuments || !hasEmbeddedAccess();
 
   show(accountNoLibraryNotice, !hasLibraryAccess);
   show(accountLibraryContext, hasLibraryAccess);
@@ -4456,17 +4456,17 @@ async function init() {
   aiMemoryForm?.addEventListener("submit", handleAiMemorySave);
   copyEmbedPreviewUrlButton.addEventListener("click", copyPublicEmbedUrl);
   copyEmbedCodeButton.addEventListener("click", copyEmbedCode);
-  openUploadModalButton.addEventListener("click", () => {
+  openUploadModalButton?.addEventListener("click", () => {
     resetUploadFeedback();
     setUploadModalOpen(true);
   });
-  uploadModalClose.addEventListener("click", () => {
+  uploadModalClose?.addEventListener("click", () => {
     setUploadModalOpen(false);
     resetUploadFeedback();
   });
-  uploadForm.addEventListener("submit", uploadDocument);
-  uploadModeSingleButton.addEventListener("click", () => setUploadMode("single"));
-  uploadModeBatchButton.addEventListener("click", () => setUploadMode("batch"));
+  uploadForm?.addEventListener("submit", uploadDocument);
+  uploadModeSingleButton?.addEventListener("click", () => setUploadMode("single"));
+  uploadModeBatchButton?.addEventListener("click", () => setUploadMode("batch"));
   searchModeKeywordButton?.addEventListener("click", () => setSearchMode("keyword"));
   searchModeAiButton?.addEventListener("click", () => setSearchMode("ai"));
   aiSearchSubmitButton?.addEventListener("click", handleAiSearchSubmit);

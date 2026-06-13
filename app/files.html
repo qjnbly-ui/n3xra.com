@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./styles.css?v=20260612-discreet-pdf-header">
+  <link rel="stylesheet" href="./styles.css?v=20260612-library-files-actions">
 </head>
 <body>
   <div class="shell">
@@ -65,8 +65,19 @@
             <p>Browse and manage the files in the active library.</p>
           </div>
           <div class="actions">
-            <a class="btn secondary button-link hidden" id="files-recordings-link" href="./meeting-notes">Meeting Notes</a>
             <a class="btn secondary button-link" href="./library">Back to records</a>
+          </div>
+        </div>
+
+        <div class="library-actions-grid files-actions-grid" id="files-actions-grid">
+          <div class="library-action-slot" id="files-upload-action-slot">
+            <button class="btn" id="files-open-upload-modal" type="button">Upload</button>
+          </div>
+          <div class="library-action-slot">
+            <a class="btn secondary button-link" href="./documents">Documents</a>
+          </div>
+          <div class="library-action-slot">
+            <a class="btn secondary button-link hidden" id="files-recordings-link" href="./meeting-notes">Meeting Notes</a>
           </div>
         </div>
 
@@ -97,6 +108,60 @@
         <p class="status" id="file-status"></p>
       </section>
     </main>
+  </div>
+
+  <div class="settings-modal" id="upload-modal" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="settings-modal-dialog">
+      <div class="settings-modal-header">
+        <div>
+          <p class="settings-modal-kicker">Upload</p>
+          <h3 class="settings-modal-title">Add documents</h3>
+        </div>
+        <button class="settings-modal-close" id="upload-modal-close" type="button">Close</button>
+      </div>
+      <div class="settings-modal-body">
+        <form class="stack" id="upload-form">
+          <p class="account-note" id="upload-mode-note">Supported in this pass: <code class="inline">.pdf</code>, <code class="inline">.docx</code>, <code class="inline">.txt</code>, <code class="inline">.md</code>, <code class="inline">.csv</code>, <code class="inline">.json</code>, <code class="inline">.html</code>. Scanned PDFs upload but need OCR before search or editing.</p>
+          <div class="upload-mode-switch" role="tablist" aria-label="Upload mode">
+            <button class="upload-mode-btn is-active" id="upload-mode-single" type="button" role="tab" aria-selected="true">Individual file</button>
+            <button class="upload-mode-btn" id="upload-mode-batch" type="button" role="tab" aria-selected="false">Batch import</button>
+          </div>
+          <div class="grid-3" id="upload-metadata-grid">
+            <div class="field" id="upload-title-field">
+              <label for="upload-title">Document title</label>
+              <input id="upload-title" type="text" placeholder="Optional override">
+            </div>
+            <div class="field">
+              <label for="upload-year">Year</label>
+              <input id="upload-year" type="text" placeholder="2026">
+            </div>
+            <div class="field">
+              <label for="upload-month">Month</label>
+              <input id="upload-month" type="text" placeholder="April">
+            </div>
+          </div>
+          <div class="field">
+            <label for="upload-file" id="upload-file-label">File</label>
+            <input id="upload-file" type="file" accept=".pdf,.docx,.txt,.md,.csv,.json,.html,.htm,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown,text/csv,application/json,text/html">
+          </div>
+          <div class="field hidden" id="upload-folder-field">
+            <label for="upload-folder">Folder (optional)</label>
+            <input id="upload-folder" type="file" webkitdirectory directory multiple accept=".pdf,.docx,.txt,.md,.csv,.json,.html,.htm,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown,text/csv,application/json,text/html">
+          </div>
+          <div class="field" id="upload-public-field">
+            <label class="toggle-pill">
+              <input id="upload-is-public" type="checkbox">
+              <span>Publish to public embed</span>
+            </label>
+          </div>
+          <div class="actions">
+            <button class="btn" type="submit">Upload and save extracted text</button>
+          </div>
+          <p class="status" id="upload-status"></p>
+          <ul class="upload-results" id="upload-results"></ul>
+        </form>
+      </div>
+    </div>
   </div>
 
   <div class="file-modal" id="file-modal" role="dialog" aria-modal="true" aria-hidden="true">
@@ -191,6 +256,6 @@
   </div>
 
   <script src="./config.js"></script>
-  <script type="module" src="./files.js?v=20260612-clean-routes"></script>
+  <script type="module" src="./files.js?v=20260612-library-files-actions"></script>
 </body>
 </html>

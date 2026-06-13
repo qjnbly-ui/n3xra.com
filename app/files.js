@@ -5,6 +5,7 @@ import { createAppDocumentPdfObjectUrl, getAppDocumentPdfFilename } from "./lib/
 import { buildPreviewUrl, getDownloadFilename } from "./lib/document-links.js";
 import { buildDocumentMetadata, getDocumentDisplayTitle } from "./lib/document-presenters.js";
 import { closeFilePreviewModal, openFilePreviewModal } from "./lib/file-modal.js";
+import { getPlanConfig, formatPlanName } from "./lib/plan-config.js";
 import {
   buildMembershipMap,
   dedupeMembershipsByOrganization,
@@ -31,10 +32,32 @@ const filesActiveMembershipField = document.getElementById("files-active-members
 const activeOrganizationSelect = document.getElementById("active-organization-select");
 const activeMembershipRole = document.getElementById("active-membership-role");
 const documentCount = document.getElementById("document-count");
+const filesActionsGrid = document.getElementById("files-actions-grid");
+const filesUploadActionSlot = document.getElementById("files-upload-action-slot");
+const filesOpenUploadModalButton = document.getElementById("files-open-upload-modal");
 const filesRecordingsLink = document.getElementById("files-recordings-link");
 const fileList = document.getElementById("file-list");
 const fileEmpty = document.getElementById("file-empty");
 const fileStatus = document.getElementById("file-status");
+const uploadStatus = document.getElementById("upload-status");
+const uploadModal = document.getElementById("upload-modal");
+const uploadModalClose = document.getElementById("upload-modal-close");
+const uploadForm = document.getElementById("upload-form");
+const uploadMetadataGrid = document.getElementById("upload-metadata-grid");
+const uploadTitleInput = document.getElementById("upload-title");
+const uploadTitleField = document.getElementById("upload-title-field");
+const uploadYearInput = document.getElementById("upload-year");
+const uploadMonthInput = document.getElementById("upload-month");
+const uploadFileInput = document.getElementById("upload-file");
+const uploadFileLabel = document.getElementById("upload-file-label");
+const uploadFolderInput = document.getElementById("upload-folder");
+const uploadFolderField = document.getElementById("upload-folder-field");
+const uploadPublicField = document.getElementById("upload-public-field");
+const uploadIsPublicInput = document.getElementById("upload-is-public");
+const uploadModeNote = document.getElementById("upload-mode-note");
+const uploadModeSingleButton = document.getElementById("upload-mode-single");
+const uploadModeBatchButton = document.getElementById("upload-mode-batch");
+const uploadResults = document.getElementById("upload-results");
 const fileModal = document.getElementById("file-modal");
 const fileModalTitle = document.getElementById("file-modal-title");
 const fileModalFrame = document.getElementById("file-modal-frame");
@@ -74,6 +97,8 @@ let activeModalDocumentId = null;
 let pendingEditId = null;
 let activeModalObjectUrl = "";
 let editableDocumentsBySourceId = new Map();
+let uploadMode = "single";
+let pdfJsLibraryPromise = null;
 let pendingDeleteAssociations = {
   documentId: "",
   appDocuments: [],
@@ -210,6 +235,302 @@ function escapeHtml(value) {
     .replaceAll("'", "&#39;");
 }
 
+function cleanWhitespace(value) {
+  return String(value || "").replace(/\s+/g, " ").trim();
+}
+
+function sanitizeExtractedText(value) {
+  const raw = String(value || "");
+  if (!raw) return "";
+  const xmlTagHits = (raw.match(/<w:[a-z0-9]+/gi) || []).length;
+  if (xmlTagHits < 4) return cleanWhitespace(raw);
+  return cleanWhitespace(
+    raw
+      .replace(/<[^>]+>/g, " ")
+      .replace(/&(?:lt|gt|amp|quot|apos);/gi, " ")
+  );
+}
+
+function decodeXmlEntities(value) {
+  return value
+    .replaceAll("&amp;", "&")
+    .replaceAll("&lt;", "<")
+    .replaceAll("&gt;", ">")
+    .replaceAll("&quot;", '"')
+    .replaceAll("&apos;", "'");
+}
+
+function fileLabel(file) {
+  return file.webkitRelativePath || file.name;
+}
+
+function sanitizeStorageFileName(value) {
+  return String(value || "file").replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/^-+|-+$/g, "") || "file";
+}
+
+function getDocumentLimit() {
+  return Number(getActiveOrganization()?.document_limit || getPlanConfig(getActiveOrganization()?.subscription_tier).documentLimit);
+}
+
+function hasEmbeddedAccess() {
+  return getActiveOrganization()?.subscription_tier === "organization";
+}
+
+function setUploadModalOpen(isOpen) {
+  uploadModal.classList.toggle("is-open", isOpen);
+  uploadModal.setAttribute("aria-hidden", String(!isOpen));
+  if (!isOpen) resetUploadFeedback();
+}
+
+function clearUploadFileSelections() {
+  if (uploadFileInput) uploadFileInput.value = "";
+  if (uploadFolderInput) uploadFolderInput.value = "";
+}
+
+function setUploadMode(mode) {
+  uploadMode = mode === "batch" ? "batch" : "single";
+  const isBatch = uploadMode === "batch";
+
+  uploadModeSingleButton.classList.toggle("is-active", !isBatch);
+  uploadModeSingleButton.setAttribute("aria-selected", String(!isBatch));
+  uploadModeBatchButton.classList.toggle("is-active", isBatch);
+  uploadModeBatchButton.setAttribute("aria-selected", String(isBatch));
+
+  show(uploadMetadataGrid, !isBatch);
+  show(uploadTitleField, !isBatch);
+  show(uploadFolderField, isBatch);
+  show(uploadPublicField, !isBatch);
+
+  uploadFileLabel.textContent = isBatch ? "Files" : "File";
+  if (isBatch) {
+    uploadFileInput.setAttribute("multiple", "");
+  } else {
+    uploadFileInput.removeAttribute("multiple");
+  }
+  uploadModeNote.innerHTML = getUploadSupportCopy(isBatch);
+
+  clearUploadFileSelections();
+  resetUploadFeedback();
+}
+
+function clearUploadResults() {
+  uploadResults.innerHTML = "";
+}
+
+function appendUploadResult(label, tone, message) {
+  const item = document.createElement("li");
+  item.className = "upload-result";
+  item.innerHTML = `
+    <span class="upload-result-tone ${escapeHtml(tone)}">${escapeHtml(tone)}</span>
+    <span class="upload-result-name">${escapeHtml(label)}</span>
+    <span class="upload-result-message">${escapeHtml(message)}</span>
+  `;
+  uploadResults.append(item);
+}
+
+function collectUploadFiles() {
+  if (uploadMode === "single") {
+    const file = uploadFileInput?.files?.[0];
+    return file ? [file] : [];
+  }
+
+  const seen = new Set();
+  const all = [];
+  const inputs = [uploadFileInput, uploadFolderInput];
+
+  inputs.forEach((input) => {
+    const files = Array.from(input?.files || []);
+    files.forEach((file) => {
+      const key = `${fileLabel(file)}::${file.size}::${file.lastModified}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      all.push(file);
+    });
+  });
+
+  return all;
+}
+
+function resetUploadFeedback() {
+  setStatus(uploadStatus, "");
+  clearUploadResults();
+}
+
+function getUploadSupportCopy(isBatch) {
+  const supported = '<code class="inline">.pdf</code>, <code class="inline">.docx</code>, <code class="inline">.txt</code>, <code class="inline">.md</code>, <code class="inline">.csv</code>, <code class="inline">.json</code>, <code class="inline">.html</code>.';
+  const pdfNote = "PDFs with selectable text become searchable. Scanned PDFs upload as records but need OCR before search or editing.";
+  const legacyDocNote = 'Legacy <code class="inline">.doc</code> files must be converted to <code class="inline">.docx</code> before upload.';
+  if (isBatch) {
+    return `Supported in this pass: ${supported} ${pdfNote} Batch mode reads both file selection and folder import and auto-detects year/month from filenames when available (private by default). ${legacyDocNote}`;
+  }
+  return `Supported in this pass: ${supported} ${pdfNote} ${legacyDocNote}`;
+}
+
+async function insertDocumentRecord(record, userId) {
+  const modernPayload = {
+    ...record,
+    uploaded_by_user_id: userId,
+  };
+  const { error: modernError } = await supabase.from("documents").insert(modernPayload);
+  if (!modernError) return { error: null };
+
+  const errorText = String(modernError.message || "").toLowerCase();
+  const legacyFallbackNeeded =
+    (errorText.includes("user_id") && errorText.includes("not-null")) ||
+    (errorText.includes("uploaded_by_user_id") && errorText.includes("does not exist"));
+
+  if (!legacyFallbackNeeded) {
+    return { error: modernError };
+  }
+
+  const legacyPayload = {
+    ...record,
+    user_id: userId,
+  };
+  const { error: legacyError } = await supabase.from("documents").insert(legacyPayload);
+  return { error: legacyError || null };
+}
+
+function inferYearMonthFromFilename(filename) {
+  const baseName = String(filename || "").replace(/\.[^.]+$/, "");
+  const tokenized = baseName
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/[_\-./]+/g, " ")
+    .replace(/(\d{4})/g, " $1 ")
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  const monthMap = new Map([
+    ["jan", "January"],
+    ["january", "January"],
+    ["feb", "February"],
+    ["february", "February"],
+    ["mar", "March"],
+    ["march", "March"],
+    ["apr", "April"],
+    ["april", "April"],
+    ["may", "May"],
+    ["jun", "June"],
+    ["june", "June"],
+    ["jul", "July"],
+    ["july", "July"],
+    ["aug", "August"],
+    ["august", "August"],
+    ["sep", "September"],
+    ["sept", "September"],
+    ["september", "September"],
+    ["oct", "October"],
+    ["october", "October"],
+    ["nov", "November"],
+    ["november", "November"],
+    ["dec", "December"],
+    ["december", "December"],
+  ]);
+
+  const monthToken = tokenized.find((token) => monthMap.has(token));
+  const yearToken = tokenized.find((token) => /^(19|20)\d{2}$/.test(token));
+
+  return {
+    year: yearToken || null,
+    month: monthToken ? monthMap.get(monthToken) : null,
+  };
+}
+
+async function extractDocxText(file) {
+  const buffer = await file.arrayBuffer();
+  const zip = await JSZip.loadAsync(buffer);
+  const xmlFile = zip.file("word/document.xml");
+  if (!xmlFile) throw new Error("This DOCX file is missing word/document.xml.");
+  const xml = await xmlFile.async("string");
+  const paragraphs = xml.match(/<w:p[\s\S]*?<\/w:p>/g) || [];
+  return cleanWhitespace(
+    paragraphs
+      .map((paragraph) => {
+        const runs = paragraph.match(/<w:t[^>]*>([\s\S]*?)<\/w:t>/g) || [];
+        return runs
+          .map((run) => run.replace(/<\/?w:t[^>]*>/g, ""))
+          .map((value) => decodeXmlEntities(value))
+          .join(" ");
+      })
+      .join("\n")
+  );
+}
+
+function isPdfFile(file) {
+  return file?.type === "application/pdf" || /\.pdf$/i.test(file?.name || "");
+}
+
+function createPdfNeedsOcrError() {
+  const error = new Error("No selectable text found. This PDF is likely scanned and needs OCR before search or editing.");
+  error.code = "pdf-needs-ocr";
+  return error;
+}
+
+function isPdfNeedsOcrError(error) {
+  return error?.code === "pdf-needs-ocr";
+}
+
+async function getPdfJsLibrary() {
+  if (!pdfJsLibraryPromise) {
+    pdfJsLibraryPromise = import("https://esm.sh/pdfjs-dist@4.10.38/build/pdf.mjs").then((module) => {
+      module.GlobalWorkerOptions.workerSrc = "https://esm.sh/pdfjs-dist@4.10.38/build/pdf.worker.mjs";
+      return module;
+    });
+  }
+  return pdfJsLibraryPromise;
+}
+
+async function extractPdfText(file) {
+  const pdfjsLib = await getPdfJsLibrary();
+  const buffer = await file.arrayBuffer();
+  const loadingTask = pdfjsLib.getDocument({
+    data: new Uint8Array(buffer),
+    disableFontFace: true,
+  });
+  const pdf = await loadingTask.promise;
+  const pageTexts = [];
+
+  try {
+    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+      const page = await pdf.getPage(pageNumber);
+      const textContent = await page.getTextContent();
+      const pageText = (textContent.items || [])
+        .map((item) => String(item?.str || "").trim())
+        .filter(Boolean)
+        .join(" ");
+      if (pageText) pageTexts.push(pageText);
+      page.cleanup?.();
+    }
+  } finally {
+    await pdf.destroy?.();
+  }
+
+  const text = cleanWhitespace(pageTexts.join("\n\n"));
+  if (!text || text.length < 12) throw createPdfNeedsOcrError();
+  return text;
+}
+
+async function extractTextFromFile(file) {
+  const lowerName = file.name.toLowerCase();
+  if (lowerName.endsWith(".docx")) return extractDocxText(file);
+  if (isPdfFile(file)) return extractPdfText(file);
+  if (
+    lowerName.endsWith(".txt") ||
+    lowerName.endsWith(".md") ||
+    lowerName.endsWith(".csv") ||
+    lowerName.endsWith(".json") ||
+    lowerName.endsWith(".html") ||
+    lowerName.endsWith(".htm")
+  ) {
+    return cleanWhitespace(await file.text());
+  }
+  if (lowerName.endsWith(".doc")) {
+    throw new Error("Legacy .doc files are not supported in the browser version. Convert them to .docx first.");
+  }
+  throw new Error("Unsupported file type. Use .pdf, .docx, .txt, .md, .csv, .json, or .html.");
+}
+
 function getMonthNumber(monthValue) {
   const raw = String(monthValue || "").trim().toLowerCase();
   if (!raw) return null;
@@ -338,6 +659,7 @@ function renderOrganizationSelector() {
     show(filesNoAccessNotice, true);
     show(filesActiveOrganizationField, false);
     show(filesActiveMembershipField, false);
+    show(filesActionsGrid, false);
     show(mobileMenuRecordingsLink, false);
     show(filesRecordingsLink, false);
     return;
@@ -353,9 +675,13 @@ function renderOrganizationSelector() {
   activeMembershipRole.textContent = formatRoleLabel(getMembershipRole(activeMembership));
   const capabilities = getActiveCapabilities();
   fileModalDelete.disabled = !capabilities.canDeleteDocuments;
+  filesOpenUploadModalButton.disabled = !capabilities.canUploadDocuments;
+  uploadIsPublicInput.disabled = !capabilities.canUploadDocuments || !hasEmbeddedAccess();
   show(filesNoAccessNotice, false);
   show(filesActiveOrganizationField, hasMultipleLibraries());
   show(filesActiveMembershipField, hasMultipleLibraries());
+  show(filesActionsGrid, true);
+  show(filesUploadActionSlot, capabilities.canUploadDocuments);
   show(mobileMenuRecordingsLink, capabilities.canUseRecordings);
   show(filesRecordingsLink, capabilities.canUseRecordings);
   activeOrganizationSelect.disabled = !hasMultipleLibraries();
@@ -379,6 +705,7 @@ async function bootstrapAccess() {
         id,
         name,
         subscription_tier,
+        document_limit,
         account_status,
         owner_user_id
       )
@@ -1358,6 +1685,152 @@ async function makeFileEditable(documentId) {
   window.location.href = `./documents?id=${encodeURIComponent(data.id)}`;
 }
 
+async function uploadDocument(event) {
+  event.preventDefault();
+  const organization = getActiveOrganization();
+  if (!organization) return;
+
+  if (!getActiveCapabilities().canUploadDocuments) {
+    setStatus(uploadStatus, "You do not have permission to upload into this library.", "error");
+    return;
+  }
+
+  if (documentsCache.length >= getDocumentLimit()) {
+    setStatus(uploadStatus, `This ${formatPlanName(organization.subscription_tier)} plan is limited to ${getDocumentLimit()} documents.`, "error");
+    return;
+  }
+
+  resetUploadFeedback();
+  const selectedFiles = collectUploadFiles();
+  if (!selectedFiles.length) {
+    setStatus(uploadStatus, "Choose at least one file or folder before uploading.", "error");
+    return;
+  }
+
+  const remainingSlots = Math.max(getDocumentLimit() - documentsCache.length, 0);
+  const files = selectedFiles.slice(0, remainingSlots);
+  const skippedForLimit = Math.max(selectedFiles.length - files.length, 0);
+  if (skippedForLimit > 0) {
+    selectedFiles.slice(files.length).forEach((file) => {
+      appendUploadResult(fileLabel(file), "skipped", "Plan limit reached.");
+    });
+  }
+
+  if (!files.length) {
+    setStatus(uploadStatus, `This ${formatPlanName(organization.subscription_tier)} plan is limited to ${getDocumentLimit()} documents.`, "error");
+    return;
+  }
+
+  const manualTitle = uploadTitleInput.value.trim();
+  const manualYear = uploadMode === "single" ? uploadYearInput.value.trim() : "";
+  const manualMonth = uploadMode === "single" ? uploadMonthInput.value.trim() : "";
+  const isPublic = uploadMode === "single" ? uploadIsPublicInput.checked : false;
+  const submitButton = uploadForm.querySelector("button[type='submit']");
+  if (submitButton instanceof HTMLButtonElement) {
+    submitButton.disabled = true;
+  }
+
+  let successCount = 0;
+  let needsOcrCount = 0;
+  const failedFiles = [];
+
+  try {
+    for (let index = 0; index < files.length; index += 1) {
+      const file = files[index];
+      const stepLabel = `[${index + 1}/${files.length}]`;
+      const baseTitle = file.name.replace(/\.[^.]+$/, "");
+      const title = uploadMode === "single" && manualTitle ? manualTitle : baseTitle;
+      const inferred = inferYearMonthFromFilename(file.name);
+      const year = uploadMode === "single" ? manualYear || inferred.year : inferred.year;
+      const month = uploadMode === "single" ? manualMonth || inferred.month : inferred.month;
+      const safeFileName = sanitizeStorageFileName(file.name);
+      const hasUuid = typeof crypto !== "undefined" && typeof crypto.randomUUID === "function";
+      const uniqueToken = hasUuid ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+      const storagePath = `${organization.id}/${Date.now()}-${uniqueToken}-${safeFileName}`;
+
+      setStatus(uploadStatus, `${stepLabel} Extracting ${fileLabel(file)}...`);
+      let extractedText = "";
+      let documentStatus = "ready";
+      let processingError = null;
+      let uploadTone = "uploaded";
+      let uploadMessage = "Saved with extracted text.";
+      try {
+        extractedText = await extractTextFromFile(file);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Text extraction failed.";
+        if (isPdfFile(file) && isPdfNeedsOcrError(error)) {
+          documentStatus = "failed";
+          processingError = message;
+          uploadTone = "needs-ocr";
+          uploadMessage = "Uploaded. OCR is needed before this PDF can be searched or edited.";
+          needsOcrCount += 1;
+        } else {
+          failedFiles.push(`${fileLabel(file)}: ${message}`);
+          appendUploadResult(fileLabel(file), "failed", message);
+          continue;
+        }
+      }
+
+      setStatus(uploadStatus, `${stepLabel} Uploading ${fileLabel(file)}...`);
+      const { error: storageError } = await supabase.storage.from("documents").upload(storagePath, file, { upsert: false });
+      if (storageError) {
+        failedFiles.push(`${fileLabel(file)}: ${storageError.message}`);
+        appendUploadResult(fileLabel(file), "failed", storageError.message);
+        continue;
+      }
+
+      const { error: insertError } = await insertDocumentRecord({
+        organization_id: organization.id,
+        title,
+        original_filename: file.name,
+        storage_path: storagePath,
+        mime_type: file.type || null,
+        file_size: file.size,
+        year,
+        month,
+        is_public: isPublic,
+        status: documentStatus,
+        processing_error: processingError,
+        extracted_text: sanitizeExtractedText(extractedText),
+      }, currentSession.user.id);
+
+      if (insertError) {
+        await supabase.storage.from("documents").remove([storagePath]);
+        failedFiles.push(`${fileLabel(file)}: ${insertError.message}`);
+        appendUploadResult(fileLabel(file), "failed", insertError.message);
+        continue;
+      }
+
+      successCount += 1;
+      appendUploadResult(fileLabel(file), uploadTone, uploadMessage);
+    }
+
+    uploadForm.reset();
+    if (successCount > 0) {
+      await loadDocuments();
+    }
+
+    const summaryParts = [`Uploaded ${successCount} of ${selectedFiles.length} file${selectedFiles.length === 1 ? "" : "s"}.`];
+    if (skippedForLimit > 0) {
+      summaryParts.push(`${skippedForLimit} skipped due to plan limit.`);
+    }
+    if (needsOcrCount > 0) {
+      summaryParts.push(`${needsOcrCount} PDF${needsOcrCount === 1 ? "" : "s"} need OCR before search or editing.`);
+    }
+    if (failedFiles.length > 0) {
+      const failurePreview = failedFiles.slice(0, 3).join(" | ");
+      const failureTail = failedFiles.length > 3 ? ` | +${failedFiles.length - 3} more failure(s)` : "";
+      summaryParts.push(`Failed: ${failurePreview}${failureTail}`);
+    }
+
+    setStatus(uploadStatus, summaryParts.join(" "), failedFiles.length > 0 || skippedForLimit > 0 || needsOcrCount > 0 ? "error" : "success");
+  } finally {
+    if (submitButton instanceof HTMLButtonElement) {
+      submitButton.disabled = false;
+    }
+  }
+}
+
 async function handleFileAction(event) {
   const target = event.target;
   if (!(target instanceof Element)) return;
@@ -1453,6 +1926,17 @@ async function init() {
   mobileMenuLibrary.addEventListener("click", () => {
     window.location.href = "./library";
   });
+  filesOpenUploadModalButton.addEventListener("click", () => {
+    resetUploadFeedback();
+    setUploadModalOpen(true);
+  });
+  uploadModalClose.addEventListener("click", () => setUploadModalOpen(false));
+  uploadModal.addEventListener("click", (event) => {
+    if (event.target === uploadModal) setUploadModalOpen(false);
+  });
+  uploadForm.addEventListener("submit", uploadDocument);
+  uploadModeSingleButton.addEventListener("click", () => setUploadMode("single"));
+  uploadModeBatchButton.addEventListener("click", () => setUploadMode("batch"));
   activeOrganizationSelect.addEventListener("change", handleOrganizationChange);
   fileList.addEventListener("click", handleFileAction);
   fileList.addEventListener("keydown", async (event) => {
@@ -1501,6 +1985,10 @@ async function init() {
     if (event.target === fileEditModal) closeFileEditModal();
   });
   document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && uploadModal.classList.contains("is-open")) {
+      setUploadModalOpen(false);
+      return;
+    }
     if (event.key === "Escape" && fileModal.classList.contains("is-open")) {
       closeFileModal();
       return;
@@ -1516,6 +2004,7 @@ async function init() {
     if (event.key === "Escape") closeFileActionMenus();
     if (event.key === "Escape") closeMobileMenu();
   });
+  setUploadMode("single");
   document.addEventListener("click", (event) => {
     const target = event.target;
     if (target instanceof Element && !target.closest(".file-row-controls")) {
