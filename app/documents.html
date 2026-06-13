@@ -104,7 +104,7 @@
                 <input id="document-search" type="search" placeholder="Search title or text">
               </div>
               <div class="document-list" id="app-document-list"></div>
-              <p class="empty hidden" id="app-document-empty">No editable documents yet.</p>
+              <p class="empty hidden" id="app-document-empty">No documents yet.</p>
             </div>
             <div class="document-list-section hidden" id="template-management-section">
               <div class="document-list-section-head">
@@ -157,7 +157,7 @@
 
               <div class="document-editor-actions">
                 <button class="btn" id="document-save" type="submit">Save</button>
-                <button class="btn secondary" id="document-print" type="button">Print / PDF</button>
+                <button class="btn secondary" id="document-print" type="button">Download PDF</button>
                 <button class="btn secondary" id="document-email" type="button">Send</button>
                 <button class="btn warn" id="document-delete" type="button">Delete</button>
               </div>
@@ -175,7 +175,7 @@
       <div class="file-modal-header">
         <p class="file-modal-title" id="document-pdf-title">PDF preview</p>
         <div class="file-modal-actions">
-          <a class="file-modal-link" id="document-pdf-download" href="#" download="document.pdf">Download</a>
+          <a class="file-modal-link" id="document-pdf-download" href="#" download="document.pdf">Download PDF</a>
           <button class="file-modal-link" id="document-pdf-print" type="button">Print</button>
           <button class="file-modal-close" id="document-pdf-close" type="button">Close</button>
         </div>
@@ -250,6 +250,6 @@
   </div>
 
   <script src="./config.js"></script>
-  <script type="module" src="./documents.js?v=20260612-clean-routes"></script>
+  <script type="module" src="./documents.js?v=20260613-wording-cleanup"></script>
 </body>
 </html>

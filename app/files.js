@@ -195,7 +195,7 @@ function formatDeleteAssociationSummary(associations) {
   const recordingCount = associations.recordings.length;
 
   if (editableCount) {
-    parts.push(`${editableCount} editable document${editableCount === 1 ? "" : "s"}`);
+    parts.push(`${editableCount} linked document${editableCount === 1 ? "" : "s"}`);
   }
   if (recordingCount) {
     parts.push(`${recordingCount} linked meeting note${recordingCount === 1 ? "" : "s"} and audio file${recordingCount === 1 ? "" : "s"}`);
@@ -824,7 +824,7 @@ function renderFiles() {
       actionButtons.push(
         editableDoc
           ? `<button class="btn secondary" type="button" data-action="open-preview" data-id="${doc.id}">Open</button>`
-          : `<button class="btn secondary" type="button" data-action="make-editable" data-id="${doc.id}">Make editable</button>`
+          : `<button class="btn secondary" type="button" data-action="make-editable" data-id="${doc.id}">Edit</button>`
       );
     }
     if (capabilities.canDownloadDocuments) {
@@ -850,7 +850,7 @@ function renderFiles() {
     item.innerHTML = `
       <div class="file-row-main">
         <p class="download-name">${escapeHtml(getDocumentDisplayTitle(displayDoc))}</p>
-        <p class="download-meta">${escapeHtml(buildDocumentMetadata(doc, { includeVisibility: true, includeCreatedAt: false }))}${editableDoc ? " · Editable version" : ""}</p>
+        <p class="download-meta">${escapeHtml(buildDocumentMetadata(doc, { includeVisibility: true, includeCreatedAt: false }))}</p>
       </div>
       <div class="file-row-controls">
         <button class="btn secondary file-row-menu-toggle" type="button" data-menu-toggle data-id="${doc.id}" aria-expanded="false" aria-controls="${actionMenuId}">Action</button>
@@ -917,13 +917,13 @@ async function openSourceFilePreview(documentId) {
       downloadUrl: downloadSigned?.signedUrl || signedUrl,
     }
   );
-  fileModalDownload.textContent = "Download original";
+  fileModalDownload.textContent = "Download";
   show(fileModalShare, capabilities.canShareDocuments);
   fileModalShare.textContent = "Share";
   show(fileModalOpenEditable, Boolean(editableDoc));
   if (editableDoc) {
     fileModalOpenEditable.href = `./documents?id=${encodeURIComponent(editableDoc.id)}`;
-    fileModalOpenEditable.textContent = capabilities.canEditDocuments ? "Edit document" : "Open";
+    fileModalOpenEditable.textContent = capabilities.canEditDocuments ? "Edit" : "Open";
   }
   show(fileModalOriginal, false);
   show(fileModalEdit, capabilities.canEditDocuments);
@@ -936,7 +936,7 @@ async function openEditableFilePreview(documentId, editableDoc) {
   const capabilities = getActiveCapabilities();
 
   activeModalDocumentId = documentId;
-  setStatus(fileStatus, "Generating editable preview...");
+  setStatus(fileStatus, "Generating PDF preview...");
 
   try {
     const objectUrl = await createAppDocumentPdfObjectUrl({
@@ -955,7 +955,7 @@ async function openEditableFilePreview(documentId, editableDoc) {
       },
       {
         doc: {
-          title: editableDoc.title || sourceDoc.title || sourceDoc.original_filename || "Editable document",
+          title: editableDoc.title || sourceDoc.title || sourceDoc.original_filename || "Document",
           original_filename: getAppDocumentPdfFilename(editableDoc),
         },
         previewUrl: objectUrl,
@@ -967,14 +967,14 @@ async function openEditableFilePreview(documentId, editableDoc) {
     show(fileModalShare, false);
     show(fileModalOpenEditable, true);
     fileModalOpenEditable.href = `./documents?id=${encodeURIComponent(editableDoc.id)}`;
-    fileModalOpenEditable.textContent = capabilities.canEditDocuments ? "Edit document" : "Open";
+    fileModalOpenEditable.textContent = capabilities.canEditDocuments ? "Edit" : "Open";
     show(fileModalOriginal, true);
     show(fileModalEdit, capabilities.canEditDocuments);
     show(fileModalDelete, capabilities.canDeleteDocuments);
     setStatus(fileStatus, "");
     return true;
   } catch (error) {
-    setStatus(fileStatus, error?.message || "Unable to generate editable preview.", "error");
+    setStatus(fileStatus, error?.message || "Unable to generate document preview.", "error");
     return false;
   }
 }
@@ -1624,7 +1624,7 @@ async function convertSourceDocumentToTiptap(sourceDoc) {
 
 async function makeFileEditable(documentId) {
   if (!getActiveCapabilities().canEditDocuments) {
-    setStatus(fileStatus, "You do not have permission to create editable documents in this library.", "error");
+    setStatus(fileStatus, "You do not have permission to create documents in this library.", "error");
     return;
   }
   const existing = getEditableDocumentForSource(documentId);
@@ -1633,7 +1633,7 @@ async function makeFileEditable(documentId) {
     return;
   }
 
-  setStatus(fileStatus, "Creating editable document...");
+  setStatus(fileStatus, "Creating document...");
   const { data: sourceDoc, error: sourceError } = await supabase
     .from("documents")
     .select("id, organization_id, title, original_filename, storage_path, extracted_text")
@@ -1645,7 +1645,7 @@ async function makeFileEditable(documentId) {
     return;
   }
   if (!isDocxDocument(sourceDoc) && !String(sourceDoc.extracted_text || "").trim()) {
-    setStatus(fileStatus, "This file has no extracted text yet. Run OCR before making it editable.", "error");
+    setStatus(fileStatus, "This file has no extracted text yet. Run OCR before editing it.", "error");
     return;
   }
 
@@ -1656,7 +1656,7 @@ async function makeFileEditable(documentId) {
     setStatus(fileStatus, error?.message || "Unable to convert this document.", "error");
     return;
   }
-  setStatus(fileStatus, "Creating editable document...");
+  setStatus(fileStatus, "Creating document...");
   const contentJson = conversion.contentJson;
   const plainText = conversion.plainText;
   const title = sourceDoc.title || String(sourceDoc.original_filename || "Untitled document").replace(/\.[^.]+$/, "");
@@ -1676,7 +1676,7 @@ async function makeFileEditable(documentId) {
 
   if (error) {
     const message = String(error.message || "").toLowerCase().includes("app_documents")
-      ? "Run the app_documents migration before converting files to editable documents."
+      ? "Run the app_documents migration before converting files to documents."
       : error.message;
     setStatus(fileStatus, message, "error");
     return;

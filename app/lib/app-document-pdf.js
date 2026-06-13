@@ -31,7 +31,7 @@ export async function createAppDocumentPdfObjectUrl({ config, accessToken, docum
 
   if (!response.ok) {
     const payload = await response.json().catch(() => ({}));
-    throw new Error(payload?.error || "Unable to generate editable document preview.");
+    throw new Error(payload?.error || "Unable to generate document preview.");
   }
 
   const blob = await response.blob();

@@ -770,7 +770,7 @@ async function loadAppDocuments(preferredId = "") {
   }
 
   await loadAppContacts();
-  setStatus(documentsStatus, "Loading editable documents...");
+  setStatus(documentsStatus, "Loading documents...");
   const { data, error } = await supabase
     .from("app_documents")
     .select("id, title, content_json, plain_text, status, document_kind, source_document_id, created_at, updated_at")
@@ -801,7 +801,7 @@ async function loadAppDocuments(preferredId = "") {
     show(editorForm, false);
   }
   renderOrganizationSelector();
-  setStatus(documentsStatus, `${appDocuments.length} editable document${appDocuments.length === 1 ? "" : "s"} and ${appTemplates.length} template${appTemplates.length === 1 ? "" : "s"} loaded.`, "success");
+  setStatus(documentsStatus, `${appDocuments.length} document${appDocuments.length === 1 ? "" : "s"} and ${appTemplates.length} template${appTemplates.length === 1 ? "" : "s"} loaded.`, "success");
 }
 
 async function createAppDocument(kind = "blank") {
@@ -933,8 +933,8 @@ async function deleteActiveDocument() {
   if (!activeDocumentId || !canDelete) return;
   const ok = await requestDocumentConfirm({
     kicker: activeDocumentKind === "template" ? "Delete template" : "Delete document",
-    title: activeDocumentKind === "template" ? "Remove this reusable template?" : "Remove this editable document?",
-    copy: activeDocumentKind === "template" ? "Users will no longer be able to create documents from this template." : "The uploaded source file is not deleted. This only removes the app-native editable draft.",
+    title: activeDocumentKind === "template" ? "Remove this reusable template?" : "Remove this document?",
+    copy: activeDocumentKind === "template" ? "Users will no longer be able to create documents from this template." : "The uploaded source file is not deleted. This only removes the document created in N3XRA.",
     confirmLabel: "Delete",
   });
   if (!ok) return;

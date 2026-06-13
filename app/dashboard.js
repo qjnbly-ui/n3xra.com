@@ -2949,7 +2949,7 @@ function renderRecentFiles() {
     item.innerHTML = `
       <div>
         <p class="download-name">${escapeHtml(getDocumentDisplayTitle(effectiveDoc))}</p>
-        <p class="download-meta">${escapeHtml(buildDocumentMetadata(doc, { includeVisibility: true, includeCreatedAt: false }))}${editableDoc ? " · Editable version" : ""}</p>
+        <p class="download-meta">${escapeHtml(buildDocumentMetadata(doc, { includeVisibility: true, includeCreatedAt: false }))}</p>
       </div>
       <div class="actions">
         <button class="btn secondary" type="button" data-action="open" data-id="${doc.id}">Open</button>
@@ -3206,11 +3206,11 @@ async function openSourceFilePreview(documentId) {
       downloadUrl: downloadSigned?.signedUrl || signedUrl,
     }
   );
-  fileModalDownload.textContent = "Download original";
+  fileModalDownload.textContent = "Download";
   show(fileModalOpenEditable, Boolean(editableDoc));
   if (editableDoc) {
     fileModalOpenEditable.href = `./documents?id=${encodeURIComponent(editableDoc.id)}`;
-    fileModalOpenEditable.textContent = getActiveCapabilities().canEditDocuments ? "Edit document" : "Open";
+    fileModalOpenEditable.textContent = getActiveCapabilities().canEditDocuments ? "Edit" : "Open";
   }
   show(fileModalOriginal, false);
 }
@@ -3220,7 +3220,7 @@ async function openEditableFilePreview(documentId, editableDoc) {
   if (!sourceDoc || !editableDoc) return false;
 
   activeModalDocumentId = documentId;
-  setStatus(docsStatus, "Generating editable preview...");
+  setStatus(docsStatus, "Generating PDF preview...");
 
   try {
     const objectUrl = await createAppDocumentPdfObjectUrl({
@@ -3239,7 +3239,7 @@ async function openEditableFilePreview(documentId, editableDoc) {
       },
       {
         doc: {
-          title: editableDoc.title || sourceDoc.title || sourceDoc.original_filename || "Editable document",
+          title: editableDoc.title || sourceDoc.title || sourceDoc.original_filename || "Document",
           original_filename: getAppDocumentPdfFilename(editableDoc),
         },
         previewUrl: objectUrl,
@@ -3250,12 +3250,12 @@ async function openEditableFilePreview(documentId, editableDoc) {
     fileModalDownload.textContent = "Download PDF";
     show(fileModalOpenEditable, true);
     fileModalOpenEditable.href = `./documents?id=${encodeURIComponent(editableDoc.id)}`;
-    fileModalOpenEditable.textContent = getActiveCapabilities().canEditDocuments ? "Edit document" : "Open";
+    fileModalOpenEditable.textContent = getActiveCapabilities().canEditDocuments ? "Edit" : "Open";
     show(fileModalOriginal, true);
     setStatus(docsStatus, "");
     return true;
   } catch (error) {
-    setStatus(docsStatus, error?.message || "Unable to generate editable preview.", "error");
+    setStatus(docsStatus, error?.message || "Unable to generate document preview.", "error");
     return false;
   }
 }
