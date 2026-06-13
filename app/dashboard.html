@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./styles.css?v=20260613-admin-settings">
+  <link rel="stylesheet" href="./styles.css?v=20260613-contact-form-toggle">
 </head>
 <body>
   <div class="shell">
@@ -198,34 +198,39 @@
                 </section>
 
                 <section class="admin-panel" id="admin-contacts-panel" role="tabpanel" aria-labelledby="admin-contacts-tab" data-admin-panel="contacts" hidden>
-                  <div class="admin-panel-head">
-                    <h4>Contacts</h4>
-                    <p>Save recipients for document sending, then invite a contact as a user when needed.</p>
+                  <div class="admin-panel-head admin-panel-head-row">
+                    <div>
+                      <h4>Contacts</h4>
+                      <p>Save recipients for document sending, then invite a contact as a user when needed.</p>
+                    </div>
+                    <button class="btn secondary" id="contact-form-toggle" type="button" aria-expanded="false" aria-controls="contact-form-panel">New contact</button>
                   </div>
                   <div class="stack hidden" id="contacts-settings-body">
                     <div class="settings-subsection" id="contact-management-body">
-                      <form class="stack" id="contact-form">
-                        <input id="contact-id" type="hidden">
-                        <div class="grid-2">
-                          <div class="field">
-                            <label for="contact-name">Name</label>
-                            <input id="contact-name" type="text" maxlength="120" placeholder="Jane Smith" required>
+                      <div class="contact-form-panel hidden" id="contact-form-panel">
+                        <form class="stack" id="contact-form">
+                          <input id="contact-id" type="hidden">
+                          <div class="grid-2">
+                            <div class="field">
+                              <label for="contact-name">Name</label>
+                              <input id="contact-name" type="text" maxlength="120" placeholder="Jane Smith" required>
+                            </div>
+                            <div class="field">
+                              <label for="contact-email">Email</label>
+                              <input id="contact-email" type="email" placeholder="jane@example.org" required>
+                            </div>
                           </div>
                           <div class="field">
-                            <label for="contact-email">Email</label>
-                            <input id="contact-email" type="email" placeholder="jane@example.org" required>
+                            <label for="contact-notes">Notes</label>
+                            <textarea id="contact-notes" rows="3" maxlength="500" placeholder="Board member, donor, city contact..."></textarea>
                           </div>
-                        </div>
-                        <div class="field">
-                          <label for="contact-notes">Notes</label>
-                          <textarea id="contact-notes" rows="3" maxlength="500" placeholder="Board member, donor, city contact..."></textarea>
-                        </div>
-                        <div class="actions">
-                          <button class="btn" id="contact-save" type="submit">Add contact</button>
-                          <button class="btn secondary hidden" id="contact-cancel-edit" type="button">Cancel edit</button>
-                        </div>
-                        <p class="status" id="contact-status"></p>
-                      </form>
+                          <div class="actions">
+                            <button class="btn" id="contact-save" type="submit">Add contact</button>
+                            <button class="btn secondary hidden" id="contact-cancel-edit" type="button">Cancel edit</button>
+                          </div>
+                        </form>
+                      </div>
+                      <p class="status" id="contact-status"></p>
                       <div class="table-shell">
                         <table class="data-table contact-table">
                           <thead>
@@ -888,6 +893,6 @@
   </div>
 
   <script src="./config.js"></script>
-  <script type="module" src="./dashboard.js?v=20260613-admin-settings"></script>
+  <script type="module" src="./dashboard.js?v=20260613-contact-form-toggle"></script>
 </body>
 </html>

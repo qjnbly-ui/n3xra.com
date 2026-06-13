@@ -173,6 +173,8 @@ const organizationAiMemoryAdd = document.getElementById("organization-ai-memory-
 const organizationAiSettingsSave = document.getElementById("organization-ai-settings-save");
 const organizationAiSettingsStatus = document.getElementById("organization-ai-settings-status");
 const contactsSettingsBody = document.getElementById("contacts-settings-body");
+const contactFormToggle = document.getElementById("contact-form-toggle");
+const contactFormPanel = document.getElementById("contact-form-panel");
 const contactForm = document.getElementById("contact-form");
 const contactIdInput = document.getElementById("contact-id");
 const contactNameInput = document.getElementById("contact-name");
@@ -3081,12 +3083,30 @@ function renderMembers() {
   }
 }
 
-function resetContactForm() {
+function setContactFormOpen(isOpen, shouldFocus = false) {
+  show(contactFormPanel, isOpen);
+  if (contactFormToggle) {
+    contactFormToggle.setAttribute("aria-expanded", String(Boolean(isOpen)));
+    contactFormToggle.textContent = isOpen ? "Hide form" : "New contact";
+  }
+  if (isOpen && shouldFocus) {
+    window.setTimeout(() => contactNameInput?.focus(), 0);
+  }
+}
+
+function resetContactForm({ keepOpen = false, clearStatus = false } = {}) {
   if (!contactForm) return;
   contactForm.reset();
   contactIdInput.value = "";
   contactSave.textContent = "Add contact";
   show(contactCancelEdit, false);
+  setContactFormOpen(keepOpen, keepOpen);
+  if (clearStatus) setStatus(contactStatus, "");
+}
+
+function toggleContactForm() {
+  const nextOpen = contactFormPanel?.classList.contains("hidden");
+  resetContactForm({ keepOpen: Boolean(nextOpen), clearStatus: true });
 }
 
 function renderContacts() {
@@ -4018,7 +4038,7 @@ async function handleContactAction(event) {
     contactNotesInput.value = contact.notes || "";
     contactSave.textContent = "Save contact";
     show(contactCancelEdit, true);
-    contactNameInput.focus();
+    setContactFormOpen(true, true);
     return;
   }
 
@@ -4553,9 +4573,9 @@ async function init() {
   libraryLogoRemove?.addEventListener("click", handleLibraryLogoRemove);
   organizationAiSettingsForm?.addEventListener("submit", handleOrganizationAiSettingsSave);
   contactForm?.addEventListener("submit", handleContactSave);
+  contactFormToggle?.addEventListener("click", toggleContactForm);
   contactCancelEdit?.addEventListener("click", () => {
-    resetContactForm();
-    setStatus(contactStatus, "");
+    resetContactForm({ clearStatus: true });
   });
   contactList?.addEventListener("click", handleContactAction);
   adminTabs.forEach((tab) => {

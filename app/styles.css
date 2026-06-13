@@ -1795,6 +1795,17 @@ textarea {
   font-weight: 800;
 }
 
+.contact-form-panel {
+  display: grid;
+  gap: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid rgba(15, 22, 32, 0.08);
+}
+
+.contact-form-panel.hidden {
+  display: none;
+}
+
 .embed-access-card {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
