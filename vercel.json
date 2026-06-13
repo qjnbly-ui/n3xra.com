@@ -16,19 +16,19 @@
   "rewrites": [
     {
       "source": "/app/library",
-      "destination": "/app/dashboard.html"
+      "destination": "/app/dashboard"
     },
     {
       "source": "/app/account",
-      "destination": "/app/dashboard.html"
+      "destination": "/app/dashboard"
     },
     {
       "source": "/app/meeting-notes",
-      "destination": "/app/recordings.html"
+      "destination": "/app/recordings"
     },
     {
       "source": "/app/all-meeting-notes",
-      "destination": "/app/all-recordings.html"
+      "destination": "/app/all-recordings"
     },
     {
       "source": "/library/:slug",
