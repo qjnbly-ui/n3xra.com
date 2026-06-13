@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>N3XRA | Account</title>
+  <meta name="description" content="Sign in once and open your N3XRA apps.">
+  <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
+  <link rel="canonical" href="https://n3xra.com/account">
+  <meta name="theme-color" content="#070c12">
+  <link rel="icon" type="image/png" sizes="284x284" href="../assets/n3xra_logo_transparent_small.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/site-nav.css">
+  <link rel="stylesheet" href="../app/styles.css?v=20260612-modal-system">
+  <link rel="stylesheet" href="./account.css">
+  <script src="../app/config.js"></script>
+  <script src="../assets/site-nav.js" defer></script>
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
+</head>
+<body>
+  <header class="site-topbar">
+    <div class="site-topbar-inner">
+      <div class="site-topbar-row">
+        <a class="site-brand" href="/" aria-label="N3XRA home">
+          <img src="../assets/n3xra_logo_transparent.png" alt="N3XRA">
+        </a>
+        <div class="site-nav-actions">
+          <a class="site-menu-link site-auth-link" href="/account">Account</a>
+          <button class="site-menu-toggle" type="button" aria-expanded="false" aria-controls="account-mobile-menu" aria-label="Open menu" data-site-menu-toggle>
+            <span></span>
+            <span></span>
+            <span></span>
+          </button>
+        </div>
+      </div>
+      <nav class="site-mobile-menu" id="account-mobile-menu" aria-label="Mobile primary" hidden>
+        <div class="site-mobile-menu-head">
+          <p class="site-mobile-menu-title">Navigate</p>
+        </div>
+        <a class="site-menu-link" href="/">Home</a>
+        <a class="site-menu-link" href="/records/">N3XRA Records</a>
+        <a class="site-menu-link" href="/ai-music-generator/">AI Music Generator</a>
+        <a class="site-menu-link" href="/support/">Support</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="account-main">
+    <section class="panel stack hidden" id="setup-panel">
+      <div class="panel-head">
+        <div>
+          <h2>Connect Supabase</h2>
+          <p>Add your project URL and anon key in <code class="inline">app/config.js</code> before using the account portal.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel account-panel hidden" id="account-panel">
+      <div class="account-hero">
+        <div>
+          <p class="auth-kicker">N3XRA Account</p>
+          <h1>One login for your N3XRA apps.</h1>
+          <p>Sign in once, manage your account, and open the tools connected to your email.</p>
+        </div>
+      </div>
+
+      <div class="account-card" id="auth-card">
+        <div class="auth-card-head">
+          <h2 id="auth-title">Sign in</h2>
+          <p id="auth-subtitle">Use your N3XRA account to continue.</p>
+        </div>
+
+        <div class="auth-toggle" role="tablist" aria-label="Account options">
+          <button class="auth-toggle-btn is-active" id="show-signin-button" type="button" aria-pressed="true">Sign in</button>
+          <button class="auth-toggle-btn" id="show-signup-button" type="button" aria-pressed="false">Create account</button>
+        </div>
+
+        <form class="auth-form" id="signin-form">
+          <div class="field">
+            <label for="signin-email">Email</label>
+            <input id="signin-email" type="email" autocomplete="email" required>
+          </div>
+          <div class="field">
+            <label for="signin-password">Password</label>
+            <input id="signin-password" type="password" autocomplete="current-password" required>
+          </div>
+          <button class="btn block" type="submit">Sign in</button>
+          <button class="btn secondary block" id="forgot-password-button" type="button">Forgot password?</button>
+        </form>
+
+        <form class="auth-form hidden" id="signup-form">
+          <div class="field">
+            <label for="signup-full-name">Full name</label>
+            <input id="signup-full-name" type="text" autocomplete="name" required>
+          </div>
+          <div class="field">
+            <label for="signup-email">Email</label>
+            <input id="signup-email" type="email" autocomplete="email" required>
+          </div>
+          <div class="field">
+            <label for="signup-password">Password</label>
+            <input id="signup-password" type="password" autocomplete="new-password" minlength="8" required>
+          </div>
+          <div class="field">
+            <label for="signup-password-confirm">Confirm password</label>
+            <input id="signup-password-confirm" type="password" autocomplete="new-password" minlength="8" required>
+          </div>
+          <div class="field hidden" id="invite-code-field">
+            <label for="signup-invite-code">Records invite code</label>
+            <input id="signup-invite-code" type="text" autocomplete="off">
+          </div>
+          <button class="btn block" type="submit">Create account</button>
+        </form>
+
+        <div class="field auth-captcha hidden" id="auth-captcha-field">
+          <label>Security check</label>
+          <div id="auth-turnstile"></div>
+          <p class="field-note">Complete this check before signing in, creating an account, or sending a password reset.</p>
+        </div>
+      </div>
+
+      <div class="account-card hidden" id="recovery-card">
+        <div class="auth-card-head">
+          <h2>Reset password</h2>
+          <p>Choose a new password for your N3XRA account.</p>
+        </div>
+        <form class="auth-form" id="recovery-form">
+          <div class="field">
+            <label for="recovery-password">New password</label>
+            <input id="recovery-password" type="password" autocomplete="new-password" minlength="8" required>
+          </div>
+          <div class="field">
+            <label for="recovery-password-confirm">Confirm new password</label>
+            <input id="recovery-password-confirm" type="password" autocomplete="new-password" minlength="8" required>
+          </div>
+          <button class="btn block" type="submit">Update password</button>
+        </form>
+      </div>
+
+      <div class="account-card account-dashboard hidden" id="dashboard-card">
+        <div class="dashboard-head">
+          <div>
+            <p class="auth-kicker">Signed in</p>
+            <h2 id="account-name">N3XRA account</h2>
+            <p id="account-email"></p>
+          </div>
+          <button class="btn secondary" id="signout-button" type="button">Sign out</button>
+        </div>
+
+        <div class="app-grid">
+          <article class="app-card">
+            <div>
+              <p class="auth-kicker">Records</p>
+              <h3>N3XRA Records</h3>
+              <p id="records-summary">Manage records, files, documents, and meeting notes.</p>
+            </div>
+            <button class="btn block" id="open-records-button" type="button">Open Records</button>
+          </article>
+
+          <article class="app-card">
+            <div>
+              <p class="auth-kicker">AI Music</p>
+              <h3>AI Music Generator</h3>
+              <p id="music-summary">Create and save AI-generated songs.</p>
+            </div>
+            <button class="btn secondary block" id="open-music-button" type="button">Open AI Music</button>
+          </article>
+        </div>
+
+        <details class="account-settings">
+          <summary>Account settings</summary>
+          <form class="auth-form settings-form" id="profile-form">
+            <div class="field">
+              <label for="profile-full-name">Display name</label>
+              <input id="profile-full-name" type="text" autocomplete="name">
+            </div>
+            <button class="btn secondary" type="submit">Save name</button>
+          </form>
+
+          <form class="auth-form settings-form" id="password-form">
+            <div class="field">
+              <label for="account-password">New password</label>
+              <input id="account-password" type="password" autocomplete="new-password" minlength="8">
+            </div>
+            <div class="field">
+              <label for="account-password-confirm">Confirm new password</label>
+              <input id="account-password-confirm" type="password" autocomplete="new-password" minlength="8">
+            </div>
+            <button class="btn secondary" type="submit">Update password</button>
+          </form>
+        </details>
+      </div>
+
+      <p class="status account-status" id="account-status"></p>
+    </section>
+  </main>
+
+  <script type="module" src="./account.js"></script>
+</body>
+</html>

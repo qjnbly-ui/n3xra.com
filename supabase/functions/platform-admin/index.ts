@@ -82,7 +82,7 @@ Deno.serve(async (request) => {
         return jsonResponse({ error: "email is required." }, 400);
       }
 
-      const redirectTo = `${getAppOrigin(request)}/app/reset-password.html`;
+      const redirectTo = `${getAppOrigin(request)}/app/reset-password`;
       const { error } = await adminClient.auth.resetPasswordForEmail(email, {
         redirectTo,
       });

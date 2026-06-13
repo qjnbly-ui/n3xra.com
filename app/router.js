@@ -1,4 +1,9 @@
-import { createBrowserSupabase, hasConfig, getSessionOrNull } from "./lib/supabase-client.js";
+import {
+  createBrowserSupabase,
+  exchangeAuthCodeForSessionIfPresent,
+  hasConfig,
+  getSessionOrNull,
+} from "./lib/supabase-client.js";
 import { isPlatformAdminEmail } from "./lib/orgs.js";
 
 async function route() {
@@ -9,7 +14,7 @@ async function route() {
 
   const supabase = createBrowserSupabase();
   try {
-    const session = await getSessionOrNull(supabase);
+    const session = await exchangeAuthCodeForSessionIfPresent(supabase) || await getSessionOrNull(supabase);
     if (!session?.user) {
       window.location.replace("./login");
       return;

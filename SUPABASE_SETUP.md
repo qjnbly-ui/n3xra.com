@@ -55,10 +55,19 @@ You do **not** need to add anything to Vercel environment variables for this ver
 
 1. Make sure you ran [supabase/schema.sql](/Users/quentinnichols/Documents/Websites/PublicRecordsApp/supabase/schema.sql)
 2. In `Authentication -> Providers`, make sure email/password auth is enabled
-3. Deploy the site files to Vercel or your website
-4. Open `/app/`
-5. Create an account
-6. Upload a supported file
+3. In `Authentication -> URL Configuration`, set the Site URL to `https://n3xra.com` and add these Redirect URLs:
+   - `https://n3xra.com/account`
+   - `https://www.n3xra.com/account`
+   - `https://n3xra.com/app`
+   - `https://n3xra.com/app/login`
+   - `https://n3xra.com/app/reset-password`
+   - `https://www.n3xra.com/app`
+   - `https://www.n3xra.com/app/login`
+   - `https://www.n3xra.com/app/reset-password`
+4. Deploy the site files to Vercel or your website
+5. Open `/app/`
+6. Create an account
+7. Upload a supported file
 
 If billing fields were added before this pass, rerun [supabase/schema.sql](/Users/quentinnichols/Documents/Websites/PublicRecordsApp/supabase/schema.sql) so the new billing-protection trigger is installed.
 

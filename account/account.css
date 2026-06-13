@@ -1,0 +1,155 @@
+body {
+  min-height: 100svh;
+  background:
+    radial-gradient(760px 360px at 9% 8%, rgba(23, 111, 102, 0.14), transparent 58%),
+    radial-gradient(680px 340px at 92% 6%, rgba(234, 155, 63, 0.12), transparent 58%),
+    linear-gradient(180deg, #f8fafc 0%, #edf2f7 100%);
+}
+
+.account-main {
+  width: min(1180px, calc(100vw - 2rem));
+  margin: 0 auto;
+  padding: clamp(7rem, 12vw, 9rem) 0 clamp(2rem, 5vw, 4rem);
+}
+
+.account-panel {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.85fr) minmax(340px, 1fr);
+  gap: 1rem;
+  align-items: stretch;
+}
+
+.account-hero {
+  border-radius: var(--radius-lg);
+  color: var(--white);
+  padding: clamp(1.4rem, 4vw, 2.5rem);
+  min-height: 520px;
+  display: grid;
+  align-items: end;
+  background:
+    radial-gradient(520px 300px at 14% 10%, rgba(22, 185, 237, 0.28), transparent 60%),
+    radial-gradient(460px 260px at 92% 12%, rgba(234, 155, 63, 0.26), transparent 58%),
+    linear-gradient(145deg, #07111d 0%, #111c2b 52%, #070c12 100%);
+  overflow: hidden;
+}
+
+.account-hero h1 {
+  margin: 0.7rem 0;
+  max-width: 11ch;
+  font-family: "Fraunces", "Times New Roman", serif;
+  font-size: clamp(2.4rem, 7vw, 4.6rem);
+  line-height: 0.98;
+}
+
+.account-hero p:not(.auth-kicker) {
+  margin: 0;
+  max-width: 36ch;
+  color: rgba(255, 255, 255, 0.76);
+  font-weight: 700;
+}
+
+.account-card {
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(10px);
+  padding: clamp(1.2rem, 3vw, 1.8rem);
+  display: grid;
+  gap: 1rem;
+  align-content: start;
+}
+
+.account-card h2,
+.app-card h3 {
+  margin: 0;
+  font-family: "Fraunces", "Times New Roman", serif;
+}
+
+.dashboard-head {
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.dashboard-head h2 {
+  margin: 0.2rem 0;
+}
+
+.dashboard-head p {
+  margin: 0;
+  color: var(--slate);
+}
+
+.app-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.app-card {
+  border: 1px solid rgba(15, 22, 32, 0.1);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+  background: #fbfcfd;
+  display: grid;
+  gap: 1rem;
+}
+
+.app-card p:not(.auth-kicker) {
+  margin: 0.4rem 0 0;
+  color: var(--slate);
+}
+
+.account-settings {
+  border-top: 1px solid var(--line);
+  padding-top: 1rem;
+}
+
+.account-settings summary {
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.settings-form {
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid rgba(15, 22, 32, 0.09);
+  border-radius: var(--radius-md);
+  background: #fbfcfd;
+}
+
+.account-status {
+  grid-column: 2;
+  margin: 0;
+}
+
+@media (max-width: 860px) {
+  .account-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .account-hero {
+    min-height: 320px;
+  }
+
+  .account-status {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 620px) {
+  .account-main {
+    width: min(100vw - 1rem, 1180px);
+  }
+
+  .app-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .account-card,
+  .account-hero {
+    border-radius: 12px;
+  }
+}

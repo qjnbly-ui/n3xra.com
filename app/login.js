@@ -1,4 +1,11 @@
-import { createBrowserSupabase, getConfig, hasConfig, getSessionOrNull } from "./lib/supabase-client.js";
+import {
+  createBrowserSupabase,
+  exchangeAuthCodeForSessionIfPresent,
+  getAppUrl,
+  getConfig,
+  hasConfig,
+  getSessionOrNull,
+} from "./lib/supabase-client.js";
 import { setStoredActiveOrganizationId } from "./lib/orgs.js";
 
 const PLATFORM_ADMIN_EMAIL = "quentin@quentinnichols.com";
@@ -28,7 +35,7 @@ const signupModePersonalButton = document.getElementById("signup-mode-personal")
 const signupModeInviteButton = document.getElementById("signup-mode-invite");
 const authCaptchaField = document.getElementById("auth-captcha-field");
 const authTurnstile = document.getElementById("auth-turnstile");
-const RECORDS_CONFIRM_REDIRECT_PATH = "/app/login/";
+const RECORDS_CONFIRM_REDIRECT_PATH = "/app/login";
 
 let supabase = null;
 let isSubmittingAuth = false;
@@ -136,6 +143,17 @@ function getErrorMessage(error, fallback) {
     return error.message;
   }
   return fallback;
+}
+
+function getAuthErrorMessage(error) {
+  const message = getErrorMessage(error, "Unable to sign in.");
+  const normalized = message.toLowerCase();
+
+  if (normalized.includes("email not confirmed") || normalized.includes("email_not_confirmed")) {
+    return "Email not confirmed. Please open the confirmation email we sent and confirm your account before signing in. If you do not see it, check your junk or spam folder.";
+  }
+
+  return message;
 }
 
 async function notifyNewAccount(payload) {
@@ -281,7 +299,7 @@ function applyInviteLinkPrefill() {
 }
 
 async function loadSessionState() {
-  const session = await getSessionOrNull(supabase);
+  const session = await exchangeAuthCodeForSessionIfPresent(supabase) || await getSessionOrNull(supabase);
   setAuthedState(session);
   return session;
 }
@@ -350,7 +368,7 @@ async function handleSignup(event) {
   if (error) {
     resetCaptcha();
     isSubmittingAuth = false;
-    setStatus(error.message, "error");
+    setStatus(getAuthErrorMessage(error), "error");
     return;
   }
 
@@ -389,7 +407,7 @@ async function handleSignup(event) {
   if (signinEmailInput) signinEmailInput.value = email;
   if (signinPasswordInput) signinPasswordInput.value = password;
   setStatus(
-    "Account created. Confirm your email, then click Sign in. Your email and password are already filled in.",
+    "Account created. Please open the confirmation email and confirm your account before signing in. If you do not see it, check your junk or spam folder. Your email and password are already filled in.",
     "success"
   );
 }
@@ -418,7 +436,7 @@ async function handleSignin(event) {
   if (error) {
     resetCaptcha();
     isSubmittingAuth = false;
-    setStatus(error.message, "error");
+    setStatus(getAuthErrorMessage(error), "error");
     return;
   }
 
@@ -461,9 +479,10 @@ async function handleForgotPassword() {
 
   setStatus("Sending password reset...");
 
-  const redirectTo = `${window.location.origin}/app/reset-password`;
+  const redirectTo = getAppUrl("/app/reset-password");
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo,  });
+    redirectTo,
+  });
 
   resetCaptcha();
   isSubmittingAuth = false;

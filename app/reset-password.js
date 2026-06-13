@@ -1,4 +1,9 @@
-import { createBrowserSupabase, hasConfig, getSessionOrNull } from "./lib/supabase-client.js";
+import {
+  createBrowserSupabase,
+  exchangeAuthCodeForSessionIfPresent,
+  hasConfig,
+  getSessionOrNull,
+} from "./lib/supabase-client.js";
 
 const setupPanel = document.getElementById("setup-panel");
 const resetPanel = document.getElementById("reset-panel");
@@ -89,7 +94,14 @@ async function handleReset(event) {
 }
 
 async function resolveRecoveryState() {
-  const session = await getSessionOrNull(supabase);
+  let session = null;
+  try {
+    session = await exchangeAuthCodeForSessionIfPresent(supabase) || await getSessionOrNull(supabase);
+  } catch (error) {
+    markRecoveryFailed(error?.message || "This password reset link is invalid or has expired.");
+    return;
+  }
+
   if (session?.user) {
     markRecoveryReady();
     return;
