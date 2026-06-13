@@ -43,18 +43,14 @@ const librarySearchPanel = document.getElementById("library-search-panel");
 const libraryRecentPanel = document.getElementById("library-recent-panel");
 const billingSection = document.getElementById("billing-section");
 const libraryAccessCard = document.getElementById("library-access-card");
-const libraryProfileToggle = document.getElementById("library-profile-toggle");
 const libraryProfileBody = document.getElementById("library-profile-body");
 const libraryLogoForm = document.getElementById("library-logo-form");
 const libraryLogoFileInput = document.getElementById("library-logo-file");
 const libraryLogoUpload = document.getElementById("library-logo-upload");
 const libraryLogoRemove = document.getElementById("library-logo-remove");
 const libraryLogoStatus = document.getElementById("library-logo-status");
-const accessSettingsToggle = document.getElementById("access-settings-toggle");
 const accessSettingsBody = document.getElementById("access-settings-body");
-const publishingSettingsToggle = document.getElementById("publishing-settings-toggle");
 const publishingSettingsBody = document.getElementById("publishing-settings-body");
-const billingSettingsToggle = document.getElementById("billing-settings-toggle");
 const billingSettingsBody = document.getElementById("billing-settings-body");
 const redeemInviteBody = document.getElementById("redeem-invite-body");
 const inviteManagementBody = document.getElementById("invite-management-body");
@@ -166,7 +162,6 @@ const organizationPrimaryColorInput = document.getElementById("organization-prim
 const organizationAccentColorInput = document.getElementById("organization-accent-color");
 const organizationSettingsSave = document.getElementById("organization-settings-save");
 const organizationSettingsStatus = document.getElementById("organization-settings-status");
-const aiSettingsToggle = document.getElementById("ai-settings-toggle");
 const aiSettingsBody = document.getElementById("ai-settings-body");
 const organizationAiSettingsForm = document.getElementById("organization-ai-settings-form");
 const organizationAiContextInput = document.getElementById("organization-ai-context");
@@ -177,7 +172,6 @@ const organizationAiMemoryNewInput = document.getElementById("organization-ai-me
 const organizationAiMemoryAdd = document.getElementById("organization-ai-memory-add");
 const organizationAiSettingsSave = document.getElementById("organization-ai-settings-save");
 const organizationAiSettingsStatus = document.getElementById("organization-ai-settings-status");
-const contactsSettingsToggle = document.getElementById("contacts-settings-toggle");
 const contactsSettingsBody = document.getElementById("contacts-settings-body");
 const contactForm = document.getElementById("contact-form");
 const contactIdInput = document.getElementById("contact-id");
@@ -188,7 +182,6 @@ const contactSave = document.getElementById("contact-save");
 const contactCancelEdit = document.getElementById("contact-cancel-edit");
 const contactStatus = document.getElementById("contact-status");
 const contactList = document.getElementById("contact-list");
-const reviewSettingsToggle = document.getElementById("review-settings-toggle");
 const reviewSettingsBody = document.getElementById("review-settings-body");
 const organizationReviewForm = document.getElementById("organization-review-form");
 const organizationReviewRating = document.getElementById("organization-review-rating");
@@ -260,6 +253,13 @@ const docList = document.getElementById("doc-list");
 const docEmpty = document.getElementById("doc-empty");
 const recentFilesList = document.getElementById("recent-files-list");
 const recentFilesEmpty = document.getElementById("recent-files-empty");
+const adminTabs = Array.from(document.querySelectorAll("[data-admin-tab]"));
+const adminPanels = Array.from(document.querySelectorAll("[data-admin-panel]"));
+const adminUsersInviteButton = document.getElementById("admin-users-invite");
+const adminNewTemplateButton = document.getElementById("admin-new-template");
+const adminTemplateList = document.getElementById("admin-template-list");
+const adminTemplateEmpty = document.getElementById("admin-template-empty");
+const adminTemplateStatus = document.getElementById("admin-template-status");
 
 let supabase = null;
 let currentSession = null;
@@ -274,11 +274,13 @@ let searchMode = "keyword";
 let inviteCache = [];
 let memberCache = [];
 let contactCache = [];
+let appTemplates = [];
 let recordsAiUsageSummary = null;
 let organizationReview = null;
 let organizationLogoUrls = new Map();
 let uploadMode = "single";
 let selectedBillingCycle = "monthly";
+let activeAdminTab = "users";
 const libraryAiSearchHistory = [];
 const LIBRARY_AI_SEARCH_HISTORY_LIMIT = 8;
 let lastAiSearchMatches = [];
@@ -656,6 +658,49 @@ function rememberLibraryAiSearchTurn(question, answer) {
 function show(el, visible) {
   if (!el) return;
   el.classList.toggle("hidden", !visible);
+}
+
+function setAdminTab(tabName) {
+  const visibleTabs = adminTabs.filter((tab) => !tab.classList.contains("hidden"));
+  const target = visibleTabs.find((tab) => tab.getAttribute("data-admin-tab") === tabName) || visibleTabs[0] || null;
+  activeAdminTab = target?.getAttribute("data-admin-tab") || "";
+
+  adminTabs.forEach((tab) => {
+    const isActive = tab.getAttribute("data-admin-tab") === activeAdminTab;
+    tab.classList.toggle("is-active", isActive);
+    tab.setAttribute("aria-selected", String(isActive));
+    tab.tabIndex = isActive ? 0 : -1;
+  });
+
+  adminPanels.forEach((panel) => {
+    const isActive = panel.getAttribute("data-admin-panel") === activeAdminTab;
+    panel.classList.toggle("is-active", isActive);
+    panel.hidden = !isActive;
+  });
+}
+
+function updateAdminTabs(availability = {}) {
+  adminTabs.forEach((tab) => {
+    const name = tab.getAttribute("data-admin-tab") || "";
+    const visible = Boolean(availability[name]);
+    show(tab, visible);
+    tab.disabled = !visible;
+  });
+
+  const hasVisibleTab = adminTabs.some((tab) => !tab.classList.contains("hidden"));
+  if (!hasVisibleTab) {
+    adminPanels.forEach((panel) => {
+      panel.classList.remove("is-active");
+      panel.hidden = true;
+    });
+    activeAdminTab = "";
+    return;
+  }
+
+  if (!availability[activeAdminTab]) {
+    activeAdminTab = adminTabs.find((tab) => !tab.classList.contains("hidden"))?.getAttribute("data-admin-tab") || "";
+  }
+  setAdminTab(activeAdminTab);
 }
 
 function getErrorMessage(error, fallback) {
@@ -2147,6 +2192,35 @@ async function loadContacts() {
   renderContacts();
 }
 
+async function loadAppTemplates() {
+  const organization = getActiveOrganization();
+  if (!organization || !getActiveCapabilities().canManageTemplates) {
+    appTemplates = [];
+    renderAdminTemplates();
+    return;
+  }
+
+  const { data, error } = await supabase
+    .from("app_documents")
+    .select("id, title, status, updated_at, created_at")
+    .eq("organization_id", organization.id)
+    .eq("document_kind", "template")
+    .order("updated_at", { ascending: false });
+
+  if (error) {
+    appTemplates = [];
+    const message = isMissingAppDocumentsSchemaError(error)
+      ? "Run the app_documents migration before managing templates."
+      : error.message;
+    setStatus(adminTemplateStatus, message, "error");
+    renderAdminTemplates();
+    return;
+  }
+
+  appTemplates = Array.isArray(data) ? data : [];
+  renderAdminTemplates();
+}
+
 async function loadRecordsAiUsage() {
   const organization = getActiveOrganization();
   recordsAiUsageSummary = null;
@@ -2471,6 +2545,9 @@ function renderProfile() {
   const canSeePublishingSettings = canSeeEmbedSettings;
   const canSeeBillingSettings = hasLibraryAccess && canSeeBilling;
   const canSeeReviewSettings = hasLibraryAccess && capabilities.canManageLibrarySettings;
+  const canSeeTemplateSettings = hasLibraryAccess && capabilities.canManageTemplates;
+  const canSeeLibraryAdminTab = canSeeLibraryProfileSettings || canSeePublishingSettings || canSeeReviewSettings;
+  const canSeeAiAdminTab = hasLibraryAccess && canSeeLibrarySettings;
   const canCreateAdditionalLibrary = canCreateOwnedLibrary();
   const canSeePlanMeta = capabilities.canManageBilling || capabilities.canManageLibrarySettings;
   const canEditLibraryNameFromProfile = capabilities.canManageLibrarySettings;
@@ -2537,19 +2614,13 @@ function renderProfile() {
   show(organizationNameField, canEditLibraryNameFromProfile);
   show(organizationPrimaryColorField, !isFreePlan);
   show(organizationAccentColorField, !isFreePlan);
-  show(libraryProfileToggle, canSeeLibraryProfileSettings);
-  show(libraryProfileBody, canSeeLibraryProfileSettings && !libraryProfileBody.classList.contains("hidden"));
-  show(aiSettingsToggle, hasLibraryAccess && canSeeLibrarySettings);
-  show(aiSettingsBody, hasLibraryAccess && canSeeLibrarySettings && !aiSettingsBody.classList.contains("hidden"));
-  show(contactsSettingsToggle, canSeeContactsSettings);
-  show(contactsSettingsBody, canSeeContactsSettings && !contactsSettingsBody.classList.contains("hidden"));
-  show(accessSettingsToggle, canSeeAccessSettings);
-  show(accessSettingsBody, canSeeAccessSettings && !accessSettingsBody.classList.contains("hidden"));
-  show(publishingSettingsToggle, canSeePublishingSettings);
-  show(publishingSettingsBody, canSeePublishingSettings && !publishingSettingsBody.classList.contains("hidden"));
-  show(billingSettingsBody, canSeeBillingSettings && !billingSettingsBody.classList.contains("hidden"));
-  show(reviewSettingsToggle, canSeeReviewSettings);
-  show(reviewSettingsBody, canSeeReviewSettings && !reviewSettingsBody.classList.contains("hidden"));
+  show(libraryProfileBody, canSeeLibraryProfileSettings);
+  show(aiSettingsBody, canSeeAiAdminTab);
+  show(contactsSettingsBody, canSeeContactsSettings);
+  show(accessSettingsBody, canSeeAccessSettings);
+  show(publishingSettingsBody, canSeePublishingSettings);
+  show(billingSettingsBody, canSeeBillingSettings);
+  show(reviewSettingsBody, canSeeReviewSettings);
   show(redeemInviteBody, hasLibraryAccess);
   show(additionalLibraryBody, hasLibraryAccess);
   show(inviteManagementBody, canSeeInviteManagement);
@@ -2562,28 +2633,20 @@ function renderProfile() {
   show(openDeleteAccountModalButton, canDeleteAccountNow);
   show(deleteAccountBlockedNote, !canDeleteAccountNow);
   libraryAccessCopy.textContent = capabilities.canManageLibrarySettings
-    ? "Manage profile, AI, access, publishing, billing, and review settings for this library."
+    ? "Manage users, contacts, templates, access, library profile, AI, and billing for this library."
     : "Join shared libraries from invite codes and review available settings.";
+  updateAdminTabs({
+    users: canSeeMemberManagement,
+    contacts: canSeeContactsSettings,
+    templates: canSeeTemplateSettings,
+    access: canSeeAccessSettings,
+    library: canSeeLibraryAdminTab,
+    ai: canSeeAiAdminTab,
+    billing: canSeeBillingSettings,
+  });
+  renderAdminTemplates();
   if (!capabilities.canManageBilling) {
     setBillingPlanPickerOpen(false);
-  }
-  if (!canSeeEmbedSettings) {
-    setSectionToggleOpen(publishingSettingsToggle, publishingSettingsBody, false);
-  }
-  if (!canSeeLibrarySettings) {
-    setSectionToggleOpen(aiSettingsToggle, aiSettingsBody, false);
-  }
-  if (!canSeeAccessSettings) {
-    setSectionToggleOpen(accessSettingsToggle, accessSettingsBody, false);
-  }
-  if (!canSeeBillingSettings) {
-    setSectionToggleOpen(billingSettingsToggle, billingSettingsBody, false);
-  }
-  if (!canSeeLibraryProfileSettings) {
-    setSectionToggleOpen(libraryProfileToggle, libraryProfileBody, false);
-  }
-  if (!canSeeReviewSettings) {
-    setSectionToggleOpen(reviewSettingsToggle, reviewSettingsBody, false);
   }
 
   Array.from(createInviteForm.elements).forEach((field) => {
@@ -3060,6 +3123,74 @@ function renderContacts() {
   });
 }
 
+function renderAdminTemplates() {
+  if (!adminTemplateList) return;
+  const canManageTemplates = getActiveCapabilities().canManageTemplates;
+  adminTemplateList.innerHTML = "";
+  show(adminNewTemplateButton, canManageTemplates);
+  show(adminTemplateEmpty, appTemplates.length === 0);
+
+  if (!appTemplates.length) {
+    return;
+  }
+
+  appTemplates.forEach((template) => {
+    const item = document.createElement("div");
+    item.className = "admin-template-row";
+    item.innerHTML = `
+      <div>
+        <p class="admin-template-title">${escapeHtml(template.title || "Untitled template")}</p>
+        <p class="admin-template-meta">${escapeHtml(titleCase(template.status || "draft"))} · ${escapeHtml(new Date(template.updated_at || template.created_at).toLocaleDateString())}</p>
+      </div>
+      <div class="actions">
+        <button class="btn secondary" type="button" data-template-action="edit" data-template-id="${escapeHtml(template.id)}">Edit</button>
+        <button class="btn secondary" type="button" data-template-action="delete" data-template-id="${escapeHtml(template.id)}">Delete</button>
+      </div>
+    `;
+    adminTemplateList.append(item);
+  });
+}
+
+async function handleAdminTemplateAction(event) {
+  const button = event.target instanceof Element ? event.target.closest("[data-template-action]") : null;
+  if (!button) return;
+  const action = button.getAttribute("data-template-action") || "";
+  const templateId = button.getAttribute("data-template-id") || "";
+  const template = appTemplates.find((item) => item.id === templateId);
+  if (!template) return;
+
+  if (action === "edit") {
+    window.location.href = `./documents?id=${encodeURIComponent(template.id)}`;
+    return;
+  }
+
+  if (action !== "delete") return;
+  const ok = await confirmAction({
+    kicker: "Delete template",
+    title: "Remove this reusable template?",
+    message: "Existing documents created from this template will stay. Users will no longer be able to create new documents from it.",
+    confirmLabel: "Delete",
+  });
+  if (!ok) return;
+
+  button.disabled = true;
+  setStatus(adminTemplateStatus, "Deleting template...");
+  const { error } = await supabase
+    .from("app_documents")
+    .delete()
+    .eq("id", template.id)
+    .eq("document_kind", "template");
+
+  if (error) {
+    button.disabled = false;
+    setStatus(adminTemplateStatus, error.message, "error");
+    return;
+  }
+
+  setStatus(adminTemplateStatus, "Template deleted.", "success");
+  await loadAppTemplates();
+}
+
 async function loadDocuments() {
   const organization = getActiveOrganization();
   if (!organization) return;
@@ -3123,6 +3254,7 @@ async function loadActiveOrganizationData() {
     inviteCache = [];
     memberCache = [];
     contactCache = [];
+    appTemplates = [];
     recordsAiUsageSummary = null;
     organizationReview = null;
     resetLibraryAiSearchHistory();
@@ -3132,10 +3264,12 @@ async function loadActiveOrganizationData() {
     renderInvites();
     renderMembers();
     renderContacts();
+    renderAdminTemplates();
     renderProfile();
     setStatus(docsStatus, "");
     setStatus(createInviteStatus, "");
     setStatus(memberStatus, "");
+    setStatus(adminTemplateStatus, "");
     return;
   }
 
@@ -3145,6 +3279,7 @@ async function loadActiveOrganizationData() {
     loadInvites(),
     loadMembers(),
     loadContacts(),
+    loadAppTemplates(),
     loadRecordsAiUsage(),
     loadOrganizationAiSettings(),
     loadOrganizationReview(),
@@ -4414,22 +4549,23 @@ async function init() {
   profileForm.addEventListener("submit", handleProfileSave);
   recordsHelpToggle?.addEventListener("click", () => setSectionToggleOpen(recordsHelpToggle, recordsHelpBody, recordsHelpBody.classList.contains("hidden")));
   recordsHelpForm?.addEventListener("submit", handleRecordsHelpSubmit);
-  libraryProfileToggle?.addEventListener("click", () => setSectionToggleOpen(libraryProfileToggle, libraryProfileBody, libraryProfileBody.classList.contains("hidden")));
   libraryLogoForm?.addEventListener("submit", handleLibraryLogoUpload);
   libraryLogoRemove?.addEventListener("click", handleLibraryLogoRemove);
-  aiSettingsToggle?.addEventListener("click", () => setSectionToggleOpen(aiSettingsToggle, aiSettingsBody, aiSettingsBody.classList.contains("hidden")));
   organizationAiSettingsForm?.addEventListener("submit", handleOrganizationAiSettingsSave);
-  contactsSettingsToggle?.addEventListener("click", () => setSectionToggleOpen(contactsSettingsToggle, contactsSettingsBody, contactsSettingsBody.classList.contains("hidden")));
   contactForm?.addEventListener("submit", handleContactSave);
   contactCancelEdit?.addEventListener("click", () => {
     resetContactForm();
     setStatus(contactStatus, "");
   });
   contactList?.addEventListener("click", handleContactAction);
-  accessSettingsToggle?.addEventListener("click", () => setSectionToggleOpen(accessSettingsToggle, accessSettingsBody, accessSettingsBody.classList.contains("hidden")));
-  publishingSettingsToggle?.addEventListener("click", () => setSectionToggleOpen(publishingSettingsToggle, publishingSettingsBody, publishingSettingsBody.classList.contains("hidden")));
-  billingSettingsToggle?.addEventListener("click", () => setSectionToggleOpen(billingSettingsToggle, billingSettingsBody, billingSettingsBody.classList.contains("hidden")));
-  reviewSettingsToggle?.addEventListener("click", () => setSectionToggleOpen(reviewSettingsToggle, reviewSettingsBody, reviewSettingsBody.classList.contains("hidden")));
+  adminTabs.forEach((tab) => {
+    tab.addEventListener("click", () => setAdminTab(tab.getAttribute("data-admin-tab") || ""));
+  });
+  adminUsersInviteButton?.addEventListener("click", () => setAdminTab("access"));
+  adminNewTemplateButton?.addEventListener("click", () => {
+    window.location.href = "./documents?new=template";
+  });
+  adminTemplateList?.addEventListener("click", handleAdminTemplateAction);
   organizationReviewForm?.addEventListener("submit", handleOrganizationReviewSave);
   organizationAiMemoryAdd?.addEventListener("click", addAiMemoryFromInput);
   organizationAiMemoryNewInput?.addEventListener("keydown", (event) => {
@@ -4596,12 +4732,6 @@ async function init() {
   });
 }
 
-setSectionToggleOpen(libraryProfileToggle, libraryProfileBody, false);
-setSectionToggleOpen(contactsSettingsToggle, contactsSettingsBody, false);
-setSectionToggleOpen(accessSettingsToggle, accessSettingsBody, false);
-setSectionToggleOpen(publishingSettingsToggle, publishingSettingsBody, false);
-setSectionToggleOpen(billingSettingsToggle, billingSettingsBody, false);
-setSectionToggleOpen(reviewSettingsToggle, reviewSettingsBody, false);
 setUploadMode("single");
 setBillingCycle("monthly");
 init();

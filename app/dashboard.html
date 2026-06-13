@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./styles.css?v=20260612-modal-system">
+  <link rel="stylesheet" href="./styles.css?v=20260613-admin-settings">
 </head>
 <body>
   <div class="shell">
@@ -152,372 +152,391 @@
           <section class="account-card" id="library-access-card">
             <div class="panel-head">
               <div>
-                <h3>Library settings</h3>
-                <p id="library-access-copy">Manage profile, AI, access, publishing, billing, and review settings for the selected library.</p>
+                <h3>Admin settings</h3>
+                <p id="library-access-copy">Manage users, contacts, templates, access, library profile, AI, and billing for the selected library.</p>
               </div>
             </div>
-            <button class="section-toggle" id="library-profile-toggle" type="button" aria-expanded="false" aria-controls="library-profile-body">
-              <div>
-                <h3>Library profile</h3>
-                <p>Upload a library logo for the selected library.</p>
-              </div>
-              <span class="section-toggle-indicator" aria-hidden="true">+</span>
-            </button>
-            <div class="stack hidden" id="library-profile-body">
-              <form class="stack" id="library-logo-form">
-                <div class="library-logo-settings">
-                  <div class="library-logo-preview" aria-hidden="true">
-                    <img class="library-logo-image hidden" id="library-logo-preview-image" alt="">
-                    <span class="library-logo-fallback" id="library-logo-preview-fallback">N</span>
-                  </div>
-                  <div class="field">
-                    <label for="library-logo-file">Library logo</label>
-                    <input id="library-logo-file" type="file" accept="image/png,.png">
-                    <p class="field-note">Transparent PNG recommended. Keep it simple and readable at small sizes. Max 2 MB.</p>
-                  </div>
-                </div>
-                <div class="actions">
-                  <button class="btn" id="library-logo-upload" type="submit">Upload logo</button>
-                  <button class="btn secondary" id="library-logo-remove" type="button">Remove logo</button>
-                </div>
-                <p class="status" id="library-logo-status"></p>
-              </form>
-              <form class="stack settings-subsection" id="organization-settings-form">
-                <div class="settings-subsection-head">
-                  <h4>Identity and colors</h4>
-                  <p>Name the library and set the visual colors used in the app and public views.</p>
-                </div>
-                <div class="grid-3">
-                  <div class="field" id="organization-name-field">
-                    <label for="organization-name-input">Library name</label>
-                    <input id="organization-name-input" type="text" autocomplete="organization">
-                  </div>
-                  <div class="field" id="organization-primary-color-field">
-                    <label for="organization-primary-color">Primary color</label>
-                    <input id="organization-primary-color" type="color" value="#176f66">
-                  </div>
-                  <div class="field" id="organization-accent-color-field">
-                    <label for="organization-accent-color">Accent color</label>
-                    <input id="organization-accent-color" type="color" value="#ea9b3f">
-                  </div>
-                </div>
-                <div class="actions">
-                  <button class="btn" id="organization-settings-save" type="submit">Save library profile</button>
-                </div>
-                <p class="status" id="organization-settings-status"></p>
-              </form>
-            </div>
-            <button class="section-toggle" id="ai-settings-toggle" type="button" aria-expanded="false" aria-controls="ai-settings-body">
-              <div>
-                <h3>AI settings</h3>
-                <p>Teach the Records AI how to understand this specific library.</p>
-              </div>
-              <span class="section-toggle-indicator" aria-hidden="true">+</span>
-            </button>
-            <div class="stack hidden" id="ai-settings-body">
-              <form class="stack" id="organization-ai-settings-form">
-                <div class="field">
-                  <label for="organization-ai-context">Library background</label>
-                  <textarea id="organization-ai-context" maxlength="1800" placeholder="What is this library for? Add the organization type, common record types, recurring topics, acronyms, and anything the AI should understand before answering."></textarea>
-                  <p class="field-note">Example: This library contains board packets, minutes, grant records, and project updates for a community organization.</p>
-                </div>
-                <div class="field">
-                  <label for="organization-ai-response-style">Answer style</label>
-                  <textarea id="organization-ai-response-style" maxlength="1200" placeholder="How should the AI respond for this library?"></textarea>
-                  <p class="field-note">Example: Be thorough, use plain language, make uncertainty clear, and format complex answers with tables when helpful.</p>
-                </div>
-                <div class="field">
-                  <label for="organization-ai-memory">Saved AI memory</label>
-                  <textarea class="hidden" id="organization-ai-memory" maxlength="2400"></textarea>
-                  <div class="ai-memory-manager">
-                    <div class="ai-memory-list" id="organization-ai-memory-list"></div>
-                    <div class="ai-memory-add-row">
-                      <input id="organization-ai-memory-new" type="text" maxlength="700" placeholder="Add a memory the AI should keep in mind">
-                      <button class="btn secondary" id="organization-ai-memory-add" type="button">Add memory</button>
-                    </div>
-                  </div>
-                  <p class="field-note">Each memory saves into the same library memory field. Keep these curated so the AI does not inherit outdated assumptions.</p>
-                </div>
-                <div class="actions">
-                  <button class="btn" id="organization-ai-settings-save" type="submit">Save AI settings</button>
-                </div>
-                <p class="status" id="organization-ai-settings-status"></p>
-              </form>
-            </div>
-            <button class="section-toggle" id="contacts-settings-toggle" type="button" aria-expanded="false" aria-controls="contacts-settings-body">
-              <div>
-                <h3>Contacts</h3>
-                <p>Save account contacts for document sending and user invites.</p>
-              </div>
-              <span class="section-toggle-indicator" aria-hidden="true">+</span>
-            </button>
-            <div class="stack hidden" id="contacts-settings-body">
-              <div class="settings-subsection" id="contact-management-body">
-                <div class="settings-subsection-head">
-                  <h4>Account contacts</h4>
-                  <p>These contacts are available when sending documents from this library.</p>
-                </div>
-                <form class="stack" id="contact-form">
-                  <input id="contact-id" type="hidden">
-                  <div class="grid-2">
-                    <div class="field">
-                      <label for="contact-name">Name</label>
-                      <input id="contact-name" type="text" maxlength="120" placeholder="Jane Smith" required>
-                    </div>
-                    <div class="field">
-                      <label for="contact-email">Email</label>
-                      <input id="contact-email" type="email" placeholder="jane@example.org" required>
-                    </div>
-                  </div>
-                  <div class="field">
-                    <label for="contact-notes">Notes</label>
-                    <textarea id="contact-notes" rows="3" maxlength="500" placeholder="Board member, donor, city contact..."></textarea>
-                  </div>
-                  <div class="actions">
-                    <button class="btn" id="contact-save" type="submit">Add contact</button>
-                    <button class="btn secondary hidden" id="contact-cancel-edit" type="button">Cancel edit</button>
-                  </div>
-                  <p class="status" id="contact-status"></p>
-                </form>
-                <div class="table-shell">
-                  <table class="data-table contact-table">
-                    <thead>
-                      <tr>
-                        <th>Name</th>
-                        <th>Email</th>
-                        <th>Notes</th>
-                        <th>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody id="contact-list"></tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-            <button class="section-toggle" id="access-settings-toggle" type="button" aria-expanded="false" aria-controls="access-settings-body">
-              <div>
-                <h3>Access</h3>
-                <p>Join shared libraries, create invite codes, and manage who can use this library.</p>
-              </div>
-              <span class="section-toggle-indicator" aria-hidden="true">+</span>
-            </button>
-            <div class="stack hidden" id="access-settings-body">
-              <div class="settings-subsection" id="redeem-invite-body">
-                <div class="settings-subsection-head">
-                  <h4>Join shared library</h4>
-                  <p>Use an invite code from another library owner to add that library to this account.</p>
-                </div>
-                <form class="stack" id="redeem-invite-form">
-                  <div class="field">
-                    <label for="redeem-invite-code">Invite code</label>
-                    <input id="redeem-invite-code" type="text" placeholder="Enter invite code">
-                  </div>
-                  <div class="actions">
-                    <button class="btn secondary" type="submit">Redeem code</button>
-                  </div>
-                  <p class="status" id="redeem-invite-status"></p>
-                </form>
+
+            <div class="admin-settings-layout">
+              <div class="admin-tabs" role="tablist" aria-label="Admin settings">
+                <button class="admin-tab is-active" id="admin-users-tab" type="button" role="tab" aria-selected="true" aria-controls="admin-users-panel" data-admin-tab="users">Users</button>
+                <button class="admin-tab" id="admin-contacts-tab" type="button" role="tab" aria-selected="false" aria-controls="admin-contacts-panel" data-admin-tab="contacts">Contacts</button>
+                <button class="admin-tab" id="admin-templates-tab" type="button" role="tab" aria-selected="false" aria-controls="admin-templates-panel" data-admin-tab="templates">Templates</button>
+                <button class="admin-tab" id="admin-access-tab" type="button" role="tab" aria-selected="false" aria-controls="admin-access-panel" data-admin-tab="access">Access</button>
+                <button class="admin-tab" id="admin-library-tab" type="button" role="tab" aria-selected="false" aria-controls="admin-library-panel" data-admin-tab="library">Library</button>
+                <button class="admin-tab" id="admin-ai-tab" type="button" role="tab" aria-selected="false" aria-controls="admin-ai-panel" data-admin-tab="ai">AI</button>
+                <button class="admin-tab" id="admin-billing-tab" type="button" role="tab" aria-selected="false" aria-controls="admin-billing-panel" data-admin-tab="billing">Billing</button>
               </div>
 
-              <div class="settings-subsection" id="additional-library-body">
-                <div class="settings-subsection-head">
-                  <h4>Additional libraries</h4>
-                  <p>Create one extra Free library when this account owns an active paid library and has no other Free library.</p>
-                </div>
-                <form class="stack" id="additional-library-form">
-                  <p class="field-note" id="additional-library-note">One Free library is allowed at a time. Upgrade your Free library before creating another.</p>
-                  <div class="field">
-                    <label for="additional-library-name">New library name</label>
-                    <input id="additional-library-name" type="text" maxlength="120" placeholder="New Library">
+              <div class="admin-panels">
+                <section class="admin-panel is-active" id="admin-users-panel" role="tabpanel" aria-labelledby="admin-users-tab" data-admin-panel="users">
+                  <div class="admin-panel-head admin-panel-head-row">
+                    <div>
+                      <h4>Account users</h4>
+                      <p>Review account access, update roles, and remove users from this library.</p>
+                    </div>
+                    <button class="btn secondary" id="admin-users-invite" type="button">Invite user</button>
                   </div>
-                  <div class="actions">
-                    <button class="btn secondary" id="additional-library-save" type="submit">Create library</button>
+                  <div class="settings-subsection" id="member-management-body">
+                    <div class="stack" id="member-management-section">
+                      <div class="table-shell">
+                        <table class="data-table">
+                          <thead>
+                            <tr>
+                              <th>Name</th>
+                              <th>Email</th>
+                              <th>Role</th>
+                              <th>Action</th>
+                            </tr>
+                          </thead>
+                          <tbody id="member-list"></tbody>
+                        </table>
+                      </div>
+                      <p class="status" id="member-status"></p>
+                    </div>
                   </div>
-                  <p class="status" id="additional-library-status"></p>
-                </form>
-              </div>
+                </section>
 
-              <div class="settings-subsection" id="invite-management-body">
-                <div class="settings-subsection-head">
-                  <h4>Invite codes</h4>
-                  <p>Create and revoke codes for people who should join this library.</p>
-                </div>
-                <div class="stack" id="invite-management-section">
-                  <form class="stack" id="create-invite-form">
-                    <div class="grid-3">
-                      <div class="field">
-                        <label for="invite-role">Role</label>
-                        <select id="invite-role">
-                          <option value="viewer">Viewer</option>
-                          <option value="editor">Editor</option>
-                          <option value="account_admin">Account Admin</option>
-                        </select>
-                      </div>
-                      <div class="field">
-                        <label for="invite-max-uses">Uses</label>
-                        <input id="invite-max-uses" type="text" value="1">
-                      </div>
-                      <div class="field">
-                        <label for="invite-expires-at">Expires at</label>
-                        <input id="invite-expires-at" type="datetime-local">
-                        <p class="field-note invite-expires-note">Uses your local timezone. Leave blank for no expiration.</p>
+                <section class="admin-panel" id="admin-contacts-panel" role="tabpanel" aria-labelledby="admin-contacts-tab" data-admin-panel="contacts" hidden>
+                  <div class="admin-panel-head">
+                    <h4>Contacts</h4>
+                    <p>Save recipients for document sending, then invite a contact as a user when needed.</p>
+                  </div>
+                  <div class="stack hidden" id="contacts-settings-body">
+                    <div class="settings-subsection" id="contact-management-body">
+                      <form class="stack" id="contact-form">
+                        <input id="contact-id" type="hidden">
+                        <div class="grid-2">
+                          <div class="field">
+                            <label for="contact-name">Name</label>
+                            <input id="contact-name" type="text" maxlength="120" placeholder="Jane Smith" required>
+                          </div>
+                          <div class="field">
+                            <label for="contact-email">Email</label>
+                            <input id="contact-email" type="email" placeholder="jane@example.org" required>
+                          </div>
+                        </div>
+                        <div class="field">
+                          <label for="contact-notes">Notes</label>
+                          <textarea id="contact-notes" rows="3" maxlength="500" placeholder="Board member, donor, city contact..."></textarea>
+                        </div>
+                        <div class="actions">
+                          <button class="btn" id="contact-save" type="submit">Add contact</button>
+                          <button class="btn secondary hidden" id="contact-cancel-edit" type="button">Cancel edit</button>
+                        </div>
+                        <p class="status" id="contact-status"></p>
+                      </form>
+                      <div class="table-shell">
+                        <table class="data-table contact-table">
+                          <thead>
+                            <tr>
+                              <th>Name</th>
+                              <th>Email</th>
+                              <th>Notes</th>
+                              <th>Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody id="contact-list"></tbody>
+                        </table>
                       </div>
                     </div>
-                    <div class="grid-2">
-                      <div class="field">
-                        <label for="invite-recipient-email">Recipient email (optional)</label>
-                        <input id="invite-recipient-email" type="email" placeholder="name@example.com">
+                  </div>
+                </section>
+
+                <section class="admin-panel" id="admin-templates-panel" role="tabpanel" aria-labelledby="admin-templates-tab" data-admin-panel="templates" hidden>
+                  <div class="admin-panel-head admin-panel-head-row">
+                    <div>
+                      <h4>Templates</h4>
+                      <p>Manage reusable document layouts. Users can create documents from these in Document Builder.</p>
+                    </div>
+                    <button class="btn secondary" id="admin-new-template" type="button">New template</button>
+                  </div>
+                  <div class="admin-template-list" id="admin-template-list"></div>
+                  <p class="empty hidden" id="admin-template-empty">No templates yet.</p>
+                  <p class="status" id="admin-template-status"></p>
+                </section>
+
+                <section class="admin-panel" id="admin-access-panel" role="tabpanel" aria-labelledby="admin-access-tab" data-admin-panel="access" hidden>
+                  <div class="admin-panel-head">
+                    <h4>Access</h4>
+                    <p>Join shared libraries, create invite codes, and create additional libraries.</p>
+                  </div>
+                  <div class="stack hidden" id="access-settings-body">
+                    <div class="settings-subsection" id="redeem-invite-body">
+                      <div class="settings-subsection-head">
+                        <h4>Join shared library</h4>
+                        <p>Use an invite code from another library owner to add that library to this account.</p>
+                      </div>
+                      <form class="stack" id="redeem-invite-form">
+                        <div class="field">
+                          <label for="redeem-invite-code">Invite code</label>
+                          <input id="redeem-invite-code" type="text" placeholder="Enter invite code">
+                        </div>
+                        <div class="actions">
+                          <button class="btn secondary" type="submit">Redeem code</button>
+                        </div>
+                        <p class="status" id="redeem-invite-status"></p>
+                      </form>
+                    </div>
+
+                    <div class="settings-subsection" id="additional-library-body">
+                      <div class="settings-subsection-head">
+                        <h4>Additional libraries</h4>
+                        <p>Create one extra Free library when this account owns an active paid library and has no other Free library.</p>
+                      </div>
+                      <form class="stack" id="additional-library-form">
+                        <p class="field-note" id="additional-library-note">One Free library is allowed at a time. Upgrade your Free library before creating another.</p>
+                        <div class="field">
+                          <label for="additional-library-name">New library name</label>
+                          <input id="additional-library-name" type="text" maxlength="120" placeholder="New Library">
+                        </div>
+                        <div class="actions">
+                          <button class="btn secondary" id="additional-library-save" type="submit">Create library</button>
+                        </div>
+                        <p class="status" id="additional-library-status"></p>
+                      </form>
+                    </div>
+
+                    <div class="settings-subsection" id="invite-management-body">
+                      <div class="settings-subsection-head">
+                        <h4>Invite codes</h4>
+                        <p>Create and revoke codes for people who should join this library.</p>
+                      </div>
+                      <div class="stack" id="invite-management-section">
+                        <form class="stack" id="create-invite-form">
+                          <div class="grid-3">
+                            <div class="field">
+                              <label for="invite-role">Role</label>
+                              <select id="invite-role">
+                                <option value="viewer">Viewer</option>
+                                <option value="editor">Editor</option>
+                                <option value="account_admin">Account Admin</option>
+                              </select>
+                            </div>
+                            <div class="field">
+                              <label for="invite-max-uses">Uses</label>
+                              <input id="invite-max-uses" type="text" value="1">
+                            </div>
+                            <div class="field">
+                              <label for="invite-expires-at">Expires at</label>
+                              <input id="invite-expires-at" type="datetime-local">
+                              <p class="field-note invite-expires-note">Uses your local timezone. Leave blank for no expiration.</p>
+                            </div>
+                          </div>
+                          <div class="grid-2">
+                            <div class="field">
+                              <label for="invite-recipient-email">Recipient email (optional)</label>
+                              <input id="invite-recipient-email" type="email" placeholder="name@example.com">
+                            </div>
+                            <div class="field">
+                              <label for="invite-recipient-name">Recipient name (optional)</label>
+                              <input id="invite-recipient-name" type="text" maxlength="100" placeholder="First name">
+                            </div>
+                          </div>
+                          <div class="field">
+                            <label for="invite-custom-message">Custom invite message (optional)</label>
+                            <textarea id="invite-custom-message" rows="3" maxlength="500" placeholder="Add a short custom note for the invite email."></textarea>
+                          </div>
+                          <div class="actions">
+                            <button class="btn secondary" type="submit">Create invite code</button>
+                            <button class="btn" type="submit" data-action="create-send">Create code + send email</button>
+                          </div>
+                          <p class="status" id="create-invite-status"></p>
+                        </form>
+                        <div class="table-shell">
+                          <table class="data-table">
+                            <thead>
+                              <tr>
+                                <th>Code</th>
+                                <th>Role</th>
+                                <th>Uses</th>
+                                <th>Expires</th>
+                                <th>Actions</th>
+                              </tr>
+                            </thead>
+                            <tbody id="invite-list"></tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
+                <section class="admin-panel" id="admin-library-panel" role="tabpanel" aria-labelledby="admin-library-tab" data-admin-panel="library" hidden>
+                  <div class="admin-panel-head">
+                    <h4>Library</h4>
+                    <p>Control the library name, logo, colors, public records view, and review.</p>
+                  </div>
+                  <div class="stack hidden" id="library-profile-body">
+                    <form class="stack settings-subsection" id="library-logo-form">
+                      <div class="settings-subsection-head">
+                        <h4>Logo</h4>
+                        <p>Upload a small PNG mark for the app and public views.</p>
+                      </div>
+                      <div class="library-logo-settings">
+                        <div class="library-logo-preview" aria-hidden="true">
+                          <img class="library-logo-image hidden" id="library-logo-preview-image" alt="">
+                          <span class="library-logo-fallback" id="library-logo-preview-fallback">N</span>
+                        </div>
+                        <div class="field">
+                          <label for="library-logo-file">Library logo</label>
+                          <input id="library-logo-file" type="file" accept="image/png,.png">
+                          <p class="field-note">Transparent PNG recommended. Keep it simple and readable at small sizes. Max 2 MB.</p>
+                        </div>
+                      </div>
+                      <div class="actions">
+                        <button class="btn" id="library-logo-upload" type="submit">Upload logo</button>
+                        <button class="btn secondary" id="library-logo-remove" type="button">Remove logo</button>
+                      </div>
+                      <p class="status" id="library-logo-status"></p>
+                    </form>
+                    <form class="stack settings-subsection" id="organization-settings-form">
+                      <div class="settings-subsection-head">
+                        <h4>Identity and colors</h4>
+                        <p>Name the library and set the visual colors used in the app and public views.</p>
+                      </div>
+                      <div class="grid-3">
+                        <div class="field" id="organization-name-field">
+                          <label for="organization-name-input">Library name</label>
+                          <input id="organization-name-input" type="text" autocomplete="organization">
+                        </div>
+                        <div class="field" id="organization-primary-color-field">
+                          <label for="organization-primary-color">Primary color</label>
+                          <input id="organization-primary-color" type="color" value="#176f66">
+                        </div>
+                        <div class="field" id="organization-accent-color-field">
+                          <label for="organization-accent-color">Accent color</label>
+                          <input id="organization-accent-color" type="color" value="#ea9b3f">
+                        </div>
+                      </div>
+                      <div class="actions">
+                        <button class="btn" id="organization-settings-save" type="submit">Save library profile</button>
+                      </div>
+                      <p class="status" id="organization-settings-status"></p>
+                    </form>
+                  </div>
+                  <div class="stack hidden" id="publishing-settings-body">
+                    <div class="settings-subsection" id="embed-settings-body">
+                      <div class="settings-subsection-head">
+                        <h4>Public records and embed</h4>
+                        <p>Share public records or embed a searchable records view on another site.</p>
+                      </div>
+                      <div class="embed-access-card hidden" id="embed-access-card">
+                        <div>
+                          <p class="account-label">Embedded records view</p>
+                          <p class="embed-access-title">Search and files together in one read-only view.</p>
+                          <p class="embed-access-copy">Only documents marked public are shown. Branding uses the Library profile colors.</p>
+                        </div>
+                        <button class="btn secondary" id="open-embed-card-button" type="button">Share or embed</button>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="stack hidden" id="review-settings-body">
+                    <form class="stack settings-subsection" id="organization-review-form">
+                      <div class="settings-subsection-head">
+                        <h4>Review</h4>
+                        <p>Review N3XRA Records for this library.</p>
+                      </div>
+                      <div class="grid-3">
+                        <div class="field">
+                          <label for="organization-review-rating">Rating</label>
+                          <select id="organization-review-rating">
+                            <option value="5">5 stars</option>
+                            <option value="4">4 stars</option>
+                            <option value="3">3 stars</option>
+                            <option value="2">2 stars</option>
+                            <option value="1">1 star</option>
+                          </select>
+                        </div>
+                        <div class="field review-meta-field">
+                          <span class="field-title">Review status</span>
+                          <p class="account-value" id="organization-review-meta">No review yet</p>
+                        </div>
                       </div>
                       <div class="field">
-                        <label for="invite-recipient-name">Recipient name (optional)</label>
-                        <input id="invite-recipient-name" type="text" maxlength="100" placeholder="First name">
+                        <label for="organization-review-text">Review</label>
+                        <textarea id="organization-review-text" maxlength="1200" placeholder="Share what N3XRA Records helps this library do."></textarea>
+                        <p class="field-note">The review keeps snapshot details so it can remain visible even if the account or library is later removed.</p>
                       </div>
+                      <div class="actions">
+                        <button class="btn" id="organization-review-save" type="submit">Save review</button>
+                      </div>
+                      <p class="status" id="organization-review-status"></p>
+                    </form>
+                  </div>
+                </section>
+
+                <section class="admin-panel" id="admin-ai-panel" role="tabpanel" aria-labelledby="admin-ai-tab" data-admin-panel="ai" hidden>
+                  <div class="admin-panel-head">
+                    <h4>AI</h4>
+                    <p>Teach Records AI how to understand this library and answer consistently.</p>
+                  </div>
+                  <div class="stack hidden" id="ai-settings-body">
+                    <form class="stack settings-subsection" id="organization-ai-settings-form">
+                      <div class="field">
+                        <label for="organization-ai-context">Library background</label>
+                        <textarea id="organization-ai-context" maxlength="1800" placeholder="What is this library for? Add the organization type, common record types, recurring topics, acronyms, and anything the AI should understand before answering."></textarea>
+                        <p class="field-note">Example: This library contains board packets, minutes, grant records, and project updates for a community organization.</p>
+                      </div>
+                      <div class="field">
+                        <label for="organization-ai-response-style">Answer style</label>
+                        <textarea id="organization-ai-response-style" maxlength="1200" placeholder="How should the AI respond for this library?"></textarea>
+                        <p class="field-note">Example: Be thorough, use plain language, make uncertainty clear, and format complex answers with tables when helpful.</p>
+                      </div>
+                      <div class="field">
+                        <label for="organization-ai-memory">Saved AI memory</label>
+                        <textarea class="hidden" id="organization-ai-memory" maxlength="2400"></textarea>
+                        <div class="ai-memory-manager">
+                          <div class="ai-memory-list" id="organization-ai-memory-list"></div>
+                          <div class="ai-memory-add-row">
+                            <input id="organization-ai-memory-new" type="text" maxlength="700" placeholder="Add a memory the AI should keep in mind">
+                            <button class="btn secondary" id="organization-ai-memory-add" type="button">Add memory</button>
+                          </div>
+                        </div>
+                        <p class="field-note">Each memory saves into the same library memory field. Keep these curated so the AI does not inherit outdated assumptions.</p>
+                      </div>
+                      <div class="actions">
+                        <button class="btn" id="organization-ai-settings-save" type="submit">Save AI settings</button>
+                      </div>
+                      <p class="status" id="organization-ai-settings-status"></p>
+                    </form>
+                  </div>
+                </section>
+
+                <section class="admin-panel" id="admin-billing-panel" role="tabpanel" aria-labelledby="admin-billing-tab" data-admin-panel="billing" hidden>
+                  <div class="admin-panel-head">
+                    <h4>Billing</h4>
+                    <p>Review plan limits, subscription status, and billing portal access.</p>
+                  </div>
+                  <div class="settings-group hidden" id="billing-section">
+                    <div class="stack hidden" id="billing-settings-body">
+                      <div class="current-plan-card">
+                        <div>
+                          <p class="account-label">Current plan</p>
+                          <p class="current-plan-name" id="current-plan-name">Free</p>
+                          <p class="current-plan-copy" id="current-plan-copy">25 documents included.</p>
+                          <p class="current-plan-note hidden" id="current-plan-note"></p>
+                        </div>
+                        <div class="current-plan-actions">
+                          <button class="btn secondary hidden" id="manage-billing-button" type="button">Manage billing</button>
+                          <button class="btn secondary" id="change-plan-button" type="button" aria-expanded="false">Change plan</button>
+                        </div>
+                      </div>
+                      <div class="billing-plan-picker hidden" id="billing-plan-picker">
+                        <div class="billing-cycle-head">
+                          <p class="billing-cycle-label">Billing cycle</p>
+                        </div>
+                        <div class="billing-cycle-toggle" role="tablist" aria-label="Billing cycle">
+                          <button class="billing-cycle-btn is-active" id="billing-cycle-monthly" type="button" aria-pressed="true">Monthly</button>
+                          <button class="billing-cycle-btn" id="billing-cycle-yearly" type="button" aria-pressed="false">Yearly <span class="billing-cycle-save">Save 20%</span></button>
+                        </div>
+                        <div class="plan-grid" id="billing-plan-grid"></div>
+                      </div>
+                      <p class="status" id="billing-status"></p>
                     </div>
-                    <div class="field">
-                      <label for="invite-custom-message">Custom invite message (optional)</label>
-                      <textarea id="invite-custom-message" rows="3" maxlength="500" placeholder="Add a short custom note for the invite email."></textarea>
-                    </div>
-                    <div class="actions">
-                      <button class="btn secondary" type="submit">Create invite code</button>
-                      <button class="btn" type="submit" data-action="create-send">Create code + send email</button>
-                    </div>
-                    <p class="status" id="create-invite-status"></p>
-                  </form>
-                  <div class="table-shell">
-                    <table class="data-table">
-                      <thead>
-                        <tr>
-                          <th>Code</th>
-                          <th>Role</th>
-                          <th>Uses</th>
-                          <th>Expires</th>
-                          <th>Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody id="invite-list"></tbody>
-                    </table>
                   </div>
-                </div>
+                </section>
               </div>
-
-              <div class="settings-subsection" id="member-management-body">
-                <div class="settings-subsection-head">
-                  <h4>Shared access</h4>
-                  <p>Review and adjust who can use this library.</p>
-                </div>
-                <div class="stack" id="member-management-section">
-                  <div class="table-shell">
-                    <table class="data-table">
-                      <thead>
-                        <tr>
-                          <th>Name</th>
-                          <th>Email</th>
-                          <th>Role</th>
-                          <th>Action</th>
-                        </tr>
-                      </thead>
-                      <tbody id="member-list"></tbody>
-                    </table>
-                  </div>
-                  <p class="status" id="member-status"></p>
-                </div>
-              </div>
-            </div>
-
-            <button class="section-toggle" id="publishing-settings-toggle" type="button" aria-expanded="false" aria-controls="publishing-settings-body">
-              <div>
-                <h3>Publishing</h3>
-                <p>Public records URL, embedded records view, and publishing controls.</p>
-              </div>
-              <span class="section-toggle-indicator" aria-hidden="true">+</span>
-            </button>
-            <div class="stack hidden" id="publishing-settings-body">
-              <div class="settings-subsection" id="embed-settings-body">
-                <div class="settings-subsection-head">
-                  <h4>Public records and embed</h4>
-                  <p>Share public records or embed a searchable records view on another site.</p>
-                </div>
-                <div class="embed-access-card hidden" id="embed-access-card">
-                  <div>
-                    <p class="account-label">Embedded records view</p>
-                    <p class="embed-access-title">Search and files together in one read-only view.</p>
-                    <p class="embed-access-copy">Only documents marked public are shown. Branding uses the Library profile colors.</p>
-                  </div>
-                  <button class="btn secondary" id="open-embed-card-button" type="button">Share or embed</button>
-                </div>
-              </div>
-            </div>
-
-            <div class="settings-group hidden" id="billing-section">
-              <button class="section-toggle" id="billing-settings-toggle" type="button" aria-expanded="false" aria-controls="billing-settings-body">
-                <div>
-                  <h3>Billing</h3>
-                  <p>Plan, usage, billing portal, and library limits.</p>
-                </div>
-                <span class="section-toggle-indicator" aria-hidden="true">+</span>
-              </button>
-              <div class="stack hidden" id="billing-settings-body">
-                <div class="current-plan-card">
-                  <div>
-                    <p class="account-label">Current plan</p>
-                    <p class="current-plan-name" id="current-plan-name">Free</p>
-                    <p class="current-plan-copy" id="current-plan-copy">25 documents included.</p>
-                    <p class="current-plan-note hidden" id="current-plan-note"></p>
-                  </div>
-                  <div class="current-plan-actions">
-                    <button class="btn secondary hidden" id="manage-billing-button" type="button">Manage billing</button>
-                    <button class="btn secondary" id="change-plan-button" type="button" aria-expanded="false">Change plan</button>
-                  </div>
-                </div>
-                <div class="billing-plan-picker hidden" id="billing-plan-picker">
-                  <div class="billing-cycle-head">
-                    <p class="billing-cycle-label">Billing cycle</p>
-                  </div>
-                  <div class="billing-cycle-toggle" role="tablist" aria-label="Billing cycle">
-                    <button class="billing-cycle-btn is-active" id="billing-cycle-monthly" type="button" aria-pressed="true">Monthly</button>
-                    <button class="billing-cycle-btn" id="billing-cycle-yearly" type="button" aria-pressed="false">Yearly <span class="billing-cycle-save">Save 20%</span></button>
-                  </div>
-                  <div class="plan-grid" id="billing-plan-grid"></div>
-                </div>
-                <p class="status" id="billing-status"></p>
-              </div>
-            </div>
-
-            <button class="section-toggle" id="review-settings-toggle" type="button" aria-expanded="false" aria-controls="review-settings-body">
-              <div>
-                <h3>Review</h3>
-                <p>Review N3XRA Records for this library.</p>
-              </div>
-              <span class="section-toggle-indicator" aria-hidden="true">+</span>
-            </button>
-            <div class="stack hidden" id="review-settings-body">
-              <form class="stack" id="organization-review-form">
-                <div class="grid-3">
-                  <div class="field">
-                    <label for="organization-review-rating">Rating</label>
-                    <select id="organization-review-rating">
-                      <option value="5">5 stars</option>
-                      <option value="4">4 stars</option>
-                      <option value="3">3 stars</option>
-                      <option value="2">2 stars</option>
-                      <option value="1">1 star</option>
-                    </select>
-                  </div>
-                  <div class="field review-meta-field">
-                    <span class="field-title">Review status</span>
-                    <p class="account-value" id="organization-review-meta">No review yet</p>
-                  </div>
-                </div>
-                <div class="field">
-                  <label for="organization-review-text">Review</label>
-                  <textarea id="organization-review-text" maxlength="1200" placeholder="Share what N3XRA Records helps this library do."></textarea>
-                  <p class="field-note">The review keeps snapshot details so it can remain visible even if the account or library is later removed.</p>
-                </div>
-                <div class="actions">
-                  <button class="btn" id="organization-review-save" type="submit">Save review</button>
-                </div>
-                <p class="status" id="organization-review-status"></p>
-              </form>
             </div>
           </section>
         </section>
@@ -869,6 +888,6 @@
   </div>
 
   <script src="./config.js"></script>
-  <script type="module" src="./dashboard.js?v=20260613-wording-cleanup"></script>
+  <script type="module" src="./dashboard.js?v=20260613-admin-settings"></script>
 </body>
 </html>

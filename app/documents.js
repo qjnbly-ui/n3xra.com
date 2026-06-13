@@ -521,12 +521,12 @@ function renderOrganizationSelector() {
   mobileMenuFilesLink?.classList.toggle("is-active", false);
   show(mobileMenuRecordingsLink, capabilities.canUseRecordings);
   newDocumentButton.disabled = !capabilities.canEditDocuments;
-  newTemplateButton.disabled = !capabilities.canManageTemplates;
+  newTemplateButton.disabled = true;
   createFromTemplateButton.disabled = !capabilities.canEditDocuments || !appTemplates.length;
   documentTemplateSelect.disabled = !capabilities.canEditDocuments || !appTemplates.length;
-  show(newTemplateButton, capabilities.canManageTemplates);
-  show(templateManagementSection, capabilities.canManageTemplates);
-  show(documentTemplateCreate, capabilities.canManageTemplates || (capabilities.canEditDocuments && appTemplates.length > 0));
+  show(newTemplateButton, false);
+  show(templateManagementSection, false);
+  show(documentTemplateCreate, capabilities.canEditDocuments && appTemplates.length > 0);
   documentDelete.disabled = activeDocumentKind === "template" ? !capabilities.canManageTemplates : !capabilities.canDeleteDocuments;
   documentEmail.disabled = activeDocumentKind === "template" || !capabilities.canShareDocuments;
   const canEditActive = activeDocumentKind === "template" ? capabilities.canManageTemplates : capabilities.canEditDocuments;
@@ -565,9 +565,9 @@ function renderAppTemplates() {
   const capabilities = getActiveCapabilities();
   appTemplateList.innerHTML = "";
   documentTemplateSelect.innerHTML = "";
-  show(appTemplateEmpty, appTemplates.length === 0);
-  show(templateManagementSection, capabilities.canManageTemplates);
-  show(documentTemplateCreate, capabilities.canManageTemplates || (capabilities.canEditDocuments && appTemplates.length > 0));
+  show(appTemplateEmpty, false);
+  show(templateManagementSection, false);
+  show(documentTemplateCreate, capabilities.canEditDocuments && appTemplates.length > 0);
 
   if (!appTemplates.length) {
     documentTemplateSelect.innerHTML = '<option value="">No templates</option>';
@@ -580,22 +580,6 @@ function renderAppTemplates() {
     option.value = template.id;
     option.textContent = template.title || "Untitled template";
     documentTemplateSelect.append(option);
-
-    if (!capabilities.canManageTemplates) return;
-    const item = document.createElement("div");
-    item.className = "document-list-item document-template-item";
-    item.classList.toggle("is-active", template.id === activeDocumentId);
-    item.innerHTML = `
-      <button class="document-template-edit" type="button" data-template-id="${escapeHtml(template.id)}">
-        <span class="document-list-title">${escapeHtml(template.title || "Untitled template")}</span>
-        <span class="document-list-meta">${escapeHtml(template.status || "draft")} · ${escapeHtml(new Date(template.updated_at || template.created_at).toLocaleDateString())}</span>
-      </button>
-      <div class="document-template-actions">
-        <button class="document-template-action" type="button" data-template-id="${escapeHtml(template.id)}">Edit</button>
-        <button class="document-template-action danger" type="button" data-template-delete-id="${escapeHtml(template.id)}">Delete</button>
-      </div>
-    `;
-    appTemplateList.append(item);
   });
 
   createFromTemplateButton.disabled = !capabilities.canEditDocuments;
@@ -854,6 +838,7 @@ async function createTemplate() {
     return;
   }
 
+  window.history.replaceState({}, "", `${window.location.pathname}?id=${encodeURIComponent(data.id)}`);
   await loadAppDocuments(data.id);
 }
 
@@ -1297,8 +1282,13 @@ async function init() {
   try {
     await bootstrapAccess();
     renderOrganizationSelector();
-    const preferredId = new URLSearchParams(window.location.search).get("id") || "";
+    const params = new URLSearchParams(window.location.search);
+    const preferredId = params.get("id") || "";
+    const shouldCreateTemplate = params.get("new") === "template";
     await loadAppDocuments(preferredId);
+    if (shouldCreateTemplate) {
+      await createTemplate();
+    }
   } catch (error) {
     setStatus(documentsStatus, error?.message || "Unable to load documents.", "error");
   }
