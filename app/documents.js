@@ -1164,7 +1164,7 @@ async function handleSignout() {
     return;
   }
   setStoredActiveOrganizationId("");
-  window.location.replace("./login.html");
+  window.location.replace("./login");
 }
 
 function applyToolbarAction(event) {
@@ -1199,11 +1199,11 @@ async function init() {
   supabase = createBrowserSupabase();
   currentSession = await getSessionOrNull(supabase);
   if (!currentSession?.user) {
-    window.location.replace("./login.html");
+    window.location.replace("./login");
     return;
   }
   if (isPlatformAdminEmail(currentSession.user.email)) {
-    window.location.replace("./admin.html");
+    window.location.replace("./admin");
     return;
   }
 
@@ -1214,10 +1214,10 @@ async function init() {
   mobileLogoutButton.addEventListener("click", handleSignout);
   mobileMenuToggle.addEventListener("click", toggleMobileMenu);
   mobileMenuAccount.addEventListener("click", () => {
-    window.location.href = "./dashboard.html?section=account";
+    window.location.href = "./account";
   });
   mobileMenuLibrary.addEventListener("click", () => {
-    window.location.href = "./dashboard.html?section=library";
+    window.location.href = "./library";
   });
   activeOrganizationSelect.addEventListener("change", handleOrganizationChange);
   documentSearch.addEventListener("input", renderAppDocuments);
@@ -1305,7 +1305,7 @@ async function init() {
 
   supabase.auth.onAuthStateChange((_event, session) => {
     if (!session?.user) {
-      window.location.replace("./login.html");
+      window.location.replace("./login");
     }
   });
 }

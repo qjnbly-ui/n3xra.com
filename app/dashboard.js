@@ -290,7 +290,32 @@ const recordsHelpHistory = [];
 const RECORDS_HELP_HISTORY_LIMIT = 8;
 let pdfJsLibraryPromise = null;
 
+function getSectionFromPath(pathname = window.location.pathname) {
+  const normalized = String(pathname || "").replace(/\/+$/, "");
+  if (normalized.endsWith("/app/account")) return "account";
+  if (normalized.endsWith("/app/library")) return "library";
+  return "";
+}
+
+function getSectionPath(section) {
+  return section === "account" ? "./account" : "./library";
+}
+
+function buildSectionUrl(section) {
+  const url = new URL(getSectionPath(section), window.location.href);
+  const params = new URLSearchParams(window.location.search);
+  params.delete("section");
+  const query = params.toString();
+  url.search = query ? `?${query}` : "";
+  url.hash = window.location.hash;
+  return `${url.pathname}${url.search}${url.hash}`;
+}
+
 function getInitialSection() {
+  const pathSection = getSectionFromPath();
+  if (pathSection) {
+    return pathSection;
+  }
   const params = new URLSearchParams(window.location.search);
   const explicitSection = params.get("section");
   if (explicitSection === "account" || explicitSection === "library") {
@@ -683,6 +708,7 @@ function showSection(section) {
   accountSection.hidden = !isAccount;
   librarySection.hidden = isAccount;
   setMenuActive(section);
+  window.history.replaceState({}, "", buildSectionUrl(section));
   if (!isAccount) {
     setProfileSettingsOpen(false);
     setBillingPlanPickerOpen(false);
@@ -1631,7 +1657,7 @@ function getDefaultInviteExpiresAtValue() {
 function buildInviteSignupUrl(inviteCode, recipientEmail = "") {
   const code = String(inviteCode || "").trim();
   if (!code) return "";
-  const url = new URL("/app/login/", window.location.origin);
+  const url = new URL("/app/login", window.location.origin);
   url.searchParams.set("signup", "invite");
   url.searchParams.set("invite", code);
   if (recipientEmail) {
@@ -1643,7 +1669,7 @@ function buildInviteSignupUrl(inviteCode, recipientEmail = "") {
 function buildSiblingPageUrl(pageName) {
   const currentUrl = new URL(window.location.href);
   const currentPath = currentUrl.pathname;
-  const siblingPath = currentPath.replace(/[^/]*$/, `${pageName}.html`);
+  const siblingPath = currentPath.replace(/[^/]*$/, pageName);
   return new URL(siblingPath, currentUrl.origin);
 }
 
@@ -2336,7 +2362,7 @@ function updateEmbedAccess() {
   if (!enabled || !organization) {
     embedPreviewUrlInput.value = "";
     embedCodeInput.value = "";
-    openEmbedPreview.href = "./embed.html";
+    openEmbedPreview.href = "./embed";
     setEmbedModalOpen(false);
     return;
   }
@@ -3183,7 +3209,7 @@ async function openSourceFilePreview(documentId) {
   fileModalDownload.textContent = "Download original";
   show(fileModalOpenEditable, Boolean(editableDoc));
   if (editableDoc) {
-    fileModalOpenEditable.href = `./documents.html?id=${encodeURIComponent(editableDoc.id)}`;
+    fileModalOpenEditable.href = `./documents?id=${encodeURIComponent(editableDoc.id)}`;
     fileModalOpenEditable.textContent = getActiveCapabilities().canEditDocuments ? "Edit document" : "Open";
   }
   show(fileModalOriginal, false);
@@ -3223,7 +3249,7 @@ async function openEditableFilePreview(documentId, editableDoc) {
     );
     fileModalDownload.textContent = "Download PDF";
     show(fileModalOpenEditable, true);
-    fileModalOpenEditable.href = `./documents.html?id=${encodeURIComponent(editableDoc.id)}`;
+    fileModalOpenEditable.href = `./documents?id=${encodeURIComponent(editableDoc.id)}`;
     fileModalOpenEditable.textContent = getActiveCapabilities().canEditDocuments ? "Edit document" : "Open";
     show(fileModalOriginal, true);
     setStatus(docsStatus, "");
@@ -3256,7 +3282,7 @@ async function handleSignout() {
     return;
   }
   setStoredActiveOrganizationId("");
-  window.location.replace("./login.html");
+  window.location.replace("./login");
 }
 
 async function handleProfileSave(event) {
@@ -4121,12 +4147,12 @@ async function deleteAccount(scope = "full") {
 
   if (isAppOnly) {
     await supabase.auth.signOut();
-    window.location.replace("./login.html");
+    window.location.replace("./login");
     return;
   }
 
   await supabase.auth.signOut();
-  window.location.replace("./login.html");
+  window.location.replace("./login");
 }
 
 async function copyEmbedCode() {
@@ -4320,6 +4346,7 @@ async function handleOrganizationChange(nextOrganizationId) {
   } else {
     params.delete("support_org");
   }
+  params.delete("section");
   const nextQuery = params.toString();
   window.history.replaceState({}, "", `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ""}`);
 
@@ -4334,12 +4361,12 @@ async function init() {
   supabase = createBrowserSupabase();
   currentSession = await getSessionOrNull(supabase);
   if (!currentSession?.user) {
-    window.location.replace("./login.html");
+    window.location.replace("./login");
     return;
   }
 
   if (isPlatformAdminEmail(currentSession.user.email) && !getSupportOrganizationId()) {
-    window.location.replace("./admin.html");
+    window.location.replace("./admin");
     return;
   }
 
@@ -4564,7 +4591,7 @@ async function init() {
 
   supabase.auth.onAuthStateChange((_event, session) => {
     if (!session?.user) {
-      window.location.replace("./login.html");
+      window.location.replace("./login");
     }
   });
 }

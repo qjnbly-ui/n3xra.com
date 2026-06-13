@@ -133,7 +133,7 @@ function buildAllRecordingsDetailHref(recordingId) {
   const params = new URLSearchParams();
   if (recordingId) params.set("recording", recordingId);
   const query = params.toString();
-  return `./all-recordings.html${query ? `?${query}` : ""}`;
+  return `./all-meeting-notes${query ? `?${query}` : ""}`;
 }
 
 function consumeRetryUploadRequest() {
@@ -1107,12 +1107,12 @@ function populateRecordingDetails(recording) {
   }
   show(recordingDetailTranscriptDocument, Boolean(recording.document_id));
   if (recording.document_id) {
-    recordingDetailTranscriptDocument.href = `./files.html?id=${encodeURIComponent(recording.document_id)}`;
+    recordingDetailTranscriptDocument.href = `./files?id=${encodeURIComponent(recording.document_id)}`;
   }
   const reviewDocumentId = recording.final_document_id || recording.ai_draft_document_id || "";
   show(recordingDetailAiDraft, Boolean(reviewDocumentId));
   if (reviewDocumentId) {
-    recordingDetailAiDraft.href = `./documents.html?id=${encodeURIComponent(reviewDocumentId)}`;
+    recordingDetailAiDraft.href = `./documents?id=${encodeURIComponent(reviewDocumentId)}`;
     recordingDetailAiDraft.textContent = recording.final_document_id ? "Open final" : "Open AI draft";
   }
   renderAiReview(recording.ai_review_json || null);
@@ -1780,7 +1780,7 @@ async function handleSignout() {
   }
 
   await supabase.auth.signOut();
-  window.location.replace("./login.html");
+  window.location.replace("./login");
 }
 
 async function init() {
@@ -1791,7 +1791,7 @@ async function init() {
   supabase = createBrowserSupabase();
   currentSession = await getSessionOrNull(supabase);
   if (!currentSession?.user) {
-    window.location.replace("./login.html");
+    window.location.replace("./login");
     return;
   }
 
@@ -1805,7 +1805,7 @@ async function init() {
   }
 
   if (!getActiveCapabilities().canUseRecordings) {
-    window.location.replace("./dashboard.html?section=library");
+    window.location.replace("./library");
     return;
   }
 
@@ -1831,10 +1831,10 @@ async function init() {
   mobileLogoutButton.addEventListener("click", handleSignout);
   mobileMenuToggle.addEventListener("click", toggleMobileMenu);
   mobileMenuAccount?.addEventListener("click", () => {
-    window.location.replace("./dashboard.html?section=account");
+    window.location.replace("./account");
   });
   mobileMenuLibrary?.addEventListener("click", () => {
-    window.location.replace("./dashboard.html?section=library");
+    window.location.replace("./library");
   });
   recordingFileInput.addEventListener("change", () => {
     updateSelectedFileCopy();

@@ -123,7 +123,7 @@ Deno.serve(async (request) => {
     }
 
     const stripe = getStripeClient();
-    const returnUrl = `${origin}/app/dashboard.html?section=account&billing=portal`;
+    const returnUrl = `${origin}/app/account?billing=portal`;
 
     if (action === "create-checkout-session") {
       const planId = String(payload.planId || "").trim();
@@ -175,8 +175,8 @@ Deno.serve(async (request) => {
         ],
         allow_promotion_codes: true,
         client_reference_id: organization.id,
-        success_url: `${origin}/app/dashboard.html?section=account&billing=success`,
-        cancel_url: `${origin}/app/dashboard.html?section=account&billing=canceled`,
+        success_url: `${origin}/app/account?billing=success`,
+        cancel_url: `${origin}/app/account?billing=canceled`,
         metadata: {
           organization_id: organization.id,
           plan_id: planId,

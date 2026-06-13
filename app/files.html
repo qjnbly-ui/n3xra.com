@@ -38,8 +38,8 @@
           </div>
           <button class="mobile-menu-link" id="mobile-menu-account" type="button">Account</button>
           <button class="mobile-menu-link" id="mobile-menu-library" type="button">Library</button>
-          <a class="mobile-menu-link button-link is-active" id="mobile-menu-files-link" href="./files.html">Files</a>
-          <a class="mobile-menu-link button-link hidden" id="mobile-menu-recordings-link" href="./recordings.html">Meeting Notes</a>
+          <a class="mobile-menu-link button-link is-active" id="mobile-menu-files-link" href="./files">Files</a>
+          <a class="mobile-menu-link button-link hidden" id="mobile-menu-recordings-link" href="./meeting-notes">Meeting Notes</a>
         </div>
       </div>
     </header>
@@ -65,15 +65,15 @@
             <p>Browse and manage the files in the active library.</p>
           </div>
           <div class="actions">
-            <a class="btn secondary button-link hidden" id="files-recordings-link" href="./recordings.html">Meeting Notes</a>
-            <a class="btn secondary button-link" href="./dashboard.html?section=library">Back to records</a>
+            <a class="btn secondary button-link hidden" id="files-recordings-link" href="./meeting-notes">Meeting Notes</a>
+            <a class="btn secondary button-link" href="./library">Back to records</a>
           </div>
         </div>
 
         <div class="notice hidden" id="files-no-access-notice">
           <strong>No library access right now.</strong> Your account still works, but there are no files to show until you create or join a library.
           <div class="actions">
-            <a class="btn secondary button-link" href="./dashboard.html?section=account">Go to account</a>
+            <a class="btn secondary button-link" href="./account">Go to account</a>
           </div>
         </div>
 
@@ -106,7 +106,7 @@
         <div class="file-modal-actions">
           <a class="file-modal-link" id="file-modal-download" href="#" target="_blank" rel="noopener">Download</a>
           <button class="file-modal-link" id="file-modal-share" type="button">Share</button>
-          <a class="file-modal-link hidden" id="file-modal-open-editable" href="./documents.html" rel="noopener">Open</a>
+          <a class="file-modal-link hidden" id="file-modal-open-editable" href="./documents" rel="noopener">Open</a>
           <button class="file-modal-link hidden" id="file-modal-original" type="button">View original</button>
           <button class="file-modal-link" id="file-modal-edit" type="button">Edit details</button>
           <button class="file-modal-link file-modal-danger" id="file-modal-delete" type="button">Delete</button>
@@ -191,6 +191,6 @@
   </div>
 
   <script src="./config.js"></script>
-  <script type="module" src="./files.js?v=20260612-meeting-notes-nav"></script>
+  <script type="module" src="./files.js?v=20260612-clean-routes"></script>
 </body>
 </html>

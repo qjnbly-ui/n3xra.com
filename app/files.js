@@ -404,7 +404,7 @@ async function handleSignout() {
     return;
   }
   setStoredActiveOrganizationId("");
-  window.location.replace("./login.html");
+  window.location.replace("./login");
 }
 
 async function loadDocuments() {
@@ -595,7 +595,7 @@ async function openSourceFilePreview(documentId) {
   fileModalShare.textContent = "Share";
   show(fileModalOpenEditable, Boolean(editableDoc));
   if (editableDoc) {
-    fileModalOpenEditable.href = `./documents.html?id=${encodeURIComponent(editableDoc.id)}`;
+    fileModalOpenEditable.href = `./documents?id=${encodeURIComponent(editableDoc.id)}`;
     fileModalOpenEditable.textContent = capabilities.canEditDocuments ? "Edit document" : "Open";
   }
   show(fileModalOriginal, false);
@@ -639,7 +639,7 @@ async function openEditableFilePreview(documentId, editableDoc) {
     fileModalDownload.textContent = "Download PDF";
     show(fileModalShare, false);
     show(fileModalOpenEditable, true);
-    fileModalOpenEditable.href = `./documents.html?id=${encodeURIComponent(editableDoc.id)}`;
+    fileModalOpenEditable.href = `./documents?id=${encodeURIComponent(editableDoc.id)}`;
     fileModalOpenEditable.textContent = capabilities.canEditDocuments ? "Edit document" : "Open";
     show(fileModalOriginal, true);
     show(fileModalEdit, capabilities.canEditDocuments);
@@ -1302,7 +1302,7 @@ async function makeFileEditable(documentId) {
   }
   const existing = getEditableDocumentForSource(documentId);
   if (existing) {
-    window.location.href = `./documents.html?id=${encodeURIComponent(existing.id)}`;
+    window.location.href = `./documents?id=${encodeURIComponent(existing.id)}`;
     return;
   }
 
@@ -1355,7 +1355,7 @@ async function makeFileEditable(documentId) {
     return;
   }
 
-  window.location.href = `./documents.html?id=${encodeURIComponent(data.id)}`;
+  window.location.href = `./documents?id=${encodeURIComponent(data.id)}`;
 }
 
 async function handleFileAction(event) {
@@ -1418,12 +1418,12 @@ async function init() {
   supabase = createBrowserSupabase();
   currentSession = await getSessionOrNull(supabase);
   if (!currentSession?.user) {
-    window.location.replace("./login.html");
+    window.location.replace("./login");
     return;
   }
 
   if (isPlatformAdminEmail(currentSession.user.email)) {
-    window.location.replace("./admin.html");
+    window.location.replace("./admin");
     return;
   }
 
@@ -1448,10 +1448,10 @@ async function init() {
   mobileLogoutButton.addEventListener("click", handleSignout);
   mobileMenuToggle.addEventListener("click", toggleMobileMenu);
   mobileMenuAccount.addEventListener("click", () => {
-    window.location.href = "./dashboard.html?section=account";
+    window.location.href = "./account";
   });
   mobileMenuLibrary.addEventListener("click", () => {
-    window.location.href = "./dashboard.html?section=library";
+    window.location.href = "./library";
   });
   activeOrganizationSelect.addEventListener("change", handleOrganizationChange);
   fileList.addEventListener("click", handleFileAction);
@@ -1529,7 +1529,7 @@ async function init() {
 
   supabase.auth.onAuthStateChange((_event, session) => {
     if (!session?.user) {
-      window.location.replace("./login.html");
+      window.location.replace("./login");
     }
   });
 }

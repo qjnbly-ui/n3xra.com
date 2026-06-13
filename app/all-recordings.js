@@ -256,7 +256,7 @@ function buildRetryRecordingHref(recording) {
   if (recording?.title) params.set("retryTitle", recording.title);
   if (recording?.id) params.set("retryRecording", recording.id);
   params.set("openUpload", "1");
-  return `./recordings.html?${params.toString()}`;
+  return `./meeting-notes?${params.toString()}`;
 }
 
 function retryRecording(recordingId) {
@@ -713,12 +713,12 @@ function populateRecordingDetails(recording) {
   show(recordingDetailRetry, isRetryableRecording(recording));
   show(recordingDetailTranscriptDocument, Boolean(recording.document_id));
   if (recording.document_id) {
-    recordingDetailTranscriptDocument.href = `./files.html?id=${encodeURIComponent(recording.document_id)}`;
+    recordingDetailTranscriptDocument.href = `./files?id=${encodeURIComponent(recording.document_id)}`;
   }
   const reviewDocumentId = recording.final_document_id || recording.ai_draft_document_id || "";
   show(recordingDetailAiDraft, Boolean(reviewDocumentId));
   if (reviewDocumentId) {
-    recordingDetailAiDraft.href = `./documents.html?id=${encodeURIComponent(reviewDocumentId)}`;
+    recordingDetailAiDraft.href = `./documents?id=${encodeURIComponent(reviewDocumentId)}`;
     recordingDetailAiDraft.textContent = recording.final_document_id ? "Open final" : "Open AI draft";
   }
   renderAiReview(recording.ai_review_json || null);
@@ -1038,7 +1038,7 @@ async function handleSignout() {
     return;
   }
   setStoredActiveOrganizationId("");
-  window.location.replace("./login.html");
+  window.location.replace("./login");
 }
 
 async function init() {
@@ -1049,7 +1049,7 @@ async function init() {
   supabase = createBrowserSupabase();
   currentSession = await getSessionOrNull(supabase);
   if (!currentSession?.user) {
-    window.location.replace("./login.html");
+    window.location.replace("./login");
     return;
   }
 
@@ -1063,7 +1063,7 @@ async function init() {
   }
 
   if (!getActiveCapabilities().canUseRecordings) {
-    window.location.replace("./dashboard.html?section=library");
+    window.location.replace("./library");
     return;
   }
 
@@ -1077,10 +1077,10 @@ async function init() {
   mobileLogoutButton.addEventListener("click", handleSignout);
   mobileMenuToggle.addEventListener("click", toggleMobileMenu);
   mobileMenuAccount.addEventListener("click", () => {
-    window.location.replace("./dashboard.html?section=account");
+    window.location.replace("./account");
   });
   mobileMenuLibrary.addEventListener("click", () => {
-    window.location.replace("./dashboard.html?section=library");
+    window.location.replace("./library");
   });
   activeOrganizationSelect.addEventListener("change", async () => {
     closeMobileMenu();

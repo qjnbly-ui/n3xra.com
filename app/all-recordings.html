@@ -6,7 +6,7 @@
   <title>n3xra.com All Meeting Notes</title>
   <meta name="description" content="n3xra.com all meeting notes page.">
   <meta name="robots" content="noindex, nofollow, noarchive, nosnippet" />
-  <link rel="canonical" href="https://n3xra.com/app/all-recordings" />
+  <link rel="canonical" href="https://n3xra.com/app/all-meeting-notes" />
   <meta name="application-name" content="N3XRA Records" />
   <meta name="apple-mobile-web-app-title" content="N3XRA Records" />
   <meta name="theme-color" content="#070c12" />
@@ -38,8 +38,8 @@
           </div>
           <button class="mobile-menu-link" id="mobile-menu-account" type="button">Account</button>
           <button class="mobile-menu-link" id="mobile-menu-library" type="button">Library</button>
-          <a class="mobile-menu-link button-link" id="mobile-menu-files-link" href="./files.html">Files</a>
-          <a class="mobile-menu-link button-link hidden" id="mobile-menu-recordings-link" href="./recordings.html">Meeting Notes</a>
+          <a class="mobile-menu-link button-link" id="mobile-menu-files-link" href="./files">Files</a>
+          <a class="mobile-menu-link button-link hidden" id="mobile-menu-recordings-link" href="./meeting-notes">Meeting Notes</a>
         </div>
       </div>
     </header>
@@ -65,14 +65,14 @@
             <p>Playback audio and browse every saved meeting note in the active library.</p>
           </div>
           <div class="actions">
-            <a class="btn secondary button-link" href="./recordings.html">Back to meeting notes</a>
+            <a class="btn secondary button-link" href="./meeting-notes">Back to meeting notes</a>
           </div>
         </div>
 
         <div class="notice hidden" id="all-recordings-no-access-notice">
           <strong>No library access right now.</strong> There are no meeting notes to show until you create or join a library.
           <div class="actions">
-            <a class="btn secondary button-link" href="./dashboard.html?section=account">Go to account</a>
+            <a class="btn secondary button-link" href="./account">Go to account</a>
           </div>
         </div>
 
@@ -187,8 +187,8 @@
           <button class="btn secondary hidden" id="recording-detail-transcribe" type="button">Create transcript</button>
           <button class="btn secondary hidden" id="recording-detail-retry" type="button">Retry</button>
           <button class="btn secondary" id="recording-detail-ai-review" type="button">Review with AI</button>
-          <a class="btn secondary button-link hidden" id="recording-detail-ai-draft" href="./documents.html" rel="noopener">Open AI draft</a>
-          <a class="btn secondary button-link hidden" id="recording-detail-transcript-document" href="./files.html" rel="noopener">Open transcript</a>
+          <a class="btn secondary button-link hidden" id="recording-detail-ai-draft" href="./documents" rel="noopener">Open AI draft</a>
+          <a class="btn secondary button-link hidden" id="recording-detail-transcript-document" href="./files" rel="noopener">Open transcript</a>
           <button class="btn btn-delete-solid" id="recording-detail-delete" type="button">Delete</button>
         </div>
         <p class="status" id="recording-detail-status-message"></p>
@@ -216,6 +216,6 @@
   </div>
 
   <script src="./config.js"></script>
-  <script type="module" src="./all-recordings.js?v=20260612d"></script>
+  <script type="module" src="./all-recordings.js?v=20260612-clean-routes"></script>
 </body>
 </html>

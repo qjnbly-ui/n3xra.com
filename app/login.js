@@ -114,7 +114,7 @@ function isPlatformAdminEmail(email) {
 }
 
 function getPostAuthDestination(session) {
-  return isPlatformAdminEmail(session?.user?.email) ? "./admin.html" : "./dashboard.html";
+  return isPlatformAdminEmail(session?.user?.email) ? "./admin" : "./library";
 }
 
 function setStatus(message, tone = "") {
@@ -461,7 +461,7 @@ async function handleForgotPassword() {
 
   setStatus("Sending password reset...");
 
-  const redirectTo = `${window.location.origin}/app/reset-password.html`;
+  const redirectTo = `${window.location.origin}/app/reset-password`;
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
     redirectTo,  });
 
