@@ -133,8 +133,7 @@ body {
   gap: 0.2rem;
 }
 
-.account-overview-meta span,
-.account-settings summary small {
+.account-overview-meta span {
   color: var(--slate);
   font-size: 0.82rem;
   font-weight: 800;
@@ -211,19 +210,35 @@ body {
 }
 
 .account-settings {
-  border-top: 1px solid var(--line);
-  padding-top: 0.9rem;
+  border: 1px solid rgba(15, 22, 32, 0.1);
+  border-radius: var(--radius-md);
+  background:
+    radial-gradient(420px 180px at 0% 0%, rgba(23, 111, 102, 0.08), transparent 62%),
+    #fbfcfd;
+  padding: clamp(1rem, 2.2vw, 1.25rem);
+  display: grid;
+  gap: 1rem;
 }
 
-.account-settings summary {
-  cursor: pointer;
-  font-weight: 800;
-  display: grid;
-  gap: 0.15rem;
+.account-settings-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.account-settings-head h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.account-settings-head p {
+  margin: 0.2rem 0 0;
+  color: var(--slate);
+  font-size: 0.94rem;
 }
 
 .settings-grid {
-  margin-top: 1rem;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(260px, 0.8fr);
   gap: 1rem;
@@ -233,7 +248,7 @@ body {
 .settings-disclosure {
   border: 1px solid rgba(15, 22, 32, 0.09);
   border-radius: var(--radius-md);
-  background: #fbfcfd;
+  background: rgba(255, 255, 255, 0.78);
   padding: 0;
   overflow: hidden;
 }
@@ -242,7 +257,30 @@ body {
   color: var(--ink);
   cursor: pointer;
   font-weight: 800;
-  padding: 0.85rem 1rem;
+  list-style: none;
+  padding: 0.9rem 1rem;
+}
+
+.settings-disclosure summary::-webkit-details-marker {
+  display: none;
+}
+
+.settings-disclosure summary::after {
+  content: "Open";
+  float: right;
+  color: var(--slate);
+  font-size: 0.78rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.settings-disclosure[open] summary::after {
+  content: "Close";
+}
+
+.settings-disclosure summary:focus-visible {
+  outline: 2px solid rgba(23, 111, 102, 0.35);
+  outline-offset: -2px;
 }
 
 .settings-disclosure[open] summary {
