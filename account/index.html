@@ -146,16 +146,7 @@
             <h2 id="account-name">N3XRA account</h2>
             <p id="account-email"></p>
           </div>
-          <div class="account-overview-meta">
-            <div>
-              <span>Master account</span>
-              <strong>Active</strong>
-            </div>
-            <div>
-              <span>App access</span>
-              <strong id="app-access-count">0 apps</strong>
-            </div>
-          </div>
+          <button class="account-settings-button" type="button" id="open-account-settings">Settings</button>
         </div>
 
         <div class="dashboard-apps">
@@ -198,46 +189,62 @@
           </section>
         </div>
 
-        <section class="account-settings" aria-labelledby="account-settings-title">
-          <div class="account-settings-head">
-            <div>
-              <h3 id="account-settings-title">Account settings</h3>
-              <p>Update your profile and sign-in security.</p>
-            </div>
-          </div>
-          <div class="settings-grid">
-            <details class="settings-disclosure">
-              <summary>Display name</summary>
-              <form class="auth-form settings-form" id="profile-form">
-                <div class="field">
-                  <label for="profile-full-name">Display name</label>
-                  <input id="profile-full-name" type="text" autocomplete="name">
-                </div>
-                <button class="btn secondary" type="submit">Save name</button>
-              </form>
-            </details>
-
-            <details class="settings-disclosure">
-              <summary>Change password</summary>
-              <form class="auth-form settings-form" id="password-form">
-                <div class="field">
-                  <label for="account-password">New password</label>
-                  <input id="account-password" type="password" autocomplete="new-password" minlength="8">
-                </div>
-                <div class="field">
-                  <label for="account-password-confirm">Confirm new password</label>
-                  <input id="account-password-confirm" type="password" autocomplete="new-password" minlength="8">
-                </div>
-                <button class="btn secondary" type="submit">Update password</button>
-              </form>
-            </details>
-          </div>
-        </section>
       </div>
 
       <p class="status account-status" id="account-status"></p>
     </section>
   </main>
+
+  <div class="account-modal-backdrop hidden" id="account-settings-modal" role="dialog" aria-modal="true" aria-labelledby="account-settings-title">
+    <section class="account-modal">
+      <div class="account-modal-head">
+        <div>
+          <p class="account-modal-kicker">Account</p>
+          <h2 id="account-settings-title">Profile settings</h2>
+        </div>
+        <button class="account-modal-close" type="button" id="close-account-settings">Close</button>
+      </div>
+
+      <div class="account-modal-page">
+        <div class="account-detail-grid">
+          <div class="account-detail">
+            <p class="account-detail-label">Signed in as</p>
+            <p class="account-detail-value" id="settings-account-email">-</p>
+          </div>
+
+          <details class="settings-disclosure">
+            <summary>Display name</summary>
+            <form class="auth-form settings-form" id="profile-form">
+              <div class="field">
+                <label for="profile-full-name">Display name</label>
+                <input id="profile-full-name" type="text" autocomplete="name">
+              </div>
+              <button class="btn secondary" type="submit">Save name</button>
+            </form>
+          </details>
+
+          <details class="settings-disclosure">
+            <summary>Change password</summary>
+            <form class="auth-form settings-form" id="password-form">
+              <div class="field">
+                <label for="account-password">New password</label>
+                <input id="account-password" type="password" autocomplete="new-password" minlength="8">
+              </div>
+              <div class="field">
+                <label for="account-password-confirm">Confirm new password</label>
+                <input id="account-password-confirm" type="password" autocomplete="new-password" minlength="8">
+              </div>
+              <button class="btn secondary" type="submit">Update password</button>
+            </form>
+          </details>
+        </div>
+        <p class="status account-modal-status" id="settings-status"></p>
+        <div class="account-modal-actions">
+          <button class="btn" type="button" id="done-account-settings">Done</button>
+        </div>
+      </div>
+    </section>
+  </div>
 
   <script type="module" src="/account/account.js"></script>
 </body>

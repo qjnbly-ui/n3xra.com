@@ -33,7 +33,12 @@ const passwordForm = document.getElementById("password-form");
 const accountName = document.getElementById("account-name");
 const accountEmail = document.getElementById("account-email");
 const profileFullNameInput = document.getElementById("profile-full-name");
-const appAccessCount = document.getElementById("app-access-count");
+const settingsAccountEmail = document.getElementById("settings-account-email");
+const accountSettingsModal = document.getElementById("account-settings-modal");
+const openAccountSettingsButton = document.getElementById("open-account-settings");
+const closeAccountSettingsButton = document.getElementById("close-account-settings");
+const doneAccountSettingsButton = document.getElementById("done-account-settings");
+const settingsStatus = document.getElementById("settings-status");
 const recordsSummary = document.getElementById("records-summary");
 const musicSummary = document.getElementById("music-summary");
 const openRecordsButton = document.getElementById("open-records-button");
@@ -54,9 +59,12 @@ function show(el, visible) {
 }
 
 function setStatus(message, tone = "") {
-  accountStatus.textContent = message || "";
-  accountStatus.className = "status account-status";
-  if (tone) accountStatus.classList.add(tone);
+  [accountStatus, settingsStatus].forEach((statusEl) => {
+    if (!statusEl) return;
+    statusEl.textContent = message || "";
+    statusEl.className = statusEl === settingsStatus ? "status account-modal-status" : "status account-status";
+    if (tone) statusEl.classList.add(tone);
+  });
 }
 
 function updateAccountNav(isSignedIn = false) {
@@ -277,6 +285,7 @@ async function renderDashboard(message = "") {
   const displayName = await loadProfileName().catch(() => currentSession.user.email || "N3XRA account");
   accountName.textContent = displayName || "N3XRA account";
   accountEmail.textContent = currentSession.user.email || "";
+  if (settingsAccountEmail) settingsAccountEmail.textContent = currentSession.user.email || "-";
   profileFullNameInput.value = displayName || "";
 
   const firstMembership = memberships[0] || null;
@@ -292,10 +301,18 @@ async function renderDashboard(message = "") {
     : "Not active yet. Activate it only if you want to create and save songs.";
   openMusicButton.textContent = hasMusicProfile ? "Open AI Music" : "Activate AI Music";
 
-  const connectedAppCount = Number(Boolean(recordsOrgName)) + Number(hasMusicProfile);
-  if (appAccessCount) {
-    appAccessCount.textContent = connectedAppCount === 1 ? "1 app" : `${connectedAppCount} apps`;
-  }
+}
+
+function openAccountSettings() {
+  if (!accountSettingsModal) return;
+  accountSettingsModal.classList.remove("hidden");
+  setStatus("");
+  requestAnimationFrame(() => closeAccountSettingsButton?.focus());
+}
+
+function closeAccountSettings() {
+  if (!accountSettingsModal) return;
+  accountSettingsModal.classList.add("hidden");
 }
 
 async function maybeRouteAfterAuth(session) {
@@ -578,6 +595,17 @@ function bindEvents() {
   passwordForm.addEventListener("submit", handlePasswordSave);
   openRecordsButton.addEventListener("click", openRecords);
   openMusicButton.addEventListener("click", openMusic);
+  openAccountSettingsButton?.addEventListener("click", openAccountSettings);
+  closeAccountSettingsButton?.addEventListener("click", closeAccountSettings);
+  doneAccountSettingsButton?.addEventListener("click", closeAccountSettings);
+  accountSettingsModal?.addEventListener("click", (event) => {
+    if (event.target === accountSettingsModal) closeAccountSettings();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && accountSettingsModal && !accountSettingsModal.classList.contains("hidden")) {
+      closeAccountSettings();
+    }
+  });
 }
 
 async function init() {
