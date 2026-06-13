@@ -4,17 +4,17 @@ import { isPlatformAdminEmail } from "/app/lib/orgs.js";
 const authLinks = Array.from(document.querySelectorAll("[data-site-auth-link]"));
 
 function getDashboardHref(session) {
-  return isPlatformAdminEmail(session?.user?.email) ? "/app/admin" : "/account";
+  return isPlatformAdminEmail(session?.user?.email) ? "/app/admin" : "/app/library";
 }
 
 function setAuthLinks(session) {
   const isSignedIn = Boolean(session?.user);
 
   authLinks.forEach((link) => {
-    link.textContent = isSignedIn ? "Account" : "Login";
-    link.href = isSignedIn ? getDashboardHref(session) : "/account";
+    link.textContent = isSignedIn ? "Dashboard" : "Login";
+    link.href = isSignedIn ? getDashboardHref(session) : "/app/login";
     link.dataset.authState = isSignedIn ? "signed-in" : "signed-out";
-    link.setAttribute("aria-label", isSignedIn ? "Open account" : "Sign in");
+    link.setAttribute("aria-label", isSignedIn ? "Open dashboard" : "Sign in");
   });
 }
 
