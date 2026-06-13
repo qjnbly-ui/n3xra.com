@@ -204,13 +204,16 @@
             <small>Update your display name or password</small>
           </summary>
           <div class="settings-grid">
-            <form class="auth-form settings-form" id="profile-form">
-              <div class="field">
-                <label for="profile-full-name">Display name</label>
-                <input id="profile-full-name" type="text" autocomplete="name">
-              </div>
-              <button class="btn secondary" type="submit">Save name</button>
-            </form>
+            <details class="settings-disclosure">
+              <summary>Display name</summary>
+              <form class="auth-form settings-form" id="profile-form">
+                <div class="field">
+                  <label for="profile-full-name">Display name</label>
+                  <input id="profile-full-name" type="text" autocomplete="name">
+                </div>
+                <button class="btn secondary" type="submit">Save name</button>
+              </form>
+            </details>
 
             <details class="settings-disclosure">
               <summary>Change password</summary>

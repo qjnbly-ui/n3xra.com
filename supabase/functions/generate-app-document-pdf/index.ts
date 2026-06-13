@@ -141,13 +141,23 @@ function addPage(state: RenderState) {
   state.y = PAGE_HEIGHT - MARGIN_TOP;
 
   const headerSize = 8.5;
+  const footerSize = 8;
+  const mutedText = rgb(0.42, 0.47, 0.54);
   const headerTitle = fitText(state.fonts.bold, state.title || "Untitled document", headerSize, 220);
+  const headerTitleWidth = state.fonts.bold.widthOfTextAtSize(headerTitle, headerSize);
+  const separator = headerTitle ? " | " : "";
+  const separatorWidth = state.fonts.regular.widthOfTextAtSize(separator, headerSize);
+  const headerMetaMaxWidth = Math.max(
+    0,
+    PAGE_WIDTH - MARGIN_X * 2 - headerTitleWidth - separatorWidth - 4,
+  );
   const headerMeta = fitText(
     state.fonts.regular,
-    ` | ${state.organizationName || "N3XRA Records"} | Generated ${new Date().toLocaleDateString("en-US")}`,
+    state.organizationName || "N3XRA Records",
     headerSize,
-    PAGE_WIDTH - MARGIN_X * 2 - state.fonts.bold.widthOfTextAtSize(headerTitle, headerSize) - 4,
+    headerMetaMaxWidth,
   );
+  const headerMetaText = headerMeta ? `${separator}${headerMeta}` : "";
 
   state.page.drawText(headerTitle, {
     x: MARGIN_X,
@@ -156,19 +166,31 @@ function addPage(state: RenderState) {
     font: state.fonts.bold,
     color: rgb(0.28, 0.34, 0.41),
   });
-  state.page.drawText(headerMeta, {
-    x: MARGIN_X + state.fonts.bold.widthOfTextAtSize(headerTitle, headerSize) + 4,
-    y: PAGE_HEIGHT - 34,
-    size: headerSize,
-    font: state.fonts.regular,
-    color: rgb(0.28, 0.34, 0.41),
-  });
-  state.page.drawText(`Page ${state.pageNumber}`, {
-    x: PAGE_WIDTH - MARGIN_X - 38,
+  if (headerMetaText) {
+    state.page.drawText(headerMetaText, {
+      x: MARGIN_X + headerTitleWidth + 4,
+      y: PAGE_HEIGHT - 34,
+      size: headerSize,
+      font: state.fonts.regular,
+      color: rgb(0.28, 0.34, 0.41),
+    });
+  }
+
+  const footerBrand = "Powered by N3XRA Records";
+  const pageNumberText = `Page ${state.pageNumber}`;
+  state.page.drawText(footerBrand, {
+    x: MARGIN_X,
     y: 30,
-    size: 8,
+    size: footerSize,
     font: state.fonts.regular,
-    color: rgb(0.42, 0.47, 0.54),
+    color: mutedText,
+  });
+  state.page.drawText(pageNumberText, {
+    x: PAGE_WIDTH - MARGIN_X - state.fonts.regular.widthOfTextAtSize(pageNumberText, footerSize),
+    y: 30,
+    size: footerSize,
+    font: state.fonts.regular,
+    color: mutedText,
   });
 }
 
