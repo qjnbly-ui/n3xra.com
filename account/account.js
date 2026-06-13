@@ -37,7 +37,6 @@ const recordsSummary = document.getElementById("records-summary");
 const musicSummary = document.getElementById("music-summary");
 const openRecordsButton = document.getElementById("open-records-button");
 const openMusicButton = document.getElementById("open-music-button");
-const signoutButton = document.getElementById("signout-button");
 
 let supabase = null;
 let currentSession = null;
@@ -573,7 +572,6 @@ function bindEvents() {
   passwordForm.addEventListener("submit", handlePasswordSave);
   openRecordsButton.addEventListener("click", openRecords);
   openMusicButton.addEventListener("click", openMusic);
-  signoutButton.addEventListener("click", handleSignout);
 }
 
 async function init() {
