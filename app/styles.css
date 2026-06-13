@@ -945,12 +945,86 @@ textarea {
   gap: 0.85rem;
 }
 
+.recording-detail-tabs {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.28rem;
+  border: 1px solid rgba(15, 22, 32, 0.1);
+  border-radius: 16px;
+  background: #f4f7fa;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.recording-detail-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.recording-detail-tab {
+  min-width: max-content;
+  min-height: 38px;
+  border: 0;
+  border-radius: 12px;
+  padding: 0.55rem 0.78rem;
+  background: transparent;
+  color: var(--slate);
+  font-family: "Manrope", Arial, sans-serif;
+  font-size: 0.9rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.recording-detail-tab:hover,
+.recording-detail-tab:focus-visible {
+  color: var(--ink);
+  outline: none;
+}
+
+.recording-detail-tab.is-active {
+  background: var(--teal);
+  color: #ffffff;
+  box-shadow: 0 8px 18px rgba(20, 94, 80, 0.18);
+}
+
+.recording-detail-tab-panels {
+  min-height: 0;
+}
+
 .recording-detail-section {
   display: grid;
   gap: 0.75rem;
   margin-top: 1rem;
   padding-top: 1rem;
   border-top: 1px solid rgba(15, 22, 32, 0.08);
+}
+
+.recording-detail-tab-panel {
+  margin-top: 0.85rem;
+  padding-top: 0;
+  border-top: 0;
+}
+
+.recording-detail-tab-panel:not(.is-active) {
+  display: none;
+}
+
+.recording-detail-card {
+  border: 1px solid rgba(15, 22, 32, 0.08);
+  border-radius: 16px;
+  background: #fbfcfe;
+  padding: 0.9rem 1rem;
+}
+
+.recording-detail-card .account-value {
+  margin-top: 0.25rem;
+}
+
+.recording-detail-panel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  justify-content: flex-end;
 }
 
 .compact-head {

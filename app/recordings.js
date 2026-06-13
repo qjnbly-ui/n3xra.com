@@ -60,6 +60,8 @@ const recordingsEmpty = document.getElementById("recordings-empty");
 const recordingsListStatus = document.getElementById("recordings-list-status");
 const recordingDetailModal = document.getElementById("recording-detail-modal");
 const recordingDetailClose = document.getElementById("recording-detail-close");
+const recordingDetailTabs = Array.from(document.querySelectorAll("[data-recording-detail-tab]"));
+const recordingDetailTabPanels = Array.from(document.querySelectorAll("[data-recording-detail-panel]"));
 const recordingUploadModal = document.getElementById("recording-upload-modal");
 const recordingUploadClose = document.getElementById("recording-upload-close");
 const recordingUploadKicker = document.getElementById("recording-upload-kicker");
@@ -78,11 +80,11 @@ const recordingDetailDuration = document.getElementById("recording-detail-durati
 const recordingDetailSize = document.getElementById("recording-detail-size");
 const recordingDetailPlayer = document.getElementById("recording-detail-player");
 const recordingDetailNotes = document.getElementById("recording-detail-notes");
-const recordingDetailAiDraftSection = document.getElementById("recording-detail-ai-draft-section");
 const recordingDetailAiDraftPreview = document.getElementById("recording-detail-ai-draft-preview");
 const recordingAiReviewPanel = document.getElementById("recording-ai-review-panel");
 const recordingAiSuggestions = document.getElementById("recording-ai-suggestions");
 const recordingAiConflicts = document.getElementById("recording-ai-conflicts");
+const recordingDetailTranscriptCopy = document.getElementById("recording-detail-transcript-copy");
 const recordingDetailPlay = document.getElementById("recording-detail-play");
 const recordingDetailTranscribe = document.getElementById("recording-detail-transcribe");
 const recordingDetailRetry = document.getElementById("recording-detail-retry");
@@ -167,6 +169,48 @@ function setStatus(el, message, tone = "") {
 function show(el, visible) {
   if (!el) return;
   el.classList.toggle("hidden", !visible);
+}
+
+function setRecordingDetailTab(tabName = "notes") {
+  const nextTab = recordingDetailTabPanels.some((panel) => panel.dataset.recordingDetailPanel === tabName)
+    ? tabName
+    : "notes";
+
+  recordingDetailTabs.forEach((button) => {
+    const isActive = button.dataset.recordingDetailTab === nextTab;
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-selected", String(isActive));
+    button.tabIndex = isActive ? 0 : -1;
+  });
+
+  recordingDetailTabPanels.forEach((panel) => {
+    const isActive = panel.dataset.recordingDetailPanel === nextTab;
+    panel.classList.toggle("is-active", isActive);
+    panel.hidden = !isActive;
+  });
+}
+
+function focusRecordingDetailTab(tabName) {
+  setRecordingDetailTab(tabName);
+  const activeTab = recordingDetailTabs.find((button) => button.dataset.recordingDetailTab === tabName);
+  activeTab?.focus();
+}
+
+function handleRecordingDetailTabKeydown(event) {
+  if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+  if (!recordingDetailTabs.length) return;
+
+  const currentIndex = recordingDetailTabs.indexOf(event.currentTarget);
+  if (currentIndex === -1) return;
+
+  event.preventDefault();
+  let nextIndex = currentIndex;
+  if (event.key === "ArrowLeft") nextIndex = currentIndex === 0 ? recordingDetailTabs.length - 1 : currentIndex - 1;
+  if (event.key === "ArrowRight") nextIndex = currentIndex === recordingDetailTabs.length - 1 ? 0 : currentIndex + 1;
+  if (event.key === "Home") nextIndex = 0;
+  if (event.key === "End") nextIndex = recordingDetailTabs.length - 1;
+
+  focusRecordingDetailTab(recordingDetailTabs[nextIndex].dataset.recordingDetailTab);
 }
 
 function setRecordPanelOpen(isOpen, options = {}) {
@@ -1071,10 +1115,9 @@ function renderReviewItems(container, title, items, emptyCopy, options = {}) {
 
 function renderAiReview(review) {
   const hasReview = review && typeof review === "object" && (Array.isArray(review.suggested_additions) || Array.isArray(review.conflicts));
-  show(recordingAiReviewPanel, Boolean(hasReview));
   if (!hasReview) {
-    if (recordingAiSuggestions) recordingAiSuggestions.innerHTML = "";
-    if (recordingAiConflicts) recordingAiConflicts.innerHTML = "";
+    renderReviewItems(recordingAiSuggestions, "Suggested additions", [], "No AI review has been run yet.");
+    renderReviewItems(recordingAiConflicts, "Possible conflicts", [], "No conflicts found.");
     return;
   }
 
@@ -1101,9 +1144,19 @@ function populateRecordingDetails(recording) {
   recordingDetailPlay.textContent = "Play";
   recordingDetailNotes.textContent = String(recording.notes_plain_text || "").trim() || "No notes saved yet.";
   const aiDraftPreview = String(recording.ai_review_json?.final_document_text || "").trim();
-  show(recordingDetailAiDraftSection, Boolean(aiDraftPreview));
   if (recordingDetailAiDraftPreview) {
-    recordingDetailAiDraftPreview.textContent = aiDraftPreview;
+    recordingDetailAiDraftPreview.textContent = aiDraftPreview || "No AI draft created yet.";
+  }
+  if (recordingDetailTranscriptCopy) {
+    if (recording.document_id) {
+      recordingDetailTranscriptCopy.textContent = "Transcript file is ready. Open it to view, download, share, or manage it from Files.";
+    } else if (recording.transcript_status === "processing" || recording.transcript_status === "queued") {
+      recordingDetailTranscriptCopy.textContent = "Transcript is being created. Check back shortly.";
+    } else if (recording.transcript_status === "failed") {
+      recordingDetailTranscriptCopy.textContent = "Transcript creation failed. Use Retry to run transcription again.";
+    } else {
+      recordingDetailTranscriptCopy.textContent = "No transcript file has been created yet.";
+    }
   }
   show(recordingDetailTranscriptDocument, Boolean(recording.document_id));
   if (recording.document_id) {
@@ -1130,6 +1183,7 @@ async function openRecordingDetail(recordingId) {
   activeDetailRecordingId = recording.id;
   populateRecordingDetails(recording);
   clearDetailPlayer();
+  setRecordingDetailTab("notes");
   setRecordingDetailModalOpen(true);
 
   if (!canPlaybackRecording(recording)) return;
@@ -1905,6 +1959,12 @@ async function init() {
       button.getAttribute("data-review-action") || "",
       button.getAttribute("data-review-index")
     );
+  });
+  recordingDetailTabs.forEach((button) => {
+    button.addEventListener("click", () => {
+      setRecordingDetailTab(button.dataset.recordingDetailTab || "notes");
+    });
+    button.addEventListener("keydown", handleRecordingDetailTabKeydown);
   });
   recordingDetailAiReview.addEventListener("click", () => {
     if (!activeDetailRecordingId) return;
