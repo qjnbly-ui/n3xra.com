@@ -11,6 +11,7 @@ import { isPlatformAdminEmail, setStoredActiveOrganizationId } from "../app/lib/
 
 const setupPanel = document.getElementById("setup-panel");
 const accountPanel = document.getElementById("account-panel");
+const accountNavLink = document.getElementById("account-nav-link");
 const authCard = document.getElementById("auth-card");
 const recoveryCard = document.getElementById("recovery-card");
 const dashboardCard = document.getElementById("dashboard-card");
@@ -56,6 +57,13 @@ function setStatus(message, tone = "") {
   accountStatus.textContent = message || "";
   accountStatus.className = "status account-status";
   if (tone) accountStatus.classList.add(tone);
+}
+
+function updateAccountNav(isSignedIn = false) {
+  if (!accountNavLink) return;
+  accountNavLink.textContent = isSignedIn ? "Dashboard" : "Login";
+  accountNavLink.href = "/account";
+  accountNavLink.dataset.authState = isSignedIn ? "signed-in" : "signed-out";
 }
 
 function getErrorMessage(error, fallback) {
@@ -217,10 +225,17 @@ function applyUrlPrefill() {
 
 function renderShell(view) {
   show(accountPanel, true);
+  accountPanel.classList.toggle("is-dashboard", view === "dashboard");
   show(authCard, view === "auth");
   show(recoveryCard, view === "recovery");
   show(dashboardCard, view === "dashboard");
   show(authCaptchaField, view === "auth" && captchaEnabled);
+  updateAccountNav(view === "dashboard" || view === "recovery" || Boolean(currentSession?.user));
+  document.title = view === "dashboard"
+    ? "N3XRA | Dashboard"
+    : view === "recovery"
+      ? "N3XRA | Reset Password"
+      : "N3XRA | Account Login";
 }
 
 async function loadMemberships() {
@@ -271,9 +286,11 @@ async function renderDashboard(message = "") {
     : "No Records library yet. Open Records to create or join one.";
   openRecordsButton.textContent = recordsOrgName ? "Open Records" : "Start Records";
 
-  musicSummary.textContent = musicProfile
+  const hasMusicProfile = Boolean(musicProfile);
+  musicSummary.textContent = hasMusicProfile
     ? `${musicProfile.plan || "Free"} plan. ${Number(musicProfile.songs_used || 0)} of ${Number(musicProfile.monthly_song_limit || 0)} songs used.`
-    : "Open AI Music to activate this app for your account.";
+    : "Not active yet. Activate it only if you want to create and save songs.";
+  openMusicButton.textContent = hasMusicProfile ? "Open AI Music" : "Activate AI Music";
 }
 
 async function maybeRouteAfterAuth(session) {
@@ -454,7 +471,7 @@ async function openRecords() {
 async function openMusic() {
   if (!currentSession?.access_token) return;
 
-  setStatus("Opening AI Music...");
+  setStatus(musicProfile ? "Opening AI Music..." : "Activating AI Music...");
   try {
     const response = await fetch("/api/music-account", {
       headers: { Authorization: `Bearer ${currentSession.access_token}` },

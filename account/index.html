@@ -27,7 +27,7 @@
           <img src="/assets/n3xra_logo_transparent.png" alt="N3XRA">
         </a>
         <div class="site-nav-actions">
-          <a class="site-menu-link site-auth-link" href="/account">Account</a>
+          <a class="site-menu-link site-auth-link" href="/account" id="account-nav-link">Login</a>
           <button class="site-menu-toggle" type="button" aria-expanded="false" aria-controls="account-mobile-menu" aria-label="Open menu" data-site-menu-toggle>
             <span></span>
             <span></span>
@@ -149,25 +149,38 @@
           <button class="btn secondary" id="signout-button" type="button">Sign out</button>
         </div>
 
-        <div class="app-grid">
-          <article class="app-card">
-            <div>
-              <p class="auth-kicker">Records</p>
-              <h3>N3XRA Records</h3>
-              <p id="records-summary">Manage records, files, documents, and meeting notes.</p>
-            </div>
-            <button class="btn block" id="open-records-button" type="button">Open Records</button>
-          </article>
+        <section class="dashboard-section">
+          <div class="dashboard-section-head">
+            <h3>Your apps</h3>
+          </div>
+          <div class="app-grid">
+            <article class="app-card">
+              <div>
+                <p class="auth-kicker">Records</p>
+                <h3>N3XRA Records</h3>
+                <p id="records-summary">Manage records, files, documents, and meeting notes.</p>
+              </div>
+              <button class="btn block" id="open-records-button" type="button">Open Records</button>
+            </article>
+          </div>
+        </section>
 
-          <article class="app-card">
-            <div>
-              <p class="auth-kicker">AI Music</p>
-              <h3>AI Music Generator</h3>
-              <p id="music-summary">Create and save AI-generated songs.</p>
-            </div>
-            <button class="btn secondary block" id="open-music-button" type="button">Open AI Music</button>
-          </article>
-        </div>
+        <section class="dashboard-section" id="more-products-section">
+          <div class="dashboard-section-head">
+            <h3>More products by N3XRA</h3>
+            <p>Apps you can add to this master account when you need them.</p>
+          </div>
+          <div class="app-grid">
+            <article class="app-card">
+              <div>
+                <p class="auth-kicker">Optional app</p>
+                <h3>AI Music Generator</h3>
+                <p id="music-summary">Not active yet. Activate it only if you want to create and save songs.</p>
+              </div>
+              <button class="btn secondary block" id="open-music-button" type="button">Activate AI Music</button>
+            </article>
+          </div>
+        </section>
 
         <details class="account-settings">
           <summary>Account settings</summary>
@@ -179,17 +192,20 @@
             <button class="btn secondary" type="submit">Save name</button>
           </form>
 
-          <form class="auth-form settings-form" id="password-form">
-            <div class="field">
-              <label for="account-password">New password</label>
-              <input id="account-password" type="password" autocomplete="new-password" minlength="8">
-            </div>
-            <div class="field">
-              <label for="account-password-confirm">Confirm new password</label>
-              <input id="account-password-confirm" type="password" autocomplete="new-password" minlength="8">
-            </div>
-            <button class="btn secondary" type="submit">Update password</button>
-          </form>
+          <details class="settings-disclosure">
+            <summary>Change password</summary>
+            <form class="auth-form settings-form" id="password-form">
+              <div class="field">
+                <label for="account-password">New password</label>
+                <input id="account-password" type="password" autocomplete="new-password" minlength="8">
+              </div>
+              <div class="field">
+                <label for="account-password-confirm">Confirm new password</label>
+                <input id="account-password-confirm" type="password" autocomplete="new-password" minlength="8">
+              </div>
+              <button class="btn secondary" type="submit">Update password</button>
+            </form>
+          </details>
         </details>
       </div>
 

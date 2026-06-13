@@ -1,9 +1,18 @@
 body {
   min-height: 100svh;
   background:
+    linear-gradient(180deg, #07111d 0, #07111d 9.5rem, transparent 9.5rem),
     radial-gradient(760px 360px at 9% 8%, rgba(23, 111, 102, 0.14), transparent 58%),
     radial-gradient(680px 340px at 92% 6%, rgba(234, 155, 63, 0.12), transparent 58%),
     linear-gradient(180deg, #f8fafc 0%, #edf2f7 100%);
+}
+
+.site-topbar {
+  background:
+    radial-gradient(520px 220px at 8% 0%, rgba(23, 111, 102, 0.36), transparent 62%),
+    radial-gradient(520px 220px at 96% 0%, rgba(234, 155, 63, 0.2), transparent 62%),
+    linear-gradient(90deg, #07111d 0%, #0b1420 58%, #15100c 100%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .account-main {
@@ -17,6 +26,14 @@ body {
   grid-template-columns: minmax(280px, 0.85fr) minmax(340px, 1fr);
   gap: 1rem;
   align-items: stretch;
+}
+
+.account-panel.is-dashboard {
+  grid-template-columns: 1fr;
+}
+
+.account-panel.is-dashboard .account-hero {
+  display: none;
 }
 
 .account-hero {
@@ -82,6 +99,27 @@ body {
   color: var(--slate);
 }
 
+.dashboard-section {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.dashboard-section-head {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.dashboard-section-head h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.dashboard-section-head p {
+  margin: 0;
+  color: var(--slate);
+  font-size: 0.94rem;
+}
+
 .app-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -112,6 +150,18 @@ body {
   font-weight: 800;
 }
 
+.settings-disclosure {
+  margin-top: 0.9rem;
+  border: 1px solid rgba(15, 22, 32, 0.09);
+  border-radius: var(--radius-md);
+  background: #fbfcfd;
+  padding: 0.85rem 1rem;
+}
+
+.settings-disclosure summary {
+  color: var(--ink);
+}
+
 .settings-form {
   margin-top: 1rem;
   padding: 1rem;
@@ -123,6 +173,10 @@ body {
 .account-status {
   grid-column: 2;
   margin: 0;
+}
+
+.account-panel.is-dashboard .account-status {
+  grid-column: 1;
 }
 
 @media (max-width: 860px) {
