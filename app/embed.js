@@ -193,6 +193,61 @@ function updateYearFilterOptions() {
   });
 }
 
+function getMonthNumber(value) {
+  const raw = String(value || "").trim().toLowerCase();
+  const monthMap = new Map([
+    ["jan", 1],
+    ["january", 1],
+    ["feb", 2],
+    ["february", 2],
+    ["mar", 3],
+    ["march", 3],
+    ["apr", 4],
+    ["april", 4],
+    ["may", 5],
+    ["jun", 6],
+    ["june", 6],
+    ["jul", 7],
+    ["july", 7],
+    ["aug", 8],
+    ["august", 8],
+    ["sep", 9],
+    ["sept", 9],
+    ["september", 9],
+    ["oct", 10],
+    ["october", 10],
+    ["nov", 11],
+    ["november", 11],
+    ["dec", 12],
+    ["december", 12],
+  ]);
+
+  return monthMap.get(raw) || null;
+}
+
+function getDocumentDateScore(doc) {
+  const yearRaw = String(doc?.year || "").trim();
+  if (!/^(19|20)\d{2}$/.test(yearRaw)) return null;
+  return Number.parseInt(yearRaw, 10) * 100 + (getMonthNumber(doc?.month) || 0);
+}
+
+function sortDocumentsNewestToOldest(docs) {
+  return [...docs].sort((a, b) => {
+    const aScore = getDocumentDateScore(a);
+    const bScore = getDocumentDateScore(b);
+
+    if (aScore !== bScore) {
+      if (aScore === null) return 1;
+      if (bScore === null) return -1;
+      return bScore - aScore;
+    }
+
+    const aCreatedAt = new Date(a.created_at || 0).getTime();
+    const bCreatedAt = new Date(b.created_at || 0).getTime();
+    return bCreatedAt - aCreatedAt;
+  });
+}
+
 function renderDocuments() {
   const query = searchQueryInput.value.trim().toLowerCase();
   const selectedYear = searchYearSelect.value;
@@ -403,7 +458,7 @@ async function loadDocuments() {
     return;
   }
 
-  documentsCache = (Array.isArray(data) ? data : []).map(normalizePublicDocument);
+  documentsCache = sortDocumentsNewestToOldest((Array.isArray(data) ? data : []).map(normalizePublicDocument));
   updateYearFilterOptions();
   renderDocuments();
   setStatus(`${documentsCache.length} public record${documentsCache.length === 1 ? "" : "s"} loaded.`, "success");

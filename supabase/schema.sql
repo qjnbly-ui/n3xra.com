@@ -651,7 +651,39 @@ begin
   ) ad on true
   where d.organization_id = input_organization_id
     and d.is_public = true
-  order by d.created_at desc;
+  order by
+    case
+      when d.year ~ '^(19|20)[0-9]{2}$' then d.year::integer
+      else null
+    end desc nulls last,
+    case lower(trim(coalesce(d.month, '')))
+      when 'january' then 1
+      when 'jan' then 1
+      when 'february' then 2
+      when 'feb' then 2
+      when 'march' then 3
+      when 'mar' then 3
+      when 'april' then 4
+      when 'apr' then 4
+      when 'may' then 5
+      when 'june' then 6
+      when 'jun' then 6
+      when 'july' then 7
+      when 'jul' then 7
+      when 'august' then 8
+      when 'aug' then 8
+      when 'september' then 9
+      when 'sept' then 9
+      when 'sep' then 9
+      when 'october' then 10
+      when 'oct' then 10
+      when 'november' then 11
+      when 'nov' then 11
+      when 'december' then 12
+      when 'dec' then 12
+      else null
+    end desc nulls last,
+    d.created_at desc;
 end;
 $$;
 

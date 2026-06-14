@@ -236,9 +236,46 @@ function isMissingSchemaColumnMessage(message, columnName) {
   return lower.includes(String(columnName || "").toLowerCase()) && (lower.includes("does not exist") || lower.includes("schema cache"));
 }
 
+function getMonthNumber(value) {
+  const raw = normalizeText(value).toLowerCase();
+  const monthMap = new Map([
+    ["jan", 1],
+    ["january", 1],
+    ["feb", 2],
+    ["february", 2],
+    ["mar", 3],
+    ["march", 3],
+    ["apr", 4],
+    ["april", 4],
+    ["may", 5],
+    ["jun", 6],
+    ["june", 6],
+    ["jul", 7],
+    ["july", 7],
+    ["aug", 8],
+    ["august", 8],
+    ["sep", 9],
+    ["sept", 9],
+    ["september", 9],
+    ["oct", 10],
+    ["october", 10],
+    ["nov", 11],
+    ["november", 11],
+    ["dec", 12],
+    ["december", 12],
+  ]);
+
+  return monthMap.get(raw) || 0;
+}
+
 function getDocumentDateScore(doc) {
-  const value = doc.created_at ? new Date(doc.created_at).getTime() : 0;
-  return Number.isFinite(value) ? value : 0;
+  const yearRaw = normalizeText(doc?.year);
+  if (/^(19|20)\d{2}$/.test(yearRaw)) {
+    return Number.parseInt(yearRaw, 10) * 100 + getMonthNumber(doc?.month);
+  }
+
+  const createdAt = doc.created_at ? new Date(doc.created_at).getTime() : 0;
+  return Number.isFinite(createdAt) ? createdAt / 100000000000 : 0;
 }
 
 function countTermMatches(text, term) {

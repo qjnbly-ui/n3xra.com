@@ -3265,7 +3265,7 @@ async function loadDocuments() {
     return;
   }
 
-  documentsCache = Array.isArray(data) ? data : [];
+  documentsCache = sortDocumentsNewestToOldest(Array.isArray(data) ? data : []);
   await loadEditableDocumentMap(organization.id);
   updateYearFilterOptions();
   renderDocuments();

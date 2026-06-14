@@ -1,6 +1,6 @@
 # N3XRA Records Help Knowledge
 
-Last reviewed: 2026-06-13
+Last reviewed: 2026-06-14
 
 ## Purpose
 N3XRA Records helps organizations store, search, preview, download, share, and publish records, meeting packets, agendas, documents, and meeting-note recordings.
@@ -32,6 +32,7 @@ If a control is missing or disabled, the user may lack the required role, may no
 
 ## Files
 - Files is for managing uploaded files and app-native documents.
+- Document/file lists should show newest records first by document year/month when available, then upload date.
 - Actions can include Open, Edit details, Make editable, Download, Share, Make public/private, and Delete.
 - For records with an editable app document, Open should open the current app-native version rather than forcing the original source file.
 - Delete workflows may ask whether to remove associated app documents or related meeting-note data.
@@ -74,6 +75,7 @@ If a control is missing or disabled, the user may lack the required role, may no
 ## Public Records and Embeds
 - Public records features include public URLs and embedded read-only records views when public access is enabled and files are marked public.
 - Public embeds should prefer the current app-native/editable version when one exists, because that is the corrected source of truth.
+- Public record and embed lists should use the same newest-to-oldest document ordering as internal Files and Library views.
 - Embed settings include public page URL, iframe embed code, copy buttons, open public page, and public-facing search/files views.
 
 ## Sending Documents

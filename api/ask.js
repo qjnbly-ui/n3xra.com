@@ -177,8 +177,9 @@ async function buildSiteContext() {
     "Prefer answering what users can do, where to go, and which policy/support route applies.",
     "",
     "Current N3XRA Records software capabilities:",
-    "N3XRA Records includes libraries, shared access, role-based permissions, invite codes, billing/plan controls, document uploads, batch import, metadata, keyword/year search, AI Search summaries across visible file excerpts, newest files, All Files, file preview/open/download/share/edit/delete, public records URLs, embedded records views, and recording tools.",
-    "The recording tools include live browser audio recording, audio file upload, saved recordings, newest recordings, All Recordings, playback, recording details, retry for failed recordings, and delete when the user's role allows it.",
+    "N3XRA Records includes libraries, shared access, role-based permissions, invite codes, billing/plan controls, document uploads, batch import, metadata, keyword/year search, AI Search summaries across visible file excerpts, newest files, Files, file preview/open/download/share/edit/delete, public records URLs, embedded records views, and meeting-note tools.",
+    "Document and public record lists show newest records first by document year/month when available, then upload date.",
+    "The meeting-note tools include live browser audio recording, audio file upload, saved meeting notes, newest meeting notes, Meeting Notes, playback, details, editable notes, AI review, transcript, AI draft, retry for failed recordings, and delete when the user's role allows it.",
   ];
 
   const knowledgeText = await readKnowledgeFile();
