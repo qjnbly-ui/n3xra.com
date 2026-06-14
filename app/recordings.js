@@ -95,6 +95,7 @@ const recordingsConfirmOk = document.getElementById("recordings-confirm-ok");
 
 const RECORDINGS_BUCKET = "meeting-recordings";
 const RECORDER_AUDIO_BITS_PER_SECOND = 64000;
+const BLANK_NOTES_TEMPLATE_VALUE = "__blank_notes__";
 const MIME_TYPE_CANDIDATES = [
   "audio/webm;codecs=opus",
   "audio/webm",
@@ -497,6 +498,7 @@ function noteTextToContentJson(text) {
 
 function getSelectedTemplate() {
   const id = recordingTemplateSelect?.value || "";
+  if (id === BLANK_NOTES_TEMPLATE_VALUE) return null;
   return recordingTemplates.find((template) => template.id === id) || null;
 }
 
@@ -508,8 +510,9 @@ function getTemplateLabel(templateId) {
 
 function getCurrentNotesPayload() {
   const notesText = String(recordingNotesInput?.value || "").trim();
+  const selectedTemplateId = recordingTemplateSelect?.value || "";
   return {
-    selected_template_id: recordingTemplateSelect?.value || null,
+    selected_template_id: selectedTemplateId && selectedTemplateId !== BLANK_NOTES_TEMPLATE_VALUE ? selectedTemplateId : null,
     notes_content_json: noteTextToContentJson(notesText),
     notes_plain_text: notesText,
     notes_updated_at: new Date().toISOString(),
@@ -519,16 +522,46 @@ function getCurrentNotesPayload() {
 function renderTemplateSelect() {
   if (!recordingTemplateSelect) return;
   const selectedValue = recordingTemplateSelect.value;
-  recordingTemplateSelect.innerHTML = '<option value="">Select a template</option>';
+  recordingTemplateSelect.innerHTML = `
+    <option value="">Select a template</option>
+    <option value="${BLANK_NOTES_TEMPLATE_VALUE}">No template - blank notes</option>
+  `;
   recordingTemplates.forEach((template) => {
     const option = document.createElement("option");
     option.value = template.id;
     option.textContent = template.title || "Untitled template";
     recordingTemplateSelect.append(option);
   });
-  if (selectedValue && recordingTemplates.some((template) => template.id === selectedValue)) {
+  if (
+    selectedValue === BLANK_NOTES_TEMPLATE_VALUE ||
+    (selectedValue && recordingTemplates.some((template) => template.id === selectedValue))
+  ) {
     recordingTemplateSelect.value = selectedValue;
   }
+}
+
+function applySelectedTemplateToNotes() {
+  if (!recordingTemplateSelect) return;
+  if (recordingTemplateSelect.value === BLANK_NOTES_TEMPLATE_VALUE) {
+    if (!activeRecordingId) recordingNotesInput.value = "";
+    queueActiveRecordingNotesSave();
+    updateControls();
+    return;
+  }
+
+  const template = getSelectedTemplate();
+  if (!template) {
+    updateControls();
+    return;
+  }
+  const templateText = String(
+    templateNotesTextFromContentJson(template.content_json || {}) ||
+    template.plain_text ||
+    plainTextFromContentJson(template.content_json || {})
+  ).trim();
+  recordingNotesInput.value = templateText;
+  queueActiveRecordingNotesSave();
+  updateControls();
 }
 
 function setRecordingsConfirmModalOpen(isOpen) {
@@ -1861,8 +1894,7 @@ async function init() {
     setStatus(recordingUploadStatus, "");
   });
   recordingTemplateSelect.addEventListener("change", () => {
-    queueActiveRecordingNotesSave();
-    updateControls();
+    applySelectedTemplateToNotes();
   });
   recordingNotesInput.addEventListener("input", queueActiveRecordingNotesSave);
   activeOrganizationSelect.addEventListener("change", async () => {
