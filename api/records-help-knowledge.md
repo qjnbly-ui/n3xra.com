@@ -83,11 +83,12 @@ If a control is missing or disabled, the user may lack the required role, may no
 
 ## Sending Documents
 - Documents can be sent through an in-app send modal when configured.
-- The send modal supports recipients, subject, message, account users/contacts, and attached PDF/link behavior.
-- Email links open a shared PDF viewer, not the editor.
+- The send modal supports recipients, subject, message, account users/contacts, and sender delivery options.
+- N3XRA branding stays in the email. The sender can choose PDF attachment, a browser PDF backup link, and a Records account link for account users.
+- For non-users and contacts, the attached PDF is the primary experience. If enabled, the browser PDF backup link opens the shared PDF directly in the browser's native PDF viewer, not the editor.
 - Shared PDF links use a permanent unguessable token and do not require the recipient to have a N3XRA account.
-- The shared PDF viewer shows the document title, organization name, PDF preview, Download PDF, Print, and links into N3XRA Records/account access.
 - A shared token authorizes viewing that one PDF only; it does not grant editing or full library access.
+- Account users can receive an additional N3XRA Records link that opens the document inside the app when they are signed in, or routes them through the app login flow.
 - Account contacts live in Admin Settings under Contacts.
 - Account users can also appear as send recipients.
 

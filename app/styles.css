@@ -3051,13 +3051,30 @@ code.inline {
 .document-send-option {
   display: inline-flex;
   gap: 0.45rem;
-  align-items: center;
+  align-items: flex-start;
   color: var(--ink);
   font-weight: 700;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid rgba(15, 22, 32, 0.1);
+  border-radius: var(--radius-sm);
+  background: #ffffff;
 }
 
 .document-send-option input {
   width: auto;
+  margin-top: 0.2rem;
+}
+
+.document-send-option span {
+  display: grid;
+  gap: 0.12rem;
+}
+
+.document-send-option small {
+  color: var(--slate);
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.35;
 }
 
 .document-send-note {

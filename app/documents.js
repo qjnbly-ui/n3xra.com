@@ -59,6 +59,7 @@ const documentSendSubject = document.getElementById("document-send-subject");
 const documentSendMessage = document.getElementById("document-send-message");
 const documentSendAttachPdf = document.getElementById("document-send-attach-pdf");
 const documentSendIncludeLink = document.getElementById("document-send-include-link");
+const documentSendIncludeAccountLink = document.getElementById("document-send-include-account-link");
 const documentSendFromNote = document.getElementById("document-send-from-note");
 const documentSendClose = document.getElementById("document-send-close");
 const documentSendCancel = document.getElementById("document-send-cancel");
@@ -963,6 +964,7 @@ function openDocumentSendModal() {
   documentSendMessage.value = `Please see the attached ${title} document.`;
   documentSendAttachPdf.checked = true;
   documentSendIncludeLink.checked = true;
+  if (documentSendIncludeAccountLink) documentSendIncludeAccountLink.checked = true;
   renderSendContacts();
   documentSendFromNote.textContent = currentSession?.user?.email
     ? `Replies will go to ${currentSession.user.email}.`
@@ -1105,6 +1107,7 @@ async function sendActiveDocument(event) {
         message,
         attachPdf: documentSendAttachPdf.checked,
         includeLink: documentSendIncludeLink.checked,
+        includeAccountLink: documentSendIncludeAccountLink?.checked !== false,
         appLink,
       }),
     });

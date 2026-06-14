@@ -216,11 +216,24 @@
         <div class="document-send-options">
           <label class="document-send-option">
             <input id="document-send-attach-pdf" type="checkbox" checked>
-            <span>Attach PDF</span>
+            <span>
+              <strong>Attach PDF</strong>
+              <small>Best for contacts and non-users.</small>
+            </span>
           </label>
           <label class="document-send-option">
             <input id="document-send-include-link" type="checkbox" checked>
-            <span>Include app link</span>
+            <span>
+              <strong>Add browser PDF link</strong>
+              <small>Backup link if the attachment is hard to open.</small>
+            </span>
+          </label>
+          <label class="document-send-option">
+            <input id="document-send-include-account-link" type="checkbox" checked>
+            <span>
+              <strong>Add Records link for account users</strong>
+              <small>Only appears for recipients already in this library.</small>
+            </span>
           </label>
         </div>
         <p class="document-send-note" id="document-send-from-note"></p>

@@ -82,16 +82,24 @@ function buildTextEmail(options: {
   organizationName: string;
   documentTitle: string;
   message: string;
+  attachPdf: boolean;
   includeLink: boolean;
   appLink: string;
+  accountLink: string;
 }) {
   const lines = [
     options.message || `${options.senderName} sent you ${options.documentTitle} from ${options.organizationName}.`,
   ];
-  if (options.includeLink && options.appLink) {
-    lines.push("", `Open PDF in N3XRA Records: ${options.appLink}`);
+  if (options.attachPdf) {
+    lines.push("", "The PDF is attached to this email.");
   }
-  lines.push("", "A PDF copy is attached when included by the sender.");
+  if (options.includeLink && options.appLink) {
+    lines.push("", `Open PDF in browser: ${options.appLink}`);
+  }
+  if (options.accountLink) {
+    lines.push("", `Open in N3XRA Records: ${options.accountLink}`);
+  }
+  lines.push("", "Sent with N3XRA Records.");
   return lines.join("\n");
 }
 
@@ -100,8 +108,10 @@ function buildHtmlEmail(options: {
   organizationName: string;
   documentTitle: string;
   message: string;
+  attachPdf: boolean;
   includeLink: boolean;
   appLink: string;
+  accountLink: string;
 }) {
   const safeSender = escapeHtml(options.senderName);
   const safeOrg = escapeHtml(options.organizationName);
@@ -109,8 +119,15 @@ function buildHtmlEmail(options: {
   const safeMessage = escapeHtml(options.message || `${options.senderName} sent you ${options.documentTitle} from ${options.organizationName}.`)
     .replace(/\n/g, "<br>");
   const safeLink = escapeHtml(options.appLink);
+  const safeAccountLink = escapeHtml(options.accountLink);
+  const attachmentLine = options.attachPdf
+    ? `<p style="margin:18px 0 0;font-size:15px;line-height:1.6;color:#2f3d4d;"><strong>The PDF is attached to this email.</strong></p>`
+    : "";
   const linkBlock = options.includeLink && options.appLink
-    ? `<p style="margin:18px 0 0;"><a href="${safeLink}" style="display:inline-block;padding:12px 18px;border-radius:999px;background:#123a33;color:#ffffff;text-decoration:none;font-size:14px;font-weight:700;">Open PDF in N3XRA Records</a></p>`
+    ? `<p style="margin:18px 0 0;"><a href="${safeLink}" style="display:inline-block;padding:12px 18px;border-radius:999px;background:#123a33;color:#ffffff;text-decoration:none;font-size:14px;font-weight:700;">Open PDF in browser</a></p>`
+    : "";
+  const accountLinkBlock = options.accountLink
+    ? `<p style="margin:14px 0 0;font-size:13px;line-height:1.5;color:#5b6678;">N3XRA Records user? <a href="${safeAccountLink}" style="color:#123a33;font-weight:700;text-decoration:underline;">Open this document in your account</a>.</p>`
     : "";
 
   return `
@@ -123,7 +140,10 @@ function buildHtmlEmail(options: {
         <div style="padding:28px;">
           <p style="margin:0 0 14px;font-size:15px;line-height:1.6;color:#5b6678;">${safeSender} sent this from <strong>${safeOrg}</strong>.</p>
           <p style="margin:0;font-size:16px;line-height:1.6;color:#2f3d4d;">${safeMessage}</p>
+          ${attachmentLine}
           ${linkBlock}
+          ${accountLinkBlock}
+          <p style="margin:22px 0 0;padding-top:18px;border-top:1px solid rgba(15,22,32,0.08);font-size:12px;letter-spacing:0.14em;text-transform:uppercase;color:#6b7482;font-weight:700;">Powered by N3XRA Records</p>
         </div>
       </div>
     </div>
@@ -180,6 +200,7 @@ Deno.serve(async (request) => {
     const message = String(payload.message || "").trim().slice(0, 5000);
     const attachPdf = payload.attachPdf !== false;
     const includeLink = payload.includeLink !== false;
+    const includeAccountLink = payload.includeAccountLink !== false;
 
     if (!documentId || !recipientEmails.length || !subject) {
       return jsonResponse({ error: "documentId, recipientEmails, and subject are required." }, 400);
@@ -250,7 +271,7 @@ Deno.serve(async (request) => {
 
     const senderName = textValue(profile?.full_name) || textValue(user.email) || "N3XRA Records";
     const organizationName = textValue(organization?.name) || "N3XRA Records";
-    let appLink = `${appBaseUrl}/app/documents?id=${encodeURIComponent(documentId)}&view=pdf`;
+    let appLink = "";
     if (includeLink) {
       const shareToken = createShareToken();
       const { error: shareError } = await adminClient
@@ -267,13 +288,46 @@ Deno.serve(async (request) => {
         return jsonResponse({ error: shareError.message || "Unable to create document share link." }, 400);
       }
 
-      appLink = `${appBaseUrl}/app/shared-document?token=${encodeURIComponent(shareToken)}`;
+      appLink = `${appBaseUrl}/api/shared-document-pdf?token=${encodeURIComponent(shareToken)}&mode=view`;
     }
+
+    const accountRecipientEmails = new Set<string>();
+    if (includeAccountLink) {
+      const { data: memberRows } = await adminClient
+        .from("organization_memberships")
+        .select("user_id")
+        .eq("organization_id", document.organization_id);
+
+      const memberUserIds = Array.from(new Set((memberRows || [])
+        .map((item: { user_id?: string | null }) => item.user_id)
+        .filter(Boolean)));
+
+      if (memberUserIds.length) {
+        const { data: memberProfiles } = await adminClient
+          .from("profiles")
+          .select("email")
+          .in("id", memberUserIds);
+
+        (memberProfiles || []).forEach((memberProfile: { email?: string | null }) => {
+          const email = String(memberProfile.email || "").trim().toLowerCase();
+          if (recipientEmails.includes(email)) accountRecipientEmails.add(email);
+        });
+      }
+
+      const ownerEmail = organization?.owner_user_id
+        ? await adminClient
+          .from("profiles")
+          .select("email")
+          .eq("id", organization.owner_user_id)
+          .maybeSingle()
+        : null;
+      const ownerEmailValue = String(ownerEmail?.data?.email || "").trim().toLowerCase();
+      if (ownerEmailValue && recipientEmails.includes(ownerEmailValue)) accountRecipientEmails.add(ownerEmailValue);
+    }
+
     const baseEmailPayload: Record<string, unknown> = {
       from: fromEmail,
       subject,
-      html: buildHtmlEmail({ senderName, organizationName, documentTitle, message, includeLink, appLink }),
-      text: buildTextEmail({ senderName, organizationName, documentTitle, message, includeLink, appLink }),
       reply_to: user.email,
     };
     if (attachments.length) baseEmailPayload.attachments = attachments;
@@ -282,6 +336,9 @@ Deno.serve(async (request) => {
     const failed: Array<{ email: string; error: string }> = [];
 
     for (const email of recipientEmails) {
+      const accountLink = accountRecipientEmails.has(email)
+        ? `${appBaseUrl}/app/documents?id=${encodeURIComponent(documentId)}&view=pdf`
+        : "";
       const emailResponse = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: {
@@ -290,6 +347,8 @@ Deno.serve(async (request) => {
         },
         body: JSON.stringify({
           ...baseEmailPayload,
+          html: buildHtmlEmail({ senderName, organizationName, documentTitle, message, attachPdf, includeLink, appLink, accountLink }),
+          text: buildTextEmail({ senderName, organizationName, documentTitle, message, attachPdf, includeLink, appLink, accountLink }),
           to: [email],
         }),
       });
