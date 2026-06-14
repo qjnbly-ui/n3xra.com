@@ -1623,6 +1623,8 @@ async function finalizeRecording() {
     clearRecorderStats();
     updateControls();
     await loadRecordings();
+    setRecordPanelOpen(false);
+    await openRecordingDetail(recordingId);
   }
 }
 
@@ -1817,6 +1819,10 @@ async function handleUploadRecording() {
     clearRecorderStats();
     updateControls();
     await loadRecordings();
+    if (createdRecording?.id) {
+      setRecordPanelOpen(false);
+      await openRecordingDetail(createdRecording.id);
+    }
   }
 }
 
@@ -1994,7 +2000,7 @@ async function init() {
   recordingDetailNotes?.addEventListener("input", queueRecordingDetailNotesSave);
   recordingDetailTabs.forEach((button) => {
     button.addEventListener("click", () => {
-      setRecordingDetailTab(button.dataset.recordingDetailTab || "notes");
+      setRecordingDetailTab(button.dataset.recordingDetailTab || "details");
     });
     button.addEventListener("keydown", handleRecordingDetailTabKeydown);
   });

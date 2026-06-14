@@ -123,67 +123,14 @@
       </div>
       <div class="settings-modal-body">
         <div class="recording-detail-tabs" role="tablist" aria-label="Meeting note sections">
-          <button class="recording-detail-tab is-active" id="recording-detail-tab-notes" type="button" role="tab" aria-selected="true" aria-controls="recording-detail-notes-panel" data-recording-detail-tab="notes">Notes</button>
-          <button class="recording-detail-tab" id="recording-detail-tab-ai-draft" type="button" role="tab" aria-selected="false" aria-controls="recording-detail-ai-draft-section" data-recording-detail-tab="ai-draft">AI Draft</button>
+          <button class="recording-detail-tab is-active" id="recording-detail-tab-details" type="button" role="tab" aria-selected="true" aria-controls="recording-detail-details-panel" data-recording-detail-tab="details">Details</button>
+          <button class="recording-detail-tab" id="recording-detail-tab-notes" type="button" role="tab" aria-selected="false" aria-controls="recording-detail-notes-panel" data-recording-detail-tab="notes">Notes</button>
           <button class="recording-detail-tab" id="recording-detail-tab-review" type="button" role="tab" aria-selected="false" aria-controls="recording-ai-review-panel" data-recording-detail-tab="review">Review</button>
-          <button class="recording-detail-tab" id="recording-detail-tab-transcript" type="button" role="tab" aria-selected="false" aria-controls="recording-detail-transcript-panel" data-recording-detail-tab="transcript">Transcript</button>
-          <button class="recording-detail-tab" id="recording-detail-tab-details" type="button" role="tab" aria-selected="false" aria-controls="recording-detail-details-panel" data-recording-detail-tab="details">Details</button>
+          <button class="recording-detail-tab" id="recording-detail-tab-ai-draft" type="button" role="tab" aria-selected="false" aria-controls="recording-detail-ai-draft-section" data-recording-detail-tab="ai-draft">AI Draft</button>
         </div>
 
         <div class="recording-detail-tab-panels">
-          <div class="recording-detail-section recording-detail-tab-panel is-active" id="recording-detail-notes-panel" role="tabpanel" aria-labelledby="recording-detail-tab-notes" data-recording-detail-panel="notes">
-            <div class="panel-head compact-head">
-              <div>
-                <h4>Notetaker notes</h4>
-                <p>Original notes are kept even if the AI draft is not useful.</p>
-              </div>
-            </div>
-            <pre class="recording-notes-preview" id="recording-detail-notes">No notes saved yet.</pre>
-          </div>
-          <div class="recording-detail-section recording-detail-tab-panel" id="recording-detail-ai-draft-section" role="tabpanel" aria-labelledby="recording-detail-tab-ai-draft" data-recording-detail-panel="ai-draft" hidden>
-            <div class="panel-head compact-head">
-              <div>
-                <h4>AI draft</h4>
-                <p>The generated draft can be reviewed before it becomes the final document.</p>
-              </div>
-            </div>
-            <pre class="recording-notes-preview recording-ai-draft-preview" id="recording-detail-ai-draft-preview"></pre>
-            <div class="recording-detail-panel-actions">
-              <a class="btn secondary button-link hidden" id="recording-detail-ai-draft" href="./documents" rel="noopener">Open AI draft</a>
-            </div>
-          </div>
-          <div class="recording-detail-section recording-detail-tab-panel" id="recording-ai-review-panel" role="tabpanel" aria-labelledby="recording-detail-tab-review" data-recording-detail-panel="review" hidden>
-            <div class="panel-head compact-head">
-              <div>
-                <h4>AI review</h4>
-                <p>Suggested additions and conflicts found after comparing notes with the transcript.</p>
-              </div>
-            </div>
-            <div class="recording-review-list" id="recording-ai-suggestions"></div>
-            <div class="recording-review-list" id="recording-ai-conflicts"></div>
-            <div class="recording-detail-panel-actions">
-              <button class="btn secondary" id="recording-detail-ai-review" type="button">Review with AI</button>
-            </div>
-          </div>
-          <div class="recording-detail-section recording-detail-tab-panel" id="recording-detail-transcript-panel" role="tabpanel" aria-labelledby="recording-detail-tab-transcript" data-recording-detail-panel="transcript" hidden>
-            <div class="panel-head compact-head">
-              <div>
-                <h4>Transcript</h4>
-                <p>The transcript is kept as the supporting record for AI review.</p>
-              </div>
-            </div>
-            <div class="recording-detail-card">
-              <span class="account-label">Transcript status</span>
-              <p class="account-value" id="recording-detail-transcript-status">-</p>
-              <p class="account-note" id="recording-detail-transcript-copy">No transcript file has been created yet.</p>
-            </div>
-            <div class="recording-detail-panel-actions">
-              <button class="btn secondary hidden" id="recording-detail-transcribe" type="button">Create transcript</button>
-              <button class="btn secondary hidden" id="recording-detail-retry" type="button">Retry</button>
-              <a class="btn secondary button-link hidden" id="recording-detail-transcript-document" href="./files" rel="noopener">Open transcript</a>
-            </div>
-          </div>
-          <div class="recording-detail-section recording-detail-tab-panel" id="recording-detail-details-panel" role="tabpanel" aria-labelledby="recording-detail-tab-details" data-recording-detail-panel="details" hidden>
+          <div class="recording-detail-section recording-detail-tab-panel is-active" id="recording-detail-details-panel" role="tabpanel" aria-labelledby="recording-detail-tab-details" data-recording-detail-panel="details">
             <div class="recording-detail-grid">
               <div class="account-item">
                 <span class="account-label">Status</span>
@@ -213,11 +160,61 @@
                 <span class="account-label">Size</span>
                 <p class="account-value" id="recording-detail-size">-</p>
               </div>
+              <div class="account-item">
+                <span class="account-label">Transcript</span>
+                <p class="account-value" id="recording-detail-transcript-status">-</p>
+              </div>
             </div>
             <audio class="recording-player hidden" id="recording-detail-player" controls preload="metadata"></audio>
             <div class="recording-detail-panel-actions">
               <button class="btn secondary" id="recording-detail-play" type="button">Play</button>
               <button class="btn btn-delete-solid" id="recording-detail-delete" type="button">Delete</button>
+            </div>
+            <div class="recording-detail-section">
+              <div class="panel-head compact-head">
+                <div>
+                  <h4>Transcript</h4>
+                  <p id="recording-detail-transcript-copy">The transcript is kept as the supporting record for AI review.</p>
+                </div>
+              </div>
+              <pre class="recording-notes-preview recording-transcript-preview" id="recording-detail-transcript-text">No transcript available yet.</pre>
+            </div>
+            <button class="hidden" id="recording-detail-transcribe" type="button">Create transcript</button>
+            <button class="hidden" id="recording-detail-retry" type="button">Retry</button>
+            <a class="hidden" id="recording-detail-transcript-document" href="./files" rel="noopener">Open transcript</a>
+          </div>
+          <div class="recording-detail-section recording-detail-tab-panel" id="recording-detail-notes-panel" role="tabpanel" aria-labelledby="recording-detail-tab-notes" data-recording-detail-panel="notes" hidden>
+            <div class="panel-head compact-head">
+              <div>
+                <h4>Notetaker notes</h4>
+                <p>Original notes are kept even if the AI draft is not useful. Edits here save to this meeting note.</p>
+              </div>
+            </div>
+            <textarea class="recording-notes-preview recording-detail-notes-editor" id="recording-detail-notes" rows="12" placeholder="No notes saved yet."></textarea>
+          </div>
+          <div class="recording-detail-section recording-detail-tab-panel" id="recording-ai-review-panel" role="tabpanel" aria-labelledby="recording-detail-tab-review" data-recording-detail-panel="review" hidden>
+            <div class="panel-head compact-head">
+              <div>
+                <h4>AI review</h4>
+                <p>Suggested additions and conflicts found after comparing notes with the transcript.</p>
+              </div>
+            </div>
+            <div class="recording-review-list" id="recording-ai-suggestions"></div>
+            <div class="recording-review-list" id="recording-ai-conflicts"></div>
+            <div class="recording-detail-panel-actions">
+              <button class="btn secondary" id="recording-detail-ai-review" type="button">Review with AI</button>
+            </div>
+          </div>
+          <div class="recording-detail-section recording-detail-tab-panel" id="recording-detail-ai-draft-section" role="tabpanel" aria-labelledby="recording-detail-tab-ai-draft" data-recording-detail-panel="ai-draft" hidden>
+            <div class="panel-head compact-head">
+              <div>
+                <h4>AI draft</h4>
+                <p>This is the final document draft. Finalize it in the editor before sending.</p>
+              </div>
+            </div>
+            <pre class="recording-notes-preview recording-ai-draft-preview" id="recording-detail-ai-draft-preview"></pre>
+            <div class="recording-detail-panel-actions">
+              <a class="btn button-link hidden" id="recording-detail-ai-draft" href="./documents" rel="noopener">Finalize and send document</a>
             </div>
           </div>
         </div>
