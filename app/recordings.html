@@ -111,29 +111,12 @@
               <p class="field-note">Required before starting audio. Uploads can use the file name if left blank.</p>
             </div>
 
-            <div class="recording-notes-grid">
-              <div class="field">
-                <label for="recording-template-select">Document template</label>
-                <select id="recording-template-select">
-                  <option value="">No template</option>
-                </select>
-                <p class="field-note">The template guides the notes and the after-meeting AI draft.</p>
-              </div>
-              <div class="recording-notes-state">
-                <span class="recording-stat-label">Notes</span>
-                <p class="recording-stat-value" id="recording-notes-state">Not saved yet</p>
-              </div>
-            </div>
-
             <div class="field">
-              <label for="recording-notes">Notetaker notes</label>
-              <textarea id="recording-notes" rows="12" placeholder="Use this as the live notes section while audio is recorded."></textarea>
-              <p class="field-note">These notes are preserved separately from the transcript. After the meeting, AI uses them as primary truth and the transcript as supporting detail.</p>
-            </div>
-
-            <div class="recording-note-actions">
-              <button class="btn secondary" id="save-recording-notes-button" type="button" disabled>Save notes</button>
-              <button class="btn secondary" id="apply-recording-template-button" type="button">Apply template to notes</button>
+              <label for="recording-template-select">Document template</label>
+              <select id="recording-template-select">
+                <option value="">Select a template</option>
+              </select>
+              <p class="field-note">Required before recording, uploading, or taking notes. The template guides the after-meeting AI draft.</p>
             </div>
 
             <div class="recording-stats" aria-live="polite">
@@ -156,6 +139,12 @@
               <button class="btn secondary" id="upload-recording-button" type="button">Upload file</button>
               <button class="btn secondary hidden" id="pause-recording-button" type="button" disabled>Pause recording</button>
               <button class="btn secondary hidden" id="stop-recording-button" type="button" disabled>Stop recording</button>
+            </div>
+
+            <div class="field">
+              <label for="recording-notes">Notetaker notes</label>
+              <textarea id="recording-notes" rows="12" placeholder="Use this as the live notes section while audio is recorded."></textarea>
+              <p class="field-note">These notes are preserved separately from the transcript. Stop recording saves them with the audio, then AI uses them as primary truth.</p>
             </div>
 
             <div class="upload-progress hidden" id="upload-progress-shell" aria-live="polite">

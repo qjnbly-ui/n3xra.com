@@ -39,9 +39,6 @@ const recordPanelBody = document.getElementById("record-panel-body");
 const recordingTitleInput = document.getElementById("recording-title");
 const recordingTemplateSelect = document.getElementById("recording-template-select");
 const recordingNotesInput = document.getElementById("recording-notes");
-const recordingNotesState = document.getElementById("recording-notes-state");
-const saveRecordingNotesButton = document.getElementById("save-recording-notes-button");
-const applyRecordingTemplateButton = document.getElementById("apply-recording-template-button");
 const recordingFileInput = document.getElementById("recording-file-input");
 const recordingFileCopy = document.getElementById("recording-file-copy");
 const recorderStateLabel = document.getElementById("recorder-state-label");
@@ -127,7 +124,6 @@ let pendingRetryUploadOpen = false;
 let isRetryUploadMode = false;
 let pendingRecordingsConfirmResolve = null;
 let recordingNotesSaveTimer = null;
-let lastAppliedTemplateId = "";
 let recordingWorkflowSchemaAvailable = true;
 let reviewActionPending = false;
 
@@ -523,7 +519,7 @@ function getCurrentNotesPayload() {
 function renderTemplateSelect() {
   if (!recordingTemplateSelect) return;
   const selectedValue = recordingTemplateSelect.value;
-  recordingTemplateSelect.innerHTML = '<option value="">No template</option>';
+  recordingTemplateSelect.innerHTML = '<option value="">Select a template</option>';
   recordingTemplates.forEach((template) => {
     const option = document.createElement("option");
     option.value = template.id;
@@ -533,32 +529,6 @@ function renderTemplateSelect() {
   if (selectedValue && recordingTemplates.some((template) => template.id === selectedValue)) {
     recordingTemplateSelect.value = selectedValue;
   }
-}
-
-function applySelectedTemplateToNotes(force = false) {
-  const template = getSelectedTemplate();
-  if (!template) return;
-  const currentNotes = String(recordingNotesInput?.value || "").trim();
-  if (currentNotes && !force && lastAppliedTemplateId !== template.id) return;
-
-  const templateText = String(
-    templateNotesTextFromContentJson(template.content_json || {}) ||
-    template.plain_text ||
-    plainTextFromContentJson(template.content_json || {})
-  ).trim();
-  if (!templateText) return;
-  recordingNotesInput.value = templateText;
-  lastAppliedTemplateId = template.id;
-  setStatus(recordingStatus, "Template copied into notes.");
-  queueActiveRecordingNotesSave();
-  updateControls();
-}
-
-function setRecordingNotesState(message, tone = "") {
-  if (!recordingNotesState) return;
-  recordingNotesState.textContent = message || "";
-  recordingNotesState.className = "recording-stat-value";
-  if (tone) recordingNotesState.classList.add(tone);
 }
 
 function setRecordingsConfirmModalOpen(isOpen) {
@@ -730,9 +700,11 @@ function updateControls() {
   const isCaptureActive = recorderState === "recording" || recorderState === "paused";
   const hasActiveSession = isRecordingWorkflowActive || isCaptureActive;
   const pauseSupported = isPauseSupported();
+  const hasSelectedTemplate = Boolean(recordingTemplateSelect.value);
+  const canUseRecorder = canRecordInActiveOrganization() && recordingWorkflowSchemaAvailable && hasSelectedTemplate;
 
-  startRecordingButton.disabled = !canRecordInActiveOrganization() || hasActiveSession || !window.MediaRecorder || !navigator.mediaDevices?.getUserMedia;
-  uploadRecordingButton.disabled = !canRecordInActiveOrganization() || hasActiveSession;
+  startRecordingButton.disabled = !canUseRecorder || hasActiveSession || !window.MediaRecorder || !navigator.mediaDevices?.getUserMedia;
+  uploadRecordingButton.disabled = !canUseRecorder || hasActiveSession;
   show(startRecordingButton, !hasActiveSession);
   show(uploadRecordingButton, !hasActiveSession);
   pauseRecordingButton.disabled = !isCaptureActive || !pauseSupported;
@@ -743,11 +715,9 @@ function updateControls() {
   activeOrganizationSelect.disabled = hasActiveSession || memberships.length <= 1;
   recordingTitleInput.disabled = hasActiveSession;
   recordingTemplateSelect.disabled = hasActiveSession || !recordingWorkflowSchemaAvailable;
-  recordingNotesInput.disabled = !canRecordInActiveOrganization() || !recordingWorkflowSchemaAvailable;
-  recordingFileInput.disabled = hasActiveSession;
-  recordingUploadSubmit.disabled = hasActiveSession || !Boolean(getSelectedRecordingFile());
-  saveRecordingNotesButton.disabled = !recordingWorkflowSchemaAvailable || !activeRecordingId;
-  applyRecordingTemplateButton.disabled = !recordingWorkflowSchemaAvailable || !recordingTemplateSelect.value;
+  recordingNotesInput.disabled = !canUseRecorder;
+  recordingFileInput.disabled = !canUseRecorder || hasActiveSession;
+  recordingUploadSubmit.disabled = !canUseRecorder || hasActiveSession || !Boolean(getSelectedRecordingFile());
 }
 
 function getRecordingById(recordingId) {
@@ -1003,7 +973,6 @@ async function loadRecordings() {
     data = fallback.data;
     error = fallback.error;
     count = fallback.count;
-    setRecordingNotesState("Migration needed", "error");
   } else {
     recordingWorkflowSchemaAvailable = true;
   }
@@ -1294,9 +1263,7 @@ async function updateMeetingRecording(recordingId, patch) {
 async function saveActiveRecordingNotes() {
   if (!activeRecordingId || !recordingWorkflowSchemaAvailable) return;
   const payload = getCurrentNotesPayload();
-  setRecordingNotesState("Saving...");
   await updateMeetingRecording(activeRecordingId, payload);
-  setRecordingNotesState("Saved", "success");
 }
 
 function queueActiveRecordingNotesSave() {
@@ -1304,14 +1271,11 @@ function queueActiveRecordingNotesSave() {
     window.clearTimeout(recordingNotesSaveTimer);
   }
   if (!activeRecordingId || !recordingWorkflowSchemaAvailable) {
-    setRecordingNotesState(recordingNotesInput?.value?.trim() ? "Ready for start" : "Not saved yet");
     updateControls();
     return;
   }
-  setRecordingNotesState("Unsaved");
   recordingNotesSaveTimer = window.setTimeout(() => {
     void saveActiveRecordingNotes().catch((error) => {
-      setRecordingNotesState("Save failed", "error");
       setStatus(recordingStatus, getErrorMessage(error, "Unable to save notes."), "error");
     });
   }, 900);
@@ -1560,7 +1524,6 @@ async function finalizeRecording() {
       await saveActiveRecordingNotes();
     } catch (error) {
       const notesError = getErrorMessage(error, "Notes could not be saved.");
-      setRecordingNotesState("Save failed", "error");
       setStatus(recordingStatus, `${notesError} Audio upload will continue.`, "error");
     }
 
@@ -1580,8 +1543,6 @@ async function finalizeRecording() {
     recordingTitleInput.value = "";
     recordingTemplateSelect.value = "";
     recordingNotesInput.value = "";
-    lastAppliedTemplateId = "";
-    setRecordingNotesState("Not saved yet");
     clearRecorderStats();
     updateControls();
     await loadRecordings();
@@ -1591,6 +1552,11 @@ async function finalizeRecording() {
 async function handleStartRecording() {
   if (!canRecordInActiveOrganization()) {
     setStatus(recordingStatus, "You need editor access to record audio in this library.", "error");
+    return;
+  }
+  if (!recordingTemplateSelect.value) {
+    recordingTemplateSelect.focus();
+    setStatus(recordingStatus, "Select a document template before starting the recording.", "error");
     return;
   }
   const title = recordingTitleInput.value.trim();
@@ -1617,7 +1583,6 @@ async function handleStartRecording() {
   try {
     createdRecording = await createMeetingRecording(title);
     activeRecordingId = createdRecording.id;
-    setRecordingNotesState(recordingWorkflowSchemaAvailable ? "Saved" : "Migration needed", recordingWorkflowSchemaAvailable ? "success" : "error");
     updateControls();
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     activeStream = stream;
@@ -1700,6 +1665,11 @@ async function handleUploadRecording() {
     setStatus(recordingStatus, "You need editor access to upload audio in this library.", "error");
     return;
   }
+  if (!recordingTemplateSelect.value) {
+    recordingTemplateSelect.focus();
+    setStatus(recordingStatus, "Select a document template before uploading audio.", "error");
+    return;
+  }
 
   const file = getSelectedRecordingFile();
   if (!file) {
@@ -1726,7 +1696,6 @@ async function handleUploadRecording() {
     createdRecording = await createMeetingRecording(title);
     activeRecordingId = createdRecording.id;
     activeRecordingMimeType = file.type || "audio/mpeg";
-    setRecordingNotesState(recordingWorkflowSchemaAvailable ? "Saved" : "Migration needed", recordingWorkflowSchemaAvailable ? "success" : "error");
     updateControls();
 
     recordingDuration.textContent = formatDuration(durationSeconds);
@@ -1768,8 +1737,6 @@ async function handleUploadRecording() {
     recordingTitleInput.value = "";
     recordingTemplateSelect.value = "";
     recordingNotesInput.value = "";
-    lastAppliedTemplateId = "";
-    setRecordingNotesState("Not saved yet");
     clearRecorderStats();
     updateControls();
     await loadRecordings();
@@ -1821,8 +1788,6 @@ async function handleOrganizationChange(nextOrganizationId) {
   }
   recordingTemplateSelect.value = "";
   recordingNotesInput.value = "";
-  lastAppliedTemplateId = "";
-  setRecordingNotesState("Not saved yet");
   await loadRecordingTemplates();
   await loadRecordings();
 }
@@ -1896,20 +1861,10 @@ async function init() {
     setStatus(recordingUploadStatus, "");
   });
   recordingTemplateSelect.addEventListener("change", () => {
-    applySelectedTemplateToNotes(false);
     queueActiveRecordingNotesSave();
     updateControls();
   });
   recordingNotesInput.addEventListener("input", queueActiveRecordingNotesSave);
-  saveRecordingNotesButton.addEventListener("click", () => {
-    void saveActiveRecordingNotes().catch((error) => {
-      setRecordingNotesState("Save failed", "error");
-      setStatus(recordingStatus, getErrorMessage(error, "Unable to save notes."), "error");
-    });
-  });
-  applyRecordingTemplateButton.addEventListener("click", () => {
-    applySelectedTemplateToNotes(true);
-  });
   activeOrganizationSelect.addEventListener("change", async () => {
     closeMobileMenu();
     await handleOrganizationChange(activeOrganizationSelect.value);

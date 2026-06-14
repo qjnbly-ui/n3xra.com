@@ -834,30 +834,15 @@ textarea {
 
 .recording-stats {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 0.8rem;
-}
-
-.recording-notes-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(160px, 0.32fr);
-  gap: 0.8rem;
-  align-items: stretch;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.65rem;
 }
 
 .recording-stat {
   border: 1px solid rgba(15, 22, 32, 0.08);
-  border-radius: 18px;
+  border-radius: 16px;
   background: #fbfcfe;
-  padding: 0.9rem 1rem;
-}
-
-.recording-notes-state {
-  border: 1px solid rgba(15, 22, 32, 0.08);
-  border-radius: 18px;
-  background: #fbfcfe;
-  padding: 0.9rem 1rem;
-  align-self: end;
+  padding: 0.75rem 0.9rem;
 }
 
 .recording-stat-label {
@@ -883,13 +868,6 @@ textarea {
 .recording-controls {
   display: flex;
   gap: 0.75rem;
-  flex-wrap: wrap;
-  align-items: center;
-}
-
-.recording-note-actions {
-  display: flex;
-  gap: 0.65rem;
   flex-wrap: wrap;
   align-items: center;
 }
@@ -1891,8 +1869,7 @@ textarea {
 
 @media (max-width: 980px) {
   .recordings-layout,
-  .recording-hero,
-  .recording-notes-grid {
+  .recording-hero {
     grid-template-columns: 1fr;
   }
 
