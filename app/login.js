@@ -6,7 +6,7 @@ import {
   hasConfig,
   getSessionOrNull,
 } from "./lib/supabase-client.js";
-import { setStoredActiveOrganizationId } from "./lib/orgs.js";
+import { getStoredActiveOrganizationId, setStoredActiveOrganizationId } from "./lib/orgs.js";
 
 const PLATFORM_ADMIN_EMAIL = "quentin@quentinnichols.com";
 
@@ -442,7 +442,7 @@ async function handleSignin(event) {
 
   try {
     const bootstrapData = await bootstrapMemberships(null, null);
-    if (bootstrapData?.active_organization_id) {
+    if (bootstrapData?.active_organization_id && !getStoredActiveOrganizationId()) {
       setStoredActiveOrganizationId(String(bootstrapData.active_organization_id));
     }
   } catch (bootstrapError) {

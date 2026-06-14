@@ -78,16 +78,22 @@ export function setStoredActiveOrganizationId(organizationId) {
   window.localStorage.setItem(ACTIVE_ORG_STORAGE_KEY, organizationId);
 }
 
-export function resolveActiveOrganization(memberships, preferredOrganizationId = "") {
+export function resolveActiveOrganization(memberships, preferredOrganizationId = "", options = {}) {
   const list = Array.isArray(memberships) ? memberships : [];
   if (!list.length) return null;
+  const preferStored = options.preferStored !== false;
 
-  const fromPreferred = list.find((item) => item.organization?.id === preferredOrganizationId);
-  if (fromPreferred) return fromPreferred;
+  if (!preferStored) {
+    const fromPreferred = list.find((item) => item.organization?.id === preferredOrganizationId);
+    if (fromPreferred) return fromPreferred;
+  }
 
   const storedId = getStoredActiveOrganizationId();
   const fromStored = list.find((item) => item.organization?.id === storedId);
   if (fromStored) return fromStored;
+
+  const fromPreferred = list.find((item) => item.organization?.id === preferredOrganizationId);
+  if (fromPreferred) return fromPreferred;
 
   return list[0];
 }

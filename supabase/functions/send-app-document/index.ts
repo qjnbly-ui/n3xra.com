@@ -46,6 +46,26 @@ function bytesToBase64(bytes: Uint8Array) {
   return btoa(binary);
 }
 
+function bytesToHex(bytes: Uint8Array) {
+  return Array.from(bytes)
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+function createShareToken() {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  return btoa(String.fromCharCode(...bytes))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/g, "");
+}
+
+async function hashShareToken(token: string) {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token));
+  return bytesToHex(new Uint8Array(digest));
+}
+
 function normalizeRecipientEmails(payload: Record<string, unknown>) {
   const raw = Array.isArray(payload.recipientEmails)
     ? payload.recipientEmails
@@ -69,7 +89,7 @@ function buildTextEmail(options: {
     options.message || `${options.senderName} sent you ${options.documentTitle} from ${options.organizationName}.`,
   ];
   if (options.includeLink && options.appLink) {
-    lines.push("", `Open in N3XRA Records: ${options.appLink}`);
+    lines.push("", `Open PDF in N3XRA Records: ${options.appLink}`);
   }
   lines.push("", "A PDF copy is attached when included by the sender.");
   return lines.join("\n");
@@ -90,7 +110,7 @@ function buildHtmlEmail(options: {
     .replace(/\n/g, "<br>");
   const safeLink = escapeHtml(options.appLink);
   const linkBlock = options.includeLink && options.appLink
-    ? `<p style="margin:18px 0 0;"><a href="${safeLink}" style="display:inline-block;padding:12px 18px;border-radius:999px;background:#123a33;color:#ffffff;text-decoration:none;font-size:14px;font-weight:700;">Open in N3XRA Records</a></p>`
+    ? `<p style="margin:18px 0 0;"><a href="${safeLink}" style="display:inline-block;padding:12px 18px;border-radius:999px;background:#123a33;color:#ffffff;text-decoration:none;font-size:14px;font-weight:700;">Open PDF in N3XRA Records</a></p>`
     : "";
 
   return `
@@ -230,7 +250,25 @@ Deno.serve(async (request) => {
 
     const senderName = textValue(profile?.full_name) || textValue(user.email) || "N3XRA Records";
     const organizationName = textValue(organization?.name) || "N3XRA Records";
-    const appLink = `${appBaseUrl}/app/documents?id=${encodeURIComponent(documentId)}`;
+    let appLink = `${appBaseUrl}/app/documents?id=${encodeURIComponent(documentId)}&view=pdf`;
+    if (includeLink) {
+      const shareToken = createShareToken();
+      const { error: shareError } = await adminClient
+        .from("document_share_links")
+        .insert({
+          document_id: documentId,
+          organization_id: document.organization_id,
+          created_by_user_id: user.id,
+          token_hash: await hashShareToken(shareToken),
+          label: `Email sent ${new Date().toISOString()}`,
+        });
+
+      if (shareError) {
+        return jsonResponse({ error: shareError.message || "Unable to create document share link." }, 400);
+      }
+
+      appLink = `${appBaseUrl}/app/shared-document?token=${encodeURIComponent(shareToken)}`;
+    }
     const baseEmailPayload: Record<string, unknown> = {
       from: fromEmail,
       subject,

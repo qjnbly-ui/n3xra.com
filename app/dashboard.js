@@ -2131,7 +2131,7 @@ async function bootstrapAccess() {
 
   const bootstrapOrgId = String(bootstrapData?.active_organization_id || "");
   const preferredOrgId = supportOrgId || bootstrapOrgId;
-  activeMembership = resolveActiveOrganization(memberships, preferredOrgId);
+  activeMembership = resolveActiveOrganization(memberships, preferredOrgId, { preferStored: !supportOrgId });
   if (activeMembership?.organization?.id) {
     setStoredActiveOrganizationId(activeMembership.organization.id);
   } else {

@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shared Document | N3XRA Records</title>
+  <meta name="description" content="View a document shared through N3XRA Records.">
+  <meta name="robots" content="noindex, nofollow, noarchive, nosnippet" />
+  <link rel="canonical" href="https://n3xra.com/app/shared-document" />
+  <meta name="application-name" content="N3XRA Records" />
+  <meta name="apple-mobile-web-app-title" content="N3XRA Records" />
+  <meta name="theme-color" content="#070c12" />
+  <link rel="manifest" href="./site.webmanifest">
+  <link rel="icon" type="image/png" href="/assets/n3xra_logo_transparent_small.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/app/styles.css?v=20260614-shared-document">
+</head>
+<body class="shared-document-body">
+  <header class="topbar shared-document-topbar">
+    <div class="topbar-inner">
+      <div class="topbar-row dashboard-topbar-row">
+        <div class="brand">
+          <a class="brand-home-link" href="/" aria-label="N3XRA home">
+            <img class="brand-badge brand-badge-image" src="/assets/n3xra_logo_transparent.png" alt="n3xra.com logo">
+          </a>
+        </div>
+        <a class="topbar-logout button-link" id="shared-document-account-link" href="/account">Account</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="main shared-document-main">
+    <section class="panel shared-document-panel" id="shared-document-panel">
+      <div class="shared-document-head">
+        <div>
+          <p class="settings-modal-kicker">Shared via N3XRA Records</p>
+          <h1 id="shared-document-title">Shared document</h1>
+          <p id="shared-document-meta">Loading document...</p>
+        </div>
+        <div class="shared-document-actions">
+          <a class="btn secondary button-link hidden" id="shared-document-download" href="#" download>Download PDF</a>
+          <button class="btn secondary hidden" id="shared-document-print" type="button">Print</button>
+          <a class="btn button-link" href="/records">Open N3XRA Records</a>
+        </div>
+      </div>
+
+      <div class="notice hidden" id="shared-document-error"></div>
+      <div class="shared-document-frame-wrap hidden" id="shared-document-frame-wrap">
+        <iframe class="shared-document-frame" id="shared-document-frame" src="" title="Shared document PDF"></iframe>
+      </div>
+      <p class="embed-powered-footer shared-document-footer">
+        <a href="https://n3xra.com/records" target="_blank" rel="noopener">Powered by N3XRA Records</a>
+      </p>
+    </section>
+  </main>
+
+  <script type="module" src="/app/shared-document.js?v=20260614-shared-document"></script>
+</body>
+</html>

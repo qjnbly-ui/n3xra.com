@@ -66,6 +66,17 @@ function isUuid(value: unknown) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || ""));
 }
 
+function bytesToHex(bytes: Uint8Array) {
+  return Array.from(bytes)
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+async function hashShareToken(token: string) {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token));
+  return bytesToHex(new Uint8Array(digest));
+}
+
 function pdfSafeText(value: unknown) {
   return String(value || "")
     .normalize("NFKC")
@@ -540,11 +551,32 @@ Deno.serve(async (request) => {
     }
 
     const payload = await request.json().catch(() => ({}));
-    const documentId = String(payload.documentId || "").trim();
-    if (!documentId) return jsonResponse({ error: "documentId is required." }, 400);
-
+    const sharedDocumentToken = String(payload.sharedDocumentToken || "").trim();
+    let documentId = String(payload.documentId || "").trim();
     const isPublicEmbedRequest = payload.publicEmbed === true;
+    const isSharedDocumentRequest = Boolean(sharedDocumentToken);
+    if (!documentId && !isSharedDocumentRequest) return jsonResponse({ error: "documentId is required." }, 400);
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
+
+    if (isSharedDocumentRequest) {
+      const tokenHash = await hashShareToken(sharedDocumentToken);
+      const { data: shareLink, error: shareError } = await adminClient
+        .from("document_share_links")
+        .select("id, document_id")
+        .eq("token_hash", tokenHash)
+        .maybeSingle();
+
+      if (shareError || !shareLink) {
+        return jsonResponse({ error: shareError?.message || "Shared document not found." }, 404);
+      }
+
+      documentId = shareLink.document_id;
+
+      await adminClient
+        .from("document_share_links")
+        .update({ last_used_at: new Date().toISOString() })
+        .eq("id", shareLink.id);
+    }
 
     const { data: document, error: documentError } = await adminClient
       .from("app_documents")
@@ -554,6 +586,9 @@ Deno.serve(async (request) => {
 
     if (documentError || !document) {
       return jsonResponse({ error: documentError?.message || "Document not found." }, 404);
+    }
+    if (isSharedDocumentRequest && document.document_kind === "template") {
+      return jsonResponse({ error: "Shared document not found." }, 404);
     }
 
     const organization = Array.isArray(document.organization) ? document.organization[0] : document.organization;
@@ -584,7 +619,7 @@ Deno.serve(async (request) => {
       if (sourceDocumentError || !sourceDocument) {
         return jsonResponse({ error: sourceDocumentError?.message || "Public document not found." }, 404);
       }
-    } else {
+    } else if (!isSharedDocumentRequest) {
       const authHeader = request.headers.get("Authorization");
       if (!authHeader) {
         return jsonResponse({ error: "Missing Authorization header." }, 401);

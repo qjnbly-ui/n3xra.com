@@ -163,6 +163,17 @@ create table if not exists public.app_documents (
   constraint app_documents_status_check check (status in ('draft', 'final', 'archived'))
 );
 
+create table if not exists public.document_share_links (
+  id uuid primary key default gen_random_uuid(),
+  document_id uuid not null references public.app_documents (id) on delete cascade,
+  organization_id uuid not null references public.organizations (id) on delete cascade,
+  created_by_user_id uuid references auth.users (id) on delete set null,
+  token_hash text not null unique,
+  label text,
+  last_used_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
 create table if not exists public.meeting_recordings (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references public.organizations (id) on delete cascade,
@@ -333,6 +344,8 @@ create index if not exists app_documents_source_document_id_idx on public.app_do
 create index if not exists app_documents_created_by_user_id_idx on public.app_documents (created_by_user_id);
 create index if not exists app_documents_updated_at_idx on public.app_documents (updated_at desc);
 create index if not exists app_documents_search_tsv_idx on public.app_documents using gin (search_tsv);
+create index if not exists document_share_links_document_id_idx on public.document_share_links (document_id);
+create index if not exists document_share_links_organization_id_idx on public.document_share_links (organization_id);
 create index if not exists meeting_recordings_organization_id_idx on public.meeting_recordings (organization_id);
 create index if not exists meeting_recordings_created_by_user_id_idx on public.meeting_recordings (created_by_user_id);
 create index if not exists meeting_recordings_document_id_idx on public.meeting_recordings (document_id);
@@ -1516,6 +1529,7 @@ alter table public.organization_invites enable row level security;
 alter table public.organization_contacts enable row level security;
 alter table public.documents enable row level security;
 alter table public.app_documents enable row level security;
+alter table public.document_share_links enable row level security;
 alter table public.meeting_recordings enable row level security;
 alter table public.records_ai_usage_events enable row level security;
 alter table public.music_profiles enable row level security;

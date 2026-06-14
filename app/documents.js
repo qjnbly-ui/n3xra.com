@@ -1090,7 +1090,7 @@ async function sendActiveDocument(event) {
   documentSendSubmit.disabled = true;
 
   try {
-    const appLink = `${window.location.origin}/app/documents?id=${encodeURIComponent(activeDocumentId)}`;
+    const appLink = `${window.location.origin}/app/documents?id=${encodeURIComponent(activeDocumentId)}&view=pdf`;
     const response = await fetch(`${config.supabaseUrl}/functions/v1/send-app-document`, {
       method: "POST",
       headers: {
@@ -1284,8 +1284,12 @@ async function init() {
     renderOrganizationSelector();
     const params = new URLSearchParams(window.location.search);
     const preferredId = params.get("id") || "";
+    const shouldOpenPdf = params.get("view") === "pdf" || params.get("pdf") === "1";
     const shouldCreateTemplate = params.get("new") === "template";
     await loadAppDocuments(preferredId);
+    if (shouldOpenPdf && activeDocumentId && activeDocumentKind !== "template") {
+      await openActiveDocumentPdf();
+    }
     if (shouldCreateTemplate) {
       await createTemplate();
     }
