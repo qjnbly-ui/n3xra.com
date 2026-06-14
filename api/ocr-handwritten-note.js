@@ -15,7 +15,7 @@ const SUPABASE_ANON_KEY = String(
 const SUPABASE_SERVICE_ROLE_KEY = String(process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY || "").trim();
 const GROQ_RECORDS_API_KEY = String(process.env.GROQ_RECORDS_API_KEY || process.env.GROQ_API_KEY || "").trim();
 const GROQ_RECORDS_OCR_MODEL = String(
-  process.env.GROQ_RECORDS_OCR_MODEL || "meta-llama/llama-4-maverick-17b-128e-instruct"
+  process.env.GROQ_RECORDS_OCR_MODEL || "meta-llama/llama-4-scout-17b-16e-instruct"
 ).trim();
 
 const MAX_IMAGE_DATA_URL_LENGTH = 4_500_000;
