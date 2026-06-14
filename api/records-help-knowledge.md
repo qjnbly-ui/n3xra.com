@@ -51,7 +51,9 @@ If a control is missing or disabled, the user may lack the required role, may no
 - New meeting notes require the user to choose either a document template or "No template - blank notes" before recording, uploading, or typing notes.
 - Choosing a real template fills the notetaker notes area with the template structure.
 - Choosing "No template - blank notes" starts from an empty note and saves no selected template ID.
-- Stop recording saves notes and uploads audio.
+- Stop recording ends microphone capture but does not finalize the meeting note. The user should review notes, optionally scan handwritten notes, then choose Save meeting note.
+- Upload recording lets the user save an existing audio file as a meeting note.
+- Scan handwritten note lets users upload a note photo or screenshot and adds OCR text into the notetaker notes.
 - Uploaded audio saves the selected template/blank choice and notes with the recording.
 - After a new meeting note is saved, the new-note panel collapses and the saved meeting note popup opens.
 

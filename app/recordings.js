@@ -51,6 +51,9 @@ const startRecordingButton = document.getElementById("start-recording-button");
 const uploadRecordingButton = document.getElementById("upload-recording-button");
 const pauseRecordingButton = document.getElementById("pause-recording-button");
 const stopRecordingButton = document.getElementById("stop-recording-button");
+const saveRecordingButton = document.getElementById("save-recording-button");
+const scanHandwrittenNoteButton = document.getElementById("scan-handwritten-note-button");
+const handwrittenNoteInput = document.getElementById("handwritten-note-input");
 const recordingStatus = document.getElementById("recording-status");
 const recordingsList = document.getElementById("recordings-list");
 const recordingsEmpty = document.getElementById("recordings-empty");
@@ -97,6 +100,7 @@ const recordingsConfirmOk = document.getElementById("recordings-confirm-ok");
 const RECORDINGS_BUCKET = "meeting-recordings";
 const RECORDER_AUDIO_BITS_PER_SECOND = 64000;
 const BLANK_NOTES_TEMPLATE_VALUE = "__blank_notes__";
+const HANDWRITTEN_NOTE_MAX_BYTES = 3 * 1024 * 1024;
 const MIME_TYPE_CANDIDATES = [
   "audio/webm;codecs=opus",
   "audio/webm",
@@ -129,6 +133,9 @@ let recordingNotesSaveTimer = null;
 let recordingDetailNotesSaveTimer = null;
 let recordingWorkflowSchemaAvailable = true;
 let reviewActionPending = false;
+let pendingRecordedBlob = null;
+let pendingRecordedTitle = "";
+let pendingRecordedDurationSeconds = 0;
 
 function buildAllRecordingsDetailHref(recordingId) {
   const params = new URLSearchParams();
@@ -695,6 +702,107 @@ function setUploadProgressVisible(isVisible, copy = "") {
   }
 }
 
+function appendTextToNotetakerNotes(text) {
+  const cleanText = String(text || "").trim();
+  if (!cleanText || !recordingNotesInput) return;
+  const existing = String(recordingNotesInput.value || "").trimEnd();
+  recordingNotesInput.value = existing ? `${existing}\n\n${cleanText}` : cleanText;
+  recordingNotesInput.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.addEventListener("load", () => resolve(String(reader.result || "")), { once: true });
+    reader.addEventListener("error", () => reject(new Error("Unable to read the selected image.")), { once: true });
+    reader.readAsDataURL(file);
+  });
+}
+
+function loadImageElement(src) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.addEventListener("load", () => resolve(image), { once: true });
+    image.addEventListener("error", () => reject(new Error("Unable to read this image format. Try a JPG, PNG, or screenshot.")), { once: true });
+    image.src = src;
+  });
+}
+
+async function prepareHandwrittenNoteImage(file) {
+  if (!file) throw new Error("Choose a handwritten note image first.");
+  if (!String(file.type || "").startsWith("image/")) {
+    throw new Error("Choose an image file, such as a photo or screenshot.");
+  }
+
+  const sourceDataUrl = await readFileAsDataUrl(file);
+  const image = await loadImageElement(sourceDataUrl);
+  const maxDimension = 1800;
+  const scale = Math.min(1, maxDimension / Math.max(image.naturalWidth || 1, image.naturalHeight || 1));
+  const width = Math.max(1, Math.round((image.naturalWidth || 1) * scale));
+  const height = Math.max(1, Math.round((image.naturalHeight || 1) * scale));
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("Unable to prepare this image for scanning.");
+  context.fillStyle = "#ffffff";
+  context.fillRect(0, 0, width, height);
+  context.drawImage(image, 0, 0, width, height);
+
+  const qualities = [0.86, 0.74, 0.62, 0.5];
+  for (const quality of qualities) {
+    const dataUrl = canvas.toDataURL("image/jpeg", quality);
+    const estimatedBytes = Math.ceil((dataUrl.length - "data:image/jpeg;base64,".length) * 0.75);
+    if (estimatedBytes <= HANDWRITTEN_NOTE_MAX_BYTES) return dataUrl;
+  }
+
+  throw new Error("That image is too large to scan. Try a closer crop or screenshot of the handwritten note.");
+}
+
+async function scanHandwrittenNote(file) {
+  const organization = getActiveOrganization();
+  if (!organization) throw new Error("Select a library before scanning notes.");
+  if (!recordingTemplateSelect.value) throw new Error("Select a document template or blank notes before scanning notes.");
+
+  const imageDataUrl = await prepareHandwrittenNoteImage(file);
+  const token = currentSession?.access_token || "";
+  const response = await fetch("/api/ocr-handwritten-note", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      organizationId: organization.id,
+      imageDataUrl,
+    }),
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data?.error || "Unable to scan the handwritten note.");
+  return String(data.text || "").trim();
+}
+
+async function handleHandwrittenNoteFile(file) {
+  if (!file) return;
+  scanHandwrittenNoteButton.disabled = true;
+  setStatus(recordingStatus, "Scanning handwritten note...");
+  try {
+    const text = await scanHandwrittenNote(file);
+    if (!text) {
+      setStatus(recordingStatus, "No readable note text was found in that image.", "error");
+      return;
+    }
+    appendTextToNotetakerNotes(text);
+    setStatus(recordingStatus, "Handwritten note added to notetaker notes.", "success");
+  } catch (error) {
+    setStatus(recordingStatus, getErrorMessage(error, "Unable to scan handwritten note."), "error");
+  } finally {
+    if (handwrittenNoteInput) handwrittenNoteInput.value = "";
+    updateControls();
+  }
+}
+
 function setRecordingUploadMode(isRetryMode) {
   isRetryUploadMode = isRetryMode;
   recordingUploadKicker.textContent = isRetryMode ? "Retry upload" : "Upload audio";
@@ -702,7 +810,7 @@ function setRecordingUploadMode(isRetryMode) {
   recordingUploadNote.textContent = isRetryMode
     ? "Browsers cannot keep the previous file attached. Choose the original audio file again to retry this upload."
     : "Choose an existing audio file and save it with this meeting note.";
-  recordingUploadSubmit.textContent = isRetryMode ? "Retry upload" : "Final upload";
+  recordingUploadSubmit.textContent = isRetryMode ? "Retry upload" : "Save uploaded recording";
 }
 
 function setRecordingUploadModalOpen(isOpen) {
@@ -734,7 +842,8 @@ function clearRecorderStats() {
 function updateControls() {
   const recorderState = mediaRecorder?.state || "inactive";
   const isCaptureActive = recorderState === "recording" || recorderState === "paused";
-  const hasActiveSession = isRecordingWorkflowActive || isCaptureActive;
+  const hasPendingRecording = hasUnsavedRecordingAudio();
+  const hasActiveSession = isRecordingWorkflowActive || isCaptureActive || hasPendingRecording;
   const pauseSupported = isPauseSupported();
   const hasSelectedTemplate = Boolean(recordingTemplateSelect.value);
   const canUseRecorder = canRecordInActiveOrganization() && recordingWorkflowSchemaAvailable && hasSelectedTemplate;
@@ -748,16 +857,26 @@ function updateControls() {
   stopRecordingButton.disabled = !isCaptureActive;
   show(pauseRecordingButton, isCaptureActive && pauseSupported);
   show(stopRecordingButton, isCaptureActive);
+  if (saveRecordingButton) {
+    saveRecordingButton.disabled = !canUseRecorder || !hasPendingRecording || isRecordingWorkflowActive;
+    show(saveRecordingButton, hasPendingRecording);
+  }
   activeOrganizationSelect.disabled = hasActiveSession || memberships.length <= 1;
   recordingTitleInput.disabled = hasActiveSession;
   recordingTemplateSelect.disabled = hasActiveSession || !recordingWorkflowSchemaAvailable;
   recordingNotesInput.disabled = !canUseRecorder;
   recordingFileInput.disabled = !canUseRecorder || hasActiveSession;
   recordingUploadSubmit.disabled = !canUseRecorder || hasActiveSession || !Boolean(getSelectedRecordingFile());
+  if (scanHandwrittenNoteButton) scanHandwrittenNoteButton.disabled = !canUseRecorder || isRecordingWorkflowActive;
+  if (handwrittenNoteInput) handwrittenNoteInput.disabled = !canUseRecorder || isRecordingWorkflowActive;
 }
 
 function getRecordingById(recordingId) {
   return recordingsCache.find((item) => item.id === recordingId) || null;
+}
+
+function hasUnsavedRecordingAudio() {
+  return Boolean(activeRecordingId && pendingRecordedBlob);
 }
 
 function isRetryableRecording(recording) {
@@ -1347,7 +1466,7 @@ function queueActiveRecordingNotesSave() {
   if (recordingNotesSaveTimer) {
     window.clearTimeout(recordingNotesSaveTimer);
   }
-  if (!activeRecordingId || !recordingWorkflowSchemaAvailable) {
+  if (!activeRecordingId || !recordingWorkflowSchemaAvailable || hasUnsavedRecordingAudio()) {
     updateControls();
     return;
   }
@@ -1574,7 +1693,13 @@ async function uploadRecordingBlob(recordingId, title, blob, mimeType, durationS
   }
 }
 
-async function finalizeRecording() {
+function clearPendingRecordedAudio() {
+  pendingRecordedBlob = null;
+  pendingRecordedTitle = "";
+  pendingRecordedDurationSeconds = 0;
+}
+
+async function prepareStoppedRecording() {
   if (!activeRecordingId) return;
 
   const recordingId = activeRecordingId;
@@ -1584,9 +1709,11 @@ async function finalizeRecording() {
   const blob = new Blob(activeChunks, { type: activeRecordingMimeType || "audio/webm" });
 
   recordingDuration.textContent = formatDuration(durationSeconds);
-  uploadStateValue.textContent = "Pending";
+  uploadStateValue.textContent = "Ready to save";
   stopDurationTimer();
   stopActiveStreamTracks();
+  isRecordingWorkflowActive = false;
+  mediaRecorder = null;
 
   try {
     await updateMeetingRecording(recordingId, {
@@ -1597,34 +1724,58 @@ async function finalizeRecording() {
       file_size: blob.size,
       processing_error: null,
     });
-    try {
-      await saveActiveRecordingNotes();
-    } catch (error) {
-      const notesError = getErrorMessage(error, "Notes could not be saved.");
-      setStatus(recordingStatus, `${notesError} Audio upload will continue.`, "error");
-    }
-
-    await uploadRecordingBlob(recordingId, title, blob, blob.type || activeRecordingMimeType || "audio/webm", durationSeconds);
-  } catch (error) {
-    setRecorderState("Failed", "The meeting note was created, but saving the audio did not finish.");
-    uploadStateValue.textContent = "Failed";
-    setStatus(recordingStatus, getErrorMessage(error, "Unable to finish saving the audio."), "error");
-  } finally {
-    isRecordingWorkflowActive = false;
-    mediaRecorder = null;
+    pendingRecordedBlob = blob;
+    pendingRecordedTitle = title;
+    pendingRecordedDurationSeconds = durationSeconds;
     activeChunks = [];
+    setRecorderState("Stopped", "Review notes, scan handwritten notes if needed, then save the meeting note.");
+    setStatus(recordingStatus, "Recording stopped. Review notes, then select Save meeting note.", "success");
+  } catch (error) {
+    setRecorderState("Failed", "The meeting note was created, but stopping the audio did not finish.");
+    uploadStateValue.textContent = "Failed";
+    setStatus(recordingStatus, getErrorMessage(error, "Unable to stop the audio recording."), "error");
     activeRecordingId = "";
-    activeRecordingMimeType = "";
+    activeChunks = [];
+    clearPendingRecordedAudio();
+  } finally {
     recordingStartedAt = null;
     elapsedRecordingMs = 0;
+    updateControls();
+    await loadRecordings();
+  }
+}
+
+async function handleSaveStoppedRecording() {
+  if (!activeRecordingId || !pendingRecordedBlob) return;
+
+  const recordingId = activeRecordingId;
+  const title = pendingRecordedTitle || recordingTitleInput.value.trim() || "Meeting note";
+  const blob = pendingRecordedBlob;
+  const mimeType = blob.type || activeRecordingMimeType || "audio/webm";
+  const durationSeconds = pendingRecordedDurationSeconds;
+
+  isRecordingWorkflowActive = true;
+  updateControls();
+  try {
+    await saveActiveRecordingNotes();
+    await uploadRecordingBlob(recordingId, title, blob, mimeType, durationSeconds);
+    activeRecordingId = "";
+    activeRecordingMimeType = "";
     recordingTitleInput.value = "";
     recordingTemplateSelect.value = "";
     recordingNotesInput.value = "";
+    clearPendingRecordedAudio();
     clearRecorderStats();
-    updateControls();
-    await loadRecordings();
     setRecordPanelOpen(false);
+    await loadRecordings();
     await openRecordingDetail(recordingId);
+  } catch (error) {
+    setRecorderState("Stopped", "The recording is still available. Try saving again.");
+    uploadStateValue.textContent = "Save failed";
+    setStatus(recordingStatus, getErrorMessage(error, "Unable to save the meeting note."), "error");
+  } finally {
+    isRecordingWorkflowActive = false;
+    updateControls();
   }
 }
 
@@ -1677,7 +1828,7 @@ async function handleStartRecording() {
       }
     });
     mediaRecorder.addEventListener("stop", () => {
-      void finalizeRecording();
+      void prepareStoppedRecording();
     });
     mediaRecorder.addEventListener("pause", () => {
       pauseElapsedClock();
@@ -1703,8 +1854,8 @@ async function handleStartRecording() {
 
     mediaRecorder.start(1000);
     recordingDuration.textContent = "00:00";
-    uploadStateValue.textContent = "Waiting for stop";
-    setRecorderState("Recording", "Microphone capture is active. Stop to upload and save.");
+    uploadStateValue.textContent = "Recording";
+    setRecorderState("Recording", "Microphone capture is active. Stop when you are ready to review notes.");
     setStatus(recordingStatus, "Recording in progress...");
     startDurationTimer();
     updateControls();
@@ -1866,6 +2017,7 @@ async function handleOrganizationChange(nextOrganizationId) {
   updateSelectedFileCopy();
   setRecordingUploadMode(false);
   setRecordingUploadModalOpen(false);
+  clearPendingRecordedAudio();
   if (recordingDetailModal.classList.contains("is-open")) {
     closeRecordingDetail();
   }
@@ -1876,8 +2028,8 @@ async function handleOrganizationChange(nextOrganizationId) {
 }
 
 async function handleSignout() {
-  if (isRecordingWorkflowActive) {
-    setStatus(recordingStatus, "Wait for the active audio recording or upload to finish before logging out.", "error");
+  if (isRecordingWorkflowActive || hasUnsavedRecordingAudio()) {
+    setStatus(recordingStatus, "Save or finish the active meeting note before logging out.", "error");
     return;
   }
 
@@ -1963,6 +2115,15 @@ async function init() {
   uploadRecordingButton.addEventListener("click", () => {
     setRecordingUploadMode(false);
     setRecordingUploadModalOpen(true);
+  });
+  saveRecordingButton?.addEventListener("click", () => {
+    void handleSaveStoppedRecording();
+  });
+  scanHandwrittenNoteButton?.addEventListener("click", () => {
+    handwrittenNoteInput?.click();
+  });
+  handwrittenNoteInput?.addEventListener("change", () => {
+    void handleHandwrittenNoteFile(handwrittenNoteInput.files?.[0] || null);
   });
   recordingUploadClose.addEventListener("click", () => {
     setRecordingUploadModalOpen(false);
@@ -2056,7 +2217,7 @@ async function init() {
     }
   });
   window.addEventListener("beforeunload", (event) => {
-    if (isRecordingWorkflowActive) {
+    if (isRecordingWorkflowActive || hasUnsavedRecordingAudio()) {
       event.preventDefault();
       event.returnValue = "";
     }

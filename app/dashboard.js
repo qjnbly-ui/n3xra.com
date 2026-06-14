@@ -2025,6 +2025,23 @@ function getDocumentDateScore(doc) {
   return year * 100 + month;
 }
 
+function sortDocumentsNewestToOldest(docs) {
+  return [...docs].sort((a, b) => {
+    const aScore = getDocumentDateScore(a);
+    const bScore = getDocumentDateScore(b);
+
+    if (aScore !== bScore) {
+      if (aScore === null) return 1;
+      if (bScore === null) return -1;
+      return bScore - aScore;
+    }
+
+    const aCreatedAt = new Date(a.created_at || 0).getTime();
+    const bCreatedAt = new Date(b.created_at || 0).getTime();
+    return bCreatedAt - aCreatedAt;
+  });
+}
+
 function sortMemberships(items) {
   const roleOrder = {
     account_admin: 0,

@@ -137,15 +137,20 @@
 
             <div class="recording-controls">
               <button class="btn" id="start-recording-button" type="button">Start recording</button>
-              <button class="btn secondary" id="upload-recording-button" type="button">Upload file</button>
+              <button class="btn secondary" id="upload-recording-button" type="button">Upload recording</button>
               <button class="btn secondary hidden" id="pause-recording-button" type="button" disabled>Pause recording</button>
               <button class="btn secondary hidden" id="stop-recording-button" type="button" disabled>Stop recording</button>
+              <button class="btn hidden" id="save-recording-button" type="button" disabled>Save meeting note</button>
             </div>
 
             <div class="field">
               <label for="recording-notes">Notetaker notes</label>
               <textarea id="recording-notes" rows="12" placeholder="Use this as the live notes section while audio is recorded."></textarea>
-              <p class="field-note">These notes are preserved separately from the transcript. Stop recording saves them with the audio, then AI uses them as primary truth.</p>
+              <p class="field-note">These notes are preserved separately from the transcript. After stopping audio, review notes and save the meeting note.</p>
+              <div class="recording-note-tools">
+                <button class="btn secondary" id="scan-handwritten-note-button" type="button">Scan handwritten note</button>
+                <input class="hidden" id="handwritten-note-input" type="file" accept="image/*">
+              </div>
             </div>
 
             <div class="upload-progress hidden" id="upload-progress-shell" aria-live="polite">
@@ -303,7 +308,7 @@
           <p class="account-note" id="recording-file-copy">No file selected.</p>
         </div>
         <div class="actions">
-          <button class="btn" id="recording-upload-submit" type="button">Final upload</button>
+          <button class="btn" id="recording-upload-submit" type="button">Save uploaded recording</button>
         </div>
         <p class="status" id="recording-upload-status"></p>
       </div>
@@ -319,7 +324,7 @@
         </div>
       </div>
       <div class="confirm-modal-body">
-        <p class="confirm-modal-copy">This will end microphone capture and begin upload/transcription prep.</p>
+        <p class="confirm-modal-copy">This will end microphone capture. You can review notes before saving the meeting note.</p>
         <div class="confirm-modal-actions">
           <button class="btn secondary" id="recordings-confirm-cancel" type="button">Cancel</button>
           <button class="btn btn-delete-solid" id="recordings-confirm-ok" type="button">Stop recording</button>
