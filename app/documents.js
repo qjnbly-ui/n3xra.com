@@ -77,7 +77,9 @@ const mobileMenu = document.getElementById("mobile-menu");
 const mobileMenuAccount = document.getElementById("mobile-menu-account");
 const mobileMenuLibrary = document.getElementById("mobile-menu-library");
 const mobileMenuFilesLink = document.getElementById("mobile-menu-files-link");
+const mobileMenuMessagesLink = document.getElementById("mobile-menu-messages-link");
 const mobileMenuRecordingsLink = document.getElementById("mobile-menu-recordings-link");
+const documentsMessagesLink = document.getElementById("documents-messages-link");
 
 const EMPTY_DOCUMENT = {
   type: "doc",
@@ -506,6 +508,8 @@ function renderOrganizationSelector() {
     activeMembershipRole.textContent = "No library access";
     appDocumentCount.textContent = "0";
     show(templateManagementSection, false);
+    show(mobileMenuMessagesLink, false);
+    show(documentsMessagesLink, false);
     show(mobileMenuRecordingsLink, false);
     return;
   }
@@ -520,6 +524,8 @@ function renderOrganizationSelector() {
 
   activeMembershipRole.textContent = formatRoleLabel(activeMembership.role);
   mobileMenuFilesLink?.classList.toggle("is-active", false);
+  show(mobileMenuMessagesLink, capabilities.canShareDocuments);
+  show(documentsMessagesLink, capabilities.canShareDocuments);
   show(mobileMenuRecordingsLink, capabilities.canUseRecordings);
   newDocumentButton.disabled = !capabilities.canEditDocuments;
   newTemplateButton.disabled = true;

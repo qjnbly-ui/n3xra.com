@@ -33,10 +33,12 @@ const mobileMenu = document.getElementById("mobile-menu");
 const mobileMenuAccount = document.getElementById("mobile-menu-account");
 const mobileMenuLibrary = document.getElementById("mobile-menu-library");
 const mobileMenuFilesLink = document.getElementById("mobile-menu-files-link");
+const mobileMenuMessagesLink = document.getElementById("mobile-menu-messages-link");
 const mobileMenuRecordingsLink = document.getElementById("mobile-menu-recordings-link");
 const accountSection = document.getElementById("account-section");
 const librarySection = document.getElementById("library-section");
 const libraryActionsGrid = document.getElementById("library-actions-grid");
+const libraryMessagesLink = document.getElementById("library-messages-link");
 const accountLibraryContext = document.getElementById("account-library-context");
 const libraryContextPanel = document.getElementById("library-context-panel");
 const librarySearchPanel = document.getElementById("library-search-panel");
@@ -776,6 +778,7 @@ function setMenuActive(section) {
   mobileMenuAccount.classList.toggle("is-active", section === "account");
   mobileMenuLibrary.classList.toggle("is-active", section === "library");
   mobileMenuFilesLink?.classList.toggle("is-active", section === "files");
+  mobileMenuMessagesLink?.classList.toggle("is-active", section === "messages");
 }
 
 function showSection(section) {
@@ -2676,6 +2679,8 @@ function renderProfile() {
   show(inviteManagementSection, canSeeInviteManagement);
   show(memberManagementSection, canSeeMemberManagement);
   show(uploadActionSlot, capabilities.canUploadDocuments);
+  show(mobileMenuMessagesLink, capabilities.canShareDocuments);
+  show(libraryMessagesLink, capabilities.canShareDocuments);
   show(mobileMenuRecordingsLink, capabilities.canUseRecordings);
   show(openDeleteAccountModalButton, canDeleteAccountNow);
   show(deleteAccountBlockedNote, !canDeleteAccountNow);

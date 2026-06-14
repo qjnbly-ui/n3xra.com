@@ -3090,6 +3090,32 @@ code.inline {
   flex-wrap: wrap;
 }
 
+.messages-compose {
+  display: grid;
+  gap: 1rem;
+}
+
+.messages-compose-grid {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.8fr) minmax(320px, 1.2fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.messages-compose-card {
+  display: grid;
+  gap: 0.85rem;
+  padding: 1rem;
+  border: 1px solid rgba(15, 22, 32, 0.1);
+  border-radius: var(--radius-sm);
+  background: #ffffff;
+}
+
+.messages-compose-card textarea {
+  min-height: 260px;
+  resize: vertical;
+}
+
 .confirm-modal {
   position: fixed;
   inset: 0;
@@ -3856,6 +3882,7 @@ body:has(.confirm-modal.is-open) {
   .search-row,
   .library-actions-grid,
   .documents-workspace,
+  .messages-compose-grid,
   .document-editor-top,
   .account-list,
   .auth-layout,

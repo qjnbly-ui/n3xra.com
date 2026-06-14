@@ -28,6 +28,7 @@ const mobileMenu = document.getElementById("mobile-menu");
 const mobileMenuAccount = document.getElementById("mobile-menu-account");
 const mobileMenuLibrary = document.getElementById("mobile-menu-library");
 const mobileMenuFilesLink = document.getElementById("mobile-menu-files-link");
+const mobileMenuMessagesLink = document.getElementById("mobile-menu-messages-link");
 const mobileMenuRecordingsLink = document.getElementById("mobile-menu-recordings-link");
 const activeOrganizationSelect = document.getElementById("active-organization-select");
 const activeOrganizationName = document.getElementById("active-organization-name");
@@ -255,6 +256,7 @@ function setMenuActive(section) {
   mobileMenuAccount?.classList.toggle("is-active", section === "account");
   mobileMenuLibrary?.classList.toggle("is-active", section === "library");
   mobileMenuFilesLink?.classList.toggle("is-active", section === "files");
+  mobileMenuMessagesLink?.classList.toggle("is-active", section === "messages");
   if (mobileMenuRecordingsLink) {
     const isRecordings = section === "recordings";
     mobileMenuRecordingsLink.classList.toggle("is-active", isRecordings);
@@ -979,6 +981,7 @@ function renderOrganizationSelector() {
     show(activeOrganizationName, true);
     show(recordingsNoAccessNotice, true);
     show(recordingsContextPanel, false);
+    show(mobileMenuMessagesLink, false);
     show(mobileMenuRecordingsLink, false);
     updateControls();
     return;
@@ -998,6 +1001,7 @@ function renderOrganizationSelector() {
   show(activeOrganizationName, !hasMany);
   show(recordingsNoAccessNotice, !canRecordInActiveOrganization());
   show(recordingsContextPanel, true);
+  show(mobileMenuMessagesLink, getActiveCapabilities().canShareDocuments);
   show(mobileMenuRecordingsLink, getActiveCapabilities().canUseRecordings);
   updateControls();
 }

@@ -26,6 +26,7 @@ const mobileMenu = document.getElementById("mobile-menu");
 const mobileMenuAccount = document.getElementById("mobile-menu-account");
 const mobileMenuLibrary = document.getElementById("mobile-menu-library");
 const mobileMenuFilesLink = document.getElementById("mobile-menu-files-link");
+const mobileMenuMessagesLink = document.getElementById("mobile-menu-messages-link");
 const mobileMenuRecordingsLink = document.getElementById("mobile-menu-recordings-link");
 const allRecordingsNoAccessNotice = document.getElementById("all-recordings-no-access-notice");
 const allRecordingsActiveOrganizationField = document.getElementById("all-recordings-active-organization-field");
@@ -182,6 +183,7 @@ function setMenuActive(section) {
   mobileMenuAccount.classList.toggle("is-active", section === "account");
   mobileMenuLibrary.classList.toggle("is-active", section === "library");
   mobileMenuFilesLink?.classList.toggle("is-active", section === "files");
+  mobileMenuMessagesLink?.classList.toggle("is-active", section === "messages");
   if (mobileMenuRecordingsLink) {
     const isRecordings = section === "recordings";
     mobileMenuRecordingsLink.classList.toggle("is-active", isRecordings);
@@ -512,6 +514,7 @@ function renderOrganizationSelector() {
     show(allRecordingsNoAccessNotice, true);
     show(allRecordingsActiveOrganizationField, false);
     show(allRecordingsActiveMembershipField, false);
+    show(mobileMenuMessagesLink, false);
     show(mobileMenuRecordingsLink, false);
     return;
   }
@@ -529,6 +532,7 @@ function renderOrganizationSelector() {
   show(allRecordingsNoAccessNotice, false);
   show(allRecordingsActiveOrganizationField, true);
   show(allRecordingsActiveMembershipField, memberships.length > 1);
+  show(mobileMenuMessagesLink, getActiveCapabilities().canShareDocuments);
   show(mobileMenuRecordingsLink, getActiveCapabilities().canUseRecordings);
   activeOrganizationSelect.disabled = !hasMany;
   show(activeOrganizationSelect, hasMany);
