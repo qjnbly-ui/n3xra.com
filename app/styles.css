@@ -447,6 +447,11 @@ select:-webkit-autofill:focus {
   color: var(--slate);
 }
 
+.required-mark {
+  color: var(--danger);
+  font-weight: 900;
+}
+
 .ai-memory-manager {
   display: grid;
   gap: 0.85rem;

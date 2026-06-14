@@ -48,9 +48,10 @@ If a control is missing or disabled, the user may lack the required role, may no
 
 ## Meeting Notes
 - Meeting Notes is the recommended workflow for meetings because notes, audio, transcript, AI review, and final document stay linked.
-- New meeting notes require the user to choose either a document template or "No template - blank notes" before recording, uploading, or typing notes.
+- New meeting notes require a meeting title and either a document template or "No template - blank notes" before saving, recording, uploading, or typing notes.
 - Choosing a real template fills the notetaker notes area with the template structure.
 - Choosing "No template - blank notes" starts from an empty note and saves no selected template ID.
+- Save meeting note can save a notes-only meeting note when no audio recording is needed.
 - Stop recording ends microphone capture but does not finalize the meeting note. The user should review notes, optionally scan handwritten notes, then choose Save meeting note.
 - Upload recording lets the user save an existing audio file as a meeting note.
 - Scan handwritten note lets users upload a note photo or screenshot and adds OCR text into the notetaker notes.

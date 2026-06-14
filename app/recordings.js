@@ -529,6 +529,10 @@ function getCurrentNotesPayload() {
   };
 }
 
+function hasMeetingNoteRequiredFields() {
+  return Boolean(recordingTitleInput?.value.trim() && recordingTemplateSelect?.value);
+}
+
 function renderTemplateSelect() {
   if (!recordingTemplateSelect) return;
   const selectedValue = recordingTemplateSelect.value;
@@ -846,7 +850,9 @@ function updateControls() {
   const hasActiveSession = isRecordingWorkflowActive || isCaptureActive || hasPendingRecording;
   const pauseSupported = isPauseSupported();
   const hasSelectedTemplate = Boolean(recordingTemplateSelect.value);
+  const hasRequiredFields = hasMeetingNoteRequiredFields();
   const canUseRecorder = canRecordInActiveOrganization() && recordingWorkflowSchemaAvailable && hasSelectedTemplate;
+  const canSaveMeetingNote = canRecordInActiveOrganization() && recordingWorkflowSchemaAvailable && hasRequiredFields;
 
   startRecordingButton.disabled = !canUseRecorder || hasActiveSession || !window.MediaRecorder || !navigator.mediaDevices?.getUserMedia;
   uploadRecordingButton.disabled = !canUseRecorder || hasActiveSession;
@@ -858,8 +864,8 @@ function updateControls() {
   show(pauseRecordingButton, isCaptureActive && pauseSupported);
   show(stopRecordingButton, isCaptureActive);
   if (saveRecordingButton) {
-    saveRecordingButton.disabled = !canUseRecorder || !hasPendingRecording || isRecordingWorkflowActive;
-    show(saveRecordingButton, hasPendingRecording);
+    saveRecordingButton.disabled = !canSaveMeetingNote || isRecordingWorkflowActive || isCaptureActive;
+    show(saveRecordingButton, !isCaptureActive);
   }
   activeOrganizationSelect.disabled = hasActiveSession || memberships.length <= 1;
   recordingTitleInput.disabled = hasActiveSession;
@@ -1779,22 +1785,77 @@ async function handleSaveStoppedRecording() {
   }
 }
 
+function validateMeetingNoteRequiredFields() {
+  if (!recordingTitleInput.value.trim()) {
+    recordingTitleInput.focus();
+    setStatus(recordingStatus, "Enter a meeting title before saving.", "error");
+    return false;
+  }
+  if (!recordingTemplateSelect.value) {
+    recordingTemplateSelect.focus();
+    setStatus(recordingStatus, "Select a document template or blank notes before saving.", "error");
+    return false;
+  }
+  return true;
+}
+
+async function handleSaveMeetingNote() {
+  if (hasUnsavedRecordingAudio()) {
+    await handleSaveStoppedRecording();
+    return;
+  }
+  if (!canRecordInActiveOrganization()) {
+    setStatus(recordingStatus, "You need editor access to save meeting notes in this library.", "error");
+    return;
+  }
+  if (!validateMeetingNoteRequiredFields()) return;
+
+  const title = recordingTitleInput.value.trim();
+  isRecordingWorkflowActive = true;
+  updateControls();
+  setStatus(recordingStatus, "Saving meeting note...");
+  setRecorderState("Saving", "Saving notes without an audio recording.");
+  uploadStateValue.textContent = "No recording";
+
+  try {
+    const createdRecording = await createMeetingRecording(title);
+    await updateMeetingRecording(createdRecording.id, {
+      status: "ready",
+      transcript_status: "not_started",
+      ai_review_status: "not_started",
+      duration_seconds: 0,
+      file_size: 0,
+      metadata: {
+        source: "manual_notes",
+      },
+      processing_error: null,
+    });
+    recordingTitleInput.value = "";
+    recordingTemplateSelect.value = "";
+    recordingNotesInput.value = "";
+    clearPendingRecordedAudio();
+    clearRecorderStats();
+    setRecordPanelOpen(false);
+    setStatus(recordingStatus, "Meeting note saved.", "success");
+    await loadRecordings();
+    await openRecordingDetail(createdRecording.id);
+  } catch (error) {
+    setRecorderState("Ready", "The notes were not saved. Try again.");
+    uploadStateValue.textContent = "Save failed";
+    setStatus(recordingStatus, getErrorMessage(error, "Unable to save meeting note."), "error");
+  } finally {
+    isRecordingWorkflowActive = false;
+    updateControls();
+  }
+}
+
 async function handleStartRecording() {
   if (!canRecordInActiveOrganization()) {
     setStatus(recordingStatus, "You need editor access to record audio in this library.", "error");
     return;
   }
-  if (!recordingTemplateSelect.value) {
-    recordingTemplateSelect.focus();
-    setStatus(recordingStatus, "Select a document template before starting the recording.", "error");
-    return;
-  }
+  if (!validateMeetingNoteRequiredFields()) return;
   const title = recordingTitleInput.value.trim();
-  if (!title) {
-    recordingTitleInput.focus();
-    setStatus(recordingStatus, "Enter a meeting title before starting the recording.", "error");
-    return;
-  }
   if (!window.MediaRecorder || !navigator.mediaDevices?.getUserMedia) {
     setStatus(recordingStatus, "This browser does not support in-browser audio recording.", "error");
     return;
@@ -1895,11 +1956,7 @@ async function handleUploadRecording() {
     setStatus(recordingStatus, "You need editor access to upload audio in this library.", "error");
     return;
   }
-  if (!recordingTemplateSelect.value) {
-    recordingTemplateSelect.focus();
-    setStatus(recordingStatus, "Select a document template before uploading audio.", "error");
-    return;
-  }
+  if (!validateMeetingNoteRequiredFields()) return;
 
   const file = getSelectedRecordingFile();
   if (!file) {
@@ -2098,6 +2155,7 @@ async function init() {
   recordingTemplateSelect.addEventListener("change", () => {
     applySelectedTemplateToNotes();
   });
+  recordingTitleInput.addEventListener("input", updateControls);
   recordingNotesInput.addEventListener("input", queueActiveRecordingNotesSave);
   activeOrganizationSelect.addEventListener("change", async () => {
     closeMobileMenu();
@@ -2113,11 +2171,12 @@ async function init() {
     void handleStartRecording();
   });
   uploadRecordingButton.addEventListener("click", () => {
+    if (!validateMeetingNoteRequiredFields()) return;
     setRecordingUploadMode(false);
     setRecordingUploadModalOpen(true);
   });
   saveRecordingButton?.addEventListener("click", () => {
-    void handleSaveStoppedRecording();
+    void handleSaveMeetingNote();
   });
   scanHandwrittenNoteButton?.addEventListener("click", () => {
     handwrittenNoteInput?.click();

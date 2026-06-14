@@ -106,14 +106,14 @@
 
           <form class="stack hidden" id="record-panel-body">
             <div class="field">
-              <label for="recording-title">Meeting title</label>
-              <input id="recording-title" type="text" placeholder="Board meeting, staff sync, budget review">
-              <p class="field-note">Required before starting audio. Uploads can use the file name if left blank.</p>
+              <label for="recording-title">Meeting title <span class="required-mark" aria-hidden="true">*</span></label>
+              <input id="recording-title" type="text" placeholder="Board meeting, staff sync, budget review" required aria-required="true">
+              <p class="field-note">Required to save a meeting note or start audio.</p>
             </div>
 
             <div class="field">
-              <label for="recording-template-select">Document template</label>
-              <select id="recording-template-select">
+              <label for="recording-template-select">Document template <span class="required-mark" aria-hidden="true">*</span></label>
+              <select id="recording-template-select" required aria-required="true">
                 <option value="">Select a template</option>
                 <option value="__blank_notes__">No template - blank notes</option>
               </select>
@@ -140,7 +140,7 @@
               <button class="btn secondary" id="upload-recording-button" type="button">Upload recording</button>
               <button class="btn secondary hidden" id="pause-recording-button" type="button" disabled>Pause recording</button>
               <button class="btn secondary hidden" id="stop-recording-button" type="button" disabled>Stop recording</button>
-              <button class="btn hidden" id="save-recording-button" type="button" disabled>Save meeting note</button>
+              <button class="btn secondary" id="save-recording-button" type="button" disabled>Save meeting note</button>
             </div>
 
             <div class="field">
