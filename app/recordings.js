@@ -82,6 +82,7 @@ const recordingAiReviewPanel = document.getElementById("recording-ai-review-pane
 const recordingAiSuggestions = document.getElementById("recording-ai-suggestions");
 const recordingAiConflicts = document.getElementById("recording-ai-conflicts");
 const recordingDetailTranscriptCopy = document.getElementById("recording-detail-transcript-copy");
+const recordingDetailTranscriptText = document.getElementById("recording-detail-transcript-text");
 const recordingDetailPlay = document.getElementById("recording-detail-play");
 const recordingDetailTranscribe = document.getElementById("recording-detail-transcribe");
 const recordingDetailRetry = document.getElementById("recording-detail-retry");
@@ -125,6 +126,7 @@ let pendingRetryUploadOpen = false;
 let isRetryUploadMode = false;
 let pendingRecordingsConfirmResolve = null;
 let recordingNotesSaveTimer = null;
+let recordingDetailNotesSaveTimer = null;
 let recordingWorkflowSchemaAvailable = true;
 let reviewActionPending = false;
 
@@ -281,6 +283,7 @@ function isMissingRecordingWorkflowSchemaError(error) {
   return (
     message.includes("selected_template_id") ||
     message.includes("notes_content_json") ||
+    message.includes("transcript_text") ||
     message.includes("ai_review_status") ||
     message.includes("ai_review_json") ||
     message.includes("ai_draft_document_id") ||
@@ -962,6 +965,7 @@ async function loadRecordings() {
       title,
       status,
       transcript_status,
+      transcript_text,
       ai_review_status,
       selected_template_id,
       started_at,
@@ -1144,7 +1148,8 @@ function populateRecordingDetails(recording) {
   show(recordingDetailTranscribe, canTranscribeRecording(recording));
   show(recordingDetailRetry, isRetryableRecording(recording));
   recordingDetailPlay.textContent = "Play";
-  recordingDetailNotes.textContent = String(recording.notes_plain_text || "").trim() || "No notes saved yet.";
+  recordingDetailNotes.value = String(recording.notes_plain_text || "").trim();
+  recordingDetailNotes.disabled = !getActiveCapabilities().canEditDocuments || !recordingWorkflowSchemaAvailable;
   const aiDraftPreview = String(recording.ai_review_json?.final_document_text || "").trim();
   if (recordingDetailAiDraftPreview) {
     recordingDetailAiDraftPreview.textContent = aiDraftPreview || "No AI draft created yet.";
@@ -1160,6 +1165,9 @@ function populateRecordingDetails(recording) {
       recordingDetailTranscriptCopy.textContent = "No transcript file has been created yet.";
     }
   }
+  if (recordingDetailTranscriptText) {
+    recordingDetailTranscriptText.textContent = String(recording.transcript_text || "").trim() || "No transcript available yet.";
+  }
   show(recordingDetailTranscriptDocument, Boolean(recording.document_id));
   if (recording.document_id) {
     recordingDetailTranscriptDocument.href = `./files?id=${encodeURIComponent(recording.document_id)}`;
@@ -1168,7 +1176,7 @@ function populateRecordingDetails(recording) {
   show(recordingDetailAiDraft, Boolean(reviewDocumentId));
   if (reviewDocumentId) {
     recordingDetailAiDraft.href = `./documents?id=${encodeURIComponent(reviewDocumentId)}`;
-    recordingDetailAiDraft.textContent = recording.final_document_id ? "Open final" : "Open AI draft";
+    recordingDetailAiDraft.textContent = "Finalize and send document";
   }
   renderAiReview(recording.ai_review_json || null);
   recordingDetailAiReview.textContent = recording.ai_review_status === "ready" ? "Regenerate AI review" : "Review with AI";
@@ -1185,7 +1193,7 @@ async function openRecordingDetail(recordingId) {
   activeDetailRecordingId = recording.id;
   populateRecordingDetails(recording);
   clearDetailPlayer();
-  setRecordingDetailTab("notes");
+  setRecordingDetailTab("details");
   setRecordingDetailModalOpen(true);
 
   if (!canPlaybackRecording(recording)) return;
@@ -1208,6 +1216,13 @@ function openRecordingInAllRecordings(recordingId) {
 }
 
 function closeRecordingDetail() {
+  if (recordingDetailNotesSaveTimer) {
+    window.clearTimeout(recordingDetailNotesSaveTimer);
+    recordingDetailNotesSaveTimer = null;
+    void saveRecordingDetailNotes().catch((error) => {
+      setStatus(recordingDetailStatusMessage, getErrorMessage(error, "Unable to save notes."), "error");
+    });
+  }
   clearDetailPlayer();
   setRecordingDetailModalOpen(false);
   activeDetailRecordingId = "";
@@ -1297,6 +1312,35 @@ async function saveActiveRecordingNotes() {
   if (!activeRecordingId || !recordingWorkflowSchemaAvailable) return;
   const payload = getCurrentNotesPayload();
   await updateMeetingRecording(activeRecordingId, payload);
+}
+
+async function saveRecordingDetailNotes() {
+  if (!activeDetailRecordingId || !recordingWorkflowSchemaAvailable) return;
+  const recordingId = activeDetailRecordingId;
+  const notesText = String(recordingDetailNotes?.value || "").trim();
+  const payload = {
+    notes_content_json: noteTextToContentJson(notesText),
+    notes_plain_text: notesText,
+    notes_updated_at: new Date().toISOString(),
+  };
+  await updateMeetingRecording(recordingId, payload);
+  const recording = getRecordingById(recordingId);
+  if (recording) {
+    mergeRecordingUpdate({ id: recordingId, ...payload });
+    renderRecordings();
+  }
+}
+
+function queueRecordingDetailNotesSave() {
+  if (recordingDetailNotesSaveTimer) {
+    window.clearTimeout(recordingDetailNotesSaveTimer);
+  }
+  if (!activeDetailRecordingId || !recordingWorkflowSchemaAvailable) return;
+  recordingDetailNotesSaveTimer = window.setTimeout(() => {
+    void saveRecordingDetailNotes().catch((error) => {
+      setStatus(recordingDetailStatusMessage, getErrorMessage(error, "Unable to save notes."), "error");
+    });
+  }, 900);
 }
 
 function queueActiveRecordingNotesSave() {
@@ -1947,6 +1991,7 @@ async function init() {
       button.getAttribute("data-review-index")
     );
   });
+  recordingDetailNotes?.addEventListener("input", queueRecordingDetailNotesSave);
   recordingDetailTabs.forEach((button) => {
     button.addEventListener("click", () => {
       setRecordingDetailTab(button.dataset.recordingDetailTab || "notes");

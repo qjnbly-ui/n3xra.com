@@ -1042,6 +1042,18 @@ textarea {
   font-size: 0.95rem;
   line-height: 1.55;
   white-space: pre-wrap;
+  user-select: text;
+}
+
+.recording-detail-notes-editor {
+  width: 100%;
+  min-height: min(34vh, 360px);
+  resize: vertical;
+}
+
+.recording-transcript-preview {
+  min-height: 110px;
+  max-height: min(32vh, 340px);
 }
 
 .recording-ai-draft-preview {
