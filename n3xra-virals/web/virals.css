@@ -649,6 +649,33 @@ button:hover {
   color: var(--muted);
 }
 
+.site-footer {
+  padding: 1.35rem 0;
+  color: rgba(255, 255, 255, 0.58);
+  background: #030507;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.footer-inner {
+  width: min(1180px, calc(100vw - 2rem));
+  margin: 0 auto;
+  display: grid;
+  gap: 0.6rem;
+  justify-items: center;
+  font-size: 0.86rem;
+  text-align: center;
+}
+
+.footer-inner p {
+  margin: 0;
+}
+
+.footer-inner a {
+  color: inherit;
+  font-weight: 800;
+  text-decoration: none;
+}
+
 @media (max-width: 920px) {
   .hero-head,
   .form-grid,
