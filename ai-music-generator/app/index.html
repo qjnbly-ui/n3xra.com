@@ -1155,14 +1155,10 @@
     }
 
     body::before {
-      content: "";
+      content: none;
       position: fixed;
       inset: 0;
       pointer-events: none;
-      background:
-        linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255, 255, 255, 0.026) 1px, transparent 1px);
-      background-size: 72px 72px;
       mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.95), transparent 72%);
     }
 
@@ -1196,7 +1192,6 @@
       border: 1px solid var(--line);
       border-radius: 8px;
       background:
-        linear-gradient(90deg, rgba(255, 255, 255, 0.08), transparent 1px) 0 0 / 18px 18px,
         linear-gradient(150deg, rgba(24, 200, 255, 0.16), rgba(255, 61, 143, 0.08) 44%, rgba(32, 224, 161, 0.12)),
         rgba(255, 255, 255, 0.055);
       box-shadow: 0 32px 90px rgba(0, 0, 0, 0.48);
@@ -1315,7 +1310,6 @@
 
     .tool-band {
       background:
-        linear-gradient(90deg, rgba(255, 255, 255, 0.08), transparent 1px) 0 0 / 18px 18px,
         linear-gradient(150deg, rgba(24, 200, 255, 0.16), rgba(255, 61, 143, 0.08) 44%, rgba(32, 224, 161, 0.12));
       border-bottom: 1px solid var(--line);
     }
@@ -1409,7 +1403,6 @@
     .confirm-card {
       border-radius: 8px;
       background:
-        linear-gradient(90deg, rgba(255, 255, 255, 0.08), transparent 1px) 0 0 / 18px 18px,
         linear-gradient(150deg, rgba(24, 200, 255, 0.16), rgba(255, 61, 143, 0.08) 44%, rgba(32, 224, 161, 0.12)),
         #030507;
     }
