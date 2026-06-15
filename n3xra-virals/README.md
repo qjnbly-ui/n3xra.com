@@ -1,0 +1,73 @@
+# N3XRA Virals
+
+N3XRA Virals is the viral content intelligence product inside the N3XRA platform.
+
+Tagline: Discover. Analyze. Create.
+
+## Product Boundary
+
+N3XRA Master Supabase owns:
+
+- auth
+- users
+- organizations
+- billing
+- subscriptions
+- product access
+
+N3XRA Virals Supabase owns:
+
+- videos
+- transcripts
+- AI analyses
+- trends
+- creators
+- products
+- saved scripts
+
+Virals should receive verified `master_user_id` and `organization_id` values from the N3XRA Master platform. It should not become a separate login system unless the product intentionally becomes standalone later.
+
+## V1 Workflow
+
+The first product workflow is:
+
+```txt
+Paste URL -> Analyze Content -> Generate Improvements
+```
+
+V1 should support:
+
+- video URL submission
+- content metadata storage
+- transcript storage when available
+- AI analysis of hook, structure, triggers, strengths, and weaknesses
+- generated hooks
+- generated script variations
+- generated captions and CTAs
+
+Advanced trend discovery, competitor tracking, product research, and monitoring can be added after the analyzer workflow works end to end.
+
+## Folder Structure
+
+```txt
+n3xra-virals/
+  README.md
+  product/
+    vision.md
+    v1-roadmap.md
+  supabase/
+    schema.sql
+    README.md
+  api/
+    README.md
+    analyze.js
+  web/
+    index.html
+    virals.css
+    virals.js
+```
+
+## Deployment Note
+
+This folder keeps all Virals product files together. On Vercel, functions usually need to live in the root `api/` directory to deploy automatically. When the API is ready, create a thin root wrapper such as `api/virals-analyze.js` that imports or mirrors the implementation from `n3xra-virals/api/analyze.js`.
+

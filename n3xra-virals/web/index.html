@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>N3XRA Virals</title>
+    <meta name="theme-color" content="#030507">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,650;9..144,750&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="./virals.css">
+  </head>
+  <body>
+    <header class="virals-topbar" aria-label="N3XRA Virals">
+      <a class="brand-mark" href="/">
+        <img src="../../assets/MAINLOGO.png" alt="N3XRA">
+      </a>
+      <nav class="topbar-actions" aria-label="Virals sections">
+        <a href="#analyze">Analyzer</a>
+        <a href="#signals">Signals</a>
+        <a href="#output">Output</a>
+      </nav>
+    </header>
+
+    <main class="virals-shell">
+      <section id="analyze" class="hero-workspace" aria-labelledby="virals-title">
+        <div class="hero-copy">
+          <p class="eyebrow">N3XRA Virals</p>
+          <h1 id="virals-title">Discover. Analyze. Create.</h1>
+          <p class="hero-lede">Paste a viral post and turn it into hook logic, audience signals, captions, CTAs, and stronger content angles.</p>
+        </div>
+
+        <form id="virals-analyze-form" class="analyzer-form">
+          <label for="video-url">Analyze a video or post URL</label>
+          <div class="input-row">
+            <input id="video-url" name="url" type="url" placeholder="Paste TikTok, Reel, Short, Facebook Reel, or X URL" required>
+            <button type="submit">Analyze</button>
+          </div>
+          <div id="analysis-status" class="analysis-status" role="status" aria-live="polite">Ready for the first signal.</div>
+        </form>
+      </section>
+
+      <section id="signals" class="signal-strip" aria-label="Viral signal preview">
+        <article>
+          <span>Velocity</span>
+          <strong>+218%</strong>
+          <p>Growth pace against recent niche posts.</p>
+        </article>
+        <article>
+          <span>Hook Strength</span>
+          <strong>9.1</strong>
+          <p>Opening tension, curiosity, and clarity.</p>
+        </article>
+        <article>
+          <span>Creator Fit</span>
+          <strong>High</strong>
+          <p>Audience match and repeatable angle quality.</p>
+        </article>
+      </section>
+
+      <section id="output" class="result-grid" aria-label="Analyzer output preview">
+        <article>
+          <span class="result-kicker">01</span>
+          <h2>Hook Breakdown</h2>
+          <p>The first seconds get mapped into curiosity, promise, tension, and scroll-stopping language.</p>
+        </article>
+        <article>
+          <span class="result-kicker">02</span>
+          <h2>Why It Works</h2>
+          <p>AI explains structure, emotion, pacing, audience targeting, and the reason the idea travels.</p>
+        </article>
+        <article>
+          <span class="result-kicker">03</span>
+          <h2>Improved Variations</h2>
+          <p>Generate sharper hooks, captions, calls to action, and scripts adapted for the target platform.</p>
+        </article>
+      </section>
+    </main>
+    <script src="./virals.js"></script>
+  </body>
+</html>
