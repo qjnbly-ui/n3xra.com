@@ -13,12 +13,10 @@
   <body>
     <header class="virals-topbar" aria-label="N3XRA Virals">
       <a class="brand-mark" href="/">
-        <img src="/assets/MAINLOGO.png" alt="N3XRA">
+        <span>N3XRA Virals</span>
       </a>
       <nav class="topbar-actions" aria-label="Virals sections">
-        <a href="#analyze">Analyzer</a>
-        <a href="#compare">Compare</a>
-        <a href="#results">Results</a>
+        <a href="#analyze">Workspace</a>
         <a href="#library">Library</a>
       </nav>
     </header>
@@ -31,6 +29,12 @@
           <p class="hero-lede">Deconstruct TikTok winners into reusable hooks, body frameworks, psychology, CTAs, shot lists, and daily posting packs.</p>
         </div>
 
+        <div class="mode-switch" role="tablist" aria-label="Analysis mode">
+          <button class="mode-button is-active" type="button" data-mode-target="single" role="tab" aria-selected="true">Single Video</button>
+          <button class="mode-button" type="button" data-mode-target="compare" role="tab" aria-selected="false">Compare Videos</button>
+        </div>
+
+        <section class="mode-panel is-active" id="single-mode" data-mode-panel="single" aria-label="Single video analyzer">
         <form id="virals-analyze-form" class="analyzer-form">
           <div class="field-stack">
             <label for="video-url">TikTok or Daily Virals URL</label>
@@ -80,6 +84,46 @@
           </div>
           <div id="analysis-status" class="analysis-status" role="status" aria-live="polite">Ready to extract the system behind the content.</div>
         </form>
+        </section>
+
+        <section class="mode-panel" id="compare-mode" data-mode-panel="compare" aria-label="Batch framework comparison" hidden>
+          <form id="virals-compare-form" class="compare-form">
+            <div class="field-stack">
+              <label for="compare-urls">TikTok URLs</label>
+              <textarea id="compare-urls" name="urls" rows="6" placeholder="Paste one TikTok URL per line"></textarea>
+            </div>
+            <div class="form-grid">
+              <div class="field-stack">
+                <label for="compare-product">Product or offer</label>
+                <input id="compare-product" name="product" type="text" placeholder="Example: whitening strips, car shade, electrolyte drink">
+              </div>
+              <div class="field-stack">
+                <label for="compare-niche">Niche</label>
+                <select id="compare-niche" name="niche">
+                  <option value="TikTok Shop">TikTok Shop</option>
+                  <option value="Beauty">Beauty</option>
+                  <option value="Home">Home</option>
+                  <option value="Food">Food</option>
+                  <option value="Tech">Tech</option>
+                  <option value="Fashion">Fashion</option>
+                </select>
+              </div>
+              <div class="field-stack">
+                <label for="compare-goal">Goal</label>
+                <select id="compare-goal" name="goal">
+                  <option value="TikTok Shop affiliate sale">TikTok Shop affiliate sale</option>
+                  <option value="Organic growth">Organic growth</option>
+                  <option value="Product education">Product education</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-actions">
+              <button type="submit">Compare Frameworks</button>
+              <button class="button-ghost" id="load-compare-demo" type="button">Load Compare Demo</button>
+            </div>
+            <div id="compare-status" class="analysis-status" role="status" aria-live="polite">Ready to compare multiple winners.</div>
+          </form>
+        </section>
       </section>
 
       <section class="signal-strip" aria-label="Framework engine capabilities">
@@ -100,7 +144,7 @@
         </article>
       </section>
 
-      <section id="results" class="workspace-grid" aria-label="Analysis results">
+      <section id="single-results" class="workspace-grid mode-results is-active" data-mode-results="single" aria-label="Single video analysis results">
         <article class="output-panel source-panel">
           <div class="panel-heading">
             <p class="panel-kicker">Source</p>
@@ -136,7 +180,7 @@
         </article>
       </section>
 
-      <section id="compare" class="compare-section" aria-label="Batch framework comparison">
+      <section id="compare-results" class="compare-section mode-results" data-mode-results="compare" aria-label="Batch framework comparison results" hidden>
         <div class="section-title-row">
           <div>
             <p class="eyebrow">Batch Compare</p>
@@ -144,43 +188,6 @@
           </div>
           <p>Paste 2-10 TikTok URLs. N3XRA extracts available captions, thumbnails, metadata, subtitles, and compares the repeatable pattern.</p>
         </div>
-
-        <form id="virals-compare-form" class="compare-form">
-          <div class="field-stack">
-            <label for="compare-urls">TikTok URLs</label>
-            <textarea id="compare-urls" name="urls" rows="6" placeholder="Paste one TikTok URL per line"></textarea>
-          </div>
-          <div class="form-grid">
-            <div class="field-stack">
-              <label for="compare-product">Product or offer</label>
-              <input id="compare-product" name="product" type="text" placeholder="Example: whitening strips, car shade, electrolyte drink">
-            </div>
-            <div class="field-stack">
-              <label for="compare-niche">Niche</label>
-              <select id="compare-niche" name="niche">
-                <option value="TikTok Shop">TikTok Shop</option>
-                <option value="Beauty">Beauty</option>
-                <option value="Home">Home</option>
-                <option value="Food">Food</option>
-                <option value="Tech">Tech</option>
-                <option value="Fashion">Fashion</option>
-              </select>
-            </div>
-            <div class="field-stack">
-              <label for="compare-goal">Goal</label>
-              <select id="compare-goal" name="goal">
-                <option value="TikTok Shop affiliate sale">TikTok Shop affiliate sale</option>
-                <option value="Organic growth">Organic growth</option>
-                <option value="Product education">Product education</option>
-              </select>
-            </div>
-          </div>
-          <div class="form-actions">
-            <button type="submit">Compare Frameworks</button>
-            <button class="button-ghost" id="load-compare-demo" type="button">Load Compare Demo</button>
-          </div>
-          <div id="compare-status" class="analysis-status" role="status" aria-live="polite">Ready to compare multiple winners.</div>
-        </form>
 
         <div class="workspace-grid compare-output-grid">
           <article class="output-panel output-panel-large">

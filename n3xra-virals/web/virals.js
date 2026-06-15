@@ -15,6 +15,9 @@ const compareOutput = document.getElementById("compare-output");
 const compareSources = document.getElementById("compare-sources");
 const loadCompareDemoButton = document.getElementById("load-compare-demo");
 const urlInput = document.getElementById("video-url");
+const modeButtons = Array.from(document.querySelectorAll("[data-mode-target]"));
+const modePanels = Array.from(document.querySelectorAll("[data-mode-panel]"));
+const modeResults = Array.from(document.querySelectorAll("[data-mode-results]"));
 
 const frameworkPatterns = [
   {
@@ -67,6 +70,26 @@ function setStatus(message) {
 
 function setCompareStatus(message) {
   compareStatusEl.textContent = message;
+}
+
+function setMode(mode) {
+  modeButtons.forEach((button) => {
+    const isActive = button.dataset.modeTarget === mode;
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-selected", isActive ? "true" : "false");
+  });
+
+  modePanels.forEach((panel) => {
+    const isActive = panel.dataset.modePanel === mode;
+    panel.classList.toggle("is-active", isActive);
+    panel.hidden = !isActive;
+  });
+
+  modeResults.forEach((panel) => {
+    const isActive = panel.dataset.modeResults === mode;
+    panel.classList.toggle("is-active", isActive);
+    panel.hidden = !isActive;
+  });
 }
 
 function escapeHtml(value) {
@@ -362,7 +385,7 @@ async function handleSubmit(event) {
   renderSource(video);
   renderAnalysis(analysis);
   renderLibrary();
-  document.getElementById("results")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  document.getElementById("single-results")?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function loadDemo() {
@@ -436,6 +459,7 @@ async function handleCompareSubmit(event) {
     if (!response.ok) throw new Error(payload.error || "Compare request failed.");
     renderCompare(payload);
     setCompareStatus(`Compared ${payload.videos?.length || urls.length} videos.`);
+    document.getElementById("compare-results")?.scrollIntoView({ behavior: "smooth", block: "start" });
   } catch (error) {
     setCompareStatus(error.message || "Batch compare failed.");
   } finally {
@@ -471,9 +495,10 @@ libraryList?.addEventListener("click", (event) => {
   const item = saved.find((analysis) => analysis.id === id);
 
   if (button.classList.contains("load-analysis") && item) {
+    setMode("single");
     renderAnalysis(item);
     setStatus("Saved framework opened.");
-    document.getElementById("results")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    document.getElementById("single-results")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   if (button.classList.contains("delete-analysis")) {
@@ -487,6 +512,10 @@ scriptsOutput?.addEventListener("click", (event) => {
   const button = event.target.closest(".save-script");
   if (!button) return;
   setStatus(`Saved script idea: ${button.dataset.script}. Full script saving will connect to accounts later.`);
+});
+
+modeButtons.forEach((button) => {
+  button.addEventListener("click", () => setMode(button.dataset.modeTarget));
 });
 
 renderLibrary();
