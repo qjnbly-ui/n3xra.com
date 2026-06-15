@@ -33,8 +33,14 @@
         </div>
 
         <div class="mode-switch" role="tablist" aria-label="Analysis mode">
-          <button class="mode-button is-active" type="button" data-mode-target="single" role="tab" aria-selected="true">Single Video</button>
-          <button class="mode-button" type="button" data-mode-target="compare" role="tab" aria-selected="false">Compare Videos</button>
+          <button class="mode-button is-active" type="button" data-mode-target="single" role="tab" aria-selected="true">
+            <span>Single Video</span>
+            <small>Deconstruct one winner into a posting pack.</small>
+          </button>
+          <button class="mode-button" type="button" data-mode-target="compare" role="tab" aria-selected="false">
+            <span>Compare Videos</span>
+            <small>Find the shared system across multiple winners.</small>
+          </button>
         </div>
 
         <section class="mode-panel is-active" id="single-mode" data-mode-panel="single" aria-label="Single video analyzer">
@@ -211,10 +217,10 @@
       <section id="library" class="library-section" aria-label="Saved framework library">
         <div class="section-title-row">
           <div>
-            <p class="eyebrow">Local Prototype Library</p>
+            <p class="eyebrow">Framework Library</p>
             <h2>Saved Frameworks</h2>
           </div>
-          <p>Saved in this browser with localStorage. No backend required yet.</p>
+          <p>Keep your best angles, structures, and content systems organized for future campaigns.</p>
         </div>
         <div id="library-list" class="library-list"></div>
       </section>

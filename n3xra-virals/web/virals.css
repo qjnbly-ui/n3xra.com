@@ -216,28 +216,50 @@ h3 {
 }
 
 .mode-switch {
-  width: min(520px, 100%);
+  width: min(760px, 100%);
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px;
-  padding: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 8px;
-  background: rgba(3, 5, 7, 0.72);
+  gap: 12px;
 }
 
 .mode-button {
-  min-height: 44px;
-  border: 1px solid transparent;
-  background: transparent;
-  color: rgba(255, 255, 255, 0.66);
-  box-shadow: none;
+  min-height: 96px;
+  display: grid;
+  align-content: center;
+  gap: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.035)),
+    rgba(3, 5, 7, 0.72);
+  color: rgba(255, 255, 255, 0.86);
+  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.2);
+  text-align: left;
 }
 
 .mode-button.is-active {
-  border-color: rgba(24, 200, 255, 0.38);
-  background: linear-gradient(90deg, rgba(24, 200, 255, 0.2), rgba(32, 224, 161, 0.16));
+  border-color: rgba(24, 200, 255, 0.44);
+  background:
+    linear-gradient(90deg, rgba(24, 200, 255, 0.18), rgba(32, 224, 161, 0.14)),
+    rgba(3, 5, 7, 0.82);
   color: #ffffff;
+}
+
+.mode-button span {
+  display: block;
+  font-size: 1.05rem;
+  font-weight: 900;
+}
+
+.mode-button small {
+  display: block;
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.mode-button.is-active small {
+  color: rgba(255, 255, 255, 0.76);
 }
 
 .mode-panel,
@@ -678,6 +700,7 @@ button:hover {
 @media (max-width: 920px) {
   .hero-head,
   .form-grid,
+  .mode-switch,
   .signal-strip,
   .workspace-grid,
   .source-card,
