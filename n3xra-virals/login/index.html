@@ -44,18 +44,6 @@
         overflow-x: hidden;
       }
 
-      body::before {
-        content: "";
-        position: fixed;
-        inset: 0;
-        pointer-events: none;
-        background:
-          linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
-          linear-gradient(90deg, rgba(255, 255, 255, 0.026) 1px, transparent 1px);
-        background-size: 72px 72px;
-        mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.95), transparent 72%);
-      }
-
       button,
       input {
         font: inherit;
@@ -74,7 +62,7 @@
 
       .site-topbar-inner {
         width: min(1180px, calc(100vw - 2rem));
-        padding-top: 22px;
+        padding: 22px 0 0;
       }
 
       .site-brand img {
@@ -95,7 +83,7 @@
         flex: 1;
         display: grid;
         align-items: center;
-        padding: clamp(32px, 6vw, 70px) 0;
+        padding: clamp(14px, 3vw, 34px) 0 clamp(32px, 6vw, 70px);
       }
 
       .login-shell {
@@ -126,7 +114,6 @@
         padding: clamp(24px, 5vw, 46px);
         text-align: center;
         background:
-          linear-gradient(90deg, rgba(255, 255, 255, 0.08), transparent 1px) 0 0 / 18px 18px,
           linear-gradient(150deg, rgba(24, 200, 255, 0.16), rgba(255, 61, 143, 0.08) 44%, rgba(32, 224, 161, 0.12)),
           rgba(255, 255, 255, 0.055);
       }
@@ -218,8 +205,12 @@
 
       .password-field {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-columns: minmax(0, 1fr) minmax(82px, auto);
         gap: 8px;
+      }
+
+      .password-field input {
+        min-width: 0;
       }
 
       .password-toggle,
@@ -254,6 +245,18 @@
         font-weight: 700;
         line-height: 1.45;
         text-align: center;
+      }
+
+      #virals-auth-captcha-field {
+        justify-items: center;
+        text-align: center;
+      }
+
+      #virals-auth-turnstile {
+        display: flex;
+        justify-content: center;
+        width: 100%;
+        min-height: 74px;
       }
 
       .legal-disclosure a {
@@ -309,9 +312,65 @@
         .login-logo {
           width: min(390px, 100%);
         }
+      }
+
+      @media (max-width: 560px) {
+        .site-topbar-inner,
+        .login-shell,
+        .footer-inner {
+          width: min(100% - 1.2rem, 1180px);
+        }
+
+        .site-topbar-inner {
+          padding-top: 14px;
+        }
+
+        main {
+          padding-top: 8px;
+        }
+
+        .login-card {
+          padding: 16px;
+        }
+
+        .auth-toggle {
+          gap: 6px;
+        }
+
+        .auth-toggle button {
+          min-height: 48px;
+          padding: 0 10px;
+          font-size: 0.94rem;
+        }
+
+        input {
+          min-height: 52px;
+          padding: 0 13px;
+          font-size: 0.95rem;
+        }
 
         .password-field {
-          grid-template-columns: 1fr;
+          grid-template-columns: minmax(0, 1fr) 76px;
+          gap: 6px;
+        }
+
+        .password-toggle {
+          min-height: 52px;
+          padding: 0 10px;
+          font-size: 0.92rem;
+        }
+
+        #virals-auth-turnstile {
+          transform: scale(0.94);
+          transform-origin: top center;
+          margin-bottom: -4px;
+        }
+      }
+
+      @media (max-width: 380px) {
+        #virals-auth-turnstile {
+          transform: scale(0.88);
+          margin-bottom: -8px;
         }
       }
     </style>
@@ -634,9 +693,16 @@
       document.querySelectorAll("[data-password-toggle]").forEach((button) => {
         button.addEventListener("click", () => {
           const input = document.getElementById(button.dataset.passwordToggle);
-          const isPassword = input.type === "password";
-          input.type = isPassword ? "text" : "password";
-          button.textContent = isPassword ? "Hide" : "Show";
+          if (!input) return;
+          const nextType = input.type === "password" ? "text" : "password";
+          const activeForm = signupForm.classList.contains("hidden") ? signinForm : signupForm;
+          activeForm.querySelectorAll("input[type='password'], input[type='text']").forEach((candidate) => {
+            if (candidate.id.includes("password")) candidate.type = nextType;
+          });
+          activeForm.querySelectorAll("[data-password-toggle]").forEach((toggle) => {
+            toggle.textContent = nextType === "text" ? "Hide" : "Show";
+            toggle.setAttribute("aria-label", nextType === "text" ? "Hide password" : "Show password");
+          });
         });
       });
 

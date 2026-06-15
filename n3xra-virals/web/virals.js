@@ -26,9 +26,15 @@ const modeResults = Array.from(document.querySelectorAll("[data-mode-results]"))
 const accessModal = document.getElementById("virals-access-modal");
 const accessCloseButton = document.getElementById("virals-access-close");
 const headerAuthLink = document.getElementById("virals-header-auth-link");
+const transcriptModal = document.getElementById("transcript-modal");
+const transcriptCloseButton = document.getElementById("transcript-close");
+const transcriptModalBody = document.getElementById("transcript-modal-body");
+const transcriptModalSource = document.getElementById("transcript-modal-source");
 
 let supabase = null;
 let currentSession = null;
+let currentTranscript = "";
+let currentTranscriptSource = "";
 
 const frameworkPatterns = [
   {
@@ -116,6 +122,22 @@ function hideAccessModal() {
   accessModal?.classList.add("is-hidden");
   if (accessModal) accessModal.hidden = true;
   document.body.classList.remove("modal-open");
+}
+
+function showTranscriptModal() {
+  if (!currentTranscript) return;
+  if (transcriptModalBody) transcriptModalBody.textContent = currentTranscript;
+  if (transcriptModalSource) transcriptModalSource.textContent = currentTranscriptSource || "TikTok Transcript";
+  transcriptModal?.classList.remove("is-hidden");
+  if (transcriptModal) transcriptModal.hidden = false;
+  document.body.classList.add("modal-open");
+  transcriptCloseButton?.focus();
+}
+
+function hideTranscriptModal() {
+  transcriptModal?.classList.add("is-hidden");
+  if (transcriptModal) transcriptModal.hidden = true;
+  if (!accessModal || accessModal.hidden) document.body.classList.remove("modal-open");
 }
 
 function renderAuthState() {
@@ -358,6 +380,8 @@ function formatNumber(value) {
 
 function renderSource(video) {
   if (!video) {
+    currentTranscript = "";
+    currentTranscriptSource = "";
     sourceOutput.className = "empty-state";
     sourceOutput.textContent = "No TikTok metadata was extracted. Add transcript, caption, or notes manually.";
     revealSingleResults();
@@ -366,6 +390,8 @@ function renderSource(video) {
 
   const image = video.coverUrl || video.dynamicCoverUrl || "";
   const stats = video.stats || {};
+  currentTranscript = String(video.transcript || "").trim();
+  currentTranscriptSource = video.transcriptSource ? `From ${video.transcriptSource}` : "TikTok Transcript";
   sourceOutput.className = "source-card";
   sourceOutput.innerHTML = `
     <div class="source-media">
@@ -386,8 +412,8 @@ function renderSource(video) {
       ${video.stickers?.length ? `<div class="insight-card"><h3>On-screen Text</h3><p>${escapeHtml(video.stickers.join(" | "))}</p></div>` : ""}
       ${video.hashtags?.length ? `<div class="pill-row">${video.hashtags.map((tag) => `<span class="pill">#${escapeHtml(tag)}</span>`).join("")}</div>` : ""}
       <div class="insight-card">
-        <h3>Transcript Status</h3>
-        <p>${video.transcript ? `${formatNumber(video.transcript.length)} characters extracted from ${escapeHtml(video.transcriptSource || "TikTok subtitles")}.` : "No transcript found. Add notes manually or use transcript fallback later."}</p>
+        <h3>Transcript</h3>
+        ${currentTranscript ? `<button class="small-button transcript-action" type="button" data-view-transcript>View Transcript</button>` : "<p>No transcript loaded. Add context in notes if needed.</p>"}
       </div>
     </div>
   `;
@@ -578,8 +604,10 @@ compareForm?.addEventListener("submit", handleCompareSubmit);
 
 clearSingleButton?.addEventListener("click", () => {
   form?.reset();
+  currentTranscript = "";
+  currentTranscriptSource = "";
   sourceOutput.className = "empty-state";
-  sourceOutput.textContent = "Paste a TikTok URL and run analysis to load thumbnail, caption, creator, metrics, on-screen text, and transcript status.";
+  sourceOutput.textContent = "Paste a TikTok URL and run analysis to load thumbnail, caption, creator, metrics, on-screen text, and transcript.";
   frameworkOutput.className = "empty-state";
   frameworkOutput.textContent = "Run an analysis to see hook type, body structure, psychology, conversion logic, and what to keep or change.";
   hooksOutput.className = "empty-state";
@@ -630,15 +658,29 @@ scriptsOutput?.addEventListener("click", (event) => {
   setStatus(`Saved script idea: ${button.dataset.script}. Full script saving will connect to accounts later.`);
 });
 
+sourceOutput?.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-view-transcript]");
+  if (!button) return;
+  showTranscriptModal();
+});
+
 modeButtons.forEach((button) => {
   button.addEventListener("click", () => setMode(button.dataset.modeTarget));
 });
 
+transcriptCloseButton?.addEventListener("click", hideTranscriptModal);
+transcriptModal?.addEventListener("click", (event) => {
+  if (event.target === transcriptModal) hideTranscriptModal();
+});
 accessCloseButton?.addEventListener("click", hideAccessModal);
 accessModal?.addEventListener("click", (event) => {
   if (event.target === accessModal) hideAccessModal();
 });
 document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && transcriptModal && !transcriptModal.hidden) {
+    hideTranscriptModal();
+    return;
+  }
   if (event.key === "Escape" && accessModal && !accessModal.hidden) {
     hideAccessModal();
   }
