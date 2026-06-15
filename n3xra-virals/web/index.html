@@ -12,8 +12,8 @@
   </head>
   <body>
     <header class="virals-topbar" aria-label="N3XRA Virals">
-      <a class="brand-mark" href="/">
-        <span>N3XRA Virals</span>
+      <a class="brand-mark" href="/" aria-label="N3XRA home">
+        <img src="/assets/MAINLOGO.png" alt="N3XRA">
       </a>
       <nav class="topbar-actions" aria-label="Virals sections">
         <a href="#analyze">Workspace</a>
@@ -22,25 +22,17 @@
     </header>
 
     <main class="virals-shell">
-      <section id="analyze" class="hero-workspace" aria-labelledby="virals-title">
+      <section id="analyze" class="hero-workspace" aria-label="N3XRA Virals workspace">
         <div class="hero-head">
           <div class="hero-copy">
-            <p class="eyebrow">N3XRA Virals</p>
-            <h1 id="virals-title">Viral Framework Analyzer</h1>
             <p class="hero-lede">Deconstruct TikTok winners into reusable hooks, body frameworks, psychology, CTAs, shot lists, and daily posting packs.</p>
           </div>
           <img class="hero-asset" src="/assets/N3XRAVirals.png" alt="N3XRA Virals">
         </div>
 
         <div class="mode-switch" role="tablist" aria-label="Analysis mode">
-          <button class="mode-button is-active" type="button" data-mode-target="single" role="tab" aria-selected="true">
-            <span>Single Video</span>
-            <small>Deconstruct one winner into a posting pack.</small>
-          </button>
-          <button class="mode-button" type="button" data-mode-target="compare" role="tab" aria-selected="false">
-            <span>Compare Videos</span>
-            <small>Find the shared system across multiple winners.</small>
-          </button>
+          <button class="mode-button is-active" type="button" data-mode-target="single" role="tab" aria-selected="true">Single Video</button>
+          <button class="mode-button" type="button" data-mode-target="compare" role="tab" aria-selected="false">Compare Videos</button>
         </div>
 
         <section class="mode-panel is-active" id="single-mode" data-mode-panel="single" aria-label="Single video analyzer">
@@ -82,13 +74,13 @@
           </div>
 
           <div class="field-stack">
-            <label for="notes">Optional transcript, caption, or notes</label>
-            <textarea id="notes" name="notes" rows="5" placeholder="Paste transcript if you have it. Otherwise add what happens in the video, the hook, comments, product claims, or anything from Daily Virals."></textarea>
+            <label for="notes">Optional notes</label>
+            <textarea id="notes" name="notes" rows="5" placeholder="Usually the transcript loads from the URL. If it fails, paste the transcript here or add extra context from the caption, comments, product claims, or Daily Virals."></textarea>
           </div>
 
           <div class="form-actions">
             <button type="submit">Analyze Framework</button>
-            <button class="button-ghost" id="clear-all" type="button">Clear Saved</button>
+            <button class="button-ghost" id="clear-single" type="button">Clear</button>
           </div>
           <div id="analysis-status" class="analysis-status" role="status" aria-live="polite">Ready to extract the system behind the content.</div>
         </form>
@@ -127,28 +119,11 @@
             </div>
             <div class="form-actions">
               <button type="submit">Compare Frameworks</button>
+              <button class="button-ghost" id="clear-compare" type="button">Clear</button>
             </div>
             <div id="compare-status" class="analysis-status" role="status" aria-live="polite">Ready to compare multiple winners.</div>
           </form>
         </section>
-      </section>
-
-      <section class="signal-strip is-hidden" id="capability-strip" aria-label="Framework engine capabilities" hidden>
-        <article>
-          <span>Detect</span>
-          <strong>Hook</strong>
-          <p>Classify the opening pattern and what makes people stop.</p>
-        </article>
-        <article>
-          <span>Map</span>
-          <strong>Body</strong>
-          <p>Break the video into reusable structure instead of copying it.</p>
-        </article>
-        <article>
-          <span>Remix</span>
-          <strong>CTA</strong>
-          <p>Generate new scripts from proven parts for your product.</p>
-        </article>
       </section>
 
       <section id="single-results" class="workspace-grid mode-results is-active is-hidden" data-mode-results="single" aria-label="Single video analysis results" hidden>

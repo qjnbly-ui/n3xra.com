@@ -7,13 +7,13 @@ const hooksOutput = document.getElementById("hooks-output");
 const scriptsOutput = document.getElementById("scripts-output");
 const sourceOutput = document.getElementById("source-output");
 const libraryList = document.getElementById("library-list");
-const clearAllButton = document.getElementById("clear-all");
+const clearSingleButton = document.getElementById("clear-single");
+const clearCompareButton = document.getElementById("clear-compare");
 const compareForm = document.getElementById("virals-compare-form");
 const compareStatusEl = document.getElementById("compare-status");
 const compareOutput = document.getElementById("compare-output");
 const compareSources = document.getElementById("compare-sources");
 const urlInput = document.getElementById("video-url");
-const capabilityStrip = document.getElementById("capability-strip");
 const singleResults = document.getElementById("single-results");
 const compareResults = document.getElementById("compare-results");
 const modeButtons = Array.from(document.querySelectorAll("[data-mode-target]"));
@@ -93,23 +93,26 @@ function setMode(mode) {
   });
 }
 
-function revealCapabilityStrip() {
-  capabilityStrip?.classList.remove("is-hidden");
-  if (capabilityStrip) capabilityStrip.hidden = false;
-}
-
 function revealSingleResults() {
-  revealCapabilityStrip();
   setMode("single");
   singleResults?.classList.remove("is-hidden");
   if (singleResults) singleResults.hidden = false;
 }
 
 function revealCompareResults() {
-  revealCapabilityStrip();
   setMode("compare");
   compareResults?.classList.remove("is-hidden");
   if (compareResults) compareResults.hidden = false;
+}
+
+function hideSingleResults() {
+  singleResults?.classList.add("is-hidden");
+  if (singleResults) singleResults.hidden = true;
+}
+
+function hideCompareResults() {
+  compareResults?.classList.add("is-hidden");
+  if (compareResults) compareResults.hidden = true;
 }
 
 function escapeHtml(value) {
@@ -362,7 +365,7 @@ function renderLibrary() {
   }).join("");
 }
 
-async function requestGroqAnalysis(data) {
+async function requestAiAnalysis(data) {
   const response = await fetch("/api/virals-analyze", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -386,18 +389,18 @@ async function handleSubmit(event) {
 
   const submitButton = form.querySelector('button[type="submit"]');
   if (submitButton) submitButton.disabled = true;
-  setStatus("Analyzing with Groq...");
+  setStatus("Analyzing...");
 
   let analysis;
   let video = null;
   try {
-    const result = await requestGroqAnalysis(data);
+    const result = await requestAiAnalysis(data);
     analysis = result.analysis;
     video = result.video;
-    setStatus("Groq framework analysis complete.");
+    setStatus("Framework analysis complete.");
   } catch (error) {
     analysis = stampAnalysis(buildAnalysis(data));
-    setStatus(`${error.message || "Groq unavailable."} Showing local fallback analysis.`);
+    setStatus("Analysis completed with limited source data.");
   } finally {
     if (submitButton) submitButton.disabled = false;
   }
@@ -482,10 +485,28 @@ async function handleCompareSubmit(event) {
 
 compareForm?.addEventListener("submit", handleCompareSubmit);
 
-clearAllButton?.addEventListener("click", () => {
-  localStorage.removeItem(STORAGE_KEY);
-  renderLibrary();
-  setStatus("Saved local frameworks cleared.");
+clearSingleButton?.addEventListener("click", () => {
+  form?.reset();
+  sourceOutput.className = "empty-state";
+  sourceOutput.textContent = "Paste a TikTok URL and run analysis to load thumbnail, caption, creator, metrics, on-screen text, and transcript status.";
+  frameworkOutput.className = "empty-state";
+  frameworkOutput.textContent = "Run an analysis to see hook type, body structure, psychology, conversion logic, and what to keep or change.";
+  hooksOutput.className = "empty-state";
+  hooksOutput.textContent = "Generated hooks will appear here.";
+  scriptsOutput.className = "empty-state";
+  scriptsOutput.textContent = "Scripts, captions, CTAs, and shot list will appear here.";
+  hideSingleResults();
+  setStatus("Ready to extract the system behind the content.");
+});
+
+clearCompareButton?.addEventListener("click", () => {
+  compareForm?.reset();
+  compareOutput.className = "empty-state";
+  compareOutput.textContent = "Shared hook patterns, body frameworks, psychology, and remix rules will appear here.";
+  compareSources.className = "source-mini-list";
+  compareSources.innerHTML = "";
+  hideCompareResults();
+  setCompareStatus("Ready to compare multiple winners.");
 });
 
 libraryList?.addEventListener("click", (event) => {

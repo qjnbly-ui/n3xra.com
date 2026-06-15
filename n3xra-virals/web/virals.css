@@ -72,12 +72,15 @@ textarea {
   display: inline-flex;
   align-items: center;
   min-width: 0;
-  color: #98e9ff;
-  font-size: 0.82rem;
-  font-weight: 900;
-  letter-spacing: 0.18em;
   text-decoration: none;
-  text-transform: uppercase;
+}
+
+.brand-mark img {
+  display: block;
+  height: 30px;
+  width: auto;
+  max-width: min(52vw, 340px);
+  filter: drop-shadow(0 0 24px rgba(24, 200, 255, 0.2));
 }
 
 .topbar-actions {
@@ -114,6 +117,7 @@ textarea {
   min-height: auto;
   display: grid;
   gap: clamp(20px, 4vw, 34px);
+  justify-items: center;
   background:
     linear-gradient(90deg, rgba(255, 255, 255, 0.08), transparent 1px) 0 0 / 18px 18px,
     linear-gradient(150deg, rgba(24, 200, 255, 0.16), rgba(255, 61, 143, 0.08) 44%, rgba(32, 224, 161, 0.12)),
@@ -138,21 +142,23 @@ textarea {
 
 .hero-head {
   position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.72fr);
-  gap: clamp(18px, 4vw, 38px);
+  display: flex;
+  flex-direction: column-reverse;
+  gap: clamp(12px, 3vw, 24px);
   align-items: center;
+  justify-content: center;
+  width: 100%;
 }
 
 .hero-copy {
   position: relative;
-  max-width: 720px;
+  max-width: 760px;
+  text-align: center;
 }
 
 .hero-asset {
   width: 100%;
-  max-width: 470px;
-  justify-self: end;
+  max-width: min(520px, 100%);
   filter:
     drop-shadow(0 0 28px rgba(24, 200, 255, 0.18))
     drop-shadow(0 26px 52px rgba(0, 0, 0, 0.38));
@@ -194,19 +200,21 @@ h3 {
 
 .hero-lede {
   max-width: 680px;
-  margin: 18px 0 0;
+  margin: 0 auto;
   color: var(--muted);
   font-size: clamp(1rem, 1.6vw, 1.12rem);
   font-weight: 700;
   line-height: 1.5;
 }
 
-.analyzer-form {
+.analyzer-form,
+.compare-form {
   position: relative;
   display: grid;
   gap: 14px;
   width: 100%;
   max-width: 960px;
+  margin: 0 auto;
   min-width: 0;
   background: rgba(3, 5, 7, 0.78);
   border: 1px solid rgba(255, 255, 255, 0.16);
@@ -216,50 +224,29 @@ h3 {
 }
 
 .mode-switch {
-  width: min(760px, 100%);
+  width: min(520px, 100%);
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  gap: 8px;
+  justify-self: center;
 }
 
 .mode-button {
-  min-height: 96px;
-  display: grid;
-  align-content: center;
-  gap: 7px;
+  min-height: 52px;
   border: 1px solid rgba(255, 255, 255, 0.14);
-  background:
-    linear-gradient(90deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.035)),
-    rgba(3, 5, 7, 0.72);
-  color: rgba(255, 255, 255, 0.86);
-  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.2);
-  text-align: left;
-}
-
-.mode-button.is-active {
-  border-color: rgba(24, 200, 255, 0.44);
-  background:
-    linear-gradient(90deg, rgba(24, 200, 255, 0.18), rgba(32, 224, 161, 0.14)),
-    rgba(3, 5, 7, 0.82);
-  color: #ffffff;
-}
-
-.mode-button span {
-  display: block;
-  font-size: 1.05rem;
+  background: rgba(3, 5, 7, 0.72);
+  color: rgba(255, 255, 255, 0.72);
+  box-shadow: none;
+  text-align: center;
+  font-size: 0.92rem;
   font-weight: 900;
 }
 
-.mode-button small {
-  display: block;
-  color: rgba(255, 255, 255, 0.62);
-  font-size: 0.82rem;
-  font-weight: 700;
-  line-height: 1.35;
-}
-
-.mode-button.is-active small {
-  color: rgba(255, 255, 255, 0.76);
+.mode-button.is-active {
+  border-color: rgba(152, 233, 255, 0.78);
+  background: rgba(3, 5, 7, 0.72);
+  color: #ffffff;
+  box-shadow: 0 0 0 2px rgba(24, 200, 255, 0.18);
 }
 
 .mode-panel,
@@ -267,7 +254,12 @@ h3 {
   display: none;
 }
 
-.mode-panel.is-active,
+.mode-panel.is-active {
+  display: grid;
+  justify-items: center;
+  width: 100%;
+}
+
 .mode-results.is-active {
   display: block;
 }
@@ -378,14 +370,6 @@ button:hover {
   font-weight: 700;
 }
 
-.signal-strip {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
-  margin-top: 18px;
-}
-
-.signal-strip article,
 .output-panel,
 .library-card {
   position: relative;
@@ -396,12 +380,6 @@ button:hover {
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.24);
 }
 
-.signal-strip article {
-  min-height: 150px;
-  padding: 20px;
-}
-
-.signal-strip article::after,
 .output-panel::after,
 .library-card::after {
   content: "";
@@ -411,23 +389,6 @@ button:hover {
   pointer-events: none;
 }
 
-.signal-strip span {
-  display: block;
-  color: var(--soft);
-  font-size: 0.78rem;
-  font-weight: 800;
-  text-transform: uppercase;
-}
-
-.signal-strip strong {
-  display: block;
-  margin: 14px 0 8px;
-  color: #ffffff;
-  font-size: clamp(2rem, 4vw, 3.2rem);
-  line-height: 0.9;
-}
-
-.signal-strip p,
 .section-title-row p,
 .empty-state,
 .mini-copy,
@@ -592,15 +553,6 @@ button:hover {
   margin-top: 18px;
 }
 
-.compare-form {
-  display: grid;
-  gap: 14px;
-  padding: 16px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.06);
-}
-
 .compare-output-grid {
   margin-top: 14px;
 }
@@ -701,7 +653,6 @@ button:hover {
   .hero-head,
   .form-grid,
   .mode-switch,
-  .signal-strip,
   .workspace-grid,
   .source-card,
   .library-list {
@@ -769,7 +720,8 @@ button:hover {
     font-size: 1rem;
   }
 
-  .analyzer-form {
+  .analyzer-form,
+  .compare-form {
     padding: 14px;
   }
 
