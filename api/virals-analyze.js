@@ -71,6 +71,17 @@ function normalizeScripts(value) {
     .slice(0, 5);
 }
 
+function normalizeTranscriptBreakdown(value) {
+  const source = value && typeof value === "object" ? value : {};
+  return {
+    cleanedTranscript: String(source.cleanedTranscript || "").trim().slice(0, 9000),
+    hook: String(source.hook || "").trim().slice(0, 700),
+    bodyStructure: String(source.bodyStructure || "").trim().slice(0, 900),
+    cta: String(source.cta || "").trim().slice(0, 500),
+    sellingBeats: normalizeArray(source.sellingBeats).slice(0, 8),
+  };
+}
+
 function normalizeAnalysis(parsed, input) {
   const product = String(parsed.product || input.product || input.niche || "this product").trim().slice(0, 120);
   const niche = String(parsed.niche || input.niche || "TikTok Shop").trim().slice(0, 80);
@@ -94,6 +105,7 @@ function normalizeAnalysis(parsed, input) {
     scripts: normalizeScripts(parsed.scripts),
     captions: normalizeArray(parsed.captions).slice(0, 6),
     shotList: normalizeArray(parsed.shotList).slice(0, 10),
+    transcriptBreakdown: normalizeTranscriptBreakdown(parsed.transcriptBreakdown),
   };
 }
 
@@ -130,6 +142,13 @@ function buildPrompt(input) {
         scripts: [{ title: "string", text: "string" }],
         captions: ["string"],
         shotList: ["string"],
+        transcriptBreakdown: {
+          cleanedTranscript: "string",
+          hook: "string",
+          bodyStructure: "string",
+          cta: "string",
+          sellingBeats: ["string"],
+        },
       },
       null,
       2
@@ -138,6 +157,8 @@ function buildPrompt(input) {
     "Rules:",
     "- Be specific to TikTok Shop creators and short-form conversion content.",
     "- Focus on frameworks: hook structure, body structure, psychology, CTA logic, what to keep, what to remix.",
+    "- If a transcript is available, clean it into readable paragraph form without timestamps or subtitle artifacts.",
+    "- In transcriptBreakdown, identify the exact hook, body structure, CTA, and key selling beats shown in the transcript.",
     "- Generate 8-10 hooks, 3 scripts, 3 captions, and 5-7 shot list items.",
     "- Do not claim you fetched TikTok metrics or transcripts. Use only the user-provided context.",
     "- If transcript/notes are thin, infer conservatively and say what framework to test.",

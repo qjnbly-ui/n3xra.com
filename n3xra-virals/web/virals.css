@@ -715,13 +715,45 @@ button:hover {
 .transcript-body {
   max-height: min(52vh, 520px);
   overflow: auto;
-  white-space: pre-wrap;
+  display: grid;
+  gap: 12px;
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 8px;
-  padding: 16px;
+  padding: 14px;
   background: rgba(0, 0, 0, 0.26);
   color: rgba(255, 255, 255, 0.84);
   line-height: 1.6;
+}
+
+.transcript-section {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.transcript-section h3 {
+  margin: 0 0 8px;
+  color: #98e9ff;
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.transcript-section p,
+.transcript-section ul {
+  margin: 0;
+}
+
+.transcript-section ul {
+  display: grid;
+  gap: 8px;
+  padding-left: 18px;
+}
+
+.transcript-clean p {
+  white-space: pre-wrap;
 }
 
 .virals-access-card {

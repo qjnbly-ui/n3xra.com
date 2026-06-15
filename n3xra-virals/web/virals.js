@@ -29,12 +29,11 @@ const headerAuthLink = document.getElementById("virals-header-auth-link");
 const transcriptModal = document.getElementById("transcript-modal");
 const transcriptCloseButton = document.getElementById("transcript-close");
 const transcriptModalBody = document.getElementById("transcript-modal-body");
-const transcriptModalSource = document.getElementById("transcript-modal-source");
 
 let supabase = null;
 let currentSession = null;
 let currentTranscript = "";
-let currentTranscriptSource = "";
+let currentTranscriptBreakdown = null;
 
 const frameworkPatterns = [
   {
@@ -124,10 +123,55 @@ function hideAccessModal() {
   document.body.classList.remove("modal-open");
 }
 
+function cleanTranscriptText(value) {
+  const text = String(value || "")
+    .replace(/\bWEBVTT\b/gi, " ")
+    .replace(/\d{2}:\d{2}:\d{2}\.\d{3}\s*-->\s*\d{2}:\d{2}:\d{2}\.\d{3}/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!text) return "";
+  const sentences = text.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [text];
+  return sentences
+    .map((sentence) => sentence.trim())
+    .filter(Boolean)
+    .reduce((paragraphs, sentence, index) => {
+      const groupIndex = Math.floor(index / 3);
+      paragraphs[groupIndex] = paragraphs[groupIndex] ? `${paragraphs[groupIndex]} ${sentence}` : sentence;
+      return paragraphs;
+    }, [])
+    .join("\n\n");
+}
+
+function getTranscriptBreakdown() {
+  const breakdown = currentTranscriptBreakdown || {};
+  const cleanedTranscript = String(breakdown.cleanedTranscript || "").trim() || cleanTranscriptText(currentTranscript);
+  return {
+    cleanedTranscript,
+    hook: String(breakdown.hook || "").trim(),
+    bodyStructure: String(breakdown.bodyStructure || "").trim(),
+    cta: String(breakdown.cta || "").trim(),
+    sellingBeats: Array.isArray(breakdown.sellingBeats) ? breakdown.sellingBeats.filter(Boolean) : [],
+  };
+}
+
+function renderTranscriptBreakdown() {
+  const breakdown = getTranscriptBreakdown();
+  const sections = [
+    breakdown.hook ? `<article class="transcript-section"><h3>Hook</h3><p>${escapeHtml(breakdown.hook)}</p></article>` : "",
+    breakdown.bodyStructure ? `<article class="transcript-section"><h3>Body Structure</h3><p>${escapeHtml(breakdown.bodyStructure)}</p></article>` : "",
+    breakdown.cta ? `<article class="transcript-section"><h3>CTA</h3><p>${escapeHtml(breakdown.cta)}</p></article>` : "",
+    breakdown.sellingBeats.length
+      ? `<article class="transcript-section"><h3>Selling Beats</h3><ul>${breakdown.sellingBeats.map((beat) => `<li>${escapeHtml(beat)}</li>`).join("")}</ul></article>`
+      : "",
+    `<article class="transcript-section transcript-clean"><h3>Cleaned Transcript</h3><p>${escapeHtml(breakdown.cleanedTranscript || "Transcript unavailable.")}</p></article>`,
+  ].filter(Boolean);
+  return sections.join("");
+}
+
 function showTranscriptModal() {
   if (!currentTranscript) return;
-  if (transcriptModalBody) transcriptModalBody.textContent = currentTranscript;
-  if (transcriptModalSource) transcriptModalSource.textContent = currentTranscriptSource || "TikTok Transcript";
+  if (transcriptModalBody) transcriptModalBody.innerHTML = renderTranscriptBreakdown();
   transcriptModal?.classList.remove("is-hidden");
   if (transcriptModal) transcriptModal.hidden = false;
   document.body.classList.add("modal-open");
@@ -313,6 +357,7 @@ function buildAnalysis(data) {
 }
 
 function renderAnalysis(analysis) {
+  currentTranscriptBreakdown = analysis.transcriptBreakdown || null;
   frameworkOutput.className = "framework-stack";
   frameworkOutput.innerHTML = `
     <div class="pill-row">
@@ -381,7 +426,7 @@ function formatNumber(value) {
 function renderSource(video) {
   if (!video) {
     currentTranscript = "";
-    currentTranscriptSource = "";
+    currentTranscriptBreakdown = null;
     sourceOutput.className = "empty-state";
     sourceOutput.textContent = "No TikTok metadata was extracted. Add transcript, caption, or notes manually.";
     revealSingleResults();
@@ -391,7 +436,7 @@ function renderSource(video) {
   const image = video.coverUrl || video.dynamicCoverUrl || "";
   const stats = video.stats || {};
   currentTranscript = String(video.transcript || "").trim();
-  currentTranscriptSource = video.transcriptSource ? `From ${video.transcriptSource}` : "TikTok Transcript";
+  currentTranscriptBreakdown = null;
   sourceOutput.className = "source-card";
   sourceOutput.innerHTML = `
     <div class="source-media">
@@ -605,7 +650,7 @@ compareForm?.addEventListener("submit", handleCompareSubmit);
 clearSingleButton?.addEventListener("click", () => {
   form?.reset();
   currentTranscript = "";
-  currentTranscriptSource = "";
+  currentTranscriptBreakdown = null;
   sourceOutput.className = "empty-state";
   sourceOutput.textContent = "Paste a TikTok URL and run analysis to load thumbnail, caption, creator, metrics, on-screen text, and transcript.";
   frameworkOutput.className = "empty-state";
