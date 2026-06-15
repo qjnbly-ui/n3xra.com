@@ -38,7 +38,6 @@ const mobileMenuRecordingsLink = document.getElementById("mobile-menu-recordings
 const accountSection = document.getElementById("account-section");
 const librarySection = document.getElementById("library-section");
 const libraryActionsGrid = document.getElementById("library-actions-grid");
-const libraryMessagesLink = document.getElementById("library-messages-link");
 const accountLibraryContext = document.getElementById("account-library-context");
 const libraryContextPanel = document.getElementById("library-context-panel");
 const librarySearchPanel = document.getElementById("library-search-panel");
@@ -2680,7 +2679,6 @@ function renderProfile() {
   show(memberManagementSection, canSeeMemberManagement);
   show(uploadActionSlot, capabilities.canUploadDocuments);
   show(mobileMenuMessagesLink, capabilities.canShareDocuments);
-  show(libraryMessagesLink, capabilities.canShareDocuments);
   show(mobileMenuRecordingsLink, capabilities.canUseRecordings);
   show(openDeleteAccountModalButton, canDeleteAccountNow);
   show(deleteAccountBlockedNote, !canDeleteAccountNow);

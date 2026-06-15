@@ -36,7 +36,6 @@ const documentCount = document.getElementById("document-count");
 const filesActionsGrid = document.getElementById("files-actions-grid");
 const filesUploadActionSlot = document.getElementById("files-upload-action-slot");
 const filesOpenUploadModalButton = document.getElementById("files-open-upload-modal");
-const filesMessagesLink = document.getElementById("files-messages-link");
 const filesRecordingsLink = document.getElementById("files-recordings-link");
 const fileList = document.getElementById("file-list");
 const fileEmpty = document.getElementById("file-empty");
@@ -665,7 +664,6 @@ function renderOrganizationSelector() {
     show(filesActionsGrid, false);
     show(mobileMenuRecordingsLink, false);
     show(mobileMenuMessagesLink, false);
-    show(filesMessagesLink, false);
     show(filesRecordingsLink, false);
     return;
   }
@@ -688,7 +686,6 @@ function renderOrganizationSelector() {
   show(filesActionsGrid, true);
   show(filesUploadActionSlot, capabilities.canUploadDocuments);
   show(mobileMenuMessagesLink, capabilities.canShareDocuments);
-  show(filesMessagesLink, capabilities.canShareDocuments);
   show(mobileMenuRecordingsLink, capabilities.canUseRecordings);
   show(filesRecordingsLink, capabilities.canUseRecordings);
   activeOrganizationSelect.disabled = !hasMultipleLibraries();
