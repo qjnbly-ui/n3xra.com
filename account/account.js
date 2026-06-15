@@ -43,6 +43,7 @@ const recordsSummary = document.getElementById("records-summary");
 const musicSummary = document.getElementById("music-summary");
 const openRecordsButton = document.getElementById("open-records-button");
 const openMusicButton = document.getElementById("open-music-button");
+const openViralsButton = document.getElementById("open-virals-button");
 
 let supabase = null;
 let currentSession = null;
@@ -170,10 +171,11 @@ function getSafeNextPath() {
 function getRequestedApp() {
   const params = new URLSearchParams(window.location.search);
   const app = String(params.get("app") || "").trim().toLowerCase();
-  if (["records", "music"].includes(app)) return app;
+  if (["records", "music", "virals"].includes(app)) return app;
 
   const next = getSafeNextPath();
   if (next.startsWith("/ai-music-generator/")) return "music";
+  if (next.startsWith("/n3xra-virals/")) return "virals";
   if (next.startsWith("/app/")) return "records";
   return "";
 }
@@ -325,6 +327,11 @@ async function maybeRouteAfterAuth(session) {
 
   if (requestedApp === "music") {
     await openMusic();
+    return;
+  }
+
+  if (requestedApp === "virals") {
+    openVirals();
     return;
   }
 
@@ -506,6 +513,10 @@ async function openMusic() {
   }
 }
 
+function openVirals() {
+  window.location.assign("/n3xra-virals/web/");
+}
+
 async function handleProfileSave(event) {
   event.preventDefault();
   if (!currentSession?.user || isSubmitting) return;
@@ -595,6 +606,7 @@ function bindEvents() {
   passwordForm.addEventListener("submit", handlePasswordSave);
   openRecordsButton.addEventListener("click", openRecords);
   openMusicButton.addEventListener("click", openMusic);
+  openViralsButton?.addEventListener("click", openVirals);
   openAccountSettingsButton?.addEventListener("click", openAccountSettings);
   closeAccountSettingsButton?.addEventListener("click", closeAccountSettings);
   doneAccountSettingsButton?.addEventListener("click", closeAccountSettings);

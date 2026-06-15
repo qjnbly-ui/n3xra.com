@@ -58,6 +58,7 @@ const CONTEXT_PAGES = [
   { route: "/services", file: "services/index.html" },
   { route: "/projects", file: "projects/index.html" },
   { route: "/ai-music-generator", file: "ai-music-generator/index.html" },
+  { route: "/n3xra-virals/web", file: "n3xra-virals/web/index.html" },
   { route: "/support", file: "support/index.html" },
   { route: "/terms", file: "terms/index.html" },
   { route: "/privacy", file: "privacy/index.html" },
@@ -70,6 +71,7 @@ const SAFE_FALLBACK_CONTEXT = [
   "Projects include real-world websites and systems for organizations and service teams.",
   "Services help organizations plan, build, and improve useful digital systems.",
   "AI Music Generator is one optional creative tool for generating songs from prompts.",
+  "N3XRA Virals is an AI tool for analyzing TikTok URLs, comparing viral videos, and turning content into reusable frameworks, hooks, scripts, captions, CTAs, and posting ideas.",
   "Support, terms, and privacy pages exist to explain help channels and policies.",
 ].join(" ");
 
@@ -158,7 +160,7 @@ async function buildSiteContext() {
     "Prefer concrete benefits, specific features, and clear next steps.",
     "Use examples of outcomes users can get, not just a list of pages.",
     "When asked 'why use this site' or similar, give a short explanation of who it helps, 3-5 concrete benefits, and one practical next step.",
-    "For broad questions, represent the site in a balanced way: records software, services, projects, and AI tools.",
+    "For broad questions, represent the site in a balanced way: records software, services, projects, and AI tools such as AI Music Generator and N3XRA Virals.",
     "Do not overfocus on AI music unless the user explicitly asks about music or creative generation.",
     "For broad questions, default recommended next step to /records, /services, or /projects based on the question intent.",
     "Do not overuse route lists. Mention routes only after the explanation, and only when useful.",

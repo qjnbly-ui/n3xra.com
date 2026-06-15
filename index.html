@@ -943,6 +943,7 @@
         <a class="site-menu-link" href="/services/">Services</a>
         <a class="site-menu-link" href="/projects/">Projects</a>
         <a class="site-menu-link" href="/ai-music-generator/">AI Music Generator</a>
+        <a class="site-menu-link" href="/n3xra-virals/web/">N3XRA Virals</a>
       </nav>
     </div>
   </header>
@@ -976,6 +977,11 @@
             <em>03</em>
             <strong>AI Music Generator</strong>
             <span>A creative N3XRA tool for generating custom songs from prompts.</span>
+          </a>
+          <a class="intro-route" href="/n3xra-virals/web/">
+            <em>04</em>
+            <strong>N3XRA Virals</strong>
+            <span>Analyze TikTok winners and turn them into reusable content frameworks.</span>
           </a>
         </div>
       </div>
@@ -1061,6 +1067,14 @@
               <p>Create custom songs from a prompt or original lyrics.</p>
             </div>
           </a>
+
+          <a class="project" href="/n3xra-virals/web/">
+            <div class="project-body">
+              <span>AI tool</span>
+              <h3>N3XRA Virals</h3>
+              <p>Break down TikTok videos into hooks, frameworks, scripts, and posting ideas.</p>
+            </div>
+          </a>
         </div>
       </div>
     </section>
@@ -1071,12 +1085,13 @@
           <p class="eyebrow">Start here</p>
           <h2 id="closing-title">Choose the path that fits.</h2>
           <p class="section-copy">
-            Open N3XRA Records, review the project folder, or use the AI Music Generator.
+            Open N3XRA Records, review the project folder, use the AI Music Generator, or analyze TikTok content with N3XRA Virals.
           </p>
           <div class="button-row">
             <a class="button button-primary" href="/records/">Open N3XRA Records</a>
             <a class="button button-ghost" href="/projects/">See the projects</a>
             <a class="button button-ghost" href="/ai-music-generator/">Open Music Generator</a>
+            <a class="button button-ghost" href="/n3xra-virals/web/">Open N3XRA Virals</a>
           </div>
         </div>
       </div>
@@ -1144,6 +1159,7 @@
           '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>'
         );
         html = html.replace(/(^|[\s(])\/ai-music-generator\/?(?=[\s).,!?;:]|$)/gi, '$1<a class="ask-route-link" href="/ai-music-generator/">AI Music Generator</a>');
+        html = html.replace(/(^|[\s(])\/n3xra-virals\/web\/?(?=[\s).,!?;:]|$)/gi, '$1<a class="ask-route-link" href="/n3xra-virals/web/">N3XRA Virals</a>');
         html = html.replace(/(^|[\s(])\/records\/?(?=[\s).,!?;:]|$)/gi, '$1<a class="ask-route-link" href="/records/">N3XRA Records</a>');
         html = html.replace(/(^|[\s(])\/services\/?(?=[\s).,!?;:]|$)/gi, '$1<a class="ask-route-link" href="/services/">Services</a>');
         html = html.replace(/(^|[\s(])\/projects\/?(?=[\s).,!?;:]|$)/gi, '$1<a class="ask-route-link" href="/projects/">Projects</a>');
