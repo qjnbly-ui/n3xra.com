@@ -136,9 +136,26 @@ textarea {
   background: linear-gradient(90deg, var(--cyan), var(--pink), var(--gold), var(--green));
 }
 
+.hero-head {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.72fr);
+  gap: clamp(18px, 4vw, 38px);
+  align-items: center;
+}
+
 .hero-copy {
   position: relative;
-  max-width: 760px;
+  max-width: 720px;
+}
+
+.hero-asset {
+  width: 100%;
+  max-width: 470px;
+  justify-self: end;
+  filter:
+    drop-shadow(0 0 28px rgba(24, 200, 255, 0.18))
+    drop-shadow(0 26px 52px rgba(0, 0, 0, 0.38));
 }
 
 .eyebrow,
@@ -659,6 +676,7 @@ button:hover {
 }
 
 @media (max-width: 920px) {
+  .hero-head,
   .form-grid,
   .signal-strip,
   .workspace-grid,
@@ -678,6 +696,11 @@ button:hover {
 
   .section-title-row > p {
     text-align: left;
+  }
+
+  .hero-asset {
+    max-width: 420px;
+    justify-self: start;
   }
 }
 
@@ -709,6 +732,10 @@ button:hover {
 
   .hero-workspace::before {
     content: none;
+  }
+
+  .hero-asset {
+    max-width: min(100%, 360px);
   }
 
   h1 {
