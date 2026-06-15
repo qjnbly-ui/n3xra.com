@@ -1126,6 +1126,304 @@
       font-weight: 800;
     }
 
+    /* Virals-inspired dark workspace skin. */
+    :root {
+      color-scheme: dark;
+      --bg: #030507;
+      --panel: rgba(255, 255, 255, 0.07);
+      --panel-strong: rgba(255, 255, 255, 0.11);
+      --ink: #ffffff;
+      --muted: rgba(255, 255, 255, 0.7);
+      --soft: rgba(255, 255, 255, 0.5);
+      --line: rgba(255, 255, 255, 0.14);
+      --cyan: #18c8ff;
+      --green: #20e0a1;
+      --pink: #ff3d8f;
+      --gold: #ffbe45;
+      --deep: #030507;
+      --radius: 8px;
+      --shadow: 0 18px 50px rgba(0, 0, 0, 0.24);
+    }
+
+    body {
+      color: var(--ink);
+      background:
+        linear-gradient(115deg, rgba(24, 200, 255, 0.16) 0%, transparent 31%),
+        linear-gradient(250deg, rgba(255, 61, 143, 0.14) 0%, transparent 28%),
+        linear-gradient(180deg, #071018 0%, #030507 52%, #010203 100%);
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background:
+        linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.026) 1px, transparent 1px);
+      background-size: 72px 72px;
+      mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.95), transparent 72%);
+    }
+
+    .site-topbar {
+      position: relative;
+      z-index: 2;
+      background: transparent;
+      border: 0;
+    }
+
+    .site-topbar-inner {
+      width: min(1180px, calc(100vw - 2rem));
+      padding-top: 22px;
+    }
+
+    .site-brand img {
+      filter: drop-shadow(0 0 24px rgba(24, 200, 255, 0.2));
+    }
+
+    .site-menu-link,
+    .site-auth-link,
+    .site-menu-toggle {
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.06);
+      color: rgba(255, 255, 255, 0.78);
+    }
+
+    .music-hero-shell {
+      width: min(1180px, calc(100% - 32px));
+      margin: clamp(34px, 6vw, 72px) auto 0;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background:
+        linear-gradient(90deg, rgba(255, 255, 255, 0.08), transparent 1px) 0 0 / 18px 18px,
+        linear-gradient(150deg, rgba(24, 200, 255, 0.16), rgba(255, 61, 143, 0.08) 44%, rgba(32, 224, 161, 0.12)),
+        rgba(255, 255, 255, 0.055);
+      box-shadow: 0 32px 90px rgba(0, 0, 0, 0.48);
+    }
+
+    .music-hero-shell::before {
+      content: "MUSIC ENGINE";
+      top: 24px;
+      right: clamp(18px, 4vw, 44px);
+      left: auto;
+      max-width: 620px;
+      color: rgba(255, 255, 255, 0.055);
+      background: none;
+      font-size: clamp(3rem, 11vw, 8.2rem);
+      font-weight: 800;
+      line-height: 0.82;
+      text-align: right;
+      opacity: 1;
+    }
+
+    .music-hero-shell::after {
+      content: "";
+      position: absolute;
+      inset: auto 0 0;
+      height: 5px;
+      background: linear-gradient(90deg, var(--cyan), var(--pink), var(--gold), var(--green));
+    }
+
+    .music-hero-inner {
+      width: 100%;
+      padding: clamp(42px, 8vw, 84px) clamp(22px, 5vw, 52px) clamp(32px, 5vw, 52px);
+    }
+
+    .music-hero-grid {
+      justify-items: start;
+      text-align: left;
+    }
+
+    .music-hero-logo {
+      width: min(640px, 92vw);
+      filter: drop-shadow(0 28px 54px rgba(24, 200, 255, 0.17));
+    }
+
+    .music-hero-copy {
+      justify-items: start;
+      margin: 0;
+    }
+
+    .music-hero-lede {
+      color: var(--muted);
+      font-size: clamp(1rem, 2vw, 1.22rem);
+      font-weight: 700;
+      line-height: 1.5;
+    }
+
+    .generator-shell {
+      position: relative;
+      z-index: 1;
+      width: min(1180px, calc(100% - 32px));
+      padding: 18px 0 56px;
+    }
+
+    .music-account-strip,
+    .music-auth-panel,
+    .tool-panel,
+    .output-panel,
+    .history-panel {
+      position: relative;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(18px);
+    }
+
+    .music-account-strip::after,
+    .music-auth-panel::after,
+    .tool-panel::after,
+    .output-panel::after,
+    .history-panel::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-top: 1px solid rgba(255, 255, 255, 0.18);
+      pointer-events: none;
+    }
+
+    .account-kicker,
+    .generator-kicker {
+      color: #98e9ff;
+    }
+
+    .music-account-strip h2,
+    .music-auth-panel h2,
+    .tool-band h2,
+    .panel-title,
+    .history-name {
+      color: #ffffff;
+      letter-spacing: 0;
+    }
+
+    .music-auth-copy p,
+    .account-copy,
+    .tool-band p,
+    .result-note,
+    .empty-note,
+    .history-meta,
+    .status,
+    .legal-disclosure,
+    .provider-disclosure {
+      color: var(--muted);
+    }
+
+    .tool-band {
+      background:
+        linear-gradient(90deg, rgba(255, 255, 255, 0.08), transparent 1px) 0 0 / 18px 18px,
+        linear-gradient(150deg, rgba(24, 200, 255, 0.16), rgba(255, 61, 143, 0.08) 44%, rgba(32, 224, 161, 0.12));
+      border-bottom: 1px solid var(--line);
+    }
+
+    .music-auth-card,
+    .password-field,
+    .music-input,
+    .music-textarea,
+    .option-row,
+    .history-item,
+    .account-input {
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.08);
+      color: #ffffff;
+    }
+
+    .music-input,
+    .music-textarea,
+    .account-input {
+      font-weight: 700;
+    }
+
+    .music-input::placeholder,
+    .music-textarea::placeholder {
+      color: rgba(255, 255, 255, 0.42);
+    }
+
+    .field label,
+    .option-label {
+      color: rgba(255, 255, 255, 0.76);
+    }
+
+    .music-input:focus,
+    .music-textarea:focus,
+    .account-input:focus {
+      border-color: rgba(24, 200, 255, 0.8);
+      box-shadow: 0 0 0 4px rgba(24, 200, 255, 0.12);
+    }
+
+    .auth-toggle {
+      border-color: rgba(255, 255, 255, 0.15);
+      background: rgba(3, 5, 7, 0.54);
+    }
+
+    .auth-toggle button {
+      color: var(--muted);
+    }
+
+    .auth-toggle button.is-active,
+    .primary-btn {
+      color: #041016;
+      background: linear-gradient(90deg, var(--cyan), var(--green));
+      border-color: transparent;
+      box-shadow: 0 18px 42px rgba(24, 200, 255, 0.18);
+    }
+
+    .secondary-btn,
+    .history-btn,
+    .song-link,
+    .password-toggle {
+      color: #ffffff;
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(255, 255, 255, 0.16);
+      box-shadow: none;
+    }
+
+    .primary-btn,
+    .secondary-btn,
+    .history-btn,
+    .song-link {
+      border-radius: 8px;
+      letter-spacing: 0;
+      text-transform: none;
+      font-size: 0.9rem;
+    }
+
+    .primary-btn:hover,
+    .secondary-btn:hover,
+    .history-btn:hover,
+    .song-link:hover {
+      transform: translateY(-1px);
+    }
+
+    .legal-disclosure a,
+    .provider-disclosure a {
+      color: #98e9ff;
+    }
+
+    .account-modal,
+    .confirm-card {
+      border-radius: 8px;
+      background:
+        linear-gradient(90deg, rgba(255, 255, 255, 0.08), transparent 1px) 0 0 / 18px 18px,
+        linear-gradient(150deg, rgba(24, 200, 255, 0.16), rgba(255, 61, 143, 0.08) 44%, rgba(32, 224, 161, 0.12)),
+        #030507;
+    }
+
+    .account-detail,
+    .billing-panel,
+    .billing-plan-card,
+    .account-review-panel,
+    .delete-choice-panel {
+      border-radius: 8px;
+    }
+
+    .site-footer {
+      background: #010203;
+    }
+
     @media (max-width: 900px) {
       .music-account-strip,
       .music-auth-grid,
@@ -1138,6 +1436,26 @@
 
     @media (max-width: 620px) {
       .generator-shell { padding: 2rem 0 3rem; }
+
+      .music-hero-shell,
+      .generator-shell {
+        width: min(100% - 24px, 1180px);
+      }
+
+      .music-hero-logo {
+        max-width: 100%;
+      }
+
+      .auth-toggle button {
+        min-width: 0;
+        font-size: 0.78rem;
+      }
+
+      .generator-layout > *,
+      .music-auth-grid > *,
+      .side-stack {
+        min-width: 0;
+      }
 
       .form-actions,
       .account-actions,
@@ -1159,7 +1477,7 @@
     <div class="site-topbar-inner">
       <div class="site-topbar-row">
         <a class="site-brand" href="/" aria-label="N3XRA home">
-          <img src="../../assets/n3xra_logo_transparent.png" alt="N3XRA">
+          <img src="../../assets/MAINLOGO.png" alt="N3XRA">
         </a>
         <div class="site-nav-actions">
           <a class="site-menu-link site-auth-link" href="/ai-music-generator/login/?next=/ai-music-generator/app/" id="musicHeaderAuthLink">Login</a>
