@@ -9,6 +9,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,650;9..144,750&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/n3xra-virals/web/virals.css">
+    <script src="/app/config.js"></script>
   </head>
   <body>
     <header class="virals-topbar" aria-label="N3XRA Virals">
@@ -18,6 +19,7 @@
       <nav class="topbar-actions" aria-label="Virals sections">
         <a href="#analyze">Workspace</a>
         <a href="#library">Library</a>
+        <a href="/n3xra-virals/login/?next=/n3xra-virals/web/" id="virals-header-auth-link">Login</a>
       </nav>
     </header>
 
@@ -208,6 +210,46 @@
       </div>
     </footer>
 
-    <script src="/n3xra-virals/web/virals.js"></script>
+    <div class="virals-access-modal is-hidden" id="virals-access-modal" role="dialog" aria-modal="true" aria-labelledby="virals-access-title" hidden>
+      <section class="virals-access-card">
+        <button class="virals-access-close" id="virals-access-close" type="button" aria-label="Close access window">Close</button>
+        <div class="virals-access-head">
+          <p class="panel-kicker">N3XRA Virals</p>
+          <h2 id="virals-access-title">Keep building with a free N3XRA account.</h2>
+          <p>You used your 3 free browser analyses. Sign up or log in to keep analyzing winners, comparing patterns, and saving frameworks.</p>
+        </div>
+        <div class="virals-access-grid">
+          <div class="virals-access-list">
+            <p><span></span> Analyze TikTok URLs without losing your work</p>
+            <p><span></span> Compare multiple winners and find the shared system</p>
+            <p><span></span> Save framework libraries for products and niches</p>
+            <p><span></span> Build hooks, captions, CTAs, and posting packs faster</p>
+          </div>
+          <div class="virals-agent-stack" aria-label="Unlocked Virals tools">
+            <article>
+              <span>01</span>
+              <strong>Framework Analyzer</strong>
+              <p>Pulls apart hook, body, psychology, proof, and CTA logic.</p>
+            </article>
+            <article>
+              <span>02</span>
+              <strong>Compare Videos</strong>
+              <p>Finds the repeatable system across multiple winning posts.</p>
+            </article>
+            <article>
+              <span>03</span>
+              <strong>Posting Pack</strong>
+              <p>Turns the framework into hooks, scripts, captions, and angles.</p>
+            </article>
+          </div>
+        </div>
+        <div class="virals-access-actions">
+          <a class="virals-access-primary" href="/n3xra-virals/login/?mode=signup&next=/n3xra-virals/web/">Sign Up & Get Access</a>
+          <a class="virals-access-secondary" href="/n3xra-virals/login/?next=/n3xra-virals/web/">Log In</a>
+        </div>
+      </section>
+    </div>
+
+    <script type="module" src="/n3xra-virals/web/virals.js"></script>
   </body>
 </html>

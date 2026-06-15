@@ -1,4 +1,8 @@
+import { createBrowserSupabase, getSessionOrNull, hasConfig } from "/app/lib/supabase-client.js";
+
 const STORAGE_KEY = "n3xraViralsFrameworks";
+const FREE_USAGE_KEY = "n3xraViralsFreeRuns";
+const FREE_USAGE_LIMIT = 3;
 
 const form = document.getElementById("virals-analyze-form");
 const statusEl = document.getElementById("analysis-status");
@@ -19,6 +23,12 @@ const compareResults = document.getElementById("compare-results");
 const modeButtons = Array.from(document.querySelectorAll("[data-mode-target]"));
 const modePanels = Array.from(document.querySelectorAll("[data-mode-panel]"));
 const modeResults = Array.from(document.querySelectorAll("[data-mode-results]"));
+const accessModal = document.getElementById("virals-access-modal");
+const accessCloseButton = document.getElementById("virals-access-close");
+const headerAuthLink = document.getElementById("virals-header-auth-link");
+
+let supabase = null;
+let currentSession = null;
 
 const frameworkPatterns = [
   {
@@ -71,6 +81,69 @@ function setStatus(message) {
 
 function setCompareStatus(message) {
   compareStatusEl.textContent = message;
+}
+
+function getFreeRunCount() {
+  const storedCount = Number.parseInt(localStorage.getItem(FREE_USAGE_KEY) || "", 10);
+  return Number.isFinite(storedCount) ? Math.max(0, Math.min(storedCount, FREE_USAGE_LIMIT)) : 0;
+}
+
+function setFreeRunCount(count) {
+  const parsedCount = Number.parseInt(count, 10);
+  const safeCount = Number.isFinite(parsedCount) ? Math.max(0, Math.min(parsedCount, FREE_USAGE_LIMIT)) : 0;
+  localStorage.setItem(FREE_USAGE_KEY, String(safeCount));
+}
+
+function incrementFreeRunCount() {
+  if (currentSession?.user) return getFreeRunCount();
+  const nextCount = Math.min(getFreeRunCount() + 1, FREE_USAGE_LIMIT);
+  setFreeRunCount(nextCount);
+  return nextCount;
+}
+
+function hasReachedFreeLimit() {
+  return !currentSession?.user && getFreeRunCount() >= FREE_USAGE_LIMIT;
+}
+
+function showAccessModal() {
+  accessModal?.classList.remove("is-hidden");
+  if (accessModal) accessModal.hidden = false;
+  document.body.classList.add("modal-open");
+  accessCloseButton?.focus();
+}
+
+function hideAccessModal() {
+  accessModal?.classList.add("is-hidden");
+  if (accessModal) accessModal.hidden = true;
+  document.body.classList.remove("modal-open");
+}
+
+function renderAuthState() {
+  if (!headerAuthLink) return;
+  if (currentSession?.user) {
+    headerAuthLink.textContent = "Account";
+    headerAuthLink.href = "/account/";
+    return;
+  }
+  headerAuthLink.textContent = "Login";
+  headerAuthLink.href = "/n3xra-virals/login/?next=/n3xra-virals/web/";
+}
+
+async function initAuthState() {
+  if (!hasConfig()) {
+    renderAuthState();
+    return;
+  }
+
+  supabase = createBrowserSupabase();
+  currentSession = await getSessionOrNull(supabase).catch(() => null);
+  renderAuthState();
+
+  supabase?.auth?.onAuthStateChange((_event, session) => {
+    currentSession = session || null;
+    renderAuthState();
+    if (currentSession?.user) hideAccessModal();
+  });
 }
 
 function setMode(mode) {
@@ -386,6 +459,11 @@ async function handleSubmit(event) {
     setStatus("Paste a TikTok or Daily Virals reference URL first.");
     return;
   }
+  if (hasReachedFreeLimit()) {
+    setStatus("Create a free N3XRA account or log in to keep analyzing.");
+    showAccessModal();
+    return;
+  }
 
   const submitButton = form.querySelector('button[type="submit"]');
   if (submitButton) submitButton.disabled = true;
@@ -407,11 +485,15 @@ async function handleSubmit(event) {
 
   const saved = loadSaved().filter((item) => item.id !== analysis.id);
   saveAll([analysis, ...saved]);
+  const usageCount = incrementFreeRunCount();
   renderSource(video);
   renderAnalysis(analysis);
   renderLibrary();
   revealSingleResults();
   document.getElementById("single-results")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  if (!currentSession?.user && usageCount >= FREE_USAGE_LIMIT) {
+    window.setTimeout(showAccessModal, 900);
+  }
 }
 
 form?.addEventListener("submit", handleSubmit);
@@ -460,6 +542,11 @@ async function handleCompareSubmit(event) {
     setCompareStatus("Paste at least 2 TikTok URLs.");
     return;
   }
+  if (hasReachedFreeLimit()) {
+    setCompareStatus("Create a free N3XRA account or log in to keep comparing.");
+    showAccessModal();
+    return;
+  }
 
   const submitButton = compareForm.querySelector('button[type="submit"]');
   if (submitButton) submitButton.disabled = true;
@@ -474,8 +561,12 @@ async function handleCompareSubmit(event) {
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(payload.error || "Compare request failed.");
     renderCompare(payload);
+    const usageCount = incrementFreeRunCount();
     setCompareStatus(`Compared ${payload.videos?.length || urls.length} videos.`);
     document.getElementById("compare-results")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (!currentSession?.user && usageCount >= FREE_USAGE_LIMIT) {
+      window.setTimeout(showAccessModal, 900);
+    }
   } catch (error) {
     setCompareStatus(error.message || "Batch compare failed.");
   } finally {
@@ -543,4 +634,15 @@ modeButtons.forEach((button) => {
   button.addEventListener("click", () => setMode(button.dataset.modeTarget));
 });
 
+accessCloseButton?.addEventListener("click", hideAccessModal);
+accessModal?.addEventListener("click", (event) => {
+  if (event.target === accessModal) hideAccessModal();
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && accessModal && !accessModal.hidden) {
+    hideAccessModal();
+  }
+});
+
 renderLibrary();
+initAuthState();
