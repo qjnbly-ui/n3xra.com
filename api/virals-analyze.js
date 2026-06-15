@@ -24,6 +24,12 @@ function parseJson(req) {
 
 const { fetchTikTokTranscript } = require("./_virals-tiktok");
 const { resolveProductIntelligence } = require("./_virals-product-resolver");
+const {
+  getBearerToken,
+  hasViralsSupabaseConfig,
+  saveViralsAnalysis,
+  verifySupabaseUser,
+} = require("./_virals-supabase");
 
 function sendJson(res, statusCode, payload) {
   res.statusCode = statusCode;
@@ -290,7 +296,25 @@ module.exports = async function handler(req, res) {
 
     const content = String(data?.choices?.[0]?.message?.content || "").trim();
     const analysis = normalizeAnalysis(extractJson(content), input);
-    return sendJson(res, 200, { analysis, model, video: extractedVideo });
+    let saved = null;
+    const token = getBearerToken(req);
+    if (token && hasViralsSupabaseConfig() && extractedVideo) {
+      try {
+        const user = await verifySupabaseUser(token);
+        saved = await saveViralsAnalysis({
+          user,
+          input,
+          video: extractedVideo,
+          analysis,
+          model,
+          usage: data?.usage || null,
+        });
+      } catch (_error) {
+        saved = null;
+      }
+    }
+
+    return sendJson(res, 200, { analysis, model, video: extractedVideo, saved });
   } catch (error) {
     return sendJson(res, 500, { error: error instanceof Error ? error.message : "Server error." });
   }

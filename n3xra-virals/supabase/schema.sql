@@ -1,7 +1,7 @@
 create extension if not exists pgcrypto;
 
 create table if not exists public.virals_profiles (
-  user_id uuid primary key references auth.users (id) on delete cascade,
+  user_id uuid primary key,
   display_name text,
   plan text not null default 'free',
   account_status text not null default 'active',
@@ -28,7 +28,7 @@ create table if not exists public.virals_profiles (
 
 create table if not exists public.virals_usage_events (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid references auth.users (id) on delete cascade,
+  user_id uuid,
   event_type text not null,
   analysis_id uuid,
   video_id uuid,

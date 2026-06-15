@@ -690,10 +690,15 @@ function renderLibrary() {
   renderAccountModal();
 }
 
+function authHeaders() {
+  if (!currentSession?.access_token) return {};
+  return { Authorization: `Bearer ${currentSession.access_token}` };
+}
+
 async function requestAiAnalysis(data) {
   const response = await fetch("/api/virals-analyze", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify(data),
   });
 
@@ -807,7 +812,7 @@ async function handleCompareSubmit(event) {
   try {
     const response = await fetch("/api/virals-compare", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...authHeaders() },
       body: JSON.stringify({ ...data, urls }),
     });
     const payload = await response.json().catch(() => ({}));

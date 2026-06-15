@@ -1,4 +1,10 @@
 const { fetchTikTokTranscript } = require("./_virals-tiktok");
+const {
+  getBearerToken,
+  hasViralsSupabaseConfig,
+  saveUsageEvent,
+  verifySupabaseUser,
+} = require("./_virals-supabase");
 
 function parseJson(req) {
   if (req.body && typeof req.body === "object") return Promise.resolve(req.body);
@@ -217,7 +223,24 @@ module.exports = async function handler(req, res) {
 
     const content = String(data?.choices?.[0]?.message?.content || "").trim();
     const comparison = normalizeCompare(extractJson(content), input);
-    return sendJson(res, 200, { comparison, videos, failed, model });
+    let saved = null;
+    const token = getBearerToken(req);
+    if (token && hasViralsSupabaseConfig()) {
+      try {
+        const user = await verifySupabaseUser(token);
+        saved = await saveUsageEvent(user, {
+          event_type: "compare_analysis",
+          input_count: videos.length,
+          model,
+          prompt_tokens: data?.usage?.prompt_tokens,
+          completion_tokens: data?.usage?.completion_tokens,
+          total_tokens: data?.usage?.total_tokens,
+        });
+      } catch (_error) {
+        saved = null;
+      }
+    }
+    return sendJson(res, 200, { comparison, videos, failed, model, saved });
   } catch (error) {
     return sendJson(res, 500, { error: error instanceof Error ? error.message : "Server error." });
   }
