@@ -73,12 +73,13 @@ n3xra-virals/
   api/
     README.md
     analyze.js
-  web/
-    index.html
-    virals.css
-    virals.js
+
+virals/
+  index.html
+  virals.css
+  virals.js
 ```
 
 ## Deployment Note
 
-This folder keeps all Virals product files together. On Vercel, functions usually need to live in the root `api/` directory to deploy automatically. When the API is ready, create a thin root wrapper such as `api/virals-analyze.js` that imports or mirrors the implementation from `n3xra-virals/api/analyze.js`.
+The public app now lives at `/virals/` so the URL can be `n3xra.com/virals/`. The `n3xra-virals/` folder keeps product planning, API notes, and Supabase schema work together. On Vercel, functions usually need to live in the root `api/` directory to deploy automatically.

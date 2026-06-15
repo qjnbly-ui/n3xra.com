@@ -177,7 +177,7 @@ function renderAccountModal() {
 
 function showAccountModal() {
   if (!currentSession?.user) {
-    window.location.assign("/n3xra-virals/login/?next=/n3xra-virals/web/");
+    window.location.assign("/n3xra-virals/login/?next=/virals/");
     return;
   }
   renderAccountModal();
@@ -262,7 +262,7 @@ function renderAuthState() {
     return;
   }
   headerAuthLink.textContent = "Login";
-  headerAuthLink.href = "/n3xra-virals/login/?next=/n3xra-virals/web/";
+  headerAuthLink.href = "/n3xra-virals/login/?next=/virals/";
 }
 
 async function initAuthState() {

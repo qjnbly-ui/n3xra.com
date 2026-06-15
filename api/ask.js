@@ -58,7 +58,7 @@ const CONTEXT_PAGES = [
   { route: "/services", file: "services/index.html" },
   { route: "/projects", file: "projects/index.html" },
   { route: "/ai-music-generator", file: "ai-music-generator/index.html" },
-  { route: "/n3xra-virals/web", file: "n3xra-virals/web/index.html" },
+  { route: "/virals", file: "virals/index.html" },
   { route: "/support", file: "support/index.html" },
   { route: "/terms", file: "terms/index.html" },
   { route: "/privacy", file: "privacy/index.html" },

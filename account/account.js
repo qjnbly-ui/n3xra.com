@@ -514,7 +514,7 @@ async function openMusic() {
 }
 
 function openVirals() {
-  window.location.assign("/n3xra-virals/web/");
+  window.location.assign("/virals/");
 }
 
 async function handleProfileSave(event) {

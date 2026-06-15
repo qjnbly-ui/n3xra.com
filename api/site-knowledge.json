@@ -28,8 +28,8 @@
       "content": "AI Music Generator | N3XRA\nGenerate custom songs with prompts and optional user-written lyrics.\nAI Music Generator\nStart with 2 free songs.\nUse your N3XRA account for AI Music.\nBuild the song request.\nCurrent Song\nRecent Songs\nGenerate custom songs from a prompt or your own lyrics from one N3XRA tool.\nMusic Account\nUse this browser's free songs without an account. Sign in before generating when you want songs saved.\nUniversal Login\nBy signing in, you agree to the N3XRA Terms and Privacy Policy .\nUse the same Supabase login across N3XRA apps.\nUse a detailed prompt for best results. Lyrics are for words you have already written.\nPrompts, lyrics, titles, and generated song data may be processed by our AI music provider to create and save songs. Do not submit lyrics or content you do not have rights to use.\nReady to generate.\nSong links are temporary, so download anything you want to keep.\nGenerated audio will appear here.\n&copy; 2026 N3XRA LLC. All rights reserved.\nSupport · Terms · Privacy\nBuilt by Quentin Nichols ."
     },
     {
-      "route": "/n3xra-virals/web",
-      "file": "n3xra-virals/web/index.html",
+      "route": "/virals",
+      "file": "virals/index.html",
       "content": "N3XRA Virals | Framework Analyzer\nTikTok Intelligence\nExtracted System\nNew Hook Bank\nPosting Pack\nFind the Shared Framework\nShared Pattern\nLoaded Videos\nSaved Frameworks\nDeconstruct TikTok winners into reusable hooks, body frameworks, psychology, CTAs, shot lists, and daily posting packs.\nBatch Compare\nPaste 2-10 TikTok URLs. N3XRA extracts available captions, thumbnails, metadata, subtitles, and compares the repeatable pattern.\nFramework Library\nKeep your best angles, structures, and content systems organized for future campaigns.\n&copy; 2026 N3XRA LLC. All rights reserved.\nSupport · Terms · Privacy"
     },
     {
