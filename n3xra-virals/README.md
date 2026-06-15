@@ -1,8 +1,16 @@
 # N3XRA Virals
 
-N3XRA Virals is the viral content intelligence product inside the N3XRA platform.
+N3XRA Virals is the viral framework intelligence product inside the N3XRA platform.
 
 Tagline: Discover. Analyze. Create.
+
+Core positioning:
+
+```txt
+Daily Virals shows what is working.
+TokScript rewrites what is working.
+N3XRA Virals explains why it works and turns it into reusable content systems.
+```
 
 ## Product Boundary
 
@@ -32,20 +40,24 @@ Virals should receive verified `master_user_id` and `organization_id` values fro
 The first product workflow is:
 
 ```txt
-Paste URL -> Analyze Content -> Generate Improvements
+Paste TikTok/Daily Virals reference -> Extract Framework -> Generate Posting Pack
 ```
 
 V1 should support:
 
-- video URL submission
-- content metadata storage
-- transcript storage when available
-- AI analysis of hook, structure, triggers, strengths, and weaknesses
+- TikTok or Daily Virals reference URL submission
+- optional product, niche, goal, transcript, caption, or notes
+- framework extraction for hook type, body structure, psychology, and CTA logic
 - generated hooks
 - generated script variations
-- generated captions and CTAs
+- generated captions, CTAs, and shot lists
+- saved framework library
+- localStorage prototype mode before paid backend setup
+- Groq-powered analysis through `/api/virals-analyze` when `GROQ_API_KEY` or `GROQ_VIRALS_API_KEY` is available
 
-Advanced trend discovery, competitor tracking, product research, and monitoring can be added after the analyzer workflow works end to end.
+Advanced TikTok Shop data imports, competitor tracking, product research, and monitoring can be added after the framework analyzer workflow works end to end.
+
+If Groq is not configured, the web prototype falls back to local framework rules so the UI remains testable.
 
 ## Folder Structure
 
@@ -70,4 +82,3 @@ n3xra-virals/
 ## Deployment Note
 
 This folder keeps all Virals product files together. On Vercel, functions usually need to live in the root `api/` directory to deploy automatically. When the API is ready, create a thin root wrapper such as `api/virals-analyze.js` that imports or mirrors the implementation from `n3xra-virals/api/analyze.js`.
-

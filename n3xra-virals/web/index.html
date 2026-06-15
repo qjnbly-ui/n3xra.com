@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>N3XRA Virals</title>
+    <title>N3XRA Virals | Framework Analyzer</title>
     <meta name="theme-color" content="#030507">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -17,8 +17,9 @@
       </a>
       <nav class="topbar-actions" aria-label="Virals sections">
         <a href="#analyze">Analyzer</a>
-        <a href="#signals">Signals</a>
-        <a href="#output">Output</a>
+        <a href="#compare">Compare</a>
+        <a href="#results">Results</a>
+        <a href="#library">Library</a>
       </nav>
     </header>
 
@@ -26,54 +27,188 @@
       <section id="analyze" class="hero-workspace" aria-labelledby="virals-title">
         <div class="hero-copy">
           <p class="eyebrow">N3XRA Virals</p>
-          <h1 id="virals-title">Discover. Analyze. Create.</h1>
-          <p class="hero-lede">Paste a viral post and turn it into hook logic, audience signals, captions, CTAs, and stronger content angles.</p>
+          <h1 id="virals-title">Viral Framework Analyzer</h1>
+          <p class="hero-lede">Deconstruct TikTok winners into reusable hooks, body frameworks, psychology, CTAs, shot lists, and daily posting packs.</p>
         </div>
 
         <form id="virals-analyze-form" class="analyzer-form">
-          <label for="video-url">Analyze a video or post URL</label>
-          <div class="input-row">
-            <input id="video-url" name="url" type="url" placeholder="Paste TikTok, Reel, Short, Facebook Reel, or X URL" required>
-            <button type="submit">Analyze</button>
+          <div class="field-stack">
+            <label for="video-url">TikTok or Daily Virals URL</label>
+            <input id="video-url" name="url" type="url" placeholder="Paste TikTok video, TikTok Shop, or Daily Virals reference URL" required>
           </div>
-          <div id="analysis-status" class="analysis-status" role="status" aria-live="polite">Ready for the first signal.</div>
+
+          <div class="form-grid">
+            <div class="field-stack">
+              <label for="product-name">Product or offer</label>
+              <input id="product-name" name="product" type="text" placeholder="Example: portable blender, hair growth oil, posture corrector">
+            </div>
+            <div class="field-stack">
+              <label for="niche">Niche</label>
+              <select id="niche" name="niche">
+                <option value="TikTok Shop">TikTok Shop</option>
+                <option value="Beauty">Beauty</option>
+                <option value="Fitness">Fitness</option>
+                <option value="Home">Home</option>
+                <option value="Parenting">Parenting</option>
+                <option value="Pets">Pets</option>
+                <option value="Tech">Tech</option>
+                <option value="Fashion">Fashion</option>
+                <option value="Food">Food</option>
+              </select>
+            </div>
+            <div class="field-stack">
+              <label for="goal">Content goal</label>
+              <select id="goal" name="goal">
+                <option value="TikTok Shop affiliate sale">TikTok Shop affiliate sale</option>
+                <option value="Organic growth">Organic growth</option>
+                <option value="Lead generation">Lead generation</option>
+                <option value="Brand awareness">Brand awareness</option>
+                <option value="Product education">Product education</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="field-stack">
+            <label for="notes">Optional transcript, caption, or notes</label>
+            <textarea id="notes" name="notes" rows="5" placeholder="Paste transcript if you have it. Otherwise add what happens in the video, the hook, comments, product claims, or anything from Daily Virals."></textarea>
+          </div>
+
+          <div class="form-actions">
+            <button type="submit">Analyze Framework</button>
+            <button class="button-ghost" id="load-demo" type="button">Load Demo</button>
+            <button class="button-ghost" id="clear-all" type="button">Clear Saved</button>
+          </div>
+          <div id="analysis-status" class="analysis-status" role="status" aria-live="polite">Ready to extract the system behind the content.</div>
         </form>
       </section>
 
-      <section id="signals" class="signal-strip" aria-label="Viral signal preview">
+      <section class="signal-strip" aria-label="Framework engine capabilities">
         <article>
-          <span>Velocity</span>
-          <strong>+218%</strong>
-          <p>Growth pace against recent niche posts.</p>
+          <span>Detect</span>
+          <strong>Hook</strong>
+          <p>Classify the opening pattern and what makes people stop.</p>
         </article>
         <article>
-          <span>Hook Strength</span>
-          <strong>9.1</strong>
-          <p>Opening tension, curiosity, and clarity.</p>
+          <span>Map</span>
+          <strong>Body</strong>
+          <p>Break the video into reusable structure instead of copying it.</p>
         </article>
         <article>
-          <span>Creator Fit</span>
-          <strong>High</strong>
-          <p>Audience match and repeatable angle quality.</p>
+          <span>Remix</span>
+          <strong>CTA</strong>
+          <p>Generate new scripts from proven parts for your product.</p>
         </article>
       </section>
 
-      <section id="output" class="result-grid" aria-label="Analyzer output preview">
-        <article>
-          <span class="result-kicker">01</span>
-          <h2>Hook Breakdown</h2>
-          <p>The first seconds get mapped into curiosity, promise, tension, and scroll-stopping language.</p>
+      <section id="results" class="workspace-grid" aria-label="Analysis results">
+        <article class="output-panel source-panel">
+          <div class="panel-heading">
+            <p class="panel-kicker">Source</p>
+            <h2>TikTok Intelligence</h2>
+          </div>
+          <div id="source-output" class="empty-state">Paste a TikTok URL and run analysis to load thumbnail, caption, creator, metrics, on-screen text, and transcript status.</div>
         </article>
-        <article>
-          <span class="result-kicker">02</span>
-          <h2>Why It Works</h2>
-          <p>AI explains structure, emotion, pacing, audience targeting, and the reason the idea travels.</p>
+
+        <article class="output-panel output-panel-large">
+          <div class="panel-heading">
+            <p class="panel-kicker">Framework</p>
+            <h2>Extracted System</h2>
+          </div>
+          <div id="framework-output" class="empty-state">
+            Run an analysis to see hook type, body structure, psychology, conversion logic, and what to keep or change.
+          </div>
         </article>
-        <article>
-          <span class="result-kicker">03</span>
-          <h2>Improved Variations</h2>
-          <p>Generate sharper hooks, captions, calls to action, and scripts adapted for the target platform.</p>
+
+        <article class="output-panel">
+          <div class="panel-heading">
+            <p class="panel-kicker">Hooks</p>
+            <h2>New Hook Bank</h2>
+          </div>
+          <div id="hooks-output" class="empty-state">Generated hooks will appear here.</div>
         </article>
+
+        <article class="output-panel">
+          <div class="panel-heading">
+            <p class="panel-kicker">Scripts</p>
+            <h2>Posting Pack</h2>
+          </div>
+          <div id="scripts-output" class="empty-state">Scripts, captions, CTAs, and shot list will appear here.</div>
+        </article>
+      </section>
+
+      <section id="compare" class="compare-section" aria-label="Batch framework comparison">
+        <div class="section-title-row">
+          <div>
+            <p class="eyebrow">Batch Compare</p>
+            <h2>Find the Shared Framework</h2>
+          </div>
+          <p>Paste 2-10 TikTok URLs. N3XRA extracts available captions, thumbnails, metadata, subtitles, and compares the repeatable pattern.</p>
+        </div>
+
+        <form id="virals-compare-form" class="compare-form">
+          <div class="field-stack">
+            <label for="compare-urls">TikTok URLs</label>
+            <textarea id="compare-urls" name="urls" rows="6" placeholder="Paste one TikTok URL per line"></textarea>
+          </div>
+          <div class="form-grid">
+            <div class="field-stack">
+              <label for="compare-product">Product or offer</label>
+              <input id="compare-product" name="product" type="text" placeholder="Example: whitening strips, car shade, electrolyte drink">
+            </div>
+            <div class="field-stack">
+              <label for="compare-niche">Niche</label>
+              <select id="compare-niche" name="niche">
+                <option value="TikTok Shop">TikTok Shop</option>
+                <option value="Beauty">Beauty</option>
+                <option value="Home">Home</option>
+                <option value="Food">Food</option>
+                <option value="Tech">Tech</option>
+                <option value="Fashion">Fashion</option>
+              </select>
+            </div>
+            <div class="field-stack">
+              <label for="compare-goal">Goal</label>
+              <select id="compare-goal" name="goal">
+                <option value="TikTok Shop affiliate sale">TikTok Shop affiliate sale</option>
+                <option value="Organic growth">Organic growth</option>
+                <option value="Product education">Product education</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-actions">
+            <button type="submit">Compare Frameworks</button>
+            <button class="button-ghost" id="load-compare-demo" type="button">Load Compare Demo</button>
+          </div>
+          <div id="compare-status" class="analysis-status" role="status" aria-live="polite">Ready to compare multiple winners.</div>
+        </form>
+
+        <div class="workspace-grid compare-output-grid">
+          <article class="output-panel output-panel-large">
+            <div class="panel-heading">
+              <p class="panel-kicker">Comparison</p>
+              <h2>Shared Pattern</h2>
+            </div>
+            <div id="compare-output" class="empty-state">Batch comparison output will appear here.</div>
+          </article>
+          <article class="output-panel">
+            <div class="panel-heading">
+              <p class="panel-kicker">Sources</p>
+              <h2>Loaded Videos</h2>
+            </div>
+            <div id="compare-sources" class="empty-state">Loaded video cards will appear here.</div>
+          </article>
+        </div>
+      </section>
+
+      <section id="library" class="library-section" aria-label="Saved framework library">
+        <div class="section-title-row">
+          <div>
+            <p class="eyebrow">Local Prototype Library</p>
+            <h2>Saved Frameworks</h2>
+          </div>
+          <p>Saved in this browser with localStorage. No backend required yet.</p>
+        </div>
+        <div id="library-list" class="library-list"></div>
       </section>
     </main>
     <script src="/n3xra-virals/web/virals.js"></script>

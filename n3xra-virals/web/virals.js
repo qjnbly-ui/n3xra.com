@@ -1,19 +1,492 @@
+const STORAGE_KEY = "n3xraViralsFrameworks";
+
 const form = document.getElementById("virals-analyze-form");
 const statusEl = document.getElementById("analysis-status");
+const frameworkOutput = document.getElementById("framework-output");
+const hooksOutput = document.getElementById("hooks-output");
+const scriptsOutput = document.getElementById("scripts-output");
+const sourceOutput = document.getElementById("source-output");
+const libraryList = document.getElementById("library-list");
+const loadDemoButton = document.getElementById("load-demo");
+const clearAllButton = document.getElementById("clear-all");
+const compareForm = document.getElementById("virals-compare-form");
+const compareStatusEl = document.getElementById("compare-status");
+const compareOutput = document.getElementById("compare-output");
+const compareSources = document.getElementById("compare-sources");
+const loadCompareDemoButton = document.getElementById("load-compare-demo");
+const urlInput = document.getElementById("video-url");
+
+const frameworkPatterns = [
+  {
+    match: ["pain", "problem", "struggle", "annoying", "hate"],
+    hookType: "Visual Pain Point Hook",
+    formula: "Show the frustrating moment -> name the hidden cause -> reveal the product as the simple fix.",
+    body: "Problem -> Product Education -> Proof -> CTA",
+    psychology: ["Relief", "Recognition", "Low-friction solution", "Curiosity"],
+  },
+  {
+    match: ["before", "after", "results", "transformation", "changed"],
+    hookType: "Before-and-After Transformation Hook",
+    formula: "Open with the result -> rewind to the problem -> explain the change -> invite action.",
+    body: "Result -> Backstory -> Demonstration -> Proof -> CTA",
+    psychology: ["Aspiration", "Proof", "Momentum", "Identity shift"],
+  },
+  {
+    match: ["mistake", "wrong", "avoid", "stop", "never"],
+    hookType: "Mistake Correction Hook",
+    formula: "Call out the mistake -> explain the consequence -> show the better method.",
+    body: "Warning -> Explanation -> Better Way -> Example -> CTA",
+    psychology: ["Loss aversion", "Authority", "Urgency", "Competence"],
+  },
+  {
+    match: ["cheap", "dupe", "alternative", "save", "instead"],
+    hookType: "Smart Alternative Hook",
+    formula: "Compare the expensive/common option -> reveal the better alternative -> prove the tradeoff.",
+    body: "Comparison -> Product Reveal -> Benefit Stack -> Proof -> CTA",
+    psychology: ["Value seeking", "Status protection", "Practicality", "Social proof"],
+  },
+  {
+    match: ["why", "secret", "nobody", "hidden", "found"],
+    hookType: "Curiosity Gap Hook",
+    formula: "Tease hidden information -> delay the answer -> make the reveal useful.",
+    body: "Curiosity -> Context -> Reveal -> Application -> CTA",
+    psychology: ["Open loop", "Novelty", "Information gap", "Reward"],
+  },
+];
+
+const defaultPattern = {
+  hookType: "Proof-of-Concept Hook",
+  formula: "Show the outcome -> explain who it helps -> demonstrate why it is believable.",
+  body: "Hook -> Problem -> Demonstration -> Proof -> CTA",
+  psychology: ["Clarity", "Trust", "Specificity", "Action bias"],
+};
 
 function setStatus(message) {
   statusEl.textContent = message;
 }
 
-form?.addEventListener("submit", async (event) => {
-  event.preventDefault();
+function setCompareStatus(message) {
+  compareStatusEl.textContent = message;
+}
 
-  const data = new FormData(form);
-  const url = String(data.get("url") || "").trim();
-  if (!url) {
-    setStatus("Paste a video URL first.");
+function escapeHtml(value) {
+  return String(value || "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function loadSaved() {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+  } catch (error) {
+    return [];
+  }
+}
+
+function saveAll(items) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(items.slice(0, 30)));
+}
+
+function stampAnalysis(analysis) {
+  return {
+    ...analysis,
+    id: analysis.id || (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())),
+    createdAt: analysis.createdAt || new Date().toISOString(),
+  };
+}
+
+function pickPattern(input) {
+  const normalized = input.toLowerCase();
+  return frameworkPatterns.find((pattern) => pattern.match.some((word) => normalized.includes(word))) || defaultPattern;
+}
+
+function getProduct(data) {
+  return data.product || data.niche || "this product";
+}
+
+function buildAnalysis(data) {
+  const source = [data.url, data.product, data.niche, data.goal, data.notes].join(" ");
+  const pattern = pickPattern(source);
+  const product = getProduct(data);
+  const niche = data.niche || "TikTok Shop";
+
+  const triggers = [...pattern.psychology, "Specific promise", "Creator trust"].slice(0, 6);
+  const hooks = [
+    `I did not realize ${product} fixed this until I tried it.`,
+    `If you are in ${niche}, stop scrolling for this one thing.`,
+    `This is the part nobody explains about ${product}.`,
+    `I would not buy ${product} until I saw this happen.`,
+    `The mistake most people make with ${product} is starting too late.`,
+    `This looks simple, but it solves the annoying part first.`,
+    `Before you buy another option, watch this comparison.`,
+    `Here is the fastest way to know if ${product} is worth it.`,
+  ];
+
+  const scripts = [
+    {
+      title: "Direct Response Demo",
+      text: `Hook: ${hooks[0]} Body: show the problem in one clear visual, introduce ${product}, demonstrate the main benefit, then close with a direct CTA tied to ${data.goal}.`,
+    },
+    {
+      title: "Creator Trust Angle",
+      text: `Hook: ${hooks[2]} Body: explain the hidden reason the product matters, show one proof point, mention who should avoid it, then invite viewers to check the product page.`,
+    },
+    {
+      title: "Fast Remix Angle",
+      text: `Hook: ${hooks[6]} Body: compare the old way versus ${product}, show the practical difference, remove one objection, and end with a low-pressure CTA.`,
+    },
+  ];
+
+  return {
+    id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+    createdAt: new Date().toISOString(),
+    url: data.url,
+    product,
+    niche,
+    goal: data.goal,
+    hookType: pattern.hookType,
+    formula: pattern.formula,
+    body: pattern.body,
+    triggers,
+    conversionPattern: "Make the viewer feel the problem first, prove the product fast, then ask for one simple next action.",
+    keep: "Keep the body structure, proof moment, and CTA timing.",
+    change: "Swap the first visual, opening sentence, and audience-specific pain point.",
+    hooks,
+    scripts,
+    captions: [
+      `${product} makes the annoying part easier. Save this before you forget.`,
+      `This is why the first 3 seconds matter. The product is simple, but the angle sells it.`,
+      `If you have been comparing options, start with the problem this solves first.`,
+    ],
+    shotList: [
+      "Open on the problem in motion.",
+      "Cut to product reveal within 3 seconds.",
+      "Show one close-up proof moment.",
+      "Add a quick comparison or objection answer.",
+      "End with product page or comment CTA.",
+    ],
+  };
+}
+
+function renderAnalysis(analysis) {
+  frameworkOutput.className = "framework-stack";
+  frameworkOutput.innerHTML = `
+    <div class="pill-row">
+      <span class="pill">${escapeHtml(analysis.hookType)}</span>
+      <span class="pill">${escapeHtml(analysis.niche)}</span>
+      <span class="pill">${escapeHtml(analysis.goal)}</span>
+    </div>
+    <div class="insight-card">
+      <h3>Hook Formula</h3>
+      <p>${escapeHtml(analysis.formula)}</p>
+    </div>
+    <div class="insight-card">
+      <h3>Body Framework</h3>
+      <p>${escapeHtml(analysis.body)}</p>
+    </div>
+    <div class="insight-card">
+      <h3>Psychology</h3>
+      <div class="pill-row">${analysis.triggers.map((trigger) => `<span class="pill">${escapeHtml(trigger)}</span>`).join("")}</div>
+    </div>
+    <div class="insight-card">
+      <h3>Conversion Logic</h3>
+      <p>${escapeHtml(analysis.conversionPattern)}</p>
+    </div>
+    <div class="insight-card">
+      <h3>Keep vs Change</h3>
+      <p><strong>Keep:</strong> ${escapeHtml(analysis.keep)}</p>
+      <p><strong>Change:</strong> ${escapeHtml(analysis.change)}</p>
+    </div>
+  `;
+
+  hooksOutput.className = "content-stack";
+  hooksOutput.innerHTML = `
+    <ul class="generated-list">
+      ${analysis.hooks.map((hook) => `<li>${escapeHtml(hook)}</li>`).join("")}
+    </ul>
+  `;
+
+  scriptsOutput.className = "content-stack";
+  scriptsOutput.innerHTML = `
+    ${analysis.scripts.map((script) => `
+      <div class="script-card">
+        <h3>${escapeHtml(script.title)}</h3>
+        <p>${escapeHtml(script.text)}</p>
+        <button class="small-button save-script" type="button" data-script="${escapeHtml(script.title)}">Save Script</button>
+      </div>
+    `).join("")}
+    <div class="insight-card">
+      <h3>Captions</h3>
+      <ul class="generated-list">${analysis.captions.map((caption) => `<li>${escapeHtml(caption)}</li>`).join("")}</ul>
+    </div>
+    <div class="insight-card">
+      <h3>Shot List</h3>
+      <ul class="generated-list">${analysis.shotList.map((shot) => `<li>${escapeHtml(shot)}</li>`).join("")}</ul>
+    </div>
+  `;
+}
+
+function formatNumber(value) {
+  const number = Number(value || 0);
+  if (!Number.isFinite(number) || number <= 0) return "-";
+  if (number >= 1000000) return `${(number / 1000000).toFixed(number >= 10000000 ? 0 : 1)}M`;
+  if (number >= 1000) return `${(number / 1000).toFixed(number >= 10000 ? 0 : 1)}K`;
+  return String(number);
+}
+
+function renderSource(video) {
+  if (!video) {
+    sourceOutput.className = "empty-state";
+    sourceOutput.textContent = "No TikTok metadata was extracted. Add transcript, caption, or notes manually.";
     return;
   }
 
-  setStatus("Analyzer endpoint is ready to wire. Next step: connect the Virals API.");
+  const image = video.coverUrl || video.dynamicCoverUrl || "";
+  const stats = video.stats || {};
+  sourceOutput.className = "source-card";
+  sourceOutput.innerHTML = `
+    <div class="source-media">
+      ${image ? `<img src="${escapeHtml(image)}" alt="TikTok cover image">` : ""}
+    </div>
+    <div class="source-details">
+      <div>
+        <p class="panel-kicker">${video.author?.uniqueId ? `@${escapeHtml(video.author.uniqueId)}` : "TikTok Source"}</p>
+        <h3>${escapeHtml(video.caption || "Untitled TikTok")}</h3>
+      </div>
+      <div class="metric-grid">
+        <div class="metric"><span>Plays</span><strong>${formatNumber(stats.plays)}</strong></div>
+        <div class="metric"><span>Likes</span><strong>${formatNumber(stats.likes)}</strong></div>
+        <div class="metric"><span>Shares</span><strong>${formatNumber(stats.shares)}</strong></div>
+        <div class="metric"><span>Saves</span><strong>${formatNumber(stats.saves)}</strong></div>
+        <div class="metric"><span>Comments</span><strong>${formatNumber(stats.comments)}</strong></div>
+      </div>
+      ${video.stickers?.length ? `<div class="insight-card"><h3>On-screen Text</h3><p>${escapeHtml(video.stickers.join(" | "))}</p></div>` : ""}
+      ${video.hashtags?.length ? `<div class="pill-row">${video.hashtags.map((tag) => `<span class="pill">#${escapeHtml(tag)}</span>`).join("")}</div>` : ""}
+      <div class="insight-card">
+        <h3>Transcript Status</h3>
+        <p>${video.transcript ? `${formatNumber(video.transcript.length)} characters extracted from ${escapeHtml(video.transcriptSource || "TikTok subtitles")}.` : "No transcript found. Add notes manually or use transcript fallback later."}</p>
+      </div>
+    </div>
+  `;
+}
+
+async function loadSourcePreview(url) {
+  const cleanUrl = String(url || "").trim();
+  if (!cleanUrl || !/tiktok\.com/i.test(cleanUrl)) return;
+  setStatus("Loading TikTok source data...");
+  try {
+    const response = await fetch("/api/virals-transcript", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url: cleanUrl }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.error || "Could not load source.");
+    renderSource(payload.video);
+    setStatus(payload.video?.transcript ? "TikTok source loaded with transcript." : "TikTok source loaded without transcript.");
+  } catch (error) {
+    setStatus(`${error.message || "Source preview unavailable."} You can still analyze with notes.`);
+  }
+}
+
+function renderLibrary() {
+  const saved = loadSaved();
+  if (!saved.length) {
+    libraryList.innerHTML = `<div class="empty-library">No saved frameworks yet. Run an analysis and it will be stored here.</div>`;
+    return;
+  }
+
+  libraryList.innerHTML = saved.map((item) => {
+    const date = new Date(item.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    return `
+      <article class="library-card">
+        <div>
+          <p class="panel-kicker">${escapeHtml(date)} / ${escapeHtml(item.niche)}</p>
+          <h3>${escapeHtml(item.product)}</h3>
+          <p class="library-meta">${escapeHtml(item.hookType)} | ${escapeHtml(item.body)}</p>
+        </div>
+        <div class="action-row">
+          <button class="small-button load-analysis" type="button" data-id="${escapeHtml(item.id)}">Open</button>
+          <button class="small-button button-ghost delete-analysis" type="button" data-id="${escapeHtml(item.id)}">Delete</button>
+        </div>
+      </article>
+    `;
+  }).join("");
+}
+
+async function requestGroqAnalysis(data) {
+  const response = await fetch("/api/virals-analyze", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(payload.error || "Virals AI request failed.");
+  if (!payload.analysis) throw new Error("Virals AI returned no analysis.");
+  return { analysis: stampAnalysis(payload.analysis), video: payload.video || null };
+}
+
+async function handleSubmit(event) {
+  event.preventDefault();
+  const data = Object.fromEntries(new FormData(form).entries());
+  data.url = String(data.url || "").trim();
+  if (!data.url) {
+    setStatus("Paste a TikTok or Daily Virals reference URL first.");
+    return;
+  }
+
+  const submitButton = form.querySelector('button[type="submit"]');
+  if (submitButton) submitButton.disabled = true;
+  setStatus("Analyzing with Groq...");
+
+  let analysis;
+  let video = null;
+  try {
+    const result = await requestGroqAnalysis(data);
+    analysis = result.analysis;
+    video = result.video;
+    setStatus("Groq framework analysis complete.");
+  } catch (error) {
+    analysis = stampAnalysis(buildAnalysis(data));
+    setStatus(`${error.message || "Groq unavailable."} Showing local fallback analysis.`);
+  } finally {
+    if (submitButton) submitButton.disabled = false;
+  }
+
+  const saved = loadSaved().filter((item) => item.id !== analysis.id);
+  saveAll([analysis, ...saved]);
+  renderSource(video);
+  renderAnalysis(analysis);
+  renderLibrary();
+  document.getElementById("results")?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function loadDemo() {
+  document.getElementById("video-url").value = "https://www.tiktok.com/@creator/video/123456789";
+  document.getElementById("product-name").value = "portable blender";
+  document.getElementById("niche").value = "Food";
+  document.getElementById("goal").value = "TikTok Shop affiliate sale";
+  document.getElementById("notes").value = "Creator opens with a messy breakfast problem, shows a quick before and after, then demonstrates the blender making a smoothie in seconds. Comments ask where to buy it.";
+  setStatus("Demo loaded. Run Analyze Framework.");
+}
+
+form?.addEventListener("submit", handleSubmit);
+
+urlInput?.addEventListener("blur", () => {
+  loadSourcePreview(urlInput.value);
 });
+
+loadDemoButton?.addEventListener("click", loadDemo);
+
+function renderCompare(payload) {
+  const comparison = payload.comparison;
+  compareOutput.className = "framework-stack";
+  compareOutput.innerHTML = `
+    <div class="pill-row">
+      <span class="pill">${escapeHtml(comparison.niche)}</span>
+      <span class="pill">${escapeHtml(comparison.product)}</span>
+    </div>
+    <div class="insight-card"><h3>Shared Hook Pattern</h3><p>${escapeHtml(comparison.sharedHookPattern)}</p></div>
+    <div class="insight-card"><h3>Shared Body Framework</h3><p>${escapeHtml(comparison.sharedBodyFramework)}</p></div>
+    <div class="insight-card"><h3>Psychology</h3><div class="pill-row">${(comparison.sharedPsychology || []).map((item) => `<span class="pill">${escapeHtml(item)}</span>`).join("")}</div></div>
+    <div class="insight-card"><h3>CTA Pattern</h3><p>${escapeHtml(comparison.commonCtaPattern)}</p></div>
+    <div class="insight-card"><h3>Winning Framework</h3><p>${escapeHtml(comparison.winningFramework)}</p></div>
+    <div class="insight-card"><h3>Remix Rules</h3><ul class="generated-list">${(comparison.remixRules || []).map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></div>
+    <div class="insight-card"><h3>New Hooks</h3><ul class="generated-list">${(comparison.hooks || []).map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></div>
+    <div class="insight-card"><h3>Posting Plan</h3><ul class="generated-list">${(comparison.postingPlan || []).map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></div>
+  `;
+
+  compareSources.className = "source-mini-list";
+  compareSources.innerHTML = (payload.videos || []).map((video) => `
+    <div class="source-mini">
+      ${video.coverUrl ? `<img src="${escapeHtml(video.coverUrl)}" alt="TikTok cover">` : `<div></div>`}
+      <div>
+        <h3>${video.author?.uniqueId ? `@${escapeHtml(video.author.uniqueId)}` : "TikTok"}</h3>
+        <p>${escapeHtml(video.caption || "No caption")}</p>
+        <p>${formatNumber(video.stats?.plays)} plays / ${video.transcript ? "Transcript found" : "No transcript"}</p>
+      </div>
+    </div>
+  `).join("");
+}
+
+async function handleCompareSubmit(event) {
+  event.preventDefault();
+  const data = Object.fromEntries(new FormData(compareForm).entries());
+  const urls = String(data.urls || "").split(/\s+/).map((url) => url.trim()).filter(Boolean);
+  if (urls.length < 2) {
+    setCompareStatus("Paste at least 2 TikTok URLs.");
+    return;
+  }
+
+  const submitButton = compareForm.querySelector('button[type="submit"]');
+  if (submitButton) submitButton.disabled = true;
+  setCompareStatus(`Extracting and comparing ${urls.length} videos...`);
+
+  try {
+    const response = await fetch("/api/virals-compare", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...data, urls }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.error || "Compare request failed.");
+    renderCompare(payload);
+    setCompareStatus(`Compared ${payload.videos?.length || urls.length} videos.`);
+  } catch (error) {
+    setCompareStatus(error.message || "Batch compare failed.");
+  } finally {
+    if (submitButton) submitButton.disabled = false;
+  }
+}
+
+compareForm?.addEventListener("submit", handleCompareSubmit);
+
+loadCompareDemoButton?.addEventListener("click", () => {
+  document.getElementById("compare-urls").value = [
+    "https://www.tiktok.com/@benjamin.j0rdan/video/7641739684745334029",
+    "https://www.tiktok.com/@benjamin.j0rdan/video/7641739684745334029",
+  ].join("\n");
+  document.getElementById("compare-product").value = "TikTok Shop affiliate content";
+  document.getElementById("compare-niche").value = "TikTok Shop";
+  document.getElementById("compare-goal").value = "TikTok Shop affiliate sale";
+  setCompareStatus("Compare demo loaded. Replace one duplicate URL with another winner when testing.");
+});
+
+clearAllButton?.addEventListener("click", () => {
+  localStorage.removeItem(STORAGE_KEY);
+  renderLibrary();
+  setStatus("Saved local frameworks cleared.");
+});
+
+libraryList?.addEventListener("click", (event) => {
+  const button = event.target.closest("button");
+  if (!button) return;
+
+  const id = button.dataset.id;
+  const saved = loadSaved();
+  const item = saved.find((analysis) => analysis.id === id);
+
+  if (button.classList.contains("load-analysis") && item) {
+    renderAnalysis(item);
+    setStatus("Saved framework opened.");
+    document.getElementById("results")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  if (button.classList.contains("delete-analysis")) {
+    saveAll(saved.filter((analysis) => analysis.id !== id));
+    renderLibrary();
+    setStatus("Saved framework deleted.");
+  }
+});
+
+scriptsOutput?.addEventListener("click", (event) => {
+  const button = event.target.closest(".save-script");
+  if (!button) return;
+  setStatus(`Saved script idea: ${button.dataset.script}. Full script saving will connect to accounts later.`);
+});
+
+renderLibrary();

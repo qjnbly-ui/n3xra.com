@@ -1,8 +1,8 @@
 # N3XRA Virals Product Vision
 
-N3XRA Virals helps creators, marketers, businesses, and agencies discover trending content, analyze why it succeeds, and generate stronger content using AI.
+N3XRA Virals helps creators, marketers, businesses, and agencies deconstruct trending TikTok content into reusable frameworks, understand why those frameworks work, and generate stronger content systems using AI.
 
-The platform should focus on actionable intelligence instead of only displaying metrics. A user should understand why content works and what to create next.
+The platform should focus on actionable intelligence instead of only displaying metrics or rewriting transcripts. A user should understand why content works, what parts are reusable, what parts should change, and what to create next.
 
 ## Target Users
 
@@ -27,8 +27,11 @@ The platform should focus on actionable intelligence instead of only displaying 
 
 ## Major Product Areas
 
+- Framework Analyzer
+- Framework Library
+- Remix Engine
+- Posting Pack Generator
 - Trend Discovery
-- Viral Analyzer
 - Hook Generator
 - Script Studio
 - Product Research
@@ -37,5 +40,4 @@ The platform should focus on actionable intelligence instead of only displaying 
 
 ## AI Role
 
-AI should be the primary intelligence layer. It should analyze content, extract patterns, explain performance drivers, generate improvements, and recommend what to create next.
-
+AI should be the primary intelligence layer. It should analyze content, extract patterns, classify hook/body/CTA frameworks, explain performance drivers, generate improvements, compare multiple examples, and recommend what to create next.
