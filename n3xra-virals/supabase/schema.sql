@@ -1,5 +1,51 @@
 create extension if not exists pgcrypto;
 
+create table if not exists public.virals_profiles (
+  user_id uuid primary key references auth.users (id) on delete cascade,
+  display_name text,
+  plan text not null default 'free',
+  account_status text not null default 'active',
+  monthly_analysis_limit integer not null default 25,
+  analyses_used integer not null default 0,
+  current_period_start timestamptz not null default date_trunc('month', now()),
+  current_period_end timestamptz not null default (date_trunc('month', now()) + interval '1 month'),
+  stripe_customer_id text,
+  stripe_subscription_id text,
+  stripe_price_id text,
+  cancel_at_period_end boolean not null default false,
+  subscription_current_period_end timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint virals_profiles_plan_check
+    check (plan in ('free', 'creator', 'agency')),
+  constraint virals_profiles_account_status_check
+    check (account_status in ('active', 'trialing', 'past_due', 'canceled', 'suspended')),
+  constraint virals_profiles_monthly_analysis_limit_check
+    check (monthly_analysis_limit >= 0),
+  constraint virals_profiles_analyses_used_check
+    check (analyses_used >= 0)
+);
+
+create table if not exists public.virals_usage_events (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users (id) on delete cascade,
+  event_type text not null,
+  analysis_id uuid,
+  video_id uuid,
+  input_count integer not null default 1,
+  model text,
+  prompt_tokens integer not null default 0,
+  completion_tokens integer not null default 0,
+  total_tokens integer not null default 0,
+  created_at timestamptz not null default now(),
+  constraint virals_usage_events_event_type_check
+    check (event_type in ('single_analysis', 'compare_analysis', 'transcript_fetch', 'script_save')),
+  constraint virals_usage_events_input_count_check
+    check (input_count >= 0),
+  constraint virals_usage_events_token_check
+    check (prompt_tokens >= 0 and completion_tokens >= 0 and total_tokens >= 0)
+);
+
 create table if not exists public.virals_videos (
   id uuid primary key default gen_random_uuid(),
   master_user_id uuid not null,
@@ -105,15 +151,34 @@ create table if not exists public.virals_products (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   platform text,
+  shop_product_id text,
   product_url text,
   image_url text,
   category text,
   niche text,
+  offer text,
+  confidence text,
+  data_source text,
+  claims jsonb not null default '[]'::jsonb,
+  objections jsonb not null default '[]'::jsonb,
+  proof_points jsonb not null default '[]'::jsonb,
+  cta_path text,
+  api_readiness text,
   metrics jsonb not null default '{}'::jsonb,
   opportunity_score numeric(5, 2),
   raw_metadata jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
+);
+
+create table if not exists public.virals_video_products (
+  id uuid primary key default gen_random_uuid(),
+  video_id uuid not null references public.virals_videos(id) on delete cascade,
+  product_id uuid not null references public.virals_products(id) on delete cascade,
+  relationship_source text not null default 'resolver',
+  confidence text,
+  created_at timestamptz not null default now(),
+  unique (video_id, product_id)
 );
 
 create table if not exists public.virals_trends (
@@ -146,15 +211,25 @@ create table if not exists public.virals_saved_scripts (
 );
 
 create index if not exists virals_videos_owner_idx on public.virals_videos(master_user_id, organization_id);
+create index if not exists virals_profiles_stripe_customer_id_idx on public.virals_profiles(stripe_customer_id);
+create index if not exists virals_profiles_stripe_subscription_id_idx on public.virals_profiles(stripe_subscription_id);
+create index if not exists virals_profiles_stripe_price_id_idx on public.virals_profiles(stripe_price_id);
+create index if not exists virals_usage_events_user_created_idx on public.virals_usage_events(user_id, created_at desc);
 create index if not exists virals_videos_source_url_idx on public.virals_videos(source_url);
 create index if not exists virals_analyses_video_idx on public.virals_ai_analyses(video_id);
 create index if not exists virals_analyses_owner_idx on public.virals_ai_analyses(master_user_id, organization_id);
 create index if not exists virals_generated_hooks_analysis_idx on public.virals_generated_hooks(analysis_id);
 create index if not exists virals_generated_scripts_owner_idx on public.virals_generated_scripts(master_user_id, organization_id);
 create index if not exists virals_creators_platform_handle_idx on public.virals_creators(platform, handle);
+create index if not exists virals_products_shop_product_id_idx on public.virals_products(platform, shop_product_id);
+create index if not exists virals_products_name_category_idx on public.virals_products(name, category);
+create index if not exists virals_video_products_product_idx on public.virals_video_products(product_id);
+create index if not exists virals_video_products_video_idx on public.virals_video_products(video_id);
 create index if not exists virals_trends_type_platform_idx on public.virals_trends(trend_type, platform);
 create index if not exists virals_saved_scripts_owner_idx on public.virals_saved_scripts(master_user_id, organization_id);
 
+alter table public.virals_profiles enable row level security;
+alter table public.virals_usage_events enable row level security;
 alter table public.virals_videos enable row level security;
 alter table public.virals_transcripts enable row level security;
 alter table public.virals_ai_analyses enable row level security;
@@ -163,6 +238,7 @@ alter table public.virals_generated_scripts enable row level security;
 alter table public.virals_generated_captions enable row level security;
 alter table public.virals_creators enable row level security;
 alter table public.virals_products enable row level security;
+alter table public.virals_video_products enable row level security;
 alter table public.virals_trends enable row level security;
 alter table public.virals_saved_scripts enable row level security;
 
@@ -175,6 +251,56 @@ begin
   return new;
 end;
 $$;
+
+create or replace function public.protect_virals_profile_billing_fields()
+returns trigger
+language plpgsql
+as $$
+begin
+  if auth.role() = 'service_role' or current_user in ('postgres', 'supabase_admin', 'service_role') then
+    return new;
+  end if;
+
+  if new.plan is distinct from old.plan
+    or new.account_status is distinct from old.account_status
+    or new.monthly_analysis_limit is distinct from old.monthly_analysis_limit
+    or new.analyses_used is distinct from old.analyses_used
+    or new.current_period_start is distinct from old.current_period_start
+    or new.current_period_end is distinct from old.current_period_end
+    or new.stripe_customer_id is distinct from old.stripe_customer_id
+    or new.stripe_subscription_id is distinct from old.stripe_subscription_id
+    or new.stripe_price_id is distinct from old.stripe_price_id
+    or new.cancel_at_period_end is distinct from old.cancel_at_period_end
+    or new.subscription_current_period_end is distinct from old.subscription_current_period_end then
+    raise exception 'N3XRA Virals billing fields require service access.';
+  end if;
+
+  return new;
+end;
+$$;
+
+drop policy if exists virals_profiles_select_own on public.virals_profiles;
+create policy virals_profiles_select_own
+on public.virals_profiles
+for select
+using (auth.uid() = user_id);
+
+drop policy if exists virals_profiles_update_own_display_name on public.virals_profiles;
+create policy virals_profiles_update_own_display_name
+on public.virals_profiles
+for update
+using (auth.uid() = user_id)
+with check (auth.uid() = user_id);
+
+drop trigger if exists set_virals_profiles_updated_at on public.virals_profiles;
+create trigger set_virals_profiles_updated_at
+before update on public.virals_profiles
+for each row execute function public.set_virals_updated_at();
+
+drop trigger if exists virals_profiles_protect_billing_fields on public.virals_profiles;
+create trigger virals_profiles_protect_billing_fields
+before update on public.virals_profiles
+for each row execute function public.protect_virals_profile_billing_fields();
 
 drop trigger if exists set_virals_videos_updated_at on public.virals_videos;
 create trigger set_virals_videos_updated_at
@@ -210,4 +336,3 @@ drop trigger if exists set_virals_saved_scripts_updated_at on public.virals_save
 create trigger set_virals_saved_scripts_updated_at
 before update on public.virals_saved_scripts
 for each row execute function public.set_virals_updated_at();
-

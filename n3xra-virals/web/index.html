@@ -137,6 +137,16 @@
           <div id="source-output" class="empty-state">Paste a TikTok URL and run analysis to load thumbnail, caption, creator, metrics, on-screen text, and transcript.</div>
         </article>
 
+        <article class="output-panel product-panel">
+          <div class="panel-heading">
+            <p class="panel-kicker">Product</p>
+            <h2>Product Intelligence</h2>
+          </div>
+          <div id="product-output" class="empty-state">
+            Detected product, claims, objections, proof points, offer language, and API-readiness will appear here.
+          </div>
+        </article>
+
         <article class="output-panel output-panel-large">
           <div class="panel-heading">
             <p class="panel-kicker">Framework</p>
@@ -209,6 +219,56 @@
         <p><a href="/support">Support</a> · <a href="/terms">Terms</a> · <a href="/privacy">Privacy</a></p>
       </div>
     </footer>
+
+    <div class="virals-account-modal is-hidden" id="virals-account-modal" role="dialog" aria-modal="true" aria-labelledby="virals-account-title" hidden>
+      <section class="virals-account-card">
+        <button class="virals-account-close" id="virals-account-close" type="button" aria-label="Close account settings">Close</button>
+        <p class="panel-kicker">N3XRA Virals</p>
+        <h2 id="virals-account-title">Account Settings</h2>
+        <div class="virals-account-grid">
+          <article class="virals-account-stat">
+            <span>Email</span>
+            <strong id="virals-account-email">Signed in</strong>
+          </article>
+          <article class="virals-account-stat">
+            <span>Plan</span>
+            <strong id="virals-account-plan">Free Beta</strong>
+          </article>
+          <article class="virals-account-stat">
+            <span>Usage</span>
+            <strong id="virals-account-usage">Active</strong>
+          </article>
+          <article class="virals-account-stat">
+            <span>Frameworks</span>
+            <strong id="virals-account-saved">0 saved</strong>
+          </article>
+        </div>
+        <div class="virals-plan-grid" aria-label="Virals plan options">
+          <article class="virals-plan-card is-current">
+            <span>Current</span>
+            <h3>Free Beta</h3>
+            <p>Test the analyzer, compare mode, transcript breakdowns, and local framework saving.</p>
+            <button type="button" disabled>Current Plan</button>
+          </article>
+          <article class="virals-plan-card">
+            <span>Soon</span>
+            <h3>Creator</h3>
+            <p>Higher monthly analysis limits, saved cloud frameworks, and posting pack history.</p>
+            <button type="button" disabled>Coming Soon</button>
+          </article>
+          <article class="virals-plan-card">
+            <span>Soon</span>
+            <h3>Agency</h3>
+            <p>Batch comparison, client/niche libraries, and expanded trend intelligence workflows.</p>
+            <button type="button" disabled>Coming Soon</button>
+          </article>
+        </div>
+        <div class="virals-account-actions">
+          <button class="virals-access-secondary" id="virals-account-signout" type="button">Sign Out</button>
+        </div>
+        <p class="status" id="virals-account-status">Virals billing and plan management will stay inside this app.</p>
+      </section>
+    </div>
 
     <div class="transcript-modal is-hidden" id="transcript-modal" role="dialog" aria-modal="true" aria-labelledby="transcript-modal-title" hidden>
       <section class="transcript-card">

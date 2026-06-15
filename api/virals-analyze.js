@@ -23,6 +23,7 @@ function parseJson(req) {
 }
 
 const { fetchTikTokTranscript } = require("./_virals-tiktok");
+const { resolveProductIntelligence } = require("./_virals-product-resolver");
 
 function sendJson(res, statusCode, payload) {
   res.statusCode = statusCode;
@@ -82,6 +83,24 @@ function normalizeTranscriptBreakdown(value) {
   };
 }
 
+function normalizeProductIntelligence(value, input) {
+  const source = value && typeof value === "object" ? value : {};
+  return {
+    name: String(source.name || input.product || "Detected product").trim().slice(0, 140),
+    category: String(source.category || input.niche || "TikTok Shop").trim().slice(0, 90),
+    offer: String(source.offer || input.goal || "").trim().slice(0, 220),
+    confidence: String(source.confidence || "Inferred").trim().slice(0, 40),
+    source: String(source.source || "AI resolver").trim().slice(0, 80),
+    shopProductId: String(source.shopProductId || "").trim().slice(0, 120),
+    productUrl: String(source.productUrl || "").trim().slice(0, 600),
+    claims: normalizeArray(source.claims).slice(0, 8),
+    objections: normalizeArray(source.objections).slice(0, 8),
+    proofPoints: normalizeArray(source.proofPoints).slice(0, 8),
+    ctaPath: String(source.ctaPath || "").trim().slice(0, 700),
+    apiReadiness: String(source.apiReadiness || "Ready for TikTok Shop API enrichment when official product data is available.").trim().slice(0, 700),
+  };
+}
+
 function normalizeAnalysis(parsed, input) {
   const product = String(parsed.product || input.product || input.niche || "this product").trim().slice(0, 120);
   const niche = String(parsed.niche || input.niche || "TikTok Shop").trim().slice(0, 80);
@@ -106,6 +125,7 @@ function normalizeAnalysis(parsed, input) {
     captions: normalizeArray(parsed.captions).slice(0, 6),
     shotList: normalizeArray(parsed.shotList).slice(0, 10),
     transcriptBreakdown: normalizeTranscriptBreakdown(parsed.transcriptBreakdown),
+    productIntelligence: normalizeProductIntelligence(parsed.productIntelligence, input),
   };
 }
 
@@ -149,6 +169,20 @@ function buildPrompt(input) {
           cta: "string",
           sellingBeats: ["string"],
         },
+        productIntelligence: {
+          name: "string",
+          category: "string",
+          offer: "string",
+          confidence: "High | Medium | Low",
+          source: "TikTok Shop API | page metadata | transcript inference | user input | AI resolver",
+          shopProductId: "string",
+          productUrl: "string",
+          claims: ["string"],
+          objections: ["string"],
+          proofPoints: ["string"],
+          ctaPath: "string",
+          apiReadiness: "string",
+        },
       },
       null,
       2
@@ -159,6 +193,9 @@ function buildPrompt(input) {
     "- Focus on frameworks: hook structure, body structure, psychology, CTA logic, what to keep, what to remix.",
     "- If a transcript is available, clean it into readable paragraph form without timestamps or subtitle artifacts.",
     "- In transcriptBreakdown, identify the exact hook, body structure, CTA, and key selling beats shown in the transcript.",
+    "- In productIntelligence, automatically resolve the likely product without asking for confirmation.",
+    "- If no official product ID or URL is present, leave shopProductId/productUrl empty and set source to transcript inference or page metadata.",
+    "- Product intelligence must separate claims, objections, proof points, offer language, and CTA path.",
     "- Generate 8-10 hooks, 3 scripts, 3 captions, and 5-7 shot list items.",
     "- Do not claim you fetched TikTok metrics or transcripts. Use only the user-provided context.",
     "- If transcript/notes are thin, infer conservatively and say what framework to test.",
@@ -170,6 +207,7 @@ function buildPrompt(input) {
     `Goal: ${input.goal || "TikTok Shop affiliate sale"}`,
     `Notes/transcript/caption: ${input.notes || "Not provided"}`,
     input.tiktokContext ? `TikTok extracted context: ${input.tiktokContext}` : "",
+    input.productContext ? `Product resolver context: ${input.productContext}` : "",
   ].join("\n");
 }
 
@@ -195,14 +233,17 @@ module.exports = async function handler(req, res) {
       goal: String(body.goal || "TikTok Shop affiliate sale").trim().slice(0, 140),
       notes: String(body.notes || "").trim().slice(0, 7000),
       tiktokContext: "",
+      productContext: "",
     };
 
     if (!input.url) return sendJson(res, 400, { error: "Paste a TikTok or Daily Virals reference URL." });
 
     let extractedVideo = null;
+    let resolvedProduct = null;
     if (/tiktok\.com/i.test(input.url)) {
       try {
         extractedVideo = await fetchTikTokTranscript(input.url);
+        resolvedProduct = await resolveProductIntelligence(extractedVideo, input);
         input.tiktokContext = [
           extractedVideo.caption ? `Caption: ${extractedVideo.caption}` : "",
           extractedVideo.author?.uniqueId ? `Creator: @${extractedVideo.author.uniqueId}` : "",
@@ -213,6 +254,7 @@ module.exports = async function handler(req, res) {
         ]
           .filter(Boolean)
           .join("\n");
+        input.productContext = resolvedProduct ? JSON.stringify(resolvedProduct) : "";
       } catch (_error) {
         extractedVideo = null;
       }

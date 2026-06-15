@@ -7,6 +7,7 @@ const FREE_USAGE_LIMIT = 3;
 const form = document.getElementById("virals-analyze-form");
 const statusEl = document.getElementById("analysis-status");
 const frameworkOutput = document.getElementById("framework-output");
+const productOutput = document.getElementById("product-output");
 const hooksOutput = document.getElementById("hooks-output");
 const scriptsOutput = document.getElementById("scripts-output");
 const sourceOutput = document.getElementById("source-output");
@@ -29,11 +30,25 @@ const headerAuthLink = document.getElementById("virals-header-auth-link");
 const transcriptModal = document.getElementById("transcript-modal");
 const transcriptCloseButton = document.getElementById("transcript-close");
 const transcriptModalBody = document.getElementById("transcript-modal-body");
+const accountModal = document.getElementById("virals-account-modal");
+const accountCloseButton = document.getElementById("virals-account-close");
+const accountSignoutButton = document.getElementById("virals-account-signout");
+const accountEmail = document.getElementById("virals-account-email");
+const accountPlan = document.getElementById("virals-account-plan");
+const accountUsage = document.getElementById("virals-account-usage");
+const accountSaved = document.getElementById("virals-account-saved");
+const accountStatus = document.getElementById("virals-account-status");
 
 let supabase = null;
 let currentSession = null;
 let currentTranscript = "";
 let currentTranscriptBreakdown = null;
+
+const VIRALS_BILLING_PREVIEW = {
+  plan: "Free Beta",
+  accountStatus: "active",
+  monthlyAnalysisLimit: null,
+};
 
 const frameworkPatterns = [
   {
@@ -120,7 +135,62 @@ function showAccessModal() {
 function hideAccessModal() {
   accessModal?.classList.add("is-hidden");
   if (accessModal) accessModal.hidden = true;
-  document.body.classList.remove("modal-open");
+  if (!isAnyModalOpen()) document.body.classList.remove("modal-open");
+}
+
+function isAnyModalOpen() {
+  return Boolean(
+    (accessModal && !accessModal.hidden) ||
+      (transcriptModal && !transcriptModal.hidden) ||
+      (accountModal && !accountModal.hidden)
+  );
+}
+
+function getDisplayEmail() {
+  return currentSession?.user?.email || currentSession?.user?.user_metadata?.email || "Signed in";
+}
+
+function getViralsAccountSnapshot() {
+  const freeRuns = getFreeRunCount();
+  return {
+    ...VIRALS_BILLING_PREVIEW,
+    email: getDisplayEmail(),
+    savedFrameworks: loadSaved().length,
+    usageLabel: currentSession?.user ? "Beta access" : `${freeRuns} / ${FREE_USAGE_LIMIT}`,
+    statusLabel: currentSession?.user
+      ? "Virals billing and plan management will stay inside this app."
+      : "Log in to connect usage and saved frameworks to your Virals account.",
+  };
+}
+
+function renderAccountModal() {
+  const snapshot = getViralsAccountSnapshot();
+  if (accountEmail) accountEmail.textContent = snapshot.email;
+  if (accountPlan) accountPlan.textContent = snapshot.plan;
+  if (accountUsage) accountUsage.textContent = snapshot.usageLabel;
+  if (accountSaved) accountSaved.textContent = `${snapshot.savedFrameworks} saved`;
+  if (accountStatus) {
+    accountStatus.textContent = snapshot.statusLabel;
+    accountStatus.className = "status";
+  }
+}
+
+function showAccountModal() {
+  if (!currentSession?.user) {
+    window.location.assign("/n3xra-virals/login/?next=/n3xra-virals/web/");
+    return;
+  }
+  renderAccountModal();
+  accountModal?.classList.remove("is-hidden");
+  if (accountModal) accountModal.hidden = false;
+  document.body.classList.add("modal-open");
+  accountCloseButton?.focus();
+}
+
+function hideAccountModal() {
+  accountModal?.classList.add("is-hidden");
+  if (accountModal) accountModal.hidden = true;
+  if (!isAnyModalOpen()) document.body.classList.remove("modal-open");
 }
 
 function cleanTranscriptText(value) {
@@ -181,14 +251,14 @@ function showTranscriptModal() {
 function hideTranscriptModal() {
   transcriptModal?.classList.add("is-hidden");
   if (transcriptModal) transcriptModal.hidden = true;
-  if (!accessModal || accessModal.hidden) document.body.classList.remove("modal-open");
+  if (!isAnyModalOpen()) document.body.classList.remove("modal-open");
 }
 
 function renderAuthState() {
   if (!headerAuthLink) return;
   if (currentSession?.user) {
     headerAuthLink.textContent = "Account";
-    headerAuthLink.href = "/account/";
+    headerAuthLink.href = "#virals-account";
     return;
   }
   headerAuthLink.textContent = "Login";
@@ -208,8 +278,34 @@ async function initAuthState() {
   supabase?.auth?.onAuthStateChange((_event, session) => {
     currentSession = session || null;
     renderAuthState();
+    renderAccountModal();
     if (currentSession?.user) hideAccessModal();
+    if (!currentSession?.user) hideAccountModal();
   });
+}
+
+async function handleAccountSignout() {
+  if (!supabase) return;
+  if (accountSignoutButton) accountSignoutButton.disabled = true;
+  if (accountStatus) {
+    accountStatus.textContent = "Signing out...";
+    accountStatus.className = "status";
+  }
+
+  try {
+    await supabase.auth.signOut({ scope: "local" });
+    currentSession = null;
+    renderAuthState();
+    hideAccountModal();
+    setStatus("Signed out of N3XRA Virals.");
+  } catch (error) {
+    if (accountStatus) {
+      accountStatus.textContent = error instanceof Error ? error.message : "Unable to sign out.";
+      accountStatus.className = "status error";
+    }
+  } finally {
+    if (accountSignoutButton) accountSignoutButton.disabled = false;
+  }
 }
 
 function setMode(mode) {
@@ -292,6 +388,31 @@ function getProduct(data) {
   return data.product || data.niche || "this product";
 }
 
+function normalizeList(value) {
+  return Array.isArray(value) ? value.map((item) => String(item || "").trim()).filter(Boolean) : [];
+}
+
+function buildFallbackProductIntelligence(data, product) {
+  const source = [data.url, data.product, data.niche, data.goal, data.notes].join(" ").toLowerCase();
+  const category =
+    data.niche ||
+    (source.includes("teeth") || source.includes("skin") ? "Beauty" : source.includes("car") ? "Automotive" : "TikTok Shop");
+  return {
+    name: product,
+    category,
+    offer: data.goal || "TikTok Shop affiliate sale",
+    confidence: data.product ? "Medium" : "Low",
+    source: data.product ? "User input" : "Caption/transcript inference",
+    shopProductId: "",
+    productUrl: "",
+    claims: ["Solves a visible problem", "Easy to demonstrate in short-form video"],
+    objections: ["Viewer may need proof it works", "Price and quality may need clarification"],
+    proofPoints: ["Show a close-up demonstration", "Show before/after or problem/solution contrast"],
+    ctaPath: "Drive viewers to the product page, cart, or comment prompt after the proof moment.",
+    apiReadiness: "No TikTok Shop product ID yet. Resolver can attach official API data when available.",
+  };
+}
+
 function buildAnalysis(data) {
   const source = [data.url, data.product, data.niche, data.goal, data.notes].join(" ");
   const pattern = pickPattern(source);
@@ -353,11 +474,69 @@ function buildAnalysis(data) {
       "Add a quick comparison or objection answer.",
       "End with product page or comment CTA.",
     ],
+    productIntelligence: buildFallbackProductIntelligence(data, product),
   };
+}
+
+function renderProductIntelligence(product) {
+  if (!productOutput) return;
+  if (!product) {
+    productOutput.className = "empty-state";
+    productOutput.textContent = "Product intelligence will appear after analysis.";
+    return;
+  }
+
+  const claims = normalizeList(product.claims);
+  const objections = normalizeList(product.objections);
+  const proofPoints = normalizeList(product.proofPoints);
+  const confidence = product.confidence || "Inferred";
+  const source = product.source || "Resolver";
+  productOutput.className = "product-stack";
+  productOutput.innerHTML = `
+    <div class="product-hero-card">
+      <div>
+        <p class="panel-kicker">${escapeHtml(source)}</p>
+        <h3>${escapeHtml(product.name || "Detected product")}</h3>
+        <p>${escapeHtml(product.offer || "Offer language not detected yet.")}</p>
+      </div>
+      <div class="product-confidence">
+        <span>Confidence</span>
+        <strong>${escapeHtml(confidence)}</strong>
+      </div>
+    </div>
+    <div class="product-meta-grid">
+      <div class="metric"><span>Category</span><strong>${escapeHtml(product.category || "Unknown")}</strong></div>
+      <div class="metric"><span>Shop ID</span><strong>${escapeHtml(product.shopProductId || "Pending")}</strong></div>
+      <div class="metric"><span>Product URL</span><strong>${product.productUrl ? `<a href="${escapeHtml(product.productUrl)}" target="_blank" rel="noreferrer">Open</a>` : "Pending"}</strong></div>
+    </div>
+    <div class="product-signal-grid">
+      <div class="insight-card">
+        <h3>Claims</h3>
+        <ul class="generated-list">${(claims.length ? claims : ["No product claims detected yet."]).map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+      </div>
+      <div class="insight-card">
+        <h3>Objections</h3>
+        <ul class="generated-list">${(objections.length ? objections : ["No objections detected yet."]).map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+      </div>
+      <div class="insight-card">
+        <h3>Proof Points</h3>
+        <ul class="generated-list">${(proofPoints.length ? proofPoints : ["No proof points detected yet."]).map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+      </div>
+    </div>
+    <div class="insight-card">
+      <h3>CTA Path</h3>
+      <p>${escapeHtml(product.ctaPath || "CTA path not detected yet.")}</p>
+    </div>
+    <div class="insight-card">
+      <h3>API Readiness</h3>
+      <p>${escapeHtml(product.apiReadiness || "Ready for TikTok Shop API enrichment when access is available.")}</p>
+    </div>
+  `;
 }
 
 function renderAnalysis(analysis) {
   currentTranscriptBreakdown = analysis.transcriptBreakdown || null;
+  renderProductIntelligence(analysis.productIntelligence || buildFallbackProductIntelligence(analysis, analysis.product));
   frameworkOutput.className = "framework-stack";
   frameworkOutput.innerHTML = `
     <div class="pill-row">
@@ -488,6 +667,7 @@ function renderLibrary() {
   const saved = loadSaved();
   if (!saved.length) {
     libraryList.innerHTML = `<div class="empty-library">No saved frameworks yet. Run an analysis and it will be stored here.</div>`;
+    renderAccountModal();
     return;
   }
 
@@ -507,6 +687,7 @@ function renderLibrary() {
       </article>
     `;
   }).join("");
+  renderAccountModal();
 }
 
 async function requestAiAnalysis(data) {
@@ -653,6 +834,8 @@ clearSingleButton?.addEventListener("click", () => {
   currentTranscriptBreakdown = null;
   sourceOutput.className = "empty-state";
   sourceOutput.textContent = "Paste a TikTok URL and run analysis to load thumbnail, caption, creator, metrics, on-screen text, and transcript.";
+  productOutput.className = "empty-state";
+  productOutput.textContent = "Detected product, claims, objections, proof points, offer language, and API-readiness will appear here.";
   frameworkOutput.className = "empty-state";
   frameworkOutput.textContent = "Run an analysis to see hook type, body structure, psychology, conversion logic, and what to keep or change.";
   hooksOutput.className = "empty-state";
@@ -709,10 +892,21 @@ sourceOutput?.addEventListener("click", (event) => {
   showTranscriptModal();
 });
 
+headerAuthLink?.addEventListener("click", (event) => {
+  if (!currentSession?.user) return;
+  event.preventDefault();
+  showAccountModal();
+});
+
 modeButtons.forEach((button) => {
   button.addEventListener("click", () => setMode(button.dataset.modeTarget));
 });
 
+accountCloseButton?.addEventListener("click", hideAccountModal);
+accountModal?.addEventListener("click", (event) => {
+  if (event.target === accountModal) hideAccountModal();
+});
+accountSignoutButton?.addEventListener("click", handleAccountSignout);
 transcriptCloseButton?.addEventListener("click", hideTranscriptModal);
 transcriptModal?.addEventListener("click", (event) => {
   if (event.target === transcriptModal) hideTranscriptModal();
@@ -722,6 +916,10 @@ accessModal?.addEventListener("click", (event) => {
   if (event.target === accessModal) hideAccessModal();
 });
 document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && accountModal && !accountModal.hidden) {
+    hideAccountModal();
+    return;
+  }
   if (event.key === "Escape" && transcriptModal && !transcriptModal.hidden) {
     hideTranscriptModal();
     return;
