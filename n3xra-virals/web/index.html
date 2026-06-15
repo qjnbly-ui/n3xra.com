@@ -79,7 +79,6 @@
 
           <div class="form-actions">
             <button type="submit">Analyze Framework</button>
-            <button class="button-ghost" id="load-demo" type="button">Load Demo</button>
             <button class="button-ghost" id="clear-all" type="button">Clear Saved</button>
           </div>
           <div id="analysis-status" class="analysis-status" role="status" aria-live="polite">Ready to extract the system behind the content.</div>
@@ -119,14 +118,13 @@
             </div>
             <div class="form-actions">
               <button type="submit">Compare Frameworks</button>
-              <button class="button-ghost" id="load-compare-demo" type="button">Load Compare Demo</button>
             </div>
             <div id="compare-status" class="analysis-status" role="status" aria-live="polite">Ready to compare multiple winners.</div>
           </form>
         </section>
       </section>
 
-      <section class="signal-strip" aria-label="Framework engine capabilities">
+      <section class="signal-strip is-hidden" id="capability-strip" aria-label="Framework engine capabilities" hidden>
         <article>
           <span>Detect</span>
           <strong>Hook</strong>
@@ -144,7 +142,7 @@
         </article>
       </section>
 
-      <section id="single-results" class="workspace-grid mode-results is-active" data-mode-results="single" aria-label="Single video analysis results">
+      <section id="single-results" class="workspace-grid mode-results is-active is-hidden" data-mode-results="single" aria-label="Single video analysis results" hidden>
         <article class="output-panel source-panel">
           <div class="panel-heading">
             <p class="panel-kicker">Source</p>
@@ -180,7 +178,7 @@
         </article>
       </section>
 
-      <section id="compare-results" class="compare-section mode-results" data-mode-results="compare" aria-label="Batch framework comparison results" hidden>
+      <section id="compare-results" class="compare-section mode-results is-hidden" data-mode-results="compare" aria-label="Batch framework comparison results" hidden>
         <div class="section-title-row">
           <div>
             <p class="eyebrow">Batch Compare</p>

@@ -233,6 +233,10 @@ h3 {
   display: block;
 }
 
+.is-hidden {
+  display: none !important;
+}
+
 .form-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.8fr) minmax(0, 1fr);

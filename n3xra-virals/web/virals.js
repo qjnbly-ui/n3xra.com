@@ -7,14 +7,15 @@ const hooksOutput = document.getElementById("hooks-output");
 const scriptsOutput = document.getElementById("scripts-output");
 const sourceOutput = document.getElementById("source-output");
 const libraryList = document.getElementById("library-list");
-const loadDemoButton = document.getElementById("load-demo");
 const clearAllButton = document.getElementById("clear-all");
 const compareForm = document.getElementById("virals-compare-form");
 const compareStatusEl = document.getElementById("compare-status");
 const compareOutput = document.getElementById("compare-output");
 const compareSources = document.getElementById("compare-sources");
-const loadCompareDemoButton = document.getElementById("load-compare-demo");
 const urlInput = document.getElementById("video-url");
+const capabilityStrip = document.getElementById("capability-strip");
+const singleResults = document.getElementById("single-results");
+const compareResults = document.getElementById("compare-results");
 const modeButtons = Array.from(document.querySelectorAll("[data-mode-target]"));
 const modePanels = Array.from(document.querySelectorAll("[data-mode-panel]"));
 const modeResults = Array.from(document.querySelectorAll("[data-mode-results]"));
@@ -88,8 +89,27 @@ function setMode(mode) {
   modeResults.forEach((panel) => {
     const isActive = panel.dataset.modeResults === mode;
     panel.classList.toggle("is-active", isActive);
-    panel.hidden = !isActive;
+    panel.hidden = !isActive || panel.classList.contains("is-hidden");
   });
+}
+
+function revealCapabilityStrip() {
+  capabilityStrip?.classList.remove("is-hidden");
+  if (capabilityStrip) capabilityStrip.hidden = false;
+}
+
+function revealSingleResults() {
+  revealCapabilityStrip();
+  setMode("single");
+  singleResults?.classList.remove("is-hidden");
+  if (singleResults) singleResults.hidden = false;
+}
+
+function revealCompareResults() {
+  revealCapabilityStrip();
+  setMode("compare");
+  compareResults?.classList.remove("is-hidden");
+  if (compareResults) compareResults.hidden = false;
 }
 
 function escapeHtml(value) {
@@ -264,6 +284,7 @@ function renderSource(video) {
   if (!video) {
     sourceOutput.className = "empty-state";
     sourceOutput.textContent = "No TikTok metadata was extracted. Add transcript, caption, or notes manually.";
+    revealSingleResults();
     return;
   }
 
@@ -294,6 +315,7 @@ function renderSource(video) {
       </div>
     </div>
   `;
+  revealSingleResults();
 }
 
 async function loadSourcePreview(url) {
@@ -385,16 +407,8 @@ async function handleSubmit(event) {
   renderSource(video);
   renderAnalysis(analysis);
   renderLibrary();
+  revealSingleResults();
   document.getElementById("single-results")?.scrollIntoView({ behavior: "smooth", block: "start" });
-}
-
-function loadDemo() {
-  document.getElementById("video-url").value = "https://www.tiktok.com/@creator/video/123456789";
-  document.getElementById("product-name").value = "portable blender";
-  document.getElementById("niche").value = "Food";
-  document.getElementById("goal").value = "TikTok Shop affiliate sale";
-  document.getElementById("notes").value = "Creator opens with a messy breakfast problem, shows a quick before and after, then demonstrates the blender making a smoothie in seconds. Comments ask where to buy it.";
-  setStatus("Demo loaded. Run Analyze Framework.");
 }
 
 form?.addEventListener("submit", handleSubmit);
@@ -402,8 +416,6 @@ form?.addEventListener("submit", handleSubmit);
 urlInput?.addEventListener("blur", () => {
   loadSourcePreview(urlInput.value);
 });
-
-loadDemoButton?.addEventListener("click", loadDemo);
 
 function renderCompare(payload) {
   const comparison = payload.comparison;
@@ -434,6 +446,7 @@ function renderCompare(payload) {
       </div>
     </div>
   `).join("");
+  revealCompareResults();
 }
 
 async function handleCompareSubmit(event) {
@@ -469,17 +482,6 @@ async function handleCompareSubmit(event) {
 
 compareForm?.addEventListener("submit", handleCompareSubmit);
 
-loadCompareDemoButton?.addEventListener("click", () => {
-  document.getElementById("compare-urls").value = [
-    "https://www.tiktok.com/@benjamin.j0rdan/video/7641739684745334029",
-    "https://www.tiktok.com/@benjamin.j0rdan/video/7641739684745334029",
-  ].join("\n");
-  document.getElementById("compare-product").value = "TikTok Shop affiliate content";
-  document.getElementById("compare-niche").value = "TikTok Shop";
-  document.getElementById("compare-goal").value = "TikTok Shop affiliate sale";
-  setCompareStatus("Compare demo loaded. Replace one duplicate URL with another winner when testing.");
-});
-
 clearAllButton?.addEventListener("click", () => {
   localStorage.removeItem(STORAGE_KEY);
   renderLibrary();
@@ -497,6 +499,8 @@ libraryList?.addEventListener("click", (event) => {
   if (button.classList.contains("load-analysis") && item) {
     setMode("single");
     renderAnalysis(item);
+    renderSource(null);
+    revealSingleResults();
     setStatus("Saved framework opened.");
     document.getElementById("single-results")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
