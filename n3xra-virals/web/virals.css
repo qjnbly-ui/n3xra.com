@@ -681,15 +681,37 @@ button:hover {
 @media (max-width: 760px) {
   .virals-topbar {
     width: calc(100% - 24px);
-    align-items: flex-start;
-    flex-direction: column;
+    align-items: center;
+    flex-direction: row;
+    gap: 10px;
   }
 
   .topbar-actions {
-    width: 100%;
-    justify-content: flex-start;
+    min-width: 0;
+    width: auto;
+    justify-content: flex-end;
     overflow-x: auto;
     padding-bottom: 4px;
+    margin-left: auto;
+    scrollbar-width: none;
+  }
+
+  .topbar-actions::-webkit-scrollbar {
+    display: none;
+  }
+
+  .topbar-actions a {
+    flex: 0 0 auto;
+    padding: 8px 10px;
+    font-size: 0.7rem;
+  }
+
+  .brand-mark {
+    flex: 0 0 auto;
+  }
+
+  .brand-mark img {
+    height: 28px;
   }
 
   .virals-shell {
