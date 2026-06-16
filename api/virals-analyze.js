@@ -298,7 +298,11 @@ module.exports = async function handler(req, res) {
     const analysis = normalizeAnalysis(extractJson(content), input);
     let saved = null;
     const token = getBearerToken(req);
-    if (token && hasViralsSupabaseConfig() && extractedVideo) {
+    if (!token) {
+      saved = { status: "not_authenticated" };
+    } else if (!hasViralsSupabaseConfig()) {
+      saved = { status: "not_configured" };
+    } else {
       try {
         const user = await verifySupabaseUser(token);
         saved = await saveViralsAnalysis({
@@ -310,7 +314,10 @@ module.exports = async function handler(req, res) {
           usage: data?.usage || null,
         });
       } catch (_error) {
-        saved = null;
+        saved = {
+          status: "failed",
+          message: _error instanceof Error ? _error.message : "Unable to save Virals analysis.",
+        };
       }
     }
 

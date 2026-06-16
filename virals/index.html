@@ -14,13 +14,18 @@
   <body>
     <header class="virals-topbar" aria-label="N3XRA Virals">
       <a class="brand-mark" href="/" aria-label="N3XRA home">
-        <img src="/assets/MAINLOGO.png" alt="N3XRA">
+        <img src="/assets/N3XRAVirals.png" alt="N3XRA Virals">
       </a>
-      <nav class="topbar-actions" aria-label="Virals sections">
-        <a href="#analyze">Workspace</a>
-        <a href="#library">Library</a>
-        <a href="/n3xra-virals/login/?next=/virals/" id="virals-header-auth-link">Login</a>
+      <nav class="topbar-menu" id="virals-menu" aria-label="Virals sections">
+        <a href="/virals/">Analyze</a>
+        <a href="/virals/most-searched-videos/">Most Searched</a>
+        <a href="/virals/saved-scripts/">Saved Scripts</a>
+        <a href="/virals/about/">About</a>
       </nav>
+      <div class="topbar-actions">
+        <a class="auth-pill" href="/n3xra-virals/login/?next=/virals/" id="virals-header-auth-link">Login</a>
+        <button class="nav-toggle" id="virals-nav-toggle" type="button" aria-label="Open menu" aria-controls="virals-menu" aria-expanded="false"><span></span><span></span><span></span></button>
+      </div>
     </header>
 
     <main class="virals-shell">
@@ -30,11 +35,6 @@
             <p class="hero-lede">Deconstruct TikTok winners into reusable hooks, body frameworks, psychology, CTAs, shot lists, and daily posting packs.</p>
           </div>
           <img class="hero-asset" src="/assets/N3XRAVirals.png" alt="N3XRA Virals">
-        </div>
-
-        <div class="construction-note" role="note">
-          <strong>Under construction</strong>
-          <span>N3XRA Virals is in active development. Product intelligence, saved cloud libraries, billing, and TikTok Shop API enrichment are being built in phases.</span>
         </div>
 
         <div class="mode-switch" role="tablist" aria-label="Analysis mode">
@@ -148,7 +148,7 @@
             <h2>Product Intelligence</h2>
           </div>
           <div id="product-output" class="empty-state">
-            Detected product, claims, objections, proof points, offer language, and API-readiness will appear here.
+            Product angle, category, claims, objections, and proof points will appear here.
           </div>
         </article>
 
@@ -283,6 +283,21 @@
       </section>
     </div>
 
+    <div class="script-save-modal is-hidden" id="script-save-modal" role="dialog" aria-modal="true" aria-labelledby="script-save-heading" hidden>
+      <section class="script-save-card">
+        <button class="script-save-close" id="script-save-close" type="button" aria-label="Close save script">Close</button>
+        <p class="panel-kicker">Save Script</p>
+        <h2 id="script-save-heading">Save to Script Library</h2>
+        <p id="script-save-title" class="script-save-title">Generated Script</p>
+        <form id="script-save-form" class="script-save-form">
+          <label for="script-save-notes">Notes</label>
+          <textarea id="script-save-notes" rows="5" placeholder="Add product notes, test angle, creator direction, posting date, or anything you want attached to this script."></textarea>
+          <p>The script will be saved with its hook type, body framework, product angle, captions, shot list, and source URL.</p>
+          <button type="submit">Save Script</button>
+        </form>
+      </section>
+    </div>
+
     <div class="virals-access-modal is-hidden" id="virals-access-modal" role="dialog" aria-modal="true" aria-labelledby="virals-access-title" hidden>
       <section class="virals-access-card">
         <button class="virals-access-close" id="virals-access-close" type="button" aria-label="Close access window">Close</button>
@@ -323,6 +338,7 @@
       </section>
     </div>
 
+    <script type="module" src="/virals/nav.js"></script>
     <script type="module" src="/virals/virals.js"></script>
   </body>
 </html>

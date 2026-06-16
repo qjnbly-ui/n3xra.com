@@ -101,7 +101,7 @@ async function fetchTikTokTranscript(url) {
   return {
     url: cleanUrl || url,
     videoId: String(item.id || ""),
-    coverUrl: String(item.video?.cover || item.video?.originCover || item.video?.dynamicCover || ""),
+    coverUrl: String(item.video?.cover || item.video?.originCover || item.video?.dynamicCover || oembed?.thumbnail_url || ""),
     dynamicCoverUrl: String(item.video?.dynamicCover || ""),
     durationSeconds: Number(item.video?.duration || item.music?.duration || 0) || null,
     author: {

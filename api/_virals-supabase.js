@@ -49,8 +49,30 @@ function cleanString(value, limit = 1000) {
   return String(value || "").trim().slice(0, limit);
 }
 
+function encodeFilter(value) {
+  return encodeURIComponent(String(value || ""));
+}
+
 function firstRow(rows) {
   return Array.isArray(rows) ? rows[0] || null : null;
+}
+
+function normalizeUrl(value) {
+  const raw = cleanString(value, 900);
+  if (!raw) return "";
+  try {
+    const url = new URL(raw);
+    url.hash = "";
+    url.search = "";
+    return url.toString().replace(/\/+$/, "");
+  } catch {
+    return raw.split("?")[0].replace(/\/+$/, "");
+  }
+}
+
+function cleanUuid(value) {
+  const raw = cleanString(value, 80);
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(raw) ? raw : null;
 }
 
 function tableUrl(table, query = "") {
@@ -110,6 +132,8 @@ async function saveVideo(user, video, input = {}) {
     thumbnail_url: cleanString(video?.coverUrl || video?.dynamicCoverUrl, 1000) || null,
     duration_seconds: Number(video?.durationSeconds || 0) || null,
     metrics: video?.stats || {},
+    latest_metrics_captured_at: Object.keys(video?.stats || {}).length ? new Date().toISOString() : null,
+    metrics_source: Object.keys(video?.stats || {}).length ? "tiktok_page_metadata_snapshot" : null,
     raw_metadata: video || {},
   };
   return insertRow("virals_videos", payload);
@@ -243,17 +267,238 @@ async function saveUsageEvent(user, event = {}) {
   });
 }
 
+function normalizeSavedAnalysis(row = {}, generatedScripts = [], generatedCaptions = []) {
+  const hookBreakdown = row.hook_breakdown || {};
+  const structureBreakdown = row.structure_breakdown || {};
+  const audience = row.audience_targeting || {};
+  return {
+    id: row.id,
+    createdAt: row.created_at,
+    url: "",
+    product: audience.product || "Saved framework",
+    niche: audience.niche || "TikTok Shop",
+    goal: audience.goal || "TikTok Shop affiliate sale",
+    hookType: hookBreakdown.hookType || row.hook || "Framework Hook",
+    formula: hookBreakdown.formula || row.summary || "",
+    body: structureBreakdown.body || "",
+    triggers: Array.isArray(row.emotional_triggers) ? row.emotional_triggers : [],
+    conversionPattern: row.why_it_works || "",
+    keep: structureBreakdown.keep || "",
+    change: structureBreakdown.change || row.improvement_notes || "",
+    hooks: Array.isArray(hookBreakdown.hooks) ? hookBreakdown.hooks : [],
+    scripts: generatedScripts.map((script) => ({
+      title: script.title || script.script_type || "Generated Script",
+      text: script.script_text || "",
+    })),
+    captions: generatedCaptions.map((caption) => caption.caption_text).filter(Boolean),
+    shotList: [],
+    transcriptBreakdown: {
+      cleanedTranscript: "",
+      hook: hookBreakdown.transcriptHook || "",
+      bodyStructure: structureBreakdown.transcriptBodyStructure || "",
+      cta: "",
+      sellingBeats: [],
+    },
+    productIntelligence: {
+      name: audience.product || "Saved product",
+      category: audience.niche || "TikTok Shop",
+      offer: audience.goal || "",
+      confidence: "Saved",
+      claims: Array.isArray(row.strengths) ? row.strengths : [],
+      objections: Array.isArray(row.weaknesses) ? row.weaknesses : [],
+      proofPoints: Array.isArray(row.engagement_drivers) ? row.engagement_drivers : [],
+    },
+  };
+}
+
+async function listSavedFrameworks(user, limit = 30) {
+  if (!hasViralsSupabaseConfig() || !user?.id) return [];
+  const rows = await fetchJson(tableUrl(
+    "virals_ai_analyses",
+    `?select=*&master_user_id=eq.${encodeFilter(user.id)}&status=eq.completed&order=created_at.desc&limit=${Math.min(Math.max(Number(limit) || 30, 1), 60)}`
+  ), { headers: serviceHeaders() });
+
+  const ids = rows.map((row) => row.id).filter(Boolean);
+  if (!ids.length) return [];
+  const idList = ids.join(",");
+  const [scripts, captions] = await Promise.all([
+    fetchJson(tableUrl("virals_generated_scripts", `?select=analysis_id,title,script_type,script_text&analysis_id=in.(${idList})`), { headers: serviceHeaders() }).catch(() => []),
+    fetchJson(tableUrl("virals_generated_captions", `?select=analysis_id,caption_text&analysis_id=in.(${idList})`), { headers: serviceHeaders() }).catch(() => []),
+  ]);
+
+  return rows.map((row) => normalizeSavedAnalysis(
+    row,
+    scripts.filter((script) => script.analysis_id === row.id),
+    captions.filter((caption) => caption.analysis_id === row.id)
+  ));
+}
+
+async function deleteSavedFramework(user, analysisId) {
+  if (!hasViralsSupabaseConfig() || !user?.id || !analysisId) return null;
+  await fetchJson(tableUrl(
+    "virals_ai_analyses",
+    `?id=eq.${encodeFilter(analysisId)}&master_user_id=eq.${encodeFilter(user.id)}`
+  ), {
+    method: "DELETE",
+    headers: serviceHeaders(),
+  });
+  return { status: "deleted" };
+}
+
+function normalizeSavedScript(row = {}) {
+  const context = row.context || {};
+  return {
+    id: row.id,
+    createdAt: row.created_at,
+    title: row.title || "Saved Script",
+    scriptText: row.script_text || "",
+    notes: row.notes || "",
+    sourceUrl: row.source_url || "",
+    product: row.product || "",
+    niche: row.niche || "",
+    goal: row.goal || "",
+    hookType: row.hook_type || "",
+    hookFormula: context.hookFormula || "",
+    bodyFramework: context.bodyFramework || "",
+    conversionLogic: context.conversionLogic || "",
+    keep: context.keep || "",
+    change: context.change || "",
+    captions: Array.isArray(context.captions) ? context.captions : [],
+    shotList: Array.isArray(context.shotList) ? context.shotList : [],
+    productIntelligence: context.productIntelligence || null,
+  };
+}
+
+async function listSavedScripts(user, limit = 80) {
+  if (!hasViralsSupabaseConfig() || !user?.id) return [];
+  const rows = await fetchJson(tableUrl(
+    "virals_saved_scripts",
+    `?select=*&master_user_id=eq.${encodeFilter(user.id)}&order=created_at.desc&limit=${Math.min(Math.max(Number(limit) || 80, 1), 120)}`
+  ), { headers: serviceHeaders() });
+  return rows.map(normalizeSavedScript);
+}
+
+async function saveScriptToLibrary(user, payload = {}) {
+  if (!hasViralsSupabaseConfig() || !user?.id) return null;
+  const row = await insertRow("virals_saved_scripts", {
+    master_user_id: user.id,
+    source_analysis_id: cleanUuid(payload.sourceAnalysisId),
+    title: cleanString(payload.title || "Saved Script", 180),
+    script_text: cleanString(payload.scriptText, 12000),
+    notes: cleanString(payload.notes, 4000) || null,
+    source_url: cleanString(payload.sourceUrl, 1000) || null,
+    product: cleanString(payload.product, 220) || null,
+    niche: cleanString(payload.niche, 160) || null,
+    goal: cleanString(payload.goal, 180) || null,
+    hook_type: cleanString(payload.hookType, 180) || null,
+    context: {
+      hookFormula: cleanString(payload.hookFormula, 1600),
+      bodyFramework: cleanString(payload.bodyFramework, 1600),
+      conversionLogic: cleanString(payload.conversionLogic, 1600),
+      keep: cleanString(payload.keep, 1400),
+      change: cleanString(payload.change, 1400),
+      captions: Array.isArray(payload.captions) ? payload.captions.slice(0, 10) : [],
+      shotList: Array.isArray(payload.shotList) ? payload.shotList.slice(0, 12) : [],
+      productIntelligence: payload.productIntelligence || null,
+    },
+    tags: Array.isArray(payload.tags) ? payload.tags.slice(0, 20) : [],
+  });
+  await saveUsageEvent(user, { event_type: "script_save", input_count: 1 }).catch(() => null);
+  return normalizeSavedScript(row);
+}
+
+async function deleteSavedScript(user, scriptId) {
+  if (!hasViralsSupabaseConfig() || !user?.id || !scriptId) return null;
+  await fetchJson(tableUrl(
+    "virals_saved_scripts",
+    `?id=eq.${encodeFilter(scriptId)}&master_user_id=eq.${encodeFilter(user.id)}`
+  ), {
+    method: "DELETE",
+    headers: serviceHeaders(),
+  });
+  return { status: "deleted" };
+}
+
+async function saveVideoSearchStats(videoRow, video, analysisRow, analysis = {}, input = {}) {
+  const normalizedUrl = normalizeUrl(video?.url || input.url);
+  if (!normalizedUrl) return null;
+
+  const existing = firstRow(await fetchJson(tableUrl("virals_video_search_stats", `?normalized_url=eq.${encodeFilter(normalizedUrl)}&limit=1`), {
+    headers: serviceHeaders(),
+  }));
+  const thumbnailUrl = cleanString(
+    video?.coverUrl ||
+      video?.dynamicCoverUrl ||
+      videoRow?.thumbnail_url ||
+      existing?.thumbnail_url,
+    1000
+  ) || null;
+  const title = cleanString(
+    video?.caption ||
+      videoRow?.title ||
+      existing?.title ||
+      "Untitled TikTok",
+    300
+  );
+  const creatorHandle = cleanString(
+    video?.author?.uniqueId ||
+      videoRow?.creator_handle ||
+      existing?.creator_handle,
+    160
+  ) || null;
+
+  const payload = {
+    normalized_url: normalizedUrl,
+    platform: "tiktok",
+    external_video_id: cleanString(video?.videoId || videoRow?.external_video_id || existing?.external_video_id, 160) || null,
+    title,
+    creator_handle: creatorHandle,
+    thumbnail_url: thumbnailUrl,
+    search_count: Number(existing?.search_count || 0) + 1,
+    analysis_count: Number(existing?.analysis_count || 0) + 1,
+    last_seen_at: new Date().toISOString(),
+    latest_video_id: videoRow?.id || null,
+    latest_analysis_id: analysisRow?.id || null,
+    latest_metrics: video?.stats || videoRow?.metrics || {},
+    latest_framework: {
+      hookType: analysis.hookType || null,
+      formula: analysis.formula || null,
+      body: analysis.body || null,
+      product: analysis.productIntelligence?.name || analysis.product || null,
+      niche: analysis.niche || null,
+    },
+  };
+
+  if (existing?.id) {
+    return firstRow(await fetchJson(tableUrl("virals_video_search_stats", `?id=eq.${encodeFilter(existing.id)}`), {
+      method: "PATCH",
+      headers: serviceHeaders({ Prefer: "return=representation" }),
+      body: JSON.stringify(payload),
+    }));
+  }
+
+  return insertRow("virals_video_search_stats", payload);
+}
+
 async function saveViralsAnalysis({ user, input, video, analysis, model, usage }) {
-  if (!hasViralsSupabaseConfig() || !user?.id || !video || !analysis) return null;
+  if (!hasViralsSupabaseConfig() || !user?.id || !analysis) return null;
 
   await ensureViralsProfile(user);
-  await saveCreator(video).catch(() => null);
-  const videoRow = await saveVideo(user, video, input);
-  await saveTranscript(videoRow, video).catch(() => null);
+  const sourceVideo = video || {
+    url: input?.url || analysis.url || "",
+    caption: input?.notes || "",
+    stats: {},
+    raw_metadata: { source: "user_input" },
+  };
+
+  await saveCreator(sourceVideo).catch(() => null);
+  const videoRow = await saveVideo(user, sourceVideo, input);
+  await saveTranscript(videoRow, sourceVideo).catch(() => null);
   const productRow = await saveProduct(analysis.productIntelligence).catch(() => null);
   await linkVideoProduct(videoRow, productRow, analysis.productIntelligence).catch(() => null);
   const analysisRow = await saveAnalysis(user, videoRow, analysis, model);
   await saveGeneratedOutputs(user, analysisRow, analysis).catch(() => null);
+  await saveVideoSearchStats(videoRow, sourceVideo, analysisRow, analysis, input).catch(() => null);
   await saveUsageEvent(user, {
     event_type: "single_analysis",
     analysis_id: analysisRow?.id || null,
@@ -266,6 +511,7 @@ async function saveViralsAnalysis({ user, input, video, analysis, model, usage }
   }).catch(() => null);
 
   return {
+    status: "saved",
     video_id: videoRow?.id || null,
     analysis_id: analysisRow?.id || null,
     product_id: productRow?.id || null,
@@ -274,8 +520,13 @@ async function saveViralsAnalysis({ user, input, video, analysis, model, usage }
 
 module.exports = {
   ViralsSupabaseError,
+  deleteSavedFramework,
+  deleteSavedScript,
   getBearerToken,
   hasViralsSupabaseConfig,
+  listSavedFrameworks,
+  listSavedScripts,
+  saveScriptToLibrary,
   saveUsageEvent,
   saveViralsAnalysis,
   verifySupabaseUser,
