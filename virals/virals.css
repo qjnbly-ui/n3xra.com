@@ -1973,8 +1973,8 @@ button:hover {
 }
 
 @media (max-width: 760px) {
-  body {
-    padding-bottom: 108px;
+  .site-footer {
+    padding-bottom: calc(1.35rem + 108px);
   }
 
   .virals-topbar {
