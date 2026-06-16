@@ -25,33 +25,53 @@ function withStage(error, stage) {
   return error;
 }
 
+function isMissingStripeResource(error) {
+  const message = String(error?.message || "").toLowerCase();
+  return error?.status === 404 || message.includes("no such coupon") || message.includes("no such promotion code");
+}
+
+async function loadStripeResource(path, stage) {
+  try {
+    return await stripeRequest(path);
+  } catch (error) {
+    if (isMissingStripeResource(error)) return null;
+    throw withStage(error, stage);
+  }
+}
+
+async function createCouponForApplication(application, programId, code) {
+  try {
+    return await stripeRequest("/coupons", {
+      method: "POST",
+      idempotencyKey: `virals-coupon-${application.id}-${code}`,
+      body: {
+        percent_off: CUSTOMER_PROMO_DISCOUNT_PERCENT,
+        duration: "repeating",
+        duration_in_months: CUSTOMER_PROMO_DISCOUNT_MONTHS,
+        name: `N3XRA Virals ${code}`,
+        metadata: {
+          app: "n3xra_virals",
+          creator_application_id: application.id,
+          program: programId,
+        },
+      },
+    });
+  } catch (error) {
+    throw withStage(error, "stripe_coupon");
+  }
+}
+
 async function createStripePromoForApplication(application, programId) {
   const code = normalizePromoCode(application.normalized_code || application.requested_code);
-  let coupon = application.stripe_coupon_id ? { id: application.stripe_coupon_id } : null;
+  let coupon = application.stripe_coupon_id
+    ? await loadStripeResource(`/coupons/${encodeURIComponent(application.stripe_coupon_id)}`, "stripe_coupon_lookup")
+    : null;
   if (!coupon) {
-    try {
-      coupon = await stripeRequest("/coupons", {
-        method: "POST",
-        idempotencyKey: `virals-coupon-${application.id}`,
-        body: {
-          percent_off: CUSTOMER_PROMO_DISCOUNT_PERCENT,
-          duration: "repeating",
-          duration_in_months: CUSTOMER_PROMO_DISCOUNT_MONTHS,
-          name: `N3XRA Virals ${code}`,
-          metadata: {
-            app: "n3xra_virals",
-            creator_application_id: application.id,
-            program: programId,
-          },
-        },
-      });
-    } catch (error) {
-      throw withStage(error, "stripe_coupon");
-    }
+    coupon = await createCouponForApplication(application, programId, code);
   }
 
   let promotionCode = application.stripe_promotion_code_id
-    ? { id: application.stripe_promotion_code_id }
+    ? await loadStripeResource(`/promotion_codes/${encodeURIComponent(application.stripe_promotion_code_id)}`, "stripe_promotion_code_lookup")
     : null;
 
   if (!promotionCode) {
