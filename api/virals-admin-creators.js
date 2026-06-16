@@ -40,9 +40,13 @@ async function createStripePromoForApplication(application, programId) {
         },
       });
 
-  const promotionCode = application.stripe_promotion_code_id
+  let promotionCode = application.stripe_promotion_code_id
     ? { id: application.stripe_promotion_code_id }
-    : await stripeRequest("/promotion_codes", {
+    : null;
+
+  if (!promotionCode) {
+    try {
+      promotionCode = await stripeRequest("/promotion_codes", {
         method: "POST",
         idempotencyKey: `virals-promo-${application.id}`,
         body: {
@@ -56,16 +60,35 @@ async function createStripePromoForApplication(application, programId) {
           },
         },
       });
+    } catch (error) {
+      const existing = await findExistingPromotionCodeForApplication(code, application.id);
+      if (!existing) throw error;
+      promotionCode = existing;
+    }
+  }
 
   return { couponId: coupon.id, promotionCodeId: promotionCode.id };
 }
 
+async function findExistingPromotionCodeForApplication(code, applicationId) {
+  const response = await stripeRequest(`/promotion_codes?code=${encodeURIComponent(code)}&limit=20`);
+  const matches = Array.isArray(response?.data) ? response.data : [];
+  return matches.find((promotionCode) => {
+    const metadata = promotionCode?.metadata || {};
+    return promotionCode.active !== false
+      && normalizePromoCode(promotionCode.code) === code
+      && metadata.app === "n3xra_virals"
+      && metadata.creator_application_id === applicationId;
+  }) || null;
+}
+
 async function createConnectAccount(application) {
-  if (application.stripe_connect_account_id) return application.stripe_connect_account_id;
+  const existingAccountId = application.stripe_connect_account_id || application.stripeConnectAccountId;
+  if (existingAccountId) return existingAccountId;
   return createViralsConnectAccount({
     id: application.id,
     email: application.email,
-    userId: application.user_id,
+    userId: application.user_id || application.userId,
   });
 }
 
@@ -152,7 +175,6 @@ module.exports = async function handler(req, res) {
     }
     const program = CREATOR_PROGRAMS[programId] || CREATOR_PROGRAMS.standard;
     const promo = await createStripePromoForApplication(application, programId);
-    const connectAccountId = await createConnectAccount(application);
     const updated = await updateCreatorApplication(application.id, {
       status: "approved",
       approved_program: programId,
@@ -165,10 +187,19 @@ module.exports = async function handler(req, res) {
       admin_notes: String(payload.adminNotes || "").trim().slice(0, 4000) || null,
       stripe_coupon_id: promo.couponId,
       stripe_promotion_code_id: promo.promotionCodeId,
-      stripe_connect_account_id: connectAccountId,
     });
-    const emailResult = await sendDecisionEmailWithWarning(updated, "approve", programId);
-    return sendJson(res, 200, { application: updated, ...emailResult });
+    let finalApplication = updated;
+    let connectWarning = "";
+    try {
+      const connectAccountId = await createConnectAccount(updated);
+      finalApplication = await updateCreatorApplication(application.id, {
+        stripe_connect_account_id: connectAccountId,
+      });
+    } catch (error) {
+      connectWarning = error instanceof Error ? error.message : "Stripe payout account setup failed.";
+    }
+    const emailResult = await sendDecisionEmailWithWarning(finalApplication, "approve", programId);
+    return sendJson(res, 200, { application: finalApplication, connectWarning, ...emailResult });
   } catch (error) {
     return sendJson(res, error.status || 500, { error: error instanceof Error ? error.message : "Unable to manage creator applications." });
   }

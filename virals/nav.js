@@ -521,12 +521,15 @@ async function handleAdminAction(button, action) {
     accountStatus.className = "status";
   }
   const payload = await postJson("/api/virals-admin-creators", { action, id, program });
+  await loadAccountState();
+  renderAccountModal();
   await loadAdminApplications();
   if (accountStatus) {
-    accountStatus.textContent = payload.emailWarning
-      ? `Decision saved. Email warning: ${payload.emailWarning}`
+    const warnings = [payload.connectWarning ? `Payout setup warning: ${payload.connectWarning}` : "", payload.emailWarning ? `Email warning: ${payload.emailWarning}` : ""].filter(Boolean);
+    accountStatus.textContent = warnings.length
+      ? `Decision saved. ${warnings.join(" ")}`
       : "Decision saved and email sent.";
-    accountStatus.className = payload.emailWarning ? "status error" : "status";
+    accountStatus.className = warnings.length ? "status error" : "status";
   }
 }
 
