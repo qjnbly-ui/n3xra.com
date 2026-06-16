@@ -25,7 +25,17 @@ async function fetchRows(table, query) {
   return Array.isArray(rows) ? rows : [];
 }
 
-function normalizeVideo(row) {
+async function fetchVideoPublishDates(videoIds) {
+  const ids = [...new Set(videoIds.filter(Boolean))];
+  if (!ids.length) return new Map();
+  const rows = await fetchRows(
+    "virals_videos",
+    `?select=id,published_at&id=in.(${ids.map(encodeURIComponent).join(",")})`
+  );
+  return new Map(rows.map((row) => [row.id, row.published_at || null]));
+}
+
+function normalizeVideo(row, publishedAtByVideoId = new Map()) {
   const metrics = row.latest_metrics || {};
   return {
     title: row.title || "Untitled TikTok",
@@ -34,6 +44,7 @@ function normalizeVideo(row) {
     thumbnail: row.thumbnail_url || "",
     searches: Number(row.search_count || 0),
     analyses: Number(row.analysis_count || 0),
+    publishedAt: publishedAtByVideoId.get(row.latest_video_id) || null,
     lastSeen: row.last_seen_at || null,
     framework: row.latest_framework || {},
     metrics,
@@ -72,9 +83,10 @@ module.exports = async function handler(req, res) {
   if (type === "searched") {
     const rows = await fetchRows(
       "virals_video_search_stats",
-      `?select=normalized_url,title,creator_handle,thumbnail_url,search_count,analysis_count,last_seen_at,latest_metrics,latest_framework&order=search_count.desc,last_seen_at.desc&limit=${limit}`
+      `?select=normalized_url,title,creator_handle,thumbnail_url,search_count,analysis_count,last_seen_at,latest_video_id,latest_metrics,latest_framework&order=search_count.desc,last_seen_at.desc&limit=${limit}`
     );
-    return sendJson(res, 200, { type, rows: rows.map(normalizeVideo), configured: true });
+    const publishedAtByVideoId = await fetchVideoPublishDates(rows.map((row) => row.latest_video_id));
+    return sendJson(res, 200, { type, rows: rows.map((row) => normalizeVideo(row, publishedAtByVideoId)), configured: true });
   }
 
   const tableByType = {

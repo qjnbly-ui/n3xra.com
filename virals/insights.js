@@ -26,9 +26,9 @@ function formatDate(value) {
 }
 
 function formatShortDate(value) {
-  if (!value) return "New";
+  if (!value) return "";
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "New";
+  if (Number.isNaN(date.getTime())) return "";
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
@@ -71,6 +71,7 @@ function renderRows(rows) {
     const shares = metricValue(metrics, ["shares", "shareCount"]);
     const hasMetrics = Boolean(plays || likes || shares);
     const product = row.framework?.product || "";
+    const publishedDate = formatShortDate(row.publishedAt);
     const media = row.thumbnail
       ? `<img src="${escapeHtml(row.thumbnail)}" alt="">`
       : `<div class="insight-thumb-fallback">N3XRA</div>`;
@@ -85,7 +86,7 @@ function renderRows(rows) {
           </div>
           <div class="insight-meta-row">
             <span>${escapeHtml(row.creator || "Creator pending")}</span>
-            <span>${escapeHtml(formatShortDate(row.lastSeen || row.capturedAt))}</span>
+            ${publishedDate ? `<span>${escapeHtml(publishedDate)}</span>` : ""}
           </div>
           ${hasMetrics ? `
             <div class="insight-stat-row" aria-label="Video metrics">

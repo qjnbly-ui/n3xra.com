@@ -655,11 +655,13 @@ button:hover {
   transition: opacity 160ms ease;
 }
 
-.source-media.has-video-preview {
+.source-media.has-video-preview,
+.source-media.has-source-link {
   cursor: pointer;
 }
 
-.source-media.has-video-preview::after {
+.source-media.has-video-preview::after,
+.source-media.has-source-link::after {
   content: "Preview";
   position: absolute;
   left: 12px;
@@ -675,6 +677,10 @@ button:hover {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   pointer-events: none;
+}
+
+.source-media.has-source-link:not(.has-video-preview)::after {
+  content: "Open source";
 }
 
 .source-media.is-previewing video {

@@ -647,12 +647,14 @@ function renderSource(video) {
 
   const image = video.coverUrl || video.dynamicCoverUrl || "";
   const playUrl = video.playUrl || video.videoUrl || "";
+  const sourceUrl = video.url || video.sourceUrl || "";
   const stats = video.stats || {};
+  const mediaLabel = playUrl ? "Hover, focus, or tap to preview video" : "Open TikTok source";
   currentTranscript = String(video.transcript || "").trim();
   currentTranscriptBreakdown = null;
   sourceOutput.className = "source-card";
   sourceOutput.innerHTML = `
-    <div class="source-media${playUrl ? " has-video-preview" : ""}" ${playUrl ? 'tabindex="0" aria-label="Hover, focus, or tap to preview video"' : ""}>
+    <div class="source-media${playUrl ? " has-video-preview" : ""}${sourceUrl ? " has-source-link" : ""}" ${sourceUrl ? `data-source-url="${escapeHtml(sourceUrl)}"` : ""} ${playUrl || sourceUrl ? `tabindex="0" aria-label="${escapeHtml(mediaLabel)}"` : ""}>
       ${image ? `<img src="${escapeHtml(image)}" alt="TikTok cover image">` : ""}
       ${playUrl ? `<video class="source-media-video" src="${escapeHtml(playUrl)}" poster="${escapeHtml(image)}" muted loop playsinline controls preload="metadata"></video>` : ""}
     </div>
@@ -670,6 +672,7 @@ function renderSource(video) {
       </div>
       ${video.stickers?.length ? `<div class="insight-card"><h3>On-screen Text</h3><p>${escapeHtml(video.stickers.join(" | "))}</p></div>` : ""}
       ${video.hashtags?.length ? `<div class="pill-row">${video.hashtags.map((tag) => `<span class="pill">#${escapeHtml(tag)}</span>`).join("")}</div>` : ""}
+      ${sourceUrl ? `<a href="${escapeHtml(sourceUrl)}" target="_blank" rel="noopener">Open source</a>` : ""}
       <div class="insight-card">
         <h3>Transcript</h3>
         ${currentTranscript ? `<button class="small-button transcript-action" type="button" data-view-transcript>View Transcript</button>` : "<p>No transcript loaded. Add context in notes if needed.</p>"}
@@ -690,6 +693,13 @@ function playSourcePreview(container) {
   });
 }
 
+function openSourceUrl(url) {
+  const sourceUrl = String(url || "").trim();
+  if (!sourceUrl) return false;
+  window.open(sourceUrl, "_blank", "noopener");
+  return true;
+}
+
 function pauseSourcePreview(container) {
   const video = container?.querySelector?.(".source-media-video");
   if (video) {
@@ -701,6 +711,13 @@ function pauseSourcePreview(container) {
 
 function toggleSourcePreview(container) {
   if (!container) return;
+  if (container.classList.contains("is-preview-failed")) {
+    if (openSourceUrl(container.dataset.sourceUrl)) return;
+  }
+  if (!container.classList.contains("has-video-preview")) {
+    openSourceUrl(container.dataset.sourceUrl);
+    return;
+  }
   if (container.classList.contains("is-previewing")) {
     pauseSourcePreview(container);
     return;
@@ -1071,7 +1088,7 @@ libraryList?.addEventListener("click", async (event) => {
 });
 
 sourceOutput?.addEventListener("click", (event) => {
-  const media = event.target.closest(".source-media.has-video-preview");
+  const media = event.target.closest(".source-media.has-video-preview, .source-media.has-source-link");
   if (media) {
     toggleSourcePreview(media);
     return;
@@ -1080,6 +1097,14 @@ sourceOutput?.addEventListener("click", (event) => {
   const button = event.target.closest("[data-view-transcript]");
   if (!button) return;
   showTranscriptModal();
+});
+
+sourceOutput?.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter" && event.key !== " ") return;
+  const media = event.target.closest?.(".source-media.has-video-preview, .source-media.has-source-link");
+  if (!media) return;
+  event.preventDefault();
+  toggleSourcePreview(media);
 });
 
 sourceOutput?.addEventListener("error", (event) => {
