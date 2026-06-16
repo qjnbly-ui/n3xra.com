@@ -688,6 +688,16 @@ button:hover {
   content: "Playing";
 }
 
+@media (hover: none) {
+  .source-media.has-video-preview::after {
+    content: "Tap to play";
+  }
+
+  .source-media.is-previewing::after {
+    content: "Playing";
+  }
+}
+
 .source-details {
   display: grid;
   gap: 12px;

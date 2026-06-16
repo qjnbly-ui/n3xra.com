@@ -635,6 +635,44 @@ function formatNumber(value) {
   return String(number);
 }
 
+function buildTikTokPlayerUrl(videoId, autoplay = false) {
+  const id = String(videoId || "").trim();
+  if (!id) return "";
+  const url = new URL(`https://www.tiktok.com/player/v1/${id}`);
+  url.searchParams.set("controls", "1");
+  url.searchParams.set("progress_bar", "1");
+  url.searchParams.set("play_button", "1");
+  url.searchParams.set("volume_control", "1");
+  url.searchParams.set("fullscreen_button", "1");
+  url.searchParams.set("timestamp", "0");
+  url.searchParams.set("loop", "1");
+  url.searchParams.set("autoplay", autoplay ? "1" : "0");
+  url.searchParams.set("muted", "1");
+  url.searchParams.set("music_info", "0");
+  url.searchParams.set("description", "0");
+  url.searchParams.set("rel", "0");
+  return url.toString();
+}
+
+function normalizeTikTokPlayerUrl(value, videoId, autoplay = false) {
+  const fallback = buildTikTokPlayerUrl(videoId, autoplay);
+  const raw = String(value || fallback || "").trim();
+  if (!raw) return "";
+  try {
+    const url = new URL(raw);
+    url.searchParams.set("controls", "1");
+    url.searchParams.set("progress_bar", "1");
+    url.searchParams.set("play_button", "1");
+    url.searchParams.set("volume_control", "1");
+    url.searchParams.set("fullscreen_button", "1");
+    url.searchParams.set("autoplay", autoplay ? "1" : "0");
+    url.searchParams.set("muted", "1");
+    return url.toString();
+  } catch (_error) {
+    return fallback;
+  }
+}
+
 function renderSource(video) {
   if (!video) {
     currentTranscript = "";
@@ -647,7 +685,8 @@ function renderSource(video) {
 
   const image = video.coverUrl || video.dynamicCoverUrl || "";
   const playUrl = video.playUrl || video.videoUrl || "";
-  const embedUrl = video.embedUrl || (video.videoId ? `https://www.tiktok.com/player/v1/${encodeURIComponent(video.videoId)}?controls=0&progress_bar=0&play_button=0&volume_control=0&fullscreen_button=0&timestamp=0&loop=1&autoplay=0&muted=1&music_info=0&description=0&rel=0` : "");
+  const embedUrl = normalizeTikTokPlayerUrl(video.embedUrl, video.videoId, false);
+  const autoplayEmbedUrl = normalizeTikTokPlayerUrl(video.embedUrl, video.videoId, true);
   const stats = video.stats || {};
   currentTranscript = String(video.transcript || "").trim();
   currentTranscriptBreakdown = null;
@@ -655,7 +694,7 @@ function renderSource(video) {
   sourceOutput.innerHTML = `
     <div class="source-media${embedUrl || playUrl ? " has-video-preview" : ""}" ${embedUrl || playUrl ? 'tabindex="0" aria-label="Hover or focus to preview video"' : ""}>
       ${image ? `<img src="${escapeHtml(image)}" alt="TikTok cover image">` : ""}
-      ${embedUrl ? `<iframe class="source-media-embed" data-src="${escapeHtml(embedUrl.replace("autoplay=0", "autoplay=1"))}" title="TikTok video preview" allow="autoplay; encrypted-media; picture-in-picture" loading="lazy"></iframe>` : ""}
+      ${embedUrl ? `<iframe class="source-media-embed" data-src="${escapeHtml(autoplayEmbedUrl)}" title="TikTok video preview" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen loading="lazy"></iframe>` : ""}
       ${playUrl ? `<video class="source-media-video" src="${escapeHtml(playUrl)}" poster="${escapeHtml(image)}" muted loop playsinline preload="none"></video>` : ""}
     </div>
     <div class="source-details">
@@ -714,6 +753,15 @@ function pauseSourcePreview(container) {
   video.pause();
   video.currentTime = 0;
   container.classList.remove("is-previewing");
+}
+
+function toggleSourcePreview(container) {
+  if (!container) return;
+  if (container.classList.contains("is-previewing")) {
+    pauseSourcePreview(container);
+    return;
+  }
+  playSourcePreview(container);
 }
 
 async function fetchSourceVideo(url) {
@@ -1081,12 +1129,7 @@ libraryList?.addEventListener("click", async (event) => {
 sourceOutput?.addEventListener("click", (event) => {
   const media = event.target.closest(".source-media.has-video-preview");
   if (media) {
-    const video = media.querySelector(".source-media-video");
-    if (video?.paused) {
-      playSourcePreview(media);
-    } else {
-      pauseSourcePreview(media);
-    }
+    toggleSourcePreview(media);
     return;
   }
 
@@ -1096,11 +1139,13 @@ sourceOutput?.addEventListener("click", (event) => {
 });
 
 sourceOutput?.addEventListener("pointerenter", (event) => {
+  if (event.pointerType === "touch") return;
   const media = event.target.closest?.(".source-media.has-video-preview");
   if (media) playSourcePreview(media);
 }, true);
 
 sourceOutput?.addEventListener("pointerleave", (event) => {
+  if (event.pointerType === "touch") return;
   const media = event.target.closest?.(".source-media.has-video-preview");
   if (media) pauseSourcePreview(media);
 }, true);
