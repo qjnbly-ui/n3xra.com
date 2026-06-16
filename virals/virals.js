@@ -648,13 +648,14 @@ function renderSource(video) {
   const image = video.coverUrl || video.dynamicCoverUrl || "";
   const playUrl = video.playUrl || video.videoUrl || "";
   const sourceUrl = buildOpenSourceUrl(video);
+  const embedUrl = buildTikTokPlayerUrl(video.embedUrl, video.videoId || video.externalVideoId);
   const stats = video.stats || {};
-  const mediaLabel = playUrl ? "Hover, focus, or tap to preview video" : "Open TikTok source";
+  const mediaLabel = embedUrl ? "Play TikTok video on page" : playUrl ? "Hover, focus, or tap to preview video" : "Open TikTok source";
   currentTranscript = String(video.transcript || "").trim();
   currentTranscriptBreakdown = null;
   sourceOutput.className = "source-card";
   sourceOutput.innerHTML = `
-    <div class="source-media${playUrl ? " has-video-preview" : ""}${sourceUrl ? " has-source-link" : ""}" ${sourceUrl ? `data-source-url="${escapeHtml(sourceUrl)}"` : ""} ${playUrl || sourceUrl ? `tabindex="0" aria-label="${escapeHtml(mediaLabel)}"` : ""}>
+    <div class="source-media${playUrl ? " has-video-preview" : ""}${embedUrl ? " has-embed-preview" : ""}${sourceUrl ? " has-source-link" : ""}" ${sourceUrl ? `data-source-url="${escapeHtml(sourceUrl)}"` : ""} ${embedUrl ? `data-embed-url="${escapeHtml(embedUrl)}"` : ""} ${playUrl || embedUrl || sourceUrl ? `tabindex="0" aria-label="${escapeHtml(mediaLabel)}"` : ""}>
       ${image ? `<img src="${escapeHtml(image)}" alt="TikTok cover image">` : ""}
       ${playUrl ? `<video class="source-media-video" src="${escapeHtml(playUrl)}" poster="${escapeHtml(image)}" muted loop playsinline controls preload="metadata"></video>` : ""}
     </div>
@@ -672,6 +673,7 @@ function renderSource(video) {
       </div>
       ${video.stickers?.length ? `<div class="insight-card"><h3>On-screen Text</h3><p>${escapeHtml(video.stickers.join(" | "))}</p></div>` : ""}
       ${video.hashtags?.length ? `<div class="pill-row">${video.hashtags.map((tag) => `<span class="pill">#${escapeHtml(tag)}</span>`).join("")}</div>` : ""}
+      ${embedUrl ? `<button class="small-button" type="button" data-play-source>Play on page</button>` : ""}
       ${sourceUrl ? `<a href="${escapeHtml(sourceUrl)}" target="_blank" rel="noopener">Open source</a>` : ""}
       <div class="insight-card">
         <h3>Transcript</h3>
@@ -684,6 +686,28 @@ function renderSource(video) {
 
 function cleanTikTokHandle(handle) {
   return String(handle || "").trim().replace(/^@+/, "");
+}
+
+function buildTikTokPlayerUrl(value, videoId) {
+  const raw = String(value || "").trim();
+  const id = String(videoId || "").trim();
+  const base = raw || (id ? `https://www.tiktok.com/player/v1/${encodeURIComponent(id)}` : "");
+  if (!base) return "";
+  try {
+    const url = new URL(base);
+    url.searchParams.set("controls", "1");
+    url.searchParams.set("progress_bar", "1");
+    url.searchParams.set("play_button", "1");
+    url.searchParams.set("volume_control", "1");
+    url.searchParams.set("fullscreen_button", "1");
+    url.searchParams.set("autoplay", "1");
+    url.searchParams.set("muted", "0");
+    url.searchParams.set("music_info", "0");
+    url.searchParams.set("description", "0");
+    return url.toString();
+  } catch (_error) {
+    return id ? `https://www.tiktok.com/player/v1/${encodeURIComponent(id)}?controls=1&autoplay=1` : "";
+  }
 }
 
 function buildOpenSourceUrl(video = {}) {
@@ -711,6 +735,25 @@ function playSourcePreview(container) {
   });
 }
 
+function loadEmbeddedPlayer(container) {
+  const embedUrl = String(container?.dataset?.embedUrl || "").trim();
+  if (!container || !embedUrl) return false;
+  pauseSourcePreview(container);
+  let iframe = container.querySelector(".source-media-embed");
+  if (!iframe) {
+    iframe = document.createElement("iframe");
+    iframe.className = "source-media-embed";
+    iframe.title = "TikTok video player";
+    iframe.allow = "fullscreen; autoplay; encrypted-media; picture-in-picture";
+    iframe.allowFullscreen = true;
+    container.appendChild(iframe);
+  }
+  if (!iframe.src) iframe.src = embedUrl;
+  container.classList.remove("is-preview-failed");
+  container.classList.add("is-embed-previewing");
+  return true;
+}
+
 function openSourceUrl(url) {
   const sourceUrl = normalizeOpenSourceUrl(url);
   if (!sourceUrl) return false;
@@ -724,11 +767,22 @@ function pauseSourcePreview(container) {
     video.pause();
     video.currentTime = 0;
   }
+  const iframe = container?.querySelector?.(".source-media-embed");
+  if (iframe?.src) iframe.contentWindow?.postMessage({ type: "pause", "x-tiktok-player": true }, "*");
   container.classList.remove("is-previewing");
 }
 
 function toggleSourcePreview(container) {
   if (!container) return;
+  if (container.classList.contains("is-embed-previewing")) {
+    const iframe = container.querySelector(".source-media-embed");
+    iframe?.contentWindow?.postMessage({ type: "pause", "x-tiktok-player": true }, "*");
+    container.classList.remove("is-embed-previewing");
+    return;
+  }
+  if (container.classList.contains("has-embed-preview")) {
+    if (loadEmbeddedPlayer(container)) return;
+  }
   if (container.classList.contains("is-preview-failed")) {
     if (openSourceUrl(container.dataset.sourceUrl)) return;
   }
@@ -1106,7 +1160,14 @@ libraryList?.addEventListener("click", async (event) => {
 });
 
 sourceOutput?.addEventListener("click", (event) => {
-  const media = event.target.closest(".source-media.has-video-preview, .source-media.has-source-link");
+  const playButton = event.target.closest("[data-play-source]");
+  if (playButton) {
+    const media = sourceOutput.querySelector(".source-media.has-embed-preview");
+    if (media) loadEmbeddedPlayer(media);
+    return;
+  }
+
+  const media = event.target.closest(".source-media.has-video-preview, .source-media.has-embed-preview, .source-media.has-source-link");
   if (media) {
     toggleSourcePreview(media);
     return;
@@ -1119,7 +1180,7 @@ sourceOutput?.addEventListener("click", (event) => {
 
 sourceOutput?.addEventListener("keydown", (event) => {
   if (event.key !== "Enter" && event.key !== " ") return;
-  const media = event.target.closest?.(".source-media.has-video-preview, .source-media.has-source-link");
+  const media = event.target.closest?.(".source-media.has-video-preview, .source-media.has-embed-preview, .source-media.has-source-link");
   if (!media) return;
   event.preventDefault();
   toggleSourcePreview(media);

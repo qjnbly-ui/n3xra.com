@@ -639,7 +639,8 @@ button:hover {
 }
 
 .source-media img,
-.source-media video {
+.source-media video,
+.source-media iframe {
   width: 100%;
   height: 100%;
   min-height: 320px;
@@ -647,7 +648,8 @@ button:hover {
   display: block;
 }
 
-.source-media video {
+.source-media video,
+.source-media iframe {
   position: absolute;
   inset: 0;
   border: 0;
@@ -656,11 +658,13 @@ button:hover {
 }
 
 .source-media.has-video-preview,
+.source-media.has-embed-preview,
 .source-media.has-source-link {
   cursor: pointer;
 }
 
 .source-media.has-video-preview::after,
+.source-media.has-embed-preview::after,
 .source-media.has-source-link::after {
   content: "Preview";
   position: absolute;
@@ -679,15 +683,24 @@ button:hover {
   pointer-events: none;
 }
 
-.source-media.has-source-link:not(.has-video-preview)::after {
+.source-media.has-embed-preview::after {
+  content: "Play";
+}
+
+.source-media.has-source-link:not(.has-video-preview):not(.has-embed-preview)::after {
   content: "Open source";
 }
 
-.source-media.is-previewing video {
+.source-media.is-previewing video,
+.source-media.is-embed-previewing iframe {
   opacity: 1;
 }
 
 .source-media.is-previewing::after {
+  content: "Playing";
+}
+
+.source-media.is-embed-previewing::after {
   content: "Playing";
 }
 
@@ -697,6 +710,10 @@ button:hover {
 
 @media (hover: none) {
   .source-media.has-video-preview::after {
+    content: "Tap to play";
+  }
+
+  .source-media.has-embed-preview::after {
     content: "Tap to play";
   }
 
