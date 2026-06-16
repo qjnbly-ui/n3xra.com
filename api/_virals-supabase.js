@@ -306,7 +306,7 @@ function normalizeSavedVideo(row = {}) {
     coverUrl: row.thumbnail_url || raw.coverUrl || raw.dynamicCoverUrl || "",
     dynamicCoverUrl: raw.dynamicCoverUrl || row.thumbnail_url || "",
     playUrl: raw.playUrl || raw.videoUrl || raw.playAddr || "",
-    embedUrl: raw.embedUrl || (videoId ? `https://www.tiktok.com/player/v1/${encodeURIComponent(videoId)}?controls=1&progress_bar=1&play_button=1&volume_control=1&fullscreen_button=1&timestamp=0&loop=1&autoplay=0&muted=1&music_info=0&description=0&rel=0` : ""),
+    embedUrl: raw.embedUrl || (videoId ? `https://www.tiktok.com/player/v1/${encodeURIComponent(videoId)}?controls=1&progress_bar=1&play_button=1&volume_control=1&fullscreen_button=1&timestamp=0&loop=1&autoplay=1&muted=0&music_info=0&description=0&rel=0` : ""),
     durationSeconds: row.duration_seconds || raw.durationSeconds || 0,
     stats: row.metrics || raw.stats || {},
     stickers: Array.isArray(raw.stickers) ? raw.stickers : [],

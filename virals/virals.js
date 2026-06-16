@@ -703,7 +703,9 @@ function buildTikTokPlayerUrl(value, videoId) {
     url.searchParams.set("description", "0");
     return url.toString();
   } catch (_error) {
-    return id ? `https://www.tiktok.com/player/v1/${encodeURIComponent(id)}?controls=1&autoplay=1` : "";
+    return id
+      ? `https://www.tiktok.com/player/v1/${encodeURIComponent(id)}?controls=1&progress_bar=1&play_button=1&volume_control=1&fullscreen_button=1&autoplay=1&muted=0&music_info=0&description=0&rel=0`
+      : "";
   }
 }
 
@@ -732,6 +734,22 @@ function playSourcePreview(container) {
   });
 }
 
+function postTikTokPlayerMessage(iframe, type) {
+  iframe?.contentWindow?.postMessage({ type, "x-tiktok-player": true }, "*");
+}
+
+function primeTikTokPlayer(iframe) {
+  postTikTokPlayerMessage(iframe, "unMute");
+  postTikTokPlayerMessage(iframe, "play");
+}
+
+window.addEventListener("message", (event) => {
+  if (event.data?.["x-tiktok-player"] !== true || event.data?.type !== "onPlayerReady") return;
+  document.querySelectorAll(".source-media-embed").forEach((iframe) => {
+    if (iframe.contentWindow === event.source) primeTikTokPlayer(iframe);
+  });
+});
+
 function loadEmbeddedPlayer(container) {
   const embedUrl = String(container?.dataset?.embedUrl || "").trim();
   if (!container || !embedUrl) return false;
@@ -743,18 +761,13 @@ function loadEmbeddedPlayer(container) {
     iframe.title = "TikTok video player";
     iframe.allow = "fullscreen; autoplay; encrypted-media; picture-in-picture";
     iframe.allowFullscreen = true;
+    iframe.addEventListener("load", () => primeTikTokPlayer(iframe), { once: true });
     container.appendChild(iframe);
   }
   if (!iframe.src) iframe.src = embedUrl;
+  setTimeout(() => primeTikTokPlayer(iframe), 450);
   container.classList.remove("is-preview-failed");
   container.classList.add("is-embed-previewing");
-  return true;
-}
-
-function openSourceUrl(url) {
-  const sourceUrl = normalizeOpenSourceUrl(url);
-  if (!sourceUrl) return false;
-  window.open(sourceUrl, "_blank", "noopener");
   return true;
 }
 
@@ -765,7 +778,7 @@ function pauseSourcePreview(container) {
     video.currentTime = 0;
   }
   const iframe = container?.querySelector?.(".source-media-embed");
-  if (iframe?.src) iframe.contentWindow?.postMessage({ type: "pause", "x-tiktok-player": true }, "*");
+  if (iframe?.src) postTikTokPlayerMessage(iframe, "pause");
   container.classList.remove("is-previewing");
 }
 
@@ -773,7 +786,7 @@ function toggleSourcePreview(container) {
   if (!container) return;
   if (container.classList.contains("is-embed-previewing")) {
     const iframe = container.querySelector(".source-media-embed");
-    iframe?.contentWindow?.postMessage({ type: "pause", "x-tiktok-player": true }, "*");
+    postTikTokPlayerMessage(iframe, "pause");
     container.classList.remove("is-embed-previewing");
     return;
   }
