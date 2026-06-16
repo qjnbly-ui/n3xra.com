@@ -1164,6 +1164,95 @@ button:hover {
   white-space: pre-wrap;
 }
 
+.virals-decision-preview-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: grid;
+  place-items: center;
+  padding: clamp(16px, 4vw, 32px);
+  background: rgba(0, 0, 0, 0.68);
+  backdrop-filter: blur(14px);
+}
+
+.virals-decision-preview-modal.is-hidden {
+  display: none;
+}
+
+.virals-decision-preview-card {
+  position: relative;
+  width: min(760px, 100%);
+  max-height: min(88vh, 860px);
+  display: grid;
+  gap: 14px;
+  overflow: auto;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  padding: clamp(20px, 4vw, 32px);
+  background:
+    linear-gradient(150deg, rgba(24, 200, 255, 0.12), rgba(255, 61, 143, 0.07) 48%, rgba(32, 224, 161, 0.08)),
+    rgba(7, 12, 18, 0.98);
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.5);
+}
+
+.virals-decision-preview-card h2 {
+  margin: 0;
+  padding-right: 76px;
+  font-size: clamp(1.6rem, 4vw, 2.4rem);
+  line-height: 1;
+}
+
+.virals-decision-preview-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  min-height: 38px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--ink);
+  font-weight: 900;
+}
+
+.virals-decision-preview-meta {
+  display: grid;
+  gap: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.virals-decision-preview-meta span {
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.virals-decision-preview-meta strong {
+  overflow-wrap: anywhere;
+}
+
+#virals-decision-preview-frame {
+  width: 100%;
+  min-height: 420px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+#virals-decision-preview-text {
+  max-height: 180px;
+  overflow: auto;
+  margin: 0;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.32);
+  color: rgba(255, 255, 255, 0.78);
+  white-space: pre-wrap;
+}
+
 .transcript-card {
   position: relative;
   width: min(780px, 100%);

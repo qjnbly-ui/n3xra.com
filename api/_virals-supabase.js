@@ -327,7 +327,7 @@ function normalizeCreatorApplication(row = {}, stats = {}) {
 async function getPromoCodeStatus(code) {
   const normalized = normalizePromoCode(code);
   if (!normalized) return { code: "", available: false, reason: "invalid" };
-  const rows = await fetchJson(tableUrl("virals_creator_applications", `?select=id,status,user_id&normalized_code=eq.${encodeFilter(normalized)}&limit=1`), {
+  const rows = await fetchJson(tableUrl("virals_creator_applications", `?select=id,status,user_id&normalized_code=eq.${encodeFilter(normalized)}&status=neq.rejected&limit=1`), {
     headers: serviceHeaders(),
   }).catch(() => []);
   const existing = firstRow(rows);

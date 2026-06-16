@@ -15,6 +15,7 @@ let accountStatus = document.getElementById("virals-account-status");
 let accountBillingPanel = null;
 let creatorPanel = null;
 let adminPanel = null;
+let pendingAdminDecision = null;
 const mobileDockItems = [
   { href: "/virals/", label: "Analyze", icon: "analyze" },
   { href: "/virals/most-searched-videos/", label: "Most Searched", icon: "search" },
@@ -185,7 +186,7 @@ function renderBillingPlans(state) {
 
 function renderCreatorPanel(state) {
   const creator = state?.creator;
-  if (creator) {
+  if (creator && creator.status !== "rejected") {
     const pending = formatMoney(creator.stats?.pendingCommission || 0);
     const paid = formatMoney(creator.stats?.paidCommission || 0);
     creatorPanel.innerHTML = `
@@ -213,6 +214,7 @@ function renderCreatorPanel(state) {
         <span class="panel-kicker">Creator Program</span>
         <strong>Apply to promote N3XRA Virals</strong>
       </summary>
+      ${creator?.status === "rejected" ? `<p>Your previous creator application was not approved. You can apply again if your creator positioning, audience, or content has changed.</p>` : ""}
       <p>Founding Creator spots earn 30% recurring commission, standard creators earn 20%. Customer codes give 10% off for the first 3 months.</p>
       <form id="virals-creator-application-form" class="virals-creator-form">
         <label>TikTok username <input name="tiktokUsername" autocomplete="off" placeholder="@yourhandle" required></label>
@@ -403,6 +405,57 @@ function renderAdminApplications(applications = []) {
   }).join("");
 }
 
+function ensureDecisionPreviewModal() {
+  let modal = document.getElementById("virals-decision-preview-modal");
+  if (modal) return modal;
+  modal = document.createElement("div");
+  modal.id = "virals-decision-preview-modal";
+  modal.className = "virals-decision-preview-modal is-hidden";
+  modal.hidden = true;
+  modal.innerHTML = `
+    <section class="virals-decision-preview-card" role="dialog" aria-modal="true" aria-labelledby="virals-decision-preview-title">
+      <button class="virals-decision-preview-close" type="button" data-virals-preview-cancel aria-label="Cancel decision email">Close</button>
+      <p class="panel-kicker">Decision Email</p>
+      <h2 id="virals-decision-preview-title">Confirm and Send</h2>
+      <div class="virals-decision-preview-meta">
+        <span id="virals-decision-preview-to"></span>
+        <strong id="virals-decision-preview-subject"></strong>
+      </div>
+      <iframe id="virals-decision-preview-frame" title="Decision email preview" sandbox=""></iframe>
+      <pre id="virals-decision-preview-text"></pre>
+      <div class="virals-account-actions">
+        <button class="virals-access-secondary" type="button" data-virals-preview-confirm>Confirm and Send</button>
+        <button class="virals-access-secondary" type="button" data-virals-preview-cancel>Cancel</button>
+      </div>
+    </section>
+  `;
+  document.body.appendChild(modal);
+  return modal;
+}
+
+function hideDecisionPreviewModal() {
+  const modal = document.getElementById("virals-decision-preview-modal");
+  pendingAdminDecision = null;
+  modal?.classList.add("is-hidden");
+  if (modal) modal.hidden = true;
+}
+
+function showDecisionPreviewModal(email, decision) {
+  const modal = ensureDecisionPreviewModal();
+  const to = document.getElementById("virals-decision-preview-to");
+  const subject = document.getElementById("virals-decision-preview-subject");
+  const frame = document.getElementById("virals-decision-preview-frame");
+  const text = document.getElementById("virals-decision-preview-text");
+  pendingAdminDecision = decision;
+  if (to) to.textContent = `To: ${(email.to || []).join(", ") || "No recipient"}`;
+  if (subject) subject.textContent = email.subject || "No subject";
+  if (frame) frame.srcdoc = email.html || "";
+  if (text) text.textContent = email.text || "";
+  modal.classList.remove("is-hidden");
+  modal.hidden = false;
+  modal.querySelector("[data-virals-preview-confirm]")?.focus();
+}
+
 async function loadAdminApplications() {
   if (accountStatus) {
     accountStatus.textContent = "Loading creator applications...";
@@ -418,12 +471,45 @@ async function loadAdminApplications() {
 async function handleAdminAction(button, action) {
   const id = button.dataset.viralsAdminApprove || button.dataset.viralsAdminReject;
   const program = button.dataset.program || "standard";
+  if (!button.dataset.confirmed) {
+    if (accountStatus) {
+      accountStatus.textContent = "Loading decision email preview...";
+      accountStatus.className = "status";
+    }
+    const preview = await postJson("/api/virals-admin-creators", {
+      action: "preview",
+      decision: action,
+      id,
+      program,
+    });
+    showDecisionPreviewModal(preview.email || {}, { action, id, program });
+    if (accountStatus) accountStatus.textContent = "Review the decision email before sending.";
+    return;
+  }
   if (accountStatus) {
     accountStatus.textContent = `${action === "approve" ? "Approving" : "Rejecting"} creator...`;
     accountStatus.className = "status";
   }
-  await postJson("/api/virals-admin-creators", { action, id, program });
+  const payload = await postJson("/api/virals-admin-creators", { action, id, program });
   await loadAdminApplications();
+  if (accountStatus) {
+    accountStatus.textContent = payload.emailWarning
+      ? `Decision saved. Email warning: ${payload.emailWarning}`
+      : "Decision saved and email sent.";
+    accountStatus.className = payload.emailWarning ? "status error" : "status";
+  }
+}
+
+async function confirmAdminDecision() {
+  if (!pendingAdminDecision) return;
+  const { action, id, program } = pendingAdminDecision;
+  hideDecisionPreviewModal();
+  const button = document.createElement("button");
+  if (action === "approve") button.dataset.viralsAdminApprove = id;
+  if (action === "reject") button.dataset.viralsAdminReject = id;
+  button.dataset.program = program;
+  button.dataset.confirmed = "true";
+  await handleAdminAction(button, action);
 }
 
 async function handleAdminPayout(button) {
@@ -439,6 +525,21 @@ async function handleAdminPayout(button) {
 
 function bindAccountModal() {
   ensureAccountModal();
+  ensureDecisionPreviewModal();
+  document.getElementById("virals-decision-preview-modal")?.addEventListener("click", (event) => {
+    if (event.target?.id === "virals-decision-preview-modal" || event.target.closest?.("[data-virals-preview-cancel]")) {
+      hideDecisionPreviewModal();
+      return;
+    }
+    if (event.target.closest?.("[data-virals-preview-confirm]")) {
+      confirmAdminDecision().catch((error) => {
+        if (accountStatus) {
+          accountStatus.textContent = error.message || "Unable to confirm creator decision.";
+          accountStatus.className = "status error";
+        }
+      });
+    }
+  });
   accountModal?.addEventListener("click", (event) => {
     if (event.target === accountModal) {
       hideAccountModal();

@@ -17,6 +17,7 @@ const {
   stripeRequest,
 } = require("./_virals-billing");
 const { parseJson, sendJson } = require("./_virals-http");
+const { buildCreatorDecisionEmail, sendCreatorDecisionEmail } = require("./_virals-email");
 const { fetchTikTokProfile } = require("./_virals-tiktok");
 
 async function createStripePromoForApplication(application, programId) {
@@ -93,6 +94,14 @@ async function backfillCreatorProfiles(applications = []) {
   return enriched;
 }
 
+async function sendDecisionEmailWithWarning(application, action, programId) {
+  try {
+    return { email: await sendCreatorDecisionEmail(application, action, programId) };
+  } catch (error) {
+    return { emailWarning: error instanceof Error ? error.message : "Creator decision email failed to send." };
+  }
+}
+
 module.exports = async function handler(req, res) {
   if (!["GET", "POST"].includes(req.method)) {
     res.setHeader("Allow", "GET, POST");
@@ -116,6 +125,12 @@ module.exports = async function handler(req, res) {
     const action = String(payload.action || "").trim().toLowerCase();
     const application = await loadCreatorApplicationById(String(payload.id || ""));
     if (!application) return sendJson(res, 404, { error: "Creator application not found." });
+    const programId = String(payload.program || application.requested_program || "standard").trim().toLowerCase() === "founding" ? "founding" : "standard";
+
+    if (action === "preview") {
+      const decision = String(payload.decision || "").trim().toLowerCase() === "reject" ? "reject" : "approve";
+      return sendJson(res, 200, { email: buildCreatorDecisionEmail(application, decision, programId) });
+    }
 
     if (action === "reject") {
       const updated = await updateCreatorApplication(application.id, {
@@ -123,12 +138,12 @@ module.exports = async function handler(req, res) {
         rejected_at: new Date().toISOString(),
         admin_notes: String(payload.adminNotes || "").trim().slice(0, 4000) || null,
       });
-      return sendJson(res, 200, { application: updated });
+      const emailResult = await sendDecisionEmailWithWarning(updated, "reject", programId);
+      return sendJson(res, 200, { application: updated, ...emailResult });
     }
 
     if (action !== "approve") return sendJson(res, 400, { error: "action must be approve or reject." });
 
-    const programId = String(payload.program || application.requested_program || "standard").trim().toLowerCase() === "founding" ? "founding" : "standard";
     if (programId === "founding" && application.status !== "approved") {
       const foundingCount = await countApprovedFoundingCreators();
       if (foundingCount >= CREATOR_PROGRAMS.founding.maxApproved) {
@@ -152,7 +167,8 @@ module.exports = async function handler(req, res) {
       stripe_promotion_code_id: promo.promotionCodeId,
       stripe_connect_account_id: connectAccountId,
     });
-    return sendJson(res, 200, { application: updated });
+    const emailResult = await sendDecisionEmailWithWarning(updated, "approve", programId);
+    return sendJson(res, 200, { application: updated, ...emailResult });
   } catch (error) {
     return sendJson(res, error.status || 500, { error: error instanceof Error ? error.message : "Unable to manage creator applications." });
   }
