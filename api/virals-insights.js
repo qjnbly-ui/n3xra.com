@@ -35,12 +35,26 @@ async function fetchVideoPublishDates(videoIds) {
   return new Map(rows.map((row) => [row.id, row.published_at || null]));
 }
 
+function cleanTikTokHandle(handle) {
+  return String(handle || "").trim().replace(/^@+/, "");
+}
+
+function buildCanonicalTikTokUrl(handle, videoId, fallback = "") {
+  const cleanHandle = cleanTikTokHandle(handle);
+  const id = String(videoId || "").trim();
+  if (cleanHandle && id) return `https://www.tiktok.com/@${encodeURIComponent(cleanHandle)}/video/${encodeURIComponent(id)}`;
+  const raw = String(fallback || "").trim();
+  if (!raw) return "";
+  if (/^www\.tiktok\.com\//i.test(raw) || /^tiktok\.com\//i.test(raw)) return `https://${raw}`;
+  return raw;
+}
+
 function normalizeVideo(row, publishedAtByVideoId = new Map()) {
   const metrics = row.latest_metrics || {};
   return {
     title: row.title || "Untitled TikTok",
     creator: row.creator_handle ? `@${row.creator_handle}` : "Creator pending",
-    url: row.normalized_url || "",
+    url: buildCanonicalTikTokUrl(row.creator_handle, row.external_video_id, row.normalized_url),
     thumbnail: row.thumbnail_url || "",
     searches: Number(row.search_count || 0),
     analyses: Number(row.analysis_count || 0),
@@ -83,7 +97,7 @@ module.exports = async function handler(req, res) {
   if (type === "searched") {
     const rows = await fetchRows(
       "virals_video_search_stats",
-      `?select=normalized_url,title,creator_handle,thumbnail_url,search_count,analysis_count,last_seen_at,latest_video_id,latest_metrics,latest_framework&order=search_count.desc,last_seen_at.desc&limit=${limit}`
+      `?select=normalized_url,external_video_id,title,creator_handle,thumbnail_url,search_count,analysis_count,last_seen_at,latest_video_id,latest_metrics,latest_framework&order=search_count.desc,last_seen_at.desc&limit=${limit}`
     );
     const publishedAtByVideoId = await fetchVideoPublishDates(rows.map((row) => row.latest_video_id));
     return sendJson(res, 200, { type, rows: rows.map((row) => normalizeVideo(row, publishedAtByVideoId)), configured: true });

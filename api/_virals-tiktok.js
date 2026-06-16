@@ -11,6 +11,17 @@ function cleanTikTokUrl(url) {
   }
 }
 
+function cleanTikTokHandle(handle) {
+  return String(handle || "").trim().replace(/^@+/, "");
+}
+
+function buildCanonicalTikTokUrl(handle, videoId, fallback = "") {
+  const cleanHandle = cleanTikTokHandle(handle);
+  const id = String(videoId || "").trim();
+  if (cleanHandle && id) return `https://www.tiktok.com/@${encodeURIComponent(cleanHandle)}/video/${encodeURIComponent(id)}`;
+  return cleanTikTokUrl(fallback);
+}
+
 function extractUniversalData(html) {
   const match = String(html || "").match(
     /<script id="__UNIVERSAL_DATA_FOR_REHYDRATION__" type="application\/json">([\s\S]*?)<\/script>/
@@ -120,16 +131,19 @@ async function fetchTikTokTranscript(url) {
     }
   }
 
+  const videoId = String(item.id || "");
+  const authorHandle = cleanTikTokHandle(item.author?.uniqueId || oembed?.author_name || "");
+
   return {
-    url: cleanUrl || url,
-    videoId: String(item.id || ""),
+    url: buildCanonicalTikTokUrl(authorHandle, videoId, cleanUrl || url),
+    videoId,
     coverUrl: String(item.video?.cover || item.video?.originCover || item.video?.dynamicCover || oembed?.thumbnail_url || ""),
     dynamicCoverUrl: String(item.video?.dynamicCover || ""),
     playUrl: pickVideoPlayUrl(item.video),
     embedUrl: buildTikTokEmbedUrl(item.id),
     durationSeconds: Number(item.video?.duration || item.music?.duration || 0) || null,
     author: {
-      uniqueId: String(item.author?.uniqueId || oembed?.author_name || ""),
+      uniqueId: authorHandle,
       nickname: String(item.author?.nickname || oembed?.author_name || ""),
       followerCount: Number(item.authorStats?.followerCount || 0) || null,
     },

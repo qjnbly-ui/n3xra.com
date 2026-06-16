@@ -71,6 +71,20 @@ function normalizeUrl(value) {
   }
 }
 
+function cleanTikTokHandle(handle) {
+  return cleanString(handle, 180).replace(/^@+/, "");
+}
+
+function buildCanonicalTikTokUrl(handle, videoId, fallback = "") {
+  const cleanHandle = cleanTikTokHandle(handle);
+  const id = cleanString(videoId, 180);
+  if (cleanHandle && id) return `https://www.tiktok.com/@${encodeURIComponent(cleanHandle)}/video/${encodeURIComponent(id)}`;
+  const raw = cleanString(fallback, 900);
+  if (!raw) return "";
+  if (/^www\.tiktok\.com\//i.test(raw) || /^tiktok\.com\//i.test(raw)) return `https://${raw}`;
+  return raw;
+}
+
 function cleanUuid(value) {
   const raw = cleanString(value, 80);
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(raw) ? raw : null;
@@ -283,9 +297,10 @@ function normalizeSavedVideo(row = {}) {
   if (!row?.id) return null;
   const raw = row.raw_metadata && typeof row.raw_metadata === "object" ? row.raw_metadata : {};
   const videoId = row.external_video_id || raw.videoId || "";
+  const creatorHandle = row.creator_handle || raw.author?.uniqueId || "";
   return {
     id: row.id,
-    url: row.source_url || raw.url || "",
+    url: buildCanonicalTikTokUrl(creatorHandle, videoId, row.source_url || raw.url || ""),
     videoId,
     caption: row.description || row.title || raw.caption || "",
     coverUrl: row.thumbnail_url || raw.coverUrl || raw.dynamicCoverUrl || "",
@@ -299,7 +314,7 @@ function normalizeSavedVideo(row = {}) {
     transcript: raw.transcript || "",
     transcriptSource: raw.transcriptSource || "",
     author: {
-      uniqueId: row.creator_handle || raw.author?.uniqueId || "",
+      uniqueId: cleanTikTokHandle(creatorHandle),
       nickname: row.creator_name || raw.author?.nickname || "",
       followerCount: raw.author?.followerCount || null,
     },

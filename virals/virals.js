@@ -647,7 +647,7 @@ function renderSource(video) {
 
   const image = video.coverUrl || video.dynamicCoverUrl || "";
   const playUrl = video.playUrl || video.videoUrl || "";
-  const sourceUrl = video.url || video.sourceUrl || "";
+  const sourceUrl = buildOpenSourceUrl(video);
   const stats = video.stats || {};
   const mediaLabel = playUrl ? "Hover, focus, or tap to preview video" : "Open TikTok source";
   currentTranscript = String(video.transcript || "").trim();
@@ -682,6 +682,24 @@ function renderSource(video) {
   revealSingleResults();
 }
 
+function cleanTikTokHandle(handle) {
+  return String(handle || "").trim().replace(/^@+/, "");
+}
+
+function buildOpenSourceUrl(video = {}) {
+  const handle = cleanTikTokHandle(video.author?.uniqueId || video.creatorHandle || "");
+  const videoId = String(video.videoId || video.externalVideoId || "").trim();
+  if (handle && videoId) return `https://www.tiktok.com/@${encodeURIComponent(handle)}/video/${encodeURIComponent(videoId)}`;
+  return normalizeOpenSourceUrl(video.url || video.sourceUrl || "");
+}
+
+function normalizeOpenSourceUrl(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  if (/^www\.tiktok\.com\//i.test(raw) || /^tiktok\.com\//i.test(raw)) return `https://${raw}`;
+  return raw;
+}
+
 function playSourcePreview(container) {
   const video = container?.querySelector?.(".source-media-video");
   if (!video) return;
@@ -694,7 +712,7 @@ function playSourcePreview(container) {
 }
 
 function openSourceUrl(url) {
-  const sourceUrl = String(url || "").trim();
+  const sourceUrl = normalizeOpenSourceUrl(url);
   if (!sourceUrl) return false;
   window.open(sourceUrl, "_blank", "noopener");
   return true;
