@@ -1570,6 +1570,37 @@ button:hover {
   font-weight: 800;
 }
 
+.insight-meta-row,
+.insight-stat-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: center;
+}
+
+.insight-meta-row {
+  color: var(--muted);
+  font-weight: 900;
+}
+
+.insight-stat-row span {
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  border-radius: 999px;
+  padding: 6px 9px;
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.insight-stat-row strong {
+  color: #ffffff;
+}
+
+.insight-pill-row {
+  gap: 7px;
+}
+
 .insight-result-body a,
 .insight-cta {
   width: fit-content;
@@ -1754,6 +1785,93 @@ button:hover {
 
   .product-confidence {
     width: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  .compact-insights-layout {
+    padding-top: 8px;
+    padding-bottom: 92px;
+  }
+
+  .compact-insights-layout .insights-hero {
+    min-height: auto;
+    padding: 18px 14px 20px;
+  }
+
+  .compact-insights-layout .insights-hero h1 {
+    font-size: clamp(1.8rem, 9vw, 2.45rem);
+  }
+
+  .compact-insights-layout .insight-status {
+    padding: 6px 10px;
+    font-size: 0.75rem;
+  }
+
+  .insight-grid {
+    gap: 10px;
+  }
+
+  .insight-result-card {
+    grid-template-columns: 38px 92px minmax(0, 1fr);
+    gap: 10px;
+    align-items: start;
+    padding: 10px;
+  }
+
+  .insight-rank {
+    width: auto;
+    font-size: 1.05rem;
+    line-height: 1;
+  }
+
+  .insight-thumb {
+    width: 92px;
+    aspect-ratio: 9 / 14;
+  }
+
+  .insight-result-body {
+    gap: 7px;
+  }
+
+  .insight-result-heading {
+    display: grid;
+    gap: 7px;
+  }
+
+  .insight-result-heading h2 {
+    font-size: 1rem;
+    line-height: 1.12;
+  }
+
+  .insight-result-heading span {
+    width: fit-content;
+    padding: 5px 8px;
+    font-size: 0.72rem;
+  }
+
+  .insight-meta-row {
+    gap: 4px 8px;
+    font-size: 0.8rem;
+    line-height: 1.2;
+  }
+
+  .insight-stat-row {
+    gap: 5px;
+  }
+
+  .insight-stat-row span {
+    padding: 4px 7px;
+    font-size: 0.68rem;
+  }
+
+  .insight-pill-row .pill {
+    padding: 5px 7px;
+    font-size: 0.66rem;
+  }
+
+  .insight-result-body a {
+    font-size: 0.86rem;
   }
 }
 

@@ -25,6 +25,21 @@ function formatDate(value) {
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
 
+function formatShortDate(value) {
+  if (!value) return "New";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "New";
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+function metricValue(metrics = {}, keys = []) {
+  for (const key of keys) {
+    const value = Number(metrics[key] || 0);
+    if (Number.isFinite(value) && value > 0) return value;
+  }
+  return 0;
+}
+
 function renderEmpty() {
   if (!insightList) return;
   insightList.innerHTML = `
@@ -41,6 +56,7 @@ function renderRows(rows) {
   if (!insightList) return;
   insightList.innerHTML = rows.map((row, index) => {
     const rank = row.rank || index + 1;
+    const metrics = row.metrics || {};
     const primaryMetric = insightType === "searched"
       ? `${formatNumber(row.searches)} searches`
       : row.score
@@ -50,6 +66,11 @@ function renderRows(rows) {
       ? `${formatNumber(row.analyses)} analyses`
       : `Captured ${formatDate(row.capturedAt)}`;
     const framework = row.framework?.hookType || row.framework?.product || row.framework?.formula || "Framework pending";
+    const plays = metricValue(metrics, ["plays", "playCount", "views"]);
+    const likes = metricValue(metrics, ["likes", "diggCount"]);
+    const shares = metricValue(metrics, ["shares", "shareCount"]);
+    const hasMetrics = Boolean(plays || likes || shares);
+    const product = row.framework?.product || "";
     const media = row.thumbnail
       ? `<img src="${escapeHtml(row.thumbnail)}" alt="">`
       : `<div class="insight-thumb-fallback">N3XRA</div>`;
@@ -62,9 +83,20 @@ function renderRows(rows) {
             <h2>${escapeHtml(row.title)}</h2>
             <span>${escapeHtml(primaryMetric)}</span>
           </div>
-          <p>${escapeHtml(row.creator || "Creator pending")}</p>
-          <div class="pill-row">
+          <div class="insight-meta-row">
+            <span>${escapeHtml(row.creator || "Creator pending")}</span>
+            <span>${escapeHtml(formatShortDate(row.lastSeen || row.capturedAt))}</span>
+          </div>
+          ${hasMetrics ? `
+            <div class="insight-stat-row" aria-label="Video metrics">
+              ${plays ? `<span><strong>${escapeHtml(formatNumber(plays))}</strong> views</span>` : ""}
+              ${likes ? `<span><strong>${escapeHtml(formatNumber(likes))}</strong> likes</span>` : ""}
+              ${shares ? `<span><strong>${escapeHtml(formatNumber(shares))}</strong> shares</span>` : ""}
+            </div>
+          ` : ""}
+          <div class="pill-row insight-pill-row">
             <span class="pill">${escapeHtml(secondaryMetric)}</span>
+            ${product ? `<span class="pill">${escapeHtml(product)}</span>` : ""}
             <span class="pill">${escapeHtml(framework)}</span>
           </div>
           ${row.url ? `<a href="${escapeHtml(row.url)}" target="_blank" rel="noopener">Open source</a>` : ""}

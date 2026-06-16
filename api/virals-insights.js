@@ -26,6 +26,7 @@ async function fetchRows(table, query) {
 }
 
 function normalizeVideo(row) {
+  const metrics = row.latest_metrics || {};
   return {
     title: row.title || "Untitled TikTok",
     creator: row.creator_handle ? `@${row.creator_handle}` : "Creator pending",
@@ -35,7 +36,7 @@ function normalizeVideo(row) {
     analyses: Number(row.analysis_count || 0),
     lastSeen: row.last_seen_at || null,
     framework: row.latest_framework || {},
-    metrics: row.latest_metrics || {},
+    metrics,
   };
 }
 
