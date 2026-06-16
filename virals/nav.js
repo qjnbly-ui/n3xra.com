@@ -414,13 +414,14 @@ async function handleConnectOnboarding() {
 function renderAdminApplications(applications = []) {
   const container = document.getElementById("virals-admin-applications");
   if (!container) return;
-  if (!applications.length) {
+  const pendingApplications = applications.filter((application) => application.status === "pending");
+  if (!pendingApplications.length) {
     container.innerHTML = `<p class="status">No creator applications yet.</p>`;
     return;
   }
   const founding = getFoundingProgram();
   container.innerHTML = `
-    ${applications.map((application) => {
+    ${pendingApplications.map((application) => {
     const profile = application.aiEvaluation?.profile || {};
     const foundingUnavailable = founding.remaining <= 0 && application.approvedProgram !== "founding";
     return `
@@ -511,7 +512,7 @@ async function loadAdminApplications() {
     accountStatus.textContent = "Loading creator applications...";
     accountStatus.className = "status";
   }
-  const response = await fetch("/api/virals-admin-creators", { headers: authHeaders() });
+  const response = await fetch("/api/virals-admin-creators?status=pending", { headers: authHeaders() });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload.error || "Unable to load applications.");
   renderAdminApplications(payload.applications || []);
