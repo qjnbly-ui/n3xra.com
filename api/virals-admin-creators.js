@@ -12,6 +12,7 @@ const {
   CREATOR_PROGRAMS,
   CUSTOMER_PROMO_DISCOUNT_MONTHS,
   CUSTOMER_PROMO_DISCOUNT_PERCENT,
+  createViralsConnectAccount,
   normalizePromoCode,
   stripeRequest,
 } = require("./_virals-billing");
@@ -59,27 +60,11 @@ async function createStripePromoForApplication(application, programId) {
 
 async function createConnectAccount(application) {
   if (application.stripe_connect_account_id) return application.stripe_connect_account_id;
-  const account = await stripeRequest("/accounts", {
-    method: "POST",
-    idempotencyKey: `virals-connect-${application.id}`,
-    body: {
-      type: "express",
-      country: "US",
-      email: application.email || undefined,
-      business_type: "individual",
-      capabilities: {
-        transfers: {
-          requested: true,
-        },
-      },
-      metadata: {
-        app: "n3xra_virals",
-        creator_application_id: application.id,
-        user_id: application.user_id,
-      },
-    },
+  return createViralsConnectAccount({
+    id: application.id,
+    email: application.email,
+    userId: application.user_id,
   });
-  return account.id;
 }
 
 module.exports = async function handler(req, res) {

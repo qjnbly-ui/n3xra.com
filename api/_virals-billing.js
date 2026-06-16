@@ -1,7 +1,9 @@
 const crypto = require("crypto");
 
 const STRIPE_API_VERSION = "2026-02-25.clover";
+const STRIPE_CONNECT_API_VERSION = process.env.STRIPE_CONNECT_API_VERSION || "2026-05-27.preview";
 const STRIPE_API_BASE = "https://api.stripe.com/v1";
+const STRIPE_API_V2_BASE = "https://api.stripe.com/v2";
 const APP_ORIGIN = String(process.env.APP_ORIGIN || process.env.N3XRA_APP_ORIGIN || "https://n3xra.com").replace(/\/+$/, "");
 
 const VIRALS_PLANS = {
@@ -145,6 +147,114 @@ async function stripeRequest(path, { method = "GET", body = null, idempotencyKey
   return data;
 }
 
+async function stripeV2Request(path, { method = "GET", body = null, idempotencyKey = "" } = {}) {
+  const headers = {
+    Authorization: `Bearer ${requireStripeSecretKey()}`,
+    "Content-Type": "application/json",
+    "Stripe-Version": STRIPE_CONNECT_API_VERSION,
+  };
+  const options = { method, headers };
+  if (idempotencyKey) headers["Idempotency-Key"] = idempotencyKey;
+  if (body) options.body = JSON.stringify(body);
+
+  const response = await fetch(`${STRIPE_API_V2_BASE}${path}`, options);
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data?.error?.message || data?.message || `Stripe request failed with status ${response.status}.`);
+  }
+  return data;
+}
+
+async function createViralsConnectAccount({ id, email, userId }) {
+  try {
+    const account = await stripeV2Request("/core/accounts", {
+      method: "POST",
+      idempotencyKey: `virals-connect-v2-${id}`,
+      body: {
+        contact_email: email || undefined,
+        display_name: "N3XRA Virals Creator",
+        dashboard: "express",
+        identity: {
+          country: "US",
+          entity_type: "individual",
+        },
+        configuration: {
+          recipient: {
+            capabilities: {
+              stripe_balance: {
+                stripe_transfers: {
+                  requested: true,
+                },
+              },
+            },
+          },
+        },
+        metadata: {
+          app: "n3xra_virals",
+          creator_application_id: id,
+          user_id: userId,
+        },
+      },
+    });
+    return account.id;
+  } catch (error) {
+    console.warn("Stripe Accounts v2 creator account failed; falling back to v1 Express account.", error?.message || error);
+  }
+
+  const account = await stripeRequest("/accounts", {
+    method: "POST",
+    idempotencyKey: `virals-connect-v1-${id}`,
+    body: {
+      type: "express",
+      country: "US",
+      email: email || undefined,
+      business_type: "individual",
+      capabilities: {
+        transfers: {
+          requested: true,
+        },
+      },
+      metadata: {
+        app: "n3xra_virals",
+        creator_application_id: id,
+        user_id: userId,
+      },
+    },
+  });
+  return account.id;
+}
+
+async function createViralsConnectOnboardingLink({ accountId, origin }) {
+  try {
+    return await stripeV2Request("/core/account_links", {
+      method: "POST",
+      body: {
+        account: accountId,
+        refresh_url: `${origin}/virals/?connect=refresh`,
+        return_url: `${origin}/virals/?connect=return`,
+        use_case: {
+          type: "account_onboarding",
+          account_onboarding: {
+            configurations: ["recipient"],
+          },
+        },
+      },
+    });
+  } catch (error) {
+    console.warn("Stripe Accounts v2 onboarding link failed; falling back to v1 account link.", error?.message || error);
+  }
+
+  return stripeRequest("/account_links", {
+    method: "POST",
+    body: {
+      account: accountId,
+      refresh_url: `${origin}/virals/?connect=refresh`,
+      return_url: `${origin}/virals/?connect=return`,
+      type: "account_onboarding",
+    },
+  });
+}
+
 function verifyStripeWebhookSignature(rawBody, signatureHeader) {
   const secret = String(process.env.STRIPE_WEBHOOK_SECRET_VIRALS || process.env.STRIPE_WEBHOOK_SECRET || "").trim();
   if (!secret) throw new Error("Missing STRIPE_WEBHOOK_SECRET_VIRALS.");
@@ -204,6 +314,7 @@ module.exports = {
   CUSTOMER_PROMO_DISCOUNT_MONTHS,
   CUSTOMER_PROMO_DISCOUNT_PERCENT,
   STRIPE_API_VERSION,
+  STRIPE_CONNECT_API_VERSION,
   VIRALS_PLANS,
   getAccountStatus,
   getOrigin,
@@ -213,6 +324,9 @@ module.exports = {
   getSubscriptionPeriodStart,
   normalizePromoCode,
   requirePaidPlan,
+  createViralsConnectAccount,
+  createViralsConnectOnboardingLink,
   stripeRequest,
+  stripeV2Request,
   verifyStripeWebhookSignature,
 };
