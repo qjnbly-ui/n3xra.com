@@ -626,12 +626,14 @@ button:hover {
   display: grid;
   grid-template-columns: minmax(180px, 260px) 1fr;
   gap: 18px;
-  align-items: stretch;
+  align-items: start;
 }
 
 .source-media {
   position: relative;
-  min-height: 320px;
+  width: 100%;
+  max-width: 260px;
+  aspect-ratio: 9 / 16;
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 8px;
   overflow: hidden;
@@ -643,7 +645,6 @@ button:hover {
 .source-media iframe {
   width: 100%;
   height: 100%;
-  min-height: 320px;
   object-fit: cover;
   display: block;
 }
@@ -658,14 +659,12 @@ button:hover {
 }
 
 .source-media.has-video-preview,
-.source-media.has-embed-preview,
-.source-media.has-source-link {
+.source-media.has-embed-preview {
   cursor: pointer;
 }
 
 .source-media.has-video-preview::after,
-.source-media.has-embed-preview::after,
-.source-media.has-source-link::after {
+.source-media.has-embed-preview::after {
   content: "Preview";
   position: absolute;
   left: 12px;
@@ -687,10 +686,6 @@ button:hover {
   content: "Play";
 }
 
-.source-media.has-source-link:not(.has-video-preview):not(.has-embed-preview)::after {
-  content: "Open source";
-}
-
 .source-media.is-previewing video,
 .source-media.is-embed-previewing iframe {
   opacity: 1;
@@ -704,10 +699,6 @@ button:hover {
   content: "Playing";
 }
 
-.source-media.is-preview-failed::after {
-  content: "Open source";
-}
-
 @media (hover: none) {
   .source-media.has-video-preview::after {
     content: "Tap to play";
@@ -719,10 +710,6 @@ button:hover {
 
   .source-media.is-previewing::after {
     content: "Playing";
-  }
-
-  .source-media.is-preview-failed::after {
-    content: "Open source";
   }
 }
 
@@ -1539,6 +1526,7 @@ button:hover {
 }
 
 .insight-thumb {
+  position: relative;
   overflow: hidden;
   width: 116px;
   aspect-ratio: 9 / 14;
@@ -1547,11 +1535,55 @@ button:hover {
   background: rgba(255, 255, 255, 0.06);
 }
 
-.insight-thumb img {
+.insight-thumb img,
+.insight-thumb iframe {
   display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.insight-thumb iframe {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  opacity: 0;
+}
+
+.insight-thumb.has-embed-preview,
+.insight-thumb.has-source-link {
+  cursor: pointer;
+}
+
+.insight-thumb.has-embed-preview::after,
+.insight-thumb.has-source-link::after {
+  content: "Play";
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  z-index: 2;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 999px;
+  padding: 5px 8px;
+  background: rgba(0, 0, 0, 0.58);
+  color: #ffffff;
+  font-size: 0.62rem;
+  font-weight: 900;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
+.insight-thumb.has-source-link:not(.has-embed-preview)::after {
+  content: "Open";
+}
+
+.insight-thumb.is-embed-previewing iframe {
+  opacity: 1;
+}
+
+.insight-thumb.is-embed-previewing::after {
+  content: "Playing";
 }
 
 .insight-thumb-fallback {
@@ -1794,6 +1826,11 @@ button:hover {
     width: min(180px, 100%);
   }
 
+  .source-media {
+    width: min(240px, 100%);
+    justify-self: start;
+  }
+
   .insight-result-heading {
     display: grid;
   }
@@ -1856,6 +1893,10 @@ button:hover {
   .insight-thumb {
     width: 92px;
     aspect-ratio: 9 / 14;
+  }
+
+  .source-media {
+    width: min(230px, 100%);
   }
 
   .insight-result-body {

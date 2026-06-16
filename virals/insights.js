@@ -40,6 +40,60 @@ function metricValue(metrics = {}, keys = []) {
   return 0;
 }
 
+function normalizeOpenSourceUrl(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  if (/^www\.tiktok\.com\//i.test(raw) || /^tiktok\.com\//i.test(raw)) return `https://${raw}`;
+  return raw;
+}
+
+function buildTikTokPlayerUrl(value, videoId) {
+  const raw = String(value || "").trim();
+  const id = String(videoId || "").trim();
+  const base = raw || (id ? `https://www.tiktok.com/player/v1/${encodeURIComponent(id)}` : "");
+  if (!base) return "";
+  try {
+    const url = new URL(base);
+    url.searchParams.set("controls", "1");
+    url.searchParams.set("progress_bar", "1");
+    url.searchParams.set("play_button", "1");
+    url.searchParams.set("volume_control", "1");
+    url.searchParams.set("fullscreen_button", "1");
+    url.searchParams.set("autoplay", "1");
+    url.searchParams.set("muted", "0");
+    url.searchParams.set("music_info", "0");
+    url.searchParams.set("description", "0");
+    return url.toString();
+  } catch (_error) {
+    return id ? `https://www.tiktok.com/player/v1/${encodeURIComponent(id)}?controls=1&autoplay=1` : "";
+  }
+}
+
+function loadInsightPlayer(container) {
+  const embedUrl = String(container?.dataset?.embedUrl || "").trim();
+  if (!container || !embedUrl) return false;
+  if (container.classList.contains("is-embed-previewing")) return true;
+  let iframe = container.querySelector(".insight-thumb-embed");
+  if (!iframe) {
+    iframe = document.createElement("iframe");
+    iframe.className = "insight-thumb-embed";
+    iframe.title = "TikTok video player";
+    iframe.allow = "fullscreen; autoplay; encrypted-media; picture-in-picture";
+    iframe.allowFullscreen = true;
+    container.appendChild(iframe);
+  }
+  if (!iframe.src) iframe.src = embedUrl;
+  container.classList.add("is-embed-previewing");
+  return true;
+}
+
+function openSourceUrl(url) {
+  const sourceUrl = normalizeOpenSourceUrl(url);
+  if (!sourceUrl) return false;
+  window.open(sourceUrl, "_blank", "noopener");
+  return true;
+}
+
 function renderEmpty() {
   if (!insightList) return;
   insightList.innerHTML = `
@@ -72,13 +126,15 @@ function renderRows(rows) {
     const hasMetrics = Boolean(plays || likes || shares);
     const product = row.framework?.product || "";
     const publishedDate = formatShortDate(row.publishedAt);
+    const embedUrl = buildTikTokPlayerUrl(row.embedUrl, row.videoId);
+    const sourceUrl = normalizeOpenSourceUrl(row.url);
     const media = row.thumbnail
       ? `<img src="${escapeHtml(row.thumbnail)}" alt="">`
       : `<div class="insight-thumb-fallback">N3XRA</div>`;
     return `
       <article class="insight-result-card">
         <div class="insight-rank">#${rank}</div>
-        <div class="insight-thumb">${media}</div>
+        <div class="insight-thumb${embedUrl ? " has-embed-preview" : ""}${sourceUrl ? " has-source-link" : ""}" ${embedUrl ? `data-embed-url="${escapeHtml(embedUrl)}"` : ""} ${sourceUrl ? `data-source-url="${escapeHtml(sourceUrl)}"` : ""} ${embedUrl || sourceUrl ? 'tabindex="0" aria-label="Play TikTok video"' : ""}>${media}</div>
         <div class="insight-result-body">
           <div class="insight-result-heading">
             <h2>${escapeHtml(row.title)}</h2>
@@ -100,12 +156,28 @@ function renderRows(rows) {
             ${product ? `<span class="pill">${escapeHtml(product)}</span>` : ""}
             <span class="pill">${escapeHtml(framework)}</span>
           </div>
-          ${row.url ? `<a href="${escapeHtml(row.url)}" target="_blank" rel="noopener">Open source</a>` : ""}
+          ${sourceUrl ? `<a href="${escapeHtml(sourceUrl)}" target="_blank" rel="noopener">Open source</a>` : ""}
         </div>
       </article>
     `;
   }).join("");
 }
+
+insightList?.addEventListener("click", (event) => {
+  const thumb = event.target.closest?.(".insight-thumb.has-embed-preview, .insight-thumb.has-source-link");
+  if (!thumb) return;
+  if (thumb.classList.contains("has-embed-preview") && loadInsightPlayer(thumb)) return;
+  openSourceUrl(thumb.dataset.sourceUrl);
+});
+
+insightList?.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter" && event.key !== " ") return;
+  const thumb = event.target.closest?.(".insight-thumb.has-embed-preview, .insight-thumb.has-source-link");
+  if (!thumb) return;
+  event.preventDefault();
+  if (thumb.classList.contains("has-embed-preview") && loadInsightPlayer(thumb)) return;
+  openSourceUrl(thumb.dataset.sourceUrl);
+});
 
 async function loadInsights() {
   if (!insightList) return;

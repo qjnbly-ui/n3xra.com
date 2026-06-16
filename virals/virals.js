@@ -647,15 +647,14 @@ function renderSource(video) {
 
   const image = video.coverUrl || video.dynamicCoverUrl || "";
   const playUrl = video.playUrl || video.videoUrl || "";
-  const sourceUrl = buildOpenSourceUrl(video);
   const embedUrl = buildTikTokPlayerUrl(video.embedUrl, video.videoId || video.externalVideoId);
   const stats = video.stats || {};
-  const mediaLabel = embedUrl ? "Play TikTok video on page" : playUrl ? "Hover, focus, or tap to preview video" : "Open TikTok source";
+  const mediaLabel = embedUrl ? "Play TikTok video on page" : "Hover, focus, or tap to preview video";
   currentTranscript = String(video.transcript || "").trim();
   currentTranscriptBreakdown = null;
   sourceOutput.className = "source-card";
   sourceOutput.innerHTML = `
-    <div class="source-media${playUrl ? " has-video-preview" : ""}${embedUrl ? " has-embed-preview" : ""}${sourceUrl ? " has-source-link" : ""}" ${sourceUrl ? `data-source-url="${escapeHtml(sourceUrl)}"` : ""} ${embedUrl ? `data-embed-url="${escapeHtml(embedUrl)}"` : ""} ${playUrl || embedUrl || sourceUrl ? `tabindex="0" aria-label="${escapeHtml(mediaLabel)}"` : ""}>
+    <div class="source-media${playUrl ? " has-video-preview" : ""}${embedUrl ? " has-embed-preview" : ""}" ${embedUrl ? `data-embed-url="${escapeHtml(embedUrl)}"` : ""} ${playUrl || embedUrl ? `tabindex="0" aria-label="${escapeHtml(mediaLabel)}"` : ""}>
       ${image ? `<img src="${escapeHtml(image)}" alt="TikTok cover image">` : ""}
       ${playUrl ? `<video class="source-media-video" src="${escapeHtml(playUrl)}" poster="${escapeHtml(image)}" muted loop playsinline controls preload="metadata"></video>` : ""}
     </div>
@@ -673,8 +672,6 @@ function renderSource(video) {
       </div>
       ${video.stickers?.length ? `<div class="insight-card"><h3>On-screen Text</h3><p>${escapeHtml(video.stickers.join(" | "))}</p></div>` : ""}
       ${video.hashtags?.length ? `<div class="pill-row">${video.hashtags.map((tag) => `<span class="pill">#${escapeHtml(tag)}</span>`).join("")}</div>` : ""}
-      ${embedUrl ? `<button class="small-button" type="button" data-play-source>Play on page</button>` : ""}
-      ${sourceUrl ? `<a href="${escapeHtml(sourceUrl)}" target="_blank" rel="noopener">Open source</a>` : ""}
       <div class="insight-card">
         <h3>Transcript</h3>
         ${currentTranscript ? `<button class="small-button transcript-action" type="button" data-view-transcript>View Transcript</button>` : "<p>No transcript loaded. Add context in notes if needed.</p>"}
@@ -783,11 +780,7 @@ function toggleSourcePreview(container) {
   if (container.classList.contains("has-embed-preview")) {
     if (loadEmbeddedPlayer(container)) return;
   }
-  if (container.classList.contains("is-preview-failed")) {
-    if (openSourceUrl(container.dataset.sourceUrl)) return;
-  }
   if (!container.classList.contains("has-video-preview")) {
-    openSourceUrl(container.dataset.sourceUrl);
     return;
   }
   if (container.classList.contains("is-previewing")) {
@@ -1160,14 +1153,7 @@ libraryList?.addEventListener("click", async (event) => {
 });
 
 sourceOutput?.addEventListener("click", (event) => {
-  const playButton = event.target.closest("[data-play-source]");
-  if (playButton) {
-    const media = sourceOutput.querySelector(".source-media.has-embed-preview");
-    if (media) loadEmbeddedPlayer(media);
-    return;
-  }
-
-  const media = event.target.closest(".source-media.has-video-preview, .source-media.has-embed-preview, .source-media.has-source-link");
+  const media = event.target.closest(".source-media.has-video-preview, .source-media.has-embed-preview");
   if (media) {
     toggleSourcePreview(media);
     return;
@@ -1180,7 +1166,7 @@ sourceOutput?.addEventListener("click", (event) => {
 
 sourceOutput?.addEventListener("keydown", (event) => {
   if (event.key !== "Enter" && event.key !== " ") return;
-  const media = event.target.closest?.(".source-media.has-video-preview, .source-media.has-embed-preview, .source-media.has-source-link");
+  const media = event.target.closest?.(".source-media.has-video-preview, .source-media.has-embed-preview");
   if (!media) return;
   event.preventDefault();
   toggleSourcePreview(media);
