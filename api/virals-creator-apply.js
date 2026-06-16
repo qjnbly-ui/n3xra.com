@@ -1,19 +1,24 @@
 const { getBearerToken, hasViralsBusinessConfig, submitCreatorApplication, verifySupabaseUser } = require("./_virals-supabase");
 const { normalizePromoCode } = require("./_virals-billing");
 const { parseJson, sendJson } = require("./_virals-http");
+const { fetchTikTokProfile } = require("./_virals-tiktok");
 
 function normalizeArray(value) {
   return Array.isArray(value) ? value.map((item) => String(item || "").trim()).filter(Boolean).slice(0, 8) : [];
 }
 
 function fallbackEvaluation(payload) {
+  const profile = payload.profile || null;
   return {
     score: 50,
     recommendation: "manual_review",
-    summary: "AI evaluation was not available. Review the TikTok profile, audience fit, and code request manually.",
-    strengths: [],
+    summary: profile
+      ? `TikTok profile loaded for @${profile.handle}: ${profile.followerCount.toLocaleString()} followers, ${profile.likeCount.toLocaleString()} likes, ${profile.videoCount.toLocaleString()} videos. Review content fit manually.`
+      : "AI evaluation was not available. Review the TikTok profile, audience fit, and code request manually.",
+    strengths: profile ? [`Profile data loaded from TikTok for @${profile.handle}.`] : [],
     risks: ["No automated creator evaluation was completed."],
-    fit: "unknown",
+    fit: profile ? "profile_loaded_manual_review" : "unknown",
+    profile,
     generatedAt: new Date().toISOString(),
   };
 }
@@ -27,6 +32,7 @@ function normalizeEvaluation(value, payload) {
     strengths: normalizeArray(source.strengths),
     risks: normalizeArray(source.risks),
     fit: String(source.fit || "unknown").trim().slice(0, 80),
+    profile: payload.profile || null,
     generatedAt: new Date().toISOString(),
   };
 }
@@ -60,6 +66,19 @@ async function evaluateCreator(payload) {
               "Return JSON: { score, recommendation, summary, strengths: [], risks: [], fit }",
               "",
               `TikTok username: ${payload.tiktokUsername}`,
+              payload.profile
+                ? [
+                    `TikTok profile URL: ${payload.profile.profileUrl}`,
+                    `TikTok display name: ${payload.profile.displayName || "none"}`,
+                    `TikTok bio: ${payload.profile.bio || "none"}`,
+                    `Followers: ${payload.profile.followerCount}`,
+                    `Likes: ${payload.profile.likeCount}`,
+                    `Videos: ${payload.profile.videoCount}`,
+                    `Verified: ${payload.profile.verified ? "yes" : "no"}`,
+                    `Private account: ${payload.profile.privateAccount ? "yes" : "no"}`,
+                    `Commerce user/seller signal: ${payload.profile.commerceUser ? "yes" : "no"}`,
+                  ].join("\n")
+                : "TikTok profile: unavailable",
               `Requested promo code: ${normalizePromoCode(payload.requestedCode)}`,
               `Program interest: ${payload.requestedProgram}`,
               `Creator notes: ${payload.notes || "none"}`,
@@ -90,8 +109,10 @@ module.exports = async function handler(req, res) {
     const payload = await parseJson(req);
     if (!String(payload.tiktokUsername || "").trim()) return sendJson(res, 400, { error: "TikTok username is required." });
     if (!normalizePromoCode(payload.requestedCode)) return sendJson(res, 400, { error: "Promo code is required." });
-    const aiEvaluation = await evaluateCreator(payload);
-    const application = await submitCreatorApplication(user, payload, aiEvaluation);
+    const profile = await fetchTikTokProfile(payload.tiktokUsername).catch(() => null);
+    const enrichedPayload = { ...payload, profile };
+    const aiEvaluation = await evaluateCreator(enrichedPayload);
+    const application = await submitCreatorApplication(user, enrichedPayload, aiEvaluation);
     return sendJson(res, 200, { application });
   } catch (error) {
     return sendJson(res, error.status || 500, { error: error instanceof Error ? error.message : "Unable to submit creator application." });

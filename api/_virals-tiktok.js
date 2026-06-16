@@ -38,6 +38,10 @@ function getItemStruct(data) {
   return data?.__DEFAULT_SCOPE__?.["webapp.video-detail"]?.itemInfo?.itemStruct || null;
 }
 
+function getUserDetail(data) {
+  return data?.__DEFAULT_SCOPE__?.["webapp.user-detail"]?.userInfo || null;
+}
+
 function webvttToText(webvtt) {
   const seen = new Set();
   return String(webvtt || "")
@@ -109,6 +113,34 @@ async function fetchTikTokOembed(url) {
   return response.json().catch(() => null);
 }
 
+async function fetchTikTokProfile(handle) {
+  const cleanHandle = cleanTikTokHandle(handle);
+  if (!cleanHandle) throw new Error("TikTok username is required.");
+  const url = `https://www.tiktok.com/@${encodeURIComponent(cleanHandle)}`;
+  const html = await fetchTikTokPage(url);
+  const detail = getUserDetail(extractUniversalData(html));
+  const user = detail?.user || {};
+  const stats = detail?.stats || {};
+  const uniqueId = cleanTikTokHandle(user.uniqueId || cleanHandle);
+  if (!uniqueId) throw new Error("TikTok profile metadata was not found.");
+
+  return {
+    handle: uniqueId,
+    profileUrl: `https://www.tiktok.com/@${encodeURIComponent(uniqueId)}`,
+    displayName: String(user.nickname || ""),
+    bio: String(user.signature || ""),
+    avatarUrl: String(user.avatarMedium || user.avatarLarger || user.avatarThumb || ""),
+    verified: Boolean(user.verified),
+    privateAccount: Boolean(user.privateAccount || user.secret),
+    commerceUser: Boolean(user.commerceUserInfo?.commerceUser || user.ttSeller),
+    followerCount: Number(stats.followerCount || 0) || 0,
+    followingCount: Number(stats.followingCount || 0) || 0,
+    likeCount: Number(stats.heartCount || stats.heart || 0) || 0,
+    videoCount: Number(stats.videoCount || 0) || 0,
+    fetchedAt: new Date().toISOString(),
+  };
+}
+
 async function fetchTikTokTranscript(url) {
   const cleanUrl = cleanTikTokUrl(url);
   const [html, oembed] = await Promise.all([
@@ -172,6 +204,7 @@ async function fetchTikTokTranscript(url) {
 
 module.exports = {
   cleanTikTokUrl,
+  fetchTikTokProfile,
   fetchTikTokTranscript,
   webvttToText,
 };

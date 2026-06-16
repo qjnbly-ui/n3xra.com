@@ -17,6 +17,7 @@ const {
   stripeRequest,
 } = require("./_virals-billing");
 const { parseJson, sendJson } = require("./_virals-http");
+const { fetchTikTokProfile } = require("./_virals-tiktok");
 
 async function createStripePromoForApplication(application, programId) {
   const code = normalizePromoCode(application.normalized_code || application.requested_code);
@@ -67,6 +68,31 @@ async function createConnectAccount(application) {
   });
 }
 
+async function backfillCreatorProfiles(applications = []) {
+  const enriched = [];
+  for (const application of applications) {
+    if (application?.aiEvaluation?.profile || !application?.tiktokUsername) {
+      enriched.push(application);
+      continue;
+    }
+    try {
+      const profile = await fetchTikTokProfile(application.tiktokUsername);
+      const aiEvaluation = {
+        ...(application.aiEvaluation || {}),
+        profile,
+        summary:
+          application.aiEvaluation?.summary ||
+          `TikTok profile loaded for @${profile.handle}: ${Number(profile.followerCount || 0).toLocaleString()} followers, ${Number(profile.likeCount || 0).toLocaleString()} likes, ${Number(profile.videoCount || 0).toLocaleString()} videos. Review content fit manually.`,
+        fit: application.aiEvaluation?.fit || "profile_loaded_manual_review",
+      };
+      enriched.push(await updateCreatorApplication(application.id, { ai_evaluation: aiEvaluation }));
+    } catch {
+      enriched.push(application);
+    }
+  }
+  return enriched;
+}
+
 module.exports = async function handler(req, res) {
   if (!["GET", "POST"].includes(req.method)) {
     res.setHeader("Allow", "GET, POST");
@@ -83,7 +109,7 @@ module.exports = async function handler(req, res) {
     if (req.method === "GET") {
       const status = String(new URL(req.url, "http://localhost").searchParams.get("status") || "");
       const applications = await listCreatorApplications(user, status);
-      return sendJson(res, 200, { applications });
+      return sendJson(res, 200, { applications: await backfillCreatorProfiles(applications) });
     }
 
     const payload = await parseJson(req);

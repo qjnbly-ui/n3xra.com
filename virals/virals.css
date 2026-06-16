@@ -1113,14 +1113,55 @@ button:hover {
   color: #041016;
 }
 
-.virals-admin-application > div:first-child {
-  display: grid;
-  gap: 4px;
-}
-
 .virals-admin-application span {
   color: var(--muted);
   font-weight: 800;
+}
+
+.virals-admin-application-header {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.virals-admin-application-header > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.virals-admin-creator-avatar {
+  width: 52px;
+  height: 52px;
+  flex: 0 0 auto;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.virals-admin-profile-link {
+  color: var(--cyan);
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.virals-admin-profile-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.virals-admin-profile-stats span {
+  padding: 6px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.virals-admin-profile-bio {
+  color: rgba(255, 255, 255, 0.78);
+  white-space: pre-wrap;
 }
 
 .transcript-card {

@@ -370,12 +370,27 @@ function renderAdminApplications(applications = []) {
     container.innerHTML = `<p class="status">No creator applications yet.</p>`;
     return;
   }
-  container.innerHTML = applications.map((application) => `
+  container.innerHTML = applications.map((application) => {
+    const profile = application.aiEvaluation?.profile || {};
+    return `
     <article class="virals-admin-application">
-      <div>
-        <strong>@${escapeHtml(application.tiktokUsername)}</strong>
-        <span>${escapeHtml(application.status)} · ${escapeHtml(application.normalizedCode)} · ${escapeHtml(application.requestedProgram)}</span>
+      <div class="virals-admin-application-header">
+        ${profile.avatarUrl ? `<img class="virals-admin-creator-avatar" src="${escapeHtml(profile.avatarUrl)}" alt="">` : ""}
+        <div>
+          <strong>@${escapeHtml(application.tiktokUsername)}</strong>
+          <span>${escapeHtml(application.status)} · ${escapeHtml(application.normalizedCode)} · ${escapeHtml(application.requestedProgram)}</span>
+          ${profile.displayName ? `<span>${escapeHtml(profile.displayName)}</span>` : ""}
+        </div>
       </div>
+      ${profile.profileUrl ? `<a class="virals-admin-profile-link" href="${escapeHtml(profile.profileUrl)}" target="_blank" rel="noreferrer">Open TikTok profile</a>` : ""}
+      ${profile.fetchedAt ? `
+        <div class="virals-admin-profile-stats">
+          <span>${Number(profile.followerCount || 0).toLocaleString()} followers</span>
+          <span>${Number(profile.likeCount || 0).toLocaleString()} likes</span>
+          <span>${Number(profile.videoCount || 0).toLocaleString()} videos</span>
+        </div>
+      ` : ""}
+      ${profile.bio ? `<p class="virals-admin-profile-bio">${escapeHtml(profile.bio)}</p>` : ""}
       <p>${escapeHtml(application.aiEvaluation?.summary || "No AI summary.")}</p>
       <div class="virals-account-actions">
         <button type="button" data-virals-admin-approve="${escapeHtml(application.id)}" data-program="standard">Approve Standard</button>
@@ -384,7 +399,8 @@ function renderAdminApplications(applications = []) {
         ${application.status === "approved" ? `<button type="button" data-virals-admin-payout="${escapeHtml(application.id)}">Pay eligible ${escapeHtml(formatMoney(application.stats?.pendingCommission || 0))}</button>` : ""}
       </div>
     </article>
-  `).join("");
+  `;
+  }).join("");
 }
 
 async function loadAdminApplications() {
