@@ -40,6 +40,29 @@ function formatMoney(cents) {
   return amount.toLocaleString(undefined, { style: "currency", currency: "USD" });
 }
 
+function getFoundingProgram(state = accountState) {
+  const founding = state?.creatorProgram?.founding || {};
+  const limit = Number(founding.limit || 25);
+  const approved = Math.max(0, Number(founding.approved || 0));
+  const remaining = Math.max(0, Number.isFinite(Number(founding.remaining)) ? Number(founding.remaining) : limit - approved);
+  return { approved, limit, remaining };
+}
+
+function renderFoundingCountdown(state = accountState) {
+  const founding = getFoundingProgram(state);
+  const percent = founding.limit ? Math.min(100, Math.max(0, (founding.approved / founding.limit) * 100)) : 0;
+  return `
+    <div class="virals-founding-countdown" aria-label="Founding Creator spots">
+      <div>
+        <span>Founding Creator spots</span>
+        <strong>${founding.remaining} of ${founding.limit} left</strong>
+      </div>
+      <div class="virals-founding-meter" aria-hidden="true"><span style="width:${percent.toFixed(2)}%"></span></div>
+      <p>${founding.approved} approved so far. Founding creators earn 30% recurring commission.</p>
+    </div>
+  `;
+}
+
 function normalizePath(path) {
   if (!path) return "/";
   const clean = path.split("#")[0].split("?")[0];
@@ -197,6 +220,7 @@ function renderCreatorPanel(state) {
         </summary>
         <p>Status: <strong>${escapeHtml(creator.status)}</strong> · Code: <strong>${escapeHtml(creator.normalizedCode)}</strong></p>
         <p>${Number(creator.commissionRate * 100 || 0).toFixed(0)}% recurring commission. ${Number(creator.customerDiscountPercent || 0)}% customer discount for ${Number(creator.customerDiscountMonths || 0)} months.</p>
+        ${renderFoundingCountdown(state)}
         <div class="virals-account-grid">
           <article class="virals-account-stat"><span>Referrals</span><strong>${Number(creator.stats?.activeReferrals || 0)}</strong></article>
           <article class="virals-account-stat"><span>Pending</span><strong>${pending}</strong></article>
@@ -215,11 +239,12 @@ function renderCreatorPanel(state) {
         <strong>Apply to promote N3XRA Virals</strong>
       </summary>
       ${creator?.status === "rejected" ? `<p>Your previous creator application was not approved. You can apply again if your creator positioning, audience, or content has changed.</p>` : ""}
+      ${renderFoundingCountdown(state)}
       <p>Founding Creator spots earn 30% recurring commission, standard creators earn 20%. Customer codes give 10% off for the first 3 months.</p>
       <form id="virals-creator-application-form" class="virals-creator-form">
         <label>TikTok username <input name="tiktokUsername" autocomplete="off" placeholder="@yourhandle" required></label>
         <label>Requested promo code <input name="requestedCode" autocomplete="off" placeholder="YOURCODE" required></label>
-        <label>Program <select name="requestedProgram"><option value="standard">Standard Creator</option><option value="founding">Founding Creator</option></select></label>
+        <label>Program <select name="requestedProgram"><option value="standard">Standard Creator</option><option value="founding" ${getFoundingProgram(state).remaining <= 0 ? "disabled" : ""}>Founding Creator${getFoundingProgram(state).remaining <= 0 ? " - full" : ""}</option></select></label>
         <label>Audience notes <textarea name="notes" rows="4" placeholder="Tell us about your audience, niche, and how you would promote Virals."></textarea></label>
         <button type="submit">Submit Application</button>
       </form>
@@ -369,11 +394,15 @@ function renderAdminApplications(applications = []) {
   const container = document.getElementById("virals-admin-applications");
   if (!container) return;
   if (!applications.length) {
-    container.innerHTML = `<p class="status">No creator applications yet.</p>`;
+    container.innerHTML = `${renderFoundingCountdown()}<p class="status">No creator applications yet.</p>`;
     return;
   }
-  container.innerHTML = applications.map((application) => {
+  const founding = getFoundingProgram();
+  container.innerHTML = `
+    ${renderFoundingCountdown()}
+    ${applications.map((application) => {
     const profile = application.aiEvaluation?.profile || {};
+    const foundingUnavailable = founding.remaining <= 0 && application.approvedProgram !== "founding";
     return `
     <article class="virals-admin-application">
       <div class="virals-admin-application-header">
@@ -396,13 +425,14 @@ function renderAdminApplications(applications = []) {
       <p>${escapeHtml(application.aiEvaluation?.summary || "No AI summary.")}</p>
       <div class="virals-account-actions">
         <button type="button" data-virals-admin-approve="${escapeHtml(application.id)}" data-program="standard">Approve Standard</button>
-        <button type="button" data-virals-admin-approve="${escapeHtml(application.id)}" data-program="founding">Approve Founding</button>
+        <button type="button" data-virals-admin-approve="${escapeHtml(application.id)}" data-program="founding" ${foundingUnavailable ? "disabled" : ""}>${foundingUnavailable ? "Founding Full" : "Approve Founding"}</button>
         <button type="button" data-virals-admin-reject="${escapeHtml(application.id)}">Reject</button>
         ${application.status === "approved" ? `<button type="button" data-virals-admin-payout="${escapeHtml(application.id)}">Pay eligible ${escapeHtml(formatMoney(application.stats?.pendingCommission || 0))}</button>` : ""}
       </div>
     </article>
   `;
-  }).join("");
+    }).join("")}
+  `;
 }
 
 function ensureDecisionPreviewModal() {

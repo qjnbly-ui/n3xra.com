@@ -545,9 +545,18 @@ async function markCommissionsPaid(ids = [], transferId = "") {
 async function getViralsAccount(user) {
   const profile = normalizeViralsProfile(await ensureViralsProfileAndPeriod(user));
   const creator = await getLatestCreatorApplication(user.id);
+  const foundingLimit = CREATOR_PROGRAMS.founding.maxApproved;
+  const foundingApproved = await countApprovedFoundingCreators();
   return {
     profile,
     creator,
+    creatorProgram: {
+      founding: {
+        approved: foundingApproved,
+        limit: foundingLimit,
+        remaining: Math.max(0, foundingLimit - foundingApproved),
+      },
+    },
     isAdmin: await isViralsAdmin(user),
   };
 }
