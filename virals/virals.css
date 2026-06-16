@@ -850,8 +850,10 @@ button:hover {
   inset: 0;
   z-index: 86;
   display: grid;
-  place-items: center;
+  align-items: start;
+  justify-items: center;
   padding: 24px;
+  overflow-y: auto;
   background:
     linear-gradient(rgba(3, 8, 15, 0.82), rgba(3, 8, 15, 0.92)),
     radial-gradient(circle at 18% 18%, rgba(24, 200, 255, 0.2), transparent 36%),
@@ -863,6 +865,9 @@ button:hover {
 .virals-account-card {
   position: relative;
   width: min(920px, 100%);
+  max-height: calc(100dvh - 48px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   display: grid;
   gap: 18px;
   border: 1px solid rgba(255, 255, 255, 0.16);
@@ -1009,6 +1014,57 @@ button:hover {
 .virals-settings-panel h3,
 .virals-admin-application p {
   margin: 0;
+}
+
+.virals-settings-disclosure {
+  align-content: start;
+}
+
+.virals-settings-disclosure summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px 14px;
+  align-items: center;
+  cursor: pointer;
+  list-style: none;
+}
+
+.virals-settings-disclosure summary::-webkit-details-marker {
+  display: none;
+}
+
+.virals-settings-disclosure summary::after {
+  content: "+";
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(152, 233, 255, 0.3);
+  border-radius: 8px;
+  color: #98e9ff;
+  font-size: 1.35rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.virals-settings-disclosure[open] summary::after {
+  content: "-";
+}
+
+.virals-settings-disclosure summary .panel-kicker {
+  margin: 0;
+}
+
+.virals-settings-disclosure summary strong {
+  grid-column: 1;
+  display: block;
+  min-width: 0;
+  font-size: 1.1rem;
+  overflow-wrap: anywhere;
+}
+
+.virals-settings-disclosure > :not(summary) {
+  margin-top: 12px;
 }
 
 .virals-creator-form {
@@ -2340,6 +2396,10 @@ button:hover {
     padding: 14px;
     align-items: start;
     overflow-y: auto;
+  }
+
+  .virals-account-card {
+    max-height: calc(100dvh - 28px);
   }
 
   .virals-account-close {

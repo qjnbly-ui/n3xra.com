@@ -160,20 +160,26 @@ function renderBillingPlans(state) {
   const currentPlan = state?.profile?.plan || "free";
   const ordered = ["starter", "creator", "pro", "agency"];
   accountBillingPanel.innerHTML = `
-    <div class="virals-plan-grid" aria-label="Virals plan options">
-      ${ordered.map((planId) => {
-        const plan = plans[planId] || {};
-        const isCurrent = currentPlan === planId;
-        return `
-          <article class="virals-plan-card${isCurrent ? " is-current" : ""}">
-            <span>${isCurrent ? "Current" : "Plan"}</span>
-            <h3>${escapeHtml(plan.name || planId)}</h3>
-            <p><strong>${escapeHtml(plan.priceLabel || "")}</strong> · ${Number(plan.monthlyAnalysisLimit || 0).toLocaleString()} analysis credits per month.</p>
-            <button type="button" data-virals-checkout="${escapeHtml(planId)}" ${isCurrent ? "disabled" : ""}>${isCurrent ? "Current Plan" : "Choose Plan"}</button>
-          </article>
-        `;
-      }).join("")}
-    </div>
+    <details class="virals-settings-panel virals-settings-disclosure">
+      <summary>
+        <span class="panel-kicker">Plans</span>
+        <strong>Billing Plans</strong>
+      </summary>
+      <div class="virals-plan-grid" aria-label="Virals plan options">
+        ${ordered.map((planId) => {
+          const plan = plans[planId] || {};
+          const isCurrent = currentPlan === planId;
+          return `
+            <article class="virals-plan-card${isCurrent ? " is-current" : ""}">
+              <span>${isCurrent ? "Current" : "Plan"}</span>
+              <h3>${escapeHtml(plan.name || planId)}</h3>
+              <p><strong>${escapeHtml(plan.priceLabel || "")}</strong> · ${Number(plan.monthlyAnalysisLimit || 0).toLocaleString()} analysis credits per month.</p>
+              <button type="button" data-virals-checkout="${escapeHtml(planId)}" ${isCurrent ? "disabled" : ""}>${isCurrent ? "Current Plan" : "Choose Plan"}</button>
+            </article>
+          `;
+        }).join("")}
+      </div>
+    </details>
   `;
 }
 
@@ -183,9 +189,11 @@ function renderCreatorPanel(state) {
     const pending = formatMoney(creator.stats?.pendingCommission || 0);
     const paid = formatMoney(creator.stats?.paidCommission || 0);
     creatorPanel.innerHTML = `
-      <section class="virals-settings-panel">
-        <p class="panel-kicker">Creator Program</p>
-        <h3>${escapeHtml(creator.status === "approved" ? "Creator Dashboard" : "Application Status")}</h3>
+      <details class="virals-settings-panel virals-settings-disclosure">
+        <summary>
+          <span class="panel-kicker">Creator Program</span>
+          <strong>${escapeHtml(creator.status === "approved" ? "Creator Dashboard" : "Application Status")}</strong>
+        </summary>
         <p>Status: <strong>${escapeHtml(creator.status)}</strong> · Code: <strong>${escapeHtml(creator.normalizedCode)}</strong></p>
         <p>${Number(creator.commissionRate * 100 || 0).toFixed(0)}% recurring commission. ${Number(creator.customerDiscountPercent || 0)}% customer discount for ${Number(creator.customerDiscountMonths || 0)} months.</p>
         <div class="virals-account-grid">
@@ -194,15 +202,17 @@ function renderCreatorPanel(state) {
           <article class="virals-account-stat"><span>Paid</span><strong>${paid}</strong></article>
         </div>
         ${creator.status === "approved" ? `<button class="virals-access-secondary" type="button" data-virals-connect>Stripe payout setup</button>` : ""}
-      </section>
+      </details>
     `;
     return;
   }
 
   creatorPanel.innerHTML = `
-    <section class="virals-settings-panel">
-      <p class="panel-kicker">Creator Program</p>
-      <h3>Apply to promote N3XRA Virals</h3>
+    <details class="virals-settings-panel virals-settings-disclosure">
+      <summary>
+        <span class="panel-kicker">Creator Program</span>
+        <strong>Apply to promote N3XRA Virals</strong>
+      </summary>
       <p>Founding Creator spots earn 30% recurring commission, standard creators earn 20%. Customer codes give 10% off for the first 3 months.</p>
       <form id="virals-creator-application-form" class="virals-creator-form">
         <label>TikTok username <input name="tiktokUsername" autocomplete="off" placeholder="@yourhandle" required></label>
@@ -211,7 +221,7 @@ function renderCreatorPanel(state) {
         <label>Audience notes <textarea name="notes" rows="4" placeholder="Tell us about your audience, niche, and how you would promote Virals."></textarea></label>
         <button type="submit">Submit Application</button>
       </form>
-    </section>
+    </details>
   `;
 }
 
@@ -221,12 +231,14 @@ function renderAdminPanel(state) {
     return;
   }
   adminPanel.innerHTML = `
-    <section class="virals-settings-panel">
-      <p class="panel-kicker">Admin</p>
-      <h3>Creator Applications</h3>
+    <details class="virals-settings-panel virals-settings-disclosure">
+      <summary>
+        <span class="panel-kicker">Admin</span>
+        <strong>Creator Applications</strong>
+      </summary>
       <button class="virals-access-secondary" type="button" data-virals-load-admin>Refresh Applications</button>
       <div id="virals-admin-applications"></div>
-    </section>
+    </details>
   `;
 }
 
