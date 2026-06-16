@@ -646,13 +646,15 @@ function renderSource(video) {
   }
 
   const image = video.coverUrl || video.dynamicCoverUrl || "";
+  const playUrl = video.playUrl || video.videoUrl || "";
   const stats = video.stats || {};
   currentTranscript = String(video.transcript || "").trim();
   currentTranscriptBreakdown = null;
   sourceOutput.className = "source-card";
   sourceOutput.innerHTML = `
-    <div class="source-media">
+    <div class="source-media${playUrl ? " has-video-preview" : ""}" ${playUrl ? 'tabindex="0" aria-label="Hover or focus to preview video"' : ""}>
       ${image ? `<img src="${escapeHtml(image)}" alt="TikTok cover image">` : ""}
+      ${playUrl ? `<video class="source-media-video" src="${escapeHtml(playUrl)}" poster="${escapeHtml(image)}" muted loop playsinline preload="none"></video>` : ""}
     </div>
     <div class="source-details">
       <div>
@@ -677,23 +679,65 @@ function renderSource(video) {
   revealSingleResults();
 }
 
+function playSourcePreview(container) {
+  const video = container?.querySelector?.(".source-media-video");
+  if (!video) return;
+  container.classList.add("is-previewing");
+  video.play().catch(() => {
+    container.classList.remove("is-previewing");
+  });
+}
+
+function pauseSourcePreview(container) {
+  const video = container?.querySelector?.(".source-media-video");
+  if (!video) return;
+  video.pause();
+  video.currentTime = 0;
+  container.classList.remove("is-previewing");
+}
+
+async function fetchSourceVideo(url) {
+  const cleanUrl = String(url || "").trim();
+  if (!cleanUrl || !/tiktok\.com/i.test(cleanUrl)) return null;
+  const response = await fetch("/api/virals-transcript", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ url: cleanUrl }),
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(payload.error || "Could not load source.");
+  return payload.video || null;
+}
+
 async function loadSourcePreview(url) {
   const cleanUrl = String(url || "").trim();
   if (!cleanUrl || !/tiktok\.com/i.test(cleanUrl)) return;
   setStatus("Loading TikTok source data...");
   try {
-    const response = await fetch("/api/virals-transcript", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url: cleanUrl }),
-    });
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(payload.error || "Could not load source.");
-    renderSource(payload.video);
-    setStatus(payload.video?.transcript ? "TikTok source loaded with transcript." : "TikTok source loaded without transcript.");
+    const video = await fetchSourceVideo(cleanUrl);
+    renderSource(video);
+    setStatus(video?.transcript ? "TikTok source loaded with transcript." : "TikTok source loaded without transcript.");
   } catch (error) {
     setStatus(`${error.message || "Source preview unavailable."} You can still analyze with notes.`);
   }
+}
+
+async function renderSavedFrameworkSource(item) {
+  if (item?.video?.playUrl || (item?.video && !item?.url)) {
+    renderSource(item.video);
+    return;
+  }
+  if (item?.url) {
+    if (item?.video) renderSource(item.video);
+    try {
+      const video = await fetchSourceVideo(item.url);
+      if (video) renderSource(video);
+    } catch (_error) {
+      if (!item?.video) renderSource(null);
+    }
+    return;
+  }
+  renderSource(null);
 }
 
 function renderLibrary() {
@@ -981,7 +1025,7 @@ clearCompareButton?.addEventListener("click", () => {
   setCompareStatus("Ready to compare multiple winners.");
 });
 
-libraryList?.addEventListener("click", (event) => {
+libraryList?.addEventListener("click", async (event) => {
   const button = event.target.closest("button");
   if (!button) return;
 
@@ -991,7 +1035,7 @@ libraryList?.addEventListener("click", (event) => {
   if (button.classList.contains("load-analysis") && item) {
     setMode("single");
     renderAnalysis(item);
-    renderSource(null);
+    await renderSavedFrameworkSource(item);
     revealSingleResults();
     setStatus("Saved framework opened.");
     document.getElementById("single-results")?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -1015,9 +1059,40 @@ libraryList?.addEventListener("click", (event) => {
 });
 
 sourceOutput?.addEventListener("click", (event) => {
+  const media = event.target.closest(".source-media.has-video-preview");
+  if (media) {
+    const video = media.querySelector(".source-media-video");
+    if (video?.paused) {
+      playSourcePreview(media);
+    } else {
+      pauseSourcePreview(media);
+    }
+    return;
+  }
+
   const button = event.target.closest("[data-view-transcript]");
   if (!button) return;
   showTranscriptModal();
+});
+
+sourceOutput?.addEventListener("pointerenter", (event) => {
+  const media = event.target.closest?.(".source-media.has-video-preview");
+  if (media) playSourcePreview(media);
+}, true);
+
+sourceOutput?.addEventListener("pointerleave", (event) => {
+  const media = event.target.closest?.(".source-media.has-video-preview");
+  if (media) pauseSourcePreview(media);
+}, true);
+
+sourceOutput?.addEventListener("focusin", (event) => {
+  const media = event.target.closest?.(".source-media.has-video-preview");
+  if (media) playSourcePreview(media);
+});
+
+sourceOutput?.addEventListener("focusout", (event) => {
+  const media = event.target.closest?.(".source-media.has-video-preview");
+  if (media) pauseSourcePreview(media);
 });
 
 headerAuthLink?.addEventListener("click", (event) => {

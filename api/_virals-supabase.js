@@ -279,14 +279,41 @@ async function saveUsageEvent(user, event = {}) {
   });
 }
 
-function normalizeSavedAnalysis(row = {}, generatedScripts = [], generatedCaptions = []) {
+function normalizeSavedVideo(row = {}) {
+  if (!row?.id) return null;
+  const raw = row.raw_metadata && typeof row.raw_metadata === "object" ? row.raw_metadata : {};
+  return {
+    id: row.id,
+    url: row.source_url || raw.url || "",
+    videoId: row.external_video_id || raw.videoId || "",
+    caption: row.description || row.title || raw.caption || "",
+    coverUrl: row.thumbnail_url || raw.coverUrl || raw.dynamicCoverUrl || "",
+    dynamicCoverUrl: raw.dynamicCoverUrl || row.thumbnail_url || "",
+    playUrl: raw.playUrl || raw.videoUrl || raw.playAddr || "",
+    durationSeconds: row.duration_seconds || raw.durationSeconds || 0,
+    stats: row.metrics || raw.stats || {},
+    stickers: Array.isArray(raw.stickers) ? raw.stickers : [],
+    hashtags: Array.isArray(raw.hashtags) ? raw.hashtags : [],
+    transcript: raw.transcript || "",
+    transcriptSource: raw.transcriptSource || "",
+    author: {
+      uniqueId: row.creator_handle || raw.author?.uniqueId || "",
+      nickname: row.creator_name || raw.author?.nickname || "",
+      followerCount: raw.author?.followerCount || null,
+    },
+  };
+}
+
+function normalizeSavedAnalysis(row = {}, generatedScripts = [], generatedCaptions = [], videoRow = null) {
   const hookBreakdown = row.hook_breakdown || {};
   const structureBreakdown = row.structure_breakdown || {};
   const audience = row.audience_targeting || {};
+  const video = normalizeSavedVideo(videoRow);
   return {
     id: row.id,
     createdAt: row.created_at,
-    url: "",
+    url: video?.url || "",
+    video,
     product: audience.product || "Saved framework",
     niche: audience.niche || "TikTok Shop",
     goal: audience.goal || "TikTok Shop affiliate sale",
@@ -331,17 +358,23 @@ async function listSavedFrameworks(user, limit = 30) {
   ), { headers: serviceHeaders() });
 
   const ids = rows.map((row) => row.id).filter(Boolean);
+  const videoIds = rows.map((row) => row.video_id).filter(Boolean);
   if (!ids.length) return [];
   const idList = ids.join(",");
-  const [scripts, captions] = await Promise.all([
+  const videoIdList = videoIds.join(",");
+  const [scripts, captions, videos] = await Promise.all([
     fetchJson(tableUrl("virals_generated_scripts", `?select=analysis_id,title,script_type,script_text&analysis_id=in.(${idList})`), { headers: serviceHeaders() }).catch(() => []),
     fetchJson(tableUrl("virals_generated_captions", `?select=analysis_id,caption_text&analysis_id=in.(${idList})`), { headers: serviceHeaders() }).catch(() => []),
+    videoIds.length
+      ? fetchJson(tableUrl("virals_videos", `?select=*&id=in.(${videoIdList})`), { headers: serviceHeaders() }).catch(() => [])
+      : [],
   ]);
 
   return rows.map((row) => normalizeSavedAnalysis(
     row,
     scripts.filter((script) => script.analysis_id === row.id),
-    captions.filter((caption) => caption.analysis_id === row.id)
+    captions.filter((caption) => caption.analysis_id === row.id),
+    videos.find((video) => video.id === row.video_id) || null
   ));
 }
 

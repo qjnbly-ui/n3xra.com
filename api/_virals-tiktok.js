@@ -56,6 +56,22 @@ function pickSubtitle(video) {
   );
 }
 
+function pickVideoPlayUrl(video) {
+  const bitrateInfo = Array.isArray(video?.bitrateInfo) ? video.bitrateInfo : [];
+  const bitrateUrl =
+    bitrateInfo
+      .flatMap((item) => item?.PlayAddr?.UrlList || item?.playAddr?.urlList || [])
+      .find(Boolean) || "";
+  return String(
+    video?.playAddr ||
+      video?.downloadAddr ||
+      video?.playApi ||
+      video?.playUrl ||
+      bitrateUrl ||
+      ""
+  );
+}
+
 async function fetchTikTokPage(url) {
   const response = await fetch(url, {
     headers: {
@@ -103,6 +119,7 @@ async function fetchTikTokTranscript(url) {
     videoId: String(item.id || ""),
     coverUrl: String(item.video?.cover || item.video?.originCover || item.video?.dynamicCover || oembed?.thumbnail_url || ""),
     dynamicCoverUrl: String(item.video?.dynamicCover || ""),
+    playUrl: pickVideoPlayUrl(item.video),
     durationSeconds: Number(item.video?.duration || item.music?.duration || 0) || null,
     author: {
       uniqueId: String(item.author?.uniqueId || oembed?.author_name || ""),
