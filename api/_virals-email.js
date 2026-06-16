@@ -87,25 +87,26 @@ function buildCreatorDecisionEmail(application, decision, program) {
   ].filter(Boolean).join("\n");
 
   const html = `
-    <div style="margin:0;padding:32px 16px;background:#061019;font-family:Arial,sans-serif;color:#f7fbff;line-height:1.6;">
-      <div style="max-width:640px;margin:0 auto;">
-        <div style="background:linear-gradient(135deg,#071826 0%,#151425 54%,#230719 100%);border:1px solid rgba(152,233,255,0.24);border-radius:24px 24px 0 0;padding:30px 32px;">
-          <p style="margin:0 0 10px;font-size:12px;letter-spacing:0.22em;text-transform:uppercase;font-weight:800;color:#98e9ff;">N3XRA Virals</p>
-          <h1 style="margin:0;font-size:30px;line-height:1.12;color:#ffffff;">${escapeHtml(config.subjectLabel)}</h1>
-          <p style="margin:14px 0 0;font-size:16px;color:rgba(255,255,255,0.78);">${escapeHtml(config.intro)}</p>
+    <div style="margin:0;padding:28px 14px;background:#eef4f8;font-family:Arial,sans-serif;color:#111827;line-height:1.6;color-scheme:light;">
+      <div style="max-width:640px;margin:0 auto;background:#ffffff;border:1px solid #d7e2ea;border-radius:22px;overflow:hidden;">
+        <div style="height:8px;background:#18c8ff;"></div>
+        <div style="padding:28px 30px 18px;background:#ffffff;color:#111827;">
+          <p style="margin:0 0 10px;font-size:12px;letter-spacing:0.2em;text-transform:uppercase;font-weight:800;color:#0e7490;">N3XRA Virals</p>
+          <h1 style="margin:0;font-size:30px;line-height:1.14;color:#111827;">${escapeHtml(config.subjectLabel)}</h1>
+          <p style="margin:14px 0 0;font-size:16px;color:#374151;">${escapeHtml(config.intro)}</p>
         </div>
-        <div style="background:#ffffff;color:#0f1620;border-radius:0 0 24px 24px;padding:28px 32px;box-shadow:0 24px 60px rgba(0,0,0,0.24);">
-          <p style="margin:0 0 18px;font-size:16px;">Hi <strong>${escapeHtml(displayName)}</strong>,</p>
-          <div style="margin:0 0 20px;padding:16px 18px;border-radius:18px;background:#f3f7fb;border:1px solid #dce6f0;">
-            <p style="margin:0 0 6px;font-size:12px;letter-spacing:0.14em;text-transform:uppercase;font-weight:800;color:#176f66;">TikTok</p>
-            <p style="margin:0;font-size:18px;font-weight:800;">@${escapeHtml(handle)}</p>
-            ${code ? `<p style="margin:10px 0 0;font-size:16px;"><strong>Promo code:</strong> ${escapeHtml(code)}</p>` : ""}
+        <div style="padding:0 30px 30px;background:#ffffff;color:#111827;">
+          <p style="margin:0 0 18px;font-size:16px;color:#111827;">Hi <strong style="color:#111827;">${escapeHtml(displayName)}</strong>,</p>
+          <div style="margin:0 0 20px;padding:16px 18px;border-radius:16px;background:#f8fafc;border:1px solid #dbe5ee;color:#111827;">
+            <p style="margin:0 0 6px;font-size:12px;letter-spacing:0.14em;text-transform:uppercase;font-weight:800;color:#0e7490;">TikTok</p>
+            <p style="margin:0;font-size:18px;font-weight:800;color:#111827;">@${escapeHtml(handle)}</p>
+            ${code ? `<p style="margin:10px 0 0;font-size:16px;color:#111827;"><strong style="color:#111827;">Promo code:</strong> ${escapeHtml(code)}</p>` : ""}
           </div>
-          <ul style="margin:0 0 22px;padding-left:22px;color:#263241;font-size:15px;">
-            ${config.details.map((item) => `<li style="margin:0 0 8px;">${escapeHtml(item)}</li>`).join("")}
+          <ul style="margin:0 0 22px;padding-left:22px;color:#1f2937;font-size:15px;">
+            ${config.details.map((item) => `<li style="margin:0 0 8px;color:#1f2937;">${escapeHtml(item)}</li>`).join("")}
           </ul>
-          <a href="${ctaUrl}" style="display:inline-block;padding:13px 18px;border-radius:14px;background:linear-gradient(90deg,#18c8ff,#20e0a1);color:#041016;font-weight:800;text-decoration:none;">${escapeHtml(ctaLabel)}</a>
-          <p style="margin:24px 0 0;font-size:13px;color:#607086;">Questions? Reply to this email or contact support@n3xra.com.</p>
+          <a href="${ctaUrl}" style="display:inline-block;padding:13px 18px;border-radius:14px;background:#18c8ff;color:#051016;font-weight:800;text-decoration:none;">${escapeHtml(ctaLabel)}</a>
+          <p style="margin:24px 0 0;font-size:13px;color:#4b5563;">Questions? Reply to this email or contact <a href="mailto:support@n3xra.com" style="color:#0369a1;">support@n3xra.com</a>.</p>
         </div>
       </div>
     </div>
