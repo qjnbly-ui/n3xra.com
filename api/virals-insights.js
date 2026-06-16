@@ -35,6 +35,35 @@ async function fetchVideoPublishDates(videoIds) {
   return new Map(rows.map((row) => [row.id, row.published_at || null]));
 }
 
+function metricNumber(metrics = {}, keys = []) {
+  for (const key of keys) {
+    const value = Number(metrics?.[key] || 0);
+    if (Number.isFinite(value) && value > 0) return value;
+  }
+  return 0;
+}
+
+function performanceScore(metrics = {}) {
+  const values = [
+    metricNumber(metrics, ["plays", "playCount", "views"]),
+    metricNumber(metrics, ["likes", "diggCount"]),
+    metricNumber(metrics, ["shares", "shareCount"]),
+  ].filter((value) => value > 0);
+
+  if (!values.length) return 0;
+  return values.reduce((total, value) => total + Math.log10(value + 1), 0) / values.length;
+}
+
+function compareInsightVideos(a, b) {
+  const searchDifference = Number(b.search_count || 0) - Number(a.search_count || 0);
+  if (searchDifference) return searchDifference;
+
+  const performanceDifference = performanceScore(b.latest_metrics) - performanceScore(a.latest_metrics);
+  if (performanceDifference) return performanceDifference;
+
+  return new Date(b.last_seen_at || 0).getTime() - new Date(a.last_seen_at || 0).getTime();
+}
+
 function cleanTikTokHandle(handle) {
   return String(handle || "").trim().replace(/^@+/, "");
 }
@@ -104,12 +133,14 @@ module.exports = async function handler(req, res) {
   }
 
   if (type === "searched") {
+    const fetchLimit = Math.min(Math.max(limit * 4, 50), 200);
     const rows = await fetchRows(
       "virals_video_search_stats",
-      `?select=normalized_url,external_video_id,title,creator_handle,thumbnail_url,search_count,analysis_count,last_seen_at,latest_video_id,latest_metrics,latest_framework&order=search_count.desc,last_seen_at.desc&limit=${limit}`
+      `?select=normalized_url,external_video_id,title,creator_handle,thumbnail_url,search_count,analysis_count,last_seen_at,latest_video_id,latest_metrics,latest_framework&order=search_count.desc,last_seen_at.desc&limit=${fetchLimit}`
     );
-    const publishedAtByVideoId = await fetchVideoPublishDates(rows.map((row) => row.latest_video_id));
-    return sendJson(res, 200, { type, rows: rows.map((row) => normalizeVideo(row, publishedAtByVideoId)), configured: true });
+    const rankedRows = rows.sort(compareInsightVideos).slice(0, limit);
+    const publishedAtByVideoId = await fetchVideoPublishDates(rankedRows.map((row) => row.latest_video_id));
+    return sendJson(res, 200, { type, rows: rankedRows.map((row) => normalizeVideo(row, publishedAtByVideoId)), configured: true });
   }
 
   const tableByType = {
