@@ -20,11 +20,17 @@ const { parseJson, sendJson } = require("./_virals-http");
 const { buildCreatorDecisionEmail, sendCreatorDecisionEmail } = require("./_virals-email");
 const { fetchTikTokProfile } = require("./_virals-tiktok");
 
+function withStage(error, stage) {
+  if (error && typeof error === "object" && !error.stage) error.stage = stage;
+  return error;
+}
+
 async function createStripePromoForApplication(application, programId) {
   const code = normalizePromoCode(application.normalized_code || application.requested_code);
-  const coupon = application.stripe_coupon_id
-    ? { id: application.stripe_coupon_id }
-    : await stripeRequest("/coupons", {
+  let coupon = application.stripe_coupon_id ? { id: application.stripe_coupon_id } : null;
+  if (!coupon) {
+    try {
+      coupon = await stripeRequest("/coupons", {
         method: "POST",
         idempotencyKey: `virals-coupon-${application.id}`,
         body: {
@@ -39,6 +45,10 @@ async function createStripePromoForApplication(application, programId) {
           },
         },
       });
+    } catch (error) {
+      throw withStage(error, "stripe_coupon");
+    }
+  }
 
   let promotionCode = application.stripe_promotion_code_id
     ? { id: application.stripe_promotion_code_id }
@@ -50,7 +60,10 @@ async function createStripePromoForApplication(application, programId) {
         method: "POST",
         idempotencyKey: `virals-promo-${application.id}`,
         body: {
-          coupon: coupon.id,
+          promotion: {
+            type: "coupon",
+            coupon: coupon.id,
+          },
           code,
           active: true,
           metadata: {
@@ -61,8 +74,10 @@ async function createStripePromoForApplication(application, programId) {
         },
       });
     } catch (error) {
-      const existing = await findExistingPromotionCodeForApplication(code, application.id);
-      if (!existing) throw error;
+      const existing = await findExistingPromotionCodeForApplication(code, application.id).catch((lookupError) => {
+        throw withStage(lookupError, "stripe_promotion_code_lookup");
+      });
+      if (!existing) throw withStage(error, "stripe_promotion_code");
       promotionCode = existing;
     }
   }
@@ -110,7 +125,12 @@ async function backfillCreatorProfiles(applications = []) {
         fit: application.aiEvaluation?.fit || "profile_loaded_manual_review",
       };
       enriched.push(await updateCreatorApplication(application.id, { ai_evaluation: aiEvaluation }));
-    } catch {
+    } catch (error) {
+      console.warn("Virals creator profile backfill failed.", {
+        stage: error?.stage || "tiktok_profile_backfill",
+        applicationId: application?.id,
+        message: error?.message || String(error),
+      });
       enriched.push(application);
     }
   }
@@ -135,19 +155,28 @@ module.exports = async function handler(req, res) {
   try {
     const token = getBearerToken(req);
     if (!token) return sendJson(res, 401, { error: "Authentication required." });
-    const user = await verifySupabaseUser(token);
-    if (!(await isViralsAdmin(user))) return sendJson(res, 403, { error: "Virals admin access required." });
+    const user = await verifySupabaseUser(token).catch((error) => {
+      throw withStage(error, "supabase_verify_user");
+    });
+    const admin = await isViralsAdmin(user).catch((error) => {
+      throw withStage(error, "supabase_admin_check");
+    });
+    if (!admin) return sendJson(res, 403, { error: "Virals admin access required.", stage: "admin_access" });
 
     if (req.method === "GET") {
       const status = String(new URL(req.url, "http://localhost").searchParams.get("status") || "");
-      const applications = await listCreatorApplications(user, status);
+      const applications = await listCreatorApplications(user, status).catch((error) => {
+        throw withStage(error, "supabase_list_applications");
+      });
       return sendJson(res, 200, { applications: await backfillCreatorProfiles(applications) });
     }
 
     const payload = await parseJson(req);
     const action = String(payload.action || "").trim().toLowerCase();
-    const application = await loadCreatorApplicationById(String(payload.id || ""));
-    if (!application) return sendJson(res, 404, { error: "Creator application not found." });
+    const application = await loadCreatorApplicationById(String(payload.id || "")).catch((error) => {
+      throw withStage(error, "supabase_load_application");
+    });
+    if (!application) return sendJson(res, 404, { error: "Creator application not found.", stage: "supabase_load_application" });
     const programId = String(payload.program || application.requested_program || "standard").trim().toLowerCase() === "founding" ? "founding" : "standard";
 
     if (action === "preview") {
@@ -160,6 +189,8 @@ module.exports = async function handler(req, res) {
         status: "rejected",
         rejected_at: new Date().toISOString(),
         admin_notes: String(payload.adminNotes || "").trim().slice(0, 4000) || null,
+      }).catch((error) => {
+        throw withStage(error, "supabase_reject_update");
       });
       const emailResult = await sendDecisionEmailWithWarning(updated, "reject", programId);
       return sendJson(res, 200, { application: updated, ...emailResult });
@@ -168,7 +199,9 @@ module.exports = async function handler(req, res) {
     if (action !== "approve") return sendJson(res, 400, { error: "action must be approve or reject." });
 
     if (programId === "founding" && application.status !== "approved") {
-      const foundingCount = await countApprovedFoundingCreators();
+      const foundingCount = await countApprovedFoundingCreators().catch((error) => {
+        throw withStage(error, "supabase_founding_count");
+      });
       if (foundingCount >= CREATOR_PROGRAMS.founding.maxApproved) {
         return sendJson(res, 409, { error: "The Founding Creator Program already has 25 approved creators." });
       }
@@ -187,6 +220,8 @@ module.exports = async function handler(req, res) {
       admin_notes: String(payload.adminNotes || "").trim().slice(0, 4000) || null,
       stripe_coupon_id: promo.couponId,
       stripe_promotion_code_id: promo.promotionCodeId,
+    }).catch((error) => {
+      throw withStage(error, "supabase_approval_update");
     });
     let finalApplication = updated;
     let connectWarning = "";
@@ -201,6 +236,15 @@ module.exports = async function handler(req, res) {
     const emailResult = await sendDecisionEmailWithWarning(finalApplication, "approve", programId);
     return sendJson(res, 200, { application: finalApplication, connectWarning, ...emailResult });
   } catch (error) {
-    return sendJson(res, error.status || 500, { error: error instanceof Error ? error.message : "Unable to manage creator applications." });
+    console.error("Virals admin creator action failed.", {
+      stage: error?.stage || "unknown",
+      status: error?.status || 500,
+      message: error instanceof Error ? error.message : String(error),
+      data: error?.data || null,
+    });
+    return sendJson(res, error.status || 500, {
+      error: error instanceof Error ? error.message : "Unable to manage creator applications.",
+      stage: error?.stage || "unknown",
+    });
   }
 };
