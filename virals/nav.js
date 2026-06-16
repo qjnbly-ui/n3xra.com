@@ -63,6 +63,28 @@ function renderFoundingCountdown(state = accountState) {
   `;
 }
 
+async function loadCreatorProgramState() {
+  const response = await fetch("/api/virals-creator-program");
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(payload.error || "Unable to load creator program.");
+  return {
+    creatorProgram: {
+      founding: payload.founding || {},
+    },
+  };
+}
+
+async function renderAboutFoundingCountdown() {
+  const target = document.getElementById("virals-about-founding-countdown");
+  if (!target) return;
+  try {
+    const state = await loadCreatorProgramState();
+    target.innerHTML = renderFoundingCountdown(state);
+  } catch {
+    target.innerHTML = renderFoundingCountdown();
+  }
+}
+
 function normalizePath(path) {
   if (!path) return "/";
   const clean = path.split("#")[0].split("?")[0];
@@ -220,7 +242,6 @@ function renderCreatorPanel(state) {
         </summary>
         <p>Status: <strong>${escapeHtml(creator.status)}</strong> · Code: <strong>${escapeHtml(creator.normalizedCode)}</strong></p>
         <p>${Number(creator.commissionRate * 100 || 0).toFixed(0)}% recurring commission. ${Number(creator.customerDiscountPercent || 0)}% customer discount for ${Number(creator.customerDiscountMonths || 0)} months.</p>
-        ${renderFoundingCountdown(state)}
         <div class="virals-account-grid">
           <article class="virals-account-stat"><span>Referrals</span><strong>${Number(creator.stats?.activeReferrals || 0)}</strong></article>
           <article class="virals-account-stat"><span>Pending</span><strong>${pending}</strong></article>
@@ -394,12 +415,11 @@ function renderAdminApplications(applications = []) {
   const container = document.getElementById("virals-admin-applications");
   if (!container) return;
   if (!applications.length) {
-    container.innerHTML = `${renderFoundingCountdown()}<p class="status">No creator applications yet.</p>`;
+    container.innerHTML = `<p class="status">No creator applications yet.</p>`;
     return;
   }
   const founding = getFoundingProgram();
   container.innerHTML = `
-    ${renderFoundingCountdown()}
     ${applications.map((application) => {
     const profile = application.aiEvaluation?.profile || {};
     const foundingUnavailable = founding.remaining <= 0 && application.approvedProgram !== "founding";
@@ -670,5 +690,6 @@ document.addEventListener("keydown", (event) => {
 
 prepareMobileMenu();
 renderMobileDock();
+renderAboutFoundingCountdown();
 bindAccountModal();
 initAuth();
