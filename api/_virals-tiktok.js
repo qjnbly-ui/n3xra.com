@@ -72,6 +72,12 @@ function pickVideoPlayUrl(video) {
   );
 }
 
+function buildTikTokEmbedUrl(videoId) {
+  const id = String(videoId || "").trim();
+  if (!id) return "";
+  return `https://www.tiktok.com/player/v1/${encodeURIComponent(id)}?controls=0&progress_bar=0&play_button=0&volume_control=0&fullscreen_button=0&timestamp=0&loop=1&autoplay=0&muted=1&music_info=0&description=0&rel=0`;
+}
+
 async function fetchTikTokPage(url) {
   const response = await fetch(url, {
     headers: {
@@ -120,6 +126,7 @@ async function fetchTikTokTranscript(url) {
     coverUrl: String(item.video?.cover || item.video?.originCover || item.video?.dynamicCover || oembed?.thumbnail_url || ""),
     dynamicCoverUrl: String(item.video?.dynamicCover || ""),
     playUrl: pickVideoPlayUrl(item.video),
+    embedUrl: buildTikTokEmbedUrl(item.id),
     durationSeconds: Number(item.video?.duration || item.music?.duration || 0) || null,
     author: {
       uniqueId: String(item.author?.uniqueId || oembed?.author_name || ""),

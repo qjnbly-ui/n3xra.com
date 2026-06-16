@@ -647,13 +647,15 @@ function renderSource(video) {
 
   const image = video.coverUrl || video.dynamicCoverUrl || "";
   const playUrl = video.playUrl || video.videoUrl || "";
+  const embedUrl = video.embedUrl || (video.videoId ? `https://www.tiktok.com/player/v1/${encodeURIComponent(video.videoId)}?controls=0&progress_bar=0&play_button=0&volume_control=0&fullscreen_button=0&timestamp=0&loop=1&autoplay=0&muted=1&music_info=0&description=0&rel=0` : "");
   const stats = video.stats || {};
   currentTranscript = String(video.transcript || "").trim();
   currentTranscriptBreakdown = null;
   sourceOutput.className = "source-card";
   sourceOutput.innerHTML = `
-    <div class="source-media${playUrl ? " has-video-preview" : ""}" ${playUrl ? 'tabindex="0" aria-label="Hover or focus to preview video"' : ""}>
+    <div class="source-media${embedUrl || playUrl ? " has-video-preview" : ""}" ${embedUrl || playUrl ? 'tabindex="0" aria-label="Hover or focus to preview video"' : ""}>
       ${image ? `<img src="${escapeHtml(image)}" alt="TikTok cover image">` : ""}
+      ${embedUrl ? `<iframe class="source-media-embed" data-src="${escapeHtml(embedUrl.replace("autoplay=0", "autoplay=1"))}" title="TikTok video preview" allow="autoplay; encrypted-media; picture-in-picture" loading="lazy"></iframe>` : ""}
       ${playUrl ? `<video class="source-media-video" src="${escapeHtml(playUrl)}" poster="${escapeHtml(image)}" muted loop playsinline preload="none"></video>` : ""}
     </div>
     <div class="source-details">
@@ -680,6 +682,18 @@ function renderSource(video) {
 }
 
 function playSourcePreview(container) {
+  const iframe = container?.querySelector?.(".source-media-embed");
+  if (iframe?.dataset.src && !iframe.src) {
+    iframe.src = iframe.dataset.src;
+    container.classList.add("is-previewing");
+    return;
+  }
+  if (iframe?.src) {
+    iframe.contentWindow?.postMessage({ type: "mute", "x-tiktok-player": true }, "*");
+    iframe.contentWindow?.postMessage({ type: "play", "x-tiktok-player": true }, "*");
+    container.classList.add("is-previewing");
+    return;
+  }
   const video = container?.querySelector?.(".source-media-video");
   if (!video) return;
   container.classList.add("is-previewing");
@@ -689,6 +703,12 @@ function playSourcePreview(container) {
 }
 
 function pauseSourcePreview(container) {
+  const iframe = container?.querySelector?.(".source-media-embed");
+  if (iframe?.src) {
+    iframe.contentWindow?.postMessage({ type: "pause", "x-tiktok-player": true }, "*");
+    container.classList.remove("is-previewing");
+    return;
+  }
   const video = container?.querySelector?.(".source-media-video");
   if (!video) return;
   video.pause();
@@ -723,7 +743,7 @@ async function loadSourcePreview(url) {
 }
 
 async function renderSavedFrameworkSource(item) {
-  if (item?.video?.playUrl || (item?.video && !item?.url)) {
+  if (item?.video?.embedUrl || item?.video?.playUrl || (item?.video && !item?.url)) {
     renderSource(item.video);
     return;
   }

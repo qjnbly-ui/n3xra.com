@@ -282,14 +282,16 @@ async function saveUsageEvent(user, event = {}) {
 function normalizeSavedVideo(row = {}) {
   if (!row?.id) return null;
   const raw = row.raw_metadata && typeof row.raw_metadata === "object" ? row.raw_metadata : {};
+  const videoId = row.external_video_id || raw.videoId || "";
   return {
     id: row.id,
     url: row.source_url || raw.url || "",
-    videoId: row.external_video_id || raw.videoId || "",
+    videoId,
     caption: row.description || row.title || raw.caption || "",
     coverUrl: row.thumbnail_url || raw.coverUrl || raw.dynamicCoverUrl || "",
     dynamicCoverUrl: raw.dynamicCoverUrl || row.thumbnail_url || "",
     playUrl: raw.playUrl || raw.videoUrl || raw.playAddr || "",
+    embedUrl: raw.embedUrl || (videoId ? `https://www.tiktok.com/player/v1/${encodeURIComponent(videoId)}?controls=0&progress_bar=0&play_button=0&volume_control=0&fullscreen_button=0&timestamp=0&loop=1&autoplay=0&muted=1&music_info=0&description=0&rel=0` : ""),
     durationSeconds: row.duration_seconds || raw.durationSeconds || 0,
     stats: row.metrics || raw.stats || {},
     stickers: Array.isArray(raw.stickers) ? raw.stickers : [],
