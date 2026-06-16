@@ -996,6 +996,77 @@ button:hover {
   color: #041016;
 }
 
+.virals-settings-panel,
+.virals-admin-application {
+  display: grid;
+  gap: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 8px;
+  padding: 16px;
+  background: rgba(3, 5, 7, 0.42);
+}
+
+.virals-settings-panel h3,
+.virals-admin-application p {
+  margin: 0;
+}
+
+.virals-creator-form {
+  display: grid;
+  gap: 10px;
+}
+
+.virals-creator-form label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.virals-creator-form input,
+.virals-creator-form select,
+.virals-creator-form textarea {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  padding: 11px 12px;
+  background: rgba(0, 0, 0, 0.32);
+  color: var(--ink);
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.virals-creator-form button,
+.virals-admin-application button {
+  min-height: 42px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.86);
+  font-weight: 900;
+}
+
+.virals-creator-form button {
+  border: 0;
+  background: linear-gradient(90deg, var(--cyan), var(--green));
+  color: #041016;
+}
+
+.virals-admin-application > div:first-child {
+  display: grid;
+  gap: 4px;
+}
+
+.virals-admin-application span {
+  color: var(--muted);
+  font-weight: 800;
+}
+
 .transcript-card {
   position: relative;
   width: min(780px, 100%);

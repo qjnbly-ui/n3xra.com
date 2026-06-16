@@ -1,5 +1,7 @@
 const { fetchTikTokTranscript } = require("./_virals-tiktok");
 const {
+  assertViralsCreditsAvailable,
+  consumeViralsCredits,
   getAnonymousViralsUser,
   getBearerToken,
   hasViralsSupabaseConfig,
@@ -196,6 +198,12 @@ module.exports = async function handler(req, res) {
       .filter(Boolean);
 
     if (videos.length < 2) return sendJson(res, 502, { error: "Could not extract enough TikTok videos to compare.", failed });
+    const token = getBearerToken(req);
+    let requestUser = getAnonymousViralsUser();
+    if (token) {
+      requestUser = await verifySupabaseUser(token);
+      await assertViralsCreditsAvailable(requestUser, videos.length);
+    }
 
     const model = String(process.env.GROQ_VIRALS_MODEL || process.env.GROQ_RECORDS_MODEL || "llama-3.3-70b-versatile").trim();
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -225,22 +233,14 @@ module.exports = async function handler(req, res) {
 
     const content = String(data?.choices?.[0]?.message?.content || "").trim();
     const comparison = normalizeCompare(extractJson(content), input);
+    if (token) await consumeViralsCredits(requestUser, videos.length);
     let saved = null;
-    const token = getBearerToken(req);
     if (hasViralsSupabaseConfig()) {
       try {
-        let user = getAnonymousViralsUser();
-        if (token) {
-          try {
-            user = await verifySupabaseUser(token);
-          } catch (_error) {
-            user = getAnonymousViralsUser();
-          }
-        }
         const savedVideos = await Promise.all(
           videos.map((video) =>
             saveViralsVideoReference({
-              user,
+              user: requestUser,
               input: { ...input, url: video.url },
               video,
               analysis: {
@@ -253,7 +253,7 @@ module.exports = async function handler(req, res) {
             }).catch(() => null)
           )
         );
-        const usage = await saveUsageEvent(user, {
+        const usage = await saveUsageEvent(requestUser, {
           event_type: "compare_analysis",
           input_count: videos.length,
           model,
@@ -263,7 +263,7 @@ module.exports = async function handler(req, res) {
         });
         saved = {
           status: "saved",
-          owner: user.isAnonymousViralsUser ? "anonymous" : "account",
+          owner: requestUser.isAnonymousViralsUser ? "anonymous" : "account",
           savedVideos: savedVideos.filter(Boolean).length,
           usageId: usage?.id || null,
         };

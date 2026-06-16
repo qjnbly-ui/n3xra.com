@@ -786,8 +786,7 @@ function toggleSourcePreview(container) {
   if (!container) return;
   if (container.classList.contains("is-embed-previewing")) {
     const iframe = container.querySelector(".source-media-embed");
-    postTikTokPlayerMessage(iframe, "pause");
-    container.classList.remove("is-embed-previewing");
+    primeTikTokPlayer(iframe);
     return;
   }
   if (container.classList.contains("has-embed-preview")) {
@@ -797,7 +796,7 @@ function toggleSourcePreview(container) {
     return;
   }
   if (container.classList.contains("is-previewing")) {
-    pauseSourcePreview(container);
+    playSourcePreview(container);
     return;
   }
   playSourcePreview(container);
@@ -1199,20 +1198,9 @@ sourceOutput?.addEventListener("pointerenter", (event) => {
   if (media) playSourcePreview(media);
 }, true);
 
-sourceOutput?.addEventListener("pointerleave", (event) => {
-  if (event.pointerType === "touch") return;
-  const media = event.target.closest?.(".source-media.has-video-preview");
-  if (media) pauseSourcePreview(media);
-}, true);
-
 sourceOutput?.addEventListener("focusin", (event) => {
   const media = event.target.closest?.(".source-media.has-video-preview");
   if (media) playSourcePreview(media);
-});
-
-sourceOutput?.addEventListener("focusout", (event) => {
-  const media = event.target.closest?.(".source-media.has-video-preview");
-  if (media) pauseSourcePreview(media);
 });
 
 headerAuthLink?.addEventListener("click", (event) => {

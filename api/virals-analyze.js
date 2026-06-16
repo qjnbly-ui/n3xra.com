@@ -25,6 +25,8 @@ function parseJson(req) {
 const { fetchTikTokTranscript } = require("./_virals-tiktok");
 const { resolveProductIntelligence } = require("./_virals-product-resolver");
 const {
+  assertViralsCreditsAvailable,
+  consumeViralsCredits,
   getAnonymousViralsUser,
   getBearerToken,
   hasViralsSupabaseConfig,
@@ -244,6 +246,12 @@ module.exports = async function handler(req, res) {
     };
 
     if (!input.url) return sendJson(res, 400, { error: "Paste a TikTok or Daily Virals reference URL." });
+    const token = getBearerToken(req);
+    let requestUser = getAnonymousViralsUser();
+    if (token) {
+      requestUser = await verifySupabaseUser(token);
+      await assertViralsCreditsAvailable(requestUser, 1);
+    }
 
     let extractedVideo = null;
     let resolvedProduct = null;
@@ -297,22 +305,14 @@ module.exports = async function handler(req, res) {
 
     const content = String(data?.choices?.[0]?.message?.content || "").trim();
     const analysis = normalizeAnalysis(extractJson(content), input);
+    if (token) await consumeViralsCredits(requestUser, 1);
     let saved = null;
-    const token = getBearerToken(req);
     if (!hasViralsSupabaseConfig()) {
       saved = { status: "not_configured" };
     } else {
       try {
-        let user = getAnonymousViralsUser();
-        if (token) {
-          try {
-            user = await verifySupabaseUser(token);
-          } catch (_error) {
-            user = getAnonymousViralsUser();
-          }
-        }
         saved = await saveViralsAnalysis({
-          user,
+          user: requestUser,
           input,
           video: extractedVideo,
           analysis,

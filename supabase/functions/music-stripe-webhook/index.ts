@@ -29,12 +29,33 @@ function getServiceRoleKey() {
   return Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || Deno.env.get("SERVICE_ROLE_KEY");
 }
 
-function getWebhookSecret() {
-  const secret = Deno.env.get("STRIPE_MUSIC_WEBHOOK_SECRET") || Deno.env.get("STRIPE_WEBHOOK_SECRET");
-  if (!secret) {
+function getWebhookSecrets() {
+  const rawSecrets = [
+    Deno.env.get("STRIPE_MUSIC_WEBHOOK_SECRET"),
+    Deno.env.get("STRIPE_MUSIC_WEBHOOK_SECRETS"),
+    Deno.env.get("STRIPE_WEBHOOK_SECRET"),
+  ];
+  const secrets = rawSecrets
+    .flatMap((value) => String(value || "").split(","))
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  if (!secrets.length) {
     throw new Error("Missing STRIPE_MUSIC_WEBHOOK_SECRET.");
   }
-  return secret;
+  return [...new Set(secrets)];
+}
+
+async function constructMusicWebhookEvent(stripe: Stripe, body: string, signature: string) {
+  let lastError: unknown = null;
+  for (const secret of getWebhookSecrets()) {
+    try {
+      return await stripe.webhooks.constructEventAsync(body, signature, secret);
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error("Unable to verify Stripe webhook signature.");
 }
 
 function getSubscriptionCustomerId(subscription: StripeSubscription) {
@@ -43,6 +64,26 @@ function getSubscriptionCustomerId(subscription: StripeSubscription) {
 
 function getSubscriptionPriceId(subscription: StripeSubscription) {
   return subscription.items.data[0]?.price?.id || null;
+}
+
+function getInvoicePriceIds(invoice: Stripe.Invoice) {
+  const lines = invoice.lines?.data || [];
+  return lines
+    .map((line) => line.price?.id || null)
+    .filter((priceId): priceId is string => Boolean(priceId));
+}
+
+function getInvoiceApp(invoice: Stripe.Invoice) {
+  const metadataSources = [
+    invoice.metadata,
+    invoice.subscription_details?.metadata,
+    invoice.parent?.subscription_details?.metadata,
+  ];
+  for (const metadata of metadataSources) {
+    const app = String(metadata?.app || "").trim().toLowerCase();
+    if (app) return app;
+  }
+  return "";
 }
 
 function getSubscriptionPeriodStart(subscription: StripeSubscription) {
@@ -56,6 +97,12 @@ function getSubscriptionPeriodEnd(subscription: StripeSubscription) {
 function isMusicSubscription(subscription: StripeSubscription) {
   const app = String(subscription.metadata?.app || "").trim().toLowerCase();
   return app === "ai_music" || Boolean(getMusicPlanIdFromPriceId(getSubscriptionPriceId(subscription)));
+}
+
+function isMusicInvoice(invoice: Stripe.Invoice) {
+  const app = getInvoiceApp(invoice);
+  if (app) return app === "ai_music";
+  return getInvoicePriceIds(invoice).some((priceId) => Boolean(getMusicPlanIdFromPriceId(priceId)));
 }
 
 async function ensureMusicProfile(adminClient: ReturnType<typeof createClient>, userId: string) {
@@ -211,6 +258,8 @@ async function handleSubscriptionEvent(
 }
 
 async function handleInvoicePaymentSucceeded(adminClient: ReturnType<typeof createClient>, stripe: Stripe, invoice: Stripe.Invoice) {
+  if (!isMusicInvoice(invoice)) return;
+
   const subscriptionId = typeof invoice.subscription === "string" ? invoice.subscription : invoice.subscription?.id || null;
   if (!subscriptionId) return;
 
@@ -250,7 +299,7 @@ Deno.serve(async (request) => {
 
     const stripe = getStripeClient();
     const body = await request.text();
-    const event = await stripe.webhooks.constructEventAsync(body, signature, getWebhookSecret());
+    const event = await constructMusicWebhookEvent(stripe, body, signature);
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
     switch (event.type) {
