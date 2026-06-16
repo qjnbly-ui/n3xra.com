@@ -1,8 +1,10 @@
 const { fetchTikTokTranscript } = require("./_virals-tiktok");
 const {
+  getAnonymousViralsUser,
   getBearerToken,
   hasViralsSupabaseConfig,
   saveUsageEvent,
+  saveViralsVideoReference,
   verifySupabaseUser,
 } = require("./_virals-supabase");
 
@@ -225,10 +227,33 @@ module.exports = async function handler(req, res) {
     const comparison = normalizeCompare(extractJson(content), input);
     let saved = null;
     const token = getBearerToken(req);
-    if (token && hasViralsSupabaseConfig()) {
+    if (hasViralsSupabaseConfig()) {
       try {
-        const user = await verifySupabaseUser(token);
-        saved = await saveUsageEvent(user, {
+        let user = getAnonymousViralsUser();
+        if (token) {
+          try {
+            user = await verifySupabaseUser(token);
+          } catch (_error) {
+            user = getAnonymousViralsUser();
+          }
+        }
+        const savedVideos = await Promise.all(
+          videos.map((video) =>
+            saveViralsVideoReference({
+              user,
+              input: { ...input, url: video.url },
+              video,
+              analysis: {
+                hookType: comparison.sharedHookPattern,
+                formula: comparison.winningFramework,
+                body: comparison.sharedBodyFramework,
+                product: comparison.product,
+                niche: comparison.niche,
+              },
+            }).catch(() => null)
+          )
+        );
+        const usage = await saveUsageEvent(user, {
           event_type: "compare_analysis",
           input_count: videos.length,
           model,
@@ -236,8 +261,17 @@ module.exports = async function handler(req, res) {
           completion_tokens: data?.usage?.completion_tokens,
           total_tokens: data?.usage?.total_tokens,
         });
+        saved = {
+          status: "saved",
+          owner: user.isAnonymousViralsUser ? "anonymous" : "account",
+          savedVideos: savedVideos.filter(Boolean).length,
+          usageId: usage?.id || null,
+        };
       } catch (_error) {
-        saved = null;
+        saved = {
+          status: "failed",
+          message: _error instanceof Error ? _error.message : "Unable to save Virals comparison.",
+        };
       }
     }
     return sendJson(res, 200, { comparison, videos, failed, model, saved });

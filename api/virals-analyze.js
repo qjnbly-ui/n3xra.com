@@ -25,6 +25,7 @@ function parseJson(req) {
 const { fetchTikTokTranscript } = require("./_virals-tiktok");
 const { resolveProductIntelligence } = require("./_virals-product-resolver");
 const {
+  getAnonymousViralsUser,
   getBearerToken,
   hasViralsSupabaseConfig,
   saveViralsAnalysis,
@@ -298,13 +299,18 @@ module.exports = async function handler(req, res) {
     const analysis = normalizeAnalysis(extractJson(content), input);
     let saved = null;
     const token = getBearerToken(req);
-    if (!token) {
-      saved = { status: "not_authenticated" };
-    } else if (!hasViralsSupabaseConfig()) {
+    if (!hasViralsSupabaseConfig()) {
       saved = { status: "not_configured" };
     } else {
       try {
-        const user = await verifySupabaseUser(token);
+        let user = getAnonymousViralsUser();
+        if (token) {
+          try {
+            user = await verifySupabaseUser(token);
+          } catch (_error) {
+            user = getAnonymousViralsUser();
+          }
+        }
         saved = await saveViralsAnalysis({
           user,
           input,

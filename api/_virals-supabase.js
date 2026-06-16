@@ -2,6 +2,7 @@ const { getBearerToken, verifySupabaseUser } = require("./_music-supabase");
 
 const VIRALS_SUPABASE_URL = String(process.env.VIRALS_SUPABASE_URL || "").replace(/\/+$/, "");
 const VIRALS_SUPABASE_SERVICE_ROLE_KEY = String(process.env.VIRALS_SUPABASE_SERVICE_ROLE_KEY || "").trim();
+const VIRALS_SYSTEM_USER_ID = String(process.env.VIRALS_SYSTEM_USER_ID || "00000000-0000-4000-8000-000000000001").trim();
 
 class ViralsSupabaseError extends Error {
   constructor(message, status = 500, data = null) {
@@ -77,6 +78,17 @@ function cleanUuid(value) {
 
 function tableUrl(table, query = "") {
   return `${VIRALS_SUPABASE_URL}/rest/v1/${table}${query}`;
+}
+
+function getAnonymousViralsUser() {
+  return {
+    id: VIRALS_SYSTEM_USER_ID,
+    email: "anonymous@n3xra-virals.local",
+    user_metadata: {
+      name: "N3XRA Virals Anonymous",
+    },
+    isAnonymousViralsUser: true,
+  };
 }
 
 async function insertRow(table, payload) {
@@ -480,10 +492,27 @@ async function saveVideoSearchStats(videoRow, video, analysisRow, analysis = {},
   return insertRow("virals_video_search_stats", payload);
 }
 
-async function saveViralsAnalysis({ user, input, video, analysis, model, usage }) {
-  if (!hasViralsSupabaseConfig() || !user?.id || !analysis) return null;
+async function saveViralsVideoReference({ user, input, video, analysis }) {
+  const owner = user?.id ? user : getAnonymousViralsUser();
+  if (!hasViralsSupabaseConfig() || !owner?.id || !video) return null;
 
-  await ensureViralsProfile(user);
+  await ensureViralsProfile(owner);
+  await saveCreator(video).catch(() => null);
+  const videoRow = await saveVideo(owner, video, input);
+  await saveTranscript(videoRow, video).catch(() => null);
+  await saveVideoSearchStats(videoRow, video, null, analysis, input).catch(() => null);
+  return {
+    status: "saved",
+    owner: owner.isAnonymousViralsUser ? "anonymous" : "account",
+    video_id: videoRow?.id || null,
+  };
+}
+
+async function saveViralsAnalysis({ user, input, video, analysis, model, usage }) {
+  const owner = user?.id ? user : getAnonymousViralsUser();
+  if (!hasViralsSupabaseConfig() || !owner?.id || !analysis) return null;
+
+  await ensureViralsProfile(owner);
   const sourceVideo = video || {
     url: input?.url || analysis.url || "",
     caption: input?.notes || "",
@@ -492,14 +521,14 @@ async function saveViralsAnalysis({ user, input, video, analysis, model, usage }
   };
 
   await saveCreator(sourceVideo).catch(() => null);
-  const videoRow = await saveVideo(user, sourceVideo, input);
+  const videoRow = await saveVideo(owner, sourceVideo, input);
   await saveTranscript(videoRow, sourceVideo).catch(() => null);
   const productRow = await saveProduct(analysis.productIntelligence).catch(() => null);
   await linkVideoProduct(videoRow, productRow, analysis.productIntelligence).catch(() => null);
-  const analysisRow = await saveAnalysis(user, videoRow, analysis, model);
-  await saveGeneratedOutputs(user, analysisRow, analysis).catch(() => null);
+  const analysisRow = await saveAnalysis(owner, videoRow, analysis, model);
+  await saveGeneratedOutputs(owner, analysisRow, analysis).catch(() => null);
   await saveVideoSearchStats(videoRow, sourceVideo, analysisRow, analysis, input).catch(() => null);
-  await saveUsageEvent(user, {
+  await saveUsageEvent(owner, {
     event_type: "single_analysis",
     analysis_id: analysisRow?.id || null,
     video_id: videoRow?.id || null,
@@ -512,6 +541,7 @@ async function saveViralsAnalysis({ user, input, video, analysis, model, usage }
 
   return {
     status: "saved",
+    owner: owner.isAnonymousViralsUser ? "anonymous" : "account",
     video_id: videoRow?.id || null,
     analysis_id: analysisRow?.id || null,
     product_id: productRow?.id || null,
@@ -523,11 +553,13 @@ module.exports = {
   deleteSavedFramework,
   deleteSavedScript,
   getBearerToken,
+  getAnonymousViralsUser,
   hasViralsSupabaseConfig,
   listSavedFrameworks,
   listSavedScripts,
   saveScriptToLibrary,
   saveUsageEvent,
   saveViralsAnalysis,
+  saveViralsVideoReference,
   verifySupabaseUser,
 };
