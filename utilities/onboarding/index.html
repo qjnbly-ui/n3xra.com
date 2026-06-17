@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>N3XRA Utilities Onboarding</title>
+    <meta name="description" content="Start onboarding for N3XRA Utilities.">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="theme-color" content="#07120f">
+    <link rel="icon" type="image/png" sizes="284x284" href="/assets/n3xra_logo_transparent_small.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,650;9..144,750&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/assets/site-nav.css">
+    <link rel="stylesheet" href="/utilities/utilities.css">
+    <script src="/assets/site-nav.js" defer></script>
+    <script src="/utilities/utilities.js" defer></script>
+  </head>
+  <body>
+    <header class="site-topbar utilities-topbar">
+      <div class="site-topbar-inner">
+        <div class="site-topbar-row">
+          <a class="site-brand" href="/utilities/" aria-label="N3XRA Utilities home">
+            <img src="/assets/MAINLOGO.png" alt="N3XRA">
+          </a>
+          <div class="site-nav-actions">
+            <a class="site-menu-link utilities-desktop-link" href="/utilities/">Home</a>
+            <a class="site-menu-link utilities-desktop-link" href="/utilities/login/">Login</a>
+            <button class="site-menu-toggle" type="button" aria-expanded="false" aria-controls="utilities-onboarding-menu" aria-label="Open menu" data-site-menu-toggle>
+              <span></span>
+              <span></span>
+              <span></span>
+            </button>
+          </div>
+        </div>
+        <nav class="site-mobile-menu" id="utilities-onboarding-menu" aria-label="Mobile primary" hidden>
+          <div class="site-mobile-menu-head">
+            <p class="site-mobile-menu-title">Navigate</p>
+          </div>
+          <a class="site-menu-link" href="/utilities/">Utilities Home</a>
+          <a class="site-menu-link" href="/utilities/login/">Login</a>
+          <a class="site-menu-link" href="/support/">Support</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="form-page">
+      <section class="onboarding-shell" aria-label="N3XRA Utilities onboarding form">
+        <div class="onboarding-intro">
+          <p class="eyebrow">Onboarding</p>
+          <h1>Tell us how your district operates today.</h1>
+          <p class="hero-lede">This helps N3XRA map your current billing, records, payment, communication, and administrative workflows before setup begins.</p>
+        </div>
+
+        <form class="utility-form onboarding-form" id="utilities-onboarding-form">
+          <label>
+            District name
+            <input type="text" name="district" autocomplete="organization" required>
+          </label>
+          <label>
+            Primary contact
+            <input type="text" name="contact" autocomplete="name" required>
+          </label>
+          <label>
+            Email
+            <input type="email" name="email" autocomplete="email" required>
+          </label>
+          <label>
+            Phone
+            <input type="tel" name="phone" autocomplete="tel">
+          </label>
+          <label>
+            Current billing tools
+            <input type="text" name="billing_tools" placeholder="QuickBooks, spreadsheets, payment portal, paper bills">
+          </label>
+          <label>
+            Approximate customer accounts
+            <select name="accounts">
+              <option value="">Select range</option>
+              <option>Under 250</option>
+              <option>250-750</option>
+              <option>750-1,500</option>
+              <option>1,500+</option>
+            </select>
+          </label>
+          <label class="full-field">
+            What work is most manual right now?
+            <textarea name="manual_work" rows="5" placeholder="Meter readings, mailed bills, delinquency letters, board records, customer notes, permits, reporting..."></textarea>
+          </label>
+          <label class="utility-honeypot" aria-hidden="true" tabindex="-1">
+            Company
+            <input type="text" name="company" autocomplete="off" tabindex="-1">
+          </label>
+          <button type="submit">Submit Onboarding Request</button>
+        </form>
+        <p class="status-line" id="utilities-onboarding-status" role="status" aria-live="polite"></p>
+      </section>
+    </main>
+    <footer class="site-footer">
+      <div class="footer-inner">
+        <p>&copy; 2026 <strong>N3XRA LLC.</strong> All rights reserved.</p>
+        <p><a href="/support/">Support</a> · <a href="/terms/">Terms</a> · <a href="/privacy/">Privacy</a></p>
+      </div>
+    </footer>
+  </body>
+</html>

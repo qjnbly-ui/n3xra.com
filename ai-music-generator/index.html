@@ -571,9 +571,14 @@
       color: rgba(255, 255, 255, 0.78);
     }
 
+    .site-mobile-menu.is-open {
+      justify-content: center;
+      justify-items: center;
+    }
+
     .music-hero-shell {
       width: min(1180px, calc(100% - 32px));
-      margin: clamp(34px, 6vw, 72px) auto 0;
+      margin: clamp(12px, 3vw, 30px) auto 0;
       border: 1px solid var(--line);
       border-radius: 8px;
       background:
@@ -607,7 +612,7 @@
 
     .music-hero-inner {
       width: 100%;
-      padding: clamp(42px, 8vw, 84px) clamp(22px, 5vw, 52px) clamp(32px, 5vw, 52px);
+      padding: clamp(28px, 5vw, 56px) clamp(22px, 5vw, 52px) clamp(24px, 4vw, 38px);
     }
 
     .music-hero-grid {
@@ -616,7 +621,7 @@
     }
 
     .music-hero-logo {
-      width: min(640px, 92vw);
+      width: min(520px, 82vw);
       max-width: 100%;
       filter: drop-shadow(0 28px 54px rgba(24, 200, 255, 0.17));
     }
@@ -796,15 +801,23 @@
     }
 
     @media (max-width: 620px) {
-      .generator-shell { padding: 2rem 0 3rem; }
+      .generator-shell { padding: 1rem 0 3rem; }
 
       .music-hero-shell,
       .generator-shell {
         width: min(100% - 24px, 1180px);
       }
 
+      .music-hero-shell {
+        margin-top: 8px;
+      }
+
+      .music-hero-inner {
+        padding: 26px 16px 22px;
+      }
+
       .music-hero-logo {
-        max-width: 100%;
+        max-width: min(100%, 420px);
       }
 
       .auth-toggle button {
@@ -858,6 +871,7 @@
         <a class="site-menu-link" href="/services/">Services</a>
         <a class="site-menu-link" href="/projects/">Projects</a>
         <a class="site-menu-link" href="/virals/">N3XRA Virals</a>
+        <a class="site-menu-link" href="/utilities/">N3XRA Utilities</a>
       </nav>
     </div>
   </header>

@@ -109,7 +109,8 @@
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 0.55rem;
+  align-items: center;
+  gap: 0.5rem;
   padding: 0.9rem 0 0;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
@@ -129,10 +130,17 @@
 }
 
 .site-mobile-menu .site-menu-link {
-  flex: 0 1 180px;
-  border-radius: 18px;
+  flex: 0 0 auto;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
   text-align: center;
-  padding: 0.82rem 0.8rem;
+  padding: 0.68rem 0.58rem;
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  line-height: 1.15;
 }
 
 
@@ -141,7 +149,7 @@ body.site-menu-is-open .records-hero-shell .header-shell,
 body.site-menu-is-open .projects-hero-inner,
 body.site-menu-is-open .music-hero-inner,
 body.site-menu-is-open .legal-hero .header-shell {
-  padding-top: 12rem !important;
+  padding-top: 13.5rem !important;
 }
 
 @media (max-width: 760px) {
@@ -164,6 +172,6 @@ body.site-menu-is-open .legal-hero .header-shell {
   body.site-menu-is-open .projects-hero-inner,
   body.site-menu-is-open .music-hero-inner,
   body.site-menu-is-open .legal-hero .header-shell {
-    padding-top: 18rem !important;
+    padding-top: 19.5rem !important;
   }
 }
