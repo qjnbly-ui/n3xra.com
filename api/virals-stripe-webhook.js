@@ -4,6 +4,7 @@ const {
   findApplicationByPromotionCode,
   findReferralBySubscription,
   hasViralsBusinessConfig,
+  loadCreatorApplicationById,
   updateReferralStatus,
   updateViralsProfileFromSubscription,
 } = require("./_virals-supabase");
@@ -30,6 +31,31 @@ async function loadSubscription(subscriptionId) {
   return stripeRequest(`/subscriptions/${encodeURIComponent(subscriptionId)}`);
 }
 
+async function loadInvoice(invoiceId) {
+  if (!invoiceId) return null;
+  return stripeRequest(`/invoices/${encodeURIComponent(invoiceId)}`);
+}
+
+function getInvoiceId(object) {
+  return typeof object?.invoice === "string" ? object.invoice : object?.invoice?.id || "";
+}
+
+async function findApplicationForObject(object, fallbackObject = null) {
+  const metadataApplicationId = String(
+    object?.metadata?.creator_application_id
+      || fallbackObject?.metadata?.creator_application_id
+      || ""
+  ).trim();
+  if (metadataApplicationId) {
+    const application = await loadCreatorApplicationById(metadataApplicationId).catch(() => null);
+    if (application?.status === "approved") return application;
+  }
+
+  const promotionCodeId = getPromotionCodeIdFromObject(object) || getPromotionCodeIdFromObject(fallbackObject);
+  if (!promotionCodeId) return null;
+  return findApplicationByPromotionCode(promotionCodeId);
+}
+
 async function handleCheckoutCompleted(session) {
   const subscriptionId = typeof session.subscription === "string" ? session.subscription : session.subscription?.id;
   const subscription = await loadSubscription(subscriptionId);
@@ -38,16 +64,18 @@ async function handleCheckoutCompleted(session) {
   if (userId) await updateViralsProfileFromSubscription(userId, subscription);
 
   const promotionCodeId = getPromotionCodeIdFromObject(session) || getPromotionCodeIdFromObject(subscription);
-  const application = await findApplicationByPromotionCode(promotionCodeId);
+  const application = await findApplicationForObject(session, subscription);
   if (application && userId) {
-    await createReferralIfMissing({
+    const referral = await createReferralIfMissing({
       creatorApplicationId: application.id,
       referredUserId: userId,
       subscription,
       promotionCodeId,
       normalizedCode: application.normalized_code,
-      invoiceId: typeof session.invoice === "string" ? session.invoice : session.invoice?.id || null,
+      invoiceId: getInvoiceId(session) || null,
     });
+    const invoice = await loadInvoice(getInvoiceId(session)).catch(() => null);
+    if (invoice) await createCommissionLedger({ application, referral, invoice });
   }
 }
 
@@ -69,7 +97,7 @@ async function handleInvoicePaid(invoice) {
   if (!referral || !application) {
     const subscription = await loadSubscription(subscriptionId);
     const promotionCodeId = getPromotionCodeIdFromObject(invoice) || getPromotionCodeIdFromObject(subscription);
-    application = await findApplicationByPromotionCode(promotionCodeId);
+    application = await findApplicationForObject(invoice, subscription);
     const userId = getUserIdFromSubscription(subscription);
     if (application && userId) {
       referral = await createReferralIfMissing({
