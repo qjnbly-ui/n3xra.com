@@ -1,5 +1,6 @@
 const VIRALS_EMAIL_FROM = process.env.VIRALS_EMAIL_FROM || "N3XRA Virals <noreply@n3xra.com>";
 const VIRALS_EMAIL_REPLY_TO = process.env.VIRALS_EMAIL_REPLY_TO || "support@n3xra.com";
+const VIRALS_ADMIN_EMAIL = process.env.VIRALS_ADMIN_EMAIL || "quentin@n3xra.com";
 
 function escapeHtml(value) {
   return String(value || "")
@@ -12,6 +13,11 @@ function escapeHtml(value) {
 
 function getApplicationValue(application, camelKey, snakeKey = camelKey) {
   return application?.[camelKey] ?? application?.[snakeKey] ?? "";
+}
+
+function formatNumber(value) {
+  const number = Number(value || 0);
+  return Number.isFinite(number) ? number.toLocaleString("en-US") : "0";
 }
 
 function getProgramConfig(decision, program) {
@@ -147,7 +153,109 @@ async function sendCreatorDecisionEmail(application, decision, program) {
   return { id: data?.id || null, to: email.to, subject: email.subject };
 }
 
+function buildCreatorApplicationNotificationEmail(application) {
+  const handle = getApplicationValue(application, "tiktokUsername", "tiktok_username") || "creator";
+  const code = getApplicationValue(application, "normalizedCode", "normalized_code") || getApplicationValue(application, "requestedCode", "requested_code");
+  const displayName = getApplicationValue(application, "displayName", "display_name") || `@${handle}`;
+  const email = getApplicationValue(application, "email") || "No email provided";
+  const requestedProgram = getApplicationValue(application, "requestedProgram", "requested_program") || "standard";
+  const notes = getApplicationValue(application, "notes") || "No notes provided.";
+  const evaluation = application?.aiEvaluation || application?.ai_evaluation || {};
+  const profile = evaluation?.profile || {};
+  const profileUrl = profile.profileUrl || `https://www.tiktok.com/@${encodeURIComponent(String(handle).replace(/^@/, ""))}`;
+  const adminUrl = "https://n3xra.com/virals/?account=1";
+  const subject = `New Virals creator application: @${handle}`;
+
+  const text = [
+    "A new N3XRA Virals creator application is ready for review.",
+    "",
+    `Creator: ${displayName}`,
+    `TikTok: @${handle}`,
+    `Email: ${email}`,
+    `Requested code: ${code || "none"}`,
+    `Program interest: ${requestedProgram}`,
+    "",
+    `AI score: ${evaluation.score ?? "manual review"}`,
+    `Recommendation: ${evaluation.recommendation || "manual_review"}`,
+    `Summary: ${evaluation.summary || "No AI summary available."}`,
+    "",
+    `Followers: ${formatNumber(profile.followerCount)}`,
+    `Likes: ${formatNumber(profile.likeCount)}`,
+    `Videos: ${formatNumber(profile.videoCount)}`,
+    `TikTok profile: ${profileUrl}`,
+    "",
+    `Notes: ${notes}`,
+    "",
+    `Review in N3XRA Virals: ${adminUrl}`,
+  ].join("\n");
+
+  const html = `
+    <div style="margin:0;padding:28px 14px;background:#eef4f8;font-family:Arial,sans-serif;color:#111827;line-height:1.6;color-scheme:light;">
+      <div style="max-width:680px;margin:0 auto;background:#ffffff;border:1px solid #d7e2ea;border-radius:22px;overflow:hidden;">
+        <div style="height:8px;background:#18c8ff;"></div>
+        <div style="padding:28px 30px 18px;background:#ffffff;color:#111827;">
+          <p style="margin:0 0 10px;font-size:12px;letter-spacing:0.2em;text-transform:uppercase;font-weight:800;color:#0e7490;">N3XRA Virals</p>
+          <h1 style="margin:0;font-size:30px;line-height:1.14;color:#111827;">New creator application</h1>
+          <p style="margin:14px 0 0;font-size:16px;color:#374151;">A creator has applied to promote N3XRA Virals.</p>
+        </div>
+        <div style="padding:0 30px 30px;background:#ffffff;color:#111827;">
+          <div style="margin:0 0 18px;padding:16px 18px;border-radius:16px;background:#f8fafc;border:1px solid #dbe5ee;color:#111827;">
+            <p style="margin:0 0 6px;font-size:12px;letter-spacing:0.14em;text-transform:uppercase;font-weight:800;color:#0e7490;">Creator</p>
+            <p style="margin:0;font-size:18px;font-weight:800;color:#111827;">${escapeHtml(displayName)}</p>
+            <p style="margin:8px 0 0;font-size:16px;color:#111827;"><strong>TikTok:</strong> @${escapeHtml(handle)}</p>
+            <p style="margin:8px 0 0;font-size:16px;color:#111827;"><strong>Email:</strong> ${escapeHtml(email)}</p>
+            <p style="margin:8px 0 0;font-size:16px;color:#111827;"><strong>Requested code:</strong> ${escapeHtml(code || "none")}</p>
+            <p style="margin:8px 0 0;font-size:16px;color:#111827;"><strong>Program:</strong> ${escapeHtml(requestedProgram)}</p>
+          </div>
+          <div style="margin:0 0 18px;padding:16px 18px;border-radius:16px;background:#f8fafc;border:1px solid #dbe5ee;color:#111827;">
+            <p style="margin:0 0 8px;font-size:12px;letter-spacing:0.14em;text-transform:uppercase;font-weight:800;color:#0e7490;">AI review</p>
+            <p style="margin:0 0 8px;font-size:16px;color:#111827;"><strong>Score:</strong> ${escapeHtml(evaluation.score ?? "manual review")} · <strong>Recommendation:</strong> ${escapeHtml(evaluation.recommendation || "manual_review")}</p>
+            <p style="margin:0;font-size:15px;color:#374151;">${escapeHtml(evaluation.summary || "No AI summary available.")}</p>
+          </div>
+          <div style="margin:0 0 22px;padding:16px 18px;border-radius:16px;background:#f8fafc;border:1px solid #dbe5ee;color:#111827;">
+            <p style="margin:0 0 8px;font-size:12px;letter-spacing:0.14em;text-transform:uppercase;font-weight:800;color:#0e7490;">TikTok profile</p>
+            <p style="margin:0 0 8px;font-size:16px;color:#111827;">${formatNumber(profile.followerCount)} followers · ${formatNumber(profile.likeCount)} likes · ${formatNumber(profile.videoCount)} videos</p>
+            <p style="margin:0;font-size:15px;color:#374151;">${escapeHtml(notes)}</p>
+            <p style="margin:10px 0 0;font-size:15px;"><a href="${profileUrl}" style="color:#0369a1;">Open TikTok profile</a></p>
+          </div>
+          <a href="${adminUrl}" style="display:inline-block;padding:13px 18px;border-radius:14px;background:#18c8ff;color:#051016;font-weight:800;text-decoration:none;">Review application</a>
+        </div>
+      </div>
+    </div>
+  `;
+
+  return {
+    to: [VIRALS_ADMIN_EMAIL],
+    from: VIRALS_EMAIL_FROM,
+    reply_to: VIRALS_EMAIL_REPLY_TO,
+    subject,
+    html,
+    text,
+  };
+}
+
+async function sendCreatorApplicationNotificationEmail(application) {
+  const resendApiKey = process.env.RESEND_API_KEY;
+  if (!resendApiKey) throw new Error("Missing RESEND_API_KEY.");
+  const email = buildCreatorApplicationNotificationEmail(application);
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${resendApiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(email),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(String(data?.message || data?.error || "Creator application notification failed to send."));
+  }
+  return { id: data?.id || null, to: email.to, subject: email.subject };
+}
+
 module.exports = {
+  buildCreatorApplicationNotificationEmail,
   buildCreatorDecisionEmail,
+  sendCreatorApplicationNotificationEmail,
   sendCreatorDecisionEmail,
 };

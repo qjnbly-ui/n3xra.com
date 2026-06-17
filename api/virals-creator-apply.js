@@ -1,5 +1,6 @@
 const { getBearerToken, hasViralsBusinessConfig, submitCreatorApplication, verifySupabaseUser } = require("./_virals-supabase");
 const { normalizePromoCode } = require("./_virals-billing");
+const { sendCreatorApplicationNotificationEmail } = require("./_virals-email");
 const { parseJson, sendJson } = require("./_virals-http");
 const { fetchTikTokProfile } = require("./_virals-tiktok");
 
@@ -113,7 +114,13 @@ module.exports = async function handler(req, res) {
     const enrichedPayload = { ...payload, profile };
     const aiEvaluation = await evaluateCreator(enrichedPayload);
     const application = await submitCreatorApplication(user, enrichedPayload, aiEvaluation);
-    return sendJson(res, 200, { application });
+    let emailWarning = "";
+    try {
+      await sendCreatorApplicationNotificationEmail(application);
+    } catch (emailError) {
+      emailWarning = emailError instanceof Error ? emailError.message : "Creator application notification failed to send.";
+    }
+    return sendJson(res, 200, { application, emailWarning: emailWarning || undefined });
   } catch (error) {
     return sendJson(res, error.status || 500, { error: error instanceof Error ? error.message : "Unable to submit creator application." });
   }
