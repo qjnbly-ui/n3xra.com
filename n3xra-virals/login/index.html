@@ -486,6 +486,7 @@
       } from "../../app/lib/supabase-client.js";
 
       const DEFAULT_NEXT_PATH = "/virals/";
+      const VIRALS_PROMO_STORAGE_KEY = "n3xra_virals_promo_code";
       const signinToggle = document.getElementById("virals-signin-toggle");
       const signupToggle = document.getElementById("virals-signup-toggle");
       const signinForm = document.getElementById("virals-signin-form");
@@ -500,11 +501,53 @@
       let captchaWidgetId = null;
       let captchaEnabled = false;
 
+      function normalizePromoCode(value) {
+        return String(value || "")
+          .trim()
+          .replace(/[^a-z0-9_-]+/gi, "")
+          .slice(0, 32)
+          .toUpperCase();
+      }
+
+      function getPromoCodeFromUrl() {
+        const params = new URLSearchParams(window.location.search);
+        return normalizePromoCode(params.get("promo") || params.get("ref") || params.get("code"));
+      }
+
+      function rememberPromoCodeFromUrl() {
+        const code = getPromoCodeFromUrl();
+        if (!code) return "";
+        try {
+          window.localStorage.setItem(VIRALS_PROMO_STORAGE_KEY, code);
+        } catch (_error) {
+          return code;
+        }
+        return code;
+      }
+
+      function getStoredPromoCode() {
+        let stored = "";
+        try {
+          stored = window.localStorage.getItem(VIRALS_PROMO_STORAGE_KEY);
+        } catch (_error) {
+          stored = "";
+        }
+        return rememberPromoCodeFromUrl() || normalizePromoCode(stored);
+      }
+
+      function appendPromoToPath(path) {
+        const promoCode = getStoredPromoCode();
+        if (!promoCode) return path;
+        const url = new URL(path, window.location.origin);
+        url.searchParams.set("promo", promoCode);
+        return `${url.pathname}${url.search}${url.hash}`;
+      }
+
       function getNextPath() {
         const params = new URLSearchParams(window.location.search);
         const next = String(params.get("next") || DEFAULT_NEXT_PATH).trim();
-        if (!next.startsWith("/virals/") || next.startsWith("//")) return DEFAULT_NEXT_PATH;
-        return next;
+        if (!next.startsWith("/virals/") || next.startsWith("//")) return appendPromoToPath(DEFAULT_NEXT_PATH);
+        return appendPromoToPath(next);
       }
 
       function setAuthStatus(message, tone = "") {
@@ -647,12 +690,12 @@
             email,
             password,
             options: {
-              data: { full_name: fullName, app: "n3xra-virals" },
+              data: { full_name: fullName, app: "n3xra-virals", virals_promo_code: getStoredPromoCode() || undefined },
               emailRedirectTo: `${window.location.origin}/n3xra-virals/login/?next=${encodeURIComponent(getNextPath())}`,
             },
           });
           if (error) throw error;
-          await notifyNewAccount({ email, fullName, app: "n3xra-virals" });
+          await notifyNewAccount({ email, fullName, app: "n3xra-virals", promoCode: getStoredPromoCode() || undefined });
           if (data?.session) {
             openVirals();
             return;
@@ -669,6 +712,7 @@
 
       async function init() {
         const params = new URLSearchParams(window.location.search);
+        rememberPromoCodeFromUrl();
         setAuthMode(params.get("mode") === "signup" ? "signup" : "signin");
         if (!hasConfig()) {
           setAuthStatus("Login configuration is missing.", "error");

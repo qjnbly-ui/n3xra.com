@@ -1,6 +1,7 @@
 const {
   attachViralsStripeCustomer,
   ensureViralsProfileAndPeriod,
+  findApplicationByPromoCode,
   getBearerToken,
   hasViralsBusinessConfig,
   loadViralsProfile,
@@ -27,6 +28,17 @@ async function getOrCreateCustomer(user, profile) {
   return customer.id;
 }
 
+async function getReferralDiscountPayload(code) {
+  const application = await findApplicationByPromoCode(code);
+  if (!application?.stripe_promotion_code_id) return null;
+  return {
+    discounts: [{ promotion_code: application.stripe_promotion_code_id }],
+    referralCode: application.normalized_code || "",
+    referralPromotionCodeId: application.stripe_promotion_code_id,
+    referralApplicationId: application.id,
+  };
+}
+
 module.exports = async function handler(req, res) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
@@ -49,29 +61,39 @@ module.exports = async function handler(req, res) {
       const plan = requirePaidPlan(payload.planId);
       const priceId = process.env[plan.priceEnv];
       if (!priceId) throw new Error(`Missing ${plan.priceEnv}.`);
-      const session = await stripeRequest("/checkout/sessions", {
-        method: "POST",
-        body: {
-          mode: "subscription",
-          customer: customerId,
-          line_items: [{ price: priceId, quantity: 1 }],
-          allow_promotion_codes: true,
-          client_reference_id: user.id,
-          success_url: `${origin}/virals/?billing=success`,
-          cancel_url: `${origin}/virals/?billing=canceled`,
+      const referral = await getReferralDiscountPayload(payload.promoCode);
+      const checkoutBody = {
+        mode: "subscription",
+        customer: customerId,
+        line_items: [{ price: priceId, quantity: 1 }],
+        client_reference_id: user.id,
+        success_url: `${origin}/virals/?billing=success`,
+        cancel_url: `${origin}/virals/?billing=canceled`,
+        metadata: {
+          app: "n3xra_virals",
+          user_id: user.id,
+          plan_id: plan.id,
+          referral_code: referral?.referralCode || undefined,
+          creator_application_id: referral?.referralApplicationId || undefined,
+        },
+        subscription_data: {
           metadata: {
             app: "n3xra_virals",
             user_id: user.id,
             plan_id: plan.id,
-          },
-          subscription_data: {
-            metadata: {
-              app: "n3xra_virals",
-              user_id: user.id,
-              plan_id: plan.id,
-            },
+            referral_code: referral?.referralCode || undefined,
+            creator_application_id: referral?.referralApplicationId || undefined,
           },
         },
+      };
+      if (referral?.discounts) {
+        checkoutBody.discounts = referral.discounts;
+      } else {
+        checkoutBody.allow_promotion_codes = true;
+      }
+      const session = await stripeRequest("/checkout/sessions", {
+        method: "POST",
+        body: checkoutBody,
       });
       return sendJson(res, 200, { url: session.url });
     }

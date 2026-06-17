@@ -25,6 +25,7 @@ const mobileDockItems = [
 let supabase = null;
 let currentSession = null;
 let accountState = null;
+const VIRALS_PROMO_STORAGE_KEY = "n3xra_virals_promo_code";
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -38,6 +39,40 @@ function escapeHtml(value) {
 function formatMoney(cents) {
   const amount = Number(cents || 0) / 100;
   return amount.toLocaleString(undefined, { style: "currency", currency: "USD" });
+}
+
+function normalizeStoredPromoCode(value) {
+  return String(value || "")
+    .trim()
+    .replace(/[^a-z0-9_-]+/gi, "")
+    .slice(0, 32)
+    .toUpperCase();
+}
+
+function getPromoCodeFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  return normalizeStoredPromoCode(params.get("promo") || params.get("ref") || params.get("code"));
+}
+
+function rememberPromoCodeFromUrl() {
+  const code = getPromoCodeFromUrl();
+  if (!code) return "";
+  try {
+    window.localStorage.setItem(VIRALS_PROMO_STORAGE_KEY, code);
+  } catch (_error) {
+    return code;
+  }
+  return code;
+}
+
+function getStoredPromoCode() {
+  let stored = "";
+  try {
+    stored = window.localStorage.getItem(VIRALS_PROMO_STORAGE_KEY);
+  } catch (_error) {
+    stored = "";
+  }
+  return rememberPromoCodeFromUrl() || normalizeStoredPromoCode(stored);
 }
 
 function getFoundingProgram(state = accountState) {
@@ -126,7 +161,10 @@ function renderMobileDock() {
 
 function getLoginUrl() {
   const next = `${window.location.pathname}${window.location.search}${window.location.hash}` || "/virals/";
-  return `/n3xra-virals/login/?next=${encodeURIComponent(next)}`;
+  const params = new URLSearchParams({ next });
+  const promoCode = getStoredPromoCode();
+  if (promoCode) params.set("promo", promoCode);
+  return `/n3xra-virals/login/?${params.toString()}`;
 }
 
 function ensureAccountModal() {
@@ -372,7 +410,11 @@ async function handleCheckout(planId) {
     accountStatus.textContent = "Opening Stripe Checkout...";
     accountStatus.className = "status";
   }
-  const payload = await postJson("/api/virals-billing", { action: "create-checkout-session", planId });
+  const payload = await postJson("/api/virals-billing", {
+    action: "create-checkout-session",
+    planId,
+    promoCode: getStoredPromoCode(),
+  });
   if (payload.url) window.location.assign(payload.url);
 }
 
@@ -690,6 +732,7 @@ document.addEventListener("keydown", (event) => {
 });
 
 prepareMobileMenu();
+rememberPromoCodeFromUrl();
 renderMobileDock();
 renderAboutFoundingCountdown();
 bindAccountModal();

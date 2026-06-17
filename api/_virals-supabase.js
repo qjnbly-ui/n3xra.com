@@ -483,6 +483,15 @@ async function findApplicationByPromotionCode(promotionCodeId) {
   return firstRow(rows);
 }
 
+async function findApplicationByPromoCode(code) {
+  const normalized = normalizePromoCode(code);
+  if (!normalized) return null;
+  const rows = await fetchJson(tableUrl("virals_creator_applications", `?select=*&normalized_code=eq.${encodeFilter(normalized)}&status=eq.approved&limit=1`), {
+    headers: serviceHeaders(),
+  }).catch(() => []);
+  return firstRow(rows);
+}
+
 async function findReferralBySubscription(subscriptionId) {
   if (!subscriptionId) return null;
   const rows = await fetchJson(tableUrl("virals_referrals", `?select=*&stripe_subscription_id=eq.${encodeFilter(subscriptionId)}&limit=1`), {
@@ -1042,6 +1051,7 @@ module.exports = {
   createReferralIfMissing,
   deleteSavedFramework,
   deleteSavedScript,
+  findApplicationByPromoCode,
   findApplicationByPromotionCode,
   findReferralBySubscription,
   getBearerToken,

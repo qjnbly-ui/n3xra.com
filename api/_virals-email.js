@@ -67,6 +67,9 @@ function buildCreatorDecisionEmail(application, decision, program) {
     : `N3XRA Virals ${config.subjectLabel}`;
   const ctaLabel = isRejected ? "Open N3XRA Virals" : "Open account settings";
   const ctaUrl = "https://n3xra.com/virals/";
+  const referralUrl = code
+    ? `https://n3xra.com/n3xra-virals/login/?mode=signup&promo=${encodeURIComponent(code)}&next=${encodeURIComponent("/virals/")}`
+    : "";
 
   const text = [
     `Hi ${displayName},`,
@@ -75,6 +78,7 @@ function buildCreatorDecisionEmail(application, decision, program) {
     "",
     `TikTok: @${handle}`,
     code ? `Promo code: ${code}` : "",
+    referralUrl ? `Referral signup link: ${referralUrl}` : "",
     "",
     ...config.details.map((item) => `- ${item}`),
     "",
@@ -101,6 +105,7 @@ function buildCreatorDecisionEmail(application, decision, program) {
             <p style="margin:0 0 6px;font-size:12px;letter-spacing:0.14em;text-transform:uppercase;font-weight:800;color:#0e7490;">TikTok</p>
             <p style="margin:0;font-size:18px;font-weight:800;color:#111827;">@${escapeHtml(handle)}</p>
             ${code ? `<p style="margin:10px 0 0;font-size:16px;color:#111827;"><strong style="color:#111827;">Promo code:</strong> ${escapeHtml(code)}</p>` : ""}
+            ${referralUrl ? `<p style="margin:10px 0 0;font-size:15px;color:#111827;"><strong style="color:#111827;">Signup link:</strong> <a href="${referralUrl}" style="color:#0369a1;">${escapeHtml(referralUrl)}</a></p>` : ""}
           </div>
           <ul style="margin:0 0 22px;padding-left:22px;color:#1f2937;font-size:15px;">
             ${config.details.map((item) => `<li style="margin:0 0 8px;color:#1f2937;">${escapeHtml(item)}</li>`).join("")}
