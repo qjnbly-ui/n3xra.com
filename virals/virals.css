@@ -1067,9 +1067,75 @@ button:hover {
   margin-top: 12px;
 }
 
+.virals-account-modal .status {
+  margin: 0;
+  color: var(--muted);
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.virals-account-modal .status.success {
+  color: #9ff2c8;
+}
+
+.virals-account-modal .status.error {
+  color: #ff9aa8;
+}
+
 .virals-creator-form {
   display: grid;
   gap: 10px;
+}
+
+.virals-creator-invite {
+  display: grid;
+  gap: 10px;
+  border: 1px solid rgba(152, 233, 255, 0.2);
+  border-radius: 8px;
+  padding: 14px;
+  background: linear-gradient(135deg, rgba(24, 200, 255, 0.1), rgba(32, 224, 161, 0.06)), rgba(255, 255, 255, 0.04);
+}
+
+.virals-creator-invite h3,
+.virals-creator-invite p {
+  margin: 0;
+}
+
+.virals-creator-invite p {
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.virals-creator-invite label {
+  display: grid;
+  gap: 6px;
+  color: var(--soft);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.virals-copy-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.virals-copy-row input {
+  min-width: 0;
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  padding: 10px 11px;
+  background: rgba(0, 0, 0, 0.28);
+  color: var(--ink);
+  font-size: 0.88rem;
+  font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .virals-creator-form label {
@@ -2609,6 +2675,10 @@ button:hover {
 
   .virals-account-actions {
     display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .virals-copy-row {
     grid-template-columns: 1fr;
   }
 }

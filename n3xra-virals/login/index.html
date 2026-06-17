@@ -180,6 +180,14 @@
         gap: 8px;
       }
 
+      .field-hint {
+        margin: 0;
+        color: rgba(255, 255, 255, 0.54);
+        font-size: 0.76rem;
+        font-weight: 700;
+        line-height: 1.35;
+      }
+
       label {
         color: rgba(255, 255, 255, 0.76);
         font-size: 0.82rem;
@@ -442,6 +450,11 @@
               <input id="virals-signup-email" type="email" autocomplete="email" required>
             </div>
             <div class="field">
+              <label for="virals-signup-promo-code">Promo code</label>
+              <input id="virals-signup-promo-code" type="text" autocomplete="off" inputmode="text" placeholder="Optional creator code">
+              <p class="field-hint">Creator codes are applied automatically when you choose a paid plan.</p>
+            </div>
+            <div class="field">
               <label for="virals-signup-password">Password</label>
               <div class="password-field">
                 <input id="virals-signup-password" type="password" autocomplete="new-password" required minlength="6">
@@ -491,6 +504,7 @@
       const signupToggle = document.getElementById("virals-signup-toggle");
       const signinForm = document.getElementById("virals-signin-form");
       const signupForm = document.getElementById("virals-signup-form");
+      const signupPromoInput = document.getElementById("virals-signup-promo-code");
       const authStatus = document.getElementById("virals-auth-status");
       const authLegal = document.getElementById("virals-auth-legal");
       const captchaField = document.getElementById("virals-auth-captcha-field");
@@ -517,12 +531,27 @@
       function rememberPromoCodeFromUrl() {
         const code = getPromoCodeFromUrl();
         if (!code) return "";
+        rememberPromoCode(code);
+        return code;
+      }
+
+      function rememberPromoCode(value) {
+        const code = normalizePromoCode(value);
+        if (!code) return "";
         try {
           window.localStorage.setItem(VIRALS_PROMO_STORAGE_KEY, code);
         } catch (_error) {
           return code;
         }
         return code;
+      }
+
+      function clearStoredPromoCode() {
+        try {
+          window.localStorage.removeItem(VIRALS_PROMO_STORAGE_KEY);
+        } catch (_error) {
+          // Local storage can be disabled; an empty promo field still means no code for this signup.
+        }
       }
 
       function getStoredPromoCode() {
@@ -533,6 +562,12 @@
           stored = "";
         }
         return rememberPromoCodeFromUrl() || normalizePromoCode(stored);
+      }
+
+      function syncPromoInputFromStorage() {
+        if (!signupPromoInput) return;
+        const code = getStoredPromoCode();
+        if (code && !signupPromoInput.value.trim()) signupPromoInput.value = code;
       }
 
       function appendPromoToPath(path) {
@@ -686,16 +721,19 @@
           await verifyCaptchaServerSide();
           const email = document.getElementById("virals-signup-email").value.trim();
           const fullName = document.getElementById("virals-signup-name").value.trim();
+          const typedPromoCode = normalizePromoCode(signupPromoInput?.value);
+          const promoCode = typedPromoCode ? rememberPromoCode(typedPromoCode) : "";
+          if (!promoCode) clearStoredPromoCode();
           const { data, error } = await supabase.auth.signUp({
             email,
             password,
             options: {
-              data: { full_name: fullName, app: "n3xra-virals", virals_promo_code: getStoredPromoCode() || undefined },
+              data: { full_name: fullName, app: "n3xra-virals", virals_promo_code: promoCode || undefined },
               emailRedirectTo: `${window.location.origin}/n3xra-virals/login/?next=${encodeURIComponent(getNextPath())}`,
             },
           });
           if (error) throw error;
-          await notifyNewAccount({ email, fullName, app: "n3xra-virals", promoCode: getStoredPromoCode() || undefined });
+          await notifyNewAccount({ email, fullName, app: "n3xra-virals", promoCode: promoCode || undefined });
           if (data?.session) {
             openVirals();
             return;
@@ -713,6 +751,7 @@
       async function init() {
         const params = new URLSearchParams(window.location.search);
         rememberPromoCodeFromUrl();
+        syncPromoInputFromStorage();
         setAuthMode(params.get("mode") === "signup" ? "signup" : "signin");
         if (!hasConfig()) {
           setAuthStatus("Login configuration is missing.", "error");
@@ -732,6 +771,15 @@
 
       signinToggle.addEventListener("click", () => setAuthMode("signin"));
       signupToggle.addEventListener("click", () => setAuthMode("signup"));
+      signupPromoInput?.addEventListener("input", () => {
+        const code = normalizePromoCode(signupPromoInput.value);
+        if (signupPromoInput.value !== code) signupPromoInput.value = code;
+        if (code) {
+          rememberPromoCode(code);
+        } else {
+          clearStoredPromoCode();
+        }
+      });
       signinForm.addEventListener("submit", handleSignin);
       signupForm.addEventListener("submit", handleSignup);
       document.querySelectorAll("[data-password-toggle]").forEach((button) => {

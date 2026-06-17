@@ -75,6 +75,16 @@ function getStoredPromoCode() {
   return rememberPromoCodeFromUrl() || normalizeStoredPromoCode(stored);
 }
 
+function getCreatorReferralUrl(code) {
+  const promoCode = normalizeStoredPromoCode(code);
+  if (!promoCode) return "";
+  const url = new URL("/n3xra-virals/login/", window.location.origin);
+  url.searchParams.set("mode", "signup");
+  url.searchParams.set("promo", promoCode);
+  url.searchParams.set("next", "/virals/");
+  return url.toString();
+}
+
 function getFoundingProgram(state = accountState) {
   const founding = state?.creatorProgram?.founding || {};
   const limit = Number(founding.limit || 25);
@@ -272,6 +282,7 @@ function renderCreatorPanel(state) {
   if (creator && creator.status !== "rejected") {
     const pending = formatMoney(creator.stats?.pendingCommission || 0);
     const paid = formatMoney(creator.stats?.paidCommission || 0);
+    const referralUrl = getCreatorReferralUrl(creator.normalizedCode);
     creatorPanel.innerHTML = `
       <details class="virals-settings-panel virals-settings-disclosure">
         <summary>
@@ -285,7 +296,27 @@ function renderCreatorPanel(state) {
           <article class="virals-account-stat"><span>Pending</span><strong>${pending}</strong></article>
           <article class="virals-account-stat"><span>Paid</span><strong>${paid}</strong></article>
         </div>
-        ${creator.status === "approved" ? `<button class="virals-access-secondary" type="button" data-virals-connect>Stripe payout setup</button>` : ""}
+        ${creator.status === "approved" ? `
+          <div class="virals-creator-invite">
+            <h3>Invite Customers</h3>
+            <p>Share this link so customers create their account with your code attached. Their checkout discount applies automatically when they choose a paid plan.</p>
+            <label>
+              Referral link
+              <div class="virals-copy-row">
+                <input type="text" value="${escapeHtml(referralUrl)}" readonly>
+                <button class="virals-access-secondary" type="button" data-virals-copy="${escapeHtml(referralUrl)}">Copy Link</button>
+              </div>
+            </label>
+            <label>
+              Promo code
+              <div class="virals-copy-row">
+                <input type="text" value="${escapeHtml(creator.normalizedCode)}" readonly>
+                <button class="virals-access-secondary" type="button" data-virals-copy="${escapeHtml(creator.normalizedCode)}">Copy Code</button>
+              </div>
+            </label>
+          </div>
+          <button class="virals-access-secondary" type="button" data-virals-connect>Stripe payout setup</button>
+        ` : ""}
       </details>
     `;
     return;
@@ -451,6 +482,28 @@ async function handleConnectOnboarding() {
   }
   const payload = await postJson("/api/virals-connect", {});
   if (payload.url) window.location.assign(payload.url);
+}
+
+async function handleCopyValue(button) {
+  const value = String(button?.dataset?.viralsCopy || "").trim();
+  if (!value) return;
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(value);
+  } else {
+    const textarea = document.createElement("textarea");
+    textarea.value = value;
+    textarea.setAttribute("readonly", "");
+    textarea.style.position = "fixed";
+    textarea.style.left = "-9999px";
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand("copy");
+    textarea.remove();
+  }
+  if (accountStatus) {
+    accountStatus.textContent = "Copied.";
+    accountStatus.className = "status success";
+  }
 }
 
 function renderAdminApplications(applications = []) {
@@ -644,6 +697,7 @@ function bindAccountModal() {
     const checkout = event.target.closest?.("[data-virals-checkout]");
     const portal = event.target.closest?.("#virals-billing-portal");
     const connect = event.target.closest?.("[data-virals-connect]");
+    const copy = event.target.closest?.("[data-virals-copy]");
     const loadAdmin = event.target.closest?.("[data-virals-load-admin]");
     const approve = event.target.closest?.("[data-virals-admin-approve]");
     const reject = event.target.closest?.("[data-virals-admin-reject]");
@@ -653,6 +707,7 @@ function bindAccountModal() {
         if (checkout) return handleCheckout(checkout.dataset.viralsCheckout);
         if (portal) return handleBillingPortal();
         if (connect) return handleConnectOnboarding();
+        if (copy) return handleCopyValue(copy);
         if (loadAdmin) return loadAdminApplications();
         if (approve) return handleAdminAction(approve, "approve");
         if (reject) return handleAdminAction(reject, "reject");
