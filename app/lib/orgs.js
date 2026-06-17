@@ -1,9 +1,10 @@
-export const PLATFORM_ADMIN_EMAIL = "quentin@quentinnichols.com";
+export const PLATFORM_ADMIN_EMAILS = ["quentin@n3xra.com", "quentin@quentinnichols.com"];
+export const PLATFORM_ADMIN_EMAIL = PLATFORM_ADMIN_EMAILS[0];
 export const ACTIVE_ORG_STORAGE_KEY = "records-active-organization-id";
 export const MEMBERSHIP_ROLE_ORDER = ["account_admin", "editor", "viewer"];
 
 export function isPlatformAdminEmail(email) {
-  return String(email || "").trim().toLowerCase() === PLATFORM_ADMIN_EMAIL;
+  return PLATFORM_ADMIN_EMAILS.includes(String(email || "").trim().toLowerCase());
 }
 
 export function titleCase(value) {

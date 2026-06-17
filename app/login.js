@@ -8,7 +8,7 @@ import {
 } from "./lib/supabase-client.js";
 import { getStoredActiveOrganizationId, setStoredActiveOrganizationId } from "./lib/orgs.js";
 
-const PLATFORM_ADMIN_EMAIL = "quentin@quentinnichols.com";
+const PLATFORM_ADMIN_EMAILS = ["quentin@n3xra.com", "quentin@quentinnichols.com"];
 
 const setupPanel = document.getElementById("setup-panel");
 const authPanel = document.getElementById("auth-panel");
@@ -117,7 +117,7 @@ async function initCaptcha() {
 }
 
 function isPlatformAdminEmail(email) {
-  return String(email || "").trim().toLowerCase() === PLATFORM_ADMIN_EMAIL;
+  return PLATFORM_ADMIN_EMAILS.includes(String(email || "").trim().toLowerCase());
 }
 
 function getPostAuthDestination(session) {

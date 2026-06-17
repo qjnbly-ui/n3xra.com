@@ -34,7 +34,7 @@ function getServiceRoleKey() {
 }
 
 function isPlatformAdmin(email: string | null | undefined) {
-  return String(email || "").toLowerCase() === "quentin@quentinnichols.com";
+  return ["quentin@n3xra.com", "quentin@quentinnichols.com"].includes(String(email || "").toLowerCase());
 }
 
 function requirePriceId(planId: string, billingCycle: string) {

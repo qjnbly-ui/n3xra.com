@@ -4,17 +4,17 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>N3XRA Records | N3XRA</title>
-  <meta name="description" content="N3XRA Records helps organizations store, search, and manage records, meeting files, and documents in one secure, organized platform." />
+  <meta name="description" content="N3XRA Records helps organizations manage searchable documents, public records, meeting files, recordings, contacts, templates, and secure team access in one organized platform." />
   <meta name="robots" content="index, follow" />
   <link rel="canonical" href="https://n3xra.com/records/" />
   <meta property="og:type" content="website" />
   <meta property="og:title" content="N3XRA Records | N3XRA" />
-  <meta property="og:description" content="N3XRA Records helps organizations store, search, and manage records, meeting files, and documents in one secure, organized platform." />
+  <meta property="og:description" content="N3XRA Records helps organizations manage searchable documents, public records, meeting files, recordings, contacts, templates, and secure team access in one organized platform." />
   <meta property="og:image" content="https://n3xra.com/assets/ogimage.png" />
   <meta property="og:url" content="https://n3xra.com/records/" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="N3XRA Records | N3XRA" />
-  <meta name="twitter:description" content="N3XRA Records helps organizations store, search, and manage records, meeting files, and documents in one secure, organized platform." />
+  <meta name="twitter:description" content="N3XRA Records helps organizations manage searchable documents, public records, meeting files, recordings, contacts, templates, and secure team access in one organized platform." />
   <meta name="twitter:image" content="https://n3xra.com/assets/ogimage.png" />
   <link rel="icon" type="image/png" href="../assets/n3xra_logo_transparent_small.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -787,6 +787,43 @@
       font-weight: 700;
     }
 
+    .security-section {
+      display: grid;
+      gap: 1rem;
+      background:
+        radial-gradient(340px 180px at 8% 0%, rgba(26, 124, 114, 0.14), transparent 62%),
+        radial-gradient(320px 160px at 100% 100%, rgba(241, 164, 75, 0.14), transparent 62%),
+        linear-gradient(180deg, #ffffff 0%, #f7fafc 100%);
+      border-radius: var(--radius-lg);
+      padding: 2rem;
+      border: 1px solid rgba(15, 22, 32, 0.08);
+      box-shadow: var(--shadow);
+    }
+
+    .security-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1rem;
+    }
+
+    .security-card {
+      min-height: 100%;
+      text-align: left;
+      justify-items: start;
+    }
+
+    .security-card .feature-kicker {
+      color: var(--teal);
+    }
+
+    .security-note {
+      margin: 0 auto;
+      max-width: 78ch;
+      color: var(--ink-soft);
+      text-align: center;
+      font-weight: 600;
+    }
+
     .site-footer {
       padding: 1.35rem 0;
       color: rgba(255, 255, 255, 0.58);
@@ -842,6 +879,12 @@
         grid-template-columns: 1fr;
       }
       .trust-strip {
+        grid-template-columns: 1fr;
+      }
+      .security-section {
+        padding: 1.45rem;
+      }
+      .security-grid {
         grid-template-columns: 1fr;
       }
       .embed-preview-search {
@@ -900,7 +943,7 @@
       <div class="hero-grid">
         <img class="hero-logo" src="../assets/recordsapplogo.png" alt="N3XRA Records app logo" />
         <div class="hero-copy">
-          <p class="hero-lede">N3XRA Records helps organizations store, search, and manage recurring records, meeting packets, agendas, and shared documents without messy folders or hard-to-search archives.</p>
+          <p class="hero-lede">N3XRA Records helps organizations manage searchable files, public records, meeting documents, recordings, contacts, and secure team access without messy folders or hard-to-search archives.</p>
         </div>
       </div>
     </div>
@@ -908,17 +951,17 @@
 
   <main class="container">
     <section class="hero">
-      <h2>Built for a specific records problem</h2>
-      <p>N3XRA is built for organizations that need records, meeting files, and documents to stay organized, searchable, and usable long after they are uploaded.</p>
+      <h2>Built for records that have to stay useful</h2>
+      <p>N3XRA Records gives organizations a central library for files, generated documents, public records, meeting materials, recordings, contacts, and access controls.</p>
       <div class="cta-row">
         <a class="cta" href="/demo">Try a demo</a>
       </div>
-      <p class="page-subtitle">Explore the interactive demo to see how searchable records, shared access, and public-facing delivery work together in practice.</p>
+      <p class="page-subtitle">Explore the interactive demo to see how searchable records, shared access, AI-assisted lookup, and public-facing delivery work together in practice.</p>
     </section>
 
     <section class="story-panel">
       <h2 class="section-title">Why N3XRA</h2>
-      <p class="section-lede">The “3” in N3XRA points to the three parts of records management that usually break apart over time: storing records, finding them later, and keeping them useful once they are there.</p>
+      <p class="section-lede">The “3” in N3XRA points to the three parts of records management that usually break apart over time: storing records, finding them later, and turning them into useful workflows.</p>
       <div class="social-select-row">
         <p class="social-select-label">Follow Us On</p>
         <p class="social-inline-links">
@@ -930,44 +973,44 @@
     </section>
 
     <section class="roadmap-note" aria-label="Platform roadmap">
-      <p class="roadmap-note-label">Platform Roadmap</p>
-      <p>N3XRA starts with core records search, storage, sharing, and public access. Planned expansion includes broader file support, AI-assisted research across your records, transcription workflows, and more complete document handling tools.</p>
+      <p class="roadmap-note-label">Current Platform</p>
+      <p>N3XRA Records now supports searchable uploads, batch imports, public records publishing, library branding, contacts, templates, generated PDFs, meeting recordings, transcription workflows, and AI-assisted records lookup.</p>
     </section>
 
     <section class="feature-grid">
       <article class="card feature-card">
         <div class="feature-card-head">
           <p class="feature-kicker">Ingestion</p>
-          <h3>Upload records with structure</h3>
+          <h3>Upload and batch import records</h3>
         </div>
-        <p>Add DOCX and text-based files to an archive designed for recurring records, not general-purpose file dumping.</p>
+        <p>Add PDFs, DOCX files, text, Markdown, CSV, JSON, and HTML files. Selectable PDFs become searchable; scanned PDFs can be stored but need OCR before full text search or editing.</p>
       </article>
       <article class="card feature-card">
         <div class="feature-card-head">
           <p class="feature-kicker">Retrieval</p>
-          <h3>Search records quickly</h3>
+          <h3>Search saved text quickly</h3>
         </div>
-        <p>Search across saved records with keyword matching and year filters when you need a specific meeting or filing period.</p>
+        <p>Search extracted text, titles, filenames, years, months, and saved AI notes when you need a specific meeting, packet, filing period, or topic.</p>
       </article>
       <article class="card feature-card">
         <div class="feature-card-head">
           <p class="feature-kicker">Access</p>
           <h3>Open, preview, and download</h3>
         </div>
-        <p>Review records in a built-in viewer, open the source file, and download what you need without digging through folders.</p>
+        <p>Preview files, open source documents, download records, and generate PDFs from editable N3XRA documents and templates.</p>
       </article>
       <article class="card feature-card">
         <div class="feature-card-head">
           <p class="feature-kicker">Delivery</p>
           <h3>Support public and internal use</h3>
         </div>
-        <p>Keep internal access role-based while providing a cleaner public-facing records destination when records need to be shared.</p>
+        <p>Keep internal access role-based while publishing selected records to a hosted public page or embedded view for your existing website.</p>
       </article>
     </section>
 
     <section>
       <h2 class="section-title">Shared access, clearly defined</h2>
-      <p class="section-lede">Libraries can already be shared with different permission levels, so billing, settings, file editing, and read-only access stay separated.</p>
+      <p class="section-lede">Libraries can be shared with different permission levels, so billing, settings, file editing, contacts, templates, and read-only access stay separated.</p>
       <div class="grid">
         <article class="card">
           <h3>Owner</h3>
@@ -979,7 +1022,7 @@
         </article>
         <article class="card">
           <h3>Editor</h3>
-          <p>Uploads, edits, deletes, downloads, and shares files, but does not manage billing or library access.</p>
+          <p>Uploads, edits, deletes, downloads, shares files, and works with library documents without managing billing or ownership.</p>
         </article>
         <article class="card">
           <h3>Viewer</h3>
@@ -988,9 +1031,47 @@
       </div>
     </section>
 
+    <section class="security-section" aria-labelledby="records-security-title">
+      <h2 class="section-title" id="records-security-title">Designed for secure document handling</h2>
+      <p class="section-lede">N3XRA Records is built so organization files, editable documents, recordings, and contacts stay private by default, with access controlled by sign-in, library membership, and clearly assigned roles.</p>
+      <div class="security-grid">
+        <article class="card feature-card security-card">
+          <p class="feature-kicker">Private by default</p>
+          <h3>Records are not public unless you choose to publish them</h3>
+          <p>Uploaded records belong to an organization library. Public records pages and embedded website views only show items marked public in libraries where public access is enabled.</p>
+        </article>
+        <article class="card feature-card security-card">
+          <p class="feature-kicker">Access control</p>
+          <h3>Roles separate viewing, editing, administration, and billing</h3>
+          <p>Owners, account admins, editors, and viewers have different permissions, so everyday records work does not require handing out full account control.</p>
+        </article>
+        <article class="card feature-card security-card">
+          <p class="feature-kicker">Data boundary</p>
+          <h3>Database and file access use server-enforced policies</h3>
+          <p>Records data is protected with Supabase Auth, row-level security, and storage policies that check organization access before returning records, generated documents, recordings, or files.</p>
+        </article>
+        <article class="card feature-card security-card">
+          <p class="feature-kicker">Sharing</p>
+          <h3>Public delivery is intentional</h3>
+          <p>Website embeds, public portals, and public file visibility are separate from internal libraries, giving organizations a clear path for sharing only the records meant to be shared.</p>
+        </article>
+        <article class="card feature-card security-card">
+          <p class="feature-kicker">Payments</p>
+          <h3>Billing is handled through Stripe</h3>
+          <p>N3XRA Records does not need to store card numbers in the records application. Subscription and payment workflows are routed through Stripe billing infrastructure.</p>
+        </article>
+        <article class="card feature-card security-card">
+          <p class="feature-kicker">Operations</p>
+          <h3>Private keys stay out of browser code</h3>
+          <p>Administrative operations and service-level credentials belong in server-side functions, not public client-side pages.</p>
+        </article>
+      </div>
+      <p class="security-note">For highly regulated records, confirm your compliance requirements before uploading. N3XRA Records is designed with strong access controls, but formal compliance needs can require additional policies, contracts, and review.</p>
+    </section>
+
     <section class="pricing-section">
       <h2 class="section-title">Simple pricing</h2>
-      <p class="pricing-lede">Start small, then move up when you need more documents, storage, and shared access.</p>
+      <p class="pricing-lede">Start small, then move up when you need more documents, storage, public records tools, and shared access.</p>
       <div class="grid">
         <article class="card pricing-card">
           <div class="pricing-tier">Free Tier</div>
@@ -999,8 +1080,8 @@
           <ul class="pricing-list">
             <li>1 user</li>
             <li>Up to 25 documents</li>
-            <li>DOCX and text-file uploads</li>
-            <li>Saved text extraction and keyword search</li>
+            <li>PDF, DOCX, TXT, MD, CSV, JSON, and HTML uploads</li>
+            <li>Saved text extraction and keyword search where text is available</li>
             <li>Private file access</li>
           </ul>
         </article>
@@ -1013,7 +1094,7 @@
             <li>Up to 250 documents</li>
             <li>4 GB storage</li>
             <li>Everything in Free</li>
-            <li>Larger searchable archive</li>
+            <li>Larger searchable archive for files and generated records</li>
           </ul>
         </article>
         <article class="card pricing-card">
@@ -1025,8 +1106,9 @@
             <li>Up to 2,500 documents</li>
             <li>10 GB storage</li>
             <li>Shared libraries and invite codes</li>
-            <li>Dedicated public records URL</li>
-            <li>Embedded search and records view with iframe support for your existing website</li>
+            <li>Dedicated public records URL with optional library branding</li>
+            <li>Embedded search and records view for your existing website</li>
+            <li>Contacts, templates, generated PDFs, and meeting workflow tools</li>
           </ul>
         </article>
       </div>
@@ -1046,13 +1128,13 @@
 
     <section>
       <h2 class="section-title">Add records to your existing website</h2>
-      <p class="section-lede">Organization libraries can expose a dedicated public records URL and an embedded records view, so your archive can live inside the website you already have.</p>
+      <p class="section-lede">Organization libraries can publish a dedicated public records URL and an embedded records view, so selected public records can live inside the website you already have.</p>
       <div class="embed-showcase">
         <article class="embed-copy">
-          <h3>Embed the records view with an iframe</h3>
-          <p>Add a searchable records panel to an existing website page without rebuilding your public site from scratch.</p>
+          <h3>Publish a records page or embed the view</h3>
+          <p>Use a hosted library URL for public records, or place the searchable view on an existing website page. Either way, only records marked public are shown.</p>
           <pre class="embed-code-block"><code>&lt;iframe
-  src="https://n3xra.com/app/embed.html?org=your-library-id"
+  src="https://n3xra.com/library/your-library-slug"
   title="Public records"
   width="100%"
   height="820"
@@ -1061,8 +1143,8 @@
         </article>
         <article class="embed-preview-card">
           <div class="embed-preview-head">
-            <h3>Example embedded records panel</h3>
-            <p>How searchable minutes and files can appear inside your current site.</p>
+            <h3>Example public records panel</h3>
+            <p>How searchable minutes, packets, PDFs, and uploaded files can appear inside your current site.</p>
           </div>
           <div>
             <div class="embed-browser-bar">
@@ -1093,8 +1175,8 @@
                     <div class="embed-preview-heading">
                       <div class="embed-preview-record-main">
                         <h4>Board Minutes - March 2026</h4>
-                        <p class="embed-preview-meta">board-minutes-march-2026.docx · Year 2026 · March · 3/28/2026</p>
-                        <p class="embed-preview-meta">Budget discussion, zoning review, and executive session follow-up are available in the public record.</p>
+                        <p class="embed-preview-meta">board-minutes-march-2026.pdf · Year 2026 · March · 3/28/2026</p>
+                        <p class="embed-preview-meta">Budget discussion, zoning review, and follow-up items are available in the public record.</p>
                       </div>
                       <span class="embed-preview-status">Public</span>
                     </div>
@@ -1108,7 +1190,7 @@
                     <div class="embed-preview-heading">
                       <div class="embed-preview-record-main">
                         <h4>Annual Budget Packet</h4>
-                        <p class="embed-preview-meta">budget-packet-2026.docx · Year 2026 · February · 2/14/2026</p>
+                        <p class="embed-preview-meta">budget-packet-2026.pdf · Year 2026 · February · 2/14/2026</p>
                         <p class="embed-preview-meta">Line items, supporting notes, and board packet attachments are searchable from the embedded panel.</p>
                       </div>
                       <span class="embed-preview-status">Public</span>
@@ -1123,7 +1205,7 @@
                     <div class="embed-preview-heading">
                       <div class="embed-preview-record-main">
                         <h4>Committee Agenda</h4>
-                        <p class="embed-preview-meta">committee-agenda-april-2026.docx · Year 2026 · April · 4/02/2026</p>
+                        <p class="embed-preview-meta">committee-agenda-april-2026.html · Year 2026 · April · 4/02/2026</p>
                         <p class="embed-preview-meta">Agendas, packets, and recurring committee records can appear in the same embedded records view.</p>
                       </div>
                       <span class="embed-preview-status">Public</span>

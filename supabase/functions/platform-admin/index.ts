@@ -69,7 +69,7 @@ Deno.serve(async (request) => {
       return jsonResponse({ error: userError?.message || "Unable to resolve user." }, 401);
     }
 
-    if (String(user.email || "").toLowerCase() !== "quentin@quentinnichols.com") {
+    if (!["quentin@n3xra.com", "quentin@quentinnichols.com"].includes(String(user.email || "").toLowerCase())) {
       return jsonResponse({ error: "Platform admin access required." }, 403);
     }
 

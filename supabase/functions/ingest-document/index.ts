@@ -142,7 +142,7 @@ Deno.serve(async (request) => {
       .eq("user_id", user.id)
       .maybeSingle();
 
-    const isPlatformAdmin = String(user.email || "").toLowerCase() === "quentin@quentinnichols.com";
+    const isPlatformAdmin = ["quentin@n3xra.com", "quentin@quentinnichols.com"].includes(String(user.email || "").toLowerCase());
     if (membershipError) {
       return jsonResponse({ error: membershipError.message }, 400);
     }

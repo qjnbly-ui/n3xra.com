@@ -240,7 +240,7 @@ Deno.serve(async (request) => {
     if (membershipError) return jsonResponse({ error: membershipError.message }, 400);
 
     const organization = Array.isArray(document.organization) ? document.organization[0] : document.organization;
-    const isPlatformAdmin = String(user.email || "").toLowerCase() === "quentin@quentinnichols.com";
+    const isPlatformAdmin = ["quentin@n3xra.com", "quentin@quentinnichols.com"].includes(String(user.email || "").toLowerCase());
     const isOwner = organization?.owner_user_id === user.id;
     if (!membership && !isOwner && !isPlatformAdmin) {
       return jsonResponse({ error: "You do not have access to send this document." }, 403);

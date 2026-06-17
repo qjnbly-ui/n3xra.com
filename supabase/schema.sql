@@ -381,7 +381,7 @@ begin
         full_name = coalesce(excluded.full_name, public.profiles.full_name),
         updated_at = now();
 
-  if lower(coalesce(new.email, '')) = 'quentin@quentinnichols.com' then
+  if lower(coalesce(new.email, '')) in ('quentin@n3xra.com', 'quentin@quentinnichols.com') then
     insert into public.platform_admins (user_id, email)
     values (new.id, new.email)
     on conflict (user_id) do update set email = excluded.email;
@@ -435,7 +435,7 @@ security definer
 set search_path = public
 as $$
   select
-    coalesce(auth.jwt() ->> 'email', '') = 'quentin@quentinnichols.com'
+    lower(coalesce(auth.jwt() ->> 'email', '')) in ('quentin@n3xra.com', 'quentin@quentinnichols.com')
     or exists (
       select 1
       from public.platform_admins
@@ -780,7 +780,7 @@ begin
     set email = excluded.email,
         updated_at = now();
 
-  if lower(coalesce(current_email, '')) = 'quentin@quentinnichols.com' then
+  if lower(coalesce(current_email, '')) in ('quentin@n3xra.com', 'quentin@quentinnichols.com') then
     insert into public.platform_admins (user_id, email)
     values (current_user_id, current_email)
     on conflict (user_id) do update set email = excluded.email;
