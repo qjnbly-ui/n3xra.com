@@ -14,8 +14,10 @@ const organizationStatusInput = document.getElementById("organization-status");
 const organizationDocumentLimitInput = document.getElementById("organization-document-limit");
 const organizationUserLimitInput = document.getElementById("organization-user-limit");
 const organizationStorageLimitInput = document.getElementById("organization-storage-limit");
+const organizationTrialEndInput = document.getElementById("organization-trial-end");
 const organizationPublicEmbedInput = document.getElementById("organization-public-embed");
 const organizationKeywordSearchInput = document.getElementById("organization-keyword-search");
+const organizationGrantSixMonthTrialButton = document.getElementById("organization-grant-six-month-trial");
 const organizationFormStatus = document.getElementById("organization-form-status");
 const passwordResetForm = document.getElementById("password-reset-form");
 const passwordResetEmailInput = document.getElementById("password-reset-email");
@@ -59,8 +61,34 @@ function renderSelectedOrganization() {
   organizationDocumentLimitInput.value = String(organization.document_limit || "");
   organizationUserLimitInput.value = String(organization.user_limit || "");
   organizationStorageLimitInput.value = String(organization.storage_limit_mb || "");
+  organizationTrialEndInput.value = dateInputValue(organization.subscription_current_period_end);
   organizationPublicEmbedInput.checked = Boolean(organization.public_embed_enabled);
   organizationKeywordSearchInput.checked = Boolean(organization.keyword_search_enabled);
+}
+
+function dateInputValue(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toISOString().slice(0, 10);
+}
+
+function isoFromDateInput(value) {
+  const cleanValue = String(value || "").trim();
+  if (!cleanValue) return null;
+  const date = new Date(`${cleanValue}T23:59:59.000Z`);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toISOString();
+}
+
+function addMonths(date, count) {
+  const next = new Date(date.getTime());
+  const originalDay = next.getUTCDate();
+  next.setUTCMonth(next.getUTCMonth() + count);
+  if (next.getUTCDate() !== originalDay) {
+    next.setUTCDate(0);
+  }
+  return next;
 }
 
 function renderOrganizations() {
@@ -78,7 +106,7 @@ function renderOrganizations() {
       <td>${escapeHtml(organization.name)}</td>
       <td>${escapeHtml(organization.owner_profile?.email || "")}</td>
       <td>${escapeHtml(organization.subscription_tier)}</td>
-      <td>${escapeHtml(organization.account_status)}</td>
+      <td>${escapeHtml(organization.account_status)}${organization.subscription_current_period_end ? `<br><small>Ends ${escapeHtml(dateInputValue(organization.subscription_current_period_end))}</small>` : ""}</td>
       <td>${organization.member_count}</td>
       <td class="inline-actions">
         <button class="btn secondary" type="button" data-action="select" data-id="${organization.id}">Select</button>
@@ -95,7 +123,7 @@ async function loadOrganizations() {
   const [{ data: orgRows, error: orgError }, { data: membershipRows, error: membershipError }, { data: profiles, error: profileError }] = await Promise.all([
     supabase
       .from("organizations")
-      .select("id, name, owner_user_id, subscription_tier, account_status, document_limit, user_limit, storage_limit_mb, public_embed_enabled, keyword_search_enabled")
+      .select("id, name, owner_user_id, subscription_tier, account_status, document_limit, user_limit, storage_limit_mb, public_embed_enabled, keyword_search_enabled, subscription_current_period_end")
       .order("created_at", { ascending: true }),
     supabase.from("organization_memberships").select("organization_id, user_id"),
     supabase.from("profiles").select("id, email, full_name"),
@@ -156,10 +184,14 @@ async function handleTierChange() {
 
 async function handleOrganizationSave(event) {
   event.preventDefault();
+  await saveSelectedOrganization();
+}
+
+async function saveSelectedOrganization(overrides = {}, successMessage = "Organization updated.") {
   const organization = getSelectedOrganization();
   if (!organization) {
     setStatus(organizationFormStatus, "Select an organization first.", "error");
-    return;
+    return null;
   }
 
   const updates = {
@@ -169,8 +201,10 @@ async function handleOrganizationSave(event) {
     document_limit: Number.parseInt(organizationDocumentLimitInput.value.trim(), 10) || organization.document_limit,
     user_limit: Number.parseInt(organizationUserLimitInput.value.trim(), 10) || organization.user_limit,
     storage_limit_mb: Number.parseInt(organizationStorageLimitInput.value.trim(), 10) || organization.storage_limit_mb,
+    subscription_current_period_end: isoFromDateInput(organizationTrialEndInput.value),
     public_embed_enabled: organizationPublicEmbedInput.checked,
     keyword_search_enabled: organizationKeywordSearchInput.checked,
+    ...overrides,
   };
 
   setStatus(organizationFormStatus, "Saving organization...");
@@ -178,18 +212,55 @@ async function handleOrganizationSave(event) {
     .from("organizations")
     .update(updates)
     .eq("id", organization.id)
-    .select("id, name, owner_user_id, subscription_tier, account_status, document_limit, user_limit, storage_limit_mb, public_embed_enabled, keyword_search_enabled")
+    .select("id, name, owner_user_id, subscription_tier, account_status, document_limit, user_limit, storage_limit_mb, public_embed_enabled, keyword_search_enabled, subscription_current_period_end")
     .single();
 
   if (error) {
     setStatus(organizationFormStatus, error.message, "error");
-    return;
+    return null;
   }
 
   organizations = organizations.map((item) => (item.id === data.id ? { ...item, ...data } : item));
   renderOrganizations();
   renderSelectedOrganization();
-  setStatus(organizationFormStatus, "Organization updated.", "success");
+  setStatus(organizationFormStatus, successMessage, "success");
+  return data;
+}
+
+async function handleGrantSixMonthTrial() {
+  const organization = getSelectedOrganization();
+  if (!organization) {
+    setStatus(organizationFormStatus, "Select an organization first.", "error");
+    return;
+  }
+
+  const plan = getPlanConfig("organization");
+  const trialEnd = addMonths(new Date(), 6);
+  const trialEndValue = trialEnd.toISOString().slice(0, 10);
+
+  organizationTierInput.value = "organization";
+  organizationStatusInput.value = "trialing";
+  organizationDocumentLimitInput.value = String(plan.documentLimit);
+  organizationUserLimitInput.value = String(plan.userLimit);
+  organizationStorageLimitInput.value = String(plan.storageLimitMb);
+  organizationTrialEndInput.value = trialEndValue;
+  organizationPublicEmbedInput.checked = true;
+  organizationKeywordSearchInput.checked = true;
+
+  await saveSelectedOrganization(
+    {
+      subscription_tier: "organization",
+      account_status: "trialing",
+      document_limit: plan.documentLimit,
+      user_limit: plan.userLimit,
+      storage_limit_mb: plan.storageLimitMb,
+      public_embed_enabled: true,
+      keyword_search_enabled: true,
+      cancel_at_period_end: false,
+      subscription_current_period_end: isoFromDateInput(trialEndValue),
+    },
+    `6-month Organization trial granted through ${trialEndValue}.`
+  );
 }
 
 async function handlePasswordReset(event) {
@@ -240,6 +311,7 @@ async function init() {
   logoutButton.addEventListener("click", handleLogout);
   organizationList.addEventListener("click", handleOrganizationListClick);
   organizationTierInput.addEventListener("change", handleTierChange);
+  organizationGrantSixMonthTrialButton.addEventListener("click", handleGrantSixMonthTrial);
   organizationForm.addEventListener("submit", handleOrganizationSave);
   passwordResetForm.addEventListener("submit", handlePasswordReset);
 }

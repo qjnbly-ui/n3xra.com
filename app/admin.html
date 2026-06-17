@@ -130,6 +130,12 @@
                 <input id="organization-storage-limit" type="text">
               </div>
             </div>
+            <div class="grid-3">
+              <div class="field">
+                <label for="organization-trial-end">Trial/subscription end</label>
+                <input id="organization-trial-end" type="date">
+              </div>
+            </div>
             <div class="inline-actions setting-toggles">
               <label class="toggle-pill">
                 <input id="organization-public-embed" type="checkbox">
@@ -141,8 +147,10 @@
               </label>
             </div>
             <div class="actions">
+              <button class="btn secondary" id="organization-grant-six-month-trial" type="button">Grant 6-month Organization trial</button>
               <button class="btn" type="submit">Save organization</button>
             </div>
+            <p class="field-note">Trial grants keep customer data in place. If a trial ends without a subscription, downgrade or suspend the library to limit access; documents are not deleted automatically.</p>
             <p class="status" id="organization-form-status"></p>
           </form>
         </section>
