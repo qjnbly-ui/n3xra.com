@@ -584,6 +584,43 @@
       margin: 0;
     }
 
+    .intro-modal .info-modal-dialog {
+      width: min(720px, 100%);
+    }
+
+    .intro-slide {
+      display: grid;
+      gap: 0.75rem;
+    }
+
+    .intro-slide h2 {
+      font-size: clamp(2rem, 5vw, 3.4rem);
+    }
+
+    .intro-slide p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 1.02rem;
+    }
+
+    .intro-progress {
+      display: flex;
+      gap: 0.45rem;
+      align-items: center;
+    }
+
+    .intro-dot {
+      width: 0.6rem;
+      height: 0.6rem;
+      border-radius: 999px;
+      background: rgba(13, 18, 24, 0.18);
+    }
+
+    .intro-dot.is-active {
+      width: 1.8rem;
+      background: var(--teal);
+    }
+
     .tour-pop {
       position: fixed;
       z-index: 50;
@@ -937,6 +974,21 @@
     </div>
   </main>
 
+  <div class="info-modal intro-modal hidden" id="intro-modal" role="dialog" aria-modal="true" aria-labelledby="intro-title">
+    <div class="info-modal-dialog">
+      <div class="intro-slide">
+        <p class="eyebrow" id="intro-kicker">Meeting minutes workflow</p>
+        <h2 id="intro-title">Boards all take minutes differently.</h2>
+        <p id="intro-copy">Some type during the meeting, some write notes by hand, some rely on recordings, and some piece everything together after the meeting. N3XRA Records is built to make that process clearer.</p>
+      </div>
+      <div class="intro-progress" id="intro-progress" aria-label="Intro progress"></div>
+      <div class="actions">
+        <button class="btn secondary" id="intro-skip" type="button">Skip intro</button>
+        <button class="btn" id="intro-next" type="button">Next</button>
+      </div>
+    </div>
+  </div>
+
   <div class="tour-pop hidden" id="tour-pop" role="dialog" aria-live="polite">
     <strong id="tour-title">Tour step</strong>
     <p id="tour-copy"></p>
@@ -1143,6 +1195,13 @@ Meeting adjourned at 6:47 p.m.`;
         publicBody: document.getElementById("public-body"),
         toast: document.getElementById("toast"),
         startTour: document.getElementById("start-tour"),
+        introModal: document.getElementById("intro-modal"),
+        introKicker: document.getElementById("intro-kicker"),
+        introTitle: document.getElementById("intro-title"),
+        introCopy: document.getElementById("intro-copy"),
+        introProgress: document.getElementById("intro-progress"),
+        introNext: document.getElementById("intro-next"),
+        introSkip: document.getElementById("intro-skip"),
         tourPop: document.getElementById("tour-pop"),
         tourTitle: document.getElementById("tour-title"),
         tourCopy: document.getElementById("tour-copy"),
@@ -1163,15 +1222,33 @@ Meeting adjourned at 6:47 p.m.`;
 
       let state = { ...defaultState };
       let tourIndex = 0;
+      let introIndex = 0;
+      const introSlides = [
+        {
+          kicker: "What this demo shows",
+          title: "Turn a meeting into finished minutes.",
+          copy: "Many boards take minutes in different ways: typed notes, handwritten notes, recordings, or a mix of all three. This demo shows how N3XRA Records brings those pieces into one workflow."
+        },
+        {
+          kicker: "During the meeting",
+          title: "Record the meeting and keep notes.",
+          copy: "A user can create a meeting note, record audio, and type notes while the meeting happens. If notes are written on paper, they can be uploaded later and scanned into text."
+        },
+        {
+          kicker: "After the meeting",
+          title: "Use the transcript to improve the final document.",
+          copy: "The recording is transcribed, then AI compares the transcript with the notes and suggests useful additions. The result becomes an editable document that can be saved, shared, exported as a PDF, or stored in the N3XRA workspace."
+        }
+      ];
       const tour = [
-        { id: "meeting-panel", title: "Start with the meeting note", copy: "Play the sample audio, then click Transcribe sample audio. The demo fills the same saved transcript every time." },
-        { id: "scan-panel", title: "Add handwritten notes", copy: "This is your real notes image. The extraction is fixed demo text that can be replaced after a real run." },
-        { id: "review-panel", title: "Review transcript additions", copy: "The review compares the OCR notes with the transcript and shows applied additions plus possible conflicts." },
-        { id: "document-panel", title: "Review the editable document", copy: "The generated minutes become editable, just like a working records document before saving or sharing." },
-        { id: "pdf-panel", title: "Create a PDF and share", copy: "The PDF preview is a stable rendering of the saved minutes. Sharing updates the current demo screen but does not publish anything real." },
-        { id: "ai-panel", title: "Ask AI-style questions", copy: "These answers are fixed examples based on the sample meeting, notes, and document." },
-        { id: "search-panel", title: "Search the library", copy: "Keyword search checks the transcript, OCR-style notes, generated document, and public record metadata." },
-        { id: "public-panel", title: "Publish selected records", copy: "Only the selected sample record appears in the public view. Internal notes stay private in the demo." }
+        { id: "meeting-panel", title: "1. Start with the meeting", copy: "This is the meeting record. Click Transcribe sample audio to load the saved transcript from the sample recording." },
+        { id: "scan-panel", title: "2. Add paper notes", copy: "This shows how handwritten notes can support the meeting record. Click Extract notes to load the scanned text from the sample image." },
+        { id: "review-panel", title: "3. Compare notes and transcript", copy: "Click Run AI review. The demo shows which transcript details can be added to the notes, and whether any conflicts were found." },
+        { id: "document-panel", title: "4. Edit the minutes", copy: "Click Create editable document. The meeting details become a working minutes document that can still be edited before it is finalized." },
+        { id: "pdf-panel", title: "5. Generate and share", copy: "Click Generate PDF to preview the final document. Share document explains how the real app can email documents through saved contacts." },
+        { id: "ai-panel", title: "6. Ask Records AI", copy: "Use the question buttons to see examples of answers based on the meeting transcript, notes, and generated minutes." },
+        { id: "search-panel", title: "7. Search the library", copy: "Try a keyword like parking, grant applications, or architectural plans. Search checks the saved meeting materials." },
+        { id: "public-panel", title: "8. Publish selected records", copy: "Click Publish sample record to see how a finished public record can appear, while private notes and recordings stay internal." }
       ];
 
       function showToast(message) {
@@ -1398,12 +1475,40 @@ Meeting adjourned at 6:47 p.m.`;
         target.scrollIntoView({ behavior: "smooth", block: "center" });
         els.tourTitle.textContent = step.title;
         els.tourCopy.textContent = step.copy;
+        els.tourNext.textContent = tourIndex === tour.length - 1 ? "Done" : "Next";
         els.tourPop.classList.remove("hidden");
       }
 
       function closeTour() {
         els.tourPop.classList.add("hidden");
         document.querySelectorAll(".tour-target").forEach((el) => el.classList.remove("tour-target"));
+      }
+
+      function renderIntro() {
+        const slide = introSlides[introIndex] || introSlides[0];
+        els.introKicker.textContent = slide.kicker;
+        els.introTitle.textContent = slide.title;
+        els.introCopy.textContent = slide.copy;
+        els.introNext.textContent = introIndex === introSlides.length - 1 ? "Start demo" : "Next";
+        els.introProgress.innerHTML = introSlides.map((_, index) => {
+          return `<span class="intro-dot${index === introIndex ? " is-active" : ""}" aria-hidden="true"></span>`;
+        }).join("");
+      }
+
+      function openIntro(startAt = 0) {
+        introIndex = startAt;
+        closeTour();
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        renderIntro();
+        els.introModal.classList.remove("hidden");
+      }
+
+      function closeIntro(startGuidedTour = false) {
+        els.introModal.classList.add("hidden");
+        if (startGuidedTour) {
+          window.scrollTo({ top: 0, behavior: "smooth" });
+          window.setTimeout(() => openTour(0), 220);
+        }
       }
 
       els.resetDemo.addEventListener("click", resetDemo);
@@ -1448,14 +1553,33 @@ Meeting adjourned at 6:47 p.m.`;
       document.querySelectorAll(".tour-step").forEach((button, index) => {
         button.addEventListener("click", () => openTour(index));
       });
-      els.startTour.addEventListener("click", () => openTour(0));
-      els.tourNext.addEventListener("click", () => openTour((tourIndex + 1) % tour.length));
+      els.startTour.addEventListener("click", () => openIntro(0));
+      els.introNext.addEventListener("click", () => {
+        if (introIndex >= introSlides.length - 1) {
+          closeIntro(true);
+          return;
+        }
+        introIndex += 1;
+        renderIntro();
+      });
+      els.introSkip.addEventListener("click", () => closeIntro(true));
+      els.introModal.addEventListener("click", (event) => {
+        if (event.target === els.introModal) closeIntro(false);
+      });
+      els.tourNext.addEventListener("click", () => {
+        if (tourIndex >= tour.length - 1) {
+          closeTour();
+          return;
+        }
+        openTour(tourIndex + 1);
+      });
       els.tourClose.addEventListener("click", closeTour);
       window.addEventListener("resize", () => {
         if (!els.tourPop.classList.contains("hidden")) openTour(tourIndex);
       });
 
       render();
+      window.setTimeout(() => openIntro(0), 300);
     })();
   </script>
 </body>
