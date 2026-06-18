@@ -30,6 +30,30 @@ create table if not exists public.platform_admins (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.founding_partner_applications (
+  id uuid primary key default gen_random_uuid(),
+  full_name text not null,
+  email text not null,
+  phone text,
+  organization text,
+  website text,
+  audience_source text not null,
+  interested_products jsonb not null default '[]'::jsonb,
+  referral_plan text not null,
+  payout_country text,
+  consent boolean not null default false,
+  status text not null default 'submitted',
+  notes text,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint founding_partner_applications_email_check check (email ~* '^[^@[:space:]]+@[^@[:space:]]+[.][^@[:space:]]+$'),
+  constraint founding_partner_applications_products_array_check check (jsonb_typeof(interested_products) = 'array'),
+  constraint founding_partner_applications_metadata_object_check check (jsonb_typeof(metadata) = 'object'),
+  constraint founding_partner_applications_status_check
+    check (status in ('submitted', 'reviewing', 'approved', 'rejected', 'waitlisted'))
+);
+
 create table if not exists public.organizations (
   id uuid primary key default gen_random_uuid(),
   name text not null,
@@ -366,6 +390,8 @@ create unique index if not exists reviews_target_unique_idx on public.reviews (a
 create index if not exists reviews_app_status_created_at_idx on public.reviews (app, status, created_at desc);
 create index if not exists reviews_user_id_idx on public.reviews (user_id);
 create index if not exists reviews_organization_id_idx on public.reviews (organization_id);
+create index if not exists founding_partner_applications_email_idx on public.founding_partner_applications (lower(email));
+create index if not exists founding_partner_applications_status_created_idx on public.founding_partner_applications (status, created_at desc);
 
 create or replace function public.handle_new_user()
 returns trigger
@@ -960,6 +986,8 @@ end;
 $$;
 
 grant execute on function public.create_owned_organization(text) to authenticated;
+grant select, update, delete on public.founding_partner_applications to authenticated;
+grant insert, select, update, delete on public.founding_partner_applications to service_role;
 
 create or replace function public.bootstrap_music_profile()
 returns public.music_profiles
@@ -1457,6 +1485,11 @@ create trigger profiles_protect_billing_fields
 before update on public.profiles
 for each row execute procedure public.protect_profile_billing_fields();
 
+drop trigger if exists set_founding_partner_applications_updated_at on public.founding_partner_applications;
+create trigger set_founding_partner_applications_updated_at
+before update on public.founding_partner_applications
+for each row execute procedure public.set_updated_at();
+
 drop trigger if exists organizations_set_updated_at on public.organizations;
 create trigger organizations_set_updated_at
 before update on public.organizations
@@ -1555,6 +1588,7 @@ where role = 'guest';
 
 alter table public.profiles enable row level security;
 alter table public.platform_admins enable row level security;
+alter table public.founding_partner_applications enable row level security;
 alter table public.organizations enable row level security;
 alter table public.organization_memberships enable row level security;
 alter table public.organization_invites enable row level security;
@@ -1680,6 +1714,31 @@ drop policy if exists "platform_admins_select_policy" on public.platform_admins;
 create policy "platform_admins_select_policy"
 on public.platform_admins
 for select
+using (public.is_platform_admin());
+
+drop policy if exists "founding_partner_applications_select_policy" on public.founding_partner_applications;
+create policy "founding_partner_applications_select_policy"
+on public.founding_partner_applications
+for select
+using (public.is_platform_admin());
+
+drop policy if exists "founding_partner_applications_insert_policy" on public.founding_partner_applications;
+create policy "founding_partner_applications_insert_policy"
+on public.founding_partner_applications
+for insert
+with check (public.is_platform_admin());
+
+drop policy if exists "founding_partner_applications_update_policy" on public.founding_partner_applications;
+create policy "founding_partner_applications_update_policy"
+on public.founding_partner_applications
+for update
+using (public.is_platform_admin())
+with check (public.is_platform_admin());
+
+drop policy if exists "founding_partner_applications_delete_policy" on public.founding_partner_applications;
+create policy "founding_partner_applications_delete_policy"
+on public.founding_partner_applications
+for delete
 using (public.is_platform_admin());
 
 drop policy if exists "organizations_select_policy" on public.organizations;
