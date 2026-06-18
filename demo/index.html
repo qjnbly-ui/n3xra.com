@@ -3,773 +3,1279 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>N3XRA | Interactive Demo</title>
-  <meta name="description" content="Interactive N3XRA demo using a real product-style library workflow.">
-  <meta name="robots" content="noindex, nofollow, noarchive, nosnippet" />
-  <link rel="canonical" href="https://n3xra.com/demo" />
+  <title>N3XRA Records | Guided Demo</title>
+  <meta name="description" content="Guided N3XRA Records demo using saved sample audio, handwritten notes, documents, PDF preview, AI answers, and search.">
+  <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
+  <link rel="canonical" href="https://n3xra.com/demo/">
   <link rel="icon" type="image/png" href="../assets/n3xra_logo_transparent_small.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="../app/styles.css">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
   <style>
-    .demo-shell .main {
-      padding-top: 1.15rem;
+    :root {
+      --ink: #0d1218;
+      --muted: #647082;
+      --paper: #f4f7fb;
+      --panel: #ffffff;
+      --line: rgba(13, 18, 24, 0.12);
+      --deep: #070c12;
+      --teal: #16836f;
+      --cyan: #16b9ed;
+      --gold: #e3a23a;
+      --danger: #9a3412;
+      --radius: 8px;
+      --shadow: 0 24px 70px rgba(7, 12, 18, 0.14);
     }
 
-    .demo-hero {
-      border-radius: var(--radius-lg);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      background:
-        radial-gradient(440px 180px at 10% 12%, rgba(23, 111, 102, 0.38), transparent 60%),
-        radial-gradient(320px 180px at 88% 16%, rgba(234, 155, 63, 0.3), transparent 56%),
-        linear-gradient(135deg, #0f1721 0%, #152131 54%, #0f1925 100%);
-      color: #ffffff;
-      padding: 1.2rem 1.25rem;
-      box-shadow: 0 24px 60px rgba(12, 18, 28, 0.18);
-      display: grid;
-      gap: 0.95rem;
+    * {
+      box-sizing: border-box;
     }
 
-    .demo-hero h2,
-    .demo-hero p {
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
       margin: 0;
+      min-height: 100svh;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 8% 8%, rgba(22, 185, 237, 0.14), transparent 24rem),
+        radial-gradient(circle at 92% 4%, rgba(22, 131, 111, 0.1), transparent 26rem),
+        var(--paper);
+      font-family: "Manrope", Arial, sans-serif;
+      line-height: 1.5;
     }
 
-    .demo-kicker {
+    a {
+      color: inherit;
+    }
+
+    button,
+    textarea,
+    input {
+      font: inherit;
+    }
+
+    .topbar {
+      position: relative;
+      z-index: 10;
+      background: rgba(7, 12, 18, 0.92);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .topbar-inner {
+      width: min(1180px, calc(100vw - 2rem));
+      min-height: 58px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+
+    .brand {
       display: inline-flex;
       align-items: center;
-      width: fit-content;
-      border-radius: var(--radius-pill);
-      padding: 0.28rem 0.72rem;
-      background: rgba(255, 255, 255, 0.08);
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      color: rgba(255, 255, 255, 0.9);
-      font-size: 0.8rem;
+      gap: 0.8rem;
+      color: #ffffff;
+      text-decoration: none;
+      font-weight: 800;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      font-size: 0.78rem;
+    }
+
+    .brand img {
+      width: 38px;
+      height: 38px;
+      object-fit: contain;
+    }
+
+    .topbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .topbar-actions .btn {
+      min-height: 34px;
+      padding: 0.48rem 0.72rem;
+      font-size: 0.72rem;
+      letter-spacing: 0.06em;
+    }
+
+    .shell {
+      width: min(1180px, calc(100vw - 2rem));
+      margin: 0 auto;
+      padding: 1.4rem 0 4rem;
+      display: grid;
+      gap: 1rem;
+    }
+
+    .hero {
+      color: #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 22px;
+      background:
+        radial-gradient(520px 240px at 12% 20%, rgba(22, 185, 237, 0.28), transparent 62%),
+        radial-gradient(460px 240px at 92% 0%, rgba(227, 162, 58, 0.25), transparent 62%),
+        linear-gradient(135deg, #07111d 0%, #0d1724 55%, #071018 100%);
+      box-shadow: var(--shadow);
+      padding: clamp(1.25rem, 3vw, 2rem);
+      display: grid;
+      gap: 1rem;
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 1rem;
+      align-items: center;
+      justify-items: center;
+      text-align: center;
+    }
+
+    .eyebrow {
+      margin: 0;
+      color: #98e9ff;
+      font-size: 0.74rem;
+      font-weight: 800;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+    }
+
+    h1,
+    h2,
+    h3 {
+      margin: 0;
+      line-height: 1.04;
+    }
+
+    h1,
+    h2 {
+      font-family: "Fraunces", Georgia, serif;
       font-weight: 700;
+      letter-spacing: 0;
+    }
+
+    h1 {
+      max-width: 780px;
+      font-size: clamp(2.35rem, 5vw, 4.6rem);
+    }
+
+    .hero-copy {
+      display: grid;
+      gap: 0.8rem;
+      justify-items: center;
+    }
+
+    .hero-copy p:not(.eyebrow) {
+      max-width: 76ch;
+      margin: 0;
+      color: rgba(235, 244, 250, 0.78);
+      font-weight: 700;
+    }
+
+    .pill {
+      width: fit-content;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.42rem;
+      border: 1px solid rgba(13, 18, 24, 0.1);
+      border-radius: 999px;
+      padding: 0.38rem 0.7rem;
+      background: #f7fafc;
+      color: var(--ink);
+      font-size: 0.78rem;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .hero .pill {
+      color: #ffffff;
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(255, 255, 255, 0.16);
+    }
+
+    .btn {
+      min-height: 42px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.45rem;
+      border: 0;
+      border-radius: 999px;
+      padding: 0.72rem 1.05rem;
+      color: #ffffff;
+      background: linear-gradient(135deg, #0b1016 0%, #1a2d43 100%);
+      text-decoration: none;
+      font-size: 0.84rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      cursor: pointer;
+    }
+
+    .btn.secondary {
+      color: var(--ink);
+      background: #ffffff;
+      border: 1px solid var(--line);
+    }
+
+    .btn.ghost {
+      color: #ffffff;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+    }
+
+    .btn[disabled] {
+      opacity: 0.56;
+      cursor: not-allowed;
+    }
+
+    .workflow {
+      display: grid;
+      grid-template-columns: 260px minmax(0, 1fr);
+      gap: 1rem;
+      align-items: start;
+    }
+
+    .tour-rail,
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: var(--panel);
+      box-shadow: 0 18px 44px rgba(7, 12, 18, 0.08);
+    }
+
+    .tour-rail {
+      position: sticky;
+      top: 90px;
+      padding: 1rem;
+      display: grid;
+      gap: 0.7rem;
+    }
+
+    .tour-step {
+      width: 100%;
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 0.7rem;
+      align-items: center;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 0.72rem;
+      background: #ffffff;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .tour-step span {
+      width: 1.9rem;
+      height: 1.9rem;
+      display: grid;
+      place-items: center;
+      border-radius: 999px;
+      color: #ffffff;
+      background: var(--deep);
+      font-weight: 800;
+      font-size: 0.78rem;
+    }
+
+    .tour-step strong {
+      font-size: 0.88rem;
+      line-height: 1.2;
+    }
+
+    .tour-step.is-active {
+      border-color: rgba(22, 131, 111, 0.38);
+      background: #eefaf6;
+    }
+
+    .content-stack {
+      display: grid;
+      gap: 1rem;
+    }
+
+    .panel {
+      padding: clamp(1rem, 2vw, 1.35rem);
+      display: grid;
+      gap: 1rem;
+    }
+
+    .panel-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .panel-copy {
+      margin: 0.35rem 0 0;
+      color: var(--muted);
+    }
+
+    .grid-2,
+    .grid-3 {
+      display: grid;
+      gap: 1rem;
+    }
+
+    .grid-2 {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .grid-3 {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .metric,
+    .record-card {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #f9fbfd;
+      padding: 0.9rem;
+      display: grid;
+      gap: 0.34rem;
+    }
+
+    .label {
+      margin: 0;
+      color: var(--teal);
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    .value {
+      margin: 0;
+      color: var(--ink);
+      font-weight: 800;
+    }
+
+    .muted {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    audio {
+      width: 100%;
+    }
+
+    .asset-card {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: #f9fbfd;
+      overflow: hidden;
+      display: grid;
+      gap: 0;
+    }
+
+    .asset-card img {
+      display: block;
+      width: 100%;
+      max-height: 460px;
+      object-fit: cover;
+      object-position: top center;
+      background: #edf2f7;
+    }
+
+    .asset-body {
+      padding: 0.9rem;
+      display: grid;
+      gap: 0.7rem;
+    }
+
+    .textarea,
+    .doc-editor,
+    .search-input {
+      width: 100%;
+      border: 1px solid rgba(13, 18, 24, 0.16);
+      border-radius: 14px;
+      background: #fcfdff;
+      color: var(--ink);
+      padding: 0.85rem;
+      resize: vertical;
+    }
+
+    .textarea,
+    .doc-editor {
+      min-height: 190px;
+      line-height: 1.55;
+    }
+
+    .doc-editor {
+      min-height: 360px;
+      font-family: "Manrope", Arial, sans-serif;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.65rem;
+      align-items: center;
+    }
+
+    .processing {
+      min-height: 0.4rem;
+      color: var(--teal);
+      font-weight: 800;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .pdf-preview {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: #eef2f6;
+      padding: 1rem;
+    }
+
+    .pdf-page {
+      max-width: 720px;
+      margin: 0 auto;
+      min-height: 640px;
+      padding: 2.4rem;
+      background: #ffffff;
+      box-shadow: 0 18px 40px rgba(7, 12, 18, 0.15);
+      display: grid;
+      gap: 1rem;
+      align-content: start;
+    }
+
+    .pdf-page h3 {
+      font-family: "Fraunces", Georgia, serif;
+      font-size: 2rem;
+    }
+
+    .pdf-text {
+      white-space: pre-wrap;
+      color: var(--ink);
+      line-height: 1.58;
+    }
+
+    .pdf-page ul {
+      margin: 0;
+      padding-left: 1.25rem;
+    }
+
+    .ai-box {
+      border: 1px solid rgba(22, 131, 111, 0.24);
+      border-radius: 16px;
+      background: #f2fbf7;
+      padding: 1rem;
+      color: #123c31;
+      white-space: pre-wrap;
+    }
+
+    .search-results {
+      display: grid;
+      gap: 0.7rem;
+    }
+
+    .review-list {
+      display: grid;
+      gap: 0.7rem;
+    }
+
+    .review-card {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: #fbfcfe;
+      padding: 1rem;
+      display: grid;
+      gap: 0.55rem;
+    }
+
+    .review-card .pill {
+      background: #e6f0ef;
+      color: var(--teal);
+      border-color: transparent;
       letter-spacing: 0.08em;
       text-transform: uppercase;
     }
 
-    .demo-hero-copy {
-      color: rgba(255, 255, 255, 0.78);
-      max-width: 72ch;
+    .mark {
+      color: #0b1016;
+      background: rgba(227, 162, 58, 0.35);
+      border-radius: 5px;
+      padding: 0 0.18rem;
+      font-weight: 800;
     }
 
-    .demo-hero-actions {
+    .public-preview {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      overflow: hidden;
+      background: #f9fbfd;
+    }
+
+    .browser-bar {
       display: flex;
-      gap: 0.7rem;
-      flex-wrap: wrap;
+      gap: 0.42rem;
+      align-items: center;
+      padding: 0.7rem 0.85rem;
+      background: #e9eff5;
+      border-bottom: 1px solid var(--line);
     }
 
-    .demo-tabbar {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 0.55rem;
+    .dot {
+      width: 0.62rem;
+      height: 0.62rem;
+      border-radius: 999px;
+      background: rgba(13, 18, 24, 0.2);
     }
 
-    .demo-tab {
-      border: 1px solid rgba(15, 22, 32, 0.1);
-      border-radius: 18px;
-      background:
-        radial-gradient(220px 110px at 94% 14%, rgba(234, 155, 63, 0.1), transparent 60%),
-        linear-gradient(180deg, #ffffff 0%, #f8fbfa 100%);
-      padding: 0.95rem 1rem;
-      text-align: left;
-      cursor: pointer;
-      display: grid;
-      gap: 0.2rem;
+    .url {
+      min-width: 0;
+      flex: 1;
+      margin-left: 0.35rem;
+      border-radius: 999px;
+      background: #ffffff;
+      color: var(--muted);
+      padding: 0.35rem 0.7rem;
+      font-size: 0.82rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
-    .demo-tab strong,
-    .demo-tab span {
-      margin: 0;
-    }
-
-    .demo-tab strong {
-      color: var(--ink);
-      font-size: 0.98rem;
-    }
-
-    .demo-tab span {
-      color: var(--slate);
-      font-size: 0.9rem;
-    }
-
-    .demo-tab.is-active {
-      border-color: rgba(23, 111, 102, 0.22);
-      box-shadow: 0 16px 30px rgba(12, 18, 28, 0.08);
-    }
-
-    .demo-account-grid,
-    .demo-stats-grid {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 1rem;
-    }
-
-    .demo-stat-card {
-      border-radius: var(--radius-md);
-      border: 1px solid rgba(15, 22, 32, 0.08);
-      background: linear-gradient(180deg, #ffffff 0%, #f8fbfa 100%);
+    .public-body {
       padding: 1rem;
       display: grid;
-      gap: 0.3rem;
+      gap: 0.8rem;
     }
 
-    .demo-stat-card .account-label,
-    .demo-note,
-    .demo-inline-note {
-      margin: 0;
-      color: var(--slate);
+    .info-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 55;
+      display: grid;
+      place-items: center;
+      padding: 1rem;
+      background: rgba(7, 12, 18, 0.58);
     }
 
-    .demo-stat-card .account-value {
-      margin: 0;
-    }
-
-    .demo-table-note {
-      margin: 0 0 0.5rem;
-      color: var(--slate);
-    }
-
-    .demo-hidden {
-      display: none !important;
-    }
-
-    .demo-section-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
+    .info-modal-dialog {
+      width: min(620px, 100%);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      background: #ffffff;
+      box-shadow: 0 26px 72px rgba(0, 0, 0, 0.32);
+      padding: clamp(1rem, 3vw, 1.45rem);
+      display: grid;
       gap: 1rem;
-      flex-wrap: wrap;
     }
 
-    .demo-link {
-      text-decoration: none;
+    .info-modal-copy {
+      display: grid;
+      gap: 0.7rem;
+      color: var(--muted);
     }
 
-    .demo-files-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 1rem;
-      flex-wrap: wrap;
-    }
-
-    .demo-upload-preview {
+    .info-modal-copy p {
       margin: 0;
-      color: var(--slate);
-      font-size: 0.92rem;
     }
 
-    @media (max-width: 860px) {
-      .demo-account-grid,
-      .demo-stats-grid {
+    .tour-pop {
+      position: fixed;
+      z-index: 50;
+      left: 50%;
+      bottom: 1rem;
+      transform: translateX(-50%);
+      width: min(560px, calc(100vw - 2rem));
+      border: 1px solid rgba(152, 233, 255, 0.22);
+      border-radius: 16px;
+      background: #07111d;
+      color: #ffffff;
+      box-shadow: 0 26px 72px rgba(0, 0, 0, 0.32);
+      padding: 1rem;
+      display: grid;
+      gap: 0.7rem;
+    }
+
+    .tour-pop p {
+      margin: 0;
+      color: rgba(235, 244, 250, 0.8);
+    }
+
+    .tour-target {
+      outline: 3px solid rgba(22, 185, 237, 0.45);
+      outline-offset: 4px;
+    }
+
+    .toast {
+      position: fixed;
+      right: 1rem;
+      bottom: 1rem;
+      z-index: 45;
+      width: min(360px, calc(100vw - 2rem));
+      border: 1px solid rgba(22, 131, 111, 0.24);
+      border-radius: 16px;
+      background: #ffffff;
+      box-shadow: var(--shadow);
+      padding: 0.9rem;
+      color: var(--ink);
+      font-weight: 800;
+    }
+
+    @media (max-width: 920px) {
+      .workflow,
+      .grid-2,
+      .grid-3 {
         grid-template-columns: 1fr;
       }
-    }
 
-    @media (min-width: 861px) {
-      #demo-account-section #account-library-card .account-list {
-        grid-template-columns: 1.3fr 1fr 1fr;
-        align-items: start;
-      }
-
-      #demo-account-section #account-library-card .account-list .account-item:nth-child(1) {
-        grid-column: 1;
-      }
-
-      #demo-account-section #account-library-card .account-list .account-item:nth-child(2) {
-        grid-column: 2;
-      }
-
-      #demo-account-section #account-library-card .account-list .account-item:nth-child(3) {
-        grid-column: 1;
-      }
-
-      #demo-account-section #account-library-card .account-list .account-item:nth-child(4) {
-        grid-column: 2;
+      .tour-rail {
+        position: static;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
       }
     }
 
     @media (max-width: 640px) {
-      .demo-hero-actions,
-      .demo-tabbar {
-        grid-template-columns: 1fr;
+      .actions {
+        align-items: stretch;
       }
 
-      .demo-hero-actions {
-        display: grid;
+      .topbar-inner {
+        min-height: auto;
+        padding: 0.65rem 0;
+        gap: 0.65rem;
       }
 
-      .demo-hero-actions .btn {
+      .brand {
+        gap: 0.45rem;
+        font-size: 0.68rem;
+        letter-spacing: 0.14em;
+      }
+
+      .brand img {
+        width: 26px;
+        height: 26px;
+      }
+
+      .topbar-actions {
+        gap: 0.4rem;
+        flex-wrap: nowrap;
+      }
+
+      .topbar-actions .btn {
+        min-height: 34px;
+        padding: 0.48rem 0.58rem;
+        font-size: 0.68rem;
+        letter-spacing: 0.04em;
+      }
+
+      .tour-rail {
+        display: flex;
+        gap: 0.45rem;
+        overflow-x: auto;
+        padding: 0.7rem;
+        scroll-snap-type: x proximity;
+      }
+
+      .tour-step {
+        min-width: 168px;
+        grid-template-columns: auto 1fr;
+        gap: 0.48rem;
+        padding: 0.55rem;
+        border-radius: 12px;
+        scroll-snap-align: start;
+      }
+
+      .tour-step span {
+        width: 1.55rem;
+        height: 1.55rem;
+        font-size: 0.68rem;
+      }
+
+      .tour-step strong {
+        font-size: 0.74rem;
+      }
+
+      .actions .btn {
         width: 100%;
+      }
+
+      .pdf-page {
+        min-height: 0;
+        padding: 1.2rem;
+      }
+
+      .tour-pop {
+        bottom: 0.65rem;
+        width: min(100vw - 1rem, 560px);
+        padding: 0.8rem;
+        gap: 0.55rem;
+      }
+
+      .tour-pop p {
+        font-size: 0.9rem;
+      }
+
+      .tour-pop .actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
       }
     }
   </style>
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-ESFM9WKBF9"></script>
-  <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
-    gtag('config', 'G-ESFM9WKBF9');
-  </script>
 </head>
 <body>
-  <div class="shell demo-shell">
-    <header class="topbar">
-      <div class="topbar-inner">
-        <div class="topbar-row dashboard-topbar-row">
-          <div class="brand">
-            <img class="brand-badge brand-badge-image" src="../assets/n3xra_logo_transparent.png" alt="n3xra.com logo">
-          </div>
-          <a class="topbar-logout demo-link" data-exit-demo href="/">Exit demo</a>
-          <button class="menu-toggle" id="mobile-menu-toggle" type="button" aria-expanded="false" aria-controls="mobile-menu" aria-label="Open menu">
-            <span></span>
-            <span></span>
-            <span></span>
-          </button>
-        </div>
-        <div class="mobile-menu hidden" id="mobile-menu">
-          <div class="mobile-menu-head">
-            <p class="mobile-menu-title">Navigate</p>
-          </div>
-          <button class="mobile-menu-link" id="mobile-menu-account" type="button">Account</button>
-          <button class="mobile-menu-link is-active" id="mobile-menu-library" type="button">Library</button>
-          <a class="mobile-menu-link demo-link" data-exit-demo href="/">Exit demo</a>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="/records/">
+        <img src="../assets/n3xra_logo_transparent.png" alt="N3XRA">
+        <span>Records Demo</span>
+      </a>
+      <div class="topbar-actions">
+        <button class="btn ghost" id="start-tour" type="button">Start tour</button>
+        <button class="btn ghost" id="reset-demo" type="button">Reset demo</button>
+        <a class="btn ghost" href="/">Exit demo</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="shell">
+    <section class="hero" id="tour-overview">
+      <div class="hero-grid">
+        <div class="hero-copy">
+          <p class="eyebrow">Saved product walkthrough</p>
+          <h1>Run a meeting note through N3XRA Records.</h1>
+          <p>This demo uses your sample audio and handwritten notes, then replays a saved Records workflow every time: transcript, OCR-style extraction, editable document, PDF preview, sharing, AI answers, and keyword search.</p>
         </div>
       </div>
-    </header>
+    </section>
 
-    <main class="main">
-      <div class="demo-tabbar">
-        <button class="demo-tab is-active" id="show-account-tab" type="button">
-          <strong>Account</strong>
-        </button>
-        <button class="demo-tab" id="show-library-tab" type="button">
-          <strong>Library</strong>
-        </button>
-      </div>
+    <div class="workflow">
+      <aside class="tour-rail" aria-label="Demo steps">
+        <button class="tour-step is-active" type="button" data-tour-target="meeting-panel"><span>1</span><strong>Open the meeting note</strong></button>
+        <button class="tour-step" type="button" data-tour-target="scan-panel"><span>2</span><strong>Scan handwritten notes</strong></button>
+        <button class="tour-step" type="button" data-tour-target="review-panel"><span>3</span><strong>Review AI suggestions</strong></button>
+        <button class="tour-step" type="button" data-tour-target="document-panel"><span>4</span><strong>Edit the generated document</strong></button>
+        <button class="tour-step" type="button" data-tour-target="pdf-panel"><span>5</span><strong>Generate the PDF</strong></button>
+        <button class="tour-step" type="button" data-tour-target="ai-panel"><span>6</span><strong>Ask Records AI</strong></button>
+        <button class="tour-step" type="button" data-tour-target="search-panel"><span>7</span><strong>Search the library</strong></button>
+        <button class="tour-step" type="button" data-tour-target="public-panel"><span>8</span><strong>Publish to public records</strong></button>
+      </aside>
 
-      <section class="section-view" id="account-section">
-        <section class="account-card" id="library-settings-card">
-          <div class="account-top">
-            <h3>Profile</h3>
-            <button class="btn secondary profile-settings-button" type="button" disabled>Profile settings</button>
-          </div>
-          <div class="account-list">
-            <div class="account-item">
-              <span class="account-label">Name</span>
-              <p class="account-value">Demo Clerk</p>
-            </div>
-            <div class="account-item">
-              <span class="account-label">Email</span>
-              <p class="account-value">demo@n3xra.com</p>
-            </div>
-          </div>
-          <p class="status"></p>
-        </section>
-
-        <section class="account-card" id="account-library-card">
+      <div class="content-stack">
+        <section class="panel" id="meeting-panel">
           <div class="panel-head">
             <div>
-              <h3>Selected Library</h3>
+              <p class="eyebrow">Meeting note</p>
+              <h2>Community Museum Expansion</h2>
+              <p class="panel-copy">A new meeting note starts with basic metadata, sample audio, and the recording workflow.</p>
             </div>
+            <span class="pill">June 18, 2026</span>
           </div>
           <div class="grid-3">
-            <div class="field">
-              <label>Library</label>
-              <select class="hidden" id="demo-library-select" aria-label="Select library"></select>
-              <p class="account-value" id="demo-selected-library-name">Personal</p>
+            <div class="metric">
+              <p class="label">Library</p>
+              <p class="value">Community Museum Board</p>
             </div>
-            <div class="field">
-              <span class="field-title">Your access</span>
-              <p class="account-value" id="demo-selected-library-access">Owner</p>
+            <div class="metric">
+              <p class="label">Type</p>
+              <p class="value">Board meeting</p>
             </div>
-            <div class="field">
-              <span class="field-title">Shared libraries</span>
-              <p class="account-value" id="demo-shared-library-count">0</p>
-            </div>
-          </div>
-          <div class="account-list">
-            <div class="account-item">
-              <span class="account-label">Library</span>
-              <p class="account-value" id="demo-summary-library-name">Personal</p>
-            </div>
-            <div class="account-item">
-              <span class="account-label">Role</span>
-              <p class="account-value" id="demo-summary-library-role">Owner</p>
-            </div>
-            <div class="account-item">
-              <span class="account-label">Plan</span>
-              <p class="account-value" id="demo-summary-library-plan">Free</p>
-            </div>
-            <div class="account-item">
-              <span class="account-label">Status</span>
-              <p class="account-value" id="demo-summary-library-status">Active</p>
-            </div>
-            <div class="account-item">
-              <span class="account-label">Documents</span>
-              <p class="account-value" id="document-count">0</p>
+            <div class="metric">
+              <p class="label">Status</p>
+              <p class="value" id="meeting-status">Draft</p>
             </div>
           </div>
-        </section>
-
-        <section class="account-card" id="billing-section">
-          <div class="panel-head">
-            <div>
-              <h3>Billing</h3>
-            </div>
-          </div>
-          <div class="current-plan-card">
-            <div>
-              <p class="account-label">Current plan</p>
-              <p class="current-plan-name" id="demo-current-plan-name">Free</p>
-              <p class="current-plan-copy" id="demo-current-plan-copy">25 documents, 1 user, 512 MB.</p>
-            </div>
-            <div class="current-plan-actions">
-              <button class="btn secondary" id="change-plan-button" type="button">Compare plans</button>
-            </div>
-          </div>
-          <div class="billing-plan-picker hidden" id="billing-plan-picker">
-            <div class="plan-grid">
-              <article class="card pricing-card">
-                <div class="pricing-tier">Free</div>
-                <div class="pricing-price"><strong>$0</strong><span>/month</span></div>
-                <p class="pricing-copy">A small single-user archive for trying the workflow.</p>
-              </article>
-              <article class="card pricing-card">
-                <div class="pricing-tier">Starter</div>
-                <div class="pricing-price"><strong>$12</strong><span>/month</span></div>
-                <p class="pricing-copy">A single-user archive with more room and more storage.</p>
-              </article>
-              <article class="card pricing-card">
-                <div class="pricing-tier">Organization</div>
-                <div class="pricing-price"><strong>$39</strong><span>/month</span></div>
-                <p class="pricing-copy">Shared libraries, embedded records access, and team features.</p>
-              </article>
-            </div>
-          </div>
-        </section>
-
-        <section class="account-card" id="library-access-card">
-          <div class="panel-head">
-            <div>
-              <h3>Library access</h3>
-            </div>
-          </div>
-          <button class="section-toggle" id="demo-redeem-invite-toggle" type="button" aria-expanded="false" aria-controls="demo-redeem-invite-body">
-            <div>
-              <h3>Join shared library with code</h3>
-            </div>
-            <span class="section-toggle-indicator" aria-hidden="true">+</span>
-          </button>
-          <div class="stack hidden" id="demo-redeem-invite-body">
-            <form class="stack" id="demo-redeem-invite-form">
-              <div class="field">
-                <label for="demo-redeem-invite-code">Invite code (`XQJPLMRT`)</label>
-                <input id="demo-redeem-invite-code" type="text" placeholder="Enter invite code">
-              </div>
+          <div class="asset-card">
+            <div class="asset-body">
+              <p class="label">Sample audio</p>
+              <audio controls preload="metadata" src="../assets/CommunityMuseumxpansionProject.mp3"></audio>
               <div class="actions">
-                <button class="btn secondary" type="submit">Redeem code</button>
+                <button class="btn" id="transcribe-button" type="button">Transcribe sample audio</button>
               </div>
-              <p class="status" id="demo-redeem-invite-status"></p>
-            </form>
+              <p class="processing" id="meeting-processing"></p>
+            </div>
           </div>
+          <div>
+            <p class="label">Transcript</p>
+            <textarea class="textarea" id="transcript-output" readonly placeholder="Transcript appears here after processing."></textarea>
+          </div>
+        </section>
 
-          <div class="demo-admin-only demo-hidden stack" id="demo-admin-access-sections">
-            <button class="section-toggle" id="demo-invite-management-toggle" type="button" aria-expanded="false" aria-controls="demo-invite-management-body">
-              <div>
-                <h3>Invite codes</h3>
-              </div>
-              <span class="section-toggle-indicator" aria-hidden="true">+</span>
-            </button>
-            <div class="stack hidden" id="demo-invite-management-body">
-              <div class="table-shell">
-                <table class="data-table">
-                  <thead>
-                    <tr>
-                      <th>Code</th>
-                      <th>Role</th>
-                      <th>Uses</th>
-                      <th>Expires</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td><code class="inline">BOARD-EDITOR</code></td>
-                      <td>Editor</td>
-                      <td>1/3</td>
-                      <td>Never</td>
-                    </tr>
-                    <tr>
-                      <td><code class="inline">BOARD-VIEW</code></td>
-                      <td>Viewer</td>
-                      <td>0/10</td>
-                      <td>2026-12-31</td>
-                    </tr>
-                  </tbody>
-                </table>
+        <section class="panel" id="scan-panel">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">Handwritten notes</p>
+              <h2>Scan and extract supporting notes</h2>
+              <p class="panel-copy">The image is the real sample note asset. The extracted text is saved demo output that can be replaced after you run the real process.</p>
+            </div>
+            <button class="btn" id="extract-scan-button" type="button">Extract notes</button>
+          </div>
+          <div class="grid-2">
+            <div class="asset-card">
+              <img src="../assets/CommunityMuseumxpansionProjectnotes.jpg" alt="Handwritten meeting notes for the community museum expansion project">
+              <div class="asset-body">
+                <p class="muted">CommunityMuseumxpansionProjectnotes.jpg</p>
               </div>
             </div>
-
-            <button class="section-toggle" id="demo-member-management-toggle" type="button" aria-expanded="false" aria-controls="demo-member-management-body">
-              <div>
-                <h3>Shared access</h3>
-              </div>
-              <span class="section-toggle-indicator" aria-hidden="true">+</span>
-            </button>
-            <div class="stack hidden" id="demo-member-management-body">
-              <div class="table-shell">
-                <table class="data-table">
-                  <thead>
-                    <tr>
-                      <th>Name</th>
-                      <th>Email</th>
-                      <th>Role</th>
-                      <th>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td>Demo Clerk</td>
-                      <td>demo@n3xra.com</td>
-                      <td>Account Admin</td>
-                      <td>Active</td>
-                    </tr>
-                    <tr>
-                      <td>Board President</td>
-                      <td>president@n3xra.com</td>
-                      <td>Owner</td>
-                      <td>Active</td>
-                    </tr>
-                    <tr>
-                      <td>Records Volunteer</td>
-                      <td>volunteer@n3xra.com</td>
-                      <td>Editor</td>
-                      <td>Active</td>
-                    </tr>
-                    <tr>
-                      <td>Board Viewer</td>
-                      <td>viewer@n3xra.com</td>
-                      <td>Viewer</td>
-                      <td>Active</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <button class="section-toggle" id="demo-embed-settings-toggle" type="button" aria-expanded="false" aria-controls="demo-embed-settings-body">
-              <div>
-                <h3>Embed settings</h3>
-              </div>
-              <span class="section-toggle-indicator" aria-hidden="true">+</span>
-            </button>
-            <div class="stack hidden" id="demo-embed-settings-body">
-              <div class="embed-access-card">
-                <div>
-                  <p class="account-label">Embedded records view</p>
-                  <p class="embed-access-title">Search and files together in one read-only view.</p>
-                  <p class="embed-access-copy">Only public documents are shown in the shared library embed.</p>
-                </div>
-                <button class="btn secondary" type="button" disabled>Get embedded</button>
-              </div>
+            <div>
+              <p class="label">Extracted notes</p>
+              <textarea class="textarea" id="scan-output" readonly placeholder="OCR-style extracted text appears here."></textarea>
             </div>
           </div>
         </section>
 
-      </section>
-
-      <section class="section-view" id="library-section" hidden>
-        <section class="panel stack">
+        <section class="panel" id="review-panel">
           <div class="panel-head">
             <div>
-              <h3>Selected Library</h3>
+              <p class="eyebrow">AI review</p>
+              <h2>Compare notes with transcript</h2>
+              <p class="panel-copy">This mirrors the real review result from the sample: suggested additions were applied and no conflicts were found.</p>
             </div>
+            <button class="btn" id="review-ai-button" type="button">Run AI review</button>
           </div>
-          <div class="field">
-            <label>Library</label>
-            <select class="hidden" id="demo-library-select-library" aria-label="Select library in demo library view"></select>
-            <p class="account-value" id="demo-library-section-name">Personal</p>
+          <div id="review-content">
+            <p class="muted">Run the review to see suggested additions and possible conflicts.</p>
           </div>
         </section>
 
-        <div class="library-actions-grid">
-          <div class="library-action-slot">
-            <button class="btn" id="open-upload-modal" type="button">Upload</button>
-          </div>
-          <div class="library-action-slot">
-            <a class="btn secondary button-link" href="/demo/files">All files</a>
-          </div>
-        </div>
-
-        <section class="panel stack">
+        <section class="panel" id="document-panel">
           <div class="panel-head">
             <div>
-              <h3>Search</h3>
-            </div>
-          </div>
-          <div class="search-row">
-            <div class="field">
-              <label for="search-query">Keyword or phrase</label>
-              <input id="search-query" type="search" placeholder="budget, grant, zoning, broadband">
-            </div>
-            <div class="field">
-              <label for="search-year">Year</label>
-              <select id="search-year">
-                <option value="all">All years</option>
-              </select>
+              <p class="eyebrow">Editable document</p>
+              <h2>Generated minutes document</h2>
+              <p class="panel-copy">This mirrors the editable document step. You can change the text locally during the demo before generating the PDF preview.</p>
             </div>
             <div class="actions">
-              <button class="btn secondary" id="search-reset" type="button">Reset</button>
+              <button class="btn" id="create-document-button" type="button">Create editable document</button>
+              <button class="btn secondary" id="save-document-button" type="button">Save document</button>
             </div>
           </div>
-          <p class="status" id="docs-status">Loading demo documents...</p>
-          <div class="doc-list" id="doc-list"></div>
-          <p class="empty" id="doc-empty">Type a keyword to search your documents.</p>
+          <textarea class="doc-editor" id="document-editor" placeholder="Generated document appears here."></textarea>
+          <p class="muted" id="document-status">No editable document saved yet.</p>
         </section>
 
-      </section>
-    </main>
-  </div>
-
-  <div class="file-modal" id="file-modal" role="dialog" aria-modal="true" aria-hidden="true">
-    <div class="file-modal-dialog">
-      <div class="file-modal-header">
-        <p class="file-modal-title" id="file-modal-title">File preview</p>
-        <div class="file-modal-actions">
-          <a class="file-modal-link" id="file-modal-download" href="#" target="_blank" rel="noopener">Download</a>
-          <button class="file-modal-link" id="file-modal-share" type="button">Share</button>
-          <button class="file-modal-close" id="file-modal-close" type="button">Close</button>
-        </div>
-      </div>
-      <div class="file-modal-body">
-        <iframe class="file-modal-frame" id="file-modal-frame" src="" title="File preview"></iframe>
-      </div>
-    </div>
-  </div>
-
-  <div class="confirm-modal" id="delete-confirm-modal" role="dialog" aria-modal="true" aria-hidden="true">
-    <div class="confirm-modal-dialog">
-      <div class="confirm-modal-header">
-        <div>
-          <p class="confirm-modal-kicker">Delete file</p>
-          <h3 class="confirm-modal-title">Remove this demo document?</h3>
-        </div>
-      </div>
-      <div class="confirm-modal-body">
-        <p class="confirm-modal-copy" id="delete-confirm-copy">This action only affects the demo in this browser.</p>
-        <div class="confirm-modal-actions">
-          <button class="btn secondary" id="delete-confirm-cancel" type="button">Cancel</button>
-          <button class="btn btn-delete-solid" id="delete-confirm-submit" type="button">Delete</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="settings-modal" id="upload-modal" role="dialog" aria-modal="true" aria-hidden="true">
-    <div class="settings-modal-dialog">
-      <div class="settings-modal-header">
-        <div>
-          <p class="settings-modal-kicker">Upload</p>
-          <h3 class="settings-modal-title">Add documents</h3>
-        </div>
-        <button class="settings-modal-close" id="upload-modal-close" type="button">Close</button>
-      </div>
-      <div class="settings-modal-body">
-        <form class="stack" id="upload-form">
-          <p class="account-note" id="upload-mode-note">Supported in this first pass: <code class="inline">.docx</code>, <code class="inline">.txt</code>, <code class="inline">.md</code>, <code class="inline">.csv</code>, <code class="inline">.json</code>, <code class="inline">.html</code>.</p>
-          <div class="upload-mode-switch" role="tablist" aria-label="Upload mode">
-            <button class="upload-mode-btn is-active" id="upload-mode-single" type="button" role="tab" aria-selected="true">Individual file</button>
-            <button class="upload-mode-btn" id="upload-mode-batch" type="button" role="tab" aria-selected="false">Batch import</button>
-          </div>
-          <div class="grid-3" id="upload-metadata-grid">
-            <div class="field" id="upload-title-field">
-              <label for="upload-title">Document title</label>
-              <input id="upload-title" type="text" placeholder="Board Packet Draft">
+        <section class="panel" id="pdf-panel">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">PDF and sharing</p>
+              <h2>Generate a shareable PDF preview</h2>
+              <p class="panel-copy">The real product generates PDFs server-side. This demo renders a fixed preview from the saved document.</p>
             </div>
-            <div class="field">
-              <label for="upload-year">Year</label>
-              <input id="upload-year" type="text" placeholder="2026">
-            </div>
-            <div class="field">
-              <label for="upload-month">Month</label>
-              <input id="upload-month" type="text" placeholder="April">
+            <div class="actions">
+              <button class="btn" id="generate-pdf-button" type="button">Generate PDF</button>
+              <button class="btn secondary" id="share-document-button" type="button">Share document</button>
             </div>
           </div>
-          <div class="field">
-            <label for="upload-file" id="upload-file-label">File</label>
-            <input id="upload-file" type="file">
+          <div class="pdf-preview hidden" id="pdf-preview">
+            <div class="pdf-page" id="pdf-page">
+              <p class="label">N3XRA Records PDF</p>
+              <div id="pdf-content"></div>
+            </div>
           </div>
-          <div class="field hidden" id="upload-folder-field">
-            <label for="upload-folder">Folder (optional)</label>
-            <input id="upload-folder" type="file" webkitdirectory directory multiple>
-          </div>
-          <div class="field hidden" id="upload-public-field">
-            <label class="toggle-pill">
-              <input id="upload-public" type="checkbox">
-              <span>Publish to public embed</span>
-            </label>
+          <p class="muted" id="share-status">Document is private until shared or published.</p>
+        </section>
+
+        <section class="panel" id="ai-panel">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">Records AI</p>
+              <h2>Ask fixed demo questions</h2>
+              <p class="panel-copy">The answers are saved examples based on the sample transcript, notes image, and generated minutes.</p>
+            </div>
           </div>
           <div class="actions">
-            <button class="btn" type="submit">Upload and save extracted text</button>
+            <button class="btn secondary ai-question" type="button" data-question="decision">What decision was made?</button>
+            <button class="btn secondary ai-question" type="button" data-question="risks">What risks were raised?</button>
+            <button class="btn secondary ai-question" type="button" data-question="actions">What are the action items?</button>
           </div>
-          <p class="status" id="upload-status"></p>
-          <ul class="upload-results" id="upload-results"></ul>
-        </form>
+          <div class="ai-box" id="ai-answer">Choose a question to see the saved Records AI answer.</div>
+        </section>
+
+        <section class="panel" id="search-panel">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">Keyword search</p>
+              <h2>Search across the demo library</h2>
+              <p class="panel-copy">Search the transcript, scanned notes, generated document, and public record metadata.</p>
+            </div>
+          </div>
+          <div class="actions">
+            <input class="search-input" id="search-input" type="search" placeholder="Try: architectural plans, grant applications, parking, capital campaign, 6:47 p.m." aria-label="Search demo library">
+            <button class="btn" id="search-button" type="button">Search</button>
+          </div>
+          <div class="search-results" id="search-results"></div>
+        </section>
+
+        <section class="panel" id="public-panel">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">Public records</p>
+              <h2>Publish selected records to the public view</h2>
+              <p class="panel-copy">Only records marked public appear here. The internal transcript, draft notes, and private files stay behind login.</p>
+            </div>
+            <button class="btn" id="publish-button" type="button">Publish sample record</button>
+          </div>
+          <div class="public-preview">
+            <div class="browser-bar">
+              <span class="dot"></span>
+              <span class="dot"></span>
+              <span class="dot"></span>
+              <span class="url">n3xra.com/library/community-museum-board</span>
+            </div>
+            <div class="public-body" id="public-body">
+              <p class="label">Public records</p>
+              <h3>Community Museum Board</h3>
+              <p class="muted">No public demo record has been published yet.</p>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <div class="tour-pop hidden" id="tour-pop" role="dialog" aria-live="polite">
+    <strong id="tour-title">Tour step</strong>
+    <p id="tour-copy"></p>
+    <div class="actions">
+      <button class="btn ghost" id="tour-next" type="button">Next</button>
+      <button class="btn ghost" id="tour-close" type="button">Close</button>
+    </div>
+  </div>
+  <div class="info-modal hidden" id="share-info-modal" role="dialog" aria-modal="true" aria-labelledby="share-info-title">
+    <div class="info-modal-dialog">
+      <div>
+        <p class="eyebrow">Internal communication</p>
+        <h2 id="share-info-title">Share through contacts and email</h2>
+      </div>
+      <div class="info-modal-copy">
+        <p>In the real Records app, sharing is handled through an internal communication workflow tied to the library contact list.</p>
+        <p>Admins can keep contacts for board members, staff, partner organizations, or other recipients, then send a message by email with the selected document or generated PDF attached.</p>
+        <p>The contact list keeps recurring recipients organized, while the document stays controlled by the library's access and public/private settings.</p>
+      </div>
+      <div class="actions">
+        <button class="btn" id="share-info-close" type="button">Exit</button>
       </div>
     </div>
   </div>
+  <div class="toast hidden" id="toast"></div>
 
   <script>
-    (function () {
-      const DEMO_STORAGE_KEY = "n3xra-demo-uploads-v1";
-      const DEMO_LIBRARY_STATE_KEY = "n3xra-demo-library-state-v1";
+    (() => {
+      const transcript = `Good evening everyone, thanks for making time tonight. The main item on the agenda is the proposed expansion of the museum's West Wing and whether we're ready to move forward with the next phase of planning. David, could you start us off with a financial overview? Sure. As of the end of last month, the museum has approximately $1.4 million in unrestricted reserves. We also have about $750,000 in donations specifically designated for expansion efforts. Based on the estimates we've received so far, the total project cost is expected to fall somewhere between $2.8 and $3.2 million. So even with the designated funds, we'd still need additional fundraising or financing. Correct. Depending on the final design and construction costs, we'd likely need to raise another million dollars or secure a loan to cover the difference. One thing I'd add is that construction costs have been fluctuating quite a bit over the last year. The estimates we have now may not be accurate six months from now. That's a good point. Have we received feedback from staff about the expansion plans? Yes Overall staff are supportive The biggest concern is storage space Right now a large portion of our collection isn available for public viewing because we simply don have room to display it The proposed expansion would nearly double our exhibit space and give us additional climate-controlled storage. From a financial perspective, I think it's important to ask whether increased attendance would offset some of the long-term costs. Do we have any projections on that? The consultant estimated a potential attendance increase of 20 to 30 percent within the first three years after completion. That's based on comparable museums that expanded their facilities and introduced new exhibits. I'm always cautious about projections, but even a modest increase would help. More visitors generally means more membership sales, gift shop revenue, and event rentals. What concerns me most is timing. We've talked about expansion for nearly four years. If we wait too long, construction costs may continue to rise. That's true. On the other hand, moving too quickly could leave us scrambling for funding later. I don't think we're at the point where we should break ground. But I do think we're ready to authorize detailed architectural plans. That would give us more accurate numbers and help with fundraising efforts What would that cost Approximately according to the proposal we received Having professional plans would also make grant applications much stronger. Several grant programs require detailed project documentation before they'll even consider funding requests. That makes sense. Are there any operational challenges we should be considering? Parking is probably the largest one. If attendance increases significantly, our current parking lot may become inadequate during special events. Is that something we can address within the existing property boundaries? Potentially. We'd likely need to reconfigure the south lot and possibly add overflow parking on the adjacent parcel if we can negotiate an agreement with the neighboring property owner. That's another variable we'll need to account for. Agreed. I'd rather identify those costs now than discover them halfway through construction Let's talk about fundraising If we authorize the planning phase, can we begin a capital campaign immediately afterward? Absolutely In fact, I think having finalized renderings would make donor conversations much easier It hard to raise money for a concept It much easier to raise money for something people can see The community has shown a lot of enthusiasm whenever we shared preliminary ideas I think there's genuine interest in supporting the project. That's encouraging. My sense is that we're not making a commitment to construction tonight. We're deciding whether to invest in the planning process that will allow us to make a more informed decision later. That's how I view it. I agree. All right. Unless there are additional questions, I'd like to entertain a motion to approve funding for detailed architectural and engineering plans, not to exceed $85,000. I'll make that motion. I'll second it. Motion has been made and seconded. Any further discussion? None from me. Nothing further. All those in favor? Aye. Aye. Aye. Motion carries unanimously. We'll move forward with the planning phase and revisit the project once we have finalized cost estimates and design documents. Sounds good. Looking forward to seeing what the architects come up with. Thank you both. Unless there's any other business, we'll adjourn the meeting. Nothing further. Nothing from me. Great. Meeting adjourned at 6.47 p.m. Thank you, everyone.`;
 
-      const showAccountTab = document.getElementById("show-account-tab");
-      const showLibraryTab = document.getElementById("show-library-tab");
-      const accountSection = document.getElementById("account-section");
-      const librarySection = document.getElementById("library-section");
-      const mobileMenuToggle = document.getElementById("mobile-menu-toggle");
-      const mobileMenu = document.getElementById("mobile-menu");
-      const mobileMenuAccount = document.getElementById("mobile-menu-account");
-      const mobileMenuLibrary = document.getElementById("mobile-menu-library");
-      const changePlanButton = document.getElementById("change-plan-button");
-      const billingPlanPicker = document.getElementById("billing-plan-picker");
-      const demoLibrarySelect = document.getElementById("demo-library-select");
-      const demoLibrarySectionSelect = document.getElementById("demo-library-select-library");
-      const demoLibrarySectionName = document.getElementById("demo-library-section-name");
-      const demoSelectedLibraryName = document.getElementById("demo-selected-library-name");
-      const demoSelectedLibraryAccess = document.getElementById("demo-selected-library-access");
-      const demoSharedLibraryCount = document.getElementById("demo-shared-library-count");
-      const demoSummaryLibraryName = document.getElementById("demo-summary-library-name");
-      const demoSummaryLibraryRole = document.getElementById("demo-summary-library-role");
-      const demoSummaryLibraryPlan = document.getElementById("demo-summary-library-plan");
-      const demoSummaryLibraryStatus = document.getElementById("demo-summary-library-status");
-      const demoCurrentPlanName = document.getElementById("demo-current-plan-name");
-      const demoCurrentPlanCopy = document.getElementById("demo-current-plan-copy");
-      const demoRedeemInviteToggle = document.getElementById("demo-redeem-invite-toggle");
-      const demoRedeemInviteBody = document.getElementById("demo-redeem-invite-body");
-      const demoRedeemInviteForm = document.getElementById("demo-redeem-invite-form");
-      const demoRedeemInviteCode = document.getElementById("demo-redeem-invite-code");
-      const demoRedeemInviteStatus = document.getElementById("demo-redeem-invite-status");
-      const demoAdminAccessSections = document.getElementById("demo-admin-access-sections");
-      const demoInviteManagementToggle = document.getElementById("demo-invite-management-toggle");
-      const demoInviteManagementBody = document.getElementById("demo-invite-management-body");
-      const demoMemberManagementToggle = document.getElementById("demo-member-management-toggle");
-      const demoMemberManagementBody = document.getElementById("demo-member-management-body");
-      const demoEmbedSettingsToggle = document.getElementById("demo-embed-settings-toggle");
-      const demoEmbedSettingsBody = document.getElementById("demo-embed-settings-body");
-      const searchQuery = document.getElementById("search-query");
-      const searchYear = document.getElementById("search-year");
-      const searchReset = document.getElementById("search-reset");
-      const docList = document.getElementById("doc-list");
-      const docEmpty = document.getElementById("doc-empty");
-      const docsStatus = document.getElementById("docs-status");
-      const fileList = document.getElementById("file-list");
-      const fileEmpty = document.getElementById("file-empty");
-      const fileStatus = document.getElementById("file-status");
-      const documentCount = document.getElementById("document-count");
-      const fileModal = document.getElementById("file-modal");
-      const fileModalTitle = document.getElementById("file-modal-title");
-      const fileModalFrame = document.getElementById("file-modal-frame");
-      const fileModalDownload = document.getElementById("file-modal-download");
-      const fileModalShare = document.getElementById("file-modal-share");
-      const fileModalClose = document.getElementById("file-modal-close");
-      const deleteConfirmModal = document.getElementById("delete-confirm-modal");
-      const deleteConfirmCopy = document.getElementById("delete-confirm-copy");
-      const deleteConfirmCancel = document.getElementById("delete-confirm-cancel");
-      const deleteConfirmSubmit = document.getElementById("delete-confirm-submit");
-      const uploadModal = document.getElementById("upload-modal");
-      const openUploadModalButton = document.getElementById("open-upload-modal");
-      const uploadModalClose = document.getElementById("upload-modal-close");
-      const uploadForm = document.getElementById("upload-form");
-      const uploadModeNote = document.getElementById("upload-mode-note");
-      const uploadModeSingleButton = document.getElementById("upload-mode-single");
-      const uploadModeBatchButton = document.getElementById("upload-mode-batch");
-      const uploadMetadataGrid = document.getElementById("upload-metadata-grid");
-      const uploadTitleField = document.getElementById("upload-title-field");
-      const uploadTitle = document.getElementById("upload-title");
-      const uploadYear = document.getElementById("upload-year");
-      const uploadMonth = document.getElementById("upload-month");
-      const uploadFileLabel = document.getElementById("upload-file-label");
-      const uploadFile = document.getElementById("upload-file");
-      const uploadFolderField = document.getElementById("upload-folder-field");
-      const uploadFolder = document.getElementById("upload-folder");
-      const uploadPublic = document.getElementById("upload-public");
-      const uploadStatus = document.getElementById("upload-status");
-      const uploadResults = document.getElementById("upload-results");
+      const scanText = `Here is the extracted text from the image:
 
-      let sampleDocumentsByLibrary = {
-        personal: [],
-        shared_admin: []
+## Board Meeting - Community Museum Expansion
+6/18
+
+### Attendees:
+- Sarah M. (Chair)
+- David C. (Treasurer)
+- Lisa R. (Operations)
+
+### Financials (David)
+* $1.4M unrestricted reserves
+* $750K in designated expansion donations
+* Project est. $2.8M - $3.2M
+-> Need to raise ~ $1M more or secure loan
+
+### Operations / Benefits (Lisa)
+* Expansion would nearly double exhibit space
+* More climate-controlled storage (big need)
+* 20-30% attendance increase projected in 1st 3 yrs
+-> more memberships, gift shop, rentals
+* Staff supportive overall
+
+### Next Steps
+* Authorize detailed architectural & engineering plans
+  - Cost: ~ $85k
+* Will help with accurate estimates + grant applications
+* Will support capital campaign (need visuals/plans)
+* Not a commitment to construction yet
+
+### Decision:
+Approve funding for detailed architectural & engineering plans (not to exceed $85k)
+
+### Risks / Concerns
+* Construction costs fluctuating
+* Timing - costs may keep rising if we wait
+* Don't move too fast -> funding risk
+
+### Operational Challenges
+* Parking biggest issue
+* Reconfigure south lot
+* Possible overflow on adjacent parcel -> need agreement w/ neighbor
+
+### Motion: Approve funding for plans (not to exceed $85k)
+- Moved: David
+- Second: Lisa
+- Approved unanimously
+* Move forward w/ planning phase
+Revisit once we have finalized costs + designs`;
+
+      const notes = scanText;
+
+      const documentText = `Board Meeting - Community Museum Expansion
+6/18
+
+Attendees:
+- Sarah M. (Chair)
+- David C. (Treasurer)
+- Lisa R. (Operations)
+
+Financials (David)
+- $1.4M unrestricted reserves
+- $750K in designated expansion donations
+- Project estimate $2.8M - $3.2M
+- Need to raise approximately $1M more or secure a loan
+
+Operations / Benefits (Lisa)
+- Expansion would nearly double exhibit space
+- More climate-controlled storage (big need)
+- 20-30% attendance increase projected in first 3 years
+  -> more memberships, gift shop revenue, rentals
+- Staff supportive overall
+- The community has shown strong enthusiasm for the project whenever preliminary ideas were shared.
+
+Next Steps
+- Authorize detailed architectural & engineering plans
+  - Cost: approximately $85K
+- Detailed plans and finalized renderings will make donor conversations much easier and strengthen grant applications.
+- Several grant programs require detailed project documentation before they will consider funding requests.
+- Plans will help with accurate estimates and grant applications
+- Capital campaign can begin immediately after the planning phase, leveraging the detailed plans and renderings.
+- Support capital campaign (need visuals/plans)
+- Not a commitment to construction yet
+
+Decision
+Approve funding for detailed architectural & engineering plans (not to exceed $85K)
+
+Risks / Concerns
+- Construction costs fluctuating
+- Timing - costs may rise if we wait
+- Moving too fast could create funding risk
+
+Operational Challenges
+- Parking is the biggest issue
+- Reconfigure south lot
+- Possible overflow on adjacent parcel - need agreement with neighbor
+
+Motion: Approve funding for plans (not to exceed $85K)
+- Moved by David
+- Seconded by Lisa
+- Approved unanimously
+- Move forward with planning phase; revisit once costs and designs are finalized
+
+Adjournment
+Meeting adjourned at 6:47 p.m.`;
+
+      const aiAnswers = {
+        decision: `The board approved funding for detailed architectural and engineering plans for the Community Museum Expansion project, not to exceed $85,000. The motion was made, seconded, and approved unanimously.`,
+        risks: `The main risks were fluctuating construction costs, waiting too long and seeing costs rise, moving too quickly and creating funding risk, parking limitations, and the possible need for an agreement with a neighboring property owner.`,
+        actions: `Action items:
+1. Authorize the architectural and engineering plans.
+2. Use detailed plans and finalized renderings for donor conversations and grant applications.
+3. Begin the capital campaign after the planning phase.
+4. Reconfigure or evaluate parking options, including the adjacent parcel.
+5. Revisit construction after final costs and designs are available.`
       };
-      let uploadedDocumentsByLibrary = {
-        personal: [],
-        shared_admin: []
-      };
-      let pendingDeleteId = null;
-      let activeModalDocumentId = null;
-      let uploadMode = "single";
-      const DEMO_ADMIN_CODE = "XQJPLMRT";
-      const DEMO_LIBRARIES = {
-        personal: {
-          id: "personal",
-          name: "Personal",
-          role: "Owner",
-          plan: "Free",
-          status: "Active",
-          planCopy: "25 documents, 1 user, 512 MB.",
-          adminAccess: false
+
+      const reviewAdditions = [
+        {
+          text: "Having finalized renderings would make donor conversations much easier and strengthen grant applications.",
+          reason: "Adds context on why detailed plans are valuable for fundraising and grant work"
         },
-        shared_admin: {
-          id: "shared_admin",
-          name: "Navarre Board Archive",
-          role: "Account Admin",
-          plan: "Organization",
-          status: "Active",
-          planCopy: "2,500 documents, 10 users, 10 GB.",
-          adminAccess: true
+        {
+          text: "Several grant programs require detailed project documentation before they will consider funding requests.",
+          reason: "Provides specific detail on grant application requirements"
+        },
+        {
+          text: "The capital campaign can begin immediately after the planning phase, leveraging the detailed plans and renderings.",
+          reason: "Clarifies timing of fundraising activities beyond notes"
+        },
+        {
+          text: "The community has shown strong enthusiasm for the project whenever preliminary ideas were shared.",
+          reason: "Adds context on community support and interest"
+        },
+        {
+          text: "Meeting adjourned at 6:47 p.m.",
+          reason: "Provides exact adjournment time not present in notes"
         }
+      ];
+
+      const searchDocs = [
+        { type: "Transcript", title: "Community Museum Expansion audio transcript", body: transcript },
+        { type: "Scanned notes", title: "Handwritten board meeting notes", body: scanText },
+        { type: "Generated document", title: "Community Museum Expansion - Meeting Minutes", body: documentText },
+        { type: "Public record", title: "Approved planning funding record", body: "Public record showing the approved $85,000 planning authorization, project range, and next steps." }
+      ];
+
+      const els = {
+        resetDemo: document.getElementById("reset-demo"),
+        transcribeButton: document.getElementById("transcribe-button"),
+        extractScanButton: document.getElementById("extract-scan-button"),
+        reviewAiButton: document.getElementById("review-ai-button"),
+        reviewContent: document.getElementById("review-content"),
+        createDocumentButton: document.getElementById("create-document-button"),
+        saveDocumentButton: document.getElementById("save-document-button"),
+        generatePdfButton: document.getElementById("generate-pdf-button"),
+        shareDocumentButton: document.getElementById("share-document-button"),
+        publishButton: document.getElementById("publish-button"),
+        transcriptOutput: document.getElementById("transcript-output"),
+        scanOutput: document.getElementById("scan-output"),
+        documentEditor: document.getElementById("document-editor"),
+        documentStatus: document.getElementById("document-status"),
+        meetingStatus: document.getElementById("meeting-status"),
+        meetingProcessing: document.getElementById("meeting-processing"),
+        pdfPreview: document.getElementById("pdf-preview"),
+        pdfContent: document.getElementById("pdf-content"),
+        shareStatus: document.getElementById("share-status"),
+        shareInfoModal: document.getElementById("share-info-modal"),
+        shareInfoClose: document.getElementById("share-info-close"),
+        aiAnswer: document.getElementById("ai-answer"),
+        searchInput: document.getElementById("search-input"),
+        searchButton: document.getElementById("search-button"),
+        searchResults: document.getElementById("search-results"),
+        publicBody: document.getElementById("public-body"),
+        toast: document.getElementById("toast"),
+        startTour: document.getElementById("start-tour"),
+        tourPop: document.getElementById("tour-pop"),
+        tourTitle: document.getElementById("tour-title"),
+        tourCopy: document.getElementById("tour-copy"),
+        tourNext: document.getElementById("tour-next"),
+        tourClose: document.getElementById("tour-close")
       };
-      let demoAvailableLibraries = ["personal"];
-      let activeDemoLibraryId = "personal";
 
-      function persistDemoLibraryState() {
-        sessionStorage.setItem(
-          DEMO_LIBRARY_STATE_KEY,
-          JSON.stringify({
-            availableLibraries: demoAvailableLibraries.filter((libraryId) => DEMO_LIBRARIES[libraryId]),
-            activeLibraryId: DEMO_LIBRARIES[activeDemoLibraryId] ? activeDemoLibraryId : "personal"
-          })
-        );
+      const defaultState = {
+        processed: false,
+        scanExtracted: false,
+        reviewed: false,
+        documentCreated: false,
+        pdfGenerated: false,
+        shared: false,
+        published: false,
+        documentText
+      };
+
+      let state = { ...defaultState };
+      let tourIndex = 0;
+      const tour = [
+        { id: "meeting-panel", title: "Start with the meeting note", copy: "Play the sample audio, then click Transcribe sample audio. The demo fills the same saved transcript every time." },
+        { id: "scan-panel", title: "Add handwritten notes", copy: "This is your real notes image. The extraction is fixed demo text that can be replaced after a real run." },
+        { id: "review-panel", title: "Review transcript additions", copy: "The review compares the OCR notes with the transcript and shows applied additions plus possible conflicts." },
+        { id: "document-panel", title: "Review the editable document", copy: "The generated minutes become editable, just like a working records document before saving or sharing." },
+        { id: "pdf-panel", title: "Create a PDF and share", copy: "The PDF preview is a stable rendering of the saved minutes. Sharing updates the current demo screen but does not publish anything real." },
+        { id: "ai-panel", title: "Ask AI-style questions", copy: "These answers are fixed examples based on the sample meeting, notes, and document." },
+        { id: "search-panel", title: "Search the library", copy: "Keyword search checks the transcript, OCR-style notes, generated document, and public record metadata." },
+        { id: "public-panel", title: "Publish selected records", copy: "Only the selected sample record appears in the public view. Internal notes stay private in the demo." }
+      ];
+
+      function showToast(message) {
+        els.toast.textContent = message;
+        els.toast.classList.remove("hidden");
+        clearTimeout(showToast.timer);
+        showToast.timer = setTimeout(() => els.toast.classList.add("hidden"), 2400);
       }
 
-      function loadDemoLibraryState() {
-        try {
-          const stored = JSON.parse(sessionStorage.getItem(DEMO_LIBRARY_STATE_KEY) || "null");
-          const availableLibraries = Array.isArray(stored?.availableLibraries)
-            ? stored.availableLibraries.filter((libraryId) => DEMO_LIBRARIES[libraryId])
-            : ["personal"];
-          demoAvailableLibraries = availableLibraries.length ? Array.from(new Set(["personal", ...availableLibraries])) : ["personal"];
-          activeDemoLibraryId = DEMO_LIBRARIES[stored?.activeLibraryId] ? stored.activeLibraryId : "personal";
-          if (!demoAvailableLibraries.includes(activeDemoLibraryId)) {
-            activeDemoLibraryId = "personal";
-          }
-        } catch {
-          demoAvailableLibraries = ["personal"];
-          activeDemoLibraryId = "personal";
-        }
+      function setProcessing(message) {
+        els.meetingProcessing.textContent = message || "";
       }
 
-      function clearDemoLibraryState() {
-        try {
-          sessionStorage.removeItem(DEMO_LIBRARY_STATE_KEY);
-        } catch {
-          // Ignore storage issues in the demo.
+      function simulateAction(button, loadingLabel, action, delay = 550) {
+        if (!button) {
+          action();
+          return;
         }
+        const originalLabel = button.textContent;
+        button.disabled = true;
+        button.textContent = loadingLabel;
+        window.setTimeout(() => {
+          action();
+          button.disabled = false;
+          button.textContent = originalLabel;
+        }, delay);
+      }
+
+      function fillTranscript() {
+        state.processed = true;
+        els.transcriptOutput.value = transcript;
+        setProcessing("Saved transcript loaded.");
+        render();
+      }
+
+      function extractScan() {
+        state.scanExtracted = true;
+        els.scanOutput.value = scanText;
+        render();
+        showToast("Handwritten notes extraction loaded.");
+      }
+
+      function reviewAi() {
+        if (!state.processed) fillTranscript();
+        if (!state.scanExtracted) extractScan();
+        state.reviewed = true;
+        render();
+        showToast("AI review suggestions loaded.");
+      }
+
+      function createDocument() {
+        state.documentCreated = true;
+        state.documentText = state.documentText || documentText;
+        els.documentEditor.value = state.documentText;
+        render();
+        showToast("Editable meeting minutes created.");
+      }
+
+      function saveDocument() {
+        state.documentCreated = true;
+        state.documentText = els.documentEditor.value || documentText;
+        render();
+        showToast("Document saved for this demo session.");
+      }
+
+      function generatePdf() {
+        if (!state.documentCreated) createDocument();
+        state.documentText = els.documentEditor.value || state.documentText || documentText;
+        state.pdfGenerated = true;
+        render();
+        document.getElementById("pdf-panel").scrollIntoView({ behavior: "smooth", block: "start" });
+        showToast("PDF preview generated.");
+      }
+
+      function shareDocument() {
+        if (!state.pdfGenerated) generatePdf();
+        els.shareInfoModal.classList.remove("hidden");
+      }
+
+      function closeShareInfo() {
+        els.shareInfoModal.classList.add("hidden");
+      }
+
+      function publishRecord() {
+        state.published = true;
+        state.shared = true;
+        render();
+        showToast("Sample public record published.");
+      }
+
+      function resetDemo() {
+        state = { ...defaultState };
+        render();
+        showToast("Demo reset.");
+      }
+
+      function highlight(text, query) {
+        const raw = String(text || "");
+        const q = String(query || "").trim();
+        const escaped = escapeHtml(raw);
+        if (!q) return escaped;
+        const escapedQuery = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const pattern = new RegExp(`(${escapedQuery})`, "ig");
+        return escaped.replace(pattern, '<span class="mark">$1</span>');
       }
 
       function escapeHtml(value) {
@@ -781,882 +1287,176 @@
           .replaceAll("'", "&#39;");
       }
 
-      function setStatus(el, message, tone = "") {
-        if (!el) return;
-        el.textContent = message || "";
-        el.className = "status";
-        if (tone) el.classList.add(tone);
+      function snippet(body, query) {
+        const text = String(body || "").replace(/\s+/g, " ").trim();
+        const q = String(query || "").toLowerCase();
+        if (!q) return text.slice(0, 210);
+        const index = text.toLowerCase().indexOf(q);
+        if (index < 0) return text.slice(0, 210);
+        const start = Math.max(0, index - 70);
+        const end = Math.min(text.length, index + q.length + 130);
+        return `${start > 0 ? "... " : ""}${text.slice(start, end)}${end < text.length ? " ..." : ""}`;
       }
 
-      function monthNameFromNumber(monthNum) {
-        const months = ["", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-        return months[Number(monthNum)] || "";
-      }
-
-      function allDocuments() {
-        return [...getUploadedDocumentsForActiveLibrary(), ...getSampleDocumentsForActiveLibrary()];
-      }
-
-      function persistUploadedDocuments() {
-        const safeUploads = Object.fromEntries(
-          Object.entries(uploadedDocumentsByLibrary).map(([libraryId, docs]) => [
-            libraryId,
-            docs.map((doc) => ({
-              id: doc.id,
-              title: doc.title,
-              year: doc.year,
-              month: doc.month,
-              month_num: doc.month_num,
-              ext: doc.ext,
-              original_filename: doc.original_filename,
-              text: doc.text,
-              is_public: doc.is_public,
-              status: doc.status,
-              source: doc.source,
-              inlineContent: doc.inlineContent
-            }))
-          ])
-        );
-        localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(safeUploads));
-      }
-
-      function getSampleDocumentsForActiveLibrary() {
-        return sampleDocumentsByLibrary[activeDemoLibraryId] || [];
-      }
-
-      function getUploadedDocumentsForActiveLibrary() {
-        return uploadedDocumentsByLibrary[activeDemoLibraryId] || [];
-      }
-
-      function buildFiveDemoDocs(sourceDocs, startIndex, idPrefix) {
-        if (!Array.isArray(sourceDocs) || !sourceDocs.length) return [];
-        return Array.from({ length: 5 }, (_, offset) => {
-          const source = sourceDocs[(startIndex + offset) % sourceDocs.length];
-          return {
-            ...source,
-            id: `${idPrefix}-${offset + 1}`
-          };
-        });
-      }
-
-      function hydrateUploadedDocument(raw) {
-        const inlineContent = String(raw.inlineContent || raw.text || "");
-        const encoded = encodeURIComponent(inlineContent);
-        const dataUrl = `data:text/plain;charset=utf-8,${encoded}`;
-        return {
-          id: raw.id,
-          title: raw.title,
-          year: raw.year,
-          month: raw.month,
-          month_num: raw.month_num,
-          ext: raw.ext || "TXT",
-          original_filename: raw.original_filename || "demo-upload.txt",
-          text: raw.text || inlineContent,
-          is_public: Boolean(raw.is_public),
-          status: raw.status || "ready",
-          source: raw.source || "uploaded",
-          inlineContent,
-          path: dataUrl,
-          previewUrl: dataUrl,
-          downloadUrl: dataUrl
-        };
-      }
-
-      function loadUploadedDocuments() {
-        try {
-          const stored = JSON.parse(localStorage.getItem(DEMO_STORAGE_KEY) || "[]");
-          if (Array.isArray(stored)) {
-            uploadedDocumentsByLibrary = {
-              personal: stored.map(hydrateUploadedDocument),
-              shared_admin: []
-            };
-            return;
-          }
-          uploadedDocumentsByLibrary = {
-            personal: Array.isArray(stored.personal) ? stored.personal.map(hydrateUploadedDocument) : [],
-            shared_admin: Array.isArray(stored.shared_admin) ? stored.shared_admin.map(hydrateUploadedDocument) : []
-          };
-        } catch {
-          uploadedDocumentsByLibrary = {
-            personal: [],
-            shared_admin: []
-          };
+      function search() {
+        const query = els.searchInput.value.trim();
+        if (!query) {
+          els.searchResults.innerHTML = `<p class="muted">Try a recommended search above, or search for a word from the transcript, notes, or generated minutes.</p>`;
+          return;
         }
-      }
-
-      function formatDateLabel(doc) {
-        const month = doc.month || monthNameFromNumber(doc.month_num);
-        if (month && doc.year) return `${month} ${doc.year}`;
-        if (doc.year) return String(doc.year);
-        return "Undated";
-      }
-
-      function getDocumentDateScore(doc) {
-        const yearRaw = String(doc?.year || "").trim();
-        if (!/^(19|20)\d{2}$/.test(yearRaw)) return null;
-        const year = Number.parseInt(yearRaw, 10);
-        const monthRaw = String(doc?.month_num || "").trim();
-        const month = /^\d{1,2}$/.test(monthRaw) ? Number.parseInt(monthRaw, 10) : 0;
-        return year * 100 + month;
-      }
-
-      function sortDocumentsNewestFirst(docs) {
-        return [...docs].sort((a, b) => {
-          const aScore = getDocumentDateScore(a);
-          const bScore = getDocumentDateScore(b);
-
-          if (aScore !== bScore) {
-            if (aScore === null) return 1;
-            if (bScore === null) return -1;
-            return bScore - aScore;
-          }
-
-          return String(b.id || "").localeCompare(String(a.id || ""));
+        const results = searchDocs.filter((doc) => {
+          return `${doc.title} ${doc.type} ${doc.body}`.toLowerCase().includes(query.toLowerCase());
         });
+        els.searchResults.innerHTML = results.length
+          ? results.map((doc) => `
+              <article class="record-card">
+                <p class="label">${escapeHtml(doc.type)}</p>
+                <h3>${highlight(doc.title, query)}</h3>
+                <p class="muted">${highlight(snippet(doc.body, query), query)}</p>
+              </article>
+            `).join("")
+          : `<p class="muted">No demo records match that search.</p>`;
       }
 
-      function toggleMobileMenu(forceOpen) {
-        const nextOpen = typeof forceOpen === "boolean" ? forceOpen : !mobileMenu.classList.contains("is-open");
-        mobileMenu.classList.toggle("is-open", nextOpen);
-        mobileMenu.classList.toggle("hidden", !nextOpen);
-        mobileMenuToggle.setAttribute("aria-expanded", String(nextOpen));
-      }
-
-      function closeMobileMenu() {
-        toggleMobileMenu(false);
-      }
-
-      function setSectionToggleOpen(toggle, body, isOpen) {
-        if (!toggle || !body) return;
-        const nextOpen = Boolean(isOpen);
-        body.classList.toggle("hidden", !nextOpen);
-        toggle.setAttribute("aria-expanded", String(nextOpen));
-        toggle.classList.toggle("is-open", nextOpen);
-        const indicator = toggle.querySelector(".section-toggle-indicator");
-        if (indicator) indicator.textContent = nextOpen ? "-" : "+";
-      }
-
-      function setActiveSection(section) {
-        const accountActive = section === "account";
-        accountSection.hidden = !accountActive;
-        librarySection.hidden = accountActive;
-        showAccountTab.classList.toggle("is-active", accountActive);
-        showLibraryTab.classList.toggle("is-active", !accountActive);
-        mobileMenuAccount.classList.toggle("is-active", accountActive);
-        mobileMenuLibrary.classList.toggle("is-active", !accountActive);
-      }
-
-      function getInitialSection() {
-        const params = new URLSearchParams(window.location.search);
-        const requestedSection = params.get("section");
-        if (requestedSection === "account") return "account";
-        return "library";
-      }
-
-      function getActiveDemoLibrary() {
-        return DEMO_LIBRARIES[activeDemoLibraryId] || DEMO_LIBRARIES.personal;
-      }
-
-      function renderDemoLibrarySelector() {
-        const hasMultipleLibraries = demoAvailableLibraries.length > 1;
-        [demoLibrarySelect, demoLibrarySectionSelect].forEach((selectEl) => {
-          if (!selectEl) return;
-          selectEl.innerHTML = "";
-          demoAvailableLibraries.forEach((libraryId) => {
-            const library = DEMO_LIBRARIES[libraryId];
-            if (!library) return;
-            const option = document.createElement("option");
-            option.value = library.id;
-            option.textContent = library.name;
-            selectEl.append(option);
-          });
-          selectEl.value = activeDemoLibraryId;
-          selectEl.classList.toggle("hidden", !hasMultipleLibraries);
-        });
-        demoSelectedLibraryName.classList.toggle("hidden", hasMultipleLibraries);
-        demoLibrarySectionName.classList.toggle("hidden", hasMultipleLibraries);
-      }
-
-      function renderDemoLibraryContext() {
-        const activeLibrary = getActiveDemoLibrary();
-        const sharedLibraryCount = demoAvailableLibraries.filter((libraryId) => libraryId !== "personal").length;
-        demoSelectedLibraryName.textContent = activeLibrary.name;
-        demoLibrarySectionName.textContent = activeLibrary.name;
-        demoSelectedLibraryAccess.textContent = activeLibrary.role;
-        demoSharedLibraryCount.textContent = String(sharedLibraryCount);
-        demoSummaryLibraryName.textContent = activeLibrary.name;
-        demoSummaryLibraryRole.textContent = activeLibrary.role;
-        demoSummaryLibraryPlan.textContent = activeLibrary.plan;
-        demoSummaryLibraryStatus.textContent = activeLibrary.status;
-        demoCurrentPlanName.textContent = activeLibrary.plan;
-        demoCurrentPlanCopy.textContent = activeLibrary.planCopy;
-        demoAdminAccessSections.classList.toggle("demo-hidden", !activeLibrary.adminAccess);
-        if (!activeLibrary.adminAccess) {
-          setSectionToggleOpen(demoInviteManagementToggle, demoInviteManagementBody, false);
-          setSectionToggleOpen(demoMemberManagementToggle, demoMemberManagementBody, false);
-          setSectionToggleOpen(demoEmbedSettingsToggle, demoEmbedSettingsBody, false);
-        }
-        persistDemoLibraryState();
-        renderDemoLibrarySelector();
-        renderAll();
-      }
-
-      function updateYearOptions() {
-        const currentValue = searchYear.value || "all";
-        const years = Array.from(new Set(allDocuments().map((doc) => String(doc.year || "")).filter(Boolean))).sort((a, b) => Number(b) - Number(a));
-        searchYear.innerHTML = '<option value="all">All years</option>';
-        years.forEach((year) => {
-          const option = document.createElement("option");
-          option.value = year;
-          option.textContent = year;
-          searchYear.append(option);
-        });
-        searchYear.value = years.includes(currentValue) ? currentValue : "all";
-      }
-
-      function snippetFromText(text, query) {
-        const safeText = String(text || "").trim();
-        if (!safeText) return "No extracted text saved for this record.";
-        if (!query) return escapeHtml(safeText.slice(0, 180)) + (safeText.length > 180 ? "..." : "");
-        const lower = safeText.toLowerCase();
-        const idx = lower.indexOf(query);
-        if (idx === -1) return escapeHtml(safeText.slice(0, 180)) + (safeText.length > 180 ? "..." : "");
-        const start = Math.max(0, idx - 80);
-        const end = Math.min(safeText.length, idx + query.length + 120);
-        const snippet = safeText.slice(start, end);
-        const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-        const highlighted = escapeHtml(snippet).replace(
-          new RegExp(escapedQuery, "ig"),
-          (match) => `<mark>${match}</mark>`
-        );
-        return highlighted + (end < safeText.length ? "..." : "");
-      }
-
-      function buildPreviewUrl(doc) {
-        if (doc.previewUrl) return doc.previewUrl;
-        const absolute = new URL(doc.path, window.location.origin).toString();
-        if (String(doc.original_filename || "").toLowerCase().endsWith(".docx")) {
-          return `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(absolute)}`;
-        }
-        return absolute;
-      }
-
-      function closeFileActionMenus(exceptId = "") {
-        if (!fileList) return;
-        fileList.querySelectorAll(".file-row-controls.is-open").forEach((controls) => {
-          const toggle = controls.querySelector("[data-menu-toggle]");
-          const row = controls.closest(".file-row");
-          if (!toggle) return;
-          if (exceptId && toggle.getAttribute("data-id") === exceptId) return;
-          controls.classList.remove("is-open");
-          row?.classList.remove("is-actions-open");
-          toggle.setAttribute("aria-expanded", "false");
-          toggle.textContent = "Action";
-        });
-      }
-
-      function fileLabel(file) {
-        return file.webkitRelativePath || file.name;
-      }
-
-      function clearUploadResults() {
-        uploadResults.innerHTML = "";
-      }
-
-      function appendUploadResult(label, tone, message) {
-        const item = document.createElement("li");
-        item.className = "upload-result";
-        item.innerHTML = `
-          <span class="upload-result-tone ${escapeHtml(tone)}">${escapeHtml(tone)}</span>
-          <span class="upload-result-name">${escapeHtml(label)}</span>
-          <span class="upload-result-message">${escapeHtml(message)}</span>
-        `;
-        uploadResults.append(item);
-      }
-
-      function resetUploadFeedback() {
-        setStatus(uploadStatus, "");
-        clearUploadResults();
-      }
-
-      function getUploadSupportCopy(isBatch) {
-        const supported = '<code class="inline">.docx</code>, <code class="inline">.txt</code>, <code class="inline">.md</code>, <code class="inline">.csv</code>, <code class="inline">.json</code>, <code class="inline">.html</code>.';
-        const legacyDocNote = 'Legacy <code class="inline">.doc</code> files must be converted to <code class="inline">.docx</code> before upload.';
-        if (isBatch) {
-          return `Supported in this first pass: ${supported} Batch mode reads both file selection and folder import and saves defaults (no year/month, private). ${legacyDocNote}`;
-        }
-        return `Supported in this first pass: ${supported} ${legacyDocNote}`;
-      }
-
-      function setUploadMode(mode) {
-        uploadMode = mode === "batch" ? "batch" : "single";
-        const isBatch = uploadMode === "batch";
-
-        uploadModeSingleButton.classList.toggle("is-active", !isBatch);
-        uploadModeSingleButton.setAttribute("aria-selected", String(!isBatch));
-        uploadModeBatchButton.classList.toggle("is-active", isBatch);
-        uploadModeBatchButton.setAttribute("aria-selected", String(isBatch));
-
-        uploadMetadataGrid.classList.toggle("hidden", isBatch);
-        uploadTitleField.classList.toggle("hidden", isBatch);
-        uploadFolderField.classList.toggle("hidden", !isBatch);
-
-        uploadFileLabel.textContent = isBatch ? "Files" : "File";
-        if (isBatch) {
-          uploadFile.setAttribute("multiple", "");
-        } else {
-          uploadFile.removeAttribute("multiple");
-        }
-
-        uploadModeNote.innerHTML = getUploadSupportCopy(isBatch);
-        uploadFile.value = "";
-        uploadFolder.value = "";
-        resetUploadFeedback();
-      }
-
-      function collectUploadFiles() {
-        if (uploadMode === "single") {
-          const file = uploadFile.files?.[0];
-          return file ? [file] : [];
-        }
-
-        const seen = new Set();
-        const all = [];
-        [uploadFile, uploadFolder].forEach((input) => {
-          Array.from(input.files || []).forEach((file) => {
-            const key = `${fileLabel(file)}::${file.size}::${file.lastModified}`;
-            if (seen.has(key)) return;
-            seen.add(key);
-            all.push(file);
-          });
-        });
-        return all;
-      }
-
-      async function readDemoFileText(file) {
-        const name = String(file.name || "").toLowerCase();
-        const type = String(file.type || "").toLowerCase();
-        const isTextLike =
-          type.startsWith("text/") ||
-          name.endsWith(".txt") ||
-          name.endsWith(".md") ||
-          name.endsWith(".csv") ||
-          name.endsWith(".json") ||
-          name.endsWith(".html");
-
-        if (isTextLike) {
-          const raw = await file.text();
-          const normalized = raw.replace(/\s+/g, " ").trim();
-          return normalized || `Imported ${file.name} into the interactive demo.`;
-        }
-
-        return `Imported ${file.name} into the interactive demo. Extracted text is simulated here so you can test search, preview, and file management without backend processing.`;
-      }
-
-      function renderDocuments() {
-        const query = searchQuery.value.trim().toLowerCase();
-        const selectedYear = searchYear.value;
-        docList.innerHTML = "";
-
-        const filtered = allDocuments().filter((doc) => {
-          const yearMatch = selectedYear === "all" || String(doc.year || "") === selectedYear;
-          if (!yearMatch) return false;
-          if (!query) return true;
-          const haystack = `${doc.title || ""} ${doc.original_filename || ""} ${doc.text || ""}`.toLowerCase();
-          return haystack.includes(query);
-        });
-        const showRecentOnly = !query && selectedYear === "all";
-        const visibleDocuments = showRecentOnly ? sortDocumentsNewestFirst(filtered).slice(0, 3) : filtered;
-
-        docEmpty.classList.toggle("hidden", visibleDocuments.length > 0);
-        docEmpty.textContent = query ? "No documents match your search." : "Type a keyword to search your documents.";
-
-        visibleDocuments.forEach((doc) => {
-          const metaBits = [
-            escapeHtml(doc.original_filename || "Unknown file"),
-            formatDateLabel(doc),
-            doc.is_public ? "Public" : "Private",
-            escapeHtml(doc.status || "ready")
-          ].filter(Boolean);
-
-          const card = document.createElement("article");
-          card.className = "doc-card";
-          card.innerHTML = `
-            <div class="doc-meta">
-              <div>
-                <p class="doc-title">${escapeHtml(doc.title || doc.original_filename || "Untitled document")}</p>
-                <p class="doc-subtitle">${metaBits.join(" · ")}</p>
+      function renderPublicView() {
+        els.publicBody.innerHTML = state.published
+          ? `
+            <p class="label">Public records</p>
+            <h3>Community Museum Board</h3>
+            <article class="record-card">
+              <p class="label">Published record</p>
+              <h3>Community Museum Expansion - Meeting Minutes</h3>
+              <p class="muted">Decision, motion, financial summary, risks, and next steps from the June 18 meeting.</p>
+              <div class="actions">
+                <span class="pill">View</span>
+                <span class="pill">Download PDF</span>
+                <span class="pill">Share</span>
               </div>
-              <span class="doc-status">${escapeHtml(doc.source || "demo")}</span>
-            </div>
-            <p class="doc-snippet">${snippetFromText(doc.text || "", query)}</p>
-            <div class="doc-actions">
-              <button class="btn secondary" type="button" data-action="open" data-id="${escapeHtml(doc.id)}">Open file</button>
-            </div>
+            </article>
+          `
+          : `
+            <p class="label">Public records</p>
+            <h3>Community Museum Board</h3>
+            <p class="muted">No public demo record has been published yet.</p>
           `;
-          docList.append(card);
-        });
-
-        const statusCount = visibleDocuments.length;
-        const statusMessage = showRecentOnly
-          ? `${statusCount} most recent document${statusCount === 1 ? "" : "s"} in the demo library.`
-          : `${statusCount} matching document${statusCount === 1 ? "" : "s"} in the demo library.`;
-        setStatus(docsStatus, statusMessage, "success");
       }
 
-      function renderFiles() {
-        if (!fileList || !fileEmpty || !fileStatus || !documentCount) return;
-        fileList.innerHTML = "";
-        const docs = allDocuments();
-        fileEmpty.classList.toggle("hidden", docs.length > 0);
+      function renderPdfContent() {
+        const text = state.documentCreated ? state.documentText || documentText : documentText;
+        const lines = String(text || "").split("\n");
+        const title = lines.shift() || "Generated minutes document";
+        const body = lines.join("\n").trim();
+        els.pdfContent.innerHTML = `
+          <h3>${escapeHtml(title)}</h3>
+          <div class="pdf-text">${escapeHtml(body)}</div>
+        `;
+      }
 
-        docs.forEach((doc) => {
-          const item = document.createElement("article");
-          const actionMenuId = `file-actions-${doc.id}`;
-          item.className = "download-item file-row";
-          item.setAttribute("data-open-id", doc.id);
-          item.setAttribute("role", "button");
-          item.setAttribute("tabindex", "0");
-          item.innerHTML = `
-            <div class="file-row-main">
-              <p class="download-name">${escapeHtml(doc.title || doc.original_filename || "Untitled document")}</p>
-              <p class="download-meta">${escapeHtml(doc.original_filename || "Unknown file")} · ${escapeHtml(formatDateLabel(doc))}${doc.is_public ? " · Public" : " · Private"} · ${escapeHtml(doc.source || "demo")}</p>
+      function renderReview() {
+        els.reviewContent.innerHTML = state.reviewed
+          ? `
+            <p class="label">Suggested additions</p>
+            <div class="review-list">
+              ${reviewAdditions.map((item) => `
+                <article class="review-card">
+                  <span class="pill">Applied</span>
+                  <h3>${escapeHtml(item.text)}</h3>
+                  <p class="muted">${escapeHtml(item.reason)}</p>
+                </article>
+              `).join("")}
             </div>
-            <div class="file-row-controls">
-              <button class="btn secondary file-row-menu-toggle" type="button" data-menu-toggle data-id="${escapeHtml(doc.id)}" aria-expanded="false" aria-controls="${actionMenuId}">Action</button>
-              <div class="doc-actions file-row-actions" id="${actionMenuId}">
-              <button class="btn secondary" type="button" data-action="download" data-id="${escapeHtml(doc.id)}">Download</button>
-              <button class="btn secondary" type="button" data-action="share" data-id="${escapeHtml(doc.id)}">Share</button>
-              <button class="btn warn" type="button" data-action="delete" data-id="${escapeHtml(doc.id)}">Delete</button>
-            </div>
-          </div>
-          `;
-          fileList.append(item);
+            <p class="label">Possible conflicts</p>
+            <p class="muted">No conflicts found.</p>
+          `
+          : `<p class="muted">Run the review to see suggested additions and possible conflicts.</p>`;
+      }
+
+      function render() {
+        els.transcriptOutput.value = state.processed ? transcript : "";
+        els.scanOutput.value = state.scanExtracted ? scanText : "";
+        els.documentEditor.value = state.documentCreated ? state.documentText : "";
+        els.documentStatus.textContent = state.documentCreated ? "Editable document ready for this demo session." : "No editable document created yet.";
+        els.meetingStatus.textContent = state.processed ? "Ready" : "Draft";
+        els.pdfPreview.classList.toggle("hidden", !state.pdfGenerated);
+        els.shareStatus.textContent = state.shared
+          ? "Share link prepared. Public publishing is controlled separately."
+          : "Document is private until shared or published.";
+        renderPdfContent();
+        renderReview();
+        renderPublicView();
+        search();
+      }
+
+      function openTour(index = 0) {
+        tourIndex = index;
+        const step = tour[tourIndex];
+        document.querySelectorAll(".tour-target").forEach((el) => el.classList.remove("tour-target"));
+        document.querySelectorAll(".tour-step").forEach((el, idx) => el.classList.toggle("is-active", idx === tourIndex));
+        const target = document.getElementById(step.id);
+        if (!target) return;
+        target.classList.add("tour-target");
+        target.scrollIntoView({ behavior: "smooth", block: "center" });
+        els.tourTitle.textContent = step.title;
+        els.tourCopy.textContent = step.copy;
+        els.tourPop.classList.remove("hidden");
+      }
+
+      function closeTour() {
+        els.tourPop.classList.add("hidden");
+        document.querySelectorAll(".tour-target").forEach((el) => el.classList.remove("tour-target"));
+      }
+
+      els.resetDemo.addEventListener("click", resetDemo);
+      els.transcribeButton.addEventListener("click", (event) => {
+        setProcessing("Transcribing sample audio...");
+        simulateAction(event.currentTarget, "Transcribing...", fillTranscript, 650);
+      });
+      els.extractScanButton.addEventListener("click", (event) => {
+        simulateAction(event.currentTarget, "Extracting...", extractScan);
+      });
+      els.reviewAiButton.addEventListener("click", (event) => {
+        simulateAction(event.currentTarget, "Reviewing...", reviewAi);
+      });
+      els.createDocumentButton.addEventListener("click", (event) => {
+        simulateAction(event.currentTarget, "Creating...", createDocument);
+      });
+      els.saveDocumentButton.addEventListener("click", (event) => {
+        simulateAction(event.currentTarget, "Saving...", saveDocument);
+      });
+      els.generatePdfButton.addEventListener("click", (event) => {
+        simulateAction(event.currentTarget, "Generating...", generatePdf);
+      });
+      els.shareDocumentButton.addEventListener("click", (event) => {
+        simulateAction(event.currentTarget, "Opening...", shareDocument, 420);
+      });
+      els.shareInfoClose.addEventListener("click", closeShareInfo);
+      els.shareInfoModal.addEventListener("click", (event) => {
+        if (event.target === els.shareInfoModal) closeShareInfo();
+      });
+      els.publishButton.addEventListener("click", (event) => {
+        simulateAction(event.currentTarget, "Publishing...", publishRecord);
+      });
+      els.searchButton.addEventListener("click", (event) => {
+        simulateAction(event.currentTarget, "Searching...", search, 360);
+      });
+      els.searchInput.addEventListener("input", search);
+      document.querySelectorAll(".ai-question").forEach((button) => {
+        button.addEventListener("click", () => {
+          els.aiAnswer.textContent = aiAnswers[button.dataset.question] || "No saved answer for that question.";
         });
-
-        documentCount.textContent = String(docs.length);
-        setStatus(fileStatus, `${docs.length} file${docs.length === 1 ? "" : "s"} available in the demo library.`, "success");
-      }
-
-      function renderAll() {
-        updateYearOptions();
-        renderDocuments();
-        renderFiles();
-      }
-
-      function openFile(docId) {
-        const doc = allDocuments().find((item) => item.id === docId);
-        if (!doc) return;
-        activeModalDocumentId = docId;
-        fileModalTitle.textContent = doc.title || doc.original_filename || "File preview";
-        fileModalFrame.src = buildPreviewUrl(doc);
-        fileModalDownload.href = doc.downloadUrl || doc.path;
-        fileModalDownload.setAttribute("download", doc.original_filename || "download");
-        fileModal.classList.add("is-open");
-        fileModal.setAttribute("aria-hidden", "false");
-      }
-
-      function closeFileModal() {
-        fileModal.classList.remove("is-open");
-        fileModal.setAttribute("aria-hidden", "true");
-        fileModalFrame.src = "";
-        activeModalDocumentId = null;
-      }
-
-      async function shareDocument(docId) {
-        const doc = allDocuments().find((item) => item.id === docId);
-        if (!doc) return;
-        const shareUrl = doc.downloadUrl || new URL(doc.path, window.location.origin).toString();
-
-        if (navigator.share) {
-          try {
-            await navigator.share({
-              title: doc.title || doc.original_filename || "Demo file",
-              text: `Shared from the n3xra.com interactive demo: ${doc.title || doc.original_filename || "File"}`,
-              url: shareUrl
-            });
-            setStatus(fileStatus, "Share sheet opened.", "success");
-            return;
-          } catch (error) {
-            if (error instanceof Error && error.name === "AbortError") return;
-          }
-        }
-
-        try {
-          await navigator.clipboard.writeText(shareUrl);
-          setStatus(fileStatus, "Share link copied to clipboard.", "success");
-        } catch {
-          setStatus(fileStatus, "Unable to share on this device.", "error");
-        }
-      }
-
-      function saveUploadedState() {
-        persistUploadedDocuments();
-        renderAll();
-      }
-
-      function openDeleteConfirm(docId) {
-        const doc = allDocuments().find((item) => item.id === docId);
-        if (!doc) return;
-        pendingDeleteId = docId;
-        deleteConfirmCopy.textContent = `Delete "${doc.title || doc.original_filename || "this file"}" from the interactive demo?`;
-        deleteConfirmModal.classList.add("is-open");
-        deleteConfirmModal.setAttribute("aria-hidden", "false");
-      }
-
-      function closeDeleteConfirm() {
-        pendingDeleteId = null;
-        deleteConfirmModal.classList.remove("is-open");
-        deleteConfirmModal.setAttribute("aria-hidden", "true");
-      }
-
-      function deleteDocument(docId) {
-        const activeUploads = getUploadedDocumentsForActiveLibrary();
-        const uploadIndex = activeUploads.findIndex((item) => item.id === docId);
-        if (uploadIndex >= 0) {
-          activeUploads.splice(uploadIndex, 1);
-          persistUploadedDocuments();
-          renderAll();
-          closeDeleteConfirm();
-          closeFileModal();
-          setStatus(fileStatus, "Uploaded demo file deleted.", "success");
-          return;
-        }
-
-        const activeSamples = getSampleDocumentsForActiveLibrary();
-        const sampleDoc = activeSamples.find((item) => item.id === docId);
-        if (!sampleDoc) return;
-        sampleDoc.deleted = true;
-        sampleDocumentsByLibrary[activeDemoLibraryId] = activeSamples.filter((item) => !item.deleted);
-        renderAll();
-        closeDeleteConfirm();
-        closeFileModal();
-        setStatus(fileStatus, "Sample file removed from this demo session.", "success");
-      }
-
-      function openUploadDialog() {
-        uploadModal.classList.add("is-open");
-        uploadModal.setAttribute("aria-hidden", "false");
-      }
-
-      function closeUploadDialog() {
-        uploadModal.classList.remove("is-open");
-        uploadModal.setAttribute("aria-hidden", "true");
-        resetUploadFeedback();
-      }
-
-      function buildUploadedDocument(file, text, index) {
-        const activeUploads = getUploadedDocumentsForActiveLibrary();
-        const activeSamples = getSampleDocumentsForActiveLibrary();
-        const nextIndexBase = activeUploads.length + activeSamples.length;
-        const baseTitle = file.name.replace(/\.[^.]+$/, "") || `Demo Upload ${nextIndexBase + index + 1}`;
-        const title = uploadMode === "single" && uploadTitle.value.trim() ? uploadTitle.value.trim() : baseTitle;
-        const year = uploadMode === "single" ? (uploadYear.value.trim() || String(new Date().getFullYear())) : null;
-        const month = uploadMode === "single" ? (uploadMonth.value.trim() || "April") : null;
-        const inlineContent = text;
-        const dataUrl = `data:text/plain;charset=utf-8,${encodeURIComponent(inlineContent)}`;
-
-        return {
-          id: `uploaded-${Date.now()}-${index}`,
-          title,
-          year,
-          month,
-          month_num: "",
-          ext: (file.name.split(".").pop() || "TXT").toUpperCase(),
-          original_filename: file.name || `${title}.txt`,
-          text,
-          is_public: false,
-          status: "ready",
-          source: "uploaded",
-          inlineContent,
-          path: dataUrl,
-          previewUrl: dataUrl,
-          downloadUrl: dataUrl
-        };
-      }
-
-      function resetDemoState() {
-        localStorage.removeItem(DEMO_STORAGE_KEY);
-        uploadedDocumentsByLibrary = {
-          personal: [],
-          shared_admin: []
-        };
-        searchQuery.value = "";
-        searchYear.value = "all";
-        renderAll();
-        setStatus(fileStatus, "Demo data reset.", "success");
-        setStatus(docsStatus, `${allDocuments().length} document${allDocuments().length === 1 ? "" : "s"} in the demo library.`, "success");
-      }
-
-      fetch("../DocumentsStorageLocation/index-search.json?v=4")
-        .then((response) => {
-          if (!response.ok) throw new Error("Unable to load demo library.");
-          return response.json();
-        })
-        .then((data) => {
-          const mapped = (Array.isArray(data) ? data : []).map((item, index) => ({
-            id: `source-sample-${index + 1}`,
-            title: item.title,
-            year: item.year,
-            month_num: item.month_num,
-            month: monthNameFromNumber(item.month_num),
-            ext: item.ext,
-            original_filename: item.path.split("/").pop() || `${item.title}.docx`,
-            path: item.path,
-            downloadUrl: item.path,
-            text: item.text,
-            is_public: false,
-            status: "ready",
-            source: "sample"
-          }));
-          sampleDocumentsByLibrary = {
-            personal: buildFiveDemoDocs(mapped, 0, "personal-sample"),
-            shared_admin: buildFiveDemoDocs(mapped, 5, "shared-sample")
-          };
-          loadUploadedDocuments();
-          renderDemoLibraryContext();
-        })
-        .catch((error) => {
-          setStatus(docsStatus, error.message, "error");
-          setStatus(fileStatus, error.message, "error");
-          docEmpty.classList.remove("hidden");
-          fileEmpty.classList.remove("hidden");
-        });
-
-      showAccountTab.addEventListener("click", () => setActiveSection("account"));
-      showLibraryTab.addEventListener("click", () => setActiveSection("library"));
-      mobileMenuAccount.addEventListener("click", () => {
-        setActiveSection("account");
-        closeMobileMenu();
       });
-      mobileMenuLibrary.addEventListener("click", () => {
-        setActiveSection("library");
-        closeMobileMenu();
+      document.querySelectorAll(".tour-step").forEach((button, index) => {
+        button.addEventListener("click", () => openTour(index));
       });
-      mobileMenuToggle.addEventListener("click", () => toggleMobileMenu());
-
-      changePlanButton.addEventListener("click", () => {
-        billingPlanPicker.classList.toggle("hidden");
-        changePlanButton.setAttribute("aria-expanded", String(!billingPlanPicker.classList.contains("hidden")));
+      els.startTour.addEventListener("click", () => openTour(0));
+      els.tourNext.addEventListener("click", () => openTour((tourIndex + 1) % tour.length));
+      els.tourClose.addEventListener("click", closeTour);
+      window.addEventListener("resize", () => {
+        if (!els.tourPop.classList.contains("hidden")) openTour(tourIndex);
       });
 
-      searchQuery.addEventListener("input", renderDocuments);
-      searchYear.addEventListener("change", renderDocuments);
-      searchReset.addEventListener("click", () => {
-        searchQuery.value = "";
-        searchYear.value = "all";
-        renderDocuments();
-      });
-
-      docList.addEventListener("click", (event) => {
-        const button = event.target.closest("button[data-action='open']");
-        if (!button) return;
-        openFile(button.getAttribute("data-id"));
-      });
-
-      if (fileList) {
-        fileList.addEventListener("click", async (event) => {
-          const target = event.target;
-          if (!(target instanceof Element)) return;
-          const button = target.closest("button[data-action]");
-
-          const menuToggle = target.closest("button[data-menu-toggle]");
-          if (menuToggle) {
-            const controls = menuToggle.closest(".file-row-controls");
-            const row = menuToggle.closest(".file-row");
-            const id = menuToggle.getAttribute("data-id") || "";
-            const nextOpen = !controls?.classList.contains("is-open");
-            closeFileActionMenus(nextOpen ? id : "");
-            controls?.classList.toggle("is-open", nextOpen);
-            row?.classList.toggle("is-actions-open", nextOpen);
-            menuToggle.setAttribute("aria-expanded", String(nextOpen));
-            menuToggle.textContent = nextOpen ? "Close" : "Action";
-            return;
-          }
-
-          if (button) {
-            const action = button.getAttribute("data-action");
-            const id = button.getAttribute("data-id");
-            if (!id) return;
-            closeFileActionMenus();
-
-            if (action === "download") {
-              const doc = allDocuments().find((item) => item.id === id);
-              if (!doc) return;
-              const link = document.createElement("a");
-              link.href = doc.downloadUrl || doc.path;
-              link.download = doc.original_filename || "download";
-              link.target = "_blank";
-              link.rel = "noopener";
-              document.body.append(link);
-              link.click();
-              link.remove();
-              return;
-            }
-            if (action === "share") {
-              await shareDocument(id);
-              return;
-            }
-            if (action === "delete") {
-              openDeleteConfirm(id);
-            }
-            return;
-          }
-
-          const row = target.closest("[data-open-id]");
-          if (!row) return;
-          const id = row.getAttribute("data-open-id");
-          if (!id) return;
-          openFile(id);
-        });
-        fileList.addEventListener("keydown", (event) => {
-          const target = event.target;
-          if (!(target instanceof Element)) return;
-          if (target.closest("button[data-action], button[data-menu-toggle]")) return;
-          const row = target.closest("[data-open-id]");
-          if (!row) return;
-          if (event.key !== "Enter" && event.key !== " ") return;
-          event.preventDefault();
-          const id = row.getAttribute("data-open-id");
-          if (!id) return;
-          openFile(id);
-        });
-      }
-
-      openUploadModalButton.addEventListener("click", openUploadDialog);
-      uploadModeSingleButton.addEventListener("click", () => setUploadMode("single"));
-      uploadModeBatchButton.addEventListener("click", () => setUploadMode("batch"));
-      uploadModalClose.addEventListener("click", closeUploadDialog);
-      uploadModal.addEventListener("click", (event) => {
-        if (event.target === uploadModal) closeUploadDialog();
-      });
-      uploadForm.addEventListener("submit", (event) => {
-        event.preventDefault();
-        resetUploadFeedback();
-        const files = collectUploadFiles();
-        if (!files.length) {
-          setStatus(uploadStatus, "Choose at least one file or folder before uploading.", "error");
-          return;
-        }
-
-        Promise.all(files.map((file) => readDemoFileText(file)))
-          .then((texts) => {
-            const created = files.map((file, index) => buildUploadedDocument(file, texts[index], index));
-            const activeUploads = getUploadedDocumentsForActiveLibrary();
-            created.reverse().forEach((doc) => activeUploads.unshift(doc));
-            persistUploadedDocuments();
-            created.forEach((doc) => appendUploadResult(doc.original_filename, "uploaded", "Saved with extracted text."));
-            renderAll();
-            setStatus(uploadStatus, `Uploaded ${created.length} file${created.length === 1 ? "" : "s"} into the interactive demo.`, "success");
-            uploadForm.reset();
-            setUploadMode(uploadMode);
-          })
-          .catch((error) => {
-            setStatus(uploadStatus, error instanceof Error ? error.message : "Unable to process the selected files.", "error");
-          });
-      });
-
-      fileModalClose.addEventListener("click", closeFileModal);
-      fileModalShare.addEventListener("click", async () => {
-        if (!activeModalDocumentId) return;
-        await shareDocument(activeModalDocumentId);
-      });
-      fileModal.addEventListener("click", (event) => {
-        if (event.target === fileModal) closeFileModal();
-      });
-
-      deleteConfirmCancel.addEventListener("click", closeDeleteConfirm);
-      deleteConfirmSubmit.addEventListener("click", () => {
-        if (!pendingDeleteId) return;
-        deleteDocument(pendingDeleteId);
-      });
-      deleteConfirmModal.addEventListener("click", (event) => {
-        if (event.target === deleteConfirmModal) closeDeleteConfirm();
-      });
-
-      demoRedeemInviteToggle.addEventListener("click", () => setSectionToggleOpen(demoRedeemInviteToggle, demoRedeemInviteBody, demoRedeemInviteBody.classList.contains("hidden")));
-      demoRedeemInviteForm.addEventListener("submit", (event) => {
-        event.preventDefault();
-        const code = demoRedeemInviteCode.value.trim().toUpperCase();
-        if (code !== DEMO_ADMIN_CODE) {
-          setStatus(demoRedeemInviteStatus, "Invite code is invalid in the demo.", "error");
-          return;
-        }
-        if (!demoAvailableLibraries.includes("shared_admin")) {
-          demoAvailableLibraries = [...demoAvailableLibraries, "shared_admin"];
-        }
-        activeDemoLibraryId = "shared_admin";
-        demoRedeemInviteCode.value = "";
-        renderDemoLibraryContext();
-        setStatus(demoRedeemInviteStatus, "Shared library added as an account admin in the demo.", "success");
-      });
-      demoLibrarySelect.addEventListener("change", (event) => {
-        const nextLibraryId = event.target.value;
-        if (!DEMO_LIBRARIES[nextLibraryId]) return;
-        activeDemoLibraryId = nextLibraryId;
-        renderDemoLibraryContext();
-      });
-      demoLibrarySectionSelect.addEventListener("change", (event) => {
-        const nextLibraryId = event.target.value;
-        if (!DEMO_LIBRARIES[nextLibraryId]) return;
-        activeDemoLibraryId = nextLibraryId;
-        renderDemoLibraryContext();
-      });
-      document.querySelectorAll("[data-exit-demo]").forEach((link) => {
-        link.addEventListener("click", () => clearDemoLibraryState());
-      });
-      demoInviteManagementToggle.addEventListener("click", () => setSectionToggleOpen(demoInviteManagementToggle, demoInviteManagementBody, demoInviteManagementBody.classList.contains("hidden")));
-      demoMemberManagementToggle.addEventListener("click", () => setSectionToggleOpen(demoMemberManagementToggle, demoMemberManagementBody, demoMemberManagementBody.classList.contains("hidden")));
-      demoEmbedSettingsToggle.addEventListener("click", () => setSectionToggleOpen(demoEmbedSettingsToggle, demoEmbedSettingsBody, demoEmbedSettingsBody.classList.contains("hidden")));
-      setSectionToggleOpen(demoRedeemInviteToggle, demoRedeemInviteBody, false);
-      setSectionToggleOpen(demoInviteManagementToggle, demoInviteManagementBody, false);
-      setSectionToggleOpen(demoMemberManagementToggle, demoMemberManagementBody, false);
-      setSectionToggleOpen(demoEmbedSettingsToggle, demoEmbedSettingsBody, false);
-      loadDemoLibraryState();
-      setActiveSection(getInitialSection());
-      renderDemoLibraryContext();
-      setUploadMode("single");
-
-      document.addEventListener("click", (event) => {
-        const target = event.target;
-        if (!(target instanceof Element)) return;
-        if (!target.closest(".file-row-controls")) {
-          closeFileActionMenus();
-        }
-        if (!mobileMenu.classList.contains("is-open")) return;
-        if (mobileMenu.contains(target) || mobileMenuToggle.contains(target)) return;
-        closeMobileMenu();
-      });
-
-      document.addEventListener("keydown", (event) => {
-        if (event.key === "Escape" && fileModal.classList.contains("is-open")) {
-          closeFileModal();
-          return;
-        }
-        if (event.key === "Escape" && deleteConfirmModal.classList.contains("is-open")) {
-          closeDeleteConfirm();
-          return;
-        }
-        if (event.key === "Escape" && uploadModal.classList.contains("is-open")) {
-          closeUploadDialog();
-          return;
-        }
-        if (event.key === "Escape") {
-          closeFileActionMenus();
-        }
-        if (event.key === "Escape") {
-          closeMobileMenu();
-        }
-      });
+      render();
     })();
   </script>
-
-  <footer class="site-footer">
-    <div class="footer-inner">
-      <p>&copy; 2026 <strong>N3XRA LLC.</strong> All rights reserved.</p>
-      <p><a href="/support">Support</a> · <a href="/terms">Terms</a> · <a href="/privacy">Privacy</a></p>
-      <p>Built by <a href="https://quentinnichols.com/">Quentin Nichols</a>.</p>
-    </div>
-  </footer>
 </body>
 </html>
