@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./styles.css?v=20260612-recording-tabs">
+  <link rel="stylesheet" href="./styles.css?v=20260618-upload-save-gate">
 </head>
 <body>
   <div class="shell">
@@ -260,6 +260,10 @@
               </div>
             </div>
             <textarea class="recording-notes-preview recording-detail-notes-editor" id="recording-detail-notes" rows="12" placeholder="No notes saved yet."></textarea>
+            <div class="recording-note-tools">
+              <button class="btn secondary" id="recording-detail-scan-handwritten-note-button" type="button">Scan handwritten note</button>
+              <input class="hidden" id="recording-detail-handwritten-note-input" type="file" accept="image/*">
+            </div>
           </div>
           <div class="recording-detail-section recording-detail-tab-panel" id="recording-detail-ai-draft-section" role="tabpanel" aria-labelledby="recording-detail-tab-ai-draft" data-recording-detail-panel="ai-draft" hidden>
             <div class="panel-head compact-head">
@@ -305,11 +309,11 @@
         <div class="field">
           <label for="recording-file-input">Audio file</label>
           <input id="recording-file-input" type="file" accept="audio/*,.mp3,.m4a,.wav,.ogg,.webm,.mp4,.aac,.mpeg">
-          <p class="field-note" id="recording-upload-note">Choose an existing audio file and save it with this meeting note.</p>
+          <p class="field-note" id="recording-upload-note">Choose an existing audio file to attach before saving this meeting note.</p>
           <p class="account-note" id="recording-file-copy">No file selected.</p>
         </div>
         <div class="actions">
-          <button class="btn" id="recording-upload-submit" type="button">Save uploaded recording</button>
+          <button class="btn" id="recording-upload-submit" type="button">Attach audio</button>
         </div>
         <p class="status" id="recording-upload-status"></p>
       </div>
@@ -335,6 +339,6 @@
   </div>
 
   <script src="./config.js"></script>
-  <script type="module" src="./recordings.js?v=20260612-recording-tabs"></script>
+  <script type="module" src="./recordings.js?v=20260618-upload-save-gate"></script>
 </body>
 </html>

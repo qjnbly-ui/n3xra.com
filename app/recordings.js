@@ -55,6 +55,8 @@ const stopRecordingButton = document.getElementById("stop-recording-button");
 const saveRecordingButton = document.getElementById("save-recording-button");
 const scanHandwrittenNoteButton = document.getElementById("scan-handwritten-note-button");
 const handwrittenNoteInput = document.getElementById("handwritten-note-input");
+const recordingDetailScanHandwrittenNoteButton = document.getElementById("recording-detail-scan-handwritten-note-button");
+const recordingDetailHandwrittenNoteInput = document.getElementById("recording-detail-handwritten-note-input");
 const recordingStatus = document.getElementById("recording-status");
 const recordingsList = document.getElementById("recordings-list");
 const recordingsEmpty = document.getElementById("recordings-empty");
@@ -137,6 +139,10 @@ let reviewActionPending = false;
 let pendingRecordedBlob = null;
 let pendingRecordedTitle = "";
 let pendingRecordedDurationSeconds = 0;
+let pendingUploadedAudioFile = null;
+let pendingUploadedAudioTitle = "";
+let pendingUploadedAudioDurationSeconds = 0;
+let pendingUploadedAudioStartedAt = null;
 
 function buildAllRecordingsDetailHref(recordingId) {
   const params = new URLSearchParams();
@@ -689,6 +695,10 @@ function getSupportedMimeType() {
 }
 
 function getFileExtension(mimeType) {
+  if (mimeType.includes("mpeg") || mimeType.includes("mp3")) return "mp3";
+  if (mimeType.includes("wav")) return "wav";
+  if (mimeType.includes("aac")) return "aac";
+  if (mimeType.includes("mp4") || mimeType.includes("m4a")) return "m4a";
   if (mimeType.includes("mp4")) return "mp4";
   if (mimeType.includes("ogg")) return "ogg";
   return "webm";
@@ -714,6 +724,13 @@ function appendTextToNotetakerNotes(text) {
   const existing = String(recordingNotesInput.value || "").trimEnd();
   recordingNotesInput.value = existing ? `${existing}\n\n${cleanText}` : cleanText;
   recordingNotesInput.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+function appendTextToDetailNotes(text) {
+  const cleanText = String(text || "").trim();
+  if (!cleanText || !recordingDetailNotes) return;
+  const existing = String(recordingDetailNotes.value || "").trimEnd();
+  recordingDetailNotes.value = existing ? `${existing}\n\n${cleanText}` : cleanText;
 }
 
 function readFileAsDataUrl(file) {
@@ -765,10 +782,13 @@ async function prepareHandwrittenNoteImage(file) {
   throw new Error("That image is too large to scan. Try a closer crop or screenshot of the handwritten note.");
 }
 
-async function scanHandwrittenNote(file) {
+async function scanHandwrittenNote(file, options = {}) {
+  const requireTemplate = options.requireTemplate !== false;
   const organization = getActiveOrganization();
   if (!organization) throw new Error("Select a library before scanning notes.");
-  if (!recordingTemplateSelect.value) throw new Error("Select a document template or blank notes before scanning notes.");
+  if (requireTemplate && !recordingTemplateSelect.value) {
+    throw new Error("Select a document template or blank notes before scanning notes.");
+  }
 
   const imageDataUrl = await prepareHandwrittenNoteImage(file);
   const token = currentSession?.access_token || "";
@@ -809,14 +829,42 @@ async function handleHandwrittenNoteFile(file) {
   }
 }
 
+async function handleDetailHandwrittenNoteFile(file) {
+  if (!file || !activeDetailRecordingId) return;
+  if (!getActiveCapabilities().canEditDocuments) {
+    setStatus(recordingDetailStatusMessage, "You need editor access to add notes.", "error");
+    return;
+  }
+  recordingDetailScanHandwrittenNoteButton.disabled = true;
+  setStatus(recordingDetailStatusMessage, "Scanning handwritten note...");
+  try {
+    const text = await scanHandwrittenNote(file, { requireTemplate: false });
+    if (!text) {
+      setStatus(recordingDetailStatusMessage, "No readable note text was found in that image.", "error");
+      return;
+    }
+    appendTextToDetailNotes(text);
+    await saveRecordingDetailNotes();
+    setStatus(recordingDetailStatusMessage, "Handwritten note added to notetaker notes.", "success");
+  } catch (error) {
+    setStatus(recordingDetailStatusMessage, getErrorMessage(error, "Unable to scan handwritten note."), "error");
+  } finally {
+    if (recordingDetailHandwrittenNoteInput) recordingDetailHandwrittenNoteInput.value = "";
+    const recording = getRecordingById(activeDetailRecordingId);
+    recordingDetailScanHandwrittenNoteButton.disabled = !recording ||
+      !getActiveCapabilities().canEditDocuments ||
+      !recordingWorkflowSchemaAvailable;
+  }
+}
+
 function setRecordingUploadMode(isRetryMode) {
   isRetryUploadMode = isRetryMode;
   recordingUploadKicker.textContent = isRetryMode ? "Retry upload" : "Upload audio";
   recordingUploadTitle.textContent = isRetryMode ? "Select the file again" : "Select audio file";
   recordingUploadNote.textContent = isRetryMode
     ? "Browsers cannot keep the previous file attached. Choose the original audio file again to retry this upload."
-    : "Choose an existing audio file and save it with this meeting note.";
-  recordingUploadSubmit.textContent = isRetryMode ? "Retry upload" : "Save uploaded recording";
+    : "Choose an existing audio file to attach before saving this meeting note.";
+  recordingUploadSubmit.textContent = isRetryMode ? "Retry upload" : "Attach audio";
 }
 
 function setRecordingUploadModalOpen(isOpen) {
@@ -849,6 +897,7 @@ function updateControls() {
   const recorderState = mediaRecorder?.state || "inactive";
   const isCaptureActive = recorderState === "recording" || recorderState === "paused";
   const hasPendingRecording = hasUnsavedRecordingAudio();
+  const hasPendingUpload = hasPendingUploadedAudio();
   const hasActiveSession = isRecordingWorkflowActive || isCaptureActive || hasPendingRecording;
   const pauseSupported = isPauseSupported();
   const hasSelectedTemplate = Boolean(recordingTemplateSelect.value);
@@ -856,9 +905,10 @@ function updateControls() {
   const canUseRecorder = canRecordInActiveOrganization() && recordingWorkflowSchemaAvailable && hasSelectedTemplate;
   const canSaveMeetingNote = canRecordInActiveOrganization() && recordingWorkflowSchemaAvailable && hasRequiredFields;
 
-  startRecordingButton.disabled = !canUseRecorder || hasActiveSession || !window.MediaRecorder || !navigator.mediaDevices?.getUserMedia;
+  startRecordingButton.disabled = !canUseRecorder || hasActiveSession || hasPendingUpload || !window.MediaRecorder || !navigator.mediaDevices?.getUserMedia;
   uploadRecordingButton.disabled = !canUseRecorder || hasActiveSession;
-  show(startRecordingButton, !hasActiveSession);
+  uploadRecordingButton.textContent = hasPendingUpload ? "Change audio" : "Upload recording";
+  show(startRecordingButton, !hasActiveSession && !hasPendingUpload);
   show(uploadRecordingButton, !hasActiveSession);
   pauseRecordingButton.disabled = !isCaptureActive || !pauseSupported;
   pauseRecordingButton.textContent = recorderState === "paused" ? "Resume recording" : "Pause recording";
@@ -869,7 +919,7 @@ function updateControls() {
     saveRecordingButton.disabled = !canSaveMeetingNote || isRecordingWorkflowActive || isCaptureActive;
     show(saveRecordingButton, !isCaptureActive);
   }
-  activeOrganizationSelect.disabled = hasActiveSession || memberships.length <= 1;
+  activeOrganizationSelect.disabled = hasActiveSession || hasPendingUpload || memberships.length <= 1;
   recordingTitleInput.disabled = hasActiveSession;
   recordingTemplateSelect.disabled = hasActiveSession || !recordingWorkflowSchemaAvailable;
   recordingNotesInput.disabled = !canUseRecorder;
@@ -885,6 +935,10 @@ function getRecordingById(recordingId) {
 
 function hasUnsavedRecordingAudio() {
   return Boolean(activeRecordingId && pendingRecordedBlob);
+}
+
+function hasPendingUploadedAudio() {
+  return Boolean(pendingUploadedAudioFile);
 }
 
 function isRetryableRecording(recording) {
@@ -1279,6 +1333,12 @@ function populateRecordingDetails(recording) {
   recordingDetailPlay.textContent = "Play";
   recordingDetailNotes.value = String(recording.notes_plain_text || "").trim();
   recordingDetailNotes.disabled = !getActiveCapabilities().canEditDocuments || !recordingWorkflowSchemaAvailable;
+  if (recordingDetailScanHandwrittenNoteButton) {
+    recordingDetailScanHandwrittenNoteButton.disabled = recordingDetailNotes.disabled;
+  }
+  if (recordingDetailHandwrittenNoteInput) {
+    recordingDetailHandwrittenNoteInput.disabled = recordingDetailNotes.disabled;
+  }
   const aiDraftPreview = String(recording.ai_review_json?.final_document_text || "").trim();
   if (recordingDetailAiDraftPreview) {
     recordingDetailAiDraftPreview.textContent = aiDraftPreview || "No AI draft created yet.";
@@ -1709,6 +1769,17 @@ function clearPendingRecordedAudio() {
   pendingRecordedDurationSeconds = 0;
 }
 
+function clearPendingUploadedAudio(options = {}) {
+  pendingUploadedAudioFile = null;
+  pendingUploadedAudioTitle = "";
+  pendingUploadedAudioDurationSeconds = 0;
+  pendingUploadedAudioStartedAt = null;
+  if (options.clearInput !== false && recordingFileInput) {
+    recordingFileInput.value = "";
+    updateSelectedFileCopy();
+  }
+}
+
 async function prepareStoppedRecording() {
   if (!activeRecordingId) return;
 
@@ -1775,6 +1846,7 @@ async function handleSaveStoppedRecording() {
     recordingTemplateSelect.value = "";
     recordingNotesInput.value = "";
     clearPendingRecordedAudio();
+    clearPendingUploadedAudio();
     clearRecorderStats();
     setRecordPanelOpen(false);
     await loadRecordings();
@@ -1786,6 +1858,80 @@ async function handleSaveStoppedRecording() {
   } finally {
     isRecordingWorkflowActive = false;
     updateControls();
+  }
+}
+
+async function handleSaveUploadedRecording() {
+  if (!pendingUploadedAudioFile) return;
+  if (!canRecordInActiveOrganization()) {
+    setStatus(recordingStatus, "You need editor access to save meeting notes in this library.", "error");
+    return;
+  }
+  if (!validateMeetingNoteRequiredFields()) return;
+
+  const file = pendingUploadedAudioFile;
+  const title = pendingUploadedAudioTitle || buildUploadTitle(file);
+  const durationSeconds = pendingUploadedAudioDurationSeconds;
+  const startedAt = pendingUploadedAudioStartedAt || new Date(file.lastModified || Date.now());
+  const endedAt = new Date(startedAt.getTime() + durationSeconds * 1000);
+  const mimeType = file.type || "audio/mpeg";
+  let createdRecording = null;
+
+  isRecordingWorkflowActive = true;
+  updateControls();
+  setStatus(recordingStatus, "Saving meeting note...");
+  setRecorderState("Saving", "Saving notes and attached audio.");
+  uploadStateValue.textContent = "Preparing";
+  setUploadProgressVisible(true, "Saving meeting note and preparing audio upload.");
+
+  try {
+    createdRecording = await createMeetingRecording(title);
+    activeRecordingId = createdRecording.id;
+    activeRecordingMimeType = mimeType;
+    await updateMeetingRecording(createdRecording.id, {
+      status: "recorded",
+      started_at: startedAt.toISOString(),
+      ended_at: endedAt.toISOString(),
+      duration_seconds: durationSeconds,
+      audio_mime_type: mimeType,
+      file_size: file.size,
+      metadata: {
+        source: "uploaded_audio_file",
+        original_filename: file.name,
+      },
+      processing_error: null,
+    });
+
+    await uploadRecordingBlob(createdRecording.id, title, file, mimeType, durationSeconds);
+    recordingTitleInput.value = "";
+    recordingTemplateSelect.value = "";
+    recordingNotesInput.value = "";
+    clearPendingRecordedAudio();
+    clearPendingUploadedAudio();
+    clearRecorderStats();
+    setRecordPanelOpen(false);
+    await loadRecordings();
+    await openRecordingDetail(createdRecording.id);
+  } catch (error) {
+    if (createdRecording?.id) {
+      try {
+        await updateMeetingRecording(createdRecording.id, {
+          status: "failed",
+          processing_error: getErrorMessage(error, "Upload could not be completed."),
+        });
+      } catch {
+        // Keep the original error visible in the UI even if the failure update also fails.
+      }
+    }
+    setRecorderState("Ready", "The note and attached audio are still available. Try saving again.");
+    uploadStateValue.textContent = "Save failed";
+    setStatus(recordingStatus, getErrorMessage(error, "Unable to save the meeting note."), "error");
+  } finally {
+    isRecordingWorkflowActive = false;
+    activeRecordingId = "";
+    activeRecordingMimeType = "";
+    updateControls();
+    await loadRecordings();
   }
 }
 
@@ -1806,6 +1952,10 @@ function validateMeetingNoteRequiredFields() {
 async function handleSaveMeetingNote() {
   if (hasUnsavedRecordingAudio()) {
     await handleSaveStoppedRecording();
+    return;
+  }
+  if (hasPendingUploadedAudio()) {
+    await handleSaveUploadedRecording();
     return;
   }
   if (!canRecordInActiveOrganization()) {
@@ -1838,6 +1988,7 @@ async function handleSaveMeetingNote() {
     recordingTemplateSelect.value = "";
     recordingNotesInput.value = "";
     clearPendingRecordedAudio();
+    clearPendingUploadedAudio();
     clearRecorderStats();
     setRecordPanelOpen(false);
     setStatus(recordingStatus, "Meeting note saved.", "success");
@@ -1968,73 +2119,25 @@ async function handleUploadRecording() {
     return;
   }
 
-  isRecordingWorkflowActive = true;
-  updateControls();
-  setRecordingUploadModalOpen(false);
-  setStatus(recordingStatus, "Preparing upload...");
-  setRecorderState("Preparing", "Creating a meeting note for the selected audio file.");
-  uploadStateValue.textContent = "Preparing";
-  setUploadProgressVisible(true, "Preparing upload. Do not leave this page until it finishes.");
-
   const title = buildUploadTitle(file);
-  let createdRecording = null;
-
+  recordingUploadSubmit.disabled = true;
+  setStatus(recordingUploadStatus, "Reading audio metadata...");
   try {
     const durationSeconds = await getAudioDurationSeconds(file);
-    const startedAt = new Date(file.lastModified || Date.now());
-    const endedAt = new Date(startedAt.getTime() + durationSeconds * 1000);
-
-    createdRecording = await createMeetingRecording(title);
-    activeRecordingId = createdRecording.id;
-    activeRecordingMimeType = file.type || "audio/mpeg";
-    updateControls();
-
+    pendingUploadedAudioFile = file;
+    pendingUploadedAudioTitle = title;
+    pendingUploadedAudioDurationSeconds = durationSeconds;
+    pendingUploadedAudioStartedAt = new Date(file.lastModified || Date.now());
     recordingDuration.textContent = formatDuration(durationSeconds);
-    await updateMeetingRecording(createdRecording.id, {
-      status: "recorded",
-      started_at: startedAt.toISOString(),
-      ended_at: endedAt.toISOString(),
-      duration_seconds: durationSeconds,
-      audio_mime_type: activeRecordingMimeType,
-      file_size: file.size,
-      metadata: {
-        source: "uploaded_audio_file",
-        original_filename: file.name,
-      },
-      processing_error: null,
-    });
-
-    await uploadRecordingBlob(createdRecording.id, title, file, activeRecordingMimeType, durationSeconds);
-    recordingFileInput.value = "";
-    updateSelectedFileCopy();
+    uploadStateValue.textContent = "Attached";
+    setRecorderState("Audio attached", "Add or review notes, then select Save meeting note.");
+    setStatus(recordingStatus, "Audio attached. Add notes if needed, then select Save meeting note.", "success");
+    setRecordingUploadModalOpen(false);
   } catch (error) {
-    if (createdRecording?.id) {
-      try {
-        await updateMeetingRecording(createdRecording.id, {
-          status: "failed",
-          processing_error: getErrorMessage(error, "Upload could not be completed."),
-        });
-      } catch {
-        // Keep the original error visible in the UI even if the failure update also fails.
-      }
-    }
-    setRecorderState("Failed", "The selected file could not be saved with this meeting note.");
-    uploadStateValue.textContent = "Failed";
-    setStatus(recordingStatus, getErrorMessage(error, "Unable to upload the audio file."), "error");
+    clearPendingUploadedAudio({ clearInput: false });
+    setStatus(recordingUploadStatus, getErrorMessage(error, "Unable to read the audio file."), "error");
   } finally {
-    isRecordingWorkflowActive = false;
-    activeRecordingId = "";
-    activeRecordingMimeType = "";
-    recordingTitleInput.value = "";
-    recordingTemplateSelect.value = "";
-    recordingNotesInput.value = "";
-    clearRecorderStats();
     updateControls();
-    await loadRecordings();
-    if (createdRecording?.id) {
-      setRecordPanelOpen(false);
-      await openRecordingDetail(createdRecording.id);
-    }
   }
 }
 
@@ -2079,6 +2182,7 @@ async function handleOrganizationChange(nextOrganizationId) {
   setRecordingUploadMode(false);
   setRecordingUploadModalOpen(false);
   clearPendingRecordedAudio();
+  clearPendingUploadedAudio();
   if (recordingDetailModal.classList.contains("is-open")) {
     closeRecordingDetail();
   }
@@ -2089,7 +2193,7 @@ async function handleOrganizationChange(nextOrganizationId) {
 }
 
 async function handleSignout() {
-  if (isRecordingWorkflowActive || hasUnsavedRecordingAudio()) {
+  if (isRecordingWorkflowActive || hasUnsavedRecordingAudio() || hasPendingUploadedAudio()) {
     setStatus(recordingStatus, "Save or finish the active meeting note before logging out.", "error");
     return;
   }
@@ -2188,6 +2292,12 @@ async function init() {
   handwrittenNoteInput?.addEventListener("change", () => {
     void handleHandwrittenNoteFile(handwrittenNoteInput.files?.[0] || null);
   });
+  recordingDetailScanHandwrittenNoteButton?.addEventListener("click", () => {
+    recordingDetailHandwrittenNoteInput?.click();
+  });
+  recordingDetailHandwrittenNoteInput?.addEventListener("change", () => {
+    void handleDetailHandwrittenNoteFile(recordingDetailHandwrittenNoteInput.files?.[0] || null);
+  });
   recordingUploadClose.addEventListener("click", () => {
     setRecordingUploadModalOpen(false);
   });
@@ -2280,7 +2390,7 @@ async function init() {
     }
   });
   window.addEventListener("beforeunload", (event) => {
-    if (isRecordingWorkflowActive || hasUnsavedRecordingAudio()) {
+    if (isRecordingWorkflowActive || hasUnsavedRecordingAudio() || hasPendingUploadedAudio()) {
       event.preventDefault();
       event.returnValue = "";
     }
