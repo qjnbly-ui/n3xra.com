@@ -643,9 +643,26 @@
       color: rgba(235, 244, 250, 0.8);
     }
 
+    .tour-result {
+      border: 1px solid rgba(227, 162, 58, 0.28);
+      border-radius: 12px;
+      padding: 0.72rem 0.82rem;
+      background: rgba(227, 162, 58, 0.12);
+      color: #ffe4b3 !important;
+      font-weight: 800;
+    }
+
     .tour-target {
       outline: 3px solid rgba(22, 185, 237, 0.45);
       outline-offset: 4px;
+    }
+
+    .tour-action-target {
+      position: relative;
+      z-index: 2;
+      outline: 4px solid rgba(227, 162, 58, 0.72);
+      outline-offset: 5px;
+      box-shadow: 0 0 0 9px rgba(227, 162, 58, 0.18), 0 16px 34px rgba(7, 12, 18, 0.2);
     }
 
     .toast {
@@ -786,6 +803,7 @@
           <p class="eyebrow">Saved product walkthrough</p>
           <h1>Run a meeting note through N3XRA Records.</h1>
           <p>This demo uses your sample audio and handwritten notes, then replays a saved Records workflow every time: transcript, OCR-style extraction, editable document, PDF preview, sharing, AI answers, and keyword search.</p>
+          <p class="pill">Follow the guided tour. Each step highlights what to click.</p>
         </div>
       </div>
     </section>
@@ -992,6 +1010,7 @@
   <div class="tour-pop hidden" id="tour-pop" role="dialog" aria-live="polite">
     <strong id="tour-title">Tour step</strong>
     <p id="tour-copy"></p>
+    <p class="tour-result hidden" id="tour-result"></p>
     <div class="actions">
       <button class="btn ghost" id="tour-next" type="button">Next</button>
       <button class="btn ghost" id="tour-close" type="button">Close</button>
@@ -1205,6 +1224,7 @@ Meeting adjourned at 6:47 p.m.`;
         tourPop: document.getElementById("tour-pop"),
         tourTitle: document.getElementById("tour-title"),
         tourCopy: document.getElementById("tour-copy"),
+        tourResult: document.getElementById("tour-result"),
         tourNext: document.getElementById("tour-next"),
         tourClose: document.getElementById("tour-close")
       };
@@ -1226,8 +1246,8 @@ Meeting adjourned at 6:47 p.m.`;
       const introSlides = [
         {
           kicker: "What this demo shows",
-          title: "Turn a meeting into finished minutes.",
-          copy: "Many boards take minutes in different ways: typed notes, handwritten notes, recordings, or a mix of all three. This demo shows how N3XRA Records brings those pieces into one workflow."
+          title: "This demo turns a meeting into finished minutes.",
+          copy: "You will follow a saved sample meeting from recording, to transcript, to notes review, to editable minutes, to PDF and public record."
         },
         {
           kicker: "During the meeting",
@@ -1241,14 +1261,14 @@ Meeting adjourned at 6:47 p.m.`;
         }
       ];
       const tour = [
-        { id: "meeting-panel", title: "1. Start with the meeting", copy: "This is the meeting record. Click Transcribe sample audio to load the saved transcript from the sample recording." },
-        { id: "scan-panel", title: "2. Add paper notes", copy: "This shows how handwritten notes can support the meeting record. Click Extract notes to load the scanned text from the sample image." },
-        { id: "review-panel", title: "3. Compare notes and transcript", copy: "Click Run AI review. The demo shows which transcript details can be added to the notes, and whether any conflicts were found." },
-        { id: "document-panel", title: "4. Edit the minutes", copy: "Click Create editable document. The meeting details become a working minutes document that can still be edited before it is finalized." },
-        { id: "pdf-panel", title: "5. Generate and share", copy: "Click Generate PDF to preview the final document. Share document explains how the real app can email documents through saved contacts." },
-        { id: "ai-panel", title: "6. Ask Records AI", copy: "Use the question buttons to see examples of answers based on the meeting transcript, notes, and generated minutes." },
-        { id: "search-panel", title: "7. Search the library", copy: "Try a keyword like parking, grant applications, or architectural plans. Search checks the saved meeting materials." },
-        { id: "public-panel", title: "8. Publish selected records", copy: "Click Publish sample record to see how a finished public record can appear, while private notes and recordings stay internal." }
+        { id: "meeting-panel", action: "#transcribe-button", title: "1. Start with the meeting", copy: "This is the meeting record. Click the highlighted Transcribe sample audio button to load the saved transcript from the sample recording.", result: "What happened: the meeting audio was converted into searchable transcript text." },
+        { id: "scan-panel", action: "#extract-scan-button", title: "2. Add paper notes", copy: "This shows how handwritten notes can support the meeting record. Click the highlighted Extract notes button to load the scanned text from the sample image.", result: "What happened: the handwritten page was scanned into text so it can be used with the meeting notes." },
+        { id: "review-panel", action: "#review-ai-button", title: "3. Compare notes and transcript", copy: "Click the highlighted Run AI review button. The demo shows which transcript details can be added to the notes, and whether any conflicts were found.", result: "What happened: N3XRA compared the notes with the transcript and found useful additions with no conflicts." },
+        { id: "document-panel", action: "#create-document-button", title: "4. Edit the minutes", copy: "Click the highlighted Create editable document button. The meeting details become a working minutes document that can still be edited before it is finalized.", result: "What happened: the meeting information became an editable minutes document." },
+        { id: "pdf-panel", action: "#generate-pdf-button", title: "5. Generate and share", copy: "Click the highlighted Generate PDF button to preview the final document. Share document explains how the real app can email documents through saved contacts.", result: "What happened: the edited minutes were rendered into a PDF-style document preview." },
+        { id: "ai-panel", action: ".ai-question", title: "6. Ask Records AI", copy: "Click one highlighted question button to see an example answer based on the meeting transcript, notes, and generated minutes.", result: "What happened: Records AI answered using the saved meeting transcript, notes, and generated minutes." },
+        { id: "search-panel", action: "#search-input", title: "7. Search the library", copy: "Use the highlighted search box. Try parking, grant applications, or architectural plans to search the saved meeting materials.", result: "What happened: search checked the transcript, scanned notes, generated document, and public record metadata." },
+        { id: "public-panel", action: "#publish-button", title: "8. Publish selected records", copy: "Click the highlighted Publish sample record button to see how a finished public record can appear, while private notes and recordings stay internal.", result: "What happened: the sample minutes appeared in the public records view, while private working notes stayed internal." }
       ];
 
       function showToast(message) {
@@ -1272,6 +1292,7 @@ Meeting adjourned at 6:47 p.m.`;
         button.textContent = loadingLabel;
         window.setTimeout(() => {
           action();
+          showStepResultForAction(button);
           button.disabled = false;
           button.textContent = originalLabel;
         }, delay);
@@ -1468,13 +1489,18 @@ Meeting adjourned at 6:47 p.m.`;
         tourIndex = index;
         const step = tour[tourIndex];
         document.querySelectorAll(".tour-target").forEach((el) => el.classList.remove("tour-target"));
+        document.querySelectorAll(".tour-action-target").forEach((el) => el.classList.remove("tour-action-target"));
         document.querySelectorAll(".tour-step").forEach((el, idx) => el.classList.toggle("is-active", idx === tourIndex));
         const target = document.getElementById(step.id);
         if (!target) return;
         target.classList.add("tour-target");
+        const action = step.action ? target.querySelector(step.action) : null;
+        if (action) action.classList.add("tour-action-target");
         target.scrollIntoView({ behavior: "smooth", block: "center" });
         els.tourTitle.textContent = step.title;
         els.tourCopy.textContent = step.copy;
+        els.tourResult.textContent = "";
+        els.tourResult.classList.add("hidden");
         els.tourNext.textContent = tourIndex === tour.length - 1 ? "Done" : "Next";
         els.tourPop.classList.remove("hidden");
       }
@@ -1482,6 +1508,22 @@ Meeting adjourned at 6:47 p.m.`;
       function closeTour() {
         els.tourPop.classList.add("hidden");
         document.querySelectorAll(".tour-target").forEach((el) => el.classList.remove("tour-target"));
+        document.querySelectorAll(".tour-action-target").forEach((el) => el.classList.remove("tour-action-target"));
+      }
+
+      function showStepResult(message) {
+        if (!message || els.tourPop.classList.contains("hidden")) return;
+        els.tourResult.textContent = message;
+        els.tourResult.classList.remove("hidden");
+      }
+
+      function showStepResultForAction(actionElement) {
+        const step = tour[tourIndex];
+        const target = step ? document.getElementById(step.id) : null;
+        if (!step?.result || !step.action || !target || !actionElement) return;
+        if (target.contains(actionElement) && actionElement.matches(step.action)) {
+          showStepResult(step.result);
+        }
       }
 
       function renderIntro() {
@@ -1544,10 +1586,14 @@ Meeting adjourned at 6:47 p.m.`;
       els.searchButton.addEventListener("click", (event) => {
         simulateAction(event.currentTarget, "Searching...", search, 360);
       });
-      els.searchInput.addEventListener("input", search);
+      els.searchInput.addEventListener("input", () => {
+        search();
+        if (els.searchInput.value.trim()) showStepResultForAction(els.searchInput);
+      });
       document.querySelectorAll(".ai-question").forEach((button) => {
         button.addEventListener("click", () => {
           els.aiAnswer.textContent = aiAnswers[button.dataset.question] || "No saved answer for that question.";
+          showStepResultForAction(button);
         });
       });
       document.querySelectorAll(".tour-step").forEach((button, index) => {
