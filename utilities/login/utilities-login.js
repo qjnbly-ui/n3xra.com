@@ -54,8 +54,8 @@ async function routeSession(session) {
 
   setStatus("Checking utility portal access...");
   const access = await loadUtilityAccess(session);
-  if (access?.hasAccess && access?.portalUrl) {
-    window.location.replace(access.portalUrl);
+  if (access?.hasAccess && (access?.workspaceUrl || access?.portalUrl)) {
+    window.location.replace(access.workspaceUrl || access.portalUrl);
     return true;
   }
 

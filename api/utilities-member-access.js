@@ -94,6 +94,11 @@ function buildPortalUrl(organization) {
   return slug ? `/utilities/portal/${encodeURIComponent(slug)}` : "/utilities/login";
 }
 
+function buildWorkspaceUrl(organization) {
+  const slug = cleanString(organization?.slug, 120);
+  return slug ? `/utilities/workspace?org=${encodeURIComponent(slug)}` : "/utilities/workspace";
+}
+
 function getContactEmails(organization) {
   const metadata = organization?.metadata && typeof organization.metadata === "object" ? organization.metadata : {};
   return new Set([
@@ -158,6 +163,7 @@ module.exports = async function handler(req, res) {
       organization: activeOrganization,
       organizations,
       portalUrl: activeOrganization ? buildPortalUrl(activeOrganization) : "",
+      workspaceUrl: activeOrganization ? buildWorkspaceUrl(activeOrganization) : "",
     });
   } catch (error) {
     const status = Number(error?.status) || 500;

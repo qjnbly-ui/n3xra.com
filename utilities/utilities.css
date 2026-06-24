@@ -669,6 +669,205 @@ h2 {
   font-weight: 800;
 }
 
+.utilities-workspace-shell {
+  width: min(1180px, calc(100vw - 2rem));
+  margin: 0 auto;
+  padding: clamp(34px, 5vw, 70px) 0 52px;
+  display: grid;
+  gap: 22px;
+}
+
+.workspace-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(250px, 340px);
+  align-items: end;
+  gap: 18px;
+}
+
+.workspace-hero h1 {
+  font-size: clamp(3rem, 7vw, 6rem);
+}
+
+.workspace-status-card,
+.workspace-card {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: linear-gradient(180deg, var(--panel-strong), rgba(255, 255, 255, 0.052));
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.22);
+}
+
+.workspace-status-card {
+  min-height: 210px;
+  display: grid;
+  align-content: end;
+  gap: 10px;
+  padding: 22px;
+}
+
+.workspace-status-card span,
+.workspace-step span {
+  color: var(--mint);
+  font-size: 0.74rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.workspace-status-card strong {
+  font-family: "Fraunces", ui-serif, Georgia, serif;
+  font-size: 2rem;
+  line-height: 1.05;
+}
+
+.workspace-status-card p,
+.workspace-card p,
+.workspace-step p,
+.workspace-step small,
+.field-note {
+  margin: 0;
+  color: var(--muted);
+  font-weight: 800;
+  line-height: 1.5;
+}
+
+.workspace-grid {
+  display: grid;
+  grid-template-columns: minmax(250px, 0.34fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.workspace-sidebar,
+.workspace-main {
+  display: grid;
+  gap: 16px;
+}
+
+.workspace-card {
+  display: grid;
+  gap: 16px;
+  padding: clamp(18px, 2.6vw, 24px);
+}
+
+.workspace-card h2 {
+  font-size: clamp(1.55rem, 2.4vw, 2.2rem);
+}
+
+.workspace-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.workspace-summary-list {
+  display: grid;
+  grid-template-columns: minmax(110px, 0.45fr) minmax(0, 1fr);
+  gap: 10px 14px;
+  margin: 0;
+}
+
+.workspace-summary-list dt {
+  color: var(--mint);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.workspace-summary-list dd {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.88);
+  font-weight: 900;
+  overflow-wrap: anywhere;
+}
+
+.workspace-full-link {
+  width: 100%;
+}
+
+.workspace-step-list {
+  display: grid;
+  gap: 10px;
+}
+
+.workspace-step {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(150px, 190px);
+  gap: 12px;
+  align-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  border-radius: 8px;
+  padding: 13px;
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.workspace-step > div {
+  display: grid;
+  gap: 5px;
+}
+
+.workspace-step strong {
+  color: #ffffff;
+  font-weight: 900;
+}
+
+.workspace-form-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.workspace-form label {
+  display: grid;
+  gap: 7px;
+  color: rgba(255, 255, 255, 0.8);
+  font-weight: 900;
+}
+
+.workspace-form input,
+.workspace-form select,
+.workspace-step select {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 7px;
+  padding: 0 12px;
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.08);
+  font: inherit;
+  font-weight: 800;
+}
+
+.workspace-form button {
+  justify-self: start;
+  min-height: 48px;
+  border: 0;
+  border-radius: 8px;
+  padding: 0 20px;
+  color: #04110d;
+  background: linear-gradient(135deg, var(--mint), var(--cyan));
+  font: inherit;
+  font-weight: 950;
+  cursor: pointer;
+}
+
+.workspace-toggle-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.workspace-toggle-grid label {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.055);
+}
+
 .utility-portal-body {
   --portal-panel: rgba(255, 255, 255, 0.08);
 }
@@ -835,6 +1034,8 @@ h2 {
   .product-hero,
   .onboarding-shell,
   .utilities-admin-layout,
+  .workspace-hero,
+  .workspace-grid,
   .utility-portal-hero {
     grid-template-columns: 1fr;
   }
@@ -848,6 +1049,8 @@ h2 {
   }
 
   .utility-portal-grid,
+  .workspace-form-grid,
+  .workspace-toggle-grid,
   .portal-step-list {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -862,6 +1065,7 @@ h2 {
   .utilities-shell,
   .form-page,
   .utilities-admin-shell,
+  .utilities-workspace-shell,
   .utility-portal-shell {
     width: min(100% - 1.2rem, 1180px);
   }
@@ -917,6 +1121,8 @@ h2 {
   }
 
   .utility-portal-grid,
+  .workspace-form-grid,
+  .workspace-toggle-grid,
   .portal-step-list {
     grid-template-columns: 1fr;
   }
@@ -924,6 +1130,7 @@ h2 {
   .utilities-admin-head,
   .utilities-admin-grid,
   .utilities-status-form,
+  .workspace-step,
   .launch-step {
     grid-template-columns: 1fr;
   }
