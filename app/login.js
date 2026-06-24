@@ -120,7 +120,26 @@ function isPlatformAdminEmail(email) {
   return PLATFORM_ADMIN_EMAILS.includes(String(email || "").trim().toLowerCase());
 }
 
+function getRequestedRedirectDestination(session) {
+  const rawRedirect = new URLSearchParams(window.location.search).get("redirect");
+  if (!rawRedirect) return "";
+  let destination = "";
+  try {
+    const parsed = new URL(rawRedirect, window.location.origin);
+    if (parsed.origin !== window.location.origin) return "";
+    destination = `${parsed.pathname}${parsed.search}${parsed.hash}`;
+  } catch {
+    return "";
+  }
+
+  if (!destination.startsWith("/")) return "";
+  if (destination.startsWith("/utilities/admin") && !isPlatformAdminEmail(session?.user?.email)) return "";
+  return destination;
+}
+
 function getPostAuthDestination(session) {
+  const requestedRedirect = getRequestedRedirectDestination(session);
+  if (requestedRedirect) return requestedRedirect;
   return isPlatformAdminEmail(session?.user?.email) ? "./admin" : "./library";
 }
 

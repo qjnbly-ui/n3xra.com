@@ -13,7 +13,7 @@ N3XRA owns:
 - onboarding and launch checklist state
 - branding, settings, and domain configuration
 - N3XRA admin review tools
-- future Stripe Connect, DNS, and email sender setup state
+- future Stripe Connect and DNS setup state
 
 Each utility company gets:
 

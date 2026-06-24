@@ -44,6 +44,7 @@ const musicSummary = document.getElementById("music-summary");
 const openRecordsButton = document.getElementById("open-records-button");
 const openMusicButton = document.getElementById("open-music-button");
 const openViralsButton = document.getElementById("open-virals-button");
+const adminAppSection = document.getElementById("admin-app-section");
 
 let supabase = null;
 let currentSession = null;
@@ -302,6 +303,7 @@ async function renderDashboard(message = "") {
     ? `${musicProfile.plan || "Free"} plan. ${Number(musicProfile.songs_used || 0)} of ${Number(musicProfile.monthly_song_limit || 0)} songs used.`
     : "Not active yet. Activate it only if you want to create and save songs.";
   openMusicButton.textContent = hasMusicProfile ? "Open AI Music" : "Activate AI Music";
+  show(adminAppSection, isPlatformAdminEmail(currentSession.user.email));
 
 }
 
@@ -494,7 +496,7 @@ async function openRecords() {
     setStoredActiveOrganizationId(String(memberships[0].organization.id));
   }
 
-  window.location.assign(isPlatformAdminEmail(currentSession.user.email) ? "/app/admin" : "/app/library");
+  window.location.assign("/app/library");
 }
 
 async function openMusic() {

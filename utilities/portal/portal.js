@@ -84,7 +84,6 @@
     const payment = settings.payment || {};
     const displayName = branding.portal_display_name || organization.name || "Utility Portal";
     const isLive = organization.launch_status === "live";
-    const payUrl = payment.existing_payment_url || "";
     const supportEmail = organization.support_email || "";
     const supportPhone = organization.support_phone || "";
 
@@ -110,19 +109,17 @@
       ? "Customer-facing services are available through this portal."
       : "N3XRA and this utility are completing setup before customer services go live.";
 
-    setLink(primaryAction, payUrl);
-    setLink(payLink, payUrl);
-    setLink(mobilePayLink, payUrl);
+    setLink(primaryAction, "");
+    setLink(payLink, "");
+    setLink(mobilePayLink, "");
     setLink(websiteLink, organization.website);
     setLink(mobileWebsiteLink, organization.website);
     setLink(supportAction, supportEmail ? `mailto:${supportEmail}` : "");
 
     supportCopy.textContent = [supportEmail, supportPhone].filter(Boolean).join(" · ") || "Support contact details are not configured yet.";
-    paymentCopy.textContent = payUrl
-      ? "This provider has connected an external payment link for customer bill payment."
-      : payment.wants_stripe_connect
-        ? "Stripe Connect payments have been requested and are waiting for activation."
-        : "Payments are not configured yet.";
+    paymentCopy.textContent = payment.wants_stripe_connect
+      ? "Stripe Connect payments are waiting for N3XRA activation."
+      : "Payments are not configured yet.";
 
     renderSteps(data.launch_steps || []);
   }

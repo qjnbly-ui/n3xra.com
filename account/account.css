@@ -173,6 +173,18 @@ body {
   gap: 0.85rem;
 }
 
+.admin-app-section {
+  grid-column: 1 / -1;
+}
+
+.admin-app-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.admin-app-card {
+  min-height: 190px;
+}
+
 .app-card {
   border: 1px solid rgba(15, 22, 32, 0.1);
   border-radius: var(--radius-md);
@@ -387,6 +399,10 @@ body {
   }
 
   .dashboard-apps {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-app-grid {
     grid-template-columns: 1fr;
   }
 

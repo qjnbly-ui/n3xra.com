@@ -11,7 +11,7 @@ Each utility company gets a branded customer portal, admin setup state, launch c
 - Tenant boundaries are enforced with explicit `organization_id` relationships and RLS.
 - Service-role keys never reach browser code.
 - Public portal routes expose only safe customer-facing configuration.
-- Company-specific domains, email senders, Stripe Connect, and deeper integrations are layered onto the shared tenant model over time.
+- Company-specific domains, Resend email delivery, Stripe Connect, and deeper integrations are layered onto the shared tenant model over time.
 
 ## Current Platform Shape
 

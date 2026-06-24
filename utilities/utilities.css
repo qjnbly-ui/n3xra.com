@@ -12,6 +12,10 @@
   --amber: #f8bd57;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 * {
   box-sizing: border-box;
 }

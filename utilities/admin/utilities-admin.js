@@ -30,6 +30,21 @@ let session = null;
 let organizations = [];
 let selectedOrganizationId = "";
 
+function lockAdminShell() {
+  adminPanel.hidden = true;
+  emptyState.hidden = true;
+  detailContent.hidden = true;
+  refreshButton.hidden = true;
+  logoutButton.hidden = true;
+  orgList.innerHTML = "";
+  orgCount.textContent = "0";
+}
+
+function unlockAdminShell() {
+  refreshButton.hidden = false;
+  logoutButton.hidden = false;
+}
+
 function setStatus(message, tone = "") {
   statusLine.textContent = message || "";
   statusLine.className = "status-line";
@@ -175,9 +190,8 @@ function renderDetail() {
   ]);
 
   paymentSummary.innerHTML = summaryHtml([
-    ["Mode", titleCase(paymentPreferences.payment_mode)],
-    ["External URL", paymentPreferences.existing_payment_url],
-    ["Stripe requested", paymentPreferences.wants_stripe_connect ? "Yes" : "No"],
+    ["Mode", titleCase(paymentPreferences.payment_mode || "stripe_connect")],
+    ["Stripe Connect", paymentPreferences.wants_stripe_connect === false ? "Not requested" : "Required"],
     ["Stripe status", titleCase(organization.stripe_connect_status)],
     ["Charges enabled", organization.stripe_charges_enabled ? "Yes" : "No"],
     ["Payouts enabled", organization.stripe_payouts_enabled ? "Yes" : "No"],
@@ -246,10 +260,12 @@ async function handleStepChange(event) {
 
 async function handleLogout() {
   await supabase?.auth.signOut({ scope: "local" });
-  window.location.replace("/app/login");
+  window.location.replace("/account");
 }
 
 async function init() {
+  lockAdminShell();
+
   if (!hasConfig()) {
     setStatus("Missing Supabase browser config in /app/config.js.", "is-error");
     return;
@@ -258,14 +274,17 @@ async function init() {
   supabase = createBrowserSupabase();
   session = await getSessionOrNull(supabase);
   if (!session?.user) {
-    window.location.replace("/app/login");
+    window.location.replace("/account");
     return;
   }
 
   if (!PLATFORM_ADMIN_EMAILS.has(String(session.user.email || "").toLowerCase())) {
+    logoutButton.hidden = false;
     setStatus("N3XRA platform admin access required.", "is-error");
     return;
   }
+
+  unlockAdminShell();
 
   orgList.addEventListener("click", (event) => {
     const button = event.target.closest("button[data-id]");

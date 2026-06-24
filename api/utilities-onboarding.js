@@ -4,6 +4,9 @@ const UTILITIES_NOTIFY_TO = String(process.env.UTILITIES_ONBOARDING_NOTIFY_TO ||
   .split(",")
   .map((email) => email.trim())
   .filter(Boolean);
+const ORGANIZATION_ASSETS_BUCKET = "organization-assets";
+const MAX_LOGO_BYTES = 2 * 1024 * 1024;
+const LOGO_CONTENT_TYPES = new Set(["image/png", "image/jpeg", "image/webp", "image/svg+xml"]);
 
 function escapeHtml(value) {
   return String(value || "")
@@ -61,6 +64,44 @@ function normalizeUrl(value) {
   } catch {
     return raw;
   }
+}
+
+function sanitizeStorageFileName(value, fallback = "utility-logo") {
+  const cleanName = cleanString(value, 180)
+    .replace(/[/\\?%*:|"<>]/g, "-")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return cleanName || fallback;
+}
+
+function normalizeLogoFile(value) {
+  if (!value || typeof value !== "object") return null;
+  const name = sanitizeStorageFileName(value.name || "utility-logo");
+  const type = cleanString(value.type, 80).toLowerCase();
+  const size = Number(value.size || 0);
+  const dataUrl = cleanString(value.data_url || value.dataUrl, MAX_LOGO_BYTES * 2);
+  if (!LOGO_CONTENT_TYPES.has(type)) {
+    throw new Error("Logo must be a PNG, JPG, WebP, or SVG file.");
+  }
+  if (!size || size > MAX_LOGO_BYTES) {
+    throw new Error("Logo file must be 2 MB or smaller.");
+  }
+  const match = dataUrl.match(/^data:([^;,]+);base64,(.+)$/);
+  if (!match || match[1].toLowerCase() !== type) {
+    throw new Error("Invalid logo file payload.");
+  }
+  return { name, type, size, base64: match[2] };
+}
+
+function storageExtension(contentType, name) {
+  const extension = String(name || "").split(".").pop()?.toLowerCase();
+  if (["png", "jpg", "jpeg", "webp", "svg"].includes(extension)) return extension === "jpeg" ? "jpg" : extension;
+  if (contentType === "image/png") return "png";
+  if (contentType === "image/jpeg") return "jpg";
+  if (contentType === "image/webp") return "webp";
+  if (contentType === "image/svg+xml") return "svg";
+  return "bin";
 }
 
 function slugify(value) {
@@ -122,6 +163,38 @@ async function fetchSupabase(path, options = {}) {
   return data;
 }
 
+async function fetchStorage(path, options = {}) {
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    throw new Error("Missing Supabase service configuration.");
+  }
+
+  const response = await fetch(`${SUPABASE_URL}/storage/v1/${path}`, {
+    ...options,
+    headers: {
+      apikey: SUPABASE_SERVICE_ROLE_KEY,
+      Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+      ...(options.headers || {}),
+    },
+  });
+  const text = await response.text();
+  let data = null;
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = text;
+    }
+  }
+  if (!response.ok) {
+    const message = String(data?.message || data?.error || data?.msg || `Supabase storage request failed with status ${response.status}.`);
+    const error = new Error(message);
+    error.status = response.status;
+    error.data = data;
+    throw error;
+  }
+  return data;
+}
+
 async function slugExists(slug) {
   const rows = await fetchSupabase(`utility_organizations?select=id&slug=eq.${encodeFilter(slug)}&limit=1`, {
     method: "GET",
@@ -166,6 +239,37 @@ async function deleteOrganization(organizationId) {
   });
 }
 
+async function uploadUtilityLogo(organizationId, logoFile) {
+  if (!logoFile) return null;
+  const extension = storageExtension(logoFile.type, logoFile.name);
+  const baseName = sanitizeStorageFileName(logoFile.name.replace(/[.][^.]+$/, ""), "utility-logo");
+  const storagePath = `${organizationId}/utilities/logos/${Date.now()}-${baseName}.${extension}`;
+  const bytes = Buffer.from(logoFile.base64, "base64");
+  if (bytes.length > MAX_LOGO_BYTES) {
+    throw new Error("Logo file must be 2 MB or smaller.");
+  }
+
+  await fetchStorage(`object/${encodeURIComponent(ORGANIZATION_ASSETS_BUCKET)}/${storagePath.split("/").map(encodeURIComponent).join("/")}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": logoFile.type,
+      "x-upsert": "false",
+    },
+    body: bytes,
+  });
+
+  return storagePath;
+}
+
+async function removeUtilityLogo(storagePath) {
+  if (!storagePath) return;
+  await fetchStorage(`object/${encodeURIComponent(ORGANIZATION_ASSETS_BUCKET)}`, {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ prefixes: [storagePath] }),
+  });
+}
+
 function buildPortalLaunchSteps(organizationId, payload, slug, domain) {
   return [
     {
@@ -189,11 +293,11 @@ function buildPortalLaunchSteps(organizationId, payload, slug, domain) {
       title: "Branding",
       description: "Logo, portal display name, colors, and customer-facing identity.",
       sort_order: 20,
-      status: payload.logoUrl ? "completed" : "in_progress",
+      status: payload.logoStoragePath ? "completed" : "in_progress",
       required: true,
       locked: false,
       metadata: {
-        logo_url: payload.logoUrl || null,
+        logo_storage_path: payload.logoStoragePath || null,
         primary_color: payload.primaryColor,
         secondary_color: payload.secondaryColor,
       },
@@ -240,14 +344,13 @@ function buildPortalLaunchSteps(organizationId, payload, slug, domain) {
       organization_id: organizationId,
       step_key: "payment_setup",
       title: "Payment setup",
-      description: "External payment link or Stripe Connect readiness.",
+      description: "Stripe Connect readiness.",
       sort_order: 60,
-      status: payload.wantsStripeConnect || payload.existingPaymentUrl ? "in_progress" : "not_started",
-      required: Boolean(payload.wantsStripeConnect || payload.existingPaymentUrl),
+      status: "in_progress",
+      required: true,
       locked: false,
       metadata: {
-        existing_payment_url: payload.existingPaymentUrl || null,
-        wants_stripe_connect: payload.wantsStripeConnect,
+        wants_stripe_connect: true,
       },
     },
     {
@@ -265,23 +368,10 @@ function buildPortalLaunchSteps(organizationId, payload, slug, domain) {
     },
     {
       organization_id: organizationId,
-      step_key: "email_sender_setup",
-      title: "Email sender setup",
-      description: "Custom email sender DNS records and verification.",
-      sort_order: 80,
-      status: payload.wantsCustomEmail ? "in_progress" : "not_started",
-      required: payload.wantsCustomEmail,
-      locked: false,
-      metadata: {
-        wants_custom_email: payload.wantsCustomEmail,
-      },
-    },
-    {
-      organization_id: organizationId,
       step_key: "ready_to_launch",
       title: "Ready to launch",
       description: "Final N3XRA review before the customer portal is marked live.",
-      sort_order: 90,
+      sort_order: 80,
       status: "blocked",
       required: true,
       locked: true,
@@ -312,15 +402,17 @@ function buildPayload(body, req) {
     financeName: cleanString(body.finance_name || body.financeName, 180),
     financeEmail: cleanEmail(body.finance_email || body.financeEmail),
     financePhone: cleanPhone(body.finance_phone || body.financePhone),
-    logoUrl: normalizeUrl(body.logo_url || body.logoUrl),
+    logoFile: normalizeLogoFile(body.logo_file || body.logoFile),
+    logoStoragePath: null,
+    logoUrl: "",
     primaryColor: normalizeColor(body.primary_color || body.primaryColor) || "#2de0a5",
     secondaryColor: normalizeColor(body.secondary_color || body.secondaryColor) || "#23b9ff",
     portalSlug: desiredSlug,
     website: normalizeUrl(body.website),
-    existingPaymentUrl: normalizeUrl(body.existing_payment_url || body.existingPaymentUrl),
-    wantsStripeConnect: cleanBoolean(body.wants_stripe_connect || body.wantsStripeConnect),
+    existingPaymentUrl: "",
+    wantsStripeConnect: true,
     wantsCustomDomain: cleanBoolean(body.wants_custom_domain || body.wantsCustomDomain),
-    wantsCustomEmail: cleanBoolean(body.wants_custom_email || body.wantsCustomEmail),
+    wantsCustomEmail: false,
     notes: cleanString(body.notes || body.manual_work || body.manualWork, 3000),
     company: cleanString(body.company, 200),
     metadata: {
@@ -336,6 +428,7 @@ async function createUtilityOrganization(payload) {
   const slug = await getAvailableSlug(payload.portalSlug);
   const domain = `${slug}.utilities.n3xra.com`;
   let organization = null;
+  let logoStoragePath = "";
 
   try {
     organization = await insertRow("utility_organizations", {
@@ -359,10 +452,12 @@ async function createUtilityOrganization(payload) {
         finance_contact_email: payload.financeEmail || null,
         finance_contact_phone: payload.financePhone || null,
         wants_custom_domain: payload.wantsCustomDomain,
-        wants_custom_email: payload.wantsCustomEmail,
         notes: payload.notes || null,
       },
     });
+
+    logoStoragePath = await uploadUtilityLogo(organization.id, payload.logoFile);
+    payload.logoStoragePath = logoStoragePath;
 
     const roles = await insertRows("utility_roles", [
       { organization_id: organization.id, name: "owner", display_name: "Owner", is_system: true, permissions: { manage_all: true } },
@@ -376,14 +471,14 @@ async function createUtilityOrganization(payload) {
     await insertRow("utility_organization_branding", {
       organization_id: organization.id,
       portal_display_name: payload.providerName,
-      logo_storage_path: null,
+      logo_storage_path: logoStoragePath || null,
       primary_color: payload.primaryColor,
       secondary_color: payload.secondaryColor,
       accent_color: payload.secondaryColor,
       email_from_name: payload.providerName,
       email_reply_to: payload.supportEmail || payload.primaryAdminEmail,
       metadata: {
-        logo_url: payload.logoUrl || null,
+        logo_uploaded_filename: payload.logoFile?.name || null,
       },
     });
 
@@ -394,30 +489,28 @@ async function createUtilityOrganization(payload) {
         support_requests: true,
         document_uploads: true,
         announcements: true,
-        payments: payload.wantsStripeConnect,
-        stripe_connect: payload.wantsStripeConnect,
+        payments: true,
+        stripe_connect: true,
         custom_domain: payload.wantsCustomDomain,
-        custom_email: payload.wantsCustomEmail,
       },
       service_types: payload.utilityTypes,
       payment_preferences: {
-        existing_payment_url: payload.existingPaymentUrl || null,
-        wants_stripe_connect: payload.wantsStripeConnect,
-        payment_mode: payload.wantsStripeConnect ? "stripe_connect" : payload.existingPaymentUrl ? "external_link" : "not_configured",
+        wants_stripe_connect: true,
+        payment_mode: "stripe_connect",
       },
       notification_settings: {
         support_email: payload.supportEmail || payload.primaryAdminEmail,
-        custom_sender_requested: payload.wantsCustomEmail,
+        email_provider: "resend",
+        custom_sender_requested: false,
       },
       launch_checklist: {
         company_profile: "completed",
-        branding: payload.logoUrl ? "completed" : "in_progress",
+        branding: logoStoragePath ? "completed" : "in_progress",
         portal_url: "completed",
         admin_account: "not_started",
         customer_settings: "not_started",
-        payment_setup: payload.wantsStripeConnect || payload.existingPaymentUrl ? "in_progress" : "not_started",
+        payment_setup: "in_progress",
         dns_setup: payload.wantsCustomDomain ? "in_progress" : "not_started",
-        email_sender_setup: payload.wantsCustomEmail ? "in_progress" : "not_started",
         ready_to_launch: "blocked",
       },
     });
@@ -450,12 +543,11 @@ async function createUtilityOrganization(payload) {
 
     await insertRows("utility_onboarding_steps", [
       { organization_id: organization.id, onboarding_session_id: onboardingSession.id, step_key: "company_profile", status: "completed", data: { provider_name: payload.providerName, legal_name: payload.legalName || null } },
-      { organization_id: organization.id, onboarding_session_id: onboardingSession.id, step_key: "branding", status: "completed", data: { logo_url: payload.logoUrl || null, primary_color: payload.primaryColor, secondary_color: payload.secondaryColor } },
+      { organization_id: organization.id, onboarding_session_id: onboardingSession.id, step_key: "branding", status: logoStoragePath ? "completed" : "in_progress", data: { logo_storage_path: logoStoragePath || null, primary_color: payload.primaryColor, secondary_color: payload.secondaryColor } },
       { organization_id: organization.id, onboarding_session_id: onboardingSession.id, step_key: "portal_url", status: "completed", data: { slug, domain } },
       { organization_id: organization.id, onboarding_session_id: onboardingSession.id, step_key: "staff_contacts", status: "completed", data: { primary_admin_email: payload.primaryAdminEmail, support_email: payload.supportEmail || null, finance_email: payload.financeEmail || null } },
-      { organization_id: organization.id, onboarding_session_id: onboardingSession.id, step_key: "payments", status: payload.wantsStripeConnect || payload.existingPaymentUrl ? "in_progress" : "not_started", data: { existing_payment_url: payload.existingPaymentUrl || null, wants_stripe_connect: payload.wantsStripeConnect } },
+      { organization_id: organization.id, onboarding_session_id: onboardingSession.id, step_key: "payments", status: "in_progress", data: { wants_stripe_connect: true } },
       { organization_id: organization.id, onboarding_session_id: onboardingSession.id, step_key: "dns", status: payload.wantsCustomDomain ? "in_progress" : "not_started", data: { wants_custom_domain: payload.wantsCustomDomain } },
-      { organization_id: organization.id, onboarding_session_id: onboardingSession.id, step_key: "email_sender", status: payload.wantsCustomEmail ? "in_progress" : "not_started", data: { wants_custom_email: payload.wantsCustomEmail } },
       { organization_id: organization.id, onboarding_session_id: onboardingSession.id, step_key: "n3xra_review", status: "in_progress", data: {} },
     ]);
 
@@ -474,6 +566,9 @@ async function createUtilityOrganization(payload) {
 
     return { organization, onboardingSession, slug, domain };
   } catch (error) {
+    await removeUtilityLogo(logoStoragePath).catch((rollbackError) => {
+      console.error("Utilities logo rollback failed:", rollbackError);
+    });
     await deleteOrganization(organization?.id).catch((rollbackError) => {
       console.error("Utilities onboarding rollback failed:", rollbackError);
     });
@@ -495,10 +590,9 @@ function buildTextEmail(payload, created) {
     `Support email: ${payload.supportEmail || "-"}`,
     `Finance email: ${payload.financeEmail || "-"}`,
     `Website: ${payload.website || "-"}`,
-    `Existing payment URL: ${payload.existingPaymentUrl || "-"}`,
-    `Stripe Connect requested: ${payload.wantsStripeConnect ? "Yes" : "No"}`,
+    `Logo uploaded: ${payload.logoStoragePath || "-"}`,
+    "Payment setup: Stripe Connect",
     `Custom domain requested: ${payload.wantsCustomDomain ? "Yes" : "No"}`,
-    `Custom email requested: ${payload.wantsCustomEmail ? "Yes" : "No"}`,
     "",
     "Notes:",
     payload.notes || "-",
@@ -539,8 +633,9 @@ function buildHtmlEmail(payload, created) {
             ${detailCard("Primary admin", `${payload.primaryAdminName} <${payload.primaryAdminEmail}>`)}
             ${detailCard("Support contact", `${payload.supportName || "-"} ${payload.supportEmail ? `<${payload.supportEmail}>` : ""}`)}
             ${detailCard("Finance contact", `${payload.financeName || "-"} ${payload.financeEmail ? `<${payload.financeEmail}>` : ""}`)}
-            ${detailCard("Payments", payload.wantsStripeConnect ? "Stripe Connect requested" : payload.existingPaymentUrl || "Not configured")}
-            ${detailCard("Custom domain/email", `Domain: ${payload.wantsCustomDomain ? "Yes" : "No"} | Email: ${payload.wantsCustomEmail ? "Yes" : "No"}`)}
+            ${detailCard("Logo storage path", payload.logoStoragePath)}
+            ${detailCard("Payments", "Stripe Connect")}
+            ${detailCard("Custom domain", payload.wantsCustomDomain ? "Requested" : "Not requested")}
             ${detailCard("Organization ID", created.organization.id)}
           </table>
         </div>

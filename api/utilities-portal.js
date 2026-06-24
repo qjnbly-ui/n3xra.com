@@ -1,5 +1,6 @@
 const SUPABASE_URL = String(process.env.SUPABASE_URL || "https://vdbjlgmbpykjblprqnak.supabase.co").replace(/\/+$/, "");
 const SUPABASE_SERVICE_ROLE_KEY = String(process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY || "").trim();
+const ORGANIZATION_ASSETS_BUCKET = "organization-assets";
 
 function cleanString(value, limit = 1000) {
   return String(value || "").trim().slice(0, limit);
@@ -47,6 +48,42 @@ async function fetchSupabase(path, options = {}) {
   return data;
 }
 
+function encodeStoragePath(path) {
+  return String(path || "")
+    .split("/")
+    .map((part) => encodeURIComponent(part))
+    .join("/");
+}
+
+function toAbsoluteStorageUrl(value) {
+  const raw = String(value || "");
+  if (!raw) return "";
+  if (/^https?:\/\//i.test(raw)) return raw;
+  if (raw.startsWith("/")) return `${SUPABASE_URL}/storage/v1${raw}`;
+  return `${SUPABASE_URL}/storage/v1/${raw}`;
+}
+
+async function createSignedAssetUrl(storagePath) {
+  if (!storagePath) return null;
+
+  const response = await fetch(
+    `${SUPABASE_URL}/storage/v1/object/sign/${encodeURIComponent(ORGANIZATION_ASSETS_BUCKET)}/${encodeStoragePath(storagePath)}`,
+    {
+      method: "POST",
+      headers: serviceHeaders(),
+      body: JSON.stringify({ expiresIn: 60 * 60 * 6 }),
+    }
+  );
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    console.error("Unable to sign utility logo URL:", data);
+    return null;
+  }
+
+  const signedUrl = data?.signedURL || data?.signedUrl || data?.url || "";
+  return toAbsoluteStorageUrl(signedUrl) || null;
+}
+
 function getRequestUrl(req) {
   const proto = req.headers?.["x-forwarded-proto"] || "https";
   const host = req.headers?.host || "n3xra.com";
@@ -80,11 +117,12 @@ function safeOrganization(row) {
   };
 }
 
-function safeBranding(row, organization) {
+async function safeBranding(row, organization) {
   const metadata = row?.metadata && typeof row.metadata === "object" ? row.metadata : {};
+  const signedLogoUrl = await createSignedAssetUrl(row?.logo_storage_path);
   return {
     portal_display_name: row?.portal_display_name || organization.name,
-    logo_url: metadata.logo_url || null,
+    logo_url: signedLogoUrl || metadata.logo_url || null,
     primary_color: row?.primary_color || "#2de0a5",
     secondary_color: row?.secondary_color || "#23b9ff",
     accent_color: row?.accent_color || row?.secondary_color || "#23b9ff",
@@ -99,9 +137,8 @@ function safeSettings(row) {
     modules,
     service_types: Array.isArray(row?.service_types) ? row.service_types : [],
     payment: {
-      mode: paymentPreferences.payment_mode || "not_configured",
-      existing_payment_url: paymentPreferences.existing_payment_url || null,
-      wants_stripe_connect: Boolean(paymentPreferences.wants_stripe_connect),
+      mode: paymentPreferences.payment_mode || "stripe_connect",
+      wants_stripe_connect: paymentPreferences.wants_stripe_connect !== false,
     },
   };
 }
@@ -138,10 +175,12 @@ export default async function handler(req, res) {
       fetchSupabase(`utility_portal_launch_steps?select=step_key,title,status,required,sort_order&organization_id=eq.${encodeFilter(organization.id)}&order=sort_order.asc`),
     ]);
 
+    const brandingRow = first(branding);
+
     return res.status(200).json({
       ok: true,
       organization: safeOrganization(organization),
-      branding: safeBranding(first(branding), organization),
+      branding: await safeBranding(brandingRow, organization),
       settings: safeSettings(first(settings)),
       primary_domain: safeDomain(first(domains)),
       launch_steps: Array.isArray(launchSteps) ? launchSteps : [],

@@ -25,8 +25,7 @@
           </a>
           <div class="site-nav-actions">
             <a class="site-menu-link utilities-desktop-link" href="/utilities/">Home</a>
-            <a class="site-menu-link utilities-desktop-link" href="/utilities/login/">Login</a>
-            <a class="site-menu-link utilities-desktop-link" href="/utilities/admin/">Admin</a>
+            <a class="site-menu-link utilities-desktop-link" href="/account">Login</a>
             <button class="site-menu-toggle" type="button" aria-expanded="false" aria-controls="utilities-onboarding-menu" aria-label="Open menu" data-site-menu-toggle>
               <span></span>
               <span></span>
@@ -39,8 +38,7 @@
             <p class="site-mobile-menu-title">Navigate</p>
           </div>
           <a class="site-menu-link" href="/utilities/">Utilities Home</a>
-          <a class="site-menu-link" href="/utilities/login/">Login</a>
-          <a class="site-menu-link" href="/utilities/admin/">Admin</a>
+          <a class="site-menu-link" href="/account">Login</a>
           <a class="site-menu-link" href="/support/">Support</a>
         </nav>
       </div>
@@ -129,31 +127,18 @@
             <p>Branding</p>
           </div>
           <label>
-            Logo URL or shared asset link
-            <input type="url" name="logo_url" placeholder="https://...">
-          </label>
-          <label>
-            Primary color
-            <input type="color" name="primary_color" value="#2de0a5">
-          </label>
-          <label>
-            Secondary color
-            <input type="color" name="secondary_color" value="#23b9ff">
+            Logo file
+            <input type="file" name="logo_file" accept="image/png,image/jpeg,image/webp,image/svg+xml">
           </label>
 
           <div class="form-section full-field">
             <p>Payments and domains</p>
           </div>
-          <label class="full-field">
-            Existing payment URL, if any
-            <input type="url" name="existing_payment_url" placeholder="https://payments.exampleutility.com">
-          </label>
 
           <fieldset class="choice-field full-field">
             <legend>Setup preferences</legend>
-            <label><input type="checkbox" name="wants_stripe_connect" value="true"> Accept payments through Stripe Connect</label>
+            <label><input type="checkbox" name="wants_stripe_connect" value="true" checked disabled> Accept payments through Stripe Connect</label>
             <label><input type="checkbox" name="wants_custom_domain" value="true"> Use a custom portal domain later</label>
-            <label><input type="checkbox" name="wants_custom_email" value="true"> Use a custom email sender later</label>
           </fieldset>
 
           <label class="full-field">
