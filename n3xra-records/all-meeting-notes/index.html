@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>n3xra.com All Meeting Notes</title>
+  <meta name="description" content="n3xra.com all meeting notes page.">
+  <meta name="robots" content="noindex, nofollow, noarchive, nosnippet" />
+  <link rel="canonical" href="https://n3xra.com/n3xra-records/all-meeting-notes" />
+  <meta name="application-name" content="N3XRA Records" />
+  <meta name="apple-mobile-web-app-title" content="N3XRA Records" />
+  <meta name="theme-color" content="#070c12" />
+  <link rel="manifest" href="/n3xra-records/site.webmanifest">
+  <link rel="icon" type="image/png" href="/assets/n3xra_logo_transparent_small.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/n3xra-records/styles.css?v=20260612-recording-tabs">
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <div class="topbar-inner">
+        <div class="topbar-row dashboard-topbar-row">
+          <div class="brand">
+            <a class="brand-home-link" href="/" aria-label="N3XRA home">
+              <img class="brand-badge brand-badge-image" src="/assets/n3xra_logo_transparent.png" alt="n3xra.com logo">
+            </a>
+          </div>
+          <button class="topbar-logout" id="mobile-logout-button" type="button">Logout</button>
+          <button class="menu-toggle" id="mobile-menu-toggle" type="button" aria-expanded="false" aria-controls="mobile-menu" aria-label="Open menu">
+            <span></span>
+            <span></span>
+            <span></span>
+          </button>
+        </div>
+        <div class="mobile-menu hidden" id="mobile-menu">
+          <div class="mobile-menu-head">
+            <p class="mobile-menu-title">Navigate</p>
+          </div>
+          <button class="mobile-menu-link" id="mobile-menu-account" type="button">Account</button>
+          <button class="mobile-menu-link" id="mobile-menu-library" type="button">Library</button>
+          <a class="mobile-menu-link button-link" id="mobile-menu-files-link" href="./files">Files</a>
+          <a class="mobile-menu-link button-link hidden" id="mobile-menu-messages-link" href="./messages">Messages</a>
+          <a class="mobile-menu-link button-link hidden" id="mobile-menu-recordings-link" href="./meeting-notes">Meeting Notes</a>
+        </div>
+      </div>
+    </header>
+
+    <main class="main">
+      <section class="panel stack hidden" id="setup-panel">
+        <div class="panel-head">
+          <div>
+            <h2>Connect Supabase</h2>
+            <p>Add your project URL and anon key in <code class="inline">shared/config.js</code> before using the app.</p>
+          </div>
+        </div>
+        <div class="notice">
+          <strong>Missing config.</strong> Copy <code class="inline">shared/config.example.js</code> to
+          <code class="inline">shared/config.js</code>, then paste your Supabase project URL and anon key.
+        </div>
+      </section>
+
+      <section class="panel hidden stack" id="all-recordings-panel">
+        <div class="panel-head">
+          <div>
+            <h2>All Meeting Notes</h2>
+            <p>Playback audio and browse every saved meeting note in the active library.</p>
+          </div>
+          <div class="actions">
+            <a class="btn secondary button-link" href="./meeting-notes">Back to meeting notes</a>
+          </div>
+        </div>
+
+        <div class="notice hidden" id="all-recordings-no-access-notice">
+          <strong>No library access right now.</strong> There are no meeting notes to show until you create or join a library.
+          <div class="actions">
+            <a class="btn secondary button-link" href="./account">Go to account</a>
+          </div>
+        </div>
+
+        <div class="grid-3" id="all-recordings-context">
+          <div class="field" id="all-recordings-active-organization-field">
+            <label for="active-organization-select">Active library</label>
+            <select id="active-organization-select"></select>
+            <p class="account-value hidden" id="active-organization-name">-</p>
+          </div>
+          <div class="field" id="all-recordings-active-membership-field">
+            <span class="field-title">Your access</span>
+            <p class="account-value" id="active-membership-role">-</p>
+          </div>
+          <div class="field">
+            <span class="field-title">Meeting note count</span>
+            <p class="account-value" id="recording-count">0</p>
+          </div>
+        </div>
+
+        <section class="recording-player-shell hidden" id="recording-player-shell">
+          <div class="panel-head hidden" id="recording-player-head">
+            <div>
+              <h3>Player</h3>
+              <p id="selected-recording-copy">Select a meeting note below to load playback.</p>
+            </div>
+          </div>
+          <audio class="recording-player hidden" id="recording-player" controls preload="metadata"></audio>
+          <p class="status" id="recording-player-status"></p>
+        </section>
+
+        <div class="recordings-list" id="recordings-list"></div>
+        <p class="empty hidden" id="recordings-empty">No meeting notes saved in this library yet.</p>
+        <p class="status" id="recordings-status"></p>
+      </section>
+    </main>
+  </div>
+
+  <div class="settings-modal" id="recording-detail-modal" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="settings-modal-dialog">
+      <div class="settings-modal-header">
+        <div>
+          <p class="settings-modal-kicker">Meeting note details</p>
+          <h3 class="settings-modal-title" id="recording-detail-title">Meeting note</h3>
+        </div>
+        <button class="settings-modal-close" id="recording-detail-close" type="button">Close</button>
+      </div>
+      <div class="settings-modal-body">
+        <div class="recording-detail-tabs" role="tablist" aria-label="Meeting note sections">
+          <button class="recording-detail-tab is-active" id="recording-detail-tab-details" type="button" role="tab" aria-selected="true" aria-controls="recording-detail-details-panel" data-recording-detail-tab="details">Details</button>
+          <button class="recording-detail-tab" id="recording-detail-tab-notes" type="button" role="tab" aria-selected="false" aria-controls="recording-detail-notes-panel" data-recording-detail-tab="notes">Notes</button>
+          <button class="recording-detail-tab" id="recording-detail-tab-review" type="button" role="tab" aria-selected="false" aria-controls="recording-ai-review-panel" data-recording-detail-tab="review">Review</button>
+          <button class="recording-detail-tab" id="recording-detail-tab-ai-draft" type="button" role="tab" aria-selected="false" aria-controls="recording-detail-ai-draft-section" data-recording-detail-tab="ai-draft">AI Draft</button>
+        </div>
+
+        <div class="recording-detail-tab-panels">
+          <div class="recording-detail-section recording-detail-tab-panel is-active" id="recording-detail-details-panel" role="tabpanel" aria-labelledby="recording-detail-tab-details" data-recording-detail-panel="details">
+            <div class="recording-detail-grid">
+              <div class="account-item">
+                <span class="account-label">Status</span>
+                <p class="account-value" id="recording-detail-status">-</p>
+              </div>
+              <div class="account-item">
+                <span class="account-label">Template</span>
+                <p class="account-value" id="recording-detail-template">-</p>
+              </div>
+              <div class="account-item">
+                <span class="account-label">AI review</span>
+                <p class="account-value" id="recording-detail-ai-status">-</p>
+              </div>
+              <div class="account-item">
+                <span class="account-label">Started</span>
+                <p class="account-value" id="recording-detail-started-at">-</p>
+              </div>
+              <div class="account-item">
+                <span class="account-label">Ended</span>
+                <p class="account-value" id="recording-detail-ended-at">-</p>
+              </div>
+              <div class="account-item">
+                <span class="account-label">Duration</span>
+                <p class="account-value" id="recording-detail-duration">-</p>
+              </div>
+              <div class="account-item">
+                <span class="account-label">Size</span>
+                <p class="account-value" id="recording-detail-size">-</p>
+              </div>
+              <div class="account-item">
+                <span class="account-label">Transcript</span>
+                <p class="account-value" id="recording-detail-transcript-status">-</p>
+              </div>
+            </div>
+            <audio class="recording-player hidden" id="recording-detail-player" controls preload="metadata"></audio>
+            <div class="recording-detail-panel-actions">
+              <button class="btn secondary" id="recording-detail-play" type="button">Play</button>
+              <button class="btn btn-delete-solid" id="recording-detail-delete" type="button">Delete</button>
+            </div>
+            <div class="recording-detail-section">
+              <div class="panel-head compact-head">
+                <div>
+                  <h4>Transcript</h4>
+                  <p id="recording-detail-transcript-copy">The transcript is kept as the supporting record for AI review.</p>
+                </div>
+              </div>
+              <pre class="recording-notes-preview recording-transcript-preview" id="recording-detail-transcript-text">No transcript available yet.</pre>
+            </div>
+            <button class="hidden" id="recording-detail-transcribe" type="button">Create transcript</button>
+            <button class="hidden" id="recording-detail-retry" type="button">Retry</button>
+            <a class="hidden" id="recording-detail-transcript-document" href="./files" rel="noopener">Open transcript</a>
+          </div>
+          <div class="recording-detail-section recording-detail-tab-panel" id="recording-detail-notes-panel" role="tabpanel" aria-labelledby="recording-detail-tab-notes" data-recording-detail-panel="notes" hidden>
+            <div class="panel-head compact-head">
+              <div>
+                <h4>Notetaker notes</h4>
+                <p>Original notes are kept even if the AI draft is not useful. Edits here save to this meeting note.</p>
+              </div>
+            </div>
+            <textarea class="recording-notes-preview recording-detail-notes-editor" id="recording-detail-notes" rows="12" placeholder="No notes saved yet."></textarea>
+          </div>
+          <div class="recording-detail-section recording-detail-tab-panel" id="recording-ai-review-panel" role="tabpanel" aria-labelledby="recording-detail-tab-review" data-recording-detail-panel="review" hidden>
+            <div class="panel-head compact-head">
+              <div>
+                <h4>AI review</h4>
+                <p>Suggested additions and conflicts found after comparing notes with the transcript.</p>
+              </div>
+            </div>
+            <div class="recording-review-list" id="recording-ai-suggestions"></div>
+            <div class="recording-review-list" id="recording-ai-conflicts"></div>
+            <div class="recording-detail-panel-actions">
+              <button class="btn secondary" id="recording-detail-ai-review" type="button">Review with AI</button>
+            </div>
+          </div>
+          <div class="recording-detail-section recording-detail-tab-panel" id="recording-detail-ai-draft-section" role="tabpanel" aria-labelledby="recording-detail-tab-ai-draft" data-recording-detail-panel="ai-draft" hidden>
+            <div class="panel-head compact-head">
+              <div>
+                <h4>AI draft</h4>
+                <p>This is the final document draft. Finalize it in the editor before sending.</p>
+              </div>
+            </div>
+            <pre class="recording-notes-preview recording-ai-draft-preview" id="recording-detail-ai-draft-preview"></pre>
+            <div class="recording-detail-panel-actions">
+              <a class="btn button-link hidden" id="recording-detail-ai-draft" href="./documents" rel="noopener">Finalize and send document</a>
+            </div>
+          </div>
+        </div>
+        <p class="status" id="recording-detail-status-message"></p>
+      </div>
+    </div>
+  </div>
+
+  <div class="confirm-modal" id="recording-delete-modal" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="confirm-modal-dialog">
+      <div class="confirm-modal-header">
+        <div>
+          <p class="confirm-modal-kicker">Delete meeting note</p>
+          <h3 class="confirm-modal-title">Remove this meeting note?</h3>
+        </div>
+      </div>
+      <div class="confirm-modal-body">
+        <p class="confirm-modal-copy" id="recording-delete-copy">This action cannot be undone.</p>
+        <div class="confirm-modal-actions">
+          <button class="btn secondary" id="recording-delete-cancel" type="button">Cancel</button>
+          <button class="btn btn-delete-solid" id="recording-delete-submit" type="button">Delete</button>
+        </div>
+        <p class="status" id="recording-delete-status"></p>
+      </div>
+    </div>
+  </div>
+
+  <script src="/shared/config.js"></script>
+  <script type="module" src="/n3xra-records/all-recordings.js?v=20260612-recording-tabs"></script>
+</body>
+</html>
