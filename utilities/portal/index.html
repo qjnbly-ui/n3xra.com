@@ -51,6 +51,11 @@
           <p class="eyebrow" id="portal-eyebrow">Customer Portal</p>
           <h1 id="portal-title">Loading utility portal...</h1>
           <p class="hero-lede" id="portal-lede">Fetching branded portal configuration.</p>
+          <form class="portal-search" role="search" onsubmit="return false;">
+            <label class="sr-only" for="portal-search-input">Search portal services</label>
+            <input id="portal-search-input" type="search" placeholder="Find services, forms, invoices, and support">
+            <button type="submit">Search</button>
+          </form>
           <div class="hero-actions">
             <a class="primary-action" id="portal-primary-action" href="#" hidden>Pay Bill</a>
             <a class="secondary-action" id="portal-support-action" href="#" hidden>Contact Support</a>
@@ -65,19 +70,34 @@
 
       <section class="utility-portal-grid" aria-label="Portal actions">
         <article class="utility-portal-card">
-          <span>Account</span>
-          <h2>Customer access</h2>
-          <p>Account login, service addresses, documents, and request history will appear here as this portal is activated.</p>
+          <span>Profile</span>
+          <h2>Customer profile</h2>
+          <p>Update contact details, service addresses, account preferences, and customer information.</p>
         </article>
         <article class="utility-portal-card">
-          <span>Support</span>
-          <h2>Contact the utility</h2>
-          <p id="portal-support-copy">Support details will appear after this provider finishes setup.</p>
+          <span>Invoices</span>
+          <h2>Invoice archive</h2>
+          <p>View current bills, previous invoices, payment history, and account documents.</p>
         </article>
         <article class="utility-portal-card">
           <span>Payments</span>
-          <h2>Bill payment</h2>
+          <h2>Pay invoice</h2>
           <p id="portal-payment-copy">Payment options will appear after the utility configures payments.</p>
+        </article>
+        <article class="utility-portal-card">
+          <span>Meter</span>
+          <h2>Meter reading</h2>
+          <p>Submit a reading, review past readings, or report a meter issue.</p>
+        </article>
+        <article class="utility-portal-card">
+          <span>Support</span>
+          <h2>Report issue</h2>
+          <p id="portal-support-copy">Support details will appear after this provider finishes setup.</p>
+        </article>
+        <article class="utility-portal-card">
+          <span>Alerts</span>
+          <h2>Notification channel</h2>
+          <p>Choose how you receive outages, billing reminders, service notices, and updates.</p>
         </article>
       </section>
 
