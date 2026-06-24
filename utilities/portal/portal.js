@@ -56,8 +56,15 @@
   }
 
   function setBrandColors(branding) {
-    if (branding.primary_color) root.style.setProperty("--mint", branding.primary_color);
-    if (branding.secondary_color) root.style.setProperty("--cyan", branding.secondary_color);
+    if (branding.primary_color) {
+      root.style.setProperty("--mint", branding.primary_color);
+      root.style.setProperty("--portal-primary", branding.primary_color);
+    }
+    if (branding.secondary_color) {
+      root.style.setProperty("--cyan", branding.secondary_color);
+      root.style.setProperty("--portal-secondary", branding.secondary_color);
+    }
+    if (branding.accent_color) root.style.setProperty("--portal-accent", branding.accent_color);
   }
 
   function renderSteps(steps) {
