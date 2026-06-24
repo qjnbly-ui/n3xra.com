@@ -6,8 +6,8 @@ import {
   getSessionOrNull,
   getSupabaseAuthCallbackType,
   hasConfig,
-} from "../app/lib/supabase-client.js";
-import { isPlatformAdminEmail, setStoredActiveOrganizationId } from "../app/lib/orgs.js";
+} from "/shared/lib/supabase-client.js";
+import { isPlatformAdminEmail, setStoredActiveOrganizationId } from "/shared/lib/orgs.js";
 
 const setupPanel = document.getElementById("setup-panel");
 const accountPanel = document.getElementById("account-panel");
@@ -177,7 +177,7 @@ function getRequestedApp() {
   const next = getSafeNextPath();
   if (next.startsWith("/ai-music-generator/")) return "music";
   if (next.startsWith("/n3xra-virals/")) return "virals";
-  if (next.startsWith("/app/")) return "records";
+  if (next.startsWith("/app/") || next.startsWith("/n3xra-records/")) return "records";
   return "";
 }
 
@@ -337,7 +337,7 @@ async function maybeRouteAfterAuth(session) {
     return;
   }
 
-  if (requestedApp === "records" || next.startsWith("/app/")) {
+  if (requestedApp === "records" || next.startsWith("/app/") || next.startsWith("/n3xra-records/")) {
     await openRecords();
     return;
   }
@@ -496,7 +496,7 @@ async function openRecords() {
     setStoredActiveOrganizationId(String(memberships[0].organization.id));
   }
 
-  window.location.assign("/app/library");
+  window.location.assign("/n3xra-records/library");
 }
 
 async function openMusic() {

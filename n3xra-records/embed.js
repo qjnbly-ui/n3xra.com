@@ -1,4 +1,4 @@
-import { createBrowserSupabase, getConfig, hasConfig } from "./lib/supabase-client.js";
+import { createBrowserSupabase, getConfig, hasConfig } from "/shared/lib/supabase-client.js";
 import { createPublicAppDocumentPdfObjectUrl, getAppDocumentPdfFilename } from "./lib/app-document-pdf.js";
 import { buildPreviewUrl } from "./lib/document-links.js";
 import { buildDocumentMetadata, getDocumentDisplayTitle } from "./lib/document-presenters.js";
@@ -58,7 +58,7 @@ function getPublicPageUrl() {
 
   const organizationId = getResolvedOrganizationId();
   if (organizationId) {
-    const url = new URL("/app/embed", window.location.origin);
+    const url = new URL("/n3xra-records/embed", window.location.origin);
     url.searchParams.set("org", organizationId);
     return url.href;
   }

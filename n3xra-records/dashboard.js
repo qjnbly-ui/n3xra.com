@@ -1,6 +1,6 @@
 import JSZip from "https://esm.sh/jszip@3.10.1";
 import { createAppDocumentPdfObjectUrl, getAppDocumentPdfFilename } from "./lib/app-document-pdf.js";
-import { createBrowserSupabase, getConfig, hasConfig, getSessionOrNull } from "./lib/supabase-client.js";
+import { createBrowserSupabase, getConfig, hasConfig, getSessionOrNull } from "/shared/lib/supabase-client.js";
 import { buildPreviewUrl, getDownloadFilename } from "./lib/document-links.js";
 import { buildDocumentMetadata, getDocumentDisplayTitle } from "./lib/document-presenters.js";
 import { closeFilePreviewModal, openFilePreviewModal } from "./lib/file-modal.js";
@@ -17,7 +17,7 @@ import {
   resolveActiveOrganization,
   setStoredActiveOrganizationId,
   titleCase,
-} from "./lib/orgs.js";
+} from "/shared/lib/orgs.js";
 
 const setupPanel = document.getElementById("setup-panel");
 const dashboardPanel = document.getElementById("dashboard-panel");
@@ -300,6 +300,8 @@ function getSectionFromPath(pathname = window.location.pathname) {
   const normalized = String(pathname || "").replace(/\/+$/, "");
   if (normalized.endsWith("/app/account")) return "account";
   if (normalized.endsWith("/app/library")) return "library";
+  if (normalized.endsWith("/n3xra-records/account")) return "account";
+  if (normalized.endsWith("/n3xra-records/library")) return "library";
   return "";
 }
 
@@ -1624,7 +1626,7 @@ function formatBillingDate(value) {
 
 async function openBillingFlow(action, payload = {}) {
   if (!isBillingEnabled()) {
-    setStatus(billingStatus, "Stripe billing is not enabled in app/config.js yet.", "error");
+    setStatus(billingStatus, "Stripe billing is not enabled in shared/config.js yet.", "error");
     return false;
   }
 
@@ -1734,7 +1736,7 @@ function getDefaultInviteExpiresAtValue() {
 function buildInviteSignupUrl(inviteCode, recipientEmail = "") {
   const code = String(inviteCode || "").trim();
   if (!code) return "";
-  const url = new URL("/app/login", window.location.origin);
+  const url = new URL("/n3xra-records/login", window.location.origin);
   url.searchParams.set("signup", "invite");
   url.searchParams.set("invite", code);
   if (recipientEmail) {
@@ -3485,7 +3487,7 @@ async function handleSignout() {
     return;
   }
   setStoredActiveOrganizationId("");
-  window.location.replace("./login");
+  window.location.replace("/n3xra-records/login");
 }
 
 async function handleProfileSave(event) {
@@ -4350,12 +4352,12 @@ async function deleteAccount(scope = "full") {
 
   if (isAppOnly) {
     await supabase.auth.signOut();
-    window.location.replace("./login");
+    window.location.replace("/n3xra-records/login");
     return;
   }
 
   await supabase.auth.signOut();
-  window.location.replace("./login");
+  window.location.replace("/n3xra-records/login");
 }
 
 async function copyEmbedCode() {
@@ -4564,12 +4566,12 @@ async function init() {
   supabase = createBrowserSupabase();
   currentSession = await getSessionOrNull(supabase);
   if (!currentSession?.user) {
-    window.location.replace("./login");
+    window.location.replace("/n3xra-records/login");
     return;
   }
 
   if (isPlatformAdminEmail(currentSession.user.email) && !getSupportOrganizationId()) {
-    window.location.replace("./admin");
+    window.location.replace("/n3xra-admin/records");
     return;
   }
 
@@ -4795,7 +4797,7 @@ async function init() {
 
   supabase.auth.onAuthStateChange((_event, session) => {
     if (!session?.user) {
-      window.location.replace("./login");
+      window.location.replace("/n3xra-records/login");
     }
   });
 }

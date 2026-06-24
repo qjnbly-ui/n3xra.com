@@ -15,8 +15,8 @@ export function createBrowserSupabase() {
   return createClient(config.supabaseUrl, config.supabaseAnonKey);
 }
 
-export function getAppUrl(path = "/app") {
-  const normalizedPath = String(path || "/app").startsWith("/") ? String(path || "/app") : `/${path}`;
+export function getAppUrl(path = "/n3xra-records") {
+  const normalizedPath = String(path || "/n3xra-records").startsWith("/") ? String(path || "/n3xra-records") : `/${path}`;
   return `${window.location.origin}${normalizedPath}`;
 }
 

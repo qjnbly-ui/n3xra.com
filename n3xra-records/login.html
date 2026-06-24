@@ -6,12 +6,12 @@
   <title>N3XRA | Account Login</title>
   <meta name="description" content="Sign in to access your secure records portal.">
   <meta name="robots" content="noindex, nofollow, noarchive, nosnippet" />
-  <link rel="canonical" href="https://n3xra.com/app/login" />
+  <link rel="canonical" href="https://n3xra.com/n3xra-records/login" />
   <meta property="og:type" content="website">
   <meta property="og:title" content="N3XRA | Account Login">
   <meta property="og:description" content="Sign in to access your secure records portal.">
   <meta property="og:image" content="https://n3xra.com/assets/ogimage.png">
-  <meta property="og:url" content="https://n3xra.com/app/login">
+  <meta property="og:url" content="https://n3xra.com/n3xra-records/login">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="N3XRA | Account Login">
   <meta name="twitter:description" content="Sign in to access your secure records portal.">
@@ -19,12 +19,12 @@
   <meta name="application-name" content="N3XRA Records" />
   <meta name="apple-mobile-web-app-title" content="N3XRA Records" />
   <meta name="theme-color" content="#070c12" />
-  <link rel="manifest" href="./site.webmanifest">
+  <link rel="manifest" href="/n3xra-records/site.webmanifest">
   <link rel="icon" type="image/png" href="../assets/n3xra_logo_transparent_small.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./styles.css?v=20260612-modal-system">
+  <link rel="stylesheet" href="/n3xra-records/styles.css?v=20260612-modal-system">
   <link rel="stylesheet" href="../assets/site-intro.css?v=2">
 </head>
 <body>
@@ -49,12 +49,12 @@
         <div class="panel-head">
           <div>
             <h2>Connect Supabase</h2>
-            <p>Add your project URL and anon key in <code class="inline">app/config.js</code> before using the app.</p>
+            <p>Add your project URL and anon key in <code class="inline">shared/config.js</code> before using the app.</p>
           </div>
         </div>
         <div class="notice">
-          <strong>Missing config.</strong> Copy <code class="inline">app/config.example.js</code> to
-          <code class="inline">app/config.js</code>, then paste your Supabase project URL and anon key.
+          <strong>Missing config.</strong> Copy <code class="inline">shared/config.example.js</code> to
+          <code class="inline">shared/config.js</code>, then paste your Supabase project URL and anon key.
         </div>
       </section>
 
@@ -188,8 +188,8 @@
     </div>
   </footer>
 
-  <script src="./config.js"></script>
+  <script src="/shared/config.js"></script>
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
-  <script type="module" src="./login.js"></script>
+  <script type="module" src="/n3xra-records/login.js"></script>
 </body>
 </html>

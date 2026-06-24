@@ -1,4 +1,4 @@
-import { createBrowserSupabase, getSessionOrNull, hasConfig } from "/app/lib/supabase-client.js";
+import { createBrowserSupabase, getSessionOrNull, hasConfig } from "/shared/lib/supabase-client.js";
 
 const PLATFORM_ADMIN_EMAILS = new Set(["quentin@n3xra.com", "quentin@quentinnichols.com"]);
 
@@ -260,21 +260,21 @@ async function handleStepChange(event) {
 
 async function handleLogout() {
   await supabase?.auth.signOut({ scope: "local" });
-  window.location.replace("/account");
+  window.location.replace("/utilities/login/");
 }
 
 async function init() {
   lockAdminShell();
 
   if (!hasConfig()) {
-    setStatus("Missing Supabase browser config in /app/config.js.", "is-error");
+    setStatus("Missing Supabase browser config in /shared/config.js.", "is-error");
     return;
   }
 
   supabase = createBrowserSupabase();
   session = await getSessionOrNull(supabase);
   if (!session?.user) {
-    window.location.replace("/account");
+    window.location.replace("/utilities/login/");
     return;
   }
 

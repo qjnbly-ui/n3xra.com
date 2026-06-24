@@ -3,7 +3,7 @@ import {
   exchangeAuthCodeForSessionIfPresent,
   hasConfig,
   getSessionOrNull,
-} from "./lib/supabase-client.js";
+} from "/shared/lib/supabase-client.js";
 
 const setupPanel = document.getElementById("setup-panel");
 const resetPanel = document.getElementById("reset-panel");

@@ -5,7 +5,7 @@ import { Color, TextStyle } from "https://esm.sh/@tiptap/extension-text-style";
 import Superscript from "https://esm.sh/@tiptap/extension-superscript";
 import TextAlign from "https://esm.sh/@tiptap/extension-text-align";
 import Underline from "https://esm.sh/@tiptap/extension-underline";
-import { createBrowserSupabase, getConfig, hasConfig, getSessionOrNull } from "./lib/supabase-client.js";
+import { createBrowserSupabase, getConfig, hasConfig, getSessionOrNull } from "/shared/lib/supabase-client.js";
 import {
   buildMembershipMap,
   dedupeMembershipsByOrganization,
@@ -14,7 +14,7 @@ import {
   isPlatformAdminEmail,
   resolveActiveOrganization,
   setStoredActiveOrganizationId,
-} from "./lib/orgs.js";
+} from "/shared/lib/orgs.js";
 
 const setupPanel = document.getElementById("setup-panel");
 const documentsPanel = document.getElementById("documents-panel");
@@ -1095,7 +1095,7 @@ async function sendActiveDocument(event) {
   documentSendSubmit.disabled = true;
 
   try {
-    const appLink = `${window.location.origin}/app/documents?id=${encodeURIComponent(activeDocumentId)}&view=pdf`;
+    const appLink = `${window.location.origin}/n3xra-records/documents?id=${encodeURIComponent(activeDocumentId)}&view=pdf`;
     const response = await fetch(`${config.supabaseUrl}/functions/v1/send-app-document`, {
       method: "POST",
       headers: {
@@ -1155,7 +1155,7 @@ async function handleSignout() {
     return;
   }
   setStoredActiveOrganizationId("");
-  window.location.replace("./login");
+  window.location.replace("/n3xra-records/login");
 }
 
 function applyToolbarAction(event) {
@@ -1190,11 +1190,11 @@ async function init() {
   supabase = createBrowserSupabase();
   currentSession = await getSessionOrNull(supabase);
   if (!currentSession?.user) {
-    window.location.replace("./login");
+    window.location.replace("/n3xra-records/login");
     return;
   }
   if (isPlatformAdminEmail(currentSession.user.email)) {
-    window.location.replace("./admin");
+    window.location.replace("/n3xra-admin/records");
     return;
   }
 
@@ -1205,10 +1205,10 @@ async function init() {
   mobileLogoutButton.addEventListener("click", handleSignout);
   mobileMenuToggle.addEventListener("click", toggleMobileMenu);
   mobileMenuAccount.addEventListener("click", () => {
-    window.location.href = "./account";
+    window.location.href = "/n3xra-records/account";
   });
   mobileMenuLibrary.addEventListener("click", () => {
-    window.location.href = "./library";
+    window.location.href = "/n3xra-records/library";
   });
   activeOrganizationSelect.addEventListener("change", handleOrganizationChange);
   documentSearch.addEventListener("input", renderAppDocuments);
@@ -1305,7 +1305,7 @@ async function init() {
 
   supabase.auth.onAuthStateChange((_event, session) => {
     if (!session?.user) {
-      window.location.replace("./login");
+      window.location.replace("/n3xra-records/login");
     }
   });
 }

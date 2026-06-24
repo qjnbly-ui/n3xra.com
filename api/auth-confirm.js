@@ -5,7 +5,7 @@ const SUPABASE_ANON_KEY = String(
   ""
 ).trim();
 
-const DEFAULT_SUCCESS_REDIRECT = "/app/login/?confirmed=1";
+const DEFAULT_SUCCESS_REDIRECT = "/n3xra-records/login?confirmed=1";
 const DEFAULT_ERROR_REDIRECT = "/ai-music-generator/login/?error=confirmation_failed";
 const MUSIC_SUCCESS_REDIRECT = "/ai-music-generator/login/?confirmed=1";
 

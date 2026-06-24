@@ -3,12 +3,12 @@ import {
   exchangeAuthCodeForSessionIfPresent,
   hasConfig,
   getSessionOrNull,
-} from "./lib/supabase-client.js";
-import { isPlatformAdminEmail } from "./lib/orgs.js";
+} from "/shared/lib/supabase-client.js";
+import { isPlatformAdminEmail } from "/shared/lib/orgs.js";
 
 async function route() {
   if (!hasConfig()) {
-    window.location.replace("./login");
+    window.location.replace("/n3xra-records/login");
     return;
   }
 
@@ -16,13 +16,13 @@ async function route() {
   try {
     const session = await exchangeAuthCodeForSessionIfPresent(supabase) || await getSessionOrNull(supabase);
     if (!session?.user) {
-      window.location.replace("./login");
+      window.location.replace("/n3xra-records/login");
       return;
     }
 
-    window.location.replace(isPlatformAdminEmail(session.user.email) ? "./admin" : "./library");
+    window.location.replace(isPlatformAdminEmail(session.user.email) ? "/n3xra-admin/records" : "/n3xra-records/library");
   } catch {
-    window.location.replace("./login");
+    window.location.replace("/n3xra-records/login");
   }
 }
 

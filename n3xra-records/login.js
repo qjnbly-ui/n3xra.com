@@ -5,8 +5,8 @@ import {
   getConfig,
   hasConfig,
   getSessionOrNull,
-} from "./lib/supabase-client.js";
-import { getStoredActiveOrganizationId, setStoredActiveOrganizationId } from "./lib/orgs.js";
+} from "/shared/lib/supabase-client.js";
+import { getStoredActiveOrganizationId, setStoredActiveOrganizationId } from "/shared/lib/orgs.js";
 
 const PLATFORM_ADMIN_EMAILS = ["quentin@n3xra.com", "quentin@quentinnichols.com"];
 
@@ -35,7 +35,7 @@ const signupModePersonalButton = document.getElementById("signup-mode-personal")
 const signupModeInviteButton = document.getElementById("signup-mode-invite");
 const authCaptchaField = document.getElementById("auth-captcha-field");
 const authTurnstile = document.getElementById("auth-turnstile");
-const RECORDS_CONFIRM_REDIRECT_PATH = "/app/login";
+const RECORDS_CONFIRM_REDIRECT_PATH = "/n3xra-records/login";
 
 let supabase = null;
 let isSubmittingAuth = false;
@@ -140,7 +140,7 @@ function getRequestedRedirectDestination(session) {
 function getPostAuthDestination(session) {
   const requestedRedirect = getRequestedRedirectDestination(session);
   if (requestedRedirect) return requestedRedirect;
-  return isPlatformAdminEmail(session?.user?.email) ? "./admin" : "./library";
+  return isPlatformAdminEmail(session?.user?.email) ? "/n3xra-admin/records" : "/n3xra-records/library";
 }
 
 function setStatus(message, tone = "") {
@@ -498,7 +498,7 @@ async function handleForgotPassword() {
 
   setStatus("Sending password reset...");
 
-  const redirectTo = getAppUrl("/app/reset-password");
+  const redirectTo = getAppUrl("/n3xra-records/reset-password");
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
     redirectTo,
   });

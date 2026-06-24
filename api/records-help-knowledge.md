@@ -93,7 +93,7 @@ If a control is missing or disabled, the user may lack the required role, may no
 - Account users can also appear as send recipients.
 
 ## Messages
-- Messages live at `/app/messages`.
+- Messages live at `/n3xra-records/messages`.
 - Use Messages for branded announcements that are not tied to a document, such as meeting reminders, schedule changes, or general updates.
 - Messages reuse the same account users and contacts recipient picker as document sending.
 - Message emails are sent through N3XRA Records branding, use `updates@n3xra.com` by default when configured, and reply-to the logged-in sender.

@@ -1,6 +1,6 @@
-import { createBrowserSupabase, hasConfig, getSessionOrNull } from "./lib/supabase-client.js";
+import { createBrowserSupabase, hasConfig, getSessionOrNull } from "/shared/lib/supabase-client.js";
 import { getPlanConfig } from "./lib/plan-config.js";
-import { isPlatformAdminEmail } from "./lib/orgs.js";
+import { isPlatformAdminEmail } from "/shared/lib/orgs.js";
 
 const setupPanel = document.getElementById("setup-panel");
 const adminPanel = document.getElementById("admin-panel");
@@ -110,7 +110,7 @@ function renderOrganizations() {
       <td>${organization.member_count}</td>
       <td class="inline-actions">
         <button class="btn secondary" type="button" data-action="select" data-id="${organization.id}">Select</button>
-        <a class="btn secondary button-link" href="./account?support_org=${encodeURIComponent(organization.id)}">Support view</a>
+        <a class="btn secondary button-link" href="/n3xra-records/account?support_org=${encodeURIComponent(organization.id)}">Support view</a>
       </td>
     `;
     organizationList.append(row);
@@ -161,7 +161,7 @@ async function handleLogout() {
     setStatus(adminStatus, error.message, "error");
     return;
   }
-  window.location.replace("./login");
+  window.location.replace("/n3xra-records/login");
 }
 
 function handleOrganizationListClick(event) {
@@ -294,12 +294,12 @@ async function init() {
   supabase = createBrowserSupabase();
   currentSession = await getSessionOrNull(supabase);
   if (!currentSession?.user) {
-    window.location.replace("./login");
+    window.location.replace("/n3xra-records/login");
     return;
   }
 
   if (!isPlatformAdminEmail(currentSession.user.email)) {
-    window.location.replace("./library");
+    window.location.replace("/n3xra-records/library");
     return;
   }
 

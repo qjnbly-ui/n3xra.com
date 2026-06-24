@@ -6,16 +6,16 @@
   <title>n3xra.com Admin</title>
   <meta name="description" content="Platform admin controls for n3xra.com.">
   <meta name="robots" content="noindex, nofollow, noarchive, nosnippet" />
-  <link rel="canonical" href="https://n3xra.com/app/admin" />
+  <link rel="canonical" href="https://n3xra.com/n3xra-admin/records" />
   <meta name="application-name" content="N3XRA Records" />
   <meta name="apple-mobile-web-app-title" content="N3XRA Records" />
   <meta name="theme-color" content="#070c12" />
-  <link rel="manifest" href="./site.webmanifest">
+  <link rel="manifest" href="/n3xra-records/site.webmanifest">
   <link rel="icon" type="image/png" href="../assets/n3xra_logo_transparent_small.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./styles.css?v=20260612-modal-system">
+  <link rel="stylesheet" href="/n3xra-records/styles.css?v=20260612-modal-system">
 </head>
 <body>
   <div class="shell">
@@ -37,29 +37,16 @@
         <div class="panel-head">
           <div>
             <h2>Connect Supabase</h2>
-            <p>Add your project URL and anon key in <code class="inline">app/config.js</code> before using the app.</p>
+            <p>Add your project URL and anon key in <code class="inline">shared/config.js</code> before using the app.</p>
           </div>
         </div>
         <div class="notice">
-          <strong>Missing config.</strong> Copy <code class="inline">app/config.example.js</code> to
-          <code class="inline">app/config.js</code>, then paste your Supabase project URL and anon key.
+          <strong>Missing config.</strong> Copy <code class="inline">shared/config.example.js</code> to
+          <code class="inline">shared/config.js</code>, then paste your Supabase project URL and anon key.
         </div>
       </section>
 
       <section class="panel stack hidden" id="admin-panel">
-        <section class="account-card">
-          <div class="panel-head">
-            <div>
-              <h3>Admin</h3>
-              <p>Open the support view or manage account settings from one place.</p>
-            </div>
-          </div>
-          <div class="actions">
-            <a class="btn secondary button-link" href="./account">Open n3xra.com support</a>
-          </div>
-          <p class="status" id="admin-status"></p>
-        </section>
-
         <section class="account-card">
           <div class="panel-head">
             <div>
@@ -82,6 +69,7 @@
               <tbody id="organization-list"></tbody>
             </table>
           </div>
+          <p class="status" id="admin-status"></p>
         </section>
 
         <section class="account-card">
@@ -177,7 +165,7 @@
     </main>
   </div>
 
-  <script src="./config.js"></script>
-  <script type="module" src="./admin.js"></script>
+  <script src="/shared/config.js"></script>
+  <script type="module" src="/n3xra-records/admin.js"></script>
 </body>
 </html>

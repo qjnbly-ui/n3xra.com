@@ -11,28 +11,190 @@
       "source": "/software/:path*",
       "destination": "/records/:path*",
       "permanent": true
+    },
+    {
+      "source": "/n3xraadmin/records",
+      "destination": "/n3xra-admin/records",
+      "permanent": true
+    },
+    {
+      "source": "/n3xraadmin/utilities",
+      "destination": "/n3xra-admin/utilities",
+      "permanent": true
+    },
+    {
+      "source": "/app",
+      "destination": "/n3xra-records",
+      "permanent": true
+    },
+    {
+      "source": "/app/index.html",
+      "destination": "/n3xra-records",
+      "permanent": true
+    },
+    {
+      "source": "/app/dashboard",
+      "destination": "/n3xra-records/library",
+      "permanent": true
+    },
+    {
+      "source": "/app/dashboard.html",
+      "destination": "/n3xra-records/library",
+      "permanent": true
+    },
+    {
+      "source": "/app/library",
+      "destination": "/n3xra-records/library",
+      "permanent": true
+    },
+    {
+      "source": "/app/account",
+      "destination": "/n3xra-records/account",
+      "permanent": true
+    },
+    {
+      "source": "/app/admin",
+      "destination": "/n3xra-admin/records",
+      "permanent": true
+    },
+    {
+      "source": "/app/admin.html",
+      "destination": "/n3xra-admin/records",
+      "permanent": true
+    },
+    {
+      "source": "/app/login",
+      "destination": "/n3xra-records/login",
+      "permanent": true
+    },
+    {
+      "source": "/app/login.html",
+      "destination": "/n3xra-records/login",
+      "permanent": true
+    },
+    {
+      "source": "/app/reset-password",
+      "destination": "/n3xra-records/reset-password",
+      "permanent": true
+    },
+    {
+      "source": "/app/reset-password.html",
+      "destination": "/n3xra-records/reset-password",
+      "permanent": true
+    },
+    {
+      "source": "/app/files",
+      "destination": "/n3xra-records/files",
+      "permanent": true
+    },
+    {
+      "source": "/app/files.html",
+      "destination": "/n3xra-records/files",
+      "permanent": true
+    },
+    {
+      "source": "/app/documents",
+      "destination": "/n3xra-records/documents",
+      "permanent": true
+    },
+    {
+      "source": "/app/documents.html",
+      "destination": "/n3xra-records/documents",
+      "permanent": true
+    },
+    {
+      "source": "/app/messages",
+      "destination": "/n3xra-records/messages",
+      "permanent": true
+    },
+    {
+      "source": "/app/messages.html",
+      "destination": "/n3xra-records/messages",
+      "permanent": true
+    },
+    {
+      "source": "/app/recordings",
+      "destination": "/n3xra-records/meeting-notes",
+      "permanent": true
+    },
+    {
+      "source": "/app/recordings.html",
+      "destination": "/n3xra-records/meeting-notes",
+      "permanent": true
+    },
+    {
+      "source": "/app/meeting-notes",
+      "destination": "/n3xra-records/meeting-notes",
+      "permanent": true
+    },
+    {
+      "source": "/app/all-recordings",
+      "destination": "/n3xra-records/all-meeting-notes",
+      "permanent": true
+    },
+    {
+      "source": "/app/all-recordings.html",
+      "destination": "/n3xra-records/all-meeting-notes",
+      "permanent": true
+    },
+    {
+      "source": "/app/all-meeting-notes",
+      "destination": "/n3xra-records/all-meeting-notes",
+      "permanent": true
+    },
+    {
+      "source": "/app/embed",
+      "destination": "/n3xra-records/embed",
+      "permanent": true
+    },
+    {
+      "source": "/app/embed.html",
+      "destination": "/n3xra-records/embed",
+      "permanent": true
+    },
+    {
+      "source": "/app/shared-document",
+      "destination": "/n3xra-records/shared-document",
+      "permanent": true
+    },
+    {
+      "source": "/app/shared-document.html",
+      "destination": "/n3xra-records/shared-document",
+      "permanent": true
     }
   ],
   "rewrites": [
     {
-      "source": "/app/library",
-      "destination": "/app/dashboard"
+      "source": "/n3xra-records",
+      "destination": "/n3xra-records/index.html"
     },
     {
-      "source": "/app/account",
-      "destination": "/app/dashboard"
+      "source": "/n3xra-records/library",
+      "destination": "/n3xra-records/dashboard.html"
     },
     {
-      "source": "/app/meeting-notes",
-      "destination": "/app/recordings"
+      "source": "/n3xra-records/account",
+      "destination": "/n3xra-records/dashboard.html"
     },
     {
-      "source": "/app/all-meeting-notes",
-      "destination": "/app/all-recordings"
+      "source": "/n3xra-admin/records",
+      "destination": "/n3xra-records/admin.html"
+    },
+    {
+      "source": "/n3xra-admin/utilities",
+      "destination": "/utilities/admin/index.html"
+    },
+    {
+      "source": "/n3xra-records/meeting-notes",
+      "destination": "/n3xra-records/recordings.html"
+    },
+    {
+      "source": "/n3xra-records/all-meeting-notes",
+      "destination": "/n3xra-records/all-recordings.html"
     },
     {
       "source": "/library/:slug",
-      "destination": "/app/embed?slug=:slug"
+      "destination": "/n3xra-records/embed?slug=:slug"
     },
     {
       "source": "/utilities/portal/:slug",

@@ -1,5 +1,5 @@
-import { buildPreviewUrl, getDownloadFilename } from "../app/lib/document-links.js";
-import { getAppDocumentPdfFilename } from "../app/lib/app-document-pdf.js";
+import { buildPreviewUrl, getDownloadFilename } from "../n3xra-records/lib/document-links.js";
+import { getAppDocumentPdfFilename } from "../n3xra-records/lib/app-document-pdf.js";
 
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://vdbjlgmbpykjblprqnak.supabase.co";
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY || "";

@@ -1,4 +1,4 @@
-import { createBrowserSupabase, getConfig, hasConfig, getSessionOrNull } from "./lib/supabase-client.js";
+import { createBrowserSupabase, getConfig, hasConfig, getSessionOrNull } from "/shared/lib/supabase-client.js";
 import {
   buildMembershipMap,
   dedupeMembershipsByOrganization,
@@ -8,7 +8,7 @@ import {
   isPlatformAdminEmail,
   resolveActiveOrganization,
   setStoredActiveOrganizationId,
-} from "./lib/orgs.js";
+} from "/shared/lib/orgs.js";
 
 const setupPanel = document.getElementById("setup-panel");
 const messagesPanel = document.getElementById("messages-panel");
@@ -101,7 +101,7 @@ function hasMultipleLibraries() {
 
 async function handleSignout() {
   await supabase.auth.signOut();
-  window.location.replace("./login");
+  window.location.replace("/n3xra-records/login");
 }
 
 function mergeSendRecipients(accountUsers, contacts) {
@@ -426,11 +426,11 @@ async function init() {
   supabase = createBrowserSupabase();
   currentSession = await getSessionOrNull(supabase);
   if (!currentSession?.user) {
-    window.location.replace("./login");
+    window.location.replace("/n3xra-records/login");
     return;
   }
   if (isPlatformAdminEmail(currentSession.user.email)) {
-    window.location.replace("./admin");
+    window.location.replace("/n3xra-admin/records");
     return;
   }
 
@@ -440,10 +440,10 @@ async function init() {
   mobileLogoutButton.addEventListener("click", handleSignout);
   mobileMenuToggle.addEventListener("click", toggleMobileMenu);
   mobileMenuAccount.addEventListener("click", () => {
-    window.location.href = "./account";
+    window.location.href = "/n3xra-records/account";
   });
   mobileMenuLibrary.addEventListener("click", () => {
-    window.location.href = "./library";
+    window.location.href = "/n3xra-records/library";
   });
   activeOrganizationSelect.addEventListener("change", handleOrganizationChange);
   messageSendContactList.addEventListener("click", handleRecipientListClick);

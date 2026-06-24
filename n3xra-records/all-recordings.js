@@ -1,4 +1,4 @@
-import { createBrowserSupabase, hasConfig, getSessionOrNull } from "./lib/supabase-client.js";
+import { createBrowserSupabase, hasConfig, getSessionOrNull } from "/shared/lib/supabase-client.js";
 import {
   buildMembershipMap,
   dedupeMembershipsByOrganization,
@@ -8,7 +8,7 @@ import {
   isPlatformAdminEmail,
   resolveActiveOrganization,
   setStoredActiveOrganizationId,
-} from "./lib/orgs.js";
+} from "/shared/lib/orgs.js";
 import {
   applyRecordingSuggestions,
   dismissRecordingSuggestion,
@@ -1154,7 +1154,7 @@ async function handleSignout() {
     return;
   }
   setStoredActiveOrganizationId("");
-  window.location.replace("./login");
+  window.location.replace("/n3xra-records/login");
 }
 
 async function init() {
@@ -1165,7 +1165,7 @@ async function init() {
   supabase = createBrowserSupabase();
   currentSession = await getSessionOrNull(supabase);
   if (!currentSession?.user) {
-    window.location.replace("./login");
+    window.location.replace("/n3xra-records/login");
     return;
   }
 
@@ -1179,7 +1179,7 @@ async function init() {
   }
 
   if (!getActiveCapabilities().canUseRecordings) {
-    window.location.replace("./library");
+    window.location.replace("/n3xra-records/library");
     return;
   }
 
@@ -1193,10 +1193,10 @@ async function init() {
   mobileLogoutButton.addEventListener("click", handleSignout);
   mobileMenuToggle.addEventListener("click", toggleMobileMenu);
   mobileMenuAccount.addEventListener("click", () => {
-    window.location.replace("./account");
+    window.location.replace("/n3xra-records/account");
   });
   mobileMenuLibrary.addEventListener("click", () => {
-    window.location.replace("./library");
+    window.location.replace("/n3xra-records/library");
   });
   activeOrganizationSelect.addEventListener("change", async () => {
     closeMobileMenu();
