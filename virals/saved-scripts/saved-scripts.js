@@ -1,4 +1,4 @@
-import { createBrowserSupabase, getSessionOrNull, hasConfig } from "/app/lib/supabase-client.js";
+import { createBrowserSupabase, getSessionOrNull, hasConfig } from "/shared/lib/supabase-client.js";
 
 const list = document.getElementById("saved-script-list");
 

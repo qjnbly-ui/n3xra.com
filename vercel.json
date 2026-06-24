@@ -33,6 +33,21 @@
       "permanent": true
     },
     {
+      "source": "/app/config.js",
+      "destination": "/shared/config.js",
+      "permanent": true
+    },
+    {
+      "source": "/app/lib/supabase-client.js",
+      "destination": "/shared/lib/supabase-client.js",
+      "permanent": true
+    },
+    {
+      "source": "/app/lib/orgs.js",
+      "destination": "/shared/lib/orgs.js",
+      "permanent": true
+    },
+    {
       "source": "/app/dashboard",
       "destination": "/n3xra-records/library",
       "permanent": true

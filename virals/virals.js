@@ -1,4 +1,4 @@
-import { createBrowserSupabase, getSessionOrNull, hasConfig } from "/app/lib/supabase-client.js";
+import { createBrowserSupabase, getSessionOrNull, hasConfig } from "/shared/lib/supabase-client.js";
 
 const FREE_USAGE_KEY = "n3xraViralsFreeRuns";
 const FREE_USAGE_LIMIT = 3;

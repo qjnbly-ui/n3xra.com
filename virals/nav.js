@@ -1,4 +1,4 @@
-import { createBrowserSupabase, getSessionOrNull, hasConfig } from "/app/lib/supabase-client.js";
+import { createBrowserSupabase, getSessionOrNull, hasConfig } from "/shared/lib/supabase-client.js";
 
 const header = document.querySelector(".virals-topbar");
 const toggle = document.getElementById("virals-nav-toggle");
