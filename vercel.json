@@ -193,7 +193,7 @@
     },
     {
       "source": "/n3xra-admin/records",
-      "destination": "/n3xra-records/admin.html"
+      "destination": "/n3xra-admin/records/index.html"
     },
     {
       "source": "/n3xra-admin/utilities",

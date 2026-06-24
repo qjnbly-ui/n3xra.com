@@ -1908,6 +1908,11 @@ h2 {
   padding: clamp(3rem, 7vw, 5rem) max(1.2rem, calc((100vw - 1120px) / 2));
 }
 
+.utilities-admin-shell .utilities-admin-head {
+  min-height: clamp(140px, 18vw, 210px);
+  padding-block: clamp(1.5rem, 3vw, 2.25rem);
+}
+
 .utilities-dashboard-body .utilities-admin-head::after,
 .utilities-dashboard-body .workspace-hero::after {
   display: none;
@@ -1966,6 +1971,35 @@ h2 {
   border-radius: 6px;
   background: #ffffff;
   box-shadow: 0 18px 42px rgba(12, 18, 28, 0.1);
+}
+
+a.utilities-home-card,
+button.utilities-home-card {
+  width: 100%;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+}
+
+button.utilities-home-card {
+  cursor: pointer;
+}
+
+.utilities-home-card.is-disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.utilities-home-card.is-disabled span {
+  background: #8b98a8;
+}
+
+a.utilities-home-card:hover,
+a.utilities-home-card:focus-visible {
+  border-color: rgba(23, 111, 102, 0.28);
+  box-shadow: 0 22px 54px rgba(12, 18, 28, 0.14);
+  outline: 0;
 }
 
 .utilities-home-card span {
@@ -2216,4 +2250,20 @@ h2 {
   .platform-card {
     min-height: auto;
   }
+}
+
+/* Compact N3XRA Utilities admin hero */
+.utilities-dashboard-body .utilities-admin-shell > .utilities-admin-head {
+  min-height: 0;
+  height: clamp(180px, 20vw, 240px);
+  align-content: center;
+  padding-block: 1.35rem;
+}
+
+.utilities-dashboard-body .utilities-admin-shell > .utilities-admin-head h1 {
+  font-size: clamp(2.1rem, 4.1vw, 3.65rem);
+}
+
+.utilities-dashboard-body .utilities-admin-shell > .utilities-admin-head .hero-lede {
+  font-size: clamp(0.95rem, 1.4vw, 1.15rem);
 }
