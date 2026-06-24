@@ -1995,8 +1995,14 @@ button.utilities-home-card {
   background: #8b98a8;
 }
 
+.utilities-home-card.is-requestable {
+  cursor: pointer;
+}
+
 a.utilities-home-card:hover,
-a.utilities-home-card:focus-visible {
+a.utilities-home-card:focus-visible,
+button.utilities-home-card.is-requestable:hover,
+button.utilities-home-card.is-requestable:focus-visible {
   border-color: rgba(23, 111, 102, 0.28);
   box-shadow: 0 22px 54px rgba(12, 18, 28, 0.14);
   outline: 0;
@@ -2018,12 +2024,35 @@ a.utilities-home-card:focus-visible {
   background: var(--records-teal);
 }
 
+.utilities-home-card.is-requestable span {
+  background: var(--records-gold);
+}
+
+.utilities-home-card.is-requested span {
+  background: #6b7280;
+}
+
+.utilities-home-card.is-enabled span {
+  background: var(--records-teal);
+}
+
 .utilities-home-card h2 {
   margin: 0 0 0.35rem;
   color: var(--records-ink);
   font-family: "Fraunces", "Times New Roman", serif;
   font-size: 1.25rem;
   line-height: 1.1;
+}
+
+.utilities-home-card small {
+  display: block;
+  margin-bottom: 0.28rem;
+  color: var(--records-teal);
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  line-height: 1.3;
+  text-transform: uppercase;
 }
 
 .utilities-home-card p {

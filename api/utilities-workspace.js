@@ -125,6 +125,109 @@ function stepOwner(step) {
   return "utility";
 }
 
+function fallbackModules() {
+  return [
+    {
+      module_key: "finish_onboarding",
+      name: "Finish onboarding",
+      description: "Complete setup tasks, review N3XRA launch items, and get the portal ready.",
+      category: "setup",
+      sort_order: 10,
+      is_core: true,
+      state: "enabled",
+      metadata: { temporary: true },
+      configuration: {},
+    },
+    {
+      module_key: "customers",
+      name: "Customers",
+      description: "Customer accounts, service addresses, contacts, account history, and portal access.",
+      category: "customers",
+      sort_order: 20,
+      is_core: true,
+      state: "requestable",
+      metadata: {},
+      configuration: {},
+    },
+    {
+      module_key: "billing",
+      name: "Billing & payments",
+      description: "Invoices, balances, Stripe Connect payments, payouts, refunds, and billing settings.",
+      category: "finance",
+      sort_order: 30,
+      is_core: false,
+      state: "requestable",
+      metadata: {},
+      configuration: {},
+    },
+    {
+      module_key: "service_requests",
+      name: "Service requests",
+      description: "Support tickets, work orders, outages, meter issues, move-ins, and move-outs.",
+      category: "operations",
+      sort_order: 40,
+      is_core: true,
+      state: "requestable",
+      metadata: {},
+      configuration: {},
+    },
+    {
+      module_key: "documents",
+      name: "Documents",
+      description: "Customer files, forms, service agreements, notices, uploads, and records.",
+      category: "compliance",
+      sort_order: 50,
+      is_core: true,
+      state: "requestable",
+      metadata: {},
+      configuration: {},
+    },
+    {
+      module_key: "communications",
+      name: "Communications",
+      description: "Email notices, announcements, alerts, reminders, and customer messaging.",
+      category: "communications",
+      sort_order: 60,
+      is_core: true,
+      state: "requestable",
+      metadata: {},
+      configuration: {},
+    },
+  ];
+}
+
+async function loadOrganizationModules(organizationId) {
+  try {
+    const [catalog, organizationModules] = await Promise.all([
+      fetchSupabase("utility_module_catalog?select=*&order=sort_order.asc"),
+      fetchSupabase(`utility_organization_modules?select=*&organization_id=eq.${encodeFilter(organizationId)}`),
+    ]);
+    if (!Array.isArray(catalog) || !catalog.length) return fallbackModules();
+    const moduleByKey = new Map((organizationModules || []).map((module) => [module.module_key, module]));
+    return catalog.map((module) => {
+      const organizationModule = moduleByKey.get(module.module_key) || {};
+      return {
+        module_key: module.module_key,
+        name: module.name,
+        description: module.description,
+        category: module.category,
+        sort_order: module.sort_order,
+        is_core: module.is_core,
+        state: organizationModule.state || module.default_state || "requestable",
+        requested_at: organizationModule.requested_at || null,
+        enabled_at: organizationModule.enabled_at || null,
+        configuration: organizationModule.configuration || {},
+        metadata: {
+          ...(module.metadata && typeof module.metadata === "object" ? module.metadata : {}),
+          ...(organizationModule.metadata && typeof organizationModule.metadata === "object" ? organizationModule.metadata : {}),
+        },
+      };
+    });
+  } catch {
+    return fallbackModules();
+  }
+}
+
 async function getMembershipAccess(user) {
   const memberships = await fetchSupabase(
     `utility_organization_members?select=organization_id,status&user_id=eq.${encodeFilter(user.id)}&status=eq.active`
@@ -178,12 +281,13 @@ async function loadWorkspace(user, requestedOrg) {
   }
 
   const organizationId = summaryOrganization.id;
-  const [organization, domains, branding, settings, steps] = await Promise.all([
+  const [organization, domains, branding, settings, steps, modules] = await Promise.all([
     first(await fetchSupabase(`utility_organizations?select=*&id=eq.${encodeFilter(organizationId)}&limit=1`)),
     fetchSupabase(`utility_organization_domains?select=*&organization_id=eq.${encodeFilter(organizationId)}&order=is_primary.desc,created_at.asc`),
     first(await fetchSupabase(`utility_organization_branding?select=*&organization_id=eq.${encodeFilter(organizationId)}&limit=1`)),
     first(await fetchSupabase(`utility_organization_settings?select=*&organization_id=eq.${encodeFilter(organizationId)}&limit=1`)),
     fetchSupabase(`utility_portal_launch_steps?select=*&organization_id=eq.${encodeFilter(organizationId)}&order=sort_order.asc`),
+    loadOrganizationModules(organizationId),
   ]);
 
   const launchSteps = (steps || []).map((step) => ({ ...step, owner: stepOwner(step) }));
@@ -196,6 +300,7 @@ async function loadWorkspace(user, requestedOrg) {
     organization: { ...organization, domains: domains || [], access_role: summaryOrganization.access_role },
     branding,
     settings,
+    modules,
     launch_steps: launchSteps,
     progress: {
       required_total: required.length,
@@ -208,6 +313,37 @@ async function loadWorkspace(user, requestedOrg) {
     portal_url: portalUrl(organization),
     workspace_url: workspaceUrl(organization),
   };
+}
+
+async function requestModule(user, body) {
+  const org = await requireOrganizationAccess(user, body.organization_id || body.organizationId || body.slug);
+  const moduleKey = cleanString(body.module_key || body.moduleKey, 80);
+  if (!moduleKey) {
+    const error = new Error("Module key is required.");
+    error.status = 400;
+    throw error;
+  }
+  const module = first(await fetchSupabase(`utility_organization_modules?select=*&organization_id=eq.${encodeFilter(org.id)}&module_key=eq.${encodeFilter(moduleKey)}&limit=1`));
+  if (!module) {
+    const error = new Error("Module is not available for this organization yet.");
+    error.status = 404;
+    throw error;
+  }
+  if (module.state !== "requestable") {
+    const error = new Error("This module cannot be requested from its current state.");
+    error.status = 400;
+    throw error;
+  }
+  const rows = await fetchSupabase(`utility_organization_modules?id=eq.${encodeFilter(module.id)}`, {
+    method: "PATCH",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify({
+      state: "requires_n3xra_setup",
+      requested_by_user_id: user.id,
+      requested_at: new Date().toISOString(),
+    }),
+  });
+  return first(rows);
 }
 
 async function updateProfile(user, body) {
@@ -322,6 +458,7 @@ module.exports = async function handler(req, res) {
     if (action === "update-branding") return res.status(200).json({ ok: true, branding: await updateBranding(user, body) });
     if (action === "update-settings") return res.status(200).json({ ok: true, settings: await updateSettings(user, body) });
     if (action === "update-step") return res.status(200).json({ ok: true, step: await updateUtilityStep(user, body) });
+    if (action === "request-module") return res.status(200).json({ ok: true, module: await requestModule(user, body) });
     return res.status(400).json({ error: "Unknown workspace action." });
   } catch (error) {
     return res.status(Number(error?.status) || 500).json({

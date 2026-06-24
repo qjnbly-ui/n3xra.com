@@ -232,6 +232,30 @@ async function insertRows(table, payloads) {
   return Array.isArray(rows) ? rows : [];
 }
 
+function isMissingRelationError(error) {
+  const message = String(error?.message || error?.data?.message || "");
+  return error?.data?.code === "42P01" || message.includes("does not exist");
+}
+
+async function createDefaultOrganizationModules(organizationId) {
+  try {
+    const catalog = await fetchSupabase("utility_module_catalog?select=module_key,default_state&order=sort_order.asc");
+    if (!Array.isArray(catalog) || !catalog.length) return [];
+    return insertRows(
+      "utility_organization_modules",
+      catalog.map((module) => ({
+        organization_id: organizationId,
+        module_key: module.module_key,
+        state: module.default_state || "requestable",
+        metadata: {},
+      }))
+    );
+  } catch (error) {
+    if (isMissingRelationError(error)) return [];
+    throw error;
+  }
+}
+
 async function deleteOrganization(organizationId) {
   if (!organizationId) return;
   await fetchSupabase(`utility_organizations?id=eq.${encodeFilter(organizationId)}`, {
@@ -517,6 +541,8 @@ async function createUtilityOrganization(payload) {
 
     await insertRows("utility_portal_launch_steps", buildPortalLaunchSteps(organization.id, payload, slug, domain));
 
+    const organizationModules = await createDefaultOrganizationModules(organization.id);
+
     await insertRow("utility_organization_domains", {
       organization_id: organization.id,
       domain,
@@ -561,6 +587,7 @@ async function createUtilityOrganization(payload) {
         source: "utilities_onboarding",
         slug,
         role_count: roles.length,
+        module_count: organizationModules.length,
       },
     });
 

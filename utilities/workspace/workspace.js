@@ -18,6 +18,7 @@ const summaryUtilityProgress = document.getElementById("summary-utility-progress
 const summaryN3xraProgress = document.getElementById("summary-n3xra-progress");
 const utilityStepList = document.getElementById("utility-step-list");
 const n3xraStepList = document.getElementById("n3xra-step-list");
+const moduleGrid = document.getElementById("workspace-module-grid");
 const profileForm = document.getElementById("profile-form");
 const brandingForm = document.getElementById("branding-form");
 const settingsForm = document.getElementById("settings-form");
@@ -104,6 +105,60 @@ function renderSteps(steps, container, canEdit) {
   `).join("");
 }
 
+function moduleStateLabel(state) {
+  const labels = {
+    enabled: "Open",
+    disabled: "Unavailable",
+    requestable: "Request activation",
+    coming_soon: "Coming soon",
+    requires_n3xra_setup: "Requested",
+  };
+  return labels[state] || titleCase(state);
+}
+
+function moduleStateClass(state) {
+  if (state === "enabled") return "is-enabled";
+  if (state === "requestable") return "is-requestable";
+  if (state === "requires_n3xra_setup") return "is-requested";
+  return "is-disabled";
+}
+
+function moduleHref(module) {
+  if (module.module_key === "finish_onboarding") return "#workspace-panel";
+  return "";
+}
+
+function renderModules(modules) {
+  const list = Array.isArray(modules) ? modules : [];
+  if (!list.length) {
+    moduleGrid.innerHTML = '<p class="utilities-list-empty">Workspace modules are not configured yet.</p>';
+    return;
+  }
+
+  moduleGrid.innerHTML = list.map((module, index) => {
+    const state = module.state || "requestable";
+    const number = String(index + 1).padStart(2, "0");
+    const stateClass = moduleStateClass(state);
+    const actionLabel = moduleStateLabel(state);
+    const body = `
+      <span>${escapeHtml(number)}</span>
+      <div>
+        <small>${escapeHtml(titleCase(module.category || "module"))} · ${escapeHtml(actionLabel)}</small>
+        <h2>${escapeHtml(module.name)}</h2>
+        <p>${escapeHtml(module.description || "")}</p>
+      </div>
+    `;
+    const href = moduleHref(module);
+    if (state === "enabled" && href) {
+      return `<a class="utilities-home-card ${stateClass}" href="${escapeHtml(href)}">${body}</a>`;
+    }
+    if (state === "requestable") {
+      return `<button class="utilities-home-card ${stateClass}" type="button" data-module-key="${escapeHtml(module.module_key)}">${body}</button>`;
+    }
+    return `<button class="utilities-home-card ${stateClass}" type="button" disabled>${body}</button>`;
+  }).join("");
+}
+
 function renderWorkspace() {
   const organization = workspace?.organization;
   if (!organization) {
@@ -159,6 +214,7 @@ function renderWorkspace() {
 
   renderSteps(utilitySteps, utilityStepList, true);
   renderSteps(n3xraSteps, n3xraStepList, false);
+  renderModules(workspace.modules || []);
   panel.hidden = false;
 }
 
@@ -211,6 +267,15 @@ utilityStepList.addEventListener("change", (event) => {
     organization_id: organizationId(),
     step_id: select.getAttribute("data-step-id"),
     status: select.value,
+  }).catch((error) => setStatus(error.message, "is-error"));
+});
+
+moduleGrid.addEventListener("click", (event) => {
+  const button = event.target.closest("button[data-module-key]");
+  if (!button) return;
+  saveAction("request-module", {
+    organization_id: organizationId(),
+    module_key: button.getAttribute("data-module-key"),
   }).catch((error) => setStatus(error.message, "is-error"));
 });
 
