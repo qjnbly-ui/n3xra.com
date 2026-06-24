@@ -29,13 +29,37 @@ function getAuthErrorMessage(error) {
   return message;
 }
 
-function routeSession(session) {
+async function loadUtilityAccess(session) {
+  const accessToken = session?.access_token || "";
+  if (!accessToken) return null;
+
+  const response = await fetch("/api/utilities-member-access", {
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(payload?.error || "Unable to check utility portal access.");
+  }
+  return payload;
+}
+
+async function routeSession(session) {
   if (isPlatformAdminEmail(session?.user?.email)) {
     window.location.replace(ADMIN_DESTINATION);
     return true;
   }
 
-  setStatus("This account is signed in, but Utilities member portal access is not active yet.", "is-error");
+  setStatus("Checking utility portal access...");
+  const access = await loadUtilityAccess(session);
+  if (access?.hasAccess && access?.portalUrl) {
+    window.location.replace(access.portalUrl);
+    return true;
+  }
+
+  setStatus("This N3XRA account is signed in, but it is not linked to an active utility organization yet.", "is-error");
   return false;
 }
 
@@ -58,7 +82,7 @@ async function handleLogin(event) {
     return;
   }
 
-  routeSession(data?.session);
+  await routeSession(data?.session);
 }
 
 async function init() {
@@ -70,9 +94,9 @@ async function init() {
 
   supabase = createBrowserSupabase();
   const session = await getSessionOrNull(supabase);
-  if (session?.user && routeSession(session)) return;
+  if (session?.user && await routeSession(session)) return;
 
-  setStatus("Sign in with your N3XRA admin account to manage utility portals.");
+  setStatus("Sign in with your N3XRA utility account.");
   loginForm.addEventListener("submit", handleLogin);
 }
 
