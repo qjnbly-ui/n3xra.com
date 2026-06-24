@@ -26,6 +26,7 @@
           <div class="site-nav-actions">
             <a class="site-menu-link utilities-desktop-link" href="/utilities/">Home</a>
             <a class="site-menu-link utilities-desktop-link" href="/utilities/login/">Login</a>
+            <a class="site-menu-link utilities-desktop-link" href="/utilities/admin/">Admin</a>
             <button class="site-menu-toggle" type="button" aria-expanded="false" aria-controls="utilities-onboarding-menu" aria-label="Open menu" data-site-menu-toggle>
               <span></span>
               <span></span>
@@ -39,6 +40,7 @@
           </div>
           <a class="site-menu-link" href="/utilities/">Utilities Home</a>
           <a class="site-menu-link" href="/utilities/login/">Login</a>
+          <a class="site-menu-link" href="/utilities/admin/">Admin</a>
           <a class="site-menu-link" href="/support/">Support</a>
         </nav>
       </div>
@@ -48,50 +50,121 @@
       <section class="onboarding-shell" aria-label="N3XRA Utilities onboarding form">
         <div class="onboarding-intro">
           <p class="eyebrow">Onboarding</p>
-          <h1>Tell us how your district operates today.</h1>
-          <p class="hero-lede">This helps N3XRA map your current billing, records, payment, communication, and administrative workflows before setup begins.</p>
+          <h1>Create the first version of your utility portal.</h1>
+          <p class="hero-lede">This setup creates your utility organization, reserves your portal slug, stores your branding, and starts the launch checklist in N3XRA Utilities.</p>
         </div>
 
         <form class="utility-form onboarding-form" id="utilities-onboarding-form">
+          <div class="form-section full-field">
+            <p>Company</p>
+          </div>
           <label>
-            District name
-            <input type="text" name="district" autocomplete="organization" required>
+            Company/provider name
+            <input type="text" name="provider_name" autocomplete="organization" required>
           </label>
           <label>
-            Primary contact
-            <input type="text" name="contact" autocomplete="name" required>
+            Legal name
+            <input type="text" name="legal_name" autocomplete="organization">
           </label>
           <label>
-            Email
-            <input type="email" name="email" autocomplete="email" required>
+            Desired portal slug
+            <input type="text" name="portal_slug" autocomplete="off" placeholder="green-valley-water" required>
           </label>
           <label>
-            Phone
-            <input type="tel" name="phone" autocomplete="tel">
+            Existing website
+            <input type="url" name="website" autocomplete="url" placeholder="https://exampleutility.com">
+          </label>
+
+          <fieldset class="choice-field full-field">
+            <legend>Utility types</legend>
+            <label><input type="checkbox" name="utility_types" value="water"> Water</label>
+            <label><input type="checkbox" name="utility_types" value="electric"> Electric</label>
+            <label><input type="checkbox" name="utility_types" value="gas"> Gas</label>
+            <label><input type="checkbox" name="utility_types" value="sewer"> Sewer</label>
+            <label><input type="checkbox" name="utility_types" value="waste"> Waste</label>
+            <label><input type="checkbox" name="utility_types" value="internet"> Internet</label>
+          </fieldset>
+
+          <div class="form-section full-field">
+            <p>Contacts</p>
+          </div>
+          <label>
+            Primary admin name
+            <input type="text" name="primary_admin_name" autocomplete="name" required>
           </label>
           <label>
-            Current billing tools
-            <input type="text" name="billing_tools" placeholder="QuickBooks, spreadsheets, payment portal, paper bills">
+            Primary admin email
+            <input type="email" name="primary_admin_email" autocomplete="email" required>
           </label>
           <label>
-            Approximate customer accounts
-            <select name="accounts">
-              <option value="">Select range</option>
-              <option>Under 250</option>
-              <option>250-750</option>
-              <option>750-1,500</option>
-              <option>1,500+</option>
-            </select>
+            Primary admin phone
+            <input type="tel" name="primary_admin_phone" autocomplete="tel">
           </label>
+          <label>
+            Support contact name
+            <input type="text" name="support_name" autocomplete="name">
+          </label>
+          <label>
+            Support email
+            <input type="email" name="support_email" autocomplete="email">
+          </label>
+          <label>
+            Support phone
+            <input type="tel" name="support_phone" autocomplete="tel">
+          </label>
+          <label>
+            Billing/finance contact
+            <input type="text" name="finance_name" autocomplete="name">
+          </label>
+          <label>
+            Billing/finance email
+            <input type="email" name="finance_email" autocomplete="email">
+          </label>
+          <label>
+            Billing/finance phone
+            <input type="tel" name="finance_phone" autocomplete="tel">
+          </label>
+
+          <div class="form-section full-field">
+            <p>Branding</p>
+          </div>
+          <label>
+            Logo URL or shared asset link
+            <input type="url" name="logo_url" placeholder="https://...">
+          </label>
+          <label>
+            Primary color
+            <input type="color" name="primary_color" value="#2de0a5">
+          </label>
+          <label>
+            Secondary color
+            <input type="color" name="secondary_color" value="#23b9ff">
+          </label>
+
+          <div class="form-section full-field">
+            <p>Payments and domains</p>
+          </div>
           <label class="full-field">
-            What work is most manual right now?
-            <textarea name="manual_work" rows="5" placeholder="Meter readings, mailed bills, delinquency letters, board records, customer notes, permits, reporting..."></textarea>
+            Existing payment URL, if any
+            <input type="url" name="existing_payment_url" placeholder="https://payments.exampleutility.com">
+          </label>
+
+          <fieldset class="choice-field full-field">
+            <legend>Setup preferences</legend>
+            <label><input type="checkbox" name="wants_stripe_connect" value="true"> Accept payments through Stripe Connect</label>
+            <label><input type="checkbox" name="wants_custom_domain" value="true"> Use a custom portal domain later</label>
+            <label><input type="checkbox" name="wants_custom_email" value="true"> Use a custom email sender later</label>
+          </fieldset>
+
+          <label class="full-field">
+            Notes
+            <textarea name="notes" rows="5" placeholder="Anything N3XRA should know before configuring this portal."></textarea>
           </label>
           <label class="utility-honeypot" aria-hidden="true" tabindex="-1">
             Company
             <input type="text" name="company" autocomplete="off" tabindex="-1">
           </label>
-          <button type="submit">Submit Onboarding Request</button>
+          <button type="submit">Create Utility Portal Setup</button>
         </form>
         <p class="status-line" id="utilities-onboarding-status" role="status" aria-live="polite"></p>
       </section>

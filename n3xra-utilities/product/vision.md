@@ -1,23 +1,35 @@
 # N3XRA Utilities Vision
 
-N3XRA Utilities should become the coordination layer between utility operators and N3XRA-managed services.
+N3XRA Utilities is a multi-tenant utility portal platform operated from the single N3XRA Supabase project.
 
-The portal is not meant to replace a utility company's own backend. It should connect to that backend, verify operator access through the utility-owned Supabase project, and expose the N3XRA controls needed to manage account setup, service configuration, support, and shared operating standards.
+Each utility company gets a branded customer portal, admin setup state, launch checklist, and future module configuration, while N3XRA owns the platform code, database foundation, auth boundary, and operational controls.
 
 ## Principles
 
-- Utility companies own their operator users.
-- N3XRA owns the coordination and bootstrap layer.
+- N3XRA owns the shared platform, migrations, API routes, and tenant foundation.
+- Utility companies get branded portals and organization-scoped configuration.
+- Tenant boundaries are enforced with explicit `organization_id` relationships and RLS.
 - Service-role keys never reach browser code.
-- Tenant boundaries are explicit and auditable.
-- The portal starts static until the auth and tenant trust model is final.
+- Public portal routes expose only safe customer-facing configuration.
+- Company-specific domains, email senders, Stripe Connect, and deeper integrations are layered onto the shared tenant model over time.
+
+## Current Platform Shape
+
+- Public product route: `/utilities/`
+- Onboarding route: `/utilities/onboarding/`
+- N3XRA admin route: `/utilities/admin/`
+- Branded portal shell: `/utilities/portal/{slug}`
+- Canonical tenant table: `public.utility_organizations`
+- Launch readiness table: `public.utility_portal_launch_steps`
 
 ## Future Capabilities
 
-- Tenant onboarding and handoff checklist
-- Utility Supabase project registration
-- Operator identity mapping
-- Master settings and feature flags
-- Support requests and implementation tasks
-- Environment health and connection status
-- Audit trails for N3XRA-assisted changes
+- Utility admin account invitations
+- Branded customer login
+- Customer profiles and service addresses
+- Configurable service request forms
+- Announcements and alerts
+- Document uploads
+- Stripe Connect onboarding
+- Custom domain and email sender verification
+- Billing, meter, outage, GIS, and work-order integrations driven by customer need

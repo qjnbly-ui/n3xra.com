@@ -35,6 +35,10 @@
       "destination": "/app/embed?slug=:slug"
     },
     {
+      "source": "/utilities/portal/:slug",
+      "destination": "/utilities/portal/index.html?slug=:slug"
+    },
+    {
       "source": "/demo",
       "destination": "/demo/index.html"
     },

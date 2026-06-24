@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Utility Portal | N3XRA Utilities</title>
+    <meta name="description" content="Customer portal powered by N3XRA Utilities.">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="theme-color" content="#07120f">
+    <link rel="icon" type="image/png" sizes="284x284" href="/assets/n3xra_logo_transparent_small.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,650;9..144,750&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/assets/site-nav.css">
+    <link rel="stylesheet" href="/utilities/utilities.css">
+    <script src="/assets/site-nav.js" defer></script>
+    <script src="/utilities/portal/portal.js" defer></script>
+  </head>
+  <body class="utility-portal-body">
+    <header class="site-topbar utilities-topbar utility-portal-topbar">
+      <div class="site-topbar-inner">
+        <div class="site-topbar-row">
+          <a class="site-brand utility-portal-brand" href="/utilities/" aria-label="Utility portal home">
+            <img id="portal-logo" src="/assets/MAINLOGO.png" alt="Utility portal">
+            <span id="portal-brand-name">Utility Portal</span>
+          </a>
+          <div class="site-nav-actions">
+            <a class="site-menu-link utilities-desktop-link" id="portal-pay-link" href="#" hidden>Pay Bill</a>
+            <a class="site-menu-link utilities-desktop-link" id="portal-website-link" href="#" target="_blank" rel="noreferrer" hidden>Website</a>
+            <button class="site-menu-toggle" type="button" aria-expanded="false" aria-controls="utility-portal-menu" aria-label="Open menu" data-site-menu-toggle>
+              <span></span>
+              <span></span>
+              <span></span>
+            </button>
+          </div>
+        </div>
+        <nav class="site-mobile-menu" id="utility-portal-menu" aria-label="Mobile primary" hidden>
+          <div class="site-mobile-menu-head">
+            <p class="site-mobile-menu-title" id="portal-mobile-title">Portal</p>
+          </div>
+          <a class="site-menu-link" id="portal-mobile-pay-link" href="#" hidden>Pay Bill</a>
+          <a class="site-menu-link" id="portal-mobile-website-link" href="#" target="_blank" rel="noreferrer" hidden>Website</a>
+          <a class="site-menu-link" href="/utilities/">Powered by N3XRA Utilities</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="utility-portal-shell">
+      <section class="utility-portal-hero" id="portal-hero">
+        <div>
+          <p class="eyebrow" id="portal-eyebrow">Customer Portal</p>
+          <h1 id="portal-title">Loading utility portal...</h1>
+          <p class="hero-lede" id="portal-lede">Fetching branded portal configuration.</p>
+          <div class="hero-actions">
+            <a class="primary-action" id="portal-primary-action" href="#" hidden>Pay Bill</a>
+            <a class="secondary-action" id="portal-support-action" href="#" hidden>Contact Support</a>
+          </div>
+        </div>
+        <aside class="utility-portal-status-panel">
+          <span id="portal-launch-status">Setup</span>
+          <strong id="portal-status-title">Portal status</strong>
+          <p id="portal-status-copy">N3XRA Utilities is preparing this customer portal.</p>
+        </aside>
+      </section>
+
+      <section class="utility-portal-grid" aria-label="Portal actions">
+        <article class="utility-portal-card">
+          <span>Account</span>
+          <h2>Customer access</h2>
+          <p>Account login, service addresses, documents, and request history will appear here as this portal is activated.</p>
+        </article>
+        <article class="utility-portal-card">
+          <span>Support</span>
+          <h2>Contact the utility</h2>
+          <p id="portal-support-copy">Support details will appear after this provider finishes setup.</p>
+        </article>
+        <article class="utility-portal-card">
+          <span>Payments</span>
+          <h2>Bill payment</h2>
+          <p id="portal-payment-copy">Payment options will appear after the utility configures payments.</p>
+        </article>
+      </section>
+
+      <section class="utility-portal-checklist" aria-label="Launch readiness">
+        <div class="section-head center">
+          <p class="eyebrow">Launch readiness</p>
+          <h2>Portal setup progress</h2>
+        </div>
+        <div class="portal-step-list" id="portal-step-list"></div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="footer-inner">
+        <p><span id="portal-footer-name">Utility Portal</span> is powered by <strong>N3XRA Utilities.</strong></p>
+        <p><a href="/support/">Support</a> · <a href="/terms/">Terms</a> · <a href="/privacy/">Privacy</a></p>
+      </div>
+    </footer>
+  </body>
+</html>

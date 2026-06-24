@@ -1,39 +1,35 @@
 # N3XRA Utilities V1 Roadmap
 
-## Phase 0: Foundation
+## Phase 0: Tenant Foundation
 
-- Reserve `/utilities/` as the public portal route.
-- Create a static operator portal skeleton.
-- Document product boundaries and Supabase ownership.
-- Draft coordination schema without production policies.
-- Stub product-scoped API behavior.
+- Create `utility_organizations` as the permanent tenant record.
+- Attach branding, settings, domains, roles, members, onboarding, audit, and launch readiness records by `organization_id`.
+- Keep N3XRA Utilities in the main N3XRA Supabase project.
 
-## Phase 1: Tenant Registry
+## Phase 1: Real Onboarding
 
-- Add utility tenant records.
-- Store non-secret Supabase project metadata.
-- Track N3XRA bootstrap owner and setup status.
-- Define launch readiness fields.
+- Replace lead capture with setup intake.
+- Create organization, default roles, branding, settings, domain, onboarding session, onboarding steps, launch checklist, and audit event.
+- Notify N3XRA after records are created.
 
-## Phase 2: Operator Session Verification
+## Phase 2: N3XRA Admin
 
-- Resolve tenant from workspace slug or invite.
-- Verify operator session against the utility-owned Supabase project.
-- Link verified external operator IDs to N3XRA coordination records.
-- Keep N3XRA auth separate from utility operator auth.
+- Review utility organizations.
+- Inspect branding, settings, contacts, portal URL, payment state, and onboarding status.
+- Update organization and launch status.
+- Mark launch checklist steps.
 
-## Phase 3: Portal Operations
+## Phase 3: Branded Portal Shell
 
-- Load tenant account context.
-- Display backend connection and environment status.
-- Manage master settings snapshots.
-- Create support and implementation requests.
-- Add audit events for sensitive coordination actions.
+- Render `/utilities/portal/{slug}` from tenant configuration.
+- Show utility branding, support contact, payment state, portal readiness, and public launch checklist.
+- Keep the portal public-safe until customer auth and account data are built.
 
 ## Deferred
 
-- Full billing automation
-- Cross-tenant analytics
-- Direct utility data editing
-- Root Vercel API wrappers
-- Production Supabase migrations
+- Utility admin invitations and branded login
+- Customer accounts and service addresses
+- Configurable forms and ticket workflows
+- Stripe Connect onboarding
+- Custom domain and custom sender verification
+- Billing, meter, outage, GIS, and work-order integrations
