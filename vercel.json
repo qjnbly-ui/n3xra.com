@@ -197,7 +197,7 @@
     },
     {
       "source": "/n3xra-admin/utilities",
-      "destination": "/utilities/admin/index.html"
+      "destination": "/n3xra-admin/utilities/index.html"
     },
     {
       "source": "/n3xra-records/meeting-notes",

@@ -133,7 +133,7 @@ function getRequestedRedirectDestination(session) {
   }
 
   if (!destination.startsWith("/")) return "";
-  if (destination.startsWith("/utilities/admin") && !isPlatformAdminEmail(session?.user?.email)) return "";
+  if (destination.startsWith("/n3xra-admin") && !isPlatformAdminEmail(session?.user?.email)) return "";
   return destination;
 }
 

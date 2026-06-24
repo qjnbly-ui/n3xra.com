@@ -27,7 +27,7 @@ Each utility company gets:
 
 - `/utilities/` public product page
 - `/utilities/onboarding/` tenant setup intake
-- `/utilities/admin/` N3XRA admin review view
+- `/n3xra-admin/utilities` N3XRA admin review view
 - `/utilities/portal/{slug}` branded portal shell
 
 ## Folder Structure
@@ -45,9 +45,14 @@ utilities/
   index.html
   onboarding/
   admin/
+    utilities-admin.js
   portal/
   utilities.css
   utilities.js
+
+n3xra-admin/
+  utilities/
+    index.html
 
 api/
   utilities-onboarding.js

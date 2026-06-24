@@ -17,7 +17,7 @@ Each utility company gets a branded customer portal, admin setup state, launch c
 
 - Public product route: `/utilities/`
 - Onboarding route: `/utilities/onboarding/`
-- N3XRA admin route: `/utilities/admin/`
+- N3XRA admin route: `/n3xra-admin/utilities`
 - Branded portal shell: `/utilities/portal/{slug}`
 - Canonical tenant table: `public.utility_organizations`
 - Launch readiness table: `public.utility_portal_launch_steps`
