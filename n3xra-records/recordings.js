@@ -105,6 +105,7 @@ const recordingDetailReferencePreview = document.getElementById("recording-detai
 const recordingDetailReferencePreviewType = document.getElementById("recording-detail-reference-preview-type");
 const recordingDetailReferencePreviewTitle = document.getElementById("recording-detail-reference-preview-title");
 const recordingDetailReferencePreviewOpen = document.getElementById("recording-detail-reference-preview-open");
+const recordingDetailReferencePreviewRemove = document.getElementById("recording-detail-reference-preview-remove");
 const recordingDetailReferenceFrame = document.getElementById("recording-detail-reference-frame");
 const recordingDetailAiDraftPreview = document.getElementById("recording-detail-ai-draft-preview");
 const recordingAiReviewPanel = document.getElementById("recording-ai-review-panel");
@@ -157,6 +158,7 @@ let detailPlayerUrl = "";
 let pendingReferencePreviewUrl = "";
 let pendingReferencePreviewId = "";
 let detailReferencePreviewUrl = "";
+let detailReferencePreviewReferenceId = "";
 let isRecordingWorkflowActive = false;
 let pendingRetryUploadOpen = false;
 let isRetryUploadMode = false;
@@ -625,8 +627,15 @@ function renderReferenceList(listEl, emptyEl, references = [], options = {}) {
     const doc = reference.app_document || getReferenceDocument(reference.app_document_id);
     const title = doc?.title || "Untitled document";
     const href = `/n3xra-records/documents?id=${encodeURIComponent(reference.app_document_id)}`;
+    const showOpen = options.showOpen !== false;
     const removeAttr = options.canRemove
       ? ` <button class="recording-reference-remove" type="button" data-reference-remove-id="${escapeHtml(reference.id || reference.app_document_id)}">Remove</button>`
+      : "";
+    const openAttr = showOpen
+      ? `<a class="btn secondary button-link" href="${href}" rel="noopener">Open</a>`
+      : "";
+    const actionsAttr = openAttr || removeAttr
+      ? `<div class="recording-reference-actions">${openAttr}${removeAttr}</div>`
       : "";
     return `
       <article class="recording-reference-row" data-reference-preview-id="${escapeHtml(reference.app_document_id)}">
@@ -634,10 +643,7 @@ function renderReferenceList(listEl, emptyEl, references = [], options = {}) {
           <span class="recording-reference-type">${escapeHtml(getReferenceTypeLabel(reference.reference_type))}</span>
           <p class="recording-reference-title">${escapeHtml(title)}</p>
         </div>
-        <div class="recording-reference-actions">
-          <a class="btn secondary button-link" href="${href}" rel="noopener">Open</a>
-          ${removeAttr}
-        </div>
+        ${actionsAttr}
       </article>
     `;
   }).join("");
@@ -1612,13 +1618,14 @@ function renderDetailReferences(recording) {
   if (recordingDetailReferenceSelect) recordingDetailReferenceSelect.disabled = !canEdit;
   if (recordingDetailReferenceType) recordingDetailReferenceType.disabled = !canEdit;
   if (recordingDetailReferenceAdd) recordingDetailReferenceAdd.disabled = !canEdit || !recordingDetailReferenceSelect?.value;
-  renderReferenceList(recordingDetailReferenceList, recordingDetailReferenceEmpty, references, { canRemove: canEdit });
+  renderReferenceList(recordingDetailReferenceList, recordingDetailReferenceEmpty, references, { showOpen: false });
   void previewReferenceDocument(references[0] || null);
 }
 
 function clearReferencePreview() {
   if (recordingDetailReferenceFrame) recordingDetailReferenceFrame.removeAttribute("src");
   show(recordingDetailReferencePreview, false);
+  detailReferencePreviewReferenceId = "";
   if (detailReferencePreviewUrl) {
     URL.revokeObjectURL(detailReferencePreviewUrl);
     detailReferencePreviewUrl = "";
@@ -1638,6 +1645,10 @@ async function previewReferenceDocument(reference) {
   if (recordingDetailReferencePreviewOpen) {
     recordingDetailReferencePreviewOpen.href = `/n3xra-records/documents?id=${encodeURIComponent(reference.app_document_id)}`;
   }
+  if (recordingDetailReferencePreviewRemove) {
+    recordingDetailReferencePreviewRemove.dataset.referenceRemoveId = reference.id || "";
+  }
+  detailReferencePreviewReferenceId = reference.id || "";
   show(recordingDetailReferencePreview, true);
   try {
     detailReferencePreviewUrl = await createAppDocumentPdfObjectUrl({
@@ -2708,6 +2719,9 @@ async function init() {
   });
   recordingDetailReferenceAdd?.addEventListener("click", () => {
     void addDetailReference();
+  });
+  recordingDetailReferencePreviewRemove?.addEventListener("click", () => {
+    void removeDetailReference(recordingDetailReferencePreviewRemove.dataset.referenceRemoveId || detailReferencePreviewReferenceId);
   });
   recordingDetailReferenceList?.addEventListener("click", (event) => {
     const button = event.target.closest("[data-reference-remove-id]");
