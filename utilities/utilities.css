@@ -864,14 +864,14 @@ a.workspace-dashboard-card:focus-visible {
   align-items: center;
   gap: 1rem;
   padding: 1rem;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(15, 22, 32, 0.1);
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.06);
+  background: #ffffff;
 }
 
 .workspace-feature-row.is-available {
   border-color: rgba(23, 111, 102, 0.24);
-  background: rgba(23, 111, 102, 0.06);
+  background: #f5fbfa;
 }
 
 .workspace-feature-row small {
@@ -886,13 +886,13 @@ a.workspace-dashboard-card:focus-visible {
 
 .workspace-feature-row strong {
   display: block;
-  color: #ffffff;
+  color: var(--records-ink, #101828);
   font-size: 1.05rem;
 }
 
 .workspace-feature-row p {
   margin: 0.35rem 0 0;
-  color: var(--muted);
+  color: var(--records-slate, #667085);
   font-weight: 800;
   line-height: 1.45;
 }
