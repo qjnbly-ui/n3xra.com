@@ -300,6 +300,18 @@
                 <p>Agenda and supporting documents linked to these minutes.</p>
               </div>
             </div>
+            <div class="recording-reference-list" id="recording-detail-reference-list"></div>
+            <p class="empty hidden" id="recording-detail-reference-empty">No references attached.</p>
+            <div class="recording-reference-preview hidden" id="recording-detail-reference-preview">
+              <div class="recording-reference-preview-head">
+                <div>
+                  <span class="recording-reference-type" id="recording-detail-reference-preview-type">Reference</span>
+                  <p class="recording-reference-title" id="recording-detail-reference-preview-title">Document preview</p>
+                </div>
+                <a class="btn secondary button-link" id="recording-detail-reference-preview-open" href="/n3xra-records/documents" rel="noopener">Open document</a>
+              </div>
+              <iframe class="recording-reference-frame" id="recording-detail-reference-frame" src="" title="Referenced document PDF"></iframe>
+            </div>
             <div class="recording-reference-picker" id="recording-detail-reference-picker">
               <div class="field">
                 <label for="recording-detail-reference-select">Document</label>
@@ -316,8 +328,6 @@
               </div>
               <button class="btn secondary" id="recording-detail-reference-add" type="button">Attach reference</button>
             </div>
-            <div class="recording-reference-list" id="recording-detail-reference-list"></div>
-            <p class="empty hidden" id="recording-detail-reference-empty">No references attached.</p>
           </div>
           <div class="recording-detail-section recording-detail-tab-panel" id="recording-detail-ai-draft-section" role="tabpanel" aria-labelledby="recording-detail-tab-ai-draft" data-recording-detail-panel="ai-draft" hidden>
             <div class="panel-head compact-head">
@@ -363,7 +373,7 @@
         <div class="field">
           <label for="recording-file-input">Audio file</label>
           <input id="recording-file-input" type="file" accept="audio/*,.mp3,.m4a,.wav,.ogg,.webm,.mp4,.aac,.mpeg">
-          <p class="field-note" id="recording-upload-note">Choose an existing audio file to attach before saving this meeting note.</p>
+          <p class="field-note" id="recording-upload-note">Choose an existing audio file to attach before saving this meeting note. Max 250 MB.</p>
           <p class="account-note" id="recording-file-copy">No file selected.</p>
         </div>
         <div class="actions">

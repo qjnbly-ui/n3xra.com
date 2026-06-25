@@ -1,4 +1,4 @@
-import { createBrowserSupabase, hasConfig, getSessionOrNull } from "/shared/lib/supabase-client.js";
+import { createBrowserSupabase, getConfig, hasConfig, getSessionOrNull } from "/shared/lib/supabase-client.js";
 import {
   buildMembershipMap,
   dedupeMembershipsByOrganization,
@@ -17,6 +17,7 @@ import {
   getSuggestionText,
   isSuggestionResolved,
 } from "./lib/recording-suggestions.js";
+import { createAppDocumentPdfObjectUrl } from "./lib/app-document-pdf.js";
 
 const setupPanel = document.getElementById("setup-panel");
 const allRecordingsPanel = document.getElementById("all-recordings-panel");
@@ -64,6 +65,11 @@ const recordingDetailReferenceAdd = document.getElementById("recording-detail-re
 const recordingDetailReferencePicker = document.getElementById("recording-detail-reference-picker");
 const recordingDetailReferenceList = document.getElementById("recording-detail-reference-list");
 const recordingDetailReferenceEmpty = document.getElementById("recording-detail-reference-empty");
+const recordingDetailReferencePreview = document.getElementById("recording-detail-reference-preview");
+const recordingDetailReferencePreviewType = document.getElementById("recording-detail-reference-preview-type");
+const recordingDetailReferencePreviewTitle = document.getElementById("recording-detail-reference-preview-title");
+const recordingDetailReferencePreviewOpen = document.getElementById("recording-detail-reference-preview-open");
+const recordingDetailReferenceFrame = document.getElementById("recording-detail-reference-frame");
 const recordingDetailAiDraftPreview = document.getElementById("recording-detail-ai-draft-preview");
 const recordingAiReviewPanel = document.getElementById("recording-ai-review-panel");
 const recordingAiSuggestions = document.getElementById("recording-ai-suggestions");
@@ -95,6 +101,7 @@ let recordingTemplates = [];
 let activePlayerUrl = "";
 let activeTopPlayerRecordingId = "";
 let detailPlayerUrl = "";
+let detailReferencePreviewUrl = "";
 let activeDetailRecordingId = "";
 let pendingDeleteRecordingId = "";
 let pendingLinkedRecordingId = "";
@@ -392,7 +399,7 @@ function renderReferenceList(listEl, emptyEl, references = [], options = {}) {
       ? ` <button class="recording-reference-remove" type="button" data-reference-remove-id="${escapeHtml(reference.id || reference.app_document_id)}">Remove</button>`
       : "";
     return `
-      <article class="recording-reference-row">
+      <article class="recording-reference-row" data-reference-preview-id="${escapeHtml(reference.app_document_id)}">
         <div>
           <span class="recording-reference-type">${escapeHtml(getReferenceTypeLabel(reference.reference_type))}</span>
           <p class="recording-reference-title">${escapeHtml(title)}</p>
@@ -933,6 +940,43 @@ function renderDetailReferences(recording) {
   if (recordingDetailReferenceType) recordingDetailReferenceType.disabled = !canEdit;
   if (recordingDetailReferenceAdd) recordingDetailReferenceAdd.disabled = !canEdit || !recordingDetailReferenceSelect?.value;
   renderReferenceList(recordingDetailReferenceList, recordingDetailReferenceEmpty, references, { canRemove: canEdit });
+  void previewReferenceDocument(references[0] || null);
+}
+
+function clearReferencePreview() {
+  if (recordingDetailReferenceFrame) recordingDetailReferenceFrame.removeAttribute("src");
+  show(recordingDetailReferencePreview, false);
+  if (detailReferencePreviewUrl) {
+    URL.revokeObjectURL(detailReferencePreviewUrl);
+    detailReferencePreviewUrl = "";
+  }
+}
+
+async function previewReferenceDocument(reference) {
+  clearReferencePreview();
+  if (!reference?.app_document_id || !recordingDetailReferencePreview || !recordingDetailReferenceFrame) return;
+  const doc = reference.app_document || getReferenceDocument(reference.app_document_id);
+  if (recordingDetailReferencePreviewType) {
+    recordingDetailReferencePreviewType.textContent = getReferenceTypeLabel(reference.reference_type);
+  }
+  if (recordingDetailReferencePreviewTitle) {
+    recordingDetailReferencePreviewTitle.textContent = doc?.title || "Referenced document";
+  }
+  if (recordingDetailReferencePreviewOpen) {
+    recordingDetailReferencePreviewOpen.href = `/n3xra-records/documents?id=${encodeURIComponent(reference.app_document_id)}`;
+  }
+  show(recordingDetailReferencePreview, true);
+  try {
+    detailReferencePreviewUrl = await createAppDocumentPdfObjectUrl({
+      config: getConfig(),
+      accessToken: currentSession?.access_token || "",
+      documentId: reference.app_document_id,
+    });
+    recordingDetailReferenceFrame.src = detailReferencePreviewUrl;
+  } catch (error) {
+    recordingDetailReferenceFrame.removeAttribute("src");
+    setStatus(recordingDetailStatusMessage, getErrorMessage(error, "Unable to preview referenced document."), "error");
+  }
 }
 
 async function reloadRecordingReferences(recordingId) {
@@ -1235,6 +1279,7 @@ async function closeRecordingDetail() {
     });
   }
   await syncDetailPlayerBackToTop();
+  clearReferencePreview();
   setRecordingDetailModalOpen(false);
   activeDetailRecordingId = "";
   setStatus(recordingDetailStatusMessage, "");
@@ -1498,8 +1543,15 @@ async function init() {
   });
   recordingDetailReferenceList?.addEventListener("click", (event) => {
     const button = event.target.closest("[data-reference-remove-id]");
-    if (!button) return;
-    void removeDetailReference(button.getAttribute("data-reference-remove-id") || "");
+    if (button) {
+      void removeDetailReference(button.getAttribute("data-reference-remove-id") || "");
+      return;
+    }
+    const row = event.target.closest("[data-reference-preview-id]");
+    if (!row) return;
+    const recording = getRecordingById(activeDetailRecordingId);
+    const reference = getRecordingReferences(recording).find((item) => item.app_document_id === row.getAttribute("data-reference-preview-id"));
+    void previewReferenceDocument(reference || null);
   });
   recordingDetailNotes?.addEventListener("input", queueRecordingDetailNotesSave);
   recordingDetailTabs.forEach((button) => {

@@ -951,6 +951,30 @@ textarea {
   cursor: pointer;
 }
 
+.recording-reference-preview {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid rgba(15, 22, 32, 0.1);
+  border-radius: 14px;
+  background: #ffffff;
+}
+
+.recording-reference-preview-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.recording-reference-frame {
+  width: 100%;
+  min-height: 520px;
+  border: 1px solid rgba(15, 22, 32, 0.1);
+  border-radius: 10px;
+  background: #f5f7fb;
+}
+
 .upload-progress {
   display: grid;
   gap: 0.45rem;
@@ -4095,6 +4119,20 @@ body:has(.confirm-modal.is-open) {
 
   .admin-template-row .actions {
     justify-content: flex-start;
+  }
+
+  .recording-reference-picker,
+  .recording-reference-preview-head,
+  .recording-reference-row {
+    grid-template-columns: 1fr;
+  }
+
+  .recording-reference-actions {
+    justify-content: flex-start;
+  }
+
+  .recording-reference-frame {
+    min-height: 420px;
   }
 
   .login-topbar-row .brand-badge-image {

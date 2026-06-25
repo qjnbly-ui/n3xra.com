@@ -1,4 +1,4 @@
-import { createBrowserSupabase, hasConfig, getSessionOrNull } from "/shared/lib/supabase-client.js";
+import { createBrowserSupabase, getConfig, hasConfig, getSessionOrNull } from "/shared/lib/supabase-client.js";
 import {
   buildMembershipMap,
   dedupeMembershipsByOrganization,
@@ -17,6 +17,7 @@ import {
   getSuggestionText,
   isSuggestionResolved,
 } from "./lib/recording-suggestions.js";
+import { createAppDocumentPdfObjectUrl } from "./lib/app-document-pdf.js";
 
 const setupPanel = document.getElementById("setup-panel");
 const recordingsPanel = document.getElementById("recordings-panel");
@@ -94,6 +95,11 @@ const recordingDetailReferenceAdd = document.getElementById("recording-detail-re
 const recordingDetailReferencePicker = document.getElementById("recording-detail-reference-picker");
 const recordingDetailReferenceList = document.getElementById("recording-detail-reference-list");
 const recordingDetailReferenceEmpty = document.getElementById("recording-detail-reference-empty");
+const recordingDetailReferencePreview = document.getElementById("recording-detail-reference-preview");
+const recordingDetailReferencePreviewType = document.getElementById("recording-detail-reference-preview-type");
+const recordingDetailReferencePreviewTitle = document.getElementById("recording-detail-reference-preview-title");
+const recordingDetailReferencePreviewOpen = document.getElementById("recording-detail-reference-preview-open");
+const recordingDetailReferenceFrame = document.getElementById("recording-detail-reference-frame");
 const recordingDetailAiDraftPreview = document.getElementById("recording-detail-ai-draft-preview");
 const recordingAiReviewPanel = document.getElementById("recording-ai-review-panel");
 const recordingAiSuggestions = document.getElementById("recording-ai-suggestions");
@@ -113,6 +119,7 @@ const recordingsConfirmOk = document.getElementById("recordings-confirm-ok");
 
 const RECORDINGS_BUCKET = "meeting-recordings";
 const RECORDER_AUDIO_BITS_PER_SECOND = 64000;
+const MAX_RECORDING_AUDIO_BYTES = 250 * 1024 * 1024;
 const BLANK_NOTES_TEMPLATE_VALUE = "__blank_notes__";
 const HANDWRITTEN_NOTE_MAX_BYTES = 3 * 1024 * 1024;
 const MIME_TYPE_CANDIDATES = [
@@ -141,6 +148,7 @@ let durationTimer = null;
 let elapsedRecordingMs = 0;
 let activeDetailRecordingId = "";
 let detailPlayerUrl = "";
+let detailReferencePreviewUrl = "";
 let isRecordingWorkflowActive = false;
 let pendingRetryUploadOpen = false;
 let isRetryUploadMode = false;
@@ -613,7 +621,7 @@ function renderReferenceList(listEl, emptyEl, references = [], options = {}) {
       ? ` <button class="recording-reference-remove" type="button" data-reference-remove-id="${escapeHtml(reference.id || reference.app_document_id)}">Remove</button>`
       : "";
     return `
-      <article class="recording-reference-row">
+      <article class="recording-reference-row" data-reference-preview-id="${escapeHtml(reference.app_document_id)}">
         <div>
           <span class="recording-reference-type">${escapeHtml(getReferenceTypeLabel(reference.reference_type))}</span>
           <p class="recording-reference-title">${escapeHtml(title)}</p>
@@ -1002,8 +1010,8 @@ function setRecordingUploadMode(isRetryMode) {
   recordingUploadKicker.textContent = isRetryMode ? "Retry upload" : "Upload audio";
   recordingUploadTitle.textContent = isRetryMode ? "Select the file again" : "Select audio file";
   recordingUploadNote.textContent = isRetryMode
-    ? "Browsers cannot keep the previous file attached. Choose the original audio file again to retry this upload."
-    : "Choose an existing audio file to attach before saving this meeting note.";
+    ? `Browsers cannot keep the previous file attached. Choose the original audio file again to retry this upload. Max ${formatBytes(MAX_RECORDING_AUDIO_BYTES)}.`
+    : `Choose an existing audio file to attach before saving this meeting note. Max ${formatBytes(MAX_RECORDING_AUDIO_BYTES)}.`;
   recordingUploadSubmit.textContent = isRetryMode ? "Retry upload" : "Attach audio";
 }
 
@@ -1022,7 +1030,7 @@ function getSelectedRecordingFile() {
 function updateSelectedFileCopy() {
   const selectedFile = getSelectedRecordingFile();
   recordingFileCopy.textContent = selectedFile
-    ? `${selectedFile.name} · ${formatBytes(selectedFile.size || 0)}`
+    ? `${selectedFile.name} · ${formatBytes(selectedFile.size || 0)}${selectedFile.size > MAX_RECORDING_AUDIO_BYTES ? ` · Over ${formatBytes(MAX_RECORDING_AUDIO_BYTES)} limit` : ""}`
     : "No file selected.";
 }
 
@@ -1552,6 +1560,43 @@ function renderDetailReferences(recording) {
   if (recordingDetailReferenceType) recordingDetailReferenceType.disabled = !canEdit;
   if (recordingDetailReferenceAdd) recordingDetailReferenceAdd.disabled = !canEdit || !recordingDetailReferenceSelect?.value;
   renderReferenceList(recordingDetailReferenceList, recordingDetailReferenceEmpty, references, { canRemove: canEdit });
+  void previewReferenceDocument(references[0] || null);
+}
+
+function clearReferencePreview() {
+  if (recordingDetailReferenceFrame) recordingDetailReferenceFrame.removeAttribute("src");
+  show(recordingDetailReferencePreview, false);
+  if (detailReferencePreviewUrl) {
+    URL.revokeObjectURL(detailReferencePreviewUrl);
+    detailReferencePreviewUrl = "";
+  }
+}
+
+async function previewReferenceDocument(reference) {
+  clearReferencePreview();
+  if (!reference?.app_document_id || !recordingDetailReferencePreview || !recordingDetailReferenceFrame) return;
+  const doc = reference.app_document || getReferenceDocument(reference.app_document_id);
+  if (recordingDetailReferencePreviewType) {
+    recordingDetailReferencePreviewType.textContent = getReferenceTypeLabel(reference.reference_type);
+  }
+  if (recordingDetailReferencePreviewTitle) {
+    recordingDetailReferencePreviewTitle.textContent = doc?.title || "Referenced document";
+  }
+  if (recordingDetailReferencePreviewOpen) {
+    recordingDetailReferencePreviewOpen.href = `/n3xra-records/documents?id=${encodeURIComponent(reference.app_document_id)}`;
+  }
+  show(recordingDetailReferencePreview, true);
+  try {
+    detailReferencePreviewUrl = await createAppDocumentPdfObjectUrl({
+      config: getConfig(),
+      accessToken: currentSession?.access_token || "",
+      documentId: reference.app_document_id,
+    });
+    recordingDetailReferenceFrame.src = detailReferencePreviewUrl;
+  } catch (error) {
+    recordingDetailReferenceFrame.removeAttribute("src");
+    setStatus(recordingDetailStatusMessage, getErrorMessage(error, "Unable to preview referenced document."), "error");
+  }
 }
 
 async function saveReferencesForRecording(recordingId, references = []) {
@@ -1719,6 +1764,7 @@ function closeRecordingDetail() {
     });
   }
   clearDetailPlayer();
+  clearReferencePreview();
   setRecordingDetailModalOpen(false);
   activeDetailRecordingId = "";
   setStatus(recordingDetailStatusMessage, "");
@@ -2143,6 +2189,13 @@ async function handleSaveStoppedRecording() {
   const mimeType = blob.type || activeRecordingMimeType || "audio/webm";
   const durationSeconds = pendingRecordedDurationSeconds;
 
+  if (blob.size > MAX_RECORDING_AUDIO_BYTES) {
+    setRecorderState("Stopped", "The recording is still available, but it is too large to transcribe.");
+    uploadStateValue.textContent = "Too large";
+    setStatus(recordingStatus, `This recording is larger than the ${formatBytes(MAX_RECORDING_AUDIO_BYTES)} transcription limit.`, "error");
+    return;
+  }
+
   isRecordingWorkflowActive = true;
   updateControls();
   try {
@@ -2426,6 +2479,10 @@ async function handleUploadRecording() {
     setStatus(recordingUploadStatus, "Choose an audio file to upload.", "error");
     return;
   }
+  if (file.size > MAX_RECORDING_AUDIO_BYTES) {
+    setStatus(recordingUploadStatus, `This audio file is larger than the ${formatBytes(MAX_RECORDING_AUDIO_BYTES)} transcription limit.`, "error");
+    return;
+  }
 
   const title = buildUploadTitle(file);
   recordingUploadSubmit.disabled = true;
@@ -2590,8 +2647,15 @@ async function init() {
   });
   recordingDetailReferenceList?.addEventListener("click", (event) => {
     const button = event.target.closest("[data-reference-remove-id]");
-    if (!button) return;
-    void removeDetailReference(button.getAttribute("data-reference-remove-id") || "");
+    if (button) {
+      void removeDetailReference(button.getAttribute("data-reference-remove-id") || "");
+      return;
+    }
+    const row = event.target.closest("[data-reference-preview-id]");
+    if (!row) return;
+    const recording = getRecordingById(activeDetailRecordingId);
+    const reference = getRecordingReferences(recording).find((item) => item.app_document_id === row.getAttribute("data-reference-preview-id"));
+    void previewReferenceDocument(reference || null);
   });
   recordingTitleInput.addEventListener("input", updateControls);
   recordingNotesInput.addEventListener("input", queueActiveRecordingNotesSave);

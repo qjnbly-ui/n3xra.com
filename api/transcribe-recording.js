@@ -15,7 +15,11 @@ const GROQ_TRANSCRIPTION_MODEL = String(process.env.GROQ_RECORDS_TRANSCRIPTION_M
 const GROQ_LARGE_TRANSCRIPTION_MODEL = String(process.env.GROQ_RECORDS_LARGE_TRANSCRIPTION_MODEL || "whisper-large-v3").trim();
 const RECORDINGS_BUCKET = "meeting-recordings";
 const DOCUMENTS_BUCKET = "documents";
-const MAX_AUDIO_BYTES = 100 * 1024 * 1024;
+const DEFAULT_MAX_AUDIO_BYTES = 250 * 1024 * 1024;
+const MAX_AUDIO_BYTES = Math.max(
+  1,
+  Number(process.env.RECORDS_MAX_TRANSCRIPTION_AUDIO_BYTES || DEFAULT_MAX_AUDIO_BYTES) || DEFAULT_MAX_AUDIO_BYTES
+);
 const GROQ_MEDIA_LIMIT_BYTES = 25 * 1024 * 1024;
 const DIRECT_TRANSCRIPTION_MAX_BYTES = Math.min(
   MAX_AUDIO_BYTES,
@@ -267,7 +271,7 @@ async function downloadRecordingAudio(recording) {
   }
   const arrayBuffer = await response.arrayBuffer();
   if (arrayBuffer.byteLength > MAX_AUDIO_BYTES) {
-    throw new Error("This audio file is larger than the transcription limit.");
+    throw new Error(`This audio file is larger than the ${formatBytes(MAX_AUDIO_BYTES)} transcription limit.`);
   }
   return arrayBuffer;
 }
@@ -289,6 +293,20 @@ function isGroqMediaLimitError(error) {
     message.includes("size limit") ||
     message.includes("active transcription size limit")
   );
+}
+
+function formatBytes(bytes) {
+  const size = Number(bytes || 0);
+  if (!Number.isFinite(size) || size <= 0) return "0 bytes";
+  const units = ["bytes", "KB", "MB", "GB"];
+  let value = size;
+  let unitIndex = 0;
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex += 1;
+  }
+  const decimals = value >= 10 || unitIndex === 0 ? 0 : 1;
+  return `${value.toFixed(decimals)} ${units[unitIndex]}`;
 }
 
 async function createRecordingSignedUrl(recording) {
@@ -409,7 +427,7 @@ async function transcribeSegmentedAudio(arrayBuffer, recording, model = GROQ_LAR
 async function transcribeRecordingAudio(recording) {
   const recordedSize = Number(recording?.file_size || 0);
   if (recordedSize > MAX_AUDIO_BYTES) {
-    throw new Error("This audio file is larger than the transcription limit.");
+    throw new Error(`This audio file is larger than the ${formatBytes(MAX_AUDIO_BYTES)} transcription limit.`);
   }
 
   const audio = await downloadRecordingAudio(recording);
@@ -573,5 +591,5 @@ async function handler(req, res) {
 
 module.exports = handler;
 module.exports.config = {
-  maxDuration: 60,
+  maxDuration: 300,
 };
