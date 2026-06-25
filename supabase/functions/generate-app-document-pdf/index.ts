@@ -536,6 +536,18 @@ async function buildPdf(options: {
   return await pdf.save();
 }
 
+async function mergePdfPacket(pdfByteSets: Uint8Array[]) {
+  if (pdfByteSets.length <= 1) return pdfByteSets[0] || new Uint8Array();
+
+  const mergedPdf = await PDFDocument.create();
+  for (const pdfBytes of pdfByteSets) {
+    const sourcePdf = await PDFDocument.load(pdfBytes);
+    const sourcePages = await mergedPdf.copyPages(sourcePdf, sourcePdf.getPageIndices());
+    sourcePages.forEach((page) => mergedPdf.addPage(page));
+  }
+  return await mergedPdf.save();
+}
+
 Deno.serve(async (request) => {
   if (request.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -557,12 +569,13 @@ Deno.serve(async (request) => {
     const isSharedDocumentRequest = Boolean(sharedDocumentToken);
     if (!documentId && !isSharedDocumentRequest) return jsonResponse({ error: "documentId is required." }, 400);
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
+    let sharedReferenceDocumentIds: string[] = [];
 
     if (isSharedDocumentRequest) {
       const tokenHash = await hashShareToken(sharedDocumentToken);
       const { data: shareLink, error: shareError } = await adminClient
         .from("document_share_links")
-        .select("id, document_id")
+        .select("id, document_id, reference_document_ids")
         .eq("token_hash", tokenHash)
         .maybeSingle();
 
@@ -571,6 +584,13 @@ Deno.serve(async (request) => {
       }
 
       documentId = shareLink.document_id;
+      sharedReferenceDocumentIds = Array.isArray(shareLink.reference_document_ids)
+        ? Array.from(new Set(
+          shareLink.reference_document_ids
+            .map((item: unknown) => String(item || "").trim())
+            .filter((item: string) => isUuid(item))
+        ))
+        : [];
 
       await adminClient
         .from("document_share_links")
@@ -658,12 +678,85 @@ Deno.serve(async (request) => {
       }
     }
 
-    const pdfBytes = await buildPdf({
-      title: textValue(document.title) || "Untitled document",
+    let packetDocuments = [document];
+    if (isSharedDocumentRequest && sharedReferenceDocumentIds.length) {
+      const { data: linkedRecording } = await adminClient
+        .from("meeting_recordings")
+        .select("id")
+        .or(`final_document_id.eq.${documentId},ai_draft_document_id.eq.${documentId}`)
+        .maybeSingle();
+
+      if (!linkedRecording?.id) {
+        return jsonResponse({ error: "Referenced shared packet is no longer linked to these minutes." }, 404);
+      }
+
+      const { data: linkedReferences, error: linkedReferencesError } = await adminClient
+        .from("meeting_recording_references")
+        .select("app_document_id, reference_type, sort_order")
+        .eq("meeting_recording_id", linkedRecording.id)
+        .in("app_document_id", sharedReferenceDocumentIds);
+
+      if (linkedReferencesError) return jsonResponse({ error: linkedReferencesError.message }, 400);
+
+      const allowedReferenceIds = new Set((linkedReferences || [])
+        .map((item: { app_document_id?: string | null }) => item.app_document_id)
+        .filter(Boolean));
+      if (sharedReferenceDocumentIds.some((referenceId) => !allowedReferenceIds.has(referenceId))) {
+        return jsonResponse({ error: "Referenced shared packet is no longer available." }, 404);
+      }
+
+      const orderedReferenceRows = (linkedReferences || [])
+        .filter((item: { app_document_id?: string | null }) => item.app_document_id && allowedReferenceIds.has(item.app_document_id))
+        .sort((a: { reference_type?: string | null; sort_order?: number | null }, b: { reference_type?: string | null; sort_order?: number | null }) => {
+          const aTypeOrder = a.reference_type === "agenda" ? 0 : 2;
+          const bTypeOrder = b.reference_type === "agenda" ? 0 : 2;
+          return aTypeOrder - bTypeOrder || Number(a.sort_order || 0) - Number(b.sort_order || 0);
+        });
+      const orderedReferenceIds = orderedReferenceRows
+        .map((item: { app_document_id?: string | null }) => item.app_document_id)
+        .filter(Boolean) as string[];
+
+      const { data: referenceDocuments, error: referenceDocumentsError } = await adminClient
+        .from("app_documents")
+        .select("id, organization_id, title, content_json, plain_text, document_kind")
+        .in("id", orderedReferenceIds);
+
+      if (referenceDocumentsError) return jsonResponse({ error: referenceDocumentsError.message }, 400);
+
+      const referencesById = new Map((referenceDocuments || []).map((item: {
+        id: string;
+        organization_id: string;
+        title?: string | null;
+        content_json?: unknown;
+        plain_text?: string | null;
+        document_kind?: string | null;
+      }) => [item.id, item]));
+      const agendaDocuments: any[] = [];
+      const supportingDocuments: any[] = [];
+
+      for (const referenceRow of orderedReferenceRows) {
+        const referenceId = String(referenceRow.app_document_id || "");
+        const referenceDocument = referencesById.get(referenceId);
+        if (!referenceDocument || referenceDocument.organization_id !== document.organization_id || referenceDocument.document_kind === "template") {
+          return jsonResponse({ error: "Referenced shared packet is no longer available." }, 404);
+        }
+        if (referenceRow.reference_type === "agenda") {
+          agendaDocuments.push(referenceDocument);
+        } else {
+          supportingDocuments.push(referenceDocument);
+        }
+      }
+
+      packetDocuments = [...agendaDocuments, document, ...supportingDocuments];
+    }
+
+    const packetPdfBytes = await Promise.all(packetDocuments.map((packetDocument: any) => buildPdf({
+      title: textValue(packetDocument.title) || "Untitled document",
       organizationName: textValue(organization?.name) || "N3XRA Records",
-      contentJson: document.content_json,
-      plainText: String(document.plain_text || ""),
-    });
+      contentJson: packetDocument.content_json,
+      plainText: String(packetDocument.plain_text || ""),
+    })));
+    const pdfBytes = await mergePdfPacket(packetPdfBytes);
     const filename = `${cleanFilename(document.title)}.pdf`;
     const disposition = payload.disposition === "inline" ? "inline" : "attachment";
 

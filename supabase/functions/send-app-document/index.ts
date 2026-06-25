@@ -258,7 +258,8 @@ Deno.serve(async (request) => {
 
     let attachments: Array<{ filename: string; content: string }> = [];
     const documentTitle = textValue(document.title) || "Untitled document";
-    if (attachPdf) {
+
+    async function appendPdfAttachment(targetDocumentId: string, targetTitle: string, fallbackError: string) {
       const pdfResponse = await fetch(`${supabaseUrl}/functions/v1/generate-app-document-pdf`, {
         method: "POST",
         headers: {
@@ -266,19 +267,21 @@ Deno.serve(async (request) => {
           Authorization: authHeader,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ documentId }),
+        body: JSON.stringify({ documentId: targetDocumentId }),
       });
       if (!pdfResponse.ok) {
         const errorPayload = await pdfResponse.json().catch(() => ({}));
-        return jsonResponse({ error: String(errorPayload?.error || "PDF generation failed.") }, 400);
+        return String(errorPayload?.error || fallbackError);
       }
       const pdfBytes = new Uint8Array(await pdfResponse.arrayBuffer());
-      attachments = [{
-        filename: `${cleanFilename(documentTitle)}.pdf`,
+      attachments.push({
+        filename: `${cleanFilename(targetTitle)}.pdf`,
         content: bytesToBase64(pdfBytes),
-      }];
+      });
+      return "";
     }
 
+    let orderedReferenceIds: string[] = [];
     if (referenceDocumentIds.length) {
       const { data: linkedRecording } = await adminClient
         .from("meeting_recordings")
@@ -292,7 +295,7 @@ Deno.serve(async (request) => {
 
       const { data: linkedReferences, error: linkedReferencesError } = await adminClient
         .from("meeting_recording_references")
-        .select("app_document_id")
+        .select("app_document_id, reference_type, sort_order")
         .eq("meeting_recording_id", linkedRecording.id)
         .in("app_document_id", referenceDocumentIds);
 
@@ -304,6 +307,17 @@ Deno.serve(async (request) => {
       if (referenceDocumentIds.some((referenceId) => !allowedReferenceIds.has(referenceId))) {
         return jsonResponse({ error: "One or more referenced attachments are not linked to these minutes." }, 400);
       }
+
+      const orderedReferenceRows = (linkedReferences || [])
+        .filter((item: { app_document_id?: string | null }) => item.app_document_id && allowedReferenceIds.has(item.app_document_id))
+        .sort((a: { reference_type?: string | null; sort_order?: number | null }, b: { reference_type?: string | null; sort_order?: number | null }) => {
+          const aTypeOrder = a.reference_type === "agenda" ? 0 : 2;
+          const bTypeOrder = b.reference_type === "agenda" ? 0 : 2;
+          return aTypeOrder - bTypeOrder || Number(a.sort_order || 0) - Number(b.sort_order || 0);
+        });
+      orderedReferenceIds = orderedReferenceRows
+        .map((item: { app_document_id?: string | null }) => item.app_document_id)
+        .filter(Boolean) as string[];
 
       const { data: referenceDocuments, error: referenceError } = await adminClient
         .from("app_documents")
@@ -319,31 +333,39 @@ Deno.serve(async (request) => {
         document_kind?: string | null;
       }) => [item.id, item]));
 
-      for (const referenceId of referenceDocumentIds) {
+      const agendaReferenceIds = orderedReferenceRows
+        .filter((item: { reference_type?: string | null }) => item.reference_type === "agenda")
+        .map((item: { app_document_id?: string | null }) => item.app_document_id)
+        .filter(Boolean) as string[];
+      const supportingReferenceIds = orderedReferenceRows
+        .filter((item: { reference_type?: string | null }) => item.reference_type !== "agenda")
+        .map((item: { app_document_id?: string | null }) => item.app_document_id)
+        .filter(Boolean) as string[];
+
+      for (const referenceId of [...agendaReferenceIds, ...supportingReferenceIds]) {
         const referenceDocument = referencesById.get(referenceId);
         if (!referenceDocument || referenceDocument.organization_id !== document.organization_id || referenceDocument.document_kind === "template") {
           return jsonResponse({ error: "Referenced document is not available for this library." }, 400);
         }
-
-        const pdfResponse = await fetch(`${supabaseUrl}/functions/v1/generate-app-document-pdf`, {
-          method: "POST",
-          headers: {
-            apikey: anonKey,
-            Authorization: authHeader,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ documentId: referenceId }),
-        });
-        if (!pdfResponse.ok) {
-          const errorPayload = await pdfResponse.json().catch(() => ({}));
-          return jsonResponse({ error: String(errorPayload?.error || "Referenced PDF generation failed.") }, 400);
-        }
-        const pdfBytes = new Uint8Array(await pdfResponse.arrayBuffer());
-        attachments.push({
-          filename: `${cleanFilename(textValue(referenceDocument.title) || "reference")}.pdf`,
-          content: bytesToBase64(pdfBytes),
-        });
       }
+
+      for (const referenceId of agendaReferenceIds) {
+        const referenceDocument = referencesById.get(referenceId);
+        const pdfError = await appendPdfAttachment(referenceId, textValue(referenceDocument?.title) || "agenda", "Referenced PDF generation failed.");
+        if (pdfError) return jsonResponse({ error: pdfError }, 400);
+      }
+      if (attachPdf) {
+        const pdfError = await appendPdfAttachment(documentId, documentTitle, "PDF generation failed.");
+        if (pdfError) return jsonResponse({ error: pdfError }, 400);
+      }
+      for (const referenceId of supportingReferenceIds) {
+        const referenceDocument = referencesById.get(referenceId);
+        const pdfError = await appendPdfAttachment(referenceId, textValue(referenceDocument?.title) || "reference", "Referenced PDF generation failed.");
+        if (pdfError) return jsonResponse({ error: pdfError }, 400);
+      }
+    } else if (attachPdf) {
+      const pdfError = await appendPdfAttachment(documentId, documentTitle, "PDF generation failed.");
+      if (pdfError) return jsonResponse({ error: pdfError }, 400);
     }
 
     const senderName = textValue(profile?.full_name) || textValue(user.email) || "N3XRA Records";
@@ -358,6 +380,7 @@ Deno.serve(async (request) => {
           organization_id: document.organization_id,
           created_by_user_id: user.id,
           token_hash: await hashShareToken(shareToken),
+          reference_document_ids: orderedReferenceIds,
           label: `Email sent ${new Date().toISOString()}`,
         });
 

@@ -2419,6 +2419,42 @@ textarea {
   align-content: start;
 }
 
+.files-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+  padding: 0.32rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: #fff;
+}
+
+.files-filter-btn {
+  border: 1px solid transparent;
+  border-radius: calc(var(--radius-md) - 2px);
+  background: transparent;
+  color: var(--slate);
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 700;
+  padding: 0.48rem 0.72rem;
+  cursor: pointer;
+}
+
+.files-filter-btn:hover,
+.files-filter-btn:focus-visible {
+  color: var(--ink);
+  background: rgba(23, 111, 102, 0.08);
+  outline: none;
+}
+
+.files-filter-btn.is-active {
+  border-color: rgba(23, 111, 102, 0.2);
+  background: rgba(23, 111, 102, 0.12);
+  color: var(--teal);
+}
+
 .doc-card {
   border: 1px solid var(--line);
   border-radius: var(--radius-md);

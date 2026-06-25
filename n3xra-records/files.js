@@ -37,6 +37,7 @@ const filesActionsGrid = document.getElementById("files-actions-grid");
 const filesUploadActionSlot = document.getElementById("files-upload-action-slot");
 const filesOpenUploadModalButton = document.getElementById("files-open-upload-modal");
 const filesRecordingsLink = document.getElementById("files-recordings-link");
+const filesFilterBar = document.getElementById("files-filter-bar");
 const fileList = document.getElementById("file-list");
 const fileEmpty = document.getElementById("file-empty");
 const fileStatus = document.getElementById("file-status");
@@ -93,12 +94,16 @@ let currentSession = null;
 let memberships = [];
 let activeMembership = null;
 let documentsCache = [];
+let uploadedDocumentsCache = [];
+let referenceDocumentsCache = [];
 let pendingDeleteId = null;
 let activeModalDocumentId = null;
+let activeModalDocumentType = "uploaded";
 let pendingEditId = null;
 let activeModalObjectUrl = "";
 let editableDocumentsBySourceId = new Map();
 let uploadMode = "single";
+let fileTypeFilter = "all";
 let pdfJsLibraryPromise = null;
 let pendingDeleteAssociations = {
   documentId: "",
@@ -602,6 +607,23 @@ function sortDocumentsNewestToOldest(docs) {
   });
 }
 
+function getDocumentCreatedAtScore(doc) {
+  return new Date(doc?.created_at || doc?.updated_at || 0).getTime();
+}
+
+function sortFileRowsNewestToOldest(rows) {
+  return [...rows].sort((a, b) => {
+    const aDateScore = getDocumentDateScore(a);
+    const bDateScore = getDocumentDateScore(b);
+    if (aDateScore !== bDateScore) {
+      if (aDateScore === null) return 1;
+      if (bDateScore === null) return -1;
+      return bDateScore - aDateScore;
+    }
+    return getDocumentCreatedAtScore(b) - getDocumentCreatedAtScore(a);
+  });
+}
+
 function getActiveOrganization() {
   return activeMembership?.organization || null;
 }
@@ -631,6 +653,24 @@ async function getFreshAccessToken() {
 
 function getEditableDocumentForSource(sourceDocumentId) {
   return editableDocumentsBySourceId.get(sourceDocumentId) || null;
+}
+
+function getFileRowById(id) {
+  return documentsCache.find((item) => item.id === id) || null;
+}
+
+function getUploadedDocumentById(id) {
+  return uploadedDocumentsCache.find((item) => item.id === id) || null;
+}
+
+function isReferenceFileRow(doc) {
+  return doc?.record_type === "agenda" || doc?.record_type === "supporting_document";
+}
+
+function getReferenceTypeLabel(type) {
+  if (type === "agenda") return "Agenda";
+  if (type === "supporting_document") return "Supporting document";
+  return "Document";
 }
 
 function isMissingAppDocumentsSchemaError(error) {
@@ -742,6 +782,8 @@ async function loadDocuments() {
   const organization = getActiveOrganization();
   if (!organization) {
     documentsCache = [];
+    uploadedDocumentsCache = [];
+    referenceDocumentsCache = [];
     editableDocumentsBySourceId = new Map();
     documentCount.textContent = "0";
     fileList.innerHTML = "";
@@ -773,21 +815,81 @@ async function loadDocuments() {
     return;
   }
 
-  documentsCache = sortDocumentsNewestToOldest(Array.isArray(data) ? data : []);
+  uploadedDocumentsCache = sortDocumentsNewestToOldest(Array.isArray(data) ? data : [])
+    .map((doc) => ({ ...doc, record_type: "uploaded" }));
+  referenceDocumentsCache = await loadReferencedAppDocuments(organization.id);
+  documentsCache = sortFileRowsNewestToOldest([...uploadedDocumentsCache, ...referenceDocumentsCache]);
   await loadEditableDocumentMap(organization.id);
   documentCount.textContent = String(documentsCache.length);
   renderFiles();
-  setStatus(fileStatus, `${documentsCache.length} file${documentsCache.length === 1 ? "" : "s"} loaded.`, "success");
+  setStatus(fileStatus, `${documentsCache.length} item${documentsCache.length === 1 ? "" : "s"} loaded.`, "success");
+}
+
+async function loadReferencedAppDocuments(organizationId) {
+  const { data, error } = await supabase
+    .from("meeting_recording_references")
+    .select(`
+      app_document_id,
+      reference_type,
+      sort_order,
+      created_at,
+      app_document:app_documents(
+        id,
+        organization_id,
+        title,
+        document_kind,
+        status,
+        source_document_id,
+        updated_at,
+        created_at
+      )
+    `)
+    .order("reference_type", { ascending: true })
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    const message = String(error.message || "").toLowerCase();
+    if (message.includes("meeting_recording_references") && (message.includes("does not exist") || message.includes("schema cache"))) {
+      return [];
+    }
+    throw error;
+  }
+
+  const byDocumentId = new Map();
+  (Array.isArray(data) ? data : []).forEach((row) => {
+    const appDocument = Array.isArray(row.app_document) ? row.app_document[0] : row.app_document;
+    if (!appDocument || appDocument.organization_id !== organizationId || appDocument.document_kind === "template") return;
+    const existing = byDocumentId.get(appDocument.id);
+    const nextType = row.reference_type === "agenda" ? "agenda" : "supporting_document";
+    const referenceType = existing?.record_type === "agenda" || nextType === "agenda" ? "agenda" : "supporting_document";
+    byDocumentId.set(appDocument.id, {
+      id: appDocument.id,
+      title: appDocument.title || "Untitled document",
+      original_filename: getAppDocumentPdfFilename(appDocument),
+      year: "",
+      month: "",
+      is_public: false,
+      status: appDocument.status || "draft",
+      created_at: appDocument.created_at || row.created_at,
+      updated_at: appDocument.updated_at || appDocument.created_at || row.created_at,
+      source_document_id: appDocument.source_document_id || null,
+      record_type: referenceType,
+    });
+  });
+
+  return Array.from(byDocumentId.values());
 }
 
 async function openLinkedDocumentFromUrl() {
   const documentId = consumeLinkedDocumentId();
   if (!documentId) return;
-  if (!documentsCache.some((doc) => doc.id === documentId)) {
+  const doc = getFileRowById(documentId);
+  if (!doc) {
     setStatus(fileStatus, "That transcript file was not found in the active library.", "error");
     return;
   }
-  await openFile(documentId, "source");
+  await openFile(documentId, doc.record_type === "uploaded" ? "source" : "auto");
 }
 
 async function loadEditableDocumentMap(organizationId) {
@@ -814,16 +916,25 @@ async function loadEditableDocumentMap(organizationId) {
 
 function renderFiles() {
   fileList.innerHTML = "";
-  show(fileEmpty, documentsCache.length === 0);
+  const visibleDocuments = documentsCache.filter((doc) => {
+    if (fileTypeFilter === "all") return true;
+    return doc.record_type === fileTypeFilter;
+  });
+  show(fileEmpty, visibleDocuments.length === 0);
 
-  documentsCache.forEach((doc) => {
+  visibleDocuments.forEach((doc) => {
     const capabilities = getActiveCapabilities();
-    const editableDoc = getEditableDocumentForSource(doc.id);
-    const displayDoc = editableDoc
+    const isReference = isReferenceFileRow(doc);
+    const editableDoc = isReference ? doc : getEditableDocumentForSource(doc.id);
+    const displayDoc = editableDoc && !isReference
       ? { ...doc, title: editableDoc.title || doc.title, original_filename: getAppDocumentPdfFilename(editableDoc) }
       : doc;
     const actionButtons = [];
-    if (capabilities.canEditDocuments) {
+    if (isReference) {
+      actionButtons.push(`<button class="btn secondary" type="button" data-action="open-preview" data-id="${doc.id}">Open</button>`);
+      actionButtons.push(`<button class="btn secondary" type="button" data-action="open-builder" data-id="${doc.id}">${capabilities.canEditDocuments ? "Edit" : "Document Builder"}</button>`);
+      actionButtons.push(`<button class="btn secondary" type="button" data-action="download" data-id="${doc.id}">Download PDF</button>`);
+    } else if (capabilities.canEditDocuments) {
       actionButtons.push(`<button class="btn secondary" type="button" data-action="edit" data-id="${doc.id}">Edit details</button>`);
       actionButtons.push(
         editableDoc
@@ -831,18 +942,18 @@ function renderFiles() {
           : `<button class="btn secondary" type="button" data-action="make-editable" data-id="${doc.id}">Edit</button>`
       );
     }
-    if (capabilities.canDownloadDocuments) {
+    if (!isReference && capabilities.canDownloadDocuments) {
       actionButtons.push(`<button class="btn secondary" type="button" data-action="download" data-id="${doc.id}">Download</button>`);
     }
-    if (capabilities.canShareDocuments) {
+    if (!isReference && capabilities.canShareDocuments) {
       actionButtons.push(`<button class="btn secondary" type="button" data-action="share" data-id="${doc.id}">Share</button>`);
     }
-    if (capabilities.canEditDocuments) {
+    if (!isReference && capabilities.canEditDocuments) {
       actionButtons.push(
         `<button class="btn secondary" type="button" data-action="toggle-public" data-id="${doc.id}">${doc.is_public ? "Make private" : "Make public"}</button>`
       );
     }
-    if (capabilities.canDeleteDocuments) {
+    if (!isReference && capabilities.canDeleteDocuments) {
       actionButtons.push(`<button class="btn warn" type="button" data-action="delete" data-id="${doc.id}">Delete</button>`);
     }
     const item = document.createElement("article");
@@ -854,7 +965,7 @@ function renderFiles() {
     item.innerHTML = `
       <div class="file-row-main">
         <p class="download-name">${escapeHtml(getDocumentDisplayTitle(displayDoc))}</p>
-        <p class="download-meta">${escapeHtml(buildDocumentMetadata(doc, { includeVisibility: true, includeCreatedAt: false }))}</p>
+        <p class="download-meta">${escapeHtml(buildFileRowMetadata(doc))}</p>
       </div>
       <div class="file-row-controls">
         <button class="btn secondary file-row-menu-toggle" type="button" data-menu-toggle data-id="${doc.id}" aria-expanded="false" aria-controls="${actionMenuId}">Action</button>
@@ -867,8 +978,17 @@ function renderFiles() {
   });
 }
 
+function buildFileRowMetadata(doc) {
+  if (isReferenceFileRow(doc)) {
+    const parts = [getReferenceTypeLabel(doc.record_type)];
+    if (doc.status) parts.push(cleanWhitespace(doc.status).replaceAll("_", " "));
+    return parts.join(" · ");
+  }
+  return buildDocumentMetadata(doc, { includeVisibility: true, includeCreatedAt: false });
+}
+
 async function createSignedUrlForDocument(documentId) {
-  const doc = documentsCache.find((item) => item.id === documentId);
+  const doc = getUploadedDocumentById(documentId);
   if (!doc) return null;
 
   const { data, error } = await supabase.storage.from("documents").createSignedUrl(doc.storage_path, 60 * 60);
@@ -881,7 +1001,7 @@ async function createSignedUrlForDocument(documentId) {
 }
 
 async function createDownloadSignedUrlForDocument(documentId) {
-  const doc = documentsCache.find((item) => item.id === documentId);
+  const doc = getUploadedDocumentById(documentId);
   if (!doc) return null;
 
   const downloadName = getDownloadFilename(doc);
@@ -906,6 +1026,7 @@ async function openSourceFilePreview(documentId) {
   const editableDoc = getEditableDocumentForSource(documentId);
 
   activeModalDocumentId = documentId;
+  activeModalDocumentType = "uploaded";
   revokeActiveModalObjectUrl();
   openFilePreviewModal(
     {
@@ -935,11 +1056,12 @@ async function openSourceFilePreview(documentId) {
 }
 
 async function openEditableFilePreview(documentId, editableDoc) {
-  const sourceDoc = documentsCache.find((item) => item.id === documentId);
+  const sourceDoc = getUploadedDocumentById(documentId);
   if (!sourceDoc || !editableDoc) return false;
   const capabilities = getActiveCapabilities();
 
   activeModalDocumentId = documentId;
+  activeModalDocumentType = "uploaded";
   setStatus(fileStatus, "Generating PDF preview...");
 
   try {
@@ -983,7 +1105,62 @@ async function openEditableFilePreview(documentId, editableDoc) {
   }
 }
 
+async function openReferenceDocumentPreview(documentId) {
+  const doc = referenceDocumentsCache.find((item) => item.id === documentId);
+  if (!doc) return false;
+  const capabilities = getActiveCapabilities();
+
+  activeModalDocumentId = documentId;
+  activeModalDocumentType = doc.record_type;
+  setStatus(fileStatus, "Generating PDF preview...");
+
+  try {
+    const objectUrl = await createAppDocumentPdfObjectUrl({
+      config: getConfig(),
+      accessToken: await getFreshAccessToken(),
+      documentId: doc.id,
+    });
+    revokeActiveModalObjectUrl();
+    activeModalObjectUrl = objectUrl;
+    openFilePreviewModal(
+      {
+        modal: fileModal,
+        title: fileModalTitle,
+        frame: fileModalFrame,
+        downloadLink: fileModalDownload,
+      },
+      {
+        doc: {
+          title: doc.title || "Untitled document",
+          original_filename: getAppDocumentPdfFilename(doc),
+        },
+        previewUrl: objectUrl,
+        fallbackUrl: objectUrl,
+        downloadUrl: objectUrl,
+      }
+    );
+    fileModalDownload.textContent = "Download PDF";
+    show(fileModalShare, false);
+    show(fileModalOpenEditable, true);
+    fileModalOpenEditable.href = `./documents?id=${encodeURIComponent(doc.id)}`;
+    fileModalOpenEditable.textContent = capabilities.canEditDocuments ? "Edit" : "Open";
+    show(fileModalOriginal, false);
+    show(fileModalEdit, false);
+    show(fileModalDelete, false);
+    setStatus(fileStatus, "");
+    return true;
+  } catch (error) {
+    setStatus(fileStatus, error?.message || "Unable to generate document preview.", "error");
+    return false;
+  }
+}
+
 async function openFile(documentId, preferredView = "auto") {
+  const row = getFileRowById(documentId);
+  if (isReferenceFileRow(row)) {
+    await openReferenceDocumentPreview(documentId);
+    return;
+  }
   const editableDoc = getEditableDocumentForSource(documentId);
   if (editableDoc && preferredView !== "source") {
     const opened = await openEditableFilePreview(documentId, editableDoc);
@@ -993,6 +1170,29 @@ async function openFile(documentId, preferredView = "auto") {
 }
 
 async function downloadFile(documentId) {
+  const row = getFileRowById(documentId);
+  if (isReferenceFileRow(row)) {
+    let objectUrl = "";
+    try {
+      objectUrl = await createAppDocumentPdfObjectUrl({
+        config: getConfig(),
+        accessToken: await getFreshAccessToken(),
+        documentId,
+      });
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.download = getAppDocumentPdfFilename(row);
+      document.body.append(link);
+      link.click();
+      link.remove();
+    } catch (error) {
+      setStatus(fileStatus, error?.message || "Unable to download PDF.", "error");
+    } finally {
+      if (objectUrl) window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+    }
+    return;
+  }
+
   const signed = await createDownloadSignedUrlForDocument(documentId);
   if (!signed) return;
   const { doc, signedUrl } = signed;
@@ -1011,6 +1211,7 @@ function closeFileModal() {
   closeFilePreviewModal({ modal: fileModal, frame: fileModalFrame });
   revokeActiveModalObjectUrl();
   activeModalDocumentId = null;
+  activeModalDocumentType = "uploaded";
 }
 
 function openFileEditModal(documentId) {
@@ -1018,7 +1219,7 @@ function openFileEditModal(documentId) {
     setStatus(fileStatus, "You do not have permission to edit this file.", "error");
     return;
   }
-  const doc = documentsCache.find((item) => item.id === documentId);
+  const doc = getUploadedDocumentById(documentId);
   if (!doc) return;
   pendingEditId = documentId;
   fileEditTitle.value = doc.title || doc.original_filename || "";
@@ -1049,7 +1250,7 @@ async function saveFileEdit(event) {
     return;
   }
 
-  const doc = documentsCache.find((item) => item.id === pendingEditId);
+  const doc = getUploadedDocumentById(pendingEditId);
   if (!doc) return;
 
   fileEditSave.disabled = true;
@@ -1084,7 +1285,7 @@ async function openDeleteConfirm(documentId) {
     setStatus(fileStatus, "You do not have permission to delete files in this library.", "error");
     return;
   }
-  const doc = documentsCache.find((item) => item.id === documentId);
+  const doc = getUploadedDocumentById(documentId);
   if (!doc) return;
 
   pendingDeleteId = documentId;
@@ -1159,7 +1360,7 @@ async function deleteAssociatedFileData(documentId) {
 }
 
 async function deleteFile(documentId, options = {}) {
-  const doc = documentsCache.find((item) => item.id === documentId);
+  const doc = getUploadedDocumentById(documentId);
   if (!doc) return;
   if (!getActiveCapabilities().canDeleteDocuments) {
     setStatus(fileStatus, "You do not have permission to delete files in this library.", "error");
@@ -1207,7 +1408,7 @@ async function deleteFile(documentId, options = {}) {
 }
 
 async function togglePublic(documentId) {
-  const doc = documentsCache.find((item) => item.id === documentId);
+  const doc = getUploadedDocumentById(documentId);
   if (!doc) return;
   if (!getActiveCapabilities().canEditDocuments) {
     setStatus(fileStatus, "You do not have permission to change file visibility.", "error");
@@ -1699,7 +1900,7 @@ async function uploadDocument(event) {
     return;
   }
 
-  if (documentsCache.length >= getDocumentLimit()) {
+  if (uploadedDocumentsCache.length >= getDocumentLimit()) {
     setStatus(uploadStatus, `This ${formatPlanName(organization.subscription_tier)} plan is limited to ${getDocumentLimit()} documents.`, "error");
     return;
   }
@@ -1711,7 +1912,7 @@ async function uploadDocument(event) {
     return;
   }
 
-  const remainingSlots = Math.max(getDocumentLimit() - documentsCache.length, 0);
+  const remainingSlots = Math.max(getDocumentLimit() - uploadedDocumentsCache.length, 0);
   const files = selectedFiles.slice(0, remainingSlots);
   const skippedForLimit = Math.max(selectedFiles.length - files.length, 0);
   if (skippedForLimit > 0) {
@@ -1867,6 +2068,7 @@ async function handleFileAction(event) {
     if (action === "delete") void openDeleteConfirm(id);
     if (action === "toggle-public") await togglePublic(id);
     if (action === "make-editable") await makeFileEditable(id);
+    if (action === "open-builder") window.location.href = `./documents?id=${encodeURIComponent(id)}`;
     return;
   }
 
@@ -1885,6 +2087,14 @@ async function handleOrganizationChange() {
   setStoredActiveOrganizationId(nextOrganizationId);
   renderOrganizationSelector();
   await loadDocuments();
+}
+
+function setFileTypeFilter(nextFilter) {
+  fileTypeFilter = ["all", "uploaded", "agenda", "supporting_document"].includes(nextFilter) ? nextFilter : "all";
+  filesFilterBar?.querySelectorAll("[data-file-filter]").forEach((button) => {
+    button.classList.toggle("is-active", button.getAttribute("data-file-filter") === fileTypeFilter);
+  });
+  renderFiles();
 }
 
 async function init() {
@@ -1916,6 +2126,8 @@ async function init() {
     memberships = [];
     activeMembership = null;
     documentsCache = [];
+    uploadedDocumentsCache = [];
+    referenceDocumentsCache = [];
     renderOrganizationSelector();
     fileList.innerHTML = "";
     show(fileEmpty, false);
@@ -1933,6 +2145,13 @@ async function init() {
   filesOpenUploadModalButton.addEventListener("click", () => {
     resetUploadFeedback();
     setUploadModalOpen(true);
+  });
+  filesFilterBar?.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    const button = target.closest("[data-file-filter]");
+    if (!button) return;
+    setFileTypeFilter(button.getAttribute("data-file-filter") || "all");
   });
   uploadModalClose.addEventListener("click", () => setUploadModalOpen(false));
   uploadModal.addEventListener("click", (event) => {
