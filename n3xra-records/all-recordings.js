@@ -945,7 +945,15 @@ function renderDetailReferences(recording) {
   if (recordingDetailReferenceSelect) recordingDetailReferenceSelect.disabled = !canEdit;
   if (recordingDetailReferenceType) recordingDetailReferenceType.disabled = !canEdit;
   if (recordingDetailReferenceAdd) recordingDetailReferenceAdd.disabled = !canEdit || !recordingDetailReferenceSelect?.value;
-  renderReferenceList(recordingDetailReferenceList, recordingDetailReferenceEmpty, references, { showOpen: false });
+  if (references.length > 1) {
+    renderReferenceList(recordingDetailReferenceList, recordingDetailReferenceEmpty, references, { showOpen: false });
+    show(recordingDetailReferenceList, true);
+    show(recordingDetailReferenceEmpty, false);
+  } else {
+    if (recordingDetailReferenceList) recordingDetailReferenceList.innerHTML = "";
+    show(recordingDetailReferenceList, false);
+    show(recordingDetailReferenceEmpty, references.length === 0);
+  }
   void previewReferenceDocument(references[0] || null);
 }
 

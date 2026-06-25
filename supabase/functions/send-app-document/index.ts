@@ -283,7 +283,7 @@ Deno.serve(async (request) => {
       const { data: linkedRecording } = await adminClient
         .from("meeting_recordings")
         .select("id")
-        .eq("final_document_id", documentId)
+        .or(`final_document_id.eq.${documentId},ai_draft_document_id.eq.${documentId}`)
         .maybeSingle();
 
       if (!linkedRecording?.id) {

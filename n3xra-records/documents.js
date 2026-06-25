@@ -992,7 +992,7 @@ async function loadActiveDocumentReferences() {
   const { data: recording, error: recordingError } = await supabase
     .from("meeting_recordings")
     .select("id")
-    .eq("final_document_id", activeDocumentId)
+    .or(`final_document_id.eq.${activeDocumentId},ai_draft_document_id.eq.${activeDocumentId}`)
     .maybeSingle();
 
   if (recordingError || !recording?.id) return;
