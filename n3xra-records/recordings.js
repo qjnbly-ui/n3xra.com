@@ -50,6 +50,7 @@ const recordingReferencePreview = document.getElementById("recording-reference-p
 const recordingReferencePreviewType = document.getElementById("recording-reference-preview-type");
 const recordingReferencePreviewTitle = document.getElementById("recording-reference-preview-title");
 const recordingReferencePreviewOpen = document.getElementById("recording-reference-preview-open");
+const recordingReferencePreviewRemove = document.getElementById("recording-reference-preview-remove");
 const recordingReferenceFrame = document.getElementById("recording-reference-frame");
 const recordingFileInput = document.getElementById("recording-file-input");
 const recordingFileCopy = document.getElementById("recording-file-copy");
@@ -154,6 +155,7 @@ let elapsedRecordingMs = 0;
 let activeDetailRecordingId = "";
 let detailPlayerUrl = "";
 let pendingReferencePreviewUrl = "";
+let pendingReferencePreviewId = "";
 let detailReferencePreviewUrl = "";
 let isRecordingWorkflowActive = false;
 let pendingRetryUploadOpen = false;
@@ -652,6 +654,8 @@ function renderPendingReferences() {
 function clearPendingReferencePreview() {
   if (recordingReferenceFrame) recordingReferenceFrame.removeAttribute("src");
   show(recordingReferencePreview, false);
+  show(recordingReferenceList, true);
+  pendingReferencePreviewId = "";
   if (pendingReferencePreviewUrl) {
     URL.revokeObjectURL(pendingReferencePreviewUrl);
     pendingReferencePreviewUrl = "";
@@ -671,7 +675,12 @@ async function previewPendingReferenceDocument(reference) {
   if (recordingReferencePreviewOpen) {
     recordingReferencePreviewOpen.href = `/n3xra-records/documents?id=${encodeURIComponent(reference.app_document_id)}`;
   }
+  if (recordingReferencePreviewRemove) {
+    recordingReferencePreviewRemove.dataset.referenceRemoveId = reference.id || reference.app_document_id;
+  }
+  pendingReferencePreviewId = reference.app_document_id;
   show(recordingReferencePreview, true);
+  show(recordingReferenceList, false);
   try {
     pendingReferencePreviewUrl = await createAppDocumentPdfObjectUrl({
       config: getConfig(),
@@ -2677,6 +2686,10 @@ async function init() {
   });
   recordingReferenceSelect?.addEventListener("change", updateControls);
   recordingReferenceAdd?.addEventListener("click", addPendingReference);
+  recordingReferencePreviewRemove?.addEventListener("click", () => {
+    removePendingReference(recordingReferencePreviewRemove.dataset.referenceRemoveId || pendingReferencePreviewId);
+    updateControls();
+  });
   recordingReferenceList?.addEventListener("click", (event) => {
     const button = event.target.closest("[data-reference-remove-id]");
     if (button) {
