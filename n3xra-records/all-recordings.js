@@ -58,6 +58,12 @@ const recordingDetailDuration = document.getElementById("recording-detail-durati
 const recordingDetailSize = document.getElementById("recording-detail-size");
 const recordingDetailPlayer = document.getElementById("recording-detail-player");
 const recordingDetailNotes = document.getElementById("recording-detail-notes");
+const recordingDetailReferenceSelect = document.getElementById("recording-detail-reference-select");
+const recordingDetailReferenceType = document.getElementById("recording-detail-reference-type");
+const recordingDetailReferenceAdd = document.getElementById("recording-detail-reference-add");
+const recordingDetailReferencePicker = document.getElementById("recording-detail-reference-picker");
+const recordingDetailReferenceList = document.getElementById("recording-detail-reference-list");
+const recordingDetailReferenceEmpty = document.getElementById("recording-detail-reference-empty");
 const recordingDetailAiDraftPreview = document.getElementById("recording-detail-ai-draft-preview");
 const recordingAiReviewPanel = document.getElementById("recording-ai-review-panel");
 const recordingAiSuggestions = document.getElementById("recording-ai-suggestions");
@@ -94,6 +100,8 @@ let pendingDeleteRecordingId = "";
 let pendingLinkedRecordingId = "";
 let reviewActionPending = false;
 let recordingDetailNotesSaveTimer = null;
+let referenceDocuments = [];
+let recordingReferencesSchemaAvailable = true;
 
 function consumeLinkedRecordingId() {
   if (!pendingLinkedRecordingId) return "";
@@ -309,6 +317,94 @@ function getTemplateLabel(templateId) {
   if (!templateId) return "No template";
   const template = recordingTemplates.find((item) => item.id === templateId);
   return template?.title || "Template";
+}
+
+function isMissingRecordingReferencesSchemaError(error) {
+  const message = String(error?.message || "").toLowerCase();
+  return message.includes("meeting_recording_references") && (
+    message.includes("does not exist") ||
+    message.includes("schema cache") ||
+    message.includes("not found")
+  );
+}
+
+function getReferenceTypeLabel(type) {
+  return type === "agenda" ? "Agenda" : "Supporting document";
+}
+
+function getReferenceDocument(documentId) {
+  return referenceDocuments.find((item) => item.id === documentId) || null;
+}
+
+function normalizeReference(row, index = 0) {
+  const document = row?.app_document || getReferenceDocument(row?.app_document_id);
+  return {
+    id: row?.id || "",
+    meeting_recording_id: row?.meeting_recording_id || "",
+    app_document_id: row?.app_document_id || document?.id || "",
+    reference_type: row?.reference_type === "agenda" ? "agenda" : "supporting_document",
+    sort_order: Number.isFinite(Number(row?.sort_order)) ? Number(row.sort_order) : index,
+    app_document: document || null,
+  };
+}
+
+function sortReferences(references = []) {
+  return [...references].sort((a, b) => {
+    const orderDiff = Number(a.sort_order || 0) - Number(b.sort_order || 0);
+    if (orderDiff) return orderDiff;
+    return String(a.app_document?.title || "").localeCompare(String(b.app_document?.title || ""));
+  });
+}
+
+function getRecordingReferences(recording) {
+  return sortReferences(Array.isArray(recording?.references) ? recording.references : []);
+}
+
+function referenceAlreadySelected(references, documentId) {
+  return references.some((item) => item.app_document_id === documentId);
+}
+
+function renderReferenceSelect(selectEl, references = []) {
+  if (!selectEl) return;
+  const selectedValue = selectEl.value;
+  selectEl.innerHTML = `<option value="">Select a document</option>`;
+  const selectedIds = new Set(references.map((item) => item.app_document_id));
+  referenceDocuments.forEach((doc) => {
+    const option = document.createElement("option");
+    option.value = doc.id;
+    option.textContent = doc.title || "Untitled document";
+    option.disabled = selectedIds.has(doc.id);
+    selectEl.append(option);
+  });
+  if (selectedValue && referenceDocuments.some((doc) => doc.id === selectedValue) && !selectedIds.has(selectedValue)) {
+    selectEl.value = selectedValue;
+  }
+}
+
+function renderReferenceList(listEl, emptyEl, references = [], options = {}) {
+  if (!listEl) return;
+  const sorted = sortReferences(references);
+  listEl.innerHTML = sorted.map((reference) => {
+    const doc = reference.app_document || getReferenceDocument(reference.app_document_id);
+    const title = doc?.title || "Untitled document";
+    const href = `/n3xra-records/documents?id=${encodeURIComponent(reference.app_document_id)}`;
+    const removeAttr = options.canRemove
+      ? ` <button class="recording-reference-remove" type="button" data-reference-remove-id="${escapeHtml(reference.id || reference.app_document_id)}">Remove</button>`
+      : "";
+    return `
+      <article class="recording-reference-row">
+        <div>
+          <span class="recording-reference-type">${escapeHtml(getReferenceTypeLabel(reference.reference_type))}</span>
+          <p class="recording-reference-title">${escapeHtml(title)}</p>
+        </div>
+        <div class="recording-reference-actions">
+          <a class="btn secondary button-link" href="${href}" rel="noopener">Open</a>
+          ${removeAttr}
+        </div>
+      </article>
+    `;
+  }).join("");
+  show(emptyEl, sorted.length === 0);
 }
 
 function isRetryableRecording(recording) {
@@ -591,6 +687,69 @@ async function loadRecordingTemplates() {
   recordingTemplates = error || !Array.isArray(data) ? [] : data;
 }
 
+async function loadReferenceDocuments() {
+  const organization = getActiveOrganization();
+  referenceDocuments = [];
+  renderReferenceSelect(recordingDetailReferenceSelect, getRecordingReferences(getRecordingById(activeDetailRecordingId)));
+  if (!organization) return;
+
+  const { data, error } = await supabase
+    .from("app_documents")
+    .select("id, title, status, updated_at, created_at")
+    .eq("organization_id", organization.id)
+    .eq("document_kind", "document")
+    .neq("status", "archived")
+    .order("updated_at", { ascending: false });
+
+  referenceDocuments = error || !Array.isArray(data) ? [] : data;
+  renderReferenceSelect(recordingDetailReferenceSelect, getRecordingReferences(getRecordingById(activeDetailRecordingId)));
+}
+
+async function loadReferencesForRecordings(recordingIds = []) {
+  if (!recordingReferencesSchemaAvailable || !recordingIds.length) return;
+
+  const { data, error } = await supabase
+    .from("meeting_recording_references")
+    .select("id, meeting_recording_id, app_document_id, reference_type, sort_order")
+    .in("meeting_recording_id", recordingIds)
+    .order("sort_order", { ascending: true });
+
+  if (error) {
+    if (isMissingRecordingReferencesSchemaError(error)) {
+      recordingReferencesSchemaAvailable = false;
+      return;
+    }
+    throw error;
+  }
+
+  recordingReferencesSchemaAvailable = true;
+  const rows = Array.isArray(data) ? data : [];
+  const documentIds = Array.from(new Set(rows.map((row) => row.app_document_id).filter(Boolean)));
+  const documentsById = new Map(referenceDocuments.map((doc) => [doc.id, doc]));
+  const missingDocumentIds = documentIds.filter((id) => !documentsById.has(id));
+
+  if (missingDocumentIds.length) {
+    const { data: docs } = await supabase
+      .from("app_documents")
+      .select("id, title, status, updated_at, created_at")
+      .in("id", missingDocumentIds);
+    (docs || []).forEach((doc) => documentsById.set(doc.id, doc));
+  }
+
+  const referencesByRecording = new Map();
+  rows.forEach((row, index) => {
+    const reference = normalizeReference({ ...row, app_document: documentsById.get(row.app_document_id) || null }, index);
+    const list = referencesByRecording.get(reference.meeting_recording_id) || [];
+    list.push(reference);
+    referencesByRecording.set(reference.meeting_recording_id, list);
+  });
+
+  recordingsCache = recordingsCache.map((recording) => ({
+    ...recording,
+    references: sortReferences(referencesByRecording.get(recording.id) || []),
+  }));
+}
+
 async function loadRecordings() {
   const organization = getActiveOrganization();
   if (!organization) {
@@ -637,9 +796,21 @@ async function loadRecordings() {
   }
 
   recordingsCache = Array.isArray(data) ? data : [];
+  let referenceLoadError = null;
+  try {
+    await loadReferencesForRecordings(recordingsCache.map((recording) => recording.id));
+  } catch (error) {
+    referenceLoadError = error;
+  }
   recordingCount.textContent = String(recordingsCache.length);
   renderRecordings();
-  setStatus(recordingsStatus, `${recordingsCache.length} meeting note${recordingsCache.length === 1 ? "" : "s"} loaded.`, recordingsCache.length ? "success" : "");
+  setStatus(
+    recordingsStatus,
+    referenceLoadError
+      ? getErrorMessage(referenceLoadError, "Meeting notes loaded, but references could not be loaded.")
+      : `${recordingsCache.length} meeting note${recordingsCache.length === 1 ? "" : "s"} loaded.`,
+    referenceLoadError ? "error" : recordingsCache.length ? "success" : ""
+  );
 
   const linkedRecordingId = consumeLinkedRecordingId();
   if (linkedRecordingId) {
@@ -753,6 +924,65 @@ function renderAiReview(review) {
   renderReviewItems(recordingAiConflicts, "Possible conflicts", review.conflicts, "No conflicts found.");
 }
 
+function renderDetailReferences(recording) {
+  const references = getRecordingReferences(recording);
+  const canEdit = getActiveCapabilities().canEditDocuments && recordingReferencesSchemaAvailable;
+  show(recordingDetailReferencePicker, canEdit);
+  renderReferenceSelect(recordingDetailReferenceSelect, references);
+  if (recordingDetailReferenceSelect) recordingDetailReferenceSelect.disabled = !canEdit;
+  if (recordingDetailReferenceType) recordingDetailReferenceType.disabled = !canEdit;
+  if (recordingDetailReferenceAdd) recordingDetailReferenceAdd.disabled = !canEdit || !recordingDetailReferenceSelect?.value;
+  renderReferenceList(recordingDetailReferenceList, recordingDetailReferenceEmpty, references, { canRemove: canEdit });
+}
+
+async function reloadRecordingReferences(recordingId) {
+  if (!recordingId) return;
+  await loadReferencesForRecordings([recordingId]);
+  const updated = getRecordingById(recordingId);
+  if (updated) renderDetailReferences(updated);
+}
+
+async function addDetailReference() {
+  const recording = getRecordingById(activeDetailRecordingId);
+  const documentId = recordingDetailReferenceSelect?.value || "";
+  if (!recording || !documentId || referenceAlreadySelected(getRecordingReferences(recording), documentId)) return;
+
+  const { error } = await supabase
+    .from("meeting_recording_references")
+    .insert({
+      meeting_recording_id: recording.id,
+      app_document_id: documentId,
+      reference_type: recordingDetailReferenceType?.value === "supporting_document" ? "supporting_document" : "agenda",
+      sort_order: getRecordingReferences(recording).length,
+    });
+
+  if (error) {
+    setStatus(recordingDetailStatusMessage, getErrorMessage(error, "Unable to attach reference."), "error");
+    return;
+  }
+
+  if (recordingDetailReferenceSelect) recordingDetailReferenceSelect.value = "";
+  await reloadRecordingReferences(recording.id);
+  setStatus(recordingDetailStatusMessage, "Reference attached.", "success");
+}
+
+async function removeDetailReference(referenceId) {
+  const recording = getRecordingById(activeDetailRecordingId);
+  if (!recording || !referenceId) return;
+  const { error } = await supabase
+    .from("meeting_recording_references")
+    .delete()
+    .eq("id", referenceId);
+
+  if (error) {
+    setStatus(recordingDetailStatusMessage, getErrorMessage(error, "Unable to remove reference."), "error");
+    return;
+  }
+
+  await reloadRecordingReferences(recording.id);
+  setStatus(recordingDetailStatusMessage, "Reference removed.", "success");
+}
+
 async function playRecording(recordingId) {
   const recording = getRecordingById(recordingId);
   if (!canPlaybackRecording(recording)) return;
@@ -829,6 +1059,7 @@ function populateRecordingDetails(recording) {
     recordingDetailAiDraft.href = `./documents?id=${encodeURIComponent(reviewDocumentId)}`;
     recordingDetailAiDraft.textContent = "Finalize and send document";
   }
+  renderDetailReferences(recording);
   renderAiReview(recording.ai_review_json || null);
   recordingDetailAiReview.textContent = recording.ai_review_status === "ready" ? "Regenerate AI review" : "Review with AI";
   recordingDetailAiReview.title = recording.ai_review_status === "ready"
@@ -1144,6 +1375,7 @@ async function handleOrganizationChange(nextOrganizationId) {
   clearPlayer();
   renderOrganizationSelector();
   await loadRecordingTemplates();
+  await loadReferenceDocuments();
   await loadRecordings();
 }
 
@@ -1188,6 +1420,7 @@ async function init() {
   show(setupPanel, false);
   show(allRecordingsPanel, true);
   await loadRecordingTemplates();
+  await loadReferenceDocuments();
   await loadRecordings();
 
   mobileLogoutButton.addEventListener("click", handleSignout);
@@ -1256,6 +1489,17 @@ async function init() {
       button.getAttribute("data-review-action") || "",
       button.getAttribute("data-review-index")
     );
+  });
+  recordingDetailReferenceSelect?.addEventListener("change", () => {
+    if (recordingDetailReferenceAdd) recordingDetailReferenceAdd.disabled = !recordingDetailReferenceSelect.value;
+  });
+  recordingDetailReferenceAdd?.addEventListener("click", () => {
+    void addDetailReference();
+  });
+  recordingDetailReferenceList?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-reference-remove-id]");
+    if (!button) return;
+    void removeDetailReference(button.getAttribute("data-reference-remove-id") || "");
   });
   recordingDetailNotes?.addEventListener("input", queueRecordingDetailNotesSave);
   recordingDetailTabs.forEach((button) => {

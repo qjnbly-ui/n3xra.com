@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/n3xra-records/styles.css?v=20260613-admin-settings">
+  <link rel="stylesheet" href="/n3xra-records/styles.css?v=20260625-meeting-references">
 </head>
 <body>
   <div class="shell documents-shell">
@@ -236,6 +236,20 @@
               <small>Only appears for recipients already in this library.</small>
             </span>
           </label>
+          <label class="document-send-option hidden" id="document-send-attach-agendas-option">
+            <input id="document-send-attach-agendas" type="checkbox" checked>
+            <span>
+              <strong>Attach referenced agenda</strong>
+              <small>Add linked agenda PDFs from the meeting minutes.</small>
+            </span>
+          </label>
+          <label class="document-send-option hidden" id="document-send-attach-supporting-option">
+            <input id="document-send-attach-supporting" type="checkbox">
+            <span>
+              <strong>Attach supporting documents</strong>
+              <small>Add linked supporting document PDFs from the meeting minutes.</small>
+            </span>
+          </label>
         </div>
         <p class="document-send-note" id="document-send-from-note"></p>
         <div class="document-send-actions">
@@ -266,6 +280,6 @@
   </div>
 
   <script src="/shared/config.js"></script>
-  <script type="module" src="/n3xra-records/documents.js?v=20260613-admin-settings"></script>
+  <script type="module" src="/n3xra-records/documents.js?v=20260625-meeting-references"></script>
 </body>
 </html>

@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/n3xra-records/styles.css?v=20260618-upload-save-gate">
+  <link rel="stylesheet" href="/n3xra-records/styles.css?v=20260625-meeting-references">
 </head>
 <body>
   <div class="shell">
@@ -154,6 +154,33 @@
               </div>
             </div>
 
+            <section class="recording-references-panel" aria-label="Meeting references">
+              <div class="panel-head compact-head">
+                <div>
+                  <h4>References</h4>
+                  <p>Attach an agenda or supporting document to these minutes.</p>
+                </div>
+              </div>
+              <div class="recording-reference-picker">
+                <div class="field">
+                  <label for="recording-reference-select">Document</label>
+                  <select id="recording-reference-select">
+                    <option value="">Select a document</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label for="recording-reference-type">Type</label>
+                  <select id="recording-reference-type">
+                    <option value="agenda">Agenda</option>
+                    <option value="supporting_document">Supporting document</option>
+                  </select>
+                </div>
+                <button class="btn secondary" id="recording-reference-add" type="button">Attach reference</button>
+              </div>
+              <div class="recording-reference-list" id="recording-reference-list"></div>
+              <p class="empty hidden" id="recording-reference-empty">No references attached.</p>
+            </section>
+
             <div class="upload-progress hidden" id="upload-progress-shell" aria-live="polite">
               <div class="upload-progress-bar" aria-hidden="true">
                 <span class="upload-progress-fill"></span>
@@ -195,6 +222,7 @@
         <div class="recording-detail-tabs" role="tablist" aria-label="Meeting note sections">
           <button class="recording-detail-tab is-active" id="recording-detail-tab-details" type="button" role="tab" aria-selected="true" aria-controls="recording-detail-details-panel" data-recording-detail-tab="details">Details</button>
           <button class="recording-detail-tab" id="recording-detail-tab-notes" type="button" role="tab" aria-selected="false" aria-controls="recording-detail-notes-panel" data-recording-detail-tab="notes">Notes</button>
+          <button class="recording-detail-tab" id="recording-detail-tab-references" type="button" role="tab" aria-selected="false" aria-controls="recording-detail-references-panel" data-recording-detail-tab="references">References</button>
           <button class="recording-detail-tab" id="recording-detail-tab-review" type="button" role="tab" aria-selected="false" aria-controls="recording-ai-review-panel" data-recording-detail-tab="review">Review</button>
           <button class="recording-detail-tab" id="recording-detail-tab-ai-draft" type="button" role="tab" aria-selected="false" aria-controls="recording-detail-ai-draft-section" data-recording-detail-tab="ai-draft">AI Draft</button>
         </div>
@@ -264,6 +292,32 @@
               <button class="btn secondary" id="recording-detail-scan-handwritten-note-button" type="button">Scan handwritten note</button>
               <input class="hidden" id="recording-detail-handwritten-note-input" type="file" accept="image/*">
             </div>
+          </div>
+          <div class="recording-detail-section recording-detail-tab-panel" id="recording-detail-references-panel" role="tabpanel" aria-labelledby="recording-detail-tab-references" data-recording-detail-panel="references" hidden>
+            <div class="panel-head compact-head">
+              <div>
+                <h4>References</h4>
+                <p>Agenda and supporting documents linked to these minutes.</p>
+              </div>
+            </div>
+            <div class="recording-reference-picker" id="recording-detail-reference-picker">
+              <div class="field">
+                <label for="recording-detail-reference-select">Document</label>
+                <select id="recording-detail-reference-select">
+                  <option value="">Select a document</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="recording-detail-reference-type">Type</label>
+                <select id="recording-detail-reference-type">
+                  <option value="agenda">Agenda</option>
+                  <option value="supporting_document">Supporting document</option>
+                </select>
+              </div>
+              <button class="btn secondary" id="recording-detail-reference-add" type="button">Attach reference</button>
+            </div>
+            <div class="recording-reference-list" id="recording-detail-reference-list"></div>
+            <p class="empty hidden" id="recording-detail-reference-empty">No references attached.</p>
           </div>
           <div class="recording-detail-section recording-detail-tab-panel" id="recording-detail-ai-draft-section" role="tabpanel" aria-labelledby="recording-detail-tab-ai-draft" data-recording-detail-panel="ai-draft" hidden>
             <div class="panel-head compact-head">
@@ -339,6 +393,6 @@
   </div>
 
   <script src="/shared/config.js"></script>
-  <script type="module" src="/n3xra-records/recordings.js?v=20260618-upload-save-gate"></script>
+  <script type="module" src="/n3xra-records/recordings.js?v=20260625-meeting-references"></script>
 </body>
 </html>

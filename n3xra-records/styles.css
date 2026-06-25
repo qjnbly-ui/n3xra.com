@@ -885,6 +885,72 @@ textarea {
   margin-top: 0.75rem;
 }
 
+.recording-references-panel {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid rgba(15, 22, 32, 0.1);
+  border-radius: 16px;
+  background: rgba(245, 247, 251, 0.78);
+}
+
+.recording-reference-picker {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(160px, 220px) auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.recording-reference-list {
+  display: grid;
+  gap: 10px;
+}
+
+.recording-reference-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid rgba(15, 22, 32, 0.08);
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.recording-reference-type {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #176f66;
+}
+
+.recording-reference-title {
+  margin: 0;
+  min-width: 0;
+  color: #101828;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.recording-reference-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.recording-reference-remove {
+  border: 0;
+  background: transparent;
+  color: #b42318;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
 .upload-progress {
   display: grid;
   gap: 0.45rem;

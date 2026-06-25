@@ -77,6 +77,15 @@ function normalizeRecipientEmails(payload: Record<string, unknown>) {
   ));
 }
 
+function normalizeDocumentIds(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return Array.from(new Set(
+    value
+      .map((item) => String(item || "").trim())
+      .filter(Boolean)
+  ));
+}
+
 function buildTextEmail(options: {
   senderName: string;
   organizationName: string;
@@ -201,6 +210,7 @@ Deno.serve(async (request) => {
     const attachPdf = payload.attachPdf !== false;
     const includeLink = payload.includeLink !== false;
     const includeAccountLink = payload.includeAccountLink !== false;
+    const referenceDocumentIds = normalizeDocumentIds(payload.referenceDocumentIds);
 
     if (!documentId || !recipientEmails.length || !subject) {
       return jsonResponse({ error: "documentId, recipientEmails, and subject are required." }, 400);
@@ -267,6 +277,73 @@ Deno.serve(async (request) => {
         filename: `${cleanFilename(documentTitle)}.pdf`,
         content: bytesToBase64(pdfBytes),
       }];
+    }
+
+    if (referenceDocumentIds.length) {
+      const { data: linkedRecording } = await adminClient
+        .from("meeting_recordings")
+        .select("id")
+        .eq("final_document_id", documentId)
+        .maybeSingle();
+
+      if (!linkedRecording?.id) {
+        return jsonResponse({ error: "Referenced attachments are only available for linked meeting minutes." }, 400);
+      }
+
+      const { data: linkedReferences, error: linkedReferencesError } = await adminClient
+        .from("meeting_recording_references")
+        .select("app_document_id")
+        .eq("meeting_recording_id", linkedRecording.id)
+        .in("app_document_id", referenceDocumentIds);
+
+      if (linkedReferencesError) return jsonResponse({ error: linkedReferencesError.message }, 400);
+
+      const allowedReferenceIds = new Set((linkedReferences || [])
+        .map((item: { app_document_id?: string | null }) => item.app_document_id)
+        .filter(Boolean));
+      if (referenceDocumentIds.some((referenceId) => !allowedReferenceIds.has(referenceId))) {
+        return jsonResponse({ error: "One or more referenced attachments are not linked to these minutes." }, 400);
+      }
+
+      const { data: referenceDocuments, error: referenceError } = await adminClient
+        .from("app_documents")
+        .select("id, organization_id, title, document_kind")
+        .in("id", referenceDocumentIds);
+
+      if (referenceError) return jsonResponse({ error: referenceError.message }, 400);
+
+      const referencesById = new Map((referenceDocuments || []).map((item: {
+        id: string;
+        organization_id: string;
+        title?: string | null;
+        document_kind?: string | null;
+      }) => [item.id, item]));
+
+      for (const referenceId of referenceDocumentIds) {
+        const referenceDocument = referencesById.get(referenceId);
+        if (!referenceDocument || referenceDocument.organization_id !== document.organization_id || referenceDocument.document_kind === "template") {
+          return jsonResponse({ error: "Referenced document is not available for this library." }, 400);
+        }
+
+        const pdfResponse = await fetch(`${supabaseUrl}/functions/v1/generate-app-document-pdf`, {
+          method: "POST",
+          headers: {
+            apikey: anonKey,
+            Authorization: authHeader,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ documentId: referenceId }),
+        });
+        if (!pdfResponse.ok) {
+          const errorPayload = await pdfResponse.json().catch(() => ({}));
+          return jsonResponse({ error: String(errorPayload?.error || "Referenced PDF generation failed.") }, 400);
+        }
+        const pdfBytes = new Uint8Array(await pdfResponse.arrayBuffer());
+        attachments.push({
+          filename: `${cleanFilename(textValue(referenceDocument.title) || "reference")}.pdf`,
+          content: bytesToBase64(pdfBytes),
+        });
+      }
     }
 
     const senderName = textValue(profile?.full_name) || textValue(user.email) || "N3XRA Records";

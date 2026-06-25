@@ -60,6 +60,10 @@ const documentSendMessage = document.getElementById("document-send-message");
 const documentSendAttachPdf = document.getElementById("document-send-attach-pdf");
 const documentSendIncludeLink = document.getElementById("document-send-include-link");
 const documentSendIncludeAccountLink = document.getElementById("document-send-include-account-link");
+const documentSendAttachAgendasOption = document.getElementById("document-send-attach-agendas-option");
+const documentSendAttachAgendas = document.getElementById("document-send-attach-agendas");
+const documentSendAttachSupportingOption = document.getElementById("document-send-attach-supporting-option");
+const documentSendAttachSupporting = document.getElementById("document-send-attach-supporting");
 const documentSendFromNote = document.getElementById("document-send-from-note");
 const documentSendClose = document.getElementById("document-send-close");
 const documentSendCancel = document.getElementById("document-send-cancel");
@@ -130,6 +134,7 @@ let appTemplates = [];
 let appRecipients = [];
 let activeDocumentId = "";
 let activeDocumentKind = "document";
+let activeDocumentReferences = [];
 let tiptapEditor = null;
 let pendingDocumentConfirmResolve = null;
 let activePdfUrl = "";
@@ -144,6 +149,14 @@ function setStatus(el, message, tone = "") {
   el.textContent = message || "";
   el.className = "status";
   if (tone) el.classList.add(tone);
+}
+
+function getErrorMessage(error, fallback) {
+  if (error && typeof error === "object" && "message" in error && typeof error.message === "string" && error.message.trim()) {
+    return error.message;
+  }
+  if (error instanceof Error && error.message.trim()) return error.message;
+  return fallback;
 }
 
 function escapeHtml(value) {
@@ -387,6 +400,9 @@ function initTiptapEditor() {
 function documentToEditor(doc) {
   activeDocumentId = doc?.id || "";
   activeDocumentKind = doc?.document_kind === "template" ? "template" : "document";
+  activeDocumentReferences = [];
+  show(documentSendAttachAgendasOption, false);
+  show(documentSendAttachSupportingOption, false);
   documentTitle.value = doc?.title || "";
   documentStatus.value = doc?.status || "draft";
   const isTemplate = activeDocumentKind === "template";
@@ -958,11 +974,70 @@ function closeDocumentSendModal() {
   setStatus(documentSendStatus, "");
 }
 
-function openDocumentSendModal() {
+function isMissingRecordingReferencesSchemaError(error) {
+  const message = String(error?.message || "").toLowerCase();
+  return message.includes("meeting_recording_references") && (
+    message.includes("does not exist") ||
+    message.includes("schema cache") ||
+    message.includes("not found")
+  );
+}
+
+async function loadActiveDocumentReferences() {
+  activeDocumentReferences = [];
+  show(documentSendAttachAgendasOption, false);
+  show(documentSendAttachSupportingOption, false);
+  if (!activeDocumentId || activeDocumentKind === "template") return;
+
+  const { data: recording, error: recordingError } = await supabase
+    .from("meeting_recordings")
+    .select("id")
+    .eq("final_document_id", activeDocumentId)
+    .maybeSingle();
+
+  if (recordingError || !recording?.id) return;
+
+  const { data, error } = await supabase
+    .from("meeting_recording_references")
+    .select("id, app_document_id, reference_type, sort_order, app_document:app_documents(id, title)")
+    .eq("meeting_recording_id", recording.id)
+    .order("sort_order", { ascending: true });
+
+  if (error) {
+    if (isMissingRecordingReferencesSchemaError(error)) return;
+    throw error;
+  }
+
+  activeDocumentReferences = Array.isArray(data) ? data : [];
+  const agendaCount = activeDocumentReferences.filter((item) => item.reference_type === "agenda").length;
+  const supportingCount = activeDocumentReferences.filter((item) => item.reference_type !== "agenda").length;
+  show(documentSendAttachAgendasOption, agendaCount > 0);
+  show(documentSendAttachSupportingOption, supportingCount > 0);
+  if (documentSendAttachAgendas) documentSendAttachAgendas.checked = agendaCount > 0;
+  if (documentSendAttachSupporting) documentSendAttachSupporting.checked = false;
+}
+
+function getSelectedReferenceDocumentIdsForSend() {
+  const ids = activeDocumentReferences
+    .filter((item) => {
+      if (item.reference_type === "agenda") return documentSendAttachAgendas?.checked;
+      return documentSendAttachSupporting?.checked;
+    })
+    .map((item) => item.app_document_id)
+    .filter(Boolean);
+  return Array.from(new Set(ids));
+}
+
+async function openDocumentSendModal() {
   if (!activeDocumentId || activeDocumentKind === "template") return;
   const payload = editorToPayload();
   const title = payload.title || "Untitled document";
   documentSendForm.reset();
+  try {
+    await loadActiveDocumentReferences();
+  } catch (error) {
+    setStatus(editorStatus, getErrorMessage(error, "Unable to load meeting references."), "error");
+  }
   documentSendSubject.value = title;
   documentSendMessage.value = `Please see the attached ${title} document.`;
   documentSendAttachPdf.checked = true;
@@ -1111,6 +1186,7 @@ async function sendActiveDocument(event) {
         attachPdf: documentSendAttachPdf.checked,
         includeLink: documentSendIncludeLink.checked,
         includeAccountLink: documentSendIncludeAccountLink?.checked !== false,
+        referenceDocumentIds: getSelectedReferenceDocumentIdsForSend(),
         appLink,
       }),
     });
@@ -1228,7 +1304,9 @@ async function init() {
   documentPdfModal.addEventListener("click", (event) => {
     if (event.target === documentPdfModal) closeDocumentPdfModal();
   });
-  documentEmail.addEventListener("click", openDocumentSendModal);
+  documentEmail.addEventListener("click", () => {
+    void openDocumentSendModal();
+  });
   documentSendForm.addEventListener("submit", sendActiveDocument);
   documentSendContactList.addEventListener("click", handleSendRecipientListClick);
   documentSendClose.addEventListener("click", closeDocumentSendModal);
