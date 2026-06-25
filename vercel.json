@@ -216,6 +216,18 @@
       "destination": "/utilities/portal/index.html?slug=:slug"
     },
     {
+      "source": "/utilities/workspace/onboarding",
+      "destination": "/utilities/workspace/onboarding/index.html"
+    },
+    {
+      "source": "/utilities/workspace/settings",
+      "destination": "/utilities/workspace/settings/index.html"
+    },
+    {
+      "source": "/utilities/workspace/features",
+      "destination": "/utilities/workspace/features/index.html"
+    },
+    {
       "source": "/demo",
       "destination": "/demo/index.html"
     },

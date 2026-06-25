@@ -1,34 +1,36 @@
 import { createBrowserSupabase, getSessionOrNull, hasConfig } from "/shared/lib/supabase-client.js";
 
-const logoutButton = document.getElementById("workspace-logout");
-const statusLine = document.getElementById("workspace-status");
-const panel = document.getElementById("workspace-panel");
-const title = document.getElementById("workspace-title");
-const subtitle = document.getElementById("workspace-subtitle");
-const statusPill = document.getElementById("workspace-status-pill");
-const progress = document.getElementById("workspace-progress");
-const progressCopy = document.getElementById("workspace-progress-copy");
-const portalLink = document.getElementById("workspace-portal-link");
-const mobilePortalLink = document.getElementById("workspace-mobile-portal-link");
-const previewLink = document.getElementById("workspace-preview-link");
-const summaryOrganization = document.getElementById("summary-organization");
-const summaryStatus = document.getElementById("summary-status");
-const summaryLaunch = document.getElementById("summary-launch");
-const summaryUtilityProgress = document.getElementById("summary-utility-progress");
-const summaryN3xraProgress = document.getElementById("summary-n3xra-progress");
-const utilityStepList = document.getElementById("utility-step-list");
-const n3xraStepList = document.getElementById("n3xra-step-list");
-const featurePanel = document.getElementById("workspace-feature-panel");
-const moduleGrid = document.getElementById("workspace-module-grid");
-const profileForm = document.getElementById("profile-form");
-const brandingForm = document.getElementById("branding-form");
-const settingsForm = document.getElementById("settings-form");
+const page = document.body?.dataset?.workspacePage || "home";
+const el = (id) => document.getElementById(id);
+
+const logoutButton = el("workspace-logout");
+const statusLine = el("workspace-status");
+const title = el("workspace-title");
+const subtitle = el("workspace-subtitle");
+const statusPill = el("workspace-status-pill");
+const progress = el("workspace-progress");
+const progressCopy = el("workspace-progress-copy");
+const portalLinks = [el("workspace-portal-link"), el("workspace-mobile-portal-link"), el("workspace-preview-link")].filter(Boolean);
+const dashboardGrid = el("workspace-dashboard-grid");
+const summaryOrganization = el("summary-organization");
+const summaryStatus = el("summary-status");
+const summaryLaunch = el("summary-launch");
+const summaryUtilityProgress = el("summary-utility-progress");
+const summaryN3xraProgress = el("summary-n3xra-progress");
+const utilityStepList = el("utility-step-list");
+const n3xraStepList = el("n3xra-step-list");
+const moduleGrid = el("workspace-module-grid");
+const profileForm = el("profile-form");
+const brandingForm = el("branding-form");
+const settingsForm = el("settings-form");
+const logoPath = el("workspace-logo-path");
 
 let supabase = null;
 let session = null;
 let workspace = null;
 
 function setStatus(message, tone = "") {
+  if (!statusLine) return;
   statusLine.textContent = message || "";
   statusLine.className = "status-line";
   if (tone) statusLine.classList.add(tone);
@@ -57,6 +59,96 @@ function organizationId() {
   return workspace?.organization?.id || "";
 }
 
+function isOnboardingComplete(organization) {
+  return organization?.status === "active" && organization?.launch_status === "live";
+}
+
+function routeWithOrg(path) {
+  const slug = workspace?.organization?.slug || getOrgParam();
+  return slug ? `${path}?org=${encodeURIComponent(slug)}` : path;
+}
+
+function moduleByKey(key) {
+  return (workspace?.modules || []).find((module) => module.module_key === key) || null;
+}
+
+function moduleState(key, fallback = "disabled") {
+  return moduleByKey(key)?.state || fallback;
+}
+
+function moduleStateLabel(state) {
+  const labels = {
+    enabled: "On",
+    disabled: "Inactive",
+    requestable: "Request access",
+    coming_soon: "Coming soon",
+    requires_n3xra_setup: "Waiting on N3XRA",
+  };
+  return labels[state] || titleCase(state);
+}
+
+function dashboardCards() {
+  const organization = workspace?.organization || {};
+  const complete = isOnboardingComplete(organization);
+  const requiredCompleted = workspace?.progress?.required_completed || 0;
+  const requiredTotal = workspace?.progress?.required_total || 0;
+  return [
+    {
+      title: complete ? "Onboarding complete" : "Finish onboarding",
+      description: complete
+        ? "Setup is complete. Review launch history and setup status any time."
+        : "Complete setup tasks and track what N3XRA still needs to finish.",
+      status: complete ? "Complete" : `${requiredCompleted}/${requiredTotal} required`,
+      href: routeWithOrg("/utilities/workspace/onboarding"),
+      tone: complete ? "is-complete" : "is-highlighted",
+    },
+    {
+      title: "Account settings",
+      description: "Company profile, contacts, branding, portal URL, and account details.",
+      status: "Open",
+      href: routeWithOrg("/utilities/workspace/settings"),
+      tone: "is-active",
+    },
+    {
+      title: "Dashboard settings",
+      description: "Turn available workspace areas on or off and request access to future modules.",
+      status: "Open",
+      href: routeWithOrg("/utilities/workspace/features"),
+      tone: "is-active",
+    },
+    {
+      title: "Customer accounts",
+      description: "Customer search, account profiles, service addresses, and account history.",
+      status: moduleStateLabel(moduleState("customers")),
+      tone: moduleState("customers") === "enabled" ? "is-enabled" : "is-inactive",
+    },
+    {
+      title: "Work orders",
+      description: "Service requests, assignments, internal notes, and status updates.",
+      status: moduleStateLabel(moduleState("service_requests")),
+      tone: moduleState("service_requests") === "enabled" ? "is-enabled" : "is-inactive",
+    },
+    {
+      title: "Meter logs",
+      description: "Meter reading logs, submissions, history, and meter issue tracking.",
+      status: moduleStateLabel(moduleState("meter_readings", "requestable")),
+      tone: "is-inactive",
+    },
+    {
+      title: "GIS Maps",
+      description: "Map-based utility operations and service-area views.",
+      status: moduleStateLabel(moduleState("gis_maps", "coming_soon")),
+      tone: "is-inactive",
+    },
+    {
+      title: "N3XRA Records",
+      description: "Documents, meeting records, board packets, and utility records.",
+      status: moduleStateLabel(moduleState("n3xra_records", "coming_soon")),
+      tone: "is-inactive",
+    },
+  ];
+}
+
 async function apiFetch(options = {}) {
   const accessToken = session?.access_token || "";
   if (!accessToken) throw new Error("Authentication required.");
@@ -82,7 +174,55 @@ function setInput(form, name, value) {
   else input.value = value || "";
 }
 
+function renderHero() {
+  const organization = workspace?.organization;
+  if (!organization) {
+    if (title) title.textContent = "No utility workspace found";
+    if (subtitle) subtitle.textContent = "This account is not linked to a utility organization yet.";
+    return;
+  }
+  const complete = isOnboardingComplete(organization);
+  document.title = `${organization.name} | Utility Workspace`;
+  if (title) title.textContent = organization.name || "Utility workspace";
+  if (subtitle) subtitle.textContent = `${titleCase(organization.status)} · ${titleCase(organization.launch_status)} · ${organization.access_role || "member"}`;
+  if (statusPill) statusPill.textContent = titleCase(organization.launch_status || "setup");
+  if (progress) progress.textContent = `${workspace.progress?.required_completed || 0}/${workspace.progress?.required_total || 0} required`;
+  if (progressCopy) {
+    progressCopy.textContent = complete
+      ? "Your utility workspace is live."
+      : "Complete onboarding while N3XRA finishes platform-controlled setup items.";
+  }
+  portalLinks.forEach((link) => {
+    link.href = workspace.portal_url || `/utilities/portal/${encodeURIComponent(organization.slug || "")}`;
+  });
+}
+
+function renderSummary() {
+  const organization = workspace?.organization || {};
+  if (summaryOrganization) summaryOrganization.textContent = organization.name || "-";
+  if (summaryStatus) summaryStatus.textContent = titleCase(organization.status);
+  if (summaryLaunch) summaryLaunch.textContent = titleCase(organization.launch_status);
+  if (summaryUtilityProgress) summaryUtilityProgress.textContent = `${workspace?.progress?.utility_completed || 0}/${workspace?.progress?.utility_total || 0}`;
+  if (summaryN3xraProgress) summaryN3xraProgress.textContent = `${workspace?.progress?.n3xra_completed || 0}/${workspace?.progress?.n3xra_total || 0}`;
+}
+
+function renderDashboard() {
+  if (!dashboardGrid) return;
+  dashboardGrid.innerHTML = dashboardCards().map((card) => {
+    const content = `
+      <small>${escapeHtml(card.status)}</small>
+      <strong>${escapeHtml(card.title)}</strong>
+      <p>${escapeHtml(card.description)}</p>
+    `;
+    if (card.href) {
+      return `<a class="workspace-dashboard-card ${escapeHtml(card.tone || "")}" href="${escapeHtml(card.href)}">${content}</a>`;
+    }
+    return `<article class="workspace-dashboard-card ${escapeHtml(card.tone || "is-inactive")}" aria-disabled="true">${content}</article>`;
+  }).join("");
+}
+
 function renderSteps(steps, container, canEdit) {
+  if (!container) return;
   if (!steps.length) {
     container.innerHTML = '<p class="utilities-list-empty">No setup tasks in this group.</p>';
     return;
@@ -106,70 +246,21 @@ function renderSteps(steps, container, canEdit) {
   `).join("");
 }
 
-function isOnboardingComplete(organization) {
-  return organization?.status === "active" && organization?.launch_status === "live";
+function renderOnboarding() {
+  renderSummary();
+  const utilitySteps = (workspace?.launch_steps || []).filter((step) => step.owner === "utility");
+  const n3xraSteps = (workspace?.launch_steps || []).filter((step) => step.owner === "n3xra");
+  renderSteps(utilitySteps, utilityStepList, true);
+  renderSteps(n3xraSteps, n3xraStepList, false);
 }
 
-function renderModules(modules) {
-  const list = (Array.isArray(modules) ? modules : []).filter((module) =>
-    module.module_key !== "finish_onboarding" && ["enabled", "disabled"].includes(module.state || "disabled")
-  );
-  if (!list.length) {
-    moduleGrid.innerHTML = '<p class="utilities-list-empty">No workspace features are ready for activation yet.</p>';
-    return;
-  }
-
-  moduleGrid.innerHTML = list.map((module) => {
-    const enabled = module.state === "enabled";
-    return `
-      <article class="workspace-feature-row">
-        <div>
-          <small>${escapeHtml(titleCase(module.category || "feature"))}</small>
-          <strong>${escapeHtml(module.name)}</strong>
-          <p>${escapeHtml(module.description || "")}</p>
-        </div>
-        <label class="workspace-feature-toggle">
-          <input type="checkbox" data-module-key="${escapeHtml(module.module_key)}" ${enabled ? "checked" : ""}>
-          <span>${enabled ? "On" : "Off"}</span>
-        </label>
-      </article>
-    `;
-  }).join("");
-}
-
-function renderWorkspace() {
-  const organization = workspace?.organization;
-  if (!organization) {
-    title.textContent = "No utility workspace found";
-    subtitle.textContent = "This account is not linked to a utility organization yet.";
-    panel.hidden = true;
-    return;
-  }
-
-  const branding = workspace.branding || {};
-  const settings = workspace.settings || {};
+function renderSettings() {
+  renderSummary();
+  const organization = workspace?.organization || {};
+  const branding = workspace?.branding || {};
+  const settings = workspace?.settings || {};
   const modules = settings.modules || {};
-  const portalUrl = workspace.portal_url || `/utilities/portal/${encodeURIComponent(organization.slug || "")}`;
-  const utilitySteps = (workspace.launch_steps || []).filter((step) => step.owner === "utility");
-  const n3xraSteps = (workspace.launch_steps || []).filter((step) => step.owner === "n3xra");
-  const onboardingComplete = isOnboardingComplete(organization);
-
-  document.title = `${organization.name} | Utility Workspace`;
-  title.textContent = organization.name || "Utility workspace";
-  subtitle.textContent = `${titleCase(organization.status)} · ${titleCase(organization.launch_status)} · ${organization.access_role || "member"}`;
-  statusPill.textContent = titleCase(organization.launch_status || "setup");
-  progress.textContent = `${workspace.progress?.required_completed || 0}/${workspace.progress?.required_total || 0} required`;
-  progressCopy.textContent = onboardingComplete
-    ? "Your utility workspace is live. Manage active workspace features below."
-    : "Complete your tasks while N3XRA finishes platform-controlled setup items.";
-  summaryOrganization.textContent = organization.name || "-";
-  summaryStatus.textContent = titleCase(organization.status);
-  summaryLaunch.textContent = titleCase(organization.launch_status);
-  summaryUtilityProgress.textContent = `${workspace.progress?.utility_completed || 0}/${workspace.progress?.utility_total || 0}`;
-  summaryN3xraProgress.textContent = `${workspace.progress?.n3xra_completed || 0}/${workspace.progress?.n3xra_total || 0}`;
-  [portalLink, mobilePortalLink, previewLink].forEach((link) => {
-    link.href = portalUrl;
-  });
+  if (logoPath) logoPath.textContent = branding.logo_storage_path || "No logo path saved yet.";
 
   setInput(profileForm, "name", organization.name);
   setInput(profileForm, "legal_name", organization.legal_name);
@@ -192,12 +283,48 @@ function renderWorkspace() {
   setInput(settingsForm, "support_requests", modules.support_requests !== false);
   setInput(settingsForm, "document_uploads", modules.document_uploads !== false);
   setInput(settingsForm, "announcements", modules.announcements !== false);
+}
 
-  renderSteps(utilitySteps, utilityStepList, true);
-  renderSteps(n3xraSteps, n3xraStepList, false);
-  renderModules(workspace.modules || []);
-  featurePanel.hidden = !onboardingComplete;
-  panel.hidden = onboardingComplete;
+function renderModules(modules) {
+  if (!moduleGrid) return;
+  const list = (Array.isArray(modules) ? modules : []).filter((module) => module.module_key !== "finish_onboarding");
+  if (!list.length) {
+    moduleGrid.innerHTML = '<p class="utilities-list-empty">No workspace features are configured yet.</p>';
+    return;
+  }
+
+  moduleGrid.innerHTML = list.map((module) => {
+    const state = module.state || "requestable";
+    const canToggle = ["enabled", "disabled"].includes(state);
+    const enabled = state === "enabled";
+    const action = canToggle
+      ? `<label class="workspace-feature-toggle">
+          <input type="checkbox" data-module-key="${escapeHtml(module.module_key)}" ${enabled ? "checked" : ""}>
+          <span>${enabled ? "On" : "Off"}</span>
+        </label>`
+      : state === "requestable"
+        ? `<button class="secondary-action workspace-feature-request" type="button" data-request-module="${escapeHtml(module.module_key)}">Request</button>`
+        : `<span class="workspace-feature-status">${escapeHtml(moduleStateLabel(state))}</span>`;
+    return `
+      <article class="workspace-feature-row">
+        <div>
+          <small>${escapeHtml(titleCase(module.category || "feature"))} · ${escapeHtml(moduleStateLabel(state))}</small>
+          <strong>${escapeHtml(module.name)}</strong>
+          <p>${escapeHtml(module.description || "")}</p>
+        </div>
+        ${action}
+      </article>
+    `;
+  }).join("");
+}
+
+function renderWorkspace() {
+  renderHero();
+  if (!workspace?.organization) return;
+  if (page === "home") renderDashboard();
+  if (page === "onboarding") renderOnboarding();
+  if (page === "settings") renderSettings();
+  if (page === "features") renderModules(workspace.modules || []);
 }
 
 async function loadWorkspace() {
@@ -227,22 +354,22 @@ async function saveAction(action, payload) {
   setStatus("Saved.", "is-active");
 }
 
-profileForm.addEventListener("submit", (event) => {
+profileForm?.addEventListener("submit", (event) => {
   event.preventDefault();
   saveAction("update-profile", formDataObject(profileForm)).catch((error) => setStatus(error.message, "is-error"));
 });
 
-brandingForm.addEventListener("submit", (event) => {
+brandingForm?.addEventListener("submit", (event) => {
   event.preventDefault();
   saveAction("update-branding", formDataObject(brandingForm)).catch((error) => setStatus(error.message, "is-error"));
 });
 
-settingsForm.addEventListener("submit", (event) => {
+settingsForm?.addEventListener("submit", (event) => {
   event.preventDefault();
   saveAction("update-settings", formDataObject(settingsForm)).catch((error) => setStatus(error.message, "is-error"));
 });
 
-utilityStepList.addEventListener("change", (event) => {
+utilityStepList?.addEventListener("change", (event) => {
   const select = event.target.closest("select[data-step-id]");
   if (!select) return;
   saveAction("update-step", {
@@ -252,7 +379,7 @@ utilityStepList.addEventListener("change", (event) => {
   }).catch((error) => setStatus(error.message, "is-error"));
 });
 
-moduleGrid.addEventListener("change", (event) => {
+moduleGrid?.addEventListener("change", (event) => {
   const input = event.target.closest("input[data-module-key]");
   if (!input) return;
   saveAction("update-module-state", {
@@ -262,7 +389,16 @@ moduleGrid.addEventListener("change", (event) => {
   }).catch((error) => setStatus(error.message, "is-error"));
 });
 
-logoutButton.addEventListener("click", async () => {
+moduleGrid?.addEventListener("click", (event) => {
+  const button = event.target.closest("button[data-request-module]");
+  if (!button) return;
+  saveAction("request-module", {
+    organization_id: organizationId(),
+    module_key: button.getAttribute("data-request-module"),
+  }).catch((error) => setStatus(error.message, "is-error"));
+});
+
+logoutButton?.addEventListener("click", async () => {
   if (supabase) await supabase.auth.signOut({ scope: "local" });
   window.location.replace("/utilities/login");
 });

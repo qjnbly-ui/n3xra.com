@@ -1,6 +1,5 @@
 import { createBrowserSupabase, getSessionOrNull, hasConfig } from "/shared/lib/supabase-client.js";
-
-const PLATFORM_ADMIN_EMAILS = new Set(["quentin@n3xra.com", "quentin@quentinnichols.com"]);
+import { isPlatformAdminEmail } from "/shared/lib/orgs.js";
 
 const logoutButton = document.getElementById("utilities-admin-logout");
 const refreshButton = document.getElementById("utilities-admin-refresh");
@@ -278,7 +277,7 @@ async function init() {
     return;
   }
 
-  if (!PLATFORM_ADMIN_EMAILS.has(String(session.user.email || "").toLowerCase())) {
+  if (!isPlatformAdminEmail(session.user.email)) {
     logoutButton.hidden = false;
     setStatus("N3XRA platform admin access required.", "is-error");
     return;

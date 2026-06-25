@@ -6,9 +6,7 @@ import {
   hasConfig,
   getSessionOrNull,
 } from "/shared/lib/supabase-client.js";
-import { getStoredActiveOrganizationId, setStoredActiveOrganizationId } from "/shared/lib/orgs.js";
-
-const PLATFORM_ADMIN_EMAILS = ["quentin@n3xra.com", "quentin@quentinnichols.com"];
+import { getStoredActiveOrganizationId, isPlatformAdminEmail, setStoredActiveOrganizationId } from "/shared/lib/orgs.js";
 
 const setupPanel = document.getElementById("setup-panel");
 const authPanel = document.getElementById("auth-panel");
@@ -114,10 +112,6 @@ async function initCaptcha() {
       captchaToken = "";
     },
   });
-}
-
-function isPlatformAdminEmail(email) {
-  return PLATFORM_ADMIN_EMAILS.includes(String(email || "").trim().toLowerCase());
 }
 
 function getRequestedRedirectDestination(session) {

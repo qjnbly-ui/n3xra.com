@@ -75,7 +75,7 @@ alter table public.documents add column if not exists is_public boolean not null
 insert into public.platform_admins (user_id, email)
 select id, email
 from public.profiles
-where lower(coalesce(email, '')) = 'quentin@quentinnichols.com'
+where lower(coalesce(email, '')) in ('quentin@n3xra.com', 'quentin@quentinnichols.com')
 on conflict (user_id) do update set email = excluded.email;
 
 insert into public.organizations (

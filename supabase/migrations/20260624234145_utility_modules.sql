@@ -66,29 +66,31 @@ insert into public.utility_module_catalog (
   metadata
 )
 values
-  ('finish_onboarding', 'Finish onboarding', 'Complete setup tasks, review N3XRA launch items, and get the portal ready.', 'setup', 'enabled', 10, true, '{"temporary": true}'::jsonb),
-  ('customers', 'Customers', 'Customer search, profiles, service addresses, contacts, account history, and portal access.', 'customers', 'disabled', 20, true, '{}'::jsonb),
-  ('customer_support', 'Customer support', 'Request inbox, ticket assignment, status updates, internal notes, and customer communication history.', 'customers', 'disabled', 30, true, '{}'::jsonb),
+  ('finish_onboarding', 'Finish onboarding', 'Complete setup tasks, review N3XRA launch items, and get the portal ready.', 'setup', 'enabled', 10, true, '{"temporary": true, "dashboard_route": "/utilities/workspace/onboarding"}'::jsonb),
+  ('customers', 'Customer accounts', 'Customer search, profiles, service addresses, contacts, account history, and portal access.', 'customers', 'disabled', 20, true, '{"dashboard_card": true}'::jsonb),
+  ('customer_support', 'Customer support', 'Request inbox, ticket assignment, status updates, internal notes, and customer communication history.', 'customers', 'disabled', 30, true, '{"dashboard_card": true}'::jsonb),
   ('billing', 'Billing', 'Invoices, balances, billing settings, exports, and account-level billing history.', 'finance', 'requestable', 40, false, '{}'::jsonb),
   ('payments', 'Payments', 'Stripe Connect payments, payouts, refunds, payment status, and payment reporting.', 'finance', 'requires_n3xra_setup', 50, false, '{"provider": "stripe_connect"}'::jsonb),
   ('rebates', 'Rebates', 'Rebate applications, approval workflows, supporting documents, and customer rebate history.', 'finance', 'requestable', 60, false, '{}'::jsonb),
   ('conservation_programs', 'Conservation programs', 'Program applications, participation records, outreach, and conservation-related customer tasks.', 'operations', 'requestable', 70, false, '{}'::jsonb),
-  ('service_requests', 'Service requests', 'Form submissions, ticket review, work queues, assignment, and service request lifecycle tracking.', 'operations', 'disabled', 80, true, '{}'::jsonb),
+  ('service_requests', 'Work orders', 'Form submissions, ticket review, work queues, assignment, and service request lifecycle tracking.', 'operations', 'disabled', 80, true, '{"dashboard_card": true}'::jsonb),
   ('outage_reporting', 'Outage reporting', 'Customer outage reports, outage notices, affected areas, and operational updates.', 'operations', 'requestable', 90, false, '{}'::jsonb),
-  ('meter_readings', 'Meter readings', 'Meter reading submission, review, historical readings, and meter issue reporting.', 'operations', 'requestable', 100, false, '{}'::jsonb),
+  ('meter_readings', 'Meter logs', 'Meter reading submission, review, historical readings, and meter issue reporting.', 'operations', 'requestable', 100, false, '{"dashboard_card": true}'::jsonb),
   ('new_service_applications', 'New service applications', 'New customer or new service requests, required forms, reviews, and approvals.', 'operations', 'requestable', 110, false, '{}'::jsonb),
   ('disconnect_reconnect', 'Disconnect/reconnect', 'Disconnect requests, reconnect requests, workflow status, and customer-facing forms.', 'operations', 'requestable', 120, false, '{}'::jsonb),
   ('permits', 'Permits', 'Permit applications, review queues, documents, status updates, and approval workflows.', 'operations', 'requestable', 130, false, '{}'::jsonb),
   ('inspections', 'Inspections', 'Inspection requests, schedules, outcomes, documents, and customer status updates.', 'operations', 'requestable', 140, false, '{}'::jsonb),
   ('field_service_requests', 'Field service requests', 'Field work intake, assignment, status updates, internal notes, and completion records.', 'operations', 'requestable', 150, false, '{}'::jsonb),
-  ('documents', 'Documents', 'Document review, collection, uploads, customer files, service agreements, notices, and records.', 'compliance', 'disabled', 160, true, '{}'::jsonb),
+  ('documents', 'Documents', 'Document review, collection, uploads, customer files, service agreements, notices, and records.', 'compliance', 'disabled', 160, true, '{"dashboard_card": true}'::jsonb),
   ('board_meeting_documents', 'Board meeting documents', 'Board packets, agendas, minutes, public posting, and meeting document archives.', 'compliance', 'requestable', 170, false, '{}'::jsonb),
   ('compliance_reporting', 'Compliance reporting', 'Compliance records, report preparation, exports, review status, and supporting documents.', 'compliance', 'requestable', 180, false, '{}'::jsonb),
-  ('communications', 'Communications', 'Announcements, customer messaging, email notices, alerts, reminders, and publishing workflows.', 'communications', 'disabled', 190, true, '{}'::jsonb),
+  ('communications', 'Communications', 'Announcements, customer messaging, email notices, alerts, reminders, and publishing workflows.', 'communications', 'disabled', 190, true, '{"dashboard_card": true}'::jsonb),
   ('public_notices', 'Public notices', 'Public notices, publishing workflow, customer visibility, and notice archives.', 'communications', 'requestable', 200, false, '{}'::jsonb),
   ('emergency_alerts', 'Emergency alerts', 'Emergency alerts, urgent notices, outage messages, and critical customer communications.', 'communications', 'requires_n3xra_setup', 210, false, '{}'::jsonb),
-  ('reporting_dashboard', 'Reporting dashboard', 'Basic analytics, operational metrics, module reporting, and staff-facing dashboard views.', 'reporting', 'disabled', 220, false, '{}'::jsonb),
-  ('export_csv', 'Export CSV', 'CSV exports for customers, requests, payments, documents, and operational reports.', 'reporting', 'disabled', 230, false, '{}'::jsonb)
+  ('reporting_dashboard', 'Reporting dashboard', 'Basic analytics, operational metrics, module reporting, and staff-facing dashboard views.', 'reporting', 'disabled', 220, false, '{"dashboard_card": true}'::jsonb),
+  ('export_csv', 'Export CSV', 'CSV exports for customers, requests, payments, documents, and operational reports.', 'reporting', 'disabled', 230, false, '{}'::jsonb),
+  ('gis_maps', 'GIS Maps', 'Map-based utility operations and service-area views.', 'operations', 'coming_soon', 240, false, '{"dashboard_card": true}'::jsonb),
+  ('n3xra_records', 'N3XRA Records', 'Documents, meeting records, board packets, and utility records.', 'compliance', 'coming_soon', 250, false, '{"dashboard_card": true}'::jsonb)
 on conflict (module_key) do update
 set
   name = excluded.name,

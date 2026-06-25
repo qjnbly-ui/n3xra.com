@@ -3,8 +3,8 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>N3XRA Utilities Workspace</title>
-    <meta name="description" content="Utility owner workspace dashboard for N3XRA Utilities.">
+    <title>Utility Onboarding | N3XRA Utilities</title>
+    <meta name="description" content="Utility onboarding and launch readiness for N3XRA Utilities.">
     <meta name="robots" content="noindex, nofollow">
     <meta name="theme-color" content="#07120f">
     <link rel="icon" type="image/png" sizes="284x284" href="/assets/n3xra_logo_transparent_small.png">
@@ -17,14 +17,15 @@
     <script src="/shared/config.js"></script>
     <script type="module" src="/utilities/workspace/workspace.js"></script>
   </head>
-  <body class="utilities-dashboard-body" data-workspace-page="home">
+  <body class="utilities-dashboard-body" data-workspace-page="onboarding">
     <header class="site-topbar utilities-topbar">
       <div class="site-topbar-inner">
         <div class="site-topbar-row">
-          <a class="site-brand" href="/utilities/" aria-label="N3XRA Utilities home">
+          <a class="site-brand" href="/utilities/workspace/" aria-label="Utility workspace dashboard">
             <img src="/assets/MAINLOGO.png" alt="N3XRA">
           </a>
           <div class="site-nav-actions">
+            <a class="site-menu-link utilities-desktop-link" href="/utilities/workspace/">Dashboard</a>
             <a class="site-menu-link utilities-desktop-link" id="workspace-portal-link" href="/utilities/">Customer Portal</a>
             <button class="site-menu-link utilities-admin-logout" id="workspace-logout" type="button">Logout</button>
             <button class="site-menu-toggle" type="button" aria-expanded="false" aria-controls="workspace-menu" aria-label="Open menu" data-site-menu-toggle>
@@ -39,7 +40,6 @@
             <p class="site-mobile-menu-title">Workspace</p>
           </div>
           <a class="site-menu-link" href="/utilities/workspace/">Dashboard</a>
-          <a class="site-menu-link" href="/utilities/workspace/onboarding/">Onboarding</a>
           <a class="site-menu-link" href="/utilities/workspace/settings/">Account Settings</a>
           <a class="site-menu-link" href="/utilities/workspace/features/">Workspace Features</a>
           <a class="site-menu-link" id="workspace-mobile-portal-link" href="/utilities/">Customer Portal</a>
@@ -50,9 +50,9 @@
     <main class="utilities-workspace-shell">
       <section class="workspace-hero">
         <div>
-          <p class="eyebrow">Utility Workspace</p>
-          <h1 id="workspace-title">Loading workspace...</h1>
-          <p class="hero-lede" id="workspace-subtitle">Open the parts of your utility workspace that are ready today.</p>
+          <p class="eyebrow">Onboarding</p>
+          <h1 id="workspace-title">Loading setup...</h1>
+          <p class="hero-lede" id="workspace-subtitle">Finish the setup items your team controls and track what N3XRA is preparing.</p>
         </div>
         <aside class="workspace-status-card">
           <span id="workspace-status-pill">Setup</span>
@@ -63,7 +63,52 @@
 
       <p class="status-line" id="workspace-status" role="status" aria-live="polite"></p>
 
-      <section class="workspace-dashboard-grid" id="workspace-dashboard-grid" aria-label="Utility workspace areas"></section>
+      <section class="workspace-grid">
+        <aside class="workspace-sidebar">
+          <div class="workspace-card">
+            <h2>Setup progress</h2>
+            <dl class="workspace-summary-list">
+              <dt>Organization</dt>
+              <dd id="summary-organization">-</dd>
+              <dt>Status</dt>
+              <dd id="summary-status">-</dd>
+              <dt>Launch</dt>
+              <dd id="summary-launch">-</dd>
+              <dt>Your tasks</dt>
+              <dd id="summary-utility-progress">-</dd>
+              <dt>N3XRA tasks</dt>
+              <dd id="summary-n3xra-progress">-</dd>
+            </dl>
+          </div>
+          <div class="workspace-card">
+            <h2>Portal preview</h2>
+            <p>Your customer-facing portal updates from the current account settings.</p>
+            <a class="secondary-action workspace-full-link" id="workspace-preview-link" href="/utilities/">Open Portal</a>
+          </div>
+        </aside>
+
+        <section class="workspace-main">
+          <div class="workspace-card">
+            <div class="workspace-card-head">
+              <div>
+                <h2>Needs your attention</h2>
+                <p>Tasks your team can complete or update.</p>
+              </div>
+            </div>
+            <div class="workspace-step-list" id="utility-step-list"></div>
+          </div>
+
+          <div class="workspace-card">
+            <div class="workspace-card-head">
+              <div>
+                <h2>Waiting on N3XRA</h2>
+                <p>Platform-controlled launch items stay visible here.</p>
+              </div>
+            </div>
+            <div class="workspace-step-list" id="n3xra-step-list"></div>
+          </div>
+        </section>
+      </section>
     </main>
 
     <footer class="site-footer">
