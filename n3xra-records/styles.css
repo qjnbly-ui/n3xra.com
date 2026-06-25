@@ -906,6 +906,20 @@ textarea {
   gap: 10px;
 }
 
+.recording-reference-attached {
+  display: grid;
+  gap: 8px;
+}
+
+.recording-reference-section-label {
+  margin: 0;
+  color: #5d6979;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .recording-reference-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;

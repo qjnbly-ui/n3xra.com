@@ -161,6 +161,22 @@
                   <p>Attach an agenda or supporting document to these minutes.</p>
                 </div>
               </div>
+              <div class="recording-reference-attached">
+                <p class="recording-reference-section-label">Attached references</p>
+                <div class="recording-reference-list" id="recording-reference-list"></div>
+                <p class="empty hidden" id="recording-reference-empty">No references attached.</p>
+              </div>
+              <div class="recording-reference-preview hidden" id="recording-reference-preview">
+                <div class="recording-reference-preview-head">
+                  <div>
+                    <span class="recording-reference-type" id="recording-reference-preview-type">Reference</span>
+                    <p class="recording-reference-title" id="recording-reference-preview-title">Document preview</p>
+                  </div>
+                  <a class="btn secondary button-link" id="recording-reference-preview-open" href="/n3xra-records/documents" rel="noopener">Open document</a>
+                </div>
+                <iframe class="recording-reference-frame" id="recording-reference-frame" src="" title="Referenced document PDF"></iframe>
+              </div>
+              <p class="recording-reference-section-label">Add another reference</p>
               <div class="recording-reference-picker">
                 <div class="field">
                   <label for="recording-reference-select">Document</label>
@@ -177,8 +193,6 @@
                 </div>
                 <button class="btn secondary" id="recording-reference-add" type="button">Attach reference</button>
               </div>
-              <div class="recording-reference-list" id="recording-reference-list"></div>
-              <p class="empty hidden" id="recording-reference-empty">No references attached.</p>
             </section>
 
             <div class="upload-progress hidden" id="upload-progress-shell" aria-live="polite">
@@ -300,6 +314,7 @@
                 <p>Agenda and supporting documents linked to these minutes.</p>
               </div>
             </div>
+            <p class="recording-reference-section-label">Attached references</p>
             <div class="recording-reference-list" id="recording-detail-reference-list"></div>
             <p class="empty hidden" id="recording-detail-reference-empty">No references attached.</p>
             <div class="recording-reference-preview hidden" id="recording-detail-reference-preview">
@@ -312,6 +327,7 @@
               </div>
               <iframe class="recording-reference-frame" id="recording-detail-reference-frame" src="" title="Referenced document PDF"></iframe>
             </div>
+            <p class="recording-reference-section-label">Add another reference</p>
             <div class="recording-reference-picker" id="recording-detail-reference-picker">
               <div class="field">
                 <label for="recording-detail-reference-select">Document</label>

@@ -46,6 +46,11 @@ const recordingReferenceType = document.getElementById("recording-reference-type
 const recordingReferenceAdd = document.getElementById("recording-reference-add");
 const recordingReferenceList = document.getElementById("recording-reference-list");
 const recordingReferenceEmpty = document.getElementById("recording-reference-empty");
+const recordingReferencePreview = document.getElementById("recording-reference-preview");
+const recordingReferencePreviewType = document.getElementById("recording-reference-preview-type");
+const recordingReferencePreviewTitle = document.getElementById("recording-reference-preview-title");
+const recordingReferencePreviewOpen = document.getElementById("recording-reference-preview-open");
+const recordingReferenceFrame = document.getElementById("recording-reference-frame");
 const recordingFileInput = document.getElementById("recording-file-input");
 const recordingFileCopy = document.getElementById("recording-file-copy");
 const recorderStateLabel = document.getElementById("recorder-state-label");
@@ -148,6 +153,7 @@ let durationTimer = null;
 let elapsedRecordingMs = 0;
 let activeDetailRecordingId = "";
 let detailPlayerUrl = "";
+let pendingReferencePreviewUrl = "";
 let detailReferencePreviewUrl = "";
 let isRecordingWorkflowActive = false;
 let pendingRetryUploadOpen = false;
@@ -640,12 +646,50 @@ function renderPendingReferences() {
   renderReferenceSelect(recordingReferenceSelect, pendingMeetingReferences);
   renderReferenceList(recordingReferenceList, recordingReferenceEmpty, pendingMeetingReferences, { canRemove: true });
   if (recordingReferenceAdd) recordingReferenceAdd.disabled = !recordingReferenceSelect?.value;
+  void previewPendingReferenceDocument(pendingMeetingReferences[0] || null);
+}
+
+function clearPendingReferencePreview() {
+  if (recordingReferenceFrame) recordingReferenceFrame.removeAttribute("src");
+  show(recordingReferencePreview, false);
+  if (pendingReferencePreviewUrl) {
+    URL.revokeObjectURL(pendingReferencePreviewUrl);
+    pendingReferencePreviewUrl = "";
+  }
+}
+
+async function previewPendingReferenceDocument(reference) {
+  clearPendingReferencePreview();
+  if (!reference?.app_document_id || !recordingReferencePreview || !recordingReferenceFrame) return;
+  const doc = reference.app_document || getReferenceDocument(reference.app_document_id);
+  if (recordingReferencePreviewType) {
+    recordingReferencePreviewType.textContent = getReferenceTypeLabel(reference.reference_type);
+  }
+  if (recordingReferencePreviewTitle) {
+    recordingReferencePreviewTitle.textContent = doc?.title || "Referenced document";
+  }
+  if (recordingReferencePreviewOpen) {
+    recordingReferencePreviewOpen.href = `/n3xra-records/documents?id=${encodeURIComponent(reference.app_document_id)}`;
+  }
+  show(recordingReferencePreview, true);
+  try {
+    pendingReferencePreviewUrl = await createAppDocumentPdfObjectUrl({
+      config: getConfig(),
+      accessToken: currentSession?.access_token || "",
+      documentId: reference.app_document_id,
+    });
+    recordingReferenceFrame.src = pendingReferencePreviewUrl;
+  } catch (error) {
+    recordingReferenceFrame.removeAttribute("src");
+    setStatus(recordingStatus, getErrorMessage(error, "Unable to preview referenced document."), "error");
+  }
 }
 
 function clearPendingReferences() {
   pendingMeetingReferences = [];
   if (recordingReferenceSelect) recordingReferenceSelect.value = "";
   if (recordingReferenceType) recordingReferenceType.value = "agenda";
+  clearPendingReferencePreview();
   renderPendingReferences();
 }
 
@@ -2635,9 +2679,16 @@ async function init() {
   recordingReferenceAdd?.addEventListener("click", addPendingReference);
   recordingReferenceList?.addEventListener("click", (event) => {
     const button = event.target.closest("[data-reference-remove-id]");
-    if (!button) return;
-    removePendingReference(button.getAttribute("data-reference-remove-id") || "");
-    updateControls();
+    if (button) {
+      removePendingReference(button.getAttribute("data-reference-remove-id") || "");
+      updateControls();
+      return;
+    }
+    if (event.target.closest("a")) return;
+    const row = event.target.closest("[data-reference-preview-id]");
+    if (!row) return;
+    const reference = sortReferences(pendingMeetingReferences).find((item) => item.app_document_id === row.getAttribute("data-reference-preview-id"));
+    void previewPendingReferenceDocument(reference || null);
   });
   recordingDetailReferenceSelect?.addEventListener("change", () => {
     if (recordingDetailReferenceAdd) recordingDetailReferenceAdd.disabled = !recordingDetailReferenceSelect.value;
