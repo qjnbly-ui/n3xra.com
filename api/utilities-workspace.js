@@ -3,6 +3,8 @@ const crypto = require("crypto");
 const SUPABASE_URL = String(process.env.SUPABASE_URL || "https://vdbjlgmbpykjblprqnak.supabase.co").replace(/\/+$/, "");
 const SUPABASE_SERVICE_ROLE_KEY = String(process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY || "").trim();
 const SUPABASE_ANON_KEY = String(process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || SUPABASE_SERVICE_ROLE_KEY).trim();
+const ORGANIZATION_ASSETS_BUCKET = "organization-assets";
+const RESEND_FROM_EMAIL = String(process.env.UTILITIES_INVITE_FROM_EMAIL || process.env.RESEND_FROM_EMAIL || "noreply@n3xra.com").trim();
 
 function cleanString(value, limit = 1000) {
   return String(value || "").trim().slice(0, limit);
@@ -14,6 +16,27 @@ function cleanEmail(value) {
 
 function encodeFilter(value) {
   return encodeURIComponent(String(value || ""));
+}
+
+function encodeStoragePath(path) {
+  return String(path || "").split("/").map(encodeURIComponent).join("/");
+}
+
+function escapeHtml(value) {
+  return String(value || "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function stripHtml(value) {
+  return String(value || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function isValidEmail(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || "").trim());
 }
 
 function getBearerToken(req) {
@@ -59,6 +82,34 @@ async function fetchSupabase(path, options = {}) {
     ...options,
     headers: serviceHeaders(options.headers || {}),
   });
+}
+
+function getRequestOrigin(req) {
+  const proto = req.headers?.["x-forwarded-proto"] || "https";
+  const host = req.headers?.host || "www.n3xra.com";
+  return `${proto}://${host}`;
+}
+
+function toAbsoluteStorageUrl(raw) {
+  if (!raw) return "";
+  if (/^https?:\/\//i.test(raw)) return raw;
+  if (raw.startsWith("/")) return `${SUPABASE_URL}/storage/v1${raw}`;
+  return `${SUPABASE_URL}/storage/v1/${raw}`;
+}
+
+async function createSignedAssetUrl(storagePath) {
+  if (!storagePath) return null;
+  const response = await fetch(
+    `${SUPABASE_URL}/storage/v1/object/sign/${encodeURIComponent(ORGANIZATION_ASSETS_BUCKET)}/${encodeStoragePath(storagePath)}`,
+    {
+      method: "POST",
+      headers: serviceHeaders(),
+      body: JSON.stringify({ expiresIn: 60 * 60 * 24 * 7 }),
+    }
+  );
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) return null;
+  return toAbsoluteStorageUrl(data?.signedURL || data?.signedUrl || data?.url || "") || null;
 }
 
 async function verifyUser(token) {
@@ -479,7 +530,112 @@ async function findUtilityRole(organizationId, roleName) {
   return role;
 }
 
-async function createTeamInvite(user, body) {
+function inviteEmailText({ organizationName, recipientName, inviterName, roleName, inviteUrl, customMessage }) {
+  return [
+    `You have been invited to ${organizationName} on N3XRA Utilities.`,
+    recipientName ? `Hi ${recipientName},` : "",
+    `${inviterName} invited you to join ${organizationName} as ${roleName}.`,
+    customMessage ? `Message: ${customMessage}` : "",
+    `Accept invite: ${inviteUrl}`,
+    "If you do not have a N3XRA account yet, this link lets you create one and join the utility workspace.",
+  ].filter(Boolean).join("\n\n");
+}
+
+function inviteEmailHtml({ organizationName, recipientName, inviterName, roleName, inviteUrl, customMessage, logoUrl, primaryColor, secondaryColor }) {
+  const safeOrganizationName = escapeHtml(organizationName);
+  const safeRecipientName = escapeHtml(recipientName || "");
+  const safeInviterName = escapeHtml(inviterName);
+  const safeRoleName = escapeHtml(roleName);
+  const safeInviteUrl = escapeHtml(inviteUrl);
+  const safeCustomMessage = escapeHtml(customMessage || "");
+  const safePrimaryColor = /^#[0-9a-f]{6}$/i.test(primaryColor || "") ? primaryColor : "#123a33";
+  const safeSecondaryColor = /^#[0-9a-f]{6}$/i.test(secondaryColor || "") ? secondaryColor : "#f4f7fb";
+  const logoBlock = logoUrl
+    ? `<img src="${escapeHtml(logoUrl)}" alt="${safeOrganizationName}" style="display:block;max-width:180px;max-height:76px;width:auto;height:auto;margin:0 auto 22px;">`
+    : `<div style="margin:0 auto 22px;width:72px;height:72px;border-radius:18px;background:${safePrimaryColor};"></div>`;
+  const greeting = safeRecipientName ? `Hi ${safeRecipientName},` : "You have a new team invite.";
+  const noteBlock = safeCustomMessage
+    ? `<div style="margin:18px 0;padding:14px 16px;border-radius:14px;background:${safeSecondaryColor};color:#2f3d4d;font-size:15px;line-height:1.55;">${safeCustomMessage}</div>`
+    : "";
+
+  return `
+    <div style="margin:0;padding:0;background:#edf2f7;font-family:Arial,Helvetica,sans-serif;">
+      <div style="max-width:620px;margin:0 auto;padding:28px 16px;">
+        <div style="overflow:hidden;border-radius:24px;background:#ffffff;border:1px solid #d9e2ec;box-shadow:0 22px 48px rgba(15,22,32,0.12);">
+          <div style="padding:30px 28px;text-align:center;background:linear-gradient(135deg,${safePrimaryColor},#0f1720);">
+            ${logoBlock}
+            <p style="margin:0;color:#d5fff0;font-size:13px;letter-spacing:0.12em;text-transform:uppercase;font-weight:700;">N3XRA Utilities</p>
+            <h1 style="margin:10px 0 0;color:#ffffff;font-size:30px;line-height:1.12;">Join ${safeOrganizationName}</h1>
+          </div>
+          <div style="padding:28px;">
+            <p style="margin:0 0 14px;font-size:16px;line-height:1.6;color:#2f3d4d;">${greeting}</p>
+            <p style="margin:0 0 14px;font-size:16px;line-height:1.6;color:#2f3d4d;">${safeInviterName} invited you to join <strong>${safeOrganizationName}</strong> as <strong>${safeRoleName}</strong>.</p>
+            ${noteBlock}
+            <a href="${safeInviteUrl}" style="display:inline-block;margin-top:4px;padding:13px 22px;border-radius:999px;background:${safePrimaryColor};color:#ffffff;text-decoration:none;font-size:15px;font-weight:700;">Accept invite</a>
+            <p style="margin:18px 0 0;font-size:13px;line-height:1.5;color:#667085;">If you do not have a N3XRA account yet, this link lets you create one and join the utility workspace.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+async function sendUtilityInviteEmail({ req, user, organization, branding, role, invite, inviteUrl }) {
+  const resendApiKey = process.env.RESEND_API_KEY;
+  const recipientEmail = cleanEmail(invite?.recipient_email);
+  if (!recipientEmail || !isValidEmail(recipientEmail)) {
+    return { status: "skipped", reason: "missing_recipient_email" };
+  }
+  if (!resendApiKey) {
+    return { status: "skipped", reason: "missing_resend_api_key" };
+  }
+
+  const organizationName = branding?.portal_display_name || organization?.name || "N3XRA Utilities";
+  const replyTo = cleanEmail(branding?.email_reply_to || organization?.support_email || organization?.primary_contact_email);
+  const inviterName = cleanString(user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email, 140) || "A utility workspace admin";
+  const logoUrl = await createSignedAssetUrl(branding?.logo_storage_path);
+  const emailPayload = {
+    organizationName,
+    recipientName: invite.recipient_name,
+    inviterName,
+    roleName: roleLabelForEmail(role),
+    inviteUrl,
+    customMessage: invite.custom_message,
+    logoUrl,
+    primaryColor: branding?.primary_color,
+    secondaryColor: branding?.secondary_color,
+  };
+  const fromName = `${organizationName} via N3XRA`;
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${resendApiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: `${fromName.replace(/[<>"]/g, "")} <${RESEND_FROM_EMAIL}>`,
+      to: [recipientEmail],
+      subject: `${inviterName} invited you to ${organizationName} on N3XRA Utilities`,
+      html: inviteEmailHtml(emailPayload),
+      text: inviteEmailText(emailPayload),
+      reply_to: isValidEmail(replyTo) ? replyTo : undefined,
+    }),
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const error = new Error(String(data?.message || data?.error || "Unable to send utility invite email."));
+    error.status = 502;
+    throw error;
+  }
+  return { status: "sent", id: data?.id || null };
+}
+
+function roleLabelForEmail(role) {
+  return role?.display_name || cleanString(role?.name, 80).replaceAll("_", " ") || "staff";
+}
+
+async function createTeamInvite(user, body, req) {
   const { org } = await requireManageOrganization(user, body.organization_id || body.organizationId || body.slug);
   const role = await findUtilityRole(org.id, body.role_name || body.roleName || "staff");
   const recipientEmail = cleanEmail(body.recipient_email || body.recipientEmail || body.email) || null;
@@ -518,10 +674,19 @@ async function createTeamInvite(user, body) {
     }),
   });
   const invite = first(rows);
+  const [organization, branding] = await Promise.all([
+    first(await fetchSupabase(`utility_organizations?select=*&id=eq.${encodeFilter(org.id)}&limit=1`)),
+    first(await fetchSupabase(`utility_organization_branding?select=*&organization_id=eq.${encodeFilter(org.id)}&limit=1`)),
+  ]);
+  const origin = getRequestOrigin(req);
+  const inviteUrl = `${origin}/utilities/login?invite=${encodeURIComponent(invite.code)}${invite.recipient_email ? `&email=${encodeURIComponent(invite.recipient_email)}` : ""}`;
+  const email = await sendUtilityInviteEmail({ req, user, organization: organization || org, branding: branding || {}, role, invite, inviteUrl });
   return {
     ...invite,
     status: inviteStatus(invite),
     role: { id: role.id, name: role.name, display_name: role.display_name },
+    invite_url: inviteUrl,
+    email,
   };
 }
 
@@ -878,7 +1043,7 @@ module.exports = async function handler(req, res) {
     if (action === "update-step") return res.status(200).json({ ok: true, step: await updateUtilityStep(user, body) });
     if (action === "request-module") return res.status(200).json({ ok: true, module: await requestModule(user, body) });
     if (action === "update-module-state") return res.status(200).json({ ok: true, module: await updateModuleState(user, body) });
-    if (action === "create-team-invite") return res.status(200).json({ ok: true, invite: await createTeamInvite(user, body) });
+    if (action === "create-team-invite") return res.status(200).json({ ok: true, invite: await createTeamInvite(user, body, req) });
     if (action === "revoke-team-invite") return res.status(200).json({ ok: true, invite: await revokeTeamInvite(user, body) });
     if (action === "redeem-team-invite") return res.status(200).json({ ok: true, redeem: await redeemTeamInvite(user, body) });
     if (action === "add-team-member") return res.status(200).json({ ok: true, member: await addTeamMember(user, body) });

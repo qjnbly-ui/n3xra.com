@@ -150,6 +150,7 @@ function roleDescription(role) {
 }
 
 function buildInviteUrl(invite) {
+  if (invite?.invite_url) return invite.invite_url;
   const params = new URLSearchParams();
   params.set("invite", invite?.code || "");
   if (invite?.recipient_email) params.set("email", invite.recipient_email);
@@ -579,12 +580,21 @@ teamForm?.addEventListener("submit", (event) => {
       await loadWorkspace();
       if (invite?.code) {
         const inviteUrl = buildInviteUrl(invite);
+        const emailSent = invite?.email?.status === "sent";
+        const emailSkipped = invite?.email?.status === "skipped";
+        const emailReason = invite?.email?.reason === "missing_resend_api_key" ? " Resend is not configured." : "";
+        const successCopy = emailSent
+          ? "Invite email sent and link copied."
+          : `Invite link created and copied. Email not sent.${emailReason}`;
+        const successNoCopy = emailSent
+          ? "Invite email sent."
+          : `Invite link created. Email not sent.${emailReason}`;
         if (navigator.clipboard?.writeText) {
           await navigator.clipboard.writeText(inviteUrl)
-            .then(() => setStatus("Invite link created and copied.", "is-active"))
+            .then(() => setStatus(successCopy, "is-active"))
             .catch(() => setStatus(`Invite link created: ${inviteUrl}`, "is-active"));
         } else {
-          setStatus(`Invite link created: ${inviteUrl}`, "is-active");
+          setStatus(emailSent || emailSkipped ? successNoCopy : `Invite link created: ${inviteUrl}`, "is-active");
         }
       } else {
         setStatus("Invite link created.", "is-active");
