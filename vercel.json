@@ -224,6 +224,10 @@
       "destination": "/utilities/workspace/settings/index.html"
     },
     {
+      "source": "/utilities/workspace/team",
+      "destination": "/utilities/workspace/team/index.html"
+    },
+    {
       "source": "/utilities/workspace/features",
       "destination": "/utilities/workspace/features/index.html"
     },

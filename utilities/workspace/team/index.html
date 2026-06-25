@@ -3,8 +3,8 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>N3XRA Utilities Workspace</title>
-    <meta name="description" content="Utility owner workspace dashboard for N3XRA Utilities.">
+    <title>Team Access | N3XRA Utilities</title>
+    <meta name="description" content="Utility team access settings for N3XRA Utilities.">
     <meta name="robots" content="noindex, nofollow">
     <meta name="theme-color" content="#07120f">
     <link rel="icon" type="image/png" sizes="284x284" href="/assets/n3xra_logo_transparent_small.png">
@@ -17,14 +17,15 @@
     <script src="/shared/config.js"></script>
     <script type="module" src="/utilities/workspace/workspace.js"></script>
   </head>
-  <body class="utilities-dashboard-body" data-workspace-page="home">
+  <body class="utilities-dashboard-body" data-workspace-page="team">
     <header class="site-topbar utilities-topbar">
       <div class="site-topbar-inner">
         <div class="site-topbar-row">
-          <a class="site-brand" href="/utilities/" aria-label="N3XRA Utilities home">
+          <a class="site-brand" href="/utilities/workspace/" aria-label="Utility workspace dashboard">
             <img src="/assets/MAINLOGO.png" alt="N3XRA">
           </a>
           <div class="site-nav-actions">
+            <a class="site-menu-link utilities-desktop-link" href="/utilities/workspace/">Dashboard</a>
             <a class="site-menu-link utilities-desktop-link" id="workspace-portal-link" href="/utilities/">Customer Portal</a>
             <button class="site-menu-link utilities-admin-logout" id="workspace-logout" type="button">Logout</button>
             <button class="site-menu-toggle" type="button" aria-expanded="false" aria-controls="workspace-menu" aria-label="Open menu" data-site-menu-toggle>
@@ -51,15 +52,57 @@
     <main class="utilities-workspace-shell">
       <section class="workspace-hero">
         <div>
-          <p class="eyebrow">Utility Workspace</p>
-          <h1 id="workspace-title">Loading workspace...</h1>
-          <p class="hero-lede" id="workspace-subtitle">Open the parts of your utility workspace that are ready today.</p>
+          <p class="eyebrow">Team Access</p>
+          <h1 id="workspace-title">Loading team...</h1>
+          <p class="hero-lede" id="workspace-subtitle">Manage utility staff access and roles for this workspace.</p>
         </div>
       </section>
 
       <p class="status-line" id="workspace-status" role="status" aria-live="polite"></p>
 
-      <section class="workspace-dashboard-grid" id="workspace-dashboard-grid" aria-label="Utility workspace areas"></section>
+      <section class="workspace-grid">
+        <aside class="workspace-sidebar">
+          <div class="workspace-card">
+            <h2>Access summary</h2>
+            <dl class="workspace-summary-list">
+              <dt>Organization</dt>
+              <dd id="summary-organization">-</dd>
+              <dt>Status</dt>
+              <dd id="summary-status">-</dd>
+              <dt>Launch</dt>
+              <dd id="summary-launch">-</dd>
+              <dt>Your role</dt>
+              <dd id="team-current-role">-</dd>
+            </dl>
+          </div>
+          <div class="workspace-card">
+            <h2>Roles</h2>
+            <div class="workspace-role-list" id="team-role-list"></div>
+          </div>
+        </aside>
+
+        <section class="workspace-main">
+          <form class="workspace-card workspace-form" id="team-member-form">
+            <h2>Add team member</h2>
+            <p>Add someone who already has a N3XRA account. If they do not have one yet, have them create one with the same email first.</p>
+            <div class="workspace-form-grid workspace-team-add-grid">
+              <label>Email<input name="email" type="email" placeholder="name@example.com" required></label>
+              <label>Role<select name="role_name" id="team-role-select"></select></label>
+            </div>
+            <button type="submit">Add Team Member</button>
+          </form>
+
+          <section class="workspace-card">
+            <div class="workspace-card-head">
+              <div>
+                <h2>Team members</h2>
+                <p>Review staff access, change roles, or remove workspace access.</p>
+              </div>
+            </div>
+            <div class="workspace-team-list" id="team-member-list"></div>
+          </section>
+        </section>
+      </section>
     </main>
 
     <footer class="site-footer">

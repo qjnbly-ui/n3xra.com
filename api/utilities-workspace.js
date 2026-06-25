@@ -115,6 +115,10 @@ function cleanHex(value) {
   return /^#[0-9a-f]{6}$/i.test(raw) ? raw.toLowerCase() : null;
 }
 
+function normalizeRoleName(value) {
+  return cleanString(value, 40).toLowerCase().replaceAll("-", "_");
+}
+
 function parseBody(req) {
   return typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
 }
@@ -250,6 +254,85 @@ async function getMembershipAccess(user) {
   return new Map((memberships || []).map((row) => [row.organization_id, "member"]));
 }
 
+async function ensurePrimaryContactMembership(organizationId, user) {
+  const organization = first(await fetchSupabase(`utility_organizations?select=id,primary_contact_email&id=eq.${encodeFilter(organizationId)}&limit=1`));
+  if (cleanEmail(organization?.primary_contact_email) !== cleanEmail(user?.email)) return;
+  const existing = first(await fetchSupabase(
+    `utility_organization_members?select=id,status&organization_id=eq.${encodeFilter(organizationId)}&user_id=eq.${encodeFilter(user.id)}&limit=1`
+  ));
+  if (existing?.id && existing.status !== "removed") return;
+  const ownerRole = first(await fetchSupabase(`utility_roles?select=id&organization_id=eq.${encodeFilter(organizationId)}&name=eq.owner&limit=1`));
+  if (!ownerRole?.id) return;
+  if (existing?.id) {
+    await fetchSupabase(`utility_organization_members?id=eq.${encodeFilter(existing.id)}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        role_id: ownerRole.id,
+        status: "active",
+        joined_at: new Date().toISOString(),
+      }),
+    });
+    return;
+  }
+  await fetchSupabase("utility_organization_members", {
+    method: "POST",
+    body: JSON.stringify({
+      organization_id: organizationId,
+      user_id: user.id,
+      role_id: ownerRole.id,
+      status: "active",
+      joined_at: new Date().toISOString(),
+    }),
+  });
+}
+
+async function loadTeamData(organizationId, user) {
+  await ensurePrimaryContactMembership(organizationId, user);
+  const [members, roles] = await Promise.all([
+    fetchSupabase(`utility_organization_members?select=*&organization_id=eq.${encodeFilter(organizationId)}&status=neq.removed&order=created_at.asc`),
+    fetchSupabase(`utility_roles?select=*&organization_id=eq.${encodeFilter(organizationId)}&order=created_at.asc`),
+  ]);
+  const roleById = new Map((roles || []).map((role) => [role.id, role]));
+  const userIds = [...new Set((members || []).map((member) => member.user_id).filter(Boolean))];
+  const profiles = userIds.length
+    ? await fetchSupabase(`profiles?select=id,email,full_name&id=in.(${userIds.map(encodeFilter).join(",")})`)
+    : [];
+  const profileById = new Map((profiles || []).map((profile) => [profile.id, profile]));
+  const currentMember = (members || []).find((member) => member.user_id === user.id && member.status === "active") || null;
+  const currentRole = currentMember ? roleById.get(currentMember.role_id) || null : null;
+  return {
+    can_manage: ["owner", "admin"].includes(currentRole?.name),
+    current_role: currentRole ? { id: currentRole.id, name: currentRole.name, display_name: currentRole.display_name } : null,
+    roles: (roles || []).map((role) => ({
+      id: role.id,
+      name: role.name,
+      display_name: role.display_name,
+      description: role.description,
+      is_system: role.is_system,
+    })),
+    members: (members || []).map((member) => {
+      const role = roleById.get(member.role_id) || null;
+      const profile = profileById.get(member.user_id) || (member.user_id === user.id
+        ? {
+            id: user.id,
+            email: user.email,
+            full_name: user.user_metadata?.full_name || user.user_metadata?.name || null,
+          }
+        : null);
+      return {
+        id: member.id,
+        user_id: member.user_id,
+        status: member.status,
+        invited_at: member.invited_at,
+        joined_at: member.joined_at,
+        created_at: member.created_at,
+        role: role ? { id: role.id, name: role.name, display_name: role.display_name } : null,
+        profile: profile ? { id: profile.id, email: profile.email, full_name: profile.full_name } : null,
+      };
+    }),
+  };
+}
+
 async function listAccessibleOrganizations(user) {
   const memberAccess = await getMembershipAccess(user);
   const memberIds = [...memberAccess.keys()];
@@ -296,13 +379,14 @@ async function loadWorkspace(user, requestedOrg) {
   }
 
   const organizationId = summaryOrganization.id;
-  const [organization, domains, branding, settings, steps, modules] = await Promise.all([
+  const [organization, domains, branding, settings, steps, modules, team] = await Promise.all([
     first(await fetchSupabase(`utility_organizations?select=*&id=eq.${encodeFilter(organizationId)}&limit=1`)),
     fetchSupabase(`utility_organization_domains?select=*&organization_id=eq.${encodeFilter(organizationId)}&order=is_primary.desc,created_at.asc`),
     first(await fetchSupabase(`utility_organization_branding?select=*&organization_id=eq.${encodeFilter(organizationId)}&limit=1`)),
     first(await fetchSupabase(`utility_organization_settings?select=*&organization_id=eq.${encodeFilter(organizationId)}&limit=1`)),
     fetchSupabase(`utility_portal_launch_steps?select=*&organization_id=eq.${encodeFilter(organizationId)}&order=sort_order.asc`),
     loadOrganizationModules(organizationId),
+    loadTeamData(organizationId, user),
   ]);
 
   const launchSteps = (steps || []).map((step) => ({ ...step, owner: stepOwner(step) }));
@@ -316,6 +400,7 @@ async function loadWorkspace(user, requestedOrg) {
     branding,
     settings,
     modules,
+    team,
     launch_steps: launchSteps,
     progress: {
       required_total: required.length,
@@ -328,6 +413,142 @@ async function loadWorkspace(user, requestedOrg) {
     portal_url: portalUrl(organization),
     workspace_url: workspaceUrl(organization),
   };
+}
+
+async function requireManageOrganization(user, requested) {
+  const org = await requireOrganizationAccess(user, requested);
+  const member = first(await fetchSupabase(
+    `utility_organization_members?select=*&organization_id=eq.${encodeFilter(org.id)}&user_id=eq.${encodeFilter(user.id)}&status=eq.active&limit=1`
+  ));
+  if (!member) {
+    const error = new Error("Utility admin access is required.");
+    error.status = 403;
+    throw error;
+  }
+  const role = first(await fetchSupabase(`utility_roles?select=*&id=eq.${encodeFilter(member.role_id)}&organization_id=eq.${encodeFilter(org.id)}&limit=1`));
+  if (!["owner", "admin"].includes(role?.name)) {
+    const error = new Error("Only utility owners and admins can manage team access.");
+    error.status = 403;
+    throw error;
+  }
+  return { org, member, role };
+}
+
+async function findUtilityRole(organizationId, roleName) {
+  const safeRole = normalizeRoleName(roleName) || "staff";
+  const role = first(await fetchSupabase(`utility_roles?select=*&organization_id=eq.${encodeFilter(organizationId)}&name=eq.${encodeFilter(safeRole)}&limit=1`));
+  if (!role) {
+    const error = new Error("Selected role is not available for this utility.");
+    error.status = 400;
+    throw error;
+  }
+  return role;
+}
+
+async function addTeamMember(user, body) {
+  const { org } = await requireManageOrganization(user, body.organization_id || body.organizationId || body.slug);
+  const email = cleanEmail(body.email);
+  if (!email) {
+    const error = new Error("Team member email is required.");
+    error.status = 400;
+    throw error;
+  }
+  const profile = first(await fetchSupabase(`profiles?select=id,email,full_name&email=eq.${encodeFilter(email)}&limit=1`));
+  if (!profile?.id) {
+    const error = new Error("That email does not have a N3XRA account yet. Have them create an account first, then add them here.");
+    error.status = 404;
+    throw error;
+  }
+  const role = await findUtilityRole(org.id, body.role_name || body.roleName || "staff");
+  const existing = first(await fetchSupabase(`utility_organization_members?select=*&organization_id=eq.${encodeFilter(org.id)}&user_id=eq.${encodeFilter(profile.id)}&limit=1`));
+  if (existing?.id) {
+    const rows = await fetchSupabase(`utility_organization_members?id=eq.${encodeFilter(existing.id)}`, {
+      method: "PATCH",
+      headers: { Prefer: "return=representation" },
+      body: JSON.stringify({
+        role_id: role.id,
+        status: "active",
+        joined_at: existing.joined_at || new Date().toISOString(),
+      }),
+    });
+    return first(rows);
+  }
+  const rows = await fetchSupabase("utility_organization_members", {
+    method: "POST",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify({
+      organization_id: org.id,
+      user_id: profile.id,
+      role_id: role.id,
+      status: "active",
+      invited_by_user_id: user.id,
+      invited_at: new Date().toISOString(),
+      joined_at: new Date().toISOString(),
+    }),
+  });
+  return first(rows);
+}
+
+async function updateTeamMember(user, body) {
+  const { org } = await requireManageOrganization(user, body.organization_id || body.organizationId || body.slug);
+  const memberId = cleanString(body.member_id || body.memberId, 80);
+  const roleName = normalizeRoleName(body.role_name || body.roleName);
+  const status = cleanString(body.status, 40);
+  if (!memberId) {
+    const error = new Error("Member id is required.");
+    error.status = 400;
+    throw error;
+  }
+  const member = first(await fetchSupabase(`utility_organization_members?select=*&id=eq.${encodeFilter(memberId)}&organization_id=eq.${encodeFilter(org.id)}&limit=1`));
+  if (!member) {
+    const error = new Error("Team member was not found.");
+    error.status = 404;
+    throw error;
+  }
+  const updates = {};
+  if (roleName) updates.role_id = (await findUtilityRole(org.id, roleName)).id;
+  if (status) {
+    if (!["invited", "active", "suspended"].includes(status)) {
+      const error = new Error("Invalid member status.");
+      error.status = 400;
+      throw error;
+    }
+    updates.status = status;
+  }
+  if (!Object.keys(updates).length) return member;
+  const rows = await fetchSupabase(`utility_organization_members?id=eq.${encodeFilter(member.id)}`, {
+    method: "PATCH",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify(updates),
+  });
+  return first(rows);
+}
+
+async function removeTeamMember(user, body) {
+  const { org } = await requireManageOrganization(user, body.organization_id || body.organizationId || body.slug);
+  const memberId = cleanString(body.member_id || body.memberId, 80);
+  if (!memberId) {
+    const error = new Error("Member id is required.");
+    error.status = 400;
+    throw error;
+  }
+  const member = first(await fetchSupabase(`utility_organization_members?select=*&id=eq.${encodeFilter(memberId)}&organization_id=eq.${encodeFilter(org.id)}&limit=1`));
+  if (!member) {
+    const error = new Error("Team member was not found.");
+    error.status = 404;
+    throw error;
+  }
+  if (member.user_id === user.id) {
+    const error = new Error("You cannot remove your own workspace access.");
+    error.status = 400;
+    throw error;
+  }
+  const rows = await fetchSupabase(`utility_organization_members?id=eq.${encodeFilter(member.id)}`, {
+    method: "PATCH",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify({ status: "removed" }),
+  });
+  return first(rows);
 }
 
 async function requestModule(user, body) {
@@ -483,6 +704,9 @@ module.exports = async function handler(req, res) {
     if (action === "update-step") return res.status(200).json({ ok: true, step: await updateUtilityStep(user, body) });
     if (action === "request-module") return res.status(200).json({ ok: true, module: await requestModule(user, body) });
     if (action === "update-module-state") return res.status(200).json({ ok: true, module: await updateModuleState(user, body) });
+    if (action === "add-team-member") return res.status(200).json({ ok: true, member: await addTeamMember(user, body) });
+    if (action === "update-team-member") return res.status(200).json({ ok: true, member: await updateTeamMember(user, body) });
+    if (action === "remove-team-member") return res.status(200).json({ ok: true, member: await removeTeamMember(user, body) });
     return res.status(400).json({ error: "Unknown workspace action." });
   } catch (error) {
     return res.status(Number(error?.status) || 500).json({

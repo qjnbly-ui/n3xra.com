@@ -25,6 +25,11 @@ const brandingForm = el("branding-form");
 const logoImage = el("workspace-logo-image");
 const logoFallback = el("workspace-logo-fallback");
 const logoNote = el("workspace-logo-note");
+const teamForm = el("team-member-form");
+const teamMemberList = el("team-member-list");
+const teamRoleSelect = el("team-role-select");
+const teamRoleList = el("team-role-list");
+const teamCurrentRole = el("team-current-role");
 
 let supabase = null;
 let session = null;
@@ -124,6 +129,10 @@ function moduleStateLabel(state) {
   return labels[state] || titleCase(state);
 }
 
+function roleLabel(role) {
+  return role?.display_name || titleCase(role?.name || "staff");
+}
+
 function dashboardCards() {
   const organization = workspace?.organization || {};
   const complete = isOnboardingComplete(organization);
@@ -144,6 +153,13 @@ function dashboardCards() {
       description: "Company profile, contacts, branding, portal URL, and account details.",
       status: "Open",
       href: routeWithOrg("/utilities/workspace/settings"),
+      tone: "is-active",
+    },
+    {
+      title: "Team access",
+      description: "Add staff, assign roles, suspend access, and manage who can open this utility workspace.",
+      status: "Open",
+      href: routeWithOrg("/utilities/workspace/team"),
       tone: "is-active",
     },
     {
@@ -313,6 +329,74 @@ function renderSettings() {
   setInput(brandingForm, "email_reply_to", branding.email_reply_to);
 }
 
+function renderTeam() {
+  renderSummary();
+  const team = workspace?.team || {};
+  const roles = Array.isArray(team.roles) ? team.roles : [];
+  const members = Array.isArray(team.members) ? team.members : [];
+  const canManage = Boolean(team.can_manage);
+
+  if (teamCurrentRole) teamCurrentRole.textContent = roleLabel(team.current_role);
+  if (teamRoleSelect) {
+    teamRoleSelect.innerHTML = roles
+      .map((role) => `<option value="${escapeHtml(role.name)}">${escapeHtml(roleLabel(role))}</option>`)
+      .join("");
+    if (!teamRoleSelect.value && roles.some((role) => role.name === "staff")) teamRoleSelect.value = "staff";
+  }
+  if (teamRoleList) {
+    teamRoleList.innerHTML = roles.length
+      ? roles.map((role) => `
+          <article class="workspace-role-item">
+            <strong>${escapeHtml(roleLabel(role))}</strong>
+            <span>${escapeHtml(role.description || role.name)}</span>
+          </article>
+        `).join("")
+      : '<p class="utilities-list-empty">No utility roles have been configured yet.</p>';
+  }
+  if (teamForm) {
+    teamForm.hidden = !canManage;
+    teamForm.querySelectorAll("input, select, button").forEach((input) => {
+      input.disabled = !canManage;
+    });
+  }
+  if (!teamMemberList) return;
+  if (!members.length) {
+    teamMemberList.innerHTML = '<p class="utilities-list-empty">No team members are linked yet.</p>';
+    return;
+  }
+  const roleOptions = roles.map((role) => `<option value="${escapeHtml(role.name)}">${escapeHtml(roleLabel(role))}</option>`).join("");
+  teamMemberList.innerHTML = members.map((member) => {
+    const profile = member.profile || {};
+    const isCurrentUser = member.user_id === workspace?.user?.id;
+    const controls = canManage
+      ? `
+        <div class="workspace-team-controls">
+          <label>Role
+            <select data-team-role="${escapeHtml(member.id)}" ${isCurrentUser ? "disabled" : ""}>
+              ${roles.map((role) => `<option value="${escapeHtml(role.name)}" ${member.role?.name === role.name ? "selected" : ""}>${escapeHtml(roleLabel(role))}</option>`).join("") || roleOptions}
+            </select>
+          </label>
+          <label>Status
+            <select data-team-status="${escapeHtml(member.id)}" ${isCurrentUser ? "disabled" : ""}>
+              ${["active", "suspended", "invited"].map((status) => `<option value="${status}" ${member.status === status ? "selected" : ""}>${escapeHtml(titleCase(status))}</option>`).join("")}
+            </select>
+          </label>
+          <button type="button" data-remove-team-member="${escapeHtml(member.id)}" ${isCurrentUser ? "disabled" : ""}>Remove</button>
+        </div>
+      `
+      : `<span class="workspace-feature-status">${escapeHtml(roleLabel(member.role))}</span>`;
+    return `
+      <article class="workspace-team-row">
+        <div>
+          <strong>${escapeHtml(profile.full_name || profile.email || "N3XRA user")}</strong>
+          <small>${escapeHtml(profile.email || "Email unavailable")} · ${escapeHtml(roleLabel(member.role))} · ${escapeHtml(titleCase(member.status))}</small>
+        </div>
+        ${controls}
+      </article>
+    `;
+  }).join("");
+}
+
 function renderLogoPreview(src, hasLogo) {
   if (!logoImage || !logoFallback) return;
   if (src) {
@@ -396,6 +480,7 @@ function renderWorkspace() {
   if (page === "home") renderDashboard();
   if (page === "onboarding") renderOnboarding();
   if (page === "settings") renderSettings();
+  if (page === "team") renderTeam();
   if (page === "features") renderModules(workspace.modules || []);
 }
 
@@ -436,6 +521,15 @@ brandingForm?.addEventListener("submit", (event) => {
   saveAction("update-branding", formDataObject(brandingForm)).catch((error) => setStatus(error.message, "is-error"));
 });
 
+teamForm?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  saveAction("add-team-member", formDataObject(teamForm))
+    .then(() => {
+      teamForm.reset();
+    })
+    .catch((error) => setStatus(error.message, "is-error"));
+});
+
 utilityStepList?.addEventListener("change", (event) => {
   const select = event.target.closest("select[data-step-id]");
   if (!select) return;
@@ -462,6 +556,36 @@ moduleGrid?.addEventListener("click", (event) => {
   saveAction("request-module", {
     organization_id: organizationId(),
     module_key: button.getAttribute("data-request-module"),
+  }).catch((error) => setStatus(error.message, "is-error"));
+});
+
+teamMemberList?.addEventListener("change", (event) => {
+  const roleSelect = event.target.closest("select[data-team-role]");
+  const statusSelect = event.target.closest("select[data-team-status]");
+  if (roleSelect) {
+    saveAction("update-team-member", {
+      organization_id: organizationId(),
+      member_id: roleSelect.getAttribute("data-team-role"),
+      role_name: roleSelect.value,
+    }).catch((error) => setStatus(error.message, "is-error"));
+    return;
+  }
+  if (statusSelect) {
+    saveAction("update-team-member", {
+      organization_id: organizationId(),
+      member_id: statusSelect.getAttribute("data-team-status"),
+      status: statusSelect.value,
+    }).catch((error) => setStatus(error.message, "is-error"));
+  }
+});
+
+teamMemberList?.addEventListener("click", (event) => {
+  const button = event.target.closest("button[data-remove-team-member]");
+  if (!button) return;
+  if (!window.confirm("Remove this team member's utility workspace access?")) return;
+  saveAction("remove-team-member", {
+    organization_id: organizationId(),
+    member_id: button.getAttribute("data-remove-team-member"),
   }).catch((error) => setStatus(error.message, "is-error"));
 });
 
