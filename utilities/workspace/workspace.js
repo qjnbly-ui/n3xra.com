@@ -23,7 +23,9 @@ const moduleGrid = el("workspace-module-grid");
 const profileForm = el("profile-form");
 const brandingForm = el("branding-form");
 const settingsForm = el("settings-form");
-const logoPath = el("workspace-logo-path");
+const logoImage = el("workspace-logo-image");
+const logoFallback = el("workspace-logo-fallback");
+const logoNote = el("workspace-logo-note");
 
 let supabase = null;
 let session = null;
@@ -201,6 +203,7 @@ function setInput(form, name, value) {
   const input = form?.elements?.[name];
   if (!input) return;
   if (input.type === "checkbox") input.checked = Boolean(value);
+  else if (input.type === "color") input.value = /^#[0-9a-f]{6}$/i.test(String(value || "")) ? value : input.defaultValue;
   else input.value = value || "";
 }
 
@@ -208,17 +211,14 @@ function renderHero() {
   const organization = workspace?.organization;
   if (!organization) {
     if (title) title.textContent = "No utility workspace found";
-    if (subtitle) subtitle.textContent = "This account is not linked to a utility organization yet.";
     return;
   }
-  const complete = isOnboardingComplete(organization);
   document.title = `${organization.name} | Utility Workspace`;
   if (title) title.textContent = organization.name || "Utility workspace";
-  if (subtitle) subtitle.textContent = `${titleCase(organization.status)} · ${titleCase(organization.launch_status)} · ${organization.access_role || "member"}`;
   if (statusPill) statusPill.textContent = titleCase(organization.launch_status || "setup");
   if (progress) progress.textContent = `${workspace.progress?.required_completed || 0}/${workspace.progress?.required_total || 0} required`;
   if (progressCopy) {
-    progressCopy.textContent = complete
+    progressCopy.textContent = isOnboardingComplete(organization)
       ? "Your utility workspace is live."
       : "Complete onboarding while N3XRA finishes platform-controlled setup items.";
   }
@@ -289,8 +289,7 @@ function renderSettings() {
   const organization = workspace?.organization || {};
   const branding = workspace?.branding || {};
   const settings = workspace?.settings || {};
-  const modules = settings.modules || {};
-  if (logoPath) logoPath.textContent = branding.logo_storage_path || "No logo path saved yet.";
+  loadLogoPreview(branding.logo_storage_path || "").catch(() => renderLogoPreview("", Boolean(branding.logo_storage_path)));
 
   setInput(profileForm, "name", organization.name);
   setInput(profileForm, "legal_name", organization.legal_name);
@@ -309,10 +308,43 @@ function renderSettings() {
   setInput(brandingForm, "email_reply_to", branding.email_reply_to);
 
   setInput(settingsForm, "service_types", (settings.service_types || []).join(", "));
-  setInput(settingsForm, "customer_portal", modules.customer_portal !== false);
-  setInput(settingsForm, "support_requests", modules.support_requests !== false);
-  setInput(settingsForm, "document_uploads", modules.document_uploads !== false);
-  setInput(settingsForm, "announcements", modules.announcements !== false);
+}
+
+function renderLogoPreview(src, hasLogo) {
+  if (!logoImage || !logoFallback) return;
+  if (src) {
+    logoImage.src = src;
+    logoImage.hidden = false;
+    logoFallback.hidden = true;
+    if (logoNote) logoNote.textContent = "Current logo uploaded during onboarding.";
+    return;
+  }
+  logoImage.removeAttribute("src");
+  logoImage.hidden = true;
+  logoFallback.hidden = false;
+  logoFallback.textContent = hasLogo ? "Logo preview unavailable" : "No logo uploaded";
+  if (logoNote) {
+    logoNote.textContent = hasLogo
+      ? "The logo file is saved, but the preview could not be loaded."
+      : "Upload a logo during onboarding or ask N3XRA to add one.";
+  }
+}
+
+async function loadLogoPreview(path) {
+  if (!path) {
+    renderLogoPreview("", false);
+    return;
+  }
+  if (!supabase) {
+    renderLogoPreview("", true);
+    return;
+  }
+  const { data, error } = await supabase.storage.from("organization-assets").createSignedUrl(path, 60 * 60);
+  if (error || !data?.signedUrl) {
+    renderLogoPreview("", true);
+    return;
+  }
+  renderLogoPreview(data.signedUrl, true);
 }
 
 function renderModules(modules) {
@@ -356,11 +388,11 @@ function renderWorkspace() {
 }
 
 async function loadWorkspace() {
-  setStatus("Loading workspace...");
+  setStatus("");
   const data = await apiFetch();
   workspace = data.workspace || null;
   renderWorkspace();
-  setStatus("Workspace loaded.", "is-active");
+  setStatus("");
 }
 
 function formDataObject(form) {

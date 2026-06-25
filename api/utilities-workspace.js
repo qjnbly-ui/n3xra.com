@@ -439,17 +439,8 @@ async function updateBranding(user, body) {
 
 async function updateSettings(user, body) {
   const org = await requireOrganizationAccess(user, body.organization_id || body.organizationId || body.slug);
-  const existing = first(await fetchSupabase(`utility_organization_settings?select=modules,payment_preferences,notification_settings,launch_checklist,metadata&organization_id=eq.${encodeFilter(org.id)}&limit=1`)) || {};
-  const modules = existing.modules && typeof existing.modules === "object" ? existing.modules : {};
   const updates = {
     service_types: normalizeArray(body.service_types || body.serviceTypes),
-    modules: {
-      ...modules,
-      customer_portal: body.customer_portal !== false,
-      support_requests: body.support_requests !== false,
-      document_uploads: body.document_uploads !== false,
-      announcements: body.announcements !== false,
-    },
   };
   const rows = await fetchSupabase(`utility_organization_settings?organization_id=eq.${encodeFilter(org.id)}`, {
     method: "PATCH",

@@ -75,7 +75,11 @@
           </div>
           <div class="workspace-card">
             <h2>Logo</h2>
-            <p class="workspace-logo-path" id="workspace-logo-path">Logo uploaded during onboarding will appear here.</p>
+            <div class="workspace-logo-preview" id="workspace-logo-preview">
+              <img id="workspace-logo-image" alt="Organization logo" hidden>
+              <span id="workspace-logo-fallback">No logo uploaded</span>
+            </div>
+            <p class="field-note" id="workspace-logo-note">The current logo comes from onboarding.</p>
           </div>
         </aside>
 
@@ -98,27 +102,23 @@
 
           <form class="workspace-card workspace-form" id="branding-form">
             <h2>Branding</h2>
+            <p>These values control the customer-facing portal identity.</p>
             <div class="workspace-form-grid">
               <label>Portal display name<input name="portal_display_name"></label>
-              <label>Primary color<input name="primary_color" type="text" placeholder="#0f766e"></label>
-              <label>Secondary color<input name="secondary_color" type="text" placeholder="#2563eb"></label>
-              <label>Accent color<input name="accent_color" type="text" placeholder="#22c55e"></label>
+              <label>Primary color<input name="primary_color" type="color" value="#0f766e"></label>
+              <label>Secondary color<input name="secondary_color" type="color" value="#2563eb"></label>
+              <label>Accent color<input name="accent_color" type="color" value="#22c55e"></label>
               <label>Email reply-to<input name="email_reply_to" type="email"></label>
             </div>
-            <p class="field-note">Logo replacement will be added later; this version uses the logo uploaded during onboarding.</p>
+            <p class="field-note">Logo replacement will be added later. The current logo is the file uploaded during onboarding.</p>
             <button type="submit">Save Branding</button>
           </form>
 
           <form class="workspace-card workspace-form" id="settings-form">
-            <h2>Customer portal settings</h2>
+            <h2>Service profile</h2>
+            <p>Service types help N3XRA shape the portal, forms, and future workspace modules for this utility.</p>
             <label>Service types<input name="service_types" placeholder="water, sewer, trash"></label>
-            <div class="workspace-toggle-grid">
-              <label><input name="customer_portal" type="checkbox"> Customer portal</label>
-              <label><input name="support_requests" type="checkbox"> Support requests</label>
-              <label><input name="document_uploads" type="checkbox"> Document uploads</label>
-              <label><input name="announcements" type="checkbox"> Announcements</label>
-            </div>
-            <button type="submit">Save Settings</button>
+            <button type="submit">Save Service Profile</button>
           </form>
         </section>
       </section>

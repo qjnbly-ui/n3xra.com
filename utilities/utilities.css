@@ -941,8 +941,34 @@ a.workspace-dashboard-card:focus-visible {
   filter: brightness(1.04);
 }
 
-.workspace-logo-path {
-  overflow-wrap: anywhere;
+.workspace-logo-preview {
+  min-height: 132px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(15, 22, 32, 0.1);
+  border-radius: var(--records-radius-md, 6px);
+  padding: 1rem;
+  background:
+    linear-gradient(45deg, rgba(15, 22, 32, 0.035) 25%, transparent 25%),
+    linear-gradient(-45deg, rgba(15, 22, 32, 0.035) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, rgba(15, 22, 32, 0.035) 75%),
+    linear-gradient(-45deg, transparent 75%, rgba(15, 22, 32, 0.035) 75%),
+    #ffffff;
+  background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+  background-size: 16px 16px;
+}
+
+.workspace-logo-preview img {
+  max-width: min(100%, 220px);
+  max-height: 96px;
+  object-fit: contain;
+  display: block;
+}
+
+.workspace-logo-preview span {
+  color: var(--records-slate, #667085);
+  font-weight: 900;
+  text-align: center;
 }
 
 .workspace-summary-list {
@@ -1022,6 +1048,12 @@ a.workspace-dashboard-card:focus-visible {
   background: rgba(255, 255, 255, 0.08);
   font: inherit;
   font-weight: 800;
+}
+
+.workspace-form input[type="color"] {
+  min-height: 52px;
+  padding: 5px;
+  cursor: pointer;
 }
 
 .workspace-form button {
