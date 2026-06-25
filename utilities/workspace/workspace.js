@@ -83,25 +83,35 @@ function isToggleableModule(module) {
 
 function displayModuleState(module, fallback = "coming_soon") {
   const state = module?.state || fallback;
-  if (state === "disabled" && !isToggleableModule(module)) return "coming_soon";
+  if (!isToggleableModule(module)) return "coming_soon";
   return state;
 }
 
 function dashboardModuleStatus(key, fallback = "coming_soon") {
-  return moduleStateLabel(displayModuleState(moduleByKey(key), fallback));
+  const module = moduleByKey(key);
+  const metadata = moduleMetadata(module);
+  if (metadata.dashboard_route && module?.state === "enabled") return "Open";
+  return moduleStateLabel(displayModuleState(module, fallback));
 }
 
 function isModuleEnabled(key) {
   return moduleByKey(key)?.state === "enabled";
 }
 
+function dashboardModuleHref(key) {
+  const module = moduleByKey(key);
+  const metadata = moduleMetadata(module);
+  if (module?.state !== "enabled") return "";
+  return String(metadata.dashboard_route || "").trim();
+}
+
 function moduleStateLabel(state) {
   const labels = {
     enabled: "On",
     disabled: "Inactive",
-    requestable: "Request access",
+    requestable: "Coming soon",
     coming_soon: "Coming soon",
-    requires_n3xra_setup: "Waiting on N3XRA",
+    requires_n3xra_setup: "Coming soon",
   };
   return labels[state] || titleCase(state);
 }
@@ -130,7 +140,7 @@ function dashboardCards() {
     },
     {
       title: "Dashboard settings",
-      description: "Turn available workspace areas on or off and request access to future modules.",
+      description: "Control available workspace areas and see which future modules are coming soon.",
       status: "Open",
       href: routeWithOrg("/utilities/workspace/features"),
       tone: "is-active",
@@ -150,7 +160,7 @@ function dashboardCards() {
     {
       title: "Meter logs",
       description: "Meter reading logs, submissions, history, and meter issue tracking.",
-      status: dashboardModuleStatus("meter_readings", "requestable"),
+      status: dashboardModuleStatus("meter_readings", "coming_soon"),
       tone: "is-inactive",
     },
     {
@@ -163,7 +173,8 @@ function dashboardCards() {
       title: "N3XRA Records",
       description: "Documents, meeting records, board packets, and utility records.",
       status: dashboardModuleStatus("n3xra_records", "coming_soon"),
-      tone: "is-inactive",
+      href: dashboardModuleHref("n3xra_records"),
+      tone: isModuleEnabled("n3xra_records") ? "is-active" : "is-inactive",
     },
   ];
 }
@@ -321,9 +332,7 @@ function renderModules(modules) {
           <input type="checkbox" data-module-key="${escapeHtml(module.module_key)}" ${enabled ? "checked" : ""}>
           <span>${enabled ? "On" : "Off"}</span>
         </label>`
-      : state === "requestable"
-        ? `<button class="secondary-action workspace-feature-request" type="button" data-request-module="${escapeHtml(module.module_key)}">Request</button>`
-        : `<span class="workspace-feature-status">${escapeHtml(moduleStateLabel(state))}</span>`;
+      : `<span class="workspace-feature-status">${escapeHtml(moduleStateLabel(state))}</span>`;
     return `
       <article class="workspace-feature-row">
         <div>

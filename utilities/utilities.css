@@ -2498,6 +2498,16 @@ button.utilities-home-card.is-requestable:focus-visible {
   position: relative;
 }
 
+.utilities-dashboard-body .site-mobile-menu {
+  background: transparent;
+  border-top: 0;
+  border-color: transparent;
+}
+
+.utilities-dashboard-body .site-mobile-menu.is-open {
+  padding-top: 0.35rem;
+}
+
 .utilities-dashboard-body .utilities-workspace-shell > .workspace-hero .workspace-status-card {
   position: absolute;
   right: max(1.2rem, calc((100vw - 1120px) / 2));

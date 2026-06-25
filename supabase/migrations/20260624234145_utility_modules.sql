@@ -69,28 +69,28 @@ values
   ('finish_onboarding', 'Finish onboarding', 'Complete setup tasks, review N3XRA launch items, and get the portal ready.', 'setup', 'enabled', 10, true, '{"temporary": true, "dashboard_route": "/utilities/workspace/onboarding"}'::jsonb),
   ('customers', 'Customer accounts', 'Customer search, profiles, service addresses, contacts, account history, and portal access.', 'customers', 'coming_soon', 20, true, '{"dashboard_card": true}'::jsonb),
   ('customer_support', 'Customer support', 'Request inbox, ticket assignment, status updates, internal notes, and customer communication history.', 'customers', 'coming_soon', 30, true, '{"dashboard_card": true}'::jsonb),
-  ('billing', 'Billing', 'Invoices, balances, billing settings, exports, and account-level billing history.', 'finance', 'requestable', 40, false, '{}'::jsonb),
-  ('payments', 'Payments', 'Stripe Connect payments, payouts, refunds, payment status, and payment reporting.', 'finance', 'requires_n3xra_setup', 50, false, '{"provider": "stripe_connect"}'::jsonb),
-  ('rebates', 'Rebates', 'Rebate applications, approval workflows, supporting documents, and customer rebate history.', 'finance', 'requestable', 60, false, '{}'::jsonb),
-  ('conservation_programs', 'Conservation programs', 'Program applications, participation records, outreach, and conservation-related customer tasks.', 'operations', 'requestable', 70, false, '{}'::jsonb),
+  ('billing', 'Billing', 'Invoices, balances, billing settings, exports, and account-level billing history.', 'finance', 'coming_soon', 40, false, '{}'::jsonb),
+  ('payments', 'Payments', 'Stripe Connect payments, payouts, refunds, payment status, and payment reporting.', 'finance', 'coming_soon', 50, false, '{"provider": "stripe_connect"}'::jsonb),
+  ('rebates', 'Rebates', 'Rebate applications, approval workflows, supporting documents, and customer rebate history.', 'finance', 'coming_soon', 60, false, '{}'::jsonb),
+  ('conservation_programs', 'Conservation programs', 'Program applications, participation records, outreach, and conservation-related customer tasks.', 'operations', 'coming_soon', 70, false, '{}'::jsonb),
   ('service_requests', 'Work orders', 'Form submissions, ticket review, work queues, assignment, and service request lifecycle tracking.', 'operations', 'coming_soon', 80, true, '{"dashboard_card": true}'::jsonb),
-  ('outage_reporting', 'Outage reporting', 'Customer outage reports, outage notices, affected areas, and operational updates.', 'operations', 'requestable', 90, false, '{}'::jsonb),
-  ('meter_readings', 'Meter logs', 'Meter reading submission, review, historical readings, and meter issue reporting.', 'operations', 'requestable', 100, false, '{"dashboard_card": true}'::jsonb),
-  ('new_service_applications', 'New service applications', 'New customer or new service requests, required forms, reviews, and approvals.', 'operations', 'requestable', 110, false, '{}'::jsonb),
-  ('disconnect_reconnect', 'Disconnect/reconnect', 'Disconnect requests, reconnect requests, workflow status, and customer-facing forms.', 'operations', 'requestable', 120, false, '{}'::jsonb),
-  ('permits', 'Permits', 'Permit applications, review queues, documents, status updates, and approval workflows.', 'operations', 'requestable', 130, false, '{}'::jsonb),
-  ('inspections', 'Inspections', 'Inspection requests, schedules, outcomes, documents, and customer status updates.', 'operations', 'requestable', 140, false, '{}'::jsonb),
-  ('field_service_requests', 'Field service requests', 'Field work intake, assignment, status updates, internal notes, and completion records.', 'operations', 'requestable', 150, false, '{}'::jsonb),
+  ('outage_reporting', 'Outage reporting', 'Customer outage reports, outage notices, affected areas, and operational updates.', 'operations', 'coming_soon', 90, false, '{}'::jsonb),
+  ('meter_readings', 'Meter logs', 'Meter reading submission, review, historical readings, and meter issue reporting.', 'operations', 'coming_soon', 100, false, '{"dashboard_card": true}'::jsonb),
+  ('new_service_applications', 'New service applications', 'New customer or new service requests, required forms, reviews, and approvals.', 'operations', 'coming_soon', 110, false, '{}'::jsonb),
+  ('disconnect_reconnect', 'Disconnect/reconnect', 'Disconnect requests, reconnect requests, workflow status, and customer-facing forms.', 'operations', 'coming_soon', 120, false, '{}'::jsonb),
+  ('permits', 'Permits', 'Permit applications, review queues, documents, status updates, and approval workflows.', 'operations', 'coming_soon', 130, false, '{}'::jsonb),
+  ('inspections', 'Inspections', 'Inspection requests, schedules, outcomes, documents, and customer status updates.', 'operations', 'coming_soon', 140, false, '{}'::jsonb),
+  ('field_service_requests', 'Field service requests', 'Field work intake, assignment, status updates, internal notes, and completion records.', 'operations', 'coming_soon', 150, false, '{}'::jsonb),
   ('documents', 'Documents', 'Document review, collection, uploads, customer files, service agreements, notices, and records.', 'compliance', 'coming_soon', 160, true, '{"dashboard_card": true}'::jsonb),
-  ('board_meeting_documents', 'Board meeting documents', 'Board packets, agendas, minutes, public posting, and meeting document archives.', 'compliance', 'requestable', 170, false, '{}'::jsonb),
-  ('compliance_reporting', 'Compliance reporting', 'Compliance records, report preparation, exports, review status, and supporting documents.', 'compliance', 'requestable', 180, false, '{}'::jsonb),
+  ('board_meeting_documents', 'Board meeting documents', 'Board packets, agendas, minutes, public posting, and meeting document archives.', 'compliance', 'coming_soon', 170, false, '{}'::jsonb),
+  ('compliance_reporting', 'Compliance reporting', 'Compliance records, report preparation, exports, review status, and supporting documents.', 'compliance', 'coming_soon', 180, false, '{}'::jsonb),
   ('communications', 'Communications', 'Announcements, customer messaging, email notices, alerts, reminders, and publishing workflows.', 'communications', 'coming_soon', 190, true, '{"dashboard_card": true}'::jsonb),
-  ('public_notices', 'Public notices', 'Public notices, publishing workflow, customer visibility, and notice archives.', 'communications', 'requestable', 200, false, '{}'::jsonb),
-  ('emergency_alerts', 'Emergency alerts', 'Emergency alerts, urgent notices, outage messages, and critical customer communications.', 'communications', 'requires_n3xra_setup', 210, false, '{}'::jsonb),
+  ('public_notices', 'Public notices', 'Public notices, publishing workflow, customer visibility, and notice archives.', 'communications', 'coming_soon', 200, false, '{}'::jsonb),
+  ('emergency_alerts', 'Emergency alerts', 'Emergency alerts, urgent notices, outage messages, and critical customer communications.', 'communications', 'coming_soon', 210, false, '{}'::jsonb),
   ('reporting_dashboard', 'Reporting dashboard', 'Basic analytics, operational metrics, module reporting, and staff-facing dashboard views.', 'reporting', 'coming_soon', 220, false, '{"dashboard_card": true}'::jsonb),
   ('export_csv', 'Export CSV', 'CSV exports for customers, requests, payments, documents, and operational reports.', 'reporting', 'coming_soon', 230, false, '{}'::jsonb),
   ('gis_maps', 'GIS Maps', 'Map-based utility operations and service-area views.', 'operations', 'coming_soon', 240, false, '{"dashboard_card": true}'::jsonb),
-  ('n3xra_records', 'N3XRA Records', 'Documents, meeting records, board packets, and utility records.', 'compliance', 'coming_soon', 250, false, '{"dashboard_card": true}'::jsonb)
+  ('n3xra_records', 'N3XRA Records', 'Documents, meeting records, board packets, and utility records.', 'compliance', 'enabled', 250, false, '{"available": true, "dashboard_card": true, "dashboard_route": "/n3xra-records/library"}'::jsonb)
 on conflict (module_key) do update
 set
   name = excluded.name,
@@ -121,16 +121,16 @@ update public.utility_organization_modules
 set
   state = 'coming_soon',
   updated_at = now()
-where module_key in (
-  'customers',
-  'customer_support',
-  'service_requests',
-  'documents',
-  'communications',
-  'reporting_dashboard',
-  'export_csv'
-)
-  and state in ('requestable', 'disabled');
+where module_key <> 'finish_onboarding'
+  and module_key <> 'n3xra_records'
+  and state in ('requestable', 'disabled', 'requires_n3xra_setup');
+
+update public.utility_organization_modules
+set
+  state = 'enabled',
+  updated_at = now()
+where module_key = 'n3xra_records'
+  and state in ('requestable', 'disabled', 'requires_n3xra_setup', 'coming_soon');
 
 alter table public.utility_module_catalog enable row level security;
 alter table public.utility_organization_modules enable row level security;
