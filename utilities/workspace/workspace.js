@@ -22,7 +22,6 @@ const n3xraStepList = el("n3xra-step-list");
 const moduleGrid = el("workspace-module-grid");
 const profileForm = el("profile-form");
 const brandingForm = el("branding-form");
-const settingsForm = el("settings-form");
 const logoImage = el("workspace-logo-image");
 const logoFallback = el("workspace-logo-fallback");
 const logoNote = el("workspace-logo-note");
@@ -87,6 +86,13 @@ function displayModuleState(module, fallback = "coming_soon") {
   const state = module?.state || fallback;
   if (!isToggleableModule(module)) return "coming_soon";
   return state;
+}
+
+function moduleAvailabilityRank(module) {
+  const state = displayModuleState(module);
+  if (state === "enabled") return 0;
+  if (state === "disabled") return 1;
+  return 2;
 }
 
 function dashboardModuleStatus(key, fallback = "coming_soon") {
@@ -288,7 +294,6 @@ function renderSettings() {
   renderSummary();
   const organization = workspace?.organization || {};
   const branding = workspace?.branding || {};
-  const settings = workspace?.settings || {};
   loadLogoPreview(branding.logo_storage_path || "").catch(() => renderLogoPreview("", Boolean(branding.logo_storage_path)));
 
   setInput(profileForm, "name", organization.name);
@@ -306,8 +311,6 @@ function renderSettings() {
   setInput(brandingForm, "secondary_color", branding.secondary_color);
   setInput(brandingForm, "accent_color", branding.accent_color);
   setInput(brandingForm, "email_reply_to", branding.email_reply_to);
-
-  setInput(settingsForm, "service_types", (settings.service_types || []).join(", "));
 }
 
 function renderLogoPreview(src, hasLogo) {
@@ -322,10 +325,10 @@ function renderLogoPreview(src, hasLogo) {
   logoImage.removeAttribute("src");
   logoImage.hidden = true;
   logoFallback.hidden = false;
-  logoFallback.textContent = hasLogo ? "Logo preview unavailable" : "No logo uploaded";
+  logoFallback.textContent = hasLogo ? "Preview unavailable" : "No logo uploaded";
   if (logoNote) {
     logoNote.textContent = hasLogo
-      ? "The logo file is saved, but the preview could not be loaded."
+      ? "The logo file is saved. Preview access may need a storage policy update."
       : "Upload a logo during onboarding or ask N3XRA to add one.";
   }
 }
@@ -349,7 +352,15 @@ async function loadLogoPreview(path) {
 
 function renderModules(modules) {
   if (!moduleGrid) return;
-  const list = (Array.isArray(modules) ? modules : []).filter((module) => module.module_key !== "finish_onboarding");
+  const list = (Array.isArray(modules) ? modules : [])
+    .filter((module) => module.module_key !== "finish_onboarding")
+    .sort((a, b) => {
+      const rankDiff = moduleAvailabilityRank(a) - moduleAvailabilityRank(b);
+      if (rankDiff !== 0) return rankDiff;
+      const orderDiff = Number(a.sort_order || 999) - Number(b.sort_order || 999);
+      if (orderDiff !== 0) return orderDiff;
+      return String(a.name || "").localeCompare(String(b.name || ""));
+    });
   if (!list.length) {
     moduleGrid.innerHTML = '<p class="utilities-list-empty">No workspace features are configured yet.</p>';
     return;
@@ -359,6 +370,7 @@ function renderModules(modules) {
     const state = displayModuleState(module);
     const canToggle = isToggleableModule(module) && ["enabled", "disabled"].includes(module.state);
     const enabled = module.state === "enabled";
+    const stateClass = state === "enabled" ? "is-available" : "is-unavailable";
     const action = canToggle
       ? `<label class="workspace-feature-toggle">
           <input type="checkbox" data-module-key="${escapeHtml(module.module_key)}" ${enabled ? "checked" : ""}>
@@ -366,10 +378,10 @@ function renderModules(modules) {
         </label>`
       : `<span class="workspace-feature-status">${escapeHtml(moduleStateLabel(state))}</span>`;
     return `
-      <article class="workspace-feature-row">
+      <article class="workspace-feature-row ${stateClass}">
         <div>
-          <small>${escapeHtml(titleCase(module.category || "feature"))} · ${escapeHtml(moduleStateLabel(state))}</small>
           <strong>${escapeHtml(module.name)}</strong>
+          <small>${escapeHtml(moduleStateLabel(state))} · ${escapeHtml(titleCase(module.category || "feature"))}</small>
           <p>${escapeHtml(module.description || "")}</p>
         </div>
         ${action}
@@ -422,11 +434,6 @@ profileForm?.addEventListener("submit", (event) => {
 brandingForm?.addEventListener("submit", (event) => {
   event.preventDefault();
   saveAction("update-branding", formDataObject(brandingForm)).catch((error) => setStatus(error.message, "is-error"));
-});
-
-settingsForm?.addEventListener("submit", (event) => {
-  event.preventDefault();
-  saveAction("update-settings", formDataObject(settingsForm)).catch((error) => setStatus(error.message, "is-error"));
 });
 
 utilityStepList?.addEventListener("change", (event) => {

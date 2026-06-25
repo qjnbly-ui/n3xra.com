@@ -869,9 +869,14 @@ a.workspace-dashboard-card:focus-visible {
   background: rgba(255, 255, 255, 0.06);
 }
 
+.workspace-feature-row.is-available {
+  border-color: rgba(23, 111, 102, 0.24);
+  background: rgba(23, 111, 102, 0.06);
+}
+
 .workspace-feature-row small {
   display: block;
-  margin-bottom: 0.25rem;
+  margin-top: 0.35rem;
   color: var(--mint);
   font-size: 0.72rem;
   font-weight: 900;
@@ -942,7 +947,7 @@ a.workspace-dashboard-card:focus-visible {
 }
 
 .workspace-logo-preview {
-  min-height: 132px;
+  min-height: 104px;
   display: grid;
   place-items: center;
   border: 1px solid rgba(15, 22, 32, 0.1);
@@ -967,7 +972,9 @@ a.workspace-dashboard-card:focus-visible {
 
 .workspace-logo-preview span {
   color: var(--records-slate, #667085);
-  font-weight: 900;
+  font-size: 0.94rem;
+  font-weight: 800;
+  line-height: 1.3;
   text-align: center;
 }
 

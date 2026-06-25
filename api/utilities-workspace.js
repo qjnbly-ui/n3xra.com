@@ -437,19 +437,6 @@ async function updateBranding(user, body) {
   return first(rows);
 }
 
-async function updateSettings(user, body) {
-  const org = await requireOrganizationAccess(user, body.organization_id || body.organizationId || body.slug);
-  const updates = {
-    service_types: normalizeArray(body.service_types || body.serviceTypes),
-  };
-  const rows = await fetchSupabase(`utility_organization_settings?organization_id=eq.${encodeFilter(org.id)}`, {
-    method: "PATCH",
-    headers: { Prefer: "return=representation" },
-    body: JSON.stringify(updates),
-  });
-  return first(rows);
-}
-
 async function updateUtilityStep(user, body) {
   const org = await requireOrganizationAccess(user, body.organization_id || body.organizationId || body.slug);
   const stepId = cleanString(body.step_id || body.stepId, 80);
@@ -493,7 +480,6 @@ module.exports = async function handler(req, res) {
     const action = cleanString(body.action, 80);
     if (action === "update-profile") return res.status(200).json({ ok: true, organization: await updateProfile(user, body) });
     if (action === "update-branding") return res.status(200).json({ ok: true, branding: await updateBranding(user, body) });
-    if (action === "update-settings") return res.status(200).json({ ok: true, settings: await updateSettings(user, body) });
     if (action === "update-step") return res.status(200).json({ ok: true, step: await updateUtilityStep(user, body) });
     if (action === "request-module") return res.status(200).json({ ok: true, module: await requestModule(user, body) });
     if (action === "update-module-state") return res.status(200).json({ ok: true, module: await updateModuleState(user, body) });
