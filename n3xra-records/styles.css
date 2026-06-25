@@ -317,6 +317,26 @@ a { color: inherit; }
   line-height: 1;
 }
 
+#files-panel {
+  align-content: start;
+}
+
+#files-panel .library-actions-grid,
+#files-panel #files-library-context,
+#files-panel .files-filter-bar,
+#files-panel .download-list {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+#files-panel .download-list {
+  align-self: start;
+}
+
+#files-panel #file-status {
+  margin-top: 0;
+}
+
 .panel-head h2,
 .panel-head h3 {
   margin: 0;
@@ -2428,6 +2448,7 @@ textarea {
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
   background: #fff;
+  min-height: 3.05rem;
 }
 
 .files-filter-btn {
