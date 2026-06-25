@@ -759,6 +759,77 @@ h2 {
   gap: 16px;
 }
 
+.workspace-feature-panel {
+  width: min(1120px, calc(100vw - 2rem));
+  margin: 1.25rem auto 0;
+  padding: clamp(1.1rem, 2vw, 1.45rem);
+}
+
+.workspace-feature-list {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.workspace-feature-row {
+  min-height: 104px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.workspace-feature-row small {
+  display: block;
+  margin-bottom: 0.25rem;
+  color: var(--mint);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.workspace-feature-row strong {
+  display: block;
+  color: #ffffff;
+  font-size: 1.05rem;
+}
+
+.workspace-feature-row p {
+  margin: 0.35rem 0 0;
+  color: var(--muted);
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.workspace-feature-toggle {
+  min-width: 92px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.55rem;
+  padding: 0.38rem 0.42rem 0.38rem 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.2);
+  color: rgba(255, 255, 255, 0.82);
+  font-weight: 900;
+}
+
+.workspace-feature-toggle input {
+  width: 22px;
+  height: 22px;
+  accent-color: var(--mint);
+}
+
+.workspace-feature-toggle span {
+  min-width: 26px;
+  text-align: center;
+}
+
 .workspace-summary-list {
   display: grid;
   grid-template-columns: minmax(110px, 0.45fr) minmax(0, 1fr);
@@ -2282,17 +2353,55 @@ button.utilities-home-card.is-requestable:focus-visible {
 }
 
 /* Compact N3XRA Utilities admin hero */
-.utilities-dashboard-body .utilities-admin-shell > .utilities-admin-head {
+.utilities-dashboard-body .utilities-admin-shell > .utilities-admin-head,
+.utilities-dashboard-body .utilities-workspace-shell > .workspace-hero {
   min-height: 0;
   height: clamp(180px, 20vw, 240px);
   align-content: center;
   padding-block: 1.35rem;
 }
 
-.utilities-dashboard-body .utilities-admin-shell > .utilities-admin-head h1 {
+.utilities-dashboard-body .utilities-admin-shell > .utilities-admin-head h1,
+.utilities-dashboard-body .utilities-workspace-shell > .workspace-hero h1 {
   font-size: clamp(2.1rem, 4.1vw, 3.65rem);
 }
 
-.utilities-dashboard-body .utilities-admin-shell > .utilities-admin-head .hero-lede {
+.utilities-dashboard-body .utilities-admin-shell > .utilities-admin-head .hero-lede,
+.utilities-dashboard-body .utilities-workspace-shell > .workspace-hero .hero-lede {
   font-size: clamp(0.95rem, 1.4vw, 1.15rem);
+}
+
+.utilities-dashboard-body .utilities-workspace-shell > .workspace-hero {
+  position: relative;
+}
+
+.utilities-dashboard-body .utilities-workspace-shell > .workspace-hero .workspace-status-card {
+  position: absolute;
+  right: max(1.2rem, calc((100vw - 1120px) / 2));
+  bottom: 1.15rem;
+  width: min(280px, calc(100vw - 2.4rem));
+  min-height: 0;
+  padding: 0.85rem 1rem;
+  text-align: left;
+}
+
+@media (max-width: 760px) {
+  .utilities-dashboard-body .utilities-workspace-shell > .workspace-hero {
+    height: auto;
+    min-height: 220px;
+  }
+
+  .utilities-dashboard-body .utilities-workspace-shell > .workspace-hero .workspace-status-card {
+    position: static;
+    width: 100%;
+    margin-top: 1rem;
+  }
+
+  .workspace-feature-row {
+    grid-template-columns: 1fr;
+  }
+
+  .workspace-feature-toggle {
+    width: 100%;
+  }
 }

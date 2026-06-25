@@ -145,7 +145,7 @@ function fallbackModules() {
       category: "customers",
       sort_order: 20,
       is_core: true,
-      state: "requestable",
+      state: "disabled",
       metadata: {},
       configuration: {},
     },
@@ -156,7 +156,7 @@ function fallbackModules() {
       category: "finance",
       sort_order: 30,
       is_core: false,
-      state: "requestable",
+      state: "disabled",
       metadata: {},
       configuration: {},
     },
@@ -167,7 +167,7 @@ function fallbackModules() {
       category: "operations",
       sort_order: 40,
       is_core: true,
-      state: "requestable",
+      state: "disabled",
       metadata: {},
       configuration: {},
     },
@@ -178,7 +178,7 @@ function fallbackModules() {
       category: "compliance",
       sort_order: 50,
       is_core: true,
-      state: "requestable",
+      state: "disabled",
       metadata: {},
       configuration: {},
     },
@@ -189,7 +189,7 @@ function fallbackModules() {
       category: "communications",
       sort_order: 60,
       is_core: true,
-      state: "requestable",
+      state: "disabled",
       metadata: {},
       configuration: {},
     },
@@ -346,6 +346,37 @@ async function requestModule(user, body) {
   return first(rows);
 }
 
+async function updateModuleState(user, body) {
+  const org = await requireOrganizationAccess(user, body.organization_id || body.organizationId || body.slug);
+  const moduleKey = cleanString(body.module_key || body.moduleKey, 80);
+  const enabled = Boolean(body.enabled);
+  if (!moduleKey) {
+    const error = new Error("Module key is required.");
+    error.status = 400;
+    throw error;
+  }
+  const module = first(await fetchSupabase(`utility_organization_modules?select=*&organization_id=eq.${encodeFilter(org.id)}&module_key=eq.${encodeFilter(moduleKey)}&limit=1`));
+  if (!module) {
+    const error = new Error("Module is not available for this organization yet.");
+    error.status = 404;
+    throw error;
+  }
+  if (!["enabled", "disabled"].includes(module.state)) {
+    const error = new Error("This module is not ready for direct activation yet.");
+    error.status = 400;
+    throw error;
+  }
+  const rows = await fetchSupabase(`utility_organization_modules?id=eq.${encodeFilter(module.id)}`, {
+    method: "PATCH",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify({
+      state: enabled ? "enabled" : "disabled",
+      enabled_at: enabled ? new Date().toISOString() : null,
+    }),
+  });
+  return first(rows);
+}
+
 async function updateProfile(user, body) {
   const org = await requireOrganizationAccess(user, body.organization_id || body.organizationId || body.slug);
   const existing = first(await fetchSupabase(`utility_organizations?select=metadata&id=eq.${encodeFilter(org.id)}&limit=1`)) || {};
@@ -459,6 +490,7 @@ module.exports = async function handler(req, res) {
     if (action === "update-settings") return res.status(200).json({ ok: true, settings: await updateSettings(user, body) });
     if (action === "update-step") return res.status(200).json({ ok: true, step: await updateUtilityStep(user, body) });
     if (action === "request-module") return res.status(200).json({ ok: true, module: await requestModule(user, body) });
+    if (action === "update-module-state") return res.status(200).json({ ok: true, module: await updateModuleState(user, body) });
     return res.status(400).json({ error: "Unknown workspace action." });
   } catch (error) {
     return res.status(Number(error?.status) || 500).json({

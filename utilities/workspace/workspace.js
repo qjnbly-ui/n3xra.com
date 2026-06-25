@@ -18,6 +18,7 @@ const summaryUtilityProgress = document.getElementById("summary-utility-progress
 const summaryN3xraProgress = document.getElementById("summary-n3xra-progress");
 const utilityStepList = document.getElementById("utility-step-list");
 const n3xraStepList = document.getElementById("n3xra-step-list");
+const featurePanel = document.getElementById("workspace-feature-panel");
 const moduleGrid = document.getElementById("workspace-module-grid");
 const profileForm = document.getElementById("profile-form");
 const brandingForm = document.getElementById("branding-form");
@@ -105,57 +106,34 @@ function renderSteps(steps, container, canEdit) {
   `).join("");
 }
 
-function moduleStateLabel(state) {
-  const labels = {
-    enabled: "Open",
-    disabled: "Unavailable",
-    requestable: "Request activation",
-    coming_soon: "Coming soon",
-    requires_n3xra_setup: "Requested",
-  };
-  return labels[state] || titleCase(state);
-}
-
-function moduleStateClass(state) {
-  if (state === "enabled") return "is-enabled";
-  if (state === "requestable") return "is-requestable";
-  if (state === "requires_n3xra_setup") return "is-requested";
-  return "is-disabled";
-}
-
-function moduleHref(module) {
-  if (module.module_key === "finish_onboarding") return "#workspace-panel";
-  return "";
+function isOnboardingComplete(organization) {
+  return organization?.status === "active" && organization?.launch_status === "live";
 }
 
 function renderModules(modules) {
-  const list = Array.isArray(modules) ? modules : [];
+  const list = (Array.isArray(modules) ? modules : []).filter((module) =>
+    module.module_key !== "finish_onboarding" && ["enabled", "disabled"].includes(module.state || "disabled")
+  );
   if (!list.length) {
-    moduleGrid.innerHTML = '<p class="utilities-list-empty">Workspace modules are not configured yet.</p>';
+    moduleGrid.innerHTML = '<p class="utilities-list-empty">No workspace features are ready for activation yet.</p>';
     return;
   }
 
-  moduleGrid.innerHTML = list.map((module, index) => {
-    const state = module.state || "requestable";
-    const number = String(index + 1).padStart(2, "0");
-    const stateClass = moduleStateClass(state);
-    const actionLabel = moduleStateLabel(state);
-    const body = `
-      <span>${escapeHtml(number)}</span>
-      <div>
-        <small>${escapeHtml(titleCase(module.category || "module"))} · ${escapeHtml(actionLabel)}</small>
-        <h2>${escapeHtml(module.name)}</h2>
-        <p>${escapeHtml(module.description || "")}</p>
-      </div>
+  moduleGrid.innerHTML = list.map((module) => {
+    const enabled = module.state === "enabled";
+    return `
+      <article class="workspace-feature-row">
+        <div>
+          <small>${escapeHtml(titleCase(module.category || "feature"))}</small>
+          <strong>${escapeHtml(module.name)}</strong>
+          <p>${escapeHtml(module.description || "")}</p>
+        </div>
+        <label class="workspace-feature-toggle">
+          <input type="checkbox" data-module-key="${escapeHtml(module.module_key)}" ${enabled ? "checked" : ""}>
+          <span>${enabled ? "On" : "Off"}</span>
+        </label>
+      </article>
     `;
-    const href = moduleHref(module);
-    if (state === "enabled" && href) {
-      return `<a class="utilities-home-card ${stateClass}" href="${escapeHtml(href)}">${body}</a>`;
-    }
-    if (state === "requestable") {
-      return `<button class="utilities-home-card ${stateClass}" type="button" data-module-key="${escapeHtml(module.module_key)}">${body}</button>`;
-    }
-    return `<button class="utilities-home-card ${stateClass}" type="button" disabled>${body}</button>`;
   }).join("");
 }
 
@@ -174,13 +152,16 @@ function renderWorkspace() {
   const portalUrl = workspace.portal_url || `/utilities/portal/${encodeURIComponent(organization.slug || "")}`;
   const utilitySteps = (workspace.launch_steps || []).filter((step) => step.owner === "utility");
   const n3xraSteps = (workspace.launch_steps || []).filter((step) => step.owner === "n3xra");
+  const onboardingComplete = isOnboardingComplete(organization);
 
   document.title = `${organization.name} | Utility Workspace`;
   title.textContent = organization.name || "Utility workspace";
   subtitle.textContent = `${titleCase(organization.status)} · ${titleCase(organization.launch_status)} · ${organization.access_role || "member"}`;
   statusPill.textContent = titleCase(organization.launch_status || "setup");
   progress.textContent = `${workspace.progress?.required_completed || 0}/${workspace.progress?.required_total || 0} required`;
-  progressCopy.textContent = "Complete your tasks while N3XRA finishes platform-controlled setup items.";
+  progressCopy.textContent = onboardingComplete
+    ? "Your utility workspace is live. Manage active workspace features below."
+    : "Complete your tasks while N3XRA finishes platform-controlled setup items.";
   summaryOrganization.textContent = organization.name || "-";
   summaryStatus.textContent = titleCase(organization.status);
   summaryLaunch.textContent = titleCase(organization.launch_status);
@@ -215,7 +196,8 @@ function renderWorkspace() {
   renderSteps(utilitySteps, utilityStepList, true);
   renderSteps(n3xraSteps, n3xraStepList, false);
   renderModules(workspace.modules || []);
-  panel.hidden = false;
+  featurePanel.hidden = !onboardingComplete;
+  panel.hidden = onboardingComplete;
 }
 
 async function loadWorkspace() {
@@ -270,12 +252,13 @@ utilityStepList.addEventListener("change", (event) => {
   }).catch((error) => setStatus(error.message, "is-error"));
 });
 
-moduleGrid.addEventListener("click", (event) => {
-  const button = event.target.closest("button[data-module-key]");
-  if (!button) return;
-  saveAction("request-module", {
+moduleGrid.addEventListener("change", (event) => {
+  const input = event.target.closest("input[data-module-key]");
+  if (!input) return;
+  saveAction("update-module-state", {
     organization_id: organizationId(),
-    module_key: button.getAttribute("data-module-key"),
+    module_key: input.getAttribute("data-module-key"),
+    enabled: input.checked,
   }).catch((error) => setStatus(error.message, "is-error"));
 });
 

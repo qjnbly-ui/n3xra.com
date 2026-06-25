@@ -67,13 +67,13 @@ insert into public.utility_module_catalog (
 )
 values
   ('finish_onboarding', 'Finish onboarding', 'Complete setup tasks, review N3XRA launch items, and get the portal ready.', 'setup', 'enabled', 10, true, '{"temporary": true}'::jsonb),
-  ('customers', 'Customers', 'Customer search, profiles, service addresses, contacts, account history, and portal access.', 'customers', 'requestable', 20, true, '{}'::jsonb),
-  ('customer_support', 'Customer support', 'Request inbox, ticket assignment, status updates, internal notes, and customer communication history.', 'customers', 'requestable', 30, true, '{}'::jsonb),
+  ('customers', 'Customers', 'Customer search, profiles, service addresses, contacts, account history, and portal access.', 'customers', 'disabled', 20, true, '{}'::jsonb),
+  ('customer_support', 'Customer support', 'Request inbox, ticket assignment, status updates, internal notes, and customer communication history.', 'customers', 'disabled', 30, true, '{}'::jsonb),
   ('billing', 'Billing', 'Invoices, balances, billing settings, exports, and account-level billing history.', 'finance', 'requestable', 40, false, '{}'::jsonb),
   ('payments', 'Payments', 'Stripe Connect payments, payouts, refunds, payment status, and payment reporting.', 'finance', 'requires_n3xra_setup', 50, false, '{"provider": "stripe_connect"}'::jsonb),
   ('rebates', 'Rebates', 'Rebate applications, approval workflows, supporting documents, and customer rebate history.', 'finance', 'requestable', 60, false, '{}'::jsonb),
   ('conservation_programs', 'Conservation programs', 'Program applications, participation records, outreach, and conservation-related customer tasks.', 'operations', 'requestable', 70, false, '{}'::jsonb),
-  ('service_requests', 'Service requests', 'Form submissions, ticket review, work queues, assignment, and service request lifecycle tracking.', 'operations', 'requestable', 80, true, '{}'::jsonb),
+  ('service_requests', 'Service requests', 'Form submissions, ticket review, work queues, assignment, and service request lifecycle tracking.', 'operations', 'disabled', 80, true, '{}'::jsonb),
   ('outage_reporting', 'Outage reporting', 'Customer outage reports, outage notices, affected areas, and operational updates.', 'operations', 'requestable', 90, false, '{}'::jsonb),
   ('meter_readings', 'Meter readings', 'Meter reading submission, review, historical readings, and meter issue reporting.', 'operations', 'requestable', 100, false, '{}'::jsonb),
   ('new_service_applications', 'New service applications', 'New customer or new service requests, required forms, reviews, and approvals.', 'operations', 'requestable', 110, false, '{}'::jsonb),
@@ -81,14 +81,14 @@ values
   ('permits', 'Permits', 'Permit applications, review queues, documents, status updates, and approval workflows.', 'operations', 'requestable', 130, false, '{}'::jsonb),
   ('inspections', 'Inspections', 'Inspection requests, schedules, outcomes, documents, and customer status updates.', 'operations', 'requestable', 140, false, '{}'::jsonb),
   ('field_service_requests', 'Field service requests', 'Field work intake, assignment, status updates, internal notes, and completion records.', 'operations', 'requestable', 150, false, '{}'::jsonb),
-  ('documents', 'Documents', 'Document review, collection, uploads, customer files, service agreements, notices, and records.', 'compliance', 'requestable', 160, true, '{}'::jsonb),
+  ('documents', 'Documents', 'Document review, collection, uploads, customer files, service agreements, notices, and records.', 'compliance', 'disabled', 160, true, '{}'::jsonb),
   ('board_meeting_documents', 'Board meeting documents', 'Board packets, agendas, minutes, public posting, and meeting document archives.', 'compliance', 'requestable', 170, false, '{}'::jsonb),
   ('compliance_reporting', 'Compliance reporting', 'Compliance records, report preparation, exports, review status, and supporting documents.', 'compliance', 'requestable', 180, false, '{}'::jsonb),
-  ('communications', 'Communications', 'Announcements, customer messaging, email notices, alerts, reminders, and publishing workflows.', 'communications', 'requestable', 190, true, '{}'::jsonb),
+  ('communications', 'Communications', 'Announcements, customer messaging, email notices, alerts, reminders, and publishing workflows.', 'communications', 'disabled', 190, true, '{}'::jsonb),
   ('public_notices', 'Public notices', 'Public notices, publishing workflow, customer visibility, and notice archives.', 'communications', 'requestable', 200, false, '{}'::jsonb),
   ('emergency_alerts', 'Emergency alerts', 'Emergency alerts, urgent notices, outage messages, and critical customer communications.', 'communications', 'requires_n3xra_setup', 210, false, '{}'::jsonb),
-  ('reporting_dashboard', 'Reporting dashboard', 'Basic analytics, operational metrics, module reporting, and staff-facing dashboard views.', 'reporting', 'requestable', 220, false, '{}'::jsonb),
-  ('export_csv', 'Export CSV', 'CSV exports for customers, requests, payments, documents, and operational reports.', 'reporting', 'requestable', 230, false, '{}'::jsonb)
+  ('reporting_dashboard', 'Reporting dashboard', 'Basic analytics, operational metrics, module reporting, and staff-facing dashboard views.', 'reporting', 'disabled', 220, false, '{}'::jsonb),
+  ('export_csv', 'Export CSV', 'CSV exports for customers, requests, payments, documents, and operational reports.', 'reporting', 'disabled', 230, false, '{}'::jsonb)
 on conflict (module_key) do update
 set
   name = excluded.name,
@@ -114,6 +114,21 @@ select
 from public.utility_organizations uo
 cross join public.utility_module_catalog catalog
 on conflict (organization_id, module_key) do nothing;
+
+update public.utility_organization_modules
+set
+  state = 'disabled',
+  updated_at = now()
+where module_key in (
+  'customers',
+  'customer_support',
+  'service_requests',
+  'documents',
+  'communications',
+  'reporting_dashboard',
+  'export_csv'
+)
+  and state = 'requestable';
 
 alter table public.utility_module_catalog enable row level security;
 alter table public.utility_organization_modules enable row level security;
