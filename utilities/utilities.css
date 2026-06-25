@@ -767,11 +767,11 @@ h2 {
   align-content: start;
   gap: 0.55rem;
   padding: 1.15rem;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(12, 24, 36, 0.1);
   border-radius: 8px;
-  color: #ffffff;
-  background: linear-gradient(180deg, var(--panel-strong), rgba(255, 255, 255, 0.052));
-  box-shadow: 0 22px 54px rgba(0, 0, 0, 0.18);
+  color: #101823;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 18px 48px rgba(20, 35, 55, 0.1);
   text-decoration: none;
 }
 
@@ -789,7 +789,7 @@ h2 {
 }
 
 .workspace-dashboard-card strong {
-  color: #ffffff;
+  color: #101823;
   font-family: "Fraunces", ui-serif, Georgia, serif;
   font-size: clamp(1.35rem, 2vw, 1.85rem);
   line-height: 1.05;
@@ -797,7 +797,7 @@ h2 {
 
 .workspace-dashboard-card p {
   margin: 0;
-  color: var(--muted);
+  color: #536070;
   font-weight: 800;
   line-height: 1.45;
 }
@@ -812,8 +812,8 @@ a.workspace-dashboard-card:focus-visible {
 .workspace-dashboard-card.is-highlighted {
   border-color: rgba(234, 155, 63, 0.72);
   background:
-    linear-gradient(180deg, rgba(234, 155, 63, 0.2), rgba(255, 255, 255, 0.07)),
-    var(--panel-strong);
+    linear-gradient(180deg, rgba(234, 155, 63, 0.16), rgba(255, 255, 255, 0.92)),
+    #ffffff;
 }
 
 .workspace-dashboard-card.is-highlighted small {
@@ -821,13 +821,23 @@ a.workspace-dashboard-card:focus-visible {
 }
 
 .workspace-dashboard-card.is-inactive {
-  opacity: 0.58;
-  filter: saturate(0.72);
+  opacity: 1;
+  color: #66717f;
+  background: rgba(255, 255, 255, 0.54);
+  box-shadow: none;
 }
 
 .workspace-dashboard-card.is-inactive small {
-  color: rgba(255, 255, 255, 0.84);
-  background: rgba(255, 255, 255, 0.14);
+  color: #66717f;
+  background: rgba(16, 24, 35, 0.08);
+}
+
+.workspace-dashboard-card.is-inactive strong {
+  color: #6d7784;
+}
+
+.workspace-dashboard-card.is-inactive p {
+  color: #7b8591;
 }
 
 .workspace-card-head {

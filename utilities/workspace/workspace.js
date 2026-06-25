@@ -72,8 +72,27 @@ function moduleByKey(key) {
   return (workspace?.modules || []).find((module) => module.module_key === key) || null;
 }
 
-function moduleState(key, fallback = "disabled") {
-  return moduleByKey(key)?.state || fallback;
+function moduleMetadata(module) {
+  return module?.metadata && typeof module.metadata === "object" ? module.metadata : {};
+}
+
+function isToggleableModule(module) {
+  const metadata = moduleMetadata(module);
+  return metadata.available === true || metadata.toggleable === true;
+}
+
+function displayModuleState(module, fallback = "coming_soon") {
+  const state = module?.state || fallback;
+  if (state === "disabled" && !isToggleableModule(module)) return "coming_soon";
+  return state;
+}
+
+function dashboardModuleStatus(key, fallback = "coming_soon") {
+  return moduleStateLabel(displayModuleState(moduleByKey(key), fallback));
+}
+
+function isModuleEnabled(key) {
+  return moduleByKey(key)?.state === "enabled";
 }
 
 function moduleStateLabel(state) {
@@ -119,31 +138,31 @@ function dashboardCards() {
     {
       title: "Customer accounts",
       description: "Customer search, account profiles, service addresses, and account history.",
-      status: moduleStateLabel(moduleState("customers")),
-      tone: moduleState("customers") === "enabled" ? "is-enabled" : "is-inactive",
+      status: dashboardModuleStatus("customers"),
+      tone: isModuleEnabled("customers") ? "is-enabled" : "is-inactive",
     },
     {
       title: "Work orders",
       description: "Service requests, assignments, internal notes, and status updates.",
-      status: moduleStateLabel(moduleState("service_requests")),
-      tone: moduleState("service_requests") === "enabled" ? "is-enabled" : "is-inactive",
+      status: dashboardModuleStatus("service_requests"),
+      tone: isModuleEnabled("service_requests") ? "is-enabled" : "is-inactive",
     },
     {
       title: "Meter logs",
       description: "Meter reading logs, submissions, history, and meter issue tracking.",
-      status: moduleStateLabel(moduleState("meter_readings", "requestable")),
+      status: dashboardModuleStatus("meter_readings", "requestable"),
       tone: "is-inactive",
     },
     {
       title: "GIS Maps",
       description: "Map-based utility operations and service-area views.",
-      status: moduleStateLabel(moduleState("gis_maps", "coming_soon")),
+      status: dashboardModuleStatus("gis_maps", "coming_soon"),
       tone: "is-inactive",
     },
     {
       title: "N3XRA Records",
       description: "Documents, meeting records, board packets, and utility records.",
-      status: moduleStateLabel(moduleState("n3xra_records", "coming_soon")),
+      status: dashboardModuleStatus("n3xra_records", "coming_soon"),
       tone: "is-inactive",
     },
   ];
@@ -294,9 +313,9 @@ function renderModules(modules) {
   }
 
   moduleGrid.innerHTML = list.map((module) => {
-    const state = module.state || "requestable";
-    const canToggle = ["enabled", "disabled"].includes(state);
-    const enabled = state === "enabled";
+    const state = displayModuleState(module);
+    const canToggle = isToggleableModule(module) && ["enabled", "disabled"].includes(module.state);
+    const enabled = module.state === "enabled";
     const action = canToggle
       ? `<label class="workspace-feature-toggle">
           <input type="checkbox" data-module-key="${escapeHtml(module.module_key)}" ${enabled ? "checked" : ""}>
