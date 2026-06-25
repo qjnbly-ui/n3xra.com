@@ -83,14 +83,25 @@
 
         <section class="workspace-main">
           <form class="workspace-card workspace-form" id="team-member-form">
-            <h2>Add team member</h2>
-            <p>Add someone who already has a N3XRA account. If they do not have one yet, have them create one with the same email first.</p>
+            <h2>Invite team member</h2>
+            <p>Create an invite link for a staff member. They can sign in or create a N3XRA account from the link, then this workspace access is added automatically.</p>
             <div class="workspace-form-grid workspace-team-add-grid">
-              <label>Email<input name="email" type="email" placeholder="name@example.com" required></label>
+              <label>Email<input name="recipient_email" type="email" placeholder="name@example.com" required></label>
+              <label>Name<input name="recipient_name" type="text" maxlength="120" placeholder="Optional"></label>
               <label>Role<select name="role_name" id="team-role-select"></select></label>
             </div>
-            <button type="submit">Add Team Member</button>
+            <button type="submit">Create Invite Link</button>
           </form>
+
+          <section class="workspace-card">
+            <div class="workspace-card-head">
+              <div>
+                <h2>Pending invites</h2>
+                <p>Copy a link again or revoke access before it is used.</p>
+              </div>
+            </div>
+            <div class="workspace-team-list" id="team-invite-list"></div>
+          </section>
 
           <section class="workspace-card">
             <div class="workspace-card-head">

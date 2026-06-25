@@ -27,6 +27,7 @@ const logoFallback = el("workspace-logo-fallback");
 const logoNote = el("workspace-logo-note");
 const teamForm = el("team-member-form");
 const teamMemberList = el("team-member-list");
+const teamInviteList = el("team-invite-list");
 const teamRoleSelect = el("team-role-select");
 const teamRoleList = el("team-role-list");
 const teamCurrentRole = el("team-current-role");
@@ -131,6 +132,28 @@ function moduleStateLabel(state) {
 
 function roleLabel(role) {
   return role?.display_name || titleCase(role?.name || "staff");
+}
+
+function roleDescription(role) {
+  const fallback = {
+    owner: "Full workspace control, billing decisions, team access, and launch settings.",
+    admin: "Manages setup, account settings, workspace features, and team access.",
+    staff: "Works inside enabled modules without changing account-level settings.",
+    finance: "Handles billing, payment, and finance-related workspace areas.",
+    support: "Handles customer support, requests, notes, and communication workflows.",
+    viewer: "Read-only access to available workspace information.",
+  };
+  const description = String(role?.description || "").trim();
+  const roleName = String(role?.name || "").trim().toLowerCase();
+  if (description && description.toLowerCase() !== roleName) return description;
+  return fallback[roleName] || "Workspace access role.";
+}
+
+function buildInviteUrl(invite) {
+  const params = new URLSearchParams();
+  params.set("invite", invite?.code || "");
+  if (invite?.recipient_email) params.set("email", invite.recipient_email);
+  return `${window.location.origin}/utilities/login?${params.toString()}`;
 }
 
 function dashboardCards() {
@@ -334,6 +357,7 @@ function renderTeam() {
   const team = workspace?.team || {};
   const roles = Array.isArray(team.roles) ? team.roles : [];
   const members = Array.isArray(team.members) ? team.members : [];
+  const invites = Array.isArray(team.invites) ? team.invites : [];
   const canManage = Boolean(team.can_manage);
 
   if (teamCurrentRole) teamCurrentRole.textContent = roleLabel(team.current_role);
@@ -348,7 +372,7 @@ function renderTeam() {
       ? roles.map((role) => `
           <article class="workspace-role-item">
             <strong>${escapeHtml(roleLabel(role))}</strong>
-            <span>${escapeHtml(role.description || role.name)}</span>
+            <span>${escapeHtml(roleDescription(role))}</span>
           </article>
         `).join("")
       : '<p class="utilities-list-empty">No utility roles have been configured yet.</p>';
@@ -358,6 +382,27 @@ function renderTeam() {
     teamForm.querySelectorAll("input, select, button").forEach((input) => {
       input.disabled = !canManage;
     });
+  }
+  if (teamInviteList) {
+    if (!canManage) {
+      teamInviteList.innerHTML = '<p class="utilities-list-empty">Only utility owners and admins can manage invite links.</p>';
+    } else if (!invites.length) {
+      teamInviteList.innerHTML = '<p class="utilities-list-empty">No pending invite links.</p>';
+    } else {
+      teamInviteList.innerHTML = invites.map((invite) => `
+        <article class="workspace-team-row">
+          <div>
+            <strong>${escapeHtml(invite.recipient_name || invite.recipient_email || "Invite link")}</strong>
+            <small>${escapeHtml(invite.recipient_email || "Any email")} · ${escapeHtml(roleLabel(invite.role))} · ${escapeHtml(titleCase(invite.status || "active"))}</small>
+            <code class="workspace-invite-code">${escapeHtml(invite.code)}</code>
+          </div>
+          <div class="workspace-team-controls">
+            <button type="button" data-copy-invite="${escapeHtml(invite.id)}">Copy Link</button>
+            <button type="button" data-revoke-invite="${escapeHtml(invite.id)}">Revoke</button>
+          </div>
+        </article>
+      `).join("");
+    }
   }
   if (!teamMemberList) return;
   if (!members.length) {
@@ -523,9 +568,27 @@ brandingForm?.addEventListener("submit", (event) => {
 
 teamForm?.addEventListener("submit", (event) => {
   event.preventDefault();
-  saveAction("add-team-member", formDataObject(teamForm))
-    .then(() => {
+  setStatus("Creating invite link...");
+  apiFetch({
+    method: "PATCH",
+    body: JSON.stringify({ action: "create-team-invite", ...formDataObject(teamForm) }),
+  })
+    .then(async (data) => {
+      const invite = data?.invite || null;
       teamForm.reset();
+      await loadWorkspace();
+      if (invite?.code) {
+        const inviteUrl = buildInviteUrl(invite);
+        if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(inviteUrl)
+            .then(() => setStatus("Invite link created and copied.", "is-active"))
+            .catch(() => setStatus(`Invite link created: ${inviteUrl}`, "is-active"));
+        } else {
+          setStatus(`Invite link created: ${inviteUrl}`, "is-active");
+        }
+      } else {
+        setStatus("Invite link created.", "is-active");
+      }
     })
     .catch((error) => setStatus(error.message, "is-error"));
 });
@@ -587,6 +650,31 @@ teamMemberList?.addEventListener("click", (event) => {
     organization_id: organizationId(),
     member_id: button.getAttribute("data-remove-team-member"),
   }).catch((error) => setStatus(error.message, "is-error"));
+});
+
+teamInviteList?.addEventListener("click", (event) => {
+  const copyButton = event.target.closest("button[data-copy-invite]");
+  const revokeButton = event.target.closest("button[data-revoke-invite]");
+  if (copyButton) {
+    const invite = (workspace?.team?.invites || []).find((item) => item.id === copyButton.getAttribute("data-copy-invite"));
+    if (!invite) return;
+    const inviteUrl = buildInviteUrl(invite);
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(inviteUrl)
+        .then(() => setStatus("Invite link copied.", "is-active"))
+        .catch(() => setStatus(inviteUrl, "is-active"));
+    } else {
+      setStatus(inviteUrl, "is-active");
+    }
+    return;
+  }
+  if (revokeButton) {
+    if (!window.confirm("Revoke this pending invite link?")) return;
+    saveAction("revoke-team-invite", {
+      organization_id: organizationId(),
+      invite_id: revokeButton.getAttribute("data-revoke-invite"),
+    }).catch((error) => setStatus(error.message, "is-error"));
+  }
 });
 
 logoutButton?.addEventListener("click", async () => {

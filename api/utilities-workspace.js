@@ -1,3 +1,5 @@
+const crypto = require("crypto");
+
 const SUPABASE_URL = String(process.env.SUPABASE_URL || "https://vdbjlgmbpykjblprqnak.supabase.co").replace(/\/+$/, "");
 const SUPABASE_SERVICE_ROLE_KEY = String(process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY || "").trim();
 const SUPABASE_ANON_KEY = String(process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || SUPABASE_SERVICE_ROLE_KEY).trim();
@@ -117,6 +119,21 @@ function cleanHex(value) {
 
 function normalizeRoleName(value) {
   return cleanString(value, 40).toLowerCase().replaceAll("-", "_");
+}
+
+function normalizeInviteCode(value) {
+  return cleanString(value, 32).toUpperCase().replace(/[^A-Z0-9]/g, "");
+}
+
+function createInviteCode() {
+  return crypto.randomBytes(7).toString("hex").toUpperCase();
+}
+
+function inviteStatus(invite) {
+  if (invite?.revoked_at) return "revoked";
+  if (Number(invite?.redeemed_uses || 0) >= Number(invite?.max_uses || 1)) return "used";
+  if (invite?.expires_at && new Date(invite.expires_at).getTime() < Date.now()) return "expired";
+  return "active";
 }
 
 function parseBody(req) {
@@ -288,9 +305,10 @@ async function ensurePrimaryContactMembership(organizationId, user) {
 
 async function loadTeamData(organizationId, user) {
   await ensurePrimaryContactMembership(organizationId, user);
-  const [members, roles] = await Promise.all([
+  const [members, roles, invites] = await Promise.all([
     fetchSupabase(`utility_organization_members?select=*&organization_id=eq.${encodeFilter(organizationId)}&status=neq.removed&order=created_at.asc`),
     fetchSupabase(`utility_roles?select=*&organization_id=eq.${encodeFilter(organizationId)}&order=created_at.asc`),
+    fetchSupabase(`utility_organization_invites?select=*&organization_id=eq.${encodeFilter(organizationId)}&revoked_at=is.null&order=created_at.desc`).catch(() => []),
   ]);
   const roleById = new Map((roles || []).map((role) => [role.id, role]));
   const userIds = [...new Set((members || []).map((member) => member.user_id).filter(Boolean))];
@@ -310,6 +328,22 @@ async function loadTeamData(organizationId, user) {
       description: role.description,
       is_system: role.is_system,
     })),
+    invites: (invites || []).map((invite) => {
+      const role = roleById.get(invite.role_id) || null;
+      return {
+        id: invite.id,
+        code: invite.code,
+        recipient_email: invite.recipient_email,
+        recipient_name: invite.recipient_name,
+        custom_message: invite.custom_message,
+        max_uses: invite.max_uses,
+        redeemed_uses: invite.redeemed_uses,
+        expires_at: invite.expires_at,
+        created_at: invite.created_at,
+        status: inviteStatus(invite),
+        role: role ? { id: role.id, name: role.name, display_name: role.display_name } : null,
+      };
+    }),
     members: (members || []).map((member) => {
       const role = roleById.get(member.role_id) || null;
       const profile = profileById.get(member.user_id) || (member.user_id === user.id
@@ -443,6 +477,146 @@ async function findUtilityRole(organizationId, roleName) {
     throw error;
   }
   return role;
+}
+
+async function createTeamInvite(user, body) {
+  const { org } = await requireManageOrganization(user, body.organization_id || body.organizationId || body.slug);
+  const role = await findUtilityRole(org.id, body.role_name || body.roleName || "staff");
+  const recipientEmail = cleanEmail(body.recipient_email || body.recipientEmail || body.email) || null;
+  const recipientName = cleanString(body.recipient_name || body.recipientName || body.name, 120) || null;
+  const customMessage = cleanString(body.custom_message || body.customMessage, 500) || null;
+  const now = new Date();
+  const expiresAt = body.expires_at || body.expiresAt
+    ? new Date(body.expires_at || body.expiresAt)
+    : new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
+  if (Number.isNaN(expiresAt.getTime())) {
+    const error = new Error("Invite expiration date is invalid.");
+    error.status = 400;
+    throw error;
+  }
+
+  let code = createInviteCode();
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const existing = first(await fetchSupabase(`utility_organization_invites?select=id&code=eq.${encodeFilter(code)}&limit=1`));
+    if (!existing) break;
+    code = createInviteCode();
+  }
+
+  const rows = await fetchSupabase("utility_organization_invites", {
+    method: "POST",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify({
+      organization_id: org.id,
+      role_id: role.id,
+      code,
+      recipient_email: recipientEmail,
+      recipient_name: recipientName,
+      custom_message: customMessage,
+      max_uses: 1,
+      expires_at: expiresAt.toISOString(),
+      created_by_user_id: user.id,
+    }),
+  });
+  const invite = first(rows);
+  return {
+    ...invite,
+    status: inviteStatus(invite),
+    role: { id: role.id, name: role.name, display_name: role.display_name },
+  };
+}
+
+async function revokeTeamInvite(user, body) {
+  const { org } = await requireManageOrganization(user, body.organization_id || body.organizationId || body.slug);
+  const inviteId = cleanString(body.invite_id || body.inviteId, 80);
+  if (!inviteId) {
+    const error = new Error("Invite id is required.");
+    error.status = 400;
+    throw error;
+  }
+  const invite = first(await fetchSupabase(`utility_organization_invites?select=*&id=eq.${encodeFilter(inviteId)}&organization_id=eq.${encodeFilter(org.id)}&limit=1`));
+  if (!invite) {
+    const error = new Error("Invite was not found.");
+    error.status = 404;
+    throw error;
+  }
+  const rows = await fetchSupabase(`utility_organization_invites?id=eq.${encodeFilter(invite.id)}`, {
+    method: "PATCH",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify({ revoked_at: new Date().toISOString() }),
+  });
+  return first(rows);
+}
+
+async function redeemTeamInvite(user, body) {
+  const code = normalizeInviteCode(body.invite_code || body.inviteCode || body.code);
+  if (!code) {
+    const error = new Error("Invite code is required.");
+    error.status = 400;
+    throw error;
+  }
+  const invite = first(await fetchSupabase(`utility_organization_invites?select=*&code=eq.${encodeFilter(code)}&limit=1`));
+  if (!invite) {
+    const error = new Error("This utility invite code was not found.");
+    error.status = 404;
+    throw error;
+  }
+  const status = inviteStatus(invite);
+  if (status !== "active") {
+    const error = new Error(`This utility invite is ${status}.`);
+    error.status = 400;
+    throw error;
+  }
+  if (invite.recipient_email && cleanEmail(invite.recipient_email) !== cleanEmail(user.email)) {
+    const error = new Error("This invite was created for a different email address.");
+    error.status = 403;
+    throw error;
+  }
+
+  const existing = first(await fetchSupabase(
+    `utility_organization_members?select=*&organization_id=eq.${encodeFilter(invite.organization_id)}&user_id=eq.${encodeFilter(user.id)}&limit=1`
+  ));
+  const now = new Date().toISOString();
+  let member = null;
+  if (existing?.id) {
+    member = first(await fetchSupabase(`utility_organization_members?id=eq.${encodeFilter(existing.id)}`, {
+      method: "PATCH",
+      headers: { Prefer: "return=representation" },
+      body: JSON.stringify({
+        role_id: invite.role_id,
+        status: "active",
+        joined_at: existing.joined_at || now,
+      }),
+    }));
+  } else {
+    member = first(await fetchSupabase("utility_organization_members", {
+      method: "POST",
+      headers: { Prefer: "return=representation" },
+      body: JSON.stringify({
+        organization_id: invite.organization_id,
+        user_id: user.id,
+        role_id: invite.role_id,
+        status: "active",
+        invited_by_user_id: invite.created_by_user_id,
+        invited_at: invite.created_at || now,
+        joined_at: now,
+      }),
+    }));
+  }
+
+  await fetchSupabase(`utility_organization_invites?id=eq.${encodeFilter(invite.id)}`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      redeemed_uses: Number(invite.redeemed_uses || 0) + 1,
+      last_redeemed_at: now,
+    }),
+  });
+
+  const organization = first(await fetchSupabase(`utility_organizations?select=id,name,slug,status,launch_status&id=eq.${encodeFilter(invite.organization_id)}&limit=1`));
+  return {
+    member,
+    organization,
+    workspace_url: workspaceUrl(organization),
+  };
 }
 
 async function addTeamMember(user, body) {
@@ -704,6 +878,9 @@ module.exports = async function handler(req, res) {
     if (action === "update-step") return res.status(200).json({ ok: true, step: await updateUtilityStep(user, body) });
     if (action === "request-module") return res.status(200).json({ ok: true, module: await requestModule(user, body) });
     if (action === "update-module-state") return res.status(200).json({ ok: true, module: await updateModuleState(user, body) });
+    if (action === "create-team-invite") return res.status(200).json({ ok: true, invite: await createTeamInvite(user, body) });
+    if (action === "revoke-team-invite") return res.status(200).json({ ok: true, invite: await revokeTeamInvite(user, body) });
+    if (action === "redeem-team-invite") return res.status(200).json({ ok: true, redeem: await redeemTeamInvite(user, body) });
     if (action === "add-team-member") return res.status(200).json({ ok: true, member: await addTeamMember(user, body) });
     if (action === "update-team-member") return res.status(200).json({ ok: true, member: await updateTeamMember(user, body) });
     if (action === "remove-team-member") return res.status(200).json({ ok: true, member: await removeTeamMember(user, body) });
