@@ -168,10 +168,6 @@ function escapeHtml(value) {
     .replaceAll("'", "&#39;");
 }
 
-function cleanTextValue(value) {
-  return String(value || "").replace(/\s+/g, " ").trim();
-}
-
 function closeMobileMenu() {
   mobileMenu.classList.remove("is-open");
   mobileMenu.classList.add("hidden");
@@ -1032,37 +1028,18 @@ function getSelectedReferenceDocumentIdsForSend() {
   return Array.from(new Set(ids));
 }
 
-function buildSendSubject(title, organizationName) {
-  const cleanTitle = cleanTextValue(title) || "Document";
-  const cleanOrg = cleanTextValue(organizationName);
-  if (!cleanOrg) return cleanTitle;
-  if (cleanTitle.toLowerCase().includes(cleanOrg.toLowerCase())) return cleanTitle;
-  return `${cleanOrg}: ${cleanTitle}`;
-}
-
-function buildSendMessage(title, organizationName) {
-  const cleanTitle = cleanTextValue(title) || "document";
-  const cleanOrg = cleanTextValue(organizationName) || "N3XRA Records";
-  return [
-    `${cleanOrg} is sending the attached ${cleanTitle} document.`,
-    "",
-    "Please review the attached PDF.",
-  ].join("\n");
-}
-
 async function openDocumentSendModal() {
   if (!activeDocumentId || activeDocumentKind === "template") return;
   const payload = editorToPayload();
   const title = payload.title || "Untitled document";
-  const organizationName = getActiveOrganization()?.name || "";
   documentSendForm.reset();
   try {
     await loadActiveDocumentReferences();
   } catch (error) {
     setStatus(editorStatus, getErrorMessage(error, "Unable to load meeting references."), "error");
   }
-  documentSendSubject.value = buildSendSubject(title, organizationName);
-  documentSendMessage.value = buildSendMessage(title, organizationName);
+  documentSendSubject.value = title;
+  documentSendMessage.value = `Please see the attached ${title} document.`;
   documentSendAttachPdf.checked = true;
   documentSendIncludeLink.checked = true;
   if (documentSendIncludeAccountLink) documentSendIncludeAccountLink.checked = true;
