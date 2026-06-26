@@ -78,42 +78,81 @@
             <div class="workspace-card-head">
               <div>
                 <h2>Create billing run</h2>
-                <p>CSV files need a header row. Map the columns once, then reuse the template for future exports.</p>
+                <p>Import this month’s current meter readings. N3XRA will use stored prior readings when the CSV does not include a previous-reading column.</p>
               </div>
             </div>
             <form class="workspace-form meter-billing-form" id="meter-billing-form">
-              <div class="workspace-form-grid">
-                <label>Billing period
-                  <input type="month" name="billing_period" required>
-                </label>
-                <label>Included gallons
-                  <input type="number" name="included_gallons" min="0" step="1" value="10000" required>
-                </label>
-                <label>Overage rate per gallon
-                  <input type="number" name="overage_rate" min="0" step="0.0001" value="0">
-                </label>
-                <label>Template name
-                  <input type="text" name="template_name" value="Meter readings CSV" maxlength="120">
-                </label>
+              <div class="meter-workflow-note">
+                <strong>How this works</strong>
+                <ol>
+                  <li>Choose the billing month and overage rules.</li>
+                  <li>Upload the current READy/export CSV.</li>
+                  <li>Map the required columns: account, meter, and current reading.</li>
+                  <li>Create the billing run, review billable rows, then export approved charges.</li>
+                </ol>
               </div>
-              <label>Meter reading CSV
-                <input type="file" id="meter-billing-file" accept=".csv,text/csv" required>
-              </label>
-              <div class="meter-template-row">
-                <label>Saved template
-                  <select id="meter-billing-template">
-                    <option value="">Map manually</option>
-                  </select>
-                </label>
-                <button type="button" id="meter-billing-apply-template">Apply Template</button>
-              </div>
-              <div class="meter-mapping-grid" id="meter-mapping-grid"></div>
-              <div class="meter-preview-wrap" id="meter-preview-wrap" hidden>
-                <h3>CSV preview</h3>
-                <div class="meter-table-scroll">
-                  <table class="meter-preview-table" id="meter-preview-table"></table>
+
+              <section class="meter-form-step">
+                <div class="meter-step-head">
+                  <span>1</span>
+                  <div>
+                    <strong>Billing rules</strong>
+                    <p>Set the month, included allowance, and overage rate for this run.</p>
+                  </div>
                 </div>
-              </div>
+                <div class="workspace-form-grid">
+                  <label>Billing period
+                    <input type="month" name="billing_period" required>
+                  </label>
+                  <label>Included gallons
+                    <input type="number" name="included_gallons" min="0" step="1" value="10000" required>
+                  </label>
+                  <label>Overage rate per gallon
+                    <input type="number" name="overage_rate" min="0" step="0.0001" value="0">
+                  </label>
+                  <label>Template name
+                    <input type="text" name="template_name" value="Meter readings CSV" maxlength="120">
+                  </label>
+                </div>
+              </section>
+
+              <section class="meter-form-step">
+                <div class="meter-step-head">
+                  <span>2</span>
+                  <div>
+                    <strong>Upload current readings</strong>
+                    <p>Use a CSV with a header row. Previous reading and usage columns are optional.</p>
+                  </div>
+                </div>
+                <label>Meter reading CSV
+                  <input type="file" id="meter-billing-file" accept=".csv,text/csv" required>
+                </label>
+              </section>
+
+              <section class="meter-form-step">
+                <div class="meter-step-head">
+                  <span>3</span>
+                  <div>
+                    <strong>Map columns</strong>
+                    <p>Only account number, meter number, and current reading are required. If previous reading is blank, N3XRA uses the most recent stored reading for that meter.</p>
+                  </div>
+                </div>
+                <div class="meter-template-row">
+                  <label>Saved mapping
+                    <select id="meter-billing-template">
+                      <option value="">Map manually</option>
+                    </select>
+                  </label>
+                  <button type="button" id="meter-billing-apply-template">Apply</button>
+                </div>
+                <div class="meter-mapping-grid" id="meter-mapping-grid"></div>
+                <div class="meter-preview-wrap" id="meter-preview-wrap" hidden>
+                  <h3>CSV preview</h3>
+                  <div class="meter-table-scroll">
+                    <table class="meter-preview-table" id="meter-preview-table"></table>
+                  </div>
+                </div>
+              </section>
               <button type="submit">Create Billing Run</button>
             </form>
           </article>

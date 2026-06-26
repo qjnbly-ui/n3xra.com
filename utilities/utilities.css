@@ -1169,9 +1169,15 @@ a.workspace-dashboard-card:focus-visible {
 
 .meter-history-row {
   display: grid;
-  gap: 5px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  align-items: center;
   padding: 12px 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.11);
+}
+
+.meter-history-row.is-active {
+  border-color: rgba(23, 111, 102, 0.24);
 }
 
 .meter-history-row strong {
@@ -1182,6 +1188,27 @@ a.workspace-dashboard-card:focus-visible {
   color: var(--muted);
   font-size: 0.86rem;
   font-weight: 800;
+}
+
+.meter-history-actions {
+  display: flex;
+  gap: 0.45rem;
+}
+
+.meter-history-actions button {
+  min-height: 34px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  padding: 0 0.7rem;
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.08);
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.meter-history-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .workspace-logo-preview {
@@ -2533,10 +2560,79 @@ button.utilities-home-card.is-requestable:focus-visible {
   color: #64748b;
 }
 
+.utilities-dashboard-body[data-workspace-page="meter-billing"] .meter-workflow-note {
+  display: grid;
+  gap: 0.65rem;
+  border: 1px solid #dce5eb;
+  border-radius: 8px;
+  padding: 1rem;
+  background: #f8fafc;
+}
+
+.utilities-dashboard-body[data-workspace-page="meter-billing"] .meter-workflow-note strong {
+  color: #172033;
+  font-weight: 900;
+}
+
+.utilities-dashboard-body[data-workspace-page="meter-billing"] .meter-workflow-note ol {
+  margin: 0;
+  padding-left: 1.25rem;
+  color: #526176;
+  font-weight: 800;
+  line-height: 1.55;
+}
+
+.utilities-dashboard-body[data-workspace-page="meter-billing"] .meter-form-step {
+  display: grid;
+  gap: 1rem;
+  border-top: 1px solid #e7edf2;
+  padding-top: 1.15rem;
+}
+
+.utilities-dashboard-body[data-workspace-page="meter-billing"] .meter-step-head {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 0.85rem;
+  align-items: start;
+}
+
+.utilities-dashboard-body[data-workspace-page="meter-billing"] .meter-step-head > span {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  color: #ffffff;
+  background: #176f66;
+  font-weight: 900;
+}
+
+.utilities-dashboard-body[data-workspace-page="meter-billing"] .meter-step-head strong {
+  display: block;
+  color: #172033;
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.utilities-dashboard-body[data-workspace-page="meter-billing"] .meter-step-head p {
+  margin: 0.15rem 0 0;
+  line-height: 1.45;
+}
+
 .utilities-dashboard-body[data-workspace-page="meter-billing"] .workspace-form label {
+  display: grid;
+  gap: 0.45rem;
   color: #526176;
   font-size: 0.76rem;
   letter-spacing: 0.08em;
+}
+
+.utilities-dashboard-body[data-workspace-page="meter-billing"] .workspace-form label small {
+  color: #7b8798;
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .utilities-dashboard-body[data-workspace-page="meter-billing"] .workspace-form input,
@@ -2594,6 +2690,28 @@ button.utilities-home-card.is-requestable:focus-visible {
   background: #ffffff;
 }
 
+.utilities-dashboard-body[data-workspace-page="meter-billing"] .meter-history-row {
+  border-bottom-color: #e7edf2;
+}
+
+.utilities-dashboard-body[data-workspace-page="meter-billing"] .meter-history-row.is-active {
+  margin-inline: -0.35rem;
+  border-radius: 8px;
+  border-bottom-color: transparent;
+  padding-inline: 0.35rem;
+  background: #eef8f5;
+}
+
+.utilities-dashboard-body[data-workspace-page="meter-billing"] .meter-history-actions button {
+  color: #172033;
+  border-color: #d8e2e8;
+  background: #ffffff;
+}
+
+.utilities-dashboard-body[data-workspace-page="meter-billing"] .meter-history-actions button[data-delete-billing-run] {
+  color: #9f1f1f;
+}
+
 .utilities-dashboard-body[data-workspace-page="meter-billing"] .meter-review-actions {
   display: flex;
   flex-wrap: wrap;
@@ -2628,6 +2746,193 @@ button.utilities-home-card.is-requestable:focus-visible {
   color: #ffffff;
   border-color: #176f66;
   background: #176f66;
+}
+
+.utilities-dashboard-body[data-workspace-page="customers"] .customer-workspace-grid {
+  grid-template-columns: minmax(290px, 0.3fr) minmax(0, 1fr);
+}
+
+.customer-search-card {
+  display: grid;
+  gap: 1rem;
+}
+
+.customer-search-label {
+  display: grid;
+  gap: 0.45rem;
+  color: #526176;
+  font-size: 0.76rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.customer-search-label input {
+  min-height: 46px;
+  border: 1px solid #d8e2e8;
+  border-radius: 8px;
+  padding: 0 0.9rem;
+  color: #172033;
+  background: #f8fafc;
+  font-weight: 800;
+}
+
+.customer-list {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.customer-list-row {
+  width: 100%;
+  display: grid;
+  gap: 0.25rem;
+  border: 1px solid #dce5eb;
+  border-radius: 8px;
+  padding: 0.85rem;
+  color: #172033;
+  background: #ffffff;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.customer-list-row.is-active {
+  border-color: rgba(23, 111, 102, 0.32);
+  background: #eef8f5;
+}
+
+.customer-list-row strong {
+  font-weight: 900;
+}
+
+.customer-list-row span {
+  color: #64748b;
+  font-size: 0.86rem;
+  font-weight: 800;
+}
+
+.customer-detail-grid,
+.customer-panel {
+  display: grid;
+  gap: 1rem;
+}
+
+.customer-detail-grid {
+  grid-template-columns: 1fr;
+}
+
+.customer-form,
+.customer-panel {
+  border-top: 1px solid #e7edf2;
+  padding-top: 1rem;
+}
+
+.customer-form h3,
+.customer-panel h3 {
+  margin: 0;
+  color: #172033;
+  font-family: Manrope, ui-sans-serif, system-ui, sans-serif;
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.customer-inline-form {
+  display: grid;
+  grid-template-columns: minmax(130px, 0.7fr) minmax(190px, 1.4fr) minmax(130px, 0.55fr) auto;
+  gap: 0.75rem;
+  align-items: end;
+  border: 1px solid #e7edf2;
+  border-radius: 8px;
+  padding: 0.85rem;
+  background: #f8fafc;
+}
+
+.customer-inline-form strong,
+.customer-inline-form > span {
+  align-self: center;
+  color: #172033;
+  font-weight: 900;
+}
+
+.customer-inline-form label,
+.customer-form label {
+  display: grid;
+  gap: 0.4rem;
+  color: #526176;
+  font-size: 0.76rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.customer-inline-form input,
+.customer-inline-form select,
+.customer-form input {
+  min-height: 42px;
+  border: 1px solid #d8e2e8;
+  border-radius: 8px;
+  padding: 0 0.8rem;
+  color: #172033;
+  background: #ffffff;
+  font-weight: 800;
+}
+
+.customer-inline-form button,
+.customer-form button,
+.customer-danger-button {
+  min-height: 42px;
+  border: 1px solid #d8e2e8;
+  border-radius: 8px;
+  padding: 0 1rem;
+  color: #172033;
+  background: #ffffff;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.customer-form button {
+  justify-self: start;
+  color: #ffffff;
+  border-color: #176f66;
+  background: #176f66;
+}
+
+.customer-danger-button {
+  color: #9f1f1f;
+}
+
+.customer-danger-button:disabled,
+.customer-inline-form button:disabled,
+.customer-form button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.customer-history-table,
+.customer-billing-table {
+  width: 100%;
+  min-width: 620px;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.customer-history-table th,
+.customer-history-table td,
+.customer-billing-table th,
+.customer-billing-table td {
+  border-bottom: 1px solid #e7edf2;
+  padding: 10px 12px;
+  color: #243044;
+  text-align: left;
+}
+
+.customer-history-table th,
+.customer-billing-table th {
+  color: #526176;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .utilities-home-card.is-enabled span {
@@ -2971,7 +3276,8 @@ button.utilities-home-card.is-requestable:focus-visible {
   .workspace-team-controls,
   .workspace-team-add-grid,
   .meter-template-row,
-  .meter-mapping-grid {
+  .meter-mapping-grid,
+  .customer-inline-form {
     grid-template-columns: 1fr;
   }
 

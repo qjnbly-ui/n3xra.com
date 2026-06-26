@@ -45,11 +45,24 @@ const meterBillingHistory = el("meter-billing-history");
 const meterBillingCurrentPeriod = el("meter-billing-current-period");
 const meterBillingCurrentSummary = el("meter-billing-current-summary");
 const meterBillingReviewCopy = el("meter-billing-review-copy");
+const customerSearchInput = el("customer-search-input");
+const customerList = el("customer-list");
+const customerDetailTitle = el("customer-detail-title");
+const customerDetailSubtitle = el("customer-detail-subtitle");
+const customerDeleteButton = el("customer-delete-button");
+const customerProfileForm = el("customer-profile-form");
+const customerAccountList = el("customer-account-list");
+const customerMeterList = el("customer-meter-list");
+const customerReadingTable = el("customer-reading-table");
+const customerBillingTable = el("customer-billing-table");
 
 let supabase = null;
 let session = null;
 let workspace = null;
 let meterCsv = { headers: [], rows: [], fileName: "" };
+let selectedMeterBillingRunId = "";
+let selectedCustomerId = "";
+let customerSearchTerm = "";
 
 function setStatus(message, tone = "") {
   if (!statusLine) return;
@@ -219,6 +232,7 @@ function dashboardCards() {
       title: "Customer accounts",
       description: "Customer search, account profiles, service addresses, and account history.",
       status: dashboardModuleStatus("customers"),
+      href: dashboardModuleHref("customers"),
       tone: isModuleEnabled("customers") ? "is-enabled" : "is-inactive",
     },
     {
@@ -253,7 +267,15 @@ async function apiFetch(options = {}) {
   const accessToken = session?.access_token || "";
   if (!accessToken) throw new Error("Authentication required.");
   const org = getOrgParam();
-  const response = await fetch(`/api/utilities-workspace${options.method ? "" : org ? `?org=${encodeURIComponent(org)}` : ""}`, {
+  let query = "";
+  if (!options.method) {
+    const params = new URLSearchParams();
+    if (org) params.set("org", org);
+    if (page === "meter-billing" && selectedMeterBillingRunId) params.set("billing_run_id", selectedMeterBillingRunId);
+    if (page === "customers" && selectedCustomerId) params.set("customer_id", selectedCustomerId);
+    query = params.toString() ? `?${params.toString()}` : "";
+  }
+  const response = await fetch(`/api/utilities-workspace${query}`, {
     ...options,
     headers: {
       Accept: "application/json",
@@ -612,7 +634,7 @@ function mappingSelect(name, label, required = false) {
   const options = ['<option value="">Choose column</option>']
     .concat(meterCsv.headers.map((header) => `<option value="${escapeHtml(header)}">${escapeHtml(header)}</option>`))
     .join("");
-  return `<label>${escapeHtml(label)}${required ? " *" : ""}<select name="${escapeHtml(name)}" ${required ? "required" : ""}>${options}</select></label>`;
+  return `<label>${escapeHtml(label)} <small>${required ? "Required" : "Optional"}</small><select name="${escapeHtml(name)}" ${required ? "required" : ""}>${options}</select></label>`;
 }
 
 function currentMapping() {
@@ -632,7 +654,7 @@ function setMapping(mapping = {}) {
 function renderMapping() {
   if (!meterMappingGrid) return;
   if (!meterCsv.headers.length) {
-    meterMappingGrid.innerHTML = '<p class="utilities-list-empty">Upload a CSV to map columns.</p>';
+    meterMappingGrid.innerHTML = '<p class="utilities-list-empty">Upload a current-reading CSV first. Required mappings will appear here.</p>';
     return;
   }
   meterMappingGrid.innerHTML = [
@@ -642,8 +664,8 @@ function renderMapping() {
     mappingSelect("customer_name", "Customer name"),
     mappingSelect("service_address", "Service address"),
     mappingSelect("reading_date", "Reading date"),
-    mappingSelect("previous_reading", "Previous reading"),
-    mappingSelect("usage_gallons", "Usage gallons"),
+    mappingSelect("previous_reading", "Previous reading, if CSV includes it"),
+    mappingSelect("usage_gallons", "Usage gallons, if CSV includes it"),
   ].join("");
 }
 
@@ -675,14 +697,21 @@ function renderMeterTemplates() {
 function renderMeterHistory() {
   if (!meterBillingHistory) return;
   const runs = workspace?.meter_billing?.runs || [];
+  const activeRunId = workspace?.meter_billing?.selected_run_id || workspace?.meter_billing?.latest_run?.id || "";
   if (!runs.length) {
     meterBillingHistory.innerHTML = '<p class="utilities-list-empty">No billing runs yet.</p>';
     return;
   }
   meterBillingHistory.innerHTML = runs.map((run) => `
-    <article class="meter-history-row">
-      <strong>${escapeHtml(run.billing_period)}</strong>
-      <span>${escapeHtml(titleCase(run.status))} · ${formatMoney(run.total_overage_amount)} · ${Number(run.billable_count || 0)} billable</span>
+    <article class="meter-history-row ${run.id === activeRunId ? "is-active" : ""}">
+      <div>
+        <strong>${escapeHtml(run.billing_period)}</strong>
+        <span>${escapeHtml(titleCase(run.status))} · ${formatMoney(run.total_overage_amount)} · ${Number(run.billable_count || 0)} billable</span>
+      </div>
+      <div class="meter-history-actions">
+        <button type="button" data-view-billing-run="${escapeHtml(run.id)}" ${run.id === activeRunId ? "disabled" : ""}>View</button>
+        <button type="button" data-delete-billing-run="${escapeHtml(run.id)}">Delete</button>
+      </div>
     </article>
   `).join("");
 }
@@ -762,6 +791,153 @@ function renderMeterBilling() {
   renderMeterReview();
 }
 
+function selectedCustomerData() {
+  return workspace?.customer_accounts || {};
+}
+
+function searchableCustomerText(customer, accounts = [], meters = []) {
+  const accountText = accounts.map((account) => `${account.account_number} ${account.service_address || ""}`).join(" ");
+  const meterText = meters.map((meter) => meter.meter_number).join(" ");
+  return `${customer.display_name || ""} ${customer.external_customer_id || ""} ${customer.email || ""} ${customer.phone || ""} ${accountText} ${meterText}`.toLowerCase();
+}
+
+function renderCustomerList() {
+  if (!customerList) return;
+  const data = selectedCustomerData();
+  const customers = data.customers || [];
+  const allAccounts = data.all_accounts || [];
+  const allMeters = data.all_meters || [];
+  const activeId = data.selected_customer_id || "";
+  const query = customerSearchTerm.trim().toLowerCase();
+  const filtered = query
+    ? customers.filter((customer) => {
+        const accountIds = allAccounts.filter((account) => account.customer_id === customer.id).map((account) => account.id);
+        const accountMeters = allMeters.filter((meter) => accountIds.includes(meter.service_account_id));
+        return searchableCustomerText(customer, allAccounts.filter((account) => account.customer_id === customer.id), accountMeters).includes(query);
+      })
+    : customers;
+  if (!customers.length) {
+    customerList.innerHTML = '<p class="utilities-list-empty">No customer records yet. Import a meter reading CSV to create customers automatically.</p>';
+    return;
+  }
+  if (!filtered.length) {
+    customerList.innerHTML = '<p class="utilities-list-empty">No customers match that search.</p>';
+    return;
+  }
+  customerList.innerHTML = filtered.map((customer) => `
+    <button class="customer-list-row ${customer.id === activeId ? "is-active" : ""}" type="button" data-customer-id="${escapeHtml(customer.id)}">
+      <strong>${escapeHtml(customer.display_name || customer.external_customer_id || "Customer")}</strong>
+      <span>${escapeHtml(customer.external_customer_id || "No external id")} · ${Number(customer.account_count || 0)} account${Number(customer.account_count || 0) === 1 ? "" : "s"} · ${Number(customer.meter_count || 0)} meter${Number(customer.meter_count || 0) === 1 ? "" : "s"}</span>
+    </button>
+  `).join("");
+}
+
+function renderCustomerProfile() {
+  const data = selectedCustomerData();
+  const customer = data.selected_customer || null;
+  if (customerDetailTitle) customerDetailTitle.textContent = customer?.display_name || customer?.external_customer_id || "Select a customer";
+  if (customerDetailSubtitle) {
+    customerDetailSubtitle.textContent = customer
+      ? `External customer id: ${customer.external_customer_id || "-"}`
+      : "Customer details appear after records are imported or selected.";
+  }
+  if (customerDeleteButton) customerDeleteButton.disabled = !customer?.id;
+  setInput(customerProfileForm, "display_name", customer?.display_name);
+  setInput(customerProfileForm, "email", customer?.email);
+  setInput(customerProfileForm, "phone", customer?.phone);
+  customerProfileForm?.querySelectorAll("input, button").forEach((input) => {
+    input.disabled = !customer?.id;
+  });
+}
+
+function renderCustomerAccounts() {
+  if (!customerAccountList) return;
+  const accounts = selectedCustomerData().accounts || [];
+  if (!accounts.length) {
+    customerAccountList.innerHTML = '<p class="utilities-list-empty">No service accounts linked to this customer.</p>';
+    return;
+  }
+  customerAccountList.innerHTML = accounts.map((account) => `
+    <form class="customer-inline-form" data-account-form="${escapeHtml(account.id)}">
+      <strong>${escapeHtml(account.account_number)}</strong>
+      <label>Service address
+        <input type="text" name="service_address" value="${escapeHtml(account.service_address || "")}">
+      </label>
+      <label>Status
+        <select name="status">
+          ${["active", "inactive", "closed"].map((status) => `<option value="${status}" ${account.status === status ? "selected" : ""}>${escapeHtml(titleCase(status))}</option>`).join("")}
+        </select>
+      </label>
+      <button type="submit">Save Account</button>
+    </form>
+  `).join("");
+}
+
+function renderCustomerMeters() {
+  if (!customerMeterList) return;
+  const meters = selectedCustomerData().meters || [];
+  if (!meters.length) {
+    customerMeterList.innerHTML = '<p class="utilities-list-empty">No meters linked to this customer.</p>';
+    return;
+  }
+  customerMeterList.innerHTML = meters.map((meter) => `
+    <form class="customer-inline-form" data-meter-form="${escapeHtml(meter.id)}">
+      <strong>${escapeHtml(meter.meter_number)}</strong>
+      <span>${escapeHtml(titleCase(meter.meter_type || "water"))}</span>
+      <label>Status
+        <select name="status">
+          ${["active", "inactive", "removed"].map((status) => `<option value="${status}" ${meter.status === status ? "selected" : ""}>${escapeHtml(titleCase(status))}</option>`).join("")}
+        </select>
+      </label>
+      <button type="submit">Save Meter</button>
+    </form>
+  `).join("");
+}
+
+function renderCustomerHistory() {
+  const readings = selectedCustomerData().readings || [];
+  if (customerReadingTable) {
+    customerReadingTable.innerHTML = readings.length
+      ? `
+        <thead><tr><th>Month</th><th>Current</th><th>Previous</th><th>Usage</th></tr></thead>
+        <tbody>${readings.map((reading) => `
+          <tr>
+            <td>${escapeHtml(reading.billing_period)}</td>
+            <td>${formatNumber(reading.current_reading)}</td>
+            <td>${reading.previous_reading === null || reading.previous_reading === undefined ? "-" : formatNumber(reading.previous_reading)}</td>
+            <td>${formatNumber(reading.usage_gallons)}</td>
+          </tr>
+        `).join("")}</tbody>
+      `
+      : '<tbody><tr><td>No reading history yet.</td></tr></tbody>';
+  }
+  const billingItems = selectedCustomerData().billing_items || [];
+  if (customerBillingTable) {
+    customerBillingTable.innerHTML = billingItems.length
+      ? `
+        <thead><tr><th>Month</th><th>Status</th><th>Overage</th><th>Amount</th></tr></thead>
+        <tbody>${billingItems.map((item) => `
+          <tr>
+            <td>${escapeHtml(item.metadata?.billing_period || item.created_at?.slice(0, 10) || "-")}</td>
+            <td>${escapeHtml(titleCase(item.status))}</td>
+            <td>${formatNumber(item.overage_gallons)}</td>
+            <td>${formatMoney(item.overage_amount)}</td>
+          </tr>
+        `).join("")}</tbody>
+      `
+      : '<tbody><tr><td>No billing history yet.</td></tr></tbody>';
+  }
+}
+
+function renderCustomers() {
+  renderSummary();
+  renderCustomerList();
+  renderCustomerProfile();
+  renderCustomerAccounts();
+  renderCustomerMeters();
+  renderCustomerHistory();
+}
+
 function renderWorkspace() {
   renderHero();
   if (!workspace?.organization) return;
@@ -771,12 +947,19 @@ function renderWorkspace() {
   if (page === "team") renderTeam();
   if (page === "features") renderModules(workspace.modules || []);
   if (page === "meter-billing") renderMeterBilling();
+  if (page === "customers") renderCustomers();
 }
 
 async function loadWorkspace() {
   setStatus("");
   const data = await apiFetch();
   workspace = data.workspace || null;
+  if (page === "meter-billing") {
+    selectedMeterBillingRunId = workspace?.meter_billing?.selected_run_id || "";
+  }
+  if (page === "customers") {
+    selectedCustomerId = workspace?.customer_accounts?.selected_customer_id || "";
+  }
   renderWorkspace();
   setStatus("");
 }
@@ -904,6 +1087,38 @@ meterBillingApplyTemplate?.addEventListener("click", () => {
   setStatus("Template mapping applied.", "is-active");
 });
 
+meterBillingHistory?.addEventListener("click", async (event) => {
+  const viewButton = event.target.closest("button[data-view-billing-run]");
+  const deleteButton = event.target.closest("button[data-delete-billing-run]");
+  if (viewButton) {
+    selectedMeterBillingRunId = viewButton.getAttribute("data-view-billing-run") || "";
+    await loadWorkspace().catch((error) => setStatus(error.message, "is-error"));
+    return;
+  }
+  if (deleteButton) {
+    const runId = deleteButton.getAttribute("data-delete-billing-run") || "";
+    const run = (workspace?.meter_billing?.runs || []).find((item) => item.id === runId);
+    const label = run?.billing_period || "this billing month";
+    if (!window.confirm(`Delete ${label}? This removes the billing run, review rows, export records, and imported readings for that month. Customer, account, and meter records stay in the workspace.`)) return;
+    try {
+      setStatus(`Deleting ${label}...`);
+      await apiFetch({
+        method: "PATCH",
+        body: JSON.stringify({
+          action: "delete-meter-billing-run",
+          organization_id: organizationId(),
+          billing_run_id: runId,
+        }),
+      });
+      if (selectedMeterBillingRunId === runId) selectedMeterBillingRunId = "";
+      await loadWorkspace();
+      setStatus(`${label} deleted.`, "is-active");
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Unable to delete billing month.", "is-error");
+    }
+  }
+});
+
 meterBillingForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
   if (!meterCsv.rows.length) {
@@ -929,6 +1144,7 @@ meterBillingForm?.addEventListener("submit", async (event) => {
         column_mapping: mapping,
       }),
     });
+    selectedMeterBillingRunId = result?.billing?.run?.id || "";
     await loadWorkspace();
     const errors = result?.billing?.errors || [];
     setStatus(errors.length ? `Billing run created with ${errors.length} skipped row${errors.length === 1 ? "" : "s"}.` : "Billing run created.", errors.length ? "is-error" : "is-active");
@@ -1001,6 +1217,113 @@ meterBillingExport?.addEventListener("click", async () => {
     setStatus("Approved billing rows exported.", "is-active");
   } catch (error) {
     setStatus(error instanceof Error ? error.message : "Unable to export billing CSV.", "is-error");
+  }
+});
+
+customerSearchInput?.addEventListener("input", () => {
+  customerSearchTerm = customerSearchInput.value || "";
+  renderCustomerList();
+});
+
+customerList?.addEventListener("click", async (event) => {
+  const button = event.target.closest("button[data-customer-id]");
+  if (!button) return;
+  selectedCustomerId = button.getAttribute("data-customer-id") || "";
+  await loadWorkspace().catch((error) => setStatus(error.message, "is-error"));
+});
+
+customerProfileForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const customer = workspace?.customer_accounts?.selected_customer;
+  if (!customer?.id) return;
+  const data = formDataObject(customerProfileForm);
+  try {
+    setStatus("Saving customer...");
+    await apiFetch({
+      method: "PATCH",
+      body: JSON.stringify({
+        action: "update-utility-customer",
+        organization_id: organizationId(),
+        customer_id: customer.id,
+        display_name: data.display_name,
+        email: data.email,
+        phone: data.phone,
+      }),
+    });
+    await loadWorkspace();
+    setStatus("Customer saved.", "is-active");
+  } catch (error) {
+    setStatus(error instanceof Error ? error.message : "Unable to save customer.", "is-error");
+  }
+});
+
+customerAccountList?.addEventListener("submit", async (event) => {
+  const form = event.target.closest("form[data-account-form]");
+  if (!form) return;
+  event.preventDefault();
+  const data = formDataObject(form);
+  try {
+    setStatus("Saving service account...");
+    await apiFetch({
+      method: "PATCH",
+      body: JSON.stringify({
+        action: "update-utility-service-account",
+        organization_id: organizationId(),
+        account_id: form.getAttribute("data-account-form"),
+        service_address: data.service_address,
+        status: data.status,
+      }),
+    });
+    await loadWorkspace();
+    setStatus("Service account saved.", "is-active");
+  } catch (error) {
+    setStatus(error instanceof Error ? error.message : "Unable to save service account.", "is-error");
+  }
+});
+
+customerMeterList?.addEventListener("submit", async (event) => {
+  const form = event.target.closest("form[data-meter-form]");
+  if (!form) return;
+  event.preventDefault();
+  const data = formDataObject(form);
+  try {
+    setStatus("Saving meter...");
+    await apiFetch({
+      method: "PATCH",
+      body: JSON.stringify({
+        action: "update-utility-meter",
+        organization_id: organizationId(),
+        meter_id: form.getAttribute("data-meter-form"),
+        status: data.status,
+      }),
+    });
+    await loadWorkspace();
+    setStatus("Meter saved.", "is-active");
+  } catch (error) {
+    setStatus(error instanceof Error ? error.message : "Unable to save meter.", "is-error");
+  }
+});
+
+customerDeleteButton?.addEventListener("click", async () => {
+  const customer = workspace?.customer_accounts?.selected_customer;
+  if (!customer?.id) return;
+  const label = customer.display_name || customer.external_customer_id || "this customer";
+  if (!window.confirm(`Delete ${label}? This removes the customer, linked service accounts, and linked meters. Monthly reading and billing history snapshots remain for audit history.`)) return;
+  try {
+    setStatus(`Deleting ${label}...`);
+    await apiFetch({
+      method: "PATCH",
+      body: JSON.stringify({
+        action: "delete-utility-customer",
+        organization_id: organizationId(),
+        customer_id: customer.id,
+      }),
+    });
+    selectedCustomerId = "";
+    await loadWorkspace();
+    setStatus(`${label} deleted.`, "is-active");
+  } catch (error) {
+    setStatus(error instanceof Error ? error.message : "Unable to delete customer.", "is-error");
   }
 });
 

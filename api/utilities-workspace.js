@@ -368,23 +368,96 @@ async function loadOrganizationModules(organizationId) {
   }
 }
 
-async function loadMeterBilling(organizationId) {
+async function loadMeterBilling(organizationId, selectedRunId = "") {
   try {
     const [templates, runs] = await Promise.all([
       fetchSupabase(`utility_import_templates?select=*&organization_id=eq.${encodeFilter(organizationId)}&import_type=eq.meter_readings&order=updated_at.desc&limit=12`),
-      fetchSupabase(`utility_billing_runs?select=*&organization_id=eq.${encodeFilter(organizationId)}&order=created_at.desc&limit=8`),
+      fetchSupabase(`utility_billing_runs?select=*&organization_id=eq.${encodeFilter(organizationId)}&order=created_at.desc&limit=24`),
     ]);
-    const latestRun = first(runs);
-    const [items, exports] = latestRun
+    const requestedRun = cleanString(selectedRunId, 80)
+      ? first(await fetchSupabase(`utility_billing_runs?select=*&id=eq.${encodeFilter(selectedRunId)}&organization_id=eq.${encodeFilter(organizationId)}&limit=1`))
+      : null;
+    const activeRun = requestedRun || first(runs);
+    const [items, exports] = activeRun
       ? await Promise.all([
-          fetchSupabase(`utility_billing_run_items?select=*&billing_run_id=eq.${encodeFilter(latestRun.id)}&order=overage_amount.desc&limit=500`),
-          fetchSupabase(`utility_billing_exports?select=*&billing_run_id=eq.${encodeFilter(latestRun.id)}&order=created_at.desc&limit=5`),
+          fetchSupabase(`utility_billing_run_items?select=*&billing_run_id=eq.${encodeFilter(activeRun.id)}&order=overage_amount.desc&limit=500`),
+          fetchSupabase(`utility_billing_exports?select=*&billing_run_id=eq.${encodeFilter(activeRun.id)}&order=created_at.desc&limit=5`),
         ])
       : [[], []];
-    return { templates: templates || [], runs: runs || [], latest_run: latestRun || null, latest_items: items || [], latest_exports: exports || [] };
+    return {
+      templates: templates || [],
+      runs: runs || [],
+      latest_run: activeRun || null,
+      latest_items: items || [],
+      latest_exports: exports || [],
+      selected_run_id: activeRun?.id || "",
+    };
   } catch (error) {
     if (isMissingRelationError(error)) {
       return { unavailable: true, templates: [], runs: [], latest_run: null, latest_items: [], latest_exports: [] };
+    }
+    throw error;
+  }
+}
+
+function idInFilter(ids = []) {
+  return ids.map((id) => encodeFilter(id)).join(",");
+}
+
+async function loadCustomerAccounts(organizationId, selectedCustomerId = "") {
+  try {
+    const [customers, accounts, meters] = await Promise.all([
+      fetchSupabase(`utility_customers?select=*&organization_id=eq.${encodeFilter(organizationId)}&order=display_name.asc&limit=300`),
+      fetchSupabase(`utility_service_accounts?select=*&organization_id=eq.${encodeFilter(organizationId)}&order=account_number.asc&limit=500`),
+      fetchSupabase(`utility_meters?select=*&organization_id=eq.${encodeFilter(organizationId)}&order=meter_number.asc&limit=500`),
+    ]);
+    const customerList = customers || [];
+    const accountList = accounts || [];
+    const meterList = meters || [];
+    const selectedId = cleanString(selectedCustomerId, 80) || customerList[0]?.id || "";
+    const selectedCustomer = customerList.find((customer) => customer.id === selectedId) || customerList[0] || null;
+    const selectedAccounts = selectedCustomer
+      ? accountList.filter((account) => account.customer_id === selectedCustomer.id)
+      : [];
+    const accountIds = selectedAccounts.map((account) => account.id).filter(Boolean);
+    const selectedMeters = accountIds.length
+      ? meterList.filter((meter) => accountIds.includes(meter.service_account_id))
+      : [];
+    const meterIds = selectedMeters.map((meter) => meter.id).filter(Boolean);
+
+    const [readings, billingItems] = selectedCustomer
+      ? await Promise.all([
+          meterIds.length
+            ? fetchSupabase(`utility_meter_readings?select=*&organization_id=eq.${encodeFilter(organizationId)}&meter_id=in.(${idInFilter(meterIds)})&order=billing_period.desc&limit=36`)
+            : [],
+          accountIds.length
+            ? fetchSupabase(`utility_billing_run_items?select=*&organization_id=eq.${encodeFilter(organizationId)}&service_account_id=in.(${idInFilter(accountIds)})&order=created_at.desc&limit=36`)
+            : [],
+        ])
+      : [[], []];
+
+    return {
+      customers: customerList.map((customer) => {
+        const customerAccounts = accountList.filter((account) => account.customer_id === customer.id);
+        const customerAccountIds = customerAccounts.map((account) => account.id);
+        return {
+          ...customer,
+          account_count: customerAccounts.length,
+          meter_count: meterList.filter((meter) => customerAccountIds.includes(meter.service_account_id)).length,
+        };
+      }),
+      all_accounts: accountList,
+      all_meters: meterList,
+      accounts: selectedAccounts,
+      meters: selectedMeters,
+      readings: readings || [],
+      billing_items: billingItems || [],
+      selected_customer: selectedCustomer,
+      selected_customer_id: selectedCustomer?.id || "",
+    };
+  } catch (error) {
+    if (isMissingRelationError(error)) {
+      return { unavailable: true, customers: [], accounts: [], meters: [], readings: [], billing_items: [], selected_customer: null, selected_customer_id: "" };
     }
     throw error;
   }
@@ -528,7 +601,7 @@ async function requireOrganizationAccess(user, requested) {
   return organizations.find((org) => org.id === requestValue || org.slug === requestValue) || organizations[0];
 }
 
-async function loadWorkspace(user, requestedOrg) {
+async function loadWorkspace(user, requestedOrg, selectedBillingRunId = "", selectedCustomerId = "") {
   const organizations = await listAccessibleOrganizations(user);
   const summaryOrganization = requestedOrg
     ? organizations.find((org) => org.id === requestedOrg || org.slug === requestedOrg) || organizations[0]
@@ -539,7 +612,7 @@ async function loadWorkspace(user, requestedOrg) {
   }
 
   const organizationId = summaryOrganization.id;
-  const [organization, domains, branding, settings, steps, modules, team, meterBilling] = await Promise.all([
+  const [organization, domains, branding, settings, steps, modules, team, meterBilling, customerAccounts] = await Promise.all([
     first(await fetchSupabase(`utility_organizations?select=*&id=eq.${encodeFilter(organizationId)}&limit=1`)),
     fetchSupabase(`utility_organization_domains?select=*&organization_id=eq.${encodeFilter(organizationId)}&order=is_primary.desc,created_at.asc`),
     first(await fetchSupabase(`utility_organization_branding?select=*&organization_id=eq.${encodeFilter(organizationId)}&limit=1`)),
@@ -547,7 +620,8 @@ async function loadWorkspace(user, requestedOrg) {
     fetchSupabase(`utility_portal_launch_steps?select=*&organization_id=eq.${encodeFilter(organizationId)}&order=sort_order.asc`),
     loadOrganizationModules(organizationId),
     loadTeamData(organizationId, user),
-    loadMeterBilling(organizationId),
+    loadMeterBilling(organizationId, selectedBillingRunId),
+    loadCustomerAccounts(organizationId, selectedCustomerId),
   ]);
 
   const launchSteps = (steps || []).map((step) => ({ ...step, owner: stepOwner(step) }));
@@ -563,6 +637,7 @@ async function loadWorkspace(user, requestedOrg) {
     modules,
     team,
     meter_billing: meterBilling,
+    customer_accounts: customerAccounts,
     launch_steps: launchSteps,
     progress: {
       required_total: required.length,
@@ -1101,6 +1176,91 @@ async function updateUtilityStep(user, body) {
   return first(rows);
 }
 
+async function updateUtilityCustomer(user, body) {
+  const { org } = await requireManageOrganization(user, body.organization_id || body.organizationId || body.slug);
+  const customerId = cleanString(body.customer_id || body.customerId, 80);
+  if (!customerId) {
+    const error = new Error("Missing customer_id.");
+    error.status = 400;
+    throw error;
+  }
+  const existing = first(await fetchSupabase(`utility_customers?select=*&id=eq.${encodeFilter(customerId)}&organization_id=eq.${encodeFilter(org.id)}&limit=1`));
+  if (!existing) {
+    const error = new Error("Customer not found.");
+    error.status = 404;
+    throw error;
+  }
+  const rows = await fetchSupabase(`utility_customers?id=eq.${encodeFilter(customerId)}&organization_id=eq.${encodeFilter(org.id)}`, {
+    method: "PATCH",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify({
+      display_name: cleanString(body.display_name || body.displayName, 220) || existing.display_name,
+      email: cleanEmail(body.email) || null,
+      phone: cleanString(body.phone, 80) || null,
+    }),
+  });
+  return first(rows);
+}
+
+async function updateUtilityServiceAccount(user, body) {
+  const { org } = await requireManageOrganization(user, body.organization_id || body.organizationId || body.slug);
+  const accountId = cleanString(body.account_id || body.accountId, 80);
+  const status = cleanString(body.status, 40) || "active";
+  if (!accountId || !["active", "inactive", "closed"].includes(status)) {
+    const error = new Error("Choose a valid account and status.");
+    error.status = 400;
+    throw error;
+  }
+  const rows = await fetchSupabase(`utility_service_accounts?id=eq.${encodeFilter(accountId)}&organization_id=eq.${encodeFilter(org.id)}`, {
+    method: "PATCH",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify({
+      service_address: cleanString(body.service_address || body.serviceAddress, 300) || null,
+      status,
+    }),
+  });
+  return first(rows);
+}
+
+async function updateUtilityMeter(user, body) {
+  const { org } = await requireManageOrganization(user, body.organization_id || body.organizationId || body.slug);
+  const meterId = cleanString(body.meter_id || body.meterId, 80);
+  const status = cleanString(body.status, 40) || "active";
+  if (!meterId || !["active", "inactive", "removed"].includes(status)) {
+    const error = new Error("Choose a valid meter and status.");
+    error.status = 400;
+    throw error;
+  }
+  const rows = await fetchSupabase(`utility_meters?id=eq.${encodeFilter(meterId)}&organization_id=eq.${encodeFilter(org.id)}`, {
+    method: "PATCH",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify({ status }),
+  });
+  return first(rows);
+}
+
+async function deleteUtilityCustomer(user, body) {
+  const { org } = await requireManageOrganization(user, body.organization_id || body.organizationId || body.slug);
+  const customerId = cleanString(body.customer_id || body.customerId, 80);
+  const customer = first(await fetchSupabase(`utility_customers?select=*&id=eq.${encodeFilter(customerId)}&organization_id=eq.${encodeFilter(org.id)}&limit=1`));
+  if (!customer) {
+    const error = new Error("Customer not found.");
+    error.status = 404;
+    throw error;
+  }
+  const accounts = await fetchSupabase(`utility_service_accounts?select=id&customer_id=eq.${encodeFilter(customer.id)}&organization_id=eq.${encodeFilter(org.id)}`);
+  const accountIds = (accounts || []).map((account) => account.id).filter(Boolean);
+  if (accountIds.length) {
+    await fetchSupabase(`utility_meters?service_account_id=in.(${idInFilter(accountIds)})&organization_id=eq.${encodeFilter(org.id)}`, { method: "DELETE" });
+    await fetchSupabase(`utility_service_accounts?customer_id=eq.${encodeFilter(customer.id)}&organization_id=eq.${encodeFilter(org.id)}`, { method: "DELETE" });
+  }
+  await fetchSupabase(`utility_customers?id=eq.${encodeFilter(customer.id)}&organization_id=eq.${encodeFilter(org.id)}`, { method: "DELETE" });
+  await insertAuditEvent(org.id, user.id, "utility_customer_deleted", "utility_customers", customer.id, {
+    external_customer_id: customer.external_customer_id,
+  });
+  return { deleted_customer_id: customer.id };
+}
+
 function mappedValue(row, mapping, key) {
   const column = cleanString(mapping?.[key], 160);
   if (!column || !row || typeof row !== "object") return "";
@@ -1290,7 +1450,7 @@ async function createMeterBillingRun(user, body) {
       overage_amount: overageAmount,
       status: overageGallons > 0 ? "pending" : "skipped",
       notes: note || null,
-      metadata: { source_row_number: sourceRowNumber },
+      metadata: { source_row_number: sourceRowNumber, billing_period: billingPeriod },
     });
     importedCount += 1;
   }
@@ -1378,6 +1538,30 @@ async function approveBillingRunItems(user, body) {
   return { run, items: rows || [] };
 }
 
+async function deleteMeterBillingRun(user, body) {
+  const { org } = await requireManageOrganization(user, body.organization_id || body.organizationId || body.slug);
+  const runId = cleanString(body.billing_run_id || body.billingRunId, 80);
+  const run = first(await fetchSupabase(`utility_billing_runs?select=*&id=eq.${encodeFilter(runId)}&organization_id=eq.${encodeFilter(org.id)}&limit=1`));
+  if (!run) {
+    const error = new Error("Billing run not found.");
+    error.status = 404;
+    throw error;
+  }
+
+  await fetchSupabase(`utility_billing_runs?id=eq.${encodeFilter(run.id)}&organization_id=eq.${encodeFilter(org.id)}`, { method: "DELETE" });
+  if (run.import_id) {
+    await fetchSupabase(`utility_meter_readings?import_id=eq.${encodeFilter(run.import_id)}&organization_id=eq.${encodeFilter(org.id)}`, { method: "DELETE" });
+    await fetchSupabase(`utility_meter_reading_imports?id=eq.${encodeFilter(run.import_id)}&organization_id=eq.${encodeFilter(org.id)}`, { method: "DELETE" });
+  }
+
+  await insertAuditEvent(org.id, user.id, "meter_billing_run_deleted", "utility_billing_runs", run.id, {
+    billing_period: run.billing_period,
+    import_id: run.import_id || null,
+  });
+
+  return { deleted_run_id: run.id, deleted_import_id: run.import_id || null };
+}
+
 async function createBillingExport(user, body) {
   const { org } = await requireManageOrganization(user, body.organization_id || body.organizationId || body.slug);
   const runId = cleanString(body.billing_run_id || body.billingRunId, 80);
@@ -1418,7 +1602,9 @@ module.exports = async function handler(req, res) {
     const user = await verifyUser(getBearerToken(req));
     if (req.method === "GET") {
       const org = cleanString(req.query?.org, 120);
-      return res.status(200).json({ ok: true, workspace: await loadWorkspace(user, org) });
+      const billingRunId = cleanString(req.query?.billing_run_id || req.query?.billingRunId, 80);
+      const customerId = cleanString(req.query?.customer_id || req.query?.customerId, 80);
+      return res.status(200).json({ ok: true, workspace: await loadWorkspace(user, org, billingRunId, customerId) });
     }
     if (req.method !== "PATCH") {
       res.setHeader("Allow", "GET, PATCH");
@@ -1432,9 +1618,14 @@ module.exports = async function handler(req, res) {
     if (action === "update-step") return res.status(200).json({ ok: true, step: await updateUtilityStep(user, body) });
     if (action === "request-module") return res.status(200).json({ ok: true, module: await requestModule(user, body) });
     if (action === "update-module-state") return res.status(200).json({ ok: true, module: await updateModuleState(user, body) });
+    if (action === "update-utility-customer") return res.status(200).json({ ok: true, customer: await updateUtilityCustomer(user, body) });
+    if (action === "update-utility-service-account") return res.status(200).json({ ok: true, account: await updateUtilityServiceAccount(user, body) });
+    if (action === "update-utility-meter") return res.status(200).json({ ok: true, meter: await updateUtilityMeter(user, body) });
+    if (action === "delete-utility-customer") return res.status(200).json({ ok: true, deletion: await deleteUtilityCustomer(user, body) });
     if (action === "create-meter-billing-run") return res.status(200).json({ ok: true, billing: await createMeterBillingRun(user, body) });
     if (action === "update-billing-item") return res.status(200).json({ ok: true, item: await updateBillingItem(user, body) });
     if (action === "approve-billing-run-items") return res.status(200).json({ ok: true, approval: await approveBillingRunItems(user, body) });
+    if (action === "delete-meter-billing-run") return res.status(200).json({ ok: true, deletion: await deleteMeterBillingRun(user, body) });
     if (action === "create-billing-export") return res.status(200).json({ ok: true, billing_export: await createBillingExport(user, body) });
     if (action === "create-team-invite") return res.status(200).json({ ok: true, invite: await createTeamInvite(user, body, req) });
     if (action === "revoke-team-invite") return res.status(200).json({ ok: true, invite: await revokeTeamInvite(user, body) });

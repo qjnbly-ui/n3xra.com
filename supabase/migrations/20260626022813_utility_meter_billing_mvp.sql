@@ -272,6 +272,54 @@ set
   state = 'enabled',
   updated_at = now();
 
+insert into public.utility_module_catalog (
+  module_key,
+  name,
+  description,
+  category,
+  default_state,
+  sort_order,
+  is_core,
+  metadata
+)
+values (
+  'customers',
+  'Customer accounts',
+  'Customer search, account profiles, service addresses, meters, readings, and account history.',
+  'customers',
+  'enabled',
+  20,
+  true,
+  '{"available": true, "dashboard_card": true, "dashboard_route": "/utilities/workspace/customers/"}'::jsonb
+)
+on conflict (module_key) do update
+set
+  name = excluded.name,
+  description = excluded.description,
+  category = excluded.category,
+  default_state = excluded.default_state,
+  sort_order = excluded.sort_order,
+  is_core = excluded.is_core,
+  metadata = excluded.metadata,
+  updated_at = now();
+
+insert into public.utility_organization_modules (
+  organization_id,
+  module_key,
+  state,
+  metadata
+)
+select
+  uo.id,
+  'customers',
+  'enabled',
+  '{}'::jsonb
+from public.utility_organizations uo
+on conflict (organization_id, module_key) do update
+set
+  state = 'enabled',
+  updated_at = now();
+
 alter table public.utility_customers enable row level security;
 alter table public.utility_service_accounts enable row level security;
 alter table public.utility_meters enable row level security;
