@@ -2537,7 +2537,7 @@ button.utilities-home-card.is-requestable:focus-visible {
 .utilities-dashboard-body[data-workspace-page="meter-billing"] .workspace-card,
 .utilities-dashboard-body[data-workspace-page="meter-billing"] .workspace-status-card {
   border-radius: 8px;
-  box-shadow: 0 18px 46px rgba(12, 18, 28, 0.08);
+  box-shadow: 0 10px 28px rgba(12, 18, 28, 0.06);
 }
 
 .utilities-dashboard-body[data-workspace-page="meter-billing"] .workspace-main {
@@ -2578,7 +2578,14 @@ button.utilities-home-card.is-requestable:focus-visible {
 }
 
 .utilities-dashboard-body[data-workspace-page="meter-billing"] .meter-setup-card {
-  padding: 1.25rem;
+  padding: 1.1rem;
+}
+
+.utilities-dashboard-body[data-workspace-page="meter-billing"] .workspace-card h2,
+.utilities-dashboard-body[data-workspace-page="customers"] .workspace-card h2,
+.utilities-dashboard-body[data-workspace-page="customers"] .workspace-card strong,
+.utilities-dashboard-body[data-workspace-page="meter-billing"] .workspace-card strong {
+  font-family: Manrope, ui-sans-serif, system-ui, sans-serif;
 }
 
 .utilities-dashboard-body[data-workspace-page="meter-billing"] .meter-billing-form {
@@ -2596,14 +2603,14 @@ button.utilities-home-card.is-requestable:focus-visible {
 .utilities-dashboard-body[data-workspace-page="meter-billing"] .meter-column-card {
   display: grid;
   gap: 0.95rem;
-  border: 1px solid #e0e8ee;
+  border: 1px solid #e4ebf0;
   border-radius: 8px;
-  padding: 1rem;
-  background: #f8fafc;
+  padding: 0.95rem;
+  background: #ffffff;
 }
 
 .utilities-dashboard-body[data-workspace-page="meter-billing"] .meter-upload-panel {
-  background: #ffffff;
+  background: #fbfcfd;
 }
 
 .utilities-dashboard-body[data-workspace-page="meter-billing"] .meter-panel-head,
@@ -2620,10 +2627,10 @@ button.utilities-home-card.is-requestable:focus-visible {
 
 .utilities-dashboard-body[data-workspace-page="meter-billing"] .meter-panel-head span,
 .utilities-dashboard-body[data-workspace-page="meter-billing"] .meter-column-head span {
-  color: #176f66;
+  color: #526176;
   font-size: 0.72rem;
   font-weight: 900;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
@@ -2641,7 +2648,8 @@ button.utilities-home-card.is-requestable:focus-visible {
   margin: 0.15rem 0 0;
   color: #64748b;
   line-height: 1.45;
-  font-weight: 800;
+  font-size: 0.92rem;
+  font-weight: 700;
 }
 
 .utilities-dashboard-body[data-workspace-page="meter-billing"] .workspace-form label {
@@ -2663,10 +2671,10 @@ button.utilities-home-card.is-requestable:focus-visible {
 
 .utilities-dashboard-body[data-workspace-page="meter-billing"] .workspace-form input,
 .utilities-dashboard-body[data-workspace-page="meter-billing"] .workspace-form select {
-  min-height: 48px;
+  min-height: 44px;
   color: #172033;
   border-color: #d8e2e8;
-  background: #f8fafc;
+  background: #ffffff;
 }
 
 .utilities-dashboard-body[data-workspace-page="meter-billing"] .meter-template-row {
@@ -2677,7 +2685,7 @@ button.utilities-home-card.is-requestable:focus-visible {
 }
 
 .utilities-dashboard-body[data-workspace-page="meter-billing"] .meter-template-row button {
-  min-height: 48px;
+  min-height: 44px;
   min-width: 132px;
   border: 1px solid #d8e2e8;
   border-radius: 8px;
@@ -2705,7 +2713,7 @@ button.utilities-home-card.is-requestable:focus-visible {
   display: flex;
   justify-content: flex-end;
   border-top: 1px solid #e7edf2;
-  padding-top: 1rem;
+  padding-top: 0.9rem;
 }
 
 .utilities-dashboard-body[data-workspace-page="meter-billing"] .meter-submit-row button {
@@ -2830,14 +2838,14 @@ button.utilities-home-card.is-requestable:focus-visible {
 }
 
 .utilities-dashboard-body[data-workspace-page="customers"] .customer-workspace-grid {
-  width: min(1260px, calc(100vw - 2rem));
-  grid-template-columns: minmax(280px, 0.27fr) minmax(0, 1fr);
+  width: min(1180px, calc(100vw - 2rem));
+  grid-template-columns: minmax(270px, 0.25fr) minmax(0, 1fr);
   align-items: start;
 }
 
 .utilities-dashboard-body[data-workspace-page="customers"] .workspace-card {
   border-radius: 8px;
-  box-shadow: 0 18px 46px rgba(12, 18, 28, 0.08);
+  box-shadow: 0 10px 28px rgba(12, 18, 28, 0.06);
 }
 
 .utilities-dashboard-body[data-workspace-page="customers"] #customer-detail-card {
@@ -2926,11 +2934,11 @@ button.utilities-home-card.is-requestable:focus-visible {
 
 .customer-summary-grid {
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  margin: 1rem 0 1.15rem;
+  margin: 0.95rem 0 1rem;
 }
 
 .customer-summary-item {
-  min-height: 78px;
+  min-height: 66px;
   display: grid;
   align-content: center;
   gap: 0.22rem;
@@ -2950,12 +2958,12 @@ button.utilities-home-card.is-requestable:focus-visible {
 
 .customer-summary-item strong {
   color: #172033;
-  font-size: 1.15rem;
+  font-size: 1.05rem;
   font-weight: 900;
 }
 
 .customer-detail-grid {
-  grid-template-columns: minmax(0, 1fr) minmax(340px, 0.78fr);
+  grid-template-columns: 1fr;
   align-items: start;
 }
 
@@ -2968,14 +2976,10 @@ button.utilities-home-card.is-requestable:focus-visible {
 }
 
 .customer-form {
-  grid-row: span 2;
+  grid-row: auto;
 }
 
-.customer-detail-grid > .customer-panel:nth-of-type(-n + 2) {
-  grid-column: 2;
-}
-
-.customer-detail-grid > .customer-panel:nth-of-type(n + 3) {
+.customer-detail-grid > .customer-panel {
   grid-column: 1 / -1;
 }
 
@@ -2990,13 +2994,14 @@ button.utilities-home-card.is-requestable:focus-visible {
 
 .customer-inline-form {
   display: grid;
-  grid-template-columns: minmax(136px, 0.65fr) minmax(220px, 1.25fr) minmax(130px, 0.5fr) auto;
-  gap: 0.75rem;
+  grid-template-columns: minmax(120px, 0.55fr) minmax(220px, 1.4fr) minmax(130px, 0.45fr) minmax(130px, auto);
+  gap: 0.7rem;
   align-items: end;
   border: 1px solid #e7edf2;
   border-radius: 8px;
-  padding: 0.85rem;
+  padding: 0.75rem;
   background: #f8fafc;
+  overflow: hidden;
 }
 
 .customer-record-id {
@@ -3040,7 +3045,7 @@ button.utilities-home-card.is-requestable:focus-visible {
 .customer-inline-form input,
 .customer-inline-form select,
 .customer-form input {
-  min-height: 42px;
+  min-height: 40px;
   border: 1px solid #d8e2e8;
   border-radius: 8px;
   padding: 0 0.8rem;
@@ -3052,7 +3057,7 @@ button.utilities-home-card.is-requestable:focus-visible {
 .customer-inline-form button,
 .customer-form button,
 .customer-danger-button {
-  min-height: 42px;
+  min-height: 40px;
   border: 1px solid #d8e2e8;
   border-radius: 8px;
   padding: 0 1rem;
@@ -3061,6 +3066,11 @@ button.utilities-home-card.is-requestable:focus-visible {
   font-weight: 900;
   cursor: pointer;
   white-space: nowrap;
+}
+
+.customer-inline-form button {
+  min-width: 0;
+  padding-inline: 0.85rem;
 }
 
 .customer-form button {
@@ -3245,10 +3255,18 @@ button.utilities-home-card.is-requestable:focus-visible {
   }
 
   .customer-form,
-  .customer-detail-grid > .customer-panel:nth-of-type(-n + 2),
-  .customer-detail-grid > .customer-panel:nth-of-type(n + 3) {
+  .customer-detail-grid > .customer-panel {
     grid-column: auto;
     grid-row: auto;
+  }
+
+  .customer-inline-form {
+    grid-template-columns: minmax(120px, 0.65fr) minmax(220px, 1.35fr) minmax(130px, 0.45fr);
+  }
+
+  .customer-inline-form button {
+    grid-column: 1 / -1;
+    justify-self: end;
   }
 
   .utility-portal-body .utility-portal-hero {
