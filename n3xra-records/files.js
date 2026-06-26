@@ -934,6 +934,9 @@ function renderFiles() {
       actionButtons.push(`<button class="btn secondary" type="button" data-action="open-preview" data-id="${doc.id}">Open</button>`);
       actionButtons.push(`<button class="btn secondary" type="button" data-action="open-builder" data-id="${doc.id}">${capabilities.canEditDocuments ? "Edit" : "Document Builder"}</button>`);
       actionButtons.push(`<button class="btn secondary" type="button" data-action="download" data-id="${doc.id}">Download PDF</button>`);
+      if (capabilities.canShareDocuments) {
+        actionButtons.push(`<button class="btn secondary" type="button" data-action="share" data-id="${doc.id}">Share</button>`);
+      }
     } else if (capabilities.canEditDocuments) {
       actionButtons.push(`<button class="btn secondary" type="button" data-action="edit" data-id="${doc.id}">Edit details</button>`);
       actionButtons.push(
@@ -1322,17 +1325,22 @@ function closeDeleteConfirm() {
 }
 
 async function shareFile(documentId) {
-  const signed = await createSignedUrlForDocument(documentId);
-  if (!signed) return;
-  const { signedUrl } = signed;
+  const row = getFileRowById(documentId);
+  if (!row) return;
 
-  if (navigator.clipboard?.writeText) {
-    await navigator.clipboard.writeText(signedUrl);
-    setStatus(fileStatus, "Share link copied to clipboard.", "success");
+  let sendDocumentId = "";
+  if (isReferenceFileRow(row)) {
+    sendDocumentId = row.id;
+  } else {
+    sendDocumentId = await getOrCreateEditableDocumentId(documentId);
+  }
+
+  if (!sendDocumentId) {
+    setStatus(fileStatus, "Unable to open the send form for this file.", "error");
     return;
   }
 
-  setStatus(fileStatus, "Sharing is not available on this device.", "error");
+  window.location.href = `./documents?id=${encodeURIComponent(sendDocumentId)}&send=1`;
 }
 
 async function deleteAssociatedFileData(documentId) {
@@ -1827,15 +1835,14 @@ async function convertSourceDocumentToTiptap(sourceDoc) {
   throw new Error(`Could not convert this DOCX without losing its structure. ${errors.join(" ")}`.trim());
 }
 
-async function makeFileEditable(documentId) {
+async function getOrCreateEditableDocumentId(documentId) {
   if (!getActiveCapabilities().canEditDocuments) {
     setStatus(fileStatus, "You do not have permission to create documents in this library.", "error");
-    return;
+    return "";
   }
   const existing = getEditableDocumentForSource(documentId);
   if (existing) {
-    window.location.href = `./documents?id=${encodeURIComponent(existing.id)}`;
-    return;
+    return existing.id;
   }
 
   setStatus(fileStatus, "Creating document...");
@@ -1847,11 +1854,11 @@ async function makeFileEditable(documentId) {
 
   if (sourceError || !sourceDoc) {
     setStatus(fileStatus, sourceError?.message || "Unable to load source file text.", "error");
-    return;
+    return "";
   }
   if (!isDocxDocument(sourceDoc) && !String(sourceDoc.extracted_text || "").trim()) {
     setStatus(fileStatus, "This file has no extracted text yet. Run OCR before editing it.", "error");
-    return;
+    return "";
   }
 
   let conversion = null;
@@ -1859,7 +1866,7 @@ async function makeFileEditable(documentId) {
     conversion = await convertSourceDocumentToTiptap(sourceDoc);
   } catch (error) {
     setStatus(fileStatus, error?.message || "Unable to convert this document.", "error");
-    return;
+    return "";
   }
   setStatus(fileStatus, "Creating document...");
   const contentJson = conversion.contentJson;
@@ -1884,10 +1891,16 @@ async function makeFileEditable(documentId) {
       ? "Run the app_documents migration before converting files to documents."
       : error.message;
     setStatus(fileStatus, message, "error");
-    return;
+    return "";
   }
 
-  window.location.href = `./documents?id=${encodeURIComponent(data.id)}`;
+  return data.id || "";
+}
+
+async function makeFileEditable(documentId) {
+  const editableDocumentId = await getOrCreateEditableDocumentId(documentId);
+  if (!editableDocumentId) return;
+  window.location.href = `./documents?id=${encodeURIComponent(editableDocumentId)}`;
 }
 
 async function uploadDocument(event) {
