@@ -144,7 +144,8 @@ function dashboardModuleHref(key) {
   const module = moduleByKey(key);
   const metadata = moduleMetadata(module);
   if (module?.state !== "enabled") return "";
-  return String(metadata.dashboard_route || "").trim();
+  const route = String(metadata.dashboard_route || "").trim();
+  return route.startsWith("/utilities/workspace/") ? routeWithOrg(route) : route;
 }
 
 function moduleStateLabel(state) {

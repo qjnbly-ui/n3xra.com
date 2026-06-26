@@ -266,12 +266,16 @@ function fallbackModules() {
     {
       module_key: "customers",
       name: "Customer accounts",
-      description: "Customer accounts, service addresses, contacts, account history, and portal access.",
+      description: "Customer search, account profiles, service addresses, meters, readings, and account history.",
       category: "customers",
       sort_order: 20,
       is_core: true,
-      state: "coming_soon",
-      metadata: { dashboard_card: true },
+      state: "enabled",
+      metadata: {
+        available: true,
+        dashboard_card: true,
+        dashboard_route: "/utilities/workspace/customers/",
+      },
       configuration: {},
     },
     {
@@ -336,17 +340,44 @@ function fallbackModules() {
   ];
 }
 
+const readyModuleOverrides = {
+  customers: {
+    description: "Customer search, account profiles, service addresses, meters, readings, and account history.",
+    dashboard_route: "/utilities/workspace/customers/",
+  },
+  meter_billing: {
+    dashboard_route: "/utilities/workspace/meter-billing/",
+  },
+};
+
+function applyReadyModuleOverride(module) {
+  const override = readyModuleOverrides[module?.module_key];
+  if (!override) return module;
+  const inactiveStates = new Set(["coming_soon", "requestable", "requires_n3xra_setup"]);
+  return {
+    ...module,
+    description: override.description || module.description,
+    state: inactiveStates.has(module.state) ? "enabled" : module.state,
+    metadata: {
+      ...(module.metadata && typeof module.metadata === "object" ? module.metadata : {}),
+      available: true,
+      dashboard_card: true,
+      dashboard_route: override.dashboard_route,
+    },
+  };
+}
+
 async function loadOrganizationModules(organizationId) {
   try {
     const [catalog, organizationModules] = await Promise.all([
       fetchSupabase("utility_module_catalog?select=*&order=sort_order.asc"),
       fetchSupabase(`utility_organization_modules?select=*&organization_id=eq.${encodeFilter(organizationId)}`),
     ]);
-    if (!Array.isArray(catalog) || !catalog.length) return fallbackModules();
+    if (!Array.isArray(catalog) || !catalog.length) return fallbackModules().map(applyReadyModuleOverride);
     const moduleByKey = new Map((organizationModules || []).map((module) => [module.module_key, module]));
     return catalog.map((module) => {
       const organizationModule = moduleByKey.get(module.module_key) || {};
-      return {
+      return applyReadyModuleOverride({
         module_key: module.module_key,
         name: module.name,
         description: module.description,
@@ -361,10 +392,10 @@ async function loadOrganizationModules(organizationId) {
           ...(module.metadata && typeof module.metadata === "object" ? module.metadata : {}),
           ...(organizationModule.metadata && typeof organizationModule.metadata === "object" ? organizationModule.metadata : {}),
         },
-      };
+      });
     });
   } catch {
-    return fallbackModules();
+    return fallbackModules().map(applyReadyModuleOverride);
   }
 }
 
