@@ -1,4 +1,4 @@
-const RATE_LIMIT_WINDOW_MS = 60 * 1000;
+const RATE_LIMIT_WINDOW_MS = 30 * 1000;
 const RATE_LIMIT_MAX_REQUESTS = 1;
 const RECENT_REQUESTS = globalThis.__n3xraSupportRequests || new Map();
 globalThis.__n3xraSupportRequests = RECENT_REQUESTS;
@@ -88,10 +88,6 @@ function validatePayload(payload) {
   const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailPattern.test(payload.email)) {
     return "Enter a valid email address.";
-  }
-
-  if (payload.message.length < 20) {
-    return "Please include at least 20 characters in your message.";
   }
 
   if (hasSuspiciousRandomText(payload)) {
@@ -190,7 +186,7 @@ export default async function handler(req, res) {
 
   const ip = getClientIp(req);
   if (isRateLimited(ip)) {
-    return res.status(429).json({ error: "Please wait one minute before sending another support request." });
+    return res.status(429).json({ error: "Please wait 30 seconds before sending another support request." });
   }
 
   const resendApiKey = process.env.RESEND_API_KEY;
