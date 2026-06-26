@@ -25,6 +25,7 @@
   <script src="../assets/site-nav.js" defer></script>
   <script src="/shared/config.js"></script>
   <script type="module" src="/assets/master-auth-link.js"></script>
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
   <style>
     :root {
       --ink: #0f1620;
@@ -38,7 +39,6 @@
       --white: #ffffff;
       --shadow: 0 24px 60px rgba(12, 18, 28, 0.14);
       --radius-lg: 24px;
-      --radius-md: 16px;
       --radius-sm: 12px;
       --radius-pill: 999px;
     }
@@ -94,18 +94,6 @@
       color: var(--white);
     }
 
-
-    .hero-copy {
-      max-width: 760px;
-      display: grid;
-      gap: 0.45rem;
-    }
-
-    .hero-copy p {
-      margin: 0;
-      color: rgba(255, 255, 255, 0.8);
-    }
-
     main {
       padding: 1.6rem 0 3rem;
       display: grid;
@@ -136,13 +124,8 @@
       line-height: 1.1;
     }
 
-    .card h2 {
-      font-size: 1.6rem;
-    }
-
-    .card h3 {
-      font-size: 1.12rem;
-    }
+    .card h2 { font-size: 1.6rem; }
+    .card h3 { font-size: 1.12rem; }
 
     .card p,
     .card li {
@@ -150,15 +133,17 @@
       color: var(--ink-soft);
     }
 
-    .stack {
+    .stack,
+    .support-list,
+    form,
+    .field {
       display: grid;
-      gap: 1rem;
     }
 
-    .support-list {
-      display: grid;
-      gap: 0.95rem;
-    }
+    .stack { gap: 1rem; }
+    .support-list { gap: 0.95rem; }
+    form { gap: 1rem; }
+    .field { gap: 0.38rem; }
 
     .support-item {
       display: grid;
@@ -172,9 +157,10 @@
       border-bottom: 0;
     }
 
-    .support-label {
-      font-size: 0.75rem;
-      letter-spacing: 0.16em;
+    .support-label,
+    .field label {
+      font-size: 0.76rem;
+      letter-spacing: 0.18em;
       text-transform: uppercase;
       font-weight: 700;
       color: var(--teal);
@@ -187,36 +173,16 @@
       font-weight: 700;
     }
 
-    form {
-      display: grid;
-      gap: 1rem;
-    }
-
     .grid-2 {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 1rem;
     }
 
-    .field {
-      display: grid;
-      gap: 0.38rem;
-    }
-
-    .field label {
-      font-size: 0.76rem;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-      font-weight: 700;
-      color: var(--teal);
-    }
-
     input,
     textarea,
     select,
-    button {
-      font: inherit;
-    }
+    button { font: inherit; }
 
     input,
     textarea,
@@ -232,6 +198,21 @@
     textarea {
       min-height: 160px;
       resize: vertical;
+    }
+
+    .turnstile-wrap {
+      display: grid;
+      gap: 0.5rem;
+      padding: 0.85rem;
+      border: 1px solid rgba(15, 22, 32, 0.1);
+      border-radius: var(--radius-sm);
+      background: #fbfdff;
+    }
+
+    .turnstile-wrap p {
+      margin: 0;
+      color: var(--slate);
+      font-size: 0.84rem;
     }
 
     .actions {
@@ -280,9 +261,7 @@
       font-weight: 700;
     }
 
-    .honeypot {
-      display: none;
-    }
+    .honeypot { display: none; }
 
     .site-footer {
       padding: 1.35rem 0;
@@ -301,9 +280,7 @@
       text-align: center;
     }
 
-    .footer-inner p {
-      margin: 0;
-    }
+    .footer-inner p { margin: 0; }
 
     .footer-inner a {
       color: inherit;
@@ -325,9 +302,7 @@
       text-decoration: none;
     }
 
-    .support-social-links a:hover {
-      color: var(--teal);
-    }
+    .support-social-links a:hover { color: var(--teal); }
 
     @media (max-width: 860px) {
       .support-grid,
@@ -337,19 +312,12 @@
     }
 
     @media (max-width: 640px) {
-      .header-shell {
-        padding: 5.25rem 0 1.5rem;
-      }
-
-      .top-row {
-        justify-content: center;
-      }
-
+      .header-shell { padding: 5.25rem 0 1.5rem; }
+      .top-row { justify-content: center; }
       .page-title {
         font-size: 1.1rem;
         line-height: 1.1;
       }
-
     }
   </style>
 </head>
@@ -454,18 +422,18 @@
           <div class="grid-2">
             <div class="field">
               <label for="support-name">Name</label>
-              <input id="support-name" name="name" type="text" autocomplete="name" required>
+              <input id="support-name" name="name" type="text" autocomplete="name" maxlength="90" required>
             </div>
             <div class="field">
               <label for="support-email">Email</label>
-              <input id="support-email" name="email" type="email" autocomplete="email" required>
+              <input id="support-email" name="email" type="email" autocomplete="email" maxlength="160" required>
             </div>
           </div>
 
           <div class="grid-2">
             <div class="field">
               <label for="support-organization">Organization or library</label>
-              <input id="support-organization" name="organization" type="text" placeholder="Optional">
+              <input id="support-organization" name="organization" type="text" maxlength="120" placeholder="Optional">
             </div>
             <div class="field">
               <label for="support-topic">Topic</label>
@@ -483,18 +451,29 @@
 
           <div class="field">
             <label for="support-subject">Subject</label>
-            <input id="support-subject" name="subject" type="text" required>
+            <input id="support-subject" name="subject" type="text" maxlength="140" required>
           </div>
 
           <div class="field">
             <label for="support-message">Message</label>
-            <textarea id="support-message" name="message" required></textarea>
+            <textarea id="support-message" name="message" maxlength="2000" required></textarea>
             <p class="field-note">Include as much detail as you can, including what you were trying to do and any error message you saw.</p>
           </div>
 
           <div class="honeypot" aria-hidden="true">
             <label for="support-company">Company</label>
             <input id="support-company" name="company" type="text" tabindex="-1" autocomplete="off">
+          </div>
+
+          <div class="honeypot" aria-hidden="true">
+            <label for="support-website">Website</label>
+            <input id="support-website" name="website" type="url" tabindex="-1" autocomplete="off">
+          </div>
+
+          <div class="turnstile-wrap">
+            <div id="support-turnstile"></div>
+            <input id="support-turnstile-token" name="cf-turnstile-response" type="hidden" required>
+            <p>Security check required before sending.</p>
           </div>
 
           <div class="actions">
@@ -519,6 +498,9 @@
       const form = document.getElementById("support-form");
       const submitButton = document.getElementById("support-submit");
       const status = document.getElementById("support-status");
+      const tokenInput = document.getElementById("support-turnstile-token");
+      const turnstileElement = document.getElementById("support-turnstile");
+      let turnstileWidgetId = null;
 
       function setStatus(message, tone) {
         status.textContent = message || "";
@@ -526,8 +508,48 @@
         if (tone) status.classList.add(tone);
       }
 
+      function renderTurnstile() {
+        const siteKey = window.RECORDS_APP_CONFIG?.turnstileSiteKey;
+        if (!siteKey) {
+          setStatus("Security check is not configured yet.", "error");
+          submitButton.disabled = true;
+          return;
+        }
+
+        if (!window.turnstile || turnstileWidgetId !== null) return;
+
+        turnstileWidgetId = window.turnstile.render(turnstileElement, {
+          sitekey: siteKey,
+          callback: function (token) {
+            tokenInput.value = token;
+            setStatus("");
+          },
+          "expired-callback": function () {
+            tokenInput.value = "";
+            setStatus("Security check expired. Please complete it again.", "error");
+          },
+          "error-callback": function () {
+            tokenInput.value = "";
+            setStatus("Security check failed to load. Please refresh and try again.", "error");
+          },
+        });
+      }
+
+      const turnstileTimer = window.setInterval(function () {
+        if (window.turnstile) {
+          window.clearInterval(turnstileTimer);
+          renderTurnstile();
+        }
+      }, 100);
+
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
+
+        if (!tokenInput.value) {
+          setStatus("Please complete the security check before sending.", "error");
+          return;
+        }
+
         setStatus("Sending support request...");
         submitButton.disabled = true;
 
@@ -549,8 +571,16 @@
           }
 
           form.reset();
+          tokenInput.value = "";
+          if (window.turnstile && turnstileWidgetId !== null) {
+            window.turnstile.reset(turnstileWidgetId);
+          }
           setStatus("Your support request was sent successfully.", "success");
         } catch (error) {
+          if (window.turnstile && turnstileWidgetId !== null) {
+            window.turnstile.reset(turnstileWidgetId);
+          }
+          tokenInput.value = "";
           setStatus(error instanceof Error ? error.message : "Unable to send support request.", "error");
         } finally {
           submitButton.disabled = false;
