@@ -2495,6 +2495,141 @@ button.utilities-home-card.is-requestable:focus-visible {
   background: #6b7280;
 }
 
+.utilities-dashboard-body[data-workspace-page="meter-billing"] .workspace-grid {
+  grid-template-columns: minmax(250px, 0.25fr) minmax(0, 1fr);
+  gap: 1.4rem;
+}
+
+.utilities-dashboard-body[data-workspace-page="meter-billing"] .workspace-status-card {
+  width: 100%;
+  min-height: 148px;
+  justify-items: start;
+  align-content: start;
+  text-align: left;
+  color: #172033;
+  border: 1px solid #dce5eb;
+  background: #ffffff;
+  box-shadow: 0 18px 42px rgba(12, 18, 28, 0.1);
+}
+
+.utilities-dashboard-body[data-workspace-page="meter-billing"] .workspace-status-card span {
+  color: #5d6b82;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.utilities-dashboard-body[data-workspace-page="meter-billing"] .workspace-status-card strong {
+  color: #172033;
+  font-family: Manrope, ui-sans-serif, system-ui, sans-serif;
+  font-size: clamp(1.5rem, 2.5vw, 2.1rem);
+  font-weight: 900;
+  line-height: 1.05;
+}
+
+.utilities-dashboard-body[data-workspace-page="meter-billing"] .workspace-status-card p,
+.utilities-dashboard-body[data-workspace-page="meter-billing"] .workspace-card p {
+  color: #64748b;
+}
+
+.utilities-dashboard-body[data-workspace-page="meter-billing"] .workspace-form label {
+  color: #526176;
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+}
+
+.utilities-dashboard-body[data-workspace-page="meter-billing"] .workspace-form input,
+.utilities-dashboard-body[data-workspace-page="meter-billing"] .workspace-form select {
+  min-height: 48px;
+  color: #172033;
+  border-color: #d8e2e8;
+  background: #f8fafc;
+}
+
+.utilities-dashboard-body[data-workspace-page="meter-billing"] .meter-template-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+}
+
+.utilities-dashboard-body[data-workspace-page="meter-billing"] .meter-template-row button {
+  min-height: 48px;
+  min-width: 132px;
+  border: 1px solid #d8e2e8;
+  border-radius: 8px;
+  padding: 0 1rem;
+  color: #172033;
+  background: #ffffff;
+  box-shadow: none;
+}
+
+.utilities-dashboard-body[data-workspace-page="meter-billing"] .meter-template-row button:hover,
+.utilities-dashboard-body[data-workspace-page="meter-billing"] .meter-template-row button:focus-visible {
+  border-color: #8aa4b3;
+  outline: 0;
+}
+
+.utilities-dashboard-body[data-workspace-page="meter-billing"] .meter-preview-wrap h3 {
+  color: #172033;
+  font-family: Manrope, ui-sans-serif, system-ui, sans-serif;
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.utilities-dashboard-body[data-workspace-page="meter-billing"] .meter-preview-table th,
+.utilities-dashboard-body[data-workspace-page="meter-billing"] .meter-review-table th {
+  color: #526176;
+  letter-spacing: 0.08em;
+}
+
+.utilities-dashboard-body[data-workspace-page="meter-billing"] .meter-preview-table td,
+.utilities-dashboard-body[data-workspace-page="meter-billing"] .meter-review-table td {
+  color: #243044;
+  border-bottom-color: #e7edf2;
+}
+
+.utilities-dashboard-body[data-workspace-page="meter-billing"] .meter-review-table select {
+  color: #172033;
+  border-color: #d8e2e8;
+  background: #ffffff;
+}
+
+.utilities-dashboard-body[data-workspace-page="meter-billing"] .meter-review-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  justify-content: flex-end;
+}
+
+.utilities-dashboard-body[data-workspace-page="meter-billing"] .meter-review-actions button {
+  min-height: 42px;
+  border: 1px solid #d8e2e8;
+  border-radius: 8px;
+  padding: 0 1rem;
+  color: #172033;
+  background: #ffffff;
+  box-shadow: none;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.utilities-dashboard-body[data-workspace-page="meter-billing"] .meter-review-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.52;
+}
+
+.utilities-dashboard-body[data-workspace-page="meter-billing"] #meter-billing-export:not(:disabled) {
+  color: #ffffff;
+  border-color: #172033;
+  background: #172033;
+}
+
+.utilities-dashboard-body[data-workspace-page="meter-billing"] #meter-billing-approve:not(:disabled) {
+  color: #ffffff;
+  border-color: #176f66;
+  background: #176f66;
+}
+
 .utilities-home-card.is-enabled span {
   background: var(--records-teal);
 }

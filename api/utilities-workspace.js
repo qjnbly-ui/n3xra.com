@@ -1358,6 +1358,26 @@ async function updateBillingItem(user, body) {
   return first(rows);
 }
 
+async function approveBillingRunItems(user, body) {
+  const { org } = await requireManageOrganization(user, body.organization_id || body.organizationId || body.slug);
+  const runId = cleanString(body.billing_run_id || body.billingRunId, 80);
+  const run = first(await fetchSupabase(`utility_billing_runs?select=*&id=eq.${encodeFilter(runId)}&organization_id=eq.${encodeFilter(org.id)}&limit=1`));
+  if (!run) {
+    const error = new Error("Billing run not found.");
+    error.status = 404;
+    throw error;
+  }
+  const rows = await fetchSupabase(
+    `utility_billing_run_items?billing_run_id=eq.${encodeFilter(run.id)}&organization_id=eq.${encodeFilter(org.id)}&status=eq.pending&overage_gallons=gt.0`,
+    {
+      method: "PATCH",
+      headers: { Prefer: "return=representation" },
+      body: JSON.stringify({ status: "approved" }),
+    }
+  );
+  return { run, items: rows || [] };
+}
+
 async function createBillingExport(user, body) {
   const { org } = await requireManageOrganization(user, body.organization_id || body.organizationId || body.slug);
   const runId = cleanString(body.billing_run_id || body.billingRunId, 80);
@@ -1414,6 +1434,7 @@ module.exports = async function handler(req, res) {
     if (action === "update-module-state") return res.status(200).json({ ok: true, module: await updateModuleState(user, body) });
     if (action === "create-meter-billing-run") return res.status(200).json({ ok: true, billing: await createMeterBillingRun(user, body) });
     if (action === "update-billing-item") return res.status(200).json({ ok: true, item: await updateBillingItem(user, body) });
+    if (action === "approve-billing-run-items") return res.status(200).json({ ok: true, approval: await approveBillingRunItems(user, body) });
     if (action === "create-billing-export") return res.status(200).json({ ok: true, billing_export: await createBillingExport(user, body) });
     if (action === "create-team-invite") return res.status(200).json({ ok: true, invite: await createTeamInvite(user, body, req) });
     if (action === "revoke-team-invite") return res.status(200).json({ ok: true, invite: await revokeTeamInvite(user, body) });

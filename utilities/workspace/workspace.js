@@ -39,6 +39,7 @@ const meterMappingGrid = el("meter-mapping-grid");
 const meterPreviewWrap = el("meter-preview-wrap");
 const meterPreviewTable = el("meter-preview-table");
 const meterReviewTable = el("meter-review-table");
+const meterBillingApprove = el("meter-billing-approve");
 const meterBillingExport = el("meter-billing-export");
 const meterBillingHistory = el("meter-billing-history");
 const meterBillingCurrentPeriod = el("meter-billing-current-period");
@@ -690,6 +691,8 @@ function renderMeterReview() {
   const billing = workspace?.meter_billing || {};
   const run = billing.latest_run || null;
   const items = billing.latest_items || [];
+  const pendingBillableCount = items.filter((item) => item.status === "pending" && Number(item.overage_gallons || 0) > 0).length;
+  const approvedCount = items.filter((item) => item.status === "approved").length;
   if (meterBillingCurrentPeriod) meterBillingCurrentPeriod.textContent = run?.billing_period || "No run yet";
   if (meterBillingCurrentSummary) {
     meterBillingCurrentSummary.textContent = run
@@ -702,7 +705,14 @@ function renderMeterReview() {
       : "Create a billing run to review calculated overages.";
   }
   if (meterBillingExport) {
-    meterBillingExport.disabled = !items.some((item) => item.status === "approved");
+    meterBillingExport.disabled = approvedCount === 0;
+    meterBillingExport.textContent = approvedCount ? `Export ${approvedCount} Approved` : "Export CSV";
+    meterBillingExport.title = approvedCount ? "Download approved overage rows as a CSV." : "Approve at least one billable row before exporting.";
+  }
+  if (meterBillingApprove) {
+    meterBillingApprove.disabled = pendingBillableCount === 0;
+    meterBillingApprove.textContent = pendingBillableCount ? `Approve ${pendingBillableCount} Billable` : "Approve Billable Rows";
+    meterBillingApprove.title = pendingBillableCount ? "Approve all pending rows with overage gallons." : "No pending billable rows are available.";
   }
   if (!meterReviewTable) return;
   if (!items.length) {
@@ -935,6 +945,27 @@ meterReviewTable?.addEventListener("change", (event) => {
     item_id: select.getAttribute("data-billing-item"),
     status: select.value,
   }).catch((error) => setStatus(error.message, "is-error"));
+});
+
+meterBillingApprove?.addEventListener("click", async () => {
+  const run = workspace?.meter_billing?.latest_run;
+  if (!run?.id) return;
+  try {
+    setStatus("Approving billable rows...");
+    const result = await apiFetch({
+      method: "PATCH",
+      body: JSON.stringify({
+        action: "approve-billing-run-items",
+        organization_id: organizationId(),
+        billing_run_id: run.id,
+      }),
+    });
+    const count = result?.approval?.items?.length || 0;
+    await loadWorkspace();
+    setStatus(count ? `${count} billable row${count === 1 ? "" : "s"} approved.` : "No pending billable rows to approve.", count ? "is-active" : "");
+  } catch (error) {
+    setStatus(error instanceof Error ? error.message : "Unable to approve billable rows.", "is-error");
+  }
 });
 
 meterBillingExport?.addEventListener("click", async () => {
