@@ -1101,6 +1101,89 @@ a.workspace-dashboard-card:focus-visible {
   filter: brightness(1.04);
 }
 
+.meter-billing-form {
+  gap: 18px;
+}
+
+.meter-template-row,
+.meter-mapping-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.meter-template-row button,
+.workspace-feature-request {
+  min-height: 42px;
+}
+
+.meter-preview-wrap {
+  display: grid;
+  gap: 10px;
+}
+
+.meter-preview-wrap h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.meter-table-scroll {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.meter-preview-table,
+.meter-review-table {
+  width: 100%;
+  min-width: 780px;
+  border-collapse: collapse;
+  font-size: 0.86rem;
+}
+
+.meter-preview-table th,
+.meter-preview-table td,
+.meter-review-table th,
+.meter-review-table td {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.11);
+  padding: 10px 12px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.meter-preview-table th,
+.meter-review-table th {
+  color: var(--mint);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.meter-review-table select {
+  min-width: 118px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: rgba(2, 5, 4, 0.72);
+  color: #fff;
+}
+
+.meter-history-row {
+  display: grid;
+  gap: 5px;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.11);
+}
+
+.meter-history-row strong {
+  font-size: 1rem;
+}
+
+.meter-history-row span {
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-weight: 800;
+}
+
 .workspace-logo-preview {
   min-height: 104px;
   display: grid;
@@ -2751,7 +2834,9 @@ button.utilities-home-card.is-requestable:focus-visible {
 
   .workspace-team-row,
   .workspace-team-controls,
-  .workspace-team-add-grid {
+  .workspace-team-add-grid,
+  .meter-template-row,
+  .meter-mapping-grid {
     grid-template-columns: 1fr;
   }
 

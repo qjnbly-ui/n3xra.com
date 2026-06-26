@@ -31,10 +31,24 @@ const teamInviteList = el("team-invite-list");
 const teamRoleSelect = el("team-role-select");
 const teamRoleList = el("team-role-list");
 const teamCurrentRole = el("team-current-role");
+const meterBillingForm = el("meter-billing-form");
+const meterBillingFile = el("meter-billing-file");
+const meterBillingTemplate = el("meter-billing-template");
+const meterBillingApplyTemplate = el("meter-billing-apply-template");
+const meterMappingGrid = el("meter-mapping-grid");
+const meterPreviewWrap = el("meter-preview-wrap");
+const meterPreviewTable = el("meter-preview-table");
+const meterReviewTable = el("meter-review-table");
+const meterBillingExport = el("meter-billing-export");
+const meterBillingHistory = el("meter-billing-history");
+const meterBillingCurrentPeriod = el("meter-billing-current-period");
+const meterBillingCurrentSummary = el("meter-billing-current-summary");
+const meterBillingReviewCopy = el("meter-billing-review-copy");
 
 let supabase = null;
 let session = null;
 let workspace = null;
+let meterCsv = { headers: [], rows: [], fileName: "" };
 
 function setStatus(message, tone = "") {
   if (!statusLine) return;
@@ -192,6 +206,13 @@ function dashboardCards() {
       status: "Open",
       href: routeWithOrg("/utilities/workspace/features"),
       tone: "is-active",
+    },
+    {
+      title: "Meter billing",
+      description: "Upload meter CSV exports, calculate allowance overages, review rows, and export approved charges.",
+      status: dashboardModuleStatus("meter_billing", "enabled"),
+      href: dashboardModuleHref("meter_billing"),
+      tone: isModuleEnabled("meter_billing") ? "is-active" : "is-inactive",
     },
     {
       title: "Customer accounts",
@@ -520,6 +541,217 @@ function renderModules(modules) {
   }).join("");
 }
 
+function formatMoney(value) {
+  return `$${Number(value || 0).toFixed(2)}`;
+}
+
+function formatNumber(value) {
+  return Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
+}
+
+function parseCsv(text) {
+  const rows = [];
+  let row = [];
+  let field = "";
+  let inQuotes = false;
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
+    const next = text[index + 1];
+    if (char === '"' && inQuotes && next === '"') {
+      field += '"';
+      index += 1;
+    } else if (char === '"') {
+      inQuotes = !inQuotes;
+    } else if (char === "," && !inQuotes) {
+      row.push(field);
+      field = "";
+    } else if ((char === "\n" || char === "\r") && !inQuotes) {
+      if (char === "\r" && next === "\n") index += 1;
+      row.push(field);
+      if (row.some((value) => String(value || "").trim())) rows.push(row);
+      row = [];
+      field = "";
+    } else {
+      field += char;
+    }
+  }
+  row.push(field);
+  if (row.some((value) => String(value || "").trim())) rows.push(row);
+  if (!rows.length) return { headers: [], rows: [] };
+  const headers = rows[0].map((header, index) => String(header || `Column ${index + 1}`).trim() || `Column ${index + 1}`);
+  const dataRows = rows.slice(1).map((values) => {
+    const item = {};
+    headers.forEach((header, index) => {
+      item[header] = values[index] || "";
+    });
+    return item;
+  });
+  return { headers, rows: dataRows };
+}
+
+function csvEscape(value) {
+  const raw = String(value ?? "");
+  return /[",\n\r]/.test(raw) ? `"${raw.replaceAll('"', '""')}"` : raw;
+}
+
+function downloadCsv(fileName, rows) {
+  const content = rows.map((row) => row.map(csvEscape).join(",")).join("\n");
+  const blob = new Blob([content], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function mappingSelect(name, label, required = false) {
+  const options = ['<option value="">Choose column</option>']
+    .concat(meterCsv.headers.map((header) => `<option value="${escapeHtml(header)}">${escapeHtml(header)}</option>`))
+    .join("");
+  return `<label>${escapeHtml(label)}${required ? " *" : ""}<select name="${escapeHtml(name)}" ${required ? "required" : ""}>${options}</select></label>`;
+}
+
+function currentMapping() {
+  const mapping = {};
+  meterMappingGrid?.querySelectorAll("select[name]").forEach((select) => {
+    if (select.value) mapping[select.name] = select.value;
+  });
+  return mapping;
+}
+
+function setMapping(mapping = {}) {
+  meterMappingGrid?.querySelectorAll("select[name]").forEach((select) => {
+    select.value = mapping[select.name] || "";
+  });
+}
+
+function renderMapping() {
+  if (!meterMappingGrid) return;
+  if (!meterCsv.headers.length) {
+    meterMappingGrid.innerHTML = '<p class="utilities-list-empty">Upload a CSV to map columns.</p>';
+    return;
+  }
+  meterMappingGrid.innerHTML = [
+    mappingSelect("account_number", "Account number", true),
+    mappingSelect("meter_number", "Meter number", true),
+    mappingSelect("current_reading", "Current reading", true),
+    mappingSelect("customer_name", "Customer name"),
+    mappingSelect("service_address", "Service address"),
+    mappingSelect("reading_date", "Reading date"),
+    mappingSelect("previous_reading", "Previous reading"),
+    mappingSelect("usage_gallons", "Usage gallons"),
+  ].join("");
+}
+
+function renderCsvPreview() {
+  if (!meterPreviewTable || !meterPreviewWrap) return;
+  if (!meterCsv.headers.length) {
+    meterPreviewWrap.hidden = true;
+    meterPreviewTable.innerHTML = "";
+    return;
+  }
+  const previewRows = meterCsv.rows.slice(0, 5);
+  meterPreviewTable.innerHTML = `
+    <thead><tr>${meterCsv.headers.map((header) => `<th>${escapeHtml(header)}</th>`).join("")}</tr></thead>
+    <tbody>
+      ${previewRows.map((row) => `<tr>${meterCsv.headers.map((header) => `<td>${escapeHtml(row[header])}</td>`).join("")}</tr>`).join("")}
+    </tbody>
+  `;
+  meterPreviewWrap.hidden = false;
+}
+
+function renderMeterTemplates() {
+  if (!meterBillingTemplate) return;
+  const templates = workspace?.meter_billing?.templates || [];
+  meterBillingTemplate.innerHTML = '<option value="">Map manually</option>' + templates
+    .map((template) => `<option value="${escapeHtml(template.id)}">${escapeHtml(template.name)}</option>`)
+    .join("");
+}
+
+function renderMeterHistory() {
+  if (!meterBillingHistory) return;
+  const runs = workspace?.meter_billing?.runs || [];
+  if (!runs.length) {
+    meterBillingHistory.innerHTML = '<p class="utilities-list-empty">No billing runs yet.</p>';
+    return;
+  }
+  meterBillingHistory.innerHTML = runs.map((run) => `
+    <article class="meter-history-row">
+      <strong>${escapeHtml(run.billing_period)}</strong>
+      <span>${escapeHtml(titleCase(run.status))} · ${formatMoney(run.total_overage_amount)} · ${Number(run.billable_count || 0)} billable</span>
+    </article>
+  `).join("");
+}
+
+function renderMeterReview() {
+  const billing = workspace?.meter_billing || {};
+  const run = billing.latest_run || null;
+  const items = billing.latest_items || [];
+  if (meterBillingCurrentPeriod) meterBillingCurrentPeriod.textContent = run?.billing_period || "No run yet";
+  if (meterBillingCurrentSummary) {
+    meterBillingCurrentSummary.textContent = run
+      ? `${Number(run.item_count || 0)} rows, ${Number(run.billable_count || 0)} billable, ${formatMoney(run.total_overage_amount)} total overage.`
+      : "Upload a CSV to create the first billing review.";
+  }
+  if (meterBillingReviewCopy) {
+    meterBillingReviewCopy.textContent = run
+      ? `${escapeHtml(run.billing_period)} review rows are stored in Supabase. Approve billable rows before exporting.`
+      : "Create a billing run to review calculated overages.";
+  }
+  if (meterBillingExport) {
+    meterBillingExport.disabled = !items.some((item) => item.status === "approved");
+  }
+  if (!meterReviewTable) return;
+  if (!items.length) {
+    meterReviewTable.innerHTML = '<tbody><tr><td>No billing rows yet.</td></tr></tbody>';
+    return;
+  }
+  meterReviewTable.innerHTML = `
+    <thead>
+      <tr>
+        <th>Status</th>
+        <th>Account</th>
+        <th>Customer</th>
+        <th>Meter</th>
+        <th>Usage</th>
+        <th>Overage</th>
+        <th>Amount</th>
+        <th>Notes</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${items.map((item) => `
+        <tr>
+          <td>
+            <select data-billing-item="${escapeHtml(item.id)}">
+              ${["pending", "approved", "flagged", "skipped"].map((status) => `<option value="${status}" ${item.status === status ? "selected" : ""}>${escapeHtml(titleCase(status))}</option>`).join("")}
+            </select>
+          </td>
+          <td>${escapeHtml(item.account_number)}</td>
+          <td>${escapeHtml(item.customer_name || "-")}</td>
+          <td>${escapeHtml(item.meter_number || "-")}</td>
+          <td>${formatNumber(item.usage_gallons)}</td>
+          <td>${formatNumber(item.overage_gallons)}</td>
+          <td>${formatMoney(item.overage_amount)}</td>
+          <td>${escapeHtml(item.notes || "")}</td>
+        </tr>
+      `).join("")}
+    </tbody>
+  `;
+}
+
+function renderMeterBilling() {
+  renderSummary();
+  renderMeterTemplates();
+  renderMapping();
+  renderCsvPreview();
+  renderMeterHistory();
+  renderMeterReview();
+}
+
 function renderWorkspace() {
   renderHero();
   if (!workspace?.organization) return;
@@ -528,6 +760,7 @@ function renderWorkspace() {
   if (page === "settings") renderSettings();
   if (page === "team") renderTeam();
   if (page === "features") renderModules(workspace.modules || []);
+  if (page === "meter-billing") renderMeterBilling();
 }
 
 async function loadWorkspace() {
@@ -630,6 +863,114 @@ moduleGrid?.addEventListener("click", (event) => {
     organization_id: organizationId(),
     module_key: button.getAttribute("data-request-module"),
   }).catch((error) => setStatus(error.message, "is-error"));
+});
+
+meterBillingFile?.addEventListener("change", async () => {
+  const file = meterBillingFile.files?.[0];
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const parsed = parseCsv(text);
+    if (!parsed.headers.length || !parsed.rows.length) throw new Error("CSV must include a header row and at least one data row.");
+    meterCsv = { ...parsed, fileName: file.name };
+    renderMapping();
+    renderCsvPreview();
+    setStatus(`${parsed.rows.length} CSV row${parsed.rows.length === 1 ? "" : "s"} loaded. Map the columns and create a billing run.`, "is-active");
+  } catch (error) {
+    meterCsv = { headers: [], rows: [], fileName: "" };
+    renderMapping();
+    renderCsvPreview();
+    setStatus(error instanceof Error ? error.message : "Unable to read CSV.", "is-error");
+  }
+});
+
+meterBillingApplyTemplate?.addEventListener("click", () => {
+  const template = (workspace?.meter_billing?.templates || []).find((item) => item.id === meterBillingTemplate?.value);
+  if (!template) {
+    setStatus("Choose a saved template first.", "is-error");
+    return;
+  }
+  setMapping(template.column_mapping || {});
+  setStatus("Template mapping applied.", "is-active");
+});
+
+meterBillingForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!meterCsv.rows.length) {
+    setStatus("Upload a CSV before creating a billing run.", "is-error");
+    return;
+  }
+  const data = formDataObject(meterBillingForm);
+  const mapping = currentMapping();
+  try {
+    setStatus("Creating billing run...");
+    const result = await apiFetch({
+      method: "PATCH",
+      body: JSON.stringify({
+        action: "create-meter-billing-run",
+        organization_id: organizationId(),
+        billing_period: data.billing_period,
+        included_gallons: data.included_gallons,
+        overage_rate: data.overage_rate,
+        template_name: data.template_name,
+        file_name: meterCsv.fileName,
+        headers: meterCsv.headers,
+        rows: meterCsv.rows,
+        column_mapping: mapping,
+      }),
+    });
+    await loadWorkspace();
+    const errors = result?.billing?.errors || [];
+    setStatus(errors.length ? `Billing run created with ${errors.length} skipped row${errors.length === 1 ? "" : "s"}.` : "Billing run created.", errors.length ? "is-error" : "is-active");
+  } catch (error) {
+    setStatus(error instanceof Error ? error.message : "Unable to create billing run.", "is-error");
+  }
+});
+
+meterReviewTable?.addEventListener("change", (event) => {
+  const select = event.target.closest("select[data-billing-item]");
+  if (!select) return;
+  saveAction("update-billing-item", {
+    organization_id: organizationId(),
+    item_id: select.getAttribute("data-billing-item"),
+    status: select.value,
+  }).catch((error) => setStatus(error.message, "is-error"));
+});
+
+meterBillingExport?.addEventListener("click", async () => {
+  const run = workspace?.meter_billing?.latest_run;
+  if (!run?.id) return;
+  try {
+    setStatus("Preparing export...");
+    const result = await apiFetch({
+      method: "PATCH",
+      body: JSON.stringify({
+        action: "create-billing-export",
+        organization_id: organizationId(),
+        billing_run_id: run.id,
+      }),
+    });
+    const items = result?.billing_export?.items || [];
+    if (!items.length) throw new Error("Approve at least one billing row before exporting.");
+    const rows = [
+      ["Customer", "Account", "Service Address", "Meter", "Description", "Quantity", "Rate", "Amount"],
+      ...items.map((item) => [
+        item.customer_name || item.account_number || "",
+        item.account_number || "",
+        item.service_address || "",
+        item.meter_number || "",
+        `Water overage ${run.billing_period}`,
+        item.overage_gallons || 0,
+        item.overage_rate || 0,
+        item.overage_amount || 0,
+      ]),
+    ];
+    downloadCsv(`quickbooks-overages-${run.billing_period}.csv`, rows);
+    await loadWorkspace();
+    setStatus("Approved billing rows exported.", "is-active");
+  } catch (error) {
+    setStatus(error instanceof Error ? error.message : "Unable to export billing CSV.", "is-error");
+  }
 });
 
 teamMemberList?.addEventListener("change", (event) => {

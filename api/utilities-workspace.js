@@ -14,6 +14,31 @@ function cleanEmail(value) {
   return cleanString(value, 320).toLowerCase();
 }
 
+function cleanNumber(value, fallback = null) {
+  const raw = String(value ?? "").replace(/[$,\s]/g, "").trim();
+  if (!raw) return fallback;
+  const number = Number(raw);
+  return Number.isFinite(number) ? number : fallback;
+}
+
+function cleanPeriod(value) {
+  const raw = cleanString(value, 20);
+  if (/^\d{4}-\d{2}$/.test(raw)) return raw;
+  const date = new Date(raw);
+  if (!Number.isNaN(date.getTime())) {
+    return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+  }
+  return "";
+}
+
+function cleanDate(value) {
+  const raw = cleanString(value, 80);
+  if (!raw) return null;
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toISOString().slice(0, 10);
+}
+
 function encodeFilter(value) {
   return encodeURIComponent(String(value || ""));
 }
@@ -82,6 +107,34 @@ async function fetchSupabase(path, options = {}) {
     ...options,
     headers: serviceHeaders(options.headers || {}),
   });
+}
+
+async function upsertSupabase(table, onConflict, payload) {
+  const rows = await fetchSupabase(`${table}?on_conflict=${encodeURIComponent(onConflict)}`, {
+    method: "POST",
+    headers: { Prefer: "resolution=merge-duplicates,return=representation" },
+    body: JSON.stringify(payload),
+  });
+  return first(rows);
+}
+
+async function insertAuditEvent(organizationId, userId, eventType, targetTable, targetId, metadata = {}) {
+  try {
+    await fetchSupabase("utility_audit_events", {
+      method: "POST",
+      body: JSON.stringify({
+        organization_id: organizationId,
+        actor_user_id: userId,
+        actor_type: "utility_member",
+        event_type: eventType,
+        target_table: targetTable,
+        target_id: targetId,
+        metadata,
+      }),
+    });
+  } catch {
+    // Audit logging should not block the primary workspace action.
+  }
 }
 
 function getRequestOrigin(req) {
@@ -315,6 +368,28 @@ async function loadOrganizationModules(organizationId) {
   }
 }
 
+async function loadMeterBilling(organizationId) {
+  try {
+    const [templates, runs] = await Promise.all([
+      fetchSupabase(`utility_import_templates?select=*&organization_id=eq.${encodeFilter(organizationId)}&import_type=eq.meter_readings&order=updated_at.desc&limit=12`),
+      fetchSupabase(`utility_billing_runs?select=*&organization_id=eq.${encodeFilter(organizationId)}&order=created_at.desc&limit=8`),
+    ]);
+    const latestRun = first(runs);
+    const [items, exports] = latestRun
+      ? await Promise.all([
+          fetchSupabase(`utility_billing_run_items?select=*&billing_run_id=eq.${encodeFilter(latestRun.id)}&order=overage_amount.desc&limit=500`),
+          fetchSupabase(`utility_billing_exports?select=*&billing_run_id=eq.${encodeFilter(latestRun.id)}&order=created_at.desc&limit=5`),
+        ])
+      : [[], []];
+    return { templates: templates || [], runs: runs || [], latest_run: latestRun || null, latest_items: items || [], latest_exports: exports || [] };
+  } catch (error) {
+    if (isMissingRelationError(error)) {
+      return { unavailable: true, templates: [], runs: [], latest_run: null, latest_items: [], latest_exports: [] };
+    }
+    throw error;
+  }
+}
+
 async function getMembershipAccess(user) {
   const memberships = await fetchSupabase(
     `utility_organization_members?select=organization_id,status&user_id=eq.${encodeFilter(user.id)}&status=eq.active`
@@ -464,7 +539,7 @@ async function loadWorkspace(user, requestedOrg) {
   }
 
   const organizationId = summaryOrganization.id;
-  const [organization, domains, branding, settings, steps, modules, team] = await Promise.all([
+  const [organization, domains, branding, settings, steps, modules, team, meterBilling] = await Promise.all([
     first(await fetchSupabase(`utility_organizations?select=*&id=eq.${encodeFilter(organizationId)}&limit=1`)),
     fetchSupabase(`utility_organization_domains?select=*&organization_id=eq.${encodeFilter(organizationId)}&order=is_primary.desc,created_at.asc`),
     first(await fetchSupabase(`utility_organization_branding?select=*&organization_id=eq.${encodeFilter(organizationId)}&limit=1`)),
@@ -472,6 +547,7 @@ async function loadWorkspace(user, requestedOrg) {
     fetchSupabase(`utility_portal_launch_steps?select=*&organization_id=eq.${encodeFilter(organizationId)}&order=sort_order.asc`),
     loadOrganizationModules(organizationId),
     loadTeamData(organizationId, user),
+    loadMeterBilling(organizationId),
   ]);
 
   const launchSteps = (steps || []).map((step) => ({ ...step, owner: stepOwner(step) }));
@@ -486,6 +562,7 @@ async function loadWorkspace(user, requestedOrg) {
     settings,
     modules,
     team,
+    meter_billing: meterBilling,
     launch_steps: launchSteps,
     progress: {
       required_total: required.length,
@@ -1024,6 +1101,298 @@ async function updateUtilityStep(user, body) {
   return first(rows);
 }
 
+function mappedValue(row, mapping, key) {
+  const column = cleanString(mapping?.[key], 160);
+  if (!column || !row || typeof row !== "object") return "";
+  return row[column];
+}
+
+function requireBillingRows(rows) {
+  if (!Array.isArray(rows) || !rows.length) {
+    const error = new Error("Upload a CSV with at least one data row.");
+    error.status = 400;
+    throw error;
+  }
+  if (rows.length > 1000) {
+    const error = new Error("Import up to 1,000 rows at a time for this first version.");
+    error.status = 400;
+    throw error;
+  }
+}
+
+function requireMapping(mapping) {
+  const required = ["account_number", "meter_number", "current_reading"];
+  const missing = required.filter((key) => !cleanString(mapping?.[key], 160));
+  if (missing.length) {
+    const error = new Error(`Map required columns: ${missing.map((key) => key.replaceAll("_", " ")).join(", ")}.`);
+    error.status = 400;
+    throw error;
+  }
+}
+
+async function findPreviousReading(organizationId, meterId, billingPeriod) {
+  if (!meterId || !billingPeriod) return null;
+  return first(await fetchSupabase(
+    `utility_meter_readings?select=current_reading,usage_gallons,billing_period&organization_id=eq.${encodeFilter(organizationId)}&meter_id=eq.${encodeFilter(meterId)}&billing_period=lt.${encodeFilter(billingPeriod)}&order=billing_period.desc&limit=1`
+  ));
+}
+
+async function createMeterBillingRun(user, body) {
+  const { org } = await requireManageOrganization(user, body.organization_id || body.organizationId || body.slug);
+  const mapping = body.column_mapping || body.columnMapping || {};
+  const rows = Array.isArray(body.rows) ? body.rows : [];
+  const headers = Array.isArray(body.headers) ? body.headers.map((header) => cleanString(header, 160)).filter(Boolean) : [];
+  const billingPeriod = cleanPeriod(body.billing_period || body.billingPeriod);
+  const includedGallons = cleanNumber(body.included_gallons || body.includedGallons, 10000);
+  const overageRate = cleanNumber(body.overage_rate || body.overageRate, 0);
+  const fileName = cleanString(body.file_name || body.fileName, 240);
+  const templateName = cleanString(body.template_name || body.templateName || "Meter readings CSV", 120);
+
+  if (!billingPeriod) {
+    const error = new Error("Billing period must use YYYY-MM.");
+    error.status = 400;
+    throw error;
+  }
+  if (includedGallons < 0 || overageRate < 0) {
+    const error = new Error("Included gallons and overage rate must be zero or greater.");
+    error.status = 400;
+    throw error;
+  }
+  requireBillingRows(rows);
+  requireMapping(mapping);
+
+  const template = await upsertSupabase("utility_import_templates", "organization_id,import_type,name", {
+    organization_id: org.id,
+    import_type: "meter_readings",
+    name: templateName,
+    column_mapping: mapping,
+    metadata: { headers },
+    created_by_user_id: user.id,
+  });
+
+  const importRecord = first(await fetchSupabase("utility_meter_reading_imports", {
+    method: "POST",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify({
+      organization_id: org.id,
+      template_id: template?.id || null,
+      file_name: fileName || null,
+      billing_period: billingPeriod,
+      status: "processed",
+      headers,
+      row_count: rows.length,
+      imported_count: 0,
+      error_count: 0,
+      raw_preview: rows.slice(0, 5),
+      metadata: { mapping },
+      created_by_user_id: user.id,
+    }),
+  }));
+
+  const billingRun = first(await fetchSupabase("utility_billing_runs", {
+    method: "POST",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify({
+      organization_id: org.id,
+      import_id: importRecord.id,
+      billing_period: billingPeriod,
+      status: "draft",
+      included_gallons: includedGallons,
+      overage_rate: overageRate,
+      created_by_user_id: user.id,
+    }),
+  }));
+
+  const items = [];
+  const errors = [];
+  let importedCount = 0;
+
+  for (let index = 0; index < rows.length; index += 1) {
+    const row = rows[index] && typeof rows[index] === "object" ? rows[index] : {};
+    const sourceRowNumber = index + 2;
+    const accountNumber = cleanString(mappedValue(row, mapping, "account_number"), 120);
+    const meterNumber = cleanString(mappedValue(row, mapping, "meter_number"), 120);
+    const customerName = cleanString(mappedValue(row, mapping, "customer_name"), 220);
+    const serviceAddress = cleanString(mappedValue(row, mapping, "service_address"), 300);
+    const readingDate = cleanDate(mappedValue(row, mapping, "reading_date"));
+    const currentReading = cleanNumber(mappedValue(row, mapping, "current_reading"));
+    const previousFromCsv = cleanNumber(mappedValue(row, mapping, "previous_reading"));
+    const usageFromCsv = cleanNumber(mappedValue(row, mapping, "usage_gallons"));
+
+    if (!accountNumber || !meterNumber || currentReading === null) {
+      errors.push({ row: sourceRowNumber, error: "Missing account number, meter number, or current reading." });
+      continue;
+    }
+
+    const customer = await upsertSupabase("utility_customers", "organization_id,external_customer_id", {
+      organization_id: org.id,
+      external_customer_id: accountNumber,
+      display_name: customerName || accountNumber,
+      metadata: { source: "meter_billing_csv" },
+    });
+    const serviceAccount = await upsertSupabase("utility_service_accounts", "organization_id,account_number", {
+      organization_id: org.id,
+      customer_id: customer?.id || null,
+      account_number: accountNumber,
+      service_address: serviceAddress || null,
+      metadata: { source: "meter_billing_csv" },
+    });
+    const meter = await upsertSupabase("utility_meters", "organization_id,meter_number", {
+      organization_id: org.id,
+      service_account_id: serviceAccount?.id || null,
+      meter_number: meterNumber,
+      meter_type: "water",
+      metadata: { source: "meter_billing_csv" },
+    });
+    const previousReadingRow = previousFromCsv === null ? await findPreviousReading(org.id, meter?.id, billingPeriod) : null;
+    const previousReading = previousFromCsv !== null ? previousFromCsv : cleanNumber(previousReadingRow?.current_reading);
+    const usageGallons = usageFromCsv !== null
+      ? usageFromCsv
+      : previousReading !== null
+        ? Math.max(0, currentReading - previousReading)
+        : 0;
+    const overageGallons = Math.max(0, usageGallons - includedGallons);
+    const overageAmount = Number((overageGallons * overageRate).toFixed(2));
+    const note = previousReading === null && usageFromCsv === null ? "No previous reading or usage column was available; treated as baseline." : "";
+
+    const reading = await upsertSupabase("utility_meter_readings", "organization_id,meter_id,billing_period", {
+      organization_id: org.id,
+      import_id: importRecord.id,
+      customer_id: customer?.id || null,
+      service_account_id: serviceAccount?.id || null,
+      meter_id: meter?.id || null,
+      billing_period: billingPeriod,
+      reading_date: readingDate,
+      current_reading: currentReading,
+      previous_reading: previousReading,
+      usage_gallons: usageGallons,
+      source_row_number: sourceRowNumber,
+      raw_row: row,
+    });
+
+    items.push({
+      organization_id: org.id,
+      billing_run_id: billingRun.id,
+      reading_id: reading?.id || null,
+      customer_id: customer?.id || null,
+      service_account_id: serviceAccount?.id || null,
+      meter_id: meter?.id || null,
+      account_number: accountNumber,
+      customer_name: customerName || null,
+      service_address: serviceAddress || null,
+      meter_number: meterNumber,
+      current_reading: currentReading,
+      previous_reading: previousReading,
+      usage_gallons: usageGallons,
+      included_gallons: includedGallons,
+      overage_gallons: overageGallons,
+      overage_rate: overageRate,
+      overage_amount: overageAmount,
+      status: overageGallons > 0 ? "pending" : "skipped",
+      notes: note || null,
+      metadata: { source_row_number: sourceRowNumber },
+    });
+    importedCount += 1;
+  }
+
+  const insertedItems = items.length
+    ? await fetchSupabase("utility_billing_run_items", {
+        method: "POST",
+        headers: { Prefer: "return=representation" },
+        body: JSON.stringify(items),
+      })
+    : [];
+  const billableItems = items.filter((item) => item.overage_gallons > 0);
+  const totals = {
+    item_count: items.length,
+    billable_count: billableItems.length,
+    total_overage_gallons: billableItems.reduce((sum, item) => sum + Number(item.overage_gallons || 0), 0),
+    total_overage_amount: Number(billableItems.reduce((sum, item) => sum + Number(item.overage_amount || 0), 0).toFixed(2)),
+  };
+
+  const finalRun = first(await fetchSupabase(`utility_billing_runs?id=eq.${encodeFilter(billingRun.id)}`, {
+    method: "PATCH",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify(totals),
+  }));
+  await fetchSupabase(`utility_meter_reading_imports?id=eq.${encodeFilter(importRecord.id)}`, {
+    method: "PATCH",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify({
+      status: errors.length && importedCount ? "partial" : errors.length ? "failed" : "processed",
+      imported_count: importedCount,
+      error_count: errors.length,
+      metadata: { mapping, errors: errors.slice(0, 50) },
+    }),
+  });
+
+  await insertAuditEvent(org.id, user.id, "meter_billing_run_created", "utility_billing_runs", finalRun.id, {
+    billing_period: billingPeriod,
+    imported_count: importedCount,
+    error_count: errors.length,
+  });
+
+  return { run: finalRun, items: insertedItems || [], errors };
+}
+
+async function updateBillingItem(user, body) {
+  const { org } = await requireManageOrganization(user, body.organization_id || body.organizationId || body.slug);
+  const itemId = cleanString(body.item_id || body.itemId, 80);
+  const status = cleanString(body.status, 40);
+  if (!itemId || !["pending", "approved", "flagged", "skipped"].includes(status)) {
+    const error = new Error("Choose a valid billing item status.");
+    error.status = 400;
+    throw error;
+  }
+  const item = first(await fetchSupabase(`utility_billing_run_items?select=*&id=eq.${encodeFilter(itemId)}&organization_id=eq.${encodeFilter(org.id)}&limit=1`));
+  if (!item) {
+    const error = new Error("Billing item not found.");
+    error.status = 404;
+    throw error;
+  }
+  const rows = await fetchSupabase(`utility_billing_run_items?id=eq.${encodeFilter(itemId)}`, {
+    method: "PATCH",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify({ status }),
+  });
+  return first(rows);
+}
+
+async function createBillingExport(user, body) {
+  const { org } = await requireManageOrganization(user, body.organization_id || body.organizationId || body.slug);
+  const runId = cleanString(body.billing_run_id || body.billingRunId, 80);
+  const run = first(await fetchSupabase(`utility_billing_runs?select=*&id=eq.${encodeFilter(runId)}&organization_id=eq.${encodeFilter(org.id)}&limit=1`));
+  if (!run) {
+    const error = new Error("Billing run not found.");
+    error.status = 404;
+    throw error;
+  }
+  const items = await fetchSupabase(`utility_billing_run_items?select=*&billing_run_id=eq.${encodeFilter(run.id)}&status=eq.approved&order=account_number.asc`);
+  if (!Array.isArray(items) || !items.length) {
+    const error = new Error("Approve at least one billing row before exporting.");
+    error.status = 400;
+    throw error;
+  }
+  const exportRow = first(await fetchSupabase("utility_billing_exports", {
+    method: "POST",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify({
+      organization_id: org.id,
+      billing_run_id: run.id,
+      export_type: "quickbooks_csv",
+      file_name: `quickbooks-overages-${run.billing_period}.csv`,
+      row_count: Array.isArray(items) ? items.length : 0,
+      created_by_user_id: user.id,
+    }),
+  }));
+  await fetchSupabase(`utility_billing_runs?id=eq.${encodeFilter(run.id)}`, {
+    method: "PATCH",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify({ status: "exported" }),
+  });
+  return { export: exportRow, items: items || [] };
+}
+
 module.exports = async function handler(req, res) {
   try {
     const user = await verifyUser(getBearerToken(req));
@@ -1043,6 +1412,9 @@ module.exports = async function handler(req, res) {
     if (action === "update-step") return res.status(200).json({ ok: true, step: await updateUtilityStep(user, body) });
     if (action === "request-module") return res.status(200).json({ ok: true, module: await requestModule(user, body) });
     if (action === "update-module-state") return res.status(200).json({ ok: true, module: await updateModuleState(user, body) });
+    if (action === "create-meter-billing-run") return res.status(200).json({ ok: true, billing: await createMeterBillingRun(user, body) });
+    if (action === "update-billing-item") return res.status(200).json({ ok: true, item: await updateBillingItem(user, body) });
+    if (action === "create-billing-export") return res.status(200).json({ ok: true, billing_export: await createBillingExport(user, body) });
     if (action === "create-team-invite") return res.status(200).json({ ok: true, invite: await createTeamInvite(user, body, req) });
     if (action === "revoke-team-invite") return res.status(200).json({ ok: true, invite: await revokeTeamInvite(user, body) });
     if (action === "redeem-team-invite") return res.status(200).json({ ok: true, redeem: await redeemTeamInvite(user, body) });
