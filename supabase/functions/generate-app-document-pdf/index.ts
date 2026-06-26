@@ -188,16 +188,8 @@ function addPage(state: RenderState) {
   }
 
   const footerBrand = "Powered by N3XRA Records";
-  const pageNumberText = `Page ${state.pageNumber}`;
   state.page.drawText(footerBrand, {
     x: MARGIN_X,
-    y: 30,
-    size: footerSize,
-    font: state.fonts.regular,
-    color: mutedText,
-  });
-  state.page.drawText(pageNumberText, {
-    x: PAGE_WIDTH - MARGIN_X - state.fonts.regular.widthOfTextAtSize(pageNumberText, footerSize),
     y: 30,
     size: footerSize,
     font: state.fonts.regular,
@@ -499,6 +491,22 @@ function renderPlainText(state: RenderState, plainText: string) {
     });
 }
 
+function drawPageTotals(state: RenderState) {
+  const footerSize = 8;
+  const mutedText = rgb(0.42, 0.47, 0.54);
+  const pages = state.pdf.getPages();
+  pages.forEach((page, index) => {
+    const pageNumberText = `Page ${index + 1} of ${pages.length}`;
+    page.drawText(pageNumberText, {
+      x: PAGE_WIDTH - MARGIN_X - state.fonts.regular.widthOfTextAtSize(pageNumberText, footerSize),
+      y: 30,
+      size: footerSize,
+      font: state.fonts.regular,
+      color: mutedText,
+    });
+  });
+}
+
 async function buildPdf(options: {
   title: string;
   organizationName: string;
@@ -533,6 +541,7 @@ async function buildPdf(options: {
     renderPlainText(state, options.plainText);
   }
 
+  drawPageTotals(state);
   return await pdf.save();
 }
 

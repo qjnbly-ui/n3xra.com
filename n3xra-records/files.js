@@ -839,6 +839,10 @@ async function loadReferencedAppDocuments(organizationId) {
         title,
         document_kind,
         status,
+        year,
+        month,
+        is_public,
+        records_ai_note,
         source_document_id,
         updated_at,
         created_at
@@ -867,9 +871,10 @@ async function loadReferencedAppDocuments(organizationId) {
       id: appDocument.id,
       title: appDocument.title || "Untitled document",
       original_filename: getAppDocumentPdfFilename(appDocument),
-      year: "",
-      month: "",
-      is_public: false,
+      year: appDocument.year || "",
+      month: appDocument.month || "",
+      is_public: Boolean(appDocument.is_public),
+      records_ai_note: appDocument.records_ai_note || "",
       status: appDocument.status || "draft",
       created_at: appDocument.created_at || row.created_at,
       updated_at: appDocument.updated_at || appDocument.created_at || row.created_at,
@@ -931,9 +936,11 @@ function renderFiles() {
       : doc;
     const actionButtons = [];
     if (isReference) {
+      if (capabilities.canEditDocuments) {
+        actionButtons.push(`<button class="btn secondary" type="button" data-action="edit" data-id="${doc.id}">Edit details</button>`);
+      }
       actionButtons.push(`<button class="btn secondary" type="button" data-action="open-preview" data-id="${doc.id}">Open</button>`);
-      actionButtons.push(`<button class="btn secondary" type="button" data-action="open-builder" data-id="${doc.id}">${capabilities.canEditDocuments ? "Edit" : "Document Builder"}</button>`);
-      actionButtons.push(`<button class="btn secondary" type="button" data-action="download" data-id="${doc.id}">Download PDF</button>`);
+      actionButtons.push(`<button class="btn secondary" type="button" data-action="download" data-id="${doc.id}">Download</button>`);
       if (capabilities.canShareDocuments) {
         actionButtons.push(`<button class="btn secondary" type="button" data-action="share" data-id="${doc.id}">Share</button>`);
       }
@@ -951,12 +958,12 @@ function renderFiles() {
     if (!isReference && capabilities.canShareDocuments) {
       actionButtons.push(`<button class="btn secondary" type="button" data-action="share" data-id="${doc.id}">Share</button>`);
     }
-    if (!isReference && capabilities.canEditDocuments) {
+    if (capabilities.canEditDocuments) {
       actionButtons.push(
         `<button class="btn secondary" type="button" data-action="toggle-public" data-id="${doc.id}">${doc.is_public ? "Make private" : "Make public"}</button>`
       );
     }
-    if (!isReference && capabilities.canDeleteDocuments) {
+    if (capabilities.canDeleteDocuments) {
       actionButtons.push(`<button class="btn warn" type="button" data-action="delete" data-id="${doc.id}">Delete</button>`);
     }
     const item = document.createElement("article");
@@ -982,12 +989,9 @@ function renderFiles() {
 }
 
 function buildFileRowMetadata(doc) {
-  if (isReferenceFileRow(doc)) {
-    const parts = [getReferenceTypeLabel(doc.record_type)];
-    if (doc.status) parts.push(cleanWhitespace(doc.status).replaceAll("_", " "));
-    return parts.join(" · ");
-  }
-  return buildDocumentMetadata(doc, { includeVisibility: true, includeCreatedAt: false });
+  const metadata = buildDocumentMetadata(doc, { includeVisibility: true, includeCreatedAt: false });
+  if (!isReferenceFileRow(doc)) return metadata;
+  return [metadata, getReferenceTypeLabel(doc.record_type)].filter(Boolean).join(" · ");
 }
 
 async function createSignedUrlForDocument(documentId) {
@@ -1143,13 +1147,14 @@ async function openReferenceDocumentPreview(documentId) {
       }
     );
     fileModalDownload.textContent = "Download PDF";
-    show(fileModalShare, false);
+    show(fileModalShare, capabilities.canShareDocuments);
+    fileModalShare.textContent = "Share";
     show(fileModalOpenEditable, true);
     fileModalOpenEditable.href = `./documents?id=${encodeURIComponent(doc.id)}`;
     fileModalOpenEditable.textContent = capabilities.canEditDocuments ? "Edit" : "Open";
     show(fileModalOriginal, false);
-    show(fileModalEdit, false);
-    show(fileModalDelete, false);
+    show(fileModalEdit, capabilities.canEditDocuments);
+    show(fileModalDelete, capabilities.canDeleteDocuments);
     setStatus(fileStatus, "");
     return true;
   } catch (error) {
@@ -1222,7 +1227,7 @@ function openFileEditModal(documentId) {
     setStatus(fileStatus, "You do not have permission to edit this file.", "error");
     return;
   }
-  const doc = getUploadedDocumentById(documentId);
+  const doc = getFileRowById(documentId);
   if (!doc) return;
   pendingEditId = documentId;
   fileEditTitle.value = doc.title || doc.original_filename || "";
@@ -1253,7 +1258,7 @@ async function saveFileEdit(event) {
     return;
   }
 
-  const doc = getUploadedDocumentById(pendingEditId);
+  const doc = getFileRowById(pendingEditId);
   if (!doc) return;
 
   fileEditSave.disabled = true;
@@ -1267,7 +1272,8 @@ async function saveFileEdit(event) {
     records_ai_note: fileEditAiNote.value.trim() || null,
   };
 
-  const { error } = await supabase.from("documents").update(updates).eq("id", pendingEditId);
+  const tableName = isReferenceFileRow(doc) ? "app_documents" : "documents";
+  const { error } = await supabase.from(tableName).update(updates).eq("id", pendingEditId);
   if (error) {
     fileEditSave.disabled = false;
     setStatus(
@@ -1288,7 +1294,7 @@ async function openDeleteConfirm(documentId) {
     setStatus(fileStatus, "You do not have permission to delete files in this library.", "error");
     return;
   }
-  const doc = getUploadedDocumentById(documentId);
+  const doc = getFileRowById(documentId);
   if (!doc) return;
 
   pendingDeleteId = documentId;
@@ -1296,7 +1302,10 @@ async function openDeleteConfirm(documentId) {
   deleteConfirmCopy.textContent = `Delete "${doc.title || doc.original_filename || "this file"}"? This action cannot be undone.`;
   deleteConfirmModal.classList.add("is-open");
   deleteConfirmModal.setAttribute("aria-hidden", "false");
-  deleteConfirmSubmit.disabled = true;
+  deleteConfirmSubmit.disabled = isReferenceFileRow(doc) ? false : true;
+  show(deleteAssociatedOption, false);
+
+  if (isReferenceFileRow(doc)) return;
 
   try {
     const associations = await loadDeleteAssociations(documentId);
@@ -1368,7 +1377,7 @@ async function deleteAssociatedFileData(documentId) {
 }
 
 async function deleteFile(documentId, options = {}) {
-  const doc = getUploadedDocumentById(documentId);
+  const doc = getFileRowById(documentId);
   if (!doc) return;
   if (!getActiveCapabilities().canDeleteDocuments) {
     setStatus(fileStatus, "You do not have permission to delete files in this library.", "error");
@@ -1378,6 +1387,24 @@ async function deleteFile(documentId, options = {}) {
   setStatus(fileStatus, "Deleting file...");
   deleteConfirmSubmit.disabled = true;
   deleteConfirmCancel.disabled = true;
+
+  if (isReferenceFileRow(doc)) {
+    const { error } = await supabase.from("app_documents").delete().eq("id", documentId);
+    if (error) {
+      deleteConfirmSubmit.disabled = false;
+      deleteConfirmCancel.disabled = false;
+      setStatus(fileStatus, error.message, "error");
+      return;
+    }
+
+    deleteConfirmSubmit.disabled = false;
+    deleteConfirmCancel.disabled = false;
+    closeDeleteConfirm();
+    closeFileModal();
+    setStatus(fileStatus, "Document deleted.", "success");
+    await loadDocuments();
+    return;
+  }
 
   if (options.deleteAssociated) {
     try {
@@ -1416,14 +1443,15 @@ async function deleteFile(documentId, options = {}) {
 }
 
 async function togglePublic(documentId) {
-  const doc = getUploadedDocumentById(documentId);
+  const doc = getFileRowById(documentId);
   if (!doc) return;
   if (!getActiveCapabilities().canEditDocuments) {
     setStatus(fileStatus, "You do not have permission to change file visibility.", "error");
     return;
   }
 
-  const { error } = await supabase.from("documents").update({ is_public: !doc.is_public }).eq("id", documentId);
+  const tableName = isReferenceFileRow(doc) ? "app_documents" : "documents";
+  const { error } = await supabase.from(tableName).update({ is_public: !doc.is_public }).eq("id", documentId);
   if (error) {
     setStatus(fileStatus, error.message, "error");
     return;
@@ -1848,7 +1876,7 @@ async function getOrCreateEditableDocumentId(documentId) {
   setStatus(fileStatus, "Creating document...");
   const { data: sourceDoc, error: sourceError } = await supabase
     .from("documents")
-    .select("id, organization_id, title, original_filename, storage_path, extracted_text")
+    .select("id, organization_id, title, original_filename, storage_path, extracted_text, year, month, is_public, records_ai_note")
     .eq("id", documentId)
     .single();
 
@@ -1881,6 +1909,10 @@ async function getOrCreateEditableDocumentId(documentId) {
       title,
       content_json: contentJson,
       plain_text: plainText,
+      year: sourceDoc.year || null,
+      month: sourceDoc.month || null,
+      is_public: Boolean(sourceDoc.is_public),
+      records_ai_note: sourceDoc.records_ai_note || null,
       status: "draft",
     })
     .select("id")
