@@ -45,11 +45,13 @@ const meterBillingHistory = el("meter-billing-history");
 const meterBillingCurrentPeriod = el("meter-billing-current-period");
 const meterBillingCurrentSummary = el("meter-billing-current-summary");
 const meterBillingReviewCopy = el("meter-billing-review-copy");
+const meterReviewSummary = el("meter-review-summary");
 const customerSearchInput = el("customer-search-input");
 const customerList = el("customer-list");
 const customerDetailTitle = el("customer-detail-title");
 const customerDetailSubtitle = el("customer-detail-subtitle");
 const customerDeleteButton = el("customer-delete-button");
+const customerSummaryGrid = el("customer-summary-grid");
 const customerProfileForm = el("customer-profile-form");
 const customerAccountList = el("customer-account-list");
 const customerMeterList = el("customer-meter-list");
@@ -690,7 +692,7 @@ function renderCsvPreview() {
 function renderMeterTemplates() {
   if (!meterBillingTemplate) return;
   const templates = workspace?.meter_billing?.templates || [];
-  meterBillingTemplate.innerHTML = '<option value="">Map manually</option>' + templates
+  meterBillingTemplate.innerHTML = '<option value="">Set up columns manually</option>' + templates
     .map((template) => `<option value="${escapeHtml(template.id)}">${escapeHtml(template.name)}</option>`)
     .join("");
 }
@@ -743,6 +745,28 @@ function renderMeterReview() {
     meterBillingApprove.disabled = pendingBillableCount === 0;
     meterBillingApprove.textContent = pendingBillableCount ? `Approve ${pendingBillableCount} Billable` : "Approve Billable Rows";
     meterBillingApprove.title = pendingBillableCount ? "Approve all pending rows with overage gallons." : "No pending billable rows are available.";
+  }
+  if (meterReviewSummary) {
+    meterReviewSummary.innerHTML = run
+      ? `
+        <div>
+          <span>Rows</span>
+          <strong>${formatNumber(run.item_count || items.length)}</strong>
+        </div>
+        <div>
+          <span>Billable</span>
+          <strong>${formatNumber(run.billable_count || 0)}</strong>
+        </div>
+        <div>
+          <span>Overage gallons</span>
+          <strong>${formatNumber(run.total_overage_gallons || 0)}</strong>
+        </div>
+        <div>
+          <span>Overage amount</span>
+          <strong>${formatMoney(run.total_overage_amount || 0)}</strong>
+        </div>
+      `
+      : "";
   }
   if (!meterReviewTable) return;
   if (!items.length) {
@@ -836,13 +860,39 @@ function renderCustomerList() {
 function renderCustomerProfile() {
   const data = selectedCustomerData();
   const customer = data.selected_customer || null;
+  const accounts = data.accounts || [];
+  const meters = data.meters || [];
+  const readings = data.readings || [];
+  const latestReading = readings[0] || null;
   if (customerDetailTitle) customerDetailTitle.textContent = customer?.display_name || customer?.external_customer_id || "Select a customer";
   if (customerDetailSubtitle) {
     customerDetailSubtitle.textContent = customer
-      ? `External customer id: ${customer.external_customer_id || "-"}`
+      ? `Customer ${customer.external_customer_id || "-"}`
       : "Customer details appear after records are imported or selected.";
   }
   if (customerDeleteButton) customerDeleteButton.disabled = !customer?.id;
+  if (customerSummaryGrid) {
+    customerSummaryGrid.innerHTML = customer
+      ? `
+        <div class="customer-summary-item">
+          <span>Service accounts</span>
+          <strong>${formatNumber(accounts.length)}</strong>
+        </div>
+        <div class="customer-summary-item">
+          <span>Meters</span>
+          <strong>${formatNumber(meters.length)}</strong>
+        </div>
+        <div class="customer-summary-item">
+          <span>Latest reading</span>
+          <strong>${latestReading ? formatNumber(latestReading.current_reading) : "-"}</strong>
+        </div>
+        <div class="customer-summary-item">
+          <span>Latest usage</span>
+          <strong>${latestReading ? formatNumber(latestReading.usage_gallons) : "-"}</strong>
+        </div>
+      `
+      : "";
+  }
   setInput(customerProfileForm, "display_name", customer?.display_name);
   setInput(customerProfileForm, "email", customer?.email);
   setInput(customerProfileForm, "phone", customer?.phone);
@@ -859,8 +909,11 @@ function renderCustomerAccounts() {
     return;
   }
   customerAccountList.innerHTML = accounts.map((account) => `
-    <form class="customer-inline-form" data-account-form="${escapeHtml(account.id)}">
-      <strong>${escapeHtml(account.account_number)}</strong>
+    <form class="customer-inline-form customer-record-row" data-account-form="${escapeHtml(account.id)}">
+      <div class="customer-record-id">
+        <span>Account</span>
+        <strong>${escapeHtml(account.account_number)}</strong>
+      </div>
       <label>Service address
         <input type="text" name="service_address" value="${escapeHtml(account.service_address || "")}">
       </label>
@@ -881,10 +934,14 @@ function renderCustomerMeters() {
     customerMeterList.innerHTML = '<p class="utilities-list-empty">No meters linked to this customer.</p>';
     return;
   }
+  const accountsById = new Map((selectedCustomerData().accounts || []).map((account) => [account.id, account]));
   customerMeterList.innerHTML = meters.map((meter) => `
-    <form class="customer-inline-form" data-meter-form="${escapeHtml(meter.id)}">
-      <strong>${escapeHtml(meter.meter_number)}</strong>
-      <span>${escapeHtml(titleCase(meter.meter_type || "water"))}</span>
+    <form class="customer-inline-form customer-record-row" data-meter-form="${escapeHtml(meter.id)}">
+      <div class="customer-record-id">
+        <span>${escapeHtml(titleCase(meter.meter_type || "water"))} meter</span>
+        <strong>${escapeHtml(meter.meter_number)}</strong>
+        <small>${escapeHtml(accountsById.get(meter.service_account_id)?.account_number || "Unassigned")}</small>
+      </div>
       <label>Status
         <select name="status">
           ${["active", "inactive", "removed"].map((status) => `<option value="${status}" ${meter.status === status ? "selected" : ""}>${escapeHtml(titleCase(status))}</option>`).join("")}
@@ -1081,11 +1138,12 @@ meterBillingFile?.addEventListener("change", async () => {
 meterBillingApplyTemplate?.addEventListener("click", () => {
   const template = (workspace?.meter_billing?.templates || []).find((item) => item.id === meterBillingTemplate?.value);
   if (!template) {
-    setStatus("Choose a saved template first.", "is-error");
+    setStatus("Choose a saved column setup first.", "is-error");
     return;
   }
   setMapping(template.column_mapping || {});
-  setStatus("Template mapping applied.", "is-active");
+  setInput(meterBillingForm, "template_name", template.name || "Meter readings CSV");
+  setStatus("Saved column setup applied.", "is-active");
 });
 
 meterBillingHistory?.addEventListener("click", async (event) => {
