@@ -2858,6 +2858,29 @@ button.utilities-home-card.is-requestable:focus-visible {
   padding-bottom: 1rem;
 }
 
+.customer-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  justify-content: flex-end;
+}
+
+.customer-save-button,
+.customer-danger-button {
+  min-height: 40px;
+  border: 1px solid #d8e2e8;
+  border-radius: 8px;
+  padding: 0 0.95rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.customer-save-button {
+  color: #ffffff;
+  border-color: #176f66;
+  background: #176f66;
+}
+
 .customer-search-card {
   display: grid;
   gap: 0.95rem;
@@ -3055,7 +3078,6 @@ button.utilities-home-card.is-requestable:focus-visible {
 }
 
 .customer-inline-form button,
-.customer-form button,
 .customer-danger-button {
   min-height: 40px;
   border: 1px solid #d8e2e8;
@@ -3073,21 +3095,13 @@ button.utilities-home-card.is-requestable:focus-visible {
   padding-inline: 0.85rem;
 }
 
-.customer-form button {
-  justify-self: start;
-  color: #ffffff;
-  border-color: #176f66;
-  background: #176f66;
-}
-
 .customer-danger-button {
   color: #9f1f1f;
   background: #fffafa;
 }
 
 .customer-danger-button:disabled,
-.customer-inline-form button:disabled,
-.customer-form button:disabled {
+.customer-inline-form button:disabled {
   cursor: not-allowed;
   opacity: 0.55;
 }

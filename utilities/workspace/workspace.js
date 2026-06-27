@@ -50,6 +50,7 @@ const customerSearchInput = el("customer-search-input");
 const customerList = el("customer-list");
 const customerDetailTitle = el("customer-detail-title");
 const customerDetailSubtitle = el("customer-detail-subtitle");
+const customerSaveButton = el("customer-save-button");
 const customerDeleteButton = el("customer-delete-button");
 const customerSummaryGrid = el("customer-summary-grid");
 const customerProfileForm = el("customer-profile-form");
@@ -870,6 +871,7 @@ function renderCustomerProfile() {
       ? `Customer ${customer.external_customer_id || "-"}`
       : "Customer details appear after records are imported or selected.";
   }
+  if (customerSaveButton) customerSaveButton.disabled = !customer?.id;
   if (customerDeleteButton) customerDeleteButton.disabled = !customer?.id;
   if (customerSummaryGrid) {
     customerSummaryGrid.innerHTML = customer
@@ -896,7 +898,7 @@ function renderCustomerProfile() {
   setInput(customerProfileForm, "display_name", customer?.display_name);
   setInput(customerProfileForm, "email", customer?.email);
   setInput(customerProfileForm, "phone", customer?.phone);
-  customerProfileForm?.querySelectorAll("input, button").forEach((input) => {
+  customerProfileForm?.querySelectorAll("input").forEach((input) => {
     input.disabled = !customer?.id;
   });
 }

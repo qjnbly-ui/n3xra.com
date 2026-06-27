@@ -76,7 +76,10 @@
                 <h2 id="customer-detail-title">Select a customer</h2>
                 <p id="customer-detail-subtitle">Customer details appear after records are imported or selected.</p>
               </div>
-              <button class="customer-danger-button" type="button" id="customer-delete-button" disabled>Delete Customer</button>
+              <div class="customer-card-actions">
+                <button class="customer-save-button" type="submit" form="customer-profile-form" id="customer-save-button" disabled>Save Customer</button>
+                <button class="customer-danger-button" type="button" id="customer-delete-button" disabled>Delete Customer</button>
+              </div>
             </div>
 
             <div class="customer-summary-grid" id="customer-summary-grid"></div>
@@ -95,7 +98,6 @@
                     <input type="tel" name="phone" maxlength="80">
                   </label>
                 </div>
-                <button type="submit">Save Customer</button>
               </form>
 
               <div class="customer-panel">
