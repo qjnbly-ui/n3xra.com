@@ -169,6 +169,7 @@
                 <button class="admin-tab" id="admin-library-tab" type="button" role="tab" aria-selected="false" aria-controls="admin-library-panel" data-admin-tab="library">Library</button>
                 <button class="admin-tab" id="admin-ai-tab" type="button" role="tab" aria-selected="false" aria-controls="admin-ai-panel" data-admin-tab="ai">AI</button>
                 <button class="admin-tab" id="admin-billing-tab" type="button" role="tab" aria-selected="false" aria-controls="admin-billing-panel" data-admin-tab="billing">Billing</button>
+                <button class="admin-tab" id="admin-storage-tab" type="button" role="tab" aria-selected="false" aria-controls="admin-storage-panel" data-admin-tab="storage">Storage</button>
               </div>
 
               <div class="admin-panels">
@@ -546,6 +547,7 @@
                           <p class="current-plan-note hidden" id="current-plan-note"></p>
                         </div>
                         <div class="current-plan-actions">
+                          <a class="btn secondary button-link" href="./storage">Open storage</a>
                           <button class="btn secondary hidden" id="manage-billing-button" type="button">Manage billing</button>
                           <button class="btn secondary" id="change-plan-button" type="button" aria-expanded="false">Change plan</button>
                         </div>
@@ -561,6 +563,21 @@
                         <div class="plan-grid" id="billing-plan-grid"></div>
                       </div>
                       <p class="status" id="billing-status"></p>
+                    </div>
+                  </div>
+                </section>
+
+                <section class="admin-panel" id="admin-storage-panel" role="tabpanel" aria-labelledby="admin-storage-tab" data-admin-panel="storage" hidden>
+                  <div class="admin-panel-head admin-panel-head-row">
+                    <div>
+                      <h4>Storage</h4>
+                      <p>Open the storage view to review usage, largest files, and cleanup suggestions for this library.</p>
+                    </div>
+                    <a class="btn secondary button-link" href="./storage">Open storage</a>
+                  </div>
+                  <div class="settings-subsection">
+                    <div class="notice">
+                      <strong>What you can review there:</strong> Uploaded files, meeting recordings, transcript source files, largest items, and storage-saving suggestions.
                     </div>
                   </div>
                 </section>
