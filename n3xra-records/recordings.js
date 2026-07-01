@@ -143,6 +143,7 @@ let activeMembership = null;
 let recordingsCache = [];
 let recordingTemplates = [];
 let referenceDocuments = [];
+let recordsUsageSummary = null;
 let pendingMeetingReferences = [];
 let totalRecordingCount = 0;
 let mediaRecorder = null;
@@ -884,6 +885,42 @@ function formatBytes(bytes) {
   return `${value.toFixed(precision)} ${units[unitIndex]}`;
 }
 
+async function loadRecordsUsage() {
+  const organization = getActiveOrganization();
+  recordsUsageSummary = null;
+  if (!organization?.id) return null;
+
+  try {
+    const accessToken = await getFreshAccessToken();
+    if (!accessToken) return null;
+    const response = await fetch(`/api/records-usage?organizationId=${encodeURIComponent(organization.id)}`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) return null;
+    recordsUsageSummary = data?.usage || null;
+  } catch (_error) {
+    recordsUsageSummary = null;
+  }
+
+  return recordsUsageSummary;
+}
+
+function getStorageUploadBlockMessage(fileSize) {
+  const organization = getActiveOrganization();
+  const summary = recordsUsageSummary?.organizationId === organization?.id ? recordsUsageSummary : null;
+  if (!summary?.metrics?.storage) return "";
+  const uploadBytes = Math.max(0, Number(fileSize || 0));
+  if (!uploadBytes) return "";
+  const storage = summary.metrics.storage;
+  if (storage.limit > 0 && storage.used + uploadBytes > storage.limit) {
+    return `This recording would exceed the ${formatBytes(storage.limit)} storage limit for this library. ${formatBytes(storage.remaining)} remains; this recording is ${formatBytes(uploadBytes)}.`;
+  }
+  return "";
+}
+
 function slugifySegment(value) {
   return String(value || "")
     .trim()
@@ -1288,6 +1325,9 @@ async function bootstrapAccess() {
         id,
         name,
         subscription_tier,
+        storage_limit_mb,
+        document_limit,
+        user_limit,
         account_status,
         owner_user_id
       )
@@ -1414,6 +1454,7 @@ async function loadRecordings() {
   const organization = getActiveOrganization();
   if (!organization) {
     recordingsCache = [];
+    recordsUsageSummary = null;
     totalRecordingCount = 0;
     renderRecordings();
     setStatus(recordingsListStatus, "");
@@ -1495,6 +1536,7 @@ async function loadRecordings() {
   }
   totalRecordingCount = Number(count || 0);
   renderRecordings();
+  await loadRecordsUsage();
   setStatus(
     recordingsListStatus,
     referenceLoadError
@@ -2130,6 +2172,11 @@ function buildUploadTitle(file) {
 async function uploadRecordingBlob(recordingId, title, blob, mimeType, durationSeconds) {
   const organization = getActiveOrganization();
   if (!organization) throw new Error("No active library selected.");
+  if (recordsUsageSummary?.organizationId !== organization.id) {
+    await loadRecordsUsage();
+  }
+  const storageBlockMessage = getStorageUploadBlockMessage(blob.size);
+  if (storageBlockMessage) throw new Error(storageBlockMessage);
 
   const safeTitle = slugifySegment(title);
   const extension = getFileExtension(mimeType);
@@ -2553,6 +2600,14 @@ async function handleUploadRecording() {
   }
   if (file.size > MAX_RECORDING_AUDIO_BYTES) {
     setStatus(recordingUploadStatus, `This audio file is larger than the ${formatBytes(MAX_RECORDING_AUDIO_BYTES)} transcription limit.`, "error");
+    return;
+  }
+  if (recordsUsageSummary?.organizationId !== getActiveOrganization()?.id) {
+    await loadRecordsUsage();
+  }
+  const storageBlockMessage = getStorageUploadBlockMessage(file.size);
+  if (storageBlockMessage) {
+    setStatus(recordingUploadStatus, storageBlockMessage, "error");
     return;
   }
 

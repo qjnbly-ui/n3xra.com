@@ -1777,6 +1777,71 @@ textarea {
   font-weight: 700;
 }
 
+.current-plan-usage {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin-top: 0.85rem;
+}
+
+.usage-item {
+  min-width: 0;
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.65rem;
+  border-radius: 12px;
+  border: 1px solid rgba(15, 22, 32, 0.08);
+  background: rgba(255, 255, 255, 0.74);
+}
+
+.usage-item.is-over {
+  border-color: rgba(176, 54, 54, 0.28);
+  background: rgba(176, 54, 54, 0.06);
+}
+
+.usage-item-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  color: var(--slate);
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.usage-item-head strong {
+  color: var(--ink);
+  text-align: right;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.usage-meter {
+  overflow: hidden;
+  height: 0.42rem;
+  border-radius: 999px;
+  background: rgba(15, 22, 32, 0.08);
+}
+
+.usage-meter span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--teal);
+}
+
+.usage-item.is-over .usage-meter span {
+  background: var(--danger);
+}
+
+.usage-item p {
+  margin: 0;
+  color: var(--slate);
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
 .current-plan-actions {
   display: flex;
   gap: 0.75rem;
@@ -4050,6 +4115,7 @@ body:has(.confirm-modal.is-open) {
   .auth-layout,
   .plan-grid,
   .billing-meta-grid,
+  .current-plan-usage,
   .current-plan-card,
   .embed-access-card {
     grid-template-columns: 1fr;

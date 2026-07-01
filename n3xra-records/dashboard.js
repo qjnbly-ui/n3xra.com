@@ -146,6 +146,9 @@ const recordsHelpAnswer = document.getElementById("records-help-answer");
 const currentPlanName = document.getElementById("current-plan-name");
 const currentPlanCopy = document.getElementById("current-plan-copy");
 const currentPlanNote = document.getElementById("current-plan-note");
+const currentPlanUsage = document.createElement("div");
+currentPlanUsage.className = "current-plan-usage";
+currentPlanCopy?.insertAdjacentElement("afterend", currentPlanUsage);
 const manageBillingButton = document.getElementById("manage-billing-button");
 const changePlanButton = document.getElementById("change-plan-button");
 const billingPlanPicker = document.getElementById("billing-plan-picker");
@@ -279,6 +282,7 @@ let memberCache = [];
 let contactCache = [];
 let appTemplates = [];
 let recordsAiUsageSummary = null;
+let recordsUsageSummary = null;
 let organizationReview = null;
 let organizationLogoUrls = new Map();
 let uploadMode = "single";
@@ -1575,7 +1579,7 @@ async function handleRecordsHelpSubmit(event) {
 
     const answer = String(data.answer || "").trim();
     if (data?.usage?.organizationId) {
-      recordsAiUsageSummary = data.usage;
+      updateRecordsUsageWithAiSummary(data.usage);
       renderBillingPlans();
     }
     setRecordsHelpAnswer(answer);
@@ -1670,6 +1674,89 @@ function formatStorageLimit(valueMb) {
   const mb = Number(valueMb || 0);
   if (mb >= 1024 && mb % 1024 === 0) return `${formatWholeNumber(mb / 1024)} GB`;
   return `${formatWholeNumber(mb)} MB`;
+}
+
+function formatStorageBytes(bytes) {
+  const value = Math.max(0, Number(bytes || 0));
+  if (!value) return "0 MB";
+  if (value >= 1024 * 1024 * 1024) {
+    const gb = value / (1024 * 1024 * 1024);
+    return `${gb >= 10 ? Math.round(gb) : gb.toFixed(1)} GB`;
+  }
+  const mb = value / (1024 * 1024);
+  return `${mb >= 10 ? Math.round(mb) : mb.toFixed(1)} MB`;
+}
+
+function getUsageMetric(summary, key, fallbackUsed = 0, fallbackLimit = 0) {
+  const metric = summary?.metrics?.[key];
+  if (metric) return metric;
+  const used = Math.max(0, Number(fallbackUsed || 0));
+  const limit = Math.max(0, Number(fallbackLimit || 0));
+  return {
+    used,
+    limit,
+    remaining: Math.max(limit - used, 0),
+    over: limit > 0 && used > limit,
+    percent: limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0,
+  };
+}
+
+function renderUsageItem({ label, value, detail = "", percent = 0, over = false }) {
+  return `
+    <div class="usage-item${over ? " is-over" : ""}">
+      <div class="usage-item-head">
+        <span>${escapeHtml(label)}</span>
+        <strong>${escapeHtml(value)}</strong>
+      </div>
+      <div class="usage-meter" aria-hidden="true">
+        <span style="width: ${Math.max(0, Math.min(100, Number(percent || 0)))}%"></span>
+      </div>
+      ${detail ? `<p>${escapeHtml(detail)}</p>` : ""}
+    </div>
+  `;
+}
+
+function updateRecordsUsageWithAiSummary(aiUsage) {
+  if (!aiUsage?.organizationId) return;
+  recordsAiUsageSummary = aiUsage;
+  if (!recordsUsageSummary || recordsUsageSummary.organizationId !== aiUsage.organizationId) return;
+  const requestLimit = Math.max(0, Number(aiUsage.requestLimit || recordsUsageSummary.limits?.aiRequests || 0));
+  const tokenLimit = Math.max(0, Number(aiUsage.tokenLimit || recordsUsageSummary.limits?.aiTokens || 0));
+  const requestCount = Math.max(0, Number(aiUsage.requestCount || 0));
+  const tokenCount = Math.max(0, Number(aiUsage.tokenCount || 0));
+  recordsUsageSummary = {
+    ...recordsUsageSummary,
+    limits: {
+      ...recordsUsageSummary.limits,
+      aiRequests: requestLimit,
+      aiTokens: tokenLimit,
+    },
+    used: {
+      ...recordsUsageSummary.used,
+      aiRequests: requestCount,
+      aiTokens: tokenCount,
+    },
+    metrics: {
+      ...recordsUsageSummary.metrics,
+      aiRequests: getUsageMetric(null, "", requestCount, requestLimit),
+      aiTokens: getUsageMetric(null, "", tokenCount, tokenLimit),
+    },
+    periodStart: aiUsage.periodStart || recordsUsageSummary.periodStart,
+    periodEnd: aiUsage.periodEnd || recordsUsageSummary.periodEnd,
+  };
+}
+
+function getStorageUploadBlockMessage(files) {
+  const organization = getActiveOrganization();
+  const summary = recordsUsageSummary?.organizationId === organization?.id ? recordsUsageSummary : null;
+  if (!summary?.metrics?.storage) return "";
+  const uploadBytes = (Array.isArray(files) ? files : []).reduce((sum, file) => sum + Math.max(0, Number(file.size || 0)), 0);
+  if (!uploadBytes) return "";
+  const storage = summary.metrics.storage;
+  if (storage.limit > 0 && storage.used + uploadBytes > storage.limit) {
+    return `This upload would exceed the ${formatStorageBytes(storage.limit)} storage limit for this ${formatPlanName(organization.subscription_tier)} plan. ${formatStorageBytes(storage.remaining)} remains; selected files total ${formatStorageBytes(uploadBytes)}.`;
+  }
+  return "";
 }
 
 function formatBillingDate(value) {
@@ -2339,21 +2426,38 @@ async function loadAppTemplates() {
 async function loadRecordsAiUsage() {
   const organization = getActiveOrganization();
   recordsAiUsageSummary = null;
+  recordsUsageSummary = null;
   if (!organization?.id) return;
 
   try {
     const accessToken = await getFreshAccessToken();
     if (!accessToken) return;
-    const response = await fetch(`/api/records-ai-usage?organizationId=${encodeURIComponent(organization.id)}`, {
+    const response = await fetch(`/api/records-usage?organizationId=${encodeURIComponent(organization.id)}`, {
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) return;
-    recordsAiUsageSummary = data?.usage || null;
+    recordsUsageSummary = data?.usage || null;
+    if (recordsUsageSummary?.organizationId) {
+      recordsAiUsageSummary = {
+        organizationId: recordsUsageSummary.organizationId,
+        planId: recordsUsageSummary.planId,
+        planName: recordsUsageSummary.planName,
+        periodStart: recordsUsageSummary.periodStart,
+        periodEnd: recordsUsageSummary.periodEnd,
+        requestCount: recordsUsageSummary.used?.aiRequests || 0,
+        requestLimit: recordsUsageSummary.limits?.aiRequests || 0,
+        requestsRemaining: recordsUsageSummary.metrics?.aiRequests?.remaining || 0,
+        tokenCount: recordsUsageSummary.used?.aiTokens || 0,
+        tokenLimit: recordsUsageSummary.limits?.aiTokens || 0,
+        tokensRemaining: recordsUsageSummary.metrics?.aiTokens?.remaining || 0,
+      };
+    }
   } catch (_error) {
     recordsAiUsageSummary = null;
+    recordsUsageSummary = null;
   }
 
   renderBillingPlans();
@@ -2573,16 +2677,23 @@ function renderBillingPlans() {
     ? selectedBillingCycle
     : (organization.billing_cycle === "yearly" ? "yearly" : "monthly");
   const activePlan = getPlanConfig(activePlanId);
-  const remaining = Math.max(getDocumentLimit() - documentsCache.length, 0);
   const currentPeriodEndLabel = formatBillingDate(organization.subscription_current_period_end);
   const accountStatus = organization.account_status || "active";
   const cancelsAtPeriodEnd = Boolean(organization.cancel_at_period_end);
   const statusLabel = titleCase(accountStatus);
   const isPaidPlan = activePlanId !== "free";
   const periodLabel = cancelsAtPeriodEnd || accountStatus === "canceled" ? "Ends" : "Renews";
-  const hasCurrentAiUsage = recordsAiUsageSummary?.organizationId === organization.id;
+  const usage = recordsUsageSummary?.organizationId === organization.id ? recordsUsageSummary : null;
+  const documentMetric = getUsageMetric(usage, "documents", documentsCache.length, organization.document_limit);
+  const userMetric = getUsageMetric(usage, "users", memberCache.length || 1, organization.user_limit);
+  const storageMetric = getUsageMetric(usage, "storage", 0, Number(organization.storage_limit_mb || 0) * 1024 * 1024);
+  const aiMetric = getUsageMetric(usage, "aiRequests", recordsAiUsageSummary?.requestCount || 0, activePlan.aiMonthlyRequestLimit);
+  const sourceDocuments = usage?.used?.sourceDocuments ?? documentsCache.length;
+  const appDocuments = usage?.used?.appDocuments ?? 0;
+  const recordings = usage?.used?.recordings ?? 0;
+  const hasCurrentAiUsage = Boolean(usage) || recordsAiUsageSummary?.organizationId === organization.id;
   const aiUsageLabel = hasCurrentAiUsage
-    ? `${formatWholeNumber(recordsAiUsageSummary.requestCount)}/${formatWholeNumber(recordsAiUsageSummary.requestLimit)} AI requests this month`
+    ? `${formatWholeNumber(aiMetric.used)}/${formatWholeNumber(aiMetric.limit)} AI requests this month`
     : `${formatWholeNumber(activePlan.aiMonthlyRequestLimit)} AI requests/month`;
   const billingNote = cancelsAtPeriodEnd
     ? (currentPeriodEndLabel
@@ -2594,16 +2705,51 @@ function renderBillingPlans() {
 
   currentPlanName.textContent = activePlan.name;
   currentPlanCopy.textContent = [
-    `${organization.document_limit} documents`,
-    `${organization.user_limit} users`,
-    formatStorageLimit(organization.storage_limit_mb),
-    `${remaining} remaining`,
-    aiUsageLabel,
+    usage ? "Usage is tracked across files, app documents, meeting recordings, users, and Records AI." : "Usage tracking loads with your library.",
     isPaidPlan ? `${titleCase(activeBillingCycle)} billing` : "",
     isPaidPlan ? `Status: ${statusLabel}` : "",
     cancelsAtPeriodEnd ? "Cancels at end of billing cycle" : "",
     isPaidPlan && currentPeriodEndLabel ? `${periodLabel} ${currentPeriodEndLabel}` : "",
   ].filter(Boolean).join(" · ");
+  currentPlanUsage.innerHTML = [
+    renderUsageItem({
+      label: "Files",
+      value: `${formatWholeNumber(documentMetric.used)}/${formatWholeNumber(documentMetric.limit)}`,
+      detail: `${formatWholeNumber(documentMetric.remaining)} remaining${appDocuments ? ` · ${formatWholeNumber(appDocuments)} app docs` : ""}`,
+      percent: documentMetric.percent,
+      over: documentMetric.over,
+    }),
+    renderUsageItem({
+      label: "Storage",
+      value: `${formatStorageBytes(storageMetric.used)}/${formatStorageBytes(storageMetric.limit)}`,
+      detail: `${formatStorageBytes(storageMetric.remaining)} remaining · ${formatStorageBytes(usage?.used?.recordingStorageBytes || 0)} recordings`,
+      percent: storageMetric.percent,
+      over: storageMetric.over,
+    }),
+    renderUsageItem({
+      label: "Users",
+      value: `${formatWholeNumber(userMetric.used)}/${formatWholeNumber(userMetric.limit)}`,
+      detail: `${formatWholeNumber(userMetric.remaining)} seats remaining`,
+      percent: userMetric.percent,
+      over: userMetric.over,
+    }),
+    renderUsageItem({
+      label: "AI",
+      value: hasCurrentAiUsage
+        ? `${formatWholeNumber(aiMetric.used)}/${formatWholeNumber(aiMetric.limit)}`
+        : aiUsageLabel,
+      detail: hasCurrentAiUsage ? `${formatWholeNumber(aiMetric.remaining)} requests remaining this month` : "Monthly usage loads from the server",
+      percent: aiMetric.percent,
+      over: aiMetric.over,
+    }),
+    renderUsageItem({
+      label: "Meetings",
+      value: formatWholeNumber(recordings),
+      detail: `${formatWholeNumber(sourceDocuments)} uploaded source file${sourceDocuments === 1 ? "" : "s"}`,
+      percent: 0,
+      over: false,
+    }),
+  ].join("");
   if (currentPlanNote) {
     currentPlanNote.textContent = billingNote;
     show(currentPlanNote, Boolean(billingNote));
@@ -3078,7 +3224,7 @@ async function handleAiSearchSubmit() {
     lastAiSearchMatches = matches;
     const shouldShowSources = data.showSources !== false;
     if (data?.usage?.organizationId) {
-      recordsAiUsageSummary = data.usage;
+      updateRecordsUsageWithAiSummary(data.usage);
       renderBillingPlans();
     }
     setAiSearchAnswer(answer);
@@ -3394,6 +3540,7 @@ async function loadActiveOrganizationData() {
     contactCache = [];
     appTemplates = [];
     recordsAiUsageSummary = null;
+    recordsUsageSummary = null;
     organizationReview = null;
     resetLibraryAiSearchHistory();
     updateYearFilterOptions();
@@ -4289,6 +4436,7 @@ async function handleMemberRoleChange(event) {
 
     setStatus(memberStatus, "Member removed.", "success");
     await loadMembers();
+    await loadRecordsAiUsage();
     return;
   }
 
@@ -4306,6 +4454,7 @@ async function handleMemberRoleChange(event) {
 
   setStatus(memberStatus, "Role updated.", "success");
   await loadMembers();
+  await loadRecordsAiUsage();
 }
 
 async function createPersonalLibrary() {
@@ -4485,6 +4634,15 @@ async function uploadDocument(event) {
     return;
   }
 
+  if (recordsUsageSummary?.organizationId !== organization.id) {
+    await loadRecordsAiUsage();
+  }
+  const storageBlockMessage = getStorageUploadBlockMessage(files);
+  if (storageBlockMessage) {
+    setStatus(uploadStatus, storageBlockMessage, "error");
+    return;
+  }
+
   const manualTitle = uploadTitleInput.value.trim();
   const manualYear = uploadMode === "single" ? uploadYearInput.value.trim() : "";
   const manualMonth = uploadMode === "single" ? uploadMonthInput.value.trim() : "";
@@ -4572,6 +4730,7 @@ async function uploadDocument(event) {
     uploadForm.reset();
     if (successCount > 0) {
       await loadDocuments();
+      await loadRecordsAiUsage();
     }
 
     const summaryParts = [`Uploaded ${successCount} of ${selectedFiles.length} file${selectedFiles.length === 1 ? "" : "s"}.`];

@@ -96,6 +96,7 @@ let activeMembership = null;
 let documentsCache = [];
 let uploadedDocumentsCache = [];
 let referenceDocumentsCache = [];
+let recordsUsageSummary = null;
 let pendingDeleteId = null;
 let activeModalDocumentId = null;
 let activeModalDocumentType = "uploaded";
@@ -321,6 +322,42 @@ function getUploadStorageReminder(files) {
 function updateUploadStorageReminder() {
   const reminder = getUploadStorageReminder(collectUploadFiles());
   setStatus(uploadStatus, reminder, reminder ? "notice" : "");
+}
+
+async function loadRecordsUsage() {
+  const organization = getActiveOrganization();
+  recordsUsageSummary = null;
+  if (!organization?.id) return null;
+
+  try {
+    const accessToken = await getFreshAccessToken();
+    if (!accessToken) return null;
+    const response = await fetch(`/api/records-usage?organizationId=${encodeURIComponent(organization.id)}`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) return null;
+    recordsUsageSummary = data?.usage || null;
+  } catch (_error) {
+    recordsUsageSummary = null;
+  }
+
+  return recordsUsageSummary;
+}
+
+function getStorageUploadBlockMessage(files) {
+  const organization = getActiveOrganization();
+  const summary = recordsUsageSummary?.organizationId === organization?.id ? recordsUsageSummary : null;
+  if (!summary?.metrics?.storage) return "";
+  const uploadBytes = (Array.isArray(files) ? files : []).reduce((sum, file) => sum + Math.max(0, Number(file.size || 0)), 0);
+  if (!uploadBytes) return "";
+  const storage = summary.metrics.storage;
+  if (storage.limit > 0 && storage.used + uploadBytes > storage.limit) {
+    return `This upload would exceed the ${formatUploadSize(storage.limit)} storage limit for this ${formatPlanName(organization.subscription_tier)} plan. ${formatUploadSize(storage.remaining)} remains; selected files total ${formatUploadSize(uploadBytes)}.`;
+  }
+  return "";
 }
 
 function sanitizeStorageFileName(value) {
@@ -803,6 +840,8 @@ async function bootstrapAccess() {
         name,
         subscription_tier,
         document_limit,
+        storage_limit_mb,
+        user_limit,
         account_status,
         owner_user_id
       )
@@ -838,6 +877,7 @@ async function loadDocuments() {
     uploadedDocumentsCache = [];
     referenceDocumentsCache = [];
     editableDocumentsBySourceId = new Map();
+    recordsUsageSummary = null;
     documentCount.textContent = "0";
     fileList.innerHTML = "";
     show(fileEmpty, false);
@@ -876,6 +916,7 @@ async function loadDocuments() {
   documentCount.textContent = String(documentsCache.length);
   renderFiles();
   setStatus(fileStatus, `${documentsCache.length} item${documentsCache.length === 1 ? "" : "s"} loaded.`, "success");
+  await loadRecordsUsage();
 }
 
 async function loadReferencedAppDocuments(organizationId) {
@@ -2024,6 +2065,15 @@ async function uploadDocument(event) {
     return;
   }
 
+  if (recordsUsageSummary?.organizationId !== organization.id) {
+    await loadRecordsUsage();
+  }
+  const storageBlockMessage = getStorageUploadBlockMessage(files);
+  if (storageBlockMessage) {
+    setStatus(uploadStatus, storageBlockMessage, "error");
+    return;
+  }
+
   const manualTitle = uploadTitleInput.value.trim();
   const manualYear = uploadMode === "single" ? uploadYearInput.value.trim() : "";
   const manualMonth = uploadMode === "single" ? uploadMonthInput.value.trim() : "";
@@ -2111,6 +2161,7 @@ async function uploadDocument(event) {
     uploadForm.reset();
     if (successCount > 0) {
       await loadDocuments();
+      await loadRecordsUsage();
     }
 
     const summaryParts = [`Uploaded ${successCount} of ${selectedFiles.length} file${selectedFiles.length === 1 ? "" : "s"}.`];
