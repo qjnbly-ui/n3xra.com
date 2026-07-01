@@ -58,15 +58,26 @@ function formatWholeNumber(value) {
   return Number(value || 0).toLocaleString();
 }
 
+function formatStorageDecimal(value, digits = 1) {
+  return Number(value || 0).toFixed(digits).replace(/\.0+$|(\.\d*[1-9])0+$/, "$1");
+}
+
 function formatStorageBytes(bytes) {
   const value = Math.max(0, Number(bytes || 0));
-  if (!value) return "0 MB";
+  if (!value) return "0 B";
   if (value >= 1024 * 1024 * 1024) {
     const gb = value / (1024 * 1024 * 1024);
-    return `${gb >= 10 ? Math.round(gb) : gb.toFixed(1)} GB`;
+    return `${formatStorageDecimal(gb, gb >= 10 ? 1 : 2)} GB`;
   }
-  const mb = value / (1024 * 1024);
-  return `${mb >= 10 ? Math.round(mb) : mb.toFixed(1)} MB`;
+  if (value >= 1024 * 1024) {
+    const mb = value / (1024 * 1024);
+    return `${formatStorageDecimal(mb, mb >= 10 ? 1 : 2)} MB`;
+  }
+  if (value >= 1024) {
+    const kb = value / 1024;
+    return `${formatStorageDecimal(kb, kb >= 10 ? 0 : 1)} KB`;
+  }
+  return `${Math.round(value)} B`;
 }
 
 function formatPlanName(value) {
