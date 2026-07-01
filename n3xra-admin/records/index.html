@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/n3xra-records/styles.css?v=20260612-modal-system">
+  <link rel="stylesheet" href="/n3xra-records/styles.css?v=20260701-admin-usage">
 </head>
 <body>
   <div class="shell">
@@ -47,6 +47,36 @@
       </section>
 
       <section class="panel stack hidden" id="admin-panel">
+        <section class="account-card">
+          <div class="panel-head">
+            <div>
+              <h3>Usage overview</h3>
+              <p>Review plan usage for every Records account and spot accounts near or over limits.</p>
+            </div>
+            <div class="actions">
+              <button class="btn secondary" id="usage-refresh-button" type="button">Refresh usage</button>
+            </div>
+          </div>
+          <div class="table-shell admin-usage-table-shell">
+            <table class="data-table admin-usage-table">
+              <thead>
+                <tr>
+                  <th>Account</th>
+                  <th>Plan</th>
+                  <th>Storage</th>
+                  <th>Documents</th>
+                  <th>AI</th>
+                  <th>Seats</th>
+                  <th>Last active</th>
+                  <th>Flags</th>
+                </tr>
+              </thead>
+              <tbody id="admin-usage-list"></tbody>
+            </table>
+          </div>
+          <p class="status" id="admin-usage-status"></p>
+        </section>
+
         <section class="account-card">
           <div class="panel-head">
             <div>

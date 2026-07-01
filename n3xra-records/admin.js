@@ -7,6 +7,9 @@ const adminPanel = document.getElementById("admin-panel");
 const logoutButton = document.getElementById("logout-button");
 const adminStatus = document.getElementById("admin-status");
 const organizationList = document.getElementById("organization-list");
+const adminUsageList = document.getElementById("admin-usage-list");
+const adminUsageStatus = document.getElementById("admin-usage-status");
+const usageRefreshButton = document.getElementById("usage-refresh-button");
 const organizationForm = document.getElementById("organization-form");
 const organizationNameInput = document.getElementById("organization-name");
 const organizationTierInput = document.getElementById("organization-tier");
@@ -26,6 +29,7 @@ const passwordResetStatus = document.getElementById("password-reset-status");
 let supabase = null;
 let currentSession = null;
 let organizations = [];
+let adminUsageAccounts = [];
 let selectedOrganizationId = "";
 
 function setStatus(el, message, tone = "") {
@@ -46,6 +50,58 @@ function escapeHtml(value) {
 
 function getSelectedOrganization() {
   return organizations.find((item) => item.id === selectedOrganizationId) || null;
+}
+
+function formatWholeNumber(value) {
+  return Number(value || 0).toLocaleString();
+}
+
+function formatStorageBytes(bytes) {
+  const value = Math.max(0, Number(bytes || 0));
+  if (!value) return "0 MB";
+  if (value >= 1024 * 1024 * 1024) {
+    const gb = value / (1024 * 1024 * 1024);
+    return `${gb >= 10 ? Math.round(gb) : gb.toFixed(1)} GB`;
+  }
+  const mb = value / (1024 * 1024);
+  return `${mb >= 10 ? Math.round(mb) : mb.toFixed(1)} MB`;
+}
+
+function formatDateTime(value) {
+  if (!value) return "No activity";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "No activity";
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
+
+function renderMetric(metric, formatter = formatWholeNumber) {
+  const used = formatter(metric?.used || 0);
+  const limit = formatter(metric?.limit || 0);
+  const percent = Math.max(0, Math.min(100, Number(metric?.percent || 0)));
+  const tone = metric?.over ? " is-over" : metric?.near ? " is-near" : "";
+  return `
+    <div class="admin-usage-metric${tone}">
+      <strong>${escapeHtml(used)}/${escapeHtml(limit)}</strong>
+      <span class="admin-usage-meter" aria-hidden="true"><span style="width: ${percent}%"></span></span>
+    </div>
+  `;
+}
+
+function renderUsageFlags(flags) {
+  if (!Array.isArray(flags) || !flags.length) {
+    return '<span class="admin-usage-flag is-clear">OK</span>';
+  }
+  return flags.map((flag) => {
+    const tone = String(flag).toLowerCase().includes("over") ? " is-over" : " is-near";
+    return `<span class="admin-usage-flag${tone}">${escapeHtml(flag)}</span>`;
+  }).join("");
+}
+
+async function getFreshAccessToken() {
+  const { data, error } = await supabase.auth.getSession();
+  if (error) throw error;
+  currentSession = data?.session || currentSession;
+  return currentSession?.access_token || "";
 }
 
 function renderSelectedOrganization() {
@@ -117,6 +173,67 @@ function renderOrganizations() {
   });
 }
 
+function renderAdminUsageOverview() {
+  if (!adminUsageList) return;
+  adminUsageList.innerHTML = "";
+  if (!adminUsageAccounts.length) {
+    adminUsageList.innerHTML = '<tr><td colspan="8">No usage data found.</td></tr>';
+    return;
+  }
+
+  adminUsageAccounts.forEach((account) => {
+    const row = document.createElement("tr");
+    row.className = account.id === selectedOrganizationId ? "is-selected-row" : "";
+    row.innerHTML = `
+      <td>
+        <strong>${escapeHtml(account.name)}</strong>
+        <br><small>${escapeHtml(account.ownerEmail || "No owner email")}</small>
+      </td>
+      <td>${escapeHtml(account.planName || account.planId || "Free")}<br><small>${escapeHtml(account.accountStatus || "active")}</small></td>
+      <td>${renderMetric(account.metrics?.storage, formatStorageBytes)}</td>
+      <td>
+        ${renderMetric(account.metrics?.documents)}
+        <small>${formatWholeNumber(account.usage?.appDocuments || 0)} app docs</small>
+      </td>
+      <td>
+        ${renderMetric(account.metrics?.aiRequests)}
+        <small>${formatWholeNumber(account.usage?.aiTokens || 0)} tokens this month</small>
+      </td>
+      <td>${renderMetric(account.metrics?.users)}</td>
+      <td>${escapeHtml(formatDateTime(account.usage?.lastActiveAt))}</td>
+      <td><div class="admin-usage-flags">${renderUsageFlags(account.flags)}</div></td>
+    `;
+    row.addEventListener("click", () => {
+      selectedOrganizationId = account.id;
+      renderOrganizations();
+      renderAdminUsageOverview();
+      renderSelectedOrganization();
+    });
+    adminUsageList.append(row);
+  });
+}
+
+async function loadAdminUsageOverview() {
+  if (!adminUsageList) return;
+  setStatus(adminUsageStatus, "Loading usage overview...");
+  try {
+    const accessToken = await getFreshAccessToken();
+    const response = await fetch("/api/records-admin-usage", {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data?.error || "Unable to load usage overview.");
+
+    adminUsageAccounts = Array.isArray(data?.usage?.accounts) ? data.usage.accounts : [];
+    renderAdminUsageOverview();
+    setStatus(adminUsageStatus, `${adminUsageAccounts.length} account${adminUsageAccounts.length === 1 ? "" : "s"} in usage overview.`, "success");
+  } catch (error) {
+    adminUsageAccounts = [];
+    renderAdminUsageOverview();
+    setStatus(adminUsageStatus, error?.message || "Unable to load usage overview.", "error");
+  }
+}
+
 async function loadOrganizations() {
   setStatus(adminStatus, "Loading organizations...");
 
@@ -152,6 +269,7 @@ async function loadOrganizations() {
 
   renderOrganizations();
   renderSelectedOrganization();
+  renderAdminUsageOverview();
   setStatus(adminStatus, `${organizations.length} organization${organizations.length === 1 ? "" : "s"} loaded.`, "success");
 }
 
@@ -169,6 +287,7 @@ function handleOrganizationListClick(event) {
   if (!button) return;
   selectedOrganizationId = button.getAttribute("data-id") || "";
   renderOrganizations();
+  renderAdminUsageOverview();
   renderSelectedOrganization();
 }
 
@@ -222,6 +341,7 @@ async function saveSelectedOrganization(overrides = {}, successMessage = "Organi
 
   organizations = organizations.map((item) => (item.id === data.id ? { ...item, ...data } : item));
   renderOrganizations();
+  await loadAdminUsageOverview();
   renderSelectedOrganization();
   setStatus(organizationFormStatus, successMessage, "success");
   return data;
@@ -306,10 +426,11 @@ async function init() {
   setupPanel.classList.add("hidden");
   adminPanel.classList.remove("hidden");
 
-  await loadOrganizations();
+  await Promise.all([loadOrganizations(), loadAdminUsageOverview()]);
 
   logoutButton.addEventListener("click", handleLogout);
   organizationList.addEventListener("click", handleOrganizationListClick);
+  usageRefreshButton?.addEventListener("click", loadAdminUsageOverview);
   organizationTierInput.addEventListener("change", handleTierChange);
   organizationGrantSixMonthTrialButton.addEventListener("click", handleGrantSixMonthTrial);
   organizationForm.addEventListener("submit", handleOrganizationSave);

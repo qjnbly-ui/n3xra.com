@@ -2779,6 +2779,95 @@ textarea {
   font-weight: 800;
 }
 
+.admin-usage-table-shell {
+  overflow-x: auto;
+}
+
+.admin-usage-table {
+  min-width: 980px;
+}
+
+.admin-usage-table tbody tr {
+  cursor: pointer;
+}
+
+.admin-usage-table small {
+  color: var(--slate);
+  font-size: 0.78rem;
+}
+
+.admin-usage-metric {
+  display: grid;
+  gap: 0.32rem;
+  min-width: 7.5rem;
+}
+
+.admin-usage-metric strong {
+  color: var(--ink);
+  font-size: 0.9rem;
+}
+
+.admin-usage-meter {
+  overflow: hidden;
+  width: 100%;
+  height: 0.38rem;
+  border-radius: 999px;
+  background: rgba(15, 22, 32, 0.08);
+}
+
+.admin-usage-meter span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--teal);
+}
+
+.admin-usage-metric.is-near .admin-usage-meter span {
+  background: var(--gold);
+}
+
+.admin-usage-metric.is-over .admin-usage-meter span {
+  background: var(--danger);
+}
+
+.admin-usage-flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  min-width: 8rem;
+}
+
+.admin-usage-flag {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.6rem;
+  padding: 0.25rem 0.48rem;
+  border-radius: 999px;
+  border: 1px solid rgba(15, 22, 32, 0.1);
+  background: rgba(15, 22, 32, 0.04);
+  color: var(--slate);
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+
+.admin-usage-flag.is-clear {
+  border-color: rgba(23, 111, 102, 0.18);
+  background: rgba(23, 111, 102, 0.08);
+  color: var(--teal);
+}
+
+.admin-usage-flag.is-near {
+  border-color: rgba(234, 155, 63, 0.32);
+  background: rgba(234, 155, 63, 0.12);
+  color: #81500b;
+}
+
+.admin-usage-flag.is-over {
+  border-color: rgba(176, 54, 54, 0.28);
+  background: rgba(176, 54, 54, 0.1);
+  color: var(--danger);
+}
+
 .file-row {
   cursor: pointer;
   transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
