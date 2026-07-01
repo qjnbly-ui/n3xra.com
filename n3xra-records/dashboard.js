@@ -4,6 +4,7 @@ import { createBrowserSupabase, getConfig, hasConfig, getSessionOrNull } from "/
 import { buildPreviewUrl, getDownloadFilename } from "./lib/document-links.js";
 import { buildDocumentMetadata, getDocumentDisplayTitle } from "./lib/document-presenters.js";
 import { closeFilePreviewModal, openFilePreviewModal } from "./lib/file-modal.js";
+import { loadActivityLog, recordActivity } from "./lib/activity-log.js";
 import { PLAN_ORDER, getPlanConfig, formatPlanName } from "./lib/plan-config.js";
 import {
   buildMembershipMap,
@@ -266,6 +267,9 @@ const adminNewTemplateButton = document.getElementById("admin-new-template");
 const adminTemplateList = document.getElementById("admin-template-list");
 const adminTemplateEmpty = document.getElementById("admin-template-empty");
 const adminTemplateStatus = document.getElementById("admin-template-status");
+const activityList = document.getElementById("activity-list");
+const activityStatus = document.getElementById("activity-status");
+const activityActionFilter = document.getElementById("activity-action-filter");
 
 let supabase = null;
 let currentSession = null;
@@ -285,6 +289,7 @@ let recordsAiUsageSummary = null;
 let recordsUsageSummary = null;
 let organizationReview = null;
 let organizationLogoUrls = new Map();
+let activityCache = [];
 let uploadMode = "single";
 let selectedBillingCycle = "monthly";
 let activeAdminTab = "users";
@@ -687,6 +692,10 @@ function setAdminTab(tabName) {
     panel.classList.toggle("is-active", isActive);
     panel.hidden = !isActive;
   });
+
+  if (activeAdminTab === "activity") {
+    void loadActivityLogForActiveOrganization();
+  }
 }
 
 function updateAdminTabs(availability = {}) {
@@ -711,6 +720,92 @@ function updateAdminTabs(availability = {}) {
     activeAdminTab = adminTabs.find((tab) => !tab.classList.contains("hidden"))?.getAttribute("data-admin-tab") || "";
   }
   setAdminTab(activeAdminTab);
+}
+
+function formatActivityAction(actionType) {
+  const labels = {
+    upload: "Upload",
+    delete: "Delete",
+    visibility_change: "Visibility",
+    invite_sent: "Invite sent",
+    invite_redeemed: "Invite redeemed",
+    ai_search_used: "AI Search",
+    billing_change: "Billing",
+  };
+  return labels[actionType] || titleCase(String(actionType || "").replace(/_/g, " "));
+}
+
+function formatActivityDate(value) {
+  const date = new Date(value || "");
+  if (Number.isNaN(date.getTime())) return "Unknown";
+  return date.toLocaleString([], {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function renderActivityLog() {
+  if (!activityList) return;
+  if (!activityCache.length) {
+    activityList.innerHTML = '<tr><td colspan="5">No activity has been recorded for this library yet.</td></tr>';
+    return;
+  }
+
+  activityList.innerHTML = activityCache
+    .map((item) => {
+      const actor = item.actor_name || item.actor_email || "Unknown";
+      const target = item.target_label || item.target_type || "Library";
+      return `
+        <tr>
+          <td>${escapeHtml(formatActivityDate(item.created_at))}</td>
+          <td><span class="activity-action-pill">${escapeHtml(formatActivityAction(item.action_type))}</span></td>
+          <td>${escapeHtml(actor)}</td>
+          <td>${escapeHtml(target)}</td>
+          <td>${escapeHtml(item.summary || "")}</td>
+        </tr>
+      `;
+    })
+    .join("");
+}
+
+async function loadActivityLogForActiveOrganization() {
+  const organization = getActiveOrganization();
+  if (!activityList || !organization || !getActiveCapabilities().canManageLibrarySettings) {
+    activityCache = [];
+    renderActivityLog();
+    setStatus(activityStatus, "");
+    return;
+  }
+
+  try {
+    setStatus(activityStatus, "Loading activity...");
+    activityCache = await loadActivityLog(supabase, organization.id, {
+      actionType: activityActionFilter?.value || "all",
+      limit: 100,
+    });
+    renderActivityLog();
+    setStatus(activityStatus, activityCache.length ? "" : "No matching activity found.");
+  } catch (error) {
+    activityCache = [];
+    renderActivityLog();
+    setStatus(activityStatus, getErrorMessage(error, "Unable to load activity."), "error");
+  }
+}
+
+async function recordRecordsActivity(activity = {}) {
+  const organization = getActiveOrganization();
+  if (!organization) return null;
+  const result = await recordActivity(supabase, currentSession, {
+    organizationId: organization.id,
+    ...activity,
+  });
+  if (result && activeAdminTab === "activity") {
+    await loadActivityLogForActiveOrganization();
+  }
+  return result;
 }
 
 function openAdminDisclosure(section) {
@@ -2923,6 +3018,8 @@ function renderProfile() {
     library: canSeeLibraryAdminTab,
     ai: canSeeAiAdminTab,
     billing: canSeeBillingSettings,
+    storage: capabilities.canManageLibrarySettings,
+    activity: capabilities.canManageLibrarySettings,
   });
   renderAdminTemplates();
   if (!capabilities.canManageBilling) {
@@ -3241,6 +3338,17 @@ async function handleAiSearchSubmit() {
       updateRecordsUsageWithAiSummary(data.usage);
       renderBillingPlans();
     }
+    await recordRecordsActivity({
+      actionType: "ai_search_used",
+      targetType: "ai_search",
+      summary: "Used AI Search.",
+      metadata: {
+        matchCount: matches.length,
+        hasAnswer: Boolean(answer),
+        requestCount: data?.usage?.requestCount,
+        tokenCount: data?.usage?.tokenCount,
+      },
+    });
     setAiSearchAnswer(answer);
     if (answer) {
       rememberLibraryAiSearchTurn(question, answer);
@@ -3556,6 +3664,7 @@ async function loadActiveOrganizationData() {
     recordsAiUsageSummary = null;
     recordsUsageSummary = null;
     organizationReview = null;
+    activityCache = [];
     resetLibraryAiSearchHistory();
     updateYearFilterOptions();
     renderDocuments();
@@ -3564,6 +3673,7 @@ async function loadActiveOrganizationData() {
     renderMembers();
     renderContacts();
     renderAdminTemplates();
+    renderActivityLog();
     renderProfile();
     setStatus(docsStatus, "");
     setStatus(createInviteStatus, "");
@@ -3585,6 +3695,9 @@ async function loadActiveOrganizationData() {
     loadActiveOrganizationLogo(),
   ]);
   renderContacts();
+  if (activeAdminTab === "activity") {
+    await loadActivityLogForActiveOrganization();
+  }
 }
 
 async function createSignedUrlForDocument(documentId) {
@@ -4028,11 +4141,33 @@ async function handlePlanChange(planId) {
 
   if (planId === "free" || organization.subscription_tier !== "free" || organization.stripe_customer_id) {
     setStatus(billingStatus, "Opening Stripe billing portal...");
+    await recordRecordsActivity({
+      actionType: "billing_change",
+      targetType: "billing",
+      targetLabel: formatPlanName(organization.subscription_tier),
+      summary: "Opened billing portal.",
+      metadata: {
+        currentPlan: organization.subscription_tier,
+        requestedPlan: planId,
+        billingCycle: selectedBillingCycle,
+      },
+    });
     await openBillingFlow("create-portal-session", { organizationId: organization.id });
     return;
   }
 
   setStatus(billingStatus, "Opening Stripe checkout...");
+  await recordRecordsActivity({
+    actionType: "billing_change",
+    targetType: "billing",
+    targetLabel: formatPlanName(planId),
+    summary: `Started checkout for ${formatPlanName(planId)}.`,
+    metadata: {
+      currentPlan: organization.subscription_tier,
+      requestedPlan: planId,
+      billingCycle: selectedBillingCycle,
+    },
+  });
   await openBillingFlow("create-checkout-session", {
     organizationId: organization.id,
     planId,
@@ -4066,6 +4201,14 @@ async function handleRedeemInvite(event) {
     }
   }
   await loadActiveOrganizationData();
+  await recordRecordsActivity({
+    actionType: "invite_redeemed",
+    targetType: "invite",
+    summary: "Redeemed an invite code.",
+    metadata: {
+      codePrefix: code.slice(0, 8),
+    },
+  });
   setStatus(redeemInviteStatus, "Shared library added to your account.", "success");
 }
 
@@ -4185,6 +4328,18 @@ async function handleCreateInvite(event) {
     if (inviteRecipientEmailInput) inviteRecipientEmailInput.value = "";
     if (inviteRecipientNameInput) inviteRecipientNameInput.value = "";
     if (inviteCustomMessageInput) inviteCustomMessageInput.value = "";
+    await recordRecordsActivity({
+      actionType: "invite_sent",
+      targetType: "invite",
+      targetId: invite.id,
+      targetLabel: recipientEmail,
+      summary: `Sent invite to ${recipientEmail}.`,
+      metadata: {
+        role: inviteRoleInput.value,
+        maxUses,
+        expiresAt: expiresAtIso,
+      },
+    });
   }
 
   await loadInvites();
@@ -4295,6 +4450,17 @@ async function inviteContactAsUser(contact) {
       contact.full_name || "",
       `You have been invited to join ${organization.name || "this library"} on N3XRA Records.`
     );
+    await recordRecordsActivity({
+      actionType: "invite_sent",
+      targetType: "contact",
+      targetId: contact.id,
+      targetLabel: contact.email,
+      summary: `Sent invite to ${contact.email}.`,
+      metadata: {
+        role: "viewer",
+        source: "contact",
+      },
+    });
     await loadInvites();
     setStatus(contactStatus, `Invite sent to ${contact.email}.`, "success");
   } catch (error) {
@@ -4737,6 +4903,19 @@ async function uploadDocument(event) {
         continue;
       }
 
+      await recordRecordsActivity({
+        actionType: "upload",
+        targetType: "document",
+        targetLabel: title,
+        summary: `Uploaded ${fileLabel(file)}.`,
+        metadata: {
+          fileName: file.name,
+          fileSize: file.size,
+          mimeType: file.type || null,
+          isPublic,
+          status: documentStatus,
+        },
+      });
       successCount += 1;
       appendUploadResult(fileLabel(file), uploadTone, uploadMessage);
     }
@@ -4872,6 +5051,7 @@ async function init() {
   adminTabs.forEach((tab) => {
     tab.addEventListener("click", () => setAdminTab(tab.getAttribute("data-admin-tab") || ""));
   });
+  activityActionFilter?.addEventListener("change", loadActivityLogForActiveOrganization);
   adminUsersInviteButton?.addEventListener("click", openInviteCodesFromUsers);
   adminNewTemplateButton?.addEventListener("click", () => {
     window.location.href = "./documents?new=template";

@@ -5,6 +5,7 @@ import { createAppDocumentPdfObjectUrl, getAppDocumentPdfFilename } from "./lib/
 import { buildPreviewUrl, getDownloadFilename } from "./lib/document-links.js";
 import { buildDocumentMetadata, getDocumentDisplayTitle } from "./lib/document-presenters.js";
 import { closeFilePreviewModal, openFilePreviewModal } from "./lib/file-modal.js";
+import { recordActivity } from "./lib/activity-log.js";
 import { getPlanConfig, formatPlanName } from "./lib/plan-config.js";
 import {
   buildMembershipMap,
@@ -716,6 +717,15 @@ function sortFileRowsNewestToOldest(rows) {
 
 function getActiveOrganization() {
   return activeMembership?.organization || null;
+}
+
+async function recordRecordsActivity(activity = {}) {
+  const organization = getActiveOrganization();
+  if (!organization) return null;
+  return recordActivity(supabase, currentSession, {
+    organizationId: organization.id,
+    ...activity,
+  });
 }
 
 function getActiveCapabilities() {
@@ -1495,6 +1505,16 @@ async function deleteFile(documentId, options = {}) {
     deleteConfirmCancel.disabled = false;
     closeDeleteConfirm();
     closeFileModal();
+    await recordRecordsActivity({
+      actionType: "delete",
+      targetType: "app_document",
+      targetId: documentId,
+      targetLabel: getDocumentDisplayTitle(doc),
+      summary: `Deleted ${getDocumentDisplayTitle(doc)}.`,
+      metadata: {
+        recordType: doc.record_type || "app_document",
+      },
+    });
     setStatus(fileStatus, "Document deleted.", "success");
     await loadDocuments();
     return;
@@ -1532,6 +1552,18 @@ async function deleteFile(documentId, options = {}) {
   deleteConfirmCancel.disabled = false;
   closeDeleteConfirm();
   closeFileModal();
+  await recordRecordsActivity({
+    actionType: "delete",
+    targetType: "document",
+    targetId: documentId,
+    targetLabel: getDocumentDisplayTitle(doc),
+    summary: options.deleteAssociated ? `Deleted ${getDocumentDisplayTitle(doc)} and linked data.` : `Deleted ${getDocumentDisplayTitle(doc)}.`,
+    metadata: {
+      fileName: doc.original_filename || null,
+      fileSize: doc.file_size || null,
+      deletedAssociated: Boolean(options.deleteAssociated),
+    },
+  });
   setStatus(fileStatus, options.deleteAssociated ? "File and linked data deleted." : "File deleted.", "success");
   await loadDocuments();
 }
@@ -1551,6 +1583,17 @@ async function togglePublic(documentId) {
     return;
   }
 
+  await recordRecordsActivity({
+    actionType: "visibility_change",
+    targetType: isReferenceFileRow(doc) ? "app_document" : "document",
+    targetId: documentId,
+    targetLabel: getDocumentDisplayTitle(doc),
+    summary: `Made ${getDocumentDisplayTitle(doc)} ${doc.is_public ? "private" : "public"}.`,
+    metadata: {
+      from: doc.is_public ? "public" : "private",
+      to: doc.is_public ? "private" : "public",
+    },
+  });
   setStatus(fileStatus, `Document is now ${doc.is_public ? "private" : "public"}.`, "success");
   await loadDocuments();
 }
@@ -2154,6 +2197,19 @@ async function uploadDocument(event) {
         continue;
       }
 
+      await recordRecordsActivity({
+        actionType: "upload",
+        targetType: "document",
+        targetLabel: title,
+        summary: `Uploaded ${fileLabel(file)}.`,
+        metadata: {
+          fileName: file.name,
+          fileSize: file.size,
+          mimeType: file.type || null,
+          isPublic,
+          status: documentStatus,
+        },
+      });
       successCount += 1;
       appendUploadResult(fileLabel(file), uploadTone, uploadMessage);
     }

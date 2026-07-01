@@ -1991,6 +1991,10 @@ textarea {
   color: var(--slate);
 }
 
+.compact-field {
+  min-width: 12rem;
+}
+
 .admin-template-list {
   display: grid;
   border: 1px solid var(--line);
@@ -2336,6 +2340,23 @@ textarea {
 
 .data-table tbody tr:last-child td {
   border-bottom: 0;
+}
+
+.activity-table td {
+  vertical-align: top;
+}
+
+.activity-action-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.65rem;
+  padding: 0.2rem 0.62rem;
+  border-radius: var(--radius-pill);
+  background: rgba(23, 111, 102, 0.1);
+  color: var(--teal);
+  font-size: 0.82rem;
+  font-weight: 800;
+  white-space: nowrap;
 }
 
 #create-invite-form .grid-3 {

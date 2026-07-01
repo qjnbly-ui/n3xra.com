@@ -170,6 +170,7 @@
                 <button class="admin-tab" id="admin-ai-tab" type="button" role="tab" aria-selected="false" aria-controls="admin-ai-panel" data-admin-tab="ai">AI</button>
                 <button class="admin-tab" id="admin-billing-tab" type="button" role="tab" aria-selected="false" aria-controls="admin-billing-panel" data-admin-tab="billing">Billing</button>
                 <button class="admin-tab" id="admin-storage-tab" type="button" role="tab" aria-selected="false" aria-controls="admin-storage-panel" data-admin-tab="storage">Storage</button>
+                <button class="admin-tab" id="admin-activity-tab" type="button" role="tab" aria-selected="false" aria-controls="admin-activity-panel" data-admin-tab="activity">Activity</button>
               </div>
 
               <div class="admin-panels">
@@ -580,6 +581,43 @@
                       <strong>What you can review there:</strong> Uploaded files, meeting recordings, transcript source files, largest items, and storage-saving suggestions.
                     </div>
                   </div>
+                </section>
+
+                <section class="admin-panel" id="admin-activity-panel" role="tabpanel" aria-labelledby="admin-activity-tab" data-admin-panel="activity" hidden>
+                  <div class="admin-panel-head admin-panel-head-row">
+                    <div>
+                      <h4>Activity</h4>
+                      <p>Review major library actions such as uploads, deletes, visibility changes, invites, AI Search, and billing starts.</p>
+                    </div>
+                    <div class="field compact-field">
+                      <label for="activity-action-filter">Action</label>
+                      <select id="activity-action-filter">
+                        <option value="all">All activity</option>
+                        <option value="upload">Uploads</option>
+                        <option value="delete">Deletes</option>
+                        <option value="visibility_change">Visibility changes</option>
+                        <option value="invite_sent">Invites sent</option>
+                        <option value="invite_redeemed">Invites redeemed</option>
+                        <option value="ai_search_used">AI Search</option>
+                        <option value="billing_change">Billing</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div class="table-shell">
+                    <table class="data-table activity-table">
+                      <thead>
+                        <tr>
+                          <th>When</th>
+                          <th>Action</th>
+                          <th>Who</th>
+                          <th>Target</th>
+                          <th>Details</th>
+                        </tr>
+                      </thead>
+                      <tbody id="activity-list"></tbody>
+                    </table>
+                  </div>
+                  <p class="status" id="activity-status"></p>
                 </section>
               </div>
             </div>
