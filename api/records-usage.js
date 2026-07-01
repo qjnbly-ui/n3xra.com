@@ -121,6 +121,90 @@ function sumFileSize(rows) {
   return (Array.isArray(rows) ? rows : []).reduce((sum, row) => sum + Math.max(0, Number(row.file_size || 0)), 0);
 }
 
+function getStorageName(row, fallback = "Stored file") {
+  const direct = String(row?.title || row?.original_filename || "").trim();
+  if (direct) return direct;
+  const path = String(row?.storage_path || "").trim();
+  if (!path) return fallback;
+  return path.split("/").filter(Boolean).pop() || fallback;
+}
+
+function getStorageExtension(row) {
+  const name = getStorageName(row, "");
+  const match = name.match(/\.([a-z0-9]+)$/i);
+  return match ? match[1].toLowerCase() : "";
+}
+
+function getStorageSuggestion(row) {
+  const extension = getStorageExtension(row);
+  if (["wav", "aiff", "aif", "flac"].includes(extension)) {
+    return "Convert speech audio to MP3 or M4A at 64-128 kbps before keeping the archive copy.";
+  }
+  if (["mp4", "mov", "m4v", "avi"].includes(extension)) {
+    return "If this is a meeting, keep an audio-only MP3 or M4A copy instead of full video.";
+  }
+  if (extension === "pdf" && Number(row?.file_size || 0) >= 25 * 1024 * 1024) {
+    return "Compress the PDF or split out only the pages needed for the record.";
+  }
+  if (Number(row?.file_size || 0) >= 100 * 1024 * 1024) {
+    return "Review whether this large file needs to stay in Records or can be compressed first.";
+  }
+  return "";
+}
+
+function buildStorageDetails(documentRows, recordingRows, appDocumentRows) {
+  const recordings = Array.isArray(recordingRows) ? recordingRows : [];
+  const recordingDocumentIds = new Set(recordings.map((row) => row.document_id).filter(Boolean));
+  const documents = Array.isArray(documentRows) ? documentRows : [];
+  const transcriptDocuments = documents.filter((row) => recordingDocumentIds.has(row.id));
+  const uploadedDocuments = documents.filter((row) => !recordingDocumentIds.has(row.id));
+  const appDocuments = Array.isArray(appDocumentRows) ? appDocumentRows : [];
+  const items = [
+    ...uploadedDocuments.map((row) => ({
+      id: row.id,
+      name: getStorageName(row, "Uploaded file"),
+      type: "Uploaded file",
+      sizeBytes: Math.max(0, Number(row.file_size || 0)),
+      createdAt: row.created_at || "",
+      href: `/n3xra-records/files?id=${encodeURIComponent(row.id)}`,
+      suggestion: getStorageSuggestion(row),
+    })),
+    ...transcriptDocuments.map((row) => ({
+      id: row.id,
+      name: getStorageName(row, "Transcript source"),
+      type: "Transcript source",
+      sizeBytes: Math.max(0, Number(row.file_size || 0)),
+      createdAt: row.created_at || "",
+      href: `/n3xra-records/files?id=${encodeURIComponent(row.id)}`,
+      suggestion: getStorageSuggestion(row),
+    })),
+    ...recordings.map((row) => ({
+      id: row.id,
+      name: getStorageName(row, "Meeting recording"),
+      type: "Meeting recording",
+      sizeBytes: Math.max(0, Number(row.file_size || 0)),
+      createdAt: row.created_at || "",
+      href: `/n3xra-records/all-meeting-notes?recording=${encodeURIComponent(row.id)}`,
+      suggestion: getStorageSuggestion(row),
+    })),
+  ].filter((item) => item.sizeBytes > 0);
+
+  items.sort((a, b) => b.sizeBytes - a.sizeBytes);
+
+  return {
+    breakdown: {
+      uploadedFilesBytes: sumFileSize(uploadedDocuments),
+      meetingRecordingsBytes: sumFileSize(recordings),
+      transcriptSourceBytes: sumFileSize(transcriptDocuments),
+      appDocumentsCount: appDocuments.filter((row) => row.document_kind !== "template").length,
+      templateCount: appDocuments.filter((row) => row.document_kind === "template").length,
+      trackedFileCount: items.length,
+    },
+    largestItems: items.slice(0, 12),
+    suggestions: items.filter((item) => item.suggestion).slice(0, 8),
+  };
+}
+
 function buildMetric(used, limit) {
   const normalizedUsed = Math.max(0, Number(used || 0));
   const normalizedLimit = Math.max(0, Number(limit || 0));
@@ -173,7 +257,7 @@ async function loadRecordsUsage(organization) {
     aiRows,
   ] = await Promise.all([
     fetchSupabaseJson(
-      `${SUPABASE_URL}/rest/v1/documents?select=id,file_size&organization_id=eq.${encodedOrgId}&limit=50000`,
+      `${SUPABASE_URL}/rest/v1/documents?select=id,title,original_filename,storage_path,file_size,created_at&organization_id=eq.${encodedOrgId}&limit=50000`,
       { headers: serviceHeaders() }
     ),
     fetchSupabaseJson(
@@ -181,7 +265,7 @@ async function loadRecordsUsage(organization) {
       { headers: serviceHeaders() }
     ),
     fetchSupabaseJson(
-      `${SUPABASE_URL}/rest/v1/meeting_recordings?select=id,file_size,storage_path&organization_id=eq.${encodedOrgId}&limit=50000`,
+      `${SUPABASE_URL}/rest/v1/meeting_recordings?select=id,title,file_size,storage_path,document_id,created_at&organization_id=eq.${encodedOrgId}&limit=50000`,
       { headers: serviceHeaders() }
     ),
     fetchSupabaseJson(
@@ -205,6 +289,7 @@ async function loadRecordsUsage(organization) {
   const documentStorageBytes = sumFileSize(documentRows);
   const recordingStorageBytes = sumFileSize(recordingRows);
   const storageLimitBytes = limits.storageLimitMb * 1024 * 1024;
+  const storageDetails = buildStorageDetails(documentRows, recordingRows, appDocumentRows);
 
   return {
     organizationId: organization.id,
@@ -240,6 +325,7 @@ async function loadRecordsUsage(organization) {
       aiRequests: buildMetric(aiRequestCount, limits.aiMonthlyRequestLimit),
       aiTokens: buildMetric(aiTokenCount, limits.aiMonthlyTokenLimit),
     },
+    storageDetails,
   };
 }
 

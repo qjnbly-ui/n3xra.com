@@ -1842,6 +1842,19 @@ textarea {
   line-height: 1.35;
 }
 
+.usage-item-action {
+  width: fit-content;
+  color: var(--teal);
+  font-size: 0.8rem;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.usage-item-action:hover,
+.usage-item-action:focus-visible {
+  text-decoration: underline;
+}
+
 .current-plan-actions {
   display: flex;
   gap: 0.75rem;
@@ -2618,6 +2631,152 @@ textarea {
   font-weight: 700;
   text-decoration: underline;
   text-underline-offset: 3px;
+}
+
+.storage-overview {
+  display: grid;
+  grid-template-columns: minmax(18rem, 0.85fr) minmax(0, 1.15fr);
+  gap: 1rem;
+  align-items: stretch;
+}
+
+.storage-total-card,
+.storage-card,
+.storage-breakdown-card {
+  border: 1px solid rgba(15, 22, 32, 0.1);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: 0 14px 34px rgba(15, 22, 32, 0.05);
+}
+
+.storage-total-card {
+  display: grid;
+  align-content: center;
+  gap: 0.65rem;
+  padding: 1.1rem;
+}
+
+.storage-total-card h3,
+.storage-card h3 {
+  margin: 0;
+  color: var(--ink);
+}
+
+.storage-total-card p {
+  margin: 0;
+  color: var(--slate);
+}
+
+.storage-meter-large {
+  height: 0.65rem;
+}
+
+.storage-breakdown-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.storage-breakdown-card {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.9rem;
+}
+
+.storage-breakdown-card span,
+.section-kicker,
+.storage-type-badge {
+  color: var(--teal);
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.storage-breakdown-card strong {
+  color: var(--ink);
+  font-size: 1.25rem;
+}
+
+.storage-breakdown-card p {
+  margin: 0;
+  color: var(--slate);
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.storage-two-column {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(18rem, 0.8fr);
+  gap: 1rem;
+}
+
+.storage-card {
+  min-width: 0;
+  padding: 1rem;
+}
+
+.storage-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.section-kicker {
+  margin: 0 0 0.25rem;
+}
+
+.storage-item-list,
+.storage-suggestion-list {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.storage-item,
+.storage-suggestion {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.8rem;
+  border: 1px solid rgba(15, 22, 32, 0.08);
+  border-radius: 12px;
+  background: rgba(248, 250, 252, 0.8);
+}
+
+.storage-item-main {
+  min-width: 0;
+  display: grid;
+  gap: 0.25rem;
+}
+
+.storage-item strong,
+.storage-suggestion strong {
+  color: var(--ink);
+}
+
+.storage-item p,
+.storage-suggestion p {
+  margin: 0;
+  color: var(--slate);
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.storage-type-badge {
+  letter-spacing: 0.1em;
+}
+
+.storage-suggestion {
+  align-items: flex-start;
+  display: grid;
+  gap: 0.3rem;
+}
+
+.storage-suggestion span {
+  color: var(--teal);
+  font-weight: 800;
 }
 
 .file-row {
@@ -4117,6 +4276,9 @@ body:has(.confirm-modal.is-open) {
   .billing-meta-grid,
   .current-plan-usage,
   .current-plan-card,
+  .storage-overview,
+  .storage-breakdown-grid,
+  .storage-two-column,
   .embed-access-card {
     grid-template-columns: 1fr;
   }
@@ -4150,6 +4312,15 @@ body:has(.confirm-modal.is-open) {
 
   .document-template-item {
     grid-template-columns: 1fr;
+  }
+
+  .storage-item {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .storage-item .btn {
+    width: 100%;
   }
 
   .document-template-actions {

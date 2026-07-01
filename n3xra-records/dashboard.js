@@ -1701,7 +1701,7 @@ function getUsageMetric(summary, key, fallbackUsed = 0, fallbackLimit = 0) {
   };
 }
 
-function renderUsageItem({ label, value, detail = "", percent = 0, over = false }) {
+function renderUsageItem({ label, value, detail = "", percent = 0, over = false, actionHref = "", actionLabel = "" }) {
   return `
     <div class="usage-item${over ? " is-over" : ""}">
       <div class="usage-item-head">
@@ -1712,6 +1712,7 @@ function renderUsageItem({ label, value, detail = "", percent = 0, over = false 
         <span style="width: ${Math.max(0, Math.min(100, Number(percent || 0)))}%"></span>
       </div>
       ${detail ? `<p>${escapeHtml(detail)}</p>` : ""}
+      ${actionHref && actionLabel ? `<a class="usage-item-action" href="${escapeHtml(actionHref)}">${escapeHtml(actionLabel)}</a>` : ""}
     </div>
   `;
 }
@@ -2725,6 +2726,8 @@ function renderBillingPlans() {
       detail: `${formatStorageBytes(storageMetric.remaining)} remaining · ${formatStorageBytes(usage?.used?.recordingStorageBytes || 0)} recordings`,
       percent: storageMetric.percent,
       over: storageMetric.over,
+      actionHref: "./storage",
+      actionLabel: "View in Storage",
     }),
     renderUsageItem({
       label: "Users",
