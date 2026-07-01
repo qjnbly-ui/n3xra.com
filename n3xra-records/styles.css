@@ -634,6 +634,7 @@ textarea {
 }
 
 .status.error { color: var(--danger); }
+.status.notice { color: var(--teal); }
 .status.success { color: var(--teal); }
 
 .auth-captcha {

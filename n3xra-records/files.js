@@ -271,6 +271,58 @@ function fileLabel(file) {
   return file.webkitRelativePath || file.name;
 }
 
+const LARGE_UPLOAD_WARNING_BYTES = 100 * 1024 * 1024;
+const VERY_LARGE_UPLOAD_WARNING_BYTES = 500 * 1024 * 1024;
+const STORAGE_HEAVY_MEDIA_EXTENSIONS = new Set(["wav", "aiff", "aif", "flac", "mov", "mp4", "m4v", "webm", "mkv"]);
+const STORAGE_FRIENDLY_AUDIO_EXTENSIONS = new Set(["mp3", "m4a", "aac"]);
+
+function getFileExtension(file) {
+  const name = String(file?.name || "");
+  const match = name.match(/\.([^.]+)$/);
+  return match ? match[1].toLowerCase() : "";
+}
+
+function formatUploadSize(bytes) {
+  if (!Number.isFinite(bytes) || bytes <= 0) return "0 MB";
+  const mb = bytes / (1024 * 1024);
+  if (mb < 1024) return `${mb >= 10 ? Math.round(mb) : mb.toFixed(1)} MB`;
+  const gb = mb / 1024;
+  return `${gb >= 10 ? Math.round(gb) : gb.toFixed(1)} GB`;
+}
+
+function getUploadStorageReminder(files) {
+  const selected = Array.isArray(files) ? files : [];
+  if (!selected.length) return "";
+
+  const largestFile = selected.reduce((largest, file) => (file.size > (largest?.size || 0) ? file : largest), null);
+  const heavyMediaFile = selected.find((file) => STORAGE_HEAVY_MEDIA_EXTENSIONS.has(getFileExtension(file)));
+  const friendlyAudioFile = selected.find((file) => STORAGE_FRIENDLY_AUDIO_EXTENSIONS.has(getFileExtension(file)) && file.size >= LARGE_UPLOAD_WARNING_BYTES);
+  const totalBytes = selected.reduce((sum, file) => sum + (Number(file.size) || 0), 0);
+
+  if (heavyMediaFile) {
+    return `Storage reminder: ${fileLabel(heavyMediaFile)} is ${formatUploadSize(heavyMediaFile.size)}. For speech recordings, export AAC/M4A or MP3 at 64-128 kbps before uploading. It usually stays clear and can use 10-20x less storage than WAV, AIFF, FLAC, or large video files.`;
+  }
+
+  if (friendlyAudioFile) {
+    return `Storage reminder: ${fileLabel(friendlyAudioFile)} is ${formatUploadSize(friendlyAudioFile.size)}. That can be normal for a long recording, but 64-128 kbps speech audio usually keeps voices clear while preserving storage.`;
+  }
+
+  if (largestFile?.size >= VERY_LARGE_UPLOAD_WARNING_BYTES) {
+    return `Storage reminder: ${fileLabel(largestFile)} is ${formatUploadSize(largestFile.size)}. Consider compressing, splitting, or exporting a lower-size copy before uploading so this library's storage lasts longer.`;
+  }
+
+  if (totalBytes >= VERY_LARGE_UPLOAD_WARNING_BYTES || largestFile?.size >= LARGE_UPLOAD_WARNING_BYTES) {
+    return `Storage reminder: selected files total ${formatUploadSize(totalBytes)}. Compress large scans, photos, or recordings before uploading when a smaller clear copy will work.`;
+  }
+
+  return "";
+}
+
+function updateUploadStorageReminder() {
+  const reminder = getUploadStorageReminder(collectUploadFiles());
+  setStatus(uploadStatus, reminder, reminder ? "notice" : "");
+}
+
 function sanitizeStorageFileName(value) {
   return String(value || "file").replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/^-+|-+$/g, "") || "file";
 }
@@ -367,10 +419,11 @@ function getUploadSupportCopy(isBatch) {
   const supported = '<code class="inline">.pdf</code>, <code class="inline">.docx</code>, <code class="inline">.txt</code>, <code class="inline">.md</code>, <code class="inline">.csv</code>, <code class="inline">.json</code>, <code class="inline">.html</code>.';
   const pdfNote = "PDFs with selectable text become searchable. Scanned PDFs upload as records but need OCR before search or editing.";
   const legacyDocNote = 'Legacy <code class="inline">.doc</code> files must be converted to <code class="inline">.docx</code> before upload.';
+  const storageNote = "For large scans or recordings, upload a compressed clear copy when possible. Speech recordings are usually clear as AAC/M4A or MP3 at 64-128 kbps, while uncompressed WAV can use 10-20x more storage.";
   if (isBatch) {
-    return `Supported in this pass: ${supported} ${pdfNote} Batch mode reads both file selection and folder import and auto-detects year/month from filenames when available (private by default). ${legacyDocNote}`;
+    return `Supported in this pass: ${supported} ${pdfNote} Batch mode reads both file selection and folder import and auto-detects year/month from filenames when available (private by default). ${legacyDocNote} ${storageNote}`;
   }
-  return `Supported in this pass: ${supported} ${pdfNote} ${legacyDocNote}`;
+  return `Supported in this pass: ${supported} ${pdfNote} ${legacyDocNote} ${storageNote}`;
 }
 
 async function insertDocumentRecord(record, userId) {
@@ -2203,6 +2256,8 @@ async function init() {
     if (event.target === uploadModal) setUploadModalOpen(false);
   });
   uploadForm.addEventListener("submit", uploadDocument);
+  uploadFileInput.addEventListener("change", updateUploadStorageReminder);
+  uploadFolderInput.addEventListener("change", updateUploadStorageReminder);
   uploadModeSingleButton.addEventListener("click", () => setUploadMode("single"));
   uploadModeBatchButton.addEventListener("click", () => setUploadMode("batch"));
   activeOrganizationSelect.addEventListener("change", handleOrganizationChange);

@@ -76,6 +76,7 @@ async function syncOrganizationSubscription(
         public_embed_enabled: false,
         stripe_subscription_id: null,
         stripe_price_id: null,
+        billing_cycle: "monthly",
         cancel_at_period_end: false,
         subscription_current_period_end: null,
       })
@@ -91,6 +92,7 @@ async function syncOrganizationSubscription(
   const priceId = subscription.items.data[0]?.price?.id || null;
   const planId = getPlanIdFromPriceId(priceId);
   const planState = getPlanState(planId);
+  const billingCycle = String(subscription.metadata?.billing_cycle || "").trim().toLowerCase() === "yearly" ? "yearly" : "monthly";
   const accountStatus = getAccountStatus(subscription.status);
   const cancelAtSeconds = subscription.cancel_at || null;
   const scheduledCancel =
@@ -107,6 +109,7 @@ async function syncOrganizationSubscription(
     stripe_customer_id: customerId,
     stripe_subscription_id: subscription.id,
     stripe_price_id: priceId,
+    billing_cycle: billingCycle,
     cancel_at_period_end: scheduledCancel,
     subscription_current_period_end: periodEndSeconds ? new Date(periodEndSeconds * 1000).toISOString() : null,
   };
