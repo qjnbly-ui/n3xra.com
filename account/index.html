@@ -223,6 +223,88 @@
                 <a class="btn secondary block button-link" href="/n3xra-admin/utilities">Open Utilities Admin</a>
               </article>
             </div>
+
+            <section class="account-card notification-admin-card" id="platform-notification-card">
+              <div class="dashboard-section-head">
+                <div>
+                  <h3>Product update email</h3>
+                  <p>Select a product audience, choose accounts, review the message, then send an update email.</p>
+                </div>
+              </div>
+              <div class="stack">
+                <div class="grid-3">
+                  <div class="field">
+                    <label for="notification-product">Product</label>
+                    <select id="notification-product">
+                      <option value="records">N3XRA Records</option>
+                      <option value="ai_music">AI Music Generator</option>
+                      <option value="virals">N3XRA Virals</option>
+                      <option value="utilities">N3XRA Utilities</option>
+                      <option value="all">All N3XRA accounts</option>
+                    </select>
+                  </div>
+                  <div class="field">
+                    <label for="notification-subject">Subject</label>
+                    <input id="notification-subject" type="text" maxlength="180" placeholder="Update from N3XRA">
+                  </div>
+                  <div class="field">
+                    <label for="notification-cta-url">Button link (optional)</label>
+                    <input id="notification-cta-url" type="url" placeholder="https://n3xra.com/account">
+                  </div>
+                </div>
+                <div class="field">
+                  <label for="notification-preheader">Preview text</label>
+                  <input id="notification-preheader" type="text" maxlength="220" placeholder="Short inbox preview for this update.">
+                </div>
+                <div class="field">
+                  <label for="notification-message">Message</label>
+                  <textarea id="notification-message" rows="8" maxlength="8000" placeholder="Write the update. Use short paragraphs."></textarea>
+                </div>
+                <div class="grid-3">
+                  <div class="field">
+                    <label for="notification-cta-label">Button label</label>
+                    <input id="notification-cta-label" type="text" maxlength="80" placeholder="Open N3XRA">
+                  </div>
+                  <div class="field">
+                    <label for="notification-filter">Filter accounts</label>
+                    <input id="notification-filter" type="search" placeholder="Search name, email, plan, product">
+                  </div>
+                  <div class="field">
+                    <label>Recipients</label>
+                    <div class="inline-actions">
+                      <button class="btn secondary" id="notification-load-recipients" type="button">Load accounts</button>
+                      <button class="btn secondary" id="notification-select-visible" type="button">Select visible</button>
+                      <button class="btn secondary" id="notification-clear-selected" type="button">Clear</button>
+                    </div>
+                  </div>
+                </div>
+                <div class="notification-summary">
+                  <strong id="notification-selected-count">0 selected</strong>
+                  <span id="notification-loaded-count">No accounts loaded.</span>
+                </div>
+                <div class="table-shell notification-recipient-shell">
+                  <table class="data-table">
+                    <thead>
+                      <tr>
+                        <th>Select</th>
+                        <th>Account</th>
+                        <th>Product</th>
+                        <th>Plan/status</th>
+                        <th>Context</th>
+                      </tr>
+                    </thead>
+                    <tbody id="notification-recipient-list">
+                      <tr><td colspan="5">Load accounts to choose recipients.</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+                <div class="actions">
+                  <button class="btn" id="notification-review" type="button">Review email</button>
+                </div>
+                <p class="field-note">Emails are sent individually. Review opens a final confirmation before any email is delivered.</p>
+                <p class="status" id="notification-status"></p>
+              </div>
+            </section>
           </section>
         </div>
 
@@ -281,6 +363,31 @@
         </div>
       </div>
     </section>
+  </div>
+
+  <div class="settings-modal" id="notification-review-modal" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="settings-modal-dialog">
+      <div class="settings-modal-header">
+        <div>
+          <p class="settings-modal-kicker">Product update</p>
+          <h3 class="settings-modal-title">Review email before sending</h3>
+        </div>
+        <button class="settings-modal-close" id="notification-review-close" type="button">Close</button>
+      </div>
+      <div class="settings-modal-body stack">
+        <div class="notification-review-meta">
+          <p><strong>Product:</strong> <span id="notification-review-product">-</span></p>
+          <p><strong>Recipients:</strong> <span id="notification-review-count">0</span></p>
+          <p><strong>Subject:</strong> <span id="notification-review-subject">-</span></p>
+        </div>
+        <div class="notification-email-preview" id="notification-email-preview"></div>
+        <div class="actions">
+          <button class="btn secondary" id="notification-review-cancel" type="button">Edit email</button>
+          <button class="btn" id="notification-send" type="button">Send update email</button>
+        </div>
+        <p class="status" id="notification-review-status"></p>
+      </div>
+    </div>
   </div>
 
   <script type="module" src="/account/account.js"></script>

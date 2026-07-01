@@ -185,6 +185,87 @@ body {
   min-height: 190px;
 }
 
+.notification-admin-card {
+  margin-top: 0.15rem;
+}
+
+.notification-admin-card .dashboard-section-head {
+  min-height: 0;
+}
+
+.notification-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid rgba(15, 22, 32, 0.08);
+  border-radius: 14px;
+  background: #f7fafc;
+  color: var(--slate);
+}
+
+.notification-summary strong {
+  color: var(--ink);
+}
+
+.notification-recipient-shell {
+  max-height: 420px;
+  overflow: auto;
+}
+
+.notification-recipient-shell input[type="checkbox"] {
+  width: 1.05rem;
+  height: 1.05rem;
+}
+
+#notification-review-modal .settings-modal-dialog {
+  --modal-width: 720px;
+}
+
+.notification-review-meta {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.85rem;
+  border: 1px solid rgba(15, 22, 32, 0.08);
+  border-radius: 14px;
+  background: #f7fafc;
+}
+
+.notification-review-meta p {
+  margin: 0;
+  color: var(--slate);
+}
+
+.notification-email-preview {
+  border: 1px solid rgba(15, 22, 32, 0.1);
+  border-radius: 16px;
+  background: #f5f7fb;
+  padding: 0.9rem;
+}
+
+.notification-preview-frame {
+  max-width: 620px;
+  margin: 0 auto;
+  padding: 1.2rem;
+  border: 1px solid rgba(15, 22, 32, 0.08);
+  border-radius: 14px;
+  background: #ffffff;
+  color: var(--ink);
+}
+
+.notification-preview-frame h2 {
+  margin: 0 0 0.8rem;
+  font-family: "Fraunces", "Times New Roman", serif;
+  font-size: clamp(1.35rem, 3vw, 1.9rem);
+  line-height: 1.15;
+}
+
+.notification-preview-message {
+  color: var(--slate);
+  line-height: 1.65;
+}
+
 .app-card {
   border: 1px solid rgba(15, 22, 32, 0.1);
   border-radius: var(--radius-md);
