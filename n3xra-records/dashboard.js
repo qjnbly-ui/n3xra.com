@@ -1613,6 +1613,12 @@ function formatWholeNumber(value) {
   return Number(value || 0).toLocaleString();
 }
 
+function formatStorageLimit(valueMb) {
+  const mb = Number(valueMb || 0);
+  if (mb >= 1024 && mb % 1024 === 0) return `${formatWholeNumber(mb / 1024)} GB`;
+  return `${formatWholeNumber(mb)} MB`;
+}
+
 function formatBillingDate(value) {
   if (!value) return "";
   const date = new Date(value);
@@ -2529,7 +2535,7 @@ function renderBillingPlans() {
   currentPlanCopy.textContent = [
     `${organization.document_limit} documents`,
     `${organization.user_limit} users`,
-    `${organization.storage_limit_mb} MB`,
+    formatStorageLimit(organization.storage_limit_mb),
     `${remaining} remaining`,
     aiUsageLabel,
     isPaidPlan ? `Status: ${statusLabel}` : "",
@@ -2566,7 +2572,7 @@ function renderBillingPlans() {
           ${badge}
         </div>
         <p class="plan-summary">${plan.summary}</p>
-        <p class="plan-limit">${formatWholeNumber(plan.documentLimit)} documents · ${formatWholeNumber(plan.userLimit)} users · ${formatWholeNumber(plan.storageLimitMb)} MB · ${formatWholeNumber(plan.aiMonthlyRequestLimit)} AI requests</p>
+        <p class="plan-limit">${formatWholeNumber(plan.documentLimit)} documents · ${formatWholeNumber(plan.userLimit)} users · ${formatStorageLimit(plan.storageLimitMb)} · ${formatWholeNumber(plan.aiMonthlyRequestLimit)} AI requests</p>
         <ul class="plan-features">
           ${plan.features.map((feature) => `<li>${escapeHtml(feature)}</li>`).join("")}
         </ul>

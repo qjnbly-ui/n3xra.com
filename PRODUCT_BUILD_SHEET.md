@@ -136,19 +136,26 @@ Current pricing direction in the product and homepage is:
 - `Free`
   - 1 account
   - 25 documents
+  - 1 GB storage
+  - 20 Records AI requests/month
 - `Starter`
   - 1 account
-  - 250 documents
+  - 1,000 documents
+  - 10 GB storage
+  - 300 Records AI requests/month
 - `Organization`
-  - larger archive direction, future-facing
+  - 15 users
+  - 10,000 documents
+  - 50 GB storage
+  - 1,500 Records AI requests/month
+  - public records URL and embedded records view
 
-Current app enforcement is client-side only.
+Current app enforcement uses stored organization limits and server-side billing sync for paid plan changes.
 
 Important:
 
-- this is acceptable for MVP
-- not acceptable for a real paid product
-- real enforcement must move server-side later
+- frontend pricing copy, Stripe plan-state sync, AI usage limits, setup docs, and database migrations must stay aligned
+- existing organizations need migration updates when plan limits change
 
 ## Product positioning
 

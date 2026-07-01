@@ -28,7 +28,7 @@ set
   account_status = 'active',
   document_limit = 25,
   user_limit = 1,
-  storage_limit_mb = 512,
+  storage_limit_mb = 1024,
   public_embed_enabled = false,
   stripe_price_id = null,
   stripe_subscription_id = null,
@@ -40,9 +40,9 @@ update public.organizations
 set
   subscription_tier = 'starter',
   account_status = 'active',
-  document_limit = 250,
+  document_limit = 1000,
   user_limit = 1,
-  storage_limit_mb = 4096,
+  storage_limit_mb = 10240,
   public_embed_enabled = false
 where id = nullif('YOUR_ORGANIZATION_ID', 'YOUR_ORGANIZATION_ID')::uuid;
 
@@ -51,9 +51,9 @@ update public.organizations
 set
   subscription_tier = 'organization',
   account_status = 'active',
-  document_limit = 2500,
-  user_limit = 10,
-  storage_limit_mb = 10240,
+  document_limit = 10000,
+  user_limit = 15,
+  storage_limit_mb = 51200,
   public_embed_enabled = true
 where id = nullif('YOUR_ORGANIZATION_ID', 'YOUR_ORGANIZATION_ID')::uuid;
 

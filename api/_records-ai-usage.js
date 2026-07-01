@@ -9,13 +9,13 @@ const RECORDS_AI_PLAN_LIMITS = {
   },
   starter: {
     planName: "Starter",
-    monthlyRequests: 200,
-    monthlyTokens: 1000000,
+    monthlyRequests: 300,
+    monthlyTokens: 1500000,
   },
   organization: {
     planName: "Organization",
-    monthlyRequests: 1000,
-    monthlyTokens: 5000000,
+    monthlyRequests: 1500,
+    monthlyTokens: 7500000,
   },
 };
 

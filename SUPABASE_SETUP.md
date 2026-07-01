@@ -195,8 +195,8 @@ Add these secrets before deploying the billing functions:
 
 Create two recurring monthly prices in Stripe:
 
-- Starter: `$24/month`
-- Organization: `$89/month`
+- Starter: `$12/month`
+- Organization: `$39/month`
 
 Copy those price ids into:
 
@@ -247,8 +247,8 @@ The existing Records functions remain separate:
 
 Create two recurring monthly Stripe prices:
 
-- Creator: `$10/month`, 100 songs per billing period
-- Studio: `$25/month`, 400 songs per billing period
+- Creator: `$4.99/month`, 25 songs per billing period
+- Studio: `$12.99/month`, 100 songs per billing period
 
 Copy those Stripe price ids into Supabase function secrets:
 
@@ -297,9 +297,9 @@ supabase functions deploy music-stripe-webhook
 
 ### AI Music billing behavior
 
-- Free AI Music accounts get 5 songs per monthly period.
-- Creator accounts get 100 songs per billing period.
-- Studio accounts get 400 songs per billing period.
+- Free AI Music accounts get 2 songs per monthly period.
+- Creator accounts get 25 songs per billing period.
+- Studio accounts get 100 songs per billing period.
 - The app uses Stripe Checkout for new paid subscriptions.
 - The app uses Stripe Customer Portal for plan changes, cancellation, and payment method updates.
 - Stripe webhooks are the source of truth for `music_profiles.plan`, `monthly_song_limit`, subscription status, renewal date, and cancellation state.
