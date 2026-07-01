@@ -193,6 +193,72 @@ body {
   min-height: 0;
 }
 
+.notification-page {
+  width: min(1440px, calc(100vw - 2rem));
+}
+
+.notification-admin-shell {
+  gap: 1.35rem;
+}
+
+.notification-page-head {
+  border: 1px solid rgba(15, 22, 32, 0.08);
+  border-radius: var(--radius-md);
+  background:
+    radial-gradient(460px 190px at 0% 0%, rgba(23, 111, 102, 0.12), transparent 60%),
+    linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  padding: clamp(1rem, 2.4vw, 1.35rem);
+}
+
+.notification-page-head h1 {
+  margin: 0.15rem 0 0.35rem;
+  font-family: "Fraunces", "Times New Roman", serif;
+  font-size: clamp(1.8rem, 4vw, 2.8rem);
+  line-height: 1;
+}
+
+.notification-page-head p:not(.auth-kicker) {
+  margin: 0;
+  color: var(--slate);
+}
+
+.notification-layout {
+  display: grid;
+  grid-template-columns: minmax(320px, 0.82fr) minmax(420px, 1.18fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.notification-compose,
+.notification-recipients {
+  border: 1px solid rgba(15, 22, 32, 0.08);
+  border-radius: var(--radius-md);
+  background: #fbfcfd;
+  padding: clamp(1rem, 2vw, 1.15rem);
+}
+
+.notification-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.notification-toolbar h3 {
+  margin: 0;
+}
+
+.notification-toolbar .field-note {
+  margin: 0.25rem 0 0;
+}
+
+.grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
 .notification-summary {
   display: flex;
   align-items: center;
@@ -264,6 +330,10 @@ body {
 .notification-preview-message {
   color: var(--slate);
   line-height: 1.65;
+}
+
+.notification-actions {
+  justify-content: flex-end;
 }
 
 .app-card {
@@ -484,6 +554,11 @@ body {
   }
 
   .admin-app-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .notification-layout,
+  .grid-2 {
     grid-template-columns: 1fr;
   }
 

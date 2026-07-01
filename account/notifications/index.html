@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>N3XRA | Notification Admin</title>
+  <meta name="description" content="Platform admin product update email tools for N3XRA.">
+  <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
+  <link rel="canonical" href="https://n3xra.com/account/notifications/">
+  <meta name="theme-color" content="#070c12">
+  <link rel="icon" type="image/png" sizes="284x284" href="/assets/n3xra_logo_transparent_small.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/site-nav.css">
+  <link rel="stylesheet" href="/n3xra-records/styles.css?v=20260612-modal-system">
+  <link rel="stylesheet" href="/account/account.css">
+  <script src="/shared/config.js"></script>
+  <script src="/assets/site-nav.js" defer></script>
+</head>
+<body>
+  <header class="site-topbar">
+    <div class="site-topbar-inner">
+      <div class="site-topbar-row">
+        <a class="site-brand" href="/" aria-label="N3XRA home">
+          <img src="/assets/n3xra_logo_transparent.png" alt="N3XRA">
+        </a>
+        <div class="site-nav-actions">
+          <a class="site-menu-link site-auth-link" href="/account" id="account-nav-link">Dashboard</a>
+          <button class="site-menu-toggle" type="button" aria-expanded="false" aria-controls="account-mobile-menu" aria-label="Open menu" data-site-menu-toggle>
+            <span></span>
+            <span></span>
+            <span></span>
+          </button>
+        </div>
+      </div>
+      <nav class="site-mobile-menu" id="account-mobile-menu" aria-label="Mobile primary" hidden>
+        <div class="site-mobile-menu-head">
+          <p class="site-mobile-menu-title">Navigate</p>
+        </div>
+        <a class="site-menu-link" href="/account">Dashboard</a>
+        <a class="site-menu-link" href="/records/">N3XRA Records</a>
+        <a class="site-menu-link" href="/ai-music-generator/">AI Music Generator</a>
+        <a class="site-menu-link" href="/virals/">N3XRA Virals</a>
+        <a class="site-menu-link" href="/utilities/">N3XRA Utilities</a>
+        <a class="site-menu-link" href="/support/">Support</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="account-main notification-page">
+    <section class="panel stack hidden" id="setup-panel">
+      <div class="panel-head">
+        <div>
+          <h2>Connect Supabase</h2>
+          <p>Add your project URL and anon key in <code class="inline">shared/config.js</code> before using notification admin.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel account-panel is-dashboard hidden" id="notification-panel">
+      <div class="account-card notification-admin-shell">
+        <div class="dashboard-head notification-page-head">
+          <div>
+            <p class="auth-kicker">Platform Admin</p>
+            <h1>Notification Admin</h1>
+            <p>Write product update emails, choose an audience, review the final message, then send.</p>
+          </div>
+          <a class="btn secondary button-link" href="/account">Back to dashboard</a>
+        </div>
+
+        <div class="notification-layout">
+          <section class="notification-compose">
+            <div class="dashboard-section-head">
+              <div>
+                <h3>Email</h3>
+                <p>Keep updates short and specific. The review step is required before sending.</p>
+              </div>
+            </div>
+            <div class="stack">
+              <div class="grid-3">
+                <div class="field">
+                  <label for="notification-product">Product</label>
+                  <select id="notification-product">
+                    <option value="records">N3XRA Records</option>
+                    <option value="ai_music">AI Music Generator</option>
+                    <option value="virals">N3XRA Virals</option>
+                    <option value="utilities">N3XRA Utilities</option>
+                    <option value="all">All N3XRA accounts</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label for="notification-subject">Subject</label>
+                  <input id="notification-subject" type="text" maxlength="180" placeholder="Update from N3XRA">
+                </div>
+                <div class="field">
+                  <label for="notification-cta-url">Button link</label>
+                  <input id="notification-cta-url" type="url" placeholder="https://n3xra.com/account">
+                </div>
+              </div>
+              <div class="field">
+                <label for="notification-preheader">Preview text</label>
+                <input id="notification-preheader" type="text" maxlength="220" placeholder="Short inbox preview for this update.">
+              </div>
+              <div class="field">
+                <label for="notification-message">Message</label>
+                <textarea id="notification-message" rows="9" maxlength="8000" placeholder="Write the update. Use short paragraphs."></textarea>
+              </div>
+              <div class="grid-2">
+                <div class="field">
+                  <label for="notification-cta-label">Button label</label>
+                  <input id="notification-cta-label" type="text" maxlength="80" placeholder="Open N3XRA">
+                </div>
+                <div class="field">
+                  <label for="notification-filter">Filter accounts</label>
+                  <input id="notification-filter" type="search" placeholder="Search name, email, plan, product">
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="notification-recipients">
+            <div class="notification-toolbar">
+              <div>
+                <h3>Recipients</h3>
+                <p class="field-note">Load an audience, then select individual accounts or the visible filtered set.</p>
+              </div>
+              <div class="inline-actions">
+                <button class="btn secondary" id="notification-load-recipients" type="button">Load accounts</button>
+                <button class="btn secondary" id="notification-select-visible" type="button">Select visible</button>
+                <button class="btn secondary" id="notification-clear-selected" type="button">Clear</button>
+              </div>
+            </div>
+            <div class="notification-summary">
+              <strong id="notification-selected-count">0 selected</strong>
+              <span id="notification-loaded-count">No accounts loaded.</span>
+            </div>
+            <div class="table-shell notification-recipient-shell">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Select</th>
+                    <th>Account</th>
+                    <th>Product</th>
+                    <th>Plan/status</th>
+                    <th>Context</th>
+                  </tr>
+                </thead>
+                <tbody id="notification-recipient-list">
+                  <tr><td colspan="5">Load accounts to choose recipients.</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="actions notification-actions">
+              <button class="btn" id="notification-review" type="button">Review email</button>
+            </div>
+            <p class="status" id="notification-status"></p>
+          </section>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div class="settings-modal" id="notification-review-modal" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="settings-modal-dialog">
+      <div class="settings-modal-header">
+        <div>
+          <p class="settings-modal-kicker">Product update</p>
+          <h3 class="settings-modal-title">Review email before sending</h3>
+        </div>
+        <button class="settings-modal-close" id="notification-review-close" type="button">Close</button>
+      </div>
+      <div class="settings-modal-body stack">
+        <div class="notification-review-meta">
+          <p><strong>Product:</strong> <span id="notification-review-product">-</span></p>
+          <p><strong>Recipients:</strong> <span id="notification-review-count">0</span></p>
+          <p><strong>Subject:</strong> <span id="notification-review-subject">-</span></p>
+        </div>
+        <div class="notification-email-preview" id="notification-email-preview"></div>
+        <div class="actions">
+          <button class="btn secondary" id="notification-review-cancel" type="button">Edit email</button>
+          <button class="btn" id="notification-send" type="button">Send update email</button>
+        </div>
+        <p class="status" id="notification-review-status"></p>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/account/notifications/notifications.js"></script>
+</body>
+</html>
