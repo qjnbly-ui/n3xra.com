@@ -320,11 +320,25 @@ body {
   color: var(--ink);
 }
 
+.notification-preview-head {
+  text-align: center;
+}
+
+.notification-preview-head .settings-modal-kicker {
+  margin-left: auto;
+  margin-right: auto;
+}
+
 .notification-preview-frame h2 {
   margin: 0 0 0.8rem;
   font-family: "Fraunces", "Times New Roman", serif;
   font-size: clamp(1.35rem, 3vw, 1.9rem);
   line-height: 1.15;
+}
+
+.notification-preview-head .field-note {
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .notification-preview-message {

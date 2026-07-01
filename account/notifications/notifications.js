@@ -239,9 +239,11 @@ function renderNotificationReview(payload) {
   notificationReviewSubject.textContent = payload.subject;
   notificationEmailPreview.innerHTML = `
     <div class="notification-preview-frame">
-      <p class="settings-modal-kicker">${escapeHtml(payload.productLabel)}</p>
-      <h2>${escapeHtml(payload.subject)}</h2>
-      ${payload.preheader ? `<p class="field-note">${escapeHtml(payload.preheader)}</p>` : ""}
+      <div class="notification-preview-head">
+        <p class="settings-modal-kicker">${escapeHtml(payload.productLabel)}</p>
+        <h2>${escapeHtml(payload.subject)}</h2>
+        ${payload.preheader ? `<p class="field-note">${escapeHtml(payload.preheader)}</p>` : ""}
+      </div>
       <div class="notification-preview-message">${nl2br(payload.message)}</div>
       ${payload.ctaUrl ? `<p><a class="btn button-link" href="${escapeHtml(payload.ctaUrl)}" target="_blank" rel="noopener">${escapeHtml(payload.ctaLabel)}</a></p>` : ""}
       <hr>
