@@ -39,6 +39,16 @@ let notificationRecipients = [];
 let selectedNotificationEmails = new Set();
 let pendingNotificationPayload = null;
 
+async function hasPlatformAdminAccess() {
+  if (isPlatformAdminEmail(currentSession?.user?.email)) return true;
+  const { data, error } = await supabase.functions.invoke("platform-admin", {
+    body: {
+      action: "get-platform-admin-access",
+    },
+  });
+  return Boolean(!error && data?.ok);
+}
+
 const PRODUCT_LABELS = {
   records: "N3XRA Records",
   ai_music: "AI Music Generator",
@@ -329,7 +339,7 @@ async function init() {
     window.location.replace("/account?next=/account/notifications/");
     return;
   }
-  if (!isPlatformAdminEmail(currentSession.user.email)) {
+  if (!(await hasPlatformAdminAccess())) {
     window.location.replace("/account");
     return;
   }

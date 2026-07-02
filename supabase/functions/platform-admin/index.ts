@@ -6,6 +6,7 @@ const corsHeaders = {
 };
 
 const PLATFORM_ADMIN_EMAILS = ["quentin@n3xra.com", "quentin@quentinnichols.com"];
+const PLATFORM_OWNER_EMAIL = "quentin@n3xra.com";
 
 const PRODUCT_LABELS: Record<string, string> = {
   records: "N3XRA Records",
@@ -49,6 +50,51 @@ function normalizeProduct(value: unknown) {
 
 function isValidEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+function base64Url(bytes: Uint8Array) {
+  return btoa(String.fromCharCode(...bytes))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+}
+
+async function sha256(value: string) {
+  const bytes = new TextEncoder().encode(value);
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return base64Url(new Uint8Array(digest));
+}
+
+function createInviteToken() {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  return base64Url(bytes);
+}
+
+async function getPlatformAdmin(adminClient: ReturnType<typeof createClient>, user: { id: string; email?: string | null }) {
+  const email = normalizeEmail(user.email);
+  if (email === PLATFORM_OWNER_EMAIL) {
+    return {
+      user_id: user.id,
+      email,
+      role: "owner",
+      status: "active",
+    };
+  }
+
+  const { data, error } = await adminClient
+    .from("platform_admins")
+    .select("user_id, email, role, status")
+    .eq("user_id", user.id)
+    .eq("status", "active")
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  return data || null;
+}
+
+function isOwnerAdmin(adminRecord: Record<string, unknown> | null) {
+  return String(adminRecord?.role || "") === "owner";
 }
 
 function addRecipient(
@@ -360,12 +406,187 @@ Deno.serve(async (request) => {
       return jsonResponse({ error: userError?.message || "Unable to resolve user." }, 401);
     }
 
-    if (!PLATFORM_ADMIN_EMAILS.includes(String(user.email || "").toLowerCase())) {
+    const payload = await request.json().catch(() => ({}));
+    const action = payload.action;
+
+    if (action === "redeem-platform-admin-invite") {
+      const token = String(payload.token || "").trim();
+      if (!token) {
+        return jsonResponse({ error: "Invite token is required." }, 400);
+      }
+
+      const tokenHash = await sha256(token);
+      const { data: invite, error: inviteError } = await adminClient
+        .from("platform_admin_invites")
+        .select("id, email, role, status, expires_at, created_by_user_id")
+        .eq("token_hash", tokenHash)
+        .maybeSingle();
+
+      if (inviteError) return jsonResponse({ error: inviteError.message }, 400);
+      if (!invite || invite.status !== "pending") {
+        return jsonResponse({ error: "This admin invite is not valid." }, 400);
+      }
+      if (new Date(String(invite.expires_at || "")).getTime() < Date.now()) {
+        await adminClient
+          .from("platform_admin_invites")
+          .update({ status: "expired", updated_at: new Date().toISOString() })
+          .eq("id", invite.id);
+        return jsonResponse({ error: "This admin invite has expired." }, 400);
+      }
+
+      const userEmail = normalizeEmail(user.email);
+      if (normalizeEmail(invite.email) !== userEmail) {
+        return jsonResponse({ error: `This invite is for ${invite.email}. Sign in with that email to redeem it.` }, 403);
+      }
+
+      const now = new Date().toISOString();
+      const { error: adminError } = await adminClient
+        .from("platform_admins")
+        .upsert({
+          user_id: user.id,
+          email: userEmail,
+          role: "admin",
+          status: "active",
+          invited_by_user_id: invite.created_by_user_id || null,
+          updated_at: now,
+        }, { onConflict: "user_id" });
+
+      if (adminError) return jsonResponse({ error: adminError.message }, 400);
+
+      const { error: redeemError } = await adminClient
+        .from("platform_admin_invites")
+        .update({
+          status: "redeemed",
+          redeemed_by_user_id: user.id,
+          redeemed_at: now,
+          updated_at: now,
+        })
+        .eq("id", invite.id);
+
+      if (redeemError) return jsonResponse({ error: redeemError.message }, 400);
+      return jsonResponse({ ok: true, role: "admin" });
+    }
+
+    const platformAdmin = await getPlatformAdmin(adminClient, { id: user.id, email: user.email });
+    if (!platformAdmin) {
       return jsonResponse({ error: "Platform admin access required." }, 403);
     }
 
-    const payload = await request.json().catch(() => ({}));
-    const action = payload.action;
+    if (action === "get-platform-admin-access") {
+      return jsonResponse({
+        ok: true,
+        admin: {
+          email: platformAdmin.email,
+          role: platformAdmin.role,
+          status: platformAdmin.status,
+        },
+      });
+    }
+
+    if (action === "list-platform-admins") {
+      if (!isOwnerAdmin(platformAdmin)) {
+        return jsonResponse({ error: "Owner admin access required." }, 403);
+      }
+
+      const [{ data: admins, error: adminsError }, { data: invites, error: invitesError }] = await Promise.all([
+        adminClient
+          .from("platform_admins")
+          .select("user_id, email, role, status, invited_by_user_id, created_at, updated_at")
+          .order("role", { ascending: false })
+          .order("email", { ascending: true }),
+        adminClient
+          .from("platform_admin_invites")
+          .select("id, email, role, status, expires_at, created_at, redeemed_at, revoked_at")
+          .order("created_at", { ascending: false })
+          .limit(100),
+      ]);
+
+      if (adminsError || invitesError) {
+        return jsonResponse({ error: adminsError?.message || invitesError?.message || "Unable to load platform admins." }, 400);
+      }
+
+      return jsonResponse({ ok: true, admins: admins || [], invites: invites || [] });
+    }
+
+    if (action === "create-platform-admin-invite") {
+      if (!isOwnerAdmin(platformAdmin)) {
+        return jsonResponse({ error: "Owner admin access required." }, 403);
+      }
+
+      const email = normalizeEmail(payload.email);
+      if (!email || !isValidEmail(email)) {
+        return jsonResponse({ error: "Enter a valid admin email." }, 400);
+      }
+      if (email === PLATFORM_OWNER_EMAIL) {
+        return jsonResponse({ error: "The owner account is already the master admin." }, 400);
+      }
+
+      const token = createInviteToken();
+      const tokenHash = await sha256(token);
+      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+      const { data: invite, error } = await adminClient
+        .from("platform_admin_invites")
+        .insert({
+          email,
+          role: "admin",
+          token_hash: tokenHash,
+          expires_at: expiresAt,
+          created_by_user_id: user.id,
+        })
+        .select("id, email, role, status, expires_at, created_at")
+        .single();
+
+      if (error) return jsonResponse({ error: error.message }, 400);
+
+      const inviteUrl = new URL(getAppOrigin(request) + "/account");
+      inviteUrl.searchParams.set("admin_invite", token);
+      inviteUrl.searchParams.set("email", email);
+      inviteUrl.searchParams.set("mode", "signup");
+
+      return jsonResponse({ ok: true, invite, inviteUrl: inviteUrl.toString() });
+    }
+
+    if (action === "revoke-platform-admin-invite") {
+      if (!isOwnerAdmin(platformAdmin)) {
+        return jsonResponse({ error: "Owner admin access required." }, 403);
+      }
+
+      const inviteId = String(payload.inviteId || "").trim();
+      if (!inviteId) return jsonResponse({ error: "inviteId is required." }, 400);
+      const now = new Date().toISOString();
+      const { error } = await adminClient
+        .from("platform_admin_invites")
+        .update({
+          status: "revoked",
+          revoked_by_user_id: user.id,
+          revoked_at: now,
+          updated_at: now,
+        })
+        .eq("id", inviteId)
+        .eq("status", "pending");
+
+      if (error) return jsonResponse({ error: error.message }, 400);
+      return jsonResponse({ ok: true });
+    }
+
+    if (action === "revoke-platform-admin") {
+      if (!isOwnerAdmin(platformAdmin)) {
+        return jsonResponse({ error: "Owner admin access required." }, 403);
+      }
+
+      const userId = String(payload.userId || "").trim();
+      if (!userId) return jsonResponse({ error: "userId is required." }, 400);
+      if (userId === user.id) return jsonResponse({ error: "The owner cannot revoke themselves here." }, 400);
+
+      const { error } = await adminClient
+        .from("platform_admins")
+        .update({ status: "revoked", updated_at: new Date().toISOString() })
+        .eq("user_id", userId)
+        .neq("role", "owner");
+
+      if (error) return jsonResponse({ error: error.message }, 400);
+      return jsonResponse({ ok: true });
+    }
 
     if (action === "reset-password") {
       const email = String(payload.email || "").trim();

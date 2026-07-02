@@ -283,6 +283,38 @@
               <button class="btn secondary" type="submit">Update password</button>
             </form>
           </details>
+
+          <details class="settings-disclosure hidden" id="platform-owner-admin-settings">
+            <summary>Platform admin invites</summary>
+            <div class="settings-form platform-admin-dashboard">
+              <div>
+                <p class="field-note">Master owner tools for inviting and managing N3XRA platform admins.</p>
+              </div>
+
+              <form class="auth-form platform-admin-invite-form" id="platform-admin-invite-form">
+                <div class="field">
+                  <label for="platform-admin-invite-email">Admin email</label>
+                  <input id="platform-admin-invite-email" type="email" autocomplete="email" placeholder="admin@example.com">
+                </div>
+                <button class="btn secondary" type="submit">Create admin invite</button>
+              </form>
+
+              <div class="platform-admin-invite-link hidden" id="platform-admin-invite-link"></div>
+
+              <div class="platform-admin-toolbar">
+                <h3>Current admins</h3>
+                <button class="btn secondary small" id="platform-admin-refresh" type="button">Refresh</button>
+              </div>
+              <div class="platform-admin-list" id="platform-admin-list"></div>
+
+              <div class="platform-admin-toolbar">
+                <h3>Admin invites</h3>
+              </div>
+              <div class="platform-admin-list" id="platform-admin-invite-list"></div>
+
+              <p class="status account-modal-status" id="platform-admin-status"></p>
+            </div>
+          </details>
         </div>
         <p class="status account-modal-status" id="settings-status"></p>
         <div class="account-modal-actions">

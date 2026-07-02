@@ -32,6 +32,16 @@ let organizations = [];
 let adminUsageAccounts = [];
 let selectedOrganizationId = "";
 
+async function hasPlatformAdminAccess() {
+  if (isPlatformAdminEmail(currentSession?.user?.email)) return true;
+  const { data, error } = await supabase.functions.invoke("platform-admin", {
+    body: {
+      action: "get-platform-admin-access",
+    },
+  });
+  return Boolean(!error && data?.ok);
+}
+
 function setStatus(el, message, tone = "") {
   if (!el) return;
   el.textContent = message || "";
@@ -429,7 +439,7 @@ async function init() {
     return;
   }
 
-  if (!isPlatformAdminEmail(currentSession.user.email)) {
+  if (!(await hasPlatformAdminAccess())) {
     window.location.replace("/n3xra-records/library");
     return;
   }

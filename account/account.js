@@ -7,7 +7,7 @@ import {
   getSupabaseAuthCallbackType,
   hasConfig,
 } from "/shared/lib/supabase-client.js";
-import { isPlatformAdminEmail, setStoredActiveOrganizationId } from "/shared/lib/orgs.js";
+import { isPlatformAdminEmail, isPlatformOwnerEmail, setStoredActiveOrganizationId } from "/shared/lib/orgs.js";
 
 const setupPanel = document.getElementById("setup-panel");
 const accountPanel = document.getElementById("account-panel");
@@ -45,11 +45,20 @@ const openRecordsButton = document.getElementById("open-records-button");
 const openMusicButton = document.getElementById("open-music-button");
 const openViralsButton = document.getElementById("open-virals-button");
 const adminAppSection = document.getElementById("admin-app-section");
+const platformOwnerAdminSettings = document.getElementById("platform-owner-admin-settings");
+const platformAdminInviteForm = document.getElementById("platform-admin-invite-form");
+const platformAdminInviteEmail = document.getElementById("platform-admin-invite-email");
+const platformAdminInviteLink = document.getElementById("platform-admin-invite-link");
+const platformAdminRefresh = document.getElementById("platform-admin-refresh");
+const platformAdminList = document.getElementById("platform-admin-list");
+const platformAdminInviteList = document.getElementById("platform-admin-invite-list");
+const platformAdminStatus = document.getElementById("platform-admin-status");
 
 let supabase = null;
 let currentSession = null;
 let memberships = [];
 let musicProfile = null;
+let platformAdminAccess = null;
 let captchaToken = "";
 let captchaWidgetId = null;
 let captchaEnabled = false;
@@ -186,7 +195,12 @@ function getInviteCode() {
   return String(params.get("invite") || params.get("invite_code") || params.get("code") || signupInviteCodeInput?.value || "").trim();
 }
 
-function buildAccountRedirectUrl({ mode = "", app = "", next = "", invite = "", email = "" } = {}) {
+function getPlatformAdminInviteToken() {
+  const params = new URLSearchParams(window.location.search);
+  return String(params.get("admin_invite") || "").trim();
+}
+
+function buildAccountRedirectUrl({ mode = "", app = "", next = "", invite = "", adminInvite = "", email = "" } = {}) {
   const url = new URL(getAppUrl("/account"));
   const nextApp = app || getRequestedApp();
   const nextPath = next || getSafeNextPath();
@@ -197,6 +211,7 @@ function buildAccountRedirectUrl({ mode = "", app = "", next = "", invite = "", 
     url.searchParams.set("signup", "invite");
     url.searchParams.set("invite", invite);
   }
+  if (adminInvite) url.searchParams.set("admin_invite", adminInvite);
   if (email) url.searchParams.set("email", email);
   return url.toString();
 }
@@ -218,9 +233,10 @@ function applyUrlPrefill() {
   const params = new URLSearchParams(window.location.search);
   const requestedSignup = String(params.get("signup") || params.get("mode") || "").trim().toLowerCase();
   const inviteCode = getInviteCode();
+  const adminInvite = getPlatformAdminInviteToken();
   const email = String(params.get("email") || "").trim();
 
-  if (requestedSignup === "invite" || inviteCode) {
+  if (requestedSignup === "invite" || requestedSignup === "signup" || inviteCode || adminInvite) {
     setAuthMode("signup");
     show(inviteCodeField, Boolean(inviteCode));
     if (signupInviteCodeInput) signupInviteCodeInput.value = inviteCode;
@@ -280,11 +296,144 @@ async function loadProfileName() {
   return String(data?.full_name || currentSession.user.user_metadata?.full_name || currentSession.user.email || "").trim();
 }
 
+function setPlatformAdminStatus(message = "", tone = "") {
+  if (!platformAdminStatus) return;
+  platformAdminStatus.textContent = message;
+  platformAdminStatus.className = "status account-modal-status";
+  if (tone) platformAdminStatus.classList.add(tone);
+}
+
+async function invokePlatformAdmin(action, body = {}) {
+  const { data, error } = await supabase.functions.invoke("platform-admin", {
+    body: {
+      action,
+      ...body,
+    },
+  });
+  if (error || data?.error) {
+    throw new Error(data?.error || error?.message || "Platform admin request failed.");
+  }
+  return data || {};
+}
+
+async function loadPlatformAdminAccess() {
+  if (!currentSession?.user) {
+    platformAdminAccess = null;
+    return null;
+  }
+
+  try {
+    const data = await invokePlatformAdmin("get-platform-admin-access");
+    platformAdminAccess = data.admin || null;
+  } catch {
+    platformAdminAccess = isPlatformAdminEmail(currentSession.user.email)
+      ? { email: currentSession.user.email, role: isPlatformOwnerEmail(currentSession.user.email) ? "owner" : "admin", status: "active" }
+      : null;
+  }
+  return platformAdminAccess;
+}
+
+function formatAdminDate(value) {
+  const date = new Date(value || "");
+  if (Number.isNaN(date.getTime())) return "Unknown";
+  return date.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" });
+}
+
+function createPlatformAdminRow({ title, meta, actionLabel = "", action = "", id = "" }) {
+  const row = document.createElement("div");
+  row.className = "platform-admin-row";
+
+  const copy = document.createElement("div");
+  const titleEl = document.createElement("strong");
+  titleEl.textContent = title;
+  const metaEl = document.createElement("p");
+  metaEl.className = "platform-admin-meta";
+  metaEl.textContent = meta;
+  copy.append(titleEl, metaEl);
+  row.append(copy);
+
+  if (actionLabel && action && id) {
+    const button = document.createElement("button");
+    button.className = "btn secondary small";
+    button.type = "button";
+    button.dataset.platformAdminAction = action;
+    button.dataset.platformAdminId = id;
+    button.textContent = actionLabel;
+    row.append(button);
+  }
+
+  return row;
+}
+
+function renderPlatformAdminDashboard(data = {}) {
+  if (!platformAdminList || !platformAdminInviteList) return;
+  const admins = Array.isArray(data.admins) ? data.admins : [];
+  const invites = Array.isArray(data.invites) ? data.invites : [];
+
+  platformAdminList.innerHTML = "";
+  if (!admins.length) {
+    platformAdminList.textContent = "No platform admins found.";
+  } else {
+    admins.forEach((admin) => {
+      const role = String(admin.role || "admin");
+      const status = String(admin.status || "active");
+      platformAdminList.append(createPlatformAdminRow({
+        title: String(admin.email || "Unknown admin"),
+        meta: `${role === "owner" ? "Master owner" : "Platform admin"} · ${status}`,
+        actionLabel: role !== "owner" && status === "active" ? "Revoke" : "",
+        action: "revoke-admin",
+        id: String(admin.user_id || ""),
+      }));
+    });
+  }
+
+  platformAdminInviteList.innerHTML = "";
+  if (!invites.length) {
+    platformAdminInviteList.textContent = "No admin invites yet.";
+  } else {
+    invites.forEach((invite) => {
+      const status = String(invite.status || "pending");
+      platformAdminInviteList.append(createPlatformAdminRow({
+        title: String(invite.email || "Unknown invite"),
+        meta: `${status} · expires ${formatAdminDate(invite.expires_at)}`,
+        actionLabel: status === "pending" ? "Revoke" : "",
+        action: "revoke-invite",
+        id: String(invite.id || ""),
+      }));
+    });
+  }
+}
+
+async function loadPlatformAdminDashboard() {
+  if (!isPlatformOwnerEmail(currentSession?.user?.email)) return;
+  try {
+    setPlatformAdminStatus("Loading platform admins...");
+    const data = await invokePlatformAdmin("list-platform-admins");
+    renderPlatformAdminDashboard(data);
+    setPlatformAdminStatus("");
+  } catch (error) {
+    setPlatformAdminStatus(getErrorMessage(error, "Unable to load platform admins."), "error");
+  }
+}
+
+async function maybeRedeemPlatformAdminInvite() {
+  const token = getPlatformAdminInviteToken();
+  if (!token || !currentSession?.user) return "";
+
+  const data = await invokePlatformAdmin("redeem-platform-admin-invite", { token });
+  const url = new URL(window.location.href);
+  url.searchParams.delete("admin_invite");
+  url.searchParams.delete("mode");
+  window.history.replaceState({}, "", url.toString());
+  return data?.ok ? "Platform admin invite redeemed." : "";
+}
+
 async function renderDashboard(message = "") {
   renderShell("dashboard");
   setStatus(message);
 
   await Promise.allSettled([loadMemberships(), loadMusicProfile()]);
+  await loadPlatformAdminAccess();
   const displayName = await loadProfileName().catch(() => currentSession.user.email || "N3XRA account");
   accountName.textContent = displayName || "N3XRA account";
   accountEmail.textContent = currentSession.user.email || "";
@@ -303,7 +452,11 @@ async function renderDashboard(message = "") {
     ? `${musicProfile.plan || "Free"} plan. ${Number(musicProfile.songs_used || 0)} of ${Number(musicProfile.monthly_song_limit || 0)} songs used.`
     : "Not active yet. Activate it only if you want to create and save songs.";
   openMusicButton.textContent = hasMusicProfile ? "Open AI Music" : "Activate AI Music";
-  show(adminAppSection, isPlatformAdminEmail(currentSession.user.email));
+  show(adminAppSection, Boolean(platformAdminAccess) || isPlatformAdminEmail(currentSession.user.email));
+  show(platformOwnerAdminSettings, isPlatformOwnerEmail(currentSession.user.email));
+  if (isPlatformOwnerEmail(currentSession.user.email)) {
+    await loadPlatformAdminDashboard();
+  }
 
 }
 
@@ -320,6 +473,17 @@ function closeAccountSettings() {
 }
 
 async function maybeRouteAfterAuth(session) {
+  currentSession = session;
+  if (getPlatformAdminInviteToken()) {
+    try {
+      const message = await maybeRedeemPlatformAdminInvite();
+      await renderDashboard(message || "Signed in.");
+    } catch (error) {
+      await renderDashboard(getErrorMessage(error, "Unable to redeem platform admin invite."));
+    }
+    return;
+  }
+
   const next = getSafeNextPath();
   const requestedApp = getRequestedApp();
   if (!next && !requestedApp) {
@@ -392,7 +556,7 @@ async function handleSignup(event) {
       email,
       password,
       options: {
-        emailRedirectTo: buildAccountRedirectUrl({ invite: inviteCode, email }),
+        emailRedirectTo: buildAccountRedirectUrl({ invite: inviteCode, adminInvite: getPlatformAdminInviteToken(), email }),
         data: {
           full_name: fullName,
           invite_code: inviteCode,
@@ -581,6 +745,66 @@ async function handlePasswordSave(event) {
   setStatus("Password updated.", "success");
 }
 
+async function handlePlatformAdminInviteCreate(event) {
+  event.preventDefault();
+  if (!isPlatformOwnerEmail(currentSession?.user?.email)) return;
+
+  const email = platformAdminInviteEmail?.value.trim().toLowerCase() || "";
+  if (!email) {
+    setPlatformAdminStatus("Enter an admin email first.", "error");
+    return;
+  }
+
+  try {
+    setPlatformAdminStatus("Creating admin invite...");
+    const data = await invokePlatformAdmin("create-platform-admin-invite", { email });
+    if (platformAdminInviteForm instanceof HTMLFormElement) platformAdminInviteForm.reset();
+    if (platformAdminInviteLink) {
+      platformAdminInviteLink.classList.remove("hidden");
+      platformAdminInviteLink.innerHTML = "";
+      const label = document.createElement("strong");
+      label.textContent = "Admin invite link";
+      const link = document.createElement("p");
+      link.textContent = data.inviteUrl || "";
+      platformAdminInviteLink.append(label, link);
+    }
+    await loadPlatformAdminDashboard();
+    setPlatformAdminStatus("Admin invite created. Send the invite link to that admin.", "success");
+  } catch (error) {
+    setPlatformAdminStatus(getErrorMessage(error, "Unable to create admin invite."), "error");
+  }
+}
+
+async function handlePlatformAdminListClick(event) {
+  const button = event.target.closest("button[data-platform-admin-action]");
+  if (!button || !isPlatformOwnerEmail(currentSession?.user?.email)) return;
+
+  const action = button.dataset.platformAdminAction || "";
+  const id = button.dataset.platformAdminId || "";
+  if (!id) return;
+
+  try {
+    button.disabled = true;
+    if (action === "revoke-admin") {
+      setPlatformAdminStatus("Revoking platform admin...");
+      await invokePlatformAdmin("revoke-platform-admin", { userId: id });
+      await loadPlatformAdminDashboard();
+      setPlatformAdminStatus("Platform admin revoked.", "success");
+      return;
+    }
+
+    if (action === "revoke-invite") {
+      setPlatformAdminStatus("Revoking admin invite...");
+      await invokePlatformAdmin("revoke-platform-admin-invite", { inviteId: id });
+      await loadPlatformAdminDashboard();
+      setPlatformAdminStatus("Admin invite revoked.", "success");
+    }
+  } catch (error) {
+    button.disabled = false;
+    setPlatformAdminStatus(getErrorMessage(error, "Unable to update platform admin access."), "error");
+  }
+}
+
 async function handleSignout() {
   if (!supabase) return;
   await supabase.auth.signOut({ scope: "local" });
@@ -606,6 +830,10 @@ function bindEvents() {
   recoveryForm.addEventListener("submit", handleRecovery);
   profileForm.addEventListener("submit", handleProfileSave);
   passwordForm.addEventListener("submit", handlePasswordSave);
+  platformAdminInviteForm?.addEventListener("submit", handlePlatformAdminInviteCreate);
+  platformAdminRefresh?.addEventListener("click", loadPlatformAdminDashboard);
+  platformAdminList?.addEventListener("click", handlePlatformAdminListClick);
+  platformAdminInviteList?.addEventListener("click", handlePlatformAdminListClick);
   openRecordsButton.addEventListener("click", openRecords);
   openMusicButton.addEventListener("click", openMusic);
   openViralsButton?.addEventListener("click", openVirals);
@@ -657,7 +885,16 @@ async function init() {
     renderShell("recovery");
     setStatus("Choose a new password.");
   } else if (currentSession?.user) {
-    await renderDashboard(callbackType ? "Signed in. Choose an app to continue." : "");
+    if (getPlatformAdminInviteToken()) {
+      try {
+        const message = await maybeRedeemPlatformAdminInvite();
+        await renderDashboard(message || "Signed in.");
+      } catch (error) {
+        await renderDashboard(getErrorMessage(error, "Unable to redeem platform admin invite."));
+      }
+    } else {
+      await renderDashboard(callbackType ? "Signed in. Choose an app to continue." : "");
+    }
   } else {
     renderShell("auth");
   }
