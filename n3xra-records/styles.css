@@ -2825,6 +2825,78 @@ textarea {
   cursor: pointer;
 }
 
+.records-admin-workspace {
+  gap: 1.1rem;
+}
+
+.records-admin-layout {
+  display: grid;
+  grid-template-columns: minmax(360px, 0.82fr) minmax(460px, 1.18fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.records-admin-selector,
+.records-admin-selected {
+  display: grid;
+  gap: 0.9rem;
+  min-width: 0;
+}
+
+.records-admin-selector .data-table tbody tr {
+  cursor: pointer;
+}
+
+.admin-subhead {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.admin-subhead h4,
+.admin-subhead p,
+.selected-organization-head h3,
+.selected-organization-head p {
+  margin: 0;
+}
+
+.admin-subhead h4 {
+  color: var(--ink);
+  font-size: 1rem;
+}
+
+.admin-subhead p,
+.selected-organization-head p:not(.auth-kicker) {
+  color: var(--slate);
+}
+
+.selected-organization-head,
+.selected-support-form {
+  border: 1px solid rgba(15, 22, 32, 0.08);
+  border-radius: var(--radius-md);
+  background:
+    radial-gradient(360px 160px at 0% 0%, rgba(23, 111, 102, 0.1), transparent 62%),
+    #fbfcfd;
+  padding: 1rem;
+}
+
+.selected-organization-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.selected-organization-head h3 {
+  font-size: 1.35rem;
+}
+
+.records-admin-selected #organization-form {
+  border: 1px solid rgba(15, 22, 32, 0.08);
+  border-radius: var(--radius-md);
+  background: #fbfcfd;
+  padding: 1rem;
+}
+
 .admin-usage-table small {
   color: var(--slate);
   font-size: 0.78rem;
@@ -4443,6 +4515,18 @@ body:has(.confirm-modal.is-open) {
   }
 
   .storage-item .btn {
+    width: 100%;
+  }
+
+  .records-admin-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .selected-organization-head {
+    display: grid;
+  }
+
+  .selected-organization-head .btn {
     width: 100%;
   }
 

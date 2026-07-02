@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/n3xra-records/styles.css?v=20260701-admin-usage">
+  <link rel="stylesheet" href="/n3xra-records/styles.css?v=20260701-admin-workspace">
 </head>
 <body>
   <div class="shell">
@@ -77,119 +77,132 @@
           <p class="status" id="admin-usage-status"></p>
         </section>
 
-        <section class="account-card">
+        <section class="account-card records-admin-workspace">
           <div class="panel-head">
             <div>
-              <h3>Organizations</h3>
-              <p>Select a library to review its plan, limits, and support actions.</p>
+              <h3>Organization workspace</h3>
+              <p>Select a Records account, then update its library settings or send the owner a password reset.</p>
             </div>
           </div>
-          <div class="table-shell">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Organization</th>
-                  <th>Owner</th>
-                  <th>Plan</th>
-                  <th>Status</th>
-                  <th>Members</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody id="organization-list"></tbody>
-            </table>
-          </div>
-          <p class="status" id="admin-status"></p>
-        </section>
 
-        <section class="account-card">
-          <div class="panel-head">
-            <div>
-              <h3>Library settings</h3>
-              <p>Update the selected library's plan, limits, and access settings.</p>
+          <div class="records-admin-layout">
+            <div class="records-admin-selector">
+              <div class="admin-subhead">
+                <h4>Organizations</h4>
+                <p>Choose the account you want to manage.</p>
+              </div>
+              <div class="table-shell">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Organization</th>
+                      <th>Owner</th>
+                      <th>Plan</th>
+                      <th>Status</th>
+                      <th>Members</th>
+                    </tr>
+                  </thead>
+                  <tbody id="organization-list"></tbody>
+                </table>
+              </div>
+              <p class="status" id="admin-status"></p>
             </div>
-          </div>
-          <form class="stack" id="organization-form">
-            <div class="grid-3">
-              <div class="field">
-                <label for="organization-name">Organization</label>
-                <input id="organization-name" type="text">
-              </div>
-              <div class="field">
-                <label for="organization-tier">Plan tier</label>
-                <select id="organization-tier">
-                  <option value="free">Free</option>
-                  <option value="starter">Starter</option>
-                  <option value="organization">Organization</option>
-                </select>
-              </div>
-              <div class="field">
-                <label for="organization-status">Billing status</label>
-                <select id="organization-status">
-                  <option value="active">Active</option>
-                  <option value="trialing">Trialing</option>
-                  <option value="past_due">Past due</option>
-                  <option value="canceled">Canceled</option>
-                  <option value="suspended">Suspended</option>
-                </select>
-              </div>
-            </div>
-            <div class="grid-3">
-              <div class="field">
-                <label for="organization-document-limit">Document limit</label>
-                <input id="organization-document-limit" type="text">
-              </div>
-              <div class="field">
-                <label for="organization-user-limit">User limit</label>
-                <input id="organization-user-limit" type="text">
-              </div>
-              <div class="field">
-                <label for="organization-storage-limit">Storage limit (MB)</label>
-                <input id="organization-storage-limit" type="text">
-              </div>
-            </div>
-            <div class="grid-3">
-              <div class="field">
-                <label for="organization-trial-end">Trial/subscription end</label>
-                <input id="organization-trial-end" type="date">
-              </div>
-            </div>
-            <div class="inline-actions setting-toggles">
-              <label class="toggle-pill">
-                <input id="organization-public-embed" type="checkbox">
-                <span>Public embed enabled</span>
-              </label>
-              <label class="toggle-pill">
-                <input id="organization-keyword-search" type="checkbox">
-                <span>Keyword search</span>
-              </label>
-            </div>
-            <div class="actions">
-              <button class="btn secondary" id="organization-grant-six-month-trial" type="button">Grant 6-month Organization trial</button>
-              <button class="btn" type="submit">Save organization</button>
-            </div>
-            <p class="field-note">Trial grants keep customer data in place. If a trial ends without a subscription, downgrade or suspend the library to limit access; documents are not deleted automatically.</p>
-            <p class="status" id="organization-form-status"></p>
-          </form>
-        </section>
 
-        <section class="account-card">
-          <div class="panel-head">
-            <div>
-              <h3>Password reset</h3>
-              <p>Send a reset email to any account user.</p>
+            <div class="records-admin-selected">
+              <div class="selected-organization-head">
+                <div>
+                  <p class="auth-kicker">Selected organization</p>
+                  <h3 id="selected-organization-title">Select an organization</h3>
+                  <p id="selected-organization-summary">Library settings and support actions will appear here.</p>
+                </div>
+                <a class="btn secondary button-link hidden" id="selected-organization-support-link" href="/n3xra-records/account">Support view</a>
+              </div>
+
+              <form class="stack" id="organization-form">
+                <div class="admin-subhead">
+                  <h4>Library settings</h4>
+                  <p>Plan, limits, and access settings apply to the selected organization.</p>
+                </div>
+                <div class="grid-3">
+                  <div class="field">
+                    <label for="organization-name">Organization</label>
+                    <input id="organization-name" type="text">
+                  </div>
+                  <div class="field">
+                    <label for="organization-tier">Plan tier</label>
+                    <select id="organization-tier">
+                      <option value="free">Free</option>
+                      <option value="starter">Starter</option>
+                      <option value="organization">Organization</option>
+                    </select>
+                  </div>
+                  <div class="field">
+                    <label for="organization-status">Billing status</label>
+                    <select id="organization-status">
+                      <option value="active">Active</option>
+                      <option value="trialing">Trialing</option>
+                      <option value="past_due">Past due</option>
+                      <option value="canceled">Canceled</option>
+                      <option value="suspended">Suspended</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="grid-3">
+                  <div class="field">
+                    <label for="organization-document-limit">Document limit</label>
+                    <input id="organization-document-limit" type="text">
+                  </div>
+                  <div class="field">
+                    <label for="organization-user-limit">User limit</label>
+                    <input id="organization-user-limit" type="text">
+                  </div>
+                  <div class="field">
+                    <label for="organization-storage-limit">Storage limit (MB)</label>
+                    <input id="organization-storage-limit" type="text">
+                  </div>
+                </div>
+                <div class="grid-3">
+                  <div class="field">
+                    <label for="organization-trial-end">Trial/subscription end</label>
+                    <input id="organization-trial-end" type="date">
+                  </div>
+                </div>
+                <div class="inline-actions setting-toggles">
+                  <label class="toggle-pill">
+                    <input id="organization-public-embed" type="checkbox">
+                    <span>Public embed enabled</span>
+                  </label>
+                  <label class="toggle-pill">
+                    <input id="organization-keyword-search" type="checkbox">
+                    <span>Keyword search</span>
+                  </label>
+                </div>
+                <div class="actions">
+                  <button class="btn secondary" id="organization-grant-six-month-trial" type="button">Grant 6-month Organization trial</button>
+                  <button class="btn" type="submit">Save organization</button>
+                </div>
+                <p class="field-note">Trial grants keep customer data in place. If a trial ends without a subscription, downgrade or suspend the library to limit access; documents are not deleted automatically.</p>
+                <p class="status" id="organization-form-status"></p>
+              </form>
+
+              <form class="stack selected-support-form" id="password-reset-form">
+                <div class="admin-subhead">
+                  <h4>Password reset</h4>
+                  <p>Send a reset email for the selected organization owner or another account user.</p>
+                </div>
+                <div class="grid-2">
+                  <div class="field">
+                    <label for="password-reset-email">Account email</label>
+                    <input id="password-reset-email" type="email" placeholder="Select an organization owner">
+                  </div>
+                </div>
+                <div class="actions">
+                  <button class="btn secondary" type="submit">Send reset email</button>
+                </div>
+                <p class="status" id="password-reset-status"></p>
+              </form>
             </div>
           </div>
-          <form class="stack" id="password-reset-form">
-            <div class="field">
-              <label for="password-reset-email">Email</label>
-              <input id="password-reset-email" type="email" placeholder="name@example.com">
-            </div>
-            <div class="actions">
-              <button class="btn secondary" type="submit">Send reset email</button>
-            </div>
-            <p class="status" id="password-reset-status"></p>
-          </form>
         </section>
       </section>
     </main>

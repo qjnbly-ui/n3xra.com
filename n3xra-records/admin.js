@@ -22,6 +22,9 @@ const organizationPublicEmbedInput = document.getElementById("organization-publi
 const organizationKeywordSearchInput = document.getElementById("organization-keyword-search");
 const organizationGrantSixMonthTrialButton = document.getElementById("organization-grant-six-month-trial");
 const organizationFormStatus = document.getElementById("organization-form-status");
+const selectedOrganizationTitle = document.getElementById("selected-organization-title");
+const selectedOrganizationSummary = document.getElementById("selected-organization-summary");
+const selectedOrganizationSupportLink = document.getElementById("selected-organization-support-link");
 const passwordResetForm = document.getElementById("password-reset-form");
 const passwordResetEmailInput = document.getElementById("password-reset-email");
 const passwordResetStatus = document.getElementById("password-reset-status");
@@ -129,9 +132,27 @@ function renderSelectedOrganization() {
   const organization = getSelectedOrganization();
   if (!organization) {
     organizationForm.reset();
+    if (selectedOrganizationTitle) selectedOrganizationTitle.textContent = "Select an organization";
+    if (selectedOrganizationSummary) selectedOrganizationSummary.textContent = "Library settings and support actions will appear here.";
+    selectedOrganizationSupportLink?.classList.add("hidden");
+    if (passwordResetEmailInput) passwordResetEmailInput.value = "";
     return;
   }
 
+  const ownerEmail = organization.owner_profile?.email || "";
+  if (selectedOrganizationTitle) selectedOrganizationTitle.textContent = organization.name || "Selected organization";
+  if (selectedOrganizationSummary) {
+    selectedOrganizationSummary.textContent = [
+      ownerEmail ? `Owner: ${ownerEmail}` : "No owner email found",
+      `Plan: ${organization.subscription_tier || "free"}`,
+      `Status: ${organization.account_status || "active"}`,
+      `${organization.member_count || 0} member${Number(organization.member_count || 0) === 1 ? "" : "s"}`,
+    ].join(" · ");
+  }
+  if (selectedOrganizationSupportLink) {
+    selectedOrganizationSupportLink.href = `/n3xra-records/account?support_org=${encodeURIComponent(organization.id)}`;
+    selectedOrganizationSupportLink.classList.remove("hidden");
+  }
   organizationNameInput.value = organization.name || "";
   organizationTierInput.value = organization.subscription_tier || "free";
   organizationStatusInput.value = organization.account_status || "active";
@@ -141,6 +162,10 @@ function renderSelectedOrganization() {
   organizationTrialEndInput.value = dateInputValue(organization.subscription_current_period_end);
   organizationPublicEmbedInput.checked = Boolean(organization.public_embed_enabled);
   organizationKeywordSearchInput.checked = Boolean(organization.keyword_search_enabled);
+  if (passwordResetEmailInput && !passwordResetEmailInput.matches(":focus")) {
+    passwordResetEmailInput.value = ownerEmail;
+  }
+  setStatus(passwordResetStatus, ownerEmail ? "" : "No owner email is available for this organization.", ownerEmail ? "" : "notice");
 }
 
 function dateInputValue(value) {
@@ -171,7 +196,7 @@ function addMonths(date, count) {
 function renderOrganizations() {
   organizationList.innerHTML = "";
   if (!organizations.length) {
-    organizationList.innerHTML = '<tr><td colspan="6">No organizations found.</td></tr>';
+    organizationList.innerHTML = '<tr><td colspan="5">No organizations found.</td></tr>';
     return;
   }
 
@@ -179,16 +204,13 @@ function renderOrganizations() {
     const row = document.createElement("tr");
     const isSelected = organization.id === selectedOrganizationId;
     row.className = isSelected ? "is-selected-row" : "";
+    row.dataset.id = organization.id;
     row.innerHTML = `
       <td>${escapeHtml(organization.name)}</td>
       <td>${escapeHtml(organization.owner_profile?.email || "")}</td>
       <td>${escapeHtml(organization.subscription_tier)}</td>
       <td>${escapeHtml(organization.account_status)}${organization.subscription_current_period_end ? `<br><small>Ends ${escapeHtml(dateInputValue(organization.subscription_current_period_end))}</small>` : ""}</td>
       <td>${organization.member_count}</td>
-      <td class="inline-actions">
-        <button class="btn secondary" type="button" data-action="select" data-id="${organization.id}">Select</button>
-        <a class="btn secondary button-link" href="/n3xra-records/account?support_org=${encodeURIComponent(organization.id)}">Support view</a>
-      </td>
     `;
     organizationList.append(row);
   });
@@ -304,9 +326,9 @@ async function handleLogout() {
 }
 
 function handleOrganizationListClick(event) {
-  const button = event.target.closest("button[data-action='select']");
-  if (!button) return;
-  selectedOrganizationId = button.getAttribute("data-id") || "";
+  const row = event.target.closest("tr[data-id]");
+  if (!row) return;
+  selectedOrganizationId = row.getAttribute("data-id") || "";
   renderOrganizations();
   renderAdminUsageOverview();
   renderSelectedOrganization();
