@@ -196,21 +196,26 @@ function addMonths(date, count) {
 function renderOrganizations() {
   organizationList.innerHTML = "";
   if (!organizations.length) {
-    organizationList.innerHTML = '<tr><td colspan="5">No organizations found.</td></tr>';
+    organizationList.innerHTML = '<p class="field-note">No organizations found.</p>';
     return;
   }
 
   organizations.forEach((organization) => {
-    const row = document.createElement("tr");
+    const row = document.createElement("button");
     const isSelected = organization.id === selectedOrganizationId;
-    row.className = isSelected ? "is-selected-row" : "";
+    row.className = `records-admin-org-item${isSelected ? " is-selected" : ""}`;
+    row.type = "button";
     row.dataset.id = organization.id;
+    const ownerEmail = organization.owner_profile?.email || "No owner email";
     row.innerHTML = `
-      <td>${escapeHtml(organization.name)}</td>
-      <td>${escapeHtml(organization.owner_profile?.email || "")}</td>
-      <td>${escapeHtml(organization.subscription_tier)}</td>
-      <td>${escapeHtml(organization.account_status)}${organization.subscription_current_period_end ? `<br><small>Ends ${escapeHtml(dateInputValue(organization.subscription_current_period_end))}</small>` : ""}</td>
-      <td>${organization.member_count}</td>
+      <span class="records-admin-org-main">
+        <strong>${escapeHtml(organization.name)}</strong>
+        <span>${escapeHtml(ownerEmail)}</span>
+      </span>
+      <span class="records-admin-org-meta">
+        <span>${escapeHtml(organization.subscription_tier || "free")} / ${escapeHtml(organization.account_status || "active")}</span>
+        <span>${organization.member_count} member${Number(organization.member_count || 0) === 1 ? "" : "s"}${organization.subscription_current_period_end ? ` / ends ${escapeHtml(dateInputValue(organization.subscription_current_period_end))}` : ""}</span>
+      </span>
     `;
     organizationList.append(row);
   });
@@ -326,7 +331,7 @@ async function handleLogout() {
 }
 
 function handleOrganizationListClick(event) {
-  const row = event.target.closest("tr[data-id]");
+  const row = event.target.closest("[data-id]");
   if (!row) return;
   selectedOrganizationId = row.getAttribute("data-id") || "";
   renderOrganizations();

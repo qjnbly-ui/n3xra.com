@@ -2831,7 +2831,7 @@ textarea {
 
 .records-admin-layout {
   display: grid;
-  grid-template-columns: minmax(360px, 0.82fr) minmax(460px, 1.18fr);
+  grid-template-columns: minmax(320px, 0.7fr) minmax(560px, 1.3fr);
   gap: 1rem;
   align-items: start;
 }
@@ -2843,8 +2843,62 @@ textarea {
   min-width: 0;
 }
 
-.records-admin-selector .data-table tbody tr {
+.records-admin-org-list {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.records-admin-org-item {
+  display: grid;
+  gap: 0.45rem;
+  width: 100%;
+  border: 1px solid rgba(15, 22, 32, 0.08);
+  border-radius: 14px;
+  background: #ffffff;
+  color: var(--ink);
   cursor: pointer;
+  padding: 0.82rem 0.9rem;
+  text-align: left;
+  transition: border-color 0.16s ease, background 0.16s ease, box-shadow 0.16s ease;
+}
+
+.records-admin-org-item:hover,
+.records-admin-org-item:focus-visible,
+.records-admin-org-item.is-selected {
+  border-color: rgba(23, 111, 102, 0.28);
+  background:
+    radial-gradient(280px 130px at 0% 0%, rgba(23, 111, 102, 0.1), transparent 65%),
+    #ffffff;
+  box-shadow: 0 12px 28px rgba(15, 22, 32, 0.08);
+  outline: none;
+}
+
+.records-admin-org-main,
+.records-admin-org-meta {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.records-admin-org-main strong {
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 0.98rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.records-admin-org-main span,
+.records-admin-org-meta {
+  color: var(--slate);
+  font-size: 0.84rem;
+}
+
+.records-admin-org-main span,
+.records-admin-org-meta span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .admin-subhead {
@@ -2881,13 +2935,14 @@ textarea {
 
 .selected-organization-head {
   display: flex;
+  min-height: 0;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
   gap: 1rem;
 }
 
 .selected-organization-head h3 {
-  font-size: 1.35rem;
+  font-size: 1.25rem;
 }
 
 .records-admin-selected #organization-form {
