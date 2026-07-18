@@ -310,6 +310,7 @@ function renderAssets() {
   emptyState.hidden = true;
   assetGrid.innerHTML = assets.map((asset) => {
     const assetVersions = versions.filter((version) => version.asset_id === asset.id);
+    const previewVersion = assetVersions.find((version) => String(version.mime_type || "").startsWith("image/"));
     const versionMarkup = assetVersions.length
       ? assetVersions.map((version) => `
           <div class="portal-version-row">
@@ -327,21 +328,50 @@ function renderAssets() {
 
     return `
       <article class="portal-asset-card">
-        <div class="portal-asset-head">
-          <div>
-            <h3>${escapeHtml(asset.label)}</h3>
-            <div class="portal-asset-meta">
-              <span class="portal-pill">${escapeHtml(asset.category)}</span>
-              <span class="portal-pill">${escapeHtml(asset.replacement_type.replaceAll("_", " "))}</span>
-              <span class="portal-pill">${escapeHtml(asset.asset_key)}</span>
-            </div>
-          </div>
-          ${canEditSelectedWebsite ? `<button class="portal-link-button" type="button" data-replace-asset="${asset.id}">Upload replacement</button>` : ""}
+        <div class="portal-asset-preview"${previewVersion ? ` data-preview-version="${previewVersion.id}"` : ""}>
+          <img alt="" hidden>
+          <div class="portal-asset-preview-fallback">${escapeHtml(asset.category || "asset")}</div>
         </div>
-        <div class="portal-version-list">${versionMarkup}</div>
+        <div class="portal-asset-body">
+          <div class="portal-asset-head">
+            <div>
+              <h3>${escapeHtml(asset.label)}</h3>
+              <div class="portal-asset-meta">
+                <span class="portal-pill">${escapeHtml(asset.category)}</span>
+                <span class="portal-pill">${escapeHtml(asset.replacement_type.replaceAll("_", " "))}</span>
+                <span class="portal-pill">${escapeHtml(asset.asset_key)}</span>
+              </div>
+            </div>
+            ${canEditSelectedWebsite ? `<button class="portal-link-button" type="button" data-replace-asset="${asset.id}">Replace</button>` : ""}
+          </div>
+          <div class="portal-version-list">${versionMarkup}</div>
+        </div>
       </article>
     `;
   }).join("");
+  void hydrateAssetPreviews();
+}
+
+async function hydrateAssetPreviews() {
+  const previews = Array.from(assetGrid.querySelectorAll("[data-preview-version]"));
+  await Promise.all(previews.map(async (preview) => {
+    const version = versions.find((row) => row.id === preview.dataset.previewVersion);
+    if (!version) return;
+    let url = version.public_url;
+    if (!url) {
+      const { data, error } = await supabase.storage.from(version.storage_bucket).createSignedUrl(version.storage_path, 600);
+      if (error) return;
+      url = data.signedUrl;
+    }
+    const image = preview.querySelector("img");
+    const fallback = preview.querySelector(".portal-asset-preview-fallback");
+    if (!image || !url) return;
+    image.addEventListener("load", () => {
+      image.hidden = false;
+      if (fallback) fallback.hidden = true;
+    }, { once: true });
+    image.src = url;
+  }));
 }
 
 function openUploadForm(assetId = "") {

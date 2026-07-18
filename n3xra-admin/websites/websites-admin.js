@@ -169,6 +169,30 @@ function versionActions(version) {
   return actions.join("");
 }
 
+async function hydrateAssetPreviews() {
+  const previews = Array.from(assetGrid.querySelectorAll("[data-preview-version]"));
+  await Promise.all(previews.map(async (preview) => {
+    const version = versions.find((row) => row.id === preview.dataset.previewVersion);
+    if (!version || !String(version.mime_type || "").startsWith("image/")) return;
+    let url = version.public_url;
+    if (!url) {
+      const { data, error } = await supabase.storage
+        .from(version.storage_bucket)
+        .createSignedUrl(version.storage_path, 600);
+      if (error) return;
+      url = data.signedUrl;
+    }
+    const image = preview.querySelector("img");
+    const fallback = preview.querySelector(".portal-asset-preview-fallback");
+    if (!image || !url) return;
+    image.addEventListener("load", () => {
+      image.hidden = false;
+      if (fallback) fallback.hidden = true;
+    }, { once: true });
+    image.src = url;
+  }));
+}
+
 function renderAssets() {
   if (!selectedWebsite || !assets.length) {
     assetGrid.innerHTML = "";
@@ -182,33 +206,40 @@ function renderAssets() {
   emptyState.hidden = true;
   assetGrid.innerHTML = assets.map((asset) => {
     const assetVersions = versions.filter((version) => version.asset_id === asset.id);
+    const previewVersion = assetVersions.find((version) => String(version.mime_type || "").startsWith("image/"));
     return `
       <article class="portal-asset-card">
-        <div class="portal-asset-head">
-          <div>
-            <p class="portal-kicker">${escapeHtml(asset.category || "asset")}</p>
-            <h3>${escapeHtml(asset.label)}</h3>
-            <p><code>${escapeHtml(asset.asset_key)}</code> · ${escapeHtml(asset.replacement_type || "download_only")}</p>
-          </div>
-          <span class="portal-badge">${assetVersions.length} version${assetVersions.length === 1 ? "" : "s"}</span>
+        <div class="portal-asset-preview"${previewVersion ? ` data-preview-version="${previewVersion.id}"` : ""}>
+          <img alt="" hidden>
+          <div class="portal-asset-preview-fallback">${escapeHtml(asset.category || "asset")}</div>
         </div>
-        <div class="portal-version-list">
-          ${assetVersions.length ? assetVersions.map((version) => `
-            <div class="portal-version">
-              <div>
-                <strong>Version ${version.version_number}</strong>
-                <span class="portal-badge portal-status-${escapeHtml(version.status)}">${escapeHtml(version.status.replaceAll("_", " "))}</span>
-                <p>${escapeHtml(version.original_filename)}${version.size_bytes ? ` · ${formatBytes(version.size_bytes)}` : ""}</p>
-                <p>${formatDate(version.created_at)}${version.change_note ? ` · ${escapeHtml(version.change_note)}` : ""}</p>
-                ${version.public_url ? `<p class="portal-url">${escapeHtml(version.public_url)}</p>` : ""}
-              </div>
-              <div class="portal-card-actions">${versionActions(version)}</div>
+        <div class="portal-asset-body">
+          <div class="portal-asset-head">
+            <div>
+              <p class="portal-kicker">${escapeHtml(asset.category || "asset")}</p>
+              <h3>${escapeHtml(asset.label)}</h3>
+              <p><code>${escapeHtml(asset.asset_key)}</code> · ${escapeHtml((asset.replacement_type || "download_only").replaceAll("_", " "))}</p>
             </div>
-          `).join("") : "<p>No versions uploaded.</p>"}
+            <span class="portal-badge">${assetVersions.length} version${assetVersions.length === 1 ? "" : "s"}</span>
+          </div>
+          <div class="portal-version-list">
+            ${assetVersions.length ? assetVersions.map((version) => `
+              <div class="portal-version">
+                <div>
+                  <strong>Version ${version.version_number}</strong>
+                  <span class="portal-badge portal-status-${escapeHtml(version.status)}">${escapeHtml(version.status.replaceAll("_", " "))}</span>
+                  <p>${escapeHtml(version.original_filename)}${version.size_bytes ? ` · ${formatBytes(version.size_bytes)}` : ""}</p>
+                  <p>${formatDate(version.created_at)}${version.change_note ? ` · ${escapeHtml(version.change_note)}` : ""}</p>
+                </div>
+                <div class="portal-card-actions">${versionActions(version)}</div>
+              </div>
+            `).join("") : "<p>No versions uploaded.</p>"}
+          </div>
         </div>
       </article>
     `;
   }).join("");
+  void hydrateAssetPreviews();
 }
 
 async function loadAssets() {
