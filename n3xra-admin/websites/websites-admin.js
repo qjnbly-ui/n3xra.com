@@ -37,10 +37,32 @@ let selectedWebsite;
 let assets = [];
 let versions = [];
 let members = [];
+let toastTimer;
 
 function showStatus(message) {
   statusScreen.textContent = message;
   statusScreen.hidden = false;
+}
+
+function showToast(message, type = "success") {
+  let toast = document.getElementById("portal-toast");
+  if (!toast) {
+    toast = document.createElement("div");
+    toast.id = "portal-toast";
+    toast.className = "portal-toast";
+    toast.setAttribute("role", "status");
+    toast.setAttribute("aria-live", "polite");
+    document.body.appendChild(toast);
+  }
+  window.clearTimeout(toastTimer);
+  toast.className = `portal-toast is-${type} is-visible`;
+  toast.innerHTML = `
+    <span class="portal-toast-icon" aria-hidden="true">${type === "error" ? "!" : "✓"}</span>
+    <span>${escapeHtml(message)}</span>
+    <button type="button" aria-label="Dismiss notification">×</button>
+  `;
+  toast.querySelector("button")?.addEventListener("click", () => toast.classList.remove("is-visible"), { once: true });
+  toastTimer = window.setTimeout(() => toast.classList.remove("is-visible"), 5000);
 }
 
 function openLogin() {
@@ -388,8 +410,16 @@ async function publishVersion(versionId) {
   }).eq("id", asset.id);
   if (assetError) throw assetError;
   await loadAssets();
-  await navigator.clipboard?.writeText(publicUrl);
-  window.alert("Published. The versioned CDN URL was copied when browser permissions allowed it.");
+  let copied = false;
+  try {
+    if (navigator.clipboard) {
+      await navigator.clipboard.writeText(publicUrl);
+      copied = true;
+    }
+  } catch {
+    copied = false;
+  }
+  showToast(copied ? "Published to the CDN and copied the URL." : "Published to the CDN. Use Copy URL when you need the link.");
 }
 
 async function downloadVersion(version) {
@@ -420,7 +450,7 @@ async function handleAssetAction(event) {
       button.textContent = "Copied";
     }
   } catch (error) {
-    window.alert(error?.message || "This action could not be completed.");
+    showToast(error?.message || "This action could not be completed.", "error");
   } finally {
     button.disabled = false;
   }
@@ -481,8 +511,8 @@ async function initWebsiteAdmin() {
     document.body.classList.remove("portal-loading");
     statusScreen.hidden = true;
 
-    websiteSelect.addEventListener("change", () => selectWebsite(websiteSelect.value).catch((loadError) => window.alert(loadError.message)));
-    refreshButton.addEventListener("click", () => loadWebsites(selectedWebsite?.id).catch((loadError) => window.alert(loadError.message)));
+    websiteSelect.addEventListener("change", () => selectWebsite(websiteSelect.value).catch((loadError) => showToast(loadError.message, "error")));
+    refreshButton.addEventListener("click", () => loadWebsites(selectedWebsite?.id).catch((loadError) => showToast(loadError.message, "error")));
     assetGrid.addEventListener("click", handleAssetAction);
     memberForm.addEventListener("submit", assignMember);
     memberList.addEventListener("click", handleMemberAction);
