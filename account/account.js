@@ -506,7 +506,11 @@ async function maybeRouteAfterAuth(session) {
     return;
   }
 
-  currentSession = session;
+  if (next) {
+    window.location.assign(next);
+    return;
+  }
+
   await renderDashboard("Signed in.");
 }
 
@@ -893,7 +897,7 @@ async function init() {
         await renderDashboard(getErrorMessage(error, "Unable to redeem platform admin invite."));
       }
     } else {
-      await renderDashboard(callbackType ? "Signed in. Choose an app to continue." : "");
+      await maybeRouteAfterAuth(currentSession);
     }
   } else {
     renderShell("auth");

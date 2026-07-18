@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>N3XRA | Website Admin</title>
+  <meta name="description" content="N3XRA master administration for client websites.">
+  <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
+  <link rel="canonical" href="https://n3xra.com/n3xra-admin/websites/">
+  <link rel="icon" type="image/png" sizes="284x284" href="/assets/n3xra_logo_transparent_small.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/site-nav.css">
+  <link rel="stylesheet" href="/client-portal/portal.css">
+  <script src="/shared/config.js"></script>
+  <script src="/assets/site-nav.js" defer></script>
+</head>
+<body class="portal-loading">
+  <header class="site-topbar">
+    <div class="site-topbar-inner">
+      <div class="site-topbar-row">
+        <a class="site-brand" href="/" aria-label="N3XRA home">
+          <img src="/assets/n3xra_logo_transparent.png" alt="N3XRA">
+        </a>
+        <div class="site-nav-actions">
+          <a class="site-menu-link" href="/account">Dashboard</a>
+          <button class="site-menu-toggle" type="button" aria-expanded="false" aria-controls="website-admin-menu" aria-label="Open menu" data-site-menu-toggle>
+            <span></span><span></span><span></span>
+          </button>
+        </div>
+      </div>
+      <nav class="site-mobile-menu" id="website-admin-menu" aria-label="Mobile primary" hidden>
+        <div class="site-mobile-menu-head"><p class="site-mobile-menu-title">Admin</p></div>
+        <a class="site-menu-link" href="/account">Account dashboard</a>
+        <a class="site-menu-link" href="/client-portal/">Client portal</a>
+        <a class="site-menu-link" href="/projects/">Projects</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="portal-shell">
+    <section class="portal-heading">
+      <div>
+        <p class="portal-kicker">Master administration</p>
+        <h1>Website Admin</h1>
+        <p class="portal-heading-copy">The master workspace for N3XRA-managed client websites.</p>
+      </div>
+    </section>
+
+    <div class="portal-layout">
+      <nav class="portal-nav" aria-label="Website administration">
+        <a class="is-current" href="/n3xra-admin/websites/">Websites</a>
+        <span class="is-placeholder">Clients</span>
+        <span class="is-placeholder">Access</span>
+        <span class="is-placeholder">Activity</span>
+      </nav>
+
+      <section class="portal-workspace" aria-labelledby="admin-websites-title">
+        <div class="portal-workspace-head">
+          <div>
+            <p class="portal-kicker">Workspace</p>
+            <h2 id="admin-websites-title">Client websites</h2>
+          </div>
+          <button class="portal-button" id="open-site-form" type="button">Add website</button>
+        </div>
+
+        <form class="portal-form" id="site-form" hidden>
+          <div class="portal-form-head">
+            <div>
+              <p class="portal-kicker">New managed site</p>
+              <h3>Create website record</h3>
+            </div>
+            <button class="portal-close" id="close-site-form" type="button">Close</button>
+          </div>
+          <div class="portal-form-grid">
+            <label>
+              Website name
+              <input id="site-name" type="text" required placeholder="Client website">
+            </label>
+            <label>
+              Slug
+              <input id="site-slug" type="text" required placeholder="client-website">
+            </label>
+            <label>
+              Live URL
+              <input id="site-live-url" type="url" placeholder="https://example.com">
+            </label>
+            <label>
+              Repository
+              <input id="site-repository" type="text" placeholder="owner/repository">
+            </label>
+          </div>
+          <div class="portal-form-actions">
+            <button class="portal-button" type="submit">Create website</button>
+            <p class="portal-inline-status" id="site-form-status" role="status"></p>
+          </div>
+        </form>
+
+        <div class="portal-workspace-head portal-admin-picker">
+          <label>
+            Managed website
+            <select class="portal-select" id="admin-website-select" aria-label="Choose a managed website"></select>
+          </label>
+          <button class="portal-button portal-button-secondary" id="refresh-admin" type="button">Refresh</button>
+        </div>
+
+        <div class="portal-site-summary" id="admin-site-summary" hidden>
+          <div>
+            <p class="portal-kicker" id="admin-site-status">Managed website</p>
+            <h3 id="admin-site-name">Website</h3>
+            <p id="admin-site-meta"></p>
+          </div>
+          <div class="portal-card-actions">
+            <a class="portal-button portal-button-secondary" id="admin-live-link" href="#" target="_blank" rel="noopener">Visit live site</a>
+            <a class="portal-button portal-button-secondary" id="admin-client-view" href="/client-portal/">Open asset portal</a>
+          </div>
+        </div>
+
+        <section class="portal-access-panel" id="access-panel" hidden aria-labelledby="access-title">
+          <div class="portal-toolbar">
+            <div>
+              <h3 id="access-title">Client access</h3>
+              <p>Assign an existing N3XRA account to this website by email.</p>
+            </div>
+          </div>
+          <form class="portal-access-form" id="member-form">
+            <label>
+              Client email
+              <input id="member-email" type="email" required placeholder="client@example.com">
+            </label>
+            <label>
+              Role
+              <select id="member-role">
+                <option value="owner">Owner</option>
+                <option value="editor">Editor</option>
+                <option value="viewer">Viewer</option>
+              </select>
+            </label>
+            <button class="portal-button" type="submit">Assign account</button>
+          </form>
+          <p class="portal-inline-status" id="member-form-status" role="status"></p>
+          <div class="portal-member-list" id="member-list"></div>
+          <div class="portal-empty portal-member-empty" id="member-empty">
+            <p>No clients are assigned to this website.</p>
+          </div>
+        </section>
+
+        <div class="portal-toolbar" id="admin-asset-toolbar" hidden>
+          <div>
+            <h3>Asset review</h3>
+            <p>Approve private drafts, publish versioned CDN files, and copy production URLs.</p>
+          </div>
+        </div>
+
+        <div class="portal-asset-grid" id="admin-asset-grid"></div>
+        <div class="portal-empty" id="admin-empty">
+          <p>No managed websites or assets are available yet.</p>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <div class="portal-status" id="portal-status" role="status">Verifying master admin access…</div>
+  <script type="module" src="/n3xra-admin/websites/websites-admin.js"></script>
+</body>
+</html>

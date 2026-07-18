@@ -52,6 +52,22 @@ function isValidEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
+function isValidUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+async function findAuthUserByEmail(adminClient: ReturnType<typeof createClient>, inputEmail: string) {
+  const email = normalizeEmail(inputEmail);
+  for (let page = 1; page <= 20; page += 1) {
+    const { data, error } = await adminClient.auth.admin.listUsers({ page, perPage: 1000 });
+    if (error) throw new Error(error.message);
+    const match = (data.users || []).find((candidate) => normalizeEmail(candidate.email) === email);
+    if (match) return match;
+    if ((data.users || []).length < 1000) break;
+  }
+  return null;
+}
+
 function base64Url(bytes: Uint8Array) {
   return btoa(String.fromCharCode(...bytes))
     .replace(/\+/g, "-")
@@ -481,6 +497,116 @@ Deno.serve(async (request) => {
           status: platformAdmin.status,
         },
       });
+    }
+
+    if (action === "list-website-members") {
+      const websiteId = String(payload.websiteId || "").trim();
+      if (!isValidUuid(websiteId)) {
+        return jsonResponse({ error: "A valid websiteId is required." }, 400);
+      }
+
+      const { data: website, error: websiteError } = await adminClient
+        .from("client_websites")
+        .select("id, name")
+        .eq("id", websiteId)
+        .maybeSingle();
+      if (websiteError) return jsonResponse({ error: websiteError.message }, 400);
+      if (!website) return jsonResponse({ error: "Website not found." }, 404);
+
+      const { data: memberships, error: membershipError } = await adminClient
+        .from("website_members")
+        .select("id, website_id, user_id, role, status, created_at, updated_at")
+        .eq("website_id", websiteId)
+        .order("created_at", { ascending: true });
+      if (membershipError) return jsonResponse({ error: membershipError.message }, 400);
+
+      const members = await Promise.all((memberships || []).map(async (membership) => {
+        const { data: authData } = await adminClient.auth.admin.getUserById(membership.user_id);
+        const authUser = authData?.user;
+        return {
+          ...membership,
+          email: normalizeEmail(authUser?.email),
+          name: textValue(
+            authUser?.user_metadata?.full_name ||
+            authUser?.user_metadata?.name ||
+            authUser?.email,
+            180,
+          ),
+        };
+      }));
+      return jsonResponse({ ok: true, website, members });
+    }
+
+    if (action === "assign-website-member") {
+      const websiteId = String(payload.websiteId || "").trim();
+      const email = normalizeEmail(payload.email);
+      const role = String(payload.role || "").trim().toLowerCase();
+      if (!isValidUuid(websiteId)) return jsonResponse({ error: "A valid websiteId is required." }, 400);
+      if (!isValidEmail(email)) return jsonResponse({ error: "Enter a valid client email." }, 400);
+      if (!["owner", "editor", "viewer"].includes(role)) {
+        return jsonResponse({ error: "Role must be owner, editor, or viewer." }, 400);
+      }
+
+      const { data: website, error: websiteError } = await adminClient
+        .from("client_websites")
+        .select("id, name")
+        .eq("id", websiteId)
+        .maybeSingle();
+      if (websiteError) return jsonResponse({ error: websiteError.message }, 400);
+      if (!website) return jsonResponse({ error: "Website not found." }, 404);
+
+      const targetUser = await findAuthUserByEmail(adminClient, email);
+      if (!targetUser) {
+        return jsonResponse({
+          error: "No N3XRA account uses this email yet. Ask the client to create their account first, then assign them.",
+        }, 404);
+      }
+
+      const now = new Date().toISOString();
+      const { data: membership, error: membershipError } = await adminClient
+        .from("website_members")
+        .upsert({
+          website_id: websiteId,
+          user_id: targetUser.id,
+          role,
+          status: "active",
+          invited_by_user_id: user.id,
+          updated_at: now,
+        }, { onConflict: "website_id,user_id" })
+        .select("id, website_id, user_id, role, status, created_at, updated_at")
+        .single();
+      if (membershipError) return jsonResponse({ error: membershipError.message }, 400);
+      return jsonResponse({
+        ok: true,
+        membership: {
+          ...membership,
+          email,
+          name: textValue(targetUser.user_metadata?.full_name || targetUser.user_metadata?.name || email, 180),
+        },
+      });
+    }
+
+    if (action === "update-website-member") {
+      const membershipId = String(payload.membershipId || "").trim();
+      const role = String(payload.role || "").trim().toLowerCase();
+      const status = String(payload.status || "active").trim().toLowerCase();
+      if (!isValidUuid(membershipId)) return jsonResponse({ error: "A valid membershipId is required." }, 400);
+      if (!["owner", "editor", "viewer"].includes(role)) {
+        return jsonResponse({ error: "Role must be owner, editor, or viewer." }, 400);
+      }
+      if (!["active", "revoked"].includes(status)) {
+        return jsonResponse({ error: "Status must be active or revoked." }, 400);
+      }
+
+      const { data: membership, error } = await adminClient
+        .from("website_members")
+        .update({ role, status, updated_at: new Date().toISOString() })
+        .eq("id", membershipId)
+        .select("id, website_id, user_id, role, status, created_at, updated_at")
+        .maybeSingle();
+      if (error) return jsonResponse({ error: error.message }, 400);
+      if (!membership) return jsonResponse({ error: "Website membership not found." }, 404);
+      return jsonResponse({ ok: true, membership });
     }
 
     if (action === "list-platform-admins") {

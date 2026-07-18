@@ -1,0 +1,382 @@
+import { createBrowserSupabase, getSessionOrNull, hasConfig } from "/shared/lib/supabase-client.js";
+
+const PRIVATE_BUCKET = "website-assets-private";
+const statusScreen = document.getElementById("portal-status");
+const logoutButton = document.getElementById("portal-logout");
+const websiteSelect = document.getElementById("website-select");
+const websiteSummary = document.getElementById("website-summary");
+const websiteName = document.getElementById("website-name");
+const websiteRole = document.getElementById("website-role");
+const websiteLiveLink = document.getElementById("website-live-link");
+const assetToolbar = document.getElementById("asset-toolbar");
+const assetGrid = document.getElementById("asset-grid");
+const emptyState = document.getElementById("portal-empty");
+const uploadForm = document.getElementById("asset-upload-form");
+const openUploadButton = document.getElementById("open-upload");
+const closeUploadButton = document.getElementById("close-upload");
+const uploadAssetId = document.getElementById("upload-asset-id");
+const uploadFile = document.getElementById("upload-file");
+const uploadLabel = document.getElementById("upload-label");
+const uploadKey = document.getElementById("upload-key");
+const uploadCategory = document.getElementById("upload-category");
+const uploadReplacementType = document.getElementById("upload-replacement-type");
+const uploadNote = document.getElementById("upload-note");
+const uploadStatus = document.getElementById("upload-status");
+const newAssetFields = Array.from(document.querySelectorAll("[data-new-asset-field]"));
+
+let supabase = null;
+let currentSession = null;
+let websites = [];
+let selectedWebsite = null;
+let selectedRole = "";
+let canEditSelectedWebsite = false;
+let assets = [];
+let versions = [];
+
+function showStatus(message) {
+  if (!statusScreen) return;
+  statusScreen.textContent = message;
+  statusScreen.hidden = false;
+}
+
+function setInlineStatus(message = "", isError = false) {
+  uploadStatus.textContent = message;
+  uploadStatus.classList.toggle("is-error", isError);
+}
+
+function openLogin() {
+  const next = encodeURIComponent(`${window.location.pathname}${window.location.search}`);
+  window.location.replace(`/account?next=${next}`);
+}
+
+function escapeHtml(value = "") {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function formatDate(value) {
+  if (!value) return "";
+  return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
+}
+
+function formatBytes(value) {
+  const bytes = Number(value || 0);
+  if (!bytes) return "";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function slugifyFilename(filename) {
+  const parts = String(filename || "asset").split(".");
+  const extension = parts.length > 1 ? `.${parts.pop().toLowerCase().replace(/[^a-z0-9]/g, "")}` : "";
+  const base = parts.join(".").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "asset";
+  return `${base}${extension}`;
+}
+
+function keyFromLabel(value) {
+  const words = String(value || "").trim().replace(/[^a-zA-Z0-9]+/g, " ").split(/\s+/).filter(Boolean);
+  if (!words.length) return "";
+  return words[0].toLowerCase() + words.slice(1).map((word) => word[0].toUpperCase() + word.slice(1)).join("");
+}
+
+function syncNewAssetFields() {
+  const creating = !uploadAssetId.value;
+  newAssetFields.forEach((field) => {
+    field.hidden = !creating;
+  });
+  uploadLabel.required = creating;
+  uploadKey.required = creating;
+}
+
+async function loadWebsites() {
+  const { data, error } = await supabase
+    .from("client_websites")
+    .select("id,name,slug,live_url,status,website_members(role,status,user_id)")
+    .order("name");
+  if (error) throw error;
+
+  websites = data || [];
+  websiteSelect.innerHTML = websites.length
+    ? websites.map((website) => `<option value="${website.id}">${escapeHtml(website.name)}</option>`).join("")
+    : '<option value="">No websites assigned</option>';
+
+  if (!websites.length) {
+    websiteSummary.hidden = true;
+    assetToolbar.hidden = true;
+    emptyState.hidden = false;
+    emptyState.innerHTML = "<p>No websites are currently assigned to this account.</p>";
+    return;
+  }
+
+  const requestedWebsiteId = new URLSearchParams(window.location.search).get("website");
+  const initialWebsite = websites.find((website) => website.id === requestedWebsiteId) || websites[0];
+  await selectWebsite(initialWebsite.id);
+}
+
+async function selectWebsite(websiteId) {
+  selectedWebsite = websites.find((website) => website.id === websiteId) || null;
+  if (!selectedWebsite) return;
+
+  websiteSelect.value = selectedWebsite.id;
+  const membership = (selectedWebsite.website_members || []).find((row) => row.user_id === currentSession.user.id && row.status === "active");
+  selectedRole = membership?.role || "platform admin";
+
+  const { data: canEdit, error: accessError } = await supabase.rpc("can_edit_client_website", {
+    target_website_id: selectedWebsite.id,
+  });
+  if (accessError) throw accessError;
+  canEditSelectedWebsite = Boolean(canEdit);
+
+  websiteName.textContent = selectedWebsite.name;
+  websiteRole.textContent = `${selectedRole.replace("_", " ")} access`;
+  websiteLiveLink.href = selectedWebsite.live_url || "#";
+  websiteLiveLink.hidden = !selectedWebsite.live_url;
+  websiteSummary.hidden = false;
+  assetToolbar.hidden = false;
+  openUploadButton.hidden = !canEditSelectedWebsite;
+  closeUploadForm();
+  await loadAssets();
+}
+
+async function loadAssets() {
+  assetGrid.innerHTML = "";
+  emptyState.hidden = true;
+
+  const { data: assetRows, error: assetError } = await supabase
+    .from("website_assets")
+    .select("*")
+    .eq("website_id", selectedWebsite.id)
+    .eq("status", "active")
+    .order("updated_at", { ascending: false });
+  if (assetError) throw assetError;
+  assets = assetRows || [];
+
+  if (assets.length) {
+    const { data: versionRows, error: versionError } = await supabase
+      .from("website_asset_versions")
+      .select("*")
+      .in("asset_id", assets.map((asset) => asset.id))
+      .order("version_number", { ascending: false });
+    if (versionError) throw versionError;
+    versions = versionRows || [];
+  } else {
+    versions = [];
+  }
+
+  uploadAssetId.innerHTML = '<option value="">Create a new asset</option>' +
+    assets.map((asset) => `<option value="${asset.id}">${escapeHtml(asset.label)}</option>`).join("");
+  syncNewAssetFields();
+  renderAssets();
+}
+
+function renderAssets() {
+  if (!assets.length) {
+    emptyState.hidden = false;
+    emptyState.innerHTML = "<p>No website assets have been added yet.</p>";
+    return;
+  }
+
+  emptyState.hidden = true;
+  assetGrid.innerHTML = assets.map((asset) => {
+    const assetVersions = versions.filter((version) => version.asset_id === asset.id);
+    const versionMarkup = assetVersions.length
+      ? assetVersions.map((version) => `
+          <div class="portal-version-row">
+            <div>
+              <p><strong>Version ${version.version_number}</strong> · ${escapeHtml(version.status.replace("_", " "))}</p>
+              <p>${escapeHtml(version.original_filename)}${version.size_bytes ? ` · ${formatBytes(version.size_bytes)}` : ""} · ${formatDate(version.created_at)}</p>
+            </div>
+            <div class="portal-version-actions">
+              <button class="portal-link-button" type="button" data-download-version="${version.id}">Download</button>
+              ${version.public_url ? `<a class="portal-link-button" href="${escapeHtml(version.public_url)}" target="_blank" rel="noopener">Published file</a>` : ""}
+            </div>
+          </div>
+        `).join("")
+      : '<p>No versions uploaded.</p>';
+
+    return `
+      <article class="portal-asset-card">
+        <div class="portal-asset-head">
+          <div>
+            <h3>${escapeHtml(asset.label)}</h3>
+            <div class="portal-asset-meta">
+              <span class="portal-pill">${escapeHtml(asset.category)}</span>
+              <span class="portal-pill">${escapeHtml(asset.replacement_type.replaceAll("_", " "))}</span>
+              <span class="portal-pill">${escapeHtml(asset.asset_key)}</span>
+            </div>
+          </div>
+          ${canEditSelectedWebsite ? `<button class="portal-link-button" type="button" data-replace-asset="${asset.id}">Upload replacement</button>` : ""}
+        </div>
+        <div class="portal-version-list">${versionMarkup}</div>
+      </article>
+    `;
+  }).join("");
+}
+
+function openUploadForm(assetId = "") {
+  uploadForm.hidden = false;
+  uploadAssetId.value = assetId;
+  syncNewAssetFields();
+  setInlineStatus("");
+  uploadForm.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function closeUploadForm() {
+  uploadForm.hidden = true;
+  uploadForm.reset();
+  uploadAssetId.value = "";
+  syncNewAssetFields();
+  setInlineStatus("");
+}
+
+async function uploadAssetVersion(event) {
+  event.preventDefault();
+  if (!selectedWebsite || !canEditSelectedWebsite || !uploadFile.files?.[0]) return;
+
+  const submitButton = uploadForm.querySelector('button[type="submit"]');
+  submitButton.disabled = true;
+  setInlineStatus("Uploading private draft…");
+
+  const file = uploadFile.files[0];
+  let asset = assets.find((row) => row.id === uploadAssetId.value) || null;
+  let storagePath = "";
+
+  try {
+    if (!asset) {
+      const assetId = crypto.randomUUID();
+      const label = uploadLabel.value.trim();
+      const assetKey = uploadKey.value.trim();
+      const { data, error } = await supabase
+        .from("website_assets")
+        .insert({
+          id: assetId,
+          website_id: selectedWebsite.id,
+          asset_key: assetKey,
+          label,
+          category: uploadCategory.value,
+          replacement_type: uploadReplacementType.value,
+          created_by_user_id: currentSession.user.id,
+        })
+        .select()
+        .single();
+      if (error) throw error;
+      asset = data;
+    }
+
+    const { data: nextVersion, error: versionNumberError } = await supabase.rpc("next_website_asset_version_number", {
+      target_asset_id: asset.id,
+    });
+    if (versionNumberError) throw versionNumberError;
+
+    storagePath = `${selectedWebsite.id}/${asset.id}/v${nextVersion}-${crypto.randomUUID()}-${slugifyFilename(file.name)}`;
+    const { error: uploadError } = await supabase.storage
+      .from(PRIVATE_BUCKET)
+      .upload(storagePath, file, { cacheControl: "3600", upsert: false, contentType: file.type || undefined });
+    if (uploadError) throw uploadError;
+
+    const { error: versionError } = await supabase
+      .from("website_asset_versions")
+      .insert({
+        asset_id: asset.id,
+        version_number: nextVersion,
+        status: "pending_review",
+        storage_bucket: PRIVATE_BUCKET,
+        storage_path: storagePath,
+        original_filename: file.name,
+        mime_type: file.type || null,
+        size_bytes: file.size,
+        change_note: uploadNote.value.trim() || null,
+        uploaded_by_user_id: currentSession.user.id,
+      });
+    if (versionError) {
+      await supabase.storage.from(PRIVATE_BUCKET).remove([storagePath]);
+      throw versionError;
+    }
+
+    setInlineStatus("Uploaded and submitted for review.");
+    await loadAssets();
+    window.setTimeout(closeUploadForm, 700);
+  } catch (error) {
+    setInlineStatus(error?.message || "Unable to upload this asset.", true);
+  } finally {
+    submitButton.disabled = false;
+  }
+}
+
+async function downloadVersion(versionId) {
+  const version = versions.find((row) => row.id === versionId);
+  if (!version) return;
+
+  if (version.public_url) {
+    window.open(version.public_url, "_blank", "noopener");
+    return;
+  }
+
+  const { data, error } = await supabase.storage
+    .from(version.storage_bucket)
+    .createSignedUrl(version.storage_path, 600, { download: version.original_filename });
+  if (error) {
+    setInlineStatus(error.message || "Unable to create a download link.", true);
+    return;
+  }
+  window.open(data.signedUrl, "_blank", "noopener");
+}
+
+async function initPortal() {
+  if (!hasConfig()) {
+    document.body.classList.add("portal-denied");
+    showStatus("The website portal is not connected yet.");
+    return;
+  }
+
+  supabase = createBrowserSupabase();
+  try {
+    currentSession = await getSessionOrNull(supabase);
+    if (!currentSession?.user) {
+      openLogin();
+      return;
+    }
+
+    await loadWebsites();
+    document.body.classList.remove("portal-loading");
+    statusScreen.hidden = true;
+
+    websiteSelect.addEventListener("change", () => selectWebsite(websiteSelect.value).catch((error) => showStatus(error.message)));
+    openUploadButton.addEventListener("click", () => openUploadForm());
+    closeUploadButton.addEventListener("click", closeUploadForm);
+    uploadAssetId.addEventListener("change", syncNewAssetFields);
+    uploadLabel.addEventListener("input", () => {
+      if (!uploadKey.dataset.edited) uploadKey.value = keyFromLabel(uploadLabel.value);
+    });
+    uploadKey.addEventListener("input", () => {
+      uploadKey.dataset.edited = uploadKey.value ? "true" : "";
+    });
+    uploadForm.addEventListener("submit", uploadAssetVersion);
+    assetGrid.addEventListener("click", (event) => {
+      const replaceButton = event.target.closest("[data-replace-asset]");
+      const downloadButton = event.target.closest("[data-download-version]");
+      if (replaceButton) openUploadForm(replaceButton.dataset.replaceAsset);
+      if (downloadButton) downloadVersion(downloadButton.dataset.downloadVersion);
+    });
+
+    logoutButton?.addEventListener("click", async () => {
+      logoutButton.disabled = true;
+      await supabase.auth.signOut();
+      window.location.replace("/account");
+    });
+
+    supabase.auth.onAuthStateChange((event, nextSession) => {
+      if (event === "SIGNED_OUT" || !nextSession?.user) openLogin();
+    });
+  } catch (error) {
+    document.body.classList.add("portal-denied");
+    showStatus(error?.message || "The website portal could not be opened.");
+  }
+}
+
+initPortal();

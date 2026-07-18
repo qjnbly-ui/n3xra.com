@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>N3XRA | Website Client Portal</title>
+  <meta name="description" content="N3XRA website client portal.">
+  <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
+  <link rel="canonical" href="https://n3xra.com/client-portal/">
+  <link rel="icon" type="image/png" sizes="284x284" href="/assets/n3xra_logo_transparent_small.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/site-nav.css">
+  <link rel="stylesheet" href="/client-portal/portal.css">
+  <script src="/shared/config.js"></script>
+  <script src="/assets/site-nav.js" defer></script>
+</head>
+<body class="portal-loading">
+  <header class="site-topbar">
+    <div class="site-topbar-inner">
+      <div class="site-topbar-row">
+        <a class="site-brand" href="/" aria-label="N3XRA home">
+          <img src="/assets/n3xra_logo_transparent.png" alt="N3XRA">
+        </a>
+        <div class="site-nav-actions">
+          <a class="site-menu-link" href="/account">Dashboard</a>
+          <button class="site-menu-toggle" type="button" aria-expanded="false" aria-controls="client-portal-menu" aria-label="Open menu" data-site-menu-toggle>
+            <span></span><span></span><span></span>
+          </button>
+        </div>
+      </div>
+      <nav class="site-mobile-menu" id="client-portal-menu" aria-label="Mobile primary" hidden>
+        <div class="site-mobile-menu-head"><p class="site-mobile-menu-title">Navigate</p></div>
+        <a class="site-menu-link" href="/account">Account dashboard</a>
+        <a class="site-menu-link" href="/projects/">Projects</a>
+        <a class="site-menu-link" href="/support/">Support</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="portal-shell">
+    <section class="portal-heading">
+      <div>
+        <p class="portal-kicker">Client services</p>
+        <h1>Website Client Portal</h1>
+        <p class="portal-heading-copy">The management workspace for websites connected to your N3XRA account.</p>
+      </div>
+      <button class="portal-logout" id="portal-logout" type="button">Sign out</button>
+    </section>
+
+    <div class="portal-layout">
+      <nav class="portal-nav" aria-label="Website portal">
+        <a class="is-current" href="/client-portal/">Websites</a>
+        <span class="is-placeholder">Billing</span>
+        <span class="is-placeholder">Renewals</span>
+        <span class="is-placeholder">Support</span>
+      </nav>
+
+      <section class="portal-workspace" aria-labelledby="client-websites-title">
+        <div class="portal-workspace-head">
+          <div>
+            <p class="portal-kicker">Workspace</p>
+            <h2 id="client-websites-title">Your websites</h2>
+          </div>
+          <select class="portal-select" id="website-select" aria-label="Choose a website"></select>
+        </div>
+
+        <div class="portal-site-summary" id="website-summary" hidden>
+          <div>
+            <p class="portal-kicker" id="website-role">Website access</p>
+            <h3 id="website-name">Website</h3>
+          </div>
+          <a class="portal-button portal-button-secondary" id="website-live-link" href="#" target="_blank" rel="noopener">Visit live site</a>
+        </div>
+
+        <div class="portal-toolbar" id="asset-toolbar" hidden>
+          <div>
+            <h3>Asset library</h3>
+            <p>Approved files and proposed replacements for this website.</p>
+          </div>
+          <button class="portal-button" id="open-upload" type="button">Upload asset</button>
+        </div>
+
+        <form class="portal-form" id="asset-upload-form" hidden>
+          <div class="portal-form-head">
+            <div>
+              <p class="portal-kicker">Private draft</p>
+              <h3>Upload an asset or replacement</h3>
+            </div>
+            <button class="portal-close" id="close-upload" type="button">Close</button>
+          </div>
+
+          <div class="portal-form-grid">
+            <label>
+              Asset
+              <select id="upload-asset-id">
+                <option value="">Create a new asset</option>
+              </select>
+            </label>
+            <label>
+              File
+              <input id="upload-file" type="file" accept="image/*,.pdf,.zip,.txt" required>
+            </label>
+            <label data-new-asset-field>
+              Asset name
+              <input id="upload-label" type="text" placeholder="About page hero">
+            </label>
+            <label data-new-asset-field>
+              Asset key
+              <input id="upload-key" type="text" placeholder="aboutHero">
+            </label>
+            <label data-new-asset-field>
+              Category
+              <select id="upload-category">
+                <option value="image">Image</option>
+                <option value="logo">Logo</option>
+                <option value="document">Document</option>
+                <option value="brand">Brand</option>
+                <option value="social">Social</option>
+                <option value="other">Other</option>
+              </select>
+            </label>
+            <label data-new-asset-field>
+              Website usage
+              <select id="upload-replacement-type">
+                <option value="html_src">HTML image</option>
+                <option value="css_background">CSS background</option>
+                <option value="carousel_slide">Carousel slide</option>
+                <option value="metadata">Social or metadata image</option>
+                <option value="download_only">Download only</option>
+              </select>
+            </label>
+            <label class="portal-form-wide">
+              Note
+              <textarea id="upload-note" rows="3" placeholder="What should change, or where should this file be used?"></textarea>
+            </label>
+          </div>
+          <div class="portal-form-actions">
+            <button class="portal-button" type="submit">Submit for review</button>
+            <p class="portal-inline-status" id="upload-status" role="status"></p>
+          </div>
+        </form>
+
+        <div class="portal-asset-grid" id="asset-grid"></div>
+        <div class="portal-empty" id="portal-empty">
+          <p>No website assets have been added yet.</p>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <div class="portal-status" id="portal-status" role="status">Opening your website portal…</div>
+  <script type="module" src="/client-portal/portal.js"></script>
+</body>
+</html>

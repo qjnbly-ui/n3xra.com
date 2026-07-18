@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>N3XRA | Website Client Login</title>
+  <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
+  <link rel="canonical" href="https://n3xra.com/client-portal/login/">
+  <link rel="icon" type="image/png" sizes="284x284" href="/assets/n3xra_logo_transparent_small.png">
+  <script src="/shared/config.js"></script>
+</head>
+<body>
+  <p>Opening N3XRA login…</p>
+  <script type="module">
+    import { createBrowserSupabase, getSessionOrNull, hasConfig } from "/shared/lib/supabase-client.js";
+
+    async function routeToPortal() {
+      if (hasConfig()) {
+        const supabase = createBrowserSupabase();
+        const session = await getSessionOrNull(supabase).catch(() => null);
+        if (session?.user) {
+          window.location.replace("/client-portal/");
+          return;
+        }
+      }
+      window.location.replace("/account?next=%2Fclient-portal%2F");
+    }
+
+    routeToPortal();
+  </script>
+</body>
+</html>
