@@ -22,6 +22,11 @@ const uploadCategory = document.getElementById("upload-category");
 const uploadReplacementType = document.getElementById("upload-replacement-type");
 const uploadNote = document.getElementById("upload-note");
 const uploadStatus = document.getElementById("upload-status");
+const batchReview = document.getElementById("batch-review");
+const batchPrevious = document.getElementById("batch-previous");
+const batchNext = document.getElementById("batch-next");
+const batchPosition = document.getElementById("batch-position");
+const uploadSubmit = document.getElementById("upload-submit");
 const newAssetFields = Array.from(document.querySelectorAll("[data-new-asset-field]"));
 
 let supabase = null;
@@ -32,6 +37,8 @@ let selectedRole = "";
 let canEditSelectedWebsite = false;
 let assets = [];
 let versions = [];
+let batchItems = [];
+let batchReviewIndex = 0;
 
 function showStatus(message) {
   if (!statusScreen) return;
@@ -134,15 +141,66 @@ function applySuggestion(control, value) {
   control.dataset.autoValue = value;
 }
 
-function prefillFromSelectedFile() {
-  const file = uploadFile.files?.[0];
-  if (!file || uploadAssetId.value) return;
-  const defaults = inferAssetDefaults(file);
-  applySuggestion(uploadLabel, defaults.label);
-  applySuggestion(uploadKey, defaults.key);
-  applySuggestion(uploadCategory, defaults.category);
-  applySuggestion(uploadReplacementType, defaults.replacementType);
-  setInlineStatus("Suggested details were filled from the filename. You can change any of them.");
+function saveCurrentBatchItem() {
+  const item = batchItems[batchReviewIndex];
+  if (!item || uploadAssetId.value) return;
+  item.label = uploadLabel.value.trim();
+  item.key = uploadKey.value.trim();
+  item.category = uploadCategory.value;
+  item.replacementType = uploadReplacementType.value;
+  item.note = uploadNote.value.trim();
+}
+
+function renderBatchItem() {
+  const item = batchItems[batchReviewIndex];
+  if (!item || uploadAssetId.value) {
+    batchReview.hidden = true;
+    uploadSubmit.textContent = "Submit for review";
+    return;
+  }
+  clearAutoSuggestions();
+  uploadLabel.value = item.label;
+  uploadKey.value = item.key;
+  uploadCategory.value = item.category;
+  uploadReplacementType.value = item.replacementType;
+  uploadNote.value = item.note;
+  batchReview.hidden = batchItems.length < 2;
+  batchPosition.textContent = `Reviewing ${item.file.name} · ${batchReviewIndex + 1} of ${batchItems.length}`;
+  batchPrevious.disabled = batchReviewIndex === 0;
+  batchNext.disabled = batchReviewIndex === batchItems.length - 1;
+  uploadSubmit.textContent = batchItems.length > 1 ? `Submit ${batchItems.length} files for review` : "Submit for review";
+}
+
+function prepareSelectedFiles() {
+  const files = Array.from(uploadFile.files || []);
+  if (!files.length) return;
+  if (uploadAssetId.value && files.length > 1) {
+    uploadAssetId.value = "";
+    syncNewAssetFields();
+  }
+  if (uploadAssetId.value) {
+    batchItems = [];
+    batchReview.hidden = true;
+    setInlineStatus("This file will be uploaded as a replacement version.");
+    return;
+  }
+  batchItems = files.map((file) => {
+    const defaults = inferAssetDefaults(file);
+    return { file, ...defaults, note: "" };
+  });
+  batchReviewIndex = 0;
+  renderBatchItem();
+  setInlineStatus(batchItems.length > 1
+    ? "Review each file with Previous and Next, then submit the batch."
+    : "Suggested details were filled from the filename. You can change any of them.");
+}
+
+function moveBatchReview(direction) {
+  saveCurrentBatchItem();
+  const nextIndex = batchReviewIndex + direction;
+  if (nextIndex < 0 || nextIndex >= batchItems.length) return;
+  batchReviewIndex = nextIndex;
+  renderBatchItem();
 }
 
 function clearAutoSuggestions() {
@@ -298,82 +356,95 @@ function closeUploadForm() {
   uploadForm.hidden = true;
   uploadForm.reset();
   uploadAssetId.value = "";
+  batchItems = [];
+  batchReviewIndex = 0;
+  batchReview.hidden = true;
   clearAutoSuggestions();
   syncNewAssetFields();
   setInlineStatus("");
 }
 
+async function uploadReviewedItem(item, existingAsset = null) {
+  const file = item.file;
+  let asset = existingAsset;
+  let storagePath = "";
+  if (!asset) {
+    const { data, error } = await supabase.from("website_assets").insert({
+      id: crypto.randomUUID(),
+      website_id: selectedWebsite.id,
+      asset_key: item.key,
+      label: item.label,
+      category: item.category,
+      replacement_type: item.replacementType,
+      created_by_user_id: currentSession.user.id,
+    }).select().single();
+    if (error) throw error;
+    asset = data;
+  }
+  const { data: nextVersion, error: numberError } = await supabase.rpc("next_website_asset_version_number", { target_asset_id: asset.id });
+  if (numberError) throw numberError;
+  storagePath = `${selectedWebsite.id}/${asset.id}/v${nextVersion}-${crypto.randomUUID()}-${slugifyFilename(file.name)}`;
+  const { error: uploadError } = await supabase.storage.from(PRIVATE_BUCKET)
+    .upload(storagePath, file, { cacheControl: "3600", upsert: false, contentType: file.type || undefined });
+  if (uploadError) throw uploadError;
+  const { error: versionError } = await supabase.from("website_asset_versions").insert({
+    asset_id: asset.id,
+    version_number: nextVersion,
+    status: "pending_review",
+    storage_bucket: PRIVATE_BUCKET,
+    storage_path: storagePath,
+    original_filename: file.name,
+    mime_type: file.type || null,
+    size_bytes: file.size,
+    change_note: item.note || null,
+    uploaded_by_user_id: currentSession.user.id,
+  });
+  if (versionError) {
+    await supabase.storage.from(PRIVATE_BUCKET).remove([storagePath]);
+    throw versionError;
+  }
+}
+
 async function uploadAssetVersion(event) {
   event.preventDefault();
   if (!selectedWebsite || !canEditSelectedWebsite || !uploadFile.files?.[0]) return;
+  saveCurrentBatchItem();
+  const existingAsset = assets.find((row) => row.id === uploadAssetId.value) || null;
+  const items = existingAsset ? [{
+    file: uploadFile.files[0],
+    note: uploadNote.value.trim(),
+  }] : batchItems;
+  if (!items.length || (!existingAsset && items.some((item) => !item.label || !item.key))) {
+    setInlineStatus("Review every file and provide an asset name and key.", true);
+    return;
+  }
+  const duplicateKey = items.find((item, index) => items.some((other, otherIndex) => otherIndex !== index && other.key === item.key));
+  if (duplicateKey) {
+    setInlineStatus(`Asset key “${duplicateKey.key}” is used more than once. Give each file a unique key.`, true);
+    return;
+  }
 
-  const submitButton = uploadForm.querySelector('button[type="submit"]');
-  submitButton.disabled = true;
-  setInlineStatus("Uploading private draft…");
-
-  const file = uploadFile.files[0];
-  let asset = assets.find((row) => row.id === uploadAssetId.value) || null;
-  let storagePath = "";
-
+  uploadSubmit.disabled = true;
+  let uploadedCount = 0;
   try {
-    if (!asset) {
-      const assetId = crypto.randomUUID();
-      const label = uploadLabel.value.trim();
-      const assetKey = uploadKey.value.trim();
-      const { data, error } = await supabase
-        .from("website_assets")
-        .insert({
-          id: assetId,
-          website_id: selectedWebsite.id,
-          asset_key: assetKey,
-          label,
-          category: uploadCategory.value,
-          replacement_type: uploadReplacementType.value,
-          created_by_user_id: currentSession.user.id,
-        })
-        .select()
-        .single();
-      if (error) throw error;
-      asset = data;
+    for (const item of items) {
+      setInlineStatus(`Uploading ${uploadedCount + 1} of ${items.length}: ${item.file.name}`);
+      await uploadReviewedItem(item, existingAsset);
+      uploadedCount += 1;
     }
-
-    const { data: nextVersion, error: versionNumberError } = await supabase.rpc("next_website_asset_version_number", {
-      target_asset_id: asset.id,
-    });
-    if (versionNumberError) throw versionNumberError;
-
-    storagePath = `${selectedWebsite.id}/${asset.id}/v${nextVersion}-${crypto.randomUUID()}-${slugifyFilename(file.name)}`;
-    const { error: uploadError } = await supabase.storage
-      .from(PRIVATE_BUCKET)
-      .upload(storagePath, file, { cacheControl: "3600", upsert: false, contentType: file.type || undefined });
-    if (uploadError) throw uploadError;
-
-    const { error: versionError } = await supabase
-      .from("website_asset_versions")
-      .insert({
-        asset_id: asset.id,
-        version_number: nextVersion,
-        status: "pending_review",
-        storage_bucket: PRIVATE_BUCKET,
-        storage_path: storagePath,
-        original_filename: file.name,
-        mime_type: file.type || null,
-        size_bytes: file.size,
-        change_note: uploadNote.value.trim() || null,
-        uploaded_by_user_id: currentSession.user.id,
-      });
-    if (versionError) {
-      await supabase.storage.from(PRIVATE_BUCKET).remove([storagePath]);
-      throw versionError;
-    }
-
-    setInlineStatus("Uploaded and submitted for review.");
+    setInlineStatus(`${uploadedCount} file${uploadedCount === 1 ? "" : "s"} submitted for review.`);
     await loadAssets();
-    window.setTimeout(closeUploadForm, 700);
+    window.setTimeout(closeUploadForm, 900);
   } catch (error) {
-    setInlineStatus(error?.message || "Unable to upload this asset.", true);
+    if (!existingAsset && uploadedCount) {
+      batchItems = items.slice(uploadedCount);
+      batchReviewIndex = 0;
+      renderBatchItem();
+      await loadAssets();
+    }
+    setInlineStatus(`${uploadedCount ? `${uploadedCount} uploaded. ` : ""}${error?.message || "The remaining files could not be uploaded."}`, true);
   } finally {
-    submitButton.disabled = false;
+    uploadSubmit.disabled = false;
   }
 }
 
@@ -420,9 +491,16 @@ async function initPortal() {
     closeUploadButton.addEventListener("click", closeUploadForm);
     uploadAssetId.addEventListener("change", () => {
       syncNewAssetFields();
-      if (!uploadAssetId.value) prefillFromSelectedFile();
+      if (!uploadAssetId.value) prepareSelectedFiles();
+      else {
+        batchItems = [];
+        batchReview.hidden = true;
+        uploadSubmit.textContent = "Submit replacement for review";
+      }
     });
-    uploadFile.addEventListener("change", prefillFromSelectedFile);
+    uploadFile.addEventListener("change", prepareSelectedFiles);
+    batchPrevious.addEventListener("click", () => moveBatchReview(-1));
+    batchNext.addEventListener("click", () => moveBatchReview(1));
     uploadLabel.addEventListener("input", () => {
       delete uploadLabel.dataset.autoValue;
       uploadLabel.dataset.userEdited = "true";

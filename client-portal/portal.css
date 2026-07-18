@@ -268,6 +268,29 @@ body.portal-denied main {
   margin-top: 1rem;
 }
 
+.portal-batch-review {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  padding: 0.75rem;
+  border: 1px solid var(--portal-border);
+  border-radius: 0.75rem;
+  background: #fff;
+}
+
+.portal-batch-review[hidden] {
+  display: none;
+}
+
+.portal-batch-review p {
+  margin: 0;
+  color: var(--portal-muted);
+  font-weight: 800;
+  text-align: center;
+}
+
 .portal-admin-picker {
   margin-top: 1.25rem;
 }
