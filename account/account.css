@@ -117,6 +117,54 @@ body {
   color: var(--slate);
 }
 
+.account-overview-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.7rem;
+  flex-wrap: wrap;
+}
+
+.dashboard-view-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.25rem;
+  border: 1px solid rgba(15, 22, 32, 0.12);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: 0 14px 34px rgba(15, 22, 32, 0.07);
+}
+
+.dashboard-view-toggle.hidden {
+  display: none;
+}
+
+.dashboard-view-toggle button {
+  min-height: 36px;
+  padding: 0.48rem 0.9rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--slate);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 900;
+}
+
+.dashboard-view-toggle button:hover,
+.dashboard-view-toggle button:focus-visible {
+  color: var(--ink);
+  outline: none;
+}
+
+.dashboard-view-toggle button.is-active {
+  color: #ffffff;
+  background: #123a33;
+  box-shadow: 0 8px 20px rgba(18, 58, 51, 0.2);
+}
+
 .account-settings-button {
   min-height: 44px;
   border: 1px solid rgba(15, 22, 32, 0.12);
@@ -135,9 +183,13 @@ body {
   outline: none;
 }
 
+.dashboard-views {
+  display: grid;
+}
+
 .dashboard-apps {
   display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1rem;
   align-items: stretch;
 }
@@ -174,23 +226,11 @@ body {
 }
 
 .admin-app-section {
-  grid-column: 1 / -1;
+  width: 100%;
 }
 
 .admin-app-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.admin-app-card {
-  min-height: 190px;
-}
-
-.notification-admin-card {
-  margin-top: 0.15rem;
-}
-
-.notification-admin-card .dashboard-section-head {
-  min-height: 0;
 }
 
 .notification-page {
@@ -359,12 +399,6 @@ body {
   gap: 1rem;
   min-height: 210px;
   align-content: space-between;
-}
-
-.primary-app-card {
-  background:
-    radial-gradient(420px 180px at 12% 0%, rgba(23, 111, 102, 0.1), transparent 62%),
-    #fbfcfd;
 }
 
 .account-dashboard .auth-kicker,
@@ -674,5 +708,18 @@ body {
   .account-card,
   .account-hero {
     border-radius: 12px;
+  }
+
+  .account-overview-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .dashboard-view-toggle {
+    flex: 1;
+  }
+
+  .dashboard-view-toggle button {
+    flex: 1;
   }
 }

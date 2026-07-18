@@ -44,7 +44,11 @@ const musicSummary = document.getElementById("music-summary");
 const openRecordsButton = document.getElementById("open-records-button");
 const openMusicButton = document.getElementById("open-music-button");
 const openViralsButton = document.getElementById("open-virals-button");
+const appsDashboardView = document.getElementById("apps-dashboard-view");
 const adminAppSection = document.getElementById("admin-app-section");
+const dashboardViewToggle = document.getElementById("dashboard-view-toggle");
+const showAppsViewButton = document.getElementById("show-apps-view");
+const showAdminViewButton = document.getElementById("show-admin-view");
 const platformOwnerAdminSettings = document.getElementById("platform-owner-admin-settings");
 const platformAdminInviteForm = document.getElementById("platform-admin-invite-form");
 const platformAdminInviteEmail = document.getElementById("platform-admin-invite-email");
@@ -63,10 +67,25 @@ let captchaToken = "";
 let captchaWidgetId = null;
 let captchaEnabled = false;
 let isSubmitting = false;
+let canViewAdminApps = false;
 
 function show(el, visible) {
   if (!el) return;
   el.classList.toggle("hidden", !visible);
+}
+
+function setDashboardView(requestedView = "apps") {
+  const view = requestedView === "admin" && canViewAdminApps ? "admin" : "apps";
+  const showingApps = view === "apps";
+
+  show(appsDashboardView, showingApps);
+  show(adminAppSection, !showingApps);
+  showAppsViewButton?.classList.toggle("is-active", showingApps);
+  showAdminViewButton?.classList.toggle("is-active", !showingApps);
+  showAppsViewButton?.setAttribute("aria-selected", String(showingApps));
+  showAdminViewButton?.setAttribute("aria-selected", String(!showingApps));
+  if (showAppsViewButton) showAppsViewButton.tabIndex = showingApps ? 0 : -1;
+  if (showAdminViewButton) showAdminViewButton.tabIndex = showingApps ? -1 : 0;
 }
 
 function setStatus(message, tone = "") {
@@ -462,7 +481,9 @@ async function renderDashboard(message = "") {
     ? `${musicProfile.plan || "Free"} plan. ${Number(musicProfile.songs_used || 0)} of ${Number(musicProfile.monthly_song_limit || 0)} songs used.`
     : "Not active yet. Activate it only if you want to create and save songs.";
   openMusicButton.textContent = hasMusicProfile ? "Open AI Music" : "Activate AI Music";
-  show(adminAppSection, Boolean(platformAdminAccess) || isPlatformAdminEmail(currentSession.user.email));
+  canViewAdminApps = Boolean(platformAdminAccess) || isPlatformAdminEmail(currentSession.user.email);
+  show(dashboardViewToggle, canViewAdminApps);
+  setDashboardView("apps");
   show(platformOwnerAdminSettings, isPlatformOwnerEmail(currentSession.user.email));
   if (isPlatformOwnerEmail(currentSession.user.email)) {
     await loadPlatformAdminDashboard();
@@ -857,6 +878,15 @@ function bindEvents() {
   openRecordsButton.addEventListener("click", openRecords);
   openMusicButton.addEventListener("click", openMusic);
   openViralsButton?.addEventListener("click", openVirals);
+  showAppsViewButton?.addEventListener("click", () => setDashboardView("apps"));
+  showAdminViewButton?.addEventListener("click", () => setDashboardView("admin"));
+  dashboardViewToggle?.addEventListener("keydown", (event) => {
+    if (!["ArrowLeft", "ArrowRight"].includes(event.key)) return;
+    event.preventDefault();
+    const view = showAppsViewButton?.getAttribute("aria-selected") === "true" ? "admin" : "apps";
+    setDashboardView(view);
+    (view === "admin" ? showAdminViewButton : showAppsViewButton)?.focus();
+  });
   openAccountSettingsButton?.addEventListener("click", openAccountSettings);
   closeAccountSettingsButton?.addEventListener("click", closeAccountSettings);
   doneAccountSettingsButton?.addEventListener("click", closeAccountSettings);

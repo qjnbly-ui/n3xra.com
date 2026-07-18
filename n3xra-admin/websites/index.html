@@ -31,10 +31,14 @@
         </div>
       </div>
       <nav class="site-mobile-menu" id="website-admin-menu" aria-label="Mobile primary" hidden>
-        <div class="site-mobile-menu-head"><p class="site-mobile-menu-title">Admin</p></div>
+        <div class="site-mobile-menu-head"><p class="site-mobile-menu-title">Website admin</p></div>
         <a class="site-menu-link" href="/account">Account dashboard</a>
+        <a class="site-menu-link" href="/n3xra-admin/websites/">Websites</a>
+        <a class="site-menu-link" href="/n3xra-admin/websites/#website-requests">Requests</a>
+        <a class="site-menu-link" href="/n3xra-admin/proposals/">Proposals</a>
+        <a class="site-menu-link" href="/n3xra-admin/projects/">Projects</a>
+        <a class="site-menu-link" href="/n3xra-admin/onboarding/">Onboarding</a>
         <a class="site-menu-link" href="/client-portal/">Client portal</a>
-        <a class="site-menu-link" href="/projects/">Projects</a>
       </nav>
     </div>
   </header>
@@ -44,19 +48,21 @@
       <div>
         <p class="portal-kicker">Master administration</p>
         <h1>Website Admin</h1>
-        <p class="portal-heading-copy">The master workspace for N3XRA-managed client websites.</p>
+        <p class="portal-heading-copy">One master workspace for requests, proposals, projects, onboarding, launch, and ongoing client website management.</p>
       </div>
     </section>
 
     <div class="portal-layout">
       <nav class="portal-nav" aria-label="Website administration">
         <a class="is-current" href="/n3xra-admin/websites/">Websites</a>
+        <a href="#website-requests">Requests</a>
         <a href="/n3xra-admin/proposals/">Proposals</a>
         <a href="/n3xra-admin/projects/">Projects</a>
         <a href="/n3xra-admin/onboarding/">Onboarding</a>
+        <span class="is-placeholder">Billing</span>
+        <span class="is-placeholder">Launch</span>
         <span class="is-placeholder">Clients</span>
         <span class="is-placeholder">Access</span>
-        <span class="is-placeholder">Activity</span>
       </nav>
 
       <section class="portal-workspace" aria-labelledby="admin-websites-title">
@@ -68,7 +74,7 @@
           <button class="portal-button" id="open-site-form" type="button">Add website</button>
         </div>
 
-        <section class="portal-request-admin" aria-labelledby="request-queue-title">
+        <section class="portal-request-admin" id="website-requests" aria-labelledby="request-queue-title">
           <div class="portal-toolbar">
             <div>
               <p class="portal-kicker">Beginning of lifecycle</p>

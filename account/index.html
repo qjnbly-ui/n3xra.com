@@ -148,100 +148,76 @@
             <h2 id="account-name">N3XRA account</h2>
             <p id="account-email"></p>
           </div>
-          <button class="account-settings-button" type="button" id="open-account-settings">Settings</button>
+          <div class="account-overview-actions">
+            <div class="dashboard-view-toggle hidden" id="dashboard-view-toggle" role="tablist" aria-label="Account dashboard view">
+              <button class="is-active" id="show-apps-view" type="button" role="tab" aria-selected="true" aria-controls="apps-dashboard-view">My apps</button>
+              <button id="show-admin-view" type="button" role="tab" aria-selected="false" aria-controls="admin-app-section" tabindex="-1">Admin</button>
+            </div>
+            <button class="account-settings-button" type="button" id="open-account-settings">Settings</button>
+          </div>
         </div>
 
-        <div class="dashboard-apps">
-          <section class="dashboard-section">
-            <div class="dashboard-section-head">
-              <div>
-                <h3>Your apps</h3>
-                <p>Products already connected to this account.</p>
+        <div class="dashboard-views">
+          <div class="dashboard-apps" id="apps-dashboard-view" role="tabpanel" aria-labelledby="show-apps-view">
+            <section class="dashboard-section">
+              <div class="dashboard-section-head">
+                <div>
+                  <h3>Your apps</h3>
+                  <p>Products already connected to this account.</p>
+                </div>
               </div>
-            </div>
-            <div class="app-grid">
-              <article class="app-card primary-app-card">
-                <div>
-                  <p class="auth-kicker">Records</p>
-                  <h3>N3XRA Records</h3>
-                  <p id="records-summary">Manage records, files, documents, and meeting notes.</p>
-                </div>
-                <button class="btn block" id="open-records-button" type="button">Open Records</button>
-              </article>
-              <article class="app-card">
-                <div>
-                  <p class="auth-kicker">Client services</p>
-                  <h3>Website Client Portal</h3>
-                  <p>Open the workspace for websites connected to your N3XRA account.</p>
-                </div>
-                <a class="btn secondary block button-link" href="/client-portal/">Open Website Portal</a>
-              </article>
-              <article class="app-card">
-                <div>
-                  <p class="auth-kicker">Start a project</p>
-                  <h3>Request a Website</h3>
-                  <p>Begin a new website request, onboarding, proposal, and project workspace.</p>
-                </div>
-                <a class="btn secondary block button-link" href="/website-request/">Start Website Request</a>
-              </article>
-              <article class="app-card">
-                <div>
-                  <p class="auth-kicker">Active projects</p>
-                  <h3>Project Workspace</h3>
-                  <p>Follow approved website projects through agreement, billing, onboarding, production, launch, and ongoing management.</p>
-                </div>
-                <a class="btn secondary block button-link" href="/project-workspace/">Open Projects</a>
-              </article>
-              <article class="app-card">
-                <div>
-                  <p class="auth-kicker">Project approvals</p>
-                  <h3>Proposals</h3>
-                  <p>Review project scope, pricing, timelines, and respond to proposals.</p>
-                </div>
-                <a class="btn secondary block button-link" href="/proposals/">Open Proposals</a>
-              </article>
-              <article class="app-card">
-                <div>
-                  <p class="auth-kicker">Project setup</p>
-                  <h3>Website Onboarding</h3>
-                  <p>Provide the business details, content, brand direction, and private files needed to begin an approved website project.</p>
-                </div>
-                <a class="btn secondary block button-link" href="/website-onboarding/">Open Onboarding</a>
-              </article>
-            </div>
-          </section>
-
-          <section class="dashboard-section" id="more-products-section">
-            <div class="dashboard-section-head">
-              <div>
-                <h3>More products</h3>
-                <p>Apps you can add when you need them.</p>
+              <div class="app-grid">
+                <article class="app-card">
+                  <div>
+                    <p class="auth-kicker">Records</p>
+                    <h3>N3XRA Records</h3>
+                    <p id="records-summary">Manage records, files, documents, and meeting notes.</p>
+                  </div>
+                  <button class="btn secondary block" id="open-records-button" type="button">Open Records</button>
+                </article>
+                <article class="app-card">
+                  <div>
+                    <p class="auth-kicker">Client services</p>
+                    <h3>Website Client Portal</h3>
+                    <p>Request, review, build, launch, and manage your websites from one workspace.</p>
+                  </div>
+                  <a class="btn secondary block button-link" href="/client-portal/">Open Website Portal</a>
+                </article>
               </div>
-            </div>
-            <div class="app-grid">
-              <article class="app-card">
-                <div>
-                  <p class="auth-kicker">Optional app</p>
-                  <h3>AI Music Generator</h3>
-                  <p id="music-summary">Not active yet. Activate it only if you want to create and save songs.</p>
-                </div>
-                <button class="btn secondary block" id="open-music-button" type="button">Activate AI Music</button>
-              </article>
-              <article class="app-card">
-                <div>
-                  <p class="auth-kicker">AI tool</p>
-                  <h3>N3XRA Virals</h3>
-                  <p id="virals-summary">Analyze TikTok URLs, compare winners, and save repeatable content frameworks.</p>
-                </div>
-                <button class="btn secondary block" id="open-virals-button" type="button">Open N3XRA Virals</button>
-              </article>
-            </div>
-          </section>
+            </section>
 
-          <section class="dashboard-section admin-app-section hidden" id="admin-app-section">
+            <section class="dashboard-section" id="more-products-section">
+              <div class="dashboard-section-head">
+                <div>
+                  <h3>More products</h3>
+                  <p>Apps you can add when you need them.</p>
+                </div>
+              </div>
+              <div class="app-grid">
+                <article class="app-card">
+                  <div>
+                    <p class="auth-kicker">Optional app</p>
+                    <h3>AI Music Generator</h3>
+                    <p id="music-summary">Not active yet. Activate it only if you want to create and save songs.</p>
+                  </div>
+                  <button class="btn secondary block" id="open-music-button" type="button">Activate AI Music</button>
+                </article>
+                <article class="app-card">
+                  <div>
+                    <p class="auth-kicker">AI tool</p>
+                    <h3>N3XRA Virals</h3>
+                    <p id="virals-summary">Analyze TikTok URLs, compare winners, and save repeatable content frameworks.</p>
+                  </div>
+                  <button class="btn secondary block" id="open-virals-button" type="button">Open N3XRA Virals</button>
+                </article>
+              </div>
+            </section>
+          </div>
+
+          <section class="dashboard-section admin-app-section hidden" id="admin-app-section" role="tabpanel" aria-labelledby="show-admin-view">
             <div class="dashboard-section-head">
               <div>
-                <h3>Admin settings</h3>
+                <h3>Admin apps</h3>
                 <p>Platform admin tools available to this N3XRA account.</p>
               </div>
             </div>
@@ -252,7 +228,7 @@
                   <h3>Records Admin</h3>
                   <p>Oversee Records libraries, plans, limits, support view access, and account support tools.</p>
                 </div>
-                <a class="btn block button-link" href="/n3xra-admin/records">Open Records Admin</a>
+                <a class="btn secondary block button-link" href="/n3xra-admin/records">Open Records Admin</a>
               </article>
               <article class="app-card admin-app-card">
                 <div>
@@ -266,36 +242,19 @@
                 <div>
                   <p class="auth-kicker">Client websites</p>
                   <h3>Website Admin</h3>
-                  <p>Open the master workspace for client websites and portal access.</p>
+                  <p>Run the complete client website lifecycle from request through ongoing management.</p>
                 </div>
                 <a class="btn secondary block button-link" href="/n3xra-admin/websites/">Open Website Admin</a>
               </article>
               <article class="app-card admin-app-card">
                 <div>
-                  <p class="auth-kicker">Website projects</p>
-                  <h3>Project Admin</h3>
-                  <p>Manage the project roadmap, client status, milestones, launch dates, and transition into ongoing website management.</p>
+                  <p class="auth-kicker">Platform</p>
+                  <h3>Notification Admin</h3>
+                  <p>Send reviewed product update emails to selected account audiences across N3XRA.</p>
                 </div>
-                <a class="btn secondary block button-link" href="/n3xra-admin/projects/">Open Project Admin</a>
-              </article>
-              <article class="app-card admin-app-card">
-                <div>
-                  <p class="auth-kicker">Website projects</p>
-                  <h3>Onboarding Admin</h3>
-                  <p>Open approved projects for onboarding, review client responses, and securely access submitted files.</p>
-                </div>
-                <a class="btn secondary block button-link" href="/n3xra-admin/onboarding/">Open Onboarding Admin</a>
+                <a class="btn secondary block button-link" href="/account/notifications/">Open Notification Admin</a>
               </article>
             </div>
-
-            <article class="app-card admin-app-card notification-admin-card">
-              <div>
-                <p class="auth-kicker">Platform</p>
-                <h3>Notification Admin</h3>
-                <p>Send reviewed product update emails to selected account audiences across N3XRA.</p>
-              </div>
-              <a class="btn secondary block button-link" href="/account/notifications/">Open Notification Admin</a>
-            </article>
           </section>
         </div>
 
