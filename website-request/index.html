@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>N3XRA | Request a Website</title>
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="icon" href="/assets/n3xra_logo_transparent_small.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/site-nav.css">
+  <link rel="stylesheet" href="/client-portal/portal.css">
+  <script src="/shared/config.js"></script>
+  <script src="/assets/site-nav.js" defer></script>
+</head>
+<body class="portal-loading">
+  <header class="site-topbar">
+    <div class="site-topbar-inner">
+      <div class="site-topbar-row">
+        <a class="site-brand" href="/"><img src="/assets/n3xra_logo_transparent.png" alt="N3XRA"></a>
+        <div class="site-nav-actions"><a class="site-menu-link" href="/account/">Dashboard</a></div>
+      </div>
+    </div>
+  </header>
+  <main class="portal-shell">
+    <section class="portal-heading">
+      <div>
+        <p class="portal-kicker">Start a project</p>
+        <h1>Request a Website</h1>
+        <p class="portal-heading-copy">Tell us what you need. This request becomes the starting point for your proposal, contract, onboarding, billing, and launch workspace.</p>
+      </div>
+    </section>
+    <div class="portal-layout">
+      <nav class="portal-nav" aria-label="Website request">
+        <a class="is-current" href="/website-request/">New request</a>
+        <a href="/project-workspace/">Projects</a>
+        <a href="/proposals/">Proposals</a>
+        <a href="/website-onboarding/">Onboarding</a>
+        <a href="/client-portal/">Your websites</a>
+        <a href="/account/">Account</a>
+      </nav>
+      <section class="portal-workspace">
+        <div class="portal-workspace-head">
+          <div><p class="portal-kicker">Project intake</p><h2>Website details</h2></div>
+        </div>
+        <form class="portal-form portal-request-form" id="website-request-form">
+          <div class="portal-form-grid">
+            <label>Contact name<input id="request-contact-name" required autocomplete="name"></label>
+            <label>Business or project name<input id="request-business-name" required></label>
+            <label>Email<input id="request-email" type="email" required autocomplete="email"></label>
+            <label>Phone<input id="request-phone" type="tel" autocomplete="tel"></label>
+            <label>Project type
+              <select id="request-project-type">
+                <option value="new_website">New website</option>
+                <option value="redesign">Website redesign</option>
+                <option value="landing_page">Landing page</option>
+                <option value="ecommerce">Online store</option>
+                <option value="maintenance">Maintenance or improvements</option>
+                <option value="other">Other</option>
+              </select>
+            </label>
+            <label>Existing website URL<input id="request-existing-url" type="url" placeholder="https://example.com"></label>
+            <label class="portal-form-wide">Primary goal<textarea id="request-goal" rows="4" required placeholder="What should this website accomplish?"></textarea></label>
+            <label class="portal-form-wide">Primary audience<textarea id="request-audience" rows="3" placeholder="Who should the website reach?"></textarea></label>
+            <label>Requested pages<input id="request-pages" placeholder="Home, About, Services, Contact"></label>
+            <label>Requested features<input id="request-features" placeholder="Forms, payments, scheduling, gallery"></label>
+            <label>Budget range
+              <select id="request-budget">
+                <option value="">Not decided</option>
+                <option value="under_1000">Under $1,000</option>
+                <option value="1000_2500">$1,000–$2,500</option>
+                <option value="2500_5000">$2,500–$5,000</option>
+                <option value="5000_plus">$5,000+</option>
+              </select>
+            </label>
+            <label>Preferred launch date<input id="request-launch-date" type="date"></label>
+            <label class="portal-form-wide">Anything else?<textarea id="request-notes" rows="4"></textarea></label>
+          </div>
+          <div class="portal-form-actions">
+            <button class="portal-button" type="submit">Submit website request</button>
+            <p class="portal-inline-status" id="request-status" role="status"></p>
+          </div>
+        </form>
+        <div class="portal-toolbar"><div><h3>Your requests</h3><p>Requests connected to this N3XRA account.</p></div></div>
+        <div class="portal-request-list" id="request-list"></div>
+      </section>
+    </div>
+  </main>
+  <div class="portal-status" id="portal-status">Opening project intake…</div>
+  <script type="module" src="/website-request/request.js"></script>
+</body>
+</html>

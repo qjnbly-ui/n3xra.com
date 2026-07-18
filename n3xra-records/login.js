@@ -33,7 +33,7 @@ const signupModePersonalButton = document.getElementById("signup-mode-personal")
 const signupModeInviteButton = document.getElementById("signup-mode-invite");
 const authCaptchaField = document.getElementById("auth-captcha-field");
 const authTurnstile = document.getElementById("auth-turnstile");
-const RECORDS_CONFIRM_REDIRECT_PATH = "/n3xra-records/login";
+const RECORDS_CONFIRM_REDIRECT_PATH = "/account/?confirmed=1";
 
 let supabase = null;
 let isSubmittingAuth = false;

@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>N3XRA | Onboarding Admin</title>
+  <meta name="robots" content="noindex, nofollow, noarchive">
+  <link rel="icon" href="/assets/n3xra_logo_transparent_small.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/site-nav.css">
+  <link rel="stylesheet" href="/client-portal/portal.css">
+  <script src="/shared/config.js"></script>
+  <script src="/assets/site-nav.js" defer></script>
+</head>
+<body class="portal-loading">
+  <header class="site-topbar">
+    <div class="site-topbar-inner">
+      <div class="site-topbar-row">
+        <a class="site-brand" href="/" aria-label="N3XRA home"><img src="/assets/n3xra_logo_transparent.png" alt="N3XRA"></a>
+        <div class="site-nav-actions"><a class="site-menu-link" href="/account/">Dashboard</a></div>
+      </div>
+    </div>
+  </header>
+
+  <main class="portal-shell">
+    <section class="portal-heading">
+      <div>
+        <p class="portal-kicker">Master administration</p>
+        <h1>Website Onboarding</h1>
+        <p class="portal-heading-copy">Open onboarding after proposal approval, monitor completion, review private project files, and return clear revision notes.</p>
+      </div>
+    </section>
+
+    <div class="portal-layout">
+      <nav class="portal-nav" aria-label="Website administration">
+        <a href="/n3xra-admin/websites/">Websites</a>
+        <a href="/n3xra-admin/proposals/">Proposals</a>
+        <a href="/n3xra-admin/projects/">Projects</a>
+        <a class="is-current" href="/n3xra-admin/onboarding/">Onboarding</a>
+        <a href="/account/">Account</a>
+      </nav>
+
+      <section class="portal-workspace">
+        <div class="portal-workspace-head">
+          <div><p class="portal-kicker">Project intake</p><h2>Onboarding review</h2></div>
+          <button class="portal-button portal-button-secondary" id="refresh-onboarding-admin" type="button">Refresh</button>
+        </div>
+
+        <section class="portal-admin-onboarding-queue">
+          <div class="portal-toolbar">
+            <div><h3>Approved proposals</h3><p>Onboarding can be opened only for an approved proposal.</p></div>
+          </div>
+          <div class="portal-request-list" id="approved-proposal-list"></div>
+        </section>
+
+        <div class="portal-admin-picker portal-proposal-picker" id="admin-onboarding-picker">
+          <label>Onboarding project<select class="portal-select" id="admin-onboarding-select"></select></label>
+          <div id="admin-onboarding-state"></div>
+        </div>
+
+        <div class="portal-empty" id="admin-onboarding-empty">
+          <div><h3>No onboarding projects yet</h3><p>Approve a proposal, then open onboarding from the list above.</p></div>
+        </div>
+
+        <div id="admin-onboarding-workspace" hidden>
+          <section class="portal-onboarding-overview">
+            <div><p class="portal-kicker">Client onboarding</p><h3 id="admin-onboarding-name">Website project</h3><p id="admin-onboarding-meta"></p></div>
+            <div class="portal-progress-block">
+              <div><strong id="admin-onboarding-progress">0% complete</strong><span id="admin-onboarding-updated"></span></div>
+              <div class="portal-progress-track"><span id="admin-onboarding-progress-bar"></span></div>
+            </div>
+          </section>
+
+          <div class="portal-admin-onboarding-grid">
+            <section>
+              <div class="portal-toolbar"><div><h3>Client responses</h3><p>Structured by the same sections the client completed.</p></div></div>
+              <div class="portal-answer-sections" id="admin-onboarding-answers"></div>
+            </section>
+            <aside>
+              <div class="portal-toolbar"><div><h3>Project files</h3><p>Private files attached to this onboarding.</p></div></div>
+              <div class="portal-file-list" id="admin-onboarding-files"></div>
+              <form class="portal-form" id="admin-onboarding-review-form">
+                <div class="portal-form-head"><div><p class="portal-kicker">Internal review</p><h3>Review status</h3></div></div>
+                <label>Admin notes<textarea id="admin-onboarding-notes" rows="6" placeholder="Give the client specific, actionable notes when changes are needed."></textarea></label>
+                <div class="portal-form-actions portal-review-actions">
+                  <button class="portal-button portal-button-secondary" type="button" data-review-status="needs_changes">Request changes</button>
+                  <button class="portal-button" type="button" data-review-status="approved">Approve onboarding</button>
+                </div>
+                <p class="portal-inline-status" id="admin-onboarding-review-status" role="status"></p>
+              </form>
+            </aside>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <div class="portal-status" id="portal-status" role="status">Verifying onboarding administration…</div>
+  <script type="module" src="/n3xra-admin/onboarding/onboarding-admin.js"></script>
+</body>
+</html>

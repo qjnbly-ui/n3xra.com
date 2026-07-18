@@ -28,7 +28,7 @@ const memberEmail = document.getElementById("member-email");
 const memberRole = document.getElementById("member-role");
 const memberFormStatus = document.getElementById("member-form-status");
 const memberList = document.getElementById("member-list");
-const memberEmpty = document.getElementById("member-empty");
+const adminRequestList = document.getElementById("admin-request-list");
 
 let supabase;
 let currentUser;
@@ -37,6 +37,7 @@ let selectedWebsite;
 let assets = [];
 let versions = [];
 let members = [];
+let serviceRequests = [];
 let toastTimer;
 
 function showStatus(message) {
@@ -117,6 +118,59 @@ function renderWebsiteOptions() {
     : '<option value="">No websites</option>';
 }
 
+function requestStatusLabel(status) {
+  return String(status || "").replaceAll("_", " ");
+}
+
+function renderServiceRequests() {
+  adminRequestList.innerHTML = serviceRequests.map((request) => `
+    <article class="portal-request-card portal-request-admin-card">
+      <div>
+        <p class="portal-kicker">${escapeHtml(requestStatusLabel(request.project_type))}</p>
+        <h3>${escapeHtml(request.business_name)}</h3>
+        <p><strong>${escapeHtml(request.contact_name)}</strong> · ${escapeHtml(request.contact_email)}</p>
+        <p>${escapeHtml(request.primary_goal)}</p>
+        <p>${(request.requested_pages || []).map(escapeHtml).join(" · ")}</p>
+      </div>
+      <div class="portal-request-controls">
+        <select data-request-status="${request.id}" aria-label="Request status">
+          ${["submitted", "reviewing", "needs_info", "qualified", "declined", "converted", "archived"].map((status) =>
+            `<option value="${status}"${request.status === status ? " selected" : ""}>${requestStatusLabel(status)}</option>`
+          ).join("")}
+        </select>
+        <textarea rows="3" data-request-notes="${request.id}" placeholder="Private admin notes">${escapeHtml(request.admin_notes || "")}</textarea>
+        <a class="portal-button" href="/n3xra-admin/proposals/?request=${encodeURIComponent(request.id)}">${request.proposal_id ? "Open proposal" : "Create proposal"}</a>
+        <button class="portal-button portal-button-secondary" type="button" data-save-request="${request.id}">Save review</button>
+      </div>
+    </article>
+  `).join("");
+}
+
+async function loadServiceRequests() {
+  const { data, error } = await supabase.from("website_service_requests").select("*").order("created_at", { ascending: false });
+  if (error) throw error;
+  serviceRequests = data || [];
+  const { data: proposalData, error: proposalError } = await supabase.from("website_proposals").select("id,request_id");
+  if (proposalError) throw proposalError;
+  const proposalByRequest = new Map((proposalData || []).map((proposal) => [proposal.request_id, proposal.id]));
+  serviceRequests = serviceRequests.map((request) => ({ ...request, proposal_id: proposalByRequest.get(request.id) || "" }));
+  renderServiceRequests();
+}
+
+async function saveServiceRequest(requestId) {
+  const status = adminRequestList.querySelector(`[data-request-status="${requestId}"]`)?.value;
+  const notes = adminRequestList.querySelector(`[data-request-notes="${requestId}"]`)?.value.trim();
+  const { error } = await supabase.from("website_service_requests").update({
+    status,
+    admin_notes: notes || null,
+    reviewed_by_user_id: currentUser.id,
+    reviewed_at: new Date().toISOString(),
+  }).eq("id", requestId);
+  if (error) throw error;
+  showToast("Website request updated.");
+  await loadServiceRequests();
+}
+
 function renderSelectedWebsite() {
   if (!selectedWebsite) {
     summary.hidden = true;
@@ -139,7 +193,6 @@ function renderSelectedWebsite() {
 }
 
 function renderMembers() {
-  memberEmpty.hidden = Boolean(members.length);
   memberList.innerHTML = members.map((member) => `
     <div class="portal-member-row">
       <div>
@@ -507,13 +560,21 @@ async function initWebsiteAdmin() {
       return;
     }
 
-    await loadWebsites();
+    await Promise.all([loadWebsites(), loadServiceRequests()]);
     document.body.classList.remove("portal-loading");
     statusScreen.hidden = true;
 
     websiteSelect.addEventListener("change", () => selectWebsite(websiteSelect.value).catch((loadError) => showToast(loadError.message, "error")));
     refreshButton.addEventListener("click", () => loadWebsites(selectedWebsite?.id).catch((loadError) => showToast(loadError.message, "error")));
     assetGrid.addEventListener("click", handleAssetAction);
+    adminRequestList.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-save-request]");
+      if (!button) return;
+      button.disabled = true;
+      saveServiceRequest(button.dataset.saveRequest)
+        .catch((requestError) => showToast(requestError?.message || "Unable to update this request.", "error"))
+        .finally(() => { button.disabled = false; });
+    });
     memberForm.addEventListener("submit", assignMember);
     memberList.addEventListener("click", handleMemberAction);
     memberList.addEventListener("change", handleMemberRoleChange);

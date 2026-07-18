@@ -536,7 +536,7 @@
     let captchaToken = "";
     let captchaWidgetId = null;
     let captchaEnabled = false;
-    const MUSIC_CONFIRM_REDIRECT_PATH = "/ai-music-generator/login/";
+    const MUSIC_CONFIRM_REDIRECT_PATH = "/account/?confirmed=1";
 
     function getTurnstileSiteKey() {
       return String(getConfig().turnstileSiteKey || "").trim();

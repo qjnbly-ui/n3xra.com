@@ -200,11 +200,21 @@ function getPlatformAdminInviteToken() {
   return String(params.get("admin_invite") || "").trim();
 }
 
-function buildAccountRedirectUrl({ mode = "", app = "", next = "", invite = "", adminInvite = "", email = "" } = {}) {
+function buildAccountRedirectUrl({
+  mode = "",
+  app = "",
+  next = "",
+  invite = "",
+  adminInvite = "",
+  email = "",
+  includeDestination = true,
+  confirmed = false,
+} = {}) {
   const url = new URL(getAppUrl("/account"));
-  const nextApp = app || getRequestedApp();
-  const nextPath = next || getSafeNextPath();
+  const nextApp = includeDestination ? app || getRequestedApp() : "";
+  const nextPath = includeDestination ? next || getSafeNextPath() : "";
   if (mode) url.searchParams.set("mode", mode);
+  if (confirmed) url.searchParams.set("confirmed", "1");
   if (nextApp) url.searchParams.set("app", nextApp);
   if (nextPath) url.searchParams.set("next", nextPath);
   if (invite) {
@@ -560,7 +570,13 @@ async function handleSignup(event) {
       email,
       password,
       options: {
-        emailRedirectTo: buildAccountRedirectUrl({ invite: inviteCode, adminInvite: getPlatformAdminInviteToken(), email }),
+        emailRedirectTo: buildAccountRedirectUrl({
+          invite: inviteCode,
+          adminInvite: getPlatformAdminInviteToken(),
+          email,
+          includeDestination: false,
+          confirmed: true,
+        }),
         data: {
           full_name: fullName,
           invite_code: inviteCode,

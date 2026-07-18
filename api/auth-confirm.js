@@ -5,9 +5,17 @@ const SUPABASE_ANON_KEY = String(
   ""
 ).trim();
 
-const DEFAULT_SUCCESS_REDIRECT = "/n3xra-records/login?confirmed=1";
-const DEFAULT_ERROR_REDIRECT = "/ai-music-generator/login/?error=confirmation_failed";
-const MUSIC_SUCCESS_REDIRECT = "/ai-music-generator/login/?confirmed=1";
+const DEFAULT_SUCCESS_REDIRECT = "/account/?confirmed=1";
+const DEFAULT_ERROR_REDIRECT = "/account/?error=confirmation_failed";
+const DASHBOARD_CONTEXT_PARAMS = [
+  "invite",
+  "invite_code",
+  "admin_invite",
+  "utility_invite",
+  "email",
+  "signup",
+  "promo",
+];
 
 function redirect(res, location) {
   res.statusCode = 302;
@@ -38,6 +46,34 @@ function normalizeRedirectPath(raw, fallback, origin) {
   } catch (_error) {
     return fallback;
   }
+}
+
+function buildVerifiedSessionRedirect(origin, path, payload) {
+  const target = new URL(path, origin);
+  const accessToken = String(payload?.access_token || "").trim();
+  const refreshToken = String(payload?.refresh_token || "").trim();
+  if (!accessToken || !refreshToken) return target.toString();
+
+  target.hash = new URLSearchParams({
+    access_token: accessToken,
+    refresh_token: refreshToken,
+    expires_in: String(payload?.expires_in || ""),
+    token_type: String(payload?.token_type || "bearer"),
+    type: "signup",
+  }).toString();
+  return target.toString();
+}
+
+function buildDashboardRedirect(origin, requestedRedirect) {
+  const dashboardUrl = new URL(DEFAULT_SUCCESS_REDIRECT, origin);
+  if (!requestedRedirect) return `${dashboardUrl.pathname}${dashboardUrl.search}`;
+
+  const requestedUrl = new URL(requestedRedirect, origin);
+  DASHBOARD_CONTEXT_PARAMS.forEach((name) => {
+    const value = requestedUrl.searchParams.get(name);
+    if (value) dashboardUrl.searchParams.set(name, value);
+  });
+  return `${dashboardUrl.pathname}${dashboardUrl.search}`;
 }
 
 module.exports = async function handler(req, res) {
@@ -76,15 +112,9 @@ module.exports = async function handler(req, res) {
       return redirect(res, `${origin}${DEFAULT_ERROR_REDIRECT}`);
     }
 
-    let successRedirect = requestedRedirect || DEFAULT_SUCCESS_REDIRECT;
-    if (!requestedRedirect) {
-      const appSignup = String(payload?.user?.user_metadata?.app_signup || "").trim().toLowerCase();
-      if (appSignup === "ai_music") {
-        successRedirect = MUSIC_SUCCESS_REDIRECT;
-      }
-    }
+    const successRedirect = buildDashboardRedirect(origin, requestedRedirect);
 
-    return redirect(res, `${origin}${successRedirect}`);
+    return redirect(res, buildVerifiedSessionRedirect(origin, successRedirect, payload));
   } catch (_error) {
     return redirect(res, `${origin}${DEFAULT_ERROR_REDIRECT}`);
   }

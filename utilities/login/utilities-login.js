@@ -163,7 +163,7 @@ async function handleSignup(event) {
     email,
     password,
     options: {
-      emailRedirectTo: `${window.location.origin}/utilities/login?invite=${encodeURIComponent(code)}`,
+      emailRedirectTo: `${window.location.origin}/account/?confirmed=1&utility_invite=${encodeURIComponent(code)}`,
       data: {
         full_name: fullName,
         utility_invite_code: code,

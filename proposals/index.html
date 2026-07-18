@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>N3XRA | Your Proposals</title>
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="icon" href="/assets/n3xra_logo_transparent_small.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/site-nav.css">
+  <link rel="stylesheet" href="/client-portal/portal.css">
+  <script src="/shared/config.js"></script>
+  <script src="/assets/site-nav.js" defer></script>
+</head>
+<body class="portal-loading">
+  <header class="site-topbar">
+    <div class="site-topbar-inner">
+      <div class="site-topbar-row">
+        <a class="site-brand" href="/" aria-label="N3XRA home"><img src="/assets/n3xra_logo_transparent.png" alt="N3XRA"></a>
+        <div class="site-nav-actions"><a class="site-menu-link" href="/account/">Dashboard</a></div>
+      </div>
+    </div>
+  </header>
+
+  <main class="portal-shell">
+    <section class="portal-heading">
+      <div>
+        <p class="portal-kicker">Client services</p>
+        <h1>Your Proposals</h1>
+        <p class="portal-heading-copy">Review the project scope, schedule, and investment attached to your N3XRA account.</p>
+      </div>
+    </section>
+
+    <div class="portal-layout">
+      <nav class="portal-nav" aria-label="Proposal navigation">
+        <a class="is-current" href="/proposals/">Proposals</a>
+        <a href="/project-workspace/">Projects</a>
+        <a href="/website-request/">Website requests</a>
+        <a href="/website-onboarding/">Onboarding</a>
+        <a href="/client-portal/">Your websites</a>
+        <a href="/account/">Account</a>
+      </nav>
+
+      <section class="portal-workspace">
+        <div class="portal-workspace-head">
+          <div><p class="portal-kicker">Proposal center</p><h2>Review and respond</h2></div>
+          <select class="portal-select" id="client-proposal-select" aria-label="Choose a proposal"></select>
+        </div>
+
+        <div class="portal-empty" id="client-proposal-empty">
+          <div><h3>No proposals yet</h3><p>When a proposal is ready, it will appear here automatically.</p></div>
+        </div>
+
+        <article class="portal-proposal-document" id="client-proposal-document" hidden></article>
+
+        <section class="portal-decision-panel" id="proposal-decision-panel" hidden>
+          <div class="portal-toolbar">
+            <div><p class="portal-kicker">Your response</p><h3>Respond to this proposal</h3><p>Your response is recorded with this exact proposal version.</p></div>
+          </div>
+          <div class="portal-decision-options" role="group" aria-label="Proposal response">
+            <button class="portal-decision-option is-selected" type="button" data-decision="approved">Approve proposal</button>
+            <button class="portal-decision-option" type="button" data-decision="changes_requested">Request changes</button>
+            <button class="portal-decision-option" type="button" data-decision="declined">Decline</button>
+          </div>
+          <form class="portal-form portal-decision-form" id="proposal-decision-form">
+            <label class="portal-form-wide">Your full name<input id="decision-client-name" required autocomplete="name"></label>
+            <label class="portal-form-wide">Message or requested changes<textarea id="decision-message" rows="4" placeholder="Optional for approval; required when requesting changes."></textarea></label>
+            <label class="portal-check portal-form-wide">
+              <input id="decision-acknowledgment" type="checkbox" required>
+              <span id="decision-acknowledgment-copy">I reviewed this proposal and confirm my response.</span>
+            </label>
+            <div class="portal-form-actions portal-form-wide">
+              <button class="portal-button" id="decision-submit" type="submit">Approve proposal</button>
+              <p class="portal-inline-status" id="decision-status" role="status"></p>
+            </div>
+          </form>
+        </section>
+      </section>
+    </div>
+  </main>
+
+  <div class="portal-status" id="portal-status" role="status">Opening your proposals…</div>
+  <script type="module" src="/proposals/proposals.js"></script>
+</body>
+</html>

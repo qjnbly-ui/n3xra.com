@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>N3XRA | Project Admin</title>
+  <meta name="robots" content="noindex, nofollow, noarchive">
+  <link rel="icon" href="/assets/n3xra_logo_transparent_small.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&amp;family=Manrope:wght@400;600;700;800&amp;display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/site-nav.css">
+  <link rel="stylesheet" href="/client-portal/portal.css">
+  <script src="/shared/config.js"></script>
+  <script src="/assets/site-nav.js" defer></script>
+</head>
+<body class="portal-loading">
+  <header class="site-topbar">
+    <div class="site-topbar-inner">
+      <div class="site-topbar-row">
+        <a class="site-brand" href="/" aria-label="N3XRA home"><img src="/assets/n3xra_logo_transparent.png" alt="N3XRA"></a>
+        <div class="site-nav-actions"><a class="site-menu-link" href="/account/">Dashboard</a></div>
+      </div>
+    </div>
+  </header>
+
+  <main class="portal-shell">
+    <section class="portal-heading">
+      <div>
+        <p class="portal-kicker">Master administration</p>
+        <h1>Website Projects</h1>
+        <p class="portal-heading-copy">Manage the complete client project lifecycle while keeping proposals, onboarding, launched websites, and future billing systems connected.</p>
+      </div>
+    </section>
+
+    <div class="portal-layout">
+      <nav class="portal-nav" aria-label="Website administration">
+        <a href="/n3xra-admin/websites/">Websites</a>
+        <a href="/n3xra-admin/proposals/">Proposals</a>
+        <a class="is-current" href="/n3xra-admin/projects/">Projects</a>
+        <a href="/n3xra-admin/onboarding/">Onboarding</a>
+        <a href="/account/">Account</a>
+      </nav>
+
+      <section class="portal-workspace">
+        <div class="portal-workspace-head">
+          <div><p class="portal-kicker">Project operations</p><h2>Active project workspace</h2></div>
+          <button class="portal-button portal-button-secondary" id="refresh-project-admin" type="button">Refresh</button>
+        </div>
+
+        <div class="portal-admin-picker portal-proposal-picker">
+          <label>Website project<select class="portal-select" id="admin-project-select"></select></label>
+          <div id="admin-project-state"></div>
+        </div>
+
+        <div class="portal-empty" id="admin-project-empty">
+          <div><h3>No projects yet</h3><p>A project is created automatically when a client approves a website proposal.</p></div>
+        </div>
+
+        <form class="portal-project-admin-form" id="project-admin-form" hidden>
+          <section class="portal-project-hero portal-project-admin-hero">
+            <div>
+              <p class="portal-kicker">Client project</p>
+              <h3 id="admin-project-name">Website project</h3>
+              <p id="admin-project-meta"></p>
+              <div class="portal-project-actions" id="admin-project-links"></div>
+            </div>
+            <div class="portal-project-progress">
+              <strong id="admin-project-progress-value">0%</strong>
+              <span>Project progress</span>
+              <div class="portal-progress-track"><span id="admin-project-progress-bar"></span></div>
+            </div>
+          </section>
+
+          <section class="portal-project-admin-settings">
+            <div class="portal-section-heading"><p class="portal-kicker">Workspace settings</p><h3>Client-facing project status</h3><p>These details control what the client sees at the top of their project workspace.</p></div>
+            <div class="portal-form-grid">
+              <label>Project status
+                <select id="admin-project-status">
+                  <option value="pending">Pending setup</option>
+                  <option value="active">Active</option>
+                  <option value="waiting_on_client">Waiting on client</option>
+                  <option value="on_hold">On hold</option>
+                  <option value="ready_to_launch">Ready to launch</option>
+                  <option value="launched">Launched</option>
+                  <option value="cancelled">Cancelled</option>
+                  <option value="archived">Archived</option>
+                </select>
+              </label>
+              <label>Managed website
+                <select id="admin-project-website">
+                  <option value="">Not connected yet</option>
+                </select>
+              </label>
+              <label>Target start date<input id="admin-project-start" type="date"></label>
+              <label>Target launch date<input id="admin-project-launch" type="date"></label>
+              <label class="portal-form-wide">Client summary<textarea id="admin-project-summary" rows="4" placeholder="A concise status summary visible to the client."></textarea></label>
+              <label class="portal-form-wide">Next step for the client<textarea id="admin-project-next-step" rows="4" placeholder="Tell the client exactly what is happening next or what you need from them."></textarea></label>
+            </div>
+          </section>
+
+          <section class="portal-project-admin-milestones">
+            <div class="portal-section-heading"><p class="portal-kicker">Project roadmap</p><h3>Stage management</h3><p>Updating a stage automatically recalculates the client’s project progress and current step.</p></div>
+            <div class="portal-admin-milestone-list" id="admin-project-milestones"></div>
+          </section>
+
+          <div class="portal-project-savebar">
+            <p class="portal-inline-status" id="admin-project-save-status" role="status"></p>
+            <button class="portal-button" id="save-project-admin" type="submit">Save project workspace</button>
+          </div>
+        </form>
+      </section>
+    </div>
+  </main>
+
+  <div class="portal-status" id="portal-status" role="status">Verifying project administration…</div>
+  <script type="module" src="/n3xra-admin/projects/projects-admin.js"></script>
+</body>
+</html>

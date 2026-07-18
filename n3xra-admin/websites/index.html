@@ -51,6 +51,9 @@
     <div class="portal-layout">
       <nav class="portal-nav" aria-label="Website administration">
         <a class="is-current" href="/n3xra-admin/websites/">Websites</a>
+        <a href="/n3xra-admin/proposals/">Proposals</a>
+        <a href="/n3xra-admin/projects/">Projects</a>
+        <a href="/n3xra-admin/onboarding/">Onboarding</a>
         <span class="is-placeholder">Clients</span>
         <span class="is-placeholder">Access</span>
         <span class="is-placeholder">Activity</span>
@@ -64,6 +67,17 @@
           </div>
           <button class="portal-button" id="open-site-form" type="button">Add website</button>
         </div>
+
+        <section class="portal-request-admin" aria-labelledby="request-queue-title">
+          <div class="portal-toolbar">
+            <div>
+              <p class="portal-kicker">Beginning of lifecycle</p>
+              <h3 id="request-queue-title">Website requests</h3>
+              <p>Review new requests before converting them into active client projects.</p>
+            </div>
+          </div>
+          <div class="portal-request-list" id="admin-request-list"></div>
+        </section>
 
         <form class="portal-form" id="site-form" hidden>
           <div class="portal-form-head">
@@ -141,9 +155,6 @@
           </form>
           <p class="portal-inline-status" id="member-form-status" role="status"></p>
           <div class="portal-member-list" id="member-list"></div>
-          <div class="portal-empty portal-member-empty" id="member-empty">
-            <p>No clients are assigned to this website.</p>
-          </div>
         </section>
 
         <div class="portal-toolbar" id="admin-asset-toolbar" hidden>

@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>N3XRA | Website Onboarding</title>
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="icon" href="/assets/n3xra_logo_transparent_small.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/site-nav.css">
+  <link rel="stylesheet" href="/client-portal/portal.css">
+  <script src="/shared/config.js"></script>
+  <script src="/assets/site-nav.js" defer></script>
+</head>
+<body class="portal-loading">
+  <header class="site-topbar">
+    <div class="site-topbar-inner">
+      <div class="site-topbar-row">
+        <a class="site-brand" href="/" aria-label="N3XRA home"><img src="/assets/n3xra_logo_transparent.png" alt="N3XRA"></a>
+        <div class="site-nav-actions"><a class="site-menu-link" href="/account/">Dashboard</a></div>
+      </div>
+    </div>
+  </header>
+
+  <main class="portal-shell">
+    <section class="portal-heading">
+      <div>
+        <p class="portal-kicker">Project setup</p>
+        <h1>Website Onboarding</h1>
+        <p class="portal-heading-copy">One organized place for the business details, brand direction, content, technical access, and files needed to begin your website.</p>
+      </div>
+    </section>
+
+    <div class="portal-layout">
+      <nav class="portal-nav portal-onboarding-nav" aria-label="Onboarding navigation">
+        <a class="is-current" href="/website-onboarding/">Onboarding</a>
+        <a href="/project-workspace/">Projects</a>
+        <a href="/proposals/">Proposals</a>
+        <a href="/website-request/">Website requests</a>
+        <a href="/client-portal/">Your websites</a>
+        <a href="/account/">Account</a>
+      </nav>
+
+      <section class="portal-workspace">
+        <div class="portal-workspace-head">
+          <div><p class="portal-kicker">Client workspace</p><h2 id="onboarding-title">Project onboarding</h2></div>
+          <select class="portal-select" id="onboarding-select" aria-label="Choose onboarding project"></select>
+        </div>
+
+        <div class="portal-empty" id="onboarding-empty">
+          <div>
+            <h3>Onboarding is not open yet</h3>
+            <p>After your proposal is approved, N3XRA will open this workspace when the project is ready for setup.</p>
+          </div>
+        </div>
+
+        <div id="onboarding-workspace" hidden>
+          <section class="portal-onboarding-overview">
+            <div>
+              <span class="portal-badge" id="onboarding-status-badge">Not started</span>
+              <h3 id="onboarding-project-name">Website project</h3>
+              <p id="onboarding-review-note"></p>
+            </div>
+            <div class="portal-progress-block">
+              <div><strong id="onboarding-progress-label">0% complete</strong><span id="onboarding-save-state">Not saved</span></div>
+              <div class="portal-progress-track" aria-hidden="true"><span id="onboarding-progress-bar"></span></div>
+            </div>
+          </section>
+
+          <div class="portal-onboarding-layout">
+            <nav class="portal-step-nav" id="onboarding-step-nav" aria-label="Onboarding sections">
+              <button class="is-active" type="button" data-section="business"><span>1</span>Business</button>
+              <button type="button" data-section="brand"><span>2</span>Brand & design</button>
+              <button type="button" data-section="content"><span>3</span>Content</button>
+              <button type="button" data-section="technical"><span>4</span>Technical</button>
+              <button type="button" data-section="legal"><span>5</span>Legal & launch</button>
+              <button type="button" data-section="files"><span>6</span>Files</button>
+              <button type="button" data-section="review"><span>7</span>Review</button>
+            </nav>
+
+            <form class="portal-onboarding-form" id="onboarding-form">
+              <section class="portal-onboarding-section is-active" data-onboarding-section="business">
+                <div class="portal-section-heading"><p class="portal-kicker">Section 1</p><h3>Business details</h3><p>Start with the information the website should accurately represent.</p></div>
+                <div class="portal-form-grid">
+                  <label>Legal business name<input id="onboarding-legal-name" data-answer="business.legalName" required></label>
+                  <label>Public-facing name<input id="onboarding-public-name" data-answer="business.publicName" required></label>
+                  <label>Primary contact<input id="onboarding-contact-name" data-answer="business.contactName" required autocomplete="name"></label>
+                  <label>Contact email<input id="onboarding-contact-email" data-answer="business.contactEmail" type="email" required autocomplete="email"></label>
+                  <label>Contact phone<input id="onboarding-contact-phone" data-answer="business.contactPhone" type="tel" autocomplete="tel"></label>
+                  <label>Business location or service area<input id="onboarding-service-area" data-answer="business.serviceArea"></label>
+                  <label class="portal-form-wide">What does your business do?<textarea id="onboarding-description" data-answer="business.description" rows="5" required></textarea></label>
+                  <label class="portal-form-wide">Business hours or availability<textarea id="onboarding-hours" data-answer="business.hours" rows="3"></textarea></label>
+                </div>
+              </section>
+
+              <section class="portal-onboarding-section" data-onboarding-section="brand" hidden>
+                <div class="portal-section-heading"><p class="portal-kicker">Section 2</p><h3>Brand and design direction</h3><p>Describe the visual personality and references that should guide the site.</p></div>
+                <div class="portal-form-grid">
+                  <label class="portal-form-wide">Brand personality<input id="onboarding-personality" data-answer="brand.personality" placeholder="Trustworthy, outdoorsy, modern, welcoming"></label>
+                  <label>Preferred colors<input id="onboarding-colors" data-answer="brand.colors" placeholder="Names or hex codes"></label>
+                  <label>Preferred fonts or typography<input id="onboarding-fonts" data-answer="brand.fonts"></label>
+                  <label class="portal-form-wide">Websites or styles you like<textarea id="onboarding-inspiration" data-answer="brand.inspiration" rows="4" placeholder="Add links and explain what you like about each."></textarea></label>
+                  <label class="portal-form-wide">Styles, colors, or features to avoid<textarea id="onboarding-avoid" data-answer="brand.avoid" rows="3"></textarea></label>
+                  <label class="portal-form-wide">Competitors or comparable organizations<textarea id="onboarding-competitors" data-answer="brand.competitors" rows="3"></textarea></label>
+                </div>
+              </section>
+
+              <section class="portal-onboarding-section" data-onboarding-section="content" hidden>
+                <div class="portal-section-heading"><p class="portal-kicker">Section 3</p><h3>Pages and content</h3><p>Define what visitors need to learn and the actions they should take.</p></div>
+                <div class="portal-form-grid">
+                  <label class="portal-form-wide">Final page list<input id="onboarding-pages" data-answer="content.pages" required placeholder="Home, About, Services, Contact"></label>
+                  <label class="portal-form-wide">Services, products, or programs<textarea id="onboarding-offerings" data-answer="content.offerings" rows="6" required></textarea></label>
+                  <label>Primary call to action<input id="onboarding-cta" data-answer="content.primaryCta" required placeholder="Call now, request a quote, shop online"></label>
+                  <label>Who will provide final written content?<input id="onboarding-content-owner" data-answer="content.owner"></label>
+                  <label class="portal-form-wide">Testimonials, credentials, awards, or trust signals<textarea id="onboarding-proof" data-answer="content.proof" rows="4"></textarea></label>
+                  <label class="portal-form-wide">Frequently asked questions<textarea id="onboarding-faq" data-answer="content.faq" rows="5"></textarea></label>
+                </div>
+              </section>
+
+              <section class="portal-onboarding-section" data-onboarding-section="technical" hidden>
+                <div class="portal-section-heading"><p class="portal-kicker">Section 4</p><h3>Domain and integrations</h3><p>Do not paste passwords here. N3XRA will use delegated access or provider invitations when access is required.</p></div>
+                <div class="portal-form-grid">
+                  <label>Current or planned domain<input id="onboarding-domain" data-answer="technical.domain" placeholder="example.com"></label>
+                  <label>Domain registrar<input id="onboarding-registrar" data-answer="technical.registrar" placeholder="GoDaddy, Namecheap, Cloudflare"></label>
+                  <label>Current hosting provider<input id="onboarding-hosting" data-answer="technical.hosting"></label>
+                  <label>Form notification email<input id="onboarding-form-email" data-answer="technical.formEmail" type="email"></label>
+                  <label class="portal-form-wide">Preferred access method<textarea id="onboarding-access" data-answer="technical.accessMethod" rows="3" placeholder="Explain who can send provider invitations or coordinate access. Do not include passwords."></textarea></label>
+                  <label class="portal-form-wide">Required integrations<textarea id="onboarding-integrations" data-answer="technical.integrations" rows="4" placeholder="Scheduling, payments, CRM, email marketing, analytics"></textarea></label>
+                  <label class="portal-form-wide">Social profile links<textarea id="onboarding-socials" data-answer="technical.socials" rows="4"></textarea></label>
+                </div>
+              </section>
+
+              <section class="portal-onboarding-section" data-onboarding-section="legal" hidden>
+                <div class="portal-section-heading"><p class="portal-kicker">Section 5</p><h3>Legal, accessibility, and launch</h3><p>Capture launch requirements and the policy information the website may need.</p></div>
+                <div class="portal-form-grid">
+                  <label>Privacy contact email<input id="onboarding-privacy-email" data-answer="legal.privacyEmail" type="email"></label>
+                  <label>Legal business address<input id="onboarding-legal-address" data-answer="legal.address"></label>
+                  <label class="portal-form-wide">Required policies or disclaimers<textarea id="onboarding-policies" data-answer="legal.policies" rows="4" placeholder="Privacy policy, terms, returns, disclaimers, licenses"></textarea></label>
+                  <label class="portal-form-wide">Accessibility or language requirements<textarea id="onboarding-accessibility" data-answer="legal.accessibility" rows="3"></textarea></label>
+                  <label>Important launch date<input id="onboarding-launch-date" data-answer="launch.importantDate" type="date"></label>
+                  <label>Who gives final launch approval?<input id="onboarding-launch-approver" data-answer="launch.approver"></label>
+                  <label class="portal-form-wide">Launch notes or dependencies<textarea id="onboarding-launch-notes" data-answer="launch.notes" rows="4"></textarea></label>
+                </div>
+              </section>
+
+              <section class="portal-onboarding-section" data-onboarding-section="files" hidden>
+                <div class="portal-section-heading"><p class="portal-kicker">Section 6</p><h3>Project files</h3><p>Upload logos, brand references, photos, documents, and content. Files remain private to this project.</p></div>
+                <div class="portal-upload-panel">
+                  <div class="portal-form-grid">
+                    <label>File category
+                      <select id="onboarding-file-category">
+                        <option value="logo">Logo</option>
+                        <option value="brand">Brand reference</option>
+                        <option value="photo">Photo</option>
+                        <option value="content">Written content</option>
+                        <option value="document">Document</option>
+                        <option value="legal">Legal or policy file</option>
+                        <option value="other">Other</option>
+                      </select>
+                    </label>
+                    <label>Choose files<input id="onboarding-file-input" type="file" multiple></label>
+                    <label class="portal-form-wide">Optional note<input id="onboarding-file-note" placeholder="How should these files be used?"></label>
+                  </div>
+                  <div class="portal-form-actions">
+                    <button class="portal-button" id="onboarding-upload-button" type="button">Upload files</button>
+                    <p class="portal-inline-status" id="onboarding-upload-status" role="status"></p>
+                  </div>
+                </div>
+                <div class="portal-file-list" id="onboarding-file-list"></div>
+              </section>
+
+              <section class="portal-onboarding-section" data-onboarding-section="review" hidden>
+                <div class="portal-section-heading"><p class="portal-kicker">Section 7</p><h3>Review and submit</h3><p>You can keep saving until everything is ready. Submission locks your answers while N3XRA reviews them.</p></div>
+                <div class="portal-review-checklist" id="onboarding-review-checklist"></div>
+                <label class="portal-check portal-onboarding-confirm">
+                  <input id="onboarding-submit-confirm" type="checkbox">
+                  <span>I reviewed the information and confirm it is ready for N3XRA’s project review.</span>
+                </label>
+                <div class="portal-form-actions">
+                  <button class="portal-button" id="onboarding-submit-button" type="button">Submit onboarding</button>
+                  <p class="portal-inline-status" id="onboarding-submit-status" role="status"></p>
+                </div>
+              </section>
+
+              <div class="portal-onboarding-actions">
+                <button class="portal-button portal-button-secondary" id="onboarding-previous" type="button">Previous</button>
+                <div>
+                  <button class="portal-button portal-button-secondary" id="onboarding-save" type="button">Save progress</button>
+                  <button class="portal-button" id="onboarding-next" type="button">Save & continue</button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <div class="portal-status" id="portal-status" role="status">Opening onboarding…</div>
+  <script type="module" src="/website-onboarding/onboarding.js"></script>
+</body>
+</html>

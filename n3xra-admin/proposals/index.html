@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>N3XRA | Proposal Admin</title>
+  <meta name="robots" content="noindex, nofollow, noarchive">
+  <link rel="icon" href="/assets/n3xra_logo_transparent_small.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/site-nav.css">
+  <link rel="stylesheet" href="/client-portal/portal.css">
+  <script src="/shared/config.js"></script>
+  <script src="/assets/site-nav.js" defer></script>
+</head>
+<body class="portal-loading">
+  <header class="site-topbar">
+    <div class="site-topbar-inner">
+      <div class="site-topbar-row">
+        <a class="site-brand" href="/" aria-label="N3XRA home"><img src="/assets/n3xra_logo_transparent.png" alt="N3XRA"></a>
+        <div class="site-nav-actions"><a class="site-menu-link" href="/account/">Dashboard</a></div>
+      </div>
+    </div>
+  </header>
+
+  <main class="portal-shell">
+    <section class="portal-heading">
+      <div>
+        <p class="portal-kicker">Master administration</p>
+        <h1>Proposals</h1>
+        <p class="portal-heading-copy">Build a clear scope, publish a numbered version, and keep every client decision attached to exactly what they reviewed.</p>
+      </div>
+    </section>
+
+    <div class="portal-layout">
+      <nav class="portal-nav" aria-label="Website administration">
+        <a href="/n3xra-admin/websites/">Websites</a>
+        <a class="is-current" href="/n3xra-admin/proposals/">Proposals</a>
+        <a href="/n3xra-admin/projects/">Projects</a>
+        <a href="/n3xra-admin/onboarding/">Onboarding</a>
+        <a href="/proposals/">Client view</a>
+        <a href="/account/">Account</a>
+      </nav>
+
+      <section class="portal-workspace">
+        <div class="portal-workspace-head">
+          <div><p class="portal-kicker">Proposal pipeline</p><h2>Prepare client proposal</h2></div>
+          <button class="portal-button portal-button-secondary" id="refresh-proposals" type="button">Refresh</button>
+        </div>
+
+        <div class="portal-admin-picker portal-proposal-picker">
+          <label>Website request<select class="portal-select" id="proposal-request-select"></select></label>
+          <div class="portal-proposal-state" id="proposal-state"></div>
+        </div>
+
+        <article class="portal-intake-summary" id="proposal-request-summary" hidden></article>
+
+        <div class="portal-empty" id="proposal-empty">
+          <p>Choose a website request to begin.</p>
+        </div>
+
+        <form class="portal-form portal-proposal-form" id="proposal-form" hidden>
+          <div class="portal-form-head">
+            <div>
+              <p class="portal-kicker" id="proposal-version-label">Draft proposal</p>
+              <h3 id="proposal-editor-title">Proposal details</h3>
+            </div>
+            <button class="portal-button portal-button-secondary" id="new-proposal-version" type="button" hidden>Create revision</button>
+          </div>
+
+          <div class="portal-form-section">
+            <h4>Overview</h4>
+            <div class="portal-form-grid">
+              <label class="portal-form-wide">Proposal title<input id="proposal-title" required maxlength="160"></label>
+              <label class="portal-form-wide">Introduction<textarea id="proposal-introduction" rows="3" placeholder="A short, personal introduction for the client."></textarea></label>
+              <label class="portal-form-wide">Project objective<textarea id="proposal-objective" rows="4" required></textarea></label>
+              <label class="portal-form-wide">Scope summary<textarea id="proposal-scope" rows="5" required></textarea></label>
+            </div>
+          </div>
+
+          <div class="portal-form-section">
+            <h4>Deliverables and boundaries</h4>
+            <div class="portal-form-grid">
+              <label class="portal-form-wide">Deliverables <span>One item per line</span><textarea id="proposal-deliverables" rows="6" required></textarea></label>
+              <label class="portal-form-wide">Not included <span>One item per line</span><textarea id="proposal-exclusions" rows="4"></textarea></label>
+              <label class="portal-form-wide">Revision policy<textarea id="proposal-revisions" rows="3"></textarea></label>
+            </div>
+          </div>
+
+          <div class="portal-form-section">
+            <h4>Schedule</h4>
+            <div class="portal-form-grid">
+              <label class="portal-form-wide">Timeline description<textarea id="proposal-timeline" rows="3" required></textarea></label>
+              <label>Estimated start<input id="proposal-start-date" type="date"></label>
+              <label>Estimated completion<input id="proposal-completion-date" type="date"></label>
+              <label>Proposal valid until<input id="proposal-valid-until" type="date"></label>
+            </div>
+          </div>
+
+          <div class="portal-form-section">
+            <h4>Investment</h4>
+            <div class="portal-form-grid">
+              <label>Project subtotal ($)<input id="proposal-subtotal" type="number" min="0" step="0.01" required></label>
+              <label>Discount ($)<input id="proposal-discount" type="number" min="0" step="0.01" value="0"></label>
+              <label>Total ($)<input id="proposal-total" type="text" readonly></label>
+              <label>Deposit due ($)<input id="proposal-deposit" type="number" min="0" step="0.01" value="0"></label>
+              <label>Recurring service ($)<input id="proposal-recurring" type="number" min="0" step="0.01" value="0"></label>
+              <label>Recurring interval
+                <select id="proposal-recurring-interval">
+                  <option value="">None</option>
+                  <option value="monthly">Monthly</option>
+                  <option value="quarterly">Quarterly</option>
+                  <option value="yearly">Yearly</option>
+                </select>
+              </label>
+              <label class="portal-form-wide">Payment schedule<textarea id="proposal-payment-schedule" rows="3"></textarea></label>
+            </div>
+          </div>
+
+          <div class="portal-form-section">
+            <h4>Terms</h4>
+            <div class="portal-form-grid">
+              <label class="portal-form-wide">Proposal terms<textarea id="proposal-terms" rows="7" required></textarea></label>
+            </div>
+          </div>
+
+          <div class="portal-form-actions portal-proposal-actions">
+            <button class="portal-button portal-button-secondary" id="save-proposal" type="submit">Save draft</button>
+            <button class="portal-button" id="send-proposal" type="button">Send to client</button>
+            <a class="portal-button portal-button-secondary" id="preview-proposal" href="/proposals/" target="_blank" rel="noopener" hidden>Open client view</a>
+            <p class="portal-inline-status" id="proposal-form-status" role="status"></p>
+          </div>
+        </form>
+      </section>
+    </div>
+  </main>
+
+  <div class="portal-status" id="portal-status" role="status">Verifying proposal access…</div>
+  <script type="module" src="/n3xra-admin/proposals/proposals-admin.js"></script>
+</body>
+</html>

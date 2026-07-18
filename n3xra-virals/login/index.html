@@ -729,7 +729,7 @@
             password,
             options: {
               data: { full_name: fullName, app: "n3xra-virals", virals_promo_code: promoCode || undefined },
-              emailRedirectTo: `${window.location.origin}/n3xra-virals/login/?next=${encodeURIComponent(getNextPath())}`,
+              emailRedirectTo: `${window.location.origin}/account/?confirmed=1${promoCode ? `&promo=${encodeURIComponent(promoCode)}` : ""}`,
             },
           });
           if (error) throw error;
