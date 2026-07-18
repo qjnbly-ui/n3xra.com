@@ -84,6 +84,74 @@ function keyFromLabel(value) {
   return words[0].toLowerCase() + words.slice(1).map((word) => word[0].toUpperCase() + word.slice(1)).join("");
 }
 
+function humanizeFilename(filename) {
+  const withoutExtension = String(filename || "").replace(/\.[^.]+$/, "");
+  return withoutExtension
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/([a-zA-Z])(\d+)/g, "$1 $2")
+    .replace(/(\d+)([a-zA-Z])/g, "$1 $2")
+    .replace(/[_-]+/g, " ")
+    .replace(/\b\w/g, (character) => character.toUpperCase())
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function inferAssetDefaults(file) {
+  const filename = String(file?.name || "");
+  const searchable = filename.toLowerCase().replace(/\.[^.]+$/, "");
+  const mimeType = String(file?.type || "").toLowerCase();
+  const extension = filename.split(".").pop()?.toLowerCase() || "";
+  let category = mimeType.startsWith("image/") ? "image" : "other";
+  let replacementType = mimeType.startsWith("image/") ? "html_src" : "download_only";
+
+  if (mimeType === "application/pdf" || ["pdf", "zip", "txt"].includes(extension)) {
+    category = "document";
+    replacementType = "download_only";
+  } else if (/(social|open.?graph|og.?image|twitter|share)/.test(searchable)) {
+    category = "social";
+    replacementType = "metadata";
+  } else if (/(favicon|apple.?touch|app.?icon|site.?icon)/.test(searchable)) {
+    category = "brand";
+    replacementType = "metadata";
+  } else if (/(logo|wordmark|brandmark)/.test(searchable)) {
+    category = "logo";
+    replacementType = "html_src";
+  } else if (/(background|backdrop|wallpaper|banner)/.test(searchable)) {
+    category = "image";
+    replacementType = "css_background";
+  } else if (/(carousel|slider|slide|gallery)/.test(searchable) || /photo.?0*\d+$/.test(searchable)) {
+    category = "image";
+    replacementType = "carousel_slide";
+  }
+
+  const label = humanizeFilename(filename) || "Website Asset";
+  return { label, key: keyFromLabel(label), category, replacementType };
+}
+
+function applySuggestion(control, value) {
+  if (!control || !value || control.dataset.userEdited === "true") return;
+  control.value = value;
+  control.dataset.autoValue = value;
+}
+
+function prefillFromSelectedFile() {
+  const file = uploadFile.files?.[0];
+  if (!file || uploadAssetId.value) return;
+  const defaults = inferAssetDefaults(file);
+  applySuggestion(uploadLabel, defaults.label);
+  applySuggestion(uploadKey, defaults.key);
+  applySuggestion(uploadCategory, defaults.category);
+  applySuggestion(uploadReplacementType, defaults.replacementType);
+  setInlineStatus("Suggested details were filled from the filename. You can change any of them.");
+}
+
+function clearAutoSuggestions() {
+  [uploadLabel, uploadKey, uploadCategory, uploadReplacementType].forEach((control) => {
+    delete control.dataset.autoValue;
+    delete control.dataset.userEdited;
+  });
+}
+
 function syncNewAssetFields() {
   const creating = !uploadAssetId.value;
   newAssetFields.forEach((field) => {
@@ -230,6 +298,7 @@ function closeUploadForm() {
   uploadForm.hidden = true;
   uploadForm.reset();
   uploadAssetId.value = "";
+  clearAutoSuggestions();
   syncNewAssetFields();
   setInlineStatus("");
 }
@@ -349,12 +418,31 @@ async function initPortal() {
     websiteSelect.addEventListener("change", () => selectWebsite(websiteSelect.value).catch((error) => showStatus(error.message)));
     openUploadButton.addEventListener("click", () => openUploadForm());
     closeUploadButton.addEventListener("click", closeUploadForm);
-    uploadAssetId.addEventListener("change", syncNewAssetFields);
+    uploadAssetId.addEventListener("change", () => {
+      syncNewAssetFields();
+      if (!uploadAssetId.value) prefillFromSelectedFile();
+    });
+    uploadFile.addEventListener("change", prefillFromSelectedFile);
     uploadLabel.addEventListener("input", () => {
-      if (!uploadKey.dataset.edited) uploadKey.value = keyFromLabel(uploadLabel.value);
+      delete uploadLabel.dataset.autoValue;
+      uploadLabel.dataset.userEdited = "true";
+      if (!uploadKey.value || uploadKey.value === uploadKey.dataset.autoValue) {
+        const suggestedKey = keyFromLabel(uploadLabel.value);
+        uploadKey.value = suggestedKey;
+        uploadKey.dataset.autoValue = suggestedKey;
+      }
     });
     uploadKey.addEventListener("input", () => {
-      uploadKey.dataset.edited = uploadKey.value ? "true" : "";
+      delete uploadKey.dataset.autoValue;
+      uploadKey.dataset.userEdited = "true";
+    });
+    uploadCategory.addEventListener("change", () => {
+      delete uploadCategory.dataset.autoValue;
+      uploadCategory.dataset.userEdited = "true";
+    });
+    uploadReplacementType.addEventListener("change", () => {
+      delete uploadReplacementType.dataset.autoValue;
+      uploadReplacementType.dataset.userEdited = "true";
     });
     uploadForm.addEventListener("submit", uploadAssetVersion);
     assetGrid.addEventListener("click", (event) => {
