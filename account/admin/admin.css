@@ -157,10 +157,115 @@
   line-height: 1.65;
 }
 
+.platform-admin-section {
+  display: grid;
+  gap: 1.25rem;
+  margin-top: 1.25rem;
+}
+
+.platform-admin-invite-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: #f7f9fb;
+  border: 1px solid var(--portal-line);
+  border-radius: 10px;
+}
+
+.platform-admin-invite-form .portal-button {
+  min-height: 46px;
+}
+
+.platform-admin-invite-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem;
+  background: rgba(22, 185, 237, 0.08);
+  border: 1px solid rgba(22, 185, 237, 0.22);
+  border-radius: 10px;
+}
+
+.platform-admin-invite-link span {
+  color: var(--portal-muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.platform-admin-invite-link p {
+  margin: 0.25rem 0 0;
+  overflow-wrap: anywhere;
+  color: var(--portal-ink);
+  font-size: 0.84rem;
+}
+
+.platform-admin-toolbar {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--portal-line);
+}
+
+.platform-admin-toolbar .portal-kicker,
+.platform-admin-toolbar h3 {
+  margin: 0;
+}
+
+.platform-admin-toolbar h3 {
+  font-family: "Fraunces", Georgia, serif;
+  font-size: 1.45rem;
+}
+
+.platform-admin-invites-heading {
+  margin-top: 0.5rem;
+}
+
+.platform-admin-list {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.platform-admin-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.9rem 1rem;
+  background: #ffffff;
+  border: 1px solid var(--portal-line);
+  border-radius: 9px;
+}
+
+.platform-admin-row strong {
+  overflow-wrap: anywhere;
+}
+
+.platform-admin-row p,
+.platform-admin-empty {
+  margin: 0.2rem 0 0;
+  color: var(--portal-muted);
+}
+
+.platform-admin-empty {
+  padding: 0.25rem 0;
+}
+
 @media (max-width: 800px) {
   .account-admin-selector,
   .account-admin-facts,
   .account-admin-card-grid { grid-template-columns: 1fr; }
   .account-admin-form-row,
   .account-admin-detail-head { align-items: stretch; flex-direction: column; }
+  .platform-admin-invite-form { grid-template-columns: 1fr; }
+  .platform-admin-invite-form .portal-button { width: 100%; }
+  .platform-admin-invite-link,
+  .platform-admin-toolbar { align-items: stretch; flex-direction: column; }
+  .platform-admin-row { align-items: stretch; grid-template-columns: 1fr; }
 }

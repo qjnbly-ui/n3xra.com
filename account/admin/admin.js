@@ -11,6 +11,7 @@ let session = null;
 let accounts = [];
 let billing = [];
 let supportRequests = [];
+let platformAdminInviteUrl = "";
 
 function escapeHtml(value) {
   return String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
@@ -174,6 +175,134 @@ async function loadSupport() {
   setStatus(`${supportRequests.length} support request${supportRequests.length === 1 ? "" : "s"} loaded.`, "success");
 }
 
+function formatAdminDate(value) {
+  if (!value) return "Unknown";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? "Unknown"
+    : date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
+
+function platformAdminRow({ title, meta, action = "", actionLabel = "", id = "" }) {
+  return `
+    <article class="platform-admin-row">
+      <div><strong>${escapeHtml(title)}</strong><p>${escapeHtml(meta)}</p></div>
+      ${action && actionLabel && id
+        ? `<button class="portal-button portal-button-secondary" type="button" data-platform-admin-action="${escapeHtml(action)}" data-platform-admin-id="${escapeHtml(id)}">${escapeHtml(actionLabel)}</button>`
+        : ""}
+    </article>
+  `;
+}
+
+function renderPlatformAdmins(data = {}) {
+  const adminList = document.getElementById("platform-admin-list");
+  const inviteList = document.getElementById("platform-admin-invite-list");
+  if (!adminList || !inviteList) return;
+
+  const admins = Array.isArray(data.admins) ? data.admins : [];
+  const invites = Array.isArray(data.invites) ? data.invites : [];
+  adminList.innerHTML = admins.length
+    ? admins.map((admin) => {
+      const role = String(admin.role || "admin");
+      const status = String(admin.status || "active");
+      return platformAdminRow({
+        title: String(admin.email || "Unknown admin"),
+        meta: `${role === "owner" ? "Master owner" : "Platform admin"} · ${status}`,
+        action: role !== "owner" && status === "active" ? "revoke-admin" : "",
+        actionLabel: role !== "owner" && status === "active" ? "Revoke" : "",
+        id: String(admin.user_id || ""),
+      });
+    }).join("")
+    : '<p class="platform-admin-empty">No platform admins found.</p>';
+
+  inviteList.innerHTML = invites.length
+    ? invites.map((invite) => {
+      const status = String(invite.status || "pending");
+      return platformAdminRow({
+        title: String(invite.email || "Unknown invite"),
+        meta: `${status} · expires ${formatAdminDate(invite.expires_at)}`,
+        action: status === "pending" ? "revoke-invite" : "",
+        actionLabel: status === "pending" ? "Revoke" : "",
+        id: String(invite.id || ""),
+      });
+    }).join("")
+    : '<p class="platform-admin-empty">No admin invites yet.</p>';
+}
+
+async function loadPlatformAdmins() {
+  setStatus("Loading platform admins…");
+  try {
+    const data = await invoke("list-platform-admins");
+    renderPlatformAdmins(data);
+    setStatus(`${(data.admins || []).length} platform administrator${(data.admins || []).length === 1 ? "" : "s"} loaded.`, "success");
+  } catch (error) {
+    document.querySelector(".platform-admin-section")?.classList.add("hidden");
+    setStatus(error.message || "Owner admin access is required.", "error");
+  }
+}
+
+async function createPlatformAdminInvite(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const emailInput = document.getElementById("platform-admin-invite-email");
+  const email = String(emailInput?.value || "").trim().toLowerCase();
+  if (!email) {
+    setStatus("Enter an admin email first.", "error");
+    return;
+  }
+
+  setStatus("Creating admin invite…");
+  try {
+    const data = await invoke("create-platform-admin-invite", { email });
+    platformAdminInviteUrl = String(data.inviteUrl || "");
+    const inviteLink = document.getElementById("platform-admin-invite-link");
+    const inviteUrl = document.getElementById("platform-admin-invite-url");
+    if (inviteUrl) inviteUrl.textContent = platformAdminInviteUrl;
+    inviteLink?.classList.toggle("hidden", !platformAdminInviteUrl);
+    form.reset();
+    await loadPlatformAdmins();
+    setStatus("Admin invite created. Send the secure link to the new administrator.", "success");
+  } catch (error) {
+    setStatus(error.message || "Unable to create the admin invite.", "error");
+  }
+}
+
+async function copyPlatformAdminInvite() {
+  if (!platformAdminInviteUrl) return;
+  try {
+    await navigator.clipboard.writeText(platformAdminInviteUrl);
+    setStatus("Admin invite link copied.", "success");
+  } catch {
+    setStatus("Copy failed. Select and copy the displayed invite link.", "error");
+  }
+}
+
+async function handlePlatformAdminAction(event) {
+  const button = event.target.closest("button[data-platform-admin-action]");
+  if (!button) return;
+  const action = button.dataset.platformAdminAction || "";
+  const id = button.dataset.platformAdminId || "";
+  if (!id) return;
+
+  button.disabled = true;
+  try {
+    if (action === "revoke-admin") {
+      setStatus("Revoking platform administrator…");
+      await invoke("revoke-platform-admin", { userId: id });
+      await loadPlatformAdmins();
+      setStatus("Platform administrator access revoked.", "success");
+    } else if (action === "revoke-invite") {
+      setStatus("Revoking admin invite…");
+      await invoke("revoke-platform-admin-invite", { inviteId: id });
+      await loadPlatformAdmins();
+      setStatus("Admin invite revoked.", "success");
+    }
+  } catch (error) {
+    button.disabled = false;
+    setStatus(error.message || "Unable to update platform administrator access.", "error");
+  }
+}
+
 async function init() {
   if (!hasConfig()) {
     setupPanel?.classList.remove("hidden");
@@ -205,6 +334,13 @@ async function init() {
     document.getElementById("support-filter")?.addEventListener("change", renderSupportOptions);
     document.getElementById("support-select")?.addEventListener("change", renderSelectedSupport);
     await loadSupport();
+  } else if (view === "platform-admins") {
+    document.getElementById("platform-admin-invite-form")?.addEventListener("submit", createPlatformAdminInvite);
+    document.getElementById("platform-admin-refresh")?.addEventListener("click", loadPlatformAdmins);
+    document.getElementById("platform-admin-copy-invite")?.addEventListener("click", copyPlatformAdminInvite);
+    document.getElementById("platform-admin-list")?.addEventListener("click", handlePlatformAdminAction);
+    document.getElementById("platform-admin-invite-list")?.addEventListener("click", handlePlatformAdminAction);
+    await loadPlatformAdmins();
   }
 }
 

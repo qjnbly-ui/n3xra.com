@@ -14,7 +14,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/site-nav.css">
   <link rel="stylesheet" href="/n3xra-records/styles.css?v=20260612-modal-system">
-  <link rel="stylesheet" href="/account/account.css">
+  <link rel="stylesheet" href="/account/account.css?v=2">
   <link rel="stylesheet" href="/assets/home-shell.css?v=1">
   <script src="/shared/config.js"></script>
   <script src="/assets/site-nav.js" defer></script>
@@ -235,6 +235,14 @@
               </article>
               <article class="app-card admin-app-card">
                 <div>
+                  <p class="auth-kicker">Administrative access</p>
+                  <h3>Platform Admins</h3>
+                  <p>Invite and manage the people who can use N3XRA administration tools.</p>
+                </div>
+                <a class="btn secondary block button-link" href="/account/admin/platform-admins/">Open Platform Admins</a>
+              </article>
+              <article class="app-card admin-app-card">
+                <div>
                   <p class="auth-kicker">Subscriptions</p>
                   <h3>Billing Admin</h3>
                   <p>Review plans, subscription state, renewal dates, Stripe connections, and included usage.</p>
@@ -382,37 +390,6 @@
             </form>
           </details>
 
-          <details class="settings-disclosure hidden" id="platform-owner-admin-settings">
-            <summary>Platform admin invites</summary>
-            <div class="settings-form platform-admin-dashboard">
-              <div>
-                <p class="field-note">Master owner tools for inviting and managing N3XRA platform admins.</p>
-              </div>
-
-              <form class="auth-form platform-admin-invite-form" id="platform-admin-invite-form">
-                <div class="field">
-                  <label for="platform-admin-invite-email">Admin email</label>
-                  <input id="platform-admin-invite-email" type="email" autocomplete="email" placeholder="admin@example.com">
-                </div>
-                <button class="btn secondary" type="submit">Create admin invite</button>
-              </form>
-
-              <div class="platform-admin-invite-link hidden" id="platform-admin-invite-link"></div>
-
-              <div class="platform-admin-toolbar">
-                <h3>Current admins</h3>
-                <button class="btn secondary small" id="platform-admin-refresh" type="button">Refresh</button>
-              </div>
-              <div class="platform-admin-list" id="platform-admin-list"></div>
-
-              <div class="platform-admin-toolbar">
-                <h3>Admin invites</h3>
-              </div>
-              <div class="platform-admin-list" id="platform-admin-invite-list"></div>
-
-              <p class="status account-modal-status" id="platform-admin-status"></p>
-            </div>
-          </details>
         </div>
         <p class="status account-modal-status" id="settings-status"></p>
         <div class="account-modal-actions">
@@ -430,6 +407,6 @@
       window.addEventListener("scroll", updateHeader, { passive: true });
     })();
   </script>
-  <script type="module" src="/account/account.js"></script>
+  <script type="module" src="/account/account.js?v=2"></script>
 </body>
 </html>
