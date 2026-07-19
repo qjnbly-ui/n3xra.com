@@ -20,11 +20,23 @@ let versions = [];
 let decisions = [];
 let onboardings = [];
 let projects = [];
+let websites = [];
 let selectedProposal;
+let selectedWebsite;
 let selectedDecision = "approved";
 
 function rememberProposal() {
-  if (!selectedProposal) return;
+  if (!selectedProposal) {
+    if (selectedWebsite) writeWorkspaceContext("client", session.user.id, {
+      websiteId: selectedWebsite.id,
+      name: selectedWebsite.name,
+      projectId: null,
+      requestId: null,
+      proposalId: null,
+      onboardingId: null,
+    });
+    return;
+  }
   const project = currentProject();
   writeWorkspaceContext("client", session.user.id, {
     proposalId: selectedProposal.id,
@@ -81,10 +93,10 @@ function currentProject() {
 }
 
 function renderOptions() {
-  proposalSelect.innerHTML = proposals.length
-    ? proposals.map((proposal) => `<option value="${proposal.id}">${escapeHtml(proposal.title)} · ${escapeHtml(formatLabel(proposal.status))}</option>`).join("")
-    : '<option value="">No proposals</option>';
-  proposalSelect.hidden = !proposals.length;
+  proposalSelect.innerHTML = websites.length
+    ? websites.map((website) => `<option value="${website.id}">${escapeHtml(website.name)}</option>`).join("")
+    : '<option value="">No websites</option>';
+  proposalSelect.hidden = !websites.length;
 }
 
 function renderProposal() {
@@ -184,31 +196,37 @@ function updateDecisionCopy() {
 }
 
 async function loadProposals(preferredId) {
-  const [proposalResult, versionResult, decisionResult, onboardingResult, projectResult] = await Promise.all([
+  const [proposalResult, versionResult, decisionResult, onboardingResult, projectResult, websiteResult] = await Promise.all([
     supabase.from("website_proposals").select("*").order("created_at", { ascending: false }),
     supabase.from("website_proposal_versions").select("*").order("version_number", { ascending: false }),
     supabase.from("website_proposal_decisions").select("*").order("created_at", { ascending: false }),
     supabase.from("website_onboardings").select("id,proposal_id,status").order("created_at", { ascending: false }),
     supabase.from("website_projects").select("id,proposal_id,request_id,managed_website_id,name,status,client_websites(id,name)").order("created_at", { ascending: false }),
+    supabase.from("client_websites").select("id,name,status").order("name"),
   ]);
   if (proposalResult.error) throw proposalResult.error;
   if (versionResult.error) throw versionResult.error;
   if (decisionResult.error) throw decisionResult.error;
   if (onboardingResult.error) throw onboardingResult.error;
   if (projectResult.error) throw projectResult.error;
+  if (websiteResult.error) throw websiteResult.error;
   proposals = proposalResult.data || [];
   versions = versionResult.data || [];
   decisions = decisionResult.data || [];
   onboardings = onboardingResult.data || [];
   projects = projectResult.data || [];
+  websites = websiteResult.data || [];
   renderOptions();
   const context = readWorkspaceContext("client", session.user.id);
-  const requested = preferredId || new URLSearchParams(window.location.search).get("proposal") || context.proposalId;
-  const relatedProject = projects.find((project) => project.id === context.projectId || project.managed_website_id === context.websiteId);
-  selectedProposal = proposals.find((proposal) => proposal.id === requested)
-    || proposals.find((proposal) => proposal.id === relatedProject?.proposal_id || proposal.request_id === context.requestId)
-    || (!context.websiteId && !context.projectId ? proposals[0] : undefined);
-  if (selectedProposal) proposalSelect.value = selectedProposal.id;
+  const explicitProposal = preferredId || new URLSearchParams(window.location.search).get("proposal");
+  selectedProposal = proposals.find((proposal) => proposal.id === (explicitProposal || context.proposalId));
+  const proposalProject = projects.find((project) => project.proposal_id === selectedProposal?.id);
+  selectedWebsite = websites.find((website) => website.id === (proposalProject?.managed_website_id || context.websiteId))
+    || (!context.websiteId && !explicitProposal ? websites[0] : undefined);
+  const relatedProject = projects.find((project) => project.managed_website_id === selectedWebsite?.id);
+  selectedProposal = selectedProposal
+    || proposals.find((proposal) => proposal.id === relatedProject?.proposal_id || proposal.request_id === context.requestId);
+  if (selectedWebsite) proposalSelect.value = selectedWebsite.id;
   else proposalSelect.selectedIndex = -1;
   rememberProposal();
   renderProposal();
@@ -258,7 +276,9 @@ async function init() {
   decisionName.value = String(session.user.user_metadata?.full_name || "").trim();
   await loadProposals();
   proposalSelect.addEventListener("change", () => {
-    selectedProposal = proposals.find((proposal) => proposal.id === proposalSelect.value);
+    selectedWebsite = websites.find((website) => website.id === proposalSelect.value);
+    const project = projects.find((item) => item.managed_website_id === selectedWebsite?.id);
+    selectedProposal = proposals.find((proposal) => proposal.id === project?.proposal_id);
     rememberProposal();
     renderProposal();
   });

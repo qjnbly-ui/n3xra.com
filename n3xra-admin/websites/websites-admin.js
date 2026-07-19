@@ -69,7 +69,7 @@ function showToast(message, type = "success") {
 }
 
 function openLogin() {
-  window.location.replace("/account?next=%2Fn3xra-admin%2Fwebsites%2F");
+  window.location.replace(`/account?next=${encodeURIComponent(window.location.pathname)}`);
 }
 
 function escapeHtml(value = "") {
@@ -105,11 +105,13 @@ function formatBytes(value) {
 }
 
 function setSiteFormStatus(message = "", isError = false) {
+  if (!siteFormStatus) return;
   siteFormStatus.textContent = message;
   siteFormStatus.classList.toggle("is-error", isError);
 }
 
 function setMemberStatus(message = "", isError = false) {
+  if (!memberFormStatus) return;
   memberFormStatus.textContent = message;
   memberFormStatus.classList.toggle("is-error", isError);
 }
@@ -176,22 +178,22 @@ async function saveServiceRequest(requestId) {
 function renderSelectedWebsite() {
   if (!selectedWebsite) {
     summary.hidden = true;
-    assetToolbar.hidden = true;
-    assetGrid.innerHTML = "";
-    emptyState.hidden = false;
-    accessPanel.hidden = true;
+    if (assetToolbar) assetToolbar.hidden = true;
+    if (assetGrid) assetGrid.innerHTML = "";
+    if (emptyState) emptyState.hidden = false;
+    if (accessPanel) accessPanel.hidden = true;
     return;
   }
 
   summary.hidden = false;
-  assetToolbar.hidden = false;
+  if (assetToolbar) assetToolbar.hidden = false;
   siteName.textContent = selectedWebsite.name;
   siteStatus.textContent = `${selectedWebsite.status || "active"} website`;
   siteMeta.textContent = [selectedWebsite.live_url, selectedWebsite.repository_full_name].filter(Boolean).join(" · ") || "No live URL or repository recorded.";
   liveLink.hidden = !selectedWebsite.live_url;
   if (selectedWebsite.live_url) liveLink.href = selectedWebsite.live_url;
   clientView.href = `/client-portal/?website=${encodeURIComponent(selectedWebsite.id)}`;
-  accessPanel.hidden = false;
+  if (accessPanel) accessPanel.hidden = false;
 }
 
 function renderMembers() {
@@ -354,7 +356,9 @@ async function selectWebsite(id) {
         : {}),
     });
   }
-  await Promise.all([loadAssets(), loadMembers()]);
+  renderSelectedWebsite();
+  const assetsView = document.body.classList.contains("admin-assets-view");
+  await (assetsView ? loadAssets() : loadMembers());
 }
 
 async function assignMember(event) {
@@ -570,14 +574,14 @@ async function initWebsiteAdmin() {
       return;
     }
 
-    await Promise.all([loadWebsites(), loadServiceRequests()]);
+    await loadWebsites();
     document.body.classList.remove("portal-loading");
     statusScreen.hidden = true;
 
-    websiteSelect.addEventListener("change", () => selectWebsite(websiteSelect.value).catch((loadError) => showToast(loadError.message, "error")));
-    refreshButton.addEventListener("click", () => loadWebsites(selectedWebsite?.id).catch((loadError) => showToast(loadError.message, "error")));
-    assetGrid.addEventListener("click", handleAssetAction);
-    adminRequestList.addEventListener("click", (event) => {
+    websiteSelect?.addEventListener("change", () => selectWebsite(websiteSelect.value).catch((loadError) => showToast(loadError.message, "error")));
+    refreshButton?.addEventListener("click", () => loadWebsites(selectedWebsite?.id).catch((loadError) => showToast(loadError.message, "error")));
+    assetGrid?.addEventListener("click", handleAssetAction);
+    adminRequestList?.addEventListener("click", (event) => {
       const button = event.target.closest("[data-save-request]");
       if (!button) return;
       button.disabled = true;
@@ -585,24 +589,24 @@ async function initWebsiteAdmin() {
         .catch((requestError) => showToast(requestError?.message || "Unable to update this request.", "error"))
         .finally(() => { button.disabled = false; });
     });
-    memberForm.addEventListener("submit", assignMember);
-    memberList.addEventListener("click", handleMemberAction);
-    memberList.addEventListener("change", handleMemberRoleChange);
-    openSiteFormButton.addEventListener("click", () => {
+    memberForm?.addEventListener("submit", assignMember);
+    memberList?.addEventListener("click", handleMemberAction);
+    memberList?.addEventListener("change", handleMemberRoleChange);
+    openSiteFormButton?.addEventListener("click", () => {
       siteForm.hidden = false;
       siteNameInput.focus();
     });
-    closeSiteFormButton.addEventListener("click", () => {
+    closeSiteFormButton?.addEventListener("click", () => {
       siteForm.hidden = true;
       setSiteFormStatus("");
     });
-    siteNameInput.addEventListener("input", () => {
+    siteNameInput?.addEventListener("input", () => {
       if (!siteSlugInput.dataset.edited) siteSlugInput.value = slugify(siteNameInput.value);
     });
-    siteSlugInput.addEventListener("input", () => {
+    siteSlugInput?.addEventListener("input", () => {
       siteSlugInput.dataset.edited = siteSlugInput.value ? "true" : "";
     });
-    siteForm.addEventListener("submit", createWebsite);
+    siteForm?.addEventListener("submit", createWebsite);
 
     supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_OUT" || !session?.user) openLogin();

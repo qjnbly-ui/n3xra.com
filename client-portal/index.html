@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/site-nav.css">
-  <link rel="stylesheet" href="/client-portal/portal.css?v=7">
+  <link rel="stylesheet" href="/client-portal/portal.css?v=9">
   <script src="/shared/config.js"></script>
   <script src="/assets/site-nav.js" defer></script>
 </head>
@@ -34,12 +34,12 @@
       </div>
       <nav class="site-mobile-menu" id="client-portal-menu" aria-label="Mobile primary" hidden>
         <div class="site-mobile-menu-head"><p class="site-mobile-menu-title">Website portal</p></div>
-        <a class="site-menu-link" href="/client-portal/">Websites</a>
+        <a class="site-menu-link" href="/client-portal/">Overview</a>
         <a class="site-menu-link" href="/project-workspace/">Progress</a>
-        <a class="site-menu-link" href="/proposals/">Proposal</a>
+        <a class="site-menu-link" href="/proposals/">Proposals</a>
         <a class="site-menu-link" href="/website-onboarding/">Onboarding</a>
-        <a class="site-menu-link" href="#files-assets">Files &amp; Assets</a>
-        <a class="site-menu-link" href="#new-project">Start new project</a>
+        <a class="site-menu-link" href="/client-portal/assets/">Files &amp; Assets</a>
+        <a class="site-menu-link" href="/website-request/">Start new project</a>
       </nav>
     </div>
   </header>
@@ -55,29 +55,29 @@
     <section class="portal-project-picker" aria-labelledby="project-picker-title">
       <div>
         <p class="portal-kicker">Current workspace</p>
-        <h2 id="project-picker-title">Selected project</h2>
-        <p>Choose a project, then use the sections below to view and manage its information.</p>
+        <h2 id="project-picker-title">Selected website</h2>
+        <p>Choose a website, then use the portal sections to view and manage its information.</p>
       </div>
       <label class="portal-project-select">
-        <span>Project</span>
-        <select class="portal-select" id="website-select" aria-label="Choose a project"></select>
+        <span>Website</span>
+        <select class="portal-select" id="website-select" aria-label="Choose a website"></select>
       </label>
     </section>
 
     <div class="portal-layout">
-      <nav class="portal-nav" aria-label="Selected project sections">
+      <nav class="portal-nav" aria-label="Selected website sections">
         <p class="portal-nav-label">Project sections</p>
         <button class="is-current" type="button" data-portal-view="overview">Overview</button>
         <a href="/project-workspace/">Progress</a>
-        <a href="/proposals/">Proposal</a>
+        <a href="/proposals/">Proposals</a>
         <a href="/website-onboarding/">Onboarding</a>
-        <button type="button" data-portal-view="files">Files &amp; Assets</button>
+        <a href="/client-portal/assets/">Files &amp; Assets</a>
         <span class="is-placeholder">Billing</span>
         <span class="is-placeholder">Renewals</span>
-        <span class="is-placeholder">Support</span>
+        <a href="/support/">Support</a>
         <div class="portal-nav-divider"></div>
         <p class="portal-nav-label">New work</p>
-        <button class="portal-nav-action" type="button" data-portal-view="new-request">Start a new project</button>
+        <a class="portal-nav-action" href="/website-request/">Start a new project</a>
       </nav>
 
       <section class="portal-workspace" aria-live="polite">
@@ -86,7 +86,7 @@
             <div>
               <p class="portal-kicker">Project overview</p>
               <h2 id="client-websites-title">Overview</h2>
-              <p>The essential details and access for the selected project.</p>
+              <p>The essential details and access for the selected website.</p>
             </div>
           </div>
 
@@ -100,17 +100,17 @@
           </div>
 
           <div class="portal-overview-help">
-            <p class="portal-kicker">Manage this project</p>
+            <p class="portal-kicker">Manage this website</p>
             <h3>Everything is organized by section.</h3>
             <p>Open Files &amp; Assets to review current website files, download published versions, or submit replacements.</p>
-            <button class="portal-text-action" type="button" data-open-portal-view="files">Open Files &amp; Assets</button>
+            <a class="portal-text-action" href="/client-portal/assets/">Open Files &amp; Assets</a>
           </div>
         </div>
 
         <div class="portal-view" id="portal-view-files" data-portal-panel="files" hidden>
           <div class="portal-workspace-head">
             <div>
-              <p class="portal-kicker">Selected project</p>
+              <p class="portal-kicker">Selected website</p>
               <h2>Files &amp; Assets</h2>
               <p>Website images, logos, documents, icons, and published file versions.</p>
             </div>
@@ -119,7 +119,7 @@
           <div class="portal-files-project">
             <div>
               <span>Viewing files for</span>
-              <strong id="files-website-name">Selected project</strong>
+              <strong id="files-website-name">Selected website</strong>
             </div>
             <a class="portal-text-action" id="files-live-link" href="#" target="_blank" rel="noopener">Visit live site</a>
           </div>
@@ -127,7 +127,7 @@
           <div class="portal-toolbar" id="asset-toolbar" hidden>
             <div>
               <h3>File library</h3>
-              <p>Approved files and proposed replacements for this project.</p>
+              <p>Approved files and proposed replacements for this website.</p>
             </div>
             <button class="portal-button" id="open-upload" type="button">Upload files</button>
           </div>
@@ -199,7 +199,7 @@
 
           <div class="portal-asset-grid" id="asset-grid"></div>
           <div class="portal-empty" id="portal-empty">
-            <p>No files or assets have been added to this project yet.</p>
+            <p>No files or assets have been added to this website yet.</p>
           </div>
         </div>
 
@@ -208,7 +208,7 @@
             <div>
               <p class="portal-kicker">New project</p>
               <h2>Start a new project</h2>
-              <p>This creates a separate project and does not change the project selected above.</p>
+              <p>This creates a separate project and does not change the website selected above.</p>
             </div>
           </div>
 

@@ -20,16 +20,29 @@ const roadmap = document.getElementById("project-roadmap");
 const nextStepTitle = document.getElementById("project-next-step-title");
 const nextStep = document.getElementById("project-next-step");
 const reference = document.getElementById("project-reference");
+const emptyTitle = document.getElementById("project-workspace-empty-title");
+const emptyCopy = document.getElementById("project-workspace-empty-copy");
+const websiteLink = document.getElementById("project-workspace-website-link");
 
 let supabase;
 let projects = [];
+let websites = [];
 let milestones = [];
 let onboardings = [];
 let selectedProject;
+let selectedWebsite;
 let userId;
 
 function rememberProject() {
   if (selectedProject) writeWorkspaceContext("client", userId, projectContext(selectedProject));
+  else if (selectedWebsite) writeWorkspaceContext("client", userId, {
+    websiteId: selectedWebsite.id,
+    name: selectedWebsite.name,
+    projectId: null,
+    requestId: null,
+    proposalId: null,
+    onboardingId: null,
+  });
 }
 
 function escapeHtml(value = "") {
@@ -54,6 +67,10 @@ function relation(value) {
   return Array.isArray(value) ? value[0] : value;
 }
 
+function projectWebsiteId(project) {
+  return project?.managed_website_id || relation(project?.client_websites)?.id;
+}
+
 function currentProjectMilestones() {
   return milestones
     .filter((milestone) => milestone.project_id === selectedProject?.id)
@@ -70,10 +87,10 @@ function currentMilestone() {
 }
 
 function renderOptions() {
-  projectSelect.innerHTML = projects.length
-    ? projects.map((project) => `<option value="${project.id}">${escapeHtml(project.name)} · ${escapeHtml(formatLabel(project.status))}</option>`).join("")
-    : '<option value="">No projects</option>';
-  projectSelect.hidden = !projects.length;
+  projectSelect.innerHTML = websites.length
+    ? websites.map((website) => `<option value="${website.id}">${escapeHtml(website.name)}</option>`).join("")
+    : '<option value="">No websites</option>';
+  projectSelect.hidden = !websites.length;
 }
 
 function renderActions() {
@@ -131,7 +148,15 @@ function renderWorkspace() {
   const hasProject = Boolean(selectedProject);
   emptyState.hidden = hasProject;
   workspace.hidden = !hasProject;
-  if (!hasProject) return;
+  if (!hasProject) {
+    title.textContent = "Progress";
+    emptyTitle.textContent = selectedWebsite ? "No project timeline for this website" : "No website selected";
+    emptyCopy.textContent = selectedWebsite
+      ? "This website was added as an existing managed site, so proposal, onboarding, and build progress do not apply."
+      : "Choose a website from the portal overview first.";
+    websiteLink.href = selectedWebsite ? `/client-portal/?website=${encodeURIComponent(selectedWebsite.id)}` : "/client-portal/";
+    return;
+  }
 
   const milestone = currentMilestone();
   title.textContent = selectedProject.name;
@@ -156,26 +181,35 @@ function renderWorkspace() {
 }
 
 async function loadData(preferredId) {
-  const [projectResult, milestoneResult, onboardingResult] = await Promise.all([
+  const [projectResult, websiteResult, milestoneResult, onboardingResult] = await Promise.all([
     supabase.from("website_projects")
       .select("*,website_service_requests(business_name,project_type,primary_goal),website_proposals(id,title,status),client_websites(id,name,live_url,status)")
       .order("created_at", { ascending: false }),
+    supabase.from("client_websites").select("id,name,live_url,status").order("name"),
     supabase.from("website_project_milestones").select("*").order("sequence_number"),
     supabase.from("website_onboardings").select("id,proposal_id,status").order("created_at", { ascending: false }),
   ]);
   if (projectResult.error) throw projectResult.error;
+  if (websiteResult.error) throw websiteResult.error;
   if (milestoneResult.error) throw milestoneResult.error;
   if (onboardingResult.error) throw onboardingResult.error;
   projects = projectResult.data || [];
+  websites = websiteResult.data || [];
   milestones = milestoneResult.data || [];
   onboardings = onboardingResult.data || [];
   renderOptions();
   const context = readWorkspaceContext("client", userId);
-  const requested = preferredId || new URLSearchParams(window.location.search).get("project") || context.projectId;
-  selectedProject = projects.find((project) => project.id === requested)
-    || projects.find((project) => project.managed_website_id === context.websiteId)
-    || (!context.websiteId ? projects[0] : undefined);
-  if (selectedProject) projectSelect.value = selectedProject.id;
+  const params = new URLSearchParams(window.location.search);
+  const explicitWebsite = params.get("website");
+  const requestedProject = preferredId || params.get("project") || context.projectId;
+  const requestedWebsite = explicitWebsite || context.websiteId;
+  selectedProject = explicitWebsite ? undefined : projects.find((project) => project.id === requestedProject);
+  const projectWebsite = relation(selectedProject?.client_websites);
+  selectedWebsite = websites.find((website) => website.id === (projectWebsite?.id || selectedProject?.managed_website_id || requestedWebsite))
+    || (!requestedWebsite ? websites[0] : undefined);
+  selectedProject = selectedProject
+    || projects.find((project) => projectWebsiteId(project) === selectedWebsite?.id);
+  if (selectedWebsite) projectSelect.value = selectedWebsite.id;
   else projectSelect.selectedIndex = -1;
   rememberProject();
   renderWorkspace();
@@ -192,7 +226,8 @@ async function init() {
   userId = session.user.id;
   await loadData();
   projectSelect.addEventListener("change", () => {
-    selectedProject = projects.find((project) => project.id === projectSelect.value);
+    selectedWebsite = websites.find((website) => website.id === projectSelect.value);
+    selectedProject = projects.find((project) => projectWebsiteId(project) === selectedWebsite?.id);
     rememberProject();
     renderWorkspace();
   });

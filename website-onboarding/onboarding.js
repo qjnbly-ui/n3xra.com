@@ -41,7 +41,10 @@ let session;
 let onboardings = [];
 let responses = [];
 let files = [];
+let projects = [];
+let websites = [];
 let selectedOnboarding;
+let selectedWebsite;
 let selectedResponse;
 let activeSection = "business";
 let dirty = false;
@@ -98,10 +101,10 @@ function isEditable() {
 }
 
 function renderOptions() {
-  onboardingSelect.innerHTML = onboardings.length
-    ? onboardings.map((onboarding) => `<option value="${onboarding.id}">${escapeHtml(onboarding.website_service_requests?.business_name || "Website project")} · ${escapeHtml(formatLabel(onboarding.status))}</option>`).join("")
-    : '<option value="">No onboarding projects</option>';
-  onboardingSelect.hidden = !onboardings.length;
+  onboardingSelect.innerHTML = websites.length
+    ? websites.map((website) => `<option value="${website.id}">${escapeHtml(website.name)}</option>`).join("")
+    : '<option value="">No websites</option>';
+  onboardingSelect.hidden = !websites.length;
 }
 
 function fillAnswers() {
@@ -184,30 +187,50 @@ function renderWorkspace() {
 }
 
 async function loadData(preferredId) {
-  const [onboardingResult, responseResult, fileResult] = await Promise.all([
+  const [onboardingResult, responseResult, fileResult, projectResult, websiteResult] = await Promise.all([
     supabase.from("website_onboardings").select("*,website_service_requests(business_name,project_type),website_proposals(title,status)").order("created_at", { ascending: false }),
     supabase.from("website_onboarding_responses").select("*"),
     supabase.from("website_onboarding_files").select("*").order("created_at", { ascending: false }),
+    supabase.from("website_projects").select("id,proposal_id,request_id,managed_website_id").order("created_at", { ascending: false }),
+    supabase.from("client_websites").select("id,name,status").order("name"),
   ]);
   if (onboardingResult.error) throw onboardingResult.error;
   if (responseResult.error) throw responseResult.error;
   if (fileResult.error) throw fileResult.error;
+  if (projectResult.error) throw projectResult.error;
+  if (websiteResult.error) throw websiteResult.error;
   onboardings = onboardingResult.data || [];
   responses = responseResult.data || [];
   files = fileResult.data || [];
+  projects = projectResult.data || [];
+  websites = websiteResult.data || [];
   renderOptions();
   const context = readWorkspaceContext("client", session.user.id);
-  const requested = preferredId || new URLSearchParams(window.location.search).get("onboarding") || context.onboardingId;
-  selectedOnboarding = onboardings.find((onboarding) => onboarding.id === requested)
-    || onboardings.find((onboarding) => onboarding.proposal_id === context.proposalId || onboarding.request_id === context.requestId)
-    || (!context.websiteId && !context.projectId ? onboardings[0] : undefined);
+  const explicitOnboarding = preferredId || new URLSearchParams(window.location.search).get("onboarding");
+  selectedOnboarding = onboardings.find((onboarding) => onboarding.id === (explicitOnboarding || context.onboardingId));
+  const onboardingProject = projects.find((project) => project.proposal_id === selectedOnboarding?.proposal_id);
+  selectedWebsite = websites.find((website) => website.id === (onboardingProject?.managed_website_id || context.websiteId))
+    || (!context.websiteId && !explicitOnboarding ? websites[0] : undefined);
+  const relatedProject = projects.find((project) => project.managed_website_id === selectedWebsite?.id);
+  selectedOnboarding = selectedOnboarding
+    || onboardings.find((onboarding) => onboarding.proposal_id === relatedProject?.proposal_id || onboarding.request_id === relatedProject?.request_id);
   selectedResponse = responses.find((response) => response.onboarding_id === selectedOnboarding?.id);
-  if (selectedOnboarding) onboardingSelect.value = selectedOnboarding.id;
+  if (selectedWebsite) onboardingSelect.value = selectedWebsite.id;
   else onboardingSelect.selectedIndex = -1;
-  if (selectedOnboarding) writeWorkspaceContext("client", session.user.id, {
+  if (selectedWebsite) writeWorkspaceContext("client", session.user.id, selectedOnboarding ? {
+    websiteId: selectedWebsite.id,
+    name: selectedWebsite.name,
+    projectId: relatedProject?.id || onboardingProject?.id,
     onboardingId: selectedOnboarding.id,
     proposalId: selectedOnboarding.proposal_id,
     requestId: selectedOnboarding.request_id,
+  } : {
+    websiteId: selectedWebsite.id,
+    name: selectedWebsite.name,
+    projectId: null,
+    onboardingId: null,
+    proposalId: null,
+    requestId: null,
   });
   dirty = false;
   renderWorkspace();
@@ -406,11 +429,23 @@ async function init() {
   submitButton.addEventListener("click", submitOnboarding);
   onboardingSelect.addEventListener("change", async () => {
     if (dirty) await saveProgress({ quiet: true });
-    selectedOnboarding = onboardings.find((onboarding) => onboarding.id === onboardingSelect.value);
-    if (selectedOnboarding) writeWorkspaceContext("client", session.user.id, {
+    selectedWebsite = websites.find((website) => website.id === onboardingSelect.value);
+    const project = projects.find((item) => item.managed_website_id === selectedWebsite?.id);
+    selectedOnboarding = onboardings.find((onboarding) => onboarding.proposal_id === project?.proposal_id || onboarding.request_id === project?.request_id);
+    writeWorkspaceContext("client", session.user.id, selectedOnboarding ? {
+      websiteId: selectedWebsite.id,
+      name: selectedWebsite.name,
+      projectId: project?.id,
       onboardingId: selectedOnboarding.id,
       proposalId: selectedOnboarding.proposal_id,
       requestId: selectedOnboarding.request_id,
+    } : {
+      websiteId: selectedWebsite.id,
+      name: selectedWebsite.name,
+      projectId: null,
+      onboardingId: null,
+      proposalId: null,
+      requestId: null,
     });
     selectedResponse = responses.find((response) => response.onboarding_id === selectedOnboarding?.id);
     dirty = false;

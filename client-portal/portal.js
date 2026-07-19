@@ -261,7 +261,7 @@ async function loadWebsites() {
   if (!websites.length) {
     websiteSummary.hidden = true;
     assetToolbar.hidden = true;
-    filesWebsiteName.textContent = "No project selected";
+    filesWebsiteName.textContent = "No website selected";
     filesLiveLink.hidden = true;
     emptyState.hidden = false;
     emptyState.innerHTML = "<p>No projects are currently assigned to this account.</p>";
@@ -347,7 +347,7 @@ async function loadAssets() {
 function renderAssets() {
   if (!assets.length) {
     emptyState.hidden = false;
-    emptyState.innerHTML = "<p>No files or assets have been added to this project yet.</p>";
+    emptyState.innerHTML = "<p>No files or assets have been added to this website yet.</p>";
     return;
   }
 
@@ -558,7 +558,7 @@ async function initPortal() {
 
     await loadWebsites();
     showPortalView(
-      window.location.hash === "#files-assets"
+      window.location.pathname === "/client-portal/assets/" || window.location.hash === "#files-assets"
         ? "files"
         : window.location.hash === "#new-project"
           ? "new-request"
@@ -575,7 +575,7 @@ async function initPortal() {
       button.addEventListener("click", () => showPortalView(button.dataset.openPortalView));
     });
     window.addEventListener("hashchange", () => {
-      if (window.location.hash === "#files-assets") showPortalView("files");
+      if (window.location.pathname === "/client-portal/assets/" || window.location.hash === "#files-assets") showPortalView("files");
       else if (window.location.hash === "#new-project") showPortalView("new-request");
       else showPortalView("overview");
     });
