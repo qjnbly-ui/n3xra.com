@@ -4406,13 +4406,6 @@ body.site-menu-is-open .home-topbar {
   color: #ffffff;
 }
 
-.work-proof-cta .work-proof-intake-note {
-  max-width: 34rem;
-  color: rgba(255, 255, 255, 0.62);
-  font-size: 0.72rem;
-  line-height: 1.5;
-}
-
 @media (max-width: 820px) {
   .work-proof-cta {
     gap: 1rem;
