@@ -17,6 +17,7 @@ let supabase;
 let session;
 let proposals = [];
 let versions = [];
+let lineItems = [];
 let decisions = [];
 let onboardings = [];
 let projects = [];
@@ -79,6 +80,11 @@ function currentVersion() {
   return versions.find((version) => version.id === selectedProposal?.current_version_id);
 }
 
+function currentLineItems() {
+  const version = currentVersion();
+  return lineItems.filter((item) => item.version_id === version?.id);
+}
+
 function currentDecision() {
   const version = currentVersion();
   return decisions.find((decision) => decision.version_id === version?.id);
@@ -86,6 +92,9 @@ function currentDecision() {
 
 function currentOnboarding() {
   const project = currentProject();
+  const investmentItems = currentLineItems();
+  const oneTimeItems = investmentItems.filter((item) => item.billing_type === "one_time");
+  const recurringItems = investmentItems.filter((item) => item.billing_type === "recurring");
   return onboardings.find((onboarding) =>
     onboarding.proposal_id === selectedProposal?.id
     || onboarding.project_id === project?.id
@@ -167,11 +176,12 @@ function renderProposal() {
       <p class="portal-kicker">04 · Investment</p>
       <h3>Project investment</h3>
       <div class="portal-price-table">
-        <div><span>Project subtotal</span><strong>${formatMoney(version.subtotal_cents)}</strong></div>
+        ${oneTimeItems.length ? oneTimeItems.map((item) => `<div><span>${escapeHtml(item.name)}${item.description ? `<small>${escapeHtml(item.description)}</small>` : ""}</span><strong>${formatMoney(Math.round(Number(item.quantity) * item.unit_amount_cents))}</strong></div>`).join("") : `<div><span>Project subtotal</span><strong>${formatMoney(version.subtotal_cents)}</strong></div>`}
         ${version.discount_cents ? `<div><span>Discount</span><strong>−${formatMoney(version.discount_cents)}</strong></div>` : ""}
         <div class="is-total"><span>Total project investment</span><strong>${formatMoney(version.total_cents)}</strong></div>
         <div><span>Deposit due at contract</span><strong>${formatMoney(version.deposit_cents)}</strong></div>
-        ${version.recurring_cents ? `<div><span>Ongoing service</span><strong>${formatMoney(version.recurring_cents)} / ${escapeHtml(version.recurring_interval)}</strong></div>` : ""}
+        ${recurringItems.map((item) => `<div><span>${escapeHtml(item.name)}${item.description ? `<small>${escapeHtml(item.description)}</small>` : ""}</span><strong>${formatMoney(Math.round(Number(item.quantity) * item.unit_amount_cents))} / ${escapeHtml(item.recurring_interval)}</strong></div>`).join("")}
+        ${!recurringItems.length && version.recurring_cents ? `<div><span>Ongoing service</span><strong>${formatMoney(version.recurring_cents)} / ${escapeHtml(version.recurring_interval)}</strong></div>` : ""}
       </div>
       ${version.payment_schedule ? `<div class="portal-proposal-note"><strong>Payment schedule</strong><p>${paragraphs(version.payment_schedule)}</p></div>` : ""}
     </section>
@@ -201,9 +211,10 @@ function updateDecisionCopy() {
 }
 
 async function loadProposals(preferredId) {
-  const [proposalResult, versionResult, decisionResult, onboardingResult, projectResult, websiteResult] = await Promise.all([
+  const [proposalResult, versionResult, lineItemResult, decisionResult, onboardingResult, projectResult, websiteResult] = await Promise.all([
     supabase.from("website_proposals").select("*").order("created_at", { ascending: false }),
     supabase.from("website_proposal_versions").select("*").order("version_number", { ascending: false }),
+    supabase.from("website_proposal_line_items").select("*").order("sort_order"),
     supabase.from("website_proposal_decisions").select("*").order("created_at", { ascending: false }),
     supabase.from("website_onboardings").select("id,project_id,proposal_id,status").order("created_at", { ascending: false }),
     supabase.from("website_projects").select("id,proposal_id,request_id,managed_website_id,name,status,client_websites(id,name)").order("created_at", { ascending: false }),
@@ -211,12 +222,14 @@ async function loadProposals(preferredId) {
   ]);
   if (proposalResult.error) throw proposalResult.error;
   if (versionResult.error) throw versionResult.error;
+  if (lineItemResult.error) throw lineItemResult.error;
   if (decisionResult.error) throw decisionResult.error;
   if (onboardingResult.error) throw onboardingResult.error;
   if (projectResult.error) throw projectResult.error;
   if (websiteResult.error) throw websiteResult.error;
   proposals = proposalResult.data || [];
   versions = versionResult.data || [];
+  lineItems = lineItemResult.data || [];
   decisions = decisionResult.data || [];
   onboardings = onboardingResult.data || [];
   projects = projectResult.data || [];

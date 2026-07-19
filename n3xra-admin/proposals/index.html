@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/site-nav.css">
-  <link rel="stylesheet" href="/client-portal/portal.css?v=10">
+  <link rel="stylesheet" href="/client-portal/portal.css?v=11">
   <script src="/shared/config.js"></script>
   <script src="/n3xra-admin/admin-shell.js?v=2" defer></script>
 </head>
@@ -104,21 +104,18 @@
           </div>
 
           <div class="portal-form-section">
-            <h4>Investment</h4>
+            <div class="portal-form-section-head">
+              <div><h4>Investment</h4><p>Add each project cost or outside service separately so it can be referenced accurately in billing.</p></div>
+              <button class="portal-button portal-button-secondary" id="add-proposal-line-item" type="button">Add service</button>
+            </div>
+            <div class="proposal-line-items" id="proposal-line-items"></div>
             <div class="portal-form-grid">
-              <label>Project subtotal ($)<input id="proposal-subtotal" type="number" min="0" step="0.01" required></label>
+              <label>One-time subtotal ($)<input id="proposal-subtotal" type="number" min="0" step="0.01" readonly required></label>
               <label>Discount ($)<input id="proposal-discount" type="number" min="0" step="0.01" value="0"></label>
               <label>Total ($)<input id="proposal-total" type="text" readonly></label>
               <label>Deposit due ($)<input id="proposal-deposit" type="number" min="0" step="0.01" value="0"></label>
-              <label>Recurring service ($)<input id="proposal-recurring" type="number" min="0" step="0.01" value="0"></label>
-              <label>Recurring interval
-                <select id="proposal-recurring-interval">
-                  <option value="">None</option>
-                  <option value="monthly">Monthly</option>
-                  <option value="quarterly">Quarterly</option>
-                  <option value="yearly">Yearly</option>
-                </select>
-              </label>
+              <input id="proposal-recurring" type="hidden" value="0">
+              <input id="proposal-recurring-interval" type="hidden" value="">
               <label class="portal-form-wide">Payment schedule<textarea id="proposal-payment-schedule" rows="3"></textarea></label>
             </div>
           </div>
@@ -132,6 +129,7 @@
 
           <div class="portal-form-actions portal-proposal-actions">
             <button class="portal-button portal-button-secondary" id="save-proposal" type="submit">Save draft</button>
+            <button class="portal-button portal-button-secondary" id="preview-proposal-email" type="button">Preview email</button>
             <button class="portal-button" id="send-proposal" type="button">Send to client</button>
             <a class="portal-button portal-button-secondary" id="preview-proposal" href="/proposals/" target="_blank" rel="noopener" hidden>Open client view</a>
             <p class="portal-inline-status" id="proposal-form-status" role="status"></p>
@@ -140,6 +138,19 @@
       </section>
     </div>
   </main>
+
+  <dialog class="portal-dialog proposal-email-dialog" id="proposal-email-dialog">
+    <div class="proposal-email-dialog-head">
+      <div><p class="portal-kicker">Client email preview</p><h2>Review before sending</h2></div>
+      <button class="portal-icon-button" id="close-proposal-email" type="button" aria-label="Close email preview">×</button>
+    </div>
+    <p class="proposal-email-meta" id="proposal-email-meta"></p>
+    <div class="proposal-email-preview" id="proposal-email-preview"></div>
+    <div class="portal-form-actions">
+      <button class="portal-button portal-button-secondary" id="close-proposal-email-bottom" type="button">Keep editing</button>
+      <button class="portal-button" id="send-proposal-from-preview" type="button">Send to client</button>
+    </div>
+  </dialog>
 
   <div class="portal-status" id="portal-status" role="status">Verifying proposal access…</div>
   <script type="module" src="/client-portal/portal-shell.js"></script>

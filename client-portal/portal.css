@@ -939,6 +939,160 @@ body.portal-denied main {
   border-top: 1px solid var(--portal-line);
 }
 
+.portal-form-section-head,
+.proposal-email-dialog-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.portal-form-section-head p {
+  margin: 0.4rem 0 0;
+  color: var(--portal-muted);
+  font-size: 0.88rem;
+}
+
+.proposal-line-items {
+  display: grid;
+  gap: 0.8rem;
+  margin: 1rem 0;
+}
+
+.proposal-line-item {
+  display: grid;
+  grid-template-columns: 1.2fr 1.8fr 0.9fr 0.65fr 0.8fr 0.85fr auto;
+  align-items: end;
+  gap: 0.7rem;
+  padding: 0.9rem;
+  border: 1px solid var(--portal-line);
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.proposal-line-description {
+  grid-column: 1 / -2;
+}
+
+.proposal-line-remove {
+  grid-column: -2;
+}
+
+.proposal-email-dialog {
+  width: min(760px, calc(100vw - 2rem));
+  max-height: calc(100vh - 2rem);
+  padding: 1.25rem;
+  border: 0;
+  border-radius: 16px;
+  box-shadow: 0 30px 90px rgba(8, 15, 24, 0.3);
+}
+
+.proposal-email-dialog::backdrop {
+  background: rgba(8, 15, 24, 0.58);
+  backdrop-filter: blur(4px);
+}
+
+.proposal-email-dialog h2 {
+  margin: 0;
+  font-family: "Fraunces", Georgia, serif;
+}
+
+.proposal-email-meta {
+  color: var(--portal-muted);
+}
+
+.proposal-email-preview {
+  overflow: auto;
+  max-height: 62vh;
+  padding: 1.25rem;
+  border-radius: 12px;
+  background: #edf2f8;
+}
+
+.proposal-email-card {
+  max-width: 620px;
+  margin: auto;
+  overflow: hidden;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 18px 50px rgba(12, 18, 28, 0.12);
+}
+
+.proposal-email-hero {
+  padding: 2rem;
+  color: #fff;
+  background: linear-gradient(135deg, #07111d, #123047);
+}
+
+.proposal-email-hero p {
+  margin: 0 0 0.5rem;
+  color: #a9e9ff;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.proposal-email-hero h2 {
+  color: #fff;
+}
+
+.proposal-email-body {
+  padding: 2rem;
+  line-height: 1.65;
+}
+
+.proposal-email-body h3 {
+  margin: 1.5rem 0 0.5rem;
+}
+
+.proposal-email-summary {
+  margin: 1.25rem 0;
+  padding: 1rem;
+  border: 1px solid #dbe4ec;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.proposal-email-summary p {
+  margin: 0.45rem 0 0;
+}
+
+.proposal-email-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.7rem 0;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.proposal-email-item span small,
+.portal-price-table span small {
+  display: block;
+  color: var(--portal-muted);
+  font-size: 0.76rem;
+  font-weight: 500;
+}
+
+.proposal-email-item.is-total {
+  font-size: 1.05rem;
+}
+
+.proposal-email-cta {
+  display: inline-block;
+  margin: 1rem 0;
+  padding: 0.85rem 1.15rem;
+  color: #fff;
+  background: #09111a;
+  border-radius: 8px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.proposal-email-signoff {
+  color: #475569;
+}
+
 .portal-form-section h4,
 .portal-proposal-section h3,
 .portal-proposal-section h4,
@@ -2147,6 +2301,23 @@ body.portal-denied main {
 }
 
 @media (max-width: 720px) {
+  .proposal-line-item {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .proposal-line-name,
+  .proposal-line-description {
+    grid-column: 1 / -1;
+  }
+
+  .proposal-line-remove {
+    grid-column: auto;
+  }
+
+  .portal-form-section-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
   .portal-shell {
     width: calc(100vw - 1rem);
     padding: 1.5rem 0 3rem;
