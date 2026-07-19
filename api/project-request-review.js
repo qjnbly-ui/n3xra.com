@@ -1,4 +1,6 @@
 const GROQ_MODEL = String(process.env.GROQ_PROJECT_REQUEST_MODEL || "openai/gpt-oss-120b").trim();
+const SUPABASE_URL = String(process.env.SUPABASE_URL || "https://vdbjlgmbpykjblprqnak.supabase.co").trim();
+const SUPABASE_SERVICE_ROLE_KEY = String(process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY || "").trim();
 const rateLimits = new Map();
 
 function parseJson(req) {
@@ -85,6 +87,47 @@ function systemPrompt(project) {
   ].join("\n");
 }
 
+function bearerToken(req) {
+  const match = String(req.headers.authorization || "").match(/^Bearer\s+(.+)$/i);
+  return match ? match[1].trim() : "";
+}
+
+async function verifiedUserId(req) {
+  const token = bearerToken(req);
+  if (!token || !SUPABASE_SERVICE_ROLE_KEY) return null;
+  const response = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+    headers: {
+      apikey: SUPABASE_SERVICE_ROLE_KEY,
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  const user = await response.json().catch(() => ({}));
+  return response.ok && user?.id ? user.id : null;
+}
+
+async function saveAuditReview(req, project, review) {
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) return null;
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/website_request_ai_reviews?select=id`, {
+    method: "POST",
+    headers: {
+      apikey: SUPABASE_SERVICE_ROLE_KEY,
+      Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+      "Content-Type": "application/json",
+      Prefer: "return=representation",
+    },
+    body: JSON.stringify({
+      user_id: await verifiedUserId(req),
+      contact_email: project.email || null,
+      project_snapshot: project,
+      review_snapshot: review,
+      model: GROQ_MODEL,
+    }),
+  });
+  const rows = await response.json().catch(() => []);
+  if (!response.ok) throw new Error(String(rows?.message || "AI review audit could not be saved."));
+  return Array.isArray(rows) ? rows[0]?.id || null : rows?.id || null;
+}
+
 module.exports = async function handler(req, res) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
@@ -126,7 +169,7 @@ module.exports = async function handler(req, res) {
     const content = cleanText(data?.choices?.[0]?.message?.content, 7000);
     if (!content) return res.status(502).json({ error: "N3XRA AI returned an empty response." });
     const review = JSON.parse(content);
-    return res.status(200).json({
+    const clientReview = {
       message: cleanText(review.message, 700),
       observations: Array.isArray(review.observations) ? review.observations.slice(0, 3).map((item) => ({
         title: cleanText(item?.title, 160),
@@ -134,7 +177,9 @@ module.exports = async function handler(req, res) {
       })) : [],
       questionsNote: cleanText(review.questionsNote, 400),
       questions: Array.isArray(review.questions) ? review.questions.slice(0, 3) : [],
-    });
+    };
+    const reviewId = await saveAuditReview(req, project, clientReview);
+    return res.status(200).json({ ...clientReview, reviewId });
   } catch (_error) {
     return res.status(500).json({ error: "N3XRA AI could not complete the review." });
   }

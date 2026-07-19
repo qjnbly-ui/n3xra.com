@@ -3,9 +3,11 @@ import { verifyPlatformAdmin } from "/client-portal/admin-access.js";
 
 const statusScreen = document.getElementById("portal-status");
 const requestList = document.getElementById("admin-request-list");
+const aiReviewList = document.getElementById("admin-ai-review-list");
 let supabase;
 let currentUser;
 let requests = [];
+let aiReviews = [];
 
 function escapeHtml(value = "") {
   return String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
@@ -13,6 +15,34 @@ function escapeHtml(value = "") {
 
 function label(value = "") {
   return String(value).replaceAll("_", " ");
+}
+
+function formatDate(value) {
+  return value ? new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(value)) : "";
+}
+
+function renderAiReviews() {
+  aiReviewList.innerHTML = aiReviews.length ? aiReviews.map((review) => {
+    const project = review.project_snapshot || {};
+    const result = review.review_snapshot || {};
+    const observations = Array.isArray(result.observations) ? result.observations : [];
+    const questions = Array.isArray(result.questions) ? result.questions : [];
+    return `
+      <details class="portal-request-card portal-request-admin-card">
+        <summary>
+          <div><p class="portal-kicker">${escapeHtml(formatDate(review.created_at))}</p><h3>${escapeHtml(project.businessName || "Unsubmitted review")}</h3><p>${escapeHtml(project.contactName || "Unknown contact")} · ${escapeHtml(review.contact_email || project.email || "No email")}</p></div>
+          <span class="portal-badge">${review.request_id ? "Submitted request" : "Review only"}</span>
+        </summary>
+        <div>
+          <p><strong>AI confirmation</strong></p><p>${escapeHtml(result.message || "No confirmation saved.")}</p>
+          <p><strong>Observations</strong></p>${observations.length ? `<ul>${observations.map((item) => `<li><strong>${escapeHtml(item.title)}</strong>: ${escapeHtml(item.body)}</li>`).join("")}</ul>` : "<p>None</p>"}
+          <p><strong>Follow-up questions</strong></p>${questions.length ? `<ul>${questions.map((item) => `<li>${escapeHtml(item.question)} <small>${escapeHtml(item.reason || "")}</small></li>`).join("")}</ul>` : "<p>None needed</p>"}
+          <p><strong>Form snapshot</strong></p><pre>${escapeHtml(JSON.stringify(project, null, 2))}</pre>
+          <p class="portal-kicker">${escapeHtml(review.model)}</p>
+        </div>
+      </details>
+    `;
+  }).join("") : '<div class="portal-empty"><p>No AI reviews have been recorded yet.</p></div>';
 }
 
 function render() {
@@ -37,15 +67,20 @@ function render() {
 }
 
 async function loadRequests() {
-  const [requestResult, proposalResult] = await Promise.all([
+  const [requestResult, proposalResult, reviewResult] = await Promise.all([
     supabase.from("website_service_requests").select("*").order("created_at", { ascending: false }),
     supabase.from("website_proposals").select("id,request_id"),
+    supabase.from("website_request_ai_reviews").select("*").order("created_at", { ascending: false }).limit(250),
   ]);
   if (requestResult.error) throw requestResult.error;
   if (proposalResult.error) throw proposalResult.error;
+  if (reviewResult.error) throw reviewResult.error;
   const proposals = new Map((proposalResult.data || []).map((proposal) => [proposal.request_id, proposal.id]));
   requests = (requestResult.data || []).map((request) => ({ ...request, proposal_id: proposals.get(request.id) || "" }));
+  const requestByReview = new Map(requests.filter((request) => request.ai_review_id).map((request) => [request.ai_review_id, request.id]));
+  aiReviews = (reviewResult.data || []).map((review) => ({ ...review, request_id: requestByReview.get(review.id) || "" }));
   render();
+  renderAiReviews();
 }
 
 async function saveRequest(requestId) {

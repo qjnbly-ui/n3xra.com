@@ -79,6 +79,7 @@ let isSubmitting = false;
 let isReviewing = false;
 let reviewedSnapshot = "";
 let pendingQuestions = [];
+let latestReviewId = "";
 
 function field(id) {
   return document.getElementById(id);
@@ -226,6 +227,7 @@ function saveDraft() {
       version: 1,
       savedAt: Date.now(),
       values,
+      aiReviewId: latestReviewId,
     }));
   } catch {
     // The intake still works when browser storage is unavailable.
@@ -239,6 +241,7 @@ function restoreDraft() {
     const input = field(id);
     if (input && typeof draft.values[id] === "string") input.value = draft.values[id];
   });
+  latestReviewId = typeof draft.aiReviewId === "string" ? draft.aiReviewId : "";
   return true;
 }
 
@@ -249,6 +252,7 @@ function clearDraft() {
     // Nothing else is required when browser storage is unavailable.
   }
   restoredDraft = false;
+  latestReviewId = "";
 }
 
 function setMode(isSignedIn) {
@@ -410,7 +414,9 @@ async function askProjectAi() {
     renderReviewSummary();
     renderGuidance(Array.isArray(data.observations) ? data.observations : []);
     renderQuestionFields(Array.isArray(data.questions) ? data.questions : [], data.questionsNote);
+    latestReviewId = String(data.reviewId || "");
     reviewedSnapshot = currentProjectSnapshot();
+    saveDraft();
     reviewLoading.hidden = true;
     reviewContent.hidden = false;
     setAiStatus(pendingQuestions.length ? "Add the details above, or continue if you’d rather discuss them with us later." : "Everything looks ready. We’re excited to review your request.");
@@ -493,6 +499,7 @@ function requestPayload() {
     budget_range: value("request-budget") || null,
     target_launch_date: value("request-launch-date") || null,
     additional_notes: value("request-notes") || null,
+    ai_review_id: latestReviewId || null,
     status: "submitted",
   };
 }

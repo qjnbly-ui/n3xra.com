@@ -798,6 +798,52 @@ body.portal-denied main {
   background: #fff;
 }
 
+#admin-ai-review-list details {
+  display: block;
+}
+
+#admin-ai-review-list summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  cursor: pointer;
+  list-style: none;
+}
+
+#admin-ai-review-list summary::-webkit-details-marker {
+  display: none;
+}
+
+#admin-ai-review-list details[open] summary {
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--portal-line);
+}
+
+#admin-ai-review-list details > div {
+  color: var(--portal-muted);
+  font-size: 0.8rem;
+  line-height: 1.55;
+}
+
+#admin-ai-review-list details ul {
+  margin: 0.4rem 0 1rem;
+  padding-left: 1.2rem;
+}
+
+#admin-ai-review-list details pre {
+  max-height: 320px;
+  overflow: auto;
+  padding: 0.8rem;
+  background: #f4f7f9;
+  border-radius: 8px;
+  color: var(--portal-ink);
+  font: 0.7rem/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .portal-request-card h3 {
   margin: 0;
   font-family: "Fraunces", Georgia, serif;
