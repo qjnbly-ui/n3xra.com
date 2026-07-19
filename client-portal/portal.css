@@ -2170,6 +2170,93 @@ body.portal-denied main {
   font-weight: 800;
 }
 
+.portal-services-admin .portal-workspace {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.portal-admin-record-section {
+  display: grid;
+  gap: 0.8rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--portal-line);
+}
+
+.portal-admin-record-section .portal-section-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.portal-admin-record-section .portal-section-heading h3 {
+  margin: 0.15rem 0 0;
+  font-family: "Fraunces", Georgia, serif;
+  font-size: 1.35rem;
+}
+
+.portal-admin-record-section .portal-section-heading > p {
+  max-width: 440px;
+  margin: 0;
+  text-align: right;
+}
+
+.portal-admin-editor .portal-form {
+  margin: 1rem 0 0;
+  border: 0;
+  background: #f7f9fb;
+}
+
+.portal-ownership-form label {
+  display: grid;
+  gap: 0.38rem;
+  color: var(--portal-muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.portal-ownership-form input,
+.portal-ownership-form select,
+.portal-ownership-form textarea {
+  width: 100%;
+  min-height: 44px;
+  padding: 0.68rem 0.75rem;
+  color: var(--portal-ink);
+  border: 1px solid var(--portal-line);
+  border-radius: 8px;
+  background: #fff;
+  font: inherit;
+}
+
+.portal-ownership-form textarea {
+  min-height: 82px;
+  resize: vertical;
+}
+
+.portal-ownership-form .portal-check-field {
+  display: flex;
+  align-items: center;
+  align-self: end;
+  min-height: 44px;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--portal-line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.portal-ownership-form .portal-check-field input {
+  width: auto;
+  min-height: 0;
+  margin: 0 0.55rem 0 0;
+}
+
+.portal-services-admin .portal-empty-compact {
+  min-height: 64px;
+  padding: 0.8rem;
+  border: 1px dashed var(--portal-line);
+  border-radius: 12px;
+}
+
 .portal-request-controls {
   min-width: min(360px, 45%);
   flex-direction: column;
@@ -2206,5 +2293,14 @@ body.portal-denied main {
   .portal-request-controls {
     width: 100%;
     min-width: 0;
+  }
+
+  .portal-admin-record-section .portal-section-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .portal-admin-record-section .portal-section-heading > p {
+    text-align: left;
   }
 }
