@@ -78,6 +78,7 @@ function systemPrompt(project) {
     "Do not ask for an existing URL or domain merely because it is blank on a new website request. Only ask for existingWebsiteUrl when the project is a redesign or improvement of an existing site.",
     "Do not ask a generic 'anything else' question. Questions must address a concrete ambiguity that materially affects this exact project.",
     "Each question must be easy to answer in one form control. Its reason must be one short, reassuring sentence explaining why it helps.",
+    "Return one JSON object with these keys: message, observations, questionsNote, and questions. observations is an array of objects with title and body. questions is an array of objects with field, question, and reason. Use an empty string for questionsNote and an empty array for questions when no follow-up is needed.",
     "",
     "Current project details:",
     JSON.stringify(project, null, 2),
@@ -114,50 +115,7 @@ module.exports = async function handler(req, res) {
         model: GROQ_MODEL,
         temperature: 0.25,
         max_completion_tokens: 650,
-        response_format: {
-          type: "json_schema",
-          json_schema: {
-            name: "project_request_review",
-            strict: true,
-            schema: {
-              type: "object",
-              properties: {
-                message: { type: "string" },
-                observations: {
-                  type: "array",
-                  minItems: 1,
-                  maxItems: 3,
-                  items: {
-                    type: "object",
-                    properties: {
-                      title: { type: "string" },
-                      body: { type: "string" },
-                    },
-                    required: ["title", "body"],
-                    additionalProperties: false,
-                  },
-                },
-                questionsNote: { type: "string" },
-                questions: {
-                  type: "array",
-                  maxItems: 3,
-                  items: {
-                    type: "object",
-                    properties: {
-                      field: { type: "string", enum: ["existingWebsiteUrl", "primaryGoal", "primaryAudience", "budgetRange", "preferredLaunchDate"] },
-                      question: { type: "string" },
-                      reason: { type: "string" },
-                    },
-                    required: ["field", "question", "reason"],
-                    additionalProperties: false,
-                  },
-                },
-              },
-              required: ["message", "observations", "questionsNote", "questions"],
-              additionalProperties: false,
-            },
-          },
-        },
+        response_format: { type: "json_object" },
         messages,
       }),
     });
