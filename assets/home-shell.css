@@ -257,12 +257,17 @@ body.site-menu-is-open .home-topbar {
   }
 
   .home-topbar .site-mobile-menu.is-open {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
   }
 
   .home-topbar .site-mobile-menu-head {
-    grid-column: 1 / -1;
+    flex: 1 0 100%;
+  }
+
+  .home-topbar .site-mobile-menu .site-menu-link {
+    flex: 0 1 calc((100% - 1rem) / 3);
   }
 
   .footer-grid {
@@ -345,7 +350,6 @@ body.site-menu-is-open .home-topbar {
   }
 
   .home-topbar .site-mobile-menu.is-open {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
     max-height: calc(100svh - 70px);
     overflow-y: auto;
     padding-bottom: 0.5rem;
