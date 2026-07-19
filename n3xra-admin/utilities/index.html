@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="en">
-  <head>s
+  <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>N3XRA Utilities Admin</title>
@@ -13,6 +13,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,650;9..144,750&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/assets/site-nav.css">
     <link rel="stylesheet" href="/utilities/utilities.css">
+    <link rel="stylesheet" href="/n3xra-admin/utilities/utilities-admin.css?v=1">
     <script src="/assets/site-nav.js" defer></script>
     <script src="/shared/config.js"></script>
     <script type="module" src="/utilities/admin/utilities-admin.js"></script>
@@ -25,8 +26,7 @@
             <img src="/assets/MAINLOGO.png" alt="N3XRA">
           </a>
           <div class="site-nav-actions">
-            <a class="site-menu-link utilities-desktop-link" href="/utilities/">Home</a>
-            <a class="site-menu-link utilities-desktop-link" href="/utilities/onboarding/">Onboarding</a>
+          <a class="site-menu-link utilities-desktop-link" href="/utilities/">Utilities</a>
             <button class="site-menu-link utilities-admin-logout" id="utilities-admin-logout" type="button" hidden>Logout</button>
             <button class="site-menu-toggle" type="button" aria-expanded="false" aria-controls="utilities-admin-menu" aria-label="Open menu" data-site-menu-toggle>
               <span></span>
@@ -37,11 +37,10 @@
         </div>
         <nav class="site-mobile-menu" id="utilities-admin-menu" aria-label="Mobile primary" hidden>
           <div class="site-mobile-menu-head">
-            <p class="site-mobile-menu-title">Navigate</p>
+            <p class="site-mobile-menu-title">Utilities administration</p>
           </div>
           <a class="site-menu-link" href="/utilities/">Utilities Home</a>
           <a class="site-menu-link" href="/utilities/onboarding/">Onboarding</a>
-          <a class="site-menu-link" href="/utilities/login/">Login</a>
           <a class="site-menu-link" href="/support/">Support</a>
         </nav>
       </div>
@@ -50,8 +49,8 @@
     <main class="utilities-admin-shell">
       <section class="utilities-admin-head">
         <div>
-          <p class="eyebrow">N3XRA Admin</p>
-          <h1>Utility portal setup</h1>
+          <p class="eyebrow">Utilities administration</p>
+          <h1>Utility organizations</h1>
           <p class="hero-lede">Review onboarding submissions, inspect portal configuration, and move each utility through launch readiness.</p>
         </div>
         <button class="secondary-action" id="utilities-admin-refresh" type="button" hidden>Refresh</button>
@@ -60,15 +59,16 @@
       <p class="status-line" id="utilities-admin-status" role="status" aria-live="polite"></p>
 
       <section class="utilities-admin-layout" id="utilities-admin-panel" hidden>
-        <aside class="utilities-admin-list" aria-label="Utility organizations">
-          <div class="utilities-admin-card-head">
-            <h2>Organizations</h2>
-            <span id="utilities-admin-count">0</span>
-          </div>
-          <div class="utilities-org-list" id="utilities-org-list"></div>
-        </aside>
-
         <section class="utilities-admin-detail" aria-label="Selected utility organization">
+          <div class="utilities-admin-list utilities-admin-selector-top" aria-label="Utility organizations">
+            <label class="utilities-admin-org-select">
+              <span class="eyebrow">Organizations</span>
+              <strong>Choose an account</strong>
+              <select id="utilities-org-list" aria-label="Choose a utility organization"></select>
+            </label>
+            <span class="utilities-admin-count" id="utilities-admin-count">0</span>
+          </div>
+
           <div class="utilities-admin-empty" id="utilities-admin-empty">
             <h2>Select an organization</h2>
             <p>New utility onboarding submissions will appear here after the setup form creates tenant records.</p>

@@ -106,22 +106,19 @@ async function apiFetch(path = "", options = {}) {
 function renderList() {
   orgCount.textContent = String(organizations.length);
   if (!organizations.length) {
-    orgList.innerHTML = '<p class="utilities-list-empty">No utility organizations yet.</p>';
+    orgList.innerHTML = '<option value="">No utility organizations yet</option>';
+    orgList.disabled = true;
     return;
   }
 
+  orgList.disabled = false;
   orgList.innerHTML = organizations
     .map((organization) => {
       const domain = primaryDomain(organization);
       const progress = organization.launch_progress || {};
-      const selected = organization.id === selectedOrganizationId ? " is-selected" : "";
-      return `
-        <button class="utilities-org-button${selected}" type="button" data-id="${escapeHtml(organization.id)}">
-          <strong>${escapeHtml(organization.name)}</strong>
-          <span>${escapeHtml(domain?.domain || organization.slug)}</span>
-          <small>${escapeHtml(titleCase(organization.status))} · ${Number(progress.required_completed || 0)}/${Number(progress.required_total || 0)} required</small>
-        </button>
-      `;
+      const selected = organization.id === selectedOrganizationId ? " selected" : "";
+      const detail = `${domain?.domain || organization.slug} · ${titleCase(organization.status)} · ${Number(progress.required_completed || 0)}/${Number(progress.required_total || 0)} required`;
+      return `<option value="${escapeHtml(organization.id)}"${selected}>${escapeHtml(organization.name)} — ${escapeHtml(detail)}</option>`;
     })
     .join("");
 }
@@ -285,10 +282,8 @@ async function init() {
 
   unlockAdminShell();
 
-  orgList.addEventListener("click", (event) => {
-    const button = event.target.closest("button[data-id]");
-    if (!button) return;
-    selectedOrganizationId = button.getAttribute("data-id") || "";
+  orgList.addEventListener("change", (event) => {
+    selectedOrganizationId = event.currentTarget.value || "";
     renderList();
     renderDetail();
   });

@@ -1,0 +1,57 @@
+.utilities-dashboard-body .utilities-admin-layout {
+  display: block;
+}
+
+.utilities-dashboard-body .utilities-admin-detail {
+  display: grid;
+  gap: 1rem;
+  width: 100%;
+}
+
+.utilities-dashboard-body .utilities-admin-selector-top {
+  position: relative;
+  display: block;
+  width: 100%;
+  min-height: 0;
+  padding: 1.1rem;
+}
+
+.utilities-admin-org-select {
+  display: grid;
+  gap: .45rem;
+}
+
+.utilities-admin-org-select .eyebrow {
+  margin: 0;
+}
+
+.utilities-admin-org-select strong {
+  color: var(--ink, #0b1016);
+  font-size: 1rem;
+}
+
+.utilities-admin-org-select select {
+  width: 100%;
+  min-height: 50px;
+  padding: .72rem .82rem;
+  color: var(--ink, #0b1016);
+  background: #fff;
+  border: 1px solid rgba(14, 23, 35, .15);
+  border-radius: 10px;
+  font: inherit;
+  font-weight: 700;
+}
+
+.utilities-admin-count {
+  position: absolute;
+  top: 1.1rem;
+  right: 1.1rem;
+  color: var(--slate, #667184);
+  font-size: .78rem;
+  font-weight: 800;
+}
+
+.utilities-dashboard-body .utilities-admin-empty,
+.utilities-dashboard-body .utilities-admin-detail-content {
+  width: 100%;
+}
