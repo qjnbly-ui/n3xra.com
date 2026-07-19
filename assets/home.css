@@ -1895,6 +1895,10 @@ body.site-menu-is-open .home-topbar {
     grid-column: 1 / -1;
   }
 
+  .home-topbar .site-mobile-menu .site-menu-link:last-child {
+    grid-column: 2;
+  }
+
   .hero-shell {
     grid-template-columns: 1fr;
     padding-top: 9rem;
