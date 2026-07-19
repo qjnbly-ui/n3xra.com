@@ -18,8 +18,9 @@
     <div class="portal-layout hidden" id="admin-panel">
       <nav class="portal-nav"><p class="portal-nav-label">Records admin</p><a href="/n3xra-admin/records/">Overview</a><a href="/n3xra-admin/records/usage/">Usage</a><a class="is-current" href="/n3xra-admin/records/organizations/">Organizations</a><div class="portal-nav-divider"></div><p class="portal-nav-label">Records</p><a href="/n3xra-records/library/">Open Records app</a><a href="/support/">Support</a></nav>
       <section class="portal-workspace"><div class="portal-workspace-head"><div><p class="portal-kicker">Organizations</p><h2>Organization accounts</h2><p>Select an account, then update its settings or assist its owner.</p></div></div>
-        <section class="records-admin-section"><div class="records-admin-layout">
-          <aside class="records-admin-selector"><div class="admin-subhead"><p class="portal-kicker">Organizations</p><h4>Choose an account</h4></div><div class="records-admin-org-list" id="organization-list"></div><p class="status" id="admin-status"></p></aside>
+        <section class="records-admin-section">
+          <div class="records-admin-selector records-admin-selector-top"><label class="records-admin-org-select"><span class="portal-kicker">Organizations</span><strong>Choose an account</strong><select id="organization-list" aria-label="Choose an organization account"></select></label><p class="status" id="admin-status"></p></div>
+          <div class="records-admin-layout records-admin-layout-single">
           <div class="records-admin-selected">
             <div class="selected-organization-head"><div><p class="portal-kicker">Selected organization</p><h3 id="selected-organization-title">Select an organization</h3><p id="selected-organization-summary">Library settings and support actions will appear here.</p></div><a class="portal-button portal-button-secondary hidden" id="selected-organization-support-link" href="/n3xra-records/account">Support view</a></div>
             <form class="portal-form records-organization-form" id="organization-form"><div class="portal-form-head"><div><p class="portal-kicker">Account controls</p><h3>Library settings</h3></div></div>

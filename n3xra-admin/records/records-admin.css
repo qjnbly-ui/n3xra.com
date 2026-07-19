@@ -101,6 +101,38 @@
   background: #f7f9fb;
 }
 
+.records-admin-selector-top {
+  margin-top: 1rem;
+  padding: 1.1rem;
+}
+
+.records-admin-org-select {
+  display: grid;
+  gap: .45rem;
+}
+
+.records-admin-org-select .portal-kicker { margin-bottom: 0; }
+
+.records-admin-org-select strong {
+  font-size: 1rem;
+}
+
+.records-admin-org-select select {
+  width: 100%;
+  min-height: 48px;
+  padding: .7rem .8rem;
+  color: var(--portal-ink);
+  background: #fff;
+  border: 1px solid var(--portal-line);
+  border-radius: 8px;
+  font: inherit;
+  font-weight: 700;
+}
+
+.records-admin-layout-single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .admin-subhead h4 { margin: 0; font-size: 1rem; }
 .records-admin-org-list,
 .records-admin-selected { display: grid; gap: .75rem; }

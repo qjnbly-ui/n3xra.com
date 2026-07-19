@@ -198,7 +198,24 @@ function renderOrganizations() {
   if (!organizationList) return;
   organizationList.innerHTML = "";
   if (!organizations.length) {
-    organizationList.innerHTML = '<p class="field-note">No organizations found.</p>';
+    if (organizationList instanceof HTMLSelectElement) {
+      organizationList.innerHTML = '<option value="">No organizations found</option>';
+      organizationList.disabled = true;
+    } else {
+      organizationList.innerHTML = '<p class="field-note">No organizations found.</p>';
+    }
+    return;
+  }
+
+  if (organizationList instanceof HTMLSelectElement) {
+    organizationList.disabled = false;
+    organizations.forEach((organization) => {
+      const option = document.createElement("option");
+      option.value = organization.id;
+      option.selected = organization.id === selectedOrganizationId;
+      option.textContent = `${organization.name} — ${organization.owner_profile?.email || "No owner email"}`;
+      organizationList.append(option);
+    });
     return;
   }
 
@@ -334,9 +351,10 @@ async function handleLogout() {
 }
 
 function handleOrganizationListClick(event) {
-  const row = event.target.closest("[data-id]");
-  if (!row) return;
-  selectedOrganizationId = row.getAttribute("data-id") || "";
+  const isSelect = event.currentTarget instanceof HTMLSelectElement;
+  const row = isSelect ? null : event.target.closest("[data-id]");
+  if (!isSelect && !row) return;
+  selectedOrganizationId = isSelect ? event.currentTarget.value : (row.getAttribute("data-id") || "");
   renderOrganizations();
   renderAdminUsageOverview();
   renderSelectedOrganization();
@@ -483,7 +501,10 @@ async function init() {
   ]);
 
   logoutButton?.addEventListener("click", handleLogout);
-  organizationList?.addEventListener("click", handleOrganizationListClick);
+  organizationList?.addEventListener(
+    organizationList instanceof HTMLSelectElement ? "change" : "click",
+    handleOrganizationListClick
+  );
   usageRefreshButton?.addEventListener("click", loadAdminUsageOverview);
   organizationTierInput?.addEventListener("change", handleTierChange);
   organizationGrantSixMonthTrialButton?.addEventListener("click", handleGrantSixMonthTrial);
