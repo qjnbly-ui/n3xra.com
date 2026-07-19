@@ -1,0 +1,196 @@
+.hidden { display: none !important; }
+
+.records-setup {
+  max-width: 760px;
+  margin: 0 auto;
+}
+
+.records-admin-section {
+  padding: 1.5rem 0;
+  border-bottom: 1px solid var(--portal-line);
+}
+
+.records-admin-section:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.admin-usage-table-shell {
+  overflow-x: auto;
+  margin-top: 1rem;
+  border: 1px solid var(--portal-line);
+  border-radius: 10px;
+}
+
+.admin-usage-table {
+  width: 100%;
+  min-width: 920px;
+  border-collapse: collapse;
+  font-size: .84rem;
+}
+
+.admin-usage-table th,
+.admin-usage-table td {
+  padding: .8rem;
+  border-bottom: 1px solid var(--portal-line);
+  text-align: left;
+  vertical-align: top;
+}
+
+.admin-usage-table th {
+  color: var(--portal-muted);
+  background: #f7f9fb;
+  font-size: .68rem;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.admin-usage-table tbody tr { cursor: pointer; }
+.admin-usage-table tbody tr:hover,
+.admin-usage-table tbody tr.is-selected-row { background: rgba(22, 185, 237, .07); }
+.admin-usage-table small { color: var(--portal-muted); }
+
+.records-admin-layout {
+  display: grid;
+  grid-template-columns: minmax(210px, .7fr) minmax(420px, 1.6fr);
+  gap: 1rem;
+  margin-top: 1rem;
+  align-items: start;
+}
+
+.records-admin-selector {
+  padding: 1rem;
+  border: 1px solid var(--portal-line);
+  border-radius: 10px;
+  background: #f7f9fb;
+}
+
+.admin-subhead h4 { margin: 0; font-size: 1rem; }
+.records-admin-org-list,
+.records-admin-selected { display: grid; gap: .75rem; }
+.records-admin-org-list { margin-top: .8rem; }
+
+.records-admin-org-item {
+  display: grid;
+  gap: .35rem;
+  width: 100%;
+  padding: .75rem;
+  color: var(--portal-ink);
+  background: #fff;
+  border: 1px solid var(--portal-line);
+  border-radius: 8px;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.records-admin-org-item:hover,
+.records-admin-org-item.is-selected {
+  border-color: rgba(22, 185, 237, .45);
+  background: rgba(22, 185, 237, .08);
+}
+
+.records-admin-org-main,
+.records-admin-org-meta { display: grid; min-width: 0; }
+.records-admin-org-main strong,
+.records-admin-org-main span,
+.records-admin-org-meta span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.records-admin-org-main span,
+.records-admin-org-meta { color: var(--portal-muted); font-size: .76rem; }
+
+.selected-organization-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-height: 116px;
+  padding: 1rem;
+  border: 1px solid rgba(22, 185, 237, .2);
+  border-radius: 10px;
+  background: rgba(22, 185, 237, .07);
+}
+
+.selected-organization-head h3,
+.selected-organization-head p { margin: 0; }
+.selected-organization-head h3 {
+  font-family: "Fraunces", Georgia, serif;
+  font-size: 1.35rem;
+}
+.selected-organization-head p:not(.portal-kicker) { color: var(--portal-muted); }
+
+.records-organization-form,
+.selected-support-form { margin-top: 0; }
+
+.setting-toggles,
+.records-button-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .65rem;
+}
+
+.setting-toggles { margin-top: 1rem; }
+.toggle-pill {
+  display: inline-flex !important;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: .45rem !important;
+  padding: .65rem .75rem;
+  color: var(--portal-ink) !important;
+  background: #fff;
+  border: 1px solid var(--portal-line);
+  border-radius: 8px;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+}
+.toggle-pill input { width: auto; min-height: auto; }
+
+.status,
+.field-note {
+  margin: .65rem 0 0;
+  color: var(--portal-muted);
+  font-size: .82rem;
+}
+.status.success { color: #14725d; }
+.status.error { color: #a33041; }
+
+.admin-usage-metric { display: grid; gap: .3rem; min-width: 6.5rem; }
+.admin-usage-meter {
+  overflow: hidden;
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(11, 16, 22, .1);
+}
+.admin-usage-meter span { display: block; height: 100%; background: #16b9ed; }
+.admin-usage-metric.is-near .admin-usage-meter span { background: #d88a27; }
+.admin-usage-metric.is-over .admin-usage-meter span { background: #b53649; }
+.admin-usage-flags { display: flex; flex-wrap: wrap; gap: .3rem; }
+.admin-usage-flag {
+  padding: .2rem .42rem;
+  border-radius: 999px;
+  background: #eef1f4;
+  color: var(--portal-muted);
+  font-size: .68rem;
+  font-weight: 800;
+}
+.admin-usage-flag.is-clear { color: #14725d; background: #e5f5f0; }
+.admin-usage-flag.is-near { color: #85520d; background: #fff2db; }
+.admin-usage-flag.is-over { color: #9e2f40; background: #fde9ed; }
+
+@media (max-width: 900px) {
+  .records-admin-layout { grid-template-columns: 1fr; }
+  .records-admin-org-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    max-height: 320px;
+    overflow: auto;
+  }
+}
+
+@media (max-width: 600px) {
+  .records-admin-org-list { grid-template-columns: 1fr; }
+  .selected-organization-head,
+  .portal-form-actions { align-items: flex-start; flex-direction: column; }
+}
