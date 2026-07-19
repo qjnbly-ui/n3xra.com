@@ -755,6 +755,263 @@ Deno.serve(async (request) => {
       return jsonResponse({ ok: true, website, members });
     }
 
+    if (action === "create-existing-website-project") {
+      const websiteId = String(payload.websiteId || "").trim();
+      const clientUserId = String(payload.clientUserId || "").trim();
+      const name = textValue(payload.name, 180);
+      const status = String(payload.status || "active").trim().toLowerCase();
+      const targetStartDate = String(payload.targetStartDate || "").trim() || null;
+      const targetLaunchDate = String(payload.targetLaunchDate || "").trim() || null;
+      const createProposal = Boolean(payload.createProposal);
+      const openOnboarding = Boolean(payload.openOnboarding);
+      const proposalTitle = textValue(payload.proposalTitle || `New work for ${name}`, 160);
+      const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+
+      if (!isValidUuid(websiteId)) return jsonResponse({ error: "A valid websiteId is required." }, 400);
+      if (!isValidUuid(clientUserId)) return jsonResponse({ error: "Choose a valid client account." }, 400);
+      if (!name) return jsonResponse({ error: "Enter a project name." }, 400);
+      if (!["active", "pending", "on_hold"].includes(status)) {
+        return jsonResponse({ error: "Project status must be active, pending, or on hold." }, 400);
+      }
+      if (targetStartDate && !datePattern.test(targetStartDate)) {
+        return jsonResponse({ error: "Enter a valid target start date." }, 400);
+      }
+      if (targetLaunchDate && !datePattern.test(targetLaunchDate)) {
+        return jsonResponse({ error: "Enter a valid target launch date." }, 400);
+      }
+      if (targetStartDate && targetLaunchDate && targetLaunchDate < targetStartDate) {
+        return jsonResponse({ error: "The target launch date cannot be before the start date." }, 400);
+      }
+
+      const [{ data: website, error: websiteError }, { data: membership, error: membershipError }, { data: existingProject, error: projectLookupError }] = await Promise.all([
+        adminClient.from("client_websites").select("id,name,live_url,status").eq("id", websiteId).maybeSingle(),
+        adminClient.from("website_members").select("id,user_id,role,status").eq("website_id", websiteId).eq("user_id", clientUserId).eq("status", "active").maybeSingle(),
+        adminClient.from("website_projects").select("id,name").eq("managed_website_id", websiteId).maybeSingle(),
+      ]);
+      if (websiteError || membershipError || projectLookupError) {
+        return jsonResponse({ error: websiteError?.message || membershipError?.message || projectLookupError?.message || "Unable to validate this website." }, 400);
+      }
+      if (!website) return jsonResponse({ error: "Website not found." }, 404);
+      if (!membership) return jsonResponse({ error: "The selected account must have active access to this website." }, 400);
+      if (existingProject) {
+        return jsonResponse({ error: `${existingProject.name} is already the project for this website.`, projectId: existingProject.id }, 409);
+      }
+
+      const { data: project, error: projectError } = await adminClient
+        .from("website_projects")
+        .insert({
+          request_id: null,
+          proposal_id: null,
+          client_user_id: clientUserId,
+          managed_website_id: websiteId,
+          name,
+          source: "existing_website",
+          status,
+          current_stage: "ongoing",
+          progress_percent: 100,
+          target_start_date: targetStartDate,
+          target_launch_date: targetLaunchDate,
+          client_summary: "This existing website is connected to N3XRA for ongoing work, files, proposals, and onboarding.",
+          admin_next_step: "Use this workspace for future website work and ongoing management.",
+          owner_admin_user_id: user.id,
+          created_by_user_id: user.id,
+        })
+        .select("*")
+        .single();
+      if (projectError) return jsonResponse({ error: projectError.message }, 400);
+
+      const { error: historicalMilestoneError } = await adminClient
+        .from("website_project_milestones")
+        .update({ status: "not_applicable" })
+        .eq("project_id", project.id)
+        .in("stage", ["agreement", "billing", "onboarding", "production", "client_review", "launch"]);
+      if (historicalMilestoneError) {
+        await adminClient.from("website_projects").delete().eq("id", project.id);
+        return jsonResponse({ error: historicalMilestoneError.message }, 400);
+      }
+      const { error: ongoingMilestoneError } = await adminClient
+        .from("website_project_milestones")
+        .update({ status: "available", client_note: "The website is active and ready for ongoing N3XRA work." })
+        .eq("project_id", project.id)
+        .eq("stage", "ongoing");
+      if (ongoingMilestoneError) {
+        await adminClient.from("website_projects").delete().eq("id", project.id);
+        return jsonResponse({ error: ongoingMilestoneError.message }, 400);
+      }
+
+      let proposal = null;
+      let onboarding = null;
+      const warnings: string[] = [];
+
+      if (createProposal) {
+        const { data: authData, error: authError } = await adminClient.auth.admin.getUserById(clientUserId);
+        const client = authData?.user;
+        const clientEmail = normalizeEmail(client?.email);
+        if (authError || !client || !isValidEmail(clientEmail)) {
+          warnings.push("The project was created, but the proposal draft could not be created because the client account has no valid email.");
+        } else {
+          const clientName = textValue(client.user_metadata?.full_name || client.user_metadata?.name || clientEmail, 180);
+          const { data: requestRow, error: requestError } = await adminClient
+            .from("website_service_requests")
+            .insert({
+              user_id: clientUserId,
+              contact_name: clientName,
+              business_name: website.name,
+              contact_email: clientEmail,
+              project_type: "maintenance",
+              existing_website_url: website.live_url || null,
+              primary_goal: "Plan and price new work for this existing website.",
+              status: "proposal_drafting",
+              admin_notes: "Created by a platform admin from the existing website project.",
+              reviewed_by_user_id: user.id,
+              reviewed_at: new Date().toISOString(),
+            })
+            .select("id")
+            .single();
+          if (requestError) {
+            warnings.push(`The project was created, but the proposal request could not be created: ${requestError.message}`);
+          } else {
+            const { data: proposalRow, error: proposalError } = await adminClient
+              .from("website_proposals")
+              .insert({
+                request_id: requestRow.id,
+                project_id: project.id,
+                client_user_id: clientUserId,
+                title: proposalTitle,
+                status: "draft",
+                created_by_user_id: user.id,
+              })
+              .select("id,request_id,project_id,title,status")
+              .single();
+            if (proposalError) {
+              await adminClient.from("website_service_requests").delete().eq("id", requestRow.id);
+              warnings.push(`The project was created, but the proposal draft could not be created: ${proposalError.message}`);
+            } else {
+              proposal = proposalRow;
+            }
+          }
+        }
+      }
+
+      if (openOnboarding) {
+        const { data: onboardingRow, error: onboardingError } = await adminClient
+          .from("website_onboardings")
+          .insert({
+            project_id: project.id,
+            request_id: null,
+            proposal_id: null,
+            client_user_id: clientUserId,
+            status: "not_started",
+            unlocked_by_user_id: user.id,
+          })
+          .select("id,project_id,status")
+          .single();
+        if (onboardingError) {
+          warnings.push(`The project was created, but onboarding could not be opened: ${onboardingError.message}`);
+        } else {
+          onboarding = onboardingRow;
+        }
+      }
+
+      return jsonResponse({ ok: true, project, proposal, onboarding, warnings });
+    }
+
+    if (action === "create-existing-website-proposal") {
+      const projectId = String(payload.projectId || "").trim();
+      const proposalTitle = textValue(payload.proposalTitle, 160);
+      if (!isValidUuid(projectId)) return jsonResponse({ error: "A valid projectId is required." }, 400);
+      if (!proposalTitle) return jsonResponse({ error: "Enter a proposal title." }, 400);
+
+      const { data: project, error: projectError } = await adminClient
+        .from("website_projects")
+        .select("id,client_user_id,managed_website_id,name,source,client_websites(id,name,live_url)")
+        .eq("id", projectId)
+        .maybeSingle();
+      if (projectError) return jsonResponse({ error: projectError.message }, 400);
+      if (!project || project.source !== "existing_website") return jsonResponse({ error: "Existing website project not found." }, 404);
+      const website = Array.isArray(project.client_websites) ? project.client_websites[0] : project.client_websites;
+      if (!website) return jsonResponse({ error: "This project is not linked to a managed website." }, 400);
+
+      const { data: authData, error: authError } = await adminClient.auth.admin.getUserById(project.client_user_id);
+      const client = authData?.user;
+      const clientEmail = normalizeEmail(client?.email);
+      if (authError || !client || !isValidEmail(clientEmail)) {
+        return jsonResponse({ error: "The project client account does not have a valid email." }, 400);
+      }
+      const clientName = textValue(client.user_metadata?.full_name || client.user_metadata?.name || clientEmail, 180);
+      const { data: requestRow, error: requestError } = await adminClient
+        .from("website_service_requests")
+        .insert({
+          user_id: project.client_user_id,
+          contact_name: clientName,
+          business_name: website.name,
+          contact_email: clientEmail,
+          project_type: "maintenance",
+          existing_website_url: website.live_url || null,
+          primary_goal: "Plan and price new work for this existing website.",
+          status: "proposal_drafting",
+          admin_notes: "Created by a platform admin from the existing website project.",
+          reviewed_by_user_id: user.id,
+          reviewed_at: new Date().toISOString(),
+        })
+        .select("id")
+        .single();
+      if (requestError) return jsonResponse({ error: requestError.message }, 400);
+
+      const { data: proposal, error: proposalError } = await adminClient
+        .from("website_proposals")
+        .insert({
+          request_id: requestRow.id,
+          project_id: project.id,
+          client_user_id: project.client_user_id,
+          title: proposalTitle,
+          status: "draft",
+          created_by_user_id: user.id,
+        })
+        .select("id,request_id,project_id,title,status")
+        .single();
+      if (proposalError) {
+        await adminClient.from("website_service_requests").delete().eq("id", requestRow.id);
+        return jsonResponse({ error: proposalError.message }, 400);
+      }
+      return jsonResponse({ ok: true, proposal });
+    }
+
+    if (action === "open-existing-website-onboarding") {
+      const projectId = String(payload.projectId || "").trim();
+      if (!isValidUuid(projectId)) return jsonResponse({ error: "A valid projectId is required." }, 400);
+      const { data: project, error: projectError } = await adminClient
+        .from("website_projects")
+        .select("id,client_user_id,source")
+        .eq("id", projectId)
+        .maybeSingle();
+      if (projectError) return jsonResponse({ error: projectError.message }, 400);
+      if (!project || project.source !== "existing_website") return jsonResponse({ error: "Existing website project not found." }, 404);
+
+      const { data: existing, error: existingError } = await adminClient
+        .from("website_onboardings")
+        .select("id,project_id,status")
+        .eq("project_id", project.id)
+        .maybeSingle();
+      if (existingError) return jsonResponse({ error: existingError.message }, 400);
+      if (existing) return jsonResponse({ ok: true, onboarding: existing, existing: true });
+
+      const { data: onboarding, error } = await adminClient
+        .from("website_onboardings")
+        .insert({
+          project_id: project.id,
+          request_id: null,
+          proposal_id: null,
+          client_user_id: project.client_user_id,
+          status: "not_started",
+          unlocked_by_user_id: user.id,
+        })
+        .select("id,project_id,status")
+        .single();
+      if (error) return jsonResponse({ error: error.message }, 400);
+      return jsonResponse({ ok: true, onboarding });
+    }
+
     if (action === "assign-website-member") {
       const websiteId = String(payload.websiteId || "").trim();
       const email = normalizeEmail(payload.email);

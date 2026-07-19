@@ -60,7 +60,8 @@ function formatAnswer(value) {
 function renderProposalQueue() {
   const onboardingByProposal = new Map(onboardings.map((onboarding) => [onboarding.proposal_id, onboarding]));
   proposalList.innerHTML = approvedProposals.length ? approvedProposals.map((proposal) => {
-    const onboarding = onboardingByProposal.get(proposal.id);
+    const onboarding = onboardingByProposal.get(proposal.id)
+      || onboardings.find((item) => item.project_id && item.project_id === proposal.project_id);
     return `
       <article class="portal-request-card">
         <div><p class="portal-kicker">Approved proposal</p><h3>${escapeHtml(proposal.title)}</h3><p>${escapeHtml(proposal.website_service_requests?.business_name || "Website project")}</p></div>
@@ -76,7 +77,7 @@ function renderProposalQueue() {
 
 function renderOptions() {
   onboardingSelect.innerHTML = onboardings.length
-    ? onboardings.map((onboarding) => `<option value="${onboarding.id}">${escapeHtml(onboarding.website_service_requests?.business_name || "Website project")} · ${escapeHtml(formatLabel(onboarding.status))}</option>`).join("")
+    ? onboardings.map((onboarding) => `<option value="${onboarding.id}">${escapeHtml(onboarding.website_service_requests?.business_name || onboarding.website_projects?.name || "Website project")} · ${escapeHtml(formatLabel(onboarding.status))}</option>`).join("")
     : '<option value="">No onboarding projects</option>';
   onboardingSelect.disabled = !onboardings.length;
 }
@@ -109,9 +110,9 @@ function renderWorkspace() {
   emptyState.hidden = Boolean(selectedOnboarding);
   workspace.hidden = !selectedOnboarding;
   if (!selectedOnboarding) return;
-  const businessName = selectedOnboarding.website_service_requests?.business_name || "Website project";
+  const businessName = selectedOnboarding.website_service_requests?.business_name || selectedOnboarding.website_projects?.name || "Website project";
   nameElement.textContent = businessName;
-  metaElement.textContent = `${selectedOnboarding.website_proposals?.title || "Approved proposal"} · ${formatLabel(selectedOnboarding.status)}`;
+  metaElement.textContent = `${selectedOnboarding.website_proposals?.title || "Direct project onboarding"} · ${formatLabel(selectedOnboarding.status)}`;
   onboardingState.innerHTML = `<span class="portal-badge portal-status-${escapeHtml(selectedOnboarding.status)}">${escapeHtml(formatLabel(selectedOnboarding.status))}</span>`;
   const completion = Number(selectedResponse?.completion_percent || 0);
   progressElement.textContent = `${completion}% complete`;
@@ -127,8 +128,8 @@ function renderWorkspace() {
 
 async function loadData(preferredId) {
   const [proposalResult, onboardingResult, responseResult, fileResult] = await Promise.all([
-    supabase.from("website_proposals").select("id,request_id,client_user_id,title,status,website_service_requests(business_name)").eq("status", "approved").order("created_at", { ascending: false }),
-    supabase.from("website_onboardings").select("*,website_service_requests(business_name,project_type),website_proposals(title,status)").order("created_at", { ascending: false }),
+    supabase.from("website_proposals").select("id,request_id,project_id,client_user_id,title,status,website_service_requests(business_name)").eq("status", "approved").order("created_at", { ascending: false }),
+    supabase.from("website_onboardings").select("*,website_service_requests(business_name,project_type),website_proposals(title,status),website_projects(name,managed_website_id)").order("created_at", { ascending: false }),
     supabase.from("website_onboarding_responses").select("*"),
     supabase.from("website_onboarding_files").select("*").order("created_at", { ascending: false }),
   ]);
@@ -145,13 +146,19 @@ async function loadData(preferredId) {
   const context = readWorkspaceContext("admin", currentUser.id);
   const requested = preferredId || new URLSearchParams(window.location.search).get("onboarding") || context.onboardingId;
   selectedOnboarding = onboardings.find((onboarding) => onboarding.id === requested)
-    || onboardings.find((onboarding) => onboarding.proposal_id === context.proposalId || onboarding.request_id === context.requestId)
+    || onboardings.find((onboarding) =>
+      onboarding.project_id === context.projectId
+      || onboarding.proposal_id === context.proposalId
+      || onboarding.request_id === context.requestId
+    )
     || (!context.websiteId && !context.projectId ? onboardings[0] : undefined);
   selectedResponse = responses.find((response) => response.onboarding_id === selectedOnboarding?.id);
   if (selectedOnboarding) onboardingSelect.value = selectedOnboarding.id;
   else onboardingSelect.selectedIndex = -1;
   if (selectedOnboarding) writeWorkspaceContext("admin", currentUser.id, {
     onboardingId: selectedOnboarding.id,
+    projectId: selectedOnboarding.project_id,
+    websiteId: selectedOnboarding.website_projects?.managed_website_id,
     proposalId: selectedOnboarding.proposal_id,
     requestId: selectedOnboarding.request_id,
   });
@@ -162,6 +169,7 @@ async function unlockOnboarding(proposalId) {
   const proposal = approvedProposals.find((item) => item.id === proposalId);
   if (!proposal) throw new Error("The approved proposal is no longer available.");
   const { data, error } = await supabase.from("website_onboardings").insert({
+    project_id: proposal.project_id || null,
     request_id: proposal.request_id,
     proposal_id: proposal.id,
     client_user_id: proposal.client_user_id,
@@ -241,6 +249,8 @@ async function init() {
     selectedOnboarding = onboardings.find((onboarding) => onboarding.id === onboardingSelect.value);
     if (selectedOnboarding) writeWorkspaceContext("admin", currentUser.id, {
       onboardingId: selectedOnboarding.id,
+      projectId: selectedOnboarding.project_id,
+      websiteId: selectedOnboarding.website_projects?.managed_website_id,
       proposalId: selectedOnboarding.proposal_id,
       requestId: selectedOnboarding.request_id,
     });

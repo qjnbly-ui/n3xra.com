@@ -21,6 +21,7 @@ let supabase;
 let projects = [];
 let milestones = [];
 let onboardings = [];
+let proposals = [];
 let websites = [];
 let selectedProject;
 let currentUser;
@@ -53,7 +54,15 @@ function selectedMilestones() {
 }
 
 function selectedOnboarding() {
-  return onboardings.find((onboarding) => onboarding.proposal_id === selectedProject?.proposal_id);
+  return onboardings.find((onboarding) =>
+    onboarding.project_id === selectedProject?.id
+    || onboarding.proposal_id === selectedProject?.proposal_id
+  );
+}
+
+function selectedProposal() {
+  return proposals.find((proposal) => proposal.project_id === selectedProject?.id)
+    || proposals.find((proposal) => proposal.id === selectedProject?.proposal_id);
 }
 
 function renderOptions() {
@@ -97,12 +106,12 @@ function renderMilestones() {
 }
 
 function renderLinks() {
-  const proposal = relation(selectedProject.website_proposals);
+  const proposal = selectedProposal();
   const onboarding = selectedOnboarding();
   const website = relation(selectedProject.client_websites);
   linksElement.innerHTML = [
     `<a class="portal-button portal-button-secondary" href="/project-workspace/?project=${encodeURIComponent(selectedProject.id)}">Client view</a>`,
-    proposal ? `<a class="portal-button portal-button-secondary" href="/n3xra-admin/proposals/?request=${encodeURIComponent(selectedProject.request_id)}">Proposal</a>` : "",
+    proposal ? `<a class="portal-button portal-button-secondary" href="/n3xra-admin/proposals/?proposal=${encodeURIComponent(proposal.id)}">Proposal</a>` : "",
     onboarding ? `<a class="portal-button portal-button-secondary" href="/n3xra-admin/onboarding/?onboarding=${encodeURIComponent(onboarding.id)}">Onboarding</a>` : "",
     website ? `<a class="portal-button portal-button-secondary" href="/n3xra-admin/websites/?website=${encodeURIComponent(website.id)}">Website</a>` : "",
   ].filter(Boolean).join("");
@@ -131,22 +140,25 @@ function renderWorkspace() {
 }
 
 async function loadData(preferredId) {
-  const [projectResult, milestoneResult, onboardingResult, websiteResult] = await Promise.all([
+  const [projectResult, milestoneResult, onboardingResult, websiteResult, proposalResult] = await Promise.all([
     supabase.from("website_projects")
-      .select("*,website_service_requests(business_name,project_type),website_proposals(id,title,status),client_websites(id,name,live_url,status)")
+      .select("*,website_service_requests(business_name,project_type),client_websites(id,name,live_url,status)")
       .order("created_at", { ascending: false }),
     supabase.from("website_project_milestones").select("*").order("sequence_number"),
-    supabase.from("website_onboardings").select("id,proposal_id,status").order("created_at", { ascending: false }),
+    supabase.from("website_onboardings").select("id,project_id,proposal_id,status").order("created_at", { ascending: false }),
     supabase.from("client_websites").select("id,name,live_url,status").order("name"),
+    supabase.from("website_proposals").select("id,project_id,request_id,title,status,created_at").order("created_at", { ascending: false }),
   ]);
   if (projectResult.error) throw projectResult.error;
   if (milestoneResult.error) throw milestoneResult.error;
   if (onboardingResult.error) throw onboardingResult.error;
   if (websiteResult.error) throw websiteResult.error;
+  if (proposalResult.error) throw proposalResult.error;
   projects = projectResult.data || [];
   milestones = milestoneResult.data || [];
   onboardings = onboardingResult.data || [];
   websites = websiteResult.data || [];
+  proposals = proposalResult.data || [];
   renderOptions();
   const context = readWorkspaceContext("admin", currentUser.id);
   const requested = preferredId || new URLSearchParams(window.location.search).get("project") || context.projectId;

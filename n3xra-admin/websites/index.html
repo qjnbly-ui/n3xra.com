@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/site-nav.css">
-  <link rel="stylesheet" href="/client-portal/portal.css?v=10">
+  <link rel="stylesheet" href="/client-portal/portal.css?v=11">
   <script src="/shared/config.js"></script>
   <script src="/n3xra-admin/admin-shell.js?v=2" defer></script>
 </head>
@@ -154,6 +154,73 @@
           </form>
           <p class="portal-inline-status" id="member-form-status" role="status"></p>
           <div class="portal-member-list" id="member-list"></div>
+        </section>
+
+        <section class="portal-access-panel portal-project-link-panel" id="project-link-panel" hidden aria-labelledby="project-link-title">
+          <div class="portal-toolbar">
+            <div>
+              <p class="portal-kicker">Project workspace</p>
+              <h3 id="project-link-title">Progress, proposals, and onboarding</h3>
+              <p id="project-link-copy">Turn this managed website into a client project without recreating its history.</p>
+            </div>
+            <button class="portal-button" id="open-project-form" type="button">Create project from this website</button>
+          </div>
+
+          <div class="portal-project-link-state" id="project-link-state" hidden></div>
+
+          <form class="portal-form portal-project-link-form" id="project-link-form" hidden>
+            <div class="portal-form-head">
+              <div>
+                <p class="portal-kicker">Existing website</p>
+                <h3>Create client project</h3>
+              </div>
+              <button class="portal-close" id="close-project-form" type="button">Close</button>
+            </div>
+            <div class="portal-form-grid">
+              <label>
+                Client account
+                <select id="project-client-account" required></select>
+              </label>
+              <label>
+                Project name
+                <input id="project-name" type="text" required maxlength="180">
+              </label>
+              <label>
+                Status
+                <select id="project-status">
+                  <option value="active">Active</option>
+                  <option value="pending">Pending</option>
+                  <option value="on_hold">On hold</option>
+                </select>
+              </label>
+              <label>
+                Target start
+                <input id="project-start-date" type="date">
+              </label>
+              <label>
+                Target launch
+                <input id="project-launch-date" type="date">
+              </label>
+            </div>
+            <div class="portal-project-link-options">
+              <label class="portal-check-row">
+                <input id="project-create-proposal" type="checkbox">
+                <span><strong>Create a proposal draft</strong><small>Use this for new work—not as a record of the website’s original approval.</small></span>
+              </label>
+              <label id="project-proposal-title-wrap" hidden>
+                Proposal title
+                <input id="project-proposal-title" type="text" maxlength="160">
+              </label>
+              <label class="portal-check-row">
+                <input id="project-open-onboarding" type="checkbox">
+                <span><strong>Open onboarding now</strong><small>The client can provide fresh content, access, or brand details when you need them.</small></span>
+              </label>
+            </div>
+            <div class="portal-form-actions">
+              <button class="portal-button" type="submit">Create project</button>
+              <p class="portal-inline-status" id="project-link-status" role="status"></p>
+            </div>
+          </form>
         </section>
 
       </section>

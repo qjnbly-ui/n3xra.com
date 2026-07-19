@@ -85,11 +85,16 @@ function currentDecision() {
 }
 
 function currentOnboarding() {
-  return onboardings.find((onboarding) => onboarding.proposal_id === selectedProposal?.id);
+  const project = currentProject();
+  return onboardings.find((onboarding) =>
+    onboarding.proposal_id === selectedProposal?.id
+    || onboarding.project_id === project?.id
+  );
 }
 
 function currentProject() {
-  return projects.find((project) => project.proposal_id === selectedProposal?.id);
+  return projects.find((project) => project.id === selectedProposal?.project_id)
+    || projects.find((project) => project.proposal_id === selectedProposal?.id);
 }
 
 function renderOptions() {
@@ -200,7 +205,7 @@ async function loadProposals(preferredId) {
     supabase.from("website_proposals").select("*").order("created_at", { ascending: false }),
     supabase.from("website_proposal_versions").select("*").order("version_number", { ascending: false }),
     supabase.from("website_proposal_decisions").select("*").order("created_at", { ascending: false }),
-    supabase.from("website_onboardings").select("id,proposal_id,status").order("created_at", { ascending: false }),
+    supabase.from("website_onboardings").select("id,project_id,proposal_id,status").order("created_at", { ascending: false }),
     supabase.from("website_projects").select("id,proposal_id,request_id,managed_website_id,name,status,client_websites(id,name)").order("created_at", { ascending: false }),
     supabase.from("client_websites").select("id,name,status").order("name"),
   ]);
@@ -220,12 +225,17 @@ async function loadProposals(preferredId) {
   const context = readWorkspaceContext("client", session.user.id);
   const explicitProposal = preferredId || new URLSearchParams(window.location.search).get("proposal");
   selectedProposal = proposals.find((proposal) => proposal.id === (explicitProposal || context.proposalId));
-  const proposalProject = projects.find((project) => project.proposal_id === selectedProposal?.id);
+  const proposalProject = projects.find((project) => project.id === selectedProposal?.project_id)
+    || projects.find((project) => project.proposal_id === selectedProposal?.id);
   selectedWebsite = websites.find((website) => website.id === (proposalProject?.managed_website_id || context.websiteId))
     || (!context.websiteId && !explicitProposal ? websites[0] : undefined);
   const relatedProject = projects.find((project) => project.managed_website_id === selectedWebsite?.id);
   selectedProposal = selectedProposal
-    || proposals.find((proposal) => proposal.id === relatedProject?.proposal_id || proposal.request_id === context.requestId);
+    || proposals.find((proposal) =>
+      proposal.project_id === relatedProject?.id
+      || proposal.id === relatedProject?.proposal_id
+      || proposal.request_id === context.requestId
+    );
   if (selectedWebsite) proposalSelect.value = selectedWebsite.id;
   else proposalSelect.selectedIndex = -1;
   rememberProposal();
@@ -278,7 +288,7 @@ async function init() {
   proposalSelect.addEventListener("change", () => {
     selectedWebsite = websites.find((website) => website.id === proposalSelect.value);
     const project = projects.find((item) => item.managed_website_id === selectedWebsite?.id);
-    selectedProposal = proposals.find((proposal) => proposal.id === project?.proposal_id);
+    selectedProposal = proposals.find((proposal) => proposal.project_id === project?.id || proposal.id === project?.proposal_id);
     rememberProposal();
     renderProposal();
   });

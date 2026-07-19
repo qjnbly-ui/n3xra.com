@@ -29,6 +29,7 @@ let projects = [];
 let websites = [];
 let milestones = [];
 let onboardings = [];
+let proposals = [];
 let selectedProject;
 let selectedWebsite;
 let userId;
@@ -78,7 +79,15 @@ function currentProjectMilestones() {
 }
 
 function currentOnboarding() {
-  return onboardings.find((onboarding) => onboarding.proposal_id === selectedProject?.proposal_id);
+  return onboardings.find((onboarding) =>
+    onboarding.project_id === selectedProject?.id
+    || onboarding.proposal_id === selectedProject?.proposal_id
+  );
+}
+
+function currentProposal() {
+  return proposals.find((proposal) => proposal.project_id === selectedProject?.id)
+    || proposals.find((proposal) => proposal.id === selectedProject?.proposal_id);
 }
 
 function currentMilestone() {
@@ -94,7 +103,7 @@ function renderOptions() {
 }
 
 function renderActions() {
-  const proposal = relation(selectedProject.website_proposals);
+  const proposal = currentProposal();
   const onboarding = currentOnboarding();
   const website = relation(selectedProject.client_websites);
   actions.innerHTML = [
@@ -135,11 +144,11 @@ function renderRoadmap() {
 
 function renderReference() {
   const request = relation(selectedProject.website_service_requests);
-  const proposal = relation(selectedProject.website_proposals);
+  const proposal = currentProposal();
   const website = relation(selectedProject.client_websites);
   reference.innerHTML = `
     <div><dt>Project type</dt><dd>${escapeHtml(formatLabel(request?.project_type || "website"))}</dd></div>
-    <div><dt>Proposal</dt><dd>${escapeHtml(proposal?.title || "Approved proposal")}</dd></div>
+    <div><dt>Proposal</dt><dd>${escapeHtml(proposal?.title || "No proposal attached")}</dd></div>
     <div><dt>Website</dt><dd>${escapeHtml(website?.name || "Created at launch")}</dd></div>
   `;
 }
@@ -152,7 +161,7 @@ function renderWorkspace() {
     title.textContent = "Progress";
     emptyTitle.textContent = selectedWebsite ? "No project timeline for this website" : "No website selected";
     emptyCopy.textContent = selectedWebsite
-      ? "This website was added as an existing managed site, so proposal, onboarding, and build progress do not apply."
+      ? "N3XRA has not opened a project workspace for this website yet."
       : "Choose a website from the portal overview first.";
     websiteLink.href = selectedWebsite ? `/client-portal/?website=${encodeURIComponent(selectedWebsite.id)}` : "/client-portal/";
     return;
@@ -181,22 +190,25 @@ function renderWorkspace() {
 }
 
 async function loadData(preferredId) {
-  const [projectResult, websiteResult, milestoneResult, onboardingResult] = await Promise.all([
+  const [projectResult, websiteResult, milestoneResult, onboardingResult, proposalResult] = await Promise.all([
     supabase.from("website_projects")
-      .select("*,website_service_requests(business_name,project_type,primary_goal),website_proposals(id,title,status),client_websites(id,name,live_url,status)")
+      .select("*,website_service_requests(business_name,project_type,primary_goal),client_websites(id,name,live_url,status)")
       .order("created_at", { ascending: false }),
     supabase.from("client_websites").select("id,name,live_url,status").order("name"),
     supabase.from("website_project_milestones").select("*").order("sequence_number"),
-    supabase.from("website_onboardings").select("id,proposal_id,status").order("created_at", { ascending: false }),
+    supabase.from("website_onboardings").select("id,project_id,proposal_id,status").order("created_at", { ascending: false }),
+    supabase.from("website_proposals").select("id,project_id,request_id,title,status,created_at").order("created_at", { ascending: false }),
   ]);
   if (projectResult.error) throw projectResult.error;
   if (websiteResult.error) throw websiteResult.error;
   if (milestoneResult.error) throw milestoneResult.error;
   if (onboardingResult.error) throw onboardingResult.error;
+  if (proposalResult.error) throw proposalResult.error;
   projects = projectResult.data || [];
   websites = websiteResult.data || [];
   milestones = milestoneResult.data || [];
   onboardings = onboardingResult.data || [];
+  proposals = proposalResult.data || [];
   renderOptions();
   const context = readWorkspaceContext("client", userId);
   const params = new URLSearchParams(window.location.search);

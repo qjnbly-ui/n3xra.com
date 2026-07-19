@@ -31,6 +31,22 @@ const memberRole = document.getElementById("member-role");
 const memberFormStatus = document.getElementById("member-form-status");
 const memberList = document.getElementById("member-list");
 const adminRequestList = document.getElementById("admin-request-list");
+const projectLinkPanel = document.getElementById("project-link-panel");
+const projectLinkCopy = document.getElementById("project-link-copy");
+const projectLinkState = document.getElementById("project-link-state");
+const projectLinkForm = document.getElementById("project-link-form");
+const projectLinkStatus = document.getElementById("project-link-status");
+const openProjectFormButton = document.getElementById("open-project-form");
+const closeProjectFormButton = document.getElementById("close-project-form");
+const projectClientAccount = document.getElementById("project-client-account");
+const projectNameInput = document.getElementById("project-name");
+const projectStatusInput = document.getElementById("project-status");
+const projectStartDate = document.getElementById("project-start-date");
+const projectLaunchDate = document.getElementById("project-launch-date");
+const projectCreateProposal = document.getElementById("project-create-proposal");
+const projectProposalTitleWrap = document.getElementById("project-proposal-title-wrap");
+const projectProposalTitle = document.getElementById("project-proposal-title");
+const projectOpenOnboarding = document.getElementById("project-open-onboarding");
 
 let supabase;
 let currentUser;
@@ -40,6 +56,9 @@ let assets = [];
 let versions = [];
 let members = [];
 let serviceRequests = [];
+let selectedProject;
+let projectProposals = [];
+let projectOnboarding;
 let toastTimer;
 
 function showStatus(message) {
@@ -116,6 +135,12 @@ function setMemberStatus(message = "", isError = false) {
   memberFormStatus.classList.toggle("is-error", isError);
 }
 
+function setProjectStatus(message = "", isError = false) {
+  if (!projectLinkStatus) return;
+  projectLinkStatus.textContent = message;
+  projectLinkStatus.classList.toggle("is-error", isError);
+}
+
 function renderWebsiteOptions() {
   websiteSelect.innerHTML = websites.length
     ? websites.map((site) => `<option value="${site.id}">${escapeHtml(site.name)}</option>`).join("")
@@ -182,6 +207,7 @@ function renderSelectedWebsite() {
     if (assetGrid) assetGrid.innerHTML = "";
     if (emptyState) emptyState.hidden = false;
     if (accessPanel) accessPanel.hidden = true;
+    if (projectLinkPanel) projectLinkPanel.hidden = true;
     return;
   }
 
@@ -194,6 +220,7 @@ function renderSelectedWebsite() {
   if (selectedWebsite.live_url) liveLink.href = selectedWebsite.live_url;
   clientView.href = `/client-portal/?website=${encodeURIComponent(selectedWebsite.id)}`;
   if (accessPanel) accessPanel.hidden = false;
+  if (projectLinkPanel) projectLinkPanel.hidden = false;
 }
 
 function renderMembers() {
@@ -213,11 +240,88 @@ function renderMembers() {
       </div>
     </div>
   `).join("");
+  renderProjectClientOptions();
+}
+
+function renderProjectClientOptions() {
+  if (!projectClientAccount) return;
+  const activeMembers = members.filter((member) => member.status === "active");
+  projectClientAccount.innerHTML = activeMembers.length
+    ? activeMembers.map((member) => `<option value="${member.user_id}">${escapeHtml(member.name || member.email || "N3XRA client")} · ${escapeHtml(member.role)}</option>`).join("")
+    : '<option value="">Assign a client account first</option>';
+  projectClientAccount.disabled = !activeMembers.length;
+  const owner = activeMembers.find((member) => member.role === "owner");
+  if (owner) projectClientAccount.value = owner.user_id;
+}
+
+function formatProjectLabel(value = "") {
+  return String(value || "").replaceAll("_", " ");
+}
+
+function renderProjectLifecycle() {
+  if (!projectLinkPanel || !selectedWebsite) return;
+  projectLinkPanel.hidden = false;
+  renderProjectClientOptions();
+
+  if (!selectedProject) {
+    projectLinkCopy.textContent = "Turn this managed website into a client project without recreating its history.";
+    openProjectFormButton.hidden = false;
+    projectLinkState.hidden = true;
+    return;
+  }
+
+  projectLinkCopy.textContent = "This website is connected to one client project.";
+  openProjectFormButton.hidden = true;
+  projectLinkForm.hidden = true;
+  projectLinkState.hidden = false;
+  const latestProposal = projectProposals[0];
+  projectLinkState.innerHTML = `
+    <div>
+      <p class="portal-kicker">${escapeHtml(formatProjectLabel(selectedProject.status))} project</p>
+      <h4>${escapeHtml(selectedProject.name)}</h4>
+      <p>${escapeHtml(selectedProject.progress_percent)}% complete · ${escapeHtml(formatProjectLabel(selectedProject.current_stage))}</p>
+    </div>
+    <div class="portal-card-actions">
+      <a class="portal-button portal-button-secondary" href="/n3xra-admin/projects/?project=${encodeURIComponent(selectedProject.id)}">Open Progress</a>
+      ${latestProposal
+        ? `<a class="portal-button portal-button-secondary" href="/n3xra-admin/proposals/?proposal=${encodeURIComponent(latestProposal.id)}">Open Proposal</a>`
+        : `<button class="portal-button portal-button-secondary" type="button" data-show-project-proposal>Create proposal</button>`}
+      ${projectOnboarding
+        ? `<a class="portal-button portal-button-secondary" href="/n3xra-admin/onboarding/?onboarding=${encodeURIComponent(projectOnboarding.id)}">Open Onboarding</a>`
+        : `<button class="portal-button portal-button-secondary" type="button" data-open-project-onboarding>Open onboarding</button>`}
+    </div>
+    ${latestProposal ? "" : `
+      <form class="portal-project-quick-form" data-project-proposal-form hidden>
+        <label>
+          Proposal title
+          <input type="text" data-project-proposal-title maxlength="160" value="${escapeHtml(`New work for ${selectedWebsite.name}`)}" required>
+        </label>
+        <button class="portal-button" type="submit">Create draft</button>
+        <button class="portal-button portal-button-secondary" type="button" data-cancel-project-proposal>Cancel</button>
+      </form>
+    `}
+    <p class="portal-inline-status" data-project-action-status role="status"></p>
+  `;
+
+  if (currentUser) {
+    writeWorkspaceContext("admin", currentUser.id, {
+      websiteId: selectedWebsite.id,
+      projectId: selectedProject.id,
+      proposalId: latestProposal?.id || null,
+      onboardingId: projectOnboarding?.id || null,
+    });
+  }
 }
 
 async function invokeAdmin(body) {
   const { data, error } = await supabase.functions.invoke("platform-admin", { body });
   if (error || data?.error) throw new Error(data?.error || error?.message || "Website administration request failed.");
+  return data;
+}
+
+async function invokeProjectAdmin(body) {
+  const { data, error } = await supabase.functions.invoke("website-project-admin", { body });
+  if (error || data?.error) throw new Error(data?.error || error?.message || "Website project request failed.");
   return data;
 }
 
@@ -230,6 +334,37 @@ async function loadMembers() {
   const data = await invokeAdmin({ action: "list-website-members", websiteId: selectedWebsite.id });
   members = data.members || [];
   renderMembers();
+  await loadProjectLifecycle();
+}
+
+async function loadProjectLifecycle() {
+  selectedProject = undefined;
+  projectProposals = [];
+  projectOnboarding = undefined;
+  if (!selectedWebsite || !projectLinkPanel) {
+    renderProjectLifecycle();
+    return;
+  }
+
+  const projectResult = await supabase
+    .from("website_projects")
+    .select("*")
+    .eq("managed_website_id", selectedWebsite.id)
+    .maybeSingle();
+  if (projectResult.error) throw projectResult.error;
+  selectedProject = projectResult.data || undefined;
+
+  if (selectedProject) {
+    const [proposalResult, onboardingResult] = await Promise.all([
+      supabase.from("website_proposals").select("id,request_id,project_id,title,status,created_at").eq("project_id", selectedProject.id).order("created_at", { ascending: false }),
+      supabase.from("website_onboardings").select("id,project_id,proposal_id,status").eq("project_id", selectedProject.id).maybeSingle(),
+    ]);
+    if (proposalResult.error) throw proposalResult.error;
+    if (onboardingResult.error) throw onboardingResult.error;
+    projectProposals = proposalResult.data || [];
+    projectOnboarding = onboardingResult.data || undefined;
+  }
+  renderProjectLifecycle();
 }
 
 function versionActions(version) {
@@ -345,6 +480,10 @@ async function loadAssets() {
 
 async function selectWebsite(id) {
   selectedWebsite = websites.find((site) => site.id === id) || websites[0];
+  if (projectLinkForm) {
+    projectLinkForm.hidden = true;
+    setProjectStatus("");
+  }
   if (selectedWebsite) websiteSelect.value = selectedWebsite.id;
   if (selectedWebsite && currentUser) {
     const previous = readWorkspaceContext("admin", currentUser.id);
@@ -430,6 +569,115 @@ async function handleMemberRoleChange(event) {
   } finally {
     select.disabled = false;
   }
+}
+
+function openProjectForm() {
+  const activeMembers = members.filter((member) => member.status === "active");
+  if (!activeMembers.length) {
+    setMemberStatus("Assign an active client account before creating the project.", true);
+    memberEmail?.focus();
+    return;
+  }
+  projectLinkForm.hidden = false;
+  projectNameInput.value = selectedWebsite?.name || "";
+  projectProposalTitle.value = selectedWebsite ? `New work for ${selectedWebsite.name}` : "";
+  projectProposalTitleWrap.hidden = !projectCreateProposal.checked;
+  setProjectStatus("");
+  projectNameInput.focus();
+}
+
+async function createExistingWebsiteProject(event) {
+  event.preventDefault();
+  if (!selectedWebsite) return;
+  const submitButton = projectLinkForm.querySelector('[type="submit"]');
+  submitButton.disabled = true;
+  setProjectStatus("Creating project workspace…");
+  try {
+    const data = await invokeProjectAdmin({
+      action: "create-existing-website-project",
+      websiteId: selectedWebsite.id,
+      clientUserId: projectClientAccount.value,
+      name: projectNameInput.value.trim(),
+      status: projectStatusInput.value,
+      targetStartDate: projectStartDate.value || null,
+      targetLaunchDate: projectLaunchDate.value || null,
+      createProposal: projectCreateProposal.checked,
+      proposalTitle: projectProposalTitle.value.trim(),
+      openOnboarding: projectOpenOnboarding.checked,
+    });
+    projectLinkForm.reset();
+    projectLinkForm.hidden = true;
+    await loadProjectLifecycle();
+    const warning = (data.warnings || []).filter(Boolean).join(" ");
+    if (warning) showToast(warning, "error");
+    else showToast("Existing website is now a client project.");
+  } catch (error) {
+    setProjectStatus(error?.message || "Unable to create this project.", true);
+  } finally {
+    submitButton.disabled = false;
+  }
+}
+
+async function createProjectProposal(form) {
+  if (!selectedProject) return;
+  const titleInput = form.querySelector("[data-project-proposal-title]");
+  const submitButton = form.querySelector('[type="submit"]');
+  const actionStatus = projectLinkState.querySelector("[data-project-action-status]");
+  submitButton.disabled = true;
+  actionStatus.textContent = "Creating proposal draft…";
+  actionStatus.classList.remove("is-error");
+  try {
+    await invokeProjectAdmin({
+      action: "create-existing-website-proposal",
+      projectId: selectedProject.id,
+      proposalTitle: titleInput.value.trim(),
+    });
+    await loadProjectLifecycle();
+    showToast("Proposal draft created.");
+  } catch (error) {
+    actionStatus.textContent = error?.message || "Unable to create the proposal.";
+    actionStatus.classList.add("is-error");
+    submitButton.disabled = false;
+  }
+}
+
+async function openProjectOnboarding(button) {
+  if (!selectedProject) return;
+  const actionStatus = projectLinkState.querySelector("[data-project-action-status]");
+  button.disabled = true;
+  actionStatus.textContent = "Opening onboarding…";
+  actionStatus.classList.remove("is-error");
+  try {
+    await invokeProjectAdmin({
+      action: "open-existing-website-onboarding",
+      projectId: selectedProject.id,
+    });
+    await loadProjectLifecycle();
+    showToast("Onboarding is open for this project.");
+  } catch (error) {
+    actionStatus.textContent = error?.message || "Unable to open onboarding.";
+    actionStatus.classList.add("is-error");
+    button.disabled = false;
+  }
+}
+
+function handleProjectLinkClick(event) {
+  const showProposal = event.target.closest("[data-show-project-proposal]");
+  const cancelProposal = event.target.closest("[data-cancel-project-proposal]");
+  const openOnboarding = event.target.closest("[data-open-project-onboarding]");
+  if (showProposal) {
+    showProposal.hidden = true;
+    const form = projectLinkState.querySelector("[data-project-proposal-form]");
+    form.hidden = false;
+    form.querySelector("input")?.focus();
+  }
+  if (cancelProposal) {
+    const form = projectLinkState.querySelector("[data-project-proposal-form]");
+    form.hidden = true;
+    const showButton = projectLinkState.querySelector("[data-show-project-proposal]");
+    if (showButton) showButton.hidden = false;
+  }
+  if (openOnboarding) void openProjectOnboarding(openOnboarding);
 }
 
 async function loadWebsites(preferredId) {
@@ -592,6 +840,25 @@ async function initWebsiteAdmin() {
     memberForm?.addEventListener("submit", assignMember);
     memberList?.addEventListener("click", handleMemberAction);
     memberList?.addEventListener("change", handleMemberRoleChange);
+    openProjectFormButton?.addEventListener("click", openProjectForm);
+    closeProjectFormButton?.addEventListener("click", () => {
+      projectLinkForm.hidden = true;
+      setProjectStatus("");
+    });
+    projectCreateProposal?.addEventListener("change", () => {
+      projectProposalTitleWrap.hidden = !projectCreateProposal.checked;
+      if (projectCreateProposal.checked && !projectProposalTitle.value) {
+        projectProposalTitle.value = selectedWebsite ? `New work for ${selectedWebsite.name}` : "";
+      }
+    });
+    projectLinkForm?.addEventListener("submit", createExistingWebsiteProject);
+    projectLinkState?.addEventListener("click", handleProjectLinkClick);
+    projectLinkState?.addEventListener("submit", (event) => {
+      const proposalForm = event.target.closest("[data-project-proposal-form]");
+      if (!proposalForm) return;
+      event.preventDefault();
+      void createProjectProposal(proposalForm);
+    });
     openSiteFormButton?.addEventListener("click", () => {
       siteForm.hidden = false;
       siteNameInput.focus();

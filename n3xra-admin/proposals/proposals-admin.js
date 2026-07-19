@@ -220,7 +220,9 @@ async function loadData(preferredRequestId) {
   versions = versionResult.data || [];
   renderRequestOptions();
   const context = readWorkspaceContext("admin", currentUser.id);
-  const requested = preferredRequestId || new URLSearchParams(window.location.search).get("request") || context.requestId;
+  const params = new URLSearchParams(window.location.search);
+  const explicitProposal = proposals.find((proposal) => proposal.id === params.get("proposal"));
+  const requested = preferredRequestId || explicitProposal?.request_id || params.get("request") || context.requestId;
   selectedRequest = requests.find((request) => request.id === requested)
     || (!context.websiteId && !context.projectId ? requests[0] : undefined);
   if (selectedRequest) requestSelect.value = selectedRequest.id;
@@ -229,6 +231,7 @@ async function loadData(preferredRequestId) {
   if (selectedRequest) writeWorkspaceContext("admin", currentUser.id, {
     requestId: selectedRequest.id,
     proposalId: selectedProposal?.id,
+    projectId: selectedProposal?.project_id || context.projectId,
     name: selectedRequest.business_name,
   });
   renderEditor();
@@ -361,6 +364,7 @@ async function init() {
     if (selectedRequest) writeWorkspaceContext("admin", currentUser.id, {
       requestId: selectedRequest.id,
       proposalId: selectedProposal?.id,
+      projectId: selectedProposal?.project_id || null,
       name: selectedRequest.business_name,
     });
     renderEditor();
