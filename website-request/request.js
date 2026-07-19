@@ -7,6 +7,23 @@ import {
 
 const DRAFT_KEY = "n3xra.website-request.draft.v1";
 const DRAFT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+const PICKER_OPTIONS = {
+  pages: [
+    "Home", "About", "Services", "Service detail", "Products", "Shop",
+    "Portfolio", "Projects", "Gallery", "Blog", "News", "Events",
+    "Team", "Testimonials", "FAQ", "Pricing", "Resources", "Contact",
+    "Booking", "Client portal", "Privacy policy", "Terms & conditions",
+  ],
+  features: [
+    "Contact form", "Quote request form", "Online payments", "Online store",
+    "Appointment scheduling", "Event registration", "Photo gallery",
+    "Video gallery", "Blog or news", "Email newsletter signup", "Live chat",
+    "Customer accounts", "Client portal", "Member-only content", "File uploads",
+    "Downloads", "Search", "Reviews or testimonials", "Social media feed",
+    "Interactive map", "Multiple languages", "Accessibility enhancements",
+    "Analytics", "CRM integration",
+  ],
+};
 const FIELD_IDS = [
   "request-contact-name",
   "request-business-name",
@@ -29,6 +46,13 @@ const inlineStatus = document.getElementById("request-status");
 const requestList = document.getElementById("request-list");
 const requestHistory = document.getElementById("request-history");
 const submitButton = document.getElementById("request-submit-button") || form?.querySelector('[type="submit"]');
+const aiReview = document.getElementById("request-ai-review");
+const aiMessages = document.getElementById("request-ai-messages");
+const aiQuestion = document.getElementById("request-ai-question");
+const aiSendButton = document.getElementById("request-ai-send");
+const aiStatus = document.getElementById("request-ai-status");
+const editDetailsButton = document.getElementById("request-edit-details");
+const finalSubmitButton = document.getElementById("request-final-submit");
 const verificationCard = document.getElementById("request-verification-card");
 const verificationEmail = document.getElementById("request-verification-email");
 const resendButton = document.getElementById("request-resend-link");
@@ -44,6 +68,9 @@ let supabase = null;
 let session = null;
 let restoredDraft = false;
 let isSubmitting = false;
+let isReviewing = false;
+let reviewedSnapshot = "";
+let aiHistory = [];
 
 function field(id) {
   return document.getElementById(id);
@@ -66,10 +93,99 @@ function listValue(id) {
   return value(id).split(",").map((item) => item.trim()).filter(Boolean);
 }
 
+function pickerValues(picker) {
+  return listValue(picker.querySelector("input[type='hidden']").id);
+}
+
+function renderPickerState(picker) {
+  const values = pickerValues(picker);
+  const summary = picker.querySelector(".request-picker-summary");
+  const chips = picker.querySelector(".request-picker-chips");
+  const placeholder = picker.dataset.requestPicker === "pages" ? "Choose pages" : "Choose features";
+  summary.textContent = values.length ? `${values.length} selected` : placeholder;
+  chips.innerHTML = values.map((item) => `
+    <button class="request-picker-chip" type="button" data-remove-value="${escapeHtml(item)}" aria-label="Remove ${escapeHtml(item)}">
+      ${escapeHtml(item)} <span aria-hidden="true">×</span>
+    </button>
+  `).join("");
+  picker.querySelectorAll("input[type='checkbox']").forEach((checkbox) => {
+    checkbox.checked = values.includes(checkbox.value);
+  });
+}
+
+function setPickerValues(picker, values) {
+  const hidden = picker.querySelector("input[type='hidden']");
+  hidden.value = [...new Set(values.map((item) => item.trim()).filter(Boolean))].join(", ");
+  renderPickerState(picker);
+  saveDraft();
+}
+
+function initializePickers() {
+  document.querySelectorAll("[data-request-picker]").forEach((picker) => {
+    const type = picker.dataset.requestPicker;
+    const label = type === "pages" ? "pages" : "features";
+    picker.insertAdjacentHTML("beforeend", `
+      <details class="request-picker">
+        <summary><span class="request-picker-summary">Choose ${label}</span><span class="request-picker-arrow" aria-hidden="true"></span></summary>
+        <div class="request-picker-menu">
+          <p class="request-picker-hint">Select all that apply</p>
+          <div class="request-picker-options">
+            ${PICKER_OPTIONS[type].map((option) => `<label><input type="checkbox" value="${escapeHtml(option)}"><span>${escapeHtml(option)}</span></label>`).join("")}
+          </div>
+          <div class="request-picker-custom">
+            <label for="request-${type}-custom">Add your own idea</label>
+            <div><input id="request-${type}-custom" type="text" placeholder="Type another ${type === "pages" ? "page" : "feature"}"><button type="button">Add</button></div>
+          </div>
+        </div>
+      </details>
+      <div class="request-picker-chips" aria-live="polite"></div>
+    `);
+
+    picker.addEventListener("change", (event) => {
+      if (!event.target.matches("input[type='checkbox']")) return;
+      const values = pickerValues(picker);
+      const next = event.target.checked
+        ? [...values, event.target.value]
+        : values.filter((item) => item !== event.target.value);
+      setPickerValues(picker, next);
+    });
+
+    picker.addEventListener("click", (event) => {
+      const removeButton = event.target.closest("[data-remove-value]");
+      if (removeButton) {
+        setPickerValues(picker, pickerValues(picker).filter((item) => item !== removeButton.dataset.removeValue));
+        return;
+      }
+      if (!event.target.matches(".request-picker-custom button")) return;
+      const customInput = picker.querySelector(".request-picker-custom input");
+      if (!customInput.value.trim()) return customInput.focus();
+      setPickerValues(picker, [...pickerValues(picker), customInput.value]);
+      customInput.value = "";
+      customInput.focus();
+    });
+
+    picker.querySelector(".request-picker-custom input").addEventListener("keydown", (event) => {
+      if (event.key !== "Enter") return;
+      event.preventDefault();
+      picker.querySelector(".request-picker-custom button").click();
+    });
+  });
+}
+
+function syncPickers() {
+  document.querySelectorAll("[data-request-picker]").forEach(renderPickerState);
+}
+
 function setStatus(message = "", error = false) {
   if (!inlineStatus) return;
   inlineStatus.textContent = message;
   inlineStatus.classList.toggle("is-error", error);
+}
+
+function setAiStatus(message = "", error = false) {
+  if (!aiStatus) return;
+  aiStatus.textContent = message;
+  aiStatus.classList.toggle("is-error", error);
 }
 
 function formatStatus(status) {
@@ -155,14 +271,125 @@ function updateAccountState() {
     if (accountCopy) accountCopy.textContent = "This project will be saved to your current N3XRA account.";
     if (accountState) accountState.textContent = signedInEmail || "Signed in";
     if (emailHelp) emailHelp.textContent = "This request will be owned by your signed-in N3XRA account.";
-    if (submitButton) submitButton.textContent = "Submit website request";
+    if (submitButton) submitButton.textContent = "Review with N3XRA AI";
+    if (finalSubmitButton) finalSubmitButton.textContent = "Submit website request";
   } else {
     emailInput.readOnly = false;
     if (accountTitle) accountTitle.textContent = "Use your N3XRA email.";
     if (accountCopy) accountCopy.textContent = "We’ll match an existing account or create one after you verify your email.";
     if (accountState) accountState.textContent = "Not signed in";
     if (emailHelp) emailHelp.textContent = "Use the email already connected to N3XRA to avoid creating another account.";
-    if (submitButton) submitButton.textContent = "Verify email & submit project";
+    if (submitButton) submitButton.textContent = "Review with N3XRA AI";
+    if (finalSubmitButton) finalSubmitButton.textContent = "Continue & submit request";
+  }
+}
+
+function projectDetails() {
+  return {
+    contactName: value("request-contact-name"),
+    businessName: value("request-business-name"),
+    email: value("request-email"),
+    phone: value("request-phone"),
+    projectType: value("request-project-type"),
+    existingWebsiteUrl: value("request-existing-url"),
+    primaryGoal: value("request-goal"),
+    primaryAudience: value("request-audience"),
+    requestedPages: listValue("request-pages"),
+    requestedFeatures: listValue("request-features"),
+    budgetRange: value("request-budget"),
+    preferredLaunchDate: value("request-launch-date"),
+    additionalNotes: value("request-notes"),
+  };
+}
+
+function currentProjectSnapshot() {
+  return JSON.stringify(projectDetails());
+}
+
+function appendAiMessage(role, content) {
+  if (!aiMessages) return;
+  const message = document.createElement("article");
+  message.className = `request-ai-message is-${role}`;
+  const name = document.createElement("strong");
+  name.textContent = role === "assistant" ? "N3XRA AI" : "You";
+  const copy = document.createElement("p");
+  copy.textContent = content;
+  message.append(name, copy);
+  aiMessages.append(message);
+  aiMessages.scrollTop = aiMessages.scrollHeight;
+}
+
+async function askProjectAi(question = "") {
+  if (isReviewing) return;
+  isReviewing = true;
+  submitButton.disabled = true;
+  if (aiSendButton) aiSendButton.disabled = true;
+  if (finalSubmitButton) finalSubmitButton.disabled = true;
+  setAiStatus(question ? "N3XRA AI is responding…" : "N3XRA AI is reviewing your project…");
+
+  if (question) appendAiMessage("user", question);
+  try {
+    const headers = { "Content-Type": "application/json" };
+    if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`;
+    const response = await fetch("/api/project-request-review", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        project: projectDetails(),
+        question,
+        history: aiHistory,
+      }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data?.error || "N3XRA AI could not review the project.");
+    const answer = String(data.answer || "").trim();
+    if (!answer) throw new Error("N3XRA AI returned an empty response.");
+    if (question) aiHistory.push({ role: "user", content: question });
+    aiHistory.push({ role: "assistant", content: answer });
+    aiHistory = aiHistory.slice(-10);
+    appendAiMessage("assistant", answer);
+    reviewedSnapshot = currentProjectSnapshot();
+    setAiStatus("Review ready. You can keep chatting, edit details, or submit.");
+  } catch (error) {
+    setAiStatus(error?.message || "Unable to complete the AI review.", true);
+  } finally {
+    isReviewing = false;
+    submitButton.disabled = false;
+    if (aiSendButton) aiSendButton.disabled = false;
+    if (finalSubmitButton) finalSubmitButton.disabled = false;
+  }
+}
+
+async function openAiReview() {
+  if (!form.reportValidity()) return;
+  saveDraft();
+  aiHistory = [];
+  reviewedSnapshot = "";
+  if (aiMessages) aiMessages.innerHTML = "";
+  aiReview.hidden = false;
+  aiReview.scrollIntoView({ behavior: "smooth", block: "start" });
+  await askProjectAi();
+}
+
+async function sendAiQuestion() {
+  const question = String(aiQuestion?.value || "").trim();
+  if (!question) return aiQuestion?.focus();
+  aiQuestion.value = "";
+  await askProjectAi(question);
+}
+
+async function finalizeRequest() {
+  if (!form.reportValidity() || isSubmitting || isReviewing) return;
+  if (!reviewedSnapshot || reviewedSnapshot !== currentProjectSnapshot()) {
+    setAiStatus("Your details changed. Please run the AI review again before submitting.", true);
+    await openAiReview();
+    return;
+  }
+  saveDraft();
+  if (session?.user) {
+    await submitAuthenticatedRequest();
+  } else {
+    await sendVerificationLink();
   }
 }
 
@@ -238,6 +465,11 @@ async function submitAuthenticatedRequest({ automatic = false } = {}) {
     if (error) throw error;
 
     form.reset();
+    syncPickers();
+    if (aiReview) aiReview.hidden = true;
+    if (aiMessages) aiMessages.innerHTML = "";
+    aiHistory = [];
+    reviewedSnapshot = "";
     clearDraft();
     cleanSubmitIntent();
     updateAccountState();
@@ -298,13 +530,7 @@ async function sendVerificationLink() {
 
 async function handleSubmit(event) {
   event.preventDefault();
-  if (!form.reportValidity()) return;
-  saveDraft();
-  if (session?.user) {
-    await submitAuthenticatedRequest();
-  } else {
-    await sendVerificationLink();
-  }
+  await openAiReview();
 }
 
 function bindEvents() {
@@ -314,6 +540,17 @@ function bindEvents() {
     input.addEventListener("change", saveDraft);
   });
   resendButton?.addEventListener("click", sendVerificationLink);
+  aiSendButton?.addEventListener("click", sendAiQuestion);
+  aiQuestion?.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" || event.shiftKey) return;
+    event.preventDefault();
+    sendAiQuestion();
+  });
+  editDetailsButton?.addEventListener("click", () => {
+    aiReview.hidden = true;
+    field("request-contact-name")?.scrollIntoView({ behavior: "smooth", block: "center" });
+  });
+  finalSubmitButton?.addEventListener("click", finalizeRequest);
 }
 
 function finishLoading() {
@@ -324,7 +561,9 @@ function finishLoading() {
 
 async function init() {
   if (!form) return;
+  initializePickers();
   restoredDraft = restoreDraft();
+  syncPickers();
   bindEvents();
 
   if (!hasConfig()) {

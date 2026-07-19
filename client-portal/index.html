@@ -13,6 +13,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/site-nav.css">
   <link rel="stylesheet" href="/client-portal/portal.css?v=11">
+  <link rel="stylesheet" href="/website-request/request.css?v=3">
   <script src="/shared/config.js"></script>
   <script src="/assets/site-nav.js" defer></script>
 </head>
@@ -237,8 +238,8 @@
               <label>Existing website URL<input id="request-existing-url" type="url" placeholder="https://example.com"></label>
               <label class="portal-form-wide">Primary goal<textarea id="request-goal" rows="4" required placeholder="What should this website accomplish?"></textarea></label>
               <label class="portal-form-wide">Primary audience<textarea id="request-audience" rows="3" placeholder="Who should the website reach?"></textarea></label>
-              <label>Requested pages<input id="request-pages" placeholder="Home, About, Services, Contact"></label>
-              <label>Requested features<input id="request-features" placeholder="Forms, payments, scheduling, gallery"></label>
+              <div class="request-choice-field" data-request-picker="pages"><span class="request-choice-label">Requested pages</span><input id="request-pages" type="hidden"></div>
+              <div class="request-choice-field" data-request-picker="features"><span class="request-choice-label">Requested features</span><input id="request-features" type="hidden"></div>
               <label>Budget range
                 <select id="request-budget">
                   <option value="">Not decided</option>
@@ -252,9 +253,15 @@
               <label class="portal-form-wide">Anything else?<textarea id="request-notes" rows="4"></textarea></label>
             </div>
             <div class="portal-form-actions">
-              <button class="portal-button" type="submit">Submit website request</button>
+              <button class="portal-button" id="request-submit-button" type="submit">Review with N3XRA AI</button>
               <p class="portal-inline-status" id="request-status" role="status"></p>
             </div>
+            <section class="request-ai-review" id="request-ai-review" hidden>
+              <div class="request-ai-head"><div><p class="portal-kicker">Project review</p><h3>N3XRA AI</h3><p>Review your project details, clarify ideas, and ask questions before submitting.</p></div><button class="portal-button portal-button-secondary" id="request-edit-details" type="button">Edit details</button></div>
+              <div class="request-ai-messages" id="request-ai-messages" aria-live="polite"></div>
+              <div class="request-ai-compose"><label for="request-ai-question">Reply or ask a question</label><div><textarea id="request-ai-question" rows="2" maxlength="1200" placeholder="Add context, answer a question, or ask what happens next…"></textarea><button class="portal-button portal-button-secondary" id="request-ai-send" type="button">Send</button></div></div>
+              <div class="request-ai-actions"><button class="portal-button" id="request-final-submit" type="button">Submit website request</button><p id="request-ai-status" role="status"></p></div>
+            </section>
           </form>
           <div class="portal-toolbar"><div><h3>Your requests</h3><p>Requests connected to this N3XRA account.</p></div></div>
           <div class="portal-request-list" id="request-list"></div>
@@ -265,6 +272,6 @@
 
   <div class="portal-status" id="portal-status" role="status">Opening your website portal…</div>
   <script type="module" src="/client-portal/portal.js?v=7"></script>
-  <script type="module" src="/website-request/request.js?v=4"></script>
+  <script type="module" src="/website-request/request.js?v=6"></script>
 </body>
 </html>
