@@ -48,9 +48,13 @@ body.portal-denied main {
 }
 
 .site-topbar .site-menu-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   color: var(--portal-ink);
   background: #ffffff;
   border-color: var(--portal-line);
+  text-align: center;
 }
 
 .site-topbar .site-menu-toggle {
@@ -1848,29 +1852,14 @@ body.portal-denied main {
     grid-template-columns: 1fr;
   }
 
+  .portal-layout > .portal-nav {
+    display: none;
+  }
+
   .portal-project-picker {
     grid-template-columns: 1fr;
     gap: 1rem;
     padding: 1rem;
-  }
-
-  .portal-nav {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.3rem;
-    padding: 0.55rem;
-  }
-
-  .portal-nav-label,
-  .portal-nav-divider {
-    grid-column: 1 / -1;
-  }
-
-  .portal-nav button,
-  .portal-nav a,
-  .portal-nav span {
-    min-width: 0;
-    padding: 0.72rem 0.65rem;
-    overflow-wrap: anywhere;
   }
 
   .portal-workspace {
@@ -2097,14 +2086,5 @@ body.portal-denied main {
 @media (max-width: 360px) {
   .site-brand span {
     display: none;
-  }
-
-  .portal-nav {
-    grid-template-columns: 1fr;
-  }
-
-  .portal-nav-label,
-  .portal-nav-divider {
-    grid-column: auto;
   }
 }
