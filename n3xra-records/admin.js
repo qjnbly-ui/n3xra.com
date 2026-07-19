@@ -129,6 +129,7 @@ async function getFreshAccessToken() {
 }
 
 function renderSelectedOrganization() {
+  if (!organizationForm) return;
   const organization = getSelectedOrganization();
   if (!organization) {
     organizationForm.reset();
@@ -194,6 +195,7 @@ function addMonths(date, count) {
 }
 
 function renderOrganizations() {
+  if (!organizationList) return;
   organizationList.innerHTML = "";
   if (!organizations.length) {
     organizationList.innerHTML = '<p class="field-note">No organizations found.</p>';
@@ -283,6 +285,7 @@ async function loadAdminUsageOverview() {
 }
 
 async function loadOrganizations() {
+  if (!organizationList) return;
   setStatus(adminStatus, "Loading organizations...");
 
   const [{ data: orgRows, error: orgError }, { data: membershipRows, error: membershipError }, { data: profiles, error: profileError }] = await Promise.all([
@@ -474,15 +477,18 @@ async function init() {
   setupPanel.classList.add("hidden");
   adminPanel.classList.remove("hidden");
 
-  await Promise.all([loadOrganizations(), loadAdminUsageOverview()]);
+  await Promise.all([
+    organizationList ? loadOrganizations() : Promise.resolve(),
+    adminUsageList ? loadAdminUsageOverview() : Promise.resolve(),
+  ]);
 
-  logoutButton.addEventListener("click", handleLogout);
-  organizationList.addEventListener("click", handleOrganizationListClick);
+  logoutButton?.addEventListener("click", handleLogout);
+  organizationList?.addEventListener("click", handleOrganizationListClick);
   usageRefreshButton?.addEventListener("click", loadAdminUsageOverview);
-  organizationTierInput.addEventListener("change", handleTierChange);
-  organizationGrantSixMonthTrialButton.addEventListener("click", handleGrantSixMonthTrial);
-  organizationForm.addEventListener("submit", handleOrganizationSave);
-  passwordResetForm.addEventListener("submit", handlePasswordReset);
+  organizationTierInput?.addEventListener("change", handleTierChange);
+  organizationGrantSixMonthTrialButton?.addEventListener("click", handleGrantSixMonthTrial);
+  organizationForm?.addEventListener("submit", handleOrganizationSave);
+  passwordResetForm?.addEventListener("submit", handlePasswordReset);
 }
 
 init();

@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>N3XRA | Records Usage</title><meta name="description" content="N3XRA Records account usage administration."><meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
+  <link rel="canonical" href="https://n3xra.com/n3xra-admin/records/usage/"><link rel="icon" type="image/png" href="/assets/n3xra_logo_transparent_small.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/site-nav.css"><link rel="stylesheet" href="/client-portal/portal.css?v=9"><link rel="stylesheet" href="/n3xra-admin/records/records-admin.css?v=2">
+  <script src="/shared/config.js"></script><script src="/assets/site-nav.js" defer></script>
+</head>
+<body>
+  <header class="site-topbar"><div class="site-topbar-inner"><div class="site-topbar-row"><a class="site-brand" href="/" aria-label="N3XRA home"><img src="/assets/n3xra_logo_transparent_small.png" alt=""><span>N3XRA</span></a><div class="site-nav-actions"><a class="site-menu-link" href="/account">Dashboard</a><button class="site-menu-link portal-logout" id="logout-button" type="button">Sign out</button><button class="site-menu-toggle" type="button" aria-expanded="false" aria-controls="records-admin-menu" aria-label="Open menu" data-site-menu-toggle><span></span><span></span><span></span></button></div></div>
+  <nav class="site-mobile-menu" id="records-admin-menu" hidden><div class="site-mobile-menu-head"><p class="site-mobile-menu-title">Records administration</p></div><a class="site-menu-link" href="/n3xra-admin/records/">Overview</a><a class="site-menu-link is-current" href="/n3xra-admin/records/usage/">Usage</a><a class="site-menu-link" href="/n3xra-admin/records/organizations/">Organizations</a><a class="site-menu-link" href="/n3xra-records/library/">Records app</a><a class="site-menu-link" href="/support/">Support</a></nav></div></header>
+  <main class="portal-shell">
+    <section class="portal-heading"><div><p class="portal-kicker">Master administration</p><h1>Records Usage</h1></div></section>
+    <section class="portal-project-picker"><div><p class="portal-kicker">Usage workspace</p><h2>Plan usage</h2><p>Monitor every Records account and identify organizations approaching their limits.</p></div><div class="portal-picker-state"><span>Current section</span><strong>Usage</strong></div></section>
+    <section class="portal-workspace records-setup" id="setup-panel"><div class="portal-workspace-head"><div><h2>Connect Supabase</h2><p>Add your project configuration to continue.</p></div></div></section>
+    <div class="portal-layout hidden" id="admin-panel">
+      <nav class="portal-nav"><p class="portal-nav-label">Records admin</p><a href="/n3xra-admin/records/">Overview</a><a class="is-current" href="/n3xra-admin/records/usage/">Usage</a><a href="/n3xra-admin/records/organizations/">Organizations</a><div class="portal-nav-divider"></div><p class="portal-nav-label">Records</p><a href="/n3xra-records/library/">Open Records app</a><a href="/support/">Support</a></nav>
+      <section class="portal-workspace"><div class="portal-workspace-head"><div><p class="portal-kicker">Usage</p><h2>Account usage</h2><p>Storage, documents, AI requests, seats, and recent activity.</p></div><button class="portal-button portal-button-secondary" id="usage-refresh-button" type="button">Refresh</button></div>
+        <section class="records-admin-section"><div class="admin-usage-table-shell"><table class="admin-usage-table"><thead><tr><th>Account</th><th>Plan</th><th>Storage</th><th>Documents</th><th>AI</th><th>Seats</th><th>Last active</th><th>Flags</th></tr></thead><tbody id="admin-usage-list"></tbody></table></div><p class="status" id="admin-usage-status"></p></section>
+      </section>
+    </div>
+  </main>
+  <script type="module" src="/n3xra-records/admin.js"></script>
+</body>
+</html>

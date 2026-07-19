@@ -1,190 +1,34 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>N3XRA | Records Administration</title>
-  <meta name="description" content="Platform administration for N3XRA Records accounts.">
-  <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
-  <link rel="canonical" href="https://n3xra.com/n3xra-admin/records/">
-  <link rel="icon" type="image/png" sizes="284x284" href="/assets/n3xra_logo_transparent_small.png">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>N3XRA | Records Admin Overview</title>
+  <meta name="description" content="Overview of N3XRA Records administration."><meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
+  <link rel="canonical" href="https://n3xra.com/n3xra-admin/records/"><link rel="icon" type="image/png" href="/assets/n3xra_logo_transparent_small.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/site-nav.css">
-  <link rel="stylesheet" href="/client-portal/portal.css?v=9">
-  <link rel="stylesheet" href="/n3xra-admin/records/records-admin.css?v=1">
-  <script src="/shared/config.js"></script>
-  <script src="/assets/site-nav.js" defer></script>
+  <link rel="stylesheet" href="/assets/site-nav.css"><link rel="stylesheet" href="/client-portal/portal.css?v=9"><link rel="stylesheet" href="/n3xra-admin/records/records-admin.css?v=2">
+  <script src="/shared/config.js"></script><script src="/assets/site-nav.js" defer></script>
 </head>
 <body>
-  <header class="site-topbar">
-    <div class="site-topbar-inner">
-      <div class="site-topbar-row">
-        <a class="site-brand" href="/" aria-label="N3XRA home">
-          <img src="/assets/n3xra_logo_transparent_small.png" alt=""><span>N3XRA</span>
-        </a>
-        <div class="site-nav-actions">
-          <a class="site-menu-link" href="/account">Dashboard</a>
-          <button class="site-menu-link portal-logout" id="logout-button" type="button">Sign out</button>
-          <button class="site-menu-toggle" type="button" aria-expanded="false" aria-controls="records-admin-menu" aria-label="Open menu" data-site-menu-toggle>
-            <span></span><span></span><span></span>
-          </button>
-        </div>
-      </div>
-      <nav class="site-mobile-menu" id="records-admin-menu" aria-label="Mobile primary" hidden>
-        <div class="site-mobile-menu-head"><p class="site-mobile-menu-title">Records administration</p></div>
-        <a class="site-menu-link is-current" href="/n3xra-admin/records/">Overview</a>
-        <a class="site-menu-link" href="#usage-overview">Usage</a>
-        <a class="site-menu-link" href="#organization-workspace">Organizations</a>
-        <a class="site-menu-link" href="/n3xra-records/library/">Records app</a>
-        <a class="site-menu-link" href="/support/">Support</a>
-      </nav>
-    </div>
-  </header>
-
+  <header class="site-topbar"><div class="site-topbar-inner"><div class="site-topbar-row">
+    <a class="site-brand" href="/" aria-label="N3XRA home"><img src="/assets/n3xra_logo_transparent_small.png" alt=""><span>N3XRA</span></a>
+    <div class="site-nav-actions"><a class="site-menu-link" href="/account">Dashboard</a><button class="site-menu-link portal-logout" id="logout-button" type="button">Sign out</button><button class="site-menu-toggle" type="button" aria-expanded="false" aria-controls="records-admin-menu" aria-label="Open menu" data-site-menu-toggle><span></span><span></span><span></span></button></div>
+  </div><nav class="site-mobile-menu" id="records-admin-menu" aria-label="Mobile primary" hidden><div class="site-mobile-menu-head"><p class="site-mobile-menu-title">Records administration</p></div><a class="site-menu-link is-current" href="/n3xra-admin/records/">Overview</a><a class="site-menu-link" href="/n3xra-admin/records/usage/">Usage</a><a class="site-menu-link" href="/n3xra-admin/records/organizations/">Organizations</a><a class="site-menu-link" href="/n3xra-records/library/">Records app</a><a class="site-menu-link" href="/support/">Support</a></nav></div></header>
   <main class="portal-shell">
-    <section class="portal-heading">
-      <div>
-        <p class="portal-kicker">Master administration</p>
-        <h1>Records Administration</h1>
-      </div>
-    </section>
-
-    <section class="portal-project-picker" aria-labelledby="records-workspace-title">
-      <div>
-        <p class="portal-kicker">Platform workspace</p>
-        <h2 id="records-workspace-title">N3XRA Records</h2>
-        <p>Review account usage, manage organization plans and limits, and provide account support.</p>
-      </div>
-      <div class="portal-picker-state">
-        <span>Administration area</span>
-        <strong>Records accounts</strong>
-      </div>
-    </section>
-
-    <section class="portal-workspace records-setup" id="setup-panel">
-      <div class="portal-workspace-head">
-        <div>
-          <p class="portal-kicker">Configuration required</p>
-          <h2>Connect Supabase</h2>
-          <p>Add your project URL and anon key in <code>shared/config.js</code> before using the app.</p>
-        </div>
-      </div>
-    </section>
-
+    <section class="portal-heading"><div><p class="portal-kicker">Master administration</p><h1>Records Overview</h1></div></section>
+    <section class="portal-project-picker"><div><p class="portal-kicker">Platform workspace</p><h2>N3XRA Records</h2><p>Manage Records accounts, usage, plans, limits, and owner support.</p></div><div class="portal-picker-state"><span>Administration area</span><strong>Records accounts</strong></div></section>
+    <section class="portal-workspace records-setup" id="setup-panel"><div class="portal-workspace-head"><div><p class="portal-kicker">Configuration required</p><h2>Connect Supabase</h2><p>Add your project URL and anon key in <code>shared/config.js</code>.</p></div></div></section>
     <div class="portal-layout hidden" id="admin-panel">
-      <nav class="portal-nav" aria-label="Platform administration">
-        <p class="portal-nav-label">Records admin</p>
-        <a class="is-current" href="/n3xra-admin/records/">Overview</a>
-        <a href="#usage-overview">Usage</a>
-        <a href="#organization-workspace">Organizations</a>
-        <div class="portal-nav-divider"></div>
-        <p class="portal-nav-label">Records</p>
-        <a href="/n3xra-records/library/">Open Records app</a>
-        <a href="/support/">Support</a>
-      </nav>
-
-      <section class="portal-workspace" aria-labelledby="records-admin-title">
-        <div class="portal-workspace-head">
-          <div>
-            <p class="portal-kicker">Account operations</p>
-            <h2 id="records-admin-title">Records accounts</h2>
-            <p>Monitor usage and manage every organization from one workspace.</p>
-          </div>
-          <button class="portal-button portal-button-secondary" id="usage-refresh-button" type="button">Refresh</button>
+      <nav class="portal-nav" aria-label="Records administration"><p class="portal-nav-label">Records admin</p><a class="is-current" href="/n3xra-admin/records/">Overview</a><a href="/n3xra-admin/records/usage/">Usage</a><a href="/n3xra-admin/records/organizations/">Organizations</a><div class="portal-nav-divider"></div><p class="portal-nav-label">Records</p><a href="/n3xra-records/library/">Open Records app</a><a href="/support/">Support</a></nav>
+      <section class="portal-workspace"><div class="portal-workspace-head"><div><p class="portal-kicker">Overview</p><h2>Records administration</h2><p>Choose the area you want to manage.</p></div></div>
+        <div class="records-overview-grid">
+          <a class="records-overview-card" href="/n3xra-admin/records/usage/"><p class="portal-kicker">Usage</p><h3>Account usage</h3><p>Review storage, documents, AI requests, seats, activity, and plan-limit flags.</p><span>Open usage →</span></a>
+          <a class="records-overview-card" href="/n3xra-admin/records/organizations/"><p class="portal-kicker">Organizations</p><h3>Organization accounts</h3><p>Manage plans, account status, limits, feature access, trials, and owner support.</p><span>Open organizations →</span></a>
         </div>
-
-        <section class="records-admin-section" id="usage-overview">
-          <div class="portal-toolbar">
-            <div>
-              <h3>Usage overview</h3>
-              <p>Spot accounts approaching or exceeding plan limits.</p>
-            </div>
-          </div>
-          <div class="admin-usage-table-shell">
-            <table class="admin-usage-table">
-              <thead><tr><th>Account</th><th>Plan</th><th>Storage</th><th>Documents</th><th>AI</th><th>Seats</th><th>Last active</th><th>Flags</th></tr></thead>
-              <tbody id="admin-usage-list"></tbody>
-            </table>
-          </div>
-          <p class="status" id="admin-usage-status"></p>
-        </section>
-
-        <section class="records-admin-section" id="organization-workspace">
-          <div class="portal-toolbar">
-            <div>
-              <h3>Organization workspace</h3>
-              <p>Select an account, then update its settings or assist its owner.</p>
-            </div>
-          </div>
-
-          <div class="records-admin-layout">
-            <aside class="records-admin-selector">
-              <div class="admin-subhead">
-                <p class="portal-kicker">Organizations</p>
-                <h4>Choose an account</h4>
-              </div>
-              <div class="records-admin-org-list" id="organization-list"></div>
-              <p class="status" id="admin-status"></p>
-            </aside>
-
-            <div class="records-admin-selected">
-              <div class="selected-organization-head">
-                <div>
-                  <p class="portal-kicker">Selected organization</p>
-                  <h3 id="selected-organization-title">Select an organization</h3>
-                  <p id="selected-organization-summary">Library settings and support actions will appear here.</p>
-                </div>
-                <a class="portal-button portal-button-secondary hidden" id="selected-organization-support-link" href="/n3xra-records/account">Support view</a>
-              </div>
-
-              <form class="portal-form records-organization-form" id="organization-form">
-                <div class="portal-form-head">
-                  <div><p class="portal-kicker">Account controls</p><h3>Library settings</h3></div>
-                </div>
-                <div class="portal-form-grid">
-                  <label>Organization<input id="organization-name" type="text"></label>
-                  <label>Plan tier<select id="organization-tier"><option value="free">Free</option><option value="starter">Starter</option><option value="organization">Organization</option></select></label>
-                  <label>Billing status<select id="organization-status"><option value="active">Active</option><option value="trialing">Trialing</option><option value="past_due">Past due</option><option value="canceled">Canceled</option><option value="suspended">Suspended</option></select></label>
-                  <label>Document limit<input id="organization-document-limit" type="text"></label>
-                  <label>User limit<input id="organization-user-limit" type="text"></label>
-                  <label>Storage limit (MB)<input id="organization-storage-limit" type="text"></label>
-                  <label>Trial/subscription end<input id="organization-trial-end" type="date"></label>
-                </div>
-                <div class="setting-toggles">
-                  <label class="toggle-pill"><input id="organization-public-embed" type="checkbox"><span>Public embed enabled</span></label>
-                  <label class="toggle-pill"><input id="organization-keyword-search" type="checkbox"><span>Keyword search</span></label>
-                </div>
-                <div class="portal-form-actions">
-                  <div class="records-button-group">
-                    <button class="portal-button portal-button-secondary" id="organization-grant-six-month-trial" type="button">Grant 6-month trial</button>
-                    <button class="portal-button" type="submit">Save organization</button>
-                  </div>
-                  <p class="status" id="organization-form-status"></p>
-                </div>
-                <p class="field-note">Trial grants preserve customer data. If a trial ends without a subscription, downgrade or suspend the library to limit access.</p>
-              </form>
-
-              <form class="portal-form selected-support-form" id="password-reset-form">
-                <div class="portal-form-head">
-                  <div><p class="portal-kicker">Account support</p><h3>Password reset</h3></div>
-                </div>
-                <div class="portal-form-grid">
-                  <label>Account email<input id="password-reset-email" type="email" placeholder="Select an organization owner"></label>
-                </div>
-                <div class="portal-form-actions">
-                  <button class="portal-button portal-button-secondary" type="submit">Send reset email</button>
-                  <p class="status" id="password-reset-status"></p>
-                </div>
-              </form>
-            </div>
-          </div>
-        </section>
       </section>
     </div>
   </main>
-
   <script type="module" src="/n3xra-records/admin.js"></script>
 </body>
 </html>
