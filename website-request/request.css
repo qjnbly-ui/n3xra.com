@@ -1,0 +1,118 @@
+.request-workspace-intro {
+  margin: 0.4rem 0 0;
+  color: var(--portal-muted);
+}
+
+.request-account-card,
+.request-verification-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(210px, 280px);
+  align-items: center;
+  gap: 1.25rem;
+  margin-bottom: 1rem;
+  padding: 1rem;
+  background: linear-gradient(135deg, rgba(22, 185, 237, 0.09), rgba(22, 185, 237, 0.025));
+  border: 1px solid rgba(22, 185, 237, 0.24);
+  border-radius: 10px;
+}
+
+.request-account-card h3,
+.request-account-card p,
+.request-verification-card h3,
+.request-verification-card p {
+  margin: 0;
+}
+
+.request-account-card h3,
+.request-verification-card h3 {
+  font-family: "Fraunces", Georgia, serif;
+  font-size: 1.35rem;
+}
+
+.request-account-card p:not(.portal-kicker),
+.request-verification-card p:not(.portal-kicker) {
+  margin-top: 0.35rem;
+  color: var(--portal-muted);
+  font-size: 0.88rem;
+  line-height: 1.55;
+}
+
+.request-account-state {
+  display: grid;
+  gap: 0.3rem;
+  padding: 0.85rem 1rem;
+  background: #ffffff;
+  border: 1px solid var(--portal-line);
+  border-radius: 8px;
+}
+
+.request-account-state span {
+  color: var(--portal-muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.request-account-state strong {
+  overflow-wrap: anywhere;
+}
+
+.request-field-help {
+  color: var(--portal-muted);
+  font-size: 0.72rem;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.portal-form input[readonly] {
+  color: var(--portal-muted);
+  background: #eef2f5;
+}
+
+.request-submit-button {
+  min-width: 220px;
+}
+
+.request-verification-card {
+  margin: 1rem 0 0;
+  background: #ffffff;
+}
+
+.request-verification-card .portal-button {
+  justify-self: end;
+}
+
+.request-verification-card[hidden],
+.portal-loading .request-auth-only,
+.request-guest .request-auth-only,
+.request-signed-in .request-guest-only {
+  display: none !important;
+}
+
+.request-guest .portal-layout {
+  grid-template-columns: minmax(0, 1fr);
+  width: min(980px, 100%);
+  margin: 0 auto;
+}
+
+.request-guest .portal-workspace {
+  min-height: 0;
+}
+
+.request-guest .portal-form {
+  padding: clamp(1rem, 3vw, 1.5rem);
+}
+
+@media (max-width: 720px) {
+  .request-account-card,
+  .request-verification-card {
+    grid-template-columns: 1fr;
+  }
+
+  .request-verification-card .portal-button,
+  .request-submit-button {
+    width: 100%;
+    justify-self: stretch;
+  }
+}

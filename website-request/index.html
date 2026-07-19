@@ -11,6 +11,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/site-nav.css">
   <link rel="stylesheet" href="/client-portal/portal.css?v=10">
+  <link rel="stylesheet" href="/website-request/request.css?v=1">
   <script src="/shared/config.js"></script>
   <script src="/assets/site-nav.js" defer></script>
 </head>
@@ -19,9 +20,22 @@
     <div class="site-topbar-inner">
       <div class="site-topbar-row">
         <a class="site-brand" href="/" aria-label="N3XRA home"><img src="/assets/n3xra_logo_transparent_small.png" alt=""><span>N3XRA</span></a>
-        <div class="site-nav-actions"><a class="site-menu-link" href="/account/">Dashboard</a><button class="site-menu-link portal-logout" id="portal-logout" type="button">Sign out</button><button class="site-menu-toggle" type="button" aria-expanded="false" aria-controls="request-portal-menu" aria-label="Open menu" data-site-menu-toggle><span></span><span></span><span></span></button></div>
+        <div class="site-nav-actions"><a class="site-menu-link" href="/account/?next=%2Fwebsite-request%2F" id="request-account-link">Account</a><button class="site-menu-link portal-logout request-auth-only" id="portal-logout" type="button">Sign out</button><button class="site-menu-toggle" type="button" aria-expanded="false" aria-controls="request-portal-menu" aria-label="Open menu" data-site-menu-toggle><span></span><span></span><span></span></button></div>
       </div>
-      <nav class="site-mobile-menu" id="request-portal-menu" aria-label="Portal navigation" hidden><div class="site-mobile-menu-head"><p class="site-mobile-menu-title">Website portal</p></div><a class="site-menu-link" href="/client-portal/">Overview</a><a class="site-menu-link" href="/client-portal/services/">Services &amp; Ownership</a><a class="site-menu-link" href="/project-workspace/">Progress</a><a class="site-menu-link" href="/proposals/">Proposals</a><a class="site-menu-link" href="/website-onboarding/">Onboarding</a><a class="site-menu-link" href="/client-portal/assets/">Files &amp; Assets</a><a class="site-menu-link" href="/website-request/">Start new project</a></nav>
+      <nav class="site-mobile-menu" id="request-portal-menu" aria-label="Project intake navigation" hidden>
+        <div class="site-mobile-menu-head"><p class="site-mobile-menu-title" id="request-menu-title">Start a project</p></div>
+        <a class="site-menu-link request-guest-only" href="/">Home</a>
+        <a class="site-menu-link request-guest-only" href="/projects/">Projects</a>
+        <a class="site-menu-link request-guest-only" href="/services/">Services</a>
+        <a class="site-menu-link request-guest-only" href="/support/">Support</a>
+        <a class="site-menu-link request-auth-only" href="/client-portal/">Overview</a>
+        <a class="site-menu-link request-auth-only" href="/client-portal/services/">Services &amp; Ownership</a>
+        <a class="site-menu-link request-auth-only" href="/project-workspace/">Progress</a>
+        <a class="site-menu-link request-auth-only" href="/proposals/">Proposals</a>
+        <a class="site-menu-link request-auth-only" href="/website-onboarding/">Onboarding</a>
+        <a class="site-menu-link request-auth-only" href="/client-portal/assets/">Files &amp; Assets</a>
+        <a class="site-menu-link request-auth-only" href="/website-request/">Start new project</a>
+      </nav>
     </div>
   </header>
   <main class="portal-shell">
@@ -32,13 +46,13 @@
       </div>
     </section>
     <section class="portal-project-picker" aria-labelledby="request-picker-title">
-      <div><p class="portal-kicker">New workspace</p><h2 id="request-picker-title">Create a new project</h2><p>This form starts a separate project. It does not change an existing website or project.</p></div>
-      <div class="portal-picker-state"><span>Current action</span><strong>New website request</strong></div>
+      <div><p class="portal-kicker">New workspace</p><h2 id="request-picker-title">Create a new project</h2><p>Complete the website details now. Your request will be securely connected to one N3XRA account when you submit.</p></div>
+      <div class="portal-picker-state"><span>How it works</span><strong id="request-picker-state">Details → email verification → submitted</strong></div>
     </section>
     <div class="portal-layout">
-      <nav class="portal-nav" aria-label="Website client portal">
+      <nav class="portal-nav request-auth-only" aria-label="Website client portal">
         <a href="/client-portal/">Overview</a>
-        <a href="/client-portal/services/">Services &amp; Ownership</a><a class="site-menu-link" href="/client-portal/services/">Services &amp; Ownership</a>
+        <a href="/client-portal/services/">Services &amp; Ownership</a>
         <a href="/project-workspace/">Progress</a>
         <a href="/proposals/">Proposals</a>
         <a href="/website-onboarding/">Onboarding</a>
@@ -49,13 +63,21 @@
       </nav>
       <section class="portal-workspace">
         <div class="portal-workspace-head">
-          <div><p class="portal-kicker">Project intake</p><h2>Website details</h2></div>
+          <div><p class="portal-kicker">Project intake</p><h2>Website details</h2><p class="request-workspace-intro">No separate registration form and no password required to begin.</p></div>
         </div>
         <form class="portal-form portal-request-form" id="website-request-form">
+          <section class="request-account-card" id="request-account-card" aria-live="polite">
+            <div>
+              <p class="portal-kicker">One N3XRA account</p>
+              <h3 id="request-account-title">Start now. Verify when you submit.</h3>
+              <p id="request-account-copy">Already use N3XRA? Enter the same email and this project will connect to your existing account. If it is new, the secure link creates your account automatically.</p>
+            </div>
+            <div class="request-account-state"><span>Account status</span><strong id="request-account-state">Not signed in</strong></div>
+          </section>
           <div class="portal-form-grid">
             <label>Contact name<input id="request-contact-name" required autocomplete="name"></label>
             <label>Business or project name<input id="request-business-name" required></label>
-            <label>Email<input id="request-email" type="email" required autocomplete="email"></label>
+            <label>Email<input id="request-email" type="email" required autocomplete="email"><span class="request-field-help" id="request-email-help">Use the email already connected to N3XRA to avoid creating another account.</span></label>
             <label>Phone<input id="request-phone" type="tel" autocomplete="tel"></label>
             <label>Project type
               <select id="request-project-type">
@@ -85,17 +107,23 @@
             <label class="portal-form-wide">Anything else?<textarea id="request-notes" rows="4"></textarea></label>
           </div>
           <div class="portal-form-actions">
-            <button class="portal-button" type="submit">Submit website request</button>
+            <button class="portal-button request-submit-button" id="request-submit-button" type="submit">Verify email &amp; submit project</button>
             <p class="portal-inline-status" id="request-status" role="status"></p>
           </div>
+          <section class="request-verification-card" id="request-verification-card" hidden>
+            <div><p class="portal-kicker">One last step</p><h3>Check your email</h3><p>Open the secure link sent to <strong id="request-verification-email"></strong> on this device. Your saved details will return here and submit automatically.</p></div>
+            <button class="portal-button portal-button-secondary" id="request-resend-link" type="button">Send another link</button>
+          </section>
         </form>
-        <div class="portal-toolbar"><div><h3>Your requests</h3><p>Requests connected to this N3XRA account.</p></div></div>
-        <div class="portal-request-list" id="request-list"></div>
+        <section class="request-auth-only" id="request-history">
+          <div class="portal-toolbar"><div><h3>Your requests</h3><p>Requests connected to this N3XRA account.</p></div></div>
+          <div class="portal-request-list" id="request-list"></div>
+        </section>
       </section>
     </div>
   </main>
   <div class="portal-status" id="portal-status">Opening project intake…</div>
   <script type="module" src="/client-portal/portal-shell.js"></script>
-  <script type="module" src="/website-request/request.js"></script>
+  <script type="module" src="/website-request/request.js?v=3"></script>
 </body>
 </html>
