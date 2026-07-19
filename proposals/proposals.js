@@ -92,9 +92,6 @@ function currentDecision() {
 
 function currentOnboarding() {
   const project = currentProject();
-  const investmentItems = currentLineItems();
-  const oneTimeItems = investmentItems.filter((item) => item.billing_type === "one_time");
-  const recurringItems = investmentItems.filter((item) => item.billing_type === "recurring");
   return onboardings.find((onboarding) =>
     onboarding.proposal_id === selectedProposal?.id
     || onboarding.project_id === project?.id
@@ -118,6 +115,9 @@ function renderProposal() {
   const decision = currentDecision();
   const onboarding = currentOnboarding();
   const project = currentProject();
+  const investmentItems = currentLineItems();
+  const oneTimeItems = investmentItems.filter((item) => item.billing_type === "one_time");
+  const recurringItems = investmentItems.filter((item) => item.billing_type === "recurring");
   emptyState.hidden = Boolean(selectedProposal && version);
   documentView.hidden = !selectedProposal || !version;
   decisionPanel.hidden = !selectedProposal || !version || selectedProposal.status !== "sent" || Boolean(decision);
