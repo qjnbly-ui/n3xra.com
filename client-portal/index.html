@@ -13,7 +13,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/site-nav.css">
   <link rel="stylesheet" href="/client-portal/portal.css?v=11">
-  <link rel="stylesheet" href="/website-request/request.css?v=3">
+  <link rel="stylesheet" href="/website-request/request.css?v=4">
   <script src="/shared/config.js"></script>
   <script src="/assets/site-nav.js" defer></script>
 </head>
@@ -263,7 +263,8 @@
                 <div class="request-review-content" id="request-review-content" hidden>
                   <div class="request-ai-head"><p class="portal-kicker">Ready to send</p><h3 id="request-review-title">We have everything together.</h3><p id="request-review-message"></p></div>
                   <div class="request-review-summary" id="request-review-summary"></div>
-                  <div class="request-review-questions" id="request-review-questions" hidden><div><h4>A couple of quick details</h4><p>Answer these here and we’ll add them to your request.</p></div><div id="request-review-question-fields"></div><button class="portal-button portal-button-secondary" id="request-apply-answers" type="button">Add to my request</button></div>
+                  <div class="request-review-guidance" id="request-review-guidance"></div>
+                  <div class="request-review-questions" id="request-review-questions" hidden><div><h4 id="request-review-questions-title">A couple of details that would help</h4><p id="request-review-questions-copy">These are relevant to your project. Answer what you can and we’ll add it directly to your request.</p></div><div id="request-review-question-fields"></div><button class="portal-button portal-button-secondary" id="request-apply-answers" type="button">Add to my request</button></div>
                   <div class="request-ai-actions"><button class="portal-button portal-button-secondary" id="request-edit-details" type="button">Edit details</button><button class="portal-button" id="request-final-submit" type="button">Submit website request</button></div>
                   <p class="request-ai-status" id="request-ai-status" role="status"></p>
                 </div>
@@ -279,6 +280,6 @@
 
   <div class="portal-status" id="portal-status" role="status">Opening your website portal…</div>
   <script type="module" src="/client-portal/portal.js?v=7"></script>
-  <script type="module" src="/website-request/request.js?v=7"></script>
+  <script type="module" src="/website-request/request.js?v=8"></script>
 </body>
 </html>

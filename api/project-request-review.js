@@ -67,9 +67,16 @@ function systemPrompt(project) {
     "Review the supplied website request and return only the requested JSON structure.",
     "Treat the supplied project JSON as the current source of truth. Never invent facts, prices, timelines, guarantees, or services.",
     "Do not mention Groq, model names, prompts, APIs, databases, or internal implementation.",
-    `Write a brief message of 2-3 sentences that greets ${project.contactName || "the client"} by first name, briefly identifies you as N3XRA AI, assures them N3XRA has their information, and sounds genuinely excited to help. Do not repeat the detailed summary because the interface displays it separately.`,
+    `Write a brief message of 2-3 sentences that greets ${project.contactName || "the client"} by first name, assures them N3XRA has their information, and sounds genuinely excited to help. Speak naturally without introducing yourself or saying "I'm N3XRA AI." Do not repeat the detailed summary because the interface displays it separately.`,
+    "Internal pricing context: a genuinely basic website with a few straightforward pages starts at $250 to build, plus $40 per month. In most cases the client owns the domain and website files.",
+    "Never reveal, quote, repeat, or directly reference those internal dollar amounts in any client-facing output.",
+    "Classify the request as basic only when it has no more than 5 straightforward pages and no advanced functionality. Payments, stores, scheduling, accounts, portals, member content, multilingual work, CRM integrations, file uploads, or a large page count make it custom.",
+    "If budgetRange is under_1000 and the request is clearly custom or unusually broad, one observation may gently explain that the selected scope and budget may need to be aligned during the proposal process. Do not state any price, estimate, range, minimum, monthly amount, or internal pricing rule.",
+    "Add 1-3 brief conversational observations that help the client understand their scope, likely process, ownership, or a useful relationship between their selected pages and features. Be specific to their request, not generic.",
     "Only ask follow-up questions when a missing detail is genuinely important to understanding or scoping this specific request. Zero questions is preferred when the request is already clear. Never ask merely to prolong the interaction.",
-    "Return at most 3 questions. Each must map to exactly one allowed form field: phone, existingWebsiteUrl, primaryGoal, primaryAudience, budgetRange, preferredLaunchDate, or additionalNotes.",
+    "Return at most 3 questions. Each must map to exactly one allowed form field: existingWebsiteUrl, primaryGoal, primaryAudience, budgetRange, or preferredLaunchDate.",
+    "Do not ask for an existing URL or domain merely because it is blank on a new website request. Only ask for existingWebsiteUrl when the project is a redesign or improvement of an existing site.",
+    "Do not ask a generic 'anything else' question. Questions must address a concrete ambiguity that materially affects this exact project.",
     "Each question must be easy to answer in one form control. Its reason must be one short, reassuring sentence explaining why it helps.",
     "",
     "Current project details:",
@@ -116,13 +123,28 @@ module.exports = async function handler(req, res) {
               type: "object",
               properties: {
                 message: { type: "string" },
+                observations: {
+                  type: "array",
+                  minItems: 1,
+                  maxItems: 3,
+                  items: {
+                    type: "object",
+                    properties: {
+                      title: { type: "string" },
+                      body: { type: "string" },
+                    },
+                    required: ["title", "body"],
+                    additionalProperties: false,
+                  },
+                },
+                questionsNote: { type: "string" },
                 questions: {
                   type: "array",
                   maxItems: 3,
                   items: {
                     type: "object",
                     properties: {
-                      field: { type: "string", enum: ["phone", "existingWebsiteUrl", "primaryGoal", "primaryAudience", "budgetRange", "preferredLaunchDate", "additionalNotes"] },
+                      field: { type: "string", enum: ["existingWebsiteUrl", "primaryGoal", "primaryAudience", "budgetRange", "preferredLaunchDate"] },
                       question: { type: "string" },
                       reason: { type: "string" },
                     },
@@ -131,7 +153,7 @@ module.exports = async function handler(req, res) {
                   },
                 },
               },
-              required: ["message", "questions"],
+              required: ["message", "observations", "questionsNote", "questions"],
               additionalProperties: false,
             },
           },
@@ -148,6 +170,11 @@ module.exports = async function handler(req, res) {
     const review = JSON.parse(content);
     return res.status(200).json({
       message: cleanText(review.message, 700),
+      observations: Array.isArray(review.observations) ? review.observations.slice(0, 3).map((item) => ({
+        title: cleanText(item?.title, 160),
+        body: cleanText(item?.body, 700),
+      })) : [],
+      questionsNote: cleanText(review.questionsNote, 400),
       questions: Array.isArray(review.questions) ? review.questions.slice(0, 3) : [],
     });
   } catch (_error) {

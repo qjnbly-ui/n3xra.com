@@ -419,6 +419,57 @@
   overflow-wrap: anywhere;
 }
 
+.request-review-guidance {
+  margin: 1.1rem 0;
+}
+
+.request-review-guidance-head h4,
+.request-review-guidance-head p {
+  margin: 0;
+}
+
+.request-review-guidance-head h4 {
+  font-family: "Fraunces", Georgia, serif;
+  font-size: 1.15rem;
+}
+
+.request-review-guidance-head p {
+  margin-top: 0.2rem;
+  color: var(--portal-muted);
+  font-size: 0.72rem;
+}
+
+.request-review-guidance > div:last-child {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin-top: 0.75rem;
+}
+
+.request-review-guidance section {
+  padding: 0.9rem;
+  background: #fbfcfd;
+  border: 1px solid var(--portal-line);
+  border-radius: 9px;
+}
+
+.request-review-guidance section h4,
+.request-review-guidance section p {
+  margin: 0;
+}
+
+.request-review-guidance section h4 {
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+.request-review-guidance section p {
+  margin-top: 0.4rem;
+  color: #465668;
+  font-size: 0.72rem;
+  line-height: 1.55;
+}
+
 .request-review-questions {
   margin: 1rem 0;
   padding: 1rem;
@@ -567,6 +618,10 @@
   }
 
   .request-review-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .request-review-guidance > div:last-child {
     grid-template-columns: 1fr;
   }
 

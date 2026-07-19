@@ -51,8 +51,11 @@ const reviewLoading = document.getElementById("request-review-loading");
 const reviewContent = document.getElementById("request-review-content");
 const reviewMessage = document.getElementById("request-review-message");
 const reviewSummary = document.getElementById("request-review-summary");
+const reviewGuidance = document.getElementById("request-review-guidance");
 const reviewQuestions = document.getElementById("request-review-questions");
 const reviewQuestionFields = document.getElementById("request-review-question-fields");
+const reviewQuestionsTitle = document.getElementById("request-review-questions-title");
+const reviewQuestionsCopy = document.getElementById("request-review-questions-copy");
 const reviewCloseButton = document.getElementById("request-review-close");
 const applyAnswersButton = document.getElementById("request-apply-answers");
 const aiStatus = document.getElementById("request-ai-status");
@@ -352,9 +355,17 @@ function renderReviewSummary() {
   `).join("");
 }
 
-function renderQuestionFields(questions = []) {
+function renderGuidance(observations = []) {
+  const cards = observations.slice(0, 3).map((item) => `<section><h4>${escapeHtml(item.title || "Worth knowing")}</h4><p>${escapeHtml(item.body || "")}</p></section>`);
+  reviewGuidance.hidden = cards.length === 0;
+  reviewGuidance.innerHTML = cards.length ? `<div class="request-review-guidance-head"><h4>A little context before you send</h4><p>Based on what you selected, here are a few things worth knowing.</p></div><div>${cards.join("")}</div>` : "";
+}
+
+function renderQuestionFields(questions = [], questionsNote = "") {
   pendingQuestions = questions.filter((question) => REVIEW_FIELD_MAP[question.field]).slice(0, 3);
   reviewQuestions.hidden = pendingQuestions.length === 0;
+  reviewQuestionsTitle.textContent = pendingQuestions.length === 1 ? "One detail that would help" : "A few details that would help";
+  reviewQuestionsCopy.textContent = String(questionsNote || "These are relevant to your project. Answer what you can and we’ll add it directly to your request.");
   reviewQuestionFields.innerHTML = pendingQuestions.map((question, index) => {
     const source = field(REVIEW_FIELD_MAP[question.field]);
     const inputId = `request-review-answer-${index}`;
@@ -397,7 +408,8 @@ async function askProjectAi() {
     if (!response.ok) throw new Error(data?.error || "N3XRA AI could not review the project.");
     reviewMessage.textContent = String(data.message || `Thanks, ${value("request-contact-name").split(" ")[0]}. We have your project details and we’re genuinely excited to help bring this together.`);
     renderReviewSummary();
-    renderQuestionFields(Array.isArray(data.questions) ? data.questions : []);
+    renderGuidance(Array.isArray(data.observations) ? data.observations : []);
+    renderQuestionFields(Array.isArray(data.questions) ? data.questions : [], data.questionsNote);
     reviewedSnapshot = currentProjectSnapshot();
     reviewLoading.hidden = true;
     reviewContent.hidden = false;
@@ -406,6 +418,7 @@ async function askProjectAi() {
     reviewLoading.hidden = true;
     reviewContent.hidden = false;
     renderReviewSummary();
+    renderGuidance();
     reviewMessage.textContent = "We have your project details together and we’re excited to help. You can review everything below before sending it.";
     renderQuestionFields([]);
     reviewedSnapshot = currentProjectSnapshot();
