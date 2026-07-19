@@ -5,41 +5,6 @@
   margin: 0 auto;
 }
 
-.records-overview-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
-  margin-top: 1.5rem;
-}
-
-.records-overview-card {
-  display: grid;
-  align-content: start;
-  min-height: 220px;
-  padding: 1.25rem;
-  color: var(--portal-ink);
-  background: #f7f9fb;
-  border: 1px solid var(--portal-line);
-  border-radius: 10px;
-  text-decoration: none;
-  transition: border-color .16s ease, transform .16s ease, box-shadow .16s ease;
-}
-
-.records-overview-card:hover {
-  transform: translateY(-2px);
-  border-color: rgba(22, 185, 237, .4);
-  box-shadow: 0 14px 30px rgba(7, 12, 18, .08);
-}
-
-.records-overview-card h3 {
-  margin: .15rem 0 .5rem;
-  font-family: "Fraunces", Georgia, serif;
-  font-size: 1.45rem;
-}
-
-.records-overview-card p:not(.portal-kicker) { margin: 0; color: var(--portal-muted); }
-.records-overview-card span { margin-top: auto; padding-top: 1.5rem; font-weight: 800; }
-
 .records-admin-section {
   scroll-margin-top: 1rem;
   padding: 1.5rem 0;
@@ -258,7 +223,6 @@
 }
 
 @media (max-width: 600px) {
-  .records-overview-grid,
   .records-admin-org-list { grid-template-columns: 1fr; }
   .selected-organization-head,
   .portal-form-actions { align-items: flex-start; flex-direction: column; }
