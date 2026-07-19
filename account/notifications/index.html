@@ -15,6 +15,9 @@
   <link rel="stylesheet" href="/assets/site-nav.css">
   <link rel="stylesheet" href="/n3xra-records/styles.css?v=20260612-modal-system">
   <link rel="stylesheet" href="/account/account.css">
+  <link rel="stylesheet" href="/client-portal/portal.css?v=9">
+  <link rel="stylesheet" href="/assets/home-shell.css?v=1">
+  <link rel="stylesheet" href="/account/notifications/notifications.css?v=1">
   <script src="/shared/config.js"></script>
   <script src="/assets/site-nav.js" defer></script>
 </head>
@@ -23,7 +26,7 @@
     <div class="site-topbar-inner">
       <div class="site-topbar-row">
         <a class="site-brand" href="/" aria-label="N3XRA home">
-          <img src="/assets/n3xra_logo_transparent.png" alt="N3XRA">
+          <img src="/assets/n3xra_logo_transparent_small.png" alt=""><span>N3XRA</span>
         </a>
         <div class="site-nav-actions">
           <a class="site-menu-link site-auth-link" href="/account" id="account-nav-link">Dashboard</a>
@@ -36,21 +39,25 @@
       </div>
       <nav class="site-mobile-menu" id="account-mobile-menu" aria-label="Mobile primary" hidden>
         <div class="site-mobile-menu-head">
-          <p class="site-mobile-menu-title">Navigate</p>
+          <p class="site-mobile-menu-title">Platform administration</p>
         </div>
         <a class="site-menu-link" href="/account">Dashboard</a>
-        <a class="site-menu-link" href="/records/">N3XRA Records</a>
-        <a class="site-menu-link" href="/ai-music-generator/">AI Music Generator</a>
-        <a class="site-menu-link" href="/virals/">N3XRA Virals</a>
-        <a class="site-menu-link" href="/utilities/">N3XRA Utilities</a>
+        <a class="site-menu-link is-current" href="/account/notifications/">Notifications</a>
         <a class="site-menu-link" href="/support/">Support</a>
       </nav>
     </div>
   </header>
 
-  <main class="account-main notification-page">
-    <section class="panel stack hidden" id="setup-panel">
-      <div class="panel-head">
+  <main class="portal-shell notification-page">
+    <section class="portal-heading">
+      <div>
+        <p class="portal-kicker">Platform administration</p>
+        <h1>Notification Admin</h1>
+      </div>
+    </section>
+
+    <section class="portal-workspace notification-setup hidden" id="setup-panel">
+      <div class="portal-workspace-head">
         <div>
           <h2>Connect Supabase</h2>
           <p>Add your project URL and anon key in <code class="inline">shared/config.js</code> before using notification admin.</p>
@@ -58,20 +65,27 @@
       </div>
     </section>
 
-    <section class="panel account-panel is-dashboard hidden" id="notification-panel">
-      <div class="account-card notification-admin-shell">
-        <div class="dashboard-head notification-page-head">
-          <div>
-            <p class="auth-kicker">Platform Admin</p>
-            <h1>Notification Admin</h1>
-            <p>Write product update emails, choose an audience, review the final message, then send.</p>
-          </div>
-          <a class="btn secondary button-link" href="/account">Back to dashboard</a>
-        </div>
+    <section class="portal-layout hidden" id="notification-panel">
+      <nav class="portal-nav" aria-label="Platform notification administration">
+        <p class="portal-nav-label">Notification admin</p>
+        <a class="is-current" href="/account/notifications/">Compose email</a>
+        <div class="portal-nav-divider"></div>
+        <p class="portal-nav-label">Platform</p>
+        <a href="/account">Dashboard</a>
+        <a href="/support/">Support</a>
+      </nav>
 
+      <section class="portal-workspace notification-admin-shell">
+        <div class="portal-workspace-head">
+          <div>
+            <p class="portal-kicker">Product updates</p>
+            <h2>Compose notification</h2>
+            <p>Write an update, choose its audience, review the final message, then send.</p>
+          </div>
+        </div>
         <div class="notification-layout">
-          <section class="notification-compose">
-            <div class="dashboard-section-head">
+          <section class="notification-compose portal-form">
+            <div class="portal-form-head">
               <div>
                 <h3>Email</h3>
                 <p>Keep updates short and specific. The review step is required before sending.</p>
@@ -126,9 +140,9 @@
                 <p class="field-note">Load an audience, then select individual accounts or the visible filtered set.</p>
               </div>
               <div class="inline-actions">
-                <button class="btn secondary" id="notification-load-recipients" type="button">Load accounts</button>
-                <button class="btn secondary" id="notification-select-visible" type="button">Select visible</button>
-                <button class="btn secondary" id="notification-clear-selected" type="button">Clear</button>
+                <button class="portal-button portal-button-secondary" id="notification-load-recipients" type="button">Load accounts</button>
+                <button class="portal-button portal-button-secondary" id="notification-select-visible" type="button">Select visible</button>
+                <button class="portal-button portal-button-secondary" id="notification-clear-selected" type="button">Clear</button>
               </div>
             </div>
             <div class="notification-summary">
@@ -152,12 +166,12 @@
               </table>
             </div>
             <div class="actions notification-actions">
-              <button class="btn" id="notification-review" type="button">Review email</button>
+              <button class="portal-button" id="notification-review" type="button">Review email</button>
             </div>
             <p class="status" id="notification-status"></p>
           </section>
         </div>
-      </div>
+      </section>
     </section>
   </main>
 
@@ -185,6 +199,18 @@
       </div>
     </div>
   </div>
+
+  <footer class="site-footer home-footer">
+    <div class="page-shell footer-grid">
+      <div class="footer-brand">
+        <a class="home-brand" href="/" aria-label="N3XRA home"><img src="/assets/n3xra_logo_transparent_small.png" alt=""><span>N3XRA</span></a>
+        <p>Custom websites, connected systems, and practical software.</p>
+      </div>
+      <nav class="footer-nav" aria-label="Company"><p>Explore</p><a href="/projects/">Projects</a><a href="/services/">Services</a><a href="/support/">Support</a></nav>
+      <nav class="footer-nav" aria-label="Software"><p>Software</p><a href="/records/">Records</a><a href="/utilities/">Utilities</a><a href="/virals/">Virals</a><a href="/ai-music-generator/">AI Music</a></nav>
+      <nav class="footer-nav" aria-label="Account and legal"><p>N3XRA</p><a href="/account">Login</a><a href="/privacy/">Privacy</a><a href="/terms/">Terms</a></nav>
+    </div>
+  </footer>
 
   <script type="module" src="/account/notifications/notifications.js"></script>
 </body>
