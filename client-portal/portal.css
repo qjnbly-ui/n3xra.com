@@ -2088,3 +2088,123 @@ body.portal-denied main {
     display: none;
   }
 }
+
+.portal-ownership-section {
+  display: grid;
+  gap: 1rem;
+  padding: 1.25rem 0;
+  border-top: 1px solid var(--portal-line);
+}
+
+.portal-service-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.portal-service-card,
+.portal-request-card,
+.portal-admin-editor {
+  padding: 1.15rem;
+  border: 1px solid var(--portal-line);
+  border-radius: 16px;
+  background: #fff;
+}
+
+.portal-service-card-head,
+.portal-request-card,
+.portal-request-controls {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.portal-service-card h4,
+.portal-request-card h4 {
+  margin: 0.15rem 0 0.35rem;
+  font-family: "Fraunces", serif;
+  font-size: 1.3rem;
+}
+
+.portal-service-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 1rem 0;
+}
+
+.portal-service-facts div {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.portal-service-facts dt {
+  color: var(--portal-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.portal-service-facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-weight: 700;
+}
+
+.portal-ownership-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem;
+  margin-top: 1rem;
+}
+
+.portal-ownership-form .portal-field-wide,
+.portal-ownership-form .portal-form-actions {
+  grid-column: 1 / -1;
+}
+
+.portal-admin-editor summary {
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.portal-request-controls {
+  min-width: min(360px, 45%);
+  flex-direction: column;
+}
+
+.portal-request-controls select,
+.portal-request-controls textarea {
+  width: 100%;
+}
+
+.portal-dialog {
+  width: min(620px, calc(100vw - 2rem));
+  padding: 1.4rem;
+  border: 0;
+  border-radius: 18px;
+  box-shadow: 0 24px 80px rgb(4 12 22 / 25%);
+}
+
+.portal-dialog::backdrop {
+  background: rgb(4 12 22 / 65%);
+}
+
+@media (max-width: 720px) {
+  .portal-service-grid,
+  .portal-ownership-form,
+  .portal-service-facts {
+    grid-template-columns: 1fr;
+  }
+
+  .portal-request-card {
+    flex-direction: column;
+  }
+
+  .portal-request-controls {
+    width: 100%;
+    min-width: 0;
+  }
+}

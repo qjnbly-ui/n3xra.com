@@ -47,6 +47,8 @@ let versions = [];
 let batchItems = [];
 let batchReviewIndex = 0;
 let activePortalView = "overview";
+const isAssetsRoute = document.body.classList.contains("client-assets-view")
+  || window.location.pathname.startsWith("/client-portal/assets");
 
 function showPortalView(view) {
   const nextView = portalViewPanels.some((panel) => panel.dataset.portalPanel === view) ? view : "overview";
@@ -558,7 +560,7 @@ async function initPortal() {
 
     await loadWebsites();
     showPortalView(
-      window.location.pathname === "/client-portal/assets/" || window.location.hash === "#files-assets"
+      isAssetsRoute || window.location.hash === "#files-assets"
         ? "files"
         : window.location.hash === "#new-project"
           ? "new-request"
@@ -575,7 +577,7 @@ async function initPortal() {
       button.addEventListener("click", () => showPortalView(button.dataset.openPortalView));
     });
     window.addEventListener("hashchange", () => {
-      if (window.location.pathname === "/client-portal/assets/" || window.location.hash === "#files-assets") showPortalView("files");
+      if (isAssetsRoute || window.location.hash === "#files-assets") showPortalView("files");
       else if (window.location.hash === "#new-project") showPortalView("new-request");
       else showPortalView("overview");
     });
