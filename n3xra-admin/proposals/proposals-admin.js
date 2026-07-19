@@ -433,6 +433,7 @@ function emailPreviewMarkup() {
         <div class="proposal-email-summary"><strong>Project at a glance</strong><p>${escapeHtml(collected.version.project_objective)}</p><p><strong>Timeline:</strong> ${escapeHtml(collected.version.timeline)}</p></div>
         ${oneTime.length ? `<h3>Project investment</h3>${rows(oneTime)}${collected.version.discount_cents ? `<div class="proposal-email-item"><span>Discount</span><strong>−${formatMoney(collected.version.discount_cents)}</strong></div>` : ""}<div class="proposal-email-item is-total"><span>Total</span><strong>${formatMoney(collected.version.total_cents)}</strong></div>` : ""}
         ${recurring.length ? `<h3>Ongoing services</h3>${rows(recurring)}` : ""}
+        <div class="proposal-email-notice"><strong>This is a proposal, not a bill.</strong><br>No payment is due from this email. After you approve the proposal, the applicable contract and billing steps will be prepared separately.</div>
         <p>When you’re ready, open your dashboard to read the complete proposal and respond.</p>
         <a class="proposal-email-cta" href="https://www.n3xra.com/account">Review proposal in your dashboard</a>
         <p class="proposal-email-signoff">We’re excited about the opportunity to help bring this project to life.<br><strong>N3XRA</strong></p>

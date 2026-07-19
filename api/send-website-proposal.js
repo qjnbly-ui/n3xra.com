@@ -56,6 +56,7 @@ function buildHtml(payload) {
         <div style="margin:24px 0;padding:18px;border:1px solid #dbe4ec;border-radius:12px;background:#f8fafc;"><strong>Project at a glance</strong><p style="margin:8px 0;">${escapeHtml(payload.version.project_objective)}</p><p style="margin:8px 0 0;"><strong>Timeline:</strong> ${escapeHtml(payload.version.timeline)}</p></div>
         ${oneTime.length ? `<h2 style="margin:28px 0 6px;font-size:19px;">Project investment</h2><table role="presentation" width="100%" cellpadding="0" cellspacing="0">${itemRows(oneTime)}${payload.version.discount_cents ? `<tr><td style="padding:12px 0;">Discount</td><td style="padding:12px 0;text-align:right;font-weight:700;">−${money(payload.version.discount_cents)}</td></tr>` : ""}<tr><td style="padding:14px 0;font-size:17px;font-weight:700;">Total</td><td style="padding:14px 0;text-align:right;font-size:17px;font-weight:700;">${money(payload.version.total_cents)}</td></tr></table>` : ""}
         ${recurring.length ? `<h2 style="margin:28px 0 6px;font-size:19px;">Ongoing services</h2><table role="presentation" width="100%" cellpadding="0" cellspacing="0">${itemRows(recurring)}</table>` : ""}
+        <div style="margin:24px 0;padding:16px;border:1px solid #bae6fd;border-radius:12px;background:#f0f9ff;color:#0c4a6e;"><strong>This is a proposal, not a bill.</strong><br>No payment is due from this email. After you approve the proposal, the applicable contract and billing steps will be prepared separately.</div>
         <p style="margin-top:28px;">When you’re ready, open your dashboard to read the complete proposal and respond.</p>
         <p style="margin:26px 0;"><a href="${DASHBOARD_URL}" style="display:inline-block;padding:14px 20px;border-radius:9px;background:#09111a;color:#fff;font-weight:700;text-decoration:none;">Review proposal in your dashboard</a></p>
         <p style="color:#475569;">We’re excited about the opportunity to help bring this project to life.<br><strong>N3XRA</strong></p>
@@ -66,7 +67,7 @@ function buildHtml(payload) {
 
 function buildText(payload) {
   const items = payload.items.map((item) => `- ${item.name}: ${money(Math.round(Number(item.quantity) * item.unit_amount_cents))}${item.billing_type === "recurring" ? ` / ${item.recurring_interval}` : ""}`);
-  return [`Hi ${payload.request.contact_name.split(/\s+/)[0]},`, "", `Your proposal for ${payload.proposal.title} is ready.`, "", ...items, "", `Review the complete proposal: ${DASHBOARD_URL}`, "", "We’re excited to help bring this project to life.", "N3XRA"].join("\n");
+  return [`Hi ${payload.request.contact_name.split(/\s+/)[0]},`, "", `Your proposal for ${payload.proposal.title} is ready.`, "", ...items, "", "This is a proposal, not a bill. No payment is due from this email. After approval, the applicable contract and billing steps will be prepared separately.", "", `Review the complete proposal: ${DASHBOARD_URL}`, "", "We’re excited to help bring this project to life.", "N3XRA"].join("\n");
 }
 
 export default async function handler(req, res) {

@@ -175,6 +175,7 @@ function renderProposal() {
     <section class="portal-proposal-section">
       <p class="portal-kicker">04 · Investment</p>
       <h3>Project investment</h3>
+      <div class="portal-proposal-note"><strong>This is a proposal, not a bill.</strong><p>No payment is due at this stage. Once you approve the proposal, the applicable contract and billing steps will be prepared separately.</p></div>
       <div class="portal-price-table">
         ${oneTimeItems.length ? oneTimeItems.map((item) => `<div><span>${escapeHtml(item.name)}${item.description ? `<small>${escapeHtml(item.description)}</small>` : ""}</span><strong>${formatMoney(Math.round(Number(item.quantity) * item.unit_amount_cents))}</strong></div>`).join("") : `<div><span>Project subtotal</span><strong>${formatMoney(version.subtotal_cents)}</strong></div>`}
         ${version.discount_cents ? `<div><span>Discount</span><strong>−${formatMoney(version.discount_cents)}</strong></div>` : ""}
