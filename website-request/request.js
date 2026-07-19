@@ -47,9 +47,14 @@ const requestList = document.getElementById("request-list");
 const requestHistory = document.getElementById("request-history");
 const submitButton = document.getElementById("request-submit-button") || form?.querySelector('[type="submit"]');
 const aiReview = document.getElementById("request-ai-review");
-const aiMessages = document.getElementById("request-ai-messages");
-const aiQuestion = document.getElementById("request-ai-question");
-const aiSendButton = document.getElementById("request-ai-send");
+const reviewLoading = document.getElementById("request-review-loading");
+const reviewContent = document.getElementById("request-review-content");
+const reviewMessage = document.getElementById("request-review-message");
+const reviewSummary = document.getElementById("request-review-summary");
+const reviewQuestions = document.getElementById("request-review-questions");
+const reviewQuestionFields = document.getElementById("request-review-question-fields");
+const reviewCloseButton = document.getElementById("request-review-close");
+const applyAnswersButton = document.getElementById("request-apply-answers");
 const aiStatus = document.getElementById("request-ai-status");
 const editDetailsButton = document.getElementById("request-edit-details");
 const finalSubmitButton = document.getElementById("request-final-submit");
@@ -70,7 +75,7 @@ let restoredDraft = false;
 let isSubmitting = false;
 let isReviewing = false;
 let reviewedSnapshot = "";
-let aiHistory = [];
+let pendingQuestions = [];
 
 function field(id) {
   return document.getElementById(id);
@@ -271,7 +276,7 @@ function updateAccountState() {
     if (accountCopy) accountCopy.textContent = "This project will be saved to your current N3XRA account.";
     if (accountState) accountState.textContent = signedInEmail || "Signed in";
     if (emailHelp) emailHelp.textContent = "This request will be owned by your signed-in N3XRA account.";
-    if (submitButton) submitButton.textContent = "Review with N3XRA AI";
+    if (submitButton) submitButton.textContent = "Review";
     if (finalSubmitButton) finalSubmitButton.textContent = "Submit website request";
   } else {
     emailInput.readOnly = false;
@@ -279,7 +284,7 @@ function updateAccountState() {
     if (accountCopy) accountCopy.textContent = "We’ll match an existing account or create one after you verify your email.";
     if (accountState) accountState.textContent = "Not signed in";
     if (emailHelp) emailHelp.textContent = "Use the email already connected to N3XRA to avoid creating another account.";
-    if (submitButton) submitButton.textContent = "Review with N3XRA AI";
+    if (submitButton) submitButton.textContent = "Review";
     if (finalSubmitButton) finalSubmitButton.textContent = "Continue & submit request";
   }
 }
@@ -306,28 +311,78 @@ function currentProjectSnapshot() {
   return JSON.stringify(projectDetails());
 }
 
-function appendAiMessage(role, content) {
-  if (!aiMessages) return;
-  const message = document.createElement("article");
-  message.className = `request-ai-message is-${role}`;
-  const name = document.createElement("strong");
-  name.textContent = role === "assistant" ? "N3XRA AI" : "You";
-  const copy = document.createElement("p");
-  copy.textContent = content;
-  message.append(name, copy);
-  aiMessages.append(message);
-  aiMessages.scrollTop = aiMessages.scrollHeight;
+const REVIEW_FIELD_MAP = {
+  phone: "request-phone",
+  existingWebsiteUrl: "request-existing-url",
+  primaryGoal: "request-goal",
+  primaryAudience: "request-audience",
+  budgetRange: "request-budget",
+  preferredLaunchDate: "request-launch-date",
+  additionalNotes: "request-notes",
+};
+
+function displayValue(input, fallback = "Not specified") {
+  if (Array.isArray(input)) return input.length ? input.join(", ") : fallback;
+  return String(input || "").trim() || fallback;
 }
 
-async function askProjectAi(question = "") {
+function renderReviewSummary() {
+  const project = projectDetails();
+  const groups = [
+    ["Project", [
+      ["Business or project", project.businessName],
+      ["Project type", field("request-project-type")?.selectedOptions?.[0]?.textContent],
+      ["Primary goal", project.primaryGoal],
+      ["Audience", project.primaryAudience],
+    ]],
+    ["Scope", [
+      ["Pages", project.requestedPages],
+      ["Features", project.requestedFeatures],
+      ["Budget", field("request-budget")?.selectedOptions?.[0]?.textContent],
+      ["Preferred launch", project.preferredLaunchDate],
+    ]],
+    ["Contact", [
+      ["Name", project.contactName],
+      ["Email", project.email],
+      ["Phone", project.phone],
+    ]],
+  ];
+  reviewSummary.innerHTML = groups.map(([title, items]) => `
+    <section><h4>${title}</h4>${items.map(([label, item]) => `<div><span>${label}</span><strong>${escapeHtml(displayValue(item))}</strong></div>`).join("")}</section>
+  `).join("");
+}
+
+function renderQuestionFields(questions = []) {
+  pendingQuestions = questions.filter((question) => REVIEW_FIELD_MAP[question.field]).slice(0, 3);
+  reviewQuestions.hidden = pendingQuestions.length === 0;
+  reviewQuestionFields.innerHTML = pendingQuestions.map((question, index) => {
+    const source = field(REVIEW_FIELD_MAP[question.field]);
+    const inputId = `request-review-answer-${index}`;
+    if (question.field === "budgetRange") {
+      return `<label for="${inputId}">${escapeHtml(question.question)}<span>${escapeHtml(question.reason || "")}</span><select id="${inputId}" data-review-field="${question.field}">${Array.from(source.options).map((option) => `<option value="${escapeHtml(option.value)}"${option.value === source.value ? " selected" : ""}>${escapeHtml(option.textContent)}</option>`).join("")}</select></label>`;
+    }
+    const type = question.field === "phone" ? "tel" : question.field === "existingWebsiteUrl" ? "url" : question.field === "preferredLaunchDate" ? "date" : "";
+    const control = type
+      ? `<input id="${inputId}" data-review-field="${question.field}" type="${type}" value="${escapeHtml(source.value)}">`
+      : `<textarea id="${inputId}" data-review-field="${question.field}" rows="3">${escapeHtml(source.value)}</textarea>`;
+    return `<label for="${inputId}">${escapeHtml(question.question)}<span>${escapeHtml(question.reason || "")}</span>${control}</label>`;
+  }).join("");
+}
+
+function closeAiReview() {
+  aiReview.hidden = true;
+  document.body.classList.remove("request-review-open");
+  submitButton.focus();
+}
+
+async function askProjectAi() {
   if (isReviewing) return;
   isReviewing = true;
   submitButton.disabled = true;
-  if (aiSendButton) aiSendButton.disabled = true;
   if (finalSubmitButton) finalSubmitButton.disabled = true;
-  setAiStatus(question ? "N3XRA AI is responding…" : "N3XRA AI is reviewing your project…");
-
-  if (question) appendAiMessage("user", question);
+  reviewLoading.hidden = false;
+  reviewContent.hidden = true;
+  setAiStatus("");
   try {
     const headers = { "Content-Type": "application/json" };
     if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`;
@@ -336,26 +391,28 @@ async function askProjectAi(question = "") {
       headers,
       body: JSON.stringify({
         project: projectDetails(),
-        question,
-        history: aiHistory,
       }),
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data?.error || "N3XRA AI could not review the project.");
-    const answer = String(data.answer || "").trim();
-    if (!answer) throw new Error("N3XRA AI returned an empty response.");
-    if (question) aiHistory.push({ role: "user", content: question });
-    aiHistory.push({ role: "assistant", content: answer });
-    aiHistory = aiHistory.slice(-10);
-    appendAiMessage("assistant", answer);
+    reviewMessage.textContent = String(data.message || `Thanks, ${value("request-contact-name").split(" ")[0]}. We have your project details and we’re genuinely excited to help bring this together.`);
+    renderReviewSummary();
+    renderQuestionFields(Array.isArray(data.questions) ? data.questions : []);
     reviewedSnapshot = currentProjectSnapshot();
-    setAiStatus("Review ready. You can keep chatting, edit details, or submit.");
+    reviewLoading.hidden = true;
+    reviewContent.hidden = false;
+    setAiStatus(pendingQuestions.length ? "Add the details above, or continue if you’d rather discuss them with us later." : "Everything looks ready. We’re excited to review your request.");
   } catch (error) {
-    setAiStatus(error?.message || "Unable to complete the AI review.", true);
+    reviewLoading.hidden = true;
+    reviewContent.hidden = false;
+    renderReviewSummary();
+    reviewMessage.textContent = "We have your project details together and we’re excited to help. You can review everything below before sending it.";
+    renderQuestionFields([]);
+    reviewedSnapshot = currentProjectSnapshot();
+    setAiStatus("The extra AI check was unavailable, but your complete request is ready to submit.", true);
   } finally {
     isReviewing = false;
     submitButton.disabled = false;
-    if (aiSendButton) aiSendButton.disabled = false;
     if (finalSubmitButton) finalSubmitButton.disabled = false;
   }
 }
@@ -363,19 +420,22 @@ async function askProjectAi(question = "") {
 async function openAiReview() {
   if (!form.reportValidity()) return;
   saveDraft();
-  aiHistory = [];
   reviewedSnapshot = "";
-  if (aiMessages) aiMessages.innerHTML = "";
   aiReview.hidden = false;
-  aiReview.scrollIntoView({ behavior: "smooth", block: "start" });
+  document.body.classList.add("request-review-open");
   await askProjectAi();
 }
 
-async function sendAiQuestion() {
-  const question = String(aiQuestion?.value || "").trim();
-  if (!question) return aiQuestion?.focus();
-  aiQuestion.value = "";
-  await askProjectAi(question);
+function applyReviewAnswers() {
+  reviewQuestionFields.querySelectorAll("[data-review-field]").forEach((input) => {
+    const target = field(REVIEW_FIELD_MAP[input.dataset.reviewField]);
+    if (target && input.value.trim()) target.value = input.value.trim();
+  });
+  saveDraft();
+  reviewedSnapshot = currentProjectSnapshot();
+  renderReviewSummary();
+  reviewQuestions.hidden = true;
+  setAiStatus("Added. Your request is updated and ready to send.");
 }
 
 async function finalizeRequest() {
@@ -386,6 +446,7 @@ async function finalizeRequest() {
     return;
   }
   saveDraft();
+  closeAiReview();
   if (session?.user) {
     await submitAuthenticatedRequest();
   } else {
@@ -467,8 +528,8 @@ async function submitAuthenticatedRequest({ automatic = false } = {}) {
     form.reset();
     syncPickers();
     if (aiReview) aiReview.hidden = true;
-    if (aiMessages) aiMessages.innerHTML = "";
-    aiHistory = [];
+    document.body.classList.remove("request-review-open");
+    pendingQuestions = [];
     reviewedSnapshot = "";
     clearDraft();
     cleanSubmitIntent();
@@ -540,14 +601,16 @@ function bindEvents() {
     input.addEventListener("change", saveDraft);
   });
   resendButton?.addEventListener("click", sendVerificationLink);
-  aiSendButton?.addEventListener("click", sendAiQuestion);
-  aiQuestion?.addEventListener("keydown", (event) => {
-    if (event.key !== "Enter" || event.shiftKey) return;
-    event.preventDefault();
-    sendAiQuestion();
+  reviewCloseButton?.addEventListener("click", closeAiReview);
+  aiReview?.addEventListener("click", (event) => {
+    if (event.target === aiReview) closeAiReview();
   });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && aiReview && !aiReview.hidden) closeAiReview();
+  });
+  applyAnswersButton?.addEventListener("click", applyReviewAnswers);
   editDetailsButton?.addEventListener("click", () => {
-    aiReview.hidden = true;
+    closeAiReview();
     field("request-contact-name")?.scrollIntoView({ behavior: "smooth", block: "center" });
   });
   finalSubmitButton?.addEventListener("click", finalizeRequest);

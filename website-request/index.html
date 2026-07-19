@@ -101,14 +101,21 @@
             <label class="portal-form-wide">Anything else?<textarea id="request-notes" rows="4"></textarea></label>
           </div>
           <div class="portal-form-actions">
-            <button class="portal-button request-submit-button" id="request-submit-button" type="submit">Review with N3XRA AI</button>
+            <button class="portal-button request-submit-button" id="request-submit-button" type="submit">Review</button>
             <p class="portal-inline-status" id="request-status" role="status"></p>
           </div>
-          <section class="request-ai-review" id="request-ai-review" hidden>
-            <div class="request-ai-head"><div><p class="portal-kicker">Project review</p><h3>N3XRA AI</h3><p>Review your project details, clarify ideas, and ask questions before submitting.</p></div><button class="portal-button portal-button-secondary" id="request-edit-details" type="button">Edit details</button></div>
-            <div class="request-ai-messages" id="request-ai-messages" aria-live="polite"></div>
-            <div class="request-ai-compose"><label for="request-ai-question">Reply or ask a question</label><div><textarea id="request-ai-question" rows="2" maxlength="1200" placeholder="Add context, answer a question, or ask what happens next…"></textarea><button class="portal-button portal-button-secondary" id="request-ai-send" type="button">Send</button></div></div>
-            <div class="request-ai-actions"><button class="portal-button" id="request-final-submit" type="button">Continue &amp; submit request</button><p id="request-ai-status" role="status"></p></div>
+          <section class="request-ai-review" id="request-ai-review" role="dialog" aria-modal="true" aria-labelledby="request-review-title" hidden>
+            <div class="request-review-modal">
+              <button class="request-review-close" id="request-review-close" type="button" aria-label="Close review">×</button>
+              <div class="request-review-loading" id="request-review-loading"><span></span><p>Reviewing your details…</p></div>
+              <div class="request-review-content" id="request-review-content" hidden>
+                <div class="request-ai-head"><p class="portal-kicker">Ready to send</p><h3 id="request-review-title">We have everything together.</h3><p id="request-review-message"></p></div>
+                <div class="request-review-summary" id="request-review-summary"></div>
+                <div class="request-review-questions" id="request-review-questions" hidden><div><h4>A couple of quick details</h4><p>Answer these here and we’ll add them to your request.</p></div><div id="request-review-question-fields"></div><button class="portal-button portal-button-secondary" id="request-apply-answers" type="button">Add to my request</button></div>
+                <div class="request-ai-actions"><button class="portal-button portal-button-secondary" id="request-edit-details" type="button">Edit details</button><button class="portal-button" id="request-final-submit" type="button">Continue &amp; submit request</button></div>
+                <p class="request-ai-status" id="request-ai-status" role="status"></p>
+              </div>
+            </div>
           </section>
           <section class="request-verification-card" id="request-verification-card" hidden>
             <div><p class="portal-kicker">One last step</p><h3>Check your email</h3><p>Open the secure link sent to <strong id="request-verification-email"></strong> on this device. Your saved details will return here and submit automatically.</p></div>
@@ -124,6 +131,6 @@
   </main>
   <div class="portal-status" id="portal-status">Opening project intake…</div>
   <script type="module" src="/client-portal/portal-shell.js"></script>
-  <script type="module" src="/website-request/request.js?v=6"></script>
+  <script type="module" src="/website-request/request.js?v=7"></script>
 </body>
 </html>

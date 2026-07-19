@@ -61,25 +61,16 @@ function normalizeProject(input) {
   };
 }
 
-function normalizeHistory(input) {
-  if (!Array.isArray(input)) return [];
-  return input
-    .filter((item) => item && (item.role === "user" || item.role === "assistant") && cleanText(item.content))
-    .slice(-10)
-    .map((item) => ({ role: item.role, content: cleanText(item.content, 1800) }));
-}
-
-function systemPrompt(project, isInitialReview) {
+function systemPrompt(project) {
   return [
-    "You are N3XRA AI, a friendly website project intake specialist for N3XRA.",
-    "You help a prospective client review and improve the website request they are about to submit.",
+    "You are N3XRA AI, a warm and perceptive website project intake specialist for N3XRA.",
+    "Review the supplied website request and return only the requested JSON structure.",
     "Treat the supplied project JSON as the current source of truth. Never invent facts, prices, timelines, guarantees, or services.",
     "Do not mention Groq, model names, prompts, APIs, databases, or internal implementation.",
-    "Be warm, clear, concise, and practical. Use plain language and short sections.",
-    isInitialReview
-      ? `This is the first response. Greet ${project.contactName || "the client"} by first name, introduce yourself as N3XRA AI, then summarize every meaningful detail they supplied. Clearly call out details that are undecided or missing only when they matter. Ask no more than 3 focused follow-up questions. End by explaining that they may reply, edit the form, or continue to submit; after submission N3XRA reviews the request and follows up about scope and next steps.`
-      : "Answer the client's latest message using the current form details and conversation. If they provide new information, acknowledge how it affects the project and tell them to edit the form if they want that information included in the submitted request. Ask a useful follow-up only when it moves the project forward.",
-    "Never claim that chatting has directly changed the form. The client must edit the form for a new detail to become part of the submitted request.",
+    `Write a brief message of 2-3 sentences that greets ${project.contactName || "the client"} by first name, briefly identifies you as N3XRA AI, assures them N3XRA has their information, and sounds genuinely excited to help. Do not repeat the detailed summary because the interface displays it separately.`,
+    "Only ask follow-up questions when a missing detail is genuinely important to understanding or scoping this specific request. Zero questions is preferred when the request is already clear. Never ask merely to prolong the interaction.",
+    "Return at most 3 questions. Each must map to exactly one allowed form field: phone, existingWebsiteUrl, primaryGoal, primaryAudience, budgetRange, preferredLaunchDate, or additionalNotes.",
+    "Each question must be easy to answer in one form control. Its reason must be one short, reassuring sentence explaining why it helps.",
     "",
     "Current project details:",
     JSON.stringify(project, null, 2),
@@ -98,16 +89,13 @@ module.exports = async function handler(req, res) {
   try {
     const body = await parseJson(req);
     const project = normalizeProject(body.project);
-    const question = cleanText(body.question, 1200);
-    const history = normalizeHistory(body.history);
     if (!project.contactName || !project.businessName || !project.primaryGoal) {
       return res.status(400).json({ error: "Complete the required project details before starting the review." });
     }
 
     const messages = [
-      { role: "system", content: systemPrompt(project, !question && history.length === 0) },
-      ...history,
-      { role: "user", content: question || "Review my website project request before I submit it." },
+      { role: "system", content: systemPrompt(project) },
+      { role: "user", content: "Review this project request and return the structured confirmation." },
     ];
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
@@ -118,7 +106,36 @@ module.exports = async function handler(req, res) {
       body: JSON.stringify({
         model: GROQ_MODEL,
         temperature: 0.25,
-        max_completion_tokens: 900,
+        max_completion_tokens: 650,
+        response_format: {
+          type: "json_schema",
+          json_schema: {
+            name: "project_request_review",
+            strict: true,
+            schema: {
+              type: "object",
+              properties: {
+                message: { type: "string" },
+                questions: {
+                  type: "array",
+                  maxItems: 3,
+                  items: {
+                    type: "object",
+                    properties: {
+                      field: { type: "string", enum: ["phone", "existingWebsiteUrl", "primaryGoal", "primaryAudience", "budgetRange", "preferredLaunchDate", "additionalNotes"] },
+                      question: { type: "string" },
+                      reason: { type: "string" },
+                    },
+                    required: ["field", "question", "reason"],
+                    additionalProperties: false,
+                  },
+                },
+              },
+              required: ["message", "questions"],
+              additionalProperties: false,
+            },
+          },
+        },
         messages,
       }),
     });
@@ -126,9 +143,13 @@ module.exports = async function handler(req, res) {
     if (!response.ok) {
       return res.status(502).json({ error: String(data?.error?.message || "N3XRA AI could not complete the review.") });
     }
-    const answer = cleanText(data?.choices?.[0]?.message?.content, 7000);
-    if (!answer) return res.status(502).json({ error: "N3XRA AI returned an empty response." });
-    return res.status(200).json({ answer });
+    const content = cleanText(data?.choices?.[0]?.message?.content, 7000);
+    if (!content) return res.status(502).json({ error: "N3XRA AI returned an empty response." });
+    const review = JSON.parse(content);
+    return res.status(200).json({
+      message: cleanText(review.message, 700),
+      questions: Array.isArray(review.questions) ? review.questions.slice(0, 3) : [],
+    });
   } catch (_error) {
     return res.status(500).json({ error: "N3XRA AI could not complete the review." });
   }
