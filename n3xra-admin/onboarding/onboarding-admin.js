@@ -1,4 +1,6 @@
 import { createBrowserSupabase, hasConfig } from "/shared/lib/supabase-client.js";
+import { readWorkspaceContext, writeWorkspaceContext } from "/client-portal/workspace-context.js";
+import { verifyPlatformAdmin } from "/client-portal/admin-access.js";
 
 const BUCKET = "website-onboarding-private";
 const sectionLabels = {
@@ -140,10 +142,19 @@ async function loadData(preferredId) {
   files = fileResult.data || [];
   renderProposalQueue();
   renderOptions();
-  const requested = preferredId || new URLSearchParams(window.location.search).get("onboarding");
-  selectedOnboarding = onboardings.find((onboarding) => onboarding.id === requested) || onboardings[0];
+  const context = readWorkspaceContext("admin", currentUser.id);
+  const requested = preferredId || new URLSearchParams(window.location.search).get("onboarding") || context.onboardingId;
+  selectedOnboarding = onboardings.find((onboarding) => onboarding.id === requested)
+    || onboardings.find((onboarding) => onboarding.proposal_id === context.proposalId || onboarding.request_id === context.requestId)
+    || (!context.websiteId && !context.projectId ? onboardings[0] : undefined);
   selectedResponse = responses.find((response) => response.onboarding_id === selectedOnboarding?.id);
   if (selectedOnboarding) onboardingSelect.value = selectedOnboarding.id;
+  else onboardingSelect.selectedIndex = -1;
+  if (selectedOnboarding) writeWorkspaceContext("admin", currentUser.id, {
+    onboardingId: selectedOnboarding.id,
+    proposalId: selectedOnboarding.proposal_id,
+    requestId: selectedOnboarding.request_id,
+  });
   renderWorkspace();
 }
 
@@ -205,14 +216,13 @@ async function downloadFile(fileId) {
 async function init() {
   if (!hasConfig()) throw new Error("Supabase configuration is missing.");
   supabase = createBrowserSupabase();
-  const { data: userData, error: userError } = await supabase.auth.getUser();
-  if (userError || !userData?.user) {
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError || !sessionData?.session?.user) {
     window.location.replace("/account/?next=%2Fn3xra-admin%2Fonboarding%2F");
     return;
   }
-  currentUser = userData.user;
-  const { data, error } = await supabase.functions.invoke("platform-admin", { body: { action: "get-platform-admin-access" } });
-  if (error || data?.error || !data?.admin) throw new Error("You do not have onboarding administration access.");
+  currentUser = sessionData.session.user;
+  if (!await verifyPlatformAdmin(supabase, currentUser)) throw new Error("You do not have onboarding administration access.");
   await loadData();
 
   proposalList.addEventListener("click", (event) => {
@@ -229,6 +239,11 @@ async function init() {
   });
   onboardingSelect.addEventListener("change", () => {
     selectedOnboarding = onboardings.find((onboarding) => onboarding.id === onboardingSelect.value);
+    if (selectedOnboarding) writeWorkspaceContext("admin", currentUser.id, {
+      onboardingId: selectedOnboarding.id,
+      proposalId: selectedOnboarding.proposal_id,
+      requestId: selectedOnboarding.request_id,
+    });
     selectedResponse = responses.find((response) => response.onboarding_id === selectedOnboarding?.id);
     renderWorkspace();
   });

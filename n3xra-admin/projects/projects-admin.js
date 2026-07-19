@@ -1,4 +1,6 @@
 import { createBrowserSupabase, hasConfig } from "/shared/lib/supabase-client.js";
+import { projectContext, readWorkspaceContext, writeWorkspaceContext } from "/client-portal/workspace-context.js";
+import { verifyPlatformAdmin } from "/client-portal/admin-access.js";
 
 const statusScreen = document.getElementById("portal-status");
 const projectSelect = document.getElementById("admin-project-select");
@@ -21,6 +23,11 @@ let milestones = [];
 let onboardings = [];
 let websites = [];
 let selectedProject;
+let currentUser;
+
+function rememberProject() {
+  if (selectedProject) writeWorkspaceContext("admin", currentUser.id, projectContext(selectedProject));
+}
 
 function escapeHtml(value = "") {
   return String(value)
@@ -141,9 +148,14 @@ async function loadData(preferredId) {
   onboardings = onboardingResult.data || [];
   websites = websiteResult.data || [];
   renderOptions();
-  const requested = preferredId || new URLSearchParams(window.location.search).get("project");
-  selectedProject = projects.find((project) => project.id === requested) || projects[0];
+  const context = readWorkspaceContext("admin", currentUser.id);
+  const requested = preferredId || new URLSearchParams(window.location.search).get("project") || context.projectId;
+  selectedProject = projects.find((project) => project.id === requested)
+    || projects.find((project) => project.managed_website_id === context.websiteId)
+    || (!context.websiteId ? projects[0] : undefined);
   if (selectedProject) projectSelect.value = selectedProject.id;
+  else projectSelect.selectedIndex = -1;
+  rememberProject();
   renderWorkspace();
 }
 
@@ -194,16 +206,17 @@ async function saveProject(event) {
 async function init() {
   if (!hasConfig()) throw new Error("Supabase configuration is missing.");
   supabase = createBrowserSupabase();
-  const { data: userData, error: userError } = await supabase.auth.getUser();
-  if (userError || !userData?.user) {
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError || !sessionData?.session?.user) {
     window.location.replace("/account/?next=%2Fn3xra-admin%2Fprojects%2F");
     return;
   }
-  const { data, error } = await supabase.functions.invoke("platform-admin", { body: { action: "get-platform-admin-access" } });
-  if (error || data?.error || !data?.admin) throw new Error("You do not have project administration access.");
+  currentUser = sessionData.session.user;
+  if (!await verifyPlatformAdmin(supabase, currentUser)) throw new Error("You do not have project administration access.");
   await loadData();
   projectSelect.addEventListener("change", () => {
     selectedProject = projects.find((project) => project.id === projectSelect.value);
+    rememberProject();
     renderWorkspace();
   });
   form.addEventListener("submit", saveProject);

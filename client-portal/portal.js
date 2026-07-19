@@ -1,4 +1,5 @@
 import { createBrowserSupabase, getSessionOrNull, hasConfig } from "/shared/lib/supabase-client.js";
+import { readWorkspaceContext, writeWorkspaceContext } from "/client-portal/workspace-context.js";
 
 const PRIVATE_BUCKET = "website-assets-private";
 const statusScreen = document.getElementById("portal-status");
@@ -267,7 +268,8 @@ async function loadWebsites() {
     return;
   }
 
-  const requestedWebsiteId = new URLSearchParams(window.location.search).get("website");
+  const context = readWorkspaceContext("client", currentSession.user.id);
+  const requestedWebsiteId = new URLSearchParams(window.location.search).get("website") || context.websiteId;
   const initialWebsite = websites.find((website) => website.id === requestedWebsiteId) || websites[0];
   await selectWebsite(initialWebsite.id);
 }
@@ -277,6 +279,14 @@ async function selectWebsite(websiteId) {
   if (!selectedWebsite) return;
 
   websiteSelect.value = selectedWebsite.id;
+  const previous = readWorkspaceContext("client", currentSession.user.id);
+  writeWorkspaceContext("client", currentSession.user.id, {
+    websiteId: selectedWebsite.id,
+    name: selectedWebsite.name,
+    ...(previous.websiteId && previous.websiteId !== selectedWebsite.id
+      ? { projectId: null, requestId: null, proposalId: null, onboardingId: null }
+      : {}),
+  });
   const membership = (selectedWebsite.website_members || []).find((row) => row.user_id === currentSession.user.id && row.status === "active");
   selectedRole = membership?.role || "platform admin";
 

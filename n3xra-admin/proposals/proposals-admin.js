@@ -1,4 +1,6 @@
 import { createBrowserSupabase, hasConfig } from "/shared/lib/supabase-client.js";
+import { readWorkspaceContext, writeWorkspaceContext } from "/client-portal/workspace-context.js";
+import { verifyPlatformAdmin } from "/client-portal/admin-access.js";
 
 const statusScreen = document.getElementById("portal-status");
 const requestSelect = document.getElementById("proposal-request-select");
@@ -217,10 +219,18 @@ async function loadData(preferredRequestId) {
   proposals = proposalResult.data || [];
   versions = versionResult.data || [];
   renderRequestOptions();
-  const requested = preferredRequestId || new URLSearchParams(window.location.search).get("request");
-  selectedRequest = requests.find((request) => request.id === requested) || requests[0];
+  const context = readWorkspaceContext("admin", currentUser.id);
+  const requested = preferredRequestId || new URLSearchParams(window.location.search).get("request") || context.requestId;
+  selectedRequest = requests.find((request) => request.id === requested)
+    || (!context.websiteId && !context.projectId ? requests[0] : undefined);
   if (selectedRequest) requestSelect.value = selectedRequest.id;
+  else requestSelect.selectedIndex = -1;
   selectedProposal = proposals.find((proposal) => proposal.request_id === selectedRequest?.id);
+  if (selectedRequest) writeWorkspaceContext("admin", currentUser.id, {
+    requestId: selectedRequest.id,
+    proposalId: selectedProposal?.id,
+    name: selectedRequest.business_name,
+  });
   renderEditor();
 }
 
@@ -333,14 +343,13 @@ async function createRevision() {
 async function init() {
   if (!hasConfig()) throw new Error("Supabase configuration is missing.");
   supabase = createBrowserSupabase();
-  const { data: userData, error: userError } = await supabase.auth.getUser();
-  if (userError || !userData?.user) {
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError || !sessionData?.session?.user) {
     window.location.replace("/account/?next=%2Fn3xra-admin%2Fproposals%2F");
     return;
   }
-  currentUser = userData.user;
-  const { data, error } = await supabase.functions.invoke("platform-admin", { body: { action: "get-platform-admin-access" } });
-  if (error || data?.error || !data?.admin) throw new Error("You do not have proposal administration access.");
+  currentUser = sessionData.session.user;
+  if (!await verifyPlatformAdmin(supabase, currentUser)) throw new Error("You do not have proposal administration access.");
 
   await loadData();
   form.addEventListener("submit", saveDraft);
@@ -349,6 +358,11 @@ async function init() {
   requestSelect.addEventListener("change", () => {
     selectedRequest = requests.find((request) => request.id === requestSelect.value);
     selectedProposal = proposals.find((proposal) => proposal.request_id === selectedRequest?.id);
+    if (selectedRequest) writeWorkspaceContext("admin", currentUser.id, {
+      requestId: selectedRequest.id,
+      proposalId: selectedProposal?.id,
+      name: selectedRequest.business_name,
+    });
     renderEditor();
   });
   refreshButton.addEventListener("click", () => loadData(selectedRequest?.id).catch((error) => setStatus(error.message, true)));

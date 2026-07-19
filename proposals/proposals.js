@@ -1,4 +1,5 @@
 import { createBrowserSupabase, getSessionOrNull, hasConfig } from "/shared/lib/supabase-client.js";
+import { projectContext, readWorkspaceContext, writeWorkspaceContext } from "/client-portal/workspace-context.js";
 
 const statusScreen = document.getElementById("portal-status");
 const proposalSelect = document.getElementById("client-proposal-select");
@@ -21,6 +22,16 @@ let onboardings = [];
 let projects = [];
 let selectedProposal;
 let selectedDecision = "approved";
+
+function rememberProposal() {
+  if (!selectedProposal) return;
+  const project = currentProject();
+  writeWorkspaceContext("client", session.user.id, {
+    proposalId: selectedProposal.id,
+    requestId: selectedProposal.request_id,
+    ...(project ? projectContext(project) : {}),
+  });
+}
 
 function escapeHtml(value = "") {
   return String(value)
@@ -178,7 +189,7 @@ async function loadProposals(preferredId) {
     supabase.from("website_proposal_versions").select("*").order("version_number", { ascending: false }),
     supabase.from("website_proposal_decisions").select("*").order("created_at", { ascending: false }),
     supabase.from("website_onboardings").select("id,proposal_id,status").order("created_at", { ascending: false }),
-    supabase.from("website_projects").select("id,proposal_id,status").order("created_at", { ascending: false }),
+    supabase.from("website_projects").select("id,proposal_id,request_id,managed_website_id,name,status,client_websites(id,name)").order("created_at", { ascending: false }),
   ]);
   if (proposalResult.error) throw proposalResult.error;
   if (versionResult.error) throw versionResult.error;
@@ -191,9 +202,15 @@ async function loadProposals(preferredId) {
   onboardings = onboardingResult.data || [];
   projects = projectResult.data || [];
   renderOptions();
-  const requested = preferredId || new URLSearchParams(window.location.search).get("proposal");
-  selectedProposal = proposals.find((proposal) => proposal.id === requested) || proposals[0];
+  const context = readWorkspaceContext("client", session.user.id);
+  const requested = preferredId || new URLSearchParams(window.location.search).get("proposal") || context.proposalId;
+  const relatedProject = projects.find((project) => project.id === context.projectId || project.managed_website_id === context.websiteId);
+  selectedProposal = proposals.find((proposal) => proposal.id === requested)
+    || proposals.find((proposal) => proposal.id === relatedProject?.proposal_id || proposal.request_id === context.requestId)
+    || (!context.websiteId && !context.projectId ? proposals[0] : undefined);
   if (selectedProposal) proposalSelect.value = selectedProposal.id;
+  else proposalSelect.selectedIndex = -1;
+  rememberProposal();
   renderProposal();
 }
 
@@ -242,6 +259,7 @@ async function init() {
   await loadProposals();
   proposalSelect.addEventListener("change", () => {
     selectedProposal = proposals.find((proposal) => proposal.id === proposalSelect.value);
+    rememberProposal();
     renderProposal();
   });
   document.querySelector(".portal-decision-options").addEventListener("click", (event) => {

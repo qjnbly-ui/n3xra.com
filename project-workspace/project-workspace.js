@@ -1,4 +1,5 @@
 import { createBrowserSupabase, getSessionOrNull, hasConfig } from "/shared/lib/supabase-client.js";
+import { projectContext, readWorkspaceContext, writeWorkspaceContext } from "/client-portal/workspace-context.js";
 
 const statusScreen = document.getElementById("portal-status");
 const projectSelect = document.getElementById("project-workspace-select");
@@ -25,6 +26,11 @@ let projects = [];
 let milestones = [];
 let onboardings = [];
 let selectedProject;
+let userId;
+
+function rememberProject() {
+  if (selectedProject) writeWorkspaceContext("client", userId, projectContext(selectedProject));
+}
 
 function escapeHtml(value = "") {
   return String(value)
@@ -164,9 +170,14 @@ async function loadData(preferredId) {
   milestones = milestoneResult.data || [];
   onboardings = onboardingResult.data || [];
   renderOptions();
-  const requested = preferredId || new URLSearchParams(window.location.search).get("project");
-  selectedProject = projects.find((project) => project.id === requested) || projects[0];
+  const context = readWorkspaceContext("client", userId);
+  const requested = preferredId || new URLSearchParams(window.location.search).get("project") || context.projectId;
+  selectedProject = projects.find((project) => project.id === requested)
+    || projects.find((project) => project.managed_website_id === context.websiteId)
+    || (!context.websiteId ? projects[0] : undefined);
   if (selectedProject) projectSelect.value = selectedProject.id;
+  else projectSelect.selectedIndex = -1;
+  rememberProject();
   renderWorkspace();
 }
 
@@ -178,9 +189,11 @@ async function init() {
     window.location.replace("/account/?next=%2Fproject-workspace%2F");
     return;
   }
+  userId = session.user.id;
   await loadData();
   projectSelect.addEventListener("change", () => {
     selectedProject = projects.find((project) => project.id === projectSelect.value);
+    rememberProject();
     renderWorkspace();
   });
   document.body.classList.remove("portal-loading");

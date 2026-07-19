@@ -1,4 +1,6 @@
 import { createBrowserSupabase, hasConfig } from "/shared/lib/supabase-client.js";
+import { readWorkspaceContext, writeWorkspaceContext } from "/client-portal/workspace-context.js";
+import { verifyPlatformAdmin } from "/client-portal/admin-access.js";
 
 const PRIVATE_BUCKET = "website-assets-private";
 const PUBLIC_BUCKET = "website-assets-public";
@@ -342,6 +344,16 @@ async function loadAssets() {
 async function selectWebsite(id) {
   selectedWebsite = websites.find((site) => site.id === id) || websites[0];
   if (selectedWebsite) websiteSelect.value = selectedWebsite.id;
+  if (selectedWebsite && currentUser) {
+    const previous = readWorkspaceContext("admin", currentUser.id);
+    writeWorkspaceContext("admin", currentUser.id, {
+      websiteId: selectedWebsite.id,
+      name: selectedWebsite.name,
+      ...(previous.websiteId && previous.websiteId !== selectedWebsite.id
+        ? { projectId: null, requestId: null, proposalId: null, onboardingId: null }
+        : {}),
+    });
+  }
   await Promise.all([loadAssets(), loadMembers()]);
 }
 
@@ -421,7 +433,8 @@ async function loadWebsites(preferredId) {
   if (error) throw error;
   websites = data || [];
   renderWebsiteOptions();
-  const requested = preferredId || new URLSearchParams(window.location.search).get("website");
+  const requested = preferredId || new URLSearchParams(window.location.search).get("website")
+    || readWorkspaceContext("admin", currentUser?.id).websiteId;
   await selectWebsite(websites.some((site) => site.id === requested) ? requested : websites[0]?.id);
 }
 
@@ -544,17 +557,14 @@ async function initWebsiteAdmin() {
 
   supabase = createBrowserSupabase();
   try {
-    const { data: userData, error: userError } = await supabase.auth.getUser();
-    if (userError || !userData?.user) {
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError || !sessionData?.session?.user) {
       openLogin();
       return;
     }
-    currentUser = userData.user;
+    currentUser = sessionData.session.user;
 
-    const { data, error } = await supabase.functions.invoke("platform-admin", {
-      body: { action: "get-platform-admin-access" },
-    });
-    if (error || data?.error || !data?.admin) {
+    if (!await verifyPlatformAdmin(supabase, currentUser)) {
       document.body.classList.add("portal-denied");
       showStatus("You do not have access to website administration.");
       return;

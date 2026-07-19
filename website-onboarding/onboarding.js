@@ -1,4 +1,5 @@
 import { createBrowserSupabase, getSessionOrNull, hasConfig } from "/shared/lib/supabase-client.js";
+import { readWorkspaceContext, writeWorkspaceContext } from "/client-portal/workspace-context.js";
 
 const BUCKET = "website-onboarding-private";
 const sections = ["business", "brand", "content", "technical", "legal", "files", "review"];
@@ -195,10 +196,19 @@ async function loadData(preferredId) {
   responses = responseResult.data || [];
   files = fileResult.data || [];
   renderOptions();
-  const requested = preferredId || new URLSearchParams(window.location.search).get("onboarding");
-  selectedOnboarding = onboardings.find((onboarding) => onboarding.id === requested) || onboardings[0];
+  const context = readWorkspaceContext("client", session.user.id);
+  const requested = preferredId || new URLSearchParams(window.location.search).get("onboarding") || context.onboardingId;
+  selectedOnboarding = onboardings.find((onboarding) => onboarding.id === requested)
+    || onboardings.find((onboarding) => onboarding.proposal_id === context.proposalId || onboarding.request_id === context.requestId)
+    || (!context.websiteId && !context.projectId ? onboardings[0] : undefined);
   selectedResponse = responses.find((response) => response.onboarding_id === selectedOnboarding?.id);
   if (selectedOnboarding) onboardingSelect.value = selectedOnboarding.id;
+  else onboardingSelect.selectedIndex = -1;
+  if (selectedOnboarding) writeWorkspaceContext("client", session.user.id, {
+    onboardingId: selectedOnboarding.id,
+    proposalId: selectedOnboarding.proposal_id,
+    requestId: selectedOnboarding.request_id,
+  });
   dirty = false;
   renderWorkspace();
 }
@@ -397,6 +407,11 @@ async function init() {
   onboardingSelect.addEventListener("change", async () => {
     if (dirty) await saveProgress({ quiet: true });
     selectedOnboarding = onboardings.find((onboarding) => onboarding.id === onboardingSelect.value);
+    if (selectedOnboarding) writeWorkspaceContext("client", session.user.id, {
+      onboardingId: selectedOnboarding.id,
+      proposalId: selectedOnboarding.proposal_id,
+      requestId: selectedOnboarding.request_id,
+    });
     selectedResponse = responses.find((response) => response.onboarding_id === selectedOnboarding?.id);
     dirty = false;
     renderWorkspace();

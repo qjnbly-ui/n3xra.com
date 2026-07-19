@@ -20,12 +20,13 @@ body {
   font-family: "Manrope", Arial, sans-serif;
 }
 
-body.portal-loading main,
 body.portal-denied main {
   visibility: hidden;
 }
 
 .site-topbar {
+  position: relative;
+  inset: auto;
   color: var(--portal-ink);
   background: rgba(245, 247, 250, 0.94);
   border-bottom: 1px solid var(--portal-line);
@@ -72,7 +73,7 @@ body.portal-denied main {
 .portal-shell {
   width: min(1180px, calc(100vw - 2rem));
   margin: 0 auto;
-  padding: 8rem 0 4rem;
+  padding: 2.75rem 0 4rem;
 }
 
 .portal-heading {
@@ -1756,14 +1757,18 @@ body.portal-denied main {
 
 .portal-status {
   position: fixed;
-  inset: 0;
+  right: 1rem;
+  bottom: 1rem;
   z-index: 20;
-  display: grid;
-  place-items: center;
-  padding: 2rem;
-  color: #ffffff;
-  background: var(--portal-deep);
-  text-align: center;
+  max-width: min(28rem, calc(100vw - 2rem));
+  padding: 0.8rem 1rem;
+  color: var(--portal-ink);
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid var(--portal-line);
+  border-radius: 0.8rem;
+  box-shadow: 0 12px 36px rgba(14, 23, 35, 0.14);
+  font-size: 0.88rem;
+  text-align: left;
 }
 
 .portal-status[hidden] {
@@ -1829,8 +1834,14 @@ body.portal-denied main {
 }
 
 @media (max-width: 720px) {
+  .portal-shell {
+    width: calc(100vw - 1rem);
+    padding: 1.5rem 0 3rem;
+  }
+
   .portal-heading {
     align-items: center;
+    margin-bottom: 1.5rem;
   }
 
   .portal-layout {
@@ -1840,15 +1851,35 @@ body.portal-denied main {
   .portal-project-picker {
     grid-template-columns: 1fr;
     gap: 1rem;
+    padding: 1rem;
   }
 
   .portal-nav {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.3rem;
+    padding: 0.55rem;
   }
 
   .portal-nav-label,
   .portal-nav-divider {
     grid-column: 1 / -1;
+  }
+
+  .portal-nav button,
+  .portal-nav a,
+  .portal-nav span {
+    min-width: 0;
+    padding: 0.72rem 0.65rem;
+    overflow-wrap: anywhere;
+  }
+
+  .portal-workspace {
+    min-width: 0;
+    padding: 1rem;
+  }
+
+  .portal-asset-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .portal-workspace-head,
@@ -1967,5 +1998,113 @@ body.portal-denied main {
 
   .portal-project-savebar {
     position: static;
+  }
+}
+
+@media (max-width: 520px) {
+  .site-topbar-inner {
+    width: calc(100vw - 1rem);
+    padding: 0.75rem 0;
+    gap: 0.65rem;
+  }
+
+  .site-topbar-row {
+    gap: 0.4rem;
+  }
+
+  .site-brand {
+    gap: 0.4rem;
+    font-size: 0.72rem;
+    letter-spacing: 0.12em;
+  }
+
+  .site-brand img {
+    width: 26px;
+    height: 26px;
+  }
+
+  .site-nav-actions {
+    gap: 0.3rem;
+  }
+
+  .site-topbar .site-menu-link,
+  .site-nav-actions .portal-logout {
+    min-height: 38px;
+    padding: 0.4rem 0.55rem;
+    font-size: 0.62rem;
+    letter-spacing: 0.03em;
+  }
+
+  .site-topbar .site-menu-toggle {
+    width: 38px;
+    height: 38px;
+  }
+
+  .site-topbar .site-mobile-menu.is-open {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.4rem;
+    padding-top: 0.7rem;
+  }
+
+  .site-topbar .site-mobile-menu-head {
+    grid-column: 1 / -1;
+  }
+
+  .site-topbar .site-mobile-menu .site-menu-link {
+    width: 100%;
+    min-height: 42px;
+    padding: 0.6rem 0.45rem;
+    font-size: 0.62rem;
+  }
+
+  .portal-heading h1 {
+    font-size: clamp(2rem, 12vw, 2.8rem);
+  }
+
+  .portal-project-picker h2 {
+    font-size: 1.55rem;
+  }
+
+  .portal-workspace-head,
+  .portal-site-summary,
+  .portal-toolbar,
+  .portal-form-head,
+  .portal-form-actions,
+  .portal-version-row,
+  .portal-card-actions,
+  .portal-member-controls {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .portal-button,
+  .portal-close {
+    width: 100%;
+  }
+
+  .portal-form,
+  .portal-access-panel,
+  .portal-overview-help {
+    padding: 1rem;
+  }
+
+  .portal-asset-body {
+    padding: 0.9rem;
+  }
+}
+
+@media (max-width: 360px) {
+  .site-brand span {
+    display: none;
+  }
+
+  .portal-nav {
+    grid-template-columns: 1fr;
+  }
+
+  .portal-nav-label,
+  .portal-nav-divider {
+    grid-column: auto;
   }
 }
