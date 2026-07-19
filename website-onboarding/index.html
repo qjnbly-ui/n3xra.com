@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/site-nav.css">
-  <link rel="stylesheet" href="/client-portal/portal.css">
+  <link rel="stylesheet" href="/client-portal/portal.css?v=4">
   <script src="/shared/config.js"></script>
   <script src="/assets/site-nav.js" defer></script>
 </head>
@@ -18,9 +18,10 @@
   <header class="site-topbar">
     <div class="site-topbar-inner">
       <div class="site-topbar-row">
-        <a class="site-brand" href="/" aria-label="N3XRA home"><img src="/assets/n3xra_logo_transparent.png" alt="N3XRA"></a>
-        <div class="site-nav-actions"><a class="site-menu-link" href="/account/">Dashboard</a></div>
+        <a class="site-brand" href="/" aria-label="N3XRA home"><img src="/assets/n3xra_logo_transparent_small.png" alt=""><span>N3XRA</span></a>
+        <div class="site-nav-actions"><a class="site-menu-link" href="/account/">Dashboard</a><button class="site-menu-link portal-logout" id="portal-logout" type="button">Sign out</button><button class="site-menu-toggle" type="button" aria-expanded="false" aria-controls="onboarding-portal-menu" aria-label="Open menu" data-site-menu-toggle><span></span><span></span><span></span></button></div>
       </div>
+      <nav class="site-mobile-menu" id="onboarding-portal-menu" aria-label="Portal navigation" hidden><div class="site-mobile-menu-head"><p class="site-mobile-menu-title">Website portal</p></div><a class="site-menu-link" href="/client-portal/">Websites</a><a class="site-menu-link" href="/project-workspace/">Progress</a><a class="site-menu-link" href="/proposals/">Proposal</a><a class="site-menu-link" href="/website-onboarding/">Onboarding</a><a class="site-menu-link" href="/client-portal/#files-assets">Files &amp; Assets</a><a class="site-menu-link" href="/client-portal/#new-project">Start new project</a></nav>
     </div>
   </header>
 
@@ -29,26 +30,29 @@
       <div>
         <p class="portal-kicker">Project setup</p>
         <h1>Website Onboarding</h1>
-        <p class="portal-heading-copy">One organized place for the business details, brand direction, content, technical access, and files needed to begin your website.</p>
       </div>
+    </section>
+
+    <section class="portal-project-picker" aria-labelledby="onboarding-picker-title">
+      <div><p class="portal-kicker">Onboarding workspace</p><h2 id="onboarding-picker-title">Selected project</h2><p>Choose the project whose onboarding information you want to complete.</p></div>
+      <label class="portal-project-select"><span>Project</span><select class="portal-select" id="onboarding-select" aria-label="Choose onboarding project"></select></label>
     </section>
 
     <div class="portal-layout">
       <nav class="portal-nav portal-onboarding-nav" aria-label="Website client portal">
         <a href="/client-portal/">Websites</a>
-        <a href="/project-workspace/">Projects</a>
-        <a href="/website-request/">New request</a>
-        <a href="/proposals/">Proposals</a>
+        <a href="/project-workspace/">Progress</a>
+        <a href="/proposals/">Proposal</a>
         <a class="is-current" href="/website-onboarding/">Onboarding</a>
-        <span class="is-placeholder">Billing</span>
-        <span class="is-placeholder">Renewals</span>
-        <span class="is-placeholder">Support</span>
+        <a href="/client-portal/#files-assets">Files &amp; Assets</a>
+        <span class="is-placeholder">Billing</span><span class="is-placeholder">Renewals</span><span class="is-placeholder">Support</span>
+        <div class="portal-nav-divider"></div>
+        <a href="/client-portal/#new-project">Start a new project</a>
       </nav>
 
       <section class="portal-workspace">
         <div class="portal-workspace-head">
           <div><p class="portal-kicker">Client workspace</p><h2 id="onboarding-title">Project onboarding</h2></div>
-          <select class="portal-select" id="onboarding-select" aria-label="Choose onboarding project"></select>
         </div>
 
         <div class="portal-empty" id="onboarding-empty">
@@ -201,6 +205,7 @@
   </main>
 
   <div class="portal-status" id="portal-status" role="status">Opening onboarding…</div>
+  <script type="module" src="/client-portal/portal-shell.js"></script>
   <script type="module" src="/website-onboarding/onboarding.js"></script>
 </body>
 </html>

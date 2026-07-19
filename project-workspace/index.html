@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&amp;family=Manrope:wght@400;600;700;800&amp;display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/site-nav.css">
-  <link rel="stylesheet" href="/client-portal/portal.css">
+  <link rel="stylesheet" href="/client-portal/portal.css?v=4">
   <script src="/shared/config.js"></script>
   <script src="/assets/site-nav.js" defer></script>
 </head>
@@ -18,9 +18,17 @@
   <header class="site-topbar">
     <div class="site-topbar-inner">
       <div class="site-topbar-row">
-        <a class="site-brand" href="/" aria-label="N3XRA home"><img src="/assets/n3xra_logo_transparent.png" alt="N3XRA"></a>
-        <div class="site-nav-actions"><a class="site-menu-link" href="/account/">Dashboard</a></div>
+        <a class="site-brand" href="/" aria-label="N3XRA home"><img src="/assets/n3xra_logo_transparent_small.png" alt=""><span>N3XRA</span></a>
+        <div class="site-nav-actions">
+          <a class="site-menu-link" href="/account/">Dashboard</a>
+          <button class="site-menu-link portal-logout" id="portal-logout" type="button">Sign out</button>
+          <button class="site-menu-toggle" type="button" aria-expanded="false" aria-controls="project-portal-menu" aria-label="Open menu" data-site-menu-toggle><span></span><span></span><span></span></button>
+        </div>
       </div>
+      <nav class="site-mobile-menu" id="project-portal-menu" aria-label="Portal navigation" hidden>
+        <div class="site-mobile-menu-head"><p class="site-mobile-menu-title">Website portal</p></div>
+        <a class="site-menu-link" href="/client-portal/">Websites</a><a class="site-menu-link" href="/project-workspace/">Progress</a><a class="site-menu-link" href="/proposals/">Proposal</a><a class="site-menu-link" href="/website-onboarding/">Onboarding</a><a class="site-menu-link" href="/client-portal/#files-assets">Files &amp; Assets</a><a class="site-menu-link" href="/client-portal/#new-project">Start new project</a>
+      </nav>
     </div>
   </header>
 
@@ -29,26 +37,29 @@
       <div>
         <p class="portal-kicker">Client services</p>
         <h1>Project Workspace</h1>
-        <p class="portal-heading-copy">Follow your website from approved proposal through agreement, billing, onboarding, production, launch, and ongoing management.</p>
       </div>
+    </section>
+
+    <section class="portal-project-picker" aria-labelledby="project-picker-title">
+      <div><p class="portal-kicker">Current workspace</p><h2 id="project-picker-title">Selected project</h2><p>Choose the project whose timeline and progress you want to view.</p></div>
+      <label class="portal-project-select"><span>Project</span><select class="portal-select" id="project-workspace-select" aria-label="Choose a website project"></select></label>
     </section>
 
     <div class="portal-layout">
       <nav class="portal-nav" aria-label="Website client portal">
         <a href="/client-portal/">Websites</a>
-        <a class="is-current" href="/project-workspace/">Projects</a>
-        <a href="/website-request/">New request</a>
-        <a href="/proposals/">Proposals</a>
+        <a class="is-current" href="/project-workspace/">Progress</a>
+        <a href="/proposals/">Proposal</a>
         <a href="/website-onboarding/">Onboarding</a>
-        <span class="is-placeholder">Billing</span>
-        <span class="is-placeholder">Renewals</span>
-        <span class="is-placeholder">Support</span>
+        <a href="/client-portal/#files-assets">Files &amp; Assets</a>
+        <span class="is-placeholder">Billing</span><span class="is-placeholder">Renewals</span><span class="is-placeholder">Support</span>
+        <div class="portal-nav-divider"></div>
+        <a href="/client-portal/#new-project">Start a new project</a>
       </nav>
 
       <section class="portal-workspace">
         <div class="portal-workspace-head">
           <div><p class="portal-kicker">Website projects</p><h2 id="project-workspace-title">Your project</h2></div>
-          <select class="portal-select" id="project-workspace-select" aria-label="Choose a website project"></select>
         </div>
 
         <div class="portal-empty" id="project-workspace-empty">
@@ -109,6 +120,7 @@
   </main>
 
   <div class="portal-status" id="portal-status" role="status">Opening your project workspace…</div>
+  <script type="module" src="/client-portal/portal-shell.js"></script>
   <script type="module" src="/project-workspace/project-workspace.js"></script>
 </body>
 </html>

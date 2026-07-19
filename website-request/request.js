@@ -4,6 +4,7 @@ const form = document.getElementById("website-request-form");
 const statusScreen = document.getElementById("portal-status");
 const inlineStatus = document.getElementById("request-status");
 const requestList = document.getElementById("request-list");
+const isEmbedded = form?.dataset.portalEmbedded === "true";
 let supabase;
 let session;
 
@@ -90,14 +91,17 @@ async function init() {
   supabase = createBrowserSupabase();
   session = await getSessionOrNull(supabase);
   if (!session?.user) {
-    window.location.replace("/account?next=%2Fwebsite-request%2F");
+    const next = encodeURIComponent(`${window.location.pathname}${window.location.search}${window.location.hash}`);
+    window.location.replace(`/account?next=${next}`);
     return;
   }
   document.getElementById("request-email").value = session.user.email || "";
   form.addEventListener("submit", submitRequest);
   await loadRequests();
-  document.body.classList.remove("portal-loading");
-  statusScreen.hidden = true;
+  if (!isEmbedded) {
+    document.body.classList.remove("portal-loading");
+    statusScreen.hidden = true;
+  }
 }
 
 init().catch((error) => {

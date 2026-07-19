@@ -58,7 +58,11 @@ function showPortalView(view) {
   portalViewPanels.forEach((panel) => {
     panel.hidden = panel.dataset.portalPanel !== nextView;
   });
-  const nextHash = nextView === "files" ? "#files-assets" : "";
+  const nextHash = nextView === "files"
+    ? "#files-assets"
+    : nextView === "new-request"
+      ? "#new-project"
+      : "";
   window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}${nextHash}`);
 }
 
@@ -543,7 +547,13 @@ async function initPortal() {
     }
 
     await loadWebsites();
-    showPortalView(window.location.hash === "#files-assets" ? "files" : "overview");
+    showPortalView(
+      window.location.hash === "#files-assets"
+        ? "files"
+        : window.location.hash === "#new-project"
+          ? "new-request"
+          : "overview"
+    );
     document.body.classList.remove("portal-loading");
     statusScreen.hidden = true;
 
@@ -553,6 +563,11 @@ async function initPortal() {
     });
     portalViewOpeners.forEach((button) => {
       button.addEventListener("click", () => showPortalView(button.dataset.openPortalView));
+    });
+    window.addEventListener("hashchange", () => {
+      if (window.location.hash === "#files-assets") showPortalView("files");
+      else if (window.location.hash === "#new-project") showPortalView("new-request");
+      else showPortalView("overview");
     });
     openUploadButton.addEventListener("click", () => openUploadForm());
     closeUploadButton.addEventListener("click", closeUploadForm);

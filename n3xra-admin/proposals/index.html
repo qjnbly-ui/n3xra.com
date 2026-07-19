@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/site-nav.css">
-  <link rel="stylesheet" href="/client-portal/portal.css">
+  <link rel="stylesheet" href="/client-portal/portal.css?v=4">
   <script src="/shared/config.js"></script>
   <script src="/assets/site-nav.js" defer></script>
 </head>
@@ -18,8 +18,8 @@
   <header class="site-topbar">
     <div class="site-topbar-inner">
       <div class="site-topbar-row">
-        <a class="site-brand" href="/" aria-label="N3XRA home"><img src="/assets/n3xra_logo_transparent.png" alt="N3XRA"></a>
-        <div class="site-nav-actions"><a class="site-menu-link" href="/account/">Dashboard</a></div>
+        <a class="site-brand" href="/" aria-label="N3XRA home"><img src="/assets/n3xra_logo_transparent_small.png" alt=""><span>N3XRA</span></a>
+        <div class="site-nav-actions"><a class="site-menu-link" href="/account/">Dashboard</a><button class="site-menu-link portal-logout" id="portal-logout" type="button">Sign out</button></div>
       </div>
     </div>
   </header>
@@ -29,21 +29,23 @@
       <div>
         <p class="portal-kicker">Master administration</p>
         <h1>Proposals</h1>
-        <p class="portal-heading-copy">Build a clear scope, publish a numbered version, and keep every client decision attached to exactly what they reviewed.</p>
       </div>
+    </section>
+    <section class="portal-project-picker" aria-labelledby="admin-proposal-picker-title">
+      <div><p class="portal-kicker">Proposal workspace</p><h2 id="admin-proposal-picker-title">Selected request</h2><p>Choose the request whose proposal you want to prepare or revise.</p></div>
+      <label class="portal-project-select">Request<select class="portal-select" id="proposal-request-select"></select></label>
     </section>
 
     <div class="portal-layout">
       <nav class="portal-nav" aria-label="Website administration">
         <a href="/n3xra-admin/websites/">Websites</a>
         <a href="/n3xra-admin/websites/#website-requests">Requests</a>
-        <a class="is-current" href="/n3xra-admin/proposals/">Proposals</a>
-        <a href="/n3xra-admin/projects/">Projects</a>
+        <a class="is-current" href="/n3xra-admin/proposals/">Proposal</a>
+        <a href="/n3xra-admin/projects/">Progress</a>
         <a href="/n3xra-admin/onboarding/">Onboarding</a>
+        <a href="/n3xra-admin/websites/#admin-asset-toolbar">Files &amp; Assets</a>
         <span class="is-placeholder">Billing</span>
-        <span class="is-placeholder">Launch</span>
-        <span class="is-placeholder">Clients</span>
-        <span class="is-placeholder">Access</span>
+        <span class="is-placeholder">Renewals</span><span class="is-placeholder">Support</span>
       </nav>
 
       <section class="portal-workspace">
@@ -53,7 +55,6 @@
         </div>
 
         <div class="portal-admin-picker portal-proposal-picker">
-          <label>Website request<select class="portal-select" id="proposal-request-select"></select></label>
           <div class="portal-proposal-state" id="proposal-state"></div>
         </div>
 
@@ -140,6 +141,7 @@
   </main>
 
   <div class="portal-status" id="portal-status" role="status">Verifying proposal access…</div>
+  <script type="module" src="/client-portal/portal-shell.js"></script>
   <script type="module" src="/n3xra-admin/proposals/proposals-admin.js"></script>
 </body>
 </html>

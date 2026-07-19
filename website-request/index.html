@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/site-nav.css">
-  <link rel="stylesheet" href="/client-portal/portal.css">
+  <link rel="stylesheet" href="/client-portal/portal.css?v=4">
   <script src="/shared/config.js"></script>
   <script src="/assets/site-nav.js" defer></script>
 </head>
@@ -18,9 +18,10 @@
   <header class="site-topbar">
     <div class="site-topbar-inner">
       <div class="site-topbar-row">
-        <a class="site-brand" href="/"><img src="/assets/n3xra_logo_transparent.png" alt="N3XRA"></a>
-        <div class="site-nav-actions"><a class="site-menu-link" href="/account/">Dashboard</a></div>
+        <a class="site-brand" href="/" aria-label="N3XRA home"><img src="/assets/n3xra_logo_transparent_small.png" alt=""><span>N3XRA</span></a>
+        <div class="site-nav-actions"><a class="site-menu-link" href="/account/">Dashboard</a><button class="site-menu-link portal-logout" id="portal-logout" type="button">Sign out</button><button class="site-menu-toggle" type="button" aria-expanded="false" aria-controls="request-portal-menu" aria-label="Open menu" data-site-menu-toggle><span></span><span></span><span></span></button></div>
       </div>
+      <nav class="site-mobile-menu" id="request-portal-menu" aria-label="Portal navigation" hidden><div class="site-mobile-menu-head"><p class="site-mobile-menu-title">Website portal</p></div><a class="site-menu-link" href="/client-portal/">Websites</a><a class="site-menu-link" href="/project-workspace/">Progress</a><a class="site-menu-link" href="/proposals/">Proposal</a><a class="site-menu-link" href="/website-onboarding/">Onboarding</a><a class="site-menu-link" href="/client-portal/#files-assets">Files &amp; Assets</a><a class="site-menu-link" href="/client-portal/#new-project">Start new project</a></nav>
     </div>
   </header>
   <main class="portal-shell">
@@ -28,19 +29,22 @@
       <div>
         <p class="portal-kicker">Start a project</p>
         <h1>Request a Website</h1>
-        <p class="portal-heading-copy">Tell us what you need. This request becomes the starting point for your proposal, contract, onboarding, billing, and launch workspace.</p>
       </div>
+    </section>
+    <section class="portal-project-picker" aria-labelledby="request-picker-title">
+      <div><p class="portal-kicker">New workspace</p><h2 id="request-picker-title">Create a new project</h2><p>This form starts a separate project. It does not change an existing website or project.</p></div>
+      <div class="portal-picker-state"><span>Current action</span><strong>New website request</strong></div>
     </section>
     <div class="portal-layout">
       <nav class="portal-nav" aria-label="Website client portal">
         <a href="/client-portal/">Websites</a>
-        <a href="/project-workspace/">Projects</a>
-        <a class="is-current" href="/website-request/">New request</a>
-        <a href="/proposals/">Proposals</a>
+        <a href="/project-workspace/">Progress</a>
+        <a href="/proposals/">Proposal</a>
         <a href="/website-onboarding/">Onboarding</a>
-        <span class="is-placeholder">Billing</span>
-        <span class="is-placeholder">Renewals</span>
-        <span class="is-placeholder">Support</span>
+        <a href="/client-portal/#files-assets">Files &amp; Assets</a>
+        <span class="is-placeholder">Billing</span><span class="is-placeholder">Renewals</span><span class="is-placeholder">Support</span>
+        <div class="portal-nav-divider"></div>
+        <a class="is-current" href="/client-portal/#new-project">Start a new project</a>
       </nav>
       <section class="portal-workspace">
         <div class="portal-workspace-head">
@@ -90,6 +94,7 @@
     </div>
   </main>
   <div class="portal-status" id="portal-status">Opening project intake…</div>
+  <script type="module" src="/client-portal/portal-shell.js"></script>
   <script type="module" src="/website-request/request.js"></script>
 </body>
 </html>
