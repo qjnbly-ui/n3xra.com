@@ -178,6 +178,38 @@ function buildHtmlEmail(payload) {
   `;
 }
 
+async function saveSupportRequest(payload, emailMessageId = null) {
+  const supabaseUrl = String(process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim();
+  const serviceKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY || "").trim();
+  if (!supabaseUrl || !serviceKey) return null;
+
+  const response = await fetch(`${supabaseUrl}/rest/v1/platform_support_requests`, {
+    method: "POST",
+    headers: {
+      apikey: serviceKey,
+      Authorization: `Bearer ${serviceKey}`,
+      "Content-Type": "application/json",
+      Prefer: "return=representation",
+    },
+    body: JSON.stringify({
+      requester_name: payload.name,
+      requester_email: payload.email,
+      organization_name: payload.organization || null,
+      topic: payload.topic,
+      subject: payload.subject,
+      message: payload.message,
+      source: "website",
+      email_message_id: emailMessageId || null,
+    }),
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(String(data?.message || data?.error || "Unable to save support request."));
+  }
+  const rows = await response.json().catch(() => []);
+  return rows?.[0] || null;
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
@@ -251,7 +283,14 @@ export default async function handler(req, res) {
       });
     }
 
-    return res.status(200).json({ ok: true, id: data?.id || null });
+    let requestRecord = null;
+    try {
+      requestRecord = await saveSupportRequest(payload, data?.id || null);
+    } catch (saveError) {
+      console.error("Support request email sent but queue persistence failed:", saveError);
+    }
+
+    return res.status(200).json({ ok: true, id: data?.id || null, requestId: requestRecord?.id || null });
   } catch (error) {
     return res.status(500).json({
       error: error instanceof Error ? error.message : "Unable to send support email.",

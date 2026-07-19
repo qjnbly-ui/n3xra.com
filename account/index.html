@@ -219,8 +219,51 @@
           <section class="dashboard-section admin-app-section hidden" id="admin-app-section" role="tabpanel" aria-labelledby="show-admin-view">
             <div class="dashboard-section-head">
               <div>
-                <h3>Admin apps</h3>
-                <p>Platform admin tools available to this N3XRA account.</p>
+                <p class="auth-kicker">N3XRA Accounts</p>
+                <h3>Account administration</h3>
+                <p>Identity, access, billing, support, and platform communications.</p>
+              </div>
+            </div>
+            <div class="app-grid admin-app-grid">
+              <article class="app-card admin-app-card">
+                <div>
+                  <p class="auth-kicker">Identity and permissions</p>
+                  <h3>Accounts &amp; Access</h3>
+                  <p>Find users, review product memberships, and provide secure account recovery.</p>
+                </div>
+                <a class="btn secondary block button-link" href="/account/admin/accounts/">Open Accounts &amp; Access</a>
+              </article>
+              <article class="app-card admin-app-card">
+                <div>
+                  <p class="auth-kicker">Subscriptions</p>
+                  <h3>Billing Admin</h3>
+                  <p>Review plans, subscription state, renewal dates, Stripe connections, and included usage.</p>
+                </div>
+                <a class="btn secondary block button-link" href="/account/admin/billing/">Open Billing Admin</a>
+              </article>
+              <article class="app-card admin-app-card">
+                <div>
+                  <p class="auth-kicker">Customer care</p>
+                  <h3>Support Admin</h3>
+                  <p>Manage incoming support requests, priority, status, assignment, and internal notes.</p>
+                </div>
+                <a class="btn secondary block button-link" href="/account/admin/support/">Open Support Admin</a>
+              </article>
+              <article class="app-card admin-app-card">
+                <div>
+                  <p class="auth-kicker">Platform communications</p>
+                  <h3>Platform Notification Admin</h3>
+                  <p>Send reviewed product update emails to selected account audiences across N3XRA.</p>
+                </div>
+                <a class="btn secondary block button-link" href="/account/notifications/">Open Platform Notification Admin</a>
+              </article>
+            </div>
+
+            <div class="dashboard-section-head admin-product-section-head">
+              <div>
+                <p class="auth-kicker">Product admin apps</p>
+                <h3>Product administration</h3>
+                <p>Operational tools specific to each N3XRA product.</p>
               </div>
             </div>
             <div class="app-grid admin-app-grid">
@@ -247,14 +290,6 @@
                   <p>Run the complete client website lifecycle from request through ongoing management.</p>
                 </div>
                 <a class="btn secondary block button-link" href="/n3xra-admin/websites/">Open Website Admin</a>
-              </article>
-              <article class="app-card admin-app-card">
-                <div>
-                  <p class="auth-kicker">Platform</p>
-                  <h3>Notification Admin</h3>
-                  <p>Send reviewed product update emails to selected account audiences across N3XRA.</p>
-                </div>
-                <a class="btn secondary block button-link" href="/account/notifications/">Open Notification Admin</a>
               </article>
             </div>
           </section>

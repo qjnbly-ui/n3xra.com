@@ -68,6 +68,164 @@ async function findAuthUserByEmail(adminClient: ReturnType<typeof createClient>,
   return null;
 }
 
+async function listAllAuthUsers(adminClient: ReturnType<typeof createClient>) {
+  const users: Array<any> = [];
+  for (let page = 1; page <= 20; page += 1) {
+    const { data, error } = await adminClient.auth.admin.listUsers({ page, perPage: 1000 });
+    if (error) throw new Error(error.message);
+    users.push(...(data.users || []));
+    if ((data.users || []).length < 1000) break;
+  }
+  return users;
+}
+
+async function loadPlatformAccountData(adminClient: ReturnType<typeof createClient>) {
+  const [
+    profilesResult,
+    recordsOrganizationsResult,
+    recordsMembershipsResult,
+    websitesResult,
+    websiteMembersResult,
+    utilityOrganizationsResult,
+    utilityMembersResult,
+    utilityRolesResult,
+    musicProfilesResult,
+    viralsProfilesResult,
+    authUsers,
+  ] = await Promise.all([
+    adminClient.from("profiles").select("id, email, full_name, created_at, updated_at"),
+    adminClient.from("organizations").select("id, name, owner_user_id, subscription_tier, account_status, billing_cycle, document_limit, user_limit, storage_limit_mb, stripe_customer_id, stripe_subscription_id, subscription_current_period_end"),
+    adminClient.from("organization_memberships").select("id, organization_id, user_id, role, created_at"),
+    adminClient.from("client_websites").select("id, name, status"),
+    adminClient.from("website_members").select("id, website_id, user_id, role, status, created_at"),
+    adminClient.from("utility_organizations").select("id, name, status, launch_status"),
+    adminClient.from("utility_organization_members").select("id, organization_id, user_id, role_id, status, created_at"),
+    adminClient.from("utility_roles").select("id, name, display_name"),
+    adminClient.from("music_profiles").select("user_id, display_name, plan, account_status, monthly_song_limit, songs_used, stripe_customer_id, stripe_subscription_id, subscription_current_period_end"),
+    adminClient.from("virals_profiles").select("user_id, plan, account_status, monthly_analysis_limit, analyses_used, stripe_customer_id, stripe_subscription_id, subscription_current_period_end"),
+    listAllAuthUsers(adminClient),
+  ]);
+
+  const results = [
+    profilesResult,
+    recordsOrganizationsResult,
+    recordsMembershipsResult,
+    websitesResult,
+    websiteMembersResult,
+    utilityOrganizationsResult,
+    utilityMembersResult,
+    utilityRolesResult,
+    musicProfilesResult,
+    viralsProfilesResult,
+  ];
+  const firstError = results.find((result) => result.error)?.error;
+  if (firstError) throw new Error(firstError.message);
+
+  const profiles = profilesResult.data || [];
+  const profileMap = new Map(profiles.map((profile) => [String(profile.id), profile]));
+  const authMap = new Map(authUsers.map((authUser) => [String(authUser.id), authUser]));
+  const recordsOrgMap = new Map((recordsOrganizationsResult.data || []).map((organization) => [String(organization.id), organization]));
+  const websiteMap = new Map((websitesResult.data || []).map((website) => [String(website.id), website]));
+  const utilityMap = new Map((utilityOrganizationsResult.data || []).map((organization) => [String(organization.id), organization]));
+  const utilityRoleMap = new Map((utilityRolesResult.data || []).map((role) => [String(role.id), role]));
+  const accessMap = new Map<string, Array<Record<string, unknown>>>();
+
+  const addAccess = (userId: unknown, access: Record<string, unknown>) => {
+    const key = String(userId || "");
+    if (!key) return;
+    const items = accessMap.get(key) || [];
+    items.push(access);
+    accessMap.set(key, items);
+  };
+
+  (recordsOrganizationsResult.data || []).forEach((organization) => addAccess(organization.owner_user_id, {
+    product: "records", productLabel: PRODUCT_LABELS.records, organizationId: organization.id,
+    organization: organization.name, role: "owner", status: organization.account_status,
+  }));
+  (recordsMembershipsResult.data || []).forEach((membership) => {
+    const organization = recordsOrgMap.get(String(membership.organization_id));
+    addAccess(membership.user_id, {
+      product: "records", productLabel: PRODUCT_LABELS.records, organizationId: membership.organization_id,
+      organization: organization?.name || "Records organization", role: membership.role, status: organization?.account_status || "active",
+    });
+  });
+  (websiteMembersResult.data || []).forEach((membership) => {
+    const website = websiteMap.get(String(membership.website_id));
+    addAccess(membership.user_id, {
+      product: "websites", productLabel: "Client Websites", organizationId: membership.website_id,
+      organization: website?.name || "Client website", role: membership.role, status: membership.status,
+    });
+  });
+  (utilityMembersResult.data || []).forEach((membership) => {
+    const organization = utilityMap.get(String(membership.organization_id));
+    const role = utilityRoleMap.get(String(membership.role_id));
+    addAccess(membership.user_id, {
+      product: "utilities", productLabel: PRODUCT_LABELS.utilities, organizationId: membership.organization_id,
+      organization: organization?.name || "Utility organization", role: role?.display_name || role?.name || "member", status: membership.status || organization?.status || "active",
+    });
+  });
+  (musicProfilesResult.data || []).forEach((profile) => addAccess(profile.user_id, {
+    product: "ai_music", productLabel: PRODUCT_LABELS.ai_music, role: "account", status: profile.account_status, plan: profile.plan,
+  }));
+  (viralsProfilesResult.data || []).forEach((profile) => addAccess(profile.user_id, {
+    product: "virals", productLabel: PRODUCT_LABELS.virals, role: "account", status: profile.account_status, plan: profile.plan,
+  }));
+
+  const knownUserIds = new Set([
+    ...profiles.map((profile) => String(profile.id)),
+    ...authUsers.map((authUser) => String(authUser.id)),
+  ]);
+  const accounts = Array.from(knownUserIds).map((userId) => {
+    const profile = profileMap.get(userId);
+    const authUser = authMap.get(userId);
+    return {
+      id: userId,
+      email: normalizeEmail(profile?.email || authUser?.email),
+      name: textValue(profile?.full_name || authUser?.user_metadata?.full_name || authUser?.user_metadata?.name || authUser?.email, 180),
+      createdAt: authUser?.created_at || profile?.created_at || null,
+      lastSignInAt: authUser?.last_sign_in_at || null,
+      bannedUntil: authUser?.banned_until || null,
+      emailConfirmedAt: authUser?.email_confirmed_at || null,
+      access: accessMap.get(userId) || [],
+    };
+  }).filter((account) => account.email).sort((a, b) => a.email.localeCompare(b.email));
+
+  const billing: Array<Record<string, unknown>> = [];
+  (recordsOrganizationsResult.data || []).forEach((organization) => {
+    const owner = profileMap.get(String(organization.owner_user_id));
+    billing.push({
+      id: organization.id, product: "records", productLabel: PRODUCT_LABELS.records,
+      account: organization.name, email: owner?.email || "", plan: organization.subscription_tier,
+      status: organization.account_status, cycle: organization.billing_cycle || "monthly",
+      customerId: organization.stripe_customer_id, subscriptionId: organization.stripe_subscription_id,
+      periodEnd: organization.subscription_current_period_end,
+      usage: `${organization.document_limit || 0} documents · ${organization.user_limit || 0} seats · ${organization.storage_limit_mb || 0} MB`,
+    });
+  });
+  (musicProfilesResult.data || []).forEach((profile) => {
+    const owner = profileMap.get(String(profile.user_id));
+    billing.push({
+      id: profile.user_id, product: "ai_music", productLabel: PRODUCT_LABELS.ai_music,
+      account: profile.display_name || owner?.full_name || owner?.email || "Music account", email: owner?.email || "",
+      plan: profile.plan, status: profile.account_status, customerId: profile.stripe_customer_id,
+      subscriptionId: profile.stripe_subscription_id, periodEnd: profile.subscription_current_period_end,
+      usage: `${profile.songs_used || 0}/${profile.monthly_song_limit || 0} songs`,
+    });
+  });
+  (viralsProfilesResult.data || []).forEach((profile) => {
+    const owner = profileMap.get(String(profile.user_id));
+    billing.push({
+      id: profile.user_id, product: "virals", productLabel: PRODUCT_LABELS.virals,
+      account: owner?.full_name || owner?.email || "Virals account", email: owner?.email || "",
+      plan: profile.plan, status: profile.account_status, customerId: profile.stripe_customer_id,
+      subscriptionId: profile.stripe_subscription_id, periodEnd: profile.subscription_current_period_end,
+      usage: `${profile.analyses_used || 0}/${profile.monthly_analysis_limit || 0} analyses`,
+    });
+  });
+
+  return { accounts, billing };
+}
+
 function base64Url(bytes: Uint8Array) {
   return btoa(String.fromCharCode(...bytes))
     .replace(/\+/g, "-")
@@ -269,12 +427,20 @@ async function listNotificationRecipients(adminClient: ReturnType<typeof createC
   }
 
   if (product === "utilities") {
-    const [{ data: organizations, error: orgError }, { data: members, error: memberError }] = await Promise.all([
+    const [
+      { data: organizations, error: orgError },
+      { data: members, error: memberError },
+      { data: roles, error: roleError },
+    ] = await Promise.all([
       adminClient.from("utility_organizations").select("id, name, status, launch_status, primary_contact_email"),
-      adminClient.from("utility_organization_members").select("organization_id, user_id, role"),
+      adminClient.from("utility_organization_members").select("organization_id, user_id, role_id"),
+      adminClient.from("utility_roles").select("id, name, display_name"),
     ]);
-    if (orgError || memberError) throw new Error(orgError?.message || memberError?.message || "Unable to load Utilities recipients.");
+    if (orgError || memberError || roleError) {
+      throw new Error(orgError?.message || memberError?.message || roleError?.message || "Unable to load Utilities recipients.");
+    }
     const orgMap = new Map((organizations || []).map((org) => [org.id, org]));
+    const roleMap = new Map((roles || []).map((role) => [role.id, role]));
 
     (organizations || []).forEach((org) => {
       addRecipient(recipients, {
@@ -290,6 +456,7 @@ async function listNotificationRecipients(adminClient: ReturnType<typeof createC
 
     (members || []).forEach((member) => {
       const org = orgMap.get(member.organization_id);
+      const role = roleMap.get(member.role_id);
       const profile = profileMap.get(String(member.user_id || ""));
       addRecipient(recipients, {
         user_id: String(member.user_id || ""),
@@ -299,7 +466,7 @@ async function listNotificationRecipients(adminClient: ReturnType<typeof createC
         productLabel: PRODUCT_LABELS.utilities,
         plan: String(org?.launch_status || ""),
         status: String(org?.status || ""),
-        context: `${org?.name || "Utilities organization"} ${member.role || "member"}`,
+        context: `${org?.name || "Utilities organization"} ${role?.display_name || role?.name || "member"}`,
       });
     });
   }
@@ -497,6 +664,57 @@ Deno.serve(async (request) => {
           status: platformAdmin.status,
         },
       });
+    }
+
+    if (action === "list-platform-accounts") {
+      const { accounts } = await loadPlatformAccountData(adminClient);
+      return jsonResponse({ ok: true, accounts, count: accounts.length });
+    }
+
+    if (action === "list-platform-billing") {
+      const { billing } = await loadPlatformAccountData(adminClient);
+      return jsonResponse({ ok: true, billing, count: billing.length });
+    }
+
+    if (action === "list-support-requests") {
+      const { data, error } = await adminClient
+        .from("platform_support_requests")
+        .select("id, requester_user_id, requester_name, requester_email, organization_name, topic, subject, message, status, priority, assigned_to_user_id, internal_notes, source, email_message_id, created_at, updated_at, resolved_at")
+        .order("created_at", { ascending: false })
+        .limit(500);
+      if (error) return jsonResponse({ error: error.message }, 400);
+      return jsonResponse({ ok: true, requests: data || [], count: data?.length || 0 });
+    }
+
+    if (action === "update-support-request") {
+      const requestId = String(payload.requestId || "").trim();
+      const status = String(payload.status || "").trim().toLowerCase();
+      const priority = String(payload.priority || "").trim().toLowerCase();
+      const internalNotes = String(payload.internalNotes || "").trim().slice(0, 8000);
+      if (!isValidUuid(requestId)) return jsonResponse({ error: "A valid requestId is required." }, 400);
+      if (!["new", "in_progress", "waiting", "resolved", "closed"].includes(status)) {
+        return jsonResponse({ error: "Invalid support status." }, 400);
+      }
+      if (!["low", "normal", "high", "urgent"].includes(priority)) {
+        return jsonResponse({ error: "Invalid support priority." }, 400);
+      }
+      const now = new Date().toISOString();
+      const { data, error } = await adminClient
+        .from("platform_support_requests")
+        .update({
+          status,
+          priority,
+          internal_notes: internalNotes || null,
+          assigned_to_user_id: user.id,
+          resolved_at: ["resolved", "closed"].includes(status) ? now : null,
+          updated_at: now,
+        })
+        .eq("id", requestId)
+        .select("id, requester_name, requester_email, organization_name, topic, subject, message, status, priority, internal_notes, created_at, updated_at, resolved_at")
+        .maybeSingle();
+      if (error) return jsonResponse({ error: error.message }, 400);
+      if (!data) return jsonResponse({ error: "Support request not found." }, 404);
+      return jsonResponse({ ok: true, request: data });
     }
 
     if (action === "list-website-members") {

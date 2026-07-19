@@ -223,6 +223,12 @@ body {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.admin-product-section-head {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid rgba(15, 22, 32, 0.1);
+}
+
 .notification-page {
   width: min(1440px, calc(100vw - 2rem));
 }
