@@ -3,21 +3,21 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>N3XRA | Records, Projects, AI Tools</title>
-  <meta name="description" content="Custom software, automation, and AI solutions that reduce manual work and streamline business operations." />
+  <title>N3XRA | Custom Websites, Systems &amp; Software</title>
+  <meta name="description" content="N3XRA builds custom websites, digital systems, and practical software for organizations ready to move forward." />
   <meta name="robots" content="index, follow" />
   <link rel="canonical" href="https://n3xra.com/" />
   <meta property="og:type" content="website" />
-  <meta property="og:title" content="N3XRA | Records, Projects, AI Tools" />
-  <meta property="og:description" content="Custom software, automation, and AI solutions that reduce manual work and streamline business operations." />
+  <meta property="og:title" content="N3XRA | Custom Websites, Systems &amp; Software" />
+  <meta property="og:description" content="Custom websites, digital systems, and practical software—built for what comes next." />
   <meta property="og:image" content="https://n3xra.com/assets/welcomen3xra.png" />
   <meta property="og:url" content="https://n3xra.com/" />
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="N3XRA | Records, Projects, AI Tools" />
-  <meta name="twitter:description" content="Custom software, automation, and AI solutions that reduce manual work and streamline business operations." />
+  <meta name="twitter:title" content="N3XRA | Custom Websites, Systems &amp; Software" />
+  <meta name="twitter:description" content="Custom websites, digital systems, and practical software—built for what comes next." />
   <meta name="twitter:image" content="https://n3xra.com/assets/welcomen3xra.png" />
-  <meta name="theme-color" content="#070c12" />
-  <meta name="msapplication-TileColor" content="#070c12" />
+  <meta name="theme-color" content="#050a12" />
+  <meta name="msapplication-TileColor" content="#050a12" />
   <meta name="msapplication-TileImage" content="https://n3xra.com/assets/n3xra_logo_transparent_small.png" />
   <script>
     (() => {
@@ -34,906 +34,60 @@
       window.location.replace(`${window.location.origin}/account${search}${hash}`);
     })();
   </script>
+  <script>
+    (() => {
+      const introSessionKey = "n3xra-home-intro-seen";
+      let introHasPlayed = false;
+
+      try {
+        introHasPlayed = window.sessionStorage.getItem(introSessionKey) === "1";
+        if (!introHasPlayed) window.sessionStorage.setItem(introSessionKey, "1");
+      } catch {
+        // Keep the normal intro when session storage is unavailable.
+      }
+
+      document.documentElement.classList.add(introHasPlayed ? "home-intro-seen" : "home-intro-first");
+
+      if (
+        !introHasPlayed
+        && !window.matchMedia("(prefers-reduced-motion: reduce)").matches
+        && "animate" in Element.prototype
+      ) {
+        document.documentElement.classList.add("nav-brand-transfer-pending");
+      }
+    })();
+  </script>
   <link rel="icon" type="image/png" sizes="284x284" href="./assets/n3xra_logo_transparent_small.png">
   <link rel="shortcut icon" type="image/png" href="./assets/n3xra_logo_transparent_small.png">
   <link rel="apple-touch-icon" href="./assets/n3xra_logo_transparent_small.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./assets/site-nav.css">
-  <link rel="stylesheet" href="./assets/site-intro.css?v=2">
+  <link rel="stylesheet" href="./assets/home.css?v=41">
   <script src="./assets/site-nav.js" defer></script>
   <script src="/shared/config.js"></script>
   <script type="module" src="/assets/master-auth-link.js"></script>
-  <style>
-    :root {
-      --ink: #0b1016;
-      --muted: #647082;
-      --paper: #f6f8fb;
-      --line: rgba(16, 24, 36, 0.13);
-      --cyan: #16b9ed;
-      --green: #16836f;
-      --gold: #e3a23a;
-      --deep: #070c12;
-      --radius: 8px;
-      --shadow: 0 24px 70px rgba(7, 12, 18, 0.22);
-    }
-
-    * {
-      box-sizing: border-box;
-    }
-
-    html {
-      scroll-behavior: smooth;
-    }
-
-    body {
-      margin: 0;
-      font-family: "Manrope", Arial, sans-serif;
-      color: var(--ink);
-      background: var(--paper);
-      line-height: 1.55;
-      min-height: 100svh;
-      display: flex;
-      flex-direction: column;
-    }
-
-    a {
-      color: inherit;
-    }
-
-    img {
-      display: block;
-      max-width: 100%;
-    }
-
-    .section-inner,
-    .footer-inner {
-      width: min(1120px, calc(100vw - 2rem));
-      margin: 0 auto;
-    }
-
-    .button {
-      min-height: 42px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      padding: 0.72rem 1rem;
-      border-radius: 999px;
-      text-decoration: none;
-      font-size: 0.88rem;
-      font-weight: 800;
-      border: 1px solid rgba(255, 255, 255, 0.24);
-    }
-
-    .button:hover {
-      transform: translateY(-1px);
-    }
-
-    .eyebrow {
-      margin: 0;
-      color: #98e9ff;
-      font-size: 0.76rem;
-      font-weight: 800;
-      letter-spacing: 0.22em;
-      text-transform: uppercase;
-    }
-
-    .sr-only {
-      position: absolute;
-      width: 1px;
-      height: 1px;
-      padding: 0;
-      margin: -1px;
-      overflow: hidden;
-      clip: rect(0, 0, 0, 0);
-      white-space: nowrap;
-      border: 0;
-    }
-
-    h1,
-    h2,
-    h3 {
-      margin: 0;
-      line-height: 1.02;
-    }
-
-    h1,
-    h2 {
-      font-family: "Fraunces", Georgia, serif;
-      font-weight: 700;
-      letter-spacing: 0;
-    }
-
-    h1 {
-      max-width: 860px;
-      font-size: clamp(2.85rem, 6.4vw, 5.7rem);
-    }
-
-    .hero-lede {
-      max-width: 760px;
-      margin: 0;
-      color: rgba(255, 255, 255, 0.72);
-      font-size: clamp(1.02rem, 2vw, 1.22rem);
-      font-weight: 700;
-    }
-
-    .button-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.75rem;
-      align-items: center;
-      justify-content: center;
-      margin-top: 0.2rem;
-    }
-
-    .button-primary {
-      color: #081018;
-      background: #ffffff;
-      border-color: #ffffff;
-      box-shadow: 0 18px 45px rgba(0, 0, 0, 0.28);
-    }
-
-    .button-ghost {
-      color: #ffffff;
-      background: rgba(255, 255, 255, 0.1);
-      border-color: rgba(255, 255, 255, 0.28);
-    }
-
-    .microline {
-      margin: 0;
-      color: rgba(255, 255, 255, 0.56);
-      font-size: 0.9rem;
-    }
-
-    main {
-      display: grid;
-      flex: 1;
-    }
-
-    .home-intro {
-      position: relative;
-      overflow: hidden;
-      min-height: 100svh;
-      display: grid;
-      color: #ffffff;
-      background:
-        radial-gradient(600px 360px at 15% 20%, rgba(22, 185, 237, 0.34), transparent 60%),
-        radial-gradient(520px 300px at 84% 10%, rgba(74, 112, 255, 0.28), transparent 55%),
-        linear-gradient(135deg, #07111d 0%, #0c1524 50%, #070c12 100%);
-      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-    }
-
-    .home-intro::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background: url("./assets/MAINLOGO.png") right -7rem center / min(620px, 52vw) no-repeat;
-      opacity: 0.12;
-      pointer-events: none;
-    }
-
-    .home-intro-inner {
-      position: relative;
-      z-index: 1;
-      width: min(1120px, calc(100vw - 2rem));
-      min-height: 100svh;
-      margin: 0 auto;
-      padding: clamp(7rem, 11vw, 9rem) 0 clamp(4rem, 7vw, 6rem);
-      display: grid;
-      grid-template-columns: minmax(0, 1.12fr) minmax(320px, 0.88fr);
-      gap: clamp(2rem, 5vw, 4rem);
-      align-items: center;
-    }
-
-    .intro-copy {
-      max-width: 820px;
-      display: grid;
-      gap: 1.05rem;
-      justify-items: center;
-      text-align: center;
-    }
-
-    .intro-logo {
-      width: min(540px, 82vw);
-      height: auto;
-      object-fit: contain;
-      filter: drop-shadow(0 28px 54px rgba(0, 0, 0, 0.34));
-    }
-
-    .intro-kicker {
-      width: fit-content;
-      display: inline-flex;
-      align-items: center;
-      gap: 0.55rem;
-      color: #a7edff;
-      font-size: 0.74rem;
-      font-weight: 800;
-      letter-spacing: 0.22em;
-      text-transform: uppercase;
-    }
-
-    .intro-kicker::before {
-      content: "";
-      width: 34px;
-      height: 1px;
-      background: currentColor;
-      box-shadow: 0 0 18px rgba(152, 233, 255, 0.75);
-    }
-
-    .intro-copy h1 {
-      color: #ffffff;
-      max-width: 900px;
-      font-size: clamp(3.1rem, 7vw, 6.2rem);
-      text-wrap: balance;
-    }
-
-    .intro-copy h1 span {
-      color: #98e9ff;
-    }
-
-    .intro-copy p {
-      max-width: 720px;
-      margin: 0;
-      color: rgba(235, 244, 250, 0.74);
-      font-size: clamp(1.02rem, 2vw, 1.24rem);
-      font-weight: 700;
-    }
-
-    .home-intro .button-row {
-      justify-content: center;
-      margin-top: 0.45rem;
-    }
-
-    .intro-routes {
-      display: grid;
-      gap: 0.85rem;
-    }
-
-    .intro-route {
-      display: grid;
-      grid-template-columns: auto 1fr;
-      gap: 0.2rem 0.85rem;
-      padding: 1rem;
-      color: #ffffff;
-      text-decoration: none;
-      border: 1px solid rgba(255, 255, 255, 0.14);
-      border-radius: 18px;
-      background: rgba(255, 255, 255, 0.065);
-      box-shadow: 0 22px 60px rgba(0, 0, 0, 0.22);
-      backdrop-filter: blur(18px);
-      transition: transform 220ms ease, border-color 220ms ease, background 220ms ease;
-    }
-
-    .intro-route:hover {
-      transform: translateY(-2px);
-      border-color: rgba(152, 233, 255, 0.42);
-      background: rgba(255, 255, 255, 0.095);
-    }
-
-    .intro-route em {
-      grid-row: span 2;
-      width: 2.45rem;
-      height: 2.45rem;
-      display: grid;
-      place-items: center;
-      border-radius: 999px;
-      color: #081018;
-      background: #98e9ff;
-      font-style: normal;
-      font-size: 0.8rem;
-      font-weight: 900;
-    }
-
-    .intro-route strong {
-      font-size: 1rem;
-    }
-
-    .intro-route span {
-      color: rgba(235, 244, 250, 0.68);
-      font-size: 0.92rem;
-    }
-
-    .software-band {
-      background: #ffffff;
-      border-bottom: 1px solid var(--line);
-    }
-
-    .ask-band {
-      background:
-        radial-gradient(circle at 8% 14%, rgba(47, 168, 255, 0.12), transparent 26rem),
-        radial-gradient(circle at 90% 10%, rgba(22, 131, 111, 0.1), transparent 22rem),
-        #f4f8fb;
-      border-bottom: 1px solid var(--line);
-    }
-
-    .ask-shell {
-      border: 1px solid rgba(11, 16, 22, 0.12);
-      border-radius: 22px;
-      background: #ffffff;
-      box-shadow: 0 24px 70px rgba(7, 12, 18, 0.09);
-      padding: clamp(1rem, 3vw, 1.8rem);
-      display: grid;
-      gap: 1rem;
-    }
-
-    .ask-grid {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 1rem;
-      align-items: start;
-    }
-
-    .ask-form {
-      display: grid;
-      gap: 0.75rem;
-    }
-
-    .ask-form label {
-      font-weight: 700;
-      font-size: 0.9rem;
-    }
-
-    .ask-form textarea {
-      width: 100%;
-      min-height: 125px;
-      resize: vertical;
-      border: 1px solid rgba(11, 16, 22, 0.24);
-      border-radius: 12px;
-      padding: 0.85rem 0.92rem;
-      font: inherit;
-      color: var(--ink);
-      background: #fcfdff;
-    }
-
-    .ask-form textarea:focus {
-      outline: 2px solid rgba(22, 185, 237, 0.34);
-      border-color: rgba(22, 185, 237, 0.54);
-    }
-
-    .ask-controls {
-      display: flex;
-      gap: 0.68rem;
-      align-items: center;
-      flex-wrap: wrap;
-    }
-
-    .ask-submit {
-      min-height: 44px;
-      border: 0;
-      border-radius: 999px;
-      padding: 0.72rem 1.2rem;
-      font: inherit;
-      font-size: 0.84rem;
-      font-weight: 800;
-      letter-spacing: 0.16em;
-      text-transform: uppercase;
-      color: #ffffff;
-      background: linear-gradient(135deg, #0b1016 0%, #1a2d43 100%);
-      cursor: pointer;
-    }
-
-    .ask-submit[disabled] {
-      opacity: 0.55;
-      cursor: wait;
-    }
-
-    .ask-hint {
-      margin: 0;
-      color: var(--muted);
-      font-size: 0.9rem;
-    }
-
-    .ask-status {
-      margin: 0;
-      min-height: 1.25rem;
-      color: #9a3412;
-      font-size: 0.9rem;
-      font-weight: 700;
-    }
-
-    .ask-answer {
-      margin: 0;
-      border: 1px solid rgba(22, 131, 111, 0.22);
-      border-radius: 12px;
-      background: #f3fbf7;
-      color: #123c31;
-      padding: 0.85rem 0.92rem;
-      font-size: 0.96rem;
-      white-space: pre-wrap;
-    }
-
-    .ask-answer a {
-      color: inherit;
-      font-weight: 800;
-      text-decoration: none;
-      border-bottom: 1px solid rgba(18, 60, 49, 0.28);
-    }
-
-    .ask-answer a:hover,
-    .ask-answer a:focus-visible {
-      border-bottom-color: currentColor;
-    }
-
-    .section {
-      padding: clamp(3rem, 7vw, 5.5rem) 0;
-    }
-
-    .section-inner {
-      display: grid;
-      gap: 1.6rem;
-    }
-
-    .section-head {
-      max-width: 780px;
-      display: grid;
-      gap: 0.75rem;
-    }
-
-    .section-head.center {
-      text-align: center;
-      justify-items: center;
-      margin: 0 auto;
-    }
-
-    .section-head .eyebrow {
-      color: var(--green);
-    }
-
-    h2 {
-      font-size: clamp(2rem, 4.6vw, 4rem);
-    }
-
-    .section-copy {
-      max-width: 68ch;
-      margin: 0;
-      color: var(--muted);
-      font-size: 1.03rem;
-    }
-
-    .software-panel {
-      border-radius: 22px;
-      border: 1px solid rgba(63, 140, 255, 0.28);
-      padding: clamp(1.2rem, 3vw, 2.4rem);
-      color: #fff;
-      background:
-        url("./assets/MAINLOGO.png") right 7% center / min(430px, 35vw) no-repeat,
-        radial-gradient(circle at 16% 10%, rgba(34, 138, 255, 0.2), transparent 22rem),
-        radial-gradient(circle at 85% 20%, rgba(27, 90, 191, 0.16), transparent 20rem),
-        linear-gradient(180deg, #050d1a 0%, #01060f 100%);
-      box-shadow: 0 28px 72px rgba(1, 8, 20, 0.45);
-      display: grid;
-      gap: 1.3rem;
-    }
-
-    .software-lede {
-      display: grid;
-      gap: 0.8rem;
-      max-width: 22ch;
-    }
-
-    .software-lede h3 {
-      margin: 0;
-      font-size: clamp(1.9rem, 5vw, 3.4rem);
-      line-height: 1.05;
-      color: #f7fbff;
-    }
-
-    .software-lede strong {
-      color: #22aeff;
-      font-weight: 800;
-    }
-
-    .software-lede p {
-      margin: 0;
-      color: rgba(229, 242, 255, 0.86);
-      max-width: 58ch;
-      font-size: 1.06rem;
-    }
-
-    .software-features {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      border-top: 1px solid rgba(112, 176, 255, 0.16);
-      padding-top: 1rem;
-    }
-
-    .software-feature {
-      padding: 0.45rem 1rem;
-      display: grid;
-      gap: 0.42rem;
-    }
-
-    .software-feature + .software-feature {
-      border-left: 1px solid rgba(112, 176, 255, 0.18);
-    }
-
-    .software-feature h4 {
-      margin: 0;
-      font-size: 1.05rem;
-      color: #f1f8ff;
-    }
-
-    .software-feature p {
-      margin: 0;
-      font-size: 0.92rem;
-      color: rgba(203, 221, 238, 0.88);
-    }
-
-    .software-cta {
-      width: fit-content;
-      min-height: 50px;
-      padding: 0.72rem 1.3rem;
-      border-radius: 999px;
-      border: 1px solid rgba(66, 161, 255, 0.64);
-      color: #4fb7ff;
-      text-decoration: none;
-      font-size: 0.84rem;
-      font-weight: 800;
-      letter-spacing: 0.16em;
-      text-transform: uppercase;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      background: rgba(17, 45, 87, 0.18);
-    }
-
-    .projects-band {
-      color: #ffffff;
-      background: var(--deep);
-    }
-
-    .projects-band .section-copy {
-      color: rgba(255, 255, 255, 0.68);
-    }
-
-    .projects-band .section-head .eyebrow {
-      color: #98e9ff;
-    }
-
-    .software-band .section-head .eyebrow {
-      color: #0b1016;
-    }
-
-    .project-strip {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-      gap: 1rem;
-    }
-
-    .project {
-      position: relative;
-      min-height: 350px;
-      display: flex;
-      align-items: flex-end;
-      overflow: hidden;
-      border-radius: var(--radius);
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      background: #121a22;
-      text-decoration: none;
-      box-shadow: 0 24px 64px rgba(0, 0, 0, 0.28);
-    }
-
-    .project.availability {
-      background:
-        radial-gradient(circle at 18% 12%, rgba(45, 224, 165, 0.22), transparent 18rem),
-        radial-gradient(circle at 82% 18%, rgba(35, 185, 255, 0.16), transparent 17rem),
-        linear-gradient(155deg, rgba(8, 26, 22, 0.92) 0%, rgba(2, 8, 7, 0.98) 100%);
-    }
-
-    .project.music-generator {
-      background:
-        linear-gradient(155deg, rgba(10, 20, 32, 0.82) 10%, rgba(2, 8, 14, 0.96) 100%),
-        url("./assets/aimusiclogo.png") center 32% / min(92%, 310px) auto no-repeat,
-        #07111d;
-    }
-
-    .project.utilities-portal {
-      background:
-        radial-gradient(circle at 18% 12%, rgba(45, 224, 165, 0.22), transparent 18rem),
-        radial-gradient(circle at 82% 18%, rgba(35, 185, 255, 0.16), transparent 17rem),
-        linear-gradient(155deg, rgba(8, 26, 22, 0.92) 0%, rgba(2, 8, 7, 0.98) 100%);
-    }
-
-    .project img {
-      position: absolute;
-      inset: 0;
-      display: block;
-      width: 100%;
-      height: 100%;
-      min-width: 100%;
-      min-height: 100%;
-      object-fit: cover;
-      object-position: center center;
-      transition: transform 420ms ease;
-    }
-
-    .project::after {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(180deg, rgba(7, 12, 18, 0.08), rgba(7, 12, 18, 0.86));
-    }
-
-    .project:hover img {
-      transform: scale(1.04);
-    }
-
-    .project.availability:hover {
-      border-color: rgba(152, 233, 255, 0.4);
-    }
-
-    .project-body {
-      position: relative;
-      z-index: 1;
-      padding: 1.2rem;
-      display: grid;
-      gap: 0.45rem;
-    }
-
-    .project-body span {
-      color: #98e9ff;
-      font-size: 0.72rem;
-      font-weight: 800;
-      letter-spacing: 0.16em;
-      text-transform: uppercase;
-    }
-
-    .project-body h3 {
-      font-size: 1.35rem;
-    }
-
-    .project-body p {
-      margin: 0;
-      color: rgba(255, 255, 255, 0.72);
-      font-size: 0.94rem;
-    }
-
-    .closing {
-      background:
-        linear-gradient(90deg, rgba(246, 248, 251, 0.96), rgba(246, 248, 251, 0.82)),
-        url("./assets/MAINLOGO.png") right center / min(560px, 65vw) no-repeat;
-    }
-
-    .closing-panel {
-      max-width: 660px;
-      display: grid;
-      gap: 1rem;
-      margin: 0 auto;
-      justify-items: center;
-      text-align: center;
-    }
-
-    .closing .button-primary {
-      color: #ffffff;
-      background: var(--deep);
-      border-color: var(--deep);
-    }
-
-    .closing .button-ghost {
-      color: var(--ink);
-      background: rgba(255, 255, 255, 0.78);
-      border-color: var(--line);
-    }
-
-    .closing .eyebrow {
-      color: #0b1016;
-    }
-
-    .site-footer {
-      padding: 1.35rem 0;
-      color: rgba(255, 255, 255, 0.58);
-      background: #070c12;
-      border-top: 1px solid rgba(255, 255, 255, 0.08);
-    }
-
-    .footer-inner {
-      display: grid;
-      gap: 0.6rem;
-      justify-items: center;
-      font-size: 0.86rem;
-      text-align: center;
-    }
-
-    .footer-inner p {
-      margin: 0;
-    }
-
-    .footer-inner a {
-      color: inherit;
-      text-decoration: none;
-      font-weight: 800;
-    }
-
-    @media (max-width: 900px) {
-      .home-intro::before {
-        background-position: center 18%;
-        background-size: min(520px, 86vw);
-        opacity: 0.08;
-      }
-
-      .home-intro-inner {
-        grid-template-columns: 1fr;
-        min-height: 100svh;
-        padding: clamp(6.5rem, 14vw, 8rem) 0 clamp(3.5rem, 9vw, 5rem);
-        text-align: center;
-        justify-items: center;
-      }
-
-      .intro-copy {
-        justify-items: center;
-      }
-
-      .intro-kicker::before {
-        display: none;
-      }
-
-      .home-intro .button-row {
-        justify-content: center;
-      }
-
-      .intro-routes {
-        width: min(100%, 620px);
-      }
-
-      .software-panel {
-        background:
-          radial-gradient(circle at 16% 10%, rgba(34, 138, 255, 0.2), transparent 22rem),
-          radial-gradient(circle at 85% 20%, rgba(27, 90, 191, 0.16), transparent 20rem),
-          linear-gradient(180deg, #050d1a 0%, #01060f 100%);
-      }
-
-      .ask-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .software-lede {
-        max-width: 100%;
-        justify-items: center;
-        text-align: center;
-        padding-top: 0;
-      }
-
-      .software-features {
-        grid-template-columns: 1fr;
-        text-align: center;
-      }
-
-      .software-feature + .software-feature {
-        border-left: 0;
-        border-top: 1px solid rgba(112, 176, 255, 0.18);
-      }
-
-      .software-cta {
-        justify-self: center;
-      }
-
-      .project-strip {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-
-      .project {
-        min-height: 330px;
-      }
-
-      .project::after {
-        background: linear-gradient(180deg, rgba(7, 12, 18, 0.52), rgba(7, 12, 18, 0.92) 58%, rgba(7, 12, 18, 0.98));
-      }
-
-      .project-body {
-        width: 100%;
-        padding: 1rem;
-        background: rgba(7, 12, 18, 0.78);
-        border-top: 1px solid rgba(255, 255, 255, 0.08);
-        text-shadow: 0 2px 18px rgba(0, 0, 0, 0.92);
-      }
-
-      .project-body p {
-        color: rgba(255, 255, 255, 0.9);
-      }
-    }
-
-    @media (max-width: 680px) {
-      .home-intro-inner {
-        width: min(100% - 1.35rem, 1120px);
-        min-height: 100svh;
-        padding: 5.5rem 0 2.35rem;
-      }
-
-      .intro-copy {
-        gap: 0.9rem;
-      }
-
-      .intro-logo {
-        width: min(520px, 92vw);
-      }
-
-      .intro-copy p {
-        font-size: 0.98rem;
-      }
-
-      .intro-routes {
-        gap: 0.65rem;
-      }
-
-      .intro-route {
-        padding: 0.88rem;
-        border-radius: 14px;
-      }
-
-      .intro-route em {
-        width: 2.1rem;
-        height: 2.1rem;
-        font-size: 0.72rem;
-      }
-
-      h1 {
-        font-size: clamp(2.6rem, 14vw, 4.2rem);
-      }
-
-      .button-row,
-      .button {
-        width: 100%;
-      }
-
-      .closing {
-        background:
-          linear-gradient(180deg, rgba(246, 248, 251, 0.96), rgba(246, 248, 251, 0.9)),
-          url("./assets/MAINLOGO.png") center center / 92vw no-repeat;
-        padding: 3.25rem 0;
-      }
-
-      .closing .section-inner {
-        display: grid;
-        place-items: center;
-      }
-
-      .project-strip {
-        gap: 0.7rem;
-      }
-
-      .project {
-        min-height: 285px;
-      }
-
-      .project-body {
-        padding: 0.82rem;
-        gap: 0.32rem;
-      }
-
-      .project-body span {
-        font-size: 0.61rem;
-        letter-spacing: 0.13em;
-      }
-
-      .project-body h3 {
-        font-size: clamp(1rem, 4.8vw, 1.26rem);
-      }
-
-      .project-body p {
-        font-size: clamp(0.78rem, 3.35vw, 0.9rem);
-        line-height: 1.42;
-      }
-
-      .footer-inner {
-        flex-direction: column;
-      }
-    }
-
-  </style>
+  <script src="./assets/home.js?v=13" defer></script>
 </head>
 <body>
-  <div class="entry-splash" aria-hidden="true" data-entry-splash>
-    <img src="./assets/n3xra_logo_transparent.png" alt="">
-  </div>
-  <script src="./assets/site-intro.js?v=2"></script>
+  <a class="skip-link" href="#main-content">Skip to content</a>
 
-  <header class="site-topbar">
+  <header class="site-topbar home-topbar" data-home-header>
     <div class="site-topbar-inner">
       <div class="site-topbar-row">
-        <a class="site-brand" href="/" aria-label="N3XRA home">
-          <img src="./assets/n3xra_logo_transparent.png" alt="N3XRA">
+        <a class="site-brand home-brand" href="/" aria-label="N3XRA home">
+          <img src="./assets/n3xra_logo_transparent_small.png" alt="">
+          <span>N3XRA</span>
         </a>
+
+        <nav class="desktop-nav" aria-label="Primary">
+          <a href="/projects/">Projects</a>
+          <a href="/services/">Services</a>
+          <a href="/support/">Support</a>
+          <a href="#software">Software</a>
+        </nav>
+
         <div class="site-nav-actions">
           <a class="site-menu-link site-auth-link" href="/account" data-master-auth-link>Login</a>
           <button class="site-menu-toggle" type="button" aria-expanded="false" aria-controls="home-mobile-menu" aria-label="Open menu" data-site-menu-toggle>
@@ -943,184 +97,116 @@
           </button>
         </div>
       </div>
+
       <nav class="site-mobile-menu" id="home-mobile-menu" aria-label="Mobile primary" hidden>
         <div class="site-mobile-menu-head">
-          <p class="site-mobile-menu-title">Navigate</p>
+          <p class="site-mobile-menu-title">Explore N3XRA</p>
         </div>
-        <a class="site-menu-link" href="/records/">N3XRA Records</a>
-        <a class="site-menu-link" href="/services/">Services</a>
         <a class="site-menu-link" href="/projects/">Projects</a>
-        <a class="site-menu-link" href="/ai-music-generator/">AI Music Generator</a>
-        <a class="site-menu-link" href="/virals/">N3XRA Virals</a>
-        <a class="site-menu-link" href="/utilities/">N3XRA Utilities</a>
+        <a class="site-menu-link" href="/services/">Services</a>
+        <a class="site-menu-link" href="/support/">Support</a>
+        <a class="site-menu-link" href="#software">Software</a>
       </nav>
     </div>
   </header>
 
-  <main>
-    <section class="home-intro" aria-labelledby="home-intro-title">
-      <div class="home-intro-inner">
-        <div class="intro-copy">
-          <img class="intro-logo" src="./assets/welcomen3xra.png" alt="Welcome N3XRA" />
-          <h1 class="sr-only" id="home-intro-title">Welcome to N3XRA</h1>
-          <p>N3XRA brings practical records systems, public-facing project systems, and useful AI tools into one clear home.</p>
-          <div class="button-row">
-            <a class="button button-primary" href="/records/">Explore Records</a>
-            <a class="button button-ghost" href="/services/">View Services</a>
-            <a class="button button-ghost" href="/projects/">View Projects</a>
+  <main id="main-content">
+    <section class="home-intro hero minimal-hero" aria-labelledby="hero-title">
+      <div class="page-shell hero-shell minimal-hero-shell">
+        <div class="hero-copy minimal-hero-copy">
+          <div class="hero-logo">
+            <img src="./assets/welcomen3xra.png" alt="Welcome to N3XRA" fetchpriority="high" decoding="async">
           </div>
+          <h1 id="hero-title">
+            <span class="hero-title-line">Websites, systems, and software</span>
+            <span class="hero-title-line">for what’s next.</span>
+          </h1>
+          <p class="hero-lede">We design and build digital tools that help good ideas move forward.</p>
+
+          <nav class="hero-quick-links" aria-label="Quick links">
+            <a href="/projects/"><span>Projects</span></a>
+            <a href="/services/"><span>Services</span></a>
+            <a href="/support/"><span>Support</span></a>
+          </nav>
         </div>
 
-        <div class="intro-routes" aria-label="N3XRA sections">
-          <a class="intro-route" href="/records/">
-            <em>01</em>
-            <strong>N3XRA Records</strong>
-            <span>Searchable records, document access, and organized public information.</span>
-          </a>
-          <a class="intro-route" href="/projects/">
-            <em>02</em>
-            <strong>Project Systems</strong>
-            <span>Selected websites and custom tools built for real organizations.</span>
-          </a>
-          <a class="intro-route" href="/ai-music-generator/">
-            <em>03</em>
-            <strong>AI Music Generator</strong>
-            <span>A creative N3XRA tool for generating custom songs from prompts.</span>
-          </a>
-          <a class="intro-route" href="/virals/">
-            <em>04</em>
-            <strong>N3XRA Virals</strong>
-            <span>Analyze TikTok winners and turn them into reusable content frameworks.</span>
-          </a>
-          <a class="intro-route" href="/utilities/">
-            <em>05</em>
-            <strong>N3XRA Utilities</strong>
-            <span>The operating system for utility providers and districts.</span>
-          </a>
+        <a class="scroll-cue" href="#creator">
+          <span>Scroll to explore</span>
+        </a>
+      </div>
+    </section>
+
+    <section class="creator-section" id="creator" aria-labelledby="creator-title">
+      <div class="creator-portrait">
+        <img src="./assets/MeetCreator-home.jpg" alt="Quentin, founder of N3XRA" loading="lazy" decoding="async">
+      </div>
+      <div class="creator-light" aria-hidden="true"></div>
+
+      <div class="page-shell creator-shell">
+        <div class="creator-copy" data-reveal>
+          <p class="eyebrow eyebrow-light">Meet the creator</p>
+          <h2 id="creator-title">Hi, I’m Quentin,<br>founder of N3XRA.</h2>
+          <div class="creator-statement">
+            <p>What started as building software for my own projects quickly became a passion for solving real-world problems.</p>
+            <p>After creating custom tools for memberships, scheduling, automation, records management, notifications, and business operations, I founded N3XRA in May 2026 to help other businesses work smarter with modern software, AI, and automation.</p>
+          </div>
+          <a class="creator-link" href="https://quentinnichols.com/">More about Quentin</a>
         </div>
       </div>
     </section>
 
-    <section class="section software-band" aria-label="The records software">
-      <div class="section-inner">
-        <div class="section-head center">
-          <p class="eyebrow">The records software</p>
+    <section class="work-proof" id="custom-builds" aria-labelledby="work-proof-title">
+      <div class="page-shell work-proof-shell">
+        <header class="work-proof-heading" data-reveal>
+          <p class="eyebrow eyebrow-light">Selected work</p>
+          <h2 id="work-proof-title">Ideas, already brought to life.</h2>
+        </header>
+
+        <div class="work-proof-gallery" aria-label="Selected N3XRA projects" data-reveal>
+          <a class="work-proof-project" href="https://www.blyoregon.org" aria-label="Visit the Community of Bly website">
+            <img src="/projects/assets/blyoregon.org.png" alt="" loading="lazy" decoding="async">
+            <span>Community of Bly Website</span>
+          </a>
+          <a class="work-proof-project" href="https://theblyoutdoorstore.com" aria-label="Visit The Bly Outdoor Store website">
+            <img src="/assets/theblyoutdoorstore.png" alt="" loading="lazy" decoding="async">
+            <span>The Bly Outdoor Store</span>
+          </a>
+          <a class="work-proof-project" href="/sample-sites/SampleCapaignWebsite/" aria-label="View the judicial campaign website">
+            <img src="/assets/ColeChaseForJudgeOLD.png" alt="" loading="lazy" decoding="async">
+            <span>Judicial Campaign Website</span>
+          </a>
         </div>
 
-        <article class="software-panel">
-          <div class="software-lede">
-            <h3>We saw an opportunity to make <strong>records management</strong> better and took the challenge.</h3>
-            <p>Now integrated across real projects, it is becoming a trusted system for teams that need clarity, structure, and control.</p>
+        <div class="work-proof-cta" data-reveal>
+          <div>
+            <p>Have something you want built?</p>
+            <h3>Let’s make yours next.</h3>
           </div>
-
-          <div class="software-features" aria-label="Records capabilities">
-            <article class="software-feature">
-              <h4>Organize Records</h4>
-              <p>Keep everything in the right place.</p>
-            </article>
-            <article class="software-feature">
-              <h4>Find What You Need</h4>
-              <p>Search fast. Work faster.</p>
-            </article>
-            <article class="software-feature">
-              <h4>Secure Access</h4>
-              <p>Right people. Right information.</p>
-            </article>
-            <article class="software-feature">
-              <h4>Built for Real Teams</h4>
-              <p>Designed for the way you work.</p>
-            </article>
-          </div>
-
-          <a class="software-cta" href="/records/">Explore N3XRA Records</a>
-        </article>
-      </div>
-    </section>
-
-    <section class="section projects-band" aria-labelledby="projects-title">
-      <div class="section-inner">
-        <div class="section-head center">
-          <p class="eyebrow">Project systems</p>
-          <h2 id="projects-title">Custom websites and records systems.</h2>
-          <p class="section-copy">
-            Built by Quentin Nichols for community organizations, service businesses, and creator platforms.
-          </p>
-        </div>
-
-        <div class="project-strip">
-          <a class="project" href="https://ruthobenchainrc.com">
-            <img src="./projects/assets/RORCimage.png" alt="Ruth Obenchain Recreation Center website preview" loading="lazy" decoding="async">
-            <div class="project-body">
-              <span>Community system</span>
-              <h3>Ruth Obenchain Recreation Center</h3>
-              <p>Memberships, access control, and automated systems for daily use.</p>
-            </div>
-          </a>
-
-          <a class="project" href="https://www.blyoregon.org">
-            <img src="./projects/assets/blyoregon.org.png" alt="blyoregon.org website preview" loading="lazy" decoding="async">
-            <div class="project-body">
-              <span>Public information</span>
-              <h3>blyoregon.org</h3>
-              <p>A centralized platform for community records, updates, and local resources.</p>
-            </div>
-          </a>
-
-          <a class="project music-generator" href="/ai-music-generator/">
-            <div class="project-body">
-              <span>AI tool</span>
-              <h3>AI Music Generator</h3>
-              <p>Create custom songs from a prompt or original lyrics.</p>
-            </div>
-          </a>
-
-          <a class="project" href="/virals/">
-            <div class="project-body">
-              <span>AI tool</span>
-              <h3>N3XRA Virals</h3>
-              <p>Break down TikTok videos into hooks, frameworks, scripts, and posting ideas.</p>
-            </div>
-          </a>
-
-          <a class="project utilities-portal" href="/utilities/">
-            <div class="project-body">
-              <span>Utility operations</span>
-              <h3>N3XRA Utilities</h3>
-              <p>Centralize customer accounts, billing, records, payments, communications, and reporting.</p>
-            </div>
-          </a>
-
-          <a class="project availability" href="/projects/">
-            <div class="project-body">
-              <span>Project availability</span>
-              <h3>View All Projects</h3>
-              <p>Explore active builds, published websites, and current implementation availability.</p>
-            </div>
-          </a>
-        </div>
-      </div>
-    </section>
-
-    <section class="section closing" aria-labelledby="closing-title">
-      <div class="section-inner">
-        <div class="closing-panel">
-          <p class="eyebrow">Start here</p>
-          <h2 id="closing-title">Choose the path that fits.</h2>
-          <p class="section-copy">
-            Open N3XRA Records, review the project folder, use the AI Music Generator, analyze TikTok content with N3XRA Virals, or enter the Utilities portal.
-          </p>
-          <div class="button-row">
-            <a class="button button-primary" href="/records/">Open N3XRA Records</a>
-            <a class="button button-ghost" href="/projects/">See the projects</a>
-            <a class="button button-ghost" href="/ai-music-generator/">Open Music Generator</a>
-            <a class="button button-ghost" href="/virals/">Open N3XRA Virals</a>
-            <a class="button button-ghost" href="/utilities/">Open Utilities</a>
+          <div class="work-proof-actions">
+            <a class="button button-light" href="/website-request/">Start a project</a>
+            <a class="work-proof-all" href="/projects/">See everything we’ve built</a>
           </div>
         </div>
       </div>
     </section>
 
-    <section class="section ask-band" aria-labelledby="ask-title">
+    <section class="software-showcase" id="software" aria-labelledby="software-showcase-title">
+      <div class="page-shell software-showcase-shell">
+        <header class="software-showcase-heading" data-reveal>
+          <p class="eyebrow eyebrow-light">N3XRA software</p>
+          <h2 id="software-showcase-title">Software, ready to use.</h2>
+        </header>
+
+        <nav class="software-project-links" aria-label="N3XRA software projects" data-reveal>
+          <a href="/records/">N3XRA Records</a>
+          <a href="/utilities/">N3XRA Utilities</a>
+          <a href="/virals/">N3XRA Virals</a>
+          <a href="/ai-music-generator/">AI Music Generator</a>
+        </nav>
+      </div>
+    </section>
+
+    <section class="section ask-band" id="ask-n3xra" aria-labelledby="ask-title">
       <div class="section-inner">
         <div class="section-head center">
           <p class="eyebrow">Ask N3XRA</p>
@@ -1145,103 +231,42 @@
     </section>
   </main>
 
-  <footer class="site-footer">
-    <div class="footer-inner">
-      <p>&copy; 2026 <strong>N3XRA LLC.</strong> All rights reserved.</p>
-      <p><a href="/support">Support</a> · <a href="/terms">Terms</a> · <a href="/privacy">Privacy</a></p>
+  <footer class="site-footer home-footer">
+    <div class="page-shell footer-grid">
+      <div class="footer-brand">
+        <a class="home-brand" href="/" aria-label="N3XRA home">
+          <img src="./assets/n3xra_logo_transparent_small.png" alt="">
+          <span>N3XRA</span>
+        </a>
+        <p>Custom websites, connected systems, and practical software.</p>
+      </div>
+
+      <nav class="footer-nav" aria-label="Company">
+        <p>Explore</p>
+        <a href="/projects/">Projects</a>
+        <a href="/services/">Services</a>
+        <a href="/support/">Support</a>
+      </nav>
+
+      <nav class="footer-nav" aria-label="Software">
+        <p>Software</p>
+        <a href="/records/">Records</a>
+        <a href="/utilities/">Utilities</a>
+        <a href="/virals/">Virals</a>
+        <a href="/ai-music-generator/">AI Music</a>
+      </nav>
+
+      <nav class="footer-nav" aria-label="Account and legal">
+        <p>N3XRA</p>
+        <a href="/account" data-master-auth-link>Login</a>
+        <a href="/privacy/">Privacy</a>
+        <a href="/terms/">Terms</a>
+      </nav>
+    </div>
+    <div class="page-shell footer-bottom">
+      <p>&copy; 2026 N3XRA LLC. All rights reserved.</p>
       <p>Built by <a href="https://quentinnichols.com/">Quentin Nichols</a>.</p>
     </div>
   </footer>
-  <script>
-    (function () {
-      const form = document.getElementById("ask-form");
-      const input = document.getElementById("ask-input");
-      const submit = document.getElementById("ask-submit");
-      const status = document.getElementById("ask-status");
-      const answer = document.getElementById("ask-answer");
-      const chatHistory = [];
-      const MAX_HISTORY_MESSAGES = 10;
-
-      if (!form || !input || !submit || !status || !answer) return;
-
-      function escapeHtml(value) {
-        return String(value || "")
-          .replaceAll("&", "&amp;")
-          .replaceAll("<", "&lt;")
-          .replaceAll(">", "&gt;")
-          .replaceAll('"', "&quot;")
-          .replaceAll("'", "&#39;");
-      }
-
-      function renderAnswer(text) {
-        let html = escapeHtml(text);
-        html = html.replace(/&lt;strong&gt;([\s\S]*?)&lt;\/strong&gt;/gi, "<strong>$1</strong>");
-        html = html.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
-        html = html.replace(
-          /\b(https?:\/\/[^\s<]+)/gi,
-          '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>'
-        );
-        html = html.replace(/(^|[\s(])\/ai-music-generator\/?(?=[\s).,!?;:]|$)/gi, '$1<a class="ask-route-link" href="/ai-music-generator/">AI Music Generator</a>');
-        html = html.replace(/(^|[\s(])\/virals\/?(?=[\s).,!?;:]|$)/gi, '$1<a class="ask-route-link" href="/virals/">N3XRA Virals</a>');
-        html = html.replace(/(^|[\s(])\/utilities\/?(?=[\s).,!?;:]|$)/gi, '$1<a class="ask-route-link" href="/utilities/">N3XRA Utilities</a>');
-        html = html.replace(/(^|[\s(])\/records\/?(?=[\s).,!?;:]|$)/gi, '$1<a class="ask-route-link" href="/records/">N3XRA Records</a>');
-        html = html.replace(/(^|[\s(])\/services\/?(?=[\s).,!?;:]|$)/gi, '$1<a class="ask-route-link" href="/services/">Services</a>');
-        html = html.replace(/(^|[\s(])\/projects\/?(?=[\s).,!?;:]|$)/gi, '$1<a class="ask-route-link" href="/projects/">Projects</a>');
-        html = html.replace(/(^|[\s(])\/support\/?(?=[\s).,!?;:]|$)/gi, '$1<a class="ask-route-link" href="/support/">Support</a>');
-        html = html.replace(/(^|[\s(])\/terms\/?(?=[\s).,!?;:]|$)/gi, '$1<a class="ask-route-link" href="/terms/">Terms</a>');
-        html = html.replace(/(^|[\s(])\/privacy\/?(?=[\s).,!?;:]|$)/gi, '$1<a class="ask-route-link" href="/privacy/">Privacy</a>');
-        html = html.replace(/\n/g, "<br>");
-        return html;
-      }
-
-      form.addEventListener("submit", async function (event) {
-        event.preventDefault();
-        const question = input.value.trim();
-        answer.hidden = true;
-        answer.innerHTML = "";
-        status.textContent = "";
-
-        if (!question) {
-          status.textContent = "Enter a question first.";
-          return;
-        }
-
-        submit.disabled = true;
-        submit.textContent = "Thinking...";
-
-        try {
-          const response = await fetch("/api/ask", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ question, history: chatHistory }),
-          });
-          const data = await response.json().catch(function () { return {}; });
-
-          if (!response.ok) {
-            status.textContent = data && data.error ? String(data.error) : "Unable to get an answer right now.";
-            return;
-          }
-
-          const answerText = String(data.answer || "").trim();
-          answer.innerHTML = renderAnswer(answerText);
-          answer.hidden = !answerText;
-          if (answerText) {
-            chatHistory.push({ role: "user", content: question });
-            chatHistory.push({ role: "assistant", content: answerText });
-            if (chatHistory.length > MAX_HISTORY_MESSAGES) {
-              chatHistory.splice(0, chatHistory.length - MAX_HISTORY_MESSAGES);
-            }
-            input.value = "";
-            input.focus();
-          }
-        } catch (_error) {
-          status.textContent = "Request failed. Please try again.";
-        } finally {
-          submit.disabled = false;
-          submit.textContent = "Ask";
-        }
-      });
-    })();
-  </script>
 </body>
 </html>

@@ -25,18 +25,28 @@
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/site-nav.css">
   <link rel="stylesheet" href="/partners/partners.css">
+  <link rel="stylesheet" href="/assets/home-shell.css?v=1">
   <script src="/assets/site-nav.js" defer></script>
   <script src="/shared/config.js"></script>
   <script type="module" src="/assets/master-auth-link.js"></script>
   <script src="/partners/partners.js" defer></script>
 </head>
 <body>
-  <header class="site-topbar partners-topbar">
+  <header class="site-topbar home-topbar partners-topbar" data-home-header>
     <div class="site-topbar-inner">
       <div class="site-topbar-row">
-        <a class="site-brand" href="/" aria-label="N3XRA home">
-          <img src="/assets/n3xra_logo_transparent.png" alt="N3XRA">
+        <a class="site-brand home-brand" href="/" aria-label="N3XRA home">
+          <img src="/assets/n3xra_logo_transparent_small.png" alt="">
+          <span>N3XRA</span>
         </a>
+
+        <nav class="desktop-nav" aria-label="Primary">
+          <a href="/projects/">Projects</a>
+          <a href="/services/">Services</a>
+          <a href="/support/">Support</a>
+          <a href="/#software">Software</a>
+        </nav>
+
         <div class="site-nav-actions">
           <a class="site-menu-link site-auth-link" href="/account" data-master-auth-link>Login</a>
           <button class="site-menu-toggle" type="button" aria-expanded="false" aria-controls="partners-mobile-menu" aria-label="Open menu" data-site-menu-toggle>
@@ -47,16 +57,11 @@
         </div>
       </div>
       <nav class="site-mobile-menu" id="partners-mobile-menu" aria-label="Mobile primary" hidden>
-        <div class="site-mobile-menu-head">
-          <p class="site-mobile-menu-title">Navigate</p>
-        </div>
-        <a class="site-menu-link" href="/">Home</a>
-        <a class="site-menu-link" href="/records/">N3XRA Records</a>
-        <a class="site-menu-link" href="/services/">Services</a>
+        <div class="site-mobile-menu-head"><p class="site-mobile-menu-title">Explore N3XRA</p></div>
         <a class="site-menu-link" href="/projects/">Projects</a>
-        <a class="site-menu-link" href="/ai-music-generator/">AI Music Generator</a>
-        <a class="site-menu-link" href="/virals/">N3XRA Virals</a>
-        <a class="site-menu-link" href="/utilities/">N3XRA Utilities</a>
+        <a class="site-menu-link" href="/services/">Services</a>
+        <a class="site-menu-link" href="/support/">Support</a>
+        <a class="site-menu-link" href="/#software">Software</a>
       </nav>
     </div>
   </header>
@@ -228,12 +233,50 @@
     </section>
   </main>
 
-  <footer class="site-footer">
-    <div class="footer-inner">
-      <p>&copy; 2026 <strong>N3XRA LLC.</strong> All rights reserved.</p>
-      <p><a href="/support">Support</a> · <a href="/terms">Terms</a> · <a href="/privacy">Privacy</a></p>
+  <footer class="site-footer home-footer">
+    <div class="page-shell footer-grid">
+      <div class="footer-brand">
+        <a class="home-brand" href="/" aria-label="N3XRA home">
+          <img src="/assets/n3xra_logo_transparent_small.png" alt="">
+          <span>N3XRA</span>
+        </a>
+        <p>Custom websites, connected systems, and practical software.</p>
+      </div>
+
+      <nav class="footer-nav" aria-label="Company">
+        <p>Explore</p>
+        <a href="/projects/">Projects</a>
+        <a href="/services/">Services</a>
+        <a href="/support/">Support</a>
+      </nav>
+
+      <nav class="footer-nav" aria-label="Software">
+        <p>Software</p>
+        <a href="/records/">Records</a>
+        <a href="/utilities/">Utilities</a>
+        <a href="/virals/">Virals</a>
+        <a href="/ai-music-generator/">AI Music</a>
+      </nav>
+
+      <nav class="footer-nav" aria-label="Account and legal">
+        <p>N3XRA</p>
+        <a href="/account" data-master-auth-link>Login</a>
+        <a href="/privacy/">Privacy</a>
+        <a href="/terms/">Terms</a>
+      </nav>
+    </div>
+    <div class="page-shell footer-bottom">
+      <p>&copy; 2026 N3XRA LLC. All rights reserved.</p>
       <p>Built by <a href="https://quentinnichols.com/">Quentin Nichols</a>.</p>
     </div>
   </footer>
+  <script>
+    (() => {
+      const header = document.querySelector("[data-home-header]");
+      const updateHeader = () => header?.classList.toggle("is-scrolled", window.scrollY > 20);
+      updateHeader();
+      window.addEventListener("scroll", updateHeader, { passive: true });
+    })();
+  </script>
 </body>
 </html>

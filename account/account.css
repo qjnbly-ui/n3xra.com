@@ -1,34 +1,36 @@
 body {
   min-height: 100svh;
+  display: flex;
+  flex-direction: column;
   background:
-    linear-gradient(180deg, #07111d 0, #07111d 6.5rem, transparent 6.5rem),
-    radial-gradient(760px 360px at 9% 8%, rgba(23, 111, 102, 0.14), transparent 58%),
-    radial-gradient(680px 340px at 92% 6%, rgba(234, 155, 63, 0.12), transparent 58%),
+    radial-gradient(720px 360px at 8% 4%, rgba(35, 199, 244, 0.08), transparent 62%),
     linear-gradient(180deg, #f8fafc 0%, #edf2f7 100%);
 }
 
-.site-topbar {
-  background:
-    radial-gradient(520px 220px at 8% 0%, rgba(23, 111, 102, 0.36), transparent 62%),
-    radial-gradient(520px 220px at 96% 0%, rgba(234, 155, 63, 0.2), transparent 62%),
-    linear-gradient(90deg, #07111d 0%, #0b1420 58%, #15100c 100%);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+.site-topbar.home-topbar.account-topbar {
+  background: rgba(5, 10, 18, 0.94);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
 }
 
 .account-main {
+  flex: 1;
   width: min(1280px, calc(100vw - 2rem));
   margin: 0 auto;
-  padding: clamp(5.2rem, 8vw, 6.8rem) 0 clamp(2rem, 5vw, 4rem);
+  padding: 5.75rem 0 clamp(3rem, 6vw, 5rem);
 }
 
 .account-panel {
+  width: min(620px, 100%);
+  margin: 0 auto;
   display: grid;
-  grid-template-columns: minmax(280px, 0.85fr) minmax(340px, 1fr);
-  gap: 1rem;
-  align-items: stretch;
+  grid-template-columns: 1fr;
+  gap: 1.15rem;
+  align-items: start;
 }
 
 .account-panel.is-dashboard {
+  width: 100%;
   grid-template-columns: 1fr;
 }
 
@@ -37,43 +39,31 @@ body {
 }
 
 .account-hero {
-  border-radius: var(--radius-lg);
-  color: var(--white);
-  padding: clamp(1.4rem, 4vw, 2.5rem);
-  min-height: 520px;
+  color: var(--ink);
+  padding: 0 0 0.35rem;
   display: grid;
-  align-items: end;
-  background:
-    radial-gradient(520px 300px at 14% 10%, rgba(22, 185, 237, 0.28), transparent 60%),
-    radial-gradient(460px 260px at 92% 12%, rgba(234, 155, 63, 0.26), transparent 58%),
-    linear-gradient(145deg, #07111d 0%, #111c2b 52%, #070c12 100%);
-  overflow: hidden;
+  justify-items: center;
+  text-align: center;
 }
 
 .account-hero h1 {
-  margin: 0.7rem 0;
-  max-width: 11ch;
-  font-family: "Fraunces", "Times New Roman", serif;
-  font-size: clamp(2.4rem, 7vw, 4.6rem);
-  line-height: 0.98;
-}
-
-.account-hero p:not(.auth-kicker) {
   margin: 0;
-  max-width: 36ch;
-  color: rgba(255, 255, 255, 0.76);
+  font-family: "Manrope", Arial, sans-serif;
+  font-size: clamp(1.9rem, 5vw, 2.8rem);
   font-weight: 700;
+  letter-spacing: -0.055em;
+  line-height: 1;
 }
 
 .account-card {
-  border-radius: var(--radius-lg);
+  border-radius: 12px;
   border: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(10px);
-  padding: clamp(1.2rem, 3vw, 1.8rem);
+  background: #ffffff;
+  padding: clamp(1.25rem, 3vw, 1.75rem);
   display: grid;
   gap: 1rem;
   align-content: start;
+  box-shadow: 0 20px 55px rgba(7, 16, 26, 0.07);
 }
 
 .account-dashboard {
@@ -656,7 +646,7 @@ body {
 }
 
 .account-status {
-  grid-column: 2;
+  grid-column: 1;
   margin: 0;
 }
 
@@ -682,10 +672,6 @@ body {
     grid-template-columns: 1fr;
   }
 
-  .account-hero {
-    min-height: 320px;
-  }
-
   .account-status {
     grid-column: auto;
   }
@@ -694,19 +680,16 @@ body {
 @media (max-width: 620px) {
   body {
     background:
-      linear-gradient(180deg, #07111d 0, #07111d 5.4rem, transparent 5.4rem),
-      radial-gradient(760px 360px at 9% 8%, rgba(23, 111, 102, 0.14), transparent 58%),
-      radial-gradient(680px 340px at 92% 6%, rgba(234, 155, 63, 0.12), transparent 58%),
+      radial-gradient(520px 280px at 8% 3%, rgba(35, 199, 244, 0.08), transparent 62%),
       linear-gradient(180deg, #f8fafc 0%, #edf2f7 100%);
   }
 
   .account-main {
     width: min(100vw - 1rem, 1180px);
-    padding-top: 4.9rem;
+    padding-top: 5rem;
   }
 
-  .account-card,
-  .account-hero {
+  .account-card {
     border-radius: 12px;
   }
 

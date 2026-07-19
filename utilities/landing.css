@@ -1,0 +1,35 @@
+.utilities-landing {
+  --bg: #07111d;
+  --bg-deep: #050a12;
+  --panel: rgba(255, 255, 255, 0.065);
+  --panel-strong: rgba(255, 255, 255, 0.095);
+  --ink: #ffffff;
+  --muted: rgba(232, 242, 250, 0.62);
+  --line: rgba(168, 239, 255, 0.14);
+  --mint: #78dff5;
+  --cyan: #59a8ff;
+  --amber: #a8efff;
+  background:
+    radial-gradient(700px 420px at 14% 10%, rgba(35, 199, 244, 0.17), transparent 62%),
+    radial-gradient(620px 380px at 86% 14%, rgba(47, 108, 255, 0.17), transparent 60%),
+    linear-gradient(145deg, #0a3657 0%, #0b223b 45%, #07111d 72%, #050a12 100%);
+}
+
+.utilities-landing .utilities-topbar {
+  background: rgba(5, 10, 18, 0.9);
+  border-bottom-color: rgba(168, 239, 255, 0.1);
+}
+
+.utilities-landing .product-panel,
+.utilities-landing .platform-card,
+.utilities-landing .capability-grid span,
+.utilities-landing .cta-panel {
+  border-color: rgba(168, 239, 255, 0.14);
+  background: rgba(7, 17, 29, 0.58);
+}
+
+.utilities-landing .primary-action,
+.utilities-landing .utility-form button {
+  color: #07101a;
+  background: linear-gradient(90deg, #78dff5, #59a8ff);
+}

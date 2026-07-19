@@ -19,94 +19,470 @@
   <link rel="icon" type="image/png" href="../assets/n3xra_logo_transparent_small.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../assets/site-nav.css">
-  <link rel="stylesheet" href="../assets/site-intro.css?v=2">
   <script src="../assets/site-nav.js" defer></script>
   <script src="/shared/config.js"></script>
   <script type="module" src="/assets/master-auth-link.js"></script>
   <style>
-    :root { --ink: #0f1620; --ink-soft: #1a2430; --line: rgba(15,22,32,.1); --teal: #176f66; --white: #fff; --shadow: 0 24px 60px rgba(12,18,28,.14); --radius-lg: 24px; }
-    * { box-sizing: border-box; }
-    body { margin: 0; font-family: "Manrope", "Trebuchet MS", sans-serif; color: var(--ink); line-height: 1.7; background: radial-gradient(900px 420px at 8% 12%, rgba(23,111,102,.14), transparent 60%), radial-gradient(720px 420px at 94% 0%, rgba(234,155,63,.16), transparent 60%), linear-gradient(180deg, #f8fafc 0%, #ecf1f7 100%); }
-    .hero { color: var(--white); background: radial-gradient(600px 360px at 15% 20%, rgba(22,185,237,.34), transparent 60%), radial-gradient(520px 300px at 84% 10%, rgba(74,112,255,.28), transparent 55%), linear-gradient(135deg, #07111d 0%, #0c1524 50%, #070c12 100%); border-bottom: 1px solid rgba(255,255,255,.08); }
-    .hero-inner, main { width: min(980px, calc(100vw - 2rem)); margin: 0 auto; }
-    .hero-inner { padding: 6rem 0 2.2rem; display: grid; gap: 1rem; text-align: center; }
-    h1,h2 { margin: 0; font-family: "Fraunces", "Times New Roman", serif; line-height: 1.1; }
-    h1 { font-size: clamp(1.75rem, 4vw, 2.6rem); }
-    .hero p { margin: 0 auto; max-width: 820px; color: rgba(255,255,255,.8); }
-    main { padding: 1.6rem 0 3rem; display: grid; gap: 1rem; }
-    .card { background: #fff; border: 1px solid var(--line); border-radius: var(--radius-lg); box-shadow: var(--shadow); padding: clamp(1.3rem, 2.8vw, 2rem); display: grid; gap: .9rem; }
-    .card p { margin: 0; color: var(--ink-soft); }
-    .card ul { margin: 0; padding-left: 1.25rem; display: grid; gap: .35rem; color: var(--ink-soft); }
-    .cta-row { display: flex; flex-wrap: wrap; gap: .75rem; }
-    .button { min-height: 42px; display: inline-flex; align-items: center; justify-content: center; padding: .72rem 1rem; border-radius: 999px; text-decoration: none; font-size: .88rem; font-weight: 800; border: 1px solid transparent; }
-    .button-primary { color: #fff; background: var(--teal); border-color: var(--teal); }
-    .button-ghost { color: #0f1620; background: #fff; border-color: rgba(15,22,32,.25); }
-    .site-footer { padding: 1.35rem 0; color: rgba(255,255,255,.58); background: #070c12; border-top: 1px solid rgba(255,255,255,.08); }
-    .footer-inner { width: min(1120px, calc(100vw - 2rem)); margin: 0 auto; display: grid; gap: .6rem; justify-items: center; font-size: .86rem; text-align: center; }
-    .footer-inner p { margin: 0; }
-    .footer-inner a { color: inherit; text-decoration: none; font-weight: 800; }
+    :root {
+      --services-deep: #050a12;
+      --services-ink: #07101a;
+      --services-panel: #ffffff;
+      --services-cyan: #a8efff;
+      --services-muted: #647284;
+      --services-line: rgba(7, 16, 26, 0.12);
+      --services-display: "Space Grotesk", "Manrope", Arial, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      min-width: 320px;
+      min-height: 100svh;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      color: var(--services-ink);
+      background: #f3f6f8;
+      font-family: "Manrope", Arial, sans-serif;
+      line-height: 1.65;
+    }
+
+    .hero {
+      position: relative;
+      overflow: hidden;
+      color: #ffffff;
+      background:
+        radial-gradient(600px 360px at 16% 25%, rgba(35, 199, 244, 0.24), transparent 62%),
+        radial-gradient(560px 340px at 84% 16%, rgba(47, 108, 255, 0.24), transparent 60%),
+        linear-gradient(145deg, #0a3657 0%, #0b223b 55%, #07111d 100%);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .hero::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      opacity: 0.14;
+      pointer-events: none;
+      background-image:
+        linear-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+      background-size: 76px 76px;
+      mask-image: radial-gradient(circle at center, #000, transparent 75%);
+      -webkit-mask-image: radial-gradient(circle at center, #000, transparent 75%);
+    }
+
+    .hero-inner,
+    .services-main {
+      width: min(1180px, calc(100vw - 3rem));
+      margin: 0 auto;
+    }
+
+    .hero-inner {
+      position: relative;
+      z-index: 1;
+      min-height: 350px;
+      display: grid;
+      place-content: center;
+      justify-items: center;
+      gap: 0.75rem;
+      padding: 6.25rem 0 2.75rem;
+      text-align: center;
+    }
+
+    .eyebrow {
+      margin: 0;
+      color: #177890;
+      font-size: 0.7rem;
+      font-weight: 800;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+    }
+
+    h1,
+    h2 {
+      margin: 0;
+      font-family: var(--services-display);
+      letter-spacing: -0.045em;
+    }
+
+    h1 {
+      max-width: 900px;
+      font-size: clamp(2.6rem, 4.2vw, 3.9rem);
+      font-weight: 600;
+      line-height: 0.98;
+    }
+
+    h2 {
+      font-size: clamp(1.85rem, 3vw, 2.8rem);
+      line-height: 1.02;
+    }
+
+    .hero p:last-child {
+      max-width: 720px;
+      margin: 0;
+      color: rgba(232, 242, 250, 0.66);
+      font-size: clamp(0.92rem, 1.3vw, 1.05rem);
+    }
+
+    .services-main {
+      flex: 1;
+      display: grid;
+      gap: 0.9rem;
+      padding: clamp(2.75rem, 5vw, 4rem) 0;
+    }
+
+    .service-panel {
+      display: grid;
+      gap: clamp(1.35rem, 3vw, 2rem);
+      padding: clamp(1.35rem, 3vw, 2.2rem);
+      border: 1px solid var(--services-line);
+      border-radius: 12px;
+      background: var(--services-panel);
+      box-shadow: 0 20px 55px rgba(7, 16, 26, 0.08);
+    }
+
+    .service-heading {
+      display: grid;
+      grid-template-columns: minmax(0, 0.9fr) minmax(320px, 1.1fr);
+      gap: clamp(1.5rem, 5vw, 4rem);
+      align-items: end;
+      padding-bottom: clamp(1.15rem, 2vw, 1.6rem);
+      border-bottom: 1px solid var(--services-line);
+    }
+
+    .service-heading > div {
+      display: grid;
+      gap: 0.7rem;
+    }
+
+    .service-heading > p,
+    .service-panel > p,
+    .service-fit-copy p,
+    .service-cta-copy p {
+      margin: 0;
+      color: var(--services-muted);
+      font-size: 0.9rem;
+    }
+
+    .capability-list {
+      margin: 0;
+      padding: 0;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.8rem;
+      list-style: none;
+    }
+
+    .capability-list li {
+      min-height: 94px;
+      display: grid;
+      align-content: start;
+      gap: 0.45rem;
+      padding: 0.9rem 1rem;
+      border: 1px solid rgba(7, 16, 26, 0.1);
+      border-radius: 8px;
+      background: #f7f9fb;
+    }
+
+    .capability-list strong {
+      color: var(--services-ink);
+      font-family: var(--services-display);
+      font-size: 1rem;
+      letter-spacing: -0.025em;
+    }
+
+    .capability-list span {
+      color: var(--services-muted);
+      font-size: 0.78rem;
+      line-height: 1.55;
+    }
+
+    .service-note {
+      max-width: none;
+      padding: 0.85rem 1rem;
+      border-left: 2px solid #1999bd;
+      color: var(--services-ink) !important;
+      background: #eff9fc;
+      font-family: var(--services-display);
+      font-size: clamp(1.1rem, 1.8vw, 1.4rem) !important;
+      font-weight: 600;
+      line-height: 1.35;
+      letter-spacing: -0.03em;
+    }
+
+    .service-cta {
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      border-color: rgba(168, 239, 255, 0.14);
+      background:
+        linear-gradient(120deg, rgba(17, 65, 101, 0.34), transparent 58%),
+        #08131f;
+      color: #ffffff;
+      box-shadow: 0 22px 60px rgba(7, 16, 26, 0.14);
+    }
+
+    .service-cta-copy,
+    .service-fit-title,
+    .service-fit-copy {
+      display: grid;
+      gap: 0.65rem;
+    }
+
+    .service-fit {
+      grid-template-columns: minmax(280px, 0.7fr) minmax(0, 1.3fr);
+      gap: clamp(2rem, 7vw, 7rem);
+    }
+
+    .service-fit-copy {
+      gap: 0.9rem;
+    }
+
+    .hero .eyebrow,
+    .service-cta .eyebrow {
+      color: var(--services-cyan);
+    }
+
+    .service-cta-copy p:not(.eyebrow) {
+      color: rgba(232, 242, 250, 0.62);
+    }
+
+    .cta-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.65rem;
+      margin-top: 0.35rem;
+    }
+
+    .button {
+      min-height: 48px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.7rem 1.15rem;
+      border: 1px solid rgba(7, 16, 26, 0.34);
+      border-radius: 6px;
+      color: var(--services-ink);
+      background: transparent;
+      font-size: 0.8rem;
+      font-weight: 800;
+      text-decoration: none;
+      transition: color 160ms ease, background 160ms ease, border-color 160ms ease;
+    }
+
+    .button:hover,
+    .button:focus-visible {
+      color: #ffffff;
+      background: var(--services-ink);
+      border-color: var(--services-ink);
+    }
+
+    .service-cta .button {
+      color: #ffffff;
+      border-color: rgba(168, 239, 255, 0.42);
+    }
+
+    .service-cta .button:hover,
+    .service-cta .button:focus-visible {
+      color: #ffffff;
+      background: rgba(168, 239, 255, 0.08);
+      border-color: var(--services-cyan);
+    }
+
+    @media (max-width: 820px) {
+      .hero-inner,
+      .services-main {
+        width: min(100% - 2rem, 1180px);
+      }
+
+      .service-heading,
+      .service-fit,
+      .service-cta {
+        grid-template-columns: 1fr;
+      }
+
+      .service-cta {
+        justify-items: start;
+      }
+    }
+
+    @media (max-width: 620px) {
+      .hero-inner,
+      .services-main {
+        width: min(100% - 1.35rem, 1180px);
+      }
+
+      .hero-inner {
+        min-height: 340px;
+        padding: 5.75rem 0 2.5rem;
+      }
+
+      h1 {
+        font-size: clamp(2.4rem, 12vw, 3.4rem);
+      }
+
+      .capability-list {
+        grid-template-columns: 1fr;
+      }
+
+      .service-panel {
+        padding: 1.3rem;
+      }
+
+      .cta-row,
+      .cta-row .button {
+        width: 100%;
+      }
+    }
   </style>
+  <link rel="stylesheet" href="../assets/home-shell.css?v=1">
 </head>
 <body>
-  <div class="entry-splash" aria-hidden="true" data-entry-splash><img src="../assets/n3xra_logo_transparent.png" alt=""></div>
-  <script src="../assets/site-intro.js?v=2"></script>
-  <header class="site-topbar">
+  <header class="site-topbar home-topbar" data-home-header>
     <div class="site-topbar-inner">
       <div class="site-topbar-row">
-        <a class="site-brand" href="/" aria-label="N3XRA home"><img src="../assets/n3xra_logo_transparent.png" alt="N3XRA"></a>
+        <a class="site-brand home-brand" href="/" aria-label="N3XRA home">
+          <img src="../assets/n3xra_logo_transparent_small.png" alt="">
+          <span>N3XRA</span>
+        </a>
+
+        <nav class="desktop-nav" aria-label="Primary">
+          <a href="/projects/">Projects</a>
+          <a href="/services/">Services</a>
+          <a href="/support/">Support</a>
+          <a href="/#software">Software</a>
+        </nav>
+
         <div class="site-nav-actions">
           <a class="site-menu-link site-auth-link" href="/account" data-master-auth-link>Login</a>
           <button class="site-menu-toggle" type="button" aria-expanded="false" aria-controls="services-mobile-menu" aria-label="Open menu" data-site-menu-toggle><span></span><span></span><span></span></button>
         </div>
       </div>
       <nav class="site-mobile-menu" id="services-mobile-menu" aria-label="Mobile primary" hidden>
-        <div class="site-mobile-menu-head"><p class="site-mobile-menu-title">Navigate</p></div>
-        <a class="site-menu-link" href="/">Home</a>
-        <a class="site-menu-link" href="/records/">N3XRA Records</a>
-        <a class="site-menu-link" href="/services/">Services</a>
+        <div class="site-mobile-menu-head"><p class="site-mobile-menu-title">Explore N3XRA</p></div>
         <a class="site-menu-link" href="/projects/">Projects</a>
-        <a class="site-menu-link" href="/ai-music-generator/">AI Music Generator</a>
-        <a class="site-menu-link" href="/virals/">N3XRA Virals</a>
-        <a class="site-menu-link" href="/utilities/">N3XRA Utilities</a>
+        <a class="site-menu-link" href="/services/">Services</a>
+        <a class="site-menu-link" href="/support/">Support</a>
+        <a class="site-menu-link" href="/#software">Software</a>
       </nav>
     </div>
   </header>
+
   <section class="hero legal-hero" aria-labelledby="services-title">
     <div class="hero-inner header-shell">
+      <p class="eyebrow">Services</p>
       <h1 id="services-title">What We Do</h1>
       <p>At N3XRA, we build custom digital infrastructure around your business, organization, or idea. We focus on long-term scalability, integration, automation, and ownership.</p>
     </div>
   </section>
-  <main>
-    <article class="card">
-      <h2>Custom Systems and Infrastructure</h2>
-      <p>From professional domain-based email systems to advanced subscription platforms, member systems, donation portals, AI-assisted records systems, and fully custom web applications, we design and build solutions around your operation.</p>
-      <ul>
-        <li>Custom business websites and platforms</li><li>Professional business email integration</li><li>Subscription and membership systems</li><li>Donation and fundraising platforms</li><li>Advanced API and webhook integrations</li><li>AI-powered tools, search, summaries, and automation</li><li>Custom dashboards and portals</li><li>Secure cloud infrastructure</li><li>Payment processing integrations</li><li>Data automation and workflow systems</li><li>Public records, document, recording, and transcription systems</li><li>Custom features designed specifically for your operation</li>
+
+  <main class="services-main">
+    <article class="service-panel service-primary">
+      <div class="service-heading">
+        <div>
+          <p class="eyebrow">Custom development</p>
+          <h2>Custom Systems and Infrastructure</h2>
+        </div>
+        <p>We build websites, member systems, payment flows, AI tools, records platforms, and the infrastructure that connects them.</p>
+      </div>
+
+      <ul class="capability-list">
+        <li>
+          <strong>Websites and platforms</strong>
+          <span>Custom business websites, professional email integration, dashboards, and portals.</span>
+        </li>
+        <li>
+          <strong>Memberships and payments</strong>
+          <span>Subscription systems, memberships, donations, fundraising, and payment processing.</span>
+        </li>
+        <li>
+          <strong>Automation and AI</strong>
+          <span>API and webhook integrations, AI search and summaries, and automated workflows.</span>
+        </li>
+        <li>
+          <strong>Infrastructure and records</strong>
+          <span>Secure cloud systems, public records, documents, recordings, transcription, and custom features.</span>
+        </li>
       </ul>
-      <p>If there is a feature you wish existed on your website, there is a strong chance we can build it.</p>
+
+      <p class="service-note">If there is a feature you wish existed on your website, there is a strong chance we can build it.</p>
     </article>
-    <article class="card">
-      <h2>Published Work</h2>
-      <p>See selected websites and deployed systems built under N3XRA.</p>
+
+    <article class="service-panel service-cta">
+      <div class="service-cta-copy">
+        <p class="eyebrow">Published work</p>
+        <h2>See what we’ve already built.</h2>
+        <p>See selected websites and deployed systems built under N3XRA.</p>
+      </div>
       <div class="cta-row"><a class="button button-primary" href="/projects/">View Projects</a></div>
     </article>
-    <article class="card">
-      <h2>Project Fit and Build Model</h2>
-      <p>Platforms like Shopify, Squarespace, or Wix may be a better fit if you want a simple drag-and-drop site with minimal customization.</p>
-      <p>Our systems may require more upfront investment, but teams needing long-term flexibility, advanced integrations, custom automation, and scalable infrastructure often find custom development is the stronger long-term path.</p>
-      <p>Ownership and transfer details are defined in our Terms.</p>
-      <div class="cta-row"><a class="button button-ghost" href="/terms/">Read Terms</a><a class="button button-ghost" href="/support/">Contact Support</a></div>
+
+    <article class="service-panel service-fit">
+      <div class="service-fit-title">
+        <p class="eyebrow">Our approach</p>
+        <h2>Project Fit and Build Model</h2>
+      </div>
+      <div class="service-fit-copy">
+        <p>Shopify, Squarespace, or Wix may be the better choice for a simple drag-and-drop website.</p>
+        <p>Custom development is the stronger path when you need flexibility, integrations, automation, scalable infrastructure, and long-term control.</p>
+        <p>Ownership and transfer details are defined in our Terms.</p>
+        <div class="cta-row"><a class="button button-ghost" href="/terms/">Read Terms</a><a class="button button-ghost" href="/support/">Contact Support</a></div>
+      </div>
     </article>
   </main>
-  <footer class="site-footer">
-    <div class="footer-inner">
-      <p>&copy; 2026 <strong>N3XRA LLC.</strong> All rights reserved.</p>
-      <p><a href="/support">Support</a> · <a href="/terms">Terms</a> · <a href="/privacy">Privacy</a></p>
+
+  <footer class="site-footer home-footer">
+    <div class="page-shell footer-grid">
+      <div class="footer-brand">
+        <a class="home-brand" href="/" aria-label="N3XRA home">
+          <img src="../assets/n3xra_logo_transparent_small.png" alt="">
+          <span>N3XRA</span>
+        </a>
+        <p>Custom websites, connected systems, and practical software.</p>
+      </div>
+
+      <nav class="footer-nav" aria-label="Company">
+        <p>Explore</p>
+        <a href="/projects/">Projects</a>
+        <a href="/services/">Services</a>
+        <a href="/support/">Support</a>
+      </nav>
+
+      <nav class="footer-nav" aria-label="Software">
+        <p>Software</p>
+        <a href="/records/">Records</a>
+        <a href="/utilities/">Utilities</a>
+        <a href="/virals/">Virals</a>
+        <a href="/ai-music-generator/">AI Music</a>
+      </nav>
+
+      <nav class="footer-nav" aria-label="Account and legal">
+        <p>N3XRA</p>
+        <a href="/account" data-master-auth-link>Login</a>
+        <a href="/privacy/">Privacy</a>
+        <a href="/terms/">Terms</a>
+      </nav>
+    </div>
+    <div class="page-shell footer-bottom">
+      <p>&copy; 2026 N3XRA LLC. All rights reserved.</p>
       <p>Built by <a href="https://quentinnichols.com/">Quentin Nichols</a>.</p>
     </div>
   </footer>
+  <script>
+    (() => {
+      const header = document.querySelector("[data-home-header]");
+      const updateHeader = () => header?.classList.toggle("is-scrolled", window.scrollY > 20);
+      updateHeader();
+      window.addEventListener("scroll", updateHeader, { passive: true });
+    })();
+  </script>
 </body>
 </html>
