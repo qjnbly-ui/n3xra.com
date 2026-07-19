@@ -1067,6 +1067,13 @@ body.portal-denied main {
   background: #f0f9ff;
 }
 
+.portal-control-note {
+  margin: 0;
+  color: var(--portal-muted);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
 .proposal-email-item {
   display: flex;
   justify-content: space-between;

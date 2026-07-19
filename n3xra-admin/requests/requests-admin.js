@@ -61,6 +61,8 @@ function render() {
         <textarea rows="3" data-request-notes="${request.id}" placeholder="Private admin notes">${escapeHtml(request.admin_notes || "")}</textarea>
         <a class="portal-button" href="/n3xra-admin/proposals/?request=${encodeURIComponent(request.id)}">${request.proposal_id ? "Open proposal" : "Create proposal"}</a>
         <button class="portal-button portal-button-secondary" type="button" data-save-request="${request.id}">Save review</button>
+        ${request.status !== "archived" ? `<button class="portal-button portal-button-secondary" type="button" data-archive-request="${request.id}">Archive request</button>` : ""}
+        ${!request.proposal_id ? `<button class="portal-link-button is-danger" type="button" data-delete-request="${request.id}">Delete permanently</button>` : '<p class="portal-control-note">This request has proposal history and can be archived, but not deleted.</p>'}
       </div>
     </article>
   `).join("") : '<div class="portal-empty"><p>No website requests have been submitted.</p></div>';
@@ -94,6 +96,26 @@ async function saveRequest(requestId) {
   await loadRequests();
 }
 
+async function archiveRequest(requestId) {
+  const { error } = await supabase.from("website_service_requests").update({
+    status: "archived",
+    reviewed_by_user_id: currentUser.id,
+    reviewed_at: new Date().toISOString(),
+  }).eq("id", requestId);
+  if (error) throw error;
+  await loadRequests();
+}
+
+async function deleteRequest(requestId) {
+  const request = requests.find((item) => item.id === requestId);
+  if (!request || request.proposal_id) throw new Error("Requests with proposal history cannot be deleted. Archive this request instead.");
+  const confirmed = window.confirm(`Permanently delete the request for “${request.business_name}”? This cannot be undone.`);
+  if (!confirmed) return;
+  const { error } = await supabase.from("website_service_requests").delete().eq("id", requestId);
+  if (error) throw error;
+  await loadRequests();
+}
+
 async function init() {
   if (!hasConfig()) throw new Error("Supabase configuration is missing.");
   supabase = createBrowserSupabase();
@@ -106,10 +128,18 @@ async function init() {
   if (!await verifyPlatformAdmin(supabase, currentUser)) throw new Error("You do not have request administration access.");
   await loadRequests();
   requestList.addEventListener("click", async (event) => {
-    const button = event.target.closest("[data-save-request]");
+    const button = event.target.closest("[data-save-request], [data-archive-request], [data-delete-request]");
     if (!button) return;
     button.disabled = true;
-    try { await saveRequest(button.dataset.saveRequest); } finally { button.disabled = false; }
+    try {
+      if (button.dataset.saveRequest) await saveRequest(button.dataset.saveRequest);
+      else if (button.dataset.archiveRequest) await archiveRequest(button.dataset.archiveRequest);
+      else if (button.dataset.deleteRequest) await deleteRequest(button.dataset.deleteRequest);
+    } catch (error) {
+      window.alert(error?.message || "Unable to update this request.");
+    } finally {
+      button.disabled = false;
+    }
   });
   document.body.classList.remove("portal-loading");
   statusScreen.hidden = true;
