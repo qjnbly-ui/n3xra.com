@@ -7,7 +7,13 @@ const websiteSelect = document.getElementById("website-select");
 const websiteSummary = document.getElementById("website-summary");
 const websiteName = document.getElementById("website-name");
 const websiteRole = document.getElementById("website-role");
+const websiteStatus = document.getElementById("website-status");
 const websiteLiveLink = document.getElementById("website-live-link");
+const filesWebsiteName = document.getElementById("files-website-name");
+const filesLiveLink = document.getElementById("files-live-link");
+const portalViewButtons = Array.from(document.querySelectorAll("[data-portal-view]"));
+const portalViewPanels = Array.from(document.querySelectorAll("[data-portal-panel]"));
+const portalViewOpeners = Array.from(document.querySelectorAll("[data-open-portal-view]"));
 const assetToolbar = document.getElementById("asset-toolbar");
 const assetGrid = document.getElementById("asset-grid");
 const emptyState = document.getElementById("portal-empty");
@@ -39,6 +45,22 @@ let assets = [];
 let versions = [];
 let batchItems = [];
 let batchReviewIndex = 0;
+let activePortalView = "overview";
+
+function showPortalView(view) {
+  const nextView = portalViewPanels.some((panel) => panel.dataset.portalPanel === view) ? view : "overview";
+  activePortalView = nextView;
+  portalViewButtons.forEach((button) => {
+    const isCurrent = button.dataset.portalView === nextView;
+    button.classList.toggle("is-current", isCurrent);
+    button.setAttribute("aria-current", isCurrent ? "page" : "false");
+  });
+  portalViewPanels.forEach((panel) => {
+    panel.hidden = panel.dataset.portalPanel !== nextView;
+  });
+  const nextHash = nextView === "files" ? "#files-assets" : "";
+  window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}${nextHash}`);
+}
 
 function showStatus(message) {
   if (!statusScreen) return;
@@ -234,8 +256,10 @@ async function loadWebsites() {
   if (!websites.length) {
     websiteSummary.hidden = true;
     assetToolbar.hidden = true;
+    filesWebsiteName.textContent = "No project selected";
+    filesLiveLink.hidden = true;
     emptyState.hidden = false;
-    emptyState.innerHTML = "<p>No websites are currently assigned to this account.</p>";
+    emptyState.innerHTML = "<p>No projects are currently assigned to this account.</p>";
     return;
   }
 
@@ -260,8 +284,14 @@ async function selectWebsite(websiteId) {
 
   websiteName.textContent = selectedWebsite.name;
   websiteRole.textContent = `${selectedRole.replace("_", " ")} access`;
+  websiteStatus.textContent = selectedWebsite.status
+    ? selectedWebsite.status.replaceAll("_", " ")
+    : "Website project";
   websiteLiveLink.href = selectedWebsite.live_url || "#";
   websiteLiveLink.hidden = !selectedWebsite.live_url;
+  filesWebsiteName.textContent = selectedWebsite.name;
+  filesLiveLink.href = selectedWebsite.live_url || "#";
+  filesLiveLink.hidden = !selectedWebsite.live_url;
   websiteSummary.hidden = false;
   assetToolbar.hidden = false;
   openUploadButton.hidden = !canEditSelectedWebsite;
@@ -294,7 +324,7 @@ async function loadAssets() {
     versions = [];
   }
 
-  uploadAssetId.innerHTML = '<option value="">Create a new asset</option>' +
+  uploadAssetId.innerHTML = '<option value="">Add as a new file</option>' +
     assets.map((asset) => `<option value="${asset.id}">${escapeHtml(asset.label)}</option>`).join("");
   syncNewAssetFields();
   renderAssets();
@@ -303,7 +333,7 @@ async function loadAssets() {
 function renderAssets() {
   if (!assets.length) {
     emptyState.hidden = false;
-    emptyState.innerHTML = "<p>No website assets have been added yet.</p>";
+    emptyState.innerHTML = "<p>No files or assets have been added to this project yet.</p>";
     return;
   }
 
@@ -513,10 +543,17 @@ async function initPortal() {
     }
 
     await loadWebsites();
+    showPortalView(window.location.hash === "#files-assets" ? "files" : "overview");
     document.body.classList.remove("portal-loading");
     statusScreen.hidden = true;
 
     websiteSelect.addEventListener("change", () => selectWebsite(websiteSelect.value).catch((error) => showStatus(error.message)));
+    portalViewButtons.forEach((button) => {
+      button.addEventListener("click", () => showPortalView(button.dataset.portalView));
+    });
+    portalViewOpeners.forEach((button) => {
+      button.addEventListener("click", () => showPortalView(button.dataset.openPortalView));
+    });
     openUploadButton.addEventListener("click", () => openUploadForm());
     closeUploadButton.addEventListener("click", closeUploadForm);
     uploadAssetId.addEventListener("change", () => {

@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/site-nav.css">
-  <link rel="stylesheet" href="/client-portal/portal.css">
+  <link rel="stylesheet" href="/client-portal/portal.css?v=2">
   <script src="/shared/config.js"></script>
   <script src="/assets/site-nav.js" defer></script>
 </head>
@@ -21,7 +21,8 @@
     <div class="site-topbar-inner">
       <div class="site-topbar-row">
         <a class="site-brand" href="/" aria-label="N3XRA home">
-          <img src="/assets/n3xra_logo_transparent.png" alt="N3XRA">
+          <img src="/assets/n3xra_logo_transparent_small.png" alt="">
+          <span>N3XRA</span>
         </a>
         <div class="site-nav-actions">
           <a class="site-menu-link" href="/account">Dashboard</a>
@@ -52,117 +53,158 @@
       <button class="portal-logout" id="portal-logout" type="button">Sign out</button>
     </section>
 
+    <section class="portal-project-picker" aria-labelledby="project-picker-title">
+      <div>
+        <p class="portal-kicker">Current workspace</p>
+        <h2 id="project-picker-title">Selected project</h2>
+        <p>Choose a project, then use the sections below to view and manage its information.</p>
+      </div>
+      <label class="portal-project-select">
+        <span>Project</span>
+        <select class="portal-select" id="website-select" aria-label="Choose a project"></select>
+      </label>
+    </section>
+
     <div class="portal-layout">
-      <nav class="portal-nav" aria-label="Website portal">
-        <a class="is-current" href="/client-portal/">Websites</a>
-        <a href="/project-workspace/">Projects</a>
+      <nav class="portal-nav" aria-label="Selected project sections">
+        <p class="portal-nav-label">Project sections</p>
+        <button class="is-current" type="button" data-portal-view="overview">Overview</button>
+        <button type="button" data-portal-view="files">Files &amp; Assets</button>
+        <div class="portal-nav-divider"></div>
+        <p class="portal-nav-label">Other services</p>
         <a href="/website-request/">New request</a>
         <a href="/proposals/">Proposals</a>
         <a href="/website-onboarding/">Onboarding</a>
-        <span class="is-placeholder">Billing</span>
-        <span class="is-placeholder">Renewals</span>
-        <span class="is-placeholder">Support</span>
+        <a href="/project-workspace/">Project timeline</a>
       </nav>
 
-      <section class="portal-workspace" aria-labelledby="client-websites-title">
-        <div class="portal-workspace-head">
-          <div>
-            <p class="portal-kicker">Workspace</p>
-            <h2 id="client-websites-title">Your websites</h2>
-          </div>
-          <select class="portal-select" id="website-select" aria-label="Choose a website"></select>
-        </div>
-
-        <div class="portal-site-summary" id="website-summary" hidden>
-          <div>
-            <p class="portal-kicker" id="website-role">Website access</p>
-            <h3 id="website-name">Website</h3>
-          </div>
-          <a class="portal-button portal-button-secondary" id="website-live-link" href="#" target="_blank" rel="noopener">Visit live site</a>
-        </div>
-
-        <div class="portal-toolbar" id="asset-toolbar" hidden>
-          <div>
-            <h3>Asset library</h3>
-            <p>Approved files and proposed replacements for this website.</p>
-          </div>
-          <button class="portal-button" id="open-upload" type="button">Upload asset</button>
-        </div>
-
-        <form class="portal-form" id="asset-upload-form" hidden>
-          <div class="portal-form-head">
+      <section class="portal-workspace" aria-live="polite">
+        <div class="portal-view" id="portal-view-overview" data-portal-panel="overview">
+          <div class="portal-workspace-head">
             <div>
-              <p class="portal-kicker">Private draft</p>
-              <h3>Upload an asset or replacement</h3>
+              <p class="portal-kicker">Project overview</p>
+              <h2 id="client-websites-title">Overview</h2>
+              <p>The essential details and access for the selected project.</p>
             </div>
-            <button class="portal-close" id="close-upload" type="button">Close</button>
           </div>
 
-          <div class="portal-form-grid">
-            <label>
-              Asset
-              <select id="upload-asset-id">
-                <option value="">Create a new asset</option>
-              </select>
-            </label>
-            <label>
-              File
-              <input id="upload-file" type="file" accept="image/*,.pdf,.zip,.txt" multiple required>
-            </label>
-            <label data-new-asset-field>
-              Asset name
-              <input id="upload-label" type="text" placeholder="About page hero">
-            </label>
-            <label data-new-asset-field>
-              Asset key
-              <input id="upload-key" type="text" placeholder="aboutHero">
-            </label>
-            <label data-new-asset-field>
-              Category
-              <select id="upload-category">
-                <option value="image">Image</option>
-                <option value="logo">Logo</option>
-                <option value="document">Document</option>
-                <option value="brand">Brand</option>
-                <option value="social">Social</option>
-                <option value="other">Other</option>
-              </select>
-            </label>
-            <label data-new-asset-field>
-              Website usage
-              <select id="upload-replacement-type">
-                <option value="html_src">HTML image</option>
-                <option value="css_background">CSS background</option>
-                <option value="carousel_slide">Carousel slide</option>
-                <option value="metadata">Social or metadata image</option>
-                <option value="download_only">Download only</option>
-              </select>
-            </label>
-            <label class="portal-form-wide">
-              Note
-              <textarea id="upload-note" rows="3" placeholder="What should change, or where should this file be used?"></textarea>
-            </label>
+          <div class="portal-site-summary portal-overview-card" id="website-summary" hidden>
+            <div>
+              <p class="portal-kicker" id="website-role">Website access</p>
+              <h3 id="website-name">Website</h3>
+              <p id="website-status">Website project</p>
+            </div>
+            <a class="portal-button portal-button-secondary" id="website-live-link" href="#" target="_blank" rel="noopener">Visit live site</a>
           </div>
-          <div class="portal-batch-review" id="batch-review" hidden>
-            <button class="portal-button portal-button-secondary" id="batch-previous" type="button">Previous</button>
-            <p id="batch-position">Reviewing file 1 of 1</p>
-            <button class="portal-button portal-button-secondary" id="batch-next" type="button">Next</button>
-          </div>
-          <div class="portal-form-actions">
-            <button class="portal-button" id="upload-submit" type="submit">Submit for review</button>
-            <p class="portal-inline-status" id="upload-status" role="status"></p>
-          </div>
-        </form>
 
-        <div class="portal-asset-grid" id="asset-grid"></div>
-        <div class="portal-empty" id="portal-empty">
-          <p>No website assets have been added yet.</p>
+          <div class="portal-overview-help">
+            <p class="portal-kicker">Manage this project</p>
+            <h3>Everything is organized by section.</h3>
+            <p>Open Files &amp; Assets to review current website files, download published versions, or submit replacements.</p>
+            <button class="portal-text-action" type="button" data-open-portal-view="files">Open Files &amp; Assets</button>
+          </div>
+        </div>
+
+        <div class="portal-view" id="portal-view-files" data-portal-panel="files" hidden>
+          <div class="portal-workspace-head">
+            <div>
+              <p class="portal-kicker">Selected project</p>
+              <h2>Files &amp; Assets</h2>
+              <p>Website images, logos, documents, icons, and published file versions.</p>
+            </div>
+          </div>
+
+          <div class="portal-files-project">
+            <div>
+              <span>Viewing files for</span>
+              <strong id="files-website-name">Selected project</strong>
+            </div>
+            <a class="portal-text-action" id="files-live-link" href="#" target="_blank" rel="noopener">Visit live site</a>
+          </div>
+
+          <div class="portal-toolbar" id="asset-toolbar" hidden>
+            <div>
+              <h3>File library</h3>
+              <p>Approved files and proposed replacements for this project.</p>
+            </div>
+            <button class="portal-button" id="open-upload" type="button">Upload files</button>
+          </div>
+
+          <form class="portal-form" id="asset-upload-form" hidden>
+            <div class="portal-form-head">
+              <div>
+                <p class="portal-kicker">Private draft</p>
+                <h3>Upload a file or replacement</h3>
+              </div>
+              <button class="portal-close" id="close-upload" type="button">Close</button>
+            </div>
+
+            <div class="portal-form-grid">
+              <label>
+                Existing file
+                <select id="upload-asset-id">
+                  <option value="">Add as a new file</option>
+                </select>
+              </label>
+              <label>
+                Choose file
+                <input id="upload-file" type="file" accept="image/*,.pdf,.zip,.txt" multiple required>
+              </label>
+              <label data-new-asset-field>
+                Display name
+                <input id="upload-label" type="text" placeholder="About page hero">
+              </label>
+              <label data-new-asset-field>
+                File key
+                <input id="upload-key" type="text" placeholder="aboutHero">
+              </label>
+              <label data-new-asset-field>
+                Category
+                <select id="upload-category">
+                  <option value="image">Image</option>
+                  <option value="logo">Logo</option>
+                  <option value="document">Document</option>
+                  <option value="brand">Brand</option>
+                  <option value="social">Social</option>
+                  <option value="other">Other</option>
+                </select>
+              </label>
+              <label data-new-asset-field>
+                Website usage
+                <select id="upload-replacement-type">
+                  <option value="html_src">HTML image</option>
+                  <option value="css_background">CSS background</option>
+                  <option value="carousel_slide">Carousel slide</option>
+                  <option value="metadata">Social or metadata image</option>
+                  <option value="download_only">Download only</option>
+                </select>
+              </label>
+              <label class="portal-form-wide">
+                Note
+                <textarea id="upload-note" rows="3" placeholder="What should change, or where should this file be used?"></textarea>
+              </label>
+            </div>
+            <div class="portal-batch-review" id="batch-review" hidden>
+              <button class="portal-button portal-button-secondary" id="batch-previous" type="button">Previous</button>
+              <p id="batch-position">Reviewing file 1 of 1</p>
+              <button class="portal-button portal-button-secondary" id="batch-next" type="button">Next</button>
+            </div>
+            <div class="portal-form-actions">
+              <button class="portal-button" id="upload-submit" type="submit">Submit for review</button>
+              <p class="portal-inline-status" id="upload-status" role="status"></p>
+            </div>
+          </form>
+
+          <div class="portal-asset-grid" id="asset-grid"></div>
+          <div class="portal-empty" id="portal-empty">
+            <p>No files or assets have been added to this project yet.</p>
+          </div>
         </div>
       </section>
     </div>
   </main>
 
   <div class="portal-status" id="portal-status" role="status">Opening your website portal…</div>
-  <script type="module" src="/client-portal/portal.js"></script>
+  <script type="module" src="/client-portal/portal.js?v=2"></script>
 </body>
 </html>
