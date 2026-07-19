@@ -335,6 +335,90 @@ body.portal-denied main {
   border-radius: 10px;
 }
 
+.portal-overview-summary {
+  margin-top: 1.5rem;
+  border: 1px solid rgba(22, 185, 237, 0.24);
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(22, 185, 237, 0.09), rgba(22, 185, 237, 0.025));
+  overflow: hidden;
+}
+
+.portal-overview-summary-main,
+.portal-overview-summary-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25rem;
+  padding: 1.35rem 1.5rem;
+}
+
+.portal-overview-summary h3 {
+  margin: 0;
+  font-family: "Fraunces", Georgia, serif;
+  font-size: clamp(1.5rem, 3vw, 2rem);
+}
+
+.portal-overview-domain {
+  display: inline-flex;
+  margin-top: 0.35rem;
+  color: #087fa8;
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-underline-offset: 0.2em;
+}
+
+.portal-overview-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 0.35rem 0.7rem;
+  color: #354052;
+  background: #ffffff;
+  border: 1px solid var(--portal-line);
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.portal-overview-status[data-status="active"],
+.portal-overview-status[data-status="live"],
+.portal-overview-status[data-status="published"] {
+  color: #075f37;
+  background: #dcfce7;
+  border-color: rgba(7, 95, 55, 0.16);
+}
+
+.portal-overview-summary-footer {
+  border-top: 1px solid rgba(22, 185, 237, 0.18);
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.portal-overview-access {
+  display: grid;
+  gap: 0.15rem;
+  margin: 0 !important;
+}
+
+.portal-overview-access span {
+  color: var(--portal-muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.portal-overview-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+}
+
+.portal-overview-actions .portal-text-action {
+  margin-top: 0;
+}
+
 .portal-text-action {
   display: inline-flex;
   margin-top: 1rem;
@@ -1878,6 +1962,19 @@ body.portal-denied main {
   .portal-version-row {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .portal-overview-summary-main,
+  .portal-overview-summary-footer {
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 1.1rem;
+  }
+
+  .portal-overview-actions {
+    align-items: stretch;
+    justify-content: flex-start;
+    width: 100%;
   }
 
   .portal-files-project {

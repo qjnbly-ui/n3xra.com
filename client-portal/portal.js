@@ -9,6 +9,7 @@ const websiteSummary = document.getElementById("website-summary");
 const websiteName = document.getElementById("website-name");
 const websiteRole = document.getElementById("website-role");
 const websiteStatus = document.getElementById("website-status");
+const websiteDomain = document.getElementById("website-domain");
 const websiteLiveLink = document.getElementById("website-live-link");
 const filesWebsiteName = document.getElementById("files-website-name");
 const filesLiveLink = document.getElementById("files-live-link");
@@ -97,6 +98,32 @@ function escapeHtml(value = "") {
 function formatDate(value) {
   if (!value) return "";
   return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
+}
+
+function displayHostname(value) {
+  if (!value) return "";
+  try {
+    return new URL(value).hostname.replace(/^www\./, "");
+  } catch {
+    return String(value);
+  }
+}
+
+function formatLabel(value, fallback = "") {
+  const label = String(value || fallback).replaceAll("_", " ").trim();
+  return label ? label.replace(/\b\w/g, (character) => character.toUpperCase()) : "";
+}
+
+function formatAccessRole(value) {
+  const normalized = String(value || "").toLowerCase().replaceAll("_", " ").trim();
+  const labels = {
+    "platform admin": "Full access",
+    owner: "Owner",
+    manager: "Manager",
+    editor: "Editor",
+    viewer: "View only",
+  };
+  return labels[normalized] || formatLabel(normalized, "Website access");
 }
 
 function formatBytes(value) {
@@ -299,10 +326,12 @@ async function selectWebsite(websiteId) {
   canEditSelectedWebsite = Boolean(canEdit);
 
   websiteName.textContent = selectedWebsite.name;
-  websiteRole.textContent = `${selectedRole.replace("_", " ")} access`;
-  websiteStatus.textContent = selectedWebsite.status
-    ? selectedWebsite.status.replaceAll("_", " ")
-    : "Website project";
+  websiteRole.textContent = formatAccessRole(selectedRole);
+  websiteStatus.textContent = formatLabel(selectedWebsite.status, "Website project");
+  websiteStatus.dataset.status = String(selectedWebsite.status || "").toLowerCase();
+  websiteDomain.textContent = displayHostname(selectedWebsite.live_url);
+  websiteDomain.href = selectedWebsite.live_url || "#";
+  websiteDomain.hidden = !selectedWebsite.live_url;
   websiteLiveLink.href = selectedWebsite.live_url || "#";
   websiteLiveLink.hidden = !selectedWebsite.live_url;
   filesWebsiteName.textContent = selectedWebsite.name;

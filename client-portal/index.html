@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/site-nav.css">
-  <link rel="stylesheet" href="/client-portal/portal.css?v=10">
+  <link rel="stylesheet" href="/client-portal/portal.css?v=11">
   <script src="/shared/config.js"></script>
   <script src="/assets/site-nav.js" defer></script>
 </head>
@@ -92,21 +92,25 @@
             </div>
           </div>
 
-          <div class="portal-site-summary portal-overview-card" id="website-summary" hidden>
-            <div>
-              <p class="portal-kicker" id="website-role">Website access</p>
-              <h3 id="website-name">Website</h3>
-              <p id="website-status">Website project</p>
+          <section class="portal-overview-summary" id="website-summary" hidden>
+            <div class="portal-overview-summary-main">
+              <div>
+                <p class="portal-kicker">Website</p>
+                <h3 id="website-name">Website</h3>
+                <a class="portal-overview-domain" id="website-domain" href="#" target="_blank" rel="noopener" hidden></a>
+              </div>
+              <span class="portal-overview-status" id="website-status">Website project</span>
             </div>
-            <a class="portal-button portal-button-secondary" id="website-live-link" href="#" target="_blank" rel="noopener">Visit live site</a>
-          </div>
-
-          <div class="portal-overview-help">
-            <p class="portal-kicker">Manage this website</p>
-            <h3>Everything is organized by section.</h3>
-            <p>Open Files &amp; Assets to review current website files, download published versions, or submit replacements.</p>
-            <a class="portal-text-action" href="/client-portal/assets/">Open Files &amp; Assets</a>
-          </div>
+            <div class="portal-overview-summary-footer">
+              <p class="portal-overview-access"><span>Your access</span><strong id="website-role">Website access</strong></p>
+              <div class="portal-overview-actions">
+                <a class="portal-button" id="website-live-link" href="#" target="_blank" rel="noopener">Visit website</a>
+                <a class="portal-text-action" href="/project-workspace/">View progress</a>
+                <a class="portal-text-action" href="/client-portal/assets/">Files &amp; Assets</a>
+                <a class="portal-text-action" href="/support/">Get support</a>
+              </div>
+            </div>
+          </section>
         </div>
 
         <div class="portal-view" id="portal-view-files" data-portal-panel="files" hidden>
@@ -260,7 +264,7 @@
   </main>
 
   <div class="portal-status" id="portal-status" role="status">Opening your website portal…</div>
-  <script type="module" src="/client-portal/portal.js?v=6"></script>
-  <script type="module" src="/website-request/request.js?v=3"></script>
+  <script type="module" src="/client-portal/portal.js?v=7"></script>
+  <script type="module" src="/website-request/request.js?v=4"></script>
 </body>
 </html>
