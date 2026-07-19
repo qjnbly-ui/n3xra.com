@@ -70,7 +70,7 @@ function render() {
 
 async function loadRequests() {
   const [requestResult, proposalResult, reviewResult] = await Promise.all([
-    supabase.from("website_service_requests").select("*").order("created_at", { ascending: false }),
+    supabase.from("website_service_requests").select("*").neq("status", "archived").order("created_at", { ascending: false }),
     supabase.from("website_proposals").select("id,request_id"),
     supabase.from("website_request_ai_reviews").select("*").order("created_at", { ascending: false }).limit(250),
   ]);
