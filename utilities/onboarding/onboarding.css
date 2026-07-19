@@ -1,15 +1,49 @@
-body {
-  color: var(--portal-ink);
-  background: var(--portal-bg);
-}
-
 .utilities-onboarding-page {
+  width: min(1080px, calc(100vw - 2rem));
   min-height: calc(100svh - 75px);
 }
 
+.onboarding-page-head {
+  padding: clamp(1rem, 3vw, 2.5rem) 0 0;
+}
+
+.onboarding-page-head > div {
+  display: grid;
+  justify-items: center;
+}
+
+.onboarding-page-head h1 {
+  margin: 0;
+  font-size: clamp(2.5rem, 6vw, 4.8rem);
+}
+
+.onboarding-page-head .hero-lede {
+  max-width: 680px;
+  margin: .75rem auto 0;
+}
+
 .onboarding-workspace {
-  max-width: 980px;
-  margin: 0 auto;
+  padding: clamp(1.25rem, 4vw, 2.5rem);
+  background: rgba(7, 17, 29, .68);
+  border: 1px solid rgba(168, 239, 255, .14);
+  border-radius: 18px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, .24);
+  backdrop-filter: blur(16px);
+}
+
+.onboarding-workspace-head {
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.onboarding-workspace-head h2 {
+  margin: .25rem 0;
+  font-size: clamp(1.8rem, 4vw, 2.6rem);
+}
+
+.onboarding-workspace-head p:not(.eyebrow) {
+  margin: 0;
+  color: var(--muted);
 }
 
 .onboarding-form {
@@ -17,9 +51,6 @@ body {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1rem;
   margin-top: 1.5rem;
-  padding: 0;
-  background: transparent;
-  border: 0;
 }
 
 .onboarding-form > label,
@@ -27,7 +58,7 @@ body {
   display: grid;
   gap: .45rem;
   margin: 0;
-  color: var(--portal-muted);
+  color: var(--muted);
   font-size: .72rem;
   font-weight: 800;
   letter-spacing: .06em;
@@ -40,14 +71,19 @@ body {
   width: 100%;
   min-height: 46px;
   padding: .7rem .75rem;
-  color: var(--portal-ink);
-  background: #fff;
-  border: 1px solid var(--portal-line);
+  color: var(--ink);
+  background: rgba(255, 255, 255, .07);
+  border: 1px solid var(--line);
   border-radius: 8px;
   font: inherit;
   font-weight: 600;
   letter-spacing: 0;
   text-transform: none;
+}
+
+.onboarding-form input::placeholder,
+.onboarding-form textarea::placeholder {
+  color: rgba(232, 242, 250, .38);
 }
 
 .onboarding-form textarea {
@@ -57,8 +93,8 @@ body {
 
 .onboarding-form input:focus,
 .onboarding-form textarea:focus {
-  border-color: rgba(22, 185, 237, .65);
-  box-shadow: 0 0 0 3px rgba(22, 185, 237, .1);
+  border-color: rgba(120, 223, 245, .7);
+  box-shadow: 0 0 0 3px rgba(120, 223, 245, .12);
   outline: none;
 }
 
@@ -69,7 +105,7 @@ body {
 .onboarding-form .form-section {
   margin-top: .5rem;
   padding: 1.1rem 0 .25rem;
-  border-top: 1px solid var(--portal-line);
+  border-top: 1px solid var(--line);
 }
 
 .onboarding-form .form-section:first-child {
@@ -81,7 +117,7 @@ body {
 .onboarding-form .form-section p,
 .onboarding-form legend {
   margin: 0;
-  color: var(--portal-ink);
+  color: var(--ink);
   font-family: "Fraunces", Georgia, serif;
   font-size: 1.25rem;
   font-weight: 700;
@@ -93,8 +129,8 @@ body {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: .65rem;
   padding: 1rem;
-  background: #f7f9fb;
-  border: 1px solid var(--portal-line);
+  background: rgba(255, 255, 255, .035);
+  border: 1px solid var(--line);
   border-radius: 10px;
 }
 
@@ -109,9 +145,9 @@ body {
   gap: .5rem;
   min-height: 44px;
   padding: .65rem;
-  color: var(--portal-ink);
-  background: #fff;
-  border: 1px solid var(--portal-line);
+  color: var(--ink);
+  background: rgba(255, 255, 255, .055);
+  border: 1px solid var(--line);
   border-radius: 8px;
   font-size: .82rem;
   font-weight: 700;
@@ -122,7 +158,7 @@ body {
 .onboarding-form .choice-field input {
   width: 17px;
   min-height: 17px;
-  accent-color: var(--portal-accent);
+  accent-color: var(--mint);
 }
 
 .onboarding-form .utility-honeypot {
@@ -130,13 +166,30 @@ body {
   left: -10000px;
 }
 
-.onboarding-status {
-  min-height: 1.4rem;
-  margin-top: 1rem;
+.onboarding-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: .5rem;
 }
 
-.onboarding-status.is-error { color: #a33041; }
-.onboarding-status.is-active { color: #14725d; }
+.onboarding-actions button {
+  min-height: 48px;
+  padding: .75rem 1.1rem;
+  color: #07101a;
+  background: linear-gradient(90deg, #78dff5, #59a8ff);
+  border: 0;
+  border-radius: 8px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.onboarding-status {
+  min-height: 1.4rem;
+  margin: 1rem 0 0;
+}
+
+.onboarding-status.is-error { color: #ff9bab; }
+.onboarding-status.is-active { color: var(--mint); }
 
 .home-footer {
   margin-top: 0;

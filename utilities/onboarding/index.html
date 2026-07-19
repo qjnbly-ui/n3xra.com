@@ -6,25 +6,25 @@
     <title>N3XRA Utilities Onboarding</title>
     <meta name="description" content="Start onboarding for N3XRA Utilities.">
     <meta name="robots" content="noindex, nofollow">
-    <meta name="theme-color" content="#f5f7fa">
+    <meta name="theme-color" content="#07111d">
     <link rel="icon" type="image/png" sizes="284x284" href="/assets/n3xra_logo_transparent_small.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,650;9..144,750&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/assets/site-nav.css">
     <link rel="stylesheet" href="/utilities/utilities.css">
-    <link rel="stylesheet" href="/client-portal/portal.css?v=9">
     <link rel="stylesheet" href="/assets/home-shell.css?v=1">
-    <link rel="stylesheet" href="/utilities/onboarding/onboarding.css?v=1">
+    <link rel="stylesheet" href="/utilities/landing.css?v=1">
+    <link rel="stylesheet" href="/utilities/onboarding/onboarding.css?v=2">
     <script src="/assets/site-nav.js" defer></script>
     <script src="/utilities/utilities.js" defer></script>
   </head>
-  <body>
-    <header class="site-topbar">
+  <body class="utilities-landing utilities-onboarding">
+    <header class="site-topbar utilities-topbar">
       <div class="site-topbar-inner">
         <div class="site-topbar-row">
           <a class="site-brand" href="/" aria-label="N3XRA home">
-            <img src="/assets/n3xra_logo_transparent_small.png" alt=""><span>N3XRA</span>
+            <img src="/assets/MAINLOGO.png" alt="N3XRA">
           </a>
           <div class="site-nav-actions">
             <a class="site-menu-link" href="/utilities/">Utilities</a>
@@ -48,24 +48,25 @@
       </div>
     </header>
 
-    <main class="portal-shell utilities-onboarding-page">
-      <section class="portal-heading">
+    <main class="utilities-shell utilities-onboarding-page">
+      <section class="section-head center onboarding-page-head">
         <div>
-          <p class="portal-kicker">N3XRA Utilities</p>
+          <p class="eyebrow">N3XRA Utilities</p>
           <h1>Utility Onboarding</h1>
+          <p class="hero-lede">Create your organization and start building a utility portal around the way your team works.</p>
         </div>
       </section>
 
-      <section class="portal-workspace onboarding-workspace" aria-label="N3XRA Utilities onboarding form">
-        <div class="portal-workspace-head">
+      <section class="onboarding-workspace" aria-label="N3XRA Utilities onboarding form">
+        <div class="onboarding-workspace-head">
           <div>
-            <p class="portal-kicker">Organization details</p>
+            <p class="eyebrow">Organization details</p>
             <h2>Get started</h2>
             <p>This information creates your organization and starts its launch checklist.</p>
           </div>
         </div>
 
-        <form class="portal-form onboarding-form" id="utilities-onboarding-form">
+        <form class="onboarding-form" id="utilities-onboarding-form">
           <div class="form-section full-field">
             <p>Company</p>
           </div>
@@ -162,11 +163,11 @@
             Company
             <input type="text" name="company" autocomplete="off" tabindex="-1">
           </label>
-          <div class="portal-form-actions full-field">
-            <button class="portal-button" type="submit">Create utility portal setup</button>
+          <div class="onboarding-actions full-field">
+            <button type="submit">Create utility portal setup</button>
           </div>
         </form>
-        <p class="portal-inline-status onboarding-status" id="utilities-onboarding-status" role="status" aria-live="polite"></p>
+        <p class="status-line onboarding-status" id="utilities-onboarding-status" role="status" aria-live="polite"></p>
       </section>
     </main>
 
