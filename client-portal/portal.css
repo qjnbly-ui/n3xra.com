@@ -277,6 +277,10 @@ body.portal-denied main {
   text-align: center;
 }
 
+.portal-empty[hidden] {
+  display: none;
+}
+
 .portal-select,
 .portal-form input,
 .portal-form select,
@@ -502,6 +506,12 @@ body.portal-denied main {
   color: var(--portal-ink);
   background: #ffffff;
   border-color: var(--portal-line);
+}
+
+.portal-button-danger {
+  color: #ffffff;
+  background: #b42318;
+  border-color: #b42318;
 }
 
 .portal-button:disabled {
@@ -1837,7 +1847,8 @@ body.portal-denied main {
 }
 
 .portal-project-admin-settings,
-.portal-project-admin-milestones {
+.portal-project-admin-milestones,
+.portal-project-admin-controls {
   margin-top: 1rem;
   padding: clamp(1rem, 3vw, 1.5rem);
   background: #ffffff;
@@ -1919,6 +1930,62 @@ body.portal-denied main {
   border-radius: 11px;
   box-shadow: 0 16px 38px rgba(7, 12, 18, 0.12);
   backdrop-filter: blur(12px);
+}
+
+.portal-project-control-grid {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.portal-project-control-grid article {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem;
+  background: #f8fafc;
+  border: 1px solid var(--portal-line);
+  border-radius: 10px;
+}
+
+.portal-project-control-grid article.is-danger {
+  background: #fff7f6;
+  border-color: #f0b8b2;
+}
+
+.portal-project-control-grid h4,
+.portal-delete-project-dialog h2 {
+  margin: 0;
+  font-family: "Fraunces", Georgia, serif;
+}
+
+.portal-project-control-grid p {
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.portal-delete-project-dialog form,
+.portal-delete-project-dialog label {
+  display: grid;
+  gap: 1rem;
+}
+
+.portal-delete-project-dialog input {
+  width: 100%;
+  min-height: 44px;
+  padding: 0.68rem 0.75rem;
+  color: var(--portal-ink);
+  background: #fff;
+  border: 1px solid var(--portal-line);
+  border-radius: 8px;
+  font: inherit;
+}
+
+.portal-project-status-completed,
+.portal-milestone-complete {
+  color: #075f37;
+  background: #dcfce7;
 }
 
 .portal-project-status-pending,
@@ -2194,6 +2261,7 @@ body.portal-denied main {
   }
 
   .portal-project-stage-head,
+  .portal-project-control-grid article,
   .portal-project-savebar {
     align-items: stretch;
     flex-direction: column;

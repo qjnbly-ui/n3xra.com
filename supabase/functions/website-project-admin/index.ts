@@ -294,6 +294,54 @@ Deno.serve(async (request) => {
       }
     }
 
+    if (["complete-website-project", "close-website-project", "delete-website-project"].includes(action)) {
+      const projectId = String(payload.projectId || "").trim();
+      if (!isUuid(projectId)) return respond({ error: "A valid projectId is required." }, 400);
+
+      const { data: project, error: projectError } = await adminClient
+        .from("website_projects")
+        .select("id,name,status,managed_website_id")
+        .eq("id", projectId)
+        .maybeSingle();
+      if (projectError) return respond({ error: projectError.message }, 400);
+      if (!project) return respond({ error: "Website project not found." }, 404);
+
+      if (action === "complete-website-project") {
+        const { data: completedProject, error: completionError } = await adminClient
+          .rpc("complete_website_project", { input_project_id: project.id });
+        if (completionError) return respond({ error: completionError.message }, 400);
+        return respond({ ok: true, project: completedProject });
+      }
+
+      if (action === "close-website-project") {
+        const { data: closedProject, error: closeError } = await adminClient
+          .from("website_projects")
+          .update({
+            status: "archived",
+            admin_next_step: "This project has been closed.",
+          })
+          .eq("id", project.id)
+          .select("*")
+          .single();
+        if (closeError) return respond({ error: closeError.message }, 400);
+        return respond({ ok: true, project: closedProject });
+      }
+
+      const { error: deleteError } = await adminClient
+        .from("website_projects")
+        .delete()
+        .eq("id", project.id);
+      if (deleteError) return respond({ error: deleteError.message }, 400);
+      return respond({
+        ok: true,
+        deletedProject: {
+          id: project.id,
+          name: project.name,
+          managedWebsiteId: project.managed_website_id,
+        },
+      });
+    }
+
     return respond({ error: "Unknown website project admin action." }, 400);
   } catch (error) {
     return respond({ error: error instanceof Error ? error.message : "Unexpected website project admin error." }, 500);

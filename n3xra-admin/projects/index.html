@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&amp;family=Manrope:wght@400;600;700;800&amp;display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/site-nav.css">
-  <link rel="stylesheet" href="/client-portal/portal.css?v=10">
+  <link rel="stylesheet" href="/client-portal/portal.css?v=11">
   <script src="/shared/config.js"></script>
   <script src="/n3xra-admin/admin-shell.js?v=2" defer></script>
 </head>
@@ -89,6 +89,7 @@
                   <option value="on_hold">On hold</option>
                   <option value="ready_to_launch">Ready to launch</option>
                   <option value="launched">Launched</option>
+                  <option value="completed">Completed</option>
                   <option value="cancelled">Cancelled</option>
                   <option value="archived">Archived</option>
                 </select>
@@ -110,6 +111,29 @@
             <div class="portal-admin-milestone-list" id="admin-project-milestones"></div>
           </section>
 
+          <section class="portal-project-admin-controls" aria-labelledby="project-controls-title">
+            <div class="portal-section-heading">
+              <p class="portal-kicker">Project controls</p>
+              <h3 id="project-controls-title">Complete, close, or remove</h3>
+              <p>The managed website remains intact when its project is closed or deleted.</p>
+            </div>
+            <div class="portal-project-control-grid">
+              <article>
+                <div><h4>Mark complete</h4><p>Finish all applicable stages and show the project as completed.</p></div>
+                <button class="portal-button portal-button-secondary" id="complete-project-admin" type="button">Mark complete</button>
+              </article>
+              <article>
+                <div><h4>Close project</h4><p>Archive the workspace and preserve its project history.</p></div>
+                <button class="portal-button portal-button-secondary" id="close-project-admin" type="button">Close project</button>
+              </article>
+              <article class="is-danger">
+                <div><h4>Delete project</h4><p>Permanently remove its progress and onboarding workspace. The website record stays.</p></div>
+                <button class="portal-button portal-button-danger" id="delete-project-admin" type="button">Delete project</button>
+              </article>
+            </div>
+            <p class="portal-inline-status" id="admin-project-action-status" role="status"></p>
+          </section>
+
           <div class="portal-project-savebar">
             <p class="portal-inline-status" id="admin-project-save-status" role="status"></p>
             <button class="portal-button" id="save-project-admin" type="submit">Save project workspace</button>
@@ -119,8 +143,25 @@
     </div>
   </main>
 
+  <dialog class="portal-dialog portal-delete-project-dialog" id="delete-project-dialog">
+    <form id="delete-project-form">
+      <p class="portal-kicker">Permanent action</p>
+      <h2>Delete this project?</h2>
+      <p>This removes the project timeline, milestones, and onboarding workspace. It does not delete the managed website, proposal, or request.</p>
+      <label>
+        Type <strong id="delete-project-name"></strong> to confirm
+        <input id="delete-project-confirmation" type="text" autocomplete="off" required>
+      </label>
+      <p class="portal-inline-status" id="delete-project-status" role="status"></p>
+      <div class="portal-card-actions">
+        <button class="portal-button portal-button-secondary" id="cancel-delete-project" type="button">Cancel</button>
+        <button class="portal-button portal-button-danger" id="confirm-delete-project" type="submit">Delete permanently</button>
+      </div>
+    </form>
+  </dialog>
+
   <div class="portal-status" id="portal-status" role="status">Verifying project administration…</div>
   <script type="module" src="/client-portal/portal-shell.js"></script>
-  <script type="module" src="/n3xra-admin/projects/projects-admin.js"></script>
+  <script type="module" src="/n3xra-admin/projects/projects-admin.js?v=2"></script>
 </body>
 </html>

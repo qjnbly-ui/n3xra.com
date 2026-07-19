@@ -16,6 +16,17 @@ const milestoneList = document.getElementById("admin-project-milestones");
 const saveStatus = document.getElementById("admin-project-save-status");
 const saveButton = document.getElementById("save-project-admin");
 const refreshButton = document.getElementById("refresh-project-admin");
+const actionStatus = document.getElementById("admin-project-action-status");
+const completeButton = document.getElementById("complete-project-admin");
+const closeButton = document.getElementById("close-project-admin");
+const deleteButton = document.getElementById("delete-project-admin");
+const deleteDialog = document.getElementById("delete-project-dialog");
+const deleteForm = document.getElementById("delete-project-form");
+const deleteProjectName = document.getElementById("delete-project-name");
+const deleteConfirmation = document.getElementById("delete-project-confirmation");
+const deleteStatus = document.getElementById("delete-project-status");
+const cancelDeleteButton = document.getElementById("cancel-delete-project");
+const confirmDeleteButton = document.getElementById("confirm-delete-project");
 
 let supabase;
 let projects = [];
@@ -117,6 +128,15 @@ function renderLinks() {
   ].filter(Boolean).join("");
 }
 
+function renderProjectControls() {
+  const completed = selectedProject?.status === "completed";
+  const closed = selectedProject?.status === "archived";
+  completeButton.disabled = completed || closed;
+  completeButton.textContent = completed ? "Project completed" : "Mark complete";
+  closeButton.disabled = closed;
+  closeButton.textContent = closed ? "Project closed" : "Close project";
+}
+
 function renderWorkspace() {
   const hasProject = Boolean(selectedProject);
   emptyState.hidden = hasProject;
@@ -137,6 +157,91 @@ function renderWorkspace() {
   renderWebsiteOptions();
   renderMilestones();
   renderLinks();
+  renderProjectControls();
+}
+
+async function invokeProjectAdmin(body) {
+  const { data, error } = await supabase.functions.invoke("website-project-admin", { body });
+  if (error || data?.error) throw new Error(data?.error || error?.message || "Project action failed.");
+  return data;
+}
+
+function setActionStatus(message = "", isError = false) {
+  actionStatus.textContent = message;
+  actionStatus.classList.toggle("is-error", isError);
+}
+
+async function completeProject() {
+  if (!selectedProject) return;
+  if (!window.confirm(`Mark ${selectedProject.name} complete? All applicable roadmap stages will be completed.`)) return;
+  completeButton.disabled = true;
+  setActionStatus("Completing project…");
+  try {
+    await invokeProjectAdmin({ action: "complete-website-project", projectId: selectedProject.id });
+    await loadData(selectedProject.id);
+    setActionStatus("Project marked complete.");
+  } catch (error) {
+    setActionStatus(error?.message || "Unable to complete this project.", true);
+    completeButton.disabled = false;
+  }
+}
+
+async function closeProject() {
+  if (!selectedProject) return;
+  if (!window.confirm(`Close ${selectedProject.name}? Its history will remain available.`)) return;
+  closeButton.disabled = true;
+  setActionStatus("Closing project…");
+  try {
+    await invokeProjectAdmin({ action: "close-website-project", projectId: selectedProject.id });
+    await loadData(selectedProject.id);
+    setActionStatus("Project closed and archived.");
+  } catch (error) {
+    setActionStatus(error?.message || "Unable to close this project.", true);
+    closeButton.disabled = false;
+  }
+}
+
+function openDeleteDialog() {
+  if (!selectedProject) return;
+  deleteProjectName.textContent = selectedProject.name;
+  deleteConfirmation.value = "";
+  deleteStatus.textContent = "";
+  deleteStatus.classList.remove("is-error");
+  deleteDialog.showModal();
+  deleteConfirmation.focus();
+}
+
+async function deleteProject(event) {
+  event.preventDefault();
+  if (!selectedProject) return;
+  if (deleteConfirmation.value.trim() !== selectedProject.name) {
+    deleteStatus.textContent = "Enter the project name exactly as shown.";
+    deleteStatus.classList.add("is-error");
+    return;
+  }
+
+  confirmDeleteButton.disabled = true;
+  deleteStatus.textContent = "Deleting project…";
+  deleteStatus.classList.remove("is-error");
+  const deletedName = selectedProject.name;
+  try {
+    await invokeProjectAdmin({ action: "delete-website-project", projectId: selectedProject.id });
+    writeWorkspaceContext("admin", currentUser.id, {
+      projectId: null,
+      proposalId: null,
+      requestId: null,
+      onboardingId: null,
+    });
+    selectedProject = undefined;
+    deleteDialog.close();
+    await loadData();
+    setActionStatus(`${deletedName} was deleted. The managed website was not removed.`);
+  } catch (error) {
+    deleteStatus.textContent = error?.message || "Unable to delete this project.";
+    deleteStatus.classList.add("is-error");
+  } finally {
+    confirmDeleteButton.disabled = false;
+  }
 }
 
 async function loadData(preferredId) {
@@ -232,6 +337,11 @@ async function init() {
     renderWorkspace();
   });
   form.addEventListener("submit", saveProject);
+  completeButton.addEventListener("click", () => { void completeProject(); });
+  closeButton.addEventListener("click", () => { void closeProject(); });
+  deleteButton.addEventListener("click", openDeleteDialog);
+  deleteForm.addEventListener("submit", deleteProject);
+  cancelDeleteButton.addEventListener("click", () => deleteDialog.close());
   refreshButton.addEventListener("click", () => loadData(selectedProject?.id).catch((error) => {
     saveStatus.textContent = error?.message || "Unable to refresh projects.";
     saveStatus.classList.add("is-error");

@@ -204,7 +204,7 @@ async function loadData(preferredId) {
   if (milestoneResult.error) throw milestoneResult.error;
   if (onboardingResult.error) throw onboardingResult.error;
   if (proposalResult.error) throw proposalResult.error;
-  projects = projectResult.data || [];
+  projects = (projectResult.data || []).filter((project) => !["archived", "cancelled"].includes(project.status));
   websites = websiteResult.data || [];
   milestones = milestoneResult.data || [];
   onboardings = onboardingResult.data || [];
