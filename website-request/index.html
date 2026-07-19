@@ -11,11 +11,11 @@
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/site-nav.css">
   <link rel="stylesheet" href="/client-portal/portal.css?v=10">
-  <link rel="stylesheet" href="/website-request/request.css?v=1">
+  <link rel="stylesheet" href="/website-request/request.css?v=2">
   <script src="/shared/config.js"></script>
   <script src="/assets/site-nav.js" defer></script>
 </head>
-<body class="portal-loading">
+<body class="portal-loading request-page">
   <header class="site-topbar">
     <div class="site-topbar-inner">
       <div class="site-topbar-row">
@@ -38,17 +38,7 @@
       </nav>
     </div>
   </header>
-  <main class="portal-shell">
-    <section class="portal-heading">
-      <div>
-        <p class="portal-kicker">Start a project</p>
-        <h1>Start a New Project</h1>
-      </div>
-    </section>
-    <section class="portal-project-picker" aria-labelledby="request-picker-title">
-      <div><p class="portal-kicker">New workspace</p><h2 id="request-picker-title">Create a new project</h2><p>Complete the website details now. Your request will be securely connected to one N3XRA account when you submit.</p></div>
-      <div class="portal-picker-state"><span>How it works</span><strong id="request-picker-state">Details → email verification → submitted</strong></div>
-    </section>
+  <main class="portal-shell request-shell">
     <div class="portal-layout">
       <nav class="portal-nav request-auth-only" aria-label="Website client portal">
         <a href="/client-portal/">Overview</a>
@@ -63,14 +53,18 @@
       </nav>
       <section class="portal-workspace">
         <div class="portal-workspace-head">
-          <div><p class="portal-kicker">Project intake</p><h2>Website details</h2><p class="request-workspace-intro">No separate registration form and no password required to begin.</p></div>
+          <div>
+            <p class="portal-kicker">Start a project</p>
+            <h1>Tell us about your website.</h1>
+            <p class="request-workspace-intro">Share what you want to build. We’ll save it to your N3XRA account when you submit.</p>
+          </div>
         </div>
         <form class="portal-form portal-request-form" id="website-request-form">
           <section class="request-account-card" id="request-account-card" aria-live="polite">
             <div>
-              <p class="portal-kicker">One N3XRA account</p>
-              <h3 id="request-account-title">Start now. Verify when you submit.</h3>
-              <p id="request-account-copy">Already use N3XRA? Enter the same email and this project will connect to your existing account. If it is new, the secure link creates your account automatically.</p>
+              <p class="portal-kicker">Account connection</p>
+              <h3 id="request-account-title">Use your N3XRA email.</h3>
+              <p id="request-account-copy">We’ll match an existing account or create one after you verify your email.</p>
             </div>
             <div class="request-account-state"><span>Account status</span><strong id="request-account-state">Not signed in</strong></div>
           </section>
@@ -90,8 +84,8 @@
               </select>
             </label>
             <label>Existing website URL<input id="request-existing-url" type="url" placeholder="https://example.com"></label>
-            <label class="portal-form-wide">Primary goal<textarea id="request-goal" rows="4" required placeholder="What should this website accomplish?"></textarea></label>
-            <label class="portal-form-wide">Primary audience<textarea id="request-audience" rows="3" placeholder="Who should the website reach?"></textarea></label>
+            <label>Primary goal<textarea id="request-goal" rows="4" required placeholder="What should this website accomplish?"></textarea></label>
+            <label>Primary audience<textarea id="request-audience" rows="4" placeholder="Who should the website reach?"></textarea></label>
             <label>Requested pages<input id="request-pages" placeholder="Home, About, Services, Contact"></label>
             <label>Requested features<input id="request-features" placeholder="Forms, payments, scheduling, gallery"></label>
             <label>Budget range
@@ -124,6 +118,6 @@
   </main>
   <div class="portal-status" id="portal-status">Opening project intake…</div>
   <script type="module" src="/client-portal/portal-shell.js"></script>
-  <script type="module" src="/website-request/request.js?v=3"></script>
+  <script type="module" src="/website-request/request.js?v=4"></script>
 </body>
 </html>

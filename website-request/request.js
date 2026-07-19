@@ -151,15 +151,15 @@ function updateAccountState() {
     if (contactName && !contactName.value.trim()) {
       contactName.value = String(session.user.user_metadata?.full_name || "").trim();
     }
-    if (accountTitle) accountTitle.textContent = "Your project will stay with this account.";
-    if (accountCopy) accountCopy.textContent = "You are already verified. Submit when the website details are ready.";
+    if (accountTitle) accountTitle.textContent = "Signed in and ready.";
+    if (accountCopy) accountCopy.textContent = "This project will be saved to your current N3XRA account.";
     if (accountState) accountState.textContent = signedInEmail || "Signed in";
     if (emailHelp) emailHelp.textContent = "This request will be owned by your signed-in N3XRA account.";
     if (submitButton) submitButton.textContent = "Submit website request";
   } else {
     emailInput.readOnly = false;
-    if (accountTitle) accountTitle.textContent = "Start now. Verify when you submit.";
-    if (accountCopy) accountCopy.textContent = "Already use N3XRA? Enter the same email and this project will connect to your existing account. If it is new, the secure link creates your account automatically.";
+    if (accountTitle) accountTitle.textContent = "Use your N3XRA email.";
+    if (accountCopy) accountCopy.textContent = "We’ll match an existing account or create one after you verify your email.";
     if (accountState) accountState.textContent = "Not signed in";
     if (emailHelp) emailHelp.textContent = "Use the email already connected to N3XRA to avoid creating another account.";
     if (submitButton) submitButton.textContent = "Verify email & submit project";

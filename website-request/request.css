@@ -1,16 +1,42 @@
+.request-page .request-shell {
+  width: min(1320px, calc(100vw - 3rem));
+  padding-top: 2.25rem;
+}
+
+.request-page .portal-workspace {
+  padding: clamp(1.5rem, 3vw, 3rem);
+}
+
+.request-page .portal-workspace-head {
+  align-items: start;
+}
+
+.request-page .portal-workspace-head > div {
+  max-width: 760px;
+}
+
+.request-page .portal-workspace-head h1 {
+  margin: 0;
+  font-family: "Fraunces", Georgia, serif;
+  font-size: clamp(2.2rem, 4vw, 3.5rem);
+  line-height: 1.02;
+}
+
 .request-workspace-intro {
-  margin: 0.4rem 0 0;
+  margin: 0.65rem 0 0;
   color: var(--portal-muted);
+  font-size: 1rem;
+  line-height: 1.6;
 }
 
 .request-account-card,
 .request-verification-card {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(210px, 280px);
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 1.25rem;
-  margin-bottom: 1rem;
-  padding: 1rem;
+  gap: 2rem;
+  margin-bottom: 1.5rem;
+  padding: 1.15rem 1.25rem;
   background: linear-gradient(135deg, rgba(22, 185, 237, 0.09), rgba(22, 185, 237, 0.025));
   border: 1px solid rgba(22, 185, 237, 0.24);
   border-radius: 10px;
@@ -26,7 +52,7 @@
 .request-account-card h3,
 .request-verification-card h3 {
   font-family: "Fraunces", Georgia, serif;
-  font-size: 1.35rem;
+  font-size: 1.25rem;
 }
 
 .request-account-card p:not(.portal-kicker),
@@ -40,7 +66,8 @@
 .request-account-state {
   display: grid;
   gap: 0.3rem;
-  padding: 0.85rem 1rem;
+  min-width: 180px;
+  padding: 0.75rem 0.9rem;
   background: #ffffff;
   border: 1px solid var(--portal-line);
   border-radius: 8px;
@@ -92,7 +119,7 @@
 
 .request-guest .portal-layout {
   grid-template-columns: minmax(0, 1fr);
-  width: min(980px, 100%);
+  width: min(1240px, 100%);
   margin: 0 auto;
 }
 
@@ -101,13 +128,57 @@
 }
 
 .request-guest .portal-form {
-  padding: clamp(1rem, 3vw, 1.5rem);
+  padding: 0;
+}
+
+.request-page .portal-request-form {
+  margin: 1.5rem 0 1.5rem;
+  padding: 0;
+  background: transparent;
+  border: 0;
+}
+
+.request-page .portal-form-grid {
+  column-gap: 1.5rem;
+  row-gap: 1.15rem;
+  margin-top: 0;
+}
+
+.request-page .portal-form input,
+.request-page .portal-form select {
+  min-height: 48px;
+}
+
+.request-page .portal-form textarea {
+  min-height: 120px;
+}
+
+.request-page .portal-form-actions {
+  margin-top: 1.5rem;
 }
 
 @media (max-width: 720px) {
+  .request-page .request-shell {
+    width: calc(100vw - 1rem);
+    padding-top: 1.25rem;
+  }
+
+  .request-page .portal-workspace {
+    padding: 1.1rem;
+  }
+
+  .request-page .portal-workspace-head h1 {
+    font-size: clamp(2rem, 11vw, 2.8rem);
+  }
+
   .request-account-card,
   .request-verification-card {
     grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .request-account-state {
+    min-width: 0;
   }
 
   .request-verification-card .portal-button,
