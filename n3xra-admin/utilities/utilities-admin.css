@@ -123,6 +123,8 @@
 .utilities-admin-card dd {
   min-width: 0;
   margin: 0;
+  color: var(--portal-ink);
+  font-weight: 700;
   overflow-wrap: anywhere;
 }
 
