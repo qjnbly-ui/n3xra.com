@@ -305,6 +305,7 @@
   let recordingTimer = null;
   let currentAudio = null;
   let currentAudioUrl = "";
+  let preparedAudioText = "";
   let lastAnswerText = "";
   let voiceSubmission = false;
 
@@ -376,6 +377,7 @@
       URL.revokeObjectURL(currentAudioUrl);
       currentAudioUrl = "";
     }
+    preparedAudioText = "";
     if (listenButton) listenButton.hidden = false;
     if (stopAudioButton) stopAudioButton.hidden = true;
   }
@@ -383,6 +385,19 @@
   async function speakAnswer(text) {
     const speechText = String(text || "").trim();
     if (!speechText) return;
+
+    if (currentAudio && currentAudioUrl && preparedAudioText === speechText) {
+      try {
+        await currentAudio.play();
+        status.textContent = "";
+        if (listenButton) listenButton.hidden = true;
+        if (stopAudioButton) stopAudioButton.hidden = false;
+      } catch {
+        status.textContent = "Audio is ready. Tap Listen again to play it.";
+      }
+      return;
+    }
+
     stopPlayback();
     if (listenButton) {
       listenButton.disabled = true;
@@ -402,18 +417,35 @@
       const blob = await response.blob();
       currentAudioUrl = URL.createObjectURL(blob);
       currentAudio = new Audio(currentAudioUrl);
+      preparedAudioText = speechText;
+      currentAudio.preload = "auto";
       currentAudio.addEventListener("ended", stopPlayback, { once: true });
       currentAudio.addEventListener("error", stopPlayback, { once: true });
       if (listenButton) listenButton.hidden = true;
       if (stopAudioButton) stopAudioButton.hidden = false;
       await currentAudio.play();
     } catch (error) {
-      stopPlayback();
-      status.textContent = error instanceof Error ? error.message : "Voice playback is unavailable.";
+      const playbackWasBlocked =
+        currentAudio &&
+        currentAudioUrl &&
+        (error?.name === "NotAllowedError" || /not allowed|user agent|current context/i.test(String(error?.message || "")));
+      if (playbackWasBlocked) {
+        if (listenButton) {
+          listenButton.hidden = false;
+          listenButton.textContent = "Play audio";
+        }
+        if (stopAudioButton) stopAudioButton.hidden = true;
+        status.textContent = "Audio is ready. Tap Play audio to hear it.";
+      } else {
+        stopPlayback();
+        status.textContent = "Voice playback is unavailable right now.";
+      }
     } finally {
-      if (listenButton) {
+      if (listenButton && listenButton.textContent !== "Play audio") {
         listenButton.disabled = false;
         listenButton.textContent = "Listen";
+      } else if (listenButton) {
+        listenButton.disabled = false;
       }
     }
   }
