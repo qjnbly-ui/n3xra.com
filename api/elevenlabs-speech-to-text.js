@@ -56,7 +56,10 @@ export default async function handler(req, res) {
     form.append("model_id", MODEL_ID);
     form.append("tag_audio_events", "false");
     form.append("diarize", "false");
-    form.append("keyterms", JSON.stringify(["N3XRA", "N3XRA Records", "N3XRA Utilities", "N3XRA Virals"]));
+    form.append("keyterms", "N3XRA");
+    form.append("keyterms", "N3XRA Records");
+    form.append("keyterms", "N3XRA Utilities");
+    form.append("keyterms", "N3XRA Virals");
 
     const response = await fetch("https://api.elevenlabs.io/v1/speech-to-text", {
       method: "POST",
