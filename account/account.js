@@ -25,6 +25,8 @@ const authTitle = document.getElementById("auth-title");
 const authSubtitle = document.getElementById("auth-subtitle");
 const inviteCodeField = document.getElementById("invite-code-field");
 const signupInviteCodeInput = document.getElementById("signup-invite-code");
+const signupReferralCodeInput = document.getElementById("signup-referral-code");
+const signupReferralStatus = document.getElementById("signup-referral-status");
 const authCaptchaField = document.getElementById("auth-captcha-field");
 const authTurnstile = document.getElementById("auth-turnstile");
 const recoveryForm = document.getElementById("recovery-form");
@@ -58,6 +60,63 @@ let currentSession = null;
 let memberships = [];
 let musicProfile = null;
 let platformAdminAccess = null;
+let validatedSignupReferralCode = "";
+let signupReferralTimer = null;
+
+function normalizeReferralCode(value) {
+  return String(value || "").trim().toUpperCase().replace(/[^A-Z0-9-]/g, "").slice(0, 24);
+}
+
+function setSignupReferralStatus(message, state = "") {
+  if (!signupReferralStatus) return;
+  signupReferralStatus.textContent = message;
+  signupReferralStatus.classList.toggle("is-valid", state === "valid");
+  signupReferralStatus.classList.toggle("is-error", state === "error");
+}
+
+async function validateSignupReferralCode({ required = false } = {}) {
+  if (!signupReferralCodeInput) return true;
+  const code = normalizeReferralCode(signupReferralCodeInput.value);
+  signupReferralCodeInput.value = code;
+  signupReferralCodeInput.setCustomValidity("");
+
+  if (!code) {
+    validatedSignupReferralCode = "";
+    setSignupReferralStatus("If a N3XRA partner referred you, enter their code here. It will be permanently connected to your account.");
+    return true;
+  }
+  if (code.length < 4) {
+    const message = "Referral codes contain at least four letters or numbers.";
+    validatedSignupReferralCode = "";
+    setSignupReferralStatus(message, "error");
+    if (required) signupReferralCodeInput.setCustomValidity(message);
+    return false;
+  }
+  if (validatedSignupReferralCode === code) return true;
+
+  setSignupReferralStatus("Checking referral code…");
+  try {
+    const response = await fetch(`/api/website-referral-code?scope=account&code=${encodeURIComponent(code)}`);
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data?.error || "Unable to check this code.");
+    if (!data.valid) {
+      const message = "That partner referral code is not valid.";
+      validatedSignupReferralCode = "";
+      setSignupReferralStatus(message, "error");
+      if (required) signupReferralCodeInput.setCustomValidity(message);
+      return false;
+    }
+    validatedSignupReferralCode = code;
+    setSignupReferralStatus("Referral code applied. It will be permanently connected when this account is created.", "valid");
+    return true;
+  } catch (error) {
+    const message = error?.message || "Unable to check this referral code right now.";
+    validatedSignupReferralCode = "";
+    setSignupReferralStatus(message, "error");
+    if (required) signupReferralCodeInput.setCustomValidity(message);
+    return false;
+  }
+}
 let captchaToken = "";
 let captchaWidgetId = null;
 let captchaEnabled = false;
@@ -259,11 +318,16 @@ function applyUrlPrefill() {
   const inviteCode = getInviteCode();
   const adminInvite = getPlatformAdminInviteToken();
   const email = String(params.get("email") || "").trim();
+  const referralCode = normalizeReferralCode(params.get("ref"));
 
-  if (requestedSignup === "invite" || requestedSignup === "signup" || inviteCode || adminInvite) {
+  if (requestedSignup === "invite" || requestedSignup === "signup" || inviteCode || adminInvite || referralCode) {
     setAuthMode("signup");
     show(inviteCodeField, Boolean(inviteCode));
     if (signupInviteCodeInput) signupInviteCodeInput.value = inviteCode;
+    if (signupReferralCodeInput && referralCode) {
+      signupReferralCodeInput.value = referralCode;
+      validateSignupReferralCode();
+    }
   }
 
   if (email) {
@@ -503,6 +567,11 @@ async function handleSignup(event) {
     setStatus("Passwords do not match.", "error");
     return;
   }
+  if (!await validateSignupReferralCode({ required: true })) {
+    signupReferralCodeInput?.reportValidity();
+    signupReferralCodeInput?.focus();
+    return;
+  }
 
   isSubmitting = true;
   try {
@@ -522,6 +591,7 @@ async function handleSignup(event) {
         data: {
           full_name: fullName,
           invite_code: inviteCode,
+          referral_code: validatedSignupReferralCode,
         },
       },
     });
@@ -729,6 +799,15 @@ function bindEvents() {
   forgotPasswordButton.addEventListener("click", handleForgotPassword);
   showSigninButton.addEventListener("click", () => setAuthMode("signin"));
   showSignupButton.addEventListener("click", () => setAuthMode("signup"));
+  signupReferralCodeInput?.addEventListener("input", () => {
+    const code = normalizeReferralCode(signupReferralCodeInput.value);
+    signupReferralCodeInput.value = code;
+    if (code !== validatedSignupReferralCode) validatedSignupReferralCode = "";
+    signupReferralCodeInput.setCustomValidity("");
+    clearTimeout(signupReferralTimer);
+    signupReferralTimer = setTimeout(() => validateSignupReferralCode(), 450);
+  });
+  signupReferralCodeInput?.addEventListener("blur", () => validateSignupReferralCode());
   recoveryForm.addEventListener("submit", handleRecovery);
   profileForm.addEventListener("submit", handleProfileSave);
   passwordForm.addEventListener("submit", handlePasswordSave);

@@ -674,3 +674,20 @@ body {
     flex: 1;
   }
 }
+.field-optional {
+  color: var(--slate);
+  font-size: 0.72em;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+#signup-referral-status.is-valid {
+  color: #08745f;
+  font-weight: 700;
+}
+
+#signup-referral-status.is-error {
+  color: #a43a1a;
+  font-weight: 700;
+}

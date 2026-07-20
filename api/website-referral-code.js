@@ -31,6 +31,7 @@ export default async function handler(req, res) {
   if (limited(clientIp(req))) return res.status(429).json({ error: "Please wait before checking another code." });
 
   const code = cleanCode(req.query?.code);
+  const scope = String(req.query?.scope || "website").trim().toLowerCase();
   if (code.length < 4) return res.status(200).json({ valid: false, code });
 
   try {
@@ -51,7 +52,7 @@ export default async function handler(req, res) {
     const application = Array.isArray(rows) ? rows[0] : null;
     const programs = Array.isArray(application?.interested_products) ? application.interested_products : [];
     return res.status(200).json({
-      valid: Boolean(application && programs.includes("Website Referral Program")),
+      valid: Boolean(application && (scope === "account" || programs.includes("Website Referral Program"))),
       code,
     });
   } catch {
