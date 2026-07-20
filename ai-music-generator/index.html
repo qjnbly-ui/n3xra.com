@@ -307,6 +307,23 @@
       gap: 0.38rem;
     }
 
+    .field-optional {
+      color: var(--muted);
+      font-size: 0.82em;
+      letter-spacing: 0;
+      text-transform: none;
+    }
+
+    .referral-status {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.76rem;
+      line-height: 1.45;
+    }
+
+    .referral-status.is-valid { color: #08745f; }
+    .referral-status.is-error { color: #a43a1a; }
+
     .field label,
     .option-label {
       color: var(--deep);
@@ -948,6 +965,11 @@
                   <button class="password-toggle" type="button" data-password-toggle="musicSignupPasswordConfirm" aria-label="Show password">Show</button>
                 </div>
               </div>
+              <div class="field">
+                <label for="musicSignupReferralCode">Partner referral code <span class="field-optional">(optional)</span></label>
+                <input id="musicSignupReferralCode" class="music-input" type="text" maxlength="24" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Enter referral code">
+                <p class="referral-status" id="musicSignupReferralStatus">If a N3XRA partner referred you, enter their code here. It will be permanently connected to your account.</p>
+              </div>
               <button class="primary-btn" type="submit">Create AI Music account</button>
             </form>
 
@@ -1060,6 +1082,7 @@
 
   <script type="module">
     import { createBrowserSupabase, getConfig, getSessionOrNull, hasConfig } from "/shared/lib/supabase-client.js";
+    import { createReferralCodeController } from "/shared/lib/referral-code.js";
 
     const HISTORY_KEY = "n3xraSongHistory";
     const SONG_DRAFT_KEY = "n3xraMusicDraft";
@@ -1097,6 +1120,8 @@
     const musicAuthLegal = document.getElementById("musicAuthLegal");
     const musicAuthCaptchaField = document.getElementById("musicAuthCaptchaField");
     const musicAuthTurnstile = document.getElementById("musicAuthTurnstile");
+    const musicSignupReferralCode = document.getElementById("musicSignupReferralCode");
+    const musicSignupReferralStatus = document.getElementById("musicSignupReferralStatus");
 
     let supabase = null;
     let currentSession = null;
@@ -1106,6 +1131,10 @@
     let captchaToken = "";
     let captchaWidgetId = null;
     let captchaEnabled = false;
+    const signupReferral = createReferralCodeController({
+      input: musicSignupReferralCode,
+      status: musicSignupReferralStatus,
+    });
 
     function getTurnstileSiteKey() {
       return String(getConfig().turnstileSiteKey || "").trim();
@@ -1746,6 +1775,11 @@
         resetCaptcha();
         return;
       }
+      if (!await signupReferral.validate({ required: true })) {
+        musicSignupReferralCode?.reportValidity();
+        musicSignupReferralCode?.focus();
+        return;
+      }
 
       try {
         await verifyCaptchaServerSide(captchaToken);
@@ -1758,6 +1792,7 @@
             data: {
               full_name: fullName,
               app_signup: "ai_music",
+              referral_code: signupReferral.getCode(),
             },
           },
         });

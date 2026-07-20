@@ -7,6 +7,7 @@ import {
   getSessionOrNull,
 } from "/shared/lib/supabase-client.js";
 import { getStoredActiveOrganizationId, isPlatformAdminEmail, setStoredActiveOrganizationId } from "/shared/lib/orgs.js";
+import { createReferralCodeController } from "/shared/lib/referral-code.js";
 
 const setupPanel = document.getElementById("setup-panel");
 const authPanel = document.getElementById("auth-panel");
@@ -28,6 +29,8 @@ const signupInviteCodeField = document.getElementById("signup-invite-code-field"
 const signupInviteCodeInput = document.getElementById("signup-invite-code");
 const signupPasswordInput = document.getElementById("signup-password");
 const signupPasswordConfirmInput = document.getElementById("signup-password-confirm");
+const signupReferralCodeInput = document.getElementById("signup-referral-code");
+const signupReferralStatus = document.getElementById("signup-referral-status");
 const signupModeCreateOrgButton = document.getElementById("signup-mode-create-org");
 const signupModePersonalButton = document.getElementById("signup-mode-personal");
 const signupModeInviteButton = document.getElementById("signup-mode-invite");
@@ -42,6 +45,10 @@ let currentAuthedSession = null;
 let captchaToken = "";
 let captchaWidgetId = null;
 let captchaEnabled = false;
+const signupReferral = createReferralCodeController({
+  input: signupReferralCodeInput,
+  status: signupReferralStatus,
+});
 
 function getTurnstileSiteKey() {
   return String(getConfig().turnstileSiteKey || "").trim();
@@ -352,6 +359,13 @@ async function handleSignup(event) {
     return;
   }
 
+  if (!await signupReferral.validate({ required: true })) {
+    isSubmittingAuth = false;
+    signupReferralCodeInput?.reportValidity();
+    signupReferralCodeInput?.focus();
+    return;
+  }
+
   let submitCaptchaToken = "";
   try {
     submitCaptchaToken = getCaptchaTokenForRequest();
@@ -374,6 +388,7 @@ async function handleSignup(event) {
         organization_name: organizationName,
         invite_code: inviteCode,
         role,
+        referral_code: signupReferral.getCode(),
       },
     },
   });

@@ -467,6 +467,24 @@ select:-webkit-autofill:focus {
   color: var(--slate);
 }
 
+.field-optional {
+  color: var(--slate);
+  font-size: 0.72em;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.field-note.is-valid {
+  color: #08745f;
+  font-weight: 700;
+}
+
+.field-note.is-error {
+  color: #a43a1a;
+  font-weight: 700;
+}
+
 .required-mark {
   color: var(--danger);
   font-weight: 900;
