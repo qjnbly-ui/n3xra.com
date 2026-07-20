@@ -5,6 +5,7 @@ const statusScreen = document.getElementById("portal-status");
 const list = document.getElementById("partner-application-list");
 const stats = document.getElementById("partner-stats");
 const searchInput = document.getElementById("partner-search");
+const programFilter = document.getElementById("partner-program-filter");
 const statusFilter = document.getElementById("partner-status-filter");
 const refreshButton = document.getElementById("partner-refresh");
 let supabase;
@@ -43,9 +44,14 @@ function renderStats() {
 
 function filteredApplications() {
   const query = searchInput.value.trim().toLowerCase();
+  const selectedProgram = programFilter.value;
   const selectedStatus = statusFilter.value;
   return applications.filter((application) => {
     if (selectedStatus && application.status !== selectedStatus) return false;
+    if (selectedProgram) {
+      const products = productsFor(application).join(" ").toLowerCase();
+      if (!products.includes(selectedProgram)) return false;
+    }
     if (!query) return true;
     return [application.full_name, application.email, application.organization, application.audience_source]
       .some((value) => String(value || "").toLowerCase().includes(query));
@@ -134,7 +140,13 @@ async function init() {
   if (!await verifyPlatformAdmin(supabase, user)) throw new Error("You do not have partner administration access.");
 
   await loadApplications();
+  const requestedProgram = new URLSearchParams(window.location.search).get("program");
+  if (["website", "software", "future"].includes(requestedProgram)) {
+    programFilter.value = requestedProgram;
+    render();
+  }
   searchInput.addEventListener("input", render);
+  programFilter.addEventListener("change", render);
   statusFilter.addEventListener("change", render);
   refreshButton.addEventListener("click", async () => {
     refreshButton.disabled = true;
