@@ -6,9 +6,10 @@
 .partner-balance-grid p,.partner-code-card p { margin:0; color:var(--portal-muted); font-size:.82rem; }
 .partner-code-card { display:grid; grid-template-columns:minmax(0,1fr) minmax(280px,.65fr); gap:1.2rem; align-items:end; }
 .partner-code-card h3,.partner-history-section h3 { margin:.15rem 0 .35rem; font-family:"Fraunces",Georgia,serif; font-size:1.45rem; }
-#partner-code-form { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:.6rem; align-items:end; }
+#partner-code-form { display:grid; grid-template-columns:minmax(0,1fr) auto auto; gap:.6rem; align-items:end; }
 #partner-code-form label { display:grid; gap:.35rem; color:var(--portal-muted); font-size:.75rem; font-weight:800; }
 #partner-code-form input { min-height:44px; padding:.65rem .7rem; border:1px solid var(--portal-line); border-radius:8px; font:inherit; text-transform:uppercase; }
+#partner-code-form input:disabled { color:var(--portal-text); background:#f6f8fa; opacity:1; }
 #partner-code-status { grid-column:1/-1; min-height:1.2rem; }
 .partner-history-section { display:grid; gap:.85rem; }
 .partner-history-list { display:grid; gap:.5rem; }

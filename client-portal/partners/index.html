@@ -23,8 +23,8 @@
           <article><span>Paid</span><strong id="balance-paid">$0.00</strong><p>Total paid to date</p></article>
         </div>
         <section class="partner-code-card">
-          <div><p class="portal-kicker">Referral identity</p><h3>Your referral code</h3><p>Choose a simple code to identify referrals connected to you.</p></div>
-          <form id="partner-code-form"><label>Referral code<input id="partner-code" maxlength="24" minlength="4" pattern="[A-Za-z0-9-]{4,24}" placeholder="YOUR-CODE" required></label><button class="portal-button" type="submit">Save code</button><p id="partner-code-status" role="status"></p></form>
+          <div><p class="portal-kicker">Referral identity</p><h3>Your referral code</h3><p id="partner-code-help">Choose carefully. Once created, your referral code cannot be changed.</p></div>
+          <form id="partner-code-form"><label>Referral code<input id="partner-code" maxlength="24" minlength="4" pattern="[A-Za-z0-9-]{4,24}" placeholder="YOUR-CODE" required></label><button class="portal-button portal-button-secondary" id="partner-code-check" type="button">Check availability</button><button class="portal-button" id="partner-code-save" type="submit" disabled>Create code</button><p id="partner-code-status" role="status"></p></form>
         </section>
         <section class="partner-history-section"><div><p class="portal-kicker">Referral activity</p><h3>Referral history</h3></div><div class="partner-history-list" id="partner-referral-history"></div></section>
         <section class="partner-history-section"><div><p class="portal-kicker">Earnings</p><h3>Commission history</h3></div><div class="partner-history-list" id="partner-commission-history"></div></section>
@@ -32,6 +32,6 @@
     </div>
   </main>
   <div class="portal-status" id="portal-status" role="status">Opening your partner portal…</div>
-  <script type="module" src="/client-portal/portal-shell.js?v=2"></script><script type="module" src="/client-portal/partners/partner-portal.js?v=1"></script>
+  <script type="module" src="/client-portal/portal-shell.js?v=2"></script><script type="module" src="/client-portal/partners/partner-portal.js?v=2"></script>
 </body>
 </html>

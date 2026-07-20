@@ -4,7 +4,11 @@ const statusScreen = document.getElementById("portal-status");
 const codeForm = document.getElementById("partner-code-form");
 const codeInput = document.getElementById("partner-code");
 const codeStatus = document.getElementById("partner-code-status");
+const codeHelp = document.getElementById("partner-code-help");
+const codeCheck = document.getElementById("partner-code-check");
+const codeSave = document.getElementById("partner-code-save");
 let session;
+let availableCode = "";
 
 function escapeHtml(value = "") {
   return String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
@@ -40,6 +44,13 @@ function renderHistory(targetId, items, type) {
 function render(data) {
   document.getElementById("partner-welcome").textContent = `Welcome, ${data.partner.full_name}`;
   codeInput.value = data.partner.referral_code || "";
+  if (data.partner.referral_code) {
+    codeInput.disabled = true;
+    codeCheck.hidden = true;
+    codeSave.hidden = true;
+    codeHelp.textContent = "This is your permanent referral code.";
+    codeStatus.textContent = "Your referral code is active and cannot be changed.";
+  }
   document.getElementById("balance-pending").textContent = money(data.balances.pending_cents, data.balances.currency);
   document.getElementById("balance-available").textContent = money(data.balances.available_cents, data.balances.currency);
   document.getElementById("balance-paid").textContent = money(data.balances.paid_cents, data.balances.currency);
@@ -59,15 +70,55 @@ async function init() {
     if (error.status === 403) return window.location.replace("/account/");
     throw error;
   }
+  codeInput.addEventListener("input", () => {
+    availableCode = "";
+    codeSave.disabled = true;
+    codeStatus.textContent = "";
+  });
+  codeCheck.addEventListener("click", async () => {
+    if (!codeInput.reportValidity()) return;
+    codeStatus.textContent = "Checking availability…";
+    codeCheck.disabled = true;
+    try {
+      const data = await api({ method: "POST", body: JSON.stringify({ action: "check_referral_code", referral_code: codeInput.value }) });
+      codeInput.value = data.referral_code;
+      if (!data.available) {
+        availableCode = "";
+        codeSave.disabled = true;
+        codeStatus.textContent = "That referral code is already in use. Please choose another.";
+        return;
+      }
+      availableCode = data.referral_code;
+      codeSave.disabled = false;
+      codeStatus.textContent = "Available. You can create this code.";
+    } catch (error) {
+      availableCode = "";
+      codeSave.disabled = true;
+      codeStatus.textContent = error.message;
+    } finally {
+      codeCheck.disabled = false;
+    }
+  });
   codeForm.addEventListener("submit", async (event) => {
     event.preventDefault();
-    codeStatus.textContent = "Saving…";
+    if (codeInput.value.trim().toUpperCase() !== availableCode) {
+      codeSave.disabled = true;
+      codeStatus.textContent = "Check that this code is available first.";
+      return;
+    }
+    codeStatus.textContent = "Creating code…";
+    codeSave.disabled = true;
     try {
       const data = await api({ method: "POST", body: JSON.stringify({ action: "set_referral_code", referral_code: codeInput.value }) });
       codeInput.value = data.referral_code;
-      codeStatus.textContent = "Referral code saved.";
+      codeInput.disabled = true;
+      codeCheck.hidden = true;
+      codeSave.hidden = true;
+      codeHelp.textContent = "This is your permanent referral code.";
+      codeStatus.textContent = "Your referral code is active and cannot be changed.";
     } catch (error) {
       codeStatus.textContent = error.message;
+      if (!/cannot be changed/i.test(error.message)) codeSave.disabled = false;
     }
   });
   document.body.classList.remove("portal-loading");

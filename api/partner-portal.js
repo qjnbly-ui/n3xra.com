@@ -54,9 +54,20 @@ export default async function handler(req, res) {
 
     if (req.method === "POST") {
       const action = String(req.body?.action || "");
-      if (action !== "set_referral_code") return send(res, 400, { error: "Unsupported partner action." });
       const referralCode = cleanCode(req.body?.referral_code);
       if (referralCode.length < 4) return send(res, 400, { error: "Use at least four letters or numbers." });
+      if (action === "check_referral_code") {
+        const matches = await rest(`founding_partner_applications?select=id&referral_code=eq.${encodeURIComponent(referralCode)}&limit=1`);
+        return send(res, 200, {
+          ok: true,
+          referral_code: referralCode,
+          available: !matches?.length,
+        });
+      }
+      if (action !== "set_referral_code") return send(res, 400, { error: "Unsupported partner action." });
+      if (application.referral_code) {
+        return send(res, 409, { error: "Your referral code has already been created and cannot be changed." });
+      }
       try {
         await rest(`founding_partner_applications?id=eq.${encodeURIComponent(application.id)}`, {
           method: "PATCH",
