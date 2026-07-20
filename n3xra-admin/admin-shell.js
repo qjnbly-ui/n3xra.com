@@ -6,8 +6,19 @@ const items = [
   ["/n3xra-admin/projects/", "Progress"],
   ["/n3xra-admin/onboarding/", "Onboarding"],
   ["/n3xra-admin/assets/", "Files & Assets"],
+  ["/n3xra-admin/partners/", "Partners"],
   ["/support/", "Support"],
 ];
+
+const desktopNav = document.querySelector(".portal-nav");
+if (desktopNav && !desktopNav.querySelector('a[href="/n3xra-admin/partners/"]')) {
+  const partnersLink = document.createElement("a");
+  partnersLink.href = "/n3xra-admin/partners/";
+  partnersLink.textContent = "Partners";
+  if (window.location.pathname.replace(/index\.html$/, "") === "/n3xra-admin/partners/") partnersLink.className = "is-current";
+  const supportLink = desktopNav.querySelector('a[href="/support/"]');
+  desktopNav.insertBefore(partnersLink, supportLink || null);
+}
 
 const actions = document.querySelector(".site-nav-actions");
 if (actions) {

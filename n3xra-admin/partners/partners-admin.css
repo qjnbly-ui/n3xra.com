@@ -1,0 +1,211 @@
+.partner-admin-workspace {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.partner-admin-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
+.partner-admin-stat {
+  padding: 0.9rem;
+  border: 1px solid var(--portal-line);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.partner-admin-stat strong {
+  display: block;
+  font-family: "Fraunces", Georgia, serif;
+  font-size: 1.75rem;
+}
+
+.partner-admin-stat span {
+  color: var(--portal-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.partner-admin-filters {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 0.35fr);
+  gap: 0.75rem;
+  padding: 0.85rem;
+  border: 1px solid var(--portal-line);
+  border-radius: 12px;
+  background: #f7f9fb;
+}
+
+.partner-admin-filters label {
+  display: grid;
+  gap: 0.35rem;
+  color: var(--portal-muted);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.partner-admin-filters input,
+.partner-admin-filters select,
+.partner-admin-controls select,
+.partner-admin-controls textarea {
+  width: 100%;
+  min-height: 42px;
+  padding: 0.65rem 0.7rem;
+  border: 1px solid var(--portal-line);
+  border-radius: 8px;
+  color: var(--portal-ink);
+  background: #fff;
+  font: inherit;
+}
+
+.partner-admin-list {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.partner-admin-card {
+  padding: 1.1rem;
+  border: 1px solid var(--portal-line);
+  border-radius: 14px;
+  background: #fff;
+}
+
+.partner-admin-card summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 1rem;
+  cursor: pointer;
+  list-style: none;
+}
+
+.partner-admin-card summary::-webkit-details-marker {
+  display: none;
+}
+
+.partner-admin-card h3 {
+  margin: 0.15rem 0 0.25rem;
+  font-family: "Fraunces", Georgia, serif;
+  font-size: 1.4rem;
+}
+
+.partner-admin-card p {
+  margin: 0;
+}
+
+.partner-admin-card[open] summary {
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--portal-line);
+}
+
+.partner-admin-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.65rem;
+}
+
+.partner-admin-badge {
+  padding: 0.3rem 0.55rem;
+  border-radius: 999px;
+  color: #344154;
+  background: #edf2f6;
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.partner-admin-status {
+  padding: 0.35rem 0.6rem;
+  border: 1px solid var(--portal-line);
+  border-radius: 999px;
+  color: #344154;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: capitalize;
+}
+
+.partner-admin-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 0.42fr);
+  gap: 1.25rem;
+}
+
+.partner-admin-details {
+  display: grid;
+  gap: 1rem;
+}
+
+.partner-admin-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.7rem;
+  margin: 0;
+}
+
+.partner-admin-facts div {
+  padding: 0.7rem;
+  border-radius: 8px;
+  background: #f7f9fb;
+}
+
+.partner-admin-facts dt {
+  color: var(--portal-muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.partner-admin-facts dd {
+  margin: 0.2rem 0 0;
+  overflow-wrap: anywhere;
+  font-weight: 700;
+}
+
+.partner-admin-plan {
+  padding: 0.85rem;
+  border-left: 3px solid #172333;
+  color: #344154;
+  background: #f7f9fb;
+  white-space: pre-wrap;
+}
+
+.partner-admin-controls {
+  display: grid;
+  align-content: start;
+  gap: 0.65rem;
+}
+
+.partner-admin-controls label {
+  display: grid;
+  gap: 0.35rem;
+  color: var(--portal-muted);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.partner-admin-controls textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
+@media (max-width: 760px) {
+  .partner-admin-stats,
+  .partner-admin-facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .partner-admin-filters,
+  .partner-admin-body {
+    grid-template-columns: 1fr;
+  }
+
+  .partner-admin-card summary {
+    grid-template-columns: 1fr;
+  }
+}

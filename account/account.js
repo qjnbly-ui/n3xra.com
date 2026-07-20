@@ -44,6 +44,7 @@ const musicSummary = document.getElementById("music-summary");
 const openRecordsButton = document.getElementById("open-records-button");
 const openMusicButton = document.getElementById("open-music-button");
 const openViralsButton = document.getElementById("open-virals-button");
+const partnerPortalCard = document.getElementById("partner-portal-card");
 const appsDashboardView = document.getElementById("apps-dashboard-view");
 const adminAppSection = document.getElementById("admin-app-section");
 const dashboardViewToggle = document.getElementById("dashboard-view-toggle");
@@ -317,6 +318,14 @@ async function loadProfileName() {
   return String(data?.full_name || currentSession.user.user_metadata?.full_name || currentSession.user.email || "").trim();
 }
 
+async function loadPartnerAccess() {
+  if (!currentSession?.access_token) return false;
+  const response = await fetch("/api/partner-portal", {
+    headers: { Authorization: `Bearer ${currentSession.access_token}` },
+  });
+  return response.ok;
+}
+
 async function invokePlatformAdmin(action, body = {}) {
   const { data, error } = await supabase.functions.invoke("platform-admin", {
     body: {
@@ -363,7 +372,8 @@ async function renderDashboard(message = "") {
   renderShell("dashboard");
   setStatus(message);
 
-  await Promise.allSettled([loadMemberships(), loadMusicProfile()]);
+  const [, , partnerAccess] = await Promise.allSettled([loadMemberships(), loadMusicProfile(), loadPartnerAccess()]);
+  show(partnerPortalCard, partnerAccess.status === "fulfilled" && partnerAccess.value === true);
   await loadPlatformAdminAccess();
   const displayName = await loadProfileName().catch(() => currentSession.user.email || "N3XRA account");
   accountName.textContent = displayName || "N3XRA account";

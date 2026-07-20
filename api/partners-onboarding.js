@@ -40,7 +40,7 @@ function isValidEmail(email) {
 
 function buildTextEmail(payload) {
   return [
-    "New N3XRA Founding Partner application",
+    "New N3XRA Partner application",
     "",
     `Name: ${payload.full_name}`,
     `Email: ${payload.email}`,
@@ -76,7 +76,7 @@ function buildHtmlEmail(payload) {
     <div style="margin:0;padding:32px 16px;background:#edf2f8;font-family:Arial,sans-serif;color:#0f1620;line-height:1.6;">
       <div style="max-width:680px;margin:0 auto;">
         <div style="background:linear-gradient(135deg,#07111d 0%,#0c1524 54%,#06100e 100%);border-radius:24px 24px 0 0;padding:28px 32px;color:#ffffff;">
-          <p style="margin:0 0 10px;font-size:12px;letter-spacing:0.18em;text-transform:uppercase;font-weight:700;color:#9ff2d2;">N3XRA Founding Partners</p>
+          <p style="margin:0 0 10px;font-size:12px;letter-spacing:0.18em;text-transform:uppercase;font-weight:700;color:#9ff2d2;">N3XRA Partner Programs</p>
           <h1 style="margin:0;font-size:28px;line-height:1.15;font-weight:700;">New partner application</h1>
           <p style="margin:12px 0 0;font-size:15px;color:rgba(255,255,255,0.78);">
             A potential partner submitted the onboarding form.
@@ -195,6 +195,10 @@ export default async function handler(req, res) {
     status: "submitted",
     metadata: {
       source: "partners_page",
+      program: "n3xra_partner_programs",
+      selected_programs: normalizeProducts(body.interested_products || body.interestedProducts),
+      commission_amount_usd: 100,
+      minimum_service_months: 12,
       submitted_at: new Date().toISOString(),
       user_agent: cleanString(req.headers?.["user-agent"], 500),
       referer: cleanString(req.headers?.referer || req.headers?.referrer, 500),

@@ -3653,6 +3653,116 @@ body.site-menu-is-open .home-topbar {
   border-bottom-color: currentColor;
 }
 
+/* Homepage partner opportunity */
+.home-growth-partners {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  padding: clamp(2.4rem, 5vw, 4rem) 0;
+  color: #ffffff;
+  background:
+    radial-gradient(circle at 8% 8%, rgba(35, 199, 244, 0.16), transparent 26rem),
+    radial-gradient(circle at 92% 86%, rgba(47, 108, 255, 0.13), transparent 28rem),
+    linear-gradient(145deg, #050a12 0%, #08111d 55%, #07101a 100%);
+}
+
+.home-growth-partners-inner {
+  width: min(1120px, calc(100vw - 2rem));
+  margin: 0 auto;
+}
+
+.home-growth-copy {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: clamp(2rem, 6vw, 5rem);
+}
+
+.home-growth-copy > div {
+  max-width: 720px;
+  display: grid;
+  gap: 0.65rem;
+}
+
+.home-growth-copy h2 {
+  font-size: clamp(2rem, 3.8vw, 3.45rem);
+}
+
+.home-growth-copy > div > p:not(.eyebrow) {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 0.95rem;
+}
+
+.home-growth-copy .home-growth-note {
+  color: var(--home-pale-cyan);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.home-growth-action {
+  width: min(100%, 290px);
+  display: grid;
+  flex: 0 0 auto;
+  gap: 1rem;
+  padding-left: clamp(1.25rem, 3vw, 2.5rem);
+  border-left: 1px solid rgba(168, 239, 255, 0.22);
+}
+
+.home-growth-action p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 0.88rem;
+}
+
+.home-growth-button {
+  min-height: 54px;
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 0.85rem;
+  padding: 0.85rem 1.25rem;
+  border-radius: 999px;
+  color: var(--home-deep);
+  background: #ffffff;
+  font-size: 0.84rem;
+  font-weight: 800;
+  text-decoration: none;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.24);
+  transition: transform 180ms ease, background 180ms ease, box-shadow 180ms ease;
+}
+
+.home-growth-button:hover {
+  background: var(--home-pale-cyan);
+  box-shadow: 0 22px 54px rgba(18, 182, 231, 0.22);
+  transform: translateY(-2px);
+}
+
+@media (max-width: 700px) {
+  .home-growth-partners-inner {
+    width: min(100% - 1.35rem, 1120px);
+  }
+
+  .home-growth-copy {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 1.35rem;
+  }
+
+  .home-growth-action {
+    width: 100%;
+    padding-top: 1.25rem;
+    padding-left: 0;
+    border-top: 1px solid rgba(168, 239, 255, 0.22);
+    border-left: 0;
+  }
+
+  .home-growth-button {
+    width: 100%;
+  }
+}
+
 /* Founder story */
 .creator-section {
   position: relative;

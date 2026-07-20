@@ -1,4 +1,27 @@
 (function () {
+  const modal = document.getElementById("partner-application-modal");
+  const openButtons = document.querySelectorAll("[data-partner-modal-open]");
+  const closeButton = document.querySelector("[data-partner-modal-close]");
+
+  function openModal() {
+    if (!modal) return;
+    modal.showModal();
+    document.body.classList.add("partner-modal-open");
+  }
+
+  function closeModal() {
+    if (!modal) return;
+    modal.close();
+    document.body.classList.remove("partner-modal-open");
+  }
+
+  openButtons.forEach((button) => button.addEventListener("click", openModal));
+  closeButton?.addEventListener("click", closeModal);
+  modal?.addEventListener("close", () => document.body.classList.remove("partner-modal-open"));
+  modal?.addEventListener("click", (event) => {
+    if (event.target === modal) closeModal();
+  });
+
   const form = document.getElementById("partner-form");
   const status = document.getElementById("partner-form-status");
   if (!form || !status) return;
@@ -55,7 +78,7 @@
       }
 
       form.reset();
-      setStatus("Application received. N3XRA will review it and follow up with next steps.", "success");
+      setStatus("Your partner application has been received. N3XRA will review it and follow up with program-specific next steps.", "success");
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Unable to submit the partner application.");
     } finally {

@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>N3XRA | Partner Portal</title><meta name="robots" content="noindex, nofollow, noarchive">
+  <link rel="icon" href="/assets/n3xra_logo_transparent_small.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&amp;family=Manrope:wght@400;600;700;800&amp;display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/site-nav.css"><link rel="stylesheet" href="/client-portal/portal.css?v=12"><link rel="stylesheet" href="/client-portal/partners/partner-portal.css?v=1">
+  <script src="/shared/config.js"></script>
+</head>
+<body class="portal-loading">
+  <header class="site-topbar"><div class="site-topbar-inner"><div class="site-topbar-row"><a class="site-brand" href="/"><img src="/assets/n3xra_logo_transparent_small.png" alt=""><span>N3XRA</span></a><div class="site-nav-actions"><a class="site-menu-link" href="/account/">Dashboard</a><button class="site-menu-link portal-logout" id="portal-logout" type="button">Sign out</button></div></div></div></header>
+  <main class="portal-shell">
+    <section class="portal-heading"><div><p class="portal-kicker">Approved partner</p><h1>Partner Portal</h1></div></section>
+    <div class="portal-layout">
+      <nav class="portal-nav" aria-label="Client portal"><a href="/client-portal/">Website portal</a><a class="is-current" href="/client-portal/partners/">Partner portal</a><a href="/support/">Support</a></nav>
+      <section class="portal-workspace partner-portal-workspace">
+        <div class="portal-workspace-head"><div><p class="portal-kicker">Your partnership</p><h2 id="partner-welcome">Welcome</h2><p>Manage your referral identity and follow commissions from submitted opportunity to payout.</p></div></div>
+        <div class="partner-balance-grid">
+          <article><span>Pending</span><strong id="balance-pending">$0.00</strong><p>Awaiting qualification</p></article>
+          <article><span>Available</span><strong id="balance-available">$0.00</strong><p>Ready for payout</p></article>
+          <article><span>Paid</span><strong id="balance-paid">$0.00</strong><p>Total paid to date</p></article>
+        </div>
+        <section class="partner-code-card">
+          <div><p class="portal-kicker">Referral identity</p><h3>Your referral code</h3><p>Choose a simple code to identify referrals connected to you.</p></div>
+          <form id="partner-code-form"><label>Referral code<input id="partner-code" maxlength="24" minlength="4" pattern="[A-Za-z0-9-]{4,24}" placeholder="YOUR-CODE" required></label><button class="portal-button" type="submit">Save code</button><p id="partner-code-status" role="status"></p></form>
+        </section>
+        <section class="partner-history-section"><div><p class="portal-kicker">Referral activity</p><h3>Referral history</h3></div><div class="partner-history-list" id="partner-referral-history"></div></section>
+        <section class="partner-history-section"><div><p class="portal-kicker">Earnings</p><h3>Commission history</h3></div><div class="partner-history-list" id="partner-commission-history"></div></section>
+      </section>
+    </div>
+  </main>
+  <div class="portal-status" id="portal-status" role="status">Opening your partner portal…</div>
+  <script type="module" src="/client-portal/portal-shell.js?v=2"></script><script type="module" src="/client-portal/partners/partner-portal.js?v=1"></script>
+</body>
+</html>

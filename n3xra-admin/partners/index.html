@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>N3XRA | Partner Applications</title>
+  <meta name="robots" content="noindex, nofollow, noarchive">
+  <link rel="icon" href="/assets/n3xra_logo_transparent_small.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&amp;family=Manrope:wght@400;600;700;800&amp;display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/site-nav.css">
+  <link rel="stylesheet" href="/client-portal/portal.css?v=12">
+  <link rel="stylesheet" href="/n3xra-admin/partners/partners-admin.css?v=1">
+  <script src="/shared/config.js"></script>
+  <script src="/n3xra-admin/admin-shell.js?v=3" defer></script>
+</head>
+<body class="portal-loading">
+  <header class="site-topbar">
+    <div class="site-topbar-inner">
+      <div class="site-topbar-row">
+        <a class="site-brand" href="/" aria-label="N3XRA home"><img src="/assets/n3xra_logo_transparent_small.png" alt=""><span>N3XRA</span></a>
+        <div class="site-nav-actions">
+          <a class="site-menu-link" href="/account/">Dashboard</a>
+          <button class="site-menu-link portal-logout" id="portal-logout" type="button">Sign out</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="portal-shell">
+    <section class="portal-heading">
+      <div><p class="portal-kicker">Master administration</p><h1>Partner Applications</h1></div>
+    </section>
+
+    <div class="portal-layout">
+      <nav class="portal-nav" aria-label="Website administration">
+        <a href="/n3xra-admin/websites/">Overview</a>
+        <a href="/n3xra-admin/services/">Services &amp; Ownership</a>
+        <a href="/n3xra-admin/requests/">Requests</a>
+        <a href="/n3xra-admin/proposals/">Proposals</a>
+        <a href="/n3xra-admin/projects/">Progress</a>
+        <a href="/n3xra-admin/onboarding/">Onboarding</a>
+        <a href="/n3xra-admin/assets/">Files &amp; Assets</a>
+        <a class="is-current" href="/n3xra-admin/partners/">Partners</a>
+        <a href="/support/">Support</a>
+      </nav>
+
+      <section class="portal-workspace partner-admin-workspace" aria-labelledby="partner-admin-title">
+        <div class="portal-workspace-head">
+          <div>
+            <p class="portal-kicker">Partner pipeline</p>
+            <h2 id="partner-admin-title">Review applications</h2>
+            <p>Review program interests, update decisions, and keep private notes.</p>
+          </div>
+          <button class="portal-button portal-button-secondary" id="partner-refresh" type="button">Refresh</button>
+        </div>
+
+        <div class="partner-admin-stats" id="partner-stats" aria-label="Application totals"></div>
+
+        <div class="partner-admin-filters">
+          <label>Search<input id="partner-search" type="search" placeholder="Name, email, organization"></label>
+          <label>Status<select id="partner-status-filter"><option value="">All active statuses</option><option value="submitted">Submitted</option><option value="reviewing">Reviewing</option><option value="approved">Approved</option><option value="waitlisted">Waitlisted</option><option value="rejected">Rejected</option></select></label>
+        </div>
+
+        <div class="partner-admin-list" id="partner-application-list"></div>
+      </section>
+    </div>
+  </main>
+
+  <div class="portal-status" id="portal-status" role="status">Opening partner applications…</div>
+  <script type="module" src="/client-portal/portal-shell.js"></script>
+  <script type="module" src="/n3xra-admin/partners/partners-admin.js?v=1"></script>
+</body>
+</html>
