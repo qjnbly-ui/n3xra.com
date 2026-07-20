@@ -400,29 +400,17 @@
 
     stopPlayback();
     if (listenButton) {
-      listenButton.disabled = true;
-      listenButton.textContent = "Preparing audio...";
+      listenButton.hidden = true;
     }
+    if (stopAudioButton) stopAudioButton.hidden = false;
 
     try {
-      const response = await fetch("/api/elevenlabs-text-to-speech", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: speechText }),
-      });
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        throw new Error(String(data?.error || "Voice playback is unavailable."));
-      }
-      const blob = await response.blob();
-      currentAudioUrl = URL.createObjectURL(blob);
+      currentAudioUrl = `/api/elevenlabs-text-to-speech?text=${encodeURIComponent(speechText)}`;
       currentAudio = new Audio(currentAudioUrl);
       preparedAudioText = speechText;
-      currentAudio.preload = "auto";
+      currentAudio.preload = "none";
       currentAudio.addEventListener("ended", stopPlayback, { once: true });
       currentAudio.addEventListener("error", stopPlayback, { once: true });
-      if (listenButton) listenButton.hidden = true;
-      if (stopAudioButton) stopAudioButton.hidden = false;
       await currentAudio.play();
     } catch (error) {
       const playbackWasBlocked =
@@ -441,12 +429,7 @@
         status.textContent = "Voice playback is unavailable right now.";
       }
     } finally {
-      if (listenButton && listenButton.textContent !== "Play audio") {
-        listenButton.disabled = false;
-        listenButton.textContent = "Listen";
-      } else if (listenButton) {
-        listenButton.disabled = false;
-      }
+      if (listenButton) listenButton.disabled = false;
     }
   }
 

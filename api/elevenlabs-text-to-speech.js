@@ -32,18 +32,24 @@ function cleanSpeechText(value) {
 }
 
 export default async function handler(req, res) {
-  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed." });
+  if (req.method !== "POST" && req.method !== "GET") return res.status(405).json({ error: "Method not allowed." });
   if (!API_KEY) return res.status(503).json({ error: "N3XRA voice is not configured yet." });
   if (limited(clientIp(req))) return res.status(429).json({ error: "Please wait before requesting more audio." });
-  let body = req.body || {};
-  if (typeof body === "string") {
-    try {
-      body = JSON.parse(body || "{}");
-    } catch {
-      return res.status(400).json({ error: "Invalid request." });
+  let textInput = "";
+  if (req.method === "GET") {
+    textInput = Array.isArray(req.query?.text) ? req.query.text[0] : req.query?.text;
+  } else {
+    let body = req.body || {};
+    if (typeof body === "string") {
+      try {
+        body = JSON.parse(body || "{}");
+      } catch {
+        return res.status(400).json({ error: "Invalid request." });
+      }
     }
+    textInput = body.text;
   }
-  const text = cleanSpeechText(body.text);
+  const text = cleanSpeechText(textInput);
   if (!text) return res.status(400).json({ error: "There is no answer to read." });
 
   try {
