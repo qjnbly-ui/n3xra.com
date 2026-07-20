@@ -317,10 +317,15 @@
     );
 
     const routes = [
+      ["/website-request/", "Start a Project"],
+      ["/website-onboarding/", "Website Onboarding"],
+      ["/project-workspace/", "Project Workspace"],
       ["/ai-music-generator/", "AI Music Generator"],
       ["/virals/", "N3XRA Virals"],
       ["/utilities/", "N3XRA Utilities"],
       ["/records/", "N3XRA Records"],
+      ["/account/", "Dashboard"],
+      ["/partners/", "Partners"],
       ["/services/", "Services"],
       ["/projects/", "Projects"],
       ["/support/", "Support"],

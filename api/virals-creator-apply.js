@@ -41,7 +41,7 @@ function normalizeEvaluation(value, payload) {
 async function evaluateCreator(payload) {
   const apiKey = String(process.env.GROQ_VIRALS_API_KEY || process.env.GROQ_API_KEY || "").trim();
   if (!apiKey) return fallbackEvaluation(payload);
-  const model = String(process.env.GROQ_VIRALS_MODEL || "llama-3.3-70b-versatile").trim();
+  const model = String(process.env.GROQ_VIRALS_MODEL || "openai/gpt-oss-120b").trim();
   try {
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",

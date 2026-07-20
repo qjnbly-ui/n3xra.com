@@ -205,7 +205,7 @@ module.exports = async function handler(req, res) {
       await assertViralsCreditsAvailable(requestUser, videos.length);
     }
 
-    const model = String(process.env.GROQ_VIRALS_MODEL || process.env.GROQ_RECORDS_MODEL || "llama-3.3-70b-versatile").trim();
+    const model = String(process.env.GROQ_VIRALS_MODEL || process.env.GROQ_RECORDS_MODEL || "openai/gpt-oss-120b").trim();
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: {

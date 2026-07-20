@@ -15,7 +15,7 @@ const {
   sendRecordsAiUsageError,
 } = require("./_records-ai-usage");
 
-const RECORDS_SEARCH_MODEL = String(process.env.GROQ_RECORDS_MODEL || "llama-3.3-70b-versatile").trim();
+const RECORDS_SEARCH_MODEL = String(process.env.GROQ_RECORDS_MODEL || "openai/gpt-oss-120b").trim();
 const MAX_CONTEXT_CHARS = 110000;
 const MAX_DOC_SNIPPET_CHARS = 3000;
 const MAX_HISTORY = 12;

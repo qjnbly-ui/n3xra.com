@@ -16,7 +16,7 @@ const {
   sendRecordsAiUsageError,
 } = require("./_records-ai-usage");
 
-const RECORDS_HELP_MODEL = "llama-3.3-70b-versatile";
+const RECORDS_HELP_MODEL = "openai/gpt-oss-120b";
 const HELP_KNOWLEDGE_PATH = path.join(__dirname, "records-help-knowledge.md");
 let cachedHelpKnowledge = "";
 

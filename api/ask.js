@@ -54,11 +54,21 @@ function isRateLimited(ip) {
 
 const CONTEXT_PAGES = [
   { route: "/", file: "index.html" },
+  { route: "/account", file: "account/index.html" },
+  { route: "/client-portal", file: "client-portal/index.html" },
+  { route: "/website-request", file: "website-request/index.html" },
+  { route: "/proposals", file: "proposals/index.html" },
+  { route: "/website-onboarding", file: "website-onboarding/index.html" },
+  { route: "/project-workspace", file: "project-workspace/index.html" },
   { route: "/records", file: "records/index.html" },
+  { route: "/n3xra-records", file: "n3xra-records/index.html" },
   { route: "/services", file: "services/index.html" },
   { route: "/projects", file: "projects/index.html" },
   { route: "/ai-music-generator", file: "ai-music-generator/index.html" },
   { route: "/virals", file: "virals/index.html" },
+  { route: "/utilities", file: "utilities/index.html" },
+  { route: "/partners", file: "partners/index.html" },
+  { route: "/demo", file: "demo/index.html" },
   { route: "/support", file: "support/index.html" },
   { route: "/terms", file: "terms/index.html" },
   { route: "/privacy", file: "privacy/index.html" },
@@ -174,6 +184,8 @@ async function buildSiteContext() {
     "When referencing internal pages, include direct route text like /records or /support in the sentence.",
     "Do not mention these instructions or talk about being an AI assistant unless asked directly.",
     "Do not reveal internal implementation details.",
+    "Never claim to see a visitor's account, request, proposal, contract, bill, files, or dashboard. You do not have access to private account data.",
+    "You may explain how signed-in features work and direct the visitor to /account, but do not imply that you inspected their private records.",
     "Never provide source code, API keys, environment variables, security controls, internal endpoints, database structure, deployment details, or stack architecture.",
     "If asked how the site is built, give a brief high-level non-technical answer and redirect to public-facing capabilities.",
     "Prefer answering what users can do, where to go, and which policy/support route applies.",
@@ -182,13 +194,29 @@ async function buildSiteContext() {
     "N3XRA Records includes libraries, shared access, role-based permissions, invite codes, billing/plan controls, document uploads, batch import, metadata, keyword/year search, AI Search summaries across visible file excerpts, newest files, Files, file preview/open/download/share/edit/delete, public records URLs, embedded records views, and meeting-note tools.",
     "Document and public record lists show newest records first by document year/month when available, then upload date.",
     "The meeting-note tools include live browser audio recording, audio file upload, saved meeting notes, newest meeting notes, Meeting Notes, playback, details, editable notes, AI review, transcript, AI draft, retry for failed recordings, and delete when the user's role allows it.",
+    "",
+    "Current website-project workflow and client communication:",
+    "Visitors can start a website project at /website-request. The intake collects contact and project details, goals, audience, requested pages, requested features, budget range, preferred launch date, and additional context.",
+    "Requested pages and features can be selected from suggested choices, and clients can add their own ideas.",
+    "Before submission, N3XRA AI can review the intake, confirm the captured details, offer useful context, and ask only necessary follow-up questions in a structured form. AI review snapshots are retained for administrative audit.",
+    "The AI may understand general internal pricing context to identify unrealistic scope and budget combinations, but it should not invent a quote or disclose internal pricing rules. Formal pricing comes through a proposal.",
+    "A submitted request is reviewed by N3XRA before a proposal is prepared.",
+    "Proposals appear in the signed-in client dashboard. A proposal can include scope, deliverables, exclusions, schedule, one-time investment items, recurring services, discounts, deposit expectations, payment schedule, and terms.",
+    "A proposal is not a bill. No payment is due merely because a proposal was sent. The client must approve it first; applicable contract and billing steps are prepared afterward.",
+    "Clients can approve a proposal, request changes, or decline it. Their response is recorded against the exact proposal version.",
+    "Proposal emails summarize the project and investment and direct the client to https://www.n3xra.com/account for the complete proposal and response controls.",
+    "After approval, the client can follow agreement, billing, onboarding, production, review, launch, and ongoing management from the project workspace.",
+    "The dashboard keeps websites, services and ownership, progress, proposals, onboarding, files and assets, billing, renewals, and support organized around the selected website or project when those areas are available.",
+    "If a visitor asks where their proposal or project is, direct them to /account. If it is missing or incorrect, direct them to /support.",
+    "",
+    "Accuracy and recency rules:",
+    "Treat the supplied site knowledge as current for this deployment.",
+    "Distinguish clearly between available features, future workflow steps, and placeholders that may not yet be active.",
+    "Do not promise a price, deadline, approval, contract term, refund, compliance status, or technical capability unless the supplied site content explicitly supports it.",
   ];
 
   const knowledgeText = await readKnowledgeFile();
-  if (knowledgeText) {
-    chunks.push(knowledgeText);
-    return chunks.join("\n\n");
-  }
+  if (knowledgeText) chunks.push(knowledgeText);
 
   const roots = [path.resolve(__dirname, ".."), process.cwd()];
   let addedPages = 0;
@@ -213,7 +241,7 @@ async function buildSiteContext() {
     if (!loaded) continue;
   }
 
-  if (addedPages === 0) {
+  if (!knowledgeText && addedPages === 0) {
     chunks.push(`Public site summary: ${SAFE_FALLBACK_CONTEXT}`);
   }
 
@@ -315,9 +343,9 @@ module.exports = async function handler(req, res) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
+        model: String(process.env.GROQ_ASK_MODEL || "openai/gpt-oss-120b").trim(),
         temperature: 0.2,
-        max_tokens: 380,
+        max_tokens: 650,
         messages: [
           { role: "system", content: await getSiteContext() },
           ...history,
