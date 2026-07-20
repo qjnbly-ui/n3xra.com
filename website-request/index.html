@@ -11,7 +11,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/site-nav.css">
   <link rel="stylesheet" href="/client-portal/portal.css?v=10">
-  <link rel="stylesheet" href="/website-request/request.css?v=4">
+  <link rel="stylesheet" href="/website-request/request.css?v=5">
   <script src="/shared/config.js"></script>
   <script src="/assets/site-nav.js" defer></script>
 </head>
@@ -98,6 +98,7 @@
               </select>
             </label>
             <label>Preferred launch date<input id="request-launch-date" type="date"></label>
+            <label>Partner referral code <span class="request-optional">(optional)</span><input id="request-referral-code" maxlength="24" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Enter referral code"><span class="request-field-help" id="request-referral-code-status">If an approved N3XRA partner referred you, enter their code here.</span></label>
             <label class="portal-form-wide">Anything else?<textarea id="request-notes" rows="4"></textarea></label>
           </div>
           <div class="portal-form-actions">
@@ -132,6 +133,6 @@
   </main>
   <div class="portal-status" id="portal-status">Opening project intake…</div>
   <script type="module" src="/client-portal/portal-shell.js"></script>
-  <script type="module" src="/website-request/request.js?v=8"></script>
+  <script type="module" src="/website-request/request.js?v=9"></script>
 </body>
 </html>

@@ -11,10 +11,15 @@
 #partner-code-form input { min-height:44px; padding:.65rem .7rem; border:1px solid var(--portal-line); border-radius:8px; font:inherit; text-transform:uppercase; }
 #partner-code-form input:disabled { color:var(--portal-text); background:#f6f8fa; opacity:1; }
 #partner-code-status { grid-column:1/-1; min-height:1.2rem; }
+#partner-share-link { grid-column:1/-1; display:grid; grid-template-columns:minmax(0,1fr) auto; gap:.6rem; align-items:end; padding-top:1rem; border-top:1px solid var(--portal-line); }
+#partner-share-link[hidden] { display:none; }
+#partner-share-link label { display:grid; gap:.35rem; color:var(--portal-muted); font-size:.75rem; font-weight:800; }
+#partner-share-link input { width:100%; min-height:44px; padding:.65rem .7rem; border:1px solid var(--portal-line); border-radius:8px; color:var(--portal-text); background:#f6f8fa; font:inherit; }
+#partner-copy-status { grid-column:1/-1; min-height:1.2rem; }
 .partner-history-section { display:grid; gap:.85rem; }
 .partner-history-list { display:grid; gap:.5rem; }
 .partner-history-row { display:flex; justify-content:space-between; gap:1rem; padding:.75rem; border-radius:9px; background:#f6f8fa; }
 .partner-history-row strong,.partner-history-row span { display:block; }
 .partner-history-row small { color:var(--portal-muted); }
 .partner-history-empty { padding:1rem; color:var(--portal-muted); text-align:center; border:1px dashed var(--portal-line); border-radius:9px; }
-@media (max-width:720px) { .partner-balance-grid,.partner-code-card,#partner-code-form { grid-template-columns:1fr; } }
+@media (max-width:720px) { .partner-balance-grid,.partner-code-card,#partner-code-form,#partner-share-link { grid-template-columns:1fr; } }

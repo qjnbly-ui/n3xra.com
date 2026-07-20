@@ -92,6 +92,22 @@
   line-height: 1.4;
 }
 
+.request-field-help.is-valid {
+  color: #08745f;
+  font-weight: 700;
+}
+
+.request-field-help.is-error {
+  color: #a43a1a;
+  font-weight: 700;
+}
+
+.request-optional {
+  color: var(--portal-muted);
+  font-size: 0.74em;
+  font-weight: 500;
+}
+
 .portal-form input[readonly] {
   color: var(--portal-muted);
   background: #eef2f5;

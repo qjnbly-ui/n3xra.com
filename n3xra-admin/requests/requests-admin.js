@@ -53,6 +53,7 @@ function render() {
         <h3>${escapeHtml(request.business_name)}</h3>
         <p><strong>${escapeHtml(request.contact_name)}</strong> · ${escapeHtml(request.contact_email)}</p>
         <p>${escapeHtml(request.primary_goal)}</p>
+        ${request.referral_code ? `<p><strong>Partner referral:</strong> ${escapeHtml(request.referral_code)}</p>` : ""}
       </div>
       <div class="portal-request-controls">
         <select data-request-status="${request.id}" aria-label="Request status">

@@ -37,6 +37,7 @@ const FIELD_IDS = [
   "request-features",
   "request-budget",
   "request-launch-date",
+  "request-referral-code",
   "request-notes",
 ];
 
@@ -70,6 +71,8 @@ const accountCopy = document.getElementById("request-account-copy");
 const accountState = document.getElementById("request-account-state");
 const emailHelp = document.getElementById("request-email-help");
 const menuTitle = document.getElementById("request-menu-title");
+const referralCodeInput = document.getElementById("request-referral-code");
+const referralCodeStatus = document.getElementById("request-referral-code-status");
 const isEmbedded = form?.dataset.portalEmbedded === "true";
 
 let supabase = null;
@@ -80,6 +83,8 @@ let isReviewing = false;
 let reviewedSnapshot = "";
 let pendingQuestions = [];
 let latestReviewId = "";
+let referralValidationTimer = null;
+let validatedReferralCode = "";
 
 function field(id) {
   return document.getElementById(id);
@@ -87,6 +92,60 @@ function field(id) {
 
 function value(id) {
   return String(field(id)?.value || "").trim();
+}
+
+function normalizeReferralCode(input) {
+  return String(input || "").trim().toUpperCase().replace(/[^A-Z0-9-]/g, "").slice(0, 24);
+}
+
+function setReferralStatus(message, state = "") {
+  if (!referralCodeStatus) return;
+  referralCodeStatus.textContent = message;
+  referralCodeStatus.classList.toggle("is-valid", state === "valid");
+  referralCodeStatus.classList.toggle("is-error", state === "error");
+}
+
+async function validateReferralCode({ required = false } = {}) {
+  if (!referralCodeInput) return true;
+  const code = normalizeReferralCode(referralCodeInput.value);
+  referralCodeInput.value = code;
+  referralCodeInput.setCustomValidity("");
+  if (!code) {
+    validatedReferralCode = "";
+    setReferralStatus("If an approved N3XRA partner referred you, enter their code here.");
+    return true;
+  }
+  if (code.length < 4) {
+    validatedReferralCode = "";
+    const message = "Referral codes contain at least four letters or numbers.";
+    setReferralStatus(message, "error");
+    if (required) referralCodeInput.setCustomValidity(message);
+    return false;
+  }
+  if (validatedReferralCode === code) return true;
+
+  setReferralStatus("Checking referral code…");
+  try {
+    const response = await fetch(`/api/website-referral-code?code=${encodeURIComponent(code)}`);
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data?.error || "Unable to check this code.");
+    if (!data.valid) {
+      validatedReferralCode = "";
+      const message = "That referral code is not valid for website referrals.";
+      setReferralStatus(message, "error");
+      if (required) referralCodeInput.setCustomValidity(message);
+      return false;
+    }
+    validatedReferralCode = code;
+    setReferralStatus("Referral code applied.", "valid");
+    return true;
+  } catch (error) {
+    validatedReferralCode = "";
+    const message = error?.message || "Unable to check this referral code right now.";
+    setReferralStatus(message, "error");
+    if (required) referralCodeInput.setCustomValidity(message);
+    return false;
+  }
 }
 
 function escapeHtml(input = "") {
@@ -310,6 +369,7 @@ function projectDetails() {
     requestedFeatures: listValue("request-features"),
     budgetRange: value("request-budget"),
     preferredLaunchDate: value("request-launch-date"),
+    referralCode: normalizeReferralCode(value("request-referral-code")),
     additionalNotes: value("request-notes"),
   };
 }
@@ -352,6 +412,7 @@ function renderReviewSummary() {
       ["Name", project.contactName],
       ["Email", project.email],
       ["Phone", project.phone],
+      ["Referral code", project.referralCode],
     ]],
   ];
   reviewSummary.innerHTML = groups.map(([title, items]) => `
@@ -438,6 +499,11 @@ async function askProjectAi() {
 
 async function openAiReview() {
   if (!form.reportValidity()) return;
+  if (!await validateReferralCode({ required: true })) {
+    referralCodeInput?.reportValidity();
+    referralCodeInput?.focus();
+    return;
+  }
   saveDraft();
   reviewedSnapshot = "";
   aiReview.hidden = false;
@@ -498,6 +564,7 @@ function requestPayload() {
     requested_features: listValue("request-features"),
     budget_range: value("request-budget") || null,
     target_launch_date: value("request-launch-date") || null,
+    referral_code: validatedReferralCode || null,
     additional_notes: value("request-notes") || null,
     ai_review_id: latestReviewId || null,
     status: "submitted",
@@ -634,6 +701,15 @@ function bindEvents() {
     field("request-contact-name")?.scrollIntoView({ behavior: "smooth", block: "center" });
   });
   finalSubmitButton?.addEventListener("click", finalizeRequest);
+  referralCodeInput?.addEventListener("input", () => {
+    const normalized = normalizeReferralCode(referralCodeInput.value);
+    referralCodeInput.value = normalized;
+    if (normalized !== validatedReferralCode) validatedReferralCode = "";
+    referralCodeInput.setCustomValidity("");
+    clearTimeout(referralValidationTimer);
+    referralValidationTimer = setTimeout(() => validateReferralCode(), 450);
+  });
+  referralCodeInput?.addEventListener("blur", () => validateReferralCode());
 }
 
 function finishLoading() {
@@ -646,8 +722,11 @@ async function init() {
   if (!form) return;
   initializePickers();
   restoredDraft = restoreDraft();
+  const linkedReferralCode = normalizeReferralCode(new URLSearchParams(window.location.search).get("ref"));
+  if (linkedReferralCode && referralCodeInput) referralCodeInput.value = linkedReferralCode;
   syncPickers();
   bindEvents();
+  if (referralCodeInput?.value) validateReferralCode();
 
   if (!hasConfig()) {
     setMode(false);

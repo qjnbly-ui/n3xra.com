@@ -10,6 +10,14 @@ const codeSave = document.getElementById("partner-code-save");
 let session;
 let availableCode = "";
 
+function showShareLink(code) {
+  const wrapper = document.getElementById("partner-share-link");
+  const input = document.getElementById("partner-share-url");
+  if (!wrapper || !input || !code) return;
+  input.value = `${window.location.origin}/website-request/?ref=${encodeURIComponent(code)}`;
+  wrapper.hidden = false;
+}
+
 function escapeHtml(value = "") {
   return String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
 }
@@ -50,6 +58,7 @@ function render(data) {
     codeSave.hidden = true;
     codeHelp.textContent = "This is your permanent referral code.";
     codeStatus.textContent = "Your referral code is active and cannot be changed.";
+    showShareLink(data.partner.referral_code);
   }
   document.getElementById("balance-pending").textContent = money(data.balances.pending_cents, data.balances.currency);
   document.getElementById("balance-available").textContent = money(data.balances.available_cents, data.balances.currency);
@@ -116,9 +125,21 @@ async function init() {
       codeSave.hidden = true;
       codeHelp.textContent = "This is your permanent referral code.";
       codeStatus.textContent = "Your referral code is active and cannot be changed.";
+      showShareLink(data.referral_code);
     } catch (error) {
       codeStatus.textContent = error.message;
       if (!/cannot be changed/i.test(error.message)) codeSave.disabled = false;
+    }
+  });
+  document.getElementById("partner-copy-link")?.addEventListener("click", async () => {
+    const input = document.getElementById("partner-share-url");
+    const copyStatus = document.getElementById("partner-copy-status");
+    try {
+      await navigator.clipboard.writeText(input.value);
+      copyStatus.textContent = "Referral link copied.";
+    } catch {
+      input.select();
+      copyStatus.textContent = "Select Copy to copy the highlighted link.";
     }
   });
   document.body.classList.remove("portal-loading");
