@@ -330,8 +330,10 @@
 
     const routes = [
       ["/website-request/", "Start a Project"],
+      ["/proposals/", "Proposals"],
       ["/website-onboarding/", "Website Onboarding"],
       ["/project-workspace/", "Project Workspace"],
+      ["/client-portal/", "Client Portal"],
       ["/ai-music-generator/", "AI Music Generator"],
       ["/virals/", "N3XRA Virals"],
       ["/utilities/", "N3XRA Utilities"],
@@ -348,8 +350,8 @@
     routes.forEach(([route, label]) => {
       const routeBase = route.replace(/\/+$/, "");
       const escapedRoute = routeBase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const pattern = new RegExp(`(^|[\\s(>])${escapedRoute}\\/?(?=[\\s<).,!?;:]|$)`, "gi");
-      html = html.replace(pattern, `$1<a class="ask-route-link" href="${route}">${label} <span aria-hidden="true">→</span></a>`);
+      const pattern = new RegExp(`(^|[\\s>])\\(?${escapedRoute}\\/?\\)?(?=[\\s<.,!?;:]|$)`, "gi");
+      html = html.replace(pattern, `$1<a class="ask-route-link" href="${route}">${label}</a>`);
     });
 
     html = html.replace(/(^|\n)\s*\*\s+/g, '$1<span class="ask-bullet" aria-hidden="true">•</span> ');
