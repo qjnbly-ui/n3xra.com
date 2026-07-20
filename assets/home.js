@@ -293,8 +293,20 @@
   const submit = document.getElementById("ask-submit");
   const status = document.getElementById("ask-status");
   const answer = document.getElementById("ask-answer");
+  const voiceButton = document.getElementById("ask-voice");
+  const listenButton = document.getElementById("ask-listen");
+  const stopAudioButton = document.getElementById("ask-stop-audio");
+  const audioControls = document.getElementById("ask-audio-controls");
   const chatHistory = [];
   const maxHistoryMessages = 10;
+  let mediaRecorder = null;
+  let mediaStream = null;
+  let audioChunks = [];
+  let recordingTimer = null;
+  let currentAudio = null;
+  let currentAudioUrl = "";
+  let lastAnswerText = "";
+  let voiceSubmission = false;
 
   if (!form || !input || !submit || !status || !answer) return;
 
@@ -342,11 +354,155 @@
     return html.replace(/\n/g, "<br>");
   }
 
+  function setVoiceButton(recording) {
+    if (!voiceButton) return;
+    voiceButton.classList.toggle("is-recording", recording);
+    voiceButton.setAttribute("aria-pressed", recording ? "true" : "false");
+    voiceButton.innerHTML = recording
+      ? '<span aria-hidden="true">●</span> Stop recording'
+      : '<span aria-hidden="true">●</span> Talk to N3XRA';
+  }
+
+  function stopPlayback() {
+    if (currentAudio) {
+      currentAudio.pause();
+      currentAudio = null;
+    }
+    if (currentAudioUrl) {
+      URL.revokeObjectURL(currentAudioUrl);
+      currentAudioUrl = "";
+    }
+    if (listenButton) listenButton.hidden = false;
+    if (stopAudioButton) stopAudioButton.hidden = true;
+  }
+
+  async function speakAnswer(text) {
+    const speechText = String(text || "").trim();
+    if (!speechText) return;
+    stopPlayback();
+    if (listenButton) {
+      listenButton.disabled = true;
+      listenButton.textContent = "Preparing audio...";
+    }
+
+    try {
+      const response = await fetch("/api/elevenlabs-text-to-speech", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: speechText }),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(String(data?.error || "Voice playback is unavailable."));
+      }
+      const blob = await response.blob();
+      currentAudioUrl = URL.createObjectURL(blob);
+      currentAudio = new Audio(currentAudioUrl);
+      currentAudio.addEventListener("ended", stopPlayback, { once: true });
+      currentAudio.addEventListener("error", stopPlayback, { once: true });
+      if (listenButton) listenButton.hidden = true;
+      if (stopAudioButton) stopAudioButton.hidden = false;
+      await currentAudio.play();
+    } catch (error) {
+      stopPlayback();
+      status.textContent = error instanceof Error ? error.message : "Voice playback is unavailable.";
+    } finally {
+      if (listenButton) {
+        listenButton.disabled = false;
+        listenButton.textContent = "Listen";
+      }
+    }
+  }
+
+  async function transcribeAudio(blob) {
+    const response = await fetch("/api/elevenlabs-speech-to-text", {
+      method: "POST",
+      headers: { "Content-Type": blob.type || "audio/webm" },
+      body: blob,
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(String(data?.error || "I could not hear that. Please try again."));
+    return String(data?.text || "").trim();
+  }
+
+  function stopRecording() {
+    if (mediaRecorder && mediaRecorder.state === "recording") mediaRecorder.stop();
+  }
+
+  if (voiceButton) {
+    if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+      voiceButton.hidden = true;
+    } else {
+      voiceButton.addEventListener("click", async () => {
+        if (mediaRecorder?.state === "recording") {
+          stopRecording();
+          return;
+        }
+
+        try {
+          status.textContent = "Allow microphone access to speak with N3XRA.";
+          mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          const preferredTypes = ["audio/webm;codecs=opus", "audio/mp4", "audio/webm"];
+          const mimeType = preferredTypes.find((type) => MediaRecorder.isTypeSupported(type));
+          mediaRecorder = mimeType
+            ? new MediaRecorder(mediaStream, { mimeType })
+            : new MediaRecorder(mediaStream);
+          audioChunks = [];
+
+          mediaRecorder.addEventListener("dataavailable", (event) => {
+            if (event.data.size) audioChunks.push(event.data);
+          });
+          mediaRecorder.addEventListener("stop", async () => {
+            clearTimeout(recordingTimer);
+            mediaStream?.getTracks().forEach((track) => track.stop());
+            mediaStream = null;
+            setVoiceButton(false);
+            voiceButton.disabled = true;
+            status.textContent = "Transcribing...";
+
+            try {
+              const recording = new Blob(audioChunks, {
+                type: mediaRecorder?.mimeType || "audio/webm",
+              });
+              const transcript = await transcribeAudio(recording);
+              if (!transcript) throw new Error("I could not hear a question. Please try again.");
+              input.value = transcript;
+              voiceSubmission = true;
+              form.requestSubmit();
+            } catch (error) {
+              status.textContent = error instanceof Error ? error.message : "I could not hear that. Please try again.";
+            } finally {
+              voiceButton.disabled = false;
+              audioChunks = [];
+            }
+          }, { once: true });
+
+          mediaRecorder.start();
+          setVoiceButton(true);
+          status.textContent = "Listening... Select stop when you are finished.";
+          recordingTimer = setTimeout(stopRecording, 30000);
+        } catch {
+          mediaStream?.getTracks().forEach((track) => track.stop());
+          mediaStream = null;
+          setVoiceButton(false);
+          status.textContent = "Microphone access is needed to talk with N3XRA.";
+        }
+      });
+    }
+  }
+
+  listenButton?.addEventListener("click", () => speakAnswer(lastAnswerText));
+  stopAudioButton?.addEventListener("click", stopPlayback);
+
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     const question = input.value.trim();
+    const shouldSpeak = voiceSubmission;
+    voiceSubmission = false;
+    stopPlayback();
     answer.hidden = true;
     answer.innerHTML = "";
+    if (audioControls) audioControls.hidden = true;
     status.textContent = "";
 
     if (!question) {
@@ -371,8 +527,10 @@
       }
 
       const answerText = String(data.answer || "").trim();
+      lastAnswerText = answerText;
       answer.innerHTML = renderAnswer(answerText);
       answer.hidden = !answerText;
+      if (audioControls) audioControls.hidden = !answerText;
 
       if (answerText) {
         chatHistory.push({ role: "user", content: question });
@@ -382,6 +540,7 @@
         }
         input.value = "";
         input.focus();
+        if (shouldSpeak) speakAnswer(answerText);
       }
     } catch {
       status.textContent = "Request failed. Please try again.";
@@ -389,5 +548,11 @@
       submit.disabled = false;
       submit.textContent = "Ask";
     }
+  });
+
+  window.addEventListener("pagehide", () => {
+    clearTimeout(recordingTimer);
+    mediaStream?.getTracks().forEach((track) => track.stop());
+    stopPlayback();
   });
 })();

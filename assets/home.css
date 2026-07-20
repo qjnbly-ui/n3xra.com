@@ -3618,6 +3618,60 @@ body.site-menu-is-open .home-topbar {
   transform: none;
 }
 
+.ask-voice,
+.ask-listen {
+  min-height: 44px;
+  padding: 0.68rem 1rem;
+  border: 1px solid rgba(11, 16, 22, 0.18);
+  border-radius: 6px;
+  color: #31504a;
+  background: #f3fbf7;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.ask-voice span {
+  color: #16836f;
+  font-size: 0.72rem;
+}
+
+.ask-voice.is-recording {
+  color: #8b1e1e;
+  border-color: rgba(185, 28, 28, 0.32);
+  background: #fff2f2;
+}
+
+.ask-voice.is-recording span {
+  color: #dc2626;
+  animation: ask-voice-pulse 1s ease-in-out infinite;
+}
+
+.ask-voice[disabled],
+.ask-listen[disabled] {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+.ask-audio-controls {
+  display: flex;
+  gap: 0.5rem;
+  margin: 0 0 0.75rem;
+}
+
+.ask-audio-controls[hidden] {
+  display: none;
+}
+
+@keyframes ask-voice-pulse {
+  50% { opacity: 0.3; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ask-voice.is-recording span { animation: none; }
+}
+
 .ask-status {
   min-height: 1.2rem;
   margin: 0;

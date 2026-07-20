@@ -216,12 +216,17 @@
 
         <div class="ask-shell">
           <p class="ask-answer" id="ask-answer" hidden></p>
+          <div class="ask-audio-controls" id="ask-audio-controls" hidden>
+            <button class="ask-listen" id="ask-listen" type="button">Listen</button>
+            <button class="ask-listen" id="ask-stop-audio" type="button" hidden>Stop</button>
+          </div>
           <div class="ask-grid">
             <form class="ask-form" id="ask-form">
               <label for="ask-input">Your question</label>
               <textarea id="ask-input" name="question" maxlength="800" placeholder="What does N3XRA Records do?" required></textarea>
               <div class="ask-controls">
                 <button class="ask-submit" id="ask-submit" type="submit">Ask</button>
+                <button class="ask-voice" id="ask-voice" type="button" aria-pressed="false"><span aria-hidden="true">●</span> Talk to N3XRA</button>
               </div>
               <p class="ask-status" id="ask-status" role="status" aria-live="polite"></p>
             </form>
