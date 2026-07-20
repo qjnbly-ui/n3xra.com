@@ -24,12 +24,12 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/site-nav.css">
-  <link rel="stylesheet" href="/partners/partners.css?v=3">
+  <link rel="stylesheet" href="/partners/partners.css?v=4">
   <link rel="stylesheet" href="/assets/home-shell.css?v=1">
   <script src="/assets/site-nav.js" defer></script>
   <script src="/shared/config.js"></script>
   <script type="module" src="/assets/master-auth-link.js"></script>
-  <script src="/partners/partners.js" defer></script>
+  <script src="/partners/partners.js?v=2" defer></script>
 </head>
 <body>
   <header class="site-topbar home-topbar partners-topbar" data-home-header>
@@ -183,6 +183,20 @@
           <button class="form-submit" type="submit">Submit Application</button>
           <p class="form-status" id="partner-form-status" role="status" aria-live="polite"></p>
         </form>
+        <section class="partner-confirmation" id="partner-confirmation" aria-live="polite" tabindex="-1" hidden>
+          <p class="eyebrow">Application received</p>
+          <h3 id="partner-confirmation-heading">Thank you.</h3>
+          <p class="partner-confirmation-message" id="partner-confirmation-message"></p>
+          <div class="partner-confirmation-programs">
+            <span>You’re interested in</span>
+            <p id="partner-confirmation-programs"></p>
+          </div>
+          <div class="partner-confirmation-next">
+            <strong>What happens next</strong>
+            <p id="partner-confirmation-next"></p>
+          </div>
+          <button class="form-submit" type="button" data-partner-confirmation-close>Done</button>
+        </section>
       </div>
     </dialog>
   </main>

@@ -4,6 +4,11 @@ const PARTNERS_NOTIFY_TO = String(process.env.PARTNERS_ONBOARDING_NOTIFY_TO || "
   .split(",")
   .map((email) => email.trim())
   .filter(Boolean);
+const PARTNER_CONFIRMATION_MODEL = String(
+  process.env.GROQ_PARTNER_CONFIRMATION_MODEL ||
+  process.env.GROQ_PROJECT_REQUEST_MODEL ||
+  "openai/gpt-oss-120b"
+).trim();
 const { createAdminNotification } = require("./_admin-notifications");
 
 function escapeHtml(value) {
@@ -26,6 +31,78 @@ function cleanEmail(value) {
 function normalizeProducts(value) {
   if (!Array.isArray(value)) return [];
   return value.map((item) => cleanString(item, 120)).filter(Boolean).slice(0, 12);
+}
+
+function firstName(fullName) {
+  return cleanString(fullName, 180).split(/\s+/)[0] || "there";
+}
+
+function fallbackConfirmation(payload) {
+  return {
+    heading: `Thank you, ${firstName(payload.full_name)}.`,
+    message: "Your application is safely in our hands. We’re excited to learn more about how you could help create new opportunities with N3XRA.",
+    next_step: "Our team will review your application and contact you by email with the next step. No program access or commission is active until your application is approved.",
+  };
+}
+
+async function generateAiConfirmation(payload) {
+  const fallback = fallbackConfirmation(payload);
+  const apiKey = String(process.env.GROQ_API_KEY || "").trim();
+  if (!apiKey) return fallback;
+
+  try {
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: PARTNER_CONFIRMATION_MODEL,
+        temperature: 0.35,
+        max_completion_tokens: 320,
+        response_format: { type: "json_object" },
+        messages: [
+          {
+            role: "system",
+            content: [
+              "Write a concise, warm confirmation shown immediately after an N3XRA partner application is submitted.",
+              "Greet the applicant by first name and sound genuinely excited about the potential fit.",
+              "Briefly acknowledge their selected opportunities or referral approach when useful.",
+              "Be clear that the application was received but has not yet been approved.",
+              "Explain that N3XRA will review it and follow up by email.",
+              "Do not promise approval, earnings, payout eligibility, or a response deadline.",
+              "Do not introduce yourself, mention AI, Groq, a model, or internal systems.",
+              "Return JSON only with string fields: heading, message, next_step.",
+            ].join(" "),
+          },
+          {
+            role: "user",
+            content: JSON.stringify({
+              name: payload.full_name,
+              selected_opportunities: payload.interested_products,
+              referral_source: payload.audience_source,
+              referral_plan: payload.referral_plan,
+            }),
+          },
+        ],
+      }),
+    });
+
+    if (!response.ok) throw new Error(`Groq returned ${response.status}.`);
+    const data = await response.json();
+    const content = data?.choices?.[0]?.message?.content;
+    const parsed = JSON.parse(content || "{}");
+
+    return {
+      heading: cleanString(parsed.heading, 120) || fallback.heading,
+      message: cleanString(parsed.message, 600) || fallback.message,
+      next_step: cleanString(parsed.next_step, 500) || fallback.next_step,
+    };
+  } catch (error) {
+    console.error("Partner AI confirmation failed:", error);
+    return fallback;
+  }
 }
 
 function parseBody(req) {
@@ -230,6 +307,7 @@ export default async function handler(req, res) {
   try {
     const inserted = await insertPartnerApplication(payload);
     const savedPayload = { ...payload, id: inserted?.id || null };
+    const confirmationPromise = generateAiConfirmation(savedPayload);
     let notificationId = null;
     try {
       notificationId = await sendNotification(savedPayload);
@@ -249,11 +327,13 @@ export default async function handler(req, res) {
         actionUrl: "/n3xra-admin/partners/",
       }).catch(() => null);
     }
+    const confirmation = await confirmationPromise;
 
     return res.status(200).json({
       ok: true,
       id: inserted?.id || null,
       notification_id: notificationId,
+      confirmation,
     });
   } catch (error) {
     return res.status(500).json({

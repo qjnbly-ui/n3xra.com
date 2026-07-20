@@ -2,6 +2,7 @@
   const modal = document.getElementById("partner-application-modal");
   const openButtons = document.querySelectorAll("[data-partner-modal-open]");
   const closeButton = document.querySelector("[data-partner-modal-close]");
+  const confirmationCloseButton = document.querySelector("[data-partner-confirmation-close]");
 
   function openModal() {
     if (!modal) return;
@@ -17,6 +18,7 @@
 
   openButtons.forEach((button) => button.addEventListener("click", openModal));
   closeButton?.addEventListener("click", closeModal);
+  confirmationCloseButton?.addEventListener("click", closeModal);
   modal?.addEventListener("close", () => document.body.classList.remove("partner-modal-open"));
   modal?.addEventListener("click", (event) => {
     if (event.target === modal) closeModal();
@@ -24,6 +26,11 @@
 
   const form = document.getElementById("partner-form");
   const status = document.getElementById("partner-form-status");
+  const confirmation = document.getElementById("partner-confirmation");
+  const confirmationHeading = document.getElementById("partner-confirmation-heading");
+  const confirmationMessage = document.getElementById("partner-confirmation-message");
+  const confirmationPrograms = document.getElementById("partner-confirmation-programs");
+  const confirmationNext = document.getElementById("partner-confirmation-next");
   if (!form || !status) return;
 
   const submit = form.querySelector("button[type='submit']");
@@ -77,8 +84,20 @@
         throw new Error(result.error || "Unable to submit the partner application.");
       }
 
+      const firstName = payload.full_name.split(/\s+/)[0] || "there";
+      const aiConfirmation = result.confirmation || {};
+      if (confirmationHeading) confirmationHeading.textContent = aiConfirmation.heading || `Thank you, ${firstName}.`;
+      if (confirmationMessage) {
+        confirmationMessage.textContent = aiConfirmation.message || "Your application is safely in our hands. We’re excited to learn more about the opportunities you could create with N3XRA.";
+      }
+      if (confirmationPrograms) confirmationPrograms.textContent = payload.interested_products.join(" · ");
+      if (confirmationNext) {
+        confirmationNext.textContent = aiConfirmation.next_step || "Our team will review your application and contact you by email with the next step. Your application is not approved until you receive that confirmation.";
+      }
       form.reset();
-      setStatus("Your partner application has been received. N3XRA will review it and follow up with program-specific next steps.", "success");
+      form.hidden = true;
+      if (confirmation) confirmation.hidden = false;
+      confirmation?.focus({ preventScroll: true });
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Unable to submit the partner application.");
     } finally {

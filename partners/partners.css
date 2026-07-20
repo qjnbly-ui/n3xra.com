@@ -951,6 +951,64 @@ body.partner-modal-open {
   overflow: hidden;
 }
 
+.partner-confirmation {
+  display: grid;
+  gap: 1rem;
+  padding: clamp(1.75rem, 5vw, 3rem);
+}
+
+.partner-confirmation[hidden] {
+  display: none;
+}
+
+.partner-confirmation h3 {
+  max-width: 620px;
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 6vw, 3.5rem);
+  line-height: 1;
+}
+
+.partner-confirmation-message {
+  max-width: 620px;
+  color: var(--muted);
+  font-size: 1.05rem;
+  line-height: 1.65;
+}
+
+.partner-confirmation-programs,
+.partner-confirmation-next {
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #f5f8fa;
+}
+
+.partner-confirmation-programs span,
+.partner-confirmation-next strong {
+  display: block;
+  margin-bottom: 0.35rem;
+  color: #176f66;
+  font-size: 0.76rem;
+  font-weight: 900;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.partner-confirmation-programs p {
+  font-weight: 800;
+}
+
+.partner-confirmation-next p {
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.partner-confirmation .form-submit {
+  width: fit-content;
+  min-width: 120px;
+  margin-top: 0.25rem;
+}
+
 /* Deliberately quiet backgrounds across the partner page */
 .partners-hero {
   background: #09131f;
