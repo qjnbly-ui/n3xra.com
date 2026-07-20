@@ -4,6 +4,7 @@ const PARTNERS_NOTIFY_TO = String(process.env.PARTNERS_ONBOARDING_NOTIFY_TO || "
   .split(",")
   .map((email) => email.trim())
   .filter(Boolean);
+const { createAdminNotification } = require("./_admin-notifications");
 
 function escapeHtml(value) {
   return String(value || "")
@@ -234,6 +235,19 @@ export default async function handler(req, res) {
       notificationId = await sendNotification(savedPayload);
     } catch (notificationError) {
       console.error("Partner notification failed:", notificationError);
+      await createAdminNotification({
+        eventType: "system.email_delivery_failed",
+        product: "partners",
+        priority: "important",
+        title: "Partner application email failed",
+        summary: notificationError instanceof Error ? notificationError.message : "Partner notification delivery failed.",
+        messageText: buildTextEmail(savedPayload),
+        actorName: savedPayload.full_name,
+        actorEmail: savedPayload.email,
+        sourceTable: "founding_partner_applications",
+        sourceId: savedPayload.id,
+        actionUrl: "/n3xra-admin/partners/",
+      }).catch(() => null);
     }
 
     return res.status(200).json({

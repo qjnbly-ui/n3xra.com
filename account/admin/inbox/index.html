@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>N3XRA | Admin Notifications</title>
+  <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
+  <link rel="icon" href="/assets/n3xra_logo_transparent_small.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/site-nav.css">
+  <link rel="stylesheet" href="/client-portal/portal.css?v=12">
+  <link rel="stylesheet" href="/account/admin/inbox/inbox.css?v=1">
+  <script src="/shared/config.js"></script>
+  <script src="/assets/site-nav.js" defer></script>
+</head>
+<body class="portal-loading">
+  <header class="site-topbar">
+    <div class="site-topbar-inner">
+      <div class="site-topbar-row">
+        <a class="site-brand" href="/"><img src="/assets/n3xra_logo_transparent_small.png" alt=""><span>N3XRA</span></a>
+        <div class="site-nav-actions"><a class="site-menu-link" href="/account/">Dashboard</a><button class="site-menu-link portal-logout" id="admin-sign-out" type="button">Sign out</button></div>
+      </div>
+    </div>
+  </header>
+  <main class="portal-shell notification-shell">
+    <section class="portal-heading notification-heading">
+      <div><p class="portal-kicker">N3XRA administration</p><h1>Notifications</h1><p>Important activity across N3XRA, preserved for administrative review.</p></div>
+      <div class="notification-heading-actions"><button class="portal-button portal-button-secondary" id="mark-all-read" type="button">Mark all read</button><button class="portal-button portal-button-secondary" id="refresh-inbox" type="button">Refresh</button></div>
+    </section>
+
+    <section class="notification-toolbar" aria-label="Notification filters">
+      <div class="notification-tabs" role="tablist">
+        <button class="is-active" data-folder="inbox" type="button">Inbox <span id="inbox-count"></span></button>
+        <button data-folder="archive" type="button">Archive</button>
+        <button data-folder="trash" type="button">Trash</button>
+      </div>
+      <label>Search<input id="notification-search" type="search" placeholder="Name, email, project, or message"></label>
+      <label>Product<select id="notification-product"><option value="">All products</option><option value="platform">Platform</option><option value="accounts">Accounts</option><option value="support">Support</option><option value="websites">Websites</option><option value="partners">Partners</option><option value="records">Records</option><option value="music">AI Music</option><option value="virals">Virals</option><option value="utilities">Utilities</option><option value="billing">Billing</option><option value="system">System</option></select></label>
+      <label>Priority<select id="notification-priority"><option value="">All priorities</option><option value="important">Important</option><option value="activity">Activity</option><option value="system">System</option></select></label>
+      <label>Status<select id="notification-read"><option value="">Read and unread</option><option value="unread">Unread</option><option value="read">Read</option></select></label>
+    </section>
+
+    <section class="notification-list" id="notification-list" aria-live="polite"></section>
+    <p class="admin-inbox-status" id="admin-inbox-status" role="status">Loading notifications…</p>
+  </main>
+  <dialog class="notification-dialog" id="notification-dialog">
+    <article>
+      <button class="notification-dialog-close" id="close-notification" type="button" aria-label="Close">×</button>
+      <p class="portal-kicker" id="notification-detail-product"></p>
+      <h2 id="notification-detail-title"></h2>
+      <p class="notification-detail-meta" id="notification-detail-meta"></p>
+      <div class="notification-detail-message" id="notification-detail-message"></div>
+      <div class="notification-detail-record" id="notification-detail-record"></div>
+      <div class="notification-detail-actions" id="notification-detail-actions"></div>
+    </article>
+  </dialog>
+  <script type="module" src="/account/admin/inbox/inbox.js?v=1"></script>
+</body>
+</html>

@@ -2,6 +2,7 @@ const SUPABASE_URL = String(process.env.SUPABASE_URL || "https://vdbjlgmbpykjblp
 const SUPABASE_ANON_KEY = String(process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "").trim();
 const SERVICE_KEY = String(process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY || "").trim();
 const DASHBOARD_URL = "https://www.n3xra.com/account";
+const { createAdminNotification } = require("./_admin-notifications");
 
 function escapeHtml(value = "") {
   return String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
@@ -73,6 +74,7 @@ function buildText(payload) {
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed." });
   if (!SUPABASE_ANON_KEY || !SERVICE_KEY || !process.env.RESEND_API_KEY) return res.status(500).json({ error: "Proposal email service is not configured." });
+  let notificationPayload = null;
   try {
     const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : (req.body || {});
     const token = bearer(req);
@@ -91,6 +93,7 @@ export default async function handler(req, res) {
     if (!request?.contact_email) return res.status(400).json({ error: "The client request does not have an email address." });
     const items = await json(`${SUPABASE_URL}/rest/v1/website_proposal_line_items?select=*&version_id=eq.${encodeURIComponent(version.id)}&order=sort_order.asc`, { headers: headers() });
     const payload = { proposal, version, request, items: items || [] };
+    notificationPayload = payload;
     const emailResponse = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, "Content-Type": "application/json" },
@@ -110,8 +113,36 @@ export default async function handler(req, res) {
       headers: headers({ Prefer: "return=minimal" }),
       body: JSON.stringify({ email_sent_at: new Date().toISOString(), email_recipient: request.contact_email, email_message_id: emailResult.id || null }),
     });
+    await createAdminNotification({
+      eventType: "proposal.email_sent",
+      product: "websites",
+      priority: "activity",
+      title: "Website proposal emailed",
+      summary: `${proposal.title} · ${request.contact_email}`,
+      messageText: buildText(payload),
+      messageHtml: buildHtml(payload),
+      actorName: request.contact_name,
+      actorEmail: request.contact_email,
+      sourceTable: "website_proposals",
+      sourceId: proposal.id,
+      actionUrl: "/n3xra-admin/proposals/",
+      metadata: { version_id: version.id, email_message_id: emailResult.id || null },
+    }).catch((error) => console.error("Proposal email audit notification failed:", error));
     return res.status(200).json({ ok: true, recipient: request.contact_email });
   } catch (error) {
+    await createAdminNotification({
+      eventType: "system.email_delivery_failed",
+      product: "websites",
+      priority: "important",
+      title: "Proposal email failed",
+      summary: error?.message || "Unable to send the proposal email.",
+      messageText: notificationPayload ? buildText(notificationPayload) : null,
+      actorName: notificationPayload?.request?.contact_name,
+      actorEmail: notificationPayload?.request?.contact_email,
+      sourceTable: "website_proposals",
+      sourceId: notificationPayload?.proposal?.id,
+      actionUrl: "/n3xra-admin/proposals/",
+    }).catch(() => null);
     return res.status(500).json({ error: error?.message || "Unable to send the proposal email." });
   }
 }

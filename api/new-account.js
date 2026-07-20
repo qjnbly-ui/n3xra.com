@@ -1,4 +1,5 @@
 const NEW_ACCOUNT_NOTIFY_TO = "quentin@n3xra.com";
+const { createAdminNotification } = require("./_admin-notifications");
 
 function getSignupSummary(signupMode) {
   const mode = String(signupMode || "").trim().toLowerCase();
@@ -152,13 +153,50 @@ export default async function handler(req, res) {
 
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
+      await createAdminNotification({
+        eventType: "system.email_delivery_failed",
+        product: "accounts",
+        priority: "important",
+        title: "New-account notification email failed",
+        summary: `${payload.email} · ${String(data?.message || data?.error || "Unknown delivery error")}`,
+        messageText: buildTextEmail(payload),
+        actorName: payload.fullName,
+        actorEmail: payload.email,
+        actionUrl: "/account/admin/accounts/",
+        metadata: { provider: "resend", error: data },
+      }).catch(() => null);
       return res.status(response.status).json({
         error: String(data?.message || data?.error || "Unable to send account notification."),
       });
     }
 
+    await createAdminNotification({
+      eventType: "account.created",
+      product: "accounts",
+      priority: "important",
+      title: `New ${summary.product} account`,
+      summary: `${payload.fullName || payload.email} · ${summary.flow}`,
+      messageText: buildTextEmail(payload),
+      messageHtml: buildHtmlEmail(payload),
+      actorName: payload.fullName,
+      actorEmail: payload.email,
+      actionUrl: "/account/admin/accounts/",
+      metadata: { signup_mode: payload.signupMode, email_message_id: data?.id || null },
+    }).catch((error) => console.error("Account notification persistence failed:", error));
+
     return res.status(200).json({ ok: true, id: data?.id || null });
   } catch (error) {
+    await createAdminNotification({
+      eventType: "system.email_delivery_failed",
+      product: "accounts",
+      priority: "important",
+      title: "New-account notification failed",
+      summary: error instanceof Error ? error.message : "Unable to send account notification.",
+      messageText: buildTextEmail(payload),
+      actorName: payload.fullName,
+      actorEmail: payload.email,
+      actionUrl: "/account/admin/accounts/",
+    }).catch(() => null);
     return res.status(500).json({
       error: error instanceof Error ? error.message : "Unable to send account notification.",
     });

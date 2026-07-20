@@ -50,6 +50,8 @@ const adminAppSection = document.getElementById("admin-app-section");
 const dashboardViewToggle = document.getElementById("dashboard-view-toggle");
 const showAppsViewButton = document.getElementById("show-apps-view");
 const showAdminViewButton = document.getElementById("show-admin-view");
+const adminNotificationButton = document.getElementById("admin-notification-button");
+const adminNotificationCount = document.getElementById("admin-notification-count");
 
 let supabase = null;
 let currentSession = null;
@@ -395,6 +397,18 @@ async function renderDashboard(message = "") {
   openMusicButton.textContent = hasMusicProfile ? "Open AI Music" : "Activate AI Music";
   canViewAdminApps = Boolean(platformAdminAccess) || isPlatformAdminEmail(currentSession.user.email);
   show(dashboardViewToggle, canViewAdminApps);
+  show(adminNotificationButton, canViewAdminApps);
+  if (canViewAdminApps && adminNotificationCount) {
+    const { count } = await supabase
+      .from("admin_notifications")
+      .select("id", { count: "exact", head: true })
+      .is("read_at", null)
+      .is("archived_at", null)
+      .is("deleted_at", null);
+    const unreadCount = Number(count || 0);
+    adminNotificationCount.textContent = unreadCount > 99 ? "99+" : String(unreadCount);
+    show(adminNotificationCount, unreadCount > 0);
+  }
   setDashboardView("apps");
 }
 

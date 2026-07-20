@@ -3,6 +3,7 @@ const { normalizePromoCode } = require("./_virals-billing");
 const { sendCreatorApplicationNotificationEmail } = require("./_virals-email");
 const { parseJson, sendJson } = require("./_virals-http");
 const { fetchTikTokProfile } = require("./_virals-tiktok");
+const { createAdminNotification } = require("./_admin-notifications");
 
 function normalizeArray(value) {
   return Array.isArray(value) ? value.map((item) => String(item || "").trim()).filter(Boolean).slice(0, 8) : [];
@@ -119,6 +120,18 @@ module.exports = async function handler(req, res) {
       await sendCreatorApplicationNotificationEmail(application);
     } catch (emailError) {
       emailWarning = emailError instanceof Error ? emailError.message : "Creator application notification failed to send.";
+      await createAdminNotification({
+        eventType: "system.email_delivery_failed",
+        product: "virals",
+        priority: "important",
+        title: "Virals creator application email failed",
+        summary: emailWarning,
+        actorName: application?.displayName || application?.tiktokUsername,
+        actorEmail: application?.email,
+        sourceTable: "virals_creator_applications",
+        sourceId: application?.id,
+        actionUrl: "/n3xra-virals/admin/",
+      }).catch(() => null);
     }
     return sendJson(res, 200, { application, emailWarning: emailWarning || undefined });
   } catch (error) {

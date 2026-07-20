@@ -167,6 +167,40 @@ body {
   box-shadow: 0 14px 34px rgba(15, 22, 32, 0.08);
 }
 
+.account-notification-button {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.58rem 1rem;
+  border: 1px solid rgba(15, 22, 32, 0.12);
+  border-radius: 999px;
+  color: var(--ink);
+  background: #fff;
+  font-size: 0.86rem;
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.account-notification-button:hover,
+.account-notification-button:focus-visible {
+  border-color: rgba(15, 22, 32, 0.3);
+  outline: none;
+}
+
+.account-notification-count {
+  display: inline-grid;
+  min-width: 1.55rem;
+  height: 1.55rem;
+  place-items: center;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  color: #fff;
+  background: #c0392b;
+  font-size: 0.7rem;
+  line-height: 1;
+}
+
 .account-settings-button:hover,
 .account-settings-button:focus-visible {
   border-color: rgba(15, 118, 110, 0.35);
