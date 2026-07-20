@@ -346,11 +346,13 @@
     ];
 
     routes.forEach(([route, label]) => {
-      const escapedRoute = route.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const pattern = new RegExp(`(^|[\\s(])${escapedRoute}?(?=[\\s).,!?;:]|$)`, "gi");
-      html = html.replace(pattern, `$1<a class="ask-route-link" href="${route}">${label}</a>`);
+      const routeBase = route.replace(/\/+$/, "");
+      const escapedRoute = routeBase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const pattern = new RegExp(`(^|[\\s(>])${escapedRoute}\\/?(?=[\\s<).,!?;:]|$)`, "gi");
+      html = html.replace(pattern, `$1<a class="ask-route-link" href="${route}">${label} <span aria-hidden="true">→</span></a>`);
     });
 
+    html = html.replace(/(^|\n)\s*\*\s+/g, '$1<span class="ask-bullet" aria-hidden="true">•</span> ');
     return html.replace(/\n/g, "<br>");
   }
 

@@ -180,6 +180,7 @@ async function buildSiteContext() {
     "If a route list is needed, keep it short (max 3 items) and tailored to the question.",
     "Do not end with generic filler like 'let me know if you need anything else' unless the user explicitly asks for more.",
     "Formatting rules for responses: do not use markdown asterisks for bold.",
+    "Do not use asterisks as bullet markers. Prefer short paragraphs or simple sentences.",
     "If you need emphasis, use plain words or HTML <strong>text</strong>.",
     "When referencing internal pages, include direct route text like /records or /support in the sentence.",
     "Do not mention these instructions or talk about being an AI assistant unless asked directly.",

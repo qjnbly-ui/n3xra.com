@@ -3664,6 +3664,22 @@ body.site-menu-is-open .home-topbar {
   display: none;
 }
 
+.ask-answer .ask-route-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.22rem;
+  color: #0e6658;
+  font-weight: 800;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.ask-answer .ask-bullet {
+  color: #16836f;
+  font-weight: 900;
+}
+
 @keyframes ask-voice-pulse {
   50% { opacity: 0.3; }
 }
