@@ -359,6 +359,27 @@
     return html.replace(/\n/g, "<br>");
   }
 
+  function prepareSpeechText(text) {
+    const spokenAnswer = document.createElement("div");
+    spokenAnswer.innerHTML = renderAnswer(text);
+
+    spokenAnswer.querySelectorAll("br").forEach((lineBreak) => {
+      lineBreak.replaceWith(document.createTextNode(". "));
+    });
+    spokenAnswer.querySelectorAll(".ask-bullet").forEach((bullet) => {
+      bullet.replaceWith(document.createTextNode(". "));
+    });
+    spokenAnswer.querySelectorAll("a").forEach((link) => {
+      link.replaceWith(document.createTextNode(link.textContent || ""));
+    });
+
+    return String(spokenAnswer.textContent || "")
+      .replace(/\s+([,.;!?])/g, "$1")
+      .replace(/\.{2,}/g, ".")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
   function setVoiceButton(recording) {
     if (!voiceButton) return;
     voiceButton.classList.toggle("is-recording", recording);
@@ -383,7 +404,7 @@
   }
 
   async function speakAnswer(text) {
-    const speechText = String(text || "").trim();
+    const speechText = prepareSpeechText(text);
     if (!speechText) return;
 
     if (currentAudio && currentAudioUrl && preparedAudioText === speechText) {
