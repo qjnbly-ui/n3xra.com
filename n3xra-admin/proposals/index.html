@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/site-nav.css">
-  <link rel="stylesheet" href="/client-portal/portal.css?v=11">
+  <link rel="stylesheet" href="/client-portal/portal.css?v=12">
   <script src="/shared/config.js"></script>
   <script src="/n3xra-admin/admin-shell.js?v=2" defer></script>
 </head>
@@ -109,9 +109,14 @@
               <button class="portal-button portal-button-secondary" id="add-proposal-line-item" type="button">Add service</button>
             </div>
             <div class="proposal-line-items" id="proposal-line-items"></div>
+            <div class="proposal-pricing-guidance">
+              <strong>Published service pricing</strong>
+              <span>Starter is $30/month or $324/year. Expanded starts at $50/month or $540/year. Annual prices include the 10% service savings. Domains and third-party costs should remain separate line items.</span>
+            </div>
             <div class="portal-form-grid">
               <label>One-time subtotal ($)<input id="proposal-subtotal" type="number" min="0" step="0.01" readonly required></label>
               <label>Discount ($)<input id="proposal-discount" type="number" min="0" step="0.01" value="0"></label>
+              <label class="portal-form-wide proposal-referral-discount" id="proposal-referral-discount-wrap" hidden><span><input id="proposal-referral-discount" type="checkbox"> Apply the verified referral discount</span><small id="proposal-referral-discount-help"></small></label>
               <label>Total ($)<input id="proposal-total" type="text" readonly></label>
               <label>Deposit due ($)<input id="proposal-deposit" type="number" min="0" step="0.01" value="0"></label>
               <input id="proposal-recurring" type="hidden" value="0">
@@ -154,6 +159,6 @@
 
   <div class="portal-status" id="portal-status" role="status">Verifying proposal access…</div>
   <script type="module" src="/client-portal/portal-shell.js"></script>
-  <script type="module" src="/n3xra-admin/proposals/proposals-admin.js"></script>
+  <script type="module" src="/n3xra-admin/proposals/proposals-admin.js?v=2"></script>
 </body>
 </html>

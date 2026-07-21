@@ -11,7 +11,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/site-nav.css">
   <link rel="stylesheet" href="/client-portal/portal.css?v=10">
-  <link rel="stylesheet" href="/website-request/request.css?v=5">
+  <link rel="stylesheet" href="/website-request/request.css?v=6">
   <script src="/shared/config.js"></script>
   <script src="/assets/site-nav.js" defer></script>
 </head>
@@ -60,6 +60,11 @@
           </div>
         </div>
         <form class="portal-form portal-request-form" id="website-request-form">
+          <aside class="request-pricing-note" aria-label="Website pricing overview">
+            <strong>Clear starting prices</strong>
+            <span>Basic builds start at $250. Website service starts at $30/month, or $50/month for expanded needs. Annual service saves 10%; a valid referral code saves 10% on the website build. Domains and third-party costs are separate.</span>
+            <a href="/services/#website-pricing">View pricing details</a>
+          </aside>
           <section class="request-account-card" id="request-account-card" aria-live="polite">
             <div>
               <p class="portal-kicker">Account connection</p>
@@ -98,7 +103,7 @@
               </select>
             </label>
             <label>Preferred launch date<input id="request-launch-date" type="date"></label>
-            <label>Partner referral code <span class="request-optional">(optional)</span><input id="request-referral-code" maxlength="24" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Enter referral code"><span class="request-field-help" id="request-referral-code-status">If an approved N3XRA partner referred you, enter their code here.</span></label>
+            <label>Partner referral code <span class="request-optional">(optional)</span><input id="request-referral-code" maxlength="24" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Enter referral code"><span class="request-field-help" id="request-referral-code-status">Enter a valid website referral code for 10% off the website build.</span></label>
             <label class="portal-form-wide">Anything else?<textarea id="request-notes" rows="4"></textarea></label>
           </div>
           <div class="portal-form-actions">
@@ -133,6 +138,6 @@
   </main>
   <div class="portal-status" id="portal-status">Opening project intake…</div>
   <script type="module" src="/client-portal/portal-shell.js"></script>
-  <script type="module" src="/website-request/request.js?v=9"></script>
+  <script type="module" src="/website-request/request.js?v=10"></script>
 </body>
 </html>

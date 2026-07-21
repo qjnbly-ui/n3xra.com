@@ -112,7 +112,7 @@ async function validateReferralCode({ required = false } = {}) {
   referralCodeInput.setCustomValidity("");
   if (!code) {
     validatedReferralCode = "";
-    setReferralStatus("If an approved N3XRA partner referred you, enter their code here.");
+    setReferralStatus("Enter a valid website referral code for 10% off the website build.");
     return true;
   }
   if (code.length < 4) {
@@ -137,7 +137,7 @@ async function validateReferralCode({ required = false } = {}) {
       return false;
     }
     validatedReferralCode = code;
-    setReferralStatus("Referral code applied.", "valid");
+    setReferralStatus("Referral code verified. Your proposal will include 10% off the website build.", "valid");
     return true;
   } catch (error) {
     validatedReferralCode = "";

@@ -92,6 +92,42 @@
   line-height: 1.4;
 }
 
+.request-pricing-note {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 0.55rem 1rem;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid rgba(19, 132, 112, 0.2);
+  border-radius: 9px;
+  color: var(--portal-ink);
+  background: #f1faf7;
+}
+
+.request-pricing-note strong {
+  font-size: 0.82rem;
+}
+
+.request-pricing-note span {
+  color: var(--portal-muted);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.request-pricing-note a {
+  color: #0d6f60;
+  font-size: 0.75rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+  .request-pricing-note {
+    grid-template-columns: 1fr;
+  }
+}
+
 .request-field-help.is-valid {
   color: #08745f;
   font-weight: 700;

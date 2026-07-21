@@ -959,6 +959,51 @@ body.portal-denied main {
   margin: 1rem 0;
 }
 
+.proposal-pricing-guidance {
+  display: grid;
+  gap: 0.3rem;
+  margin: 0.85rem 0 1rem;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid rgba(19, 132, 112, 0.2);
+  border-radius: 8px;
+  background: #f1faf7;
+}
+
+.proposal-pricing-guidance strong {
+  font-size: 0.8rem;
+}
+
+.proposal-pricing-guidance span,
+.proposal-referral-discount small {
+  color: var(--portal-muted);
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+.portal-form-grid .proposal-referral-discount {
+  display: grid;
+  gap: 0.3rem;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid var(--portal-line);
+  border-radius: 8px;
+  background: #f7f9fb;
+}
+
+.proposal-referral-discount > span {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  color: var(--portal-ink);
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.proposal-referral-discount input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+}
+
 .proposal-line-item {
   display: grid;
   grid-template-columns: 1.2fr 1.8fr 0.9fr 0.65fr 0.8fr 0.85fr auto;

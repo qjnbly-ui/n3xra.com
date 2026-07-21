@@ -18,6 +18,9 @@ const lineItemsContainer = document.getElementById("proposal-line-items");
 const addLineItemButton = document.getElementById("add-proposal-line-item");
 const previewLink = document.getElementById("preview-proposal");
 const refreshButton = document.getElementById("refresh-proposals");
+const referralDiscountWrap = document.getElementById("proposal-referral-discount-wrap");
+const referralDiscountToggle = document.getElementById("proposal-referral-discount");
+const referralDiscountHelp = document.getElementById("proposal-referral-discount-help");
 
 let supabase;
 let currentUser;
@@ -97,6 +100,32 @@ function setStatus(message = "", isError = false) {
 function updateTotal() {
   const total = Math.max(moneyToCents(document.getElementById(fieldIds.subtotal_cents).value) - moneyToCents(document.getElementById(fieldIds.discount_cents).value), 0);
   document.getElementById(fieldIds.total_cents).value = centsToMoney(total);
+}
+
+function websiteBuildSubtotal(items = []) {
+  return items
+    .filter((item) => item.billing_type === "one_time" && item.category === "website_build")
+    .reduce((sum, item) => sum + Math.round(item.quantity * item.unit_amount_cents), 0);
+}
+
+function configureReferralDiscount({ apply = false } = {}) {
+  const code = String(selectedRequest?.referral_code || "").trim();
+  referralDiscountWrap.hidden = !code;
+  referralDiscountToggle.checked = Boolean(code && apply);
+  referralDiscountHelp.textContent = code
+    ? `Verified code ${code}: applies 10% off one-time website-build line items. The partner earns $100 only if the client purchases one year of service.`
+    : "";
+  document.getElementById(fieldIds.discount_cents).readOnly = Boolean(code && apply);
+}
+
+function updateReferralDiscount(items = []) {
+  const discountInput = document.getElementById(fieldIds.discount_cents);
+  if (!selectedRequest?.referral_code || !referralDiscountToggle.checked) {
+    discountInput.readOnly = false;
+    return;
+  }
+  discountInput.readOnly = true;
+  discountInput.value = centsToMoney(Math.round(websiteBuildSubtotal(items) * 0.1));
 }
 
 function newLineItem(overrides = {}) {
@@ -183,6 +212,7 @@ function updateInvestmentTotals() {
     ? centsToMoney(recurring.reduce((sum, item) => sum + Math.round(item.quantity * item.unit_amount_cents), 0))
     : "0";
   document.getElementById(fieldIds.recurring_interval).value = intervals.length === 1 ? intervals[0] : "";
+  updateReferralDiscount(items);
   updateTotal();
 }
 
@@ -209,6 +239,7 @@ function renderRequestSummary() {
       <div><dt>Pages</dt><dd>${(selectedRequest.requested_pages || []).map(escapeHtml).join(", ") || "Not specified"}</dd></div>
       <div><dt>Features</dt><dd>${(selectedRequest.requested_features || []).map(escapeHtml).join(", ") || "Not specified"}</dd></div>
       <div><dt>Budget</dt><dd>${escapeHtml(formatLabel(selectedRequest.budget_range || "Not specified"))}</dd></div>
+      <div><dt>Referral code</dt><dd>${escapeHtml(selectedRequest.referral_code || "None")}</dd></div>
     </dl>
   `;
 }
@@ -247,6 +278,7 @@ function fillForm(version) {
     else if (key.endsWith("_cents")) input.value = centsToMoney(values[key]);
     else input.value = values[key] || "";
   });
+  configureReferralDiscount({ apply: Boolean(!version && selectedRequest?.referral_code) });
   renderLineItems(version);
 }
 
@@ -595,6 +627,10 @@ async function init() {
   });
   refreshButton.addEventListener("click", () => loadData(selectedRequest?.id).catch((error) => setStatus(error.message, true)));
   document.getElementById(fieldIds.discount_cents).addEventListener("input", updateTotal);
+  referralDiscountToggle.addEventListener("change", () => {
+    if (!referralDiscountToggle.checked) document.getElementById(fieldIds.discount_cents).value = "0.00";
+    updateInvestmentTotals();
+  });
   document.body.classList.remove("portal-loading");
   statusScreen.hidden = true;
 }

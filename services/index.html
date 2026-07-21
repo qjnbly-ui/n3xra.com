@@ -219,6 +219,100 @@
       letter-spacing: -0.03em;
     }
 
+    .pricing-panel {
+      gap: 1.5rem;
+    }
+
+    .pricing-intro {
+      display: grid;
+      grid-template-columns: minmax(0, 0.8fr) minmax(300px, 1.2fr);
+      gap: clamp(1.5rem, 5vw, 4rem);
+      align-items: end;
+    }
+
+    .pricing-intro > div {
+      display: grid;
+      gap: 0.7rem;
+    }
+
+    .pricing-intro > p,
+    .pricing-fine-print {
+      margin: 0;
+      color: var(--services-muted);
+      font-size: 0.88rem;
+    }
+
+    .pricing-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.8rem;
+    }
+
+    .pricing-card {
+      display: grid;
+      gap: 0.75rem;
+      padding: clamp(1.15rem, 2.5vw, 1.6rem);
+      border: 1px solid var(--services-line);
+      border-radius: 9px;
+      background: #f7f9fb;
+    }
+
+    .pricing-card h3,
+    .pricing-card p {
+      margin: 0;
+    }
+
+    .pricing-card h3 {
+      font-family: var(--services-display);
+      font-size: 1.35rem;
+      letter-spacing: -0.035em;
+    }
+
+    .pricing-amount {
+      color: var(--services-ink) !important;
+      font-family: var(--services-display);
+      font-size: clamp(1.7rem, 3vw, 2.4rem) !important;
+      font-weight: 700;
+      letter-spacing: -0.045em;
+      line-height: 1;
+    }
+
+    .pricing-amount span {
+      color: var(--services-muted);
+      font-family: "Manrope", Arial, sans-serif;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0;
+    }
+
+    .pricing-card > p:not(.pricing-amount) {
+      color: var(--services-muted);
+      font-size: 0.82rem;
+    }
+
+    .pricing-details {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0.75rem;
+      padding-top: 1.25rem;
+      border-top: 1px solid var(--services-line);
+    }
+
+    .pricing-details div {
+      display: grid;
+      gap: 0.35rem;
+    }
+
+    .pricing-details strong {
+      font-size: 0.82rem;
+    }
+
+    .pricing-details span {
+      color: var(--services-muted);
+      font-size: 0.76rem;
+      line-height: 1.5;
+    }
+
     .service-cta {
       grid-template-columns: minmax(0, 1fr) auto;
       align-items: center;
@@ -305,7 +399,8 @@
 
       .service-heading,
       .service-fit,
-      .service-cta {
+      .service-cta,
+      .pricing-intro {
         grid-template-columns: 1fr;
       }
 
@@ -330,6 +425,11 @@
       }
 
       .capability-list {
+        grid-template-columns: 1fr;
+      }
+
+      .pricing-grid,
+      .pricing-details {
         grid-template-columns: 1fr;
       }
 
@@ -414,6 +514,35 @@
       </ul>
 
       <p class="service-note">If there is a feature you wish existed on your website, there is a strong chance we can build it.</p>
+    </article>
+
+    <article class="service-panel pricing-panel" id="website-pricing">
+      <div class="pricing-intro">
+        <div>
+          <p class="eyebrow">Website pricing</p>
+          <h2>Start practical. Expand when you need to.</h2>
+        </div>
+        <p>Every build is confirmed in a proposal before work begins. These starting points make the ongoing commitment clear while leaving room for a website shaped around your actual needs.</p>
+      </div>
+      <div class="pricing-grid">
+        <section class="pricing-card">
+          <h3>Starter</h3>
+          <p class="pricing-amount">$30 <span>per month</span></p>
+          <p>For a straightforward, easy-to-manage website with a small number of core pages. Basic website builds start at $250.</p>
+        </section>
+        <section class="pricing-card">
+          <h3>Expanded</h3>
+          <p class="pricing-amount">From $50 <span>per month</span></p>
+          <p>For larger sites, added functionality, integrations, portals, payments, automation, or continuing support needs. Build pricing is custom quoted.</p>
+        </section>
+      </div>
+      <div class="pricing-details">
+        <div><strong>Save 10% annually</strong><span>Pay for one year of website service in advance and receive 10% off that service.</span></div>
+        <div><strong>Referral code savings</strong><span>A valid N3XRA website referral code receives 10% off the website build.</span></div>
+        <div><strong>Outside costs stay clear</strong><span>Domains, premium software, payment processing, and other third-party services are listed separately when applicable.</span></div>
+      </div>
+      <p class="pricing-fine-print">A proposal is not a bill. Your exact build, service level, discounts, and outside costs are presented for approval before contract and billing steps begin.</p>
+      <div class="cta-row"><a class="button button-primary" href="/website-request/">Start a Project</a></div>
     </article>
 
     <article class="service-panel service-cta">
