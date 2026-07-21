@@ -21,9 +21,7 @@
   closeButton?.addEventListener("click", closeModal);
   confirmationCloseButton?.addEventListener("click", closeModal);
   modal?.addEventListener("close", () => document.body.classList.remove("partner-modal-open"));
-  modal?.addEventListener("click", (event) => {
-    if (event.target === modal) closeModal();
-  });
+  modal?.addEventListener("cancel", (event) => event.preventDefault());
 
   const form = document.getElementById("partner-form");
   const status = document.getElementById("partner-form-status");
