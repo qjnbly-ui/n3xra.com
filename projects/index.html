@@ -112,6 +112,13 @@
       max-width: 620px;
     }
 
+    .projects-hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 0.7rem;
+    }
+
     .projects-client-entry {
       display: inline-flex;
       align-items: center;
@@ -133,6 +140,18 @@
       background: rgba(22, 185, 237, 0.16);
       border-color: #a8efff;
       transform: translateY(-1px);
+    }
+
+    .projects-client-entry.is-primary {
+      color: #07111d;
+      background: #a8efff;
+      border-color: #a8efff;
+    }
+
+    .projects-client-entry.is-primary:hover,
+    .projects-client-entry.is-primary:focus-visible {
+      background: #ffffff;
+      border-color: #ffffff;
     }
 
     h1, h2, h3 {
@@ -362,7 +381,10 @@
         <div class="projects-hero-copy">
           <h1 class="sr-only" id="projects-title">Project Portfolio</h1>
           <p class="projects-hero-lede">Selected websites, systems, and implementation work built under N3XRA.</p>
-          <a class="projects-client-entry" href="/client-portal/login/">Manage your website</a>
+          <div class="projects-hero-actions">
+            <a class="projects-client-entry is-primary" href="/website-request/">Start a project</a>
+            <a class="projects-client-entry" href="/client-portal/login/">Manage your website</a>
+          </div>
         </div>
       </div>
     </div>
