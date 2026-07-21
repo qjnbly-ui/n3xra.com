@@ -234,6 +234,41 @@
   line-height: 1.65;
 }
 
+.partner-delete-impact {
+  padding: 1rem;
+  border: 1px solid #f4b4ae;
+  border-radius: 12px;
+  color: #7a271a;
+  background: #fff4f2;
+}
+
+.partner-delete-impact[hidden] {
+  display: none;
+}
+
+.partner-delete-impact > p {
+  margin: 0.35rem 0 0.8rem;
+  line-height: 1.5;
+}
+
+.partner-delete-impact label {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: start;
+  gap: 0.55rem;
+  font-size: 0.86rem;
+  font-weight: 700;
+  line-height: 1.45;
+  cursor: pointer;
+}
+
+.partner-delete-impact input {
+  width: 1rem;
+  height: 1rem;
+  margin-top: 0.18rem;
+  accent-color: #b42318;
+}
+
 .partner-delete-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;

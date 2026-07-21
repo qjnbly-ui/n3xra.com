@@ -12,9 +12,13 @@ const deleteDialog = document.getElementById("partner-delete-dialog");
 const deleteMessage = document.getElementById("partner-delete-message");
 const deleteCancel = document.getElementById("partner-delete-cancel");
 const deleteConfirm = document.getElementById("partner-delete-confirm");
+const deleteImpact = document.getElementById("partner-delete-impact");
+const deleteImpactSummary = document.getElementById("partner-delete-impact-summary");
+const deleteAcknowledge = document.getElementById("partner-delete-acknowledge");
 let supabase;
 let applications = [];
 let resolveDeleteConfirmation = null;
+let accessToken = "";
 
 function escapeHtml(value = "") {
   return String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
@@ -136,12 +140,32 @@ async function saveApplication(applicationId) {
   await loadApplications();
 }
 
-function confirmApplicationDeletion(application) {
+function usageSummary(usage = {}) {
+  const items = [
+    [usage.referrals, "referral", "referrals"],
+    [usage.commissions, "commission entry", "commission entries"],
+    [usage.website_requests, "website request", "website requests"],
+    [usage.accounts, "attributed account", "attributed accounts"],
+  ].filter(([count]) => Number(count) > 0);
+  return items.map(([count, singular, plural]) => `${count} ${Number(count) === 1 ? singular : plural}`).join(", ");
+}
+
+async function inspectApplicationUsage(applicationId) {
+  const response = await fetch(`/api/partner-admin-usage?id=${encodeURIComponent(applicationId)}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok || !result.ok) throw new Error(result.error || "Unable to verify whether this partner has associated activity.");
+  return result;
+}
+
+function confirmApplicationDeletion(application, usageResult) {
   if (!deleteDialog || !deleteMessage) return Promise.resolve(false);
-  const historyWarning = application.status === "approved"
-    ? " Because this partner is approved, associated referral and commission history may also be removed."
-    : "";
-  deleteMessage.textContent = `You’re about to permanently delete ${application.full_name}’s partner application.${historyWarning} This cannot be undone.`;
+  deleteMessage.textContent = `You’re about to permanently delete ${application.full_name}’s partner application. This cannot be undone.`;
+  if (deleteImpact) deleteImpact.hidden = !usageResult.used;
+  if (deleteImpactSummary) deleteImpactSummary.textContent = usageResult.used ? `Associated records: ${usageSummary(usageResult.usage)}.` : "";
+  if (deleteAcknowledge) deleteAcknowledge.checked = false;
+  if (deleteConfirm) deleteConfirm.disabled = Boolean(usageResult.used);
   deleteDialog.showModal();
   deleteCancel?.focus();
   return new Promise((resolve) => {
@@ -159,7 +183,8 @@ async function deleteApplication(applicationId) {
   const application = applications.find((item) => item.id === applicationId);
   if (!application) throw new Error("This partner application could not be found.");
 
-  const confirmed = await confirmApplicationDeletion(application);
+  const usageResult = await inspectApplicationUsage(applicationId);
+  const confirmed = await confirmApplicationDeletion(application, usageResult);
   if (!confirmed) return;
 
   const { data, error } = await supabase
@@ -177,6 +202,7 @@ async function init() {
   supabase = createBrowserSupabase();
   const { data } = await supabase.auth.getSession();
   const user = data?.session?.user;
+  accessToken = data?.session?.access_token || "";
   if (!user) {
     window.location.replace("/account/?next=%2Fn3xra-admin%2Fpartners%2F");
     return;
@@ -186,6 +212,9 @@ async function init() {
   await loadApplications();
   deleteCancel?.addEventListener("click", () => finishDeleteConfirmation(false));
   deleteConfirm?.addEventListener("click", () => finishDeleteConfirmation(true));
+  deleteAcknowledge?.addEventListener("change", () => {
+    if (deleteConfirm) deleteConfirm.disabled = !deleteAcknowledge.checked;
+  });
   deleteDialog?.addEventListener("cancel", (event) => event.preventDefault());
   const requestedProgram = new URLSearchParams(window.location.search).get("program");
   if (["website", "software", "future"].includes(requestedProgram)) {

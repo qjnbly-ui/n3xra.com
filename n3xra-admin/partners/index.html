@@ -11,7 +11,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&amp;family=Manrope:wght@400;600;700;800&amp;display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/site-nav.css">
   <link rel="stylesheet" href="/client-portal/portal.css?v=12">
-  <link rel="stylesheet" href="/n3xra-admin/partners/partners-admin.css?v=3">
+  <link rel="stylesheet" href="/n3xra-admin/partners/partners-admin.css?v=4">
   <script src="/shared/config.js"></script>
   <script src="/assets/site-nav.js" defer></script>
 </head>
@@ -91,6 +91,11 @@
       <p class="portal-kicker">Permanent action</p>
       <h2 id="partner-delete-title">Delete this application?</h2>
       <p id="partner-delete-message"></p>
+      <div class="partner-delete-impact" id="partner-delete-impact" hidden>
+        <strong>This partner has already been used.</strong>
+        <p id="partner-delete-impact-summary"></p>
+        <label><input id="partner-delete-acknowledge" type="checkbox"> <span>I understand that partner activity and financial history will be permanently removed, and linked accounts or website requests will lose their partner attribution.</span></label>
+      </div>
       <div class="partner-delete-actions">
         <button class="portal-button portal-button-secondary" id="partner-delete-cancel" type="button">Keep application</button>
         <button class="portal-button portal-button-danger" id="partner-delete-confirm" type="button">Delete permanently</button>
@@ -98,6 +103,6 @@
     </div>
   </dialog>
   <script type="module" src="/client-portal/portal-shell.js"></script>
-  <script type="module" src="/n3xra-admin/partners/partners-admin.js?v=3"></script>
+  <script type="module" src="/n3xra-admin/partners/partners-admin.js?v=4"></script>
 </body>
 </html>
