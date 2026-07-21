@@ -1,5 +1,6 @@
 (function () {
   const modal = document.getElementById("partner-application-modal");
+  const modalCard = modal?.querySelector(".partner-modal-card");
   const openButtons = document.querySelectorAll("[data-partner-modal-open]");
   const closeButton = document.querySelector("[data-partner-modal-close]");
   const confirmationCloseButton = document.querySelector("[data-partner-confirmation-close]");
@@ -96,8 +97,12 @@
       }
       form.reset();
       form.hidden = true;
+      modal?.classList.add("confirmation-active");
       if (confirmation) confirmation.hidden = false;
-      confirmation?.focus({ preventScroll: true });
+      requestAnimationFrame(() => {
+        if (modalCard) modalCard.scrollTop = 0;
+        confirmation?.focus({ preventScroll: true });
+      });
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Unable to submit the partner application.");
     } finally {

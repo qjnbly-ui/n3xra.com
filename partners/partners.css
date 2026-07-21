@@ -947,6 +947,32 @@ body.site-menu-is-open .partners-hero-inner {
   box-shadow: none;
 }
 
+.partner-modal .partner-form[hidden] {
+  display: none !important;
+}
+
+.partner-modal.confirmation-active {
+  width: min(680px, calc(100vw - 1.5rem));
+}
+
+.partner-modal.confirmation-active .partner-modal-header {
+  position: absolute;
+  right: 0;
+  padding: 1rem;
+  border: 0;
+  background: transparent;
+  backdrop-filter: none;
+  pointer-events: none;
+}
+
+.partner-modal.confirmation-active .partner-modal-header > div {
+  display: none;
+}
+
+.partner-modal.confirmation-active .partner-modal-close {
+  pointer-events: auto;
+}
+
 body.partner-modal-open {
   overflow: hidden;
 }
@@ -954,7 +980,9 @@ body.partner-modal-open {
 .partner-confirmation {
   display: grid;
   gap: 1rem;
-  padding: clamp(1.75rem, 5vw, 3rem);
+  min-height: min(620px, 82svh);
+  align-content: center;
+  padding: clamp(2rem, 6vw, 4rem);
 }
 
 .partner-confirmation[hidden] {
