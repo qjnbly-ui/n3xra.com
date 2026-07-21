@@ -199,6 +199,48 @@
   gap: 0.55rem;
 }
 
+.partner-delete-dialog {
+  width: min(520px, calc(100vw - 1.5rem));
+  margin: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 18px;
+  color: var(--portal-ink);
+  background: #ffffff;
+  box-shadow: 0 30px 90px rgba(7, 16, 28, 0.35);
+}
+
+.partner-delete-dialog::backdrop {
+  background: rgba(7, 13, 22, 0.72);
+  backdrop-filter: blur(6px);
+}
+
+.partner-delete-card {
+  display: grid;
+  gap: 0.9rem;
+  padding: clamp(1.5rem, 5vw, 2.25rem);
+}
+
+.partner-delete-card h2 {
+  margin: 0;
+  font-family: "Fraunces", Georgia, serif;
+  font-size: clamp(1.8rem, 5vw, 2.5rem);
+  line-height: 1.05;
+}
+
+.partner-delete-card > p:not(.portal-kicker) {
+  margin: 0;
+  color: var(--portal-muted);
+  line-height: 1.65;
+}
+
+.partner-delete-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.65rem;
+  margin-top: 0.35rem;
+}
+
 @media (max-width: 760px) {
   .partner-admin-stats,
   .partner-admin-facts {
@@ -211,6 +253,10 @@
   }
 
   .partner-admin-card summary {
+    grid-template-columns: 1fr;
+  }
+
+  .partner-delete-actions {
     grid-template-columns: 1fr;
   }
 }

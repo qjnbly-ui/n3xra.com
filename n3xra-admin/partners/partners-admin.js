@@ -8,8 +8,13 @@ const searchInput = document.getElementById("partner-search");
 const programFilter = document.getElementById("partner-program-filter");
 const statusFilter = document.getElementById("partner-status-filter");
 const refreshButton = document.getElementById("partner-refresh");
+const deleteDialog = document.getElementById("partner-delete-dialog");
+const deleteMessage = document.getElementById("partner-delete-message");
+const deleteCancel = document.getElementById("partner-delete-cancel");
+const deleteConfirm = document.getElementById("partner-delete-confirm");
 let supabase;
 let applications = [];
+let resolveDeleteConfirmation = null;
 
 function escapeHtml(value = "") {
   return String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
@@ -131,16 +136,30 @@ async function saveApplication(applicationId) {
   await loadApplications();
 }
 
+function confirmApplicationDeletion(application) {
+  if (!deleteDialog || !deleteMessage) return Promise.resolve(false);
+  const historyWarning = application.status === "approved"
+    ? " Because this partner is approved, associated referral and commission history may also be removed."
+    : "";
+  deleteMessage.textContent = `You’re about to permanently delete ${application.full_name}’s partner application.${historyWarning} This cannot be undone.`;
+  deleteDialog.showModal();
+  deleteCancel?.focus();
+  return new Promise((resolve) => {
+    resolveDeleteConfirmation = resolve;
+  });
+}
+
+function finishDeleteConfirmation(confirmed) {
+  deleteDialog?.close();
+  resolveDeleteConfirmation?.(confirmed);
+  resolveDeleteConfirmation = null;
+}
+
 async function deleteApplication(applicationId) {
   const application = applications.find((item) => item.id === applicationId);
   if (!application) throw new Error("This partner application could not be found.");
 
-  const historyWarning = application.status === "approved"
-    ? " This is an approved partner; associated referral and commission history may also be permanently removed."
-    : "";
-  const confirmed = window.confirm(
-    `Permanently delete the partner application for “${application.full_name}”?${historyWarning} This cannot be undone.`
-  );
+  const confirmed = await confirmApplicationDeletion(application);
   if (!confirmed) return;
 
   const { data, error } = await supabase
@@ -165,6 +184,9 @@ async function init() {
   if (!await verifyPlatformAdmin(supabase, user)) throw new Error("You do not have partner administration access.");
 
   await loadApplications();
+  deleteCancel?.addEventListener("click", () => finishDeleteConfirmation(false));
+  deleteConfirm?.addEventListener("click", () => finishDeleteConfirmation(true));
+  deleteDialog?.addEventListener("cancel", (event) => event.preventDefault());
   const requestedProgram = new URLSearchParams(window.location.search).get("program");
   if (["website", "software", "future"].includes(requestedProgram)) {
     programFilter.value = requestedProgram;

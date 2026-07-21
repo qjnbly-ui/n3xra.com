@@ -11,7 +11,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&amp;family=Manrope:wght@400;600;700;800&amp;display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/site-nav.css">
   <link rel="stylesheet" href="/client-portal/portal.css?v=12">
-  <link rel="stylesheet" href="/n3xra-admin/partners/partners-admin.css?v=2">
+  <link rel="stylesheet" href="/n3xra-admin/partners/partners-admin.css?v=3">
   <script src="/shared/config.js"></script>
   <script src="/assets/site-nav.js" defer></script>
 </head>
@@ -86,7 +86,18 @@
   </main>
 
   <div class="portal-status" id="portal-status" role="status">Opening partner applications…</div>
+  <dialog class="partner-delete-dialog" id="partner-delete-dialog" aria-labelledby="partner-delete-title" aria-describedby="partner-delete-message">
+    <div class="partner-delete-card">
+      <p class="portal-kicker">Permanent action</p>
+      <h2 id="partner-delete-title">Delete this application?</h2>
+      <p id="partner-delete-message"></p>
+      <div class="partner-delete-actions">
+        <button class="portal-button portal-button-secondary" id="partner-delete-cancel" type="button">Keep application</button>
+        <button class="portal-button portal-button-danger" id="partner-delete-confirm" type="button">Delete permanently</button>
+      </div>
+    </div>
+  </dialog>
   <script type="module" src="/client-portal/portal-shell.js"></script>
-  <script type="module" src="/n3xra-admin/partners/partners-admin.js?v=2"></script>
+  <script type="module" src="/n3xra-admin/partners/partners-admin.js?v=3"></script>
 </body>
 </html>
