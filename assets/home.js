@@ -297,6 +297,7 @@
   const listenButton = document.getElementById("ask-listen");
   const stopAudioButton = document.getElementById("ask-stop-audio");
   const audioControls = document.getElementById("ask-audio-controls");
+  const savedAnswerKey = "n3xra:last-ask-answer";
   const chatHistory = [];
   const maxHistoryMessages = 10;
   let mediaRecorder = null;
@@ -359,6 +360,33 @@
     return html.replace(/\n/g, "<br>");
   }
 
+  function saveLastAnswer(question, answerText) {
+    try {
+      sessionStorage.setItem(savedAnswerKey, JSON.stringify({ question, answer: answerText }));
+    } catch {
+      // The answer still works when browser storage is unavailable.
+    }
+  }
+
+  function restoreLastAnswer() {
+    try {
+      const saved = JSON.parse(sessionStorage.getItem(savedAnswerKey) || "null");
+      const question = String(saved?.question || "").trim();
+      const answerText = String(saved?.answer || "").trim();
+      if (!question || !answerText) return;
+
+      input.value = question;
+      lastAnswerText = answerText;
+      answer.innerHTML = renderAnswer(answerText);
+      answer.hidden = false;
+      if (audioControls) audioControls.hidden = false;
+      chatHistory.push({ role: "user", content: question });
+      chatHistory.push({ role: "assistant", content: answerText });
+    } catch {
+      // Ignore unavailable or malformed session storage.
+    }
+  }
+
   function prepareSpeechText(text) {
     const spokenAnswer = document.createElement("div");
     spokenAnswer.innerHTML = renderAnswer(text);
@@ -379,6 +407,8 @@
       .replace(/\s+/g, " ")
       .trim();
   }
+
+  restoreLastAnswer();
 
   function setVoiceButton(recording) {
     if (!voiceButton) return;
@@ -573,6 +603,7 @@
       if (audioControls) audioControls.hidden = !answerText;
 
       if (answerText) {
+        saveLastAnswer(question, answerText);
         chatHistory.push({ role: "user", content: question });
         chatHistory.push({ role: "assistant", content: answerText });
         if (chatHistory.length > maxHistoryMessages) {
