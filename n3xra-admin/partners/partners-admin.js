@@ -95,7 +95,10 @@ function render() {
             <label>Private admin notes
               <textarea data-partner-notes="${application.id}" placeholder="Review notes, follow-up, or decision reason">${escapeHtml(application.notes || "")}</textarea>
             </label>
-            <button class="portal-button" type="button" data-save-partner="${application.id}">Save review</button>
+            <div class="partner-admin-actions">
+              <button class="portal-button" type="button" data-save-partner="${application.id}">Save review</button>
+              <button class="portal-button portal-button-danger" type="button" data-delete-partner="${application.id}">Delete permanently</button>
+            </div>
           </div>
         </div>
       </details>
@@ -125,6 +128,28 @@ async function saveApplication(applicationId) {
     .update(updates)
     .eq("id", applicationId);
   if (error) throw error;
+  await loadApplications();
+}
+
+async function deleteApplication(applicationId) {
+  const application = applications.find((item) => item.id === applicationId);
+  if (!application) throw new Error("This partner application could not be found.");
+
+  const historyWarning = application.status === "approved"
+    ? " This is an approved partner; associated referral and commission history may also be permanently removed."
+    : "";
+  const confirmed = window.confirm(
+    `Permanently delete the partner application for “${application.full_name}”?${historyWarning} This cannot be undone.`
+  );
+  if (!confirmed) return;
+
+  const { data, error } = await supabase
+    .from("founding_partner_applications")
+    .delete()
+    .eq("id", applicationId)
+    .select("id");
+  if (error) throw error;
+  if (!data?.length) throw new Error("The application was not deleted. Refresh the page and verify your admin access.");
   await loadApplications();
 }
 
@@ -159,13 +184,14 @@ async function init() {
     }
   });
   list.addEventListener("click", async (event) => {
-    const button = event.target.closest("[data-save-partner]");
+    const button = event.target.closest("[data-save-partner], [data-delete-partner]");
     if (!button) return;
     button.disabled = true;
     try {
-      await saveApplication(button.dataset.savePartner);
+      if (button.dataset.savePartner) await saveApplication(button.dataset.savePartner);
+      else if (button.dataset.deletePartner) await deleteApplication(button.dataset.deletePartner);
     } catch (error) {
-      window.alert(error?.message || "Unable to save this application.");
+      window.alert(error?.message || "Unable to update this application.");
     } finally {
       button.disabled = false;
     }

@@ -194,6 +194,11 @@
   resize: vertical;
 }
 
+.partner-admin-actions {
+  display: grid;
+  gap: 0.55rem;
+}
+
 @media (max-width: 760px) {
   .partner-admin-stats,
   .partner-admin-facts {
