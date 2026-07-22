@@ -5,24 +5,24 @@
   <title>N3XRA | Records Organizations</title><meta name="description" content="N3XRA Records organization administration."><meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
   <link rel="canonical" href="https://n3xra.com/n3xra-admin/records/organizations/"><link rel="icon" type="image/png" href="/assets/n3xra_logo_transparent_small.png">
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/site-nav.css"><link rel="stylesheet" href="/client-portal/portal.css?v=9"><link rel="stylesheet" href="/n3xra-admin/records/records-admin.css?v=3">
+  <link rel="stylesheet" href="/assets/site-nav.css"><link rel="stylesheet" href="/client-portal/portal.css?v=9"><link rel="stylesheet" href="/n3xra-admin/records/records-admin.css?v=4">
   <script src="/shared/config.js"></script><script src="/assets/site-nav.js" defer></script>
 </head>
 <body>
   <header class="site-topbar"><div class="site-topbar-inner"><div class="site-topbar-row"><a class="site-brand" href="/" aria-label="N3XRA home"><img src="/assets/n3xra_logo_transparent_small.png" alt=""><span>N3XRA</span></a><div class="site-nav-actions"><a class="site-menu-link" href="/account">Dashboard</a><button class="site-menu-link portal-logout" id="logout-button" type="button">Sign out</button><button class="site-menu-toggle" type="button" aria-expanded="false" aria-controls="records-admin-menu" aria-label="Open menu" data-site-menu-toggle><span></span><span></span><span></span></button></div></div>
-  <nav class="site-mobile-menu" id="records-admin-menu" hidden><div class="site-mobile-menu-head"><p class="site-mobile-menu-title">Records administration</p></div><a class="site-menu-link is-current" href="/n3xra-admin/records/organizations/">Organizations</a><a class="site-menu-link" href="/n3xra-admin/records/usage/">Usage</a><a class="site-menu-link" href="/n3xra-records/library/">Records app</a><a class="site-menu-link" href="/support/">Support</a></nav></div></header>
+  <nav class="site-mobile-menu" id="records-admin-menu" hidden><div class="site-mobile-menu-head"><p class="site-mobile-menu-title">Records administration</p></div><a class="site-menu-link is-current" href="#organizations" data-organizations-link>Organizations</a><a class="site-menu-link hidden" href="#support-workspace" data-support-workspace-link>Support workspace</a><a class="site-menu-link" href="/n3xra-admin/records/usage/">Usage</a><a class="site-menu-link" href="/n3xra-records/library/">Records app</a><a class="site-menu-link" href="/support/">Support</a></nav></div></header>
   <main class="portal-shell">
     <section class="portal-heading"><div><p class="portal-kicker">Master administration</p><h1>Records Organizations</h1></div></section>
     <section class="portal-project-picker"><div><p class="portal-kicker">Account workspace</p><h2>Organizations</h2><p>Manage Records plans, limits, features, trials, and owner support.</p></div><div class="portal-picker-state"><span>Current section</span><strong>Organizations</strong></div></section>
     <section class="portal-workspace records-setup" id="setup-panel"><div class="portal-workspace-head"><div><h2>Connect Supabase</h2><p>Add your project configuration to continue.</p></div></div></section>
     <div class="portal-layout hidden" id="admin-panel">
-      <nav class="portal-nav"><p class="portal-nav-label">Records admin</p><a class="is-current" href="/n3xra-admin/records/organizations/">Organizations</a><a href="/n3xra-admin/records/usage/">Usage</a><div class="portal-nav-divider"></div><p class="portal-nav-label">Records</p><a href="/n3xra-records/library/">Open Records app</a><a href="/support/">Support</a></nav>
-      <section class="portal-workspace"><div class="portal-workspace-head"><div><p class="portal-kicker">Organizations</p><h2>Organization accounts</h2><p>Select an account, then update its settings or assist its owner.</p></div></div>
+      <nav class="portal-nav"><p class="portal-nav-label">Records admin</p><a class="is-current" href="#organizations" data-organizations-link>Organizations</a><a class="hidden" href="#support-workspace" data-support-workspace-link>Support workspace</a><a href="/n3xra-admin/records/usage/">Usage</a><div class="portal-nav-divider"></div><p class="portal-nav-label">Records</p><a href="/n3xra-records/library/">Open Records app</a><a href="/support/">Support</a></nav>
+      <section class="portal-workspace"><div id="organizations-workspace"><div class="portal-workspace-head"><div><p class="portal-kicker">Organizations</p><h2>Organization accounts</h2><p>Select an account, then update its settings or assist its owner.</p></div></div>
         <section class="records-admin-section">
           <div class="records-admin-selector records-admin-selector-top"><label class="records-admin-org-select"><span class="portal-kicker">Organizations</span><strong>Choose an account</strong><select id="organization-list" aria-label="Choose an organization account"></select></label><p class="status" id="admin-status"></p></div>
           <div class="records-admin-layout records-admin-layout-single">
           <div class="records-admin-selected">
-            <div class="selected-organization-head"><div><p class="portal-kicker">Selected organization</p><h3 id="selected-organization-title">Select an organization</h3><p id="selected-organization-summary">Library settings and support actions will appear here.</p></div><button class="portal-button portal-button-secondary hidden" id="selected-organization-support-link" type="button">Support view</button></div>
+            <div class="selected-organization-head"><div><p class="portal-kicker">Selected organization</p><h3 id="selected-organization-title">Select an organization</h3><p id="selected-organization-summary">Library settings and support actions will appear here.</p></div><button class="portal-button portal-button-secondary hidden" id="selected-organization-support-link" type="button">Open support workspace</button></div>
             <form class="portal-form records-organization-form" id="organization-form"><div class="portal-form-head"><div><p class="portal-kicker">Account controls</p><h3>Library settings</h3></div></div>
               <div class="portal-form-grid"><label>Organization<input id="organization-name" type="text"></label><label>Plan tier<select id="organization-tier"><option value="free">Free</option><option value="starter">Starter</option><option value="organization">Organization</option></select></label><label>Billing status<select id="organization-status"><option value="active">Active</option><option value="trialing">Trialing</option><option value="past_due">Past due</option><option value="canceled">Canceled</option><option value="suspended">Suspended</option></select></label><label>Document limit<input id="organization-document-limit" type="text"></label><label>User limit<input id="organization-user-limit" type="text"></label><label>Storage limit (MB)<input id="organization-storage-limit" type="text"></label><label>Trial/subscription end<input id="organization-trial-end" type="date"></label></div>
               <div class="setting-toggles"><label class="toggle-pill"><input id="organization-public-embed" type="checkbox"><span>Public embed enabled</span></label><label class="toggle-pill"><input id="organization-keyword-search" type="checkbox"><span>Keyword search</span></label></div>
@@ -31,19 +31,21 @@
             <form class="portal-form selected-support-form" id="password-reset-form"><div class="portal-form-head"><div><p class="portal-kicker">Account support</p><h3>Password reset</h3></div></div><div class="portal-form-grid"><label>Account email<input id="password-reset-email" type="email" placeholder="Select an organization owner"></label></div><div class="portal-form-actions"><button class="portal-button portal-button-secondary" type="submit">Send reset email</button><p class="status" id="password-reset-status"></p></div></form>
             <form class="portal-form selected-support-form" id="emergency-access-form"><div class="portal-form-head"><div><p class="portal-kicker">Emergency only</p><h3>Break-glass content access</h3><p>Use only for a serious incident when customer approval cannot be obtained. Access lasts one hour and creates a permanent customer-visible record.</p></div></div><label>Detailed reason<textarea id="emergency-access-reason" minlength="20" maxlength="1000" required></textarea></label><label class="toggle-pill"><input id="emergency-access-confirm" type="checkbox" required><span>I understand this access is permanently audited and disclosed to the customer.</span></label><div class="portal-form-actions"><button class="portal-button portal-button-danger" type="submit">Begin emergency access</button><button class="portal-button portal-button-secondary hidden" id="emergency-access-end" type="button">End emergency access</button><p class="status" id="emergency-access-status"></p></div></form>
           </div>
-        </div></section>
+        </div></section></div>
+        <section class="hidden records-support-workspace" id="support-workspace" aria-labelledby="support-workspace-title">
+          <div class="portal-workspace-head records-support-workspace-head"><div><p class="portal-kicker">Customer-granted access</p><h2 id="support-workspace-title">Support workspace</h2><p id="support-workspace-summary">Select an organization to review its support access.</p></div><button class="portal-button portal-button-secondary" id="support-workspace-close" type="button">Back to organizations</button></div>
+          <div class="records-support-state" id="support-access-state"><strong>Checking support access…</strong><span>The customer’s private content stays hidden unless an active grant permits it.</span></div>
+          <div class="records-support-scope-list" id="support-scope-list"></div>
+          <p class="status" id="support-workspace-status"></p>
+          <div class="records-support-content-grid">
+            <section class="portal-form records-support-content-card" id="support-documents-card"><div class="portal-form-head"><div><p class="portal-kicker">Approved scope</p><h3>Documents</h3><p>Available only when the customer grants document access.</p></div></div><div class="records-support-list" id="support-documents-list"></div></section>
+            <section class="portal-form records-support-content-card" id="support-recordings-card"><div class="portal-form-head"><div><p class="portal-kicker">Approved scope</p><h3>Recordings and transcripts</h3><p>Available only when the customer grants recording access.</p></div></div><div class="records-support-list" id="support-recordings-list"></div></section>
+          </div>
+          <section class="portal-form records-support-audit-card"><div class="portal-form-head"><div><p class="portal-kicker">Always available</p><h3>Support access audit</h3><p>Grant activity and support actions for this selected organization.</p></div></div><div class="records-support-list" id="support-audit-list"></div></section>
+        </section>
       </section>
     </div>
   </main>
-  <dialog class="records-support-dialog" id="records-support-dialog" aria-labelledby="records-support-dialog-title">
-    <div class="records-support-dialog-shell">
-      <div class="records-support-dialog-head">
-        <div><p class="portal-kicker">Customer support view</p><h2 id="records-support-dialog-title">Selected organization</h2></div>
-        <button class="portal-button portal-button-secondary" id="records-support-dialog-close" type="button">Close support view</button>
-      </div>
-      <iframe id="records-support-frame" title="Selected Records organization support view"></iframe>
-    </div>
-  </dialog>
   <script type="module" src="/n3xra-records/admin.js"></script>
 </body>
 </html>

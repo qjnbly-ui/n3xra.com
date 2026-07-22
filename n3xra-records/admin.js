@@ -25,10 +25,18 @@ const organizationFormStatus = document.getElementById("organization-form-status
 const selectedOrganizationTitle = document.getElementById("selected-organization-title");
 const selectedOrganizationSummary = document.getElementById("selected-organization-summary");
 const selectedOrganizationSupportLink = document.getElementById("selected-organization-support-link");
-const recordsSupportDialog = document.getElementById("records-support-dialog");
-const recordsSupportDialogTitle = document.getElementById("records-support-dialog-title");
-const recordsSupportDialogClose = document.getElementById("records-support-dialog-close");
-const recordsSupportFrame = document.getElementById("records-support-frame");
+const organizationsWorkspace = document.getElementById("organizations-workspace");
+const supportWorkspace = document.getElementById("support-workspace");
+const supportWorkspaceClose = document.getElementById("support-workspace-close");
+const supportWorkspaceSummary = document.getElementById("support-workspace-summary");
+const supportAccessState = document.getElementById("support-access-state");
+const supportScopeList = document.getElementById("support-scope-list");
+const supportWorkspaceStatus = document.getElementById("support-workspace-status");
+const supportDocumentsList = document.getElementById("support-documents-list");
+const supportRecordingsList = document.getElementById("support-recordings-list");
+const supportAuditList = document.getElementById("support-audit-list");
+const supportWorkspaceLinks = Array.from(document.querySelectorAll("[data-support-workspace-link]"));
+const organizationsLinks = Array.from(document.querySelectorAll("[data-organizations-link]"));
 const passwordResetForm = document.getElementById("password-reset-form");
 const passwordResetEmailInput = document.getElementById("password-reset-email");
 const passwordResetStatus = document.getElementById("password-reset-status");
@@ -44,6 +52,7 @@ let organizations = [];
 let adminUsageAccounts = [];
 let selectedOrganizationId = "";
 let activeEmergencyAccessId = "";
+let activeSupportGrant = null;
 
 async function hasPlatformAdminAccess() {
   if (isPlatformAdminEmail(currentSession?.user?.email)) return true;
@@ -212,7 +221,6 @@ function renderSelectedOrganization() {
     ].join(" · ");
   }
   if (selectedOrganizationSupportLink) {
-    selectedOrganizationSupportLink.dataset.supportUrl = `/n3xra-records/account?support_org=${encodeURIComponent(organization.id)}`;
     selectedOrganizationSupportLink.classList.remove("hidden");
   }
   organizationNameInput.value = organization.name || "";
@@ -411,18 +419,167 @@ async function handleLogout() {
   window.location.replace("/n3xra-records/login");
 }
 
-function closeRecordsSupportView() {
-  if (recordsSupportDialog?.open) recordsSupportDialog.close();
-  if (recordsSupportFrame) recordsSupportFrame.src = "about:blank";
+function normalizeRpcRow(data) {
+  if (Array.isArray(data)) return data[0] || null;
+  return data || null;
 }
 
-function openRecordsSupportView() {
+function formatSupportEvent(value) {
+  return String(value || "Support activity").replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function renderSupportGate(list, allowed, emptyMessage) {
+  if (!list) return;
+  if (!allowed) {
+    list.innerHTML = `<div class="records-support-locked"><strong>Not granted</strong><span>${escapeHtml(emptyMessage)}</span></div>`;
+  }
+}
+
+async function loadCurrentSupportAccess(organizationId) {
+  const { data, error } = await supabase.rpc("active_records_support_grant", {
+    target_organization_id: organizationId,
+  });
+  if (error) throw error;
+  const grant = normalizeRpcRow(data);
+  if (grant) return { ...grant, emergency_access: false };
+
+  const { data: emergency, error: emergencyError } = await supabase
+    .from("records_emergency_access")
+    .select("id, reason, expires_at")
+    .eq("organization_id", organizationId)
+    .eq("admin_user_id", currentSession.user.id)
+    .is("ended_at", null)
+    .gt("expires_at", new Date().toISOString())
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (emergencyError) throw emergencyError;
+  return emergency ? {
+    ...emergency,
+    emergency_access: true,
+    can_view_documents: true,
+    can_view_recordings: true,
+    can_download_files: true,
+    can_change_content: true,
+  } : null;
+}
+
+function renderSupportScopes(grant) {
+  if (!supportScopeList) return;
+  const scopes = [
+    ["Documents", grant?.can_view_documents],
+    ["Recordings and transcripts", grant?.can_view_recordings],
+    ["File downloads", grant?.can_download_files],
+    ["Changes", grant?.can_change_content],
+  ];
+  supportScopeList.innerHTML = scopes.map(([label, enabled]) => `<span class="records-support-scope${enabled ? " is-active" : ""}">${enabled ? "✓" : "—"} ${escapeHtml(label)}</span>`).join("");
+}
+
+function renderSupportDocuments(rows, allowed) {
+  renderSupportGate(supportDocumentsList, allowed, "The customer has not granted document access.");
+  if (!allowed) return;
+  supportDocumentsList.innerHTML = rows.length ? rows.map((row) => `
+    <article class="records-support-item"><div><strong>${escapeHtml(row.title || row.original_filename || "Untitled document")}</strong><span>${escapeHtml(row.status || "Saved")} · ${escapeHtml(formatDateTime(row.created_at))}</span></div><span class="records-support-badge">${row.is_public ? "Public" : "Private"}</span></article>
+  `).join("") : '<p class="field-note">No documents are stored in this organization.</p>';
+}
+
+function renderSupportRecordings(rows, allowed) {
+  renderSupportGate(supportRecordingsList, allowed, "The customer has not granted recording or transcript access.");
+  if (!allowed) return;
+  supportRecordingsList.innerHTML = rows.length ? rows.map((row) => `
+    <details class="records-support-item records-support-recording"><summary><div><strong>${escapeHtml(row.title || "Untitled recording")}</strong><span>${escapeHtml(row.transcript_status || row.status || "Saved")} · ${escapeHtml(formatDateTime(row.started_at || row.created_at))}</span></div><span class="records-support-badge">Review</span></summary><div class="records-support-transcript">${escapeHtml(row.transcript_text || "No transcript is available.")}</div></details>
+  `).join("") : '<p class="field-note">No recordings are stored in this organization.</p>';
+}
+
+function renderSupportAudit(rows) {
+  if (!supportAuditList) return;
+  supportAuditList.innerHTML = rows.length ? rows.map((row) => `
+    <article class="records-support-item"><div><strong>${escapeHtml(formatSupportEvent(row.event_type))}</strong><span>${escapeHtml(row.actor_email || "Customer")} · ${escapeHtml(formatDateTime(row.created_at))}</span></div><span class="records-support-badge">${escapeHtml(row.resource_type || "Library")}</span></article>
+  `).join("") : '<p class="field-note">No support access has been recorded.</p>';
+}
+
+async function loadRecordsSupportWorkspace() {
   const organization = getSelectedOrganization();
-  const supportUrl = selectedOrganizationSupportLink?.dataset.supportUrl || "";
-  if (!organization || !supportUrl || !recordsSupportDialog || !recordsSupportFrame) return;
-  if (recordsSupportDialogTitle) recordsSupportDialogTitle.textContent = `${organization.name || "Selected organization"} support`;
-  recordsSupportFrame.src = supportUrl;
-  recordsSupportDialog.showModal();
+  if (!organization) return;
+  setStatus(supportWorkspaceStatus, "Checking customer-granted access...");
+  supportWorkspaceSummary.textContent = `${organization.name || "Selected organization"} · ${organization.owner_profile?.email || "Owner email unavailable"}`;
+  activeSupportGrant = await loadCurrentSupportAccess(organization.id);
+  renderSupportScopes(activeSupportGrant);
+
+  const canViewDocuments = Boolean(activeSupportGrant?.can_view_documents);
+  const canViewRecordings = Boolean(activeSupportGrant?.can_view_recordings);
+  if (supportAccessState) {
+    supportAccessState.classList.toggle("is-active", Boolean(activeSupportGrant));
+    supportAccessState.innerHTML = activeSupportGrant
+      ? `<strong>${activeSupportGrant.emergency_access ? "Audited emergency access" : "Customer access grant"} is active</strong><span>Expires ${escapeHtml(new Date(activeSupportGrant.expires_at).toLocaleString())}. Only the approved scopes below are available.</span>`
+      : "<strong>No private-content access</strong><span>The customer has not granted active support access. Account administration and the support audit remain available.</span>";
+  }
+
+  renderSupportDocuments([], canViewDocuments);
+  renderSupportRecordings([], canViewRecordings);
+
+  const requests = [
+    supabase.from("records_support_audit_log").select("event_type, actor_email, resource_type, resource_id, reason, created_at").eq("organization_id", organization.id).order("created_at", { ascending: false }).limit(100),
+    canViewDocuments
+      ? supabase.from("documents").select("id, title, original_filename, status, is_public, created_at").eq("organization_id", organization.id).order("created_at", { ascending: false }).limit(100)
+      : Promise.resolve({ data: [], error: null }),
+    canViewRecordings
+      ? supabase.from("meeting_recordings").select("id, title, status, transcript_status, transcript_text, started_at, created_at").eq("organization_id", organization.id).order("created_at", { ascending: false }).limit(100)
+      : Promise.resolve({ data: [], error: null }),
+  ];
+  const [auditResult, documentResult, recordingResult] = await Promise.all(requests);
+  const accessError = documentResult.error || recordingResult.error;
+  if (auditResult.error) throw auditResult.error;
+  renderSupportAudit(auditResult.data || []);
+  renderSupportDocuments(documentResult.data || [], canViewDocuments);
+  renderSupportRecordings(recordingResult.data || [], canViewRecordings);
+  if (accessError) {
+    throw new Error(`The grant is active, but Supabase denied the approved content query: ${accessError.message}`);
+  }
+  if (activeSupportGrant) {
+    const auditEvents = [["session_started", "support_workspace"]];
+    if (canViewDocuments) auditEvents.push(["content_viewed", "document_list"]);
+    if (canViewRecordings) auditEvents.push(["content_viewed", "recording_list"]);
+    await Promise.allSettled(auditEvents.map(([eventType, resourceType]) => supabase.rpc("record_records_support_event", {
+      input_organization_id: organization.id,
+      input_event_type: eventType,
+      input_resource_type: resourceType,
+      input_resource_id: organization.id,
+      input_reason: null,
+      input_metadata: {},
+    })));
+  }
+  setStatus(supportWorkspaceStatus, activeSupportGrant ? "Approved support access loaded." : "Support audit loaded. Private content remains protected.", "success");
+}
+
+async function openRecordsSupportView(event) {
+  event?.preventDefault?.();
+  if (!getSelectedOrganization() || !supportWorkspace || !organizationsWorkspace) return;
+  organizationsWorkspace.classList.add("hidden");
+  supportWorkspace.classList.remove("hidden");
+  supportWorkspaceLinks.forEach((link) => {
+    link.classList.remove("hidden");
+    link.classList.add("is-current");
+  });
+  organizationsLinks.forEach((link) => link.classList.remove("is-current"));
+  window.history.replaceState(null, "", "#support-workspace");
+  try {
+    await loadRecordsSupportWorkspace();
+  } catch (error) {
+    setStatus(supportWorkspaceStatus, error?.message || "Unable to load the support workspace.", "error");
+  }
+}
+
+function closeRecordsSupportView(event) {
+  event?.preventDefault?.();
+  supportWorkspace?.classList.add("hidden");
+  organizationsWorkspace?.classList.remove("hidden");
+  supportWorkspaceLinks.forEach((link) => {
+    link.classList.remove("is-current");
+    link.classList.add("hidden");
+  });
+  organizationsLinks.forEach((link) => link.classList.add("is-current"));
+  window.history.replaceState(null, "", window.location.pathname + window.location.search);
 }
 
 function handleOrganizationListClick(event) {
@@ -430,6 +587,7 @@ function handleOrganizationListClick(event) {
   const row = isSelect ? null : event.target.closest("[data-id]");
   if (!isSelect && !row) return;
   selectedOrganizationId = isSelect ? event.currentTarget.value : (row.getAttribute("data-id") || "");
+  supportWorkspaceLinks.forEach((link) => link.classList.add("hidden"));
   renderOrganizations();
   renderAdminUsageOverview();
   renderSelectedOrganization();
@@ -588,10 +746,9 @@ async function init() {
   emergencyAccessForm?.addEventListener("submit", handleEmergencyAccess);
   emergencyAccessEnd?.addEventListener("click", handleEmergencyAccessEnd);
   selectedOrganizationSupportLink?.addEventListener("click", openRecordsSupportView);
-  recordsSupportDialogClose?.addEventListener("click", closeRecordsSupportView);
-  recordsSupportDialog?.addEventListener("close", () => {
-    if (recordsSupportFrame) recordsSupportFrame.src = "about:blank";
-  });
+  supportWorkspaceLinks.forEach((link) => link.addEventListener("click", openRecordsSupportView));
+  organizationsLinks.forEach((link) => link.addEventListener("click", closeRecordsSupportView));
+  supportWorkspaceClose?.addEventListener("click", closeRecordsSupportView);
 }
 
 init();
