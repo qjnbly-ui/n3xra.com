@@ -207,7 +207,7 @@ function renderSelectedOrganization() {
   if (!organization) {
     organizationForm.reset();
     if (selectedOrganizationTitle) selectedOrganizationTitle.textContent = "Select an organization";
-    if (selectedOrganizationSummary) selectedOrganizationSummary.textContent = "Library settings and support actions will appear here.";
+    if (selectedOrganizationSummary) selectedOrganizationSummary.textContent = "Choose an organization to continue.";
     selectedOrganizationSupportLink?.classList.add("hidden");
     if (passwordResetEmailInput) passwordResetEmailInput.value = "";
     return;
@@ -380,7 +380,7 @@ async function loadOrganizations() {
   const [{ data: orgRows, error: orgError }, { data: membershipRows, error: membershipError }, { data: profiles, error: profileError }] = await Promise.all([
     supabase
       .from("organizations")
-      .select("id, name, owner_user_id, subscription_tier, account_status, document_limit, user_limit, storage_limit_mb, public_embed_enabled, keyword_search_enabled, subscription_current_period_end")
+      .select("id, name, slug, owner_user_id, subscription_tier, account_status, document_limit, user_limit, storage_limit_mb, public_embed_enabled, transcript_preview_enabled, keyword_search_enabled, file_preview_cards_enabled, hosted_public_portal_enabled, cancel_at_period_end, billing_cycle, branded_primary_color, branded_accent_color, stripe_customer_id, stripe_subscription_id, subscription_current_period_end")
       .order("created_at", { ascending: true }),
     supabase.from("organization_memberships").select("organization_id, user_id"),
     supabase.from("profiles").select("id, email, full_name"),
@@ -492,7 +492,10 @@ function renderSupportOverview(organization, usageAccount) {
   if (supportFeatureFacts) {
     const features = [
       ["Public records and embeds", organization.public_embed_enabled],
+      ["Transcript previews", organization.transcript_preview_enabled],
       ["Keyword search", organization.keyword_search_enabled],
+      ["File preview cards", organization.file_preview_cards_enabled],
+      ["Hosted public portal", organization.hosted_public_portal_enabled],
     ];
     supportFeatureFacts.innerHTML = features.map(([label, enabled]) => `<div><span>${escapeHtml(label)}</span><strong class="${enabled ? "is-enabled" : ""}">${enabled ? "Enabled" : "Disabled"}</strong></div>`).join("");
   }
