@@ -18,6 +18,7 @@ const lineItemsContainer = document.getElementById("proposal-line-items");
 const addLineItemButton = document.getElementById("add-proposal-line-item");
 const addStarterPlanButton = document.getElementById("add-starter-plan");
 const addStarterPlusPlanButton = document.getElementById("add-starter-plus-plan");
+const addAdvancedPlanButton = document.getElementById("add-advanced-plan");
 const previewLink = document.getElementById("preview-proposal");
 const refreshButton = document.getElementById("refresh-proposals");
 const referralDiscountWrap = document.getElementById("proposal-referral-discount-wrap");
@@ -144,6 +145,16 @@ function newLineItem(overrides = {}) {
 }
 
 function servicePlanItem(plan) {
+  if (plan === "advanced") {
+    return newLineItem({
+      category: "maintenance",
+      name: "Advanced website service",
+      description: "Service for an advanced website with payments, accounts, portals, memberships, scheduling, uploads, automation, integrations, or comparable custom functionality. Final recurring service is adjusted to match the approved system scope and support requirements.",
+      billing_type: "recurring",
+      unit_amount_cents: 5000,
+      recurring_interval: "monthly",
+    });
+  }
   if (plan === "starter_plus") {
     return newLineItem({
       category: "maintenance",
@@ -164,6 +175,17 @@ function servicePlanItem(plan) {
   });
 }
 
+function advancedBuildItem() {
+  return newLineItem({
+    category: "website_build",
+    name: "Advanced website design and development",
+    description: "Starting investment for an advanced website. Adjust this line to match the approved pages, payments, accounts, portals, memberships, scheduling, uploads, automation, integrations, and other custom functionality.",
+    billing_type: "one_time",
+    unit_amount_cents: 50000,
+    recurring_interval: null,
+  });
+}
+
 function applyServicePlanIntervalPrice(row) {
   const name = row.querySelector('[data-line-field="name"]')?.value.trim();
   const interval = row.querySelector('[data-line-field="recurring_interval"]')?.value;
@@ -173,6 +195,8 @@ function applyServicePlanIntervalPrice(row) {
     unitAmount.value = interval === "yearly" ? "270.00" : "25.00";
   } else if (name === "Founding Client Starter+ website service") {
     unitAmount.value = interval === "yearly" ? "432.00" : "40.00";
+  } else if (name === "Advanced website service") {
+    unitAmount.value = interval === "yearly" ? "540.00" : "50.00";
   }
 }
 
@@ -640,6 +664,11 @@ async function init() {
   });
   addStarterPlusPlanButton.addEventListener("click", () => {
     lineItemsContainer.insertAdjacentHTML("beforeend", lineItemMarkup(servicePlanItem("starter_plus")));
+    updateInvestmentTotals();
+  });
+  addAdvancedPlanButton.addEventListener("click", () => {
+    lineItemsContainer.insertAdjacentHTML("beforeend", lineItemMarkup(advancedBuildItem()));
+    lineItemsContainer.insertAdjacentHTML("beforeend", lineItemMarkup(servicePlanItem("advanced")));
     updateInvestmentTotals();
   });
   lineItemsContainer.addEventListener("click", (event) => {

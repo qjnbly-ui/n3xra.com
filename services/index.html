@@ -244,7 +244,7 @@
 
     .pricing-grid {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 0.8rem;
     }
 
@@ -449,6 +449,16 @@
       }
     }
 
+    @media (min-width: 621px) and (max-width: 980px) {
+      .pricing-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .pricing-card:last-child {
+        grid-column: 1 / -1;
+      }
+    }
+
     @media (max-width: 620px) {
       .hero-inner,
       .services-main {
@@ -471,6 +481,10 @@
       .pricing-grid,
       .pricing-details {
         grid-template-columns: 1fr;
+      }
+
+      .pricing-card:last-child {
+        grid-column: auto;
       }
 
       .service-panel {
@@ -590,13 +604,26 @@
             <li>Additional eligible edits at $52.50 per hour—a 30% discount</li>
           </ul>
         </section>
+        <section class="pricing-card">
+          <p class="pricing-badge">Advanced websites</p>
+          <h3>Advanced</h3>
+          <p class="pricing-amount">From $50 <span>per month</span></p>
+          <p>For websites that operate as a larger business system. Advanced website builds start at $500 and are custom quoted.</p>
+          <ul class="pricing-features">
+            <li>Online stores or payment workflows</li>
+            <li>Customer accounts, memberships, or portals</li>
+            <li>Scheduling, uploads, or protected content</li>
+            <li>Automation, API, CRM, or third-party integrations</li>
+            <li>Service and support matched to the system</li>
+          </ul>
+        </section>
       </div>
       <div class="pricing-details">
-        <div><strong>Save 10% annually</strong><span>Starter is $270/year and Starter+ is $432/year when paid in advance.</span></div>
+        <div><strong>Save 10% annually</strong><span>Starter is $270/year, Starter+ is $432/year, and Advanced starts at $540/year when paid in advance.</span></div>
         <div><strong>Referral code savings</strong><span>A valid N3XRA website referral code receives 10% off the website build.</span></div>
         <div><strong>Outside costs stay clear</strong><span>Domains, premium software, payment processing, and other third-party services are listed separately when applicable.</span></div>
       </div>
-      <p class="pricing-fine-print">Starter+ edit time covers routine content, image, and minor layout changes, expires each month, and does not roll over. New pages, redesigns, custom features, integrations, and urgent after-hours work are quoted separately. Support requests may be submitted 24/7, but priority handling does not promise an immediate response at all hours. Founding Client Pricing remains available while qualifying service stays continuously active.</p>
+      <p class="pricing-fine-print">Starter+ edit time covers routine content, image, and minor layout changes, expires each month, and does not roll over. A site with payments, stores, accounts, portals, memberships, scheduling systems, uploads, automation, API or CRM integrations, multilingual functionality, or comparable custom functionality is an Advanced project. New pages, redesigns, custom features, integrations, and urgent after-hours work are quoted separately. Support requests may be submitted 24/7, but priority handling does not promise an immediate response at all hours. Founding Client Pricing remains available while qualifying service stays continuously active.</p>
       <p class="pricing-fine-print">A proposal is not a bill. Your exact build, service level, discounts, and outside costs are presented for approval before contract and billing steps begin.</p>
       <div class="cta-row"><a class="button button-primary" href="/website-request/">Start a Project</a></div>
     </article>
