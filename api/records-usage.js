@@ -7,6 +7,7 @@ const SUPABASE_ANON_KEY = String(
   ""
 ).trim();
 const SUPABASE_SERVICE_ROLE_KEY = String(process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY || "").trim();
+const { getRecordsAccessContext } = require("./_records-support-access");
 
 const PLAN_LIMITS = {
   free: {
@@ -225,28 +226,7 @@ async function loadOrganization(organizationId) {
   return Array.isArray(rows) ? rows[0] || null : null;
 }
 
-async function userCanAccessOrganization(organization, user) {
-  if (!organization?.id || !user?.id) return false;
-  if (organization.owner_user_id === user.id) return true;
-
-  const [membershipRows, adminRows] = await Promise.all([
-    fetchSupabaseJson(
-      `${SUPABASE_URL}/rest/v1/organization_memberships?select=id&organization_id=eq.${encodeFilter(organization.id)}&user_id=eq.${encodeFilter(user.id)}&limit=1`,
-      { headers: serviceHeaders() }
-    ),
-    fetchSupabaseJson(
-      `${SUPABASE_URL}/rest/v1/platform_admins?select=user_id&user_id=eq.${encodeFilter(user.id)}&limit=1`,
-      { headers: serviceHeaders() }
-    ),
-  ]);
-
-  return Boolean(
-    (Array.isArray(membershipRows) && membershipRows.length > 0) ||
-    (Array.isArray(adminRows) && adminRows.length > 0)
-  );
-}
-
-async function loadRecordsUsage(organization) {
+async function loadRecordsUsage(organization, { includePrivateStorageDetails = true } = {}) {
   const bounds = getMonthBounds();
   const encodedOrgId = encodeFilter(organization.id);
   const [
@@ -257,7 +237,7 @@ async function loadRecordsUsage(organization) {
     aiRows,
   ] = await Promise.all([
     fetchSupabaseJson(
-      `${SUPABASE_URL}/rest/v1/documents?select=id,title,original_filename,storage_path,file_size,created_at&organization_id=eq.${encodedOrgId}&limit=50000`,
+      `${SUPABASE_URL}/rest/v1/documents?select=${includePrivateStorageDetails ? "id,title,original_filename,storage_path,file_size,created_at" : "id,file_size"}&organization_id=eq.${encodedOrgId}&limit=50000`,
       { headers: serviceHeaders() }
     ),
     fetchSupabaseJson(
@@ -265,7 +245,7 @@ async function loadRecordsUsage(organization) {
       { headers: serviceHeaders() }
     ),
     fetchSupabaseJson(
-      `${SUPABASE_URL}/rest/v1/meeting_recordings?select=id,title,file_size,storage_path,document_id,created_at&organization_id=eq.${encodedOrgId}&limit=50000`,
+      `${SUPABASE_URL}/rest/v1/meeting_recordings?select=${includePrivateStorageDetails ? "id,title,file_size,storage_path,document_id,created_at" : "id,file_size,document_id"}&organization_id=eq.${encodedOrgId}&limit=50000`,
       { headers: serviceHeaders() }
     ),
     fetchSupabaseJson(
@@ -289,7 +269,20 @@ async function loadRecordsUsage(organization) {
   const documentStorageBytes = sumFileSize(documentRows);
   const recordingStorageBytes = sumFileSize(recordingRows);
   const storageLimitBytes = limits.storageLimitMb * 1024 * 1024;
-  const storageDetails = buildStorageDetails(documentRows, recordingRows, appDocumentRows);
+  const storageDetails = includePrivateStorageDetails
+    ? buildStorageDetails(documentRows, recordingRows, appDocumentRows)
+    : {
+        breakdown: {
+          uploadedFilesBytes: documentStorageBytes,
+          meetingRecordingsBytes: recordingStorageBytes,
+          transcriptSourceBytes: 0,
+          appDocumentsCount: appDocumentCount,
+          templateCount,
+          trackedFileCount: sourceDocumentCount + recordingCount,
+        },
+        largestItems: [],
+        suggestions: [],
+      };
 
   return {
     organizationId: organization.id,
@@ -352,11 +345,14 @@ module.exports = async function handler(req, res) {
 
     const organization = await loadOrganization(organizationId);
     if (!organization) return res.status(404).json({ error: "Active library was not found." });
-    if (!(await userCanAccessOrganization(organization, user))) {
+    const access = await getRecordsAccessContext(organization, user);
+    if (!access.isMember && !access.isPlatformAdmin) {
       return res.status(403).json({ error: "You do not have access to this library." });
     }
 
-    const usage = await loadRecordsUsage(organization);
+    const usage = await loadRecordsUsage(organization, {
+      includePrivateStorageDetails: access.isMember,
+    });
     return res.status(200).json({ usage });
   } catch (error) {
     return res.status(500).json({ error: error instanceof Error ? error.message : "Unable to load Records usage." });

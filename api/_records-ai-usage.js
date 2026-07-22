@@ -1,5 +1,6 @@
 const SUPABASE_URL = String(process.env.SUPABASE_URL || "https://vdbjlgmbpykjblprqnak.supabase.co").trim();
 const SUPABASE_SERVICE_ROLE_KEY = String(process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY || "").trim();
+const { contextAllows, getRecordsAccessContext } = require("./_records-support-access");
 
 const RECORDS_AI_PLAN_LIMITS = {
   free: {
@@ -102,25 +103,10 @@ async function loadOrganization(organizationId) {
   return Array.isArray(rows) ? rows[0] || null : null;
 }
 
-async function userCanAccessOrganization(organization, user) {
+async function userCanAccessOrganization(organization, user, { allowPlatformAdmin = false } = {}) {
   if (!organization?.id || !user?.id) return false;
-  if (organization.owner_user_id === user.id) return true;
-
-  const [membershipRows, adminRows] = await Promise.all([
-    fetchSupabaseJson(
-      `${SUPABASE_URL}/rest/v1/organization_memberships?select=id&organization_id=eq.${encodeFilter(organization.id)}&user_id=eq.${encodeFilter(user.id)}&limit=1`,
-      { headers: serviceHeaders() }
-    ),
-    fetchSupabaseJson(
-      `${SUPABASE_URL}/rest/v1/platform_admins?select=user_id&user_id=eq.${encodeFilter(user.id)}&limit=1`,
-      { headers: serviceHeaders() }
-    ),
-  ]);
-
-  return Boolean(
-    (Array.isArray(membershipRows) && membershipRows.length > 0) ||
-    (Array.isArray(adminRows) && adminRows.length > 0)
-  );
+  const access = await getRecordsAccessContext(organization, user);
+  return access.isMember || (allowPlatformAdmin && access.isPlatformAdmin) || contextAllows(access, "can_view_documents");
 }
 
 function getMonthBounds(now = new Date()) {
@@ -186,7 +172,7 @@ function assertUsageWithinLimits(summary) {
   }
 }
 
-async function prepareRecordsAiUsage({ organizationId, user, enforceLimit = true }) {
+async function prepareRecordsAiUsage({ organizationId, user, enforceLimit = true, allowPlatformAdmin = false }) {
   requireUsageConfig();
   const normalizedOrganizationId = String(organizationId || "").trim();
   if (!normalizedOrganizationId) {
@@ -198,7 +184,7 @@ async function prepareRecordsAiUsage({ organizationId, user, enforceLimit = true
     throw new RecordsAiUsageError("Active library was not found.", 404, "records_ai_organization_not_found");
   }
 
-  if (!(await userCanAccessOrganization(organization, user))) {
+  if (!(await userCanAccessOrganization(organization, user, { allowPlatformAdmin }))) {
     throw new RecordsAiUsageError("You do not have access to this library.", 403, "records_ai_organization_forbidden");
   }
 

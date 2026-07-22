@@ -45,6 +45,17 @@ const librarySearchPanel = document.getElementById("library-search-panel");
 const libraryRecentPanel = document.getElementById("library-recent-panel");
 const billingSection = document.getElementById("billing-section");
 const libraryAccessCard = document.getElementById("library-access-card");
+const supportAccessCard = document.getElementById("support-access-card");
+const supportAccessForm = document.getElementById("support-access-form");
+const supportAccessReason = document.getElementById("support-access-reason");
+const supportScopeDocuments = document.getElementById("support-scope-documents");
+const supportScopeRecordings = document.getElementById("support-scope-recordings");
+const supportScopeDownloads = document.getElementById("support-scope-downloads");
+const supportScopeChanges = document.getElementById("support-scope-changes");
+const supportAccessGrantButton = document.getElementById("support-access-grant");
+const supportAccessRevokeButton = document.getElementById("support-access-revoke");
+const supportAccessStatus = document.getElementById("support-access-status");
+const supportAuditList = document.getElementById("support-audit-list");
 const libraryProfileBody = document.getElementById("library-profile-body");
 const libraryLogoForm = document.getElementById("library-logo-form");
 const libraryLogoFileInput = document.getElementById("library-logo-file");
@@ -290,6 +301,8 @@ let recordsUsageSummary = null;
 let organizationReview = null;
 let organizationLogoUrls = new Map();
 let activityCache = [];
+let activeSupportGrant = null;
+let supportAuditCache = [];
 let uploadMode = "single";
 let selectedBillingCycle = "monthly";
 let activeAdminTab = "users";
@@ -673,6 +686,164 @@ function rememberLibraryAiSearchTurn(question, answer) {
 function show(el, visible) {
   if (!el) return;
   el.classList.toggle("hidden", !visible);
+}
+
+function supportGrantIsActive(grant = activeSupportGrant) {
+  return Boolean(grant && !grant.revoked_at && new Date(grant.expires_at).getTime() > Date.now());
+}
+
+function hasSupportScope(scope) {
+  if (!isSupportView() || !supportGrantIsActive()) return false;
+  const keys = {
+    documents: "can_view_documents",
+    recordings: "can_view_recordings",
+    downloads: "can_download_files",
+    changes: "can_change_content",
+  };
+  return Boolean(activeSupportGrant?.[keys[scope]]);
+}
+
+async function loadActiveSupportGrant() {
+  activeSupportGrant = null;
+  const organization = getActiveOrganization();
+  if (!organization) return;
+  await supabase.rpc("reconcile_records_support_expirations", { input_organization_id: organization.id });
+  const { data, error } = await supabase
+    .from("records_support_grants")
+    .select("*")
+    .eq("organization_id", organization.id)
+    .is("revoked_at", null)
+    .gt("expires_at", new Date().toISOString())
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  activeSupportGrant = data || null;
+  if (!activeSupportGrant && isSupportView()) {
+    const { data: emergency, error: emergencyError } = await supabase
+      .from("records_emergency_access")
+      .select("id, expires_at, reason")
+      .eq("organization_id", organization.id)
+      .eq("admin_user_id", currentSession.user.id)
+      .is("ended_at", null)
+      .gt("expires_at", new Date().toISOString())
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (emergencyError) throw emergencyError;
+    if (emergency) {
+      activeSupportGrant = {
+        ...emergency,
+        emergency_access: true,
+        can_view_documents: true,
+        can_view_recordings: true,
+        can_download_files: true,
+        can_change_content: true,
+      };
+    }
+  }
+  if (isSupportView()) {
+    activeMembership.role = activeSupportGrant?.can_change_content ? "editor" : "viewer";
+  }
+}
+
+function formatSupportEvent(eventType) {
+  return titleCase(String(eventType || "support activity").replaceAll("_", " "));
+}
+
+function renderSupportAccess() {
+  const organization = getActiveOrganization();
+  const canManage = Boolean(organization && !isSupportView() && getActiveCapabilities().canManageLibrarySettings);
+  show(supportAccessCard, canManage);
+  if (!supportAccessCard || !canManage) return;
+  const active = supportGrantIsActive();
+  show(supportAccessGrantButton, !active);
+  show(supportAccessRevokeButton, active);
+  [supportAccessReason, supportScopeDocuments, supportScopeRecordings, supportScopeDownloads, supportScopeChanges]
+    .filter(Boolean).forEach((field) => { field.disabled = active; });
+  if (active) {
+    supportScopeDocuments.checked = Boolean(activeSupportGrant.can_view_documents);
+    supportScopeRecordings.checked = Boolean(activeSupportGrant.can_view_recordings);
+    supportScopeDownloads.checked = Boolean(activeSupportGrant.can_download_files);
+    supportScopeChanges.checked = Boolean(activeSupportGrant.can_change_content);
+    setStatus(supportAccessStatus, `Access is active until ${formatActivityDate(activeSupportGrant.expires_at)}.`, "success");
+  } else {
+    setStatus(supportAccessStatus, "N3XRA cannot access this library's private content.");
+  }
+  if (supportAuditList) {
+    supportAuditList.innerHTML = supportAuditCache.length ? supportAuditCache.map((item) => `
+      <tr><td>${escapeHtml(formatActivityDate(item.created_at))}</td><td>${escapeHtml(formatSupportEvent(item.event_type))}</td><td>${escapeHtml(item.actor_email || "Customer")}</td><td>${escapeHtml(item.resource_type || "Library")}</td></tr>
+    `).join("") : '<tr><td colspan="4">No support access has been recorded.</td></tr>';
+  }
+}
+
+async function loadSupportAudit() {
+  const organization = getActiveOrganization();
+  if (!organization || isSupportView() || !getActiveCapabilities().canManageLibrarySettings) {
+    supportAuditCache = [];
+    renderSupportAccess();
+    return;
+  }
+  const { data, error } = await supabase.from("records_support_audit_log")
+    .select("event_type, actor_email, resource_type, resource_id, reason, created_at")
+    .eq("organization_id", organization.id).order("created_at", { ascending: false }).limit(100);
+  if (error) throw error;
+  supportAuditCache = data || [];
+  renderSupportAccess();
+}
+
+async function handleSupportAccessGrant(event) {
+  event.preventDefault();
+  const organization = getActiveOrganization();
+  if (!organization) return;
+  const scopes = {
+    can_view_documents: Boolean(supportScopeDocuments?.checked),
+    can_view_recordings: Boolean(supportScopeRecordings?.checked),
+    can_download_files: Boolean(supportScopeDownloads?.checked),
+    can_change_content: Boolean(supportScopeChanges?.checked),
+  };
+  if (!Object.values(scopes).some(Boolean)) {
+    setStatus(supportAccessStatus, "Choose at least one type of access.", "error");
+    return;
+  }
+  supportAccessGrantButton.disabled = true;
+  setStatus(supportAccessStatus, "Granting temporary access...");
+  const { error } = await supabase.from("records_support_grants").insert({
+    organization_id: organization.id,
+    granted_by_user_id: currentSession.user.id,
+    reason: supportAccessReason.value.trim() || "Customer-requested support",
+    expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+    ...scopes,
+  });
+  supportAccessGrantButton.disabled = false;
+  if (error) { setStatus(supportAccessStatus, error.message, "error"); return; }
+  await loadActiveSupportGrant();
+  await loadSupportAudit();
+}
+
+async function handleSupportAccessRevoke() {
+  if (!supportGrantIsActive()) return;
+  supportAccessRevokeButton.disabled = true;
+  const now = new Date().toISOString();
+  const { error } = await supabase.from("records_support_grants").update({
+    revoked_at: now, revoked_by_user_id: currentSession.user.id,
+  }).eq("id", activeSupportGrant.id).is("revoked_at", null);
+  supportAccessRevokeButton.disabled = false;
+  if (error) { setStatus(supportAccessStatus, error.message, "error"); return; }
+  activeSupportGrant = null;
+  await loadSupportAudit();
+}
+
+async function recordSupportEvent(eventType, resourceType = null, resourceId = null) {
+  if (!isSupportView() || !supportGrantIsActive()) return;
+  await supabase.rpc("record_records_support_event", {
+    input_organization_id: getActiveOrganization()?.id,
+    input_event_type: eventType,
+    input_resource_type: resourceType,
+    input_resource_id: resourceId,
+    input_reason: null,
+    input_metadata: {},
+  });
 }
 
 function setAdminTab(tabName) {
@@ -1597,7 +1768,7 @@ function getActiveCapabilities() {
   return getCapabilities(
     activeMembership,
     currentSession?.user?.id || "",
-    isPlatformAdminEmail(currentSession?.user?.email)
+    isSupportView() ? false : isPlatformAdminEmail(currentSession?.user?.email)
   );
 }
 
@@ -2396,8 +2567,8 @@ async function bootstrapAccess() {
         {
           id: `support-${supportOrg.id}`,
           organization_id: supportOrg.id,
-          role: "account_owner",
-          permissions: {},
+          role: "viewer",
+          permissions: { support_view: true },
           organization: supportOrg,
           isSupportView: true,
         },
@@ -3037,7 +3208,15 @@ function renderProfile() {
   show(platformAdminLink, isPlatformAdminEmail(currentSession.user.email));
 
   if (isSupportView()) {
-    supportBanner.textContent = `Support view active for ${organization?.name || "this library"}. You are viewing this tenant through n3xra.com admin tools.`;
+    const scopes = [
+      hasSupportScope("documents") ? "documents" : "",
+      hasSupportScope("recordings") ? "recordings and transcripts" : "",
+      hasSupportScope("downloads") ? "downloads" : "",
+      hasSupportScope("changes") ? "changes" : "",
+    ].filter(Boolean);
+    supportBanner.textContent = scopes.length
+      ? `Support view active for ${organization?.name || "this library"}. ${activeSupportGrant?.emergency_access ? "Audited emergency access" : "Customer-granted access"}: ${scopes.join(", ")}.`
+      : `Support view active for ${organization?.name || "this library"}. Private customer content is not available without a temporary grant.`;
     show(supportBanner, true);
   } else {
     show(supportBanner, false);
@@ -3682,18 +3861,15 @@ async function loadActiveOrganizationData() {
     return;
   }
 
+  await loadActiveSupportGrant();
   renderProfile();
-  await Promise.all([
-    loadDocuments(),
-    loadInvites(),
-    loadMembers(),
-    loadContacts(),
-    loadAppTemplates(),
-    loadRecordsAiUsage(),
-    loadOrganizationAiSettings(),
-    loadOrganizationReview(),
-    loadActiveOrganizationLogo(),
-  ]);
+  renderSupportAccess();
+  const supportMode = isSupportView();
+  const tasks = [loadRecordsAiUsage(), loadActiveOrganizationLogo()];
+  if (!supportMode || hasSupportScope("documents")) tasks.push(loadDocuments(), loadAppTemplates());
+  if (!supportMode) tasks.push(loadInvites(), loadMembers(), loadContacts(), loadOrganizationAiSettings(), loadOrganizationReview());
+  await Promise.all(tasks);
+  if (!supportMode) await loadSupportAudit();
   renderContacts();
   if (activeAdminTab === "activity") {
     await loadActivityLogForActiveOrganization();
@@ -3710,12 +3886,15 @@ async function createSignedUrlForDocument(documentId) {
     return null;
   }
 
+  await recordSupportEvent("signed_link_created", "document", documentId);
+
   return { doc, signedUrl: data.signedUrl };
 }
 
 async function createDownloadSignedUrlForDocument(documentId) {
   const doc = documentsCache.find((item) => item.id === documentId);
   if (!doc) return null;
+  if (isSupportView() && !hasSupportScope("downloads")) return null;
 
   const downloadName = getDownloadFilename(doc);
   const { data, error } = await supabase
@@ -3727,13 +3906,17 @@ async function createDownloadSignedUrlForDocument(documentId) {
     return null;
   }
 
+  await recordSupportEvent("signed_link_created", "document", documentId);
+
   return { doc, signedUrl: data.signedUrl };
 }
 
 async function openSourceFilePreview(documentId) {
   const signed = await createSignedUrlForDocument(documentId);
   if (!signed) return;
-  const downloadSigned = await createDownloadSignedUrlForDocument(documentId);
+  const downloadSigned = !isSupportView() || hasSupportScope("downloads")
+    ? await createDownloadSignedUrlForDocument(documentId)
+    : null;
   const { doc, signedUrl } = signed;
   const editableDoc = getEditableDocumentForSource(documentId);
 
@@ -3754,6 +3937,7 @@ async function openSourceFilePreview(documentId) {
     }
   );
   fileModalDownload.textContent = "Download";
+  show(fileModalDownload, !isSupportView() || hasSupportScope("downloads"));
   show(fileModalOpenEditable, Boolean(editableDoc));
   if (editableDoc) {
     fileModalOpenEditable.href = `./documents?id=${encodeURIComponent(editableDoc.id)}`;
@@ -3808,6 +3992,7 @@ async function openEditableFilePreview(documentId, editableDoc) {
 }
 
 async function openFile(documentId, preferredView = "auto") {
+  await recordSupportEvent("content_viewed", "document", documentId);
   const editableDoc = getEditableDocumentForSource(documentId);
   if (editableDoc && preferredView !== "source") {
     const opened = await openEditableFilePreview(documentId, editableDoc);
@@ -3823,6 +4008,7 @@ function closeFileModal() {
 }
 
 async function handleSignout() {
+  await recordSupportEvent("session_ended", "organization", getActiveOrganization()?.id);
   const { error } = await supabase.auth.signOut({ scope: "local" });
   if (error) {
     setStatus(contextStatus, error.message, "error");
@@ -4959,6 +5145,10 @@ async function handleOrganizationChange(nextOrganizationId) {
   const nextMembership = memberships.find((membership) => membership.organization?.id === nextOrganizationId);
   if (!nextMembership) return;
 
+  if (isSupportView() && supportGrantIsActive()) {
+    await recordSupportEvent("session_ended", "organization", getActiveOrganization()?.id);
+  }
+
   if (nextOrganizationId !== activeMembership?.organization?.id) {
     resetLibraryAiSearchHistory();
   }
@@ -4975,6 +5165,7 @@ async function handleOrganizationChange(nextOrganizationId) {
   const nextQuery = params.toString();
   window.history.replaceState({}, "", `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ""}`);
 
+  activeSupportGrant = null;
   await loadActiveOrganizationData();
 }
 
@@ -4997,6 +5188,10 @@ async function init() {
 
   try {
     await bootstrapAccess();
+    await loadActiveSupportGrant();
+    if (isSupportView() && supportGrantIsActive()) {
+      await recordSupportEvent("session_started", "organization", getActiveOrganization()?.id);
+    }
   } catch (error) {
     show(setupPanel, false);
     show(dashboardPanel, true);
@@ -5039,6 +5234,8 @@ async function init() {
   profileForm.addEventListener("submit", handleProfileSave);
   recordsHelpToggle?.addEventListener("click", () => setSectionToggleOpen(recordsHelpToggle, recordsHelpBody, recordsHelpBody.classList.contains("hidden")));
   recordsHelpForm?.addEventListener("submit", handleRecordsHelpSubmit);
+  supportAccessForm?.addEventListener("submit", handleSupportAccessGrant);
+  supportAccessRevokeButton?.addEventListener("click", handleSupportAccessRevoke);
   libraryLogoForm?.addEventListener("submit", handleLibraryLogoUpload);
   libraryLogoRemove?.addEventListener("click", handleLibraryLogoRemove);
   organizationAiSettingsForm?.addEventListener("submit", handleOrganizationAiSettingsSave);
@@ -5134,6 +5331,9 @@ async function init() {
   docList.addEventListener("click", handleDocumentAction);
   recentFilesList.addEventListener("click", handleDocumentAction);
   fileModalClose.addEventListener("click", closeFileModal);
+  fileModalDownload?.addEventListener("click", () => {
+    if (activeModalDocumentId) void recordSupportEvent("file_downloaded", "document", activeModalDocumentId);
+  });
   fileModalOriginal.addEventListener("click", async () => {
     if (!activeModalDocumentId) return;
     await openFile(activeModalDocumentId, "source");
@@ -5222,6 +5422,9 @@ async function init() {
     if (!session?.user) {
       window.location.replace("/n3xra-records/login");
     }
+  });
+  window.addEventListener("pagehide", () => {
+    if (isSupportView() && supportGrantIsActive()) void recordSupportEvent("session_ended", "organization", getActiveOrganization()?.id);
   });
 }
 

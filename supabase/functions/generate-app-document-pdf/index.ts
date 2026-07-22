@@ -680,10 +680,27 @@ Deno.serve(async (request) => {
 
       if (membershipError) return jsonResponse({ error: membershipError.message }, 400);
 
-      const isPlatformAdmin = ["quentin@n3xra.com", "quentin@quentinnichols.com"].includes(String(user.email || "").toLowerCase());
+      const { data: canSupportView } = await userClient.rpc("has_records_support_scope", {
+        target_organization_id: document.organization_id,
+        requested_scope: "view_documents",
+      });
+      const { data: canSupportDownload } = await userClient.rpc("has_records_support_scope", {
+        target_organization_id: document.organization_id,
+        requested_scope: "download_files",
+      });
       const isOwner = organization?.owner_user_id === user.id;
-      if (!membership && !isOwner && !isPlatformAdmin) {
+      if (!membership && !isOwner && !(canSupportView && canSupportDownload)) {
         return jsonResponse({ error: "You do not have access to this document." }, 403);
+      }
+      if (!membership && !isOwner) {
+        await userClient.rpc("record_records_support_event", {
+          input_organization_id: document.organization_id,
+          input_event_type: "signed_link_created",
+          input_resource_type: "app_document_pdf",
+          input_resource_id: document.id,
+          input_reason: null,
+          input_metadata: { source: "generate_app_document_pdf" },
+        });
       }
     }
 

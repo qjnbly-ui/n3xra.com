@@ -152,6 +152,25 @@
             </div>
           </section>
 
+          <section class="account-card hidden" id="support-access-card">
+            <div class="panel-head">
+              <div><h3>N3XRA support access</h3><p>Private Records content stays unavailable to N3XRA unless you grant temporary access.</p></div>
+            </div>
+            <form class="stack" id="support-access-form">
+              <div class="field"><label for="support-access-reason">Reason for access</label><input id="support-access-reason" type="text" maxlength="300" value="Customer-requested support" required></div>
+              <div class="support-scope-grid">
+                <label class="toggle-pill"><input id="support-scope-documents" type="checkbox"><span>View documents</span></label>
+                <label class="toggle-pill"><input id="support-scope-recordings" type="checkbox"><span>View recordings and transcripts</span></label>
+                <label class="toggle-pill"><input id="support-scope-downloads" type="checkbox"><span>Download files</span></label>
+                <label class="toggle-pill"><input id="support-scope-changes" type="checkbox"><span>Change content or settings</span></label>
+              </div>
+              <p class="field-note">Access expires automatically after 24 hours. You can revoke it immediately at any time.</p>
+              <div class="actions"><button class="btn" id="support-access-grant" type="submit">Grant temporary access</button><button class="btn danger hidden" id="support-access-revoke" type="button">Revoke access</button></div>
+              <p class="status" id="support-access-status"></p>
+            </form>
+            <div class="settings-subsection"><div class="settings-subsection-head"><h4>Support access history</h4><p>Permanent record of grants and N3XRA support activity.</p></div><div class="table-shell"><table class="data-table"><thead><tr><th>Date</th><th>Event</th><th>Administrator</th><th>Resource</th></tr></thead><tbody id="support-audit-list"></tbody></table></div></div>
+          </section>
+
           <section class="account-card" id="library-access-card">
             <div class="panel-head">
               <div>

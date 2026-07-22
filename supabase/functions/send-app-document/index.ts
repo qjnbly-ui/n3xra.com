@@ -250,9 +250,12 @@ Deno.serve(async (request) => {
     if (membershipError) return jsonResponse({ error: membershipError.message }, 400);
 
     const organization = Array.isArray(document.organization) ? document.organization[0] : document.organization;
-    const isPlatformAdmin = ["quentin@n3xra.com", "quentin@quentinnichols.com"].includes(String(user.email || "").toLowerCase());
+    const [{ data: canSupportView }, { data: canSupportChange }] = await Promise.all([
+      userClient.rpc("has_records_support_scope", { target_organization_id: document.organization_id, requested_scope: "view_documents" }),
+      userClient.rpc("has_records_support_scope", { target_organization_id: document.organization_id, requested_scope: "change_content" }),
+    ]);
     const isOwner = organization?.owner_user_id === user.id;
-    if (!membership && !isOwner && !isPlatformAdmin) {
+    if (!membership && !isOwner && !(canSupportView && canSupportChange)) {
       return jsonResponse({ error: "You do not have access to send this document." }, 403);
     }
 
@@ -466,6 +469,16 @@ Deno.serve(async (request) => {
         .from("app_documents")
         .update({ last_sent_at: new Date().toISOString() })
         .eq("id", documentId);
+      if (!membership && !isOwner && canSupportChange) {
+        await userClient.rpc("record_records_support_event", {
+          input_organization_id: document.organization_id,
+          input_event_type: "content_changed",
+          input_resource_type: "document_delivery",
+          input_resource_id: documentId,
+          input_reason: null,
+          input_metadata: { source: "send_app_document", recipient_count: sent.length },
+        });
+      }
     }
 
     return jsonResponse({

@@ -142,12 +142,15 @@ Deno.serve(async (request) => {
       .eq("user_id", user.id)
       .maybeSingle();
 
-    const isPlatformAdmin = ["quentin@n3xra.com", "quentin@quentinnichols.com"].includes(String(user.email || "").toLowerCase());
+    const { data: canSupportChange } = await userClient.rpc("has_records_support_scope", {
+      target_organization_id: document.organization_id,
+      requested_scope: "change_content",
+    });
     if (membershipError) {
       return jsonResponse({ error: membershipError.message }, 400);
     }
 
-    if (!membership && !isPlatformAdmin) {
+    if (!membership && !canSupportChange) {
       return jsonResponse({ error: "You do not have access to this document." }, 403);
     }
 
@@ -186,6 +189,17 @@ Deno.serve(async (request) => {
         extracted_text: extractedText,
       })
       .eq("id", documentId);
+
+    if (!membership && canSupportChange) {
+      await userClient.rpc("record_records_support_event", {
+        input_organization_id: document.organization_id,
+        input_event_type: "content_changed",
+        input_resource_type: "document",
+        input_resource_id: documentId,
+        input_reason: null,
+        input_metadata: { source: "ingest_document" },
+      });
+    }
 
     return jsonResponse({
       ok: true,

@@ -6,6 +6,7 @@ import Superscript from "https://esm.sh/@tiptap/extension-superscript";
 import TextAlign from "https://esm.sh/@tiptap/extension-text-align";
 import Underline from "https://esm.sh/@tiptap/extension-underline";
 import { createBrowserSupabase, getConfig, hasConfig, getSessionOrNull } from "/shared/lib/supabase-client.js";
+import { getSupportOrganizationId, loadSupportMembership, recordSupportEvent, verifySupportScope } from "./lib/support-access.js";
 import {
   buildMembershipMap,
   dedupeMembershipsByOrganization,
@@ -213,7 +214,7 @@ function getActiveCapabilities() {
   return getCapabilities(
     activeMembership,
     currentSession?.user?.id || "",
-    isPlatformAdminEmail(currentSession?.user?.email)
+    getSupportOrganizationId() ? false : isPlatformAdminEmail(currentSession?.user?.email)
   );
 }
 
@@ -416,6 +417,7 @@ function documentToEditor(doc) {
   renderAppDocuments();
   renderAppTemplates();
   setStatus(editorStatus, "");
+  void recordSupportEvent(supabase, getActiveOrganization()?.id, "content_viewed", "app_document", doc?.id);
 }
 
 function editorToPayload() {
@@ -489,6 +491,12 @@ function isMissingAppDocumentsSchemaError(error) {
 }
 
 async function bootstrapAccess() {
+  const supportMembership = await loadSupportMembership(supabase, currentSession.user);
+  if (supportMembership) {
+    memberships = [supportMembership];
+    activeMembership = supportMembership;
+    return;
+  }
   const { data, error } = await supabase
     .from("organization_memberships")
     .select(`
@@ -1079,6 +1087,10 @@ function printDocumentPdf() {
 
 async function openActiveDocumentPdf() {
   if (!activeDocumentId) return;
+  if (!(await verifySupportScope(supabase, getActiveOrganization()?.id, "download_files"))) {
+    setStatus(editorStatus, "The customer did not grant file-download access.", "error");
+    return;
+  }
   const config = getConfig();
   if (!config.supabaseUrl || !config.supabaseAnonKey) {
     setStatus(editorStatus, "Supabase config is missing.", "error");
@@ -1131,6 +1143,7 @@ async function openActiveDocumentPdf() {
       documentPdfModal.classList.add("is-open");
       documentPdfModal.setAttribute("aria-hidden", "false");
     }
+    await recordSupportEvent(supabase, getActiveOrganization()?.id, "signed_link_created", "app_document_pdf", activeDocumentId);
     setStatus(editorStatus, "PDF ready.", "success");
   } catch (error) {
     setStatus(editorStatus, error?.message || "Unable to generate PDF.", "error");
@@ -1269,7 +1282,7 @@ async function init() {
     window.location.replace("/n3xra-records/login");
     return;
   }
-  if (isPlatformAdminEmail(currentSession.user.email)) {
+  if (isPlatformAdminEmail(currentSession.user.email) && !getSupportOrganizationId()) {
     window.location.replace("/n3xra-admin/records");
     return;
   }

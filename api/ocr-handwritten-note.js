@@ -13,6 +13,7 @@ const SUPABASE_ANON_KEY = String(
   ""
 ).trim();
 const SUPABASE_SERVICE_ROLE_KEY = String(process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY || "").trim();
+const { contextAllows, getRecordsAccessContext, recordRecordsSupportEvent } = require("./_records-support-access");
 const GROQ_RECORDS_API_KEY = String(process.env.GROQ_RECORDS_API_KEY || process.env.GROQ_API_KEY || "").trim();
 const GROQ_RECORDS_OCR_MODEL = String(
   process.env.GROQ_RECORDS_OCR_MODEL || "qwen/qwen3.6-27b"
@@ -112,24 +113,10 @@ async function loadOrganization(organizationId) {
 
 async function userCanScanNotes(organization, user) {
   if (!organization?.id || !user?.id) return false;
-  if (organization.owner_user_id === user.id) return true;
-
-  const [membershipRows, adminRows] = await Promise.all([
-    fetchSupabaseJson(
-      `${SUPABASE_URL}/rest/v1/organization_memberships?select=role&organization_id=eq.${encodeFilter(organization.id)}&user_id=eq.${encodeFilter(user.id)}&limit=1`,
-      { headers: serviceHeaders() }
-    ),
-    fetchSupabaseJson(
-      `${SUPABASE_URL}/rest/v1/platform_admins?select=user_id&user_id=eq.${encodeFilter(user.id)}&limit=1`,
-      { headers: serviceHeaders() }
-    ),
-  ]);
-
-  const isPlatformAdmin = Array.isArray(adminRows) && adminRows.length > 0;
-  if (isPlatformAdmin) return true;
-
-  const role = String(Array.isArray(membershipRows) ? membershipRows[0]?.role || "" : "").trim();
-  return ["account_owner", "account_admin", "editor"].includes(role);
+  const access = await getRecordsAccessContext(organization, user);
+  if (!contextAllows(access, "can_change_content")) return false;
+  if (!access.isMember) return contextAllows(access, "can_view_documents");
+  return ["account_owner", "account_admin", "editor"].includes(access.membershipRole);
 }
 
 function validateImageDataUrl(value) {
@@ -238,6 +225,7 @@ module.exports = async function handler(req, res) {
       usage: result.usage,
     });
 
+    await recordRecordsSupportEvent(getBearerToken(req), organizationId, "content_viewed", "handwritten_note", null);
     return res.status(200).json({
       text: result.text,
       model: GROQ_RECORDS_OCR_MODEL,

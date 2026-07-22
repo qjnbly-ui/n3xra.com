@@ -28,12 +28,18 @@ const selectedOrganizationSupportLink = document.getElementById("selected-organi
 const passwordResetForm = document.getElementById("password-reset-form");
 const passwordResetEmailInput = document.getElementById("password-reset-email");
 const passwordResetStatus = document.getElementById("password-reset-status");
+const emergencyAccessForm = document.getElementById("emergency-access-form");
+const emergencyAccessReason = document.getElementById("emergency-access-reason");
+const emergencyAccessConfirm = document.getElementById("emergency-access-confirm");
+const emergencyAccessStatus = document.getElementById("emergency-access-status");
+const emergencyAccessEnd = document.getElementById("emergency-access-end");
 
 let supabase = null;
 let currentSession = null;
 let organizations = [];
 let adminUsageAccounts = [];
 let selectedOrganizationId = "";
+let activeEmergencyAccessId = "";
 
 async function hasPlatformAdminAccess() {
   if (isPlatformAdminEmail(currentSession?.user?.email)) return true;
@@ -126,6 +132,57 @@ async function getFreshAccessToken() {
   if (error) throw error;
   currentSession = data?.session || currentSession;
   return currentSession?.access_token || "";
+}
+
+async function handleEmergencyAccess(event) {
+  event.preventDefault();
+  const organization = getSelectedOrganization();
+  const reason = String(emergencyAccessReason?.value || "").trim();
+  if (!organization || reason.length < 20 || !emergencyAccessConfirm?.checked) {
+    setStatus(emergencyAccessStatus, "Select an organization, provide a detailed reason, and confirm the permanent audit notice.", "error");
+    return;
+  }
+  const button = emergencyAccessForm.querySelector("button[type='submit']");
+  button.disabled = true;
+  setStatus(emergencyAccessStatus, "Starting audited emergency access...");
+  const { data: emergencyId, error } = await supabase.rpc("begin_records_emergency_access", {
+    input_organization_id: organization.id,
+    input_reason: reason,
+  });
+  button.disabled = false;
+  if (error) { setStatus(emergencyAccessStatus, error.message, "error"); return; }
+  activeEmergencyAccessId = String(emergencyId || "");
+  emergencyAccessEnd?.classList.toggle("hidden", !activeEmergencyAccessId);
+  const accessToken = await getFreshAccessToken();
+  const noticeResponse = await fetch("/api/records-emergency-access-notice", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ organizationId: organization.id, emergencyAccessId: activeEmergencyAccessId, reason }),
+  });
+  const notice = await noticeResponse.json().catch(() => ({}));
+  if (!noticeResponse.ok && activeEmergencyAccessId) {
+    await supabase.rpc("end_records_emergency_access", { input_emergency_access_id: activeEmergencyAccessId });
+    activeEmergencyAccessId = "";
+    emergencyAccessEnd?.classList.add("hidden");
+  }
+  setStatus(emergencyAccessStatus, noticeResponse.ok
+    ? "Emergency access is active for one hour. The customer was notified and the event was permanently recorded."
+    : `Emergency access was immediately closed because the customer notice failed: ${notice.error || notice.warning || "Unknown error"}`,
+    noticeResponse.ok ? "success" : "error");
+  emergencyAccessForm.reset();
+}
+
+async function handleEmergencyAccessEnd() {
+  if (!activeEmergencyAccessId) return;
+  emergencyAccessEnd.disabled = true;
+  const { data, error } = await supabase.rpc("end_records_emergency_access", {
+    input_emergency_access_id: activeEmergencyAccessId,
+  });
+  emergencyAccessEnd.disabled = false;
+  if (error || !data) { setStatus(emergencyAccessStatus, error?.message || "Unable to end emergency access.", "error"); return; }
+  activeEmergencyAccessId = "";
+  emergencyAccessEnd.classList.add("hidden");
+  setStatus(emergencyAccessStatus, "Emergency access ended and was permanently recorded.", "success");
 }
 
 function renderSelectedOrganization() {
@@ -510,6 +567,8 @@ async function init() {
   organizationGrantSixMonthTrialButton?.addEventListener("click", handleGrantSixMonthTrial);
   organizationForm?.addEventListener("submit", handleOrganizationSave);
   passwordResetForm?.addEventListener("submit", handlePasswordReset);
+  emergencyAccessForm?.addEventListener("submit", handleEmergencyAccess);
+  emergencyAccessEnd?.addEventListener("click", handleEmergencyAccessEnd);
 }
 
 init();

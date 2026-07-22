@@ -6,6 +6,7 @@ import { buildPreviewUrl, getDownloadFilename } from "./lib/document-links.js";
 import { buildDocumentMetadata, getDocumentDisplayTitle } from "./lib/document-presenters.js";
 import { closeFilePreviewModal, openFilePreviewModal } from "./lib/file-modal.js";
 import { recordActivity } from "./lib/activity-log.js";
+import { getSupportOrganizationId, loadSupportMembership, recordSupportEvent, verifySupportScope } from "./lib/support-access.js";
 import { getPlanConfig, formatPlanName } from "./lib/plan-config.js";
 import {
   buildMembershipMap,
@@ -732,7 +733,7 @@ function getActiveCapabilities() {
   return getCapabilities(
     activeMembership,
     currentSession?.user?.id || "",
-    isPlatformAdminEmail(currentSession?.user?.email)
+    activeMembership?.isSupportView ? false : isPlatformAdminEmail(currentSession?.user?.email)
   );
 }
 
@@ -862,7 +863,11 @@ async function bootstrapAccess() {
   if (error) throw error;
 
   memberships = dedupeMembershipsByOrganization(buildMembershipMap(data || []));
-  activeMembership = resolveActiveOrganization(memberships, String(bootstrapData?.active_organization_id || ""));
+  if (getSupportOrganizationId() && isPlatformAdminEmail(currentSession.user.email)) {
+    const supportMembership = await loadSupportMembership(supabase, currentSession.user);
+    if (supportMembership) memberships = [supportMembership, ...memberships.filter((item) => item.organization?.id !== supportMembership.organization.id)];
+  }
+  activeMembership = resolveActiveOrganization(memberships, getSupportOrganizationId() || String(bootstrapData?.active_organization_id || ""));
   if (activeMembership?.organization?.id) {
     setStoredActiveOrganizationId(activeMembership.organization.id);
   } else {
@@ -1108,12 +1113,18 @@ async function createSignedUrlForDocument(documentId) {
     return null;
   }
 
+  await recordSupportEvent(supabase, activeMembership?.organization?.id, "signed_link_created", "document", documentId);
+
   return { doc, signedUrl: data.signedUrl };
 }
 
 async function createDownloadSignedUrlForDocument(documentId) {
   const doc = getUploadedDocumentById(documentId);
   if (!doc) return null;
+  if (!await verifySupportScope(supabase, activeMembership?.organization?.id, "download_files")) {
+    setStatus(fileStatus, "The customer did not grant file download access.", "error");
+    return null;
+  }
 
   const downloadName = getDownloadFilename(doc);
   const { data, error } = await supabase
@@ -1124,6 +1135,8 @@ async function createDownloadSignedUrlForDocument(documentId) {
     setStatus(fileStatus, error?.message || "Unable to create download URL.", "error");
     return null;
   }
+
+  await recordSupportEvent(supabase, activeMembership?.organization?.id, "signed_link_created", "document", documentId);
 
   return { doc, signedUrl: data.signedUrl };
 }
@@ -1317,6 +1330,7 @@ async function downloadFile(documentId) {
   document.body.append(link);
   link.click();
   link.remove();
+  await recordSupportEvent(supabase, activeMembership?.organization?.id, "file_downloaded", "document", documentId);
 }
 
 function closeFileModal() {

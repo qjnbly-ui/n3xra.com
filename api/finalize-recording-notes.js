@@ -13,6 +13,7 @@ const SUPABASE_ANON_KEY = String(
   ""
 ).trim();
 const SUPABASE_SERVICE_ROLE_KEY = String(process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY || "").trim();
+const { contextAllows, getRecordsAccessContext, recordRecordsSupportEvent } = require("./_records-support-access");
 const GROQ_RECORDS_API_KEY = String(process.env.GROQ_RECORDS_API_KEY || process.env.GROQ_API_KEY || "").trim();
 const GROQ_RECORDING_NOTES_MODEL = String(process.env.GROQ_RECORDS_NOTES_MODEL || "openai/gpt-oss-120b").trim();
 
@@ -131,24 +132,10 @@ async function loadTemplate(templateId, organizationId) {
 
 async function userCanReviewRecording(organization, user) {
   if (!organization?.id || !user?.id) return false;
-
-  const [membershipRows, adminRows] = await Promise.all([
-    fetchSupabaseJson(
-      `${SUPABASE_URL}/rest/v1/organization_memberships?select=role&organization_id=eq.${encodeFilter(organization.id)}&user_id=eq.${encodeFilter(user.id)}&limit=1`,
-      { headers: serviceHeaders() }
-    ),
-    fetchSupabaseJson(
-      `${SUPABASE_URL}/rest/v1/platform_admins?select=user_id&user_id=eq.${encodeFilter(user.id)}&limit=1`,
-      { headers: serviceHeaders() }
-    ),
-  ]);
-
-  const isPlatformAdmin = Array.isArray(adminRows) && adminRows.length > 0;
-  if (isPlatformAdmin) return true;
-
-  const role = String(Array.isArray(membershipRows) ? membershipRows[0]?.role || "" : "").trim();
-  const canManage = ["account_owner", "account_admin", "editor"].includes(role) || organization.owner_user_id === user.id;
-  return canManage && organization.subscription_tier === "organization";
+  const access = await getRecordsAccessContext(organization, user);
+  if (!contextAllows(access, "can_change_content")) return false;
+  if (!access.isMember) return contextAllows(access, "can_view_recordings");
+  return ["account_owner", "account_admin", "editor"].includes(access.membershipRole) && organization.subscription_tier === "organization";
 }
 
 async function updateRecording(recordingId, patch) {
@@ -1035,6 +1022,7 @@ async function handler(req, res) {
           ai_review_status: "ready",
           processing_error: null,
         });
+        await recordRecordsSupportEvent(getBearerToken(req), recording.organization_id, "content_changed", "meeting_recording", recording.id);
         return res.status(200).json({
           recording: updatedRecording,
           draftDocument: currentDraftDocument,
@@ -1091,6 +1079,7 @@ async function handler(req, res) {
         processing_error: null,
       });
 
+      await recordRecordsSupportEvent(getBearerToken(req), recording.organization_id, "content_changed", "app_document", updatedDocument?.id || recording.id);
       return res.status(200).json({
         recording: updatedRecording,
         draftDocument: updatedDocument,
@@ -1138,6 +1127,7 @@ async function handler(req, res) {
       processing_error: null,
     });
 
+    await recordRecordsSupportEvent(getBearerToken(req), recording.organization_id, "content_changed", "meeting_recording", recording.id);
     return res.status(200).json({
       recording: updatedRecording,
       draftDocument,

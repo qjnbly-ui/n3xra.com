@@ -60,6 +60,7 @@ module.exports = async function handler(req, res) {
       organizationId,
       user,
       enforceLimit: false,
+      allowPlatformAdmin: true,
     });
 
     return res.status(200).json({

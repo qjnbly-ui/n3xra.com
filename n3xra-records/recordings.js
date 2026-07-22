@@ -1,4 +1,5 @@
 import { createBrowserSupabase, getConfig, hasConfig, getSessionOrNull } from "/shared/lib/supabase-client.js";
+import { getSupportOrganizationId, loadSupportMembership, recordSupportEvent } from "./lib/support-access.js";
 import {
   buildMembershipMap,
   dedupeMembershipsByOrganization,
@@ -835,7 +836,7 @@ function getActiveCapabilities() {
   return getCapabilities(
     activeMembership,
     currentSession?.user?.id || "",
-    isPlatformAdminEmail(currentSession?.user?.email)
+    activeMembership?.isSupportView ? false : isPlatformAdminEmail(currentSession?.user?.email)
   );
 }
 
@@ -1231,6 +1232,8 @@ async function createRecordingSignedUrl(recording) {
   if (error || !data?.signedUrl) {
     throw error || new Error("Unable to create a playback link.");
   }
+  await recordSupportEvent(supabase, activeMembership?.organization?.id, "content_viewed", "recording", recording.id);
+  await recordSupportEvent(supabase, activeMembership?.organization?.id, "signed_link_created", "recording", recording.id);
   return data.signedUrl;
 }
 
@@ -1338,7 +1341,11 @@ async function bootstrapAccess() {
   if (error) throw error;
 
   memberships = dedupeMembershipsByOrganization(buildMembershipMap(data || []));
-  activeMembership = resolveActiveOrganization(memberships, String(bootstrapData?.active_organization_id || ""));
+  if (getSupportOrganizationId() && isPlatformAdminEmail(currentSession.user.email)) {
+    const supportMembership = await loadSupportMembership(supabase, currentSession.user);
+    if (supportMembership) memberships = [supportMembership, ...memberships.filter((item) => item.organization?.id !== supportMembership.organization.id)];
+  }
+  activeMembership = resolveActiveOrganization(memberships, getSupportOrganizationId() || String(bootstrapData?.active_organization_id || ""));
   if (activeMembership?.organization?.id) {
     setStoredActiveOrganizationId(activeMembership.organization.id);
   }

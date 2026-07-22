@@ -161,9 +161,12 @@ Deno.serve(async (request) => {
       return jsonResponse({ error: membershipError.message }, 400);
     }
 
-    const isPlatformAdmin = ["quentin@n3xra.com", "quentin@quentinnichols.com"].includes(String(user.email || "").toLowerCase());
+    const { data: canSupportChange } = await userClient.rpc("has_records_support_scope", {
+      target_organization_id: organizationId,
+      requested_scope: "change_content",
+    });
     const isOwner = organization.owner_user_id === user.id;
-    if (!membership && !isOwner && !isPlatformAdmin) {
+    if (!membership && !isOwner && !canSupportChange) {
       return jsonResponse({ error: "You do not have access to send messages from this library." }, 403);
     }
 
@@ -198,6 +201,17 @@ Deno.serve(async (request) => {
       } else {
         failed.push({ email, error: String(emailResult?.message || emailResult?.error || "Message email failed to send.") });
       }
+    }
+
+    if (!membership && !isOwner && canSupportChange && sent.length) {
+      await userClient.rpc("record_records_support_event", {
+        input_organization_id: organizationId,
+        input_event_type: "content_changed",
+        input_resource_type: "records_message",
+        input_resource_id: null,
+        input_reason: null,
+        input_metadata: { source: "send_records_message", recipient_count: sent.length },
+      });
     }
 
     return jsonResponse({
