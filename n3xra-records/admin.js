@@ -32,6 +32,9 @@ const supportWorkspaceSummary = document.getElementById("support-workspace-summa
 const supportAccessState = document.getElementById("support-access-state");
 const supportScopeList = document.getElementById("support-scope-list");
 const supportWorkspaceStatus = document.getElementById("support-workspace-status");
+const supportAccountFacts = document.getElementById("support-account-facts");
+const supportUsageFacts = document.getElementById("support-usage-facts");
+const supportFeatureFacts = document.getElementById("support-feature-facts");
 const supportDocumentsList = document.getElementById("support-documents-list");
 const supportRecordingsList = document.getElementById("support-recordings-list");
 const supportAuditList = document.getElementById("support-audit-list");
@@ -424,6 +427,18 @@ function normalizeRpcRow(data) {
   return data || null;
 }
 
+function isValidSupportGrant(grant) {
+  if (!grant?.id || !grant?.expires_at || grant.revoked_at) return false;
+  const expiresAt = new Date(grant.expires_at).getTime();
+  if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) return false;
+  return Boolean(
+    grant.can_view_documents ||
+    grant.can_view_recordings ||
+    grant.can_download_files ||
+    grant.can_change_content
+  );
+}
+
 function formatSupportEvent(value) {
   return String(value || "Support activity").replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
@@ -441,7 +456,7 @@ async function loadCurrentSupportAccess(organizationId) {
   });
   if (error) throw error;
   const grant = normalizeRpcRow(data);
-  if (grant) return { ...grant, emergency_access: false };
+  if (isValidSupportGrant(grant)) return { ...grant, emergency_access: false };
 
   const { data: emergency, error: emergencyError } = await supabase
     .from("records_emergency_access")
@@ -462,6 +477,52 @@ async function loadCurrentSupportAccess(organizationId) {
     can_download_files: true,
     can_change_content: true,
   } : null;
+}
+
+function renderSupportOverview(organization, usageAccount) {
+  if (supportAccountFacts) {
+    supportAccountFacts.innerHTML = [
+      ["Owner", organization.owner_profile?.email || "Not available"],
+      ["Plan", organization.subscription_tier || "Free"],
+      ["Billing status", organization.account_status || "Active"],
+      ["Members", `${organization.member_count || 0}`],
+      ["Current period ends", organization.subscription_current_period_end ? new Date(organization.subscription_current_period_end).toLocaleDateString() : "Not scheduled"],
+    ].map(([label, value]) => `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`).join("");
+  }
+  if (supportFeatureFacts) {
+    const features = [
+      ["Public records and embeds", organization.public_embed_enabled],
+      ["Keyword search", organization.keyword_search_enabled],
+    ];
+    supportFeatureFacts.innerHTML = features.map(([label, enabled]) => `<div><span>${escapeHtml(label)}</span><strong class="${enabled ? "is-enabled" : ""}">${enabled ? "Enabled" : "Disabled"}</strong></div>`).join("");
+  }
+  if (supportUsageFacts) {
+    if (!usageAccount) {
+      supportUsageFacts.innerHTML = '<p class="field-note">Usage information is currently unavailable.</p>';
+    } else {
+      supportUsageFacts.innerHTML = `
+        <div><span>Storage</span>${renderMetric(usageAccount.metrics?.storage, formatStorageBytes)}</div>
+        <div><span>Documents</span>${renderMetric(usageAccount.metrics?.documents)}</div>
+        <div><span>AI requests</span>${renderMetric(usageAccount.metrics?.aiRequests)}</div>
+        <div><span>Users</span>${renderMetric(usageAccount.metrics?.users)}</div>
+        <div><span>Last activity</span><strong>${escapeHtml(formatDateTime(usageAccount.usage?.lastActiveAt))}</strong></div>
+        <div><span>Account health</span><div class="admin-usage-flags">${renderUsageFlags(usageAccount.flags)}</div></div>
+      `;
+    }
+  }
+}
+
+async function loadSupportUsageAccount(organizationId) {
+  try {
+    const accessToken = await getFreshAccessToken();
+    const response = await fetch("/api/records-admin-usage", { headers: { Authorization: `Bearer ${accessToken}` } });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) return null;
+    const accounts = Array.isArray(payload?.usage?.accounts) ? payload.usage.accounts : [];
+    return accounts.find((account) => account.id === organizationId) || null;
+  } catch {
+    return null;
+  }
 }
 
 function renderSupportScopes(grant) {
@@ -503,7 +564,12 @@ async function loadRecordsSupportWorkspace() {
   if (!organization) return;
   setStatus(supportWorkspaceStatus, "Checking customer-granted access...");
   supportWorkspaceSummary.textContent = `${organization.name || "Selected organization"} · ${organization.owner_profile?.email || "Owner email unavailable"}`;
-  activeSupportGrant = await loadCurrentSupportAccess(organization.id);
+  const [grant, usageAccount] = await Promise.all([
+    loadCurrentSupportAccess(organization.id),
+    loadSupportUsageAccount(organization.id),
+  ]);
+  activeSupportGrant = grant;
+  renderSupportOverview(organization, usageAccount);
   renderSupportScopes(activeSupportGrant);
 
   const canViewDocuments = Boolean(activeSupportGrant?.can_view_documents);
