@@ -969,6 +969,13 @@ body.portal-denied main {
   background: #f1faf7;
 }
 
+.proposal-plan-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.45rem;
+}
+
 .proposal-pricing-guidance strong {
   font-size: 0.8rem;
 }

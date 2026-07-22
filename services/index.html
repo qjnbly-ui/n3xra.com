@@ -290,6 +290,46 @@
       font-size: 0.82rem;
     }
 
+    .pricing-features {
+      display: grid;
+      gap: 0.45rem;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .pricing-features li {
+      position: relative;
+      padding-left: 1rem;
+      color: var(--services-muted);
+      font-size: 0.8rem;
+      line-height: 1.5;
+    }
+
+    .pricing-features li::before {
+      content: "";
+      position: absolute;
+      top: 0.58em;
+      left: 0;
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: #138470;
+    }
+
+    .pricing-badge {
+      width: fit-content;
+      margin: 0;
+      padding: 0.28rem 0.48rem;
+      border-radius: 999px;
+      color: #0d6f60 !important;
+      background: #e4f5f0;
+      font-size: 0.66rem !important;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
     .pricing-details {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -520,27 +560,43 @@
       <div class="pricing-intro">
         <div>
           <p class="eyebrow">Website pricing</p>
-          <h2>Start practical. Expand when you need to.</h2>
+          <h2>Founding Client website service.</h2>
         </div>
-        <p>Every build is confirmed in a proposal before work begins. These starting points make the ongoing commitment clear while leaving room for a website shaped around your actual needs.</p>
+        <p>Affordable ongoing care for early N3XRA website clients. Every build and service plan is confirmed in a proposal before work begins.</p>
       </div>
       <div class="pricing-grid">
         <section class="pricing-card">
+          <p class="pricing-badge">Founding Client Pricing</p>
           <h3>Starter</h3>
-          <p class="pricing-amount">$30 <span>per month</span></p>
-          <p>For a straightforward, easy-to-manage website with a small number of core pages. Basic website builds start at $250.</p>
+          <p class="pricing-amount">$25 <span>per month</span></p>
+          <p>Reliable care for a straightforward website. Basic website builds start at $250.</p>
+          <ul class="pricing-features">
+            <li>Managed hosting</li>
+            <li>SSL and routine security maintenance</li>
+            <li>Backups and monitoring</li>
+            <li>Support during normal business hours</li>
+            <li>Website edits billed at $75 per hour</li>
+          </ul>
         </section>
         <section class="pricing-card">
-          <h3>Expanded</h3>
-          <p class="pricing-amount">From $50 <span>per month</span></p>
-          <p>For larger sites, added functionality, integrations, portals, payments, automation, or continuing support needs. Build pricing is custom quoted.</p>
+          <p class="pricing-badge">Founding Client Pricing</p>
+          <h3>Starter+</h3>
+          <p class="pricing-amount">$40 <span>per month</span></p>
+          <p>For clients who want routine help available as their website evolves.</p>
+          <ul class="pricing-features">
+            <li>Everything included with Starter</li>
+            <li>Up to 30 minutes of routine website edits each month</li>
+            <li>Priority handling with support requests accepted 24/7</li>
+            <li>Additional eligible edits at $52.50 per hour—a 30% discount</li>
+          </ul>
         </section>
       </div>
       <div class="pricing-details">
-        <div><strong>Save 10% annually</strong><span>Pay for one year of website service in advance and receive 10% off that service.</span></div>
+        <div><strong>Save 10% annually</strong><span>Starter is $270/year and Starter+ is $432/year when paid in advance.</span></div>
         <div><strong>Referral code savings</strong><span>A valid N3XRA website referral code receives 10% off the website build.</span></div>
         <div><strong>Outside costs stay clear</strong><span>Domains, premium software, payment processing, and other third-party services are listed separately when applicable.</span></div>
       </div>
+      <p class="pricing-fine-print">Starter+ edit time covers routine content, image, and minor layout changes, expires each month, and does not roll over. New pages, redesigns, custom features, integrations, and urgent after-hours work are quoted separately. Support requests may be submitted 24/7, but priority handling does not promise an immediate response at all hours. Founding Client Pricing remains available while qualifying service stays continuously active.</p>
       <p class="pricing-fine-print">A proposal is not a bill. Your exact build, service level, discounts, and outside costs are presented for approval before contract and billing steps begin.</p>
       <div class="cta-row"><a class="button button-primary" href="/website-request/">Start a Project</a></div>
     </article>

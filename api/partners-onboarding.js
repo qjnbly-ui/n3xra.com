@@ -277,6 +277,8 @@ export default async function handler(req, res) {
       selected_programs: normalizeProducts(body.interested_products || body.interestedProducts),
       commission_amount_usd: 100,
       minimum_service_months: 12,
+      partner_terms_version: cleanString(body.partner_terms_version, 40) || "2026-07-21",
+      partner_terms_accepted: Boolean(body.consent),
       submitted_at: new Date().toISOString(),
       user_agent: cleanString(req.headers?.["user-agent"], 500),
       referer: cleanString(req.headers?.referer || req.headers?.referrer, 500),

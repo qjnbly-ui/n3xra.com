@@ -16,6 +16,8 @@ const previewEmailButton = document.getElementById("preview-proposal-email");
 const emailDialog = document.getElementById("proposal-email-dialog");
 const lineItemsContainer = document.getElementById("proposal-line-items");
 const addLineItemButton = document.getElementById("add-proposal-line-item");
+const addStarterPlanButton = document.getElementById("add-starter-plan");
+const addStarterPlusPlanButton = document.getElementById("add-starter-plus-plan");
 const previewLink = document.getElementById("preview-proposal");
 const refreshButton = document.getElementById("refresh-proposals");
 const referralDiscountWrap = document.getElementById("proposal-referral-discount-wrap");
@@ -141,6 +143,39 @@ function newLineItem(overrides = {}) {
   };
 }
 
+function servicePlanItem(plan) {
+  if (plan === "starter_plus") {
+    return newLineItem({
+      category: "maintenance",
+      name: "Founding Client Starter+ website service",
+      description: "Managed hosting, SSL and routine security maintenance, backups, monitoring, priority handling, and up to 30 non-rollover minutes of routine edits monthly. Additional eligible edits are $52.50/hour. New pages, custom features, integrations, redesigns, and urgent after-hours work are quoted separately.",
+      billing_type: "recurring",
+      unit_amount_cents: 4000,
+      recurring_interval: "monthly",
+    });
+  }
+  return newLineItem({
+    category: "maintenance",
+    name: "Founding Client Starter website service",
+    description: "Managed hosting, SSL and routine security maintenance, backups, monitoring, and normal-business-hours support. Website edits are billed at $75/hour.",
+    billing_type: "recurring",
+    unit_amount_cents: 2500,
+    recurring_interval: "monthly",
+  });
+}
+
+function applyServicePlanIntervalPrice(row) {
+  const name = row.querySelector('[data-line-field="name"]')?.value.trim();
+  const interval = row.querySelector('[data-line-field="recurring_interval"]')?.value;
+  const unitAmount = row.querySelector('[data-line-field="unit_amount"]');
+  if (!unitAmount || !["monthly", "yearly"].includes(interval)) return;
+  if (name === "Founding Client Starter website service") {
+    unitAmount.value = interval === "yearly" ? "270.00" : "25.00";
+  } else if (name === "Founding Client Starter+ website service") {
+    unitAmount.value = interval === "yearly" ? "432.00" : "40.00";
+  }
+}
+
 function editingLineItems(version = editingVersion) {
   const stored = version ? lineItems.filter((item) => item.version_id === version.id) : [];
   if (stored.length) return stored.map((item) => ({ ...item }));
@@ -264,7 +299,7 @@ function defaultVersion() {
     recurring_interval: "",
     payment_schedule: "",
     revision_policy: "The project includes the revisions specifically listed in the final contract. Work outside the approved scope will be quoted separately.",
-    terms: "This proposal describes the intended project scope and pricing. Final work begins after the related contract is signed and the required deposit is paid.",
+    terms: "This proposal describes the intended project scope and pricing. Final work begins after the related contract is signed and the required deposit is paid.\n\nAny Founding Client service rate shown remains available while the qualifying service stays continuously active. If service is canceled, future service may be offered under the pricing and terms available at that time.\n\nIncluded monthly edit time applies only to routine content, image, and minor layout changes, expires at the end of each month, and does not roll over. New pages, redesigns, custom features, integrations, and urgent after-hours work are quoted separately. Priority handling does not guarantee an immediate response at every hour. Domains and third-party services are billed separately when applicable.",
     valid_until: "",
   };
 }
@@ -599,6 +634,14 @@ async function init() {
     lineItemsContainer.insertAdjacentHTML("beforeend", lineItemMarkup(newLineItem({ category: "other", name: "" })));
     updateInvestmentTotals();
   });
+  addStarterPlanButton.addEventListener("click", () => {
+    lineItemsContainer.insertAdjacentHTML("beforeend", lineItemMarkup(servicePlanItem("starter")));
+    updateInvestmentTotals();
+  });
+  addStarterPlusPlanButton.addEventListener("click", () => {
+    lineItemsContainer.insertAdjacentHTML("beforeend", lineItemMarkup(servicePlanItem("starter_plus")));
+    updateInvestmentTotals();
+  });
   lineItemsContainer.addEventListener("click", (event) => {
     const remove = event.target.closest("[data-remove-line]");
     if (!remove) return;
@@ -611,6 +654,7 @@ async function init() {
     if (event.target.matches('[data-line-field="billing_type"]')) {
       row.querySelector("[data-interval-wrap]").hidden = event.target.value !== "recurring";
     }
+    if (event.target.matches('[data-line-field="recurring_interval"]')) applyServicePlanIntervalPrice(row);
     updateInvestmentTotals();
   });
   newVersionButton.addEventListener("click", () => createRevision().catch((error) => setStatus(error.message, true)));

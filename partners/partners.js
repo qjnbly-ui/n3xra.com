@@ -58,6 +58,7 @@
       referral_plan: String(data.get("referral_plan") || "").trim(),
       payout_country: String(data.get("payout_country") || "").trim(),
       consent: data.get("consent") === "yes",
+      partner_terms_version: "2026-07-21",
       company: String(data.get("company") || "").trim(),
     };
 

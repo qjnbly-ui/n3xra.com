@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/site-nav.css">
-  <link rel="stylesheet" href="/client-portal/portal.css?v=12">
+  <link rel="stylesheet" href="/client-portal/portal.css?v=13">
   <script src="/shared/config.js"></script>
   <script src="/n3xra-admin/admin-shell.js?v=2" defer></script>
 </head>
@@ -106,12 +106,12 @@
           <div class="portal-form-section">
             <div class="portal-form-section-head">
               <div><h4>Investment</h4><p>Add each proposed project cost or outside service separately. This is not a bill; the client must approve the proposal before billing is created.</p></div>
-              <button class="portal-button portal-button-secondary" id="add-proposal-line-item" type="button">Add service</button>
+              <div class="proposal-plan-actions"><button class="portal-button portal-button-secondary" id="add-starter-plan" type="button">Add Starter</button><button class="portal-button portal-button-secondary" id="add-starter-plus-plan" type="button">Add Starter+</button><button class="portal-button portal-button-secondary" id="add-proposal-line-item" type="button">Add other service</button></div>
             </div>
             <div class="proposal-line-items" id="proposal-line-items"></div>
             <div class="proposal-pricing-guidance">
               <strong>Published service pricing</strong>
-              <span>Starter is $30/month or $324/year. Expanded starts at $50/month or $540/year. Annual prices include the 10% service savings. Domains and third-party costs should remain separate line items.</span>
+              <span>Founding Client Starter is $25/month or $270/year. Starter+ is $40/month or $432/year and includes up to 30 non-rollover minutes of routine edits monthly. Additional eligible Starter+ edits are $52.50/hour; standard edits are $75/hour. Annual prices include the 10% service savings. Domains and third-party costs stay separate.</span>
             </div>
             <div class="portal-form-grid">
               <label>One-time subtotal ($)<input id="proposal-subtotal" type="number" min="0" step="0.01" readonly required></label>
@@ -159,6 +159,6 @@
 
   <div class="portal-status" id="portal-status" role="status">Verifying proposal access…</div>
   <script type="module" src="/client-portal/portal-shell.js"></script>
-  <script type="module" src="/n3xra-admin/proposals/proposals-admin.js?v=2"></script>
+  <script type="module" src="/n3xra-admin/proposals/proposals-admin.js?v=3"></script>
 </body>
 </html>
