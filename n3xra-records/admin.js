@@ -25,6 +25,10 @@ const organizationFormStatus = document.getElementById("organization-form-status
 const selectedOrganizationTitle = document.getElementById("selected-organization-title");
 const selectedOrganizationSummary = document.getElementById("selected-organization-summary");
 const selectedOrganizationSupportLink = document.getElementById("selected-organization-support-link");
+const recordsSupportDialog = document.getElementById("records-support-dialog");
+const recordsSupportDialogTitle = document.getElementById("records-support-dialog-title");
+const recordsSupportDialogClose = document.getElementById("records-support-dialog-close");
+const recordsSupportFrame = document.getElementById("records-support-frame");
 const passwordResetForm = document.getElementById("password-reset-form");
 const passwordResetEmailInput = document.getElementById("password-reset-email");
 const passwordResetStatus = document.getElementById("password-reset-status");
@@ -208,7 +212,7 @@ function renderSelectedOrganization() {
     ].join(" · ");
   }
   if (selectedOrganizationSupportLink) {
-    selectedOrganizationSupportLink.href = `/n3xra-records/account?support_org=${encodeURIComponent(organization.id)}`;
+    selectedOrganizationSupportLink.dataset.supportUrl = `/n3xra-records/account?support_org=${encodeURIComponent(organization.id)}`;
     selectedOrganizationSupportLink.classList.remove("hidden");
   }
   organizationNameInput.value = organization.name || "";
@@ -407,6 +411,20 @@ async function handleLogout() {
   window.location.replace("/n3xra-records/login");
 }
 
+function closeRecordsSupportView() {
+  if (recordsSupportDialog?.open) recordsSupportDialog.close();
+  if (recordsSupportFrame) recordsSupportFrame.src = "about:blank";
+}
+
+function openRecordsSupportView() {
+  const organization = getSelectedOrganization();
+  const supportUrl = selectedOrganizationSupportLink?.dataset.supportUrl || "";
+  if (!organization || !supportUrl || !recordsSupportDialog || !recordsSupportFrame) return;
+  if (recordsSupportDialogTitle) recordsSupportDialogTitle.textContent = `${organization.name || "Selected organization"} support`;
+  recordsSupportFrame.src = supportUrl;
+  recordsSupportDialog.showModal();
+}
+
 function handleOrganizationListClick(event) {
   const isSelect = event.currentTarget instanceof HTMLSelectElement;
   const row = isSelect ? null : event.target.closest("[data-id]");
@@ -569,6 +587,11 @@ async function init() {
   passwordResetForm?.addEventListener("submit", handlePasswordReset);
   emergencyAccessForm?.addEventListener("submit", handleEmergencyAccess);
   emergencyAccessEnd?.addEventListener("click", handleEmergencyAccessEnd);
+  selectedOrganizationSupportLink?.addEventListener("click", openRecordsSupportView);
+  recordsSupportDialogClose?.addEventListener("click", closeRecordsSupportView);
+  recordsSupportDialog?.addEventListener("close", () => {
+    if (recordsSupportFrame) recordsSupportFrame.src = "about:blank";
+  });
 }
 
 init();

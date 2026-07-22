@@ -37,6 +37,7 @@ const mobileMenuFilesLink = document.getElementById("mobile-menu-files-link");
 const mobileMenuMessagesLink = document.getElementById("mobile-menu-messages-link");
 const mobileMenuRecordingsLink = document.getElementById("mobile-menu-recordings-link");
 const accountSection = document.getElementById("account-section");
+const librarySettingsCard = document.getElementById("library-settings-card");
 const librarySection = document.getElementById("library-section");
 const libraryActionsGrid = document.getElementById("library-actions-grid");
 const accountLibraryContext = document.getElementById("account-library-context");
@@ -56,6 +57,12 @@ const supportAccessGrantButton = document.getElementById("support-access-grant")
 const supportAccessRevokeButton = document.getElementById("support-access-revoke");
 const supportAccessStatus = document.getElementById("support-access-status");
 const supportAuditList = document.getElementById("support-audit-list");
+const supportAccessHeading = supportAccessCard?.querySelector(".panel-head h3") || null;
+const supportAccessCopy = supportAccessCard?.querySelector(".panel-head p") || null;
+const supportAccessTab = document.getElementById("admin-support-tab");
+const libraryPanelCopy = document.querySelector("#admin-library-panel > .admin-panel-head p");
+const storagePanelCopy = document.querySelector("#admin-storage-panel > .admin-panel-head p");
+const storagePanelNotice = document.querySelector("#admin-storage-panel .notice");
 const libraryProfileBody = document.getElementById("library-profile-body");
 const libraryLogoForm = document.getElementById("library-logo-form");
 const libraryLogoFileInput = document.getElementById("library-logo-file");
@@ -764,11 +771,18 @@ function formatSupportEvent(eventType) {
 function renderSupportAccess() {
   const organization = getActiveOrganization();
   const canManage = Boolean(organization && !isSupportView() && getActiveCapabilities().canManageLibrarySettings);
-  show(supportAccessCard, canManage);
-  if (!supportAccessCard || !canManage) return;
+  const supportMode = Boolean(organization && isSupportView());
+  show(supportAccessCard, canManage || supportMode);
+  show(supportAccessForm, canManage);
+  if (supportAccessTab) supportAccessTab.textContent = supportMode ? "Support audit" : "N3XRA support access";
+  if (supportAccessHeading) supportAccessHeading.textContent = supportMode ? "Support access audit" : "N3XRA support access";
+  if (supportAccessCopy) supportAccessCopy.textContent = supportMode
+    ? "Review the permanent access history for this organization. Customer content remains unavailable unless a temporary grant is active."
+    : "Private Records content stays unavailable to N3XRA unless you grant temporary access.";
+  if (!supportAccessCard || (!canManage && !supportMode)) return;
   const active = supportGrantIsActive();
-  show(supportAccessGrantButton, !active);
-  show(supportAccessRevokeButton, active);
+  show(supportAccessGrantButton, canManage && !active);
+  show(supportAccessRevokeButton, canManage && active);
   [supportAccessReason, supportScopeDocuments, supportScopeRecordings, supportScopeDownloads, supportScopeChanges]
     .filter(Boolean).forEach((field) => { field.disabled = active; });
   if (active) {
@@ -789,7 +803,8 @@ function renderSupportAccess() {
 
 async function loadSupportAudit() {
   const organization = getActiveOrganization();
-  if (!organization || isSupportView() || !getActiveCapabilities().canManageLibrarySettings) {
+  const canReview = Boolean(organization && (isSupportView() || getActiveCapabilities().canManageLibrarySettings));
+  if (!canReview) {
     supportAuditCache = [];
     renderSupportAccess();
     return;
@@ -2573,7 +2588,7 @@ async function bootstrapAccess() {
 
     if (supportError) throw supportError;
     if (supportOrg) {
-      memberships = sortMemberships([
+      memberships = [
         {
           id: `support-${supportOrg.id}`,
           organization_id: supportOrg.id,
@@ -2582,8 +2597,7 @@ async function bootstrapAccess() {
           organization: supportOrg,
           isSupportView: true,
         },
-        ...memberships.filter((item) => item.organization?.id !== supportOrg.id),
-      ]);
+      ];
     }
   } else {
     memberships = sortMemberships(memberships);
@@ -3098,13 +3112,14 @@ function renderProfile() {
   const canSeeEmbedSettings = hasLibraryAccess && isOrganizationPlan && canSeeLibrarySettings;
   const canSeeAccessSettings = hasLibraryAccess;
   const canSeePublishingSettings = canSeeEmbedSettings;
-  const canSeeBillingSettings = hasLibraryAccess && canSeeBilling;
+  const supportMode = isSupportView();
+  const canSeeBillingSettings = hasLibraryAccess && (canSeeBilling || supportMode);
   const canSeeReviewSettings = hasLibraryAccess && capabilities.canManageLibrarySettings;
   const canSeeTemplateSettings = hasLibraryAccess && capabilities.canManageTemplates;
-  const canSeeLibraryAdminTab = canSeeLibraryProfileSettings || canSeePublishingSettings || canSeeReviewSettings;
+  const canSeeLibraryAdminTab = canSeeLibraryProfileSettings || canSeePublishingSettings || canSeeReviewSettings || supportMode;
   const canSeeAiAdminTab = hasLibraryAccess && canSeeLibrarySettings;
   const canCreateAdditionalLibrary = canCreateOwnedLibrary();
-  const canSeePlanMeta = capabilities.canManageBilling || capabilities.canManageLibrarySettings;
+  const canSeePlanMeta = capabilities.canManageBilling || capabilities.canManageLibrarySettings || supportMode;
   const canEditLibraryNameFromProfile = capabilities.canManageLibrarySettings;
   const canDeleteAccountNow = canDeleteOwnAccount();
 
@@ -3155,6 +3170,7 @@ function renderProfile() {
   if (uploadIsPublicInput) uploadIsPublicInput.disabled = !capabilities.canUploadDocuments || !hasEmbeddedAccess();
 
   show(accountNoLibraryNotice, !hasLibraryAccess);
+  show(librarySettingsCard, !supportMode);
   show(accountLibraryContext, hasLibraryAccess);
   show(accountTierItem, canSeePlanMeta);
   show(accountStatusItem, canSeePlanMeta);
@@ -3169,7 +3185,7 @@ function renderProfile() {
   show(organizationNameField, canEditLibraryNameFromProfile);
   show(organizationPrimaryColorField, !isFreePlan);
   show(organizationAccentColorField, !isFreePlan);
-  show(libraryProfileBody, canSeeLibraryProfileSettings);
+  show(libraryProfileBody, canSeeLibraryProfileSettings || supportMode);
   show(aiSettingsBody, canSeeAiAdminTab);
   show(contactsSettingsBody, canSeeContactsSettings);
   show(accessSettingsBody, canSeeAccessSettings);
@@ -3190,17 +3206,28 @@ function renderProfile() {
   show(deleteAccountBlockedNote, !canDeleteAccountNow);
   libraryAccessCopy.textContent = capabilities.canManageLibrarySettings
     ? "Manage users, contacts, templates, support access, library profile, AI, and billing for this library."
-    : "Join shared libraries from invite codes and review available settings.";
+    : supportMode
+      ? "Review this organization’s safe account settings and support-access history. Private content unlocks only through a temporary grant."
+      : "Join shared libraries from invite codes and review available settings.";
+  if (libraryPanelCopy) libraryPanelCopy.textContent = supportMode
+    ? "Review the organization’s non-confidential library identity and feature configuration. Changes require customer permission."
+    : "Control the library name, logo, colors, public records view, and review.";
+  if (storagePanelCopy) storagePanelCopy.textContent = supportMode
+    ? "Review storage totals and limit health without exposing filenames or customer content."
+    : "Open the storage view to review usage, largest files, and cleanup suggestions for this library.";
+  if (storagePanelNotice) storagePanelNotice.innerHTML = supportMode
+    ? "<strong>Privacy-safe view:</strong> Storage totals and category usage are available. Filenames, file links, and largest-item details remain hidden."
+    : "<strong>What you can review there:</strong> Uploaded files, meeting recordings, transcript source files, largest items, and storage-saving suggestions.";
   updateAdminTabs({
     users: canSeeMemberManagement,
     contacts: canSeeContactsSettings,
     templates: canSeeTemplateSettings,
     access: canSeeAccessSettings,
-    support: capabilities.canManageLibrarySettings && !isSupportView(),
+    support: capabilities.canManageLibrarySettings || supportMode,
     library: canSeeLibraryAdminTab,
     ai: canSeeAiAdminTab,
     billing: canSeeBillingSettings,
-    storage: capabilities.canManageLibrarySettings,
+    storage: capabilities.canManageLibrarySettings || supportMode,
     activity: capabilities.canManageLibrarySettings,
   });
   renderAdminTemplates();
@@ -3880,7 +3907,7 @@ async function loadActiveOrganizationData() {
   if (!supportMode || hasSupportScope("documents")) tasks.push(loadDocuments(), loadAppTemplates());
   if (!supportMode) tasks.push(loadInvites(), loadMembers(), loadContacts(), loadOrganizationAiSettings(), loadOrganizationReview());
   await Promise.all(tasks);
-  if (!supportMode) await loadSupportAudit();
+  await loadSupportAudit();
   renderContacts();
   if (activeAdminTab === "activity") {
     await loadActivityLogForActiveOrganization();

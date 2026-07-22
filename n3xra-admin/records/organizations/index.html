@@ -5,7 +5,7 @@
   <title>N3XRA | Records Organizations</title><meta name="description" content="N3XRA Records organization administration."><meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
   <link rel="canonical" href="https://n3xra.com/n3xra-admin/records/organizations/"><link rel="icon" type="image/png" href="/assets/n3xra_logo_transparent_small.png">
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/site-nav.css"><link rel="stylesheet" href="/client-portal/portal.css?v=9"><link rel="stylesheet" href="/n3xra-admin/records/records-admin.css?v=2">
+  <link rel="stylesheet" href="/assets/site-nav.css"><link rel="stylesheet" href="/client-portal/portal.css?v=9"><link rel="stylesheet" href="/n3xra-admin/records/records-admin.css?v=3">
   <script src="/shared/config.js"></script><script src="/assets/site-nav.js" defer></script>
 </head>
 <body>
@@ -22,7 +22,7 @@
           <div class="records-admin-selector records-admin-selector-top"><label class="records-admin-org-select"><span class="portal-kicker">Organizations</span><strong>Choose an account</strong><select id="organization-list" aria-label="Choose an organization account"></select></label><p class="status" id="admin-status"></p></div>
           <div class="records-admin-layout records-admin-layout-single">
           <div class="records-admin-selected">
-            <div class="selected-organization-head"><div><p class="portal-kicker">Selected organization</p><h3 id="selected-organization-title">Select an organization</h3><p id="selected-organization-summary">Library settings and support actions will appear here.</p></div><a class="portal-button portal-button-secondary hidden" id="selected-organization-support-link" href="/n3xra-records/account">Support view</a></div>
+            <div class="selected-organization-head"><div><p class="portal-kicker">Selected organization</p><h3 id="selected-organization-title">Select an organization</h3><p id="selected-organization-summary">Library settings and support actions will appear here.</p></div><button class="portal-button portal-button-secondary hidden" id="selected-organization-support-link" type="button">Support view</button></div>
             <form class="portal-form records-organization-form" id="organization-form"><div class="portal-form-head"><div><p class="portal-kicker">Account controls</p><h3>Library settings</h3></div></div>
               <div class="portal-form-grid"><label>Organization<input id="organization-name" type="text"></label><label>Plan tier<select id="organization-tier"><option value="free">Free</option><option value="starter">Starter</option><option value="organization">Organization</option></select></label><label>Billing status<select id="organization-status"><option value="active">Active</option><option value="trialing">Trialing</option><option value="past_due">Past due</option><option value="canceled">Canceled</option><option value="suspended">Suspended</option></select></label><label>Document limit<input id="organization-document-limit" type="text"></label><label>User limit<input id="organization-user-limit" type="text"></label><label>Storage limit (MB)<input id="organization-storage-limit" type="text"></label><label>Trial/subscription end<input id="organization-trial-end" type="date"></label></div>
               <div class="setting-toggles"><label class="toggle-pill"><input id="organization-public-embed" type="checkbox"><span>Public embed enabled</span></label><label class="toggle-pill"><input id="organization-keyword-search" type="checkbox"><span>Keyword search</span></label></div>
@@ -35,6 +35,15 @@
       </section>
     </div>
   </main>
+  <dialog class="records-support-dialog" id="records-support-dialog" aria-labelledby="records-support-dialog-title">
+    <div class="records-support-dialog-shell">
+      <div class="records-support-dialog-head">
+        <div><p class="portal-kicker">Customer support view</p><h2 id="records-support-dialog-title">Selected organization</h2></div>
+        <button class="portal-button portal-button-secondary" id="records-support-dialog-close" type="button">Close support view</button>
+      </div>
+      <iframe id="records-support-frame" title="Selected Records organization support view"></iframe>
+    </div>
+  </dialog>
   <script type="module" src="/n3xra-records/admin.js"></script>
 </body>
 </html>

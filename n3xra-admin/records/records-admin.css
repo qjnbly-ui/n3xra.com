@@ -213,6 +213,32 @@
 .admin-usage-flag.is-near { color: #85520d; background: #fff2db; }
 .admin-usage-flag.is-over { color: #9e2f40; background: #fde9ed; }
 
+.records-support-dialog {
+  width: min(1500px, calc(100vw - 2rem));
+  height: calc(100vh - 2rem);
+  max-width: none;
+  max-height: none;
+  padding: 0;
+  border: 1px solid var(--portal-line);
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 30px 90px rgba(5, 13, 22, .32);
+}
+.records-support-dialog::backdrop { background: rgba(5, 13, 22, .68); }
+.records-support-dialog-shell { display: grid; grid-template-rows: auto 1fr; height: 100%; }
+.records-support-dialog-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--portal-line);
+}
+.records-support-dialog-head h2,
+.records-support-dialog-head p { margin: 0; }
+.records-support-dialog-head h2 { font-family: "Fraunces", Georgia, serif; font-size: 1.35rem; }
+.records-support-dialog iframe { width: 100%; height: 100%; border: 0; background: #f5f7f9; }
+
 @media (max-width: 900px) {
   .records-admin-layout { grid-template-columns: 1fr; }
   .records-admin-org-list {
@@ -226,4 +252,6 @@
   .records-admin-org-list { grid-template-columns: 1fr; }
   .selected-organization-head,
   .portal-form-actions { align-items: flex-start; flex-direction: column; }
+  .records-support-dialog { width: 100vw; height: 100vh; border: 0; border-radius: 0; }
+  .records-support-dialog-head { align-items: flex-start; flex-direction: column; }
 }
