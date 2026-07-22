@@ -271,6 +271,16 @@ const docList = document.getElementById("doc-list");
 const docEmpty = document.getElementById("doc-empty");
 const recentFilesList = document.getElementById("recent-files-list");
 const recentFilesEmpty = document.getElementById("recent-files-empty");
+const adminPanelsContainer = document.querySelector(".admin-panels");
+if (supportAccessCard && adminPanelsContainer) {
+  supportAccessCard.classList.remove("account-card");
+  supportAccessCard.classList.add("admin-panel");
+  supportAccessCard.setAttribute("role", "tabpanel");
+  supportAccessCard.setAttribute("aria-labelledby", "admin-support-tab");
+  supportAccessCard.setAttribute("data-admin-panel", "support");
+  supportAccessCard.hidden = true;
+  adminPanelsContainer.append(supportAccessCard);
+}
 const adminTabs = Array.from(document.querySelectorAll("[data-admin-tab]"));
 const adminPanels = Array.from(document.querySelectorAll("[data-admin-panel]"));
 const adminUsersInviteButton = document.getElementById("admin-users-invite");
@@ -3179,13 +3189,14 @@ function renderProfile() {
   show(openDeleteAccountModalButton, canDeleteAccountNow);
   show(deleteAccountBlockedNote, !canDeleteAccountNow);
   libraryAccessCopy.textContent = capabilities.canManageLibrarySettings
-    ? "Manage users, contacts, templates, access, library profile, AI, and billing for this library."
+    ? "Manage users, contacts, templates, support access, library profile, AI, and billing for this library."
     : "Join shared libraries from invite codes and review available settings.";
   updateAdminTabs({
     users: canSeeMemberManagement,
     contacts: canSeeContactsSettings,
     templates: canSeeTemplateSettings,
     access: canSeeAccessSettings,
+    support: capabilities.canManageLibrarySettings && !isSupportView(),
     library: canSeeLibraryAdminTab,
     ai: canSeeAiAdminTab,
     billing: canSeeBillingSettings,
