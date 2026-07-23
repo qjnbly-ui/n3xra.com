@@ -440,7 +440,12 @@ function renderAssets() {
               <h3>${escapeHtml(asset.label)}</h3>
               <p><code>${escapeHtml(asset.asset_key)}</code> · ${escapeHtml((asset.replacement_type || "download_only").replaceAll("_", " "))}</p>
             </div>
-            <span class="portal-badge">${assetVersions.length} version${assetVersions.length === 1 ? "" : "s"}</span>
+            <div class="portal-card-actions">
+              <span class="portal-badge">${assetVersions.length} version${assetVersions.length === 1 ? "" : "s"}</span>
+              ${assetVersions.length === 0 && !asset.current_version_id
+                ? `<button class="portal-button portal-button-danger" data-delete-empty-asset="${asset.id}">Delete empty asset</button>`
+                : ""}
+            </div>
           </div>
           <div class="portal-version-list">
             ${assetVersions.length ? assetVersions.map((version) => `
@@ -914,7 +919,32 @@ async function deleteVersionAsAdmin(version) {
   await loadAssets();
 }
 
+async function deleteEmptyAssetAsAdmin(assetId) {
+  const asset = assets.find((row) => row.id === assetId);
+  const assetVersions = versions.filter((row) => row.asset_id === assetId);
+  if (!asset || assetVersions.length || asset.current_version_id) {
+    throw new Error("Only an empty, unused asset can be deleted here.");
+  }
+  if (!window.confirm(`Permanently delete the empty failed upload “${asset.label}”?`)) return;
+  const { error } = await supabase.from("website_assets").delete().eq("id", asset.id);
+  if (error) throw error;
+  showToast("Empty failed upload deleted.");
+  await loadAssets();
+}
+
 async function handleAssetAction(event) {
+  const emptyAssetButton = event.target.closest("[data-delete-empty-asset]");
+  if (emptyAssetButton) {
+    emptyAssetButton.disabled = true;
+    try {
+      await deleteEmptyAssetAsAdmin(emptyAssetButton.dataset.deleteEmptyAsset);
+    } catch (error) {
+      showToast(error?.message || "This empty asset could not be deleted.", "error");
+    } finally {
+      emptyAssetButton.disabled = false;
+    }
+    return;
+  }
   const button = event.target.closest("[data-version-action]");
   if (!button) return;
   const version = versions.find((row) => row.id === button.dataset.versionId);

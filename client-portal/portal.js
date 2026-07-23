@@ -451,7 +451,12 @@ function renderAssets() {
                 <span class="portal-pill">${escapeHtml(asset.asset_key)}</span>
               </div>
             </div>
-            ${canEditSelectedWebsite ? `<button class="portal-link-button" type="button" data-replace-asset="${asset.id}">Replace</button>` : ""}
+            ${canEditSelectedWebsite ? `
+              <div class="portal-version-actions">
+                <button class="portal-link-button" type="button" data-replace-asset="${asset.id}">Replace</button>
+                ${canDeleteEmptyClientAsset(asset, assetVersions) ? `<button class="portal-link-button" type="button" data-delete-empty-asset="${asset.id}">Delete</button>` : ""}
+              </div>
+            ` : ""}
           </div>
           <div class="portal-version-list">${versionMarkup}</div>
         </div>
@@ -468,6 +473,13 @@ function canDeleteClientVersion(asset, version) {
     && !version.public_url
     && !version.published_at
     && asset.current_version_id !== version.id;
+}
+
+function canDeleteEmptyClientAsset(asset, assetVersions) {
+  return canEditSelectedWebsite
+    && asset.created_by_user_id === currentSession?.user?.id
+    && !asset.current_version_id
+    && assetVersions.length === 0;
 }
 
 async function hydrateAssetPreviews() {
@@ -538,7 +550,7 @@ async function uploadReviewedItem(item, existingAsset = null, uploadBatchId = nu
     const { error: uploadError } = await supabase.storage.from(PRIVATE_BUCKET)
       .upload(storagePath, file, { cacheControl: "3600", upsert: false, contentType: file.type || undefined });
     if (uploadError) throw uploadError;
-    const { error: versionError } = await supabase.from("website_asset_versions").insert({
+    const versionRecord = {
       asset_id: asset.id,
       version_number: nextVersion,
       status: "pending_review",
@@ -550,7 +562,12 @@ async function uploadReviewedItem(item, existingAsset = null, uploadBatchId = nu
       change_note: item.note || null,
       uploaded_by_user_id: currentSession.user.id,
       upload_batch_id: uploadBatchId,
-    });
+    };
+    let { error: versionError } = await supabase.from("website_asset_versions").insert(versionRecord);
+    if (versionError && /upload_batch_id.+schema cache|column.+upload_batch_id/i.test(versionError.message || "")) {
+      delete versionRecord.upload_batch_id;
+      ({ error: versionError } = await supabase.from("website_asset_versions").insert(versionRecord));
+    }
     if (versionError) throw versionError;
   } catch (error) {
     const cleanupErrors = [];
@@ -672,6 +689,23 @@ async function deleteUnusedVersion(versionId) {
   await loadAssets();
 }
 
+async function deleteEmptyAsset(assetId) {
+  const asset = assets.find((row) => row.id === assetId);
+  const assetVersions = versions.filter((row) => row.asset_id === assetId);
+  if (!asset || !canDeleteEmptyClientAsset(asset, assetVersions)) {
+    showToast("Only your empty, unpublished failed uploads can be deleted.", "error");
+    return;
+  }
+  if (!window.confirm(`Delete the empty failed upload “${asset.label}”? This cannot be undone.`)) return;
+  const { error } = await supabase.from("website_assets").delete().eq("id", asset.id);
+  if (error) {
+    showToast(error.message || "The failed upload could not be deleted.", "error");
+    return;
+  }
+  showToast("Failed upload deleted.");
+  await loadAssets();
+}
+
 async function initPortal() {
   if (!hasConfig()) {
     document.body.classList.add("portal-denied");
@@ -750,6 +784,7 @@ async function initPortal() {
       const replaceButton = event.target.closest("[data-replace-asset]");
       const downloadButton = event.target.closest("[data-download-version]");
       const deleteButton = event.target.closest("[data-delete-version]");
+      const deleteEmptyButton = event.target.closest("[data-delete-empty-asset]");
       if (replaceButton) openUploadForm(replaceButton.dataset.replaceAsset);
       if (downloadButton) downloadVersion(downloadButton.dataset.downloadVersion);
       if (deleteButton) {
@@ -758,6 +793,14 @@ async function initPortal() {
           await deleteUnusedVersion(deleteButton.dataset.deleteVersion);
         } finally {
           deleteButton.disabled = false;
+        }
+      }
+      if (deleteEmptyButton) {
+        deleteEmptyButton.disabled = true;
+        try {
+          await deleteEmptyAsset(deleteEmptyButton.dataset.deleteEmptyAsset);
+        } finally {
+          deleteEmptyButton.disabled = false;
         }
       }
     });
