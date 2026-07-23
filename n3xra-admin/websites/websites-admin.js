@@ -16,6 +16,9 @@ const assetToolbar = document.getElementById("admin-asset-toolbar");
 const assetGrid = document.getElementById("admin-asset-grid");
 const emptyState = document.getElementById("admin-empty");
 const refreshButton = document.getElementById("refresh-admin");
+const approvePendingBatchButton = document.getElementById("approve-pending-batch");
+const publishApprovedBatchButton = document.getElementById("publish-approved-batch");
+const batchStatus = document.getElementById("admin-batch-status");
 const siteForm = document.getElementById("site-form");
 const siteFormStatus = document.getElementById("site-form-status");
 const openSiteFormButton = document.getElementById("open-site-form");
@@ -408,6 +411,7 @@ async function hydrateAssetPreviews() {
 }
 
 function renderAssets() {
+  renderAssetBatchActions();
   if (!selectedWebsite || !assets.length) {
     assetGrid.innerHTML = "";
     emptyState.hidden = false;
@@ -454,6 +458,28 @@ function renderAssets() {
     `;
   }).join("");
   void hydrateAssetPreviews();
+}
+
+function renderAssetBatchActions() {
+  if (!approvePendingBatchButton || !publishApprovedBatchButton) return;
+  const pendingCount = versions.filter((version) => version.status === "pending_review").length;
+  const approvedCount = getPublishableApprovedVersions().length;
+  approvePendingBatchButton.hidden = pendingCount === 0;
+  approvePendingBatchButton.textContent = `Approve pending (${pendingCount})`;
+  publishApprovedBatchButton.hidden = approvedCount === 0;
+  publishApprovedBatchButton.textContent = `Publish approved (${approvedCount})`;
+}
+
+function getPublishableApprovedVersions() {
+  const newestByAsset = new Map();
+  versions.forEach((version) => {
+    if (version.status !== "approved" || !String(version.mime_type || "").startsWith("image/")) return;
+    const current = newestByAsset.get(version.asset_id);
+    if (!current || Number(version.version_number) > Number(current.version_number)) {
+      newestByAsset.set(version.asset_id, version);
+    }
+  });
+  return Array.from(newestByAsset.values());
 }
 
 async function loadAssets() {
@@ -700,7 +726,7 @@ async function updateVersionStatus(versionId, status) {
   await loadAssets();
 }
 
-async function publishVersion(versionId) {
+async function publishVersion(versionId, { reload = true, copyUrl = true } = {}) {
   const version = versions.find((row) => row.id === versionId);
   const asset = assets.find((row) => row.id === version?.asset_id);
   if (!version || !asset) throw new Error("This asset version is no longer available.");
@@ -727,7 +753,8 @@ async function publishVersion(versionId) {
     updated_at: now,
   }).eq("id", asset.id);
   if (assetError) throw assetError;
-  await loadAssets();
+  if (reload) await loadAssets();
+  if (!copyUrl) return publicUrl;
   let copied = false;
   try {
     if (navigator.clipboard) {
@@ -738,6 +765,62 @@ async function publishVersion(versionId) {
     copied = false;
   }
   showToast(copied ? "Published to the CDN and copied the URL." : "Published to the CDN. Use Copy URL when you need the link.");
+}
+
+async function approvePendingBatch() {
+  const pendingVersions = versions.filter((version) => version.status === "pending_review");
+  if (!pendingVersions.length) return;
+  if (!window.confirm(`Approve ${pendingVersions.length} pending file${pendingVersions.length === 1 ? "" : "s"} for ${selectedWebsite.name}?`)) return;
+
+  approvePendingBatchButton.disabled = true;
+  publishApprovedBatchButton.disabled = true;
+  batchStatus.textContent = `Approving ${pendingVersions.length} files…`;
+  try {
+    const now = new Date().toISOString();
+    const { error } = await supabase.from("website_asset_versions").update({
+      status: "approved",
+      approved_by_user_id: currentUser.id,
+      approved_at: now,
+      rejection_reason: null,
+    }).in("id", pendingVersions.map((version) => version.id));
+    if (error) throw error;
+    batchStatus.textContent = `${pendingVersions.length} files approved.`;
+    showToast(`${pendingVersions.length} pending file${pendingVersions.length === 1 ? "" : "s"} approved.`);
+    await loadAssets();
+  } catch (error) {
+    batchStatus.textContent = error?.message || "The pending files could not be approved.";
+    showToast(batchStatus.textContent, "error");
+  } finally {
+    approvePendingBatchButton.disabled = false;
+    publishApprovedBatchButton.disabled = false;
+  }
+}
+
+async function publishApprovedBatch() {
+  const approvedVersions = getPublishableApprovedVersions();
+  if (!approvedVersions.length) return;
+  if (!window.confirm(`Publish ${approvedVersions.length} approved image${approvedVersions.length === 1 ? "" : "s"} to the CDN for ${selectedWebsite.name}?`)) return;
+
+  approvePendingBatchButton.disabled = true;
+  publishApprovedBatchButton.disabled = true;
+  let publishedCount = 0;
+  try {
+    for (const version of approvedVersions) {
+      batchStatus.textContent = `Publishing ${publishedCount + 1} of ${approvedVersions.length}: ${version.original_filename}`;
+      await publishVersion(version.id, { reload: false, copyUrl: false });
+      publishedCount += 1;
+    }
+    batchStatus.textContent = `${publishedCount} images published to the CDN.`;
+    showToast(`${publishedCount} approved image${publishedCount === 1 ? "" : "s"} published to the CDN.`);
+    await loadAssets();
+  } catch (error) {
+    batchStatus.textContent = `${publishedCount ? `${publishedCount} published. ` : ""}${error?.message || "The remaining images could not be published."}`;
+    showToast(batchStatus.textContent, "error");
+    await loadAssets();
+  } finally {
+    approvePendingBatchButton.disabled = false;
+    publishApprovedBatchButton.disabled = false;
+  }
 }
 
 async function downloadVersion(version) {
@@ -828,6 +911,8 @@ async function initWebsiteAdmin() {
 
     websiteSelect?.addEventListener("change", () => selectWebsite(websiteSelect.value).catch((loadError) => showToast(loadError.message, "error")));
     refreshButton?.addEventListener("click", () => loadWebsites(selectedWebsite?.id).catch((loadError) => showToast(loadError.message, "error")));
+    approvePendingBatchButton?.addEventListener("click", approvePendingBatch);
+    publishApprovedBatchButton?.addEventListener("click", publishApprovedBatch);
     assetGrid?.addEventListener("click", handleAssetAction);
     adminRequestList?.addEventListener("click", (event) => {
       const button = event.target.closest("[data-save-request]");

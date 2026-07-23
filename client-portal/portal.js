@@ -469,7 +469,7 @@ function closeUploadForm() {
   setInlineStatus("");
 }
 
-async function uploadReviewedItem(item, existingAsset = null) {
+async function uploadReviewedItem(item, existingAsset = null, uploadBatchId = null) {
   const file = item.file;
   let asset = existingAsset;
   let storagePath = "";
@@ -503,6 +503,7 @@ async function uploadReviewedItem(item, existingAsset = null) {
     size_bytes: file.size,
     change_note: item.note || null,
     uploaded_by_user_id: currentSession.user.id,
+    upload_batch_id: uploadBatchId,
   });
   if (versionError) {
     await supabase.storage.from(PRIVATE_BUCKET).remove([storagePath]);
@@ -531,10 +532,11 @@ async function uploadAssetVersion(event) {
 
   uploadSubmit.disabled = true;
   let uploadedCount = 0;
+  const uploadBatchId = crypto.randomUUID();
   try {
     for (const item of items) {
       setInlineStatus(`Uploading ${uploadedCount + 1} of ${items.length}: ${item.file.name}`);
-      await uploadReviewedItem(item, existingAsset);
+      await uploadReviewedItem(item, existingAsset, uploadBatchId);
       uploadedCount += 1;
     }
     setInlineStatus(`${uploadedCount} file${uploadedCount === 1 ? "" : "s"} submitted for review.`);
