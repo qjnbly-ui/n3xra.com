@@ -295,6 +295,19 @@
 .records-support-recording summary::-webkit-details-marker { display: none; }
 .records-support-recording summary > div { display: grid; gap: .15rem; }
 .records-support-transcript { margin-top: .75rem; padding-top: .75rem; border-top: 1px solid var(--portal-line); color: var(--portal-ink); font-size: .82rem; line-height: 1.55; white-space: pre-wrap; }
+.records-support-audit-more { margin-top: .2rem; }
+.records-support-audit-more > summary {
+  width: fit-content;
+  padding: .55rem .75rem;
+  border: 1px solid var(--portal-line);
+  border-radius: 8px;
+  font-size: .78rem;
+  font-weight: 800;
+  cursor: pointer;
+  list-style: none;
+}
+.records-support-audit-more > summary::-webkit-details-marker { display: none; }
+.records-support-audit-more[open] > summary { margin-bottom: .65rem; }
 
 @media (max-width: 900px) {
   .records-admin-layout { grid-template-columns: 1fr; }

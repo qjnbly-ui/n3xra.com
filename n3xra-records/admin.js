@@ -557,9 +557,21 @@ function renderSupportRecordings(rows, allowed) {
 
 function renderSupportAudit(rows) {
   if (!supportAuditList) return;
-  supportAuditList.innerHTML = rows.length ? rows.map((row) => `
+  if (!rows.length) {
+    supportAuditList.innerHTML = '<p class="field-note">No support access has been recorded.</p>';
+    return;
+  }
+  const renderRows = (items) => items.map((row) => `
     <article class="records-support-item"><div><strong>${escapeHtml(formatSupportEvent(row.event_type))}</strong><span>${escapeHtml(row.actor_email || "Customer")} · ${escapeHtml(formatDateTime(row.created_at))}</span></div><span class="records-support-badge">${escapeHtml(row.resource_type || "Library")}</span></article>
-  `).join("") : '<p class="field-note">No support access has been recorded.</p>';
+  `).join("");
+  const recentRows = rows.slice(0, 3);
+  const olderRows = rows.slice(3);
+  supportAuditList.innerHTML = renderRows(recentRows) + (olderRows.length ? `
+    <details class="records-support-audit-more">
+      <summary>Show full history (${rows.length})</summary>
+      <div class="records-support-list">${renderRows(olderRows)}</div>
+    </details>
+  ` : "");
 }
 
 async function loadRecordsSupportWorkspace() {

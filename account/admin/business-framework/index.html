@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>N3XRA | Business Framework</title>
+  <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
+  <link rel="icon" href="/assets/n3xra_logo_transparent_small.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/site-nav.css">
+  <link rel="stylesheet" href="/client-portal/portal.css?v=11">
+  <link rel="stylesheet" href="/account/admin/admin.css?v=2">
+  <script src="/shared/config.js"></script>
+  <script src="/assets/site-nav.js" defer></script>
+  <style>
+    .framework-content { display:grid; gap:1.25rem; }
+    .framework-note { padding:1rem 1.1rem; border:1px solid rgba(21,111,101,.2); border-radius:14px; background:#f1faf8; color:#24433f; }
+    .framework-flow { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:.7rem; }
+    .framework-step,.framework-card { padding:1rem; border:1px solid rgba(15,22,32,.11); border-radius:14px; background:#f7f9fb; }
+    .framework-step span,.framework-card .framework-label { display:block; margin-bottom:.35rem; color:#12766d; font-size:.7rem; font-weight:800; letter-spacing:.12em; text-transform:uppercase; }
+    .framework-step strong { display:block; line-height:1.25; }
+    .framework-step p,.framework-card p { margin:.4rem 0 0; color:#5b6878; font-size:.88rem; }
+    .framework-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:1rem; }
+    .framework-card h3 { margin:0; font:700 1.25rem/1.2 "Fraunces",serif; }
+    .framework-card ul { display:grid; gap:.4rem; margin:.75rem 0 0; padding-left:1.1rem; color:#485667; }
+    .framework-pools { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:.7rem; }
+    .framework-pool { padding:.9rem; border-left:3px solid #168276; background:#f7f9fb; }
+    .framework-pool strong { display:block; }
+    .framework-pool small { display:block; margin-top:.25rem; color:#647184; }
+    @media (max-width:950px) { .framework-flow,.framework-pools { grid-template-columns:1fr 1fr; } }
+    @media (max-width:680px) { .framework-flow,.framework-grid,.framework-pools { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body data-admin-view="business-framework">
+  <header class="site-topbar">
+    <div class="site-topbar-inner">
+      <div class="site-topbar-row">
+        <a class="site-brand" href="/"><img src="/assets/n3xra_logo_transparent_small.png" alt=""><span>N3XRA</span></a>
+        <div class="site-nav-actions">
+          <a class="site-menu-link" href="/account">Dashboard</a>
+          <button class="site-menu-link portal-logout" id="admin-sign-out" type="button">Sign out</button>
+          <button class="site-menu-toggle" data-site-menu-toggle type="button" aria-controls="admin-menu" aria-expanded="false"><span></span><span></span><span></span></button>
+        </div>
+      </div>
+      <nav class="site-mobile-menu" id="admin-menu" hidden>
+        <div class="site-mobile-menu-head"><p class="site-mobile-menu-title">N3XRA Accounts</p></div>
+        <a class="site-menu-link" href="/account/admin/accounts/">Accounts &amp; Access</a>
+        <a class="site-menu-link" href="/account/admin/platform-admins/">Platform Admins</a>
+        <a class="site-menu-link" href="/account/admin/billing/">Billing</a>
+        <a class="site-menu-link" href="/account/admin/support/">Support</a>
+        <a class="site-menu-link" href="/account/notifications/">Platform Notifications</a>
+        <a class="site-menu-link is-current" href="/account/admin/business-framework/">Business Framework</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="portal-shell account-admin-page">
+    <section class="portal-heading"><div><p class="portal-kicker">N3XRA Administration</p><h1>Business Framework</h1><p>A working financial model for sustainable products, partners, and growth.</p></div></section>
+    <section class="portal-workspace hidden" id="setup-panel"><div class="portal-workspace-head"><div><h2>Connect Supabase</h2><p>Add the browser project configuration to continue.</p></div></div></section>
+
+    <div class="portal-layout hidden" id="admin-panel">
+      <nav class="portal-nav">
+        <p class="portal-nav-label">N3XRA Accounts</p>
+        <a href="/account/admin/accounts/">Accounts &amp; Access</a>
+        <a href="/account/admin/platform-admins/">Platform Admins</a>
+        <a href="/account/admin/billing/">Billing</a>
+        <a href="/account/admin/support/">Support</a>
+        <a href="/account/notifications/">Platform Notifications</a>
+        <a class="is-current" href="/account/admin/business-framework/">Business Framework</a>
+        <div class="portal-nav-divider"></div>
+        <p class="portal-nav-label">Product admin apps</p>
+        <a href="/n3xra-admin/websites/">Website Admin</a>
+        <a href="/n3xra-admin/records/">Records Admin</a>
+        <a href="/n3xra-admin/utilities/">Utilities Admin</a>
+        <a href="/n3xra-admin/partners/">Partner Admin</a>
+      </nav>
+
+      <section class="portal-workspace framework-content">
+        <div class="portal-workspace-head"><div><p class="portal-kicker">Internal planning reference</p><h2>How N3XRA revenue flows</h2><p>Keep customer delivery healthy, compensate each relationship correctly, and preserve room to grow.</p></div></div>
+        <div class="framework-note"><strong>This page is an internal guide.</strong> Partner Program Terms, product-specific agreements, employment or contractor agreements, and ownership documents remain the controlling records.</div>
+
+        <div class="framework-flow" aria-label="Revenue flow">
+          <div class="framework-step"><span>Step 1</span><strong>Gross revenue</strong><p>All customer payments received.</p></div>
+          <div class="framework-step"><span>Step 2</span><strong>Direct costs</strong><p>Costs required to deliver the applicable service.</p></div>
+          <div class="framework-step"><span>Step 3</span><strong>Contractual shares</strong><p>Written ownership, royalty, or contributor obligations.</p></div>
+          <div class="framework-step"><span>Step 4</span><strong>Commissionable net revenue</strong><p>The software commission base defined in partner terms.</p></div>
+          <div class="framework-step"><span>Step 5</span><strong>Company allocation</strong><p>Remaining funds assigned intentionally.</p></div>
+        </div>
+
+        <div class="framework-grid">
+          <article class="framework-card"><span class="framework-label">Revenue</span><h3>What comes in</h3><ul><li>Website service subscriptions</li><li>N3XRA software subscriptions</li><li>One-time website builds and setup fees</li><li>Implementation and other professional services</li></ul></article>
+          <article class="framework-card"><span class="framework-label">Direct delivery</span><h3>What is paid first</h3><ul><li>Payment processing, refunds, and chargebacks</li><li>Hosting, databases, storage, and bandwidth</li><li>Artificial-intelligence and other metered APIs</li><li>Email, text messaging, domains, and customer-specific third-party services</li></ul></article>
+        </div>
+
+        <div class="portal-workspace-head"><div><p class="portal-kicker">Separate relationships</p><h2>Do not draw every role from one pool</h2></div></div>
+        <div class="framework-grid">
+          <article class="framework-card"><span class="framework-label">Founder and owners</span><h3>Ownership compensation</h3><p>Founder compensation and owner distributions follow a documented company policy—not a referral commission formula.</p></article>
+          <article class="framework-card"><span class="framework-label">Employees and contractors</span><h3>Work compensation</h3><p>Wages, project fees, retainers, and performance bonuses belong in written employment or contractor agreements.</p></article>
+          <article class="framework-card"><span class="framework-label">Website partners</span><h3>Flat qualifying referral</h3><p>$100 after a new website client completes the required qualifying purchase and one-year service commitment.</p></article>
+          <article class="framework-card"><span class="framework-label">Software partners</span><h3>Recurring CNR commission</h3><p>20% recurring, 25% after 25 active qualifying referrals, and 30% after 50, subject to the applicable product terms.</p></article>
+          <article class="framework-card"><span class="framework-label">Strategic contributors</span><h3>Written revenue share</h3><p>Equity, royalties, or long-term product participation require a distinct signed agreement.</p></article>
+          <article class="framework-card"><span class="framework-label">N3XRA Virals</span><h3>Separate system</h3><p>Virals attribution, commissions, reporting, and payouts remain within its own program.</p></article>
+        </div>
+
+        <div class="portal-workspace-head"><div><p class="portal-kicker">Internal allocation</p><h2>Company pools</h2><p>Percentages remain undecided until real revenue and delivery costs provide enough evidence.</p></div></div>
+        <div class="framework-pools">
+          <div class="framework-pool"><strong>Operations</strong><small>Infrastructure and delivery</small></div>
+          <div class="framework-pool"><strong>Growth</strong><small>Marketing, hiring, expansion</small></div>
+          <div class="framework-pool"><strong>Partner</strong><small>Earned commissions and payouts</small></div>
+          <div class="framework-pool"><strong>Founder</strong><small>Documented compensation</small></div>
+          <div class="framework-pool"><strong>Reserve</strong><small>Stability and contingencies</small></div>
+        </div>
+
+        <div class="framework-grid">
+          <article class="framework-card"><span class="framework-label">Policy principles</span><h3>Rules to preserve</h3><ul><li>Protect commissions already earned.</li><li>Publish commission changes prospectively.</li><li>Document deductions and product-specific direct costs.</li><li>Track profitability by product instead of masking losses across the ecosystem.</li><li>Build reserves before expanding fixed obligations.</li></ul></article>
+          <article class="framework-card"><span class="framework-label">Decisions to formalize</span><h3>Future work</h3><ul><li>Payout schedule and minimum payout threshold</li><li>Active-referral tier measurement and retention</li><li>Target percentages for internal pools</li><li>Reserve target and founder compensation policy</li><li>Employee, contractor, equity, and royalty templates</li><li>Accounting and legal review as participation grows</li></ul></article>
+        </div>
+      </section>
+    </div>
+  </main>
+  <script type="module" src="/account/admin/admin.js?v=6"></script>
+</body>
+</html>
