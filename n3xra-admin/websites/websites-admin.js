@@ -18,6 +18,7 @@ const emptyState = document.getElementById("admin-empty");
 const refreshButton = document.getElementById("refresh-admin");
 const approvePendingBatchButton = document.getElementById("approve-pending-batch");
 const publishApprovedBatchButton = document.getElementById("publish-approved-batch");
+const copyPublishedLinksButton = document.getElementById("copy-published-links");
 const batchStatus = document.getElementById("admin-batch-status");
 const siteForm = document.getElementById("site-form");
 const siteFormStatus = document.getElementById("site-form-status");
@@ -461,13 +462,23 @@ function renderAssets() {
 }
 
 function renderAssetBatchActions() {
-  if (!approvePendingBatchButton || !publishApprovedBatchButton) return;
+  if (!approvePendingBatchButton || !publishApprovedBatchButton || !copyPublishedLinksButton) return;
   const pendingCount = versions.filter((version) => version.status === "pending_review").length;
   const approvedCount = getPublishableApprovedVersions().length;
+  const publishedCount = getCurrentPublishedLinks().length;
   approvePendingBatchButton.hidden = pendingCount === 0;
   approvePendingBatchButton.textContent = `Approve pending (${pendingCount})`;
   publishApprovedBatchButton.hidden = approvedCount === 0;
   publishApprovedBatchButton.textContent = `Publish approved (${approvedCount})`;
+  copyPublishedLinksButton.hidden = publishedCount === 0;
+  copyPublishedLinksButton.textContent = `Copy published links (${publishedCount})`;
+}
+
+function getCurrentPublishedLinks() {
+  return assets.flatMap((asset) => {
+    const version = versions.find((row) => row.id === asset.current_version_id && row.public_url);
+    return version ? [{ label: asset.label, url: version.public_url }] : [];
+  });
 }
 
 function getPublishableApprovedVersions() {
@@ -823,6 +834,23 @@ async function publishApprovedBatch() {
   }
 }
 
+async function copyPublishedLinks() {
+  const publishedLinks = getCurrentPublishedLinks();
+  if (!publishedLinks.length) return;
+  const list = publishedLinks
+    .sort((left, right) => left.label.localeCompare(right.label))
+    .map((item) => `${item.label} — ${item.url}`)
+    .join("\n");
+  try {
+    await navigator.clipboard.writeText(list);
+    batchStatus.textContent = `${publishedLinks.length} published link${publishedLinks.length === 1 ? "" : "s"} copied.`;
+    showToast(batchStatus.textContent);
+  } catch {
+    batchStatus.textContent = "The published links could not be copied. Check this browser’s clipboard permission.";
+    showToast(batchStatus.textContent, "error");
+  }
+}
+
 async function downloadVersion(version) {
   if (version.public_url) {
     window.open(version.public_url, "_blank", "noopener");
@@ -911,6 +939,7 @@ async function initWebsiteAdmin() {
 
     websiteSelect?.addEventListener("change", () => selectWebsite(websiteSelect.value).catch((loadError) => showToast(loadError.message, "error")));
     refreshButton?.addEventListener("click", () => loadWebsites(selectedWebsite?.id).catch((loadError) => showToast(loadError.message, "error")));
+    copyPublishedLinksButton?.addEventListener("click", copyPublishedLinks);
     approvePendingBatchButton?.addEventListener("click", approvePendingBatch);
     publishApprovedBatchButton?.addEventListener("click", publishApprovedBatch);
     assetGrid?.addEventListener("click", handleAssetAction);
