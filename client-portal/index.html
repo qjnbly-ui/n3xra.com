@@ -74,7 +74,7 @@
         <a href="/project-workspace/">Progress</a>
         <a href="/proposals/">Proposals</a>
         <a href="/website-onboarding/">Onboarding</a>
-        <a href="/client-portal/assets/">Files &amp; Assets</a>
+        <button type="button" data-portal-view="files">Files &amp; Assets</button>
         <span class="is-placeholder">Billing</span>
         <span class="is-placeholder">Renewals</span>
         <a href="/support/">Support</a>
@@ -107,7 +107,7 @@
               <div class="portal-overview-actions">
                 <a class="portal-button" id="website-live-link" href="#" target="_blank" rel="noopener">Visit website</a>
                 <a class="portal-text-action" href="/project-workspace/">View progress</a>
-                <a class="portal-text-action" href="/client-portal/assets/">Files &amp; Assets</a>
+                <button class="portal-text-action" type="button" data-open-portal-view="files">Files &amp; Assets</button>
                 <a class="portal-text-action" href="/support/">Get support</a>
               </div>
             </div>
@@ -284,7 +284,7 @@
   </main>
 
   <div class="portal-status" id="portal-status" role="status">Opening your website portal…</div>
-  <script type="module" src="/client-portal/portal.js?v=7"></script>
+  <script type="module" src="/client-portal/portal.js?v=8"></script>
   <script type="module" src="/website-request/request.js?v=10"></script>
 </body>
 </html>
