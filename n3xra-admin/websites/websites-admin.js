@@ -384,6 +384,7 @@ function versionActions(version) {
   if (version.public_url) {
     actions.push(`<button class="portal-button portal-button-secondary" data-version-action="copy" data-version-id="${version.id}">Copy URL</button>`);
   }
+  actions.push(`<button class="portal-button portal-button-danger" data-version-action="delete" data-version-id="${version.id}">Delete</button>`);
   return actions.join("");
 }
 
@@ -863,6 +864,56 @@ async function downloadVersion(version) {
   window.open(data.signedUrl, "_blank", "noopener");
 }
 
+function publicStoragePath(version) {
+  if (!version?.public_url) return "";
+  try {
+    const marker = `/storage/v1/object/public/${PUBLIC_BUCKET}/`;
+    const pathname = new URL(version.public_url).pathname;
+    return pathname.includes(marker) ? decodeURIComponent(pathname.split(marker)[1] || "") : "";
+  } catch {
+    return "";
+  }
+}
+
+async function deleteVersionAsAdmin(version) {
+  const asset = assets.find((row) => row.id === version.asset_id);
+  if (!asset) throw new Error("This asset is no longer available.");
+  const isPublished = version.status === "published" || Boolean(version.public_url) || asset.current_version_id === version.id;
+  const warning = isPublished
+    ? `Permanently delete the published file “${version.original_filename}”? It may already be used by the live website, and its URL will stop working.`
+    : `Permanently delete “${version.original_filename}”? This cannot be undone.`;
+  if (!window.confirm(warning)) return;
+  if (isPublished && !window.confirm("This file is published or currently selected. Confirm again to permanently remove it.")) return;
+
+  if (asset.current_version_id === version.id) {
+    const { error: currentError } = await supabase.from("website_assets")
+      .update({ current_version_id: null })
+      .eq("id", asset.id);
+    if (currentError) throw currentError;
+  }
+
+  const paths = [];
+  if (version.storage_bucket && version.storage_path) {
+    paths.push({ bucket: version.storage_bucket, path: version.storage_path });
+  }
+  const publishedPath = publicStoragePath(version);
+  if (publishedPath) paths.push({ bucket: PUBLIC_BUCKET, path: publishedPath });
+  for (const storedFile of paths) {
+    const { error } = await supabase.storage.from(storedFile.bucket).remove([storedFile.path]);
+    if (error) throw error;
+  }
+
+  const { error: versionError } = await supabase.from("website_asset_versions").delete().eq("id", version.id);
+  if (versionError) throw versionError;
+  const remainingVersions = versions.filter((row) => row.asset_id === asset.id && row.id !== version.id);
+  if (!remainingVersions.length) {
+    const { error: assetError } = await supabase.from("website_assets").delete().eq("id", asset.id);
+    if (assetError) throw assetError;
+  }
+  showToast("File permanently deleted.");
+  await loadAssets();
+}
+
 async function handleAssetAction(event) {
   const button = event.target.closest("[data-version-action]");
   if (!button) return;
@@ -874,6 +925,7 @@ async function handleAssetAction(event) {
     if (button.dataset.versionAction === "reject") await updateVersionStatus(version.id, "rejected");
     if (button.dataset.versionAction === "publish") await publishVersion(version.id);
     if (button.dataset.versionAction === "download") await downloadVersion(version);
+    if (button.dataset.versionAction === "delete") await deleteVersionAsAdmin(version);
     if (button.dataset.versionAction === "copy") {
       await navigator.clipboard.writeText(version.public_url);
       button.textContent = "Copied";

@@ -48,6 +48,7 @@ let versions = [];
 let batchItems = [];
 let batchReviewIndex = 0;
 let activePortalView = "overview";
+let toastTimer;
 const isAssetsRoute = document.body.classList.contains("client-assets-view")
   || window.location.pathname.startsWith("/client-portal/assets");
 
@@ -79,6 +80,27 @@ function showStatus(message) {
 function setInlineStatus(message = "", isError = false) {
   uploadStatus.textContent = message;
   uploadStatus.classList.toggle("is-error", isError);
+}
+
+function showToast(message, type = "success") {
+  let toast = document.getElementById("portal-toast");
+  if (!toast) {
+    toast = document.createElement("div");
+    toast.id = "portal-toast";
+    toast.className = "portal-toast";
+    toast.setAttribute("role", "status");
+    toast.setAttribute("aria-live", "polite");
+    document.body.appendChild(toast);
+  }
+  window.clearTimeout(toastTimer);
+  toast.className = `portal-toast is-${type} is-visible`;
+  toast.innerHTML = `
+    <span class="portal-toast-icon" aria-hidden="true">${type === "error" ? "!" : "✓"}</span>
+    <span>${escapeHtml(message)}</span>
+    <button type="button" aria-label="Dismiss notification">×</button>
+  `;
+  toast.querySelector("button")?.addEventListener("click", () => toast.classList.remove("is-visible"), { once: true });
+  toastTimer = window.setTimeout(() => toast.classList.remove("is-visible"), 5000);
 }
 
 function openLogin() {
@@ -145,6 +167,14 @@ function keyFromLabel(value) {
   const words = String(value || "").trim().replace(/[^a-zA-Z0-9]+/g, " ").split(/\s+/).filter(Boolean);
   if (!words.length) return "";
   return words[0].toLowerCase() + words.slice(1).map((word) => word[0].toUpperCase() + word.slice(1)).join("");
+}
+
+function uniqueAssetKey(preferredKey, reservedKeys = new Set()) {
+  const baseKey = String(preferredKey || "asset").trim() || "asset";
+  if (!reservedKeys.has(baseKey)) return baseKey;
+  let suffix = 2;
+  while (reservedKeys.has(`${baseKey}${suffix}`)) suffix += 1;
+  return `${baseKey}${suffix}`;
 }
 
 function humanizeFilename(filename) {
@@ -240,8 +270,11 @@ function prepareSelectedFiles() {
     setInlineStatus("This file will be uploaded as a replacement version.");
     return;
   }
+  const reservedKeys = new Set(assets.map((asset) => asset.asset_key));
   batchItems = files.map((file) => {
     const defaults = inferAssetDefaults(file);
+    defaults.key = uniqueAssetKey(defaults.key, reservedKeys);
+    reservedKeys.add(defaults.key);
     return { file, ...defaults, note: "" };
   });
   batchReviewIndex = 0;
@@ -395,6 +428,7 @@ function renderAssets() {
             </div>
             <div class="portal-version-actions">
               <button class="portal-link-button" type="button" data-download-version="${version.id}">Download</button>
+              ${canDeleteClientVersion(asset, version) ? `<button class="portal-link-button" type="button" data-delete-version="${version.id}">Delete</button>` : ""}
               ${version.public_url ? `<a class="portal-link-button" href="${escapeHtml(version.public_url)}" target="_blank" rel="noopener">Published file</a>` : ""}
             </div>
           </div>
@@ -425,6 +459,15 @@ function renderAssets() {
     `;
   }).join("");
   void hydrateAssetPreviews();
+}
+
+function canDeleteClientVersion(asset, version) {
+  return canEditSelectedWebsite
+    && version.uploaded_by_user_id === currentSession?.user?.id
+    && ["draft", "pending_review", "rejected"].includes(version.status)
+    && !version.public_url
+    && !version.published_at
+    && asset.current_version_id !== version.id;
 }
 
 async function hydrateAssetPreviews() {
@@ -473,6 +516,7 @@ async function uploadReviewedItem(item, existingAsset = null, uploadBatchId = nu
   const file = item.file;
   let asset = existingAsset;
   let storagePath = "";
+  let createdAsset = false;
   if (!asset) {
     const { data, error } = await supabase.from("website_assets").insert({
       id: crypto.randomUUID(),
@@ -485,29 +529,43 @@ async function uploadReviewedItem(item, existingAsset = null, uploadBatchId = nu
     }).select().single();
     if (error) throw error;
     asset = data;
+    createdAsset = true;
   }
-  const { data: nextVersion, error: numberError } = await supabase.rpc("next_website_asset_version_number", { target_asset_id: asset.id });
-  if (numberError) throw numberError;
-  storagePath = `${selectedWebsite.id}/${asset.id}/v${nextVersion}-${crypto.randomUUID()}-${slugifyFilename(file.name)}`;
-  const { error: uploadError } = await supabase.storage.from(PRIVATE_BUCKET)
-    .upload(storagePath, file, { cacheControl: "3600", upsert: false, contentType: file.type || undefined });
-  if (uploadError) throw uploadError;
-  const { error: versionError } = await supabase.from("website_asset_versions").insert({
-    asset_id: asset.id,
-    version_number: nextVersion,
-    status: "pending_review",
-    storage_bucket: PRIVATE_BUCKET,
-    storage_path: storagePath,
-    original_filename: file.name,
-    mime_type: file.type || null,
-    size_bytes: file.size,
-    change_note: item.note || null,
-    uploaded_by_user_id: currentSession.user.id,
-    upload_batch_id: uploadBatchId,
-  });
-  if (versionError) {
-    await supabase.storage.from(PRIVATE_BUCKET).remove([storagePath]);
-    throw versionError;
+  try {
+    const { data: nextVersion, error: numberError } = await supabase.rpc("next_website_asset_version_number", { target_asset_id: asset.id });
+    if (numberError) throw numberError;
+    storagePath = `${selectedWebsite.id}/${asset.id}/v${nextVersion}-${crypto.randomUUID()}-${slugifyFilename(file.name)}`;
+    const { error: uploadError } = await supabase.storage.from(PRIVATE_BUCKET)
+      .upload(storagePath, file, { cacheControl: "3600", upsert: false, contentType: file.type || undefined });
+    if (uploadError) throw uploadError;
+    const { error: versionError } = await supabase.from("website_asset_versions").insert({
+      asset_id: asset.id,
+      version_number: nextVersion,
+      status: "pending_review",
+      storage_bucket: PRIVATE_BUCKET,
+      storage_path: storagePath,
+      original_filename: file.name,
+      mime_type: file.type || null,
+      size_bytes: file.size,
+      change_note: item.note || null,
+      uploaded_by_user_id: currentSession.user.id,
+      upload_batch_id: uploadBatchId,
+    });
+    if (versionError) throw versionError;
+  } catch (error) {
+    const cleanupErrors = [];
+    if (storagePath) {
+      const { error: storageCleanupError } = await supabase.storage.from(PRIVATE_BUCKET).remove([storagePath]);
+      if (storageCleanupError) cleanupErrors.push("uploaded file");
+    }
+    if (createdAsset) {
+      const { error: assetCleanupError } = await supabase.from("website_assets").delete().eq("id", asset.id);
+      if (assetCleanupError) cleanupErrors.push("empty asset record");
+    }
+    if (cleanupErrors.length) {
+      throw new Error(`${error?.message || "Upload failed."} Automatic cleanup could not remove the ${cleanupErrors.join(" and ")}.`);
+    }
+    throw error;
   }
 }
 
@@ -527,6 +585,13 @@ async function uploadAssetVersion(event) {
   const duplicateKey = items.find((item, index) => items.some((other, otherIndex) => otherIndex !== index && other.key === item.key));
   if (duplicateKey) {
     setInlineStatus(`Asset key “${duplicateKey.key}” is used more than once. Give each file a unique key.`, true);
+    return;
+  }
+  const existingKey = !existingAsset
+    ? items.find((item) => assets.some((asset) => asset.asset_key === item.key))
+    : null;
+  if (existingKey) {
+    setInlineStatus(`Asset key “${existingKey.key}” already exists. Change the key, or use Replace on the existing asset.`, true);
     return;
   }
 
@@ -572,6 +637,39 @@ async function downloadVersion(versionId) {
     return;
   }
   window.open(data.signedUrl, "_blank", "noopener");
+}
+
+async function deleteUnusedVersion(versionId) {
+  const version = versions.find((row) => row.id === versionId);
+  const asset = assets.find((row) => row.id === version?.asset_id);
+  if (!version || !asset || !canDeleteClientVersion(asset, version)) {
+    showToast("Only your unused, unpublished uploads can be deleted.", "error");
+    return;
+  }
+  if (!window.confirm(`Delete “${version.original_filename}”? This unused upload will be permanently removed.`)) return;
+
+  const { error: storageError } = await supabase.storage.from(version.storage_bucket).remove([version.storage_path]);
+  if (storageError) {
+    showToast(storageError.message || "The stored file could not be deleted.", "error");
+    return;
+  }
+  const { error: versionError } = await supabase.from("website_asset_versions").delete().eq("id", version.id);
+  if (versionError) {
+    showToast(versionError.message || "The file record could not be deleted.", "error");
+    return;
+  }
+
+  const remainingVersions = versions.filter((row) => row.asset_id === asset.id && row.id !== version.id);
+  if (!remainingVersions.length && !asset.current_version_id) {
+    const { error: assetError } = await supabase.from("website_assets").delete().eq("id", asset.id);
+    if (assetError) {
+      showToast("The file was deleted, but its empty asset entry could not be removed.", "error");
+      await loadAssets();
+      return;
+    }
+  }
+  showToast("Unused file deleted.");
+  await loadAssets();
 }
 
 async function initPortal() {
@@ -648,11 +746,20 @@ async function initPortal() {
       uploadReplacementType.dataset.userEdited = "true";
     });
     uploadForm.addEventListener("submit", uploadAssetVersion);
-    assetGrid.addEventListener("click", (event) => {
+    assetGrid.addEventListener("click", async (event) => {
       const replaceButton = event.target.closest("[data-replace-asset]");
       const downloadButton = event.target.closest("[data-download-version]");
+      const deleteButton = event.target.closest("[data-delete-version]");
       if (replaceButton) openUploadForm(replaceButton.dataset.replaceAsset);
       if (downloadButton) downloadVersion(downloadButton.dataset.downloadVersion);
+      if (deleteButton) {
+        deleteButton.disabled = true;
+        try {
+          await deleteUnusedVersion(deleteButton.dataset.deleteVersion);
+        } finally {
+          deleteButton.disabled = false;
+        }
+      }
     });
 
     logoutButton?.addEventListener("click", async () => {
