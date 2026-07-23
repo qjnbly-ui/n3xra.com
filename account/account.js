@@ -123,6 +123,36 @@ let captchaEnabled = false;
 let isSubmitting = false;
 let canViewAdminApps = false;
 
+const ADMIN_ACCESS_CACHE_PREFIX = "n3xra-admin-access-v1:";
+const DASHBOARD_VIEW_CACHE_PREFIX = "n3xra-dashboard-view-v1:";
+
+function userStorageKey(prefix) {
+  return currentSession?.user?.id ? `${prefix}${currentSession.user.id}` : "";
+}
+
+function readStoredValue(prefix) {
+  const key = userStorageKey(prefix);
+  if (!key) return "";
+  try { return window.localStorage.getItem(key) || ""; } catch { return ""; }
+}
+
+function writeStoredValue(prefix, value) {
+  const key = userStorageKey(prefix);
+  if (!key) return;
+  try {
+    if (value) window.localStorage.setItem(key, value);
+    else window.localStorage.removeItem(key);
+  } catch { /* Storage is a display optimization only. */ }
+}
+
+function hasCachedAdminAccess() {
+  return readStoredValue(ADMIN_ACCESS_CACHE_PREFIX) === "active";
+}
+
+function getPreferredDashboardView() {
+  return readStoredValue(DASHBOARD_VIEW_CACHE_PREFIX) === "admin" ? "admin" : "apps";
+}
+
 function show(el, visible) {
   if (!el) return;
   el.classList.toggle("hidden", !visible);
@@ -140,6 +170,7 @@ function setDashboardView(requestedView = "apps") {
   showAdminViewButton?.setAttribute("aria-selected", String(!showingApps));
   if (showAppsViewButton) showAppsViewButton.tabIndex = showingApps ? 0 : -1;
   if (showAdminViewButton) showAdminViewButton.tabIndex = showingApps ? -1 : 0;
+  if (canViewAdminApps) writeStoredValue(DASHBOARD_VIEW_CACHE_PREFIX, view);
 }
 
 function setStatus(message, tone = "") {
@@ -411,14 +442,23 @@ async function loadPlatformAdminAccess() {
     return null;
   }
 
+  if (isPlatformAdminEmail(currentSession.user.email)) {
+    platformAdminAccess = {
+      email: currentSession.user.email,
+      role: isPlatformOwnerEmail(currentSession.user.email) ? "owner" : "admin",
+      status: "active",
+    };
+    writeStoredValue(ADMIN_ACCESS_CACHE_PREFIX, "active");
+    return platformAdminAccess;
+  }
+
   try {
     const data = await invokePlatformAdmin("get-platform-admin-access");
     platformAdminAccess = data.admin || null;
   } catch {
-    platformAdminAccess = isPlatformAdminEmail(currentSession.user.email)
-      ? { email: currentSession.user.email, role: isPlatformOwnerEmail(currentSession.user.email) ? "owner" : "admin", status: "active" }
-      : null;
+    platformAdminAccess = hasCachedAdminAccess() ? { status: "cached" } : null;
   }
+  writeStoredValue(ADMIN_ACCESS_CACHE_PREFIX, platformAdminAccess ? "active" : "");
   return platformAdminAccess;
 }
 
@@ -438,9 +478,23 @@ async function renderDashboard(message = "") {
   renderShell("dashboard");
   setStatus(message);
 
-  const [, , partnerAccess] = await Promise.allSettled([loadMemberships(), loadMusicProfile(), loadPartnerAccess()]);
+  accountName.textContent = String(currentSession.user.user_metadata?.full_name || currentSession.user.email || "N3XRA account").trim();
+  accountEmail.textContent = currentSession.user.email || "";
+
+  // This cache controls presentation only. Every admin page and privileged request
+  // continues to enforce platform-admin authorization independently.
+  canViewAdminApps = isPlatformAdminEmail(currentSession.user.email) || hasCachedAdminAccess();
+  show(dashboardViewToggle, canViewAdminApps);
+  show(adminNotificationButton, canViewAdminApps);
+  setDashboardView(getPreferredDashboardView());
+
+  const [, , partnerAccess] = await Promise.allSettled([
+    loadMemberships(),
+    loadMusicProfile(),
+    loadPartnerAccess(),
+    loadPlatformAdminAccess(),
+  ]);
   show(partnerPortalCard, partnerAccess.status === "fulfilled" && partnerAccess.value === true);
-  await loadPlatformAdminAccess();
   const displayName = await loadProfileName().catch(() => currentSession.user.email || "N3XRA account");
   accountName.textContent = displayName || "N3XRA account";
   accountEmail.textContent = currentSession.user.email || "";
@@ -473,7 +527,7 @@ async function renderDashboard(message = "") {
     adminNotificationCount.textContent = unreadCount > 99 ? "99+" : String(unreadCount);
     show(adminNotificationCount, unreadCount > 0);
   }
-  setDashboardView("apps");
+  setDashboardView(getPreferredDashboardView());
 }
 
 function openAccountSettings() {
@@ -779,6 +833,8 @@ async function handlePasswordSave(event) {
 
 async function handleSignout() {
   if (!supabase) return;
+  writeStoredValue(ADMIN_ACCESS_CACHE_PREFIX, "");
+  writeStoredValue(DASHBOARD_VIEW_CACHE_PREFIX, "");
   await supabase.auth.signOut({ scope: "local" });
   currentSession = null;
   memberships = [];
