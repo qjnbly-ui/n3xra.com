@@ -12,3 +12,18 @@ verify_jwt = false
 
 [functions.music-stripe-webhook]
 verify_jwt = false
+
+[functions.prepare-billing]
+verify_jwt = false
+
+[functions.create-website-checkout-session]
+verify_jwt = false
+
+[functions.create-website-portal-session]
+verify_jwt = false
+
+[functions.get-website-billing-status]
+verify_jwt = false
+
+[functions.website-stripe-webhook]
+verify_jwt = false

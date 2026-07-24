@@ -11,6 +11,16 @@ import {
 
 type StripeSubscription = Stripe.Subscription;
 
+function isRecordsPrice(priceId: string | null | undefined) {
+  return Boolean(priceId && getPlanIdFromPriceId(priceId) !== "free");
+}
+
+function isRecordsSubscription(subscription: StripeSubscription) {
+  const app = String(subscription.metadata?.app || "").trim().toLowerCase();
+  if (app) return app === "n3xra_records";
+  return isRecordsPrice(subscription.items.data[0]?.price?.id);
+}
+
 function getStripeClient() {
   const secretKey = Deno.env.get("STRIPE_SECRET_KEY");
   if (!secretKey) {
@@ -166,6 +176,14 @@ Deno.serve(async (request) => {
     switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
+        const sessionApp = String(session.metadata?.app || "").trim().toLowerCase();
+        if (sessionApp && sessionApp !== "n3xra_records") break;
+        if (!sessionApp && typeof session.subscription === "string") {
+          const candidate = await stripe.subscriptions.retrieve(session.subscription);
+          if (!isRecordsSubscription(candidate)) break;
+        } else if (!sessionApp) {
+          break;
+        }
         const organizationId = String(session.metadata?.organization_id || session.client_reference_id || "").trim();
         if (!organizationId) break;
 
@@ -190,6 +208,7 @@ Deno.serve(async (request) => {
       case "customer.subscription.updated":
       case "customer.subscription.deleted": {
         const subscription = event.data.object as StripeSubscription;
+        if (!isRecordsSubscription(subscription)) break;
         const organizationId = await loadOrganizationId(adminClient, subscription);
         await syncOrganizationSubscription(
           adminClient,

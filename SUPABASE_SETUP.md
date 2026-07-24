@@ -306,3 +306,67 @@ supabase functions deploy music-stripe-webhook
 - Overages are not enabled yet; the app hard-stops at the current plan limit.
 - AI Music stores its Stripe customer on `music_profiles.stripe_customer_id` to avoid changing or risking the existing Records billing customer flow.
 - Normal browser users cannot directly edit billing fields, but Supabase service-role functions and admin SQL can update them for setup or support.
+
+## Website Stripe billing setup
+
+Website billing is isolated from Records, AI Music, Virals, and RORC. It uses separate
+database tables, Stripe Customers, metadata (`app=n3xra_websites`), Edge Functions,
+webhook signing secret, and Customer Portal configuration.
+
+Create these fixed recurring Stripe prices:
+
+- Website Starter monthly: `$25`
+- Website Starter annual: `$270`
+- Website Starter+ monthly: `$40`
+- Website Starter+ annual: `$432`
+
+Advanced recurring prices are created from the immutable accepted-proposal snapshot.
+
+Add these Supabase function secrets:
+
+- `STRIPE_SECRET_KEY`
+- `STRIPE_WEBSITE_WEBHOOK_SECRET`
+- `STRIPE_WEBSITE_PORTAL_CONFIGURATION`
+- `STRIPE_PRICE_WEBSITE_STARTER_MONTHLY`
+- `STRIPE_PRICE_WEBSITE_STARTER_YEARLY`
+- `STRIPE_PRICE_WEBSITE_STARTER_PLUS_MONTHLY`
+- `STRIPE_PRICE_WEBSITE_STARTER_PLUS_YEARLY`
+- `APP_ORIGIN` set to `https://www.n3xra.com`
+
+Create a dedicated Website Customer Portal configuration that permits payment-method
+updates, billing-information updates, invoice history, and cancellation at the end of
+the paid term. Disable plan switching and promotion-code entry.
+
+Point a dedicated Stripe webhook endpoint to:
+
+```text
+https://YOUR-PROJECT-REF.supabase.co/functions/v1/website-stripe-webhook
+```
+
+Subscribe it to:
+
+- `checkout.session.completed`
+- `customer.subscription.created`
+- `customer.subscription.updated`
+- `customer.subscription.deleted`
+- `invoice.finalized`
+- `invoice.paid`
+- `invoice.payment_failed`
+- `invoice.voided`
+- `customer.updated`
+- `payment_method.attached`
+- `payment_method.detached`
+
+Deploy the website functions after applying the database migration:
+
+```bash
+supabase functions deploy prepare-billing
+supabase functions deploy create-website-checkout-session
+supabase functions deploy create-website-portal-session
+supabase functions deploy get-website-billing-status
+supabase functions deploy website-stripe-webhook
+```
+
+Stripe webhook delivery is authoritative. Checkout redirects do not activate service.
+General promotion-code entry, automated remaining-balance charges, refunds, credits,
+partner payouts, and custom invoice creation remain outside Stage 1.

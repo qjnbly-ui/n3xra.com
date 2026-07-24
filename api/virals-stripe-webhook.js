@@ -15,6 +15,10 @@ function getUserIdFromSubscription(subscription) {
   return String(subscription?.metadata?.user_id || subscription?.client_reference_id || "").trim();
 }
 
+function isViralsObject(object) {
+  return String(object?.metadata?.app || "").trim().toLowerCase() === "n3xra_virals";
+}
+
 function getPromotionCodeIdFromObject(object) {
   const discounts = Array.isArray(object?.discounts) ? object.discounts : [];
   for (const discount of discounts) {
@@ -57,6 +61,7 @@ async function findApplicationForObject(object, fallbackObject = null) {
 }
 
 async function handleCheckoutCompleted(session) {
+  if (!isViralsObject(session)) return;
   const subscriptionId = typeof session.subscription === "string" ? session.subscription : session.subscription?.id;
   const subscription = await loadSubscription(subscriptionId);
   if (!subscription) return;
@@ -80,11 +85,13 @@ async function handleCheckoutCompleted(session) {
 }
 
 async function handleSubscriptionUpdated(subscription) {
+  if (!isViralsObject(subscription)) return;
   const userId = getUserIdFromSubscription(subscription);
   if (userId) await updateViralsProfileFromSubscription(userId, subscription);
 }
 
 async function handleSubscriptionDeleted(subscription) {
+  if (!isViralsObject(subscription)) return;
   await handleSubscriptionUpdated(subscription);
   await updateReferralStatus(subscription.id, "canceled");
 }
@@ -92,6 +99,8 @@ async function handleSubscriptionDeleted(subscription) {
 async function handleInvoicePaid(invoice) {
   const subscriptionId = typeof invoice.subscription === "string" ? invoice.subscription : invoice.subscription?.id;
   if (!subscriptionId) return;
+  const guardedSubscription = await loadSubscription(subscriptionId);
+  if (!isViralsObject(guardedSubscription)) return;
   let referral = await findReferralBySubscription(subscriptionId);
   let application = referral ? await findApplicationByPromotionCode(referral.stripe_promotion_code_id) : null;
   if (!referral || !application) {

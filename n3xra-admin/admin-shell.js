@@ -6,6 +6,7 @@ const items = [
   ["/n3xra-admin/projects/", "Progress"],
   ["/n3xra-admin/onboarding/", "Onboarding"],
   ["/n3xra-admin/assets/", "Files & Assets"],
+  ["/n3xra-admin/billing/", "Billing"],
   ["/support/", "Support"],
 ];
 

@@ -33,7 +33,6 @@ function getWebhookSecrets() {
   const rawSecrets = [
     Deno.env.get("STRIPE_MUSIC_WEBHOOK_SECRET"),
     Deno.env.get("STRIPE_MUSIC_WEBHOOK_SECRETS"),
-    Deno.env.get("STRIPE_WEBHOOK_SECRET"),
   ];
   const secrets = rawSecrets
     .flatMap((value) => String(value || "").split(","))

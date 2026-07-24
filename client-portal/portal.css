@@ -519,12 +519,20 @@ body.portal-denied main {
   opacity: 0.55;
 }
 
+.portal-button[hidden] {
+  display: none;
+}
+
 .portal-form {
   margin: 1rem 0 1.5rem;
   padding: 1rem;
   background: #f8fafc;
   border: 1px solid var(--portal-line);
   border-radius: 10px;
+}
+
+.portal-form[hidden] {
+  display: none;
 }
 
 .portal-form-grid {

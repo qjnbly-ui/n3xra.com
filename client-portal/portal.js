@@ -504,12 +504,17 @@ async function hydrateAssetPreviews() {
   }));
 }
 
-function openUploadForm(assetId = "") {
+function openUploadForm(assetId = "", { chooseFile = false } = {}) {
   uploadForm.hidden = false;
   uploadAssetId.value = assetId;
   syncNewAssetFields();
   setInlineStatus("");
   uploadForm.scrollIntoView({ behavior: "smooth", block: "start" });
+  if (chooseFile) {
+    // Keep the file picker in the original click gesture. Browsers can block
+    // delayed programmatic file dialogs after smooth scrolling has started.
+    uploadFile.click();
+  }
 }
 
 function closeUploadForm() {
@@ -744,7 +749,7 @@ async function initPortal() {
       else if (window.location.hash === "#new-project") showPortalView("new-request");
       else showPortalView("overview");
     });
-    openUploadButton.addEventListener("click", () => openUploadForm());
+    openUploadButton.addEventListener("click", () => openUploadForm("", { chooseFile: true }));
     closeUploadButton.addEventListener("click", closeUploadForm);
     uploadAssetId.addEventListener("change", () => {
       syncNewAssetFields();
@@ -785,7 +790,7 @@ async function initPortal() {
       const downloadButton = event.target.closest("[data-download-version]");
       const deleteButton = event.target.closest("[data-delete-version]");
       const deleteEmptyButton = event.target.closest("[data-delete-empty-asset]");
-      if (replaceButton) openUploadForm(replaceButton.dataset.replaceAsset);
+      if (replaceButton) openUploadForm(replaceButton.dataset.replaceAsset, { chooseFile: true });
       if (downloadButton) downloadVersion(downloadButton.dataset.downloadVersion);
       if (deleteButton) {
         deleteButton.disabled = true;

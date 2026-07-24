@@ -24,6 +24,7 @@ const refreshButton = document.getElementById("refresh-proposals");
 const referralDiscountWrap = document.getElementById("proposal-referral-discount-wrap");
 const referralDiscountToggle = document.getElementById("proposal-referral-discount");
 const referralDiscountHelp = document.getElementById("proposal-referral-discount-help");
+const prepareBillingButton = document.getElementById("prepare-proposal-billing");
 
 let supabase;
 let currentUser;
@@ -368,6 +369,7 @@ function renderEditor() {
   newVersionButton.hidden = !selectedProposal || isDraft;
   previewLink.hidden = !selectedProposal?.current_version_id;
   if (selectedProposal) previewLink.href = `/proposals/?proposal=${encodeURIComponent(selectedProposal.id)}`;
+  prepareBillingButton.hidden = selectedProposal?.status !== "approved";
 }
 
 function collectVersion() {
@@ -634,6 +636,24 @@ async function createRevision() {
   setStatus(`Version ${nextNumber} is ready to edit.`);
 }
 
+async function prepareBilling() {
+  if (!selectedProposal || selectedProposal.status !== "approved") return;
+  prepareBillingButton.disabled = true;
+  setStatus("Preparing an immutable billing snapshot…");
+  try {
+    const { data, error } = await supabase.functions.invoke("prepare-billing", {
+      body: { proposal_id: selectedProposal.id },
+    });
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
+    window.location.href = `/n3xra-admin/billing/?project=${encodeURIComponent(data.snapshot.project_id)}`;
+  } catch (error) {
+    setStatus(error?.message || "Unable to prepare billing.", true);
+  } finally {
+    prepareBillingButton.disabled = false;
+  }
+}
+
 async function init() {
   if (!hasConfig()) throw new Error("Supabase configuration is missing.");
   supabase = createBrowserSupabase();
@@ -687,6 +707,7 @@ async function init() {
     updateInvestmentTotals();
   });
   newVersionButton.addEventListener("click", () => createRevision().catch((error) => setStatus(error.message, true)));
+  prepareBillingButton.addEventListener("click", prepareBilling);
   requestSelect.addEventListener("change", () => {
     selectedRequest = requests.find((request) => request.id === requestSelect.value);
     selectedProposal = proposals.find((proposal) => proposal.request_id === selectedRequest?.id);

@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>N3XRA | Website Billing Admin</title><meta name="robots" content="noindex,nofollow">
+  <link rel="icon" href="/assets/n3xra_logo_transparent_small.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/site-nav.css"><link rel="stylesheet" href="/client-portal/portal.css?v=13"><link rel="stylesheet" href="/client-portal/billing/billing.css?v=1">
+  <script src="/shared/config.js"></script><script src="/n3xra-admin/admin-shell.js?v=2" defer></script>
+</head>
+<body class="portal-loading" data-billing-role="admin">
+  <header class="site-topbar"><div class="site-topbar-inner"><div class="site-topbar-row"><a class="site-brand" href="/"><img src="/assets/n3xra_logo_transparent_small.png" alt=""><span>N3XRA</span></a><div class="site-nav-actions"><a class="site-menu-link" href="/account/">Dashboard</a><button class="site-menu-link portal-logout" id="portal-logout">Sign out</button></div></div></div></header>
+  <main class="portal-shell">
+    <section class="portal-heading"><div><p class="portal-kicker">Website administration</p><h1>Billing</h1><p>Prepare approved proposals and review Stripe billing state.</p></div></section>
+    <div class="portal-layout">
+      <nav class="portal-nav"><a href="/n3xra-admin/websites/">Overview</a><a href="/n3xra-admin/services/">Services &amp; Ownership</a><a href="/n3xra-admin/requests/">Requests</a><a href="/n3xra-admin/proposals/">Proposals</a><a href="/n3xra-admin/projects/">Progress</a><a href="/n3xra-admin/onboarding/">Onboarding</a><a href="/n3xra-admin/assets/">Files &amp; Assets</a><a class="is-current" href="/n3xra-admin/billing/">Billing</a><a href="/support/">Support</a></nav>
+      <section class="portal-workspace"><div class="portal-workspace-head"><div><p class="portal-kicker">Website accounts</p><h2>Billing workspace</h2><p>Checkout only becomes available after an approved proposal is snapshotted.</p></div><a class="portal-button portal-button-secondary" href="/n3xra-admin/proposals/">Open proposals</a></div><div id="billing-content"></div><p class="portal-inline-status" id="billing-status"></p></section>
+    </div>
+  </main>
+  <div class="portal-status" id="portal-status">Verifying billing access…</div>
+  <script type="module" src="/client-portal/portal-shell.js"></script><script type="module" src="/client-portal/billing/billing.js?v=1"></script>
+</body></html>

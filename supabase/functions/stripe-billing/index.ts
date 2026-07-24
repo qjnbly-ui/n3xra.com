@@ -147,6 +147,7 @@ Deno.serve(async (request) => {
           email: user.email || undefined,
           name: organization.name,
           metadata: {
+            app: "n3xra_records",
             organization_id: organization.id,
             owner_user_id: organization.owner_user_id,
           },
@@ -178,12 +179,14 @@ Deno.serve(async (request) => {
         success_url: `${origin}/app/account?billing=success`,
         cancel_url: `${origin}/app/account?billing=canceled`,
         metadata: {
+          app: "n3xra_records",
           organization_id: organization.id,
           plan_id: planId,
           billing_cycle: billingCycle,
         },
         subscription_data: {
           metadata: {
+            app: "n3xra_records",
             organization_id: organization.id,
             plan_id: planId,
             billing_cycle: billingCycle,
