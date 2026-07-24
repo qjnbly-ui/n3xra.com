@@ -11,6 +11,9 @@ const form = document.getElementById("proposal-form");
 const formStatus = document.getElementById("proposal-form-status");
 const versionLabel = document.getElementById("proposal-version-label");
 const newVersionButton = document.getElementById("new-proposal-version");
+const deleteVersionButton = document.getElementById("delete-proposal-version");
+const deleteVersionDialog = document.getElementById("delete-proposal-version-dialog");
+const confirmDeleteVersionButton = document.getElementById("confirm-delete-proposal-version");
 const sendButton = document.getElementById("send-proposal");
 const previewEmailButton = document.getElementById("preview-proposal-email");
 const emailDialog = document.getElementById("proposal-email-dialog");
@@ -32,6 +35,7 @@ let requests = [];
 let proposals = [];
 let versions = [];
 let lineItems = [];
+let billingSnapshots = [];
 let selectedRequest;
 let selectedProposal;
 let editingVersion;
@@ -359,7 +363,7 @@ function renderEditor() {
 
   const isDraft = !editingVersion || editingVersion.status === "draft";
   Array.from(form.elements).forEach((element) => {
-    if (element === newVersionButton || element === previewLink) return;
+    if (element === newVersionButton || element === deleteVersionButton || element === previewLink || element === prepareBillingButton) return;
     if (element.id === "send-proposal") element.disabled = false;
     else if (element.id === "preview-proposal-email") element.disabled = !isDraft;
     else if (element.id === "save-proposal") element.disabled = !isDraft;
@@ -367,9 +371,24 @@ function renderEditor() {
   });
   sendButton.textContent = isDraft ? "Send to client" : "Resend email";
   newVersionButton.hidden = !selectedProposal || isDraft;
+  deleteVersionButton.hidden = !editingVersion?.id || editingVersion.status !== "draft";
   previewLink.hidden = !selectedProposal?.current_version_id;
   if (selectedProposal) previewLink.href = `/proposals/?proposal=${encodeURIComponent(selectedProposal.id)}`;
-  prepareBillingButton.hidden = selectedProposal?.status !== "approved";
+  const billingSnapshot = billingSnapshots.find((snapshot) => snapshot.proposal_id === selectedProposal?.id);
+  prepareBillingButton.hidden = !selectedProposal;
+  prepareBillingButton.dataset.projectId = billingSnapshot?.project_id || "";
+  if (billingSnapshot) {
+    prepareBillingButton.disabled = false;
+    prepareBillingButton.textContent = "Open billing";
+  } else if (selectedProposal?.status === "approved") {
+    prepareBillingButton.disabled = false;
+    prepareBillingButton.textContent = "Prepare billing";
+  } else {
+    prepareBillingButton.disabled = true;
+    prepareBillingButton.textContent = selectedProposal?.status === "sent"
+      ? "Billing available after client approval"
+      : "Approve proposal before billing";
+  }
 }
 
 function collectVersion() {
@@ -411,20 +430,23 @@ function collectVersion() {
 }
 
 async function loadData(preferredRequestId) {
-  const [requestResult, proposalResult, versionResult, lineItemResult] = await Promise.all([
+  const [requestResult, proposalResult, versionResult, lineItemResult, billingResult] = await Promise.all([
     supabase.from("website_service_requests").select("*").order("created_at", { ascending: false }),
     supabase.from("website_proposals").select("*").order("created_at", { ascending: false }),
     supabase.from("website_proposal_versions").select("*").order("version_number", { ascending: false }),
     supabase.from("website_proposal_line_items").select("*").order("sort_order"),
+    supabase.from("website_billing_snapshots").select("id,proposal_id,project_id,status"),
   ]);
   if (requestResult.error) throw requestResult.error;
   if (proposalResult.error) throw proposalResult.error;
   if (versionResult.error) throw versionResult.error;
   if (lineItemResult.error) throw lineItemResult.error;
+  if (billingResult.error) throw billingResult.error;
   requests = requestResult.data || [];
   proposals = proposalResult.data || [];
   versions = versionResult.data || [];
   lineItems = lineItemResult.data || [];
+  billingSnapshots = billingResult.data || [];
   renderRequestOptions();
   const context = readWorkspaceContext("admin", currentUser.id);
   const params = new URLSearchParams(window.location.search);
@@ -636,8 +658,33 @@ async function createRevision() {
   setStatus(`Version ${nextNumber} is ready to edit.`);
 }
 
+async function deleteDraftVersion() {
+  if (!editingVersion?.id || editingVersion.status !== "draft") return;
+  confirmDeleteVersionButton.disabled = true;
+  setStatus(`Deleting version ${editingVersion.version_number}…`);
+  try {
+    const { data, error } = await supabase.rpc("delete_website_proposal_draft_version", {
+      target_version_id: editingVersion.id,
+    });
+    if (error) throw error;
+    deleteVersionDialog.close();
+    await loadData(selectedRequest.id);
+    setStatus(`Draft version ${data?.version_number || ""} deleted.`.replace("  ", " "));
+  } catch (error) {
+    setStatus(error?.message || "Unable to delete this draft version.", true);
+  } finally {
+    confirmDeleteVersionButton.disabled = false;
+  }
+}
+
 async function prepareBilling() {
-  if (!selectedProposal || selectedProposal.status !== "approved") return;
+  if (!selectedProposal) return;
+  const existingSnapshot = billingSnapshots.find((snapshot) => snapshot.proposal_id === selectedProposal.id);
+  if (existingSnapshot) {
+    window.location.href = `/n3xra-admin/billing/?project=${encodeURIComponent(existingSnapshot.project_id)}`;
+    return;
+  }
+  if (selectedProposal.status !== "approved") return;
   prepareBillingButton.disabled = true;
   setStatus("Preparing an immutable billing snapshot…");
   try {
@@ -707,6 +754,11 @@ async function init() {
     updateInvestmentTotals();
   });
   newVersionButton.addEventListener("click", () => createRevision().catch((error) => setStatus(error.message, true)));
+  deleteVersionButton.addEventListener("click", () => deleteVersionDialog.showModal());
+  confirmDeleteVersionButton.addEventListener("click", deleteDraftVersion);
+  document.querySelectorAll("[data-close-delete-version]").forEach((button) => {
+    button.addEventListener("click", () => deleteVersionDialog.close());
+  });
   prepareBillingButton.addEventListener("click", prepareBilling);
   requestSelect.addEventListener("change", () => {
     selectedRequest = requests.find((request) => request.id === requestSelect.value);

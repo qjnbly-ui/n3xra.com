@@ -71,7 +71,10 @@
               <p class="portal-kicker" id="proposal-version-label">Draft proposal</p>
               <h3 id="proposal-editor-title">Proposal details</h3>
             </div>
-            <button class="portal-button portal-button-secondary" id="new-proposal-version" type="button" hidden>Create revision</button>
+            <div class="portal-form-actions">
+              <button class="portal-button portal-button-secondary" id="new-proposal-version" type="button" hidden>Create revision</button>
+              <button class="portal-button portal-button-danger" id="delete-proposal-version" type="button" hidden>Delete draft version</button>
+            </div>
           </div>
 
           <div class="portal-form-section">
@@ -158,8 +161,20 @@
     </div>
   </dialog>
 
+  <dialog class="portal-dialog proposal-email-dialog" id="delete-proposal-version-dialog">
+    <div class="proposal-email-dialog-head">
+      <div><p class="portal-kicker">Draft version</p><h2>Delete this accidental version?</h2></div>
+      <button class="portal-icon-button" data-close-delete-version type="button" aria-label="Close">×</button>
+    </div>
+    <p>This permanently removes only the unsent draft version and its line items. The last proposal sent to the client remains unchanged.</p>
+    <div class="portal-form-actions">
+      <button class="portal-button portal-button-secondary" data-close-delete-version type="button">Keep draft</button>
+      <button class="portal-button portal-button-danger" id="confirm-delete-proposal-version" type="button">Delete draft version</button>
+    </div>
+  </dialog>
+
   <div class="portal-status" id="portal-status" role="status">Verifying proposal access…</div>
   <script type="module" src="/client-portal/portal-shell.js"></script>
-  <script type="module" src="/n3xra-admin/proposals/proposals-admin.js?v=4"></script>
+  <script type="module" src="/n3xra-admin/proposals/proposals-admin.js?v=6"></script>
 </body>
 </html>

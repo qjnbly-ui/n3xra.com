@@ -8,7 +8,7 @@ Deno.serve(async (request) => {
     const input = await request.json().catch(() => ({}));
     const projectId = String(input.project_id || "").trim();
     const { data: isAdmin } = await user.rpc("is_platform_admin");
-    let projectQuery = admin.from("website_projects").select("id,client_user_id,name,status,current_stage").order("created_at", { ascending: false });
+    let projectQuery = admin.from("website_projects").select("id,client_user_id,managed_website_id,name,status,current_stage").order("created_at", { ascending: false });
     if (projectId) projectQuery = projectQuery.eq("id", projectId);
     if (isAdmin !== true) projectQuery = projectQuery.eq("client_user_id", authUser.id);
     const { data: projects, error } = await projectQuery;

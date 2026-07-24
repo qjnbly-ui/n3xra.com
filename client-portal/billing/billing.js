@@ -1,5 +1,6 @@
 import { createBrowserSupabase, hasConfig } from "/shared/lib/supabase-client.js";
 import { verifyPlatformAdmin } from "/client-portal/admin-access.js";
+import { readWorkspaceContext, writeWorkspaceContext } from "/client-portal/workspace-context.js";
 
 const adminMode = document.body.dataset.billingRole === "admin";
 const content = document.getElementById("billing-content");
@@ -9,9 +10,13 @@ const dialog = document.getElementById("billing-review-dialog");
 const dialogTitle = document.getElementById("billing-review-title");
 const dialogBody = document.getElementById("billing-review-body");
 const dialogConfirm = document.getElementById("billing-review-confirm");
+const websiteSelect = document.getElementById("admin-billing-website-select");
 let dialogAction = null;
 let supabase;
 let records;
+let currentUser;
+let websites = [];
+let selectedWorkspaceKey = "";
 
 const money = (value) => new Intl.NumberFormat(undefined, { style: "currency", currency: "USD" }).format(Number(value || 0) / 100);
 const date = (value) => value ? new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(new Date(value)) : "Not scheduled";
@@ -123,9 +128,70 @@ function openReview(title, body, confirmLabel, action) {
 }
 
 async function load() {
-  const project = new URLSearchParams(location.search).get("project");
-  records = await invoke("get-website-billing-status", project ? { project_id: project } : {});
+  const projectId = new URLSearchParams(location.search).get("project");
+  records = await invoke("get-website-billing-status", adminMode ? {} : (projectId ? { project_id: projectId } : {}));
+
+  if (adminMode) {
+    const { data, error } = await supabase.from("client_websites").select("id,name,status").order("name");
+    if (error) throw error;
+    websites = data || [];
+    const linkedProject = records.projects.find((project) => project.id === projectId);
+    const context = readWorkspaceContext("admin", currentUser.id);
+    selectedWorkspaceKey = linkedProject
+      ? (linkedProject.managed_website_id ? `website:${linkedProject.managed_website_id}` : `project:${linkedProject.id}`)
+      : (websites.some((website) => website.id === context.websiteId) ? `website:${context.websiteId}` : "")
+        || (records.projects.some((project) => project.id === context.projectId) ? `project:${context.projectId}` : "")
+        || (websites[0]?.id ? `website:${websites[0].id}` : "")
+        || (records.projects[0]?.id ? `project:${records.projects[0].id}` : "");
+    renderWebsiteSelector();
+    renderSelectedBilling();
+    return;
+  }
+
   content.innerHTML = records.projects.length ? records.projects.map(card).join("") : `<div class="portal-empty"><p>No website billing records are available yet.</p></div>`;
+}
+
+function renderWebsiteSelector() {
+  if (!websiteSelect) return;
+  const websiteOptions = websites.map((website) => ({
+    value: `website:${website.id}`,
+    label: website.name,
+  }));
+  const unlinkedOptions = records.projects
+    .filter((project) => !project.managed_website_id)
+    .map((project) => ({
+      value: `project:${project.id}`,
+      label: `${project.name} · proposal project`,
+    }));
+  const options = [...websiteOptions, ...unlinkedOptions];
+  websiteSelect.innerHTML = options.length
+    ? options.map((option) => `<option value="${option.value}"${option.value === selectedWorkspaceKey ? " selected" : ""}>${escape(option.label)}</option>`).join("")
+    : '<option value="">No managed websites</option>';
+}
+
+function renderSelectedBilling() {
+  const [kind, selectedId] = selectedWorkspaceKey.split(":");
+  const website = kind === "website" ? websites.find((item) => item.id === selectedId) : null;
+  const projects = kind === "website"
+    ? records.projects.filter((project) => project.managed_website_id === selectedId)
+    : records.projects.filter((project) => project.id === selectedId);
+  if (website) {
+    const project = projects[0];
+    writeWorkspaceContext("admin", currentUser.id, {
+      websiteId: website.id,
+      projectId: project?.id,
+      name: website.name,
+    });
+  } else if (projects[0]) {
+    writeWorkspaceContext("admin", currentUser.id, {
+      websiteId: null,
+      projectId: projects[0].id,
+      name: projects[0].name,
+    });
+  }
+  content.innerHTML = projects.length
+    ? projects.map(card).join("")
+    : `<div class="portal-empty"><p>This website does not have a billing project yet. Prepare billing from its approved proposal when it is ready.</p></div>`;
 }
 
 content.addEventListener("submit", async (event) => {
@@ -226,9 +292,13 @@ async function init() {
   if (!hasConfig()) throw new Error("Supabase configuration is missing.");
   supabase = createBrowserSupabase();
   const { data } = await supabase.auth.getSession();
-  const user = data?.session?.user;
-  if (!user) return location.replace(`/account/?next=${encodeURIComponent(location.pathname + location.search)}`);
-  if (adminMode && !await verifyPlatformAdmin(supabase, user)) throw new Error("Website billing administration access is required.");
+  currentUser = data?.session?.user;
+  if (!currentUser) return location.replace(`/account/?next=${encodeURIComponent(location.pathname + location.search)}`);
+  if (adminMode && !await verifyPlatformAdmin(supabase, currentUser)) throw new Error("Website billing administration access is required.");
+  websiteSelect?.addEventListener("change", () => {
+    selectedWorkspaceKey = websiteSelect.value;
+    renderSelectedBilling();
+  });
   await load();
   document.body.classList.remove("portal-loading");
   screen.hidden = true;
