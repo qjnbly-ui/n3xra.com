@@ -50,7 +50,9 @@ let batchReviewIndex = 0;
 let activePortalView = "overview";
 let toastTimer;
 const isAssetsRoute = document.body.classList.contains("client-assets-view")
-  || window.location.pathname.startsWith("/client-portal/assets");
+  || document.body.dataset.portalView === "assets"
+  || window.location.pathname.startsWith("/client-portal/assets")
+  || new URLSearchParams(window.location.search).get("view") === "files";
 
 function showPortalView(view) {
   const nextView = portalViewPanels.some((panel) => panel.dataset.portalPanel === view) ? view : "overview";

@@ -79,6 +79,10 @@ async function syncSubscription(admin: ReturnType<typeof createClient>, subscrip
   }, { onConflict: "project_id" });
   if (subscription.status === "active" || subscription.status === "trialing") {
     await activateSnapshot(admin, snapshot.id, snapshot.project_id);
+    await admin.from("website_billing_schedules").update({
+      status: "active",
+      activated_at: new Date().toISOString(),
+    }).eq("snapshot_id", snapshot.id);
   }
   return true;
 }
@@ -134,6 +138,18 @@ async function syncInvoice(admin: ReturnType<typeof createClient>, stripe: Strip
     currency: line.currency || invoice.currency || "usd",
   }));
   if (lines.length) await admin.from("website_invoice_items").insert(lines);
+  const chargeId = String(invoice.metadata?.billing_charge_id || metadata?.billing_charge_id || "").trim();
+  if (chargeId) {
+    let chargeStatus = "invoiced";
+    if (eventType === "invoice.paid" || invoice.status === "paid") chargeStatus = "paid";
+    else if (eventType === "invoice.payment_failed") chargeStatus = "failed";
+    else if (eventType === "invoice.voided" || invoice.status === "void") chargeStatus = "void";
+    await admin.from("website_billing_charges").update({
+      local_invoice_id: localInvoice.id,
+      stripe_invoice_id: invoice.id,
+      status: chargeStatus,
+    }).eq("id", chargeId).eq("project_id", snapshot.project_id);
+  }
   if (eventType === "invoice.payment_failed") {
     await admin.from("website_billing_snapshots").update({ status: "payment_failed" }).eq("id", snapshot.id).neq("status", "active");
   } else if (eventType === "invoice.voided" && !subscriptionId) {

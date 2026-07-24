@@ -6,7 +6,7 @@
   <link rel="icon" href="/assets/n3xra_logo_transparent_small.png">
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/site-nav.css"><link rel="stylesheet" href="/client-portal/portal.css?v=13"><link rel="stylesheet" href="/client-portal/billing/billing.css?v=1">
+  <link rel="stylesheet" href="/assets/site-nav.css"><link rel="stylesheet" href="/client-portal/portal.css?v=13"><link rel="stylesheet" href="/client-portal/billing/billing.css?v=2">
   <script src="/shared/config.js"></script><script src="/n3xra-admin/admin-shell.js?v=2" defer></script>
 </head>
 <body class="portal-loading" data-billing-role="admin">
@@ -18,6 +18,7 @@
       <section class="portal-workspace"><div class="portal-workspace-head"><div><p class="portal-kicker">Website accounts</p><h2>Billing workspace</h2><p>Checkout only becomes available after an approved proposal is snapshotted.</p></div><a class="portal-button portal-button-secondary" href="/n3xra-admin/proposals/">Open proposals</a></div><div id="billing-content"></div><p class="portal-inline-status" id="billing-status"></p></section>
     </div>
   </main>
+  <dialog class="billing-review-dialog" id="billing-review-dialog"><div class="billing-review-head"><h2 id="billing-review-title">Review billing action</h2><button type="button" aria-label="Close" data-close-billing-dialog>×</button></div><div id="billing-review-body"></div><div class="portal-form-actions"><button class="portal-button portal-button-secondary" type="button" data-close-billing-dialog>Go back</button><button class="portal-button" id="billing-review-confirm" type="button">Confirm</button></div></dialog>
   <div class="portal-status" id="portal-status">Verifying billing access…</div>
-  <script type="module" src="/client-portal/portal-shell.js"></script><script type="module" src="/client-portal/billing/billing.js?v=1"></script>
+  <script type="module" src="/client-portal/portal-shell.js"></script><script type="module" src="/client-portal/billing/billing.js?v=2"></script>
 </body></html>

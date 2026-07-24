@@ -365,8 +365,26 @@ supabase functions deploy create-website-checkout-session
 supabase functions deploy create-website-portal-session
 supabase functions deploy get-website-billing-status
 supabase functions deploy website-stripe-webhook
+supabase functions deploy website-billing-operations
 ```
 
 Stripe webhook delivery is authoritative. Checkout redirects do not activate service.
-General promotion-code entry, automated remaining-balance charges, refunds, credits,
-partner payouts, and custom invoice creation remain outside Stage 1.
+General promotion-code entry, refunds, credits, and partner payouts remain outside
+the current website billing release.
+
+### Website billing operations
+
+After the initial billing foundation is active, apply
+`20260724145809_website_billing_operations_phase_two.sql`. Website Admin can then:
+
+- approve a recurring-service start date before Checkout;
+- stage accepted proposal balances and separately approved additional services;
+- review a charge before Stripe creates or schedules its invoice;
+- use automatic card collection only when a payment method is available;
+- send invoices with a reviewed due date;
+- preview and send billing messages;
+- schedule subscription cancellation at the end of the paid term.
+
+Future service dates must be at least 48 hours away so Checkout can securely collect
+the payment method before the subscription begins. Stripe webhook state remains
+authoritative for invoice, payment, and subscription status.

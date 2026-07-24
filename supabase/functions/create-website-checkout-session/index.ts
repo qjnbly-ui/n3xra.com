@@ -39,6 +39,11 @@ Deno.serve(async (request) => {
       billing_snapshot_id: snapshot.id,
       referral_code: snapshot.referral_code,
     });
+    const { data: schedule } = await admin
+      .from("website_billing_schedules")
+      .select("*")
+      .eq("snapshot_id", snapshot.id)
+      .maybeSingle();
     const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [];
     if (snapshot.amount_due_now_cents > 0) lineItems.push({
       quantity: 1,
@@ -67,6 +72,10 @@ Deno.serve(async (request) => {
       lineItems.push({ price: recurringPriceId, quantity: 1 });
     }
 
+    const scheduledStart = schedule?.service_start_at ? new Date(schedule.service_start_at) : null;
+    const futureStart = scheduledStart && scheduledStart.getTime() > Date.now() + 48 * 60 * 60 * 1000
+      ? Math.floor(scheduledStart.getTime() / 1000)
+      : null;
     const session = await stripe.checkout.sessions.create({
       mode,
       customer: billingCustomer.stripe_customer_id,
@@ -78,7 +87,18 @@ Deno.serve(async (request) => {
       cancel_url: `${origin}/client-portal/billing/?billing=canceled&project=${snapshot.project_id}`,
       metadata,
       ...(mode === "subscription"
-        ? { subscription_data: { metadata } }
+        ? {
+            payment_method_collection: "always",
+            subscription_data: {
+              metadata,
+              ...(futureStart
+                ? {
+                    trial_end: futureStart,
+                    trial_settings: { end_behavior: { missing_payment_method: "cancel" } },
+                  }
+                : {}),
+            },
+          }
         : { invoice_creation: { enabled: true, invoice_data: { metadata } }, payment_intent_data: { setup_future_usage: "off_session", metadata } }),
     }, { idempotencyKey: `website-checkout-${snapshot.id}` });
 
