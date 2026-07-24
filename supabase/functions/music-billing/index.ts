@@ -35,6 +35,14 @@ function getStripeClient() {
   });
 }
 
+function getMusicPortalConfiguration() {
+  const configuration = Deno.env.get("STRIPE_MUSIC_PORTAL_CONFIGURATION");
+  if (!configuration) {
+    throw new Error("Missing STRIPE_MUSIC_PORTAL_CONFIGURATION.");
+  }
+  return configuration;
+}
+
 function getServiceRoleKey() {
   return Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || Deno.env.get("SERVICE_ROLE_KEY");
 }
@@ -265,6 +273,7 @@ Deno.serve(async (request) => {
     }
 
     const stripe = getStripeClient();
+    const portalConfiguration = getMusicPortalConfiguration();
     const profile = await loadSharedProfile(adminClient, user);
     const musicProfile = await ensureMusicProfile(adminClient, user);
 
@@ -333,6 +342,7 @@ Deno.serve(async (request) => {
 
     const session = await stripe.billingPortal.sessions.create({
       customer: musicProfile.stripe_customer_id,
+      configuration: portalConfiguration,
       return_url: `${origin}/ai-music-generator/app/?billing=portal`,
     });
 

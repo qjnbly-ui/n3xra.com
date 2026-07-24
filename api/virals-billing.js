@@ -39,6 +39,14 @@ async function getReferralDiscountPayload(code) {
   };
 }
 
+function getViralsPortalConfiguration() {
+  const configuration = process.env.STRIPE_VIRALS_PORTAL_CONFIGURATION;
+  if (!configuration) {
+    throw new Error("Missing STRIPE_VIRALS_PORTAL_CONFIGURATION.");
+  }
+  return configuration;
+}
+
 module.exports = async function handler(req, res) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
@@ -103,6 +111,7 @@ module.exports = async function handler(req, res) {
         method: "POST",
         body: {
           customer: customerId,
+          configuration: getViralsPortalConfiguration(),
           return_url: `${origin}/virals/?billing=portal`,
         },
       });

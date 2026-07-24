@@ -29,6 +29,14 @@ function getStripeClient() {
   });
 }
 
+function getRecordsPortalConfiguration() {
+  const configuration = Deno.env.get("STRIPE_RECORDS_PORTAL_CONFIGURATION");
+  if (!configuration) {
+    throw new Error("Missing STRIPE_RECORDS_PORTAL_CONFIGURATION.");
+  }
+  return configuration;
+}
+
 function getServiceRoleKey() {
   return Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || Deno.env.get("SERVICE_ROLE_KEY");
 }
@@ -123,7 +131,9 @@ Deno.serve(async (request) => {
     }
 
     const stripe = getStripeClient();
-    const returnUrl = `${origin}/app/account?billing=portal`;
+    const portalConfiguration = getRecordsPortalConfiguration();
+    const accountUrl = `${origin}/n3xra-records/account`;
+    const returnUrl = `${accountUrl}?billing=portal`;
 
     if (action === "create-checkout-session") {
       const planId = String(payload.planId || "").trim();
@@ -176,8 +186,8 @@ Deno.serve(async (request) => {
         ],
         allow_promotion_codes: true,
         client_reference_id: organization.id,
-        success_url: `${origin}/app/account?billing=success`,
-        cancel_url: `${origin}/app/account?billing=canceled`,
+        success_url: `${accountUrl}?billing=success`,
+        cancel_url: `${accountUrl}?billing=canceled`,
         metadata: {
           app: "n3xra_records",
           organization_id: organization.id,
@@ -204,6 +214,7 @@ Deno.serve(async (request) => {
 
       const session = await stripe.billingPortal.sessions.create({
         customer: organization.stripe_customer_id,
+        configuration: portalConfiguration,
         return_url: returnUrl,
       });
 
