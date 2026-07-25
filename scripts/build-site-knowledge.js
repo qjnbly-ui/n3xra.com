@@ -19,6 +19,7 @@ const PAGES = [
   { route: "/partners", file: "partners/index.html", visibility: "public", tags: ["partners", "referrals", "commissions", "application"] },
   { route: "/partners/terms", file: "partners/terms/index.html", visibility: "public", tags: ["partners", "terms", "commissionable net revenue", "referral eligibility"] },
   { route: "/partners/change-of-control", file: "partners/change-of-control/index.html", visibility: "public", tags: ["partners", "change of control", "commissions"] },
+  { route: "/invest", file: "invest/index.html", visibility: "public", tags: ["ownership", "membership interests", "private investment", "distributions", "governance", "investment vision"] },
   { route: "/support", file: "support/index.html", visibility: "public", tags: ["support", "help", "contact"] },
   { route: "/terms", file: "terms/index.html", visibility: "public", tags: ["terms", "legal"] },
   { route: "/privacy", file: "privacy/index.html", visibility: "public", tags: ["privacy", "security", "data"] },
