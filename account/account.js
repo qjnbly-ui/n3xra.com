@@ -43,12 +43,28 @@ const doneAccountSettingsButton = document.getElementById("done-account-settings
 const settingsStatus = document.getElementById("settings-status");
 const recordsSummary = document.getElementById("records-summary");
 const musicSummary = document.getElementById("music-summary");
+const viralsSummary = document.getElementById("virals-summary");
+const websitePortalSummary = document.getElementById("website-portal-summary");
+const websitePortalLink = document.getElementById("website-portal-link");
 const openRecordsButton = document.getElementById("open-records-button");
 const openMusicButton = document.getElementById("open-music-button");
 const openViralsButton = document.getElementById("open-virals-button");
+const recordsAppCard = document.getElementById("records-app-card");
+const websitePortalCard = document.getElementById("website-portal-card");
+const musicAppCard = document.getElementById("music-app-card");
+const viralsAppCard = document.getElementById("virals-app-card");
 const partnerPortalCard = document.getElementById("partner-portal-card");
+const partnerPortalKicker = document.getElementById("partner-portal-kicker");
+const partnerPortalTitle = document.getElementById("partner-portal-title");
+const partnerPortalSummary = document.getElementById("partner-portal-summary");
+const partnerPortalLink = document.getElementById("partner-portal-link");
 const investmentInterestCard = document.getElementById("investment-interest-card");
 const investmentInterestSummary = document.getElementById("investment-interest-summary");
+const investmentInterestLink = document.getElementById("investment-interest-link");
+const connectedAppsGrid = document.getElementById("connected-apps-grid");
+const availableAppsGrid = document.getElementById("available-apps-grid");
+const connectedAppsEmpty = document.getElementById("connected-apps-empty");
+const availableAppsEmpty = document.getElementById("available-apps-empty");
 const appsDashboardView = document.getElementById("apps-dashboard-view");
 const adminAppSection = document.getElementById("admin-app-section");
 const dashboardViewToggle = document.getElementById("dashboard-view-toggle");
@@ -61,6 +77,8 @@ let supabase = null;
 let currentSession = null;
 let memberships = [];
 let musicProfile = null;
+let viralsProfile = null;
+let websiteServiceRequest = null;
 let platformAdminAccess = null;
 let validatedSignupReferralCode = "";
 let signupReferralTimer = null;
@@ -158,6 +176,30 @@ function getPreferredDashboardView() {
 function show(el, visible) {
   if (!el) return;
   el.classList.toggle("hidden", !visible);
+}
+
+function placeAppCard(card, connected) {
+  if (!card) return;
+  const destination = connected ? connectedAppsGrid : availableAppsGrid;
+  destination?.append(card);
+  card.classList.toggle("is-connected", connected);
+  card.classList.toggle("is-available", !connected);
+  const badge = card.querySelector(".app-access-badge");
+  if (badge) badge.textContent = connected ? "Connected" : "Available";
+  show(card, true);
+}
+
+function updateAppSectionEmptyStates() {
+  const connectedCount = connectedAppsGrid?.querySelectorAll(".app-card:not(.hidden)").length || 0;
+  const availableCount = availableAppsGrid?.querySelectorAll(".app-card:not(.hidden)").length || 0;
+  show(connectedAppsEmpty, connectedCount === 0);
+  show(availableAppsEmpty, availableCount === 0);
+}
+
+function formatAppStatus(value) {
+  return String(value || "")
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 function setDashboardView(requestedView = "apps") {
@@ -408,6 +450,26 @@ async function loadMusicProfile() {
   musicProfile = data || null;
 }
 
+async function loadViralsProfile() {
+  const { data, error } = await supabase
+    .from("virals_profiles")
+    .select("plan, account_status, analyses_used, monthly_analysis_limit")
+    .maybeSingle();
+  if (error && error.code !== "PGRST116") throw error;
+  viralsProfile = data || null;
+}
+
+async function loadWebsiteServiceRequest() {
+  const { data, error } = await supabase
+    .from("website_service_requests")
+    .select("id,business_name,status,created_at")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error && error.code !== "PGRST116") throw error;
+  websiteServiceRequest = data || null;
+}
+
 async function loadProfileName() {
   const { data } = await supabase
     .from("profiles")
@@ -507,33 +569,85 @@ async function renderDashboard(message = "") {
     loadPartnerAccess(),
     loadPlatformAdminAccess(),
     loadInvestmentInterest(),
+    loadViralsProfile(),
+    loadWebsiteServiceRequest(),
   ]);
-  show(partnerPortalCard, partnerAccess.status === "fulfilled" && partnerAccess.value === true);
+  const isApprovedPartner = partnerAccess.status === "fulfilled" && partnerAccess.value === true;
   const interest = investmentInterest.status === "fulfilled" ? investmentInterest.value : null;
-  show(investmentInterestCard, Boolean(interest));
+
+  const firstMembership = memberships[0] || null;
+  const recordsOrgName = firstMembership?.organization?.name || "";
+  const hasRecordsAccess = Boolean(firstMembership);
+  recordsSummary.textContent = hasRecordsAccess
+    ? `Connected to ${recordsOrgName || "a Records organization"}.`
+    : "No Records library yet. Start one or join an existing organization.";
+  openRecordsButton.textContent = hasRecordsAccess ? "Open Records" : "Start Records";
+
+  const hasWebsiteService = Boolean(websiteServiceRequest);
+  if (hasWebsiteService) {
+    const businessName = String(websiteServiceRequest.business_name || "your website workspace").trim();
+    const requestStatus = formatAppStatus(websiteServiceRequest.status);
+    websitePortalSummary.textContent = `${businessName} · ${requestStatus || "Active request"}.`;
+    websitePortalLink.textContent = "Open Website Portal";
+  } else {
+    websitePortalSummary.textContent = "No website workspace yet. Start a request when you are ready to build or manage a site.";
+    websitePortalLink.textContent = "Start Website Request";
+  }
+
+  const hasMusicProfile = Boolean(musicProfile);
+  musicSummary.textContent = hasMusicProfile
+    ? `${formatAppStatus(musicProfile.plan || "free")} plan. ${Number(musicProfile.songs_used || 0)} of ${Number(musicProfile.monthly_song_limit || 0)} songs used.`
+    : "Not active yet. Activate it when you want to create and save songs.";
+  openMusicButton.textContent = hasMusicProfile ? "Open AI Music" : "Activate AI Music";
+
+  const hasViralsProfile = Boolean(viralsProfile);
+  viralsSummary.textContent = hasViralsProfile
+    ? `${formatAppStatus(viralsProfile.plan || "free")} plan. ${Number(viralsProfile.analyses_used || 0)} of ${Number(viralsProfile.monthly_analysis_limit || 0)} analyses used.`
+    : "Analyze TikTok URLs, compare winners, and save repeatable content frameworks.";
+  openViralsButton.textContent = hasViralsProfile ? "Open N3XRA Virals" : "Explore N3XRA Virals";
+
+  if (isApprovedPartner) {
+    partnerPortalKicker.textContent = "Approved partner";
+    partnerPortalTitle.textContent = "Partner Portal";
+    partnerPortalSummary.textContent = "Manage your referral code, balances, referrals, and commission history.";
+    partnerPortalLink.href = "/client-portal/partners/";
+    partnerPortalLink.textContent = "Open Partner Portal";
+  } else {
+    partnerPortalKicker.textContent = "Partner program";
+    partnerPortalTitle.textContent = "N3XRA Partners";
+    partnerPortalSummary.textContent = "Apply to participate in approved N3XRA referral and partner opportunities.";
+    partnerPortalLink.href = "/partners/#apply";
+    partnerPortalLink.textContent = "Explore Partner Program";
+  }
+
   if (interest && investmentInterestSummary) {
     investmentInterestSummary.textContent = interest.status === "withdrawn"
       ? "Your ownership-update request is withdrawn. You can review or rejoin it."
       : "Your request for future N3XRA ownership updates is connected to this account.";
+    investmentInterestLink.href = "/account/investment/";
+    investmentInterestLink.textContent = "Open Ownership Updates";
+  } else if (investmentInterestSummary) {
+    investmentInterestSummary.textContent = "Join the information list for future N3XRA company and ownership updates.";
+    investmentInterestLink.href = "/invest/#ownership-updates";
+    investmentInterestLink.textContent = "Request Ownership Updates";
   }
+
+  [
+    [recordsAppCard, hasRecordsAccess],
+    [websitePortalCard, hasWebsiteService],
+    [musicAppCard, hasMusicProfile],
+    [viralsAppCard, hasViralsProfile],
+    [partnerPortalCard, isApprovedPartner],
+    [investmentInterestCard, Boolean(interest)],
+  ].forEach(([card, connected]) => placeAppCard(card, connected));
+  updateAppSectionEmptyStates();
+
   const displayName = await loadProfileName().catch(() => currentSession.user.email || "N3XRA account");
   accountName.textContent = displayName || "N3XRA account";
   accountEmail.textContent = currentSession.user.email || "";
   if (settingsAccountEmail) settingsAccountEmail.textContent = currentSession.user.email || "-";
   profileFullNameInput.value = displayName || "";
 
-  const firstMembership = memberships[0] || null;
-  const recordsOrgName = firstMembership?.organization?.name || "";
-  recordsSummary.textContent = recordsOrgName
-    ? `Connected to ${recordsOrgName}.`
-    : "No Records library yet. Open Records to create or join one.";
-  openRecordsButton.textContent = recordsOrgName ? "Open Records" : "Start Records";
-
-  const hasMusicProfile = Boolean(musicProfile);
-  musicSummary.textContent = hasMusicProfile
-    ? `${musicProfile.plan || "Free"} plan. ${Number(musicProfile.songs_used || 0)} of ${Number(musicProfile.monthly_song_limit || 0)} songs used.`
-    : "Not active yet. Activate it only if you want to create and save songs.";
-  openMusicButton.textContent = hasMusicProfile ? "Open AI Music" : "Activate AI Music";
   canViewAdminApps = Boolean(platformAdminAccess) || isPlatformAdminEmail(currentSession.user.email);
   show(dashboardViewToggle, canViewAdminApps);
   show(adminNotificationButton, canViewAdminApps);
@@ -860,6 +974,8 @@ async function handleSignout() {
   currentSession = null;
   memberships = [];
   musicProfile = null;
+  viralsProfile = null;
+  websiteServiceRequest = null;
   renderShell("auth");
   setAuthMode("signin");
   setStatus("Signed out.");

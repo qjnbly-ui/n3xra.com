@@ -213,15 +213,20 @@ body {
 
 .dashboard-apps {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
-  align-items: stretch;
+  grid-template-columns: 1fr;
+  gap: 1.8rem;
+  align-items: start;
 }
 
 .dashboard-section {
   display: grid;
   gap: 0.85rem;
   align-content: start;
+}
+
+.dashboard-apps > .dashboard-section + .dashboard-section {
+  padding-top: 1.5rem;
+  border-top: 1px solid rgba(15, 22, 32, 0.1);
 }
 
 .dashboard-section-head {
@@ -247,6 +252,19 @@ body {
   display: grid;
   grid-template-columns: 1fr;
   gap: 0.85rem;
+}
+
+.dashboard-apps .app-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.dashboard-empty-state {
+  margin: 0;
+  padding: 1rem 1.1rem;
+  color: var(--slate);
+  border: 1px dashed rgba(15, 22, 32, 0.16);
+  border-radius: var(--radius-md);
+  background: #fbfcfd;
 }
 
 .admin-app-section {
@@ -429,6 +447,47 @@ body {
   gap: 1rem;
   min-height: 210px;
   align-content: space-between;
+}
+
+.app-card.is-connected {
+  border-color: rgba(15, 118, 110, 0.24);
+  background: linear-gradient(180deg, rgba(236, 253, 250, 0.64), #fbfcfd 48%);
+}
+
+.app-card.is-available {
+  background: #fbfcfd;
+}
+
+.app-access-badge {
+  display: inline-flex;
+  width: max-content;
+  align-items: center;
+  gap: 0.35rem;
+  margin-bottom: 0.7rem;
+  padding: 0.28rem 0.5rem;
+  color: #526173;
+  border: 1px solid rgba(82, 97, 115, 0.16);
+  border-radius: 999px;
+  background: #f4f6f8;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.app-card.is-connected .app-access-badge {
+  color: #0f766e;
+  border-color: rgba(15, 118, 110, 0.18);
+  background: rgba(204, 251, 241, 0.74);
+}
+
+.app-card.is-connected .app-access-badge::before {
+  width: 6px;
+  height: 6px;
+  content: "";
+  border-radius: 50%;
+  background: #0f9f8f;
 }
 
 .account-dashboard .auth-kicker,
@@ -628,6 +687,10 @@ body {
   }
 
   .dashboard-apps {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-apps .app-grid {
     grid-template-columns: 1fr;
   }
 

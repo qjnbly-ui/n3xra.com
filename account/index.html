@@ -169,74 +169,83 @@
 
         <div class="dashboard-views">
           <div class="dashboard-apps" id="apps-dashboard-view" role="tabpanel" aria-labelledby="show-apps-view">
-            <section class="dashboard-section">
+            <section class="dashboard-section" id="connected-apps-section">
               <div class="dashboard-section-head">
                 <div>
+                  <p class="auth-kicker">Connected to your account</p>
                   <h3>Your apps</h3>
-                  <p>Products already connected to this account.</p>
+                  <p>Products, services, and programs you have already joined or activated.</p>
                 </div>
               </div>
-              <div class="app-grid">
-                <article class="app-card">
+              <div class="app-grid" id="connected-apps-grid"></div>
+              <p class="dashboard-empty-state hidden" id="connected-apps-empty">You do not have any connected apps yet. Choose one from the available options below.</p>
+            </section>
+
+            <section class="dashboard-section" id="available-apps-section">
+              <div class="dashboard-section-head">
+                <div>
+                  <p class="auth-kicker">Available to you</p>
+                  <h3>Explore more apps</h3>
+                  <p>Apps and programs you can activate, join, or request when you are ready.</p>
+                </div>
+              </div>
+              <div class="app-grid" id="available-apps-grid">
+                <article class="app-card hidden" id="records-app-card">
                   <div>
+                    <span class="app-access-badge">Available</span>
                     <p class="auth-kicker">Records</p>
                     <h3>N3XRA Records</h3>
                     <p id="records-summary">Manage records, files, documents, and meeting notes.</p>
                   </div>
                   <button class="btn secondary block" id="open-records-button" type="button">Open Records</button>
                 </article>
-                <article class="app-card">
+                <article class="app-card hidden" id="website-portal-card">
                   <div>
+                    <span class="app-access-badge">Available</span>
                     <p class="auth-kicker">Client services</p>
                     <h3>Website Client Portal</h3>
-                    <p>Request, review, build, launch, and manage your websites from one workspace.</p>
+                    <p id="website-portal-summary">Request, review, build, launch, and manage your websites from one workspace.</p>
                   </div>
-                  <a class="btn secondary block button-link" href="/client-portal/">Open Website Portal</a>
+                  <a class="btn secondary block button-link" id="website-portal-link" href="/client-portal/">Start Website Request</a>
                 </article>
-                <article class="app-card hidden" id="partner-portal-card">
+                <article class="app-card hidden" id="music-app-card">
                   <div>
-                    <p class="auth-kicker">Approved partner</p>
-                    <h3>Partner Portal</h3>
-                    <p>Manage your referral code, balances, referrals, and commission history.</p>
-                  </div>
-                  <a class="btn secondary block button-link" href="/client-portal/partners/">Open Partner Portal</a>
-                </article>
-                <article class="app-card hidden" id="investment-interest-card">
-                  <div>
-                    <p class="auth-kicker">Company updates</p>
-                    <h3>Ownership Updates</h3>
-                    <p id="investment-interest-summary">Your request for future N3XRA ownership updates is connected to this account.</p>
-                  </div>
-                  <a class="btn secondary block button-link" href="/account/investment/">Open Ownership Updates</a>
-                </article>
-              </div>
-            </section>
-
-            <section class="dashboard-section" id="more-products-section">
-              <div class="dashboard-section-head">
-                <div>
-                  <h3>More products</h3>
-                  <p>Apps you can add when you need them.</p>
-                </div>
-              </div>
-              <div class="app-grid">
-                <article class="app-card">
-                  <div>
+                    <span class="app-access-badge">Available</span>
                     <p class="auth-kicker">Optional app</p>
                     <h3>AI Music Generator</h3>
                     <p id="music-summary">Not active yet. Activate it only if you want to create and save songs.</p>
                   </div>
                   <button class="btn secondary block" id="open-music-button" type="button">Activate AI Music</button>
                 </article>
-                <article class="app-card">
+                <article class="app-card hidden" id="virals-app-card">
                   <div>
+                    <span class="app-access-badge">Available</span>
                     <p class="auth-kicker">AI tool</p>
                     <h3>N3XRA Virals</h3>
                     <p id="virals-summary">Analyze TikTok URLs, compare winners, and save repeatable content frameworks.</p>
                   </div>
-                  <button class="btn secondary block" id="open-virals-button" type="button">Open N3XRA Virals</button>
+                  <button class="btn secondary block" id="open-virals-button" type="button">Explore N3XRA Virals</button>
+                </article>
+                <article class="app-card hidden" id="partner-portal-card">
+                  <div>
+                    <span class="app-access-badge">Available</span>
+                    <p class="auth-kicker" id="partner-portal-kicker">Partner program</p>
+                    <h3 id="partner-portal-title">N3XRA Partners</h3>
+                    <p id="partner-portal-summary">Apply to participate in approved N3XRA referral and partner opportunities.</p>
+                  </div>
+                  <a class="btn secondary block button-link" id="partner-portal-link" href="/partners/#apply">Explore Partner Program</a>
+                </article>
+                <article class="app-card hidden" id="investment-interest-card">
+                  <div>
+                    <span class="app-access-badge">Available</span>
+                    <p class="auth-kicker">Company updates</p>
+                    <h3>Ownership Updates</h3>
+                    <p id="investment-interest-summary">Join the information list for future N3XRA company and ownership updates.</p>
+                  </div>
+                  <a class="btn secondary block button-link" id="investment-interest-link" href="/invest/#ownership-updates">Request Ownership Updates</a>
                 </article>
               </div>
+              <p class="dashboard-empty-state hidden" id="available-apps-empty">You are connected to every app and program currently available to this account.</p>
             </section>
           </div>
 
@@ -384,7 +393,7 @@
           <img src="/assets/n3xra_logo_transparent_small.png" alt="">
           <span>N3XRA</span>
         </a>
-        <p>Custom websites, connected systems, and practical software.</p>
+        <p>N3XRA builds custom websites, software, automation, and AI solutions that help organizations work smarter and operate more efficiently.</p>
       </div>
 
       <nav class="footer-nav" aria-label="Company">
