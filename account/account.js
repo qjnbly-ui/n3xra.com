@@ -47,6 +47,8 @@ const openRecordsButton = document.getElementById("open-records-button");
 const openMusicButton = document.getElementById("open-music-button");
 const openViralsButton = document.getElementById("open-virals-button");
 const partnerPortalCard = document.getElementById("partner-portal-card");
+const investmentInterestCard = document.getElementById("investment-interest-card");
+const investmentInterestSummary = document.getElementById("investment-interest-summary");
 const appsDashboardView = document.getElementById("apps-dashboard-view");
 const adminAppSection = document.getElementById("admin-app-section");
 const dashboardViewToggle = document.getElementById("dashboard-view-toggle");
@@ -462,6 +464,17 @@ async function loadPlatformAdminAccess() {
   return platformAdminAccess;
 }
 
+async function loadInvestmentInterest() {
+  if (!currentSession?.user) return null;
+  const { data, error } = await supabase
+    .from("investment_interest_profiles")
+    .select("status,submitted_at,email_updates")
+    .eq("user_id", currentSession.user.id)
+    .maybeSingle();
+  if (error) throw error;
+  return data || null;
+}
+
 async function maybeRedeemPlatformAdminInvite() {
   const token = getPlatformAdminInviteToken();
   if (!token || !currentSession?.user) return "";
@@ -488,13 +501,21 @@ async function renderDashboard(message = "") {
   show(adminNotificationButton, canViewAdminApps);
   setDashboardView(getPreferredDashboardView());
 
-  const [, , partnerAccess] = await Promise.allSettled([
+  const [, , partnerAccess, , investmentInterest] = await Promise.allSettled([
     loadMemberships(),
     loadMusicProfile(),
     loadPartnerAccess(),
     loadPlatformAdminAccess(),
+    loadInvestmentInterest(),
   ]);
   show(partnerPortalCard, partnerAccess.status === "fulfilled" && partnerAccess.value === true);
+  const interest = investmentInterest.status === "fulfilled" ? investmentInterest.value : null;
+  show(investmentInterestCard, Boolean(interest));
+  if (interest && investmentInterestSummary) {
+    investmentInterestSummary.textContent = interest.status === "withdrawn"
+      ? "Your ownership-update request is withdrawn. You can review or rejoin it."
+      : "Your request for future N3XRA ownership updates is connected to this account.";
+  }
   const displayName = await loadProfileName().catch(() => currentSession.user.email || "N3XRA account");
   accountName.textContent = displayName || "N3XRA account";
   accountEmail.textContent = currentSession.user.email || "";
