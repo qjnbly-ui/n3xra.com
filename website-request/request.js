@@ -87,13 +87,14 @@ const referralCodeStatus = document.getElementById("request-referral-code-status
 const referralCodeLabel = document.getElementById("request-referral-code-label");
 const referralCodeLabelText = document.getElementById("request-referral-code-label-text");
 const referralCodeOptional = document.getElementById("request-referral-code-optional");
+const referralCodeRemove = document.getElementById("request-referral-code-remove");
+const appliedOffer = document.getElementById("request-applied-offer");
 const pricingCopy = document.getElementById("request-pricing-copy");
 const pricingPlansLink = document.getElementById("request-pricing-plans-link");
 const servicePlanField = document.getElementById("request-service-plan-field");
 const servicePlanInput = document.getElementById("request-service-plan");
 const servicePlanStatus = document.getElementById("request-service-plan-status");
 const servicePlanTrigger = document.getElementById("request-service-plan-trigger");
-const servicePlanSummary = document.getElementById("request-service-plan-summary");
 const servicePlanDialog = document.getElementById("request-service-plan-dialog");
 const servicePlanDialogClose = document.getElementById("request-service-plan-dialog-close");
 const servicePlanOptions = [...document.querySelectorAll("[data-plan-option]")];
@@ -159,11 +160,6 @@ function updateServicePlanTrigger() {
     servicePlanTrigger.setAttribute("aria-expanded", String(Boolean(servicePlanDialog && !servicePlanDialog.hidden)));
     servicePlanTrigger.setAttribute("aria-invalid", String(!selected));
   }
-  if (servicePlanSummary) {
-    servicePlanSummary.textContent = selected
-      ? `${planLabel(selected)} selected${servicePlanAutoApplied ? " automatically for this scope" : ""}.`
-      : "No plan selected.";
-  }
 }
 
 function openServicePlanDialog() {
@@ -216,6 +212,7 @@ function updateServicePlanFit({ announce = false } = {}) {
   const requiresAdvanced = reasons.length > 0;
   servicePlanInput.setCustomValidity("");
   servicePlanStatus.classList.remove("is-upgraded", "is-error");
+  servicePlanStatus.hidden = true;
 
   if (requiresAdvanced && selectedPlan !== "advanced") {
     servicePlanInput.value = "advanced";
@@ -223,29 +220,37 @@ function updateServicePlanFit({ announce = false } = {}) {
     servicePlanReason = `Advanced was applied because your request includes ${reasons.join(" and ")}. These projects need custom build work and service matched to the system.`;
     servicePlanStatus.textContent = servicePlanReason;
     servicePlanStatus.classList.add("is-upgraded");
+    servicePlanStatus.hidden = false;
     updateServicePlanTrigger();
     return;
   }
 
   if (selectedPlan === "advanced") {
     if (!servicePlanAutoApplied) servicePlanReason = "";
-    servicePlanStatus.textContent = servicePlanAutoApplied
-      ? servicePlanReason
-      : "Advanced selected. Build and service pricing will be custom quoted to the approved scope.";
-    servicePlanStatus.classList.add("is-upgraded");
+    if (servicePlanAutoApplied) {
+      servicePlanStatus.textContent = servicePlanReason;
+      servicePlanStatus.classList.add("is-upgraded");
+      servicePlanStatus.hidden = false;
+    }
     updateServicePlanTrigger();
     return;
   }
 
   servicePlanAutoApplied = false;
   servicePlanReason = "";
-  servicePlanStatus.textContent = selectedPlan
-    ? selectedPlan === "starter_plus"
-      ? "Starter+ includes up to 30 minutes of routine edits each month and priority handling."
-      : "Starter is for a straightforward website with routine hosting, security, backups, and support."
-    : "Choose one plan so we can prepare the right proposal.";
+  servicePlanStatus.textContent = "";
   if (announce && !selectedPlan) servicePlanInput.setCustomValidity("Choose a website service plan before continuing.");
   updateServicePlanTrigger();
+}
+
+function foundingOfferMessage() {
+  return "FREEBUILD applied: your $250 website build fee is waived. You may also add a referral code for attribution; discounts do not stack.";
+}
+
+function syncReferralCodeUi() {
+  const code = normalizeReferralCode(referralCodeInput?.value);
+  if (appliedOffer) appliedOffer.hidden = !foundingOfferActive;
+  if (referralCodeRemove) referralCodeRemove.hidden = !code || code === "FREEBUILD";
 }
 
 function setReferralStatus(message, state = "") {
@@ -253,6 +258,7 @@ function setReferralStatus(message, state = "") {
   referralCodeStatus.textContent = message;
   referralCodeStatus.classList.toggle("is-valid", state === "valid");
   referralCodeStatus.classList.toggle("is-error", state === "error");
+  syncReferralCodeUi();
 }
 
 async function validateReferralCode({ required = false } = {}) {
@@ -262,7 +268,10 @@ async function validateReferralCode({ required = false } = {}) {
   referralCodeInput.setCustomValidity("");
   if (!code) {
     validatedReferralCode = "";
-    setReferralStatus("Enter a valid website referral code for 10% off the website build.");
+    setReferralStatus(
+      foundingOfferActive ? foundingOfferMessage() : "Enter a valid website referral code for 10% off the website build.",
+      foundingOfferActive ? "valid" : "",
+    );
     return true;
   }
   if (code.length < 4) {
@@ -274,7 +283,12 @@ async function validateReferralCode({ required = false } = {}) {
   }
   if (code === "FREEBUILD") {
     validatedReferralCode = "";
-    const message = "The founding offer is applied automatically from its offer link. Use this field for a referral code.";
+    referralCodeInput.value = "";
+    if (foundingOfferActive) {
+      setReferralStatus(foundingOfferMessage(), "valid");
+      return true;
+    }
+    const message = "FREEBUILD is available only through the Limited Founding Offer link.";
     setReferralStatus(message, "error");
     if (required) referralCodeInput.setCustomValidity(message);
     return false;
@@ -294,7 +308,12 @@ async function validateReferralCode({ required = false } = {}) {
       return false;
     }
     validatedReferralCode = code;
-    setReferralStatus("Referral code verified. Your proposal will include 10% off the website build.", "valid");
+    setReferralStatus(
+      foundingOfferActive
+        ? `Referral code ${code} added for attribution. FREEBUILD remains applied; discounts do not stack.`
+        : "Referral code verified. Your proposal will include 10% off the website build.",
+      "valid",
+    );
     return true;
   } catch (error) {
     validatedReferralCode = "";
@@ -799,9 +818,6 @@ async function submitAuthenticatedRequest({ automatic = false } = {}) {
     if (referralCodeInput) {
       referralCodeInput.value = "";
       referralCodeInput.readOnly = false;
-      setReferralStatus(foundingOfferActive
-        ? "Limited founding offer is active. Referral codes remain available for attribution; discounts cannot be combined."
-        : "Enter a valid website referral code for 10% off the website build.");
     }
     syncPickers();
     updateServicePlanFit();
@@ -810,7 +826,11 @@ async function submitAuthenticatedRequest({ automatic = false } = {}) {
     pendingQuestions = [];
     reviewedSnapshot = "";
     clearDraft();
-    if (foundingOfferActive) clearFoundingOfferAccess();
+    if (foundingOfferActive) {
+      clearFoundingOfferAccess();
+      foundingOfferActive = false;
+    }
+    setReferralStatus("Enter a valid website referral code for 10% off the website build.");
     cleanSubmitIntent();
     updateAccountState();
     if (verificationCard) verificationCard.hidden = true;
@@ -904,10 +924,23 @@ function bindEvents() {
     referralCodeInput.value = normalized;
     if (normalized !== validatedReferralCode) validatedReferralCode = "";
     referralCodeInput.setCustomValidity("");
+    syncReferralCodeUi();
     clearTimeout(referralValidationTimer);
     referralValidationTimer = setTimeout(() => validateReferralCode(), 450);
   });
   referralCodeInput?.addEventListener("blur", () => validateReferralCode());
+  referralCodeRemove?.addEventListener("click", () => {
+    referralCodeInput.value = "";
+    referralCodeInput.setCustomValidity("");
+    validatedReferralCode = "";
+    clearTimeout(referralValidationTimer);
+    setReferralStatus(
+      foundingOfferActive ? foundingOfferMessage() : "Enter a valid website referral code for 10% off the website build.",
+      foundingOfferActive ? "valid" : "",
+    );
+    saveDraft();
+    referralCodeInput.focus();
+  });
   servicePlanInput?.addEventListener("change", () => {
     servicePlanAutoApplied = false;
     servicePlanReason = "";
@@ -948,11 +981,12 @@ async function init() {
   if (linkedReferralCode && linkedReferralCode !== "FREEBUILD" && referralCodeInput) {
     referralCodeInput.value = linkedReferralCode;
   }
+  if (referralCodeInput?.value === "FREEBUILD") referralCodeInput.value = "";
   if (foundingOfferActive) {
-    if (referralCodeInput?.value === "FREEBUILD") referralCodeInput.value = "";
     if (pricingCopy) pricingCopy.textContent = "Limited founding offer: the one-time website build fee is waived. Service plans start at $25/month.";
-    setReferralStatus("Limited founding offer is active. Referral codes remain available for attribution; discounts cannot be combined.");
+    setReferralStatus(foundingOfferMessage(), "valid");
   }
+  syncReferralCodeUi();
   syncPickers();
   updateServicePlanFit();
   bindEvents();

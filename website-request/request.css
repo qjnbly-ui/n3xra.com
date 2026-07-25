@@ -153,13 +153,6 @@
   color: var(--portal-muted);
 }
 
-.request-plan-summary {
-  color: var(--portal-muted);
-  font-size: 0.72rem;
-  font-weight: 600;
-  line-height: 1.4;
-}
-
 .request-plan-native-select {
   position: absolute;
   width: 1px;
@@ -309,6 +302,70 @@
   color: var(--portal-muted);
   font-size: 0.74em;
   font-weight: 500;
+}
+
+.request-applied-offer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.55rem;
+  align-items: center;
+  width: fit-content;
+  padding: 0.42rem 0.62rem;
+  color: #075c4c;
+  background: #e9f8f2;
+  border: 1px solid #bce8d9;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  line-height: 1.25;
+}
+
+.request-applied-offer[hidden] {
+  display: none;
+}
+
+.request-applied-offer strong {
+  letter-spacing: 0.04em;
+}
+
+.request-referral-input {
+  position: relative;
+  display: block;
+}
+
+.portal-form .request-referral-input input {
+  width: 100%;
+  padding-right: 2.75rem;
+}
+
+.request-referral-input button {
+  position: absolute;
+  top: 50%;
+  right: 0.55rem;
+  display: grid;
+  width: 1.8rem;
+  height: 1.8rem;
+  place-items: center;
+  padding: 0;
+  transform: translateY(-50%);
+  color: #566274;
+  background: #eef2f5;
+  border: 0;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.request-referral-input button[hidden] {
+  display: none;
+}
+
+.request-referral-input button:hover,
+.request-referral-input button:focus-visible {
+  color: #111b27;
+  background: #dfe7ec;
+  outline: 2px solid rgba(13, 111, 96, 0.18);
 }
 
 .portal-form input[readonly] {
