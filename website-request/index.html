@@ -62,49 +62,8 @@
         <form class="portal-form portal-request-form" id="website-request-form">
           <aside class="request-pricing-note" aria-label="Website pricing overview">
             <span id="request-pricing-copy">Website builds start at $250.</span>
-            <a href="/services/#website-pricing">See plans and pricing</a>
+            <a href="#request-service-plan-field" id="request-pricing-plans-link">See plans and pricing</a>
           </aside>
-          <section class="request-plan-selector" aria-labelledby="request-service-plan-title">
-            <div class="request-plan-selector-summary">
-              <p class="portal-kicker">Service plan</p>
-              <strong id="request-service-plan-title">Choose a plan for this project</strong>
-              <span id="request-service-plan-summary">Required before your project can be reviewed.</span>
-            </div>
-            <button class="portal-button portal-button-secondary request-plan-trigger" id="request-service-plan-trigger" type="button" aria-haspopup="dialog" aria-expanded="false">Choose service plan</button>
-            <select id="request-service-plan" class="request-plan-native-select" required aria-label="Service plan">
-              <option value="">Choose a plan</option>
-              <option value="starter">Starter — $25/month</option>
-              <option value="starter_plus">Starter+ — $40/month</option>
-              <option value="advanced">Advanced — from $50/month</option>
-            </select>
-            <span class="request-field-help" id="request-service-plan-status" role="status">Choose one plan so we can prepare the right proposal.</span>
-            <div class="request-plan-dialog" id="request-service-plan-dialog" hidden role="dialog" aria-modal="true" aria-labelledby="request-service-plan-dialog-title">
-              <div class="request-plan-dialog-card">
-                <div class="request-plan-dialog-head">
-                  <div>
-                    <p class="portal-kicker">Service plan</p>
-                    <h3 id="request-service-plan-dialog-title">Choose the right level of care.</h3>
-                    <p>Pick the plan you want us to use for your proposal. If your selections require an Advanced build, we’ll apply it and explain why.</p>
-                  </div>
-                  <button class="portal-icon-button" id="request-service-plan-dialog-close" type="button" aria-label="Close service plan options">×</button>
-                </div>
-                <div class="request-plan-options">
-                  <button class="request-plan-option" type="button" data-plan-option="starter">
-                    <span><strong>Starter</strong><small>$25/month or $270/year</small></span>
-                    <small>Hosting, SSL, security maintenance, backups, monitoring, and standard support.</small>
-                  </button>
-                  <button class="request-plan-option" type="button" data-plan-option="starter_plus">
-                    <span><strong>Starter+</strong><small>$40/month or $432/year</small></span>
-                    <small>Everything in Starter, plus 30 minutes of routine edits each month and priority support.</small>
-                  </button>
-                  <button class="request-plan-option" type="button" data-plan-option="advanced">
-                    <span><strong>Advanced</strong><small>From $50/month · custom quoted</small></span>
-                    <small>For payments, accounts, portals, memberships, scheduling, uploads, integrations, or larger systems.</small>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </section>
           <section class="request-account-card" id="request-account-card" aria-live="polite">
             <div>
               <p class="portal-kicker">Account connection</p>
@@ -142,8 +101,46 @@
                 <option value="5000_plus">$5,000+</option>
               </select>
             </label>
+            <div class="request-plan-field" id="request-service-plan-field">
+              <span class="request-choice-label">Service plan</span>
+              <button class="request-plan-trigger" id="request-service-plan-trigger" type="button" aria-haspopup="dialog" aria-expanded="false">Choose service plan</button>
+              <select id="request-service-plan" class="request-plan-native-select" required aria-label="Service plan">
+                <option value="">Choose a plan</option>
+                <option value="starter">Starter — $25/month</option>
+                <option value="starter_plus">Starter+ — $40/month</option>
+                <option value="advanced">Advanced — from $50/month</option>
+              </select>
+              <span class="request-plan-summary" id="request-service-plan-summary">No plan selected.</span>
+              <span class="request-field-help" id="request-service-plan-status" role="status">Choose one plan so we can prepare the right proposal.</span>
+              <div class="request-plan-dialog" id="request-service-plan-dialog" hidden role="dialog" aria-modal="true" aria-labelledby="request-service-plan-dialog-title">
+                <div class="request-plan-dialog-card">
+                  <div class="request-plan-dialog-head">
+                    <div>
+                      <p class="portal-kicker">Service plan</p>
+                      <h3 id="request-service-plan-dialog-title">Choose the right level of care.</h3>
+                      <p>Pick the plan you want us to use for your proposal. If your selections require an Advanced build, we’ll apply it and explain why.</p>
+                    </div>
+                    <button class="portal-icon-button" id="request-service-plan-dialog-close" type="button" aria-label="Close service plan options">×</button>
+                  </div>
+                  <div class="request-plan-options">
+                    <button class="request-plan-option" type="button" data-plan-option="starter">
+                      <span><strong>Starter</strong><small>$25/month or $270/year</small></span>
+                      <small>Hosting, SSL, security maintenance, backups, monitoring, and standard support.</small>
+                    </button>
+                    <button class="request-plan-option" type="button" data-plan-option="starter_plus">
+                      <span><strong>Starter+</strong><small>$40/month or $432/year</small></span>
+                      <small>Everything in Starter, plus 30 minutes of routine edits each month and priority support.</small>
+                    </button>
+                    <button class="request-plan-option" type="button" data-plan-option="advanced">
+                      <span><strong>Advanced</strong><small>From $50/month · custom quoted</small></span>
+                      <small>For payments, accounts, portals, memberships, scheduling, uploads, integrations, or larger systems.</small>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
             <label>Preferred launch date<input id="request-launch-date" type="date"></label>
-            <label id="request-referral-code-label"><span id="request-referral-code-label-text">Partner referral code</span> <span class="request-optional" id="request-referral-code-optional">(optional)</span><input id="request-referral-code" maxlength="24" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Enter referral code"><span class="request-field-help" id="request-referral-code-status">Enter a valid website referral code for 10% off the website build.</span></label>
+            <label id="request-referral-code-label"><span id="request-referral-code-label-text">Referral code</span> <span class="request-optional" id="request-referral-code-optional">(optional)</span><input id="request-referral-code" maxlength="24" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Enter referral code"><span class="request-field-help" id="request-referral-code-status">Enter a valid website referral code for 10% off the website build.</span></label>
             <label class="portal-form-wide">Anything else?<textarea id="request-notes" rows="4"></textarea></label>
           </div>
           <div class="portal-form-actions">

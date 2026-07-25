@@ -7,6 +7,7 @@ import {
 
 const DRAFT_KEY = "n3xra.website-request.draft.v1";
 const DRAFT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+const FOUNDING_OFFER_ACCESS_KEY = "n3xra.freewebsite.access.v1";
 const PICKER_OPTIONS = {
   pages: [
     "Home", "About", "Services", "Service detail", "Products", "Shop",
@@ -87,6 +88,8 @@ const referralCodeLabel = document.getElementById("request-referral-code-label")
 const referralCodeLabelText = document.getElementById("request-referral-code-label-text");
 const referralCodeOptional = document.getElementById("request-referral-code-optional");
 const pricingCopy = document.getElementById("request-pricing-copy");
+const pricingPlansLink = document.getElementById("request-pricing-plans-link");
+const servicePlanField = document.getElementById("request-service-plan-field");
 const servicePlanInput = document.getElementById("request-service-plan");
 const servicePlanStatus = document.getElementById("request-service-plan-status");
 const servicePlanTrigger = document.getElementById("request-service-plan-trigger");
@@ -127,6 +130,23 @@ function normalizePlan(input) {
   return ["starter", "starter_plus", "advanced"].includes(plan) ? plan : "";
 }
 
+function hasFoundingOfferAccess() {
+  try {
+    const expiresAt = Number(localStorage.getItem(FOUNDING_OFFER_ACCESS_KEY) || 0);
+    const active = expiresAt > Date.now();
+    if (!active) localStorage.removeItem(FOUNDING_OFFER_ACCESS_KEY);
+    return active;
+  } catch {
+    return false;
+  }
+}
+
+function clearFoundingOfferAccess() {
+  try {
+    localStorage.removeItem(FOUNDING_OFFER_ACCESS_KEY);
+  } catch {}
+}
+
 function planLabel(plan) {
   const normalized = normalizePlan(plan);
   return normalized === "starter_plus" ? "Starter+" : normalized === "advanced" ? "Advanced" : normalized === "starter" ? "Starter" : "Not specified";
@@ -142,7 +162,7 @@ function updateServicePlanTrigger() {
   if (servicePlanSummary) {
     servicePlanSummary.textContent = selected
       ? `${planLabel(selected)} selected${servicePlanAutoApplied ? " automatically for this scope" : ""}.`
-      : "Required before your project can be reviewed.";
+      : "No plan selected.";
   }
 }
 
@@ -254,7 +274,7 @@ async function validateReferralCode({ required = false } = {}) {
   }
   if (code === "FREEBUILD") {
     validatedReferralCode = "";
-    const message = "The founding offer is applied automatically from its offer link. Use this field for a partner referral code.";
+    const message = "The founding offer is applied automatically from its offer link. Use this field for a referral code.";
     setReferralStatus(message, "error");
     if (required) referralCodeInput.setCustomValidity(message);
     return false;
@@ -780,7 +800,7 @@ async function submitAuthenticatedRequest({ automatic = false } = {}) {
       referralCodeInput.value = "";
       referralCodeInput.readOnly = false;
       setReferralStatus(foundingOfferActive
-        ? "Limited founding offer is active. Partner referral codes remain available for attribution; discounts cannot be combined."
+        ? "Limited founding offer is active. Referral codes remain available for attribution; discounts cannot be combined."
         : "Enter a valid website referral code for 10% off the website build.");
     }
     syncPickers();
@@ -790,6 +810,7 @@ async function submitAuthenticatedRequest({ automatic = false } = {}) {
     pendingQuestions = [];
     reviewedSnapshot = "";
     clearDraft();
+    if (foundingOfferActive) clearFoundingOfferAccess();
     cleanSubmitIntent();
     updateAccountState();
     if (verificationCard) verificationCard.hidden = true;
@@ -823,8 +844,9 @@ async function sendVerificationLink() {
     const redirectParams = new URLSearchParams({ submit: "1" });
     if (foundingOfferActive) {
       redirectParams.set("offer", "freewebsite");
-      redirectParams.set("ref", "FREEBUILD");
     }
+    const referralCode = normalizeReferralCode(referralCodeInput?.value);
+    if (referralCode && referralCode !== "FREEBUILD") redirectParams.set("ref", referralCode);
     const redirectUrl = `${window.location.origin}/website-request/?${redirectParams.toString()}`;
     const { error } = await supabase.auth.signInWithOtp({
       email,
@@ -893,6 +915,11 @@ function bindEvents() {
     saveDraft();
   });
   servicePlanTrigger?.addEventListener("click", openServicePlanDialog);
+  pricingPlansLink?.addEventListener("click", (event) => {
+    event.preventDefault();
+    servicePlanField?.scrollIntoView({ behavior: "smooth", block: "center" });
+    window.setTimeout(openServicePlanDialog, 280);
+  });
   servicePlanDialogClose?.addEventListener("click", closeServicePlanDialog);
   servicePlanOptions.forEach((button) => {
     button.addEventListener("click", () => chooseServicePlan(button.dataset.planOption));
@@ -916,13 +943,15 @@ async function init() {
   initializePickers();
   restoredDraft = restoreDraft();
   const params = new URLSearchParams(window.location.search);
-  foundingOfferActive = params.get("offer") === "freewebsite";
-  const linkedReferralCode = foundingOfferActive ? "" : normalizeReferralCode(params.get("ref"));
-  if (linkedReferralCode && referralCodeInput) referralCodeInput.value = linkedReferralCode;
+  foundingOfferActive = params.get("offer") === "freewebsite" && hasFoundingOfferAccess();
+  const linkedReferralCode = normalizeReferralCode(params.get("ref"));
+  if (linkedReferralCode && linkedReferralCode !== "FREEBUILD" && referralCodeInput) {
+    referralCodeInput.value = linkedReferralCode;
+  }
   if (foundingOfferActive) {
     if (referralCodeInput?.value === "FREEBUILD") referralCodeInput.value = "";
     if (pricingCopy) pricingCopy.textContent = "Limited founding offer: the one-time website build fee is waived. Service plans start at $25/month.";
-    setReferralStatus("Limited founding offer is active. Partner referral codes remain available for attribution; discounts cannot be combined.");
+    setReferralStatus("Limited founding offer is active. Referral codes remain available for attribution; discounts cannot be combined.");
   }
   syncPickers();
   updateServicePlanFit();

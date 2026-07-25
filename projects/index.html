@@ -706,12 +706,22 @@
       window.addEventListener("scroll", updateHeader, { passive: true });
 
       const params = new URLSearchParams(window.location.search);
-      if (params.get("from") !== "freewebsite") return;
+      const offerAccessKey = "n3xra.freewebsite.access.v1";
+      let hasFoundingOfferAccess = false;
+      try {
+        const expiresAt = Number(localStorage.getItem(offerAccessKey) || 0);
+        hasFoundingOfferAccess = expiresAt > Date.now();
+        if (!hasFoundingOfferAccess) localStorage.removeItem(offerAccessKey);
+      } catch {}
+      if (params.get("from") !== "freewebsite" || params.get("offer") !== "freewebsite" || !hasFoundingOfferAccess) return;
 
       const startProject = document.querySelector(".projects-client-entry.is-primary");
       if (!startProject) return;
 
-      startProject.href = "/website-request/?offer=freewebsite&ref=FREEBUILD";
+      const requestParams = new URLSearchParams({ offer: "freewebsite" });
+      const referralCode = String(params.get("ref") || "").trim().toUpperCase().replace(/[^A-Z0-9-]/g, "").slice(0, 24);
+      if (referralCode && referralCode !== "FREEBUILD") requestParams.set("ref", referralCode);
+      startProject.href = `/website-request/?${requestParams.toString()}`;
 
       startProject.setAttribute("aria-label", "Start a project — limited founding offer");
 

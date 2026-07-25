@@ -115,42 +115,49 @@
   white-space: nowrap;
 }
 
-.request-plan-selector {
+.request-plan-field {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 0.25rem 1rem;
-  align-items: center;
-  margin: 0 0 1rem;
-  padding: 0.9rem 1rem;
-  background: #f7fbfc;
-  border: 1px solid rgba(20, 144, 161, 0.18);
-  border-radius: 10px;
-}
-
-.request-plan-selector-summary {
-  display: grid;
-  gap: 0.2rem;
-}
-
-.request-plan-selector-summary p,
-.request-plan-selector-summary strong,
-.request-plan-selector-summary span {
-  margin: 0;
-}
-
-.request-plan-selector-summary strong {
-  font-size: 0.95rem;
-}
-
-.request-plan-selector-summary span {
-  color: var(--portal-muted);
-  font-size: 0.78rem;
-  line-height: 1.5;
+  align-content: start;
+  gap: 0.35rem;
+  min-width: 0;
 }
 
 .request-plan-trigger {
-  white-space: nowrap;
+  display: flex;
+  width: 100%;
+  min-height: 48px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.68rem 2.4rem 0.68rem 0.75rem;
+  color: var(--portal-ink);
+  background:
+    linear-gradient(45deg, transparent 50%, #667085 50%) calc(100% - 17px) calc(50% - 2px) / 5px 5px no-repeat,
+    linear-gradient(135deg, #667085 50%, transparent 50%) calc(100% - 12px) calc(50% - 2px) / 5px 5px no-repeat,
+    #ffffff;
+  border: 1px solid var(--portal-line);
+  border-radius: 8px;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.request-plan-trigger:hover,
+.request-plan-trigger:focus-visible {
+  border-color: #0d6f60;
+  outline: 2px solid rgba(13, 111, 96, 0.12);
+  outline-offset: 1px;
+}
+
+.request-plan-trigger[aria-invalid="true"] {
+  color: var(--portal-muted);
+}
+
+.request-plan-summary {
+  color: var(--portal-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.4;
 }
 
 .request-plan-native-select {
@@ -160,11 +167,6 @@
   padding: 0;
   opacity: 0;
   pointer-events: none;
-}
-
-.request-plan-selector > .request-field-help {
-  grid-column: 1 / -1;
-  margin: 0;
 }
 
 .request-plan-dialog {
@@ -284,12 +286,12 @@
   text-align: right;
 }
 
-.request-plan-selector .request-field-help.is-upgraded {
+.request-plan-field .request-field-help.is-upgraded {
   color: #0d6f60;
   font-weight: 800;
 }
 
-.request-plan-selector .request-field-help.is-error {
+.request-plan-field .request-field-help.is-error {
   color: #a43a1a;
 }
 
@@ -817,16 +819,6 @@
 
   .request-account-state {
     min-width: 0;
-  }
-
-  .request-plan-selector {
-    grid-template-columns: 1fr;
-    gap: 0.6rem;
-    padding: 1rem;
-  }
-
-  .request-plan-trigger {
-    justify-self: start;
   }
 
   .request-plan-option span {

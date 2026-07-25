@@ -451,17 +451,28 @@
       </div>
     </section>
 
-    <a class="offer-skip" href="/projects/?from=freewebsite&offer=freewebsite&ref=FREEBUILD">Skip to projects</a>
+    <a class="offer-skip" href="/projects/?from=freewebsite&offer=freewebsite">Skip to projects</a>
     <div class="offer-progress" aria-hidden="true"></div>
   </main>
 
   <noscript>
-    <p><a href="/projects/?from=freewebsite&offer=freewebsite&ref=FREEBUILD">Continue to N3XRA projects</a></p>
+    <p><a href="/projects/?from=freewebsite&offer=freewebsite">Continue to N3XRA projects</a></p>
   </noscript>
 
   <script>
     (() => {
-      const destination = "/projects/?from=freewebsite&offer=freewebsite&ref=FREEBUILD";
+      const offerAccessKey = "n3xra.freewebsite.access.v1";
+      try {
+        localStorage.setItem(offerAccessKey, String(Date.now() + (24 * 60 * 60 * 1000)));
+      } catch {}
+      const params = new URLSearchParams(window.location.search);
+      const referralCode = String(params.get("ref") || "").trim().toUpperCase().replace(/[^A-Z0-9-]/g, "").slice(0, 24);
+      const destinationParams = new URLSearchParams({ from: "freewebsite", offer: "freewebsite" });
+      if (referralCode && referralCode !== "FREEBUILD") destinationParams.set("ref", referralCode);
+      const destination = `/projects/?${destinationParams.toString()}`;
+      document.querySelectorAll(".offer-skip").forEach((link) => {
+        link.href = destination;
+      });
       const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       window.setTimeout(() => {
         window.location.replace(destination);
