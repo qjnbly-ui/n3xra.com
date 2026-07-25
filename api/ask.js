@@ -52,28 +52,6 @@ function isRateLimited(ip) {
   return false;
 }
 
-const CONTEXT_PAGES = [
-  { route: "/", file: "index.html" },
-  { route: "/account", file: "account/index.html" },
-  { route: "/client-portal", file: "client-portal/index.html" },
-  { route: "/website-request", file: "website-request/index.html" },
-  { route: "/proposals", file: "proposals/index.html" },
-  { route: "/website-onboarding", file: "website-onboarding/index.html" },
-  { route: "/project-workspace", file: "project-workspace/index.html" },
-  { route: "/records", file: "records/index.html" },
-  { route: "/n3xra-records", file: "n3xra-records/index.html" },
-  { route: "/services", file: "services/index.html" },
-  { route: "/projects", file: "projects/index.html" },
-  { route: "/ai-music-generator", file: "ai-music-generator/index.html" },
-  { route: "/virals", file: "virals/index.html" },
-  { route: "/utilities", file: "utilities/index.html" },
-  { route: "/partners", file: "partners/index.html" },
-  { route: "/demo", file: "demo/index.html" },
-  { route: "/support", file: "support/index.html" },
-  { route: "/terms", file: "terms/index.html" },
-  { route: "/privacy", file: "privacy/index.html" },
-];
-
 const SAFE_FALLBACK_CONTEXT = [
   "N3XRA is a practical software and project platform built by Quentin Nichols.",
   "Core areas include records software, custom project systems, services, and AI tools.",
@@ -85,81 +63,11 @@ const SAFE_FALLBACK_CONTEXT = [
   "Support, terms, and privacy pages exist to explain help channels and policies.",
 ].join(" ");
 
-function htmlToText(html) {
-  return String(html || "")
-    .replace(/<script[\s\S]*?<\/script>/gi, " ")
-    .replace(/<style[\s\S]*?<\/style>/gi, " ")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function decodeHtmlEntities(text) {
-  return String(text || "")
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/&lt;/gi, "<")
-    .replace(/&gt;/gi, ">")
-    .replace(/&quot;/gi, '"')
-    .replace(/&#39;/gi, "'");
-}
-
-function extractImportantContent(html) {
-  const source = String(html || "");
-  const cleaned = source
-    .replace(/<script[\s\S]*?<\/script>/gi, " ")
-    .replace(/<style[\s\S]*?<\/style>/gi, " ");
-
-  const blocks = [];
-  const patterns = [
-    /<title[^>]*>([\s\S]*?)<\/title>/gi,
-    /<meta[^>]*name=["']description["'][^>]*content=["']([\s\S]*?)["'][^>]*>/gi,
-    /<h[1-3][^>]*>([\s\S]*?)<\/h[1-3]>/gi,
-    /<p[^>]*>([\s\S]*?)<\/p>/gi,
-    /<li[^>]*>([\s\S]*?)<\/li>/gi,
-  ];
-
-  for (const pattern of patterns) {
-    let match;
-    while ((match = pattern.exec(cleaned)) !== null) {
-      const text = decodeHtmlEntities(htmlToText(match[1]));
-      if (!text) continue;
-      if (text.length < 12) continue;
-      blocks.push(text);
-      if (blocks.length >= 120) break;
-    }
-    if (blocks.length >= 120) break;
-  }
-
-  return blocks.join("\n").slice(0, 6500);
-}
-
-let siteContextPromise = null;
-
-async function readKnowledgeFile() {
-  const knowledgePath = path.join(__dirname, "site-knowledge.json");
-  try {
-    const raw = await fs.readFile(knowledgePath, "utf8");
-    const parsed = JSON.parse(raw);
-    const pages = Array.isArray(parsed?.pages) ? parsed.pages : [];
-    const chunks = [];
-    for (const page of pages) {
-      const route = String(page?.route || "").trim();
-      const content = String(page?.content || "").trim();
-      if (!route || !content) continue;
-      chunks.push(`Route ${route}: ${content}`);
-    }
-    return chunks.length ? chunks.join("\n\n") : "";
-  } catch (_error) {
-    return "";
-  }
-}
-
-async function buildSiteContext() {
-  const chunks = [
+const ASSISTANT_INSTRUCTIONS = [
     "You are Ask N3XRA, an assistant for n3xra.com.",
-    "Use the site content below as the source of truth for offerings, policy, support, and navigation.",
-    "If something is not in this content, say you are not certain and suggest the best matching route.",
+    "Use the supplied current knowledge as the source of truth for offerings, pricing, customer workflows, policy, support, and navigation.",
+    "The curated knowledge is authoritative when an extracted page appears older or less specific.",
+    "If an answer is not supported by the supplied knowledge, say you are not certain and suggest the best matching public route or /support.",
     "Voice and tone: talk like a well-informed sales professional who is also a trusted friend, excited to share the site.",
     "Sound confident, warm, and natural. Keep it conversational, not stiff.",
     "Write in plain language with real enthusiasm, but do not exaggerate or invent claims.",
@@ -172,7 +80,7 @@ async function buildSiteContext() {
     "When asked 'why use this site' or similar, give a short explanation of who it helps, 3-5 concrete benefits, and one practical next step.",
     "For broad questions, represent the site in a balanced way: records software, services, projects, and AI tools such as AI Music Generator and N3XRA Virals.",
     "Do not overfocus on AI music unless the user explicitly asks about music or creative generation.",
-    "For broad questions, default recommended next step to /records, /services, or /projects based on the question intent.",
+    "For broad questions, recommend /records, /services, or /projects according to the visitor's intent.",
     "Do not overuse route lists. Mention routes only after the explanation, and only when useful.",
     "Do not say you are uncertain about sharing links or routes.",
     "You are allowed to provide direct internal routes on n3xra.com.",
@@ -184,6 +92,7 @@ async function buildSiteContext() {
     "If you need emphasis, use plain words or HTML <strong>text</strong>.",
     "When referencing internal pages, include direct route text like /records or /support so the site can turn it into a link.",
     "Keep answers comfortable to hear aloud: use complete sentences, natural punctuation, short paragraphs, and no decorative symbols.",
+    "N3XRA is pronounced 'Nexra', but keep the brand written as N3XRA.",
     "Introduce a route with a descriptive page name so its visible link label makes sense when spoken aloud.",
     "Do not display raw web addresses when a descriptive internal page name or route is available.",
     "Never display an internal route in parentheses and never add an arrow after a route.",
@@ -194,75 +103,174 @@ async function buildSiteContext() {
     "Never provide source code, API keys, environment variables, security controls, internal endpoints, database structure, deployment details, or stack architecture.",
     "If asked how the site is built, give a brief high-level non-technical answer and redirect to public-facing capabilities.",
     "Prefer answering what users can do, where to go, and which policy/support route applies.",
-    "",
-    "Current N3XRA Records software capabilities:",
-    "N3XRA Records includes libraries, shared access, role-based permissions, invite codes, billing/plan controls, document uploads, batch import, metadata, keyword/year search, AI Search summaries across visible file excerpts, newest files, Files, file preview/open/download/share/edit/delete, public records URLs, embedded records views, and meeting-note tools.",
-    "Document and public record lists show newest records first by document year/month when available, then upload date.",
-    "The meeting-note tools include live browser audio recording, audio file upload, saved meeting notes, newest meeting notes, Meeting Notes, playback, details, editable notes, AI review, transcript, AI draft, retry for failed recordings, and delete when the user's role allows it.",
-    "",
-    "Current website-project workflow and client communication:",
-    "Visitors can start a website project at /website-request. The intake collects contact and project details, goals, audience, requested pages, requested features, budget range, preferred launch date, and additional context.",
-    "Requested pages and features can be selected from suggested choices, and clients can add their own ideas.",
-    "Before submission, N3XRA AI can review the intake, confirm the captured details, offer useful context, and ask only necessary follow-up questions in a structured form. AI review snapshots are retained for administrative audit.",
-    "Published Founding Client website pricing: basic builds start at $250. Starter service is $25 per month or $270 per year paid in advance. It includes managed hosting, SSL and routine security maintenance, backups, monitoring, normal-business-hours support, and website edits at $75 per hour. Starter+ is $40 per month or $432 per year paid in advance. It adds up to 30 minutes of routine website edits each month, priority handling with support requests accepted 24/7, and a 30% discount on additional eligible edits, making those edits $52.50 per hour.",
-    "Advanced websites start at $500 to build and $50 per month or $540 per year for service. Advanced build and service pricing is custom quoted based on the approved scope. A site with payments, online sales, customer accounts, portals, memberships, scheduling systems, file uploads, protected content, automation, API or CRM integrations, multilingual functionality, or comparable custom functionality is an Advanced project rather than Starter or Starter+.",
-    "Starter+ included edit time expires monthly and does not roll over. It covers routine content, image, and minor layout changes. New pages, redesigns, custom features, integrations, and urgent after-hours work are quoted separately. Requests may be submitted 24/7, but priority handling does not promise an immediate response at every hour.",
-    "Paying one year of website service in advance saves 10%. A valid website referral code saves 10% on the website build. Domains, premium software, payment processing, and other third-party costs are separate when applicable. Founding Client Pricing remains available while qualifying service stays continuously active.",
-    "The $100 website partner commission is earned only when the referred client purchases a qualifying website with a one-year service commitment. A referral code may still give the client the published build discount, but it does not guarantee a partner payout unless the qualifying conditions are met.",
-    "The AI may explain published starting prices and discounts, but it must not invent a custom quote. Exact project pricing comes through a proposal.",
-    "A submitted request is reviewed by N3XRA before a proposal is prepared.",
-    "Proposals appear in the signed-in client dashboard. A proposal can include scope, deliverables, exclusions, schedule, one-time investment items, recurring services, discounts, deposit expectations, payment schedule, and terms.",
-    "A proposal is not a bill. No payment is due merely because a proposal was sent. The client must approve it first; applicable contract and billing steps are prepared afterward.",
-    "Clients can approve a proposal, request changes, or decline it. Their response is recorded against the exact proposal version.",
-    "Proposal emails summarize the project and investment and direct the client to https://www.n3xra.com/account for the complete proposal and response controls.",
-    "After approval, the client can follow agreement, billing, onboarding, production, review, launch, and ongoing management from the project workspace.",
-    "The dashboard keeps websites, services and ownership, progress, proposals, onboarding, files and assets, billing, renewals, and support organized around the selected website or project when those areas are available.",
-    "If a visitor asks where their proposal or project is, direct them to /account. If it is missing or incorrect, direct them to /support.",
-    "",
-    "Accuracy and recency rules:",
-    "Treat the supplied site knowledge as current for this deployment.",
+    "Treat signed-in feature descriptions as explanations only. Never imply that a visitor is enrolled, approved, connected, paid, or missing something unless they tell you so.",
     "Distinguish clearly between available features, future workflow steps, and placeholders that may not yet be active.",
     "Do not promise a price, deadline, approval, contract term, refund, compliance status, or technical capability unless the supplied site content explicitly supports it.",
-  ];
+];
 
-  const knowledgeText = await readKnowledgeFile();
-  if (knowledgeText) chunks.push(knowledgeText);
+const STOP_WORDS = new Set([
+  "a", "about", "all", "am", "an", "and", "any", "are", "as", "at", "be", "been",
+  "but", "by", "can", "do", "does", "for", "from", "get", "go", "has", "have", "how",
+  "i", "if", "in", "into", "is", "it", "me", "my", "of", "on", "or", "our", "so",
+  "that", "the", "their", "there", "they", "this", "to", "up", "was", "we", "what",
+  "when", "where", "which", "who", "why", "will", "with", "would", "you", "your",
+]);
 
-  const roots = [path.resolve(__dirname, ".."), process.cwd()];
-  let addedPages = 0;
+const TOPIC_ROUTES = [
+  { pattern: /\b(website|web site|design|build|hosting|host|domain|developer|development)\b/i, routes: ["/services", "/website-request", "/projects"] },
+  { pattern: /\b(price|pricing|cost|quote|plan|starter|advanced|monthly|annual)\b/i, routes: ["/services", "/website-request", "/proposals"] },
+  { pattern: /\b(proposal|approve|approval|scope|revision|contract|investment)\b/i, routes: ["/proposals", "/website-request", "/project-workspace"] },
+  { pattern: /\b(bill|billing|invoice|payment|card|stripe|subscription|renewal|checkout|deposit)\b/i, routes: ["/client-portal/billing", "/proposals", "/client-portal/services"] },
+  { pattern: /\b(record|records|document|documents|library|libraries|public record|file search)\b/i, routes: ["/records", "/n3xra-records/library", "/n3xra-records/account"] },
+  { pattern: /\b(meeting|minutes|recording|transcript|audio)\b/i, routes: ["/n3xra-records/meeting-notes", "/n3xra-records/all-meeting-notes", "/records"] },
+  { pattern: /\b(partner|referral|commission|affiliate|payout|change of control|cnr)\b/i, routes: ["/partners", "/partners/terms", "/partners/change-of-control", "/client-portal/partners"] },
+  { pattern: /\b(music|song|lyrics|track|audio generator)\b/i, routes: ["/ai-music-generator", "/ai-music-generator/app"] },
+  { pattern: /\b(viral|virals|tiktok|hook|caption|creator|video analysis)\b/i, routes: ["/virals", "/virals/about", "/virals/saved-scripts"] },
+  { pattern: /\b(utility|utilities|operational portal)\b/i, routes: ["/utilities"] },
+  { pattern: /\b(account|login|sign in|dashboard|app access)\b/i, routes: ["/", "/support"] },
+  { pattern: /\b(support|help|problem|issue|failed|error|contact)\b/i, routes: ["/support"] },
+  { pattern: /\b(privacy|private|security|secure|terms|legal|data)\b/i, routes: ["/privacy", "/terms", "/records"] },
+];
 
-  for (const page of CONTEXT_PAGES) {
-    let loaded = false;
-    for (const root of roots) {
-      try {
-        const fullPath = path.join(root, page.file);
-        const html = await fs.readFile(fullPath, "utf8");
-        const text = extractImportantContent(html);
-        if (text) {
-          chunks.push(`Route ${page.route}: ${text}`);
-          addedPages += 1;
-          loaded = true;
-          break;
-        }
-      } catch (_error) {
-        // Try next root path.
-      }
+let knowledgeBundlePromise = null;
+
+function normalizeSearchText(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/n3xra/g, "nexra")
+    .replace(/[^a-z0-9$%/+\s-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function searchTokens(value) {
+  return [...new Set(
+    normalizeSearchText(value)
+      .split(/\s+/)
+      .filter((token) => token.length > 1 && !STOP_WORDS.has(token))
+      .slice(0, 50),
+  )];
+}
+
+async function readKnowledgeBundle() {
+  const curatedPath = path.join(__dirname, "ask-knowledge.md");
+  const generatedPath = path.join(__dirname, "site-knowledge.json");
+  const [curatedResult, generatedResult] = await Promise.allSettled([
+    fs.readFile(curatedPath, "utf8"),
+    fs.readFile(generatedPath, "utf8"),
+  ]);
+
+  const curated = curatedResult.status === "fulfilled" ? String(curatedResult.value || "").trim() : "";
+  let generatedAt = "";
+  let pages = [];
+
+  if (generatedResult.status === "fulfilled") {
+    try {
+      const parsed = JSON.parse(generatedResult.value);
+      generatedAt = String(parsed?.generatedAt || "").trim();
+      pages = (Array.isArray(parsed?.pages) ? parsed.pages : [])
+        .map((page) => ({
+          route: String(page?.route || "").trim(),
+          visibility: String(page?.visibility || "public").trim(),
+          tags: Array.isArray(page?.tags) ? page.tags.map((tag) => String(tag || "").trim()).filter(Boolean) : [],
+          content: String(page?.content || "").trim(),
+        }))
+        .filter((page) => (
+          page.route
+          && page.content
+          && ["public", "customer workflow"].includes(page.visibility)
+        ));
+    } catch (_error) {
+      pages = [];
     }
-    if (!loaded) continue;
   }
 
-  if (!knowledgeText && addedPages === 0) {
-    chunks.push(`Public site summary: ${SAFE_FALLBACK_CONTEXT}`);
+  return { curated, generatedAt, pages };
+}
+
+function getKnowledgeBundle() {
+  if (!knowledgeBundlePromise) knowledgeBundlePromise = readKnowledgeBundle();
+  return knowledgeBundlePromise;
+}
+
+function scorePage(page, queryText, tokens, boostedRoutes) {
+  const route = normalizeSearchText(page.route);
+  const tags = normalizeSearchText(page.tags.join(" "));
+  const content = normalizeSearchText(page.content);
+  let score = boostedRoutes.get(page.route) || 0;
+
+  for (const token of tokens) {
+    if (route.includes(token)) score += 7;
+    if (tags.includes(token)) score += 6;
+    if (content.includes(token)) score += 1 + Math.min(2, content.split(token).length - 1);
+  }
+
+  for (const tag of page.tags) {
+    const normalizedTag = normalizeSearchText(tag);
+    if (normalizedTag.length > 3 && queryText.includes(normalizedTag)) score += 8;
+  }
+
+  return score;
+}
+
+function selectRelevantPages(pages, question, history) {
+  const recentUserContext = history
+    .filter((item) => item.role === "user")
+    .slice(-4)
+    .map((item) => item.content)
+    .join(" ");
+  const queryText = normalizeSearchText(`${question} ${recentUserContext}`);
+  const tokens = searchTokens(queryText);
+  const boostedRoutes = new Map();
+
+  for (const topic of TOPIC_ROUTES) {
+    if (!topic.pattern.test(queryText)) continue;
+    topic.routes.forEach((route, index) => {
+      boostedRoutes.set(route, Math.max(boostedRoutes.get(route) || 0, 24 - (index * 3)));
+    });
+  }
+
+  const ranked = pages
+    .map((page) => ({ page, score: scorePage(page, queryText, tokens, boostedRoutes) }))
+    .sort((a, b) => b.score - a.score || a.page.route.localeCompare(b.page.route));
+
+  const selected = ranked.filter((item) => item.score > 0).slice(0, 5).map((item) => item.page);
+  if (selected.length < 3) {
+    for (const fallbackRoute of ["/", "/services", "/support"]) {
+      const page = pages.find((item) => item.route === fallbackRoute);
+      if (page && !selected.some((item) => item.route === page.route)) selected.push(page);
+      if (selected.length >= 3) break;
+    }
+  }
+  return selected;
+}
+
+async function getSiteContext(question, history) {
+  const bundle = await getKnowledgeBundle();
+  const selectedPages = selectRelevantPages(bundle.pages, question, history);
+  const chunks = [
+    ...ASSISTANT_INSTRUCTIONS,
+    "",
+    bundle.generatedAt
+      ? `Extracted site knowledge was generated ${bundle.generatedAt}.`
+      : "Extracted site knowledge timestamp is unavailable.",
+    "Only the most relevant current pages are supplied for this question to keep the response focused.",
+  ];
+
+  if (bundle.curated) {
+    chunks.push("", "AUTHORITATIVE CURRENT N3XRA KNOWLEDGE:", bundle.curated);
+  } else {
+    chunks.push("", `PUBLIC SITE SUMMARY: ${SAFE_FALLBACK_CONTEXT}`);
+  }
+
+  if (selectedPages.length) {
+    chunks.push("", "RELEVANT CURRENT PAGE EXTRACTS:");
+    for (const page of selectedPages) {
+      chunks.push(`Route ${page.route} (${page.visibility}):\n${page.content}`);
+    }
   }
 
   return chunks.join("\n\n");
-}
-
-async function getSiteContext() {
-  if (!siteContextPromise) {
-    siteContextPromise = buildSiteContext();
-  }
-  return siteContextPromise;
 }
 
 function dedupeAnswer(text) {
@@ -291,16 +299,16 @@ function dedupeAnswer(text) {
 function normalizeHistory(input) {
   if (!Array.isArray(input)) return [];
   const out = [];
-  for (const item of input) {
+  for (let index = input.length - 1; index >= 0 && out.length < 12; index -= 1) {
+    const item = input[index];
     if (!item || typeof item !== "object") continue;
     const role = item.role === "assistant" ? "assistant" : item.role === "user" ? "user" : "";
     if (!role) continue;
     const content = String(item.content || "").trim();
     if (!content) continue;
     out.push({ role, content: content.slice(0, 1200) });
-    if (out.length >= 12) break;
   }
-  return out;
+  return out.reverse();
 }
 
 module.exports = async function handler(req, res) {
@@ -357,7 +365,7 @@ module.exports = async function handler(req, res) {
         temperature: 0.2,
         max_tokens: 650,
         messages: [
-          { role: "system", content: await getSiteContext() },
+          { role: "system", content: await getSiteContext(question, history) },
           ...history,
           { role: "user", content: question },
         ],

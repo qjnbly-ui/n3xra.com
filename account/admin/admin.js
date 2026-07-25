@@ -29,6 +29,21 @@ function formatDate(value) {
   return Number.isNaN(date.getTime()) ? "—" : date.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
 }
 
+function deriveStripeState(item) {
+  const hasCustomer = Boolean(item?.customerId);
+  const hasSubscription = Boolean(item?.subscriptionId);
+  const status = String(item?.status || "").trim().toLowerCase();
+
+  if (hasCustomer && hasSubscription) return "Customer + subscription";
+  if (hasCustomer) return "Customer only";
+
+  if (["trialing", "trial", "active"].includes(status)) return "Internal access only";
+  if (["past_due", "unpaid", "incomplete", "incomplete_expired"].includes(status)) return "Needs Stripe attention";
+  if (["canceled", "cancelled"].includes(status)) return "Canceled";
+
+  return "No Stripe record";
+}
+
 async function invoke(action, payload = {}) {
   const { data, error } = await supabase.functions.invoke("platform-admin", { body: { action, ...payload } });
   if (error || data?.error) throw new Error(error?.message || data?.error || "Admin request failed.");
@@ -100,7 +115,7 @@ function renderBilling() {
   const product = document.getElementById("billing-product")?.value || "all";
   const rows = billing.filter((item) => (product === "all" || item.product === product) && (!query || [item.account, item.email, item.plan, item.status].join(" ").toLowerCase().includes(query)));
   table.innerHTML = rows.length ? rows.map((item) => `
-    <tr><td><strong>${escapeHtml(item.account)}</strong><br><small>${escapeHtml(item.email)}</small></td><td>${escapeHtml(item.productLabel)}</td><td>${escapeHtml(item.plan || "—")}</td><td>${escapeHtml(item.status || "—")}</td><td>${escapeHtml(item.usage || "—")}</td><td>${escapeHtml(formatDate(item.periodEnd))}</td><td>${item.subscriptionId ? "Connected" : "Not connected"}</td></tr>
+    <tr><td><strong>${escapeHtml(item.account)}</strong><br><small>${escapeHtml(item.email)}</small></td><td>${escapeHtml(item.productLabel)}</td><td>${escapeHtml(item.plan || "—")}</td><td>${escapeHtml(item.status || "—")}</td><td>${escapeHtml(item.usage || "—")}</td><td>${escapeHtml(formatDate(item.periodEnd))}</td><td>${escapeHtml(deriveStripeState(item))}</td></tr>
   `).join("") : '<tr><td colspan="7">No billing accounts match this view.</td></tr>';
 }
 

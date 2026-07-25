@@ -2,6 +2,9 @@
   "name": "n3xra-com",
   "private": true,
   "version": "1.0.0",
+  "scripts": {
+    "refresh:ask-knowledge": "node scripts/build-site-knowledge.js"
+  },
   "dependencies": {
     "ffmpeg-static": "^5.2.0"
   }

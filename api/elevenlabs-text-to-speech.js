@@ -99,7 +99,7 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         text,
         model_id: MODEL_ID,
-        voice_settings: { stability: 0.48, similarity_boost: 0.78, style: 0.12, use_speaker_boost: true, speed: 1 },
+        voice_settings: { stability: 0.48, similarity_boost: 0.78, style: 0.12, use_speaker_boost: true, speed: 1.1 },
       }),
     });
     if (!response.ok) {
