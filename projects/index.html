@@ -26,6 +26,10 @@
       --shadow: 0 24px 70px rgba(7, 12, 18, 0.18);
     }
 
+    @view-transition {
+      navigation: auto;
+    }
+
     * { box-sizing: border-box; }
     body {
       margin: 0;
@@ -96,6 +100,7 @@
       height: auto;
       object-fit: contain;
       filter: drop-shadow(0 30px 54px rgba(4, 10, 16, 0.28));
+      view-transition-name: offer-brand-logo;
     }
 
     .projects-hero-copy {
@@ -146,12 +151,67 @@
       color: #07111d;
       background: #a8efff;
       border-color: #a8efff;
+      view-transition-name: start-project-cta;
     }
 
     .projects-client-entry.is-primary:hover,
     .projects-client-entry.is-primary:focus-visible {
       background: #ffffff;
       border-color: #ffffff;
+    }
+
+    .projects-client-entry.is-offer-highlight {
+      position: relative;
+      z-index: 2;
+      overflow: hidden;
+      box-shadow:
+        0 0 0 1px rgba(168, 239, 255, 0.26),
+        0 0 28px rgba(168, 239, 255, 0.22);
+    }
+
+    ::view-transition-group(start-project-cta) {
+      z-index: 20;
+      animation-duration: 950ms;
+      animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    ::view-transition-group(offer-brand-logo) {
+      z-index: 19;
+      animation-duration: 950ms;
+      animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .projects-client-entry.is-offer-highlight::after {
+      position: absolute;
+      top: -80%;
+      bottom: -80%;
+      left: -55%;
+      width: 34%;
+      background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(255, 255, 255, 0.92),
+        transparent
+      );
+      content: "";
+      pointer-events: none;
+      transform: skewX(-18deg);
+      animation: freeWebsiteOfferShimmer 1.55s ease-in-out 3;
+    }
+
+    @keyframes freeWebsiteOfferShimmer {
+      from {
+        left: -55%;
+      }
+      to {
+        left: 125%;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .projects-client-entry.is-offer-highlight::after {
+        display: none;
+      }
     }
 
     .projects-growth-partners {
@@ -644,6 +704,24 @@
       const updateHeader = () => header?.classList.toggle("is-scrolled", window.scrollY > 20);
       updateHeader();
       window.addEventListener("scroll", updateHeader, { passive: true });
+
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("from") !== "freewebsite") return;
+
+      const startProject = document.querySelector(".projects-client-entry.is-primary");
+      if (!startProject) return;
+
+      startProject.setAttribute("aria-label", "Start a project — limited founding offer");
+
+      window.setTimeout(() => {
+        startProject.classList.add("is-offer-highlight");
+      }, 950);
+
+      window.setTimeout(() => {
+        startProject.classList.remove("is-offer-highlight");
+      }, 5900);
+
+      window.history.replaceState({}, "", `${window.location.pathname}${window.location.hash}`);
     })();
   </script>
 </body>
