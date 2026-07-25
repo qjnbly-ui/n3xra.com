@@ -17,6 +17,10 @@ function label(value = "") {
   return String(value).replaceAll("_", " ");
 }
 
+function planLabel(value = "") {
+  return value === "starter_plus" ? "Starter+" : value === "advanced" ? "Advanced" : value === "starter" ? "Starter" : "Not specified";
+}
+
 function formatDate(value) {
   return value ? new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(value)) : "";
 }
@@ -53,6 +57,8 @@ function render() {
         <h3>${escapeHtml(request.business_name)}</h3>
         <p><strong>${escapeHtml(request.contact_name)}</strong> · ${escapeHtml(request.contact_email)}</p>
         <p>${escapeHtml(request.primary_goal)}</p>
+        <p><strong>Service plan:</strong> ${escapeHtml(planLabel(request.service_plan))}${request.service_plan_auto_applied ? " · Advanced applied automatically" : ""}</p>
+        ${request.service_plan_reason ? `<p><strong>Plan fit:</strong> ${escapeHtml(request.service_plan_reason)}</p>` : ""}
         ${request.referral_code ? `<p><strong>Partner referral:</strong> ${escapeHtml(request.referral_code)}</p>` : ""}
       </div>
       <div class="portal-request-controls">

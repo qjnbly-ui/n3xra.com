@@ -38,6 +38,7 @@ Deno.serve(async (request) => {
       proposal_version_id: snapshot.proposal_version_id,
       billing_snapshot_id: snapshot.id,
       referral_code: snapshot.referral_code,
+      offer_code: snapshot.offer_code,
     });
     const { data: schedule } = await admin
       .from("website_billing_schedules")

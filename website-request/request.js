@@ -24,6 +24,15 @@ const PICKER_OPTIONS = {
     "Analytics", "CRM integration",
   ],
 };
+const ADVANCED_FEATURES = new Set([
+  "Online payments", "Online store", "Appointment scheduling", "Event registration",
+  "Customer accounts", "Client portal", "Member-only content", "File uploads",
+  "Multiple languages", "CRM integration",
+]);
+const ADVANCED_SCOPE_LIMITS = {
+  pages: 5,
+  features: 6,
+};
 const FIELD_IDS = [
   "request-contact-name",
   "request-business-name",
@@ -35,6 +44,7 @@ const FIELD_IDS = [
   "request-audience",
   "request-pages",
   "request-features",
+  "request-service-plan",
   "request-budget",
   "request-launch-date",
   "request-referral-code",
@@ -73,6 +83,12 @@ const emailHelp = document.getElementById("request-email-help");
 const menuTitle = document.getElementById("request-menu-title");
 const referralCodeInput = document.getElementById("request-referral-code");
 const referralCodeStatus = document.getElementById("request-referral-code-status");
+const referralCodeLabel = document.getElementById("request-referral-code-label");
+const referralCodeLabelText = document.getElementById("request-referral-code-label-text");
+const referralCodeOptional = document.getElementById("request-referral-code-optional");
+const pricingCopy = document.getElementById("request-pricing-copy");
+const servicePlanInput = document.getElementById("request-service-plan");
+const servicePlanStatus = document.getElementById("request-service-plan-status");
 const isEmbedded = form?.dataset.portalEmbedded === "true";
 
 let supabase = null;
@@ -85,6 +101,9 @@ let pendingQuestions = [];
 let latestReviewId = "";
 let referralValidationTimer = null;
 let validatedReferralCode = "";
+let foundingOfferActive = false;
+let servicePlanAutoApplied = false;
+let servicePlanReason = "";
 
 function field(id) {
   return document.getElementById(id);
@@ -96,6 +115,70 @@ function value(id) {
 
 function normalizeReferralCode(input) {
   return String(input || "").trim().toUpperCase().replace(/[^A-Z0-9-]/g, "").slice(0, 24);
+}
+
+function normalizePlan(input) {
+  const plan = String(input || "").trim().toLowerCase();
+  return ["starter", "starter_plus", "advanced"].includes(plan) ? plan : "";
+}
+
+function planLabel(plan) {
+  const normalized = normalizePlan(plan);
+  return normalized === "starter_plus" ? "Starter+" : normalized === "advanced" ? "Advanced" : normalized === "starter" ? "Starter" : "Not specified";
+}
+
+function advancedScopeReasons() {
+  const pages = listValue("request-pages");
+  const features = listValue("request-features");
+  const advancedFeatures = features.filter((feature) => ADVANCED_FEATURES.has(feature));
+  const customAdvancedFeatures = features.filter((feature) => {
+    if (ADVANCED_FEATURES.has(feature)) return false;
+    return /(payment|store|shop|account|portal|member|membership|schedule|booking|upload|protected|language|crm|api|automation|subscription)/i.test(feature);
+  });
+  const reasons = [];
+  if (advancedFeatures.length || customAdvancedFeatures.length) {
+    const names = [...advancedFeatures, ...customAdvancedFeatures].slice(0, 3);
+    reasons.push(`${names.join(", ")}${advancedFeatures.length + customAdvancedFeatures.length > 3 ? " and other advanced functionality" : ""}`);
+  }
+  if (pages.length > ADVANCED_SCOPE_LIMITS.pages) reasons.push(`${pages.length} requested pages`);
+  if (features.length > ADVANCED_SCOPE_LIMITS.features) reasons.push(`${features.length} requested features`);
+  return reasons;
+}
+
+function updateServicePlanFit({ announce = false } = {}) {
+  if (!servicePlanInput || !servicePlanStatus) return;
+  const selectedPlan = normalizePlan(servicePlanInput.value);
+  const reasons = advancedScopeReasons();
+  const requiresAdvanced = reasons.length > 0;
+  servicePlanInput.setCustomValidity("");
+  servicePlanStatus.classList.remove("is-upgraded", "is-error");
+
+  if (requiresAdvanced && selectedPlan !== "advanced") {
+    servicePlanInput.value = "advanced";
+    servicePlanAutoApplied = true;
+    servicePlanReason = `Advanced was applied because your request includes ${reasons.join(" and ")}. These projects need custom build work and service matched to the system.`;
+    servicePlanStatus.textContent = servicePlanReason;
+    servicePlanStatus.classList.add("is-upgraded");
+    return;
+  }
+
+  if (selectedPlan === "advanced") {
+    if (!servicePlanAutoApplied) servicePlanReason = "";
+    servicePlanStatus.textContent = servicePlanAutoApplied
+      ? servicePlanReason
+      : "Advanced selected. Build and service pricing will be custom quoted to the approved scope.";
+    servicePlanStatus.classList.add("is-upgraded");
+    return;
+  }
+
+  servicePlanAutoApplied = false;
+  servicePlanReason = "";
+  servicePlanStatus.textContent = selectedPlan
+    ? selectedPlan === "starter_plus"
+      ? "Starter+ includes up to 30 minutes of routine edits each month and priority handling."
+      : "Starter is for a straightforward website with routine hosting, security, backups, and support."
+    : "Choose one plan so we can prepare the right proposal.";
+  if (announce && !selectedPlan) servicePlanInput.setCustomValidity("Choose a website service plan before continuing.");
 }
 
 function setReferralStatus(message, state = "") {
@@ -121,6 +204,20 @@ async function validateReferralCode({ required = false } = {}) {
     setReferralStatus(message, "error");
     if (required) referralCodeInput.setCustomValidity(message);
     return false;
+  }
+  if (code === "FREEBUILD" && !foundingOfferActive) {
+    validatedReferralCode = "";
+    const message = "That code is only available through the Limited Founding Offer link.";
+    setReferralStatus(message, "error");
+    if (required) referralCodeInput.setCustomValidity(message);
+    return false;
+  }
+  if (foundingOfferActive && code === "FREEBUILD") {
+    validatedReferralCode = code;
+    referralCodeInput.readOnly = true;
+    referralCodeInput.setCustomValidity("");
+    setReferralStatus("Founding offer applied. The $250 website build fee is waived; service plans still apply.", "valid");
+    return true;
   }
   if (validatedReferralCode === code) return true;
 
@@ -185,6 +282,7 @@ function setPickerValues(picker, values) {
   const hidden = picker.querySelector("input[type='hidden']");
   hidden.value = [...new Set(values.map((item) => item.trim()).filter(Boolean))].join(", ");
   renderPickerState(picker);
+  updateServicePlanFit();
   saveDraft();
 }
 
@@ -287,6 +385,8 @@ function saveDraft() {
       savedAt: Date.now(),
       values,
       aiReviewId: latestReviewId,
+      servicePlanAutoApplied,
+      servicePlanReason,
     }));
   } catch {
     // The intake still works when browser storage is unavailable.
@@ -301,6 +401,8 @@ function restoreDraft() {
     if (input && typeof draft.values[id] === "string") input.value = draft.values[id];
   });
   latestReviewId = typeof draft.aiReviewId === "string" ? draft.aiReviewId : "";
+  servicePlanAutoApplied = draft.servicePlanAutoApplied === true;
+  servicePlanReason = typeof draft.servicePlanReason === "string" ? draft.servicePlanReason : "";
   return true;
 }
 
@@ -367,9 +469,13 @@ function projectDetails() {
     primaryAudience: value("request-audience"),
     requestedPages: listValue("request-pages"),
     requestedFeatures: listValue("request-features"),
+    servicePlan: normalizePlan(value("request-service-plan")),
+    servicePlanAutoApplied,
+    servicePlanReason,
     budgetRange: value("request-budget"),
     preferredLaunchDate: value("request-launch-date"),
     referralCode: normalizeReferralCode(value("request-referral-code")),
+    offerCode: foundingOfferActive ? "FREEBUILD" : null,
     additionalNotes: value("request-notes"),
   };
 }
@@ -405,6 +511,8 @@ function renderReviewSummary() {
     ["Scope", [
       ["Pages", project.requestedPages],
       ["Features", project.requestedFeatures],
+      ["Service plan", `${planLabel(project.servicePlan)}${project.servicePlanAutoApplied ? " (applied automatically)" : ""}`],
+      ...(project.servicePlanReason ? [["Plan fit", project.servicePlanReason]] : []),
       ["Budget", field("request-budget")?.selectedOptions?.[0]?.textContent],
       ["Preferred launch", project.preferredLaunchDate],
     ]],
@@ -413,6 +521,7 @@ function renderReviewSummary() {
       ["Email", project.email],
       ["Phone", project.phone],
       ["Referral code", project.referralCode],
+      ...(project.offerCode === "FREEBUILD" ? [["Offer", "Founding offer — build fee waived"]] : []),
     ]],
   ];
   reviewSummary.innerHTML = groups.map(([title, items]) => `
@@ -498,6 +607,7 @@ async function askProjectAi() {
 }
 
 async function openAiReview() {
+  updateServicePlanFit({ announce: true });
   if (!form.reportValidity()) return;
   if (!await validateReferralCode({ required: true })) {
     referralCodeInput?.reportValidity();
@@ -516,6 +626,7 @@ function applyReviewAnswers() {
     const target = field(REVIEW_FIELD_MAP[input.dataset.reviewField]);
     if (target && input.value.trim()) target.value = input.value.trim();
   });
+  updateServicePlanFit();
   saveDraft();
   reviewedSnapshot = currentProjectSnapshot();
   renderReviewSummary();
@@ -562,9 +673,13 @@ function requestPayload() {
     audience: value("request-audience") || null,
     requested_pages: listValue("request-pages"),
     requested_features: listValue("request-features"),
+    service_plan: normalizePlan(value("request-service-plan")),
+    service_plan_auto_applied: servicePlanAutoApplied,
+    service_plan_reason: servicePlanReason || null,
     budget_range: value("request-budget") || null,
     target_launch_date: value("request-launch-date") || null,
     referral_code: validatedReferralCode || null,
+    offer_code: foundingOfferActive && validatedReferralCode === "FREEBUILD" ? "FREEBUILD" : null,
     additional_notes: value("request-notes") || null,
     ai_review_id: latestReviewId || null,
     status: "submitted",
@@ -613,7 +728,16 @@ async function submitAuthenticatedRequest({ automatic = false } = {}) {
     if (error) throw error;
 
     form.reset();
+    validatedReferralCode = "";
+    servicePlanAutoApplied = false;
+    servicePlanReason = "";
+    if (foundingOfferActive && referralCodeInput) {
+      referralCodeInput.value = "FREEBUILD";
+      referralCodeInput.readOnly = true;
+      validateReferralCode();
+    }
     syncPickers();
+    updateServicePlanFit();
     if (aiReview) aiReview.hidden = true;
     document.body.classList.remove("request-review-open");
     pendingQuestions = [];
@@ -649,7 +773,12 @@ async function sendVerificationLink() {
   if (resendButton) resendButton.disabled = true;
   setStatus("Sending your secure verification link…");
   try {
-    const redirectUrl = `${window.location.origin}/website-request/?submit=1`;
+    const redirectParams = new URLSearchParams({ submit: "1" });
+    if (foundingOfferActive) {
+      redirectParams.set("offer", "freewebsite");
+      redirectParams.set("ref", "FREEBUILD");
+    }
+    const redirectUrl = `${window.location.origin}/website-request/?${redirectParams.toString()}`;
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
@@ -702,6 +831,7 @@ function bindEvents() {
   });
   finalSubmitButton?.addEventListener("click", finalizeRequest);
   referralCodeInput?.addEventListener("input", () => {
+    if (foundingOfferActive) return;
     const normalized = normalizeReferralCode(referralCodeInput.value);
     referralCodeInput.value = normalized;
     if (normalized !== validatedReferralCode) validatedReferralCode = "";
@@ -710,6 +840,12 @@ function bindEvents() {
     referralValidationTimer = setTimeout(() => validateReferralCode(), 450);
   });
   referralCodeInput?.addEventListener("blur", () => validateReferralCode());
+  servicePlanInput?.addEventListener("change", () => {
+    servicePlanAutoApplied = false;
+    servicePlanReason = "";
+    updateServicePlanFit({ announce: true });
+    saveDraft();
+  });
 }
 
 function finishLoading() {
@@ -722,9 +858,20 @@ async function init() {
   if (!form) return;
   initializePickers();
   restoredDraft = restoreDraft();
-  const linkedReferralCode = normalizeReferralCode(new URLSearchParams(window.location.search).get("ref"));
+  const params = new URLSearchParams(window.location.search);
+  foundingOfferActive = params.get("offer") === "freewebsite";
+  const linkedReferralCode = normalizeReferralCode(params.get("ref")) || (foundingOfferActive ? "FREEBUILD" : "");
   if (linkedReferralCode && referralCodeInput) referralCodeInput.value = linkedReferralCode;
+  if (foundingOfferActive && referralCodeInput) {
+    referralCodeInput.value = "FREEBUILD";
+    referralCodeInput.readOnly = true;
+    if (referralCodeLabelText) referralCodeLabelText.textContent = "Founding offer code";
+    if (referralCodeOptional) referralCodeOptional.hidden = true;
+    if (referralCodeLabel) referralCodeLabel.classList.add("is-founding-offer");
+    if (pricingCopy) pricingCopy.textContent = "Limited founding offer: the one-time website build fee is waived. Service plans start at $25/month.";
+  }
   syncPickers();
+  updateServicePlanFit();
   bindEvents();
   if (referralCodeInput?.value) validateReferralCode();
 

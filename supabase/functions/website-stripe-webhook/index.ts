@@ -76,6 +76,7 @@ async function syncSubscription(admin: ReturnType<typeof createClient>, subscrip
     cancel_at_period_end: Boolean(subscription.cancel_at_period_end || subscription.cancel_at),
     annual_partner_qualifying: snapshot.annual_partner_qualifying,
     referral_code: snapshot.referral_code,
+    offer_code: snapshot.offer_code,
   }, { onConflict: "project_id" });
   if (subscription.status === "active" || subscription.status === "trialing") {
     await activateSnapshot(admin, snapshot.id, snapshot.project_id);

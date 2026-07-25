@@ -61,9 +61,25 @@
         </div>
         <form class="portal-form portal-request-form" id="website-request-form">
           <aside class="request-pricing-note" aria-label="Website pricing overview">
-            <span>Website builds start at $250.</span>
+            <span id="request-pricing-copy">Website builds start at $250.</span>
             <a href="/services/#website-pricing">See plans and pricing</a>
           </aside>
+          <section class="request-plan-selector" aria-labelledby="request-service-plan-title">
+            <div>
+              <p class="portal-kicker">Choose your service plan</p>
+              <h3 id="request-service-plan-title">Which level of ongoing care fits this project?</h3>
+              <p>Select the plan you want us to use when we prepare your proposal. If the scope needs an Advanced build, we’ll explain that here and apply it automatically.</p>
+            </div>
+            <label for="request-service-plan">Service plan <span class="request-required">Required</span>
+              <select id="request-service-plan" required>
+                <option value="">Choose a plan</option>
+                <option value="starter">Starter — $25/month</option>
+                <option value="starter_plus">Starter+ — $40/month</option>
+                <option value="advanced">Advanced — from $50/month</option>
+              </select>
+              <span class="request-field-help" id="request-service-plan-status" role="status">Choose one plan so we can prepare the right proposal.</span>
+            </label>
+          </section>
           <section class="request-account-card" id="request-account-card" aria-live="polite">
             <div>
               <p class="portal-kicker">Account connection</p>
@@ -102,7 +118,7 @@
               </select>
             </label>
             <label>Preferred launch date<input id="request-launch-date" type="date"></label>
-            <label>Partner referral code <span class="request-optional">(optional)</span><input id="request-referral-code" maxlength="24" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Enter referral code"><span class="request-field-help" id="request-referral-code-status">Enter a valid website referral code for 10% off the website build.</span></label>
+            <label id="request-referral-code-label"><span id="request-referral-code-label-text">Partner referral code</span> <span class="request-optional" id="request-referral-code-optional">(optional)</span><input id="request-referral-code" maxlength="24" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Enter referral code"><span class="request-field-help" id="request-referral-code-status">Enter a valid website referral code for 10% off the website build.</span></label>
             <label class="portal-form-wide">Anything else?<textarea id="request-notes" rows="4"></textarea></label>
           </div>
           <div class="portal-form-actions">
@@ -137,6 +153,6 @@
   </main>
   <div class="portal-status" id="portal-status">Opening project intake…</div>
   <script type="module" src="/client-portal/portal-shell.js"></script>
-  <script type="module" src="/website-request/request.js?v=10"></script>
+  <script type="module" src="/website-request/request.js?v=12"></script>
 </body>
 </html>

@@ -88,6 +88,10 @@ function formatLabel(value = "") {
   return String(value).replaceAll("_", " ");
 }
 
+function planLabel(value = "") {
+  return value === "starter_plus" ? "Starter+" : value === "advanced" ? "Advanced" : value === "starter" ? "Starter" : "Not specified";
+}
+
 function moneyToCents(value) {
   return Math.round(Number(value || 0) * 100);
 }
@@ -116,14 +120,23 @@ function websiteBuildSubtotal(items = []) {
     .reduce((sum, item) => sum + Math.round(item.quantity * item.unit_amount_cents), 0);
 }
 
+function isFounderOffer(request = selectedRequest) {
+  return String(request?.offer_code || "").toUpperCase() === "FREEBUILD"
+    && String(request?.referral_code || "").toUpperCase() === "FREEBUILD";
+}
+
 function configureReferralDiscount({ apply = false } = {}) {
   const code = String(selectedRequest?.referral_code || "").trim();
   referralDiscountWrap.hidden = !code;
-  referralDiscountToggle.checked = Boolean(code && apply);
+  const founderOffer = isFounderOffer();
+  referralDiscountToggle.checked = Boolean(code && (founderOffer || apply));
+  referralDiscountToggle.disabled = founderOffer;
   referralDiscountHelp.textContent = code
-    ? `Verified code ${code}: applies 10% off one-time website-build line items. The partner earns $100 only if the client purchases one year of service.`
+    ? founderOffer
+      ? "Founding offer verified: the one-time website build fee is waived. Service plans, domains, and third-party services remain billable."
+      : `Verified code ${code}: applies 10% off one-time website-build line items. The partner earns $100 only if the client purchases one year of service.`
     : "";
-  document.getElementById(fieldIds.discount_cents).readOnly = Boolean(code && apply);
+  document.getElementById(fieldIds.discount_cents).readOnly = Boolean(code && (founderOffer || apply));
 }
 
 function updateReferralDiscount(items = []) {
@@ -133,7 +146,8 @@ function updateReferralDiscount(items = []) {
     return;
   }
   discountInput.readOnly = true;
-  discountInput.value = centsToMoney(Math.round(websiteBuildSubtotal(items) * 0.1));
+  const buildSubtotal = websiteBuildSubtotal(items);
+  discountInput.value = centsToMoney(Math.round(buildSubtotal * (isFounderOffer() ? 1 : 0.1)));
 }
 
 function newLineItem(overrides = {}) {
@@ -208,7 +222,13 @@ function applyServicePlanIntervalPrice(row) {
 function editingLineItems(version = editingVersion) {
   const stored = version ? lineItems.filter((item) => item.version_id === version.id) : [];
   if (stored.length) return stored.map((item) => ({ ...item }));
-  if (!version) return [newLineItem()];
+  if (!version) {
+    const items = [newLineItem()];
+    if (["starter", "starter_plus", "advanced"].includes(selectedRequest?.service_plan)) {
+      items.push(servicePlanItem(selectedRequest.service_plan));
+    }
+    return items;
+  }
   const legacy = [];
   if (version.subtotal_cents) legacy.push(newLineItem({ unit_amount_cents: version.subtotal_cents }));
   if (version.recurring_cents) legacy.push(newLineItem({
@@ -302,8 +322,11 @@ function renderRequestSummary() {
       <div><dt>Goal</dt><dd>${escapeHtml(selectedRequest.primary_goal)}</dd></div>
       <div><dt>Pages</dt><dd>${(selectedRequest.requested_pages || []).map(escapeHtml).join(", ") || "Not specified"}</dd></div>
       <div><dt>Features</dt><dd>${(selectedRequest.requested_features || []).map(escapeHtml).join(", ") || "Not specified"}</dd></div>
+      <div><dt>Service plan</dt><dd>${escapeHtml(planLabel(selectedRequest.service_plan))}${selectedRequest.service_plan_auto_applied ? " (Advanced applied automatically)" : ""}</dd></div>
+      ${selectedRequest.service_plan_reason ? `<div><dt>Plan fit</dt><dd>${escapeHtml(selectedRequest.service_plan_reason)}</dd></div>` : ""}
       <div><dt>Budget</dt><dd>${escapeHtml(formatLabel(selectedRequest.budget_range || "Not specified"))}</dd></div>
       <div><dt>Referral code</dt><dd>${escapeHtml(selectedRequest.referral_code || "None")}</dd></div>
+      ${isFounderOffer(selectedRequest) ? '<div><dt>Offer</dt><dd>Founding offer — $250 build fee waived</dd></div>' : ""}
     </dl>
   `;
 }
@@ -369,6 +392,10 @@ function renderEditor() {
     else if (element.id === "save-proposal") element.disabled = !isDraft;
     else element.disabled = !isDraft;
   });
+  // The draft lock pass above enables normal form controls again. Re-apply
+  // the founder-offer lock after it so the waiver cannot be toggled off.
+  configureReferralDiscount({ apply: Boolean(!editingVersion && selectedRequest?.referral_code) });
+  updateInvestmentTotals();
   sendButton.textContent = isDraft ? "Send to client" : "Resend email";
   newVersionButton.hidden = !selectedProposal || isDraft;
   deleteVersionButton.hidden = !editingVersion?.id || editingVersion.status !== "draft";

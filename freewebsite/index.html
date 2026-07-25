@@ -451,17 +451,17 @@
       </div>
     </section>
 
-    <a class="offer-skip" href="/projects/?from=freewebsite">Skip to projects</a>
+    <a class="offer-skip" href="/projects/?from=freewebsite&offer=freewebsite&ref=FREEBUILD">Skip to projects</a>
     <div class="offer-progress" aria-hidden="true"></div>
   </main>
 
   <noscript>
-    <p><a href="/projects/?from=freewebsite">Continue to N3XRA projects</a></p>
+    <p><a href="/projects/?from=freewebsite&offer=freewebsite&ref=FREEBUILD">Continue to N3XRA projects</a></p>
   </noscript>
 
   <script>
     (() => {
-      const destination = "/projects/?from=freewebsite";
+      const destination = "/projects/?from=freewebsite&offer=freewebsite&ref=FREEBUILD";
       const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       window.setTimeout(() => {
         window.location.replace(destination);

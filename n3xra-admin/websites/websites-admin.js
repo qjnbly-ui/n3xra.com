@@ -155,6 +155,10 @@ function requestStatusLabel(status) {
   return String(status || "").replaceAll("_", " ");
 }
 
+function requestPlanLabel(plan) {
+  return plan === "starter_plus" ? "Starter+" : plan === "advanced" ? "Advanced" : plan === "starter" ? "Starter" : "Not specified";
+}
+
 function renderServiceRequests() {
   adminRequestList.innerHTML = serviceRequests.map((request) => `
     <article class="portal-request-card portal-request-admin-card">
@@ -164,6 +168,8 @@ function renderServiceRequests() {
         <p><strong>${escapeHtml(request.contact_name)}</strong> · ${escapeHtml(request.contact_email)}</p>
         <p>${escapeHtml(request.primary_goal)}</p>
         <p>${(request.requested_pages || []).map(escapeHtml).join(" · ")}</p>
+        <p><strong>Service plan:</strong> ${escapeHtml(requestPlanLabel(request.service_plan))}${request.service_plan_auto_applied ? " · Advanced applied automatically" : ""}</p>
+        ${request.service_plan_reason ? `<p><strong>Plan fit:</strong> ${escapeHtml(request.service_plan_reason)}</p>` : ""}
       </div>
       <div class="portal-request-controls">
         <select data-request-status="${request.id}" aria-label="Request status">

@@ -34,6 +34,12 @@ export default async function handler(req, res) {
   const scope = String(req.query?.scope || "website").trim().toLowerCase();
   if (code.length < 4) return res.status(200).json({ valid: false, code });
 
+  // FREEBUILD is a public founding offer, not a partner referral. It is only
+  // valid for website requests and is handled separately from partner lookup.
+  if (code === "FREEBUILD") {
+    return res.status(200).json({ valid: scope === "website", code, offer: "free_build" });
+  }
+
   try {
     const params = new URLSearchParams({
       select: "id,interested_products",

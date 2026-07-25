@@ -29,7 +29,7 @@ Deno.serve(async (request) => {
       admin.from("website_proposal_versions").select("*").eq("id", proposal.current_version_id).single(),
       admin.from("website_proposal_line_items").select("*").eq("version_id", proposal.current_version_id).order("sort_order"),
       admin.from("website_projects").select("id").eq("proposal_id", proposal.id).single(),
-      admin.from("website_service_requests").select("referral_code,partner_application_id").eq("id", proposal.request_id).single(),
+      admin.from("website_service_requests").select("referral_code,offer_code,partner_application_id").eq("id", proposal.request_id).single(),
     ]);
     if (versionError || itemError || !version || !project) throw new Error(versionError?.message || itemError?.message || "Approved proposal data is incomplete.");
     if (version.recurring_interval === "quarterly") return response({ error: "Quarterly website service is not supported in Stage 1. Update the proposal to monthly or yearly." }, 409, origin);
@@ -53,6 +53,7 @@ Deno.serve(async (request) => {
     if (total === 0 && recurring === 0) return response({ error: "This proposal has no billable amount." }, 409, origin);
 
     const normalizedCode = requestRow?.referral_code ? String(requestRow.referral_code).toUpperCase() : null;
+    const offerCode = requestRow?.offer_code ? String(requestRow.offer_code).toUpperCase() : null;
     const { data: snapshot, error: insertError } = await admin.from("website_billing_snapshots").insert({
       project_id: project.id,
       proposal_id: proposal.id,
@@ -66,8 +67,9 @@ Deno.serve(async (request) => {
       recurring_cents: recurring,
       discount_cents: Number(version.discount_cents || 0),
       referral_code: normalizedCode,
+      offer_code: offerCode,
       partner_application_id: requestRow?.partner_application_id || null,
-      annual_partner_qualifying: Boolean(normalizedCode && interval === "yearly"),
+      annual_partner_qualifying: Boolean(requestRow?.partner_application_id && interval === "yearly"),
       prepared_by_user_id: authUser.id,
     }).select().single();
     if (insertError) throw new Error(insertError.message);
