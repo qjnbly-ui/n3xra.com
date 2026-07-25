@@ -121,26 +121,30 @@ function websiteBuildSubtotal(items = []) {
 }
 
 function isFounderOffer(request = selectedRequest) {
-  return String(request?.offer_code || "").toUpperCase() === "FREEBUILD"
-    && String(request?.referral_code || "").toUpperCase() === "FREEBUILD";
+  return String(request?.offer_code || "").toUpperCase() === "FREEBUILD";
 }
 
 function configureReferralDiscount({ apply = false } = {}) {
   const code = String(selectedRequest?.referral_code || "").trim();
   referralDiscountWrap.hidden = !code;
   const founderOffer = isFounderOffer();
-  referralDiscountToggle.checked = Boolean(code && (founderOffer || apply));
+  referralDiscountToggle.checked = Boolean(code && apply && !founderOffer);
   referralDiscountToggle.disabled = founderOffer;
   referralDiscountHelp.textContent = code
     ? founderOffer
       ? "Founding offer verified: the one-time website build fee is waived. Service plans, domains, and third-party services remain billable."
       : `Verified code ${code}: applies 10% off one-time website-build line items. The partner earns $100 only if the client purchases one year of service.`
     : "";
-  document.getElementById(fieldIds.discount_cents).readOnly = Boolean(code && (founderOffer || apply));
+  document.getElementById(fieldIds.discount_cents).readOnly = Boolean(founderOffer || (code && apply));
 }
 
 function updateReferralDiscount(items = []) {
   const discountInput = document.getElementById(fieldIds.discount_cents);
+  if (isFounderOffer()) {
+    discountInput.readOnly = true;
+    discountInput.value = centsToMoney(websiteBuildSubtotal(items));
+    return;
+  }
   if (!selectedRequest?.referral_code || !referralDiscountToggle.checked) {
     discountInput.readOnly = false;
     return;

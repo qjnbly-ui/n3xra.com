@@ -116,67 +116,172 @@
 }
 
 .request-plan-selector {
+  position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.8fr);
-  gap: 1.25rem 2rem;
-  align-items: end;
-  margin: 0 0 1.5rem;
-  padding: 1.25rem;
-  background: #f5fafb;
-  border: 1px solid rgba(20, 144, 161, 0.22);
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.25rem 1rem;
+  align-items: center;
+  margin: 0 0 1rem;
+  padding: 0.9rem 1rem;
+  background: #f7fbfc;
+  border: 1px solid rgba(20, 144, 161, 0.18);
   border-radius: 10px;
 }
 
-.request-plan-selector h3,
-.request-plan-selector p {
+.request-plan-selector-summary {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.request-plan-selector-summary p,
+.request-plan-selector-summary strong,
+.request-plan-selector-summary span {
   margin: 0;
 }
 
-.request-plan-selector h3 {
-  font-family: "Fraunces", Georgia, serif;
-  font-size: 1.32rem;
-  line-height: 1.1;
+.request-plan-selector-summary strong {
+  font-size: 0.95rem;
 }
 
-.request-plan-selector p:not(.portal-kicker) {
-  margin-top: 0.45rem;
+.request-plan-selector-summary span {
+  color: var(--portal-muted);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.request-plan-trigger {
+  white-space: nowrap;
+}
+
+.request-plan-native-select {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.request-plan-selector > .request-field-help {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+.request-plan-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(15, 24, 31, 0.58);
+}
+
+.request-plan-dialog[hidden] {
+  display: none;
+}
+
+.request-plan-dialog-card {
+  width: min(680px, 100%);
+  max-height: min(90vh, 760px);
+  overflow: auto;
+  padding: 1.35rem;
+  background: #fff;
+  border: 1px solid var(--portal-line);
+  border-radius: 14px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.22);
+}
+
+.request-plan-dialog-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.request-plan-dialog-head h3,
+.request-plan-dialog-head p {
+  margin: 0;
+}
+
+.request-plan-dialog-head h3 {
+  font-family: "Fraunces", Georgia, serif;
+  font-size: 1.45rem;
+  line-height: 1.15;
+}
+
+.request-plan-dialog-head p:not(.portal-kicker) {
+  margin-top: 0.4rem;
   color: var(--portal-muted);
   font-size: 0.84rem;
   line-height: 1.5;
 }
 
-.request-plan-selector label {
-  display: grid;
-  gap: 0.42rem;
-  color: var(--portal-muted);
-  font-size: 0.78rem;
-  font-weight: 800;
-}
-
-.request-plan-selector select {
-  width: 100%;
-  min-height: 48px;
-  padding: 0.75rem 0.9rem;
-  background: #fff;
+.portal-icon-button {
+  flex: 0 0 auto;
+  width: 2.25rem;
+  height: 2.25rem;
   border: 1px solid var(--portal-line);
-  border-radius: 8px;
+  border-radius: 999px;
+  background: #f7fafb;
   color: var(--portal-ink);
-  font: inherit;
-  font-size: 0.86rem;
-  font-weight: 700;
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
 }
 
-.request-plan-selector select:focus {
-  border-color: #0879ed;
-  outline: 2px solid rgba(8, 121, 237, 0.12);
+.portal-icon-button:hover,
+.portal-icon-button:focus-visible {
+  border-color: #0d6f60;
+  outline: 2px solid rgba(13, 111, 96, 0.16);
   outline-offset: 1px;
 }
 
-.request-required {
-  color: #a43a1a;
-  font-size: 0.72rem;
+.request-plan-options {
+  display: grid;
+  gap: 0.7rem;
+  margin-top: 1rem;
+}
+
+.request-plan-option {
+  display: grid;
+  gap: 0.35rem;
+  width: 100%;
+  padding: 1rem;
+  border: 1px solid var(--portal-line);
+  border-radius: 10px;
+  background: #f8fafb;
+  color: var(--portal-ink);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+
+.request-plan-option:hover,
+.request-plan-option:focus-visible {
+  border-color: #0d6f60;
+  background: #f0faf7;
+  outline: none;
+}
+
+.request-plan-option span {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.request-plan-option strong {
+  font-size: 1rem;
+}
+
+.request-plan-option small {
+  color: var(--portal-muted);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.request-plan-option span small {
   font-weight: 700;
-  text-transform: uppercase;
+  text-align: right;
 }
 
 .request-plan-selector .request-field-help.is-upgraded {
@@ -716,8 +821,21 @@
 
   .request-plan-selector {
     grid-template-columns: 1fr;
-    gap: 1rem;
+    gap: 0.6rem;
     padding: 1rem;
+  }
+
+  .request-plan-trigger {
+    justify-self: start;
+  }
+
+  .request-plan-option span {
+    display: grid;
+    gap: 0.25rem;
+  }
+
+  .request-plan-option span small {
+    text-align: left;
   }
 
   .request-verification-card .portal-button,
