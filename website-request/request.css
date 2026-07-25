@@ -3,8 +3,23 @@
   padding-top: 2.25rem;
 }
 
+.request-page .portal-layout {
+  min-width: 0;
+}
+
 .request-page .portal-workspace {
   padding: clamp(1.5rem, 3vw, 3rem);
+  transition: opacity 160ms ease;
+}
+
+.request-page.portal-loading .portal-layout {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.request-page.portal-loading .portal-workspace {
+  grid-column: 1 / -1;
+  visibility: hidden;
+  opacity: 0;
 }
 
 .request-page .portal-workspace-head {
