@@ -352,6 +352,9 @@
     routes.forEach(([route, label]) => {
       const routeBase = route.replace(/\/+$/, "");
       const escapedRoute = routeBase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const labelWords = label.split(/\s+/).map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+      const duplicatePattern = new RegExp(`\\b(?:Our\\s+)?${labelWords.join("\\s+")}\\s+${escapedRoute}\\/?(?=[\\s<.,!?;:]|$)`, "gi");
+      html = html.replace(duplicatePattern, routeBase);
       const pattern = new RegExp(`(^|[\\s>])\\(?${escapedRoute}\\/?\\)?(?=[\\s<.,!?;:]|$)`, "gi");
       html = html.replace(pattern, `$1<a class="ask-route-link" href="${route}">${label}</a>`);
     });
