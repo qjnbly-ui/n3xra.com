@@ -57,6 +57,8 @@ function cleanSpeechText(value) {
 
   return text
     .replace(/\bN3XRA\b/gi, "Nexra")
+    .replace(/\$(\d+(?:\.\d{1,2})?)\s*\/\s*(month|year|week|day|hour)\b/gi, "$1 dollars a $2")
+    .replace(/\$(\d+(?:\.\d{1,2})?)\s+(one-time|one time)\b/gi, "$1 dollar $2")
     .replace(/\$(\d+(?:\.\d{1,2})?)/g, "$1 dollars")
     .replace(/(\d+(?:\.\d+)?)%/g, "$1 percent")
     .replace(/https?:\/\/\S+/gi, " ")
