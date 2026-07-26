@@ -340,13 +340,72 @@ function renderCodebaseIndex(index = {}) {
   element.textContent = `${Number(index.fileCount || 0).toLocaleString()} indexed files · ${Number(index.chunkCount || 0).toLocaleString()} searchable sections · ${generated}`;
 }
 
+function renderSafeMarkdown(value) {
+  const inline = (text) => escapeHtml(text)
+    .replace(/`([^`]+)`/g, "<code>$1</code>")
+    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+  const lines = String(value || "").replace(/\r/g, "").split("\n");
+  const output = [];
+  let listType = "";
+
+  const closeList = () => {
+    if (!listType) return;
+    output.push(`</${listType}>`);
+    listType = "";
+  };
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line) {
+      closeList();
+      continue;
+    }
+
+    const heading = line.match(/^(#{1,3})\s+(.+)$/);
+    if (heading) {
+      closeList();
+      const level = Math.min(heading[1].length + 1, 4);
+      output.push(`<h${level}>${inline(heading[2])}</h${level}>`);
+      continue;
+    }
+
+    const ordered = line.match(/^\d+\.\s*(.+)$/);
+    if (ordered) {
+      if (listType !== "ol") {
+        closeList();
+        listType = "ol";
+        output.push("<ol>");
+      }
+      output.push(`<li>${inline(ordered[1])}</li>`);
+      continue;
+    }
+
+    const bullet = line.match(/^[*-]\s+(.+)$/);
+    if (bullet) {
+      if (listType !== "ul") {
+        closeList();
+        listType = "ul";
+        output.push("<ul>");
+      }
+      output.push(`<li>${inline(bullet[1])}</li>`);
+      continue;
+    }
+
+    closeList();
+    output.push(`<p>${inline(line)}</p>`);
+  }
+
+  closeList();
+  return output.join("");
+}
+
 function renderCodebaseAnswer(data = {}) {
   const answer = document.getElementById("codebase-ai-answer");
   const text = document.getElementById("codebase-ai-answer-text");
   const sources = document.getElementById("codebase-ai-sources");
   const sourceList = document.getElementById("codebase-ai-source-list");
   if (!answer || !text || !sources || !sourceList) return;
-  text.textContent = String(data.answer || "");
+  text.innerHTML = renderSafeMarkdown(data.answer || "");
   const list = Array.isArray(data.sources) ? data.sources : [];
   sourceList.innerHTML = list.map((source) => `<li>${escapeHtml(source)}</li>`).join("");
   sources.classList.toggle("hidden", !list.length);
