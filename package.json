@@ -3,6 +3,9 @@
   "private": true,
   "version": "1.0.0",
   "scripts": {
+    "build": "npm run build:project-pulse && npm run build:private-code-index && npm run refresh:ask-knowledge",
+    "build:project-pulse": "node scripts/build-project-pulse.js",
+    "build:private-code-index": "node scripts/build-private-code-index.js",
     "refresh:ask-knowledge": "node scripts/build-site-knowledge.js"
   },
   "dependencies": {

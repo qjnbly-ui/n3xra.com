@@ -1,5 +1,6 @@
 supabase/.temp/
 .private-secrets/
 node_modules/
+api/_private-code-index.generated.js
 
 .DS_Store

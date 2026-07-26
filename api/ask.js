@@ -66,6 +66,7 @@ const SAFE_FALLBACK_CONTEXT = [
 const ASSISTANT_INSTRUCTIONS = [
     "You are Ask N3XRA, an assistant for n3xra.com.",
     "Use the supplied current knowledge as the source of truth for offerings, pricing, customer workflows, policy, support, and navigation.",
+    "Use the supplied Project Pulse summary as the source of truth for current public platform statistics, products, recent capabilities, and the high-level system map.",
     "The curated knowledge is authoritative when an extracted page appears older or less specific.",
     "If an answer is not supported by the supplied knowledge, say you are not certain and suggest the best matching public route or /support.",
     "Voice and tone: talk like a well-informed sales professional who is also a trusted friend, excited to share the site.",
@@ -130,6 +131,7 @@ const TOPIC_ROUTES = [
   { pattern: /\b(account|login|sign in|dashboard|app access)\b/i, routes: ["/", "/support"] },
   { pattern: /\b(support|help|problem|issue|failed|error|contact)\b/i, routes: ["/support"] },
   { pattern: /\b(privacy|private|security|secure|terms|legal|data)\b/i, routes: ["/privacy", "/terms", "/records"] },
+  { pattern: /\b(project pulse|by the numbers|how large|code count|line count|source lines|platform size|system map|architecture|changed recently|recent capabilities)\b/i, routes: ["/project-pulse", "/", "/projects"] },
 ];
 
 let knowledgeBundlePromise = null;
@@ -155,14 +157,17 @@ function searchTokens(value) {
 async function readKnowledgeBundle() {
   const curatedPath = path.join(__dirname, "ask-knowledge.md");
   const generatedPath = path.join(__dirname, "site-knowledge.json");
-  const [curatedResult, generatedResult] = await Promise.allSettled([
+  const projectPulsePath = path.join(__dirname, "..", "project-pulse", "manifest.json");
+  const [curatedResult, generatedResult, projectPulseResult] = await Promise.allSettled([
     fs.readFile(curatedPath, "utf8"),
     fs.readFile(generatedPath, "utf8"),
+    fs.readFile(projectPulsePath, "utf8"),
   ]);
 
   const curated = curatedResult.status === "fulfilled" ? String(curatedResult.value || "").trim() : "";
   let generatedAt = "";
   let pages = [];
+  let projectPulse = null;
 
   if (generatedResult.status === "fulfilled") {
     try {
@@ -185,7 +190,26 @@ async function readKnowledgeBundle() {
     }
   }
 
-  return { curated, generatedAt, pages };
+  if (projectPulseResult.status === "fulfilled") {
+    try {
+      const parsed = JSON.parse(projectPulseResult.value);
+      projectPulse = {
+        generatedAt: String(parsed?.generatedAt || ""),
+        updatedAt: String(parsed?.updatedAt || ""),
+        commit: String(parsed?.commit || ""),
+        summary: parsed?.summary && typeof parsed.summary === "object" ? parsed.summary : {},
+        products: Array.isArray(parsed?.products) ? parsed.products : [],
+        majorModules: Array.isArray(parsed?.majorModules) ? parsed.majorModules : [],
+        recentCapabilities: Array.isArray(parsed?.recentCapabilities) ? parsed.recentCapabilities : [],
+        systemMap: parsed?.systemMap && typeof parsed.systemMap === "object" ? parsed.systemMap : {},
+        disclosure: String(parsed?.disclosure || ""),
+      };
+    } catch {
+      projectPulse = null;
+    }
+  }
+
+  return { curated, generatedAt, pages, projectPulse };
 }
 
 function getKnowledgeBundle() {
@@ -261,6 +285,15 @@ async function getSiteContext(question, history) {
     chunks.push("", "AUTHORITATIVE CURRENT N3XRA KNOWLEDGE:", bundle.curated);
   } else {
     chunks.push("", `PUBLIC SITE SUMMARY: ${SAFE_FALLBACK_CONTEXT}`);
+  }
+
+  if (bundle.projectPulse) {
+    chunks.push(
+      "",
+      "PUBLIC-SAFE N3XRA PROJECT PULSE:",
+      JSON.stringify(bundle.projectPulse),
+      "Project Pulse contains only approved public facts. Never infer or disclose implementation details beyond this supplied summary.",
+    );
   }
 
   if (selectedPages.length) {

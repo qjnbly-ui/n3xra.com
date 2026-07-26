@@ -1,5 +1,11 @@
 .hidden { display: none !important; }
 
+.portal-nav .site-menu-link {
+  min-height: 0;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
 .account-admin-page {
   width: min(1480px, calc(100vw - 2rem));
   min-height: calc(100svh - 75px);
@@ -257,6 +263,140 @@
   padding: 0.25rem 0;
 }
 
+.codebase-ai-workspace {
+  display: grid;
+  gap: 1rem;
+}
+
+.codebase-ai-workspace .portal-workspace-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.codebase-ai-private {
+  flex: 0 0 auto;
+  padding: 0.48rem 0.72rem;
+  color: #116c62;
+  background: #edf9f7;
+  border: 1px solid rgba(17, 108, 98, 0.2);
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.codebase-ai-notice {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.7rem;
+  padding: 0.85rem 1rem;
+  color: #465668;
+  background: #f7f9fb;
+  border: 1px solid var(--portal-line);
+  border-radius: 10px;
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+
+.codebase-ai-answer {
+  padding: 1.1rem;
+  background: rgba(22, 185, 237, 0.06);
+  border: 1px solid rgba(22, 185, 237, 0.2);
+  border-radius: 10px;
+}
+
+.codebase-ai-answer > .portal-kicker {
+  margin: 0 0 0.55rem;
+}
+
+#codebase-ai-answer-text {
+  color: var(--portal-ink);
+  line-height: 1.72;
+  white-space: pre-wrap;
+}
+
+.codebase-ai-sources {
+  margin-top: 1rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid rgba(22, 185, 237, 0.2);
+}
+
+.codebase-ai-sources strong {
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.codebase-ai-sources ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0.55rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.codebase-ai-sources li {
+  padding: 0.32rem 0.5rem;
+  color: #536175;
+  background: #fff;
+  border: 1px solid var(--portal-line);
+  border-radius: 7px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.68rem;
+}
+
+.codebase-ai-form {
+  display: grid;
+  gap: 0.55rem;
+  padding: 1rem;
+  background: #fff;
+  border: 1px solid var(--portal-line);
+  border-radius: 10px;
+}
+
+.codebase-ai-form label {
+  color: var(--portal-muted);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.codebase-ai-form textarea {
+  width: 100%;
+  min-height: 130px;
+  padding: 0.85rem;
+  resize: vertical;
+  color: var(--portal-ink);
+  background: #f9fbfc;
+  border: 1px solid var(--portal-line);
+  border-radius: 8px;
+  font: inherit;
+  line-height: 1.55;
+}
+
+.codebase-ai-form textarea:focus {
+  border-color: rgba(22, 185, 237, 0.55);
+  outline: 3px solid rgba(22, 185, 237, 0.11);
+}
+
+.codebase-ai-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.codebase-ai-actions p {
+  margin: 0;
+  color: var(--portal-muted);
+  font-size: 0.7rem;
+}
+
 @media (max-width: 800px) {
   .account-admin-selector,
   .account-admin-facts,
@@ -268,4 +408,8 @@
   .platform-admin-invite-link,
   .platform-admin-toolbar { align-items: stretch; flex-direction: column; }
   .platform-admin-row { align-items: stretch; grid-template-columns: 1fr; }
+  .codebase-ai-workspace .portal-workspace-head,
+  .codebase-ai-actions { align-items: stretch; flex-direction: column; }
+  .codebase-ai-notice { grid-template-columns: 1fr; }
+  .codebase-ai-actions .portal-button { width: 100%; }
 }

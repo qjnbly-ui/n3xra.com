@@ -12,6 +12,7 @@ let accounts = [];
 let billing = [];
 let supportRequests = [];
 let platformAdminInviteUrl = "";
+let codebaseHistory = [];
 
 function escapeHtml(value) {
   return String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
@@ -318,6 +319,71 @@ async function handlePlatformAdminAction(event) {
   }
 }
 
+async function codebaseRequest(path = "", options = {}) {
+  const response = await fetch(`/api/codebase-ai${path}`, {
+    ...options,
+    headers: {
+      Authorization: `Bearer ${session.access_token}`,
+      "Content-Type": "application/json",
+      ...(options.headers || {}),
+    },
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(String(data?.error || "Codebase AI request failed."));
+  return data;
+}
+
+function renderCodebaseIndex(index = {}) {
+  const element = document.getElementById("codebase-ai-index-status");
+  if (!element) return;
+  const generated = index.generatedAt ? formatDate(index.generatedAt) : "not generated";
+  element.textContent = `${Number(index.fileCount || 0).toLocaleString()} indexed files · ${Number(index.chunkCount || 0).toLocaleString()} searchable sections · ${generated}`;
+}
+
+function renderCodebaseAnswer(data = {}) {
+  const answer = document.getElementById("codebase-ai-answer");
+  const text = document.getElementById("codebase-ai-answer-text");
+  const sources = document.getElementById("codebase-ai-sources");
+  const sourceList = document.getElementById("codebase-ai-source-list");
+  if (!answer || !text || !sources || !sourceList) return;
+  text.textContent = String(data.answer || "");
+  const list = Array.isArray(data.sources) ? data.sources : [];
+  sourceList.innerHTML = list.map((source) => `<li>${escapeHtml(source)}</li>`).join("");
+  sources.classList.toggle("hidden", !list.length);
+  answer.classList.remove("hidden");
+  renderCodebaseIndex(data.index || {});
+}
+
+async function askCodebase(event) {
+  event.preventDefault();
+  const input = document.getElementById("codebase-ai-question");
+  const submit = document.getElementById("codebase-ai-submit");
+  const question = String(input?.value || "").trim();
+  if (!question) return;
+  submit.disabled = true;
+  setStatus("Searching the private codebase and preparing an answer…");
+  try {
+    const data = await codebaseRequest("", {
+      method: "POST",
+      body: JSON.stringify({ question, history: codebaseHistory }),
+    });
+    renderCodebaseAnswer(data);
+    codebaseHistory = [...codebaseHistory, { role: "user", content: question }, { role: "assistant", content: data.answer }].slice(-8);
+    setStatus("Answer grounded in the current private code index.", "success");
+  } catch (error) {
+    setStatus(error.message, "error");
+  } finally {
+    submit.disabled = false;
+  }
+}
+
+async function loadCodebaseAi() {
+  document.getElementById("codebase-ai-form")?.addEventListener("submit", askCodebase);
+  const data = await codebaseRequest("", { method: "GET" });
+  renderCodebaseIndex(data.index || {});
+  setStatus("Private codebase index ready.", "success");
+}
+
 async function init() {
   if (!hasConfig()) {
     setupPanel?.classList.remove("hidden");
@@ -356,6 +422,8 @@ async function init() {
     document.getElementById("platform-admin-list")?.addEventListener("click", handlePlatformAdminAction);
     document.getElementById("platform-admin-invite-list")?.addEventListener("click", handlePlatformAdminAction);
     await loadPlatformAdmins();
+  } else if (view === "codebase-ai") {
+    await loadCodebaseAi();
   }
 }
 

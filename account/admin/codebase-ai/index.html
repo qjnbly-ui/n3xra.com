@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>N3XRA | Codebase AI</title>
+  <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
+  <link rel="icon" href="/assets/n3xra_logo_transparent_small.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&amp;family=Manrope:wght@400;600;700;800&amp;display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/site-nav.css">
+  <link rel="stylesheet" href="/client-portal/portal.css?v=11">
+  <link rel="stylesheet" href="/account/admin/admin.css?v=3">
+  <script src="/shared/config.js"></script>
+  <script src="/assets/site-nav.js" defer></script>
+</head>
+<body data-admin-view="codebase-ai">
+  <header class="site-topbar">
+    <div class="site-topbar-inner">
+      <div class="site-topbar-row">
+        <a class="site-brand" href="/"><img src="/assets/n3xra_logo_transparent_small.png" alt=""><span>N3XRA</span></a>
+        <div class="site-nav-actions">
+          <a class="site-menu-link" href="/account">Dashboard</a>
+          <button class="site-menu-link portal-logout" id="admin-sign-out" type="button">Sign out</button>
+          <button class="site-menu-toggle" data-site-menu-toggle type="button" aria-controls="admin-menu" aria-expanded="false"><span></span><span></span><span></span></button>
+        </div>
+      </div>
+      <nav class="site-mobile-menu" id="admin-menu" hidden>
+        <div class="site-mobile-menu-head"><p class="site-mobile-menu-title">N3XRA Accounts</p></div>
+        <a class="site-menu-link" href="/account/admin/accounts/">Accounts &amp; Access</a>
+        <a class="site-menu-link" href="/account/admin/platform-admins/">Platform Admins</a>
+        <a class="site-menu-link" href="/account/admin/billing/">Billing</a>
+        <a class="site-menu-link" href="/account/admin/support/">Support</a>
+        <a class="site-menu-link" href="/account/notifications/">Platform Notifications</a>
+        <div class="site-mobile-menu-head"><p class="site-mobile-menu-title">Product admin apps</p></div>
+        <a class="site-menu-link" href="/n3xra-admin/websites/">Website Admin</a><a class="site-menu-link" href="/n3xra-admin/records/">Records Admin</a><a class="site-menu-link" href="/n3xra-admin/utilities/">Utilities Admin</a><a class="site-menu-link" href="/n3xra-admin/partners/">Partner Admin</a>
+        <div class="site-mobile-menu-head"><p class="site-mobile-menu-title">Internal resources</p></div>
+        <a class="site-menu-link" href="/account/admin/business-framework/">Business Framework</a>
+        <a class="site-menu-link is-current" href="/account/admin/codebase-ai/">Codebase AI</a>
+        <div class="site-mobile-menu-head"><p class="site-mobile-menu-title">Investment</p></div>
+        <a class="site-menu-link" href="/account/admin/investment/">Investment workspace</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="portal-shell account-admin-page">
+    <section class="portal-heading"><div><p class="portal-kicker">N3XRA Administration</p><h1>Codebase AI</h1><p>Private technical answers grounded in the current N3XRA codebase.</p></div></section>
+    <section class="portal-workspace hidden" id="setup-panel"><div class="portal-workspace-head"><div><h2>Connect Supabase</h2><p>Add the browser project configuration to continue.</p></div></div></section>
+
+    <div class="portal-layout hidden" id="admin-panel">
+      <nav class="portal-nav">
+        <p class="portal-nav-label">N3XRA Accounts</p>
+        <a href="/account/admin/accounts/">Accounts &amp; Access</a><a href="/account/admin/platform-admins/">Platform Admins</a><a href="/account/admin/billing/">Billing</a><a href="/account/admin/support/">Support</a><a href="/account/notifications/">Platform Notifications</a>
+        <div class="portal-nav-divider"></div><p class="portal-nav-label">Product admin apps</p>
+        <a href="/n3xra-admin/websites/">Website Admin</a><a href="/n3xra-admin/records/">Records Admin</a><a href="/n3xra-admin/utilities/">Utilities Admin</a><a href="/n3xra-admin/partners/">Partner Admin</a>
+        <div class="portal-nav-divider"></div><p class="portal-nav-label">Internal resources</p>
+        <a href="/account/admin/business-framework/">Business Framework</a><a class="is-current" href="/account/admin/codebase-ai/">Codebase AI</a>
+        <div class="portal-nav-divider"></div><p class="portal-nav-label">Investment</p>
+        <a href="/account/admin/investment/">Investment workspace</a>
+      </nav>
+
+      <section class="portal-workspace codebase-ai-workspace">
+        <div class="portal-workspace-head">
+          <div><p class="portal-kicker">Admin-only technical assistant</p><h2>Ask the N3XRA codebase</h2><p>Ask about files, functions, database definitions, product workflows, and how systems connect.</p></div>
+          <span class="codebase-ai-private">Private · Platform admins only</span>
+        </div>
+        <div class="codebase-ai-notice">
+          <strong>Selected context only.</strong>
+          <span>The assistant retrieves a small set of relevant code excerpts for each question. Secret-bearing files are excluded and possible credentials are redacted before indexing.</span>
+        </div>
+        <div class="codebase-ai-answer hidden" id="codebase-ai-answer" aria-live="polite">
+          <p class="portal-kicker">Answer</p>
+          <div id="codebase-ai-answer-text"></div>
+          <div class="codebase-ai-sources hidden" id="codebase-ai-sources"><strong>Sources searched</strong><ul id="codebase-ai-source-list"></ul></div>
+        </div>
+        <form class="codebase-ai-form" id="codebase-ai-form">
+          <label for="codebase-ai-question">Technical question</label>
+          <textarea id="codebase-ai-question" maxlength="1200" rows="5" placeholder="How does the shared N3XRA account determine which apps a customer can open?" required></textarea>
+          <div class="codebase-ai-actions">
+            <p id="codebase-ai-index-status">Loading private index details…</p>
+            <button class="portal-button" id="codebase-ai-submit" type="submit">Ask Codebase AI</button>
+          </div>
+        </form>
+        <p class="admin-status" id="admin-status" role="status"></p>
+      </section>
+    </div>
+  </main>
+  <script type="module" src="/account/admin/admin.js?v=7"></script>
+</body>
+</html>

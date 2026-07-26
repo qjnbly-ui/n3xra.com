@@ -1,0 +1,225 @@
+{
+  "schemaVersion": 1,
+  "name": "N3XRA Project Pulse",
+  "visibility": "public-safe",
+  "generatedAt": "2026-07-26T19:52:50.645Z",
+  "updatedAt": "2026-07-25T16:49:29-07:00",
+  "commit": "fbb6458",
+  "summary": {
+    "statement": "N3XRA is a connected technology platform comprising approximately 118,000 lines of source code across customer experiences, software products, APIs, database systems, administrative tools, and operational infrastructure.",
+    "sourceFiles": 347,
+    "sourceLines": 117859,
+    "products": 7,
+    "pages": 91,
+    "apiFunctions": 53,
+    "edgeFunctions": 18,
+    "databaseMigrations": 70
+  },
+  "sourceBreakdown": {
+    "css": {
+      "files": 22,
+      "lines": 25381
+    },
+    "html": {
+      "files": 91,
+      "lines": 27419
+    },
+    "js": {
+      "files": 136,
+      "lines": 48083
+    },
+    "sql": {
+      "files": 77,
+      "lines": 10837
+    },
+    "ts": {
+      "files": 21,
+      "lines": 6139
+    }
+  },
+  "products": [
+    {
+      "id": "websites",
+      "name": "Websites & Client Services",
+      "route": "/services/",
+      "summary": "Custom websites, project intake, proposals, onboarding, delivery, billing, and ongoing client service."
+    },
+    {
+      "id": "records",
+      "name": "N3XRA Records",
+      "route": "/records/",
+      "summary": "Searchable records, documents, meeting notes, public access, organization workspaces, and support controls."
+    },
+    {
+      "id": "utilities",
+      "name": "N3XRA Utilities",
+      "route": "/utilities/",
+      "summary": "Operational portals, customer access, onboarding, workspaces, and administration for utility organizations."
+    },
+    {
+      "id": "virals",
+      "name": "N3XRA Virals",
+      "route": "/virals/",
+      "summary": "Video analysis, comparisons, reusable frameworks, scripts, creator tools, and account workflows."
+    },
+    {
+      "id": "music",
+      "name": "AI Music Generator",
+      "route": "/ai-music-generator/",
+      "summary": "Prompt-based song generation, account access, song history, audio processing, and usage controls."
+    },
+    {
+      "id": "partners",
+      "name": "N3XRA Partners",
+      "route": "/partners/",
+      "summary": "Partner applications, referrals, commissions, attribution, onboarding, reporting, and administration."
+    },
+    {
+      "id": "company",
+      "name": "N3XRA Company Platform",
+      "route": "/account/",
+      "summary": "Shared identity, customer dashboards, billing, support, notifications, governance planning, and platform administration."
+    }
+  ],
+  "majorModules": [
+    "Shared accounts and identity",
+    "Customer and organization dashboards",
+    "Administrative workspaces",
+    "Website project lifecycle",
+    "Records and document systems",
+    "Subscriptions and billing",
+    "Partner and referral programs",
+    "Notifications and support",
+    "AI-assisted workflows",
+    "Company governance planning"
+  ],
+  "recentCapabilities": [
+    {
+      "date": "2026-07-25",
+      "title": "Ownership update interest flow",
+      "summary": "Visitors can request future company and ownership updates through an account-connected experience."
+    },
+    {
+      "date": "2026-07-22",
+      "title": "Partner terms and protections",
+      "summary": "Public partner terms now explain commission structure, program expectations, and change-of-control protections."
+    },
+    {
+      "date": "2026-07-20",
+      "title": "Referral-connected product signup",
+      "summary": "Records and AI Music signups can preserve an eligible partner referral as a customer creates an account."
+    },
+    {
+      "date": "2026-07-19",
+      "title": "N3XRA Partner Program",
+      "summary": "Visitors can explore N3XRA partner opportunities and apply to participate in approved referral programs."
+    },
+    {
+      "date": "2026-07-19",
+      "title": "Smarter Ask N3XRA guidance",
+      "summary": "Ask N3XRA gained broader site knowledge to help visitors understand products, services, support, and where to go next."
+    },
+    {
+      "date": "2026-07-18",
+      "title": "Connected website project experience",
+      "summary": "Customers can move from a website request through proposal, onboarding, project progress, files, and ongoing service."
+    },
+    {
+      "date": "2026-07-18",
+      "title": "Refreshed N3XRA public experience",
+      "summary": "The public N3XRA site gained a clearer introduction to its work, software, services, and ways to get started."
+    },
+    {
+      "date": "2026-07-01",
+      "title": "Clearer Records usage and billing",
+      "summary": "N3XRA Records customers gained clearer visibility into plan usage, limits, and billing status."
+    },
+    {
+      "date": "2026-06-25",
+      "title": "Utility meter billing workflow",
+      "summary": "N3XRA Utilities added structured meter-data and billing workflows for participating utility organizations."
+    },
+    {
+      "date": "2026-06-17",
+      "title": "N3XRA Utilities",
+      "summary": "N3XRA introduced a connected utility platform for customer access, onboarding, operations, and organization workspaces."
+    },
+    {
+      "date": "2026-06-16",
+      "title": "Virals creator and billing programs",
+      "summary": "N3XRA Virals added customer billing and creator-affiliate participation workflows."
+    },
+    {
+      "date": "2026-06-14",
+      "title": "N3XRA Virals analyzer",
+      "summary": "Visitors gained a workflow for turning TikTok videos into reusable frameworks, hooks, scripts, captions, and ideas."
+    },
+    {
+      "date": "2026-06-13",
+      "title": "Shared N3XRA account",
+      "summary": "One N3XRA account began connecting customers to their available software, services, and product dashboards."
+    },
+    {
+      "date": "2026-05-11",
+      "title": "Records Help AI",
+      "summary": "N3XRA Records added an AI-assisted help experience for questions about records workflows and product guidance."
+    },
+    {
+      "date": "2026-05-03",
+      "title": "AI Music workspace",
+      "summary": "N3XRA introduced an account-connected workspace for creating, reviewing, and saving generated songs."
+    }
+  ],
+  "systemMap": {
+    "layers": [
+      {
+        "id": "experiences",
+        "name": "Public experiences",
+        "description": "Websites, product pages, project discovery, forms, support, and Ask N3XRA."
+      },
+      {
+        "id": "accounts",
+        "name": "Accounts & access",
+        "description": "One N3XRA identity connects customers to the products, services, and programs available to them."
+      },
+      {
+        "id": "products",
+        "name": "Products & workflows",
+        "description": "Records, utilities, websites, Virals, music, partners, and company operations."
+      },
+      {
+        "id": "operations",
+        "name": "Administration",
+        "description": "Product-specific and company-wide tools support accounts, billing, service, notifications, and planning."
+      },
+      {
+        "id": "infrastructure",
+        "name": "Platform infrastructure",
+        "description": "Shared APIs, database services, server functions, storage, automation, and integrations."
+      }
+    ],
+    "connections": [
+      [
+        "experiences",
+        "accounts"
+      ],
+      [
+        "accounts",
+        "products"
+      ],
+      [
+        "products",
+        "operations"
+      ],
+      [
+        "products",
+        "infrastructure"
+      ],
+      [
+        "operations",
+        "infrastructure"
+      ]
+    ]
+  },
+  "disclosure": "Counts are generated from allowlisted source-file types and may include comments and blank lines. Public data intentionally omits source paths, endpoint names, schemas, dependencies, credentials, and security implementation details."
+}
