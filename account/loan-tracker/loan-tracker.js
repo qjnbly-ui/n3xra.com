@@ -412,11 +412,25 @@ async function init() {
   }
   const requestedUserId = new URLSearchParams(location.search).get("user");
   const targetUserId = requestedUserId || session.user.id;
-  const { data, error } = await supabase.from("loan_accounts").select("*").eq("user_id", targetUserId).eq("status", "active").maybeSingle();
+  let { data, error } = await supabase.from("loan_accounts").select("*").eq("user_id", targetUserId).eq("status", "active").maybeSingle();
   if (error) return showError("Loan data unavailable", error.message || "Unable to load this loan.");
+  let isAdminView = Boolean(requestedUserId && requestedUserId !== session.user.id);
+  if (!data && !requestedUserId) {
+    const fallback = await supabase
+      .from("loan_accounts")
+      .select("*")
+      .eq("status", "active")
+      .order("created_at")
+      .limit(2);
+    if (fallback.error) return showError("Loan data unavailable", fallback.error.message || "Unable to load this loan.");
+    if (fallback.data?.length === 1) {
+      [data] = fallback.data;
+      isAdminView = data.user_id !== session.user.id;
+    }
+  }
   if (!data) return showError("No accessible loan tracker", "No active loan is available to this account, or you do not have permission to view it.");
   account = data;
-  if (requestedUserId && requestedUserId !== session.user.id) {
+  if (isAdminView) {
     $("#admin-view-notice").hidden = false;
     setText("admin-borrower-name", account.borrower_name || "this customer");
   }
