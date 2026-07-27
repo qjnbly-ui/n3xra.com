@@ -553,6 +553,7 @@ function applyAccessUi() {
   const ownerControls = access.isOwner || access.isAdmin;
   $$("[data-access-owner]").forEach((element) => { element.hidden = !ownerControls; });
   $$("[data-settings-owner]").forEach((element) => { element.hidden = !ownerControls; });
+  $("#owner-access-offer").hidden = !access.isOwner;
   $("#admin-settings-card").hidden = !access.isAdmin;
   $$('[data-view="calculator"],[data-view="schedule"],[data-open-view="schedule"]').forEach((element) => { element.hidden = !can("use_calculator"); });
   $$('[data-view="payments"],[data-open-view="payments"]').forEach((element) => { element.hidden = !can("view_payments"); });
