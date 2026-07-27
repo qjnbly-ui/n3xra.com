@@ -108,11 +108,21 @@
     box-sizing: border-box;
     height: calc(100svh - 76px);
     overflow-y: auto;
+    align-content: start;
+    grid-auto-rows: max-content;
+    gap: 0.16rem;
     padding: 1.35rem 1rem 2rem;
     border: 0;
     border-right: 1px solid var(--portal-line);
     border-radius: 0;
     box-shadow: none;
+  }
+
+  .account-admin-page .portal-nav button,
+  .account-admin-page .portal-nav a,
+  .account-admin-page .portal-nav span {
+    padding-top: 0.66rem;
+    padding-bottom: 0.66rem;
   }
 
   .account-admin-page .portal-layout > .portal-workspace {

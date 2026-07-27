@@ -13,7 +13,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/site-nav.css">
   <link rel="stylesheet" href="/client-portal/portal.css?v=12">
-  <link rel="stylesheet" href="/client-portal/client-shell.css?v=1">
+  <link rel="stylesheet" href="/client-portal/client-shell.css?v=2">
   <link rel="stylesheet" href="/website-request/request.css?v=7">
   <script src="/shared/config.js"></script>
   <script src="/assets/site-nav.js" defer></script>
@@ -216,6 +216,27 @@
           </div>
         </div>
 
+        <div class="portal-view" id="portal-view-support" data-portal-panel="support" hidden>
+          <div class="portal-workspace-head">
+            <div>
+              <p class="portal-kicker">Client support</p>
+              <h2>Website Support</h2>
+              <p>Get help with the selected website, account access, billing, or an active project.</p>
+            </div>
+          </div>
+
+          <section class="portal-overview-summary">
+            <div class="portal-overview-summary-main">
+              <div>
+                <p class="portal-kicker">Support center</p>
+                <h3>How can we help?</h3>
+                <p>Send the details through the N3XRA support center and we’ll connect the request to the right team.</p>
+              </div>
+              <a class="portal-button" href="/support/">Open support center</a>
+            </div>
+          </section>
+        </div>
+
         <div class="portal-view" id="portal-view-new-request" data-portal-panel="new-request" hidden>
           <div class="portal-workspace-head">
             <div>
@@ -290,8 +311,8 @@
   </main>
 
   <div class="portal-status" id="portal-status" role="status">Opening your website portal…</div>
-  <script type="module" src="/client-portal/client-shell.js?v=1"></script>
-  <script type="module" src="/client-portal/portal.js?v=10"></script>
+  <script type="module" src="/client-portal/client-shell.js?v=2"></script>
+  <script type="module" src="/client-portal/portal.js?v=11"></script>
   <script type="module" src="/website-request/request.js?v=10"></script>
 </body>
 </html>

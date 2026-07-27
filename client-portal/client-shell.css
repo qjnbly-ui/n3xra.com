@@ -106,11 +106,28 @@
     align-self: stretch;
     height: calc(100svh - 76px);
     overflow-y: auto;
+    align-content: start;
+    grid-auto-rows: max-content;
+    gap: 0.16rem;
     padding: 1.35rem 1rem 2rem;
     border: 0;
     border-right: 1px solid var(--portal-line);
     border-radius: 0;
     box-shadow: none;
+  }
+
+  .client-portal-page .portal-nav button,
+  .client-portal-page .portal-nav a,
+  .client-portal-page .portal-nav span {
+    padding: 0.66rem 0.75rem;
+  }
+
+  .client-portal-page .portal-nav-label {
+    margin: 0.45rem 0.75rem 0.25rem;
+  }
+
+  .client-portal-page .portal-nav-divider {
+    margin: 0.75rem 0.35rem;
   }
 
   .client-portal-page .portal-layout > .portal-workspace {

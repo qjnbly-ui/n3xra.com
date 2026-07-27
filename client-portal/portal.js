@@ -67,6 +67,8 @@ function showPortalView(view) {
   });
   const nextHash = nextView === "files"
     ? "#files-assets"
+    : nextView === "support"
+      ? "#support"
     : nextView === "new-request"
       ? "#new-project"
       : "";
@@ -732,6 +734,8 @@ async function initPortal() {
     showPortalView(
       isAssetsRoute || window.location.hash === "#files-assets"
         ? "files"
+        : window.location.hash === "#support"
+          ? "support"
         : window.location.hash === "#new-project"
           ? "new-request"
           : "overview"
@@ -748,6 +752,7 @@ async function initPortal() {
     });
     window.addEventListener("hashchange", () => {
       if (isAssetsRoute || window.location.hash === "#files-assets") showPortalView("files");
+      else if (window.location.hash === "#support") showPortalView("support");
       else if (window.location.hash === "#new-project") showPortalView("new-request");
       else showPortalView("overview");
     });
