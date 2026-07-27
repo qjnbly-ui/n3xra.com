@@ -12,8 +12,9 @@
   <link rel="stylesheet" href="/assets/site-nav.css">
   <link rel="stylesheet" href="/client-portal/portal.css?v=9">
   <link rel="stylesheet" href="/account/admin/admin.css?v=12">
-  <link rel="stylesheet" href="/account/admin/operations/operations.css?v=1">
+  <link rel="stylesheet" href="/account/admin/operations/operations.css?v=2">
   <script src="/shared/config.js"></script>
+  <script src="/assets/vendor/xlsx.full.min.js" defer></script>
   <script src="/assets/site-nav.js" defer></script>
 </head>
 <body data-admin-view="operations">
@@ -52,7 +53,7 @@
 
         <div class="operations-security-note">
           <strong>N3XRA internal only</strong>
-          <span>Only authenticated platform administrators can read or change these records. No customer data is added automatically.</span>
+          <span>Only authenticated platform administrators can read or change these records. Stripe revenue is synchronized; uploaded expenses remain unposted until an administrator approves them.</span>
         </div>
 
         <nav class="operations-tabs" aria-label="Operations sections">
@@ -61,6 +62,7 @@
           <button type="button" data-operations-view="invoices">Invoices</button>
           <button type="button" data-operations-view="directory">Customers &amp; projects</button>
           <button type="button" data-operations-view="banking">Banking</button>
+          <button type="button" data-operations-view="expense-review">Expense review</button>
           <button type="button" data-operations-view="audit">Audit history</button>
         </nav>
 
@@ -129,6 +131,63 @@
           <article class="operations-card operations-reconciliation-card"><p class="portal-kicker">Deposit reconciliation</p><h3>Cash received versus deposits</h3><div id="ops-deposit-reconciliation"></div></article>
         </section>
 
+        <section class="operations-view" data-operations-panel="expense-review" hidden>
+          <div class="operations-section-head">
+            <div><p class="portal-kicker">Monthly bookkeeping review</p><h3>Import and approve expenses</h3><p>Upload a bank CSV or Excel workbook. Suggestions are estimates; nothing enters the ledger until every row is reviewed and you post the approved expenses.</p></div>
+          </div>
+
+          <article class="operations-card operations-import-card">
+            <form id="ops-import-form">
+              <div class="operations-import-grid">
+                <label class="operations-field">Bank export
+                  <input id="ops-import-file" type="file" accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" required>
+                  <small>CSV is preferred. Files are parsed in this browser; only normalized review rows are saved.</small>
+                </label>
+                <label class="operations-field">Financial account
+                  <select id="ops-import-account"><option value="">Not linked yet</option></select>
+                  <small>Optional during review; linking it improves the posted ledger.</small>
+                </label>
+                <label class="operations-field">Statement month
+                  <input id="ops-import-month" type="month">
+                </label>
+                <label class="operations-field operations-field-wide">Allocation assumptions
+                  <textarea id="ops-import-assumptions" rows="3" maxlength="3000" placeholder="Example: software subscriptions are 100% business; mixed vehicle costs require monthly mileage support."></textarea>
+                </label>
+              </div>
+              <div class="operations-import-footer">
+                <p class="operations-form-error" id="ops-import-error" role="alert"></p>
+                <button class="portal-button" id="ops-import-submit" type="submit">Create review batch</button>
+              </div>
+            </form>
+          </article>
+
+          <article class="operations-card">
+            <div class="operations-card-head operations-review-head">
+              <div><p class="portal-kicker">Review queue</p><h3>Transaction decisions</h3></div>
+              <label class="operations-batch-picker">Batch<select id="ops-import-batch"><option value="">No batches</option></select></label>
+            </div>
+            <div class="operations-review-metrics">
+              <div><span>Transactions</span><strong id="ops-review-count">0</strong></div>
+              <div><span>Proposed deductible</span><strong id="ops-review-deductible">$0.00</strong></div>
+              <div><span>Approved</span><strong id="ops-review-approved">0</strong></div>
+              <div><span>Needs review</span><strong id="ops-review-pending">0</strong></div>
+              <div><span>Possible duplicates</span><strong id="ops-review-duplicates">0</strong></div>
+            </div>
+            <div class="operations-review-actions">
+              <button class="portal-button portal-button-secondary" type="button" data-import-bulk="approve-safe">Approve clear business expenses</button>
+              <button class="portal-button portal-button-secondary" type="button" data-import-bulk="exclude-clear">Exclude transfers, personal, and duplicates</button>
+              <button class="portal-button" type="button" data-import-post>Post approved expenses</button>
+            </div>
+            <p class="operations-review-disclaimer">Bookkeeping estimate only—not tax advice. Keep receipts and supporting records. Personal, transfer, duplicate, and unresolved transactions should be excluded or left unposted.</p>
+            <div class="operations-table-wrap">
+              <table class="operations-review-table">
+                <thead><tr><th>Date</th><th>Description</th><th>Amount</th><th>Classification</th><th>Business use</th><th>Category</th><th>Deductible</th><th>Decision</th></tr></thead>
+                <tbody id="ops-import-rows"><tr><td colspan="8">Create a review batch to begin.</td></tr></tbody>
+              </table>
+            </div>
+          </article>
+        </section>
+
         <section class="operations-view" data-operations-panel="audit" hidden>
           <div class="operations-section-head"><div><p class="portal-kicker">Immutable activity</p><h3>Audit history</h3><p>Every insert and update records the administrator, time, record, and before-and-after snapshot.</p></div></div>
           <div id="ops-audit-list" class="operations-audit-list"></div>
@@ -159,6 +218,6 @@
     </form>
   </dialog>
 
-  <script type="module" src="/account/admin/admin.js"></script>
+  <script type="module" src="/account/admin/admin.js?v=13"></script>
 </body>
 </html>

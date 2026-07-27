@@ -1,4 +1,10 @@
 import { outstandingInvoiceCents, summarizeOperations, toCents } from "/lib/operations/calculations.mjs";
+import {
+  normalizeImportRecords,
+  normalizeHeader,
+  parseCsv,
+  rowsToObjects,
+} from "/lib/operations/import-review.mjs";
 
 let supabase;
 let session;
@@ -11,10 +17,13 @@ let state = {
   invoices: [],
   deposits: [],
   transactions: [],
+  importBatches: [],
+  importRows: [],
   audit: [],
   platformAccounts: [],
 };
 let activeFormType = "";
+let activeImportBatchId = "";
 
 const TABLES = {
   party: "operations_parties",
@@ -66,6 +75,12 @@ function titleCase(value) {
 
 function todayValue() {
   return new Date().toISOString().slice(0, 10);
+}
+
+async function sha256(value) {
+  const input = typeof value === "string" ? new TextEncoder().encode(value) : value;
+  const digest = await crypto.subtle.digest("SHA-256", input);
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 function setStatus(message = "", tone = "") {
@@ -158,6 +173,8 @@ async function loadAll() {
     supabase.from("operations_invoices").select("*").order("issue_date", { ascending: false }),
     supabase.from("operations_deposits").select("*").order("deposit_date", { ascending: false }),
     supabase.from("operations_transactions").select("*").order("transaction_date", { ascending: false }).order("created_at", { ascending: false }),
+    supabase.from("operations_import_batches").select("*").order("created_at", { ascending: false }),
+    supabase.from("operations_import_rows").select("*").order("row_number"),
     supabase.from("operations_audit_log").select("*").order("created_at", { ascending: false }).limit(250),
   ]);
   const failed = queries.find((query) => query.error);
@@ -170,8 +187,14 @@ async function loadAll() {
     state.invoices,
     state.deposits,
     state.transactions,
+    state.importBatches,
+    state.importRows,
     state.audit,
   ] = queries.map((query) => query.data || []);
+
+  if (!state.importBatches.some((batch) => batch.id === activeImportBatchId)) {
+    activeImportBatchId = state.importBatches[0]?.id || "";
+  }
 
   try {
     const data = await invokeAdmin("list-platform-accounts");
@@ -332,6 +355,72 @@ function renderBanking() {
   $("#ops-deposit-reconciliation").innerHTML = `<div class="operations-reconciliation"><div><span>Cash and checks received</span><strong>${moneyCents(cashReceived)}</strong></div><div><span>Matched to deposits</span><strong>${moneyCents(matched)}</strong></div><div><span>Unmatched</span><strong>${moneyCents(Math.max(0, cashReceived - matched))}</strong></div></div>`;
 }
 
+function importBatch() {
+  return state.importBatches.find((batch) => batch.id === activeImportBatchId) || null;
+}
+
+function classificationOptions(selected) {
+  return ["business", "personal", "mixed", "transfer", "needs_review"]
+    .map((value) => `<option value="${value}"${value === selected ? " selected" : ""}>${escapeHtml(titleCase(value))}</option>`)
+    .join("");
+}
+
+function renderExpenseReview() {
+  const accountSelect = $("#ops-import-account");
+  const selectedAccount = accountSelect.value;
+  accountSelect.innerHTML = `<option value="">Not linked yet</option>${state.financialAccounts
+    .filter((account) => account.status === "active")
+    .map((account) => `<option value="${escapeHtml(account.id)}">${escapeHtml(account.name)}${account.last_four ? ` ••••${escapeHtml(account.last_four)}` : ""}</option>`)
+    .join("")}`;
+  if (state.financialAccounts.some((account) => account.id === selectedAccount)) accountSelect.value = selectedAccount;
+
+  const batchSelect = $("#ops-import-batch");
+  batchSelect.innerHTML = state.importBatches.length
+    ? state.importBatches.map((batch) => `<option value="${escapeHtml(batch.id)}"${batch.id === activeImportBatchId ? " selected" : ""}>${escapeHtml(batch.file_name)} · ${dateLabel(batch.created_at)} · ${escapeHtml(titleCase(batch.status))}</option>`).join("")
+    : '<option value="">No batches</option>';
+
+  const batch = importBatch();
+  const rows = batch ? state.importRows.filter((row) => row.batch_id === batch.id) : [];
+  const proposed = rows
+    .filter((row) => row.flow === "debit" && ["business", "mixed", "needs_review"].includes(row.classification))
+    .reduce((sum, row) => sum + Number(row.deductible_cents || 0), 0);
+  const approved = rows.filter((row) => ["approved", "posted"].includes(row.status));
+  const pending = rows.filter((row) => row.status === "pending");
+  const duplicates = rows.filter((row) => row.is_duplicate);
+  $("#ops-review-count").textContent = String(rows.length);
+  $("#ops-review-deductible").textContent = moneyCents(proposed);
+  $("#ops-review-approved").textContent = String(approved.length);
+  $("#ops-review-pending").textContent = String(pending.length);
+  $("#ops-review-duplicates").textContent = String(duplicates.length);
+
+  const locked = batch?.status === "posted";
+  $$("[data-import-bulk], [data-import-post]").forEach((button) => { button.disabled = !batch || locked; });
+  $("#ops-import-rows").innerHTML = rows.length
+    ? rows.map((row) => {
+      const approvable = row.flow === "debit"
+        && ["business", "mixed"].includes(row.classification)
+        && !row.is_duplicate
+        && Number(row.deductible_cents) > 0;
+      const controlsDisabled = locked || row.status === "posted";
+      let decision = "";
+      if (row.status === "posted") decision = statusBadge("posted");
+      else if (row.status === "approved") decision = `${statusBadge("approved")}<button class="operations-row-action" type="button" data-import-action="reset" data-id="${row.id}">Change</button>`;
+      else if (row.status === "excluded") decision = `${statusBadge("excluded")}<button class="operations-row-action" type="button" data-import-action="reset" data-id="${row.id}">Change</button>`;
+      else decision = `<button class="operations-row-action" type="button" data-import-action="approve" data-id="${row.id}"${approvable ? "" : " disabled"}>Approve</button><button class="operations-row-action" type="button" data-import-action="exclude" data-id="${row.id}">Exclude</button>`;
+      return `<tr data-import-row="${row.id}">
+        <td>${dateLabel(row.transaction_date)}</td>
+        <td><strong>${escapeHtml(row.description)}</strong><small>${escapeHtml(row.suggestion_reason || "")}${row.is_duplicate ? " · Possible duplicate" : ""}</small></td>
+        <td class="${row.flow === "debit" ? "operations-amount-expense" : "operations-amount-revenue"}">${row.flow === "debit" ? "−" : "+"}${moneyCents(row.amount_cents)}</td>
+        <td><select data-import-field="classification"${controlsDisabled ? " disabled" : ""}>${classificationOptions(row.classification)}</select><small>${row.confidence}% confidence</small></td>
+        <td><input data-import-field="business_use_percent" type="number" min="0" max="100" step="0.01" value="${escapeHtml(row.business_use_percent)}"${controlsDisabled || ["personal", "transfer"].includes(row.classification) ? " disabled" : ""}>%</td>
+        <td><input data-import-field="category" type="text" maxlength="120" value="${valueAttribute(row.category)}"${controlsDisabled ? " disabled" : ""}></td>
+        <td><strong>${moneyCents(row.deductible_cents)}</strong></td>
+        <td class="operations-review-decision">${decision}</td>
+      </tr>`;
+    }).join("")
+    : '<tr><td colspan="8">Upload a CSV or Excel workbook to create a review batch.</td></tr>';
+}
+
 function renderAudit() {
   $("#ops-audit-list").innerHTML = state.audit.length
     ? state.audit.map((entry) => {
@@ -352,6 +441,7 @@ function renderAll() {
   renderInvoices();
   renderDirectory();
   renderBanking();
+  renderExpenseReview();
   renderAudit();
 }
 
@@ -688,6 +778,211 @@ function exportData(kind) {
   );
 }
 
+function looksLikeTransactionSheet(rows) {
+  const headers = (rows[0] || []).map(normalizeHeader);
+  const hasDate = headers.some((header) => ["date", "transaction date", "posted date", "posting date"].includes(header));
+  const hasDescription = headers.some((header) => ["description", "merchant", "name", "memo", "details", "transaction"].includes(header));
+  const hasAmount = headers.some((header) => ["amount", "transaction amount", "debit", "withdrawal", "credit", "deposit"].includes(header));
+  return hasDate && hasDescription && hasAmount;
+}
+
+async function readImportFile(file) {
+  if (!file || file.size === 0) throw new Error("Choose a CSV or Excel file.");
+  if (file.size > 10 * 1024 * 1024) throw new Error("Import files must be 10 MB or smaller.");
+  const extension = file.name.split(".").pop()?.toLowerCase();
+  if (!["csv", "xlsx", "xls"].includes(extension)) throw new Error("Use a CSV, XLSX, or XLS file.");
+  const buffer = await file.arrayBuffer();
+  const fileFingerprint = await sha256(buffer);
+  let records;
+
+  if (extension === "csv") {
+    records = rowsToObjects(parseCsv(new TextDecoder().decode(buffer)));
+  } else {
+    if (!window.XLSX) throw new Error("The Excel reader did not load. Refresh the page or export the workbook as CSV.");
+    const workbook = window.XLSX.read(buffer, { type: "array", cellDates: true });
+    const sheetName = workbook.SheetNames.find((name) => {
+      const rows = window.XLSX.utils.sheet_to_json(workbook.Sheets[name], { header: 1, raw: false, defval: "" });
+      return looksLikeTransactionSheet(rows);
+    });
+    if (!sheetName) throw new Error("No transaction sheet with date, description, and amount columns was found.");
+    const rows = window.XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1, raw: false, defval: "" });
+    records = rowsToObjects(rows);
+  }
+
+  return { extension, fileFingerprint, ...normalizeImportRecords(records) };
+}
+
+async function createImportBatch(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const errorBox = $("#ops-import-error");
+  const button = $("#ops-import-submit");
+  errorBox.textContent = "";
+  button.disabled = true;
+  button.textContent = "Reading file…";
+  let batchId = "";
+  try {
+    const file = $("#ops-import-file").files[0];
+    const parsed = await readImportFile(file);
+    const accountId = $("#ops-import-account").value || null;
+    const month = $("#ops-import-month").value;
+    const knownFingerprints = new Set([
+      ...state.importRows.map((row) => row.fingerprint),
+      ...state.transactions.filter((row) => row.source === "bank_import").map((row) => row.external_id),
+    ].filter(Boolean));
+    const batchFingerprints = new Set();
+    const normalizedRows = [];
+    for (const record of parsed.records) {
+      const fingerprint = await sha256([
+        accountId || "unlinked",
+        record.transactionDate,
+        record.flow,
+        record.amountCents,
+        normalizeHeader(record.description),
+      ].join("|"));
+      const isDuplicate = knownFingerprints.has(fingerprint) || batchFingerprints.has(fingerprint);
+      batchFingerprints.add(fingerprint);
+      normalizedRows.push({ ...record, fingerprint, isDuplicate });
+    }
+
+    button.textContent = "Creating review…";
+    const { data: batch, error: batchError } = await supabase.from("operations_import_batches").insert({
+      file_name: file.name,
+      file_type: parsed.extension,
+      file_fingerprint: parsed.fileFingerprint,
+      financial_account_id: accountId,
+      statement_month: month ? `${month}-01` : null,
+      row_count: normalizedRows.length,
+      assumptions: $("#ops-import-assumptions").value.trim() || null,
+      created_by_user_id: session.user.id,
+    }).select("id").single();
+    if (batchError) throw batchError;
+    batchId = batch.id;
+
+    const payload = normalizedRows.map((record) => ({
+      batch_id: batch.id,
+      row_number: record.rowNumber,
+      transaction_date: record.transactionDate,
+      posted_date: record.postedDate,
+      description: record.description,
+      amount_cents: record.amountCents,
+      flow: record.flow,
+      source_category: record.sourceCategory,
+      classification: record.classification,
+      business_use_percent: record.businessUsePercent,
+      category: record.category,
+      confidence: record.confidence,
+      suggestion_reason: record.suggestionReason,
+      fingerprint: record.fingerprint,
+      is_duplicate: record.isDuplicate,
+      raw_data: record.rawData,
+      created_by_user_id: session.user.id,
+    }));
+    for (let index = 0; index < payload.length; index += 200) {
+      const { error } = await supabase.from("operations_import_rows").insert(payload.slice(index, index + 200));
+      if (error) throw error;
+    }
+
+    activeImportBatchId = batch.id;
+    form.reset();
+    await loadAll();
+    showPanel("expense-review");
+    setStatus(`${normalizedRows.length} transactions loaded for review${parsed.errors.length ? `; ${parsed.errors.length} unusable rows were skipped` : ""}.`, "success");
+  } catch (error) {
+    if (batchId) await supabase.from("operations_import_batches").update({ status: "void" }).eq("id", batchId);
+    errorBox.textContent = error.code === "23505"
+      ? "This exact file has already been imported."
+      : error.message || "Unable to create the review batch.";
+  } finally {
+    button.disabled = false;
+    button.textContent = "Create review batch";
+  }
+}
+
+async function updateImportField(control) {
+  const rowElement = control.closest("[data-import-row]");
+  const row = state.importRows.find((item) => item.id === rowElement?.dataset.importRow);
+  if (!row || row.status === "posted") return;
+  const fieldName = control.dataset.importField;
+  const payload = { status: "pending" };
+  if (fieldName === "classification") {
+    payload.classification = control.value;
+    payload.business_use_percent = ["personal", "transfer"].includes(control.value)
+      ? 0
+      : control.value === "business"
+        ? 100
+        : control.value === "mixed" && (Number(row.business_use_percent) <= 0 || Number(row.business_use_percent) >= 100)
+          ? 50
+          : Number(row.business_use_percent);
+  } else if (fieldName === "business_use_percent") {
+    const percent = Number(control.value);
+    if (!Number.isFinite(percent) || percent < 0 || percent > 100) {
+      setStatus("Business use must be between 0% and 100%.", "error");
+      return renderExpenseReview();
+    }
+    payload.business_use_percent = percent;
+  } else if (fieldName === "category") {
+    payload.category = control.value.trim() || null;
+  }
+  const { error } = await supabase.from("operations_import_rows").update(payload).eq("id", row.id);
+  if (error) return setStatus(error.message || "Unable to update the review row.", "error");
+  await loadAll();
+  showPanel("expense-review");
+}
+
+async function setImportDecision(id, action) {
+  const row = state.importRows.find((item) => item.id === id);
+  if (!row || row.status === "posted") return;
+  const status = action === "approve" ? "approved" : action === "exclude" ? "excluded" : "pending";
+  const { error } = await supabase.from("operations_import_rows").update({ status }).eq("id", id);
+  if (error) return setStatus(error.message || "Unable to save the decision.", "error");
+  await loadAll();
+  showPanel("expense-review");
+}
+
+async function bulkImportDecision(action) {
+  const batch = importBatch();
+  if (!batch || batch.status === "posted") return;
+  const rows = state.importRows.filter((row) => row.batch_id === batch.id && row.status === "pending");
+  const targets = action === "approve-safe"
+    ? rows.filter((row) => row.flow === "debit" && row.classification === "business" && Number(row.confidence) >= 80 && !row.is_duplicate && Number(row.deductible_cents) > 0)
+    : rows.filter((row) => ["personal", "transfer"].includes(row.classification) || row.is_duplicate);
+  if (!targets.length) return setStatus("No matching review rows were found.", "error");
+  const { error } = await supabase.from("operations_import_rows").update({
+    status: action === "approve-safe" ? "approved" : "excluded",
+  }).in("id", targets.map((row) => row.id));
+  if (error) return setStatus(error.message || "Unable to update the review batch.", "error");
+  await loadAll();
+  showPanel("expense-review");
+  setStatus(`${targets.length} review decisions saved.`, "success");
+}
+
+async function postImportBatch() {
+  const batch = importBatch();
+  if (!batch || batch.status === "posted") return;
+  const rows = state.importRows.filter((row) => row.batch_id === batch.id);
+  const pending = rows.filter((row) => row.status === "pending").length;
+  const approved = rows.filter((row) => row.status === "approved");
+  if (pending) return setStatus(`${pending} transactions still need an approval or exclusion decision.`, "error");
+  if (!approved.length) return setStatus("Approve at least one business expense before posting.", "error");
+  const total = approved.reduce((sum, row) => sum + Number(row.deductible_cents || 0), 0);
+  if (!window.confirm(`Post ${approved.length} approved expenses totaling ${moneyCents(total)} to the permanent Operations ledger? Posted rows cannot be edited; corrections must be voided.`)) return;
+  const button = $("[data-import-post]");
+  button.disabled = true;
+  button.textContent = "Posting…";
+  try {
+    const { data, error } = await supabase.rpc("post_operations_import_batch", { target_batch_id: batch.id });
+    if (error) throw error;
+    await loadAll();
+    showPanel("expense-review");
+    setStatus(`${data.posted_count} approved expenses totaling ${moneyCents(data.posted_amount_cents)} were posted.`, "success");
+  } catch (error) {
+    setStatus(error.message || "Unable to post the approved expenses.", "error");
+  } finally {
+    button.textContent = "Post approved expenses";
+  }
+}
+
 function handleWorkspaceClick(event) {
   const tab = event.target.closest("[data-operations-view]");
   const panelLink = event.target.closest("[data-open-panel]");
@@ -696,6 +991,9 @@ function handleWorkspaceClick(event) {
   const voidButton = event.target.closest("[data-void]");
   const receipt = event.target.closest("[data-receipt]");
   const exportButton = event.target.closest("[data-export]");
+  const importAction = event.target.closest("[data-import-action]");
+  const importBulk = event.target.closest("[data-import-bulk]");
+  const importPost = event.target.closest("[data-import-post]");
   if (tab) showPanel(tab.dataset.operationsView);
   if (panelLink) showPanel(panelLink.dataset.openPanel);
   if (create) openForm(create.dataset.create);
@@ -703,6 +1001,9 @@ function handleWorkspaceClick(event) {
   if (voidButton) openVoidDialog(voidButton.dataset.void);
   if (receipt) openReceipt(receipt.dataset.receipt);
   if (exportButton) exportData(exportButton.dataset.export);
+  if (importAction) setImportDecision(importAction.dataset.id, importAction.dataset.importAction);
+  if (importBulk) bulkImportDecision(importBulk.dataset.importBulk);
+  if (importPost) postImportBatch();
 }
 
 function bindEvents() {
@@ -712,6 +1013,14 @@ function bindEvents() {
   workspace.addEventListener("click", handleWorkspaceClick);
   $("#operations-form").addEventListener("submit", saveForm);
   $("#operations-void-form").addEventListener("submit", voidTransaction);
+  $("#ops-import-form").addEventListener("submit", createImportBatch);
+  $("#ops-import-batch").addEventListener("change", (event) => {
+    activeImportBatchId = event.currentTarget.value;
+    renderExpenseReview();
+  });
+  $("#ops-import-rows").addEventListener("change", (event) => {
+    if (event.target.matches("[data-import-field]")) updateImportField(event.target);
+  });
   $$("[data-close-dialog]").forEach((button) => button.addEventListener("click", () => $("#operations-dialog").close()));
   $$("[data-close-void]").forEach((button) => button.addEventListener("click", () => $("#operations-void-dialog").close()));
   ["ops-ledger-search", "ops-ledger-type", "ops-ledger-status", "ops-ledger-year"].forEach((id) => {
