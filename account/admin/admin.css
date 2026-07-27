@@ -378,6 +378,16 @@
   overflow-wrap: anywhere;
 }
 
+#codebase-ai-answer-text em {
+  color: #445568;
+}
+
+#codebase-ai-answer-text hr {
+  margin: 1.1rem 0;
+  border: 0;
+  border-top: 1px solid var(--portal-line);
+}
+
 .codebase-ai-sources {
   margin-top: 1rem;
   padding-top: 0.8rem;

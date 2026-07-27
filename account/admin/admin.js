@@ -343,7 +343,9 @@ function renderCodebaseIndex(index = {}) {
 function renderSafeMarkdown(value) {
   const inline = (text) => escapeHtml(text)
     .replace(/`([^`]+)`/g, "<code>$1</code>")
-    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/\*([^*]+)\*/g, "<em>$1</em>")
+    .replace(/_([^_]+)_/g, "<em>$1</em>");
   const lines = String(value || "").replace(/\r/g, "").split("\n");
   const output = [];
   let listType = "";
@@ -358,6 +360,12 @@ function renderSafeMarkdown(value) {
     const line = rawLine.trim();
     if (!line) {
       closeList();
+      continue;
+    }
+
+    if (/^(---+|___+|\*\*\*+)$/.test(line)) {
+      closeList();
+      output.push("<hr>");
       continue;
     }
 
