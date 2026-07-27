@@ -12,6 +12,10 @@
 }
 
 .site-topbar.admin-topbar {
+  position: sticky;
+  inset: auto;
+  top: 0;
+  z-index: 60;
   color: #ffffff;
   background: #050a12;
   border-bottom-color: rgba(255, 255, 255, 0.08);
@@ -96,7 +100,7 @@
 
   .account-admin-page .portal-nav {
     position: sticky;
-    top: 0;
+    top: 76px;
     align-self: stretch;
     box-sizing: border-box;
     height: calc(100svh - 76px);
@@ -122,13 +126,19 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
+  justify-items: stretch;
   margin: 0 0 1.15rem;
   padding: 0 0 0.7rem;
+  position: sticky;
+  top: 76px;
+  z-index: 20;
+  background: #ffffff;
   border-bottom: 1px solid var(--portal-line);
   text-align: left;
 }
 
 .account-admin-page .admin-workspace-banner .portal-kicker {
+  justify-self: start;
   margin: 0;
 }
 
@@ -150,9 +160,14 @@
   font-weight: 800;
 }
 
-/* The compact shared banner now supplies the page identity. */
+/* Keep each workspace introduction as a compact, centered context block. */
 .account-admin-page .portal-workspace:not(#setup-panel) > .portal-workspace-head:first-child {
-  display: none;
+  justify-content: center;
+  text-align: center;
+}
+
+.account-admin-page .portal-workspace:not(#setup-panel) > .portal-workspace-head:first-child > div {
+  max-width: 760px;
 }
 
 .account-admin-page .product-admin-workspace {
@@ -189,6 +204,7 @@
   .account-admin-page .admin-workspace-banner {
     grid-template-columns: 1fr auto;
     gap: 0.45rem 0.7rem;
+    top: 76px;
   }
 
   .account-admin-page .admin-workspace-banner > strong {

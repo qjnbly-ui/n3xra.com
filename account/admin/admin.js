@@ -526,12 +526,24 @@ const productAdminApps = {
 };
 
 const embeddedProductStyles = `
-  .site-topbar, .site-mobile-menu, .portal-nav { display: none !important; }
+  .site-topbar, .site-mobile-menu, .portal-nav, .site-footer { display: none !important; }
   html, body { min-height: 100%; background: #fff; }
   main.portal-shell { width: 100% !important; max-width: none !important; min-height: 100%; margin: 0 !important; padding: 0 !important; }
   .portal-layout { grid-template-columns: minmax(0, 1fr) !important; gap: 0 !important; width: 100% !important; }
   .portal-layout > .portal-workspace { min-width: 0; }
+  .utilities-shell, .utilities-onboarding-page { width: 100% !important; max-width: none !important; min-height: 0 !important; margin: 0 !important; padding: 0 !important; }
+  body.utilities-onboarding { background: #07111d !important; }
 `;
+
+function fitProductFrame(frame, doc) {
+  const height = Math.max(
+    doc.documentElement?.scrollHeight || 0,
+    doc.body?.scrollHeight || 0,
+    doc.documentElement?.offsetHeight || 0,
+    doc.body?.offsetHeight || 0,
+  );
+  frame.style.height = `${Math.max(height, 520)}px`;
+}
 
 function embedProductFrame(frame) {
   try {
@@ -544,6 +556,15 @@ function embedProductFrame(frame) {
       style.id = "n3xra-embedded-product-styles";
       style.textContent = embeddedProductStyles;
       doc.head.append(style);
+    }
+    frame.__n3xraProductResizeObserver?.disconnect?.();
+    const resize = () => requestAnimationFrame(() => fitProductFrame(frame, doc));
+    resize();
+    if (doc.defaultView?.ResizeObserver) {
+      const observer = new doc.defaultView.ResizeObserver(resize);
+      observer.observe(doc.documentElement);
+      observer.observe(doc.body);
+      frame.__n3xraProductResizeObserver = observer;
     }
     frame.classList.remove("hidden");
     frame.classList.add("is-ready");
