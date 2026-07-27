@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&amp;family=Manrope:wght@400;500;600;700;800&amp;family=Playfair+Display:wght@600;700&amp;display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/site-nav.css">
-  <link rel="stylesheet" href="/account/loan-tracker/loan-tracker.css?v=3">
+  <link rel="stylesheet" href="/account/loan-tracker/loan-tracker.css?v=4">
   <script src="/shared/config.js"></script>
 </head>
 <body>
@@ -49,6 +49,7 @@
         <button data-view="calculator" type="button">Payoff calculator</button>
         <button data-view="payments" type="button">Payment history</button>
         <button data-view="schedule" type="button">Schedule</button>
+        <button data-view="settings" data-settings-owner type="button">Loan settings</button>
         <button data-view="access" data-access-owner type="button">Sharing &amp; access</button>
       </nav>
 
@@ -80,8 +81,8 @@
           </article>
           <article class="panel payment-rhythm">
             <p class="eyebrow">Payment rhythm</p><h2>Two dates to remember</h2>
-            <div><span>03</span><p><strong>Dave pays Brent</strong><small>3rd of each month</small></p></div>
-            <div><span>16</span><p><strong>Credit-union payment due</strong><small>16th of each month</small></p></div>
+            <div><span id="private-day-badge">03</span><p><strong id="private-payment-label">Dave pays Brent</strong><small id="private-day-copy">3rd of each month</small></p></div>
+            <div><span id="lender-day-badge">16</span><p><strong>Credit-union payment due</strong><small id="lender-day-copy">16th of each month</small></p></div>
           </article>
         </div>
         <div class="action-row">
@@ -100,7 +101,7 @@
             <label>Monthly payment <span class="money-field"><span>$</span><input id="calc-payment" inputmode="decimal" value="500.00" required></span></label>
             <label>First payment date <input id="calc-date" type="date" value="2026-08-03" required></label>
             <div class="quick-payments" aria-label="Quick payment amounts">
-              <button type="button" data-payment="343.51">Minimum <small>$343.51</small></button>
+              <button id="quick-minimum-payment" type="button" data-payment="343.51">Minimum <small>$343.51</small></button>
               <button type="button" data-payment="400">$400</button>
               <button class="is-active" type="button" data-payment="500">$500</button>
               <button type="button" data-payment="600">$600</button>
@@ -120,7 +121,7 @@
           </article>
         </div>
         <div class="comparison-grid">
-          <article class="plan-card"><p class="eyebrow">Minimum payment</p><h3>$343.51 <small>per month</small></h3><dl><div><dt>Payoff</dt><dd id="minimum-payoff">—</dd></div><div><dt>Interest</dt><dd id="minimum-interest">—</dd></div><div><dt>Payments</dt><dd id="minimum-count">—</dd></div></dl></article>
+          <article class="plan-card"><p class="eyebrow">Minimum payment</p><h3 id="minimum-plan-payment">$343.51 <small>per month</small></h3><dl><div><dt>Payoff</dt><dd id="minimum-payoff">—</dd></div><div><dt>Interest</dt><dd id="minimum-interest">—</dd></div><div><dt>Payments</dt><dd id="minimum-count">—</dd></div></dl></article>
           <article class="plan-card is-selected"><p class="eyebrow">Selected plan</p><h3 id="selected-plan-payment">$500.00 <small>per month</small></h3><dl><div><dt>Payoff</dt><dd id="selected-payoff">—</dd></div><div><dt>Interest</dt><dd id="selected-interest">—</dd></div><div><dt>Payments</dt><dd id="selected-count">—</dd></div></dl></article>
         </div>
         <p class="notice compact">This estimate assumes the full payment is applied to the loan and any amount above the required payment reduces principal. Official lender records take priority over this estimate.</p>
@@ -134,6 +135,59 @@
       <section class="view" data-panel="schedule" hidden>
         <div class="section-heading"><div><p class="eyebrow">Future projection</p><h2>Amortization schedule</h2><p>Rebuilt from the latest payment or official balance.</p></div><div class="action-row"><button class="button secondary" data-export="schedule" type="button">Export CSV</button><button class="button secondary" data-export="excel" type="button">Export Excel</button></div></div>
         <details class="schedule-details" open><summary><span>Full estimated schedule</span><small id="schedule-summary">—</small></summary><div class="table-wrap"><table><thead><tr><th>#</th><th>Payment date</th><th>Beginning balance</th><th>Payment</th><th>Interest</th><th>Principal</th><th>Ending balance</th></tr></thead><tbody id="schedule-table"></tbody></table></div></details>
+      </section>
+
+      <section class="view" data-panel="settings" data-settings-owner hidden>
+        <div class="section-heading"><div><p class="eyebrow">Saved loan information</p><h2>Loan settings</h2><p>Update the information used by future balances and payoff projections.</p></div></div>
+        <form class="settings-layout" id="settings-form">
+          <article class="panel settings-card">
+            <div><p class="eyebrow">Dave can update</p><h2>Balance &amp; payment plan</h2><p class="access-copy">These fields control current and future estimates without erasing payment history.</p></div>
+            <div class="form-grid">
+              <label>Official current balance <span class="money-field"><span>$</span><input id="settings-official-balance" data-setting="current_official_balance" inputmode="decimal" placeholder="Not confirmed"></span></label>
+              <label>Official balance effective date <input id="settings-official-date" data-setting="official_balance_date" type="date"></label>
+              <label>Planned monthly payment <span class="money-field"><span>$</span><input id="settings-planned-payment" data-setting="planned_monthly_payment" inputmode="decimal" required></span></label>
+              <label>Dave’s payment day <input id="settings-private-day" data-setting="private_payment_day" type="number" min="1" max="28"></label>
+              <label>First private payment date <input id="settings-first-date" data-setting="first_payment_date" type="date"></label>
+              <label>Original starting balance <span class="money-field"><span>$</span><input id="settings-original-balance" data-setting="original_balance" inputmode="decimal" required></span><small id="original-balance-help">Editable until the first payment is recorded.</small></label>
+              <label class="wide">Loan notes <textarea id="settings-notes" data-setting="notes" rows="4" placeholder="Private notes about this loan"></textarea></label>
+            </div>
+          </article>
+
+          <article class="panel settings-card" id="admin-settings-card" hidden>
+            <div><p class="eyebrow">Administrator only</p><h2>Loan document terms</h2><p class="access-copy">These values should match the signed lender documents.</p></div>
+            <div class="form-grid">
+              <label>Borrower name <input id="settings-borrower" data-setting="borrower_name" maxlength="160"></label>
+              <label>Payment recipient <input id="settings-recipient" data-setting="payment_recipient_name" maxlength="160"></label>
+              <label>Lender <input id="settings-lender" data-setting="lender_name" maxlength="160"></label>
+              <label>Loan number <input id="settings-loan-number" data-setting="loan_number" maxlength="120" placeholder="Leave blank to keep the existing number"></label>
+              <label>Amount financed <span class="money-field"><span>$</span><input id="settings-financed" data-setting="amount_financed" inputmode="decimal"></span></label>
+              <label>APR <span class="suffix-field"><input id="settings-apr" data-setting="annual_interest_rate" inputmode="decimal"><span>%</span></span></label>
+              <label>Required monthly payment <span class="money-field"><span>$</span><input id="settings-required-payment" data-setting="required_monthly_payment" inputmode="decimal"></span></label>
+              <label>Credit-union due day <input id="settings-lender-day" data-setting="lender_due_day" type="number" min="1" max="28"></label>
+              <label>Calculation start date <input id="settings-calculation-date" data-setting="calculation_start_date" type="date"></label>
+            </div>
+          </article>
+
+          <article class="notice settings-warning">
+            <strong>Permanent change</strong>
+            Saving updates the loan information used for future calculations. Existing payment records remain in the history. Original balance and first payment date lock after the first payment is recorded.
+          </article>
+          <p class="form-error" id="settings-error" role="alert"></p>
+          <div class="action-row settings-submit"><button class="button" type="submit">Review permanent changes</button></div>
+        </form>
+
+        <article class="panel settings-review" id="settings-review" hidden>
+          <p class="eyebrow">Confirmation required</p>
+          <h2>Review old and new values</h2>
+          <p class="settings-permanent-copy"><strong>This change is permanent.</strong> It will update future loan estimates. Existing payment records will not be deleted.</p>
+          <div class="settings-review-list" id="settings-review-list"></div>
+          <div class="action-row"><button class="button secondary" id="cancel-settings" type="button">Go back</button><button class="button danger-button" id="confirm-settings" type="button">Confirm and save permanently</button></div>
+        </article>
+
+        <article class="panel settings-history">
+          <div class="panel-head"><div><p class="eyebrow">Audit history</p><h2>Saved changes</h2></div></div>
+          <div id="settings-history-list"><p class="empty-copy">No loan-setting changes have been recorded.</p></div>
+        </article>
       </section>
 
       <section class="view" data-panel="access" data-access-owner hidden>
@@ -197,6 +251,6 @@
     </form>
   </dialog>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="/account/loan-tracker/loan-tracker.js?v=2"></script>
+  <script type="module" src="/account/loan-tracker/loan-tracker.js?v=3"></script>
 </body>
 </html>

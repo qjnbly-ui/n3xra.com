@@ -30,6 +30,27 @@ const PERMISSION_LABELS = {
   manage_payments: "Manage payments",
   reveal_loan_number: "Loan number",
 };
+const SETTING_LABELS = {
+  current_official_balance: "Official current balance",
+  official_balance_date: "Official balance effective date",
+  planned_monthly_payment: "Planned monthly payment",
+  private_payment_day: "Dave’s payment day",
+  first_payment_date: "First private payment date",
+  notes: "Loan notes",
+  original_balance: "Original starting balance",
+  amount_financed: "Amount financed",
+  annual_interest_rate: "Annual percentage rate",
+  required_monthly_payment: "Required monthly payment",
+  lender_due_day: "Credit-union due day",
+  calculation_start_date: "Calculation start date",
+  borrower_name: "Borrower name",
+  payment_recipient_name: "Payment recipient",
+  lender_name: "Lender",
+  loan_number: "Loan number",
+};
+const MONEY_SETTINGS = new Set(["current_official_balance", "planned_monthly_payment", "original_balance", "amount_financed", "required_monthly_payment"]);
+const NUMBER_SETTINGS = new Set([...MONEY_SETTINGS, "annual_interest_rate", "private_payment_day", "lender_due_day"]);
+const DATE_SETTINGS = new Set(["official_balance_date", "first_payment_date", "calculation_start_date"]);
 let supabase;
 let session;
 let account;
@@ -42,6 +63,8 @@ let access = { isOwner: false, isAdmin: false, permissions: {} };
 let invitations = [];
 let members = [];
 let revealedLoanNumber = "";
+let settingsHistory = [];
+let pendingSettingsChanges = null;
 
 function money(value) {
   return currency.format(Number(value || 0));
@@ -55,6 +78,13 @@ function dateLabel(value, monthOnly = false) {
   if (!value) return "—";
   const date = new Date(`${String(value).slice(0, 10)}T00:00:00Z`);
   return (monthOnly ? monthDate : shortDate).format(date);
+}
+
+function ordinal(value) {
+  const number = Number(value);
+  const remainder = number % 100;
+  if (remainder >= 11 && remainder <= 13) return `${number}th`;
+  return `${number}${number % 10 === 1 ? "st" : number % 10 === 2 ? "nd" : number % 10 === 3 ? "rd" : "th"}`;
 }
 
 function escapeHtml(value = "") {
@@ -114,6 +144,22 @@ function projectionAnchor() {
   const active = getActivePayments();
   const latest = active.at(-1);
   const originalCents = toCents(account.original_balance);
+  if (account.current_official_balance !== null && account.current_official_balance !== undefined && account.official_balance_date) {
+    let nextDate = account.first_payment_date;
+    let safety = 0;
+    while (nextDate && nextDate <= account.official_balance_date && safety < 1200) {
+      nextDate = nextMonthlyDate(nextDate, 1);
+      safety += 1;
+    }
+    return {
+      balanceCents: toCents(account.current_official_balance),
+      firstPaymentDate: nextDate || account.first_payment_date,
+      latest: {
+        payment_date: account.official_balance_date,
+        official_balance_after_payment: account.current_official_balance,
+      },
+    };
+  }
   return {
     balanceCents: latest ? toCents(latest.ending_balance) : originalCents,
     firstPaymentDate: nextMonthlyDate(account.first_payment_date, active.length),
@@ -164,6 +210,11 @@ function renderOverview() {
   setText("principal-paid", `${moneyCents(paidCents)} paid`);
   $("#progress-bar").style.width = `${progress}%`;
   setText("lender-name", account.lender_name || "Loan account");
+  setText("private-day-badge", account.private_payment_day ? String(account.private_payment_day).padStart(2, "0") : "—");
+  setText("private-day-copy", account.private_payment_day ? `${ordinal(account.private_payment_day)} of each month` : "Not set");
+  setText("lender-day-badge", account.lender_due_day ? String(account.lender_due_day).padStart(2, "0") : "—");
+  setText("lender-day-copy", account.lender_due_day ? `${ordinal(account.lender_due_day)} of each month` : "Not set");
+  setText("private-payment-label", `${account.borrower_name?.split(" ")[0] || "Dave"} pays ${account.payment_recipient_name?.split(" ")[0] || "Brent"}`);
 
   const recent = [...rebuiltPayments].reverse().slice(0, 4);
   $("#recent-payments").innerHTML = !can("view_payments")
@@ -181,6 +232,9 @@ function renderCalculator() {
   $("#calc-apr").value = Number(account.annual_interest_rate).toFixed(2);
   $("#calc-payment").value = Number(account.planned_monthly_payment).toFixed(2);
   $("#calc-date").value = projectionAnchor().firstPaymentDate;
+  $("#quick-minimum-payment").dataset.payment = Number(account.required_monthly_payment).toFixed(2);
+  $("#quick-minimum-payment").innerHTML = `Minimum <small>${money(account.required_monthly_payment)}</small>`;
+  $("#minimum-plan-payment").innerHTML = `${money(account.required_monthly_payment)} <small>per month</small>`;
   updateCalculator();
 }
 
@@ -498,12 +552,186 @@ async function loadAccessData() {
 function applyAccessUi() {
   const ownerControls = access.isOwner || access.isAdmin;
   $$("[data-access-owner]").forEach((element) => { element.hidden = !ownerControls; });
+  $$("[data-settings-owner]").forEach((element) => { element.hidden = !ownerControls; });
+  $("#admin-settings-card").hidden = !access.isAdmin;
   $$('[data-view="calculator"],[data-view="schedule"],[data-open-view="schedule"]').forEach((element) => { element.hidden = !can("use_calculator"); });
   $$('[data-view="payments"],[data-open-view="payments"]').forEach((element) => { element.hidden = !can("view_payments"); });
   $$("[data-add-payment]").forEach((element) => { element.hidden = !can("manage_payments"); });
   $$("[data-export]").forEach((element) => { element.hidden = !can("export_data"); });
   $("#reveal-loan").hidden = !can("reveal_loan_number");
   $("#reveal-loan").innerHTML = `••••••${escapeHtml(account.loan_number_last_four || "••••")} <small>Reveal</small>`;
+}
+
+function normalizeSettingValue(field, value) {
+  if (value === null || value === undefined || String(value).trim() === "") return null;
+  if (NUMBER_SETTINGS.has(field)) {
+    const number = Number(value);
+    if (!Number.isFinite(number)) throw new Error(`${SETTING_LABELS[field]} must be a valid number.`);
+    return number;
+  }
+  return String(value).trim() || null;
+}
+
+function settingDisplay(field, value) {
+  if (value === null || value === undefined || value === "") return "Not set";
+  if (MONEY_SETTINGS.has(field)) return money(value);
+  if (field === "annual_interest_rate") return `${Number(value).toFixed(2)}%`;
+  if (field === "private_payment_day" || field === "lender_due_day") return `Day ${value}`;
+  if (DATE_SETTINGS.has(field)) return dateLabel(value);
+  if (field === "loan_number") {
+    const text = String(value);
+    return text.startsWith("•") ? text : `••••••${text.slice(-4)}`;
+  }
+  return String(value);
+}
+
+function populateSettingsForm() {
+  const values = {
+    current_official_balance: account.current_official_balance,
+    official_balance_date: account.official_balance_date,
+    planned_monthly_payment: account.planned_monthly_payment,
+    private_payment_day: account.private_payment_day,
+    first_payment_date: account.first_payment_date,
+    notes: account.notes,
+    original_balance: account.original_balance,
+    amount_financed: account.amount_financed,
+    annual_interest_rate: account.annual_interest_rate,
+    required_monthly_payment: account.required_monthly_payment,
+    lender_due_day: account.lender_due_day,
+    calculation_start_date: account.calculation_start_date,
+    borrower_name: account.borrower_name,
+    payment_recipient_name: account.payment_recipient_name,
+    lender_name: account.lender_name,
+  };
+  Object.entries(values).forEach(([field, value]) => {
+    const input = $(`[data-setting="${field}"]`);
+    if (!input) return;
+    input.value = value ?? "";
+  });
+  $("#settings-loan-number").value = "";
+  $("#settings-loan-number").placeholder = `Current: ••••••${account.loan_number_last_four || "••••"} — leave blank to keep`;
+  const hasPayments = payments.some((payment) => payment.status === "completed" && payment.applied_to_loan !== false);
+  $("#settings-original-balance").disabled = hasPayments;
+  $("#settings-first-date").disabled = hasPayments;
+  setText("original-balance-help", hasPayments
+    ? "Locked because payment history exists. Use an official balance correction."
+    : "Editable until the first payment is recorded.");
+}
+
+async function loadSettingsHistory() {
+  if (!access.isOwner && !access.isAdmin) return;
+  const { data, error } = await supabase
+    .from("loan_account_changes")
+    .select("id,actor_user_id,actor_is_admin,changes,created_at")
+    .eq("loan_account_id", account.id)
+    .order("created_at", { ascending: false })
+    .limit(50);
+  if (error) throw error;
+  settingsHistory = data || [];
+  renderSettingsHistory();
+}
+
+function settingsChangeRows(changes, history = false) {
+  return Object.entries(changes).map(([field, change]) => {
+    const oldValue = settingDisplay(field, change.old);
+    const newValue = settingDisplay(field, change.new);
+    const className = history ? "settings-history-change" : "settings-review-row";
+    return `<div class="${className}">
+      <strong>${escapeHtml(SETTING_LABELS[field] || field)}</strong>
+      <span class="old-value">${escapeHtml(oldValue)}</span>
+      <span class="change-arrow">→</span>
+      <span>${escapeHtml(newValue)}</span>
+    </div>`;
+  }).join("");
+}
+
+function renderSettingsHistory() {
+  $("#settings-history-list").innerHTML = settingsHistory.length
+    ? settingsHistory.map((entry) => `<article class="settings-history-item">
+      <div class="settings-history-head">
+        <p><strong>${entry.actor_user_id === session.user.id ? "You" : entry.actor_is_admin ? "N3XRA administrator" : "Loan owner"}</strong><small>${entry.actor_is_admin ? "Administrator change" : "Owner change"}</small></p>
+        <span class="access-status">${dateLabel(entry.created_at)}</span>
+      </div>
+      <div class="settings-history-changes">${settingsChangeRows(entry.changes, true)}</div>
+    </article>`).join("")
+    : '<p class="empty-copy">No loan-setting changes have been recorded.</p>';
+}
+
+function collectSettingsChanges() {
+  const changes = {};
+  $$("[data-setting]").forEach((input) => {
+    if (input.disabled || input.closest("[hidden]")) return;
+    const field = input.dataset.setting;
+    if (field === "loan_number" && !input.value.trim()) return;
+    const nextValue = normalizeSettingValue(field, input.value);
+    const oldValue = field === "loan_number"
+      ? null
+      : normalizeSettingValue(field, account[field]);
+    if (field === "loan_number" || JSON.stringify(nextValue) !== JSON.stringify(oldValue)) {
+      changes[field] = nextValue;
+    }
+  });
+  const resultingOfficialBalance = Object.hasOwn(changes, "current_official_balance")
+    ? changes.current_official_balance
+    : normalizeSettingValue("current_official_balance", account.current_official_balance);
+  const resultingOfficialDate = Object.hasOwn(changes, "official_balance_date")
+    ? changes.official_balance_date
+    : normalizeSettingValue("official_balance_date", account.official_balance_date);
+  if (resultingOfficialBalance === null && account.current_official_balance !== null && account.current_official_balance !== undefined) {
+    changes.official_balance_date = null;
+  } else if ((resultingOfficialBalance === null) !== (resultingOfficialDate === null)) {
+    throw new Error("Official balance and its effective date must be entered or cleared together.");
+  }
+  return changes;
+}
+
+function reviewSettingsChanges() {
+  const errorBox = $("#settings-error");
+  errorBox.textContent = "";
+  try {
+    pendingSettingsChanges = collectSettingsChanges();
+    if (!Object.keys(pendingSettingsChanges).length) throw new Error("No loan information has changed.");
+    const reviewChanges = Object.fromEntries(Object.entries(pendingSettingsChanges).map(([field, value]) => [
+      field,
+      {
+        old: field === "loan_number" ? `••••••${account.loan_number_last_four || "••••"}` : account[field],
+        new: value,
+      },
+    ]));
+    $("#settings-review-list").innerHTML = settingsChangeRows(reviewChanges);
+    $("#settings-review").hidden = false;
+    $("#settings-review").scrollIntoView({ behavior: "smooth", block: "start" });
+  } catch (caught) {
+    errorBox.textContent = caught.message || "Unable to review these changes.";
+  }
+}
+
+async function saveSettingsChanges() {
+  if (!pendingSettingsChanges) return;
+  const button = $("#confirm-settings");
+  button.disabled = true;
+  button.textContent = "Saving…";
+  try {
+    const { data, error } = await supabase.rpc("update_loan_account_settings", {
+      input_loan_account_id: account.id,
+      input_changes: pendingSettingsChanges,
+    });
+    if (error) throw error;
+    account = { ...account, ...(data?.account || {}) };
+    pendingSettingsChanges = null;
+    $("#settings-review").hidden = true;
+    await loadSettingsHistory();
+    populateSettingsForm();
+    applyAccessUi();
+    renderAll();
+    showToast("Loan settings saved permanently.");
+  } catch (caught) {
+    $("#settings-error").textContent = caught.message || "Unable to save these settings.";
+    $("#settings-review").hidden = true;
+  } finally {
+    button.disabled = false;
+    button.textContent = "Confirm and save permanently";
+  }
 }
 
 async function createInvitation() {
@@ -607,6 +835,15 @@ function bindEvents() {
     if (invitationButton) revokeAccess("invitation", invitationButton.dataset.revokeInvitation);
     if (saveButton) saveMemberAccess(saveButton.dataset.saveMember, saveButton.closest("[data-member-row]"));
   });
+  $("#settings-form").addEventListener("submit", (event) => {
+    event.preventDefault();
+    if (event.currentTarget.reportValidity()) reviewSettingsChanges();
+  });
+  $("#cancel-settings").addEventListener("click", () => {
+    pendingSettingsChanges = null;
+    $("#settings-review").hidden = true;
+  });
+  $("#confirm-settings").addEventListener("click", saveSettingsChanges);
   $("#sign-out").addEventListener("click", async () => {
     await supabase.auth.signOut({ scope: "local" });
     location.assign("/account/");
@@ -660,7 +897,9 @@ async function init() {
   }
   await loadPayments();
   await loadAccessData();
+  await loadSettingsHistory();
   rebuiltPayments = rebuildPayments(account, payments);
+  populateSettingsForm();
   bindEvents();
   renderAll();
   $("#loading-state").hidden = true;
