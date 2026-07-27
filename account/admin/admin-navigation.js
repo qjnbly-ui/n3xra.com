@@ -6,11 +6,42 @@ const accountLinks = [
   ["/account/notifications/", "Platform Notifications"],
 ];
 
-const productLinks = [
-  ["/n3xra-admin/websites/", "Website Admin"],
-  ["/n3xra-admin/records/", "Records Admin"],
-  ["/n3xra-admin/utilities/", "Utilities Admin"],
-  ["/n3xra-admin/partners/", "Partner Admin"],
+const productApps = [
+  {
+    key: "websites",
+    label: "Website Admin",
+    sections: [
+      ["overview", "Overview", "/n3xra-admin/websites/"],
+      ["services", "Services & Ownership", "/n3xra-admin/services/"],
+      ["requests", "Requests", "/n3xra-admin/requests/"],
+      ["proposals", "Proposals", "/n3xra-admin/proposals/"],
+      ["progress", "Progress", "/n3xra-admin/projects/"],
+      ["onboarding", "Onboarding", "/n3xra-admin/onboarding/"],
+      ["assets", "Files & Assets", "/n3xra-admin/assets/"],
+      ["billing", "Billing", "/n3xra-admin/billing/"],
+    ],
+  },
+  {
+    key: "records",
+    label: "Records Admin",
+    sections: [
+      ["organizations", "Organizations", "/n3xra-admin/records/organizations/"],
+      ["usage", "Usage", "/n3xra-admin/records/usage/"],
+    ],
+  },
+  {
+    key: "utilities",
+    label: "Utilities Admin",
+    sections: [
+      ["organizations", "Organizations", "/n3xra-admin/utilities/"],
+      ["onboarding", "Onboarding", "/utilities/onboarding/"],
+    ],
+  },
+  {
+    key: "partners",
+    label: "Partner Admin",
+    sections: [["applications", "Review applications", "/n3xra-admin/partners/"]],
+  },
 ];
 
 const resourceLinks = [
@@ -43,6 +74,29 @@ function linkMarkup([href, label], mobile = false) {
   return `<a${className} href="${href}">${label}</a>`;
 }
 
+function productAppFromUrl() {
+  if (!isCurrentPath("/account/admin/product-apps/")) return null;
+  const key = new URLSearchParams(window.location.search).get("app");
+  return productApps.find((app) => app.key === key) || null;
+}
+
+function productHref(app, section = app.sections[0]?.[0]) {
+  return `/account/admin/product-apps/?app=${encodeURIComponent(app.key)}&section=${encodeURIComponent(section)}`;
+}
+
+function productMarkup(app, mobile = false) {
+  const activeApp = productAppFromUrl();
+  const onApp = activeApp?.key === app.key;
+  const selectedSection = new URLSearchParams(window.location.search).get("section") || app.sections[0]?.[0];
+  const itemClass = mobile ? "site-menu-link admin-nav-child" : "admin-nav-child";
+  const parentClass = mobile ? "site-menu-link admin-nav-product" : "admin-nav-product";
+  const children = app.sections.map(([section, label]) => {
+    const current = onApp && section === selectedSection ? " is-current" : "";
+    return `<a class="${itemClass}${current}" href="${productHref(app, section)}">${label}</a>`;
+  }).join("");
+  return `<a class="${parentClass}${onApp ? " is-current" : ""}" href="${productHref(app)}" aria-expanded="${onApp}">${app.label}</a><div class="admin-nav-children" data-product-app-items="${app.key}"${onApp ? "" : " hidden"}>${children}</div>`;
+}
+
 function investmentMarkup(mobile = false) {
   const onInvestmentPage = isCurrentPath("/account/admin/investment/");
   const itemClass = mobile ? "site-menu-link admin-nav-child" : "admin-nav-child";
@@ -66,7 +120,7 @@ function navigationMarkup(mobile = false) {
     accountLinks.map((item) => linkMarkup(item, mobile)).join(""),
     divider,
     label("Product Admin Apps"),
-    productLinks.map((item) => linkMarkup(item, mobile)).join(""),
+    productApps.map((app) => productMarkup(app, mobile)).join(""),
     divider,
     label("Internal Resources"),
     resourceLinks.map((item) => linkMarkup(item, mobile)).join(""),
@@ -90,10 +144,10 @@ function bindInvestmentToggle(container) {
   });
 }
 
-export function renderAdminNavigation() {
+export function renderAdminNavigation({ desktopScrollTop } = {}) {
   document.querySelector(".site-topbar")?.classList.add("admin-topbar");
   document.querySelectorAll(".portal-nav").forEach((nav) => {
-    const scrollTop = nav.scrollTop;
+    const scrollTop = Number.isFinite(desktopScrollTop) ? desktopScrollTop : nav.scrollTop;
     nav.innerHTML = navigationMarkup(false);
     nav.setAttribute("aria-label", "N3XRA administration");
     bindInvestmentToggle(nav);
@@ -118,8 +172,9 @@ export function arrangeAdminWorkspace() {
   const heading = main?.querySelector(":scope > .portal-heading");
   const workspace = layout?.querySelector(":scope > .portal-workspace");
   if (heading && workspace) {
+    const pageName = heading.querySelector("h1")?.textContent?.trim() || "Admin";
     heading.classList.add("admin-workspace-banner");
-    heading.innerHTML = '<p class="portal-kicker">N3XRA Administration</p><span>Platform workspace</span>';
+    heading.innerHTML = `<p class="portal-kicker">N3XRA Administration</p><strong>${pageName}</strong><span>Platform workspace</span>`;
     workspace.prepend(heading);
   }
 }
@@ -152,7 +207,7 @@ function installWorkspaceStyles(page) {
   });
 }
 
-export async function navigateAdminWorkspace(destination, { history = "push" } = {}) {
+export async function navigateAdminWorkspace(destination, { history = "push", desktopScrollTop } = {}) {
   const url = new URL(destination, window.location.origin);
   if (!isWorkspaceUrl(url)) {
     window.location.assign(url.href);
@@ -180,7 +235,7 @@ export async function navigateAdminWorkspace(destination, { history = "push" } =
   document.body.dataset.adminView = page.body.dataset.adminView || "";
   document.title = page.title || document.title;
   if (history === "push") window.history.pushState({}, "", url.href);
-  renderAdminNavigation();
+  renderAdminNavigation({ desktopScrollTop });
 
   window.__n3xraAdminSoftNavigation = true;
   try {
@@ -202,7 +257,8 @@ document.addEventListener("click", (event) => {
   const url = new URL(link.href, window.location.origin);
   if (!isWorkspaceUrl(url)) return;
   event.preventDefault();
-  navigateAdminWorkspace(url.href).catch(() => window.location.assign(url.href));
+  const desktopScrollTop = document.querySelector(".portal-nav")?.scrollTop;
+  navigateAdminWorkspace(url.href, { desktopScrollTop }).catch(() => window.location.assign(url.href));
 });
 
 window.addEventListener("popstate", () => {

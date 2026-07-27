@@ -13,7 +13,7 @@
 
 .site-topbar.admin-topbar {
   color: #ffffff;
-  background: #070c12;
+  background: #050a12;
   border-bottom-color: rgba(255, 255, 255, 0.08);
 }
 
@@ -25,8 +25,11 @@
 .site-topbar.admin-topbar .site-brand {
   gap: 0.68rem;
   color: #ffffff;
+  font-family: "Manrope", Arial, sans-serif;
   font-size: 1rem;
+  font-weight: 700;
   letter-spacing: 0.22em;
+  line-height: 1;
 }
 
 .site-topbar.admin-topbar .site-brand img {
@@ -37,13 +40,29 @@
 .site-topbar.admin-topbar .site-nav-actions .site-menu-link,
 .site-topbar.admin-topbar .site-nav-actions .portal-logout {
   min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 0.55rem 0.88rem;
   color: #ffffff;
   background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  font-family: inherit;
   font-size: 0.72rem;
   letter-spacing: 0.07em;
   text-transform: uppercase;
+  text-decoration: none;
+  transition: color 160ms ease, background 160ms ease, border-color 160ms ease;
+}
+
+.site-topbar.admin-topbar .site-nav-actions .site-menu-link:hover,
+.site-topbar.admin-topbar .site-nav-actions .site-menu-link:focus-visible,
+.site-topbar.admin-topbar .site-nav-actions .portal-logout:hover,
+.site-topbar.admin-topbar .site-nav-actions .portal-logout:focus-visible {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.28);
 }
 
 .site-topbar.admin-topbar .site-menu-toggle {
@@ -102,10 +121,9 @@
 .account-admin-page .admin-workspace-banner {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  margin: 0 0 1.75rem;
-  padding: 0 0 0.95rem;
+  gap: 0.8rem;
+  margin: 0 0 1.15rem;
+  padding: 0 0 0.7rem;
   border-bottom: 1px solid var(--portal-line);
   text-align: left;
 }
@@ -118,6 +136,86 @@
   color: var(--portal-muted);
   font-size: 0.76rem;
   font-weight: 700;
+}
+
+.account-admin-page .admin-workspace-banner > strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.8rem;
+  color: var(--portal-ink);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.account-admin-page .admin-workspace-banner > strong::before,
+.account-admin-page .admin-workspace-banner > strong::after {
+  width: 1px;
+  height: 0.85rem;
+  background: var(--portal-line);
+  content: "";
+}
+
+.account-admin-page .product-admin-workspace {
+  min-width: 0;
+}
+
+.product-admin-frame-head {
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--portal-line);
+}
+
+.product-admin-frame-head h2,
+.product-admin-frame-head p {
+  margin: 0;
+}
+
+.product-admin-frame-head h2 {
+  margin-top: 0.2rem;
+  font-family: "Fraunces", Georgia, serif;
+  font-size: clamp(1.65rem, 2.2vw, 2.3rem);
+}
+
+.product-admin-frame-head p:not(.portal-kicker) {
+  margin-top: 0.3rem;
+  color: var(--portal-muted);
+}
+
+.product-admin-frame-empty {
+  display: grid;
+  min-height: 320px;
+  place-items: center;
+  color: var(--portal-muted);
+  background: #f7f9fb;
+  border: 1px solid var(--portal-line);
+  border-radius: 10px;
+  text-align: center;
+}
+
+.product-admin-frame {
+  display: block;
+  width: 100%;
+  min-height: calc(100svh - 220px);
+  border: 1px solid var(--portal-line);
+  border-radius: 10px;
+  background: #fff;
+  opacity: 0;
+  transition: opacity 140ms ease;
+}
+
+.product-admin-frame.is-ready {
+  opacity: 1;
+}
+
+@media (max-width: 560px) {
+  .account-admin-page .admin-workspace-banner {
+    flex-wrap: wrap;
+    gap: 0.45rem 0.7rem;
+  }
+
+  .account-admin-page .admin-workspace-banner > strong::after {
+    display: none;
+  }
 }
 
 .account-admin-section {

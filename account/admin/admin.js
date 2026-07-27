@@ -489,6 +489,102 @@ async function loadCodebaseAi() {
 
 const investmentLabels = { shareholders: "Shareholders table", "share-classes": "Share Classes", "share-ledger": "Share Ledger", "board-resolutions": "Board Resolutions", "dividend-history": "Dividend History", "cap-table": "Cap Table", "valuation-history": "Company Valuation History", vesting: "Vesting Schedules", voting: "Voting Rights", certificates: "Stock Certificates", transfers: "Share Transfer Requests", buybacks: "Company Buyback Requests" };
 
+const productAdminApps = {
+  websites: {
+    label: "Website Admin",
+    sections: {
+      overview: ["Website Overview", "Manage client websites, access, files, and lifecycle records.", "/n3xra-admin/websites/"],
+      services: ["Services & Ownership", "Manage services, ownership, and related website records.", "/n3xra-admin/services/"],
+      requests: ["Website Requests", "Review incoming website requests and their next steps.", "/n3xra-admin/requests/"],
+      proposals: ["Website Proposals", "Review proposals and their project context.", "/n3xra-admin/proposals/"],
+      progress: ["Website Progress", "Follow active website project progress.", "/n3xra-admin/projects/"],
+      onboarding: ["Website Onboarding", "Manage website onboarding workflows.", "/n3xra-admin/onboarding/"],
+      assets: ["Files & Assets", "Manage website files and assets.", "/n3xra-admin/assets/"],
+      billing: ["Website Billing", "Review website billing records.", "/n3xra-admin/billing/"],
+    },
+  },
+  records: {
+    label: "Records Admin",
+    sections: {
+      organizations: ["Records Organizations", "Manage Records plans, limits, features, trials, and owner support.", "/n3xra-admin/records/organizations/"],
+      usage: ["Records Usage", "Review Records usage and limits.", "/n3xra-admin/records/usage/"],
+    },
+  },
+  utilities: {
+    label: "Utilities Admin",
+    sections: {
+      organizations: ["Utility Organizations", "Review utility organizations, portals, and launch readiness.", "/n3xra-admin/utilities/"],
+      onboarding: ["Utility Onboarding", "Manage utility onboarding workflows.", "/utilities/onboarding/"],
+    },
+  },
+  partners: {
+    label: "Partner Admin",
+    sections: {
+      applications: ["Partner Applications", "Review partner program interest and application decisions.", "/n3xra-admin/partners/"],
+    },
+  },
+};
+
+const embeddedProductStyles = `
+  .site-topbar, .site-mobile-menu, .portal-nav { display: none !important; }
+  html, body { min-height: 100%; background: #fff; }
+  main.portal-shell { width: 100% !important; max-width: none !important; min-height: 100%; margin: 0 !important; padding: 0 !important; }
+  .portal-layout { grid-template-columns: minmax(0, 1fr) !important; gap: 0 !important; width: 100% !important; }
+  .portal-layout > .portal-workspace { min-width: 0; }
+`;
+
+function embedProductFrame(frame) {
+  try {
+    const doc = frame.contentDocument;
+    if (!doc?.head || !doc.body) return;
+    doc.body.classList.add("n3xra-embedded-product");
+    let style = doc.getElementById("n3xra-embedded-product-styles");
+    if (!style) {
+      style = doc.createElement("style");
+      style.id = "n3xra-embedded-product-styles";
+      style.textContent = embeddedProductStyles;
+      doc.head.append(style);
+    }
+    frame.classList.remove("hidden");
+    frame.classList.add("is-ready");
+  } catch {
+    // Product workspaces are same-origin. If that ever changes, leave the original page intact.
+    frame.classList.remove("hidden");
+  }
+}
+
+function loadProductAdminApp() {
+  const frame = document.getElementById("product-admin-frame");
+  const empty = document.getElementById("product-admin-empty");
+  const title = document.getElementById("product-admin-title");
+  const copy = document.getElementById("product-admin-copy");
+  const kicker = document.getElementById("product-admin-kicker");
+  if (!frame || !empty || !title || !copy || !kicker) return;
+
+  const params = new URLSearchParams(window.location.search);
+  const app = productAdminApps[params.get("app")];
+  const sectionKey = params.get("section");
+  const section = app?.sections?.[sectionKey] || app?.sections?.[Object.keys(app.sections)[0]];
+  if (!app || !section) {
+    frame.classList.add("hidden");
+    empty.classList.remove("hidden");
+    return;
+  }
+
+  const [heading, description, path] = section;
+  kicker.textContent = app.label;
+  title.textContent = heading;
+  copy.textContent = description;
+  empty.classList.add("hidden");
+  frame.classList.add("hidden");
+  frame.classList.remove("is-ready");
+  frame.title = `${heading} — N3XRA`;
+  frame.addEventListener("load", () => embedProductFrame(frame), { once: true });
+  const source = new URL(path, window.location.origin);
+  source.searchParams.set("embed", "1");
+  frame.src = source.href;
+}
+
 function selectInvestmentSection() {
   if (document.body.dataset.adminView !== "investment") return;
   const key = window.location.hash.slice(1);
@@ -527,6 +623,8 @@ async function loadAdminView() {
     await loadCodebaseAi();
   } else if (view === "investment") {
     selectInvestmentSection();
+  } else if (view === "product-apps") {
+    loadProductAdminApp();
   }
 }
 
