@@ -1,6 +1,6 @@
 import { createBrowserSupabase, getSessionOrNull, hasConfig } from "/shared/lib/supabase-client.js";
 import { isPlatformAdminEmail } from "/shared/lib/orgs.js";
-import "/account/admin/admin-navigation.js";
+import { arrangeAdminWorkspace } from "/account/admin/admin-navigation.js";
 
 let view = "";
 let setupPanel = null;
@@ -546,6 +546,7 @@ export async function startAdmin() {
     try { await invoke("get-platform-admin-access"); } catch { window.location.replace("/account"); return; }
   }
   adminPanel?.classList.remove("hidden");
+  arrangeAdminWorkspace();
   if (signOutButton && !signOutButton.dataset.adminSignoutBound) {
     signOutButton.dataset.adminSignoutBound = "true";
     signOutButton.addEventListener("click", async () => {

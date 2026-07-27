@@ -4,7 +4,7 @@ import {
   hasConfig,
 } from "/shared/lib/supabase-client.js";
 import { isPlatformAdminEmail } from "/shared/lib/orgs.js";
-import "/account/admin/admin-navigation.js";
+import { arrangeAdminWorkspace } from "/account/admin/admin-navigation.js";
 
 let setupPanel, notificationPanel, accountNavLink, notificationProductInput, notificationSubjectInput, notificationCtaUrlInput, notificationPreheaderInput, notificationMessageInput, notificationCtaLabelInput, notificationFilterInput, notificationLoadRecipientsButton, notificationSelectVisibleButton, notificationClearSelectedButton, notificationSelectedCount, notificationLoadedCount, notificationRecipientList, notificationReviewButton, notificationStatus, notificationReviewModal, notificationReviewClose, notificationReviewCancel, notificationReviewProduct, notificationReviewCount, notificationReviewSubject, notificationEmailPreview, notificationSendButton, notificationReviewStatus;
 
@@ -329,6 +329,7 @@ export async function startNotifications() {
   }
 
   show(notificationPanel, true);
+  arrangeAdminWorkspace();
   bindEvents();
 }
 

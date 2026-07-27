@@ -105,6 +105,14 @@ export function renderAdminNavigation() {
   }
 }
 
+export function arrangeAdminWorkspace() {
+  const main = document.querySelector("main.account-admin-page");
+  const layout = main?.querySelector(":scope > .portal-layout");
+  const heading = main?.querySelector(":scope > .portal-heading");
+  const workspace = layout?.querySelector(":scope > .portal-workspace");
+  if (heading && workspace) workspace.prepend(heading);
+}
+
 function isWorkspaceUrl(url) {
   return url.origin === window.location.origin
     && (url.pathname.startsWith("/account/admin/") || url.pathname === "/account/notifications/");
