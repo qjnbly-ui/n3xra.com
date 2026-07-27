@@ -586,7 +586,7 @@
 
 .operations-review-metrics {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 0.65rem;
   margin: 1rem 0;
 }
@@ -622,6 +622,27 @@
   justify-content: flex-start;
 }
 
+.operations-review-category-summary {
+  display: flex;
+  gap: 0.5rem;
+  margin: 0 0 0.9rem;
+  overflow-x: auto;
+}
+
+.operations-review-category-summary > span {
+  flex: 0 0 auto;
+  padding: 0.45rem 0.6rem;
+  color: var(--portal-muted);
+  background: #eef5f8;
+  border-radius: 7px;
+  font-size: 0.68rem;
+}
+
+.operations-review-category-summary > span strong {
+  margin-right: 0.4rem;
+  color: var(--ops-navy);
+}
+
 .operations-review-disclaimer {
   margin: 0.8rem 0;
   padding: 0.7rem 0.8rem;
@@ -633,7 +654,7 @@
 }
 
 .operations-review-table {
-  min-width: 1240px;
+  min-width: 1480px;
 }
 
 .operations-review-table td:nth-child(2) {
@@ -661,6 +682,32 @@
 
 .operations-review-decision .operations-row-action + .operations-row-action {
   margin-left: 0.25rem;
+}
+
+.operations-asset-toggle,
+.operations-upload-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: var(--ops-blue);
+  font-size: 0.72rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.operations-asset-toggle input {
+  width: 16px !important;
+  min-height: 16px !important;
+}
+
+.operations-upload-action input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  clip-path: inset(50%);
 }
 
 .operations-row-action:disabled {

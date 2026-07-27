@@ -12,7 +12,7 @@
   <link rel="stylesheet" href="/assets/site-nav.css">
   <link rel="stylesheet" href="/client-portal/portal.css?v=9">
   <link rel="stylesheet" href="/account/admin/admin.css?v=12">
-  <link rel="stylesheet" href="/account/admin/operations/operations.css?v=2">
+  <link rel="stylesheet" href="/account/admin/operations/operations.css?v=3">
   <script src="/shared/config.js"></script>
   <script src="/assets/vendor/xlsx.full.min.js" defer></script>
   <script src="/assets/site-nav.js" defer></script>
@@ -172,7 +172,9 @@
               <div><span>Approved</span><strong id="ops-review-approved">0</strong></div>
               <div><span>Needs review</span><strong id="ops-review-pending">0</strong></div>
               <div><span>Possible duplicates</span><strong id="ops-review-duplicates">0</strong></div>
+              <div><span>Asset candidates</span><strong id="ops-review-assets">0</strong></div>
             </div>
+            <div class="operations-review-category-summary" id="ops-review-category-summary"></div>
             <div class="operations-review-actions">
               <button class="portal-button portal-button-secondary" type="button" data-import-bulk="approve-safe">Approve clear business expenses</button>
               <button class="portal-button portal-button-secondary" type="button" data-import-bulk="exclude-clear">Exclude transfers, personal, and duplicates</button>
@@ -181,8 +183,8 @@
             <p class="operations-review-disclaimer">Bookkeeping estimate only—not tax advice. Keep receipts and supporting records. Personal, transfer, duplicate, and unresolved transactions should be excluded or left unposted.</p>
             <div class="operations-table-wrap">
               <table class="operations-review-table">
-                <thead><tr><th>Date</th><th>Description</th><th>Amount</th><th>Classification</th><th>Business use</th><th>Category</th><th>Deductible</th><th>Decision</th></tr></thead>
-                <tbody id="ops-import-rows"><tr><td colspan="8">Create a review batch to begin.</td></tr></tbody>
+                <thead><tr><th>Date</th><th>Description</th><th>Amount</th><th>Classification</th><th>Business use</th><th>Category</th><th>Deductible</th><th>Asset</th><th>Receipt</th><th>Decision</th></tr></thead>
+                <tbody id="ops-import-rows"><tr><td colspan="10">Create a review batch to begin.</td></tr></tbody>
               </table>
             </div>
           </article>
@@ -218,6 +220,6 @@
     </form>
   </dialog>
 
-  <script type="module" src="/account/admin/admin.js?v=13"></script>
+  <script type="module" src="/account/admin/admin.js?v=14"></script>
 </body>
 </html>

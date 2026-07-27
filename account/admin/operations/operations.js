@@ -387,11 +387,25 @@ function renderExpenseReview() {
   const approved = rows.filter((row) => ["approved", "posted"].includes(row.status));
   const pending = rows.filter((row) => row.status === "pending");
   const duplicates = rows.filter((row) => row.is_duplicate);
+  const assets = rows.filter((row) => row.asset_candidate);
   $("#ops-review-count").textContent = String(rows.length);
   $("#ops-review-deductible").textContent = moneyCents(proposed);
   $("#ops-review-approved").textContent = String(approved.length);
   $("#ops-review-pending").textContent = String(pending.length);
   $("#ops-review-duplicates").textContent = String(duplicates.length);
+  $("#ops-review-assets").textContent = String(assets.length);
+
+  const categoryTotals = new Map();
+  rows.filter((row) => row.flow === "debit" && Number(row.deductible_cents) > 0).forEach((row) => {
+    const category = row.category || "Uncategorized";
+    categoryTotals.set(category, (categoryTotals.get(category) || 0) + Number(row.deductible_cents));
+  });
+  $("#ops-review-category-summary").innerHTML = categoryTotals.size
+    ? [...categoryTotals.entries()]
+      .sort((left, right) => right[1] - left[1])
+      .map(([category, amount]) => `<span><strong>${escapeHtml(category)}</strong>${moneyCents(amount)}</span>`)
+      .join("")
+    : "<small>Category totals will appear after transactions are classified.</small>";
 
   const locked = batch?.status === "posted";
   $$("[data-import-bulk], [data-import-post]").forEach((button) => { button.disabled = !batch || locked; });
@@ -415,10 +429,16 @@ function renderExpenseReview() {
         <td><input data-import-field="business_use_percent" type="number" min="0" max="100" step="0.01" value="${escapeHtml(row.business_use_percent)}"${controlsDisabled || ["personal", "transfer"].includes(row.classification) ? " disabled" : ""}>%</td>
         <td><input data-import-field="category" type="text" maxlength="120" value="${valueAttribute(row.category)}"${controlsDisabled ? " disabled" : ""}></td>
         <td><strong>${moneyCents(row.deductible_cents)}</strong></td>
+        <td><label class="operations-asset-toggle"><input data-import-field="asset_candidate" type="checkbox"${row.asset_candidate ? " checked" : ""}${controlsDisabled || row.flow !== "debit" ? " disabled" : ""}> Review</label></td>
+        <td>${row.receipt_path
+          ? `<button class="operations-row-action" type="button" data-import-open-receipt="${row.id}">View</button>`
+          : controlsDisabled
+            ? "—"
+            : `<label class="operations-upload-action">Attach<input data-import-receipt="${row.id}" type="file" accept="application/pdf,image/jpeg,image/png,image/webp"></label>`}</td>
         <td class="operations-review-decision">${decision}</td>
       </tr>`;
     }).join("")
-    : '<tr><td colspan="8">Upload a CSV or Excel workbook to create a review batch.</td></tr>';
+    : '<tr><td colspan="10">Upload a CSV or Excel workbook to create a review batch.</td></tr>';
 }
 
 function renderAudit() {
@@ -923,11 +943,37 @@ async function updateImportField(control) {
     payload.business_use_percent = percent;
   } else if (fieldName === "category") {
     payload.category = control.value.trim() || null;
+  } else if (fieldName === "asset_candidate") {
+    payload.asset_candidate = control.checked;
   }
   const { error } = await supabase.from("operations_import_rows").update(payload).eq("id", row.id);
   if (error) return setStatus(error.message || "Unable to update the review row.", "error");
   await loadAll();
   showPanel("expense-review");
+}
+
+async function uploadImportReceipt(id, file) {
+  const row = state.importRows.find((item) => item.id === id);
+  if (!row || row.status === "posted") return;
+  try {
+    const receiptPath = await uploadReceipt(row.id, file);
+    if (!receiptPath) return;
+    const { error } = await supabase.from("operations_import_rows").update({ receipt_path: receiptPath }).eq("id", row.id);
+    if (error) throw error;
+    await loadAll();
+    showPanel("expense-review");
+    setStatus("Receipt attached to the review row.", "success");
+  } catch (error) {
+    setStatus(error.message || "Unable to attach the receipt.", "error");
+  }
+}
+
+async function openImportReceipt(id) {
+  const row = state.importRows.find((item) => item.id === id);
+  if (!row?.receipt_path) return;
+  const { data, error } = await supabase.storage.from("operations-receipts").createSignedUrl(row.receipt_path, 60);
+  if (error) return setStatus(error.message || "Unable to open the receipt.", "error");
+  window.open(data.signedUrl, "_blank", "noopener,noreferrer");
 }
 
 async function setImportDecision(id, action) {
@@ -994,6 +1040,7 @@ function handleWorkspaceClick(event) {
   const importAction = event.target.closest("[data-import-action]");
   const importBulk = event.target.closest("[data-import-bulk]");
   const importPost = event.target.closest("[data-import-post]");
+  const importReceipt = event.target.closest("[data-import-open-receipt]");
   if (tab) showPanel(tab.dataset.operationsView);
   if (panelLink) showPanel(panelLink.dataset.openPanel);
   if (create) openForm(create.dataset.create);
@@ -1004,6 +1051,7 @@ function handleWorkspaceClick(event) {
   if (importAction) setImportDecision(importAction.dataset.id, importAction.dataset.importAction);
   if (importBulk) bulkImportDecision(importBulk.dataset.importBulk);
   if (importPost) postImportBatch();
+  if (importReceipt) openImportReceipt(importReceipt.dataset.importOpenReceipt);
 }
 
 function bindEvents() {
@@ -1020,6 +1068,7 @@ function bindEvents() {
   });
   $("#ops-import-rows").addEventListener("change", (event) => {
     if (event.target.matches("[data-import-field]")) updateImportField(event.target);
+    if (event.target.matches("[data-import-receipt]")) uploadImportReceipt(event.target.dataset.importReceipt, event.target.files[0]);
   });
   $$("[data-close-dialog]").forEach((button) => button.addEventListener("click", () => $("#operations-dialog").close()));
   $$("[data-close-void]").forEach((button) => button.addEventListener("click", () => $("#operations-void-dialog").close()));

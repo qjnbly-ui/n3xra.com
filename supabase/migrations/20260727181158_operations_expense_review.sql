@@ -52,6 +52,9 @@ create table public.operations_import_rows (
   suggestion_reason text,
   fingerprint text not null,
   is_duplicate boolean not null default false,
+  receipt_path text,
+  asset_candidate boolean not null default false,
+  asset_notes text,
   status text not null default 'pending',
   posted_transaction_id uuid references public.operations_transactions(id) on delete set null,
   raw_data jsonb not null default '{}'::jsonb,
@@ -77,6 +80,10 @@ create table public.operations_import_rows (
     check (deductible_cents >= 0 and deductible_cents <= amount_cents),
   constraint operations_import_rows_confidence_check check (confidence between 0 and 100),
   constraint operations_import_rows_fingerprint_check check (fingerprint ~ '^[a-f0-9]{64}$'),
+  constraint operations_import_rows_receipt_check
+    check (receipt_path is null or length(btrim(receipt_path)) between 1 and 1000),
+  constraint operations_import_rows_asset_notes_check
+    check (asset_notes is null or length(asset_notes) <= 1000),
   constraint operations_import_rows_status_check check (status in ('pending', 'approved', 'excluded', 'posted')),
   constraint operations_import_rows_approval_check check (
     status not in ('approved', 'posted')
@@ -310,6 +317,7 @@ begin
       recurring,
       description,
       reference_number,
+      receipt_path,
       notes,
       created_by_user_id,
       source,
@@ -330,6 +338,7 @@ begin
       false,
       left(imported.description, 240),
       imported.fingerprint,
+      imported.receipt_path,
       format(
         'Imported from %s. Original transaction: %s. Approved business use: %s%%.',
         target_batch.file_name,
