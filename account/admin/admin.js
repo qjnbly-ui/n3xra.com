@@ -556,10 +556,7 @@ function embedProductFrame(frame) {
 function loadProductAdminApp() {
   const frame = document.getElementById("product-admin-frame");
   const empty = document.getElementById("product-admin-empty");
-  const title = document.getElementById("product-admin-title");
-  const copy = document.getElementById("product-admin-copy");
-  const kicker = document.getElementById("product-admin-kicker");
-  if (!frame || !empty || !title || !copy || !kicker) return;
+  if (!frame || !empty) return;
 
   const params = new URLSearchParams(window.location.search);
   const app = productAdminApps[params.get("app")];
@@ -571,14 +568,11 @@ function loadProductAdminApp() {
     return;
   }
 
-  const [heading, description, path] = section;
-  kicker.textContent = app.label;
-  title.textContent = heading;
-  copy.textContent = description;
+  const [heading, , path] = section;
   empty.classList.add("hidden");
   frame.classList.add("hidden");
   frame.classList.remove("is-ready");
-  frame.title = `${heading} — N3XRA`;
+  frame.title = `${heading} — ${app.label} — N3XRA`;
   frame.addEventListener("load", () => embedProductFrame(frame), { once: true });
   const source = new URL(path, window.location.origin);
   source.searchParams.set("embed", "1");

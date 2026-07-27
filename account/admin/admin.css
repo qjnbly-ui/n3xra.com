@@ -119,9 +119,9 @@
 }
 
 .account-admin-page .admin-workspace-banner {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
-  gap: 0.8rem;
   margin: 0 0 1.15rem;
   padding: 0 0 0.7rem;
   border-bottom: 1px solid var(--portal-line);
@@ -133,52 +133,30 @@
 }
 
 .account-admin-page .admin-workspace-banner > span {
+  justify-self: end;
   color: var(--portal-muted);
   font-size: 0.76rem;
   font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
 }
 
 .account-admin-page .admin-workspace-banner > strong {
+  justify-self: center;
   display: inline-flex;
   align-items: center;
-  gap: 0.8rem;
   color: var(--portal-ink);
   font-size: 0.78rem;
   font-weight: 800;
 }
 
-.account-admin-page .admin-workspace-banner > strong::before,
-.account-admin-page .admin-workspace-banner > strong::after {
-  width: 1px;
-  height: 0.85rem;
-  background: var(--portal-line);
-  content: "";
+/* The compact shared banner now supplies the page identity. */
+.account-admin-page .portal-workspace:not(#setup-panel) > .portal-workspace-head:first-child {
+  display: none;
 }
 
 .account-admin-page .product-admin-workspace {
   min-width: 0;
-}
-
-.product-admin-frame-head {
-  margin-bottom: 1rem;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid var(--portal-line);
-}
-
-.product-admin-frame-head h2,
-.product-admin-frame-head p {
-  margin: 0;
-}
-
-.product-admin-frame-head h2 {
-  margin-top: 0.2rem;
-  font-family: "Fraunces", Georgia, serif;
-  font-size: clamp(1.65rem, 2.2vw, 2.3rem);
-}
-
-.product-admin-frame-head p:not(.portal-kicker) {
-  margin-top: 0.3rem;
-  color: var(--portal-muted);
 }
 
 .product-admin-frame-empty {
@@ -196,8 +174,8 @@
   display: block;
   width: 100%;
   min-height: calc(100svh - 220px);
-  border: 1px solid var(--portal-line);
-  border-radius: 10px;
+  border: 0;
+  border-radius: 0;
   background: #fff;
   opacity: 0;
   transition: opacity 140ms ease;
@@ -209,12 +187,18 @@
 
 @media (max-width: 560px) {
   .account-admin-page .admin-workspace-banner {
-    flex-wrap: wrap;
+    grid-template-columns: 1fr auto;
     gap: 0.45rem 0.7rem;
   }
 
-  .account-admin-page .admin-workspace-banner > strong::after {
-    display: none;
+  .account-admin-page .admin-workspace-banner > strong {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+
+  .account-admin-page .admin-workspace-banner .portal-kicker,
+  .account-admin-page .admin-workspace-banner > span {
+    grid-row: 2;
   }
 }
 
