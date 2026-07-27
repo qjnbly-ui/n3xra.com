@@ -75,7 +75,7 @@ function renderAccountOptions(filter = "") {
   renderSelectedAccount();
 }
 
-function renderSelectedAccount() {
+async function renderSelectedAccount() {
   const select = document.getElementById("account-select");
   const detail = document.getElementById("account-detail");
   if (!select || !detail) return;
@@ -108,6 +108,28 @@ function renderSelectedAccount() {
       setStatus(error.message, "error");
     }
   });
+
+  try {
+    const { data: loan, error } = await supabase
+      .from("loan_accounts")
+      .select("id,borrower_name,lender_name,original_balance,planned_monthly_payment,status")
+      .eq("user_id", account.id)
+      .eq("status", "active")
+      .maybeSingle();
+    if (error) throw error;
+    if (!loan || document.getElementById("account-select")?.value !== account.id) return;
+    const grid = detail.querySelector(".account-admin-card-grid");
+    grid?.insertAdjacentHTML("beforeend", `
+      <article class="account-access-card">
+        <span>Loan Tracker</span>
+        <h4>${escapeHtml(loan.lender_name || "Loan account")}</h4>
+        <p>${Number(loan.original_balance).toLocaleString("en-US", { style: "currency", currency: "USD" })} original · ${Number(loan.planned_monthly_payment).toLocaleString("en-US", { style: "currency", currency: "USD" })}/month</p>
+        <a class="portal-button portal-button-secondary" href="/account/loan-tracker/?user=${encodeURIComponent(account.id)}">Open Loan Tracker</a>
+      </article>
+    `);
+  } catch (error) {
+    setStatus(error.message || "Unable to load Loan Tracker access.", "error");
+  }
 }
 
 async function loadAccounts() {

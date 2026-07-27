@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow,noarchive,nosnippet">
+  <title>Loan Tracker | N3XRA</title>
+  <meta name="description" content="Track payments, calculate payoff time, and monitor the remaining balance.">
+  <link rel="icon" href="/assets/n3xra_logo_transparent_small.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&amp;family=Manrope:wght@400;500;600;700;800&amp;family=Playfair+Display:wght@600;700&amp;display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/site-nav.css">
+  <link rel="stylesheet" href="/account/loan-tracker/loan-tracker.css?v=1">
+  <script src="/shared/config.js"></script>
+</head>
+<body>
+  <header class="site-topbar tracker-topbar">
+    <div class="site-topbar-inner">
+      <div class="site-topbar-row">
+        <a class="site-brand" href="/"><img src="/assets/n3xra_logo_transparent_small.png" alt=""><span>N3XRA</span></a>
+        <div class="site-nav-actions">
+          <a class="site-menu-link" href="/account/">Dashboard</a>
+          <button class="site-menu-link tracker-signout" id="sign-out" type="button">Sign out</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="tracker-shell">
+    <section class="tracker-state" id="loading-state"><span class="spinner"></span><p>Opening your loan tracker…</p></section>
+    <section class="tracker-state" id="error-state" hidden><p class="eyebrow">Unable to open Loan Tracker</p><h1 id="error-title">Access unavailable</h1><p id="error-message"></p><a class="button" href="/account/">Return to dashboard</a></section>
+
+    <div id="app" hidden>
+      <header class="tracker-hero">
+        <div>
+          <p class="eyebrow">Private financial workspace</p>
+          <h1>Loan Tracker</h1>
+          <p>Track payments, calculate payoff time, and monitor the remaining balance.</p>
+        </div>
+        <div class="loan-identity">
+          <span id="lender-name">Vibrant Credit Union</span>
+          <button class="loan-number" id="reveal-loan" type="button" aria-label="Reveal loan number">••••••1893 <small>Reveal</small></button>
+        </div>
+      </header>
+
+      <nav class="tracker-tabs" aria-label="Loan Tracker sections">
+        <button class="is-active" data-view="overview" type="button">Overview</button>
+        <button data-view="calculator" type="button">Payoff calculator</button>
+        <button data-view="payments" type="button">Payment history</button>
+        <button data-view="schedule" type="button">Schedule</button>
+      </nav>
+
+      <p class="notice" id="starting-figure-note"><strong>Balance note</strong> The loan documents contain two different starting figures. Update the balance when the official current principal balance is confirmed.</p>
+      <p class="notice admin-notice" id="admin-view-notice" hidden><strong>Administrator view</strong> You are managing <span id="admin-borrower-name">this customer</span>’s Loan Tracker. <a href="/account/admin/accounts/">Return to Accounts &amp; Access</a></p>
+
+      <section class="view" data-panel="overview">
+        <div class="metric-grid metric-grid-primary">
+          <article class="metric metric-featured"><span>Current <b id="balance-kind">estimated</b> balance</span><strong id="current-balance">$0.00</strong><small id="balance-as-of">Projection starting balance</small></article>
+          <article class="metric"><span>Monthly payment</span><strong id="planned-payment">$500.00</strong><small id="payment-vs-minimum">Planned amount</small></article>
+          <article class="metric"><span>Estimated payoff</span><strong id="payoff-date">—</strong><small id="payoff-duration">—</small></article>
+        </div>
+        <div class="metric-grid">
+          <article class="metric"><span>Months remaining</span><strong id="months-remaining">—</strong><small>Estimated payments</small></article>
+          <article class="metric"><span>Interest remaining</span><strong id="interest-remaining">—</strong><small>At the planned payment</small></article>
+          <article class="metric"><span>Time saved</span><strong id="time-saved">—</strong><small id="interest-saved">—</small></article>
+          <article class="metric"><span>Required payment</span><strong id="required-payment">$343.51</strong><small id="interest-rate">9.26% APR</small></article>
+        </div>
+
+        <article class="progress-card">
+          <div><div><p class="eyebrow">Principal progress</p><strong id="progress-label">0% of principal paid</strong></div><span id="principal-paid">$0.00 paid</span></div>
+          <div class="progress-track"><span id="progress-bar"></span></div>
+        </article>
+
+        <div class="overview-grid">
+          <article class="panel">
+            <div class="panel-head"><div><p class="eyebrow">Activity</p><h2>Recent payments</h2></div><button class="text-button" data-open-view="payments" type="button">View all</button></div>
+            <div id="recent-payments" class="recent-list"></div>
+          </article>
+          <article class="panel payment-rhythm">
+            <p class="eyebrow">Payment rhythm</p><h2>Two dates to remember</h2>
+            <div><span>03</span><p><strong>Dave pays Brent</strong><small>3rd of each month</small></p></div>
+            <div><span>16</span><p><strong>Credit-union payment due</strong><small>16th of each month</small></p></div>
+          </article>
+        </div>
+        <div class="action-row">
+          <button class="button" data-add-payment type="button">+ Add payment</button>
+          <button class="button secondary" data-open-view="schedule" type="button">View full schedule</button>
+          <button class="button secondary" data-export="excel" type="button">Export Excel</button>
+        </div>
+      </section>
+
+      <section class="view" data-panel="calculator" hidden>
+        <div class="section-heading"><div><p class="eyebrow">Explore your options</p><h2>Payoff calculator</h2><p>Change a payment and see the tradeoff instantly.</p></div></div>
+        <div class="calculator-layout">
+          <form class="panel calculator-form" id="calculator-form">
+            <label>Starting balance <span class="money-field"><span>$</span><input id="calc-balance" inputmode="decimal" value="27024.00" required></span></label>
+            <label>Annual percentage rate <span class="suffix-field"><input id="calc-apr" inputmode="decimal" value="9.26" required><span>%</span></span></label>
+            <label>Monthly payment <span class="money-field"><span>$</span><input id="calc-payment" inputmode="decimal" value="500.00" required></span></label>
+            <label>First payment date <input id="calc-date" type="date" value="2026-08-03" required></label>
+            <div class="quick-payments" aria-label="Quick payment amounts">
+              <button type="button" data-payment="343.51">Minimum <small>$343.51</small></button>
+              <button type="button" data-payment="400">$400</button>
+              <button class="is-active" type="button" data-payment="500">$500</button>
+              <button type="button" data-payment="600">$600</button>
+              <button type="button" data-payment="custom">Custom</button>
+            </div>
+            <p class="form-error" id="calculator-error" role="alert"></p>
+          </form>
+          <article class="calculator-result">
+            <p class="eyebrow">Your selected plan</p><span class="result-date" id="calc-payoff-date">—</span><p id="calc-duration">—</p>
+            <dl>
+              <div><dt>Total interest</dt><dd id="calc-interest">—</dd></div>
+              <div><dt>Total paid</dt><dd id="calc-total">—</dd></div>
+              <div><dt>Final payment</dt><dd id="calc-final">—</dd></div>
+              <div><dt>Interest saved</dt><dd id="calc-saved">—</dd></div>
+              <div><dt>Time saved</dt><dd id="calc-time-saved">—</dd></div>
+            </dl>
+          </article>
+        </div>
+        <div class="comparison-grid">
+          <article class="plan-card"><p class="eyebrow">Minimum payment</p><h3>$343.51 <small>per month</small></h3><dl><div><dt>Payoff</dt><dd id="minimum-payoff">—</dd></div><div><dt>Interest</dt><dd id="minimum-interest">—</dd></div><div><dt>Payments</dt><dd id="minimum-count">—</dd></div></dl></article>
+          <article class="plan-card is-selected"><p class="eyebrow">Selected plan</p><h3 id="selected-plan-payment">$500.00 <small>per month</small></h3><dl><div><dt>Payoff</dt><dd id="selected-payoff">—</dd></div><div><dt>Interest</dt><dd id="selected-interest">—</dd></div><div><dt>Payments</dt><dd id="selected-count">—</dd></div></dl></article>
+        </div>
+        <p class="notice compact">This estimate assumes the full payment is applied to the loan and any amount above the required payment reduces principal. Official lender records take priority over this estimate.</p>
+      </section>
+
+      <section class="view" data-panel="payments" hidden>
+        <div class="section-heading"><div><p class="eyebrow">Audit-friendly record</p><h2>Payment history</h2><p>Voided payments remain visible so the history stays understandable.</p></div><div class="action-row"><select id="payment-year" aria-label="Filter payments by year"><option value="">All years</option></select><button class="button secondary" data-export="payments" type="button">Export CSV</button><button class="button" data-add-payment type="button">+ Add payment</button></div></div>
+        <div class="table-wrap"><table><thead><tr><th>#</th><th>Due date</th><th>Paid date</th><th>Amount</th><th>Interest</th><th>Principal</th><th>Remaining balance</th><th>Notes</th><th></th></tr></thead><tbody id="payment-table"></tbody></table></div>
+      </section>
+
+      <section class="view" data-panel="schedule" hidden>
+        <div class="section-heading"><div><p class="eyebrow">Future projection</p><h2>Amortization schedule</h2><p>Rebuilt from the latest payment or official balance.</p></div><div class="action-row"><button class="button secondary" data-export="schedule" type="button">Export CSV</button><button class="button secondary" data-export="excel" type="button">Export Excel</button></div></div>
+        <details class="schedule-details" open><summary><span>Full estimated schedule</span><small id="schedule-summary">—</small></summary><div class="table-wrap"><table><thead><tr><th>#</th><th>Payment date</th><th>Beginning balance</th><th>Payment</th><th>Interest</th><th>Principal</th><th>Ending balance</th></tr></thead><tbody id="schedule-table"></tbody></table></div></details>
+      </section>
+    </div>
+  </main>
+
+  <dialog id="payment-dialog">
+    <form method="dialog" id="payment-form">
+      <header><div><p class="eyebrow">Payment record</p><h2 id="payment-dialog-title">Add payment</h2></div><button class="dialog-close" value="cancel" aria-label="Close" type="submit">×</button></header>
+      <input id="payment-id" type="hidden">
+      <div class="form-grid">
+        <label>Payment date<input id="payment-date" type="date" required></label>
+        <label>Amount<span class="money-field"><span>$</span><input id="payment-amount" inputmode="decimal" required></span></label>
+        <label>Scheduled due date<input id="scheduled-date" type="date"></label>
+        <label>Confirmation or check number<input id="confirmation-number" maxlength="120"></label>
+        <label class="wide">Official remaining balance <span class="optional">(optional)</span><span class="money-field"><span>$</span><input id="official-balance" inputmode="decimal" placeholder="Overrides the estimate"></span></label>
+        <label class="wide">Notes<textarea id="payment-notes" rows="3" placeholder="Paid Brent by check #1042."></textarea></label>
+        <label class="checkbox wide"><input id="applied-to-loan" type="checkbox" checked><span>This amount was applied to the loan</span></label>
+      </div>
+      <p class="form-error" id="payment-error" role="alert"></p>
+      <footer><button class="button secondary" value="cancel" type="submit">Cancel</button><button class="button" id="save-payment" value="default" type="submit">Save payment</button></footer>
+    </form>
+  </dialog>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="/account/loan-tracker/loan-tracker.js?v=1"></script>
+</body>
+</html>

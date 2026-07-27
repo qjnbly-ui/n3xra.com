@@ -61,6 +61,8 @@ const partnerPortalLink = document.getElementById("partner-portal-link");
 const investmentInterestCard = document.getElementById("investment-interest-card");
 const investmentInterestSummary = document.getElementById("investment-interest-summary");
 const investmentInterestLink = document.getElementById("investment-interest-link");
+const loanTrackerAppCard = document.getElementById("loan-tracker-app-card");
+const loanTrackerSummary = document.getElementById("loan-tracker-summary");
 const connectedAppsGrid = document.getElementById("connected-apps-grid");
 const availableAppsGrid = document.getElementById("available-apps-grid");
 const connectedAppsEmpty = document.getElementById("connected-apps-empty");
@@ -79,6 +81,7 @@ let memberships = [];
 let musicProfile = null;
 let viralsProfile = null;
 let websiteServiceRequest = null;
+let loanAccount = null;
 let platformAdminAccess = null;
 let validatedSignupReferralCode = "";
 let signupReferralTimer = null;
@@ -470,6 +473,17 @@ async function loadWebsiteServiceRequest() {
   websiteServiceRequest = data || null;
 }
 
+async function loadLoanAccount() {
+  const { data, error } = await supabase
+    .from("loan_accounts")
+    .select("id,name,lender_name,planned_monthly_payment,status")
+    .eq("user_id", currentSession.user.id)
+    .eq("status", "active")
+    .maybeSingle();
+  if (error && error.code !== "PGRST116") throw error;
+  loanAccount = data || null;
+}
+
 async function loadProfileName() {
   const { data } = await supabase
     .from("profiles")
@@ -571,6 +585,7 @@ async function renderDashboard(message = "") {
     loadInvestmentInterest(),
     loadViralsProfile(),
     loadWebsiteServiceRequest(),
+    loadLoanAccount(),
   ]);
   const isApprovedPartner = partnerAccess.status === "fulfilled" && partnerAccess.value === true;
   const interest = investmentInterest.status === "fulfilled" ? investmentInterest.value : null;
@@ -592,6 +607,13 @@ async function renderDashboard(message = "") {
   } else {
     websitePortalSummary.textContent = "No website workspace yet. Start a request when you are ready to build or manage a site.";
     websitePortalLink.textContent = "Start Website Request";
+  }
+
+  if (loanAccount && loanTrackerSummary) {
+    loanTrackerSummary.textContent = `${loanAccount.lender_name || loanAccount.name} · ${Number(loanAccount.planned_monthly_payment).toLocaleString("en-US", { style: "currency", currency: "USD" })} planned monthly payment.`;
+    placeAppCard(loanTrackerAppCard, true);
+  } else {
+    show(loanTrackerAppCard, false);
   }
 
   const hasMusicProfile = Boolean(musicProfile);
@@ -976,6 +998,7 @@ async function handleSignout() {
   musicProfile = null;
   viralsProfile = null;
   websiteServiceRequest = null;
+  loanAccount = null;
   renderShell("auth");
   setAuthMode("signin");
   setStatus("Signed out.");

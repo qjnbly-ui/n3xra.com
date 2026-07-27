@@ -1,0 +1,432 @@
+import { createBrowserSupabase, getSessionOrNull, hasConfig } from "/shared/lib/supabase-client.js";
+import {
+  buildSchedule,
+  comparePlans,
+  fromCents,
+  monthsToWords,
+  nextMonthlyDate,
+  rebuildPayments,
+  summarizeSchedule,
+  toCents,
+} from "./loan-engine.mjs";
+
+const $ = (selector, root = document) => root.querySelector(selector);
+const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
+const currency = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
+const shortDate = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+const monthDate = new Intl.DateTimeFormat("en-US", { month: "short", year: "numeric", timeZone: "UTC" });
+let supabase;
+let session;
+let account;
+let payments = [];
+let rebuiltPayments = [];
+let futureSchedule = [];
+let overviewComparison;
+let toastTimer;
+
+function money(value) {
+  return currency.format(Number(value || 0));
+}
+
+function moneyCents(value) {
+  return currency.format(Number(value || 0) / 100);
+}
+
+function dateLabel(value, monthOnly = false) {
+  if (!value) return "—";
+  const date = new Date(`${String(value).slice(0, 10)}T00:00:00Z`);
+  return (monthOnly ? monthDate : shortDate).format(date);
+}
+
+function escapeHtml(value = "") {
+  return String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
+}
+
+function setText(id, value) {
+  const element = document.getElementById(id);
+  if (element) element.textContent = value;
+}
+
+function showToast(message) {
+  const toast = $("#toast");
+  toast.textContent = message;
+  toast.classList.add("is-visible");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove("is-visible"), 3500);
+}
+
+function showError(title, message) {
+  $("#loading-state").hidden = true;
+  $("#app").hidden = true;
+  $("#error-state").hidden = false;
+  setText("error-title", title);
+  setText("error-message", message);
+}
+
+function showView(view) {
+  const valid = $$("[data-panel]").some((panel) => panel.dataset.panel === view);
+  const next = valid ? view : "overview";
+  $$("[data-view]").forEach((button) => button.classList.toggle("is-active", button.dataset.view === next));
+  $$("[data-panel]").forEach((panel) => { panel.hidden = panel.dataset.panel !== next; });
+  history.replaceState(null, "", next === "overview" ? location.pathname : `#${next}`);
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function getActivePayments() {
+  return rebuiltPayments.filter((payment) => payment.status !== "voided" && payment.applied_to_loan !== false);
+}
+
+function projectionAnchor() {
+  const active = getActivePayments();
+  const latest = active.at(-1);
+  const originalCents = toCents(account.original_balance);
+  return {
+    balanceCents: latest ? toCents(latest.ending_balance) : originalCents,
+    firstPaymentDate: nextMonthlyDate(account.first_payment_date, active.length),
+    latest,
+  };
+}
+
+function calculateFuture(paymentCents = toCents(account.planned_monthly_payment)) {
+  const anchor = projectionAnchor();
+  return buildSchedule({
+    balanceCents: anchor.balanceCents,
+    aprBasisPoints: Math.round(Number(account.annual_interest_rate) * 100),
+    paymentCents,
+    firstPaymentDate: anchor.firstPaymentDate,
+  });
+}
+
+function renderOverview() {
+  const anchor = projectionAnchor();
+  futureSchedule = calculateFuture();
+  const summary = summarizeSchedule(futureSchedule);
+  overviewComparison = comparePlans({
+    balanceCents: anchor.balanceCents,
+    aprBasisPoints: Math.round(Number(account.annual_interest_rate) * 100),
+    paymentCents: toCents(account.planned_monthly_payment),
+    firstPaymentDate: anchor.firstPaymentDate,
+  }, toCents(account.required_monthly_payment));
+  const latest = anchor.latest;
+  const isOfficial = Boolean(latest?.official_balance_after_payment);
+  const originalCents = toCents(account.original_balance);
+  const paidCents = Math.max(0, originalCents - anchor.balanceCents);
+  const progress = originalCents ? Math.min(100, (paidCents / originalCents) * 100) : 0;
+
+  setText("current-balance", moneyCents(anchor.balanceCents));
+  setText("balance-kind", isOfficial ? "official" : "estimated");
+  setText("balance-as-of", latest ? `${isOfficial ? "Official" : "Estimated"} as of ${dateLabel(latest.payment_date)}` : "Projection starting balance");
+  setText("planned-payment", money(account.planned_monthly_payment));
+  setText("payment-vs-minimum", `${money(Number(account.planned_monthly_payment) - Number(account.required_monthly_payment))} above minimum`);
+  setText("payoff-date", dateLabel(summary.payoffDate, true));
+  setText("payoff-duration", monthsToWords(summary.payments));
+  setText("months-remaining", String(summary.payments));
+  setText("interest-remaining", moneyCents(summary.totalInterestCents));
+  setText("time-saved", monthsToWords(overviewComparison.monthsSaved));
+  setText("interest-saved", `${moneyCents(overviewComparison.interestSavedCents)} interest saved`);
+  setText("required-payment", money(account.required_monthly_payment));
+  setText("interest-rate", `${Number(account.annual_interest_rate).toFixed(2)}% APR`);
+  setText("progress-label", `${progress.toFixed(progress >= 10 ? 0 : 1)}% of principal paid`);
+  setText("principal-paid", `${moneyCents(paidCents)} paid`);
+  $("#progress-bar").style.width = `${progress}%`;
+  setText("lender-name", account.lender_name || "Loan account");
+
+  const recent = [...rebuiltPayments].reverse().slice(0, 4);
+  $("#recent-payments").innerHTML = recent.length ? recent.map((payment) => `
+    <div class="recent-row ${payment.status === "voided" ? "is-voided" : ""}">
+      <span>${dateLabel(payment.payment_date).split(" ")[0].slice(0, 3)}</span>
+      <p><strong>${payment.status === "voided" ? "Voided payment" : `Payment ${payment.payment_number || ""}`}</strong><small>${dateLabel(payment.payment_date)}${payment.notes ? ` · ${escapeHtml(payment.notes)}` : ""}</small></p>
+      <strong>${money(payment.amount)}</strong>
+    </div>`).join("") : '<p class="empty-copy">No payments recorded yet. Add the first payment when Dave pays Brent.</p>';
+}
+
+function renderCalculator() {
+  $("#calc-balance").value = fromCents(projectionAnchor().balanceCents);
+  $("#calc-apr").value = Number(account.annual_interest_rate).toFixed(2);
+  $("#calc-payment").value = Number(account.planned_monthly_payment).toFixed(2);
+  $("#calc-date").value = projectionAnchor().firstPaymentDate;
+  updateCalculator();
+}
+
+function updateCalculator() {
+  const error = $("#calculator-error");
+  error.textContent = "";
+  try {
+    const balanceCents = toCents($("#calc-balance").value);
+    const paymentCents = toCents($("#calc-payment").value);
+    const aprBasisPoints = Math.round(Number($("#calc-apr").value) * 100);
+    if (balanceCents <= 0 || paymentCents <= 0 || !Number.isFinite(aprBasisPoints) || aprBasisPoints < 0) throw new Error("Use positive balance and payment values.");
+    const comparison = comparePlans({
+      balanceCents, paymentCents, aprBasisPoints, firstPaymentDate: $("#calc-date").value,
+    }, toCents(account.required_monthly_payment));
+    const { selected, minimum } = comparison;
+    setText("calc-payoff-date", dateLabel(selected.payoffDate, true));
+    setText("calc-duration", `${selected.payments} payments · ${monthsToWords(selected.payments)}`);
+    setText("calc-interest", moneyCents(selected.totalInterestCents));
+    setText("calc-total", moneyCents(selected.totalPaidCents));
+    setText("calc-final", moneyCents(selected.finalPaymentCents));
+    setText("calc-saved", moneyCents(comparison.interestSavedCents));
+    setText("calc-time-saved", monthsToWords(comparison.monthsSaved));
+    setText("minimum-payoff", dateLabel(minimum.payoffDate, true));
+    setText("minimum-interest", moneyCents(minimum.totalInterestCents));
+    setText("minimum-count", String(minimum.payments));
+    setText("selected-plan-payment", `${moneyCents(paymentCents)} per month`);
+    setText("selected-payoff", dateLabel(selected.payoffDate, true));
+    setText("selected-interest", moneyCents(selected.totalInterestCents));
+    setText("selected-count", String(selected.payments));
+  } catch (caught) {
+    error.textContent = caught.message || "Unable to calculate this plan.";
+  }
+}
+
+function renderPaymentYears() {
+  const select = $("#payment-year");
+  const selected = select.value;
+  const years = [...new Set(rebuiltPayments.map((payment) => String(payment.payment_date).slice(0, 4)))].sort().reverse();
+  select.innerHTML = '<option value="">All years</option>' + years.map((year) => `<option value="${year}">${year}</option>`).join("");
+  select.value = years.includes(selected) ? selected : "";
+}
+
+function renderPayments() {
+  renderPaymentYears();
+  const year = $("#payment-year").value;
+  const filtered = rebuiltPayments.filter((payment) => !year || String(payment.payment_date).startsWith(year));
+  $("#payment-table").innerHTML = filtered.length ? filtered.map((payment) => `
+    <tr class="${payment.status === "voided" ? "is-voided" : ""}">
+      <td>${payment.payment_number || "—"}</td><td>${dateLabel(payment.scheduled_date)}</td><td>${dateLabel(payment.payment_date)}</td>
+      <td class="money">${money(payment.amount)}</td><td class="money">${payment.interest_amount === null ? "—" : money(payment.interest_amount)}</td>
+      <td class="money">${payment.principal_amount === null ? "—" : money(payment.principal_amount)}</td>
+      <td class="money">${payment.ending_balance === null ? "—" : money(payment.ending_balance)}${payment.official_balance_after_payment ? " · official" : ""}</td>
+      <td>${escapeHtml(payment.notes || payment.confirmation_number || "—")}</td>
+      <td><div class="row-menu">${payment.status !== "voided" ? `<button type="button" data-edit-payment="${payment.id}">Edit</button><button type="button" data-void-payment="${payment.id}">Void</button>` : ""}</div></td>
+    </tr>`).join("") : '<tr><td colspan="9">No payments recorded for this period.</td></tr>';
+}
+
+function renderSchedule() {
+  const summary = summarizeSchedule(futureSchedule);
+  setText("schedule-summary", `${summary.payments} payments · ${moneyCents(summary.totalInterestCents)} estimated interest`);
+  $("#schedule-table").innerHTML = futureSchedule.map((row) => `
+    <tr><td>${row.paymentNumber}</td><td>${dateLabel(row.paymentDate)}</td>
+    <td class="money">${moneyCents(row.beginningBalanceCents)}</td><td class="money">${moneyCents(row.paymentCents)}</td>
+    <td class="money">${moneyCents(row.interestCents)}</td><td class="money">${moneyCents(row.principalCents)}</td>
+    <td class="money">${moneyCents(row.endingBalanceCents)}</td></tr>`).join("");
+}
+
+function renderAll() {
+  rebuiltPayments = rebuildPayments(account, payments);
+  renderOverview();
+  renderCalculator();
+  renderPayments();
+  renderSchedule();
+}
+
+async function persistBreakdowns() {
+  const calculated = rebuildPayments(account, payments);
+  const writes = calculated.map((payment) => supabase.from("loan_payments").update({
+    payment_number: payment.payment_number,
+    beginning_balance: payment.beginning_balance,
+    interest_amount: payment.interest_amount,
+    principal_amount: payment.principal_amount,
+    ending_balance: payment.ending_balance,
+  }).eq("id", payment.id).eq("loan_account_id", account.id));
+  const results = await Promise.all(writes);
+  const failed = results.find((result) => result.error);
+  if (failed) throw failed.error;
+  rebuiltPayments = calculated;
+}
+
+async function loadPayments() {
+  const { data, error } = await supabase.from("loan_payments").select("*").eq("loan_account_id", account.id).order("payment_date").order("created_at");
+  if (error) throw error;
+  payments = data || [];
+}
+
+function openPaymentDialog(payment = null) {
+  $("#payment-form").reset();
+  $("#payment-id").value = payment?.id || "";
+  $("#payment-dialog-title").textContent = payment ? "Edit payment" : "Add payment";
+  $("#payment-date").value = payment?.payment_date || new Date().toISOString().slice(0, 10);
+  $("#payment-amount").value = payment ? Number(payment.amount).toFixed(2) : Number(account.planned_monthly_payment).toFixed(2);
+  $("#scheduled-date").value = payment?.scheduled_date || "";
+  $("#confirmation-number").value = payment?.confirmation_number || "";
+  $("#official-balance").value = payment?.official_balance_after_payment ?? "";
+  $("#payment-notes").value = payment?.notes || "";
+  $("#applied-to-loan").checked = payment?.applied_to_loan !== false;
+  $("#payment-error").textContent = "";
+  $("#payment-dialog").showModal();
+}
+
+async function savePayment() {
+  const errorBox = $("#payment-error");
+  errorBox.textContent = "";
+  const id = $("#payment-id").value;
+  try {
+    const amountCents = toCents($("#payment-amount").value);
+    if (amountCents <= 0) throw new Error("Payment amount must be greater than zero.");
+    const officialValue = $("#official-balance").value.trim();
+    if (officialValue && toCents(officialValue) < 0) throw new Error("Official balance cannot be negative.");
+    const payload = {
+      loan_account_id: account.id,
+      payment_date: $("#payment-date").value,
+      scheduled_date: $("#scheduled-date").value || null,
+      amount: fromCents(amountCents),
+      official_balance_after_payment: officialValue ? fromCents(toCents(officialValue)) : null,
+      confirmation_number: $("#confirmation-number").value.trim() || null,
+      notes: $("#payment-notes").value.trim() || null,
+      applied_to_loan: $("#applied-to-loan").checked,
+      status: "completed",
+    };
+    const query = id
+      ? supabase.from("loan_payments").update(payload).eq("id", id).eq("loan_account_id", account.id)
+      : supabase.from("loan_payments").insert(payload);
+    const { error } = await query;
+    if (error) throw error;
+    await loadPayments();
+    await persistBreakdowns();
+    renderAll();
+    $("#payment-dialog").close();
+    showToast(id ? "Payment updated." : "Payment recorded.");
+  } catch (caught) {
+    errorBox.textContent = caught.message || "Unable to save this payment.";
+  }
+}
+
+async function voidPayment(id) {
+  const payment = payments.find((item) => item.id === id);
+  if (!payment || !window.confirm(`Void the ${money(payment.amount)} payment from ${dateLabel(payment.payment_date)}? It will remain in the history.`)) return;
+  const { error } = await supabase.from("loan_payments").update({ status: "voided" }).eq("id", id).eq("loan_account_id", account.id);
+  if (error) return showToast(error.message || "Unable to void payment.");
+  await loadPayments();
+  await persistBreakdowns();
+  renderAll();
+  showToast("Payment voided and retained in history.");
+}
+
+function csvCell(value) {
+  const text = String(value ?? "");
+  return `"${text.replaceAll('"', '""')}"`;
+}
+
+function download(filename, content, type) {
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(new Blob([content], { type }));
+  link.download = filename;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+}
+
+function exportCsv(kind) {
+  let headers;
+  let rows;
+  if (kind === "payments") {
+    headers = ["Payment #", "Due Date", "Paid Date", "Amount", "Interest", "Principal", "Remaining Balance", "Status", "Notes"];
+    rows = rebuiltPayments.map((p) => [p.payment_number, p.scheduled_date, p.payment_date, p.amount, p.interest_amount, p.principal_amount, p.ending_balance, p.status, p.notes]);
+  } else {
+    headers = ["Payment #", "Payment Date", "Beginning Balance", "Payment", "Interest", "Principal", "Ending Balance"];
+    rows = futureSchedule.map((r) => [r.paymentNumber, r.paymentDate, fromCents(r.beginningBalanceCents), fromCents(r.paymentCents), fromCents(r.interestCents), fromCents(r.principalCents), fromCents(r.endingBalanceCents)]);
+  }
+  download(`dave-wilson-loan-${kind}.csv`, [headers, ...rows].map((row) => row.map(csvCell).join(",")).join("\r\n"), "text/csv;charset=utf-8");
+}
+
+function xmlEscape(value) {
+  return String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+}
+
+function excelCell(value, style = "") {
+  const numeric = typeof value === "number";
+  return `<Cell${style ? ` ss:StyleID="${style}"` : ""}><Data ss:Type="${numeric ? "Number" : "String"}">${xmlEscape(value)}</Data></Cell>`;
+}
+
+function excelDate(value) {
+  if (!value) return "";
+  return Math.floor((new Date(`${value}T00:00:00Z`).getTime() / 86_400_000) + 25569);
+}
+
+function excelSheet(name, headers, rows, types = []) {
+  const header = `<Row>${headers.map((value) => excelCell(value, "Header")).join("")}</Row>`;
+  const body = rows.map((row) => `<Row>${row.map((value, index) => excelCell(value ?? "", types[index] || "")).join("")}</Row>`).join("");
+  return `<Worksheet ss:Name="${xmlEscape(name)}"><Table>${header}${body}</Table><WorksheetOptions xmlns="urn:schemas-microsoft-com:office:excel"><FreezePanes/><FrozenNoSplit/><SplitHorizontal>1</SplitHorizontal><TopRowBottomPane>1</TopRowBottomPane></WorksheetOptions></Worksheet>`;
+}
+
+function exportExcel() {
+  const anchor = projectionAnchor();
+  const summary = summarizeSchedule(futureSchedule);
+  const summaryRows = [
+    ["Original balance", Number(account.original_balance), "Currency"], ["Current estimated balance", anchor.balanceCents / 100, "Currency"],
+    ["APR", Number(account.annual_interest_rate) / 100, "Percent"], ["Required payment", Number(account.required_monthly_payment), "Currency"],
+    ["Planned payment", Number(account.planned_monthly_payment), "Currency"], ["Estimated payoff date", excelDate(summary.payoffDate), "Date"],
+    ["Estimated interest", summary.totalInterestCents / 100, "Currency"], ["Time saved (months)", overviewComparison.monthsSaved, ""],
+    ["Interest saved", overviewComparison.interestSavedCents / 100, "Currency"],
+  ];
+  const paymentRows = rebuiltPayments.map((p) => [p.payment_number || "", excelDate(p.payment_date), Number(p.amount), p.interest_amount === null ? "" : Number(p.interest_amount), p.principal_amount === null ? "" : Number(p.principal_amount), p.ending_balance === null ? "" : Number(p.ending_balance), p.status, p.notes || ""]);
+  const scheduleRows = futureSchedule.map((r) => [r.paymentNumber, excelDate(r.paymentDate), r.beginningBalanceCents / 100, r.paymentCents / 100, r.interestCents / 100, r.principalCents / 100, r.endingBalanceCents / 100]);
+  const summarySheet = `<Worksheet ss:Name="Loan Summary"><Table><Row>${excelCell("Field", "Header")}${excelCell("Value", "Header")}</Row>${summaryRows.map(([label, value, style]) => `<Row>${excelCell(label)}${excelCell(value, style)}</Row>`).join("")}</Table></Worksheet>`;
+  const workbook = `<?xml version="1.0"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"><Styles><Style ss:ID="Header"><Font ss:Bold="1"/><Interior ss:Color="#DCEADE" ss:Pattern="Solid"/></Style><Style ss:ID="Currency"><NumberFormat ss:Format="$#,##0.00"/></Style><Style ss:ID="Percent"><NumberFormat ss:Format="0.00%"/></Style><Style ss:ID="Date"><NumberFormat ss:Format="mmm d, yyyy"/></Style></Styles>${summarySheet}${excelSheet("Payment History", ["Payment #", "Date", "Amount", "Interest", "Principal", "Balance", "Status", "Notes"], paymentRows, ["", "Date", "Currency", "Currency", "Currency", "Currency"])}${excelSheet("Amortization Schedule", ["Payment #", "Payment Date", "Beginning Balance", "Payment", "Interest", "Principal", "Ending Balance"], scheduleRows, ["", "Date", "Currency", "Currency", "Currency", "Currency", "Currency"])}</Workbook>`;
+  download("dave-wilson-loan-tracker.xls", workbook, "application/vnd.ms-excel");
+}
+
+function bindEvents() {
+  $$("[data-view]").forEach((button) => button.addEventListener("click", () => showView(button.dataset.view)));
+  $$("[data-open-view]").forEach((button) => button.addEventListener("click", () => showView(button.dataset.openView)));
+  $$("[data-add-payment]").forEach((button) => button.addEventListener("click", () => openPaymentDialog()));
+  $$("[data-export]").forEach((button) => button.addEventListener("click", () => button.dataset.export === "excel" ? exportExcel() : exportCsv(button.dataset.export)));
+  $("#calculator-form").addEventListener("input", updateCalculator);
+  $$(".quick-payments button").forEach((button) => button.addEventListener("click", () => {
+    $$(".quick-payments button").forEach((item) => item.classList.remove("is-active"));
+    button.classList.add("is-active");
+    if (button.dataset.payment !== "custom") $("#calc-payment").value = Number(button.dataset.payment).toFixed(2);
+    else $("#calc-payment").focus();
+    updateCalculator();
+  }));
+  $("#payment-year").addEventListener("change", renderPayments);
+  $("#payment-table").addEventListener("click", (event) => {
+    const edit = event.target.closest("[data-edit-payment]");
+    const voidButton = event.target.closest("[data-void-payment]");
+    if (edit) openPaymentDialog(payments.find((payment) => payment.id === edit.dataset.editPayment));
+    if (voidButton) voidPayment(voidButton.dataset.voidPayment);
+  });
+  $("#payment-form").addEventListener("submit", (event) => {
+    event.preventDefault();
+    if (event.submitter?.value === "cancel") return $("#payment-dialog").close();
+    if (!event.currentTarget.reportValidity()) return;
+    savePayment();
+  });
+  $("#reveal-loan").addEventListener("click", (event) => {
+    const revealed = event.currentTarget.dataset.revealed === "true";
+    event.currentTarget.dataset.revealed = String(!revealed);
+    event.currentTarget.innerHTML = revealed ? `••••••${escapeHtml(String(account.loan_number || "").slice(-4))} <small>Reveal</small>` : `${escapeHtml(account.loan_number || "Not recorded")} <small>Hide</small>`;
+  });
+  $("#sign-out").addEventListener("click", async () => {
+    await supabase.auth.signOut({ scope: "local" });
+    location.assign("/account/");
+  });
+}
+
+async function init() {
+  if (!hasConfig()) return showError("Configuration missing", "The N3XRA database connection is not configured.");
+  supabase = createBrowserSupabase();
+  session = await getSessionOrNull(supabase);
+  if (!session?.user) {
+    location.replace(`/account/?next=${encodeURIComponent(location.pathname)}`);
+    return;
+  }
+  const requestedUserId = new URLSearchParams(location.search).get("user");
+  const targetUserId = requestedUserId || session.user.id;
+  const { data, error } = await supabase.from("loan_accounts").select("*").eq("user_id", targetUserId).eq("status", "active").maybeSingle();
+  if (error) return showError("Loan data unavailable", error.message || "Unable to load this loan.");
+  if (!data) return showError("No accessible loan tracker", "No active loan is available to this account, or you do not have permission to view it.");
+  account = data;
+  if (requestedUserId && requestedUserId !== session.user.id) {
+    $("#admin-view-notice").hidden = false;
+    setText("admin-borrower-name", account.borrower_name || "this customer");
+  }
+  await loadPayments();
+  rebuiltPayments = rebuildPayments(account, payments);
+  bindEvents();
+  renderAll();
+  $("#loading-state").hidden = true;
+  $("#app").hidden = false;
+  showView(location.hash.slice(1) || "overview");
+}
+
+init().catch((error) => showError("Something went wrong", error.message || "Unable to open Loan Tracker."));
