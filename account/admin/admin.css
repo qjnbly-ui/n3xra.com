@@ -11,6 +11,56 @@
   min-height: calc(100svh - 75px);
 }
 
+.site-topbar.admin-topbar {
+  color: #ffffff;
+  background: #070c12;
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+.site-topbar.admin-topbar .site-topbar-inner {
+  width: min(1180px, calc(100vw - 3rem));
+  padding: 1rem 0;
+}
+
+.site-topbar.admin-topbar .site-brand {
+  gap: 0.68rem;
+  color: #ffffff;
+  font-size: 1rem;
+  letter-spacing: 0.22em;
+}
+
+.site-topbar.admin-topbar .site-brand img {
+  width: 34px;
+  height: 34px;
+}
+
+.site-topbar.admin-topbar .site-nav-actions .site-menu-link,
+.site-topbar.admin-topbar .site-nav-actions .portal-logout {
+  min-height: 44px;
+  padding: 0.55rem 0.88rem;
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.16);
+  font-size: 0.72rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.site-topbar.admin-topbar .site-menu-toggle {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.site-topbar.admin-topbar .site-menu-toggle span {
+  background: #ffffff;
+}
+
+@media (min-width: 801px) {
+  .site-topbar.admin-topbar .site-menu-toggle {
+    display: none;
+  }
+}
+
 @media (min-width: 801px) {
   .account-admin-page {
     width: 100%;
@@ -47,11 +97,27 @@
     box-shadow: none;
   }
 
-  .account-admin-page .portal-workspace > .portal-heading {
-    justify-items: start;
-    margin: 0 0 2rem;
-    text-align: left;
-  }
+}
+
+.account-admin-page .admin-workspace-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 0 0 1.75rem;
+  padding: 0 0 0.95rem;
+  border-bottom: 1px solid var(--portal-line);
+  text-align: left;
+}
+
+.account-admin-page .admin-workspace-banner .portal-kicker {
+  margin: 0;
+}
+
+.account-admin-page .admin-workspace-banner > span {
+  color: var(--portal-muted);
+  font-size: 0.76rem;
+  font-weight: 700;
 }
 
 .account-admin-section {

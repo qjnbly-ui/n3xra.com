@@ -3,7 +3,7 @@ body {
   background: var(--portal-bg);
 }
 
-.notification-page {
+.notification-page:not(.account-admin-page) {
   width: min(1480px, calc(100vw - 2rem));
   min-height: calc(100svh - 75px);
 }

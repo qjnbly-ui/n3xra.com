@@ -82,22 +82,29 @@ function bindInvestmentToggle(container) {
   const items = container.querySelector("[data-investment-nav-items]");
   if (!button || !items) return;
   button.addEventListener("click", () => {
+    const scrollTop = container.scrollTop;
     const expanded = button.getAttribute("aria-expanded") === "true";
     button.setAttribute("aria-expanded", String(!expanded));
     items.hidden = expanded;
+    requestAnimationFrame(() => { container.scrollTop = scrollTop; });
   });
 }
 
 export function renderAdminNavigation() {
+  document.querySelector(".site-topbar")?.classList.add("admin-topbar");
   document.querySelectorAll(".portal-nav").forEach((nav) => {
+    const scrollTop = nav.scrollTop;
     nav.innerHTML = navigationMarkup(false);
     nav.setAttribute("aria-label", "N3XRA administration");
     bindInvestmentToggle(nav);
+    requestAnimationFrame(() => { nav.scrollTop = scrollTop; });
   });
 
   document.querySelectorAll(".site-mobile-menu").forEach((nav) => {
+    const scrollTop = nav.scrollTop;
     nav.innerHTML = navigationMarkup(true);
     bindInvestmentToggle(nav);
+    requestAnimationFrame(() => { nav.scrollTop = scrollTop; });
   });
 
   if (isCurrentPath("/account/admin/investment/")) {
@@ -110,7 +117,11 @@ export function arrangeAdminWorkspace() {
   const layout = main?.querySelector(":scope > .portal-layout");
   const heading = main?.querySelector(":scope > .portal-heading");
   const workspace = layout?.querySelector(":scope > .portal-workspace");
-  if (heading && workspace) workspace.prepend(heading);
+  if (heading && workspace) {
+    heading.classList.add("admin-workspace-banner");
+    heading.innerHTML = '<p class="portal-kicker">N3XRA Administration</p><span>Platform workspace</span>';
+    workspace.prepend(heading);
+  }
 }
 
 function isWorkspaceUrl(url) {
