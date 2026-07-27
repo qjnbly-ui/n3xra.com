@@ -2,11 +2,11 @@ import { createBrowserSupabase, getSessionOrNull, hasConfig } from "/shared/lib/
 import { isPlatformAdminEmail } from "/shared/lib/orgs.js";
 import "/account/admin/admin-navigation.js";
 
-const view = document.body.dataset.adminView || "";
-const setupPanel = document.getElementById("setup-panel");
-const adminPanel = document.getElementById("admin-panel");
-const signOutButton = document.getElementById("admin-sign-out");
-const statusEl = document.getElementById("admin-status");
+let view = "";
+let setupPanel = null;
+let adminPanel = null;
+let signOutButton = null;
+let statusEl = null;
 let supabase = null;
 let session = null;
 let accounts = [];
@@ -14,6 +14,14 @@ let billing = [];
 let supportRequests = [];
 let platformAdminInviteUrl = "";
 let codebaseHistory = [];
+
+function bindAdminDom() {
+  view = document.body.dataset.adminView || "";
+  setupPanel = document.getElementById("setup-panel");
+  adminPanel = document.getElementById("admin-panel");
+  signOutButton = document.getElementById("admin-sign-out");
+  statusEl = document.getElementById("admin-status");
+}
 
 function escapeHtml(value) {
   return String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
@@ -479,25 +487,23 @@ async function loadCodebaseAi() {
   setStatus("Private codebase index ready.", "success");
 }
 
-async function init() {
-  if (!hasConfig()) {
-    setupPanel?.classList.remove("hidden");
-    return;
-  }
-  supabase = createBrowserSupabase();
-  session = await getSessionOrNull(supabase);
-  if (!session?.user) {
-    window.location.replace(`/account?next=${encodeURIComponent(window.location.pathname)}`);
-    return;
-  }
-  if (!isPlatformAdminEmail(session.user.email)) {
-    try { await invoke("get-platform-admin-access"); } catch { window.location.replace("/account"); return; }
-  }
-  adminPanel?.classList.remove("hidden");
-  signOutButton?.addEventListener("click", async () => {
-    await supabase.auth.signOut({ scope: "local" });
-    window.location.replace("/account");
-  });
+const investmentLabels = { shareholders: "Shareholders table", "share-classes": "Share Classes", "share-ledger": "Share Ledger", "board-resolutions": "Board Resolutions", "dividend-history": "Dividend History", "cap-table": "Cap Table", "valuation-history": "Company Valuation History", vesting: "Vesting Schedules", voting: "Voting Rights", certificates: "Stock Certificates", transfers: "Share Transfer Requests", buybacks: "Company Buyback Requests" };
+
+function selectInvestmentSection() {
+  if (document.body.dataset.adminView !== "investment") return;
+  const key = window.location.hash.slice(1);
+  const label = investmentLabels[key];
+  document.querySelectorAll("[data-investment-section]").forEach((link) => link.classList.toggle("is-current", link.dataset.investmentSection === key));
+  if (!label) return;
+  document.getElementById("investment-workspace-title").textContent = label;
+  document.getElementById("investment-workspace-copy").textContent = "This workspace is reserved for the future controlled record and workflow.";
+  document.getElementById("investment-empty-title").textContent = `${label} is not active`;
+  document.getElementById("investment-empty-copy").textContent = "No records, controls, or workflows have been activated. This area will remain blank until the appropriate legal, accounting, and governance foundation is in place.";
+}
+
+window.addEventListener("hashchange", selectInvestmentSection);
+
+async function loadAdminView() {
   if (view === "accounts") {
     document.getElementById("account-search")?.addEventListener("input", (event) => renderAccountOptions(event.target.value));
     document.getElementById("account-select")?.addEventListener("change", renderSelectedAccount);
@@ -519,7 +525,37 @@ async function init() {
     await loadPlatformAdmins();
   } else if (view === "codebase-ai") {
     await loadCodebaseAi();
+  } else if (view === "investment") {
+    selectInvestmentSection();
   }
 }
 
-init().catch((error) => setStatus(error.message || "Unable to load admin app.", "error"));
+export async function startAdmin() {
+  bindAdminDom();
+  if (!hasConfig()) {
+    setupPanel?.classList.remove("hidden");
+    return;
+  }
+  if (!supabase) supabase = createBrowserSupabase();
+  if (!session) session = await getSessionOrNull(supabase);
+  if (!session?.user) {
+    window.location.replace(`/account?next=${encodeURIComponent(window.location.pathname)}`);
+    return;
+  }
+  if (!isPlatformAdminEmail(session.user.email)) {
+    try { await invoke("get-platform-admin-access"); } catch { window.location.replace("/account"); return; }
+  }
+  adminPanel?.classList.remove("hidden");
+  if (signOutButton && !signOutButton.dataset.adminSignoutBound) {
+    signOutButton.dataset.adminSignoutBound = "true";
+    signOutButton.addEventListener("click", async () => {
+      await supabase.auth.signOut({ scope: "local" });
+      window.location.replace("/account");
+    });
+  }
+  await loadAdminView();
+}
+
+if (!window.__n3xraAdminSoftNavigation) {
+  startAdmin().catch((error) => setStatus(error.message || "Unable to load admin app.", "error"));
+}

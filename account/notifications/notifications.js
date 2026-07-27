@@ -6,33 +6,11 @@ import {
 import { isPlatformAdminEmail } from "/shared/lib/orgs.js";
 import "/account/admin/admin-navigation.js";
 
-const setupPanel = document.getElementById("setup-panel");
-const notificationPanel = document.getElementById("notification-panel");
-const accountNavLink = document.getElementById("account-nav-link");
-const notificationProductInput = document.getElementById("notification-product");
-const notificationSubjectInput = document.getElementById("notification-subject");
-const notificationCtaUrlInput = document.getElementById("notification-cta-url");
-const notificationPreheaderInput = document.getElementById("notification-preheader");
-const notificationMessageInput = document.getElementById("notification-message");
-const notificationCtaLabelInput = document.getElementById("notification-cta-label");
-const notificationFilterInput = document.getElementById("notification-filter");
-const notificationLoadRecipientsButton = document.getElementById("notification-load-recipients");
-const notificationSelectVisibleButton = document.getElementById("notification-select-visible");
-const notificationClearSelectedButton = document.getElementById("notification-clear-selected");
-const notificationSelectedCount = document.getElementById("notification-selected-count");
-const notificationLoadedCount = document.getElementById("notification-loaded-count");
-const notificationRecipientList = document.getElementById("notification-recipient-list");
-const notificationReviewButton = document.getElementById("notification-review");
-const notificationStatus = document.getElementById("notification-status");
-const notificationReviewModal = document.getElementById("notification-review-modal");
-const notificationReviewClose = document.getElementById("notification-review-close");
-const notificationReviewCancel = document.getElementById("notification-review-cancel");
-const notificationReviewProduct = document.getElementById("notification-review-product");
-const notificationReviewCount = document.getElementById("notification-review-count");
-const notificationReviewSubject = document.getElementById("notification-review-subject");
-const notificationEmailPreview = document.getElementById("notification-email-preview");
-const notificationSendButton = document.getElementById("notification-send");
-const notificationReviewStatus = document.getElementById("notification-review-status");
+let setupPanel, notificationPanel, accountNavLink, notificationProductInput, notificationSubjectInput, notificationCtaUrlInput, notificationPreheaderInput, notificationMessageInput, notificationCtaLabelInput, notificationFilterInput, notificationLoadRecipientsButton, notificationSelectVisibleButton, notificationClearSelectedButton, notificationSelectedCount, notificationLoadedCount, notificationRecipientList, notificationReviewButton, notificationStatus, notificationReviewModal, notificationReviewClose, notificationReviewCancel, notificationReviewProduct, notificationReviewCount, notificationReviewSubject, notificationEmailPreview, notificationSendButton, notificationReviewStatus;
+
+function bindNotificationDom() {
+  setupPanel = document.getElementById("setup-panel"); notificationPanel = document.getElementById("notification-panel"); accountNavLink = document.getElementById("account-nav-link"); notificationProductInput = document.getElementById("notification-product"); notificationSubjectInput = document.getElementById("notification-subject"); notificationCtaUrlInput = document.getElementById("notification-cta-url"); notificationPreheaderInput = document.getElementById("notification-preheader"); notificationMessageInput = document.getElementById("notification-message"); notificationCtaLabelInput = document.getElementById("notification-cta-label"); notificationFilterInput = document.getElementById("notification-filter"); notificationLoadRecipientsButton = document.getElementById("notification-load-recipients"); notificationSelectVisibleButton = document.getElementById("notification-select-visible"); notificationClearSelectedButton = document.getElementById("notification-clear-selected"); notificationSelectedCount = document.getElementById("notification-selected-count"); notificationLoadedCount = document.getElementById("notification-loaded-count"); notificationRecipientList = document.getElementById("notification-recipient-list"); notificationReviewButton = document.getElementById("notification-review"); notificationStatus = document.getElementById("notification-status"); notificationReviewModal = document.getElementById("notification-review-modal"); notificationReviewClose = document.getElementById("notification-review-close"); notificationReviewCancel = document.getElementById("notification-review-cancel"); notificationReviewProduct = document.getElementById("notification-review-product"); notificationReviewCount = document.getElementById("notification-review-count"); notificationReviewSubject = document.getElementById("notification-review-subject"); notificationEmailPreview = document.getElementById("notification-email-preview"); notificationSendButton = document.getElementById("notification-send"); notificationReviewStatus = document.getElementById("notification-review-status");
+}
 
 let supabase = null;
 let currentSession = null;
@@ -303,6 +281,10 @@ async function sendNotificationEmail() {
 }
 
 function bindEvents() {
+  document.getElementById("admin-sign-out")?.addEventListener("click", async () => {
+    await supabase.auth.signOut({ scope: "local" });
+    window.location.assign("/account");
+  }, { once: true });
   accountNavLink?.addEventListener("click", async (event) => {
     if (!currentSession?.user) return;
     event.preventDefault();
@@ -329,13 +311,14 @@ function bindEvents() {
   });
 }
 
-async function init() {
+export async function startNotifications() {
+  bindNotificationDom();
   show(setupPanel, !hasConfig());
   show(notificationPanel, false);
   if (!hasConfig()) return;
 
-  supabase = createBrowserSupabase();
-  currentSession = await getSessionOrNull(supabase);
+  if (!supabase) supabase = createBrowserSupabase();
+  if (!currentSession) currentSession = await getSessionOrNull(supabase);
   if (!currentSession?.user) {
     window.location.replace("/account?next=/account/notifications/");
     return;
@@ -345,12 +328,8 @@ async function init() {
     return;
   }
 
-  if (accountNavLink) {
-    accountNavLink.textContent = "Sign out";
-    accountNavLink.dataset.authState = "signed-in";
-  }
   show(notificationPanel, true);
   bindEvents();
 }
 
-init();
+if (!window.__n3xraAdminSoftNavigation) startNotifications();
