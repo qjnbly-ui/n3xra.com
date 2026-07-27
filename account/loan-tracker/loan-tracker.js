@@ -15,6 +15,21 @@ const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 const currency = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
 const shortDate = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
 const monthDate = new Intl.DateTimeFormat("en-US", { month: "short", year: "numeric", timeZone: "UTC" });
+const ACCOUNT_FIELDS = "id,user_id,name,borrower_name,payment_recipient_name,lender_name,loan_number_last_four,original_balance,amount_financed,current_official_balance,official_balance_date,annual_interest_rate,required_monthly_payment,planned_monthly_payment,private_payment_day,lender_due_day,first_payment_date,calculation_start_date,status,notes,created_at,updated_at";
+const FULL_PERMISSIONS = Object.freeze({
+  view_payments: true,
+  use_calculator: true,
+  export_data: true,
+  manage_payments: true,
+  reveal_loan_number: true,
+});
+const PERMISSION_LABELS = {
+  view_payments: "Payment history",
+  use_calculator: "Projections",
+  export_data: "Exports",
+  manage_payments: "Manage payments",
+  reveal_loan_number: "Loan number",
+};
 let supabase;
 let session;
 let account;
@@ -23,6 +38,10 @@ let rebuiltPayments = [];
 let futureSchedule = [];
 let overviewComparison;
 let toastTimer;
+let access = { isOwner: false, isAdmin: false, permissions: {} };
+let invitations = [];
+let members = [];
+let revealedLoanNumber = "";
 
 function money(value) {
   return currency.format(Number(value || 0));
@@ -64,12 +83,27 @@ function showError(title, message) {
 }
 
 function showView(view) {
-  const valid = $$("[data-panel]").some((panel) => panel.dataset.panel === view);
+  const targetButton = $$("[data-view]").find((button) => button.dataset.view === view);
+  const valid = Boolean(targetButton && !targetButton.hidden);
   const next = valid ? view : "overview";
   $$("[data-view]").forEach((button) => button.classList.toggle("is-active", button.dataset.view === next));
   $$("[data-panel]").forEach((panel) => { panel.hidden = panel.dataset.panel !== next; });
-  history.replaceState(null, "", next === "overview" ? location.pathname : `#${next}`);
+  const base = `${location.pathname}${location.search}`;
+  history.replaceState(null, "", next === "overview" ? base : `${base}#${next}`);
   window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function can(permission) {
+  return access.isOwner || access.isAdmin || access.permissions?.[permission] === true;
+}
+
+function normalizePermissions(value = {}) {
+  return Object.fromEntries(Object.keys(FULL_PERMISSIONS).map((key) => [key, value?.[key] === true]));
+}
+
+function permissionSummary(value = {}) {
+  const labels = Object.entries(normalizePermissions(value)).filter(([, enabled]) => enabled).map(([key]) => PERMISSION_LABELS[key]);
+  return labels.length ? labels : ["Overview only"];
 }
 
 function getActivePayments() {
@@ -132,7 +166,9 @@ function renderOverview() {
   setText("lender-name", account.lender_name || "Loan account");
 
   const recent = [...rebuiltPayments].reverse().slice(0, 4);
-  $("#recent-payments").innerHTML = recent.length ? recent.map((payment) => `
+  $("#recent-payments").innerHTML = !can("view_payments")
+    ? '<p class="empty-copy">Payment history is not included in your access.</p>'
+    : recent.length ? recent.map((payment) => `
     <div class="recent-row ${payment.status === "voided" ? "is-voided" : ""}">
       <span>${dateLabel(payment.payment_date).split(" ")[0].slice(0, 3)}</span>
       <p><strong>${payment.status === "voided" ? "Voided payment" : `Payment ${payment.payment_number || ""}`}</strong><small>${dateLabel(payment.payment_date)}${payment.notes ? ` · ${escapeHtml(payment.notes)}` : ""}</small></p>
@@ -198,7 +234,7 @@ function renderPayments() {
       <td class="money">${payment.principal_amount === null ? "—" : money(payment.principal_amount)}</td>
       <td class="money">${payment.ending_balance === null ? "—" : money(payment.ending_balance)}${payment.official_balance_after_payment ? " · official" : ""}</td>
       <td>${escapeHtml(payment.notes || payment.confirmation_number || "—")}</td>
-      <td><div class="row-menu">${payment.status !== "voided" ? `<button type="button" data-edit-payment="${payment.id}">Edit</button><button type="button" data-void-payment="${payment.id}">Void</button>` : ""}</div></td>
+      <td><div class="row-menu">${can("manage_payments") && payment.status !== "voided" ? `<button type="button" data-edit-payment="${payment.id}">Edit</button><button type="button" data-void-payment="${payment.id}">Void</button>` : ""}</div></td>
     </tr>`).join("") : '<tr><td colspan="9">No payments recorded for this period.</td></tr>';
 }
 
@@ -221,6 +257,7 @@ function renderAll() {
 }
 
 async function persistBreakdowns() {
+  if (!can("manage_payments")) return;
   const calculated = rebuildPayments(account, payments);
   const writes = calculated.map((payment) => supabase.from("loan_payments").update({
     payment_number: payment.payment_number,
@@ -236,12 +273,17 @@ async function persistBreakdowns() {
 }
 
 async function loadPayments() {
+  if (!can("view_payments") && !can("manage_payments")) {
+    payments = [];
+    return;
+  }
   const { data, error } = await supabase.from("loan_payments").select("*").eq("loan_account_id", account.id).order("payment_date").order("created_at");
   if (error) throw error;
   payments = data || [];
 }
 
 function openPaymentDialog(payment = null) {
+  if (!can("manage_payments")) return showToast("You do not have permission to manage payments.");
   $("#payment-form").reset();
   $("#payment-id").value = payment?.id || "";
   $("#payment-dialog-title").textContent = payment ? "Edit payment" : "Add payment";
@@ -257,6 +299,7 @@ function openPaymentDialog(payment = null) {
 }
 
 async function savePayment() {
+  if (!can("manage_payments")) return showToast("You do not have permission to manage payments.");
   const errorBox = $("#payment-error");
   errorBox.textContent = "";
   const id = $("#payment-id").value;
@@ -292,6 +335,7 @@ async function savePayment() {
 }
 
 async function voidPayment(id) {
+  if (!can("manage_payments")) return showToast("You do not have permission to manage payments.");
   const payment = payments.find((item) => item.id === id);
   if (!payment || !window.confirm(`Void the ${money(payment.amount)} payment from ${dateLabel(payment.payment_date)}? It will remain in the history.`)) return;
   const { error } = await supabase.from("loan_payments").update({ status: "voided" }).eq("id", id).eq("loan_account_id", account.id);
@@ -316,6 +360,7 @@ function download(filename, content, type) {
 }
 
 function exportCsv(kind) {
+  if (!can("export_data")) return showToast("Exports are not included in your access.");
   let headers;
   let rows;
   if (kind === "payments") {
@@ -349,6 +394,7 @@ function excelSheet(name, headers, rows, types = []) {
 }
 
 function exportExcel() {
+  if (!can("export_data")) return showToast("Exports are not included in your access.");
   const anchor = projectionAnchor();
   const summary = summarizeSchedule(futureSchedule);
   const summaryRows = [
@@ -363,6 +409,148 @@ function exportExcel() {
   const summarySheet = `<Worksheet ss:Name="Loan Summary"><Table><Row>${excelCell("Field", "Header")}${excelCell("Value", "Header")}</Row>${summaryRows.map(([label, value, style]) => `<Row>${excelCell(label)}${excelCell(value, style)}</Row>`).join("")}</Table></Worksheet>`;
   const workbook = `<?xml version="1.0"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"><Styles><Style ss:ID="Header"><Font ss:Bold="1"/><Interior ss:Color="#DCEADE" ss:Pattern="Solid"/></Style><Style ss:ID="Currency"><NumberFormat ss:Format="$#,##0.00"/></Style><Style ss:ID="Percent"><NumberFormat ss:Format="0.00%"/></Style><Style ss:ID="Date"><NumberFormat ss:Format="mmm d, yyyy"/></Style></Styles>${summarySheet}${excelSheet("Payment History", ["Payment #", "Date", "Amount", "Interest", "Principal", "Balance", "Status", "Notes"], paymentRows, ["", "Date", "Currency", "Currency", "Currency", "Currency"])}${excelSheet("Amortization Schedule", ["Payment #", "Payment Date", "Beginning Balance", "Payment", "Interest", "Principal", "Ending Balance"], scheduleRows, ["", "Date", "Currency", "Currency", "Currency", "Currency", "Currency"])}</Workbook>`;
   download("dave-wilson-loan-tracker.xls", workbook, "application/vnd.ms-excel");
+}
+
+async function sha256Hex(value) {
+  const bytes = new TextEncoder().encode(value);
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function createInvitationToken() {
+  const bytes = crypto.getRandomValues(new Uint8Array(32));
+  return btoa(String.fromCharCode(...bytes)).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
+}
+
+function selectedInvitePermissions() {
+  return Object.fromEntries($$("[data-permission]").map((input) => [input.dataset.permission, input.checked]));
+}
+
+function setPermissionPreset(name) {
+  const presets = {
+    view: { view_payments: true, use_calculator: true, export_data: false, manage_payments: false, reveal_loan_number: false },
+    helper: { view_payments: true, use_calculator: true, export_data: true, manage_payments: true, reveal_loan_number: false },
+  };
+  if (presets[name]) {
+    $$("[data-permission]").forEach((input) => { input.checked = presets[name][input.dataset.permission]; });
+  }
+  $$("[data-permission-preset]").forEach((button) => button.classList.toggle("is-active", button.dataset.permissionPreset === name));
+}
+
+function memberPermissionEditor(member) {
+  return `<details class="member-access-editor">
+    <summary>Change access</summary>
+    <div>${Object.entries(PERMISSION_LABELS).map(([key, label]) => `<label><input type="checkbox" data-member-permission="${key}" ${member.permissions?.[key] === true ? "checked" : ""}> ${label}</label>`).join("")}</div>
+    <button class="button secondary" type="button" data-save-member="${member.id}">Save access</button>
+  </details>`;
+}
+
+function renderAccessList() {
+  const activeMembers = members.filter((member) => member.status === "active");
+  const pendingInvitations = invitations.filter((invitation) => invitation.status === "pending");
+  const rows = [
+    ...activeMembers.map((member) => `<article class="access-person" data-member-row="${member.id}">
+      <div class="access-person-head"><p><strong>${escapeHtml(member.display_name || member.invited_email)}</strong><small>${escapeHtml(member.invited_email)}</small></p><span class="access-status">Active</span></div>
+      <div class="access-permissions">${permissionSummary(member.permissions).map((label) => `<span>${escapeHtml(label)}</span>`).join("")}</div>
+      ${memberPermissionEditor(member)}
+      <div class="access-actions"><button type="button" data-revoke-member="${member.id}">Revoke access</button></div>
+    </article>`),
+    ...pendingInvitations.map((invitation) => `<article class="access-person">
+      <div class="access-person-head"><p><strong>${escapeHtml(invitation.invited_name || invitation.invited_email)}</strong><small>${escapeHtml(invitation.invited_email)} · expires ${dateLabel(invitation.expires_at)}</small></p><span class="access-status pending">Pending</span></div>
+      <div class="access-permissions">${permissionSummary(invitation.permissions).map((label) => `<span>${escapeHtml(label)}</span>`).join("")}</div>
+      <div class="access-actions"><button type="button" data-revoke-invitation="${invitation.id}">Cancel invitation</button></div>
+    </article>`),
+  ];
+  $("#access-list").innerHTML = rows.length ? rows.join("") : '<p class="empty-copy">No one else has access.</p>';
+}
+
+async function loadAccessContext() {
+  if (account.user_id === session.user.id) {
+    access = { isOwner: true, isAdmin: false, permissions: { ...FULL_PERMISSIONS } };
+    return;
+  }
+  const { data, error } = await supabase
+    .from("loan_members")
+    .select("id,permissions,status")
+    .eq("loan_account_id", account.id)
+    .eq("user_id", session.user.id)
+    .eq("status", "active")
+    .maybeSingle();
+  if (error) throw error;
+  access = data
+    ? { isOwner: false, isAdmin: false, permissions: normalizePermissions(data.permissions) }
+    : { isOwner: false, isAdmin: true, permissions: { ...FULL_PERMISSIONS } };
+}
+
+async function loadAccessData() {
+  if (!access.isOwner && !access.isAdmin) return;
+  const [invitationResult, memberResult] = await Promise.all([
+    supabase.from("loan_invitations").select("id,invited_email,invited_name,permissions,status,expires_at,created_at").eq("loan_account_id", account.id).order("created_at", { ascending: false }),
+    supabase.from("loan_members").select("id,user_id,invited_email,display_name,permissions,status,created_at").eq("loan_account_id", account.id).order("created_at", { ascending: false }),
+  ]);
+  if (invitationResult.error) throw invitationResult.error;
+  if (memberResult.error) throw memberResult.error;
+  invitations = invitationResult.data || [];
+  members = memberResult.data || [];
+  renderAccessList();
+}
+
+function applyAccessUi() {
+  const ownerControls = access.isOwner || access.isAdmin;
+  $$("[data-access-owner]").forEach((element) => { element.hidden = !ownerControls; });
+  $$('[data-view="calculator"],[data-view="schedule"],[data-open-view="schedule"]').forEach((element) => { element.hidden = !can("use_calculator"); });
+  $$('[data-view="payments"],[data-open-view="payments"]').forEach((element) => { element.hidden = !can("view_payments"); });
+  $$("[data-add-payment]").forEach((element) => { element.hidden = !can("manage_payments"); });
+  $$("[data-export]").forEach((element) => { element.hidden = !can("export_data"); });
+  $("#reveal-loan").hidden = !can("reveal_loan_number");
+  $("#reveal-loan").innerHTML = `••••••${escapeHtml(account.loan_number_last_four || "••••")} <small>Reveal</small>`;
+}
+
+async function createInvitation() {
+  const errorBox = $("#invite-error");
+  errorBox.textContent = "";
+  try {
+    const email = $("#invite-email").value.trim().toLowerCase();
+    if (!email) throw new Error("Enter the email address the guest will use to sign in.");
+    const token = createInvitationToken();
+    const payload = {
+      loan_account_id: account.id,
+      owner_user_id: account.user_id,
+      invited_email: email,
+      invited_name: $("#invite-name").value.trim() || null,
+      token_hash: await sha256Hex(token),
+      permissions: selectedInvitePermissions(),
+      invited_by: session.user.id,
+    };
+    const { error } = await supabase.from("loan_invitations").insert(payload);
+    if (error) throw error.code === "23505" ? new Error("A pending invitation already exists for this email. Cancel it before creating another.") : error;
+    const link = `${location.origin}${location.pathname}?invite=${encodeURIComponent(token)}`;
+    $("#invite-link").value = link;
+    $("#invite-result").hidden = false;
+    $("#invite-email").value = "";
+    await loadAccessData();
+    showToast("Secure invitation created.");
+  } catch (caught) {
+    errorBox.textContent = caught.message || "Unable to create this invitation.";
+  }
+}
+
+async function revokeAccess(kind, id) {
+  if (!window.confirm(kind === "member" ? "Revoke this person’s loan access?" : "Cancel this invitation?")) return;
+  const table = kind === "member" ? "loan_members" : "loan_invitations";
+  const payload = kind === "member" ? { status: "revoked" } : { status: "revoked", revoked_at: new Date().toISOString() };
+  const { error } = await supabase.from(table).update(payload).eq("id", id).eq("loan_account_id", account.id);
+  if (error) return showToast(error.message || "Unable to revoke access.");
+  await loadAccessData();
+  showToast(kind === "member" ? "Access revoked." : "Invitation canceled.");
+}
+
+async function saveMemberAccess(id, row) {
+  const permissions = Object.fromEntries($$("[data-member-permission]", row).map((input) => [input.dataset.memberPermission, input.checked]));
+  const { error } = await supabase.from("loan_members").update({ permissions }).eq("id", id).eq("loan_account_id", account.id);
+  if (error) return showToast(error.message || "Unable to update access.");
+  await loadAccessData();
+  showToast("Access updated.");
 }
 
 function bindEvents() {
@@ -391,10 +579,33 @@ function bindEvents() {
     if (!event.currentTarget.reportValidity()) return;
     savePayment();
   });
-  $("#reveal-loan").addEventListener("click", (event) => {
+  $("#reveal-loan").addEventListener("click", async (event) => {
     const revealed = event.currentTarget.dataset.revealed === "true";
+    if (!revealed && !revealedLoanNumber) {
+      const { data, error } = await supabase.rpc("reveal_loan_number", { input_loan_account_id: account.id });
+      if (error) return showToast(error.message || "Unable to reveal the loan number.");
+      revealedLoanNumber = data || "";
+    }
     event.currentTarget.dataset.revealed = String(!revealed);
-    event.currentTarget.innerHTML = revealed ? `••••••${escapeHtml(String(account.loan_number || "").slice(-4))} <small>Reveal</small>` : `${escapeHtml(account.loan_number || "Not recorded")} <small>Hide</small>`;
+    event.currentTarget.innerHTML = revealed ? `••••••${escapeHtml(account.loan_number_last_four || "••••")} <small>Reveal</small>` : `${escapeHtml(revealedLoanNumber || "Not recorded")} <small>Hide</small>`;
+  });
+  $$("[data-permission-preset]").forEach((button) => button.addEventListener("click", () => setPermissionPreset(button.dataset.permissionPreset)));
+  $$("[data-permission]").forEach((input) => input.addEventListener("change", () => setPermissionPreset("custom")));
+  $("#invite-form").addEventListener("submit", (event) => {
+    event.preventDefault();
+    if (event.currentTarget.reportValidity()) createInvitation();
+  });
+  $("#copy-invite").addEventListener("click", async () => {
+    await navigator.clipboard.writeText($("#invite-link").value);
+    showToast("Invitation link copied.");
+  });
+  $("#access-list").addEventListener("click", (event) => {
+    const memberButton = event.target.closest("[data-revoke-member]");
+    const invitationButton = event.target.closest("[data-revoke-invitation]");
+    const saveButton = event.target.closest("[data-save-member]");
+    if (memberButton) revokeAccess("member", memberButton.dataset.revokeMember);
+    if (invitationButton) revokeAccess("invitation", invitationButton.dataset.revokeInvitation);
+    if (saveButton) saveMemberAccess(saveButton.dataset.saveMember, saveButton.closest("[data-member-row]"));
   });
   $("#sign-out").addEventListener("click", async () => {
     await supabase.auth.signOut({ scope: "local" });
@@ -407,34 +618,48 @@ async function init() {
   supabase = createBrowserSupabase();
   session = await getSessionOrNull(supabase);
   if (!session?.user) {
-    location.replace(`/account/?next=${encodeURIComponent(location.pathname)}`);
+    location.replace(`/account/?next=${encodeURIComponent(`${location.pathname}${location.search}${location.hash}`)}`);
     return;
   }
-  const requestedUserId = new URLSearchParams(location.search).get("user");
+  const url = new URL(location.href);
+  const inviteToken = url.searchParams.get("invite");
+  let acceptedLoanId = "";
+  if (inviteToken) {
+    const { data, error: inviteError } = await supabase.rpc("accept_loan_invitation", { input_token: inviteToken });
+    if (inviteError) return showError("Invitation unavailable", inviteError.message || "This invitation could not be accepted.");
+    acceptedLoanId = data;
+    url.searchParams.delete("invite");
+    history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+    showToast("Invitation accepted.");
+  }
+  const requestedUserId = url.searchParams.get("user");
   const targetUserId = requestedUserId || session.user.id;
-  let { data, error } = await supabase.from("loan_accounts").select("*").eq("user_id", targetUserId).eq("status", "active").maybeSingle();
+  let accountQuery = supabase.from("loan_accounts").select(ACCOUNT_FIELDS).eq("status", "active");
+  accountQuery = acceptedLoanId ? accountQuery.eq("id", acceptedLoanId) : accountQuery.eq("user_id", targetUserId);
+  let { data, error } = await accountQuery.maybeSingle();
   if (error) return showError("Loan data unavailable", error.message || "Unable to load this loan.");
-  let isAdminView = Boolean(requestedUserId && requestedUserId !== session.user.id);
   if (!data && !requestedUserId) {
     const fallback = await supabase
       .from("loan_accounts")
-      .select("*")
+      .select(ACCOUNT_FIELDS)
       .eq("status", "active")
       .order("created_at")
       .limit(2);
     if (fallback.error) return showError("Loan data unavailable", fallback.error.message || "Unable to load this loan.");
     if (fallback.data?.length === 1) {
       [data] = fallback.data;
-      isAdminView = data.user_id !== session.user.id;
     }
   }
   if (!data) return showError("No accessible loan tracker", "No active loan is available to this account, or you do not have permission to view it.");
   account = data;
-  if (isAdminView) {
+  await loadAccessContext();
+  applyAccessUi();
+  if (access.isAdmin) {
     $("#admin-view-notice").hidden = false;
     setText("admin-borrower-name", account.borrower_name || "this customer");
   }
   await loadPayments();
+  await loadAccessData();
   rebuiltPayments = rebuildPayments(account, payments);
   bindEvents();
   renderAll();

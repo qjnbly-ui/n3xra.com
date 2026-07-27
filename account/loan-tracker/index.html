@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&amp;family=Manrope:wght@400;500;600;700;800&amp;family=Playfair+Display:wght@600;700&amp;display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/site-nav.css">
-  <link rel="stylesheet" href="/account/loan-tracker/loan-tracker.css?v=1">
+  <link rel="stylesheet" href="/account/loan-tracker/loan-tracker.css?v=2">
   <script src="/shared/config.js"></script>
 </head>
 <body>
@@ -49,6 +49,7 @@
         <button data-view="calculator" type="button">Payoff calculator</button>
         <button data-view="payments" type="button">Payment history</button>
         <button data-view="schedule" type="button">Schedule</button>
+        <button data-view="access" data-access-owner type="button">Sharing &amp; access</button>
       </nav>
 
       <p class="notice" id="starting-figure-note"><strong>Balance note</strong> The loan documents contain two different starting figures. Update the balance when the official current principal balance is confirmed.</p>
@@ -134,6 +135,47 @@
         <div class="section-heading"><div><p class="eyebrow">Future projection</p><h2>Amortization schedule</h2><p>Rebuilt from the latest payment or official balance.</p></div><div class="action-row"><button class="button secondary" data-export="schedule" type="button">Export CSV</button><button class="button secondary" data-export="excel" type="button">Export Excel</button></div></div>
         <details class="schedule-details" open><summary><span>Full estimated schedule</span><small id="schedule-summary">—</small></summary><div class="table-wrap"><table><thead><tr><th>#</th><th>Payment date</th><th>Beginning balance</th><th>Payment</th><th>Interest</th><th>Principal</th><th>Ending balance</th></tr></thead><tbody id="schedule-table"></tbody></table></div></details>
       </section>
+
+      <section class="view" data-panel="access" data-access-owner hidden>
+        <div class="section-heading"><div><p class="eyebrow">Private sharing</p><h2>Invitations &amp; access</h2><p>Invite someone to this loan without giving them control of the whole account.</p></div></div>
+        <div class="access-layout">
+          <form class="panel invite-form" id="invite-form">
+            <div><p class="eyebrow">New invitation</p><h2>Invite Brent—or someone else</h2><p class="access-copy">They must sign in with the invited email. The invitation expires after 30 days.</p></div>
+            <div class="form-grid">
+              <label>Name <input id="invite-name" maxlength="120" value="Brent Brown" autocomplete="name"></label>
+              <label>Email address <input id="invite-email" type="email" maxlength="320" autocomplete="email" required></label>
+            </div>
+            <fieldset class="permission-fieldset">
+              <legend>Choose an access level</legend>
+              <div class="permission-presets">
+                <button class="is-active" type="button" data-permission-preset="view">View only</button>
+                <button type="button" data-permission-preset="helper">Payment helper</button>
+                <button type="button" data-permission-preset="custom">Custom</button>
+              </div>
+              <label class="permission-option"><input type="checkbox" data-permission="view_payments" checked><span><strong>View payment history</strong><small>See payment amounts, dates, notes, principal, and interest.</small></span></label>
+              <label class="permission-option"><input type="checkbox" data-permission="use_calculator" checked><span><strong>Use projections and schedule</strong><small>Compare payment amounts and view the amortization schedule.</small></span></label>
+              <label class="permission-option"><input type="checkbox" data-permission="export_data"><span><strong>Export data</strong><small>Download payment history and payoff schedules.</small></span></label>
+              <label class="permission-option"><input type="checkbox" data-permission="manage_payments"><span><strong>Record and correct payments</strong><small>Add, edit, and void payment records.</small></span></label>
+              <label class="permission-option"><input type="checkbox" data-permission="reveal_loan_number"><span><strong>Reveal the full loan number</strong><small>The masked number stays hidden unless this is allowed.</small></span></label>
+            </fieldset>
+            <p class="form-error" id="invite-error" role="alert"></p>
+            <button class="button" type="submit">Create secure invitation</button>
+          </form>
+
+          <div>
+            <article class="panel invite-result" id="invite-result" hidden>
+              <p class="eyebrow">Invitation ready</p><h2>Share this private link</h2>
+              <p class="access-copy">Send it only to the invited person. It works only after they sign in with the matching email.</p>
+              <div class="copy-link"><input id="invite-link" readonly aria-label="Invitation link"><button class="button secondary" id="copy-invite" type="button">Copy link</button></div>
+            </article>
+            <article class="panel access-list-panel">
+              <div class="panel-head"><div><p class="eyebrow">Current access</p><h2>People &amp; invitations</h2></div></div>
+              <div class="access-list" id="access-list"><p class="empty-copy">No one else has access.</p></div>
+            </article>
+          </div>
+        </div>
+        <p class="notice compact"><strong>Owner control</strong> Dave and N3XRA administrators can change or revoke access. Guests cannot invite other people or change the loan’s owner.</p>
+      </section>
     </div>
   </main>
 
@@ -155,6 +197,6 @@
     </form>
   </dialog>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="/account/loan-tracker/loan-tracker.js?v=1"></script>
+  <script type="module" src="/account/loan-tracker/loan-tracker.js?v=2"></script>
 </body>
 </html>

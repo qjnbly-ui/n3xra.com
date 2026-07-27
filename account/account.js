@@ -477,11 +477,11 @@ async function loadLoanAccount() {
   const { data, error } = await supabase
     .from("loan_accounts")
     .select("id,name,lender_name,planned_monthly_payment,status")
-    .eq("user_id", currentSession.user.id)
     .eq("status", "active")
-    .maybeSingle();
+    .order("created_at")
+    .limit(2);
   if (error && error.code !== "PGRST116") throw error;
-  loanAccount = data || null;
+  loanAccount = data?.length === 1 ? data[0] : null;
 }
 
 async function loadProfileName() {
