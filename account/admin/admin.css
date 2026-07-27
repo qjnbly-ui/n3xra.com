@@ -388,6 +388,23 @@
   border-top: 1px solid var(--portal-line);
 }
 
+#codebase-ai-answer-text pre {
+  margin: 0.75rem 0 1rem;
+  padding: 0.9rem 1rem;
+  overflow-x: auto;
+  border: 1px solid var(--portal-line);
+  border-radius: 0.65rem;
+  background: #f7f9fb;
+}
+
+#codebase-ai-answer-text pre code {
+  display: block;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  white-space: pre;
+}
+
 .codebase-ai-sources {
   margin-top: 1rem;
   padding-top: 0.8rem;

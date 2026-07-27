@@ -349,6 +349,7 @@ function renderSafeMarkdown(value) {
   const lines = String(value || "").replace(/\r/g, "").split("\n");
   const output = [];
   let listType = "";
+  let codeLines = null;
 
   const closeList = () => {
     if (!listType) return;
@@ -358,6 +359,23 @@ function renderSafeMarkdown(value) {
 
   for (const rawLine of lines) {
     const line = rawLine.trim();
+
+    if (/^```/.test(line)) {
+      closeList();
+      if (codeLines) {
+        output.push(`<pre><code>${escapeHtml(codeLines.join("\n"))}</code></pre>`);
+        codeLines = null;
+      } else {
+        codeLines = [];
+      }
+      continue;
+    }
+
+    if (codeLines) {
+      codeLines.push(rawLine.replace(/^\s{0,4}/, ""));
+      continue;
+    }
+
     if (!line) {
       closeList();
       continue;
@@ -404,6 +422,7 @@ function renderSafeMarkdown(value) {
   }
 
   closeList();
+  if (codeLines) output.push(`<pre><code>${escapeHtml(codeLines.join("\n"))}</code></pre>`);
   return output.join("");
 }
 
