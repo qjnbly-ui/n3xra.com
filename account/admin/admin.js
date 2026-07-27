@@ -1,5 +1,6 @@
 import { createBrowserSupabase, getSessionOrNull, hasConfig } from "/shared/lib/supabase-client.js";
 import { isPlatformAdminEmail } from "/shared/lib/orgs.js";
+import "/account/admin/admin-navigation.js";
 
 const view = document.body.dataset.adminView || "";
 const setupPanel = document.getElementById("setup-panel");
@@ -377,6 +378,15 @@ function renderSafeMarkdown(value) {
 
     if (!line) {
       closeList();
+      continue;
+    }
+
+    if (/^\|.*\|$/.test(line)) {
+      closeList();
+      const cells = line.slice(1, -1).split("|").map((cell) => cell.trim()).filter(Boolean);
+      if (!cells.length || cells.every((cell) => /^:?-+:?$/.test(cell))) continue;
+      const [label, ...details] = cells;
+      output.push(`<p><strong>${inline(label)}</strong>${details.length ? ` — ${details.map(inline).join(" · ")}` : ""}</p>`);
       continue;
     }
 

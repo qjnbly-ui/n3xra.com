@@ -318,6 +318,7 @@
   max-width: 900px;
   color: var(--portal-ink);
   line-height: 1.72;
+  counter-reset: answer-step;
 }
 
 #codebase-ai-answer-text h2,
@@ -361,6 +362,25 @@
 #codebase-ai-answer-text li::marker {
   color: #0f8fb7;
   font-weight: 800;
+}
+
+#codebase-ai-answer-text ol {
+  list-style: none;
+  padding-left: 0;
+}
+
+#codebase-ai-answer-text ol > li {
+  position: relative;
+  counter-increment: answer-step;
+  padding-left: 1.75rem;
+}
+
+#codebase-ai-answer-text ol > li::before {
+  position: absolute;
+  left: 0;
+  color: #0f8fb7;
+  font-weight: 800;
+  content: counter(answer-step) ".";
 }
 
 #codebase-ai-answer-text strong {

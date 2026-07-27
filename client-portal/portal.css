@@ -225,6 +225,53 @@ body.portal-denied main {
   cursor: default;
 }
 
+.portal-nav .admin-nav-expander {
+  position: relative;
+  padding-right: 2rem;
+}
+
+.admin-nav-expander::after {
+  position: absolute;
+  right: 0.85rem;
+  content: "+";
+  font-size: 1.05rem;
+  line-height: 1;
+}
+
+.admin-nav-expander[aria-expanded="true"]::after {
+  content: "−";
+}
+
+.admin-nav-children {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.admin-nav-children[hidden] {
+  display: none;
+}
+
+.portal-nav .admin-nav-child {
+  padding-top: 0.58rem;
+  padding-bottom: 0.58rem;
+  padding-left: 1.2rem;
+  font-size: 0.82rem;
+}
+
+.site-mobile-menu .admin-nav-expander {
+  position: relative;
+  width: 100%;
+  text-align: left;
+}
+
+.site-mobile-menu .admin-nav-children {
+  padding-left: 0.5rem;
+}
+
+.site-mobile-menu .admin-nav-child {
+  font-size: 0.9rem;
+}
+
 .portal-nav-label {
   margin: 0.35rem 0.85rem 0;
   color: #087fa8;

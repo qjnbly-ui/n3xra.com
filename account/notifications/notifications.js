@@ -4,6 +4,7 @@ import {
   hasConfig,
 } from "/shared/lib/supabase-client.js";
 import { isPlatformAdminEmail } from "/shared/lib/orgs.js";
+import "/account/admin/admin-navigation.js";
 
 const setupPanel = document.getElementById("setup-panel");
 const notificationPanel = document.getElementById("notification-panel");
