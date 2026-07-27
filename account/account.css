@@ -15,7 +15,7 @@ body {
 
 .account-main {
   flex: 1;
-  width: min(1280px, calc(100vw - 2rem));
+  width: min(1440px, calc(100vw - 2rem));
   margin: 0 auto;
   padding: 5.75rem 0 clamp(3rem, 6vw, 5rem);
 }
@@ -27,6 +27,11 @@ body {
   grid-template-columns: 1fr;
   gap: 1.15rem;
   align-items: start;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 .account-panel.is-dashboard {
@@ -68,6 +73,11 @@ body {
 
 .account-dashboard {
   gap: clamp(1rem, 2.4vw, 1.5rem);
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 .account-card h2,
