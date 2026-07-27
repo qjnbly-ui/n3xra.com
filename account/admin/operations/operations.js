@@ -282,7 +282,8 @@ function renderInvoices() {
     ? state.invoices.map((invoice) => {
       const paid = invoicePaidCents(invoice);
       const outstanding = outstandingInvoiceCents(invoice, state.transactions);
-      return `<tr><td><strong>${escapeHtml(invoice.invoice_number)}</strong><small>${escapeHtml(productById(invoice.product_id)?.name || projectById(invoice.project_id)?.name || "")}</small></td><td>${escapeHtml(partyById(invoice.customer_id)?.name || "—")}</td><td>${dateLabel(invoice.issue_date)}</td><td>${dateLabel(invoice.due_date)}</td><td>${statusBadge(invoice.status)}</td><td>${moneyCents(invoice.total_cents)}</td><td>${moneyCents(paid)}</td><td>${moneyCents(outstanding)}</td><td><button class="operations-row-action" type="button" data-edit="invoice" data-id="${invoice.id}">Edit</button></td></tr>`;
+      const source = invoice.source === "stripe" ? " · Stripe sync" : "";
+      return `<tr><td><strong>${escapeHtml(invoice.invoice_number)}</strong><small>${escapeHtml(productById(invoice.product_id)?.name || projectById(invoice.project_id)?.name || "")}${source}</small></td><td>${escapeHtml(partyById(invoice.customer_id)?.name || "—")}</td><td>${dateLabel(invoice.issue_date)}</td><td>${dateLabel(invoice.due_date)}</td><td>${statusBadge(invoice.status)}</td><td>${moneyCents(invoice.total_cents)}</td><td>${moneyCents(paid)}</td><td>${moneyCents(outstanding)}</td><td><button class="operations-row-action" type="button" data-edit="invoice" data-id="${invoice.id}">Edit</button></td></tr>`;
     }).join("")
     : '<tr><td colspan="9">No invoices have been created.</td></tr>';
 }

@@ -10,6 +10,13 @@ import {
   subscriptionPeriod,
   websiteMetadata,
 } from "../_shared/website-billing.ts";
+import {
+  operationsInvoiceStatus,
+  stripeCustomerName,
+  stripeInvoiceNumber,
+  stripePaidDate,
+  unixDateOnly,
+} from "../_shared/operations-stripe.mjs";
 
 function serviceClient() {
   const url = Deno.env.get("SUPABASE_URL");
@@ -94,6 +101,103 @@ async function activateSnapshot(admin: ReturnType<typeof createClient>, snapshot
   await admin.from("website_project_milestones").update({ status: "complete", completed_at: new Date().toISOString() }).eq("project_id", projectId).eq("stage", "billing");
 }
 
+async function operationsPartyId(
+  admin: ReturnType<typeof createClient>,
+  invoice: Stripe.Invoice,
+  snapshot: Record<string, unknown>,
+) {
+  const accountUserId = String(snapshot.client_user_id || "");
+  const { data: existing, error: selectError } = await admin
+    .from("operations_parties")
+    .select("id")
+    .eq("account_user_id", accountUserId)
+    .maybeSingle();
+  if (selectError) throw new Error(selectError.message);
+  if (existing) return existing.id;
+
+  const { data: inserted, error: insertError } = await admin
+    .from("operations_parties")
+    .insert({
+      party_type: "customer",
+      name: stripeCustomerName(invoice),
+      email: invoice.customer_email || null,
+      account_user_id: accountUserId,
+      status: "active",
+      notes: "Created automatically from a verified Stripe website invoice.",
+      created_by_user_id: snapshot.prepared_by_user_id,
+    })
+    .select("id")
+    .single();
+  if (!insertError) return inserted.id;
+  if (insertError.code !== "23505") throw new Error(insertError.message);
+
+  const { data: raced, error: racedError } = await admin
+    .from("operations_parties")
+    .select("id")
+    .eq("account_user_id", accountUserId)
+    .single();
+  if (racedError) throw new Error(racedError.message);
+  return raced.id;
+}
+
+async function syncOperationsInvoice(
+  admin: ReturnType<typeof createClient>,
+  invoice: Stripe.Invoice,
+  snapshot: Record<string, unknown>,
+  subscriptionId: string | null,
+) {
+  if ((invoice.currency || "usd").toLowerCase() !== "usd") {
+    throw new Error("Operations currently supports USD Stripe invoices only.");
+  }
+  if ((invoice.total || 0) <= 0) return;
+
+  const partyId = await operationsPartyId(admin, invoice, snapshot);
+  const invoiceNumber = stripeInvoiceNumber(invoice);
+  if (!invoiceNumber) throw new Error("Stripe invoice number is missing.");
+
+  const { data: operationsInvoice, error: invoiceError } = await admin
+    .from("operations_invoices")
+    .upsert({
+      invoice_number: invoiceNumber,
+      customer_id: partyId,
+      issue_date: unixDateOnly(invoice.created),
+      due_date: invoice.due_date ? unixDateOnly(invoice.due_date) : null,
+      total_cents: invoice.total,
+      status: operationsInvoiceStatus(invoice.status),
+      recurring: Boolean(subscriptionId),
+      external_url: invoice.hosted_invoice_url || invoice.invoice_pdf || null,
+      notes: "Synchronized automatically from Stripe website billing.",
+      created_by_user_id: snapshot.prepared_by_user_id,
+      source: "stripe",
+      external_id: invoice.id,
+    }, { onConflict: "source,external_id" })
+    .select("id")
+    .single();
+  if (invoiceError) throw new Error(invoiceError.message);
+
+  if (invoice.status !== "paid" || (invoice.amount_paid || 0) <= 0) return;
+  const { error: transactionError } = await admin
+    .from("operations_transactions")
+    .upsert({
+      transaction_type: "revenue",
+      transaction_date: stripePaidDate(invoice),
+      amount_cents: invoice.amount_paid,
+      status: "completed",
+      party_id: partyId,
+      invoice_id: operationsInvoice.id,
+      category: "website_revenue",
+      payment_method: "stripe",
+      recurring: Boolean(subscriptionId),
+      description: `Stripe payment for invoice ${invoiceNumber}`,
+      reference_number: invoice.id,
+      notes: "Synchronized automatically from a verified Stripe invoice.paid event.",
+      created_by_user_id: snapshot.prepared_by_user_id,
+      source: "stripe",
+      external_id: invoice.id,
+    }, { onConflict: "source,external_id" });
+  if (transactionError) throw new Error(transactionError.message);
+}
+
 async function syncInvoice(admin: ReturnType<typeof createClient>, stripe: Stripe, invoice: Stripe.Invoice, eventType: string) {
   let subscription: Stripe.Subscription | null = null;
   const subscriptionId = typeof invoice.subscription === "string" ? invoice.subscription : invoice.subscription?.id || null;
@@ -156,6 +260,7 @@ async function syncInvoice(admin: ReturnType<typeof createClient>, stripe: Strip
   } else if (eventType === "invoice.voided" && !subscriptionId) {
     await admin.from("website_billing_snapshots").update({ status: "canceled" }).eq("id", snapshot.id).neq("status", "active");
   }
+  await syncOperationsInvoice(admin, invoice, snapshot, subscriptionId);
   return true;
 }
 
@@ -177,8 +282,27 @@ Deno.serve(async (request) => {
       stripe_object_id: "id" in object ? String(object.id || "") : null,
       livemode: event.livemode,
     });
-    if (inserted.error?.code === "23505") return response({ received: true, duplicate: true }, 200, origin);
-    if (inserted.error) throw new Error(inserted.error.message);
+    if (inserted.error?.code === "23505") {
+      const { data: previous, error: previousError } = await admin
+        .from("website_stripe_events")
+        .select("processing_status,received_at")
+        .eq("stripe_event_id", event.id)
+        .single();
+      if (previousError) throw new Error(previousError.message);
+      const staleProcessing = previous.processing_status === "processing"
+        && Date.now() - new Date(previous.received_at).getTime() > 5 * 60 * 1000;
+      if (previous.processing_status !== "failed" && !staleProcessing) {
+        return response({ received: true, duplicate: true }, 200, origin);
+      }
+      const retried = await admin.from("website_stripe_events").update({
+        processing_status: "processing",
+        error_message: null,
+        processed_at: null,
+        received_at: new Date().toISOString(),
+      }).eq("stripe_event_id", event.id);
+      if (retried.error) throw new Error(retried.error.message);
+    }
+    if (inserted.error && inserted.error.code !== "23505") throw new Error(inserted.error.message);
 
     let handled = false;
     if (event.type === "checkout.session.completed") {
