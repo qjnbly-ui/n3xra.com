@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>N3XRA | Operations</title>
+  <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
+  <link rel="icon" href="/assets/n3xra_logo_transparent_small.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&amp;family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/site-nav.css">
+  <link rel="stylesheet" href="/client-portal/portal.css?v=9">
+  <link rel="stylesheet" href="/account/admin/admin.css?v=12">
+  <link rel="stylesheet" href="/account/admin/operations/operations.css?v=1">
+  <script src="/shared/config.js"></script>
+  <script src="/assets/site-nav.js" defer></script>
+</head>
+<body data-admin-view="operations">
+  <header class="site-topbar">
+    <div class="site-topbar-inner">
+      <div class="site-topbar-row">
+        <a class="site-brand" href="/"><img src="/assets/n3xra_logo_transparent_small.png" alt=""><span>N3XRA</span></a>
+        <div class="site-nav-actions">
+          <a class="site-menu-link" href="/account">Dashboard</a>
+          <button class="site-menu-link portal-logout" id="admin-sign-out" type="button">Sign out</button>
+          <button class="site-menu-toggle" data-site-menu-toggle type="button" aria-controls="admin-menu" aria-expanded="false"><span></span><span></span><span></span></button>
+        </div>
+      </div>
+      <nav class="site-mobile-menu" id="admin-menu" hidden></nav>
+    </div>
+  </header>
+
+  <main class="portal-shell account-admin-page">
+    <section class="portal-heading"><div><p class="portal-kicker">N3XRA Accounts</p><h1>Operations</h1></div></section>
+    <section class="portal-workspace hidden" id="setup-panel"><div class="portal-workspace-head"><div><h2>Connect Supabase</h2></div></div></section>
+
+    <div class="portal-layout hidden" id="admin-panel">
+      <nav class="portal-nav"></nav>
+      <section class="portal-workspace operations-workspace">
+        <div class="portal-workspace-head">
+          <div>
+            <p class="portal-kicker">Internal financial operations</p>
+            <h2>N3XRA Operations</h2>
+            <p>Track company revenue, expenses, invoices, deposits, customers, projects, and financial accounts in one audit-friendly workspace.</p>
+          </div>
+          <div class="operations-head-actions">
+            <button class="portal-button portal-button-secondary" type="button" data-export="ledger">Export ledger</button>
+            <button class="portal-button" type="button" data-create="transaction">Record transaction</button>
+          </div>
+        </div>
+
+        <div class="operations-security-note">
+          <strong>N3XRA internal only</strong>
+          <span>Only authenticated platform administrators can read or change these records. No customer data is added automatically.</span>
+        </div>
+
+        <nav class="operations-tabs" aria-label="Operations sections">
+          <button class="is-active" type="button" data-operations-view="overview">Overview</button>
+          <button type="button" data-operations-view="ledger">Ledger</button>
+          <button type="button" data-operations-view="invoices">Invoices</button>
+          <button type="button" data-operations-view="directory">Customers &amp; projects</button>
+          <button type="button" data-operations-view="banking">Banking</button>
+          <button type="button" data-operations-view="audit">Audit history</button>
+        </nav>
+
+        <section class="operations-view" data-operations-panel="overview">
+          <div class="operations-metrics">
+            <article><span>Confirmed balances</span><strong id="ops-bank-balance">$0.00</strong><small id="ops-bank-balance-note">No financial accounts</small></article>
+            <article><span>Outstanding invoices</span><strong id="ops-outstanding">$0.00</strong><small>Unpaid confirmed balance</small></article>
+            <article><span>Monthly revenue</span><strong id="ops-month-revenue">$0.00</strong><small id="ops-summary-month">Current month</small></article>
+            <article><span>Monthly expenses</span><strong id="ops-month-expenses">$0.00</strong><small>Completed expenses</small></article>
+            <article class="operations-profit-card"><span>Net profit</span><strong id="ops-net-profit">$0.00</strong><small>Revenue minus expenses</small></article>
+            <article><span>Customers / projects</span><strong id="ops-activity-count">0 / 0</strong><small>Active records</small></article>
+          </div>
+
+          <div class="operations-overview-grid">
+            <article class="operations-card">
+              <div class="operations-card-head"><div><p class="portal-kicker">Latest activity</p><h3>Recent transactions</h3></div><button type="button" class="operations-text-button" data-open-panel="ledger">View ledger</button></div>
+              <div id="ops-recent-transactions" class="operations-list"></div>
+            </article>
+            <article class="operations-card">
+              <div class="operations-card-head"><div><p class="portal-kicker">Attention</p><h3>Operating checks</h3></div></div>
+              <div id="ops-attention-list" class="operations-list"></div>
+            </article>
+          </div>
+
+          <article class="operations-card">
+            <div class="operations-card-head"><div><p class="portal-kicker">Product performance</p><h3>Revenue and expenses by product</h3></div></div>
+            <div class="operations-table-wrap"><table><thead><tr><th>Product</th><th>Revenue</th><th>Expenses</th><th>Net</th></tr></thead><tbody id="ops-product-summary"></tbody></table></div>
+          </article>
+        </section>
+
+        <section class="operations-view" data-operations-panel="ledger" hidden>
+          <div class="operations-section-head">
+            <div><p class="portal-kicker">Company ledger</p><h3>Revenue and expenses</h3><p>Transactions remain in the history. Incorrect entries are voided rather than deleted.</p></div>
+            <button class="portal-button" type="button" data-create="transaction">Record transaction</button>
+          </div>
+          <div class="operations-filters">
+            <label>Search<input id="ops-ledger-search" type="search" placeholder="Description, customer, category, or reference"></label>
+            <label>Type<select id="ops-ledger-type"><option value="all">All types</option><option value="revenue">Revenue</option><option value="expense">Expenses</option></select></label>
+            <label>Status<select id="ops-ledger-status"><option value="active">Active</option><option value="all">All statuses</option><option value="pending">Pending</option><option value="completed">Completed</option><option value="void">Voided</option></select></label>
+            <label>Year<select id="ops-ledger-year"><option value="">All years</option></select></label>
+          </div>
+          <div class="operations-table-wrap"><table><thead><tr><th>Date</th><th>Type</th><th>Description</th><th>Party</th><th>Product / project</th><th>Method</th><th>Status</th><th>Amount</th><th></th></tr></thead><tbody id="ops-ledger-table"></tbody></table></div>
+        </section>
+
+        <section class="operations-view" data-operations-panel="invoices" hidden>
+          <div class="operations-section-head">
+            <div><p class="portal-kicker">Accounts receivable</p><h3>Invoices</h3><p>Track invoice totals and connect received payments from the ledger.</p></div>
+            <div class="operations-head-actions"><button class="portal-button portal-button-secondary" type="button" data-export="invoices">Export invoices</button><button class="portal-button" type="button" data-create="invoice">Add invoice</button></div>
+          </div>
+          <div class="operations-table-wrap"><table><thead><tr><th>Invoice</th><th>Customer</th><th>Issued</th><th>Due</th><th>Status</th><th>Total</th><th>Paid</th><th>Outstanding</th><th></th></tr></thead><tbody id="ops-invoice-table"></tbody></table></div>
+        </section>
+
+        <section class="operations-view" data-operations-panel="directory" hidden>
+          <div class="operations-directory-grid">
+            <article class="operations-card"><div class="operations-card-head"><div><p class="portal-kicker">Directory</p><h3>Customers &amp; vendors</h3></div><button class="portal-button portal-button-secondary" type="button" data-create="party">Add</button></div><div id="ops-party-list" class="operations-list"></div></article>
+            <article class="operations-card"><div class="operations-card-head"><div><p class="portal-kicker">Offerings</p><h3>Products &amp; services</h3></div><button class="portal-button portal-button-secondary" type="button" data-create="product">Add</button></div><div id="ops-product-list" class="operations-list"></div></article>
+            <article class="operations-card operations-directory-wide"><div class="operations-card-head"><div><p class="portal-kicker">Delivery</p><h3>Projects</h3></div><button class="portal-button portal-button-secondary" type="button" data-create="project">Add</button></div><div id="ops-project-list" class="operations-list"></div></article>
+          </div>
+        </section>
+
+        <section class="operations-view" data-operations-panel="banking" hidden>
+          <div class="operations-directory-grid">
+            <article class="operations-card"><div class="operations-card-head"><div><p class="portal-kicker">Reconciled balances</p><h3>Financial accounts</h3></div><button class="portal-button portal-button-secondary" type="button" data-create="account">Add</button></div><div id="ops-account-list" class="operations-list"></div></article>
+            <article class="operations-card"><div class="operations-card-head"><div><p class="portal-kicker">Cash controls</p><h3>Deposits</h3></div><button class="portal-button portal-button-secondary" type="button" data-create="deposit">Add</button></div><div id="ops-deposit-list" class="operations-list"></div></article>
+          </div>
+          <article class="operations-card operations-reconciliation-card"><p class="portal-kicker">Deposit reconciliation</p><h3>Cash received versus deposits</h3><div id="ops-deposit-reconciliation"></div></article>
+        </section>
+
+        <section class="operations-view" data-operations-panel="audit" hidden>
+          <div class="operations-section-head"><div><p class="portal-kicker">Immutable activity</p><h3>Audit history</h3><p>Every insert and update records the administrator, time, record, and before-and-after snapshot.</p></div></div>
+          <div id="ops-audit-list" class="operations-audit-list"></div>
+        </section>
+
+        <p class="admin-status" id="admin-status" role="status"></p>
+      </section>
+    </div>
+  </main>
+
+  <dialog class="operations-dialog" id="operations-dialog">
+    <form id="operations-form">
+      <header><div><p class="portal-kicker" id="operations-dialog-kicker">N3XRA Operations</p><h2 id="operations-dialog-title">Add record</h2></div><button type="button" class="operations-dialog-close" data-close-dialog aria-label="Close">×</button></header>
+      <input id="operations-record-id" type="hidden">
+      <div class="operations-form-grid" id="operations-form-fields"></div>
+      <p class="operations-form-error" id="operations-form-error" role="alert"></p>
+      <footer><button class="portal-button portal-button-secondary" type="button" data-close-dialog>Cancel</button><button class="portal-button" id="operations-save" type="submit">Save record</button></footer>
+    </form>
+  </dialog>
+
+  <dialog class="operations-dialog operations-void-dialog" id="operations-void-dialog">
+    <form id="operations-void-form">
+      <header><div><p class="portal-kicker">Audit-friendly correction</p><h2>Void transaction</h2></div><button type="button" class="operations-dialog-close" data-close-void aria-label="Close">×</button></header>
+      <input id="operations-void-id" type="hidden">
+      <label class="operations-field">Reason<textarea id="operations-void-reason" rows="4" minlength="3" maxlength="500" required placeholder="Explain why this transaction is being voided."></textarea></label>
+      <p class="operations-form-error" id="operations-void-error" role="alert"></p>
+      <footer><button class="portal-button portal-button-secondary" type="button" data-close-void>Cancel</button><button class="portal-button operations-danger" type="submit">Void transaction</button></footer>
+    </form>
+  </dialog>
+
+  <script type="module" src="/account/admin/admin.js"></script>
+</body>
+</html>

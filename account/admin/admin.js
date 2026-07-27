@@ -1,6 +1,6 @@
 import { createBrowserSupabase, getSessionOrNull, hasConfig } from "/shared/lib/supabase-client.js";
 import { isPlatformAdminEmail } from "/shared/lib/orgs.js";
-import { arrangeAdminWorkspace } from "/account/admin/admin-navigation.js?v=3";
+import { arrangeAdminWorkspace } from "/account/admin/admin-navigation.js?v=4";
 
 let view = "";
 let setupPanel = null;
@@ -784,6 +784,9 @@ async function loadAdminView() {
     document.getElementById("billing-filter")?.addEventListener("input", renderBilling);
     document.getElementById("billing-product")?.addEventListener("change", renderBilling);
     await loadBilling();
+  } else if (view === "operations") {
+    const operations = await import("/account/admin/operations/operations.js?v=1");
+    await operations.startOperations({ supabase, session, invoke });
   } else if (view === "support") {
     document.getElementById("support-filter")?.addEventListener("change", renderSupportOptions);
     document.getElementById("support-select")?.addEventListener("change", renderSelectedSupport);

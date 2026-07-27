@@ -5,6 +5,7 @@
   "scripts": {
     "build": "npm run build:project-pulse && npm run build:private-code-index && npm run refresh:ask-knowledge",
     "test:loans": "node --test tests/loans/*.test.mjs",
+    "test:operations": "node --test tests/operations/*.test.mjs",
     "build:project-pulse": "node scripts/build-project-pulse.js",
     "build:private-code-index": "node scripts/build-private-code-index.js",
     "refresh:ask-knowledge": "node scripts/build-site-knowledge.js"

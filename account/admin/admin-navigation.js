@@ -2,6 +2,7 @@ const accountLinks = [
   ["/account/admin/accounts/", "Accounts & Access"],
   ["/account/admin/platform-admins/", "Platform Admins"],
   ["/account/admin/billing/", "Billing"],
+  ["/account/admin/operations/", "Operations"],
   ["/account/admin/support/", "Support"],
   ["/account/notifications/", "Platform Notifications"],
   ["/account/admin/analytics/", "Analytics"],
