@@ -88,7 +88,6 @@ function analyticsUrl(dataset, groupBy, { since, until, limit = 12 }) {
   url.searchParams.set("until", until);
   url.searchParams.set("by", groupBy);
   url.searchParams.set("limit", String(limit));
-  url.searchParams.set("filter", "environment eq 'production'");
   return url;
 }
 
