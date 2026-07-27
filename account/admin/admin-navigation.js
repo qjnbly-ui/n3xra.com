@@ -64,8 +64,13 @@ const investmentLinks = [
   ["buybacks", "Company Buyback Requests"],
 ];
 
+function normalizePath(pathname) {
+  const path = String(pathname || "/").replace(/\/+$/, "");
+  return path ? `${path}/` : "/";
+}
+
 function isCurrentPath(href) {
-  return window.location.pathname.replace(/\/+$/, "/") === href;
+  return normalizePath(window.location.pathname) === normalizePath(href);
 }
 
 function linkMarkup([href, label], mobile = false) {
@@ -79,7 +84,7 @@ function productAppFromUrl() {
     const key = new URLSearchParams(window.location.search).get("app");
     return productApps.find((app) => app.key === key) || null;
   }
-  const currentPath = window.location.pathname.replace(/\/+$/, "/");
+  const currentPath = normalizePath(window.location.pathname);
   return productApps.find((app) => app.sections.some(([, , href]) => href === currentPath)) || null;
 }
 
@@ -90,7 +95,7 @@ function productHref(app, section = app.sections[0]?.[0]) {
 function productMarkup(app, mobile = false) {
   const activeApp = productAppFromUrl();
   const onApp = activeApp?.key === app.key;
-  const currentPath = window.location.pathname.replace(/\/+$/, "/");
+  const currentPath = normalizePath(window.location.pathname);
   const selectedSection = isCurrentPath("/account/admin/product-apps/")
     ? new URLSearchParams(window.location.search).get("section") || app.sections[0]?.[0]
     : app.sections.find(([, , href]) => href === currentPath)?.[0] || app.sections[0]?.[0];
