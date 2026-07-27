@@ -361,7 +361,6 @@ function renderSafeMarkdown(value) {
     const line = rawLine.trim();
 
     if (/^```/.test(line)) {
-      closeList();
       if (codeLines) {
         output.push(`<pre><code>${escapeHtml(codeLines.join("\n"))}</code></pre>`);
         codeLines = null;
