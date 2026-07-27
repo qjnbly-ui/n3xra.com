@@ -4,6 +4,7 @@ const accountLinks = [
   ["/account/admin/billing/", "Billing"],
   ["/account/admin/support/", "Support"],
   ["/account/notifications/", "Platform Notifications"],
+  ["/account/admin/analytics/", "Analytics"],
 ];
 
 const productApps = [
@@ -117,7 +118,60 @@ function investmentMarkup(mobile = false) {
   }).join("");
 }
 
+function mobileSection({ title, meta = "", className = "", content }) {
+  return `
+    <section class="admin-mobile-nav-section${className ? ` ${className}` : ""}">
+      <div class="admin-mobile-nav-heading">
+        <p class="site-mobile-menu-title">${title}</p>
+        ${meta ? `<span>${meta}</span>` : ""}
+      </div>
+      ${content}
+    </section>
+  `;
+}
+
+function mobileNavigationMarkup() {
+  const activeApp = productAppFromUrl();
+  const accountContent = `<div class="admin-mobile-link-grid">${accountLinks.map((item) => linkMarkup(item, true)).join("")}</div>`;
+  const productContent = `<div class="admin-mobile-product-list">${productApps.map((app) => {
+    const isActive = activeApp?.key === app.key;
+    return `
+      <div class="admin-mobile-product${isActive ? " is-active" : ""}">
+        ${productMarkup(app, true)}
+      </div>
+    `;
+  }).join("")}</div>`;
+  const resourceContent = `<div class="admin-mobile-link-grid">${resourceLinks.map((item) => linkMarkup(item, true)).join("")}</div>`;
+  const onInvestmentPage = isCurrentPath("/account/admin/investment/");
+
+  return `
+    <div class="admin-mobile-menu-intro">
+      <div>
+        <span>Admin workspace</span>
+        <strong>Navigation</strong>
+      </div>
+      <span class="admin-mobile-menu-hint">Choose an area</span>
+    </div>
+    <div class="admin-mobile-menu-utilities">
+      <a class="site-menu-link" href="/account/">Dashboard</a>
+      <button class="site-menu-link" type="button" data-admin-mobile-sign-out>Sign out</button>
+    </div>
+    ${mobileSection({ title: "N3XRA Accounts", meta: `${accountLinks.length} areas`, content: accountContent })}
+    ${mobileSection({ title: "Product Admin Apps", meta: `${productApps.length} apps`, className: "admin-mobile-products", content: productContent })}
+    ${mobileSection({ title: "Internal Resources", content: resourceContent })}
+    ${mobileSection({
+      title: "Investment",
+      content: `
+        <button class="site-menu-link admin-nav-expander${onInvestmentPage ? " is-current" : ""}" type="button" data-investment-nav-toggle aria-expanded="${onInvestmentPage}">Investment workspace</button>
+        <div class="admin-nav-children" data-investment-nav-items${onInvestmentPage ? "" : " hidden"}>${investmentMarkup(true)}</div>
+      `,
+    })}
+  `;
+}
+
 function navigationMarkup(mobile = false) {
+  if (mobile) return mobileNavigationMarkup();
+
   const labelClass = mobile ? "site-mobile-menu-head" : "";
   const label = (text) => mobile
     ? `<div class="${labelClass}"><p class="site-mobile-menu-title">${text}</p></div>`
@@ -155,6 +209,15 @@ function bindInvestmentToggle(container) {
   });
 }
 
+function closeMobileMenu() {
+  const menu = document.querySelector(".site-mobile-menu.is-open");
+  if (!menu) return;
+  menu.classList.remove("is-open");
+  menu.hidden = true;
+  document.querySelector(`[data-site-menu-toggle][aria-controls="${menu.id}"]`)?.setAttribute("aria-expanded", "false");
+  document.body.classList.remove("site-menu-is-open");
+}
+
 export function renderAdminNavigation({ desktopScrollTop } = {}) {
   document.querySelector(".site-topbar")?.classList.add("admin-topbar");
   document.querySelectorAll(".portal-nav").forEach((nav) => {
@@ -168,6 +231,7 @@ export function renderAdminNavigation({ desktopScrollTop } = {}) {
   document.querySelectorAll(".site-mobile-menu").forEach((nav) => {
     const scrollTop = nav.scrollTop;
     nav.innerHTML = navigationMarkup(true);
+    nav.setAttribute("aria-label", "N3XRA administration menu");
     bindInvestmentToggle(nav);
     requestAnimationFrame(() => { nav.scrollTop = scrollTop; });
   });
@@ -263,9 +327,17 @@ export async function navigateAdminWorkspace(destination, { history = "push", de
 }
 
 document.addEventListener("click", (event) => {
+  const mobileSignOut = event.target.closest("[data-admin-mobile-sign-out]");
+  if (mobileSignOut) {
+    closeMobileMenu();
+    document.getElementById("admin-sign-out")?.click();
+    return;
+  }
+
   const link = event.target.closest(".portal-nav a, .site-mobile-menu a");
   if (!link || link.target || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
   const url = new URL(link.href, window.location.origin);
+  if (link.closest(".site-mobile-menu")) closeMobileMenu();
   if (!isWorkspaceUrl(url)) return;
   event.preventDefault();
   const desktopScrollTop = document.querySelector(".portal-nav")?.scrollTop;

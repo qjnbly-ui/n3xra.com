@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>N3XRA | Analytics</title>
+  <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
+  <link rel="icon" href="/assets/n3xra_logo_transparent_small.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&amp;family=Manrope:wght@400;600;700;800&amp;display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/site-nav.css">
+  <link rel="stylesheet" href="/client-portal/portal.css?v=11">
+  <link rel="stylesheet" href="/account/admin/admin.css?v=13">
+  <script src="/shared/config.js"></script>
+  <script src="/assets/site-nav.js" defer></script>
+  <script>
+    window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+  </script>
+  <script defer src="/_vercel/insights/script.js"></script>
+</head>
+<body data-admin-view="analytics">
+  <header class="site-topbar">
+    <div class="site-topbar-inner">
+      <div class="site-topbar-row">
+        <a class="site-brand" href="/"><img src="/assets/n3xra_logo_transparent_small.png" alt=""><span>N3XRA</span></a>
+        <div class="site-nav-actions">
+          <a class="site-menu-link" href="/account">Dashboard</a>
+          <button class="site-menu-link portal-logout" id="admin-sign-out" type="button">Sign out</button>
+          <button class="site-menu-toggle" data-site-menu-toggle type="button" aria-controls="admin-menu" aria-expanded="false"><span></span><span></span><span></span></button>
+        </div>
+      </div>
+      <nav class="site-mobile-menu" id="admin-menu" hidden></nav>
+    </div>
+  </header>
+
+  <main class="portal-shell account-admin-page">
+    <section class="portal-heading"><div><p class="portal-kicker">N3XRA Administration</p><h1>Analytics</h1></div></section>
+    <section class="portal-workspace hidden" id="setup-panel"><div class="portal-workspace-head"><div><h2>Connect Supabase</h2><p>Add the browser project configuration to continue.</p></div></div></section>
+
+    <div class="portal-layout hidden" id="admin-panel">
+      <nav class="portal-nav"></nav>
+
+      <section class="portal-workspace analytics-workspace">
+        <div class="analytics-toolbar">
+          <div>
+            <p class="portal-kicker">Vercel Web Analytics</p>
+            <strong>Production traffic</strong>
+          </div>
+          <div class="analytics-toolbar-actions">
+            <label for="analytics-range">Timeframe</label>
+            <select id="analytics-range">
+              <option value="7">Last 7 days</option>
+              <option value="30" selected>Last 30 days</option>
+            </select>
+            <button class="portal-button portal-button-secondary" id="analytics-refresh" type="button">Refresh</button>
+          </div>
+        </div>
+
+        <section class="analytics-configuration hidden" id="analytics-configuration">
+          <div>
+            <p class="portal-kicker">One-time connection</p>
+            <h2>Connect Vercel Analytics</h2>
+            <p>Add the listed values to the Vercel project’s server environment. The access token is never sent to the browser.</p>
+          </div>
+          <ul id="analytics-missing-config"></ul>
+        </section>
+
+        <div id="analytics-dashboard">
+          <section class="analytics-metrics" aria-label="Traffic summary">
+            <article><span>Visitors</span><strong id="analytics-visitors">—</strong><small>Unique daily visitors</small></article>
+            <article><span>Page views</span><strong id="analytics-pageviews">—</strong><small>Pages loaded</small></article>
+            <article><span>Pages / visitor</span><strong id="analytics-pages-per-visitor">—</strong><small>Average engagement</small></article>
+            <article><span>Custom events</span><strong id="analytics-events">—</strong><small>Tracked interactions</small></article>
+          </section>
+
+          <section class="analytics-panel analytics-trend-panel">
+            <div class="analytics-panel-head">
+              <div><span>Traffic trend</span><strong>Page views by day</strong></div>
+              <small id="analytics-updated">Loading current data…</small>
+            </div>
+            <div class="analytics-chart" id="analytics-chart" role="img" aria-label="Daily page views chart"></div>
+          </section>
+
+          <section class="analytics-breakdowns">
+            <article class="analytics-panel">
+              <div class="analytics-panel-head"><div><span>Content</span><strong>Top pages</strong></div></div>
+              <div class="analytics-list" id="analytics-pages"></div>
+            </article>
+            <article class="analytics-panel">
+              <div class="analytics-panel-head"><div><span>Acquisition</span><strong>Top referrers</strong></div></div>
+              <div class="analytics-list" id="analytics-referrers"></div>
+            </article>
+            <article class="analytics-panel">
+              <div class="analytics-panel-head"><div><span>Audience</span><strong>Countries</strong></div></div>
+              <div class="analytics-list" id="analytics-countries"></div>
+            </article>
+            <article class="analytics-panel">
+              <div class="analytics-panel-head"><div><span>Technology</span><strong>Devices</strong></div></div>
+              <div class="analytics-list" id="analytics-devices"></div>
+            </article>
+            <article class="analytics-panel analytics-events-panel">
+              <div class="analytics-panel-head"><div><span>Interactions</span><strong>Custom events</strong></div></div>
+              <div class="analytics-list" id="analytics-event-list"></div>
+            </article>
+          </section>
+        </div>
+        <p class="admin-status" id="admin-status" role="status"></p>
+      </section>
+    </div>
+  </main>
+  <script type="module" src="/account/admin/admin.js?v=8"></script>
+</body>
+</html>
