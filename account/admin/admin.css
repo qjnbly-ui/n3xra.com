@@ -1026,6 +1026,12 @@
   text-align: center;
 }
 
+.analytics-empty.is-unavailable {
+  color: #8b5a21;
+  background: rgba(245, 158, 11, 0.06);
+  border-radius: 8px;
+}
+
 @media (max-width: 800px) {
   body.site-menu-is-open {
     overflow: hidden;

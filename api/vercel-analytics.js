@@ -14,6 +14,13 @@ const VERCEL_TEAM_SLUG = String(process.env.VERCEL_ANALYTICS_TEAM_SLUG || "").tr
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const ALLOWED_RANGES = new Set([7, 30]);
 const responseCache = new Map();
+const BREAKDOWN_QUERIES = [
+  { key: "pages", dataset: "visits", groupBy: "requestPath", limit: 10 },
+  { key: "referrers", dataset: "visits", groupBy: "referrerHostname", limit: 10 },
+  { key: "countries", dataset: "visits", groupBy: "country", limit: 10 },
+  { key: "devices", dataset: "visits", groupBy: "deviceType", limit: 10 },
+  { key: "events", dataset: "events", groupBy: "eventName", limit: 10 },
+];
 
 function getBearerToken(req) {
   const header = req.headers.authorization || req.headers.Authorization || "";
@@ -85,21 +92,49 @@ function analyticsUrl(dataset, groupBy, { since, until, limit = 12 }) {
   return url;
 }
 
+function wait(milliseconds) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+function retryDelay(response) {
+  const retryAfter = Number(response.headers.get("retry-after"));
+  if (Number.isFinite(retryAfter) && retryAfter > 0) {
+    return Math.min(retryAfter * 1000, 2500);
+  }
+
+  const reset = Number(response.headers.get("x-ratelimit-reset"));
+  if (Number.isFinite(reset) && reset > 0) {
+    const resetAt = reset > 1e12 ? reset : reset * 1000;
+    return Math.min(Math.max(resetAt - Date.now(), 250), 2500);
+  }
+
+  return 500;
+}
+
 async function queryAnalytics(dataset, groupBy, range, limit) {
-  const response = await fetch(analyticsUrl(dataset, groupBy, { ...range, limit }), {
-    headers: {
-      Authorization: `Bearer ${VERCEL_TOKEN}`,
-      Accept: "application/json",
-    },
-  });
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const response = await fetch(analyticsUrl(dataset, groupBy, { ...range, limit }), {
+      headers: {
+        Authorization: `Bearer ${VERCEL_TOKEN}`,
+        Accept: "application/json",
+      },
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (response.ok) return Array.isArray(payload?.data) ? payload.data : [];
+
+    if (response.status === 429 && attempt === 0) {
+      await wait(retryDelay(response));
+      continue;
+    }
+
     const message = payload?.error?.message || payload?.message || "Vercel Analytics could not be loaded.";
     const error = new Error(String(message));
     error.status = response.status === 429 ? 429 : 502;
+    error.upstreamStatus = response.status;
     throw error;
   }
-  return Array.isArray(payload?.data) ? payload.data : [];
+
+  return [];
 }
 
 function numeric(value) {
@@ -120,19 +155,27 @@ async function getAnalytics(days) {
 
   const range = getDateRange(days);
   const trend = await queryAnalytics("visits", "day", range, days);
-  const breakdownRequests = await Promise.allSettled([
-    queryAnalytics("visits", "requestPath", range, 10),
-    queryAnalytics("visits", "referrerHostname", range, 10),
-    queryAnalytics("visits", "country", range, 10),
-    queryAnalytics("visits", "deviceType", range, 10),
-    queryAnalytics("events", "eventName", range, 10),
-  ]);
-  const [pages, referrers, countries, devices, events] = breakdownRequests.map((result) => (
-    result.status === "fulfilled" ? result.value : []
-  ));
-  const warnings = breakdownRequests.flatMap((result) => (
-    result.status === "rejected" ? [result.reason?.message || "A breakdown could not be loaded."] : []
-  ));
+  const breakdowns = {};
+  const availability = {};
+  const warnings = [];
+
+  // Vercel applies endpoint-level rate limits. Keep these requests ordered so a
+  // traffic summary cannot crowd out all of the supporting dashboard panels.
+  for (const query of BREAKDOWN_QUERIES) {
+    try {
+      breakdowns[query.key] = await queryAnalytics(query.dataset, query.groupBy, range, query.limit);
+      availability[query.key] = "available";
+    } catch (error) {
+      breakdowns[query.key] = [];
+      availability[query.key] = "unavailable";
+      warnings.push({
+        section: query.key,
+        message: error?.message || "This breakdown could not be loaded.",
+        status: Number(error?.upstreamStatus || error?.status || 502),
+      });
+    }
+  }
+
   const pageviews = total(trend, "pageviews");
   const visitors = total(trend, "visitors");
   const payload = {
@@ -148,19 +191,15 @@ async function getAnalytics(days) {
       pageviews,
       visitors,
       pagesPerVisitor: visitors ? Number((pageviews / visitors).toFixed(2)) : 0,
-      events: total(events, "count"),
+      events: total(breakdowns.events, "count"),
     },
     trend,
-    breakdowns: {
-      pages,
-      referrers,
-      countries,
-      devices,
-      events,
-    },
-    warnings: [...new Set(warnings)].slice(0, 3),
+    breakdowns,
+    availability,
+    warnings: warnings.slice(0, 5),
   };
-  responseCache.set(cacheKey, { storedAt: Date.now(), payload });
+  // Do not preserve a transient Vercel failure as an apparently empty report.
+  if (!warnings.length) responseCache.set(cacheKey, { storedAt: Date.now(), payload });
   return payload;
 }
 

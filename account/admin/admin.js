@@ -516,12 +516,12 @@ function analyticsLabel(value, fallback = "Unknown") {
   return label.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
-function renderAnalyticsList(id, rows, key, metric = "pageviews", fallback = "No data recorded") {
+function renderAnalyticsList(id, rows, key, metric = "pageviews", fallback = "No data recorded", available = true) {
   const container = document.getElementById(id);
   if (!container) return;
   const list = Array.isArray(rows) ? rows : [];
   if (!list.length) {
-    container.innerHTML = `<p class="analytics-empty">${escapeHtml(fallback)}</p>`;
+    container.innerHTML = `<p class="analytics-empty${available ? "" : " is-unavailable"}">${escapeHtml(available ? fallback : "Temporarily unavailable")}</p>`;
     return;
   }
   const maximum = Math.max(...list.map((row) => Number(row?.[metric] || 0)), 1);
@@ -603,13 +603,20 @@ function renderAnalytics(data = {}) {
     updated.textContent = `${data.period?.label || "Current range"} · Updated ${formatDate(data.generatedAt)}${data.cached ? " · cached" : ""}`;
   }
   renderAnalyticsChart(data.trend);
-  renderAnalyticsList("analytics-pages", data.breakdowns?.pages, "requestPath");
-  renderAnalyticsList("analytics-referrers", data.breakdowns?.referrers, "referrerHostname");
-  renderAnalyticsList("analytics-countries", data.breakdowns?.countries, "country");
-  renderAnalyticsList("analytics-devices", data.breakdowns?.devices, "deviceType");
-  renderAnalyticsList("analytics-event-list", data.breakdowns?.events, "eventName", "count", "No custom events recorded");
+  const availability = data.availability || {};
+  renderAnalyticsList("analytics-pages", data.breakdowns?.pages, "requestPath", "visitors", "No data recorded", availability.pages !== "unavailable");
+  renderAnalyticsList("analytics-referrers", data.breakdowns?.referrers, "referrerHostname", "visitors", "No data recorded", availability.referrers !== "unavailable");
+  renderAnalyticsList("analytics-countries", data.breakdowns?.countries, "country", "visitors", "No data recorded", availability.countries !== "unavailable");
+  renderAnalyticsList("analytics-devices", data.breakdowns?.devices, "deviceType", "visitors", "No data recorded", availability.devices !== "unavailable");
+  renderAnalyticsList("analytics-event-list", data.breakdowns?.events, "eventName", "count", "No custom events recorded", availability.events !== "unavailable");
   const warnings = Array.isArray(data.warnings) ? data.warnings : [];
-  setStatus(warnings.length ? "Traffic loaded. One or more optional breakdowns are temporarily unavailable." : "Analytics loaded.", warnings.length ? "" : "success");
+  const unavailableCount = Object.values(availability).filter((value) => value === "unavailable").length;
+  setStatus(
+    warnings.length
+      ? `Traffic loaded. ${unavailableCount || "One or more"} detailed ${unavailableCount === 1 ? "panel is" : "panels are"} temporarily unavailable.`
+      : "Analytics loaded.",
+    warnings.length ? "" : "success",
+  );
 }
 
 async function loadAnalytics(force = false) {
