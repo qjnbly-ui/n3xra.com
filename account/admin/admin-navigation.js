@@ -48,6 +48,7 @@ const productApps = [
 const resourceLinks = [
   ["/account/admin/business-framework/", "Business Framework"],
   ["/account/admin/codebase-ai/", "Codebase AI"],
+  ["/project-pulse/", "Project Pulse"],
 ];
 
 const investmentLinks = [
