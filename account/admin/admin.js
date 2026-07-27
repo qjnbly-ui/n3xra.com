@@ -575,29 +575,12 @@ function embedProductFrame(frame) {
 }
 
 function loadProductAdminApp() {
-  const frame = document.getElementById("product-admin-frame");
-  const empty = document.getElementById("product-admin-empty");
-  if (!frame || !empty) return;
-
   const params = new URLSearchParams(window.location.search);
   const app = productAdminApps[params.get("app")];
   const sectionKey = params.get("section");
   const section = app?.sections?.[sectionKey] || app?.sections?.[Object.keys(app.sections)[0]];
-  if (!app || !section) {
-    frame.classList.add("hidden");
-    empty.classList.remove("hidden");
-    return;
-  }
-
-  const [heading, , path] = section;
-  empty.classList.add("hidden");
-  frame.classList.add("hidden");
-  frame.classList.remove("is-ready");
-  frame.title = `${heading} — ${app.label} — N3XRA`;
-  frame.addEventListener("load", () => embedProductFrame(frame), { once: true });
-  const source = new URL(path, window.location.origin);
-  source.searchParams.set("embed", "1");
-  frame.src = source.href;
+  if (!app || !section) return;
+  window.location.replace(section[2]);
 }
 
 function selectInvestmentSection() {

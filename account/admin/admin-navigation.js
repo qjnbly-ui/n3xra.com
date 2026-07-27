@@ -75,19 +75,25 @@ function linkMarkup([href, label], mobile = false) {
 }
 
 function productAppFromUrl() {
-  if (!isCurrentPath("/account/admin/product-apps/")) return null;
-  const key = new URLSearchParams(window.location.search).get("app");
-  return productApps.find((app) => app.key === key) || null;
+  if (isCurrentPath("/account/admin/product-apps/")) {
+    const key = new URLSearchParams(window.location.search).get("app");
+    return productApps.find((app) => app.key === key) || null;
+  }
+  const currentPath = window.location.pathname.replace(/\/+$/, "/");
+  return productApps.find((app) => app.sections.some(([, , href]) => href === currentPath)) || null;
 }
 
 function productHref(app, section = app.sections[0]?.[0]) {
-  return `/account/admin/product-apps/?app=${encodeURIComponent(app.key)}&section=${encodeURIComponent(section)}`;
+  return app.sections.find(([key]) => key === section)?.[2] || app.sections[0]?.[2] || "/account/admin/";
 }
 
 function productMarkup(app, mobile = false) {
   const activeApp = productAppFromUrl();
   const onApp = activeApp?.key === app.key;
-  const selectedSection = new URLSearchParams(window.location.search).get("section") || app.sections[0]?.[0];
+  const currentPath = window.location.pathname.replace(/\/+$/, "/");
+  const selectedSection = isCurrentPath("/account/admin/product-apps/")
+    ? new URLSearchParams(window.location.search).get("section") || app.sections[0]?.[0]
+    : app.sections.find(([, , href]) => href === currentPath)?.[0] || app.sections[0]?.[0];
   const itemClass = mobile ? "site-menu-link admin-nav-child" : "admin-nav-child";
   const parentClass = mobile ? "site-menu-link admin-nav-product" : "admin-nav-product";
   const children = app.sections.map(([section, label]) => {
