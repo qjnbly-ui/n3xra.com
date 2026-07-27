@@ -1,5 +1,6 @@
 import { outstandingInvoiceCents, summarizeOperations, toCents } from "/lib/operations/calculations.mjs";
 import {
+  isResolvedExpenseCategory,
   normalizeImportRecords,
   normalizeHeader,
   parseCsv,
@@ -365,6 +366,20 @@ function classificationOptions(selected) {
     .join("");
 }
 
+function expenseCategoryOptions(selected) {
+  const choices = [...new Set([
+    ...EXPENSE_CATEGORIES,
+    ...state.importRows.map((row) => row.category),
+    ...state.transactions.filter((item) => item.transaction_type === "expense").map((item) => item.category),
+  ].filter(Boolean).map((category) => String(category).trim()).filter(Boolean))];
+  const normalizedSelected = String(selected || "").trim();
+  if (normalizedSelected && !choices.includes(normalizedSelected)) choices.push(normalizedSelected);
+  return `<option value="">Choose category</option>${choices
+    .sort((left, right) => left.localeCompare(right))
+    .map((category) => `<option value="${escapeHtml(category)}"${category === normalizedSelected ? " selected" : ""}>${escapeHtml(category)}</option>`)
+    .join("")}`;
+}
+
 function renderExpenseReview() {
   const accountSelect = $("#ops-import-account");
   const selectedAccount = accountSelect.value;
@@ -414,6 +429,7 @@ function renderExpenseReview() {
       const approvable = row.flow === "debit"
         && ["business", "mixed"].includes(row.classification)
         && !row.is_duplicate
+        && isResolvedExpenseCategory(row.category)
         && Number(row.deductible_cents) > 0;
       const controlsDisabled = locked || row.status === "posted";
       let decision = "";
@@ -427,9 +443,9 @@ function renderExpenseReview() {
         <td class="${row.flow === "debit" ? "operations-amount-expense" : "operations-amount-revenue"}">${row.flow === "debit" ? "−" : "+"}${moneyCents(row.amount_cents)}</td>
         <td><select data-import-field="classification"${controlsDisabled ? " disabled" : ""}>${classificationOptions(row.classification)}</select><small>${row.confidence}% confidence</small></td>
         <td><input data-import-field="business_use_percent" type="number" min="0" max="100" step="0.01" value="${escapeHtml(row.business_use_percent)}"${controlsDisabled || ["personal", "transfer"].includes(row.classification) ? " disabled" : ""}>%</td>
-        <td><input data-import-field="category" type="text" maxlength="120" value="${valueAttribute(row.category)}"${controlsDisabled ? " disabled" : ""}></td>
+        <td><div class="operations-category-control"><select data-import-field="category"${controlsDisabled ? " disabled" : ""}>${expenseCategoryOptions(row.category)}</select><button class="operations-category-add" type="button" data-import-add-category="${row.id}"${controlsDisabled ? " disabled" : ""} aria-label="Add a custom category" title="Add a custom category">+ Add</button></div></td>
         <td><strong>${moneyCents(row.deductible_cents)}</strong></td>
-        <td><label class="operations-asset-toggle"><input data-import-field="asset_candidate" type="checkbox"${row.asset_candidate ? " checked" : ""}${controlsDisabled || row.flow !== "debit" ? " disabled" : ""}> Review</label></td>
+        <td><label class="operations-asset-toggle" title="Flag a long-lived purchase for possible depreciable-asset review. This does not approve the transaction."><input data-import-field="asset_candidate" type="checkbox"${row.asset_candidate ? " checked" : ""}${controlsDisabled || row.flow !== "debit" ? " disabled" : ""}> Flag</label></td>
         <td>${row.receipt_path
           ? `<button class="operations-row-action" type="button" data-import-open-receipt="${row.id}">View</button>`
           : controlsDisabled
@@ -952,6 +968,25 @@ async function updateImportField(control) {
   showPanel("expense-review");
 }
 
+async function addImportCategory(id) {
+  const row = state.importRows.find((item) => item.id === id);
+  if (!row || row.status === "posted") return;
+  const entered = window.prompt("New expense category name:");
+  if (entered === null) return;
+  const category = entered.trim().replace(/\s+/g, " ");
+  if (!category || category.length > 120 || !isResolvedExpenseCategory(category)) {
+    return setStatus("Enter a specific category name between 1 and 120 characters.", "error");
+  }
+  const { error } = await supabase.from("operations_import_rows").update({
+    category,
+    status: "pending",
+  }).eq("id", row.id);
+  if (error) return setStatus(error.message || "Unable to add the category.", "error");
+  await loadAll();
+  showPanel("expense-review");
+  setStatus(`“${category}” was added and selected. It is now available in every category dropdown.`, "success");
+}
+
 async function uploadImportReceipt(id, file) {
   const row = state.importRows.find((item) => item.id === id);
   if (!row || row.status === "posted") return;
@@ -991,7 +1026,7 @@ async function bulkImportDecision(action) {
   if (!batch || batch.status === "posted") return;
   const rows = state.importRows.filter((row) => row.batch_id === batch.id && row.status === "pending");
   const targets = action === "approve-safe"
-    ? rows.filter((row) => row.flow === "debit" && row.classification === "business" && Number(row.confidence) >= 80 && !row.is_duplicate && Number(row.deductible_cents) > 0)
+    ? rows.filter((row) => row.flow === "debit" && row.classification === "business" && Number(row.confidence) >= 80 && !row.is_duplicate && isResolvedExpenseCategory(row.category) && Number(row.deductible_cents) > 0)
     : rows.filter((row) => ["personal", "transfer"].includes(row.classification) || row.is_duplicate);
   if (!targets.length) return setStatus("No matching review rows were found.", "error");
   const { error } = await supabase.from("operations_import_rows").update({
@@ -1041,6 +1076,7 @@ function handleWorkspaceClick(event) {
   const importBulk = event.target.closest("[data-import-bulk]");
   const importPost = event.target.closest("[data-import-post]");
   const importReceipt = event.target.closest("[data-import-open-receipt]");
+  const importAddCategory = event.target.closest("[data-import-add-category]");
   if (tab) showPanel(tab.dataset.operationsView);
   if (panelLink) showPanel(panelLink.dataset.openPanel);
   if (create) openForm(create.dataset.create);
@@ -1052,6 +1088,7 @@ function handleWorkspaceClick(event) {
   if (importBulk) bulkImportDecision(importBulk.dataset.importBulk);
   if (importPost) postImportBatch();
   if (importReceipt) openImportReceipt(importReceipt.dataset.importOpenReceipt);
+  if (importAddCategory) addImportCategory(importAddCategory.dataset.importAddCategory);
 }
 
 function bindEvents() {

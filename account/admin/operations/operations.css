@@ -653,6 +653,16 @@
   font-size: 0.75rem;
 }
 
+.operations-review-help {
+  margin: 0.8rem 0;
+  padding: 0.7rem 0.8rem;
+  color: #39505d;
+  background: #eef7fb;
+  border: 1px solid #cee5ef;
+  border-radius: 8px;
+  font-size: 0.75rem;
+}
+
 .operations-review-table {
   min-width: 1480px;
 }
@@ -670,8 +680,38 @@
   width: 78px;
 }
 
-.operations-review-table td:nth-child(6) input {
-  min-width: 145px;
+.operations-category-control {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.operations-category-control select {
+  min-width: 165px;
+}
+
+.operations-category-add {
+  min-height: 36px;
+  padding: 0 0.55rem;
+  color: var(--ops-blue);
+  background: #fff;
+  border: 1px solid #d6e0e5;
+  border-radius: 7px;
+  font: inherit;
+  font-size: 0.7rem;
+  font-weight: 800;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.operations-category-add:hover:not(:disabled) {
+  border-color: var(--ops-blue);
+  background: #f0f8fb;
+}
+
+.operations-category-add:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .operations-review-decision {

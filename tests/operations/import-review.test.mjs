@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  isResolvedExpenseCategory,
   normalizeImportRecords,
   parseCsv,
   parseImportDate,
@@ -9,6 +10,13 @@ import {
   rowsToObjects,
   suggestClassification,
 } from "../../lib/operations/import-review.mjs";
+
+test("requires a specific category before an expense can be approved", () => {
+  assert.equal(isResolvedExpenseCategory("Software"), true);
+  assert.equal(isResolvedExpenseCategory("Needs review"), false);
+  assert.equal(isResolvedExpenseCategory("Uncategorized"), false);
+  assert.equal(isResolvedExpenseCategory(""), false);
+});
 
 test("parses quoted CSV records without losing commas", () => {
   const rows = parseCsv('Date,Description,Amount,Type\r\n7/2/2026,"Adobe, Inc.",-22.99,Debit\r\n');

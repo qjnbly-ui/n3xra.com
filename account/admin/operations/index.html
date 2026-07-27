@@ -12,7 +12,7 @@
   <link rel="stylesheet" href="/assets/site-nav.css">
   <link rel="stylesheet" href="/client-portal/portal.css?v=9">
   <link rel="stylesheet" href="/account/admin/admin.css?v=12">
-  <link rel="stylesheet" href="/account/admin/operations/operations.css?v=3">
+  <link rel="stylesheet" href="/account/admin/operations/operations.css?v=4">
   <script src="/shared/config.js"></script>
   <script src="/assets/vendor/xlsx.full.min.js" defer></script>
   <script src="/assets/site-nav.js" defer></script>
@@ -180,10 +180,11 @@
               <button class="portal-button portal-button-secondary" type="button" data-import-bulk="exclude-clear">Exclude transfers, personal, and duplicates</button>
               <button class="portal-button" type="button" data-import-post>Post approved expenses</button>
             </div>
+            <p class="operations-review-help"><strong>How review works:</strong> Choose a classification, business-use percentage, and category, then use <strong>Approve</strong> or <strong>Exclude</strong> in the Decision column. The <strong>Asset?</strong> checkbox only flags a long-lived purchase for possible depreciation review; it does not approve the transaction.</p>
             <p class="operations-review-disclaimer">Bookkeeping estimate only—not tax advice. Keep receipts and supporting records. Personal, transfer, duplicate, and unresolved transactions should be excluded or left unposted.</p>
             <div class="operations-table-wrap">
               <table class="operations-review-table">
-                <thead><tr><th>Date</th><th>Description</th><th>Amount</th><th>Classification</th><th>Business use</th><th>Category</th><th>Deductible</th><th>Asset</th><th>Receipt</th><th>Decision</th></tr></thead>
+                <thead><tr><th>Date</th><th>Description</th><th>Amount</th><th>Classification</th><th>Business use</th><th>Category</th><th>Deductible</th><th>Asset?</th><th>Receipt</th><th>Decision</th></tr></thead>
                 <tbody id="ops-import-rows"><tr><td colspan="10">Create a review batch to begin.</td></tr></tbody>
               </table>
             </div>
@@ -220,6 +221,6 @@
     </form>
   </dialog>
 
-  <script type="module" src="/account/admin/admin.js?v=14"></script>
+  <script type="module" src="/account/admin/admin.js?v=15"></script>
 </body>
 </html>
