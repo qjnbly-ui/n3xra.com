@@ -91,6 +91,14 @@ function setStatus(message = "", tone = "") {
   element.className = `admin-status${tone ? ` ${tone}` : ""}`;
 }
 
+function importReviewErrorMessage(error, fallback) {
+  const message = String(error?.message || "");
+  if (error?.code === "23514" || message.includes("operations_import_rows_approval_check")) {
+    return "This transaction cannot be approved yet. Choose Business or Mixed, enter a business-use percentage above 0%, select a category, and make sure it is not a duplicate.";
+  }
+  return message || fallback;
+}
+
 function partyById(id) {
   return state.parties.find((item) => item.id === id);
 }
@@ -963,7 +971,7 @@ async function updateImportField(control) {
     payload.asset_candidate = control.checked;
   }
   const { error } = await supabase.from("operations_import_rows").update(payload).eq("id", row.id);
-  if (error) return setStatus(error.message || "Unable to update the review row.", "error");
+  if (error) return setStatus(importReviewErrorMessage(error, "Unable to update the review row."), "error");
   await loadAll();
   showPanel("expense-review");
 }
@@ -981,7 +989,7 @@ async function addImportCategory(id) {
     category,
     status: "pending",
   }).eq("id", row.id);
-  if (error) return setStatus(error.message || "Unable to add the category.", "error");
+  if (error) return setStatus(importReviewErrorMessage(error, "Unable to add the category."), "error");
   await loadAll();
   showPanel("expense-review");
   setStatus(`“${category}” was added and selected. It is now available in every category dropdown.`, "success");
@@ -1016,7 +1024,7 @@ async function setImportDecision(id, action) {
   if (!row || row.status === "posted") return;
   const status = action === "approve" ? "approved" : action === "exclude" ? "excluded" : "pending";
   const { error } = await supabase.from("operations_import_rows").update({ status }).eq("id", id);
-  if (error) return setStatus(error.message || "Unable to save the decision.", "error");
+  if (error) return setStatus(importReviewErrorMessage(error, "Unable to save the decision."), "error");
   await loadAll();
   showPanel("expense-review");
 }
@@ -1032,7 +1040,7 @@ async function bulkImportDecision(action) {
   const { error } = await supabase.from("operations_import_rows").update({
     status: action === "approve-safe" ? "approved" : "excluded",
   }).in("id", targets.map((row) => row.id));
-  if (error) return setStatus(error.message || "Unable to update the review batch.", "error");
+  if (error) return setStatus(importReviewErrorMessage(error, "Unable to update the review batch."), "error");
   await loadAll();
   showPanel("expense-review");
   setStatus(`${targets.length} review decisions saved.`, "success");
@@ -1058,7 +1066,7 @@ async function postImportBatch() {
     showPanel("expense-review");
     setStatus(`${data.posted_count} approved expenses totaling ${moneyCents(data.posted_amount_cents)} were posted.`, "success");
   } catch (error) {
-    setStatus(error.message || "Unable to post the approved expenses.", "error");
+    setStatus(importReviewErrorMessage(error, "Unable to post the approved expenses. Nothing was added to the ledger."), "error");
   } finally {
     button.textContent = "Post approved expenses";
   }
