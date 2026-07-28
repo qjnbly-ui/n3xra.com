@@ -11,7 +11,7 @@ Deno.serve(async (request) => {
 
     const { data: proposal, error: proposalError } = await admin
       .from("website_proposals")
-      .select("id,request_id,client_user_id,status,current_version_id,title")
+      .select("id,request_id,project_id,client_user_id,status,current_version_id,title")
       .eq("id", proposalId)
       .single();
     if (proposalError || proposal?.status !== "approved" || !proposal.current_version_id) {
@@ -28,7 +28,9 @@ Deno.serve(async (request) => {
     const [{ data: version, error: versionError }, { data: items, error: itemError }, { data: project }, { data: requestRow }] = await Promise.all([
       admin.from("website_proposal_versions").select("*").eq("id", proposal.current_version_id).single(),
       admin.from("website_proposal_line_items").select("*").eq("version_id", proposal.current_version_id).order("sort_order"),
-      admin.from("website_projects").select("id").eq("proposal_id", proposal.id).single(),
+      proposal.project_id
+        ? admin.from("website_projects").select("id").eq("id", proposal.project_id).maybeSingle()
+        : admin.from("website_projects").select("id").eq("proposal_id", proposal.id).maybeSingle(),
       admin.from("website_service_requests").select("referral_code,offer_code,partner_application_id").eq("id", proposal.request_id).single(),
     ]);
     if (versionError || itemError || !version || !project) throw new Error(versionError?.message || itemError?.message || "Approved proposal data is incomplete.");
