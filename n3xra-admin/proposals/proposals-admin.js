@@ -304,9 +304,9 @@ function updateInvestmentTotals() {
   document.getElementById(fieldIds.recurring_interval).value = intervals.length === 1 ? intervals[0] : "";
   const service = recurring.find((item) => item.name === "Founding Client Starter website service");
   const schedule = document.getElementById(fieldIds.payment_schedule);
-  if (service && editingVersion?.status === "draft" && /Website Service:\s*\$[\d,.]+\/(month|year)/i.test(schedule.value)) {
+  if (service && editingVersion?.status === "draft" && /(Website Service:\s*)[^,\n]+(?=,)/i.test(schedule.value)) {
     const frequency = service.recurring_interval === "yearly" ? "year" : service.recurring_interval;
-    schedule.value = schedule.value.replace(/(Website Service:\s*)\$[\d,.]+\/(month|year)/i, `$1$${centsToMoney(service.unit_amount_cents)}/${frequency}`);
+    schedule.value = schedule.value.replace(/(Website Service:\s*)[^,\n]+(?=,)/i, (_match, prefix) => `${prefix}$${centsToMoney(service.unit_amount_cents)}/${frequency}`);
   }
   updateReferralDiscount(items);
   updateTotal();
