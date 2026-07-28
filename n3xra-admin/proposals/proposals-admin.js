@@ -110,8 +110,10 @@ function setStatus(message = "", isError = false) {
 }
 
 function updateTotal() {
-  const total = Math.max(moneyToCents(document.getElementById(fieldIds.subtotal_cents).value) - moneyToCents(document.getElementById(fieldIds.discount_cents).value), 0);
-  document.getElementById(fieldIds.total_cents).value = centsToMoney(total);
+  const oneTimeTotal = Math.max(moneyToCents(document.getElementById(fieldIds.subtotal_cents).value) - moneyToCents(document.getElementById(fieldIds.discount_cents).value), 0);
+  const recurringTotal = moneyToCents(document.getElementById(fieldIds.recurring_cents).value);
+  document.getElementById(fieldIds.total_cents).value = centsToMoney(oneTimeTotal);
+  document.getElementById("proposal-checkout-total").value = centsToMoney(oneTimeTotal + recurringTotal);
 }
 
 function websiteBuildSubtotal(items = []) {
