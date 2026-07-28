@@ -776,6 +776,41 @@ function downloadCsv(filename, headers, rows) {
   URL.revokeObjectURL(url);
 }
 
+function printReport() {
+  const summary = summarizeOperations(state);
+  const rows = [...state.transactions].sort((left, right) => String(right.transaction_date).localeCompare(String(left.transaction_date)));
+  const reportWindow = window.open("", "_blank");
+  if (!reportWindow) return setStatus("Your browser blocked the print window. Allow pop-ups for n3xra.com and try again.", "error");
+  const rowHtml = rows.length
+    ? rows.map((item) => `<tr><td>${escapeHtml(dateLabel(item.transaction_date))}</td><td>${escapeHtml(titleCase(item.transaction_type))}</td><td>${escapeHtml(item.description)}</td><td>${escapeHtml(item.category || "—")}</td><td class="amount ${item.transaction_type === "expense" ? "expense" : "revenue"}">${item.transaction_type === "expense" ? "−" : "+"}${escapeHtml(moneyCents(item.amount_cents))}</td><td>${escapeHtml(titleCase(item.status))}</td></tr>`).join("")
+    : '<tr><td colspan="6" class="empty">No transactions recorded.</td></tr>';
+  reportWindow.document.write(`<!doctype html><html><head><title>N3XRA Operations Report</title><style>
+    @page { size: letter; margin: 0.55in; }
+    :root { color-scheme: light; font-family: Arial, Helvetica, sans-serif; }
+    body { color: #142331; margin: 0; font-size: 10pt; }
+    h1 { margin: 0; font-size: 22pt; letter-spacing: -0.03em; }
+    h2 { margin: 0 0 4px; font-size: 13pt; }
+    .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #142331; padding-bottom: 12px; margin-bottom: 16px; }
+    .muted { color: #607080; font-size: 9pt; }
+    .summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 20px; }
+    .card { border: 1px solid #cbd5dc; border-radius: 6px; padding: 9px; }
+    .card span { display: block; color: #607080; font-size: 8pt; text-transform: uppercase; letter-spacing: .06em; }
+    .card strong { display: block; margin-top: 4px; font-size: 14pt; }
+    table { width: 100%; border-collapse: collapse; }
+    th { color: #fff; background: #142331; font-size: 8pt; text-align: left; text-transform: uppercase; letter-spacing: .04em; }
+    th, td { padding: 7px 6px; border-bottom: 1px solid #dce3e8; vertical-align: top; }
+    .amount { text-align: right; white-space: nowrap; }
+    .expense { color: #a83434; }
+    .revenue { color: #16745b; }
+    .empty { text-align: center; color: #607080; padding: 18px; }
+    footer { margin-top: 18px; border-top: 1px solid #cbd5dc; padding-top: 8px; color: #607080; font-size: 8pt; }
+    @media print { .no-print { display: none; } }
+  </style></head><body><div class="header"><div><h1>N3XRA Operations</h1><div class="muted">Internal financial report</div></div><div class="muted">Generated ${escapeHtml(dateTimeLabel(new Date().toISOString()))}</div></div>
+  <div class="summary"><div class="card"><span>Monthly revenue</span><strong>${escapeHtml(moneyCents(summary.revenueCents))}</strong></div><div class="card"><span>Monthly expenses</span><strong>${escapeHtml(moneyCents(summary.expenseCents))}</strong></div><div class="card"><span>Net profit</span><strong>${escapeHtml(moneyCents(summary.netProfitCents))}</strong></div><div class="card"><span>Outstanding invoices</span><strong>${escapeHtml(moneyCents(summary.outstandingCents))}</strong></div></div>
+  <h2>Transaction history</h2><table><thead><tr><th>Date</th><th>Type</th><th>Description</th><th>Category</th><th style="text-align:right">Amount</th><th>Status</th></tr></thead><tbody>${rowHtml}</tbody></table><footer>Bookkeeping report generated from N3XRA Operations. Keep receipts and supporting records.</footer><script>window.addEventListener('load', () => { window.focus(); window.print(); });</script></body></html>`);
+  reportWindow.document.close();
+}
+
 function exportData(kind) {
   if (kind === "invoices") {
     downloadCsv(
@@ -1085,6 +1120,7 @@ function handleWorkspaceClick(event) {
   const importPost = event.target.closest("[data-import-post]");
   const importReceipt = event.target.closest("[data-import-open-receipt]");
   const importAddCategory = event.target.closest("[data-import-add-category]");
+  const printButton = event.target.closest("[data-print-report]");
   if (tab) showPanel(tab.dataset.operationsView);
   if (panelLink) showPanel(panelLink.dataset.openPanel);
   if (create) openForm(create.dataset.create);
@@ -1097,6 +1133,7 @@ function handleWorkspaceClick(event) {
   if (importPost) postImportBatch();
   if (importReceipt) openImportReceipt(importReceipt.dataset.importOpenReceipt);
   if (importAddCategory) addImportCategory(importAddCategory.dataset.importAddCategory);
+  if (printButton) printReport();
 }
 
 function bindEvents() {

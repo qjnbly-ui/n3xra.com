@@ -12,7 +12,7 @@
   <link rel="stylesheet" href="/assets/site-nav.css">
   <link rel="stylesheet" href="/client-portal/portal.css?v=9">
   <link rel="stylesheet" href="/account/admin/admin.css?v=12">
-  <link rel="stylesheet" href="/account/admin/operations/operations.css?v=4">
+  <link rel="stylesheet" href="/account/admin/operations/operations.css?v=5">
   <script src="/shared/config.js"></script>
   <script src="/assets/vendor/xlsx.full.min.js" defer></script>
   <script src="/assets/site-nav.js" defer></script>
@@ -47,6 +47,7 @@
           </div>
           <div class="operations-head-actions">
             <button class="portal-button portal-button-secondary" type="button" data-export="ledger">Export ledger</button>
+            <button class="portal-button portal-button-secondary" type="button" data-print-report>Print report</button>
             <button class="portal-button" type="button" data-create="transaction">Record transaction</button>
           </div>
         </div>
@@ -141,7 +142,7 @@
               <div class="operations-import-grid">
                 <label class="operations-field">Bank export
                   <input id="ops-import-file" type="file" accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" required>
-                  <small>CSV is preferred. Files are parsed in this browser; only normalized review rows are saved.</small>
+                  <small><strong>CSV</strong> is a simple data export; <strong>Excel</strong> keeps workbook tabs and formatting. Both are accepted and parsed in this browser; only normalized review rows are saved.</small>
                 </label>
                 <label class="operations-field">Financial account
                   <select id="ops-import-account"><option value="">Not linked yet</option></select>
@@ -221,6 +222,6 @@
     </form>
   </dialog>
 
-  <script type="module" src="/account/admin/admin.js?v=16"></script>
+  <script type="module" src="/account/admin/admin.js?v=17"></script>
 </body>
 </html>
