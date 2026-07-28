@@ -726,7 +726,14 @@ async function prepareBilling() {
     if (data?.error) throw new Error(data.error);
     window.location.href = `/n3xra-admin/billing/?project=${encodeURIComponent(data.snapshot.project_id)}`;
   } catch (error) {
-    setStatus(error?.message || "Unable to prepare billing.", true);
+    let message = error?.message || "Unable to prepare billing.";
+    try {
+      const details = await error?.context?.json?.();
+      if (details?.error) message = details.error;
+    } catch {
+      // Keep the normal error message when the response body is unavailable.
+    }
+    setStatus(message, true);
   } finally {
     prepareBillingButton.disabled = false;
   }
