@@ -988,6 +988,23 @@ body.portal-denied main {
   padding: clamp(1rem, 3vw, 1.5rem);
 }
 
+.proposal-revision-notice {
+  display: grid;
+  gap: 0.28rem;
+  margin-top: 1rem;
+  padding: 0.82rem 0.95rem;
+  border: 1px solid #d8c58b;
+  border-radius: 8px;
+  background: #fff9e7;
+  color: #5d4b16;
+}
+
+.proposal-revision-notice span {
+  color: #776431;
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
 .portal-form-section {
   margin-top: 1.4rem;
   padding-top: 1.4rem;
