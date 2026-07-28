@@ -21,7 +21,7 @@
   </script>
   <script defer src="/_vercel/insights/script.js"></script>
 </head>
-<body>
+<body class="records-account-page">
   <div class="shell">
     <header class="topbar">
       <div class="topbar-inner">
@@ -73,22 +73,40 @@
             <p class="records-desktop-nav-label">N3XRA Records</p>
             <nav class="records-desktop-nav-links">
               <a class="is-current" href="/n3xra-records/account" aria-current="page">Account</a>
+              <div class="records-desktop-nav-children" aria-label="Account settings">
+                <button type="button" data-records-account-profile>Profile</button>
+                <p>Admin settings</p>
+                <button type="button" data-records-admin-tab="users">Users</button>
+                <button type="button" data-records-admin-tab="contacts">Contacts</button>
+                <button type="button" data-records-admin-tab="templates">Templates</button>
+                <button type="button" data-records-admin-tab="access">Access</button>
+                <button type="button" data-records-admin-tab="support">N3XRA support access</button>
+                <button type="button" data-records-admin-tab="library">Library</button>
+                <button type="button" data-records-admin-tab="ai">AI</button>
+                <button type="button" data-records-admin-tab="billing">Billing</button>
+                <button type="button" data-records-admin-tab="storage">Storage</button>
+                <button type="button" data-records-admin-tab="activity">Activity</button>
+              </div>
               <a href="/n3xra-records/library">Library</a>
               <a href="/n3xra-records/files">Files</a>
               <a href="/n3xra-records/meeting-notes">Meeting notes</a>
               <a href="/n3xra-records/messages">Messages</a>
             </nav>
+            <div class="records-desktop-nav-divider"></div>
+            <p class="records-desktop-nav-label">N3XRA</p>
+            <nav class="records-desktop-nav-links">
+              <a href="/account/">Dashboard</a>
+            </nav>
             <div class="records-desktop-nav-footer">
               <span>Private workspace</span>
-              <a href="/account/">N3XRA Dashboard</a>
             </div>
           </aside>
 
           <div class="records-desktop-content">
             <header class="records-desktop-page-head">
-              <p>Account workspace</p>
-              <h1>Account</h1>
-              <span>Review your profile, library access, and account settings.</span>
+              <p>N3XRA Records</p>
+              <strong>Account</strong>
+              <span>Private workspace</span>
             </header>
 
         <section class="section-view" id="account-section" hidden>
