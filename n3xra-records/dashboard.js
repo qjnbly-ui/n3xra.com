@@ -293,10 +293,7 @@ if (supportAccessCard && adminPanelsContainer) {
 const adminTabs = Array.from(document.querySelectorAll("[data-admin-tab]"));
 const adminPanels = Array.from(document.querySelectorAll("[data-admin-panel]"));
 const desktopAccountViewButtons = Array.from(document.querySelectorAll("[data-records-account-view]"));
-const desktopAccountMenuToggle = document.querySelector("[data-records-account-menu-toggle]");
-const desktopAccountMenuItems = document.getElementById("records-account-menu-items");
 const desktopAccountPageTitle = document.getElementById("records-desktop-page-title");
-const desktopAccountLanding = document.getElementById("records-desktop-account-landing");
 const adminUsersInviteButton = document.getElementById("admin-users-invite");
 const adminNewTemplateButton = document.getElementById("admin-new-template");
 const adminTemplateList = document.getElementById("admin-template-list");
@@ -941,15 +938,14 @@ const desktopAccountViewLabels = {
   activity: "Activity",
 };
 
-function setDesktopAccountView(view = "") {
+function setDesktopAccountView(view = "profile") {
   if (!window.matchMedia("(min-width: 981px)").matches) return;
   const isProfile = view === "profile";
   const isAdminView = Boolean(view && !isProfile);
 
-  show(desktopAccountLanding, !view);
   show(librarySettingsCard, isProfile);
-  show(accountLibraryCard, isProfile);
-  show(recordsHelpCard, isProfile);
+  show(accountLibraryCard, false);
+  show(recordsHelpCard, false);
   show(accountNoLibraryNotice, isProfile);
   show(libraryAccessCard, isAdminView);
   if (isAdminView) setAdminTab(view);
@@ -5328,11 +5324,6 @@ async function init() {
   contactList?.addEventListener("click", handleContactAction);
   adminTabs.forEach((tab) => {
     tab.addEventListener("click", () => setAdminTab(tab.getAttribute("data-admin-tab") || ""));
-  });
-  desktopAccountMenuToggle?.addEventListener("click", () => {
-    const isOpen = desktopAccountMenuToggle.getAttribute("aria-expanded") === "true";
-    desktopAccountMenuToggle.setAttribute("aria-expanded", String(!isOpen));
-    if (desktopAccountMenuItems) desktopAccountMenuItems.hidden = isOpen;
   });
   desktopAccountViewButtons.forEach((button) => {
     button.addEventListener("click", () => setDesktopAccountView(button.getAttribute("data-records-account-view") || ""));
