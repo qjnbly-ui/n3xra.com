@@ -21,7 +21,7 @@
   </script>
   <script defer src="/_vercel/insights/script.js"></script>
 </head>
-<body>
+<body class="records-account-page">
   <div class="shell">
     <header class="topbar">
       <div class="topbar-inner">
@@ -67,6 +67,36 @@
 
       <section class="panel stack hidden" id="dashboard-panel">
         <div class="notice hidden" id="support-banner"></div>
+
+        <div class="records-desktop-workspace">
+          <aside class="records-desktop-nav" aria-label="Records navigation">
+            <p class="records-desktop-nav-label">N3XRA Records</p>
+            <nav class="records-desktop-nav-links">
+              <button class="records-desktop-nav-parent" type="button" data-records-account-menu-toggle aria-expanded="false" aria-controls="records-account-menu-items">Account</button>
+              <div class="records-desktop-nav-children" id="records-account-menu-items" hidden>
+                <button type="button" data-records-account-view="profile">Profile</button>
+                <p>Admin settings</p>
+                <button type="button" data-records-account-view="users">Users</button>
+                <button type="button" data-records-account-view="contacts">Contacts</button>
+                <button type="button" data-records-account-view="templates">Templates</button>
+                <button type="button" data-records-account-view="access">Access</button>
+                <button type="button" data-records-account-view="support">N3XRA support access</button>
+                <button type="button" data-records-account-view="library">Library</button>
+                <button type="button" data-records-account-view="ai">AI settings</button>
+                <button type="button" data-records-account-view="billing">Billing</button>
+                <button type="button" data-records-account-view="storage">Storage</button>
+                <button type="button" data-records-account-view="activity">Activity</button>
+              </div>
+            </nav>
+            <div class="records-desktop-nav-divider"></div>
+            <p class="records-desktop-nav-label">N3XRA</p>
+            <nav class="records-desktop-nav-links"><a href="/account/">Dashboard</a></nav>
+            <div class="records-desktop-nav-footer"><span>Private workspace</span></div>
+          </aside>
+
+          <div class="records-desktop-content">
+            <header class="records-desktop-page-head"><p>N3XRA Records</p><strong id="records-desktop-page-title">Account</strong><span>Private workspace</span></header>
+            <section class="records-desktop-account-landing" id="records-desktop-account-landing"><p>Account workspace</p><h1>Choose an account area</h1><span>Open Account in the left menu, then choose Profile or an Admin Settings area.</span></section>
 
         <section class="section-view" id="account-section" hidden>
           <div class="notice hidden" id="account-no-library-notice">
@@ -730,6 +760,8 @@
             <p class="recent-files-reminder"><a class="recent-files-link" href="./files">Go To All Files</a></p>
           </section>
         </section>
+          </div>
+        </div>
       </section>
     </main>
   </div>
