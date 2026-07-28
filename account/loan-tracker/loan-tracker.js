@@ -476,7 +476,6 @@ function exportPdf() {
     reportFrame.remove();
     return showToast("Unable to prepare the PDF preview. Please try again.");
   }
-  reportWindow.history.replaceState({}, "", "/account/loan-tracker/");
   const summary = summarizeSchedule(futureSchedule);
   const anchor = projectionAnchor();
   const rows = futureSchedule.map((row) => `<tr><td>${row.paymentNumber}</td><td>${escapeHtml(dateLabel(row.paymentDate))}</td><td>${escapeHtml(moneyCents(row.beginningBalanceCents))}</td><td>${escapeHtml(moneyCents(row.paymentCents))}</td><td>${escapeHtml(moneyCents(row.interestCents))}</td><td>${escapeHtml(moneyCents(row.principalCents))}</td><td>${escapeHtml(moneyCents(row.endingBalanceCents))}</td></tr>`).join("");

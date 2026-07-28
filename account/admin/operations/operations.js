@@ -791,7 +791,6 @@ function printReport() {
   const rowHtml = rows.length
     ? rows.map((item) => `<tr><td>${escapeHtml(dateLabel(item.transaction_date))}</td><td>${escapeHtml(titleCase(item.transaction_type))}</td><td>${escapeHtml(item.description)}</td><td>${escapeHtml(item.category || "—")}</td><td class="amount ${item.transaction_type === "expense" ? "expense" : "revenue"}">${item.transaction_type === "expense" ? "−" : "+"}${escapeHtml(moneyCents(item.amount_cents))}</td><td>${escapeHtml(titleCase(item.status))}</td></tr>`).join("")
     : '<tr><td colspan="6" class="empty">No transactions recorded.</td></tr>';
-  reportWindow.history.replaceState({}, "", "/account/admin/operations/");
   reportWindow.document.write(`<!doctype html><html><head><title>N3XRA Operations Report</title><style>
     @page { size: letter portrait; margin: 0.42in; }
     :root { color-scheme: light; font-family: Arial, Helvetica, sans-serif; }
