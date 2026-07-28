@@ -465,6 +465,17 @@ function exportExcel() {
   download("dave-wilson-loan-tracker.xls", workbook, "application/vnd.ms-excel");
 }
 
+function exportPdf() {
+  if (!can("export_data")) return showToast("Exports are not included in your access.");
+  const reportWindow = window.open("", "_blank");
+  if (!reportWindow) return showToast("Your browser blocked the PDF window. Allow pop-ups for n3xra.com and try again.");
+  const summary = summarizeSchedule(futureSchedule);
+  const anchor = projectionAnchor();
+  const rows = futureSchedule.map((row) => `<tr><td>${row.paymentNumber}</td><td>${escapeHtml(dateLabel(row.paymentDate))}</td><td>${escapeHtml(moneyCents(row.beginningBalanceCents))}</td><td>${escapeHtml(moneyCents(row.paymentCents))}</td><td>${escapeHtml(moneyCents(row.interestCents))}</td><td>${escapeHtml(moneyCents(row.principalCents))}</td><td>${escapeHtml(moneyCents(row.endingBalanceCents))}</td></tr>`).join("");
+  reportWindow.document.write(`<!doctype html><html><head><title>N3XRA Loan Tracker - Amortization Schedule</title><style>@page{size:letter landscape;margin:.45in}:root{color-scheme:light;font-family:Arial,Helvetica,sans-serif}body{color:#17211b;margin:0;font-size:9pt}.brand{display:flex;align-items:center;gap:10px;border-bottom:3px solid #1e5c43;padding-bottom:12px;margin-bottom:15px}.brand img{width:32px;height:32px;object-fit:contain}.brand strong{color:#1e5c43;font-size:14pt;letter-spacing:.08em}h1{margin:0;font-size:22pt;letter-spacing:-.03em}h2{margin:18px 0 8px;font-size:12pt;color:#1e5c43}.meta{display:flex;justify-content:space-between;color:#68736c;font-size:8pt;margin-top:3px}.summary{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:16px 0}.card{border:1px solid #dddcd2;border-radius:6px;padding:8px}.card span{display:block;color:#68736c;font-size:7pt;text-transform:uppercase;letter-spacing:.05em}.card strong{display:block;margin-top:4px;font-size:12pt}table{width:100%;border-collapse:collapse}th{background:#1e5c43;color:white;text-align:left;font-size:7pt;text-transform:uppercase;letter-spacing:.04em}th,td{padding:6px 5px;border-bottom:1px solid #dddcd2;white-space:nowrap}td:nth-child(n+3){text-align:right;font-variant-numeric:tabular-nums}footer{margin-top:14px;border-top:1px solid #dddcd2;padding-top:7px;color:#68736c;font-size:7pt}.note{color:#68736c;font-size:8pt}</style></head><body><div class="brand"><img src="${window.location.origin}/assets/n3xra_logo_transparent_small.png" alt="N3XRA"><strong>N3XRA</strong></div><h1>Loan Tracker</h1><div class="meta"><span>${escapeHtml(account.borrower_name || "Dave Wilson")} · ${escapeHtml(account.lender_name || "Vibrant Credit Union")}</span><span>Generated ${escapeHtml(dateLabel(new Date().toISOString()))}</span></div><div class="summary"><div class="card"><span>Current balance</span><strong>${escapeHtml(moneyCents(anchor.balanceCents))}</strong></div><div class="card"><span>Monthly payment</span><strong>${escapeHtml(money(account.planned_monthly_payment))}</strong></div><div class="card"><span>Estimated payoff</span><strong>${escapeHtml(dateLabel(summary.payoffDate, true))}</strong></div><div class="card"><span>Payments remaining</span><strong>${summary.payments}</strong></div><div class="card"><span>Estimated interest</span><strong>${escapeHtml(moneyCents(summary.totalInterestCents))}</strong></div></div><h2>Amortization Schedule</h2><p class="note">Estimated schedule based on the current balance and planned payment. Official lender records take priority.</p><table><thead><tr><th>#</th><th>Payment date</th><th>Beginning balance</th><th>Payment</th><th>Interest</th><th>Principal</th><th>Ending balance</th></tr></thead><tbody>${rows}</tbody></table><footer>N3XRA Loan Tracker · Private financial workspace · Print this report or choose “Save as PDF” in the print dialog.</footer><script>window.addEventListener('load',()=>{window.focus();window.print()});</script></body></html>`);
+  reportWindow.document.close();
+}
+
 async function sha256Hex(value) {
   const bytes = new TextEncoder().encode(value);
   const digest = await crypto.subtle.digest("SHA-256", bytes);
@@ -786,7 +797,7 @@ function bindEvents() {
   $$("[data-view]").forEach((button) => button.addEventListener("click", () => showView(button.dataset.view)));
   $$("[data-open-view]").forEach((button) => button.addEventListener("click", () => showView(button.dataset.openView)));
   $$("[data-add-payment]").forEach((button) => button.addEventListener("click", () => openPaymentDialog()));
-  $$("[data-export]").forEach((button) => button.addEventListener("click", () => button.dataset.export === "excel" ? exportExcel() : exportCsv(button.dataset.export)));
+  $$(`[data-export]`).forEach((button) => button.addEventListener("click", () => button.dataset.export === "excel" ? exportExcel() : button.dataset.export === "pdf" ? exportPdf() : exportCsv(button.dataset.export)));
   $("#calculator-form").addEventListener("input", updateCalculator);
   $$(".quick-payments button").forEach((button) => button.addEventListener("click", () => {
     $$(".quick-payments button").forEach((item) => item.classList.remove("is-active"));
