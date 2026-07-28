@@ -368,7 +368,8 @@ async function importStripeInvoices() {
     stripePreview = [];
     renderStripePreview();
     await loadAll();
-    errorBox.textContent = `${data.imported_count} Stripe invoice${data.imported_count === 1 ? "" : "s"} imported.`;
+    $("#operations-stripe-dialog").close();
+    setStatus(`${data.imported_count} Stripe invoice${data.imported_count === 1 ? "" : "s"} imported.`, "success");
   } catch (error) {
     errorBox.textContent = error.message || "Unable to import Stripe invoices.";
   }
@@ -1196,6 +1197,8 @@ function handleWorkspaceClick(event) {
   const printButton = event.target.closest("[data-print-report]");
   const stripePreviewButton = event.target.closest("[data-stripe-preview]");
   const stripeImportButton = event.target.closest("[data-stripe-import]");
+  const stripeOpenButton = event.target.closest("[data-stripe-open]");
+  const stripeCloseButton = event.target.closest("[data-close-stripe]");
   if (tab) showPanel(tab.dataset.operationsView);
   if (panelLink) showPanel(panelLink.dataset.openPanel);
   if (create) openForm(create.dataset.create);
@@ -1211,6 +1214,8 @@ function handleWorkspaceClick(event) {
   if (printButton) printReport();
   if (stripePreviewButton) previewStripeInvoices();
   if (stripeImportButton) importStripeInvoices();
+  if (stripeOpenButton) $("#operations-stripe-dialog").showModal();
+  if (stripeCloseButton) $("#operations-stripe-dialog").close();
 }
 
 function bindEvents() {
@@ -1218,6 +1223,7 @@ function bindEvents() {
   if (!workspace || workspace.dataset.operationsBound === "true") return;
   workspace.dataset.operationsBound = "true";
   workspace.addEventListener("click", handleWorkspaceClick);
+  $("#operations-stripe-dialog").addEventListener("click", handleWorkspaceClick);
   $("#operations-form").addEventListener("submit", saveForm);
   $("#operations-void-form").addEventListener("submit", voidTransaction);
   $("#ops-import-form").addEventListener("submit", createImportBatch);

@@ -12,7 +12,7 @@
   <link rel="stylesheet" href="/assets/site-nav.css">
   <link rel="stylesheet" href="/client-portal/portal.css?v=9">
   <link rel="stylesheet" href="/account/admin/admin.css?v=12">
-  <link rel="stylesheet" href="/account/admin/operations/operations.css?v=6">
+  <link rel="stylesheet" href="/account/admin/operations/operations.css?v=7">
   <script src="/shared/config.js"></script>
   <script src="/assets/vendor/xlsx.full.min.js" defer></script>
   <script src="/assets/site-nav.js" defer></script>
@@ -111,14 +111,8 @@
         <section class="operations-view" data-operations-panel="invoices" hidden>
           <div class="operations-section-head">
             <div><p class="portal-kicker">Accounts receivable</p><h3>Invoices</h3><p>Track invoice totals and connect received payments from the ledger.</p></div>
-            <div class="operations-head-actions"><button class="portal-button portal-button-secondary" type="button" data-export="invoices">Export invoices</button><button class="portal-button" type="button" data-create="invoice">Add invoice</button></div>
+            <div class="operations-head-actions"><button class="portal-button portal-button-secondary" type="button" data-export="invoices">Export invoices</button><button class="portal-button portal-button-secondary" type="button" data-stripe-open>Import Stripe</button><button class="portal-button" type="button" data-create="invoice">Add invoice</button></div>
           </div>
-          <article class="operations-card operations-stripe-sync-card">
-            <div class="operations-card-head"><div><p class="portal-kicker">Stripe sync</p><h3>Import existing Stripe invoices</h3><p>Preview first, then import only the invoices you select. Existing Stripe imports are skipped automatically.</p></div></div>
-            <div class="operations-stripe-sync-controls"><label class="operations-field">Starting date<input id="ops-stripe-start-date" type="date"></label><button class="portal-button portal-button-secondary" type="button" data-stripe-preview>Preview invoices</button></div>
-            <p class="operations-form-error" id="ops-stripe-sync-error" role="alert"></p>
-            <div id="ops-stripe-preview"></div>
-          </article>
           <div class="operations-table-wrap"><table><thead><tr><th>Invoice</th><th>Customer</th><th>Issued</th><th>Due</th><th>Status</th><th>Total</th><th>Paid</th><th>Outstanding</th><th></th></tr></thead><tbody id="ops-invoice-table"></tbody></table></div>
         </section>
 
@@ -226,6 +220,15 @@
       <p class="operations-form-error" id="operations-void-error" role="alert"></p>
       <footer><button class="portal-button portal-button-secondary" type="button" data-close-void>Cancel</button><button class="portal-button operations-danger" type="submit">Void transaction</button></footer>
     </form>
+  </dialog>
+
+  <dialog class="operations-dialog operations-stripe-dialog" id="operations-stripe-dialog">
+    <section>
+      <header><div><p class="portal-kicker">Stripe sync</p><h2>Import existing Stripe invoices</h2><p>Preview first, then import only the invoices you select. Existing Stripe imports are skipped automatically.</p></div><button type="button" class="operations-dialog-close" data-close-stripe aria-label="Close">×</button></header>
+      <div class="operations-stripe-sync-controls"><label class="operations-field">Starting date<input id="ops-stripe-start-date" type="date"></label><button class="portal-button portal-button-secondary" type="button" data-stripe-preview>Preview invoices</button></div>
+      <p class="operations-form-error" id="ops-stripe-sync-error" role="alert"></p>
+      <div id="ops-stripe-preview"></div>
+    </section>
   </dialog>
 
   <script type="module" src="/account/admin/admin.js?v=17"></script>
