@@ -38,6 +38,8 @@ const mobileMenuMessagesLink = document.getElementById("mobile-menu-messages-lin
 const mobileMenuRecordingsLink = document.getElementById("mobile-menu-recordings-link");
 const accountSection = document.getElementById("account-section");
 const librarySettingsCard = document.getElementById("library-settings-card");
+const accountLibraryCard = document.getElementById("account-library-card");
+const recordsHelpCard = document.getElementById("records-help-card");
 const librarySection = document.getElementById("library-section");
 const libraryActionsGrid = document.getElementById("library-actions-grid");
 const accountLibraryContext = document.getElementById("account-library-context");
@@ -290,8 +292,11 @@ if (supportAccessCard && adminPanelsContainer) {
 }
 const adminTabs = Array.from(document.querySelectorAll("[data-admin-tab]"));
 const adminPanels = Array.from(document.querySelectorAll("[data-admin-panel]"));
-const desktopAdminRailTabs = Array.from(document.querySelectorAll("[data-records-admin-tab]"));
-const desktopAccountProfileButton = document.querySelector("[data-records-account-profile]");
+const desktopAccountPageLinks = Array.from(document.querySelectorAll("[data-records-account-page]"));
+const desktopAccountMenuToggle = document.querySelector("[data-records-account-menu-toggle]");
+const desktopAccountMenuItems = document.getElementById("records-account-menu-items");
+const desktopAccountPageTitle = document.querySelector(".records-desktop-page-head strong");
+const desktopAccountLanding = document.getElementById("records-desktop-account-landing");
 const adminUsersInviteButton = document.getElementById("admin-users-invite");
 const adminNewTemplateButton = document.getElementById("admin-new-template");
 const adminTemplateList = document.getElementById("admin-template-list");
@@ -341,13 +346,25 @@ function getSectionFromPath(pathname = window.location.pathname) {
   const normalized = String(pathname || "").replace(/\/+$/, "");
   if (normalized.endsWith("/app/account")) return "account";
   if (normalized.endsWith("/app/library")) return "library";
-  if (normalized.endsWith("/n3xra-records/account")) return "account";
+  if (normalized === "/n3xra-records/account" || normalized.startsWith("/n3xra-records/account/")) return "account";
   if (normalized.endsWith("/n3xra-records/library")) return "library";
   return "";
 }
 
+const accountPageKeys = ["profile", "users", "contacts", "templates", "access", "support", "library", "ai", "billing", "storage", "activity"];
+
+function getAccountPageFromPath(pathname = window.location.pathname) {
+  const normalized = String(pathname || "").replace(/\/+$/, "");
+  const match = normalized.match(/\/n3xra-records\/account\/([^/]+)$/);
+  const page = match?.[1] || "";
+  return accountPageKeys.includes(page) ? page : "";
+}
+
 function getSectionPath(section) {
-  return section === "account" ? "./account" : "./library";
+  const accountPage = getAccountPageFromPath();
+  return section === "account"
+    ? (accountPage ? `/n3xra-records/account/${accountPage}` : "/n3xra-records/account")
+    : "/n3xra-records/library";
 }
 
 function buildSectionUrl(section) {
@@ -885,8 +902,8 @@ function setAdminTab(tabName) {
     tab.tabIndex = isActive ? 0 : -1;
   });
 
-  desktopAdminRailTabs.forEach((tab) => {
-    tab.classList.toggle("is-active", tab.getAttribute("data-records-admin-tab") === activeAdminTab);
+  desktopAccountPageLinks.forEach((link) => {
+    link.classList.toggle("is-active", link.getAttribute("data-records-account-page") === activeAdminTab);
   });
 
   adminPanels.forEach((panel) => {
@@ -906,8 +923,8 @@ function updateAdminTabs(availability = {}) {
     const visible = Boolean(availability[name]);
     show(tab, visible);
     tab.disabled = !visible;
-    const desktopRailTab = desktopAdminRailTabs.find((railTab) => railTab.getAttribute("data-records-admin-tab") === name);
-    if (desktopRailTab) desktopRailTab.hidden = !visible;
+    const desktopPageLink = desktopAccountPageLinks.find((link) => link.getAttribute("data-records-account-page") === name);
+    if (desktopPageLink) desktopPageLink.hidden = !visible;
   });
 
   const hasVisibleTab = adminTabs.some((tab) => !tab.classList.contains("hidden"));
@@ -924,6 +941,43 @@ function updateAdminTabs(availability = {}) {
     activeAdminTab = adminTabs.find((tab) => !tab.classList.contains("hidden"))?.getAttribute("data-admin-tab") || "";
   }
   setAdminTab(activeAdminTab);
+}
+
+function applyAccountPageRoute() {
+  const accountPage = getAccountPageFromPath();
+  const isDesktopAccountWorkspace = window.matchMedia("(min-width: 981px)").matches;
+  const isDesktopAccountPage = isDesktopAccountWorkspace && Boolean(accountPage);
+  const isAdminPage = accountPageKeys.includes(accountPage) && accountPage !== "profile";
+  const pageLabels = {
+    profile: "Profile",
+    users: "Users",
+    contacts: "Contacts",
+    templates: "Templates",
+    access: "Access",
+    support: "N3XRA support access",
+    library: "Library",
+    ai: "AI settings",
+    billing: "Billing",
+    storage: "Storage",
+    activity: "Activity",
+  };
+
+  show(desktopAccountLanding, isDesktopAccountWorkspace && !accountPage);
+  show(librarySettingsCard, !isDesktopAccountWorkspace || accountPage === "profile");
+  show(accountLibraryCard, !isDesktopAccountWorkspace || accountPage === "profile");
+  show(recordsHelpCard, !isDesktopAccountWorkspace || accountPage === "profile");
+  show(accountNoLibraryNotice, !isDesktopAccountWorkspace || accountPage === "profile");
+  show(libraryAccessCard, !isDesktopAccountWorkspace || isAdminPage);
+
+  if (isDesktopAccountPage && isAdminPage) setAdminTab(accountPage);
+  if (desktopAccountPageTitle) desktopAccountPageTitle.textContent = pageLabels[accountPage] || "Account";
+
+  desktopAccountPageLinks.forEach((link) => {
+    const isCurrent = link.getAttribute("data-records-account-page") === accountPage;
+    link.classList.toggle("is-active", isCurrent);
+    if (isCurrent) link.setAttribute("aria-current", "page");
+    else link.removeAttribute("aria-current");
+  });
 }
 
 function formatActivityAction(actionType) {
@@ -1101,6 +1155,7 @@ function showSection(section) {
   if (isAccount) {
     setUploadModalOpen(false);
     setAiMemoryModalOpen(false);
+    applyAccountPageRoute();
   }
   closeMobileMenu();
 }
@@ -5294,14 +5349,10 @@ async function init() {
   adminTabs.forEach((tab) => {
     tab.addEventListener("click", () => setAdminTab(tab.getAttribute("data-admin-tab") || ""));
   });
-  desktopAdminRailTabs.forEach((tab) => {
-    tab.addEventListener("click", () => {
-      setAdminTab(tab.getAttribute("data-records-admin-tab") || "");
-      libraryAccessCard?.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
-  });
-  desktopAccountProfileButton?.addEventListener("click", () => {
-    librarySettingsCard?.scrollIntoView({ behavior: "smooth", block: "start" });
+  desktopAccountMenuToggle?.addEventListener("click", () => {
+    const expanded = desktopAccountMenuToggle.getAttribute("aria-expanded") === "true";
+    desktopAccountMenuToggle.setAttribute("aria-expanded", String(!expanded));
+    if (desktopAccountMenuItems) desktopAccountMenuItems.hidden = expanded;
   });
   activityActionFilter?.addEventListener("change", loadActivityLogForActiveOrganization);
   adminUsersInviteButton?.addEventListener("click", openInviteCodesFromUsers);

@@ -72,20 +72,20 @@
           <aside class="records-desktop-nav" aria-label="Records navigation">
             <p class="records-desktop-nav-label">N3XRA Records</p>
             <nav class="records-desktop-nav-links">
-              <a class="is-current" href="/n3xra-records/account" aria-current="page">Account</a>
-              <div class="records-desktop-nav-children" aria-label="Account settings">
-                <button type="button" data-records-account-profile>Profile</button>
+              <button class="records-desktop-nav-parent" type="button" data-records-account-menu-toggle aria-expanded="true" aria-controls="records-account-menu-items">Account</button>
+              <div class="records-desktop-nav-children" id="records-account-menu-items" aria-label="Account settings">
+                <a href="/n3xra-records/account/profile" data-records-account-page="profile">Profile</a>
                 <p>Admin settings</p>
-                <button type="button" data-records-admin-tab="users">Users</button>
-                <button type="button" data-records-admin-tab="contacts">Contacts</button>
-                <button type="button" data-records-admin-tab="templates">Templates</button>
-                <button type="button" data-records-admin-tab="access">Access</button>
-                <button type="button" data-records-admin-tab="support">N3XRA support access</button>
-                <button type="button" data-records-admin-tab="library">Library</button>
-                <button type="button" data-records-admin-tab="ai">AI</button>
-                <button type="button" data-records-admin-tab="billing">Billing</button>
-                <button type="button" data-records-admin-tab="storage">Storage</button>
-                <button type="button" data-records-admin-tab="activity">Activity</button>
+                <a href="/n3xra-records/account/users" data-records-account-page="users">Users</a>
+                <a href="/n3xra-records/account/contacts" data-records-account-page="contacts">Contacts</a>
+                <a href="/n3xra-records/account/templates" data-records-account-page="templates">Templates</a>
+                <a href="/n3xra-records/account/access" data-records-account-page="access">Access</a>
+                <a href="/n3xra-records/account/support" data-records-account-page="support">N3XRA support access</a>
+                <a href="/n3xra-records/account/library" data-records-account-page="library">Library</a>
+                <a href="/n3xra-records/account/ai" data-records-account-page="ai">AI settings</a>
+                <a href="/n3xra-records/account/billing" data-records-account-page="billing">Billing</a>
+                <a href="/n3xra-records/account/storage" data-records-account-page="storage">Storage</a>
+                <a href="/n3xra-records/account/activity" data-records-account-page="activity">Activity</a>
               </div>
               <a href="/n3xra-records/library">Library</a>
               <a href="/n3xra-records/files">Files</a>
@@ -108,6 +108,12 @@
               <strong>Account</strong>
               <span>Private workspace</span>
             </header>
+
+            <section class="records-desktop-account-landing" id="records-desktop-account-landing">
+              <p>Account workspace</p>
+              <h1>Choose an account area</h1>
+              <span>Select Profile or an Admin Settings item from the Account menu.</span>
+            </section>
 
         <section class="section-view" id="account-section" hidden>
           <div class="notice hidden" id="account-no-library-notice">

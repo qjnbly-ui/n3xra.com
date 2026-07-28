@@ -5055,6 +5055,30 @@ body:has(.confirm-modal.is-open) {
     color: #123a33;
   }
 
+  .records-desktop-nav-parent {
+    width: 100%;
+    border: 0;
+    border-radius: 8px;
+    padding: 0.66rem 0.7rem;
+    background: #e4f2ef;
+    color: #123a33;
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.88rem;
+    font-weight: 700;
+    text-align: left;
+  }
+
+  .records-desktop-nav-parent::after {
+    content: "⌄";
+    float: right;
+    color: var(--teal);
+  }
+
+  .records-desktop-nav-parent[aria-expanded="false"]::after {
+    content: "›";
+  }
+
   .records-desktop-nav-children {
     display: grid;
     gap: 0.08rem;
@@ -5072,28 +5096,28 @@ body:has(.confirm-modal.is-open) {
     text-transform: uppercase;
   }
 
-  .records-desktop-nav-children button {
+  .records-desktop-nav-children a {
     width: 100%;
     border: 0;
     border-radius: 6px;
     padding: 0.42rem 0.5rem;
     background: transparent;
     color: #657483;
-    cursor: pointer;
-    font: inherit;
     font-size: 0.77rem;
     font-weight: 700;
     text-align: left;
+    text-decoration: none;
   }
 
-  .records-desktop-nav-children button:hover,
-  .records-desktop-nav-children button:focus-visible {
+  .records-desktop-nav-children a:hover,
+  .records-desktop-nav-children a:focus-visible {
     background: rgba(23, 111, 102, 0.08);
     color: var(--teal);
     outline: none;
   }
 
-  .records-desktop-nav-children button.is-active {
+  .records-desktop-nav-children a.is-active {
+    background: rgba(23, 111, 102, 0.08);
     color: #123a33;
   }
 
@@ -5157,6 +5181,36 @@ body:has(.confirm-modal.is-open) {
     text-transform: uppercase;
   }
 
+  .records-desktop-account-landing {
+    display: grid;
+    justify-items: center;
+    gap: 0.35rem;
+    min-height: 280px;
+    align-content: center;
+    text-align: center;
+  }
+
+  .records-desktop-account-landing p {
+    margin: 0;
+    color: var(--teal);
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+  }
+
+  .records-desktop-account-landing h1 {
+    margin: 0;
+    font-family: "Fraunces", "Times New Roman", serif;
+    font-size: clamp(2rem, 3vw, 2.7rem);
+    letter-spacing: -0.035em;
+  }
+
+  .records-desktop-account-landing span {
+    color: var(--slate);
+    font-size: 0.95rem;
+  }
+
   .records-account-page .admin-tabs {
     display: none;
   }
@@ -5169,7 +5223,8 @@ body:has(.confirm-modal.is-open) {
   }
 
   .records-desktop-nav,
-  .records-desktop-page-head {
+  .records-desktop-page-head,
+  .records-desktop-account-landing {
     display: none;
   }
 }
