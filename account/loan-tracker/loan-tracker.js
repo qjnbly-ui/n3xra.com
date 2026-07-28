@@ -580,15 +580,25 @@ async function createDirectPdf() {
       if (index === futureSchedule.length - 1) text("N3XRA Loan Tracker", left, 24, 6.5, regular, muted);
     });
     const blob = new Blob([await pdf.save()], { type: "application/pdf" });
-    download("n3xra-loan-tracker-amortization-schedule.pdf", blob, "application/pdf");
-    showToast("PDF downloaded.");
+    const filename = "n3xra-loan-tracker-amortization-schedule.pdf";
+    const pdfFile = new File([blob], filename, { type: "application/pdf" });
+    if (navigator.canShare?.({ files: [pdfFile] })) {
+      try {
+        await navigator.share({ files: [pdfFile], title: "N3XRA Loan Tracker schedule" });
+      } catch (error) {
+        if (error?.name !== "AbortError") throw error;
+      }
+    } else {
+      download(filename, blob, "application/pdf");
+      showToast("PDF downloaded. Open it to print or save it.");
+    }
   } catch (error) {
     console.error(error);
     showToast("Unable to create the PDF. Please try again.");
   } finally {
     if (button) {
       button.disabled = false;
-      button.textContent = "Download PDF";
+      button.textContent = "PDF / Print";
     }
   }
 }
@@ -913,7 +923,7 @@ function bindEvents() {
   $$("[data-view]").forEach((button) => button.addEventListener("click", () => showView(button.dataset.view)));
   $$("[data-open-view]").forEach((button) => button.addEventListener("click", () => showView(button.dataset.openView)));
   $$("[data-add-payment]").forEach((button) => button.addEventListener("click", () => openPaymentDialog()));
-  $$(`[data-export]`).forEach((button) => button.addEventListener("click", () => button.dataset.export === "excel" ? exportExcel() : button.dataset.export === "pdf" ? exportPdf() : exportCsv(button.dataset.export)));
+  $$(`[data-export]`).forEach((button) => button.addEventListener("click", () => button.dataset.export === "excel" ? exportExcel() : button.dataset.export === "pdf" ? createDirectPdf() : exportCsv(button.dataset.export)));
   $("#calculator-form").addEventListener("input", updateCalculator);
   $$(".quick-payments button").forEach((button) => button.addEventListener("click", () => {
     $$(".quick-payments button").forEach((item) => item.classList.remove("is-active"));
