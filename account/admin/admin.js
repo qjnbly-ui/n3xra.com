@@ -785,7 +785,7 @@ async function loadAdminView() {
     document.getElementById("billing-product")?.addEventListener("change", renderBilling);
     await loadBilling();
   } else if (view === "operations") {
-    const operations = await import("/account/admin/operations/operations.js?v=8");
+    const operations = await import("/account/admin/operations/operations.js?v=9");
     await operations.startOperations({ supabase, session, invoke });
   } else if (view === "support") {
     document.getElementById("support-filter")?.addEventListener("change", renderSupportOptions);

@@ -30,3 +30,6 @@ verify_jwt = false
 
 [functions.website-billing-operations]
 verify_jwt = false
+
+[functions.operations-stripe-sync]
+verify_jwt = false

@@ -25,6 +25,7 @@ let state = {
 };
 let activeFormType = "";
 let activeImportBatchId = "";
+let stripePreview = [];
 
 const TABLES = {
   party: "operations_parties",
@@ -318,6 +319,59 @@ function renderInvoices() {
       return `<tr><td><strong>${escapeHtml(invoice.invoice_number)}</strong><small>${escapeHtml(productById(invoice.product_id)?.name || projectById(invoice.project_id)?.name || "")}${source}</small></td><td>${escapeHtml(partyById(invoice.customer_id)?.name || "—")}</td><td>${dateLabel(invoice.issue_date)}</td><td>${dateLabel(invoice.due_date)}</td><td>${statusBadge(invoice.status)}</td><td>${moneyCents(invoice.total_cents)}</td><td>${moneyCents(paid)}</td><td>${moneyCents(outstanding)}</td><td><button class="operations-row-action" type="button" data-edit="invoice" data-id="${invoice.id}">Edit</button></td></tr>`;
     }).join("")
     : '<tr><td colspan="9">No invoices have been created.</td></tr>';
+}
+
+function renderStripePreview() {
+  const target = $("#ops-stripe-preview");
+  if (!stripePreview.length) {
+    target.innerHTML = "";
+    return;
+  }
+  const available = stripePreview.filter((invoice) => !invoice.already_imported);
+  target.innerHTML = `<div class="operations-stripe-preview-head"><strong>${available.length} invoice${available.length === 1 ? "" : "s"} ready to import</strong><button class="portal-button" type="button" data-stripe-import${available.length ? "" : " disabled"}>Import selected invoices</button></div><div class="operations-table-wrap"><table><thead><tr><th></th><th>Invoice</th><th>Customer</th><th>Issued</th><th>Status</th><th>Total</th><th>Paid</th></tr></thead><tbody>${stripePreview.map((invoice) => `<tr><td><input type="checkbox" data-stripe-invoice="${escapeHtml(invoice.id)}"${invoice.already_imported ? " disabled" : " checked"}></td><td><strong>${escapeHtml(invoice.number)}</strong>${invoice.already_imported ? "<small>Already imported</small>" : ""}</td><td>${escapeHtml(invoice.customer)}</td><td>${escapeHtml(dateLabel(invoice.issue_date))}</td><td>${statusBadge(invoice.status)}</td><td>${moneyCents(invoice.total_cents)}</td><td>${moneyCents(invoice.paid_cents)}</td></tr>`).join("")}</tbody></table></div>`;
+}
+
+async function previewStripeInvoices() {
+  const button = document.querySelector("[data-stripe-preview]");
+  const errorBox = $("#ops-stripe-sync-error");
+  errorBox.textContent = "";
+  button.disabled = true;
+  button.textContent = "Loading…";
+  try {
+    const { data, error } = await supabase.functions.invoke("operations-stripe-sync", { body: { action: "preview", start_date: $("#ops-stripe-start-date").value } });
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
+    stripePreview = data?.invoices || [];
+    renderStripePreview();
+    if (!stripePreview.length) errorBox.textContent = "No USD Stripe invoices were found after that date.";
+  } catch (error) {
+    errorBox.textContent = error.message || "Unable to preview Stripe invoices.";
+  } finally {
+    button.disabled = false;
+    button.textContent = "Preview invoices";
+  }
+}
+
+async function importStripeInvoices() {
+  const ids = $$('[data-stripe-invoice]:checked').map((input) => input.dataset.stripeInvoice);
+  const errorBox = $("#ops-stripe-sync-error");
+  if (!ids.length) return errorBox.textContent = "Choose at least one invoice to import.";
+  if (!window.confirm(`Import ${ids.length} selected Stripe invoice${ids.length === 1 ? "" : "s"} into Operations? Paid invoices will also create revenue entries.`)) return;
+  const button = document.querySelector("[data-stripe-import]");
+  errorBox.textContent = "";
+  button.disabled = true;
+  button.textContent = "Importing…";
+  try {
+    const { data, error } = await supabase.functions.invoke("operations-stripe-sync", { body: { action: "import", start_date: $("#ops-stripe-start-date").value, invoice_ids: ids } });
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
+    stripePreview = [];
+    renderStripePreview();
+    await loadAll();
+    errorBox.textContent = `${data.imported_count} Stripe invoice${data.imported_count === 1 ? "" : "s"} imported.`;
+  } catch (error) {
+    errorBox.textContent = error.message || "Unable to import Stripe invoices.";
+  }
 }
 
 function listWithActions(items, renderer, type, emptyTitle, emptyCopy) {
@@ -1140,6 +1194,8 @@ function handleWorkspaceClick(event) {
   const importReceipt = event.target.closest("[data-import-open-receipt]");
   const importAddCategory = event.target.closest("[data-import-add-category]");
   const printButton = event.target.closest("[data-print-report]");
+  const stripePreviewButton = event.target.closest("[data-stripe-preview]");
+  const stripeImportButton = event.target.closest("[data-stripe-import]");
   if (tab) showPanel(tab.dataset.operationsView);
   if (panelLink) showPanel(panelLink.dataset.openPanel);
   if (create) openForm(create.dataset.create);
@@ -1153,6 +1209,8 @@ function handleWorkspaceClick(event) {
   if (importReceipt) openImportReceipt(importReceipt.dataset.importOpenReceipt);
   if (importAddCategory) addImportCategory(importAddCategory.dataset.importAddCategory);
   if (printButton) printReport();
+  if (stripePreviewButton) previewStripeInvoices();
+  if (stripeImportButton) importStripeInvoices();
 }
 
 function bindEvents() {
@@ -1163,6 +1221,7 @@ function bindEvents() {
   $("#operations-form").addEventListener("submit", saveForm);
   $("#operations-void-form").addEventListener("submit", voidTransaction);
   $("#ops-import-form").addEventListener("submit", createImportBatch);
+  $("#ops-stripe-start-date").value = `${new Date().getFullYear()}-01-01`;
   $("#ops-import-batch").addEventListener("change", (event) => {
     activeImportBatchId = event.currentTarget.value;
     renderExpenseReview();

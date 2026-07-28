@@ -140,6 +140,49 @@ async function operationsPartyId(
   return raced.id;
 }
 
+async function genericOperationsPartyId(admin: ReturnType<typeof createClient>, invoice: Stripe.Invoice, actorId: string) {
+  const email = String(invoice.customer_email || "").trim().toLowerCase();
+  const name = stripeCustomerName(invoice);
+  let query = admin.from("operations_parties").select("id").limit(1);
+  query = email ? query.ilike("email", email) : query.ilike("name", name);
+  const { data: existing, error: existingError } = await query.maybeSingle();
+  if (existingError) throw new Error(existingError.message);
+  if (existing) return existing.id;
+  const { data: created, error: createError } = await admin.from("operations_parties").insert({
+    party_type: "customer", name, email: email || null, status: "active",
+    notes: "Created automatically from a Stripe invoice.", created_by_user_id: actorId,
+  }).select("id").single();
+  if (createError) throw new Error(createError.message);
+  return created.id;
+}
+
+async function syncGenericOperationsInvoice(admin: ReturnType<typeof createClient>, invoice: Stripe.Invoice) {
+  if ((invoice.currency || "usd").toLowerCase() !== "usd" || (invoice.total || 0) <= 0) return false;
+  const { data: owner, error: ownerError } = await admin.from("platform_admins").select("user_id").eq("status", "active").order("role").limit(1).maybeSingle();
+  if (ownerError) throw new Error(ownerError.message);
+  if (!owner?.user_id) throw new Error("No active platform administrator is available for Stripe sync.");
+  const partyId = await genericOperationsPartyId(admin, invoice, owner.user_id);
+  const { data: storedInvoice, error: invoiceError } = await admin.from("operations_invoices").upsert({
+    invoice_number: stripeInvoiceNumber(invoice), customer_id: partyId, issue_date: unixDateOnly(invoice.created),
+    due_date: invoice.due_date ? unixDateOnly(invoice.due_date) : null, total_cents: invoice.total,
+    status: operationsInvoiceStatus(invoice.status), recurring: Boolean(invoice.subscription),
+    external_url: invoice.hosted_invoice_url || invoice.invoice_pdf || null, notes: "Synchronized automatically from Stripe.",
+    created_by_user_id: owner.user_id, source: "stripe", external_id: invoice.id,
+  }, { onConflict: "source,external_id" }).select("id").single();
+  if (invoiceError) throw new Error(invoiceError.message);
+  if ((invoice.status === "paid" || (invoice.amount_paid || 0) > 0) && (invoice.amount_paid || 0) > 0) {
+    const { error: transactionError } = await admin.from("operations_transactions").upsert({
+      transaction_type: "revenue", transaction_date: stripePaidDate(invoice), amount_cents: invoice.amount_paid,
+      status: "completed", party_id: partyId, invoice_id: storedInvoice.id, category: "stripe_revenue",
+      payment_method: "stripe", recurring: Boolean(invoice.subscription), description: `Stripe payment for invoice ${stripeInvoiceNumber(invoice)}`,
+      reference_number: invoice.id, notes: "Synchronized automatically from Stripe.", created_by_user_id: owner.user_id,
+      source: "stripe", external_id: invoice.id,
+    }, { onConflict: "source,external_id" });
+    if (transactionError) throw new Error(transactionError.message);
+  }
+  return true;
+}
+
 async function syncOperationsInvoice(
   admin: ReturnType<typeof createClient>,
   invoice: Stripe.Invoice,
@@ -323,6 +366,7 @@ Deno.serve(async (request) => {
       handled = await syncSubscription(admin, object as Stripe.Subscription);
     } else if (["invoice.finalized", "invoice.paid", "invoice.payment_failed", "invoice.voided"].includes(event.type)) {
       handled = await syncInvoice(admin, stripe, object as Stripe.Invoice, event.type);
+      if (!handled) handled = await syncGenericOperationsInvoice(admin, object as Stripe.Invoice);
       if (handled && event.type === "invoice.payment_failed") {
         const invoice = object as Stripe.Invoice;
         await notifyAdmin(admin, "Website payment failed", "A website invoice payment failed. Review the website billing account.", { stripe_invoice_id: invoice.id });
