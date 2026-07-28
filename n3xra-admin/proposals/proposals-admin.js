@@ -390,7 +390,7 @@ function renderEditor() {
   versionLabel.textContent = editingVersion ? `Version ${editingVersion.version_number} · ${formatLabel(editingVersion.status)}` : "New proposal";
 
   const isDraft = !editingVersion || editingVersion.status === "draft";
-  const isApproved = selectedProposal?.status === "approved";
+  const isApproved = !isDraft && selectedProposal?.status === "approved";
   Array.from(form.elements).forEach((element) => {
     if (element === newVersionButton || element === deleteVersionButton || element === previewLink || element === prepareBillingButton) return;
     if (element.id === "send-proposal") element.disabled = false;
@@ -422,6 +422,9 @@ function renderEditor() {
     const hasBillableAmount = Number(editingVersion?.total_cents || 0) > 0 || Number(editingVersion?.recurring_cents || 0) > 0;
     prepareBillingButton.disabled = !hasBillableAmount;
     prepareBillingButton.textContent = hasBillableAmount ? "Prepare billing" : "Create revision to add billing";
+  } else if (isDraft && selectedProposal?.status === "approved") {
+    prepareBillingButton.disabled = true;
+    prepareBillingButton.textContent = "Send revision before billing";
   } else {
     prepareBillingButton.disabled = true;
     prepareBillingButton.textContent = selectedProposal?.status === "sent"
