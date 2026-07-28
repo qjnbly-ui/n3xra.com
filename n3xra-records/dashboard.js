@@ -38,8 +38,6 @@ const mobileMenuMessagesLink = document.getElementById("mobile-menu-messages-lin
 const mobileMenuRecordingsLink = document.getElementById("mobile-menu-recordings-link");
 const accountSection = document.getElementById("account-section");
 const librarySettingsCard = document.getElementById("library-settings-card");
-const accountLibraryCard = document.getElementById("account-library-card");
-const recordsHelpCard = document.getElementById("records-help-card");
 const librarySection = document.getElementById("library-section");
 const libraryActionsGrid = document.getElementById("library-actions-grid");
 const accountLibraryContext = document.getElementById("account-library-context");
@@ -292,11 +290,6 @@ if (supportAccessCard && adminPanelsContainer) {
 }
 const adminTabs = Array.from(document.querySelectorAll("[data-admin-tab]"));
 const adminPanels = Array.from(document.querySelectorAll("[data-admin-panel]"));
-const desktopAccountViewButtons = Array.from(document.querySelectorAll("[data-records-account-view]"));
-const desktopAccountMenuToggle = document.querySelector("[data-records-account-menu-toggle]");
-const desktopAccountMenuItems = document.getElementById("records-account-menu-items");
-const desktopAccountPageTitle = document.getElementById("records-desktop-page-title");
-const desktopAccountLanding = document.getElementById("records-desktop-account-landing");
 const adminUsersInviteButton = document.getElementById("admin-users-invite");
 const adminNewTemplateButton = document.getElementById("admin-new-template");
 const adminTemplateList = document.getElementById("admin-template-list");
@@ -907,8 +900,6 @@ function updateAdminTabs(availability = {}) {
     const visible = Boolean(availability[name]);
     show(tab, visible);
     tab.disabled = !visible;
-    const desktopViewButton = desktopAccountViewButtons.find((button) => button.getAttribute("data-records-account-view") === name);
-    if (desktopViewButton) desktopViewButton.hidden = !visible;
   });
 
   const hasVisibleTab = adminTabs.some((tab) => !tab.classList.contains("hidden"));
@@ -925,39 +916,6 @@ function updateAdminTabs(availability = {}) {
     activeAdminTab = adminTabs.find((tab) => !tab.classList.contains("hidden"))?.getAttribute("data-admin-tab") || "";
   }
   setAdminTab(activeAdminTab);
-}
-
-const desktopAccountViewLabels = {
-  profile: "Profile",
-  users: "Users",
-  contacts: "Contacts",
-  templates: "Templates",
-  access: "Access",
-  support: "N3XRA support access",
-  library: "Library",
-  ai: "AI settings",
-  billing: "Billing",
-  storage: "Storage",
-  activity: "Activity",
-};
-
-function setDesktopAccountView(view = "") {
-  if (!window.matchMedia("(min-width: 981px)").matches) return;
-  const isProfile = view === "profile";
-  const isAdminView = Boolean(view && !isProfile);
-
-  show(desktopAccountLanding, !view);
-  show(librarySettingsCard, isProfile);
-  show(accountLibraryCard, isProfile);
-  show(recordsHelpCard, isProfile);
-  show(accountNoLibraryNotice, isProfile);
-  show(libraryAccessCard, isAdminView);
-  if (isAdminView) setAdminTab(view);
-
-  desktopAccountViewButtons.forEach((button) => {
-    button.classList.toggle("is-active", button.getAttribute("data-records-account-view") === view);
-  });
-  if (desktopAccountPageTitle) desktopAccountPageTitle.textContent = desktopAccountViewLabels[view] || "Account";
 }
 
 function formatActivityAction(actionType) {
@@ -1135,7 +1093,6 @@ function showSection(section) {
   if (isAccount) {
     setUploadModalOpen(false);
     setAiMemoryModalOpen(false);
-    setDesktopAccountView();
   }
   closeMobileMenu();
 }
@@ -5328,14 +5285,6 @@ async function init() {
   contactList?.addEventListener("click", handleContactAction);
   adminTabs.forEach((tab) => {
     tab.addEventListener("click", () => setAdminTab(tab.getAttribute("data-admin-tab") || ""));
-  });
-  desktopAccountMenuToggle?.addEventListener("click", () => {
-    const isOpen = desktopAccountMenuToggle.getAttribute("aria-expanded") === "true";
-    desktopAccountMenuToggle.setAttribute("aria-expanded", String(!isOpen));
-    if (desktopAccountMenuItems) desktopAccountMenuItems.hidden = isOpen;
-  });
-  desktopAccountViewButtons.forEach((button) => {
-    button.addEventListener("click", () => setDesktopAccountView(button.getAttribute("data-records-account-view") || ""));
   });
   activityActionFilter?.addEventListener("change", loadActivityLogForActiveOrganization);
   adminUsersInviteButton?.addEventListener("click", openInviteCodesFromUsers);
