@@ -779,36 +779,56 @@ function downloadCsv(filename, headers, rows) {
 function printReport() {
   const summary = summarizeOperations(state);
   const rows = [...state.transactions].sort((left, right) => String(right.transaction_date).localeCompare(String(left.transaction_date)));
-  const reportWindow = window.open("", "_blank");
-  if (!reportWindow) return setStatus("Your browser blocked the print window. Allow pop-ups for n3xra.com and try again.", "error");
+  const reportFrame = document.createElement("iframe");
+  reportFrame.setAttribute("aria-hidden", "true");
+  reportFrame.style.cssText = "position:fixed;width:1px;height:1px;right:0;bottom:0;border:0;opacity:0;pointer-events:none;";
+  document.body.append(reportFrame);
+  const reportWindow = reportFrame.contentWindow;
+  if (!reportWindow) {
+    reportFrame.remove();
+    return setStatus("Unable to prepare the print report. Please try again.", "error");
+  }
   const rowHtml = rows.length
     ? rows.map((item) => `<tr><td>${escapeHtml(dateLabel(item.transaction_date))}</td><td>${escapeHtml(titleCase(item.transaction_type))}</td><td>${escapeHtml(item.description)}</td><td>${escapeHtml(item.category || "—")}</td><td class="amount ${item.transaction_type === "expense" ? "expense" : "revenue"}">${item.transaction_type === "expense" ? "−" : "+"}${escapeHtml(moneyCents(item.amount_cents))}</td><td>${escapeHtml(titleCase(item.status))}</td></tr>`).join("")
     : '<tr><td colspan="6" class="empty">No transactions recorded.</td></tr>';
+  reportWindow.history.replaceState({}, "", "/account/admin/operations/");
   reportWindow.document.write(`<!doctype html><html><head><title>N3XRA Operations Report</title><style>
-    @page { size: letter; margin: 0.55in; }
+    @page { size: letter portrait; margin: 0.42in; }
     :root { color-scheme: light; font-family: Arial, Helvetica, sans-serif; }
-    body { color: #142331; margin: 0; font-size: 10pt; }
-    h1 { margin: 0; font-size: 22pt; letter-spacing: -0.03em; }
-    h2 { margin: 0 0 4px; font-size: 13pt; }
-    .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #142331; padding-bottom: 12px; margin-bottom: 16px; }
-    .muted { color: #607080; font-size: 9pt; }
-    .summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 20px; }
-    .card { border: 1px solid #cbd5dc; border-radius: 6px; padding: 9px; }
-    .card span { display: block; color: #607080; font-size: 8pt; text-transform: uppercase; letter-spacing: .06em; }
-    .card strong { display: block; margin-top: 4px; font-size: 14pt; }
-    table { width: 100%; border-collapse: collapse; }
-    th { color: #fff; background: #142331; font-size: 8pt; text-align: left; text-transform: uppercase; letter-spacing: .04em; }
-    th, td { padding: 7px 6px; border-bottom: 1px solid #dce3e8; vertical-align: top; }
+    body { color: #142331; margin: 0; font-size: 8pt; }
+    h1 { margin: 0; font-size: 20pt; letter-spacing: -0.03em; }
+    h2 { margin: 0 0 5px; font-size: 12pt; }
+    .brand { display: flex; align-items: center; gap: 7px; color: #116f57; font-weight: 700; font-size: 12pt; letter-spacing: .08em; }
+    .brand img { width: 22px; height: 22px; object-fit: contain; }
+    .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #116f57; padding-bottom: 10px; margin-bottom: 13px; }
+    .title { margin-top: 8px; }
+    .muted { color: #607080; font-size: 8pt; }
+    .summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 15px; }
+    .card { border: 1px solid #cbd5dc; border-radius: 5px; padding: 7px; }
+    .card span { display: block; color: #607080; font-size: 6.5pt; text-transform: uppercase; letter-spacing: .05em; }
+    .card strong { display: block; margin-top: 3px; font-size: 11pt; }
+    table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+    col.date { width: 12%; } col.type { width: 10%; } col.description { width: 34%; } col.category { width: 18%; } col.amount { width: 14%; } col.status { width: 12%; }
+    thead { display: table-header-group; }
+    tr { break-inside: avoid; page-break-inside: avoid; }
+    th { color: #fff; background: #142331; font-size: 6.5pt; text-align: left; text-transform: uppercase; letter-spacing: .03em; }
+    th, td { padding: 5px 4px; border-bottom: 1px solid #dce3e8; vertical-align: top; overflow-wrap: anywhere; }
+    td:not(:nth-child(3)) { white-space: nowrap; }
+    th:nth-child(5), td:nth-child(5) { text-align: right; }
     .amount { text-align: right; white-space: nowrap; }
     .expense { color: #a83434; }
     .revenue { color: #16745b; }
     .empty { text-align: center; color: #607080; padding: 18px; }
-    footer { margin-top: 18px; border-top: 1px solid #cbd5dc; padding-top: 8px; color: #607080; font-size: 8pt; }
-    @media print { .no-print { display: none; } }
-  </style></head><body><div class="header"><div><h1>N3XRA Operations</h1><div class="muted">Internal financial report</div></div><div class="muted">Generated ${escapeHtml(dateTimeLabel(new Date().toISOString()))}</div></div>
+    footer { margin-top: 13px; border-top: 1px solid #cbd5dc; padding-top: 7px; color: #607080; font-size: 7pt; }
+  </style></head><body><div class="header"><div><div class="brand"><img src="${window.location.origin}/assets/n3xra_logo_transparent_small.png" alt="">N3XRA</div><div class="title"><h1>Operations Report</h1><div class="muted">Internal financial report</div></div></div><div class="muted">Generated ${escapeHtml(dateTimeLabel(new Date().toISOString()))}</div></div>
   <div class="summary"><div class="card"><span>Monthly revenue</span><strong>${escapeHtml(moneyCents(summary.revenueCents))}</strong></div><div class="card"><span>Monthly expenses</span><strong>${escapeHtml(moneyCents(summary.expenseCents))}</strong></div><div class="card"><span>Net profit</span><strong>${escapeHtml(moneyCents(summary.netProfitCents))}</strong></div><div class="card"><span>Outstanding invoices</span><strong>${escapeHtml(moneyCents(summary.outstandingCents))}</strong></div></div>
-  <h2>Transaction history</h2><table><thead><tr><th>Date</th><th>Type</th><th>Description</th><th>Category</th><th style="text-align:right">Amount</th><th>Status</th></tr></thead><tbody>${rowHtml}</tbody></table><footer>Bookkeeping report generated from N3XRA Operations. Keep receipts and supporting records.</footer><script>window.addEventListener('load', () => { window.focus(); window.print(); });</script></body></html>`);
+  <h2>Transaction history</h2><table><colgroup><col class="date"><col class="type"><col class="description"><col class="category"><col class="amount"><col class="status"></colgroup><thead><tr><th>Date</th><th>Type</th><th>Description</th><th>Category</th><th>Amount</th><th>Status</th></tr></thead><tbody>${rowHtml}</tbody></table><footer>Bookkeeping report generated from N3XRA Operations. Keep receipts and supporting records.</footer></body></html>`);
   reportWindow.document.close();
+  reportWindow.addEventListener("afterprint", () => reportFrame.remove(), { once: true });
+  window.setTimeout(() => {
+    reportWindow.focus();
+    reportWindow.print();
+  }, 250);
 }
 
 function exportData(kind) {
