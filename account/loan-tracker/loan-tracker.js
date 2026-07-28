@@ -465,27 +465,109 @@ function exportExcel() {
   download("dave-wilson-loan-tracker.xls", workbook, "application/vnd.ms-excel");
 }
 
-function exportPdf() {
+async function exportPdf() {
   if (!can("export_data")) return showToast("Exports are not included in your access.");
-  const reportFrame = document.createElement("iframe");
-  reportFrame.setAttribute("aria-hidden", "true");
-  reportFrame.style.cssText = "position:fixed;width:1px;height:1px;right:0;bottom:0;border:0;opacity:0;pointer-events:none";
-  document.body.append(reportFrame);
-  const reportWindow = reportFrame.contentWindow;
-  if (!reportWindow) {
-    reportFrame.remove();
-    return showToast("Unable to prepare the PDF preview. Please try again.");
+  const button = document.querySelector('[data-export="pdf"]');
+  if (button) {
+    button.disabled = true;
+    button.textContent = "Preparing PDF…";
   }
-  const summary = summarizeSchedule(futureSchedule);
-  const anchor = projectionAnchor();
-  const rows = futureSchedule.map((row) => `<tr><td>${row.paymentNumber}</td><td>${escapeHtml(dateLabel(row.paymentDate))}</td><td>${escapeHtml(moneyCents(row.beginningBalanceCents))}</td><td>${escapeHtml(moneyCents(row.paymentCents))}</td><td>${escapeHtml(moneyCents(row.interestCents))}</td><td>${escapeHtml(moneyCents(row.principalCents))}</td><td>${escapeHtml(moneyCents(row.endingBalanceCents))}</td></tr>`).join("");
-  reportWindow.document.write(`<!doctype html><html><head><title>N3XRA Loan Tracker - Amortization Schedule</title><style>@page{size:letter portrait;margin:.4in}:root{color-scheme:light;font-family:Arial,Helvetica,sans-serif}body{color:#17211b;margin:0;font-size:8pt}.brand{display:flex;align-items:center;gap:10px;border-bottom:3px solid #1e5c43;padding-bottom:10px;margin-bottom:12px}.brand img{width:28px;height:28px;object-fit:contain}.brand strong{color:#1e5c43;font-size:13pt;letter-spacing:.08em}h1{margin:0;font-size:20pt;letter-spacing:-.03em}h2{margin:14px 0 6px;font-size:11pt;color:#1e5c43}.meta{display:flex;justify-content:space-between;color:#68736c;font-size:7pt;margin-top:3px}.summary{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin:12px 0}.card{border:1px solid #dddcd2;border-radius:5px;padding:7px}.card span{display:block;color:#68736c;font-size:6.5pt;text-transform:uppercase;letter-spacing:.05em}.card strong{display:block;margin-top:3px;font-size:10pt}table{width:100%;border-collapse:collapse;table-layout:fixed}col:nth-child(1){width:5%}col:nth-child(2){width:15%}col:nth-child(3){width:17%}col:nth-child(4){width:15%}col:nth-child(5){width:15%}col:nth-child(6){width:15%}col:nth-child(7){width:18%}thead{display:table-header-group}tr{break-inside:avoid}th{background:#1e5c43;color:white;text-align:left;font-size:6pt;text-transform:uppercase;letter-spacing:.02em}th,td{padding:4px 2px;border-bottom:1px solid #dddcd2;white-space:nowrap;overflow:hidden;text-overflow:clip}td:nth-child(n+3),th:nth-child(n+3){text-align:right;font-variant-numeric:tabular-nums}footer{margin-top:12px;border-top:1px solid #dddcd2;padding-top:6px;color:#68736c;font-size:6.5pt}.note{color:#68736c;font-size:7pt;margin:0 0 7px}</style></head><body><div class="brand"><img src="${window.location.origin}/assets/n3xra_logo_transparent_small.png" alt="N3XRA"><strong>N3XRA</strong></div><h1>Loan Tracker</h1><div class="meta"><span>${escapeHtml(account.borrower_name || "Dave Wilson")} · ${escapeHtml(account.lender_name || "Vibrant Credit Union")}</span><span>Generated ${escapeHtml(dateLabel(new Date().toISOString()))}</span></div><div class="summary"><div class="card"><span>Current balance</span><strong>${escapeHtml(moneyCents(anchor.balanceCents))}</strong></div><div class="card"><span>Monthly payment</span><strong>${escapeHtml(money(account.planned_monthly_payment))}</strong></div><div class="card"><span>Estimated payoff</span><strong>${escapeHtml(dateLabel(summary.payoffDate, true))}</strong></div><div class="card"><span>Payments remaining</span><strong>${summary.payments}</strong></div><div class="card"><span>Estimated interest</span><strong>${escapeHtml(moneyCents(summary.totalInterestCents))}</strong></div></div><h2>Amortization Schedule</h2><p class="note">Estimated schedule based on the current balance and planned payment. Official lender records take priority.</p><table><colgroup><col><col><col><col><col><col><col></colgroup><thead><tr><th>#</th><th>Payment date</th><th>Beginning balance</th><th>Payment</th><th>Interest</th><th>Principal</th><th>Ending balance</th></tr></thead><tbody>${rows}</tbody></table><footer>N3XRA Loan Tracker · Private financial workspace · Print this report or choose “Save as PDF” in the print dialog.</footer></body></html>`);
-  reportWindow.document.close();
-  reportWindow.addEventListener("afterprint", () => reportFrame.remove(), { once: true });
-  setTimeout(() => {
-    reportWindow.focus();
-    reportWindow.print();
-  }, 250);
+  try {
+    const { PDFDocument, StandardFonts, rgb } = await import("https://esm.sh/pdf-lib@1.17.1");
+    const pdf = await PDFDocument.create();
+    const regular = await pdf.embedFont(StandardFonts.Helvetica);
+    const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+    const dark = rgb(0.09, 0.13, 0.11);
+    const green = rgb(0.12, 0.36, 0.26);
+    const muted = rgb(0.39, 0.45, 0.42);
+    const line = rgb(0.84, 0.84, 0.79);
+    const pageWidth = 612;
+    const pageHeight = 792;
+    const left = 30;
+    const right = pageWidth - 30;
+    const rowHeight = 15;
+    const columns = [24, 70, 91, 76, 76, 76, 91];
+    const labels = ["#", "PAYMENT DATE", "BEGINNING BALANCE", "PAYMENT", "INTEREST", "PRINCIPAL", "ENDING BALANCE"];
+    const summary = summarizeSchedule(futureSchedule);
+    const anchor = projectionAnchor();
+    let page;
+    let y;
+
+    const text = (value, x, top, size, font = regular, color = dark, align = "left") => {
+      const safe = String(value ?? "");
+      const width = font.widthOfTextAtSize(safe, size);
+      page.drawText(safe, { x: align === "right" ? x - width : x, y: top - size, size, font, color });
+    };
+    const header = () => {
+      page = pdf.addPage([pageWidth, pageHeight]);
+      y = pageHeight - 30;
+      text("N3XRA", left, y, 12, bold, green);
+      page.drawLine({ start: { x: left, y: y - 20 }, end: { x: right, y: y - 20 }, thickness: 2, color: green });
+      y -= 37;
+      text("Loan Tracker", left, y, 20, bold);
+      text(`${account.borrower_name || "Dave Wilson"} · ${account.lender_name || "Vibrant Credit Union"}`, left, y - 18, 8, regular, muted);
+      text(`Generated ${dateLabel(new Date().toISOString())}`, right, y - 18, 8, regular, muted, "right");
+      y -= 37;
+    };
+    const tableHeader = () => {
+      let x = left;
+      page.drawRectangle({ x: left, y: y - 13, width: right - left, height: 13, color: green });
+      labels.forEach((label, index) => {
+        text(label, index >= 2 ? x + columns[index] - 3 : x + 3, y - 3, 5.4, bold, rgb(1, 1, 1), index >= 2 ? "right" : "left");
+        x += columns[index];
+      });
+      y -= 13;
+    };
+    const newPage = (withSummary = false) => {
+      header();
+      if (withSummary) {
+        const cards = [
+          ["CURRENT BALANCE", moneyCents(anchor.balanceCents)],
+          ["MONTHLY PAYMENT", money(account.planned_monthly_payment)],
+          ["ESTIMATED PAYOFF", dateLabel(summary.payoffDate, true)],
+          ["PAYMENTS REMAINING", String(summary.payments)],
+          ["ESTIMATED INTEREST", moneyCents(summary.totalInterestCents)],
+        ];
+        const cardWidth = (right - left - 16) / 5;
+        cards.forEach(([label, value], index) => {
+          const x = left + index * (cardWidth + 4);
+          page.drawRectangle({ x, y: y - 35, width: cardWidth, height: 35, borderColor: line, borderWidth: 0.7 });
+          text(label, x + 4, y - 6, 5.5, bold, muted);
+          text(value, x + 4, y - 19, 8, bold);
+        });
+        y -= 52;
+        text("Amortization Schedule", left, y, 11, bold, green);
+        text("Estimated schedule based on the current balance and planned payment.", left, y - 14, 7, regular, muted);
+        y -= 28;
+      }
+      tableHeader();
+    };
+
+    newPage(true);
+    futureSchedule.forEach((row, index) => {
+      if (y - rowHeight < 38) newPage(false);
+      const values = [String(row.paymentNumber), dateLabel(row.paymentDate), moneyCents(row.beginningBalanceCents), moneyCents(row.paymentCents), moneyCents(row.interestCents), moneyCents(row.principalCents), moneyCents(row.endingBalanceCents)];
+      let x = left;
+      values.forEach((value, column) => {
+        text(value, column >= 2 ? x + columns[column] - 3 : x + 3, y - 4, 6.2, regular, dark, column >= 2 ? "right" : "left");
+        x += columns[column];
+      });
+      page.drawLine({ start: { x: left, y: y - rowHeight }, end: { x: right, y: y - rowHeight }, thickness: 0.45, color: line });
+      y -= rowHeight;
+      if (index === futureSchedule.length - 1) text("N3XRA Loan Tracker", left, 24, 6.5, regular, muted);
+    });
+    const blob = new Blob([await pdf.save()], { type: "application/pdf" });
+    download("n3xra-loan-tracker-amortization-schedule.pdf", blob, "application/pdf");
+    showToast("PDF downloaded.");
+  } catch (error) {
+    console.error(error);
+    showToast("Unable to create the PDF. Please try again.");
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = "Download PDF";
+    }
+  }
 }
 
 async function sha256Hex(value) {
