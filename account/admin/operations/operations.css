@@ -219,11 +219,11 @@
   overflow-wrap: anywhere;
 }
 
-.operations-stripe-sync-controls { display: flex; align-items: end; gap: 12px; flex-wrap: wrap; }
+.operations-stripe-sync-controls { display: flex; align-items: end; gap: 12px; flex-wrap: wrap; margin-top: 1rem; }
 .operations-stripe-sync-controls .operations-field { min-width: 180px; }
 .operations-stripe-preview-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 16px 0 10px; }
 .operations-stripe-preview-head strong { color: var(--ops-navy); }
-.operations-stripe-dialog { width: min(960px, calc(100vw - 32px)); }
+.operations-stripe-dialog { width: min(720px, calc(100vw - 32px)); }
 
 .operations-list-item small {
   margin-top: 0.2rem;
@@ -478,6 +478,20 @@
 
 .operations-dialog form {
   padding: 1.1rem;
+}
+
+.operations-dialog > section {
+  padding: 1.1rem;
+}
+
+.operations-stripe-dialog header {
+  align-items: flex-start;
+}
+
+.operations-stripe-dialog header p {
+  margin: 0.45rem 0 0;
+  max-width: 590px;
+  color: var(--portal-muted);
 }
 
 .operations-dialog header {
