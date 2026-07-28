@@ -125,10 +125,10 @@
               <label>One-time subtotal ($)<input id="proposal-subtotal" type="number" min="0" step="0.01" readonly required></label>
               <label>Discount ($)<input id="proposal-discount" type="number" min="0" step="0.01" value="0"></label>
               <label class="portal-form-wide proposal-referral-discount" id="proposal-referral-discount-wrap" hidden><span><input id="proposal-referral-discount" type="checkbox"> Apply the verified referral discount</span><small id="proposal-referral-discount-help"></small></label>
-              <label>Total ($)<input id="proposal-total" type="text" readonly></label>
+              <label>Recurring service ($)<input id="proposal-recurring" type="text" readonly></label>
+              <label>Renewal interval<input id="proposal-recurring-interval" type="text" readonly></label>
+              <label>Initial one-time total ($)<input id="proposal-total" type="text" readonly></label>
               <label>Deposit due ($)<input id="proposal-deposit" type="number" min="0" step="0.01" value="0"></label>
-              <input id="proposal-recurring" type="hidden" value="0">
-              <input id="proposal-recurring-interval" type="hidden" value="">
               <label class="portal-form-wide">Payment schedule<textarea id="proposal-payment-schedule" rows="3"></textarea></label>
             </div>
           </div>
@@ -180,6 +180,6 @@
 
   <div class="portal-status" id="portal-status" role="status">Verifying proposal access…</div>
   <script type="module" src="/client-portal/portal-shell.js"></script>
-  <script type="module" src="/n3xra-admin/proposals/proposals-admin.js?v=10"></script>
+  <script type="module" src="/n3xra-admin/proposals/proposals-admin.js?v=11"></script>
 </body>
 </html>
