@@ -10,7 +10,6 @@ const emptyState = document.getElementById("proposal-empty");
 const form = document.getElementById("proposal-form");
 const formStatus = document.getElementById("proposal-form-status");
 const versionLabel = document.getElementById("proposal-version-label");
-const revisionNotice = document.getElementById("proposal-revision-notice");
 const newVersionButton = document.getElementById("new-proposal-version");
 const deleteVersionButton = document.getElementById("delete-proposal-version");
 const deleteVersionDialog = document.getElementById("delete-proposal-version-dialog");
@@ -405,10 +404,6 @@ function renderEditor() {
   sendButton.textContent = isDraft ? "Send to client" : "Resend email";
   newVersionButton.hidden = !selectedProposal || isDraft;
   newVersionButton.textContent = isApproved ? "Create billing revision" : "Create revision";
-  revisionNotice.hidden = isDraft || !isApproved;
-  if (isApproved) {
-    revisionNotice.innerHTML = "<strong>This approved proposal is locked.</strong><span>Create a billing revision to change service lines. One-time and recurring totals are calculated automatically from those lines—do not enter totals manually.</span>";
-  }
   deleteVersionButton.hidden = !editingVersion?.id || editingVersion.status !== "draft";
   previewLink.hidden = !selectedProposal?.current_version_id;
   if (selectedProposal) previewLink.href = `/proposals/?proposal=${encodeURIComponent(selectedProposal.id)}`;
