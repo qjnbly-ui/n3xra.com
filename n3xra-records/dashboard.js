@@ -290,8 +290,6 @@ if (supportAccessCard && adminPanelsContainer) {
 }
 const adminTabs = Array.from(document.querySelectorAll("[data-admin-tab]"));
 const adminPanels = Array.from(document.querySelectorAll("[data-admin-panel]"));
-const desktopAdminRailTabs = Array.from(document.querySelectorAll("[data-records-admin-tab]"));
-const desktopAccountProfileButton = document.querySelector("[data-records-account-profile]");
 const adminUsersInviteButton = document.getElementById("admin-users-invite");
 const adminNewTemplateButton = document.getElementById("admin-new-template");
 const adminTemplateList = document.getElementById("admin-template-list");
@@ -885,10 +883,6 @@ function setAdminTab(tabName) {
     tab.tabIndex = isActive ? 0 : -1;
   });
 
-  desktopAdminRailTabs.forEach((tab) => {
-    tab.classList.toggle("is-active", tab.getAttribute("data-records-admin-tab") === activeAdminTab);
-  });
-
   adminPanels.forEach((panel) => {
     const isActive = panel.getAttribute("data-admin-panel") === activeAdminTab;
     panel.classList.toggle("is-active", isActive);
@@ -906,8 +900,6 @@ function updateAdminTabs(availability = {}) {
     const visible = Boolean(availability[name]);
     show(tab, visible);
     tab.disabled = !visible;
-    const desktopRailTab = desktopAdminRailTabs.find((railTab) => railTab.getAttribute("data-records-admin-tab") === name);
-    if (desktopRailTab) desktopRailTab.hidden = !visible;
   });
 
   const hasVisibleTab = adminTabs.some((tab) => !tab.classList.contains("hidden"));
@@ -5293,15 +5285,6 @@ async function init() {
   contactList?.addEventListener("click", handleContactAction);
   adminTabs.forEach((tab) => {
     tab.addEventListener("click", () => setAdminTab(tab.getAttribute("data-admin-tab") || ""));
-  });
-  desktopAdminRailTabs.forEach((tab) => {
-    tab.addEventListener("click", () => {
-      setAdminTab(tab.getAttribute("data-records-admin-tab") || "");
-      libraryAccessCard?.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
-  });
-  desktopAccountProfileButton?.addEventListener("click", () => {
-    librarySettingsCard?.scrollIntoView({ behavior: "smooth", block: "start" });
   });
   activityActionFilter?.addEventListener("change", loadActivityLogForActiveOrganization);
   adminUsersInviteButton?.addEventListener("click", openInviteCodesFromUsers);
