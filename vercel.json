@@ -191,7 +191,7 @@
     },
     {
       "source": "/n3xra-records/account",
-      "destination": "/n3xra-records/dashboard.html"
+      "destination": "/n3xra-records/account/index.html"
     },
     {
       "source": "/n3xra-admin/records",
