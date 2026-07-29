@@ -50,7 +50,12 @@ const signupReferral = createReferralCodeController({
   status: signupReferralStatus,
 });
 
+function isLocalPreview() {
+  return ["127.0.0.1", "localhost", "[::1]"].includes(window.location.hostname);
+}
+
 function getTurnstileSiteKey() {
+  if (isLocalPreview()) return "";
   return String(getConfig().turnstileSiteKey || "").trim();
 }
 
