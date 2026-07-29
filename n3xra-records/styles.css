@@ -1639,6 +1639,16 @@ textarea {
   font-size: 1.02rem;
 }
 
+.records-profile-header {
+  display: none;
+}
+
+.records-profile-section-copy {
+  margin: 0.3rem 0 0;
+  color: var(--slate);
+  font-size: 0.9rem;
+}
+
 .records-help-card {
   background: linear-gradient(180deg, #ffffff 0%, #f7fbfa 100%);
 }
@@ -5054,12 +5064,30 @@ body:has(.confirm-modal.is-open) {
   .records-account-page.desktop-account-admin-view #account-library-card .account-card { padding: 0; }
   .records-account-page.desktop-account-admin-view #account-library-context { grid-template-columns: minmax(0, 1.5fr) repeat(2, minmax(0, 1fr)); }
   .records-account-page:not(.desktop-account-admin-view) .profile-settings-button { display: none; }
+  .records-account-page:not(.desktop-account-admin-view) #account-section { width: min(100%, 1040px); margin: 0 auto; gap: 0; }
+  .records-account-page:not(.desktop-account-admin-view) .records-profile-header { display: block; padding: clamp(2rem, 4vw, 3.5rem) 0 2rem; border-bottom: 1px solid var(--line); }
+  .records-account-page:not(.desktop-account-admin-view) .records-profile-header p { margin: 0 0 0.55rem; color: var(--teal); font-size: 0.7rem; font-weight: 800; letter-spacing: 0.16em; text-transform: uppercase; }
+  .records-account-page:not(.desktop-account-admin-view) .records-profile-header h1 { margin: 0; font-family: "Fraunces", "Times New Roman", serif; font-size: clamp(2.25rem, 4vw, 3.5rem); line-height: 1.05; letter-spacing: -0.025em; }
+  .records-account-page:not(.desktop-account-admin-view) .records-profile-header span { display: block; max-width: 660px; margin-top: 0.75rem; color: var(--slate); font-size: 0.96rem; }
+  .records-account-page:not(.desktop-account-admin-view) #account-no-library-notice { margin: 1.5rem 0 0; }
+  .records-account-page:not(.desktop-account-admin-view) #library-settings-card { gap: 1.4rem; padding: 2rem 0; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; box-shadow: none; }
+  .records-account-page:not(.desktop-account-admin-view) #library-settings-card .account-top { display: block; }
+  .records-account-page:not(.desktop-account-admin-view) #library-settings-card .account-top h3 { font-family: "Manrope", "Trebuchet MS", sans-serif; font-size: 1.15rem; }
+  .records-account-page:not(.desktop-account-admin-view) #library-settings-card .account-list { gap: clamp(2rem, 8vw, 6rem); }
+  .records-account-page:not(.desktop-account-admin-view) #library-settings-card .account-item { gap: 0.35rem; }
+  .records-account-page:not(.desktop-account-admin-view) #library-settings-card .account-value { font-size: 1.06rem; }
   .records-account-page:not(.desktop-account-admin-view) #profile-settings-modal { position: static; display: block; padding: 0; background: transparent; }
   .records-account-page:not(.desktop-account-admin-view) #profile-settings-modal .settings-modal-dialog { width: auto; max-width: none; max-height: none; border: 0; border-radius: 0; box-shadow: none; overflow: visible; }
-  .records-account-page:not(.desktop-account-admin-view) #profile-settings-modal .settings-modal-header { padding: 1.25rem 1.5rem; }
+  .records-account-page:not(.desktop-account-admin-view) #profile-settings-modal .settings-modal-header { padding: 2rem 0 1.15rem; }
   .records-account-page:not(.desktop-account-admin-view) #profile-settings-modal .settings-modal-close { display: none; }
-  .records-account-page:not(.desktop-account-admin-view) #profile-settings-modal .settings-modal-header { border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); background: rgba(239, 247, 246, 0.55); }
-  .records-account-page:not(.desktop-account-admin-view) #profile-settings-modal .settings-modal-body { padding: 1.5rem; }
+  .records-account-page:not(.desktop-account-admin-view) #profile-settings-modal .settings-modal-header { border: 0; border-bottom: 1px solid var(--line); background: transparent; }
+  .records-account-page:not(.desktop-account-admin-view) #profile-settings-modal .settings-modal-title { font-family: "Manrope", "Trebuchet MS", sans-serif; font-size: 1.15rem; }
+  .records-account-page:not(.desktop-account-admin-view) #profile-settings-modal .settings-modal-body { padding: 1.5rem 0 2.5rem; overflow: visible; }
+  .records-account-page:not(.desktop-account-admin-view) #profile-form { width: min(100%, 720px); gap: 1.15rem; }
+  .records-account-page:not(.desktop-account-admin-view) #profile-form input { min-height: 50px; border-radius: 8px; background: #ffffff; }
+  .records-account-page:not(.desktop-account-admin-view) #profile-form .actions { justify-content: flex-start; }
+  .records-account-page:not(.desktop-account-admin-view) #profile-settings-modal .danger-zone { grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 2rem; margin-top: 3rem; padding-top: 2rem; border-top-color: rgba(168, 46, 66, 0.2); }
+  .records-account-page:not(.desktop-account-admin-view) #profile-settings-modal .danger-zone .btn { justify-self: end; }
 }
 
 @media (max-width: 980px) {

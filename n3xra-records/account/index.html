@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/n3xra-records/styles.css?v=20260729-app-header">
+  <link rel="stylesheet" href="/n3xra-records/styles.css?v=20260729-profile-flat">
   <script>
     window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
   </script>
@@ -97,12 +97,20 @@
 
           <div class="records-desktop-content">
         <section class="section-view" id="account-section" hidden>
+          <header class="records-profile-header">
+            <p>Account</p>
+            <h1>Your profile</h1>
+            <span>Manage the personal details connected to your N3XRA Records account.</span>
+          </header>
           <div class="notice hidden" id="account-no-library-notice">
             <strong>No active library.</strong> Your account is still available. Library-specific controls will appear when you join a library.
           </div>
           <section class="account-card" id="library-settings-card">
             <div class="account-top">
-              <h3>Profile</h3>
+              <div>
+                <h3>Account details</h3>
+                <p class="records-profile-section-copy">The name and email used to identify you throughout Records.</p>
+              </div>
               <button class="btn secondary profile-settings-button" id="profile-settings-toggle" type="button" aria-expanded="false">Profile settings</button>
             </div>
             <div class="account-list">
@@ -818,8 +826,8 @@
     <div class="settings-modal-dialog">
       <div class="settings-modal-header">
         <div>
-          <p class="settings-modal-kicker">Profile settings</p>
-          <h3 class="settings-modal-title">Edit your profile</h3>
+          <p class="settings-modal-kicker">Personal information</p>
+          <h3 class="settings-modal-title">Update your name</h3>
         </div>
         <button class="settings-modal-close" id="profile-settings-close" type="button">Close</button>
       </div>
@@ -1059,6 +1067,6 @@
 
   <script src="/shared/config.js"></script>
   <script type="module" src="/n3xra-records/lib/desktop-shell.js?v=20260729-app-header"></script>
-  <script type="module" src="/n3xra-records/dashboard.js?v=20260728-account-storage"></script>
+  <script type="module" src="/n3xra-records/dashboard.js?v=20260729-profile-flat"></script>
 </body>
 </html>

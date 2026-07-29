@@ -953,9 +953,10 @@ function setDesktopAccountView(view = "profile") {
 
   document.body.classList.toggle("desktop-account-admin-view", isAdminView);
 
-  if (isProfile && librarySettingsCard && profileSettingsModal && !librarySettingsCard.contains(profileSettingsModal)) {
-    librarySettingsCard.append(profileSettingsModal);
+  if (isProfile && accountSection && profileSettingsModal && !accountSection.contains(profileSettingsModal)) {
+    accountSection.append(profileSettingsModal);
   }
+  if (profileSettingsModal) profileSettingsModal.setAttribute("aria-hidden", isProfile ? "false" : "true");
 
   show(librarySettingsCard, isProfile);
   show(accountLibraryCard, isAdminView);
