@@ -945,6 +945,10 @@ function setDesktopAccountView(view = "profile") {
 
   document.body.classList.toggle("desktop-account-admin-view", isAdminView);
 
+  if (isProfile && librarySettingsCard && profileSettingsModal && !librarySettingsCard.contains(profileSettingsModal)) {
+    librarySettingsCard.append(profileSettingsModal);
+  }
+
   show(librarySettingsCard, isProfile);
   show(accountLibraryCard, isAdminView);
   show(recordsHelpCard, false);
