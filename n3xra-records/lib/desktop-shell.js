@@ -44,11 +44,6 @@ function buildDesktopNavigation(activePage) {
     <nav class="records-desktop-nav-links records-desktop-nav-primary">
       ${RECORDS_PRIMARY_LINKS.map((item) => renderPrimaryLink(item, activePage)).join("")}
     </nav>
-    <div class="records-desktop-nav-divider"></div>
-    <p class="records-desktop-nav-label">N3XRA</p>
-    <nav class="records-desktop-nav-links">
-      <a href="/account/">Dashboard</a>
-    </nav>
   `;
   return navigation;
 }
