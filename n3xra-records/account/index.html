@@ -71,12 +71,6 @@
         <div class="records-desktop-workspace">
           <aside class="records-desktop-nav" aria-label="Records navigation">
             <p class="records-desktop-nav-label">N3XRA Records</p>
-            <nav class="records-desktop-nav-links records-desktop-nav-primary">
-              <a href="./library">Library</a>
-              <a href="./files">Files</a>
-              <a href="./messages">Messages</a>
-              <a href="./meeting-notes">Meeting Notes</a>
-            </nav>
             <div class="records-desktop-nav-section">
               <p class="records-desktop-nav-label">Account</p>
               <nav class="records-desktop-nav-links records-desktop-nav-submenu">
@@ -89,10 +83,16 @@
                 <button type="button" data-records-account-view="library">Library settings</button>
                 <button type="button" data-records-account-view="ai">AI settings</button>
                 <button type="button" data-records-account-view="billing">Billing</button>
-                <a href="./storage">Storage</a>
+                <button type="button" data-records-account-view="storage">Storage</button>
                 <button type="button" data-records-account-view="activity">Activity</button>
               </nav>
             </div>
+            <nav class="records-desktop-nav-links records-desktop-nav-primary">
+              <a href="./library">Library</a>
+              <a href="./files">Files</a>
+              <a href="./messages">Messages</a>
+              <a href="./meeting-notes">Meeting Notes</a>
+            </nav>
             <div class="records-desktop-nav-divider"></div>
             <p class="records-desktop-nav-label">N3XRA</p>
             <nav class="records-desktop-nav-links"><a href="/account/">Dashboard</a></nav>
@@ -628,9 +628,8 @@
                   <div class="admin-panel-head admin-panel-head-row">
                     <div>
                       <h4>Storage</h4>
-                      <p>Open the storage view to review usage, largest files, and cleanup suggestions for this library.</p>
+                      <p>Review usage, largest files, and cleanup suggestions for this library.</p>
                     </div>
-                    <a class="btn secondary button-link" href="./storage">Open storage</a>
                   </div>
                   <div class="settings-subsection">
                     <div class="notice">
