@@ -64,7 +64,15 @@ const supportAccessCopy = supportAccessCard?.querySelector(".panel-head p") || n
 const supportAccessTab = document.getElementById("admin-support-tab");
 const libraryPanelCopy = document.querySelector("#admin-library-panel > .admin-panel-head p");
 const storagePanelCopy = document.querySelector("#admin-storage-panel > .admin-panel-head p");
-const storagePanelNotice = document.querySelector("#admin-storage-panel .notice");
+const storagePanelNotice = document.getElementById("account-storage-privacy-note");
+const accountStorageTotalValue = document.getElementById("account-storage-total-value");
+const accountStorageTotalCopy = document.getElementById("account-storage-total-copy");
+const accountStorageTotalMeter = document.getElementById("account-storage-total-meter");
+const accountStorageBreakdownGrid = document.getElementById("account-storage-breakdown-grid");
+const accountStorageLargestList = document.getElementById("account-storage-largest-list");
+const accountStorageSuggestionList = document.getElementById("account-storage-suggestion-list");
+const accountStorageStatus = document.getElementById("account-storage-status");
+const openStorageAccountViewButton = document.getElementById("open-storage-account-view");
 const libraryProfileBody = document.getElementById("library-profile-body");
 const libraryLogoForm = document.getElementById("library-logo-form");
 const libraryLogoFileInput = document.getElementById("library-logo-file");
@@ -960,6 +968,12 @@ function setDesktopAccountView(view = "profile") {
     button.classList.toggle("is-active", button.getAttribute("data-records-account-view") === view);
   });
   if (desktopAccountPageTitle) desktopAccountPageTitle.textContent = desktopAccountViewLabels[view] || "Account";
+  if (view === "storage") {
+    renderAccountStorageUsage();
+    if (getActiveOrganization()?.id && !recordsUsageSummary) {
+      loadRecordsAiUsage();
+    }
+  }
 }
 
 function formatActivityAction(actionType) {
@@ -2034,6 +2048,112 @@ function formatStorageBytes(bytes) {
   return `${Math.round(value)} B`;
 }
 
+function formatStorageItemDate(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
+
+function renderStorageBreakdownCard(label, value, detail) {
+  return `
+    <div class="storage-breakdown-card">
+      <span>${escapeHtml(label)}</span>
+      <strong>${escapeHtml(value)}</strong>
+      <p>${escapeHtml(detail)}</p>
+    </div>
+  `;
+}
+
+function renderStorageLargestItem(item) {
+  return `
+    <div class="storage-item">
+      <div class="storage-item-main">
+        <span class="storage-type-badge">${escapeHtml(item.type || "File")}</span>
+        <strong>${escapeHtml(item.name || "Stored file")}</strong>
+        <p>${escapeHtml([formatStorageBytes(item.sizeBytes), formatStorageItemDate(item.createdAt)].filter(Boolean).join(" · "))}</p>
+      </div>
+      ${item.href ? `<a class="btn secondary button-link" href="${escapeHtml(item.href)}">Open</a>` : ""}
+    </div>
+  `;
+}
+
+function renderStorageSuggestion(item) {
+  return `
+    <div class="storage-suggestion">
+      <strong>${escapeHtml(item.name || "Stored file")}</strong>
+      <p>${escapeHtml(item.suggestion || "Review this item for possible cleanup.")}</p>
+      <span>${escapeHtml(formatStorageBytes(item.sizeBytes))}</span>
+    </div>
+  `;
+}
+
+function setAccountStorageStatus(message = "", tone = "") {
+  if (!accountStorageStatus) return;
+  accountStorageStatus.textContent = message;
+  accountStorageStatus.className = "status";
+  if (tone) accountStorageStatus.classList.add(tone);
+}
+
+function renderAccountStorageUsage() {
+  if (!accountStorageTotalValue || !accountStorageBreakdownGrid) return;
+  const organization = getActiveOrganization();
+  const usage = recordsUsageSummary?.organizationId === organization?.id ? recordsUsageSummary : null;
+
+  if (!organization?.id) {
+    accountStorageTotalValue.textContent = "0 B used";
+    accountStorageTotalCopy.textContent = "Select or join a library to review its storage.";
+    accountStorageTotalMeter.style.width = "0%";
+    accountStorageBreakdownGrid.innerHTML = "";
+    accountStorageLargestList.innerHTML = '<p class="empty">No active library.</p>';
+    accountStorageSuggestionList.innerHTML = '<p class="empty">Storage suggestions will appear after a library is selected.</p>';
+    setAccountStorageStatus("");
+    return;
+  }
+
+  if (!usage) {
+    accountStorageTotalValue.textContent = "Loading...";
+    accountStorageTotalCopy.textContent = "Loading storage usage for this library.";
+    accountStorageTotalMeter.style.width = "0%";
+    accountStorageBreakdownGrid.innerHTML = "";
+    accountStorageLargestList.innerHTML = '<p class="empty">Loading largest items...</p>';
+    accountStorageSuggestionList.innerHTML = '<p class="empty">Loading suggestions...</p>';
+    setAccountStorageStatus("Loading storage usage...");
+    return;
+  }
+
+  const storageMetric = usage.metrics?.storage || { used: 0, limit: 0, remaining: 0, percent: 0 };
+  const details = usage.storageDetails || {};
+  const breakdown = details.breakdown || {};
+  const supportMode = isSupportView();
+  const largestItems = supportMode || !Array.isArray(details.largestItems) ? [] : details.largestItems;
+  const suggestions = supportMode || !Array.isArray(details.suggestions) ? [] : details.suggestions;
+
+  accountStorageTotalValue.textContent = `${formatStorageBytes(storageMetric.used)} used`;
+  accountStorageTotalCopy.textContent = `${formatStorageBytes(storageMetric.remaining)} remaining of ${formatStorageBytes(storageMetric.limit)}. ${formatWholeNumber(breakdown.trackedFileCount)} stored item${Number(breakdown.trackedFileCount) === 1 ? "" : "s"} are counted here.`;
+  accountStorageTotalMeter.style.width = `${Math.max(0, Math.min(100, Number(storageMetric.percent || 0)))}%`;
+  accountStorageBreakdownGrid.innerHTML = [
+    renderStorageBreakdownCard("Uploaded files", formatStorageBytes(breakdown.uploadedFilesBytes), "PDFs, documents, scans, images, and source files."),
+    renderStorageBreakdownCard("Meeting recordings", formatStorageBytes(breakdown.meetingRecordingsBytes), "Stored audio or video attached to meeting notes."),
+    renderStorageBreakdownCard("Transcript sources", formatStorageBytes(breakdown.transcriptSourceBytes), "Source files linked to meeting transcripts."),
+    renderStorageBreakdownCard("App documents", `${formatWholeNumber(breakdown.appDocumentsCount)} docs`, "Text documents are tracked for limits but use minimal file storage."),
+  ].join("");
+
+  accountStorageLargestList.innerHTML = supportMode
+    ? '<p class="empty">File details are hidden during N3XRA support access.</p>'
+    : largestItems.length
+      ? largestItems.map(renderStorageLargestItem).join("")
+      : '<p class="empty">No stored files are using measurable storage yet.</p>';
+
+  accountStorageSuggestionList.innerHTML = supportMode
+    ? '<p class="empty">Cleanup details are hidden during N3XRA support access.</p>'
+    : suggestions.length
+      ? suggestions.map(renderStorageSuggestion).join("")
+      : '<p class="empty">No large cleanup candidates found. Storage usage looks healthy right now.</p>';
+
+  setAccountStorageStatus("");
+}
+
 function getUsageMetric(summary, key, fallbackUsed = 0, fallbackLimit = 0) {
   const metric = summary?.metrics?.[key];
   if (metric) return metric;
@@ -2807,6 +2927,7 @@ async function loadRecordsAiUsage() {
     recordsUsageSummary = null;
   }
 
+  renderAccountStorageUsage();
   renderBillingPlans();
 }
 
@@ -3259,10 +3380,8 @@ function renderProfile() {
     : "Control the library name, logo, colors, public records view, and review.";
   if (storagePanelCopy) storagePanelCopy.textContent = supportMode
     ? "Review storage totals and limit health without exposing filenames or customer content."
-    : "Open the storage view to review usage, largest files, and cleanup suggestions for this library.";
-  if (storagePanelNotice) storagePanelNotice.innerHTML = supportMode
-    ? "<strong>Privacy-safe view:</strong> Storage totals and category usage are available. Filenames, file links, and largest-item details remain hidden."
-    : "<strong>What you can review there:</strong> Uploaded files, meeting recordings, transcript source files, largest items, and storage-saving suggestions.";
+    : "See what is using Records storage and where cleanup would help most.";
+  show(storagePanelNotice, supportMode);
   updateAdminTabs({
     users: canSeeMemberManagement,
     contacts: canSeeContactsSettings,
@@ -3287,6 +3406,7 @@ function renderProfile() {
   });
 
   renderBillingPlans();
+  renderAccountStorageUsage();
   renderOrganizationSelector();
   show(platformAdminLink, isPlatformAdminEmail(currentSession.user.email));
 
@@ -5333,6 +5453,13 @@ async function init() {
   });
   desktopAccountViewButtons.forEach((button) => {
     button.addEventListener("click", () => setDesktopAccountView(button.getAttribute("data-records-account-view") || ""));
+  });
+  openStorageAccountViewButton?.addEventListener("click", () => {
+    if (window.matchMedia("(min-width: 981px)").matches) {
+      setDesktopAccountView("storage");
+      return;
+    }
+    window.location.href = "./storage";
   });
   activityActionFilter?.addEventListener("change", loadActivityLogForActiveOrganization);
   adminUsersInviteButton?.addEventListener("click", openInviteCodesFromUsers);

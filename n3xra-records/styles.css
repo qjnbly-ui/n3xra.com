@@ -1891,7 +1891,12 @@ textarea {
 }
 
 .current-plan-text-link {
+  border: 0;
+  padding: 0;
+  background: transparent;
   color: var(--teal);
+  cursor: pointer;
+  font-family: inherit;
   font-size: 0.92rem;
   font-weight: 700;
   text-decoration: underline;
