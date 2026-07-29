@@ -4994,9 +4994,27 @@ body:has(.confirm-modal.is-open) {
   body.records-account-page,
   body.records-shared-desktop-shell-page { height: 100vh; overflow: hidden; }
   .records-account-page .shell,
-  .records-shared-desktop-shell-page .shell { height: 100vh; min-height: 0; overflow: hidden; }
+  .records-shared-desktop-shell-page .shell { grid-template-rows: 76px minmax(0, 1fr); height: 100vh; min-height: 0; overflow: hidden; }
   .records-account-page .topbar,
-  .records-shared-desktop-shell-page .topbar { position: relative; z-index: 20; }
+  .records-shared-desktop-shell-page .topbar { position: relative; z-index: 20; height: 76px; background: #070d14; border-bottom: 1px solid rgba(255, 255, 255, 0.1); }
+  .records-account-page .topbar-inner,
+  .records-shared-desktop-shell-page .topbar-inner { width: min(1240px, calc(100vw - 40px)); height: 100%; padding: 0; }
+  .records-account-page .topbar-inner > .dashboard-topbar-row,
+  .records-shared-desktop-shell-page .topbar-inner > .dashboard-topbar-row,
+  .records-account-page .topbar-inner > .mobile-menu,
+  .records-shared-desktop-shell-page .topbar-inner > .mobile-menu { display: none !important; }
+  .records-desktop-appbar { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; min-height: 76px; }
+  .records-desktop-app-brand { display: inline-flex; align-items: center; gap: 0.68rem; color: #fff; font-size: 0.92rem; font-style: normal; font-weight: 800; letter-spacing: 0.17em; line-height: 1; text-decoration: none; text-transform: uppercase; }
+  .records-desktop-app-brand img { width: 34px; height: 34px; object-fit: contain; }
+  .records-desktop-app-brand i { width: 1px; height: 25px; margin: 0 0.12rem; background: rgba(255, 255, 255, 0.22); }
+  .records-desktop-app-brand strong { color: rgba(255, 255, 255, 0.8); font-size: 0.78rem; font-weight: 700; letter-spacing: 0.12em; }
+  .records-desktop-app-actions { display: flex; align-items: center; gap: 0.7rem; }
+  .records-desktop-app-actions a,
+  .records-desktop-app-actions button { min-height: 40px; display: inline-flex; align-items: center; justify-content: center; padding: 0.5rem 0.82rem; border: 1px solid rgba(255, 255, 255, 0.15); border-radius: var(--radius-pill); background: rgba(255, 255, 255, 0.05); color: #fff; cursor: pointer; font: 800 0.69rem/1 "Manrope", "Trebuchet MS", sans-serif; letter-spacing: 0.06em; text-decoration: none; text-transform: uppercase; }
+  .records-desktop-app-actions a:hover,
+  .records-desktop-app-actions a:focus-visible,
+  .records-desktop-app-actions button:hover,
+  .records-desktop-app-actions button:focus-visible { border-color: rgba(255, 255, 255, 0.28); background: rgba(255, 255, 255, 0.12); outline: none; }
   .records-account-page .main { width: 100%; min-height: 0; height: 100%; overflow: hidden; padding: 0; }
   .records-account-page #dashboard-panel { display: flex; flex-direction: column; height: 100%; min-height: 0; padding: 0; overflow: hidden; border: 0; border-radius: 0; box-shadow: none; }
   .records-account-page #dashboard-panel > #support-banner { margin: 1.25rem 1.25rem 0; }
@@ -5045,6 +5063,7 @@ body:has(.confirm-modal.is-open) {
 }
 
 @media (max-width: 980px) {
+  .records-desktop-appbar { display: none; }
   .records-desktop-frame { display: contents; }
   .records-desktop-workspace, .records-desktop-content { display: contents; }
   .records-desktop-nav, .records-desktop-page-head, .records-shared-desktop-nav { display: none; }

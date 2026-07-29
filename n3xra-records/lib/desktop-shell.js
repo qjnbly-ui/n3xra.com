@@ -53,11 +53,41 @@ function buildDesktopNavigation(activePage) {
   return navigation;
 }
 
+function installDesktopHeader() {
+  const topbarInner = document.querySelector(".topbar > .topbar-inner");
+  if (!topbarInner || topbarInner.querySelector(".records-desktop-appbar")) return;
+
+  const appbar = document.createElement("div");
+  appbar.className = "records-desktop-appbar";
+  appbar.innerHTML = `
+    <a class="records-desktop-app-brand" href="/n3xra-records/library" aria-label="N3XRA Records home">
+      <img src="/assets/n3xra_logo_transparent_small.png" alt="">
+      <span>N3XRA</span>
+      <i aria-hidden="true"></i>
+      <strong>Records</strong>
+    </a>
+    <div class="records-desktop-app-actions">
+      <a href="/account/">Dashboard</a>
+      <button type="button" data-records-desktop-signout>Sign out</button>
+    </div>
+  `;
+
+  appbar.querySelector("[data-records-desktop-signout]")?.addEventListener("click", () => {
+    document.getElementById("mobile-logout-button")?.click();
+  });
+
+  topbarInner.prepend(appbar);
+}
+
 function installDesktopShell() {
   const body = document.body;
   const shell = body?.querySelector(":scope > .shell");
   const main = shell?.querySelector(":scope > main.main");
-  if (!body || !shell || !main || shell.querySelector(":scope > .records-desktop-frame")) return;
+  if (!body || !shell || !main) return;
+
+  installDesktopHeader();
+
+  if (body.classList.contains("records-account-page") || shell.querySelector(":scope > .records-desktop-frame")) return;
 
   const frame = document.createElement("div");
   frame.className = "records-desktop-frame";
