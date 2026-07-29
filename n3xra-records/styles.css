@@ -4996,7 +4996,8 @@ body:has(.confirm-modal.is-open) {
   .records-desktop-nav-links { display: grid; gap: 0.16rem; }
   .records-desktop-nav-section { display: grid; gap: 0.35rem; }
   .records-desktop-nav-section > .records-desktop-nav-label { margin-top: 0.55rem; }
-  .records-desktop-nav-label-active { margin: 0; padding: 0.66rem 0.7rem; border-radius: 8px; background: #e4f2ef; color: #123a33; }
+  .records-desktop-nav-parent { border-radius: 8px; padding: 0.66rem 0.7rem; color: #526170; font-size: 0.88rem; font-weight: 700; }
+  .records-desktop-nav-parent-active { background: #e4f2ef; color: #123a33; }
   .records-desktop-nav-submenu { margin-left: 0.35rem; padding-left: 0.55rem; border-left: 2px solid #e4f2ef; }
   .records-desktop-nav-links > a { border-radius: 8px; color: #526170; font-size: 0.88rem; font-weight: 700; padding: 0.66rem 0.7rem; text-decoration: none; }
   .records-desktop-nav-links > a:hover, .records-desktop-nav-links > a:focus-visible { background: rgba(23, 111, 102, 0.08); color: var(--teal); outline: none; }
