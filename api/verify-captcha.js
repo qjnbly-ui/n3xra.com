@@ -28,8 +28,21 @@ function getClientIp(req) {
   return forwarded.split(",")[0].trim();
 }
 
+const TURNSTILE_TEST_SECRET_KEY = "1x0000000000000000000000000000000AA";
+
+function getTurnstileSecret() {
+  const vercelEnvironment = String(process.env.VERCEL_ENV || "").trim().toLowerCase();
+  const isTestEnvironment =
+    vercelEnvironment === "preview" ||
+    vercelEnvironment === "development" ||
+    (!vercelEnvironment && process.env.NODE_ENV !== "production");
+
+  if (isTestEnvironment) return TURNSTILE_TEST_SECRET_KEY;
+  return String(process.env.TURNSTILE_SECRET_KEY || "").trim();
+}
+
 async function verifyTurnstile(captchaToken, req) {
-  const secret = String(process.env.TURNSTILE_SECRET_KEY || "").trim();
+  const secret = getTurnstileSecret();
   if (!secret) {
     return { ok: false, error: "Missing TURNSTILE_SECRET_KEY." };
   }
