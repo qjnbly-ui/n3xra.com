@@ -186,6 +186,10 @@
       "destination": "/n3xra-records/index.html"
     },
     {
+      "source": "/n3xra-records/login",
+      "destination": "/n3xra-records/login.html"
+    },
+    {
       "source": "/n3xra-records/library",
       "destination": "/n3xra-records/dashboard.html"
     },
