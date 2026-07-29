@@ -258,7 +258,15 @@ function getHashErrorMessage() {
   return error ? error.replaceAll("+", " ") : "";
 }
 
+const TURNSTILE_TEST_SITE_KEY = "1x00000000000000000000AA";
+
+function shouldUseTurnstileTestMode() {
+  const hostname = String(window.location.hostname || "").toLowerCase();
+  return hostname === "localhost" || hostname === "127.0.0.1" || hostname.endsWith(".vercel.app");
+}
+
 function getTurnstileSiteKey() {
+  if (shouldUseTurnstileTestMode()) return TURNSTILE_TEST_SITE_KEY;
   return String(getConfig().turnstileSiteKey || "").trim();
 }
 
