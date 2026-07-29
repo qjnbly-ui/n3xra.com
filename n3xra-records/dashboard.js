@@ -939,7 +939,7 @@ const desktopAccountViewLabels = {
   templates: "Templates",
   access: "Access",
   support: "N3XRA support access",
-  library: "Library",
+  library: "Library settings",
   ai: "AI settings",
   billing: "Billing",
   storage: "Storage",
@@ -952,6 +952,12 @@ function setDesktopAccountView(view = "profile") {
   const isAdminView = Boolean(view && !isProfile);
 
   document.body.classList.toggle("desktop-account-admin-view", isAdminView);
+  document.body.classList.toggle("desktop-account-contacts-view", view === "contacts");
+  document.body.classList.toggle("desktop-account-users-view", view === "users");
+  document.body.classList.toggle(
+    "desktop-account-secondary-view",
+    ["templates", "access", "support", "library", "ai", "billing", "storage", "activity"].includes(view),
+  );
 
   if (isProfile && accountSection && profileSettingsModal && !accountSection.contains(profileSettingsModal)) {
     accountSection.append(profileSettingsModal);

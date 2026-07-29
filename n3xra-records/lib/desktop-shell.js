@@ -3,8 +3,8 @@ const DESKTOP_SHELL_BREAKPOINT = 981;
 const RECORDS_PRIMARY_LINKS = [
   { key: "account", label: "Account", href: "/n3xra-records/account" },
   { key: "library", label: "Library", href: "/n3xra-records/library" },
-  { key: "files", label: "Files", href: "/n3xra-records/files" },
-  { key: "messages", label: "Messages", href: "/n3xra-records/messages" },
+  { key: "files", label: "Files", href: "/n3xra-records/files.html" },
+  { key: "messages", label: "Messages", href: "/n3xra-records/messages.html" },
   { key: "meeting-notes", label: "Meeting Notes", href: "/n3xra-records/meeting-notes" },
 ];
 

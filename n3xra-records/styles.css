@@ -5088,6 +5088,504 @@ body:has(.confirm-modal.is-open) {
   .records-account-page:not(.desktop-account-admin-view) #profile-form .actions { justify-content: flex-start; }
   .records-account-page:not(.desktop-account-admin-view) #profile-settings-modal .danger-zone { grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 2rem; margin-top: 3rem; padding-top: 2rem; border-top-color: rgba(168, 46, 66, 0.2); }
   .records-account-page:not(.desktop-account-admin-view) #profile-settings-modal .danger-zone .btn { justify-self: end; }
+
+  .records-account-page.desktop-account-contacts-view #account-section {
+    width: min(100%, 1320px);
+    margin: 0 auto;
+    gap: 0;
+  }
+
+  .records-account-page.desktop-account-contacts-view #account-library-card {
+    margin: 0;
+    padding: 1.35rem 0;
+    border: 0;
+    border-bottom: 1px solid var(--line);
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .records-account-page.desktop-account-contacts-view #account-library-context {
+    grid-template-columns: minmax(280px, 1.4fr) repeat(2, minmax(150px, 0.65fr));
+    gap: clamp(1.5rem, 4vw, 4rem);
+  }
+
+  .records-account-page.desktop-account-contacts-view #account-library-context .field {
+    gap: 0.38rem;
+  }
+
+  .records-account-page.desktop-account-contacts-view #account-library-context select {
+    min-height: 44px;
+    border-radius: 8px;
+    background: #ffffff;
+  }
+
+  .records-account-page.desktop-account-contacts-view #library-access-card {
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .records-account-page.desktop-account-contacts-view #admin-contacts-panel {
+    gap: 0;
+  }
+
+  .records-account-page.desktop-account-contacts-view #admin-contacts-panel > .admin-panel-head {
+    align-items: end;
+    padding: clamp(1.6rem, 3vw, 2.5rem) 0 1.35rem;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .records-account-page.desktop-account-contacts-view .records-account-view-kicker {
+    margin: 0 0 0.55rem;
+    color: var(--teal);
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+
+  .records-account-page.desktop-account-contacts-view #admin-contacts-panel > .admin-panel-head h4 {
+    font-family: "Fraunces", "Times New Roman", serif;
+    font-size: clamp(2.25rem, 4vw, 3.5rem);
+    line-height: 1.05;
+    letter-spacing: -0.025em;
+  }
+
+  .records-account-page.desktop-account-contacts-view #admin-contacts-panel > .admin-panel-head h4 + p {
+    max-width: 680px;
+    margin-top: 0.75rem;
+    font-size: 0.96rem;
+  }
+
+  .records-account-page.desktop-account-contacts-view #contact-form-toggle {
+    align-self: end;
+    min-height: 44px;
+    padding-inline: 1.15rem;
+  }
+
+  .records-account-page.desktop-account-contacts-view #contacts-settings-body,
+  .records-account-page.desktop-account-contacts-view #contact-management-body {
+    gap: 0;
+  }
+
+  .records-account-page.desktop-account-contacts-view #contact-management-body {
+    display: grid;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .records-account-page.desktop-account-contacts-view #contact-form-panel {
+    margin: 0;
+    padding: 2rem 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .records-account-page.desktop-account-contacts-view #contact-form input,
+  .records-account-page.desktop-account-contacts-view #contact-form textarea {
+    border-radius: 8px;
+    background: #ffffff;
+  }
+
+  .records-account-page.desktop-account-contacts-view #contact-form input {
+    min-height: 48px;
+  }
+
+  .records-account-page.desktop-account-contacts-view .contact-directory {
+    min-width: 0;
+    padding: 1.35rem 0 0;
+  }
+
+  .records-account-page.desktop-account-contacts-view .contact-directory-head {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 1.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .records-account-page.desktop-account-contacts-view .contact-directory-head h5,
+  .records-account-page.desktop-account-contacts-view .contact-directory-head p {
+    margin: 0;
+  }
+
+  .records-account-page.desktop-account-contacts-view .contact-directory-head h5 {
+    color: var(--ink);
+    font-size: 1.08rem;
+  }
+
+  .records-account-page.desktop-account-contacts-view .contact-directory-head h5 + p {
+    max-width: 680px;
+    margin-top: 0.35rem;
+    color: var(--slate);
+    font-size: 0.9rem;
+  }
+
+  .records-account-page.desktop-account-contacts-view .contact-directory-head .status:empty {
+    display: none;
+  }
+
+  .records-account-page.desktop-account-contacts-view .contact-directory .table-shell {
+    border-right: 0;
+    border-left: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .records-account-page.desktop-account-contacts-view .contact-table th:first-child,
+  .records-account-page.desktop-account-contacts-view .contact-table td:first-child {
+    padding-left: 0;
+  }
+
+  .records-account-page.desktop-account-contacts-view .contact-table th:last-child,
+  .records-account-page.desktop-account-contacts-view .contact-table td:last-child {
+    padding-right: 0;
+  }
+
+  /* Remaining account pages share the same flat desktop structure as Users and Contacts. */
+  .records-account-page.desktop-account-secondary-view #account-section {
+    width: min(100%, 1320px);
+    margin: 0 auto;
+    gap: 0;
+  }
+
+  .records-account-page.desktop-account-secondary-view #account-library-card {
+    margin: 0;
+    padding: 1.15rem 0;
+    border: 0;
+    border-bottom: 1px solid var(--line);
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .records-account-page.desktop-account-secondary-view #library-access-card {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .records-account-page.desktop-account-secondary-view #account-library-context {
+    grid-template-columns: minmax(280px, 1.4fr) repeat(2, minmax(150px, .65fr));
+    gap: clamp(1.5rem, 4vw, 4rem);
+  }
+
+  .records-account-page.desktop-account-secondary-view #account-library-context .field {
+    margin: 0;
+  }
+
+  .records-account-page.desktop-account-secondary-view #account-library-context select {
+    min-height: 44px;
+    border-radius: 8px;
+    background: #fff;
+  }
+
+  .records-account-page.desktop-account-secondary-view .admin-panel {
+    gap: 0;
+    min-height: 0;
+    align-content: start;
+  }
+
+  .records-account-page.desktop-account-secondary-view .admin-panel > .admin-panel-head,
+  .records-account-page.desktop-account-secondary-view #support-access-card > .panel-head {
+    align-items: end;
+    padding: clamp(1.6rem, 3vw, 2.5rem) 0 1.35rem;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .records-account-page.desktop-account-secondary-view .admin-panel > .admin-panel-head h4,
+  .records-account-page.desktop-account-secondary-view #support-access-card > .panel-head h3 {
+    margin: 0;
+    color: var(--ink);
+    font-family: "Fraunces", "Times New Roman", serif;
+    font-size: clamp(2.25rem, 4vw, 3.5rem);
+    line-height: 1.05;
+    letter-spacing: -0.025em;
+  }
+
+  .records-account-page.desktop-account-secondary-view .admin-panel > .admin-panel-head h4 + p,
+  .records-account-page.desktop-account-secondary-view #support-access-card > .panel-head h3 + p {
+    max-width: 680px;
+    margin: .75rem 0 0;
+    color: var(--slate);
+    font-size: .96rem;
+  }
+
+  .records-account-page.desktop-account-secondary-view .records-account-view-kicker {
+    margin: 0 0 .55rem;
+    color: var(--teal);
+    font-size: .7rem;
+    font-weight: 800;
+    letter-spacing: .16em;
+    line-height: 1.2;
+    text-transform: uppercase;
+  }
+
+  .records-account-page.desktop-account-secondary-view .admin-panel > .settings-subsection,
+  .records-account-page.desktop-account-secondary-view .admin-panel > .settings-group,
+  .records-account-page.desktop-account-secondary-view .admin-panel > .stack,
+  .records-account-page.desktop-account-secondary-view #support-access-card > form {
+    margin-top: 1.35rem;
+  }
+
+  .records-account-page.desktop-account-secondary-view .settings-subsection,
+  .records-account-page.desktop-account-secondary-view .current-plan-card,
+  .records-account-page.desktop-account-secondary-view .storage-card,
+  .records-account-page.desktop-account-secondary-view .storage-total-card {
+    border-radius: 10px;
+  }
+
+  .records-account-page.desktop-account-secondary-view #admin-template-list {
+    margin-top: 1.35rem;
+    border-right: 0;
+    border-left: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .records-account-page.desktop-account-secondary-view .admin-template-row {
+    padding: .9rem 0;
+  }
+
+  .records-account-page.desktop-account-secondary-view #admin-template-empty,
+  .records-account-page.desktop-account-secondary-view #admin-template-status,
+  .records-account-page.desktop-account-secondary-view #activity-status,
+  .records-account-page.desktop-account-secondary-view #account-storage-status {
+    margin-top: 1rem;
+  }
+
+  .records-account-page.desktop-account-secondary-view .admin-disclosure {
+    padding: 0;
+    border-width: 0 0 1px;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .records-account-page.desktop-account-secondary-view .admin-disclosure-summary {
+    padding: 1.15rem 0;
+  }
+
+  .records-account-page.desktop-account-secondary-view .admin-disclosure-content {
+    padding: 0 0 1.5rem;
+  }
+
+  .records-account-page.desktop-account-secondary-view #organization-ai-settings-form {
+    gap: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .records-account-page.desktop-account-secondary-view #organization-ai-settings-form > .field {
+    padding: 1.35rem 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .records-account-page.desktop-account-secondary-view #organization-ai-settings-form > .actions {
+    padding-top: 1.35rem;
+  }
+
+  .records-account-page.desktop-account-secondary-view #support-access-card > form {
+    padding-bottom: 1.35rem;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .records-account-page.desktop-account-secondary-view #support-access-card > .settings-subsection {
+    margin-top: 1.35rem;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .records-account-page.desktop-account-secondary-view #support-access-card .settings-subsection-head {
+    margin-bottom: 1rem;
+  }
+
+  .records-account-page.desktop-account-secondary-view #admin-billing-panel .current-plan-card {
+    padding: 1.35rem 0;
+    border: 0;
+    border-bottom: 1px solid var(--line);
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .records-account-page.desktop-account-secondary-view #admin-billing-panel .billing-plan-picker {
+    margin-top: 1.35rem;
+  }
+
+  .records-account-page.desktop-account-secondary-view #admin-storage-panel .storage-total-card,
+  .records-account-page.desktop-account-secondary-view #admin-storage-panel .storage-card,
+  .records-account-page.desktop-account-secondary-view #admin-storage-panel .storage-breakdown-card {
+    box-shadow: none;
+  }
+
+  .records-account-page.desktop-account-secondary-view #admin-activity-panel .compact-field {
+    width: min(100%, 14rem);
+    margin: 0;
+  }
+
+  .records-account-page.desktop-account-secondary-view .table-shell {
+    border-right: 0;
+    border-left: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .records-account-page.desktop-account-secondary-view .data-table th:first-child,
+  .records-account-page.desktop-account-secondary-view .data-table td:first-child {
+    padding-left: 0;
+  }
+
+  .records-account-page.desktop-account-secondary-view .data-table th:last-child,
+  .records-account-page.desktop-account-secondary-view .data-table td:last-child {
+    padding-right: 0;
+  }
+
+  .records-account-page.desktop-account-secondary-view #admin-storage-panel .storage-overview,
+  .records-account-page.desktop-account-secondary-view #admin-storage-panel .storage-two-column,
+  .records-account-page.desktop-account-secondary-view #admin-activity-panel > .table-shell {
+    margin-top: 1.35rem;
+  }
+
+  .records-account-page.desktop-account-users-view #account-section {
+    width: min(100%, 1320px);
+    margin: 0 auto;
+    gap: 0;
+  }
+
+  .records-account-page.desktop-account-users-view #account-library-card {
+    margin: 0;
+    padding: 1.15rem 0;
+    border: 0;
+    border-bottom: 1px solid var(--line);
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .records-account-page.desktop-account-users-view #account-library-context {
+    grid-template-columns: minmax(280px, 1.4fr) repeat(2, minmax(150px, .65fr));
+    gap: clamp(1.5rem, 4vw, 4rem);
+  }
+
+  .records-account-page.desktop-account-users-view #account-library-context select {
+    min-height: 44px;
+    border-radius: 8px;
+    background: #fff;
+  }
+
+  .records-account-page.desktop-account-users-view #library-access-card {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .records-account-page.desktop-account-users-view #admin-users-panel {
+    gap: 0;
+    align-content: start;
+  }
+
+  .records-account-page.desktop-account-users-view #admin-users-panel > .admin-panel-head {
+    align-items: end;
+    padding: clamp(1.6rem, 3vw, 2.5rem) 0 1.35rem;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .records-account-page.desktop-account-users-view #admin-users-panel > .admin-panel-head h4 {
+    margin: 0;
+    font-family: "Fraunces", "Times New Roman", serif;
+    font-size: clamp(2.25rem, 4vw, 3.5rem);
+    line-height: 1.05;
+    letter-spacing: -.025em;
+  }
+
+  .records-account-page.desktop-account-users-view #admin-users-panel > .admin-panel-head h4 + p {
+    max-width: 680px;
+    margin: .75rem 0 0;
+    color: var(--slate);
+    font-size: .96rem;
+  }
+
+  .records-account-page.desktop-account-users-view .records-account-view-kicker {
+    margin: 0 0 .55rem;
+    color: var(--teal);
+    font-size: .7rem;
+    font-weight: 800;
+    letter-spacing: .16em;
+    line-height: 1.2;
+    text-transform: uppercase;
+  }
+
+  .records-account-page.desktop-account-users-view #member-management-body,
+  .records-account-page.desktop-account-users-view #member-management-section {
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .records-account-page.desktop-account-users-view #member-management-body {
+    padding-top: 1.35rem;
+  }
+
+  .records-account-page.desktop-account-users-view .user-directory-head {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 1.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .records-account-page.desktop-account-users-view .user-directory-head h5,
+  .records-account-page.desktop-account-users-view .user-directory-head p {
+    margin: 0;
+  }
+
+  .records-account-page.desktop-account-users-view .user-directory-head h5 {
+    color: var(--ink);
+    font-size: 1.08rem;
+  }
+
+  .records-account-page.desktop-account-users-view .user-directory-head h5 + p {
+    margin-top: .35rem;
+    color: var(--slate);
+    font-size: .9rem;
+  }
+
+  .records-account-page.desktop-account-users-view .user-directory-head .status:empty {
+    display: none;
+  }
+
+  .records-account-page.desktop-account-users-view .user-directory .table-shell {
+    border-right: 0;
+    border-left: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .records-account-page.desktop-account-users-view .user-table th:first-child,
+  .records-account-page.desktop-account-users-view .user-table td:first-child {
+    padding-left: 0;
+  }
+
+  .records-account-page.desktop-account-users-view .user-table th:last-child,
+  .records-account-page.desktop-account-users-view .user-table td:last-child {
+    padding-right: 0;
+  }
 }
 
 @media (min-width: 1260px) {
@@ -5148,6 +5646,22 @@ body:has(.confirm-modal.is-open) {
 
   .records-account-page:not(.desktop-account-admin-view) #profile-settings-modal .settings-modal-header {
     padding-top: 2rem;
+  }
+
+  .records-account-page.desktop-account-contacts-view #contact-management-body:has(#contact-form-panel:not(.hidden)) {
+    grid-template-columns: minmax(310px, 0.72fr) minmax(0, 1.55fr);
+    column-gap: clamp(2rem, 4vw, 4rem);
+    align-items: start;
+  }
+
+  .records-account-page.desktop-account-contacts-view #contact-management-body:has(#contact-form-panel:not(.hidden)) #contact-form-panel {
+    padding: 2rem clamp(2rem, 3vw, 3.25rem) 2rem 0;
+    border-right: 1px solid var(--line);
+    border-bottom: 0;
+  }
+
+  .records-account-page.desktop-account-users-view #account-section {
+    width: min(1320px, calc(100vw - 340px));
   }
 }
 
