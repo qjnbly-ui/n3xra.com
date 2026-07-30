@@ -298,6 +298,7 @@ async function loadPhoneMeetingSettings() {
   if (!error) phoneMeetingSettings = data || null;
   renderPhoneMeetingSourceAvailability();
   renderPhoneMeetingSession();
+  updateControls();
 }
 
 function setRecordingDetailTab(tabName = "notes") {
@@ -2972,6 +2973,7 @@ async function init() {
   meetingSourcePhone?.addEventListener("change", () => {
     renderPhoneMeetingSourceAvailability();
     renderPhoneMeetingSession();
+    updateControls();
     if (meetingSourcePhone.checked && !phoneMeetingsAreActive()) {
       setStatus(recordingStatus, "Phone calling will be available after this library's Phone Meetings add-on and number are activated.");
     }
