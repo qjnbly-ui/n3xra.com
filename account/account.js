@@ -313,6 +313,7 @@ async function initCaptcha() {
 
 async function verifyCaptchaServerSide() {
   if (!captchaEnabled) return;
+  if (shouldUseTurnstileTestMode()) return;
   if (!captchaToken) throw new Error("Complete the security check first.");
 
   const response = await fetch("/api/verify-captcha", {
