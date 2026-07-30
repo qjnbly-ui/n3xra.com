@@ -195,6 +195,20 @@ const organizationPrimaryColorInput = document.getElementById("organization-prim
 const organizationAccentColorInput = document.getElementById("organization-accent-color");
 const organizationSettingsSave = document.getElementById("organization-settings-save");
 const organizationSettingsStatus = document.getElementById("organization-settings-status");
+const phoneMeetingSettingsForm = document.getElementById("phone-meeting-settings-form");
+const phoneMeetingFeatureEnabled = document.getElementById("phone-meeting-feature-enabled");
+const phoneMeetingActivationStatus = document.getElementById("phone-meeting-activation-status");
+const phoneMeetingPrimaryNumber = document.getElementById("phone-meeting-primary-number");
+const phoneMeetingMonthlyMinutesLimit = document.getElementById("phone-meeting-monthly-minutes-limit");
+const phoneMeetingAllowAccountAdmin = document.getElementById("phone-meeting-allow-account-admin");
+const phoneMeetingAllowEditor = document.getElementById("phone-meeting-allow-editor");
+const phoneMeetingRecordingNoticeEnabled = document.getElementById("phone-meeting-recording-notice-enabled");
+const phoneMeetingRecordingNoticeText = document.getElementById("phone-meeting-recording-notice-text");
+const phoneMeetingRetentionDays = document.getElementById("phone-meeting-retention-days");
+const phoneMeetingSettingsSave = document.getElementById("phone-meeting-settings-save");
+const phoneMeetingSettingsSummary = document.getElementById("phone-meeting-settings-summary");
+const phoneMeetingUsageSummary = document.getElementById("phone-meeting-usage-summary");
+const phoneMeetingSettingsStatus = document.getElementById("phone-meeting-settings-status");
 const aiSettingsBody = document.getElementById("ai-settings-body");
 const organizationAiSettingsForm = document.getElementById("organization-ai-settings-form");
 const organizationAiContextInput = document.getElementById("organization-ai-context");
@@ -330,6 +344,8 @@ let contactCache = [];
 let appTemplates = [];
 let recordsAiUsageSummary = null;
 let recordsUsageSummary = null;
+let phoneMeetingSettingsCache = null;
+let phoneMeetingUsageMinutes = 0;
 let organizationReview = null;
 let organizationLogoUrls = new Map();
 let activityCache = [];
@@ -943,6 +959,7 @@ const desktopAccountViewLabels = {
   access: "Invites & access",
   support: "N3XRA support access",
   library: "Library settings",
+  phone: "Phone Meetings",
   ai: "AI settings",
   billing: "Billing",
   storage: "Storage",
@@ -956,6 +973,7 @@ const desktopManageLibraryViews = new Set([
   "access",
   "support",
   "library",
+  "phone",
   "ai",
   "billing",
   "storage",
@@ -997,7 +1015,7 @@ function setDesktopAccountView(view = "profile") {
   document.body.classList.toggle("desktop-account-users-view", view === "users");
   document.body.classList.toggle(
     "desktop-account-secondary-view",
-    ["templates", "access", "support", "library", "ai", "billing", "storage", "activity"].includes(view),
+    ["templates", "access", "support", "library", "phone", "ai", "billing", "storage", "activity"].includes(view),
   );
 
   if (isProfile && accountSection && profileSettingsModal && !accountSection.contains(profileSettingsModal)) {
@@ -2944,6 +2962,158 @@ async function loadContacts() {
   renderContacts();
 }
 
+function normalizePhoneMeetingNumber(value) {
+  const trimmed = String(value || "").trim();
+  return trimmed ? trimmed.replace(/[\s().-]/g, "") : null;
+}
+
+function getPhoneMeetingAllowedRoles() {
+  return [
+    phoneMeetingAllowAccountAdmin?.checked ? "account_admin" : "",
+    phoneMeetingAllowEditor?.checked ? "editor" : "",
+  ].filter(Boolean);
+}
+
+function formatPhoneMeetingStatus(value) {
+  const status = String(value || "not_configured").replace(/_/g, " ");
+  return status.charAt(0).toUpperCase() + status.slice(1);
+}
+
+function renderPhoneMeetingSettings() {
+  const settings = phoneMeetingSettingsCache;
+  const platformAdmin = Boolean(getActiveCapabilities().isPlatformAdmin);
+  const allowed = Array.isArray(settings?.allowed_start_roles) ? settings.allowed_start_roles : ["account_admin", "editor"];
+  const isEnabled = Boolean(settings?.feature_enabled);
+  const activation = String(settings?.activation_status || "not_configured");
+  const number = settings?.primary_phone_number || "No number assigned";
+  const limit = settings?.monthly_minutes_limit;
+
+  if (phoneMeetingFeatureEnabled) phoneMeetingFeatureEnabled.checked = isEnabled;
+  if (phoneMeetingActivationStatus) phoneMeetingActivationStatus.value = activation;
+  if (phoneMeetingPrimaryNumber) phoneMeetingPrimaryNumber.value = settings?.primary_phone_number || "";
+  if (phoneMeetingMonthlyMinutesLimit) phoneMeetingMonthlyMinutesLimit.value = limit ?? "";
+  if (phoneMeetingAllowAccountAdmin) phoneMeetingAllowAccountAdmin.checked = allowed.includes("account_admin");
+  if (phoneMeetingAllowEditor) phoneMeetingAllowEditor.checked = allowed.includes("editor");
+  if (phoneMeetingRecordingNoticeEnabled) phoneMeetingRecordingNoticeEnabled.checked = settings?.recording_notice_enabled !== false;
+  if (phoneMeetingRecordingNoticeText) phoneMeetingRecordingNoticeText.value = settings?.recording_notice_text || "This call may be recorded for meeting notes.";
+  if (phoneMeetingRetentionDays) phoneMeetingRetentionDays.value = settings?.default_retention_days || 30;
+
+  if (phoneMeetingSettingsSummary) {
+    phoneMeetingSettingsSummary.textContent = `${isEnabled ? "Enabled" : "Disabled"} · ${formatPhoneMeetingStatus(activation)} · ${number}`;
+  }
+  if (phoneMeetingUsageSummary) {
+    const usageText = `${phoneMeetingUsageMinutes} ${phoneMeetingUsageMinutes === 1 ? "minute" : "minutes"} recorded this month`;
+    phoneMeetingUsageSummary.textContent = limit === null || limit === undefined || limit === ""
+      ? `${usageText}. No monthly limit is set.`
+      : `${usageText} of ${limit} allowed.`;
+  }
+
+  [
+    phoneMeetingFeatureEnabled,
+    phoneMeetingActivationStatus,
+    phoneMeetingPrimaryNumber,
+    phoneMeetingMonthlyMinutesLimit,
+    phoneMeetingAllowAccountAdmin,
+    phoneMeetingAllowEditor,
+    phoneMeetingRecordingNoticeEnabled,
+    phoneMeetingRecordingNoticeText,
+    phoneMeetingRetentionDays,
+    phoneMeetingSettingsSave,
+  ].forEach((field) => {
+    if (field) field.disabled = !platformAdmin;
+  });
+}
+
+async function loadPhoneMeetingSettingsForActiveOrganization() {
+  const organization = getActiveOrganization();
+  phoneMeetingSettingsCache = null;
+  phoneMeetingUsageMinutes = 0;
+  if (!organization?.id || !supabase) {
+    renderPhoneMeetingSettings();
+    return;
+  }
+
+  const monthStart = new Date();
+  monthStart.setDate(1);
+  monthStart.setHours(0, 0, 0, 0);
+  const [settingsResult, usageResult] = await Promise.all([
+    supabase
+      .from("organization_phone_meeting_settings")
+      .select("feature_enabled, activation_status, primary_phone_number, recording_notice_enabled, recording_notice_text, default_retention_days, allowed_start_roles, monthly_minutes_limit, usage_billing_status, updated_at")
+      .eq("organization_id", organization.id)
+      .maybeSingle(),
+    supabase
+      .from("phone_meeting_usage_events")
+      .select("quantity")
+      .eq("organization_id", organization.id)
+      .eq("event_type", "call_minute")
+      .gte("occurred_at", monthStart.toISOString()),
+  ]);
+
+  if (!settingsResult.error) phoneMeetingSettingsCache = settingsResult.data || null;
+  if (!usageResult.error) {
+    phoneMeetingUsageMinutes = (usageResult.data || []).reduce((total, item) => total + Number(item.quantity || 0), 0);
+  }
+  renderPhoneMeetingSettings();
+}
+
+async function handlePhoneMeetingSettingsSave(event) {
+  event.preventDefault();
+  const organization = getActiveOrganization();
+  if (!organization?.id) return;
+  if (!getActiveCapabilities().isPlatformAdmin) {
+    setStatus(phoneMeetingSettingsStatus, "Only an N3XRA platform administrator can change Phone Meetings settings during the internal rollout.", "error");
+    return;
+  }
+
+  const primaryPhoneNumber = normalizePhoneMeetingNumber(phoneMeetingPrimaryNumber?.value);
+  if (primaryPhoneNumber && !/^\+[1-9][0-9]{7,14}$/.test(primaryPhoneNumber)) {
+    setStatus(phoneMeetingSettingsStatus, "Use a full phone number starting with + and country code.", "error");
+    return;
+  }
+  const retentionDays = Number(phoneMeetingRetentionDays?.value || 30);
+  if (!Number.isInteger(retentionDays) || retentionDays < 1 || retentionDays > 3650) {
+    setStatus(phoneMeetingSettingsStatus, "Retention target must be between 1 and 3,650 days.", "error");
+    return;
+  }
+  const limitInput = String(phoneMeetingMonthlyMinutesLimit?.value || "").trim();
+  const monthlyMinutesLimit = limitInput ? Number(limitInput) : null;
+  if (monthlyMinutesLimit !== null && (!Number.isInteger(monthlyMinutesLimit) || monthlyMinutesLimit < 0)) {
+    setStatus(phoneMeetingSettingsStatus, "Monthly minute limit must be a whole number or left blank.", "error");
+    return;
+  }
+  const noticeText = String(phoneMeetingRecordingNoticeText?.value || "").trim();
+  if (phoneMeetingRecordingNoticeEnabled?.checked && !noticeText) {
+    setStatus(phoneMeetingSettingsStatus, "Enter the recording notice that callers will hear.", "error");
+    return;
+  }
+
+  const updates = {
+    organization_id: organization.id,
+    feature_enabled: Boolean(phoneMeetingFeatureEnabled?.checked),
+    activation_status: String(phoneMeetingActivationStatus?.value || "not_configured"),
+    primary_phone_number: primaryPhoneNumber,
+    allowed_start_roles: getPhoneMeetingAllowedRoles(),
+    recording_notice_enabled: Boolean(phoneMeetingRecordingNoticeEnabled?.checked),
+    recording_notice_text: noticeText || "This call may be recorded for meeting notes.",
+    default_retention_days: retentionDays,
+    monthly_minutes_limit: monthlyMinutesLimit,
+  };
+  setStatus(phoneMeetingSettingsStatus, "Saving Phone Meetings settings…");
+  const { data, error } = await supabase
+    .from("organization_phone_meeting_settings")
+    .upsert(updates, { onConflict: "organization_id" })
+    .select("feature_enabled, activation_status, primary_phone_number, recording_notice_enabled, recording_notice_text, default_retention_days, allowed_start_roles, monthly_minutes_limit, usage_billing_status, updated_at")
+    .single();
+  if (error) {
+    setStatus(phoneMeetingSettingsStatus, error.message, "error");
+    return;
+  }
+  phoneMeetingSettingsCache = data;
+  renderPhoneMeetingSettings();
+  setStatus(phoneMeetingSettingsStatus, "Phone Meetings settings saved.", "success");
+}
+
 async function loadAppTemplates() {
   const organization = getActiveOrganization();
   if (!organization || !getActiveCapabilities().canManageTemplates) {
@@ -3008,6 +3178,8 @@ async function loadRecordsAiUsage() {
   } catch (_error) {
     recordsAiUsageSummary = null;
     recordsUsageSummary = null;
+    phoneMeetingSettingsCache = null;
+    phoneMeetingUsageMinutes = 0;
   }
 
   renderAccountStorageUsage();
@@ -3366,6 +3538,7 @@ function renderProfile() {
   const canSeeReviewSettings = hasLibraryAccess && capabilities.canManageLibrarySettings;
   const canSeeTemplateSettings = hasLibraryAccess && capabilities.canManageTemplates;
   const canSeeLibraryAdminTab = canSeeLibraryProfileSettings || canSeePublishingSettings || canSeeReviewSettings || supportMode;
+  const canSeePhoneMeetings = hasLibraryAccess && (capabilities.canManageLibrarySettings || supportMode);
   const canSeeAiAdminTab = hasLibraryAccess && canSeeLibrarySettings;
   const canCreateAdditionalLibrary = canCreateOwnedLibrary();
   const canSeePlanMeta = capabilities.canManageBilling || capabilities.canManageLibrarySettings || supportMode;
@@ -3472,12 +3645,14 @@ function renderProfile() {
     access: canSeeAccessSettings,
     support: capabilities.canManageLibrarySettings || supportMode,
     library: canSeeLibraryAdminTab,
+    phone: canSeePhoneMeetings,
     ai: canSeeAiAdminTab,
     billing: canSeeBillingSettings,
     storage: capabilities.canManageLibrarySettings || supportMode,
     activity: capabilities.canManageLibrarySettings,
   });
   renderAdminTemplates();
+  renderPhoneMeetingSettings();
   if (!capabilities.canManageBilling) {
     setBillingPlanPickerOpen(false);
   }
@@ -4148,6 +4323,7 @@ async function loadActiveOrganizationData() {
     renderContacts();
     renderAdminTemplates();
     renderActivityLog();
+    renderPhoneMeetingSettings();
     renderProfile();
     setStatus(docsStatus, "");
     setStatus(createInviteStatus, "");
@@ -4160,7 +4336,7 @@ async function loadActiveOrganizationData() {
   renderProfile();
   renderSupportAccess();
   const supportMode = isSupportView();
-  const tasks = [loadRecordsAiUsage(), loadActiveOrganizationLogo()];
+  const tasks = [loadRecordsAiUsage(), loadActiveOrganizationLogo(), loadPhoneMeetingSettingsForActiveOrganization()];
   if (!supportMode || hasSupportScope("documents")) tasks.push(loadDocuments(), loadAppTemplates());
   if (!supportMode) tasks.push(loadInvites(), loadMembers(), loadContacts(), loadOrganizationAiSettings(), loadOrganizationReview());
   await Promise.all(tasks);
@@ -5663,6 +5839,7 @@ async function init() {
   organizationAiMemoryList?.addEventListener("click", handleAiMemoryBubbleAction);
   organizationAiMemoryList?.addEventListener("keydown", handleAiMemoryBubbleKeydown);
   organizationSettingsForm.addEventListener("submit", handleOrganizationSettingsSave);
+  phoneMeetingSettingsForm?.addEventListener("submit", handlePhoneMeetingSettingsSave);
   additionalLibraryForm?.addEventListener("submit", handleCreateAdditionalLibrary);
   redeemInviteForm.addEventListener("submit", handleRedeemInvite);
   createInviteForm.addEventListener("submit", handleCreateInvite);

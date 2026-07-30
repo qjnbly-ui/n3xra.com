@@ -285,7 +285,7 @@ function getMeetingSourceMetadata(source, overrides = {}) {
   };
 }
 
-function phoneMeetingsAreActive() {
+function phoneMeetingsEnabledForLibrary() {
   return Boolean(
     phoneMeetingSettings?.feature_enabled &&
     ["ready_for_internal_test", "active"].includes(String(phoneMeetingSettings?.activation_status || "")) &&
@@ -293,10 +293,28 @@ function phoneMeetingsAreActive() {
   );
 }
 
+function canStartPhoneMeetings() {
+  if (!phoneMeetingsEnabledForLibrary()) return false;
+  const capabilities = getActiveCapabilities();
+  if (capabilities.isPlatformAdmin || activeMembership?.organization?.owner_user_id === currentSession?.user?.id) return true;
+  const allowedRoles = Array.isArray(phoneMeetingSettings?.allowed_start_roles)
+    ? phoneMeetingSettings.allowed_start_roles
+    : ["account_admin", "editor"];
+  return allowedRoles.includes(capabilities.role);
+}
+
+function phoneMeetingsAreActive() {
+  return canStartPhoneMeetings();
+}
+
 function renderPhoneMeetingSourceAvailability() {
   if (!meetingSourceNote) return;
-  if (!phoneMeetingsAreActive()) {
+  if (!phoneMeetingsEnabledForLibrary()) {
     meetingSourceNote.textContent = "Phone calling is not active for this library yet. App recording and uploads are still available.";
+    return;
+  }
+  if (!canStartPhoneMeetings()) {
+    meetingSourceNote.textContent = "Phone Meetings is enabled for this library, but your role is not allowed to start calls. App recording and uploads are still available.";
     return;
   }
   const mode = getMeetingCaptureMode();
@@ -553,7 +571,7 @@ async function loadPhoneMeetingSettings() {
 
   const { data, error } = await supabase
     .from("organization_phone_meeting_settings")
-    .select("feature_enabled, activation_status, primary_phone_number")
+    .select("feature_enabled, activation_status, primary_phone_number, allowed_start_roles")
     .eq("organization_id", organization.id)
     .maybeSingle();
 

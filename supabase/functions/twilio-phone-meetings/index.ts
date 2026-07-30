@@ -16,6 +16,7 @@ type PhoneMeetingSettings = {
   feature_enabled: boolean;
   activation_status: string;
   primary_phone_number: string | null;
+  allowed_start_roles?: string[] | null;
 };
 
 type EnabledPhoneMeetingSettings = PhoneMeetingSettings & {
@@ -241,7 +242,7 @@ async function loadSessionById(admin: ReturnType<typeof createClient>, sessionId
 async function loadEnabledSettings(admin: ReturnType<typeof createClient>, organizationId: string) {
   const { data, error } = await admin
     .from("organization_phone_meeting_settings")
-    .select("organization_id, feature_enabled, activation_status, primary_phone_number, recording_notice_enabled, recording_notice_text, default_retention_days")
+    .select("organization_id, feature_enabled, activation_status, primary_phone_number, recording_notice_enabled, recording_notice_text, default_retention_days, allowed_start_roles")
     .eq("organization_id", organizationId)
     .maybeSingle();
   if (error) throw new Error(error.message);
@@ -254,7 +255,7 @@ async function loadEnabledSettingsByNumber(admin: ReturnType<typeof createClient
   if (!number) return null;
   const { data, error } = await admin
     .from("organization_phone_meeting_settings")
-    .select("organization_id, feature_enabled, activation_status, primary_phone_number, recording_notice_enabled, recording_notice_text, default_retention_days")
+    .select("organization_id, feature_enabled, activation_status, primary_phone_number, recording_notice_enabled, recording_notice_text, default_retention_days, allowed_start_roles")
     .eq("primary_phone_number", number)
     .maybeSingle();
   if (error) throw new Error(error.message);
@@ -299,7 +300,8 @@ async function hasActiveDialInSession(admin: ReturnType<typeof createClient>, or
 async function assertControlAccess(
   request: Request,
   admin: ReturnType<typeof createClient>,
-  organizationId: string
+  organizationId: string,
+  allowedStartRoles: string[] = ["account_admin", "editor"]
 ) {
   const token = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "").trim();
   if (!token) throw new Error("Sign in is required.");
@@ -314,7 +316,10 @@ async function assertControlAccess(
   ]);
   if (organizationError || membershipError || platformAdminError || !organization) throw new Error("Unable to confirm meeting access.");
   const platformAccess = ["quentin@n3xra.com", "quentin@quentinnichols.com"].includes(email) || Boolean(platformAdmin);
-  const canManage = platformAccess || organization.owner_user_id === user.id || ["account_admin", "editor"].includes(String(membership?.role || ""));
+  const configuredRoles = Array.isArray(allowedStartRoles)
+    ? allowedStartRoles.filter((role) => ["account_admin", "editor"].includes(role))
+    : ["account_admin", "editor"];
+  const canManage = platformAccess || organization.owner_user_id === user.id || configuredRoles.includes(String(membership?.role || ""));
   if (!canManage || organization.subscription_tier !== "organization") throw new Error("You do not have access to start phone meetings for this library.");
   return user;
 }
@@ -327,9 +332,9 @@ async function startPhoneMeetingSession(
   const organizationId = String(input.organization_id || "");
   const meetingRecordingId = String(input.meeting_recording_id || "");
   if (!organizationId || !meetingRecordingId) throw new Error("A library and meeting note are required.");
-  const user = await assertControlAccess(request, admin, organizationId);
   const settings = await loadEnabledSettings(admin, organizationId);
   if (!settings?.primary_phone_number) throw new Error("Phone Meetings is not enabled for internal testing in this library.");
+  const user = await assertControlAccess(request, admin, organizationId, settings.allowed_start_roles || ["account_admin", "editor"]);
   // Session creation is the earliest authenticated point where N3XRA can
   // verify that webhook signatures will use Twilio's primary Auth Token.
   await assertTwilioPrimaryAuthToken();

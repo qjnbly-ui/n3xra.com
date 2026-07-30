@@ -286,6 +286,7 @@ create table if not exists public.organization_phone_meeting_settings (
   recording_notice_enabled boolean not null default true,
   recording_notice_text text not null default 'This call may be recorded for meeting notes.',
   default_retention_days integer not null default 30,
+  allowed_start_roles text[] not null default array['account_admin', 'editor']::text[],
   monthly_minutes_limit integer,
   usage_billing_status text not null default 'not_configured',
   created_at timestamptz not null default now(),
@@ -296,6 +297,8 @@ create table if not exists public.organization_phone_meeting_settings (
     check (primary_phone_number is null or primary_phone_number ~ '^\+[1-9][0-9]{7,14}$'),
   constraint organizations_phone_meeting_retention_check
     check (default_retention_days between 1 and 3650),
+  constraint organizations_phone_meeting_allowed_start_roles_check
+    check (allowed_start_roles <@ array['account_admin', 'editor']::text[]),
   constraint organizations_phone_meeting_minutes_limit_check
     check (monthly_minutes_limit is null or monthly_minutes_limit >= 0),
   constraint organizations_phone_meeting_billing_status_check

@@ -98,6 +98,7 @@
               >
                 <p class="records-desktop-nav-group-label">Configuration</p>
                 <button type="button" data-records-account-view="library">Library settings</button>
+                <button type="button" data-records-account-view="phone">Phone Meetings</button>
                 <button type="button" data-records-account-view="templates">Templates</button>
                 <button type="button" data-records-account-view="ai">AI settings</button>
 
@@ -257,6 +258,7 @@
                 <button class="admin-tab" id="admin-access-tab" type="button" role="tab" aria-selected="false" aria-controls="admin-access-panel" data-admin-tab="access">Access</button>
                 <button class="admin-tab" id="admin-support-tab" type="button" role="tab" aria-selected="false" aria-controls="support-access-card" data-admin-tab="support">N3XRA support access</button>
                 <button class="admin-tab" id="admin-library-tab" type="button" role="tab" aria-selected="false" aria-controls="admin-library-panel" data-admin-tab="library">Library</button>
+                <button class="admin-tab" id="admin-phone-tab" type="button" role="tab" aria-selected="false" aria-controls="admin-phone-panel" data-admin-tab="phone">Phone Meetings</button>
                 <button class="admin-tab" id="admin-ai-tab" type="button" role="tab" aria-selected="false" aria-controls="admin-ai-panel" data-admin-tab="ai">AI</button>
                 <button class="admin-tab" id="admin-billing-tab" type="button" role="tab" aria-selected="false" aria-controls="admin-billing-panel" data-admin-tab="billing">Billing</button>
                 <button class="admin-tab" id="admin-storage-tab" type="button" role="tab" aria-selected="false" aria-controls="admin-storage-panel" data-admin-tab="storage">Storage</button>
@@ -607,6 +609,86 @@
                       </form>
                     </details>
                   </div>
+                </section>
+
+                <section class="admin-panel" id="admin-phone-panel" role="tabpanel" aria-labelledby="admin-phone-tab" data-admin-panel="phone" hidden>
+                  <div class="admin-panel-head">
+                    <p class="records-account-view-kicker">Internal phone meetings</p>
+                    <h4>Phone Meetings</h4>
+                    <p>Set up the N3XRA phone line for this library and decide who can create recorded phone meetings.</p>
+                  </div>
+
+                  <form class="stack settings-subsection" id="phone-meeting-settings-form">
+                    <div class="settings-subsection-head">
+                      <h4>Feature status</h4>
+                      <p id="phone-meeting-settings-summary">Loading Phone Meetings settings…</p>
+                    </div>
+                    <div class="grid-3">
+                      <div class="field">
+                        <label for="phone-meeting-activation-status">Activation status</label>
+                        <select id="phone-meeting-activation-status">
+                          <option value="not_configured">Not configured</option>
+                          <option value="pending_compliance">Pending compliance</option>
+                          <option value="ready_for_internal_test">Ready for internal test</option>
+                          <option value="active">Active</option>
+                          <option value="suspended">Suspended</option>
+                          <option value="disabled">Disabled</option>
+                        </select>
+                      </div>
+                      <div class="field">
+                        <label for="phone-meeting-primary-number">Assigned N3XRA number</label>
+                        <input id="phone-meeting-primary-number" type="tel" inputmode="tel" placeholder="+15416526338" pattern="^\\+[1-9][0-9]{7,14}$">
+                      </div>
+                      <div class="field">
+                        <label for="phone-meeting-monthly-minutes-limit">Monthly minute limit</label>
+                        <input id="phone-meeting-monthly-minutes-limit" type="number" min="0" step="1" placeholder="No limit">
+                      </div>
+                    </div>
+                    <div class="setting-toggles">
+                      <label class="toggle-pill"><input id="phone-meeting-feature-enabled" type="checkbox"> Enable Phone Meetings for this library</label>
+                    </div>
+                    <p class="field-note">Only an N3XRA platform administrator can enable this feature or assign a phone number during the internal rollout.</p>
+
+                    <div class="settings-subsection">
+                      <div class="settings-subsection-head">
+                        <h4>Who can start calls</h4>
+                        <p>Library owners and N3XRA platform administrators always retain access.</p>
+                      </div>
+                      <div class="setting-toggles">
+                        <label class="toggle-pill"><input id="phone-meeting-allow-account-admin" type="checkbox"> Account admins</label>
+                        <label class="toggle-pill"><input id="phone-meeting-allow-editor" type="checkbox"> Editors</label>
+                      </div>
+                    </div>
+
+                    <div class="settings-subsection">
+                      <div class="settings-subsection-head">
+                        <h4>Recording notice and retention</h4>
+                        <p>The retention target is applied to newly created phone sessions. Automated deletion is not enabled yet.</p>
+                      </div>
+                      <div class="setting-toggles">
+                        <label class="toggle-pill"><input id="phone-meeting-recording-notice-enabled" type="checkbox"> Ask for recording consent before the call begins</label>
+                      </div>
+                      <div class="field">
+                        <label for="phone-meeting-recording-notice-text">Recording notice</label>
+                        <textarea id="phone-meeting-recording-notice-text" maxlength="500" placeholder="This call may be recorded for meeting notes."></textarea>
+                      </div>
+                      <div class="field">
+                        <label for="phone-meeting-retention-days">Retention target (days)</label>
+                        <input id="phone-meeting-retention-days" type="number" min="1" max="3650" step="1" value="30">
+                      </div>
+                    </div>
+
+                    <div class="settings-subsection">
+                      <div class="settings-subsection-head">
+                        <h4>Current usage</h4>
+                        <p id="phone-meeting-usage-summary">No call minutes have been recorded this month.</p>
+                      </div>
+                    </div>
+                    <div class="actions">
+                      <button class="btn" id="phone-meeting-settings-save" type="submit">Save Phone Meetings settings</button>
+                    </div>
+                    <p class="status" id="phone-meeting-settings-status"></p>
+                  </form>
                 </section>
 
                 <section class="admin-panel" id="admin-ai-panel" role="tabpanel" aria-labelledby="admin-ai-tab" data-admin-panel="ai" hidden>
