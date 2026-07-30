@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/n3xra-records/styles.css?v=20260729-account-sections-v2">
+  <link rel="stylesheet" href="/n3xra-records/styles.css?v=20260729-library-navigation">
   <script>
     window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
   </script>
@@ -72,25 +72,55 @@
           <aside class="records-desktop-nav" aria-label="Records navigation">
             <p class="records-desktop-nav-label">N3XRA Records</p>
             <div class="records-desktop-nav-section">
-              <div class="records-desktop-nav-parent records-desktop-nav-parent-active">Account</div>
-              <nav class="records-desktop-nav-links records-desktop-nav-submenu">
-                <button type="button" data-records-account-view="profile">Profile</button>
-                <button type="button" data-records-account-view="users">Users</button>
-                <button type="button" data-records-account-view="contacts">Contacts</button>
-                <button type="button" data-records-account-view="templates">Templates</button>
-                <button type="button" data-records-account-view="access">Access</button>
-                <button type="button" data-records-account-view="support">N3XRA support access</button>
-                <button type="button" data-records-account-view="library">Library settings</button>
-                <button type="button" data-records-account-view="ai">AI settings</button>
-                <button type="button" data-records-account-view="billing">Billing</button>
-                <button type="button" data-records-account-view="storage">Storage</button>
-                <button type="button" data-records-account-view="activity">Activity</button>
-              </nav>
+              <p class="records-desktop-nav-group-label">Workspace</p>
               <nav class="records-desktop-nav-links records-desktop-nav-primary">
                 <a href="/n3xra-records/library">Library</a>
                 <a href="/n3xra-records/files.html">Files</a>
                 <a href="/n3xra-records/messages.html">Messages</a>
                 <a href="/n3xra-records/meeting-notes">Meeting Notes</a>
+              </nav>
+
+              <button
+                class="records-desktop-nav-parent records-desktop-nav-toggle"
+                type="button"
+                data-records-manage-toggle
+                aria-expanded="false"
+                aria-controls="records-manage-library-menu"
+              >
+                <span>Manage library</span>
+                <span class="records-desktop-nav-toggle-icon" data-records-manage-indicator aria-hidden="true">+</span>
+              </button>
+              <nav
+                class="records-desktop-nav-links records-desktop-nav-submenu records-desktop-nav-manage"
+                id="records-manage-library-menu"
+                data-records-manage-menu
+                hidden
+              >
+                <p class="records-desktop-nav-group-label">Configuration</p>
+                <button type="button" data-records-account-view="library">Library settings</button>
+                <button type="button" data-records-account-view="templates">Templates</button>
+                <button type="button" data-records-account-view="ai">AI settings</button>
+
+                <p class="records-desktop-nav-group-label">People and access</p>
+                <button type="button" data-records-account-view="users">Users</button>
+                <button type="button" data-records-account-view="contacts">Contacts</button>
+                <button type="button" data-records-account-view="access">Invites &amp; access</button>
+
+                <p class="records-desktop-nav-group-label">Plan and usage</p>
+                <button type="button" data-records-account-view="storage">Storage</button>
+                <button type="button" data-records-account-view="billing">Billing</button>
+
+                <p class="records-desktop-nav-group-label">Audit</p>
+                <button type="button" data-records-account-view="activity">Audit activity</button>
+
+                <p class="records-desktop-nav-group-label">Support</p>
+                <button type="button" data-records-account-view="support">N3XRA support access</button>
+              </nav>
+
+              <div class="records-desktop-nav-divider"></div>
+              <p class="records-desktop-nav-group-label">Account</p>
+              <nav class="records-desktop-nav-links records-desktop-nav-account">
+                <button type="button" data-records-account-view="profile">Profile</button>
               </nav>
             </div>
           </aside>
@@ -238,18 +268,18 @@
                   <div class="admin-panel-head admin-panel-head-row">
                     <div>
                       <p class="records-account-view-kicker">Workspace access</p>
-                      <h4>Account users</h4>
-                      <p>Manage who can access this library and what each person can do.</p>
+                      <h4>Workspace members</h4>
+                      <p>Manage the people who can sign in to this library and what each member can do.</p>
                     </div>
-                    <button class="btn secondary" id="admin-users-invite" type="button">Invite user</button>
+                    <button class="btn secondary" id="admin-users-invite" type="button">Invite member</button>
                   </div>
                   <div class="settings-subsection" id="member-management-body">
                     <div class="stack" id="member-management-section">
                       <div class="user-directory">
                         <div class="user-directory-head">
                           <div>
-                            <h5>Account users</h5>
-                            <p>Members, roles, and access for this library.</p>
+                            <h5>Current members</h5>
+                            <p>Signed-in members, roles, and permissions for this library.</p>
                           </div>
                           <p class="status" id="member-status"></p>
                         </div>
@@ -276,7 +306,7 @@
                     <div>
                       <p class="records-account-view-kicker">Address book</p>
                       <h4>Contacts</h4>
-                      <p>Keep recipients and collaborators organized for the selected library.</p>
+                      <p>Save people for messages and document sharing. Contacts do not receive workspace access automatically.</p>
                     </div>
                     <button class="btn secondary" id="contact-form-toggle" type="button" aria-expanded="false" aria-controls="contact-form-panel">New contact</button>
                   </div>
@@ -309,7 +339,7 @@
                         <div class="contact-directory-head">
                           <div>
                             <h5>Contact directory</h5>
-                            <p>People saved to this library for sending, sharing, or future invitations.</p>
+                            <p>People saved for communication, sharing, or a future workspace invitation.</p>
                           </div>
                           <p class="status" id="contact-status"></p>
                         </div>
@@ -319,6 +349,7 @@
                               <tr>
                                 <th>Name</th>
                                 <th>Email</th>
+                                <th>Status</th>
                                 <th>Notes</th>
                                 <th>Actions</th>
                               </tr>
@@ -405,6 +436,7 @@
                             <thead>
                               <tr>
                                 <th>Code</th>
+                                <th>Recipient</th>
                                 <th>Role</th>
                                 <th>Uses</th>
                                 <th>Expires</th>
@@ -1091,7 +1123,7 @@
   </div>
 
   <script src="/shared/config.js"></script>
-  <script type="module" src="/n3xra-records/lib/desktop-shell.js?v=20260729-static-routes"></script>
-  <script type="module" src="/n3xra-records/dashboard.js?v=20260729-account-sections-v2"></script>
+  <script type="module" src="/n3xra-records/lib/desktop-shell.js?v=20260729-library-navigation"></script>
+  <script type="module" src="/n3xra-records/dashboard.js?v=20260729-manage-toggle"></script>
 </body>
 </html>

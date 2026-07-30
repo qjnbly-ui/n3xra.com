@@ -1171,7 +1171,7 @@ async function openSourceFilePreview(documentId) {
   fileModalShare.textContent = "Share";
   show(fileModalOpenEditable, Boolean(editableDoc));
   if (editableDoc) {
-    fileModalOpenEditable.href = `./documents?id=${encodeURIComponent(editableDoc.id)}`;
+    fileModalOpenEditable.href = `/n3xra-records/documents.html?id=${encodeURIComponent(editableDoc.id)}`;
     fileModalOpenEditable.textContent = capabilities.canEditDocuments ? "Edit" : "Open";
   }
   show(fileModalOriginal, false);
@@ -1216,7 +1216,7 @@ async function openEditableFilePreview(documentId, editableDoc) {
     fileModalDownload.textContent = "Download PDF";
     show(fileModalShare, false);
     show(fileModalOpenEditable, true);
-    fileModalOpenEditable.href = `./documents?id=${encodeURIComponent(editableDoc.id)}`;
+    fileModalOpenEditable.href = `/n3xra-records/documents.html?id=${encodeURIComponent(editableDoc.id)}`;
     fileModalOpenEditable.textContent = capabilities.canEditDocuments ? "Edit" : "Open";
     show(fileModalOriginal, true);
     show(fileModalEdit, capabilities.canEditDocuments);
@@ -1267,7 +1267,7 @@ async function openReferenceDocumentPreview(documentId) {
     show(fileModalShare, capabilities.canShareDocuments);
     fileModalShare.textContent = "Share";
     show(fileModalOpenEditable, true);
-    fileModalOpenEditable.href = `./documents?id=${encodeURIComponent(doc.id)}`;
+    fileModalOpenEditable.href = `/n3xra-records/documents.html?id=${encodeURIComponent(doc.id)}`;
     fileModalOpenEditable.textContent = capabilities.canEditDocuments ? "Edit" : "Open";
     show(fileModalOriginal, false);
     show(fileModalEdit, capabilities.canEditDocuments);
@@ -1467,7 +1467,7 @@ async function shareFile(documentId) {
     return;
   }
 
-  window.location.href = `./documents?id=${encodeURIComponent(sendDocumentId)}&send=1`;
+  window.location.href = `/n3xra-records/documents.html?id=${encodeURIComponent(sendDocumentId)}&send=1`;
 }
 
 async function deleteAssociatedFileData(documentId) {
@@ -2083,7 +2083,7 @@ async function getOrCreateEditableDocumentId(documentId) {
 async function makeFileEditable(documentId) {
   const editableDocumentId = await getOrCreateEditableDocumentId(documentId);
   if (!editableDocumentId) return;
-  window.location.href = `./documents?id=${encodeURIComponent(editableDocumentId)}`;
+  window.location.href = `/n3xra-records/documents.html?id=${encodeURIComponent(editableDocumentId)}`;
 }
 
 async function uploadDocument(event) {
@@ -2287,7 +2287,7 @@ async function handleFileAction(event) {
     if (action === "delete") void openDeleteConfirm(id);
     if (action === "toggle-public") await togglePublic(id);
     if (action === "make-editable") await makeFileEditable(id);
-    if (action === "open-builder") window.location.href = `./documents?id=${encodeURIComponent(id)}`;
+    if (action === "open-builder") window.location.href = `/n3xra-records/documents.html?id=${encodeURIComponent(id)}`;
     return;
   }
 

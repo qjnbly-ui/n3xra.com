@@ -1,11 +1,44 @@
 const DESKTOP_SHELL_BREAKPOINT = 981;
 
-const RECORDS_PRIMARY_LINKS = [
-  { key: "account", label: "Account", href: "/n3xra-records/account" },
+const RECORDS_WORKSPACE_LINKS = [
   { key: "library", label: "Library", href: "/n3xra-records/library" },
   { key: "files", label: "Files", href: "/n3xra-records/files.html" },
   { key: "messages", label: "Messages", href: "/n3xra-records/messages.html" },
   { key: "meeting-notes", label: "Meeting Notes", href: "/n3xra-records/meeting-notes" },
+];
+
+const RECORDS_MANAGE_GROUPS = [
+  {
+    label: "Configuration",
+    links: [
+      { label: "Library settings", view: "library" },
+      { label: "Templates", view: "templates" },
+      { label: "AI settings", view: "ai" },
+    ],
+  },
+  {
+    label: "People and access",
+    links: [
+      { label: "Users", view: "users" },
+      { label: "Contacts", view: "contacts" },
+      { label: "Invites & access", view: "access" },
+    ],
+  },
+  {
+    label: "Plan and usage",
+    links: [
+      { label: "Storage", view: "storage" },
+      { label: "Billing", view: "billing" },
+    ],
+  },
+  {
+    label: "Audit",
+    links: [{ label: "Audit activity", view: "activity" }],
+  },
+  {
+    label: "Support",
+    links: [{ label: "N3XRA support access", view: "support" }],
+  },
 ];
 
 function normalizePathname(value = window.location.pathname) {
@@ -35,16 +68,65 @@ function renderPrimaryLink(item, activePage) {
   return `<a href="${item.href}"${isActive ? ' class="is-active" aria-current="page"' : ""}>${item.label}</a>`;
 }
 
+function renderManageGroup(group) {
+  return `
+    <p class="records-desktop-nav-group-label">${group.label}</p>
+    ${group.links
+      .map((item) => `<a href="/n3xra-records/account/?view=${item.view}">${item.label}</a>`)
+      .join("")}
+  `;
+}
+
 function buildDesktopNavigation(activePage) {
   const navigation = document.createElement("aside");
   navigation.className = "records-desktop-nav records-shared-desktop-nav";
   navigation.setAttribute("aria-label", "Records navigation");
   navigation.innerHTML = `
     <p class="records-desktop-nav-label">N3XRA Records</p>
-    <nav class="records-desktop-nav-links records-desktop-nav-primary">
-      ${RECORDS_PRIMARY_LINKS.map((item) => renderPrimaryLink(item, activePage)).join("")}
-    </nav>
+    <div class="records-desktop-nav-section">
+      <p class="records-desktop-nav-group-label">Workspace</p>
+      <nav class="records-desktop-nav-links records-desktop-nav-primary">
+        ${RECORDS_WORKSPACE_LINKS.map((item) => renderPrimaryLink(item, activePage)).join("")}
+      </nav>
+
+      <button
+        class="records-desktop-nav-parent records-desktop-nav-toggle"
+        type="button"
+        data-records-manage-toggle
+        aria-expanded="false"
+        aria-controls="records-shared-manage-library-menu"
+      >
+        <span>Manage library</span>
+        <span class="records-desktop-nav-toggle-icon" data-records-manage-indicator aria-hidden="true">+</span>
+      </button>
+      <nav
+        class="records-desktop-nav-links records-desktop-nav-submenu records-desktop-nav-manage"
+        id="records-shared-manage-library-menu"
+        data-records-manage-menu
+        hidden
+      >
+        ${RECORDS_MANAGE_GROUPS.map(renderManageGroup).join("")}
+      </nav>
+
+      <div class="records-desktop-nav-divider"></div>
+      <p class="records-desktop-nav-group-label">Account</p>
+      <nav class="records-desktop-nav-links records-desktop-nav-account">
+        <a href="/n3xra-records/account/?view=profile"${activePage === "account" ? ' class="is-active" aria-current="page"' : ""}>Profile</a>
+      </nav>
+    </div>
   `;
+
+  const manageToggle = navigation.querySelector("[data-records-manage-toggle]");
+  const manageMenu = navigation.querySelector("[data-records-manage-menu]");
+  const manageIndicator = navigation.querySelector("[data-records-manage-indicator]");
+  manageToggle?.addEventListener("click", () => {
+    const isOpen = manageToggle.getAttribute("aria-expanded") === "true";
+    manageToggle.setAttribute("aria-expanded", String(!isOpen));
+    manageToggle.classList.toggle("records-desktop-nav-parent-active", !isOpen);
+    if (manageMenu) manageMenu.hidden = isOpen;
+    if (manageIndicator) manageIndicator.textContent = isOpen ? "+" : "−";
+  });
+
   return navigation;
 }
 

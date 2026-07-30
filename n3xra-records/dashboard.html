@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/n3xra-records/styles.css?v=20260729-app-header">
+  <link rel="stylesheet" href="/n3xra-records/styles.css?v=20260729-library-navigation">
   <script>
     window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
   </script>
@@ -44,9 +44,9 @@
           </div>
           <button class="mobile-menu-link" id="mobile-menu-account" type="button">Account</button>
           <button class="mobile-menu-link" id="mobile-menu-library" type="button">Library</button>
-          <a class="mobile-menu-link button-link" id="mobile-menu-files-link" href="./files">Files</a>
-          <a class="mobile-menu-link button-link hidden" id="mobile-menu-messages-link" href="./messages">Messages</a>
-          <a class="mobile-menu-link button-link hidden" id="mobile-menu-recordings-link" href="./meeting-notes">Meeting Notes</a>
+          <a class="mobile-menu-link button-link" id="mobile-menu-files-link" href="/n3xra-records/files.html">Files</a>
+          <a class="mobile-menu-link button-link hidden" id="mobile-menu-messages-link" href="/n3xra-records/messages.html">Messages</a>
+          <a class="mobile-menu-link button-link hidden" id="mobile-menu-recordings-link" href="/n3xra-records/meeting-notes/">Meeting Notes</a>
         </div>
       </div>
     </header>
@@ -188,10 +188,10 @@
                 <section class="admin-panel is-active" id="admin-users-panel" role="tabpanel" aria-labelledby="admin-users-tab" data-admin-panel="users">
                   <div class="admin-panel-head admin-panel-head-row">
                     <div>
-                      <h4>Account users</h4>
-                      <p>Review account access, update roles, and remove users from this library.</p>
+                      <h4>Workspace members</h4>
+                      <p>Manage the people who can sign in to this library and what each member can do.</p>
                     </div>
-                    <button class="btn secondary" id="admin-users-invite" type="button">Invite user</button>
+                    <button class="btn secondary" id="admin-users-invite" type="button">Invite member</button>
                   </div>
                   <div class="settings-subsection" id="member-management-body">
                     <div class="stack" id="member-management-section">
@@ -217,7 +217,7 @@
                   <div class="admin-panel-head admin-panel-head-row">
                     <div>
                       <h4>Contacts</h4>
-                      <p>Save recipients for document sending, then invite a contact as a user when needed.</p>
+                      <p>Save people for messages and document sharing. Contacts do not receive workspace access automatically.</p>
                     </div>
                     <button class="btn secondary" id="contact-form-toggle" type="button" aria-expanded="false" aria-controls="contact-form-panel">New contact</button>
                   </div>
@@ -253,6 +253,7 @@
                             <tr>
                               <th>Name</th>
                               <th>Email</th>
+                              <th>Status</th>
                               <th>Notes</th>
                               <th>Actions</th>
                             </tr>
@@ -336,6 +337,7 @@
                             <thead>
                               <tr>
                                 <th>Code</th>
+                                <th>Recipient</th>
                                 <th>Role</th>
                                 <th>Uses</th>
                                 <th>Expires</th>
@@ -561,7 +563,7 @@
                         <div class="current-plan-actions">
                           <button class="btn secondary hidden" id="manage-billing-button" type="button">Manage billing</button>
                           <button class="btn secondary" id="change-plan-button" type="button" aria-expanded="false">Change plan</button>
-                          <a class="current-plan-text-link" href="./storage">Open storage</a>
+                          <a class="current-plan-text-link" href="/n3xra-records/storage.html">Open storage</a>
                         </div>
                       </div>
                       <div class="billing-plan-picker hidden" id="billing-plan-picker">
@@ -585,7 +587,7 @@
                       <h4>Storage</h4>
                       <p>Open the storage view to review usage, largest files, and cleanup suggestions for this library.</p>
                     </div>
-                    <a class="btn secondary button-link" href="./storage">Open storage</a>
+                    <a class="btn secondary button-link" href="/n3xra-records/storage.html">Open storage</a>
                   </div>
                   <div class="settings-subsection">
                     <div class="notice">
@@ -665,10 +667,10 @@
 
           <div class="library-actions-grid" id="library-actions-grid">
             <div class="library-action-slot">
-              <a class="btn button-link" href="./meeting-notes">Meeting notes</a>
+              <a class="btn button-link" href="/n3xra-records/meeting-notes/">Meeting notes</a>
             </div>
             <div class="library-action-slot">
-              <a class="btn secondary button-link" href="./files">Files</a>
+              <a class="btn secondary button-link" href="/n3xra-records/files.html">Files</a>
             </div>
           </div>
 
@@ -714,7 +716,7 @@
             </div>
             <div class="download-list" id="recent-files-list"></div>
             <p class="empty hidden" id="recent-files-empty">No files in this library yet.</p>
-            <p class="recent-files-reminder"><a class="recent-files-link" href="./files">Go To All Files</a></p>
+            <p class="recent-files-reminder"><a class="recent-files-link" href="/n3xra-records/files.html">Go To All Files</a></p>
           </section>
         </section>
       </section>
@@ -727,7 +729,7 @@
         <p class="file-modal-title" id="file-modal-title">File preview</p>
         <div class="file-modal-actions">
           <a class="file-modal-link" id="file-modal-download" href="#" target="_blank" rel="noopener">Download</a>
-          <a class="file-modal-link hidden" id="file-modal-open-editable" href="./documents" rel="noopener">Open</a>
+          <a class="file-modal-link hidden" id="file-modal-open-editable" href="/n3xra-records/documents.html" rel="noopener">Open</a>
           <button class="file-modal-link hidden" id="file-modal-original" type="button">View original</button>
           <button class="file-modal-close" id="file-modal-close" type="button">Close</button>
         </div>
@@ -892,7 +894,7 @@
           <div class="actions">
             <button class="btn secondary" id="copy-embed-preview-url" type="button">Copy public link</button>
             <button class="btn secondary" id="copy-embed-code" type="button">Copy code</button>
-            <a class="btn secondary button-link" id="open-embed-preview" href="./embed" target="_blank" rel="noopener">Open public page</a>
+            <a class="btn secondary button-link" id="open-embed-preview" href="/n3xra-records/embed.html" target="_blank" rel="noopener">Open public page</a>
           </div>
           <p class="status" id="embed-status"></p>
         </div>
@@ -982,7 +984,7 @@
   </div>
 
   <script src="/shared/config.js"></script>
-  <script type="module" src="/n3xra-records/lib/desktop-shell.js?v=20260729-static-routes"></script>
-  <script type="module" src="/n3xra-records/dashboard.js?v=20260729-app-header"></script>
+  <script type="module" src="/n3xra-records/lib/desktop-shell.js?v=20260729-library-navigation"></script>
+  <script type="module" src="/n3xra-records/dashboard.js?v=20260729-manage-toggle"></script>
 </body>
 </html>

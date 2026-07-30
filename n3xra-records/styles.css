@@ -2457,6 +2457,28 @@ textarea {
   margin-right: 0;
 }
 
+.records-person-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.75rem;
+  padding: 0.28rem 0.62rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  background: #f5f7f8;
+  color: var(--slate);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.records-person-status.is-member {
+  border-color: rgba(23, 111, 102, 0.2);
+  background: rgba(23, 111, 102, 0.09);
+  color: var(--green);
+}
+
 .is-selected-row {
   background: rgba(23, 111, 102, 0.06);
 }
@@ -3790,6 +3812,48 @@ code.inline {
   background: #ffffff;
 }
 
+.messages-page-header,
+.messages-section-head,
+.messages-compose-card-head {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.messages-page-header {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 1rem;
+}
+
+.messages-page-header h1,
+.messages-page-header p,
+.messages-section-head h2,
+.messages-section-head p,
+.messages-compose-card-head h3,
+.messages-compose-card-head p {
+  margin: 0;
+}
+
+.messages-page-header h1,
+.messages-section-head h2 {
+  font-family: "Fraunces", "Times New Roman", serif;
+}
+
+.messages-page-kicker,
+.messages-section-kicker {
+  color: var(--teal);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.messages-page-header > div > p:last-child,
+.messages-section-head > div > p:last-child,
+.messages-compose-card-head p {
+  color: var(--slate);
+}
+
 .messages-compose-card textarea {
   min-height: 260px;
   resize: vertical;
@@ -4095,6 +4159,17 @@ body:has(.confirm-modal.is-open) {
   border-top: 1px solid rgba(15, 22, 32, 0.08);
   background: rgba(255, 255, 255, 0.96);
   backdrop-filter: blur(10px);
+}
+
+.records-messages-page .document-send-actions {
+  position: static;
+  bottom: auto;
+  z-index: auto;
+  margin: 0;
+  padding: 0.25rem 0 0;
+  border-top: 0;
+  background: transparent;
+  backdrop-filter: none;
 }
 
 .settings-modal-body > .actions {
@@ -4557,6 +4632,15 @@ body:has(.confirm-modal.is-open) {
 }
 
 @media (max-width: 860px) {
+  .messages-page-header {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+
+  .messages-back-link {
+    justify-self: start;
+  }
+
   .grid-3,
   .search-row,
   .library-actions-grid,
@@ -5035,16 +5119,25 @@ body:has(.confirm-modal.is-open) {
   .records-desktop-nav-links { display: grid; gap: 0.16rem; }
   .records-desktop-nav-section { display: grid; gap: 0.35rem; }
   .records-desktop-nav-section > .records-desktop-nav-label { margin-top: 0.55rem; }
-  .records-desktop-nav-parent { border-radius: 8px; padding: 0.66rem 0.7rem; color: #526170; font-size: 0.88rem; font-weight: 700; }
+  .records-desktop-nav-group-label { margin: 0.7rem 0 0.18rem; padding: 0 0.7rem; color: #8793a0; font-size: 0.61rem; font-weight: 800; letter-spacing: 0.11em; text-transform: uppercase; }
+  .records-desktop-nav-section > .records-desktop-nav-group-label:first-child { margin-top: 0; }
+  .records-desktop-nav-parent { width: 100%; border: 0; border-radius: 8px; padding: 0.66rem 0.7rem; background: transparent; color: #526170; font: inherit; font-size: 0.88rem; font-weight: 700; text-align: left; }
   .records-desktop-nav-parent-active { background: #e4f2ef; color: #123a33; }
   .records-desktop-nav-submenu { margin-left: 0.35rem; padding-left: 0.55rem; border-left: 2px solid #e4f2ef; }
+  .records-desktop-nav-submenu[hidden] { display: none !important; }
+  .records-desktop-nav-toggle { display: flex; align-items: center; justify-content: space-between; margin-top: 0.5rem; cursor: pointer; }
+  .records-desktop-nav-toggle:hover, .records-desktop-nav-toggle:focus-visible { background: rgba(23, 111, 102, 0.08); color: var(--teal); outline: none; }
+  .records-desktop-nav-toggle-icon { display: grid; place-items: center; width: 1.2rem; height: 1.2rem; color: #758290; font-size: 1rem; font-weight: 600; line-height: 1; }
+  .records-desktop-nav-manage { padding-bottom: 0.2rem; }
+  .records-desktop-nav-manage .records-desktop-nav-group-label { margin-top: 0.65rem; padding-left: 0.7rem; }
+  .records-desktop-nav-manage .records-desktop-nav-group-label:first-child { margin-top: 0.25rem; }
   .records-desktop-nav-links > a { border-radius: 8px; color: #526170; font-size: 0.88rem; font-weight: 700; padding: 0.66rem 0.7rem; text-decoration: none; }
   .records-desktop-nav-links > a:hover, .records-desktop-nav-links > a:focus-visible { background: rgba(23, 111, 102, 0.08); color: var(--teal); outline: none; }
   .records-desktop-nav-links > a.is-active { background: #e4f2ef; color: #123a33; }
   .records-desktop-nav-links > button { width: 100%; border: 0; border-radius: 8px; padding: 0.66rem 0.7rem; background: transparent; color: #526170; cursor: pointer; font: inherit; font-size: 0.88rem; font-weight: 700; text-align: left; }
   .records-desktop-nav-links > button:hover, .records-desktop-nav-links > button:focus-visible { background: rgba(23, 111, 102, 0.08); color: var(--teal); outline: none; }
   .records-desktop-nav-links > button.is-active { background: #e4f2ef; color: #123a33; }
-  .records-desktop-nav-divider { height: 1px; margin: 0.35rem 0; background: var(--line); }
+  .records-desktop-nav-divider { height: 1px; margin: 0.65rem 0 0.2rem; background: var(--line); }
   .records-desktop-nav-footer { margin-top: auto; padding: 1rem 0.7rem 0; border-top: 1px solid var(--line); }
   .records-desktop-nav-footer span { color: var(--slate); font-size: 0.7rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
   .records-desktop-content { min-width: 0; min-height: 0; height: 100%; overflow-y: auto; overscroll-behavior: contain; padding: 0 clamp(1.75rem, 4vw, 3.25rem) clamp(2rem, 4vw, 3.25rem); }
@@ -5055,6 +5148,188 @@ body:has(.confirm-modal.is-open) {
   .records-desktop-page-head p { justify-self: start; margin: 0; color: var(--teal); font-size: 0.7rem; font-weight: 800; letter-spacing: 0.13em; text-transform: uppercase; }
   .records-desktop-page-head strong { justify-self: center; color: var(--ink); font-size: 0.8rem; font-weight: 800; }
   .records-desktop-page-head span { justify-self: end; color: var(--slate); font-size: 0.76rem; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; }
+
+  .records-messages-page.records-shared-desktop-shell-page .records-desktop-frame > .main {
+    padding-top: 0;
+  }
+
+  .records-messages-page.records-shared-desktop-shell-page .records-desktop-page-head {
+    margin-bottom: 0;
+    padding-top: 0.85rem;
+  }
+
+  .records-messages-page.records-shared-desktop-shell-page #messages-panel {
+    width: min(100%, 1320px);
+    margin: 0 auto;
+    padding: 0;
+    gap: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .records-messages-page .messages-page-header {
+    padding: clamp(2rem, 4vw, 3.5rem) 0 2rem;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .records-messages-page .messages-page-header h1 {
+    margin-top: 0.45rem;
+    font-size: clamp(2.25rem, 4vw, 3.5rem);
+    line-height: 1.05;
+    letter-spacing: -0.025em;
+  }
+
+  .records-messages-page .messages-page-header > div > p:last-child {
+    max-width: 680px;
+    margin-top: 0.75rem;
+    font-size: 0.96rem;
+  }
+
+  .records-messages-page .messages-back-link {
+    display: none;
+  }
+
+  .records-messages-page #messages-no-access-notice {
+    margin-top: 1.5rem;
+  }
+
+  .records-messages-page .messages-library-context {
+    grid-template-columns: minmax(280px, 1.4fr) repeat(2, minmax(150px, 0.65fr));
+    gap: clamp(1.5rem, 4vw, 4rem);
+    padding: 1.35rem 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .records-messages-page .messages-library-context .field {
+    align-content: start;
+    gap: 0.38rem;
+  }
+
+  .records-messages-page .messages-library-context select {
+    min-height: 44px;
+    border-radius: 8px;
+    background: #ffffff;
+  }
+
+  .records-messages-page .messages-library-context .account-value {
+    margin: 0;
+    padding-top: 0.55rem;
+    font-size: 1rem;
+  }
+
+  .records-messages-page .messages-section-head {
+    padding: clamp(1.8rem, 3vw, 2.65rem) 0 1.35rem;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .records-messages-page .messages-section-head h2 {
+    margin-top: 0.4rem;
+    font-size: clamp(1.7rem, 3vw, 2.3rem);
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+  }
+
+  .records-messages-page .messages-section-head > div > p:last-child {
+    max-width: 720px;
+    margin-top: 0.6rem;
+    font-size: 0.92rem;
+  }
+
+  .records-messages-page .messages-compose {
+    padding: 2rem 0 3rem;
+  }
+
+  .records-messages-page .messages-compose-grid {
+    grid-template-columns: minmax(280px, 0.72fr) minmax(520px, 1.28fr);
+    gap: clamp(2rem, 5vw, 5rem);
+  }
+
+  .records-messages-page .messages-compose-card {
+    align-content: start;
+    gap: 1.15rem;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .records-messages-page .messages-content-card {
+    padding-left: clamp(2rem, 4vw, 4rem);
+    border-left: 1px solid var(--line);
+  }
+
+  .records-messages-page .messages-compose-card-head {
+    padding-bottom: 0.25rem;
+  }
+
+  .records-messages-page .messages-compose-card-head h3 {
+    font-size: 1.08rem;
+  }
+
+  .records-messages-page .messages-compose-card-head p {
+    max-width: 600px;
+    font-size: 0.86rem;
+    line-height: 1.5;
+  }
+
+  .records-messages-page .messages-compose-card input,
+  .records-messages-page .messages-compose-card textarea {
+    border-radius: 8px;
+    background: #ffffff;
+  }
+
+  .records-messages-page .messages-compose-card input {
+    min-height: 48px;
+  }
+
+  .records-messages-page .messages-compose-card textarea {
+    min-height: 300px;
+  }
+
+  .records-messages-page .document-send-contact-list {
+    gap: 0.7rem;
+  }
+
+  .records-messages-page .document-send-recipient-group {
+    border-right: 0;
+    border-left: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .records-messages-page .document-send-recipient-summary {
+    padding: 0.7rem 0;
+  }
+
+  .records-messages-page .document-send-recipient-options {
+    grid-template-columns: 1fr;
+    gap: 0;
+    padding: 0;
+  }
+
+  .records-messages-page .document-send-contact {
+    min-height: 56px;
+    padding: 0.65rem 0.15rem;
+    border-width: 1px 0 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .records-messages-page .document-send-contact:first-child {
+    border-top: 0;
+  }
+
+  .records-messages-page .document-send-actions {
+    padding-top: 0.25rem;
+  }
+
+  .records-messages-page #message-status:empty {
+    display: none;
+  }
+
   .records-account-page .admin-tabs { display: none; }
   .records-account-page #library-access-card > .panel-head { display: none; }
   .records-account-page:not(.desktop-account-admin-view) #library-access-card { display: none; }

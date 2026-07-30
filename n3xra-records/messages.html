@@ -15,13 +15,13 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/n3xra-records/styles.css?v=20260729-app-header">
+  <link rel="stylesheet" href="/n3xra-records/styles.css?v=20260729-messages-actions">
   <script>
     window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
   </script>
   <script defer src="/_vercel/insights/script.js"></script>
 </head>
-<body>
+<body class="records-messages-page">
   <div class="shell">
     <header class="topbar">
       <div class="topbar-inner">
@@ -44,9 +44,9 @@
           </div>
           <button class="mobile-menu-link" id="mobile-menu-account" type="button">Account</button>
           <button class="mobile-menu-link" id="mobile-menu-library" type="button">Library</button>
-          <a class="mobile-menu-link button-link" id="mobile-menu-files-link" href="./files">Files</a>
-          <a class="mobile-menu-link button-link hidden" id="mobile-menu-messages-link" href="./messages">Messages</a>
-          <a class="mobile-menu-link button-link hidden" id="mobile-menu-recordings-link" href="./meeting-notes">Meeting Notes</a>
+          <a class="mobile-menu-link button-link" id="mobile-menu-files-link" href="/n3xra-records/files.html">Files</a>
+          <a class="mobile-menu-link button-link hidden" id="mobile-menu-messages-link" href="/n3xra-records/messages.html">Messages</a>
+          <a class="mobile-menu-link button-link hidden" id="mobile-menu-recordings-link" href="/n3xra-records/meeting-notes/">Meeting Notes</a>
         </div>
       </div>
     </header>
@@ -61,22 +61,21 @@
         </div>
       </section>
 
-      <section class="panel stack hidden" id="messages-panel">
-        <div class="panel-head">
+      <section class="panel stack hidden messages-page" id="messages-panel">
+        <header class="messages-page-header">
           <div>
-            <h2>Messages</h2>
+            <p class="messages-page-kicker">Communication</p>
+            <h1>Messages</h1>
             <p>Send branded announcements to account users and contacts.</p>
           </div>
-          <div class="actions">
-            <a class="btn secondary button-link" href="./library">Back to library</a>
-          </div>
-        </div>
+          <a class="btn secondary button-link messages-back-link" href="/n3xra-records/library/">Back to library</a>
+        </header>
 
         <div class="notice hidden" id="messages-no-access-notice">
           <strong>No message access right now.</strong> Select a library you can send from before composing messages.
         </div>
 
-        <div class="grid-3" id="messages-library-context">
+        <div class="grid-3 messages-library-context" id="messages-library-context">
           <div class="field">
             <label for="active-organization-select">Active library</label>
             <select id="active-organization-select"></select>
@@ -91,20 +90,36 @@
           </div>
         </div>
 
+        <div class="messages-section-head">
+          <div>
+            <p class="messages-section-kicker">New message</p>
+            <h2>Compose an announcement</h2>
+            <p>Choose who should receive it, then write the message N3XRA Records will send.</p>
+          </div>
+        </div>
+
         <form class="messages-compose" id="message-form">
           <div class="messages-compose-grid">
-            <section class="messages-compose-card">
+            <section class="messages-compose-card messages-recipients-card">
+              <header class="messages-compose-card-head">
+                <h3>Recipients</h3>
+                <p>Select people from this library or enter another email address.</p>
+              </header>
               <div class="field">
-                <label for="message-send-to">Recipient email</label>
+                <label for="message-send-to">Additional recipient</label>
                 <input id="message-send-to" type="email" autocomplete="email" placeholder="name@example.org">
               </div>
               <div class="field hidden" id="message-send-contacts-field">
-                <span class="field-title">Recipients</span>
+                <span class="field-title">Library recipients</span>
                 <div class="document-send-contact-list" id="message-send-contact-list"></div>
               </div>
             </section>
 
-            <section class="messages-compose-card">
+            <section class="messages-compose-card messages-content-card">
+              <header class="messages-compose-card-head">
+                <h3>Message details</h3>
+                <p>Add a clear subject and the announcement you want recipients to receive.</p>
+              </header>
               <div class="field">
                 <label for="message-subject">Subject</label>
                 <input id="message-subject" type="text" maxlength="180" required placeholder="Meeting tomorrow">
@@ -127,7 +142,7 @@
   </div>
 
   <script src="/shared/config.js"></script>
-  <script type="module" src="/n3xra-records/lib/desktop-shell.js?v=20260729-static-routes"></script>
-  <script type="module" src="/n3xra-records/messages.js?v=20260729-app-header"></script>
+  <script type="module" src="/n3xra-records/lib/desktop-shell.js?v=20260729-messages-polish"></script>
+  <script type="module" src="/n3xra-records/messages.js?v=20260729-messages-polish"></script>
 </body>
 </html>

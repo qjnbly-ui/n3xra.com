@@ -302,6 +302,9 @@ const adminTabs = Array.from(document.querySelectorAll("[data-admin-tab]"));
 const adminPanels = Array.from(document.querySelectorAll("[data-admin-panel]"));
 const desktopAccountViewButtons = Array.from(document.querySelectorAll("[data-records-account-view]"));
 const desktopAccountPageTitle = document.getElementById("records-desktop-page-title");
+const desktopManageLibraryToggle = document.querySelector("[data-records-manage-toggle]");
+const desktopManageLibraryMenu = document.querySelector("[data-records-manage-menu]");
+const desktopManageLibraryIndicator = document.querySelector("[data-records-manage-indicator]");
 const adminUsersInviteButton = document.getElementById("admin-users-invite");
 const adminNewTemplateButton = document.getElementById("admin-new-template");
 const adminTemplateList = document.getElementById("admin-template-list");
@@ -357,7 +360,7 @@ function getSectionFromPath(pathname = window.location.pathname) {
 }
 
 function getSectionPath(section) {
-  return section === "account" ? "./account" : "./library";
+  return section === "account" ? "/n3xra-records/account/" : "/n3xra-records/library/";
 }
 
 function buildSectionUrl(section) {
@@ -937,19 +940,57 @@ const desktopAccountViewLabels = {
   users: "Users",
   contacts: "Contacts",
   templates: "Templates",
-  access: "Access",
+  access: "Invites & access",
   support: "N3XRA support access",
   library: "Library settings",
   ai: "AI settings",
   billing: "Billing",
   storage: "Storage",
-  activity: "Activity",
+  activity: "Audit activity",
 };
+
+const desktopManageLibraryViews = new Set([
+  "users",
+  "contacts",
+  "templates",
+  "access",
+  "support",
+  "library",
+  "ai",
+  "billing",
+  "storage",
+  "activity",
+]);
+
+function getRequestedDesktopAccountView() {
+  const view = new URLSearchParams(window.location.search).get("view") || "profile";
+  return Object.hasOwn(desktopAccountViewLabels, view) ? view : "profile";
+}
+
+function updateDesktopAccountViewUrl(view) {
+  const url = new URL(window.location.href);
+  if (view === "profile") {
+    url.searchParams.delete("view");
+  } else {
+    url.searchParams.set("view", view);
+  }
+  window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+}
+
+function setManageLibraryOpen(isOpen) {
+  if (!desktopManageLibraryToggle) return;
+  desktopManageLibraryToggle.setAttribute("aria-expanded", String(isOpen));
+  desktopManageLibraryToggle.classList.toggle("records-desktop-nav-parent-active", isOpen);
+  if (desktopManageLibraryMenu) desktopManageLibraryMenu.hidden = !isOpen;
+  if (desktopManageLibraryIndicator) desktopManageLibraryIndicator.textContent = isOpen ? "−" : "+";
+}
 
 function setDesktopAccountView(view = "profile") {
   if (!window.matchMedia("(min-width: 981px)").matches) return;
+  if (!Object.hasOwn(desktopAccountViewLabels, view)) view = "profile";
   const isProfile = view === "profile";
   const isAdminView = Boolean(view && !isProfile);
+  const isManageView = desktopManageLibraryViews.has(view);
 
   document.body.classList.toggle("desktop-account-admin-view", isAdminView);
   document.body.classList.toggle("desktop-account-contacts-view", view === "contacts");
@@ -974,7 +1015,9 @@ function setDesktopAccountView(view = "profile") {
   desktopAccountViewButtons.forEach((button) => {
     button.classList.toggle("is-active", button.getAttribute("data-records-account-view") === view);
   });
+  setManageLibraryOpen(isManageView);
   if (desktopAccountPageTitle) desktopAccountPageTitle.textContent = desktopAccountViewLabels[view] || "Account";
+  updateDesktopAccountViewUrl(view);
   if (view === "storage") {
     renderAccountStorageUsage();
     if (getActiveOrganization()?.id && !recordsUsageSummary) {
@@ -1158,7 +1201,7 @@ function showSection(section) {
   if (isAccount) {
     setUploadModalOpen(false);
     setAiMemoryModalOpen(false);
-    setDesktopAccountView();
+    setDesktopAccountView(getRequestedDesktopAccountView());
   }
   closeMobileMenu();
 }
@@ -1838,6 +1881,19 @@ function isMissingAiNoteSchemaError(error) {
 function isMissingReviewsSchemaError(error) {
   const message = String(error?.message || "").toLowerCase();
   return message.includes("reviews") && (message.includes("does not exist") || message.includes("schema cache"));
+}
+
+function isMissingRecordsPeopleLinkSchemaError(error) {
+  const message = String(error?.message || "").toLowerCase();
+  return (
+    (
+      message.includes("linked_user_id")
+      || message.includes("recipient_email")
+      || message.includes("recipient_name")
+      || message.includes("source_contact_id")
+    )
+    && (message.includes("does not exist") || message.includes("schema cache") || message.includes("could not find"))
+  );
 }
 
 function getActiveRole() {
@@ -2793,11 +2849,21 @@ async function loadInvites() {
     return;
   }
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from("organization_invites")
-    .select("id, code, role, max_uses, redeemed_uses, expires_at, is_disabled, created_at")
+    .select("id, code, role, max_uses, redeemed_uses, expires_at, is_disabled, recipient_email, recipient_name, source_contact_id, created_at")
     .eq("organization_id", activeMembership.organization.id)
     .order("created_at", { ascending: false });
+
+  if (error && isMissingRecordsPeopleLinkSchemaError(error)) {
+    const fallback = await supabase
+      .from("organization_invites")
+      .select("id, code, role, max_uses, redeemed_uses, expires_at, is_disabled, created_at")
+      .eq("organization_id", activeMembership.organization.id)
+      .order("created_at", { ascending: false });
+    data = fallback.data;
+    error = fallback.error;
+  }
 
   if (error) {
     setStatus(createInviteStatus, error.message, "error");
@@ -2844,11 +2910,21 @@ async function loadMembers() {
 async function loadContacts() {
   if (!activeMembership) return;
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from("organization_contacts")
-    .select("id, full_name, email, notes, created_at, updated_at")
+    .select("id, full_name, email, notes, linked_user_id, created_at, updated_at")
     .eq("organization_id", activeMembership.organization.id)
     .order("full_name", { ascending: true });
+
+  if (error && isMissingRecordsPeopleLinkSchemaError(error)) {
+    const fallback = await supabase
+      .from("organization_contacts")
+      .select("id, full_name, email, notes, created_at, updated_at")
+      .eq("organization_id", activeMembership.organization.id)
+      .order("full_name", { ascending: true });
+    data = fallback.data;
+    error = fallback.error;
+  }
 
   if (error) {
     const message = String(error.message || "").toLowerCase();
@@ -3130,7 +3206,7 @@ function updateEmbedAccess() {
   if (!enabled || !organization) {
     embedPreviewUrlInput.value = "";
     embedCodeInput.value = "";
-    openEmbedPreview.href = "./embed";
+    openEmbedPreview.href = "/n3xra-records/embed.html";
     setEmbedModalOpen(false);
     return;
   }
@@ -3200,7 +3276,7 @@ function renderBillingPlans() {
       detail: `${formatStorageBytes(storageMetric.remaining)} remaining · ${formatStorageBytes(usage?.used?.recordingStorageBytes || 0)} recordings`,
       percent: storageMetric.percent,
       over: storageMetric.over,
-      actionHref: "./storage",
+      actionHref: "/n3xra-records/storage.html",
       actionLabel: "View in Storage",
     }),
     renderUsageItem({
@@ -3802,14 +3878,20 @@ function renderRecentFiles() {
 function renderInvites() {
   inviteList.innerHTML = "";
   if (!inviteCache.length) {
-    inviteList.innerHTML = '<tr><td colspan="5">No active invite codes.</td></tr>';
+    inviteList.innerHTML = '<tr><td colspan="6">No active invitations.</td></tr>';
     return;
   }
 
   inviteCache.forEach((invite) => {
     const row = document.createElement("tr");
+    const recipientName = String(invite.recipient_name || "").trim();
+    const recipientEmail = String(invite.recipient_email || "").trim();
+    const recipient = recipientEmail
+      ? `${recipientName ? `<strong>${escapeHtml(recipientName)}</strong><br>` : ""}<a href="mailto:${escapeHtml(recipientEmail)}">${escapeHtml(recipientEmail)}</a>`
+      : '<span class="records-person-status">Shareable code</span>';
     row.innerHTML = `
       <td><code class="inline">${escapeHtml(invite.code)}</code></td>
+      <td>${recipient}</td>
       <td>${escapeHtml(formatRoleLabel(invite.role))}</td>
       <td>${invite.redeemed_uses}/${invite.max_uses}</td>
       <td>${invite.expires_at ? escapeHtml(new Date(invite.expires_at).toLocaleString()) : "Never"}</td>
@@ -3889,28 +3971,31 @@ function renderContacts() {
   const capabilities = getActiveCapabilities();
   const canManageContacts = capabilities.canManageMembers;
   const canInviteContacts = capabilities.canManageInvites && (getActiveOrganization()?.subscription_tier || "free") === "organization";
-  const accountUserEmails = new Set(
+  const membersByEmail = new Map(
     memberCache
-      .map((member) => String(member.profile?.email || "").trim().toLowerCase())
-      .filter(Boolean)
+      .map((member) => [String(member.profile?.email || "").trim().toLowerCase(), member])
+      .filter(([email]) => Boolean(email))
   );
+  const memberUserIds = new Set(memberCache.map((member) => String(member.user_id || "")).filter(Boolean));
 
   contactList.innerHTML = "";
   if (!contactCache.length) {
-    contactList.innerHTML = '<tr><td colspan="4">No contacts yet.</td></tr>';
+    contactList.innerHTML = '<tr><td colspan="5">No contacts yet.</td></tr>';
     return;
   }
 
   contactCache.forEach((contact) => {
-    const isAccountUser = accountUserEmails.has(String(contact.email || "").trim().toLowerCase());
+    const contactEmail = String(contact.email || "").trim().toLowerCase();
+    const isWorkspaceMember = memberUserIds.has(String(contact.linked_user_id || "")) || membersByEmail.has(contactEmail);
     const row = document.createElement("tr");
     row.innerHTML = `
       <td>${escapeHtml(contact.full_name || "Unnamed contact")}</td>
       <td><a href="mailto:${escapeHtml(contact.email || "")}">${escapeHtml(contact.email || "")}</a></td>
+      <td><span class="records-person-status${isWorkspaceMember ? " is-member" : ""}">${isWorkspaceMember ? "Workspace member" : "Contact only"}</span></td>
       <td>${escapeHtml(contact.notes || "")}</td>
       <td>
         <button class="btn secondary" type="button" data-contact-action="edit" data-contact-id="${escapeHtml(contact.id)}"${canManageContacts ? "" : " disabled"}>Edit</button>
-        <button class="btn secondary" type="button" data-contact-action="invite" data-contact-id="${escapeHtml(contact.id)}"${canInviteContacts && !isAccountUser ? "" : " disabled"}>${isAccountUser ? "Already user" : "Invite as user"}</button>
+        <button class="btn secondary" type="button" data-contact-action="invite" data-contact-id="${escapeHtml(contact.id)}"${canInviteContacts && !isWorkspaceMember ? "" : " disabled"}>${isWorkspaceMember ? "Workspace member" : "Invite as user"}</button>
         <button class="btn secondary" type="button" data-contact-action="delete" data-contact-id="${escapeHtml(contact.id)}"${canManageContacts ? "" : " disabled"}>Delete</button>
       </td>
     `;
@@ -3955,7 +4040,7 @@ async function handleAdminTemplateAction(event) {
   if (!template) return;
 
   if (action === "edit") {
-    window.location.href = `./documents?id=${encodeURIComponent(template.id)}`;
+    window.location.href = `/n3xra-records/documents.html?id=${encodeURIComponent(template.id)}`;
     return;
   }
 
@@ -4150,7 +4235,7 @@ async function openSourceFilePreview(documentId) {
   show(fileModalDownload, !isSupportView() || hasSupportScope("downloads"));
   show(fileModalOpenEditable, Boolean(editableDoc));
   if (editableDoc) {
-    fileModalOpenEditable.href = `./documents?id=${encodeURIComponent(editableDoc.id)}`;
+    fileModalOpenEditable.href = `/n3xra-records/documents.html?id=${encodeURIComponent(editableDoc.id)}`;
     fileModalOpenEditable.textContent = getActiveCapabilities().canEditDocuments ? "Edit" : "Open";
   }
   show(fileModalOriginal, false);
@@ -4190,7 +4275,7 @@ async function openEditableFilePreview(documentId, editableDoc) {
     );
     fileModalDownload.textContent = "Download PDF";
     show(fileModalOpenEditable, true);
-    fileModalOpenEditable.href = `./documents?id=${encodeURIComponent(editableDoc.id)}`;
+    fileModalOpenEditable.href = `/n3xra-records/documents.html?id=${encodeURIComponent(editableDoc.id)}`;
     fileModalOpenEditable.textContent = getActiveCapabilities().canEditDocuments ? "Edit" : "Open";
     show(fileModalOriginal, true);
     setStatus(docsStatus, "");
@@ -4645,6 +4730,29 @@ async function handleCreateAdditionalLibrary(event) {
   setStatus(additionalLibraryStatus, `Library "${nextName}" created.`, "success");
 }
 
+async function saveInviteRecipientMetadata(inviteId, {
+  recipientEmail = "",
+  recipientName = "",
+  sourceContactId = null,
+} = {}) {
+  if (!inviteId) return { supported: true, error: null };
+
+  const { error } = await supabase
+    .from("organization_invites")
+    .update({
+      recipient_email: recipientEmail.trim().toLowerCase() || null,
+      recipient_name: recipientName.trim() || null,
+      source_contact_id: sourceContactId || null,
+    })
+    .eq("id", inviteId);
+
+  if (error && isMissingRecordsPeopleLinkSchemaError(error)) {
+    return { supported: false, error: null };
+  }
+
+  return { supported: true, error };
+}
+
 async function handleCreateInvite(event) {
   event.preventDefault();
   const organization = getActiveOrganization();
@@ -4685,6 +4793,22 @@ async function handleCreateInvite(event) {
   }
 
   const invite = Array.isArray(data) ? data[0] : data;
+  if (invite?.id && recipientEmail) {
+    const metadataResult = await saveInviteRecipientMetadata(invite.id, {
+      recipientEmail,
+      recipientName,
+    });
+    if (metadataResult.error) {
+      await loadInvites();
+      setStatus(
+        createInviteStatus,
+        `Invite code ${invite.code || ""} was created, but the recipient could not be recorded: ${metadataResult.error.message}`,
+        "error"
+      );
+      return;
+    }
+  }
+
   let copiedToClipboard = false;
   if (invite?.code && navigator.clipboard?.writeText) {
     try {
@@ -4777,6 +4901,32 @@ async function handleContactSave(event) {
     return;
   }
 
+  const { data: existingContacts, error: duplicateError } = await supabase
+    .from("organization_contacts")
+    .select("id, full_name, email")
+    .eq("organization_id", organization.id);
+  if (duplicateError) {
+    setStatus(contactStatus, duplicateError.message, "error");
+    return;
+  }
+  const duplicateContact = (existingContacts || []).find(
+    (contact) => contact.id !== contactId
+      && String(contact.email || "").trim().toLowerCase() === payload.email
+  );
+  if (duplicateContact) {
+    setStatus(
+      contactStatus,
+      `${duplicateContact.full_name || "A contact"} already uses this email address.`,
+      "error"
+    );
+    return;
+  }
+
+  const matchingMember = memberCache.find(
+    (member) => String(member.profile?.email || "").trim().toLowerCase() === payload.email
+  );
+  payload.linked_user_id = matchingMember?.user_id || null;
+
   contactSave.disabled = true;
   setStatus(contactStatus, contactId ? "Updating contact..." : "Adding contact...");
 
@@ -4797,7 +4947,11 @@ async function handleContactSave(event) {
   const { error } = await query;
   contactSave.disabled = false;
   if (error) {
-    setStatus(contactStatus, error.message, "error");
+    setStatus(
+      contactStatus,
+      error.code === "23505" ? "A contact with this email address already exists." : error.message,
+      "error"
+    );
     return;
   }
 
@@ -4837,6 +4991,21 @@ async function inviteContactAsUser(contact) {
     return;
   }
 
+  const metadataResult = await saveInviteRecipientMetadata(invite.id, {
+    recipientEmail: contact.email,
+    recipientName: contact.full_name || "",
+    sourceContactId: contact.id,
+  });
+  if (metadataResult.error) {
+    await loadInvites();
+    setStatus(
+      contactStatus,
+      `The invite was created, but it could not be linked to this contact: ${metadataResult.error.message}`,
+      "error"
+    );
+    return;
+  }
+
   try {
     setStatus(contactStatus, `Sending invite to ${contact.email}...`);
     await sendInviteEmailForCode(
@@ -4858,7 +5027,11 @@ async function inviteContactAsUser(contact) {
       },
     });
     await loadInvites();
-    setStatus(contactStatus, `Invite sent to ${contact.email}.`, "success");
+    setStatus(
+      contactStatus,
+      `Invite sent to ${contact.email}. Manage it under Invites & access.`,
+      "success"
+    );
   } catch (error) {
     await loadInvites();
     setStatus(contactStatus, getErrorMessage(error, "Invite code was created, but the email failed to send."), "error");
@@ -5461,17 +5634,23 @@ async function init() {
   desktopAccountViewButtons.forEach((button) => {
     button.addEventListener("click", () => setDesktopAccountView(button.getAttribute("data-records-account-view") || ""));
   });
+  if (document.body.classList.contains("records-account-page")) {
+    desktopManageLibraryToggle?.addEventListener("click", () => {
+      const isOpen = desktopManageLibraryToggle.getAttribute("aria-expanded") === "true";
+      setManageLibraryOpen(!isOpen);
+    });
+  }
   openStorageAccountViewButton?.addEventListener("click", () => {
     if (window.matchMedia("(min-width: 981px)").matches) {
       setDesktopAccountView("storage");
       return;
     }
-    window.location.href = "./storage";
+    window.location.href = "/n3xra-records/storage.html";
   });
   activityActionFilter?.addEventListener("change", loadActivityLogForActiveOrganization);
   adminUsersInviteButton?.addEventListener("click", openInviteCodesFromUsers);
   adminNewTemplateButton?.addEventListener("click", () => {
-    window.location.href = "./documents?new=template";
+    window.location.href = "/n3xra-records/documents.html?new=template";
   });
   adminTemplateList?.addEventListener("click", handleAdminTemplateAction);
   organizationReviewForm?.addEventListener("submit", handleOrganizationReviewSave);

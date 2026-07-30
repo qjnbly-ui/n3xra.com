@@ -75,7 +75,7 @@ accountLink?.addEventListener("click", (event) => {
   if (!token) return;
   event.preventDefault();
   const url = new URL("/account", window.location.origin);
-  url.searchParams.set("next", `/n3xra-records/shared-document?token=${encodeURIComponent(token)}`);
+  url.searchParams.set("next", `/n3xra-records/shared-document.html?token=${encodeURIComponent(token)}`);
   window.location.href = url.href;
 });
 

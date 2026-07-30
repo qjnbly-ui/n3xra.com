@@ -58,7 +58,7 @@ function getPublicPageUrl() {
 
   const organizationId = getResolvedOrganizationId();
   if (organizationId) {
-    const url = new URL("/n3xra-records/embed", window.location.origin);
+    const url = new URL("/n3xra-records/embed.html", window.location.origin);
     url.searchParams.set("org", organizationId);
     return url.href;
   }

@@ -112,6 +112,9 @@ create table if not exists public.organization_invites (
   redeemed_uses integer not null default 0,
   expires_at timestamptz,
   is_disabled boolean not null default false,
+  recipient_email text,
+  recipient_name text,
+  source_contact_id uuid,
   created_by uuid references auth.users (id) on delete set null,
   created_at timestamptz not null default now(),
   constraint organization_invites_role_check
@@ -119,7 +122,12 @@ create table if not exists public.organization_invites (
   constraint organization_invites_max_uses_check
     check (max_uses > 0),
   constraint organization_invites_redeemed_uses_check
-    check (redeemed_uses >= 0 and redeemed_uses <= max_uses)
+    check (redeemed_uses >= 0 and redeemed_uses <= max_uses),
+  constraint organization_invites_recipient_email_check
+    check (
+      recipient_email is null
+      or recipient_email ~* '^[^@[:space:]]+@[^@[:space:]]+[.][^@[:space:]]+$'
+    )
 );
 
 create table if not exists public.organization_contacts (
@@ -128,6 +136,7 @@ create table if not exists public.organization_contacts (
   full_name text not null,
   email text not null,
   notes text,
+  linked_user_id uuid references auth.users (id) on delete set null,
   created_by_user_id uuid references auth.users (id) on delete set null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -135,6 +144,29 @@ create table if not exists public.organization_contacts (
   constraint organization_contacts_full_name_check check (length(trim(full_name)) > 0),
   unique (organization_id, email)
 );
+
+alter table public.organization_invites
+  drop constraint if exists organization_invites_source_contact_id_fkey;
+
+alter table public.organization_invites
+  add constraint organization_invites_source_contact_id_fkey
+  foreign key (source_contact_id)
+  references public.organization_contacts (id)
+  on delete set null;
+
+create index if not exists organization_contacts_linked_user_id_idx
+  on public.organization_contacts (linked_user_id);
+
+create unique index if not exists organization_contacts_organization_email_ci_uidx
+  on public.organization_contacts (organization_id, lower(trim(email)));
+
+create index if not exists organization_invites_recipient_email_idx
+  on public.organization_invites (organization_id, lower(trim(recipient_email)))
+  where recipient_email is not null;
+
+create index if not exists organization_invites_source_contact_id_idx
+  on public.organization_invites (source_contact_id)
+  where source_contact_id is not null;
 
 create table if not exists public.documents (
   id uuid primary key default gen_random_uuid(),
@@ -1127,6 +1159,7 @@ set search_path = public
 as $$
 declare
   current_user_id uuid := auth.uid();
+  current_user_email text;
   invite_record public.organization_invites%rowtype;
   next_member_count integer;
   target_user_limit integer;
@@ -1134,6 +1167,12 @@ begin
   if current_user_id is null then
     raise exception 'Authentication required.';
   end if;
+
+  select lower(trim(coalesce(profile.email, auth.jwt() ->> 'email', '')))
+  into current_user_email
+  from (select 1) as seed
+  left join public.profiles as profile
+    on profile.id = current_user_id;
 
   select *
   into invite_record
@@ -1152,7 +1191,18 @@ begin
     where organization_id = invite_record.organization_id
       and user_id = current_user_id
   ) then
-    return jsonb_build_object('ok', true, 'already_member', true, 'organization_id', invite_record.organization_id);
+    update public.organization_contacts
+    set linked_user_id = current_user_id
+    where organization_id = invite_record.organization_id
+      and current_user_email <> ''
+      and lower(trim(email)) = current_user_email
+      and linked_user_id is distinct from current_user_id;
+
+    return jsonb_build_object(
+      'ok', true,
+      'already_member', true,
+      'organization_id', invite_record.organization_id
+    );
   end if;
 
   if invite_record.is_disabled = true
@@ -1187,9 +1237,20 @@ begin
   set redeemed_uses = redeemed_uses + 1
   where id = invite_record.id;
 
+  update public.organization_contacts
+  set linked_user_id = current_user_id
+  where organization_id = invite_record.organization_id
+    and current_user_email <> ''
+    and lower(trim(email)) = current_user_email
+    and linked_user_id is distinct from current_user_id;
+
   return jsonb_build_object('ok', true, 'organization_id', invite_record.organization_id);
 end;
 $$;
+
+revoke execute on function public.redeem_invite_code(text) from public;
+revoke execute on function public.redeem_invite_code(text) from anon;
+grant execute on function public.redeem_invite_code(text) to authenticated;
 
 create or replace function public.create_organization_invite(
   input_organization_id uuid,

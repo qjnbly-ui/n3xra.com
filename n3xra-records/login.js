@@ -512,7 +512,7 @@ async function handleForgotPassword() {
 
   setStatus("Sending password reset...");
 
-  const redirectTo = getAppUrl("/n3xra-records/reset-password");
+  const redirectTo = getAppUrl("/n3xra-records/reset-password.html");
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
     redirectTo,
   });

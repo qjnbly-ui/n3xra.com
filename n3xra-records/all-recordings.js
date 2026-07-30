@@ -397,7 +397,7 @@ function renderReferenceList(listEl, emptyEl, references = [], options = {}) {
   listEl.innerHTML = sorted.map((reference) => {
     const doc = reference.app_document || getReferenceDocument(reference.app_document_id);
     const title = doc?.title || "Untitled document";
-    const href = `/n3xra-records/documents?id=${encodeURIComponent(reference.app_document_id)}`;
+    const href = `/n3xra-records/documents.html?id=${encodeURIComponent(reference.app_document_id)}`;
     const showOpen = options.showOpen !== false;
     const removeAttr = options.canRemove
       ? ` <button class="recording-reference-remove" type="button" data-reference-remove-id="${escapeHtml(reference.id || reference.app_document_id)}">Remove</button>`
@@ -430,7 +430,7 @@ function buildRetryRecordingHref(recording) {
   if (recording?.title) params.set("retryTitle", recording.title);
   if (recording?.id) params.set("retryRecording", recording.id);
   params.set("openUpload", "1");
-  return `./meeting-notes?${params.toString()}`;
+  return `/n3xra-records/meeting-notes/?${params.toString()}`;
 }
 
 function retryRecording(recordingId) {
@@ -985,7 +985,7 @@ async function previewReferenceDocument(reference) {
     recordingDetailReferencePreviewTitle.textContent = doc?.title || "Referenced document";
   }
   if (recordingDetailReferencePreviewOpen) {
-    recordingDetailReferencePreviewOpen.href = `/n3xra-records/documents?id=${encodeURIComponent(reference.app_document_id)}`;
+    recordingDetailReferencePreviewOpen.href = `/n3xra-records/documents.html?id=${encodeURIComponent(reference.app_document_id)}`;
   }
   if (recordingDetailReferencePreviewRemove) {
     recordingDetailReferencePreviewRemove.dataset.referenceRemoveId = reference.id || "";
@@ -1121,12 +1121,12 @@ function populateRecordingDetails(recording) {
   show(recordingDetailRetry, isRetryableRecording(recording));
   show(recordingDetailTranscriptDocument, Boolean(recording.document_id));
   if (recording.document_id) {
-    recordingDetailTranscriptDocument.href = `./files?id=${encodeURIComponent(recording.document_id)}`;
+    recordingDetailTranscriptDocument.href = `/n3xra-records/files.html?id=${encodeURIComponent(recording.document_id)}`;
   }
   const reviewDocumentId = recording.final_document_id || recording.ai_draft_document_id || "";
   show(recordingDetailAiDraft, Boolean(reviewDocumentId));
   if (reviewDocumentId) {
-    recordingDetailAiDraft.href = `./documents?id=${encodeURIComponent(reviewDocumentId)}`;
+    recordingDetailAiDraft.href = `/n3xra-records/documents.html?id=${encodeURIComponent(reviewDocumentId)}`;
     recordingDetailAiDraft.textContent = "Finalize and send document";
   }
   renderDetailReferences(recording);

@@ -1183,7 +1183,7 @@ async function sendActiveDocument(event) {
   documentSendSubmit.disabled = true;
 
   try {
-    const appLink = `${window.location.origin}/n3xra-records/documents?id=${encodeURIComponent(activeDocumentId)}&view=pdf`;
+    const appLink = `${window.location.origin}/n3xra-records/documents.html?id=${encodeURIComponent(activeDocumentId)}&view=pdf`;
     const response = await fetch(`${config.supabaseUrl}/functions/v1/send-app-document`, {
       method: "POST",
       headers: {

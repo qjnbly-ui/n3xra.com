@@ -184,7 +184,7 @@ function renderMessageRecipients() {
       source: "contact",
       title: "Contacts",
       recipients: messageRecipients.filter((recipient) => recipient.source === "contact"),
-      collapsed: false,
+      collapsed: true,
     },
   ].filter((group) => group.recipients.length);
 
@@ -195,7 +195,7 @@ function renderMessageRecipients() {
     wrapper.innerHTML = `
       <summary class="document-send-recipient-summary">
         <span>${escapeHtml(group.title)} <small>${group.recipients.length}</small></span>
-        ${group.source === "account_user" ? `<button class="btn secondary document-send-select-all" type="button" data-recipient-action="select-all" data-recipient-source="${escapeHtml(group.source)}">Select all</button>` : ""}
+        <button class="btn secondary document-send-select-all" type="button" data-recipient-action="select-all" data-recipient-source="${escapeHtml(group.source)}">Select all</button>
       </summary>
     `;
 
