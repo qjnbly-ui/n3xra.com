@@ -466,7 +466,11 @@ async function refreshPhoneMeetingStatus() {
         setStatus(recordingStatus, "Call ended. Securing the phone recording...");
       } else if (nextDetails.status === "recording_ready") {
         setRecorderState("Saved", "The phone recording is attached to this meeting note.");
-        setStatus(recordingStatus, "Phone recording saved. Select Finish meeting note when your notes are ready.", "success");
+        if (getMeetingCaptureMode() === "phone") {
+          await finishPhoneMeetingAfterRecordingSaved();
+          return;
+        }
+        setStatus(recordingStatus, "Phone recording saved. Finish the app recording when your notes are ready.", "success");
         await loadRecordings();
       } else if (nextDetails.status === "failed") {
         setRecorderState("Needs attention", nextDetails.copy);
@@ -532,6 +536,10 @@ async function recoverRecentPhoneMeetingSession() {
   lastPhoneMeetingStatus = "";
   renderMeetingCaptureUi();
   setRecordPanelOpen(true);
+  if (String(activePhoneMeetingSession.status || "").toLowerCase() === "recording_ready" && getMeetingCaptureMode() === "phone") {
+    await finishPhoneMeetingAfterRecordingSaved();
+    return;
+  }
   startPhoneMeetingPolling();
 }
 
@@ -2856,6 +2864,24 @@ async function finishActivePhoneMeetingForm(message) {
   setStatus(recordingStatus, message, "success");
   await loadRecordings();
   if (recordingId) await openRecordingDetail(recordingId);
+}
+
+async function finishPhoneMeetingAfterRecordingSaved() {
+  if (!activePhoneMeetingSession || !activeRecordingId || activePhoneMeetingSession.status !== "recording_ready") return;
+  isRecordingWorkflowActive = true;
+  updateControls();
+  try {
+    await updateMeetingRecording(activeRecordingId, {
+      title: recordingTitleInput.value.trim(),
+      ...getCurrentNotesPayload(),
+    });
+    await finishActivePhoneMeetingForm("Phone meeting saved. The recording and notes are ready to review.");
+  } catch (error) {
+    setStatus(recordingStatus, getErrorMessage(error, "The phone recording is saved, but the meeting form could not be finalized."), "error");
+  } finally {
+    isRecordingWorkflowActive = false;
+    updateControls();
+  }
 }
 
 async function completePhoneMeetingWithoutRecording() {
