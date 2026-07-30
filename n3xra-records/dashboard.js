@@ -3600,7 +3600,12 @@ function renderProfile() {
   if (uploadIsPublicInput) uploadIsPublicInput.disabled = !capabilities.canUploadDocuments || !hasEmbeddedAccess();
 
   show(accountNoLibraryNotice, !hasLibraryAccess);
-  show(librarySettingsCard, !supportMode);
+  const shouldShowProfileSummary = !supportMode
+    && (
+      !window.matchMedia("(min-width: 981px)").matches
+      || getRequestedDesktopAccountView() === "profile"
+    );
+  show(librarySettingsCard, shouldShowProfileSummary);
   show(accountLibraryContext, hasLibraryAccess);
   show(accountTierItem, canSeePlanMeta);
   show(accountStatusItem, canSeePlanMeta);
