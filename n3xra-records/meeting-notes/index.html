@@ -126,30 +126,39 @@
             </div>
 
             <fieldset class="meeting-source-field" aria-describedby="meeting-source-note">
-              <legend>Meeting sources</legend>
-              <p class="field-note">Choose every source you want connected to this one meeting note. The transcript, AI draft, and final document stay together.</p>
-              <label class="meeting-source-option">
-                <input id="meeting-source-browser" type="checkbox" checked>
-                <span>
-                  <strong>Browser microphone</strong>
-                  <small>Record audio in this browser.</small>
-                </span>
-              </label>
-              <label class="meeting-source-option">
-                <input id="meeting-source-phone" type="checkbox">
-                <span>
-                  <strong>Phone call</strong>
-                  <small>Add a phone recording to this same meeting when Phone Meetings is active.</small>
-                </span>
-              </label>
-              <p class="field-note" id="meeting-source-note">Phone Meetings is not active for this library yet. You can still prepare the meeting note and add browser or uploaded audio.</p>
+              <legend>Capture this meeting</legend>
+              <p class="field-note">Choose one method. Pick both only when you want phone and app audio attached to the same meeting note.</p>
+              <div class="meeting-source-options" role="radiogroup" aria-label="Meeting capture method">
+                <label class="meeting-source-option">
+                  <input id="meeting-source-phone" name="meeting-source" type="radio" value="phone">
+                  <span>
+                    <strong>Phone call</strong>
+                    <small>Call the N3XRA number and attach that recording to this meeting.</small>
+                  </span>
+                </label>
+                <label class="meeting-source-option">
+                  <input id="meeting-source-browser" name="meeting-source" type="radio" value="app" checked>
+                  <span>
+                    <strong>App recording</strong>
+                    <small>Record in this browser or upload an existing audio file.</small>
+                  </span>
+                </label>
+                <label class="meeting-source-option">
+                  <input id="meeting-source-both" name="meeting-source" type="radio" value="both">
+                  <span>
+                    <strong>Both</strong>
+                    <small>Keep the phone call and app audio together in one meeting note.</small>
+                  </span>
+                </label>
+              </div>
+              <p class="field-note" id="meeting-source-note">App recording is selected. Choose Phone call when the meeting is only by phone.</p>
             </fieldset>
 
             <section class="phone-meeting-start hidden" id="phone-meeting-start" aria-live="polite">
               <div>
-                <p class="settings-modal-kicker">Internal phone meeting test</p>
-                <h4>Start a secure dial-in call</h4>
-                <p>Create this meeting note, then use the private code to connect the phone call to it. Every caller hears the recording notice before recording begins.</p>
+                <p class="settings-modal-kicker">Phone call</p>
+                <h4>Start a phone meeting</h4>
+                <p>A private code connects this call to the meeting note. Every caller hears the recording notice before recording begins.</p>
               </div>
               <button class="btn secondary" id="start-phone-meeting-button" type="button">Start phone call</button>
               <div class="phone-meeting-dial-in hidden" id="phone-meeting-dial-in">
@@ -170,26 +179,31 @@
               </div>
             </section>
 
-            <div class="recording-stats" aria-live="polite">
-              <div class="recording-stat">
-                <span class="recording-stat-label">Recorder state</span>
-                <p class="recording-stat-value" id="recorder-state-label">Idle</p>
+            <section class="browser-recording-workflow" id="browser-recording-workflow" aria-label="App recording">
+              <div class="recording-stats" aria-live="polite">
+                <div class="recording-stat">
+                  <span class="recording-stat-label">Recorder state</span>
+                  <p class="recording-stat-value" id="recorder-state-label">Idle</p>
+                </div>
+                <div class="recording-stat">
+                  <span class="recording-stat-label">Duration</span>
+                  <p class="recording-stat-value" id="recording-duration">00:00</p>
+                </div>
+                <div class="recording-stat">
+                  <span class="recording-stat-label">Upload</span>
+                  <p class="recording-stat-value" id="upload-state-value">Not started</p>
+                </div>
               </div>
-              <div class="recording-stat">
-                <span class="recording-stat-label">Duration</span>
-                <p class="recording-stat-value" id="recording-duration">00:00</p>
-              </div>
-              <div class="recording-stat">
-                <span class="recording-stat-label">Upload</span>
-                <p class="recording-stat-value" id="upload-state-value">Not started</p>
-              </div>
-            </div>
 
-            <div class="recording-controls">
-              <button class="btn" id="start-recording-button" type="button">Start recording</button>
-              <button class="btn secondary" id="upload-recording-button" type="button">Upload recording</button>
-              <button class="btn secondary hidden" id="pause-recording-button" type="button" disabled>Pause recording</button>
-              <button class="btn secondary hidden" id="stop-recording-button" type="button" disabled>Stop recording</button>
+              <div class="recording-controls">
+                <button class="btn" id="start-recording-button" type="button">Start app recording</button>
+                <button class="btn secondary" id="upload-recording-button" type="button">Upload recording</button>
+                <button class="btn secondary hidden" id="pause-recording-button" type="button" disabled>Pause recording</button>
+                <button class="btn secondary hidden" id="stop-recording-button" type="button" disabled>Stop recording</button>
+              </div>
+            </section>
+
+            <div class="meeting-note-actions">
               <button class="btn secondary" id="save-recording-button" type="button" disabled>Save meeting note</button>
             </div>
 

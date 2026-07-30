@@ -384,6 +384,12 @@ a { color: inherit; }
   color: var(--teal);
 }
 
+.meeting-source-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
 .meeting-source-option {
   display: flex;
   gap: 0.7rem;
@@ -394,6 +400,17 @@ a { color: inherit; }
   background: var(--white);
   color: var(--ink);
   cursor: pointer;
+}
+
+.meeting-source-option.is-selected {
+  border-color: var(--teal);
+  background: #f2fbf8;
+  box-shadow: 0 0 0 1px rgba(23, 111, 102, 0.12);
+}
+
+.meeting-source-option.is-unavailable {
+  opacity: 0.52;
+  cursor: not-allowed;
 }
 
 .meeting-source-option input {
@@ -415,6 +432,17 @@ a { color: inherit; }
 .meeting-source-option small {
   color: var(--slate);
   font-size: 0.8rem;
+}
+
+.browser-recording-workflow {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.meeting-note-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
 }
 
 .phone-meeting-start {
@@ -483,6 +511,10 @@ a { color: inherit; }
 }
 
 @media (max-width: 700px) {
+  .meeting-source-options {
+    grid-template-columns: 1fr;
+  }
+
   .phone-meeting-start {
     grid-template-columns: 1fr;
   }
