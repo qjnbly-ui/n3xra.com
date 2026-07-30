@@ -409,11 +409,13 @@ function renderPhoneMeetingSession() {
   const showPhoneStart = Boolean(meetingUsesPhoneSource() && phoneMeetingsAreActive());
   show(phoneMeetingStart, showPhoneStart);
   if (!showPhoneStart || !activePhoneMeetingSession) {
+    show(startPhoneMeetingButton, showPhoneStart);
     show(phoneMeetingDialIn, false);
     show(retryPhoneMeetingTransferButton, false);
     show(completePhoneMeetingWithoutRecordingButton, false);
     return;
   }
+  show(startPhoneMeetingButton, false);
   phoneMeetingNumber.textContent = activePhoneMeetingSession.dial_in_number || "-";
   phoneMeetingCode.textContent = activePhoneMeetingSession.meeting_code || "-";
   const expiry = activePhoneMeetingSession.expires_at ? new Date(activePhoneMeetingSession.expires_at) : null;
