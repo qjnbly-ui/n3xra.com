@@ -24,6 +24,14 @@ type EnabledPhoneMeetingSettings = PhoneMeetingSettings & {
 };
 
 const TWIML_HEADERS = { "Content-Type": "text/xml; charset=utf-8" };
+// The browser starts a phone session through supabase-js, while Twilio posts
+// server-to-server callbacks. Session creation is still authorized inside the
+// function; these headers simply let the Records app receive that response.
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
 const ACTIVE_STATUSES = new Set(["ready_for_internal_test", "active"]);
 
 function getServiceRoleKey() {
@@ -495,8 +503,12 @@ async function storeCompletedRecording(
 }
 
 Deno.serve(async (request) => {
+  if (request.method === "OPTIONS") {
+    return new Response("ok", { headers: CORS_HEADERS });
+  }
+
   if (request.method !== "POST") {
-    return new Response("Method not allowed", { status: 405, headers: { Allow: "POST" } });
+    return new Response("Method not allowed", { status: 405, headers: { ...CORS_HEADERS, Allow: "POST" } });
   }
 
   try {
@@ -513,9 +525,9 @@ Deno.serve(async (request) => {
     const isControlRequest = request.headers.get("content-type")?.includes("application/json") && !request.headers.get("x-twilio-signature");
     if (isControlRequest) {
       const body = await request.json().catch(() => null) as { action?: string; organization_id?: string; meeting_recording_id?: string } | null;
-      if (body?.action !== "start_session") return new Response("Unsupported action", { status: 400 });
+      if (body?.action !== "start_session") return new Response("Unsupported action", { status: 400, headers: CORS_HEADERS });
       const result = await startPhoneMeetingSession(request, admin, body);
-      return Response.json(result);
+      return Response.json(result, { headers: CORS_HEADERS });
     }
 
     const signature = request.headers.get("x-twilio-signature");
@@ -615,6 +627,6 @@ Deno.serve(async (request) => {
     console.error("Twilio Phone Meetings callback failed", error instanceof Error ? error.message : error);
     // A non-2xx response tells Twilio to retry. This is essential if the copy
     // succeeded but Twilio deletion did not, so the source cannot be left behind.
-    return new Response("Temporary processing error", { status: 500 });
+    return new Response("Temporary processing error", { status: 500, headers: CORS_HEADERS });
   }
 });
