@@ -105,7 +105,7 @@ async function verifyTwilioSignature(url: string, parameters: URLSearchParams, r
   const names = [...new Set([...parameters.keys()])].sort();
   let payload = url;
   for (const name of names) {
-    for (const value of parameters.getAll(name)) {
+    for (const value of parameters.getAll(name).sort()) {
       payload += `${name}${value}`;
     }
   }
@@ -119,6 +119,28 @@ async function verifyTwilioSignature(url: string, parameters: URLSearchParams, r
   );
   const signature = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(payload));
   return secureEqual(base64Encode(new Uint8Array(signature)), receivedSignature);
+}
+
+async function verifyTwilioRequestSignature(request: Request, parameters: URLSearchParams, receivedSignature: string, authToken: string) {
+  const requestUrl = new URL(request.url);
+  const forwardedHost = request.headers.get("x-forwarded-host")?.split(",")[0]?.trim();
+  const origins = new Set([requestUrl.origin]);
+  if (forwardedHost) origins.add(`https://${forwardedHost}`);
+
+  // Twilio signs the literal webhook URL saved in its Console. Supabase may
+  // normalize an inbound URL with or without a trailing slash, so validate
+  // both forms of the same trusted endpoint rather than dropping validation.
+  const candidateUrls = new Set<string>();
+  for (const origin of origins) {
+    const path = requestUrl.pathname.replace(/\/$/, "");
+    candidateUrls.add(`${origin}${path}${requestUrl.search}`);
+    candidateUrls.add(`${origin}${path}/${requestUrl.search}`);
+  }
+
+  for (const candidateUrl of candidateUrls) {
+    if (await verifyTwilioSignature(candidateUrl, parameters, receivedSignature, authToken)) return true;
+  }
+  return false;
 }
 
 function normalizePhoneNumber(value: string | null) {
@@ -533,7 +555,7 @@ Deno.serve(async (request) => {
     const signature = request.headers.get("x-twilio-signature");
     const rawBody = await request.text();
     const parameters = new URLSearchParams(rawBody);
-    if (!signature || !(await verifyTwilioSignature(request.url, parameters, signature, authToken))) {
+    if (!signature || !(await verifyTwilioRequestSignature(request, parameters, signature, authToken))) {
       return new Response("Invalid signature", { status: 403 });
     }
 
