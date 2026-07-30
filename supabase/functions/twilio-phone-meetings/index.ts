@@ -616,6 +616,59 @@ async function completePhoneMeetingWithoutRecording(
   };
 }
 
+async function endPhoneMeetingCall(
+  request: Request,
+  admin: ReturnType<typeof createClient>,
+  input: { organization_id?: string; meeting_recording_id?: string; session_id?: string }
+) {
+  const session = await loadAuthorizedControlSession(request, admin, input);
+  if (!session.twilio_call_sid) {
+    throw new Error("The phone call has not connected yet.");
+  }
+  if (!["connecting", "in_progress"].includes(session.status)) {
+    return {
+      session_id: session.id,
+      meeting_recording_id: session.meeting_recording_id,
+      status: session.status,
+    };
+  }
+
+  const accountSid = Deno.env.get("TWILIO_ACCOUNT_SID")?.trim();
+  const authToken = Deno.env.get("TWILIO_AUTH_TOKEN")?.trim();
+  if (!accountSid || !authToken) throw new Error("Twilio server credentials are incomplete.");
+
+  const response = await fetch(
+    `https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(accountSid)}/Calls/${encodeURIComponent(session.twilio_call_sid)}.json`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: basicAuthorization(accountSid, authToken),
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({ Status: "completed" }),
+    }
+  );
+  if (!response.ok) {
+    const responseText = await response.text();
+    console.error("Twilio call termination failed", response.status, responseText.slice(0, 500));
+    throw new Error("Twilio could not end the phone call. Hang up from the phone and the meeting will still save automatically.");
+  }
+
+  const requestedAt = new Date().toISOString();
+  await updateSession(admin, session.id, {
+    metadata: {
+      ...(session.metadata || {}),
+      endRequestedAt: requestedAt,
+    },
+  });
+  return {
+    session_id: session.id,
+    meeting_recording_id: session.meeting_recording_id,
+    status: session.status,
+    end_requested: true,
+  };
+}
+
 async function storeCompletedRecording(
   admin: ReturnType<typeof createClient>,
   session: PhoneMeetingSession,
@@ -866,6 +919,8 @@ Deno.serve(async (request) => {
         result = await updatePhoneMeetingSettings(request, admin, body);
       } else if (body?.action === "complete_without_recording") {
         result = await completePhoneMeetingWithoutRecording(request, admin, body);
+      } else if (body?.action === "end_call") {
+        result = await endPhoneMeetingCall(request, admin, body);
       } else if (body?.action === "retry_recording_transfer") {
         result = await retryPhoneMeetingTransfer(request, admin, body);
       } else {

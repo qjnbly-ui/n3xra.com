@@ -1802,7 +1802,7 @@ for each row execute procedure public.set_updated_at();
 
 drop trigger if exists phone_meeting_sessions_queue_retention_job on public.phone_meeting_sessions;
 create trigger phone_meeting_sessions_queue_retention_job
-after insert or update of retention_until, meeting_recording_id, status
+after insert or update of retention_until, status
 on public.phone_meeting_sessions
 for each row execute function public.queue_phone_meeting_retention_job();
 
