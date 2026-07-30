@@ -365,6 +365,113 @@ a { color: inherit; }
   gap: 0.38rem;
 }
 
+.meeting-source-field {
+  display: grid;
+  gap: 0.65rem;
+  margin: 0;
+  padding: 0.95rem;
+  border: 1px solid rgba(15, 22, 32, 0.12);
+  border-radius: var(--radius-sm);
+  background: rgba(248, 250, 252, 0.72);
+}
+
+.meeting-source-field legend {
+  padding: 0;
+  font-size: 0.76rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--teal);
+}
+
+.meeting-source-option {
+  display: flex;
+  gap: 0.7rem;
+  align-items: flex-start;
+  padding: 0.75rem 0.8rem;
+  border: 1px solid rgba(15, 22, 32, 0.1);
+  border-radius: 12px;
+  background: var(--white);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.meeting-source-option input {
+  width: 1.1rem;
+  height: 1.1rem;
+  margin: 0.12rem 0 0;
+  accent-color: var(--teal);
+}
+
+.meeting-source-option span {
+  display: grid;
+  gap: 0.16rem;
+}
+
+.meeting-source-option strong {
+  font-size: 0.9rem;
+}
+
+.meeting-source-option small {
+  color: var(--slate);
+  font-size: 0.8rem;
+}
+
+.phone-meeting-start {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1rem 1.5rem;
+  align-items: start;
+  padding: 1.1rem 1.2rem;
+  border: 1px solid #b9ddd6;
+  border-radius: 14px;
+  background: #f4fbf9;
+}
+
+.phone-meeting-start h4 {
+  margin: .15rem 0 .35rem;
+  color: var(--ink);
+}
+
+.phone-meeting-start p {
+  margin: 0;
+}
+
+.phone-meeting-dial-in {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: auto 1fr auto 1fr;
+  gap: .45rem .75rem;
+  align-items: center;
+  padding-top: 1rem;
+  border-top: 1px solid #cbe4df;
+}
+
+.phone-meeting-dial-in strong {
+  font-size: 1.1rem;
+  letter-spacing: .03em;
+}
+
+.phone-meeting-dial-in .field-note {
+  grid-column: 1 / -1;
+  margin-top: .25rem;
+}
+
+@media (max-width: 700px) {
+  .phone-meeting-start {
+    grid-template-columns: 1fr;
+  }
+
+  .phone-meeting-start .btn {
+    width: 100%;
+  }
+
+  .phone-meeting-dial-in {
+    grid-template-columns: 1fr;
+    gap: .2rem;
+  }
+}
+
 .field label,
 .field-title {
   font-size: 0.76rem;

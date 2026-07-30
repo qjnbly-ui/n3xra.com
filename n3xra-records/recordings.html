@@ -125,6 +125,42 @@
               <p class="field-note">Choose a template to start from, or choose blank notes if no template fits.</p>
             </div>
 
+            <fieldset class="meeting-source-field" aria-describedby="meeting-source-note">
+              <legend>Meeting sources</legend>
+              <p class="field-note">Choose every source you want connected to this one meeting note. The transcript, AI draft, and final document stay together.</p>
+              <label class="meeting-source-option">
+                <input id="meeting-source-browser" type="checkbox" checked>
+                <span>
+                  <strong>Browser microphone</strong>
+                  <small>Record audio in this browser.</small>
+                </span>
+              </label>
+              <label class="meeting-source-option">
+                <input id="meeting-source-phone" type="checkbox">
+                <span>
+                  <strong>Phone call</strong>
+                  <small>Add a phone recording to this same meeting when Phone Meetings is active.</small>
+                </span>
+              </label>
+              <p class="field-note" id="meeting-source-note">Phone Meetings is not active for this library yet. You can still prepare the meeting note and add browser or uploaded audio.</p>
+            </fieldset>
+
+            <section class="phone-meeting-start hidden" id="phone-meeting-start" aria-live="polite">
+              <div>
+                <p class="settings-modal-kicker">Internal phone meeting test</p>
+                <h4>Start a secure dial-in call</h4>
+                <p>Create this meeting note, then use the private code to connect the phone call to it. Every caller hears the recording notice before recording begins.</p>
+              </div>
+              <button class="btn secondary" id="start-phone-meeting-button" type="button">Start phone call</button>
+              <div class="phone-meeting-dial-in hidden" id="phone-meeting-dial-in">
+                <span class="account-label">Dial-in number</span>
+                <strong id="phone-meeting-number">-</strong>
+                <span class="account-label">Meeting code</span>
+                <strong id="phone-meeting-code">-</strong>
+                <p class="field-note" id="phone-meeting-expires">This code expires in two hours. Merge this call into an existing phone call when needed.</p>
+              </div>
+            </section>
+
             <div class="recording-stats" aria-live="polite">
               <div class="recording-stat">
                 <span class="recording-stat-label">Recorder state</span>

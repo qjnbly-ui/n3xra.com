@@ -33,3 +33,6 @@ verify_jwt = false
 
 [functions.operations-stripe-sync]
 verify_jwt = false
+
+[functions.twilio-phone-meetings]
+verify_jwt = false
