@@ -195,7 +195,7 @@ function renderMessageRecipients() {
     wrapper.innerHTML = `
       <summary class="document-send-recipient-summary">
         <span>${escapeHtml(group.title)} <small>${group.recipients.length}</small></span>
-        <button class="btn secondary document-send-select-all" type="button" data-recipient-action="select-all" data-recipient-source="${escapeHtml(group.source)}">Select all</button>
+        <button class="btn secondary document-send-select-all" type="button" data-recipient-action="toggle-all" data-recipient-source="${escapeHtml(group.source)}" aria-pressed="false">Select all</button>
       </summary>
     `;
 
@@ -217,21 +217,45 @@ function renderMessageRecipients() {
 
     wrapper.append(options);
     messageSendContactList.append(wrapper);
+    updateRecipientGroupSelectionState(wrapper);
   });
 }
 
+function updateRecipientGroupSelectionState(group) {
+  const inputs = Array.from(group.querySelectorAll("input[type='checkbox'][data-recipient-source]"));
+  const button = group.querySelector("[data-recipient-action='toggle-all']");
+  if (!button) return;
+
+  const allSelected = inputs.length > 0 && inputs.every((input) => input.checked);
+  button.textContent = allSelected ? "Deselect all" : "Select all";
+  button.setAttribute("aria-pressed", String(allSelected));
+}
+
+function updateRecipientGroupSelectionButtons() {
+  messageSendContactList.querySelectorAll(".document-send-recipient-group").forEach(updateRecipientGroupSelectionState);
+}
+
 function handleRecipientListClick(event) {
-  const button = event.target instanceof Element ? event.target.closest("[data-recipient-action='select-all']") : null;
+  const button = event.target instanceof Element ? event.target.closest("[data-recipient-action='toggle-all']") : null;
   if (!button) return;
   event.preventDefault();
   event.stopPropagation();
-  const source = button.getAttribute("data-recipient-source") || "";
   const group = button.closest(".document-send-recipient-group");
   if (!group) return;
   group.open = true;
-  messageSendContactList.querySelectorAll("input[type='checkbox'][data-recipient-source]").forEach((input) => {
-    if (input.getAttribute("data-recipient-source") === source) input.checked = true;
+  const inputs = Array.from(group.querySelectorAll("input[type='checkbox'][data-recipient-source]"));
+  const shouldSelect = !inputs.every((input) => input.checked);
+  inputs.forEach((input) => {
+    input.checked = shouldSelect;
   });
+  updateRecipientGroupSelectionState(group);
+}
+
+function handleRecipientSelectionChange(event) {
+  const input = event.target instanceof HTMLInputElement ? event.target : null;
+  if (!input || input.type !== "checkbox") return;
+  const group = input.closest(".document-send-recipient-group");
+  if (group) updateRecipientGroupSelectionState(group);
 }
 
 function getSelectedRecipients() {
@@ -353,6 +377,7 @@ function resetMessageForm({ clearStatus = true } = {}) {
   messageSendContactList.querySelectorAll("input[type='checkbox']").forEach((input) => {
     input.checked = false;
   });
+  updateRecipientGroupSelectionButtons();
   if (clearStatus) setStatus(messageStatus, "");
 }
 
@@ -447,6 +472,7 @@ async function init() {
   });
   activeOrganizationSelect.addEventListener("change", handleOrganizationChange);
   messageSendContactList.addEventListener("click", handleRecipientListClick);
+  messageSendContactList.addEventListener("change", handleRecipientSelectionChange);
   messageForm.addEventListener("submit", sendMessage);
   messageReset.addEventListener("click", resetMessageForm);
 
