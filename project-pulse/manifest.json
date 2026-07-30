@@ -2,39 +2,39 @@
   "schemaVersion": 1,
   "name": "N3XRA Project Pulse",
   "visibility": "public-safe",
-  "generatedAt": "2026-07-27T16:26:39.349Z",
-  "updatedAt": "2026-07-27T08:26:56-07:00",
-  "commit": "0bacbe0",
+  "generatedAt": "2026-07-30T19:19:08.203Z",
+  "updatedAt": "2026-07-30T12:11:06-07:00",
+  "commit": "a880b13",
   "summary": {
-    "statement": "N3XRA is a connected technology platform comprising approximately 125,000 lines of source code across customer experiences, software products, APIs, database systems, administrative tools, and operational infrastructure.",
-    "sourceFiles": 371,
-    "sourceLines": 124936,
+    "statement": "N3XRA is a connected technology platform comprising approximately 132,000 lines of source code across customer experiences, software products, APIs, database systems, administrative tools, and operational infrastructure.",
+    "sourceFiles": 385,
+    "sourceLines": 131839,
     "products": 7,
-    "pages": 95,
+    "pages": 96,
     "apiFunctions": 54,
-    "edgeFunctions": 18,
-    "databaseMigrations": 80
+    "edgeFunctions": 21,
+    "databaseMigrations": 88
   },
   "sourceBreakdown": {
     "css": {
       "files": 25,
-      "lines": 27052
+      "lines": 28448
     },
     "html": {
-      "files": 95,
-      "lines": 28422
+      "files": 96,
+      "lines": 28869
     },
     "js": {
-      "files": 142,
-      "lines": 50879
+      "files": 144,
+      "lines": 52998
     },
     "sql": {
-      "files": 88,
-      "lines": 12444
+      "files": 96,
+      "lines": 13805
     },
     "ts": {
-      "files": 21,
-      "lines": 6139
+      "files": 24,
+      "lines": 7719
     }
   },
   "products": [
@@ -48,7 +48,7 @@
       "id": "records",
       "name": "N3XRA Records",
       "route": "/records/",
-      "summary": "Searchable records, documents, meeting notes, public access, organization workspaces, and support controls."
+      "summary": "Searchable records, documents, communication, meeting notes, phone-connected meeting capture, organization workspaces, and access controls."
     },
     {
       "id": "utilities",
@@ -87,6 +87,8 @@
     "Administrative workspaces",
     "Website project lifecycle",
     "Records and document systems",
+    "Phone-connected meeting workflows",
+    "Financial operations and reporting",
     "Subscriptions and billing",
     "Partner and referral programs",
     "Notifications and support",
@@ -94,6 +96,31 @@
     "Company governance planning"
   ],
   "recentCapabilities": [
+    {
+      "date": "2026-07-30",
+      "title": "Phone meeting usage and retention controls",
+      "summary": "N3XRA Records added organization-level usage reporting and protected retention infrastructure for phone meeting recordings."
+    },
+    {
+      "date": "2026-07-30",
+      "title": "Phone-connected Records meetings",
+      "summary": "Eligible Records organizations can connect telephone calls to the existing meeting workflow for recordings, transcripts, notes, and finalized minutes."
+    },
+    {
+      "date": "2026-07-29",
+      "title": "Refined Records workspace",
+      "summary": "Records gained clearer desktop navigation, organized library administration, improved account pages, and a more focused communication workflow."
+    },
+    {
+      "date": "2026-07-27",
+      "title": "N3XRA Operations",
+      "summary": "N3XRA added an internal financial operations workspace for invoices, expenses, ledger activity, banking records, reporting, and audit review."
+    },
+    {
+      "date": "2026-07-27",
+      "title": "Loan Tracker",
+      "summary": "N3XRA introduced a private loan workspace for payment tracking, payoff comparisons, amortization schedules, controlled access, and exports."
+    },
     {
       "date": "2026-07-25",
       "title": "Ownership update interest flow",

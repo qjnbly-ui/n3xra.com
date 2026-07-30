@@ -27,7 +27,7 @@ const PRODUCTS = [
     id: "records",
     name: "N3XRA Records",
     route: "/records/",
-    summary: "Searchable records, documents, meeting notes, public access, organization workspaces, and support controls.",
+    summary: "Searchable records, documents, communication, meeting notes, phone-connected meeting capture, organization workspaces, and access controls.",
   },
   {
     id: "utilities",
@@ -67,6 +67,8 @@ const MAJOR_MODULES = [
   "Administrative workspaces",
   "Website project lifecycle",
   "Records and document systems",
+  "Phone-connected meeting workflows",
+  "Financial operations and reporting",
   "Subscriptions and billing",
   "Partner and referral programs",
   "Notifications and support",
@@ -75,6 +77,36 @@ const MAJOR_MODULES = [
 ];
 
 const RECENT_CAPABILITIES = [
+  {
+    introducedBy: "a880b13",
+    date: "2026-07-30",
+    title: "Phone meeting usage and retention controls",
+    summary: "N3XRA Records added organization-level usage reporting and protected retention infrastructure for phone meeting recordings.",
+  },
+  {
+    introducedBy: "1b01bf1",
+    date: "2026-07-30",
+    title: "Phone-connected Records meetings",
+    summary: "Eligible Records organizations can connect telephone calls to the existing meeting workflow for recordings, transcripts, notes, and finalized minutes.",
+  },
+  {
+    introducedBy: "ad23f3b",
+    date: "2026-07-29",
+    title: "Refined Records workspace",
+    summary: "Records gained clearer desktop navigation, organized library administration, improved account pages, and a more focused communication workflow.",
+  },
+  {
+    introducedBy: "73a47a7",
+    date: "2026-07-27",
+    title: "N3XRA Operations",
+    summary: "N3XRA added an internal financial operations workspace for invoices, expenses, ledger activity, banking records, reporting, and audit review.",
+  },
+  {
+    introducedBy: "60d12d0",
+    date: "2026-07-27",
+    title: "Loan Tracker",
+    summary: "N3XRA introduced a private loan workspace for payment tracking, payoff comparisons, amortization schedules, controlled access, and exports.",
+  },
   {
     introducedBy: "f50542d",
     date: "2026-07-25",
