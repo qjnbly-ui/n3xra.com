@@ -2982,6 +2982,7 @@ function formatPhoneMeetingStatus(value) {
 function renderPhoneMeetingSettings() {
   const settings = phoneMeetingSettingsCache;
   const platformAdmin = Boolean(getActiveCapabilities().isPlatformAdmin);
+  const canManageSettings = Boolean(getActiveCapabilities().canManageLibrarySettings);
   const allowed = Array.isArray(settings?.allowed_start_roles) ? settings.allowed_start_roles : ["account_admin", "editor"];
   const isEnabled = Boolean(settings?.feature_enabled);
   const activation = String(settings?.activation_status || "not_configured");
@@ -3012,6 +3013,11 @@ function renderPhoneMeetingSettings() {
     phoneMeetingFeatureEnabled,
     phoneMeetingActivationStatus,
     phoneMeetingPrimaryNumber,
+  ].forEach((field) => {
+    if (field) field.disabled = !platformAdmin;
+  });
+
+  [
     phoneMeetingMonthlyMinutesLimit,
     phoneMeetingAllowAccountAdmin,
     phoneMeetingAllowEditor,
@@ -3020,7 +3026,7 @@ function renderPhoneMeetingSettings() {
     phoneMeetingRetentionDays,
     phoneMeetingSettingsSave,
   ].forEach((field) => {
-    if (field) field.disabled = !platformAdmin;
+    if (field) field.disabled = !canManageSettings;
   });
 }
 
@@ -3061,13 +3067,14 @@ async function handlePhoneMeetingSettingsSave(event) {
   event.preventDefault();
   const organization = getActiveOrganization();
   if (!organization?.id) return;
-  if (!getActiveCapabilities().isPlatformAdmin) {
-    setStatus(phoneMeetingSettingsStatus, "Only an N3XRA platform administrator can change Phone Meetings settings during the internal rollout.", "error");
+  const capabilities = getActiveCapabilities();
+  if (!capabilities.canManageLibrarySettings) {
+    setStatus(phoneMeetingSettingsStatus, "Only a library owner or account administrator can update these Phone Meetings settings.", "error");
     return;
   }
 
   const primaryPhoneNumber = normalizePhoneMeetingNumber(phoneMeetingPrimaryNumber?.value);
-  if (primaryPhoneNumber && !/^\+[1-9][0-9]{7,14}$/.test(primaryPhoneNumber)) {
+  if (capabilities.isPlatformAdmin && primaryPhoneNumber && !/^\+[1-9][0-9]{7,14}$/.test(primaryPhoneNumber)) {
     setStatus(phoneMeetingSettingsStatus, "Use a full phone number starting with + and country code.", "error");
     return;
   }
@@ -3089,22 +3096,23 @@ async function handlePhoneMeetingSettingsSave(event) {
   }
 
   const updates = {
+    action: "update_settings",
     organization_id: organization.id,
-    feature_enabled: Boolean(phoneMeetingFeatureEnabled?.checked),
-    activation_status: String(phoneMeetingActivationStatus?.value || "not_configured"),
-    primary_phone_number: primaryPhoneNumber,
     allowed_start_roles: getPhoneMeetingAllowedRoles(),
     recording_notice_enabled: Boolean(phoneMeetingRecordingNoticeEnabled?.checked),
     recording_notice_text: noticeText || "This call may be recorded for meeting notes.",
     default_retention_days: retentionDays,
     monthly_minutes_limit: monthlyMinutesLimit,
   };
+  if (capabilities.isPlatformAdmin) {
+    Object.assign(updates, {
+      feature_enabled: Boolean(phoneMeetingFeatureEnabled?.checked),
+      activation_status: String(phoneMeetingActivationStatus?.value || "not_configured"),
+      primary_phone_number: primaryPhoneNumber,
+    });
+  }
   setStatus(phoneMeetingSettingsStatus, "Saving Phone Meetings settings…");
-  const { data, error } = await supabase
-    .from("organization_phone_meeting_settings")
-    .upsert(updates, { onConflict: "organization_id" })
-    .select("feature_enabled, activation_status, primary_phone_number, recording_notice_enabled, recording_notice_text, default_retention_days, allowed_start_roles, monthly_minutes_limit, usage_billing_status, updated_at")
-    .single();
+  const { data, error } = await supabase.functions.invoke("twilio-phone-meetings", { body: updates });
   if (error) {
     setStatus(phoneMeetingSettingsStatus, error.message, "error");
     return;

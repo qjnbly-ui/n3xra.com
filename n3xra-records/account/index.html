@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/n3xra-records/styles.css?v=20260729-library-navigation">
+  <link rel="stylesheet" href="/n3xra-records/styles.css?v=20260730-account-view">
   <script>
     window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
   </script>
@@ -98,8 +98,8 @@
               >
                 <p class="records-desktop-nav-group-label">Configuration</p>
                 <button type="button" data-records-account-view="library">Library settings</button>
-                <button type="button" data-records-account-view="phone">Phone Meetings</button>
                 <button type="button" data-records-account-view="templates">Templates</button>
+                <button type="button" data-records-account-view="phone">Phone Meetings</button>
                 <button type="button" data-records-account-view="ai">AI settings</button>
 
                 <p class="records-desktop-nav-group-label">People and access</p>
@@ -255,10 +255,10 @@
                 <button class="admin-tab is-active" id="admin-users-tab" type="button" role="tab" aria-selected="true" aria-controls="admin-users-panel" data-admin-tab="users">Users</button>
                 <button class="admin-tab" id="admin-contacts-tab" type="button" role="tab" aria-selected="false" aria-controls="admin-contacts-panel" data-admin-tab="contacts">Contacts</button>
                 <button class="admin-tab" id="admin-templates-tab" type="button" role="tab" aria-selected="false" aria-controls="admin-templates-panel" data-admin-tab="templates">Templates</button>
+                <button class="admin-tab" id="admin-phone-tab" type="button" role="tab" aria-selected="false" aria-controls="admin-phone-panel" data-admin-tab="phone">Phone Meetings</button>
                 <button class="admin-tab" id="admin-access-tab" type="button" role="tab" aria-selected="false" aria-controls="admin-access-panel" data-admin-tab="access">Access</button>
                 <button class="admin-tab" id="admin-support-tab" type="button" role="tab" aria-selected="false" aria-controls="support-access-card" data-admin-tab="support">N3XRA support access</button>
                 <button class="admin-tab" id="admin-library-tab" type="button" role="tab" aria-selected="false" aria-controls="admin-library-panel" data-admin-tab="library">Library</button>
-                <button class="admin-tab" id="admin-phone-tab" type="button" role="tab" aria-selected="false" aria-controls="admin-phone-panel" data-admin-tab="phone">Phone Meetings</button>
                 <button class="admin-tab" id="admin-ai-tab" type="button" role="tab" aria-selected="false" aria-controls="admin-ai-panel" data-admin-tab="ai">AI</button>
                 <button class="admin-tab" id="admin-billing-tab" type="button" role="tab" aria-selected="false" aria-controls="admin-billing-panel" data-admin-tab="billing">Billing</button>
                 <button class="admin-tab" id="admin-storage-tab" type="button" role="tab" aria-selected="false" aria-controls="admin-storage-panel" data-admin-tab="storage">Storage</button>
@@ -647,7 +647,7 @@
                     <div class="setting-toggles">
                       <label class="toggle-pill"><input id="phone-meeting-feature-enabled" type="checkbox"> Enable Phone Meetings for this library</label>
                     </div>
-                    <p class="field-note">Only an N3XRA platform administrator can enable this feature or assign a phone number during the internal rollout.</p>
+                    <p class="field-note">The assigned N3XRA number and activation status are managed by N3XRA. Library managers can set caller access, notice, retention, and a monthly usage limit.</p>
 
                     <div class="settings-subsection">
                       <div class="settings-subsection-head">
@@ -1205,7 +1205,7 @@
   </div>
 
   <script src="/shared/config.js"></script>
-  <script type="module" src="/n3xra-records/lib/desktop-shell.js?v=20260729-library-navigation"></script>
-  <script type="module" src="/n3xra-records/dashboard.js?v=20260729-manage-toggle"></script>
+  <script type="module" src="/n3xra-records/lib/desktop-shell.js?v=20260730-account-view"></script>
+  <script type="module" src="/n3xra-records/dashboard.js?v=20260730-account-view"></script>
 </body>
 </html>

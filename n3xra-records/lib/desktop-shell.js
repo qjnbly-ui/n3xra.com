@@ -12,8 +12,8 @@ const RECORDS_MANAGE_GROUPS = [
     label: "Configuration",
     links: [
       { label: "Library settings", view: "library" },
-      { label: "Phone Meetings", view: "phone" },
       { label: "Templates", view: "templates" },
+      { label: "Phone Meetings", view: "phone" },
       { label: "AI settings", view: "ai" },
     ],
   },

@@ -35,6 +35,7 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 const ACTIVE_STATUSES = new Set(["ready_for_internal_test", "active"]);
+const PHONE_MEETING_STATUSES = new Set(["not_configured", "pending_compliance", "ready_for_internal_test", "active", "suspended", "disabled"]);
 const PUBLIC_FUNCTION_PATH = "/functions/v1/twilio-phone-meetings";
 
 function getServiceRoleKey() {
@@ -322,6 +323,126 @@ async function assertControlAccess(
   const canManage = platformAccess || organization.owner_user_id === user.id || configuredRoles.includes(String(membership?.role || ""));
   if (!canManage || organization.subscription_tier !== "organization") throw new Error("You do not have access to start phone meetings for this library.");
   return user;
+}
+
+async function assertPhoneMeetingSettingsAccess(
+  request: Request,
+  admin: ReturnType<typeof createClient>,
+  organizationId: string
+) {
+  const token = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "").trim();
+  if (!token) throw new Error("Sign in is required.");
+  const { data: authData, error: authError } = await admin.auth.getUser(token);
+  if (authError || !authData.user) throw new Error("Your sign-in session has expired.");
+
+  const user = authData.user;
+  const email = String(user.email || "").toLowerCase();
+  const [{ data: organization, error: organizationError }, { data: membership, error: membershipError }, { data: platformAdmin, error: platformAdminError }] = await Promise.all([
+    admin.from("organizations").select("owner_user_id, subscription_tier").eq("id", organizationId).maybeSingle(),
+    admin.from("organization_memberships").select("role").eq("organization_id", organizationId).eq("user_id", user.id).maybeSingle(),
+    admin.from("platform_admins").select("user_id").eq("user_id", user.id).maybeSingle(),
+  ]);
+  if (organizationError || membershipError || platformAdminError || !organization) throw new Error("Unable to confirm Phone Meetings settings access.");
+
+  const isPlatformAdmin = ["quentin@n3xra.com", "quentin@quentinnichols.com"].includes(email) || Boolean(platformAdmin);
+  const canManage = isPlatformAdmin || organization.owner_user_id === user.id || membership?.role === "account_admin";
+  if (!canManage || organization.subscription_tier !== "organization") {
+    throw new Error("You do not have access to change Phone Meetings settings for this library.");
+  }
+  return { isPlatformAdmin };
+}
+
+function normalizePhoneMeetingRoles(value: unknown) {
+  if (!Array.isArray(value)) throw new Error("Choose which library roles can start phone meetings.");
+  const roles = [...new Set(value.map((role) => String(role || "")).filter(Boolean))];
+  if (roles.some((role) => !["account_admin", "editor"].includes(role))) {
+    throw new Error("Phone Meeting access roles are invalid.");
+  }
+  return roles;
+}
+
+async function updatePhoneMeetingSettings(
+  request: Request,
+  admin: ReturnType<typeof createClient>,
+  input: {
+    organization_id?: string;
+    feature_enabled?: boolean;
+    activation_status?: string;
+    primary_phone_number?: string | null;
+    allowed_start_roles?: string[];
+    recording_notice_enabled?: boolean;
+    recording_notice_text?: string;
+    default_retention_days?: number;
+    monthly_minutes_limit?: number | null;
+  }
+) {
+  const organizationId = String(input.organization_id || "");
+  if (!organizationId) throw new Error("A library is required.");
+  const access = await assertPhoneMeetingSettingsAccess(request, admin, organizationId);
+  const { data: current, error: currentError } = await admin
+    .from("organization_phone_meeting_settings")
+    .select("feature_enabled, activation_status, primary_phone_number, allowed_start_roles, recording_notice_enabled, recording_notice_text, default_retention_days, monthly_minutes_limit, usage_billing_status")
+    .eq("organization_id", organizationId)
+    .maybeSingle();
+  if (currentError) throw new Error(currentError.message);
+  if (!current && !access.isPlatformAdmin) {
+    throw new Error("N3XRA must configure this library’s phone number before its managers can edit call settings.");
+  }
+
+  const allowedStartRoles = normalizePhoneMeetingRoles(input.allowed_start_roles);
+  const noticeText = String(input.recording_notice_text || "").trim();
+  const retentionDays = Number(input.default_retention_days);
+  const monthlyMinutesLimit = input.monthly_minutes_limit === null ? null : Number(input.monthly_minutes_limit);
+  if (!Number.isInteger(retentionDays) || retentionDays < 1 || retentionDays > 3650) {
+    throw new Error("Retention target must be between 1 and 3,650 days.");
+  }
+  if (!Number.isInteger(monthlyMinutesLimit) && monthlyMinutesLimit !== null) {
+    throw new Error("Monthly minute limit must be a whole number or empty.");
+  }
+  if (monthlyMinutesLimit !== null && monthlyMinutesLimit < 0) {
+    throw new Error("Monthly minute limit cannot be negative.");
+  }
+  if (input.recording_notice_enabled && !noticeText) {
+    throw new Error("Enter the recording notice that callers will hear.");
+  }
+
+  const libraryUpdates = {
+    allowed_start_roles: allowedStartRoles,
+    recording_notice_enabled: Boolean(input.recording_notice_enabled),
+    recording_notice_text: noticeText || "This call may be recorded for meeting notes.",
+    default_retention_days: retentionDays,
+    monthly_minutes_limit: monthlyMinutesLimit,
+  };
+
+  let result;
+  if (access.isPlatformAdmin) {
+    const activationStatus = String(input.activation_status || current?.activation_status || "not_configured");
+    if (!PHONE_MEETING_STATUSES.has(activationStatus)) throw new Error("Phone Meetings activation status is invalid.");
+    const primaryPhoneNumber = normalizePhoneNumber(input.primary_phone_number ?? current?.primary_phone_number ?? null);
+    if (primaryPhoneNumber && !/^\+[1-9][0-9]{7,14}$/.test(primaryPhoneNumber)) {
+      throw new Error("Use a complete phone number with country code.");
+    }
+    result = await admin
+      .from("organization_phone_meeting_settings")
+      .upsert({
+        organization_id: organizationId,
+        feature_enabled: input.feature_enabled ?? current?.feature_enabled ?? false,
+        activation_status: activationStatus,
+        primary_phone_number: primaryPhoneNumber,
+        ...libraryUpdates,
+      }, { onConflict: "organization_id" })
+      .select("feature_enabled, activation_status, primary_phone_number, recording_notice_enabled, recording_notice_text, default_retention_days, allowed_start_roles, monthly_minutes_limit, usage_billing_status, updated_at")
+      .single();
+  } else {
+    result = await admin
+      .from("organization_phone_meeting_settings")
+      .update(libraryUpdates)
+      .eq("organization_id", organizationId)
+      .select("feature_enabled, activation_status, primary_phone_number, recording_notice_enabled, recording_notice_text, default_retention_days, allowed_start_roles, monthly_minutes_limit, usage_billing_status, updated_at")
+      .single();
+  }
+  if (result.error) throw new Error(result.error.message);
+  return result.data;
 }
 
 async function startPhoneMeetingSession(
@@ -729,10 +850,20 @@ Deno.serve(async (request) => {
         organization_id?: string;
         meeting_recording_id?: string;
         session_id?: string;
+        feature_enabled?: boolean;
+        activation_status?: string;
+        primary_phone_number?: string | null;
+        allowed_start_roles?: string[];
+        recording_notice_enabled?: boolean;
+        recording_notice_text?: string;
+        default_retention_days?: number;
+        monthly_minutes_limit?: number | null;
       } | null;
       let result;
       if (body?.action === "start_session") {
         result = await startPhoneMeetingSession(request, admin, body);
+      } else if (body?.action === "update_settings") {
+        result = await updatePhoneMeetingSettings(request, admin, body);
       } else if (body?.action === "complete_without_recording") {
         result = await completePhoneMeetingWithoutRecording(request, admin, body);
       } else if (body?.action === "retry_recording_transfer") {
