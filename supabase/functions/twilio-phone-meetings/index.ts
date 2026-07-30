@@ -33,6 +33,7 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 const ACTIVE_STATUSES = new Set(["ready_for_internal_test", "active"]);
+const PUBLIC_FUNCTION_PATH = "/functions/v1/twilio-phone-meetings";
 
 function getServiceRoleKey() {
   return Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || Deno.env.get("SERVICE_ROLE_KEY");
@@ -72,8 +73,20 @@ function xmlRecord(notice: string, actionUrl: string, recordingStatusCallback: s
   );
 }
 
+function publicFunctionUrl(request?: Request) {
+  const configuredUrl = Deno.env.get("TWILIO_PHONE_MEETINGS_PUBLIC_URL")?.trim();
+  if (configuredUrl) return new URL(configuredUrl);
+
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")?.trim();
+  if (supabaseUrl) return new URL(PUBLIC_FUNCTION_PATH, supabaseUrl);
+  if (request) return new URL(request.url);
+  throw new Error("The public Twilio Phone Meetings URL is not configured.");
+}
+
 function callbackUrl(request: Request, mode: string, sessionId?: string) {
-  const url = new URL(request.url);
+  // Edge gateways can expose an internal runtime URL to the function. Twilio
+  // must always receive the public endpoint configured in its Console.
+  const url = publicFunctionUrl(request);
   url.search = "";
   url.searchParams.set("mode", mode);
   if (sessionId) url.searchParams.set("session", sessionId);
@@ -124,23 +137,48 @@ async function verifyTwilioSignature(url: string, parameters: URLSearchParams, r
 async function verifyTwilioRequestSignature(request: Request, parameters: URLSearchParams, receivedSignature: string, authToken: string) {
   const requestUrl = new URL(request.url);
   const forwardedHost = request.headers.get("x-forwarded-host")?.split(",")[0]?.trim();
-  const origins = new Set([requestUrl.origin]);
-  if (forwardedHost) origins.add(`https://${forwardedHost}`);
+  const candidateBases = new Set<string>([
+    requestUrl.toString(),
+    publicFunctionUrl(request).toString(),
+  ]);
+  if (forwardedHost) {
+    const forwardedUrl = new URL(requestUrl.toString());
+    forwardedUrl.protocol = "https:";
+    forwardedUrl.host = forwardedHost;
+    candidateBases.add(forwardedUrl.toString());
+  }
 
   // Twilio signs the literal webhook URL saved in its Console. Supabase may
-  // normalize an inbound URL with or without a trailing slash, so validate
-  // both forms of the same trusted endpoint rather than dropping validation.
+  // expose an internal runtime URL to the function or normalize the trailing
+  // slash. Validate the exact configured public endpoint and those gateway
+  // representations without weakening signature verification.
   const candidateUrls = new Set<string>();
-  for (const origin of origins) {
-    const path = requestUrl.pathname.replace(/\/$/, "");
-    candidateUrls.add(`${origin}${path}${requestUrl.search}`);
-    candidateUrls.add(`${origin}${path}/${requestUrl.search}`);
+  for (const base of candidateBases) {
+    const url = new URL(base);
+    url.search = requestUrl.search;
+    const path = url.pathname.replace(/\/$/, "");
+    candidateUrls.add(`${url.origin}${path}${url.search}`);
+    candidateUrls.add(`${url.origin}${path}/${url.search}`);
   }
 
   for (const candidateUrl of candidateUrls) {
     if (await verifyTwilioSignature(candidateUrl, parameters, receivedSignature, authToken)) return true;
   }
   return false;
+}
+
+async function assertTwilioPrimaryAuthToken() {
+  const accountSid = Deno.env.get("TWILIO_ACCOUNT_SID")?.trim();
+  const authToken = Deno.env.get("TWILIO_AUTH_TOKEN")?.trim();
+  if (!accountSid || !authToken) throw new Error("Twilio server credentials are incomplete.");
+
+  const response = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(accountSid)}.json`, {
+    method: "GET",
+    headers: { Authorization: basicAuthorization(accountSid, authToken) },
+  });
+  if (!response.ok) {
+    throw new Error("Twilio rejected the primary Auth Token. Update TWILIO_AUTH_TOKEN in Supabase Edge Function secrets.");
+  }
 }
 
 function normalizePhoneNumber(value: string | null) {
@@ -291,6 +329,9 @@ async function startPhoneMeetingSession(
   const user = await assertControlAccess(request, admin, organizationId);
   const settings = await loadEnabledSettings(admin, organizationId);
   if (!settings?.primary_phone_number) throw new Error("Phone Meetings is not enabled for internal testing in this library.");
+  // Session creation is the earliest authenticated point where N3XRA can
+  // verify that webhook signatures will use Twilio's primary Auth Token.
+  await assertTwilioPrimaryAuthToken();
   const { data: recording, error: recordingError } = await admin
     .from("meeting_recordings")
     .select("id, metadata")
