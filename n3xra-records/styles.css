@@ -457,6 +457,31 @@ a { color: inherit; }
   margin-top: .25rem;
 }
 
+.phone-meeting-live-status {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: .25rem .75rem;
+  align-items: baseline;
+  margin-top: .35rem;
+  padding: .8rem .9rem;
+  border: 1px solid #cbe4df;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.phone-meeting-live-status .field-note {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+.phone-meeting-session-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: .65rem;
+}
+
 @media (max-width: 700px) {
   .phone-meeting-start {
     grid-template-columns: 1fr;
@@ -469,6 +494,10 @@ a { color: inherit; }
   .phone-meeting-dial-in {
     grid-template-columns: 1fr;
     gap: .2rem;
+  }
+
+  .phone-meeting-live-status {
+    grid-template-columns: 1fr;
   }
 }
 

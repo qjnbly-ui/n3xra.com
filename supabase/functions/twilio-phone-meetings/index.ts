@@ -7,6 +7,7 @@ type PhoneMeetingSession = {
   twilio_call_sid: string | null;
   twilio_recording_sid: string | null;
   status: string;
+  duration_seconds?: number | null;
   metadata: Record<string, unknown> | null;
 };
 
@@ -209,7 +210,7 @@ async function loadSession(
   if (recordingSid) {
     const { data, error } = await admin
       .from("phone_meeting_sessions")
-      .select("id, organization_id, meeting_recording_id, twilio_call_sid, twilio_recording_sid, status, metadata")
+      .select("id, organization_id, meeting_recording_id, twilio_call_sid, twilio_recording_sid, status, duration_seconds, metadata")
       .eq("twilio_recording_sid", recordingSid)
       .maybeSingle();
     if (error) throw new Error(error.message);
@@ -219,7 +220,7 @@ async function loadSession(
   if (!callSid) return null;
   const { data, error } = await admin
     .from("phone_meeting_sessions")
-    .select("id, organization_id, meeting_recording_id, twilio_call_sid, twilio_recording_sid, status, metadata")
+    .select("id, organization_id, meeting_recording_id, twilio_call_sid, twilio_recording_sid, status, duration_seconds, metadata")
     .eq("twilio_call_sid", callSid)
     .maybeSingle();
   if (error) throw new Error(error.message);
@@ -230,7 +231,7 @@ async function loadSessionById(admin: ReturnType<typeof createClient>, sessionId
   if (!sessionId) return null;
   const { data, error } = await admin
     .from("phone_meeting_sessions")
-    .select("id, organization_id, meeting_recording_id, twilio_call_sid, twilio_recording_sid, status, metadata")
+    .select("id, organization_id, meeting_recording_id, twilio_call_sid, twilio_recording_sid, status, duration_seconds, metadata")
     .eq("id", sessionId)
     .maybeSingle();
   if (error) throw new Error(error.message);
@@ -265,7 +266,7 @@ async function loadEnabledSettingsByNumber(admin: ReturnType<typeof createClient
 async function loadSessionByCode(admin: ReturnType<typeof createClient>, organizationId: string, code: string) {
   const { data, error } = await admin
     .from("phone_meeting_sessions")
-    .select("id, organization_id, meeting_recording_id, twilio_call_sid, twilio_recording_sid, status, metadata")
+    .select("id, organization_id, meeting_recording_id, twilio_call_sid, twilio_recording_sid, status, duration_seconds, metadata")
     .eq("organization_id", organizationId)
     .in("status", ["draft", "connecting"])
     .order("created_at", { ascending: false })
@@ -397,6 +398,98 @@ async function updateSession(
   if (error) throw new Error(error.message);
 }
 
+async function loadAuthorizedControlSession(
+  request: Request,
+  admin: ReturnType<typeof createClient>,
+  input: { organization_id?: string; meeting_recording_id?: string; session_id?: string }
+) {
+  const organizationId = String(input.organization_id || "");
+  const meetingRecordingId = String(input.meeting_recording_id || "");
+  const sessionId = String(input.session_id || "");
+  if (!organizationId || !meetingRecordingId || !sessionId) {
+    throw new Error("A library, meeting note, and phone meeting session are required.");
+  }
+  await assertControlAccess(request, admin, organizationId);
+  const { data, error } = await admin
+    .from("phone_meeting_sessions")
+    .select("id, organization_id, meeting_recording_id, twilio_call_sid, twilio_recording_sid, status, duration_seconds, metadata")
+    .eq("id", sessionId)
+    .eq("organization_id", organizationId)
+    .eq("meeting_recording_id", meetingRecordingId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("The phone meeting session was not found.");
+  return data as PhoneMeetingSession;
+}
+
+async function completePhoneMeetingWithoutRecording(
+  request: Request,
+  admin: ReturnType<typeof createClient>,
+  input: { organization_id?: string; meeting_recording_id?: string; session_id?: string }
+) {
+  const session = await loadAuthorizedControlSession(request, admin, input);
+  if (session.twilio_recording_sid) {
+    throw new Error("A phone recording exists for this meeting. Retry its secure transfer instead.");
+  }
+  const transferWaitElapsed = session.status === "copying_to_storage" &&
+    Boolean((session.metadata || {}).callEndedAt) &&
+    Date.now() - Date.parse(String((session.metadata || {}).callEndedAt)) > 30000;
+  if (!["draft", "failed", "canceled"].includes(session.status) && !transferWaitElapsed) {
+    throw new Error("End the phone call before completing this meeting without a recording.");
+  }
+
+  const { data: meetingRecording, error: meetingRecordingError } = await admin
+    .from("meeting_recordings")
+    .select("id, storage_path, metadata")
+    .eq("id", session.meeting_recording_id)
+    .eq("organization_id", session.organization_id)
+    .maybeSingle();
+  if (meetingRecordingError) throw new Error(meetingRecordingError.message);
+  if (!meetingRecording) throw new Error("The linked meeting note was not found.");
+  if (meetingRecording.storage_path) {
+    throw new Error("This meeting already has a recording attached.");
+  }
+
+  const completedAt = new Date().toISOString();
+  const metadata = (meetingRecording.metadata || {}) as Record<string, unknown>;
+  const { error: updateRecordingError } = await admin
+    .from("meeting_recordings")
+    .update({
+      status: "ready",
+      transcript_status: "not_started",
+      ai_review_status: "not_started",
+      duration_seconds: 0,
+      file_size: 0,
+      processing_error: null,
+      metadata: {
+        ...metadata,
+        meeting_sources: {
+          ...((metadata.meeting_sources || {}) as Record<string, unknown>),
+          phone_call: true,
+        },
+        phoneMeeting: {
+          ...((metadata.phoneMeeting || {}) as Record<string, unknown>),
+          completedWithoutRecordingAt: completedAt,
+        },
+      },
+    })
+    .eq("id", meetingRecording.id)
+    .eq("organization_id", session.organization_id);
+  if (updateRecordingError) throw new Error(updateRecordingError.message);
+
+  await updateSession(admin, session.id, {
+    status: "ready",
+    ended_at: completedAt,
+    duration_seconds: 0,
+    failure_code: "completed_without_recording",
+  });
+  return {
+    session_id: session.id,
+    meeting_recording_id: meetingRecording.id,
+    status: "ready",
+  };
+}
+
 async function storeCompletedRecording(
   admin: ReturnType<typeof createClient>,
   session: PhoneMeetingSession,
@@ -409,9 +502,12 @@ async function storeCompletedRecording(
   }
 
   const accountSid = Deno.env.get("TWILIO_ACCOUNT_SID");
+  const authToken = Deno.env.get("TWILIO_AUTH_TOKEN");
   const apiKeySid = Deno.env.get("TWILIO_API_KEY_SID");
   const apiKeySecret = Deno.env.get("TWILIO_API_KEY_SECRET");
-  if (!accountSid || !apiKeySid || !apiKeySecret) {
+  const transferUser = accountSid && authToken ? accountSid : apiKeySid;
+  const transferPassword = accountSid && authToken ? authToken : apiKeySecret;
+  if (!accountSid || !transferUser || !transferPassword) {
     throw new Error("Twilio recording transfer credentials are missing.");
   }
   if (!isAllowedRecordingUrl(recordingUrl)) {
@@ -429,6 +525,11 @@ async function storeCompletedRecording(
 
   const metadata = (meetingRecording.metadata || {}) as Record<string, unknown>;
   const savedPhoneMeeting = (metadata.phoneMeeting || {}) as Record<string, unknown>;
+  let phoneMeetingMetadata: Record<string, unknown> = {
+    ...savedPhoneMeeting,
+    source: "twilio",
+    recordingSid,
+  };
   const isPrimaryAudio = !meetingRecording.storage_path;
   const storagePath = isPrimaryAudio
     ? `${session.organization_id}/${meetingRecording.id}/twilio-${recordingSid}.wav`
@@ -439,19 +540,29 @@ async function storeCompletedRecording(
     twilio_recording_sid: recordingSid,
     duration_seconds: durationSeconds,
     billed_minutes: durationSeconds ? Math.ceil(durationSeconds / 60) : session.metadata?.billed_minutes || 0,
+    failure_code: null,
   });
 
   if (!savedPhoneMeeting.storagePath) {
     const source = new URL(recordingUrl);
     if (!source.pathname.endsWith(".wav")) source.pathname = `${source.pathname}.wav`;
     const recordingResponse = await fetch(source, {
-      headers: { Authorization: basicAuthorization(apiKeySid, apiKeySecret) },
+      headers: { Authorization: basicAuthorization(transferUser, transferPassword) },
     });
     if (!recordingResponse.ok) {
       throw new Error(`Twilio recording download failed with status ${recordingResponse.status}.`);
     }
 
     const audio = await recordingResponse.blob();
+    phoneMeetingMetadata = {
+      ...phoneMeetingMetadata,
+      storagePath,
+      storageBucket: "meeting-recordings",
+      mimeType: recordingResponse.headers.get("content-type") || "audio/wav",
+      fileSize: audio.size,
+      durationSeconds,
+      sourceDeletedAt: null,
+    };
     const { error: uploadError } = await admin.storage.from("meeting-recordings").upload(storagePath, audio, {
       contentType: recordingResponse.headers.get("content-type") || "audio/wav",
       upsert: false,
@@ -466,17 +577,7 @@ async function storeCompletedRecording(
           ...((metadata.meeting_sources || {}) as Record<string, unknown>),
           phone_call: true,
         },
-        phoneMeeting: {
-          ...savedPhoneMeeting,
-          source: "twilio",
-          recordingSid,
-          storagePath,
-          storageBucket: "meeting-recordings",
-          mimeType: recordingResponse.headers.get("content-type") || "audio/wav",
-          fileSize: audio.size,
-          durationSeconds,
-          sourceDeletedAt: null,
-        },
+        phoneMeeting: phoneMeetingMetadata,
       },
     };
 
@@ -498,11 +599,18 @@ async function storeCompletedRecording(
       .eq("id", meetingRecording.id)
       .eq("organization_id", session.organization_id);
     if (updateRecordingError) throw new Error(updateRecordingError.message);
+  } else {
+    phoneMeetingMetadata = {
+      ...phoneMeetingMetadata,
+      storagePath: savedPhoneMeeting.storagePath || storagePath,
+      storageBucket: savedPhoneMeeting.storageBucket || "meeting-recordings",
+      durationSeconds: savedPhoneMeeting.durationSeconds ?? durationSeconds,
+    };
   }
 
   const deleteResponse = await fetch(
     `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Recordings/${recordingSid}.json`,
-    { method: "DELETE", headers: { Authorization: basicAuthorization(apiKeySid, apiKeySecret) } }
+    { method: "DELETE", headers: { Authorization: basicAuthorization(transferUser, transferPassword) } }
   );
   if (!deleteResponse.ok && deleteResponse.status !== 404) {
     throw new Error(`Twilio recording deletion failed with status ${deleteResponse.status}.`);
@@ -518,11 +626,7 @@ async function storeCompletedRecording(
           phone_call: true,
         },
         phoneMeeting: {
-          ...savedPhoneMeeting,
-          source: "twilio",
-          recordingSid,
-          storagePath,
-          storageBucket: "meeting-recordings",
+          ...phoneMeetingMetadata,
           sourceDeletedAt: new Date().toISOString(),
         },
       },
@@ -535,6 +639,8 @@ async function storeCompletedRecording(
     status: "recording_ready",
     twilio_recording_sid: recordingSid,
     duration_seconds: durationSeconds,
+    ended_at: new Date().toISOString(),
+    failure_code: null,
     metadata: {
       ...(session.metadata || {}),
       twilioRecordingDeletedAt: new Date().toISOString(),
@@ -565,6 +671,32 @@ async function storeCompletedRecording(
   }
 }
 
+async function retryPhoneMeetingTransfer(
+  request: Request,
+  admin: ReturnType<typeof createClient>,
+  input: { organization_id?: string; meeting_recording_id?: string; session_id?: string }
+) {
+  const session = await loadAuthorizedControlSession(request, admin, input);
+  if (!session.twilio_recording_sid) {
+    throw new Error("Twilio has not supplied a recording for this meeting.");
+  }
+  const accountSid = Deno.env.get("TWILIO_ACCOUNT_SID")?.trim();
+  if (!accountSid) throw new Error("Twilio server credentials are incomplete.");
+  const recordingUrl = `https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(accountSid)}/Recordings/${encodeURIComponent(session.twilio_recording_sid)}`;
+  await storeCompletedRecording(
+    admin,
+    session,
+    recordingUrl,
+    session.twilio_recording_sid,
+    session.duration_seconds ?? null
+  );
+  return {
+    session_id: session.id,
+    meeting_recording_id: session.meeting_recording_id,
+    status: "recording_ready",
+  };
+}
+
 Deno.serve(async (request) => {
   if (request.method === "OPTIONS") {
     return new Response("ok", { headers: CORS_HEADERS });
@@ -587,9 +719,22 @@ Deno.serve(async (request) => {
 
     const isControlRequest = request.headers.get("content-type")?.includes("application/json") && !request.headers.get("x-twilio-signature");
     if (isControlRequest) {
-      const body = await request.json().catch(() => null) as { action?: string; organization_id?: string; meeting_recording_id?: string } | null;
-      if (body?.action !== "start_session") return new Response("Unsupported action", { status: 400, headers: CORS_HEADERS });
-      const result = await startPhoneMeetingSession(request, admin, body);
+      const body = await request.json().catch(() => null) as {
+        action?: string;
+        organization_id?: string;
+        meeting_recording_id?: string;
+        session_id?: string;
+      } | null;
+      let result;
+      if (body?.action === "start_session") {
+        result = await startPhoneMeetingSession(request, admin, body);
+      } else if (body?.action === "complete_without_recording") {
+        result = await completePhoneMeetingWithoutRecording(request, admin, body);
+      } else if (body?.action === "retry_recording_transfer") {
+        result = await retryPhoneMeetingTransfer(request, admin, body);
+      } else {
+        return new Response("Unsupported action", { status: 400, headers: CORS_HEADERS });
+      }
       return Response.json(result, { headers: CORS_HEADERS });
     }
 
@@ -640,6 +785,22 @@ Deno.serve(async (request) => {
     }
 
     if (mode === "recording_finished") {
+      const session = await loadSessionById(admin, sessionId);
+      if (
+        session &&
+        ["connecting", "in_progress", "copying_to_storage"].includes(session.status) &&
+        (!callSid || !session.twilio_call_sid || session.twilio_call_sid === callSid)
+      ) {
+        const callEndedAt = new Date().toISOString();
+        await updateSession(admin, session.id, {
+          status: "copying_to_storage",
+          ended_at: callEndedAt,
+          metadata: {
+            ...(session.metadata || {}),
+            callEndedAt,
+          },
+        });
+      }
       return xmlResponse("Thank you. Your recording is being transferred securely to N3XRA Records.");
     }
 
@@ -670,18 +831,39 @@ Deno.serve(async (request) => {
     if (recordingSid && recordingStatus === "completed") {
       const recordingUrl = String(parameters.get("RecordingUrl") || "").trim();
       if (!recordingUrl) throw new Error("Recording completion callback did not contain a recording URL.");
-      await storeCompletedRecording(admin, session, recordingUrl, recordingSid, durationSeconds);
+      try {
+        await storeCompletedRecording(admin, session, recordingUrl, recordingSid, durationSeconds);
+      } catch (error) {
+        const failureMessage = error instanceof Error ? error.message : "Phone recording transfer failed.";
+        await updateSession(admin, session.id, {
+          status: "failed",
+          ended_at: new Date().toISOString(),
+          twilio_recording_sid: recordingSid,
+          duration_seconds: durationSeconds,
+          failure_code: "recording_transfer_failed",
+          failure_message: failureMessage.slice(0, 500),
+        });
+        if (session.meeting_recording_id) {
+          await admin
+            .from("meeting_recordings")
+            .update({ processing_error: "Phone recording transfer failed. Retry the secure transfer from this meeting." })
+            .eq("id", session.meeting_recording_id)
+            .eq("organization_id", session.organization_id);
+        }
+        throw error;
+      }
       return xmlResponse();
     }
 
     if (callStatus === "in-progress") {
       await updateSession(admin, session.id, { status: "in_progress", started_at: new Date().toISOString() });
     } else if (["completed", "busy", "failed", "no-answer", "canceled"].includes(callStatus)) {
+      const failedCall = ["busy", "failed", "no-answer"].includes(callStatus);
       await updateSession(admin, session.id, {
-        status: ["busy", "failed", "no-answer"].includes(callStatus) ? "failed" : "recording_ready",
+        status: failedCall ? "failed" : "canceled",
         ended_at: new Date().toISOString(),
         duration_seconds: durationSeconds,
-        failure_code: ["busy", "failed", "no-answer"].includes(callStatus) ? callStatus : null,
+        failure_code: failedCall ? callStatus : "call_ended_without_recording",
       });
     }
 

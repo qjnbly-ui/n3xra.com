@@ -158,6 +158,15 @@
                 <span class="account-label">Meeting code</span>
                 <strong id="phone-meeting-code">-</strong>
                 <p class="field-note" id="phone-meeting-expires">This code expires in two hours. Merge this call into an existing phone call when needed.</p>
+                <div class="phone-meeting-live-status" aria-live="polite">
+                  <span class="account-label">Call status</span>
+                  <strong id="phone-meeting-state">Waiting for call</strong>
+                  <p class="field-note" id="phone-meeting-state-copy">Dial the number and enter the meeting code when prompted.</p>
+                </div>
+                <div class="phone-meeting-session-actions">
+                  <button class="btn secondary hidden" id="retry-phone-meeting-transfer-button" type="button">Retry recording transfer</button>
+                  <button class="btn secondary hidden" id="complete-phone-meeting-without-recording-button" type="button">Complete without recording</button>
+                </div>
               </div>
             </section>
 

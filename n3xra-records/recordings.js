@@ -51,6 +51,10 @@ const phoneMeetingDialIn = document.getElementById("phone-meeting-dial-in");
 const phoneMeetingNumber = document.getElementById("phone-meeting-number");
 const phoneMeetingCode = document.getElementById("phone-meeting-code");
 const phoneMeetingExpires = document.getElementById("phone-meeting-expires");
+const phoneMeetingState = document.getElementById("phone-meeting-state");
+const phoneMeetingStateCopy = document.getElementById("phone-meeting-state-copy");
+const retryPhoneMeetingTransferButton = document.getElementById("retry-phone-meeting-transfer-button");
+const completePhoneMeetingWithoutRecordingButton = document.getElementById("complete-phone-meeting-without-recording-button");
 const recordingReferenceSelect = document.getElementById("recording-reference-select");
 const recordingReferenceType = document.getElementById("recording-reference-type");
 const recordingReferenceAdd = document.getElementById("recording-reference-add");
@@ -188,6 +192,9 @@ let pendingUploadedAudioDurationSeconds = 0;
 let pendingUploadedAudioStartedAt = null;
 let phoneMeetingSettings = null;
 let activePhoneMeetingSession = null;
+let phoneMeetingPollTimer = null;
+let phoneMeetingPollInFlight = false;
+let lastPhoneMeetingStatus = "";
 
 function buildAllRecordingsDetailHref(recordingId) {
   const params = new URLSearchParams();
@@ -262,11 +269,91 @@ function renderPhoneMeetingSourceAvailability() {
   meetingSourceNote.textContent = "Phone Meetings is not active for this library yet. You can still prepare the meeting note and add browser or uploaded audio.";
 }
 
+function getPhoneMeetingStatusDetails(session = activePhoneMeetingSession) {
+  const status = String(session?.status || "draft").toLowerCase();
+  const details = {
+    draft: {
+      label: "Waiting for call",
+      copy: "Dial the number and enter the meeting code when prompted.",
+      upload: "Waiting for call",
+    },
+    connecting: {
+      label: "Call connected",
+      copy: "The caller is connected. Recording will begin after consent is confirmed.",
+      upload: "Call connected",
+    },
+    in_progress: {
+      label: "Recording phone meeting",
+      copy: "The call is connected and audio is being recorded. Hang up when the meeting is finished.",
+      upload: "Recording",
+    },
+    copying_to_storage: {
+      label: "Call ended",
+      copy: "The call has ended. N3XRA is securing the recording in this library.",
+      upload: "Securing recording",
+    },
+    recording_ready: {
+      label: "Recording saved",
+      copy: "The call ended and its recording is safely attached to this meeting note.",
+      upload: "Recording saved",
+    },
+    ready: {
+      label: "Meeting completed",
+      copy: "This meeting note was completed without a phone recording.",
+      upload: "No recording",
+    },
+    failed: {
+      label: "Recording needs attention",
+      copy: session?.twilio_recording_sid
+        ? "The call ended, but the recording transfer did not finish. Retry the transfer or complete the note after resolving the recording."
+        : "The call ended without a usable recording. You can complete the meeting note without audio.",
+      upload: "Transfer failed",
+    },
+    canceled: {
+      label: "Call ended without recording",
+      copy: "Recording was not started. You can complete this meeting note without audio.",
+      upload: "No recording",
+    },
+    void: {
+      label: "Phone meeting closed",
+      copy: "This phone meeting is no longer active.",
+      upload: "No recording",
+    },
+  };
+  return { status, ...(details[status] || details.draft) };
+}
+
+function stopPhoneMeetingPolling() {
+  if (phoneMeetingPollTimer) window.clearInterval(phoneMeetingPollTimer);
+  phoneMeetingPollTimer = null;
+  phoneMeetingPollInFlight = false;
+}
+
+function shouldOfferPhoneTransferRetry(session = activePhoneMeetingSession) {
+  if (!session?.twilio_recording_sid) return false;
+  const status = String(session.status || "").toLowerCase();
+  if (status === "failed") return true;
+  if (status !== "copying_to_storage") return false;
+  const updatedAt = Date.parse(String(session.updated_at || ""));
+  return Number.isFinite(updatedAt) && Date.now() - updatedAt > 10000;
+}
+
+function canCompletePhoneMeetingWithoutRecording(session = activePhoneMeetingSession) {
+  if (!session || session.twilio_recording_sid) return false;
+  const status = String(session.status || "draft").toLowerCase();
+  if (["draft", "failed", "canceled"].includes(status)) return true;
+  if (status !== "copying_to_storage") return false;
+  const endedAt = Date.parse(String(session.ended_at || ""));
+  return Number.isFinite(endedAt) && Date.now() - endedAt > 30000;
+}
+
 function renderPhoneMeetingSession() {
   const showPhoneStart = Boolean(meetingSourcePhone?.checked && phoneMeetingsAreActive());
   show(phoneMeetingStart, showPhoneStart);
   if (!showPhoneStart || !activePhoneMeetingSession) {
     show(phoneMeetingDialIn, false);
+    show(retryPhoneMeetingTransferButton, false);
+    show(completePhoneMeetingWithoutRecordingButton, false);
     return;
   }
   phoneMeetingNumber.textContent = activePhoneMeetingSession.dial_in_number || "-";
@@ -275,7 +362,119 @@ function renderPhoneMeetingSession() {
   phoneMeetingExpires.textContent = expiry && !Number.isNaN(expiry.getTime())
     ? `Enter this code when prompted. It expires ${expiry.toLocaleString()}. Merge this call into an existing phone call when needed.`
     : "Enter this code when prompted. Merge this call into an existing phone call when needed.";
+  const statusDetails = getPhoneMeetingStatusDetails();
+  if (phoneMeetingState) phoneMeetingState.textContent = statusDetails.label;
+  if (phoneMeetingStateCopy) phoneMeetingStateCopy.textContent = statusDetails.copy;
+  show(retryPhoneMeetingTransferButton, shouldOfferPhoneTransferRetry());
+  show(completePhoneMeetingWithoutRecordingButton, canCompletePhoneMeetingWithoutRecording());
   show(phoneMeetingDialIn, true);
+}
+
+async function refreshPhoneMeetingStatus() {
+  const sessionId = activePhoneMeetingSession?.session_id || activePhoneMeetingSession?.id;
+  if (!sessionId || !supabase || phoneMeetingPollInFlight) return;
+  phoneMeetingPollInFlight = true;
+  try {
+    const { data, error } = await supabase
+      .from("phone_meeting_sessions")
+      .select("id, meeting_recording_id, status, started_at, ended_at, duration_seconds, twilio_recording_sid, failure_code, created_at, updated_at")
+      .eq("id", sessionId)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return;
+
+    const priorStatus = String(activePhoneMeetingSession?.status || "draft").toLowerCase();
+    activePhoneMeetingSession = {
+      ...activePhoneMeetingSession,
+      ...data,
+      session_id: data.id,
+    };
+    const nextDetails = getPhoneMeetingStatusDetails(activePhoneMeetingSession);
+    renderPhoneMeetingSession();
+    uploadStateValue.textContent = nextDetails.upload;
+
+    if (nextDetails.status !== priorStatus || nextDetails.status !== lastPhoneMeetingStatus) {
+      lastPhoneMeetingStatus = nextDetails.status;
+      if (nextDetails.status === "connecting") {
+        setRecorderState("Connected", "The phone caller is connected and completing the recording notice.");
+        setStatus(recordingStatus, "Phone call connected.", "success");
+      } else if (nextDetails.status === "in_progress") {
+        setRecorderState("Recording", "Phone capture is active. Hang up when the meeting is complete.");
+        setStatus(recordingStatus, "Phone meeting recording is in progress.", "success");
+      } else if (nextDetails.status === "copying_to_storage") {
+        setRecorderState("Saving", "The call ended. Securing its recording in this library.");
+        setStatus(recordingStatus, "Call ended. Securing the phone recording...");
+      } else if (nextDetails.status === "recording_ready") {
+        setRecorderState("Saved", "The phone recording is attached to this meeting note.");
+        setStatus(recordingStatus, "Phone recording saved. Select Finish meeting note when your notes are ready.", "success");
+        await loadRecordings();
+      } else if (nextDetails.status === "failed") {
+        setRecorderState("Needs attention", nextDetails.copy);
+        setStatus(recordingStatus, nextDetails.copy, "error");
+        await loadRecordings();
+      } else if (["canceled", "ready"].includes(nextDetails.status)) {
+        setRecorderState("No recording", nextDetails.copy);
+        setStatus(recordingStatus, nextDetails.copy);
+        await loadRecordings();
+      }
+    }
+    updateControls();
+  } catch (error) {
+    console.warn("Unable to refresh phone meeting status", error);
+  } finally {
+    phoneMeetingPollInFlight = false;
+  }
+}
+
+function startPhoneMeetingPolling() {
+  stopPhoneMeetingPolling();
+  if (!activePhoneMeetingSession) return;
+  void refreshPhoneMeetingStatus();
+  phoneMeetingPollTimer = window.setInterval(() => {
+    void refreshPhoneMeetingStatus();
+  }, 2500);
+}
+
+async function recoverRecentPhoneMeetingSession() {
+  const organization = getActiveOrganization();
+  if (!organization?.id || !currentSession?.user?.id || !phoneMeetingsAreActive() || activePhoneMeetingSession) return;
+  const recentCutoff = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
+  const { data, error } = await supabase
+    .from("phone_meeting_sessions")
+    .select("id, meeting_recording_id, status, started_at, ended_at, duration_seconds, twilio_recording_sid, failure_code, metadata, created_at, updated_at")
+    .eq("organization_id", organization.id)
+    .eq("requested_by_user_id", currentSession.user.id)
+    .in("status", ["draft", "connecting", "in_progress", "copying_to_storage", "recording_ready", "failed", "canceled"])
+    .gte("created_at", recentCutoff)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error || !data?.meeting_recording_id) return;
+
+  const metadata = data.metadata || {};
+  activePhoneMeetingSession = {
+    ...data,
+    session_id: data.id,
+    dial_in_number: phoneMeetingSettings?.primary_phone_number || "",
+    meeting_code: metadata.dial_in_code || "",
+    expires_at: metadata.dial_in_expires_at || "",
+  };
+  activeRecordingId = data.meeting_recording_id;
+  if (meetingSourcePhone) meetingSourcePhone.checked = true;
+
+  const recording = getRecordingById(activeRecordingId);
+  if (recording) {
+    recordingTitleInput.value = recording.title || "";
+    recordingTemplateSelect.value = recording.selected_template_id || BLANK_NOTES_TEMPLATE_VALUE;
+    recordingNotesInput.value = recording.notes_plain_text || "";
+  }
+
+  lastPhoneMeetingStatus = "";
+  renderPhoneMeetingSourceAvailability();
+  renderPhoneMeetingSession();
+  setRecordPanelOpen(true);
+  startPhoneMeetingPolling();
+  updateControls();
 }
 
 async function loadPhoneMeetingSettings() {
@@ -1245,10 +1444,19 @@ function updateControls() {
   show(stopRecordingButton, isCaptureActive);
   if (saveRecordingButton) {
     saveRecordingButton.disabled = !canSaveMeetingNote || isRecordingWorkflowActive || isCaptureActive;
+    saveRecordingButton.textContent = activePhoneMeetingSession?.status === "recording_ready"
+      ? "Finish meeting note"
+      : "Save meeting note";
     show(saveRecordingButton, !isCaptureActive);
   }
   if (startPhoneMeetingButton) {
     startPhoneMeetingButton.disabled = !canSaveMeetingNote || !phoneMeetingsAreActive() || isRecordingWorkflowActive || hasPendingUpload;
+  }
+  if (retryPhoneMeetingTransferButton) {
+    retryPhoneMeetingTransferButton.disabled = isRecordingWorkflowActive || !shouldOfferPhoneTransferRetry();
+  }
+  if (completePhoneMeetingWithoutRecordingButton) {
+    completePhoneMeetingWithoutRecordingButton.disabled = isRecordingWorkflowActive || !canCompletePhoneMeetingWithoutRecording();
   }
   activeOrganizationSelect.disabled = hasActiveSession || hasPendingUpload || memberships.length <= 1;
   recordingTitleInput.disabled = hasActiveSession;
@@ -2268,8 +2476,14 @@ async function startPhoneMeeting() {
     if (error) throw error;
     if (!data?.dial_in_number || !data?.meeting_code) throw new Error("Phone Meeting setup did not return a dial-in number and code.");
 
-    activePhoneMeetingSession = data;
+    activePhoneMeetingSession = {
+      ...data,
+      status: "draft",
+      meeting_recording_id: meetingRecordingId,
+    };
+    lastPhoneMeetingStatus = "";
     renderPhoneMeetingSession();
+    startPhoneMeetingPolling();
     setStatus(recordingStatus, "Phone meeting ready. Dial the number and enter the private code when prompted.", "success");
     await loadRecordings();
   } catch (error) {
@@ -2566,6 +2780,95 @@ function validateMeetingNoteRequiredFields() {
   return true;
 }
 
+async function finishActivePhoneMeetingForm(message) {
+  const recordingId = activeRecordingId;
+  stopPhoneMeetingPolling();
+  activePhoneMeetingSession = null;
+  lastPhoneMeetingStatus = "";
+  activeRecordingId = "";
+  recordingTitleInput.value = "";
+  recordingTemplateSelect.value = "";
+  recordingNotesInput.value = "";
+  if (meetingSourcePhone) meetingSourcePhone.checked = false;
+  clearPendingRecordedAudio();
+  clearPendingUploadedAudio();
+  clearRecorderStats();
+  setRecordPanelOpen(false);
+  renderPhoneMeetingSession();
+  setStatus(recordingStatus, message, "success");
+  await loadRecordings();
+  if (recordingId) await openRecordingDetail(recordingId);
+}
+
+async function completePhoneMeetingWithoutRecording() {
+  if (!activePhoneMeetingSession || !activeRecordingId || !canCompletePhoneMeetingWithoutRecording()) return;
+  if (!validateMeetingNoteRequiredFields()) return;
+  const organization = getActiveOrganization();
+  if (!organization) return;
+
+  isRecordingWorkflowActive = true;
+  updateControls();
+  setStatus(recordingStatus, "Completing the meeting note without a recording...");
+  try {
+    await updateMeetingRecording(activeRecordingId, {
+      title: recordingTitleInput.value.trim(),
+      ...getCurrentNotesPayload(),
+    });
+    const { data, error } = await supabase.functions.invoke("twilio-phone-meetings", {
+      body: {
+        action: "complete_without_recording",
+        organization_id: organization.id,
+        meeting_recording_id: activeRecordingId,
+        session_id: activePhoneMeetingSession.session_id || activePhoneMeetingSession.id,
+      },
+    });
+    if (error) throw error;
+    activePhoneMeetingSession = { ...activePhoneMeetingSession, ...(data || {}), status: "ready" };
+    await finishActivePhoneMeetingForm("Meeting note completed without a phone recording.");
+  } catch (error) {
+    setStatus(recordingStatus, getErrorMessage(error, "Unable to complete the meeting note without a recording."), "error");
+  } finally {
+    isRecordingWorkflowActive = false;
+    updateControls();
+  }
+}
+
+async function retryPhoneMeetingTransfer() {
+  if (!activePhoneMeetingSession || !activeRecordingId || !shouldOfferPhoneTransferRetry()) return;
+  const organization = getActiveOrganization();
+  if (!organization) return;
+
+  isRecordingWorkflowActive = true;
+  updateControls();
+  setStatus(recordingStatus, "Retrying the secure recording transfer...");
+  try {
+    const { data, error } = await supabase.functions.invoke("twilio-phone-meetings", {
+      body: {
+        action: "retry_recording_transfer",
+        organization_id: organization.id,
+        meeting_recording_id: activeRecordingId,
+        session_id: activePhoneMeetingSession.session_id || activePhoneMeetingSession.id,
+      },
+    });
+    if (error) throw error;
+    activePhoneMeetingSession = {
+      ...activePhoneMeetingSession,
+      ...(data || {}),
+      status: data?.status || "recording_ready",
+    };
+    lastPhoneMeetingStatus = "";
+    renderPhoneMeetingSession();
+    setStatus(recordingStatus, "Phone recording saved. Select Finish meeting note when your notes are ready.", "success");
+    await loadRecordings();
+  } catch (error) {
+    setStatus(recordingStatus, getErrorMessage(error, "The phone recording transfer still needs attention."), "error");
+  } finally {
+    isRecordingWorkflowActive = false;
+    updateControls();
+    startPhoneMeetingPolling();
+  }
+}
+
 async function handleSaveMeetingNote() {
   if (hasUnsavedRecordingAudio()) {
     await handleSaveStoppedRecording();
@@ -2594,15 +2897,23 @@ async function handleSaveMeetingNote() {
       await updateMeetingRecording(activeRecordingId, {
         title,
         ...getCurrentNotesPayload(),
-        metadata: getMeetingSourceMetadata("phone_call"),
       });
       mergeRecordingUpdate({
         id: activeRecordingId,
         title,
         ...getCurrentNotesPayload(),
-        metadata: getMeetingSourceMetadata("phone_call"),
       });
-      setStatus(recordingStatus, "Phone meeting note saved. Keep this page open until the call is complete.", "success");
+      if (activePhoneMeetingSession.status === "recording_ready") {
+        await finishActivePhoneMeetingForm("Phone meeting note completed with its recording attached.");
+        return;
+      }
+      setStatus(
+        recordingStatus,
+        canCompletePhoneMeetingWithoutRecording()
+          ? "Phone meeting note saved. Complete it without a recording when you are ready."
+          : "Phone meeting note saved. Call status will update here automatically.",
+        "success"
+      );
       await loadRecordings();
     } catch (error) {
       setStatus(recordingStatus, getErrorMessage(error, "Unable to save the phone meeting note."), "error");
@@ -2843,7 +3154,9 @@ async function handleOrganizationChange(nextOrganizationId) {
   clearPendingRecordedAudio();
   clearPendingUploadedAudio();
   clearPendingReferences();
+  stopPhoneMeetingPolling();
   activePhoneMeetingSession = null;
+  lastPhoneMeetingStatus = "";
   if (recordingDetailModal.classList.contains("is-open")) {
     closeRecordingDetail();
   }
@@ -2853,6 +3166,7 @@ async function handleOrganizationChange(nextOrganizationId) {
   await loadReferenceDocuments();
   await loadPhoneMeetingSettings();
   await loadRecordings();
+  await recoverRecentPhoneMeetingSession();
 }
 
 async function handleSignout() {
@@ -2905,6 +3219,7 @@ async function init() {
   await loadReferenceDocuments();
   await loadPhoneMeetingSettings();
   await loadRecordings();
+  await recoverRecentPhoneMeetingSession();
 
   if (!window.MediaRecorder || !navigator.mediaDevices?.getUserMedia) {
     startRecordingButton.disabled = true;
@@ -2980,6 +3295,12 @@ async function init() {
   });
   startPhoneMeetingButton?.addEventListener("click", () => {
     void startPhoneMeeting();
+  });
+  retryPhoneMeetingTransferButton?.addEventListener("click", () => {
+    void retryPhoneMeetingTransfer();
+  });
+  completePhoneMeetingWithoutRecordingButton?.addEventListener("click", () => {
+    void completePhoneMeetingWithoutRecording();
   });
   recordingNotesInput.addEventListener("input", queueActiveRecordingNotesSave);
   activeOrganizationSelect.addEventListener("change", async () => {
