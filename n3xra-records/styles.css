@@ -6140,7 +6140,7 @@ body:has(.confirm-modal.is-open) {
   right: 0;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto auto;
-  width: min(460px, 100vw);
+  width: min(520px, 100vw);
   height: 100%;
   border-left: 1px solid rgba(18, 43, 57, 0.12);
   background: #f8fafb;
@@ -6217,7 +6217,7 @@ body:has(.confirm-modal.is-open) {
 
 .records-ai-message {
   width: fit-content;
-  max-width: 88%;
+  max-width: 94%;
   margin: 0 0 1rem;
   padding: 0.85rem 0.95rem;
   border: 1px solid rgba(18, 43, 57, 0.1);
@@ -6227,10 +6227,15 @@ body:has(.confirm-modal.is-open) {
 }
 
 .records-ai-message.is-user {
+  max-width: 84%;
   margin-left: auto;
   border-color: rgba(22, 117, 105, 0.2);
   border-radius: 16px 16px 5px 16px;
   background: #e6f3f0;
+}
+
+.records-ai-message.is-user .records-ai-message-copy {
+  white-space: pre-wrap;
 }
 
 .records-ai-message-label {
@@ -6242,11 +6247,59 @@ body:has(.confirm-modal.is-open) {
 }
 
 .records-ai-message-copy {
-  margin: 0;
   color: var(--ink);
   font-size: 0.88rem;
-  line-height: 1.58;
-  white-space: pre-wrap;
+  line-height: 1.55;
+}
+
+.records-ai-message-copy p {
+  margin: 0 0 0.65rem;
+}
+
+.records-ai-message-copy p:last-child,
+.records-ai-message-copy li:last-child {
+  margin-bottom: 0;
+}
+
+.records-ai-message-copy ol,
+.records-ai-message-copy ul {
+  margin: 0.25rem 0 0.7rem;
+  padding-left: 1.25rem;
+}
+
+.records-ai-message-copy li {
+  margin: 0 0 0.42rem;
+  padding-left: 0.12rem;
+}
+
+.records-ai-message-copy strong {
+  color: #102c35;
+  font-weight: 800;
+}
+
+.records-ai-message-copy code {
+  padding: 0.08rem 0.28rem;
+  border-radius: 4px;
+  background: rgba(18, 43, 57, 0.08);
+  font-size: 0.82em;
+}
+
+.records-ai-message-copy a {
+  color: var(--teal);
+  font-weight: 750;
+  text-underline-offset: 2px;
+}
+
+.records-ai-answer-heading {
+  margin: 0.85rem 0 0.4rem;
+  color: var(--ink);
+  font: 800 0.76rem/1.3 "Manrope", "Trebuchet MS", sans-serif;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.records-ai-answer-heading:first-child {
+  margin-top: 0;
 }
 
 .records-ai-starters {

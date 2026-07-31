@@ -179,6 +179,85 @@ function getRecordsAiLibraryName() {
   return String(activeName?.textContent || "").trim();
 }
 
+function appendRecordsAiInlineMarkup(container, value) {
+  const text = String(value || "");
+  const tokenPattern = /(\*\*[^*\n]+\*\*|`[^`\n]+`|\[[^\]\n]+\]\((?:https?:\/\/|\/)[^)\s]+\))/g;
+  let cursor = 0;
+
+  for (const match of text.matchAll(tokenPattern)) {
+    if (match.index > cursor) container.append(document.createTextNode(text.slice(cursor, match.index)));
+    const token = match[0];
+    if (token.startsWith("**")) {
+      const strong = document.createElement("strong");
+      strong.textContent = token.slice(2, -2);
+      container.append(strong);
+    } else if (token.startsWith("`")) {
+      const code = document.createElement("code");
+      code.textContent = token.slice(1, -1);
+      container.append(code);
+    } else {
+      const parts = token.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+      const link = document.createElement("a");
+      link.textContent = parts?.[1] || token;
+      link.href = parts?.[2] || "#";
+      if (/^https?:\/\//i.test(parts?.[2] || "")) {
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+      }
+      container.append(link);
+    }
+    cursor = match.index + token.length;
+  }
+
+  if (cursor < text.length) container.append(document.createTextNode(text.slice(cursor)));
+}
+
+function renderRecordsAiAnswer(container, content) {
+  const normalized = String(content || "")
+    .trim()
+    .replace(/\s+(#{1,3}\s+)/g, "\n$1")
+    .replace(/\s+(\d+\.\s+)/g, "\n$1")
+    .replace(/\s+([-*]\s+)/g, "\n$1");
+  const lines = normalized.split(/\r?\n/);
+  let activeList = null;
+  let activeListType = "";
+
+  const endList = () => {
+    activeList = null;
+    activeListType = "";
+  };
+
+  lines.forEach((rawLine) => {
+    const line = rawLine.trim();
+    if (!line) {
+      endList();
+      return;
+    }
+
+    const orderedMatch = line.match(/^\d+\.\s+(.+)$/);
+    const unorderedMatch = line.match(/^[-*]\s+(.+)$/);
+    if (orderedMatch || unorderedMatch) {
+      const type = orderedMatch ? "ol" : "ul";
+      if (!activeList || activeListType !== type) {
+        activeList = document.createElement(type);
+        activeListType = type;
+        container.append(activeList);
+      }
+      const item = document.createElement("li");
+      appendRecordsAiInlineMarkup(item, (orderedMatch || unorderedMatch)[1]);
+      activeList.append(item);
+      return;
+    }
+
+    endList();
+    const headingMatch = line.match(/^(#{1,3})\s+(.+)$/);
+    const block = document.createElement(headingMatch ? "h3" : "p");
+    if (headingMatch) block.className = "records-ai-answer-heading";
+    appendRecordsAiInlineMarkup(block, headingMatch ? headingMatch[2] : line);
+    container.append(block);
+  });
+}
+
 function appendRecordsAiMessage(container, role, content) {
   if (!container || !content) return;
   const message = document.createElement("div");
@@ -188,9 +267,15 @@ function appendRecordsAiMessage(container, role, content) {
   label.className = "records-ai-message-label";
   label.textContent = role === "assistant" ? "Records AI" : "You";
 
-  const copy = document.createElement("p");
+  const copy = document.createElement("div");
   copy.className = "records-ai-message-copy";
-  copy.textContent = content;
+  if (role === "assistant") {
+    renderRecordsAiAnswer(copy, content);
+  } else {
+    const paragraph = document.createElement("p");
+    paragraph.textContent = content;
+    copy.append(paragraph);
+  }
 
   message.append(label, copy);
   container.append(message);
@@ -328,15 +413,15 @@ function installRecordsAiAssistant() {
         <div>
           <p class="records-ai-kicker">N3XRA Records</p>
           <h2 id="records-ai-title">Ask Records AI</h2>
-          <p>Get help using the app and finding the right workflow.</p>
+          <p>Short, step-by-step help for the Records app.</p>
         </div>
         <button class="records-ai-close" type="button" data-records-ai-close aria-label="Close Records AI">×</button>
       </header>
       <div class="records-ai-messages" data-records-ai-messages aria-live="polite"></div>
       <div class="records-ai-starters" aria-label="Suggested questions">
-        <button type="button" data-records-ai-prompt="How do I start and finish a meeting note?">Meeting notes</button>
-        <button type="button" data-records-ai-prompt="How do I invite someone and control their access?">Invite a user</button>
-        <button type="button" data-records-ai-prompt="Where can I change the AI settings for my library?">AI settings</button>
+        <button type="button" data-records-ai-prompt="Give me the shortest steps to start and finish a meeting note.">Meeting notes</button>
+        <button type="button" data-records-ai-prompt="Give me the shortest steps to invite a user and choose their access.">Invite a user</button>
+        <button type="button" data-records-ai-prompt="Where do I change this library's AI settings?">AI settings</button>
       </div>
       <form class="records-ai-composer" data-records-ai-form>
         <label for="records-ai-question">Ask a Records question</label>
@@ -354,7 +439,7 @@ function installRecordsAiAssistant() {
   appendRecordsAiMessage(
     messages,
     "assistant",
-    "Hi—ask me how to use N3XRA Records, where to find a setting, or what to do next."
+    "Ask me where something is or how to complete a task. I’ll keep the answer short and step by step."
   );
 
   document.querySelectorAll("[data-records-ai-open]").forEach((button) => {
@@ -364,6 +449,12 @@ function installRecordsAiAssistant() {
     button.addEventListener("click", closeRecordsAiAssistant);
   });
   layer.querySelector("[data-records-ai-form]")?.addEventListener("submit", handleRecordsAiSubmit);
+  layer.querySelector("[data-records-ai-question]")?.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      event.currentTarget.form?.requestSubmit();
+    }
+  });
   layer.querySelectorAll("[data-records-ai-prompt]").forEach((button) => {
     button.addEventListener("click", () => {
       const input = layer.querySelector("[data-records-ai-question]");
