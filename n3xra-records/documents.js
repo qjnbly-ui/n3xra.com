@@ -36,6 +36,7 @@ const documentTemplateCreate = document.getElementById("document-template-create
 const documentTemplateSelect = document.getElementById("document-template-select");
 const createFromTemplateButton = document.getElementById("create-from-template-button");
 const newTemplateButton = document.getElementById("new-template-button");
+const CREATE_TEMPLATE_OPTION_VALUE = "__create_template__";
 const templateManagementSection = document.getElementById("template-management-section");
 const appTemplateList = document.getElementById("app-template-list");
 const appTemplateEmpty = document.getElementById("app-template-empty");
@@ -555,10 +556,11 @@ function renderOrganizationSelector() {
   newDocumentButton.disabled = !capabilities.canEditDocuments;
   newTemplateButton.disabled = true;
   createFromTemplateButton.disabled = !capabilities.canEditDocuments || !appTemplates.length;
-  documentTemplateSelect.disabled = !capabilities.canEditDocuments || !appTemplates.length;
+  documentTemplateSelect.disabled =
+    !capabilities.canManageTemplates && (!capabilities.canEditDocuments || !appTemplates.length);
   show(newTemplateButton, false);
   show(templateManagementSection, false);
-  show(documentTemplateCreate, capabilities.canEditDocuments);
+  show(documentTemplateCreate, capabilities.canEditDocuments || capabilities.canManageTemplates);
   documentDelete.disabled = activeDocumentKind === "template" ? !capabilities.canManageTemplates : !capabilities.canDeleteDocuments;
   documentEmail.disabled = activeDocumentKind === "template" || !capabilities.canShareDocuments;
   const canEditActive = activeDocumentKind === "template" ? capabilities.canManageTemplates : capabilities.canEditDocuments;
@@ -601,12 +603,13 @@ function renderAppTemplates() {
   documentTemplateSelect.innerHTML = "";
   show(appTemplateEmpty, false);
   show(templateManagementSection, false);
-  show(documentTemplateCreate, capabilities.canEditDocuments);
+  show(documentTemplateCreate, capabilities.canEditDocuments || capabilities.canManageTemplates);
 
-  if (!appTemplates.length) {
-    documentTemplateSelect.innerHTML = '<option value="">No templates</option>';
-    createFromTemplateButton.disabled = true;
-    return;
+  if (capabilities.canManageTemplates) {
+    const createOption = document.createElement("option");
+    createOption.value = CREATE_TEMPLATE_OPTION_VALUE;
+    createOption.textContent = "+ Add a new template…";
+    documentTemplateSelect.append(createOption);
   }
 
   appTemplates.forEach((template) => {
@@ -616,8 +619,22 @@ function renderAppTemplates() {
     documentTemplateSelect.append(option);
   });
 
-  createFromTemplateButton.disabled = !capabilities.canEditDocuments;
-  documentTemplateSelect.disabled = !capabilities.canEditDocuments;
+  if (appTemplates.length) {
+    documentTemplateSelect.value = appTemplates[0].id;
+  } else if (capabilities.canManageTemplates) {
+    const placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.textContent = "Choose an option";
+    placeholder.disabled = true;
+    placeholder.selected = true;
+    documentTemplateSelect.append(placeholder);
+  } else {
+    documentTemplateSelect.innerHTML = '<option value="">No templates</option>';
+  }
+
+  createFromTemplateButton.disabled = !capabilities.canEditDocuments || !appTemplates.length;
+  documentTemplateSelect.disabled =
+    !capabilities.canManageTemplates && (!capabilities.canEditDocuments || !appTemplates.length);
 }
 
 function renderSendContacts() {
@@ -876,9 +893,27 @@ async function createTemplate() {
   await loadAppDocuments(data.id);
 }
 
+async function handleDocumentTemplateSelection() {
+  const capabilities = getActiveCapabilities();
+
+  if (documentTemplateSelect.value !== CREATE_TEMPLATE_OPTION_VALUE) {
+    createFromTemplateButton.disabled =
+      !capabilities.canEditDocuments ||
+      !appTemplates.some((template) => template.id === documentTemplateSelect.value);
+    return;
+  }
+
+  documentTemplateSelect.value = appTemplates[0]?.id || "";
+  await createTemplate();
+}
+
 async function createDocumentFromTemplate() {
   const organization = getActiveOrganization();
   if (!organization || !getActiveCapabilities().canEditDocuments) return;
+  if (documentTemplateSelect.value === CREATE_TEMPLATE_OPTION_VALUE) {
+    await createTemplate();
+    return;
+  }
   const template = appTemplates.find((item) => item.id === documentTemplateSelect.value);
   if (!template) {
     setStatus(documentsStatus, "Choose a template first.", "error");
@@ -1382,6 +1417,7 @@ async function init() {
   documentSearch.addEventListener("input", renderAppDocuments);
   newDocumentButton.addEventListener("click", () => createAppDocument("blank"));
   newTemplateButton.addEventListener("click", createTemplate);
+  documentTemplateSelect.addEventListener("change", handleDocumentTemplateSelection);
   createFromTemplateButton.addEventListener("click", createDocumentFromTemplate);
   editorForm.addEventListener("submit", saveActiveDocument);
   documentDelete.addEventListener("click", deleteActiveDocument);
