@@ -281,6 +281,10 @@ function updateMessageControls() {
     }
     element.disabled = !canSend;
   });
+  messageSendTo.disabled = !canSend;
+  messageSendContactList.querySelectorAll("input, button").forEach((element) => {
+    element.disabled = !canSend;
+  });
 }
 
 async function loadMessageRecipients() {
@@ -374,6 +378,7 @@ async function handleOrganizationChange() {
 
 function resetMessageForm({ clearStatus = true } = {}) {
   messageForm.reset();
+  messageSendTo.value = "";
   messageSendContactList.querySelectorAll("input[type='checkbox']").forEach((input) => {
     input.checked = false;
   });

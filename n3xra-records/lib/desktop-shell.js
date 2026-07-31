@@ -11,6 +11,7 @@ let recordsAiLastFocusedElement = null;
 const RECORDS_WORKSPACE_LINKS = [
   { key: "library", label: "Library", href: "/n3xra-records/library" },
   { key: "files", label: "Files", href: "/n3xra-records/files.html" },
+  { key: "document-builder", label: "Document Builder", href: "/n3xra-records/documents.html" },
   { key: "messages", label: "Communication", href: "/n3xra-records/messages.html" },
   { key: "meeting-notes", label: "Meeting Notes", href: "/n3xra-records/meeting-notes" },
 ];
@@ -61,7 +62,8 @@ function getActiveRecordsPage() {
   const pathname = normalizePathname();
   if (pathname.endsWith("/n3xra-records/account")) return "account";
   if (pathname.endsWith("/n3xra-records/library")) return "library";
-  if (pathname.endsWith("/n3xra-records/files") || pathname.endsWith("/n3xra-records/documents")) return "files";
+  if (pathname.endsWith("/n3xra-records/files")) return "files";
+  if (pathname.endsWith("/n3xra-records/documents")) return "document-builder";
   if (pathname.endsWith("/n3xra-records/messages")) return "messages";
   if (
     pathname.endsWith("/n3xra-records/meeting-notes") ||
@@ -164,6 +166,23 @@ function installDesktopHeader() {
   });
 
   topbarInner.prepend(appbar);
+}
+
+function installMobileDocumentBuilderLink(activePage) {
+  const mobileMenu = document.getElementById("mobile-menu");
+  const filesLink = document.getElementById("mobile-menu-files-link");
+  if (!mobileMenu || !filesLink || mobileMenu.querySelector("[data-mobile-document-builder]")) return;
+
+  const link = document.createElement("a");
+  link.className = "mobile-menu-link button-link";
+  link.href = "/n3xra-records/documents.html";
+  link.textContent = "Document Builder";
+  link.setAttribute("data-mobile-document-builder", "");
+  if (activePage === "document-builder") {
+    link.classList.add("is-active");
+    link.setAttribute("aria-current", "page");
+  }
+  filesLink.insertAdjacentElement("afterend", link);
 }
 
 function getRecordsAiLibraryName() {
@@ -473,14 +492,16 @@ function installDesktopShell() {
   const main = shell?.querySelector(":scope > main.main");
   if (!body || !shell || !main) return;
 
+  const activePage = getActiveRecordsPage();
   installDesktopHeader();
+  installMobileDocumentBuilderLink(activePage);
   installRecordsAiAssistant();
 
   if (body.classList.contains("records-account-page") || shell.querySelector(":scope > .records-desktop-frame")) return;
 
   const frame = document.createElement("div");
   frame.className = "records-desktop-frame";
-  frame.append(buildDesktopNavigation(getActiveRecordsPage()), main);
+  frame.append(buildDesktopNavigation(activePage), main);
   shell.append(frame);
   body.classList.add("records-shared-desktop-shell-page");
 

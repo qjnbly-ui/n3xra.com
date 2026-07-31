@@ -10,7 +10,6 @@ import { getSupportOrganizationId, loadSupportMembership, recordSupportEvent, ve
 import {
   buildMembershipMap,
   dedupeMembershipsByOrganization,
-  formatRoleLabel,
   getCapabilities,
   isPlatformAdminEmail,
   resolveActiveOrganization,
@@ -21,8 +20,7 @@ const setupPanel = document.getElementById("setup-panel");
 const documentsPanel = document.getElementById("documents-panel");
 const noAccessNotice = document.getElementById("documents-no-access-notice");
 const activeOrganizationSelect = document.getElementById("active-organization-select");
-const activeMembershipRole = document.getElementById("active-membership-role");
-const appDocumentCount = document.getElementById("app-document-count");
+const documentSidebarCount = document.getElementById("document-sidebar-count");
 const documentSearch = document.getElementById("document-search");
 const appDocumentList = document.getElementById("app-document-list");
 const appDocumentEmpty = document.getElementById("app-document-empty");
@@ -45,6 +43,10 @@ const documentSave = document.getElementById("document-save");
 const documentPrint = document.getElementById("document-print");
 const documentEmail = document.getElementById("document-email");
 const documentDelete = document.getElementById("document-delete");
+const documentWorkspaceActionsSlot = document.getElementById("document-workspace-actions-slot");
+const documentWorkspaceActions = document.getElementById("document-workspace-actions");
+const documentWorkspaceActionsAnchor = document.getElementById("document-workspace-actions-anchor");
+const documentEditorPanel = document.querySelector(".document-editor-panel");
 const documentPdfModal = document.getElementById("document-pdf-modal");
 const documentPdfTitle = document.getElementById("document-pdf-title");
 const documentPdfDownload = document.getElementById("document-pdf-download");
@@ -407,13 +409,17 @@ function documentToEditor(doc) {
   documentTitle.value = doc?.title || "";
   documentStatus.value = doc?.status || "draft";
   const isTemplate = activeDocumentKind === "template";
-  documentSave.textContent = isTemplate ? "Save template" : "Save";
+  documentSave.textContent = isTemplate ? "Save template" : "Save changes";
   documentDelete.textContent = isTemplate ? "Delete template" : "Delete";
   documentEmail.disabled = isTemplate;
   initTiptapEditor();
   tiptapEditor.commands.setContent(contentJsonToTiptapContent(doc?.content_json || EMPTY_DOCUMENT));
   show(editorEmpty, false);
   show(editorForm, true);
+  documentWorkspaceActions?.classList.remove("is-revealed");
+  window.setTimeout(() => {
+    documentWorkspaceActions?.classList.add("is-revealed");
+  }, 180);
   renderAppDocuments();
   renderAppTemplates();
   setStatus(editorStatus, "");
@@ -528,9 +534,8 @@ function renderOrganizationSelector() {
   activeOrganizationSelect.innerHTML = "";
   if (!organization) {
     activeOrganizationSelect.innerHTML = '<option value="">No active library</option>';
-    activeMembershipRole.textContent = "No library access";
-    appDocumentCount.textContent = "0";
     show(templateManagementSection, false);
+    show(documentTemplateCreate, false);
     show(mobileMenuMessagesLink, false);
     show(mobileMenuRecordingsLink, false);
     return;
@@ -544,7 +549,6 @@ function renderOrganizationSelector() {
     activeOrganizationSelect.append(option);
   });
 
-  activeMembershipRole.textContent = formatRoleLabel(activeMembership.role);
   mobileMenuFilesLink?.classList.toggle("is-active", false);
   show(mobileMenuMessagesLink, capabilities.canShareDocuments);
   show(mobileMenuRecordingsLink, capabilities.canUseRecordings);
@@ -554,7 +558,7 @@ function renderOrganizationSelector() {
   documentTemplateSelect.disabled = !capabilities.canEditDocuments || !appTemplates.length;
   show(newTemplateButton, false);
   show(templateManagementSection, false);
-  show(documentTemplateCreate, capabilities.canEditDocuments && appTemplates.length > 0);
+  show(documentTemplateCreate, capabilities.canEditDocuments);
   documentDelete.disabled = activeDocumentKind === "template" ? !capabilities.canManageTemplates : !capabilities.canDeleteDocuments;
   documentEmail.disabled = activeDocumentKind === "template" || !capabilities.canShareDocuments;
   const canEditActive = activeDocumentKind === "template" ? capabilities.canManageTemplates : capabilities.canEditDocuments;
@@ -572,7 +576,9 @@ function renderAppDocuments() {
   });
 
   appDocumentList.innerHTML = "";
-  appDocumentCount.textContent = String(appDocuments.length);
+  if (documentSidebarCount) {
+    documentSidebarCount.textContent = `${appDocuments.length} document${appDocuments.length === 1 ? "" : "s"}`;
+  }
   show(appDocumentEmpty, filtered.length === 0);
 
   filtered.forEach((doc) => {
@@ -595,7 +601,7 @@ function renderAppTemplates() {
   documentTemplateSelect.innerHTML = "";
   show(appTemplateEmpty, false);
   show(templateManagementSection, false);
-  show(documentTemplateCreate, capabilities.canEditDocuments && appTemplates.length > 0);
+  show(documentTemplateCreate, capabilities.canEditDocuments);
 
   if (!appTemplates.length) {
     documentTemplateSelect.innerHTML = '<option value="">No templates</option>';
@@ -813,7 +819,7 @@ async function loadAppDocuments(preferredId = "") {
     show(editorForm, false);
   }
   renderOrganizationSelector();
-  setStatus(documentsStatus, `${appDocuments.length} document${appDocuments.length === 1 ? "" : "s"} and ${appTemplates.length} template${appTemplates.length === 1 ? "" : "s"} loaded.`, "success");
+  setStatus(documentsStatus, "");
 }
 
 async function createAppDocument(kind = "blank") {
@@ -926,7 +932,7 @@ async function deleteTemplate(template) {
   if (activeDocumentId === template.id) {
     activeDocumentId = "";
     activeDocumentKind = "document";
-    documentSave.textContent = "Save";
+    documentSave.textContent = "Save changes";
     documentDelete.textContent = "Delete";
     show(editorEmpty, true);
     show(editorForm, false);
@@ -1271,6 +1277,69 @@ function applyToolbarAction(event) {
   updateToolbarStates();
 }
 
+function initDocumentWorkspaceActionsDocking() {
+  if (!documentWorkspaceActionsSlot || !documentWorkspaceActions || !documentWorkspaceActionsAnchor) return;
+
+  const scrollingElement = documentWorkspaceActions.closest(".records-desktop-frame > .main");
+  const scrollTarget = scrollingElement || window;
+  let updateFrame = 0;
+
+  const updateDocking = () => {
+    updateFrame = 0;
+    if (editorForm.classList.contains("hidden")) return;
+
+    const actionHeight = documentWorkspaceActions.offsetHeight;
+    documentWorkspaceActionsSlot.style.height = `${actionHeight}px`;
+
+    const viewportRight = document.documentElement.clientWidth;
+    const workspaceRect = scrollingElement?.getBoundingClientRect();
+    const editorRect = documentEditorPanel?.getBoundingClientRect();
+    const workspaceLeft = Math.max(0, workspaceRect?.left || 0);
+    const editorLeft = Math.max(workspaceLeft, editorRect?.left || workspaceLeft);
+    const editorRight = Math.min(viewportRight, editorRect?.right || viewportRight);
+
+    documentWorkspaceActions.style.setProperty("--document-action-dock-left", `${editorLeft}px`);
+    documentWorkspaceActions.style.setProperty(
+      "--document-action-dock-content-left",
+      "20px",
+    );
+    documentWorkspaceActions.style.setProperty(
+      "--document-action-dock-content-right",
+      `${Math.max(16, viewportRight - editorRight + 20)}px`,
+    );
+
+    const viewportBottom = scrollingElement
+      ? scrollingElement.getBoundingClientRect().bottom
+      : window.innerHeight;
+    const restingEdge = documentWorkspaceActionsAnchor.getBoundingClientRect().top;
+    const fadeDistance = Math.max(128, actionHeight * 1.6);
+    const distanceFromRest = Math.max(0, restingEdge - viewportBottom);
+    const floatingOpacity = Math.min(1, distanceFromRest / fadeDistance);
+
+    documentWorkspaceActions.style.setProperty(
+      "--document-action-dock-opacity",
+      floatingOpacity.toFixed(3),
+    );
+    documentWorkspaceActions.classList.toggle("is-docked", distanceFromRest <= 1);
+  };
+
+  const queueDockingUpdate = () => {
+    if (updateFrame) return;
+    updateFrame = window.requestAnimationFrame(updateDocking);
+  };
+
+  scrollTarget.addEventListener("scroll", queueDockingUpdate, { passive: true });
+  window.addEventListener("resize", queueDockingUpdate, { passive: true });
+  if ("ResizeObserver" in window) {
+    const resizeObserver = new ResizeObserver(queueDockingUpdate);
+    resizeObserver.observe(editorForm);
+    resizeObserver.observe(documentWorkspaceActionsSlot);
+    resizeObserver.observe(documentWorkspaceActions);
+  }
+
+  queueDockingUpdate();
+}
+
 async function init() {
   show(setupPanel, !hasConfig());
   show(documentsPanel, false);
@@ -1290,6 +1359,7 @@ async function init() {
   show(setupPanel, false);
   show(documentsPanel, true);
   initTiptapEditor();
+  initDocumentWorkspaceActionsDocking();
 
   mobileLogoutButton.addEventListener("click", handleSignout);
   mobileMenuToggle.addEventListener("click", toggleMobileMenu);

@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/n3xra-records/styles.css?v=20260730-records-ai-structured">
+  <link rel="stylesheet" href="/n3xra-records/styles.css?v=20260730-communication-full-composer">
   <script>
     window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
   </script>
@@ -62,50 +62,21 @@
       </section>
 
       <section class="panel stack hidden messages-page" id="messages-panel">
-        <header class="messages-page-header">
-          <div>
-            <p class="messages-page-kicker">Communication</p>
-            <h1>Messages</h1>
-            <p>Send branded announcements to account users and contacts.</p>
-          </div>
-          <a class="btn secondary button-link messages-back-link" href="/n3xra-records/library/">Back to library</a>
-        </header>
-
         <div class="notice hidden" id="messages-no-access-notice">
           <strong>No message access right now.</strong> Select a library you can send from before composing messages.
         </div>
 
-        <div class="grid-3 messages-library-context" id="messages-library-context">
-          <div class="field">
-            <label for="active-organization-select">Active library</label>
-            <select id="active-organization-select"></select>
-          </div>
-          <div class="field">
-            <span class="field-title">Your access</span>
-            <p class="account-value" id="active-membership-role">-</p>
-          </div>
-          <div class="field">
-            <span class="field-title">Recipients loaded</span>
-            <p class="account-value" id="message-recipient-count">0</p>
-          </div>
-        </div>
-
-        <div class="messages-section-head">
-          <div>
-            <p class="messages-section-kicker">New message</p>
-            <h2>Compose an announcement</h2>
-            <p>Choose who should receive it, then write the message N3XRA Records will send.</p>
-          </div>
-        </div>
-
-        <form class="messages-compose" id="message-form">
-          <div class="messages-compose-grid">
-            <section class="messages-compose-card messages-recipients-card">
-              <header class="messages-compose-card-head">
+        <div class="messages-workspace">
+          <aside class="messages-recipient-sidebar" aria-label="Message recipients">
+            <header class="messages-recipient-sidebar-head">
+              <div>
+                <p class="messages-section-kicker">Address book</p>
                 <h3>Recipients</h3>
-                <p>Select people from this library or enter another email address.</p>
-              </header>
-              <div class="field">
+              </div>
+              <span class="message-recipient-count-badge"><span id="message-recipient-count">0</span></span>
+            </header>
+            <div class="messages-recipient-sidebar-body">
+              <div class="field messages-additional-recipient">
                 <label for="message-send-to">Additional recipient</label>
                 <input id="message-send-to" type="email" autocomplete="email" placeholder="name@example.org">
               </div>
@@ -113,18 +84,28 @@
                 <span class="field-title">Library recipients</span>
                 <div class="document-send-contact-list" id="message-send-contact-list"></div>
               </div>
-            </section>
+            </div>
+          </aside>
 
-            <section class="messages-compose-card messages-content-card">
-              <header class="messages-compose-card-head">
-                <h3>Message details</h3>
-                <p>Add a clear subject and the announcement you want recipients to receive.</p>
-              </header>
+          <section class="messages-editor-panel" aria-label="Message composer">
+            <div class="messages-library-context" id="messages-library-context">
               <div class="field">
+                <label class="sr-only" for="active-organization-select">Active library</label>
+                <select id="active-organization-select" aria-label="Active library"></select>
+              </div>
+              <div class="messages-library-access">
+                <span class="field-title">Your access</span>
+                <p class="account-value" id="active-membership-role">-</p>
+              </div>
+            </div>
+
+            <form class="messages-compose" id="message-form">
+              <section class="messages-compose-card messages-content-card">
+              <div class="field messages-subject-field">
                 <label for="message-subject">Subject</label>
                 <input id="message-subject" type="text" maxlength="180" required placeholder="Meeting tomorrow">
               </div>
-              <div class="field">
+              <div class="field messages-body-field">
                 <label for="message-body">Message</label>
                 <textarea id="message-body" rows="10" maxlength="5000" required placeholder="Write the announcement here..."></textarea>
               </div>
@@ -134,15 +115,16 @@
                 <button class="btn" id="message-submit" type="submit">Send message</button>
               </div>
               <p class="status" id="message-status"></p>
-            </section>
-          </div>
-        </form>
+              </section>
+            </form>
+          </section>
+        </div>
       </section>
     </main>
   </div>
 
   <script src="/shared/config.js"></script>
   <script type="module" src="/n3xra-records/lib/desktop-shell.js?v=20260730-records-ai-structured"></script>
-  <script type="module" src="/n3xra-records/messages.js?v=20260729-messages-polish"></script>
+  <script type="module" src="/n3xra-records/messages.js?v=20260730-communication-workspace-clean"></script>
 </body>
 </html>
