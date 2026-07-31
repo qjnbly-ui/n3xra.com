@@ -15,13 +15,13 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/n3xra-records/styles.css?v=20260729-library-navigation">
+  <link rel="stylesheet" href="/n3xra-records/styles.css?v=20260730-records-ai-assistant">
   <script>
     window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
   </script>
   <script defer src="/_vercel/insights/script.js"></script>
 </head>
-<body>
+<body class="records-meeting-notes-page">
   <div class="shell">
     <header class="topbar">
       <div class="topbar-inner">
@@ -65,7 +65,16 @@
         </div>
       </section>
 
-      <section class="panel stack hidden" id="recordings-panel">
+      <section class="panel stack hidden meeting-notes-page" id="recordings-panel">
+        <header class="meeting-notes-page-header">
+          <div>
+            <p class="meeting-notes-page-kicker">Meeting notes</p>
+            <h1>Meeting workspace</h1>
+            <p>Create, record, review, and manage every meeting note in the active library.</p>
+          </div>
+          <button class="btn" id="new-recording-action" type="button">New meeting note</button>
+        </header>
+
         <div class="notice hidden" id="recordings-no-access-notice">
           <strong>No library access right now.</strong> Meeting notes unlock when you create or join a library with editor access.
           <div class="actions">
@@ -73,7 +82,7 @@
           </div>
         </div>
 
-        <section class="panel stack hidden" id="recordings-context-panel">
+        <section class="panel stack hidden meeting-notes-library-context" id="recordings-context-panel">
           <div class="grid-3">
             <div class="field">
               <label for="active-organization-select">Active library</label>
@@ -90,15 +99,6 @@
             </div>
           </div>
         </section>
-
-        <div class="library-actions-grid" id="recordings-actions-grid">
-          <div class="library-action-slot">
-            <button class="btn" id="new-recording-action" type="button">New meeting note</button>
-          </div>
-          <div class="library-action-slot">
-            <a class="btn secondary button-link" href="/n3xra-records/all-meeting-notes/">All meeting notes</a>
-          </div>
-        </div>
 
         <section class="panel stack" id="record-panel">
           <button class="section-toggle" id="record-panel-toggle" type="button" aria-expanded="false" aria-controls="record-panel-body">
@@ -230,16 +230,16 @@
           </form>
         </section>
 
-        <section class="panel stack" id="recordings-recent-panel">
-          <div class="panel-head">
+        <section class="panel stack" id="recordings-library-panel">
+          <div class="meeting-notes-section-head">
             <div>
-              <h3>Newest meeting notes</h3>
-              <p>The latest 3 meeting notes from your active library.</p>
+              <p class="meeting-notes-section-kicker">Saved meetings</p>
+              <h2>All meeting notes</h2>
+              <p>Open any meeting to review its recording, transcript, notes, references, and final document.</p>
             </div>
           </div>
           <div class="recordings-list" id="recordings-list"></div>
           <p class="empty hidden" id="recordings-empty">No meeting notes saved in this library yet.</p>
-          <p class="recent-files-reminder"><a class="recent-files-link" href="/n3xra-records/all-meeting-notes/">Go To All Meeting Notes</a></p>
           <p class="status" id="recordings-list-status"></p>
         </section>
       </section>
@@ -302,6 +302,7 @@
             <audio class="recording-player hidden" id="recording-detail-player" controls preload="metadata"></audio>
             <div class="recording-detail-panel-actions">
               <button class="btn secondary" id="recording-detail-play" type="button">Play</button>
+              <button class="btn btn-delete-solid" id="recording-detail-delete" type="button">Delete</button>
             </div>
             <div class="recording-detail-section">
               <div class="panel-head compact-head">
@@ -360,6 +361,25 @@
     </div>
   </div>
 
+  <div class="confirm-modal" id="recording-delete-modal" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="confirm-modal-dialog">
+      <div class="confirm-modal-header">
+        <div>
+          <p class="confirm-modal-kicker">Delete meeting note</p>
+          <h3 class="confirm-modal-title">Remove this meeting note?</h3>
+        </div>
+      </div>
+      <div class="confirm-modal-body">
+        <p class="confirm-modal-copy" id="recording-delete-copy">This action cannot be undone.</p>
+        <div class="confirm-modal-actions">
+          <button class="btn secondary" id="recording-delete-cancel" type="button">Cancel</button>
+          <button class="btn btn-delete-solid" id="recording-delete-submit" type="button">Delete</button>
+        </div>
+        <p class="status" id="recording-delete-status"></p>
+      </div>
+    </div>
+  </div>
+
   <div class="settings-modal" id="recording-upload-modal" role="dialog" aria-modal="true" aria-hidden="true">
     <div class="settings-modal-dialog">
       <div class="settings-modal-header">
@@ -403,7 +423,7 @@
   </div>
 
   <script src="/shared/config.js"></script>
-  <script type="module" src="/n3xra-records/lib/desktop-shell.js?v=20260729-library-navigation"></script>
-  <script type="module" src="/n3xra-records/recordings.js?v=20260729-static-documents-route"></script>
+  <script type="module" src="/n3xra-records/lib/desktop-shell.js?v=20260730-records-ai-assistant"></script>
+  <script type="module" src="/n3xra-records/recordings.js?v=20260730-meeting-action-viewport"></script>
 </body>
 </html>

@@ -36,15 +36,21 @@ const activeOrganizationSelect = document.getElementById("active-organization-se
 const activeOrganizationName = document.getElementById("active-organization-name");
 const activeMembershipRole = document.getElementById("active-membership-role");
 const recordingCount = document.getElementById("recording-count");
-const newRecordingAction = document.getElementById("new-recording-action");
+const recordPanel = document.getElementById("record-panel");
 const recordPanelToggle = document.getElementById("record-panel-toggle");
 const recordPanelBody = document.getElementById("record-panel-body");
+const cancelMeetingNoteButton = document.getElementById("cancel-meeting-note-button");
+const meetingWorkspaceActionsSlot = document.getElementById("meeting-workspace-actions-slot");
+const meetingWorkspaceActions = document.getElementById("meeting-workspace-actions");
+const meetingWorkspaceActionsAnchor = document.getElementById("meeting-workspace-actions-anchor");
+let meetingWorkspaceActionsRevealTimer = 0;
 const recordingTitleInput = document.getElementById("recording-title");
 const recordingTemplateSelect = document.getElementById("recording-template-select");
 const recordingNotesInput = document.getElementById("recording-notes");
 const meetingSourceBrowser = document.getElementById("meeting-source-browser");
 const meetingSourcePhone = document.getElementById("meeting-source-phone");
 const meetingSourceBoth = document.getElementById("meeting-source-both");
+const meetingSourceUpload = document.getElementById("meeting-source-upload");
 const meetingSourceNote = document.getElementById("meeting-source-note");
 const phoneMeetingStart = document.getElementById("phone-meeting-start");
 const browserRecordingWorkflow = document.getElementById("browser-recording-workflow");
@@ -136,7 +142,13 @@ const recordingDetailRetry = document.getElementById("recording-detail-retry");
 const recordingDetailAiReview = document.getElementById("recording-detail-ai-review");
 const recordingDetailAiDraft = document.getElementById("recording-detail-ai-draft");
 const recordingDetailTranscriptDocument = document.getElementById("recording-detail-transcript-document");
+const recordingDetailDelete = document.getElementById("recording-detail-delete");
 const recordingDetailStatusMessage = document.getElementById("recording-detail-status-message");
+const recordingDeleteModal = document.getElementById("recording-delete-modal");
+const recordingDeleteCopy = document.getElementById("recording-delete-copy");
+const recordingDeleteCancel = document.getElementById("recording-delete-cancel");
+const recordingDeleteSubmit = document.getElementById("recording-delete-submit");
+const recordingDeleteStatus = document.getElementById("recording-delete-status");
 const recordingsConfirmModal = document.getElementById("recordings-confirm-modal");
 const recordingsConfirmCancel = document.getElementById("recordings-confirm-cancel");
 const recordingsConfirmOk = document.getElementById("recordings-confirm-ok");
@@ -172,6 +184,7 @@ let recordingStartedAt = null;
 let durationTimer = null;
 let elapsedRecordingMs = 0;
 let activeDetailRecordingId = "";
+let pendingDeleteRecordingId = "";
 let detailPlayerUrl = "";
 let pendingReferencePreviewUrl = "";
 let pendingReferencePreviewId = "";
@@ -193,6 +206,11 @@ let pendingUploadedAudioFile = null;
 let pendingUploadedAudioTitle = "";
 let pendingUploadedAudioDurationSeconds = 0;
 let pendingUploadedAudioStartedAt = null;
+
+function isIgnorableStorageDeleteError(error) {
+  const message = String(error?.message || "").toLowerCase();
+  return message.includes("not found") || message.includes("no such object") || message.includes("does not exist");
+}
 let phoneMeetingSettings = null;
 let activePhoneMeetingSession = null;
 let phoneMeetingPollTimer = null;
@@ -241,12 +259,18 @@ function show(el, visible) {
 }
 
 function getMeetingCaptureMode() {
+  if (meetingSourceUpload?.checked) return "upload";
   if (meetingSourceBoth?.checked) return "both";
   if (meetingSourcePhone?.checked) return "phone";
   return "app";
 }
 
 function meetingUsesBrowserSource() {
+  const mode = getMeetingCaptureMode();
+  return mode === "app" || mode === "both" || mode === "upload";
+}
+
+function meetingUsesMicrophoneSource() {
   const mode = getMeetingCaptureMode();
   return mode === "app" || mode === "both";
 }
@@ -257,10 +281,11 @@ function meetingUsesPhoneSource() {
 }
 
 function setMeetingCaptureMode(mode = "app") {
-  const nextMode = ["phone", "app", "both"].includes(mode) ? mode : "app";
+  const nextMode = ["phone", "app", "both", "upload"].includes(mode) ? mode : "app";
   if (meetingSourcePhone) meetingSourcePhone.checked = nextMode === "phone";
   if (meetingSourceBrowser) meetingSourceBrowser.checked = nextMode === "app";
   if (meetingSourceBoth) meetingSourceBoth.checked = nextMode === "both";
+  if (meetingSourceUpload) meetingSourceUpload.checked = nextMode === "upload";
 }
 
 function setMeetingSourceOptionAvailability(input, enabled) {
@@ -273,9 +298,9 @@ function getMeetingSourcePreferences(overrides = {}) {
   const captureMode = getMeetingCaptureMode();
   return {
     capture_mode: captureMode,
-    browser_microphone: meetingUsesBrowserSource(),
+    browser_microphone: meetingUsesMicrophoneSource(),
     phone_call: meetingUsesPhoneSource(),
-    uploaded_audio: false,
+    uploaded_audio: captureMode === "upload",
     ...overrides,
   };
 }
@@ -328,6 +353,10 @@ function renderPhoneMeetingSourceAvailability() {
     meetingSourceNote.textContent = "Phone and app audio will stay together in this one meeting note.";
     return;
   }
+  if (mode === "upload") {
+    meetingSourceNote.textContent = "Upload an existing recording and keep it with this meeting note.";
+    return;
+  }
   meetingSourceNote.textContent = "App recording is selected. Choose Both when you also need a phone call in this meeting.";
 }
 
@@ -338,7 +367,7 @@ function renderMeetingCaptureUi() {
   }
   setMeetingSourceOptionAvailability(meetingSourcePhone, phoneAvailable);
   setMeetingSourceOptionAvailability(meetingSourceBoth, phoneAvailable);
-  [meetingSourcePhone, meetingSourceBrowser, meetingSourceBoth].forEach((input) => {
+  [meetingSourcePhone, meetingSourceBrowser, meetingSourceBoth, meetingSourceUpload].forEach((input) => {
     input?.closest(".meeting-source-option")?.classList.toggle("is-selected", Boolean(input.checked));
   });
   show(browserRecordingWorkflow, meetingUsesBrowserSource());
@@ -639,11 +668,21 @@ function handleRecordingDetailTabKeydown(event) {
 function setRecordPanelOpen(isOpen, options = {}) {
   if (!recordPanelToggle || !recordPanelBody) return;
   const nextOpen = Boolean(isOpen);
+  window.clearTimeout(meetingWorkspaceActionsRevealTimer);
+  meetingWorkspaceActions?.classList.remove("is-revealed");
   show(recordPanelBody, nextOpen);
   recordPanelToggle.classList.toggle("is-open", nextOpen);
   recordPanelToggle.setAttribute("aria-expanded", String(nextOpen));
   const indicator = recordPanelToggle.querySelector(".section-toggle-indicator");
   if (indicator) indicator.textContent = nextOpen ? "-" : "+";
+  const actionLabel = recordPanelToggle.querySelector(".meeting-note-toggle-label");
+  if (actionLabel) actionLabel.textContent = nextOpen ? "Close setup" : "Start new meeting note";
+
+  if (nextOpen) {
+    meetingWorkspaceActionsRevealTimer = window.setTimeout(() => {
+      meetingWorkspaceActions?.classList.add("is-revealed");
+    }, 180);
+  }
 
   if (nextOpen && options.scroll) {
     recordPanelToggle.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -651,6 +690,86 @@ function setRecordPanelOpen(isOpen, options = {}) {
   if (nextOpen && options.focus) {
     window.setTimeout(() => recordingTitleInput?.focus({ preventScroll: true }), 120);
   }
+}
+
+function cancelMeetingNoteDraft() {
+  const recorderState = mediaRecorder?.state || "inactive";
+  const hasActiveCapture = ["recording", "paused"].includes(recorderState);
+  if (isRecordingWorkflowActive || hasActiveCapture || activePhoneMeetingSession || hasUnsavedRecordingAudio() || hasPendingUploadedAudio()) {
+    setStatus(recordingStatus, "Finish or save the active audio before closing this meeting.", "error");
+    return;
+  }
+
+  recordingTitleInput.value = "";
+  recordingTemplateSelect.value = "";
+  recordingNotesInput.value = "";
+  setMeetingCaptureMode("app");
+  clearPendingReferences();
+  clearPendingRecordedAudio();
+  clearPendingUploadedAudio();
+  clearRecorderStats();
+  setStatus(recordingStatus, "");
+  setRecorderState("", "Ready to create a new meeting note.");
+  renderMeetingCaptureUi();
+  setRecordPanelOpen(false);
+}
+
+function initMeetingWorkspaceActionsDocking() {
+  if (!meetingWorkspaceActionsSlot || !meetingWorkspaceActions || !meetingWorkspaceActionsAnchor) return;
+
+  const scrollingElement = meetingWorkspaceActions.closest(".records-desktop-frame > .main");
+  const scrollTarget = scrollingElement || window;
+  let updateFrame = 0;
+
+  const updateDocking = () => {
+    updateFrame = 0;
+    const actionHeight = meetingWorkspaceActions.offsetHeight;
+    meetingWorkspaceActionsSlot.style.height = `${actionHeight}px`;
+
+    const viewportRight = document.documentElement.clientWidth;
+    const workspaceRect = scrollingElement?.getBoundingClientRect();
+    const formRect = recordPanelBody?.getBoundingClientRect();
+    const workspaceLeft = Math.max(0, workspaceRect?.left || 0);
+    const formLeft = Math.max(workspaceLeft, formRect?.left || workspaceLeft);
+    const formRight = Math.min(viewportRight, formRect?.right || viewportRight);
+
+    meetingWorkspaceActions.style.setProperty("--action-dock-left", `${workspaceLeft}px`);
+    meetingWorkspaceActions.style.setProperty(
+      "--action-dock-content-left",
+      `${Math.max(16, formLeft - workspaceLeft)}px`,
+    );
+    meetingWorkspaceActions.style.setProperty(
+      "--action-dock-content-right",
+      `${Math.max(16, viewportRight - formRight)}px`,
+    );
+
+    const viewportBottom = scrollingElement
+      ? scrollingElement.getBoundingClientRect().bottom
+      : window.innerHeight;
+    const restingEdge = meetingWorkspaceActionsAnchor.getBoundingClientRect().top;
+    const fadeDistance = Math.max(128, actionHeight * 1.6);
+    const distanceFromRest = Math.max(0, restingEdge - viewportBottom);
+    const floatingOpacity = Math.min(1, distanceFromRest / fadeDistance);
+
+    meetingWorkspaceActions.style.setProperty("--action-dock-opacity", floatingOpacity.toFixed(3));
+    meetingWorkspaceActions.classList.toggle("is-docked", distanceFromRest <= 1);
+  };
+
+  const queueDockingUpdate = () => {
+    if (updateFrame) return;
+    updateFrame = window.requestAnimationFrame(updateDocking);
+  };
+
+  scrollTarget.addEventListener("scroll", queueDockingUpdate, { passive: true });
+  window.addEventListener("resize", queueDockingUpdate, { passive: true });
+  if ("ResizeObserver" in window) {
+    const resizeObserver = new ResizeObserver(queueDockingUpdate);
+    resizeObserver.observe(recordPanelBody);
+    resizeObserver.observe(meetingWorkspaceActionsSlot);
+    resizeObserver.observe(meetingWorkspaceActions);
+  }
+
+  queueDockingUpdate();
 }
 
 function closeMobileMenu() {
@@ -1527,13 +1646,17 @@ function updateControls() {
   const canSaveMeetingNote = canRecordInActiveOrganization() && recordingWorkflowSchemaAvailable && hasRequiredFields;
 
   const browserSourceEnabled = meetingUsesBrowserSource();
+  const microphoneSourceEnabled = meetingUsesMicrophoneSource();
+  const uploadSourceEnabled = meetingSourceUpload
+    ? getMeetingCaptureMode() === "upload"
+    : browserSourceEnabled;
   const phoneSourceEnabled = meetingUsesPhoneSource();
 
-  startRecordingButton.disabled = !canUseRecorder || !browserSourceEnabled || hasActiveSession || hasPendingUpload || !window.MediaRecorder || !navigator.mediaDevices?.getUserMedia;
-  uploadRecordingButton.disabled = !canUseRecorder || !browserSourceEnabled || hasActiveSession;
+  startRecordingButton.disabled = !canUseRecorder || !microphoneSourceEnabled || hasActiveSession || hasPendingUpload || !window.MediaRecorder || !navigator.mediaDevices?.getUserMedia;
+  uploadRecordingButton.disabled = !canUseRecorder || !uploadSourceEnabled || hasActiveSession;
   uploadRecordingButton.textContent = hasPendingUpload ? "Change audio" : "Upload recording";
-  show(startRecordingButton, !hasActiveSession && !hasPendingUpload);
-  show(uploadRecordingButton, !hasActiveSession);
+  show(startRecordingButton, microphoneSourceEnabled && !hasActiveSession && !hasPendingUpload);
+  show(uploadRecordingButton, uploadSourceEnabled && !hasActiveSession);
   pauseRecordingButton.disabled = !isCaptureActive || !pauseSupported;
   pauseRecordingButton.textContent = recorderState === "paused" ? "Resume recording" : "Pause recording";
   stopRecordingButton.disabled = !isCaptureActive;
@@ -1543,11 +1666,17 @@ function updateControls() {
     saveRecordingButton.disabled = !canSaveMeetingNote || isRecordingWorkflowActive || isCaptureActive;
     saveRecordingButton.textContent = activePhoneMeetingSession?.status === "recording_ready"
       ? "Finish meeting note"
-      : "Save meeting note";
+      : hasPendingRecording || hasPendingUpload
+        ? "Save meeting note"
+        : "Save draft";
     show(saveRecordingButton, !isCaptureActive);
   }
+  if (startRecordingButton) startRecordingButton.textContent = "Start app recording";
   if (startPhoneMeetingButton) {
     startPhoneMeetingButton.disabled = !canSaveMeetingNote || !phoneSourceEnabled || !phoneMeetingsAreActive() || isRecordingWorkflowActive || hasPendingUpload;
+    startPhoneMeetingButton.textContent = getMeetingCaptureMode() === "both"
+      ? "Start phone connection"
+      : "Start phone meeting";
   }
   if (retryPhoneMeetingTransferButton) {
     retryPhoneMeetingTransferButton.disabled = isRecordingWorkflowActive || !shouldOfferPhoneTransferRetry();
@@ -1558,6 +1687,10 @@ function updateControls() {
   if (endPhoneMeetingButton) {
     endPhoneMeetingButton.disabled = isRecordingWorkflowActive || !canEndPhoneMeeting();
   }
+  if (cancelMeetingNoteButton) {
+    cancelMeetingNoteButton.disabled = isRecordingWorkflowActive || isCaptureActive || Boolean(activePhoneMeetingSession) || hasPendingRecording || hasPendingUpload;
+  }
+  recordPanel?.classList.toggle("has-active-capture", hasActiveSession || Boolean(activePhoneMeetingSession) || hasPendingUpload);
   activeOrganizationSelect.disabled = hasActiveSession || hasPendingUpload || memberships.length <= 1;
   recordingTitleInput.disabled = hasActiveSession;
   recordingTemplateSelect.disabled = hasActiveSession || !recordingWorkflowSchemaAvailable;
@@ -1604,6 +1737,15 @@ function canTranscribeRecording(recording) {
 function setRecordingDetailModalOpen(isOpen) {
   recordingDetailModal.classList.toggle("is-open", isOpen);
   recordingDetailModal.setAttribute("aria-hidden", String(!isOpen));
+}
+
+function setRecordingDeleteModalOpen(isOpen) {
+  recordingDeleteModal.classList.toggle("is-open", isOpen);
+  recordingDeleteModal.setAttribute("aria-hidden", String(!isOpen));
+  if (!isOpen) {
+    setStatus(recordingDeleteStatus, "");
+    pendingDeleteRecordingId = "";
+  }
 }
 
 function clearDetailPlayer() {
@@ -1888,8 +2030,7 @@ async function loadRecordings() {
       created_at
     `, { count: "exact" })
     .eq("organization_id", organization.id)
-    .order("created_at", { ascending: false })
-    .limit(3);
+    .order("created_at", { ascending: false });
 
   if (error && isMissingRecordingWorkflowSchemaError(error)) {
     recordingWorkflowSchemaAvailable = false;
@@ -1911,8 +2052,7 @@ async function loadRecordings() {
         created_at
       `, { count: "exact" })
       .eq("organization_id", organization.id)
-      .order("created_at", { ascending: false })
-      .limit(3);
+      .order("created_at", { ascending: false });
     data = fallback.data;
     error = fallback.error;
     count = fallback.count;
@@ -2195,6 +2335,7 @@ function populateRecordingDetails(recording) {
   recordingDetailPlay.disabled = !canPlaybackRecording(recording);
   show(recordingDetailTranscribe, canTranscribeRecording(recording));
   show(recordingDetailRetry, isRetryableRecording(recording));
+  show(recordingDetailDelete, getActiveCapabilities().canDeleteDocuments);
   recordingDetailPlay.textContent = "Play";
   recordingDetailNotes.value = String(recording.notes_plain_text || "").trim();
   recordingDetailNotes.disabled = !getActiveCapabilities().canEditDocuments || !recordingWorkflowSchemaAvailable;
@@ -2283,6 +2424,51 @@ function closeRecordingDetail() {
   setRecordingDetailModalOpen(false);
   activeDetailRecordingId = "";
   setStatus(recordingDetailStatusMessage, "");
+}
+
+function promptDeleteRecording(recordingId) {
+  const recording = getRecordingById(recordingId);
+  if (!recording || !getActiveCapabilities().canDeleteDocuments) return;
+  pendingDeleteRecordingId = recording.id;
+  recordingDeleteCopy.textContent = `Delete "${recording.title || "Untitled meeting note"}"? This action cannot be undone.`;
+  setRecordingDeleteModalOpen(true);
+}
+
+async function deleteRecording(recordingId) {
+  const recording = getRecordingById(recordingId);
+  if (!recording) return;
+
+  setStatus(recordingDeleteStatus, "Deleting meeting note...");
+  recordingDeleteSubmit.disabled = true;
+  recordingDeleteCancel.disabled = true;
+
+  try {
+    if (recording.storage_path) {
+      const { error: storageError } = await supabase.storage.from(RECORDINGS_BUCKET).remove([recording.storage_path]);
+      if (storageError && !isIgnorableStorageDeleteError(storageError)) throw storageError;
+    }
+
+    const { error } = await supabase
+      .from("meeting_recordings")
+      .delete()
+      .eq("id", recording.id);
+    if (error) throw error;
+
+    if (activeDetailRecordingId === recording.id) {
+      clearDetailPlayer();
+      setRecordingDetailModalOpen(false);
+      activeDetailRecordingId = "";
+    }
+
+    setRecordingDeleteModalOpen(false);
+    await loadRecordings();
+    setStatus(recordingsListStatus, "Meeting note deleted.", "success");
+  } catch (error) {
+    setStatus(recordingDeleteStatus, getErrorMessage(error, "Unable to delete the meeting note."), "error");
+  } finally {
+    recordingDeleteSubmit.disabled = false;
+    recordingDeleteCancel.disabled = false;
+  }
 }
 
 function setReviewActionsDisabled(isDisabled) {
@@ -3313,6 +3499,9 @@ async function handleOrganizationChange(nextOrganizationId) {
   if (recordingDetailModal.classList.contains("is-open")) {
     closeRecordingDetail();
   }
+  if (recordingDeleteModal?.classList.contains("is-open")) {
+    setRecordingDeleteModalOpen(false);
+  }
   recordingTemplateSelect.value = "";
   recordingNotesInput.value = "";
   await loadRecordingTemplates();
@@ -3437,7 +3626,7 @@ async function init() {
     void previewReferenceDocument(reference || null);
   });
   recordingTitleInput.addEventListener("input", updateControls);
-  [meetingSourceBrowser, meetingSourcePhone, meetingSourceBoth].forEach((input) => {
+  [meetingSourceBrowser, meetingSourcePhone, meetingSourceBoth, meetingSourceUpload].forEach((input) => {
     input?.addEventListener("change", () => {
       if (meetingUsesPhoneSource() && !phoneMeetingsAreActive()) {
         setMeetingCaptureMode("app");
@@ -3463,9 +3652,7 @@ async function init() {
     closeMobileMenu();
     await handleOrganizationChange(activeOrganizationSelect.value);
   });
-  newRecordingAction?.addEventListener("click", () => {
-    setRecordPanelOpen(true, { scroll: true, focus: true });
-  });
+  cancelMeetingNoteButton?.addEventListener("click", cancelMeetingNoteDraft);
   recordPanelToggle?.addEventListener("click", () => {
     setRecordPanelOpen(recordPanelBody?.classList.contains("hidden"));
   });
@@ -3566,6 +3753,22 @@ async function init() {
     if (!activeDetailRecordingId) return;
     void transcribeRecording(activeDetailRecordingId);
   });
+  recordingDetailDelete?.addEventListener("click", () => {
+    if (!activeDetailRecordingId) return;
+    promptDeleteRecording(activeDetailRecordingId);
+  });
+  recordingDeleteCancel?.addEventListener("click", () => {
+    setRecordingDeleteModalOpen(false);
+  });
+  recordingDeleteSubmit?.addEventListener("click", async () => {
+    if (!pendingDeleteRecordingId) return;
+    await deleteRecording(pendingDeleteRecordingId);
+  });
+  recordingDeleteModal?.addEventListener("click", (event) => {
+    if (event.target === recordingDeleteModal) {
+      setRecordingDeleteModalOpen(false);
+    }
+  });
   recordingDetailRetry.addEventListener("click", () => {
     if (!activeDetailRecordingId) return;
     retryRecording(activeDetailRecordingId);
@@ -3594,6 +3797,10 @@ async function init() {
       setRecordingUploadModalOpen(false);
       return;
     }
+    if (event.key === "Escape" && recordingDeleteModal?.classList.contains("is-open")) {
+      setRecordingDeleteModalOpen(false);
+      return;
+    }
     if (event.key === "Escape" && recordingDetailModal.classList.contains("is-open")) {
       closeRecordingDetail();
       return;
@@ -3604,6 +3811,7 @@ async function init() {
   });
 
   setMenuActive("recordings");
+  initMeetingWorkspaceActionsDocking();
   updateSelectedFileCopy();
   if (consumeRetryUploadRequest()) {
     setRecordPanelOpen(true, { scroll: true });

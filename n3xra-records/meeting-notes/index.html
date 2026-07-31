@@ -15,13 +15,13 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/n3xra-records/styles.css?v=20260729-library-navigation">
+  <link rel="stylesheet" href="/n3xra-records/styles.css?v=20260730-records-ai-assistant">
   <script>
     window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
   </script>
   <script defer src="/_vercel/insights/script.js"></script>
 </head>
-<body>
+<body class="records-meeting-notes-page">
   <div class="shell">
     <header class="topbar">
       <div class="topbar-inner">
@@ -65,7 +65,15 @@
         </div>
       </section>
 
-      <section class="panel stack hidden" id="recordings-panel">
+      <section class="panel stack hidden meeting-notes-page" id="recordings-panel">
+        <header class="meeting-notes-page-header">
+          <div>
+            <p class="meeting-notes-page-kicker">Meeting notes</p>
+            <h1>Meeting workspace</h1>
+            <p>Create, record, review, and manage every meeting note in the active library.</p>
+          </div>
+        </header>
+
         <div class="notice hidden" id="recordings-no-access-notice">
           <strong>No library access right now.</strong> Meeting notes unlock when you create or join a library with editor access.
           <div class="actions">
@@ -73,7 +81,7 @@
           </div>
         </div>
 
-        <section class="panel stack hidden" id="recordings-context-panel">
+        <section class="panel stack hidden meeting-notes-library-context" id="recordings-context-panel">
           <div class="grid-3">
             <div class="field">
               <label for="active-organization-select">Active library</label>
@@ -91,56 +99,66 @@
           </div>
         </section>
 
-        <div class="library-actions-grid" id="recordings-actions-grid">
-          <div class="library-action-slot">
-            <button class="btn" id="new-recording-action" type="button">New meeting note</button>
-          </div>
-          <div class="library-action-slot">
-            <a class="btn secondary button-link" href="/n3xra-records/all-meeting-notes/">All meeting notes</a>
-          </div>
-        </div>
-
         <section class="panel stack" id="record-panel">
           <button class="section-toggle" id="record-panel-toggle" type="button" aria-expanded="false" aria-controls="record-panel-body">
             <div>
               <h3>New meeting note</h3>
               <p>Draft notes, record audio, and create a final document for the active library.</p>
             </div>
-            <span class="section-toggle-indicator" aria-hidden="true">+</span>
+            <span class="meeting-note-toggle-action" aria-hidden="true">
+              <span class="meeting-note-toggle-label">Start new meeting note</span>
+              <span class="section-toggle-indicator">+</span>
+            </span>
           </button>
 
-          <form class="stack hidden" id="record-panel-body">
-            <div class="field">
-              <label for="recording-title">Meeting title <span class="required-mark" aria-hidden="true">*</span></label>
-              <input id="recording-title" type="text" placeholder="Board meeting, staff sync, budget review" required aria-required="true">
-              <p class="field-note">Required to save a meeting note or start audio.</p>
+          <form class="stack hidden meeting-note-workspace" id="record-panel-body">
+            <div class="meeting-workspace-intro">
+              <p class="meeting-notes-section-kicker">Meeting setup</p>
+              <h3>Prepare the meeting</h3>
+              <p>Name the meeting, choose its document structure, and select how audio will be captured.</p>
             </div>
 
-            <div class="field">
-              <label for="recording-template-select">Document template <span class="required-mark" aria-hidden="true">*</span></label>
-              <select id="recording-template-select" required aria-required="true">
-                <option value="">Select a template</option>
-                <option value="__blank_notes__">No template - blank notes</option>
-              </select>
-              <p class="field-note">Choose a template to start from, or choose blank notes if no template fits.</p>
+            <div class="meeting-setup-grid">
+              <div class="field">
+                <label for="recording-title">Meeting title <span class="required-mark" aria-hidden="true">*</span></label>
+                <input id="recording-title" type="text" placeholder="Board meeting, staff sync, budget review" required aria-required="true">
+                <p class="field-note">Required to save a meeting note or start audio.</p>
+              </div>
+
+              <div class="field">
+                <label for="recording-template-select">Document template <span class="required-mark" aria-hidden="true">*</span></label>
+                <select id="recording-template-select" required aria-required="true">
+                  <option value="">Select a template</option>
+                  <option value="__blank_notes__">No template - blank notes</option>
+                </select>
+                <p class="field-note">Choose a template to start from, or choose blank notes if no template fits.</p>
+              </div>
             </div>
 
-            <fieldset class="meeting-source-field" aria-describedby="meeting-source-note">
+            <section class="meeting-capture-workspace" aria-labelledby="meeting-capture-heading">
+              <div class="meeting-workspace-section-head">
+                <div>
+                  <p class="meeting-notes-section-kicker">Capture</p>
+                  <h3 id="meeting-capture-heading">How will this meeting be recorded?</h3>
+                </div>
+              </div>
+
+              <fieldset class="meeting-source-field" aria-describedby="meeting-source-note">
               <legend>Capture this meeting</legend>
               <p class="field-note">Choose one method. Pick both only when you want phone and app audio attached to the same meeting note.</p>
               <div class="meeting-source-options" role="radiogroup" aria-label="Meeting capture method">
+                <label class="meeting-source-option">
+                  <input id="meeting-source-browser" name="meeting-source" type="radio" value="app" checked>
+                  <span>
+                    <strong>App recording</strong>
+                    <small>Record the meeting directly in this browser.</small>
+                  </span>
+                </label>
                 <label class="meeting-source-option">
                   <input id="meeting-source-phone" name="meeting-source" type="radio" value="phone">
                   <span>
                     <strong>Phone call</strong>
                     <small>Call the N3XRA number and attach that recording to this meeting.</small>
-                  </span>
-                </label>
-                <label class="meeting-source-option">
-                  <input id="meeting-source-browser" name="meeting-source" type="radio" value="app" checked>
-                  <span>
-                    <strong>App recording</strong>
-                    <small>Record in this browser or upload an existing audio file.</small>
                   </span>
                 </label>
                 <label class="meeting-source-option">
@@ -150,111 +168,123 @@
                     <small>Keep the phone call and app audio together in one meeting note.</small>
                   </span>
                 </label>
+                <label class="meeting-source-option">
+                  <input id="meeting-source-upload" name="meeting-source" type="radio" value="upload">
+                  <span>
+                    <strong>Upload recording</strong>
+                    <small>Use an audio file that was recorded somewhere else.</small>
+                  </span>
+                </label>
               </div>
               <p class="field-note" id="meeting-source-note">App recording is selected. Choose Phone call when the meeting is only by phone.</p>
-            </fieldset>
+              </fieldset>
 
-            <section class="phone-meeting-start hidden" id="phone-meeting-start" aria-live="polite">
-              <div>
-                <p class="settings-modal-kicker">Phone call</p>
-                <h4>Start a phone meeting</h4>
-                <p>A private code connects this call to the meeting note. Every caller hears the recording notice before recording begins.</p>
-              </div>
-              <button class="btn secondary" id="start-phone-meeting-button" type="button">Start phone call</button>
-              <div class="phone-meeting-dial-in hidden" id="phone-meeting-dial-in">
-                <span class="account-label">Dial-in number</span>
-                <strong id="phone-meeting-number">-</strong>
-                <span class="account-label">Meeting code</span>
-                <strong id="phone-meeting-code">-</strong>
-                <p class="field-note" id="phone-meeting-expires">This code expires in two hours. Merge this call into an existing phone call when needed.</p>
-                <div class="phone-meeting-live-status" aria-live="polite">
-                  <span class="account-label">Call status</span>
-                  <strong id="phone-meeting-state">Waiting for call</strong>
-                  <p class="field-note" id="phone-meeting-state-copy">Dial the number and enter the meeting code when prompted.</p>
-                </div>
-                <div class="phone-meeting-session-actions">
-                  <button class="btn secondary hidden" id="end-phone-meeting-button" type="button">End phone call</button>
-                  <button class="btn secondary hidden" id="retry-phone-meeting-transfer-button" type="button">Retry recording transfer</button>
-                  <button class="btn secondary hidden" id="complete-phone-meeting-without-recording-button" type="button">Complete without recording</button>
-                </div>
-              </div>
-            </section>
-
-            <section class="browser-recording-workflow" id="browser-recording-workflow" aria-label="App recording">
-              <div class="recording-stats" aria-live="polite">
-                <div class="recording-stat">
-                  <span class="recording-stat-label">Recorder state</span>
-                  <p class="recording-stat-value" id="recorder-state-label">Idle</p>
-                </div>
-                <div class="recording-stat">
-                  <span class="recording-stat-label">Duration</span>
-                  <p class="recording-stat-value" id="recording-duration">00:00</p>
-                </div>
-                <div class="recording-stat">
-                  <span class="recording-stat-label">Upload</span>
-                  <p class="recording-stat-value" id="upload-state-value">Not started</p>
-                </div>
-              </div>
-
-              <div class="recording-controls">
-                <button class="btn" id="start-recording-button" type="button">Start app recording</button>
-                <button class="btn secondary" id="upload-recording-button" type="button">Upload recording</button>
-                <button class="btn secondary hidden" id="pause-recording-button" type="button" disabled>Pause recording</button>
-                <button class="btn secondary hidden" id="stop-recording-button" type="button" disabled>Stop recording</button>
-              </div>
-            </section>
-
-            <div class="meeting-note-actions">
-              <button class="btn secondary" id="save-recording-button" type="button" disabled>Save meeting note</button>
-            </div>
-
-            <div class="field">
-              <label for="recording-notes">Notetaker notes</label>
-              <textarea id="recording-notes" rows="12" placeholder="Use this as the live notes section while audio is recorded."></textarea>
-              <p class="field-note">These notes are preserved separately from the transcript. After stopping audio, review notes and save the meeting note.</p>
-              <div class="recording-note-tools">
-                <button class="btn secondary" id="scan-handwritten-note-button" type="button">Scan handwritten note</button>
-                <input class="hidden" id="handwritten-note-input" type="file" accept="image/*">
-              </div>
-            </div>
-
-            <section class="recording-references-panel" aria-label="Meeting references">
-              <div class="panel-head compact-head">
+              <section class="phone-meeting-start hidden" id="phone-meeting-start" aria-live="polite">
                 <div>
-                  <h4>References</h4>
+                  <p class="settings-modal-kicker">Phone call</p>
+                  <h4>Phone meeting connection</h4>
+                  <p>A private code connects the call to this meeting note. Every caller hears the recording notice before recording begins.</p>
                 </div>
-              </div>
-              <div class="recording-reference-attached">
-                <div class="recording-reference-list" id="recording-reference-list"></div>
-                <p class="empty hidden" id="recording-reference-empty">No references attached.</p>
-              </div>
-              <div class="recording-reference-preview hidden" id="recording-reference-preview">
-                <div class="recording-reference-preview-head">
-                  <div>
-                    <span class="recording-reference-type" id="recording-reference-preview-type">Reference</span>
-                    <p class="recording-reference-title" id="recording-reference-preview-title">Document preview</p>
+                <div class="phone-meeting-dial-in hidden" id="phone-meeting-dial-in">
+                  <span class="account-label">Dial-in number</span>
+                  <strong id="phone-meeting-number">-</strong>
+                  <span class="account-label">Meeting code</span>
+                  <strong id="phone-meeting-code">-</strong>
+                  <p class="field-note" id="phone-meeting-expires">This code expires in two hours. Merge this call into an existing phone call when needed.</p>
+                  <div class="phone-meeting-live-status" aria-live="polite">
+                    <span class="account-label">Call status</span>
+                    <strong id="phone-meeting-state">Waiting for call</strong>
+                    <p class="field-note" id="phone-meeting-state-copy">Dial the number and enter the meeting code when prompted.</p>
                   </div>
-                  <a class="btn secondary button-link" id="recording-reference-preview-open" href="/n3xra-records/documents.html" rel="noopener">Open document</a>
-                  <button class="recording-reference-remove" id="recording-reference-preview-remove" type="button">Remove</button>
+                  <div class="phone-meeting-session-actions">
+                    <button class="btn secondary hidden" id="end-phone-meeting-button" type="button">End phone call</button>
+                    <button class="btn secondary hidden" id="retry-phone-meeting-transfer-button" type="button">Retry recording transfer</button>
+                    <button class="btn secondary hidden" id="complete-phone-meeting-without-recording-button" type="button">Complete without recording</button>
+                  </div>
                 </div>
-                <iframe class="recording-reference-frame" id="recording-reference-frame" src="" title="Referenced document PDF"></iframe>
+              </section>
+
+              <section class="browser-recording-workflow" id="browser-recording-workflow" aria-label="App recording">
+                <div class="recording-stats" aria-live="polite">
+                  <div class="recording-stat">
+                    <span class="recording-stat-label">Recorder state</span>
+                    <p class="recording-stat-value" id="recorder-state-label">Idle</p>
+                  </div>
+                  <div class="recording-stat">
+                    <span class="recording-stat-label">Duration</span>
+                    <p class="recording-stat-value" id="recording-duration">00:00</p>
+                  </div>
+                  <div class="recording-stat">
+                    <span class="recording-stat-label">Upload</span>
+                    <p class="recording-stat-value" id="upload-state-value">Not started</p>
+                  </div>
+                </div>
+
+                <div class="recording-controls">
+                  <button class="btn secondary" id="upload-recording-button" type="button">Upload recording</button>
+                  <button class="btn secondary hidden" id="pause-recording-button" type="button" disabled>Pause recording</button>
+                  <button class="btn secondary hidden" id="stop-recording-button" type="button" disabled>Stop recording</button>
+                </div>
+              </section>
+            </section>
+
+            <section class="meeting-preparation-workspace" aria-label="Meeting materials">
+              <div class="meeting-workspace-section-head">
+                <div>
+                  <p class="meeting-notes-section-kicker">Meeting materials</p>
+                  <p>Keep the information needed before and during the meeting in one place.</p>
+                </div>
               </div>
-              <p class="recording-reference-section-label">Add another reference</p>
-              <div class="recording-reference-picker">
-                <div class="field">
-                  <label for="recording-reference-select">Document</label>
-                  <select id="recording-reference-select">
-                    <option value="">Select a document</option>
-                  </select>
+
+              <div class="meeting-preparation-grid">
+                <div class="field meeting-live-notes">
+                  <label for="recording-notes">Notetaker notes</label>
+                  <textarea id="recording-notes" rows="12" placeholder="Use this as the live notes section while audio is recorded."></textarea>
+                  <p class="field-note">These notes stay separate from the transcript and remain editable throughout the meeting.</p>
+                  <div class="recording-note-tools">
+                    <button class="btn secondary" id="scan-handwritten-note-button" type="button">Scan handwritten note</button>
+                    <input class="hidden" id="handwritten-note-input" type="file" accept="image/*">
+                  </div>
                 </div>
-                <div class="field">
-                  <label for="recording-reference-type">Type</label>
-                  <select id="recording-reference-type">
-                    <option value="agenda">Agenda</option>
-                    <option value="supporting_document">Supporting document</option>
-                  </select>
-                </div>
-                <button class="btn secondary" id="recording-reference-add" type="button">Attach reference</button>
+
+                <section class="recording-references-panel" aria-label="Meeting references">
+                  <div>
+                    <h4>Agenda and references</h4>
+                    <p class="field-note">Attach the agenda or supporting records that belong with this meeting.</p>
+                  </div>
+                  <div class="recording-reference-attached">
+                    <div class="recording-reference-list" id="recording-reference-list"></div>
+                    <p class="empty hidden" id="recording-reference-empty">No references attached.</p>
+                  </div>
+                  <div class="recording-reference-preview hidden" id="recording-reference-preview">
+                    <div class="recording-reference-preview-head">
+                      <div>
+                        <span class="recording-reference-type" id="recording-reference-preview-type">Reference</span>
+                        <p class="recording-reference-title" id="recording-reference-preview-title">Document preview</p>
+                      </div>
+                      <a class="btn secondary button-link" id="recording-reference-preview-open" href="/n3xra-records/documents.html" rel="noopener">Open document</a>
+                      <button class="recording-reference-remove" id="recording-reference-preview-remove" type="button">Remove</button>
+                    </div>
+                    <iframe class="recording-reference-frame" id="recording-reference-frame" src="" title="Referenced document PDF"></iframe>
+                  </div>
+                  <p class="recording-reference-section-label">Add another reference</p>
+                  <div class="recording-reference-picker">
+                    <div class="field">
+                      <label for="recording-reference-select">Document</label>
+                      <select id="recording-reference-select">
+                        <option value="">Select a document</option>
+                      </select>
+                    </div>
+                    <div class="field">
+                      <label for="recording-reference-type">Type</label>
+                      <select id="recording-reference-type">
+                        <option value="agenda">Agenda</option>
+                        <option value="supporting_document">Supporting document</option>
+                      </select>
+                    </div>
+                    <button class="btn secondary" id="recording-reference-add" type="button">Attach reference</button>
+                  </div>
+                </section>
               </div>
             </section>
 
@@ -267,19 +297,33 @@
 
             <p class="status" id="recording-status"></p>
             <p class="account-note" id="recorder-state-copy">Ready to create a new meeting note.</p>
+
+            <div class="meeting-workspace-actions-slot" id="meeting-workspace-actions-slot">
+              <div class="meeting-workspace-actions" id="meeting-workspace-actions">
+                <div class="meeting-workspace-actions-secondary">
+                  <button class="btn secondary" id="cancel-meeting-note-button" type="button">Cancel</button>
+                  <button class="btn secondary" id="save-recording-button" type="button" disabled>Save meeting note</button>
+                </div>
+                <div class="meeting-workspace-actions-primary">
+                  <button class="btn hidden" id="start-phone-meeting-button" type="button">Start phone meeting</button>
+                  <button class="btn" id="start-recording-button" type="button">Start app recording</button>
+                </div>
+              </div>
+            </div>
+            <div class="meeting-workspace-actions-anchor" id="meeting-workspace-actions-anchor" aria-hidden="true"></div>
           </form>
         </section>
 
-        <section class="panel stack" id="recordings-recent-panel">
-          <div class="panel-head">
+        <section class="panel stack" id="recordings-library-panel">
+          <div class="meeting-notes-section-head">
             <div>
-              <h3>Newest meeting notes</h3>
-              <p>The latest 3 meeting notes from your active library.</p>
+              <p class="meeting-notes-section-kicker">Saved meetings</p>
+              <h2>All meeting notes</h2>
+              <p>Open any meeting to review its recording, transcript, notes, references, and final document.</p>
             </div>
           </div>
           <div class="recordings-list" id="recordings-list"></div>
           <p class="empty hidden" id="recordings-empty">No meeting notes saved in this library yet.</p>
-          <p class="recent-files-reminder"><a class="recent-files-link" href="/n3xra-records/all-meeting-notes/">Go To All Meeting Notes</a></p>
           <p class="status" id="recordings-list-status"></p>
         </section>
       </section>
@@ -343,6 +387,7 @@
             <audio class="recording-player hidden" id="recording-detail-player" controls preload="metadata"></audio>
             <div class="recording-detail-panel-actions">
               <button class="btn secondary" id="recording-detail-play" type="button">Play</button>
+              <button class="btn btn-delete-solid" id="recording-detail-delete" type="button">Delete</button>
             </div>
             <div class="recording-detail-section">
               <div class="panel-head compact-head">
@@ -437,6 +482,25 @@
     </div>
   </div>
 
+  <div class="confirm-modal" id="recording-delete-modal" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="confirm-modal-dialog">
+      <div class="confirm-modal-header">
+        <div>
+          <p class="confirm-modal-kicker">Delete meeting note</p>
+          <h3 class="confirm-modal-title">Remove this meeting note?</h3>
+        </div>
+      </div>
+      <div class="confirm-modal-body">
+        <p class="confirm-modal-copy" id="recording-delete-copy">This action cannot be undone.</p>
+        <div class="confirm-modal-actions">
+          <button class="btn secondary" id="recording-delete-cancel" type="button">Cancel</button>
+          <button class="btn btn-delete-solid" id="recording-delete-submit" type="button">Delete</button>
+        </div>
+        <p class="status" id="recording-delete-status"></p>
+      </div>
+    </div>
+  </div>
+
   <div class="settings-modal" id="recording-upload-modal" role="dialog" aria-modal="true" aria-hidden="true">
     <div class="settings-modal-dialog">
       <div class="settings-modal-header">
@@ -480,7 +544,7 @@
   </div>
 
   <script src="/shared/config.js"></script>
-  <script type="module" src="/n3xra-records/lib/desktop-shell.js?v=20260729-library-navigation"></script>
-  <script type="module" src="/n3xra-records/recordings.js?v=20260729-static-documents-route"></script>
+  <script type="module" src="/n3xra-records/lib/desktop-shell.js?v=20260730-records-ai-assistant"></script>
+  <script type="module" src="/n3xra-records/recordings.js?v=20260730-meeting-action-viewport"></script>
 </body>
 </html>

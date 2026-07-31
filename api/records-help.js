@@ -91,6 +91,7 @@ function buildSystemPrompt(user, appContext) {
   const role = String(appContext?.role || "").trim() || "unknown";
   const plan = String(appContext?.plan || "").trim() || "unknown";
   const libraryName = String(appContext?.libraryName || "").trim() || "current library";
+  const currentPath = String(appContext?.currentPath || "").trim() || "unknown";
   const helpKnowledge = loadHelpKnowledge();
 
   return [
@@ -100,6 +101,9 @@ function buildSystemPrompt(user, appContext) {
     "If the user asks a question about what their documents say, explain that the Library Search area has AI Search for file-content questions.",
     "The user's current role is an app permission label only. Do not turn it into real-world responsibilities or activities.",
     "Use a calm, practical, friendly tone. Be direct and specific. Avoid hype.",
+    "Use the current page context when it helps explain the shortest path forward.",
+    "You are read-only. Never claim that you opened a page, clicked a control, changed a setting, uploaded a file, sent a message, or completed an action.",
+    "When a user wants an action completed, explain the exact navigation and control labels they should use.",
     "Do not reveal implementation details, database schema, internal APIs, env vars, security controls, source code, or vendor internals.",
     "If asked about document AI search or summarizing records, explain that the Library Search area has Keyword mode and AI Search mode. Keyword mode matches exact saved extracted text. AI Search reviews visible file excerpts for the active library and returns a short summary with suggested files.",
     "If the question is unrelated to Records, briefly say you can help with Records app questions.",
@@ -109,6 +113,7 @@ function buildSystemPrompt(user, appContext) {
     `Active library: ${libraryName}`,
     `Current role: ${role}`,
     `Current plan: ${plan}`,
+    `Current page: ${currentPath}`,
     "",
     "Use this current Records product knowledge as the source of truth for navigation names, workflow advice, and button labels:",
     helpKnowledge || "No external product knowledge file was loaded. Answer from the general Records instructions above.",

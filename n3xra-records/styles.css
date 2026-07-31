@@ -5277,6 +5277,10 @@ body:has(.confirm-modal.is-open) {
   .records-desktop-app-actions a:focus-visible,
   .records-desktop-app-actions button:hover,
   .records-desktop-app-actions button:focus-visible { border-color: rgba(255, 255, 255, 0.28); background: rgba(255, 255, 255, 0.12); outline: none; }
+  .records-desktop-app-actions .records-ai-header-trigger {
+    border-color: rgba(105, 210, 196, 0.44);
+    background: rgba(29, 121, 110, 0.2);
+  }
   .records-account-page .main { width: 100%; min-height: 0; height: 100%; overflow: hidden; padding: 0; }
   .records-account-page #dashboard-panel { display: flex; flex-direction: column; height: 100%; min-height: 0; padding: 0; overflow: hidden; border: 0; border-radius: 0; box-shadow: none; }
   .records-account-page #dashboard-panel > #support-banner { margin: 1.25rem 1.25rem 0; }
@@ -6108,9 +6112,959 @@ body:has(.confirm-modal.is-open) {
   }
 }
 
+/* Records AI is available from every authenticated Records workspace. */
+.records-ai-layer[hidden] {
+  display: none;
+}
+
+.records-ai-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 1600;
+}
+
+.records-ai-scrim {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  border: 0;
+  background: rgba(4, 12, 21, 0.5);
+  cursor: default;
+  opacity: 0;
+  transition: opacity 220ms ease;
+}
+
+.records-ai-drawer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  width: min(460px, 100vw);
+  height: 100%;
+  border-left: 1px solid rgba(18, 43, 57, 0.12);
+  background: #f8fafb;
+  box-shadow: -28px 0 70px rgba(4, 12, 21, 0.2);
+  color: var(--ink);
+  transform: translateX(102%);
+  transition: transform 220ms ease;
+}
+
+.records-ai-layer.is-open .records-ai-scrim {
+  opacity: 1;
+}
+
+.records-ai-layer.is-open .records-ai-drawer {
+  transform: translateX(0);
+}
+
+.records-ai-drawer-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1.25rem;
+  padding: 1.45rem 1.35rem 1.2rem;
+  border-bottom: 1px solid rgba(18, 43, 57, 0.1);
+  background: #07111d;
+  color: #fff;
+}
+
+.records-ai-kicker {
+  margin: 0 0 0.42rem;
+  color: #78cfc3;
+  font: 800 0.68rem/1.2 "Manrope", "Trebuchet MS", sans-serif;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.records-ai-drawer-head h2 {
+  margin: 0;
+  color: #fff;
+  font: 700 1.7rem/1.08 "Fraunces", Georgia, serif;
+}
+
+.records-ai-drawer-head p:last-child {
+  margin: 0.42rem 0 0;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.86rem;
+  line-height: 1.5;
+}
+
+.records-ai-close {
+  flex: 0 0 auto;
+  width: 38px;
+  height: 38px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  cursor: pointer;
+  font: 400 1.5rem/1 "Manrope", sans-serif;
+}
+
+.records-ai-close:hover,
+.records-ai-close:focus-visible {
+  background: rgba(255, 255, 255, 0.16);
+  outline: none;
+}
+
+.records-ai-messages {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 1.25rem 1.25rem 0.75rem;
+  overscroll-behavior: contain;
+}
+
+.records-ai-message {
+  width: fit-content;
+  max-width: 88%;
+  margin: 0 0 1rem;
+  padding: 0.85rem 0.95rem;
+  border: 1px solid rgba(18, 43, 57, 0.1);
+  border-radius: 16px 16px 16px 5px;
+  background: #fff;
+  box-shadow: 0 7px 20px rgba(4, 12, 21, 0.05);
+}
+
+.records-ai-message.is-user {
+  margin-left: auto;
+  border-color: rgba(22, 117, 105, 0.2);
+  border-radius: 16px 16px 5px 16px;
+  background: #e6f3f0;
+}
+
+.records-ai-message-label {
+  margin: 0 0 0.34rem;
+  color: var(--teal);
+  font: 800 0.62rem/1.2 "Manrope", "Trebuchet MS", sans-serif;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.records-ai-message-copy {
+  margin: 0;
+  color: var(--ink);
+  font-size: 0.88rem;
+  line-height: 1.58;
+  white-space: pre-wrap;
+}
+
+.records-ai-starters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  padding: 0 1.25rem 0.85rem;
+}
+
+.records-ai-starters button {
+  min-height: 34px;
+  padding: 0.42rem 0.7rem;
+  border: 1px solid rgba(18, 43, 57, 0.14);
+  border-radius: 999px;
+  background: #fff;
+  color: #31505d;
+  cursor: pointer;
+  font: 700 0.72rem/1.1 "Manrope", "Trebuchet MS", sans-serif;
+}
+
+.records-ai-starters button:hover,
+.records-ai-starters button:focus-visible {
+  border-color: rgba(22, 117, 105, 0.45);
+  color: var(--teal);
+  outline: none;
+}
+
+.records-ai-composer {
+  padding: 1rem 1.25rem 1.2rem;
+  border-top: 1px solid rgba(18, 43, 57, 0.1);
+  background: #fff;
+}
+
+.records-ai-composer > label {
+  display: block;
+  margin: 0 0 0.5rem;
+  color: var(--teal);
+  font: 800 0.66rem/1.2 "Manrope", "Trebuchet MS", sans-serif;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.records-ai-composer > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 0.55rem;
+}
+
+.records-ai-composer textarea {
+  width: 100%;
+  min-height: 58px;
+  max-height: 140px;
+  resize: vertical;
+  padding: 0.75rem 0.8rem;
+  border: 1px solid rgba(18, 43, 57, 0.18);
+  border-radius: 12px;
+  background: #f7f9fa;
+  color: var(--ink);
+  font: 500 0.88rem/1.45 "Manrope", "Trebuchet MS", sans-serif;
+}
+
+.records-ai-composer textarea:focus {
+  border-color: var(--teal);
+  outline: 2px solid rgba(22, 117, 105, 0.12);
+}
+
+.records-ai-composer button[type="submit"] {
+  min-height: 48px;
+  padding: 0.7rem 1rem;
+  border: 0;
+  border-radius: 999px;
+  background: #07111d;
+  color: #fff;
+  cursor: pointer;
+  font: 800 0.76rem/1 "Manrope", "Trebuchet MS", sans-serif;
+}
+
+.records-ai-composer button[type="submit"]:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.records-ai-status {
+  min-height: 1.15rem;
+  margin: 0.45rem 0 0;
+  color: #61717d;
+  font-size: 0.72rem;
+  line-height: 1.4;
+}
+
+.records-ai-status.is-error {
+  color: #b52d3b;
+}
+
+.records-ai-mobile-trigger {
+  color: var(--teal);
+}
+
+@media (max-width: 620px) {
+  .records-ai-drawer {
+    width: 100%;
+    border-left: 0;
+  }
+
+  .records-ai-drawer-head {
+    padding-top: max(1.25rem, env(safe-area-inset-top));
+  }
+
+  .records-ai-composer {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+}
+
 @media (max-width: 980px) {
   .records-desktop-appbar { display: none; }
   .records-desktop-frame { display: contents; }
   .records-desktop-workspace, .records-desktop-content { display: contents; }
   .records-desktop-nav, .records-desktop-page-head, .records-shared-desktop-nav { display: none; }
+}
+
+/* Meeting workspace: one creation flow followed by the complete meeting library. */
+.records-meeting-notes-page .meeting-notes-page {
+  gap: 0;
+}
+
+.records-meeting-notes-page .meeting-notes-page-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding-bottom: 1.4rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.records-meeting-notes-page .meeting-notes-page-kicker,
+.records-meeting-notes-page .meeting-notes-section-kicker {
+  margin: 0 0 0.45rem;
+  color: var(--teal);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.records-meeting-notes-page .meeting-notes-page-header h1,
+.records-meeting-notes-page .meeting-notes-section-head h2 {
+  margin: 0;
+  font-family: "Fraunces", "Times New Roman", serif;
+  color: var(--ink);
+  letter-spacing: -0.025em;
+}
+
+.records-meeting-notes-page .meeting-notes-page-header h1 {
+  font-size: clamp(2.35rem, 7vw, 3.5rem);
+  line-height: 1.02;
+}
+
+.records-meeting-notes-page .meeting-notes-page-header > div > p:last-child,
+.records-meeting-notes-page .meeting-notes-section-head > div > p:last-child {
+  max-width: 720px;
+  margin: 0.65rem 0 0;
+  color: var(--slate);
+  line-height: 1.55;
+}
+
+.records-meeting-notes-page .meeting-notes-library-context,
+.records-meeting-notes-page #record-panel,
+.records-meeting-notes-page #recordings-library-panel {
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.records-meeting-notes-page .meeting-notes-library-context {
+  padding: 1.15rem 0;
+}
+
+.records-meeting-notes-page .meeting-notes-library-context .field {
+  gap: 0.35rem;
+}
+
+.records-meeting-notes-page .meeting-notes-library-context .account-value {
+  margin: 0;
+}
+
+.records-meeting-notes-page #record-panel {
+  padding: 1.3rem 0;
+}
+
+.records-meeting-notes-page #record-panel > .section-toggle {
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
+}
+
+.records-meeting-notes-page #record-panel > .section-toggle h3 {
+  color: var(--ink);
+  font-size: 1.12rem;
+}
+
+.records-meeting-notes-page .meeting-note-toggle-action {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.7rem;
+  min-height: 46px;
+  padding: 0.35rem 0.4rem 0.35rem 1.05rem;
+  border: 1px solid #070d14;
+  border-radius: 999px;
+  background: #070d14;
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 800;
+  line-height: 1;
+  transition: background 160ms ease, border-color 160ms ease, color 160ms ease, transform 160ms ease;
+}
+
+.records-meeting-notes-page .meeting-note-toggle-action .section-toggle-indicator {
+  width: 36px;
+  height: 36px;
+  border-color: rgba(255, 255, 255, 0.22);
+  color: inherit;
+}
+
+.records-meeting-notes-page #record-panel > .section-toggle:hover .meeting-note-toggle-action,
+.records-meeting-notes-page #record-panel > .section-toggle:focus-visible .meeting-note-toggle-action {
+  transform: translateY(-1px);
+}
+
+.records-meeting-notes-page #record-panel > .section-toggle.is-open .meeting-note-toggle-action {
+  border-color: rgba(15, 22, 32, 0.18);
+  background: #fff;
+  color: var(--ink);
+}
+
+.records-meeting-notes-page #record-panel > .section-toggle.is-open .meeting-note-toggle-action .section-toggle-indicator {
+  border-color: rgba(15, 22, 32, 0.12);
+}
+
+.records-meeting-notes-page #record-panel-body {
+  padding-top: 1.6rem;
+}
+
+.records-meeting-notes-page #record-panel-body input,
+.records-meeting-notes-page #record-panel-body select,
+.records-meeting-notes-page #record-panel-body textarea {
+  border-radius: 9px;
+  background: #fff;
+}
+
+.records-meeting-notes-page #recordings-library-panel {
+  padding: 0 0 2rem;
+}
+
+.records-meeting-notes-page .meeting-notes-section-head {
+  padding: 1.8rem 0 1.25rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.records-meeting-notes-page .meeting-notes-section-head h2 {
+  font-size: clamp(1.85rem, 5vw, 2.45rem);
+  line-height: 1.08;
+}
+
+.records-meeting-notes-page .recordings-list {
+  gap: 0;
+}
+
+.records-meeting-notes-page .recording-row {
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  padding: 1.15rem 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.records-meeting-notes-page .recording-row:hover {
+  transform: none;
+  border-color: rgba(23, 111, 102, 0.24);
+  background: rgba(23, 111, 102, 0.025);
+  box-shadow: none;
+}
+
+@media (min-width: 981px) {
+  .records-meeting-notes-page.records-shared-desktop-shell-page .records-desktop-frame > .main {
+    padding-top: 0;
+  }
+
+  .records-meeting-notes-page.records-shared-desktop-shell-page .records-desktop-page-head {
+    margin-bottom: 0;
+    padding-top: 0.85rem;
+  }
+
+  .records-meeting-notes-page.records-shared-desktop-shell-page #recordings-panel {
+    width: min(100%, 1320px);
+    margin: 0 auto;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .records-meeting-notes-page .meeting-notes-page-header {
+    padding: clamp(2rem, 4vw, 3.5rem) 0 2rem;
+  }
+
+  .records-meeting-notes-page .meeting-notes-page-header .btn {
+    flex: 0 0 auto;
+    min-height: 44px;
+    padding-inline: 1.2rem;
+  }
+
+  .records-meeting-notes-page .meeting-notes-library-context .grid-3 {
+    grid-template-columns: minmax(280px, 1.4fr) repeat(2, minmax(150px, 0.65fr));
+    gap: clamp(1.5rem, 4vw, 4rem);
+  }
+
+  .records-meeting-notes-page .meeting-notes-library-context select {
+    min-height: 44px;
+  }
+
+  .records-meeting-notes-page #record-panel {
+    padding: 1.5rem 0;
+  }
+
+  .records-meeting-notes-page #record-panel-body {
+    width: 100%;
+  }
+
+  .records-meeting-notes-page .meeting-source-options {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .records-meeting-notes-page .recording-row {
+    grid-template-columns: minmax(260px, 1.2fr) minmax(360px, 1fr);
+    column-gap: clamp(2rem, 5vw, 5rem);
+    align-items: center;
+  }
+
+  .records-meeting-notes-page .recording-row-main {
+    align-items: flex-start;
+  }
+
+  .records-meeting-notes-page .recording-row-details,
+  .records-meeting-notes-page .recording-row-actions {
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 980px) {
+  .records-meeting-notes-page .main {
+    width: min(100% - 1.25rem, 760px);
+    padding: 1.2rem 0 2.5rem;
+  }
+
+  .records-meeting-notes-page #recordings-panel {
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .records-meeting-notes-page .meeting-notes-page-header {
+    align-items: flex-start;
+    padding: 0.5rem 0 1.35rem;
+  }
+
+  .records-meeting-notes-page .meeting-notes-page-header .btn {
+    flex: 0 0 auto;
+  }
+
+  .records-meeting-notes-page .meeting-notes-library-context .grid-3 {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 1rem;
+  }
+
+  .records-meeting-notes-page .meeting-notes-library-context .field:first-child {
+    grid-column: 1 / -1;
+  }
+
+  .records-meeting-notes-page .meeting-notes-section-head {
+    padding-top: 1.55rem;
+  }
+
+  .records-meeting-notes-page .meeting-source-options {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .records-meeting-notes-page .recording-row {
+    padding: 1rem 0;
+  }
+}
+
+@media (max-width: 620px) {
+  .records-meeting-notes-page .main {
+    width: min(100% - 1rem, 560px);
+    padding-top: 0.9rem;
+  }
+
+  .records-meeting-notes-page .meeting-notes-page-header {
+    display: grid;
+    gap: 1rem;
+  }
+
+  .records-meeting-notes-page .meeting-notes-page-header h1 {
+    font-size: clamp(2.15rem, 12vw, 3rem);
+  }
+
+  .records-meeting-notes-page .meeting-notes-page-header .btn {
+    width: 100%;
+  }
+
+  .records-meeting-notes-page .meeting-notes-library-context .grid-3 {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .records-meeting-notes-page #record-panel {
+    padding: 1.15rem 0;
+  }
+
+  .records-meeting-notes-page #record-panel > .section-toggle {
+    align-items: flex-start;
+  }
+
+  .records-meeting-notes-page #record-panel > .section-toggle p {
+    max-width: 32ch;
+    font-size: 0.86rem;
+    line-height: 1.45;
+  }
+
+  .records-meeting-notes-page .meeting-note-toggle-action {
+    gap: 0.45rem;
+    min-height: 42px;
+    padding: 0.3rem 0.35rem 0.3rem 0.8rem;
+    font-size: 0.76rem;
+  }
+
+  .records-meeting-notes-page .meeting-note-toggle-action .section-toggle-indicator {
+    width: 32px;
+    height: 32px;
+  }
+
+  .records-meeting-notes-page .meeting-source-options {
+    grid-template-columns: 1fr;
+  }
+
+  .records-meeting-notes-page .recording-stats {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .records-meeting-notes-page .recording-stat:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .records-meeting-notes-page .recording-controls,
+  .records-meeting-notes-page .meeting-note-actions,
+  .records-meeting-notes-page .phone-meeting-session-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .records-meeting-notes-page .recording-controls .btn,
+  .records-meeting-notes-page .meeting-note-actions .btn,
+  .records-meeting-notes-page .phone-meeting-session-actions .btn {
+    width: 100%;
+  }
+
+  .records-meeting-notes-page .recording-reference-picker {
+    grid-template-columns: 1fr;
+  }
+
+  .records-meeting-notes-page .recording-row-main,
+  .records-meeting-notes-page .recording-row-details,
+  .records-meeting-notes-page .recording-row-actions {
+    align-items: flex-start;
+    justify-content: flex-start;
+  }
+
+  .records-meeting-notes-page .recording-row-details {
+    gap: 0.4rem;
+  }
+}
+
+/* Focused new-meeting workflow. */
+.records-meeting-notes-page .meeting-note-workspace {
+  width: 100%;
+  gap: 0;
+}
+
+.records-meeting-notes-page .meeting-workspace-intro {
+  padding: 0 0 1.5rem;
+}
+
+.records-meeting-notes-page .meeting-workspace-intro h3,
+.records-meeting-notes-page .meeting-workspace-section-head h3 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 1.35rem;
+  line-height: 1.2;
+}
+
+.records-meeting-notes-page .meeting-workspace-intro > p:last-child,
+.records-meeting-notes-page .meeting-workspace-section-head > div > p:last-child {
+  max-width: 760px;
+  margin: 0.45rem 0 0;
+  color: var(--slate);
+  line-height: 1.5;
+}
+
+.records-meeting-notes-page .meeting-setup-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(1rem, 3vw, 2rem);
+  padding-bottom: 1.75rem;
+}
+
+.records-meeting-notes-page .meeting-capture-workspace,
+.records-meeting-notes-page .meeting-preparation-workspace {
+  padding: 1.75rem 0;
+  border-top: 1px solid var(--line);
+}
+
+.records-meeting-notes-page .meeting-workspace-section-head {
+  margin-bottom: 1.1rem;
+}
+
+.records-meeting-notes-page .meeting-source-field {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.records-meeting-notes-page .meeting-source-field legend {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.records-meeting-notes-page .meeting-source-field > .field-note:first-of-type {
+  margin: 0 0 0.85rem;
+}
+
+.records-meeting-notes-page .meeting-source-options {
+  gap: 0.75rem;
+}
+
+.records-meeting-notes-page .meeting-source-option {
+  min-height: 112px;
+  padding: 1rem;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.records-meeting-notes-page .phone-meeting-start,
+.records-meeting-notes-page .browser-recording-workflow {
+  margin-top: 1rem;
+  padding: 1.1rem 0 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.records-meeting-notes-page .phone-meeting-start {
+  grid-template-columns: minmax(0, 0.8fr) minmax(320px, 1.2fr);
+  align-items: start;
+}
+
+.records-meeting-notes-page .phone-meeting-dial-in {
+  margin: 0;
+}
+
+.records-meeting-notes-page .browser-recording-workflow .recording-stats {
+  margin: 0;
+}
+
+.records-meeting-notes-page .browser-recording-workflow .recording-controls {
+  justify-content: flex-start;
+  margin-top: 0.85rem;
+}
+
+.records-meeting-notes-page .meeting-preparation-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(340px, 0.85fr);
+  gap: clamp(1.5rem, 4vw, 3.5rem);
+  align-items: start;
+}
+
+.records-meeting-notes-page .meeting-live-notes textarea {
+  min-height: 300px;
+  resize: vertical;
+}
+
+.records-meeting-notes-page .recording-references-panel {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.records-meeting-notes-page .recording-references-panel > div:first-child h4 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 1rem;
+}
+
+.records-meeting-notes-page .recording-reference-picker {
+  grid-template-columns: minmax(0, 1.35fr) minmax(130px, 0.65fr);
+}
+
+.records-meeting-notes-page .recording-reference-picker > .btn {
+  grid-column: 1 / -1;
+  justify-self: start;
+}
+
+.records-meeting-notes-page .meeting-workspace-actions-anchor {
+  width: 100%;
+  height: 1px;
+  margin-top: -1px;
+  pointer-events: none;
+}
+
+.records-meeting-notes-page .meeting-workspace-actions-slot {
+  position: relative;
+  width: 100%;
+  min-height: 73px;
+}
+
+.records-meeting-notes-page .meeting-workspace-actions {
+  position: fixed;
+  z-index: 18;
+  right: 0;
+  bottom: 0;
+  left: var(--action-dock-left, 0);
+  isolation: isolate;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  width: auto;
+  box-sizing: border-box;
+  margin-top: 0;
+  padding:
+    0.9rem
+    var(--action-dock-content-right, 1rem)
+    max(0.9rem, env(safe-area-inset-bottom))
+    var(--action-dock-content-left, 1rem);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  color: #fff;
+  opacity: 0;
+  transform: translateY(14px);
+  pointer-events: none;
+  transition:
+    opacity 420ms ease,
+    transform 420ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 220ms ease,
+    box-shadow 220ms ease,
+    color 220ms ease;
+}
+
+.records-meeting-notes-page .meeting-workspace-actions.is-revealed {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.records-meeting-notes-page .meeting-workspace-actions::before {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  content: "";
+  background: #070d14;
+  box-shadow: 0 -14px 32px rgba(7, 13, 20, 0.2);
+  opacity: var(--action-dock-opacity, 1);
+  transition: box-shadow 220ms ease;
+}
+
+.records-meeting-notes-page .meeting-workspace-actions.is-docked {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  padding: 0.9rem 0;
+  border-top-color: var(--line);
+  color: var(--ink);
+}
+
+.records-meeting-notes-page .meeting-workspace-actions.is-docked::before {
+  box-shadow: none;
+  opacity: 0;
+}
+
+.records-meeting-notes-page .meeting-workspace-actions-secondary,
+.records-meeting-notes-page .meeting-workspace-actions-primary {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.records-meeting-notes-page .meeting-workspace-actions-primary {
+  justify-content: flex-end;
+}
+
+.records-meeting-notes-page .meeting-workspace-actions .btn {
+  min-height: 44px;
+  transition:
+    color 180ms ease,
+    border-color 180ms ease,
+    background 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.records-meeting-notes-page .meeting-workspace-actions:not(.is-docked) .btn {
+  border-color: rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  box-shadow: none;
+}
+
+.records-meeting-notes-page .meeting-workspace-actions:not(.is-docked) .meeting-workspace-actions-primary .btn {
+  border-color: #fff;
+  background: #fff;
+  color: #070d14;
+}
+
+.records-meeting-notes-page .meeting-workspace-actions:not(.is-docked) .btn:hover,
+.records-meeting-notes-page .meeting-workspace-actions:not(.is-docked) .btn:focus-visible {
+  border-color: rgba(255, 255, 255, 0.46);
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.records-meeting-notes-page .meeting-workspace-actions:not(.is-docked) .meeting-workspace-actions-primary .btn:hover,
+.records-meeting-notes-page .meeting-workspace-actions:not(.is-docked) .meeting-workspace-actions-primary .btn:focus-visible {
+  background: #eef6f4;
+}
+
+.records-meeting-notes-page #record-panel.has-active-capture .meeting-workspace-actions {
+  border-top-color: rgba(23, 111, 102, 0.28);
+}
+
+@media (max-width: 860px) {
+  .records-meeting-notes-page .meeting-setup-grid,
+  .records-meeting-notes-page .meeting-preparation-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .records-meeting-notes-page .phone-meeting-start {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 620px) {
+  .records-meeting-notes-page .meeting-workspace-intro {
+    padding-bottom: 1.15rem;
+  }
+
+  .records-meeting-notes-page .meeting-capture-workspace,
+  .records-meeting-notes-page .meeting-preparation-workspace {
+    padding: 1.35rem 0;
+  }
+
+  .records-meeting-notes-page .meeting-source-option {
+    min-height: 0;
+  }
+
+  .records-meeting-notes-page .meeting-live-notes textarea {
+    min-height: 240px;
+  }
+
+  .records-meeting-notes-page .meeting-workspace-actions {
+    display: grid;
+    gap: 0.65rem;
+    padding:
+      0.8rem
+      var(--action-dock-content-right, 0.8rem)
+      max(0.8rem, env(safe-area-inset-bottom))
+      var(--action-dock-content-left, 0.8rem);
+  }
+
+  .records-meeting-notes-page .meeting-workspace-actions.is-docked {
+    padding-inline: 0;
+  }
+
+  .records-meeting-notes-page .meeting-workspace-actions-secondary,
+  .records-meeting-notes-page .meeting-workspace-actions-primary {
+    display: grid;
+    gap: 0.55rem;
+  }
+
+  .records-meeting-notes-page .meeting-workspace-actions-secondary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .records-meeting-notes-page .meeting-workspace-actions-primary {
+    grid-template-columns: 1fr;
+  }
+
+  .records-meeting-notes-page .meeting-workspace-actions-primary {
+    grid-row: 1;
+  }
+
+  .records-meeting-notes-page .meeting-workspace-actions .btn {
+    width: 100%;
+    padding-inline: 0.8rem;
+  }
 }
