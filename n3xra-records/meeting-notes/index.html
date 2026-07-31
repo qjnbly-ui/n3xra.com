@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/n3xra-records/styles.css?v=20260730-records-ai-structured">
+  <link rel="stylesheet" href="/n3xra-records/styles.css?v=20260730-meeting-workspace-refined">
   <script>
     window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
   </script>
@@ -66,14 +66,6 @@
       </section>
 
       <section class="panel stack hidden meeting-notes-page" id="recordings-panel">
-        <header class="meeting-notes-page-header">
-          <div>
-            <p class="meeting-notes-page-kicker">Meeting notes</p>
-            <h1>Meeting workspace</h1>
-            <p>Create, record, review, and manage every meeting note in the active library.</p>
-          </div>
-        </header>
-
         <div class="notice hidden" id="recordings-no-access-notice">
           <strong>No library access right now.</strong> Meeting notes unlock when you create or join a library with editor access.
           <div class="actions">
@@ -81,37 +73,62 @@
           </div>
         </div>
 
-        <section class="panel stack hidden meeting-notes-library-context" id="recordings-context-panel">
-          <div class="grid-3">
-            <div class="field">
-              <label for="active-organization-select">Active library</label>
-              <select id="active-organization-select"></select>
-              <p class="account-value hidden" id="active-organization-name">-</p>
-            </div>
-            <div class="field">
-              <span class="field-title">Your access</span>
-              <p class="account-value" id="active-membership-role">-</p>
-            </div>
-            <div class="field">
-              <span class="field-title">Saved meeting notes</span>
-              <p class="account-value" id="recording-count">0</p>
-            </div>
-          </div>
-        </section>
+        <div class="meeting-notes-workspace">
+          <aside class="meeting-library-sidebar" aria-label="Meeting notes library">
+            <header class="meeting-library-sidebar-head">
+              <div>
+                <p class="meeting-notes-section-kicker">Meeting library</p>
+                <h2>Meeting notes</h2>
+              </div>
+              <span class="meeting-count-badge"><span id="recording-count">0</span></span>
+            </header>
 
-        <section class="panel stack" id="record-panel">
-          <button class="section-toggle" id="record-panel-toggle" type="button" aria-expanded="false" aria-controls="record-panel-body">
-            <div>
-              <h3>New meeting note</h3>
-              <p>Draft notes, record audio, and create a final document for the active library.</p>
-            </div>
-            <span class="meeting-note-toggle-action" aria-hidden="true">
-              <span class="meeting-note-toggle-label">Start new meeting note</span>
-              <span class="section-toggle-indicator">+</span>
-            </span>
-          </button>
+            <section class="panel stack" id="recordings-library-panel">
+              <div class="meeting-library-tools">
+                <label for="meeting-notes-search">Find meeting note</label>
+                <input id="meeting-notes-search" type="search" placeholder="Search meeting notes">
+              </div>
+              <div class="recordings-list" id="recordings-list"></div>
+              <p class="empty hidden" id="recordings-empty">No meeting notes saved in this library yet.</p>
+              <p class="status" id="recordings-list-status"></p>
+            </section>
+          </aside>
 
-          <form class="stack hidden meeting-note-workspace" id="record-panel-body">
+          <section class="meeting-note-editor-panel panel stack" id="record-panel" aria-label="Meeting note workspace">
+            <div class="meeting-creation-row">
+              <section class="panel stack hidden meeting-notes-library-context" id="recordings-context-panel">
+                <div class="field meeting-library-select">
+                  <label class="sr-only" for="active-organization-select">Active library</label>
+                  <select id="active-organization-select" aria-label="Active library"></select>
+                  <p class="account-value hidden" id="active-organization-name">-</p>
+                </div>
+                <div class="field meeting-library-access">
+                  <span class="field-title">Your access</span>
+                  <p class="account-value" id="active-membership-role">-</p>
+                </div>
+              </section>
+
+              <button class="btn meeting-library-new-button section-toggle" id="record-panel-toggle" type="button" aria-expanded="false" aria-controls="record-panel-body">
+                <span class="meeting-new-button-copy">New meeting note</span>
+                <span class="meeting-note-toggle-action" aria-hidden="true">
+                  <span class="meeting-note-toggle-label">Start</span>
+                  <span class="section-toggle-indicator">+</span>
+                </span>
+              </button>
+            </div>
+
+            <div class="meeting-editor-empty" id="meeting-editor-empty">
+              <div class="meeting-empty-icon" aria-hidden="true">
+                <span></span>
+                <span></span>
+                <span></span>
+              </div>
+              <p class="meeting-notes-section-kicker">Meeting workspace</p>
+              <h2>Select or start a meeting note</h2>
+              <p>Choose a saved meeting from the list, or start a new note with phone, app, or uploaded audio.</p>
+            </div>
+
+            <form class="stack hidden meeting-note-workspace" id="record-panel-body">
             <div class="meeting-workspace-intro">
               <p class="meeting-notes-section-kicker">Meeting setup</p>
               <h3>Prepare the meeting</h3>
@@ -311,21 +328,9 @@
               </div>
             </div>
             <div class="meeting-workspace-actions-anchor" id="meeting-workspace-actions-anchor" aria-hidden="true"></div>
-          </form>
-        </section>
-
-        <section class="panel stack" id="recordings-library-panel">
-          <div class="meeting-notes-section-head">
-            <div>
-              <p class="meeting-notes-section-kicker">Saved meetings</p>
-              <h2>All meeting notes</h2>
-              <p>Open any meeting to review its recording, transcript, notes, references, and final document.</p>
-            </div>
-          </div>
-          <div class="recordings-list" id="recordings-list"></div>
-          <p class="empty hidden" id="recordings-empty">No meeting notes saved in this library yet.</p>
-          <p class="status" id="recordings-list-status"></p>
-        </section>
+            </form>
+          </section>
+        </div>
       </section>
     </main>
   </div>

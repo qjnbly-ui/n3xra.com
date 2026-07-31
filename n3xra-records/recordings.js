@@ -39,6 +39,8 @@ const recordingCount = document.getElementById("recording-count");
 const recordPanel = document.getElementById("record-panel");
 const recordPanelToggle = document.getElementById("record-panel-toggle");
 const recordPanelBody = document.getElementById("record-panel-body");
+const meetingEditorEmpty = document.getElementById("meeting-editor-empty");
+const meetingNotesSearch = document.getElementById("meeting-notes-search");
 const cancelMeetingNoteButton = document.getElementById("cancel-meeting-note-button");
 const meetingWorkspaceActionsSlot = document.getElementById("meeting-workspace-actions-slot");
 const meetingWorkspaceActions = document.getElementById("meeting-workspace-actions");
@@ -671,12 +673,13 @@ function setRecordPanelOpen(isOpen, options = {}) {
   window.clearTimeout(meetingWorkspaceActionsRevealTimer);
   meetingWorkspaceActions?.classList.remove("is-revealed");
   show(recordPanelBody, nextOpen);
+  show(meetingEditorEmpty, !nextOpen);
   recordPanelToggle.classList.toggle("is-open", nextOpen);
   recordPanelToggle.setAttribute("aria-expanded", String(nextOpen));
   const indicator = recordPanelToggle.querySelector(".section-toggle-indicator");
   if (indicator) indicator.textContent = nextOpen ? "-" : "+";
   const actionLabel = recordPanelToggle.querySelector(".meeting-note-toggle-label");
-  if (actionLabel) actionLabel.textContent = nextOpen ? "Close setup" : "Start new meeting note";
+  if (actionLabel) actionLabel.textContent = nextOpen ? "Close" : "Start";
 
   if (nextOpen) {
     meetingWorkspaceActionsRevealTimer = window.setTimeout(() => {
@@ -727,7 +730,7 @@ function initMeetingWorkspaceActionsDocking() {
     meetingWorkspaceActionsSlot.style.height = `${actionHeight}px`;
 
     const viewportRight = document.documentElement.clientWidth;
-    const workspaceRect = scrollingElement?.getBoundingClientRect();
+    const workspaceRect = recordPanel?.getBoundingClientRect();
     const formRect = recordPanelBody?.getBoundingClientRect();
     const workspaceLeft = Math.max(0, workspaceRect?.left || 0);
     const formLeft = Math.max(workspaceLeft, formRect?.left || workspaceLeft);
@@ -764,6 +767,7 @@ function initMeetingWorkspaceActionsDocking() {
   window.addEventListener("resize", queueDockingUpdate, { passive: true });
   if ("ResizeObserver" in window) {
     const resizeObserver = new ResizeObserver(queueDockingUpdate);
+    resizeObserver.observe(recordPanel);
     resizeObserver.observe(recordPanelBody);
     resizeObserver.observe(meetingWorkspaceActionsSlot);
     resizeObserver.observe(meetingWorkspaceActions);
@@ -2089,14 +2093,28 @@ async function loadRecordings() {
 
 function renderRecordings() {
   recordingCount.textContent = String(totalRecordingCount);
-  if (!recordingsCache.length) {
+  const searchQuery = meetingNotesSearch?.value.trim().toLowerCase() || "";
+  const visibleRecordings = searchQuery
+    ? recordingsCache.filter((recording) => [
+        recording.title,
+        recording.status,
+        recording.transcript_status,
+        recording.ai_review_status,
+        formatDateTime(recording.started_at || recording.created_at),
+      ].some((value) => String(value || "").toLowerCase().includes(searchQuery)))
+    : recordingsCache;
+
+  if (!visibleRecordings.length) {
     recordingsList.innerHTML = "";
+    recordingsEmpty.textContent = searchQuery
+      ? "No meeting notes match this search."
+      : "No meeting notes saved in this library yet.";
     show(recordingsEmpty, true);
     return;
   }
 
   show(recordingsEmpty, false);
-  recordingsList.innerHTML = recordingsCache
+  recordingsList.innerHTML = visibleRecordings
     .map((recording) => {
       const errorCopy = recording.processing_error
         ? `<p class="recording-row-note recording-row-note-error">${escapeHtml(recording.processing_error)}</p>`
@@ -3626,6 +3644,7 @@ async function init() {
     void previewReferenceDocument(reference || null);
   });
   recordingTitleInput.addEventListener("input", updateControls);
+  meetingNotesSearch?.addEventListener("input", renderRecordings);
   [meetingSourceBrowser, meetingSourcePhone, meetingSourceBoth, meetingSourceUpload].forEach((input) => {
     input?.addEventListener("change", () => {
       if (meetingUsesPhoneSource() && !phoneMeetingsAreActive()) {
