@@ -3,19 +3,19 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>n3xra.com Dashboard</title>
-  <meta name="description" content="n3xra.com dashboard for library access, billing, invites, uploads, search, and file management.">
+  <title>N3XRA Records Library</title>
+  <meta name="description" content="Search and manage the files in your N3XRA Records library.">
   <meta name="robots" content="noindex, nofollow, noarchive, nosnippet" />
   <link rel="canonical" href="https://n3xra.com/n3xra-records/library" />
   <meta name="application-name" content="N3XRA Records" />
   <meta name="apple-mobile-web-app-title" content="N3XRA Records" />
   <meta name="theme-color" content="#070c12" />
   <link rel="manifest" href="/n3xra-records/site.webmanifest">
-  <link rel="icon" type="image/png" href="/assets/n3xra_logo_transparent_small.png">
+  <link rel="icon" type="image/png" href="../assets/n3xra_logo_transparent_small.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/n3xra-records/styles.css?v=20260730-records-ai-structured">
+  <link rel="stylesheet" href="/n3xra-records/styles.css?v=20260731-library-files-merged">
   <script>
     window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
   </script>
@@ -28,7 +28,7 @@
         <div class="topbar-row dashboard-topbar-row">
           <div class="brand">
             <a class="brand-home-link" href="/" aria-label="N3XRA home">
-              <img class="brand-badge brand-badge-image" src="/assets/n3xra_logo_transparent.png" alt="n3xra.com logo">
+              <img class="brand-badge brand-badge-image" src="../assets/n3xra_logo_transparent.png" alt="n3xra.com logo">
             </a>
           </div>
           <button class="topbar-logout" id="mobile-logout-button" type="button">Logout</button>
@@ -43,8 +43,7 @@
             <p class="mobile-menu-title">Navigate</p>
           </div>
           <button class="mobile-menu-link" id="mobile-menu-account" type="button">Account</button>
-          <button class="mobile-menu-link" id="mobile-menu-library" type="button">Library</button>
-          <a class="mobile-menu-link button-link" id="mobile-menu-files-link" href="/n3xra-records/library">Library</a>
+          <button class="mobile-menu-link is-active" id="mobile-menu-library" type="button">Library</button>
           <a class="mobile-menu-link button-link hidden" id="mobile-menu-messages-link" href="/n3xra-records/messages.html">Communication</a>
           <a class="mobile-menu-link button-link hidden" id="mobile-menu-recordings-link" href="/n3xra-records/meeting-notes/">Meeting Notes</a>
         </div>
@@ -65,841 +64,87 @@
         </div>
       </section>
 
-      <section class="panel stack hidden" id="dashboard-panel">
-        <div class="notice hidden" id="support-banner"></div>
-
-        <section class="section-view" id="account-section" hidden>
-          <div class="notice hidden" id="account-no-library-notice">
-            <strong>No active library.</strong> Your account is still available. Library-specific controls will appear when you join a library.
+      <section class="panel hidden stack library-combined-panel" id="files-panel">
+        <section class="library-search-section stack" id="library-search-panel" aria-labelledby="library-search-title">
+          <div class="panel-head">
+            <div>
+              <h2 id="library-search-title">Search</h2>
+              <p>Use keyword search by default, or switch to AI Search for summaries, tables, drafts, and structured answers across files in the active library.</p>
+            </div>
           </div>
-          <section class="account-card" id="library-settings-card">
-            <div class="account-top">
-              <h3>Profile</h3>
-              <button class="btn secondary profile-settings-button" id="profile-settings-toggle" type="button" aria-expanded="false">Profile settings</button>
+
+          <div class="search-mode-toggle" role="group" aria-label="Search mode">
+            <button class="search-mode-btn is-active" id="search-mode-keyword" type="button" aria-pressed="true">Keyword</button>
+            <button class="search-mode-btn" id="search-mode-ai" type="button" aria-pressed="false">AI Search</button>
+          </div>
+
+          <div class="answer-markup ai-search-answer hidden" id="ai-search-answer" aria-live="polite"></div>
+
+          <div class="search-row">
+            <div class="field grow">
+              <label id="search-query-label" for="search-query">Keyword or phrase</label>
+              <input id="search-query" type="search" placeholder="budget, grant, zoning, executive session" autocomplete="off">
             </div>
-            <div class="account-list">
-              <div class="account-item">
-                <span class="account-label">Name</span>
-                <p class="account-value" id="account-name">-</p>
-              </div>
-              <div class="account-item">
-                <span class="account-label">Email</span>
-                <p class="account-value" id="account-email">-</p>
-              </div>
+            <div class="field" id="search-year-field">
+              <label for="search-year">Year</label>
+              <select id="search-year">
+                <option value="all">All years</option>
+              </select>
             </div>
-            <div class="actions">
-              <a class="btn secondary button-link hidden" id="platform-admin-link" href="/n3xra-admin/records">Platform admin</a>
+            <div class="actions library-search-actions">
+              <button class="btn hidden" id="ai-search-submit" type="button">Ask AI</button>
+              <button class="btn secondary" id="search-reset" type="button">Reset</button>
             </div>
-            <p class="status" id="context-status"></p>
-          </section>
+          </div>
 
-          <section class="account-card" id="account-library-card">
-            <div class="panel-head">
-              <div class="selected-library-head">
-                <div class="library-logo-mark" id="selected-library-logo-mark">
-                  <img class="library-logo-image hidden" id="selected-library-logo-image" alt="">
-                  <span class="library-logo-fallback" id="selected-library-logo-fallback">N</span>
-                </div>
-                <div>
-                  <h3>Selected Library</h3>
-                  <p id="selected-library-logo-caption">Active library identity</p>
-                </div>
-              </div>
-            </div>
-            <div class="grid-3" id="account-library-context">
-              <div class="field">
-                <label for="active-organization-select">Library</label>
-                <select id="active-organization-select"></select>
-                <p class="account-value hidden" id="active-organization-name">-</p>
-              </div>
-              <div class="field">
-                <span class="field-title">Your access</span>
-                <p class="account-value" id="active-membership-role">-</p>
-              </div>
-              <div class="field">
-                <span class="field-title">Shared libraries</span>
-                <p class="account-value" id="shared-library-count">0</p>
-              </div>
-            </div>
-            <div class="account-list">
-              <div class="account-item" id="account-tier-item">
-                <span class="account-label">Plan</span>
-                <p class="account-value" id="account-tier">Free</p>
-              </div>
-              <div class="account-item" id="account-status-item">
-                <span class="account-label">Status</span>
-                <p class="account-value" id="account-status">Active</p>
-              </div>
-            </div>
-          </section>
-
-          <section class="account-card records-help-card" id="records-help-card">
-            <button class="section-toggle records-help-toggle" id="records-help-toggle" type="button" aria-expanded="false" aria-controls="records-help-body">
-              <div>
-                <h3>Need help?</h3>
-                <p>Get a short, step-by-step answer about Records.</p>
-              </div>
-              <span class="section-toggle-indicator" aria-hidden="true">+</span>
-            </button>
-            <div class="stack hidden" id="records-help-body">
-              <div class="records-help-answer hidden" id="records-help-answer"></div>
-              <form class="records-help-form" id="records-help-form">
-                <div class="field">
-                  <label for="records-help-question">Ask a Records question</label>
-                  <textarea id="records-help-question" maxlength="900" placeholder="Ask about meeting notes, invite roles, uploads, search, billing, or public records."></textarea>
-                </div>
-                <div class="actions">
-                  <button class="btn" id="records-help-submit" type="submit">Ask Records AI</button>
-                </div>
-                <p class="status" id="records-help-status"></p>
-              </form>
-            </div>
-          </section>
-
-          <section class="account-card hidden" id="support-access-card">
-            <div class="panel-head"><div><h3>N3XRA support access</h3><p>Private Records content stays unavailable to N3XRA unless you grant temporary access.</p></div></div>
-            <form class="stack" id="support-access-form"><div class="field"><label for="support-access-reason">Reason for access</label><input id="support-access-reason" type="text" maxlength="300" value="Customer-requested support" required></div><div class="support-scope-grid"><label class="toggle-pill"><input id="support-scope-documents" type="checkbox"><span>View documents</span></label><label class="toggle-pill"><input id="support-scope-recordings" type="checkbox"><span>View recordings and transcripts</span></label><label class="toggle-pill"><input id="support-scope-downloads" type="checkbox"><span>Download files</span></label><label class="toggle-pill"><input id="support-scope-changes" type="checkbox"><span>Change content or settings</span></label></div><p class="field-note">Access expires automatically after 24 hours. You can revoke it immediately at any time.</p><div class="actions"><button class="btn" id="support-access-grant" type="submit">Grant temporary access</button><button class="btn danger hidden" id="support-access-revoke" type="button">Revoke access</button></div><p class="status" id="support-access-status"></p></form>
-            <div class="settings-subsection"><div class="settings-subsection-head"><h4>Support access history</h4><p>Permanent record of grants and N3XRA support activity.</p></div><div class="table-shell"><table class="data-table"><thead><tr><th>Date</th><th>Event</th><th>Administrator</th><th>Resource</th></tr></thead><tbody id="support-audit-list"></tbody></table></div></div>
-          </section>
-
-          <section class="account-card" id="library-access-card">
-            <div class="panel-head">
-              <div>
-                <h3>Admin settings</h3>
-                <p id="library-access-copy">Manage users, contacts, templates, access, library profile, AI, and billing for the selected library.</p>
-              </div>
-            </div>
-
-            <div class="admin-settings-layout">
-              <div class="admin-tabs" role="tablist" aria-label="Admin settings">
-                <button class="admin-tab is-active" id="admin-users-tab" type="button" role="tab" aria-selected="true" aria-controls="admin-users-panel" data-admin-tab="users">Users</button>
-                <button class="admin-tab" id="admin-contacts-tab" type="button" role="tab" aria-selected="false" aria-controls="admin-contacts-panel" data-admin-tab="contacts">Contacts</button>
-                <button class="admin-tab" id="admin-templates-tab" type="button" role="tab" aria-selected="false" aria-controls="admin-templates-panel" data-admin-tab="templates">Templates</button>
-                <button class="admin-tab" id="admin-access-tab" type="button" role="tab" aria-selected="false" aria-controls="admin-access-panel" data-admin-tab="access">Access</button>
-                <button class="admin-tab" id="admin-support-tab" type="button" role="tab" aria-selected="false" aria-controls="support-access-card" data-admin-tab="support">N3XRA support access</button>
-                <button class="admin-tab" id="admin-library-tab" type="button" role="tab" aria-selected="false" aria-controls="admin-library-panel" data-admin-tab="library">Library</button>
-                <button class="admin-tab" id="admin-ai-tab" type="button" role="tab" aria-selected="false" aria-controls="admin-ai-panel" data-admin-tab="ai">AI</button>
-                <button class="admin-tab" id="admin-billing-tab" type="button" role="tab" aria-selected="false" aria-controls="admin-billing-panel" data-admin-tab="billing">Billing</button>
-                <button class="admin-tab" id="admin-storage-tab" type="button" role="tab" aria-selected="false" aria-controls="admin-storage-panel" data-admin-tab="storage">Storage</button>
-                <button class="admin-tab" id="admin-activity-tab" type="button" role="tab" aria-selected="false" aria-controls="admin-activity-panel" data-admin-tab="activity">Activity</button>
-              </div>
-
-              <div class="admin-panels">
-                <section class="admin-panel is-active" id="admin-users-panel" role="tabpanel" aria-labelledby="admin-users-tab" data-admin-panel="users">
-                  <div class="admin-panel-head admin-panel-head-row">
-                    <div>
-                      <h4>Workspace members</h4>
-                      <p>Manage the people who can sign in to this library and what each member can do.</p>
-                    </div>
-                    <button class="btn secondary" id="admin-users-invite" type="button">Invite member</button>
-                  </div>
-                  <div class="settings-subsection" id="member-management-body">
-                    <div class="stack" id="member-management-section">
-                      <div class="table-shell">
-                        <table class="data-table">
-                          <thead>
-                            <tr>
-                              <th>Name</th>
-                              <th>Email</th>
-                              <th>Role</th>
-                              <th>Action</th>
-                            </tr>
-                          </thead>
-                          <tbody id="member-list"></tbody>
-                        </table>
-                      </div>
-                      <p class="status" id="member-status"></p>
-                    </div>
-                  </div>
-                </section>
-
-                <section class="admin-panel" id="admin-contacts-panel" role="tabpanel" aria-labelledby="admin-contacts-tab" data-admin-panel="contacts" hidden>
-                  <div class="admin-panel-head admin-panel-head-row">
-                    <div>
-                      <h4>Contacts</h4>
-                      <p>Save people for messages and document sharing. Contacts do not receive workspace access automatically.</p>
-                    </div>
-                    <button class="btn secondary" id="contact-form-toggle" type="button" aria-expanded="false" aria-controls="contact-form-panel">New contact</button>
-                  </div>
-                  <div class="stack hidden" id="contacts-settings-body">
-                    <div class="settings-subsection" id="contact-management-body">
-                      <div class="contact-form-panel hidden" id="contact-form-panel">
-                        <form class="stack" id="contact-form">
-                          <input id="contact-id" type="hidden">
-                          <div class="grid-2">
-                            <div class="field">
-                              <label for="contact-name">Name</label>
-                              <input id="contact-name" type="text" maxlength="120" placeholder="Jane Smith" required>
-                            </div>
-                            <div class="field">
-                              <label for="contact-email">Email</label>
-                              <input id="contact-email" type="email" placeholder="jane@example.org" required>
-                            </div>
-                          </div>
-                          <div class="field">
-                            <label for="contact-notes">Notes</label>
-                            <textarea id="contact-notes" rows="3" maxlength="500" placeholder="Board member, donor, city contact..."></textarea>
-                          </div>
-                          <div class="actions">
-                            <button class="btn" id="contact-save" type="submit">Add contact</button>
-                            <button class="btn secondary hidden" id="contact-cancel-edit" type="button">Cancel edit</button>
-                          </div>
-                        </form>
-                      </div>
-                      <p class="status" id="contact-status"></p>
-                      <div class="table-shell">
-                        <table class="data-table contact-table">
-                          <thead>
-                            <tr>
-                              <th>Name</th>
-                              <th>Email</th>
-                              <th>Status</th>
-                              <th>Notes</th>
-                              <th>Actions</th>
-                            </tr>
-                          </thead>
-                          <tbody id="contact-list"></tbody>
-                        </table>
-                      </div>
-                    </div>
-                  </div>
-                </section>
-
-                <section class="admin-panel" id="admin-templates-panel" role="tabpanel" aria-labelledby="admin-templates-tab" data-admin-panel="templates" hidden>
-                  <div class="admin-panel-head admin-panel-head-row">
-                    <div>
-                      <h4>Templates</h4>
-                      <p>Manage reusable document layouts. Users can create documents from these in Document Builder.</p>
-                    </div>
-                    <button class="btn secondary" id="admin-new-template" type="button">New template</button>
-                  </div>
-                  <div class="admin-template-list" id="admin-template-list"></div>
-                  <p class="empty hidden" id="admin-template-empty">No templates yet.</p>
-                  <p class="status" id="admin-template-status"></p>
-                </section>
-
-                <section class="admin-panel" id="admin-access-panel" role="tabpanel" aria-labelledby="admin-access-tab" data-admin-panel="access" hidden>
-                  <div class="admin-panel-head">
-                    <h4>Access</h4>
-                    <p>Join shared libraries, create invite codes, and create additional libraries.</p>
-                  </div>
-                  <div class="stack hidden" id="access-settings-body">
-                    <details class="settings-subsection admin-disclosure" id="invite-management-body">
-                      <summary class="admin-disclosure-summary">
-                        <span>
-                          <strong>Invite codes</strong>
-                          <small>Create and revoke codes for people who should join this library.</small>
-                        </span>
-                      </summary>
-                      <div class="stack admin-disclosure-content" id="invite-management-section">
-                        <form class="stack" id="create-invite-form">
-                          <div class="grid-3">
-                            <div class="field">
-                              <label for="invite-role">Role</label>
-                              <select id="invite-role">
-                                <option value="viewer">Viewer</option>
-                                <option value="editor">Editor</option>
-                                <option value="account_admin">Account Admin</option>
-                              </select>
-                            </div>
-                            <div class="field">
-                              <label for="invite-max-uses">Uses</label>
-                              <input id="invite-max-uses" type="text" value="1">
-                            </div>
-                            <div class="field">
-                              <label for="invite-expires-at">Expires at</label>
-                              <input id="invite-expires-at" type="datetime-local">
-                              <p class="field-note invite-expires-note">Uses your local timezone. Leave blank for no expiration.</p>
-                            </div>
-                          </div>
-                          <div class="grid-2">
-                            <div class="field">
-                              <label for="invite-recipient-email">Recipient email (optional)</label>
-                              <input id="invite-recipient-email" type="email" placeholder="name@example.com">
-                            </div>
-                            <div class="field">
-                              <label for="invite-recipient-name">Recipient name (optional)</label>
-                              <input id="invite-recipient-name" type="text" maxlength="100" placeholder="First name">
-                            </div>
-                          </div>
-                          <div class="field">
-                            <label for="invite-custom-message">Custom invite message (optional)</label>
-                            <textarea id="invite-custom-message" rows="3" maxlength="500" placeholder="Add a short custom note for the invite email."></textarea>
-                          </div>
-                          <div class="actions">
-                            <button class="btn secondary" type="submit">Create invite code</button>
-                            <button class="btn" type="submit" data-action="create-send">Create code + send email</button>
-                          </div>
-                          <p class="status" id="create-invite-status"></p>
-                        </form>
-                        <div class="table-shell">
-                          <table class="data-table">
-                            <thead>
-                              <tr>
-                                <th>Code</th>
-                                <th>Recipient</th>
-                                <th>Role</th>
-                                <th>Uses</th>
-                                <th>Expires</th>
-                                <th>Actions</th>
-                              </tr>
-                            </thead>
-                            <tbody id="invite-list"></tbody>
-                          </table>
-                        </div>
-                      </div>
-                    </details>
-
-                    <details class="settings-subsection admin-disclosure" id="redeem-invite-body">
-                      <summary class="admin-disclosure-summary">
-                        <span>
-                          <strong>Join shared library</strong>
-                          <small>Use an invite code from another library owner to add that library to this account.</small>
-                        </span>
-                      </summary>
-                      <form class="stack admin-disclosure-content" id="redeem-invite-form">
-                        <div class="field">
-                          <label for="redeem-invite-code">Invite code</label>
-                          <input id="redeem-invite-code" type="text" placeholder="Enter invite code">
-                        </div>
-                        <div class="actions">
-                          <button class="btn secondary" type="submit">Redeem code</button>
-                        </div>
-                        <p class="status" id="redeem-invite-status"></p>
-                      </form>
-                    </details>
-
-                    <details class="settings-subsection admin-disclosure" id="additional-library-body">
-                      <summary class="admin-disclosure-summary">
-                        <span>
-                          <strong>Additional libraries</strong>
-                          <small>Create a separate library with its own users, documents, settings, and billing controls.</small>
-                        </span>
-                      </summary>
-                      <form class="stack admin-disclosure-content" id="additional-library-form">
-                        <p class="field-note" id="additional-library-note">One Free library is allowed at a time. Upgrade your Free library before creating another.</p>
-                        <div class="field">
-                          <label for="additional-library-name">New library name</label>
-                          <input id="additional-library-name" type="text" maxlength="120" placeholder="New Library">
-                        </div>
-                        <div class="actions">
-                          <button class="btn secondary" id="additional-library-save" type="submit">Create library</button>
-                        </div>
-                        <p class="status" id="additional-library-status"></p>
-                      </form>
-                    </details>
-                  </div>
-                </section>
-
-                <section class="admin-panel" id="admin-library-panel" role="tabpanel" aria-labelledby="admin-library-tab" data-admin-panel="library" hidden>
-                  <div class="admin-panel-head">
-                    <h4>Library</h4>
-                    <p>Control the library name, logo, colors, public records view, and review.</p>
-                  </div>
-                  <div class="stack hidden" id="library-profile-body">
-                    <details class="settings-subsection admin-disclosure">
-                      <summary class="admin-disclosure-summary">
-                        <span>
-                          <strong>Identity and colors</strong>
-                          <small>Name the library and set the visual colors used in the app and public views.</small>
-                        </span>
-                      </summary>
-                      <form class="stack admin-disclosure-content" id="organization-settings-form">
-                        <div class="grid-3">
-                          <div class="field" id="organization-name-field">
-                            <label for="organization-name-input">Library name</label>
-                            <input id="organization-name-input" type="text" autocomplete="organization">
-                          </div>
-                          <div class="field" id="organization-primary-color-field">
-                            <label for="organization-primary-color">Primary color</label>
-                            <input id="organization-primary-color" type="color" value="#176f66">
-                          </div>
-                          <div class="field" id="organization-accent-color-field">
-                            <label for="organization-accent-color">Accent color</label>
-                            <input id="organization-accent-color" type="color" value="#ea9b3f">
-                          </div>
-                        </div>
-                        <div class="actions">
-                          <button class="btn" id="organization-settings-save" type="submit">Save library profile</button>
-                        </div>
-                        <p class="status" id="organization-settings-status"></p>
-                      </form>
-                    </details>
-                    <details class="settings-subsection admin-disclosure">
-                      <summary class="admin-disclosure-summary">
-                        <span>
-                          <strong>Logo</strong>
-                          <small>Upload a small PNG mark for the app and public views.</small>
-                        </span>
-                      </summary>
-                      <form class="stack admin-disclosure-content" id="library-logo-form">
-                        <div class="library-logo-settings">
-                          <div class="library-logo-preview" aria-hidden="true">
-                            <img class="library-logo-image hidden" id="library-logo-preview-image" alt="">
-                            <span class="library-logo-fallback" id="library-logo-preview-fallback">N</span>
-                          </div>
-                          <div class="field">
-                            <label for="library-logo-file">Library logo</label>
-                            <input id="library-logo-file" type="file" accept="image/png,.png">
-                            <p class="field-note">Transparent PNG recommended. Keep it simple and readable at small sizes. Max 2 MB.</p>
-                          </div>
-                        </div>
-                        <div class="actions">
-                          <button class="btn" id="library-logo-upload" type="submit">Upload logo</button>
-                          <button class="btn secondary" id="library-logo-remove" type="button">Remove logo</button>
-                        </div>
-                        <p class="status" id="library-logo-status"></p>
-                      </form>
-                    </details>
-                  </div>
-                  <div class="stack hidden" id="publishing-settings-body">
-                    <details class="settings-subsection admin-disclosure" id="embed-settings-body">
-                      <summary class="admin-disclosure-summary">
-                        <span>
-                          <strong>Public records and embed</strong>
-                          <small>Share public records or embed a searchable records view on another site.</small>
-                        </span>
-                      </summary>
-                      <div class="embed-access-card hidden admin-disclosure-content" id="embed-access-card">
-                        <div>
-                          <p class="account-label">Embedded records view</p>
-                          <p class="embed-access-title">Search and files together in one read-only view.</p>
-                          <p class="embed-access-copy">Only documents marked public are shown. Branding uses the Library profile colors.</p>
-                        </div>
-                        <button class="btn secondary" id="open-embed-card-button" type="button">Share or embed</button>
-                      </div>
-                    </details>
-                  </div>
-                  <div class="stack hidden" id="review-settings-body">
-                    <details class="settings-subsection admin-disclosure">
-                      <summary class="admin-disclosure-summary">
-                        <span>
-                          <strong>Review</strong>
-                          <small>Review N3XRA Records for this library.</small>
-                        </span>
-                      </summary>
-                      <form class="stack admin-disclosure-content" id="organization-review-form">
-                        <div class="grid-3">
-                          <div class="field">
-                            <label for="organization-review-rating">Rating</label>
-                            <select id="organization-review-rating">
-                              <option value="5">5 stars</option>
-                              <option value="4">4 stars</option>
-                              <option value="3">3 stars</option>
-                              <option value="2">2 stars</option>
-                              <option value="1">1 star</option>
-                            </select>
-                          </div>
-                          <div class="field review-meta-field">
-                            <span class="field-title">Review status</span>
-                            <p class="account-value" id="organization-review-meta">No review yet</p>
-                          </div>
-                        </div>
-                        <div class="field">
-                          <label for="organization-review-text">Review</label>
-                          <textarea id="organization-review-text" maxlength="1200" placeholder="Share what N3XRA Records helps this library do."></textarea>
-                          <p class="field-note">The review keeps snapshot details so it can remain visible even if the account or library is later removed.</p>
-                        </div>
-                        <div class="actions">
-                          <button class="btn" id="organization-review-save" type="submit">Save review</button>
-                        </div>
-                        <p class="status" id="organization-review-status"></p>
-                      </form>
-                    </details>
-                  </div>
-                </section>
-
-                <section class="admin-panel" id="admin-ai-panel" role="tabpanel" aria-labelledby="admin-ai-tab" data-admin-panel="ai" hidden>
-                  <div class="admin-panel-head">
-                    <h4>AI</h4>
-                    <p>Teach Records AI how to understand this library and answer consistently.</p>
-                  </div>
-                  <div class="stack hidden" id="ai-settings-body">
-                    <form class="stack settings-subsection" id="organization-ai-settings-form">
-                      <div class="field">
-                        <label for="organization-ai-context">Library background</label>
-                        <textarea id="organization-ai-context" maxlength="1800" placeholder="What is this library for? Add the organization type, common record types, recurring topics, acronyms, and anything the AI should understand before answering."></textarea>
-                        <p class="field-note">Example: This library contains board packets, minutes, grant records, and project updates for a community organization.</p>
-                      </div>
-                      <div class="field">
-                        <label for="organization-ai-response-style">Answer style</label>
-                        <textarea id="organization-ai-response-style" maxlength="1200" placeholder="How should the AI respond for this library?"></textarea>
-                        <p class="field-note">Example: Be thorough, use plain language, make uncertainty clear, and format complex answers with tables when helpful.</p>
-                      </div>
-                      <div class="field">
-                        <label for="organization-ai-memory">Saved AI memory</label>
-                        <textarea class="hidden" id="organization-ai-memory" maxlength="2400"></textarea>
-                        <div class="ai-memory-manager">
-                          <div class="ai-memory-list" id="organization-ai-memory-list"></div>
-                          <div class="ai-memory-add-row">
-                            <input id="organization-ai-memory-new" type="text" maxlength="700" placeholder="Add a memory the AI should keep in mind">
-                            <button class="btn secondary" id="organization-ai-memory-add" type="button">Add memory</button>
-                          </div>
-                        </div>
-                        <p class="field-note">Each memory saves into the same library memory field. Keep these curated so the AI does not inherit outdated assumptions.</p>
-                      </div>
-                      <div class="actions">
-                        <button class="btn" id="organization-ai-settings-save" type="submit">Save AI settings</button>
-                      </div>
-                      <p class="status" id="organization-ai-settings-status"></p>
-                    </form>
-                  </div>
-                </section>
-
-                <section class="admin-panel" id="admin-billing-panel" role="tabpanel" aria-labelledby="admin-billing-tab" data-admin-panel="billing" hidden>
-                  <div class="admin-panel-head">
-                    <h4>Billing</h4>
-                    <p>Review plan limits, subscription status, and billing portal access.</p>
-                  </div>
-                  <div class="settings-group hidden" id="billing-section">
-                    <div class="stack hidden" id="billing-settings-body">
-                      <div class="current-plan-card">
-                        <div>
-                          <p class="account-label">Current plan</p>
-                          <p class="current-plan-name" id="current-plan-name">Free</p>
-                          <p class="current-plan-copy" id="current-plan-copy">Plan limits load with your library.</p>
-                          <p class="current-plan-note hidden" id="current-plan-note"></p>
-                        </div>
-                        <div class="current-plan-actions">
-                          <button class="btn secondary hidden" id="manage-billing-button" type="button">Manage billing</button>
-                          <button class="btn secondary" id="change-plan-button" type="button" aria-expanded="false">Change plan</button>
-                          <a class="current-plan-text-link" href="/n3xra-records/storage.html">Open storage</a>
-                        </div>
-                      </div>
-                      <div class="billing-plan-picker hidden" id="billing-plan-picker">
-                        <div class="billing-cycle-head">
-                          <p class="billing-cycle-label">Billing cycle</p>
-                        </div>
-                        <div class="billing-cycle-toggle" role="tablist" aria-label="Billing cycle">
-                          <button class="billing-cycle-btn is-active" id="billing-cycle-monthly" type="button" aria-pressed="true">Monthly</button>
-                          <button class="billing-cycle-btn" id="billing-cycle-yearly" type="button" aria-pressed="false">Yearly <span class="billing-cycle-save">Save 20%</span></button>
-                        </div>
-                        <div class="plan-grid" id="billing-plan-grid"></div>
-                      </div>
-                      <p class="status" id="billing-status"></p>
-                    </div>
-                  </div>
-                </section>
-
-                <section class="admin-panel" id="admin-storage-panel" role="tabpanel" aria-labelledby="admin-storage-tab" data-admin-panel="storage" hidden>
-                  <div class="admin-panel-head admin-panel-head-row">
-                    <div>
-                      <h4>Storage</h4>
-                      <p>Open the storage view to review usage, largest files, and cleanup suggestions for this library.</p>
-                    </div>
-                    <a class="btn secondary button-link" href="/n3xra-records/storage.html">Open storage</a>
-                  </div>
-                  <div class="settings-subsection">
-                    <div class="notice">
-                      <strong>What you can review there:</strong> Uploaded files, meeting recordings, transcript source files, largest items, and storage-saving suggestions.
-                    </div>
-                  </div>
-                </section>
-
-                <section class="admin-panel" id="admin-activity-panel" role="tabpanel" aria-labelledby="admin-activity-tab" data-admin-panel="activity" hidden>
-                  <div class="admin-panel-head admin-panel-head-row">
-                    <div>
-                      <h4>Activity</h4>
-                      <p>Review major library actions such as uploads, deletes, visibility changes, invites, AI Search, and billing starts.</p>
-                    </div>
-                    <div class="field compact-field">
-                      <label for="activity-action-filter">Action</label>
-                      <select id="activity-action-filter">
-                        <option value="all">All activity</option>
-                        <option value="upload">Uploads</option>
-                        <option value="delete">Deletes</option>
-                        <option value="visibility_change">Visibility changes</option>
-                        <option value="invite_sent">Invites sent</option>
-                        <option value="invite_redeemed">Invites redeemed</option>
-                        <option value="ai_search_used">AI Search</option>
-                        <option value="billing_change">Billing</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div class="table-shell">
-                    <table class="data-table activity-table">
-                      <thead>
-                        <tr>
-                          <th>When</th>
-                          <th>Action</th>
-                          <th>Who</th>
-                          <th>Target</th>
-                          <th>Details</th>
-                        </tr>
-                      </thead>
-                      <tbody id="activity-list"></tbody>
-                    </table>
-                  </div>
-                  <p class="status" id="activity-status"></p>
-                </section>
-              </div>
-            </div>
-          </section>
+          <div class="doc-list" id="doc-list"></div>
+          <p class="empty hidden" id="doc-empty"></p>
+          <p class="status" id="docs-status"></p>
         </section>
 
-        <section class="section-view" id="library-section">
-          <div class="notice hidden" id="library-no-access-notice">
-            <strong>No library access right now.</strong> This area will populate when you join another library by invite.
+        <div class="library-files-section-head">
+          <div>
+            <p class="section-kicker">Library files</p>
+            <h2>Files</h2>
+            <p>Browse and manage the files in the active library.</p>
           </div>
-          <section class="panel stack hidden" id="library-context-panel">
-            <div class="library-context-head">
-              <div class="library-logo-mark library-context-logo" id="library-context-logo-mark">
-                <img class="library-logo-image hidden" id="library-context-logo-image" alt="">
-                <span class="library-logo-fallback" id="library-context-logo-fallback">N</span>
-              </div>
-              <div class="grid-3">
-                <div class="field">
-                  <label for="library-active-organization-select">Active library</label>
-                  <select id="library-active-organization-select"></select>
-                  <p class="account-value hidden" id="library-active-organization-name">-</p>
-                </div>
-                <div class="field">
-                  <span class="field-title">Your access</span>
-                  <p class="account-value" id="library-active-membership-role">-</p>
-                </div>
-                <div class="field">
-                  <span class="field-title">Shared libraries</span>
-                  <p class="account-value" id="library-shared-library-count">0</p>
-                </div>
-              </div>
-            </div>
-          </section>
+        </div>
 
-          <div class="library-actions-grid" id="library-actions-grid">
-            <div class="library-action-slot">
-              <a class="btn button-link" href="/n3xra-records/meeting-notes/">Meeting notes</a>
-            </div>
-            <div class="library-action-slot">
-              <a class="btn secondary button-link" href="/n3xra-records/library">Library</a>
-            </div>
+        <div class="notice hidden" id="files-no-access-notice">
+          <strong>No library access right now.</strong> Your account still works, but there are no files to show until you create or join a library.
+          <div class="actions">
+            <a class="btn secondary button-link" href="/n3xra-records/account/">Go to account</a>
           </div>
+        </div>
 
-          <section class="panel stack" id="library-search-panel">
-            <div class="panel-head">
-              <div>
-                <h3>Search</h3>
-                <p>Use keyword search by default, or switch to AI Search for summaries, tables, drafts, and structured answers across files in the active library.</p>
-              </div>
-            </div>
-            <div class="search-mode-toggle" role="tablist" aria-label="Search mode">
-              <button class="search-mode-btn is-active" id="search-mode-keyword" type="button" aria-pressed="true">Keyword</button>
-              <button class="search-mode-btn" id="search-mode-ai" type="button" aria-pressed="false">AI Search</button>
-            </div>
-            <div class="ai-search-answer hidden" id="ai-search-answer"></div>
-            <div class="search-row">
-              <div class="field">
-                <label for="search-query" id="search-query-label">Keyword or phrase</label>
-                <input id="search-query" type="search" placeholder="budget, grant, zoning, executive session">
-              </div>
-              <div class="field" id="search-year-field">
-                <label for="search-year">Year</label>
-                <select id="search-year">
-                  <option value="all">All years</option>
-                </select>
-              </div>
-              <div class="actions">
-                <button class="btn hidden" id="ai-search-submit" type="button">Ask AI</button>
-                <button class="btn secondary" id="search-reset" type="button">Reset</button>
-              </div>
-            </div>
-            <div class="doc-list" id="doc-list"></div>
-            <p class="empty" id="doc-empty">Type a keyword to search your documents.</p>
-            <p class="status" id="docs-status"></p>
-          </section>
+        <div class="grid-3" id="files-library-context">
+          <div class="field" id="files-active-organization-field">
+            <label for="active-organization-select">Active library</label>
+            <select id="active-organization-select"></select>
+          </div>
+          <div class="field" id="files-active-membership-field">
+            <span class="field-title">Your access</span>
+            <p class="account-value" id="active-membership-role">-</p>
+          </div>
+          <div class="field">
+            <span class="field-title">Document count</span>
+            <p class="account-value" id="document-count">0</p>
+          </div>
+        </div>
 
-          <section class="panel stack" id="library-recent-panel">
-            <div class="panel-head">
-              <div>
-                <h3>Newest files</h3>
-                <p>The latest 3 files from your active library.</p>
-              </div>
-            </div>
-            <div class="download-list" id="recent-files-list"></div>
-            <p class="empty hidden" id="recent-files-empty">No files in this library yet.</p>
-            <p class="recent-files-reminder"><a class="recent-files-link" href="/n3xra-records/library">Open Library</a></p>
-          </section>
-        </section>
+        <div class="files-filter-bar" id="files-filter-bar" aria-label="File type filter">
+          <button class="files-filter-btn is-active" type="button" data-file-filter="all">All</button>
+          <button class="files-filter-btn" type="button" data-file-filter="uploaded">Uploaded files</button>
+          <button class="files-filter-btn" type="button" data-file-filter="agenda">Agendas</button>
+          <button class="files-filter-btn" type="button" data-file-filter="supporting_document">Supporting documents</button>
+          <button class="files-filter-upload-btn" id="files-open-upload-modal" type="button">Upload</button>
+        </div>
+
+        <div class="download-list" id="file-list"></div>
+        <p class="empty hidden" id="file-empty">No files in this library yet.</p>
+        <p class="status" id="file-status"></p>
       </section>
     </main>
-  </div>
-
-  <div class="file-modal" id="file-modal" role="dialog" aria-modal="true" aria-hidden="true">
-    <div class="file-modal-dialog">
-      <div class="file-modal-header">
-        <p class="file-modal-title" id="file-modal-title">File preview</p>
-        <div class="file-modal-actions">
-          <a class="file-modal-link" id="file-modal-download" href="#" target="_blank" rel="noopener">Download</a>
-          <a class="file-modal-link hidden" id="file-modal-open-editable" href="/n3xra-records/documents.html" rel="noopener">Open</a>
-          <button class="file-modal-link hidden" id="file-modal-original" type="button">View original</button>
-          <button class="file-modal-close" id="file-modal-close" type="button">Close</button>
-        </div>
-      </div>
-      <div class="file-modal-body">
-        <iframe class="file-modal-frame" id="file-modal-frame" src="" title="File preview"></iframe>
-      </div>
-    </div>
-  </div>
-
-  <div class="settings-modal" id="profile-settings-modal" role="dialog" aria-modal="true" aria-hidden="true">
-    <div class="settings-modal-dialog">
-      <div class="settings-modal-header">
-        <div>
-          <p class="settings-modal-kicker">Profile settings</p>
-          <h3 class="settings-modal-title">Edit your profile</h3>
-        </div>
-        <button class="settings-modal-close" id="profile-settings-close" type="button">Close</button>
-      </div>
-      <div class="settings-modal-body">
-        <form class="stack" id="profile-form">
-          <div class="field">
-            <label for="profile-full-name">Full name</label>
-            <input id="profile-full-name" type="text" autocomplete="name">
-          </div>
-          <div class="actions">
-            <button class="btn" type="submit">Save profile</button>
-          </div>
-          <p class="status" id="profile-status"></p>
-        </form>
-        <section class="danger-zone">
-          <div class="danger-zone-copy">
-            <p class="danger-zone-kicker">Delete account</p>
-            <p class="danger-zone-text">Permanently remove your account and any libraries you own.</p>
-          </div>
-          <button class="btn btn-delete-solid" id="open-delete-account-modal" type="button">Delete account</button>
-        </section>
-        <p class="status hidden" id="delete-account-blocked-note">Cancel your paid libraries before deleting this account.</p>
-      </div>
-    </div>
-  </div>
-
-  <div class="confirm-modal" id="delete-account-modal" role="dialog" aria-modal="true" aria-hidden="true">
-    <div class="confirm-modal-dialog">
-      <div class="confirm-modal-header">
-        <div>
-          <p class="confirm-modal-kicker">Delete account</p>
-          <h3 class="confirm-modal-title">Permanently delete this account?</h3>
-        </div>
-      </div>
-      <div class="confirm-modal-body">
-        <p class="confirm-modal-copy">Choose whether to delete only your Records app data or your entire N3XRA account.</p>
-        <div class="confirm-modal-actions">
-          <button class="btn secondary" id="delete-account-cancel" type="button">Cancel</button>
-          <button class="btn btn-delete-solid" id="delete-records-submit" type="button">Delete this account</button>
-          <button class="btn btn-delete-solid" id="delete-account-submit" type="button">Delete entire N3XRA account</button>
-        </div>
-        <p class="status" id="delete-account-status"></p>
-      </div>
-    </div>
-  </div>
-
-  <div class="confirm-modal" id="app-confirm-modal" role="dialog" aria-modal="true" aria-hidden="true">
-    <div class="confirm-modal-dialog">
-      <div class="confirm-modal-header">
-        <div>
-          <p class="confirm-modal-kicker" id="app-confirm-kicker">Confirm action</p>
-          <h3 class="confirm-modal-title" id="app-confirm-title">Are you sure?</h3>
-        </div>
-      </div>
-      <div class="confirm-modal-body">
-        <p class="confirm-modal-copy" id="app-confirm-copy">Please confirm to continue.</p>
-        <div class="confirm-modal-actions">
-          <button class="btn secondary" id="app-confirm-cancel" type="button">Cancel</button>
-          <button class="btn btn-delete-solid" id="app-confirm-ok" type="button">Confirm</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="settings-modal" id="app-input-modal" role="dialog" aria-modal="true" aria-hidden="true">
-    <div class="settings-modal-dialog">
-      <div class="settings-modal-header">
-        <div>
-          <p class="settings-modal-kicker" id="app-input-kicker">Input required</p>
-          <h3 class="settings-modal-title" id="app-input-title">Enter a value</h3>
-        </div>
-        <button class="settings-modal-close" id="app-input-close" type="button">Close</button>
-      </div>
-      <div class="settings-modal-body">
-        <form class="stack" id="app-input-form">
-          <div class="field">
-            <label for="app-input-value" id="app-input-label">Value</label>
-            <input id="app-input-value" type="text" maxlength="120">
-          </div>
-          <div class="actions">
-            <button class="btn secondary" id="app-input-cancel" type="button">Cancel</button>
-            <button class="btn" id="app-input-submit" type="submit">Continue</button>
-          </div>
-        </form>
-      </div>
-    </div>
-  </div>
-
-  <div class="settings-modal" id="invite-email-modal" role="dialog" aria-modal="true" aria-hidden="true">
-    <div class="settings-modal-dialog">
-      <div class="settings-modal-header">
-        <div>
-          <p class="settings-modal-kicker">Invite codes</p>
-          <h3 class="settings-modal-title">Email invite link</h3>
-        </div>
-        <button class="settings-modal-close" id="invite-email-modal-close" type="button">Close</button>
-      </div>
-      <div class="settings-modal-body">
-        <form class="stack" id="invite-email-form">
-          <div class="field">
-            <label for="invite-email-code">Invite code</label>
-            <input id="invite-email-code" type="text" readonly>
-          </div>
-          <div class="field">
-            <label for="invite-email-recipient">Recipient email</label>
-            <input id="invite-email-recipient" type="email" placeholder="name@example.com" required>
-          </div>
-          <div class="field">
-            <label for="invite-email-name">Recipient name (optional)</label>
-            <input id="invite-email-name" type="text" maxlength="100" placeholder="First name">
-          </div>
-          <div class="field">
-            <label for="invite-email-message">Custom message (optional)</label>
-            <textarea id="invite-email-message" rows="3" maxlength="500" placeholder="Add a short custom note for the invite email."></textarea>
-          </div>
-          <div class="actions">
-            <button class="btn secondary" id="invite-email-cancel" type="button">Cancel</button>
-            <button class="btn" id="invite-email-submit" type="submit">Send invite email</button>
-          </div>
-          <p class="status" id="invite-email-status"></p>
-        </form>
-      </div>
-    </div>
-  </div>
-
-  <div class="settings-modal" id="embed-modal" role="dialog" aria-modal="true" aria-hidden="true">
-    <div class="settings-modal-dialog">
-      <div class="settings-modal-header">
-        <div>
-          <p class="settings-modal-kicker">Embedded records</p>
-          <h3 class="settings-modal-title">Add the embedded view</h3>
-        </div>
-        <button class="settings-modal-close" id="embed-modal-close" type="button">Close</button>
-      </div>
-      <div class="settings-modal-body">
-        <div class="stack">
-          <p class="account-note">This embedded view only shows records marked public inside the active library.</p>
-          <div class="field">
-            <label for="embed-preview-url">Public page URL</label>
-            <input id="embed-preview-url" type="text" readonly>
-          </div>
-          <div class="field">
-            <label for="embed-code">Iframe code</label>
-            <textarea id="embed-code" readonly></textarea>
-          </div>
-          <div class="actions">
-            <button class="btn secondary" id="copy-embed-preview-url" type="button">Copy public link</button>
-            <button class="btn secondary" id="copy-embed-code" type="button">Copy code</button>
-            <a class="btn secondary button-link" id="open-embed-preview" href="/n3xra-records/embed.html" target="_blank" rel="noopener">Open public page</a>
-          </div>
-          <p class="status" id="embed-status"></p>
-        </div>
-      </div>
-    </div>
   </div>
 
   <div class="settings-modal" id="upload-modal" role="dialog" aria-modal="true" aria-hidden="true">
@@ -956,35 +201,99 @@
     </div>
   </div>
 
-  <div class="settings-modal" id="ai-memory-modal" role="dialog" aria-modal="true" aria-hidden="true">
+  <div class="file-modal" id="file-modal" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="file-modal-dialog">
+      <div class="file-modal-header">
+        <p class="file-modal-title" id="file-modal-title">File preview</p>
+        <div class="file-modal-actions">
+          <a class="file-modal-link" id="file-modal-download" href="#" target="_blank" rel="noopener">Download</a>
+          <button class="file-modal-link" id="file-modal-share" type="button">Share</button>
+          <a class="file-modal-link hidden" id="file-modal-open-editable" href="/n3xra-records/documents.html" rel="noopener">Open</a>
+          <button class="file-modal-link hidden" id="file-modal-original" type="button">View original</button>
+          <button class="file-modal-link" id="file-modal-edit" type="button">Edit details</button>
+          <button class="file-modal-link file-modal-danger" id="file-modal-delete" type="button">Delete</button>
+          <button class="file-modal-close" id="file-modal-close" type="button">Close</button>
+        </div>
+      </div>
+      <div class="file-modal-body">
+        <iframe class="file-modal-frame" id="file-modal-frame" src="" title="File preview"></iframe>
+      </div>
+    </div>
+  </div>
+
+  <div class="confirm-modal" id="delete-confirm-modal" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="confirm-modal-dialog">
+      <div class="confirm-modal-header">
+        <div>
+          <p class="confirm-modal-kicker">Delete file</p>
+          <h3 class="confirm-modal-title">Remove this document?</h3>
+        </div>
+      </div>
+      <div class="confirm-modal-body">
+        <p class="confirm-modal-copy" id="delete-confirm-copy">This action cannot be undone.</p>
+        <label class="confirm-modal-option hidden" id="delete-associated-option">
+          <input id="delete-associated-data" type="checkbox">
+          <span>
+            <strong>Also delete linked documents and meeting note data</strong>
+            <small id="delete-associated-summary">Checking linked items...</small>
+          </span>
+        </label>
+        <div class="confirm-modal-actions">
+          <button class="btn secondary" id="delete-confirm-cancel" type="button">Cancel</button>
+          <button class="btn btn-delete-solid" id="delete-confirm-submit" type="button">Delete</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="settings-modal" id="file-edit-modal" role="dialog" aria-modal="true" aria-hidden="true">
     <div class="settings-modal-dialog">
       <div class="settings-modal-header">
         <div>
-          <p class="settings-modal-kicker">AI memory</p>
-          <h3 class="settings-modal-title">Save this for future searches?</h3>
+          <p class="settings-modal-kicker">Edit file</p>
+          <h3 class="settings-modal-title">Update file details</h3>
         </div>
-        <button class="settings-modal-close" id="ai-memory-modal-close" type="button">Close</button>
+        <button class="settings-modal-close" id="file-edit-close" type="button">Close</button>
       </div>
       <div class="settings-modal-body">
-        <form class="stack" id="ai-memory-form">
-          <p class="account-note">The AI prepared this saved-memory version. Edit it if needed, then save it for future AI Search answers.</p>
+        <form class="stack" id="file-edit-form">
           <div class="field">
-            <label for="ai-memory-suggestion">Memory to save</label>
-            <textarea id="ai-memory-suggestion" maxlength="700"></textarea>
-            <p class="field-note">This appends to the library's Saved AI memory in Additional settings.</p>
+            <label for="file-edit-title">Name</label>
+            <input id="file-edit-title" type="text" required>
+          </div>
+          <div class="grid-3">
+            <div class="field">
+              <label for="file-edit-year">Year</label>
+              <input id="file-edit-year" type="text" placeholder="2026">
+            </div>
+            <div class="field">
+              <label for="file-edit-month">Month</label>
+              <input id="file-edit-month" type="text" placeholder="April">
+            </div>
+          </div>
+          <label class="toggle-pill">
+            <input id="file-edit-public" type="checkbox">
+            <span>Publish to public embed</span>
+          </label>
+          <div class="field">
+            <label for="file-edit-ai-note">AI note</label>
+            <textarea id="file-edit-ai-note" maxlength="1600" placeholder="Add context the AI should know when this file is used in search. Example: This file is a draft, this person is also known as..., or this record replaced an older version."></textarea>
+            <p class="field-note">This note is not shown in the public embed. It helps AI Search interpret this file correctly.</p>
+          </div>
+          <div class="notice">
+            <strong>File:</strong> <span id="file-edit-filename">-</span>
           </div>
           <div class="actions">
-            <button class="btn secondary" id="ai-memory-dismiss" type="button">Do not save</button>
-            <button class="btn" id="ai-memory-save" type="submit">Save memory</button>
+            <button class="btn" id="file-edit-save" type="submit">Save changes</button>
           </div>
-          <p class="status" id="ai-memory-status"></p>
+          <p class="status" id="file-edit-status"></p>
         </form>
       </div>
     </div>
   </div>
 
   <script src="/shared/config.js"></script>
-  <script type="module" src="/n3xra-records/lib/desktop-shell.js?v=20260730-records-ai-structured"></script>
-  <script type="module" src="/n3xra-records/dashboard.js?v=20260729-manage-toggle"></script>
+  <script type="module" src="/n3xra-records/lib/desktop-shell.js?v=20260731-library-files-merged"></script>
+  <script type="module" src="/n3xra-records/files.js?v=20260731-library-files-merged"></script>
 </body>
 </html>
