@@ -183,11 +183,6 @@
       "source": "/n3xra-records/files",
       "destination": "/n3xra-records/library",
       "permanent": true
-    },
-    {
-      "source": "/n3xra-records/files.html",
-      "destination": "/n3xra-records/library",
-      "permanent": true
     }
   ],
   "rewrites": [
