@@ -1969,6 +1969,21 @@ function revokeActiveModalObjectUrl() {
   activeModalObjectUrl = "";
 }
 
+function getRecordsHelpDisplayContext() {
+  const viewportWidth = Math.max(0, Math.round(Number(window.innerWidth) || 0));
+  const viewportHeight = Math.max(0, Math.round(Number(window.innerHeight) || 0));
+  const isDesktop =
+    typeof window.matchMedia === "function"
+      ? window.matchMedia("(min-width: 981px)").matches
+      : viewportWidth >= 981;
+
+  return {
+    displayMode: isDesktop ? "desktop" : "mobile",
+    viewportWidth,
+    viewportHeight,
+  };
+}
+
 async function handleRecordsHelpSubmit(event) {
   event?.preventDefault();
   if (!recordsHelpQuestion || !recordsHelpSubmit) return;
@@ -1998,10 +2013,12 @@ async function handleRecordsHelpSubmit(event) {
         question,
         history: recordsHelpHistory,
         context: {
-          organizationId: organization?.id || "",
-          libraryName: organization?.name || "",
-          role: formatRoleLabel(getActiveRole()),
-          plan: organization ? formatPlanName(organization.subscription_tier || "free") : "",
+        organizationId: organization?.id || "",
+        libraryName: organization?.name || "",
+        role: formatRoleLabel(getActiveRole()),
+        plan: organization ? formatPlanName(organization.subscription_tier || "free") : "",
+        currentPath: window.location.pathname,
+        ...getRecordsHelpDisplayContext(),
         },
       }),
     });

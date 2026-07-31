@@ -92,6 +92,27 @@ function buildSystemPrompt(user, appContext) {
   const plan = String(appContext?.plan || "").trim() || "unknown";
   const libraryName = String(appContext?.libraryName || "").trim() || "current library";
   const currentPath = String(appContext?.currentPath || "").trim() || "unknown";
+  const requestedDisplayMode = String(appContext?.displayMode || "").trim().toLowerCase();
+  const displayMode =
+    requestedDisplayMode === "desktop" || requestedDisplayMode === "mobile"
+      ? requestedDisplayMode
+      : "unknown";
+  const viewportWidthValue = Number(appContext?.viewportWidth);
+  const viewportWidth =
+    Number.isFinite(viewportWidthValue) && viewportWidthValue >= 0 && viewportWidthValue <= 10000
+      ? Math.round(viewportWidthValue)
+      : "unknown";
+  const viewportHeightValue = Number(appContext?.viewportHeight);
+  const viewportHeight =
+    Number.isFinite(viewportHeightValue) && viewportHeightValue >= 0 && viewportHeightValue <= 10000
+      ? Math.round(viewportHeightValue)
+      : "unknown";
+  const navigationPattern =
+    displayMode === "desktop"
+      ? "persistent left navigation"
+      : displayMode === "mobile"
+        ? "header menu drawer"
+        : "unknown";
   const helpKnowledge = loadHelpKnowledge();
 
   return [
@@ -109,6 +130,10 @@ function buildSystemPrompt(user, appContext) {
     "Use Markdown headings only when the answer truly needs more than one section. Never output dense walls of text.",
     "Do not use tables unless the user asks for a comparison or the information has at least 3 items with the same fields.",
     "Use the current page context when it helps explain the shortest path forward.",
+    "Tailor navigation directions to the current display layout in Current user context.",
+    "On desktop, direct the user to the persistent left navigation and the expandable **Manage library** section. Do not tell a desktop user to open the mobile menu.",
+    "On mobile, direct the user to open the menu button in the header first, then choose the destination. Do not tell a mobile user to use a left sidebar.",
+    "Give directions for the current display first. Mention the other layout only if the user asks how desktop and mobile differ.",
     "You are read-only. Never claim that you opened a page, clicked a control, changed a setting, uploaded a file, sent a message, or completed an action.",
     "When a user wants an action completed, explain the exact navigation and control labels they should use.",
     "Do not reveal implementation details, database schema, internal APIs, env vars, security controls, source code, or vendor internals.",
@@ -121,6 +146,9 @@ function buildSystemPrompt(user, appContext) {
     `Current role: ${role}`,
     `Current plan: ${plan}`,
     `Current page: ${currentPath}`,
+    `Current display: ${displayMode}`,
+    `Viewport: ${viewportWidth} x ${viewportHeight}`,
+    `Navigation pattern: ${navigationPattern}`,
     "",
     "Use this current Records product knowledge as the source of truth for navigation names, workflow advice, and button labels:",
     helpKnowledge || "No external product knowledge file was loaded. Answer from the general Records instructions above.",

@@ -344,6 +344,21 @@ async function getRecordsAiAccessToken() {
   return refreshedData?.session?.access_token || sessionData?.session?.access_token || "";
 }
 
+function getRecordsAiDisplayContext() {
+  const viewportWidth = Math.max(0, Math.round(Number(window.innerWidth) || 0));
+  const viewportHeight = Math.max(0, Math.round(Number(window.innerHeight) || 0));
+  const isDesktop =
+    typeof window.matchMedia === "function"
+      ? window.matchMedia(`(min-width: ${DESKTOP_SHELL_BREAKPOINT}px)`).matches
+      : viewportWidth >= DESKTOP_SHELL_BREAKPOINT;
+
+  return {
+    displayMode: isDesktop ? "desktop" : "mobile",
+    viewportWidth,
+    viewportHeight,
+  };
+}
+
 async function askRecordsAi(question) {
   const accessToken = await getRecordsAiAccessToken();
   if (!accessToken) throw new Error("Your session expired. Sign in again and retry.");
@@ -366,6 +381,7 @@ async function askRecordsAi(question) {
         role: "",
         plan: "",
         currentPath: window.location.pathname,
+        ...getRecordsAiDisplayContext(),
       },
     }),
   });
@@ -438,7 +454,7 @@ function installRecordsAiAssistant() {
         <div>
           <p class="records-ai-kicker">N3XRA Records</p>
           <h2 id="records-ai-title">Ask Records AI</h2>
-          <p>Short, step-by-step help for the Records app.</p>
+          <p>Guidance for finding tools and completing work in Records.</p>
         </div>
         <button class="records-ai-close" type="button" data-records-ai-close aria-label="Close Records AI">×</button>
       </header>
@@ -464,7 +480,7 @@ function installRecordsAiAssistant() {
   appendRecordsAiMessage(
     messages,
     "assistant",
-    "Ask me where something is or how to complete a task. I’ll keep the answer short and step by step."
+    "Tell me what you’re trying to accomplish. I can help you find the right tools, understand your options, and move through Records step by step."
   );
 
   document.querySelectorAll("[data-records-ai-open]").forEach((button) => {
