@@ -35,14 +35,23 @@ const filesActiveMembershipField = document.getElementById("files-active-members
 const activeOrganizationSelect = document.getElementById("active-organization-select");
 const activeMembershipRole = document.getElementById("active-membership-role");
 const documentCount = document.getElementById("document-count");
-const filesActionsGrid = document.getElementById("files-actions-grid");
-const filesUploadActionSlot = document.getElementById("files-upload-action-slot");
 const filesOpenUploadModalButton = document.getElementById("files-open-upload-modal");
-const filesRecordingsLink = document.getElementById("files-recordings-link");
 const filesFilterBar = document.getElementById("files-filter-bar");
 const fileList = document.getElementById("file-list");
 const fileEmpty = document.getElementById("file-empty");
 const fileStatus = document.getElementById("file-status");
+const searchQueryLabel = document.getElementById("search-query-label");
+const searchQueryInput = document.getElementById("search-query");
+const searchYearField = document.getElementById("search-year-field");
+const searchYearSelect = document.getElementById("search-year");
+const searchResetButton = document.getElementById("search-reset");
+const searchModeKeywordButton = document.getElementById("search-mode-keyword");
+const searchModeAiButton = document.getElementById("search-mode-ai");
+const aiSearchSubmitButton = document.getElementById("ai-search-submit");
+const aiSearchAnswer = document.getElementById("ai-search-answer");
+const docList = document.getElementById("doc-list");
+const docEmpty = document.getElementById("doc-empty");
+const docsStatus = document.getElementById("docs-status");
 const uploadStatus = document.getElementById("upload-status");
 const uploadModal = document.getElementById("upload-modal");
 const uploadModalClose = document.getElementById("upload-modal-close");
@@ -107,6 +116,9 @@ let activeModalObjectUrl = "";
 let editableDocumentsBySourceId = new Map();
 let uploadMode = "single";
 let fileTypeFilter = "all";
+let searchMode = "keyword";
+let libraryAiSearchHistory = [];
+let lastAiSearchMatches = [];
 let pdfJsLibraryPromise = null;
 let pendingDeleteAssociations = {
   documentId: "",
@@ -134,6 +146,206 @@ function getErrorMessage(error, fallback) {
 function show(el, visible) {
   if (!el) return;
   el.classList.toggle("hidden", !visible);
+}
+
+function setAiSearchAnswer(answer = "") {
+  if (!aiSearchAnswer) return;
+  aiSearchAnswer.textContent = String(answer || "").trim();
+  show(aiSearchAnswer, Boolean(aiSearchAnswer.textContent));
+}
+
+function snippetFromText(text, query = "") {
+  const safeText = sanitizeExtractedText(text);
+  if (!safeText) return "No searchable text is available yet.";
+  const normalizedQuery = String(query || "").trim().toLowerCase();
+  if (!normalizedQuery) return `${safeText.slice(0, 220).trim()}${safeText.length > 220 ? "..." : ""}`;
+  const index = safeText.toLowerCase().indexOf(normalizedQuery);
+  if (index === -1) return `${safeText.slice(0, 220).trim()}${safeText.length > 220 ? "..." : ""}`;
+  const start = Math.max(0, index - 80);
+  const end = Math.min(safeText.length, index + normalizedQuery.length + 120);
+  return `${start > 0 ? "... " : ""}${safeText.slice(start, end).trim()}${end < safeText.length ? " ..." : ""}`;
+}
+
+function getDocumentSearchText(doc) {
+  return [doc?.title, doc?.original_filename, doc?.records_ai_note, doc?.extracted_text]
+    .filter(Boolean)
+    .join(" ");
+}
+
+function updateYearFilterOptions() {
+  if (!searchYearSelect) return;
+  const selected = searchYearSelect.value || "all";
+  const years = Array.from(new Set(documentsCache.map((doc) => String(doc.year || "").trim()).filter(Boolean)))
+    .sort((a, b) => Number(b) - Number(a));
+  searchYearSelect.innerHTML = '<option value="all">All years</option>';
+  years.forEach((year) => {
+    const option = document.createElement("option");
+    option.value = year;
+    option.textContent = year;
+    searchYearSelect.append(option);
+  });
+  searchYearSelect.value = years.includes(selected) ? selected : "all";
+}
+
+function getDocumentStatusLabel(doc) {
+  const status = String(doc?.status || (doc?.record_type === "uploaded" ? "uploaded" : "draft"));
+  const processingError = String(doc?.processing_error || "").toLowerCase();
+  return status === "failed" && processingError.includes("ocr") ? "Needs OCR" : status;
+}
+
+function createSearchResultCard(doc, options = {}) {
+  const card = document.createElement("article");
+  const documentId = String(doc?.id || "");
+  card.className = `doc-card${options.ai ? " ai-search-card" : ""}`;
+  card.innerHTML = `
+    <div class="doc-meta">
+      <div>
+        <p class="doc-title">${escapeHtml(getDocumentDisplayTitle(doc))}</p>
+        <p class="doc-subtitle">${escapeHtml(buildDocumentMetadata(doc, { includeVisibility: true, includeYearLabel: true, createdAtWithTime: true }))}</p>
+      </div>
+      <span class="doc-status">${escapeHtml(getDocumentStatusLabel(doc))}</span>
+    </div>
+    <p class="doc-snippet">${escapeHtml(options.snippet || snippetFromText(getDocumentSearchText(doc), options.query || ""))}</p>
+    <div class="doc-actions">
+      <button class="btn secondary" type="button" data-search-open-id="${escapeHtml(documentId)}">Open</button>
+    </div>
+  `;
+  return card;
+}
+
+function renderKeywordSearch() {
+  if (!docList || !docEmpty || !searchQueryInput || !searchYearSelect) return;
+  const query = searchQueryInput.value.trim().toLowerCase();
+  const selectedYear = searchYearSelect.value;
+  docList.innerHTML = "";
+  if (!query) {
+    show(docEmpty, false);
+    return;
+  }
+  const matches = documentsCache.filter((doc) => {
+    const yearMatches = selectedYear === "all" || String(doc.year || "") === selectedYear;
+    return yearMatches && getDocumentSearchText(doc).toLowerCase().includes(query);
+  });
+  show(docEmpty, matches.length === 0);
+  docEmpty.textContent = matches.length ? "" : "No documents match your search.";
+  matches.forEach((doc) => docList.append(createSearchResultCard(doc, { query })));
+}
+
+function renderAiSearchResults(matches = []) {
+  if (!docList || !docEmpty) return;
+  docList.innerHTML = "";
+  show(docEmpty, matches.length === 0);
+  docEmpty.textContent = matches.length ? "" : "AI Search did not suggest a specific file.";
+  matches.forEach((match) => {
+    const localDocument = documentsCache.find((doc) => String(doc.id) === String(match.id));
+    docList.append(createSearchResultCard({ ...(localDocument || {}), ...match }, { ai: true, snippet: match.snippet || "" }));
+  });
+}
+
+function renderLibrarySearch() {
+  if (searchMode === "ai") {
+    if (lastAiSearchMatches.length) renderAiSearchResults(lastAiSearchMatches);
+    else {
+      docList.innerHTML = "";
+      show(docEmpty, false);
+    }
+    return;
+  }
+  renderKeywordSearch();
+}
+
+function setSearchMode(mode) {
+  searchMode = mode === "ai" ? "ai" : "keyword";
+  const isAi = searchMode === "ai";
+  searchModeKeywordButton?.classList.toggle("is-active", !isAi);
+  searchModeAiButton?.classList.toggle("is-active", isAi);
+  searchModeKeywordButton?.setAttribute("aria-pressed", String(!isAi));
+  searchModeAiButton?.setAttribute("aria-pressed", String(isAi));
+  show(aiSearchSubmitButton, isAi);
+  show(searchYearField, !isAi);
+  show(searchResetButton, !isAi);
+  if (searchQueryLabel) searchQueryLabel.textContent = isAi ? "Ask AI anything about these files" : "Keyword or phrase";
+  if (searchQueryInput) {
+    searchQueryInput.placeholder = isAi
+      ? "Summarize a topic, build a table, draft a document, or ask about your records..."
+      : "budget, grant, zoning, executive session";
+  }
+  if (isAi && searchYearSelect) searchYearSelect.value = "all";
+  renderLibrarySearch();
+}
+
+function resetLibrarySearch() {
+  if (searchQueryInput) searchQueryInput.value = "";
+  if (searchYearSelect) searchYearSelect.value = "all";
+  libraryAiSearchHistory = [];
+  lastAiSearchMatches = [];
+  setAiSearchAnswer("");
+  setSearchLoadedStatus();
+  renderLibrarySearch();
+}
+
+function setSearchLoadedStatus() {
+  setStatus(docsStatus, "");
+}
+
+async function handleAiSearchSubmit() {
+  const question = searchQueryInput?.value.trim() || "";
+  const organization = getActiveOrganization();
+  if (!question) {
+    setStatus(docsStatus, "Enter a question for AI Search.", "error");
+    return;
+  }
+  if (!organization) {
+    setStatus(docsStatus, "Choose an active library first.", "error");
+    return;
+  }
+  aiSearchSubmitButton.disabled = true;
+  setStatus(docsStatus, "AI Search is reviewing your library...");
+  setAiSearchAnswer("");
+  docList.innerHTML = "";
+  show(docEmpty, false);
+  try {
+    const accessToken = await getFreshAccessToken();
+    if (!accessToken) throw new Error("Your session expired. Sign in again and retry.");
+    const response = await fetch("/api/records-search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify({
+        question,
+        history: libraryAiSearchHistory,
+        organizationId: organization.id,
+        year: "all",
+        context: {
+          libraryName: organization.name || "",
+          role: formatRoleLabel(getMembershipRole(activeMembership)),
+        },
+      }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data?.error || "AI Search is unavailable right now.");
+    const answer = String(data.answer || "").trim();
+    lastAiSearchMatches = Array.isArray(data.matches) ? data.matches : [];
+    setAiSearchAnswer(answer);
+    renderAiSearchResults(data.showSources === false ? [] : lastAiSearchMatches);
+    if (data.showSources === false) show(docEmpty, false);
+    if (answer) {
+      libraryAiSearchHistory = [...libraryAiSearchHistory, { role: "user", content: question }, { role: "assistant", content: answer }].slice(-8);
+    }
+    await recordRecordsActivity({
+      actionType: "ai_search_used",
+      targetType: "ai_search",
+      summary: "Used AI Search.",
+      metadata: { matchCount: lastAiSearchMatches.length, hasAnswer: Boolean(answer) },
+    });
+    setStatus(docsStatus, answer ? "" : "No AI answer returned.", answer ? "" : "error");
+  } catch (error) {
+    lastAiSearchMatches = [];
+    setAiSearchAnswer("");
+    renderLibrarySearch();
+    setStatus(docsStatus, getErrorMessage(error, "AI Search is unavailable right now."), "error");
+  } finally {
+    aiSearchSubmitButton.disabled = false;
+  }
 }
 
 function closeMobileMenu() {
@@ -802,10 +1014,9 @@ function renderOrganizationSelector() {
     show(filesNoAccessNotice, true);
     show(filesActiveOrganizationField, false);
     show(filesActiveMembershipField, false);
-    show(filesActionsGrid, false);
     show(mobileMenuRecordingsLink, false);
     show(mobileMenuMessagesLink, false);
-    show(filesRecordingsLink, false);
+    show(filesOpenUploadModalButton, false);
     return;
   }
 
@@ -820,15 +1031,13 @@ function renderOrganizationSelector() {
   const capabilities = getActiveCapabilities();
   fileModalDelete.disabled = !capabilities.canDeleteDocuments;
   filesOpenUploadModalButton.disabled = !capabilities.canUploadDocuments;
+  show(filesOpenUploadModalButton, capabilities.canUploadDocuments);
   uploadIsPublicInput.disabled = !capabilities.canUploadDocuments || !hasEmbeddedAccess();
   show(filesNoAccessNotice, false);
   show(filesActiveOrganizationField, hasMultipleLibraries());
   show(filesActiveMembershipField, hasMultipleLibraries());
-  show(filesActionsGrid, true);
-  show(filesUploadActionSlot, capabilities.canUploadDocuments);
   show(mobileMenuMessagesLink, capabilities.canShareDocuments);
   show(mobileMenuRecordingsLink, capabilities.canUseRecordings);
-  show(filesRecordingsLink, capabilities.canUseRecordings);
   activeOrganizationSelect.disabled = !hasMultipleLibraries();
 }
 
@@ -897,6 +1106,9 @@ async function loadDocuments() {
     fileList.innerHTML = "";
     show(fileEmpty, false);
     setStatus(fileStatus, "");
+    updateYearFilterOptions();
+    renderLibrarySearch();
+    setSearchLoadedStatus();
     renderOrganizationSelector();
     return;
   }
@@ -904,14 +1116,14 @@ async function loadDocuments() {
   setStatus(fileStatus, "Loading files...");
   let { data, error } = await supabase
     .from("documents")
-    .select("id, title, original_filename, storage_path, year, month, is_public, records_ai_note, created_at")
+    .select("id, title, original_filename, storage_path, year, month, is_public, records_ai_note, status, processing_error, extracted_text, created_at")
     .eq("organization_id", organization.id)
     .order("created_at", { ascending: false });
 
   if (error && isMissingAiNoteSchemaError(error)) {
     const fallback = await supabase
       .from("documents")
-      .select("id, title, original_filename, storage_path, year, month, is_public, created_at")
+      .select("id, title, original_filename, storage_path, year, month, is_public, status, processing_error, extracted_text, created_at")
       .eq("organization_id", organization.id)
       .order("created_at", { ascending: false });
     data = fallback.data;
@@ -929,6 +1141,9 @@ async function loadDocuments() {
   documentsCache = sortFileRowsNewestToOldest([...uploadedDocumentsCache, ...referenceDocumentsCache]);
   await loadEditableDocumentMap(organization.id);
   documentCount.textContent = String(documentsCache.length);
+  updateYearFilterOptions();
+  renderLibrarySearch();
+  setSearchLoadedStatus();
   renderFiles();
   setStatus(fileStatus, `${documentsCache.length} item${documentsCache.length === 1 ? "" : "s"} loaded.`, "success");
   await loadRecordsUsage();
@@ -2304,6 +2519,10 @@ async function handleOrganizationChange() {
   if (!nextMembership) return;
   activeMembership = nextMembership;
   setStoredActiveOrganizationId(nextOrganizationId);
+  if (searchQueryInput) searchQueryInput.value = "";
+  libraryAiSearchHistory = [];
+  lastAiSearchMatches = [];
+  setAiSearchAnswer("");
   renderOrganizationSelector();
   await loadDocuments();
 }
@@ -2335,7 +2554,8 @@ async function init() {
 
   show(setupPanel, false);
   show(filesPanel, true);
-  setMenuActive("files");
+  setMenuActive("library");
+  setSearchMode("keyword");
   try {
     await bootstrapAccess();
     renderOrganizationSelector();
@@ -2347,10 +2567,13 @@ async function init() {
     documentsCache = [];
     uploadedDocumentsCache = [];
     referenceDocumentsCache = [];
+    updateYearFilterOptions();
+    renderLibrarySearch();
     renderOrganizationSelector();
     fileList.innerHTML = "";
     show(fileEmpty, false);
     setStatus(fileStatus, error?.message || "Unable to load files.", "error");
+    setStatus(docsStatus, error?.message || "Unable to load documents.", "error");
   }
 
   mobileLogoutButton.addEventListener("click", handleSignout);
@@ -2361,7 +2584,27 @@ async function init() {
   mobileMenuLibrary.addEventListener("click", () => {
     window.location.href = "/n3xra-records/library";
   });
-  filesOpenUploadModalButton.addEventListener("click", () => {
+  searchModeKeywordButton?.addEventListener("click", () => setSearchMode("keyword"));
+  searchModeAiButton?.addEventListener("click", () => setSearchMode("ai"));
+  searchQueryInput?.addEventListener("input", () => {
+    if (searchMode === "keyword") renderKeywordSearch();
+  });
+  searchQueryInput?.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" || searchMode !== "ai") return;
+    event.preventDefault();
+    void handleAiSearchSubmit();
+  });
+  searchYearSelect?.addEventListener("change", renderKeywordSearch);
+  searchResetButton?.addEventListener("click", resetLibrarySearch);
+  aiSearchSubmitButton?.addEventListener("click", () => void handleAiSearchSubmit());
+  docList?.addEventListener("click", async (event) => {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    const button = target.closest("[data-search-open-id]");
+    const id = button?.getAttribute("data-search-open-id");
+    if (id) await openFile(id);
+  });
+  filesOpenUploadModalButton?.addEventListener("click", () => {
     resetUploadFeedback();
     setUploadModalOpen(true);
   });

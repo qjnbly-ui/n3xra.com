@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>n3xra.com Files</title>
-  <meta name="description" content="n3xra.com file management page.">
+  <title>N3XRA Records Library</title>
+  <meta name="description" content="Search and manage the files in your N3XRA Records library.">
   <meta name="robots" content="noindex, nofollow, noarchive, nosnippet" />
-  <link rel="canonical" href="https://n3xra.com/n3xra-records/files" />
+  <link rel="canonical" href="https://n3xra.com/n3xra-records/library" />
   <meta name="application-name" content="N3XRA Records" />
   <meta name="apple-mobile-web-app-title" content="N3XRA Records" />
   <meta name="theme-color" content="#070c12" />
@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/n3xra-records/styles.css?v=20260730-records-ai-structured">
+  <link rel="stylesheet" href="/n3xra-records/styles.css?v=20260731-library-files-merged">
   <script>
     window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
   </script>
@@ -43,8 +43,7 @@
             <p class="mobile-menu-title">Navigate</p>
           </div>
           <button class="mobile-menu-link" id="mobile-menu-account" type="button">Account</button>
-          <button class="mobile-menu-link" id="mobile-menu-library" type="button">Library</button>
-          <a class="mobile-menu-link button-link is-active" id="mobile-menu-files-link" href="/n3xra-records/files.html">Files</a>
+          <button class="mobile-menu-link is-active" id="mobile-menu-library" type="button">Library</button>
           <a class="mobile-menu-link button-link hidden" id="mobile-menu-messages-link" href="/n3xra-records/messages.html">Communication</a>
           <a class="mobile-menu-link button-link hidden" id="mobile-menu-recordings-link" href="/n3xra-records/meeting-notes/">Meeting Notes</a>
         </div>
@@ -65,26 +64,49 @@
         </div>
       </section>
 
-      <section class="panel hidden stack" id="files-panel">
-        <div class="panel-head">
-          <div>
-            <h2>Library Files</h2>
-            <p>Browse and manage the files in the active library.</p>
+      <section class="panel hidden stack library-combined-panel" id="files-panel">
+        <section class="library-search-section stack" id="library-search-panel" aria-labelledby="library-search-title">
+          <div class="panel-head">
+            <div>
+              <h2 id="library-search-title">Search</h2>
+              <p>Use keyword search by default, or switch to AI Search for summaries, tables, drafts, and structured answers across files in the active library.</p>
+            </div>
           </div>
-          <div class="actions">
-            <a class="btn secondary button-link" href="/n3xra-records/library/">Back to library</a>
-          </div>
-        </div>
 
-        <div class="library-actions-grid files-actions-grid" id="files-actions-grid">
-          <div class="library-action-slot" id="files-upload-action-slot">
-            <button class="btn" id="files-open-upload-modal" type="button">Upload</button>
+          <div class="search-mode-toggle" role="group" aria-label="Search mode">
+            <button class="search-mode-btn is-active" id="search-mode-keyword" type="button" aria-pressed="true">Keyword</button>
+            <button class="search-mode-btn" id="search-mode-ai" type="button" aria-pressed="false">AI Search</button>
           </div>
-          <div class="library-action-slot">
-            <a class="btn secondary button-link" href="/n3xra-records/documents.html">Document Builder</a>
+
+          <div class="answer-markup ai-search-answer hidden" id="ai-search-answer" aria-live="polite"></div>
+
+          <div class="search-row">
+            <div class="field grow">
+              <label id="search-query-label" for="search-query">Keyword or phrase</label>
+              <input id="search-query" type="search" placeholder="budget, grant, zoning, executive session" autocomplete="off">
+            </div>
+            <div class="field" id="search-year-field">
+              <label for="search-year">Year</label>
+              <select id="search-year">
+                <option value="all">All years</option>
+              </select>
+            </div>
+            <div class="actions library-search-actions">
+              <button class="btn hidden" id="ai-search-submit" type="button">Ask AI</button>
+              <button class="btn secondary" id="search-reset" type="button">Reset</button>
+            </div>
           </div>
-          <div class="library-action-slot">
-            <a class="btn secondary button-link hidden" id="files-recordings-link" href="/n3xra-records/meeting-notes/">Meeting Notes</a>
+
+          <div class="doc-list" id="doc-list"></div>
+          <p class="empty hidden" id="doc-empty"></p>
+          <p class="status" id="docs-status"></p>
+        </section>
+
+        <div class="library-files-section-head">
+          <div>
+            <p class="section-kicker">Library files</p>
+            <h2>Files</h2>
+            <p>Browse and manage the files in the active library.</p>
           </div>
         </div>
 
@@ -115,6 +137,7 @@
           <button class="files-filter-btn" type="button" data-file-filter="uploaded">Uploaded files</button>
           <button class="files-filter-btn" type="button" data-file-filter="agenda">Agendas</button>
           <button class="files-filter-btn" type="button" data-file-filter="supporting_document">Supporting documents</button>
+          <button class="files-filter-upload-btn" id="files-open-upload-modal" type="button">Upload</button>
         </div>
 
         <div class="download-list" id="file-list"></div>
@@ -270,7 +293,7 @@
   </div>
 
   <script src="/shared/config.js"></script>
-  <script type="module" src="/n3xra-records/lib/desktop-shell.js?v=20260730-records-ai-structured"></script>
-  <script type="module" src="/n3xra-records/files.js?v=20260729-static-documents-route"></script>
+  <script type="module" src="/n3xra-records/lib/desktop-shell.js?v=20260731-library-files-merged"></script>
+  <script type="module" src="/n3xra-records/files.js?v=20260731-library-files-merged"></script>
 </body>
 </html>

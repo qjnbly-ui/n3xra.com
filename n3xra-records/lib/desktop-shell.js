@@ -10,10 +10,9 @@ let recordsAiLastFocusedElement = null;
 
 const RECORDS_WORKSPACE_LINKS = [
   { key: "library", label: "Library", href: "/n3xra-records/library" },
-  { key: "files", label: "Files", href: "/n3xra-records/files.html" },
+  { key: "meeting-notes", label: "Meeting Notes", href: "/n3xra-records/meeting-notes" },
   { key: "document-builder", label: "Document Builder", href: "/n3xra-records/documents.html" },
   { key: "messages", label: "Communication", href: "/n3xra-records/messages.html" },
-  { key: "meeting-notes", label: "Meeting Notes", href: "/n3xra-records/meeting-notes" },
 ];
 
 const RECORDS_MANAGE_GROUPS = [
@@ -62,7 +61,7 @@ function getActiveRecordsPage() {
   const pathname = normalizePathname();
   if (pathname.endsWith("/n3xra-records/account")) return "account";
   if (pathname.endsWith("/n3xra-records/library")) return "library";
-  if (pathname.endsWith("/n3xra-records/files")) return "files";
+  if (pathname.endsWith("/n3xra-records/files")) return "library";
   if (pathname.endsWith("/n3xra-records/documents")) return "document-builder";
   if (pathname.endsWith("/n3xra-records/messages")) return "messages";
   if (
@@ -170,8 +169,11 @@ function installDesktopHeader() {
 
 function installMobileDocumentBuilderLink(activePage) {
   const mobileMenu = document.getElementById("mobile-menu");
-  const filesLink = document.getElementById("mobile-menu-files-link");
-  if (!mobileMenu || !filesLink || mobileMenu.querySelector("[data-mobile-document-builder]")) return;
+  const libraryLink = document.getElementById("mobile-menu-library");
+  const messagesLink = document.getElementById("mobile-menu-messages-link");
+  const meetingNotesLink = document.getElementById("mobile-menu-recordings-link");
+  document.getElementById("mobile-menu-files-link")?.remove();
+  if (!mobileMenu || !libraryLink || mobileMenu.querySelector("[data-mobile-document-builder]")) return;
 
   const link = document.createElement("a");
   link.className = "mobile-menu-link button-link";
@@ -182,7 +184,11 @@ function installMobileDocumentBuilderLink(activePage) {
     link.classList.add("is-active");
     link.setAttribute("aria-current", "page");
   }
-  filesLink.insertAdjacentElement("afterend", link);
+  // Keep the workspace destinations in the same order on mobile and desktop.
+  // Moving existing nodes preserves their listeners and active-state behavior.
+  libraryLink.insertAdjacentElement("afterend", link);
+  if (meetingNotesLink) mobileMenu.insertBefore(meetingNotesLink, link);
+  if (messagesLink) mobileMenu.insertBefore(messagesLink, link.nextSibling);
 }
 
 function getRecordsAiLibraryName() {

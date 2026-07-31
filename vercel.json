@@ -101,12 +101,12 @@
     },
     {
       "source": "/app/files",
-      "destination": "/n3xra-records/files",
+      "destination": "/n3xra-records/library",
       "permanent": true
     },
     {
       "source": "/app/files.html",
-      "destination": "/n3xra-records/files",
+      "destination": "/n3xra-records/library",
       "permanent": true
     },
     {
@@ -178,6 +178,16 @@
       "source": "/app/shared-document.html",
       "destination": "/n3xra-records/shared-document",
       "permanent": true
+    },
+    {
+      "source": "/n3xra-records/files",
+      "destination": "/n3xra-records/library",
+      "permanent": true
+    },
+    {
+      "source": "/n3xra-records/files.html",
+      "destination": "/n3xra-records/library",
+      "permanent": true
     }
   ],
   "rewrites": [
@@ -191,7 +201,7 @@
     },
     {
       "source": "/n3xra-records/library",
-      "destination": "/n3xra-records/dashboard.html"
+      "destination": "/n3xra-records/files.html"
     },
     {
       "source": "/n3xra-records/account",

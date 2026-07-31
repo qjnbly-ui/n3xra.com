@@ -1288,8 +1288,13 @@ function initDocumentWorkspaceActionsDocking() {
     updateFrame = 0;
     if (editorForm.classList.contains("hidden")) return;
 
-    const actionHeight = documentWorkspaceActions.offsetHeight;
-    documentWorkspaceActionsSlot.style.height = `${actionHeight}px`;
+    // Keep a stable intrinsic height even while the dock is absolutely
+    // positioned inside a temporarily collapsed resting slot.
+    const actionHeight = Math.max(
+      documentWorkspaceActions.scrollHeight,
+      documentWorkspaceActions.getBoundingClientRect().height,
+      72,
+    );
 
     const viewportRight = document.documentElement.clientWidth;
     const workspaceRect = scrollingElement?.getBoundingClientRect();
@@ -1320,7 +1325,11 @@ function initDocumentWorkspaceActionsDocking() {
       "--document-action-dock-opacity",
       floatingOpacity.toFixed(3),
     );
-    documentWorkspaceActions.classList.toggle("is-docked", distanceFromRest <= 1);
+    const isDocked = distanceFromRest <= 1;
+    // Give the resting slot its height before changing positioning modes so
+    // the action bar (and its buttons) never collapses during the handoff.
+    documentWorkspaceActionsSlot.style.height = isDocked ? `${actionHeight}px` : "0px";
+    documentWorkspaceActions.classList.toggle("is-docked", isDocked);
   };
 
   const queueDockingUpdate = () => {

@@ -1121,7 +1121,7 @@ function populateRecordingDetails(recording) {
   show(recordingDetailRetry, isRetryableRecording(recording));
   show(recordingDetailTranscriptDocument, Boolean(recording.document_id));
   if (recording.document_id) {
-    recordingDetailTranscriptDocument.href = `/n3xra-records/files.html?id=${encodeURIComponent(recording.document_id)}`;
+    recordingDetailTranscriptDocument.href = `/n3xra-records/library?id=${encodeURIComponent(recording.document_id)}`;
   }
   const reviewDocumentId = recording.final_document_id || recording.ai_draft_document_id || "";
   show(recordingDetailAiDraft, Boolean(reviewDocumentId));
