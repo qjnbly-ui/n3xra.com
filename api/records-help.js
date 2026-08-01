@@ -139,6 +139,54 @@ function inferRecordsHelpAction(question, answer) {
   return candidates[0].id;
 }
 
+function mergeRecordsHelpActions(...groups) {
+  const merged = [];
+  for (const action of groups.flat()) {
+    if (!action?.id || merged.some((item) => item.id === action.id)) continue;
+    merged.push(action);
+    if (merged.length === 2) break;
+  }
+  return merged;
+}
+
+function buildRecordsHelpEmptyAnswerFallback(actions) {
+  const action = Array.isArray(actions) ? actions[0] : null;
+  if (!action?.label) return "";
+  const destination = String(action.label).replace(/^(Open|Show)\s+/i, "").trim();
+  return `I can guide you to ${destination}. Use the option below and Records AI will show you where to go.`;
+}
+
+function combineRecordsHelpUsage(...items) {
+  return items.reduce((total, usage) => ({
+    promptTokens: total.promptTokens + Math.max(0, Number(usage?.promptTokens || 0)),
+    completionTokens: total.completionTokens + Math.max(0, Number(usage?.completionTokens || 0)),
+    totalTokens: total.totalTokens + Math.max(0, Number(usage?.totalTokens || 0)),
+  }), { promptTokens: 0, completionTokens: 0, totalTokens: 0 });
+}
+
+async function requestRecordsHelpModel(apiKey, messages) {
+  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: RECORDS_HELP_MODEL,
+      temperature: 0,
+      max_tokens: RECORDS_HELP_MAX_TOKENS,
+      messages,
+    }),
+  });
+  const data = await response.json().catch(() => ({}));
+  return {
+    ok: response.ok,
+    data,
+    rawAnswer: String(data?.choices?.[0]?.message?.content || "").trim(),
+    error: String(data?.error?.message || data?.message || "Unable to reach Records AI."),
+  };
+}
+
 function loadHelpKnowledge() {
   if (cachedHelpKnowledge) return cachedHelpKnowledge;
   try {
@@ -345,35 +393,44 @@ module.exports = async function handler(req, res) {
       ...history,
       { role: "user", content: question },
     ];
-    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${groqApiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: RECORDS_HELP_MODEL,
-        temperature: 0,
-        max_tokens: RECORDS_HELP_MAX_TOKENS,
-        messages,
-      }),
-    });
+    const initialCompletion = await requestRecordsHelpModel(groqApiKey, messages);
+    if (!initialCompletion.ok) return res.status(502).json({ error: initialCompletion.error });
 
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      return res.status(502).json({ error: String(data?.error?.message || data?.message || "Unable to reach Records AI.") });
+    let extracted = extractHelpActions(initialCompletion.rawAnswer);
+    let answer = extracted.answer;
+    let actions = extracted.actions;
+    const usageParts = [normalizeGroqUsage(
+      initialCompletion.data,
+      messages.map((item) => item.content).join("\n\n"),
+      initialCompletion.rawAnswer
+    )];
+
+    if (!answer) {
+      const retryMessages = [
+        ...messages,
+        { role: "assistant", content: initialCompletion.rawAnswer || "I did not provide a visible answer." },
+        {
+          role: "user",
+          content: "Provide the complete visible Records help answer now. Include concise instructions before any optional action or guide token. Never return only a token or an empty response.",
+        },
+      ];
+      const retryCompletion = await requestRecordsHelpModel(groqApiKey, retryMessages);
+      if (retryCompletion.ok) {
+        const retried = extractHelpActions(retryCompletion.rawAnswer);
+        answer = retried.answer;
+        actions = mergeRecordsHelpActions(actions, retried.actions);
+        usageParts.push(normalizeGroqUsage(
+          retryCompletion.data,
+          retryMessages.map((item) => item.content).join("\n\n"),
+          retryCompletion.rawAnswer
+        ));
+      }
     }
 
-    const rawAnswer = String(data?.choices?.[0]?.message?.content || "").trim();
-    const extracted = extractHelpActions(rawAnswer);
-    const fallbackActionId = extracted.actions.length ? null : inferRecordsHelpAction(question, extracted.answer);
-    const answer = extracted.answer;
-    const actions = fallbackActionId
-      ? [{ id: fallbackActionId, label: RECORDS_HELP_ACTIONS[fallbackActionId] }]
-      : extracted.actions;
-    if (!answer) return res.status(502).json({ error: "Records AI returned an empty answer." });
-    const fallbackPrompt = messages.map((item) => item.content).join("\n\n");
-    const usage = normalizeGroqUsage(data, fallbackPrompt, answer);
+    const fallbackActionId = actions.length ? null : inferRecordsHelpAction(question, answer);
+    if (fallbackActionId) actions = [{ id: fallbackActionId, label: RECORDS_HELP_ACTIONS[fallbackActionId] }];
+    if (!answer) answer = buildRecordsHelpEmptyAnswerFallback(actions);
+    const usage = combineRecordsHelpUsage(...usageParts);
     const recorded = await recordRecordsAiUsage({
       usageContext,
       user,
@@ -381,6 +438,8 @@ module.exports = async function handler(req, res) {
       model: RECORDS_HELP_MODEL,
       usage,
     });
+
+    if (!answer) return res.status(502).json({ error: "Records AI could not produce an answer. Please try again." });
 
     return res.status(200).json({ answer, actions, usage: getClientUsageSummary(recorded?.usage || usageContext.usage) });
   } catch (error) {
@@ -398,3 +457,6 @@ module.exports.extractHelpActions = extractHelpActions;
 module.exports.parseRecordsGuideToken = parseRecordsGuideToken;
 module.exports.isRecordsHelpTaskRequest = isRecordsHelpTaskRequest;
 module.exports.inferRecordsHelpAction = inferRecordsHelpAction;
+module.exports.mergeRecordsHelpActions = mergeRecordsHelpActions;
+module.exports.buildRecordsHelpEmptyAnswerFallback = buildRecordsHelpEmptyAnswerFallback;
+module.exports.combineRecordsHelpUsage = combineRecordsHelpUsage;

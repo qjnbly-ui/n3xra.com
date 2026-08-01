@@ -83,6 +83,33 @@ test("ordinary how-to questions receive a grounded guided action when the model 
   );
 });
 
+test("metadata-only responses retain their action and receive visible fallback copy", () => {
+  const metadataOnly = recordsHelp.extractHelpActions("[[action:documents.new]]");
+
+  assert.equal(metadataOnly.answer, "");
+  assert.deepEqual(metadataOnly.actions, [
+    { id: "documents.new", label: "Show Document Builder" },
+  ]);
+  assert.equal(
+    recordsHelp.buildRecordsHelpEmptyAnswerFallback(metadataOnly.actions),
+    "I can guide you to Document Builder. Use the option below and Records AI will show you where to go."
+  );
+  assert.deepEqual(
+    recordsHelp.mergeRecordsHelpActions(
+      metadataOnly.actions,
+      [{ id: "documents.new", label: "Show Document Builder" }]
+    ),
+    metadataOnly.actions
+  );
+  assert.deepEqual(
+    recordsHelp.combineRecordsHelpUsage(
+      { promptTokens: 100, completionTokens: 5, totalTokens: 105 },
+      { promptTokens: 120, completionTokens: 20, totalTokens: 140 }
+    ),
+    { promptTokens: 220, completionTokens: 25, totalTokens: 245 }
+  );
+});
+
 test("generic guides compose verified UI labels without workflow-specific code", () => {
   const result = recordsHelp.extractHelpActions(
     "I’ll show you the path.\n[[guide:Show the workflow|/n3xra-records/meeting-notes|New meeting note~First, choose New meeting note.>Phone call~Choose Phone call.>Start phone meeting~Finish here.]]"
