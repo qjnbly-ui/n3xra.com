@@ -165,6 +165,9 @@ test("knowledge preserves exact labels from the corrected workflows", () => {
   assert.match(knowledge, /Each file row opens its menu with \*\*Action\*\*/);
   assert.match(knowledge, /exact action is \*\*Send document\*\*/);
   assert.match(knowledge, /optional scopes \*\*View documents\*\*, \*\*View recordings and transcripts\*\*, \*\*Download files\*\*, and \*\*Change content or settings\*\*/);
+  assert.match(knowledge, /There is no control labeled \*\*Invite user\*\*/);
+  assert.match(knowledge, /\*\*Manage library\*\* → \*\*Invites & access\*\* → \*\*Invite codes\*\*/);
+  assert.match(knowledge, /\*\*Create code \+ send email\*\*/);
 });
 
 test("knowledge documents AI Search scope and approval-based saved memory", () => {

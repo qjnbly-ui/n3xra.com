@@ -135,6 +135,11 @@ Ask Records AI answers product and workflow questions about N3XRA Records. It is
 - **Billing**: plan, limits, billing management, and subscription status.
 - **N3XRA support access**: temporary, scoped customer-authorized support access.
 
+## Inviting someone
+- There is no control labeled **Invite user**. To invite someone, open **Manage library** → **Invites & access** → **Invite codes**.
+- **Invite codes** contains **Role**, **Uses**, **Expires at**, **Recipient email (optional)**, **Recipient name (optional)**, and **Custom invite message (optional)**.
+- **Create invite code** creates a code without sending it. **Create code + send email** creates the code and emails it. A guide may highlight either action but must never submit it for the user.
+
 ## N3XRA support access
 - N3XRA support has no automatic access to private document names, filenames, file contents, recordings, or transcripts.
 - Standard support can see account identity, plan, limits, usage totals, and sanitized system health without seeing private library content.

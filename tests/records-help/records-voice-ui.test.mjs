@@ -28,6 +28,8 @@ test("Records AI actions demonstrate the navigation path before the destination"
   assert.match(shell, /playRecordsAiGuidePlan/);
   assert.match(shell, /findRecordsAiGuideTarget/);
   assert.match(shell, /safelyRevealRecordsAiGuideTarget/);
+  assert.match(shell, /button, a, summary, label/);
+  assert.match(shell, /target\.matches\("summary"\)/);
   assert.match(shell, /RECORDS_AI_GUIDE_ROUTES/);
   assert.match(shell, /narrateRecordsAiGuide\(instruction\)/);
   assert.match(shell, /You’ve reached \$\{getRecordsAiSpokenDestination\(action\)\}/);

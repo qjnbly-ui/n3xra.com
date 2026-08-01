@@ -885,7 +885,7 @@ function findRecordsAiGuideTarget(label) {
   const expected = normalizeRecordsAiTargetText(label);
   if (!expected) return null;
   const candidates = Array.from(document.querySelectorAll(
-    "button, a, label, legend, [role='button'], [role='tab'], h1, h2, h3, h4, .field-title"
+    "button, a, summary, label, legend, [role='button'], [role='tab'], h1, h2, h3, h4, .field-title"
   )).filter((element) => !element.closest("[data-records-ai-layer]") && isRecordsAiElementVisible(element));
   return candidates.find((element) => normalizeRecordsAiTargetText(element.textContent) === expected)
     || candidates.find((element) => normalizeRecordsAiTargetText(element.textContent).startsWith(expected))
@@ -894,6 +894,10 @@ function findRecordsAiGuideTarget(label) {
 
 function safelyRevealRecordsAiGuideTarget(target) {
   if (!target) return;
+  if (target.matches("summary") && !target.parentElement?.open) {
+    target.click();
+    return;
+  }
   const radio = target.matches("input[type='radio']")
     ? target
     : target.querySelector?.("input[type='radio']");
