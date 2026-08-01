@@ -7,6 +7,15 @@ const RECORDS_AI_HISTORY_LIMIT = 8;
 let recordsAiSupabase = null;
 let recordsAiHistory = [];
 let recordsAiLastFocusedElement = null;
+let recordsAiMediaRecorder = null;
+let recordsAiMediaStream = null;
+let recordsAiAudioChunks = [];
+let recordsAiRecordingTimer = null;
+let recordsAiDiscardRecording = false;
+let recordsAiVoiceSubmission = false;
+let recordsAiCurrentAudio = null;
+let recordsAiCurrentAudioUrl = "";
+let recordsAiLastAnswer = "";
 
 const RECORDS_WORKSPACE_LINKS = [
   { key: "library", label: "Library", href: "/n3xra-records/library" },
@@ -315,6 +324,178 @@ function setRecordsAiStatus(message = "", tone = "") {
   if (tone) status.classList.add(`is-${tone}`);
 }
 
+function setRecordsAiVoiceButton(recording) {
+  const button = document.querySelector("[data-records-ai-voice]");
+  if (!button) return;
+  button.classList.toggle("is-recording", recording);
+  button.setAttribute("aria-pressed", recording ? "true" : "false");
+  button.innerHTML = recording
+    ? '<span aria-hidden="true">■</span> Stop recording'
+    : '<span aria-hidden="true">●</span> Talk to Records AI';
+}
+
+function resetRecordsAiAudioControls() {
+  const listenButton = document.querySelector("[data-records-ai-listen]");
+  const stopButton = document.querySelector("[data-records-ai-stop-audio]");
+  if (listenButton) {
+    listenButton.hidden = !recordsAiLastAnswer;
+    listenButton.disabled = false;
+    listenButton.textContent = "Listen";
+  }
+  if (stopButton) stopButton.hidden = true;
+}
+
+function stopRecordsAiPlayback() {
+  if (recordsAiCurrentAudio) {
+    recordsAiCurrentAudio.pause();
+    recordsAiCurrentAudio = null;
+  }
+  if (recordsAiCurrentAudioUrl) {
+    URL.revokeObjectURL(recordsAiCurrentAudioUrl);
+    recordsAiCurrentAudioUrl = "";
+  }
+  resetRecordsAiAudioControls();
+}
+
+async function speakRecordsAiAnswer(answer = recordsAiLastAnswer) {
+  const text = String(answer || "").trim();
+  if (!text) return;
+
+  stopRecordsAiPlayback();
+  const listenButton = document.querySelector("[data-records-ai-listen]");
+  const stopButton = document.querySelector("[data-records-ai-stop-audio]");
+  if (listenButton) {
+    listenButton.hidden = true;
+    listenButton.disabled = true;
+  }
+  if (stopButton) stopButton.hidden = false;
+  setRecordsAiStatus("Preparing voice answer…");
+
+  try {
+    const response = await fetch("/api/elevenlabs-text-to-speech", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+    });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(String(data?.error || "Voice playback is unavailable right now."));
+    }
+
+    recordsAiCurrentAudioUrl = URL.createObjectURL(await response.blob());
+    recordsAiCurrentAudio = new Audio(recordsAiCurrentAudioUrl);
+    recordsAiCurrentAudio.addEventListener("ended", () => {
+      stopRecordsAiPlayback();
+      setRecordsAiStatus("");
+    }, { once: true });
+    recordsAiCurrentAudio.addEventListener("error", () => {
+      stopRecordsAiPlayback();
+      setRecordsAiStatus("Voice playback is unavailable right now.", "error");
+    }, { once: true });
+    await recordsAiCurrentAudio.play();
+    if (listenButton) listenButton.disabled = false;
+    setRecordsAiStatus("");
+  } catch (error) {
+    stopRecordsAiPlayback();
+    const blocked = error?.name === "NotAllowedError" || /not allowed|user agent|current context/i.test(String(error?.message || ""));
+    setRecordsAiStatus(
+      blocked ? "Audio is ready. Select Listen to play it." : (error instanceof Error ? error.message : "Voice playback is unavailable right now."),
+      blocked ? "" : "error"
+    );
+  }
+}
+
+async function transcribeRecordsAiAudio(blob) {
+  const response = await fetch("/api/elevenlabs-speech-to-text", {
+    method: "POST",
+    headers: { "Content-Type": blob.type || "audio/webm" },
+    body: blob,
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(String(data?.error || "I could not hear that. Please try again."));
+  return String(data?.text || "").trim();
+}
+
+function stopRecordsAiRecording({ discard = false } = {}) {
+  recordsAiDiscardRecording = discard;
+  clearTimeout(recordsAiRecordingTimer);
+  if (recordsAiMediaRecorder?.state === "recording") {
+    recordsAiMediaRecorder.stop();
+  } else {
+    recordsAiMediaStream?.getTracks().forEach((track) => track.stop());
+    recordsAiMediaStream = null;
+    setRecordsAiVoiceButton(false);
+  }
+}
+
+async function handleRecordsAiVoiceButton() {
+  const button = document.querySelector("[data-records-ai-voice]");
+  if (!button) return;
+  if (recordsAiMediaRecorder?.state === "recording") {
+    stopRecordsAiRecording();
+    return;
+  }
+
+  try {
+    recordsAiDiscardRecording = false;
+    setRecordsAiStatus("Allow microphone access to talk with Records AI.");
+    recordsAiMediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const preferredTypes = ["audio/webm;codecs=opus", "audio/mp4", "audio/webm"];
+    const mimeType = preferredTypes.find((type) => MediaRecorder.isTypeSupported(type));
+    const recorder = mimeType
+      ? new MediaRecorder(recordsAiMediaStream, { mimeType })
+      : new MediaRecorder(recordsAiMediaStream);
+    recordsAiMediaRecorder = recorder;
+    recordsAiAudioChunks = [];
+
+    recorder.addEventListener("dataavailable", (event) => {
+      if (event.data.size) recordsAiAudioChunks.push(event.data);
+    });
+    recorder.addEventListener("stop", async () => {
+      clearTimeout(recordsAiRecordingTimer);
+      recordsAiMediaStream?.getTracks().forEach((track) => track.stop());
+      recordsAiMediaStream = null;
+      recordsAiMediaRecorder = null;
+      setRecordsAiVoiceButton(false);
+
+      if (recordsAiDiscardRecording) {
+        recordsAiAudioChunks = [];
+        recordsAiDiscardRecording = false;
+        setRecordsAiStatus("");
+        return;
+      }
+
+      button.disabled = true;
+      setRecordsAiStatus("Transcribing…");
+      try {
+        const recording = new Blob(recordsAiAudioChunks, { type: recorder.mimeType || "audio/webm" });
+        const transcript = await transcribeRecordsAiAudio(recording);
+        if (!transcript) throw new Error("I could not hear a question. Please try again.");
+        const input = document.querySelector("[data-records-ai-question]");
+        if (input) input.value = transcript;
+        recordsAiVoiceSubmission = true;
+        input?.form?.requestSubmit();
+      } catch (error) {
+        setRecordsAiStatus(error instanceof Error ? error.message : "I could not hear that. Please try again.", "error");
+      } finally {
+        button.disabled = false;
+        recordsAiAudioChunks = [];
+      }
+    }, { once: true });
+
+    recorder.start();
+    setRecordsAiVoiceButton(true);
+    setRecordsAiStatus("Listening… Select Stop recording when you are finished.");
+    recordsAiRecordingTimer = window.setTimeout(() => stopRecordsAiRecording(), 30000);
+  } catch {
+    recordsAiMediaStream?.getTracks().forEach((track) => track.stop());
+    recordsAiMediaStream = null;
+    recordsAiMediaRecorder = null;
+    setRecordsAiVoiceButton(false);
+    setRecordsAiStatus("Microphone access is needed to talk with Records AI.", "error");
+  }
+}
+
 function openRecordsAiAssistant() {
   const layer = document.querySelector("[data-records-ai-layer]");
   if (!layer) return;
@@ -329,6 +510,8 @@ function openRecordsAiAssistant() {
 function closeRecordsAiAssistant() {
   const layer = document.querySelector("[data-records-ai-layer]");
   if (!layer || layer.hidden) return;
+  stopRecordsAiRecording({ discard: true });
+  stopRecordsAiPlayback();
   layer.classList.remove("is-open");
   window.setTimeout(() => {
     layer.hidden = true;
@@ -397,6 +580,8 @@ async function handleRecordsAiSubmit(event) {
   const submitButton = form.querySelector("[data-records-ai-submit]");
   const messages = document.querySelector("[data-records-ai-messages]");
   const question = String(questionInput?.value || "").trim();
+  const shouldSpeak = recordsAiVoiceSubmission;
+  recordsAiVoiceSubmission = false;
   if (!question) {
     setRecordsAiStatus("Enter a question first.", "error");
     questionInput?.focus();
@@ -404,6 +589,7 @@ async function handleRecordsAiSubmit(event) {
   }
 
   appendRecordsAiMessage(messages, "user", question);
+  stopRecordsAiPlayback();
   questionInput.value = "";
   submitButton.disabled = true;
   setRecordsAiStatus("Records AI is thinking…");
@@ -412,6 +598,8 @@ async function handleRecordsAiSubmit(event) {
     const answer = await askRecordsAi(question);
     if (!answer) throw new Error("Records AI returned an empty answer.");
     appendRecordsAiMessage(messages, "assistant", answer);
+    recordsAiLastAnswer = answer;
+    resetRecordsAiAudioControls();
     recordsAiHistory.push(
       { role: "user", content: question },
       { role: "assistant", content: answer }
@@ -420,6 +608,7 @@ async function handleRecordsAiSubmit(event) {
       recordsAiHistory = recordsAiHistory.slice(-RECORDS_AI_HISTORY_LIMIT);
     }
     setRecordsAiStatus("");
+    if (shouldSpeak) void speakRecordsAiAnswer(answer);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to ask Records AI.";
     appendRecordsAiMessage(messages, "assistant", message);
@@ -466,9 +655,14 @@ function installRecordsAiAssistant() {
       </div>
       <form class="records-ai-composer" data-records-ai-form>
         <label for="records-ai-question">Ask a Records question</label>
-        <div>
+        <div class="records-ai-input-row">
           <textarea id="records-ai-question" data-records-ai-question rows="2" maxlength="900" placeholder="How do I…"></textarea>
           <button type="submit" data-records-ai-submit>Ask</button>
+        </div>
+        <div class="records-ai-voice-controls">
+          <button type="button" data-records-ai-voice aria-pressed="false"><span aria-hidden="true">●</span> Talk to Records AI</button>
+          <button type="button" data-records-ai-listen hidden>Listen</button>
+          <button type="button" data-records-ai-stop-audio hidden>Stop audio</button>
         </div>
         <p class="records-ai-status" data-records-ai-status></p>
       </form>
@@ -490,6 +684,17 @@ function installRecordsAiAssistant() {
     button.addEventListener("click", closeRecordsAiAssistant);
   });
   layer.querySelector("[data-records-ai-form]")?.addEventListener("submit", handleRecordsAiSubmit);
+  const voiceButton = layer.querySelector("[data-records-ai-voice]");
+  if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+    if (voiceButton) voiceButton.hidden = true;
+  } else {
+    voiceButton?.addEventListener("click", handleRecordsAiVoiceButton);
+  }
+  layer.querySelector("[data-records-ai-listen]")?.addEventListener("click", () => void speakRecordsAiAnswer());
+  layer.querySelector("[data-records-ai-stop-audio]")?.addEventListener("click", () => {
+    stopRecordsAiPlayback();
+    setRecordsAiStatus("");
+  });
   layer.querySelector("[data-records-ai-question]")?.addEventListener("keydown", (event) => {
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
@@ -505,6 +710,10 @@ function installRecordsAiAssistant() {
   });
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && !layer.hidden) closeRecordsAiAssistant();
+  });
+  window.addEventListener("pagehide", () => {
+    stopRecordsAiRecording({ discard: true });
+    stopRecordsAiPlayback();
   });
 }
 

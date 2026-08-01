@@ -6836,7 +6836,7 @@ body:has(.confirm-modal.is-open) {
   text-transform: uppercase;
 }
 
-.records-ai-composer > div {
+.records-ai-input-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: end;
@@ -6875,6 +6875,64 @@ body:has(.confirm-modal.is-open) {
 .records-ai-composer button[type="submit"]:disabled {
   cursor: wait;
   opacity: 0.55;
+}
+
+.records-ai-voice-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.6rem;
+}
+
+.records-ai-voice-controls button {
+  min-height: 36px;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid rgba(18, 43, 57, 0.16);
+  border-radius: 999px;
+  background: #f1f7f6;
+  color: #244650;
+  cursor: pointer;
+  font: 800 0.72rem/1 "Manrope", "Trebuchet MS", sans-serif;
+}
+
+.records-ai-voice-controls button:hover,
+.records-ai-voice-controls button:focus-visible {
+  border-color: rgba(22, 117, 105, 0.45);
+  color: var(--teal);
+  outline: none;
+}
+
+.records-ai-voice-controls button[hidden] {
+  display: none;
+}
+
+.records-ai-voice-controls button:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.records-ai-voice-controls [data-records-ai-voice] span {
+  color: var(--teal);
+  font-size: 0.68rem;
+}
+
+.records-ai-voice-controls [data-records-ai-voice].is-recording {
+  border-color: rgba(185, 28, 28, 0.35);
+  background: #fff1f1;
+  color: #8b1e1e;
+}
+
+.records-ai-voice-controls [data-records-ai-voice].is-recording span {
+  color: #dc2626;
+  animation: records-ai-voice-pulse 1s ease-in-out infinite;
+}
+
+@keyframes records-ai-voice-pulse {
+  50% { opacity: 0.35; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .records-ai-voice-controls [data-records-ai-voice].is-recording span { animation: none; }
 }
 
 .records-ai-status {
