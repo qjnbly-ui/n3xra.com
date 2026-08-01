@@ -22,11 +22,6 @@ const MAX_AUDIO_BYTES = Math.max(
   Number(process.env.RECORDS_MAX_TRANSCRIPTION_AUDIO_BYTES || DEFAULT_MAX_AUDIO_BYTES) || DEFAULT_MAX_AUDIO_BYTES
 );
 const GROQ_MEDIA_LIMIT_BYTES = 25 * 1024 * 1024;
-const DIRECT_TRANSCRIPTION_MAX_BYTES = Math.min(
-  MAX_AUDIO_BYTES,
-  GROQ_MEDIA_LIMIT_BYTES - 1024 * 1024,
-  Math.max(1, Number(process.env.GROQ_RECORDS_DIRECT_UPLOAD_MAX_BYTES || 20 * 1024 * 1024) || 20 * 1024 * 1024)
-);
 const TRANSCRIPTION_SEGMENT_SECONDS = Math.max(
   60,
   Number(process.env.GROQ_RECORDS_TRANSCRIPTION_SEGMENT_SECONDS || 10 * 60) || 10 * 60
@@ -272,16 +267,6 @@ function getGroqTranscriptionError(data, response) {
   return message;
 }
 
-function isGroqMediaLimitError(error) {
-  const message = String(error?.message || error || "").toLowerCase();
-  return (
-    message.includes("media file too large") ||
-    message.includes("request entity too large") ||
-    message.includes("size limit") ||
-    message.includes("active transcription size limit")
-  );
-}
-
 function formatBytes(bytes) {
   const size = Number(bytes || 0);
   if (!Number.isFinite(size) || size <= 0) return "0 bytes";
@@ -294,25 +279,6 @@ function formatBytes(bytes) {
   }
   const decimals = value >= 10 || unitIndex === 0 ? 0 : 1;
   return `${value.toFixed(decimals)} ${units[unitIndex]}`;
-}
-
-async function createRecordingSignedUrl(recording) {
-  if (!recording?.storage_path) throw new Error("No audio file is stored for this recording.");
-  const response = await fetch(`${SUPABASE_URL}/storage/v1/object/sign/${encodeStoragePath(RECORDINGS_BUCKET, recording.storage_path)}`, {
-    method: "POST",
-    headers: serviceHeaders(),
-    body: JSON.stringify({ expiresIn: 60 * 20 }),
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new Error(String(data?.message || data?.error || "Unable to create a temporary audio URL."));
-  }
-  const signedPath = String(data?.signedURL || data?.signedUrl || data?.url || "").trim();
-  if (!signedPath) throw new Error("Unable to create a temporary audio URL.");
-  if (signedPath.startsWith("http")) return signedPath;
-  const normalizedPath = signedPath.startsWith("/") ? signedPath : `/${signedPath}`;
-  const storagePath = normalizedPath.startsWith("/storage/v1/") ? normalizedPath : `/storage/v1${normalizedPath}`;
-  return `${SUPABASE_URL}${storagePath}`;
 }
 
 async function sendGroqTranscription(form, model = GROQ_TRANSCRIPTION_MODEL) {
@@ -348,13 +314,7 @@ async function transcribeAudioFile(arrayBuffer, recording, fileOptions = {}) {
   return sendGroqTranscription(form, model);
 }
 
-async function transcribeAudioUrl(recording, model = GROQ_LARGE_TRANSCRIPTION_MODEL) {
-  const form = new FormData();
-  form.append("url", await createRecordingSignedUrl(recording));
-  return sendGroqTranscription(form, model);
-}
-
-async function transcribeSegmentedAudio(arrayBuffer, recording, model = GROQ_LARGE_TRANSCRIPTION_MODEL) {
+async function transcribeTemporaryDerivative(arrayBuffer, recording, model = GROQ_LARGE_TRANSCRIPTION_MODEL) {
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "n3xra-transcription-"));
   const inputPath = path.join(tempDir, `source.${getAudioExtension(recording)}`);
   const outputPattern = path.join(tempDir, `part-%03d.${TRANSCRIPTION_SEGMENT_EXTENSION}`);
@@ -418,16 +378,7 @@ async function transcribeRecordingAudio(recording) {
   }
 
   const audio = await downloadRecordingAudio(recording);
-  if (audio.byteLength <= DIRECT_TRANSCRIPTION_MAX_BYTES) {
-    return transcribeAudioFile(audio, recording);
-  }
-
-  try {
-    return await transcribeAudioUrl(recording, GROQ_LARGE_TRANSCRIPTION_MODEL);
-  } catch (error) {
-    if (!isGroqMediaLimitError(error)) throw error;
-    return transcribeSegmentedAudio(audio, recording, GROQ_LARGE_TRANSCRIPTION_MODEL);
-  }
+  return transcribeTemporaryDerivative(audio, recording, GROQ_LARGE_TRANSCRIPTION_MODEL);
 }
 
 function addInterruptionMarkers(transcriptText, recording) {

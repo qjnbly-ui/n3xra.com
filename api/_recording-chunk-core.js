@@ -55,4 +55,30 @@ function buildInterruptionMetadata(interruptions) {
   }));
 }
 
-module.exports = { buildInterruptionMetadata, extensionForMimeType, validateAndGroupChunks };
+const PLAYBACK_AUDIO_SETTINGS = Object.freeze({
+  codec: "libmp3lame",
+  mimeType: "audio/mpeg",
+  extension: "mp3",
+  sampleRate: 48000,
+  channels: 1,
+  bitrate: "96k",
+});
+
+function buildPlaybackTranscodeArgs(inputPath, outputPath) {
+  return [
+    "-hide_banner", "-loglevel", "error", "-i", inputPath, "-vn",
+    "-ac", String(PLAYBACK_AUDIO_SETTINGS.channels),
+    "-ar", String(PLAYBACK_AUDIO_SETTINGS.sampleRate),
+    "-codec:a", PLAYBACK_AUDIO_SETTINGS.codec,
+    "-b:a", PLAYBACK_AUDIO_SETTINGS.bitrate,
+    outputPath,
+  ];
+}
+
+module.exports = {
+  PLAYBACK_AUDIO_SETTINGS,
+  buildInterruptionMetadata,
+  buildPlaybackTranscodeArgs,
+  extensionForMimeType,
+  validateAndGroupChunks,
+};

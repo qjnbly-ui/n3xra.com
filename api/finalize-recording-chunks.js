@@ -3,7 +3,13 @@ const { createHash } = require("crypto");
 const fs = require("fs/promises");
 const os = require("os");
 const path = require("path");
-const { buildInterruptionMetadata, extensionForMimeType, validateAndGroupChunks } = require("./_recording-chunk-core");
+const {
+  PLAYBACK_AUDIO_SETTINGS,
+  buildInterruptionMetadata,
+  buildPlaybackTranscodeArgs,
+  extensionForMimeType,
+  validateAndGroupChunks,
+} = require("./_recording-chunk-core");
 const { contextAllows, getRecordsAccessContext } = require("./_records-support-access");
 
 const SUPABASE_URL = String(process.env.SUPABASE_URL || "https://vdbjlgmbpykjblprqnak.supabase.co").trim();
@@ -98,7 +104,7 @@ async function assembleRecording(recording, chunks, interruptions, expectedLastS
       const buffers = [];
       for (const chunk of group.chunks) buffers.push(await downloadChunk(chunk));
       await fs.writeFile(rawPath, Buffer.concat(buffers));
-      await runFfmpeg(["-hide_banner", "-loglevel", "error", "-i", rawPath, "-vn", "-ac", "1", "-ar", "16000", "-b:a", "64k", normalizedPath]);
+      await runFfmpeg(buildPlaybackTranscodeArgs(rawPath, normalizedPath));
       normalizedPaths.push(normalizedPath);
     }
 
@@ -112,15 +118,27 @@ async function assembleRecording(recording, chunks, interruptions, expectedLastS
     const storagePath = `${recording.organization_id}/${recording.id}/meeting-recording.mp3`;
     const upload = await fetch(`${SUPABASE_URL}/storage/v1/object/${encodeStoragePath(storagePath)}`, {
       method: "POST",
-      headers: { apikey: SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`, "Content-Type": "audio/mpeg", "x-upsert": "true" },
+      headers: { apikey: SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`, "Content-Type": PLAYBACK_AUDIO_SETTINGS.mimeType, "x-upsert": "true" },
       body: audio,
     });
     if (!upload.ok) throw new Error((await upload.text().catch(() => "")) || "Unable to store assembled recording.");
 
-    const metadata = { ...(recording.metadata || {}), capture_mode: "resumable_chunks", chunk_count: ordered.length, capture_session_count: groups.length, interruptions: buildInterruptionMetadata(interruptions) };
+    const metadata = {
+      ...(recording.metadata || {}),
+      capture_mode: "resumable_chunks",
+      chunk_count: ordered.length,
+      capture_session_count: groups.length,
+      playback_audio: {
+        codec: "mp3",
+        sample_rate_hz: PLAYBACK_AUDIO_SETTINGS.sampleRate,
+        channels: PLAYBACK_AUDIO_SETTINGS.channels,
+        bitrate_bps: 96000,
+      },
+      interruptions: buildInterruptionMetadata(interruptions),
+    };
     const updated = await updateRecording(recording.id, {
       status: "uploaded", storage_bucket: RECORDINGS_BUCKET, storage_path: storagePath,
-      audio_mime_type: "audio/mpeg", file_size: audio.length, metadata, processing_error: null,
+      audio_mime_type: PLAYBACK_AUDIO_SETTINGS.mimeType, file_size: audio.length, metadata, processing_error: null,
     });
     await fetchJson(`${SUPABASE_URL}/rest/v1/meeting_recording_chunks?meeting_recording_id=eq.${encodeURIComponent(recording.id)}`, {
       method: "PATCH", headers: serviceHeaders(), body: JSON.stringify({ status: "assembled", expires_at: new Date(Date.now() + 7 * 86400000).toISOString() }),
