@@ -24,6 +24,15 @@ test("voice input records, transcribes, and submits the spoken question", async 
   assert.match(shell, /input\?\.form\?\.requestSubmit\(\)/);
 });
 
+test("voice input protects short recordings from automatic screen sleep", async () => {
+  const shell = await readFile(shellPath, "utf8");
+
+  assert.match(shell, /navigator\.wakeLock\.request\("screen"\)/);
+  assert.match(shell, /document\.addEventListener\("visibilitychange"/);
+  assert.match(shell, /recordsAiMediaRecorder\.requestData\(\)/);
+  assert.match(shell, /releaseRecordsAiWakeLock\(\)/);
+});
+
 test("spoken questions automatically receive spoken answers", async () => {
   const shell = await readFile(shellPath, "utf8");
 

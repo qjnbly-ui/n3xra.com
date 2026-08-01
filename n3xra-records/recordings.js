@@ -208,6 +208,9 @@ let pendingUploadedAudioFile = null;
 let pendingUploadedAudioTitle = "";
 let pendingUploadedAudioDurationSeconds = 0;
 let pendingUploadedAudioStartedAt = null;
+let recordingWakeLock = null;
+let recordingWakeLockWanted = false;
+let recordingCaptureEndHandled = false;
 
 function isIgnorableStorageDeleteError(error) {
   const message = String(error?.message || "").toLowerCase();
@@ -1799,6 +1802,74 @@ function stopActiveStreamTracks() {
   activeStream = null;
 }
 
+function recordingIsCapturing() {
+  return mediaRecorder?.state === "recording" || mediaRecorder?.state === "paused";
+}
+
+function setRecordingScreenSafety(message) {
+  const copy = document.getElementById("recording-screen-safety");
+  if (copy) copy.textContent = message;
+}
+
+async function requestRecordingWakeLock() {
+  recordingWakeLockWanted = true;
+  if (!recordingIsCapturing()) return;
+  if (!navigator.wakeLock?.request) {
+    setRecordingScreenSafety("Keep this screen on and the app open while recording. This browser cannot prevent screen lock.");
+    return;
+  }
+  if (document.visibilityState !== "visible" || recordingWakeLock) return;
+
+  try {
+    const sentinel = await navigator.wakeLock.request("screen");
+    if (!recordingWakeLockWanted || !recordingIsCapturing()) {
+      await sentinel.release();
+      return;
+    }
+    recordingWakeLock = sentinel;
+    setRecordingScreenSafety("Screen sleep protection is active while recording. Keep this app open; manually locking the device can still interrupt audio.");
+    sentinel.addEventListener("release", () => {
+      if (recordingWakeLock === sentinel) recordingWakeLock = null;
+      if (recordingWakeLockWanted && recordingIsCapturing()) {
+        setRecordingScreenSafety("Screen sleep protection was released. Keep this screen on until the recording is stopped.");
+      }
+    }, { once: true });
+  } catch {
+    setRecordingScreenSafety("Keep this screen on and the app open while recording. Screen sleep protection is unavailable right now.");
+  }
+}
+
+function releaseRecordingWakeLock() {
+  recordingWakeLockWanted = false;
+  const sentinel = recordingWakeLock;
+  recordingWakeLock = null;
+  if (sentinel && !sentinel.released) void sentinel.release().catch(() => {});
+  setRecordingScreenSafety("The screen will be kept awake automatically while app recording is active.");
+}
+
+function flushActiveRecordingChunk() {
+  if (mediaRecorder?.state === "recording") {
+    try {
+      mediaRecorder.requestData();
+    } catch {
+      // Some browsers reject requestData while transitioning recorder state.
+    }
+  }
+}
+
+function handleUnexpectedRecordingEnd() {
+  if (recordingCaptureEndHandled || !recordingIsCapturing()) return;
+  recordingCaptureEndHandled = true;
+  flushActiveRecordingChunk();
+  setRecorderState("Interrupted", "Microphone capture ended. Preserving the audio recorded so far.");
+  setStatus(recordingStatus, "Recording was interrupted by the browser or device. Preparing the audio captured so far.", "error");
+  try {
+    mediaRecorder.stop();
+  } catch {
+    releaseRecordingWakeLock();
+  }
+}
+
 function getElapsedRecordingMs() {
   if (!recordingStartedAt) return elapsedRecordingMs;
   return elapsedRecordingMs + (Date.now() - recordingStartedAt.getTime());
@@ -2921,6 +2992,7 @@ async function prepareStoppedRecording() {
   uploadStateValue.textContent = "Ready to save";
   stopDurationTimer();
   stopActiveStreamTracks();
+  releaseRecordingWakeLock();
   isRecordingWorkflowActive = false;
   mediaRecorder = null;
 
@@ -3351,6 +3423,11 @@ async function handleStartRecording() {
     const recorderOptions = { audioBitsPerSecond: RECORDER_AUDIO_BITS_PER_SECOND };
     if (mimeType) recorderOptions.mimeType = mimeType;
     mediaRecorder = new MediaRecorder(stream, recorderOptions);
+    recordingCaptureEndHandled = false;
+
+    stream.getAudioTracks().forEach((track) => {
+      track.addEventListener("ended", handleUnexpectedRecordingEnd);
+    });
 
     mediaRecorder.addEventListener("dataavailable", (event) => {
       if (event.data && event.data.size > 0) {
@@ -3360,6 +3437,7 @@ async function handleStartRecording() {
     mediaRecorder.addEventListener("stop", () => {
       void prepareStoppedRecording();
     });
+    mediaRecorder.addEventListener("error", handleUnexpectedRecordingEnd);
     mediaRecorder.addEventListener("pause", () => {
       pauseElapsedClock();
       setRecorderState("Paused", "Recording is paused. Resume when you are ready to continue.");
@@ -3384,6 +3462,7 @@ async function handleStartRecording() {
     });
 
     mediaRecorder.start(1000);
+    void requestRecordingWakeLock();
     recordingDuration.textContent = "00:00";
     uploadStateValue.textContent = "Recording";
     setRecorderState("Recording", "Microphone capture is active. Stop when you are ready to review notes.");
@@ -3395,6 +3474,7 @@ async function handleStartRecording() {
     isRecordingWorkflowActive = false;
     stopDurationTimer();
     stopActiveStreamTracks();
+    releaseRecordingWakeLock();
     mediaRecorder = null;
     activeChunks = [];
     activeRecordingMimeType = "";
@@ -3811,6 +3891,21 @@ async function init() {
       event.returnValue = "";
     }
   });
+  document.addEventListener("visibilitychange", () => {
+    if (!recordingIsCapturing()) return;
+    if (document.visibilityState === "hidden") {
+      flushActiveRecordingChunk();
+      setRecordingScreenSafety("The app is hidden. Return to it and keep the screen on; device locking can interrupt microphone capture.");
+      return;
+    }
+    const audioEnded = activeStream?.getAudioTracks().some((track) => track.readyState === "ended");
+    if (audioEnded) {
+      handleUnexpectedRecordingEnd();
+      return;
+    }
+    void requestRecordingWakeLock();
+  });
+  window.addEventListener("pagehide", flushActiveRecordingChunk);
   window.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && recordingUploadModal.classList.contains("is-open")) {
       setRecordingUploadModalOpen(false);

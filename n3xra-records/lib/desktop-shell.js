@@ -16,6 +16,8 @@ let recordsAiVoiceSubmission = false;
 let recordsAiCurrentAudio = null;
 let recordsAiCurrentAudioUrl = "";
 let recordsAiLastAnswer = "";
+let recordsAiWakeLock = null;
+let recordsAiWakeLockWanted = false;
 
 const RECORDS_WORKSPACE_LINKS = [
   { key: "library", label: "Library", href: "/n3xra-records/library" },
@@ -416,6 +418,31 @@ async function transcribeRecordsAiAudio(blob) {
   return String(data?.text || "").trim();
 }
 
+async function requestRecordsAiWakeLock() {
+  recordsAiWakeLockWanted = true;
+  if (!navigator.wakeLock?.request || document.visibilityState !== "visible" || recordsAiWakeLock) return;
+  try {
+    const sentinel = await navigator.wakeLock.request("screen");
+    if (!recordsAiWakeLockWanted || recordsAiMediaRecorder?.state !== "recording") {
+      await sentinel.release();
+      return;
+    }
+    recordsAiWakeLock = sentinel;
+    sentinel.addEventListener("release", () => {
+      if (recordsAiWakeLock === sentinel) recordsAiWakeLock = null;
+    }, { once: true });
+  } catch {
+    // Voice questions are short, so recording remains available without wake-lock support.
+  }
+}
+
+function releaseRecordsAiWakeLock() {
+  recordsAiWakeLockWanted = false;
+  const sentinel = recordsAiWakeLock;
+  recordsAiWakeLock = null;
+  if (sentinel && !sentinel.released) void sentinel.release().catch(() => {});
+}
+
 function stopRecordsAiRecording({ discard = false } = {}) {
   recordsAiDiscardRecording = discard;
   clearTimeout(recordsAiRecordingTimer);
@@ -425,6 +452,7 @@ function stopRecordsAiRecording({ discard = false } = {}) {
     recordsAiMediaStream?.getTracks().forEach((track) => track.stop());
     recordsAiMediaStream = null;
     setRecordsAiVoiceButton(false);
+    releaseRecordsAiWakeLock();
   }
 }
 
@@ -448,6 +476,12 @@ async function handleRecordsAiVoiceButton() {
     recordsAiMediaRecorder = recorder;
     recordsAiAudioChunks = [];
 
+    recordsAiMediaStream.getAudioTracks().forEach((track) => {
+      track.addEventListener("ended", () => {
+        if (recordsAiMediaRecorder?.state === "recording") stopRecordsAiRecording();
+      }, { once: true });
+    });
+
     recorder.addEventListener("dataavailable", (event) => {
       if (event.data.size) recordsAiAudioChunks.push(event.data);
     });
@@ -456,6 +490,7 @@ async function handleRecordsAiVoiceButton() {
       recordsAiMediaStream?.getTracks().forEach((track) => track.stop());
       recordsAiMediaStream = null;
       recordsAiMediaRecorder = null;
+      releaseRecordsAiWakeLock();
       setRecordsAiVoiceButton(false);
 
       if (recordsAiDiscardRecording) {
@@ -484,6 +519,7 @@ async function handleRecordsAiVoiceButton() {
     }, { once: true });
 
     recorder.start();
+    void requestRecordsAiWakeLock();
     setRecordsAiVoiceButton(true);
     setRecordsAiStatus("Listening… Select Stop recording when you are finished.");
     recordsAiRecordingTimer = window.setTimeout(() => stopRecordsAiRecording(), 30000);
@@ -491,6 +527,7 @@ async function handleRecordsAiVoiceButton() {
     recordsAiMediaStream?.getTracks().forEach((track) => track.stop());
     recordsAiMediaStream = null;
     recordsAiMediaRecorder = null;
+    releaseRecordsAiWakeLock();
     setRecordsAiVoiceButton(false);
     setRecordsAiStatus("Microphone access is needed to talk with Records AI.", "error");
   }
@@ -714,6 +751,19 @@ function installRecordsAiAssistant() {
   window.addEventListener("pagehide", () => {
     stopRecordsAiRecording({ discard: true });
     stopRecordsAiPlayback();
+  });
+  document.addEventListener("visibilitychange", () => {
+    if (recordsAiMediaRecorder?.state !== "recording") return;
+    if (document.visibilityState === "hidden") {
+      try {
+        recordsAiMediaRecorder.requestData();
+      } catch {
+        // The recorder may already be transitioning to its stopped state.
+      }
+      setRecordsAiStatus("Keep this app open and the screen on until your question is submitted.");
+      return;
+    }
+    void requestRecordsAiWakeLock();
   });
 }
 
