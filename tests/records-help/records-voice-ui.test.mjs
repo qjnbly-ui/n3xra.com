@@ -34,7 +34,12 @@ test("Records AI actions demonstrate the navigation path before the destination"
   assert.doesNotMatch(shell, /You’re here\. \$\{action\.label\}/);
   assert.doesNotMatch(shell, /narrateRecordsAiGuide\(`Opening/);
   assert.match(shell, /n3xra-records-guide-voice/);
-  assert.match(shell, /fallbackRecordsAiGuideSpeech/);
+  assert.match(shell, /getRecordsAiGuideContentSteps/);
+  assert.match(shell, /RECORDS_AI_ACCOUNT_NAVIGATION_LABELS/);
+  assert.match(shell, /spotlightRecordsAiGuideDestination/);
+  assert.match(shell, /attempt < 2/);
+  assert.doesNotMatch(shell, /fallbackRecordsAiGuideSpeech/);
+  assert.doesNotMatch(shell, /SpeechSynthesisUtterance/);
   assert.match(styles, /\.records-ai-guide-note/);
 });
 

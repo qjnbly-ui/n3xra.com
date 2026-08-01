@@ -22,6 +22,20 @@ const RECORDS_AI_GUIDE_ROUTES = new Set([
   "/n3xra-records/account/?view=activity",
   "/n3xra-records/account/?view=support",
 ]);
+const RECORDS_AI_ACCOUNT_NAVIGATION_LABELS = new Set([
+  "manage library",
+  "library settings",
+  "templates",
+  "phone meetings",
+  "ai settings",
+  "users",
+  "contacts",
+  "invites & access",
+  "storage",
+  "billing",
+  "audit activity",
+  "n3xra support access",
+]);
 
 let recordsAiSupabase = null;
 let recordsAiHistory = [];
@@ -429,7 +443,6 @@ function stopRecordsAiPlayback() {
 }
 
 function stopRecordsAiGuideSpeech() {
-  window.speechSynthesis?.cancel();
   if (recordsAiGuideAudio) {
     recordsAiGuideAudio.pause();
     recordsAiGuideAudio = null;
@@ -440,64 +453,46 @@ function stopRecordsAiGuideSpeech() {
   }
 }
 
-function fallbackRecordsAiGuideSpeech(text) {
-  return new Promise((resolve) => {
-    if (!recordsAiGuideVoiceEnabled || !window.speechSynthesis || !window.SpeechSynthesisUtterance) {
-      resolve();
-      return;
-    }
-    const utterance = new SpeechSynthesisUtterance(text);
-    let settled = false;
-    const finish = () => {
-      if (settled) return;
-      settled = true;
-      resolve();
-    };
-    utterance.rate = 1.02;
-    utterance.onend = finish;
-    utterance.onerror = finish;
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(utterance);
-    window.setTimeout(finish, 8000);
-  });
-}
-
 async function narrateRecordsAiGuide(message) {
   const text = String(message || "").trim();
   if (!recordsAiGuideVoiceEnabled || !text) return;
   stopRecordsAiGuideSpeech();
 
-  try {
-    const response = await fetch("/api/elevenlabs-text-to-speech", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text }),
-    });
-    if (!response.ok) throw new Error("Guide voice unavailable");
-    recordsAiGuideAudioUrl = URL.createObjectURL(await response.blob());
-    const audio = new Audio(recordsAiGuideAudioUrl);
-    recordsAiGuideAudio = audio;
-    await new Promise((resolve, reject) => {
-      let settled = false;
-      const finish = (error = null) => {
-        if (settled) return;
-        settled = true;
-        window.clearTimeout(timeout);
-        if (recordsAiGuideAudio === audio) recordsAiGuideAudio = null;
-        if (error) reject(error);
-        else resolve();
-      };
-      const timeout = window.setTimeout(() => finish(), 10000);
-      audio.addEventListener("ended", () => finish(), { once: true });
-      audio.addEventListener("error", () => finish(new Error("Guide audio failed")), { once: true });
-      audio.play().catch((error) => finish(error));
-    });
-  } catch {
-    await fallbackRecordsAiGuideSpeech(text);
-  } finally {
-    if (recordsAiGuideAudioUrl) {
-      URL.revokeObjectURL(recordsAiGuideAudioUrl);
-      recordsAiGuideAudioUrl = "";
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const response = await fetch("/api/elevenlabs-text-to-speech", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+      if (!response.ok) throw new Error("Guide voice unavailable");
+      recordsAiGuideAudioUrl = URL.createObjectURL(await response.blob());
+      const audio = new Audio(recordsAiGuideAudioUrl);
+      recordsAiGuideAudio = audio;
+      await new Promise((resolve, reject) => {
+        let settled = false;
+        const finish = (error = null) => {
+          if (settled) return;
+          settled = true;
+          window.clearTimeout(timeout);
+          if (recordsAiGuideAudio === audio) recordsAiGuideAudio = null;
+          if (error) reject(error);
+          else resolve();
+        };
+        const timeout = window.setTimeout(() => finish(), 10000);
+        audio.addEventListener("ended", () => finish(), { once: true });
+        audio.addEventListener("error", () => finish(new Error("Guide audio failed")), { once: true });
+        audio.play().catch((error) => finish(error));
+      });
+      return;
+    } catch {
+      stopRecordsAiGuideSpeech();
+      if (attempt === 0) await new Promise((resolve) => window.setTimeout(resolve, 250));
+    } finally {
+      if (recordsAiGuideAudioUrl) {
+        URL.revokeObjectURL(recordsAiGuideAudioUrl);
+        recordsAiGuideAudioUrl = "";
+      }
     }
   }
 }
@@ -873,6 +868,19 @@ function normalizeRecordsAiTargetText(value) {
     .toLowerCase();
 }
 
+function getRecordsAiGuideContentSteps(guide) {
+  const steps = Array.isArray(guide?.steps) ? guide.steps : [];
+  if (!String(guide?.route || "").startsWith("/n3xra-records/account/")) return steps;
+  return steps.filter((step) => !RECORDS_AI_ACCOUNT_NAVIGATION_LABELS.has(
+    normalizeRecordsAiTargetText(step.target)
+  ));
+}
+
+function spotlightRecordsAiGuideDestination(route) {
+  const match = Object.entries(RECORDS_AI_ACTIONS).find(([, action]) => action.href === route);
+  if (match) spotlightRecordsAiTarget(match[0], 0, false);
+}
+
 function findRecordsAiGuideTarget(label) {
   const expected = normalizeRecordsAiTargetText(label);
   if (!expected) return null;
@@ -909,8 +917,13 @@ function safelyRevealRecordsAiGuideTarget(target) {
 async function playRecordsAiGuidePlan(input) {
   const guide = normalizeRecordsAiGuide(input);
   if (!guide) return;
-  for (let index = 0; index < guide.steps.length; index += 1) {
-    const step = guide.steps[index];
+  const steps = getRecordsAiGuideContentSteps(guide);
+  if (!steps.length) {
+    spotlightRecordsAiGuideDestination(guide.route);
+    return;
+  }
+  for (let index = 0; index < steps.length; index += 1) {
+    const step = steps[index];
     let target = null;
     for (let attempt = 0; attempt < 24 && !target; attempt += 1) {
       target = findRecordsAiGuideTarget(step.target);
@@ -923,9 +936,9 @@ async function playRecordsAiGuidePlan(input) {
       return;
     }
 
-    const isLast = index === guide.steps.length - 1;
+    const isLast = index === steps.length - 1;
     const spoken = step.narration || `${isLast ? "Finally" : "Next"}, find ${step.target}.`;
-    markRecordsAiGuideTarget(target, step.target, isLast ? "Final step" : `Step ${index + 1} of ${guide.steps.length}`);
+    markRecordsAiGuideTarget(target, step.target, isLast ? "Final step" : `Step ${index + 1} of ${steps.length}`);
     await Promise.all([
       new Promise((resolve) => window.setTimeout(resolve, isLast ? 1500 : 1200)),
       narrateRecordsAiGuide(spoken),
