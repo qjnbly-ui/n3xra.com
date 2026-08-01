@@ -59,6 +59,8 @@ test("Records AI actions demonstrate the navigation path before the destination"
   assert.doesNotMatch(shell, /fallbackRecordsAiGuideSpeech/);
   assert.doesNotMatch(shell, /SpeechSynthesisUtterance/);
   assert.match(styles, /\.records-ai-guide-note/);
+  assert.match(styles, /inset 0 0 0 4px #087f72/);
+  assert.match(styles, /background-color: #dff7f2/);
 });
 
 test("guide narration starts with the meaningful sentence without an artificial hesitation", async () => {

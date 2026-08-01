@@ -6869,9 +6869,13 @@ body:has(.confirm-modal.is-open) {
   z-index: 2;
   border-radius: 10px;
   animation: records-ai-spotlight-pulse 1.05s ease-in-out 3;
-  outline: 4px solid rgba(36, 190, 169, 0.8) !important;
-  outline-offset: 5px;
-  box-shadow: 0 0 0 11px rgba(36, 190, 169, 0.16), 0 16px 42px rgba(4, 12, 21, 0.16) !important;
+  outline: 4px solid #087f72 !important;
+  outline-offset: 4px;
+  background-color: #dff7f2 !important;
+  box-shadow:
+    inset 0 0 0 4px #087f72,
+    0 0 0 10px rgba(8, 127, 114, 0.2),
+    0 18px 44px rgba(4, 12, 21, 0.24) !important;
 }
 
 .records-ai-guide-note {
@@ -6911,8 +6915,8 @@ body:has(.confirm-modal.is-open) {
 }
 
 @keyframes records-ai-spotlight-pulse {
-  0%, 100% { outline-color: rgba(36, 190, 169, 0.5); }
-  50% { outline-color: rgba(36, 190, 169, 1); }
+  0%, 100% { outline-color: #087f72; }
+  50% { outline-color: #21bfa9; }
 }
 
 @media (prefers-reduced-motion: reduce) {

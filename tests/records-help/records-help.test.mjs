@@ -126,7 +126,8 @@ test("task aliases recover a verified workflow when the model returns only a sho
     "Create invite code",
     "Create code + send email",
   ]);
-  assert.match(action.guide.steps.at(-1).narration, /stops here without creating or sending/i);
+  assert.match(action.guide.steps.at(-1).narration, /emails it to the recipient/i);
+  assert.match(action.guide.steps.at(-1).narration, /leave this button untouched/i);
 });
 
 test("preview-only task guides use safe copy and never present an execution button", () => {
@@ -144,8 +145,9 @@ test("preview-only task guides use safe copy and never present an execution butt
   assert.equal(recordsHelp.isRecordsPreviewOnlyRequest("Don't create or send anything yet."), true);
   assert.equal(guide.buttonLabel, "Show me how");
   assert.equal(guide.steps[0].target, "Invite codes");
-  assert.match(guide.steps.find((step) => step.target === "Create invite code").narration, /will not press it/i);
+  assert.match(guide.steps.find((step) => step.target === "Create invite code").narration, /leave this button untouched/i);
   assert.doesNotMatch(guide.steps.find((step) => step.target === "Create invite code").narration, /^Press /i);
+  assert.doesNotMatch(guide.steps.find((step) => step.target === "Create invite code").narration, /consequential action/i);
 });
 
 test("metadata-only responses retain their action and receive visible fallback copy", () => {
