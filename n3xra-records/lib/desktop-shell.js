@@ -4,6 +4,7 @@ import { getStoredActiveOrganizationId } from "/shared/lib/orgs.js";
 const DESKTOP_SHELL_BREAKPOINT = 981;
 const RECORDS_AI_HISTORY_LIMIT = 8;
 const RECORDS_AI_PENDING_GUIDE_KEY = "n3xra-records-pending-guide";
+const RECORDS_AI_PENDING_ACTION_KEY = "n3xra-records-pending-action";
 const RECORDS_AI_GUIDE_ROUTES = new Set([
   "/n3xra-records/library",
   "/n3xra-records/meeting-notes",
@@ -36,6 +37,12 @@ const RECORDS_AI_ACCOUNT_NAVIGATION_LABELS = new Set([
   "audit activity",
   "n3xra support access",
 ]);
+const RECORDS_AI_ROUTE_NAVIGATION_LABELS = Object.freeze({
+  "/n3xra-records/library": "library",
+  "/n3xra-records/meeting-notes": "meeting notes",
+  "/n3xra-records/documents.html": "document builder",
+  "/n3xra-records/messages.html": "communication",
+});
 
 let recordsAiSupabase = null;
 let recordsAiHistory = [];
@@ -391,6 +398,10 @@ function appendRecordsAiMessage(container, role, content, actions = []) {
         button.textContent = guide.buttonLabel;
       } else {
         button.dataset.recordsAiAction = action.id;
+        button.recordsAiActionGuidance = {
+          guidanceMode: action?.guidanceMode === "task" ? "task" : "navigation",
+          arrivalNarration: String(action?.arrivalNarration || "").trim().slice(0, 220),
+        };
         button.textContent = RECORDS_AI_ACTIONS[action.id].label;
       }
       actionRow.append(button);
@@ -773,7 +784,7 @@ function markRecordsAiGuideTarget(target, message, eyebrow) {
   target.classList.add("records-ai-spotlight");
 }
 
-function spotlightRecordsAiTarget(actionId, attempt = 0, activate = true) {
+function spotlightRecordsAiTarget(actionId, attempt = 0, activate = true, guidance = {}) {
   const action = RECORDS_AI_ACTIONS[actionId];
   const activationTarget = activate && action?.activationSelector
     ? document.querySelector(action.activationSelector)
@@ -781,7 +792,7 @@ function spotlightRecordsAiTarget(actionId, attempt = 0, activate = true) {
   const target = action ? document.querySelector(action.selector) : null;
   const expectedTarget = activationTarget || target;
   if ((!expectedTarget || !isRecordsAiElementVisible(expectedTarget)) && attempt < 64) {
-    window.setTimeout(() => spotlightRecordsAiTarget(actionId, attempt + 1, activate), 125);
+    window.setTimeout(() => spotlightRecordsAiTarget(actionId, attempt + 1, activate, guidance), 125);
     return;
   }
   if (!expectedTarget || !isRecordsAiElementVisible(expectedTarget)) {
@@ -800,16 +811,23 @@ function spotlightRecordsAiTarget(actionId, attempt = 0, activate = true) {
       ]);
       activationTarget.click();
       activationTarget.classList.remove("records-ai-spotlight");
-      window.setTimeout(() => spotlightRecordsAiTarget(actionId, 0, false), 350);
+      window.setTimeout(() => spotlightRecordsAiTarget(actionId, 0, false, guidance), 350);
     })();
     return;
   }
 
-  markRecordsAiGuideTarget(target, action.label, "You’re here");
+  const arrivalNarration = guidance?.guidanceMode === "task"
+    ? String(guidance.arrivalNarration || "").trim()
+    : "";
+  markRecordsAiGuideTarget(
+    target,
+    arrivalNarration || action.label,
+    arrivalNarration ? "What to do here" : "You’re here"
+  );
   void (async () => {
     await Promise.all([
       new Promise((resolve) => window.setTimeout(resolve, 4200)),
-      narrateRecordsAiGuide(`You’ve reached ${getRecordsAiSpokenDestination(action)}.`),
+      narrateRecordsAiGuide(arrivalNarration || `You’ve reached ${getRecordsAiSpokenDestination(action)}.`),
     ]);
     target.classList.remove("records-ai-spotlight");
     hideRecordsAiGuideNote();
@@ -878,6 +896,7 @@ function normalizeRecordsAiGuide(input) {
   if (!input || typeof input !== "object") return null;
   const buttonLabel = String(input.buttonLabel || "").trim().slice(0, 60);
   const route = String(input.route || "").trim();
+  const arrivalNarration = String(input.arrivalNarration || "").trim().slice(0, 220);
   const steps = Array.isArray(input.steps)
     ? input.steps.slice(0, 7).map((step) => ({
         target: String(step?.target || "").trim().slice(0, 100),
@@ -885,7 +904,7 @@ function normalizeRecordsAiGuide(input) {
       })).filter((step) => step.target)
     : [];
   if (!buttonLabel || !RECORDS_AI_GUIDE_ROUTES.has(route) || !steps.length) return null;
-  return { buttonLabel, route, steps };
+  return { buttonLabel, route, arrivalNarration, steps };
 }
 
 function normalizeRecordsAiTargetText(value) {
@@ -898,15 +917,24 @@ function normalizeRecordsAiTargetText(value) {
 
 function getRecordsAiGuideContentSteps(guide) {
   const steps = Array.isArray(guide?.steps) ? guide.steps : [];
-  if (!String(guide?.route || "").startsWith("/n3xra-records/account/")) return steps;
-  return steps.filter((step) => !RECORDS_AI_ACCOUNT_NAVIGATION_LABELS.has(
-    normalizeRecordsAiTargetText(step.target)
-  ));
+  const route = String(guide?.route || "");
+  if (route.startsWith("/n3xra-records/account/")) {
+    return steps.filter((step) => !RECORDS_AI_ACCOUNT_NAVIGATION_LABELS.has(
+      normalizeRecordsAiTargetText(step.target)
+    ));
+  }
+  const navigationLabel = RECORDS_AI_ROUTE_NAVIGATION_LABELS[route];
+  return navigationLabel
+    ? steps.filter((step) => normalizeRecordsAiTargetText(step.target) !== navigationLabel)
+    : steps;
 }
 
-function spotlightRecordsAiGuideDestination(route) {
+function spotlightRecordsAiGuideDestination(route, arrivalNarration = "") {
   const match = Object.entries(RECORDS_AI_ACTIONS).find(([, action]) => action.href === route);
-  if (match) spotlightRecordsAiTarget(match[0], 0, false);
+  if (match) spotlightRecordsAiTarget(match[0], 0, false, {
+    guidanceMode: arrivalNarration ? "task" : "navigation",
+    arrivalNarration,
+  });
 }
 
 function findRecordsAiGuideTarget(label) {
@@ -951,7 +979,7 @@ async function playRecordsAiGuidePlan(input) {
   if (!guide) return;
   const steps = getRecordsAiGuideContentSteps(guide);
   if (!steps.length) {
-    spotlightRecordsAiGuideDestination(guide.route);
+    spotlightRecordsAiGuideDestination(guide.route, guide.arrivalNarration);
     return;
   }
   for (let index = 0; index < steps.length; index += 1) {
@@ -1082,7 +1110,7 @@ async function guideRecordsAiNavigation(action, destination) {
   }
 }
 
-async function runRecordsAiAction(actionId) {
+async function runRecordsAiAction(actionId, guidance = {}) {
   const action = RECORDS_AI_ACTIONS[actionId];
   if (!action) return;
   const destination = new URL(action.href, window.location.origin);
@@ -1094,7 +1122,7 @@ async function runRecordsAiAction(actionId) {
     const requiredView = destination.searchParams.get("view");
     const currentView = new URLSearchParams(window.location.search).get("view");
     if (!requiredView || requiredView === currentView) {
-      window.setTimeout(() => spotlightRecordsAiTarget(actionId), 250);
+      window.setTimeout(() => spotlightRecordsAiTarget(actionId, 0, true, guidance), 250);
       return;
     }
   }
@@ -1103,6 +1131,15 @@ async function runRecordsAiAction(actionId) {
   await guideRecordsAiNavigation(action, destination);
   const openingLabel = action.label.replace(/^(Open|Show)\s+/i, "");
   showRecordsAiGuideNote(`Opening ${openingLabel}…`, "Moving to the destination");
+  try {
+    window.sessionStorage.setItem(RECORDS_AI_PENDING_ACTION_KEY, JSON.stringify({
+      actionId,
+      guidanceMode: guidance?.guidanceMode === "task" ? "task" : "navigation",
+      arrivalNarration: String(guidance?.arrivalNarration || "").trim().slice(0, 220),
+    }));
+  } catch {
+    // Navigation can still continue without the optional arrival explanation.
+  }
   destination.searchParams.set("recordsAiFocus", actionId);
   window.location.assign(`${destination.pathname}${destination.search}`);
 }
@@ -1113,7 +1150,15 @@ function applyPendingRecordsAiSpotlight() {
   if (!RECORDS_AI_ACTIONS[actionId]) return;
   url.searchParams.delete("recordsAiFocus");
   window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
-  spotlightRecordsAiTarget(actionId);
+  let guidance = {};
+  try {
+    const pending = JSON.parse(window.sessionStorage.getItem(RECORDS_AI_PENDING_ACTION_KEY) || "null");
+    window.sessionStorage.removeItem(RECORDS_AI_PENDING_ACTION_KEY);
+    if (pending?.actionId === actionId) guidance = pending;
+  } catch {
+    guidance = {};
+  }
+  spotlightRecordsAiTarget(actionId, 0, true, guidance);
 }
 
 async function getRecordsAiAccessToken() {
@@ -1319,7 +1364,7 @@ function installRecordsAiAssistant() {
       if (button.hasAttribute("data-records-ai-guide")) {
         void runRecordsAiGuidePlan(button.recordsAiGuidePlan);
       } else {
-        void runRecordsAiAction(button.dataset.recordsAiAction || "");
+        void runRecordsAiAction(button.dataset.recordsAiAction || "", button.recordsAiActionGuidance || {});
       }
     }
   });

@@ -40,6 +40,12 @@ test("Records AI actions demonstrate the navigation path before the destination"
   assert.match(shell, /getRecordsAiGuideContentSteps/);
   assert.match(shell, /RECORDS_AI_ACCOUNT_NAVIGATION_LABELS/);
   assert.match(shell, /spotlightRecordsAiGuideDestination/);
+  assert.match(shell, /RECORDS_AI_PENDING_ACTION_KEY/);
+  assert.match(shell, /recordsAiActionGuidance/);
+  assert.match(shell, /guidanceMode: action\?\.guidanceMode === "task" \? "task"/);
+  assert.match(shell, /arrivalNarration/);
+  assert.match(shell, /What to do here/);
+  assert.match(shell, /RECORDS_AI_ROUTE_NAVIGATION_LABELS/);
   assert.match(shell, /attempt < 2/);
   assert.match(shell, /getRecordsAiGuideSpeechTimeoutMs/);
   assert.match(shell, /Guide audio timed out/);

@@ -83,6 +83,29 @@ test("ordinary how-to questions receive a grounded guided action when the model 
   );
 });
 
+test("task answers become workflow guides while explicit navigation stays destination-only", () => {
+  const answer = [
+    "Invite the staff member from **Invites & access**.",
+    "",
+    "1. Open **Manage library**, then choose **Invites & access**.",
+    "2. Expand **Invite codes**.",
+    "3. Set **Role** to Editor.",
+    "4. Review **Create code + send email**, but do not submit it yet.",
+  ].join("\n");
+  const action = recordsHelp.inferRecordsWorkflowGuide("account.access", answer);
+
+  assert.equal(recordsHelp.isRecordsNavigationOnlyRequest("Take me to Billing."), true);
+  assert.equal(recordsHelp.isRecordsNavigationOnlyRequest("How do I check Billing?"), false);
+  assert.equal(action.guide.route, "/n3xra-records/account/?view=access");
+  assert.equal(action.guide.arrivalNarration, "Invite the staff member from Invites & access.");
+  assert.deepEqual(action.guide.steps.map((step) => step.target), [
+    "Manage library",
+    "Invite codes",
+    "Role",
+    "Create code + send email",
+  ]);
+});
+
 test("metadata-only responses retain their action and receive visible fallback copy", () => {
   const metadataOnly = recordsHelp.extractHelpActions("[[action:documents.new]]");
 

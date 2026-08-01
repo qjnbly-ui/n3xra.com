@@ -42,6 +42,27 @@ const RECORDS_HELP_ACTIONS = Object.freeze({
   "account.support": "Open support access",
 });
 
+const RECORDS_HELP_ACTION_ROUTES = Object.freeze({
+  "library.search": "/n3xra-records/library",
+  "library.ai_search": "/n3xra-records/library",
+  "library.upload": "/n3xra-records/library",
+  "meeting.new": "/n3xra-records/meeting-notes",
+  "documents.new": "/n3xra-records/documents.html",
+  "messages.compose": "/n3xra-records/messages.html",
+  "account.profile": "/n3xra-records/account/?view=profile",
+  "account.library": "/n3xra-records/account/?view=library",
+  "account.templates": "/n3xra-records/account/?view=templates",
+  "account.phone": "/n3xra-records/account/?view=phone",
+  "account.ai": "/n3xra-records/account/?view=ai",
+  "account.users": "/n3xra-records/account/?view=users",
+  "account.contacts": "/n3xra-records/account/?view=contacts",
+  "account.access": "/n3xra-records/account/?view=access",
+  "account.storage": "/n3xra-records/account/?view=storage",
+  "account.billing": "/n3xra-records/account/?view=billing",
+  "account.activity": "/n3xra-records/account/?view=activity",
+  "account.support": "/n3xra-records/account/?view=support",
+});
+
 const RECORDS_GUIDE_ROUTES = new Set([
   "/n3xra-records/library",
   "/n3xra-records/meeting-notes",
@@ -134,6 +155,54 @@ function normalizeHelpActionText(value) {
 function isRecordsHelpTaskRequest(question) {
   return /\b(?:how|where|help|show|guide|tour|walk|open|find|create|start|make|upload|send|invite|manage|change|set\s*up|not sure)\b/i
     .test(String(question || ""));
+}
+
+function isRecordsNavigationOnlyRequest(question) {
+  const text = String(question || "").trim();
+  return /^(?:take|bring|navigate)\s+me\s+to\b|^(?:go|open)\s+(?:to\s+)?(?:the\s+)?[^?]+(?:page|settings)?\s*[.!?]*$/i.test(text)
+    && !/\b(?:how|help|explain|walk|guide|tour|what can|show me how)\b/i.test(text);
+}
+
+function buildRecordsArrivalNarration(answer, actionLabel = "") {
+  const visible = String(answer || "")
+    .replace(/^\s*\d+\.\s+/gm, "")
+    .replace(/[\*_`#]+/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  const firstSentence = visible.match(/^.*?[.!?](?:\s|$)/)?.[0]?.trim() || visible;
+  if (firstSentence) return firstSentence.slice(0, 220);
+  const destination = String(actionLabel || "this area").replace(/^(Open|Show)\s+/i, "");
+  return `This is where you work with ${destination}.`;
+}
+
+function inferRecordsWorkflowGuide(actionId, answer) {
+  const route = RECORDS_HELP_ACTION_ROUTES[actionId];
+  if (!route) return null;
+  const steps = [];
+  for (const line of String(answer || "").split(/\r?\n/)) {
+    const numbered = line.match(/^\s*\d+\.\s+(.+)$/);
+    if (!numbered) continue;
+    const target = numbered[1].match(/\*\*([^*\n]+)\*\*/)?.[1]?.trim();
+    if (!target || steps.some((step) => step.target.toLowerCase() === target.toLowerCase())) continue;
+    const narration = numbered[1]
+      .replace(/[\*_`#]+/g, "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 220);
+    steps.push({ target: target.slice(0, 100), narration });
+    if (steps.length === 7) break;
+  }
+  if (steps.length < 2) return null;
+  return {
+    id: "guided.path",
+    label: "Show me how",
+    guide: {
+      buttonLabel: "Show me how",
+      route,
+      arrivalNarration: buildRecordsArrivalNarration(answer, RECORDS_HELP_ACTIONS[actionId]),
+      steps,
+    },
+  };
 }
 
 function inferRecordsHelpAction(question, answer) {
@@ -445,6 +514,31 @@ module.exports = async function handler(req, res) {
     const fallbackActionId = actions.length ? null : inferRecordsHelpAction(question, answer);
     if (fallbackActionId) actions = [{ id: fallbackActionId, label: RECORDS_HELP_ACTIONS[fallbackActionId] }];
     if (!answer) answer = buildRecordsHelpEmptyAnswerFallback(actions);
+    if (answer && isRecordsHelpTaskRequest(question) && !isRecordsNavigationOnlyRequest(question)) {
+      const hasGuide = actions.some((action) => action.id === "guided.path" && action.guide);
+      const primaryAction = actions.find((action) => RECORDS_HELP_ACTIONS[action.id]);
+      if (hasGuide) {
+        actions = actions.map((action) => action.id === "guided.path" && action.guide ? {
+          ...action,
+          guide: {
+            ...action.guide,
+            arrivalNarration: action.guide.arrivalNarration
+              || buildRecordsArrivalNarration(answer, action.label),
+          },
+        } : action);
+      } else if (primaryAction) {
+        const inferredGuide = inferRecordsWorkflowGuide(primaryAction.id, answer);
+        if (inferredGuide) {
+          actions = [inferredGuide];
+        } else {
+          actions = actions.map((action) => action.id === primaryAction.id ? {
+            ...action,
+            guidanceMode: "task",
+            arrivalNarration: buildRecordsArrivalNarration(answer, action.label),
+          } : action);
+        }
+      }
+    }
     const usage = combineRecordsHelpUsage(...usageParts);
     const recorded = await recordRecordsAiUsage({
       usageContext,
@@ -475,3 +569,6 @@ module.exports.inferRecordsHelpAction = inferRecordsHelpAction;
 module.exports.mergeRecordsHelpActions = mergeRecordsHelpActions;
 module.exports.buildRecordsHelpEmptyAnswerFallback = buildRecordsHelpEmptyAnswerFallback;
 module.exports.combineRecordsHelpUsage = combineRecordsHelpUsage;
+module.exports.isRecordsNavigationOnlyRequest = isRecordsNavigationOnlyRequest;
+module.exports.buildRecordsArrivalNarration = buildRecordsArrivalNarration;
+module.exports.inferRecordsWorkflowGuide = inferRecordsWorkflowGuide;
