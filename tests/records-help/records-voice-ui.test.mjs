@@ -28,6 +28,8 @@ test("Records AI actions demonstrate the navigation path before the destination"
   assert.match(shell, /activationSelector: "#search-mode-ai"/);
   assert.match(shell, /playRecordsAiGuidePlan/);
   assert.match(shell, /findRecordsAiGuideTarget/);
+  assert.match(shell, /getRecordsAiGuideHighlightTarget/);
+  assert.match(shell, /document\.getElementById\(target\.htmlFor\)/);
   assert.match(shell, /safelyRevealRecordsAiGuideTarget/);
   assert.match(shell, /isRecordsAiConsequentialGuideTarget/);
   assert.match(shell, /!isRecordsAiConsequentialGuideTarget\(step\.target\)/);
@@ -59,8 +61,9 @@ test("Records AI actions demonstrate the navigation path before the destination"
   assert.doesNotMatch(shell, /fallbackRecordsAiGuideSpeech/);
   assert.doesNotMatch(shell, /SpeechSynthesisUtterance/);
   assert.match(styles, /\.records-ai-guide-note/);
-  assert.match(styles, /inset 0 0 0 4px #087f72/);
-  assert.match(styles, /background-color: #dff7f2/);
+  assert.match(styles, /outline: 4px solid #078779/);
+  assert.match(styles, /outline-offset: -4px/);
+  assert.doesNotMatch(styles, /inset 0 0 0 4px #087f72/);
   assert.doesNotMatch(shell, /recordsAiHighlightFrame/);
   assert.doesNotMatch(styles, /\.records-ai-highlight-frame/);
 });

@@ -948,6 +948,24 @@ function findRecordsAiGuideTarget(label) {
     || null;
 }
 
+function getRecordsAiGuideHighlightTarget(target) {
+  if (!target) return target;
+  if (target.matches("label[for]")) {
+    const control = document.getElementById(target.htmlFor);
+    if (control?.matches("input[type='radio'], input[type='checkbox']")) {
+      return control.closest("label") || control;
+    }
+    if (control) return control;
+  }
+  if (target.matches("label")) {
+    const choice = target.querySelector("input[type='radio'], input[type='checkbox']");
+    if (choice) return target;
+  }
+  if (target.matches("legend")) return target.closest("fieldset") || target;
+  if (target.matches(".field-title")) return target.closest(".field") || target;
+  return target;
+}
+
 function safelyRevealRecordsAiGuideTarget(target) {
   if (!target) return;
   if (target.matches("summary") && !target.parentElement?.open) {
@@ -1003,17 +1021,18 @@ async function playRecordsAiGuidePlan(input) {
 
     const isLast = index === steps.length - 1;
     const spoken = step.narration || `${isLast ? "Finally" : "Next"}, find ${step.target}.`;
-    markRecordsAiGuideTarget(target, step.target, isLast ? "Final step" : `Step ${index + 1} of ${steps.length}`);
+    const highlightTarget = getRecordsAiGuideHighlightTarget(target);
+    markRecordsAiGuideTarget(highlightTarget, step.target, isLast ? "Final step" : `Step ${index + 1} of ${steps.length}`);
     await Promise.all([
       new Promise((resolve) => window.setTimeout(resolve, isLast ? 1500 : 1200)),
       narrateRecordsAiGuide(spoken),
     ]);
     if (!isLast) {
       if (!isRecordsAiConsequentialGuideTarget(step.target)) safelyRevealRecordsAiGuideTarget(target);
-      target.classList.remove("records-ai-spotlight");
+      highlightTarget.classList.remove("records-ai-spotlight");
       await new Promise((resolve) => window.setTimeout(resolve, 300));
     } else {
-      window.setTimeout(() => target.classList.remove("records-ai-spotlight"), 5000);
+      window.setTimeout(() => highlightTarget.classList.remove("records-ai-spotlight"), 5000);
       hideRecordsAiGuideNote(5000);
     }
   }
