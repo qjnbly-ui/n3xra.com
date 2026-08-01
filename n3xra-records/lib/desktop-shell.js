@@ -937,15 +937,59 @@ function spotlightRecordsAiGuideDestination(route, arrivalNarration = "") {
   });
 }
 
+function getRecordsAiGuideTargetText(element) {
+  if (!element) return "";
+  const labelledBy = String(element.getAttribute?.("aria-labelledby") || "")
+    .split(/\s+/)
+    .map((id) => document.getElementById(id)?.textContent || "")
+    .join(" ");
+  return normalizeRecordsAiTargetText(
+    element.getAttribute?.("aria-label")
+    || labelledBy
+    || element.textContent
+    || element.getAttribute?.("placeholder")
+    || ""
+  );
+}
+
+function getRecordsAiGuideCandidates() {
+  return Array.from(document.querySelectorAll(
+    "button, a, summary, label, legend, select, input, textarea, [role='button'], [role='tab'], [role='radiogroup'], h1, h2, h3, h4, .field-title"
+  )).filter((element) => !element.closest("[data-records-ai-layer]") && getRecordsAiGuideTargetText(element));
+}
+
+function getRecordsAiGuideCommonTarget(elements) {
+  if (!elements.length) return null;
+  const preferredSelector = "[role='radiogroup'], fieldset, details, section, .field, .panel, form";
+  let ancestor = elements[0].parentElement;
+  while (ancestor && ancestor !== document.body) {
+    if (ancestor.matches(preferredSelector) && elements.every((element) => ancestor.contains(element))) return ancestor;
+    ancestor = ancestor.parentElement;
+  }
+  return null;
+}
+
 function findRecordsAiGuideTarget(label) {
   const expected = normalizeRecordsAiTargetText(label);
   if (!expected) return null;
-  const candidates = Array.from(document.querySelectorAll(
-    "button, a, summary, label, legend, [role='button'], [role='tab'], h1, h2, h3, h4, .field-title"
-  )).filter((element) => !element.closest("[data-records-ai-layer]") && isRecordsAiElementVisible(element));
-  return candidates.find((element) => normalizeRecordsAiTargetText(element.textContent) === expected)
-    || candidates.find((element) => normalizeRecordsAiTargetText(element.textContent).startsWith(expected))
-    || null;
+  const candidates = getRecordsAiGuideCandidates();
+  const visible = candidates.filter(isRecordsAiElementVisible);
+  const exactVisible = visible.find((element) => getRecordsAiGuideTargetText(element) === expected);
+  if (exactVisible) return exactVisible;
+  const startsVisible = visible.find((element) => getRecordsAiGuideTargetText(element).startsWith(expected));
+  if (startsVisible) return startsVisible;
+  const exactHidden = candidates.find((element) => getRecordsAiGuideTargetText(element) === expected);
+  if (exactHidden) return exactHidden;
+  const startsHidden = candidates.find((element) => getRecordsAiGuideTargetText(element).startsWith(expected));
+  if (startsHidden) return startsHidden;
+  const related = candidates.filter((element) => {
+    const candidate = getRecordsAiGuideTargetText(element);
+    return candidate.includes(expected) || expected.includes(candidate);
+  });
+  const visibleRelated = related.filter(isRecordsAiElementVisible);
+  const recoveryPool = visibleRelated.length ? visibleRelated : related;
+  if (recoveryPool.length === 1) return recoveryPool[0];
+  return getRecordsAiGuideCommonTarget(recoveryPool);
 }
 
 function getRecordsAiGuideHighlightTarget(target) {
@@ -966,7 +1010,7 @@ function getRecordsAiGuideHighlightTarget(target) {
   return target;
 }
 
-function safelyRevealRecordsAiGuideTarget(target) {
+function safelyRevealRecordsAiGuideTarget(target, allowSafeButton = false) {
   if (!target) return;
   if (target.matches("summary") && !target.parentElement?.open) {
     target.click();
@@ -989,46 +1033,79 @@ function safelyRevealRecordsAiGuideTarget(target) {
     && target.hasAttribute("aria-controls")
     && target.getAttribute("aria-expanded") === "false"
     && !target.disabled
-  ) target.click();
-}
-
-async function prepareRecordsAiGuideWorkspace(guide) {
-  if (String(guide?.route || "") !== "/n3xra-records/meeting-notes") return true;
-  const workspace = document.getElementById("record-panel-body");
-  if (isRecordsAiElementVisible(workspace)) return true;
-  const toggle = document.getElementById("record-panel-toggle");
-  if (!isRecordsAiElementVisible(toggle)) return false;
-
-  const instruction = "First, open New meeting note to show the meeting setup choices.";
-  markRecordsAiGuideTarget(toggle, "New meeting note", "First selection");
-  await Promise.all([
-    new Promise((resolve) => window.setTimeout(resolve, 1200)),
-    narrateRecordsAiGuide(instruction),
-  ]);
-  safelyRevealRecordsAiGuideTarget(toggle);
-  toggle.classList.remove("records-ai-spotlight");
-  for (let attempt = 0; attempt < 24; attempt += 1) {
-    if (isRecordsAiElementVisible(workspace)) return true;
-    await new Promise((resolve) => window.setTimeout(resolve, 125));
+  ) {
+    target.click();
+    return;
   }
-  return false;
+  if (allowSafeButton && target.matches("button[type='button']") && !target.disabled) target.click();
 }
 
-function isRecordsAiConsequentialGuideTarget(label) {
-  return /\b(?:create|send|delete|remove|save|submit|upload|start|record|grant|revoke|purchase|pay|checkout|publish)\b/i
-    .test(String(label || ""));
+function canRecordsAiSafelyRevealGuideTarget(target, label) {
+  if (!target) return false;
+  if (target.matches("summary, [role='tab']") || target.hasAttribute("aria-controls")) return true;
+  if (target.matches("input[type='radio'], input[type='checkbox']")) return true;
+  if (target.querySelector?.("input[type='radio'], input[type='checkbox']")) return true;
+  if (!target.matches("button[type='button']")) return false;
+  const text = normalizeRecordsAiTargetText(label || getRecordsAiGuideTargetText(target));
+  return /^(?:open|show|new|choose|select|upload|edit|manage|view)\b/.test(text)
+    && !/\b(?:delete|remove|revoke|end|stop|start|send|save|create|grant|pay|purchase|publish)\b/.test(text);
+}
+
+function getRecordsAiGuideHiddenContainer(target) {
+  let element = target;
+  let fallback = null;
+  while (element && element !== document.body) {
+    const closedDetails = element.matches("details:not([open])");
+    const explicitlyHidden = element.hidden
+      || element.classList.contains("hidden")
+      || element.getAttribute("aria-hidden") === "true";
+    if (closedDetails || explicitlyHidden) {
+      fallback ||= element;
+      if (getRecordsAiGuideRevealControl(element)) return element;
+    }
+    element = element.parentElement;
+  }
+  return fallback;
+}
+
+function getRecordsAiGuideRevealControl(container) {
+  if (!container) return null;
+  if (container.matches("details")) return container.querySelector(":scope > summary");
+  if (container.id) {
+    const controller = Array.from(document.querySelectorAll("[aria-controls]"))
+      .find((element) => String(element.getAttribute("aria-controls") || "").split(/\s+/).includes(container.id));
+    if (controller) return controller;
+  }
+  const labelledBy = String(container.getAttribute("aria-labelledby") || "").split(/\s+/)[0];
+  return labelledBy ? document.getElementById(labelledBy) : null;
+}
+
+async function revealRecordsAiGuideTarget(target) {
+  for (let depth = 0; depth < 8 && target && !isRecordsAiElementVisible(target); depth += 1) {
+    const container = getRecordsAiGuideHiddenContainer(target);
+    const controller = getRecordsAiGuideRevealControl(container);
+    if (!container || !controller) return false;
+    if (!isRecordsAiElementVisible(controller) && !await revealRecordsAiGuideTarget(controller)) return false;
+    const controllerLabel = getRecordsAiGuideTargetText(controller) || "this section";
+    const instruction = `Open ${controllerLabel} to continue.`;
+    markRecordsAiGuideTarget(controller, controllerLabel, "Next selection");
+    await Promise.all([
+      new Promise((resolve) => window.setTimeout(resolve, 1100)),
+      narrateRecordsAiGuide(instruction),
+    ]);
+    safelyRevealRecordsAiGuideTarget(controller, true);
+    controller.classList.remove("records-ai-spotlight");
+    for (let attempt = 0; attempt < 24 && !isRecordsAiElementVisible(target); attempt += 1) {
+      await new Promise((resolve) => window.setTimeout(resolve, 125));
+    }
+  }
+  return isRecordsAiElementVisible(target);
 }
 
 async function playRecordsAiGuidePlan(input) {
   const guide = normalizeRecordsAiGuide(input);
   if (!guide) return;
   const steps = getRecordsAiGuideContentSteps(guide);
-  if (!await prepareRecordsAiGuideWorkspace(guide)) {
-    showRecordsAiGuideNote("I couldn’t open the workspace needed for this guide.", "Guide paused");
-    void narrateRecordsAiGuide("I couldn't open the workspace needed for this guide.");
-    hideRecordsAiGuideNote(5000);
-    return;
-  }
   if (!steps.length) {
     spotlightRecordsAiGuideDestination(guide.route, guide.arrivalNarration);
     return;
@@ -1040,6 +1117,7 @@ async function playRecordsAiGuidePlan(input) {
       target = findRecordsAiGuideTarget(step.target);
       if (!target) await new Promise((resolve) => window.setTimeout(resolve, 125));
     }
+    if (target && !isRecordsAiElementVisible(target) && !await revealRecordsAiGuideTarget(target)) target = null;
     if (!target) {
       showRecordsAiGuideNote(`I couldn’t find “${step.target}” on this page.`, "Guide paused");
       void narrateRecordsAiGuide(`I couldn't find ${step.target} on this page.`);
@@ -1056,7 +1134,9 @@ async function playRecordsAiGuidePlan(input) {
       narrateRecordsAiGuide(spoken),
     ]);
     if (!isLast) {
-      if (!isRecordsAiConsequentialGuideTarget(step.target)) safelyRevealRecordsAiGuideTarget(target);
+      if (canRecordsAiSafelyRevealGuideTarget(target, step.target)) {
+        safelyRevealRecordsAiGuideTarget(target, true);
+      }
       highlightTarget.classList.remove("records-ai-spotlight");
       await new Promise((resolve) => window.setTimeout(resolve, 300));
     } else {

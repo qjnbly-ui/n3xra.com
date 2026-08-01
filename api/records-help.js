@@ -360,6 +360,24 @@ function buildRecordsHelpEmptyAnswerFallback(actions) {
   return `I can guide you to ${destination}. Use the option below and Records AI will show you where to go.`;
 }
 
+function isRecordsHelpAnswerIncomplete(answer) {
+  const text = String(answer || "").trim();
+  if (!text) return true;
+  return (text.match(/\*\*/g) || []).length % 2 !== 0
+    || (text.match(/`/g) || []).length % 2 !== 0;
+}
+
+function repairRecordsHelpMarkdown(answer) {
+  let text = String(answer || "").trim();
+  for (const marker of ["**", "`"]) {
+    const pattern = marker === "**" ? /\*\*/g : /`/g;
+    if ((text.match(pattern) || []).length % 2 === 0) continue;
+    const index = text.lastIndexOf(marker);
+    if (index >= 0) text = `${text.slice(0, index)}${text.slice(index + marker.length)}`;
+  }
+  return text.trim();
+}
+
 function combineRecordsHelpUsage(...items) {
   return items.reduce((total, usage) => ({
     promptTokens: total.promptTokens + Math.max(0, Number(usage?.promptTokens || 0)),
@@ -609,7 +627,7 @@ module.exports = async function handler(req, res) {
       initialCompletion.rawAnswer
     )];
 
-    if (!answer) {
+    if (!answer || isRecordsHelpAnswerIncomplete(answer)) {
       const retryMessages = [
         ...messages,
         { role: "assistant", content: initialCompletion.rawAnswer || "I did not provide a visible answer." },
@@ -621,7 +639,8 @@ module.exports = async function handler(req, res) {
       const retryCompletion = await requestRecordsHelpModel(groqApiKey, retryMessages);
       if (retryCompletion.ok) {
         const retried = extractHelpActions(retryCompletion.rawAnswer);
-        answer = retried.answer;
+        if (retried.answer && !isRecordsHelpAnswerIncomplete(retried.answer)) answer = retried.answer;
+        else if (!answer) answer = retried.answer;
         actions = mergeRecordsHelpActions(actions, retried.actions);
         usageParts.push(normalizeGroqUsage(
           retryCompletion.data,
@@ -630,6 +649,8 @@ module.exports = async function handler(req, res) {
         ));
       }
     }
+
+    answer = repairRecordsHelpMarkdown(answer);
 
     const fallbackActionId = actions.length ? null : inferRecordsHelpAction(question, answer);
     if (fallbackActionId) actions = [{ id: fallbackActionId, label: RECORDS_HELP_ACTIONS[fallbackActionId] }];
@@ -701,3 +722,5 @@ module.exports.buildRecordsArrivalNarration = buildRecordsArrivalNarration;
 module.exports.inferRecordsWorkflowGuide = inferRecordsWorkflowGuide;
 module.exports.isRecordsPreviewOnlyRequest = isRecordsPreviewOnlyRequest;
 module.exports.normalizeRecordsTaskGuide = normalizeRecordsTaskGuide;
+module.exports.isRecordsHelpAnswerIncomplete = isRecordsHelpAnswerIncomplete;
+module.exports.repairRecordsHelpMarkdown = repairRecordsHelpMarkdown;

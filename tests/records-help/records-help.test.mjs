@@ -243,6 +243,17 @@ test("truncated guide markers are salvaged and never exposed in answer copy", ()
   ]);
 });
 
+test("incomplete answer formatting is detected and repaired generically", () => {
+  const incomplete = "Open **Manage library**, then choose **Invites & access";
+
+  assert.equal(recordsHelp.isRecordsHelpAnswerIncomplete(incomplete), true);
+  assert.equal(
+    recordsHelp.repairRecordsHelpMarkdown(incomplete),
+    "Open **Manage library**, then choose Invites & access"
+  );
+  assert.equal(recordsHelp.isRecordsHelpAnswerIncomplete("Open **Manage library**."), false);
+});
+
 test("verified role labels come from server-side access context", () => {
   assert.equal(recordsHelp.formatVerifiedRole({ membershipRole: "account_admin" }), "Account Admin");
   assert.equal(recordsHelp.formatVerifiedRole({ membershipRole: "account_owner" }), "Account Admin");

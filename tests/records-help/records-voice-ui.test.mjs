@@ -28,15 +28,19 @@ test("Records AI actions demonstrate the navigation path before the destination"
   assert.match(shell, /activationSelector: "#search-mode-ai"/);
   assert.match(shell, /playRecordsAiGuidePlan/);
   assert.match(shell, /findRecordsAiGuideTarget/);
+  assert.match(shell, /getRecordsAiGuideCandidates/);
+  assert.match(shell, /getRecordsAiGuideCommonTarget/);
   assert.match(shell, /getRecordsAiGuideHighlightTarget/);
   assert.match(shell, /document\.getElementById\(target\.htmlFor\)/);
-  assert.match(shell, /prepareRecordsAiGuideWorkspace/);
-  assert.match(shell, /record-panel-toggle/);
-  assert.match(shell, /First, open New meeting note/);
-  assert.match(shell, /await prepareRecordsAiGuideWorkspace\(guide\)/);
+  assert.match(shell, /getRecordsAiGuideHiddenContainer/);
+  assert.match(shell, /getRecordsAiGuideRevealControl/);
+  assert.match(shell, /revealRecordsAiGuideTarget/);
+  assert.match(shell, /document\.querySelectorAll\("\[aria-controls\]"\)/);
+  assert.doesNotMatch(shell, /prepareRecordsAiGuideWorkspace/);
   assert.match(shell, /safelyRevealRecordsAiGuideTarget/);
-  assert.match(shell, /isRecordsAiConsequentialGuideTarget/);
-  assert.match(shell, /!isRecordsAiConsequentialGuideTarget\(step\.target\)/);
+  assert.match(shell, /canRecordsAiSafelyRevealGuideTarget/);
+  assert.match(shell, /button\[type='button'\]/);
+  assert.match(shell, /!\/\\b\(\?:delete\|remove\|revoke/);
   assert.match(shell, /button, a, summary, label/);
   assert.match(shell, /target\.matches\("summary"\)/);
   assert.match(shell, /RECORDS_AI_GUIDE_ROUTES/);
@@ -77,6 +81,17 @@ test("guide narration starts with the meaningful sentence without an artificial 
 
   assert.doesNotMatch(voiceApi, /guideLeadIn/);
   assert.match(voiceApi, /text,\n\s+model_id/);
+});
+
+test("the generic guide engine can discover reveal relationships across Records pages", async () => {
+  const meetingNotes = await readFile(new URL("../../n3xra-records/meeting-notes/index.html", import.meta.url), "utf8");
+  const account = await readFile(new URL("../../n3xra-records/account/index.html", import.meta.url), "utf8");
+
+  assert.match(meetingNotes, /id="record-panel-toggle"[^>]+aria-controls="record-panel-body"/);
+  assert.match(meetingNotes, /id="record-panel-body"/);
+  assert.match(account, /role="tab"[^>]+aria-controls="admin-contacts-panel"/);
+  assert.match(account, /<details class="settings-subsection admin-disclosure"/);
+  assert.match(account, /<summary class="admin-disclosure-summary">/);
 });
 
 test("voice input records, transcribes, and submits the spoken question", async () => {
