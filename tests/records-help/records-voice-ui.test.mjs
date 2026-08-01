@@ -30,6 +30,10 @@ test("Records AI actions demonstrate the navigation path before the destination"
   assert.match(shell, /findRecordsAiGuideTarget/);
   assert.match(shell, /getRecordsAiGuideHighlightTarget/);
   assert.match(shell, /document\.getElementById\(target\.htmlFor\)/);
+  assert.match(shell, /prepareRecordsAiGuideWorkspace/);
+  assert.match(shell, /record-panel-toggle/);
+  assert.match(shell, /First, open New meeting note/);
+  assert.match(shell, /await prepareRecordsAiGuideWorkspace\(guide\)/);
   assert.match(shell, /safelyRevealRecordsAiGuideTarget/);
   assert.match(shell, /isRecordsAiConsequentialGuideTarget/);
   assert.match(shell, /!isRecordsAiConsequentialGuideTarget\(step\.target\)/);

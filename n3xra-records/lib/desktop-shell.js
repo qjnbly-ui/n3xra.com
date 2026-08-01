@@ -992,6 +992,28 @@ function safelyRevealRecordsAiGuideTarget(target) {
   ) target.click();
 }
 
+async function prepareRecordsAiGuideWorkspace(guide) {
+  if (String(guide?.route || "") !== "/n3xra-records/meeting-notes") return true;
+  const workspace = document.getElementById("record-panel-body");
+  if (isRecordsAiElementVisible(workspace)) return true;
+  const toggle = document.getElementById("record-panel-toggle");
+  if (!isRecordsAiElementVisible(toggle)) return false;
+
+  const instruction = "First, open New meeting note to show the meeting setup choices.";
+  markRecordsAiGuideTarget(toggle, "New meeting note", "First selection");
+  await Promise.all([
+    new Promise((resolve) => window.setTimeout(resolve, 1200)),
+    narrateRecordsAiGuide(instruction),
+  ]);
+  safelyRevealRecordsAiGuideTarget(toggle);
+  toggle.classList.remove("records-ai-spotlight");
+  for (let attempt = 0; attempt < 24; attempt += 1) {
+    if (isRecordsAiElementVisible(workspace)) return true;
+    await new Promise((resolve) => window.setTimeout(resolve, 125));
+  }
+  return false;
+}
+
 function isRecordsAiConsequentialGuideTarget(label) {
   return /\b(?:create|send|delete|remove|save|submit|upload|start|record|grant|revoke|purchase|pay|checkout|publish)\b/i
     .test(String(label || ""));
@@ -1001,6 +1023,12 @@ async function playRecordsAiGuidePlan(input) {
   const guide = normalizeRecordsAiGuide(input);
   if (!guide) return;
   const steps = getRecordsAiGuideContentSteps(guide);
+  if (!await prepareRecordsAiGuideWorkspace(guide)) {
+    showRecordsAiGuideNote("I couldn’t open the workspace needed for this guide.", "Guide paused");
+    void narrateRecordsAiGuide("I couldn't open the workspace needed for this guide.");
+    hideRecordsAiGuideNote(5000);
+    return;
+  }
   if (!steps.length) {
     spotlightRecordsAiGuideDestination(guide.route, guide.arrivalNarration);
     return;
