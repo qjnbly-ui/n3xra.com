@@ -250,6 +250,19 @@ function isRecordsPreviewOnlyRequest(question) {
     .test(String(question || ""));
 }
 
+const RECORDS_HELP_ROLLBACK_TARGET = /^(?:cancel|close|discard|undo|reset|clear)\b/i;
+
+function isRecordsRollbackRequest(question) {
+  return /\b(?:cancel|close|discard|undo|reset|clear)\b/i.test(String(question || ""));
+}
+
+function hasUnrequestedRecordsRollbackStep(guide, question) {
+  if (isRecordsRollbackRequest(question)) return false;
+  return (Array.isArray(guide?.steps) ? guide.steps : []).some((step) =>
+    RECORDS_HELP_ROLLBACK_TARGET.test(String(step?.target || "").trim())
+  );
+}
+
 function getRecordsHelpActionIdForRoute(route) {
   return Object.entries(RECORDS_HELP_ACTION_ROUTES)
     .find(([, candidateRoute]) => candidateRoute === String(route || ""))?.[0] || "";
@@ -272,14 +285,17 @@ function inferRecordsAnswerGuideSteps(answer) {
   for (const line of String(answer || "").split(/\r?\n/)) {
     const numbered = line.match(/^\s*\d+\.\s+(.+)$/);
     if (!numbered) continue;
-    const target = numbered[1].match(/\*\*([^*\n]+)\*\*/)?.[1]?.trim();
-    if (!target || steps.some((step) => step.target.toLowerCase() === target.toLowerCase())) continue;
     const narration = numbered[1]
       .replace(/[\*_`#]+/g, "")
       .replace(/\s+/g, " ")
       .trim()
       .slice(0, 220);
-    steps.push({ target: target.slice(0, 100), narration });
+    const targets = Array.from(numbered[1].matchAll(/\*\*([^*\n]+)\*\*/g), (match) => match[1].trim());
+    for (const target of targets) {
+      if (!target || steps.some((step) => step.target.toLowerCase() === target.toLowerCase())) continue;
+      steps.push({ target: target.slice(0, 100), narration });
+      if (steps.length === 7) break;
+    }
     if (steps.length === 7) break;
   }
   return steps;
@@ -308,7 +324,7 @@ function inferRecordsWorkflowGuide(actionId, answer) {
   };
 }
 
-function normalizeRecordsTaskGuide(guide, actionId, answer) {
+function normalizeRecordsTaskGuide(guide, actionId, answer, question = "") {
   const fallbackSteps = getRecordsHelpFallbackGuideSteps(actionId, answer);
   const suppliedSteps = Array.isArray(guide?.steps) ? guide.steps : [];
   const answerSteps = inferRecordsAnswerGuideSteps(answer);
@@ -319,7 +335,8 @@ function normalizeRecordsTaskGuide(guide, actionId, answer) {
     || (countContentSteps(answerSteps) > countContentSteps(suppliedSteps) ? answerSteps : suppliedSteps);
   const verifiedLabels = loadRecordsUiCatalog(actionId);
   const seen = new Set();
-  const steps = sourceSteps.map((step) => {
+  const steps = sourceSteps.filter((step) => isRecordsRollbackRequest(question)
+    || !RECORDS_HELP_ROLLBACK_TARGET.test(String(step?.target || "").trim())).map((step) => {
     const originalTarget = String(step?.target || "").trim();
     const target = resolveRecordsUiLabel(originalTarget, verifiedLabels);
     return target ? { ...step, target } : null;
@@ -668,6 +685,7 @@ function buildSystemPrompt(user, appContext, verifiedUiLabels = []) {
     "Generic guide format: [[guide:Button label|SAFE_ROUTE|Exact UI label~Natural spoken instruction>Exact UI label~Natural spoken instruction]]. Use 2 to 7 verified interface labels in the order the user would encounter them.",
     "SAFE_ROUTE must be one of: /n3xra-records/library, /n3xra-records/meeting-notes, /n3xra-records/documents.html, /n3xra-records/messages.html, or /n3xra-records/account/?view= followed by profile, library, templates, phone, ai, users, contacts, access, storage, billing, activity, or support.",
     "Guide targets must be exact visible interface labels from product knowledge. Narration should explain what each highlighted choice means in the user's workflow, not merely read a button label. The guide may reveal expandable sections but never submits forms, starts recordings or calls, sends messages, uploads files, changes settings, or activates destructive controls.",
+    "When the user asks not to save, submit, send, or complete an action, end by explaining the final consequential control without activating it. Do not add a cancel, close, discard, or rollback step unless the user explicitly asks to close or discard the work.",
     "Use an action only when it directly advances the user's request and their verified role/plan allows the destination. Do not describe an action token or invent another one.",
     "Say that the user can use the offered button; never claim that you already opened, clicked, highlighted, or completed anything.",
     "When a user wants an action completed, offer the nearest safe navigation/highlight action when available, then explain any remaining control labels they must use themselves.",
@@ -784,7 +802,8 @@ module.exports = async function handler(req, res) {
     const guideRetryActionId = guideRetryAction?.id
       || getRecordsHelpActionIdForRoute(existingGuideAction?.guide?.route);
     const hasGroundedGuide = existingGuideAction
-      && isRecordsHelpGuideGrounded(existingGuideAction.guide, guideRetryActionId);
+      && isRecordsHelpGuideGrounded(existingGuideAction.guide, guideRetryActionId)
+      && !hasUnrequestedRecordsRollbackStep(existingGuideAction.guide, question);
     if (
       answer
       && guideRetryActionId
@@ -830,7 +849,7 @@ module.exports = async function handler(req, res) {
         actions = actions.map((action) => action.id === "guided.path" && action.guide ? {
           ...action,
           label: "Show me how",
-          guide: normalizeRecordsTaskGuide(action.guide, guideActionId, answer),
+          guide: normalizeRecordsTaskGuide(action.guide, guideActionId, answer, question),
         } : action);
       } else if (primaryAction) {
         if (isRecordsPreviewOnlyRequest(question) && RECORDS_HELP_SAFE_PREVIEW_ANSWERS[primaryAction.id]) {
@@ -838,7 +857,7 @@ module.exports = async function handler(req, res) {
         }
         const inferredGuide = inferRecordsWorkflowGuide(primaryAction.id, answer);
         if (inferredGuide) {
-          inferredGuide.guide = normalizeRecordsTaskGuide(inferredGuide.guide, primaryAction.id, answer);
+          inferredGuide.guide = normalizeRecordsTaskGuide(inferredGuide.guide, primaryAction.id, answer, question);
           actions = [inferredGuide];
         } else {
           actions = actions.map((action) => action.id === primaryAction.id ? {

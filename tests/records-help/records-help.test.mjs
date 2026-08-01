@@ -41,6 +41,7 @@ test("the help prompt explicitly prohibits unverified interface guesses", () => 
   assert.match(prompt, /\[\[action:library\.search\]\]/);
   assert.match(prompt, /Generic guide format/);
   assert.match(prompt, /Use 2 to 7 verified interface labels/);
+  assert.match(prompt, /Do not add a cancel, close, discard, or rollback step unless the user explicitly asks/);
 });
 
 test("help actions are extracted from an allowlist and removed from answer copy", () => {
@@ -98,6 +99,7 @@ test("the verified UI catalog is generated from the current destination markup",
   assert.ok(labels.includes("Email"));
   assert.ok(labels.includes("Notes"));
   assert.ok(labels.includes("Add contact"));
+  assert.ok(labels.includes("Cancel edit"));
   assert.equal(labels.includes("Phone number"), false);
   assert.equal(recordsHelp.resolveRecordsUiLabel("Email address", labels), "Email");
   assert.equal(recordsHelp.resolveRecordsUiLabel("Cancel", labels), "Cancel edit");
@@ -135,6 +137,32 @@ test("a same-page task guide cannot collapse into destination-only guidance", ()
     "Notes",
     "Add contact",
   ]);
+});
+
+test("a preview guide stops at the real final action instead of inventing a rollback step", () => {
+  const answer = [
+    "Open **Contacts**, fill the fields, then close the form without saving.",
+    "",
+    "1. Select **Contacts**.",
+    "2. Click **New contact**.",
+    "3. Enter the **Name**, **Email**, and **Notes**.",
+    "4. Choose **Cancel edit** instead of **Add contact**.",
+  ].join("\n");
+  const guide = recordsHelp.normalizeRecordsTaskGuide({
+    buttonLabel: "Show me how",
+    route: "/n3xra-records/account/?view=contacts",
+    steps: [{ target: "Contacts" }],
+  }, "account.contacts", answer, "Help me add a new contact, but don't save anything.");
+
+  assert.deepEqual(guide.steps.map((step) => step.target), [
+    "Contacts",
+    "New contact",
+    "Name",
+    "Email",
+    "Notes",
+    "Add contact",
+  ]);
+  assert.equal(guide.steps.some((step) => step.target === "Cancel edit"), false);
 });
 
 test("task answers become workflow guides while explicit navigation stays destination-only", () => {
