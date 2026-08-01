@@ -91,8 +91,8 @@ const RECORDS_HELP_FALLBACK_GUIDES = Object.freeze({
     { target: "Uses", narration: "Uses limits how many times this invitation code can be accepted." },
     { target: "Expires at", narration: "Expires at is optional and lets you stop the code from working after a chosen time." },
     { target: "Recipient email (optional)", narration: "Add an email only if this invitation is intended for a particular recipient." },
-    { target: "Create invite code", narration: "The Create invite code option generates a code without emailing it. I’ll leave this button untouched." },
-    { target: "Create code + send email", narration: "Create code plus send email generates the code and emails it to the recipient. I’ll leave this button untouched too." },
+    { target: "Create invite code", narration: "The Create invite code option generates a code without emailing it." },
+    { target: "Create code + send email", narration: "Create code plus send email generates the code and emails it to the recipient." },
   ]),
 });
 
@@ -212,7 +212,7 @@ function isRecordsNavigationOnlyRequest(question) {
 }
 
 function isRecordsPreviewOnlyRequest(question) {
-  return /\b(?:do not|don't|dont|without|stop before|nothing yet|not yet|just show|only show|explain only)\b/i
+  return /\b(?:do not|don[’']t|dont|without|stop before|nothing yet|not yet|just show|only show|explain only)\b/i
     .test(String(question || ""));
 }
 
@@ -286,7 +286,7 @@ function normalizeRecordsTaskGuide(guide, actionId, answer) {
       target,
       narration: fallbackSteps
         ? String(step.narration || "").trim().slice(0, 220)
-        : `${target} is the control that completes this action. I’ll leave it untouched so you can decide when to use it.`,
+        : `${target} is the control that completes this action.`,
     };
   });
   return {

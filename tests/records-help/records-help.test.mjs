@@ -127,7 +127,7 @@ test("task aliases recover a verified workflow when the model returns only a sho
     "Create code + send email",
   ]);
   assert.match(action.guide.steps.at(-1).narration, /emails it to the recipient/i);
-  assert.match(action.guide.steps.at(-1).narration, /leave this button untouched/i);
+  assert.doesNotMatch(action.guide.steps.at(-1).narration, /untouched/i);
 });
 
 test("preview-only task guides use safe copy and never present an execution button", () => {
@@ -142,12 +142,13 @@ test("preview-only task guides use safe copy and never present an execution butt
   };
   const guide = recordsHelp.normalizeRecordsTaskGuide(modelGuide, "account.access", answer);
 
-  assert.equal(recordsHelp.isRecordsPreviewOnlyRequest("Don't create or send anything yet."), true);
+  assert.equal(recordsHelp.isRecordsPreviewOnlyRequest("Don’t create or send anything yet."), true);
   assert.equal(guide.buttonLabel, "Show me how");
   assert.equal(guide.steps[0].target, "Invite codes");
-  assert.match(guide.steps.find((step) => step.target === "Create invite code").narration, /leave this button untouched/i);
+  assert.match(guide.steps.find((step) => step.target === "Create invite code").narration, /without emailing it/i);
   assert.doesNotMatch(guide.steps.find((step) => step.target === "Create invite code").narration, /^Press /i);
   assert.doesNotMatch(guide.steps.find((step) => step.target === "Create invite code").narration, /consequential action/i);
+  assert.doesNotMatch(guide.steps.find((step) => step.target === "Create invite code").narration, /untouched/i);
 });
 
 test("metadata-only responses retain their action and receive visible fallback copy", () => {
