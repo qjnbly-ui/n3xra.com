@@ -37,10 +37,13 @@ Ask Records AI answers product and workflow questions about N3XRA Records. It is
 - Uploading, creating or changing documents, deleting, and saving meeting notes requires Account Admin or Editor.
 - Sharing and downloading are available to any active library member, including Viewer.
 - Managing users, invites, library settings, and templates requires Account Admin.
+- **Library** shows the active member's role under **Your access**. An Editor or Viewer cannot open **Manage library** → **Users**; tell them to check **Your access** or ask an Account Admin to confirm their role.
 - If a control is missing or disabled, check the active library, plan requirement, membership role, and any documented prerequisite. Do not invent a feature toggle.
 
 ## Library, Keyword search, and AI Search
-- Keyword mode searches saved extracted text. Its Year filter narrows Keyword results, and **Reset** clears Keyword filters.
+- **Keyword** and **AI Search** are modes in the Search section of **Library**. They are not controls inside the Files section.
+- Keyword mode searches saved titles and extracted text as the user types. There is no Keyword search icon or submit button.
+- The **Year** dropdown narrows Keyword results using the record's saved document-year metadata, not its upload date. **Reset** clears the query and Year filter.
 - AI Search can load up to 400 accessible documents from the active library. It ranks them for the question and sends selected excerpts to the model, up to 3,000 characters per selected document and within a total context limit.
 - AI Search is not limited by the file-type buttons currently displayed in the Files section. The current AI Search request uses all years.
 - AI Search uses saved extracted text. When a file has an editable app-native version, it prefers the current editable text.

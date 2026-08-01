@@ -30,6 +30,11 @@ test("the help prompt explicitly prohibits unverified interface guesses", () => 
   assert.match(prompt, /persistent left navigation/);
   assert.match(prompt, /not limited to file rows currently visible/);
   assert.match(prompt, /Year and Reset belong to Keyword search and must never be described as Files section filters/);
+  assert.match(prompt, /Keyword results update as the user types; there is no Keyword search icon or submit button/);
+  assert.match(prompt, /Year dropdown filters saved document-year metadata, not the date a file was added/);
+  assert.match(prompt, /File is the only required selection\. Document title, Year, and Month are optional metadata/);
+  assert.match(prompt, /Do not send an Editor or Viewer to Manage library > Users/);
+  assert.match(prompt, /Do not recommend a named browser unless the supplied product knowledge verifies it/);
 });
 
 test("verified role labels come from server-side access context", () => {
