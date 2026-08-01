@@ -4,6 +4,7 @@ import test from "node:test";
 
 const shellPath = new URL("../../n3xra-records/lib/desktop-shell.js", import.meta.url);
 const stylesPath = new URL("../../n3xra-records/styles.css", import.meta.url);
+const voiceApiPath = new URL("../../api/elevenlabs-text-to-speech.js", import.meta.url);
 
 test("Ask Records AI exposes voice input and answer playback controls", async () => {
   const shell = await readFile(shellPath, "utf8");
@@ -42,11 +43,21 @@ test("Records AI actions demonstrate the navigation path before the destination"
   assert.match(shell, /attempt < 2/);
   assert.match(shell, /getRecordsAiGuideSpeechTimeoutMs/);
   assert.match(shell, /Guide audio timed out/);
+  assert.match(shell, /guideLeadIn: true/);
+  assert.match(shell, /canplaythrough/);
+  assert.match(shell, /HAVE_FUTURE_DATA/);
   assert.match(shell, /Math\.min\(45000, Math\.max\(15000/);
   assert.match(shell, /new Promise\(\(resolve\) => window\.setTimeout\(resolve, 4200\)\)/);
   assert.doesNotMatch(shell, /fallbackRecordsAiGuideSpeech/);
   assert.doesNotMatch(shell, /SpeechSynthesisUtterance/);
   assert.match(styles, /\.records-ai-guide-note/);
+});
+
+test("guide narration receives a nonverbal lead-in before the meaningful sentence", async () => {
+  const voiceApi = await readFile(voiceApiPath, "utf8");
+
+  assert.match(voiceApi, /guideLeadIn = body\.guideLeadIn === true/);
+  assert.match(voiceApi, /guideLeadIn \? `… \$\{text\}` : text/);
 });
 
 test("voice input records, transcribes, and submits the spoken question", async () => {

@@ -467,12 +467,28 @@ async function narrateRecordsAiGuide(message) {
       const response = await fetch("/api/elevenlabs-text-to-speech", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify({ text, guideLeadIn: true }),
       });
       if (!response.ok) throw new Error("Guide voice unavailable");
       recordsAiGuideAudioUrl = URL.createObjectURL(await response.blob());
       const audio = new Audio(recordsAiGuideAudioUrl);
+      audio.preload = "auto";
       recordsAiGuideAudio = audio;
+      await new Promise((resolve) => {
+        if (audio.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) {
+          resolve();
+          return;
+        }
+        const ready = () => {
+          window.clearTimeout(readinessTimeout);
+          resolve();
+        };
+        const readinessTimeout = window.setTimeout(ready, 2500);
+        audio.addEventListener("canplaythrough", ready, { once: true });
+        audio.addEventListener("canplay", ready, { once: true });
+        audio.addEventListener("error", ready, { once: true });
+        audio.load();
+      });
       await new Promise((resolve, reject) => {
         let settled = false;
         const finish = (error = null) => {

@@ -27,6 +27,7 @@ export default async function handler(req, res) {
   if (!API_KEY) return res.status(503).json({ error: "N3XRA voice is not configured yet." });
   if (limited(clientIp(req))) return res.status(429).json({ error: "Please wait before requesting more audio." });
   let textInput = "";
+  let guideLeadIn = false;
   if (req.method === "GET") {
     textInput = Array.isArray(req.query?.text) ? req.query.text[0] : req.query?.text;
   } else {
@@ -39,16 +40,18 @@ export default async function handler(req, res) {
       }
     }
     textInput = body.text;
+    guideLeadIn = body.guideLeadIn === true;
   }
   const text = cleanSpeechText(textInput);
   if (!text) return res.status(400).json({ error: "There is no answer to read." });
+  const synthesisText = guideLeadIn ? `… ${text}` : text;
 
   try {
     const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(VOICE_ID)}?output_format=mp3_44100_128`, {
       method: "POST",
       headers: { "xi-api-key": API_KEY, "Content-Type": "application/json", Accept: "audio/mpeg" },
       body: JSON.stringify({
-        text,
+        text: synthesisText,
         model_id: MODEL_ID,
         voice_settings: { stability: 0.48, similarity_boost: 0.78, style: 0.12, use_speaker_boost: true, speed: 1.1 },
       }),
