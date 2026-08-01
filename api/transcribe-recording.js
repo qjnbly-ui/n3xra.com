@@ -30,6 +30,10 @@ const TRANSCRIPTION_SEGMENT_BITRATE = String(process.env.GROQ_RECORDS_TRANSCRIPT
 const TRANSCRIPTION_SEGMENT_EXTENSION = "mp3";
 const TRANSCRIPTION_SEGMENT_MIME_TYPE = "audio/mpeg";
 
+function isTranscriptionDerivativeFile(file) {
+  return new RegExp(`^part-\\d+\\.${TRANSCRIPTION_SEGMENT_EXTENSION}$`).test(String(file || ""));
+}
+
 function parseJson(req) {
   if (req.body && typeof req.body === "object") return Promise.resolve(req.body);
   if (typeof req.body === "string") {
@@ -344,7 +348,7 @@ async function transcribeTemporaryDerivative(arrayBuffer, recording, model = GRO
     ]);
 
     const files = (await fs.readdir(tempDir))
-      .filter((file) => file.endsWith(`.${TRANSCRIPTION_SEGMENT_EXTENSION}`))
+      .filter(isTranscriptionDerivativeFile)
       .sort();
     if (!files.length) throw new Error("No audio segments were created for transcription.");
 
@@ -542,4 +546,7 @@ async function handler(req, res) {
 module.exports = handler;
 module.exports.config = {
   maxDuration: 300,
+};
+module.exports._test = {
+  isTranscriptionDerivativeFile,
 };

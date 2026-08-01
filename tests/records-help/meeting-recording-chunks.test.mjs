@@ -14,6 +14,7 @@ const {
   extensionForMimeType,
   validateAndGroupChunks,
 } = require("../../api/_recording-chunk-core.js");
+const { isTranscriptionDerivativeFile } = require("../../api/transcribe-recording.js")._test;
 const ffmpegPath = require("ffmpeg-static");
 const clientPath = new URL("../../n3xra-records/lib/meeting-recording-chunks.js", import.meta.url);
 const recordingsPath = new URL("../../n3xra-records/recordings.js", import.meta.url);
@@ -138,6 +139,11 @@ test("transcription includes explicit interruption markers", async () => {
   assert.match(transcription, /transcribeTemporaryDerivative/);
   assert.match(transcription, /"-ar",\s*"16000"/);
   assert.match(transcription, /TRANSCRIPTION_SEGMENT_BITRATE/);
+});
+
+test("transcription excludes the MP3 playback source from derivative segments", () => {
+  const files = ["source.mp3", "part-001.mp3", "notes.txt", "part-000.mp3", "part-bad.mp3"];
+  assert.deepEqual(files.filter(isTranscriptionDerivativeFile).sort(), ["part-000.mp3", "part-001.mp3"]);
 });
 
 test("private chunk manifests use organization-aware RLS", async () => {
