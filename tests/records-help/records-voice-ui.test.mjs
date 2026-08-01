@@ -20,7 +20,8 @@ test("Records AI actions demonstrate the navigation path before the destination"
   const styles = await readFile(new URL("../../n3xra-records/styles.css", import.meta.url), "utf8");
 
   assert.match(shell, /Open Manage library/);
-  assert.match(shell, /Then, choose \$\{selectionLabel\}/);
+  assert.match(shell, /hasPriorSelection \? "Then" : "First"/);
+  assert.match(shell, /hasPriorSelection \? "Next selection" : "First selection"/);
   assert.match(shell, /First selection/);
   assert.match(shell, /You’re here/);
   assert.match(shell, /activationSelector: "#search-mode-ai"/);

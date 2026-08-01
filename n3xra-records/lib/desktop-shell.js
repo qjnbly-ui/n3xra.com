@@ -987,6 +987,7 @@ function applyPendingRecordsAiGuide() {
 async function guideRecordsAiNavigation(action, destination) {
   const isDesktop = getRecordsAiDisplayContext().displayMode === "desktop";
   const requiredView = destination.searchParams.get("view");
+  let hasPriorSelection = false;
 
   if (requiredView && isDesktop) {
     const manageToggle = document.querySelector("[data-records-manage-toggle]");
@@ -998,6 +999,7 @@ async function guideRecordsAiNavigation(action, destination) {
         narrateRecordsAiGuide(instruction),
       ]);
       manageToggle.click();
+      hasPriorSelection = true;
       manageToggle.classList.remove("records-ai-spotlight");
       await new Promise((resolve) => window.setTimeout(resolve, 250));
     }
@@ -1012,6 +1014,7 @@ async function guideRecordsAiNavigation(action, destination) {
         narrateRecordsAiGuide(instruction),
       ]);
       menuToggle.click();
+      hasPriorSelection = true;
       menuToggle.classList.remove("records-ai-spotlight");
       await new Promise((resolve) => window.setTimeout(resolve, 250));
     }
@@ -1020,11 +1023,11 @@ async function guideRecordsAiNavigation(action, destination) {
   const navigationTarget = getRecordsAiNavigationTarget(action, destination);
   if (navigationTarget && isRecordsAiElementVisible(navigationTarget)) {
     const selectionLabel = getRecordsAiSelectionLabel(action, destination);
-    const instruction = `Then, choose ${selectionLabel}.`;
+    const instruction = `${hasPriorSelection ? "Then" : "First"}, choose ${selectionLabel}.`;
     markRecordsAiGuideTarget(
       navigationTarget,
       `Choose ${selectionLabel}`,
-      requiredView && isDesktop ? "Second selection" : "Next selection"
+      hasPriorSelection ? "Next selection" : "First selection"
     );
     await Promise.all([
       new Promise((resolve) => window.setTimeout(resolve, 1350)),
