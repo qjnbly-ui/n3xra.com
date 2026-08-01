@@ -40,7 +40,7 @@ test("the help prompt explicitly prohibits unverified interface guesses", () => 
   assert.match(prompt, /safe navigation and page-highlighting buttons/);
   assert.match(prompt, /\[\[action:library\.search\]\]/);
   assert.match(prompt, /Generic guide format/);
-  assert.match(prompt, /Use 2 to 7 verified interface labels/);
+  assert.match(prompt, /Use 2 to 7 registered target IDs/);
 });
 
 test("help actions are extracted from an allowlist and removed from answer copy", () => {
@@ -54,7 +54,7 @@ test("help actions are extracted from an allowlist and removed from answer copy"
 
 test("generic guides compose verified UI labels without workflow-specific code", () => {
   const result = recordsHelp.extractHelpActions(
-    "I’ll show you the path.\n[[guide:Show the workflow|/n3xra-records/meeting-notes|New meeting note~First, choose New meeting note.>Phone call~Choose Phone call.>Start phone meeting~Finish here.]]"
+    "I’ll show you the path.\n[[guide:Show the workflow|/n3xra-records/meeting-notes|record-panel-toggle@New meeting note~First, choose New meeting note.>meeting-source-phone@Phone call~Choose Phone call.>start-phone-meeting-button@Start phone meeting~Finish here.]]"
   );
 
   assert.equal(result.answer, "I’ll show you the path.");
@@ -64,14 +64,16 @@ test("generic guides compose verified UI labels without workflow-specific code",
     guide: {
       buttonLabel: "Show the workflow",
       route: "/n3xra-records/meeting-notes",
+      behaviorVersion: 1,
       steps: [
-        { target: "New meeting note", narration: "First, choose New meeting note." },
-        { target: "Phone call", narration: "Choose Phone call." },
-        { target: "Start phone meeting", narration: "Finish here." },
+        { targetId: "record-panel-toggle", target: "New meeting note", kind: "button", narration: "First, choose New meeting note." },
+        { targetId: "meeting-source-phone", target: "Phone call", kind: "radio", narration: "Choose Phone call." },
+        { targetId: "start-phone-meeting-button", target: "Start phone meeting", kind: "button", narration: "Finish here." },
       ],
     },
   });
-  assert.equal(recordsHelp.parseRecordsGuideToken("Unsafe|/outside|Delete~Delete it."), null);
+  assert.equal(recordsHelp.parseRecordsGuideToken("Unsafe|/outside|delete-confirm-submit@Delete~Delete it."), null);
+  assert.equal(recordsHelp.parseRecordsGuideToken("Missing|/n3xra-records/library|not-a-real-id@Anything~Find it."), null);
 });
 
 test("verified role labels come from server-side access context", () => {

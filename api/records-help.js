@@ -19,7 +19,9 @@ const {
 const RECORDS_HELP_MODEL = "openai/gpt-oss-120b";
 const RECORDS_HELP_MAX_TOKENS = 650;
 const HELP_KNOWLEDGE_PATH = path.join(__dirname, "records-help-knowledge.md");
+const GUIDE_REGISTRY_PATH = path.join(__dirname, "records-guide-registry.json");
 let cachedHelpKnowledge = "";
+let cachedGuideRegistry = null;
 
 const RECORDS_HELP_ACTIONS = Object.freeze({
   "library.search": "Show Library search",
@@ -67,18 +69,32 @@ function parseRecordsGuideToken(rawToken) {
   const route = String(rawRoute || "").trim();
   if (!buttonLabel || !RECORDS_GUIDE_ROUTES.has(route) || !rawSteps) return null;
 
+  const registry = loadRecordsGuideRegistry();
+  const registryRoute = route.startsWith("/n3xra-records/account/") ? "/n3xra-records/account/" : route;
+  const page = registry?.pages?.find((item) => item.route === registryRoute);
+  const targetsById = new Map((page?.targets || []).map((target) => [target.id, target]));
+  if (!targetsById.size) return null;
+
   const steps = String(rawSteps)
     .split(">")
     .slice(0, 7)
     .map((rawStep) => {
       const separator = rawStep.indexOf("~");
-      const target = String(separator === -1 ? rawStep : rawStep.slice(0, separator)).trim().slice(0, 100);
+      const targetSpec = String(separator === -1 ? rawStep : rawStep.slice(0, separator)).trim();
+      const atIndex = targetSpec.indexOf("@");
+      const targetId = String(atIndex === -1 ? "" : targetSpec.slice(0, atIndex)).trim();
+      const registeredTarget = targetsById.get(targetId);
       const narration = String(separator === -1 ? "" : rawStep.slice(separator + 1)).trim().slice(0, 220);
-      return target ? { target, narration } : null;
+      return registeredTarget ? {
+        targetId,
+        target: registeredTarget.label,
+        kind: registeredTarget.kind,
+        narration,
+      } : null;
     })
     .filter(Boolean);
   if (!steps.length) return null;
-  return { buttonLabel, route, steps };
+  return { buttonLabel, route, behaviorVersion: registry.behaviorVersion, steps };
 }
 
 function extractHelpActions(rawAnswer) {
@@ -116,6 +132,42 @@ function loadHelpKnowledge() {
     cachedHelpKnowledge = "";
   }
   return cachedHelpKnowledge;
+}
+
+function loadRecordsGuideRegistry() {
+  if (cachedGuideRegistry) return cachedGuideRegistry;
+  try {
+    cachedGuideRegistry = JSON.parse(fs.readFileSync(GUIDE_REGISTRY_PATH, "utf8"));
+  } catch (_error) {
+    cachedGuideRegistry = { schemaVersion: 1, behaviorVersion: 1, pages: [] };
+  }
+  return cachedGuideRegistry;
+}
+
+function formatRecordsGuideRegistryForPrompt(question = "", currentPath = "") {
+  const registry = loadRecordsGuideRegistry();
+  const query = String(question || "").toLowerCase();
+  const selectedRoutes = new Set();
+  if (/meeting|recording|transcript|phone call|phone meeting|minutes/.test(query)) selectedRoutes.add("/n3xra-records/meeting-notes");
+  if (/document builder|document|template|pdf/.test(query)) selectedRoutes.add("/n3xra-records/documents.html");
+  if (/message|communication|announcement/.test(query)) selectedRoutes.add("/n3xra-records/messages.html");
+  if (/library|file|upload|search|public record|download|preview/.test(query)) selectedRoutes.add("/n3xra-records/library");
+  if (/setting|permission|user|contact|invite|access|storage|billing|audit|profile|retention|usage/.test(query)) {
+    selectedRoutes.add("/n3xra-records/account/");
+  }
+  if (!selectedRoutes.size) {
+    const currentRegistryRoute = String(currentPath || "").startsWith("/n3xra-records/account")
+      ? "/n3xra-records/account/"
+      : (registry.pages || []).find((page) => String(currentPath || "").startsWith(page.route))?.route;
+    if (currentRegistryRoute) selectedRoutes.add(currentRegistryRoute);
+  }
+  const pages = selectedRoutes.size
+    ? (registry.pages || []).filter((page) => selectedRoutes.has(page.route))
+    : (registry.pages || []);
+  return pages.map((page) => {
+    const targets = (page.targets || []).map((target) => `${target.id}="${target.label}"`).join(", ");
+    return `${page.route}: ${targets}`;
+  }).join("\n");
 }
 
 function parseJson(req) {
@@ -184,7 +236,7 @@ function formatVerifiedRole(access) {
   return "unknown";
 }
 
-function buildSystemPrompt(user, appContext) {
+function buildSystemPrompt(user, appContext, question = "") {
   const role = String(appContext?.role || "").trim() || "unknown";
   const plan = String(appContext?.plan || "").trim() || "unknown";
   const libraryName = String(appContext?.libraryName || "").trim() || "current library";
@@ -211,6 +263,7 @@ function buildSystemPrompt(user, appContext) {
         ? "header menu drawer"
         : "unknown";
   const helpKnowledge = loadHelpKnowledge();
+  const guideRegistry = formatRecordsGuideRegistryForPrompt(question, currentPath);
 
   return [
     "You are the N3XRA Records help assistant inside the Records app.",
@@ -247,9 +300,10 @@ function buildSystemPrompt(user, appContext) {
     "You cannot make data changes, submit forms, upload files, send messages, or change settings.",
     "You can offer safe navigation and page-highlighting buttons. For a simple destination, append an allowlisted action token. For a multi-step workflow, append one generic guide token. Put tokens at the very end of the answer, each on its own line; the app removes them and renders buttons.",
     "Simple action allowlist: [[action:library.search]], [[action:library.ai_search]], [[action:library.upload]], [[action:meeting.new]], [[action:documents.new]], [[action:messages.compose]], [[action:account.profile]], [[action:account.library]], [[action:account.templates]], [[action:account.phone]], [[action:account.ai]], [[action:account.users]], [[action:account.contacts]], [[action:account.access]], [[action:account.storage]], [[action:account.billing]], [[action:account.activity]], [[action:account.support]].",
-    "Generic guide format: [[guide:Button label|SAFE_ROUTE|Exact UI label~Natural spoken instruction>Exact UI label~Natural spoken instruction]]. Use 2 to 7 verified interface labels in the order the user would encounter them.",
+    "Generic guide format: [[guide:Button label|SAFE_ROUTE|stable-target-id@Visible label~Natural spoken instruction>stable-target-id@Visible label~Natural spoken instruction]]. Use 2 to 7 registered target IDs in the order the user would encounter them.",
     "SAFE_ROUTE must be one of: /n3xra-records/library, /n3xra-records/meeting-notes, /n3xra-records/documents.html, /n3xra-records/messages.html, or /n3xra-records/account/?view= followed by profile, library, templates, phone, ai, users, contacts, access, storage, billing, activity, or support.",
-    "Guide targets must be exact visible interface labels from product knowledge. Narration should explain what each highlighted choice means in the user's workflow, not merely read a button label. The guide may reveal expandable sections but never submits forms, starts recordings or calls, sends messages, uploads files, changes settings, or activates destructive controls.",
+    "Guide target IDs must come from the stable registry below for the selected route. The text after @ is explanatory only; runtime resolves the committed target ID and its registered label, never a similar-looking element. Do not use |, >, ~, [, or ] inside labels or narration.",
+    "Narration should explain what each highlighted choice means in the user's workflow, not merely read a button label. The guide may reveal expandable sections, select tabs, or select reversible radio options, but never submits forms, starts recordings or calls, sends messages, uploads files, changes settings, or activates destructive controls.",
     "Use an action only when it directly advances the user's request and their verified role/plan allows the destination. Do not describe an action token or invent another one.",
     "Say that the user can use the offered button; never claim that you already opened, clicked, highlighted, or completed anything.",
     "When a user wants an action completed, offer the nearest safe navigation/highlight action when available, then explain any remaining control labels they must use themselves.",
@@ -269,6 +323,9 @@ function buildSystemPrompt(user, appContext) {
     "",
     "Use this current Records product knowledge as the source of truth for navigation names, workflow advice, and button labels:",
     helpKnowledge || "No external product knowledge file was loaded. Answer from the general Records instructions above.",
+    "",
+    `Stable guide registry (behavior version ${loadRecordsGuideRegistry().behaviorVersion || 1}):`,
+    guideRegistry || "No guide targets are registered. Do not output a generic guide token.",
   ].join("\n");
 }
 
@@ -308,7 +365,7 @@ module.exports = async function handler(req, res) {
       role: formatVerifiedRole(usageContext.access),
       plan: usageContext.usage?.planName || appContext.plan,
     };
-    const systemPrompt = buildSystemPrompt(user, verifiedContext);
+    const systemPrompt = buildSystemPrompt(user, verifiedContext, question);
     const messages = [
       { role: "system", content: systemPrompt },
       ...history,
@@ -360,3 +417,4 @@ module.exports.RECORDS_HELP_MAX_TOKENS = RECORDS_HELP_MAX_TOKENS;
 module.exports.RECORDS_HELP_ACTIONS = RECORDS_HELP_ACTIONS;
 module.exports.extractHelpActions = extractHelpActions;
 module.exports.parseRecordsGuideToken = parseRecordsGuideToken;
+module.exports.loadRecordsGuideRegistry = loadRecordsGuideRegistry;
