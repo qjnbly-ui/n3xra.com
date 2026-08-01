@@ -453,6 +453,10 @@ function stopRecordsAiGuideSpeech() {
   }
 }
 
+function getRecordsAiGuideSpeechTimeoutMs(text) {
+  return Math.min(45000, Math.max(15000, String(text || "").length * 140));
+}
+
 async function narrateRecordsAiGuide(message) {
   const text = String(message || "").trim();
   if (!recordsAiGuideVoiceEnabled || !text) return;
@@ -479,7 +483,10 @@ async function narrateRecordsAiGuide(message) {
           if (error) reject(error);
           else resolve();
         };
-        const timeout = window.setTimeout(() => finish(), 10000);
+        const timeout = window.setTimeout(
+          () => finish(new Error("Guide audio timed out")),
+          getRecordsAiGuideSpeechTimeoutMs(text)
+        );
         audio.addEventListener("ended", () => finish(), { once: true });
         audio.addEventListener("error", () => finish(new Error("Guide audio failed")), { once: true });
         audio.play().catch((error) => finish(error));
@@ -783,9 +790,14 @@ function spotlightRecordsAiTarget(actionId, attempt = 0, activate = true) {
   }
 
   markRecordsAiGuideTarget(target, action.label, "You’re here");
-  void narrateRecordsAiGuide(`You’ve reached ${getRecordsAiSpokenDestination(action)}.`);
-  window.setTimeout(() => target.classList.remove("records-ai-spotlight"), 4200);
-  hideRecordsAiGuideNote(4200);
+  void (async () => {
+    await Promise.all([
+      new Promise((resolve) => window.setTimeout(resolve, 4200)),
+      narrateRecordsAiGuide(`You’ve reached ${getRecordsAiSpokenDestination(action)}.`),
+    ]);
+    target.classList.remove("records-ai-spotlight");
+    hideRecordsAiGuideNote();
+  })();
   if (typeof target.focus === "function") target.focus({ preventScroll: true });
 }
 

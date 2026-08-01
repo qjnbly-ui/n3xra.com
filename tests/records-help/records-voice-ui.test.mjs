@@ -40,6 +40,10 @@ test("Records AI actions demonstrate the navigation path before the destination"
   assert.match(shell, /RECORDS_AI_ACCOUNT_NAVIGATION_LABELS/);
   assert.match(shell, /spotlightRecordsAiGuideDestination/);
   assert.match(shell, /attempt < 2/);
+  assert.match(shell, /getRecordsAiGuideSpeechTimeoutMs/);
+  assert.match(shell, /Guide audio timed out/);
+  assert.match(shell, /Math\.min\(45000, Math\.max\(15000/);
+  assert.match(shell, /new Promise\(\(resolve\) => window\.setTimeout\(resolve, 4200\)\)/);
   assert.doesNotMatch(shell, /fallbackRecordsAiGuideSpeech/);
   assert.doesNotMatch(shell, /SpeechSynthesisUtterance/);
   assert.match(styles, /\.records-ai-guide-note/);
