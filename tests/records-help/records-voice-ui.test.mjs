@@ -61,9 +61,8 @@ test("Records AI actions demonstrate the navigation path before the destination"
   assert.match(styles, /\.records-ai-guide-note/);
   assert.match(styles, /inset 0 0 0 4px #087f72/);
   assert.match(styles, /background-color: #dff7f2/);
-  assert.match(shell, /dataset\.recordsAiHighlightFrame/);
-  assert.match(styles, /\.records-ai-highlight-frame/);
-  assert.match(styles, /border: 5px solid #006f65/);
+  assert.doesNotMatch(shell, /recordsAiHighlightFrame/);
+  assert.doesNotMatch(styles, /\.records-ai-highlight-frame/);
 });
 
 test("guide narration starts with the meaningful sentence without an artificial hesitation", async () => {

@@ -6878,21 +6878,6 @@ body:has(.confirm-modal.is-open) {
     0 18px 44px rgba(4, 12, 21, 0.24) !important;
 }
 
-.records-ai-highlight-frame {
-  position: fixed;
-  z-index: 1650;
-  pointer-events: none;
-  box-sizing: border-box;
-  border: 5px solid #006f65;
-  border-radius: 16px;
-  background: rgba(70, 224, 199, 0.18);
-  box-shadow:
-    0 0 0 4px rgba(255, 255, 255, 0.96),
-    0 0 0 11px rgba(0, 111, 101, 0.3),
-    0 20px 48px rgba(4, 12, 21, 0.28);
-  animation: records-ai-highlight-frame-pulse 1.05s ease-in-out 3;
-}
-
 .records-ai-guide-note {
   position: fixed;
   left: 50%;
@@ -6934,14 +6919,8 @@ body:has(.confirm-modal.is-open) {
   50% { outline-color: #21bfa9; }
 }
 
-@keyframes records-ai-highlight-frame-pulse {
-  0%, 100% { border-color: #006f65; }
-  50% { border-color: #20bca7; }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .records-ai-spotlight { animation: none; }
-  .records-ai-highlight-frame { animation: none; }
   .records-ai-guide-note { transition: none; }
 }
 

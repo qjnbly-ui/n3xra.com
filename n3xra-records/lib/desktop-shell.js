@@ -61,7 +61,6 @@ let recordsAiWakeLockWanted = false;
 let recordsAiGuideAudio = null;
 let recordsAiGuideAudioUrl = "";
 let recordsAiGuideVoiceEnabled = true;
-let recordsAiGuideHighlightVersion = 0;
 
 try {
   recordsAiGuideVoiceEnabled = window.localStorage.getItem("n3xra-records-guide-voice") !== "off";
@@ -778,32 +777,11 @@ function hideRecordsAiGuideNote(delay = 0) {
 
 function markRecordsAiGuideTarget(target, message, eyebrow) {
   document.querySelectorAll(".records-ai-spotlight").forEach((element) => element.classList.remove("records-ai-spotlight"));
-  document.querySelector("[data-records-ai-highlight-frame]")?.remove();
   showRecordsAiGuideNote(message, eyebrow);
   target.scrollIntoView({ behavior: "smooth", block: "center" });
   target.classList.remove("records-ai-spotlight");
   void target.offsetWidth;
   target.classList.add("records-ai-spotlight");
-  const version = ++recordsAiGuideHighlightVersion;
-  const frame = document.createElement("div");
-  frame.className = "records-ai-highlight-frame";
-  frame.dataset.recordsAiHighlightFrame = "";
-  frame.setAttribute("aria-hidden", "true");
-  document.body.append(frame);
-  const positionFrame = () => {
-    if (version !== recordsAiGuideHighlightVersion || !target.classList.contains("records-ai-spotlight")) {
-      if (version === recordsAiGuideHighlightVersion) frame.remove();
-      return;
-    }
-    const rect = target.getBoundingClientRect();
-    const padding = 7;
-    frame.style.left = `${Math.max(4, rect.left - padding)}px`;
-    frame.style.top = `${Math.max(4, rect.top - padding)}px`;
-    frame.style.width = `${Math.min(window.innerWidth - 8, rect.width + (padding * 2))}px`;
-    frame.style.height = `${Math.min(window.innerHeight - 8, rect.height + (padding * 2))}px`;
-    window.requestAnimationFrame(positionFrame);
-  };
-  window.requestAnimationFrame(positionFrame);
 }
 
 function spotlightRecordsAiTarget(actionId, attempt = 0, activate = true, guidance = {}) {
