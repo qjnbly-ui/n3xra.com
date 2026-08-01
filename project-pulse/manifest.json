@@ -2,35 +2,35 @@
   "schemaVersion": 1,
   "name": "N3XRA Project Pulse",
   "visibility": "public-safe",
-  "generatedAt": "2026-07-31T18:24:22.061Z",
-  "updatedAt": "2026-07-31T10:21:53-07:00",
-  "commit": "dc3b83e",
+  "generatedAt": "2026-08-01T03:10:01.859Z",
+  "updatedAt": "2026-07-31T19:04:45-07:00",
+  "commit": "487d108",
   "summary": {
-    "statement": "N3XRA is a connected technology platform comprising approximately 136,000 lines of source code across customer experiences, software products, APIs, database systems, administrative tools, and operational infrastructure.",
-    "sourceFiles": 386,
-    "sourceLines": 135763,
+    "statement": "N3XRA is a connected technology platform comprising approximately 137,000 lines of source code across customer experiences, software products, APIs, database systems, administrative tools, and operational infrastructure.",
+    "sourceFiles": 393,
+    "sourceLines": 136696,
     "products": 7,
     "pages": 96,
-    "apiFunctions": 54,
+    "apiFunctions": 56,
     "edgeFunctions": 21,
-    "databaseMigrations": 89
+    "databaseMigrations": 91
   },
   "sourceBreakdown": {
     "css": {
       "files": 25,
-      "lines": 31250
+      "lines": 31325
     },
     "html": {
       "files": 96,
-      "lines": 28970
+      "lines": 28285
     },
     "js": {
-      "files": 144,
-      "lines": 53956
+      "files": 149,
+      "lines": 55288
     },
     "sql": {
-      "files": 97,
-      "lines": 13813
+      "files": 99,
+      "lines": 14024
     },
     "ts": {
       "files": 24,

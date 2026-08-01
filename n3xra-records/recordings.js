@@ -19,6 +19,7 @@ import {
   isSuggestionResolved,
 } from "./lib/recording-suggestions.js";
 import { createAppDocumentPdfObjectUrl } from "./lib/app-document-pdf.js";
+import { createMeetingRecordingChunkManager } from "./lib/meeting-recording-chunks.js";
 
 const setupPanel = document.getElementById("setup-panel");
 const recordingsPanel = document.getElementById("recordings-panel");
@@ -89,6 +90,7 @@ const startRecordingButton = document.getElementById("start-recording-button");
 const uploadRecordingButton = document.getElementById("upload-recording-button");
 const pauseRecordingButton = document.getElementById("pause-recording-button");
 const stopRecordingButton = document.getElementById("stop-recording-button");
+const resumeRecordingButton = document.getElementById("resume-recording-button");
 const saveRecordingButton = document.getElementById("save-recording-button");
 const scanHandwrittenNoteButton = document.getElementById("scan-handwritten-note-button");
 const handwrittenNoteInput = document.getElementById("handwritten-note-input");
@@ -211,6 +213,19 @@ let pendingUploadedAudioStartedAt = null;
 let recordingWakeLock = null;
 let recordingWakeLockWanted = false;
 let recordingCaptureEndHandled = false;
+let recordingChunkManager = null;
+let recordingChunkEnqueueChain = Promise.resolve();
+let recordingCaptureSessionId = "";
+let recordingChunkStartedAt = null;
+let chunkedRecordingReadyToSave = false;
+let activeInterruptionId = "";
+let activeInterruptionNumber = 0;
+let recordingWasInterrupted = false;
+let recordingAutoRecoveryAttempted = false;
+let recordingStopRequested = false;
+let microphoneMuteTimer = null;
+let recordingInterruptionPromise = Promise.resolve();
+let recordingInterruptionCreation = null;
 
 function isIgnorableStorageDeleteError(error) {
   const message = String(error?.message || "").toLowerCase();
@@ -1659,16 +1674,20 @@ function updateControls() {
     : browserSourceEnabled;
   const phoneSourceEnabled = meetingUsesPhoneSource();
 
-  startRecordingButton.disabled = !canUseRecorder || !microphoneSourceEnabled || hasActiveSession || hasPendingUpload || !window.MediaRecorder || !navigator.mediaDevices?.getUserMedia;
+  startRecordingButton.disabled = !canUseRecorder || !microphoneSourceEnabled || hasActiveSession || recordingWasInterrupted || hasPendingUpload || !window.MediaRecorder || !navigator.mediaDevices?.getUserMedia;
   uploadRecordingButton.disabled = !canUseRecorder || !uploadSourceEnabled || hasActiveSession;
   uploadRecordingButton.textContent = hasPendingUpload ? "Change audio" : "Upload recording";
-  show(startRecordingButton, microphoneSourceEnabled && !hasActiveSession && !hasPendingUpload);
+  show(startRecordingButton, microphoneSourceEnabled && !hasActiveSession && !recordingWasInterrupted && !hasPendingUpload);
   show(uploadRecordingButton, uploadSourceEnabled && !hasActiveSession);
   pauseRecordingButton.disabled = !isCaptureActive || !pauseSupported;
   pauseRecordingButton.textContent = recorderState === "paused" ? "Resume recording" : "Pause recording";
   stopRecordingButton.disabled = !isCaptureActive;
   show(pauseRecordingButton, isCaptureActive && pauseSupported);
   show(stopRecordingButton, isCaptureActive);
+  if (resumeRecordingButton) {
+    show(resumeRecordingButton, recordingWasInterrupted && !isCaptureActive && Boolean(activeRecordingId));
+    resumeRecordingButton.disabled = isRecordingWorkflowActive || !navigator.mediaDevices?.getUserMedia;
+  }
   if (saveRecordingButton) {
     saveRecordingButton.disabled = !canSaveMeetingNote || isRecordingWorkflowActive || isCaptureActive;
     saveRecordingButton.textContent = activePhoneMeetingSession?.status === "recording_ready"
@@ -1716,7 +1735,7 @@ function getRecordingById(recordingId) {
 }
 
 function hasUnsavedRecordingAudio() {
-  return Boolean(activeRecordingId && pendingRecordedBlob);
+  return Boolean(activeRecordingId && (pendingRecordedBlob || chunkedRecordingReadyToSave));
 }
 
 function hasPendingUploadedAudio() {
@@ -1806,6 +1825,96 @@ function recordingIsCapturing() {
   return mediaRecorder?.state === "recording" || mediaRecorder?.state === "paused";
 }
 
+function handleChunkUploadStatus(state) {
+  const labels = {
+    saving: "Saving",
+    saved: "Saved",
+    retrying: "Saving",
+    offline: "Connection lost, saving locally",
+    local_error: "Recording interrupted",
+  };
+  uploadStateValue.textContent = labels[state] || "Saving";
+  if (state === "offline") {
+    setStatus(recordingStatus, "Connection lost. Audio is being saved on this device and will upload when the connection returns.", "error");
+  } else if (state === "local_error") {
+    setStatus(recordingStatus, "This device could not save the latest audio chunk. Recording has been interrupted to protect the audio already saved.", "error");
+  }
+}
+
+async function initializeRecordingChunkManager(recordingId) {
+  recordingChunkManager?.dispose();
+  const organization = getActiveOrganization();
+  if (!organization || !currentSession?.user) throw new Error("Unable to initialize secure recording recovery.");
+  if (recordsUsageSummary?.organizationId !== organization.id) await loadRecordsUsage();
+  const storageMetric = recordsUsageSummary?.metrics?.storage;
+  const remainingStorage = Number(storageMetric?.remaining || 0);
+  const storageAwareMaxBytes = Number(storageMetric?.limit || 0) > 0
+    ? Math.min(MAX_RECORDING_AUDIO_BYTES, Math.max(0, Math.floor(remainingStorage / 2)))
+    : MAX_RECORDING_AUDIO_BYTES;
+  recordingChunkManager = createMeetingRecordingChunkManager({
+    supabase,
+    bucket: RECORDINGS_BUCKET,
+    organizationId: organization.id,
+    recordingId,
+    userId: currentSession.user.id,
+    maxBytes: storageAwareMaxBytes,
+    onStatus: handleChunkUploadStatus,
+  });
+  return recordingChunkManager.initialize();
+}
+
+function queueRecordedChunk(blob, capturedEndedAt = new Date()) {
+  if (!blob?.size || !recordingChunkManager || !recordingCaptureSessionId) return;
+  const capturedStartedAt = recordingChunkStartedAt || recordingStartedAt || capturedEndedAt;
+  recordingChunkStartedAt = capturedEndedAt;
+  const details = {
+    captureSessionId: recordingCaptureSessionId,
+    mimeType: blob.type || activeRecordingMimeType || "audio/webm",
+    startedAt: capturedStartedAt.toISOString(),
+    endedAt: capturedEndedAt.toISOString(),
+  };
+  recordingChunkEnqueueChain = recordingChunkEnqueueChain
+    .then(() => recordingChunkManager?.enqueue(blob, details))
+    .catch(() => {
+      handleChunkUploadStatus("local_error");
+      handleUnexpectedRecordingEnd();
+    });
+}
+
+async function createRecordingInterruption(reason = "microphone_interrupted") {
+  if (!activeRecordingId || activeInterruptionId) return;
+  if (recordingInterruptionCreation) return recordingInterruptionCreation;
+  recordingInterruptionCreation = (async () => {
+    activeInterruptionNumber += 1;
+    const payload = {
+      meeting_recording_id: activeRecordingId,
+      organization_id: getActiveOrganization().id,
+      created_by_user_id: currentSession.user.id,
+      interruption_number: activeInterruptionNumber,
+      reason,
+      started_at: new Date().toISOString(),
+    };
+    const { data, error } = await supabase.from("meeting_recording_interruptions").insert(payload).select("id").single();
+    if (error) throw error;
+    activeInterruptionId = data.id;
+    await updateMeetingRecording(activeRecordingId, { status: "interrupted", processing_error: null });
+  })();
+  try {
+    await recordingInterruptionCreation;
+  } finally {
+    recordingInterruptionCreation = null;
+  }
+}
+
+async function closeRecordingInterruption() {
+  if (!activeInterruptionId) return;
+  const { error } = await supabase.from("meeting_recording_interruptions")
+    .update({ ended_at: new Date().toISOString() })
+    .eq("id", activeInterruptionId);
+  if (error) throw error;
+  activeInterruptionId = "";
+}
+
 function setRecordingScreenSafety(message) {
   const copy = document.getElementById("recording-screen-safety");
   if (copy) copy.textContent = message;
@@ -1860,14 +1969,45 @@ function flushActiveRecordingChunk() {
 function handleUnexpectedRecordingEnd() {
   if (recordingCaptureEndHandled || !recordingIsCapturing()) return;
   recordingCaptureEndHandled = true;
+  recordingWasInterrupted = true;
+  recordingAutoRecoveryAttempted = false;
   flushActiveRecordingChunk();
   setRecorderState("Interrupted", "Microphone capture ended. Preserving the audio recorded so far.");
   setStatus(recordingStatus, "Recording was interrupted by the browser or device. Preparing the audio captured so far.", "error");
+  recordingInterruptionPromise = createRecordingInterruption("microphone_interrupted").catch(() => null);
   try {
     mediaRecorder.stop();
   } catch {
     releaseRecordingWakeLock();
   }
+}
+
+function watchMicrophoneTrack(track) {
+  track.addEventListener("ended", handleUnexpectedRecordingEnd);
+  track.addEventListener("mute", () => {
+    if (microphoneMuteTimer) window.clearTimeout(microphoneMuteTimer);
+    recordingInterruptionPromise = createRecordingInterruption("microphone_muted").catch(() => null);
+    microphoneMuteTimer = window.setTimeout(() => handleUnexpectedRecordingEnd(), 2500);
+  });
+  track.addEventListener("unmute", () => {
+    if (microphoneMuteTimer) window.clearTimeout(microphoneMuteTimer);
+    microphoneMuteTimer = null;
+    void recordingInterruptionPromise.then(async () => {
+      if (!activeInterruptionId || !recordingIsCapturing() || recordingWasInterrupted) return;
+      await closeRecordingInterruption();
+      await updateMeetingRecording(activeRecordingId, { status: "recording", processing_error: null });
+      setStatus(recordingStatus, "Microphone capture recovered. A brief interruption was marked in this meeting.", "success");
+    }).catch(() => null);
+  });
+}
+
+function handleMediaRecorderStopped() {
+  if (!recordingStopRequested && !recordingWasInterrupted) {
+    recordingWasInterrupted = true;
+    recordingInterruptionPromise = createRecordingInterruption("unexpected_recorder_stop").catch(() => null);
+  }
+  recordingStopRequested = false;
+  void prepareStoppedRecording();
 }
 
 function getElapsedRecordingMs() {
@@ -2706,6 +2846,88 @@ async function requestRecordingTranscription(recordingId) {
   return data;
 }
 
+async function requestChunkedRecordingFinalization(recordingId, expectedLastSequence) {
+  const accessToken = await getFreshAccessToken();
+  if (!accessToken) throw new Error("Your session expired. Sign in again and retry.");
+  const response = await fetch("/api/finalize-recording-chunks", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+    body: JSON.stringify({ recordingId, expectedLastSequence }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data?.error || "Unable to assemble the saved audio chunks.");
+  return data;
+}
+
+async function recoverBrowserMeetingRecording() {
+  const organization = getActiveOrganization();
+  if (!organization || !currentSession?.user) return;
+  const { data, error } = await supabase
+    .from("meeting_recordings")
+    .select("id,title,status,selected_template_id,started_at,duration_seconds,audio_mime_type,notes_plain_text,created_by_user_id")
+    .eq("organization_id", organization.id)
+    .eq("created_by_user_id", currentSession.user.id)
+    .in("status", ["recording", "interrupted", "recorded", "finalizing"])
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error || !data) return;
+
+  activeRecordingId = data.id;
+  recordingTitleInput.value = data.title || "Recovered meeting note";
+  recordingTemplateSelect.value = data.selected_template_id || BLANK_NOTES_TEMPLATE_VALUE;
+  recordingNotesInput.value = data.notes_plain_text || "";
+  activeRecordingMimeType = data.audio_mime_type || getSupportedMimeType() || "audio/webm";
+  pendingRecordedTitle = data.title || "Meeting note";
+  pendingRecordedDurationSeconds = Number(data.duration_seconds || 0);
+  recordingDuration.textContent = formatDuration(pendingRecordedDurationSeconds);
+  const managerState = await initializeRecordingChunkManager(data.id);
+  chunkedRecordingReadyToSave = managerState.nextSequence > 0;
+
+  const { data: interruptions } = await supabase
+    .from("meeting_recording_interruptions")
+    .select("id,interruption_number,ended_at")
+    .eq("meeting_recording_id", data.id)
+    .order("interruption_number", { ascending: false });
+  activeInterruptionNumber = Number(interruptions?.[0]?.interruption_number || 0);
+  activeInterruptionId = interruptions?.find((item) => !item.ended_at)?.id || "";
+
+  if (data.status === "recording") {
+    recordingWasInterrupted = true;
+    await createRecordingInterruption("page_closed_or_browser_interrupted").catch(() => null);
+  } else {
+    recordingWasInterrupted = data.status === "interrupted";
+  }
+
+  setRecordPanelOpen(true);
+  uploadStateValue.textContent = navigator.onLine ? "Saved" : "Connection lost, saving locally";
+  if (data.status === "finalizing") {
+    setRecorderState("Saving", "Recovering final recording assembly.");
+    setStatus(recordingStatus, "Finishing the recovered recording...");
+    try {
+      const { lastSequence } = await recordingChunkManager.flush();
+      await requestChunkedRecordingFinalization(data.id, lastSequence);
+      await requestRecordingTranscription(data.id).catch(() => null);
+      recordingChunkManager.dispose();
+      recordingChunkManager = null;
+      activeRecordingId = "";
+      chunkedRecordingReadyToSave = false;
+      setStatus(recordingStatus, "Recovered meeting note saved.", "success");
+      await loadRecordings();
+    } catch (finalizeError) {
+      recordingWasInterrupted = true;
+      setStatus(recordingStatus, getErrorMessage(finalizeError, "The recovered recording is saved but still needs to finish."), "error");
+    }
+  } else if (recordingWasInterrupted) {
+    setRecorderState("Interrupted", "Recording was interrupted. Audio captured before the interruption has been saved.");
+    setStatus(recordingStatus, "Recording was interrupted. Audio captured before the interruption has been saved.", "error");
+  } else {
+    setRecorderState("Stopped", "Recovered audio is ready to save.");
+    setStatus(recordingStatus, "Recovered recording found. Select Save meeting note to finish it.", "success");
+  }
+  updateControls();
+}
+
 async function requestRecordingAiReview(recordingId) {
   const accessToken = await getFreshAccessToken();
   if (!accessToken) throw new Error("Your session expired. Sign in again and retry.");
@@ -2982,6 +3204,9 @@ function clearPendingUploadedAudio(options = {}) {
 async function prepareStoppedRecording() {
   if (!activeRecordingId) return;
 
+  await recordingChunkEnqueueChain;
+  await recordingInterruptionPromise;
+
   const recordingId = activeRecordingId;
   const title = recordingTitleInput.value.trim();
   const endedAt = new Date();
@@ -2998,19 +3223,31 @@ async function prepareStoppedRecording() {
 
   try {
     await updateMeetingRecording(recordingId, {
-      status: "recorded",
+      status: recordingWasInterrupted ? "interrupted" : "recorded",
       ended_at: endedAt.toISOString(),
       duration_seconds: durationSeconds,
       audio_mime_type: blob.type || activeRecordingMimeType || "audio/webm",
       file_size: blob.size,
       processing_error: null,
     });
-    pendingRecordedBlob = blob;
+    pendingRecordedBlob = blob.size ? blob : null;
+    chunkedRecordingReadyToSave = Boolean(recordingChunkManager);
     pendingRecordedTitle = title;
     pendingRecordedDurationSeconds = durationSeconds;
     activeChunks = [];
-    setRecorderState("Stopped", "Review notes, scan handwritten notes if needed, then save the meeting note.");
-    setStatus(recordingStatus, "Recording stopped. Review notes, then select Save meeting note.", "success");
+    setRecorderState(
+      recordingWasInterrupted ? "Interrupted" : "Stopped",
+      recordingWasInterrupted
+        ? "Recording was interrupted. Audio captured before the interruption has been saved."
+        : "Review notes, scan handwritten notes if needed, then save the meeting note."
+    );
+    setStatus(
+      recordingStatus,
+      recordingWasInterrupted
+        ? "Recording was interrupted. Audio captured before the interruption has been saved. Resume when ready or save the partial recording."
+        : "Recording stopped. Review notes, then select Save meeting note.",
+      recordingWasInterrupted ? "error" : "success"
+    );
   } catch (error) {
     setRecorderState("Failed", "The meeting note was created, but stopping the audio did not finish.");
     uploadStateValue.textContent = "Failed";
@@ -3018,24 +3255,29 @@ async function prepareStoppedRecording() {
     activeRecordingId = "";
     activeChunks = [];
     clearPendingRecordedAudio();
+    chunkedRecordingReadyToSave = false;
   } finally {
     recordingStartedAt = null;
     elapsedRecordingMs = 0;
     updateControls();
     await loadRecordings();
+    if (recordingWasInterrupted && !recordingAutoRecoveryAttempted && document.visibilityState === "visible") {
+      recordingAutoRecoveryAttempted = true;
+      window.setTimeout(() => void handleResumeRecording({ automatic: true }), 500);
+    }
   }
 }
 
 async function handleSaveStoppedRecording() {
-  if (!activeRecordingId || !pendingRecordedBlob) return;
+  if (!activeRecordingId || (!pendingRecordedBlob && !chunkedRecordingReadyToSave)) return;
 
   const recordingId = activeRecordingId;
   const title = pendingRecordedTitle || recordingTitleInput.value.trim() || "Meeting note";
   const blob = pendingRecordedBlob;
-  const mimeType = blob.type || activeRecordingMimeType || "audio/webm";
+  const mimeType = blob?.type || activeRecordingMimeType || "audio/webm";
   const durationSeconds = pendingRecordedDurationSeconds;
 
-  if (blob.size > MAX_RECORDING_AUDIO_BYTES) {
+  if (blob?.size > MAX_RECORDING_AUDIO_BYTES) {
     setRecorderState("Stopped", "The recording is still available, but it is too large to transcribe.");
     uploadStateValue.textContent = "Too large";
     setStatus(recordingStatus, `This recording is larger than the ${formatBytes(MAX_RECORDING_AUDIO_BYTES)} transcription limit.`, "error");
@@ -3046,7 +3288,33 @@ async function handleSaveStoppedRecording() {
   updateControls();
   try {
     await saveActiveRecordingNotes();
-    await uploadRecordingBlob(recordingId, title, blob, mimeType, durationSeconds);
+    if (chunkedRecordingReadyToSave && recordingChunkManager) {
+      setRecorderState("Saving", "Uploading any remaining audio chunks.");
+      setStatus(recordingStatus, "Verifying saved audio chunks...");
+      const { lastSequence } = await recordingChunkManager.flush();
+      if (lastSequence < 0) throw new Error("No recorded audio chunks are available to save.");
+      setRecorderState("Saving", "Assembling the complete recording in secure storage.");
+      uploadStateValue.textContent = "Saving";
+      await updateMeetingRecording(recordingId, { status: "finalizing", duration_seconds: durationSeconds, processing_error: null });
+      await requestChunkedRecordingFinalization(recordingId, lastSequence);
+      uploadStateValue.textContent = "Saved";
+      setRecorderState("Transcribing", "Audio saved. Creating a searchable transcript file.");
+      setStatus(recordingStatus, "Audio saved. Creating transcript...");
+      try {
+        await requestRecordingTranscription(recordingId);
+        setStatus(recordingStatus, "Meeting note saved and transcript created.", "success");
+      } catch (error) {
+        setStatus(recordingStatus, getErrorMessage(error, "Meeting note saved, but transcription failed."), "error");
+      }
+    } else {
+      await uploadRecordingBlob(recordingId, title, blob, mimeType, durationSeconds);
+    }
+    recordingChunkManager?.dispose();
+    recordingChunkManager = null;
+    chunkedRecordingReadyToSave = false;
+    recordingWasInterrupted = false;
+    activeInterruptionId = "";
+    activeInterruptionNumber = 0;
     activeRecordingId = "";
     activeRecordingMimeType = "";
     recordingTitleInput.value = "";
@@ -3415,28 +3683,31 @@ async function handleStartRecording() {
   try {
     createdRecording = await createMeetingRecording(title);
     activeRecordingId = createdRecording.id;
+    await initializeRecordingChunkManager(createdRecording.id);
     updateControls();
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     activeStream = stream;
     activeChunks = [];
     activeRecordingMimeType = mimeType;
+    recordingCaptureSessionId = crypto.randomUUID();
+    recordingChunkStartedAt = new Date();
+    recordingChunkEnqueueChain = Promise.resolve();
+    chunkedRecordingReadyToSave = false;
+    recordingWasInterrupted = false;
     const recorderOptions = { audioBitsPerSecond: RECORDER_AUDIO_BITS_PER_SECOND };
     if (mimeType) recorderOptions.mimeType = mimeType;
     mediaRecorder = new MediaRecorder(stream, recorderOptions);
     recordingCaptureEndHandled = false;
+    recordingStopRequested = false;
 
-    stream.getAudioTracks().forEach((track) => {
-      track.addEventListener("ended", handleUnexpectedRecordingEnd);
-    });
+    stream.getAudioTracks().forEach(watchMicrophoneTrack);
 
     mediaRecorder.addEventListener("dataavailable", (event) => {
       if (event.data && event.data.size > 0) {
-        activeChunks.push(event.data);
+        queueRecordedChunk(event.data, new Date());
       }
     });
-    mediaRecorder.addEventListener("stop", () => {
-      void prepareStoppedRecording();
-    });
+    mediaRecorder.addEventListener("stop", handleMediaRecorderStopped);
     mediaRecorder.addEventListener("error", handleUnexpectedRecordingEnd);
     mediaRecorder.addEventListener("pause", () => {
       pauseElapsedClock();
@@ -3461,7 +3732,7 @@ async function handleStartRecording() {
       processing_error: null,
     });
 
-    mediaRecorder.start(1000);
+    mediaRecorder.start(5000);
     void requestRecordingWakeLock();
     recordingDuration.textContent = "00:00";
     uploadStateValue.textContent = "Recording";
@@ -3475,6 +3746,8 @@ async function handleStartRecording() {
     stopDurationTimer();
     stopActiveStreamTracks();
     releaseRecordingWakeLock();
+    recordingChunkManager?.dispose();
+    recordingChunkManager = null;
     mediaRecorder = null;
     activeChunks = [];
     activeRecordingMimeType = "";
@@ -3498,6 +3771,70 @@ async function handleStartRecording() {
     setRecorderState("", "Ready to create a new meeting note.");
     setStatus(recordingStatus, getErrorMessage(error, "Unable to start audio recording."), "error");
     await loadRecordings();
+  }
+}
+
+async function handleResumeRecording({ automatic = false } = {}) {
+  if (!activeRecordingId || recordingIsCapturing() || isRecordingWorkflowActive) return;
+  if (!recordingChunkManager) await initializeRecordingChunkManager(activeRecordingId);
+  isRecordingWorkflowActive = true;
+  updateControls();
+  setStatus(recordingStatus, automatic ? "Attempting to restore microphone capture..." : "Restoring microphone capture...");
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    activeStream = stream;
+    recordingCaptureSessionId = crypto.randomUUID();
+    recordingChunkStartedAt = new Date();
+    recordingCaptureEndHandled = false;
+    recordingStopRequested = false;
+    const recorderOptions = { audioBitsPerSecond: RECORDER_AUDIO_BITS_PER_SECOND };
+    if (activeRecordingMimeType) recorderOptions.mimeType = activeRecordingMimeType;
+    mediaRecorder = new MediaRecorder(stream, recorderOptions);
+    stream.getAudioTracks().forEach(watchMicrophoneTrack);
+    mediaRecorder.addEventListener("dataavailable", (event) => {
+      if (event.data?.size) queueRecordedChunk(event.data, new Date());
+    });
+    mediaRecorder.addEventListener("stop", handleMediaRecorderStopped);
+    mediaRecorder.addEventListener("error", handleUnexpectedRecordingEnd);
+    mediaRecorder.addEventListener("pause", () => {
+      pauseElapsedClock();
+      setRecorderState("Paused", "Recording is paused. Resume when you are ready to continue.");
+      updateControls();
+    });
+    mediaRecorder.addEventListener("resume", () => {
+      resumeElapsedClock();
+      setRecorderState("Recording", "Microphone capture is active again.");
+      updateControls();
+    });
+
+    await closeRecordingInterruption();
+    recordingWasInterrupted = false;
+    chunkedRecordingReadyToSave = false;
+    pendingRecordedBlob = null;
+    elapsedRecordingMs = pendingRecordedDurationSeconds * 1000;
+    resumeElapsedClock();
+    mediaRecorder.start(5000);
+    await updateMeetingRecording(activeRecordingId, { status: "recording", ended_at: null, processing_error: null });
+    void requestRecordingWakeLock();
+    startDurationTimer();
+    setRecorderState("Recording", "Microphone capture resumed. No audio was captured during the interruption.");
+    setStatus(recordingStatus, "Recording resumed. The interruption remains marked in this meeting.", "success");
+  } catch (error) {
+    stopActiveStreamTracks();
+    mediaRecorder = null;
+    recordingWasInterrupted = true;
+    setRecorderState("Interrupted", "Recording was interrupted. Audio captured before the interruption has been saved.");
+    setStatus(
+      recordingStatus,
+      automatic
+        ? "Recording was interrupted. Audio captured before the interruption has been saved. Select Resume recording to continue."
+        : getErrorMessage(error, "Microphone access is required to resume recording."),
+      "error"
+    );
+  } finally {
+    isRecordingWorkflowActive = false;
+    updateControls();
   }
 }
 
@@ -3556,6 +3893,7 @@ async function handleStopRecording() {
   setStatus(recordingStatus, "Stopping recording...");
   pauseRecordingButton.disabled = true;
   stopRecordingButton.disabled = true;
+  recordingStopRequested = true;
   mediaRecorder.stop();
 }
 
@@ -3607,6 +3945,11 @@ async function handleOrganizationChange(nextOrganizationId) {
   await loadPhoneMeetingSettings();
   await loadRecordings();
   await recoverRecentPhoneMeetingSession();
+  if (!activePhoneMeetingSession) {
+    await recoverBrowserMeetingRecording().catch((error) => {
+      setStatus(recordingStatus, getErrorMessage(error, "A recoverable meeting recording was found, but it could not be opened."), "error");
+    });
+  }
 }
 
 async function handleSignout() {
@@ -3791,6 +4134,9 @@ async function init() {
   });
   stopRecordingButton.addEventListener("click", handleStopRecording);
   pauseRecordingButton.addEventListener("click", handlePauseRecording);
+  resumeRecordingButton?.addEventListener("click", () => {
+    void handleResumeRecording();
+  });
   recordingsList.addEventListener("click", (event) => {
     const row = event.target.closest("[data-recording-id]");
     if (!row) return;

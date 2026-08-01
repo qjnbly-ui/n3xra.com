@@ -250,5 +250,11 @@
       "source": "/demo/files",
       "destination": "/demo/files.html"
     }
+  ],
+  "crons": [
+    {
+      "path": "/api/cleanup-recording-chunks",
+      "schedule": "17 4 * * *"
+    }
   ]
 }

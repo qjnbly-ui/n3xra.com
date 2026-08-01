@@ -240,8 +240,10 @@
                   <button class="btn secondary" id="upload-recording-button" type="button">Upload recording</button>
                   <button class="btn secondary hidden" id="pause-recording-button" type="button" disabled>Pause recording</button>
                   <button class="btn secondary hidden" id="stop-recording-button" type="button" disabled>Stop recording</button>
+                  <button class="btn hidden" id="resume-recording-button" type="button">Resume recording</button>
                 </div>
                 <p class="field-note" id="recording-screen-safety">The screen will be kept awake automatically while app recording is active.</p>
+                <p class="field-note">On iPhone, locking the phone or switching apps may stop microphone capture. Records will preserve audio saved before an interruption.</p>
               </section>
             </section>
 
@@ -550,6 +552,6 @@
 
   <script src="/shared/config.js"></script>
   <script type="module" src="/n3xra-records/lib/desktop-shell.js?v=20260731-screen-awake"></script>
-  <script type="module" src="/n3xra-records/recordings.js?v=20260731-screen-awake"></script>
+  <script type="module" src="/n3xra-records/recordings.js?v=20260801-resumable-recording"></script>
 </body>
 </html>

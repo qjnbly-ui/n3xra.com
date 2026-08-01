@@ -261,7 +261,7 @@ create table if not exists public.meeting_recordings (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint meeting_recordings_status_check
-    check (status in ('created', 'recording', 'recorded', 'uploading', 'uploaded', 'transcribing', 'ready', 'failed')),
+    check (status in ('created', 'recording', 'interrupted', 'recorded', 'uploading', 'finalizing', 'uploaded', 'transcribing', 'ready', 'failed')),
   constraint meeting_recordings_transcript_status_check
     check (transcript_status in ('not_started', 'queued', 'processing', 'ready', 'failed')),
   constraint meeting_recordings_ai_review_status_check
@@ -273,6 +273,51 @@ create table if not exists public.meeting_recordings (
   constraint meeting_recordings_duration_check
     check (duration_seconds is null or duration_seconds >= 0)
 );
+
+create table if not exists public.meeting_recording_chunks (
+  id uuid primary key default gen_random_uuid(),
+  meeting_recording_id uuid not null references public.meeting_recordings (id) on delete cascade,
+  organization_id uuid not null references public.organizations (id) on delete cascade,
+  created_by_user_id uuid not null references auth.users (id) on delete cascade,
+  capture_session_id uuid not null,
+  sequence_number integer not null check (sequence_number >= 0),
+  storage_path text not null unique,
+  mime_type text not null,
+  file_size bigint not null check (file_size > 0),
+  checksum_sha256 text,
+  captured_started_at timestamptz not null,
+  captured_ended_at timestamptz not null,
+  status text not null default 'uploaded' check (status in ('uploaded', 'assembled')),
+  expires_at timestamptz not null default (now() + interval '30 days'),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (meeting_recording_id, sequence_number),
+  check (captured_ended_at >= captured_started_at)
+);
+
+create table if not exists public.meeting_recording_interruptions (
+  id uuid primary key default gen_random_uuid(),
+  meeting_recording_id uuid not null references public.meeting_recordings (id) on delete cascade,
+  organization_id uuid not null references public.organizations (id) on delete cascade,
+  created_by_user_id uuid not null references auth.users (id) on delete cascade,
+  interruption_number integer not null check (interruption_number > 0),
+  reason text not null default 'microphone_interrupted',
+  started_at timestamptz not null,
+  ended_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (meeting_recording_id, interruption_number),
+  check (ended_at is null or ended_at >= started_at)
+);
+
+create index if not exists meeting_recording_chunks_recording_sequence_idx on public.meeting_recording_chunks (meeting_recording_id, sequence_number);
+create index if not exists meeting_recording_chunks_organization_id_idx on public.meeting_recording_chunks (organization_id);
+create index if not exists meeting_recording_chunks_created_by_user_id_idx on public.meeting_recording_chunks (created_by_user_id);
+create index if not exists meeting_recording_chunks_capture_session_id_idx on public.meeting_recording_chunks (capture_session_id);
+create index if not exists meeting_recording_chunks_expiry_idx on public.meeting_recording_chunks (expires_at);
+create index if not exists meeting_recording_interruptions_recording_idx on public.meeting_recording_interruptions (meeting_recording_id, interruption_number);
+create index if not exists meeting_recording_interruptions_organization_id_idx on public.meeting_recording_interruptions (organization_id);
+create index if not exists meeting_recording_interruptions_created_by_user_id_idx on public.meeting_recording_interruptions (created_by_user_id);
 
 -- Internal foundation for the optional Phone Meetings add-on. This only stores
 -- configuration and audit data; Twilio credentials remain server-side secrets.
@@ -1785,6 +1830,16 @@ create trigger meeting_recordings_set_updated_at
 before update on public.meeting_recordings
 for each row execute procedure public.set_updated_at();
 
+drop trigger if exists meeting_recording_chunks_set_updated_at on public.meeting_recording_chunks;
+create trigger meeting_recording_chunks_set_updated_at
+before update on public.meeting_recording_chunks
+for each row execute procedure public.set_updated_at();
+
+drop trigger if exists meeting_recording_interruptions_set_updated_at on public.meeting_recording_interruptions;
+create trigger meeting_recording_interruptions_set_updated_at
+before update on public.meeting_recording_interruptions
+for each row execute procedure public.set_updated_at();
+
 drop trigger if exists organization_phone_meeting_settings_set_updated_at on public.organization_phone_meeting_settings;
 create trigger organization_phone_meeting_settings_set_updated_at
 before update on public.organization_phone_meeting_settings
@@ -1873,6 +1928,8 @@ alter table public.documents enable row level security;
 alter table public.app_documents enable row level security;
 alter table public.document_share_links enable row level security;
 alter table public.meeting_recordings enable row level security;
+alter table public.meeting_recording_chunks enable row level security;
+alter table public.meeting_recording_interruptions enable row level security;
 alter table public.organization_phone_meeting_settings enable row level security;
 alter table public.phone_meeting_sessions enable row level security;
 alter table public.phone_meeting_usage_events enable row level security;
@@ -2209,6 +2266,30 @@ create policy "meeting_recordings_delete_policy"
 on public.meeting_recordings
 for delete
 using (public.can_manage_recordings(organization_id));
+
+create policy "meeting_recording_chunks_select_policy" on public.meeting_recording_chunks
+for select to authenticated using (public.can_view_organization(organization_id));
+create policy "meeting_recording_chunks_insert_policy" on public.meeting_recording_chunks
+for insert to authenticated with check (
+  created_by_user_id = (select auth.uid()) and public.can_manage_recordings(organization_id)
+  and exists (select 1 from public.meeting_recordings mr where mr.id = meeting_recording_id and mr.organization_id = organization_id)
+);
+create policy "meeting_recording_chunks_update_policy" on public.meeting_recording_chunks
+for update to authenticated using (public.can_manage_recordings(organization_id)) with check (public.can_manage_recordings(organization_id));
+create policy "meeting_recording_chunks_delete_policy" on public.meeting_recording_chunks
+for delete to authenticated using (public.can_manage_recordings(organization_id));
+
+create policy "meeting_recording_interruptions_select_policy" on public.meeting_recording_interruptions
+for select to authenticated using (public.can_view_organization(organization_id));
+create policy "meeting_recording_interruptions_insert_policy" on public.meeting_recording_interruptions
+for insert to authenticated with check (
+  created_by_user_id = (select auth.uid()) and public.can_manage_recordings(organization_id)
+  and exists (select 1 from public.meeting_recordings mr where mr.id = meeting_recording_id and mr.organization_id = organization_id)
+);
+create policy "meeting_recording_interruptions_update_policy" on public.meeting_recording_interruptions
+for update to authenticated using (public.can_manage_recordings(organization_id)) with check (public.can_manage_recordings(organization_id));
+create policy "meeting_recording_interruptions_delete_policy" on public.meeting_recording_interruptions
+for delete to authenticated using (public.can_manage_recordings(organization_id));
 
 drop policy if exists "organization_phone_meeting_settings_select_policy" on public.organization_phone_meeting_settings;
 create policy "organization_phone_meeting_settings_select_policy"
