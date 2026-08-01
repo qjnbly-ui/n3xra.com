@@ -96,6 +96,27 @@ const RECORDS_HELP_FALLBACK_GUIDES = Object.freeze({
   ]),
 });
 
+function getRecordsHelpFallbackGuideSteps(actionId, answer = "") {
+  if (actionId === "meeting.new") {
+    const normalizedAnswer = normalizeHelpActionText(answer);
+    const finalStep = /\bupload\b/.test(normalizedAnswer)
+      ? null
+      : /\bphone\b|\bcall\b/.test(normalizedAnswer)
+        ? { target: "Start phone meeting", narration: "Start phone meeting begins the phone workflow after the required details are ready." }
+        : { target: "Start app recording", narration: "Start app recording begins microphone capture in this browser." };
+    return [
+      { target: "Meeting title", narration: "Meeting title names the note and is required before audio can start." },
+      { target: "Document template", narration: "Document template chooses the note structure, including the blank-notes option." },
+      { target: "App recording", narration: "App recording captures audio directly in this browser." },
+      { target: "Phone call", narration: "Phone call attaches audio received through the N3XRA phone number." },
+      { target: "Both", narration: "Both keeps phone-call audio and browser audio together in one meeting note." },
+      { target: "Upload recording", narration: "Upload recording uses an audio file that was recorded somewhere else." },
+      ...(finalStep ? [finalStep] : []),
+    ];
+  }
+  return RECORDS_HELP_FALLBACK_GUIDES[actionId] || null;
+}
+
 const RECORDS_HELP_SAFE_PREVIEW_ANSWERS = Object.freeze({
   "account.access": [
     "I can show you how invite codes work without creating or sending anything.",
@@ -250,10 +271,11 @@ function inferRecordsWorkflowGuide(actionId, answer) {
     steps.push({ target: target.slice(0, 100), narration });
     if (steps.length === 7) break;
   }
-  if (RECORDS_HELP_FALLBACK_GUIDES[actionId]) {
-    steps.splice(0, steps.length, ...RECORDS_HELP_FALLBACK_GUIDES[actionId]);
+  const fallbackSteps = getRecordsHelpFallbackGuideSteps(actionId, answer);
+  if (fallbackSteps) {
+    steps.splice(0, steps.length, ...fallbackSteps);
   } else if (steps.length < 2) {
-    steps.splice(0, steps.length, ...(RECORDS_HELP_FALLBACK_GUIDES[actionId] || []));
+    steps.splice(0, steps.length, ...(fallbackSteps || []));
   }
   if (steps.length < 2) return null;
   return {
@@ -269,7 +291,7 @@ function inferRecordsWorkflowGuide(actionId, answer) {
 }
 
 function normalizeRecordsTaskGuide(guide, actionId, answer) {
-  const fallbackSteps = RECORDS_HELP_FALLBACK_GUIDES[actionId];
+  const fallbackSteps = getRecordsHelpFallbackGuideSteps(actionId, answer);
   const sourceSteps = fallbackSteps || (Array.isArray(guide?.steps) ? guide.steps : []);
   const seen = new Set();
   const steps = sourceSteps.filter((step) => {

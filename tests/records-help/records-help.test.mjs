@@ -151,6 +151,33 @@ test("preview-only task guides use safe copy and never present an execution butt
   assert.doesNotMatch(guide.steps.find((step) => step.target === "Create invite code").narration, /untouched/i);
 });
 
+test("meeting guides replace vague model targets with exact Meeting Notes controls", () => {
+  const modelGuide = {
+    buttonLabel: "Show me how",
+    route: "/n3xra-records/meeting-notes",
+    steps: [
+      { target: "Meeting title", narration: "Add a title." },
+      { target: "Recording", narration: "Choose recording." },
+    ],
+  };
+  const guide = recordsHelp.normalizeRecordsTaskGuide(
+    modelGuide,
+    "meeting.new",
+    "Prepare a phone-call meeting note without starting the call."
+  );
+
+  assert.deepEqual(guide.steps.map((step) => step.target), [
+    "Meeting title",
+    "Document template",
+    "App recording",
+    "Phone call",
+    "Both",
+    "Upload recording",
+    "Start phone meeting",
+  ]);
+  assert.doesNotMatch(guide.steps.map((step) => step.target).join(" "), /\bRecording\b/);
+});
+
 test("metadata-only responses retain their action and receive visible fallback copy", () => {
   const metadataOnly = recordsHelp.extractHelpActions("[[action:documents.new]]");
 
