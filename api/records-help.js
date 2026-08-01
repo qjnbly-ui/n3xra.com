@@ -61,12 +61,82 @@ const RECORDS_GUIDE_ROUTES = new Set([
   "/n3xra-records/account/?view=support",
 ]);
 
+const RECORDS_ACCOUNT_GUIDE_DESTINATIONS = Object.freeze({
+  "/n3xra-records/account/?view=profile": "Profile",
+  "/n3xra-records/account/?view=library": "Library settings",
+  "/n3xra-records/account/?view=templates": "Templates",
+  "/n3xra-records/account/?view=phone": "Phone Meetings",
+  "/n3xra-records/account/?view=ai": "AI settings",
+  "/n3xra-records/account/?view=users": "Users",
+  "/n3xra-records/account/?view=contacts": "Contacts",
+  "/n3xra-records/account/?view=access": "Invites & access",
+  "/n3xra-records/account/?view=storage": "Storage",
+  "/n3xra-records/account/?view=billing": "Billing",
+  "/n3xra-records/account/?view=activity": "Audit activity",
+  "/n3xra-records/account/?view=support": "N3XRA support access",
+});
+const RECORDS_ACCOUNT_GUIDE_LABELS = new Set(Object.values(RECORDS_ACCOUNT_GUIDE_DESTINATIONS));
+
+function isExplicitRecordsTourRequest(question) {
+  return /\b(?:guided?\s+tour|give\s+me\s+(?:a\s+)?tour|walk\s+me\s+through|guide\s+me\s+through|show\s+me\s+(?:every|each|all)\s+selections?|step[- ]by[- ]step\s+(?:tour|guide))\b/i
+    .test(String(question || ""));
+}
+
+function hasRecordsGuideAction(actions) {
+  return Array.isArray(actions) && actions.some((action) => action?.id === "guided.path" && action?.guide);
+}
+
+function needsRecordsTourRepair(question, result) {
+  return isExplicitRecordsTourRequest(question) && !hasRecordsGuideAction(result?.actions);
+}
+
+function buildRecordsTourRepairInstruction() {
+  return [
+    "The user explicitly requested an interactive guided tour, but your previous answer did not include a valid guide token.",
+    "Return a complete corrected answer. Keep it concise and use only verified labels and routes from the system instructions.",
+    "The final non-empty line must contain exactly one valid [[guide:...]] token with 2 to 7 safe steps. Do not put the token inside a numbered-list sentence.",
+    "Do not return prose-only directions. Do not mention this correction or the hidden token.",
+  ].join(" ");
+}
+
+function combineRecordsAiUsage(...items) {
+  return items.reduce((total, usage) => ({
+    promptTokens: total.promptTokens + Math.max(0, Number(usage?.promptTokens || 0)),
+    completionTokens: total.completionTokens + Math.max(0, Number(usage?.completionTokens || 0)),
+    totalTokens: total.totalTokens + Math.max(0, Number(usage?.totalTokens || 0)),
+  }), { promptTokens: 0, completionTokens: 0, totalTokens: 0 });
+}
+
+async function requestRecordsHelpCompletion(apiKey, messages) {
+  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: RECORDS_HELP_MODEL,
+      temperature: 0,
+      max_tokens: RECORDS_HELP_MAX_TOKENS,
+      messages,
+    }),
+  });
+  const data = await response.json().catch(() => ({}));
+  return {
+    ok: response.ok,
+    data,
+    rawAnswer: String(data?.choices?.[0]?.message?.content || "").trim(),
+    error: String(data?.error?.message || data?.message || "Unable to reach Records AI."),
+  };
+}
+
 function parseRecordsGuideToken(rawToken) {
   const [rawButtonLabel, rawRoute, rawSteps] = String(rawToken || "").split("|");
   const buttonLabel = String(rawButtonLabel || "").trim().slice(0, 60);
   const route = String(rawRoute || "").trim();
   if (!buttonLabel || !RECORDS_GUIDE_ROUTES.has(route) || !rawSteps) return null;
 
+  const destinationLabel = RECORDS_ACCOUNT_GUIDE_DESTINATIONS[route] || "";
   const steps = String(rawSteps)
     .split(">")
     .slice(0, 7)
@@ -76,7 +146,7 @@ function parseRecordsGuideToken(rawToken) {
       const narration = String(separator === -1 ? "" : rawStep.slice(separator + 1)).trim().slice(0, 220);
       return target ? { target, narration } : null;
     })
-    .filter(Boolean);
+    .filter((step) => step && (!destinationLabel || !RECORDS_ACCOUNT_GUIDE_LABELS.has(step.target) || step.target === destinationLabel));
   if (!steps.length) return null;
   return { buttonLabel, route, steps };
 }
@@ -210,6 +280,16 @@ function buildSystemPrompt(user, appContext) {
       : displayMode === "mobile"
         ? "header menu drawer"
         : "unknown";
+  const manageLibraryState = appContext?.manageLibraryExpanded === true
+    ? "expanded"
+    : appContext?.manageLibraryExpanded === false
+      ? "collapsed"
+      : "unknown";
+  const mobileMenuState = appContext?.mobileMenuOpen === true
+    ? "open"
+    : appContext?.mobileMenuOpen === false
+      ? "closed"
+      : "unknown";
   const helpKnowledge = loadHelpKnowledge();
 
   return [
@@ -240,8 +320,6 @@ function buildSystemPrompt(user, appContext) {
     "Use Markdown headings only when the answer truly needs more than one section. Never output dense walls of text.",
     "Do not use tables unless the user asks for a comparison or the information has at least 3 items with the same fields.",
     "Use the current page context when it helps explain the shortest path forward.",
-    "Use the shortest verified navigation path. Items inside the same expanded navigation group are sibling destinations, not prerequisite steps. Never open one sibling destination before another unless the documented workflow explicitly requires it.",
-    "After opening Manage library, choose the requested destination directly. In particular, do not insert Library settings before Phone Meetings, Templates, AI settings, Users, Contacts, Invites & access, Storage, Billing, Audit activity, or N3XRA support access.",
     "Tailor navigation directions to the current display layout in Current user context.",
     "On desktop, direct the user to the persistent left navigation and the expandable **Manage library** section. Do not tell a desktop user to open the mobile menu.",
     "On mobile, direct the user to open the menu button in the header first, then choose the destination. Do not tell a mobile user to use a left sidebar.",
@@ -268,6 +346,8 @@ function buildSystemPrompt(user, appContext) {
     `Current display: ${displayMode}`,
     `Viewport: ${viewportWidth} x ${viewportHeight}`,
     `Navigation pattern: ${navigationPattern}`,
+    `Manage library navigation: ${manageLibraryState}`,
+    `Mobile menu: ${mobileMenuState}`,
     "",
     "Use this current Records product knowledge as the source of truth for navigation names, workflow advice, and button labels:",
     helpKnowledge || "No external product knowledge file was loaded. Answer from the general Records instructions above.",
@@ -316,30 +396,38 @@ module.exports = async function handler(req, res) {
       ...history,
       { role: "user", content: question },
     ];
-    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${groqApiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: RECORDS_HELP_MODEL,
-        temperature: 0,
-        max_tokens: RECORDS_HELP_MAX_TOKENS,
-        messages,
-      }),
-    });
+    const initialCompletion = await requestRecordsHelpCompletion(groqApiKey, messages);
+    if (!initialCompletion.ok) return res.status(502).json({ error: initialCompletion.error });
 
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      return res.status(502).json({ error: String(data?.error?.message || data?.message || "Unable to reach Records AI.") });
+    let result = extractHelpActions(initialCompletion.rawAnswer);
+    const usageParts = [normalizeGroqUsage(
+      initialCompletion.data,
+      messages.map((item) => item.content).join("\n\n"),
+      initialCompletion.rawAnswer
+    )];
+
+    if (needsRecordsTourRepair(question, result)) {
+      const repairMessages = [
+        ...messages,
+        { role: "assistant", content: initialCompletion.rawAnswer },
+        { role: "user", content: buildRecordsTourRepairInstruction() },
+      ];
+      const repairedCompletion = await requestRecordsHelpCompletion(groqApiKey, repairMessages);
+      if (!repairedCompletion.ok) return res.status(502).json({ error: repairedCompletion.error });
+      result = extractHelpActions(repairedCompletion.rawAnswer);
+      usageParts.push(normalizeGroqUsage(
+        repairedCompletion.data,
+        repairMessages.map((item) => item.content).join("\n\n"),
+        repairedCompletion.rawAnswer
+      ));
     }
 
-    const rawAnswer = String(data?.choices?.[0]?.message?.content || "").trim();
-    const { answer, actions } = extractHelpActions(rawAnswer);
-    if (!answer) return res.status(502).json({ error: "Records AI returned an empty answer." });
-    const fallbackPrompt = messages.map((item) => item.content).join("\n\n");
-    const usage = normalizeGroqUsage(data, fallbackPrompt, answer);
+    const responseError = !result.answer
+      ? "Records AI returned an empty answer."
+      : needsRecordsTourRepair(question, result)
+        ? "Records AI could not prepare a reliable guided tour. Please try again."
+        : "";
+    const usage = combineRecordsAiUsage(...usageParts);
     const recorded = await recordRecordsAiUsage({
       usageContext,
       user,
@@ -348,7 +436,13 @@ module.exports = async function handler(req, res) {
       usage,
     });
 
-    return res.status(200).json({ answer, actions, usage: getClientUsageSummary(recorded?.usage || usageContext.usage) });
+    if (responseError) return res.status(502).json({ error: responseError });
+
+    return res.status(200).json({
+      answer: result.answer,
+      actions: result.actions,
+      usage: getClientUsageSummary(recorded?.usage || usageContext.usage),
+    });
   } catch (error) {
     if (sendRecordsAiUsageError(res, error, "Records AI usage check failed.")) return;
     return res.status(500).json({ error: "Server error." });
@@ -362,3 +456,7 @@ module.exports.RECORDS_HELP_MAX_TOKENS = RECORDS_HELP_MAX_TOKENS;
 module.exports.RECORDS_HELP_ACTIONS = RECORDS_HELP_ACTIONS;
 module.exports.extractHelpActions = extractHelpActions;
 module.exports.parseRecordsGuideToken = parseRecordsGuideToken;
+module.exports.isExplicitRecordsTourRequest = isExplicitRecordsTourRequest;
+module.exports.needsRecordsTourRepair = needsRecordsTourRepair;
+module.exports.buildRecordsTourRepairInstruction = buildRecordsTourRepairInstruction;
+module.exports.combineRecordsAiUsage = combineRecordsAiUsage;

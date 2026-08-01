@@ -1086,11 +1086,17 @@ function getRecordsAiDisplayContext() {
     typeof window.matchMedia === "function"
       ? window.matchMedia(`(min-width: ${DESKTOP_SHELL_BREAKPOINT}px)`).matches
       : viewportWidth >= DESKTOP_SHELL_BREAKPOINT;
+  const manageLibraryToggle = document.querySelector("[data-records-manage-toggle]");
+  const mobileMenu = document.getElementById("mobile-menu");
 
   return {
     displayMode: isDesktop ? "desktop" : "mobile",
     viewportWidth,
     viewportHeight,
+    manageLibraryExpanded: manageLibraryToggle
+      ? manageLibraryToggle.getAttribute("aria-expanded") === "true"
+      : null,
+    mobileMenuOpen: mobileMenu ? !mobileMenu.classList.contains("hidden") : null,
   };
 }
 

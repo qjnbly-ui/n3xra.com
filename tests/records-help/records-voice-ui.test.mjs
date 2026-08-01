@@ -36,6 +36,8 @@ test("Records AI actions demonstrate the navigation path before the destination"
   assert.match(shell, /n3xra-records-guide-voice/);
   assert.match(shell, /fallbackRecordsAiGuideSpeech/);
   assert.match(styles, /\.records-ai-guide-note/);
+  assert.match(shell, /manageLibraryExpanded/);
+  assert.match(shell, /mobileMenuOpen/);
 });
 
 test("voice input records, transcribes, and submits the spoken question", async () => {
