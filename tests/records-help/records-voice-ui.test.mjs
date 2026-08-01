@@ -20,11 +20,18 @@ test("Records AI actions demonstrate the navigation path before the destination"
   const styles = await readFile(new URL("../../n3xra-records/styles.css", import.meta.url), "utf8");
 
   assert.match(shell, /Open Manage library/);
-  assert.match(shell, /Select \$\{getRecordsAiSelectionLabel/);
+  assert.match(shell, /Then, choose \$\{selectionLabel\}/);
   assert.match(shell, /First selection/);
   assert.match(shell, /You’re here/);
   assert.match(shell, /activationSelector: "#search-mode-ai"/);
+  assert.match(shell, /playRecordsAiGuidePlan/);
+  assert.match(shell, /findRecordsAiGuideTarget/);
+  assert.match(shell, /safelyRevealRecordsAiGuideTarget/);
+  assert.match(shell, /RECORDS_AI_GUIDE_ROUTES/);
   assert.match(shell, /narrateRecordsAiGuide\(instruction\)/);
+  assert.match(shell, /You’ve reached \$\{getRecordsAiSpokenDestination\(action\)\}/);
+  assert.doesNotMatch(shell, /You’re here\. \$\{action\.label\}/);
+  assert.doesNotMatch(shell, /narrateRecordsAiGuide\(`Opening/);
   assert.match(shell, /n3xra-records-guide-voice/);
   assert.match(shell, /fallbackRecordsAiGuideSpeech/);
   assert.match(styles, /\.records-ai-guide-note/);

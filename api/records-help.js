@@ -42,9 +42,54 @@ const RECORDS_HELP_ACTIONS = Object.freeze({
   "account.support": "Open support access",
 });
 
+const RECORDS_GUIDE_ROUTES = new Set([
+  "/n3xra-records/library",
+  "/n3xra-records/meeting-notes",
+  "/n3xra-records/documents.html",
+  "/n3xra-records/messages.html",
+  "/n3xra-records/account/?view=profile",
+  "/n3xra-records/account/?view=library",
+  "/n3xra-records/account/?view=templates",
+  "/n3xra-records/account/?view=phone",
+  "/n3xra-records/account/?view=ai",
+  "/n3xra-records/account/?view=users",
+  "/n3xra-records/account/?view=contacts",
+  "/n3xra-records/account/?view=access",
+  "/n3xra-records/account/?view=storage",
+  "/n3xra-records/account/?view=billing",
+  "/n3xra-records/account/?view=activity",
+  "/n3xra-records/account/?view=support",
+]);
+
+function parseRecordsGuideToken(rawToken) {
+  const [rawButtonLabel, rawRoute, rawSteps] = String(rawToken || "").split("|");
+  const buttonLabel = String(rawButtonLabel || "").trim().slice(0, 60);
+  const route = String(rawRoute || "").trim();
+  if (!buttonLabel || !RECORDS_GUIDE_ROUTES.has(route) || !rawSteps) return null;
+
+  const steps = String(rawSteps)
+    .split(">")
+    .slice(0, 7)
+    .map((rawStep) => {
+      const separator = rawStep.indexOf("~");
+      const target = String(separator === -1 ? rawStep : rawStep.slice(0, separator)).trim().slice(0, 100);
+      const narration = String(separator === -1 ? "" : rawStep.slice(separator + 1)).trim().slice(0, 220);
+      return target ? { target, narration } : null;
+    })
+    .filter(Boolean);
+  if (!steps.length) return null;
+  return { buttonLabel, route, steps };
+}
+
 function extractHelpActions(rawAnswer) {
   const requested = [];
+  const guides = [];
   const answer = String(rawAnswer || "")
+    .replace(/\[\[guide:([^\]\n]+)\]\]/gi, (_token, rawGuide) => {
+      const guide = parseRecordsGuideToken(rawGuide);
+      if (guide && guides.length < 1) guides.push(guide);
+      return "";
+    })
     .replace(/\[\[action:([a-z0-9._-]+)\]\]/gi, (_token, rawId) => {
       const id = String(rawId || "").toLowerCase();
       if (RECORDS_HELP_ACTIONS[id] && !requested.includes(id) && requested.length < 2) requested.push(id);
@@ -56,7 +101,10 @@ function extractHelpActions(rawAnswer) {
 
   return {
     answer,
-    actions: requested.map((id) => ({ id, label: RECORDS_HELP_ACTIONS[id] })),
+    actions: [
+      ...guides.map((guide) => ({ id: "guided.path", label: guide.buttonLabel, guide })),
+      ...requested.map((id) => ({ id, label: RECORDS_HELP_ACTIONS[id] })),
+    ].slice(0, 2),
   };
 }
 
@@ -197,8 +245,11 @@ function buildSystemPrompt(user, appContext) {
     "On mobile, direct the user to open the menu button in the header first, then choose the destination. Do not tell a mobile user to use a left sidebar.",
     "Give directions for the current display first. Mention the other layout only if the user asks how desktop and mobile differ.",
     "You cannot make data changes, submit forms, upload files, send messages, or change settings.",
-    "You can offer safe navigation and page-highlighting buttons. When one would help, append one or at most two action tokens at the very end of the answer, each on its own line. The app removes these tokens and renders buttons.",
-    "Only use an action token from this exact allowlist: [[action:library.search]], [[action:library.ai_search]], [[action:library.upload]], [[action:meeting.new]], [[action:documents.new]], [[action:messages.compose]], [[action:account.profile]], [[action:account.library]], [[action:account.templates]], [[action:account.phone]], [[action:account.ai]], [[action:account.users]], [[action:account.contacts]], [[action:account.access]], [[action:account.storage]], [[action:account.billing]], [[action:account.activity]], [[action:account.support]].",
+    "You can offer safe navigation and page-highlighting buttons. For a simple destination, append an allowlisted action token. For a multi-step workflow, append one generic guide token. Put tokens at the very end of the answer, each on its own line; the app removes them and renders buttons.",
+    "Simple action allowlist: [[action:library.search]], [[action:library.ai_search]], [[action:library.upload]], [[action:meeting.new]], [[action:documents.new]], [[action:messages.compose]], [[action:account.profile]], [[action:account.library]], [[action:account.templates]], [[action:account.phone]], [[action:account.ai]], [[action:account.users]], [[action:account.contacts]], [[action:account.access]], [[action:account.storage]], [[action:account.billing]], [[action:account.activity]], [[action:account.support]].",
+    "Generic guide format: [[guide:Button label|SAFE_ROUTE|Exact UI label~Natural spoken instruction>Exact UI label~Natural spoken instruction]]. Use 2 to 7 verified interface labels in the order the user would encounter them.",
+    "SAFE_ROUTE must be one of: /n3xra-records/library, /n3xra-records/meeting-notes, /n3xra-records/documents.html, /n3xra-records/messages.html, or /n3xra-records/account/?view= followed by profile, library, templates, phone, ai, users, contacts, access, storage, billing, activity, or support.",
+    "Guide targets must be exact visible interface labels from product knowledge. Narration should explain what each highlighted choice means in the user's workflow, not merely read a button label. The guide may reveal expandable sections but never submits forms, starts recordings or calls, sends messages, uploads files, changes settings, or activates destructive controls.",
     "Use an action only when it directly advances the user's request and their verified role/plan allows the destination. Do not describe an action token or invent another one.",
     "Say that the user can use the offered button; never claim that you already opened, clicked, highlighted, or completed anything.",
     "When a user wants an action completed, offer the nearest safe navigation/highlight action when available, then explain any remaining control labels they must use themselves.",
@@ -308,3 +359,4 @@ module.exports.loadHelpKnowledge = loadHelpKnowledge;
 module.exports.RECORDS_HELP_MAX_TOKENS = RECORDS_HELP_MAX_TOKENS;
 module.exports.RECORDS_HELP_ACTIONS = RECORDS_HELP_ACTIONS;
 module.exports.extractHelpActions = extractHelpActions;
+module.exports.parseRecordsGuideToken = parseRecordsGuideToken;

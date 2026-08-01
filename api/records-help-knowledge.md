@@ -84,6 +84,9 @@ Ask Records AI answers product and workflow questions about N3XRA Records. It is
 ## Meeting Notes
 - Meeting Notes requires Organization. Account Admin and Editor can create and change meeting notes. Viewer can open the page but cannot create or change them.
 - Select **New meeting note**, enter **Meeting title**, and choose a **Document template** or **No template - blank notes**.
+- Creating a phone meeting starts in **Meeting Notes** → **New meeting note**. Do not send the user to **Manage library** → **Phone Meetings** unless they are asking about configuration, calling permissions, notice, retention, or usage settings.
+- In a new meeting note, **App recording** is the default capture method. Choose **Phone call** to attach only the phone call, or **Both** to keep phone and app audio with the same meeting note.
+- After choosing **Phone call**, complete **Meeting title** and **Document template**, then select **Start phone meeting**. The phone option is available only when Phone Meetings is active for the library and the user's role is allowed to start calls.
 - A title and template choice are required before saving, starting an app recording, or uploading audio.
 - A selected template fills **Notetaker notes** with its structure. **No template - blank notes** starts empty.
 - Type notes in **Notetaker notes**. **Save meeting note** can save a notes-only meeting note without any audio.

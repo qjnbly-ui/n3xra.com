@@ -3,6 +3,25 @@ import { getStoredActiveOrganizationId } from "/shared/lib/orgs.js";
 
 const DESKTOP_SHELL_BREAKPOINT = 981;
 const RECORDS_AI_HISTORY_LIMIT = 8;
+const RECORDS_AI_PENDING_GUIDE_KEY = "n3xra-records-pending-guide";
+const RECORDS_AI_GUIDE_ROUTES = new Set([
+  "/n3xra-records/library",
+  "/n3xra-records/meeting-notes",
+  "/n3xra-records/documents.html",
+  "/n3xra-records/messages.html",
+  "/n3xra-records/account/?view=profile",
+  "/n3xra-records/account/?view=library",
+  "/n3xra-records/account/?view=templates",
+  "/n3xra-records/account/?view=phone",
+  "/n3xra-records/account/?view=ai",
+  "/n3xra-records/account/?view=users",
+  "/n3xra-records/account/?view=contacts",
+  "/n3xra-records/account/?view=access",
+  "/n3xra-records/account/?view=storage",
+  "/n3xra-records/account/?view=billing",
+  "/n3xra-records/account/?view=activity",
+  "/n3xra-records/account/?view=support",
+]);
 
 let recordsAiSupabase = null;
 let recordsAiHistory = [];
@@ -348,11 +367,18 @@ function appendRecordsAiMessage(container, role, content, actions = []) {
     const actionRow = document.createElement("div");
     actionRow.className = "records-ai-message-actions";
     actions.slice(0, 2).forEach((action) => {
-      if (!RECORDS_AI_ACTIONS[action?.id]) return;
+      const guide = normalizeRecordsAiGuide(action?.guide);
+      if (!RECORDS_AI_ACTIONS[action?.id] && !guide) return;
       const button = document.createElement("button");
       button.type = "button";
-      button.dataset.recordsAiAction = action.id;
-      button.textContent = RECORDS_AI_ACTIONS[action.id].label;
+      if (guide) {
+        button.dataset.recordsAiGuide = "";
+        button.recordsAiGuidePlan = guide;
+        button.textContent = guide.buttonLabel;
+      } else {
+        button.dataset.recordsAiAction = action.id;
+        button.textContent = RECORDS_AI_ACTIONS[action.id].label;
+      }
       actionRow.append(button);
     });
     if (actionRow.childElementCount) message.append(actionRow);
@@ -747,8 +773,8 @@ function spotlightRecordsAiTarget(actionId, attempt = 0, activate = true) {
   }
 
   if (activationTarget) {
-    const instruction = `Select ${action.activationLabel}`;
-    markRecordsAiGuideTarget(activationTarget, instruction, "Next selection");
+    const instruction = `Now, choose ${action.activationLabel}.`;
+    markRecordsAiGuideTarget(activationTarget, `Choose ${action.activationLabel}`, "Next selection");
     void (async () => {
       await Promise.all([
         new Promise((resolve) => window.setTimeout(resolve, 1250)),
@@ -762,7 +788,7 @@ function spotlightRecordsAiTarget(actionId, attempt = 0, activate = true) {
   }
 
   markRecordsAiGuideTarget(target, action.label, "You’re here");
-  void narrateRecordsAiGuide(`You’re here. ${action.label}.`);
+  void narrateRecordsAiGuide(`You’ve reached ${getRecordsAiSpokenDestination(action)}.`);
   window.setTimeout(() => target.classList.remove("records-ai-spotlight"), 4200);
   hideRecordsAiGuideNote(4200);
   if (typeof target.focus === "function") target.focus({ preventScroll: true });
@@ -795,11 +821,167 @@ function getRecordsAiNavigationTarget(action, destination) {
 
 function getRecordsAiSelectionLabel(action, destination) {
   const view = destination.searchParams.get("view");
-  if (view) return action.label.replace(/^(Open|Show)\s+/i, "");
+  if (view) {
+    const viewLabels = {
+      profile: "Profile",
+      library: "Library settings",
+      templates: "Templates",
+      phone: "Phone Meetings",
+      ai: "AI settings",
+      users: "Users",
+      contacts: "Contacts",
+      access: "Invites & access",
+      storage: "Storage",
+      billing: "Billing",
+      activity: "Audit activity",
+      support: "N3XRA support access",
+    };
+    return viewLabels[view] || action.label.replace(/^(Open|Show)\s+/i, "");
+  }
   if (destination.pathname.includes("meeting-notes")) return "Meeting Notes";
   if (destination.pathname.includes("documents")) return "Document Builder";
   if (destination.pathname.includes("messages")) return "Communication";
   return "Library";
+}
+
+function getRecordsAiSpokenDestination(action) {
+  return String(action?.label || "this area")
+    .replace(/^(Open|Show)\s+/i, "")
+    .replace(/^document upload$/i, "Document upload")
+    .replace(/^new meeting note$/i, "New meeting note");
+}
+
+function normalizeRecordsAiGuide(input) {
+  if (!input || typeof input !== "object") return null;
+  const buttonLabel = String(input.buttonLabel || "").trim().slice(0, 60);
+  const route = String(input.route || "").trim();
+  const steps = Array.isArray(input.steps)
+    ? input.steps.slice(0, 7).map((step) => ({
+        target: String(step?.target || "").trim().slice(0, 100),
+        narration: String(step?.narration || "").trim().slice(0, 220),
+      })).filter((step) => step.target)
+    : [];
+  if (!buttonLabel || !RECORDS_AI_GUIDE_ROUTES.has(route) || !steps.length) return null;
+  return { buttonLabel, route, steps };
+}
+
+function normalizeRecordsAiTargetText(value) {
+  return String(value || "")
+    .replace(/\s+/g, " ")
+    .replace(/\s+\*/g, "")
+    .trim()
+    .toLowerCase();
+}
+
+function findRecordsAiGuideTarget(label) {
+  const expected = normalizeRecordsAiTargetText(label);
+  if (!expected) return null;
+  const candidates = Array.from(document.querySelectorAll(
+    "button, a, label, legend, [role='button'], [role='tab'], h1, h2, h3, h4, .field-title"
+  )).filter((element) => !element.closest("[data-records-ai-layer]") && isRecordsAiElementVisible(element));
+  return candidates.find((element) => normalizeRecordsAiTargetText(element.textContent) === expected)
+    || candidates.find((element) => normalizeRecordsAiTargetText(element.textContent).startsWith(expected))
+    || null;
+}
+
+function safelyRevealRecordsAiGuideTarget(target) {
+  if (!target) return;
+  const radio = target.matches("input[type='radio']")
+    ? target
+    : target.querySelector?.("input[type='radio']");
+  if (radio && !radio.disabled && !radio.checked) {
+    radio.click();
+    return;
+  }
+  const role = target.getAttribute("role");
+  if (role === "tab" && target.getAttribute("aria-selected") !== "true") {
+    target.click();
+    return;
+  }
+  if (
+    target.matches("button, [role='button']")
+    && target.hasAttribute("aria-controls")
+    && target.getAttribute("aria-expanded") === "false"
+    && !target.disabled
+  ) target.click();
+}
+
+async function playRecordsAiGuidePlan(input) {
+  const guide = normalizeRecordsAiGuide(input);
+  if (!guide) return;
+  for (let index = 0; index < guide.steps.length; index += 1) {
+    const step = guide.steps[index];
+    let target = null;
+    for (let attempt = 0; attempt < 24 && !target; attempt += 1) {
+      target = findRecordsAiGuideTarget(step.target);
+      if (!target) await new Promise((resolve) => window.setTimeout(resolve, 125));
+    }
+    if (!target) {
+      showRecordsAiGuideNote(`I couldn’t find “${step.target}” on this page.`, "Guide paused");
+      void narrateRecordsAiGuide(`I couldn't find ${step.target} on this page.`);
+      hideRecordsAiGuideNote(5000);
+      return;
+    }
+
+    const isLast = index === guide.steps.length - 1;
+    const spoken = step.narration || `${isLast ? "Finally" : "Next"}, find ${step.target}.`;
+    markRecordsAiGuideTarget(target, step.target, isLast ? "Final step" : `Step ${index + 1} of ${guide.steps.length}`);
+    await Promise.all([
+      new Promise((resolve) => window.setTimeout(resolve, isLast ? 1500 : 1200)),
+      narrateRecordsAiGuide(spoken),
+    ]);
+    if (!isLast) {
+      safelyRevealRecordsAiGuideTarget(target);
+      target.classList.remove("records-ai-spotlight");
+      await new Promise((resolve) => window.setTimeout(resolve, 300));
+    } else {
+      window.setTimeout(() => target.classList.remove("records-ai-spotlight"), 5000);
+      hideRecordsAiGuideNote(5000);
+    }
+  }
+}
+
+async function runRecordsAiGuidePlan(input) {
+  const guide = normalizeRecordsAiGuide(input);
+  if (!guide) return;
+  const destination = new URL(guide.route, window.location.origin);
+  const currentPath = normalizePathname(window.location.pathname);
+  const destinationPath = normalizePathname(destination.pathname);
+  const requiredView = destination.searchParams.get("view");
+  const currentView = new URLSearchParams(window.location.search).get("view");
+
+  closeRecordsAiAssistant();
+  if (currentPath === destinationPath && (!requiredView || requiredView === currentView)) {
+    window.setTimeout(() => void playRecordsAiGuidePlan(guide), 260);
+    return;
+  }
+
+  await new Promise((resolve) => window.setTimeout(resolve, 260));
+  await guideRecordsAiNavigation({ label: guide.buttonLabel }, destination);
+  try {
+    window.sessionStorage.setItem(RECORDS_AI_PENDING_GUIDE_KEY, JSON.stringify(guide));
+  } catch {
+    showRecordsAiGuideNote("The guided path could not continue across pages in this browser.", "Guide paused");
+    hideRecordsAiGuideNote(4500);
+    return;
+  }
+  destination.searchParams.set("recordsAiGuide", "1");
+  window.location.assign(`${destination.pathname}${destination.search}`);
+}
+
+function applyPendingRecordsAiGuide() {
+  const url = new URL(window.location.href);
+  if (url.searchParams.get("recordsAiGuide") !== "1") return;
+  url.searchParams.delete("recordsAiGuide");
+  window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+  let guide = null;
+  try {
+    guide = JSON.parse(window.sessionStorage.getItem(RECORDS_AI_PENDING_GUIDE_KEY) || "null");
+    window.sessionStorage.removeItem(RECORDS_AI_PENDING_GUIDE_KEY);
+  } catch {
+    guide = null;
+  }
+  if (normalizeRecordsAiGuide(guide)) window.setTimeout(() => void playRecordsAiGuidePlan(guide), 250);
 }
 
 async function guideRecordsAiNavigation(action, destination) {
@@ -809,8 +991,8 @@ async function guideRecordsAiNavigation(action, destination) {
   if (requiredView && isDesktop) {
     const manageToggle = document.querySelector("[data-records-manage-toggle]");
     if (manageToggle?.getAttribute("aria-expanded") !== "true") {
-      const instruction = "Open Manage library";
-      markRecordsAiGuideTarget(manageToggle, instruction, "First selection");
+      const instruction = "First, open Manage library.";
+      markRecordsAiGuideTarget(manageToggle, "Open Manage library", "First selection");
       await Promise.all([
         new Promise((resolve) => window.setTimeout(resolve, 1050)),
         narrateRecordsAiGuide(instruction),
@@ -823,8 +1005,8 @@ async function guideRecordsAiNavigation(action, destination) {
     const mobileMenu = document.getElementById("mobile-menu");
     const menuToggle = document.getElementById("mobile-menu-toggle");
     if (mobileMenu?.classList.contains("hidden") && menuToggle) {
-      const instruction = "Open the Records menu";
-      markRecordsAiGuideTarget(menuToggle, instruction, "First selection");
+      const instruction = "First, open the Records menu.";
+      markRecordsAiGuideTarget(menuToggle, "Open the Records menu", "First selection");
       await Promise.all([
         new Promise((resolve) => window.setTimeout(resolve, 1050)),
         narrateRecordsAiGuide(instruction),
@@ -837,10 +1019,11 @@ async function guideRecordsAiNavigation(action, destination) {
 
   const navigationTarget = getRecordsAiNavigationTarget(action, destination);
   if (navigationTarget && isRecordsAiElementVisible(navigationTarget)) {
-    const instruction = `Select ${getRecordsAiSelectionLabel(action, destination)}`;
+    const selectionLabel = getRecordsAiSelectionLabel(action, destination);
+    const instruction = `Then, choose ${selectionLabel}.`;
     markRecordsAiGuideTarget(
       navigationTarget,
-      instruction,
+      `Choose ${selectionLabel}`,
       requiredView && isDesktop ? "Second selection" : "Next selection"
     );
     await Promise.all([
@@ -872,7 +1055,6 @@ async function runRecordsAiAction(actionId) {
   await guideRecordsAiNavigation(action, destination);
   const openingLabel = action.label.replace(/^(Open|Show)\s+/i, "");
   showRecordsAiGuideNote(`Opening ${openingLabel}…`, "Moving to the destination");
-  await narrateRecordsAiGuide(`Opening ${openingLabel}`);
   destination.searchParams.set("recordsAiFocus", actionId);
   window.location.assign(`${destination.pathname}${destination.search}`);
 }
@@ -1083,10 +1265,14 @@ function installRecordsAiAssistant() {
     });
   });
   layer.querySelector("[data-records-ai-messages]")?.addEventListener("click", (event) => {
-    const button = event.target.closest("[data-records-ai-action]");
+    const button = event.target.closest("[data-records-ai-action], [data-records-ai-guide]");
     if (button && !button.disabled) {
       button.disabled = true;
-      void runRecordsAiAction(button.dataset.recordsAiAction || "");
+      if (button.hasAttribute("data-records-ai-guide")) {
+        void runRecordsAiGuidePlan(button.recordsAiGuidePlan);
+      } else {
+        void runRecordsAiAction(button.dataset.recordsAiAction || "");
+      }
     }
   });
   document.addEventListener("keydown", (event) => {
@@ -1123,6 +1309,7 @@ function installDesktopShell() {
   installMobileDocumentBuilderLink(activePage);
   installRecordsAiAssistant();
   applyPendingRecordsAiSpotlight();
+  applyPendingRecordsAiGuide();
 
   if (body.classList.contains("records-account-page") || shell.querySelector(":scope > .records-desktop-frame")) return;
 

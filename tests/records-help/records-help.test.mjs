@@ -39,6 +39,8 @@ test("the help prompt explicitly prohibits unverified interface guesses", () => 
   assert.match(prompt, /Never call it a header-right Profile link/);
   assert.match(prompt, /safe navigation and page-highlighting buttons/);
   assert.match(prompt, /\[\[action:library\.search\]\]/);
+  assert.match(prompt, /Generic guide format/);
+  assert.match(prompt, /Use 2 to 7 verified interface labels/);
 });
 
 test("help actions are extracted from an allowlist and removed from answer copy", () => {
@@ -48,6 +50,28 @@ test("help actions are extracted from an allowlist and removed from answer copy"
 
   assert.equal(result.answer, "Use the button to open the right area.");
   assert.deepEqual(result.actions, [{ id: "account.ai", label: "Open AI settings" }]);
+});
+
+test("generic guides compose verified UI labels without workflow-specific code", () => {
+  const result = recordsHelp.extractHelpActions(
+    "I’ll show you the path.\n[[guide:Show the workflow|/n3xra-records/meeting-notes|New meeting note~First, choose New meeting note.>Phone call~Choose Phone call.>Start phone meeting~Finish here.]]"
+  );
+
+  assert.equal(result.answer, "I’ll show you the path.");
+  assert.deepEqual(result.actions[0], {
+    id: "guided.path",
+    label: "Show the workflow",
+    guide: {
+      buttonLabel: "Show the workflow",
+      route: "/n3xra-records/meeting-notes",
+      steps: [
+        { target: "New meeting note", narration: "First, choose New meeting note." },
+        { target: "Phone call", narration: "Choose Phone call." },
+        { target: "Start phone meeting", narration: "Finish here." },
+      ],
+    },
+  });
+  assert.equal(recordsHelp.parseRecordsGuideToken("Unsafe|/outside|Delete~Delete it."), null);
 });
 
 test("verified role labels come from server-side access context", () => {
@@ -65,6 +89,9 @@ test("knowledge contains the verified plan and Meeting Notes rules", () => {
   assert.match(knowledge, /only current Records plans are \*\*Free\*\*, \*\*Starter\*\*, and \*\*Organization\*\*/);
   assert.match(knowledge, /Meeting Notes requires the active library to be on Organization/);
   assert.match(knowledge, /Viewer on an Organization library can open Meeting Notes but cannot create or change meeting notes/);
+  assert.match(knowledge, /Creating a phone meeting starts in \*\*Meeting Notes\*\* → \*\*New meeting note\*\*/);
+  assert.match(knowledge, /\*\*App recording\*\* is the default capture method/);
+  assert.match(knowledge, /then select \*\*Start phone meeting\*\*/);
   assert.match(knowledge, /\*\*Organization\*\* is \$39 per month or \$375 per year/);
 });
 
