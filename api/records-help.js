@@ -408,6 +408,7 @@ function inferRecordsHelpAction(question, answer) {
 
 function decodeRecordsUiText(value) {
   return String(value || "")
+    .replace(/<([a-z][\w-]*)\b[^>]*\baria-hidden\s*=\s*["']true["'][^>]*>[\s\S]*<\/\1>\s*$/gi, " ")
     .replace(/<([a-z][\w-]*)\b[^>]*\baria-hidden\s*=\s*["']true["'][^>]*>[\s\S]*?<\/\1>/gi, " ")
     .replace(/<[^>]+>/g, " ")
     .replace(/&amp;/gi, "&")

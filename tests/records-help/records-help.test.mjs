@@ -41,6 +41,7 @@ test("the help prompt explicitly prohibits unverified interface guesses", () => 
   assert.match(prompt, /\[\[action:library\.search\]\]/);
   assert.match(prompt, /Generic guide format/);
   assert.match(prompt, /Use 2 to 7 verified interface labels/);
+  assert.match(prompt, /Keep each answer and guide scoped to the topic the user asked about/);
   assert.match(prompt, /Do not add a cancel, close, discard, or rollback step unless the user explicitly asks/);
 });
 
@@ -93,6 +94,7 @@ test("ordinary how-to questions receive a grounded guided action when the model 
 
 test("the verified UI catalog is generated from the current destination markup", () => {
   const labels = recordsHelp.loadRecordsUiCatalog("account.contacts");
+  const meetingLabels = recordsHelp.loadRecordsUiCatalog("meeting.new");
 
   assert.ok(labels.includes("New contact"));
   assert.ok(labels.includes("Name"));
@@ -110,6 +112,8 @@ test("the verified UI catalog is generated from the current destination markup",
   assert.equal(recordsHelp.isRecordsHelpGuideGrounded({
     steps: [{ target: "Contacts" }],
   }, "account.contacts"), false);
+  assert.ok(meetingLabels.includes("New meeting note"));
+  assert.equal(meetingLabels.some((label) => /New meeting note\s+Start\s*\+/i.test(label)), false);
 });
 
 test("a same-page task guide cannot collapse into destination-only guidance", () => {
