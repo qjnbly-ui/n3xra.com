@@ -37,6 +37,8 @@ test("the help prompt explicitly prohibits unverified interface guesses", () => 
   assert.match(prompt, /Do not recommend a named browser unless the supplied product knowledge verifies it/);
   assert.match(prompt, /Account Admin does not automatically mean billing Owner/);
   assert.match(prompt, /Never call it a header-right Profile link/);
+  assert.match(prompt, /Items inside the same expanded navigation group are sibling destinations/);
+  assert.match(prompt, /do not insert Library settings before Phone Meetings/);
   assert.match(prompt, /safe navigation and page-highlighting buttons/);
   assert.match(prompt, /\[\[action:library\.search\]\]/);
   assert.match(prompt, /Generic guide format/);
@@ -99,6 +101,7 @@ test("knowledge preserves exact labels from the corrected workflows", () => {
   const knowledge = recordsHelp.loadHelpKnowledge();
 
   assert.match(knowledge, /There is no desktop navigation destination labeled \*\*Files\*\* or \*\*Admin Settings\*\*/);
+  assert.match(knowledge, /Those Manage library items are sibling destinations/);
   assert.match(knowledge, /\*\*Workspace\*\* is a fixed group label, not an expandable control/);
   assert.match(knowledge, /exact Files section filter buttons are \*\*All\*\*, \*\*Uploaded files\*\*, \*\*Agendas\*\*, and \*\*Supporting documents\*\*/);
   assert.match(knowledge, /does not document a Month filter, a public\/private-status filter, or user-defined file tags/);

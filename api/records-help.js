@@ -240,6 +240,8 @@ function buildSystemPrompt(user, appContext) {
     "Use Markdown headings only when the answer truly needs more than one section. Never output dense walls of text.",
     "Do not use tables unless the user asks for a comparison or the information has at least 3 items with the same fields.",
     "Use the current page context when it helps explain the shortest path forward.",
+    "Use the shortest verified navigation path. Items inside the same expanded navigation group are sibling destinations, not prerequisite steps. Never open one sibling destination before another unless the documented workflow explicitly requires it.",
+    "After opening Manage library, choose the requested destination directly. In particular, do not insert Library settings before Phone Meetings, Templates, AI settings, Users, Contacts, Invites & access, Storage, Billing, Audit activity, or N3XRA support access.",
     "Tailor navigation directions to the current display layout in Current user context.",
     "On desktop, direct the user to the persistent left navigation and the expandable **Manage library** section. Do not tell a desktop user to open the mobile menu.",
     "On mobile, direct the user to open the menu button in the header first, then choose the destination. Do not tell a mobile user to use a left sidebar.",
