@@ -105,6 +105,36 @@ test("the verified UI catalog is generated from the current destination markup",
   assert.equal(recordsHelp.isRecordsHelpGuideGrounded({
     steps: [{ target: "New contact" }, { target: "Name" }, { target: "Phone number" }],
   }, "account.contacts"), false);
+  assert.equal(recordsHelp.isRecordsHelpGuideGrounded({
+    steps: [{ target: "Contacts" }],
+  }, "account.contacts"), false);
+});
+
+test("a same-page task guide cannot collapse into destination-only guidance", () => {
+  const answer = [
+    "Open **Contacts**, start a new entry, fill the fields, and stop before clicking **Add contact**.",
+    "",
+    "1. In the left navigation, select **Contacts**.",
+    "2. Click **New contact**.",
+    "3. Enter the **Name**.",
+    "4. Enter the **Email**.",
+    "5. Add any **Notes** you want.",
+    "6. Do not press **Add contact**.",
+  ].join("\n");
+  const guide = recordsHelp.normalizeRecordsTaskGuide({
+    buttonLabel: "Show me how",
+    route: "/n3xra-records/account/?view=contacts",
+    steps: [{ target: "Contacts", narration: "Open Contacts." }],
+  }, "account.contacts", answer);
+
+  assert.deepEqual(guide.steps.map((step) => step.target), [
+    "Contacts",
+    "New contact",
+    "Name",
+    "Email",
+    "Notes",
+    "Add contact",
+  ]);
 });
 
 test("task answers become workflow guides while explicit navigation stays destination-only", () => {

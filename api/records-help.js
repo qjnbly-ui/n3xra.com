@@ -267,9 +267,7 @@ function buildRecordsArrivalNarration(answer, actionLabel = "") {
   return `This is where you work with ${destination}.`;
 }
 
-function inferRecordsWorkflowGuide(actionId, answer) {
-  const route = RECORDS_HELP_ACTION_ROUTES[actionId];
-  if (!route) return null;
+function inferRecordsAnswerGuideSteps(answer) {
   const steps = [];
   for (const line of String(answer || "").split(/\r?\n/)) {
     const numbered = line.match(/^\s*\d+\.\s+(.+)$/);
@@ -284,6 +282,13 @@ function inferRecordsWorkflowGuide(actionId, answer) {
     steps.push({ target: target.slice(0, 100), narration });
     if (steps.length === 7) break;
   }
+  return steps;
+}
+
+function inferRecordsWorkflowGuide(actionId, answer) {
+  const route = RECORDS_HELP_ACTION_ROUTES[actionId];
+  if (!route) return null;
+  const steps = inferRecordsAnswerGuideSteps(answer);
   const fallbackSteps = getRecordsHelpFallbackGuideSteps(actionId, answer);
   if (fallbackSteps) {
     steps.splice(0, steps.length, ...fallbackSteps);
@@ -305,7 +310,13 @@ function inferRecordsWorkflowGuide(actionId, answer) {
 
 function normalizeRecordsTaskGuide(guide, actionId, answer) {
   const fallbackSteps = getRecordsHelpFallbackGuideSteps(actionId, answer);
-  const sourceSteps = fallbackSteps || (Array.isArray(guide?.steps) ? guide.steps : []);
+  const suppliedSteps = Array.isArray(guide?.steps) ? guide.steps : [];
+  const answerSteps = inferRecordsAnswerGuideSteps(answer);
+  const countContentSteps = (steps) => steps.filter((step) => !RECORDS_HELP_NAVIGATION_LABELS.has(
+    normalizeHelpActionText(step?.target)
+  )).length;
+  const sourceSteps = fallbackSteps
+    || (countContentSteps(answerSteps) > countContentSteps(suppliedSteps) ? answerSteps : suppliedSteps);
   const verifiedLabels = loadRecordsUiCatalog(actionId);
   const seen = new Set();
   const steps = sourceSteps.map((step) => {
@@ -441,7 +452,12 @@ function resolveRecordsUiLabel(target, labels) {
 function isRecordsHelpGuideGrounded(guide, actionId) {
   const steps = Array.isArray(guide?.steps) ? guide.steps : [];
   const labels = loadRecordsUiCatalog(actionId);
-  return Boolean(steps.length && labels.length && steps.every((step) => resolveRecordsUiLabel(step?.target, labels)));
+  const contentSteps = steps.filter((step) => !RECORDS_HELP_NAVIGATION_LABELS.has(
+    normalizeHelpActionText(step?.target)
+  ));
+  return Boolean(contentSteps.length && labels.length && steps.every(
+    (step) => resolveRecordsUiLabel(step?.target, labels)
+  ));
 }
 
 function mergeRecordsHelpActions(...groups) {
