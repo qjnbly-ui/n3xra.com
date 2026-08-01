@@ -41,7 +41,6 @@ let recordsAiWakeLockWanted = false;
 let recordsAiGuideAudio = null;
 let recordsAiGuideAudioUrl = "";
 let recordsAiGuideVoiceEnabled = true;
-let recordsAiGuideAdvanceResolve = null;
 let recordsAiGuideSpeechResolve = null;
 
 try {
@@ -748,40 +747,6 @@ function showRecordsAiGuideNote(message, eyebrow = "Records AI guide") {
   note.classList.add("is-visible");
 }
 
-function waitForRecordsAiGuideAdvance(nextLabel = "Next") {
-  if (recordsAiGuideAdvanceResolve) recordsAiGuideAdvanceResolve(false);
-  const note = document.querySelector("[data-records-ai-guide-note]");
-  if (!note) return Promise.resolve(false);
-  const actions = document.createElement("div");
-  actions.className = "records-ai-guide-note-actions";
-  const stopButton = document.createElement("button");
-  stopButton.type = "button";
-  stopButton.className = "is-secondary";
-  stopButton.textContent = "Stop guide";
-  const nextButton = document.createElement("button");
-  nextButton.type = "button";
-  nextButton.textContent = nextLabel;
-  actions.append(stopButton, nextButton);
-  note.append(actions);
-
-  return new Promise((resolve) => {
-    const finish = (continueGuide) => {
-      if (recordsAiGuideAdvanceResolve !== finish) return;
-      recordsAiGuideAdvanceResolve = null;
-      actions.remove();
-      resolve(continueGuide);
-    };
-    recordsAiGuideAdvanceResolve = finish;
-    stopButton.addEventListener("click", () => {
-      stopRecordsAiGuideSpeech();
-      document.querySelectorAll(".records-ai-spotlight").forEach((element) => element.classList.remove("records-ai-spotlight"));
-      hideRecordsAiGuideNote();
-      finish(false);
-    }, { once: true });
-    nextButton.addEventListener("click", () => finish(true), { once: true });
-  });
-}
-
 function hideRecordsAiGuideNote(delay = 0) {
   window.setTimeout(() => {
     document.querySelector("[data-records-ai-guide-note]")?.classList.remove("is-visible");
@@ -797,16 +762,53 @@ function markRecordsAiGuideTarget(target, message, eyebrow) {
   target.classList.add("records-ai-spotlight");
 }
 
+function waitForRecordsAiGuidePageReady() {
+  if (document.readyState === "complete") return Promise.resolve();
+  return new Promise((resolve) => {
+    const timeout = window.setTimeout(resolve, 12000);
+    window.addEventListener("load", () => {
+      window.clearTimeout(timeout);
+      resolve();
+    }, { once: true });
+  });
+}
+
+function waitForRecordsAiGuideTargetToSettle(target, minimumMs = 1400) {
+  return new Promise((resolve) => {
+    const startedAt = performance.now();
+    let previousBounds = "";
+    let stableFrames = 0;
+    const check = () => {
+      if (!target.isConnected || !isRecordsAiElementVisible(target)) {
+        resolve();
+        return;
+      }
+      const bounds = target.getBoundingClientRect();
+      const currentBounds = [bounds.x, bounds.y, bounds.width, bounds.height]
+        .map((value) => Math.round(value))
+        .join(":");
+      stableFrames = currentBounds === previousBounds ? stableFrames + 1 : 0;
+      previousBounds = currentBounds;
+      const elapsedMs = performance.now() - startedAt;
+      if ((elapsedMs >= minimumMs && stableFrames >= 3) || elapsedMs >= 6000) {
+        resolve();
+        return;
+      }
+      window.requestAnimationFrame(check);
+    };
+    window.requestAnimationFrame(check);
+  });
+}
+
 async function presentRecordsAiGuideStep(target, visibleMessage, spokenMessage, eyebrow, { final = false } = {}) {
   markRecordsAiGuideTarget(target, visibleMessage, eyebrow);
-  const [continueGuide] = await Promise.all([
-    waitForRecordsAiGuideAdvance(final ? "Done" : "Next"),
-    new Promise((resolve) => window.setTimeout(resolve, 500)),
+  await Promise.all([
+    waitForRecordsAiGuideTargetToSettle(target),
     narrateRecordsAiGuide(spokenMessage),
   ]);
   target.classList.remove("records-ai-spotlight");
-  if (final || !continueGuide) hideRecordsAiGuideNote();
-  return continueGuide;
+  if (final) hideRecordsAiGuideNote(900);
+  return true;
 }
 
 function spotlightRecordsAiTarget(actionId, attempt = 0, activate = true) {
@@ -965,6 +967,7 @@ function safelyRevealRecordsAiGuideTarget(target) {
 async function playRecordsAiGuidePlan(input) {
   const guide = normalizeRecordsAiGuide(input);
   if (!guide) return;
+  await waitForRecordsAiGuidePageReady();
   for (let index = 0; index < guide.steps.length; index += 1) {
     const step = guide.steps[index];
     let target = null;
