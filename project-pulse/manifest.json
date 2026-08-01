@@ -2,13 +2,13 @@
   "schemaVersion": 1,
   "name": "N3XRA Project Pulse",
   "visibility": "public-safe",
-  "generatedAt": "2026-08-01T03:27:52.176Z",
-  "updatedAt": "2026-07-31T20:10:59-07:00",
-  "commit": "0d2e41d",
+  "generatedAt": "2026-08-01T05:02:16.959Z",
+  "updatedAt": "2026-07-31T21:53:22-07:00",
+  "commit": "ef14f3f",
   "summary": {
-    "statement": "N3XRA is a connected technology platform comprising approximately 137,000 lines of source code across customer experiences, software products, APIs, database systems, administrative tools, and operational infrastructure.",
-    "sourceFiles": 393,
-    "sourceLines": 136691,
+    "statement": "N3XRA is a connected technology platform comprising approximately 138,000 lines of source code across customer experiences, software products, APIs, database systems, administrative tools, and operational infrastructure.",
+    "sourceFiles": 394,
+    "sourceLines": 137701,
     "products": 7,
     "pages": 96,
     "apiFunctions": 56,
@@ -18,15 +18,15 @@
   "sourceBreakdown": {
     "css": {
       "files": 25,
-      "lines": 31325
+      "lines": 31461
     },
     "html": {
       "files": 96,
-      "lines": 28285
+      "lines": 28317
     },
     "js": {
-      "files": 149,
-      "lines": 55283
+      "files": 150,
+      "lines": 56125
     },
     "sql": {
       "files": 99,
@@ -96,6 +96,31 @@
     "Company governance planning"
   ],
   "recentCapabilities": [
+    {
+      "date": "2026-07-31",
+      "title": "Guided Records AI navigation",
+      "summary": "Ask Records AI can now offer safe action buttons that open the right Records page and spotlight the relevant tool without submitting forms or changing customer data."
+    },
+    {
+      "date": "2026-07-31",
+      "title": "Resilient Meeting Notes recording",
+      "summary": "N3XRA Records can preserve and resume interrupted browser recordings, maintain a clear interruption timeline, and create consistent playback and transcript sources."
+    },
+    {
+      "date": "2026-07-31",
+      "title": "Voice-enabled Records AI",
+      "summary": "Records users can ask product-help questions by voice and listen to spoken answers throughout authenticated Records workspaces."
+    },
+    {
+      "date": "2026-07-31",
+      "title": "Device-aware Records AI guidance",
+      "summary": "Records AI now adapts its navigation instructions to the user's desktop or mobile layout and current location in the app."
+    },
+    {
+      "date": "2026-07-31",
+      "title": "Refined Records workspaces",
+      "summary": "Document Builder, Communication, Library, and Meeting Notes gained more focused layouts and clearer workspace controls across screen sizes."
+    },
     {
       "date": "2026-07-30",
       "title": "Phone meeting usage and retention controls",

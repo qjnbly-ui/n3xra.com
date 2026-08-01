@@ -18,12 +18,21 @@ let recordsAiCurrentAudioUrl = "";
 let recordsAiLastAnswer = "";
 let recordsAiWakeLock = null;
 let recordsAiWakeLockWanted = false;
+let recordsAiGuideAudio = null;
+let recordsAiGuideAudioUrl = "";
+let recordsAiGuideVoiceEnabled = true;
+
+try {
+  recordsAiGuideVoiceEnabled = window.localStorage.getItem("n3xra-records-guide-voice") !== "off";
+} catch {
+  recordsAiGuideVoiceEnabled = true;
+}
 
 const RECORDS_AI_ACTIONS = Object.freeze({
   "library.search": { label: "Show Library search", href: "/n3xra-records/library", selector: "#library-search-panel" },
-  "library.ai_search": { label: "Show AI Search", href: "/n3xra-records/library", selector: "#search-mode-ai" },
-  "library.upload": { label: "Show document upload", href: "/n3xra-records/library", selector: "#files-open-upload-modal" },
-  "meeting.new": { label: "Show new meeting note", href: "/n3xra-records/meeting-notes", selector: "#record-panel-toggle" },
+  "library.ai_search": { label: "Show AI Search", href: "/n3xra-records/library", activationLabel: "AI Search", activationSelector: "#search-mode-ai", selector: "#library-search-panel" },
+  "library.upload": { label: "Show document upload", href: "/n3xra-records/library", activationLabel: "Upload", activationSelector: "#files-open-upload-modal", selector: "#upload-form" },
+  "meeting.new": { label: "Show new meeting note", href: "/n3xra-records/meeting-notes", activationLabel: "New meeting note", activationSelector: "#record-panel-toggle", selector: "#record-panel-body" },
   "documents.new": { label: "Show Document Builder", href: "/n3xra-records/documents.html", selector: "#new-document-button" },
   "messages.compose": { label: "Show Communication", href: "/n3xra-records/messages.html", selector: "#message-form" },
   "account.profile": { label: "Open Profile", href: "/n3xra-records/account/?view=profile", selector: "#library-settings-card" },
@@ -393,6 +402,98 @@ function stopRecordsAiPlayback() {
   resetRecordsAiAudioControls();
 }
 
+function stopRecordsAiGuideSpeech() {
+  window.speechSynthesis?.cancel();
+  if (recordsAiGuideAudio) {
+    recordsAiGuideAudio.pause();
+    recordsAiGuideAudio = null;
+  }
+  if (recordsAiGuideAudioUrl) {
+    URL.revokeObjectURL(recordsAiGuideAudioUrl);
+    recordsAiGuideAudioUrl = "";
+  }
+}
+
+function fallbackRecordsAiGuideSpeech(text) {
+  return new Promise((resolve) => {
+    if (!recordsAiGuideVoiceEnabled || !window.speechSynthesis || !window.SpeechSynthesisUtterance) {
+      resolve();
+      return;
+    }
+    const utterance = new SpeechSynthesisUtterance(text);
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      resolve();
+    };
+    utterance.rate = 1.02;
+    utterance.onend = finish;
+    utterance.onerror = finish;
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(utterance);
+    window.setTimeout(finish, 8000);
+  });
+}
+
+async function narrateRecordsAiGuide(message) {
+  const text = String(message || "").trim();
+  if (!recordsAiGuideVoiceEnabled || !text) return;
+  stopRecordsAiGuideSpeech();
+
+  try {
+    const response = await fetch("/api/elevenlabs-text-to-speech", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+    });
+    if (!response.ok) throw new Error("Guide voice unavailable");
+    recordsAiGuideAudioUrl = URL.createObjectURL(await response.blob());
+    const audio = new Audio(recordsAiGuideAudioUrl);
+    recordsAiGuideAudio = audio;
+    await new Promise((resolve, reject) => {
+      let settled = false;
+      const finish = (error = null) => {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(timeout);
+        if (recordsAiGuideAudio === audio) recordsAiGuideAudio = null;
+        if (error) reject(error);
+        else resolve();
+      };
+      const timeout = window.setTimeout(() => finish(), 10000);
+      audio.addEventListener("ended", () => finish(), { once: true });
+      audio.addEventListener("error", () => finish(new Error("Guide audio failed")), { once: true });
+      audio.play().catch((error) => finish(error));
+    });
+  } catch {
+    await fallbackRecordsAiGuideSpeech(text);
+  } finally {
+    if (recordsAiGuideAudioUrl) {
+      URL.revokeObjectURL(recordsAiGuideAudioUrl);
+      recordsAiGuideAudioUrl = "";
+    }
+  }
+}
+
+function updateRecordsAiGuideVoiceButton() {
+  const button = document.querySelector("[data-records-ai-guide-voice]");
+  if (!button) return;
+  button.setAttribute("aria-pressed", String(recordsAiGuideVoiceEnabled));
+  button.textContent = recordsAiGuideVoiceEnabled ? "Guide voice on" : "Guide voice off";
+}
+
+function toggleRecordsAiGuideVoice() {
+  recordsAiGuideVoiceEnabled = !recordsAiGuideVoiceEnabled;
+  if (!recordsAiGuideVoiceEnabled) stopRecordsAiGuideSpeech();
+  try {
+    window.localStorage.setItem("n3xra-records-guide-voice", recordsAiGuideVoiceEnabled ? "on" : "off");
+  } catch {
+    // The preference remains active for this page when storage is unavailable.
+  }
+  updateRecordsAiGuideVoiceButton();
+}
+
 async function speakRecordsAiAnswer(answer = recordsAiLastAnswer) {
   const text = String(answer || "").trim();
   if (!text) return;
@@ -594,27 +695,163 @@ function isRecordsAiElementVisible(element) {
   return Boolean(element && !element.hidden && element.getClientRects().length);
 }
 
-function spotlightRecordsAiTarget(actionId, attempt = 0) {
-  const action = RECORDS_AI_ACTIONS[actionId];
-  const target = action ? document.querySelector(action.selector) : null;
-  if ((!target || !isRecordsAiElementVisible(target)) && attempt < 64) {
-    window.setTimeout(() => spotlightRecordsAiTarget(actionId, attempt + 1), 125);
-    return;
+function showRecordsAiGuideNote(message, eyebrow = "Records AI guide") {
+  let note = document.querySelector("[data-records-ai-guide-note]");
+  if (!note) {
+    note = document.createElement("div");
+    note.className = "records-ai-guide-note";
+    note.dataset.recordsAiGuideNote = "";
+    note.setAttribute("role", "status");
+    note.setAttribute("aria-live", "polite");
+    document.body.append(note);
   }
-  if (!target || !isRecordsAiElementVisible(target)) {
-    setRecordsAiStatus("That area is not available with the current page or access.", "error");
-    return;
-  }
+  note.innerHTML = "";
+  const kicker = document.createElement("span");
+  kicker.textContent = eyebrow;
+  const copy = document.createElement("strong");
+  copy.textContent = message;
+  note.append(kicker, copy);
+  note.classList.add("is-visible");
+}
 
+function hideRecordsAiGuideNote(delay = 0) {
+  window.setTimeout(() => {
+    document.querySelector("[data-records-ai-guide-note]")?.classList.remove("is-visible");
+  }, delay);
+}
+
+function markRecordsAiGuideTarget(target, message, eyebrow) {
+  document.querySelectorAll(".records-ai-spotlight").forEach((element) => element.classList.remove("records-ai-spotlight"));
+  showRecordsAiGuideNote(message, eyebrow);
   target.scrollIntoView({ behavior: "smooth", block: "center" });
   target.classList.remove("records-ai-spotlight");
   void target.offsetWidth;
   target.classList.add("records-ai-spotlight");
+}
+
+function spotlightRecordsAiTarget(actionId, attempt = 0, activate = true) {
+  const action = RECORDS_AI_ACTIONS[actionId];
+  const activationTarget = activate && action?.activationSelector
+    ? document.querySelector(action.activationSelector)
+    : null;
+  const target = action ? document.querySelector(action.selector) : null;
+  const expectedTarget = activationTarget || target;
+  if ((!expectedTarget || !isRecordsAiElementVisible(expectedTarget)) && attempt < 64) {
+    window.setTimeout(() => spotlightRecordsAiTarget(actionId, attempt + 1, activate), 125);
+    return;
+  }
+  if (!expectedTarget || !isRecordsAiElementVisible(expectedTarget)) {
+    showRecordsAiGuideNote("That area is not available with the current page or access.", "Unable to continue");
+    hideRecordsAiGuideNote(4000);
+    return;
+  }
+
+  if (activationTarget) {
+    const instruction = `Select ${action.activationLabel}`;
+    markRecordsAiGuideTarget(activationTarget, instruction, "Next selection");
+    void (async () => {
+      await Promise.all([
+        new Promise((resolve) => window.setTimeout(resolve, 1250)),
+        narrateRecordsAiGuide(instruction),
+      ]);
+      activationTarget.click();
+      activationTarget.classList.remove("records-ai-spotlight");
+      window.setTimeout(() => spotlightRecordsAiTarget(actionId, 0, false), 350);
+    })();
+    return;
+  }
+
+  markRecordsAiGuideTarget(target, action.label, "You’re here");
+  void narrateRecordsAiGuide(`You’re here. ${action.label}.`);
   window.setTimeout(() => target.classList.remove("records-ai-spotlight"), 4200);
+  hideRecordsAiGuideNote(4200);
   if (typeof target.focus === "function") target.focus({ preventScroll: true });
 }
 
-function runRecordsAiAction(actionId) {
+function getRecordsAiNavigationTarget(action, destination) {
+  const isDesktop = getRecordsAiDisplayContext().displayMode === "desktop";
+  const requiredView = destination.searchParams.get("view");
+  if (requiredView) {
+    if (isDesktop) {
+      const localButton = document.querySelector(`[data-records-account-view="${requiredView}"]`);
+      if (localButton) return localButton;
+      return Array.from(document.querySelectorAll(".records-desktop-nav-manage a")).find((link) => {
+        const url = new URL(link.href, window.location.origin);
+        return url.searchParams.get("view") === requiredView;
+      }) || null;
+    }
+    return document.getElementById("mobile-menu-account");
+  }
+
+  const destinationPath = normalizePathname(destination.pathname);
+  const navigationRoot = isDesktop
+    ? document.querySelector(".records-desktop-nav")
+    : document.getElementById("mobile-menu");
+  return Array.from(navigationRoot?.querySelectorAll("a") || []).find((link) => {
+    const url = new URL(link.href, window.location.origin);
+    return normalizePathname(url.pathname) === destinationPath;
+  }) || null;
+}
+
+function getRecordsAiSelectionLabel(action, destination) {
+  const view = destination.searchParams.get("view");
+  if (view) return action.label.replace(/^(Open|Show)\s+/i, "");
+  if (destination.pathname.includes("meeting-notes")) return "Meeting Notes";
+  if (destination.pathname.includes("documents")) return "Document Builder";
+  if (destination.pathname.includes("messages")) return "Communication";
+  return "Library";
+}
+
+async function guideRecordsAiNavigation(action, destination) {
+  const isDesktop = getRecordsAiDisplayContext().displayMode === "desktop";
+  const requiredView = destination.searchParams.get("view");
+
+  if (requiredView && isDesktop) {
+    const manageToggle = document.querySelector("[data-records-manage-toggle]");
+    if (manageToggle?.getAttribute("aria-expanded") !== "true") {
+      const instruction = "Open Manage library";
+      markRecordsAiGuideTarget(manageToggle, instruction, "First selection");
+      await Promise.all([
+        new Promise((resolve) => window.setTimeout(resolve, 1050)),
+        narrateRecordsAiGuide(instruction),
+      ]);
+      manageToggle.click();
+      manageToggle.classList.remove("records-ai-spotlight");
+      await new Promise((resolve) => window.setTimeout(resolve, 250));
+    }
+  } else if (!isDesktop) {
+    const mobileMenu = document.getElementById("mobile-menu");
+    const menuToggle = document.getElementById("mobile-menu-toggle");
+    if (mobileMenu?.classList.contains("hidden") && menuToggle) {
+      const instruction = "Open the Records menu";
+      markRecordsAiGuideTarget(menuToggle, instruction, "First selection");
+      await Promise.all([
+        new Promise((resolve) => window.setTimeout(resolve, 1050)),
+        narrateRecordsAiGuide(instruction),
+      ]);
+      menuToggle.click();
+      menuToggle.classList.remove("records-ai-spotlight");
+      await new Promise((resolve) => window.setTimeout(resolve, 250));
+    }
+  }
+
+  const navigationTarget = getRecordsAiNavigationTarget(action, destination);
+  if (navigationTarget && isRecordsAiElementVisible(navigationTarget)) {
+    const instruction = `Select ${getRecordsAiSelectionLabel(action, destination)}`;
+    markRecordsAiGuideTarget(
+      navigationTarget,
+      instruction,
+      requiredView && isDesktop ? "Second selection" : "Next selection"
+    );
+    await Promise.all([
+      new Promise((resolve) => window.setTimeout(resolve, 1350)),
+      narrateRecordsAiGuide(instruction),
+    ]);
+    navigationTarget.classList.remove("records-ai-spotlight");
+  }
+}
+
+async function runRecordsAiAction(actionId) {
   const action = RECORDS_AI_ACTIONS[actionId];
   if (!action) return;
   const destination = new URL(action.href, window.location.origin);
@@ -631,6 +868,11 @@ function runRecordsAiAction(actionId) {
     }
   }
 
+  await new Promise((resolve) => window.setTimeout(resolve, 260));
+  await guideRecordsAiNavigation(action, destination);
+  const openingLabel = action.label.replace(/^(Open|Show)\s+/i, "");
+  showRecordsAiGuideNote(`Opening ${openingLabel}…`, "Moving to the destination");
+  await narrateRecordsAiGuide(`Opening ${openingLabel}`);
   destination.searchParams.set("recordsAiFocus", actionId);
   window.location.assign(`${destination.pathname}${destination.search}`);
 }
@@ -792,6 +1034,7 @@ function installRecordsAiAssistant() {
           <button type="button" data-records-ai-voice aria-pressed="false"><span aria-hidden="true">●</span> Talk to Records AI</button>
           <button type="button" data-records-ai-listen hidden>Listen</button>
           <button type="button" data-records-ai-stop-audio hidden>Stop audio</button>
+          <button type="button" data-records-ai-guide-voice aria-pressed="true">Guide voice on</button>
         </div>
         <p class="records-ai-status" data-records-ai-status></p>
       </form>
@@ -824,6 +1067,8 @@ function installRecordsAiAssistant() {
     stopRecordsAiPlayback();
     setRecordsAiStatus("");
   });
+  layer.querySelector("[data-records-ai-guide-voice]")?.addEventListener("click", toggleRecordsAiGuideVoice);
+  updateRecordsAiGuideVoiceButton();
   layer.querySelector("[data-records-ai-question]")?.addEventListener("keydown", (event) => {
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
@@ -839,7 +1084,10 @@ function installRecordsAiAssistant() {
   });
   layer.querySelector("[data-records-ai-messages]")?.addEventListener("click", (event) => {
     const button = event.target.closest("[data-records-ai-action]");
-    if (button) runRecordsAiAction(button.dataset.recordsAiAction || "");
+    if (button && !button.disabled) {
+      button.disabled = true;
+      void runRecordsAiAction(button.dataset.recordsAiAction || "");
+    }
   });
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && !layer.hidden) closeRecordsAiAssistant();
@@ -847,6 +1095,7 @@ function installRecordsAiAssistant() {
   window.addEventListener("pagehide", () => {
     stopRecordsAiRecording({ discard: true });
     stopRecordsAiPlayback();
+    stopRecordsAiGuideSpeech();
   });
   document.addEventListener("visibilitychange", () => {
     if (recordsAiMediaRecorder?.state !== "recording") return;

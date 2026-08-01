@@ -6859,6 +6859,11 @@ body:has(.confirm-modal.is-open) {
   outline: 2px solid rgba(22, 117, 105, 0.14);
 }
 
+.records-ai-message-actions button:disabled {
+  cursor: wait;
+  opacity: 0.58;
+}
+
 .records-ai-spotlight {
   position: relative;
   z-index: 2;
@@ -6869,6 +6874,42 @@ body:has(.confirm-modal.is-open) {
   box-shadow: 0 0 0 11px rgba(36, 190, 169, 0.16), 0 16px 42px rgba(4, 12, 21, 0.16) !important;
 }
 
+.records-ai-guide-note {
+  position: fixed;
+  left: 50%;
+  bottom: max(1.25rem, env(safe-area-inset-bottom));
+  z-index: 1700;
+  display: grid;
+  gap: 0.2rem;
+  width: min(420px, calc(100vw - 2rem));
+  padding: 0.85rem 1rem;
+  border: 1px solid rgba(120, 207, 195, 0.34);
+  border-radius: 14px;
+  background: #07111d;
+  box-shadow: 0 18px 54px rgba(4, 12, 21, 0.28);
+  color: #fff;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, 14px);
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.records-ai-guide-note.is-visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.records-ai-guide-note span {
+  color: #78cfc3;
+  font: 800 0.62rem/1.2 "Manrope", "Trebuchet MS", sans-serif;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.records-ai-guide-note strong {
+  font: 750 0.88rem/1.4 "Manrope", "Trebuchet MS", sans-serif;
+}
+
 @keyframes records-ai-spotlight-pulse {
   0%, 100% { outline-color: rgba(36, 190, 169, 0.5); }
   50% { outline-color: rgba(36, 190, 169, 1); }
@@ -6876,6 +6917,7 @@ body:has(.confirm-modal.is-open) {
 
 @media (prefers-reduced-motion: reduce) {
   .records-ai-spotlight { animation: none; }
+  .records-ai-guide-note { transition: none; }
 }
 
 .records-ai-answer-heading {

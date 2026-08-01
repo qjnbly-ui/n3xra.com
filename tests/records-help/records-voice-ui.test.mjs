@@ -12,6 +12,22 @@ test("Ask Records AI exposes voice input and answer playback controls", async ()
   assert.match(shell, /Talk to Records AI/);
   assert.match(shell, /data-records-ai-listen/);
   assert.match(shell, /data-records-ai-stop-audio/);
+  assert.match(shell, /data-records-ai-guide-voice/);
+});
+
+test("Records AI actions demonstrate the navigation path before the destination", async () => {
+  const shell = await readFile(new URL("../../n3xra-records/lib/desktop-shell.js", import.meta.url), "utf8");
+  const styles = await readFile(new URL("../../n3xra-records/styles.css", import.meta.url), "utf8");
+
+  assert.match(shell, /Open Manage library/);
+  assert.match(shell, /Select \$\{getRecordsAiSelectionLabel/);
+  assert.match(shell, /First selection/);
+  assert.match(shell, /You’re here/);
+  assert.match(shell, /activationSelector: "#search-mode-ai"/);
+  assert.match(shell, /narrateRecordsAiGuide\(instruction\)/);
+  assert.match(shell, /n3xra-records-guide-voice/);
+  assert.match(shell, /fallbackRecordsAiGuideSpeech/);
+  assert.match(styles, /\.records-ai-guide-note/);
 });
 
 test("voice input records, transcribes, and submits the spoken question", async () => {

@@ -78,6 +78,36 @@ const MAJOR_MODULES = [
 
 const RECENT_CAPABILITIES = [
   {
+    introducedBy: "ef14f3f",
+    date: "2026-07-31",
+    title: "Guided Records AI navigation",
+    summary: "Ask Records AI can now offer safe action buttons that open the right Records page and spotlight the relevant tool without submitting forms or changing customer data.",
+  },
+  {
+    introducedBy: "0d2e41d",
+    date: "2026-07-31",
+    title: "Resilient Meeting Notes recording",
+    summary: "N3XRA Records can preserve and resume interrupted browser recordings, maintain a clear interruption timeline, and create consistent playback and transcript sources.",
+  },
+  {
+    introducedBy: "dd04527",
+    date: "2026-07-31",
+    title: "Voice-enabled Records AI",
+    summary: "Records users can ask product-help questions by voice and listen to spoken answers throughout authenticated Records workspaces.",
+  },
+  {
+    introducedBy: "16fee21",
+    date: "2026-07-31",
+    title: "Device-aware Records AI guidance",
+    summary: "Records AI now adapts its navigation instructions to the user's desktop or mobile layout and current location in the app.",
+  },
+  {
+    introducedBy: "dc819b7",
+    date: "2026-07-31",
+    title: "Refined Records workspaces",
+    summary: "Document Builder, Communication, Library, and Meeting Notes gained more focused layouts and clearer workspace controls across screen sizes.",
+  },
+  {
     introducedBy: "a880b13",
     date: "2026-07-30",
     title: "Phone meeting usage and retention controls",
