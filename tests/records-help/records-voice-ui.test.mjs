@@ -35,6 +35,14 @@ test("Records AI actions demonstrate the navigation path before the destination"
   assert.match(shell, /getRecordsAiGuideHiddenContainer/);
   assert.match(shell, /getRecordsAiGuideRevealControl/);
   assert.match(shell, /revealRecordsAiGuideTarget/);
+  assert.match(shell, /waitForRecordsAiGuidePageReady/);
+  assert.match(shell, /new MutationObserver\(scheduleQuietCheck\)/);
+  assert.match(shell, /document\.readyState === "complete"/);
+  assert.match(shell, /maxWaitMs = 15000, quietMs = 650/);
+  assert.match(shell, /resolveRecordsAiGuideTarget/);
+  assert.match(shell, /const target = await resolveRecordsAiGuideTarget\(step\.target\)/);
+  assert.match(shell, /Date\.now\(\) < deadline/);
+  assert.doesNotMatch(shell, /attempt < 24 && !target/);
   assert.match(shell, /document\.querySelectorAll\("\[aria-controls\]"\)/);
   assert.doesNotMatch(shell, /prepareRecordsAiGuideWorkspace/);
   assert.match(shell, /safelyRevealRecordsAiGuideTarget/);

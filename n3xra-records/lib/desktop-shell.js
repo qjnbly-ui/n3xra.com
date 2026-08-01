@@ -1102,9 +1102,60 @@ async function revealRecordsAiGuideTarget(target) {
   return isRecordsAiElementVisible(target);
 }
 
+function waitForRecordsAiGuidePageReady({ maxWaitMs = 15000, quietMs = 650 } = {}) {
+  return new Promise((resolve) => {
+    let settled = false;
+    let quietTimer = 0;
+    let maxTimer = 0;
+    let observer = null;
+
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(quietTimer);
+      window.clearTimeout(maxTimer);
+      observer?.disconnect();
+      window.removeEventListener("load", beginWatching);
+      resolve();
+    };
+    const scheduleQuietCheck = () => {
+      window.clearTimeout(quietTimer);
+      quietTimer = window.setTimeout(finish, quietMs);
+    };
+    const beginWatching = () => {
+      if (settled) return;
+      if (!document.body) {
+        window.setTimeout(beginWatching, 50);
+        return;
+      }
+      observer = new MutationObserver(scheduleQuietCheck);
+      observer.observe(document.body, { childList: true, subtree: true, attributes: true });
+      scheduleQuietCheck();
+    };
+
+    maxTimer = window.setTimeout(finish, maxWaitMs);
+    if (document.readyState === "complete") beginWatching();
+    else window.addEventListener("load", beginWatching, { once: true });
+  });
+}
+
+async function resolveRecordsAiGuideTarget(label, timeoutMs = 15000) {
+  const deadline = Date.now() + timeoutMs;
+  do {
+    const target = findRecordsAiGuideTarget(label);
+    if (target) {
+      if (isRecordsAiElementVisible(target)) return target;
+      if (await revealRecordsAiGuideTarget(target)) return target;
+    }
+    await new Promise((resolve) => window.setTimeout(resolve, 200));
+  } while (Date.now() < deadline);
+  return null;
+}
+
 async function playRecordsAiGuidePlan(input) {
   const guide = normalizeRecordsAiGuide(input);
   if (!guide) return;
+  await waitForRecordsAiGuidePageReady();
   const steps = getRecordsAiGuideContentSteps(guide);
   if (!steps.length) {
     spotlightRecordsAiGuideDestination(guide.route, guide.arrivalNarration);
@@ -1112,12 +1163,7 @@ async function playRecordsAiGuidePlan(input) {
   }
   for (let index = 0; index < steps.length; index += 1) {
     const step = steps[index];
-    let target = null;
-    for (let attempt = 0; attempt < 24 && !target; attempt += 1) {
-      target = findRecordsAiGuideTarget(step.target);
-      if (!target) await new Promise((resolve) => window.setTimeout(resolve, 125));
-    }
-    if (target && !isRecordsAiElementVisible(target) && !await revealRecordsAiGuideTarget(target)) target = null;
+    const target = await resolveRecordsAiGuideTarget(step.target);
     if (!target) {
       showRecordsAiGuideNote(`I couldn’t find “${step.target}” on this page.`, "Guide paused");
       void narrateRecordsAiGuide(`I couldn't find ${step.target} on this page.`);
