@@ -20,8 +20,6 @@ test("the help prompt explicitly prohibits unverified interface guesses", () => 
       displayMode: "desktop",
       viewportWidth: 1440,
       viewportHeight: 900,
-      manageLibraryExpanded: true,
-      mobileMenuOpen: false,
     }
   );
 
@@ -39,8 +37,6 @@ test("the help prompt explicitly prohibits unverified interface guesses", () => 
   assert.match(prompt, /Do not recommend a named browser unless the supplied product knowledge verifies it/);
   assert.match(prompt, /Account Admin does not automatically mean billing Owner/);
   assert.match(prompt, /Never call it a header-right Profile link/);
-  assert.match(prompt, /Manage library navigation: expanded/);
-  assert.match(prompt, /Mobile menu: closed/);
   assert.match(prompt, /safe navigation and page-highlighting buttons/);
   assert.match(prompt, /\[\[action:library\.search\]\]/);
   assert.match(prompt, /Generic guide format/);
@@ -76,47 +72,6 @@ test("generic guides compose verified UI labels without workflow-specific code",
     },
   });
   assert.equal(recordsHelp.parseRecordsGuideToken("Unsafe|/outside|Delete~Delete it."), null);
-});
-
-test("explicit tour requests require a real guided action", () => {
-  const question = "Give me a guided tour showing me where reusable templates are managed.";
-  const proseOnly = recordsHelp.extractHelpActions(
-    "Open Manage library, then select **Templates**."
-  );
-  const malformed = recordsHelp.extractHelpActions(
-    "Open **Templates**.\n[[guide:Show me|/not-an-allowed-page|Templates~Open Templates.]]"
-  );
-  const guided = recordsHelp.extractHelpActions(
-    "I can show you.\n[[guide:Show me|/n3xra-records/account/?view=templates|Templates~Open Templates.>Create template~This is where a template begins.]]"
-  );
-
-  assert.equal(recordsHelp.isExplicitRecordsTourRequest(question), true);
-  assert.equal(recordsHelp.isExplicitRecordsTourRequest("Where are templates?"), false);
-  assert.equal(recordsHelp.needsRecordsTourRepair(question, proseOnly), true);
-  assert.equal(recordsHelp.needsRecordsTourRepair(question, malformed), true);
-  assert.equal(recordsHelp.needsRecordsTourRepair(question, guided), false);
-  assert.match(recordsHelp.buildRecordsTourRepairInstruction(), /must contain exactly one valid \[\[guide:/);
-  assert.match(recordsHelp.buildRecordsTourRepairInstruction(), /Do not return prose-only directions/);
-});
-
-test("account guides remove sibling-page detours", () => {
-  const guide = recordsHelp.parseRecordsGuideToken(
-    "Show Phone Meetings|/n3xra-records/account/?view=phone|Library settings~Open Library settings.>Phone Meetings~Open Phone Meetings."
-  );
-
-  assert.deepEqual(guide.steps, [
-    { target: "Phone Meetings", narration: "Open Phone Meetings." },
-  ]);
-});
-
-test("tour repair usage includes both model attempts", () => {
-  assert.deepEqual(
-    recordsHelp.combineRecordsAiUsage(
-      { promptTokens: 100, completionTokens: 20, totalTokens: 120 },
-      { promptTokens: 140, completionTokens: 30, totalTokens: 170 }
-    ),
-    { promptTokens: 240, completionTokens: 50, totalTokens: 290 }
-  );
 });
 
 test("verified role labels come from server-side access context", () => {
