@@ -3,12 +3,11 @@
   "private": true,
   "version": "1.0.0",
   "scripts": {
-    "build": "npm run build:records-guide-registry && npm run build:project-pulse && npm run build:private-code-index && npm run refresh:ask-knowledge",
+    "build": "npm run build:project-pulse && npm run build:private-code-index && npm run refresh:ask-knowledge",
     "test:loans": "node --test tests/loans/*.test.mjs",
     "test:operations": "node --test tests/operations/*.test.mjs",
     "test:records-help": "node --test tests/records-help/*.test.mjs",
     "build:project-pulse": "node scripts/build-project-pulse.js",
-    "build:records-guide-registry": "node scripts/build-records-guide-registry.js",
     "build:private-code-index": "node scripts/build-private-code-index.js",
     "refresh:ask-knowledge": "node scripts/build-site-knowledge.js"
   },

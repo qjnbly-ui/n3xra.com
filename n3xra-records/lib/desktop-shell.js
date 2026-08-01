@@ -4,7 +4,6 @@ import { getStoredActiveOrganizationId } from "/shared/lib/orgs.js";
 const DESKTOP_SHELL_BREAKPOINT = 981;
 const RECORDS_AI_HISTORY_LIMIT = 8;
 const RECORDS_AI_PENDING_GUIDE_KEY = "n3xra-records-pending-guide";
-const RECORDS_AI_GUIDE_BEHAVIOR_VERSION = 1;
 const RECORDS_AI_GUIDE_ROUTES = new Set([
   "/n3xra-records/library",
   "/n3xra-records/meeting-notes",
@@ -41,7 +40,6 @@ let recordsAiWakeLockWanted = false;
 let recordsAiGuideAudio = null;
 let recordsAiGuideAudioUrl = "";
 let recordsAiGuideVoiceEnabled = true;
-let recordsAiGuideSpeechResolve = null;
 
 try {
   recordsAiGuideVoiceEnabled = window.localStorage.getItem("n3xra-records-guide-voice") !== "off";
@@ -440,7 +438,6 @@ function stopRecordsAiGuideSpeech() {
     URL.revokeObjectURL(recordsAiGuideAudioUrl);
     recordsAiGuideAudioUrl = "";
   }
-  if (recordsAiGuideSpeechResolve) recordsAiGuideSpeechResolve();
 }
 
 function fallbackRecordsAiGuideSpeech(text) {
@@ -454,10 +451,8 @@ function fallbackRecordsAiGuideSpeech(text) {
     const finish = () => {
       if (settled) return;
       settled = true;
-      if (recordsAiGuideSpeechResolve === finish) recordsAiGuideSpeechResolve = null;
       resolve();
     };
-    recordsAiGuideSpeechResolve = finish;
     utterance.rate = 1.02;
     utterance.onend = finish;
     utterance.onerror = finish;
@@ -487,13 +482,11 @@ async function narrateRecordsAiGuide(message) {
       const finish = (error = null) => {
         if (settled) return;
         settled = true;
-        if (recordsAiGuideSpeechResolve === finish) recordsAiGuideSpeechResolve = null;
         window.clearTimeout(timeout);
         if (recordsAiGuideAudio === audio) recordsAiGuideAudio = null;
         if (error) reject(error);
         else resolve();
       };
-      recordsAiGuideSpeechResolve = finish;
       const timeout = window.setTimeout(() => finish(), 10000);
       audio.addEventListener("ended", () => finish(), { once: true });
       audio.addEventListener("error", () => finish(new Error("Guide audio failed")), { once: true });
@@ -762,55 +755,6 @@ function markRecordsAiGuideTarget(target, message, eyebrow) {
   target.classList.add("records-ai-spotlight");
 }
 
-function waitForRecordsAiGuidePageReady() {
-  if (document.readyState === "complete") return Promise.resolve();
-  return new Promise((resolve) => {
-    const timeout = window.setTimeout(resolve, 12000);
-    window.addEventListener("load", () => {
-      window.clearTimeout(timeout);
-      resolve();
-    }, { once: true });
-  });
-}
-
-function waitForRecordsAiGuideTargetToSettle(target, minimumMs = 1400) {
-  return new Promise((resolve) => {
-    const startedAt = performance.now();
-    let previousBounds = "";
-    let stableFrames = 0;
-    const check = () => {
-      if (!target.isConnected || !isRecordsAiElementVisible(target)) {
-        resolve();
-        return;
-      }
-      const bounds = target.getBoundingClientRect();
-      const currentBounds = [bounds.x, bounds.y, bounds.width, bounds.height]
-        .map((value) => Math.round(value))
-        .join(":");
-      stableFrames = currentBounds === previousBounds ? stableFrames + 1 : 0;
-      previousBounds = currentBounds;
-      const elapsedMs = performance.now() - startedAt;
-      if ((elapsedMs >= minimumMs && stableFrames >= 3) || elapsedMs >= 6000) {
-        resolve();
-        return;
-      }
-      window.requestAnimationFrame(check);
-    };
-    window.requestAnimationFrame(check);
-  });
-}
-
-async function presentRecordsAiGuideStep(target, visibleMessage, spokenMessage, eyebrow, { final = false } = {}) {
-  markRecordsAiGuideTarget(target, visibleMessage, eyebrow);
-  await Promise.all([
-    waitForRecordsAiGuideTargetToSettle(target),
-    narrateRecordsAiGuide(spokenMessage),
-  ]);
-  target.classList.remove("records-ai-spotlight");
-  if (final) hideRecordsAiGuideNote(900);
-  return true;
-}
-
 function spotlightRecordsAiTarget(actionId, attempt = 0, activate = true) {
   const action = RECORDS_AI_ACTIONS[actionId];
   const activationTarget = activate && action?.activationSelector
@@ -830,27 +774,23 @@ function spotlightRecordsAiTarget(actionId, attempt = 0, activate = true) {
 
   if (activationTarget) {
     const instruction = `Now, choose ${action.activationLabel}.`;
+    markRecordsAiGuideTarget(activationTarget, `Choose ${action.activationLabel}`, "Next selection");
     void (async () => {
-      const continueGuide = await presentRecordsAiGuideStep(
-        activationTarget,
-        `Choose ${action.activationLabel}`,
-        instruction,
-        "Next selection"
-      );
-      if (!continueGuide) return;
+      await Promise.all([
+        new Promise((resolve) => window.setTimeout(resolve, 1250)),
+        narrateRecordsAiGuide(instruction),
+      ]);
       activationTarget.click();
+      activationTarget.classList.remove("records-ai-spotlight");
       window.setTimeout(() => spotlightRecordsAiTarget(actionId, 0, false), 350);
     })();
     return;
   }
 
-  void presentRecordsAiGuideStep(
-    target,
-    action.label,
-    `You’ve reached ${getRecordsAiSpokenDestination(action)}.`,
-    "You’re here",
-    { final: true }
-  );
+  markRecordsAiGuideTarget(target, action.label, "You’re here");
+  void narrateRecordsAiGuide(`You’ve reached ${getRecordsAiSpokenDestination(action)}.`);
+  window.setTimeout(() => target.classList.remove("records-ai-spotlight"), 4200);
+  hideRecordsAiGuideNote(4200);
   if (typeof target.focus === "function") target.focus({ preventScroll: true });
 }
 
@@ -915,31 +855,33 @@ function normalizeRecordsAiGuide(input) {
   if (!input || typeof input !== "object") return null;
   const buttonLabel = String(input.buttonLabel || "").trim().slice(0, 60);
   const route = String(input.route || "").trim();
-  const behaviorVersion = Number(input.behaviorVersion || 0);
   const steps = Array.isArray(input.steps)
     ? input.steps.slice(0, 7).map((step) => ({
-        targetId: String(step?.targetId || "").trim().slice(0, 100),
         target: String(step?.target || "").trim().slice(0, 100),
-        kind: String(step?.kind || "").trim().slice(0, 30),
         narration: String(step?.narration || "").trim().slice(0, 220),
-      })).filter((step) => /^[A-Za-z][A-Za-z0-9_:.-]*$/.test(step.targetId) && step.target)
+      })).filter((step) => step.target)
     : [];
-  if (
-    !buttonLabel
-    || !RECORDS_AI_GUIDE_ROUTES.has(route)
-    || behaviorVersion !== RECORDS_AI_GUIDE_BEHAVIOR_VERSION
-    || !steps.length
-  ) return null;
-  return { buttonLabel, route, behaviorVersion, steps };
+  if (!buttonLabel || !RECORDS_AI_GUIDE_ROUTES.has(route) || !steps.length) return null;
+  return { buttonLabel, route, steps };
 }
 
-function findRecordsAiGuideTarget(step) {
-  const control = document.getElementById(step?.targetId || "");
-  if (!control || control.closest("[data-records-ai-layer]")) return null;
-  const target = control.matches("input, select, textarea") && control.closest("label")
-    ? control.closest("label")
-    : control;
-  return isRecordsAiElementVisible(target) ? target : null;
+function normalizeRecordsAiTargetText(value) {
+  return String(value || "")
+    .replace(/\s+/g, " ")
+    .replace(/\s+\*/g, "")
+    .trim()
+    .toLowerCase();
+}
+
+function findRecordsAiGuideTarget(label) {
+  const expected = normalizeRecordsAiTargetText(label);
+  if (!expected) return null;
+  const candidates = Array.from(document.querySelectorAll(
+    "button, a, label, legend, [role='button'], [role='tab'], h1, h2, h3, h4, .field-title"
+  )).filter((element) => !element.closest("[data-records-ai-layer]") && isRecordsAiElementVisible(element));
+  return candidates.find((element) => normalizeRecordsAiTargetText(element.textContent) === expected)
+    || candidates.find((element) => normalizeRecordsAiTargetText(element.textContent).startsWith(expected))
+    || null;
 }
 
 function safelyRevealRecordsAiGuideTarget(target) {
@@ -967,12 +909,11 @@ function safelyRevealRecordsAiGuideTarget(target) {
 async function playRecordsAiGuidePlan(input) {
   const guide = normalizeRecordsAiGuide(input);
   if (!guide) return;
-  await waitForRecordsAiGuidePageReady();
   for (let index = 0; index < guide.steps.length; index += 1) {
     const step = guide.steps[index];
     let target = null;
-    for (let attempt = 0; attempt < 120 && !target; attempt += 1) {
-      target = findRecordsAiGuideTarget(step);
+    for (let attempt = 0; attempt < 24 && !target; attempt += 1) {
+      target = findRecordsAiGuideTarget(step.target);
       if (!target) await new Promise((resolve) => window.setTimeout(resolve, 125));
     }
     if (!target) {
@@ -984,17 +925,18 @@ async function playRecordsAiGuidePlan(input) {
 
     const isLast = index === guide.steps.length - 1;
     const spoken = step.narration || `${isLast ? "Finally" : "Next"}, find ${step.target}.`;
-    const continueGuide = await presentRecordsAiGuideStep(
-      target,
-      step.target,
-      spoken,
-      isLast ? "Final step" : `Step ${index + 1} of ${guide.steps.length}`,
-      { final: isLast }
-    );
-    if (!continueGuide) return;
+    markRecordsAiGuideTarget(target, step.target, isLast ? "Final step" : `Step ${index + 1} of ${guide.steps.length}`);
+    await Promise.all([
+      new Promise((resolve) => window.setTimeout(resolve, isLast ? 1500 : 1200)),
+      narrateRecordsAiGuide(spoken),
+    ]);
     if (!isLast) {
       safelyRevealRecordsAiGuideTarget(target);
+      target.classList.remove("records-ai-spotlight");
       await new Promise((resolve) => window.setTimeout(resolve, 300));
+    } else {
+      window.setTimeout(() => target.classList.remove("records-ai-spotlight"), 5000);
+      hideRecordsAiGuideNote(5000);
     }
   }
 }
@@ -1015,8 +957,7 @@ async function runRecordsAiGuidePlan(input) {
   }
 
   await new Promise((resolve) => window.setTimeout(resolve, 260));
-  const continueGuide = await guideRecordsAiNavigation({ label: guide.buttonLabel }, destination);
-  if (!continueGuide) return;
+  await guideRecordsAiNavigation({ label: guide.buttonLabel }, destination);
   try {
     window.sessionStorage.setItem(RECORDS_AI_PENDING_GUIDE_KEY, JSON.stringify(guide));
   } catch {
@@ -1051,14 +992,13 @@ async function guideRecordsAiNavigation(action, destination) {
     const manageToggle = document.querySelector("[data-records-manage-toggle]");
     if (manageToggle?.getAttribute("aria-expanded") !== "true") {
       const instruction = "First, open Manage library.";
-      const continueGuide = await presentRecordsAiGuideStep(
-        manageToggle,
-        "Open Manage library",
-        instruction,
-        "First selection"
-      );
-      if (!continueGuide) return false;
+      markRecordsAiGuideTarget(manageToggle, "Open Manage library", "First selection");
+      await Promise.all([
+        new Promise((resolve) => window.setTimeout(resolve, 1050)),
+        narrateRecordsAiGuide(instruction),
+      ]);
       manageToggle.click();
+      manageToggle.classList.remove("records-ai-spotlight");
       await new Promise((resolve) => window.setTimeout(resolve, 250));
     }
   } else if (!isDesktop) {
@@ -1066,14 +1006,13 @@ async function guideRecordsAiNavigation(action, destination) {
     const menuToggle = document.getElementById("mobile-menu-toggle");
     if (mobileMenu?.classList.contains("hidden") && menuToggle) {
       const instruction = "First, open the Records menu.";
-      const continueGuide = await presentRecordsAiGuideStep(
-        menuToggle,
-        "Open the Records menu",
-        instruction,
-        "First selection"
-      );
-      if (!continueGuide) return false;
+      markRecordsAiGuideTarget(menuToggle, "Open the Records menu", "First selection");
+      await Promise.all([
+        new Promise((resolve) => window.setTimeout(resolve, 1050)),
+        narrateRecordsAiGuide(instruction),
+      ]);
       menuToggle.click();
+      menuToggle.classList.remove("records-ai-spotlight");
       await new Promise((resolve) => window.setTimeout(resolve, 250));
     }
   }
@@ -1082,15 +1021,17 @@ async function guideRecordsAiNavigation(action, destination) {
   if (navigationTarget && isRecordsAiElementVisible(navigationTarget)) {
     const selectionLabel = getRecordsAiSelectionLabel(action, destination);
     const instruction = `Then, choose ${selectionLabel}.`;
-    const continueGuide = await presentRecordsAiGuideStep(
+    markRecordsAiGuideTarget(
       navigationTarget,
       `Choose ${selectionLabel}`,
-      instruction,
       requiredView && isDesktop ? "Second selection" : "Next selection"
     );
-    if (!continueGuide) return false;
+    await Promise.all([
+      new Promise((resolve) => window.setTimeout(resolve, 1350)),
+      narrateRecordsAiGuide(instruction),
+    ]);
+    navigationTarget.classList.remove("records-ai-spotlight");
   }
-  return true;
 }
 
 async function runRecordsAiAction(actionId) {
@@ -1111,8 +1052,7 @@ async function runRecordsAiAction(actionId) {
   }
 
   await new Promise((resolve) => window.setTimeout(resolve, 260));
-  const continueGuide = await guideRecordsAiNavigation(action, destination);
-  if (!continueGuide) return;
+  await guideRecordsAiNavigation(action, destination);
   const openingLabel = action.label.replace(/^(Open|Show)\s+/i, "");
   showRecordsAiGuideNote(`Opening ${openingLabel}…`, "Moving to the destination");
   destination.searchParams.set("recordsAiFocus", actionId);
