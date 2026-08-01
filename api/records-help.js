@@ -64,7 +64,7 @@ const RECORDS_GUIDE_ROUTES = new Set([
 function parseRecordsGuideToken(rawToken) {
   const [rawButtonLabel, rawRoute, rawSteps] = String(rawToken || "").split("|");
   const buttonLabel = String(rawButtonLabel || "").trim().slice(0, 60);
-  const route = String(rawRoute || "").trim();
+  const route = String(rawRoute || "").replace(/\s+/g, "").trim();
   if (!buttonLabel || !RECORDS_GUIDE_ROUTES.has(route) || !rawSteps) return null;
 
   const steps = String(rawSteps)
@@ -84,15 +84,30 @@ function parseRecordsGuideToken(rawToken) {
 function extractHelpActions(rawAnswer) {
   const requested = [];
   const guides = [];
+  const keepGuide = (rawGuide) => {
+    const guide = parseRecordsGuideToken(String(rawGuide || "").replace(/\]+\s*$/, "").trim());
+    if (guide && guides.length < 1) guides.push(guide);
+  };
+  const keepAction = (rawId) => {
+    const id = String(rawId || "").toLowerCase();
+    if (RECORDS_HELP_ACTIONS[id] && !requested.includes(id) && requested.length < 2) requested.push(id);
+  };
+
   const answer = String(rawAnswer || "")
-    .replace(/\[\[guide:([^\]\n]+)\]\]/gi, (_token, rawGuide) => {
-      const guide = parseRecordsGuideToken(rawGuide);
-      if (guide && guides.length < 1) guides.push(guide);
+    .replace(/\[\[guide:([\s\S]*?)\]\]/gi, (_token, rawGuide) => {
+      keepGuide(rawGuide);
       return "";
     })
     .replace(/\[\[action:([a-z0-9._-]+)\]\]/gi, (_token, rawId) => {
-      const id = String(rawId || "").toLowerCase();
-      if (RECORDS_HELP_ACTIONS[id] && !requested.includes(id) && requested.length < 2) requested.push(id);
+      keepAction(rawId);
+      return "";
+    })
+    .replace(/\[\[guide:([\s\S]*)$/i, (_token, rawGuide) => {
+      keepGuide(rawGuide);
+      return "";
+    })
+    .replace(/\[\[action:([a-z0-9._-]+)[\s\S]*$/i, (_token, rawId) => {
+      keepAction(rawId);
       return "";
     })
     .replace(/[ \t]+\n/g, "\n")

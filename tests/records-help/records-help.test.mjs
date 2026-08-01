@@ -132,6 +132,22 @@ test("generic guides compose verified UI labels without workflow-specific code",
   assert.equal(recordsHelp.parseRecordsGuideToken("Unsafe|/outside|Delete~Delete it."), null);
 });
 
+test("truncated guide markers are salvaged and never exposed in answer copy", () => {
+  const result = recordsHelp.extractHelpActions(
+    "Start in Meeting Notes.\n[[guide:Start phone meeting|/n3xra-records/meeting-\nnotes|Meeting Notes~Open Meeting Notes workspace>New meeting note~Open the new meeting note area>Phone call~Select phone call capture>"
+  );
+
+  assert.equal(result.answer, "Start in Meeting Notes.");
+  assert.doesNotMatch(result.answer, /\[\[guide:/);
+  assert.equal(result.actions[0].id, "guided.path");
+  assert.equal(result.actions[0].guide.route, "/n3xra-records/meeting-notes");
+  assert.deepEqual(result.actions[0].guide.steps.map((step) => step.target), [
+    "Meeting Notes",
+    "New meeting note",
+    "Phone call",
+  ]);
+});
+
 test("verified role labels come from server-side access context", () => {
   assert.equal(recordsHelp.formatVerifiedRole({ membershipRole: "account_admin" }), "Account Admin");
   assert.equal(recordsHelp.formatVerifiedRole({ membershipRole: "account_owner" }), "Account Admin");
