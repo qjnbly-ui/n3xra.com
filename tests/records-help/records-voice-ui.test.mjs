@@ -31,6 +31,9 @@ test("Records AI actions demonstrate the navigation path before the destination"
   assert.match(shell, /getRecordsAiGuideCandidates/);
   assert.match(shell, /getRecordsAiGuideCommonTarget/);
   assert.match(shell, /getRecordsAiGuideHighlightTarget/);
+  assert.match(shell, /getRecordsAiGuideReadableText/);
+  assert.match(shell, /\[aria-hidden='true'\], script, style/);
+  assert.match(shell, /clone\.textContent/);
   assert.match(shell, /document\.getElementById\(target\.htmlFor\)/);
   assert.match(shell, /getRecordsAiGuideHiddenContainer/);
   assert.match(shell, /getRecordsAiGuideRevealControl/);

@@ -97,22 +97,39 @@ const RECORDS_HELP_FALLBACK_GUIDES = Object.freeze({
   ]),
 });
 
-function getRecordsHelpFallbackGuideSteps(actionId, answer = "") {
+function getRecordsHelpFallbackGuideSteps(actionId, answer = "", question = "") {
   if (actionId === "meeting.new") {
-    const normalizedAnswer = normalizeHelpActionText(answer);
-    const finalStep = /\bupload\b/.test(normalizedAnswer)
-      ? null
-      : /\bphone\b|\bcall\b/.test(normalizedAnswer)
-        ? { target: "Start phone meeting", narration: "Start phone meeting begins the phone workflow after the required details are ready." }
-        : { target: "Start app recording", narration: "Start app recording begins microphone capture in this browser." };
-    return [
+    const requestedTopic = normalizeHelpActionText(String(question || "").trim() || answer);
+    const setup = [
       { target: "Meeting title", narration: "Meeting title names the note and is required before audio can start." },
       { target: "Document template", narration: "Document template chooses the note structure, including the blank-notes option." },
+    ];
+    if (/\b(?:all|every|each)\b.*\b(?:option|choice|method|feature)\b|\b(?:tour|overview)\b/.test(requestedTopic)) {
+      return [
+        ...setup,
+        { target: "App recording", narration: "App recording captures audio directly in this browser." },
+        { target: "Phone call", narration: "Phone call attaches audio received through the N3XRA phone number." },
+        { target: "Both", narration: "Both keeps phone-call audio and browser audio together in one meeting note." },
+        { target: "Upload recording", narration: "Upload recording uses an audio file that was recorded somewhere else." },
+      ];
+    }
+    if (/\bphone\b|\bcall\b/.test(requestedTopic)) {
+      return [
+        ...setup,
+        { target: "Phone call", narration: "Phone call attaches audio received through the N3XRA phone number." },
+        { target: "Start phone meeting", narration: "Start phone meeting begins the phone workflow after the required details are ready." },
+      ];
+    }
+    if (/\bupload\b|\baudio file\b/.test(requestedTopic)) {
+      return [
+        ...setup,
+        { target: "Upload recording", narration: "Upload recording uses an audio file that was recorded somewhere else." },
+      ];
+    }
+    return [
+      ...setup,
       { target: "App recording", narration: "App recording captures audio directly in this browser." },
-      { target: "Phone call", narration: "Phone call attaches audio received through the N3XRA phone number." },
-      { target: "Both", narration: "Both keeps phone-call audio and browser audio together in one meeting note." },
-      { target: "Upload recording", narration: "Upload recording uses an audio file that was recorded somewhere else." },
-      ...(finalStep ? [finalStep] : []),
+      { target: "Start app recording", narration: "Start app recording begins microphone capture in this browser." },
     ];
   }
   return RECORDS_HELP_FALLBACK_GUIDES[actionId] || null;
@@ -301,11 +318,11 @@ function inferRecordsAnswerGuideSteps(answer) {
   return steps;
 }
 
-function inferRecordsWorkflowGuide(actionId, answer) {
+function inferRecordsWorkflowGuide(actionId, answer, question = "") {
   const route = RECORDS_HELP_ACTION_ROUTES[actionId];
   if (!route) return null;
   const steps = inferRecordsAnswerGuideSteps(answer);
-  const fallbackSteps = getRecordsHelpFallbackGuideSteps(actionId, answer);
+  const fallbackSteps = getRecordsHelpFallbackGuideSteps(actionId, answer, question);
   if (fallbackSteps) {
     steps.splice(0, steps.length, ...fallbackSteps);
   } else if (steps.length < 2) {
@@ -325,7 +342,7 @@ function inferRecordsWorkflowGuide(actionId, answer) {
 }
 
 function normalizeRecordsTaskGuide(guide, actionId, answer, question = "") {
-  const fallbackSteps = getRecordsHelpFallbackGuideSteps(actionId, answer);
+  const fallbackSteps = getRecordsHelpFallbackGuideSteps(actionId, answer, question);
   const suppliedSteps = Array.isArray(guide?.steps) ? guide.steps : [];
   const answerSteps = inferRecordsAnswerGuideSteps(answer);
   const countContentSteps = (steps) => steps.filter((step) => !RECORDS_HELP_NAVIGATION_LABELS.has(
@@ -391,6 +408,7 @@ function inferRecordsHelpAction(question, answer) {
 
 function decodeRecordsUiText(value) {
   return String(value || "")
+    .replace(/<([a-z][\w-]*)\b[^>]*\baria-hidden\s*=\s*["']true["'][^>]*>[\s\S]*?<\/\1>/gi, " ")
     .replace(/<[^>]+>/g, " ")
     .replace(/&amp;/gi, "&")
     .replace(/&quot;/gi, '"')
@@ -685,6 +703,7 @@ function buildSystemPrompt(user, appContext, verifiedUiLabels = []) {
     "Generic guide format: [[guide:Button label|SAFE_ROUTE|Exact UI label~Natural spoken instruction>Exact UI label~Natural spoken instruction]]. Use 2 to 7 verified interface labels in the order the user would encounter them.",
     "SAFE_ROUTE must be one of: /n3xra-records/library, /n3xra-records/meeting-notes, /n3xra-records/documents.html, /n3xra-records/messages.html, or /n3xra-records/account/?view= followed by profile, library, templates, phone, ai, users, contacts, access, storage, billing, activity, or support.",
     "Guide targets must be exact visible interface labels from product knowledge. Narration should explain what each highlighted choice means in the user's workflow, not merely read a button label. The guide may reveal expandable sections but never submits forms, starts recordings or calls, sends messages, uploads files, changes settings, or activates destructive controls.",
+    "Keep each answer and guide scoped to the topic the user asked about. Do not tour or explain every feature, field, or alternative on the destination page unless the user explicitly asks for an overview, comparison, tour, or all options.",
     "When the user asks not to save, submit, send, or complete an action, end by explaining the final consequential control without activating it. Do not add a cancel, close, discard, or rollback step unless the user explicitly asks to close or discard the work.",
     "Use an action only when it directly advances the user's request and their verified role/plan allows the destination. Do not describe an action token or invent another one.",
     "Say that the user can use the offered button; never claim that you already opened, clicked, highlighted, or completed anything.",
@@ -855,7 +874,7 @@ module.exports = async function handler(req, res) {
         if (isRecordsPreviewOnlyRequest(question) && RECORDS_HELP_SAFE_PREVIEW_ANSWERS[primaryAction.id]) {
           answer = RECORDS_HELP_SAFE_PREVIEW_ANSWERS[primaryAction.id];
         }
-        const inferredGuide = inferRecordsWorkflowGuide(primaryAction.id, answer);
+        const inferredGuide = inferRecordsWorkflowGuide(primaryAction.id, answer, question);
         if (inferredGuide) {
           inferredGuide.guide = normalizeRecordsTaskGuide(inferredGuide.guide, primaryAction.id, answer, question);
           actions = [inferredGuide];

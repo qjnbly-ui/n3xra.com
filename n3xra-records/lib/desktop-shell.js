@@ -937,16 +937,23 @@ function spotlightRecordsAiGuideDestination(route, arrivalNarration = "") {
   });
 }
 
+function getRecordsAiGuideReadableText(element) {
+  if (!element) return "";
+  const clone = element.cloneNode(true);
+  clone.querySelectorAll?.("[aria-hidden='true'], script, style").forEach((node) => node.remove());
+  return clone.textContent || "";
+}
+
 function getRecordsAiGuideTargetText(element) {
   if (!element) return "";
   const labelledBy = String(element.getAttribute?.("aria-labelledby") || "")
     .split(/\s+/)
-    .map((id) => document.getElementById(id)?.textContent || "")
+    .map((id) => getRecordsAiGuideReadableText(document.getElementById(id)))
     .join(" ");
   return normalizeRecordsAiTargetText(
     element.getAttribute?.("aria-label")
     || labelledBy
-    || element.textContent
+    || getRecordsAiGuideReadableText(element)
     || element.getAttribute?.("placeholder")
     || ""
   );
