@@ -99,9 +99,12 @@ test("task answers become workflow guides while explicit navigation stays destin
   assert.equal(action.guide.route, "/n3xra-records/account/?view=access");
   assert.equal(action.guide.arrivalNarration, "Invite the staff member from Invites & access.");
   assert.deepEqual(action.guide.steps.map((step) => step.target), [
-    "Manage library",
     "Invite codes",
     "Role",
+    "Uses",
+    "Expires at",
+    "Recipient email (optional)",
+    "Create invite code",
     "Create code + send email",
   ]);
 });
@@ -124,6 +127,25 @@ test("task aliases recover a verified workflow when the model returns only a sho
     "Create code + send email",
   ]);
   assert.match(action.guide.steps.at(-1).narration, /stops here without creating or sending/i);
+});
+
+test("preview-only task guides use safe copy and never present an execution button", () => {
+  const answer = "Create the invite code but stop before sending it.";
+  const modelGuide = {
+    buttonLabel: "Create invite code",
+    route: "/n3xra-records/account/?view=access",
+    steps: [
+      { target: "Create invite code", narration: "Press Create invite code." },
+      { target: "Invite codes", narration: "Open Invite codes." },
+    ],
+  };
+  const guide = recordsHelp.normalizeRecordsTaskGuide(modelGuide, "account.access", answer);
+
+  assert.equal(recordsHelp.isRecordsPreviewOnlyRequest("Don't create or send anything yet."), true);
+  assert.equal(guide.buttonLabel, "Show me how");
+  assert.equal(guide.steps[0].target, "Invite codes");
+  assert.match(guide.steps.find((step) => step.target === "Create invite code").narration, /will not press it/i);
+  assert.doesNotMatch(guide.steps.find((step) => step.target === "Create invite code").narration, /^Press /i);
 });
 
 test("metadata-only responses retain their action and receive visible fallback copy", () => {

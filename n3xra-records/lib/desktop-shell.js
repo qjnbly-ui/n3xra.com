@@ -974,6 +974,11 @@ function safelyRevealRecordsAiGuideTarget(target) {
   ) target.click();
 }
 
+function isRecordsAiConsequentialGuideTarget(label) {
+  return /\b(?:create|send|delete|remove|save|submit|upload|start|record|grant|revoke|purchase|pay|checkout|publish)\b/i
+    .test(String(label || ""));
+}
+
 async function playRecordsAiGuidePlan(input) {
   const guide = normalizeRecordsAiGuide(input);
   if (!guide) return;
@@ -1004,7 +1009,7 @@ async function playRecordsAiGuidePlan(input) {
       narrateRecordsAiGuide(spoken),
     ]);
     if (!isLast) {
-      safelyRevealRecordsAiGuideTarget(target);
+      if (!isRecordsAiConsequentialGuideTarget(step.target)) safelyRevealRecordsAiGuideTarget(target);
       target.classList.remove("records-ai-spotlight");
       await new Promise((resolve) => window.setTimeout(resolve, 300));
     } else {

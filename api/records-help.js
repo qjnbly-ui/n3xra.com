@@ -96,6 +96,21 @@ const RECORDS_HELP_FALLBACK_GUIDES = Object.freeze({
   ]),
 });
 
+const RECORDS_HELP_SAFE_PREVIEW_ANSWERS = Object.freeze({
+  "account.access": [
+    "I can show you how invite codes work without creating or sending anything.",
+    "",
+    "1. Open **Manage library** → **Invites & access**.",
+    "2. Expand **Invite codes**.",
+    "3. Review **Role**, **Uses**, **Expires at**, and the optional recipient fields.",
+    "4. Compare **Create invite code** with **Create code + send email**.",
+    "",
+    "The guide will explain both final choices and stop without pressing either one.",
+  ].join("\n"),
+});
+
+const RECORDS_HELP_CONSEQUENTIAL_TARGET = /\b(?:create|send|delete|remove|save|submit|upload|start|record|grant|revoke|purchase|pay|checkout|publish)\b/i;
+
 const RECORDS_GUIDE_ROUTES = new Set([
   "/n3xra-records/library",
   "/n3xra-records/meeting-notes",
@@ -196,6 +211,16 @@ function isRecordsNavigationOnlyRequest(question) {
     && !/\b(?:how|help|explain|walk|guide|tour|what can|show me how)\b/i.test(text);
 }
 
+function isRecordsPreviewOnlyRequest(question) {
+  return /\b(?:do not|don't|dont|without|stop before|nothing yet|not yet|just show|only show|explain only)\b/i
+    .test(String(question || ""));
+}
+
+function getRecordsHelpActionIdForRoute(route) {
+  return Object.entries(RECORDS_HELP_ACTION_ROUTES)
+    .find(([, candidateRoute]) => candidateRoute === String(route || ""))?.[0] || "";
+}
+
 function buildRecordsArrivalNarration(answer, actionLabel = "") {
   const visible = String(answer || "")
     .replace(/^\s*\d+\.\s+/gm, "")
@@ -225,7 +250,9 @@ function inferRecordsWorkflowGuide(actionId, answer) {
     steps.push({ target: target.slice(0, 100), narration });
     if (steps.length === 7) break;
   }
-  if (steps.length < 2) {
+  if (RECORDS_HELP_FALLBACK_GUIDES[actionId]) {
+    steps.splice(0, steps.length, ...RECORDS_HELP_FALLBACK_GUIDES[actionId]);
+  } else if (steps.length < 2) {
     steps.splice(0, steps.length, ...(RECORDS_HELP_FALLBACK_GUIDES[actionId] || []));
   }
   if (steps.length < 2) return null;
@@ -238,6 +265,33 @@ function inferRecordsWorkflowGuide(actionId, answer) {
       arrivalNarration: buildRecordsArrivalNarration(answer, RECORDS_HELP_ACTIONS[actionId]),
       steps,
     },
+  };
+}
+
+function normalizeRecordsTaskGuide(guide, actionId, answer) {
+  const fallbackSteps = RECORDS_HELP_FALLBACK_GUIDES[actionId];
+  const sourceSteps = fallbackSteps || (Array.isArray(guide?.steps) ? guide.steps : []);
+  const seen = new Set();
+  const steps = sourceSteps.filter((step) => {
+    const target = String(step?.target || "").trim().toLowerCase();
+    if (!target || seen.has(target)) return false;
+    seen.add(target);
+    return true;
+  }).map((step) => {
+    const target = String(step.target || "").trim().slice(0, 100);
+    if (!RECORDS_HELP_CONSEQUENTIAL_TARGET.test(target)) {
+      return { target, narration: String(step.narration || "").trim().slice(0, 220) };
+    }
+    return {
+      target,
+      narration: `${target} performs a consequential action. Records AI will explain and highlight it, but will not press it.`,
+    };
+  });
+  return {
+    ...guide,
+    buttonLabel: "Show me how",
+    arrivalNarration: buildRecordsArrivalNarration(answer, RECORDS_HELP_ACTIONS[actionId]),
+    steps,
   };
 }
 
@@ -560,17 +614,24 @@ module.exports = async function handler(req, res) {
       const hasGuide = actions.some((action) => action.id === "guided.path" && action.guide);
       const primaryAction = actions.find((action) => RECORDS_HELP_ACTIONS[action.id]);
       if (hasGuide) {
+        const guideActionId = getRecordsHelpActionIdForRoute(
+          actions.find((action) => action.id === "guided.path" && action.guide)?.guide?.route
+        );
+        if (isRecordsPreviewOnlyRequest(question) && RECORDS_HELP_SAFE_PREVIEW_ANSWERS[guideActionId]) {
+          answer = RECORDS_HELP_SAFE_PREVIEW_ANSWERS[guideActionId];
+        }
         actions = actions.map((action) => action.id === "guided.path" && action.guide ? {
           ...action,
-          guide: {
-            ...action.guide,
-            arrivalNarration: action.guide.arrivalNarration
-              || buildRecordsArrivalNarration(answer, action.label),
-          },
+          label: "Show me how",
+          guide: normalizeRecordsTaskGuide(action.guide, guideActionId, answer),
         } : action);
       } else if (primaryAction) {
+        if (isRecordsPreviewOnlyRequest(question) && RECORDS_HELP_SAFE_PREVIEW_ANSWERS[primaryAction.id]) {
+          answer = RECORDS_HELP_SAFE_PREVIEW_ANSWERS[primaryAction.id];
+        }
         const inferredGuide = inferRecordsWorkflowGuide(primaryAction.id, answer);
         if (inferredGuide) {
+          inferredGuide.guide = normalizeRecordsTaskGuide(inferredGuide.guide, primaryAction.id, answer);
           actions = [inferredGuide];
         } else {
           actions = actions.map((action) => action.id === primaryAction.id ? {
@@ -614,3 +675,5 @@ module.exports.combineRecordsHelpUsage = combineRecordsHelpUsage;
 module.exports.isRecordsNavigationOnlyRequest = isRecordsNavigationOnlyRequest;
 module.exports.buildRecordsArrivalNarration = buildRecordsArrivalNarration;
 module.exports.inferRecordsWorkflowGuide = inferRecordsWorkflowGuide;
+module.exports.isRecordsPreviewOnlyRequest = isRecordsPreviewOnlyRequest;
+module.exports.normalizeRecordsTaskGuide = normalizeRecordsTaskGuide;
