@@ -385,17 +385,6 @@ async function transcribeRecordingAudio(recording) {
   return transcribeTemporaryDerivative(audio, recording, GROQ_LARGE_TRANSCRIPTION_MODEL);
 }
 
-function addInterruptionMarkers(transcriptText, recording) {
-  const interruptions = Array.isArray(recording?.metadata?.interruptions) ? recording.metadata.interruptions : [];
-  if (!interruptions.length) return transcriptText;
-  const markers = interruptions.map((item, index) => {
-    const started = item?.started_at ? new Date(item.started_at).toISOString() : "time unavailable";
-    const ended = item?.ended_at ? new Date(item.ended_at).toISOString() : "recording was not resumed";
-    return `[Recording interruption ${Number(item?.number || index + 1)}: ${started} to ${ended}. No audio was captured during this gap.]`;
-  });
-  return `${markers.join("\n")}\n\n${transcriptText}`.trim();
-}
-
 async function uploadTranscriptDocument(recording, user, transcriptText) {
   const startedAt = recording.started_at || recording.created_at;
   const date = startedAt ? new Date(startedAt) : null;
@@ -513,7 +502,7 @@ async function handler(req, res) {
       processing_error: null,
     });
 
-    const transcriptText = addInterruptionMarkers(await transcribeRecordingAudio(recording), recording);
+    const transcriptText = await transcribeRecordingAudio(recording);
     const document = await uploadTranscriptDocument(recording, user, transcriptText);
     const updatedRecording = await updateRecording(recording.id, {
       document_id: document?.id || recording.document_id || null,

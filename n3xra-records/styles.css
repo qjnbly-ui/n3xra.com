@@ -1336,6 +1336,56 @@ textarea {
   justify-content: flex-end;
 }
 
+.recording-interruptions {
+  display: grid;
+  gap: 0.7rem;
+  margin-top: 0.9rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid rgba(184, 121, 31, 0.2);
+  border-radius: 16px;
+  background: #fffaf1;
+}
+
+.recording-interruptions h4,
+.recording-interruptions p {
+  margin: 0;
+}
+
+.recording-interruptions h4 {
+  font-size: 0.98rem;
+}
+
+.recording-interruptions p,
+.recording-interruptions small {
+  color: var(--slate);
+  line-height: 1.45;
+}
+
+.recording-interruptions ol {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.recording-interruptions li {
+  display: grid;
+  gap: 0.18rem;
+  padding-top: 0.55rem;
+  border-top: 1px solid rgba(184, 121, 31, 0.14);
+}
+
+.recording-interruptions li:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.recording-interruptions li span {
+  color: var(--ink);
+  font-size: 0.9rem;
+}
+
 .compact-head {
   align-items: start;
 }

@@ -19,6 +19,7 @@ import {
   isSuggestionResolved,
 } from "./lib/recording-suggestions.js";
 import { createAppDocumentPdfObjectUrl } from "./lib/app-document-pdf.js";
+import { getRecordingInterruptions, stripRecordingInterruptionMarkers } from "./lib/recording-interruptions.js";
 
 const setupPanel = document.getElementById("setup-panel");
 const allRecordingsPanel = document.getElementById("all-recordings-panel");
@@ -59,6 +60,8 @@ const recordingDetailEndedAt = document.getElementById("recording-detail-ended-a
 const recordingDetailDuration = document.getElementById("recording-detail-duration");
 const recordingDetailSize = document.getElementById("recording-detail-size");
 const recordingDetailPlayer = document.getElementById("recording-detail-player");
+const recordingDetailInterruptions = document.getElementById("recording-detail-interruptions");
+const recordingDetailInterruptionList = document.getElementById("recording-detail-interruption-list");
 const recordingDetailNotes = document.getElementById("recording-detail-notes");
 const recordingDetailReferenceSelect = document.getElementById("recording-detail-reference-select");
 const recordingDetailReferenceType = document.getElementById("recording-detail-reference-type");
@@ -803,6 +806,7 @@ async function loadRecordings() {
       ai_review_json,
       ai_draft_document_id,
       final_document_id,
+      metadata,
       created_at
     `)
     .eq("organization_id", organization.id)
@@ -1113,8 +1117,9 @@ function populateRecordingDetails(recording) {
       recordingDetailTranscriptCopy.textContent = "No transcript file has been created yet.";
     }
   }
+  renderRecordingInterruptions(recording);
   if (recordingDetailTranscriptText) {
-    recordingDetailTranscriptText.textContent = String(recording.transcript_text || "").trim() || "No transcript available yet.";
+    recordingDetailTranscriptText.textContent = stripRecordingInterruptionMarkers(recording.transcript_text) || "No transcript available yet.";
   }
   recordingDetailPlay.disabled = !canPlaybackRecording(recording);
   show(recordingDetailTranscribe, canTranscribeRecording(recording));
@@ -1139,6 +1144,29 @@ function populateRecordingDetails(recording) {
   recordingDetailPlay.textContent = "Play";
   recordingDetailDelete.disabled = !getActiveCapabilities().canDeleteDocuments;
   setStatus(recordingDetailStatusMessage, recording.processing_error || "");
+}
+
+function renderRecordingInterruptions(recording) {
+  const interruptions = getRecordingInterruptions(recording);
+  show(recordingDetailInterruptions, interruptions.length > 0);
+  if (!recordingDetailInterruptionList) return;
+  recordingDetailInterruptionList.innerHTML = interruptions.map((item, index) => {
+    const startedAt = item?.started_at ? formatDateTime(item.started_at) : "Time unavailable";
+    const endedAt = item?.ended_at ? formatDateTime(item.ended_at) : "Not resumed";
+    const startedMs = item?.started_at ? new Date(item.started_at).getTime() : Number.NaN;
+    const endedMs = item?.ended_at ? new Date(item.ended_at).getTime() : Number.NaN;
+    const gapSeconds = Number.isFinite(startedMs) && Number.isFinite(endedMs)
+      ? Math.max(Math.round((endedMs - startedMs) / 1000), 0)
+      : 0;
+    const gapCopy = gapSeconds ? ` · ${formatDuration(gapSeconds)} gap` : "";
+    return `
+      <li>
+        <strong>Interruption ${escapeHtml(item?.number || index + 1)}</strong>
+        <span>${escapeHtml(startedAt)} to ${escapeHtml(endedAt)}${escapeHtml(gapCopy)}</span>
+        <small>No audio was captured during this time.</small>
+      </li>
+    `;
+  }).join("");
 }
 
 async function transcribeRecording(recordingId) {

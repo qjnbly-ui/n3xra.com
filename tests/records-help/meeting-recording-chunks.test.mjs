@@ -21,6 +21,8 @@ const clientPath = new URL("../../n3xra-records/lib/meeting-recording-chunks.js"
 const recordingsPath = new URL("../../n3xra-records/recordings.js", import.meta.url);
 const finalizerPath = new URL("../../api/finalize-recording-chunks.js", import.meta.url);
 const transcriptionPath = new URL("../../api/transcribe-recording.js", import.meta.url);
+const interruptionUiPath = new URL("../../n3xra-records/lib/recording-interruptions.js", import.meta.url);
+const meetingNotesPath = new URL("../../n3xra-records/meeting-notes/index.html", import.meta.url);
 const cleanupPath = new URL("../../api/cleanup-recording-chunks.js", import.meta.url);
 const migrationPath = new URL("../../supabase/migrations/20260801030703_meeting_recording_resumable_chunks.sql", import.meta.url);
 
@@ -155,13 +157,40 @@ test("FFmpeg duration parsing supports recordings longer than one hour", () => {
   assert.equal(parseFfmpegDurationSeconds("no duration available"), 0);
 });
 
-test("transcription includes explicit interruption markers", async () => {
+test("transcription keeps interruption events separate from spoken text", async () => {
   const transcription = await readFile(transcriptionPath, "utf8");
-  assert.match(transcription, /No audio was captured during this gap/);
-  assert.match(transcription, /addInterruptionMarkers/);
+  assert.doesNotMatch(transcription, /addInterruptionMarkers/);
+  assert.match(transcription, /const transcriptText = await transcribeRecordingAudio\(recording\)/);
   assert.match(transcription, /transcribeTemporaryDerivative/);
   assert.match(transcription, /"-ar",\s*"16000"/);
   assert.match(transcription, /TRANSCRIPTION_SEGMENT_BITRATE/);
+});
+
+test("Meeting Notes displays interruption history outside the transcript", async () => {
+  const [recordings, interruptionUi, meetingNotes] = await Promise.all([
+    readFile(recordingsPath, "utf8"),
+    readFile(interruptionUiPath, "utf8"),
+    readFile(meetingNotesPath, "utf8"),
+  ]);
+  assert.match(recordings, /renderRecordingInterruptions\(recording\)/);
+  assert.match(recordings, /stripRecordingInterruptionMarkers\(recording\.transcript_text\)/);
+  assert.match(recordings, /metadata,/);
+  assert.match(interruptionUi, /No audio was captured during/);
+  assert.match(meetingNotes, /id="recording-detail-interruptions"/);
+  assert.match(meetingNotes, /Recording interruptions/);
+});
+
+test("legacy transcript interruption markers become separate metadata", async () => {
+  const interruptionUi = await readFile(interruptionUiPath, "utf8");
+  const helpers = await import(`data:text/javascript,${encodeURIComponent(interruptionUi)}`);
+  const legacy = "[Recording interruption 1: 2026-08-01T03:55:59.631Z to 2026-08-01T03:56:42.526Z. No audio was captured during this gap.]\n\nSpoken meeting text.";
+  assert.equal(helpers.stripRecordingInterruptionMarkers(legacy), "Spoken meeting text.");
+  assert.deepEqual(helpers.getRecordingInterruptions({ transcript_text: legacy }), [{
+    number: 1,
+    reason: "recording_interrupted",
+    started_at: "2026-08-01T03:55:59.631Z",
+    ended_at: "2026-08-01T03:56:42.526Z",
+  }]);
 });
 
 test("transcription excludes the MP3 playback source from derivative segments", () => {

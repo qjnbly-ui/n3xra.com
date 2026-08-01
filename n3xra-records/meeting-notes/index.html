@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/n3xra-records/styles.css?v=20260731-records-ai-voice">
+    <link rel="stylesheet" href="/n3xra-records/styles.css?v=20260801-interruption-history">
   <script>
     window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
   </script>
@@ -396,6 +396,14 @@
               <button class="btn secondary" id="recording-detail-play" type="button">Play</button>
               <button class="btn btn-delete-solid" id="recording-detail-delete" type="button">Delete</button>
             </div>
+            <section class="recording-interruptions hidden" id="recording-detail-interruptions" aria-labelledby="recording-detail-interruptions-title">
+              <div>
+                <h4 id="recording-detail-interruptions-title">Recording interruptions</h4>
+                <p>These gaps are part of the meeting history. No audio was captured during them.</p>
+              </div>
+              <ol id="recording-detail-interruption-list"></ol>
+            </section>
+
             <div class="recording-detail-section">
               <div class="panel-head compact-head">
                 <div>
@@ -552,6 +560,6 @@
 
   <script src="/shared/config.js"></script>
   <script type="module" src="/n3xra-records/lib/desktop-shell.js?v=20260731-screen-awake"></script>
-  <script type="module" src="/n3xra-records/recordings.js?v=20260801-resumable-recording"></script>
+  <script type="module" src="/n3xra-records/recordings.js?v=20260801-interruption-history"></script>
 </body>
 </html>
