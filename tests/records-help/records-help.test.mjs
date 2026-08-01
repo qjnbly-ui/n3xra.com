@@ -55,6 +55,13 @@ test("help actions are extracted from an allowlist and removed from answer copy"
 test("ordinary how-to questions receive a grounded guided action when the model omits one", () => {
   assert.equal(
     recordsHelp.inferRecordsHelpAction(
+      "Show me how to add a new contact without saving it.",
+      "Open Contacts and complete the contact form."
+    ),
+    "account.contacts"
+  );
+  assert.equal(
+    recordsHelp.inferRecordsHelpAction(
       "Are you able to help me create a new document? I’m not sure how to do that.",
       "Create a new app-native document from Document Builder. In the left navigation, click Document Builder, then press New document."
     ),
@@ -81,6 +88,23 @@ test("ordinary how-to questions receive a grounded guided action when the model 
     ),
     null
   );
+});
+
+test("the verified UI catalog is generated from the current destination markup", () => {
+  const labels = recordsHelp.loadRecordsUiCatalog("account.contacts");
+
+  assert.ok(labels.includes("New contact"));
+  assert.ok(labels.includes("Name"));
+  assert.ok(labels.includes("Email"));
+  assert.ok(labels.includes("Notes"));
+  assert.ok(labels.includes("Add contact"));
+  assert.equal(labels.includes("Phone number"), false);
+  assert.equal(recordsHelp.resolveRecordsUiLabel("Email address", labels), "Email");
+  assert.equal(recordsHelp.resolveRecordsUiLabel("Cancel", labels), "Cancel edit");
+  assert.equal(recordsHelp.resolveRecordsUiLabel("Phone number", labels), "");
+  assert.equal(recordsHelp.isRecordsHelpGuideGrounded({
+    steps: [{ target: "New contact" }, { target: "Name" }, { target: "Phone number" }],
+  }, "account.contacts"), false);
 });
 
 test("task answers become workflow guides while explicit navigation stays destination-only", () => {

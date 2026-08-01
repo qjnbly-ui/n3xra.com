@@ -20,6 +20,7 @@ const RECORDS_HELP_MODEL = "openai/gpt-oss-120b";
 const RECORDS_HELP_MAX_TOKENS = 650;
 const HELP_KNOWLEDGE_PATH = path.join(__dirname, "records-help-knowledge.md");
 let cachedHelpKnowledge = "";
+const recordsUiCatalogCache = new Map();
 
 const RECORDS_HELP_ACTIONS = Object.freeze({
   "library.search": "Show Library search",
@@ -131,6 +132,11 @@ const RECORDS_HELP_SAFE_PREVIEW_ANSWERS = Object.freeze({
 });
 
 const RECORDS_HELP_CONSEQUENTIAL_TARGET = /\b(?:create|send|delete|remove|save|submit|upload|start|record|grant|revoke|purchase|pay|checkout|publish)\b/i;
+const RECORDS_HELP_NAVIGATION_LABELS = new Set([
+  "library", "meeting notes", "document builder", "communication", "manage library", "profile",
+  "library settings", "templates", "phone meetings", "ai settings", "users", "contacts",
+  "invites & access", "storage", "billing", "audit activity", "n3xra support access",
+]);
 
 const RECORDS_GUIDE_ROUTES = new Set([
   "/n3xra-records/library",
@@ -221,6 +227,13 @@ function normalizeHelpActionText(value) {
     .trim();
 }
 
+function normalizeHelpMatchText(value) {
+  return normalizeHelpActionText(value)
+    .split(" ")
+    .map((word) => word.length > 3 && /s$/.test(word) && !/ss$/.test(word) ? word.slice(0, -1) : word)
+    .join(" ");
+}
+
 function isRecordsHelpTaskRequest(question) {
   return /\b(?:how|where|help|show|guide|tour|walk|open|find|create|start|make|upload|send|invite|manage|change|set\s*up|not sure)\b/i
     .test(String(question || ""));
@@ -293,8 +306,13 @@ function inferRecordsWorkflowGuide(actionId, answer) {
 function normalizeRecordsTaskGuide(guide, actionId, answer) {
   const fallbackSteps = getRecordsHelpFallbackGuideSteps(actionId, answer);
   const sourceSteps = fallbackSteps || (Array.isArray(guide?.steps) ? guide.steps : []);
+  const verifiedLabels = loadRecordsUiCatalog(actionId);
   const seen = new Set();
-  const steps = sourceSteps.filter((step) => {
+  const steps = sourceSteps.map((step) => {
+    const originalTarget = String(step?.target || "").trim();
+    const target = resolveRecordsUiLabel(originalTarget, verifiedLabels);
+    return target ? { ...step, target } : null;
+  }).filter((step) => {
     const target = String(step?.target || "").trim().toLowerCase();
     if (!target || seen.has(target)) return false;
     seen.add(target);
@@ -321,14 +339,14 @@ function normalizeRecordsTaskGuide(guide, actionId, answer) {
 
 function inferRecordsHelpAction(question, answer) {
   if (!isRecordsHelpTaskRequest(question)) return null;
-  const normalizedQuestion = normalizeHelpActionText(question);
-  const normalizedAnswer = normalizeHelpActionText(answer);
+  const normalizedQuestion = normalizeHelpMatchText(question);
+  const normalizedAnswer = normalizeHelpMatchText(answer);
   const candidates = Object.entries(RECORDS_HELP_ACTIONS)
     .map(([id, label]) => {
-      const destination = normalizeHelpActionText(label.replace(/^(Open|Show)\s+/i, ""));
+      const destination = normalizeHelpMatchText(label.replace(/^(Open|Show)\s+/i, ""));
       const aliases = RECORDS_HELP_ACTION_ALIASES[id] || [];
       const questionAliasLength = aliases.reduce((longest, alias) => {
-        const normalizedAlias = normalizeHelpActionText(alias);
+        const normalizedAlias = normalizeHelpMatchText(alias);
         return normalizedQuestion.includes(normalizedAlias) ? Math.max(longest, normalizedAlias.length) : longest;
       }, 0);
       const score = (normalizedQuestion.includes(destination) ? 1000 + destination.length : 0)
@@ -341,6 +359,89 @@ function inferRecordsHelpAction(question, answer) {
   if (!candidates.length) return null;
   if (candidates[1]?.score === candidates[0].score) return null;
   return candidates[0].id;
+}
+
+function decodeRecordsUiText(value) {
+  return String(value || "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\s+\*+$/, "");
+}
+
+function getRecordsUiCatalogHtml(route) {
+  const normalizedRoute = String(route || "");
+  const relativePath = normalizedRoute.startsWith("/n3xra-records/account/")
+    ? "account/index.html"
+    : normalizedRoute === "/n3xra-records/meeting-notes"
+      ? "meeting-notes/index.html"
+      : normalizedRoute === "/n3xra-records/documents.html"
+        ? "documents.html"
+        : normalizedRoute === "/n3xra-records/messages.html"
+          ? "messages.html"
+          : "library/index.html";
+  try {
+    let html = fs.readFileSync(path.join(__dirname, "..", "n3xra-records", relativePath), "utf8");
+    if (normalizedRoute.startsWith("/n3xra-records/account/")) {
+      const view = new URL(normalizedRoute, "https://records.local").searchParams.get("view") || "";
+      const panelId = view === "support" ? "support-access-card" : `admin-${view}-panel`;
+      const markerIndex = html.indexOf(`id="${panelId}"`);
+      if (markerIndex >= 0) {
+        const start = Math.max(0, html.lastIndexOf("<section", markerIndex));
+        const next = html.indexOf('<section class="admin-panel"', markerIndex + panelId.length);
+        html = html.slice(start, next >= 0 ? next : html.length);
+      }
+    }
+    return html;
+  } catch {
+    return "";
+  }
+}
+
+function loadRecordsUiCatalog(actionId) {
+  const route = RECORDS_HELP_ACTION_ROUTES[actionId];
+  if (!route) return [];
+  if (recordsUiCatalogCache.has(route)) return recordsUiCatalogCache.get(route);
+  const html = getRecordsUiCatalogHtml(route);
+  const labels = [];
+  const seen = new Set();
+  const pattern = /<(button|label|summary|legend|h[1-5]|option)\b[^>]*>([\s\S]*?)<\/\1>/gi;
+  for (const match of html.matchAll(pattern)) {
+    const primary = /<(?:strong)\b[^>]*>([\s\S]*?)<\/(?:strong)>/i.exec(match[2]);
+    const label = decodeRecordsUiText(primary?.[1] || match[2]);
+    const normalized = normalizeHelpActionText(label);
+    if (!label || label.length > 80 || seen.has(normalized)) continue;
+    seen.add(normalized);
+    labels.push(label);
+    if (labels.length === 100) break;
+  }
+  recordsUiCatalogCache.set(route, labels);
+  return labels;
+}
+
+function resolveRecordsUiLabel(target, labels) {
+  const original = String(target || "").trim();
+  const expected = normalizeHelpActionText(original);
+  if (!expected) return "";
+  if (RECORDS_HELP_NAVIGATION_LABELS.has(expected)) return original;
+  const exact = labels.find((label) => normalizeHelpActionText(label) === expected);
+  if (exact) return exact;
+  const related = labels.filter((label) => {
+    const candidate = normalizeHelpActionText(label);
+    return candidate.startsWith(expected) || expected.startsWith(candidate);
+  });
+  const unique = [...new Set(related.map((label) => normalizeHelpActionText(label)))];
+  return unique.length === 1 ? related[0] : "";
+}
+
+function isRecordsHelpGuideGrounded(guide, actionId) {
+  const steps = Array.isArray(guide?.steps) ? guide.steps : [];
+  const labels = loadRecordsUiCatalog(actionId);
+  return Boolean(steps.length && labels.length && steps.every((step) => resolveRecordsUiLabel(step?.target, labels)));
 }
 
 function mergeRecordsHelpActions(...groups) {
@@ -485,7 +586,7 @@ function formatVerifiedRole(access) {
   return "unknown";
 }
 
-function buildSystemPrompt(user, appContext) {
+function buildSystemPrompt(user, appContext, verifiedUiLabels = []) {
   const role = String(appContext?.role || "").trim() || "unknown";
   const plan = String(appContext?.plan || "").trim() || "unknown";
   const libraryName = String(appContext?.libraryName || "").trim() || "current library";
@@ -570,6 +671,12 @@ function buildSystemPrompt(user, appContext) {
     "",
     "Use this current Records product knowledge as the source of truth for navigation names, workflow advice, and button labels:",
     helpKnowledge || "No external product knowledge file was loaded. Answer from the general Records instructions above.",
+    ...(verifiedUiLabels.length ? [
+      "",
+      "Exact UI labels read from the likely destination's current page:",
+      verifiedUiLabels.map((label) => `- ${label}`).join("\n"),
+      "For this workflow, use these current labels exactly. Omit any requested field or control that is not present; never invent a substitute.",
+    ] : []),
   ].join("\n");
 }
 
@@ -609,7 +716,9 @@ module.exports = async function handler(req, res) {
       role: formatVerifiedRole(usageContext.access),
       plan: usageContext.usage?.planName || appContext.plan,
     };
-    const systemPrompt = buildSystemPrompt(user, verifiedContext);
+    const likelyActionId = inferRecordsHelpAction(question, "");
+    const verifiedUiLabels = loadRecordsUiCatalog(likelyActionId);
+    const systemPrompt = buildSystemPrompt(user, verifiedContext, verifiedUiLabels);
     const messages = [
       { role: "system", content: systemPrompt },
       ...history,
@@ -654,6 +763,43 @@ module.exports = async function handler(req, res) {
 
     const fallbackActionId = actions.length ? null : inferRecordsHelpAction(question, answer);
     if (fallbackActionId) actions = [{ id: fallbackActionId, label: RECORDS_HELP_ACTIONS[fallbackActionId] }];
+    const existingGuideAction = actions.find((action) => action.id === "guided.path" && action.guide);
+    const guideRetryAction = actions.find((action) => RECORDS_HELP_ACTIONS[action.id]);
+    const guideRetryActionId = guideRetryAction?.id
+      || getRecordsHelpActionIdForRoute(existingGuideAction?.guide?.route);
+    const hasGroundedGuide = existingGuideAction
+      && isRecordsHelpGuideGrounded(existingGuideAction.guide, guideRetryActionId);
+    if (
+      answer
+      && guideRetryActionId
+      && isRecordsHelpTaskRequest(question)
+      && !isRecordsNavigationOnlyRequest(question)
+      && !hasGroundedGuide
+    ) {
+      const route = RECORDS_HELP_ACTION_ROUTES[guideRetryActionId];
+      const guideRetryMessages = [
+        ...messages,
+        { role: "assistant", content: answer },
+        {
+          role: "user",
+          content: `Rewrite the complete answer with a guided-path token for ${route}. Use only exact labels from the verified current-page label list. Put the safe form opener before its fields, omit controls that are not listed, and stop before any submit or consequential action.`,
+        },
+      ];
+      const guideRetryCompletion = await requestRecordsHelpModel(groqApiKey, guideRetryMessages);
+      if (guideRetryCompletion.ok) {
+        const guided = extractHelpActions(guideRetryCompletion.rawAnswer);
+        const guideAction = guided.actions.find((action) => action.id === "guided.path" && action.guide);
+        if (guided.answer && guideAction && !isRecordsHelpAnswerIncomplete(guided.answer)) {
+          answer = guided.answer;
+          actions = [guideAction];
+        }
+        usageParts.push(normalizeGroqUsage(
+          guideRetryCompletion.data,
+          guideRetryMessages.map((item) => item.content).join("\n\n"),
+          guideRetryCompletion.rawAnswer
+        ));
+      }
+    }
     if (!answer) answer = buildRecordsHelpEmptyAnswerFallback(actions);
     if (answer && isRecordsHelpTaskRequest(question) && !isRecordsNavigationOnlyRequest(question)) {
       const hasGuide = actions.some((action) => action.id === "guided.path" && action.guide);
@@ -724,3 +870,6 @@ module.exports.isRecordsPreviewOnlyRequest = isRecordsPreviewOnlyRequest;
 module.exports.normalizeRecordsTaskGuide = normalizeRecordsTaskGuide;
 module.exports.isRecordsHelpAnswerIncomplete = isRecordsHelpAnswerIncomplete;
 module.exports.repairRecordsHelpMarkdown = repairRecordsHelpMarkdown;
+module.exports.loadRecordsUiCatalog = loadRecordsUiCatalog;
+module.exports.resolveRecordsUiLabel = resolveRecordsUiLabel;
+module.exports.isRecordsHelpGuideGrounded = isRecordsHelpGuideGrounded;
