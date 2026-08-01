@@ -1,6 +1,9 @@
 const DB_NAME = "n3xra-recording-recovery";
 const DB_VERSION = 1;
 const STORE_NAME = "audio_chunks";
+const LOCAL_CHUNK_RETENTION_DAYS = 30;
+const LOCAL_CHUNK_WARNING_DAYS = 23;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 function openDatabase() {
   return new Promise((resolve, reject) => {
@@ -46,6 +49,27 @@ async function deleteLocalChunk(key) {
   return withStore("readwrite", (store) => store.delete(key));
 }
 
+async function getAllLocalChunks() {
+  return withStore("readonly", (store) => store.getAll());
+}
+
+async function deleteLocalChunkKeys(keys) {
+  if (!keys.length) return;
+  const database = await openDatabase();
+  try {
+    await new Promise((resolve, reject) => {
+      const transaction = database.transaction(STORE_NAME, "readwrite");
+      const store = transaction.objectStore(STORE_NAME);
+      keys.forEach((key) => store.delete(key));
+      transaction.addEventListener("complete", resolve, { once: true });
+      transaction.addEventListener("abort", () => reject(transaction.error || new Error("Local recording cleanup was interrupted.")), { once: true });
+      transaction.addEventListener("error", () => reject(transaction.error || new Error("Unable to clean up local recording audio.")), { once: true });
+    });
+  } finally {
+    database.close();
+  }
+}
+
 async function getLocalChunks(recordingId) {
   const database = await openDatabase();
   try {
@@ -83,6 +107,73 @@ function chunkDurationMilliseconds(chunk) {
   const endedAt = new Date(chunk?.captured_ended_at || chunk?.endedAt || "").getTime();
   if (!Number.isFinite(startedAt) || !Number.isFinite(endedAt)) return 0;
   return Math.max(endedAt - startedAt, 0);
+}
+
+function localChunkSavedAtMilliseconds(chunk) {
+  for (const value of [chunk?.savedAt, chunk?.endedAt, chunk?.startedAt]) {
+    const timestamp = new Date(value || "").getTime();
+    if (Number.isFinite(timestamp)) return timestamp;
+  }
+  return null;
+}
+
+export function getLocalChunkRetentionState(chunk, options = {}) {
+  const now = Number.isFinite(Number(options.now)) ? Number(options.now) : Date.now();
+  const retentionDays = Math.max(Number(options.retentionDays || LOCAL_CHUNK_RETENTION_DAYS), 1);
+  const warningDays = Math.min(Math.max(Number(options.warningDays || LOCAL_CHUNK_WARNING_DAYS), 0), retentionDays);
+  const savedAt = localChunkSavedAtMilliseconds(chunk);
+  if (!Number.isFinite(savedAt)) return { expired: false, warning: false, expiresAt: null, ageDays: 0 };
+  const ageMs = Math.max(now - savedAt, 0);
+  const expiresAt = savedAt + retentionDays * DAY_MS;
+  return {
+    expired: ageMs >= retentionDays * DAY_MS,
+    warning: ageMs >= warningDays * DAY_MS && ageMs < retentionDays * DAY_MS,
+    expiresAt: new Date(expiresAt).toISOString(),
+    ageDays: ageMs / DAY_MS,
+  };
+}
+
+function matchesLocalChunkScope(chunk, options) {
+  if (options.userId && chunk?.userId !== options.userId) return false;
+  if (options.organizationId && chunk?.organizationId !== options.organizationId) return false;
+  return true;
+}
+
+export async function cleanupStaleLocalRecordingChunks(options = {}) {
+  const chunks = (await getAllLocalChunks()).filter((chunk) => matchesLocalChunkScope(chunk, options));
+  const expired = [];
+  const warning = [];
+  const chunksByRecording = new Map();
+  chunks.forEach((chunk) => {
+    const recordingChunks = chunksByRecording.get(chunk.recordingId) || [];
+    recordingChunks.push(chunk);
+    chunksByRecording.set(chunk.recordingId, recordingChunks);
+  });
+  chunksByRecording.forEach((recordingChunks) => {
+    const savedTimes = recordingChunks.map(localChunkSavedAtMilliseconds).filter(Number.isFinite);
+    if (!savedTimes.length) return;
+    // Expire the whole recoverable recording together, 30 days after its newest chunk.
+    // Removing chunks one by one could leave an unusable partial recovery behind.
+    const state = getLocalChunkRetentionState({ savedAt: new Date(Math.max(...savedTimes)).toISOString() }, options);
+    if (state.expired) expired.push(...recordingChunks.map((chunk) => ({ chunk, state })));
+    else if (state.warning) warning.push(...recordingChunks.map((chunk) => ({ chunk, state })));
+  });
+  await deleteLocalChunkKeys(expired.map(({ chunk }) => chunk.key));
+  const warningExpiryTimes = warning.map(({ state }) => new Date(state.expiresAt).getTime()).filter(Number.isFinite);
+  return {
+    expiredCount: expired.length,
+    expiredBytes: expired.reduce((sum, { chunk }) => sum + Number(chunk?.blob?.size || 0), 0),
+    warningCount: warning.length,
+    warningBytes: warning.reduce((sum, { chunk }) => sum + Number(chunk?.blob?.size || 0), 0),
+    warningRecordingCount: new Set(warning.map(({ chunk }) => chunk.recordingId)).size,
+    oldestWarningExpiresAt: warningExpiryTimes.length ? new Date(Math.min(...warningExpiryTimes)).toISOString() : null,
+  };
+}
+
+export async function deleteLocalChunksForRecording(recordingId, options = {}) {
+  const chunks = (await getAllLocalChunks()).filter((chunk) => chunk.recordingId === recordingId && matchesLocalChunkScope(chunk, options));
+  await deleteLocalChunkKeys(chunks.map((chunk) => chunk.key));
+  return chunks.length;
 }
 
 export function createMeetingRecordingChunkManager(options) {
@@ -207,7 +298,7 @@ export function createMeetingRecordingChunkManager(options) {
     const chunk = {
       key: localChunkKey(recordingId, sequenceNumber), recordingId, organizationId, userId,
       sequenceNumber, captureSessionId: details.captureSessionId, mimeType: details.mimeType,
-      startedAt: details.startedAt, endedAt: details.endedAt, blob, checksum: await sha256(blob),
+      startedAt: details.startedAt, endedAt: details.endedAt, savedAt: new Date().toISOString(), blob, checksum: await sha256(blob),
     };
     await putLocalChunk(chunk);
     accumulatedBytes += blob.size;

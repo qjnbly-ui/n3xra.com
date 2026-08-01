@@ -6834,6 +6834,50 @@ body:has(.confirm-modal.is-open) {
   text-underline-offset: 2px;
 }
 
+.records-ai-message-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.75rem;
+}
+
+.records-ai-message-actions button {
+  min-height: 36px;
+  padding: 0.52rem 0.78rem;
+  border: 1px solid rgba(22, 117, 105, 0.34);
+  border-radius: 999px;
+  background: #e6f3f0;
+  color: #105f55;
+  cursor: pointer;
+  font: 800 0.72rem/1.1 "Manrope", "Trebuchet MS", sans-serif;
+}
+
+.records-ai-message-actions button:hover,
+.records-ai-message-actions button:focus-visible {
+  border-color: var(--teal);
+  background: #d6ece8;
+  outline: 2px solid rgba(22, 117, 105, 0.14);
+}
+
+.records-ai-spotlight {
+  position: relative;
+  z-index: 2;
+  border-radius: 10px;
+  animation: records-ai-spotlight-pulse 1.05s ease-in-out 3;
+  outline: 4px solid rgba(36, 190, 169, 0.8) !important;
+  outline-offset: 5px;
+  box-shadow: 0 0 0 11px rgba(36, 190, 169, 0.16), 0 16px 42px rgba(4, 12, 21, 0.16) !important;
+}
+
+@keyframes records-ai-spotlight-pulse {
+  0%, 100% { outline-color: rgba(36, 190, 169, 0.5); }
+  50% { outline-color: rgba(36, 190, 169, 1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .records-ai-spotlight { animation: none; }
+}
+
 .records-ai-answer-heading {
   margin: 0.85rem 0 0.4rem;
   color: var(--ink);

@@ -80,6 +80,43 @@ test("client queues locally, retries, deduplicates, and resumes after network lo
   assert.match(client, /captured_started_at, captured_ended_at/);
   assert.match(client, /durationSeconds/);
   assert.match(client, /onProgress\(progress\(\)\)/);
+  assert.match(client, /cleanupStaleLocalRecordingChunks/);
+  assert.match(client, /deleteLocalChunksForRecording/);
+  assert.match(client, /LOCAL_CHUNK_RETENTION_DAYS = 30/);
+  assert.match(client, /LOCAL_CHUNK_WARNING_DAYS = 23/);
+});
+
+test("local recovery chunks warn before expiry and expire after 30 days", async () => {
+  const client = await readFile(clientPath, "utf8");
+  const helpers = await import(`data:text/javascript,${encodeURIComponent(client)}`);
+  const day = 24 * 60 * 60 * 1000;
+  const now = Date.parse("2026-08-31T00:00:00.000Z");
+  const recent = helpers.getLocalChunkRetentionState({ savedAt: new Date(now - 22 * day).toISOString() }, { now });
+  const warning = helpers.getLocalChunkRetentionState({ savedAt: new Date(now - 23 * day).toISOString() }, { now });
+  const expired = helpers.getLocalChunkRetentionState({ savedAt: new Date(now - 30 * day).toISOString() }, { now });
+  assert.equal(recent.warning, false);
+  assert.equal(recent.expired, false);
+  assert.equal(warning.warning, true);
+  assert.equal(warning.expired, false);
+  assert.equal(expired.expired, true);
+});
+
+test("Meeting Notes clears device-only chunks when a meeting is deliberately deleted", async () => {
+  const recordings = await readFile(recordingsPath, "utf8");
+  assert.match(recordings, /await deleteLocalChunksForRecording\(recording\.id/);
+  assert.match(recordings, /maintainLocalRecordingRecoveryStorage/);
+  assert.match(recordings, /expires in \$\{daysRemaining\} day/);
+});
+
+test("phone recordings automatically enter the normal transcription flow", async () => {
+  const recordings = await readFile(recordingsPath, "utf8");
+  const automaticPhoneTranscriptions = recordings.match(/await ensurePhoneMeetingTranscription\(activeRecordingId\)/g) || [];
+  assert.equal(automaticPhoneTranscriptions.length, 2);
+  assert.match(recordings, /nextDetails\.status === "recording_ready"[\s\S]*ensurePhoneMeetingTranscription/);
+  assert.match(recordings, /retryPhoneMeetingTransfer[\s\S]*ensurePhoneMeetingTranscription/);
+  assert.match(recordings, /recoverQueuedPhoneMeetingTranscription/);
+  assert.match(recordings, /requestRecordingTranscription\(recording\.id\)/);
+  assert.match(recordings, /\["queued", "not_started"\]/);
 });
 
 test("Meeting Notes detects interruptions and offers same-meeting resume", async () => {

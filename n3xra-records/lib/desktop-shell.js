@@ -19,6 +19,27 @@ let recordsAiLastAnswer = "";
 let recordsAiWakeLock = null;
 let recordsAiWakeLockWanted = false;
 
+const RECORDS_AI_ACTIONS = Object.freeze({
+  "library.search": { label: "Show Library search", href: "/n3xra-records/library", selector: "#library-search-panel" },
+  "library.ai_search": { label: "Show AI Search", href: "/n3xra-records/library", selector: "#search-mode-ai" },
+  "library.upload": { label: "Show document upload", href: "/n3xra-records/library", selector: "#files-open-upload-modal" },
+  "meeting.new": { label: "Show new meeting note", href: "/n3xra-records/meeting-notes", selector: "#record-panel-toggle" },
+  "documents.new": { label: "Show Document Builder", href: "/n3xra-records/documents.html", selector: "#new-document-button" },
+  "messages.compose": { label: "Show Communication", href: "/n3xra-records/messages.html", selector: "#message-form" },
+  "account.profile": { label: "Open Profile", href: "/n3xra-records/account/?view=profile", selector: "#library-settings-card" },
+  "account.library": { label: "Open Library settings", href: "/n3xra-records/account/?view=library", selector: "#admin-library-panel" },
+  "account.templates": { label: "Open Templates", href: "/n3xra-records/account/?view=templates", selector: "#admin-templates-panel" },
+  "account.phone": { label: "Open Phone Meetings", href: "/n3xra-records/account/?view=phone", selector: "#admin-phone-panel" },
+  "account.ai": { label: "Open AI settings", href: "/n3xra-records/account/?view=ai", selector: "#admin-ai-panel" },
+  "account.users": { label: "Open Users", href: "/n3xra-records/account/?view=users", selector: "#admin-users-panel" },
+  "account.contacts": { label: "Open Contacts", href: "/n3xra-records/account/?view=contacts", selector: "#admin-contacts-panel" },
+  "account.access": { label: "Open Invites & access", href: "/n3xra-records/account/?view=access", selector: "#admin-access-panel" },
+  "account.storage": { label: "Open Storage", href: "/n3xra-records/account/?view=storage", selector: "#admin-storage-panel" },
+  "account.billing": { label: "Open Billing", href: "/n3xra-records/account/?view=billing", selector: "#admin-billing-panel" },
+  "account.activity": { label: "Open Audit activity", href: "/n3xra-records/account/?view=activity", selector: "#admin-activity-panel" },
+  "account.support": { label: "Open support access", href: "/n3xra-records/account/?view=support", selector: "#support-access-card" },
+});
+
 const RECORDS_WORKSPACE_LINKS = [
   { key: "library", label: "Library", href: "/n3xra-records/library" },
   { key: "meeting-notes", label: "Meeting Notes", href: "/n3xra-records/meeting-notes" },
@@ -294,7 +315,7 @@ function renderRecordsAiAnswer(container, content) {
   });
 }
 
-function appendRecordsAiMessage(container, role, content) {
+function appendRecordsAiMessage(container, role, content, actions = []) {
   if (!container || !content) return;
   const message = document.createElement("div");
   message.className = `records-ai-message is-${role}`;
@@ -314,6 +335,19 @@ function appendRecordsAiMessage(container, role, content) {
   }
 
   message.append(label, copy);
+  if (role === "assistant" && Array.isArray(actions) && actions.length) {
+    const actionRow = document.createElement("div");
+    actionRow.className = "records-ai-message-actions";
+    actions.slice(0, 2).forEach((action) => {
+      if (!RECORDS_AI_ACTIONS[action?.id]) return;
+      const button = document.createElement("button");
+      button.type = "button";
+      button.dataset.recordsAiAction = action.id;
+      button.textContent = RECORDS_AI_ACTIONS[action.id].label;
+      actionRow.append(button);
+    });
+    if (actionRow.childElementCount) message.append(actionRow);
+  }
   container.append(message);
   container.scrollTop = container.scrollHeight;
 }
@@ -556,6 +590,60 @@ function closeRecordsAiAssistant() {
   }, 220);
 }
 
+function isRecordsAiElementVisible(element) {
+  return Boolean(element && !element.hidden && element.getClientRects().length);
+}
+
+function spotlightRecordsAiTarget(actionId, attempt = 0) {
+  const action = RECORDS_AI_ACTIONS[actionId];
+  const target = action ? document.querySelector(action.selector) : null;
+  if ((!target || !isRecordsAiElementVisible(target)) && attempt < 64) {
+    window.setTimeout(() => spotlightRecordsAiTarget(actionId, attempt + 1), 125);
+    return;
+  }
+  if (!target || !isRecordsAiElementVisible(target)) {
+    setRecordsAiStatus("That area is not available with the current page or access.", "error");
+    return;
+  }
+
+  target.scrollIntoView({ behavior: "smooth", block: "center" });
+  target.classList.remove("records-ai-spotlight");
+  void target.offsetWidth;
+  target.classList.add("records-ai-spotlight");
+  window.setTimeout(() => target.classList.remove("records-ai-spotlight"), 4200);
+  if (typeof target.focus === "function") target.focus({ preventScroll: true });
+}
+
+function runRecordsAiAction(actionId) {
+  const action = RECORDS_AI_ACTIONS[actionId];
+  if (!action) return;
+  const destination = new URL(action.href, window.location.origin);
+  const currentPath = normalizePathname(window.location.pathname);
+  const destinationPath = normalizePathname(destination.pathname);
+
+  closeRecordsAiAssistant();
+  if (currentPath === destinationPath) {
+    const requiredView = destination.searchParams.get("view");
+    const currentView = new URLSearchParams(window.location.search).get("view");
+    if (!requiredView || requiredView === currentView) {
+      window.setTimeout(() => spotlightRecordsAiTarget(actionId), 250);
+      return;
+    }
+  }
+
+  destination.searchParams.set("recordsAiFocus", actionId);
+  window.location.assign(`${destination.pathname}${destination.search}`);
+}
+
+function applyPendingRecordsAiSpotlight() {
+  const url = new URL(window.location.href);
+  const actionId = url.searchParams.get("recordsAiFocus") || "";
+  if (!RECORDS_AI_ACTIONS[actionId]) return;
+  url.searchParams.delete("recordsAiFocus");
+  window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+  spotlightRecordsAiTarget(actionId);
+}
+
 async function getRecordsAiAccessToken() {
   if (!hasConfig()) throw new Error("Records is not configured on this server.");
   if (!recordsAiSupabase) recordsAiSupabase = createBrowserSupabase();
@@ -607,7 +695,10 @@ async function askRecordsAi(question) {
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data?.error || "Records AI is unavailable right now.");
-  return String(data?.answer || "").trim();
+  return {
+    answer: String(data?.answer || "").trim(),
+    actions: Array.isArray(data?.actions) ? data.actions : [],
+  };
 }
 
 async function handleRecordsAiSubmit(event) {
@@ -632,9 +723,10 @@ async function handleRecordsAiSubmit(event) {
   setRecordsAiStatus("Records AI is thinking…");
 
   try {
-    const answer = await askRecordsAi(question);
+    const result = await askRecordsAi(question);
+    const answer = result.answer;
     if (!answer) throw new Error("Records AI returned an empty answer.");
-    appendRecordsAiMessage(messages, "assistant", answer);
+    appendRecordsAiMessage(messages, "assistant", answer, result.actions);
     recordsAiLastAnswer = answer;
     resetRecordsAiAudioControls();
     recordsAiHistory.push(
@@ -745,6 +837,10 @@ function installRecordsAiAssistant() {
       input.focus();
     });
   });
+  layer.querySelector("[data-records-ai-messages]")?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-records-ai-action]");
+    if (button) runRecordsAiAction(button.dataset.recordsAiAction || "");
+  });
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && !layer.hidden) closeRecordsAiAssistant();
   });
@@ -777,6 +873,7 @@ function installDesktopShell() {
   installDesktopHeader();
   installMobileDocumentBuilderLink(activePage);
   installRecordsAiAssistant();
+  applyPendingRecordsAiSpotlight();
 
   if (body.classList.contains("records-account-page") || shell.querySelector(":scope > .records-desktop-frame")) return;
 

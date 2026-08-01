@@ -21,6 +21,45 @@ const RECORDS_HELP_MAX_TOKENS = 650;
 const HELP_KNOWLEDGE_PATH = path.join(__dirname, "records-help-knowledge.md");
 let cachedHelpKnowledge = "";
 
+const RECORDS_HELP_ACTIONS = Object.freeze({
+  "library.search": "Show Library search",
+  "library.ai_search": "Show AI Search",
+  "library.upload": "Show document upload",
+  "meeting.new": "Show new meeting note",
+  "documents.new": "Show Document Builder",
+  "messages.compose": "Show Communication",
+  "account.profile": "Open Profile",
+  "account.library": "Open Library settings",
+  "account.templates": "Open Templates",
+  "account.phone": "Open Phone Meetings",
+  "account.ai": "Open AI settings",
+  "account.users": "Open Users",
+  "account.contacts": "Open Contacts",
+  "account.access": "Open Invites & access",
+  "account.storage": "Open Storage",
+  "account.billing": "Open Billing",
+  "account.activity": "Open Audit activity",
+  "account.support": "Open support access",
+});
+
+function extractHelpActions(rawAnswer) {
+  const requested = [];
+  const answer = String(rawAnswer || "")
+    .replace(/\[\[action:([a-z0-9._-]+)\]\]/gi, (_token, rawId) => {
+      const id = String(rawId || "").toLowerCase();
+      if (RECORDS_HELP_ACTIONS[id] && !requested.includes(id) && requested.length < 2) requested.push(id);
+      return "";
+    })
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
+  return {
+    answer,
+    actions: requested.map((id) => ({ id, label: RECORDS_HELP_ACTIONS[id] })),
+  };
+}
+
 function loadHelpKnowledge() {
   if (cachedHelpKnowledge) return cachedHelpKnowledge;
   try {
@@ -157,8 +196,12 @@ function buildSystemPrompt(user, appContext) {
     "On desktop, direct the user to the persistent left navigation and the expandable **Manage library** section. Do not tell a desktop user to open the mobile menu.",
     "On mobile, direct the user to open the menu button in the header first, then choose the destination. Do not tell a mobile user to use a left sidebar.",
     "Give directions for the current display first. Mention the other layout only if the user asks how desktop and mobile differ.",
-    "You are read-only. Never claim that you opened a page, clicked a control, changed a setting, uploaded a file, sent a message, or completed an action.",
-    "When a user wants an action completed, explain the exact navigation and control labels they should use.",
+    "You cannot make data changes, submit forms, upload files, send messages, or change settings.",
+    "You can offer safe navigation and page-highlighting buttons. When one would help, append one or at most two action tokens at the very end of the answer, each on its own line. The app removes these tokens and renders buttons.",
+    "Only use an action token from this exact allowlist: [[action:library.search]], [[action:library.ai_search]], [[action:library.upload]], [[action:meeting.new]], [[action:documents.new]], [[action:messages.compose]], [[action:account.profile]], [[action:account.library]], [[action:account.templates]], [[action:account.phone]], [[action:account.ai]], [[action:account.users]], [[action:account.contacts]], [[action:account.access]], [[action:account.storage]], [[action:account.billing]], [[action:account.activity]], [[action:account.support]].",
+    "Use an action only when it directly advances the user's request and their verified role/plan allows the destination. Do not describe an action token or invent another one.",
+    "Say that the user can use the offered button; never claim that you already opened, clicked, highlighted, or completed anything.",
+    "When a user wants an action completed, offer the nearest safe navigation/highlight action when available, then explain any remaining control labels they must use themselves.",
     "Do not reveal implementation details, database schema, internal APIs, env vars, security controls, source code, or vendor internals.",
     "If asked about document AI search or summarizing records, explain that Library has Keyword and AI Search modes. Keyword matches saved extracted text. AI Search ranks accessible active-library documents and reviews selected extracted-text excerpts; it is not limited to file rows currently visible in the interface.",
     "If the question is unrelated to Records, briefly say you can help with Records app questions.",
@@ -239,7 +282,8 @@ module.exports = async function handler(req, res) {
       return res.status(502).json({ error: String(data?.error?.message || data?.message || "Unable to reach Records AI.") });
     }
 
-    const answer = String(data?.choices?.[0]?.message?.content || "").trim();
+    const rawAnswer = String(data?.choices?.[0]?.message?.content || "").trim();
+    const { answer, actions } = extractHelpActions(rawAnswer);
     if (!answer) return res.status(502).json({ error: "Records AI returned an empty answer." });
     const fallbackPrompt = messages.map((item) => item.content).join("\n\n");
     const usage = normalizeGroqUsage(data, fallbackPrompt, answer);
@@ -251,7 +295,7 @@ module.exports = async function handler(req, res) {
       usage,
     });
 
-    return res.status(200).json({ answer, usage: getClientUsageSummary(recorded?.usage || usageContext.usage) });
+    return res.status(200).json({ answer, actions, usage: getClientUsageSummary(recorded?.usage || usageContext.usage) });
   } catch (error) {
     if (sendRecordsAiUsageError(res, error, "Records AI usage check failed.")) return;
     return res.status(500).json({ error: "Server error." });
@@ -262,3 +306,5 @@ module.exports.buildSystemPrompt = buildSystemPrompt;
 module.exports.formatVerifiedRole = formatVerifiedRole;
 module.exports.loadHelpKnowledge = loadHelpKnowledge;
 module.exports.RECORDS_HELP_MAX_TOKENS = RECORDS_HELP_MAX_TOKENS;
+module.exports.RECORDS_HELP_ACTIONS = RECORDS_HELP_ACTIONS;
+module.exports.extractHelpActions = extractHelpActions;

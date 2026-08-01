@@ -37,6 +37,17 @@ test("the help prompt explicitly prohibits unverified interface guesses", () => 
   assert.match(prompt, /Do not recommend a named browser unless the supplied product knowledge verifies it/);
   assert.match(prompt, /Account Admin does not automatically mean billing Owner/);
   assert.match(prompt, /Never call it a header-right Profile link/);
+  assert.match(prompt, /safe navigation and page-highlighting buttons/);
+  assert.match(prompt, /\[\[action:library\.search\]\]/);
+});
+
+test("help actions are extracted from an allowlist and removed from answer copy", () => {
+  const result = recordsHelp.extractHelpActions(
+    "Use the button to open the right area.\n\n[[action:account.ai]]\n[[action:not.allowed]]\n[[action:account.ai]]"
+  );
+
+  assert.equal(result.answer, "Use the button to open the right area.");
+  assert.deepEqual(result.actions, [{ id: "account.ai", label: "Open AI settings" }]);
 });
 
 test("verified role labels come from server-side access context", () => {

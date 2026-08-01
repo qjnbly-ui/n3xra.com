@@ -19,7 +19,11 @@ import {
   isSuggestionResolved,
 } from "./lib/recording-suggestions.js";
 import { createAppDocumentPdfObjectUrl } from "./lib/app-document-pdf.js";
-import { createMeetingRecordingChunkManager } from "./lib/meeting-recording-chunks.js";
+import {
+  cleanupStaleLocalRecordingChunks,
+  createMeetingRecordingChunkManager,
+  deleteLocalChunksForRecording,
+} from "./lib/meeting-recording-chunks.js";
 import { getRecordingInterruptions, stripRecordingInterruptionMarkers } from "./lib/recording-interruptions.js";
 
 const setupPanel = document.getElementById("setup-panel");
@@ -242,6 +246,8 @@ let phoneMeetingPollTimer = null;
 let phoneMeetingPollInFlight = false;
 let lastPhoneMeetingStatus = "";
 let phoneMeetingAutoSavedSessionId = "";
+let phoneMeetingTranscriptionPromise = null;
+let phoneMeetingTranscriptionRecordingId = "";
 
 function buildAllRecordingsDetailHref(recordingId) {
   const params = new URLSearchParams();
@@ -557,6 +563,7 @@ async function refreshPhoneMeetingStatus() {
           "success"
         );
         await loadRecordings();
+        await ensurePhoneMeetingTranscription(activeRecordingId);
       } else if (nextDetails.status === "failed") {
         setRecorderState("Needs attention", nextDetails.copy);
         setStatus(recordingStatus, nextDetails.copy, "error");
@@ -2763,6 +2770,11 @@ async function deleteRecording(recordingId) {
       .eq("id", recording.id);
     if (error) throw error;
 
+    await deleteLocalChunksForRecording(recording.id, {
+      userId: currentSession?.user?.id,
+      organizationId: recording.organization_id,
+    }).catch(() => null);
+
     if (activeDetailRecordingId === recording.id) {
       clearDetailPlayer();
       setRecordingDetailModalOpen(false);
@@ -2778,6 +2790,29 @@ async function deleteRecording(recordingId) {
     recordingDeleteSubmit.disabled = false;
     recordingDeleteCancel.disabled = false;
   }
+}
+
+async function maintainLocalRecordingRecoveryStorage() {
+  const organization = getActiveOrganization();
+  if (!organization || !currentSession?.user) return null;
+  return cleanupStaleLocalRecordingChunks({
+    userId: currentSession.user.id,
+    organizationId: organization.id,
+  });
+}
+
+function showLocalRecordingRecoveryStorageStatus(summary) {
+  if (!summary) return;
+  const messages = [];
+  if (summary.expiredCount) {
+    messages.push(`${summary.expiredCount} expired recovery audio chunk${summary.expiredCount === 1 ? " was" : "s were"} removed from this device after 30 days.`);
+  }
+  if (summary.warningCount && summary.oldestWarningExpiresAt) {
+    const daysRemaining = Math.max(Math.ceil((new Date(summary.oldestWarningExpiresAt).getTime() - Date.now()) / (24 * 60 * 60 * 1000)), 1);
+    const meetingCount = summary.warningRecordingCount || 1;
+    messages.push(`Unfinished audio for ${meetingCount} meeting${meetingCount === 1 ? "" : "s"} is saved on this device and expires in ${daysRemaining} day${daysRemaining === 1 ? "" : "s"}. Reopen it while online to finish saving it.`);
+  }
+  if (messages.length) setStatus(recordingsListStatus, messages.join(" "), summary.warningCount ? "error" : "success");
 }
 
 function setReviewActionsDisabled(isDisabled) {
@@ -2924,6 +2959,61 @@ async function requestRecordingTranscription(recordingId) {
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data?.error || "Unable to transcribe audio.");
   return data;
+}
+
+function isPhoneMeetingRecording(recording) {
+  return Boolean(recording?.metadata?.meeting_sources?.phone_call || recording?.metadata?.phoneMeeting);
+}
+
+async function ensurePhoneMeetingTranscription(recordingId, options = {}) {
+  const recording = getRecordingById(recordingId);
+  if (!recording || !isPhoneMeetingRecording(recording) || !recording.storage_path) return false;
+  const transcriptStatus = String(recording.transcript_status || "").toLowerCase();
+  if (["ready", "processing", "failed"].includes(transcriptStatus)) return false;
+  if (phoneMeetingTranscriptionPromise && phoneMeetingTranscriptionRecordingId === recording.id) {
+    return phoneMeetingTranscriptionPromise;
+  }
+
+  phoneMeetingTranscriptionRecordingId = recording.id;
+  phoneMeetingTranscriptionPromise = (async () => {
+    if (options.announce !== false) {
+      uploadStateValue.textContent = "Creating transcript";
+      setRecorderState("Transcribing", "Phone recording saved. Creating a searchable transcript file.");
+      setStatus(recordingStatus, "Phone recording saved. Creating transcript...");
+    }
+    try {
+      await requestRecordingTranscription(recording.id);
+      await loadRecordings();
+      if (options.announce !== false) {
+        uploadStateValue.textContent = "Transcript ready";
+        setRecorderState("Saved", "Phone recording and transcript are ready.");
+        setStatus(recordingStatus, "Phone meeting saved and transcript created.", "success");
+      }
+      return true;
+    } catch (error) {
+      await loadRecordings().catch(() => null);
+      if (options.announce !== false) {
+        uploadStateValue.textContent = "Transcript failed";
+        setRecorderState("Saved", "The phone recording is safe, but its transcript needs another attempt.");
+        setStatus(recordingStatus, getErrorMessage(error, "Phone recording saved, but transcription failed."), "error");
+      }
+      return false;
+    } finally {
+      phoneMeetingTranscriptionPromise = null;
+      phoneMeetingTranscriptionRecordingId = "";
+    }
+  })();
+  return phoneMeetingTranscriptionPromise;
+}
+
+function recoverQueuedPhoneMeetingTranscription() {
+  const recording = recordingsCache.find((item) =>
+    item.created_by_user_id === currentSession?.user?.id &&
+    isPhoneMeetingRecording(item) &&
+    Boolean(item.storage_path) &&
+    ["queued", "not_started"].includes(String(item.transcript_status || "").toLowerCase())
+  );
+  if (recording) void ensurePhoneMeetingTranscription(recording.id);
 }
 
 async function requestChunkedRecordingFinalization(recordingId, expectedLastSequence) {
@@ -3666,6 +3756,7 @@ async function retryPhoneMeetingTransfer() {
     renderPhoneMeetingSession();
     setStatus(recordingStatus, "Phone recording saved. Select Finish meeting note when your notes are ready.", "success");
     await loadRecordings();
+    await ensurePhoneMeetingTranscription(activeRecordingId);
   } catch (error) {
     setStatus(recordingStatus, getErrorMessage(error, "The phone recording transfer still needs attention."), "error");
   } finally {
@@ -4055,12 +4146,15 @@ async function handleOrganizationChange(nextOrganizationId) {
   await loadReferenceDocuments();
   await loadPhoneMeetingSettings();
   await loadRecordings();
+  const localRecoveryStorage = await maintainLocalRecordingRecoveryStorage().catch(() => null);
   await recoverRecentPhoneMeetingSession();
   if (!activePhoneMeetingSession) {
     await recoverBrowserMeetingRecording().catch((error) => {
       setStatus(recordingStatus, getErrorMessage(error, "A recoverable meeting recording was found, but it could not be opened."), "error");
     });
   }
+  recoverQueuedPhoneMeetingTranscription();
+  showLocalRecordingRecoveryStorageStatus(localRecoveryStorage);
 }
 
 async function handleSignout() {
@@ -4113,12 +4207,15 @@ async function init() {
   await loadReferenceDocuments();
   await loadPhoneMeetingSettings();
   await loadRecordings();
+  const localRecoveryStorage = await maintainLocalRecordingRecoveryStorage().catch(() => null);
   await recoverRecentPhoneMeetingSession();
   if (!activePhoneMeetingSession) {
     await recoverBrowserMeetingRecording().catch((error) => {
       setStatus(recordingStatus, getErrorMessage(error, "A recoverable meeting recording was found, but it could not be opened."), "error");
     });
   }
+  recoverQueuedPhoneMeetingTranscription();
+  showLocalRecordingRecoveryStorageStatus(localRecoveryStorage);
 
   if (!window.MediaRecorder || !navigator.mediaDevices?.getUserMedia) {
     startRecordingButton.disabled = true;
