@@ -17,6 +17,7 @@ const {
 } = require("./_records-ai-usage");
 
 const RECORDS_HELP_MODEL = "openai/gpt-oss-120b";
+const RECORDS_HELP_MAX_TOKENS = 650;
 const HELP_KNOWLEDGE_PATH = path.join(__dirname, "records-help-knowledge.md");
 let cachedHelpKnowledge = "";
 
@@ -221,7 +222,7 @@ module.exports = async function handler(req, res) {
       body: JSON.stringify({
         model: RECORDS_HELP_MODEL,
         temperature: 0,
-        max_tokens: 280,
+        max_tokens: RECORDS_HELP_MAX_TOKENS,
         messages,
       }),
     });
@@ -253,3 +254,4 @@ module.exports = async function handler(req, res) {
 module.exports.buildSystemPrompt = buildSystemPrompt;
 module.exports.formatVerifiedRole = formatVerifiedRole;
 module.exports.loadHelpKnowledge = loadHelpKnowledge;
+module.exports.RECORDS_HELP_MAX_TOKENS = RECORDS_HELP_MAX_TOKENS;

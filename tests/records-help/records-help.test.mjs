@@ -5,6 +5,10 @@ import test from "node:test";
 const require = createRequire(import.meta.url);
 const recordsHelp = require("../../api/records-help.js");
 
+test("the completion budget can finish a concise formatted workflow", () => {
+  assert.equal(recordsHelp.RECORDS_HELP_MAX_TOKENS, 650);
+});
+
 test("the help prompt explicitly prohibits unverified interface guesses", () => {
   const prompt = recordsHelp.buildSystemPrompt(
     { email: "member@example.com" },
@@ -49,7 +53,9 @@ test("knowledge preserves exact labels from the corrected workflows", () => {
   const knowledge = recordsHelp.loadHelpKnowledge();
 
   assert.match(knowledge, /There is no desktop navigation destination labeled \*\*Files\*\* or \*\*Admin Settings\*\*/);
+  assert.match(knowledge, /\*\*Workspace\*\* is a fixed group label, not an expandable control/);
   assert.match(knowledge, /exact submit label is \*\*Upload and save extracted text\*\*/);
+  assert.match(knowledge, /\*\*Document title\*\*, \*\*Year\*\*, and \*\*Month\*\* are optional metadata/);
   assert.match(knowledge, /Each file row opens its menu with \*\*Action\*\*/);
   assert.match(knowledge, /exact action is \*\*Send document\*\*/);
   assert.match(knowledge, /optional scopes \*\*View documents\*\*, \*\*View recordings and transcripts\*\*, \*\*Download files\*\*, and \*\*Change content or settings\*\*/);
