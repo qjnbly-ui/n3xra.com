@@ -103,10 +103,13 @@ async function loadOrganization(organizationId) {
   return Array.isArray(rows) ? rows[0] || null : null;
 }
 
-async function userCanAccessOrganization(organization, user, { allowPlatformAdmin = false } = {}) {
-  if (!organization?.id || !user?.id) return false;
+async function getAuthorizedOrganizationAccess(organization, user, { allowPlatformAdmin = false } = {}) {
+  if (!organization?.id || !user?.id) return null;
   const access = await getRecordsAccessContext(organization, user);
-  return access.isMember || (allowPlatformAdmin && access.isPlatformAdmin) || contextAllows(access, "can_view_documents");
+  const authorized = access.isMember
+    || (allowPlatformAdmin && access.isPlatformAdmin)
+    || contextAllows(access, "can_view_documents");
+  return authorized ? access : null;
 }
 
 function getMonthBounds(now = new Date()) {
@@ -184,7 +187,8 @@ async function prepareRecordsAiUsage({ organizationId, user, enforceLimit = true
     throw new RecordsAiUsageError("Active library was not found.", 404, "records_ai_organization_not_found");
   }
 
-  if (!(await userCanAccessOrganization(organization, user, { allowPlatformAdmin }))) {
+  const access = await getAuthorizedOrganizationAccess(organization, user, { allowPlatformAdmin });
+  if (!access) {
     throw new RecordsAiUsageError("You do not have access to this library.", 403, "records_ai_organization_forbidden");
   }
 
@@ -193,6 +197,7 @@ async function prepareRecordsAiUsage({ organizationId, user, enforceLimit = true
 
   return {
     organization,
+    access,
     usage: summary,
   };
 }

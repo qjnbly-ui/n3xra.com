@@ -87,6 +87,15 @@ function normalizeHistory(input) {
     }));
 }
 
+function formatVerifiedRole(access) {
+  const role = String(access?.membershipRole || "").trim().toLowerCase();
+  if (role === "account_owner" || role === "account_admin") return "Account Admin";
+  if (role === "editor") return "Editor";
+  if (role === "viewer") return "Viewer";
+  if (access?.isPlatformAdmin) return "N3XRA support";
+  return "unknown";
+}
+
 function buildSystemPrompt(user, appContext) {
   const role = String(appContext?.role || "").trim() || "unknown";
   const plan = String(appContext?.plan || "").trim() || "unknown";
@@ -122,6 +131,12 @@ function buildSystemPrompt(user, appContext) {
     "If the user asks a question about what their documents say, explain that the Library Search area has AI Search for file-content questions.",
     "The user's current role is an app permission label only. Do not turn it into real-world responsibilities or activities.",
     "Use a calm, practical, friendly tone. Be direct and specific. Avoid hype.",
+    "Accuracy is more important than sounding complete. Use only facts, navigation names, control labels, plan rules, and permissions stated in the supplied product knowledge.",
+    "Never invent a button, menu, tab, field, page location, role rule, plan name, limit, feature toggle, or workflow step because it sounds plausible.",
+    "When the supplied knowledge does not verify an exact label or step, say that you do not have a verified label for it and give only the nearest verified destination. Do not guess.",
+    "Treat quoted interface labels in the product knowledge as exact. Do not replace them with plausible synonyms.",
+    "Do not claim that drag and drop, progress bars, user-created tags, per-library feature switches, or automatic dialog behavior exists unless the supplied knowledge explicitly says so.",
+    "Do not infer access from a role name alone. Apply both the documented membership-role rules and any documented plan requirement.",
     "Keep every answer concise and easy to scan. The default maximum is 140 words; never exceed 180 words unless the user explicitly asks for more detail.",
     "Start with the answer in one or two short sentences. Do not restate the user's question and do not add a generic introduction or conclusion.",
     "For a workflow, follow the answer with a short numbered list of no more than 5 steps. Put exact page, tab, and control labels in bold.",
@@ -137,7 +152,7 @@ function buildSystemPrompt(user, appContext) {
     "You are read-only. Never claim that you opened a page, clicked a control, changed a setting, uploaded a file, sent a message, or completed an action.",
     "When a user wants an action completed, explain the exact navigation and control labels they should use.",
     "Do not reveal implementation details, database schema, internal APIs, env vars, security controls, source code, or vendor internals.",
-    "If asked about document AI search or summarizing records, explain that the Library Search area has Keyword mode and AI Search mode. Keyword mode matches exact saved extracted text. AI Search reviews visible file excerpts for the active library and returns a short summary with suggested files.",
+    "If asked about document AI search or summarizing records, explain that Library has Keyword and AI Search modes. Keyword matches saved extracted text. AI Search ranks accessible active-library documents and reviews selected extracted-text excerpts; it is not limited to file rows currently visible in the interface.",
     "If the question is unrelated to Records, briefly say you can help with Records app questions.",
     "",
     "Current user context:",
@@ -185,7 +200,13 @@ module.exports = async function handler(req, res) {
     if (!organizationId) return res.status(400).json({ error: "Choose an active library first." });
 
     const usageContext = await prepareRecordsAiUsage({ organizationId, user });
-    const systemPrompt = buildSystemPrompt(user, appContext);
+    const verifiedContext = {
+      ...appContext,
+      libraryName: usageContext.organization?.name || appContext.libraryName,
+      role: formatVerifiedRole(usageContext.access),
+      plan: usageContext.usage?.planName || appContext.plan,
+    };
+    const systemPrompt = buildSystemPrompt(user, verifiedContext);
     const messages = [
       { role: "system", content: systemPrompt },
       ...history,
@@ -199,7 +220,7 @@ module.exports = async function handler(req, res) {
       },
       body: JSON.stringify({
         model: RECORDS_HELP_MODEL,
-        temperature: 0.15,
+        temperature: 0,
         max_tokens: 280,
         messages,
       }),
@@ -228,3 +249,7 @@ module.exports = async function handler(req, res) {
     return res.status(500).json({ error: "Server error." });
   }
 };
+
+module.exports.buildSystemPrompt = buildSystemPrompt;
+module.exports.formatVerifiedRole = formatVerifiedRole;
+module.exports.loadHelpKnowledge = loadHelpKnowledge;

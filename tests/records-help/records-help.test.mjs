@@ -1,0 +1,65 @@
+import assert from "node:assert/strict";
+import { createRequire } from "node:module";
+import test from "node:test";
+
+const require = createRequire(import.meta.url);
+const recordsHelp = require("../../api/records-help.js");
+
+test("the help prompt explicitly prohibits unverified interface guesses", () => {
+  const prompt = recordsHelp.buildSystemPrompt(
+    { email: "member@example.com" },
+    {
+      role: "Viewer",
+      plan: "Organization",
+      libraryName: "Town Records",
+      currentPath: "/n3xra-records/library",
+      displayMode: "desktop",
+      viewportWidth: 1440,
+      viewportHeight: 900,
+    }
+  );
+
+  assert.match(prompt, /Never invent a button, menu, tab, field, page location, role rule, plan name, limit, feature toggle, or workflow step/);
+  assert.match(prompt, /When the supplied knowledge does not verify an exact label or step/);
+  assert.match(prompt, /Current role: Viewer/);
+  assert.match(prompt, /Current plan: Organization/);
+  assert.match(prompt, /persistent left navigation/);
+  assert.match(prompt, /not limited to file rows currently visible/);
+});
+
+test("verified role labels come from server-side access context", () => {
+  assert.equal(recordsHelp.formatVerifiedRole({ membershipRole: "account_admin" }), "Account Admin");
+  assert.equal(recordsHelp.formatVerifiedRole({ membershipRole: "account_owner" }), "Account Admin");
+  assert.equal(recordsHelp.formatVerifiedRole({ membershipRole: "editor" }), "Editor");
+  assert.equal(recordsHelp.formatVerifiedRole({ membershipRole: "viewer" }), "Viewer");
+  assert.equal(recordsHelp.formatVerifiedRole({ isPlatformAdmin: true }), "N3XRA support");
+  assert.equal(recordsHelp.formatVerifiedRole({}), "unknown");
+});
+
+test("knowledge contains the verified plan and Meeting Notes rules", () => {
+  const knowledge = recordsHelp.loadHelpKnowledge();
+
+  assert.match(knowledge, /only current Records plans are \*\*Free\*\*, \*\*Starter\*\*, and \*\*Organization\*\*/);
+  assert.match(knowledge, /Meeting Notes requires the active library to be on Organization/);
+  assert.match(knowledge, /Viewer on an Organization library can open Meeting Notes but cannot create or change meeting notes/);
+  assert.match(knowledge, /\*\*Organization\*\* is \$39 per month or \$375 per year/);
+});
+
+test("knowledge preserves exact labels from the corrected workflows", () => {
+  const knowledge = recordsHelp.loadHelpKnowledge();
+
+  assert.match(knowledge, /There is no desktop navigation destination labeled \*\*Files\*\* or \*\*Admin Settings\*\*/);
+  assert.match(knowledge, /exact submit label is \*\*Upload and save extracted text\*\*/);
+  assert.match(knowledge, /Each file row opens its menu with \*\*Action\*\*/);
+  assert.match(knowledge, /exact action is \*\*Send document\*\*/);
+  assert.match(knowledge, /optional scopes \*\*View documents\*\*, \*\*View recordings and transcripts\*\*, \*\*Download files\*\*, and \*\*Change content or settings\*\*/);
+});
+
+test("knowledge documents AI Search scope and approval-based saved memory", () => {
+  const knowledge = recordsHelp.loadHelpKnowledge();
+
+  assert.match(knowledge, /AI Search can load up to 400 accessible documents/);
+  assert.match(knowledge, /up to 3,000 characters per selected document/);
+  assert.match(knowledge, /does not save that memory automatically/);
+  assert.match(knowledge, /must review and confirm the proposal/);
+});

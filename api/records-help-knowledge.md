@@ -1,124 +1,142 @@
 # N3XRA Records Help Knowledge
 
-Last reviewed: 2026-06-14
+Last reviewed against the Records interface and permission code: 2026-07-31
 
 ## Purpose
 N3XRA Records helps organizations store, search, preview, download, share, and publish records, meeting packets, agendas, documents, and meeting-note recordings.
 
-The Need Help assistant answers product and workflow questions about N3XRA Records. It should not answer questions about what the user's files say. For file-content questions, direct users to Library Search and its AI Search mode.
+Ask Records AI answers product and workflow questions about N3XRA Records. It is read-only and cannot click controls or complete actions. It should not answer questions about what the user's files say. For file-content questions, direct users to **Library** and **AI Search**.
 
-## Current Navigation
-- Library: the primary workspace for searching the active library and opening the newest files. It has two main actions: Meeting notes and Files.
-- Meeting Notes: create a meeting note from a document template or blank notes, record or upload audio, keep notetaker notes, transcribe audio, review with AI, and finalize the AI draft as an editable document.
-- Files: browse and manage all uploaded files and app-native documents in the active library.
-- Admin Settings: manage users, contacts, templates, access, library profile, AI settings, and billing.
-- Account: user profile, connected apps, display name, password/settings, and sign out.
+## Verified navigation
+- On desktop, the persistent left navigation has a Workspace group with **Library**, **Meeting Notes**, **Document Builder**, and **Communication**.
+- On desktop, **Manage library** is expandable. It contains **Library settings**, **Templates**, **Phone Meetings**, **AI settings**, **Users**, **Contacts**, **Invites & access**, **Storage**, **Billing**, **Audit activity**, and **N3XRA support access**.
+- On desktop, **Profile** appears in the Account group.
+- There is no desktop navigation destination labeled **Files** or **Admin Settings**. Files and search are sections inside **Library**.
+- On mobile, tell the user to open the header menu before choosing a destination. Do not describe a persistent left navigation on mobile.
+- **Library** contains Keyword search, AI Search, and the Files section.
+- **Meeting Notes** contains the linked notes, audio, transcript, AI review, and AI Draft workflow.
+- **Document Builder** creates and edits app-native documents.
+- **Communication** sends branded announcements that are not tied to a document.
 
-## Roles and Permissions
-- Owner controls billing, plan changes, ownership decisions, and full administration.
-- Account Admin manages library settings, invite codes, contacts, templates, access, and day-to-day administration without owning billing.
-- Editor uploads, edits, deletes, downloads, shares files, creates documents, and uses meeting-note workflows.
-- Viewer has read-only file access with download/share access where allowed.
+## Plans and limits
+- The only current Records plans are **Free**, **Starter**, and **Organization**. Never invent Standard, Professional, Enterprise, or other plan names.
+- **Free** is $0 per month: 25 private documents, 1 user, 1 GB storage, and 20 Records AI requests per month.
+- **Starter** is $12 per month or $115 per year: 1,000 private documents, 1 user, 10 GB storage, and 300 Records AI requests per month.
+- **Organization** is $39 per month or $375 per year: 10,000 private documents, up to 15 users, 50 GB storage, and 1,500 Records AI requests per month.
+- Organization includes shared libraries and invite codes, a dedicated public-records URL, embedded search and records views, and Meeting Notes.
+- Meeting Notes requires the active library to be on Organization. A role upgrade alone does not unlock it on Free or Starter.
+- On desktop, exact current plan details are under **Manage library** → **Billing**.
 
-If a control is missing or disabled, the user may lack the required role, may not have an active library selected, or the feature may not be enabled for that library.
+## Roles and permissions
+- The membership roles are **Account Admin**, **Editor**, and **Viewer**. **Owner** is a separate billing and ownership status, not a fourth membership role.
+- Account Admin manages library settings, users, invite codes, contacts, templates, access, and documents.
+- Editor uploads, edits, deletes, downloads, and shares files; creates documents; and can use Meeting Notes when the library is on Organization.
+- Viewer has read-only file access and can download and share documents. A Viewer on an Organization library can open Meeting Notes but cannot create or change meeting notes.
+- The billing Owner controls billing, plan changes, and ownership decisions. Do not infer content-editing permission from Owner status; content actions follow the membership role.
+- Uploading, creating or changing documents, deleting, and saving meeting notes requires Account Admin or Editor.
+- Sharing and downloading are available to any active library member, including Viewer.
+- Managing users, invites, library settings, and templates requires Account Admin.
+- If a control is missing or disabled, check the active library, plan requirement, membership role, and any documented prerequisite. Do not invent a feature toggle.
 
-## Library and Search
-- Library shows the active library, current access, shared libraries count, search, and newest files.
-- Search supports Keyword and AI Search.
-- Keyword mode searches saved extracted text.
-- AI Search reviews visible file excerpts for the active library and returns a short answer with suggested files.
-- Year filters narrow search results.
-- Reset clears search filters.
+## Library, Keyword search, and AI Search
+- Keyword mode searches saved extracted text. Its Year filter narrows Keyword results, and **Reset** clears Keyword filters.
+- AI Search can load up to 400 accessible documents from the active library. It ranks them for the question and sends selected excerpts to the model, up to 3,000 characters per selected document and within a total context limit.
+- AI Search is not limited by the file-type buttons currently displayed in the Files section. The current AI Search request uses all years.
+- AI Search uses saved extracted text. When a file has an editable app-native version, it prefers the current editable text.
+- AI Search returns an answer and can suggest matching files. It does not load the full original binary file into the model.
+- To use it, open **Library**, select **AI Search**, enter the question in **Ask AI anything about these files**, and press Enter or select **Ask AI**.
 
-## Files
-- Files is for managing uploaded files and app-native documents.
-- Document/file lists should show newest records first by document year/month when available, then upload date.
-- Actions can include Open, Edit details, Make editable, Download, Share, Make public/private, and Delete.
-- For records with an editable app document, Open should open the current app-native version rather than forcing the original source file.
-- Delete workflows may ask whether to remove associated app documents or related meeting-note data.
-- Uploaded DOCX files can be converted into editable app documents. Legacy DOC files must be converted to DOCX before upload.
-- Supported text-style uploads include TXT, MD, CSV, JSON, HTML, and similar extracted-text records. PDF support is planned around OCR/extraction workflows.
+### Saved AI memory
+- AI Search supports library-level saved memory for stable background facts or preferences.
+- When a user asks AI Search to remember something, it prepares a concise proposed memory statement. It does not save that memory automatically.
+- A library settings manager must review and confirm the proposal before it becomes saved library memory.
+- Before confirmation, never claim that information was saved, remembered, retained, or noted for future searches.
+- After confirmation, saved memory can guide later AI Search answers for that library.
 
-## Documents and Templates
+## Files and uploads
+- On desktop, open **Library**, find the **Files** section, and select **Upload**. Do not tell users to select Files in the left navigation.
+- The upload dialog has **Individual file** and **Batch import** modes.
+- Individual file fields include **Document title**, **Year**, **Month**, **File**, and the public-record checkbox when available.
+- After choosing a file, the exact submit label is **Upload and save extracted text**.
+- The current interface does not document drag-and-drop, a **Browse** button, an **Open** upload button, or an upload progress bar. Never claim those controls exist.
+- Each file row opens its menu with **Action**. It is not labeled **More actions** and is not a three-dot control.
+- Depending on the record and permission, exact actions can include **Open**, **Edit details**, **Edit**, **Download**, **Share**, **Make public**, **Make private**, and **Delete**.
+- For an uploaded file without an editable version, **Edit** creates or opens an app-native editable document. Do not call the control **Make editable**.
+- When an editable app document exists, **Open** uses that current app-native version rather than forcing the original source file.
+- Uploaded DOCX files can become editable app documents. Legacy DOC files must be converted to DOCX before upload.
+- Supported uploads include PDF, DOCX, TXT, MD, CSV, JSON, HTML, and HTM. A PDF with selectable text becomes searchable. A scanned PDF uploads but needs OCR before search or editing.
+- Upload results remain in the upload dialog until the user closes it; do not claim the dialog closes automatically.
+
+## Documents and templates
 - App-native documents are the source for in-app editing, PDF generation, sending, and final official versions.
-- Documents can be created from meeting-minutes templates, letter templates, or reusable admin-created templates.
-- Templates are managed in Admin Settings under Templates.
-- Users can create, edit, and delete templates when their role allows it.
-- "Finalize and send document" opens the AI draft/final document in the editable document page so the user can review, edit, generate PDF, and send.
+- Documents can be created from meeting-minutes templates, letter templates, or reusable templates.
+- On desktop, templates are managed under **Manage library** → **Templates**.
+- Account Admin can create, edit, and delete templates.
+- **Finalize and send document** opens an AI draft or final meeting document in Document Builder for review, editing, PDF generation, and sending.
 
 ## Meeting Notes
-- Meeting Notes is the recommended workflow for meetings because notes, audio, transcript, AI review, and final document stay linked.
-- New meeting notes require a meeting title and either a document template or "No template - blank notes" before saving, recording, uploading, or typing notes.
-- Choosing a real template fills the notetaker notes area with the template structure.
-- Choosing "No template - blank notes" starts from an empty note and saves no selected template ID.
-- Save meeting note can save a notes-only meeting note when no audio recording is needed.
-- Stop recording ends microphone capture but does not finalize the meeting note. The user should review notes, optionally scan handwritten notes, then choose Save meeting note.
-- Upload recording lets the user save an existing audio file as a meeting note.
-- Scan handwritten note lets users upload a note photo or screenshot and adds OCR text into the notetaker notes.
-- Uploaded audio saves the selected template/blank choice and notes with the recording.
-- After a new meeting note is saved, the new-note panel collapses and the saved meeting note popup opens.
+- Meeting Notes requires Organization. Account Admin and Editor can create and change meeting notes. Viewer can open the page but cannot create or change them.
+- Select **New meeting note**, enter **Meeting title**, and choose a **Document template** or **No template - blank notes**.
+- A title and template choice are required before saving, starting an app recording, or uploading audio.
+- A selected template fills **Notetaker notes** with its structure. **No template - blank notes** starts empty.
+- Type notes in **Notetaker notes**. **Save meeting note** can save a notes-only meeting note without any audio.
+- **Stop recording** ends microphone capture but does not save or finalize the meeting note. Review the notes and then select **Save meeting note**.
+- **Upload recording** attaches an existing audio file. **Scan handwritten note** adds OCR text from a note image to Notetaker notes.
+- If browser recording is disabled, verify Organization plan, Account Admin or Editor access, a selected template or blank notes, and MediaRecorder browser support.
 
-## Meeting Note Popup
-- The popup tabs are Details, Notes, Review, and AI Draft.
-- Details shows status, template, AI review status, started/ended time, duration, size, playback, and the transcript text below the details.
-- Transcript text is selectable in Details and is supporting evidence for AI review.
-- Notes is editable and autosaves to the meeting note.
-- Review shows suggested additions and possible conflicts from AI after comparing notetaker notes with the transcript.
-- AI Draft shows the generated draft. The main action is "Finalize and send document", which opens the editable document page.
+## Meeting-note details and AI review
+- The saved meeting-note popup tabs are **Details**, **Notes**, **Review**, and **AI Draft**.
+- Details shows status, template, AI review status, timing, duration, size, playback, and transcript.
+- Notes is editable and autosaves.
+- Review shows suggested additions and possible conflicts after comparing notes with the transcript.
+- AI Draft contains the generated draft. **Finalize and send document** opens it in Document Builder.
+- Notetaker notes are the primary truth; the transcript is supporting evidence.
+- Suggested additions should be specific transcript details. Conflicts identify disagreement or low confidence.
+- Applying suggestions rewrites the draft cleanly. Regenerating should preserve applied and dismissed decisions where possible.
 
-## AI Review Behavior
-- The notetaker notes are the primary truth.
-- The transcript is supporting evidence.
-- AI should use the template and notes to create a clean final draft, then use the transcript to add safe missing details.
-- Suggested additions should be specific transcript details that may improve the document.
-- Conflicts should identify places where notes and transcript disagree or confidence is low.
-- Applying suggestions rewrites the draft cleanly instead of appending a messy "accepted additions" section.
-- Regenerating the AI review should preserve already applied/dismissed decisions where possible.
+## Sending documents
+- In Document Builder, the exact action is **Send document**. There is no two-stage **Send** → **Send document** control.
+- The send modal uses **Recipient email**, **Recipients**, **Subject**, and **Message**.
+- Delivery options are **Attach PDF**, **Add browser PDF link**, and **Add Records link for account users**.
+- Meeting documents can also offer **Attach referenced agenda** and **Attach supporting documents** when applicable.
+- The submit button is **Send document**.
+- Any active library member, including Viewer, can share a document. Do not claim Editor is required to send.
+- For a non-user, the PDF attachment is the primary experience. The optional browser PDF link opens a view-only PDF without requiring a Records account.
+- A shared PDF token grants access only to that PDF; it does not grant editing or library access.
 
-## Public Records and Embeds
-- Public records features include public URLs and embedded read-only records views when public access is enabled and files are marked public.
-- Public embeds should prefer the current app-native/editable version when one exists, because that is the corrected source of truth.
-- Public record and embed lists should use the same newest-to-oldest document ordering as internal Files and Library views.
-- Embed settings include public page URL, iframe embed code, copy buttons, open public page, and public-facing search/files views.
+## Public records and embeds
+- Public URLs and read-only embeds require Organization, enabled public access, and records deliberately marked public.
+- Public and embed views prefer the current app-native version when one exists.
+- Public lists use the same newest-to-oldest document ordering as the internal library.
+- Embed settings include a public page URL, iframe embed code, copy controls, and public-facing search and files views.
 
-## Sending Documents
-- Documents can be sent through an in-app send modal when configured.
-- The send modal supports recipients, subject, message, account users/contacts, and sender delivery options.
-- N3XRA branding stays in the email. The sender can choose PDF attachment, a browser PDF backup link, and a Records account link for account users.
-- For non-users and contacts, the attached PDF is the primary experience. If enabled, the browser PDF backup link opens the shared PDF directly in the browser's native PDF viewer, not the editor.
-- Shared PDF links use a permanent unguessable token and do not require the recipient to have a N3XRA account.
-- A shared token authorizes viewing that one PDF only; it does not grant editing or full library access.
-- Account users can receive an additional N3XRA Records link that opens the document inside the app when they are signed in, or routes them through the app login flow.
-- Account contacts live in Admin Settings under Contacts.
-- Account users can also appear as send recipients.
+## Communication
+- **Communication** is for branded announcements not tied to a document, such as meeting reminders, schedule changes, or general updates.
+- It reuses account users and contacts as recipients.
+- Communication messages do not include document links, app links, PDF links, or attachments.
 
-## Messages
-- Messages live at `/n3xra-records/messages`.
-- Use Messages for branded announcements that are not tied to a document, such as meeting reminders, schedule changes, or general updates.
-- Messages reuse the same account users and contacts recipient picker as document sending.
-- Message emails are sent through N3XRA Records branding, use `updates@n3xra.com` by default when configured, and reply-to the logged-in sender.
-- Message emails do not include document links, app links, PDF links, or attachments.
+## Manage library destinations
+- **Users**: account users and the path into invite-code creation.
+- **Contacts**: saved document and Communication recipients.
+- **Templates**: reusable document templates.
+- **Invites & access**: invite codes, member roles, and shared access.
+- **Library settings**: library profile and branding.
+- **AI settings**: Records AI settings and saved library memory where available.
+- **Billing**: plan, limits, billing management, and subscription status.
+- **N3XRA support access**: temporary, scoped customer-authorized support access.
 
-## Admin Settings
-- Users: view account users and move into invite-code creation when inviting someone.
-- Contacts: save recipients for document sending and invite a contact as a user when needed. The new-contact form is expandable.
-- Templates: create/edit/delete reusable document templates.
-- Access: invite codes, member access, roles, and shared access controls.
-- Library: library profile and branding-style settings.
-- AI: product AI settings where available.
-- Billing: plan, limits, billing management, and subscription status.
+## N3XRA support access
+- N3XRA support has no automatic access to private document names, filenames, file contents, recordings, or transcripts.
+- Standard support can see account identity, plan, limits, usage totals, and sanitized system health without seeing private library content.
+- On desktop, Account Admin opens **Manage library** → **N3XRA support access**.
+- The form has **Reason for access** and the optional scopes **View documents**, **View recordings and transcripts**, **Download files**, and **Change content or settings**.
+- The action is **Grant temporary access**. An active grant can be ended with **Revoke access**.
+- A grant expires automatically after 24 hours and creates a customer-visible audit trail.
+- Do not tell a customer to make a private record public, share a public URL, or add support as a library user when temporary support access is needed.
 
-## Account and Login
-- Master account lives at `/account`.
-- Product-specific Records app login remains under the Records app paths.
-- On main public pages, Login/Dashboard should route to the master account depending on session state.
-- On the master account page, the top button is Sign out.
-- Email confirmation errors should tell users to check their email and junk folder.
-- Password reset links should return users to the correct app/account flow instead of the plain home page.
-
-## Troubleshooting Guidance
-- If recording controls are disabled, confirm a template or "No template - blank notes" is selected, the user has editor/admin access, and the browser supports MediaRecorder.
-- If transcript creation fails, the user can retry from the meeting note details when allowed.
-- If AI review is disabled, the transcript may not be ready yet.
-- If files or public embeds show old information, check whether an editable app-native document exists and whether the public view is using the current version.
-- If sending fails for one recipient, the system should report which recipient failed while allowing other sends when possible.
+## Account and troubleshooting
+- The master account is at `/account`. Product-specific Records login remains under the Records app paths.
+- If a transcript fails, an allowed user can retry from meeting-note details.
+- If AI review is disabled, the transcript may not be ready.
+- If a public view appears stale, check whether a current editable app-native version exists.
+- If one document recipient fails, the system reports that recipient while allowing successful recipients to continue when possible.
