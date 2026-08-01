@@ -8,6 +8,7 @@ const {
   buildInterruptionMetadata,
   buildPlaybackTranscodeArgs,
   extensionForMimeType,
+  parseFfmpegDurationSeconds,
   validateAndGroupChunks,
 } = require("./_recording-chunk-core");
 const { contextAllows, getRecordsAccessContext } = require("./_records-support-access");
@@ -78,7 +79,22 @@ function runFfmpeg(args) {
     let stderr = "";
     child.stderr.on("data", (chunk) => { stderr = `${stderr}${chunk}`.slice(-5000); });
     child.on("error", reject);
-    child.on("close", (code) => code === 0 ? resolve() : reject(new Error(`Unable to assemble recording. ${stderr.trim()}`)));
+    child.on("close", (code) => code === 0 ? resolve(stderr) : reject(new Error(`Unable to assemble recording. ${stderr.trim()}`)));
+  });
+}
+
+function inspectAudioDurationSeconds(filePath) {
+  const ffmpegPath = require("ffmpeg-static");
+  return new Promise((resolve, reject) => {
+    const child = spawn(ffmpegPath, ["-hide_banner", "-i", filePath], { stdio: ["ignore", "ignore", "pipe"] });
+    let stderr = "";
+    child.stderr.on("data", (chunk) => { stderr = `${stderr}${chunk}`.slice(-12000); });
+    child.on("error", reject);
+    child.on("close", () => {
+      const durationSeconds = parseFfmpegDurationSeconds(stderr);
+      if (!durationSeconds) reject(new Error("Unable to read the assembled recording duration."));
+      else resolve(durationSeconds);
+    });
   });
 }
 
@@ -112,6 +128,7 @@ async function assembleRecording(recording, chunks, interruptions, expectedLastS
     const outputPath = path.join(tempDir, "recording.mp3");
     await fs.writeFile(listPath, normalizedPaths.map((item) => `file '${item}'`).join("\n"));
     await runFfmpeg(["-hide_banner", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", listPath, "-c", "copy", outputPath]);
+    const durationSeconds = await inspectAudioDurationSeconds(outputPath);
     const audio = await fs.readFile(outputPath);
     if (!audio.length || audio.length > MAX_AUDIO_BYTES) throw new Error("The assembled recording has an invalid size.");
 
@@ -138,7 +155,8 @@ async function assembleRecording(recording, chunks, interruptions, expectedLastS
     };
     const updated = await updateRecording(recording.id, {
       status: "uploaded", storage_bucket: RECORDINGS_BUCKET, storage_path: storagePath,
-      audio_mime_type: PLAYBACK_AUDIO_SETTINGS.mimeType, file_size: audio.length, metadata, processing_error: null,
+      audio_mime_type: PLAYBACK_AUDIO_SETTINGS.mimeType, duration_seconds: durationSeconds,
+      file_size: audio.length, metadata, processing_error: null,
     });
     await fetchJson(`${SUPABASE_URL}/rest/v1/meeting_recording_chunks?meeting_recording_id=eq.${encodeURIComponent(recording.id)}`, {
       method: "PATCH", headers: serviceHeaders(), body: JSON.stringify({ status: "assembled", expires_at: new Date(Date.now() + 7 * 86400000).toISOString() }),

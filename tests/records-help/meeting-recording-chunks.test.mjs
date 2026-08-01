@@ -12,6 +12,7 @@ const {
   buildInterruptionMetadata,
   buildPlaybackTranscodeArgs,
   extensionForMimeType,
+  parseFfmpegDurationSeconds,
   validateAndGroupChunks,
 } = require("../../api/_recording-chunk-core.js");
 const { isTranscriptionDerivativeFile } = require("../../api/transcribe-recording.js")._test;
@@ -74,6 +75,9 @@ test("client queues locally, retries, deduplicates, and resumes after network lo
   assert.match(client, /onConflict: "meeting_recording_id,sequence_number"/);
   assert.match(client, /window\.setTimeout/);
   assert.match(client, /getLocalChunks\(recordingId\)/);
+  assert.match(client, /captured_started_at, captured_ended_at/);
+  assert.match(client, /durationSeconds/);
+  assert.match(client, /onProgress\(progress\(\)\)/);
 });
 
 test("Meeting Notes detects interruptions and offers same-meeting resume", async () => {
@@ -95,6 +99,9 @@ test("Meeting Notes restores an interrupted browser recording on load and select
   assert.match(recordings, /handleRecordingSelection/);
   assert.match(recordings, /recoverBrowserMeetingRecording\(recordingId\)/);
   assert.match(recordings, /recording\?\.created_by_user_id === currentSession\?\.user\?\.id/);
+  assert.match(recordings, /persistRecordingChunkSummary/);
+  assert.match(recordings, /pendingRecordedChunkBytes/);
+  assert.match(recordings, /reconcileRecordingDurationFromPlayer/);
 });
 
 test("finalization verifies fragments and assembles resumed sessions with FFmpeg", async () => {
@@ -104,6 +111,8 @@ test("finalization verifies fragments and assembles resumed sessions with FFmpeg
   assert.match(finalizer, /runFfmpeg/);
   assert.match(finalizer, /status: "finalizing"/);
   assert.match(finalizer, /status: "uploaded"/);
+  assert.match(finalizer, /inspectAudioDurationSeconds/);
+  assert.match(finalizer, /duration_seconds: durationSeconds/);
 });
 
 test("permanent playback is 48 kHz mono MP3 at 96 kbps without chunk boundary changes", async () => {
@@ -131,14 +140,19 @@ test("permanent playback is 48 kHz mono MP3 at 96 kbps without chunk boundary ch
     const inspection = await runFfmpeg(["-hide_banner", "-i", chunkedOutputPath, "-f", "null", "-"]);
     assert.match(inspection, /Audio: mp3, 48000 Hz, mono/);
     assert.match(inspection, /96 kb\/s/);
-    const duration = inspection.match(/Duration:\s+00:00:([0-9.]+)/)?.[1];
-    assert.ok(Number(duration) >= 1.15 && Number(duration) <= 1.3);
+    const duration = parseFfmpegDurationSeconds(inspection);
+    assert.equal(duration, 1);
     assert.deepEqual(PLAYBACK_AUDIO_SETTINGS, {
       codec: "libmp3lame", mimeType: "audio/mpeg", extension: "mp3", sampleRate: 48000, channels: 1, bitrate: "96k",
     });
   } finally {
     await rm(tempDirectory, { recursive: true, force: true });
   }
+});
+
+test("FFmpeg duration parsing supports recordings longer than one hour", () => {
+  assert.equal(parseFfmpegDurationSeconds("Duration: 01:02:03.60, start: 0.000000"), 3724);
+  assert.equal(parseFfmpegDurationSeconds("no duration available"), 0);
 });
 
 test("transcription includes explicit interruption markers", async () => {

@@ -75,10 +75,18 @@ function buildPlaybackTranscodeArgs(inputPath, outputPath) {
   ];
 }
 
+function parseFfmpegDurationSeconds(output) {
+  const match = String(output || "").match(/Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)/i);
+  if (!match) return 0;
+  const seconds = (Number(match[1]) * 3600) + (Number(match[2]) * 60) + Number(match[3]);
+  return Number.isFinite(seconds) ? Math.max(Math.round(seconds), 0) : 0;
+}
+
 module.exports = {
   PLAYBACK_AUDIO_SETTINGS,
   buildInterruptionMetadata,
   buildPlaybackTranscodeArgs,
   extensionForMimeType,
+  parseFfmpegDurationSeconds,
   validateAndGroupChunks,
 };

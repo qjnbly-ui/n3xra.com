@@ -78,18 +78,44 @@ function wait(milliseconds) {
   return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
 }
 
+function chunkDurationMilliseconds(chunk) {
+  const startedAt = new Date(chunk?.captured_started_at || chunk?.startedAt || "").getTime();
+  const endedAt = new Date(chunk?.captured_ended_at || chunk?.endedAt || "").getTime();
+  if (!Number.isFinite(startedAt) || !Number.isFinite(endedAt)) return 0;
+  return Math.max(endedAt - startedAt, 0);
+}
+
 export function createMeetingRecordingChunkManager(options) {
-  const { supabase, bucket, organizationId, recordingId, userId, maxBytes = Infinity, onStatus = () => {} } = options;
+  const {
+    supabase,
+    bucket,
+    organizationId,
+    recordingId,
+    userId,
+    maxBytes = Infinity,
+    onStatus = () => {},
+    onProgress = () => {},
+  } = options;
   let nextSequence = 0;
   let draining = null;
   let retryTimer = null;
   let disposed = false;
   let accumulatedBytes = 0;
+  let accumulatedDurationMs = 0;
+
+  function progress() {
+    return {
+      nextSequence,
+      chunkCount: nextSequence,
+      bytes: accumulatedBytes,
+      durationSeconds: Math.max(Math.round(accumulatedDurationMs / 1000), 0),
+    };
+  }
 
   async function remoteChunks() {
     const { data, error } = await supabase
       .from("meeting_recording_chunks")
-      .select("sequence_number, file_size, checksum_sha256, storage_path")
+      .select("sequence_number, file_size, checksum_sha256, storage_path, captured_started_at, captured_ended_at")
       .eq("meeting_recording_id", recordingId)
       .order("sequence_number", { ascending: true });
     if (error) throw error;
@@ -102,9 +128,14 @@ export function createMeetingRecordingChunkManager(options) {
     accumulatedBytes = remote.reduce((sum, item) => sum + Number(item.file_size || 0), 0)
       + local.filter((item) => !remote.some((remoteItem) => Number(remoteItem.sequence_number) === item.sequenceNumber))
         .reduce((sum, item) => sum + Number(item.blob?.size || 0), 0);
+    accumulatedDurationMs = remote.reduce((sum, item) => sum + chunkDurationMilliseconds(item), 0)
+      + local.filter((item) => !remote.some((remoteItem) => Number(remoteItem.sequence_number) === item.sequenceNumber))
+        .reduce((sum, item) => sum + chunkDurationMilliseconds(item), 0);
     nextSequence = sequences.length ? Math.max(...sequences) + 1 : 0;
+    const summary = progress();
+    if (summary.chunkCount) onProgress(summary);
     if (local.length) void drain();
-    return { nextSequence, localCount: local.length, remoteCount: remote.length };
+    return { ...summary, localCount: local.length, remoteCount: remote.length };
   }
 
   async function uploadChunk(chunk) {
@@ -180,6 +211,8 @@ export function createMeetingRecordingChunkManager(options) {
     };
     await putLocalChunk(chunk);
     accumulatedBytes += blob.size;
+    accumulatedDurationMs += chunkDurationMilliseconds(chunk);
+    onProgress(progress());
     onStatus(navigator.onLine ? "saving" : "offline");
     void drain();
     return sequenceNumber;
@@ -202,6 +235,7 @@ export function createMeetingRecordingChunkManager(options) {
   return {
     initialize, enqueue, drain, flush,
     getNextSequence: () => nextSequence,
+    getProgress: progress,
     dispose() {
       disposed = true;
       window.removeEventListener("online", handleOnline);

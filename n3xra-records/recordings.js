@@ -215,8 +215,10 @@ let recordingWakeLockWanted = false;
 let recordingCaptureEndHandled = false;
 let recordingChunkManager = null;
 let recordingChunkEnqueueChain = Promise.resolve();
+let recordingChunkSummarySaveChain = Promise.resolve();
 let recordingCaptureSessionId = "";
 let recordingChunkStartedAt = null;
+let pendingRecordedChunkBytes = 0;
 let chunkedRecordingReadyToSave = false;
 let activeInterruptionId = "";
 let activeInterruptionNumber = 0;
@@ -1847,6 +1849,28 @@ function handleChunkUploadStatus(state) {
   }
 }
 
+function persistRecordingChunkSummary(recordingId, summary) {
+  const existing = getRecordingById(recordingId);
+  const durationSeconds = Math.max(Number(summary?.durationSeconds || 0), Number(existing?.duration_seconds || 0), 0);
+  const fileSize = Math.max(Number(summary?.bytes || 0), Number(existing?.file_size || 0), 0);
+  if (!recordingId || !Number(summary?.chunkCount || 0)) return Promise.resolve();
+
+  if (activeRecordingId === recordingId) {
+    pendingRecordedDurationSeconds = Math.max(pendingRecordedDurationSeconds, durationSeconds);
+    pendingRecordedChunkBytes = Math.max(pendingRecordedChunkBytes, fileSize);
+  }
+  mergeRecordingUpdate({ id: recordingId, duration_seconds: durationSeconds, file_size: fileSize });
+  renderRecordings();
+
+  recordingChunkSummarySaveChain = recordingChunkSummarySaveChain
+    .catch(() => null)
+    .then(() => updateMeetingRecording(recordingId, {
+      duration_seconds: durationSeconds,
+      file_size: fileSize,
+    }));
+  return recordingChunkSummarySaveChain;
+}
+
 async function initializeRecordingChunkManager(recordingId) {
   recordingChunkManager?.dispose();
   const organization = getActiveOrganization();
@@ -1865,6 +1889,9 @@ async function initializeRecordingChunkManager(recordingId) {
     userId: currentSession.user.id,
     maxBytes: storageAwareMaxBytes,
     onStatus: handleChunkUploadStatus,
+    onProgress: (summary) => {
+      void persistRecordingChunkSummary(recordingId, summary).catch(() => null);
+    },
   });
   return recordingChunkManager.initialize();
 }
@@ -2620,6 +2647,19 @@ function populateRecordingDetails(recording) {
   setStatus(recordingDetailStatusMessage, recording.processing_error || "");
 }
 
+async function reconcileRecordingDurationFromPlayer(recording) {
+  const durationSeconds = Math.max(Math.round(Number(recordingDetailPlayer.duration || 0)), 0);
+  if (!durationSeconds || activeDetailRecordingId !== recording?.id) return;
+  recordingDetailDuration.textContent = formatDuration(durationSeconds);
+  if (Math.abs(durationSeconds - Number(recording.duration_seconds || 0)) <= 1) return;
+
+  mergeRecordingUpdate({ id: recording.id, duration_seconds: durationSeconds });
+  renderRecordings();
+  if (canRecordInActiveOrganization() && recordingWorkflowSchemaAvailable) {
+    await updateMeetingRecording(recording.id, { duration_seconds: durationSeconds });
+  }
+}
+
 async function openRecordingDetail(recordingId) {
   const recording = getRecordingById(recordingId);
   if (!recording) return;
@@ -2634,6 +2674,9 @@ async function openRecordingDetail(recordingId) {
   setStatus(recordingDetailStatusMessage, "Loading audio...");
   try {
     detailPlayerUrl = await createRecordingSignedUrl(recording);
+    recordingDetailPlayer.addEventListener("loadedmetadata", () => {
+      void reconcileRecordingDurationFromPlayer(recording).catch(() => null);
+    }, { once: true });
     recordingDetailPlayer.src = detailPlayerUrl;
     show(recordingDetailPlayer, true);
     setStatus(recordingDetailStatusMessage, recording.processing_error || "");
@@ -2872,7 +2915,7 @@ async function recoverBrowserMeetingRecording(recordingId = "") {
   if (!organization || !currentSession?.user) return false;
   let query = supabase
     .from("meeting_recordings")
-    .select("id,title,status,selected_template_id,started_at,duration_seconds,audio_mime_type,notes_plain_text,created_by_user_id")
+    .select("id,title,status,selected_template_id,started_at,duration_seconds,file_size,audio_mime_type,notes_plain_text,created_by_user_id")
     .eq("organization_id", organization.id)
     .eq("created_by_user_id", currentSession.user.id)
     .in("status", ["recording", "interrupted", "recorded", "finalizing"]);
@@ -2891,9 +2934,12 @@ async function recoverBrowserMeetingRecording(recordingId = "") {
   activeRecordingMimeType = data.audio_mime_type || getSupportedMimeType() || "audio/webm";
   pendingRecordedTitle = data.title || "Meeting note";
   pendingRecordedDurationSeconds = Number(data.duration_seconds || 0);
-  recordingDuration.textContent = formatDuration(pendingRecordedDurationSeconds);
   const managerState = await initializeRecordingChunkManager(data.id);
   chunkedRecordingReadyToSave = managerState.nextSequence > 0;
+  pendingRecordedDurationSeconds = Math.max(pendingRecordedDurationSeconds, managerState.durationSeconds || 0);
+  pendingRecordedChunkBytes = Math.max(Number(data.file_size || 0), managerState.bytes || 0);
+  recordingDuration.textContent = formatDuration(pendingRecordedDurationSeconds);
+  await recordingChunkSummarySaveChain.catch(() => null);
 
   const { data: interruptions } = await supabase
     .from("meeting_recording_interruptions")
@@ -3219,6 +3265,7 @@ function clearPendingRecordedAudio() {
   pendingRecordedBlob = null;
   pendingRecordedTitle = "";
   pendingRecordedDurationSeconds = 0;
+  pendingRecordedChunkBytes = 0;
 }
 
 function clearPendingUploadedAudio(options = {}) {
@@ -3241,8 +3288,9 @@ async function prepareStoppedRecording() {
   const recordingId = activeRecordingId;
   const title = recordingTitleInput.value.trim();
   const endedAt = new Date();
-  const durationSeconds = Math.max(Math.round(getElapsedRecordingMs() / 1000), 0);
+  const durationSeconds = Math.max(Math.round(getElapsedRecordingMs() / 1000), pendingRecordedDurationSeconds, 0);
   const blob = new Blob(activeChunks, { type: activeRecordingMimeType || "audio/webm" });
+  const fileSize = recordingChunkManager ? pendingRecordedChunkBytes : blob.size;
 
   recordingDuration.textContent = formatDuration(durationSeconds);
   uploadStateValue.textContent = "Ready to save";
@@ -3258,7 +3306,7 @@ async function prepareStoppedRecording() {
       ended_at: endedAt.toISOString(),
       duration_seconds: durationSeconds,
       audio_mime_type: blob.type || activeRecordingMimeType || "audio/webm",
-      file_size: blob.size,
+      file_size: fileSize,
       processing_error: null,
     });
     pendingRecordedBlob = blob.size ? blob : null;
@@ -3324,6 +3372,7 @@ async function handleSaveStoppedRecording() {
       setStatus(recordingStatus, "Verifying saved audio chunks...");
       const { lastSequence } = await recordingChunkManager.flush();
       if (lastSequence < 0) throw new Error("No recorded audio chunks are available to save.");
+      await recordingChunkSummarySaveChain.catch(() => null);
       setRecorderState("Saving", "Assembling the complete recording in secure storage.");
       uploadStateValue.textContent = "Saving";
       await updateMeetingRecording(recordingId, { status: "finalizing", duration_seconds: durationSeconds, processing_error: null });
@@ -3714,6 +3763,8 @@ async function handleStartRecording() {
   try {
     createdRecording = await createMeetingRecording(title);
     activeRecordingId = createdRecording.id;
+    pendingRecordedDurationSeconds = 0;
+    pendingRecordedChunkBytes = 0;
     await initializeRecordingChunkManager(createdRecording.id);
     updateControls();
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
