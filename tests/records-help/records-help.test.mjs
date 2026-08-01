@@ -35,6 +35,8 @@ test("the help prompt explicitly prohibits unverified interface guesses", () => 
   assert.match(prompt, /File is the only required selection\. Document title, Year, and Month are optional metadata/);
   assert.match(prompt, /Do not send an Editor or Viewer to Manage library > Users/);
   assert.match(prompt, /Do not recommend a named browser unless the supplied product knowledge verifies it/);
+  assert.match(prompt, /Account Admin does not automatically mean billing Owner/);
+  assert.match(prompt, /Never call it a header-right Profile link/);
 });
 
 test("verified role labels come from server-side access context", () => {

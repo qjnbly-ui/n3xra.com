@@ -1,4 +1,5 @@
 const { createAdminNotification } = require("./_admin-notifications");
+const { cleanSpeechText } = require("./_speech-text");
 
 const API_KEY = String(process.env.ELEVENLABS_API_KEY || "").trim();
 const VOICE_ID = String(process.env.ELEVENLABS_VOICE_ID || "JBFqnCBsd6RMkjVDRZzb").trim();
@@ -19,58 +20,6 @@ function limited(ip) {
   }
   entry.count += 1;
   return entry.count > 10;
-}
-
-function cleanSpeechText(value) {
-  const spokenRoutes = [
-    ["/website-request", "Start a Project"],
-    ["/website-onboarding", "Website Onboarding"],
-    ["/project-workspace", "Project Workspace"],
-    ["/client-portal", "Client Portal"],
-    ["/ai-music-generator", "AI Music Generator"],
-    ["/proposals", "Proposals"],
-    ["/records", "Nexra Records"],
-    ["/utilities", "Nexra Utilities"],
-    ["/virals", "Nexra Virals"],
-    ["/account", "Dashboard"],
-    ["/partners", "Partners"],
-    ["/services", "Services"],
-    ["/projects", "Projects"],
-    ["/support", "Support"],
-    ["/privacy", "Privacy"],
-    ["/terms", "Terms"],
-  ];
-
-  let text = String(value || "")
-    .replace(/<a\b[^>]*>([\s\S]*?)<\/a>/gi, "$1")
-    .replace(/\[([^\]]+)]\((?:https?:\/\/|\/)[^)]+\)/gi, "$1")
-    .replace(/<br\s*\/?\s*>/gi, ". ")
-    .replace(/<\/p\s*>|<\/li\s*>/gi, ". ")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&amp;/gi, " and ")
-    .replace(/&nbsp;/gi, " ");
-
-  spokenRoutes.forEach(([route, label]) => {
-    const escapedRoute = route.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    text = text.replace(new RegExp(`${escapedRoute}\/?`, "gi"), ` ${label} `);
-  });
-
-  return text
-    .replace(/\bN3XRA\b/gi, "Nexra")
-    .replace(/\$(\d+(?:\.\d{1,2})?)\s*\/\s*(month|year|week|day|hour)\b/gi, "$1 dollars a $2")
-    .replace(/\$(\d+(?:\.\d{1,2})?)\s+(one-time|one time)\b/gi, "$1 dollar $2")
-    .replace(/\$(\d+(?:\.\d{1,2})?)/g, "$1 dollars")
-    .replace(/(\d+(?:\.\d+)?)%/g, "$1 percent")
-    .replace(/https?:\/\/\S+/gi, " ")
-    .replace(/(^|\s)\/[a-z0-9/_-]+/gi, " ")
-    .replace(/[→←]/g, " ")
-    .replace(/[•●▪◦]+/g, ". ")
-    .replace(/[\*_`#]+/g, "")
-    .replace(/\s+([,.;!?])/g, "$1")
-    .replace(/\.{2,}/g, ".")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 1800);
 }
 
 export default async function handler(req, res) {
