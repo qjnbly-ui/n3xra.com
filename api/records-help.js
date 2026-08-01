@@ -108,6 +108,37 @@ function extractHelpActions(rawAnswer) {
   };
 }
 
+function normalizeHelpActionText(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9&]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isRecordsHelpTaskRequest(question) {
+  return /\b(?:how|where|help|show|guide|tour|walk|open|find|create|start|make|upload|send|invite|manage|change|set\s*up|not sure)\b/i
+    .test(String(question || ""));
+}
+
+function inferRecordsHelpAction(question, answer) {
+  if (!isRecordsHelpTaskRequest(question)) return null;
+  const normalizedQuestion = normalizeHelpActionText(question);
+  const normalizedAnswer = normalizeHelpActionText(answer);
+  const candidates = Object.entries(RECORDS_HELP_ACTIONS)
+    .map(([id, label]) => {
+      const destination = normalizeHelpActionText(label.replace(/^(Open|Show)\s+/i, ""));
+      const score = (normalizedQuestion.includes(destination) ? 100 : 0)
+        + (normalizedAnswer.includes(destination) ? 30 : 0);
+      return { id, score, destinationLength: destination.length };
+    })
+    .filter((candidate) => candidate.score > 0)
+    .sort((a, b) => b.score - a.score || b.destinationLength - a.destinationLength);
+  if (!candidates.length) return null;
+  if (candidates[1]?.score === candidates[0].score) return null;
+  return candidates[0].id;
+}
+
 function loadHelpKnowledge() {
   if (cachedHelpKnowledge) return cachedHelpKnowledge;
   try {
@@ -334,7 +365,12 @@ module.exports = async function handler(req, res) {
     }
 
     const rawAnswer = String(data?.choices?.[0]?.message?.content || "").trim();
-    const { answer, actions } = extractHelpActions(rawAnswer);
+    const extracted = extractHelpActions(rawAnswer);
+    const fallbackActionId = extracted.actions.length ? null : inferRecordsHelpAction(question, extracted.answer);
+    const answer = extracted.answer;
+    const actions = fallbackActionId
+      ? [{ id: fallbackActionId, label: RECORDS_HELP_ACTIONS[fallbackActionId] }]
+      : extracted.actions;
     if (!answer) return res.status(502).json({ error: "Records AI returned an empty answer." });
     const fallbackPrompt = messages.map((item) => item.content).join("\n\n");
     const usage = normalizeGroqUsage(data, fallbackPrompt, answer);
@@ -360,3 +396,5 @@ module.exports.RECORDS_HELP_MAX_TOKENS = RECORDS_HELP_MAX_TOKENS;
 module.exports.RECORDS_HELP_ACTIONS = RECORDS_HELP_ACTIONS;
 module.exports.extractHelpActions = extractHelpActions;
 module.exports.parseRecordsGuideToken = parseRecordsGuideToken;
+module.exports.isRecordsHelpTaskRequest = isRecordsHelpTaskRequest;
+module.exports.inferRecordsHelpAction = inferRecordsHelpAction;

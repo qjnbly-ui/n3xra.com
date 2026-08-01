@@ -52,6 +52,37 @@ test("help actions are extracted from an allowlist and removed from answer copy"
   assert.deepEqual(result.actions, [{ id: "account.ai", label: "Open AI settings" }]);
 });
 
+test("ordinary how-to questions receive a grounded guided action when the model omits one", () => {
+  assert.equal(
+    recordsHelp.inferRecordsHelpAction(
+      "Are you able to help me create a new document? I’m not sure how to do that.",
+      "Create a new app-native document from Document Builder. In the left navigation, click Document Builder, then press New document."
+    ),
+    "documents.new"
+  );
+  assert.equal(
+    recordsHelp.inferRecordsHelpAction(
+      "Can you help me find the Phone Meetings settings?",
+      "Open Manage library, then choose Phone Meetings."
+    ),
+    "account.phone"
+  );
+  assert.equal(
+    recordsHelp.inferRecordsHelpAction(
+      "What is Document Builder?",
+      "Document Builder is where app-native documents are created."
+    ),
+    null
+  );
+  assert.equal(
+    recordsHelp.inferRecordsHelpAction(
+      "Help me understand these settings.",
+      "Library settings and Phone Meetings are separate destinations."
+    ),
+    null
+  );
+});
+
 test("generic guides compose verified UI labels without workflow-specific code", () => {
   const result = recordsHelp.extractHelpActions(
     "I’ll show you the path.\n[[guide:Show the workflow|/n3xra-records/meeting-notes|New meeting note~First, choose New meeting note.>Phone call~Choose Phone call.>Start phone meeting~Finish here.]]"
