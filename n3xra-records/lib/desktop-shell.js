@@ -478,7 +478,7 @@ async function narrateRecordsAiGuide(message) {
       const response = await fetch("/api/elevenlabs-text-to-speech", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, guideLeadIn: true }),
+        body: JSON.stringify({ text }),
       });
       if (!response.ok) throw new Error("Guide voice unavailable");
       recordsAiGuideAudioUrl = URL.createObjectURL(await response.blob());

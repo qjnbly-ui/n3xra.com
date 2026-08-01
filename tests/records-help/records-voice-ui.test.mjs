@@ -49,7 +49,7 @@ test("Records AI actions demonstrate the navigation path before the destination"
   assert.match(shell, /attempt < 2/);
   assert.match(shell, /getRecordsAiGuideSpeechTimeoutMs/);
   assert.match(shell, /Guide audio timed out/);
-  assert.match(shell, /guideLeadIn: true/);
+  assert.doesNotMatch(shell, /guideLeadIn/);
   assert.match(shell, /canplaythrough/);
   assert.match(shell, /HAVE_FUTURE_DATA/);
   assert.match(shell, /Math\.min\(45000, Math\.max\(15000/);
@@ -59,11 +59,11 @@ test("Records AI actions demonstrate the navigation path before the destination"
   assert.match(styles, /\.records-ai-guide-note/);
 });
 
-test("guide narration receives a nonverbal lead-in before the meaningful sentence", async () => {
+test("guide narration starts with the meaningful sentence without an artificial hesitation", async () => {
   const voiceApi = await readFile(voiceApiPath, "utf8");
 
-  assert.match(voiceApi, /guideLeadIn = body\.guideLeadIn === true/);
-  assert.match(voiceApi, /guideLeadIn \? `… \$\{text\}` : text/);
+  assert.doesNotMatch(voiceApi, /guideLeadIn/);
+  assert.match(voiceApi, /text,\n\s+model_id/);
 });
 
 test("voice input records, transcribes, and submits the spoken question", async () => {
