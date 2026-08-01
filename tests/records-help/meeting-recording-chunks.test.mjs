@@ -88,6 +88,15 @@ test("Meeting Notes detects interruptions and offers same-meeting resume", async
   assert.match(recordings, /mediaRecorder\.start\(5000\)/);
 });
 
+test("Meeting Notes restores an interrupted browser recording on load and selection", async () => {
+  const recordings = await readFile(recordingsPath, "utf8");
+  const automaticRecoveryCalls = recordings.match(/await recoverBrowserMeetingRecording\(\)\.catch/g) || [];
+  assert.equal(automaticRecoveryCalls.length, 2);
+  assert.match(recordings, /handleRecordingSelection/);
+  assert.match(recordings, /recoverBrowserMeetingRecording\(recordingId\)/);
+  assert.match(recordings, /recording\?\.created_by_user_id === currentSession\?\.user\?\.id/);
+});
+
 test("finalization verifies fragments and assembles resumed sessions with FFmpeg", async () => {
   const finalizer = await readFile(finalizerPath, "utf8");
   assert.match(finalizer, /failed its checksum check/);

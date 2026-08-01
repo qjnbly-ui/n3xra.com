@@ -1734,6 +1734,12 @@ function getRecordingById(recordingId) {
   return recordingsCache.find((item) => item.id === recordingId) || null;
 }
 
+function isRecoverableBrowserRecording(recording) {
+  const status = String(recording?.status || "").trim().toLowerCase();
+  return recording?.created_by_user_id === currentSession?.user?.id &&
+    ["recording", "interrupted", "recorded", "finalizing"].includes(status);
+}
+
 function hasUnsavedRecordingAudio() {
   return Boolean(activeRecordingId && (pendingRecordedBlob || chunkedRecordingReadyToSave));
 }
@@ -2242,6 +2248,7 @@ async function loadRecordings() {
       ai_review_json,
       ai_draft_document_id,
       final_document_id,
+      created_by_user_id,
       created_at
     `, { count: "exact" })
     .eq("organization_id", organization.id)
@@ -2264,6 +2271,7 @@ async function loadRecordings() {
         audio_mime_type,
         file_size,
         processing_error,
+        created_by_user_id,
         created_at
       `, { count: "exact" })
       .eq("organization_id", organization.id)
@@ -2859,19 +2867,22 @@ async function requestChunkedRecordingFinalization(recordingId, expectedLastSequ
   return data;
 }
 
-async function recoverBrowserMeetingRecording() {
+async function recoverBrowserMeetingRecording(recordingId = "") {
   const organization = getActiveOrganization();
-  if (!organization || !currentSession?.user) return;
-  const { data, error } = await supabase
+  if (!organization || !currentSession?.user) return false;
+  let query = supabase
     .from("meeting_recordings")
     .select("id,title,status,selected_template_id,started_at,duration_seconds,audio_mime_type,notes_plain_text,created_by_user_id")
     .eq("organization_id", organization.id)
     .eq("created_by_user_id", currentSession.user.id)
-    .in("status", ["recording", "interrupted", "recorded", "finalizing"])
+    .in("status", ["recording", "interrupted", "recorded", "finalizing"]);
+  if (recordingId) query = query.eq("id", recordingId);
+  const { data, error } = await query
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
-  if (error || !data) return;
+  if (error) throw error;
+  if (!data) return false;
 
   activeRecordingId = data.id;
   recordingTitleInput.value = data.title || "Recovered meeting note";
@@ -2926,6 +2937,26 @@ async function recoverBrowserMeetingRecording() {
     setStatus(recordingStatus, "Recovered recording found. Select Save meeting note to finish it.", "success");
   }
   updateControls();
+  return true;
+}
+
+async function handleRecordingSelection(recordingId) {
+  const recording = getRecordingById(recordingId);
+  if (!recording) return;
+  if (!isRecoverableBrowserRecording(recording)) {
+    await openRecordingDetail(recordingId);
+    return;
+  }
+  if (activeRecordingId === recordingId) {
+    setRecordPanelOpen(true, { scroll: true });
+    return;
+  }
+  if (activeRecordingId) {
+    await openRecordingDetail(recordingId);
+    return;
+  }
+  const recovered = await recoverBrowserMeetingRecording(recordingId);
+  if (recovered) setRecordPanelOpen(true, { scroll: true });
 }
 
 async function requestRecordingAiReview(recordingId) {
@@ -4003,6 +4034,11 @@ async function init() {
   await loadPhoneMeetingSettings();
   await loadRecordings();
   await recoverRecentPhoneMeetingSession();
+  if (!activePhoneMeetingSession) {
+    await recoverBrowserMeetingRecording().catch((error) => {
+      setStatus(recordingStatus, getErrorMessage(error, "A recoverable meeting recording was found, but it could not be opened."), "error");
+    });
+  }
 
   if (!window.MediaRecorder || !navigator.mediaDevices?.getUserMedia) {
     startRecordingButton.disabled = true;
@@ -4140,14 +4176,18 @@ async function init() {
   recordingsList.addEventListener("click", (event) => {
     const row = event.target.closest("[data-recording-id]");
     if (!row) return;
-    void openRecordingDetail(row.getAttribute("data-recording-id") || "");
+    void handleRecordingSelection(row.getAttribute("data-recording-id") || "").catch((error) => {
+      setStatus(recordingStatus, getErrorMessage(error, "Unable to reopen this meeting recording."), "error");
+    });
   });
   recordingsList.addEventListener("keydown", (event) => {
     const row = event.target.closest("[data-recording-id]");
     if (!row) return;
     if (event.key !== "Enter" && event.key !== " ") return;
     event.preventDefault();
-    void openRecordingDetail(row.getAttribute("data-recording-id") || "");
+    void handleRecordingSelection(row.getAttribute("data-recording-id") || "").catch((error) => {
+      setStatus(recordingStatus, getErrorMessage(error, "Unable to reopen this meeting recording."), "error");
+    });
   });
   recordingAiReviewPanel?.addEventListener("click", (event) => {
     const button = event.target.closest("[data-review-action]");
