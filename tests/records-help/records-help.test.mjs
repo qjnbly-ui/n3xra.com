@@ -106,6 +106,26 @@ test("task answers become workflow guides while explicit navigation stays destin
   ]);
 });
 
+test("task aliases recover a verified workflow when the model returns only a short answer", () => {
+  const question = "Help me create an invite code for a new staff member, but don't create or send anything yet.";
+  const answer = "Create the invite code but stop before sending.";
+  const actionId = recordsHelp.inferRecordsHelpAction(question, answer);
+  const action = recordsHelp.inferRecordsWorkflowGuide(actionId, answer);
+
+  assert.equal(actionId, "account.access");
+  assert.equal(action.guide.route, "/n3xra-records/account/?view=access");
+  assert.deepEqual(action.guide.steps.map((step) => step.target), [
+    "Invite codes",
+    "Role",
+    "Uses",
+    "Expires at",
+    "Recipient email (optional)",
+    "Create invite code",
+    "Create code + send email",
+  ]);
+  assert.match(action.guide.steps.at(-1).narration, /stops here without creating or sending/i);
+});
+
 test("metadata-only responses retain their action and receive visible fallback copy", () => {
   const metadataOnly = recordsHelp.extractHelpActions("[[action:documents.new]]");
 

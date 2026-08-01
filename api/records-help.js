@@ -63,6 +63,39 @@ const RECORDS_HELP_ACTION_ROUTES = Object.freeze({
   "account.support": "/n3xra-records/account/?view=support",
 });
 
+const RECORDS_HELP_ACTION_ALIASES = Object.freeze({
+  "library.search": ["keyword search", "search records", "find a file", "find a document"],
+  "library.ai_search": ["ai search", "ask my documents", "search file contents"],
+  "library.upload": ["upload a pdf", "upload pdf", "upload a file", "upload file", "upload a document"],
+  "meeting.new": ["new meeting note", "record a meeting", "record meeting", "phone call meeting", "phone meeting note"],
+  "documents.new": ["new document", "create a document", "document builder"],
+  "messages.compose": ["send a message", "write a message", "compose a message", "communication"],
+  "account.profile": ["my profile", "profile settings"],
+  "account.library": ["library settings", "library profile", "library colors", "library logo"],
+  "account.templates": ["reusable template", "document template", "manage templates"],
+  "account.phone": ["phone meetings settings", "phone meeting settings", "enable phone meetings", "configure phone meetings"],
+  "account.ai": ["ai settings", "saved ai memory"],
+  "account.users": ["manage users", "account users", "user list"],
+  "account.contacts": ["manage contacts", "address book", "contact list"],
+  "account.access": ["invite code", "invite codes", "invite a user", "invite staff", "invite member", "shared access", "join code"],
+  "account.storage": ["storage usage", "storage limit", "storage plan"],
+  "account.billing": ["billing", "subscription", "payment method", "change plan"],
+  "account.activity": ["audit activity", "audit log", "activity log"],
+  "account.support": ["support access", "temporary support", "grant support access"],
+});
+
+const RECORDS_HELP_FALLBACK_GUIDES = Object.freeze({
+  "account.access": Object.freeze([
+    { target: "Invite codes", narration: "Invite codes is where you create controlled access for a new library member." },
+    { target: "Role", narration: "Role determines what the invited person will be allowed to do after joining." },
+    { target: "Uses", narration: "Uses limits how many times this invitation code can be accepted." },
+    { target: "Expires at", narration: "Expires at is optional and lets you stop the code from working after a chosen time." },
+    { target: "Recipient email (optional)", narration: "Add an email only if this invitation is intended for a particular recipient." },
+    { target: "Create invite code", narration: "Create invite code makes the code without sending an email. Records AI will not press it for you." },
+    { target: "Create code + send email", narration: "This alternative creates the code and emails it. The guide stops here without creating or sending anything." },
+  ]),
+});
+
 const RECORDS_GUIDE_ROUTES = new Set([
   "/n3xra-records/library",
   "/n3xra-records/meeting-notes",
@@ -192,6 +225,9 @@ function inferRecordsWorkflowGuide(actionId, answer) {
     steps.push({ target: target.slice(0, 100), narration });
     if (steps.length === 7) break;
   }
+  if (steps.length < 2) {
+    steps.splice(0, steps.length, ...(RECORDS_HELP_FALLBACK_GUIDES[actionId] || []));
+  }
   if (steps.length < 2) return null;
   return {
     id: "guided.path",
@@ -212,8 +248,14 @@ function inferRecordsHelpAction(question, answer) {
   const candidates = Object.entries(RECORDS_HELP_ACTIONS)
     .map(([id, label]) => {
       const destination = normalizeHelpActionText(label.replace(/^(Open|Show)\s+/i, ""));
-      const score = (normalizedQuestion.includes(destination) ? 100 : 0)
-        + (normalizedAnswer.includes(destination) ? 30 : 0);
+      const aliases = RECORDS_HELP_ACTION_ALIASES[id] || [];
+      const questionAliasLength = aliases.reduce((longest, alias) => {
+        const normalizedAlias = normalizeHelpActionText(alias);
+        return normalizedQuestion.includes(normalizedAlias) ? Math.max(longest, normalizedAlias.length) : longest;
+      }, 0);
+      const score = (normalizedQuestion.includes(destination) ? 1000 + destination.length : 0)
+        + (questionAliasLength ? 500 + questionAliasLength : 0)
+        + (normalizedAnswer.includes(destination) ? 100 : 0);
       return { id, score, destinationLength: destination.length };
     })
     .filter((candidate) => candidate.score > 0)
