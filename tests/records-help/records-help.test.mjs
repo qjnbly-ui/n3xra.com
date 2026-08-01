@@ -29,6 +29,7 @@ test("the help prompt explicitly prohibits unverified interface guesses", () => 
   assert.match(prompt, /Current plan: Organization/);
   assert.match(prompt, /persistent left navigation/);
   assert.match(prompt, /not limited to file rows currently visible/);
+  assert.match(prompt, /Year and Reset belong to Keyword search and must never be described as Files section filters/);
 });
 
 test("verified role labels come from server-side access context", () => {
@@ -54,6 +55,8 @@ test("knowledge preserves exact labels from the corrected workflows", () => {
 
   assert.match(knowledge, /There is no desktop navigation destination labeled \*\*Files\*\* or \*\*Admin Settings\*\*/);
   assert.match(knowledge, /\*\*Workspace\*\* is a fixed group label, not an expandable control/);
+  assert.match(knowledge, /exact Files section filter buttons are \*\*All\*\*, \*\*Uploaded files\*\*, \*\*Agendas\*\*, and \*\*Supporting documents\*\*/);
+  assert.match(knowledge, /does not document a Month filter, a public\/private-status filter, or user-defined file tags/);
   assert.match(knowledge, /exact submit label is \*\*Upload and save extracted text\*\*/);
   assert.match(knowledge, /\*\*Document title\*\*, \*\*Year\*\*, and \*\*Month\*\* are optional metadata/);
   assert.match(knowledge, /Each file row opens its menu with \*\*Action\*\*/);

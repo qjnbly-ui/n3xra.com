@@ -56,6 +56,8 @@ Ask Records AI answers product and workflow questions about N3XRA Records. It is
 
 ## Files and uploads
 - On desktop, open **Library**, find the **Files** section, and select **Upload**. Do not tell users to select Files in the left navigation.
+- The exact Files section filter buttons are **All**, **Uploaded files**, **Agendas**, and **Supporting documents**.
+- Keyword search has a **Year** filter. The current interface does not document a Month filter, a public/private-status filter, or user-defined file tags.
 - The upload dialog has **Individual file** and **Batch import** modes.
 - Individual file fields include **Document title**, **Year**, **Month**, **File**, and the public-record checkbox when available.
 - For an individual upload, **Document title**, **Year**, and **Month** are optional metadata. Choosing a **File** is required. Do not tell the user that every metadata field must be completed.
