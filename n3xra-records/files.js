@@ -150,8 +150,98 @@ function show(el, visible) {
 
 function setAiSearchAnswer(answer = "") {
   if (!aiSearchAnswer) return;
-  aiSearchAnswer.textContent = String(answer || "").trim();
-  show(aiSearchAnswer, Boolean(aiSearchAnswer.textContent));
+  renderAiAnswerMarkup(aiSearchAnswer, answer);
+}
+
+function renderAiInlineMarkdown(value) {
+  return escapeHtml(value)
+    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/(^|[\s(])\*([^*]+)\*(?=[\s).,!?:;]|$)/g, "$1<em>$2</em>")
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+}
+
+function parseAiTableRow(line) {
+  const value = String(line || "").trim();
+  if (!value.includes("|")) return null;
+  const cells = value.replace(/^\|/, "").replace(/\|$/, "").split("|").map((cell) => cell.trim());
+  return cells.some(Boolean) ? cells : null;
+}
+
+function isAiTableDivider(line) {
+  const cells = parseAiTableRow(line);
+  return Boolean(cells?.length && cells.every((cell) => /^:?-{3,}:?$/.test(cell.replace(/\s+/g, ""))));
+}
+
+function normalizeAiAnswerMarkdown(message = "") {
+  return String(message || "")
+    .replace(/<br\s*\/?\s*>/gi, " ")
+    .replace(/^(#{1,4}\s+[^|\n]+?)\s*(\|)/gm, "$1\n$2")
+    .replace(/\s+(#{1,4}\s+)/g, "\n$1")
+    .replace(/\s+(\d+\.\s+)/g, "\n$1")
+    .replace(/\s+([*-]\s+)/g, "\n$1")
+    .replace(/\s+\|\s+---/g, "\n| ---")
+    .replace(/\|\s*\|\s*(?=:?-{2,})/g, "|\n|")
+    .replace(/\|\s*\|\s*(?=[A-Za-z0-9$*])/g, "|\n|")
+    .trim();
+}
+
+function renderAiAnswerMarkup(container, message = "") {
+  const raw = normalizeAiAnswerMarkdown(message);
+  show(container, Boolean(raw));
+  container.innerHTML = "";
+  if (!raw) return;
+
+  const lines = raw.split(/\r?\n/).map((line) => line.trim());
+  for (let index = 0; index < lines.length;) {
+    const line = lines[index];
+    if (!line) {
+      index += 1;
+      continue;
+    }
+    if (line.includes("|") && isAiTableDivider(lines[index + 1])) {
+      const header = parseAiTableRow(line) || [];
+      const rows = [];
+      index += 2;
+      while (index < lines.length && lines[index].includes("|")) {
+        const row = parseAiTableRow(lines[index]);
+        if (row) rows.push(row);
+        index += 1;
+      }
+      const width = Math.max(header.length, ...rows.map((row) => row.length));
+      const fittedHeader = [...header, ...Array(Math.max(0, width - header.length)).fill("Detail")];
+      const table = document.createElement("div");
+      table.className = "ai-rich-table-wrap";
+      table.innerHTML = `<table class="ai-rich-table"><thead><tr>${fittedHeader.map((cell) => `<th>${renderAiInlineMarkdown(cell)}</th>`).join("")}</tr></thead><tbody>${rows.map((row) => `<tr>${Array.from({ length: width }, (_, cellIndex) => `<td>${renderAiInlineMarkdown(row[cellIndex] || "")}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
+      container.append(table);
+      continue;
+    }
+    const heading = line.match(/^(#{1,3})\s+(.+)$/);
+    if (heading) {
+      const element = document.createElement("h3");
+      element.className = "ai-answer-heading";
+      element.innerHTML = renderAiInlineMarkdown(heading[2]);
+      container.append(element);
+      index += 1;
+      continue;
+    }
+    const listType = /^\d+\.\s+/.test(line) ? "ol" : /^[-*]\s+/.test(line) ? "ul" : "";
+    if (listType) {
+      const list = document.createElement(listType);
+      const pattern = listType === "ol" ? /^\d+\.\s+/ : /^[-*]\s+/;
+      while (index < lines.length && pattern.test(lines[index])) {
+        const item = document.createElement("li");
+        item.innerHTML = renderAiInlineMarkdown(lines[index].replace(pattern, ""));
+        list.append(item);
+        index += 1;
+      }
+      container.append(list);
+      continue;
+    }
+    const paragraph = document.createElement("p");
+    paragraph.innerHTML = renderAiInlineMarkdown(line);
+    container.append(paragraph);
+    index += 1;
+  }
 }
 
 function snippetFromText(text, query = "") {
@@ -181,6 +271,41 @@ function highlightedKeywordSnippet(text, query = "") {
   const match = escapeHtml(snippet.slice(relativeIndex, relativeIndex + normalizedQuery.length));
   const after = escapeHtml(snippet.slice(relativeIndex + normalizedQuery.length));
   return `${start > 0 ? "... " : ""}${before}<mark>${match}</mark>${after}${end < safeText.length ? " ..." : ""}`;
+}
+
+function escapeSearchRegExp(value) {
+  return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function getAiEvidenceTerms() {
+  const stopWords = new Set([
+    "about", "after", "also", "and", "any", "are", "ask", "can", "create", "draft", "for", "from", "give", "have",
+    "how", "into", "make", "more", "need", "only", "please", "show", "summarize", "table", "tell", "that", "the",
+    "this", "use", "using", "what", "when", "where", "which", "with", "you", "your",
+  ]);
+  return Array.from(new Set(String(searchQueryInput?.value || "")
+    .toLowerCase()
+    .split(/[^a-z0-9]+/i)
+    .filter((word) => word.length > 2 && !stopWords.has(word)))).slice(0, 10);
+}
+
+function highlightedAiEvidenceSnippet(text) {
+  const safeText = sanitizeExtractedText(text);
+  if (!safeText) return "No excerpt available.";
+  const terms = getAiEvidenceTerms();
+  const lower = safeText.toLowerCase();
+  const matchedTerm = terms.find((term) => lower.includes(term));
+  const index = matchedTerm ? lower.indexOf(matchedTerm) : 0;
+  const start = Math.max(0, index - 170);
+  const end = Math.min(safeText.length, index + 520);
+  let snippet = safeText.slice(start, end).trim();
+  if (start > 0) snippet = `... ${snippet}`;
+  if (end < safeText.length) snippet = `${snippet} ...`;
+  let escaped = escapeHtml(snippet);
+  terms.forEach((term) => {
+    escaped = escaped.replace(new RegExp(`\\b(${escapeSearchRegExp(term)})\\b`, "gi"), "<mark>$1</mark>");
+  });
+  return escaped;
 }
 
 function getDocumentSearchText(doc) {
@@ -214,8 +339,12 @@ function createSearchResultCard(doc, options = {}) {
   const card = document.createElement("article");
   const documentId = String(doc?.id || "");
   const snippet = options.ai
-    ? escapeHtml(options.snippet || snippetFromText(getDocumentSearchText(doc)))
+    ? highlightedAiEvidenceSnippet(options.snippet || "")
     : highlightedKeywordSnippet(getDocumentSearchText(doc), options.query || "");
+  const snippetMarkup = options.ai
+    ? `<div class="ai-evidence"><p class="ai-evidence-label">Highlighted excerpt sent to AI</p><p class="doc-snippet">${snippet}</p></div>`
+    : `<p class="doc-snippet">${snippet}</p>`;
+  const statusLabel = options.ai ? (doc?.is_public ? "public" : "private") : getDocumentStatusLabel(doc);
   card.className = `doc-card${options.ai ? " ai-search-card" : ""}`;
   card.innerHTML = `
     <div class="doc-meta">
@@ -223,9 +352,9 @@ function createSearchResultCard(doc, options = {}) {
         <p class="doc-title">${escapeHtml(getDocumentDisplayTitle(doc))}</p>
         <p class="doc-subtitle">${escapeHtml(buildDocumentMetadata(doc, { includeVisibility: true, includeYearLabel: true, createdAtWithTime: true }))}</p>
       </div>
-      <span class="doc-status">${escapeHtml(getDocumentStatusLabel(doc))}</span>
+      <span class="doc-status">${escapeHtml(statusLabel)}</span>
     </div>
-    <p class="doc-snippet">${snippet}</p>
+    ${snippetMarkup}
     <div class="doc-actions">
       <button class="btn secondary" type="button" data-search-open-id="${escapeHtml(documentId)}">Open</button>
     </div>
@@ -256,6 +385,12 @@ function renderAiSearchResults(matches = []) {
   docList.innerHTML = "";
   show(docEmpty, matches.length === 0);
   docEmpty.textContent = matches.length ? "" : "AI Search did not suggest a specific file.";
+  if (matches.length) {
+    const sourceLabel = document.createElement("p");
+    sourceLabel.className = "ai-search-sources-label";
+    sourceLabel.textContent = "Source files AI Search used";
+    docList.append(sourceLabel);
+  }
   matches.forEach((match) => {
     const localDocument = documentsCache.find((doc) => String(doc.id) === String(match.id));
     docList.append(createSearchResultCard({ ...(localDocument || {}), ...match }, { ai: true, snippet: match.snippet || "" }));

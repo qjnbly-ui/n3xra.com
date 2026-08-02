@@ -59,6 +59,15 @@ function normalizeText(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
 }
 
+function normalizeAnswerText(value) {
+  return String(value || "")
+    .replace(/\r\n?/g, "\n")
+    .replace(/[ \t]+/g, " ")
+    .replace(/ *\n */g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 function sanitizeExtractedText(value) {
   const raw = String(value || "");
   if (!raw) return "";
@@ -655,7 +664,7 @@ module.exports = async function handler(req, res) {
       return res.status(502).json({ error: String(data?.error?.message || data?.message || "Unable to reach Records AI Search.") });
     }
 
-    const answer = normalizeText(data?.choices?.[0]?.message?.content || "");
+    const answer = normalizeAnswerText(data?.choices?.[0]?.message?.content || "");
     if (!answer) return res.status(502).json({ error: "Records AI Search returned an empty answer." });
 
     let memorySuggestion = memoryCandidate;
@@ -695,3 +704,5 @@ module.exports = async function handler(req, res) {
     return res.status(500).json({ error: error instanceof Error ? error.message : "Server error." });
   }
 };
+
+module.exports.normalizeAnswerText = normalizeAnswerText;
