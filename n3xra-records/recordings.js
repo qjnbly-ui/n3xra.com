@@ -25,11 +25,6 @@ import {
   deleteLocalChunksForRecording,
 } from "./lib/meeting-recording-chunks.js";
 import { getRecordingInterruptions, stripRecordingInterruptionMarkers } from "./lib/recording-interruptions.js";
-import {
-  formatRecordingDuration as formatDuration,
-  getRecordingDurationSeconds,
-  normalizeRecordingDurationSeconds,
-} from "./lib/recording-duration.js";
 
 const setupPanel = document.getElementById("setup-panel");
 const recordingsPanel = document.getElementById("recordings-panel");
@@ -1379,6 +1374,18 @@ function canRecordInActiveOrganization() {
   return Boolean(getActiveOrganization()) && capabilities.canManageDocuments && capabilities.canUseRecordings;
 }
 
+function formatDuration(totalSeconds) {
+  const safeSeconds = Math.max(Number(totalSeconds || 0), 0);
+  const hours = Math.floor(safeSeconds / 3600);
+  const minutes = Math.floor((safeSeconds % 3600) / 60);
+  const seconds = safeSeconds % 60;
+
+  if (hours > 0) {
+    return [hours, minutes, seconds].map((value) => String(value).padStart(2, "0")).join(":");
+  }
+  return [minutes, seconds].map((value) => String(value).padStart(2, "0")).join(":");
+}
+
 function formatDateTime(value) {
   const date = value ? new Date(value) : null;
   if (!date || Number.isNaN(date.getTime())) return "Unknown";
@@ -1854,11 +1861,7 @@ function handleChunkUploadStatus(state) {
 
 function persistRecordingChunkSummary(recordingId, summary) {
   const existing = getRecordingById(recordingId);
-  const durationSeconds = Math.max(
-    normalizeRecordingDurationSeconds(summary?.durationSeconds),
-    normalizeRecordingDurationSeconds(existing?.duration_seconds),
-    0
-  );
+  const durationSeconds = Math.max(Number(summary?.durationSeconds || 0), Number(existing?.duration_seconds || 0), 0);
   const fileSize = Math.max(Number(summary?.bytes || 0), Number(existing?.file_size || 0), 0);
   if (!recordingId || !Number(summary?.chunkCount || 0)) return Promise.resolve();
 
@@ -2385,7 +2388,7 @@ function renderRecordings() {
             <span class="recording-row-status status-${escapeHtml(String(recording.status || "").toLowerCase())}">${escapeHtml(formatRecordingStatus(recording.status))}</span>
           </div>
           <div class="recording-row-details">
-            <span>${escapeHtml(formatDuration(getRecordingDurationSeconds(recording)))}</span>
+            <span>${escapeHtml(formatDuration(recording.duration_seconds || 0))}</span>
             <span>${escapeHtml(formatBytes(recording.file_size || 0))}</span>
             <span>${escapeHtml(formatRecordingStatus(recording.transcript_status))} transcript</span>
             <span>${escapeHtml(formatRecordingStatus(recording.ai_review_status || "not_started"))} AI review</span>
@@ -2603,7 +2606,7 @@ function populateRecordingDetails(recording) {
   recordingDetailAiStatus.textContent = formatRecordingStatus(recording.ai_review_status || "not_started");
   recordingDetailStartedAt.textContent = formatDateTime(recording.started_at || recording.created_at);
   recordingDetailEndedAt.textContent = recording.ended_at ? formatDateTime(recording.ended_at) : "Not finished";
-  recordingDetailDuration.textContent = formatDuration(getRecordingDurationSeconds(recording));
+  recordingDetailDuration.textContent = formatDuration(recording.duration_seconds || 0);
   recordingDetailSize.textContent = formatBytes(recording.file_size || 0);
   recordingDetailPlay.disabled = !canPlaybackRecording(recording);
   show(recordingDetailTranscribe, canTranscribeRecording(recording));
@@ -2681,10 +2684,10 @@ function renderRecordingInterruptions(recording) {
 }
 
 async function reconcileRecordingDurationFromPlayer(recording) {
-  const durationSeconds = normalizeRecordingDurationSeconds(recordingDetailPlayer.duration);
+  const durationSeconds = Math.max(Math.round(Number(recordingDetailPlayer.duration || 0)), 0);
   if (!durationSeconds || activeDetailRecordingId !== recording?.id) return;
   recordingDetailDuration.textContent = formatDuration(durationSeconds);
-  if (Math.abs(durationSeconds - normalizeRecordingDurationSeconds(recording.duration_seconds)) <= 1) return;
+  if (Math.abs(durationSeconds - Number(recording.duration_seconds || 0)) <= 1) return;
 
   mergeRecordingUpdate({ id: recording.id, duration_seconds: durationSeconds });
   renderRecordings();
@@ -2707,13 +2710,9 @@ async function openRecordingDetail(recordingId) {
   setStatus(recordingDetailStatusMessage, "Loading audio...");
   try {
     detailPlayerUrl = await createRecordingSignedUrl(recording);
-    const reconcileWhenFinite = () => {
-      if (!normalizeRecordingDurationSeconds(recordingDetailPlayer.duration)) return;
-      recordingDetailPlayer.removeEventListener("durationchange", reconcileWhenFinite);
+    recordingDetailPlayer.addEventListener("loadedmetadata", () => {
       void reconcileRecordingDurationFromPlayer(recording).catch(() => null);
-    };
-    recordingDetailPlayer.addEventListener("loadedmetadata", reconcileWhenFinite, { once: true });
-    recordingDetailPlayer.addEventListener("durationchange", reconcileWhenFinite);
+    }, { once: true });
     recordingDetailPlayer.src = detailPlayerUrl;
     show(recordingDetailPlayer, true);
     setStatus(recordingDetailStatusMessage, recording.processing_error || "");
@@ -3053,7 +3052,7 @@ async function recoverBrowserMeetingRecording(recordingId = "") {
   recordingNotesInput.value = data.notes_plain_text || "";
   activeRecordingMimeType = data.audio_mime_type || getSupportedMimeType() || "audio/webm";
   pendingRecordedTitle = data.title || "Meeting note";
-  pendingRecordedDurationSeconds = normalizeRecordingDurationSeconds(data.duration_seconds);
+  pendingRecordedDurationSeconds = Number(data.duration_seconds || 0);
   const managerState = await initializeRecordingChunkManager(data.id);
   chunkedRecordingReadyToSave = managerState.nextSequence > 0;
   pendingRecordedDurationSeconds = Math.max(pendingRecordedDurationSeconds, managerState.durationSeconds || 0);
