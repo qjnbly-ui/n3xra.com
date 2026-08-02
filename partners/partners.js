@@ -1,3 +1,5 @@
+import { createBrowserSupabase, getSessionOrNull, hasConfig } from "/shared/lib/supabase-client.js";
+
 (function () {
   const modal = document.getElementById("partner-application-modal");
   const modalCard = modal?.querySelector(".partner-modal-card");
@@ -34,10 +36,54 @@
 
   const submit = form.querySelector("button[type='submit']");
 
+  function fillBlankField(name, value) {
+    const input = form.elements.namedItem(name);
+    const cleanValue = String(value || "").trim();
+    if (!input || input.value.trim() || !cleanValue) return false;
+    input.value = cleanValue;
+    return true;
+  }
+
+  async function prefillFromSignedInAccount() {
+    if (!hasConfig()) return;
+    try {
+      const supabase = createBrowserSupabase();
+      const session = await getSessionOrNull(supabase);
+      if (!session?.user) return;
+
+      const [profileResult, requestResult] = await Promise.all([
+        supabase.from("profiles")
+          .select("full_name,email")
+          .eq("id", session.user.id)
+          .maybeSingle(),
+        supabase.from("website_service_requests")
+          .select("contact_name,contact_email,contact_phone,business_name,existing_website_url")
+          .eq("user_id", session.user.id)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+      ]);
+
+      const profile = profileResult.data || {};
+      const request = requestResult.data || {};
+      const metadata = session.user.user_metadata || {};
+      fillBlankField("full_name", profile.full_name || metadata.full_name || metadata.name || request.contact_name);
+      fillBlankField("email", profile.email || session.user.email || request.contact_email);
+      fillBlankField("phone", session.user.phone || metadata.phone || request.contact_phone);
+      fillBlankField("organization", metadata.organization || metadata.company || request.business_name);
+      fillBlankField("website", metadata.website || metadata.website_url || request.existing_website_url);
+      fillBlankField("payout_country", metadata.country || metadata.country_name);
+    } catch {
+      // Account prefill is optional; the public application remains fully usable.
+    }
+  }
+
   function setStatus(message, type = "error") {
     status.textContent = message;
     status.classList.toggle("success", type === "success");
   }
+
+  prefillFromSignedInAccount();
 
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
