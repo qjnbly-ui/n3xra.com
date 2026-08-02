@@ -465,8 +465,7 @@ function exportExcel() {
   download("dave-wilson-loan-tracker.xls", workbook, "application/vnd.ms-excel");
 }
 
-function exportPdf() {
-  if (!can("export_data")) return showToast("Exports are not included in your access.");
+function createPrintReportWindow() {
   const useMobileReportWindow = window.matchMedia("(pointer: coarse)").matches;
   let reportFrame = null;
   let reportWindow = null;
@@ -481,18 +480,51 @@ function exportPdf() {
   }
   if (!reportWindow) {
     reportFrame?.remove();
-    return showToast("Your browser blocked the report window. Please allow pop-ups and try again.");
+    showToast("Your browser blocked the report window. Please allow pop-ups and try again.");
+    return null;
   }
-  const summary = summarizeSchedule(futureSchedule);
-  const anchor = projectionAnchor();
-  const rows = futureSchedule.map((row) => `<tr><td>${row.paymentNumber}</td><td>${escapeHtml(dateLabel(row.paymentDate))}</td><td>${escapeHtml(moneyCents(row.beginningBalanceCents))}</td><td>${escapeHtml(moneyCents(row.paymentCents))}</td><td>${escapeHtml(moneyCents(row.interestCents))}</td><td>${escapeHtml(moneyCents(row.principalCents))}</td><td>${escapeHtml(moneyCents(row.endingBalanceCents))}</td></tr>`).join("");
-  reportWindow.document.write(`<!doctype html><html><head><title>N3XRA Loan Tracker - Amortization Schedule</title><style>@page{size:letter portrait;margin:.35in}:root{color-scheme:light;font-family:Arial,Helvetica,sans-serif}body{color:#17211b;margin:0;font-size:8pt}.brand{display:flex;align-items:center;gap:8px;border-bottom:2px solid #1e5c43;padding-bottom:7px;margin-bottom:8px}.brand img{width:22px;height:22px;object-fit:contain}.brand strong{color:#1e5c43;font-size:11pt;letter-spacing:.08em}h1{margin:0;font-size:17pt;letter-spacing:-.03em}h2{margin:10px 0 4px;font-size:10pt;color:#1e5c43}.meta{display:flex;justify-content:space-between;color:#68736c;font-size:7pt;margin-top:2px}.summary{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin:9px 0}.card{border:1px solid #dddcd2;border-radius:4px;padding:5px}.card span{display:block;color:#68736c;font-size:5.8pt;text-transform:uppercase;letter-spacing:.04em}.card strong{display:block;margin-top:2px;font-size:8.5pt}table{width:100%;border-collapse:collapse;table-layout:fixed}col:nth-child(1){width:5%}col:nth-child(2){width:15%}col:nth-child(3){width:17%}col:nth-child(4){width:15%}col:nth-child(5){width:15%}col:nth-child(6){width:15%}col:nth-child(7){width:18%}thead{display:table-header-group}tr{break-inside:avoid}th{background:#1e5c43;color:white;text-align:left;font-size:5.8pt;text-transform:uppercase;letter-spacing:.015em}th,td{padding:3.5px 2px;border-bottom:1px solid #dddcd2;white-space:nowrap;overflow:hidden;text-overflow:clip}td:nth-child(n+3),th:nth-child(n+3){text-align:right;font-variant-numeric:tabular-nums}.note{color:#68736c;font-size:6.5pt;margin:0 0 5px}</style></head><body><div class="brand"><img src="${window.location.origin}/assets/n3xra_logo_transparent_small.png" alt="N3XRA"><strong>N3XRA</strong></div><h1>Loan Tracker</h1><div class="meta"><span>${escapeHtml(account.borrower_name || "Dave Wilson")} · ${escapeHtml(account.lender_name || "Vibrant Credit Union")}</span><span>Generated ${escapeHtml(dateLabel(new Date().toISOString()))}</span></div><div class="summary"><div class="card"><span>Current balance</span><strong>${escapeHtml(moneyCents(anchor.balanceCents))}</strong></div><div class="card"><span>Monthly payment</span><strong>${escapeHtml(money(account.planned_monthly_payment))}</strong></div><div class="card"><span>Estimated payoff</span><strong>${escapeHtml(dateLabel(summary.payoffDate, true))}</strong></div><div class="card"><span>Payments remaining</span><strong>${summary.payments}</strong></div><div class="card"><span>Estimated interest</span><strong>${escapeHtml(moneyCents(summary.totalInterestCents))}</strong></div></div><h2>Amortization Schedule</h2><p class="note">Estimated schedule based on the current balance and planned payment. Official lender records take priority.</p><table><colgroup><col><col><col><col><col><col><col></colgroup><thead><tr><th>#</th><th>Payment date</th><th>Beginning balance</th><th>Payment</th><th>Interest</th><th>Principal</th><th>Ending balance</th></tr></thead><tbody>${rows}</tbody></table></body></html>`);
-  reportWindow.document.close();
+  return { reportFrame, reportWindow };
+}
+
+function printReport({ reportFrame, reportWindow }) {
   if (reportFrame) reportWindow.addEventListener("afterprint", () => reportFrame.remove(), { once: true });
   setTimeout(() => {
     reportWindow.focus();
     reportWindow.print();
   }, 250);
+}
+
+function exportPdf() {
+  if (!can("export_data")) return showToast("Exports are not included in your access.");
+  const report = createPrintReportWindow();
+  if (!report) return;
+  const { reportFrame, reportWindow } = report;
+  const summary = summarizeSchedule(futureSchedule);
+  const anchor = projectionAnchor();
+  const rows = futureSchedule.map((row) => `<tr><td>${row.paymentNumber}</td><td>${escapeHtml(dateLabel(row.paymentDate))}</td><td>${escapeHtml(moneyCents(row.beginningBalanceCents))}</td><td>${escapeHtml(moneyCents(row.paymentCents))}</td><td>${escapeHtml(moneyCents(row.interestCents))}</td><td>${escapeHtml(moneyCents(row.principalCents))}</td><td>${escapeHtml(moneyCents(row.endingBalanceCents))}</td></tr>`).join("");
+  reportWindow.document.write(`<!doctype html><html><head><title>N3XRA Loan Tracker - Amortization Schedule</title><style>@page{size:letter portrait;margin:.35in}:root{color-scheme:light;font-family:Arial,Helvetica,sans-serif}body{color:#17211b;margin:0;font-size:8pt}.brand{display:flex;align-items:center;gap:8px;border-bottom:2px solid #1e5c43;padding-bottom:7px;margin-bottom:8px}.brand img{width:22px;height:22px;object-fit:contain}.brand strong{color:#1e5c43;font-size:11pt;letter-spacing:.08em}h1{margin:0;font-size:17pt;letter-spacing:-.03em}h2{margin:10px 0 4px;font-size:10pt;color:#1e5c43}.meta{display:flex;justify-content:space-between;color:#68736c;font-size:7pt;margin-top:2px}.summary{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin:9px 0}.card{border:1px solid #dddcd2;border-radius:4px;padding:5px}.card span{display:block;color:#68736c;font-size:5.8pt;text-transform:uppercase;letter-spacing:.04em}.card strong{display:block;margin-top:2px;font-size:8.5pt}table{width:100%;border-collapse:collapse;table-layout:fixed}col:nth-child(1){width:5%}col:nth-child(2){width:15%}col:nth-child(3){width:17%}col:nth-child(4){width:15%}col:nth-child(5){width:15%}col:nth-child(6){width:15%}col:nth-child(7){width:18%}thead{display:table-header-group}tr{break-inside:avoid}th{background:#1e5c43;color:white;text-align:left;font-size:5.8pt;text-transform:uppercase;letter-spacing:.015em}th,td{padding:3.5px 2px;border-bottom:1px solid #dddcd2;white-space:nowrap;overflow:hidden;text-overflow:clip}td:nth-child(n+3),th:nth-child(n+3){text-align:right;font-variant-numeric:tabular-nums}.note{color:#68736c;font-size:6.5pt;margin:0 0 5px}</style></head><body><div class="brand"><img src="${window.location.origin}/assets/n3xra_logo_transparent_small.png" alt="N3XRA"><strong>N3XRA</strong></div><h1>Loan Tracker</h1><div class="meta"><span>${escapeHtml(account.borrower_name || "Dave Wilson")} · ${escapeHtml(account.lender_name || "Vibrant Credit Union")}</span><span>Generated ${escapeHtml(dateLabel(new Date().toISOString()))}</span></div><div class="summary"><div class="card"><span>Current balance</span><strong>${escapeHtml(moneyCents(anchor.balanceCents))}</strong></div><div class="card"><span>Monthly payment</span><strong>${escapeHtml(money(account.planned_monthly_payment))}</strong></div><div class="card"><span>Estimated payoff</span><strong>${escapeHtml(dateLabel(summary.payoffDate, true))}</strong></div><div class="card"><span>Payments remaining</span><strong>${summary.payments}</strong></div><div class="card"><span>Estimated interest</span><strong>${escapeHtml(moneyCents(summary.totalInterestCents))}</strong></div></div><h2>Amortization Schedule</h2><p class="note">Estimated schedule based on the current balance and planned payment. Official lender records take priority.</p><table><colgroup><col><col><col><col><col><col><col></colgroup><thead><tr><th>#</th><th>Payment date</th><th>Beginning balance</th><th>Payment</th><th>Interest</th><th>Principal</th><th>Ending balance</th></tr></thead><tbody>${rows}</tbody></table></body></html>`);
+  reportWindow.document.close();
+  printReport({ reportFrame, reportWindow });
+}
+
+function printPaymentHistory() {
+  if (!can("export_data")) return showToast("Exports are not included in your access.");
+  const report = createPrintReportWindow();
+  if (!report) return;
+  const { reportFrame, reportWindow } = report;
+  const year = $("#payment-year").value;
+  const visiblePayments = rebuiltPayments.filter((payment) => !year || String(payment.payment_date).startsWith(year));
+  const activePayments = visiblePayments.filter((payment) => payment.status !== "voided");
+  const centsOrZero = (value) => value === null || value === undefined || value === "" ? 0 : toCents(value);
+  const totalPaid = activePayments.reduce((sum, payment) => sum + centsOrZero(payment.amount), 0);
+  const totalPrincipal = activePayments.reduce((sum, payment) => sum + centsOrZero(payment.principal_amount), 0);
+  const totalInterest = activePayments.reduce((sum, payment) => sum + centsOrZero(payment.interest_amount), 0);
+  const rows = visiblePayments.length
+    ? visiblePayments.map((payment) => `<tr class="${payment.status === "voided" ? "voided" : ""}"><td>${escapeHtml(payment.payment_number || "—")}</td><td>${escapeHtml(dateLabel(payment.scheduled_date))}</td><td>${escapeHtml(dateLabel(payment.payment_date))}</td><td>${escapeHtml(money(payment.amount))}</td><td>${payment.interest_amount === null ? "—" : escapeHtml(money(payment.interest_amount))}</td><td>${payment.principal_amount === null ? "—" : escapeHtml(money(payment.principal_amount))}</td><td>${payment.ending_balance === null ? "—" : escapeHtml(money(payment.ending_balance))}${payment.official_balance_after_payment ? " *" : ""}</td><td>${escapeHtml(payment.status === "voided" ? `VOIDED${payment.notes ? ` · ${payment.notes}` : ""}` : payment.notes || payment.confirmation_number || "—")}</td></tr>`).join("")
+    : '<tr><td colspan="8">No payments recorded for this period.</td></tr>';
+  reportWindow.document.write(`<!doctype html><html><head><title>N3XRA Loan Tracker - Payment History</title><style>@page{size:letter landscape;margin:.4in}:root{color-scheme:light;font-family:Arial,Helvetica,sans-serif}body{color:#17211b;margin:0;font-size:8pt}.brand{display:flex;align-items:center;gap:8px;border-bottom:2px solid #1e5c43;padding-bottom:7px;margin-bottom:8px}.brand img{width:22px;height:22px;object-fit:contain}.brand strong{color:#1e5c43;font-size:11pt;letter-spacing:.08em}h1{margin:0;font-size:17pt;letter-spacing:-.03em}h2{margin:10px 0 4px;font-size:10pt;color:#1e5c43}.meta{display:flex;justify-content:space-between;color:#68736c;font-size:7pt;margin-top:2px}.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:10px 0}.card{border:1px solid #dddcd2;border-radius:4px;padding:6px}.card span{display:block;color:#68736c;font-size:6pt;text-transform:uppercase;letter-spacing:.04em}.card strong{display:block;margin-top:2px;font-size:9pt}table{width:100%;border-collapse:collapse;table-layout:fixed}col:nth-child(1){width:5%}col:nth-child(2),col:nth-child(3){width:11%}col:nth-child(4),col:nth-child(5),col:nth-child(6){width:10%}col:nth-child(7){width:13%}col:nth-child(8){width:30%}thead{display:table-header-group}tr{break-inside:avoid}th{background:#1e5c43;color:white;text-align:left;font-size:6pt;text-transform:uppercase;letter-spacing:.015em}th,td{padding:4px 3px;border-bottom:1px solid #dddcd2;vertical-align:top}td:nth-child(n+4):nth-child(-n+7),th:nth-child(n+4):nth-child(-n+7){text-align:right;font-variant-numeric:tabular-nums}.voided td{text-decoration:line-through;color:#8f332f;background:#faf0ef}.note{color:#68736c;font-size:6.5pt;margin:0 0 5px}</style></head><body><div class="brand"><img src="${window.location.origin}/assets/n3xra_logo_transparent_small.png" alt="N3XRA"><strong>N3XRA</strong></div><h1>Loan Tracker</h1><div class="meta"><span>${escapeHtml(account.borrower_name || "Dave Wilson")} · ${escapeHtml(account.lender_name || "Vibrant Credit Union")}</span><span>Generated ${escapeHtml(dateLabel(new Date().toISOString()))}</span></div><div class="summary"><div class="card"><span>Period</span><strong>${escapeHtml(year || "All years")}</strong></div><div class="card"><span>Recorded payments</span><strong>${activePayments.length}</strong></div><div class="card"><span>Total paid</span><strong>${escapeHtml(moneyCents(totalPaid))}</strong></div><div class="card"><span>Principal / interest</span><strong>${escapeHtml(moneyCents(totalPrincipal))} / ${escapeHtml(moneyCents(totalInterest))}</strong></div></div><h2>Payment History</h2><p class="note">Voided records remain visible for audit history. An asterisk marks an official balance supplied with a payment.</p><table><colgroup><col><col><col><col><col><col><col><col></colgroup><thead><tr><th>#</th><th>Due date</th><th>Paid date</th><th>Amount</th><th>Interest</th><th>Principal</th><th>Balance</th><th>Notes</th></tr></thead><tbody>${rows}</tbody></table></body></html>`);
+  reportWindow.document.close();
+  printReport({ reportFrame, reportWindow });
 }
 
 async function createDirectPdf() {
@@ -920,7 +952,7 @@ function bindEvents() {
   $$("[data-view]").forEach((button) => button.addEventListener("click", () => showView(button.dataset.view)));
   $$("[data-open-view]").forEach((button) => button.addEventListener("click", () => showView(button.dataset.openView)));
   $$("[data-add-payment]").forEach((button) => button.addEventListener("click", () => openPaymentDialog()));
-  $$(`[data-export]`).forEach((button) => button.addEventListener("click", () => button.dataset.export === "excel" ? exportExcel() : button.dataset.export === "pdf" ? exportPdf() : exportCsv(button.dataset.export)));
+  $$(`[data-export]`).forEach((button) => button.addEventListener("click", () => button.dataset.export === "excel" ? exportExcel() : button.dataset.export === "pdf" ? exportPdf() : button.dataset.export === "payment-pdf" ? printPaymentHistory() : exportCsv(button.dataset.export)));
   $("#calculator-form").addEventListener("input", updateCalculator);
   $$(".quick-payments button").forEach((button) => button.addEventListener("click", () => {
     $$(".quick-payments button").forEach((item) => item.classList.remove("is-active"));

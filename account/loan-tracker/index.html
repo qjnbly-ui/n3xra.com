@@ -127,7 +127,7 @@
       </section>
 
       <section class="view" data-panel="payments" hidden>
-        <div class="section-heading"><div><p class="eyebrow">Audit-friendly record</p><h2>Payment history</h2><p>Voided payments remain visible so the history stays understandable.</p></div><div class="action-row"><select id="payment-year" aria-label="Filter payments by year"><option value="">All years</option></select><button class="button secondary" data-export="payments" type="button">Export CSV</button><button class="button" data-add-payment type="button">+ Add payment</button></div></div>
+        <div class="section-heading"><div><p class="eyebrow">Audit-friendly record</p><h2>Payment history</h2><p>Voided payments remain visible so the history stays understandable.</p></div><div class="action-row"><select id="payment-year" aria-label="Filter payments by year"><option value="">All years</option></select><button class="button secondary" data-export="payments" type="button">Export CSV</button><button class="button secondary" data-export="payment-pdf" type="button">Print / PDF</button><button class="button" data-add-payment type="button">+ Add payment</button></div></div>
         <div class="table-wrap"><table><thead><tr><th>#</th><th>Due date</th><th>Paid date</th><th>Amount</th><th>Interest</th><th>Principal</th><th>Remaining balance</th><th>Notes</th><th></th></tr></thead><tbody id="payment-table"></tbody></table></div>
       </section>
 
@@ -250,6 +250,6 @@
     </form>
   </dialog>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="/account/loan-tracker/loan-tracker.js?v=13"></script>
+  <script type="module" src="/account/loan-tracker/loan-tracker.js?v=14"></script>
 </body>
 </html>
