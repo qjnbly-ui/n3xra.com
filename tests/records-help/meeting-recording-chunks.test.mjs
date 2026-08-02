@@ -22,6 +22,7 @@ const recordingsPath = new URL("../../n3xra-records/recordings.js", import.meta.
 const finalizerPath = new URL("../../api/finalize-recording-chunks.js", import.meta.url);
 const transcriptionPath = new URL("../../api/transcribe-recording.js", import.meta.url);
 const interruptionUiPath = new URL("../../n3xra-records/lib/recording-interruptions.js", import.meta.url);
+const recordingDurationPath = new URL("../../n3xra-records/lib/recording-duration.js", import.meta.url);
 const meetingNotesPath = new URL("../../n3xra-records/meeting-notes/index.html", import.meta.url);
 const cleanupPath = new URL("../../api/cleanup-recording-chunks.js", import.meta.url);
 const migrationPath = new URL("../../supabase/migrations/20260801030703_meeting_recording_resumable_chunks.sql", import.meta.url);
@@ -141,6 +142,23 @@ test("Meeting Notes restores an interrupted browser recording on load and select
   assert.match(recordings, /persistRecordingChunkSummary/);
   assert.match(recordings, /pendingRecordedChunkBytes/);
   assert.match(recordings, /reconcileRecordingDurationFromPlayer/);
+  assert.match(recordings, /addEventListener\("durationchange", reconcileWhenFinite\)/);
+  assert.match(recordings, /normalizeRecordingDurationSeconds\(recordingDetailPlayer\.duration\)/);
+});
+
+test("recording durations reject infinite metadata and recover from timestamps", async () => {
+  const durationSource = await readFile(recordingDurationPath, "utf8");
+  const duration = await import(`data:text/javascript,${encodeURIComponent(durationSource)}`);
+  const recording = {
+    duration_seconds: "Infinity",
+    started_at: "2026-06-25T14:01:00.000Z",
+    ended_at: "2026-06-25T14:42:00.000Z",
+  };
+
+  assert.equal(duration.normalizeRecordingDurationSeconds(Infinity), 0);
+  assert.equal(duration.formatRecordingDuration(Infinity), "00:00");
+  assert.equal(duration.getRecordingDurationSeconds(recording), 2460);
+  assert.equal(duration.formatRecordingDuration(duration.getRecordingDurationSeconds(recording)), "41:00");
 });
 
 test("finalization verifies fragments and assembles resumed sessions with FFmpeg", async () => {

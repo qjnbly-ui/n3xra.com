@@ -20,6 +20,10 @@ import {
 } from "./lib/recording-suggestions.js";
 import { createAppDocumentPdfObjectUrl } from "./lib/app-document-pdf.js";
 import { getRecordingInterruptions, stripRecordingInterruptionMarkers } from "./lib/recording-interruptions.js";
+import {
+  formatRecordingDuration as formatDuration,
+  getRecordingDurationSeconds,
+} from "./lib/recording-duration.js";
 
 const setupPanel = document.getElementById("setup-panel");
 const allRecordingsPanel = document.getElementById("all-recordings-panel");
@@ -233,18 +237,6 @@ function getErrorMessage(error, fallback) {
     return error.message;
   }
   return fallback;
-}
-
-function formatDuration(totalSeconds) {
-  const safeSeconds = Math.max(Number(totalSeconds || 0), 0);
-  const hours = Math.floor(safeSeconds / 3600);
-  const minutes = Math.floor((safeSeconds % 3600) / 60);
-  const seconds = safeSeconds % 60;
-
-  if (hours > 0) {
-    return [hours, minutes, seconds].map((value) => String(value).padStart(2, "0")).join(":");
-  }
-  return [minutes, seconds].map((value) => String(value).padStart(2, "0")).join(":");
 }
 
 function formatDateTime(value) {
@@ -868,7 +860,7 @@ function renderRecordings() {
         <span class="recording-row-status status-${escapeHtml(String(recording.status || "").toLowerCase())}">${escapeHtml(formatRecordingStatus(recording.status))}</span>
       </div>
       <div class="recording-row-details">
-        <span>${escapeHtml(formatDuration(recording.duration_seconds || 0))}</span>
+        <span>${escapeHtml(formatDuration(getRecordingDurationSeconds(recording)))}</span>
         <span>${escapeHtml(formatBytes(recording.file_size || 0))}</span>
         <span>${escapeHtml(formatRecordingStatus(recording.transcript_status))} transcript</span>
         <span>${escapeHtml(formatRecordingStatus(recording.ai_review_status || "not_started"))} AI review</span>
@@ -1098,7 +1090,7 @@ function populateRecordingDetails(recording) {
   recordingDetailAiStatus.textContent = formatRecordingStatus(recording.ai_review_status || "not_started");
   recordingDetailStartedAt.textContent = formatDateTime(recording.started_at || recording.created_at);
   recordingDetailEndedAt.textContent = recording.ended_at ? formatDateTime(recording.ended_at) : "Not finished";
-  recordingDetailDuration.textContent = formatDuration(recording.duration_seconds || 0);
+  recordingDetailDuration.textContent = formatDuration(getRecordingDurationSeconds(recording));
   recordingDetailSize.textContent = formatBytes(recording.file_size || 0);
   recordingDetailNotes.value = String(recording.notes_plain_text || "").trim();
   recordingDetailNotes.disabled = !getActiveCapabilities().canEditDocuments;
