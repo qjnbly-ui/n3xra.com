@@ -2864,7 +2864,7 @@ textarea {
   text-transform: uppercase;
 }
 
-.ai-search-card mark {
+.doc-snippet mark {
   border-radius: 0.25rem;
   background: rgba(234, 155, 63, 0.24);
   color: inherit;

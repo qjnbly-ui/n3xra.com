@@ -166,6 +166,23 @@ function snippetFromText(text, query = "") {
   return `${start > 0 ? "... " : ""}${safeText.slice(start, end).trim()}${end < safeText.length ? " ..." : ""}`;
 }
 
+function highlightedKeywordSnippet(text, query = "") {
+  const safeText = sanitizeExtractedText(text);
+  if (!safeText) return "No searchable text is available yet.";
+  const normalizedQuery = String(query || "").trim();
+  if (!normalizedQuery) return escapeHtml(snippetFromText(safeText));
+  const index = safeText.toLowerCase().indexOf(normalizedQuery.toLowerCase());
+  if (index === -1) return escapeHtml(snippetFromText(safeText));
+  const start = Math.max(0, index - 80);
+  const end = Math.min(safeText.length, index + normalizedQuery.length + 120);
+  const snippet = safeText.slice(start, end).trim();
+  const relativeIndex = index - start;
+  const before = escapeHtml(snippet.slice(0, relativeIndex));
+  const match = escapeHtml(snippet.slice(relativeIndex, relativeIndex + normalizedQuery.length));
+  const after = escapeHtml(snippet.slice(relativeIndex + normalizedQuery.length));
+  return `${start > 0 ? "... " : ""}${before}<mark>${match}</mark>${after}${end < safeText.length ? " ..." : ""}`;
+}
+
 function getDocumentSearchText(doc) {
   return [doc?.title, doc?.original_filename, doc?.records_ai_note, doc?.extracted_text]
     .filter(Boolean)
@@ -196,6 +213,9 @@ function getDocumentStatusLabel(doc) {
 function createSearchResultCard(doc, options = {}) {
   const card = document.createElement("article");
   const documentId = String(doc?.id || "");
+  const snippet = options.ai
+    ? escapeHtml(options.snippet || snippetFromText(getDocumentSearchText(doc)))
+    : highlightedKeywordSnippet(getDocumentSearchText(doc), options.query || "");
   card.className = `doc-card${options.ai ? " ai-search-card" : ""}`;
   card.innerHTML = `
     <div class="doc-meta">
@@ -205,7 +225,7 @@ function createSearchResultCard(doc, options = {}) {
       </div>
       <span class="doc-status">${escapeHtml(getDocumentStatusLabel(doc))}</span>
     </div>
-    <p class="doc-snippet">${escapeHtml(options.snippet || snippetFromText(getDocumentSearchText(doc), options.query || ""))}</p>
+    <p class="doc-snippet">${snippet}</p>
     <div class="doc-actions">
       <button class="btn secondary" type="button" data-search-open-id="${escapeHtml(documentId)}">Open</button>
     </div>
