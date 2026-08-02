@@ -11,133 +11,110 @@
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&amp;family=Manrope:wght@400;600;700;800&amp;display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/site-nav.css">
   <link rel="stylesheet" href="/client-portal/portal.css?v=13">
-  <link rel="stylesheet" href="/client-portal/partners/partner-portal.css?v=3">
+  <link rel="stylesheet" href="/client-portal/client-shell.css?v=2">
+  <link rel="stylesheet" href="/client-portal/partners/partner-portal.css?v=4">
   <script src="/shared/config.js"></script>
+  <script src="/assets/site-nav.js" defer></script>
   <script>
     window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
   </script>
   <script defer src="/_vercel/insights/script.js"></script>
 </head>
-<body class="portal-loading partner-page">
-  <header class="site-topbar partner-topbar">
+<body class="portal-loading client-portal-shell">
+  <header class="site-topbar client-portal-topbar">
     <div class="site-topbar-inner">
       <div class="site-topbar-row">
-        <a class="site-brand" href="/" aria-label="N3XRA home">
-          <img src="/assets/n3xra_logo_transparent_small.png" alt="">
-          <span>N3XRA</span>
-        </a>
+        <a class="site-brand" href="/" aria-label="N3XRA home"><img src="/assets/n3xra_logo_transparent_small.png" alt=""><span>N3XRA</span></a>
         <div class="site-nav-actions">
           <a class="site-menu-link" href="/account/">Dashboard</a>
           <button class="site-menu-link portal-logout" id="portal-logout" type="button">Sign out</button>
+          <button class="site-menu-toggle" type="button" aria-expanded="false" aria-controls="partner-portal-menu" aria-label="Open menu" data-site-menu-toggle><span></span><span></span><span></span></button>
         </div>
       </div>
+      <nav class="site-mobile-menu" id="partner-portal-menu" aria-label="Partner portal navigation" hidden>
+        <div class="site-mobile-menu-head"><p class="site-mobile-menu-title">Partner portal</p></div>
+        <a class="site-menu-link is-current" href="/client-portal/partners/">Overview</a>
+        <a class="site-menu-link" href="#referral-tools">Referral tools</a>
+        <a class="site-menu-link" href="#partner-activity">Activity &amp; earnings</a>
+        <a class="site-menu-link" href="/support/">Support</a>
+      </nav>
     </div>
   </header>
 
-  <main class="partner-shell">
-    <aside class="partner-sidebar">
-      <div class="partner-sidebar-brand">
-        <span class="partner-sidebar-mark">NP</span>
-        <div><small>Approved partner</small><strong>N3XRA Partners</strong></div>
-      </div>
-      <nav aria-label="Partner portal">
-        <a class="is-current" href="/client-portal/partners/">
-          <span aria-hidden="true">⌂</span> Partner overview
-        </a>
-        <a href="#referral-tools"><span aria-hidden="true">↗</span> Referral tools</a>
-        <a href="#partner-activity"><span aria-hidden="true">▤</span> Activity &amp; earnings</a>
+  <main class="portal-shell client-portal-page">
+    <div class="portal-layout">
+      <nav class="portal-nav" aria-label="Partner portal">
+        <p class="portal-nav-label">Partner workspace</p>
+        <a class="is-current" href="/client-portal/partners/">Overview</a>
+        <a href="#referral-tools">Referral tools</a>
+        <a href="#partner-activity">Activity &amp; earnings</a>
+        <div class="portal-nav-divider"></div>
+        <p class="portal-nav-label">Account</p>
+        <a href="/account/">N3XRA dashboard</a>
+        <a href="/client-portal/">Website portal</a>
+        <a href="/support/">Support</a>
       </nav>
-      <div class="partner-sidebar-footer">
-        <p>Need help with a referral or commission?</p>
-        <a href="/support/">Contact support</a>
-      </div>
-    </aside>
 
-    <section class="partner-main">
-      <header class="partner-page-head">
-        <div>
-          <p class="portal-kicker">Partner workspace</p>
-          <h1 id="partner-welcome">Welcome</h1>
-          <p>Share N3XRA with confidence and follow every referral from introduction to payout.</p>
+      <section class="portal-workspace partner-portal-workspace">
+        <div class="client-workspace-banner">
+          <p class="portal-kicker">Approved partner</p>
+          <strong>Partner Portal</strong>
+          <span>Partner workspace</span>
         </div>
-        <div class="partner-approval-badge">
-          <span aria-hidden="true">✓</span>
-          <div><small>Program status</small><strong>Approved partner</strong><time id="partner-approved-date"></time></div>
-        </div>
-      </header>
 
-      <section class="partner-balance-grid" aria-label="Commission summary">
-        <article class="partner-balance-card pending">
-          <div class="partner-balance-label"><span>Pending commission</span><i aria-hidden="true">↗</i></div>
-          <strong id="balance-pending">$0.00</strong>
-          <p>Awaiting referral qualification</p>
-        </article>
-        <article class="partner-balance-card available">
-          <div class="partner-balance-label"><span>Available commission</span><i aria-hidden="true">✓</i></div>
-          <strong id="balance-available">$0.00</strong>
-          <p>Qualified and ready for payout</p>
-        </article>
-        <article class="partner-balance-card paid">
-          <div class="partner-balance-label"><span>Total paid</span><i aria-hidden="true">$</i></div>
-          <strong id="balance-paid">$0.00</strong>
-          <p>All-time partner earnings</p>
-        </article>
-        <article class="partner-balance-card referrals">
-          <div class="partner-balance-label"><span>Total referrals</span><i aria-hidden="true">◎</i></div>
-          <strong id="referral-count">0</strong>
-          <p>Introductions recorded to date</p>
-        </article>
-      </section>
-
-      <section class="partner-code-card" id="referral-tools">
-        <div class="partner-code-intro">
-          <p class="portal-kicker">Referral tools</p>
-          <h2>Your referral identity</h2>
-          <p id="partner-code-help">Choose a short, recognizable code. Once created, it becomes your permanent referral identity.</p>
-          <div class="partner-programs" id="partner-programs" hidden>
-            <span>Approved programs</span>
-            <div id="partner-program-list"></div>
+        <div class="portal-workspace-head partner-workspace-head">
+          <div>
+            <p class="portal-kicker">Your partnership</p>
+            <h1 id="partner-welcome">Welcome</h1>
+            <p>Manage your referral identity and follow commissions from submitted opportunity to payout.</p>
+          </div>
+          <div class="partner-approval-badge">
+            <span>Approved</span>
+            <time id="partner-approved-date"></time>
           </div>
         </div>
-        <div class="partner-code-panel">
-          <form id="partner-code-form">
-            <label for="partner-code">Referral code</label>
-            <div class="partner-code-control">
-              <input id="partner-code" maxlength="24" minlength="4" pattern="[A-Za-z0-9-]{4,24}" placeholder="YOUR-CODE" required>
-              <button class="portal-button portal-button-secondary" id="partner-code-check" type="button">Check availability</button>
-              <button class="portal-button" id="partner-code-save" type="submit" disabled>Create code</button>
-            </div>
-            <p id="partner-code-status" role="status"></p>
-          </form>
-          <div id="partner-share-link" hidden>
-            <div class="partner-share-head">
+
+        <section class="partner-balance-grid" aria-label="Commission summary">
+          <article><span>Pending</span><strong id="balance-pending">$0.00</strong><p>Awaiting qualification</p></article>
+          <article><span>Available</span><strong id="balance-available">$0.00</strong><p>Ready for payout</p></article>
+          <article><span>Paid</span><strong id="balance-paid">$0.00</strong><p>Total paid to date</p></article>
+          <article><span>Referrals</span><strong id="referral-count">0</strong><p>Introductions recorded</p></article>
+        </section>
+
+        <section class="partner-code-card" id="referral-tools">
+          <div class="partner-section-intro">
+            <p class="portal-kicker">Referral identity</p>
+            <h2>Your referral code</h2>
+            <p id="partner-code-help">Choose carefully. Once created, your referral code cannot be changed.</p>
+            <div class="partner-programs" id="partner-programs" hidden><span>Approved programs</span><div id="partner-program-list"></div></div>
+          </div>
+          <div class="partner-code-tools">
+            <form id="partner-code-form">
+              <label for="partner-code">Referral code</label>
+              <div class="partner-code-control">
+                <input id="partner-code" maxlength="24" minlength="4" pattern="[A-Za-z0-9-]{4,24}" placeholder="YOUR-CODE" required>
+                <button class="portal-button portal-button-secondary" id="partner-code-check" type="button">Check availability</button>
+                <button class="portal-button" id="partner-code-save" type="submit" disabled>Create code</button>
+              </div>
+              <p id="partner-code-status" role="status"></p>
+            </form>
+            <div id="partner-share-link" hidden>
               <div><span>Your website referral link</span><small>Share this link so eligible requests are connected to you.</small></div>
+              <div class="partner-share-control"><input id="partner-share-url" aria-label="Your website referral link" readonly><button class="portal-button" id="partner-copy-link" type="button">Copy link</button></div>
+              <p id="partner-copy-status" role="status"></p>
             </div>
-            <div class="partner-share-control">
-              <input id="partner-share-url" aria-label="Your website referral link" readonly>
-              <button class="portal-button" id="partner-copy-link" type="button">Copy referral link</button>
-            </div>
-            <p id="partner-copy-status" role="status"></p>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <section class="partner-activity" id="partner-activity">
-        <div class="partner-section-head">
-          <div><p class="portal-kicker">Partner activity</p><h2>Referrals and earnings</h2><p>A complete view of the opportunities connected to your referral identity.</p></div>
-        </div>
-        <div class="partner-activity-grid">
-          <section class="partner-history-section">
-            <div class="partner-history-head"><div><span class="partner-history-icon" aria-hidden="true">↗</span><h3>Referral history</h3></div><small>Newest first</small></div>
-            <div class="partner-history-list" id="partner-referral-history"></div>
-          </section>
-          <section class="partner-history-section">
-            <div class="partner-history-head"><div><span class="partner-history-icon" aria-hidden="true">$</span><h3>Commission history</h3></div><small>All earnings</small></div>
-            <div class="partner-history-list" id="partner-commission-history"></div>
-          </section>
-        </div>
+        <section class="partner-activity" id="partner-activity">
+          <div class="partner-section-heading"><p class="portal-kicker">Partner activity</p><h2>Referrals and earnings</h2><p>Review the opportunities and commissions connected to your referral code.</p></div>
+          <div class="partner-activity-grid">
+            <section class="partner-history-section"><div class="partner-history-head"><h3>Referral history</h3><small>Newest first</small></div><div class="partner-history-list" id="partner-referral-history"></div></section>
+            <section class="partner-history-section"><div class="partner-history-head"><h3>Commission history</h3><small>All earnings</small></div><div class="partner-history-list" id="partner-commission-history"></div></section>
+          </div>
+        </section>
       </section>
-    </section>
+    </div>
   </main>
 
   <div class="portal-status" id="portal-status" role="status">Opening your partner portal…</div>
