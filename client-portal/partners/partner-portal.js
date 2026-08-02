@@ -30,6 +30,10 @@ function date(value) {
   return value ? new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(new Date(value)) : "";
 }
 
+function title(value = "") {
+  return String(value).replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
 async function api(options = {}) {
   const response = await fetch("/api/partner-portal", {
     ...options,
@@ -43,14 +47,25 @@ async function api(options = {}) {
 function renderHistory(targetId, items, type) {
   const target = document.getElementById(targetId);
   target.innerHTML = items.length ? items.map((item) => type === "referral" ? `
-    <div class="partner-history-row"><div><strong>${escapeHtml(item.referred_name)}</strong><small>${escapeHtml(item.program)} · ${date(item.created_at)}</small></div><span>${escapeHtml(item.status.replaceAll("_", " "))}</span></div>
+    <div class="partner-history-row"><div><strong>${escapeHtml(item.referred_name)}</strong><small>${escapeHtml(title(item.program))} · ${date(item.created_at)}</small></div><span class="partner-history-value" data-status="${escapeHtml(item.status)}">${escapeHtml(title(item.status))}</span></div>
   ` : `
-    <div class="partner-history-row"><div><strong>${escapeHtml(item.description)}</strong><small>${date(item.earned_at || item.created_at)} · ${escapeHtml(item.status)}</small></div><span>${money(item.amount_cents, item.currency)}</span></div>
+    <div class="partner-history-row"><div><strong>${escapeHtml(item.description)}</strong><small>${date(item.earned_at || item.created_at)} · ${escapeHtml(title(item.status))}</small></div><span class="partner-history-value" data-status="${escapeHtml(item.status)}">${money(item.amount_cents, item.currency)}</span></div>
   `).join("") : `<div class="partner-history-empty">No ${type === "referral" ? "referrals" : "commission activity"} recorded yet.</div>`;
 }
 
 function render(data) {
   document.getElementById("partner-welcome").textContent = `Welcome, ${data.partner.full_name}`;
+  const approvedDate = document.getElementById("partner-approved-date");
+  if (approvedDate && data.partner.approved_at) {
+    approvedDate.dateTime = data.partner.approved_at;
+    approvedDate.textContent = `Approved ${date(data.partner.approved_at)}`;
+  }
+  document.getElementById("referral-count").textContent = new Intl.NumberFormat().format(data.referrals.length);
+  const programs = Array.isArray(data.partner.programs) ? data.partner.programs.filter(Boolean) : [];
+  if (programs.length) {
+    document.getElementById("partner-programs").hidden = false;
+    document.getElementById("partner-program-list").innerHTML = programs.map((program) => `<span>${escapeHtml(title(program))}</span>`).join("");
+  }
   codeInput.value = data.partner.referral_code || "";
   if (data.partner.referral_code) {
     codeInput.disabled = true;
