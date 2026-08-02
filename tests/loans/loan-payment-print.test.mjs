@@ -16,4 +16,9 @@ test("payment history offers the same Print / PDF workflow as the schedule", asy
   assert.match(script, /button\.dataset\.export === "payment-pdf" \? printPaymentHistory\(\)/);
   assert.match(script, /function createPrintReportWindow\(\)/);
   assert.match(script, /function printReport\(/);
+  assert.match(script, /function loanPrintDocument\(/);
+  assert.match(script, /title: "Amortization Schedule"/);
+  assert.match(script, /title: "Payment History"/);
+  assert.match(script, /@page\{size:letter portrait/);
+  assert.doesNotMatch(script, /@page\{size:letter landscape/);
 });
