@@ -566,6 +566,52 @@ body {
   line-height: 1.55;
 }
 
+.account-sms-consent {
+  display: grid;
+  grid-template-columns: 1rem 1fr;
+  gap: 0.65rem;
+  align-items: start;
+  padding: 0.9rem;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 12px;
+  color: rgba(255, 255, 255, 0.84);
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 0.86rem;
+  font-weight: 700;
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+.account-sms-consent input {
+  width: 1rem;
+  height: 1rem;
+  margin: 0.18rem 0 0;
+  accent-color: #23d0ac;
+}
+
+.account-sms-disclosure {
+  padding: 0.85rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  color: rgba(255, 255, 255, 0.66);
+  background: rgba(0, 0, 0, 0.12);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.account-sms-disclosure p {
+  margin: 0;
+}
+
+.account-sms-disclosure p + p {
+  margin-top: 0.55rem;
+}
+
+.account-sms-disclosure a {
+  color: #9eeeff;
+  font-weight: 800;
+}
+
 .account-modal-backdrop {
   position: fixed;
   inset: 0;

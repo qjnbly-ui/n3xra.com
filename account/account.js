@@ -37,6 +37,7 @@ const phoneAccessDisclosure = document.getElementById("phone-access-disclosure")
 const accountPhoneInput = document.getElementById("account-phone");
 const accountPhonePinInput = document.getElementById("account-phone-pin");
 const accountPhonePinConfirmInput = document.getElementById("account-phone-pin-confirm");
+const accountSmsConsentInput = document.getElementById("account-sms-consent");
 const accountName = document.getElementById("account-name");
 const accountEmail = document.getElementById("account-email");
 const profileFullNameInput = document.getElementById("profile-full-name");
@@ -1062,7 +1063,30 @@ async function handlePhoneAccessSave(event) {
     if (accountPhoneInput) accountPhoneInput.value = payload.phone || phone;
     accountPhonePinInput.value = "";
     accountPhonePinConfirmInput.value = "";
-    setStatus("Phone access saved. Call NEXRA from this number and use your keypad PIN for an account overview.", "success");
+    if (accountSmsConsentInput?.checked) {
+      setStatus("Phone access saved. Saving your optional SMS preference...");
+      const consentResponse = await fetch("/api/sms-consent", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${currentSession.access_token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          phone: payload.phone || phone,
+          consent: true,
+          company: "",
+          sourceUrl: `${window.location.origin}/account/#phone-receptionist`,
+        }),
+      });
+      const consentPayload = await consentResponse.json().catch(() => ({}));
+      if (!consentResponse.ok) {
+        throw new Error(consentPayload?.error || "Phone access was saved, but the SMS preference could not be saved.");
+      }
+      accountSmsConsentInput.checked = false;
+      setStatus("Phone access and SMS preference saved. You can now request approved NEXRA links by text.", "success");
+    } else {
+      setStatus("Phone access saved. SMS messages remain off until you opt in.", "success");
+    }
   } catch (error) {
     setStatus(getErrorMessage(error, "Unable to save phone access."), "error");
   } finally {

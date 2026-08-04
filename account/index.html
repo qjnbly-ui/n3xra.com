@@ -14,7 +14,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/site-nav.css">
   <link rel="stylesheet" href="/n3xra-records/styles.css?v=20260612-modal-system">
-  <link rel="stylesheet" href="/account/account.css?v=6">
+  <link rel="stylesheet" href="/account/account.css?v=7">
   <link rel="stylesheet" href="/assets/home-shell.css?v=1">
   <script src="/shared/config.js"></script>
   <script src="/assets/site-nav.js" defer></script>
@@ -514,6 +514,15 @@
                 <label for="account-phone-pin-confirm">Confirm phone PIN</label>
                 <input id="account-phone-pin-confirm" type="password" inputmode="numeric" autocomplete="off" pattern="[0-9]{4}" minlength="4" maxlength="4" required>
               </div>
+              <label class="account-sms-consent" for="account-sms-consent">
+                <input id="account-sms-consent" type="checkbox">
+                <span>I agree to receive transactional SMS messages from N3XRA, including requested links, account and security notices, appointment reminders, records notifications, and support responses.</span>
+              </label>
+              <div class="account-sms-disclosure">
+                <p><strong>Optional.</strong> Message frequency varies. Message and data rates may apply. Reply <strong>STOP</strong> to opt out or <strong>HELP</strong> for help.</p>
+                <p>Consent is not a condition of purchase. N3XRA does not sell or share mobile information with third parties or affiliates for marketing or promotional purposes.</p>
+                <p><a href="/terms/" target="_blank" rel="noopener">Terms and Conditions</a> <span aria-hidden="true">·</span> <a href="/privacy/" target="_blank" rel="noopener">Privacy Policy</a></p>
+              </div>
               <button class="btn secondary" type="submit">Save phone access</button>
             </form>
           </details>
@@ -535,6 +544,6 @@
       window.addEventListener("scroll", updateHeader, { passive: true });
     })();
   </script>
-  <script type="module" src="/account/account.js?v=4"></script>
+  <script type="module" src="/account/account.js?v=5"></script>
 </body>
 </html>
