@@ -431,3 +431,7 @@ module.exports = async function handler(req, res) {
     res.end(JSON.stringify({ error: "Server error." }));
   }
 };
+
+// Reused by server-side N3XRA experiences that need the same approved public
+// knowledge without exposing the knowledge bundle to clients.
+module.exports.getSiteContext = getSiteContext;

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-08-01T04:14:54.909Z",
+  "generatedAt": "2026-08-04T01:22:18.761Z",
   "pageCount": 35,
   "pages": [
     {
@@ -299,7 +299,7 @@
         "balance",
         "commission"
       ],
-      "content": "N3XRA | Partner Portal\nPartner Portal\nYour referral code\nReferral history\nCommission history\nApproved partner\nYour partnership\nManage your referral identity and follow commissions from submitted opportunity to payout.\nAwaiting qualification\nReady for payout\nTotal paid to date\nReferral identity\nChoose carefully. Once created, your referral code cannot be changed.\nReferral activity\nReferral code\nYour website referral link"
+      "content": "N3XRA | Partner Portal\nYour referral code\nReferrals and earnings\nReferral history\nCommission history\nPartner portal\nPartner workspace\nApproved partner\nYour partnership\nManage your referral identity and follow commissions from submitted opportunity to payout.\nAwaiting qualification\nReady for payout\nTotal paid to date\nIntroductions recorded\nReferral identity\nChoose carefully. Once created, your referral code cannot be changed.\nPartner activity\nReview the opportunities and commissions connected to your referral code.\nReferral code"
     },
     {
       "route": "/website-request",
