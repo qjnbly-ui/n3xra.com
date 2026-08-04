@@ -18,7 +18,10 @@ const RECEPTIONIST_RULES = [
   "Answer the caller's question directly using the supplied current N3XRA knowledge.",
   "Keep most replies to two or three short spoken sentences.",
   "Do not use markdown, bullets, emojis, raw URLs, route lists, or decorative symbols.",
-  "Do not claim to take notes, send general email, schedule appointments, or transfer calls yet.",
+  "Do not claim to take notes, send general email, or schedule appointments yet.",
+  "Quentin Nichols is N3XRA's founder, creator, and owner. References to the founder, creator, owner, or Quentin mean him.",
+  "If a caller asks for Quentin or demands an immediate transfer without explaining why, politely ask what the call is regarding. Do not promise a connection.",
+  "Live transfers are offered separately only after the call's business importance has been evaluated and the caller confirms.",
   "After caller recognition and keypad PIN verification, you may send a password reset email only to the address already on that account.",
   "If asked for an unavailable action, explain briefly that this demonstration currently answers questions about N3XRA.",
   "Account overviews are handled separately using caller recognition and a keypad PIN.",
@@ -62,27 +65,27 @@ function isNegativeTransferResponse(value) {
 }
 
 async function evaluateTransferWorthiness(question, history) {
-  if (/\b(speak|talk|connect|transfer).{0,30}\b(quentin|owner|person|human|representative|someone)\b/i.test(question)) {
-    return { offerTransfer: true, reason: "explicit-request" };
-  }
   const apiKey = String(process.env.GROQ_API_KEY || "").trim();
-  if (!apiKey) return { offerTransfer: false, reason: "classifier-unavailable" };
+  if (!apiKey) return { offerTransfer: false, reason: "classifier-unavailable", summary: "" };
   const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       model: String(process.env.GROQ_RECEPTIONIST_MODEL || process.env.GROQ_ASK_MODEL || "openai/gpt-oss-120b").trim(),
       temperature: 0,
-      max_tokens: 100,
+      max_tokens: 180,
       response_format: { type: "json_object" },
       messages: [
         {
           role: "system",
           content: [
             "Classify whether a N3XRA business caller should be offered a live transfer to the owner.",
-            "Return JSON only: {\"offerTransfer\":boolean,\"reason\":\"short-code\"}.",
-            "True only for an explicit human request, urgent active-customer blocker, credible concrete project/partnership/investment opportunity, or legal/security matter needing owner attention.",
+            "Quentin Nichols is N3XRA's founder, creator, and owner. Founder, creator, owner, and Quentin all refer to him.",
+            "Return JSON only: {\"offerTransfer\":boolean,\"reason\":\"short-code\",\"summary\":\"one sentence\"}.",
+            "True only for an urgent active-customer blocker, credible concrete project/partnership/investment opportunity, or legal/security matter needing owner attention.",
+            "A demand to talk to someone, the founder, creator, owner, or Quentin is not important by itself. Keep offerTransfer false until the caller gives a meaningful business reason.",
             "False for general questions, routine support, pricing exploration, password/account help, spam, abuse, or emergencies requiring 911.",
+            "The summary is for Quentin only. State what the caller is trying to accomplish in one concise sentence. Never include names, phone numbers, email addresses, passwords, PINs, payment data, or other sensitive details.",
             "Be conservative. An offer is not permission to transfer; the caller must confirm.",
           ].join(" "),
         },
@@ -92,15 +95,16 @@ async function evaluateTransferWorthiness(question, history) {
     }),
   });
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) return { offerTransfer: false, reason: "classifier-error" };
+  if (!response.ok) return { offerTransfer: false, reason: "classifier-error", summary: "" };
   try {
     const result = JSON.parse(String(data?.choices?.[0]?.message?.content || "{}"));
     return {
       offerTransfer: result.offerTransfer === true,
       reason: String(result.reason || "classified").slice(0, 40),
+      summary: toSpeechText(result.summary).slice(0, 180),
     };
   } catch {
-    return { offerTransfer: false, reason: "classifier-invalid" };
+    return { offerTransfer: false, reason: "classifier-invalid", summary: "" };
   }
 }
 
@@ -108,7 +112,10 @@ function endForTransfer(ws) {
   if (ws.readyState !== WebSocket.OPEN) return;
   ws.send(JSON.stringify({
     type: "end",
-    handoffData: JSON.stringify({ reasonCode: "approved-live-transfer" }),
+    handoffData: JSON.stringify({
+      reasonCode: "approved-live-transfer",
+      summary: ws.transferSummary || "The caller has an important NEXRA business matter to discuss.",
+    }),
   }));
 }
 
@@ -149,6 +156,8 @@ async function sendPasswordReset(ws) {
 async function performAccountAction(ws) {
   const action = ws.pendingAccountAction;
   ws.pendingAccountAction = "";
+  ws.transferOffered = false;
+  ws.transferSummary = "";
   ws.transferOffered = false;
   if (action === "password_reset") return sendPasswordReset(ws);
   return sendAccountOverview(ws);
@@ -284,10 +293,12 @@ wss.on("connection", (ws) => {
       }
       if (isNegativeTransferResponse(question)) {
         ws.transferOffered = false;
+        ws.transferSummary = "";
         sendSpeech(ws, "No problem. What else can I help you with?");
         return;
       }
       ws.transferOffered = false;
+      ws.transferSummary = "";
     }
 
     if (isEmergencyRequest(question)) {
@@ -315,6 +326,7 @@ wss.on("connection", (ws) => {
       ws.history = ws.history.slice(-10);
       if (transferDecision.offerTransfer) {
         ws.transferOffered = true;
+        ws.transferSummary = transferDecision.summary;
         sendSpeech(ws, `${reply} This sounds like something Quentin may want to handle personally. Would you like me to try connecting you now?`);
       } else {
         sendSpeech(ws, reply);

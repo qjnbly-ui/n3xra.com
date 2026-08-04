@@ -7,6 +7,7 @@ const twilio = require("twilio");
 const incomingHandler = require("../../api/receptionist/incoming");
 const conversationServer = require("../../api/receptionist/conversation");
 const transferHandler = require("../../api/receptionist/transfer");
+const screenTransferHandler = require("../../api/receptionist/screen-transfer");
 const {
   hashPin,
   matchesPin,
@@ -39,8 +40,8 @@ test("ConversationRelay can return approved calls to a signed transfer action", 
     actionUrl: "https://www.n3xra.com/api/receptionist/transfer",
   });
   assert.match(xml, /<Connect action="https:\/\/www\.n3xra\.com\/api\/receptionist\/transfer" method="POST">/);
-  assert.equal(transferHandler.transferApproved('{"reasonCode":"approved-live-transfer"}'), true);
-  assert.equal(transferHandler.transferApproved('{"reasonCode":"anything-else"}'), false);
+  assert.equal(transferHandler.transferHandoff('{"reasonCode":"approved-live-transfer","summary":"A project inquiry."}').summary, "A project inquiry.");
+  assert.equal(transferHandler.transferHandoff('{"reasonCode":"anything-else"}'), null);
 });
 
 test("approved transfer callbacks dial a screened private destination", async () => {
@@ -75,6 +76,44 @@ test("approved transfer callbacks dial a screened private destination", async ()
   else process.env.TWILIO_AUTH_TOKEN = previousAuthToken;
   if (previousTransferNumber === undefined) delete process.env.RECEPTIONIST_TRANSFER_NUMBER;
   else process.env.RECEPTIONIST_TRANSFER_NUMBER = previousTransferNumber;
+});
+
+test("transfer summaries remove contact details and use the same ConversationRelay voice path", () => {
+  const handoff = transferHandler.transferHandoff('{"reasonCode":"approved-live-transfer","summary":"Call Pat at pat@example.com or 541-555-0199 about a website."}');
+  assert.doesNotMatch(handoff.summary, /pat@example|541/);
+  const encoded = Buffer.from("The caller wants a website proposal.", "utf8").toString("base64url");
+  assert.equal(screenTransferHandler.transferSummary(encoded), "The caller wants a website proposal.");
+});
+
+test("private transfer screening uses ElevenLabs and reads the purpose summary", async () => {
+  const previousAuthToken = process.env.TWILIO_AUTH_TOKEN;
+  process.env.TWILIO_AUTH_TOKEN = "test-auth-token";
+  const encoded = Buffer.from("The caller needs a custom software proposal.", "utf8").toString("base64url");
+  const req = {
+    method: "POST",
+    url: `/api/receptionist/screen-transfer?summary=${encoded}`,
+    query: { summary: encoded },
+    body: {},
+    headers: { host: "www.n3xra.com" },
+  };
+  req.headers["x-twilio-signature"] = twilio.getExpectedTwilioSignature(
+    process.env.TWILIO_AUTH_TOKEN,
+    publicHttpUrl(req),
+    req.body,
+  );
+  let xml = "";
+  const res = {
+    setHeader() {},
+    status() { return this; },
+    send(value) { xml = String(value); return this; },
+  };
+  await screenTransferHandler(req, res);
+  assert.match(xml, /ttsProvider="ElevenLabs"/);
+  assert.match(xml, /screen-conversation/);
+  assert.match(xml, /The caller needs a custom software proposal\./);
+  assert.match(xml, /reportInputDuringAgentSpeech="dtmf"/);
+  if (previousAuthToken === undefined) delete process.env.TWILIO_AUTH_TOKEN;
+  else process.env.TWILIO_AUTH_TOKEN = previousAuthToken;
 });
 
 test("account overview requests are separated from general receptionist questions", () => {

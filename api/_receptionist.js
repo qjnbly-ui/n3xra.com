@@ -21,8 +21,8 @@ function publicHttpUrl(req) {
   return `https://${host}${path}`;
 }
 
-function publicWebSocketUrl(req) {
-  return `wss://${publicHost(req)}/api/receptionist/conversation`;
+function publicWebSocketUrl(req, path = "/api/receptionist/conversation") {
+  return `wss://${publicHost(req)}${path}`;
 }
 
 function toSpeechText(value) {
@@ -33,14 +33,21 @@ function toSpeechText(value) {
     .trim();
 }
 
-function buildTwiML({ websocketUrl, actionUrl = "", greeting = DEFAULT_GREETING, voice = "" }) {
+function buildTwiML({
+  websocketUrl,
+  actionUrl = "",
+  greeting = DEFAULT_GREETING,
+  voice = "",
+  welcomeGreetingInterruptible = "none",
+  reportInputDuringAgentSpeech = "none",
+}) {
   const voiceAttribute = voice ? ` voice="${escapeXml(voice)}"` : "";
   const actionAttribute = actionUrl ? ` action="${escapeXml(actionUrl)}" method="POST"` : "";
   return [
     '<?xml version="1.0" encoding="UTF-8"?>',
     "<Response>",
     `  <Connect${actionAttribute}>`,
-    `    <ConversationRelay url="${escapeXml(websocketUrl)}" welcomeGreeting="${escapeXml(greeting)}" welcomeGreetingInterruptible="none" language="en-US" transcriptionProvider="Deepgram" ttsProvider="ElevenLabs"${voiceAttribute} interruptSensitivity="medium" speechTimeout="auto" dtmfDetection="true" />`,
+    `    <ConversationRelay url="${escapeXml(websocketUrl)}" welcomeGreeting="${escapeXml(greeting)}" welcomeGreetingInterruptible="${escapeXml(welcomeGreetingInterruptible)}" reportInputDuringAgentSpeech="${escapeXml(reportInputDuringAgentSpeech)}" language="en-US" transcriptionProvider="Deepgram" ttsProvider="ElevenLabs"${voiceAttribute} interruptSensitivity="medium" speechTimeout="auto" dtmfDetection="true" />`,
     "  </Connect>",
     "</Response>",
   ].join("\n");
