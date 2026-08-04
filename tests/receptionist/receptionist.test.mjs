@@ -4,6 +4,7 @@ import test from "node:test";
 
 const require = createRequire(import.meta.url);
 const twilio = require("twilio");
+const askN3xra = require("../../api/ask");
 const incomingHandler = require("../../api/receptionist/incoming");
 const conversationServer = require("../../api/receptionist/conversation");
 const transferHandler = require("../../api/receptionist/transfer");
@@ -155,19 +156,81 @@ test("confirmed transfers announce the connection before ending ConversationRela
   assert.match(sent[1].handoffData, /approved-live-transfer/);
 });
 
-test("receptionist recognizes requested texts and only returns approved N3XRA links", () => {
+test("receptionist recognizes requested texts and builds only approved N3XRA messages", () => {
   assert.equal(conversationServer.isSmsRequest("Can you text me the pricing link?"), true);
+  assert.equal(conversationServer.isSmsRequest("Can you send that to me?"), true);
   assert.equal(conversationServer.isSmsRequest("Tell me about pricing."), false);
-  assert.deepEqual(
-    conversationServer.smsResourceFor("Text me pricing information"),
-    { label: "N3XRA services", url: "https://www.n3xra.com/services/" },
-  );
-  assert.deepEqual(
-    conversationServer.smsResourceFor("Please send a link", [{ role: "user", content: "I need help signing into my account" }]),
-    { label: "N3XRA account page", url: "https://www.n3xra.com/account/" },
-  );
+  const plan = conversationServer.normalizeSmsPlan({
+    shouldSend: true,
+    destination: "services",
+    message: "Basic website builds start at $250. Review current service options here.",
+    clarification: "",
+  });
+  assert.equal(plan.shouldSend, true);
+  assert.match(plan.body, /Basic website builds start at \$250/);
+  assert.match(plan.body, /https:\/\/www\.n3xra\.com\/services\//);
+  assert.match(conversationServer.normalizeSmsPlan({ shouldSend: true, destination: "records", message: "Open N3XRA Records.", clarification: "" }).body, /N3XRA Records/);
+  assert.doesNotMatch(plan.body, /example\.com/);
+  const sanitized = conversationServer.normalizeSmsPlan({
+    shouldSend: true,
+    destination: "support",
+    message: "Use https://example.com instead.",
+    clarification: "",
+  });
+  assert.doesNotMatch(sanitized.body, /example\.com/);
+  assert.match(sanitized.body, /https:\/\/www\.n3xra\.com\/support\//);
+  const unclear = conversationServer.normalizeSmsPlan({
+    shouldSend: false,
+    destination: "none",
+    message: "",
+    clarification: "Which information would you like me to text?",
+  });
+  assert.equal(unclear.shouldSend, false);
+  assert.match(unclear.clarification, /Which information/i);
   assert.match(conversationServer.SMS_OPT_IN_INSTRUCTIONS, /text START/i);
   assert.match(conversationServer.SMS_OPT_IN_INSTRUCTIONS, /Calling alone does not provide SMS consent/i);
+});
+
+test("requested texts are planned from call context before a destination is selected", async () => {
+  const previousKey = process.env.GROQ_API_KEY;
+  const previousFetch = global.fetch;
+  const previousGetSiteContext = askN3xra.getSiteContext;
+  process.env.GROQ_API_KEY = "test-key";
+  askN3xra.getSiteContext = async () => "Current N3XRA services knowledge";
+  global.fetch = async (_url, options) => {
+    const payload = JSON.parse(options.body);
+    assert.equal(payload.response_format.type, "json_schema");
+    assert.equal(payload.response_format.json_schema.strict, true);
+    assert.match(payload.messages.at(-2).content, /website pricing/i);
+    assert.equal(payload.messages.at(-1).content, "Please text me that information.");
+    return {
+      ok: true,
+      async json() {
+        return {
+          choices: [{ message: { content: JSON.stringify({
+            shouldSend: true,
+            destination: "services",
+            message: "Basic website builds start at $250. Current service options are available here.",
+            clarification: "",
+          }) } }],
+        };
+      },
+    };
+  };
+  try {
+    const plan = await conversationServer.planRequestedSms(
+      "Please text me that information.",
+      [{ role: "user", content: "Tell me about website pricing." }],
+    );
+    assert.equal(plan.shouldSend, true);
+    assert.equal(plan.destination, "services");
+    assert.match(plan.body, /Basic website builds start at \$250/);
+  } finally {
+    if (previousKey === undefined) delete process.env.GROQ_API_KEY;
+    else process.env.GROQ_API_KEY = previousKey;
+    global.fetch = previousFetch;
+    askN3xra.getSiteContext = previousGetSiteContext;
+  }
 });
 
 test("verified account actions preserve the caller number for later requested texts", () => {

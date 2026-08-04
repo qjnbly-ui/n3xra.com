@@ -13,6 +13,25 @@ const {
 const { latestConsent, sendTransactionalSms } = require("../_sms-consent");
 
 const SMS_OPT_IN_INSTRUCTIONS = "Before I can text you, please text START to this NEXRA number or opt in at NEXRA dot com slash SMS consent. Calling alone does not provide SMS consent. Once you are opted in, ask me again and I can send the link.";
+const SMS_DESTINATIONS = Object.freeze({
+  none: "",
+  home: "https://www.n3xra.com/",
+  account: "https://www.n3xra.com/account/",
+  services: "https://www.n3xra.com/services/",
+  website_request: "https://www.n3xra.com/website-request/",
+  projects: "https://www.n3xra.com/projects/",
+  records: "https://www.n3xra.com/records/",
+  music: "https://www.n3xra.com/ai-music-generator/",
+  virals: "https://www.n3xra.com/virals/",
+  utilities: "https://www.n3xra.com/utilities/",
+  partners: "https://www.n3xra.com/partners/",
+  invest: "https://www.n3xra.com/invest/",
+  support: "https://www.n3xra.com/support/",
+  project_pulse: "https://www.n3xra.com/project-pulse/",
+  sms_consent: "https://www.n3xra.com/sms-consent/",
+  terms: "https://www.n3xra.com/terms/",
+  privacy: "https://www.n3xra.com/privacy/",
+});
 
 const RECEPTIONIST_RULES = [
   "You are the N3XRA AI receptionist speaking with a caller on the phone.",
@@ -29,6 +48,7 @@ const RECEPTIONIST_RULES = [
   "If asked for an unavailable action, explain briefly that this demonstration currently answers questions about N3XRA.",
   "Account overviews are handled separately using caller recognition and a keypad PIN.",
   "A phone conversation is not SMS consent. Only send a requested text when the caller has already opted in through the web form or by texting START.",
+  "When a caller requests a text, a separate decision step uses the conversation and current N3XRA knowledge to compose the most relevant message. It asks for clarification instead of guessing when the request is unclear.",
   "Never ask a caller to say their phone number, PIN, or personal information out loud.",
   "Never request passwords, payment card information, Social Security numbers, or other sensitive secrets.",
 ].join("\n");
@@ -61,17 +81,92 @@ function isEmergencyRequest(value) {
 }
 
 function isSmsRequest(value) {
-  return /\b(text|sms|message)\b.*\b(me|my|link|information|info|details|website|page)\b|\b(send|share)\b.*\b(text|sms|link)\b/i.test(String(value || ""));
+  return /\b(text|sms|message)\b.*\b(me|my|link|information|info|details|website|page|that|it)\b|\b(send|share)\b.*\b(text|sms|link|that|it|information|info|details)\b/i.test(String(value || ""));
 }
 
-function smsResourceFor(value, history = []) {
-  const context = `${history.slice(-4).map((entry) => entry.content).join(" ")} ${value}`.toLowerCase();
-  if (/\b(account|log ?in|sign ?in|password)\b/.test(context)) return { label: "N3XRA account page", url: "https://www.n3xra.com/account/" };
-  if (/\b(website|project|quote|proposal|build)\b/.test(context)) return { label: "website project request", url: "https://www.n3xra.com/website-request/" };
-  if (/\b(record|meeting|minutes|document)\b/.test(context)) return { label: "N3XRA Records", url: "https://www.n3xra.com/records/" };
-  if (/\b(support|help|problem|issue)\b/.test(context)) return { label: "N3XRA support", url: "https://www.n3xra.com/support/" };
-  if (/\b(service|pricing|price|cost|plan)\b/.test(context)) return { label: "N3XRA services", url: "https://www.n3xra.com/services/" };
-  return { label: "N3XRA website", url: "https://www.n3xra.com/" };
+function normalizeSmsPlan(value) {
+  const plan = value && typeof value === "object" ? value : {};
+  const shouldSend = plan.shouldSend === true;
+  const destination = Object.hasOwn(SMS_DESTINATIONS, plan.destination) ? plan.destination : "none";
+  const cleanMessage = String(plan.message || "")
+    .replace(/[*_`#>]/g, "")
+    .replace(/https?:\/\/\S+/gi, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 700);
+  const clarification = toSpeechText(plan.clarification).slice(0, 240);
+  if (!shouldSend || !cleanMessage) {
+    return {
+      shouldSend: false,
+      destination: "none",
+      body: "",
+      clarification: clarification || "What would you like me to text you?",
+    };
+  }
+  const url = SMS_DESTINATIONS[destination];
+  return {
+    shouldSend: true,
+    destination,
+    body: `N3XRA: ${cleanMessage}${url ? ` ${url}` : ""} Reply STOP to opt out or HELP for help.`.slice(0, 1000),
+    clarification: "",
+  };
+}
+
+async function planRequestedSms(question, history) {
+  const apiKey = String(process.env.GROQ_API_KEY || "").trim();
+  if (!apiKey) throw new Error("Missing GROQ_API_KEY.");
+  const siteContext = await askN3xra.getSiteContext(question, history);
+  const destinations = Object.entries(SMS_DESTINATIONS)
+    .map(([key, url]) => `${key}: ${url || "no link"}`)
+    .join("\n");
+  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: String(process.env.GROQ_RECEPTIONIST_MODEL || process.env.GROQ_ASK_MODEL || "openai/gpt-oss-120b").trim(),
+      temperature: 0,
+      max_tokens: 260,
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: "receptionist_sms_plan",
+          strict: true,
+          schema: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              shouldSend: { type: "boolean" },
+              destination: { type: "string", enum: Object.keys(SMS_DESTINATIONS) },
+              message: { type: "string" },
+              clarification: { type: "string" },
+            },
+            required: ["shouldSend", "destination", "message", "clarification"],
+          },
+        },
+      },
+      messages: [
+        {
+          role: "system",
+          content: [
+            "Decide what the N3XRA phone receptionist should text in response to the caller's latest request.",
+            "Use the supplied current N3XRA knowledge and recent conversation as the source of truth.",
+            "First determine exactly what the caller asked to receive. Prefer their explicit request; use recent context only to resolve references such as 'that' or 'the link.'",
+            "Set shouldSend false when the requested content is unclear, unsupported, unsafe, sensitive, or would require private account data. In that case, put one short spoken question in clarification.",
+            "When shouldSend is true, write a concise, useful transactional SMS in message. It may summarize the relevant answer, next step, or requested information instead of merely naming a page.",
+            "Choose the single destination that best supports the request, or none when a link would not help. Do not put any URL in message; the server adds the verified destination.",
+            "Never include or request passwords, PINs, payment data, Social Security numbers, private account details, or claims not supported by the supplied knowledge.",
+            `Allowed destinations:\n${destinations}`,
+            siteContext,
+          ].join("\n\n"),
+        },
+        ...history.slice(-8),
+        { role: "user", content: question },
+      ],
+    }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(String(data?.error?.message || data?.message || "SMS planning failed."));
+  return normalizeSmsPlan(JSON.parse(String(data?.choices?.[0]?.message?.content || "{}")));
 }
 
 function isAffirmativeTransferResponse(value) {
@@ -162,10 +257,8 @@ function sendSpeech(ws, token) {
   }));
 }
 
-async function sendRequestedSms(ws) {
-  const resource = ws.requestedSmsResource;
-  ws.requestedSmsResource = null;
-  if (!resource || !ws.fromNumber) {
+async function sendRequestedSms(ws, question) {
+  if (!question || !ws.fromNumber) {
     sendSpeech(ws, "I could not identify a mobile number for this call, so I cannot send that text.");
     return;
   }
@@ -175,11 +268,13 @@ async function sendRequestedSms(ws) {
       sendSpeech(ws, SMS_OPT_IN_INSTRUCTIONS);
       return;
     }
-    await sendTransactionalSms(
-      ws.fromNumber,
-      `N3XRA: Here is the ${resource.label} you requested: ${resource.url} Reply STOP to opt out or HELP for help.`,
-    );
-    sendSpeech(ws, "Done. I sent the requested NEXRA link to the number you're calling from.");
+    const plan = await planRequestedSms(question, ws.history);
+    if (!plan.shouldSend) {
+      sendSpeech(ws, plan.clarification);
+      return;
+    }
+    await sendTransactionalSms(ws.fromNumber, plan.body);
+    sendSpeech(ws, "Done. I sent the requested information to the number you're calling from.");
   } catch (error) {
     console.error("Receptionist SMS failed", { callSid: ws.callSid, error: error?.message });
     sendSpeech(ws, "I could not send the text right now. Please visit NEXRA dot com or try again later.");
@@ -386,10 +481,9 @@ wss.on("connection", (ws) => {
     }
 
     if (isSmsRequest(question)) {
-      ws.requestedSmsResource = smsResourceFor(question, ws.history);
       ws.processing = true;
       try {
-        await sendRequestedSms(ws);
+        await sendRequestedSms(ws, question);
       } finally {
         ws.processing = false;
       }
@@ -431,6 +525,8 @@ module.exports.isEmergencyRequest = isEmergencyRequest;
 module.exports.isNegativeTransferResponse = isNegativeTransferResponse;
 module.exports.announceAndTransfer = announceAndTransfer;
 module.exports.isSmsRequest = isSmsRequest;
-module.exports.smsResourceFor = smsResourceFor;
+module.exports.normalizeSmsPlan = normalizeSmsPlan;
+module.exports.planRequestedSms = planRequestedSms;
+module.exports.SMS_DESTINATIONS = SMS_DESTINATIONS;
 module.exports.SMS_OPT_IN_INSTRUCTIONS = SMS_OPT_IN_INSTRUCTIONS;
 module.exports.completeAccountActionState = completeAccountActionState;
