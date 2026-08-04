@@ -1,4 +1,4 @@
-const DEFAULT_GREETING = "Thanks for calling NEXRA. You're speaking with our AI receptionist, a live demonstration of the intelligent systems we build. What brings you to NEXRA today?";
+const DEFAULT_GREETING = "Thanks for calling NEXRA. You're speaking with our AI receptionist, a live demonstration of the intelligent systems we build. How can I help you today?";
 
 function escapeXml(value) {
   return String(value || "")
@@ -40,7 +40,7 @@ function buildTwiML({ websocketUrl, actionUrl = "", greeting = DEFAULT_GREETING,
     '<?xml version="1.0" encoding="UTF-8"?>',
     "<Response>",
     `  <Connect${actionAttribute}>`,
-    `    <ConversationRelay url="${escapeXml(websocketUrl)}" welcomeGreeting="${escapeXml(greeting)}" welcomeGreetingInterruptible="speech" language="en-US" transcriptionProvider="Deepgram" ttsProvider="ElevenLabs"${voiceAttribute} interruptSensitivity="medium" speechTimeout="auto" dtmfDetection="true" />`,
+    `    <ConversationRelay url="${escapeXml(websocketUrl)}" welcomeGreeting="${escapeXml(greeting)}" welcomeGreetingInterruptible="none" language="en-US" transcriptionProvider="Deepgram" ttsProvider="ElevenLabs"${voiceAttribute} interruptSensitivity="medium" speechTimeout="auto" dtmfDetection="true" />`,
     "  </Connect>",
     "</Response>",
   ].join("\n");
