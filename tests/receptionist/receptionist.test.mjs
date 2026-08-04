@@ -6,6 +6,7 @@ const require = createRequire(import.meta.url);
 const twilio = require("twilio");
 const incomingHandler = require("../../api/receptionist/incoming");
 const conversationServer = require("../../api/receptionist/conversation");
+const transferHandler = require("../../api/receptionist/transfer");
 const {
   hashPin,
   matchesPin,
@@ -30,6 +31,50 @@ test("receptionist TwiML uses ConversationRelay and the ElevenLabs provider", ()
   assert.match(xml, /Thanks for calling NEXRA\. You&apos;re speaking with our AI receptionist/);
 });
 
+test("ConversationRelay can return approved calls to a signed transfer action", () => {
+  const xml = buildTwiML({
+    websocketUrl: "wss://www.n3xra.com/api/receptionist/conversation",
+    actionUrl: "https://www.n3xra.com/api/receptionist/transfer",
+  });
+  assert.match(xml, /<Connect action="https:\/\/www\.n3xra\.com\/api\/receptionist\/transfer" method="POST">/);
+  assert.equal(transferHandler.transferApproved('{"reasonCode":"approved-live-transfer"}'), true);
+  assert.equal(transferHandler.transferApproved('{"reasonCode":"anything-else"}'), false);
+});
+
+test("approved transfer callbacks dial a screened private destination", async () => {
+  const previousAuthToken = process.env.TWILIO_AUTH_TOKEN;
+  const previousTransferNumber = process.env.RECEPTIONIST_TRANSFER_NUMBER;
+  process.env.TWILIO_AUTH_TOKEN = "test-auth-token";
+  process.env.RECEPTIONIST_TRANSFER_NUMBER = "+15415550199";
+  const body = { HandoffData: '{"reasonCode":"approved-live-transfer"}' };
+  const req = {
+    method: "POST",
+    url: "/api/receptionist/transfer",
+    body,
+    headers: { host: "www.n3xra.com" },
+  };
+  req.headers["x-twilio-signature"] = twilio.getExpectedTwilioSignature(
+    process.env.TWILIO_AUTH_TOKEN,
+    publicHttpUrl(req),
+    body,
+  );
+  let statusCode = 0;
+  let xml = "";
+  const res = {
+    setHeader() {},
+    status(value) { statusCode = value; return this; },
+    send(value) { xml = String(value); return this; },
+  };
+  await transferHandler(req, res);
+  assert.equal(statusCode, 200);
+  assert.match(xml, /<Dial[^>]+answerOnBridge="true"[^>]+callerId="\+15416526840"/);
+  assert.match(xml, /<Number[^>]+screen-transfer[^>]*>\+15415550199<\/Number>/);
+  if (previousAuthToken === undefined) delete process.env.TWILIO_AUTH_TOKEN;
+  else process.env.TWILIO_AUTH_TOKEN = previousAuthToken;
+  if (previousTransferNumber === undefined) delete process.env.RECEPTIONIST_TRANSFER_NUMBER;
+  else process.env.RECEPTIONIST_TRANSFER_NUMBER = previousTransferNumber;
+});
+
 test("account overview requests are separated from general receptionist questions", () => {
   assert.equal(conversationServer.isAccountOverviewRequest("Can you give me my account overview?"), true);
   assert.equal(conversationServer.isAccountOverviewRequest("How much usage is left on my plan?"), true);
@@ -41,6 +86,12 @@ test("password reset requests are routed to the secured account action", () => {
   assert.equal(conversationServer.isPasswordResetRequest("Please send me a reset link"), true);
   assert.equal(conversationServer.isPasswordResetRequest("I can't sign in to my account"), true);
   assert.equal(conversationServer.isPasswordResetRequest("Can you email a project estimate?"), false);
+});
+
+test("live transfer confirmation and emergency language are recognized", () => {
+  assert.equal(conversationServer.isAffirmativeTransferResponse("Yes, please"), true);
+  assert.equal(conversationServer.isNegativeTransferResponse("No thanks"), true);
+  assert.equal(conversationServer.isEmergencyRequest("Someone is in immediate danger"), true);
 });
 
 test("account phone numbers normalize to E.164 and PINs stay four digits", async () => {

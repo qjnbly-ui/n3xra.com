@@ -32,7 +32,12 @@ module.exports = async function handler(req, res) {
     ? `Welcome back, ${caller.firstName}. You're speaking with our NEXRA AI receptionist, a live demonstration of the intelligent systems we build. How can I help you today?`
     : "";
   const greeting = recognizedGreeting || String(process.env.TWILIO_RECEPTIONIST_GREETING || DEFAULT_GREETING).trim();
-  const xml = buildTwiML({ websocketUrl: publicWebSocketUrl(req), greeting, voice });
+  const xml = buildTwiML({
+    websocketUrl: publicWebSocketUrl(req),
+    actionUrl: `${publicHttpUrl(req).replace(/\/api\/receptionist\/incoming(?:\?.*)?$/, "")}/api/receptionist/transfer`,
+    greeting,
+    voice,
+  });
   res.setHeader("Content-Type", "text/xml; charset=utf-8");
   res.setHeader("Cache-Control", "no-store");
   return res.status(200).send(xml);

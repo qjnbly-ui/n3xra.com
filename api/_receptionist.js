@@ -33,12 +33,13 @@ function toSpeechText(value) {
     .trim();
 }
 
-function buildTwiML({ websocketUrl, greeting = DEFAULT_GREETING, voice = "" }) {
+function buildTwiML({ websocketUrl, actionUrl = "", greeting = DEFAULT_GREETING, voice = "" }) {
   const voiceAttribute = voice ? ` voice="${escapeXml(voice)}"` : "";
+  const actionAttribute = actionUrl ? ` action="${escapeXml(actionUrl)}" method="POST"` : "";
   return [
     '<?xml version="1.0" encoding="UTF-8"?>',
     "<Response>",
-    "  <Connect>",
+    `  <Connect${actionAttribute}>`,
     `    <ConversationRelay url="${escapeXml(websocketUrl)}" welcomeGreeting="${escapeXml(greeting)}" welcomeGreetingInterruptible="speech" language="en-US" transcriptionProvider="Deepgram" ttsProvider="ElevenLabs"${voiceAttribute} interruptSensitivity="medium" speechTimeout="auto" dtmfDetection="true" />`,
     "  </Connect>",
     "</Response>",

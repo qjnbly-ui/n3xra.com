@@ -49,6 +49,69 @@ function isPasswordResetRequest(value) {
   return /\b(forgot (my )?password|reset (my |the )?password|password reset|send (me )?(a )?(password )?reset (email|link)|can'?t (log|sign) in)\b/i.test(String(value || ""));
 }
 
+function isEmergencyRequest(value) {
+  return /\b(911|suicid|medical emergency|house (is )?on fire|someone (is )?(dying|unconscious)|immediate danger)\b/i.test(String(value || ""));
+}
+
+function isAffirmativeTransferResponse(value) {
+  return /^(yes|yeah|yep|sure|okay|ok|please do|connect me|transfer me|go ahead|that works)(\b|[.!?])/i.test(String(value || "").trim());
+}
+
+function isNegativeTransferResponse(value) {
+  return /^(no|nope|not now|no thanks|don'?t|do not)(\b|[.!?])/i.test(String(value || "").trim());
+}
+
+async function evaluateTransferWorthiness(question, history) {
+  if (/\b(speak|talk|connect|transfer).{0,30}\b(quentin|owner|person|human|representative|someone)\b/i.test(question)) {
+    return { offerTransfer: true, reason: "explicit-request" };
+  }
+  const apiKey = String(process.env.GROQ_API_KEY || "").trim();
+  if (!apiKey) return { offerTransfer: false, reason: "classifier-unavailable" };
+  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: String(process.env.GROQ_RECEPTIONIST_MODEL || process.env.GROQ_ASK_MODEL || "openai/gpt-oss-120b").trim(),
+      temperature: 0,
+      max_tokens: 100,
+      response_format: { type: "json_object" },
+      messages: [
+        {
+          role: "system",
+          content: [
+            "Classify whether a N3XRA business caller should be offered a live transfer to the owner.",
+            "Return JSON only: {\"offerTransfer\":boolean,\"reason\":\"short-code\"}.",
+            "True only for an explicit human request, urgent active-customer blocker, credible concrete project/partnership/investment opportunity, or legal/security matter needing owner attention.",
+            "False for general questions, routine support, pricing exploration, password/account help, spam, abuse, or emergencies requiring 911.",
+            "Be conservative. An offer is not permission to transfer; the caller must confirm.",
+          ].join(" "),
+        },
+        ...history.slice(-6),
+        { role: "user", content: question },
+      ],
+    }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) return { offerTransfer: false, reason: "classifier-error" };
+  try {
+    const result = JSON.parse(String(data?.choices?.[0]?.message?.content || "{}"));
+    return {
+      offerTransfer: result.offerTransfer === true,
+      reason: String(result.reason || "classified").slice(0, 40),
+    };
+  } catch {
+    return { offerTransfer: false, reason: "classifier-invalid" };
+  }
+}
+
+function endForTransfer(ws) {
+  if (ws.readyState !== WebSocket.OPEN) return;
+  ws.send(JSON.stringify({
+    type: "end",
+    handoffData: JSON.stringify({ reasonCode: "approved-live-transfer" }),
+  }));
+}
+
 function sendSpeech(ws, token) {
   if (ws.readyState !== WebSocket.OPEN) return;
   ws.send(JSON.stringify({
@@ -86,6 +149,7 @@ async function sendPasswordReset(ws) {
 async function performAccountAction(ws) {
   const action = ws.pendingAccountAction;
   ws.pendingAccountAction = "";
+  ws.transferOffered = false;
   if (action === "password_reset") return sendPasswordReset(ws);
   return sendAccountOverview(ws);
 }
@@ -212,6 +276,25 @@ wss.on("connection", (ws) => {
     const question = toSpeechText(message.voicePrompt).slice(0, 800);
     if (!question) return;
 
+    if (ws.transferOffered) {
+      if (isAffirmativeTransferResponse(question)) {
+        ws.transferOffered = false;
+        endForTransfer(ws);
+        return;
+      }
+      if (isNegativeTransferResponse(question)) {
+        ws.transferOffered = false;
+        sendSpeech(ws, "No problem. What else can I help you with?");
+        return;
+      }
+      ws.transferOffered = false;
+    }
+
+    if (isEmergencyRequest(question)) {
+      sendSpeech(ws, "If anyone is in immediate danger, hang up and call 911 or your local emergency number now. I cannot provide emergency dispatch.");
+      return;
+    }
+
     if (isPasswordResetRequest(question)) {
       await requestVerifiedAccountAction(ws, "password_reset");
       return;
@@ -224,10 +307,18 @@ wss.on("connection", (ws) => {
 
     ws.processing = true;
     try {
-      const reply = await requestGroqReply(question, ws.history);
+      const [reply, transferDecision] = await Promise.all([
+        requestGroqReply(question, ws.history),
+        evaluateTransferWorthiness(question, ws.history),
+      ]);
       ws.history.push({ role: "user", content: question }, { role: "assistant", content: reply });
       ws.history = ws.history.slice(-10);
-      sendSpeech(ws, reply);
+      if (transferDecision.offerTransfer) {
+        ws.transferOffered = true;
+        sendSpeech(ws, `${reply} This sounds like something Quentin may want to handle personally. Would you like me to try connecting you now?`);
+      } else {
+        sendSpeech(ws, reply);
+      }
     } catch (error) {
       console.error("Receptionist response failed", { callSid: ws.callSid, error: error?.message });
       sendSpeech(ws, "I'm sorry, I had trouble answering that. Please try your question once more.");
@@ -243,3 +334,6 @@ module.exports.requestGroqReply = requestGroqReply;
 module.exports.verifyTwilioWebSocket = verifyTwilioWebSocket;
 module.exports.isAccountOverviewRequest = isAccountOverviewRequest;
 module.exports.isPasswordResetRequest = isPasswordResetRequest;
+module.exports.isAffirmativeTransferResponse = isAffirmativeTransferResponse;
+module.exports.isEmergencyRequest = isEmergencyRequest;
+module.exports.isNegativeTransferResponse = isNegativeTransferResponse;
