@@ -14,7 +14,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/site-nav.css">
   <link rel="stylesheet" href="/n3xra-records/styles.css?v=20260612-modal-system">
-  <link rel="stylesheet" href="/account/account.css?v=5">
+  <link rel="stylesheet" href="/account/account.css?v=6">
   <link rel="stylesheet" href="/assets/home-shell.css?v=1">
   <script src="/shared/config.js"></script>
   <script src="/assets/site-nav.js" defer></script>
@@ -498,6 +498,26 @@
             </form>
           </details>
 
+          <details class="settings-disclosure" id="phone-access-disclosure">
+            <summary>Phone receptionist</summary>
+            <form class="auth-form settings-form" id="phone-access-form">
+              <p class="settings-help">Add the phone number you will call from. NEXRA can recognize your number and greet you by first name, but it will require this keypad PIN before reading an account overview. The assistant will not ask you to say personal information aloud.</p>
+              <div class="field">
+                <label for="account-phone">Phone number</label>
+                <input id="account-phone" type="tel" autocomplete="tel" placeholder="(541) 555-0123" required>
+              </div>
+              <div class="field">
+                <label for="account-phone-pin">4-digit phone PIN</label>
+                <input id="account-phone-pin" type="password" inputmode="numeric" autocomplete="off" pattern="[0-9]{4}" minlength="4" maxlength="4" required>
+              </div>
+              <div class="field">
+                <label for="account-phone-pin-confirm">Confirm phone PIN</label>
+                <input id="account-phone-pin-confirm" type="password" inputmode="numeric" autocomplete="off" pattern="[0-9]{4}" minlength="4" maxlength="4" required>
+              </div>
+              <button class="btn secondary" type="submit">Save phone access</button>
+            </form>
+          </details>
+
         </div>
         <p class="status account-modal-status" id="settings-status"></p>
         <div class="account-modal-actions">
@@ -515,6 +535,6 @@
       window.addEventListener("scroll", updateHeader, { passive: true });
     })();
   </script>
-  <script type="module" src="/account/account.js?v=3"></script>
+  <script type="module" src="/account/account.js?v=4"></script>
 </body>
 </html>

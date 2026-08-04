@@ -32,6 +32,11 @@ const authTurnstile = document.getElementById("auth-turnstile");
 const recoveryForm = document.getElementById("recovery-form");
 const profileForm = document.getElementById("profile-form");
 const passwordForm = document.getElementById("password-form");
+const phoneAccessForm = document.getElementById("phone-access-form");
+const phoneAccessDisclosure = document.getElementById("phone-access-disclosure");
+const accountPhoneInput = document.getElementById("account-phone");
+const accountPhonePinInput = document.getElementById("account-phone-pin");
+const accountPhonePinConfirmInput = document.getElementById("account-phone-pin-confirm");
 const accountName = document.getElementById("account-name");
 const accountEmail = document.getElementById("account-email");
 const profileFullNameInput = document.getElementById("profile-full-name");
@@ -85,6 +90,7 @@ let loanAccount = null;
 let platformAdminAccess = null;
 let validatedSignupReferralCode = "";
 let signupReferralTimer = null;
+let phoneAccessConfigured = false;
 
 function normalizeReferralCode(value) {
   return String(value || "").trim().toUpperCase().replace(/[^A-Z0-9-]/g, "").slice(0, 24);
@@ -560,6 +566,18 @@ async function loadInvestmentInterest() {
   return data || null;
 }
 
+async function loadPhoneAccess() {
+  if (!currentSession?.access_token || !phoneAccessForm) return null;
+  const response = await fetch("/api/account-phone", {
+    headers: { Authorization: `Bearer ${currentSession.access_token}` },
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(payload?.error || "Unable to load phone access.");
+  phoneAccessConfigured = Boolean(payload.configured);
+  if (accountPhoneInput) accountPhoneInput.value = payload.phone || "";
+  return payload;
+}
+
 async function maybeRedeemPlatformAdminInvite() {
   const token = getPlatformAdminInviteToken();
   if (!token || !currentSession?.user) return "";
@@ -679,6 +697,18 @@ async function renderDashboard(message = "") {
   if (settingsAccountEmail) settingsAccountEmail.textContent = currentSession.user.email || "-";
   profileFullNameInput.value = displayName || "";
 
+  try {
+    await loadPhoneAccess();
+    if (!phoneAccessConfigured) {
+      openAccountSettings({ focusClose: false });
+      if (phoneAccessDisclosure) phoneAccessDisclosure.open = true;
+      setStatus("Add your phone number and a four-digit keypad PIN for secure receptionist access.");
+      requestAnimationFrame(() => accountPhoneInput?.focus());
+    }
+  } catch (error) {
+    console.warn("Phone access could not be loaded", error);
+  }
+
   canViewAdminApps = Boolean(platformAdminAccess) || isPlatformAdminEmail(currentSession.user.email);
   show(dashboardViewToggle, canViewAdminApps);
   show(adminNotificationButton, canViewAdminApps);
@@ -696,11 +726,11 @@ async function renderDashboard(message = "") {
   setDashboardView(getPreferredDashboardView());
 }
 
-function openAccountSettings() {
+function openAccountSettings({ focusClose = true } = {}) {
   if (!accountSettingsModal) return;
   accountSettingsModal.classList.remove("hidden");
   setStatus("");
-  requestAnimationFrame(() => closeAccountSettingsButton?.focus());
+  if (focusClose) requestAnimationFrame(() => closeAccountSettingsButton?.focus());
 }
 
 function closeAccountSettings() {
@@ -997,6 +1027,49 @@ async function handlePasswordSave(event) {
   setStatus("Password updated.", "success");
 }
 
+async function handlePhoneAccessSave(event) {
+  event.preventDefault();
+  if (!currentSession?.access_token || isSubmitting) return;
+
+  const phone = accountPhoneInput?.value.trim() || "";
+  const pin = accountPhonePinInput?.value || "";
+  const pinConfirm = accountPhonePinConfirmInput?.value || "";
+  if (!/^[0-9]{4}$/.test(pin)) {
+    setStatus("Use exactly four digits for your phone PIN.", "error");
+    accountPhonePinInput?.focus();
+    return;
+  }
+  if (pin !== pinConfirm) {
+    setStatus("Phone PINs do not match.", "error");
+    accountPhonePinConfirmInput?.focus();
+    return;
+  }
+
+  isSubmitting = true;
+  setStatus("Saving secure phone access...");
+  try {
+    const response = await fetch("/api/account-phone", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${currentSession.access_token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ phone, pin, pinConfirm }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload?.error || "Unable to save phone access.");
+    phoneAccessConfigured = true;
+    if (accountPhoneInput) accountPhoneInput.value = payload.phone || phone;
+    accountPhonePinInput.value = "";
+    accountPhonePinConfirmInput.value = "";
+    setStatus("Phone access saved. Call NEXRA from this number and use your keypad PIN for an account overview.", "success");
+  } catch (error) {
+    setStatus(getErrorMessage(error, "Unable to save phone access."), "error");
+  } finally {
+    isSubmitting = false;
+  }
+}
+
 async function handleSignout() {
   if (!supabase) return;
   writeStoredValue(ADMIN_ACCESS_CACHE_PREFIX, "");
@@ -1036,6 +1109,12 @@ function bindEvents() {
   recoveryForm.addEventListener("submit", handleRecovery);
   profileForm.addEventListener("submit", handleProfileSave);
   passwordForm.addEventListener("submit", handlePasswordSave);
+  phoneAccessForm?.addEventListener("submit", handlePhoneAccessSave);
+  [accountPhonePinInput, accountPhonePinConfirmInput].forEach((input) => {
+    input?.addEventListener("input", () => {
+      input.value = input.value.replace(/\D/g, "").slice(0, 4);
+    });
+  });
   openRecordsButton.addEventListener("click", openRecords);
   openMusicButton.addEventListener("click", openMusic);
   openViralsButton?.addEventListener("click", openVirals);

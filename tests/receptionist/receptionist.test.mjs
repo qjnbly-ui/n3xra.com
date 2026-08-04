@@ -7,6 +7,12 @@ const twilio = require("twilio");
 const incomingHandler = require("../../api/receptionist/incoming");
 const conversationServer = require("../../api/receptionist/conversation");
 const {
+  hashPin,
+  matchesPin,
+  normalizePhone,
+  validPin,
+} = require("../../api/_account-phone");
+const {
   DEFAULT_GREETING,
   buildTwiML,
   publicHttpUrl,
@@ -19,8 +25,26 @@ test("receptionist TwiML uses ConversationRelay and the ElevenLabs provider", ()
   assert.match(xml, /<ConversationRelay/);
   assert.match(xml, /ttsProvider="ElevenLabs"/);
   assert.match(xml, /transcriptionProvider="Deepgram"/);
+  assert.match(xml, /dtmfDetection="true"/);
   assert.match(xml, /wss:\/\/www\.n3xra\.com\/api\/receptionist\/conversation/);
   assert.match(xml, /Thanks for calling NEXRA\. You&apos;re speaking with our AI receptionist/);
+});
+
+test("account overview requests are separated from general receptionist questions", () => {
+  assert.equal(conversationServer.isAccountOverviewRequest("Can you give me my account overview?"), true);
+  assert.equal(conversationServer.isAccountOverviewRequest("How much usage is left on my plan?"), true);
+  assert.equal(conversationServer.isAccountOverviewRequest("What does N3XRA Records do?"), false);
+});
+
+test("account phone numbers normalize to E.164 and PINs stay four digits", async () => {
+  assert.equal(normalizePhone("(541) 652-6840"), "+15416526840");
+  assert.equal(normalizePhone("+44 20 7946 0958"), "+442079460958");
+  assert.equal(normalizePhone("123"), "");
+  assert.equal(validPin("1234"), true);
+  assert.equal(validPin("12345"), false);
+  const stored = await hashPin("4826", "0123456789abcdef0123456789abcdef");
+  assert.equal(await matchesPin("4826", stored.salt, stored.hash), true);
+  assert.equal(await matchesPin("4827", stored.salt, stored.hash), false);
 });
 
 test("receptionist output consistently pronounces the brand as NEXRA", () => {

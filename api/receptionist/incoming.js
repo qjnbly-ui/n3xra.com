@@ -5,6 +5,7 @@ const {
   publicHttpUrl,
   publicWebSocketUrl,
 } = require("../_receptionist");
+const { getCallerAccount } = require("../_account-phone");
 
 function validateTwilioRequest(req) {
   const authToken = String(process.env.TWILIO_AUTH_TOKEN || "").trim();
@@ -25,7 +26,12 @@ module.exports = async function handler(req, res) {
   }
 
   const voice = String(process.env.TWILIO_RECEPTIONIST_VOICE || "").trim();
-  const greeting = String(process.env.TWILIO_RECEPTIONIST_GREETING || DEFAULT_GREETING).trim();
+  const callerNumber = String(req.body?.From || req.query?.From || "").trim();
+  const caller = await getCallerAccount(callerNumber).catch(() => null);
+  const recognizedGreeting = caller?.firstName
+    ? `Welcome back, ${caller.firstName}. You're speaking with our NEXRA AI receptionist, a live demonstration of the intelligent systems we build. How can I help you today?`
+    : "";
+  const greeting = recognizedGreeting || String(process.env.TWILIO_RECEPTIONIST_GREETING || DEFAULT_GREETING).trim();
   const xml = buildTwiML({ websocketUrl: publicWebSocketUrl(req), greeting, voice });
   res.setHeader("Content-Type", "text/xml; charset=utf-8");
   res.setHeader("Cache-Control", "no-store");

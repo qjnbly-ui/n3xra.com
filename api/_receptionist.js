@@ -39,7 +39,7 @@ function buildTwiML({ websocketUrl, greeting = DEFAULT_GREETING, voice = "" }) {
     '<?xml version="1.0" encoding="UTF-8"?>',
     "<Response>",
     "  <Connect>",
-    `    <ConversationRelay url="${escapeXml(websocketUrl)}" welcomeGreeting="${escapeXml(greeting)}" welcomeGreetingInterruptible="speech" language="en-US" transcriptionProvider="Deepgram" ttsProvider="ElevenLabs"${voiceAttribute} interruptSensitivity="medium" speechTimeout="auto" />`,
+    `    <ConversationRelay url="${escapeXml(websocketUrl)}" welcomeGreeting="${escapeXml(greeting)}" welcomeGreetingInterruptible="speech" language="en-US" transcriptionProvider="Deepgram" ttsProvider="ElevenLabs"${voiceAttribute} interruptSensitivity="medium" speechTimeout="auto" dtmfDetection="true" />`,
     "  </Connect>",
     "</Response>",
   ].join("\n");
