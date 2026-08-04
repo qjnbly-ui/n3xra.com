@@ -30,7 +30,7 @@ test("receptionist TwiML uses ConversationRelay and the ElevenLabs provider", ()
   assert.match(xml, /dtmfDetection="true"/);
   assert.match(xml, /wss:\/\/www\.n3xra\.com\/api\/receptionist\/conversation/);
   assert.match(xml, /Thanks for calling NEXRA\. You&apos;re speaking with our AI receptionist/);
-  assert.match(xml, /How can I help you today\?/);
+  assert.match(xml, /What brings you to NEXRA today\?/);
   assert.match(xml, /welcomeGreetingInterruptible="none"/);
 });
 

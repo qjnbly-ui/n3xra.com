@@ -29,7 +29,7 @@ module.exports = async function handler(req, res) {
   const callerNumber = String(req.body?.From || req.query?.From || "").trim();
   const caller = await getCallerAccount(callerNumber).catch(() => null);
   const recognizedGreeting = caller?.firstName
-    ? `Welcome back, ${caller.firstName}. You're speaking with our NEXRA AI receptionist, a live demonstration of the intelligent systems we build. How can I help you today?`
+    ? `Welcome back, ${caller.firstName}. You're speaking with our NEXRA AI receptionist, a live demonstration of the intelligent systems we build. What brings you to NEXRA today?`
     : "";
   const greeting = recognizedGreeting || String(process.env.TWILIO_RECEPTIONIST_GREETING || DEFAULT_GREETING).trim();
   const xml = buildTwiML({
