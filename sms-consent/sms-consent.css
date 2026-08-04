@@ -2,31 +2,37 @@
   color-scheme: light;
   --ink: #0b1016;
   --muted: #657286;
-  --paper: #f5f8fb;
   --line: rgba(15, 24, 36, 0.13);
   --green: #16836f;
-  --deep: #070c12;
 }
 
 * {
   box-sizing: border-box;
 }
 
-html {
-  scroll-behavior: smooth;
+html,
+body {
+  min-height: 100%;
 }
 
 body {
   margin: 0;
-  min-height: 100svh;
   color: var(--ink);
-  background: var(--paper);
+  background:
+    radial-gradient(ellipse at 50% 13%, rgba(167, 184, 197, 0.18), transparent 24%),
+    linear-gradient(180deg, #111a24 0, #050b11 30%, #03080e 100%);
   font-family: "Manrope", Arial, sans-serif;
   line-height: 1.55;
 }
 
-a {
-  color: inherit;
+body::before {
+  position: fixed;
+  inset: 12% -10% auto;
+  height: 4.5rem;
+  content: "";
+  background: rgba(231, 239, 245, 0.12);
+  filter: blur(24px);
+  pointer-events: none;
 }
 
 button,
@@ -35,164 +41,92 @@ input {
 }
 
 h1,
-h2,
-h3,
 p {
   margin: 0;
 }
 
-h1,
-h2 {
-  font-family: "Fraunces", Georgia, serif;
-  font-weight: 700;
-  letter-spacing: 0;
-  line-height: 1.02;
+.sms-page {
+  position: relative;
+  z-index: 1;
+  min-height: 100svh;
+  display: grid;
+  place-items: center;
+  padding: clamp(1rem, 4vw, 3rem);
 }
 
-.eyebrow,
-.sms-kicker,
-.sms-method-label {
-  margin: 0;
-  color: var(--green);
+.sms-modal {
+  width: min(760px, calc(100vw - 1.5rem));
+  max-height: min(88svh, 900px);
+  overflow-y: auto;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 35px 100px rgba(0, 0, 0, 0.42);
+}
+
+.sms-modal-header {
+  position: sticky;
+  z-index: 2;
+  top: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.4rem 1.5rem;
+  border-bottom: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(14px);
+}
+
+.sms-modal-header > div {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.sms-kicker {
+  color: #22c7a6;
   font-size: 0.74rem;
   font-weight: 900;
   letter-spacing: 0.19em;
   text-transform: uppercase;
 }
 
-.sms-hero .eyebrow,
-.sms-opt-in-band .eyebrow {
-  color: #81f0d2;
-}
-
-.sms-hero {
-  position: relative;
-  overflow: hidden;
-  color: #ffffff;
-  background: #09131f;
-}
-
-.sms-hero-inner,
-.sms-section-inner {
-  width: min(1120px, calc(100vw - 2rem));
-  margin: 0 auto;
-}
-
-.sms-hero-inner {
-  padding: clamp(7rem, 9vw, 8rem) 0 clamp(2.75rem, 5vw, 4rem);
-  display: grid;
-  justify-items: center;
-  gap: 1rem;
-  text-align: center;
-}
-
-.sms-hero h1 {
-  max-width: 900px;
-  font-size: clamp(2.8rem, 6vw, 5.2rem);
-  text-wrap: balance;
-}
-
-.sms-hero-lede {
-  max-width: 760px;
-  color: rgba(238, 246, 252, 0.78);
-  font-size: clamp(1.03rem, 2vw, 1.24rem);
+.sms-modal-header h1 {
+  font-family: "Fraunces", Georgia, serif;
+  font-size: clamp(1.65rem, 4vw, 2.5rem);
   font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.05;
 }
 
-.sms-section {
-  padding: clamp(3.2rem, 7vw, 5.6rem) 0;
-}
-
-.sms-consent-band {
-  background: #ffffff;
-}
-
-.sms-consent-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 0.78fr) minmax(360px, 1fr);
-  align-items: start;
-  gap: clamp(1.8rem, 6vw, 5rem);
-}
-
-.sms-consent-copy {
-  display: grid;
-  gap: 0.85rem;
-}
-
-.sms-consent-copy h2,
-.sms-opt-in-heading h2 {
-  font-size: clamp(2rem, 4.8vw, 4rem);
-}
-
-.sms-consent-copy > p:last-of-type,
-.sms-opt-in-heading > p:last-child {
-  color: var(--muted);
-  font-size: 1.04rem;
-}
-
-.sms-benefit-list {
-  display: grid;
-  gap: 0.72rem;
-  margin-top: 0.55rem;
-}
-
-.sms-benefit-list article {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 0.85rem;
-  align-items: start;
-  padding: 0.95rem;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #f8fbff;
-}
-
-.sms-benefit-list article > span {
-  width: 2.25rem;
-  height: 2.25rem;
-  display: grid;
-  place-items: center;
-  border-radius: 999px;
-  color: #ffffff;
-  background: var(--ink);
-  font-size: 0.72rem;
-  font-weight: 900;
-}
-
-.sms-benefit-list h3 {
-  margin-bottom: 0.2rem;
-  font-size: 1rem;
-}
-
-.sms-benefit-list p {
+.sms-modal-header > div > p:last-child {
   color: var(--muted);
   font-size: 0.9rem;
 }
 
-.sms-form-card {
+.sms-close {
+  width: 2.5rem;
+  height: 2.5rem;
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 999px;
+  color: var(--ink);
+  background: #edf2f6;
+  font-size: 1.5rem;
+  line-height: 1;
+  text-decoration: none;
+}
+
+.sms-close:hover,
+.sms-close:focus-visible {
+  background: #dfe7ed;
+}
+
+.sms-form {
   display: grid;
   gap: 1rem;
-  padding: clamp(1.15rem, 3vw, 1.7rem);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #ffffff;
-  box-shadow: 0 18px 52px rgba(7, 12, 18, 0.08);
-}
-
-.sms-form-heading {
-  display: grid;
-  gap: 0.45rem;
-  padding-bottom: 0.45rem;
-}
-
-.sms-form-heading h3 {
-  font-size: clamp(1.35rem, 2.5vw, 1.9rem);
-  line-height: 1.15;
-}
-
-.sms-form-heading > p:last-child {
-  color: var(--muted);
-  font-size: 0.92rem;
+  padding: 1.5rem;
 }
 
 .sms-field {
@@ -208,7 +142,7 @@ h2 {
 
 .sms-field input {
   width: 100%;
-  min-height: 50px;
+  min-height: 54px;
   padding: 0.86rem 0.9rem;
   border: 1px solid rgba(15, 24, 36, 0.2);
   border-radius: 8px;
@@ -226,7 +160,11 @@ h2 {
   grid-template-columns: 1rem 1fr;
   gap: 0.65rem;
   align-items: start;
-  color: #4f5d70;
+  padding: 0.95rem;
+  border: 1px solid rgba(15, 24, 36, 0.16);
+  border-radius: 8px;
+  color: #3f4d60;
+  background: #f8fbff;
   font-size: 0.9rem;
   font-weight: 700;
   cursor: pointer;
@@ -240,7 +178,7 @@ h2 {
 }
 
 .sms-disclosure {
-  padding: 0.9rem;
+  padding: 0.95rem;
   border: 1px solid rgba(15, 24, 36, 0.13);
   border-radius: 8px;
   color: var(--muted);
@@ -283,12 +221,22 @@ h2 {
   font-weight: 800;
 }
 
+.sms-status:empty {
+  display: none;
+}
+
 .sms-status.is-error {
   color: #9a3412;
 }
 
 .sms-status.is-success {
   color: var(--green);
+}
+
+.sms-keyword-note {
+  color: var(--muted);
+  font-size: 0.82rem;
+  text-align: center;
 }
 
 .sms-honeypot {
@@ -299,103 +247,29 @@ h2 {
   overflow: hidden;
 }
 
-.sms-opt-in-band {
-  color: #ffffff;
-  background: #0d1823;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.sms-opt-in-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 0.72fr) minmax(360px, 1fr);
-  align-items: center;
-  gap: clamp(1.8rem, 6vw, 5rem);
-}
-
-.sms-opt-in-heading {
-  display: grid;
-  gap: 0.9rem;
-}
-
-.sms-opt-in-heading > p:last-child {
-  color: rgba(238, 246, 252, 0.72);
-}
-
-.sms-methods-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.85rem;
-}
-
-.sms-method-card {
-  display: grid;
-  align-content: start;
-  gap: 0.65rem;
-  padding: clamp(1.2rem, 3vw, 1.7rem);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.07);
-  box-shadow: 0 26px 70px rgba(0, 0, 0, 0.2);
-}
-
-.sms-method-card > span {
-  width: 2.5rem;
-  height: 2.5rem;
-  display: grid;
-  place-items: center;
-  border-radius: 999px;
-  color: #061018;
-  background: #81f0d2;
-  font-size: 0.78rem;
-  font-weight: 900;
-}
-
-.sms-method-label {
-  color: #81f0d2;
-}
-
-.sms-method-card h3 {
-  color: #ffffff;
-  font-size: 1.15rem;
-  line-height: 1.2;
-}
-
-.sms-method-card > p:last-child {
-  color: rgba(238, 246, 252, 0.66);
-  font-size: 0.9rem;
-}
-
-body.site-menu-is-open .sms-hero-inner {
-  padding-top: 13.5rem !important;
-}
-
-@media (max-width: 860px) {
-  .sms-consent-layout,
-  .sms-opt-in-layout {
-    grid-template-columns: 1fr;
-  }
-}
-
 @media (max-width: 620px) {
-  .sms-hero-inner,
-  .sms-section-inner {
-    width: min(100% - 1.25rem, 1120px);
+  .sms-page {
+    place-items: start center;
+    padding: 0.75rem;
   }
 
-  .sms-hero h1 {
-    font-size: clamp(2.65rem, 14vw, 4.25rem);
+  .sms-modal {
+    width: 100%;
+    max-height: calc(100svh - 1.5rem);
+    border-radius: 13px;
+  }
+
+  .sms-modal-header,
+  .sms-form {
+    padding: 1.1rem;
+  }
+
+  .sms-modal-header h1 {
+    font-size: clamp(1.55rem, 8vw, 2rem);
   }
 
   #sms-submit {
     width: 100%;
-    font-size: 0.78rem;
-  }
-
-  .sms-methods-grid {
-    grid-template-columns: 1fr;
-  }
-
-  body.site-menu-is-open .sms-hero-inner {
-    padding-top: 19.5rem !important;
+    font-size: 0.75rem;
   }
 }
