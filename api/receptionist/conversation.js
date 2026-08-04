@@ -82,7 +82,8 @@ async function evaluateTransferWorthiness(question, history) {
             "Classify whether a N3XRA business caller should be offered a live transfer to the owner.",
             "Quentin Nichols is N3XRA's founder, creator, and owner. Founder, creator, owner, and Quentin all refer to him.",
             "Return JSON only: {\"offerTransfer\":boolean,\"reason\":\"short-code\",\"summary\":\"one sentence\"}.",
-            "True only for an urgent active-customer blocker, credible concrete project/partnership/investment opportunity, or legal/security matter needing owner attention.",
+            "True for an urgent active-customer blocker; a plausible sales, project, partnership, or investment opportunity; or a legal/security matter needing owner attention.",
+            "Treat early-stage or exploratory business interest as a real opportunity. For example, 'I may want to invest in the company' is enough to offer a transfer after brief clarification; the caller does not need to provide an investment amount or formal terms.",
             "A demand to talk to someone, the founder, creator, owner, or Quentin is not important by itself. Keep offerTransfer false until the caller gives a meaningful business reason.",
             "False for general questions, routine support, pricing exploration, password/account help, spam, abuse, or emergencies requiring 911.",
             "The summary is for Quentin only. State what the caller is trying to accomplish in one concise sentence. Never include names, phone numbers, email addresses, passwords, PINs, payment data, or other sensitive details.",
@@ -117,6 +118,19 @@ function endForTransfer(ws) {
       summary: ws.transferSummary || "The caller has an important NEXRA business matter to discuss.",
     }),
   }));
+}
+
+function announceAndTransfer(ws, delayMs = 4600) {
+  if (ws.readyState !== WebSocket.OPEN || ws.transferStarting) return;
+  ws.transferStarting = true;
+  ws.send(JSON.stringify({
+    type: "text",
+    token: "Absolutely. One moment while I try to connect you with Quentin.",
+    last: true,
+    interruptible: false,
+    preemptible: false,
+  }));
+  ws.transferTimer = setTimeout(() => endForTransfer(ws), delayMs);
 }
 
 function sendSpeech(ws, token) {
@@ -228,6 +242,12 @@ wss.on("connection", (ws) => {
   ws.pinDigits = "";
   ws.accountVerified = false;
   ws.pendingAccountAction = "";
+  ws.transferStarting = false;
+  ws.transferTimer = null;
+
+  ws.on("close", () => {
+    if (ws.transferTimer) clearTimeout(ws.transferTimer);
+  });
 
   ws.on("message", async (raw) => {
     let message;
@@ -281,14 +301,14 @@ wss.on("connection", (ws) => {
       return;
     }
 
-    if (message.type !== "prompt" || message.last === false || ws.processing) return;
+    if (message.type !== "prompt" || message.last === false || ws.processing || ws.transferStarting) return;
     const question = toSpeechText(message.voicePrompt).slice(0, 800);
     if (!question) return;
 
     if (ws.transferOffered) {
       if (isAffirmativeTransferResponse(question)) {
         ws.transferOffered = false;
-        endForTransfer(ws);
+        announceAndTransfer(ws);
         return;
       }
       if (isNegativeTransferResponse(question)) {
@@ -349,3 +369,4 @@ module.exports.isPasswordResetRequest = isPasswordResetRequest;
 module.exports.isAffirmativeTransferResponse = isAffirmativeTransferResponse;
 module.exports.isEmergencyRequest = isEmergencyRequest;
 module.exports.isNegativeTransferResponse = isNegativeTransferResponse;
+module.exports.announceAndTransfer = announceAndTransfer;

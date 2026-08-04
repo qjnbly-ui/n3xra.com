@@ -135,6 +135,24 @@ test("live transfer confirmation and emergency language are recognized", () => {
   assert.equal(conversationServer.isEmergencyRequest("Someone is in immediate danger"), true);
 });
 
+test("confirmed transfers announce the connection before ending ConversationRelay", async () => {
+  const sent = [];
+  const ws = {
+    readyState: 1,
+    transferStarting: false,
+    transferSummary: "The caller is exploring an investment in NEXRA.",
+    send(value) { sent.push(JSON.parse(value)); },
+  };
+  conversationServer.announceAndTransfer(ws, 0);
+  assert.equal(sent[0].type, "text");
+  assert.match(sent[0].token, /connect you with Quentin/i);
+  assert.equal(sent[0].interruptible, false);
+  assert.equal(ws.transferStarting, true);
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  assert.equal(sent[1].type, "end");
+  assert.match(sent[1].handoffData, /approved-live-transfer/);
+});
+
 test("account phone numbers normalize to E.164 and PINs stay four digits", async () => {
   assert.equal(normalizePhone("(541) 652-6840"), "+15416526840");
   assert.equal(normalizePhone("+44 20 7946 0958"), "+442079460958");
