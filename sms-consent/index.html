@@ -5,68 +5,183 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>N3XRA | SMS Notifications</title>
   <meta name="description" content="Choose whether to receive requested transactional text messages from N3XRA.">
+  <meta name="robots" content="index, follow">
   <link rel="canonical" href="https://www.n3xra.com/sms-consent/">
+  <meta name="theme-color" content="#070c12">
   <link rel="icon" href="/assets/n3xra_logo_transparent_small.png">
+  <link rel="apple-touch-icon" href="/assets/n3xra_logo_transparent_small.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/site-nav.css">
-  <link rel="stylesheet" href="/sms-consent/sms-consent.css?v=1">
+  <link rel="stylesheet" href="/sms-consent/sms-consent.css?v=2">
+  <link rel="stylesheet" href="/assets/home-shell.css?v=1">
   <script src="/assets/site-nav.js" defer></script>
+  <script src="/shared/config.js"></script>
+  <script type="module" src="/assets/master-auth-link.js"></script>
   <script src="/sms-consent/sms-consent.js?v=1" defer></script>
+  <script>
+    window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+  </script>
+  <script defer src="/_vercel/insights/script.js"></script>
 </head>
 <body>
-  <header class="site-topbar">
+  <header class="site-topbar home-topbar sms-topbar" data-home-header>
     <div class="site-topbar-inner">
       <div class="site-topbar-row">
-        <a class="site-brand" href="/" aria-label="N3XRA home"><img src="/assets/n3xra_logo_transparent_small.png" alt=""><span>N3XRA</span></a>
+        <a class="site-brand home-brand" href="/" aria-label="N3XRA home">
+          <img src="/assets/n3xra_logo_transparent_small.png" alt="">
+          <span>N3XRA</span>
+        </a>
+
+        <nav class="desktop-nav" aria-label="Primary">
+          <a href="/projects/">Projects</a>
+          <a href="/services/">Services</a>
+          <a href="/support/">Support</a>
+          <a href="/#software">Software</a>
+        </nav>
+
         <div class="site-nav-actions">
-          <a class="site-menu-link" href="/support/">Support</a>
-          <button class="site-menu-toggle" type="button" aria-expanded="false" aria-controls="sms-mobile-menu" aria-label="Open menu" data-site-menu-toggle><span></span><span></span><span></span></button>
+          <a class="site-menu-link site-auth-link" href="/account" data-master-auth-link>Login</a>
+          <button class="site-menu-toggle" type="button" aria-expanded="false" aria-controls="sms-mobile-menu" aria-label="Open menu" data-site-menu-toggle>
+            <span></span>
+            <span></span>
+            <span></span>
+          </button>
         </div>
       </div>
-      <nav class="site-mobile-menu" id="sms-mobile-menu" aria-label="Mobile navigation" hidden>
-        <a class="site-menu-link" href="/">Home</a>
+      <nav class="site-mobile-menu" id="sms-mobile-menu" aria-label="Mobile primary" hidden>
+        <div class="site-mobile-menu-head"><p class="site-mobile-menu-title">Explore N3XRA</p></div>
+        <a class="site-menu-link" href="/projects/">Projects</a>
+        <a class="site-menu-link" href="/services/">Services</a>
         <a class="site-menu-link" href="/support/">Support</a>
-        <a class="site-menu-link" href="/privacy/">Privacy</a>
-        <a class="site-menu-link" href="/terms/">Terms</a>
+        <a class="site-menu-link" href="/#software">Software</a>
       </nav>
     </div>
   </header>
 
-  <main class="sms-shell">
-    <section class="sms-card" aria-labelledby="sms-title">
-      <p class="sms-kicker">Text notifications</p>
-      <h1 id="sms-title">Receive requested updates from N3XRA</h1>
-      <p class="sms-intro">Use this form to consent to low-volume transactional messages connected to your N3XRA account, inquiry, appointment, records, or support request.</p>
+  <main>
+    <section class="sms-hero" aria-labelledby="sms-title">
+      <div class="sms-hero-inner">
+        <p class="eyebrow">N3XRA SMS Notifications</p>
+        <h1 id="sms-title">Requested updates, sent with your permission.</h1>
+        <p class="sms-hero-lede">Choose whether to receive low-volume transactional texts connected to your N3XRA account, inquiry, appointment, records, or support request.</p>
+      </div>
+    </section>
 
-      <form id="sms-consent-form">
-        <label class="sms-field" for="sms-phone">
-          <span>Mobile phone number</span>
-          <input id="sms-phone" name="phone" type="tel" autocomplete="tel" inputmode="tel" placeholder="(541) 555-0123" required>
-        </label>
-        <label class="sms-honeypot" aria-hidden="true">Company<input id="sms-company" name="company" tabindex="-1" autocomplete="off"></label>
-        <label class="sms-check" for="sms-consent">
-          <input id="sms-consent" name="consent" type="checkbox" required>
-          <span>I agree to receive transactional SMS messages from N3XRA, including requested links, account and security notices, appointment reminders, records notifications, and support responses.</span>
-        </label>
-        <div class="sms-disclosure">
-          <p><strong>Message frequency varies.</strong> Message and data rates may apply. Reply <strong>STOP</strong> to opt out or <strong>HELP</strong> for help.</p>
-          <p>Consent is not a condition of purchase. N3XRA does not sell or share mobile information with third parties or affiliates for marketing or promotional purposes.</p>
-          <p><a href="/terms/">Terms and Conditions</a> · <a href="/privacy/">Privacy Policy</a></p>
+    <section class="sms-section sms-consent-band" aria-labelledby="consent-form-title">
+      <div class="sms-section-inner sms-consent-layout">
+        <div class="sms-consent-copy">
+          <p class="sms-kicker">Your choice</p>
+          <h2 id="consent-form-title">Stay informed. Stay in control.</h2>
+          <p>N3XRA only sends the transactional messages you request or authorize. We do not use this consent for unsolicited marketing.</p>
+
+          <div class="sms-benefit-list" aria-label="SMS notification details">
+            <article>
+              <span aria-hidden="true">01</span>
+              <div><h3>Useful updates</h3><p>Receive requested links, account notices, appointment reminders, records updates, and support responses.</p></div>
+            </article>
+            <article>
+              <span aria-hidden="true">02</span>
+              <div><h3>Your permission</h3><p>The consent box is never preselected. You decide whether N3XRA may text this number.</p></div>
+            </article>
+            <article>
+              <span aria-hidden="true">03</span>
+              <div><h3>Easy to stop</h3><p>Reply STOP to opt out at any time or HELP for assistance.</p></div>
+            </article>
+          </div>
         </div>
-        <button id="sms-submit" type="submit">Agree and save SMS preference</button>
-        <p class="sms-status" id="sms-status" role="status" aria-live="polite"></p>
-      </form>
 
-      <section class="sms-evidence" id="verbal-consent" aria-labelledby="verbal-consent-title">
-        <p class="sms-kicker">Verbal opt-in evidence</p>
-        <h2 id="verbal-consent-title">AI receptionist consent script</h2>
-        <p>When a caller to <strong>(541) 652-6840</strong> requests a text message, the N3XRA AI receptionist reads this script exactly before sending anything:</p>
-        <blockquote>“I can text that link to the number you’re calling from. NEXRA sends transactional messages, message frequency varies, and message and data rates may apply. Reply STOP to opt out or HELP for help. Do you agree to receive this requested text?”</blockquote>
-        <p>The caller must give a clear verbal yes. Merely calling N3XRA does not constitute consent. N3XRA records the originating number, consent timestamp, and Twilio Call SID as evidence.</p>
-      </section>
+        <form class="sms-form-card" id="sms-consent-form">
+          <div class="sms-form-heading">
+            <p class="sms-kicker">SMS preference</p>
+            <h3>Confirm your mobile number.</h3>
+            <p>Complete the form below to authorize transactional SMS messages from N3XRA.</p>
+          </div>
+
+          <label class="sms-field" for="sms-phone">
+            <span>Mobile phone number</span>
+            <input id="sms-phone" name="phone" type="tel" autocomplete="tel" inputmode="tel" placeholder="(541) 555-0123" required>
+          </label>
+          <label class="sms-honeypot" aria-hidden="true">Company<input id="sms-company" name="company" tabindex="-1" autocomplete="off"></label>
+          <label class="sms-check" for="sms-consent">
+            <input id="sms-consent" name="consent" type="checkbox" required>
+            <span>I agree to receive transactional SMS messages from N3XRA, including requested links, account and security notices, appointment reminders, records notifications, and support responses.</span>
+          </label>
+          <div class="sms-disclosure">
+            <p><strong>Message frequency varies.</strong> Message and data rates may apply. Reply <strong>STOP</strong> to opt out or <strong>HELP</strong> for help.</p>
+            <p>Consent is not a condition of purchase. N3XRA does not sell or share mobile information with third parties or affiliates for marketing or promotional purposes.</p>
+            <p><a href="/terms/">Terms and Conditions</a> <span aria-hidden="true">·</span> <a href="/privacy/">Privacy Policy</a></p>
+          </div>
+          <button id="sms-submit" type="submit">Agree and save SMS preference</button>
+          <p class="sms-status" id="sms-status" role="status" aria-live="polite"></p>
+        </form>
+      </div>
+    </section>
+
+    <section class="sms-section sms-evidence-band" id="verbal-consent" aria-labelledby="verbal-consent-title">
+      <div class="sms-section-inner sms-evidence-layout">
+        <div class="sms-evidence-heading">
+          <p class="eyebrow">Verbal opt-in evidence</p>
+          <h2 id="verbal-consent-title">Clear permission before any text is sent.</h2>
+          <p>When a caller to <strong>(541) 652-6840</strong> requests a text message, the N3XRA AI receptionist reads the script shown here before sending anything.</p>
+        </div>
+        <div class="sms-script-card">
+          <p class="sms-script-label">Exact consent script</p>
+          <blockquote>“I can text that link to the number you’re calling from. NEXRA sends transactional messages, message frequency varies, and message and data rates may apply. Reply STOP to opt out or HELP for help. Do you agree to receive this requested text?”</blockquote>
+          <p>The caller must give a clear verbal yes. Merely calling N3XRA does not constitute consent. N3XRA records the originating number, consent timestamp, and Twilio Call SID as evidence.</p>
+        </div>
+      </div>
     </section>
   </main>
+
+  <footer class="site-footer home-footer">
+    <div class="page-shell footer-grid">
+      <div class="footer-brand">
+        <a class="home-brand" href="/" aria-label="N3XRA home">
+          <img src="/assets/n3xra_logo_transparent_small.png" alt="">
+          <span>N3XRA</span>
+        </a>
+        <p>N3XRA builds custom websites, software, automation, and AI solutions that help organizations work smarter and operate more efficiently.</p>
+      </div>
+
+      <nav class="footer-nav" aria-label="Company">
+        <p>Explore</p>
+        <a href="/projects/">Projects</a>
+        <a href="/services/">Services</a>
+        <a href="/support/">Support</a>
+      </nav>
+
+      <nav class="footer-nav" aria-label="Software">
+        <p>Software</p>
+        <a href="/records/">Records</a>
+        <a href="/utilities/">Utilities</a>
+        <a href="/virals/">Virals</a>
+        <a href="/ai-music-generator/">AI Music</a>
+      </nav>
+
+      <nav class="footer-nav" aria-label="Account and legal">
+        <p>N3XRA</p>
+        <a href="/account" data-master-auth-link>Login</a>
+        <a href="/project-pulse/">Project Pulse</a>
+        <a href="/privacy/">Privacy</a>
+        <a href="/terms/">Terms</a>
+        <a href="/invest/">Invest</a>
+      </nav>
+    </div>
+    <div class="page-shell footer-bottom">
+      <p>&copy; 2026 N3XRA LLC. All rights reserved.</p>
+      <p>Built by <a href="https://quentinnichols.com/">Quentin Nichols</a>.</p>
+    </div>
+  </footer>
+
+  <script>
+    (() => {
+      const header = document.querySelector("[data-home-header]");
+      const updateHeader = () => header?.classList.toggle("is-scrolled", window.scrollY > 20);
+      updateHeader();
+      window.addEventListener("scroll", updateHeader, { passive: true });
+    })();
+  </script>
 </body>
 </html>
