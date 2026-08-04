@@ -43,7 +43,10 @@ const RECEPTIONIST_RULES = [
   "Do not claim to take notes, send general email, or schedule appointments yet.",
   "Quentin Nichols is N3XRA's founder, creator, and owner. References to the founder, creator, owner, or Quentin mean him.",
   "If a caller asks for Quentin or demands an immediate transfer without explaining why, politely ask what the call is regarding. Do not promise a connection.",
-  "Live transfers are offered separately only after the call's business importance has been evaluated and the caller confirms.",
+  "Once the caller gives a legitimate N3XRA-related reason for asking for Quentin, do not keep interrogating them or require urgency, a budget, or formal details.",
+  "For routine questions, answer directly and guide the caller to the most relevant N3XRA website page or next step.",
+  "A separate decision step may proactively recommend Quentin when personal attention would be useful, or offer him after a screened caller request.",
+  "Never claim that a transfer is starting until that separate step asks and the caller clearly agrees.",
   "After caller recognition and keypad PIN verification, you may send a password reset email only to the address already on that account.",
   "If asked for an unavailable action, explain briefly that this demonstration currently answers questions about N3XRA.",
   "Account overviews are handled separately using caller recognition and a keypad PIN.",
@@ -205,16 +208,39 @@ async function planRequestedSms(question, history) {
 }
 
 function isAffirmativeTransferResponse(value) {
-  return /^(yes|yeah|yep|sure|okay|ok|please do|connect me|transfer me|go ahead|that works)(\b|[.!?])/i.test(String(value || "").trim());
+  return /^(yes|yeah|yep|sure|okay|ok|please|please do|connect me|transfer me|go ahead|that works|that would be great|sounds good|i(?:'d| would) like that)(\b|[.!?])/i.test(String(value || "").trim());
 }
 
 function isNegativeTransferResponse(value) {
   return /^(no|nope|not now|no thanks|don'?t|do not)(\b|[.!?])/i.test(String(value || "").trim());
 }
 
+function hasDirectTransferRequest(value) {
+  const text = String(value || "");
+  const person = "(?:Quentin|the founder|the owner|a person|a human|someone|a real person|a representative|a team member|a staff member)";
+  const action = "(?:talk|speak|connect|transfer|forward|put me through|reach)";
+  return new RegExp(`\\b${action}\\b.{0,80}\\b${person}\\b|\\b${person}\\b.{0,80}\\b${action}\\b`, "i").test(text);
+}
+
+function hasScreenedTransferRequest(question, history = []) {
+  const userTurns = [
+    ...history.filter((item) => item?.role === "user").slice(-4).map((item) => String(item.content || "")),
+    String(question || ""),
+  ].filter(Boolean);
+  if (!hasDirectTransferRequest(userTurns.join(" "))) return false;
+  return userTurns.some((turn) => /\b(account|bill|business|buy|collaborat|customer|discuss|idea|invest|issue|legal|media|music|n3xra|nexra|partner|payment|press|pricing|problem|project|proposal|question|quote|record|sale|security|service|software|support|utilit|viral|website|work)\w*\b/i.test(turn));
+}
+
 async function evaluateTransferWorthiness(question, history) {
+  const screenedRequest = hasScreenedTransferRequest(question, history);
+  const fallback = {
+    offerTransfer: screenedRequest,
+    requestedByCaller: screenedRequest,
+    reason: screenedRequest ? "screened-caller-request" : "classifier-unavailable",
+    summary: screenedRequest ? "The caller asked to speak with Quentin about a NEXRA matter." : "",
+  };
   const apiKey = String(process.env.GROQ_API_KEY || "").trim();
-  if (!apiKey) return { offerTransfer: false, reason: "classifier-unavailable", summary: "" };
+  if (!apiKey) return fallback;
   const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
@@ -230,12 +256,13 @@ async function evaluateTransferWorthiness(question, history) {
             "Classify whether a N3XRA business caller should be offered a live transfer to the owner.",
             "Quentin Nichols is N3XRA's founder, creator, and owner. Founder, creator, owner, and Quentin all refer to him.",
             "Return JSON only: {\"offerTransfer\":boolean,\"reason\":\"short-code\",\"summary\":\"one sentence\"}.",
-            "True for an urgent active-customer blocker; a plausible sales, project, partnership, or investment opportunity; or a legal/security matter needing owner attention.",
-            "Treat early-stage or exploratory business interest as a real opportunity. For example, 'I may want to invest in the company' is enough to offer a transfer after brief clarification; the caller does not need to provide an investment amount or formal terms.",
-            "A demand to talk to someone, the founder, creator, owner, or Quentin is not important by itself. Keep offerTransfer false until the caller gives a meaningful business reason.",
-            "False for general questions, routine support, pricing exploration, password/account help, spam, abuse, or emergencies requiring 911.",
+            "Set offerTransfer true when the caller explicitly asks for Quentin or a person and has given any legitimate N3XRA-related reason. The reason may be routine support, pricing, an account question, a project idea, sales, partnership, investment, media, legal, or security. Do not require urgency, a budget, an investment amount, or formal details.",
+            "Use recent conversation to recognize a screened request: if the caller first asked for Quentin and then answered what the call is about, that is enough to offer the transfer.",
+            "Also proactively set offerTransfer true when personal attention from Quentin would be useful, including a custom project, proposal, partnership, investment, unresolved customer problem, unusual request, or situation the receptionist cannot finish well.",
+            "For routine informational questions that the receptionist can fully answer and guide to the website, keep offerTransfer false unless the caller has asked for a person.",
+            "Keep offerTransfer false when the caller still has not explained why they want a person, or for spam, abuse, and emergencies requiring 911.",
             "The summary is for Quentin only. State what the caller is trying to accomplish in one concise sentence. Never include names, phone numbers, email addresses, passwords, PINs, payment data, or other sensitive details.",
-            "Be conservative. An offer is not permission to transfer; the caller must confirm.",
+            "An offer is only a recommendation or option, never permission to transfer. The caller must clearly confirm before the call is forwarded.",
           ].join(" "),
         },
         ...history.slice(-6),
@@ -244,16 +271,18 @@ async function evaluateTransferWorthiness(question, history) {
     }),
   });
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) return { offerTransfer: false, reason: "classifier-error", summary: "" };
+  if (!response.ok) return { ...fallback, reason: screenedRequest ? fallback.reason : "classifier-error" };
   try {
     const result = JSON.parse(String(data?.choices?.[0]?.message?.content || "{}"));
+    const modelOffered = result.offerTransfer === true;
     return {
-      offerTransfer: result.offerTransfer === true,
-      reason: String(result.reason || "classified").slice(0, 40),
-      summary: toSpeechText(result.summary).slice(0, 180),
+      offerTransfer: modelOffered || screenedRequest,
+      requestedByCaller: screenedRequest,
+      reason: String(modelOffered ? (result.reason || "classified") : fallback.reason).slice(0, 40),
+      summary: toSpeechText(result.summary).slice(0, 180) || fallback.summary,
     };
   } catch {
-    return { offerTransfer: false, reason: "classifier-invalid", summary: "" };
+    return { ...fallback, reason: screenedRequest ? fallback.reason : "classifier-invalid" };
   }
 }
 
@@ -540,7 +569,10 @@ wss.on("connection", (ws) => {
       if (transferDecision.offerTransfer) {
         ws.transferOffered = true;
         ws.transferSummary = transferDecision.summary;
-        sendSpeech(ws, `${reply} This sounds like something Quentin may want to handle personally. Would you like me to try connecting you now?`);
+        const transferOffer = transferDecision.requestedByCaller
+          ? "If you'd still like, I can try connecting you with Quentin now. Would you like me to do that?"
+          : "This sounds like something Quentin may want to handle personally. Would you like me to try connecting you now?";
+        sendSpeech(ws, `${reply} ${transferOffer}`);
       } else {
         sendSpeech(ws, reply);
       }
@@ -563,6 +595,9 @@ module.exports.isPasswordResetRequest = isPasswordResetRequest;
 module.exports.isAffirmativeTransferResponse = isAffirmativeTransferResponse;
 module.exports.isEmergencyRequest = isEmergencyRequest;
 module.exports.isNegativeTransferResponse = isNegativeTransferResponse;
+module.exports.hasDirectTransferRequest = hasDirectTransferRequest;
+module.exports.hasScreenedTransferRequest = hasScreenedTransferRequest;
+module.exports.evaluateTransferWorthiness = evaluateTransferWorthiness;
 module.exports.announceAndTransfer = announceAndTransfer;
 module.exports.isSmsRequest = isSmsRequest;
 module.exports.normalizeSmsPlan = normalizeSmsPlan;

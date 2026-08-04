@@ -170,8 +170,47 @@ test("password reset requests are routed to the secured account action", () => {
 
 test("live transfer confirmation and emergency language are recognized", () => {
   assert.equal(conversationServer.isAffirmativeTransferResponse("Yes, please"), true);
+  assert.equal(conversationServer.isAffirmativeTransferResponse("That would be great"), true);
+  assert.equal(conversationServer.isAffirmativeTransferResponse("I'd like that"), true);
   assert.equal(conversationServer.isNegativeTransferResponse("No thanks"), true);
   assert.equal(conversationServer.isEmergencyRequest("Someone is in immediate danger"), true);
+});
+
+test("caller-requested transfers become easy after one legitimate screening answer", () => {
+  assert.equal(conversationServer.hasDirectTransferRequest("Can I speak with Quentin?"), true);
+  assert.equal(conversationServer.hasDirectTransferRequest("May I talk to a representative?"), true);
+  assert.equal(conversationServer.hasScreenedTransferRequest("Can I speak with Quentin?", []), false);
+  assert.equal(conversationServer.hasScreenedTransferRequest("Can I speak with Quentin about a website quote?", []), true);
+  assert.equal(conversationServer.hasScreenedTransferRequest("Can I speak with Quentin about a N3XRA question?", []), true);
+  assert.equal(conversationServer.hasScreenedTransferRequest("It is about support for my project.", [
+    { role: "user", content: "I would like to talk to Quentin." },
+    { role: "assistant", content: "What is the call regarding?" },
+  ]), true);
+});
+
+test("a screened caller request can override an overly strict transfer classification", async () => {
+  const previousKey = process.env.GROQ_API_KEY;
+  const previousFetch = global.fetch;
+  process.env.GROQ_API_KEY = "test-key";
+  global.fetch = async () => ({
+    ok: true,
+    async json() {
+      return { choices: [{ message: { content: '{"offerTransfer":false,"reason":"routine","summary":""}' } }] };
+    },
+  });
+  try {
+    const decision = await conversationServer.evaluateTransferWorthiness("It is about pricing for a website project.", [
+      { role: "user", content: "Could you connect me with Quentin?" },
+      { role: "assistant", content: "What is the call regarding?" },
+    ]);
+    assert.equal(decision.offerTransfer, true);
+    assert.equal(decision.requestedByCaller, true);
+    assert.match(decision.summary, /asked to speak with Quentin/i);
+  } finally {
+    if (previousKey === undefined) delete process.env.GROQ_API_KEY;
+    else process.env.GROQ_API_KEY = previousKey;
+    global.fetch = previousFetch;
+  }
 });
 
 test("confirmed transfers announce the connection before ending ConversationRelay", async () => {
