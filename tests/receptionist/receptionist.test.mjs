@@ -9,7 +9,7 @@ const conversationServer = require("../../api/receptionist/conversation");
 const transferHandler = require("../../api/receptionist/transfer");
 const screenTransferHandler = require("../../api/receptionist/screen-transfer");
 const inboundSmsHandler = require("../../api/receptionist/sms");
-const { allowedWebOrigin } = require("../../api/_sms-consent");
+const { allowedWebOrigin, VALID_CONSENT_METHODS } = require("../../api/_sms-consent");
 const {
   hashPin,
   matchesPin,
@@ -166,6 +166,14 @@ test("receptionist recognizes requested texts and only returns approved N3XRA li
     conversationServer.smsResourceFor("Please send a link", [{ role: "user", content: "I need help signing into my account" }]),
     { label: "N3XRA account page", url: "https://www.n3xra.com/account/" },
   );
+  assert.match(conversationServer.SMS_OPT_IN_INSTRUCTIONS, /text START/i);
+  assert.match(conversationServer.SMS_OPT_IN_INSTRUCTIONS, /Calling alone does not provide SMS consent/i);
+});
+
+test("SMS consent accepts web and keyword opt-ins but not verbal opt-ins", () => {
+  assert.equal(VALID_CONSENT_METHODS.has("web_form"), true);
+  assert.equal(VALID_CONSENT_METHODS.has("sms_keyword"), true);
+  assert.equal(VALID_CONSENT_METHODS.has("verbal"), false);
 });
 
 test("public SMS consent accepts only N3XRA and local browser origins", () => {

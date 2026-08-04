@@ -51,7 +51,7 @@ h2 {
 
 .eyebrow,
 .sms-kicker,
-.sms-script-label {
+.sms-method-label {
   margin: 0;
   color: var(--green);
   font-size: 0.74rem;
@@ -61,7 +61,7 @@ h2 {
 }
 
 .sms-hero .eyebrow,
-.sms-evidence-band .eyebrow {
+.sms-opt-in-band .eyebrow {
   color: #81f0d2;
 }
 
@@ -120,12 +120,12 @@ h2 {
 }
 
 .sms-consent-copy h2,
-.sms-evidence-heading h2 {
+.sms-opt-in-heading h2 {
   font-size: clamp(2rem, 4.8vw, 4rem);
 }
 
 .sms-consent-copy > p:last-of-type,
-.sms-evidence-heading > p:last-child {
+.sms-opt-in-heading > p:last-child {
   color: var(--muted);
   font-size: 1.04rem;
 }
@@ -299,31 +299,38 @@ h2 {
   overflow: hidden;
 }
 
-.sms-evidence-band {
+.sms-opt-in-band {
   color: #ffffff;
   background: #0d1823;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.sms-evidence-layout {
+.sms-opt-in-layout {
   display: grid;
   grid-template-columns: minmax(0, 0.72fr) minmax(360px, 1fr);
   align-items: center;
   gap: clamp(1.8rem, 6vw, 5rem);
 }
 
-.sms-evidence-heading {
+.sms-opt-in-heading {
   display: grid;
   gap: 0.9rem;
 }
 
-.sms-evidence-heading > p:last-child {
+.sms-opt-in-heading > p:last-child {
   color: rgba(238, 246, 252, 0.72);
 }
 
-.sms-script-card {
+.sms-methods-grid {
   display: grid;
-  gap: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.sms-method-card {
+  display: grid;
+  align-content: start;
+  gap: 0.65rem;
   padding: clamp(1.2rem, 3vw, 1.7rem);
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 10px;
@@ -331,24 +338,31 @@ h2 {
   box-shadow: 0 26px 70px rgba(0, 0, 0, 0.2);
 }
 
-.sms-script-label {
+.sms-method-card > span {
+  width: 2.5rem;
+  height: 2.5rem;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  color: #061018;
+  background: #81f0d2;
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.sms-method-label {
   color: #81f0d2;
 }
 
-.sms-script-card blockquote {
-  margin: 0;
-  padding-left: 1rem;
-  border-left: 3px solid #81f0d2;
+.sms-method-card h3 {
   color: #ffffff;
-  font-family: "Fraunces", Georgia, serif;
-  font-size: clamp(1.15rem, 2.3vw, 1.55rem);
-  font-weight: 600;
-  line-height: 1.45;
+  font-size: 1.15rem;
+  line-height: 1.2;
 }
 
-.sms-script-card > p:last-child {
+.sms-method-card > p:last-child {
   color: rgba(238, 246, 252, 0.66);
-  font-size: 0.88rem;
+  font-size: 0.9rem;
 }
 
 body.site-menu-is-open .sms-hero-inner {
@@ -357,7 +371,7 @@ body.site-menu-is-open .sms-hero-inner {
 
 @media (max-width: 860px) {
   .sms-consent-layout,
-  .sms-evidence-layout {
+  .sms-opt-in-layout {
     grid-template-columns: 1fr;
   }
 }
@@ -375,6 +389,10 @@ body.site-menu-is-open .sms-hero-inner {
   #sms-submit {
     width: 100%;
     font-size: 0.78rem;
+  }
+
+  .sms-methods-grid {
+    grid-template-columns: 1fr;
   }
 
   body.site-menu-is-open .sms-hero-inner {

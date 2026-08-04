@@ -10,7 +10,9 @@ const {
   sendPasswordResetEmail,
   verifyCallerPin,
 } = require("../_account-phone");
-const { recordSmsConsent, sendTransactionalSms } = require("../_sms-consent");
+const { latestConsent, sendTransactionalSms } = require("../_sms-consent");
+
+const SMS_OPT_IN_INSTRUCTIONS = "Before I can text you, please text START to this NEXRA number or opt in at NEXRA dot com slash SMS consent. Calling alone does not provide SMS consent. Once you are opted in, ask me again and I can send the link.";
 
 const RECEPTIONIST_RULES = [
   "You are the N3XRA AI receptionist speaking with a caller on the phone.",
@@ -26,6 +28,7 @@ const RECEPTIONIST_RULES = [
   "After caller recognition and keypad PIN verification, you may send a password reset email only to the address already on that account.",
   "If asked for an unavailable action, explain briefly that this demonstration currently answers questions about N3XRA.",
   "Account overviews are handled separately using caller recognition and a keypad PIN.",
+  "A phone conversation is not SMS consent. Only send a requested text when the caller has already opted in through the web form or by texting START.",
   "Never ask a caller to say their phone number, PIN, or personal information out loud.",
   "Never request passwords, payment card information, Social Security numbers, or other sensitive secrets.",
 ].join("\n");
@@ -160,19 +163,18 @@ function sendSpeech(ws, token) {
 }
 
 async function sendRequestedSms(ws) {
-  const resource = ws.pendingSms;
-  ws.pendingSms = null;
+  const resource = ws.requestedSmsResource;
+  ws.requestedSmsResource = null;
   if (!resource || !ws.fromNumber) {
     sendSpeech(ws, "I could not identify a mobile number for this call, so I cannot send that text.");
     return;
   }
   try {
-    await recordSmsConsent({
-      phone: ws.fromNumber,
-      method: "verbal",
-      callSid: ws.callSid,
-      sourceUrl: "tel:+15416526840",
-    });
+    const consent = await latestConsent(ws.fromNumber);
+    if (consent?.event_type !== "opt_in") {
+      sendSpeech(ws, SMS_OPT_IN_INSTRUCTIONS);
+      return;
+    }
     await sendTransactionalSms(
       ws.fromNumber,
       `N3XRA: Here is the ${resource.label} you requested: ${resource.url} Reply STOP to opt out or HELP for help.`,
@@ -180,7 +182,7 @@ async function sendRequestedSms(ws) {
     sendSpeech(ws, "Done. I sent the requested NEXRA link to the number you're calling from.");
   } catch (error) {
     console.error("Receptionist SMS failed", { callSid: ws.callSid, error: error?.message });
-    sendSpeech(ws, "I saved your SMS preference, but I could not send the text right now. Please visit NEXRA dot com.");
+    sendSpeech(ws, "I could not send the text right now. Please visit NEXRA dot com or try again later.");
   }
 }
 
@@ -210,7 +212,7 @@ async function sendPasswordReset(ws) {
 async function performAccountAction(ws) {
   const action = ws.pendingAccountAction;
   ws.pendingAccountAction = "";
-  ws.pendingSms = null;
+  ws.requestedSmsResource = null;
   ws.fromNumber = "";
   ws.transferOffered = false;
   ws.transferSummary = "";
@@ -284,6 +286,7 @@ wss.on("connection", (ws) => {
   ws.pinDigits = "";
   ws.accountVerified = false;
   ws.pendingAccountAction = "";
+  ws.requestedSmsResource = null;
   ws.transferStarting = false;
   ws.transferTimer = null;
 
@@ -348,25 +351,6 @@ wss.on("connection", (ws) => {
     const question = toSpeechText(message.voicePrompt).slice(0, 800);
     if (!question) return;
 
-    if (ws.pendingSms) {
-      if (isAffirmativeTransferResponse(question)) {
-        ws.processing = true;
-        try {
-          await sendRequestedSms(ws);
-        } finally {
-          ws.processing = false;
-        }
-        return;
-      }
-      if (isNegativeTransferResponse(question)) {
-        ws.pendingSms = null;
-        sendSpeech(ws, "No problem. I will not send a text. What else can I help with?");
-        return;
-      }
-      sendSpeech(ws, "Before I can text you, I need a clear yes or no. Do you agree to receive this requested transactional text from NEXRA?");
-      return;
-    }
-
     if (ws.transferOffered) {
       if (isAffirmativeTransferResponse(question)) {
         ws.transferOffered = false;
@@ -399,8 +383,13 @@ wss.on("connection", (ws) => {
     }
 
     if (isSmsRequest(question)) {
-      ws.pendingSms = smsResourceFor(question, ws.history);
-      sendSpeech(ws, "I can text that link to the number you're calling from. NEXRA sends transactional messages, message frequency varies, and message and data rates may apply. Reply STOP to opt out or HELP for help. Do you agree to receive this requested text?");
+      ws.requestedSmsResource = smsResourceFor(question, ws.history);
+      ws.processing = true;
+      try {
+        await sendRequestedSms(ws);
+      } finally {
+        ws.processing = false;
+      }
       return;
     }
 
@@ -440,3 +429,4 @@ module.exports.isNegativeTransferResponse = isNegativeTransferResponse;
 module.exports.announceAndTransfer = announceAndTransfer;
 module.exports.isSmsRequest = isSmsRequest;
 module.exports.smsResourceFor = smsResourceFor;
+module.exports.SMS_OPT_IN_INSTRUCTIONS = SMS_OPT_IN_INSTRUCTIONS;

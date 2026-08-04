@@ -6,6 +6,7 @@ const SUPABASE_URL = String(process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_
 const SERVICE_KEY = String(process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY || "").trim();
 const DISCLOSURE_VERSION = "2026-08-04";
 const SMS_DISCLOSURE = "I agree to receive transactional SMS messages from N3XRA, including requested links, account and security notices, appointment reminders, records notifications, and support responses. Message frequency varies. Message and data rates may apply. Reply STOP to opt out or HELP for help. Consent is not a condition of purchase.";
+const VALID_CONSENT_METHODS = new Set(["web_form", "sms_keyword"]);
 
 function serviceHeaders(extra = {}) {
   if (!SERVICE_KEY) throw new Error("Supabase service access is not configured.");
@@ -61,7 +62,7 @@ async function recordSmsConsent({
   const phoneE164 = normalizePhone(phone);
   if (!phoneE164) throw new Error("Enter a valid mobile phone number including area code.");
   if (!["opt_in", "opt_out"].includes(eventType)) throw new Error("Invalid consent event.");
-  if (!["web_form", "verbal", "sms_keyword"].includes(method)) throw new Error("Invalid consent method.");
+  if (!VALID_CONSENT_METHODS.has(method)) throw new Error("Invalid consent method.");
   const rows = await supabaseJson("sms_consent_events", {
     method: "POST",
     headers: { "Content-Type": "application/json", Prefer: "return=representation" },
@@ -114,6 +115,7 @@ async function optionalAuthenticatedUser(req) {
 module.exports = {
   DISCLOSURE_VERSION,
   SMS_DISCLOSURE,
+  VALID_CONSENT_METHODS,
   allowedWebOrigin,
   consentHash,
   latestConsent,

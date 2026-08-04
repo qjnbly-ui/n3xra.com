@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/site-nav.css">
-  <link rel="stylesheet" href="/sms-consent/sms-consent.css?v=2">
+  <link rel="stylesheet" href="/sms-consent/sms-consent.css?v=3">
   <link rel="stylesheet" href="/assets/home-shell.css?v=1">
   <script src="/assets/site-nav.js" defer></script>
   <script src="/shared/config.js"></script>
@@ -119,17 +119,26 @@
       </div>
     </section>
 
-    <section class="sms-section sms-evidence-band" id="verbal-consent" aria-labelledby="verbal-consent-title">
-      <div class="sms-section-inner sms-evidence-layout">
-        <div class="sms-evidence-heading">
-          <p class="eyebrow">Verbal opt-in evidence</p>
-          <h2 id="verbal-consent-title">Clear permission before any text is sent.</h2>
-          <p>When a caller to <strong>(541) 652-6840</strong> requests a text message, the N3XRA AI receptionist reads the script shown here before sending anything.</p>
+    <section class="sms-section sms-opt-in-band" id="sms-opt-in-methods" aria-labelledby="sms-opt-in-title">
+      <div class="sms-section-inner sms-opt-in-layout">
+        <div class="sms-opt-in-heading">
+          <p class="eyebrow">How to opt in</p>
+          <h2 id="sms-opt-in-title">Two clear ways to authorize texts.</h2>
+          <p>Calling N3XRA alone does not provide SMS consent. Choose either method below before requesting a text from the AI receptionist.</p>
         </div>
-        <div class="sms-script-card">
-          <p class="sms-script-label">Exact consent script</p>
-          <blockquote>“I can text that link to the number you’re calling from. NEXRA sends transactional messages, message frequency varies, and message and data rates may apply. Reply STOP to opt out or HELP for help. Do you agree to receive this requested text?”</blockquote>
-          <p>The caller must give a clear verbal yes. Merely calling N3XRA does not constitute consent. N3XRA records the originating number, consent timestamp, and Twilio Call SID as evidence.</p>
+        <div class="sms-methods-grid">
+          <article class="sms-method-card">
+            <span>01</span>
+            <p class="sms-method-label">Web form</p>
+            <h3>Use this consent page.</h3>
+            <p>Enter your mobile number above and actively select the unchecked SMS consent box.</p>
+          </article>
+          <article class="sms-method-card">
+            <span>02</span>
+            <p class="sms-method-label">Via text</p>
+            <h3>Text START to N3XRA.</h3>
+            <p>Send <strong>START</strong> to <strong>(541) 652-6840</strong>. You will receive a confirmation with HELP and STOP instructions.</p>
+          </article>
         </div>
       </div>
     </section>
