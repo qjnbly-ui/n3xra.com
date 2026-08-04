@@ -961,11 +961,33 @@ async function openRecords() {
 
   setStatus("Opening Records...");
   if (!memberships.length) {
-    const inviteCode = getInviteCode();
-    const { data, error } = await supabase.rpc("bootstrap_organization", {
-      input_organization_name: inviteCode ? null : "Personal",
-      input_invite_code: inviteCode || null,
-    });
+    const inviteCode = String(
+      getInviteCode()
+      || currentSession.user.user_metadata?.invite_code
+      || ""
+    ).trim();
+    let data = null;
+    let error = null;
+
+    if (inviteCode.toUpperCase().startsWith("DEMO-")) {
+      const result = await supabase.functions.invoke("platform-admin", {
+        body: {
+          action: "claim-records-demo-workspace",
+          code: inviteCode,
+        },
+      });
+      data = result.data?.error ? null : {
+        active_organization_id: result.data?.organizationId || null,
+      };
+      error = result.error || (result.data?.error ? new Error(result.data.error) : null);
+    } else {
+      const result = await supabase.rpc("bootstrap_organization", {
+        input_organization_name: inviteCode ? null : "Personal",
+        input_invite_code: inviteCode || null,
+      });
+      data = result.data;
+      error = result.error;
+    }
     if (error) {
       setStatus(error.message || "Unable to open Records.", "error");
       return;

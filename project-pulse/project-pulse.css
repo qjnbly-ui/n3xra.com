@@ -59,10 +59,13 @@ body { margin: 0; color: var(--pulse-ink); background: #f5f8fb; font-family: var
 .pulse-recent-item time { color: #148daf; font-size: .7rem; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; }
 .pulse-recent-item h3 { margin: 0; font: 600 1.15rem/1.3 var(--pulse-display); }
 .pulse-recent-item p { margin: 0; color: var(--pulse-muted); line-height: 1.65; }
-.pulse-recent-actions { display: flex; justify-content: center; padding-top: 2rem; }
+.pulse-recent-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: .75rem; padding-top: 2rem; }
 .pulse-recent-toggle { min-height: 46px; padding: .75rem 1.15rem; color: #0c7290; background: #fff; border: 1px solid rgba(12,114,144,.24); border-radius: 999px; font: 800 .76rem var(--pulse-body); cursor: pointer; transition: color 160ms ease, border-color 160ms ease, background 160ms ease; }
 .pulse-recent-toggle:hover { color: #07576f; background: #f1f9fb; border-color: rgba(12,114,144,.42); }
 .pulse-recent-toggle:focus-visible { outline: 3px solid rgba(43,195,239,.22); outline-offset: 3px; }
+.pulse-updates-link { min-height: 46px; display: inline-flex; align-items: center; gap: .55rem; padding: .75rem 1.15rem; color: #fff; background: #0b2639; border: 1px solid #0b2639; border-radius: 999px; font: 800 .76rem var(--pulse-body); text-decoration: none; transition: color 160ms ease, background 160ms ease, border-color 160ms ease; }
+.pulse-updates-link:hover { color: #06121d; background: var(--pulse-cyan); border-color: var(--pulse-cyan); }
+.pulse-updates-link:focus-visible { outline: 3px solid rgba(43,195,239,.22); outline-offset: 3px; }
 
 .pulse-method-section { color: #fff; background: #0a1018; }
 .pulse-method { display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; }

@@ -245,6 +245,40 @@ function createInviteToken() {
   return base64Url(bytes);
 }
 
+function normalizeDemoClaimCode(value: unknown) {
+  return String(value || "").trim().toUpperCase().replace(/\s+/g, "");
+}
+
+function createDemoClaimCode() {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const bytes = new Uint8Array(12);
+  crypto.getRandomValues(bytes);
+  const token = Array.from(bytes, (value) => alphabet[value % alphabet.length]).join("");
+  return `DEMO-${token.slice(0, 4)}-${token.slice(4, 8)}-${token.slice(8, 12)}`;
+}
+
+function createOrganizationSlug(name: string) {
+  const base = name
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 48) || "demo";
+  const suffixBytes = new Uint8Array(5);
+  crypto.getRandomValues(suffixBytes);
+  const suffix = Array.from(suffixBytes, (value) => value.toString(16).padStart(2, "0")).join("");
+  return `${base}-${suffix}`;
+}
+
+function buildDemoClaimUrl(request: Request, code: string, email = "") {
+  const claimUrl = new URL(getAppOrigin(request) + "/n3xra-records/login.html");
+  claimUrl.searchParams.set("mode", "signup");
+  claimUrl.searchParams.set("signup", "invite");
+  claimUrl.searchParams.set("invite", code);
+  if (email) claimUrl.searchParams.set("email", email);
+  return claimUrl.toString();
+}
+
 async function getPlatformAdmin(adminClient: ReturnType<typeof createClient>, user: { id: string; email?: string | null }) {
   const email = normalizeEmail(user.email);
   if (email === PLATFORM_OWNER_EMAIL) {
@@ -650,6 +684,28 @@ Deno.serve(async (request) => {
       return jsonResponse({ ok: true, role: "admin" });
     }
 
+    if (action === "claim-records-demo-workspace") {
+      const claimCode = normalizeDemoClaimCode(payload.code);
+      if (!claimCode.startsWith("DEMO-") || claimCode.length < 15) {
+        return jsonResponse({ error: "Enter a valid demo claim code." }, 400);
+      }
+
+      const codeHash = await sha256(claimCode);
+      const { data, error } = await adminClient.rpc("claim_records_demo_workspace", {
+        input_code_hash: codeHash,
+        input_claimant_user_id: user.id,
+        input_claimant_email: normalizeEmail(user.email),
+      });
+
+      if (error) return jsonResponse({ error: error.message }, 400);
+      if (data?.ok === false) return jsonResponse({ error: data?.error || "Unable to claim the demo workspace." }, 400);
+      return jsonResponse({
+        ok: true,
+        organizationId: data?.organization_id || null,
+        organizationName: data?.organization_name || null,
+      });
+    }
+
     const platformAdmin = await getPlatformAdmin(adminClient, { id: user.id, email: user.email });
     if (!platformAdmin) {
       return jsonResponse({ error: "Platform admin access required." }, 403);
@@ -669,6 +725,151 @@ Deno.serve(async (request) => {
     if (action === "list-platform-accounts") {
       const { accounts } = await loadPlatformAccountData(adminClient);
       return jsonResponse({ ok: true, accounts, count: accounts.length });
+    }
+
+    if (action === "list-records-demo-workspaces") {
+      const { data, error } = await adminClient
+        .from("records_demo_workspace_claims")
+        .select("id,organization_id,code_last_four,recipient_email,status,expires_at,claimed_at,created_at,organizations(name,slug,owner_user_id)")
+        .order("created_at", { ascending: false })
+        .limit(200);
+      if (error) return jsonResponse({ error: error.message }, 400);
+
+      const workspaces = (data || []).map((claim: any) => {
+        const organization = Array.isArray(claim.organizations) ? claim.organizations[0] : claim.organizations;
+        return {
+          id: claim.id,
+          organizationId: claim.organization_id,
+          organizationName: organization?.name || "Demo workspace",
+          slug: organization?.slug || "",
+          codeLastFour: claim.code_last_four,
+          recipientEmail: claim.recipient_email || "",
+          status: claim.status,
+          expiresAt: claim.expires_at,
+          claimedAt: claim.claimed_at,
+          createdAt: claim.created_at,
+        };
+      });
+      return jsonResponse({ ok: true, workspaces, count: workspaces.length });
+    }
+
+    if (action === "create-records-demo-workspace") {
+      const organizationName = textValue(payload.organizationName, 160);
+      const recipientEmail = normalizeEmail(payload.recipientEmail);
+      if (!organizationName) return jsonResponse({ error: "Enter an organization name." }, 400);
+      if (recipientEmail && !isValidEmail(recipientEmail)) {
+        return jsonResponse({ error: "Enter a valid recipient email or leave it blank." }, 400);
+      }
+
+      const now = new Date();
+      const expiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString();
+      const code = createDemoClaimCode();
+      const codeHash = await sha256(normalizeDemoClaimCode(code));
+      const { data: organization, error: organizationError } = await adminClient
+        .from("organizations")
+        .insert({
+          name: organizationName,
+          slug: createOrganizationSlug(organizationName),
+          owner_user_id: user.id,
+          subscription_tier: "organization",
+          account_status: "trialing",
+          document_limit: 10000,
+          storage_limit_mb: 51200,
+          user_limit: 15,
+          public_embed_enabled: false,
+          subscription_current_period_end: expiresAt,
+        })
+        .select("id,name,slug")
+        .single();
+      if (organizationError) return jsonResponse({ error: organizationError.message }, 400);
+
+      const { error: membershipError } = await adminClient
+        .from("organization_memberships")
+        .insert({
+          organization_id: organization.id,
+          user_id: user.id,
+          role: "account_admin",
+          created_by: user.id,
+        });
+      if (membershipError) {
+        await adminClient.from("organizations").delete().eq("id", organization.id);
+        return jsonResponse({ error: membershipError.message }, 400);
+      }
+
+      const { data: claim, error: claimError } = await adminClient
+        .from("records_demo_workspace_claims")
+        .insert({
+          organization_id: organization.id,
+          code_hash: codeHash,
+          code_last_four: code.slice(-4),
+          recipient_email: recipientEmail || null,
+          created_by_user_id: user.id,
+          expires_at: expiresAt,
+        })
+        .select("id,status,expires_at,created_at")
+        .single();
+      if (claimError) {
+        await adminClient.from("organizations").delete().eq("id", organization.id);
+        return jsonResponse({ error: claimError.message }, 400);
+      }
+
+      return jsonResponse({
+        ok: true,
+        workspace: {
+          id: claim.id,
+          organizationId: organization.id,
+          organizationName: organization.name,
+          status: claim.status,
+          expiresAt: claim.expires_at,
+          createdAt: claim.created_at,
+        },
+        code,
+        claimUrl: buildDemoClaimUrl(request, code, recipientEmail),
+      });
+    }
+
+    if (action === "rotate-records-demo-claim-code") {
+      const claimId = String(payload.claimId || "").trim();
+      if (!isValidUuid(claimId)) return jsonResponse({ error: "A valid claimId is required." }, 400);
+      const code = createDemoClaimCode();
+      const codeHash = await sha256(normalizeDemoClaimCode(code));
+      const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+      const { data: claim, error } = await adminClient
+        .from("records_demo_workspace_claims")
+        .update({
+          code_hash: codeHash,
+          code_last_four: code.slice(-4),
+          expires_at: expiresAt,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", claimId)
+        .eq("status", "pending")
+        .select("id,recipient_email,expires_at")
+        .maybeSingle();
+      if (error) return jsonResponse({ error: error.message }, 400);
+      if (!claim) return jsonResponse({ error: "Only a pending demo claim can be rotated." }, 400);
+      return jsonResponse({
+        ok: true,
+        code,
+        expiresAt: claim.expires_at,
+        claimUrl: buildDemoClaimUrl(request, code, claim.recipient_email || ""),
+      });
+    }
+
+    if (action === "revoke-records-demo-claim") {
+      const claimId = String(payload.claimId || "").trim();
+      if (!isValidUuid(claimId)) return jsonResponse({ error: "A valid claimId is required." }, 400);
+      const now = new Date().toISOString();
+      const { data: claim, error } = await adminClient
+        .from("records_demo_workspace_claims")
+        .update({ status: "revoked", revoked_at: now, updated_at: now })
+        .eq("id", claimId)
+        .eq("status", "pending")
+        .select("id")
+        .maybeSingle();
+      if (error) return jsonResponse({ error: error.message }, 400);
+      if (!claim) return jsonResponse({ error: "Only a pending demo claim can be revoked." }, 400);
+      return jsonResponse({ ok: true });
     }
 
     if (action === "list-platform-billing") {

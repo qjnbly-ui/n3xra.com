@@ -128,7 +128,7 @@
                 <div class="signup-mode-toggle" role="tablist" aria-label="Signup mode">
                   <button class="auth-toggle-btn is-active" id="signup-mode-create-org" type="button" aria-pressed="true">Create organization</button>
                   <button class="auth-toggle-btn" id="signup-mode-personal" type="button" aria-pressed="false">Personal</button>
-                  <button class="auth-toggle-btn" id="signup-mode-invite" type="button" aria-pressed="false">Join by invite</button>
+                  <button class="auth-toggle-btn" id="signup-mode-invite" type="button" aria-pressed="false">Join or claim</button>
                 </div>
               </div>
               <div class="field">
@@ -163,8 +163,9 @@
                 <p class="field-note" id="signup-referral-status">If a N3XRA partner referred you, enter their code here. It will be permanently connected to your account.</p>
               </div>
               <div class="field hidden" id="signup-invite-code-field">
-                <label for="signup-invite-code">Invite code</label>
-                <input id="signup-invite-code" type="text" placeholder="Enter invite code">
+                <label for="signup-invite-code">Invite or demo claim code</label>
+                <input id="signup-invite-code" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Enter invite or DEMO code">
+                <p class="field-note">A demo claim code transfers the prepared workspace—including its completed meeting and files—to this account.</p>
               </div>
               <div class="actions">
                 <button class="btn block" type="submit">Create account</button>
@@ -226,6 +227,6 @@
 
   <script src="/shared/config.js"></script>
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
-  <script type="module" src="/n3xra-records/login.js?v=20260729-static-routes"></script>
+  <script type="module" src="/n3xra-records/login.js?v=20260804-demo-claims"></script>
 </body>
 </html>

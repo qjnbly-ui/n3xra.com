@@ -1,6 +1,6 @@
 import { createBrowserSupabase, hasConfig, getSessionOrNull } from "/shared/lib/supabase-client.js";
 import { getPlanConfig } from "./lib/plan-config.js";
-import { isPlatformAdminEmail } from "/shared/lib/orgs.js";
+import { isPlatformAdminEmail, setStoredActiveOrganizationId } from "/shared/lib/orgs.js";
 
 const setupPanel = document.getElementById("setup-panel");
 const adminPanel = document.getElementById("admin-panel");
@@ -48,6 +48,15 @@ const emergencyAccessReason = document.getElementById("emergency-access-reason")
 const emergencyAccessConfirm = document.getElementById("emergency-access-confirm");
 const emergencyAccessStatus = document.getElementById("emergency-access-status");
 const emergencyAccessEnd = document.getElementById("emergency-access-end");
+const demoWorkspaceForm = document.getElementById("demo-workspace-form");
+const demoWorkspaceRefresh = document.getElementById("demo-workspace-refresh");
+const demoWorkspaceList = document.getElementById("demo-workspace-list");
+const demoWorkspaceStatus = document.getElementById("demo-workspace-status");
+const demoWorkspaceClaimResult = document.getElementById("demo-workspace-claim-result");
+const demoWorkspaceClaimCode = document.getElementById("demo-workspace-claim-code");
+const demoWorkspaceClaimUrl = document.getElementById("demo-workspace-claim-url");
+const demoWorkspaceCopyCode = document.getElementById("demo-workspace-copy-code");
+const demoWorkspaceCopyLink = document.getElementById("demo-workspace-copy-link");
 
 let supabase = null;
 let currentSession = null;
@@ -56,6 +65,9 @@ let adminUsageAccounts = [];
 let selectedOrganizationId = "";
 let activeEmergencyAccessId = "";
 let activeSupportGrant = null;
+let demoWorkspaces = [];
+let latestDemoClaimCode = "";
+let latestDemoClaimUrl = "";
 
 async function hasPlatformAdminAccess() {
   if (isPlatformAdminEmail(currentSession?.user?.email)) return true;
@@ -81,6 +93,16 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
+}
+
+async function invokePlatformAdmin(action, payload = {}) {
+  const { data, error } = await supabase.functions.invoke("platform-admin", {
+    body: { action, ...payload },
+  });
+  if (error || data?.error) {
+    throw new Error(data?.error || error?.message || "Admin request failed.");
+  }
+  return data;
 }
 
 function getSelectedOrganization() {
@@ -411,6 +433,97 @@ async function loadOrganizations() {
   renderSelectedOrganization();
   renderAdminUsageOverview();
   setStatus(adminStatus, `${organizations.length} organization${organizations.length === 1 ? "" : "s"} loaded.`, "success");
+}
+
+function renderDemoWorkspaces() {
+  if (!demoWorkspaceList) return;
+  demoWorkspaceList.innerHTML = demoWorkspaces.length ? demoWorkspaces.map((workspace) => {
+    const status = String(workspace.status || "pending");
+    const pending = status === "pending";
+    const statusDate = status === "claimed"
+      ? `Claimed ${formatDateTime(workspace.claimedAt)}`
+      : `Expires ${formatDateTime(workspace.expiresAt)}`;
+    return `
+      <article class="records-demo-workspace-row">
+        <div>
+          <strong>${escapeHtml(workspace.organizationName)}</strong>
+          <p>${escapeHtml(status)} · ${escapeHtml(statusDate)}${workspace.recipientEmail ? ` · ${escapeHtml(workspace.recipientEmail)}` : ""}${pending ? ` · code ending ${escapeHtml(workspace.codeLastFour)}` : ""}</p>
+        </div>
+        <div class="records-button-group">
+          ${pending ? `<button class="portal-button portal-button-secondary" type="button" data-demo-action="rotate" data-demo-id="${escapeHtml(workspace.id)}">New code</button>` : ""}
+          ${pending ? `<button class="portal-button portal-button-secondary" type="button" data-demo-action="revoke" data-demo-id="${escapeHtml(workspace.id)}">Revoke</button>` : ""}
+          ${pending ? `<button class="portal-button" type="button" data-demo-action="open" data-organization-id="${escapeHtml(workspace.organizationId)}">Open workspace</button>` : ""}
+        </div>
+      </article>
+    `;
+  }).join("") : '<p class="field-note">No demo workspaces have been created.</p>';
+}
+
+function showDemoClaimResult(code, claimUrl) {
+  latestDemoClaimCode = String(code || "");
+  latestDemoClaimUrl = String(claimUrl || "");
+  if (demoWorkspaceClaimCode) demoWorkspaceClaimCode.textContent = latestDemoClaimCode;
+  if (demoWorkspaceClaimUrl) demoWorkspaceClaimUrl.textContent = latestDemoClaimUrl;
+  demoWorkspaceClaimResult?.classList.toggle("hidden", !latestDemoClaimCode);
+}
+
+async function copyDemoText(value, successMessage) {
+  if (!value) return;
+  await navigator.clipboard.writeText(value);
+  setStatus(demoWorkspaceStatus, successMessage, "success");
+}
+
+async function loadDemoWorkspaces() {
+  if (!demoWorkspaceList) return;
+  const data = await invokePlatformAdmin("list-records-demo-workspaces");
+  demoWorkspaces = Array.isArray(data.workspaces) ? data.workspaces : [];
+  renderDemoWorkspaces();
+}
+
+async function createDemoWorkspace(event) {
+  event.preventDefault();
+  setStatus(demoWorkspaceStatus, "Creating demo workspace...");
+  try {
+    const data = await invokePlatformAdmin("create-records-demo-workspace", {
+      organizationName: document.getElementById("demo-workspace-name")?.value || "",
+      recipientEmail: document.getElementById("demo-workspace-email")?.value || "",
+    });
+    showDemoClaimResult(data.code, data.claimUrl);
+    event.currentTarget.reset();
+    await Promise.all([loadDemoWorkspaces(), loadOrganizations()]);
+    setStatus(demoWorkspaceStatus, "Demo workspace created. Save the one-time code, then open the workspace to prepare the meeting.", "success");
+  } catch (error) {
+    setStatus(demoWorkspaceStatus, error.message, "error");
+  }
+}
+
+async function handleDemoWorkspaceAction(event) {
+  const button = event.target.closest("button[data-demo-action]");
+  if (!button) return;
+  const action = button.dataset.demoAction;
+  const claimId = button.dataset.demoId || "";
+
+  if (action === "open") {
+    setStoredActiveOrganizationId(button.dataset.organizationId || "");
+    window.location.href = "/n3xra-records/library/";
+    return;
+  }
+
+  try {
+    if (action === "rotate") {
+      setStatus(demoWorkspaceStatus, "Generating a replacement claim code...");
+      const data = await invokePlatformAdmin("rotate-records-demo-claim-code", { claimId });
+      showDemoClaimResult(data.code, data.claimUrl);
+      setStatus(demoWorkspaceStatus, "A new claim code was generated. The previous code no longer works.", "success");
+    } else if (action === "revoke") {
+      setStatus(demoWorkspaceStatus, "Revoking demo claim...");
+      await invokePlatformAdmin("revoke-records-demo-claim", { claimId });
+      setStatus(demoWorkspaceStatus, "Demo claim revoked. The workspace remains available to the admin.", "success");
+    }
+    await loadDemoWorkspaces();
+  } catch (error) {
+    setStatus(demoWorkspaceStatus, error.message, "error");
+  }
 }
 
 async function handleLogout() {
@@ -812,6 +925,11 @@ async function init() {
   await Promise.all([
     organizationList ? loadOrganizations() : Promise.resolve(),
     adminUsageList ? loadAdminUsageOverview() : Promise.resolve(),
+    demoWorkspaceList
+      ? loadDemoWorkspaces().catch((error) => {
+          setStatus(demoWorkspaceStatus, error.message || "Unable to load demo workspaces.", "error");
+        })
+      : Promise.resolve(),
   ]);
 
   logoutButton?.addEventListener("click", handleLogout);
@@ -830,6 +948,18 @@ async function init() {
   supportWorkspaceLinks.forEach((link) => link.addEventListener("click", openRecordsSupportView));
   organizationsLinks.forEach((link) => link.addEventListener("click", closeRecordsSupportView));
   supportWorkspaceClose?.addEventListener("click", closeRecordsSupportView);
+  demoWorkspaceForm?.addEventListener("submit", createDemoWorkspace);
+  demoWorkspaceRefresh?.addEventListener("click", async () => {
+    try {
+      await loadDemoWorkspaces();
+      setStatus(demoWorkspaceStatus, "Demo workspaces refreshed.", "success");
+    } catch (error) {
+      setStatus(demoWorkspaceStatus, error.message, "error");
+    }
+  });
+  demoWorkspaceCopyCode?.addEventListener("click", () => copyDemoText(latestDemoClaimCode, "Claim code copied."));
+  demoWorkspaceCopyLink?.addEventListener("click", () => copyDemoText(latestDemoClaimUrl, "Claim link copied."));
+  demoWorkspaceList?.addEventListener("click", handleDemoWorkspaceAction);
 }
 
 init();
