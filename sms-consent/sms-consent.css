@@ -114,6 +114,31 @@ h1 {
 .sms-status.is-success { color: #176b55; }
 .sms-honeypot { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
 
+.sms-evidence {
+  margin-top: 2.25rem;
+  padding-top: 2rem;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  line-height: 1.65;
+}
+
+.sms-evidence h2 {
+  margin: 0 0 0.75rem;
+  color: var(--ink);
+  font-family: "Fraunces", serif;
+  font-size: clamp(1.45rem, 4vw, 2rem);
+}
+
+.sms-evidence blockquote {
+  margin: 1rem 0;
+  padding: 1rem 1.15rem;
+  border-left: 4px solid #397467;
+  border-radius: 0 12px 12px 0;
+  color: var(--ink);
+  background: #f5f7f5;
+  font-weight: 700;
+}
+
 @media (max-width: 560px) {
   .sms-shell { padding: 1.5rem 0.85rem; }
   .sms-card { border-radius: 20px; }
