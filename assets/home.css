@@ -3543,12 +3543,9 @@ body.site-menu-is-open .home-topbar {
   position: relative;
   isolation: isolate;
   overflow: hidden;
-  padding: clamp(2.4rem, 5vw, 4rem) 0;
+  padding: clamp(3.25rem, 5vw, 4.5rem) 0;
   color: #ffffff;
-  background:
-    radial-gradient(circle at 8% 8%, rgba(35, 199, 244, 0.16), transparent 26rem),
-    radial-gradient(circle at 92% 86%, rgba(47, 108, 255, 0.13), transparent 28rem),
-    linear-gradient(145deg, #050a12 0%, #08111d 55%, #07101a 100%);
+  background: #050a12;
 }
 
 .home-growth-partners-inner {
@@ -4219,7 +4216,7 @@ body.site-menu-is-open .home-topbar {
 .work-proof {
   position: relative;
   overflow: hidden;
-  padding: clamp(4rem, 6vw, 5.5rem) 0;
+  padding: clamp(4rem, 6vw, 5.5rem) 0 clamp(2.25rem, 3.5vw, 3.25rem);
   color: #ffffff;
   background: #050a12;
 }
@@ -4409,7 +4406,7 @@ body.site-menu-is-open .home-topbar {
 
 @media (max-width: 700px) {
   .work-proof {
-    padding: 4rem 0;
+    padding: 4rem 0 2.5rem;
   }
 
   .work-proof-heading h2 {
@@ -4467,9 +4464,9 @@ body.site-menu-is-open .home-topbar {
 /* Software projects */
 .software-showcase {
   position: relative;
-  padding: clamp(4rem, 6vw, 5.5rem) 0;
+  padding: clamp(2.25rem, 3.5vw, 3.25rem) 0 clamp(3rem, 4vw, 4rem);
   color: #ffffff;
-  background: linear-gradient(180deg, #050a12 0%, #081522 100%);
+  background: #050a12;
 }
 
 .software-showcase-shell {
@@ -4527,7 +4524,7 @@ body.site-menu-is-open .home-topbar {
 
 @media (max-width: 520px) {
   .software-showcase {
-    padding: 4rem 0;
+    padding: 2.5rem 0 3.5rem;
   }
 
   .software-showcase-heading h2 {
