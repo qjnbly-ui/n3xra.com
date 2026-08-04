@@ -4,6 +4,7 @@ const {
   saveCredential,
   validPin,
 } = require("./_account-phone");
+const { latestConsent } = require("./_sms-consent");
 
 module.exports = async function handler(req, res) {
   if (req.method !== "GET" && req.method !== "POST") {
@@ -15,10 +16,13 @@ module.exports = async function handler(req, res) {
     if (!user?.id) return res.status(401).json({ error: "Sign in to manage phone access." });
     if (req.method === "GET") {
       const credential = await getCredentialByUser(user.id);
+      const consent = credential?.phone_e164 ? await latestConsent(credential.phone_e164) : null;
       return res.status(200).json({
         configured: Boolean(credential),
         phone: credential?.phone_e164 || "",
         lastAuthenticatedAt: credential?.last_authenticated_at || null,
+        smsConsentActive: consent?.event_type === "opt_in",
+        smsConsentUpdatedAt: consent?.created_at || null,
       });
     }
     const body = req.body && typeof req.body === "object" ? req.body : {};

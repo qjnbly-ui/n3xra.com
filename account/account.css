@@ -599,6 +599,24 @@ body {
   line-height: 1.5;
 }
 
+.account-sms-state {
+  width: fit-content;
+  margin: 0;
+  padding: 0.35rem 0.6rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  color: rgba(255, 255, 255, 0.68);
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+
+.account-sms-state.is-active {
+  border-color: rgba(35, 208, 172, 0.3);
+  color: #a7f3d0;
+  background: rgba(35, 208, 172, 0.1);
+}
+
 .account-sms-disclosure p {
   margin: 0;
 }

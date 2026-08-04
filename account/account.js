@@ -38,6 +38,7 @@ const accountPhoneInput = document.getElementById("account-phone");
 const accountPhonePinInput = document.getElementById("account-phone-pin");
 const accountPhonePinConfirmInput = document.getElementById("account-phone-pin-confirm");
 const accountSmsConsentInput = document.getElementById("account-sms-consent");
+const accountSmsState = document.getElementById("account-sms-state");
 const accountName = document.getElementById("account-name");
 const accountEmail = document.getElementById("account-email");
 const profileFullNameInput = document.getElementById("profile-full-name");
@@ -92,6 +93,8 @@ let platformAdminAccess = null;
 let validatedSignupReferralCode = "";
 let signupReferralTimer = null;
 let phoneAccessConfigured = false;
+let savedAccountPhone = "";
+let smsConsentActive = false;
 
 function normalizeReferralCode(value) {
   return String(value || "").trim().toUpperCase().replace(/[^A-Z0-9-]/g, "").slice(0, 24);
@@ -575,7 +578,21 @@ async function loadPhoneAccess() {
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload?.error || "Unable to load phone access.");
   phoneAccessConfigured = Boolean(payload.configured);
-  if (accountPhoneInput) accountPhoneInput.value = payload.phone || "";
+  savedAccountPhone = payload.phone || "";
+  smsConsentActive = Boolean(payload.smsConsentActive);
+  if (accountPhoneInput) accountPhoneInput.value = savedAccountPhone;
+  if (accountSmsConsentInput) accountSmsConsentInput.checked = smsConsentActive;
+  if (accountSmsState) {
+    accountSmsState.textContent = smsConsentActive
+      ? "SMS messages are active for this saved number."
+      : "SMS messages are currently off.";
+    accountSmsState.classList.toggle("is-active", smsConsentActive);
+  }
+  [accountPhonePinInput, accountPhonePinConfirmInput].forEach((input) => {
+    if (!input) return;
+    input.required = !phoneAccessConfigured;
+    input.placeholder = phoneAccessConfigured ? "Leave blank to keep current PIN" : "";
+  });
   return payload;
 }
 
@@ -700,11 +717,13 @@ async function renderDashboard(message = "") {
 
   try {
     await loadPhoneAccess();
-    if (!phoneAccessConfigured) {
+    if (!phoneAccessConfigured || !smsConsentActive) {
       openAccountSettings({ focusClose: false });
       if (phoneAccessDisclosure) phoneAccessDisclosure.open = true;
-      setStatus("Add your phone number and a four-digit keypad PIN for secure receptionist access.");
-      requestAnimationFrame(() => accountPhoneInput?.focus());
+      setStatus(phoneAccessConfigured
+        ? "SMS messages are off. Review the saved phone settings and choose whether to opt in."
+        : "Add your phone number and a four-digit keypad PIN for secure receptionist access, then choose whether to opt in to SMS.");
+      requestAnimationFrame(() => (phoneAccessConfigured ? accountSmsConsentInput : accountPhoneInput)?.focus());
     }
   } catch (error) {
     console.warn("Phone access could not be loaded", error);
@@ -1035,58 +1054,93 @@ async function handlePhoneAccessSave(event) {
   const phone = accountPhoneInput?.value.trim() || "";
   const pin = accountPhonePinInput?.value || "";
   const pinConfirm = accountPhonePinConfirmInput?.value || "";
-  if (!/^[0-9]{4}$/.test(pin)) {
+  const normalizedPhone = String(phone).replace(/\D/g, "").replace(/^1(?=\d{10}$)/, "");
+  const normalizedSavedPhone = String(savedAccountPhone).replace(/\D/g, "").replace(/^1(?=\d{10}$)/, "");
+  const phoneChanged = normalizedPhone !== normalizedSavedPhone;
+  const pinProvided = Boolean(pin || pinConfirm);
+  const needsPhoneSave = !phoneAccessConfigured || phoneChanged || pinProvided;
+  const requestedSmsConsent = Boolean(accountSmsConsentInput?.checked);
+  const consentChanged = requestedSmsConsent !== smsConsentActive;
+
+  if (needsPhoneSave && !/^[0-9]{4}$/.test(pin)) {
     setStatus("Use exactly four digits for your phone PIN.", "error");
     accountPhonePinInput?.focus();
     return;
   }
-  if (pin !== pinConfirm) {
+  if (needsPhoneSave && pin !== pinConfirm) {
     setStatus("Phone PINs do not match.", "error");
     accountPhonePinConfirmInput?.focus();
     return;
   }
+  if (!needsPhoneSave && !consentChanged) {
+    setStatus("Your phone and SMS settings are already saved.", "success");
+    return;
+  }
 
-  isSubmitting = true;
-  setStatus("Saving secure phone access...");
-  try {
-    const response = await fetch("/api/account-phone", {
+  async function saveSmsPreference(preferencePhone, consent) {
+    const response = await fetch("/api/sms-consent", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${currentSession.access_token}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ phone, pin, pinConfirm }),
+      body: JSON.stringify({
+        phone: preferencePhone,
+        consent,
+        company: "",
+        sourceUrl: `${window.location.origin}/account/#phone-receptionist`,
+      }),
     });
     const payload = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(payload?.error || "Unable to save phone access.");
-    phoneAccessConfigured = true;
-    if (accountPhoneInput) accountPhoneInput.value = payload.phone || phone;
-    accountPhonePinInput.value = "";
-    accountPhonePinConfirmInput.value = "";
-    if (accountSmsConsentInput?.checked) {
-      setStatus("Phone access saved. Saving your optional SMS preference...");
-      const consentResponse = await fetch("/api/sms-consent", {
+    if (!response.ok) throw new Error(payload?.error || "Unable to save the SMS preference.");
+    return payload;
+  }
+
+  isSubmitting = true;
+  setStatus("Saving phone and SMS settings...");
+  try {
+    if (phoneChanged && smsConsentActive && savedAccountPhone) {
+      await saveSmsPreference(savedAccountPhone, false);
+      smsConsentActive = false;
+    }
+
+    let activePhone = savedAccountPhone || phone;
+    if (needsPhoneSave) {
+      const response = await fetch("/api/account-phone", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${currentSession.access_token}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          phone: payload.phone || phone,
-          consent: true,
-          company: "",
-          sourceUrl: `${window.location.origin}/account/#phone-receptionist`,
-        }),
+        body: JSON.stringify({ phone, pin, pinConfirm }),
       });
-      const consentPayload = await consentResponse.json().catch(() => ({}));
-      if (!consentResponse.ok) {
-        throw new Error(consentPayload?.error || "Phone access was saved, but the SMS preference could not be saved.");
-      }
-      accountSmsConsentInput.checked = false;
-      setStatus("Phone access and SMS preference saved. You can now request approved NEXRA links by text.", "success");
-    } else {
-      setStatus("Phone access saved. SMS messages remain off until you opt in.", "success");
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload?.error || "Unable to save phone access.");
+      phoneAccessConfigured = true;
+      savedAccountPhone = payload.phone || phone;
+      activePhone = savedAccountPhone;
+      if (accountPhoneInput) accountPhoneInput.value = activePhone;
+      accountPhonePinInput.value = "";
+      accountPhonePinConfirmInput.value = "";
+      [accountPhonePinInput, accountPhonePinConfirmInput].forEach((input) => {
+        input.required = false;
+        input.placeholder = "Leave blank to keep current PIN";
+      });
     }
+
+    if (requestedSmsConsent !== smsConsentActive) {
+      await saveSmsPreference(activePhone, requestedSmsConsent);
+      smsConsentActive = requestedSmsConsent;
+    }
+    if (accountSmsState) {
+      accountSmsState.textContent = smsConsentActive
+        ? "SMS messages are active for this saved number."
+        : "SMS messages are currently off.";
+      accountSmsState.classList.toggle("is-active", smsConsentActive);
+    }
+    setStatus(smsConsentActive
+      ? "Phone settings saved. SMS messages are active for this number."
+      : "Phone settings saved. SMS messages are off.", "success");
   } catch (error) {
     setStatus(getErrorMessage(error, "Unable to save phone access."), "error");
   } finally {
