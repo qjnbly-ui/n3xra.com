@@ -81,7 +81,7 @@ function isEmergencyRequest(value) {
 }
 
 function isSmsRequest(value) {
-  return /\b(text|sms|message)\b.*\b(me|my|link|information|info|details|website|page|that|it)\b|\b(send|share)\b.*\b(text|sms|link|that|it|information|info|details)\b/i.test(String(value || ""));
+  return /\b(text|sms|message)\b.*\b(me|my|link|information|info|details|website|page|that|it|summary|recap|next steps|instructions|directions|answer|explanation)\b|\b(send|share)\b.*\b(text|sms|link|that|it|information|info|details|summary|recap|next steps|instructions|directions|answer|explanation)\b/i.test(String(value || ""));
 }
 
 function normalizeSmsPlan(value) {
@@ -153,6 +153,7 @@ async function planRequestedSms(question, history) {
             "First determine exactly what the caller asked to receive. Prefer their explicit request; use recent context only to resolve references such as 'that' or 'the link.'",
             "Set shouldSend false when the requested content is unclear, unsupported, unsafe, sensitive, or would require private account data. In that case, put one short spoken question in clarification.",
             "When shouldSend is true, write a concise, useful transactional SMS in message. It may summarize the relevant answer, next step, or requested information instead of merely naming a page.",
+            "If the caller asks for a summary or recap, summarize the relevant recent conversation faithfully and include the most useful next step. Do not introduce topics that were not discussed.",
             "Choose the single destination that best supports the request, or none when a link would not help. Do not put any URL in message; the server adds the verified destination.",
             "Never include or request passwords, PINs, payment data, Social Security numbers, private account details, or claims not supported by the supplied knowledge.",
             `Allowed destinations:\n${destinations}`,

@@ -159,6 +159,8 @@ test("confirmed transfers announce the connection before ending ConversationRela
 test("receptionist recognizes requested texts and builds only approved N3XRA messages", () => {
   assert.equal(conversationServer.isSmsRequest("Can you text me the pricing link?"), true);
   assert.equal(conversationServer.isSmsRequest("Can you send that to me?"), true);
+  assert.equal(conversationServer.isSmsRequest("Send me a summary of what we discussed."), true);
+  assert.equal(conversationServer.isSmsRequest("Please share the next steps."), true);
   assert.equal(conversationServer.isSmsRequest("Tell me about pricing."), false);
   const plan = conversationServer.normalizeSmsPlan({
     shouldSend: true,
