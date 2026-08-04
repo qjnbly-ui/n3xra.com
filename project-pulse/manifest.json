@@ -2,13 +2,13 @@
   "schemaVersion": 1,
   "name": "N3XRA Project Pulse",
   "visibility": "public-safe",
-  "generatedAt": "2026-08-04T05:21:28.425Z",
-  "updatedAt": "2026-08-03T22:10:21-07:00",
-  "commit": "0c4a27c",
+  "generatedAt": "2026-08-04T14:55:21.520Z",
+  "updatedAt": "2026-08-04T07:45:06-07:00",
+  "commit": "c633e77",
   "summary": {
     "statement": "N3XRA is a connected technology platform comprising approximately 141,000 lines of source code across customer experiences, software products, APIs, database systems, administrative tools, and operational infrastructure.",
     "sourceFiles": 417,
-    "sourceLines": 140901,
+    "sourceLines": 141249,
     "products": 7,
     "pages": 97,
     "apiFunctions": 58,
@@ -18,15 +18,15 @@
   "sourceBreakdown": {
     "css": {
       "files": 26,
-      "lines": 31679
+      "lines": 31875
     },
     "html": {
       "files": 97,
-      "lines": 28511
+      "lines": 28515
     },
     "js": {
       "files": 166,
-      "lines": 58820
+      "lines": 58968
     },
     "sql": {
       "files": 104,
@@ -78,7 +78,7 @@
       "id": "company",
       "name": "N3XRA Company Platform",
       "route": "/account/",
-      "summary": "Shared identity, customer dashboards, billing, support, notifications, governance planning, and platform administration."
+      "summary": "Shared identity, customer dashboards, billing, support, AI receptionist, transactional messaging, governance planning, and platform administration."
     }
   ],
   "majorModules": [
@@ -91,11 +91,46 @@
     "Financial operations and reporting",
     "Subscriptions and billing",
     "Partner and referral programs",
-    "Notifications and support",
+    "AI receptionist, messaging, and support",
     "AI-assisted workflows",
     "Company governance planning"
   ],
   "recentCapabilities": [
+    {
+      "date": "2026-08-04",
+      "title": "Account-connected phone and messaging setup",
+      "summary": "N3XRA accounts now remember each customer's receptionist phone setup and messaging preference, show saved security status, and prompt incomplete accounts to finish setup."
+    },
+    {
+      "date": "2026-08-03",
+      "title": "Consent-aware transactional messaging",
+      "summary": "Customers can opt in through N3XRA's public web form or by texting START, receive requested links and account-related updates, and use STOP or HELP at any time."
+    },
+    {
+      "date": "2026-08-03",
+      "title": "Opportunity-aware live call handoffs",
+      "summary": "The receptionist evaluates business context, announces approved handoffs, and can privately brief N3XRA leadership before connecting qualified customer, project, partnership, or investment calls."
+    },
+    {
+      "date": "2026-08-03",
+      "title": "Secure phone account assistance",
+      "summary": "Recognized callers can use a keypad PIN for an account overview or request a password-reset email sent only to the address already associated with their account."
+    },
+    {
+      "date": "2026-08-03",
+      "title": "N3XRA AI receptionist",
+      "summary": "N3XRA's dedicated phone number now answers with a branded conversational AI voice that can explain the platform, capture caller needs, and guide people toward the right next step."
+    },
+    {
+      "date": "2026-08-01",
+      "title": "Printable website payment history",
+      "summary": "Website-project customers can open a print-ready payment history that summarizes charges, completed payments, current balances, and the applicable payment schedule."
+    },
+    {
+      "date": "2026-08-01",
+      "title": "Approved partner workspace",
+      "summary": "Approved N3XRA partners now have an account-connected workspace for referral activity, earnings, program details, and next steps, with profile details carried into applications where available."
+    },
     {
       "date": "2026-07-31",
       "title": "Guided Records AI navigation",
@@ -227,7 +262,7 @@
       {
         "id": "experiences",
         "name": "Public experiences",
-        "description": "Websites, product pages, project discovery, forms, support, and Ask N3XRA."
+        "description": "Websites, product pages, project discovery, forms, AI phone reception, messaging, support, and Ask N3XRA."
       },
       {
         "id": "accounts",
@@ -242,7 +277,7 @@
       {
         "id": "operations",
         "name": "Administration",
-        "description": "Product-specific and company-wide tools support accounts, billing, service, notifications, and planning."
+        "description": "Product-specific and company-wide tools support accounts, billing, service, customer communications, and planning."
       },
       {
         "id": "infrastructure",

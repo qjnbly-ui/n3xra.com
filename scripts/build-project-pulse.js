@@ -57,7 +57,7 @@ const PRODUCTS = [
     id: "company",
     name: "N3XRA Company Platform",
     route: "/account/",
-    summary: "Shared identity, customer dashboards, billing, support, notifications, governance planning, and platform administration.",
+    summary: "Shared identity, customer dashboards, billing, support, AI receptionist, transactional messaging, governance planning, and platform administration.",
   },
 ];
 
@@ -71,12 +71,54 @@ const MAJOR_MODULES = [
   "Financial operations and reporting",
   "Subscriptions and billing",
   "Partner and referral programs",
-  "Notifications and support",
+  "AI receptionist, messaging, and support",
   "AI-assisted workflows",
   "Company governance planning",
 ];
 
 const RECENT_CAPABILITIES = [
+  {
+    introducedBy: "c633e77",
+    date: "2026-08-04",
+    title: "Account-connected phone and messaging setup",
+    summary: "N3XRA accounts now remember each customer's receptionist phone setup and messaging preference, show saved security status, and prompt incomplete accounts to finish setup.",
+  },
+  {
+    introducedBy: "12d0149",
+    date: "2026-08-03",
+    title: "Consent-aware transactional messaging",
+    summary: "Customers can opt in through N3XRA's public web form or by texting START, receive requested links and account-related updates, and use STOP or HELP at any time.",
+  },
+  {
+    introducedBy: "cb1d65e",
+    date: "2026-08-03",
+    title: "Opportunity-aware live call handoffs",
+    summary: "The receptionist evaluates business context, announces approved handoffs, and can privately brief N3XRA leadership before connecting qualified customer, project, partnership, or investment calls.",
+  },
+  {
+    introducedBy: "e52f888",
+    date: "2026-08-03",
+    title: "Secure phone account assistance",
+    summary: "Recognized callers can use a keypad PIN for an account overview or request a password-reset email sent only to the address already associated with their account.",
+  },
+  {
+    introducedBy: "de43b3c",
+    date: "2026-08-03",
+    title: "N3XRA AI receptionist",
+    summary: "N3XRA's dedicated phone number now answers with a branded conversational AI voice that can explain the platform, capture caller needs, and guide people toward the right next step.",
+  },
+  {
+    introducedBy: "549385a",
+    date: "2026-08-01",
+    title: "Printable website payment history",
+    summary: "Website-project customers can open a print-ready payment history that summarizes charges, completed payments, current balances, and the applicable payment schedule.",
+  },
+  {
+    introducedBy: "9670ac2",
+    date: "2026-08-01",
+    title: "Approved partner workspace",
+    summary: "Approved N3XRA partners now have an account-connected workspace for referral activity, earnings, program details, and next steps, with profile details carried into applications where available.",
+  },
   {
     introducedBy: "ef14f3f",
     date: "2026-07-31",
@@ -234,7 +276,7 @@ const SYSTEM_MAP = {
     {
       id: "experiences",
       name: "Public experiences",
-      description: "Websites, product pages, project discovery, forms, support, and Ask N3XRA.",
+      description: "Websites, product pages, project discovery, forms, AI phone reception, messaging, support, and Ask N3XRA.",
     },
     {
       id: "accounts",
@@ -249,7 +291,7 @@ const SYSTEM_MAP = {
     {
       id: "operations",
       name: "Administration",
-      description: "Product-specific and company-wide tools support accounts, billing, service, notifications, and planning.",
+      description: "Product-specific and company-wide tools support accounts, billing, service, customer communications, and planning.",
     },
     {
       id: "infrastructure",
