@@ -36,6 +36,13 @@ test("account overview requests are separated from general receptionist question
   assert.equal(conversationServer.isAccountOverviewRequest("What does N3XRA Records do?"), false);
 });
 
+test("password reset requests are routed to the secured account action", () => {
+  assert.equal(conversationServer.isPasswordResetRequest("I forgot my password"), true);
+  assert.equal(conversationServer.isPasswordResetRequest("Please send me a reset link"), true);
+  assert.equal(conversationServer.isPasswordResetRequest("I can't sign in to my account"), true);
+  assert.equal(conversationServer.isPasswordResetRequest("Can you email a project estimate?"), false);
+});
+
 test("account phone numbers normalize to E.164 and PINs stay four digits", async () => {
   assert.equal(normalizePhone("(541) 652-6840"), "+15416526840");
   assert.equal(normalizePhone("+44 20 7946 0958"), "+442079460958");

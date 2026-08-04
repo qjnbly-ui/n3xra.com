@@ -69,7 +69,7 @@ async function getCredentialByUser(userId, { includeSecret = false } = {}) {
 async function getCallerAccount(phone) {
   const phoneE164 = normalizePhone(phone);
   if (!phoneE164) return null;
-  const credentials = await supabaseJson(`account_phone_credentials?select=user_id,phone_e164,pin_salt,pin_hash,failed_attempts,locked_until&phone_e164=eq.${encodeURIComponent(phoneE164)}&limit=1`);
+  const credentials = await supabaseJson(`account_phone_credentials?select=user_id,phone_e164,pin_salt,pin_hash,failed_attempts,locked_until,last_password_reset_sent_at&phone_e164=eq.${encodeURIComponent(phoneE164)}&limit=1`);
   const credential = Array.isArray(credentials) ? credentials[0] : null;
   if (!credential) return null;
   const profiles = await supabaseJson(`profiles?select=id,full_name,email,account_status&id=eq.${encodeURIComponent(credential.user_id)}&limit=1`);
@@ -79,6 +79,42 @@ async function getCallerAccount(phone) {
     ...credential,
     firstName: String(profile.full_name || "").trim().split(/\s+/)[0] || "",
   };
+}
+
+async function sendPasswordResetEmail(caller) {
+  if (!caller?.user_id) throw new Error("Caller account is unavailable.");
+  if (!ANON_KEY) throw new Error("Supabase authentication is not configured.");
+  const lastSentAt = caller.last_password_reset_sent_at
+    ? new Date(caller.last_password_reset_sent_at).getTime()
+    : 0;
+  if (lastSentAt > Date.now() - 10 * 60 * 1000) return { sent: false, reason: "cooldown" };
+
+  const profiles = await supabaseJson(`profiles?select=email&id=eq.${encodeURIComponent(caller.user_id)}&limit=1`);
+  const email = String(Array.isArray(profiles) ? profiles[0]?.email || "" : "").trim().toLowerCase();
+  if (!email) throw new Error("No recovery email is available for this account.");
+
+  const redirectTo = String(
+    process.env.PASSWORD_RESET_REDIRECT_URL || "https://www.n3xra.com/account/?mode=recovery",
+  ).trim();
+  const response = await fetch(`${SUPABASE_URL}/auth/v1/recover?redirect_to=${encodeURIComponent(redirectTo)}`, {
+    method: "POST",
+    headers: {
+      apikey: ANON_KEY,
+      Authorization: `Bearer ${ANON_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ email }),
+  });
+  const data = await response.json().catch(() => null);
+  if (!response.ok) throw new Error(String(data?.msg || data?.message || data?.error_description || "Unable to send password reset email."));
+
+  caller.last_password_reset_sent_at = new Date().toISOString();
+  await supabaseJson(`account_phone_credentials?user_id=eq.${encodeURIComponent(caller.user_id)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Prefer: "return=minimal" },
+    body: JSON.stringify({ last_password_reset_sent_at: caller.last_password_reset_sent_at }),
+  });
+  return { sent: true };
 }
 
 async function saveCredential(userId, phone, pin) {
@@ -162,6 +198,7 @@ module.exports = {
   matchesPin,
   normalizePhone,
   saveCredential,
+  sendPasswordResetEmail,
   validPin,
   verifyCallerPin,
 };

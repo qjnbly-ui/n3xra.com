@@ -4,7 +4,12 @@ const twilio = require("twilio");
 const { WebSocketServer, WebSocket } = require("ws");
 const askN3xra = require("../ask");
 const { toSpeechText } = require("../_receptionist");
-const { accountOverview, getCallerAccount, verifyCallerPin } = require("../_account-phone");
+const {
+  accountOverview,
+  getCallerAccount,
+  sendPasswordResetEmail,
+  verifyCallerPin,
+} = require("../_account-phone");
 
 const RECEPTIONIST_RULES = [
   "You are the N3XRA AI receptionist speaking with a caller on the phone.",
@@ -13,7 +18,8 @@ const RECEPTIONIST_RULES = [
   "Answer the caller's question directly using the supplied current N3XRA knowledge.",
   "Keep most replies to two or three short spoken sentences.",
   "Do not use markdown, bullets, emojis, raw URLs, route lists, or decorative symbols.",
-  "Do not claim to take notes, send email, schedule appointments, or transfer calls yet.",
+  "Do not claim to take notes, send general email, schedule appointments, or transfer calls yet.",
+  "After caller recognition and keypad PIN verification, you may send a password reset email only to the address already on that account.",
   "If asked for an unavailable action, explain briefly that this demonstration currently answers questions about N3XRA.",
   "Account overviews are handled separately using caller recognition and a keypad PIN.",
   "Never ask a caller to say their phone number, PIN, or personal information out loud.",
@@ -39,6 +45,10 @@ function isAccountOverviewRequest(value) {
   return /\b(my account|account overview|my plan|my subscription|my usage|account status|what.*account|billing status)\b/i.test(String(value || ""));
 }
 
+function isPasswordResetRequest(value) {
+  return /\b(forgot (my )?password|reset (my |the )?password|password reset|send (me )?(a )?(password )?reset (email|link)|can'?t (log|sign) in)\b/i.test(String(value || ""));
+}
+
 function sendSpeech(ws, token) {
   if (ws.readyState !== WebSocket.OPEN) return;
   ws.send(JSON.stringify({
@@ -57,6 +67,43 @@ async function sendAccountOverview(ws) {
     console.error("Receptionist account overview failed", { callSid: ws.callSid, error: error?.message });
     sendSpeech(ws, "I could not load your account overview right now. Please use your signed-in dashboard.");
   }
+}
+
+async function sendPasswordReset(ws) {
+  try {
+    const result = await sendPasswordResetEmail(ws.caller);
+    if (result.reason === "cooldown") {
+      sendSpeech(ws, "A password reset email was already requested recently. Please check your inbox, junk, or spam folder before trying again.");
+      return;
+    }
+    sendSpeech(ws, "I sent a password reset link to the email address already on your NEXRA account. Please check your inbox, junk, or spam folder.");
+  } catch (error) {
+    console.error("Receptionist password reset failed", { callSid: ws.callSid, error: error?.message });
+    sendSpeech(ws, "I could not send a password reset email right now. Please use the Forgot password option on the NEXRA sign-in page.");
+  }
+}
+
+async function performAccountAction(ws) {
+  const action = ws.pendingAccountAction;
+  ws.pendingAccountAction = "";
+  if (action === "password_reset") return sendPasswordReset(ws);
+  return sendAccountOverview(ws);
+}
+
+async function requestVerifiedAccountAction(ws, action) {
+  await ws.callerReady;
+  if (!ws.caller) {
+    sendSpeech(ws, "I could not match this number to a NEXRA account. Please use the NEXRA sign-in page for secure account help.");
+    return;
+  }
+  ws.pendingAccountAction = action;
+  if (ws.accountVerified) {
+    await performAccountAction(ws);
+    return;
+  }
+  ws.awaitingPin = true;
+  ws.pinDigits = "";
+  sendSpeech(ws, "For security, please enter your four digit phone PIN using the keypad. I will not ask you for personal information.");
 }
 
 async function requestGroqReply(question, history) {
@@ -107,6 +154,7 @@ wss.on("connection", (ws) => {
   ws.awaitingPin = false;
   ws.pinDigits = "";
   ws.accountVerified = false;
+  ws.pendingAccountAction = "";
 
   ws.on("message", async (raw) => {
     let message;
@@ -150,7 +198,7 @@ wss.on("connection", (ws) => {
         }
         ws.awaitingPin = false;
         ws.accountVerified = true;
-        await sendAccountOverview(ws);
+        await performAccountAction(ws);
       } catch (error) {
         console.error("Receptionist PIN verification failed", { callSid: ws.callSid, error: error?.message });
         sendSpeech(ws, "I could not verify phone access right now. Please use your signed-in dashboard.");
@@ -164,19 +212,13 @@ wss.on("connection", (ws) => {
     const question = toSpeechText(message.voicePrompt).slice(0, 800);
     if (!question) return;
 
+    if (isPasswordResetRequest(question)) {
+      await requestVerifiedAccountAction(ws, "password_reset");
+      return;
+    }
+
     if (isAccountOverviewRequest(question)) {
-      await ws.callerReady;
-      if (!ws.caller) {
-        sendSpeech(ws, "I could not match this number to a NEXRA account. Please sign in to your dashboard to add your phone number and phone PIN.");
-        return;
-      }
-      if (!ws.accountVerified) {
-        ws.awaitingPin = true;
-        ws.pinDigits = "";
-        sendSpeech(ws, "For security, please enter your four digit phone PIN using the keypad. I will not ask you for personal information.");
-        return;
-      }
-      await sendAccountOverview(ws);
+      await requestVerifiedAccountAction(ws, "account_overview");
       return;
     }
 
@@ -200,3 +242,4 @@ module.exports.publicWebSocketRequestUrl = publicWebSocketRequestUrl;
 module.exports.requestGroqReply = requestGroqReply;
 module.exports.verifyTwilioWebSocket = verifyTwilioWebSocket;
 module.exports.isAccountOverviewRequest = isAccountOverviewRequest;
+module.exports.isPasswordResetRequest = isPasswordResetRequest;
