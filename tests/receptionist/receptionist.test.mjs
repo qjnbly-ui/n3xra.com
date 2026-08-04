@@ -170,6 +170,22 @@ test("receptionist recognizes requested texts and only returns approved N3XRA li
   assert.match(conversationServer.SMS_OPT_IN_INSTRUCTIONS, /Calling alone does not provide SMS consent/i);
 });
 
+test("verified account actions preserve the caller number for later requested texts", () => {
+  const ws = {
+    pendingAccountAction: "account_overview",
+    requestedSmsResource: { label: "N3XRA account page", url: "https://www.n3xra.com/account/" },
+    fromNumber: "+15415550199",
+    transferOffered: true,
+    transferSummary: "Account question",
+  };
+  assert.equal(conversationServer.completeAccountActionState(ws), "account_overview");
+  assert.equal(ws.fromNumber, "+15415550199");
+  assert.equal(ws.pendingAccountAction, "");
+  assert.equal(ws.requestedSmsResource, null);
+  assert.equal(ws.transferOffered, false);
+  assert.equal(ws.transferSummary, "");
+});
+
 test("SMS consent accepts web and keyword opt-ins but not verbal opt-ins", () => {
   assert.equal(VALID_CONSENT_METHODS.has("web_form"), true);
   assert.equal(VALID_CONSENT_METHODS.has("sms_keyword"), true);

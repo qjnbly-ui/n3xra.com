@@ -209,14 +209,17 @@ async function sendPasswordReset(ws) {
   }
 }
 
-async function performAccountAction(ws) {
+function completeAccountActionState(ws) {
   const action = ws.pendingAccountAction;
   ws.pendingAccountAction = "";
   ws.requestedSmsResource = null;
-  ws.fromNumber = "";
   ws.transferOffered = false;
   ws.transferSummary = "";
-  ws.transferOffered = false;
+  return action;
+}
+
+async function performAccountAction(ws) {
+  const action = completeAccountActionState(ws);
   if (action === "password_reset") return sendPasswordReset(ws);
   return sendAccountOverview(ws);
 }
@@ -430,3 +433,4 @@ module.exports.announceAndTransfer = announceAndTransfer;
 module.exports.isSmsRequest = isSmsRequest;
 module.exports.smsResourceFor = smsResourceFor;
 module.exports.SMS_OPT_IN_INSTRUCTIONS = SMS_OPT_IN_INSTRUCTIONS;
+module.exports.completeAccountActionState = completeAccountActionState;
