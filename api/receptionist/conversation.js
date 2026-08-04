@@ -68,8 +68,21 @@ function verifyTwilioWebSocket(info, done) {
   return done(valid, valid ? 101 : 403, valid ? undefined : "Invalid Twilio signature");
 }
 
+function accountIntentFor(value) {
+  const text = String(value || "").trim();
+  const accountScoped = /\b(my|mine|me|account|billing status|subscription status|usage left|remaining usage|plan status|do i|am i|i owe|i have)\b/i.test(text);
+  if (!accountScoped) return "";
+  if (/\b(bill|billing|invoice|payment|charge|owe|due|paid|past due|card|receipt)\b/i.test(text)) return "billing";
+  if (/\b(usage|limit|remaining|left|songs?|analys(?:is|es)|storage|requests? used)\b/i.test(text)) return "usage";
+  if (/\b(subscription|subscriptions|plan|plans|renew|renewal|cancel|membership)\b/i.test(text)) return "subscriptions";
+  if (/\b(website request|project|progress|stage|launch|onboarding|proposal)\b/i.test(text)) return "projects";
+  if (/\b(support|ticket|case|help request)\b/i.test(text)) return "support";
+  if (/\b(my account|account overview|account status|what.*account|tell me about.*account|products?.*(i have|my)|services?.*(i have|my)|my.*(products?|services?|access))\b/i.test(text)) return "general";
+  return "";
+}
+
 function isAccountOverviewRequest(value) {
-  return /\b(my account|account overview|my plan|my subscription|my usage|account status|what.*account|billing status)\b/i.test(String(value || ""));
+  return Boolean(accountIntentFor(value));
 }
 
 function isPasswordResetRequest(value) {
@@ -282,9 +295,9 @@ async function sendRequestedSms(ws, question) {
   }
 }
 
-async function sendAccountOverview(ws) {
+async function sendAccountOverview(ws, intent) {
   try {
-    sendSpeech(ws, await accountOverview(ws.caller.user_id));
+    sendSpeech(ws, await accountOverview(ws.caller.user_id, intent));
   } catch (error) {
     console.error("Receptionist account overview failed", { callSid: ws.callSid, error: error?.message });
     sendSpeech(ws, "I could not load your account overview right now. Please use your signed-in dashboard.");
@@ -307,26 +320,29 @@ async function sendPasswordReset(ws) {
 
 function completeAccountActionState(ws) {
   const action = ws.pendingAccountAction;
+  const accountIntent = ws.pendingAccountIntent || "general";
   ws.pendingAccountAction = "";
+  ws.pendingAccountIntent = "";
   ws.requestedSmsResource = null;
   ws.transferOffered = false;
   ws.transferSummary = "";
-  return action;
+  return { action, accountIntent };
 }
 
 async function performAccountAction(ws) {
-  const action = completeAccountActionState(ws);
+  const { action, accountIntent } = completeAccountActionState(ws);
   if (action === "password_reset") return sendPasswordReset(ws);
-  return sendAccountOverview(ws);
+  return sendAccountOverview(ws, accountIntent);
 }
 
-async function requestVerifiedAccountAction(ws, action) {
+async function requestVerifiedAccountAction(ws, action, accountIntent = "general") {
   await ws.callerReady;
   if (!ws.caller) {
     sendSpeech(ws, "I could not match this number to a NEXRA account. Please use the NEXRA sign-in page for secure account help.");
     return;
   }
   ws.pendingAccountAction = action;
+  ws.pendingAccountIntent = accountIntent;
   if (ws.accountVerified) {
     await performAccountAction(ws);
     return;
@@ -385,6 +401,7 @@ wss.on("connection", (ws) => {
   ws.pinDigits = "";
   ws.accountVerified = false;
   ws.pendingAccountAction = "";
+  ws.pendingAccountIntent = "";
   ws.requestedSmsResource = null;
   ws.transferStarting = false;
   ws.transferTimer = null;
@@ -477,7 +494,7 @@ wss.on("connection", (ws) => {
     }
 
     if (isAccountOverviewRequest(question)) {
-      await requestVerifiedAccountAction(ws, "account_overview");
+      await requestVerifiedAccountAction(ws, "account_overview", accountIntentFor(question));
       return;
     }
 
@@ -520,6 +537,7 @@ module.exports.publicWebSocketRequestUrl = publicWebSocketRequestUrl;
 module.exports.requestGroqReply = requestGroqReply;
 module.exports.verifyTwilioWebSocket = verifyTwilioWebSocket;
 module.exports.isAccountOverviewRequest = isAccountOverviewRequest;
+module.exports.accountIntentFor = accountIntentFor;
 module.exports.isPasswordResetRequest = isPasswordResetRequest;
 module.exports.isAffirmativeTransferResponse = isAffirmativeTransferResponse;
 module.exports.isEmergencyRequest = isEmergencyRequest;

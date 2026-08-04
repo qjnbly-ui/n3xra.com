@@ -13,6 +13,7 @@ const inboundSmsHandler = require("../../api/receptionist/sms");
 const { allowedWebOrigin, VALID_CONSENT_METHODS } = require("../../api/_sms-consent");
 const {
   hashPin,
+  formatAccountOverview,
   matchesPin,
   normalizePhone,
   validPin,
@@ -122,7 +123,42 @@ test("private transfer screening uses ElevenLabs and reads the purpose summary",
 test("account overview requests are separated from general receptionist questions", () => {
   assert.equal(conversationServer.isAccountOverviewRequest("Can you give me my account overview?"), true);
   assert.equal(conversationServer.isAccountOverviewRequest("How much usage is left on my plan?"), true);
+  assert.equal(conversationServer.accountIntentFor("What do I owe right now?"), "billing");
+  assert.equal(conversationServer.accountIntentFor("What subscriptions do I have?"), "subscriptions");
+  assert.equal(conversationServer.accountIntentFor("How is my website project going?"), "projects");
+  assert.equal(conversationServer.accountIntentFor("How does N3XRA billing work?"), "");
+  assert.equal(conversationServer.accountIntentFor("Can I pay by card?"), "");
   assert.equal(conversationServer.isAccountOverviewRequest("What does N3XRA Records do?"), false);
+});
+
+test("verified account answers focus on the caller's requested account topic", () => {
+  const snapshot = {
+    profile: { account_status: "active" },
+    recordsOrganizations: [{ name: "Example Records", account_status: "active", subscription_tier: "organization" }],
+    music: { plan: "creator", account_status: "active", songs_used: 7, monthly_song_limit: 25 },
+    virals: { plan: "starter", account_status: "active", analyses_used: 10, monthly_analysis_limit: 75 },
+    websiteProjects: [{ name: "Example Website", status: "waiting_on_client", current_stage: "client_review", progress_percent: 70, admin_next_step: "Review the latest website draft." }],
+    websiteRequests: [],
+    websiteSubscriptions: [{ service_plan: "starter_plus", billing_interval: "monthly", amount_cents: 4000, status: "active", current_period_end: "2026-09-01T00:00:00Z" }],
+    websiteInvoices: [{ status: "open", amount_due_cents: 7500, due_at: "2026-08-15T00:00:00Z" }],
+    utilityOrganizations: [],
+    supportRequests: [{ subject: "Billing question", status: "in_progress" }],
+  };
+  const billing = formatAccountOverview(snapshot, "billing");
+  assert.match(billing, /1 open website invoice/i);
+  assert.match(billing, /\$75\.00/);
+  assert.doesNotMatch(billing, /songs|analyses|70 percent/i);
+  const usage = formatAccountOverview(snapshot, "usage");
+  assert.match(usage, /18 of 25 songs remaining/i);
+  assert.match(usage, /65 of 75 analyses remaining/i);
+  assert.doesNotMatch(usage, /invoice|website project/i);
+  const projects = formatAccountOverview(snapshot, "projects");
+  assert.match(projects, /Example Website/);
+  assert.match(projects, /70 percent/);
+  assert.match(projects, /Review the latest website draft/);
+  const general = formatAccountOverview(snapshot, "general");
+  assert.match(general, /connected to Records, AI Music, NEXRA Virals, and website services/i);
+  assert.match(general, /billing item that needs your attention/i);
 });
 
 test("password reset requests are routed to the secured account action", () => {
@@ -238,14 +274,16 @@ test("requested texts are planned from call context before a destination is sele
 test("verified account actions preserve the caller number for later requested texts", () => {
   const ws = {
     pendingAccountAction: "account_overview",
+    pendingAccountIntent: "billing",
     requestedSmsResource: { label: "N3XRA account page", url: "https://www.n3xra.com/account/" },
     fromNumber: "+15415550199",
     transferOffered: true,
     transferSummary: "Account question",
   };
-  assert.equal(conversationServer.completeAccountActionState(ws), "account_overview");
+  assert.deepEqual(conversationServer.completeAccountActionState(ws), { action: "account_overview", accountIntent: "billing" });
   assert.equal(ws.fromNumber, "+15415550199");
   assert.equal(ws.pendingAccountAction, "");
+  assert.equal(ws.pendingAccountIntent, "");
   assert.equal(ws.requestedSmsResource, null);
   assert.equal(ws.transferOffered, false);
   assert.equal(ws.transferSummary, "");

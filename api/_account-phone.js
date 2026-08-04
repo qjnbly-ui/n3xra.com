@@ -171,22 +171,200 @@ async function verifyCallerPin(caller, pin) {
   return { ok: false, reason: locked ? "locked" : "invalid" };
 }
 
-async function accountOverview(userId) {
-  const [profiles, memberships, music, virals] = await Promise.all([
-    supabaseJson(`profiles?select=subscription_tier,account_status&id=eq.${encodeURIComponent(userId)}&limit=1`),
-    supabaseJson(`organization_memberships?select=role,organization:organizations(name,subscription_tier,account_status)&user_id=eq.${encodeURIComponent(userId)}`),
-    supabaseJson(`music_profiles?select=plan,account_status,songs_used,monthly_song_limit&user_id=eq.${encodeURIComponent(userId)}&limit=1`).catch(() => []),
-    supabaseJson(`virals_profiles?select=plan,account_status,analyses_used,monthly_analysis_limit&user_id=eq.${encodeURIComponent(userId)}&limit=1`).catch(() => []),
-  ]);
-  const profile = Array.isArray(profiles) ? profiles[0] : null;
-  const parts = [`Your NEXRA account is ${profile?.account_status || "active"} on the ${profile?.subscription_tier || "free"} plan.`];
-  const org = Array.isArray(memberships) ? memberships[0]?.organization : null;
-  const organization = Array.isArray(org) ? org[0] : org;
-  if (organization) parts.push(`Records is ${organization.account_status || "active"} on the ${organization.subscription_tier || "free"} plan.`);
-  if (music?.[0]) parts.push(`AI Music is ${music[0].account_status || "active"} on the ${music[0].plan || "free"} plan, with ${Number(music[0].songs_used || 0)} of ${Number(music[0].monthly_song_limit || 0)} songs used.`);
-  if (virals?.[0]) parts.push(`NEXRA Virals is ${virals[0].account_status || "active"} on the ${virals[0].plan || "free"} plan, with ${Number(virals[0].analyses_used || 0)} of ${Number(virals[0].monthly_analysis_limit || 0)} analyses used.`);
-  parts.push("For private files or account changes, please use your signed-in dashboard.");
+function firstRow(rows) {
+  return Array.isArray(rows) ? rows[0] || null : null;
+}
+
+function relatedRow(value) {
+  return Array.isArray(value) ? value[0] || null : value || null;
+}
+
+function spokenLabel(value) {
+  return String(value || "")
+    .replace(/_/g, " ")
+    .toLowerCase();
+}
+
+function spokenList(items) {
+  if (items.length < 2) return items[0] || "";
+  if (items.length === 2) return `${items[0]} and ${items[1]}`;
+  return `${items.slice(0, -1).join(", ")}, and ${items.at(-1)}`;
+}
+
+function spokenMoney(cents) {
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(Number(cents || 0) / 100);
+}
+
+function spokenDate(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Intl.DateTimeFormat("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(date);
+}
+
+function productStatusNeedsAttention(status) {
+  return ["past_due", "unpaid", "payment_failed", "suspended"].includes(String(status || "").toLowerCase());
+}
+
+function formatBillingOverview(snapshot) {
+  const invoices = snapshot.websiteInvoices.filter((invoice) => String(invoice.status || "") === "open");
+  const amountDue = invoices.reduce((total, invoice) => total + Math.max(0, Number(invoice.amount_due_cents || 0)), 0);
+  const troubledSubscriptions = snapshot.websiteSubscriptions.filter((subscription) => productStatusNeedsAttention(subscription.status));
+  const productProblems = [snapshot.music, snapshot.virals, ...snapshot.recordsOrganizations]
+    .filter(Boolean)
+    .filter((product) => productStatusNeedsAttention(product.account_status));
+  const parts = [];
+  if (invoices.length) {
+    const nextDue = invoices.map((invoice) => invoice.due_at).filter(Boolean).sort()[0];
+    parts.push(`You have ${invoices.length} open website invoice${invoices.length === 1 ? "" : "s"} with ${spokenMoney(amountDue)} currently due${nextDue ? `, and the next due date is ${spokenDate(nextDue)}` : ""}.`);
+  } else {
+    parts.push("I do not see an open website invoice on your account.");
+  }
+  if (troubledSubscriptions.length || productProblems.length) {
+    parts.push("At least one subscription needs billing attention. Open your signed-in billing page to review the exact item and payment options.");
+  } else if (snapshot.websiteSubscriptions.length) {
+    const active = snapshot.websiteSubscriptions.filter((subscription) => ["active", "trialing"].includes(String(subscription.status || "")));
+    if (active.length) parts.push(`Your ${active.length === 1 ? "website service subscription is" : `${active.length} website service subscriptions are`} active or trialing.`);
+  }
+  if (!invoices.length && !snapshot.websiteSubscriptions.length && !snapshot.music && !snapshot.virals && !snapshot.recordsOrganizations.length) {
+    parts.push("I do not see a product subscription connected to this account yet.");
+  }
+  parts.push("For security, exact invoice documents and payment-method changes remain in your signed-in billing pages.");
   return parts.join(" ");
+}
+
+function formatUsageOverview(snapshot) {
+  const parts = [];
+  if (snapshot.music) {
+    const used = Math.max(0, Number(snapshot.music.songs_used || 0));
+    const limit = Math.max(0, Number(snapshot.music.monthly_song_limit || 0));
+    parts.push(`AI Music has ${Math.max(0, limit - used)} of ${limit} songs remaining in the current period.`);
+  }
+  if (snapshot.virals) {
+    const used = Math.max(0, Number(snapshot.virals.analyses_used || 0));
+    const limit = Math.max(0, Number(snapshot.virals.monthly_analysis_limit || 0));
+    parts.push(`NEXRA Virals has ${Math.max(0, limit - used)} of ${limit} analyses remaining in the current period.`);
+  }
+  if (snapshot.recordsOrganizations.length) {
+    parts.push("Records plan and storage usage are available in the signed-in Records account page.");
+  }
+  return parts.length ? parts.join(" ") : "I do not see a usage-based NEXRA product connected to this account yet.";
+}
+
+function formatSubscriptionOverview(snapshot) {
+  const parts = [];
+  snapshot.recordsOrganizations.slice(0, 2).forEach((organization) => {
+    const organizationName = snapshot.recordsOrganizations.length > 1 && organization.name ? ` for ${organization.name}` : "";
+    parts.push(`Records${organizationName} is ${spokenLabel(organization.account_status || "active")} on the ${spokenLabel(organization.subscription_tier || "free")} plan.`);
+  });
+  if (snapshot.music) {
+    const ending = snapshot.music.cancel_at_period_end ? " and is scheduled to end after the current period" : "";
+    parts.push(`AI Music is ${spokenLabel(snapshot.music.account_status || "active")} on the ${spokenLabel(snapshot.music.plan || "free")} plan${ending}.`);
+  }
+  if (snapshot.virals) {
+    const ending = snapshot.virals.cancel_at_period_end ? " and is scheduled to end after the current period" : "";
+    parts.push(`NEXRA Virals is ${spokenLabel(snapshot.virals.account_status || "active")} on the ${spokenLabel(snapshot.virals.plan || "free")} plan${ending}.`);
+  }
+  snapshot.websiteSubscriptions.slice(0, 3).forEach((subscription) => {
+    const renewal = spokenDate(subscription.current_period_end);
+    const ending = subscription.cancel_at_period_end ? " and is scheduled to cancel at the end of the period" : "";
+    parts.push(`Website service is ${spokenLabel(subscription.status)} on the ${spokenLabel(subscription.service_plan)} ${spokenLabel(subscription.billing_interval)} plan at ${spokenMoney(subscription.amount_cents)}${subscription.billing_interval === "yearly" ? " per year" : " per month"}${renewal ? `, with the current period ending ${renewal}` : ""}${ending}.`);
+  });
+  if (!parts.length) return "I do not see an active product subscription connected to this account yet.";
+  return `${parts.join(" ")} Subscription changes remain in the appropriate signed-in product billing page.`;
+}
+
+function formatProjectOverview(snapshot) {
+  const activeProjects = snapshot.websiteProjects.filter((project) => !["cancelled", "archived"].includes(String(project.status || "")));
+  if (activeProjects.length) {
+    const project = activeProjects[0];
+    const nextStep = String(project.admin_next_step || "").trim();
+    return `You have ${activeProjects.length} current website project${activeProjects.length === 1 ? "" : "s"}. ${project.name || "Your most recent project"} is ${spokenLabel(project.status || "active")}, in the ${spokenLabel(project.current_stage || "planning")} stage, at ${Math.max(0, Number(project.progress_percent || 0))} percent${nextStep ? `. The next step is: ${nextStep}` : "."}`;
+  }
+  const request = snapshot.websiteRequests[0];
+  if (request) return `Your latest website request for ${request.business_name || "your project"} is ${spokenLabel(request.status || "submitted")}. No active project workspace is available yet.`;
+  return "I do not see a website request or active website project connected to this account.";
+}
+
+function formatSupportOverview(snapshot) {
+  const open = snapshot.supportRequests.filter((request) => !["resolved", "closed"].includes(String(request.status || "")));
+  if (!open.length) return "I do not see an open NEXRA support request on this account. You can start one from the support page.";
+  const request = open[0];
+  return `You have ${open.length} open support request${open.length === 1 ? "" : "s"}. The most recent, ${request.subject || request.topic || "your support request"}, is ${spokenLabel(request.status || "new")}.`;
+}
+
+function formatGeneralOverview(snapshot) {
+  const products = [];
+  if (snapshot.recordsOrganizations.length) products.push("Records");
+  if (snapshot.music) products.push("AI Music");
+  if (snapshot.virals) products.push("NEXRA Virals");
+  if (snapshot.websiteProjects.length || snapshot.websiteRequests.length || snapshot.websiteSubscriptions.length) products.push("website services");
+  if (snapshot.utilityOrganizations.length) products.push("NEXRA Utilities");
+  const parts = [`Your NEXRA login is ${spokenLabel(snapshot.profile?.account_status || "active")}.`];
+  parts.push(products.length ? `It is connected to ${spokenList(products)}.` : "I do not see an activated product or service connected yet.");
+  const openInvoices = snapshot.websiteInvoices.some((invoice) => invoice.status === "open" && Number(invoice.amount_due_cents || 0) > 0);
+  const waitingProject = snapshot.websiteProjects.find((project) => project.status === "waiting_on_client");
+  const attentionProduct = [snapshot.music, snapshot.virals, ...snapshot.recordsOrganizations, ...snapshot.websiteSubscriptions]
+    .filter(Boolean)
+    .some((product) => productStatusNeedsAttention(product.account_status || product.status));
+  if (openInvoices || attentionProduct) parts.push("There is a billing item that needs your attention.");
+  else if (waitingProject) parts.push(`Your website project ${waitingProject.name || "workspace"} is waiting on a client step.`);
+  else parts.push("I do not see an immediate account alert.");
+  parts.push("You can ask me specifically about billing, subscriptions, usage, website projects, or support requests.");
+  return parts.join(" ");
+}
+
+function formatAccountOverview(snapshot, intent = "general") {
+  const normalizedIntent = ["billing", "usage", "subscriptions", "projects", "support"].includes(intent) ? intent : "general";
+  if (normalizedIntent === "billing") return formatBillingOverview(snapshot);
+  if (normalizedIntent === "usage") return formatUsageOverview(snapshot);
+  if (normalizedIntent === "subscriptions") return formatSubscriptionOverview(snapshot);
+  if (normalizedIntent === "projects") return formatProjectOverview(snapshot);
+  if (normalizedIntent === "support") return formatSupportOverview(snapshot);
+  return formatGeneralOverview(snapshot);
+}
+
+async function safeRows(path) {
+  return supabaseJson(path).catch(() => []);
+}
+
+async function loadAccountSnapshot(userId, intent = "general") {
+  const needsBilling = ["general", "billing", "subscriptions"].includes(intent);
+  const needsProjects = ["general", "projects"].includes(intent);
+  const needsSupport = ["general", "support"].includes(intent);
+  const [profiles, memberships, musicRows, viralsRows, websiteProjects, websiteRequests, websiteSubscriptions, websiteInvoices, utilityMemberships, supportRequests] = await Promise.all([
+    supabaseJson(`profiles?select=account_status&id=eq.${encodeURIComponent(userId)}&limit=1`),
+    supabaseJson(`organization_memberships?select=role,organization:organizations(name,subscription_tier,account_status)&user_id=eq.${encodeURIComponent(userId)}`),
+    safeRows(`music_profiles?select=plan,account_status,songs_used,monthly_song_limit,cancel_at_period_end,subscription_current_period_end&user_id=eq.${encodeURIComponent(userId)}&limit=1`),
+    safeRows(`virals_profiles?select=plan,account_status,analyses_used,monthly_analysis_limit,cancel_at_period_end,subscription_current_period_end&user_id=eq.${encodeURIComponent(userId)}&limit=1`),
+    needsProjects ? safeRows(`website_projects?select=id,name,status,current_stage,progress_percent,admin_next_step,target_launch_date,updated_at&client_user_id=eq.${encodeURIComponent(userId)}&order=updated_at.desc&limit=5`) : [],
+    needsProjects ? safeRows(`website_service_requests?select=id,business_name,status,created_at&user_id=eq.${encodeURIComponent(userId)}&order=created_at.desc&limit=3`) : [],
+    needsBilling ? safeRows(`website_subscriptions?select=project_id,service_plan,billing_interval,amount_cents,status,current_period_end,commitment_ends_at,cancel_at_period_end,updated_at&client_user_id=eq.${encodeURIComponent(userId)}&order=updated_at.desc&limit=5`) : [],
+    needsBilling ? safeRows(`website_invoices?select=project_id,status,total_cents,amount_due_cents,amount_paid_cents,due_at,created_at&client_user_id=eq.${encodeURIComponent(userId)}&order=created_at.desc&limit=10`) : [],
+    intent === "general" ? safeRows(`utility_organization_members?select=status,organization:utility_organizations(name,status,launch_status)&user_id=eq.${encodeURIComponent(userId)}&status=eq.active`) : [],
+    needsSupport ? safeRows(`platform_support_requests?select=topic,subject,status,priority,created_at&requester_user_id=eq.${encodeURIComponent(userId)}&order=created_at.desc&limit=5`) : [],
+  ]);
+  return {
+    profile: firstRow(profiles),
+    recordsOrganizations: memberships.map((membership) => relatedRow(membership.organization)).filter(Boolean),
+    music: firstRow(musicRows),
+    virals: firstRow(viralsRows),
+    websiteProjects,
+    websiteRequests,
+    websiteSubscriptions,
+    websiteInvoices,
+    utilityOrganizations: utilityMemberships.map((membership) => relatedRow(membership.organization)).filter(Boolean),
+    supportRequests,
+  };
+}
+
+async function accountOverview(userId, intent = "general") {
+  return formatAccountOverview(await loadAccountSnapshot(userId, intent), intent);
 }
 
 module.exports = {
@@ -194,9 +372,11 @@ module.exports = {
   authenticatedUser,
   getCallerAccount,
   getCredentialByUser,
+  formatAccountOverview,
   hashPin,
   matchesPin,
   normalizePhone,
+  loadAccountSnapshot,
   saveCredential,
   sendPasswordResetEmail,
   validPin,
