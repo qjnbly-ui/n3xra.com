@@ -271,6 +271,60 @@ test("requested texts are planned from call context before a destination is sele
   }
 });
 
+test("requested text planning retries with JSON mode after a Groq schema failure", async () => {
+  const previousKey = process.env.GROQ_API_KEY;
+  const previousModel = process.env.GROQ_RECEPTIONIST_MODEL;
+  const previousFetch = global.fetch;
+  const previousGetSiteContext = askN3xra.getSiteContext;
+  process.env.GROQ_API_KEY = "test-key";
+  process.env.GROQ_RECEPTIONIST_MODEL = "openai/gpt-oss-120b";
+  askN3xra.getSiteContext = async () => "Current N3XRA support knowledge";
+  let attempt = 0;
+  global.fetch = async (_url, options) => {
+    attempt += 1;
+    const payload = JSON.parse(options.body);
+    assert.equal(payload.reasoning_effort, "low");
+    assert.equal(payload.max_tokens, 500);
+    if (attempt === 1) {
+      assert.equal(payload.response_format.type, "json_schema");
+      return {
+        ok: false,
+        async json() {
+          return { error: { message: "Failed to validate JSON." } };
+        },
+      };
+    }
+    assert.equal(payload.response_format.type, "json_object");
+    return {
+      ok: true,
+      async json() {
+        return {
+          choices: [{ message: { content: JSON.stringify({
+            shouldSend: true,
+            destination: "support",
+            message: "Here is the N3XRA support page you requested.",
+            clarification: "",
+          }) } }],
+        };
+      },
+    };
+  };
+  try {
+    const plan = await conversationServer.planRequestedSms("Text me the support link.", []);
+    assert.equal(attempt, 2);
+    assert.equal(plan.shouldSend, true);
+    assert.equal(plan.destination, "support");
+    assert.match(plan.body, /https:\/\/www\.n3xra\.com\/support\//);
+  } finally {
+    if (previousKey === undefined) delete process.env.GROQ_API_KEY;
+    else process.env.GROQ_API_KEY = previousKey;
+    if (previousModel === undefined) delete process.env.GROQ_RECEPTIONIST_MODEL;
+    else process.env.GROQ_RECEPTIONIST_MODEL = previousModel;
+    global.fetch = previousFetch;
+    askN3xra.getSiteContext = previousGetSiteContext;
+  }
+});
+
 test("verified account actions preserve the caller number for later requested texts", () => {
   const ws = {
     pendingAccountAction: "account_overview",

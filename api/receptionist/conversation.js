@@ -129,58 +129,79 @@ async function planRequestedSms(question, history) {
   const apiKey = String(process.env.GROQ_API_KEY || "").trim();
   if (!apiKey) throw new Error("Missing GROQ_API_KEY.");
   const siteContext = await askN3xra.getSiteContext(question, history);
+  const model = String(process.env.GROQ_RECEPTIONIST_MODEL || process.env.GROQ_ASK_MODEL || "openai/gpt-oss-120b").trim();
   const destinations = Object.entries(SMS_DESTINATIONS)
     .map(([key, url]) => `${key}: ${url || "no link"}`)
     .join("\n");
-  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: String(process.env.GROQ_RECEPTIONIST_MODEL || process.env.GROQ_ASK_MODEL || "openai/gpt-oss-120b").trim(),
-      temperature: 0,
-      max_tokens: 260,
-      response_format: {
-        type: "json_schema",
-        json_schema: {
-          name: "receptionist_sms_plan",
-          strict: true,
-          schema: {
-            type: "object",
-            additionalProperties: false,
-            properties: {
-              shouldSend: { type: "boolean" },
-              destination: { type: "string", enum: Object.keys(SMS_DESTINATIONS) },
-              message: { type: "string" },
-              clarification: { type: "string" },
-            },
-            required: ["shouldSend", "destination", "message", "clarification"],
-          },
+  const messages = [
+    {
+      role: "system",
+      content: [
+        "Decide what the N3XRA phone receptionist should text in response to the caller's latest request.",
+        "Return only one JSON object with exactly these fields: shouldSend (boolean), destination (allowed destination key), message (string), and clarification (string).",
+        "Use the supplied current N3XRA knowledge and recent conversation as the source of truth.",
+        "First determine exactly what the caller asked to receive. Prefer their explicit request; use recent context only to resolve references such as 'that' or 'the link.'",
+        "Set shouldSend false when the requested content is unclear, unsupported, unsafe, sensitive, or would require private account data. In that case, put one short spoken question in clarification.",
+        "When shouldSend is true, write a concise, useful transactional SMS in message. It may summarize the relevant answer, next step, or requested information instead of merely naming a page.",
+        "If the caller asks for a summary or recap, summarize the relevant recent conversation faithfully and include the most useful next step. Do not introduce topics that were not discussed.",
+        "Choose the single destination that best supports the request, or none when a link would not help. Do not put any URL in message; the server adds the verified destination.",
+        "Never include or request passwords, PINs, payment data, Social Security numbers, private account details, or claims not supported by the supplied knowledge.",
+        `Allowed destinations:\n${destinations}`,
+        siteContext,
+      ].join("\n\n"),
+    },
+    ...history.slice(-8),
+    { role: "user", content: question },
+  ];
+  const schemaFormat = {
+    type: "json_schema",
+    json_schema: {
+      name: "receptionist_sms_plan",
+      strict: true,
+      schema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          shouldSend: { type: "boolean" },
+          destination: { type: "string", enum: Object.keys(SMS_DESTINATIONS) },
+          message: { type: "string" },
+          clarification: { type: "string" },
         },
+        required: ["shouldSend", "destination", "message", "clarification"],
       },
-      messages: [
-        {
-          role: "system",
-          content: [
-            "Decide what the N3XRA phone receptionist should text in response to the caller's latest request.",
-            "Use the supplied current N3XRA knowledge and recent conversation as the source of truth.",
-            "First determine exactly what the caller asked to receive. Prefer their explicit request; use recent context only to resolve references such as 'that' or 'the link.'",
-            "Set shouldSend false when the requested content is unclear, unsupported, unsafe, sensitive, or would require private account data. In that case, put one short spoken question in clarification.",
-            "When shouldSend is true, write a concise, useful transactional SMS in message. It may summarize the relevant answer, next step, or requested information instead of merely naming a page.",
-            "If the caller asks for a summary or recap, summarize the relevant recent conversation faithfully and include the most useful next step. Do not introduce topics that were not discussed.",
-            "Choose the single destination that best supports the request, or none when a link would not help. Do not put any URL in message; the server adds the verified destination.",
-            "Never include or request passwords, PINs, payment data, Social Security numbers, private account details, or claims not supported by the supplied knowledge.",
-            `Allowed destinations:\n${destinations}`,
-            siteContext,
-          ].join("\n\n"),
-        },
-        ...history.slice(-8),
-        { role: "user", content: question },
-      ],
-    }),
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(String(data?.error?.message || data?.message || "SMS planning failed."));
-  return normalizeSmsPlan(JSON.parse(String(data?.choices?.[0]?.message?.content || "{}")));
+    },
+  };
+  let firstError;
+  for (const responseFormat of [schemaFormat, { type: "json_object" }]) {
+    try {
+      const request = {
+        model,
+        temperature: 0,
+        max_tokens: 500,
+        response_format: responseFormat,
+        messages,
+      };
+      if (/^openai\/gpt-oss-(20b|120b)$/i.test(model)) request.reasoning_effort = "low";
+      const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify(request),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(String(data?.error?.message || data?.message || "SMS planning failed."));
+      const content = String(data?.choices?.[0]?.message?.content || "").trim();
+      if (!content) throw new Error("SMS planning returned an empty response.");
+      return normalizeSmsPlan(JSON.parse(content));
+    } catch (error) {
+      if (!firstError) {
+        firstError = error;
+        console.warn("Receptionist SMS planning retry", { error: error?.message });
+        continue;
+      }
+      throw new Error(`SMS planning failed after retry: ${error?.message || firstError?.message}`);
+    }
+  }
+  throw firstError || new Error("SMS planning failed.");
 }
 
 function isAffirmativeTransferResponse(value) {
