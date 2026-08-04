@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>N3XRA | SMS Notifications</title>
+  <meta name="description" content="Choose whether to receive requested transactional text messages from N3XRA.">
+  <link rel="canonical" href="https://www.n3xra.com/sms-consent/">
+  <link rel="icon" href="/assets/n3xra_logo_transparent_small.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/site-nav.css">
+  <link rel="stylesheet" href="/sms-consent/sms-consent.css?v=1">
+  <script src="/assets/site-nav.js" defer></script>
+  <script src="/sms-consent/sms-consent.js?v=1" defer></script>
+</head>
+<body>
+  <header class="site-topbar">
+    <div class="site-topbar-inner">
+      <div class="site-topbar-row">
+        <a class="site-brand" href="/" aria-label="N3XRA home"><img src="/assets/n3xra_logo_transparent_small.png" alt=""><span>N3XRA</span></a>
+        <div class="site-nav-actions">
+          <a class="site-menu-link" href="/support/">Support</a>
+          <button class="site-menu-toggle" type="button" aria-expanded="false" aria-controls="sms-mobile-menu" aria-label="Open menu" data-site-menu-toggle><span></span><span></span><span></span></button>
+        </div>
+      </div>
+      <nav class="site-mobile-menu" id="sms-mobile-menu" aria-label="Mobile navigation" hidden>
+        <a class="site-menu-link" href="/">Home</a>
+        <a class="site-menu-link" href="/support/">Support</a>
+        <a class="site-menu-link" href="/privacy/">Privacy</a>
+        <a class="site-menu-link" href="/terms/">Terms</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="sms-shell">
+    <section class="sms-card" aria-labelledby="sms-title">
+      <p class="sms-kicker">Text notifications</p>
+      <h1 id="sms-title">Receive requested updates from N3XRA</h1>
+      <p class="sms-intro">Use this form to consent to low-volume transactional messages connected to your N3XRA account, inquiry, appointment, records, or support request.</p>
+
+      <form id="sms-consent-form">
+        <label class="sms-field" for="sms-phone">
+          <span>Mobile phone number</span>
+          <input id="sms-phone" name="phone" type="tel" autocomplete="tel" inputmode="tel" placeholder="(541) 555-0123" required>
+        </label>
+        <label class="sms-honeypot" aria-hidden="true">Company<input id="sms-company" name="company" tabindex="-1" autocomplete="off"></label>
+        <label class="sms-check" for="sms-consent">
+          <input id="sms-consent" name="consent" type="checkbox" required>
+          <span>I agree to receive transactional SMS messages from N3XRA, including requested links, account and security notices, appointment reminders, records notifications, and support responses.</span>
+        </label>
+        <div class="sms-disclosure">
+          <p><strong>Message frequency varies.</strong> Message and data rates may apply. Reply <strong>STOP</strong> to opt out or <strong>HELP</strong> for help.</p>
+          <p>Consent is not a condition of purchase. N3XRA does not sell or share mobile information with third parties or affiliates for marketing or promotional purposes.</p>
+          <p><a href="/terms/">Terms and Conditions</a> · <a href="/privacy/">Privacy Policy</a></p>
+        </div>
+        <button id="sms-submit" type="submit">Agree and save SMS preference</button>
+        <p class="sms-status" id="sms-status" role="status" aria-live="polite"></p>
+      </form>
+    </section>
+  </main>
+</body>
+</html>

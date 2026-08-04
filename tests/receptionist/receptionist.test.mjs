@@ -8,6 +8,8 @@ const incomingHandler = require("../../api/receptionist/incoming");
 const conversationServer = require("../../api/receptionist/conversation");
 const transferHandler = require("../../api/receptionist/transfer");
 const screenTransferHandler = require("../../api/receptionist/screen-transfer");
+const inboundSmsHandler = require("../../api/receptionist/sms");
+const { allowedWebOrigin } = require("../../api/_sms-consent");
 const {
   hashPin,
   matchesPin,
@@ -151,6 +153,50 @@ test("confirmed transfers announce the connection before ending ConversationRela
   await new Promise((resolve) => setTimeout(resolve, 5));
   assert.equal(sent[1].type, "end");
   assert.match(sent[1].handoffData, /approved-live-transfer/);
+});
+
+test("receptionist recognizes requested texts and only returns approved N3XRA links", () => {
+  assert.equal(conversationServer.isSmsRequest("Can you text me the pricing link?"), true);
+  assert.equal(conversationServer.isSmsRequest("Tell me about pricing."), false);
+  assert.deepEqual(
+    conversationServer.smsResourceFor("Text me pricing information"),
+    { label: "N3XRA services", url: "https://www.n3xra.com/services/" },
+  );
+  assert.deepEqual(
+    conversationServer.smsResourceFor("Please send a link", [{ role: "user", content: "I need help signing into my account" }]),
+    { label: "N3XRA account page", url: "https://www.n3xra.com/account/" },
+  );
+});
+
+test("public SMS consent accepts only N3XRA and local browser origins", () => {
+  assert.equal(allowedWebOrigin({ headers: { origin: "https://www.n3xra.com" } }), true);
+  assert.equal(allowedWebOrigin({ headers: { origin: "https://preview.vercel.app" } }), true);
+  assert.equal(allowedWebOrigin({ headers: { origin: "https://example.com" } }), false);
+});
+
+test("inbound HELP messages use a signed Twilio messaging webhook", async () => {
+  const previousAuthToken = process.env.TWILIO_AUTH_TOKEN;
+  process.env.TWILIO_AUTH_TOKEN = "test-auth-token";
+  const body = { Body: "HELP", From: "+15415550199", MessageSid: "SM123" };
+  const req = { method: "POST", url: "/api/receptionist/sms", body, headers: { host: "www.n3xra.com" } };
+  req.headers["x-twilio-signature"] = twilio.getExpectedTwilioSignature(
+    process.env.TWILIO_AUTH_TOKEN,
+    publicHttpUrl(req),
+    body,
+  );
+  let statusCode = 0;
+  let xml = "";
+  const res = {
+    setHeader() {},
+    status(value) { statusCode = value; return this; },
+    send(value) { xml = String(value); return this; },
+  };
+  await inboundSmsHandler(req, res);
+  assert.equal(statusCode, 200);
+  assert.match(xml, /For help visit https:\/\/www\.n3xra\.com\/support\//);
+  assert.match(xml, /Reply STOP to opt out/);
+  if (previousAuthToken === undefined) delete process.env.TWILIO_AUTH_TOKEN;
+  else process.env.TWILIO_AUTH_TOKEN = previousAuthToken;
 });
 
 test("account phone numbers normalize to E.164 and PINs stay four digits", async () => {
