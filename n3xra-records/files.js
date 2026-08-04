@@ -279,9 +279,12 @@ function escapeSearchRegExp(value) {
 
 function getAiEvidenceTerms() {
   const stopWords = new Set([
-    "about", "after", "also", "and", "any", "are", "ask", "can", "create", "draft", "for", "from", "give", "have",
-    "how", "into", "make", "more", "need", "only", "please", "show", "summarize", "table", "tell", "that", "the",
-    "this", "use", "using", "what", "when", "where", "which", "with", "you", "your",
+    "about", "after", "all", "also", "and", "any", "are", "ask", "brief", "can", "chronological", "complete", "create",
+    "discussion", "discussions", "document", "documents", "draft", "each", "entry", "entries", "every", "everything", "file",
+    "files", "find", "for", "from", "full", "give", "have", "history", "how", "into", "list", "make", "mention", "mentioned",
+    "mentions", "more", "need", "note", "notes", "occurrence", "occurrences", "only", "paragraph", "please", "record", "recorded",
+    "records", "related", "response", "search", "show", "summarize", "summary", "table", "talk", "talked", "tell", "that", "the",
+    "this", "time", "timeline", "times", "topic", "topics", "use", "using", "what", "when", "where", "which", "with", "you", "your",
   ]);
   return Array.from(new Set(String(searchQueryInput?.value || "")
     .toLowerCase()
@@ -289,10 +292,13 @@ function getAiEvidenceTerms() {
     .filter((word) => word.length > 2 && !stopWords.has(word)))).slice(0, 10);
 }
 
-function highlightedAiEvidenceSnippet(text) {
+function highlightedAiEvidenceSnippet(text, preferredTerms = []) {
   const safeText = sanitizeExtractedText(text);
   if (!safeText) return "No excerpt available.";
-  const terms = getAiEvidenceTerms();
+  const terms = Array.from(new Set([
+    ...(Array.isArray(preferredTerms) ? preferredTerms : []),
+    ...getAiEvidenceTerms(),
+  ].map((term) => String(term || "").toLowerCase()).filter(Boolean))).slice(0, 10);
   const lower = safeText.toLowerCase();
   const matchedTerm = terms.find((term) => lower.includes(term));
   const index = matchedTerm ? lower.indexOf(matchedTerm) : 0;
@@ -339,7 +345,7 @@ function createSearchResultCard(doc, options = {}) {
   const card = document.createElement("article");
   const documentId = String(doc?.id || "");
   const snippet = options.ai
-    ? highlightedAiEvidenceSnippet(options.snippet || "")
+    ? highlightedAiEvidenceSnippet(options.snippet || "", doc?.matched_terms)
     : highlightedKeywordSnippet(getDocumentSearchText(doc), options.query || "");
   const snippetMarkup = options.ai
     ? `<div class="ai-evidence"><p class="ai-evidence-label">Highlighted excerpt sent to AI</p><p class="doc-snippet">${snippet}</p></div>`

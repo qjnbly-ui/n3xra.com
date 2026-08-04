@@ -26,6 +26,13 @@ const STOP_WORDS = new Set([
   "them", "there", "they", "this", "to", "us", "was", "we", "what", "when", "where", "who", "why", "with", "would",
   "you", "your",
 ]);
+const SEARCH_INSTRUCTION_WORDS = new Set([
+  "answer", "brief", "chronological", "chronologically", "complete", "details", "discussion", "discussions",
+  "document", "documents", "each", "entry", "entries", "every", "everything", "example", "examples", "file",
+  "files", "find", "give", "list", "mention", "mentioned", "mentions", "note", "notes", "occurrence", "occurrences",
+  "paragraph", "record", "recorded", "records", "related", "response", "search", "show", "summarize", "summary",
+  "table", "talk", "talked", "tell", "time", "times", "timeline", "topic", "topics",
+]);
 const MONTH_TERMS = [
   "january", "february", "march", "april", "may", "june",
   "july", "august", "september", "october", "november", "december",
@@ -230,6 +237,63 @@ function tokenize(value) {
     .slice(0, 24);
 }
 
+function getSearchTerms(value) {
+  const tokens = tokenize(value);
+  const subjectTerms = tokens.filter((word) => !SEARCH_INSTRUCTION_WORDS.has(word));
+  return Array.from(new Set(subjectTerms.length ? subjectTerms : tokens)).slice(0, 16);
+}
+
+function isExhaustiveTopicRequest(value) {
+  return /\b(every|all|each|complete|full|timeline|chronological|chronologically|history|occurrences?|mentions?)\b/i.test(normalizeText(value));
+}
+
+function getTermVariants(term) {
+  const normalized = normalizeText(term).toLowerCase();
+  if (!normalized) return [];
+  const variants = [normalized];
+  if (normalized.length > 4 && normalized.endsWith("ies")) variants.push(`${normalized.slice(0, -3)}y`);
+  else if (normalized.length > 4 && normalized.endsWith("s") && !normalized.endsWith("ss")) variants.push(normalized.slice(0, -1));
+  return Array.from(new Set(variants));
+}
+
+function buildRelevantSnippet(value, terms, maxChars = MAX_DOC_SNIPPET_CHARS) {
+  const text = normalizeText(value);
+  if (!text) return "";
+  const lower = text.toLowerCase();
+  const positions = [];
+  terms.forEach((term) => {
+    getTermVariants(term).forEach((variant) => {
+      let index = lower.indexOf(variant);
+      while (index >= 0 && positions.length < 24) {
+        positions.push(index);
+        index = lower.indexOf(variant, index + variant.length);
+      }
+    });
+  });
+  if (!positions.length) return text.slice(0, maxChars);
+
+  const ranges = positions
+    .sort((a, b) => a - b)
+    .map((position) => ({ start: Math.max(0, position - 240), end: Math.min(text.length, position + 760) }))
+    .reduce((merged, range) => {
+      const previous = merged[merged.length - 1];
+      if (previous && range.start <= previous.end + 120) previous.end = Math.max(previous.end, range.end);
+      else merged.push({ ...range });
+      return merged;
+    }, []);
+
+  let remaining = maxChars;
+  const passages = [];
+  for (const range of ranges) {
+    if (remaining <= 0) break;
+    const passage = text.slice(range.start, Math.min(range.end, range.start + remaining)).trim();
+    if (!passage) continue;
+    passages.push(`${range.start > 0 ? "… " : ""}${passage}${range.end < text.length ? " …" : ""}`);
+    remaining -= passage.length;
+  }
+  return passages.join("\n").slice(0, maxChars);
+}
+
 function getDocumentTitle(doc) {
   return normalizeText(doc.effective_title || doc.title || doc.original_filename || "Untitled file");
 }
@@ -304,14 +368,15 @@ function rankDocuments(docs, question) {
     const years = questionText.match(/\b(19|20)\d{2}\b/g) || [];
     return years.map((year) => `${month} ${year}`);
   });
-  const terms = tokenize(question);
+  const terms = getSearchTerms(question);
   const scored = docs.map((doc) => {
     const title = `${doc.effective_title || doc.title || ""} ${doc.original_filename || ""}`.toLowerCase();
     const aiNote = normalizeText(doc.records_ai_note || "").toLowerCase();
     const text = `${aiNote} ${getDocumentSearchText(doc).toLowerCase()}`.trim();
     let relevance = terms.reduce((sum, term) => {
-      const inTitle = countTermMatches(title, term) * 8;
-      const inText = Math.min(countTermMatches(text, term), 10);
+      const variants = getTermVariants(term);
+      const inTitle = variants.reduce((count, variant) => count + countTermMatches(title, variant), 0) * 8;
+      const inText = Math.min(variants.reduce((count, variant) => count + countTermMatches(text, variant), 0), 10);
       return sum + inTitle + inText;
     }, 0);
     const monthValue = normalizeText(doc.month).toLowerCase();
@@ -324,12 +389,14 @@ function rankDocuments(docs, question) {
     if (hasYearTerm && yearValue && questionText.includes(yearValue)) relevance += 20;
     if (hasMonthTerm && monthValue && questionText.includes(monthValue)) relevance += 20;
 
-    return { doc, relevance, dateScore: getDocumentDateScore(doc) };
+    const matchedTerms = terms.filter((term) => getTermVariants(term).some((variant) => countTermMatches(`${title} ${text}`, variant) > 0));
+    return { doc, relevance, dateScore: getDocumentDateScore(doc), matchedTerms };
   });
 
   const withHits = scored.filter((item) => item.relevance > 0);
   const pool = withHits.length ? withHits : scored;
   pool.sort((a, b) => {
+    if (withHits.length && isExhaustiveTopicRequest(question) && a.dateScore !== b.dateScore) return a.dateScore - b.dateScore;
     if (b.relevance !== a.relevance) return b.relevance - a.relevance;
     return b.dateScore - a.dateScore;
   });
@@ -343,7 +410,8 @@ function rankDocuments(docs, question) {
     is_public: Boolean(item.doc.is_public),
     created_at: item.doc.created_at || "",
     relevance: item.relevance,
-    snippet: getDocumentSearchText(item.doc).slice(0, MAX_DOC_SNIPPET_CHARS),
+    snippet: buildRelevantSnippet(getDocumentSearchText(item.doc), item.matchedTerms.length ? item.matchedTerms : terms),
+    matched_terms: item.matchedTerms,
     ai_note: normalizeText(item.doc.records_ai_note || ""),
     editable_document_id: item.doc.editable_document_id || "",
   }));
@@ -519,7 +587,7 @@ function buildDocumentContext(matches) {
   };
 }
 
-function buildPrompt({ user, question, context, history, documents, documentCount }) {
+function buildPrompt({ user, question, context, history, documents, documentCount, searchTerms }) {
   const libraryName = normalizeText(context.libraryName) || "current library";
   const role = normalizeText(context.role) || "unknown";
   const aiSettings = context.aiSettings && typeof context.aiSettings === "object" ? context.aiSettings : {};
@@ -532,6 +600,14 @@ function buildPrompt({ user, question, context, history, documents, documentCoun
   const historyText = history.length
     ? history.map((item) => `${item.role === "assistant" ? "Assistant" : "User"}: ${item.content}`).join("\n")
     : "None";
+  const exhaustiveRequest = isExhaustiveTopicRequest(question);
+  const wantsParagraph = /\b(paragraph|prose|narrative)\b/i.test(question);
+  const wantsTable = /\b(table|chart|columns?|rows?)\b/i.test(question);
+  const outputGuidance = wantsParagraph
+    ? "Use one concise chronological paragraph unless multiple paragraphs are necessary for readability. Do not use a table."
+    : (wantsTable || exhaustiveRequest)
+      ? "Use a concise chronological Markdown table with one row per relevant dated occurrence."
+      : "Choose the clearest concise format for the request.";
 
   return [
     "You are N3XRA Records AI, a strong general assistant for people using a records library.",
@@ -550,6 +626,11 @@ function buildPrompt({ user, question, context, history, documents, documentCoun
     "Do not mention sources, citations, filenames, document titles, file IDs, or where the answer came from.",
     "Do not include phrases like 'based on file' or 'from the excerpts'.",
     "If records do not contain enough information for a factual claim, say what is missing clearly and continue helping.",
+    "For requests asking about every, all, each, a full history, or a timeline, inspect every provided record passage and include every relevant occurrence.",
+    "For dated records, order occurrences from oldest to newest unless the user explicitly asks for another order.",
+    "Do not include a record merely because it contains generic instruction words; it must contain evidence about the actual subject.",
+    "Keep each occurrence concise enough to finish the complete answer without cutting off rows or sentences.",
+    `Output format for this request: ${outputGuidance}`,
     "Keep answers direct and useful.",
     "When using headings, lists, or tables, output valid markdown with proper line breaks.",
     "Put each heading on its own line.",
@@ -570,6 +651,7 @@ function buildPrompt({ user, question, context, history, documents, documentCoun
     `Active library: ${libraryName}`,
     `Current role label: ${role}`,
     `Documents available in current query: ${documentCount}`,
+    `Detected search subject terms: ${searchTerms.length ? searchTerms.join(", ") : "none"}`,
     "",
     "Library AI guidance saved by this library's admins:",
     libraryAiGuidance,
@@ -621,6 +703,7 @@ module.exports = async function handler(req, res) {
       fetchOrganizationAiSettings(token, organizationId),
     ]);
     const matches = rankDocuments(documents, question);
+    const searchTerms = getSearchTerms(question);
 
     if (!documents.length) {
       return res.status(200).json({
@@ -640,6 +723,7 @@ module.exports = async function handler(req, res) {
       history,
       documents: documentsContext,
       documentCount: documents.length,
+      searchTerms,
     });
 
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -650,8 +734,8 @@ module.exports = async function handler(req, res) {
       },
       body: JSON.stringify({
         model: RECORDS_SEARCH_MODEL,
-        temperature: 0.35,
-        max_tokens: 900,
+        temperature: 0.15,
+        max_tokens: 1600,
         messages: [
           { role: "system", content: "You are N3XRA Records AI." },
           { role: "user", content: prompt },
@@ -706,3 +790,6 @@ module.exports = async function handler(req, res) {
 };
 
 module.exports.normalizeAnswerText = normalizeAnswerText;
+module.exports.getSearchTerms = getSearchTerms;
+module.exports.buildRelevantSnippet = buildRelevantSnippet;
+module.exports.rankDocuments = rankDocuments;

@@ -43,3 +43,32 @@ test("Records AI Search keeps model line breaks required by Markdown", () => {
 
   assert.equal(answer, "## Summary\n\n| Year | Event |\n| --- | --- |\n| 2026 | Windows |");
 });
+
+test("Records AI Search separates the requested subject from formatting instructions", () => {
+  assert.deepEqual(
+    recordsSearch.getSearchTerms("Give me a summary of every time we talked about windows in a paragraph"),
+    ["windows"]
+  );
+});
+
+test("Records AI Search extracts evidence around a subject found deep in a file", () => {
+  const text = `${"Unrelated meeting business. ".repeat(180)}The board approved replacing the gym windows in February.`;
+  const snippet = recordsSearch.buildRelevantSnippet(text, ["windows"]);
+
+  assert.match(snippet, /approved replacing the gym windows/i);
+  assert.ok(snippet.length <= 3000);
+});
+
+test("exhaustive Records AI searches exclude generic matches and stay chronological", () => {
+  const documents = [
+    { id: "new", title: "March Minutes", year: "2026", month: "March", extracted_text: "The window grant balance was reassigned." },
+    { id: "noise", title: "April Minutes", year: "2018", month: "April", extracted_text: "There was time for a general project summary." },
+    { id: "old", title: "October Minutes", year: "2017", month: "October", extracted_text: "Historic windows were requested for the gym." },
+    { id: "middle", title: "June Minutes", year: "2019", month: "June", extracted_text: "A loan funded window replacement." },
+  ];
+
+  const matches = recordsSearch.rankDocuments(documents, "Tell me every time we talked about windows");
+
+  assert.deepEqual(matches.map((match) => match.id), ["old", "middle", "new"]);
+  assert.ok(matches.every((match) => /window/i.test(match.snippet)));
+});
