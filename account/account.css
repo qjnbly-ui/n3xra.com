@@ -599,7 +599,8 @@ body {
   line-height: 1.5;
 }
 
-.account-sms-state {
+.account-sms-state,
+.account-pin-state {
   width: fit-content;
   margin: 0;
   padding: 0.35rem 0.6rem;
@@ -611,7 +612,8 @@ body {
   font-weight: 800;
 }
 
-.account-sms-state.is-active {
+.account-sms-state.is-active,
+.account-pin-state.is-active {
   border-color: rgba(35, 208, 172, 0.3);
   color: #a7f3d0;
   background: rgba(35, 208, 172, 0.1);

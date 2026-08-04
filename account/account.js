@@ -37,6 +37,7 @@ const phoneAccessDisclosure = document.getElementById("phone-access-disclosure")
 const accountPhoneInput = document.getElementById("account-phone");
 const accountPhonePinInput = document.getElementById("account-phone-pin");
 const accountPhonePinConfirmInput = document.getElementById("account-phone-pin-confirm");
+const accountPinState = document.getElementById("account-pin-state");
 const accountSmsConsentInput = document.getElementById("account-sms-consent");
 const accountSmsState = document.getElementById("account-sms-state");
 const accountName = document.getElementById("account-name");
@@ -590,9 +591,23 @@ async function loadPhoneAccess() {
   }
   [accountPhonePinInput, accountPhonePinConfirmInput].forEach((input) => {
     if (!input) return;
+    input.value = "";
     input.required = !phoneAccessConfigured;
-    input.placeholder = phoneAccessConfigured ? "Leave blank to keep current PIN" : "";
+    input.placeholder = phoneAccessConfigured ? "Enter four digits only to change PIN" : "Enter four digits";
   });
+  if (accountPinState) {
+    accountPinState.textContent = phoneAccessConfigured
+      ? "Phone PIN is saved securely. Leave both PIN fields blank to keep it."
+      : "Create a four-digit phone PIN.";
+    accountPinState.classList.toggle("is-active", phoneAccessConfigured);
+  }
+  const clearBrowserAutofill = () => {
+    [accountPhonePinInput, accountPhonePinConfirmInput].forEach((input) => {
+      if (input && document.activeElement !== input) input.value = "";
+    });
+  };
+  requestAnimationFrame(clearBrowserAutofill);
+  window.setTimeout(clearBrowserAutofill, 350);
   return payload;
 }
 
@@ -1124,8 +1139,12 @@ async function handlePhoneAccessSave(event) {
       accountPhonePinConfirmInput.value = "";
       [accountPhonePinInput, accountPhonePinConfirmInput].forEach((input) => {
         input.required = false;
-        input.placeholder = "Leave blank to keep current PIN";
+        input.placeholder = "Enter four digits only to change PIN";
       });
+      if (accountPinState) {
+        accountPinState.textContent = "Phone PIN is saved securely. Leave both PIN fields blank to keep it.";
+        accountPinState.classList.add("is-active");
+      }
     }
 
     if (requestedSmsConsent !== smsConsentActive) {
