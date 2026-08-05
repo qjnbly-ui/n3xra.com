@@ -112,6 +112,19 @@ test("AI drafts are editable and save before suggestions or finalization", async
   }
 });
 
+test("AI reviews can be cleared without removing the saved AI draft", async () => {
+  for (const pagePath of meetingNotesPages) {
+    const html = await readFile(pagePath, "utf8");
+    assert.match(html, /data-review-action="clear"[^>]*>Clear review</);
+  }
+
+  for (const clientPath of recordingClients) {
+    const source = await readFile(clientPath, "utf8");
+    assert.match(source, /clearRecordingReview\(\{ supabase, recording \}\)/);
+    assert.match(source, /Your AI draft was preserved/);
+  }
+});
+
 test("manual AI draft saves update the review and Document Builder draft without an AI call", async () => {
   const source = await readFile(new URL("../../api/finalize-recording-notes.js", import.meta.url), "utf8");
   const manualSaveIndex = source.indexOf("if (hasEditedDraftText)");

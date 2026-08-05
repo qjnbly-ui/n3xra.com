@@ -100,7 +100,16 @@ async function invokePlatformAdmin(action, payload = {}) {
     body: { action, ...payload },
   });
   if (error || data?.error) {
-    throw new Error(data?.error || error?.message || "Admin request failed.");
+    let functionMessage = "";
+    if (error?.context && typeof error.context.json === "function") {
+      try {
+        const errorBody = await error.context.json();
+        functionMessage = String(errorBody?.error || errorBody?.message || "").trim();
+      } catch {
+        // Fall back to the SDK error when the function did not return JSON.
+      }
+    }
+    throw new Error(data?.error || functionMessage || error?.message || "Admin request failed.");
   }
   return data;
 }

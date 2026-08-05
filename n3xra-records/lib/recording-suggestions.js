@@ -105,3 +105,15 @@ export async function dismissRecordingSuggestion({ supabase, recording, index })
   await saveReviewJson(supabase, recording.id, nextReview);
   return { review: nextReview };
 }
+
+export async function clearRecordingReview({ supabase, recording }) {
+  if (!recording?.id) throw new Error("Recording is missing.");
+
+  const nextReview = cloneReview(recording.ai_review_json);
+  nextReview.suggested_additions = [];
+  nextReview.conflicts = [];
+  nextReview.review_cleared_at = new Date().toISOString();
+
+  await saveReviewJson(supabase, recording.id, nextReview);
+  return { review: nextReview };
+}

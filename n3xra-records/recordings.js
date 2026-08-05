@@ -12,6 +12,7 @@ import {
 } from "/shared/lib/orgs.js";
 import {
   applyRecordingSuggestions,
+  clearRecordingReview,
   dismissRecordingSuggestion,
   getOpenSuggestionIndexes,
   getSuggestionStatus,
@@ -151,6 +152,7 @@ const recordingDetailReferenceFrame = document.getElementById("recording-detail-
 const recordingDetailAiDraftPreview = document.getElementById("recording-detail-ai-draft-preview");
 const recordingDetailAiDraftSave = document.getElementById("recording-detail-ai-draft-save");
 const recordingAiReviewPanel = document.getElementById("recording-ai-review-panel");
+const recordingDetailClearReview = recordingAiReviewPanel?.querySelector('[data-review-action="clear"]');
 const recordingAiSuggestions = document.getElementById("recording-ai-suggestions");
 const recordingAiConflicts = document.getElementById("recording-ai-conflicts");
 const recordingDetailTranscriptCopy = document.getElementById("recording-detail-transcript-copy");
@@ -2585,6 +2587,11 @@ function renderReviewItems(container, title, items, emptyCopy, options = {}) {
 
 function renderAiReview(review) {
   const hasReview = review && typeof review === "object" && (Array.isArray(review.suggested_additions) || Array.isArray(review.conflicts));
+  const hasReviewItems = hasReview && (
+    (Array.isArray(review.suggested_additions) && review.suggested_additions.length > 0) ||
+    (Array.isArray(review.conflicts) && review.conflicts.length > 0)
+  );
+  show(recordingDetailClearReview, Boolean(hasReviewItems && getActiveCapabilities().canEditDocuments));
   if (!hasReview) {
     renderReviewItems(recordingAiSuggestions, "Suggested additions", [], "No AI review has been run yet.");
     renderReviewItems(recordingAiConflicts, "Possible conflicts", [], "No conflicts found.");
@@ -3132,6 +3139,14 @@ async function handleReviewSuggestionAction(action, index = null) {
       const result = await dismissRecordingSuggestion({ supabase, recording, index });
       updateActiveRecordingReview(result.review);
       setStatus(recordingDetailStatusMessage, "Suggestion dismissed.", "success");
+      return;
+    }
+
+    if (action === "clear") {
+      setStatus(recordingDetailStatusMessage, "Clearing the AI review...");
+      const result = await clearRecordingReview({ supabase, recording });
+      updateActiveRecordingReview(result.review);
+      setStatus(recordingDetailStatusMessage, "AI review cleared. Your AI draft was preserved.", "success");
     }
   } catch (error) {
     setStatus(recordingDetailStatusMessage, getErrorMessage(error, "Unable to update the suggestion."), "error");
