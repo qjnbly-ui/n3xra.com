@@ -58,6 +58,11 @@ This is the authoritative, public-safe knowledge for Ask N3XRA. It describes cur
 - “Complete secure billing setup” opens payment setup when action is required. “Manage billing in Stripe” lets a connected client update billing details and payment methods, view invoices, and manage allowed cancellation options.
 - Later approved work can be invoiced separately. A charge outside the accepted proposal requires a documented client approval reference before it is issued.
 
+## N3XRA AI receptionist
+
+- N3XRA's phone receptionist answers questions about the platform, can provide secured account assistance after caller recognition and keypad PIN verification, can send requested transactional texts to opted-in callers, and may offer an approved live transfer.
+- Spoken answers use sentence-sized playback and are designed to tolerate natural pauses and short conversational backchannels. When a caller interrupts, the receptionist tracks what was actually heard; if the caller says “continue,” it resumes with the remaining portion instead of repeating the whole answer.
+
 ## N3XRA Records
 
 - N3XRA Records is a searchable records and document platform for private organizational libraries and intentionally published public records. Learn more at /records.

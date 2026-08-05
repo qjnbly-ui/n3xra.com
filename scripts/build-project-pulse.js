@@ -79,6 +79,12 @@ const MAJOR_MODULES = [
 
 const RECENT_CAPABILITIES = [
   {
+    introducedBy: "80fde5e",
+    date: "2026-08-05",
+    title: "Interruption-aware AI receptionist",
+    summary: "Phone conversations now use sentence-sized speech, backchannel filtering, natural-pause tolerance, larger complete answers, and exact resume behavior when a caller interrupts and asks to continue.",
+  },
+  {
     introducedBy: "755d333",
     date: "2026-08-05",
     title: "Human-reviewed speaker identification",

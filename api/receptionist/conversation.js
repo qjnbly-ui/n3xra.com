@@ -38,7 +38,8 @@ const RECEPTIONIST_RULES = [
   "The written brand is N3XRA, but it is always pronounced NEXRA.",
   "Use a warm, polished, conversational voice.",
   "Answer the caller's question directly using the supplied current N3XRA knowledge.",
-  "Keep most replies to two or three short spoken sentences.",
+  "Keep most replies to three to five short spoken sentences, using one complete thought per sentence.",
+  "Never stop mid-sentence. Finish the current thought before ending a response.",
   "Do not use markdown, bullets, emojis, raw URLs, route lists, or decorative symbols.",
   "Do not claim to take notes, send general email, or schedule appointments yet.",
   "Quentin Nichols is N3XRA's founder, creator, and owner. References to the founder, creator, owner, or Quentin mean him.",
@@ -310,15 +311,86 @@ function announceAndTransfer(ws, delayMs = 4600) {
   ws.transferTimer = setTimeout(() => endForTransfer(ws), delayMs);
 }
 
-function sendSpeech(ws, token) {
-  if (ws.readyState !== WebSocket.OPEN) return;
-  ws.send(JSON.stringify({
-    type: "text",
-    token: toSpeechText(token),
-    last: true,
-    interruptible: true,
-    preemptible: true,
-  }));
+function splitSpeechIntoChunks(value, maxChars = 320) {
+  const text = toSpeechText(value);
+  if (!text) return [];
+  const sentences = text.match(/[^.!?]+(?:[.!?]+["']?|$)/g) || [text];
+  const chunks = [];
+  for (const rawSentence of sentences) {
+    let remaining = rawSentence.trim();
+    while (remaining.length > maxChars) {
+      const search = remaining.slice(0, maxChars + 1);
+      const breakAt = Math.max(search.lastIndexOf(", "), search.lastIndexOf("; "), search.lastIndexOf(" "));
+      const end = breakAt >= Math.floor(maxChars * 0.55) ? breakAt + 1 : maxChars;
+      chunks.push(remaining.slice(0, end).trim());
+      remaining = remaining.slice(end).trim();
+    }
+    if (remaining) chunks.push(remaining);
+  }
+  return chunks;
+}
+
+function sendSpeech(ws, token, { historyIndex = null } = {}) {
+  if (ws.readyState !== WebSocket.OPEN) return [];
+  const fullText = toSpeechText(token);
+  const chunks = splitSpeechIntoChunks(fullText);
+  chunks.forEach((chunk, index) => {
+    ws.send(JSON.stringify({
+      type: "text",
+      token: `${index > 0 ? " " : ""}${chunk}`,
+      last: index === chunks.length - 1,
+      interruptible: true,
+      preemptible: true,
+    }));
+  });
+  ws.activeSpeech = fullText ? { fullText, historyIndex } : null;
+  return chunks;
+}
+
+function speechRemainder(fullText, utteranceUntilInterrupt) {
+  const full = toSpeechText(fullText);
+  const heard = toSpeechText(utteranceUntilInterrupt);
+  if (!full) return "";
+  if (!heard) return full;
+  const directIndex = full.toLowerCase().indexOf(heard.toLowerCase());
+  if (directIndex >= 0) return full.slice(directIndex + heard.length).replace(/^[\s,;:.-]+/, "").trim();
+  const heardWords = heard.toLowerCase().match(/[a-z0-9']+/g) || [];
+  if (!heardWords.length) return full;
+  const lastWords = heardWords.slice(-6).join(" ");
+  const normalizedFull = full.toLowerCase().replace(/[^a-z0-9']+/g, " ").trim();
+  const overlapIndex = normalizedFull.indexOf(lastWords);
+  if (overlapIndex < 0) return full;
+  const consumedWords = normalizedFull.slice(0, overlapIndex + lastWords.length).split(" ").length;
+  return full.split(/\s+/).slice(consumedWords).join(" ").replace(/^[\s,;:.-]+/, "").trim();
+}
+
+function recordSpeechInterruption(ws, message) {
+  if (!ws.activeSpeech) return null;
+  const heard = toSpeechText(message?.utteranceUntilInterrupt);
+  const remainder = speechRemainder(ws.activeSpeech.fullText, heard);
+  const historyIndex = ws.activeSpeech.historyIndex;
+  if (Number.isInteger(historyIndex) && ws.history?.[historyIndex]?.role === "assistant") {
+    if (heard) ws.history[historyIndex].content = heard;
+    else ws.history.splice(historyIndex, 1);
+  }
+  ws.lastInterruption = { heard, remainder };
+  ws.activeSpeech = null;
+  return ws.lastInterruption;
+}
+
+function isContinueRequest(value) {
+  return /^(?:please\s+)?(?:continue|go on|keep going|finish|finish that|finish what you were saying|what were you saying)(?:\s+please)?[.!?]*$/i.test(String(value || "").trim());
+}
+
+function resumeInterruptedSpeech(ws, question) {
+  const remainder = toSpeechText(ws.lastInterruption?.remainder);
+  if (!remainder || !isContinueRequest(question)) return false;
+  ws.history.push({ role: "user", content: question }, { role: "assistant", content: remainder });
+  ws.history = ws.history.slice(-10);
+  const historyIndex = ws.history.length - 1;
+  ws.lastInterruption = null;
+  sendSpeech(ws, remainder, { historyIndex });
+  return true;
 }
 
 async function sendRequestedSms(ws, question) {
@@ -402,32 +474,55 @@ async function requestVerifiedAccountAction(ws, action, accountIntent = "general
   sendSpeech(ws, "For security, please enter your four digit phone PIN using the keypad. I will not ask you for personal information.");
 }
 
-async function requestGroqReply(question, history) {
+function trimToCompleteSentence(value) {
+  const text = toSpeechText(value);
+  if (!text || /[.!?]["']?$/.test(text)) return text;
+  const matches = [...text.matchAll(/[.!?]["']?(?=\s|$)/g)];
+  if (!matches.length) return `${text}.`;
+  const last = matches[matches.length - 1];
+  return text.slice(0, last.index + last[0].length).trim();
+}
+
+async function requestGroqReply(question, history, interruption = null) {
   const apiKey = String(process.env.GROQ_API_KEY || "").trim();
   if (!apiKey) throw new Error("Missing GROQ_API_KEY.");
   const siteContext = await askN3xra.getSiteContext(question, history);
-  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: String(process.env.GROQ_RECEPTIONIST_MODEL || process.env.GROQ_ASK_MODEL || "openai/gpt-oss-120b").trim(),
-      temperature: 0.2,
-      max_tokens: 240,
-      messages: [
-        { role: "system", content: `${siteContext}\n\nPHONE RECEPTIONIST RULES:\n${RECEPTIONIST_RULES}` },
-        ...history,
-        { role: "user", content: question },
-      ],
-    }),
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(String(data?.error?.message || data?.message || "Groq request failed."));
-  const reply = toSpeechText(data?.choices?.[0]?.message?.content);
-  if (!reply) throw new Error("Groq returned an empty response.");
-  return reply;
+  const model = String(process.env.GROQ_RECEPTIONIST_MODEL || process.env.GROQ_ASK_MODEL || "openai/gpt-oss-120b").trim();
+  const interruptionContext = interruption?.heard
+    ? `\n\nINTERRUPTION CONTEXT: The caller heard only this portion of the previous response: "${interruption.heard}". Do not repeat it. Answer the new request naturally from that exact conversation state.`
+    : "";
+  const messages = [
+    { role: "system", content: `${siteContext}\n\nPHONE RECEPTIONIST RULES:\n${RECEPTIONIST_RULES}${interruptionContext}` },
+    ...history,
+    { role: "user", content: question },
+  ];
+  const parts = [];
+  let finishReason = "";
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model,
+        temperature: 0.2,
+        max_tokens: attempt === 0 ? 600 : 400,
+        messages,
+      }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(String(data?.error?.message || data?.message || "Groq request failed."));
+    const part = toSpeechText(data?.choices?.[0]?.message?.content);
+    if (!part) throw new Error("Groq returned an empty response.");
+    parts.push(part);
+    finishReason = String(data?.choices?.[0]?.finish_reason || "stop");
+    if (finishReason !== "length") break;
+    messages.push(
+      { role: "assistant", content: part },
+      { role: "user", content: "Continue exactly where you stopped. Finish the answer in complete sentences without repeating anything already written." },
+    );
+  }
+  const reply = parts.join(" ").replace(/\s+/g, " ").trim();
+  return finishReason === "length" ? trimToCompleteSentence(reply) : reply;
 }
 
 const app = express();
@@ -455,6 +550,8 @@ wss.on("connection", (ws) => {
   ws.requestedSmsResource = null;
   ws.transferStarting = false;
   ws.transferTimer = null;
+  ws.activeSpeech = null;
+  ws.lastInterruption = null;
 
   ws.on("close", () => {
     if (ws.transferTimer) clearTimeout(ws.transferTimer);
@@ -480,6 +577,11 @@ wss.on("connection", (ws) => {
         ws.caller = caller;
         return caller;
       }).catch(() => null);
+      return;
+    }
+
+    if (message.type === "interrupt") {
+      recordSpeechInterruption(ws, message);
       return;
     }
 
@@ -516,6 +618,11 @@ wss.on("connection", (ws) => {
     if (message.type !== "prompt" || message.last === false || ws.processing || ws.transferStarting) return;
     const question = toSpeechText(message.voicePrompt).slice(0, 800);
     if (!question) return;
+
+    if (resumeInterruptedSpeech(ws, question)) return;
+    const interruption = ws.lastInterruption;
+    ws.lastInterruption = null;
+    ws.activeSpeech = null;
 
     if (ws.transferOffered) {
       if (isAffirmativeTransferResponse(question)) {
@@ -561,21 +668,21 @@ wss.on("connection", (ws) => {
     ws.processing = true;
     try {
       const [reply, transferDecision] = await Promise.all([
-        requestGroqReply(question, ws.history),
+        requestGroqReply(question, ws.history, interruption),
         evaluateTransferWorthiness(question, ws.history),
       ]);
-      ws.history.push({ role: "user", content: question }, { role: "assistant", content: reply });
-      ws.history = ws.history.slice(-10);
+      let spokenReply = reply;
       if (transferDecision.offerTransfer) {
         ws.transferOffered = true;
         ws.transferSummary = transferDecision.summary;
         const transferOffer = transferDecision.requestedByCaller
           ? "If you'd still like, I can try connecting you with Quentin now. Would you like me to do that?"
           : "This sounds like something Quentin may want to handle personally. Would you like me to try connecting you now?";
-        sendSpeech(ws, `${reply} ${transferOffer}`);
-      } else {
-        sendSpeech(ws, reply);
+        spokenReply = `${reply} ${transferOffer}`;
       }
+      ws.history.push({ role: "user", content: question }, { role: "assistant", content: spokenReply });
+      ws.history = ws.history.slice(-10);
+      sendSpeech(ws, spokenReply, { historyIndex: ws.history.length - 1 });
     } catch (error) {
       console.error("Receptionist response failed", { callSid: ws.callSid, error: error?.message });
       sendSpeech(ws, "I'm sorry, I had trouble answering that. Please try your question once more.");
@@ -605,3 +712,10 @@ module.exports.planRequestedSms = planRequestedSms;
 module.exports.SMS_DESTINATIONS = SMS_DESTINATIONS;
 module.exports.SMS_OPT_IN_INSTRUCTIONS = SMS_OPT_IN_INSTRUCTIONS;
 module.exports.completeAccountActionState = completeAccountActionState;
+module.exports.splitSpeechIntoChunks = splitSpeechIntoChunks;
+module.exports.sendSpeech = sendSpeech;
+module.exports.speechRemainder = speechRemainder;
+module.exports.recordSpeechInterruption = recordSpeechInterruption;
+module.exports.isContinueRequest = isContinueRequest;
+module.exports.resumeInterruptedSpeech = resumeInterruptedSpeech;
+module.exports.trimToCompleteSentence = trimToCompleteSentence;

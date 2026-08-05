@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const require = createRequire(import.meta.url);
@@ -36,6 +37,90 @@ test("receptionist TwiML uses ConversationRelay and the ElevenLabs provider", ()
   assert.match(xml, /Thanks for calling NEXRA\. You&apos;re speaking with our AI receptionist/);
   assert.match(xml, /What brings you to NEXRA today\?/);
   assert.match(xml, /welcomeGreetingInterruptible="none"/);
+  assert.match(xml, /reportInputDuringAgentSpeech="speech"/);
+  assert.match(xml, /interruptSensitivity="low"/);
+  assert.match(xml, /speechTimeout="1200"/);
+  assert.match(xml, /ignoreBackchannel="true"/);
+});
+
+test("receptionist speech is sent as interruptible sentence-sized chunks", () => {
+  const sent = [];
+  const ws = { readyState: 1, send(value) { sent.push(JSON.parse(value)); } };
+  const chunks = conversationServer.sendSpeech(
+    ws,
+    "First complete sentence. Second complete sentence explains another point. Third complete sentence finishes the answer.",
+  );
+
+  assert.equal(chunks.length, 3);
+  assert.deepEqual(sent.map((message) => message.last), [false, false, true]);
+  assert.equal(sent.every((message) => message.interruptible && message.preemptible), true);
+  assert.equal(sent.map((message) => message.token).join("").replace(/\s+/g, " ").trim(), chunks.join(" "));
+});
+
+test("an interrupted response resumes only the portion the caller did not hear", () => {
+  const sent = [];
+  const fullText = "The first point is complete. The second point explains pricing. The final point explains setup.";
+  const ws = {
+    readyState: 1,
+    history: [{ role: "user", content: "Tell me more." }, { role: "assistant", content: fullText }],
+    activeSpeech: { fullText, historyIndex: 1 },
+    lastInterruption: null,
+    send(value) { sent.push(JSON.parse(value)); },
+  };
+
+  const interruption = conversationServer.recordSpeechInterruption(ws, {
+    utteranceUntilInterrupt: "The first point is complete.",
+  });
+  assert.equal(ws.history[1].content, "The first point is complete.");
+  assert.equal(interruption.remainder, "The second point explains pricing. The final point explains setup.");
+  assert.equal(conversationServer.resumeInterruptedSpeech(ws, "continue"), true);
+  const replayed = sent.map((message) => message.token).join("").trim();
+  assert.equal(replayed, "The second point explains pricing. The final point explains setup.");
+  assert.doesNotMatch(replayed, /first point/i);
+  assert.equal(ws.lastInterruption, null);
+});
+
+test("receptionist uses a larger response budget and completes token-limited replies", async () => {
+  const previousKey = process.env.GROQ_API_KEY;
+  const previousFetch = global.fetch;
+  process.env.GROQ_API_KEY = "test-key";
+  const requests = [];
+  global.fetch = async (_url, options) => {
+    const payload = JSON.parse(options.body);
+    requests.push(payload);
+    const first = requests.length === 1;
+    return {
+      ok: true,
+      async json() {
+        return {
+          choices: [{
+            finish_reason: first ? "length" : "stop",
+            message: { content: first ? "The first point is complete. The next" : "part finishes here." },
+          }],
+        };
+      },
+    };
+  };
+  try {
+    const reply = await conversationServer.requestGroqReply("Explain the service.", []);
+    assert.equal(requests[0].max_tokens, 600);
+    assert.equal(requests[1].max_tokens, 400);
+    assert.match(requests[1].messages.at(-1).content, /without repeating/i);
+    assert.equal(reply, "The first point is complete. The next part finishes here.");
+  } finally {
+    if (previousKey === undefined) delete process.env.GROQ_API_KEY;
+    else process.env.GROQ_API_KEY = previousKey;
+    global.fetch = previousFetch;
+  }
+});
+
+test("public knowledge and Project Pulse describe interruption-aware calls", async () => {
+  const [knowledge, projectPulseBuilder] = await Promise.all([
+    readFile(new URL("../../api/ask-knowledge.md", import.meta.url), "utf8"),
+    readFile(new URL("../../scripts/build-project-pulse.js", import.meta.url), "utf8"),
+  ]);
+  assert.match(knowledge, /resumes with the remaining portion instead of repeating the whole answer/);
+  assert.match(projectPulseBuilder, /Interruption-aware AI receptionist/);
 });
 
 test("ConversationRelay can return approved calls to a signed transfer action", () => {

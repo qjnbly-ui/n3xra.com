@@ -2,13 +2,13 @@
   "schemaVersion": 1,
   "name": "N3XRA Project Pulse",
   "visibility": "public-safe",
-  "generatedAt": "2026-08-05T19:24:17.230Z",
-  "updatedAt": "2026-08-05T10:44:54-07:00",
-  "commit": "755d333",
+  "generatedAt": "2026-08-05T20:15:50.786Z",
+  "updatedAt": "2026-08-05T12:24:58-07:00",
+  "commit": "80fde5e",
   "summary": {
     "statement": "N3XRA is a connected technology platform comprising approximately 148,000 lines of source code across customer experiences, software products, APIs, database systems, administrative tools, and operational infrastructure.",
     "sourceFiles": 436,
-    "sourceLines": 148168,
+    "sourceLines": 148291,
     "products": 7,
     "pages": 99,
     "apiFunctions": 61,
@@ -26,7 +26,7 @@
     },
     "js": {
       "files": 172,
-      "lines": 62625
+      "lines": 62748
     },
     "sql": {
       "files": 113,
@@ -97,6 +97,11 @@
     "Company governance planning"
   ],
   "recentCapabilities": [
+    {
+      "date": "2026-08-05",
+      "title": "Interruption-aware AI receptionist",
+      "summary": "Phone conversations now use sentence-sized speech, backchannel filtering, natural-pause tolerance, larger complete answers, and exact resume behavior when a caller interrupts and asks to continue."
+    },
     {
       "date": "2026-08-05",
       "title": "Human-reviewed speaker identification",
