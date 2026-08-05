@@ -1349,6 +1349,25 @@ textarea {
   justify-content: flex-end;
 }
 
+.recording-detail-panel-actions .recording-transfer-discreet {
+  order: -1;
+  margin-right: auto;
+  padding: 0.5rem 0.65rem;
+  border-color: transparent;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+  box-shadow: none;
+}
+
+.recording-detail-panel-actions .recording-transfer-discreet:hover,
+.recording-detail-panel-actions .recording-transfer-discreet:focus-visible {
+  border-color: rgba(23, 111, 102, 0.16);
+  background: rgba(23, 111, 102, 0.06);
+  color: var(--teal);
+}
+
 .recording-interruptions {
   display: grid;
   gap: 0.7rem;

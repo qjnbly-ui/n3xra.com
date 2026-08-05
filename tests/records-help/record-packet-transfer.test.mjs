@@ -22,10 +22,12 @@ test("record packets expose an administrator-only destination workflow", async (
   ]);
 
   assert.match(recordingsHtml, /id="recording-detail-transfer"[^>]*>Transfer record packet</);
+  assert.match(recordingsHtml, /recording-transfer-discreet/);
   assert.match(recordingsHtml, /id="recording-transfer-destination"/);
   assert.match(recordingsHtml, /Move to your workspace/);
   assert.match(recordingsHtml, /Transfer to another organization/);
   assert.match(meetingNotesRoute, /id="recording-detail-transfer"[^>]*>Transfer record packet</);
+  assert.match(meetingNotesRoute, /recording-transfer-discreet/);
   assert.match(meetingNotesRoute, /Move to your workspace/);
   assert.match(meetingNotesRoute, /Transfer to another organization/);
   assert.match(allRecordingsHtml, /id="recording-detail-transfer-link"/);
