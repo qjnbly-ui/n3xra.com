@@ -219,6 +219,10 @@
       "destination": "/n3xra-records/all-recordings.html"
     },
     {
+      "source": "/n3xra-records/record-transfer",
+      "destination": "/n3xra-records/record-transfer.html"
+    },
+    {
       "source": "/library/:slug",
       "destination": "/n3xra-records/embed?slug=:slug"
     },

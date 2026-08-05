@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Record Packet Transfer | N3XRA Records</title>
+  <meta name="description" content="Review and accept a secure N3XRA record packet transfer.">
+  <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
+  <link rel="canonical" href="https://n3xra.com/n3xra-records/record-transfer">
+  <link rel="icon" type="image/png" href="/assets/n3xra_logo_transparent_small.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/n3xra-records/styles.css?v=20260805-record-transfer">
+</head>
+<body class="shared-document-body">
+  <header class="topbar shared-document-topbar">
+    <div class="topbar-inner">
+      <div class="topbar-row dashboard-topbar-row">
+        <div class="brand">
+          <a class="brand-home-link" href="/" aria-label="N3XRA home">
+            <img class="brand-badge brand-badge-image" src="/assets/n3xra_logo_transparent.png" alt="N3XRA logo">
+          </a>
+        </div>
+        <a class="topbar-logout button-link" href="/n3xra-records/library">Records</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="main shared-document-main">
+    <section class="panel record-transfer-page-panel">
+      <p class="settings-modal-kicker">Secure record transfer</p>
+      <h1 id="record-transfer-title">Review record packet</h1>
+      <p id="record-transfer-intro">Loading your invitation...</p>
+
+      <div class="notice hidden" id="record-transfer-error"></div>
+      <div class="record-transfer-summary hidden" id="record-transfer-summary">
+        <dl>
+          <div><dt>Record packet</dt><dd id="record-transfer-recording">—</dd></div>
+          <div><dt>From</dt><dd id="record-transfer-source">—</dd></div>
+          <div><dt>Sent to</dt><dd id="record-transfer-email">—</dd></div>
+          <div><dt>Expires</dt><dd id="record-transfer-expires">—</dd></div>
+        </dl>
+        <div class="field">
+          <label for="record-transfer-destination">Receive in</label>
+          <select id="record-transfer-destination"></select>
+          <p class="field-note" id="record-transfer-destination-note">Choose an active Organization workspace where you are an Account Admin.</p>
+        </div>
+        <div class="record-transfer-warning">
+          <strong>The entire packet moves together.</strong>
+          <p>The audio, transcript, notes, agenda and supporting references, AI draft, and final documents will leave the sender's workspace. Existing share links will be revoked.</p>
+        </div>
+        <div class="actions">
+          <a class="btn secondary button-link" href="/n3xra-records/library">Not now</a>
+          <button class="btn" id="record-transfer-accept" type="button">Accept record packet</button>
+        </div>
+      </div>
+      <p class="status" id="record-transfer-status"></p>
+    </section>
+  </main>
+  <script type="module" src="/n3xra-records/record-transfer.js?v=20260805-record-transfer"></script>
+</body>
+</html>

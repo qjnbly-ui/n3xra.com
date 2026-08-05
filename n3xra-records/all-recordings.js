@@ -1194,12 +1194,10 @@ function populateRecordingDetails(recording) {
   recordingDetailAiReview.disabled = recording.transcript_status !== "ready";
   recordingDetailPlay.textContent = "Play";
   recordingDetailDelete.disabled = !getActiveCapabilities().canDeleteDocuments;
-  const canOpenTransfer = getMembershipRole(activeMembership) === "account_admin" && memberships.some((membership) => (
-    membership.organization?.id !== getActiveOrganization()?.id &&
-    membership.organization?.subscription_tier === "organization" &&
-    ["active", "trialing"].includes(String(membership.organization?.account_status || "active")) &&
-    getMembershipRole(membership) === "account_admin"
-  ));
+  const canOpenTransfer = getMembershipRole(activeMembership) === "account_admin"
+    && !["recording", "interrupted", "uploading", "finalizing", "transcribing"].includes(String(recording.status || ""))
+    && !["queued", "processing"].includes(String(recording.transcript_status || ""))
+    && String(recording.ai_review_status || "") !== "processing";
   show(recordingDetailTransferLink, canOpenTransfer);
   if (recordingDetailTransferLink) {
     recordingDetailTransferLink.href = `/n3xra-records/meeting-notes?recording=${encodeURIComponent(recording.id)}`;

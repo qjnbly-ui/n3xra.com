@@ -168,7 +168,17 @@ const recordingDetailDelete = document.getElementById("recording-detail-delete")
 const recordingDetailStatusMessage = document.getElementById("recording-detail-status-message");
 const recordingTransferModal = document.getElementById("recording-transfer-modal");
 const recordingTransferCopy = document.getElementById("recording-transfer-copy");
+const recordingTransferModeWorkspace = document.getElementById("recording-transfer-mode-workspace");
+const recordingTransferModeExternal = document.getElementById("recording-transfer-mode-external");
+const recordingTransferWorkspacePanel = document.getElementById("recording-transfer-workspace-panel");
+const recordingTransferExternalPanel = document.getElementById("recording-transfer-external-panel");
 const recordingTransferDestination = document.getElementById("recording-transfer-destination");
+const recordingTransferWorkspaceNote = document.getElementById("recording-transfer-workspace-note");
+const recordingTransferRecipientEmail = document.getElementById("recording-transfer-recipient-email");
+const recordingTransferRecipientOrganization = document.getElementById("recording-transfer-recipient-organization");
+const recordingTransferPending = document.getElementById("recording-transfer-pending");
+const recordingTransferPendingCopy = document.getElementById("recording-transfer-pending-copy");
+const recordingTransferCancelInvitation = document.getElementById("recording-transfer-cancel-invitation");
 const recordingTransferCancel = document.getElementById("recording-transfer-cancel");
 const recordingTransferSubmit = document.getElementById("recording-transfer-submit");
 const recordingTransferStatus = document.getElementById("recording-transfer-status");
@@ -214,6 +224,8 @@ let durationTimer = null;
 let elapsedRecordingMs = 0;
 let activeDetailRecordingId = "";
 let pendingTransferRecordingId = "";
+let recordingTransferMode = "workspace";
+let pendingExternalTransferInvitation = null;
 let pendingDeleteRecordingId = "";
 let detailPlayerUrl = "";
 let pendingReferencePreviewUrl = "";
@@ -1877,10 +1889,55 @@ function getRecordPacketTransferDestinations() {
 
 function canTransferRecordPacket(recording) {
   if (!recording || getMembershipRole(activeMembership) !== "account_admin") return false;
-  if (!getRecordPacketTransferDestinations().length) return false;
   return !["recording", "interrupted", "uploading", "finalizing", "transcribing"].includes(String(recording.status || "")) &&
     !["queued", "processing"].includes(String(recording.transcript_status || "")) &&
     String(recording.ai_review_status || "") !== "processing";
+}
+
+function setRecordingTransferMode(mode) {
+  recordingTransferMode = mode === "external" ? "external" : "workspace";
+  const isWorkspace = recordingTransferMode === "workspace";
+  recordingTransferModeWorkspace?.classList.toggle("is-active", isWorkspace);
+  recordingTransferModeWorkspace?.setAttribute("aria-selected", String(isWorkspace));
+  recordingTransferModeExternal?.classList.toggle("is-active", !isWorkspace);
+  recordingTransferModeExternal?.setAttribute("aria-selected", String(!isWorkspace));
+  show(recordingTransferWorkspacePanel, isWorkspace);
+  show(recordingTransferExternalPanel, !isWorkspace);
+  if (recordingTransferSubmit) {
+    recordingTransferSubmit.textContent = isWorkspace ? "Move record packet" : "Send transfer invitation";
+    recordingTransferSubmit.disabled = !isWorkspace && Boolean(pendingExternalTransferInvitation);
+  }
+  setStatus(recordingTransferStatus, "");
+}
+
+function renderPendingExternalTransfer(invitation) {
+  pendingExternalTransferInvitation = invitation?.status === "pending" ? invitation : null;
+  show(recordingTransferPending, Boolean(pendingExternalTransferInvitation));
+  if (recordingTransferPendingCopy && pendingExternalTransferInvitation) {
+    recordingTransferPendingCopy.textContent = `Sent to ${pendingExternalTransferInvitation.recipient_email}. It expires ${formatDateTime(pendingExternalTransferInvitation.expires_at)}.`;
+  }
+  if (recordingTransferRecipientEmail) recordingTransferRecipientEmail.disabled = Boolean(pendingExternalTransferInvitation);
+  if (recordingTransferRecipientOrganization) recordingTransferRecipientOrganization.disabled = Boolean(pendingExternalTransferInvitation);
+  if (recordingTransferSubmit && recordingTransferMode === "external") {
+    recordingTransferSubmit.disabled = Boolean(pendingExternalTransferInvitation);
+  }
+}
+
+async function invokeRecordPacketTransfer(body) {
+  const { data, error } = await supabase.functions.invoke("transfer-record-packet", { body });
+  if (error) {
+    const payload = await error.context?.json?.().catch(() => ({}));
+    throw new Error(payload?.error || error.message || "Unable to reach the transfer service.");
+  }
+  if (data?.error) throw new Error(data.error);
+  return data;
+}
+
+async function loadExternalTransferInvitation(recordingId) {
+  renderPendingExternalTransfer(null);
+  const data = await invokeRecordPacketTransfer({ action: "list", recordingId });
+  const pending = (data?.invitations || []).find((invitation) => invitation.status === "pending") || null;
+  renderPendingExternalTransfer(pending);
 }
 
 function setRecordingTransferModalOpen(isOpen) {
@@ -1888,6 +1945,9 @@ function setRecordingTransferModalOpen(isOpen) {
   recordingTransferModal?.setAttribute("aria-hidden", String(!isOpen));
   if (!isOpen) {
     pendingTransferRecordingId = "";
+    pendingExternalTransferInvitation = null;
+    if (recordingTransferRecipientEmail) recordingTransferRecipientEmail.value = "";
+    if (recordingTransferRecipientOrganization) recordingTransferRecipientOrganization.value = "";
     setStatus(recordingTransferStatus, "");
   }
 }
@@ -1895,13 +1955,63 @@ function setRecordingTransferModalOpen(isOpen) {
 function promptTransferRecordPacket(recordingId) {
   const recording = getRecordingById(recordingId);
   const destinations = getRecordPacketTransferDestinations();
-  if (!canTransferRecordPacket(recording) || !destinations.length) return;
+  if (!canTransferRecordPacket(recording)) return;
   pendingTransferRecordingId = recording.id;
-  recordingTransferCopy.textContent = `Move "${recording.title || "Untitled meeting note"}" and its complete record packet out of ${getActiveOrganization()?.name || "this workspace"}?`;
-  recordingTransferDestination.innerHTML = destinations.map((membership) => (
-    `<option value="${escapeHtml(membership.organization.id)}">${escapeHtml(membership.organization.name || "Untitled library")}</option>`
-  )).join("");
+  recordingTransferCopy.textContent = `Move "${recording.title || "Untitled meeting note"}" and its complete record packet out of ${getActiveOrganization()?.name || "this workspace"}.`;
+  if (destinations.length) {
+    recordingTransferDestination.innerHTML = destinations.map((membership) => (
+      `<option value="${escapeHtml(membership.organization.id)}">${escapeHtml(membership.organization.name || "Untitled library")}</option>`
+    )).join("");
+    recordingTransferDestination.disabled = false;
+    recordingTransferWorkspaceNote.textContent = "You must be an Account Admin in both workspaces. Existing share links are revoked.";
+  } else {
+    recordingTransferDestination.innerHTML = '<option value="">No other eligible workspaces</option>';
+    recordingTransferDestination.disabled = true;
+    recordingTransferWorkspaceNote.textContent = "No other active Organization workspace is connected to this login. Use the other-organization option instead.";
+  }
+  setRecordingTransferMode(destinations.length ? "workspace" : "external");
   setRecordingTransferModalOpen(true);
+  void loadExternalTransferInvitation(recording.id).catch((error) => {
+    setStatus(recordingTransferStatus, getErrorMessage(error, "Unable to check transfer invitations."), "error");
+  });
+}
+
+async function sendExternalRecordPacketTransfer(recordingId) {
+  const recipientEmail = String(recordingTransferRecipientEmail?.value || "").trim();
+  const recipientOrganizationName = String(recordingTransferRecipientOrganization?.value || "").trim();
+  if (!recipientEmail || !recordingTransferRecipientEmail?.checkValidity()) {
+    recordingTransferRecipientEmail?.focus();
+    recordingTransferRecipientEmail?.reportValidity();
+    return;
+  }
+  recordingTransferSubmit.disabled = true;
+  recordingTransferCancel.disabled = true;
+  setStatus(recordingTransferStatus, "Sending secure transfer invitation...");
+  try {
+    const data = await invokeRecordPacketTransfer({ action: "create", recordingId, recipientEmail, recipientOrganizationName });
+    renderPendingExternalTransfer(data.invitation);
+    setStatus(recordingTransferStatus, `Transfer invitation sent to ${recipientEmail}. The packet has not moved yet.`, "success");
+  } catch (error) {
+    setStatus(recordingTransferStatus, getErrorMessage(error, "Unable to send the transfer invitation."), "error");
+    recordingTransferSubmit.disabled = false;
+  } finally {
+    recordingTransferCancel.disabled = false;
+  }
+}
+
+async function cancelExternalRecordPacketTransfer() {
+  if (!pendingExternalTransferInvitation?.id) return;
+  recordingTransferCancelInvitation.disabled = true;
+  setStatus(recordingTransferStatus, "Cancelling invitation...");
+  try {
+    await invokeRecordPacketTransfer({ action: "cancel", requestId: pendingExternalTransferInvitation.id });
+    renderPendingExternalTransfer(null);
+    setStatus(recordingTransferStatus, "Transfer invitation cancelled. The packet stayed in this workspace.", "success");
+  } catch (error) {
+    setStatus(recordingTransferStatus, getErrorMessage(error, "Unable to cancel the transfer invitation."), "error");
+  } finally {
+    recordingTransferCancelInvitation.disabled = false;
+  }
 }
 
 function clearDetailPlayer() {
@@ -4794,7 +4904,16 @@ async function init() {
   recordingTransferCancel?.addEventListener("click", () => {
     setRecordingTransferModalOpen(false);
   });
+  recordingTransferModeWorkspace?.addEventListener("click", () => setRecordingTransferMode("workspace"));
+  recordingTransferModeExternal?.addEventListener("click", () => setRecordingTransferMode("external"));
+  recordingTransferCancelInvitation?.addEventListener("click", () => {
+    void cancelExternalRecordPacketTransfer();
+  });
   recordingTransferSubmit?.addEventListener("click", () => {
+    if (recordingTransferMode === "external") {
+      if (pendingTransferRecordingId) void sendExternalRecordPacketTransfer(pendingTransferRecordingId);
+      return;
+    }
     const targetOrganizationId = recordingTransferDestination?.value || "";
     if (!pendingTransferRecordingId || !targetOrganizationId) return;
     void transferRecordPacket(pendingTransferRecordingId, targetOrganizationId);
