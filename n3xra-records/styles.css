@@ -2841,6 +2841,51 @@ textarea {
   width: 100%;
 }
 
+.ai-search-audio-controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.45rem;
+  min-height: 1.75rem;
+  margin-top: -0.35rem;
+}
+
+.ai-search-audio-controls.hidden,
+.ai-search-audio-button.hidden {
+  display: none;
+}
+
+.ai-search-audio-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 0;
+  padding: 0.28rem 0.45rem;
+  background: transparent;
+  color: var(--teal);
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.ai-search-audio-button:hover,
+.ai-search-audio-button:focus-visible {
+  color: #0b4d45;
+  text-decoration: underline;
+  text-underline-offset: 0.18rem;
+}
+
+.ai-search-audio-button:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.ai-search-audio-status {
+  color: var(--slate);
+  font-size: 0.72rem;
+}
+
 .ai-search-sources-label {
   margin: 0.35rem 0 0.05rem;
   color: var(--teal);

@@ -75,6 +75,73 @@ function normalizeAnswerText(value) {
     .trim();
 }
 
+function cleanMarkdownForSpeech(value) {
+  return normalizeText(String(value || "")
+    .replace(/\[([^\]]+)]\((?:https?:\/\/|\/)[^)]+\)/g, "$1")
+    .replace(/[*_`#>]/g, " ")
+    .replace(/^[-+]\s+/gm, ""))
+    .replace(/\s+([,.;!?])/g, "$1");
+}
+
+function parseMarkdownTableRow(value) {
+  const line = String(value || "").trim();
+  if (!line.includes("|")) return [];
+  return line.replace(/^\|/, "").replace(/\|$/, "").split("|").map((cell) => cleanMarkdownForSpeech(cell));
+}
+
+function isMarkdownTableDivider(value) {
+  const cells = String(value || "").trim().replace(/^\|/, "").replace(/\|$/, "").split("|");
+  return cells.length > 0 && cells.every((cell) => /^\s*:?-{3,}:?\s*$/.test(cell));
+}
+
+function buildRecordsSearchSpeechText(answer) {
+  const normalized = normalizeAnswerText(answer);
+  if (!normalized) return "";
+  const lines = normalized.split("\n");
+  const prose = [];
+  const tables = [];
+
+  for (let index = 0; index < lines.length;) {
+    if (lines[index].includes("|") && isMarkdownTableDivider(lines[index + 1])) {
+      const header = parseMarkdownTableRow(lines[index]);
+      const rows = [];
+      index += 2;
+      while (index < lines.length && lines[index].includes("|")) {
+        const row = parseMarkdownTableRow(lines[index]);
+        if (row.some(Boolean)) rows.push(row);
+        index += 1;
+      }
+      tables.push({ header, rows });
+      continue;
+    }
+    const cleanLine = cleanMarkdownForSpeech(lines[index]);
+    if (cleanLine) prose.push(cleanLine);
+    index += 1;
+  }
+
+  if (!tables.length) return cleanMarkdownForSpeech(normalized).slice(0, 1800);
+
+  const tableSummaries = tables.map(({ header, rows }) => {
+    if (!rows.length) return "The table does not contain any entries.";
+    const firstLabel = rows[0][0] || "the first entry";
+    const lastLabel = rows[rows.length - 1][0] || "the last entry";
+    const range = rows.length > 1 ? `, ranging from ${firstLabel} through ${lastLabel}` : ` for ${firstLabel}`;
+    const topic = header[1] || header[0] || "details";
+    const sampleIndexes = rows.length <= 3
+      ? rows.map((_row, index) => index)
+      : [0, Math.floor((rows.length - 1) / 2), rows.length - 1];
+    const highlights = Array.from(new Set(sampleIndexes)).map((rowIndex) => {
+      const row = rows[rowIndex];
+      const label = row[0] || `Entry ${rowIndex + 1}`;
+      const detail = row.slice(1).filter(Boolean).join("; ").slice(0, 230);
+      return detail ? `${label}: ${detail}` : label;
+    });
+    return `The table contains ${rows.length} ${rows.length === 1 ? "entry" : "entries"}${range} about ${topic}. Key points include ${highlights.join("; ")}. The complete table remains available on screen.`;
+  });
+
+  return [...prose, ...tableSummaries].join(" ").slice(0, 1800);
+}
+
 function sanitizeExtractedText(value) {
   const raw = String(value || "");
   if (!raw) return "";
@@ -778,6 +845,7 @@ module.exports = async function handler(req, res) {
 
     return res.status(200).json({
       answer,
+      speechText: buildRecordsSearchSpeechText(answer),
       matches: usedMatches,
       showSources: usedMatches.length > 0,
       memorySuggestion: memorySuggestion ? { text: memorySuggestion } : null,
@@ -793,3 +861,4 @@ module.exports.normalizeAnswerText = normalizeAnswerText;
 module.exports.getSearchTerms = getSearchTerms;
 module.exports.buildRelevantSnippet = buildRelevantSnippet;
 module.exports.rankDocuments = rankDocuments;
+module.exports.buildRecordsSearchSpeechText = buildRecordsSearchSpeechText;

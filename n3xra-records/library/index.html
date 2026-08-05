@@ -79,6 +79,11 @@
           </div>
 
           <div class="answer-markup ai-search-answer hidden" id="ai-search-answer" aria-live="polite"></div>
+          <div class="ai-search-audio-controls hidden" id="ai-search-audio-controls">
+            <button class="ai-search-audio-button" id="ai-search-listen" type="button" aria-label="Listen to this AI answer">▶ <span>Listen</span></button>
+            <button class="ai-search-audio-button hidden" id="ai-search-stop" type="button">■ <span>Stop</span></button>
+            <span class="ai-search-audio-status" id="ai-search-audio-status" role="status" aria-live="polite"></span>
+          </div>
 
           <div class="search-row">
             <div class="field grow">
@@ -294,6 +299,6 @@
 
   <script src="/shared/config.js"></script>
   <script type="module" src="/n3xra-records/lib/desktop-shell.js?v=20260801-guide-focused-topics"></script>
-  <script type="module" src="/n3xra-records/files.js?v=20260804-ai-search-relevance"></script>
+  <script type="module" src="/n3xra-records/files.js?v=20260804-ai-search-audio"></script>
 </body>
 </html>

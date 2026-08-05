@@ -72,3 +72,27 @@ test("exhaustive Records AI searches exclude generic matches and stay chronologi
   assert.deepEqual(matches.map((match) => match.id), ["old", "middle", "new"]);
   assert.ok(matches.every((match) => /window/i.test(match.snippet)));
 });
+
+test("Records AI creates concise speech for tables instead of reading table markup", () => {
+  const answer = [
+    "## Window history",
+    "| Date | Discussion |",
+    "| --- | --- |",
+    "| October 2017 | Historic windows were requested. |",
+    "| June 2019 | A loan funded window replacement. |",
+    "| March 2026 | The grant balance was reassigned. |",
+  ].join("\n");
+  const speech = recordsSearch.buildRecordsSearchSpeechText(answer);
+
+  assert.match(speech, /table contains 3 entries/i);
+  assert.match(speech, /October 2017 through March 2026/i);
+  assert.match(speech, /complete table remains available on screen/i);
+  assert.doesNotMatch(speech, /\|\s*---/);
+});
+
+test("Records AI keeps ordinary prose available for speech playback", () => {
+  assert.equal(
+    recordsSearch.buildRecordsSearchSpeechText("The project was approved in **June**."),
+    "The project was approved in June."
+  );
+});

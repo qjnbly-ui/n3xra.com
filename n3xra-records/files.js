@@ -49,6 +49,10 @@ const searchModeKeywordButton = document.getElementById("search-mode-keyword");
 const searchModeAiButton = document.getElementById("search-mode-ai");
 const aiSearchSubmitButton = document.getElementById("ai-search-submit");
 const aiSearchAnswer = document.getElementById("ai-search-answer");
+const aiSearchAudioControls = document.getElementById("ai-search-audio-controls");
+const aiSearchListenButton = document.getElementById("ai-search-listen");
+const aiSearchStopButton = document.getElementById("ai-search-stop");
+const aiSearchAudioStatus = document.getElementById("ai-search-audio-status");
 const docList = document.getElementById("doc-list");
 const docEmpty = document.getElementById("doc-empty");
 const docsStatus = document.getElementById("docs-status");
@@ -119,6 +123,10 @@ let fileTypeFilter = "all";
 let searchMode = "keyword";
 let libraryAiSearchHistory = [];
 let lastAiSearchMatches = [];
+let aiSearchSpeechText = "";
+let aiSearchAudio = null;
+let aiSearchAudioUrl = "";
+let aiSearchAudioRequestId = 0;
 let pdfJsLibraryPromise = null;
 let pendingDeleteAssociations = {
   documentId: "",
@@ -148,9 +156,74 @@ function show(el, visible) {
   el.classList.toggle("hidden", !visible);
 }
 
-function setAiSearchAnswer(answer = "") {
+function stopAiSearchAudio({ clearStatus = true } = {}) {
+  aiSearchAudioRequestId += 1;
+  if (aiSearchAudio) {
+    aiSearchAudio.pause();
+    aiSearchAudio.removeAttribute("src");
+    aiSearchAudio.load();
+    aiSearchAudio = null;
+  }
+  if (aiSearchAudioUrl) {
+    URL.revokeObjectURL(aiSearchAudioUrl);
+    aiSearchAudioUrl = "";
+  }
+  if (aiSearchListenButton) {
+    aiSearchListenButton.disabled = false;
+    show(aiSearchListenButton, Boolean(aiSearchSpeechText));
+  }
+  show(aiSearchStopButton, false);
+  if (clearStatus && aiSearchAudioStatus) aiSearchAudioStatus.textContent = "";
+}
+
+function setAiSearchAnswer(answer = "", speechText = "") {
   if (!aiSearchAnswer) return;
+  stopAiSearchAudio();
+  aiSearchSpeechText = String(speechText || answer || "").trim();
   renderAiAnswerMarkup(aiSearchAnswer, answer);
+  show(aiSearchAudioControls, Boolean(answer && aiSearchSpeechText));
+  show(aiSearchListenButton, Boolean(answer && aiSearchSpeechText));
+}
+
+async function playAiSearchAudio() {
+  if (!aiSearchSpeechText || !aiSearchListenButton) return;
+  stopAiSearchAudio();
+  const requestId = aiSearchAudioRequestId;
+  aiSearchListenButton.disabled = true;
+  show(aiSearchStopButton, true);
+  if (aiSearchAudioStatus) aiSearchAudioStatus.textContent = "Preparing audio…";
+
+  try {
+    const response = await fetch("/api/elevenlabs-text-to-speech", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: aiSearchSpeechText }),
+    });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(String(data?.error || "Audio playback is unavailable right now."));
+    }
+    if (requestId !== aiSearchAudioRequestId) return;
+    aiSearchAudioUrl = URL.createObjectURL(await response.blob());
+    if (requestId !== aiSearchAudioRequestId) {
+      URL.revokeObjectURL(aiSearchAudioUrl);
+      aiSearchAudioUrl = "";
+      return;
+    }
+    aiSearchAudio = new Audio(aiSearchAudioUrl);
+    aiSearchAudio.addEventListener("ended", () => stopAiSearchAudio(), { once: true });
+    aiSearchAudio.addEventListener("error", () => {
+      stopAiSearchAudio({ clearStatus: false });
+      if (aiSearchAudioStatus) aiSearchAudioStatus.textContent = "Audio playback is unavailable right now.";
+    }, { once: true });
+    await aiSearchAudio.play();
+    aiSearchListenButton.disabled = false;
+    if (aiSearchAudioStatus) aiSearchAudioStatus.textContent = "Playing";
+  } catch (error) {
+    if (requestId !== aiSearchAudioRequestId) return;
+    stopAiSearchAudio({ clearStatus: false });
+    if (aiSearchAudioStatus) aiSearchAudioStatus.textContent = getErrorMessage(error, "Audio playback is unavailable right now.");
+  }
 }
 
 function renderAiInlineMarkdown(value) {
@@ -486,7 +559,7 @@ async function handleAiSearchSubmit() {
     if (!response.ok) throw new Error(data?.error || "AI Search is unavailable right now.");
     const answer = String(data.answer || "").trim();
     lastAiSearchMatches = Array.isArray(data.matches) ? data.matches : [];
-    setAiSearchAnswer(answer);
+    setAiSearchAnswer(answer, data.speechText);
     renderAiSearchResults(data.showSources === false ? [] : lastAiSearchMatches);
     if (data.showSources === false) show(docEmpty, false);
     if (answer) {
@@ -2758,6 +2831,9 @@ async function init() {
   searchYearSelect?.addEventListener("change", renderKeywordSearch);
   searchResetButton?.addEventListener("click", resetLibrarySearch);
   aiSearchSubmitButton?.addEventListener("click", () => void handleAiSearchSubmit());
+  aiSearchListenButton?.addEventListener("click", () => void playAiSearchAudio());
+  aiSearchStopButton?.addEventListener("click", () => stopAiSearchAudio());
+  window.addEventListener("pagehide", () => stopAiSearchAudio());
   docList?.addEventListener("click", async (event) => {
     const target = event.target;
     if (!(target instanceof Element)) return;

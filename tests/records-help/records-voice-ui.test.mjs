@@ -5,6 +5,8 @@ import test from "node:test";
 const shellPath = new URL("../../n3xra-records/lib/desktop-shell.js", import.meta.url);
 const stylesPath = new URL("../../n3xra-records/styles.css", import.meta.url);
 const voiceApiPath = new URL("../../api/elevenlabs-text-to-speech.js", import.meta.url);
+const filesPath = new URL("../../n3xra-records/files.js", import.meta.url);
+const libraryPath = new URL("../../n3xra-records/library/index.html", import.meta.url);
 
 test("Ask Records AI exposes voice input and answer playback controls", async () => {
   const shell = await readFile(shellPath, "utf8");
@@ -130,6 +132,23 @@ test("spoken questions automatically receive spoken answers", async () => {
   assert.match(shell, /\/api\/elevenlabs-text-to-speech/);
   assert.match(shell, /if \(shouldSpeak\) void speakRecordsAiAnswer\(answer\)/);
   assert.match(shell, /URL\.revokeObjectURL/);
+});
+
+test("Library AI Search offers discreet ElevenLabs answer playback", async () => {
+  const [files, library, styles] = await Promise.all([
+    readFile(filesPath, "utf8"),
+    readFile(libraryPath, "utf8"),
+    readFile(stylesPath, "utf8"),
+  ]);
+
+  assert.match(library, /id="ai-search-listen"/);
+  assert.match(library, /id="ai-search-stop"/);
+  assert.match(files, /data\.speechText/);
+  assert.match(files, /\/api\/elevenlabs-text-to-speech/);
+  assert.match(files, /new Audio\(aiSearchAudioUrl\)/);
+  assert.match(files, /URL\.revokeObjectURL\(aiSearchAudioUrl\)/);
+  assert.match(styles, /\.ai-search-audio-controls/);
+  assert.match(styles, /font-size: 0\.76rem/);
 });
 
 test("voice controls have responsive and reduced-motion styling", async () => {
