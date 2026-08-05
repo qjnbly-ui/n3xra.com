@@ -6,6 +6,7 @@ export const RECORDS_ACTIVITY_TYPES = [
   "invite_redeemed",
   "ai_search_used",
   "billing_change",
+  "record_transfer",
 ];
 
 export function cleanActivityMetadata(metadata = {}) {

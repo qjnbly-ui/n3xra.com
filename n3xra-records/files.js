@@ -1498,7 +1498,7 @@ function renderFiles() {
         actionButtons.push(`<button class="btn secondary" type="button" data-action="edit" data-id="${doc.id}">Edit details</button>`);
       }
       actionButtons.push(`<button class="btn secondary" type="button" data-action="open-preview" data-id="${doc.id}">Open</button>`);
-      actionButtons.push(`<button class="btn secondary" type="button" data-action="download" data-id="${doc.id}">Download</button>`);
+      actionButtons.push(`<button class="btn secondary" type="button" data-action="download" data-id="${doc.id}">Download PDF</button>`);
       if (capabilities.canShareDocuments) {
         actionButtons.push(`<button class="btn secondary" type="button" data-action="share" data-id="${doc.id}">Share</button>`);
       }
@@ -1511,7 +1511,7 @@ function renderFiles() {
       );
     }
     if (!isReference && capabilities.canDownloadDocuments) {
-      actionButtons.push(`<button class="btn secondary" type="button" data-action="download" data-id="${doc.id}">Download</button>`);
+      actionButtons.push(`<button class="btn secondary" type="button" data-action="download" data-id="${doc.id}">${editableDoc ? "Download PDF" : "Download"}</button>`);
     }
     if (!isReference && capabilities.canShareDocuments) {
       actionButtons.push(`<button class="btn secondary" type="button" data-action="share" data-id="${doc.id}">Share</button>`);
@@ -1743,27 +1743,34 @@ async function openFile(documentId, preferredView = "auto") {
   await openSourceFilePreview(documentId);
 }
 
+async function downloadAppDocumentPdf(appDocument) {
+  let objectUrl = "";
+  try {
+    objectUrl = await createAppDocumentPdfObjectUrl({
+      config: getConfig(),
+      accessToken: await getFreshAccessToken(),
+      documentId: appDocument.id,
+    });
+    const link = document.createElement("a");
+    link.href = objectUrl;
+    link.download = getAppDocumentPdfFilename(appDocument);
+    document.body.append(link);
+    link.click();
+    link.remove();
+  } catch (error) {
+    setStatus(fileStatus, error?.message || "Unable to download PDF.", "error");
+  } finally {
+    if (objectUrl) window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+  }
+}
+
 async function downloadFile(documentId) {
   const row = getFileRowById(documentId);
-  if (isReferenceFileRow(row)) {
-    let objectUrl = "";
-    try {
-      objectUrl = await createAppDocumentPdfObjectUrl({
-        config: getConfig(),
-        accessToken: await getFreshAccessToken(),
-        documentId,
-      });
-      const link = document.createElement("a");
-      link.href = objectUrl;
-      link.download = getAppDocumentPdfFilename(row);
-      document.body.append(link);
-      link.click();
-      link.remove();
-    } catch (error) {
-      setStatus(fileStatus, error?.message || "Unable to download PDF.", "error");
-    } finally {
-      if (objectUrl) window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
-    }
+  const appDocument = isReferenceFileRow(row)
+    ? row
+    : getEditableDocumentForSource(documentId);
+  if (appDocument) {
+    await downloadAppDocumentPdf(appDocument);
     return;
   }
 

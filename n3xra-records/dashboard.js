@@ -1053,6 +1053,7 @@ function formatActivityAction(actionType) {
     invite_redeemed: "Invite redeemed",
     ai_search_used: "AI Search",
     billing_change: "Billing",
+    record_transfer: "Record moved",
   };
   return labels[actionType] || titleCase(String(actionType || "").replace(/_/g, " "));
 }

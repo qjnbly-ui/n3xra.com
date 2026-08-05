@@ -21,6 +21,14 @@ test("Library keyword search safely highlights the matched phrase", async () => 
   assert.match(styles, /\.doc-snippet mark \{/);
 });
 
+test("Library downloads the displayed editable document as a PDF", async () => {
+  const files = await readFile(filesPath, "utf8");
+
+  assert.match(files, /const appDocument = isReferenceFileRow\(row\)[\s\S]*getEditableDocumentForSource\(documentId\)/);
+  assert.match(files, /if \(appDocument\) \{\s*await downloadAppDocumentPdf\(appDocument\)/);
+  assert.match(files, /\$\{editableDoc \? "Download PDF" : "Download"\}/);
+});
+
 test("Library AI Search preserves the previous rich answer and compact evidence presentation", async () => {
   const files = await readFile(filesPath, "utf8");
 

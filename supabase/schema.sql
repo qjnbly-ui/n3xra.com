@@ -199,6 +199,7 @@ create index if not exists records_demo_workspace_claims_status_created_idx
 create table if not exists public.documents (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references public.organizations (id) on delete cascade,
+  user_id uuid references auth.users (id) on delete set null,
   uploaded_by_user_id uuid references auth.users (id) on delete set null,
   title text not null,
   original_filename text not null,

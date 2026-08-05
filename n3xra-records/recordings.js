@@ -161,8 +161,15 @@ const recordingDetailRetry = document.getElementById("recording-detail-retry");
 const recordingDetailAiReview = document.getElementById("recording-detail-ai-review");
 const recordingDetailAiDraft = document.getElementById("recording-detail-ai-draft");
 const recordingDetailTranscriptDocument = document.getElementById("recording-detail-transcript-document");
+const recordingDetailTransfer = document.getElementById("recording-detail-transfer");
 const recordingDetailDelete = document.getElementById("recording-detail-delete");
 const recordingDetailStatusMessage = document.getElementById("recording-detail-status-message");
+const recordingTransferModal = document.getElementById("recording-transfer-modal");
+const recordingTransferCopy = document.getElementById("recording-transfer-copy");
+const recordingTransferDestination = document.getElementById("recording-transfer-destination");
+const recordingTransferCancel = document.getElementById("recording-transfer-cancel");
+const recordingTransferSubmit = document.getElementById("recording-transfer-submit");
+const recordingTransferStatus = document.getElementById("recording-transfer-status");
 const recordingDeleteModal = document.getElementById("recording-delete-modal");
 const recordingDeleteCopy = document.getElementById("recording-delete-copy");
 const recordingDeleteCancel = document.getElementById("recording-delete-cancel");
@@ -204,6 +211,7 @@ let recordingStartedAt = null;
 let durationTimer = null;
 let elapsedRecordingMs = 0;
 let activeDetailRecordingId = "";
+let pendingTransferRecordingId = "";
 let pendingDeleteRecordingId = "";
 let detailPlayerUrl = "";
 let pendingReferencePreviewUrl = "";
@@ -1854,6 +1862,46 @@ function setRecordingDeleteModalOpen(isOpen) {
   }
 }
 
+function getRecordPacketTransferDestinations() {
+  const activeOrganizationId = getActiveOrganization()?.id || "";
+  return memberships.filter((membership) => (
+    membership.organization?.id &&
+    membership.organization.id !== activeOrganizationId &&
+    membership.organization.subscription_tier === "organization" &&
+    ["active", "trialing"].includes(String(membership.organization.account_status || "active")) &&
+    getMembershipRole(membership) === "account_admin"
+  ));
+}
+
+function canTransferRecordPacket(recording) {
+  if (!recording || getMembershipRole(activeMembership) !== "account_admin") return false;
+  if (!getRecordPacketTransferDestinations().length) return false;
+  return !["recording", "interrupted", "uploading", "finalizing", "transcribing"].includes(String(recording.status || "")) &&
+    !["queued", "processing"].includes(String(recording.transcript_status || "")) &&
+    String(recording.ai_review_status || "") !== "processing";
+}
+
+function setRecordingTransferModalOpen(isOpen) {
+  recordingTransferModal?.classList.toggle("is-open", isOpen);
+  recordingTransferModal?.setAttribute("aria-hidden", String(!isOpen));
+  if (!isOpen) {
+    pendingTransferRecordingId = "";
+    setStatus(recordingTransferStatus, "");
+  }
+}
+
+function promptTransferRecordPacket(recordingId) {
+  const recording = getRecordingById(recordingId);
+  const destinations = getRecordPacketTransferDestinations();
+  if (!canTransferRecordPacket(recording) || !destinations.length) return;
+  pendingTransferRecordingId = recording.id;
+  recordingTransferCopy.textContent = `Move "${recording.title || "Untitled meeting note"}" and its complete record packet out of ${getActiveOrganization()?.name || "this workspace"}?`;
+  recordingTransferDestination.innerHTML = destinations.map((membership) => (
+    `<option value="${escapeHtml(membership.organization.id)}">${escapeHtml(membership.organization.name || "Untitled library")}</option>`
+  )).join("");
+  setRecordingTransferModalOpen(true);
+}
+
 function clearDetailPlayer() {
   if (detailPlayerUrl) {
     recordingDetailPlayer.pause();
@@ -2692,6 +2740,7 @@ function populateRecordingDetails(recording) {
   recordingDetailPlay.disabled = !canPlaybackRecording(recording);
   show(recordingDetailTranscribe, canTranscribeRecording(recording));
   show(recordingDetailRetry, isRetryableRecording(recording));
+  show(recordingDetailTransfer, canTransferRecordPacket(recording));
   show(recordingDetailDelete, getActiveCapabilities().canDeleteDocuments);
   recordingDetailPlay.textContent = "Play";
   recordingDetailNotes.value = String(recording.notes_plain_text || "").trim();
@@ -2879,6 +2928,119 @@ async function deleteRecording(recordingId) {
   } finally {
     recordingDeleteSubmit.disabled = false;
     recordingDeleteCancel.disabled = false;
+  }
+}
+
+function transferStoragePath(storagePath, targetOrganizationId) {
+  const parts = String(storagePath || "").split("/").filter(Boolean);
+  if (parts.length < 2) return "";
+  return [targetOrganizationId, ...parts.slice(1)].join("/");
+}
+
+async function copyRecordPacketObject(bucket, sourcePath, targetPath, copiedObjects) {
+  if (!sourcePath || !targetPath || sourcePath === targetPath) return;
+  const { error } = await supabase.storage.from(bucket).copy(sourcePath, targetPath);
+  if (error) throw error;
+  copiedObjects.push({ bucket, path: targetPath });
+}
+
+async function removeRecordPacketObjects(objects) {
+  const byBucket = new Map();
+  objects.forEach(({ bucket, path }) => {
+    if (!bucket || !path) return;
+    const paths = byBucket.get(bucket) || [];
+    if (!paths.includes(path)) paths.push(path);
+    byBucket.set(bucket, paths);
+  });
+  await Promise.all(Array.from(byBucket, ([bucket, paths]) => (
+    supabase.storage.from(bucket).remove(paths).catch(() => null)
+  )));
+}
+
+async function transferRecordPacket(recordingId, targetOrganizationId) {
+  const recording = getRecordingById(recordingId);
+  const destination = getRecordPacketTransferDestinations()
+    .find((membership) => membership.organization?.id === targetOrganizationId);
+  if (!canTransferRecordPacket(recording) || !destination) return;
+
+  const copiedObjects = [];
+  const sourceObjects = [];
+  recordingTransferSubmit.disabled = true;
+  recordingTransferCancel.disabled = true;
+  recordingTransferDestination.disabled = true;
+  setStatus(recordingTransferStatus, "Preparing the complete record packet...");
+
+  try {
+    if (recordingDetailNotesSaveTimer) {
+      window.clearTimeout(recordingDetailNotesSaveTimer);
+      recordingDetailNotesSaveTimer = null;
+      await saveRecordingDetailNotes();
+    }
+    if (aiDraftHasUnsavedChanges()) await saveRecordingAiDraft({ quiet: true });
+
+    const sourceRecordingPaths = [
+      recording.storage_path,
+      recording.metadata?.phoneMeeting?.storagePath,
+    ].map((value) => String(value || "").trim()).filter((value, index, list) => value && list.indexOf(value) === index);
+    const recordingPathMap = new Map(sourceRecordingPaths.map((sourcePath) => [
+      sourcePath,
+      transferStoragePath(sourcePath, targetOrganizationId),
+    ]));
+
+    let transcript = null;
+    if (recording.document_id) {
+      const { data, error } = await supabase
+        .from("documents")
+        .select("id, storage_path")
+        .eq("id", recording.document_id)
+        .single();
+      if (error || !data?.storage_path) throw error || new Error("The transcript file could not be loaded.");
+      transcript = data;
+    }
+    const targetTranscriptPath = transcript
+      ? transferStoragePath(transcript.storage_path, targetOrganizationId)
+      : null;
+
+    setStatus(recordingTransferStatus, "Copying recording and transcript files...");
+    for (const [sourcePath, targetPath] of recordingPathMap) {
+      await copyRecordPacketObject(RECORDINGS_BUCKET, sourcePath, targetPath, copiedObjects);
+      sourceObjects.push({ bucket: RECORDINGS_BUCKET, path: sourcePath });
+    }
+    if (transcript) {
+      await copyRecordPacketObject("documents", transcript.storage_path, targetTranscriptPath, copiedObjects);
+      sourceObjects.push({ bucket: "documents", path: transcript.storage_path });
+    }
+
+    setStatus(recordingTransferStatus, "Moving packet ownership...");
+    const { data, error } = await supabase.rpc("transfer_record_packet", {
+      input_recording_id: recording.id,
+      input_target_organization_id: targetOrganizationId,
+      input_recording_storage_path: recording.storage_path
+        ? recordingPathMap.get(recording.storage_path)
+        : null,
+      input_transcript_storage_path: targetTranscriptPath,
+    });
+    if (error) throw error;
+
+    await removeRecordPacketObjects(sourceObjects);
+    await deleteLocalChunksForRecording(recording.id, {
+      userId: currentSession?.user?.id,
+      organizationId: getActiveOrganization()?.id,
+    }).catch(() => null);
+
+    clearDetailPlayer();
+    setRecordingDetailModalOpen(false);
+    setRecordingTransferModalOpen(false);
+    activeDetailRecordingId = "";
+    await handleOrganizationChange(targetOrganizationId);
+    setStatus(recordingsListStatus, `Record packet moved to ${data?.target_organization_name || destination.organization.name}.`, "success");
+  } catch (error) {
+    await removeRecordPacketObjects(copiedObjects);
+    setStatus(recordingTransferStatus, getErrorMessage(error, "Unable to move the record packet."), "error");
+  } finally {
+    recordingTransferSubmit.disabled = false;
+    recordingTransferCancel.disabled = false;
+    recordingTransferDestination.disabled = false;
   }
 }
 
@@ -4304,12 +4466,19 @@ async function handleOrganizationChange(nextOrganizationId) {
   if (recordingDeleteModal?.classList.contains("is-open")) {
     setRecordingDeleteModalOpen(false);
   }
+  if (recordingTransferModal?.classList.contains("is-open")) {
+    setRecordingTransferModalOpen(false);
+  }
   recordingTemplateSelect.value = "";
   recordingNotesInput.value = "";
   await loadRecordingTemplates();
   await loadReferenceDocuments();
   await loadPhoneMeetingSettings();
   await loadRecordings();
+  const linkedRecordingId = urlParams.get("recording") || "";
+  if (linkedRecordingId && getRecordingById(linkedRecordingId)) {
+    await openRecordingDetail(linkedRecordingId);
+  }
   const localRecoveryStorage = await maintainLocalRecordingRecoveryStorage().catch(() => null);
   await recoverRecentPhoneMeetingSession();
   if (!activePhoneMeetingSession) {
@@ -4603,6 +4772,23 @@ async function init() {
     if (!activeDetailRecordingId) return;
     promptDeleteRecording(activeDetailRecordingId);
   });
+  recordingDetailTransfer?.addEventListener("click", () => {
+    if (!activeDetailRecordingId) return;
+    promptTransferRecordPacket(activeDetailRecordingId);
+  });
+  recordingTransferCancel?.addEventListener("click", () => {
+    setRecordingTransferModalOpen(false);
+  });
+  recordingTransferSubmit?.addEventListener("click", () => {
+    const targetOrganizationId = recordingTransferDestination?.value || "";
+    if (!pendingTransferRecordingId || !targetOrganizationId) return;
+    void transferRecordPacket(pendingTransferRecordingId, targetOrganizationId);
+  });
+  recordingTransferModal?.addEventListener("click", (event) => {
+    if (event.target === recordingTransferModal && !recordingTransferSubmit.disabled) {
+      setRecordingTransferModalOpen(false);
+    }
+  });
   recordingDeleteCancel?.addEventListener("click", () => {
     setRecordingDeleteModalOpen(false);
   });
@@ -4656,6 +4842,10 @@ async function init() {
   window.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && recordingUploadModal.classList.contains("is-open")) {
       setRecordingUploadModalOpen(false);
+      return;
+    }
+    if (event.key === "Escape" && recordingTransferModal?.classList.contains("is-open") && !recordingTransferSubmit.disabled) {
+      setRecordingTransferModalOpen(false);
       return;
     }
     if (event.key === "Escape" && recordingDeleteModal?.classList.contains("is-open")) {

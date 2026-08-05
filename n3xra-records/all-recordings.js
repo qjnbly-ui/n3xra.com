@@ -93,6 +93,7 @@ const recordingDetailAiReview = document.getElementById("recording-detail-ai-rev
 const recordingDetailAiDraft = document.getElementById("recording-detail-ai-draft");
 const recordingDetailTranscriptDocument = document.getElementById("recording-detail-transcript-document");
 const recordingDetailDelete = document.getElementById("recording-detail-delete");
+const recordingDetailTransferLink = document.getElementById("recording-detail-transfer-link");
 const recordingDetailStatusMessage = document.getElementById("recording-detail-status-message");
 const recordingDeleteModal = document.getElementById("recording-delete-modal");
 const recordingDeleteCopy = document.getElementById("recording-delete-copy");
@@ -1186,6 +1187,16 @@ function populateRecordingDetails(recording) {
   recordingDetailAiReview.disabled = recording.transcript_status !== "ready";
   recordingDetailPlay.textContent = "Play";
   recordingDetailDelete.disabled = !getActiveCapabilities().canDeleteDocuments;
+  const canOpenTransfer = getMembershipRole(activeMembership) === "account_admin" && memberships.some((membership) => (
+    membership.organization?.id !== getActiveOrganization()?.id &&
+    membership.organization?.subscription_tier === "organization" &&
+    ["active", "trialing"].includes(String(membership.organization?.account_status || "active")) &&
+    getMembershipRole(membership) === "account_admin"
+  ));
+  show(recordingDetailTransferLink, canOpenTransfer);
+  if (recordingDetailTransferLink) {
+    recordingDetailTransferLink.href = `/n3xra-records/meeting-notes?recording=${encodeURIComponent(recording.id)}`;
+  }
   setStatus(recordingDetailStatusMessage, recording.processing_error || "");
 }
 
