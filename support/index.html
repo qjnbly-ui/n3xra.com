@@ -218,6 +218,31 @@
       color: var(--support-cyan);
     }
 
+    .support-contact-download {
+      min-height: 48px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.55rem;
+      border: 1px solid var(--support-ink);
+      border-radius: 7px;
+      padding: 0.78rem 1rem;
+      background: var(--support-ink);
+      color: #ffffff;
+      font-size: 0.82rem;
+      font-weight: 800;
+      text-decoration: none;
+      box-shadow: 0 12px 28px rgba(7, 16, 26, 0.14);
+      transition: transform 160ms ease, background 160ms ease, border-color 160ms ease;
+    }
+
+    .support-contact-download:hover,
+    .support-contact-download:focus-visible {
+      border-color: var(--support-cyan);
+      background: var(--support-cyan);
+      transform: translateY(-1px);
+    }
+
     .resource-links,
     .support-social-links {
       display: flex;
@@ -488,10 +513,20 @@
             <a href="mailto:support@n3xra.com">support@n3xra.com</a>
           </div>
           <div class="support-detail">
+            <span class="detail-label">Call N3XRA</span>
+            <a href="tel:+15416526840">(541) 652-6840</a>
+            <p>Our AI receptionist can answer questions and connect you with Quentin when appropriate.</p>
+          </div>
+          <div class="support-detail">
             <span class="detail-label">Client access</span>
             <a href="/account" data-master-auth-link>Open your account</a>
           </div>
         </div>
+
+        <a class="support-contact-download" href="/assets/n3xra-contact.vcf" download="N3XRA.vcf">
+          <span aria-hidden="true">↓</span>
+          <span>Download N3XRA Contact</span>
+        </a>
 
         <nav class="resource-links" aria-label="Support resources">
           <a href="/terms/">Terms</a>
