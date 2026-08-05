@@ -2,13 +2,13 @@
   "schemaVersion": 1,
   "name": "N3XRA Project Pulse",
   "visibility": "public-safe",
-  "generatedAt": "2026-08-05T17:07:19.289Z",
-  "updatedAt": "2026-08-05T08:45:10-07:00",
-  "commit": "80b70cb",
+  "generatedAt": "2026-08-05T19:24:17.230Z",
+  "updatedAt": "2026-08-05T10:44:54-07:00",
+  "commit": "755d333",
   "summary": {
     "statement": "N3XRA is a connected technology platform comprising approximately 148,000 lines of source code across customer experiences, software products, APIs, database systems, administrative tools, and operational infrastructure.",
-    "sourceFiles": 435,
-    "sourceLines": 147636,
+    "sourceFiles": 436,
+    "sourceLines": 148168,
     "products": 7,
     "pages": 99,
     "apiFunctions": 61,
@@ -18,15 +18,15 @@
   "sourceBreakdown": {
     "css": {
       "files": 27,
-      "lines": 32731
+      "lines": 32913
     },
     "html": {
       "files": 99,
-      "lines": 28967
+      "lines": 28989
     },
     "js": {
-      "files": 171,
-      "lines": 62297
+      "files": 172,
+      "lines": 62625
     },
     "sql": {
       "files": 113,
@@ -99,8 +99,18 @@
   "recentCapabilities": [
     {
       "date": "2026-08-05",
-      "title": "Speaker-aware Records transcripts",
-      "summary": "N3XRA Records now separates meeting transcripts into generic speakers by default and can replace confident matches with consenting workspace members' names through optional voice profiles."
+      "title": "Human-reviewed speaker identification",
+      "summary": "N3XRA Records now separates meetings into generic speakers, matches consenting members through optional voice profiles, and gives editors a branded correction workflow with short per-speaker audio samples for verification."
+    },
+    {
+      "date": "2026-08-05",
+      "title": "Configurable, editable meeting minutes",
+      "summary": "Meeting workflows now support brief, standard, or detailed minutes, editable AI drafts, structured review, and a deliberate handoff into Document Builder before the final record is sent."
+    },
+    {
+      "date": "2026-08-04",
+      "title": "Secure record-packet transfers",
+      "summary": "Authorized administrators can invite another organization to accept a complete meeting packet, including its recording, transcript, notes, references, and generated documents, with prior share links revoked on transfer."
     },
     {
       "date": "2026-08-04",

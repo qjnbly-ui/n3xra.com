@@ -115,6 +115,7 @@ Ask Records AI answers product and workflow questions about N3XRA Records. It is
 - The 60% threshold applies only to deciding whether an enrolled voice should be replaced with a name. It does not control generic speaker separation.
 - Speaker-aware transcripts are produced for new processing. Existing plain transcripts are not automatically reprocessed.
 - Authorized editors can correct a speaker name after processing; the corrected label is applied across that saved transcript and its linked document.
+- The correction window includes a play control for each detected speaker. It plays a short excerpt from that speaker's existing meeting audio so an editor can verify who they are before saving a name. Playing the excerpt does not enroll or change a voice profile.
 
 ## Sending documents
 - In Document Builder, the exact action is **Send document**. There is no two-stage **Send** → **Send document** control.

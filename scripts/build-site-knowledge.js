@@ -22,8 +22,8 @@ const PAGES = [
   { route: "/invest", file: "invest/index.html", visibility: "public", tags: ["ownership", "membership interests", "private investment", "distributions", "governance", "investment vision"] },
   { route: "/project-pulse", file: "project-pulse/index.html", visibility: "public", tags: ["project pulse", "platform size", "statistics", "products", "system map", "recent capabilities"] },
   { route: "/support", file: "support/index.html", visibility: "public", tags: ["support", "help", "contact"] },
-  { route: "/terms", file: "terms/index.html", visibility: "public", tags: ["terms", "legal"] },
-  { route: "/privacy", file: "privacy/index.html", visibility: "public", tags: ["privacy", "security", "data"] },
+  { route: "/terms", file: "terms/index.html", visibility: "public", tags: ["terms", "legal"], maxChars: 24000 },
+  { route: "/privacy", file: "privacy/index.html", visibility: "public", tags: ["privacy", "security", "data"], maxChars: 24000 },
   { route: "/client-portal", file: "client-portal/index.html", visibility: "signed-in feature", tags: ["website portal", "client", "files", "project"] },
   { route: "/client-portal/services", file: "client-portal/services/index.html", visibility: "signed-in feature", tags: ["website service", "ownership", "domain"] },
   { route: "/client-portal/billing", file: "client-portal/billing/index.html", visibility: "signed-in feature", tags: ["website billing", "stripe", "invoice", "payment method", "subscription"] },
@@ -78,7 +78,7 @@ function decodeHtmlEntities(text) {
     .replace(/&#x([0-9a-f]+);/gi, (_match, code) => String.fromCodePoint(parseInt(code, 16)));
 }
 
-function extractImportantContent(html) {
+function extractImportantContent(html, maxChars = 3600) {
   const source = String(html || "");
   const cleaned = source
     .replace(/<script[\s\S]*?<\/script>/gi, " ")
@@ -114,7 +114,7 @@ function extractImportantContent(html) {
     if (blocks.length >= 140) break;
   }
 
-  return blocks.join("\n").slice(0, 3600);
+  return blocks.join("\n").slice(0, maxChars);
 }
 
 async function build() {
@@ -124,7 +124,7 @@ async function build() {
   for (const page of PAGES) {
     const fullPath = path.join(root, page.file);
     const html = await fs.readFile(fullPath, "utf8");
-    const content = extractImportantContent(html);
+    const content = extractImportantContent(html, page.maxChars);
     pages.push({
       route: page.route,
       file: page.file,

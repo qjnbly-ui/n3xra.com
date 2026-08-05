@@ -163,5 +163,7 @@ test("Records AI and Project Pulse describe the speaker workflow", async () => {
   assert.match(helpKnowledge, /With no enrolled voice profiles, the transcript uses generic labels/);
   assert.match(helpKnowledge, /Voice profiles.*always available/s);
   assert.match(publicKnowledge, /Optional, consent-based voice profiles/);
-  assert.match(projectPulseBuilder, /Speaker-aware Records transcripts/);
+  assert.match(helpKnowledge, /play control for each detected speaker/);
+  assert.match(projectPulseBuilder, /Human-reviewed speaker identification/);
+  assert.match(projectPulseBuilder, /short per-speaker audio samples/);
 });

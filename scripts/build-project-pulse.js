@@ -79,10 +79,22 @@ const MAJOR_MODULES = [
 
 const RECENT_CAPABILITIES = [
   {
-    introducedBy: "80b70cb",
+    introducedBy: "755d333",
     date: "2026-08-05",
-    title: "Speaker-aware Records transcripts",
-    summary: "N3XRA Records now separates meeting transcripts into generic speakers by default and can replace confident matches with consenting workspace members' names through optional voice profiles.",
+    title: "Human-reviewed speaker identification",
+    summary: "N3XRA Records now separates meetings into generic speakers, matches consenting members through optional voice profiles, and gives editors a branded correction workflow with short per-speaker audio samples for verification.",
+  },
+  {
+    introducedBy: "84bb602",
+    date: "2026-08-05",
+    title: "Configurable, editable meeting minutes",
+    summary: "Meeting workflows now support brief, standard, or detailed minutes, editable AI drafts, structured review, and a deliberate handoff into Document Builder before the final record is sent.",
+  },
+  {
+    introducedBy: "0e707a0",
+    date: "2026-08-05",
+    title: "Secure record-packet transfers",
+    summary: "Authorized administrators can invite another organization to accept a complete meeting packet, including its recording, transcript, notes, references, and generated documents, with prior share links revoked on transfer.",
   },
   {
     introducedBy: "c633e77",
