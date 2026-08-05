@@ -25,10 +25,10 @@ Agenda Items:
 1. Opening Motions
 - The council approved the opening motion.
 
-1. Presentation Adjustments
+2. Presentation Adjustments
 - The council adjusted the presentation order.
 
-1. Administrative Reports
+3. Administrative Reports
 - Staff delivered the administrative reports.`);
 
   const headings = document.content
@@ -38,9 +38,9 @@ Agenda Items:
   assert.deepEqual(headings, [
     { level: 1, text: "Bonanza City Council Meeting" },
     { level: 2, text: "Agenda Items" },
-    { level: 2, text: "Opening Motions" },
-    { level: 2, text: "Presentation Adjustments" },
-    { level: 2, text: "Administrative Reports" },
+    { level: 2, text: "1. Opening Motions" },
+    { level: 2, text: "2. Presentation Adjustments" },
+    { level: 2, text: "3. Administrative Reports" },
   ]);
   assert.equal(document.content.some((node) => node.type === "orderedList"), false);
   assert.equal(document.content.filter((node) => node.type === "bulletList").length, 3);

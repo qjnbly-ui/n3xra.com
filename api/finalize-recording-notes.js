@@ -477,7 +477,9 @@ function plainTextToTiptapDoc(text, templateContentJson = null) {
     if (numberedSectionMatch && lineStructure.numberedSectionIndexes.has(lineIndex)) {
       flushParagraph();
       flushLists();
-      content.push(headingNode(numberedSectionMatch[1], 2));
+      // Preserve the AI draft's correct visible sequence while storing each topic
+      // as a semantic heading instead of a separate one-item ordered list.
+      content.push(headingNode(trimmed, 2));
       return;
     }
 
