@@ -1212,10 +1212,10 @@ textarea {
 .upload-progress-fill {
   position: absolute;
   inset: 0 auto 0 0;
-  width: 38%;
+  width: 0;
   border-radius: 999px;
   background: linear-gradient(90deg, rgba(23, 111, 102, 0.82) 0%, rgba(234, 155, 63, 0.82) 100%);
-  animation: upload-progress-slide 1.25s ease-in-out infinite;
+  transition: width 320ms ease;
 }
 
 .upload-progress-copy {
@@ -1225,13 +1225,26 @@ textarea {
   font-weight: 600;
 }
 
-@keyframes upload-progress-slide {
-  0% {
-    transform: translateX(-110%);
-  }
-  100% {
-    transform: translateX(310%);
-  }
+.recording-row-progress {
+  overflow: hidden;
+  height: 0.35rem;
+  margin-top: 0.65rem;
+  border-radius: 999px;
+  background: rgba(15, 22, 32, 0.08);
+}
+
+.recording-row-progress span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, rgba(23, 111, 102, 0.82), rgba(234, 155, 63, 0.82));
+}
+
+.recording-row-progress-copy {
+  margin: 0.3rem 0 0;
+  color: var(--slate);
+  font-size: 0.82rem;
+  font-weight: 700;
 }
 
 .recording-player {

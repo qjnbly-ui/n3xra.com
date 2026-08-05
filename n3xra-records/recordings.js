@@ -96,6 +96,8 @@ const recordingDuration = document.getElementById("recording-duration");
 const uploadStateValue = document.getElementById("upload-state-value");
 const uploadProgressShell = document.getElementById("upload-progress-shell");
 const uploadProgressCopy = document.getElementById("upload-progress-copy");
+const recordingProcessingProgress = document.getElementById("recording-processing-progress");
+const recordingProcessingProgressFill = document.getElementById("recording-processing-progress-fill");
 const startRecordingButton = document.getElementById("start-recording-button");
 const uploadRecordingButton = document.getElementById("upload-recording-button");
 const pauseRecordingButton = document.getElementById("pause-recording-button");
@@ -172,6 +174,7 @@ const recordingsConfirmOk = document.getElementById("recordings-confirm-ok");
 
 const RECORDINGS_BUCKET = "meeting-recordings";
 const RECORDER_AUDIO_BITS_PER_SECOND = 64000;
+const RECORDING_CHUNK_INTERVAL_MS = 20000;
 const MAX_RECORDING_AUDIO_BYTES = 250 * 1024 * 1024;
 const BLANK_NOTES_TEMPLATE_VALUE = "__blank_notes__";
 const HANDWRITTEN_NOTE_MAX_BYTES = 3 * 1024 * 1024;
@@ -241,6 +244,8 @@ let recordingStopRequested = false;
 let microphoneMuteTimer = null;
 let recordingInterruptionPromise = Promise.resolve();
 let recordingInterruptionCreation = null;
+let recordingProcessingPollTimer = null;
+let activeProcessingStartedAt = null;
 
 function isIgnorableStorageDeleteError(error) {
   const message = String(error?.message || "").toLowerCase();
@@ -871,6 +876,8 @@ function isMissingRecordingWorkflowSchemaError(error) {
     message.includes("ai_review_status") ||
     message.includes("ai_review_json") ||
     message.includes("ai_draft_document_id") ||
+    message.includes("processing_progress") ||
+    message.includes("processing_stage") ||
     message.includes("schema cache")
   );
 }
@@ -1486,6 +1493,63 @@ function setUploadProgressVisible(isVisible, copy = "") {
   }
 }
 
+function processingStageLabel(stage) {
+  if (stage === "uploading") return "Uploading saved audio";
+  if (stage === "assembling") return "Assembling recording";
+  if (stage === "transcribing") return "Creating transcript";
+  if (stage === "complete") return "Meeting note complete";
+  if (stage === "failed") return "Processing needs attention";
+  return "Preparing meeting note";
+}
+
+function formatProcessingTime(seconds) {
+  const value = Math.max(Math.round(Number(seconds || 0)), 0);
+  if (value < 60) return `${Math.max(value, 1)}s`;
+  const minutes = Math.floor(value / 60);
+  const remainder = value % 60;
+  return remainder ? `${minutes}m ${remainder}s` : `${minutes}m`;
+}
+
+function setRecordingProcessingProgress(progress, stage, startedAt = null) {
+  const percent = Math.max(0, Math.min(100, Math.round(Number(progress || 0))));
+  if (startedAt) activeProcessingStartedAt = new Date(startedAt);
+  if (!activeProcessingStartedAt || Number.isNaN(activeProcessingStartedAt.getTime())) activeProcessingStartedAt = new Date();
+  if (recordingProcessingProgressFill) recordingProcessingProgressFill.style.width = `${percent}%`;
+  if (recordingProcessingProgress) {
+    recordingProcessingProgress.setAttribute("aria-valuenow", String(percent));
+    recordingProcessingProgress.setAttribute("aria-valuetext", `${processingStageLabel(stage)}, ${percent}%`);
+  }
+  const elapsedSeconds = Math.max((Date.now() - activeProcessingStartedAt.getTime()) / 1000, 1);
+  const remainingSeconds = percent >= 8 && percent < 100
+    ? Math.min(Math.round((elapsedSeconds / percent) * (100 - percent)), 20 * 60)
+    : 0;
+  const etaCopy = remainingSeconds ? ` · About ${formatProcessingTime(remainingSeconds)} remaining` : "";
+  uploadProgressCopy.textContent = `${processingStageLabel(stage)} · ${percent}%${etaCopy}`;
+  show(uploadProgressShell, percent < 100 || stage === "complete");
+}
+
+function stopRecordingProcessingPolling() {
+  if (recordingProcessingPollTimer) window.clearInterval(recordingProcessingPollTimer);
+  recordingProcessingPollTimer = null;
+}
+
+function startRecordingProcessingPolling(recordingId) {
+  stopRecordingProcessingPolling();
+  const poll = async () => {
+    const { data, error } = await supabase
+      .from("meeting_recordings")
+      .select("id,status,transcript_status,processing_stage,processing_progress,processing_started_at,processing_updated_at,processing_completed_at,processing_error")
+      .eq("id", recordingId)
+      .maybeSingle();
+    if (error || !data) return;
+    mergeRecordingUpdate(data);
+    setRecordingProcessingProgress(data.processing_progress, data.processing_stage, data.processing_started_at);
+    if (["complete", "failed"].includes(data.processing_stage)) stopRecordingProcessingPolling();
+  };
+  void poll();
+  recordingProcessingPollTimer = window.setInterval(() => void poll(), 1500);
+}
+
 function appendTextToNotetakerNotes(text) {
   const cleanText = String(text || "").trim();
   if (!cleanText || !recordingNotesInput) return;
@@ -1655,6 +1719,10 @@ function updateSelectedFileCopy() {
 }
 
 function clearRecorderStats() {
+  stopRecordingProcessingPolling();
+  activeProcessingStartedAt = null;
+  if (recordingProcessingProgressFill) recordingProcessingProgressFill.style.width = "0%";
+  if (recordingProcessingProgress) recordingProcessingProgress.setAttribute("aria-valuenow", "0");
   recorderStateLabel.textContent = "";
   recordingDuration.textContent = "";
   uploadStateValue.textContent = "";
@@ -1899,6 +1967,11 @@ async function initializeRecordingChunkManager(recordingId) {
     onStatus: handleChunkUploadStatus,
     onProgress: (summary) => {
       void persistRecordingChunkSummary(recordingId, summary).catch(() => null);
+    },
+    onUploadProgress: (summary) => {
+      if (!activeProcessingStartedAt || !summary?.chunkCount) return;
+      const uploadProgress = 5 + Math.round((Number(summary.uploadedChunkCount || 0) / summary.chunkCount) * 13);
+      setRecordingProcessingProgress(Math.min(uploadProgress, 18), "uploading", activeProcessingStartedAt);
     },
   });
   return recordingChunkManager.initialize();
@@ -2279,6 +2352,11 @@ async function loadRecordings() {
       audio_mime_type,
       file_size,
       processing_error,
+      processing_stage,
+      processing_progress,
+      processing_started_at,
+      processing_updated_at,
+      processing_completed_at,
       notes_plain_text,
       ai_review_json,
       ai_draft_document_id,
@@ -2375,6 +2453,10 @@ function renderRecordings() {
       const errorCopy = recording.processing_error
         ? `<p class="recording-row-note recording-row-note-error">${escapeHtml(recording.processing_error)}</p>`
         : "";
+      const progress = Math.max(0, Math.min(100, Number(recording.processing_progress || 0)));
+      const progressCopy = progress > 0 && progress < 100
+        ? `<div class="recording-row-progress"><span style="width:${progress}%"></span></div><p class="recording-row-progress-copy">${escapeHtml(processingStageLabel(recording.processing_stage))} · ${progress}%</p>`
+        : "";
 
       return `
         <article class="recording-row" data-recording-id="${escapeHtml(recording.id)}" role="button" tabindex="0">
@@ -2391,6 +2473,7 @@ function renderRecordings() {
             <span>${escapeHtml(formatRecordingStatus(recording.transcript_status))} transcript</span>
             <span>${escapeHtml(formatRecordingStatus(recording.ai_review_status || "not_started"))} AI review</span>
           </div>
+          ${progressCopy}
           ${errorCopy}
         </article>
       `;
@@ -3094,7 +3177,6 @@ async function recoverBrowserMeetingRecording(recordingId = "") {
     try {
       const { lastSequence } = await recordingChunkManager.flush();
       await requestChunkedRecordingFinalization(data.id, lastSequence);
-      await requestRecordingTranscription(data.id).catch(() => null);
       recordingChunkManager.dispose();
       recordingChunkManager = null;
       activeRecordingId = "";
@@ -3375,7 +3457,9 @@ async function uploadRecordingBlob(recordingId, title, blob, mimeType, durationS
   uploadStateValue.textContent = "Uploading";
   setRecorderState("Uploading", "Audio is being sent to secure storage.");
   setStatus(recordingStatus, "Uploading audio...");
-  setUploadProgressVisible(true, "Upload in progress. Do not leave this page until it finishes.");
+  const processingStartedAt = new Date().toISOString();
+  setUploadProgressVisible(true);
+  setRecordingProcessingProgress(8, "uploading", processingStartedAt);
 
   await updateMeetingRecording(recordingId, {
     status: "uploading",
@@ -3384,6 +3468,11 @@ async function uploadRecordingBlob(recordingId, title, blob, mimeType, durationS
     storage_path: storagePath,
     audio_mime_type: mimeType,
     file_size: blob.size,
+    processing_stage: "uploading",
+    processing_progress: 8,
+    processing_started_at: processingStartedAt,
+    processing_updated_at: processingStartedAt,
+    processing_completed_at: null,
     processing_error: null,
   });
 
@@ -3395,6 +3484,8 @@ async function uploadRecordingBlob(recordingId, title, blob, mimeType, durationS
   if (storageError) {
     await updateMeetingRecording(recordingId, {
       status: "failed",
+      processing_stage: "failed",
+      processing_updated_at: new Date().toISOString(),
       processing_error: storageError.message,
     });
     throw storageError;
@@ -3407,8 +3498,13 @@ async function uploadRecordingBlob(recordingId, title, blob, mimeType, durationS
     storage_path: storagePath,
     audio_mime_type: mimeType,
     file_size: blob.size,
+    processing_stage: "transcribing",
+    processing_progress: 55,
+    processing_updated_at: new Date().toISOString(),
     processing_error: null,
   });
+  setRecordingProcessingProgress(55, "transcribing", processingStartedAt);
+  startRecordingProcessingPolling(recordingId);
 
   uploadStateValue.textContent = "Uploaded";
   setRecorderState("Transcribing", "Audio uploaded. Creating a searchable transcript file.");
@@ -3416,6 +3512,7 @@ async function uploadRecordingBlob(recordingId, title, blob, mimeType, durationS
 
   try {
     await requestRecordingTranscription(recordingId);
+    setRecordingProcessingProgress(100, "complete", processingStartedAt);
     uploadStateValue.textContent = "Transcript ready";
     setRecorderState("Saved", "Transcript created as a searchable file in this library.");
     setStatus(recordingStatus, "Meeting note saved and transcript created.", "success");
@@ -3531,25 +3628,46 @@ async function handleSaveStoppedRecording() {
   isRecordingWorkflowActive = true;
   updateControls();
   try {
+    const processingStartedAt = new Date().toISOString();
+    setUploadProgressVisible(true);
+    setRecordingProcessingProgress(5, "uploading", processingStartedAt);
+    await updateMeetingRecording(recordingId, {
+      processing_stage: "uploading",
+      processing_progress: 5,
+      processing_started_at: processingStartedAt,
+      processing_updated_at: processingStartedAt,
+      processing_completed_at: null,
+      processing_error: null,
+    });
+    startRecordingProcessingPolling(recordingId);
     await saveActiveRecordingNotes();
     if (chunkedRecordingReadyToSave && recordingChunkManager) {
       setRecorderState("Saving", "Uploading any remaining audio chunks.");
       setStatus(recordingStatus, "Verifying saved audio chunks...");
       const { lastSequence } = await recordingChunkManager.flush();
       if (lastSequence < 0) throw new Error("No recorded audio chunks are available to save.");
+      setRecordingProcessingProgress(18, "uploading", processingStartedAt);
       await recordingChunkSummarySaveChain.catch(() => null);
       setRecorderState("Saving", "Assembling the complete recording in secure storage.");
       uploadStateValue.textContent = "Saving";
-      await updateMeetingRecording(recordingId, { status: "finalizing", duration_seconds: durationSeconds, processing_error: null });
-      await requestChunkedRecordingFinalization(recordingId, lastSequence);
-      uploadStateValue.textContent = "Saved";
-      setRecorderState("Transcribing", "Audio saved. Creating a searchable transcript file.");
-      setStatus(recordingStatus, "Audio saved. Creating transcript...");
-      try {
-        await requestRecordingTranscription(recordingId);
+      await updateMeetingRecording(recordingId, {
+        status: "finalizing",
+        duration_seconds: durationSeconds,
+        processing_stage: "assembling",
+        processing_progress: 20,
+        processing_updated_at: new Date().toISOString(),
+        processing_error: null,
+      });
+      const result = await requestChunkedRecordingFinalization(recordingId, lastSequence);
+      if (result?.recording) mergeRecordingUpdate(result.recording);
+      uploadStateValue.textContent = result?.transcriptionError ? "Transcript failed" : "Complete";
+      if (result?.transcriptionError) {
+        setRecorderState("Saved", "Audio is safe, but the transcript needs another attempt.");
+        setStatus(recordingStatus, result.transcriptionError, "error");
+      } else {
+        setRecordingProcessingProgress(100, "complete", processingStartedAt);
+        setRecorderState("Saved", "Recording and searchable transcript are ready.");
         setStatus(recordingStatus, "Meeting note saved and transcript created.", "success");
-      } catch (error) {
-        setStatus(recordingStatus, getErrorMessage(error, "Meeting note saved, but transcription failed."), "error");
       }
     } else {
       await uploadRecordingBlob(recordingId, title, blob, mimeType, durationSeconds);
@@ -3980,7 +4098,7 @@ async function handleStartRecording() {
       processing_error: null,
     });
 
-    mediaRecorder.start(5000);
+    mediaRecorder.start(RECORDING_CHUNK_INTERVAL_MS);
     void requestRecordingWakeLock();
     recordingDuration.textContent = "00:00";
     uploadStateValue.textContent = "Recording";
@@ -4062,7 +4180,7 @@ async function handleResumeRecording({ automatic = false } = {}) {
     pendingRecordedBlob = null;
     elapsedRecordingMs = pendingRecordedDurationSeconds * 1000;
     resumeElapsedClock();
-    mediaRecorder.start(5000);
+    mediaRecorder.start(RECORDING_CHUNK_INTERVAL_MS);
     await updateMeetingRecording(activeRecordingId, { status: "recording", ended_at: null, processing_error: null });
     void requestRecordingWakeLock();
     startDurationTimer();

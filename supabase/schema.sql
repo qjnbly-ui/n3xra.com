@@ -210,6 +210,11 @@ create table if not exists public.documents (
   is_public boolean not null default false,
   status text not null default 'uploaded',
   processing_error text,
+  processing_stage text,
+  processing_progress smallint not null default 0,
+  processing_started_at timestamptz,
+  processing_updated_at timestamptz,
+  processing_completed_at timestamptz,
   extracted_text text,
   records_ai_note text,
   search_tsv tsvector generated always as (
@@ -299,8 +304,24 @@ create table if not exists public.meeting_recordings (
   constraint meeting_recordings_ai_review_json_object_check
     check (jsonb_typeof(ai_review_json) = 'object'),
   constraint meeting_recordings_duration_check
-    check (duration_seconds is null or duration_seconds >= 0)
+    check (duration_seconds is null or duration_seconds >= 0),
+  constraint meeting_recordings_processing_stage_check
+    check (processing_stage is null or processing_stage in ('uploading', 'assembling', 'transcribing', 'complete', 'failed')),
+  constraint meeting_recordings_processing_progress_check
+    check (processing_progress between 0 and 100)
 );
+
+alter table public.meeting_recordings add column if not exists processing_stage text;
+alter table public.meeting_recordings add column if not exists processing_progress smallint not null default 0;
+alter table public.meeting_recordings add column if not exists processing_started_at timestamptz;
+alter table public.meeting_recordings add column if not exists processing_updated_at timestamptz;
+alter table public.meeting_recordings add column if not exists processing_completed_at timestamptz;
+alter table public.meeting_recordings drop constraint if exists meeting_recordings_processing_stage_check;
+alter table public.meeting_recordings add constraint meeting_recordings_processing_stage_check
+  check (processing_stage is null or processing_stage in ('uploading', 'assembling', 'transcribing', 'complete', 'failed'));
+alter table public.meeting_recordings drop constraint if exists meeting_recordings_processing_progress_check;
+alter table public.meeting_recordings add constraint meeting_recordings_processing_progress_check
+  check (processing_progress between 0 and 100);
 
 create table if not exists public.meeting_recording_chunks (
   id uuid primary key default gen_random_uuid(),

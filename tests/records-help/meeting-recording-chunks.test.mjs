@@ -26,6 +26,7 @@ const recordingDurationPath = new URL("../../n3xra-records/lib/recording-duratio
 const meetingNotesPath = new URL("../../n3xra-records/meeting-notes/index.html", import.meta.url);
 const cleanupPath = new URL("../../api/cleanup-recording-chunks.js", import.meta.url);
 const migrationPath = new URL("../../supabase/migrations/20260801030703_meeting_recording_resumable_chunks.sql", import.meta.url);
+const processingMigrationPath = new URL("../../supabase/migrations/20260805041028_recording_processing_progress.sql", import.meta.url);
 
 function runFfmpeg(args) {
   return new Promise((resolve, reject) => {
@@ -129,7 +130,8 @@ test("Meeting Notes detects interruptions and offers same-meeting resume", async
   assert.match(recordings, /handleResumeRecording/);
   assert.match(recordings, /No audio was captured during the interruption/);
   assert.match(recordings, /status: "interrupted"/);
-  assert.match(recordings, /mediaRecorder\.start\(5000\)/);
+  assert.match(recordings, /RECORDING_CHUNK_INTERVAL_MS = 20000/);
+  assert.match(recordings, /mediaRecorder\.start\(RECORDING_CHUNK_INTERVAL_MS\)/);
 });
 
 test("Meeting Notes restores an interrupted browser recording on load and selection", async () => {
@@ -170,6 +172,30 @@ test("finalization verifies fragments and assembles resumed sessions with FFmpeg
   assert.match(finalizer, /status: "uploaded"/);
   assert.match(finalizer, /inspectAudioDurationSeconds/);
   assert.match(finalizer, /duration_seconds: durationSeconds/);
+  assert.match(finalizer, /mapWithConcurrency\(group\.chunks, CHUNK_DOWNLOAD_CONCURRENCY/);
+  assert.match(finalizer, /transcribeReadyRecording\(updated, user/);
+  assert.match(finalizer, /transcriptionStartedAutomatically: true/);
+});
+
+test("meeting processing persists progress and shows percentage with an ETA", async () => {
+  const [recordings, meetingNotes, styles, migration, transcription] = await Promise.all([
+    readFile(recordingsPath, "utf8"),
+    readFile(meetingNotesPath, "utf8"),
+    readFile(new URL("../../n3xra-records/styles.css", import.meta.url), "utf8"),
+    readFile(processingMigrationPath, "utf8"),
+    readFile(transcriptionPath, "utf8"),
+  ]);
+
+  assert.match(meetingNotes, /role="progressbar"/);
+  assert.match(meetingNotes, /id="recording-processing-progress-fill"/);
+  assert.match(recordings, /setRecordingProcessingProgress/);
+  assert.match(recordings, /About \$\{formatProcessingTime\(remainingSeconds\)\} remaining/);
+  assert.match(recordings, /startRecordingProcessingPolling/);
+  assert.match(styles, /transition: width 320ms ease/);
+  assert.match(migration, /processing_progress smallint not null default 0/);
+  assert.match(migration, /processing_stage.*'uploading'.*'assembling'.*'transcribing'.*'complete'.*'failed'/s);
+  assert.match(transcription, /processing_progress: 100/);
+  assert.match(transcription, /processing_completed_at: completedAt/);
 });
 
 test("permanent playback is 48 kHz mono MP3 at 96 kbps without chunk boundary changes", async () => {
@@ -215,7 +241,7 @@ test("FFmpeg duration parsing supports recordings longer than one hour", () => {
 test("transcription keeps interruption events separate from spoken text", async () => {
   const transcription = await readFile(transcriptionPath, "utf8");
   assert.doesNotMatch(transcription, /addInterruptionMarkers/);
-  assert.match(transcription, /const transcriptText = await transcribeRecordingAudio\(recording\)/);
+  assert.match(transcription, /const transcriptText = await transcribeRecordingAudio\(recording,/);
   assert.match(transcription, /transcribeTemporaryDerivative/);
   assert.match(transcription, /"-ar",\s*"16000"/);
   assert.match(transcription, /TRANSCRIPTION_SEGMENT_BITRATE/);

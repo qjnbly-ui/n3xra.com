@@ -186,6 +186,7 @@ export function createMeetingRecordingChunkManager(options) {
     maxBytes = Infinity,
     onStatus = () => {},
     onProgress = () => {},
+    onUploadProgress = () => {},
   } = options;
   let nextSequence = 0;
   let draining = null;
@@ -193,6 +194,7 @@ export function createMeetingRecordingChunkManager(options) {
   let disposed = false;
   let accumulatedBytes = 0;
   let accumulatedDurationMs = 0;
+  const uploadedSequences = new Set();
 
   function progress() {
     return {
@@ -200,6 +202,7 @@ export function createMeetingRecordingChunkManager(options) {
       chunkCount: nextSequence,
       bytes: accumulatedBytes,
       durationSeconds: Math.max(Math.round(accumulatedDurationMs / 1000), 0),
+      uploadedChunkCount: uploadedSequences.size,
     };
   }
 
@@ -215,6 +218,7 @@ export function createMeetingRecordingChunkManager(options) {
 
   async function initialize() {
     const [remote, local] = await Promise.all([remoteChunks(), getLocalChunks(recordingId)]);
+    remote.forEach((item) => uploadedSequences.add(Number(item.sequence_number)));
     const sequences = [...remote.map((item) => Number(item.sequence_number)), ...local.map((item) => Number(item.sequenceNumber))];
     accumulatedBytes = remote.reduce((sum, item) => sum + Number(item.file_size || 0), 0)
       + local.filter((item) => !remote.some((remoteItem) => Number(remoteItem.sequence_number) === item.sequenceNumber))
@@ -254,6 +258,8 @@ export function createMeetingRecordingChunkManager(options) {
     }, { onConflict: "meeting_recording_id,sequence_number" });
     if (manifestError) throw manifestError;
     await deleteLocalChunk(chunk.key);
+    uploadedSequences.add(chunk.sequenceNumber);
+    onUploadProgress(progress());
   }
 
   async function drain() {

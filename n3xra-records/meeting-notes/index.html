@@ -308,8 +308,8 @@
             </section>
 
             <div class="upload-progress hidden" id="upload-progress-shell" aria-live="polite">
-              <div class="upload-progress-bar" aria-hidden="true">
-                <span class="upload-progress-fill"></span>
+              <div class="upload-progress-bar" id="recording-processing-progress" role="progressbar" aria-label="Meeting processing progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                <span class="upload-progress-fill" id="recording-processing-progress-fill"></span>
               </div>
               <p class="upload-progress-copy" id="upload-progress-copy">Upload in progress. Do not leave this page until it finishes.</p>
             </div>

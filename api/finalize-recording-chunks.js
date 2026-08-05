@@ -12,12 +12,14 @@ const {
   validateAndGroupChunks,
 } = require("./_recording-chunk-core");
 const { contextAllows, getRecordsAccessContext } = require("./_records-support-access");
+const { transcribeReadyRecording } = require("./transcribe-recording")._internal;
 
 const SUPABASE_URL = String(process.env.SUPABASE_URL || "https://vdbjlgmbpykjblprqnak.supabase.co").trim();
 const SUPABASE_ANON_KEY = String(process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "").trim();
 const SUPABASE_SERVICE_ROLE_KEY = String(process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY || "").trim();
 const RECORDINGS_BUCKET = "meeting-recordings";
 const MAX_AUDIO_BYTES = Math.max(1, Number(process.env.RECORDS_MAX_TRANSCRIPTION_AUDIO_BYTES || 250 * 1024 * 1024));
+const CHUNK_DOWNLOAD_CONCURRENCY = Math.max(2, Math.min(12, Number(process.env.RECORDING_CHUNK_DOWNLOAD_CONCURRENCY || 8)));
 
 function serviceHeaders(extra = {}) {
   return { apikey: SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`, "Content-Type": "application/json", ...extra };
@@ -72,6 +74,20 @@ async function downloadChunk(chunk) {
   return buffer;
 }
 
+async function mapWithConcurrency(items, concurrency, worker) {
+  const results = new Array(items.length);
+  let nextIndex = 0;
+  async function runWorker() {
+    while (nextIndex < items.length) {
+      const index = nextIndex;
+      nextIndex += 1;
+      results[index] = await worker(items[index], index);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, runWorker));
+  return results;
+}
+
 function runFfmpeg(args) {
   const ffmpegPath = require("ffmpeg-static");
   return new Promise((resolve, reject) => {
@@ -105,20 +121,25 @@ async function updateRecording(recordingId, patch) {
   return Array.isArray(rows) ? rows[0] || null : null;
 }
 
-async function assembleRecording(recording, chunks, interruptions, expectedLastSequence) {
+async function assembleRecording(recording, chunks, interruptions, expectedLastSequence, onProgress = async () => {}) {
   const { ordered, groups } = validateAndGroupChunks(chunks, expectedLastSequence);
   const totalChunkBytes = ordered.reduce((sum, chunk) => sum + Number(chunk.file_size || 0), 0);
   if (totalChunkBytes > MAX_AUDIO_BYTES) throw new Error("This recording exceeds the active audio size limit.");
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "n3xra-recording-finalize-"));
   try {
+    let downloadedChunks = 0;
     const normalizedPaths = [];
     for (let groupIndex = 0; groupIndex < groups.length; groupIndex += 1) {
       const group = groups[groupIndex];
       const extension = extensionForMimeType(group.chunks[0]?.mime_type);
       const rawPath = path.join(tempDir, `capture-${String(groupIndex).padStart(3, "0")}.${extension}`);
       const normalizedPath = path.join(tempDir, `capture-${String(groupIndex).padStart(3, "0")}.mp3`);
-      const buffers = [];
-      for (const chunk of group.chunks) buffers.push(await downloadChunk(chunk));
+      const buffers = await mapWithConcurrency(group.chunks, CHUNK_DOWNLOAD_CONCURRENCY, async (chunk) => {
+        const buffer = await downloadChunk(chunk);
+        downloadedChunks += 1;
+        await onProgress(downloadedChunks, ordered.length);
+        return buffer;
+      });
       await fs.writeFile(rawPath, Buffer.concat(buffers));
       await runFfmpeg(buildPlaybackTranscodeArgs(rawPath, normalizedPath));
       normalizedPaths.push(normalizedPath);
@@ -182,14 +203,53 @@ async function handler(req, res) {
     const access = await getRecordsAccessContext(organization, user);
     if (!contextAllows(access, "can_change_content")) return res.status(403).json({ error: "You do not have access to finalize this recording." });
 
-    await updateRecording(recording.id, { status: "finalizing", processing_error: null });
+    const processingStartedAt = new Date().toISOString();
+    await updateRecording(recording.id, {
+      status: "finalizing",
+      processing_stage: "assembling",
+      processing_progress: 20,
+      processing_started_at: recording.processing_started_at || processingStartedAt,
+      processing_updated_at: processingStartedAt,
+      processing_completed_at: null,
+      processing_error: null,
+    });
     const chunks = await fetchJson(`${SUPABASE_URL}/rest/v1/meeting_recording_chunks?select=*&meeting_recording_id=eq.${encodeURIComponent(recording.id)}&order=sequence_number.asc`, { headers: serviceHeaders() });
     const interruptions = await fetchJson(`${SUPABASE_URL}/rest/v1/meeting_recording_interruptions?select=*&meeting_recording_id=eq.${encodeURIComponent(recording.id)}&order=interruption_number.asc`, { headers: serviceHeaders() });
-    const updated = await assembleRecording(recording, chunks, interruptions, expectedLastSequence);
-    return res.status(200).json({ recording: updated });
+    let lastProgress = 20;
+    const updated = await assembleRecording(recording, chunks, interruptions, expectedLastSequence, async (completed, total) => {
+      const progress = Math.min(52, 20 + Math.floor((completed / Math.max(total, 1)) * 32));
+      if (progress < lastProgress + 3 && completed < total) return;
+      lastProgress = progress;
+      await updateRecording(recording.id, {
+        processing_stage: "assembling",
+        processing_progress: progress,
+        processing_updated_at: new Date().toISOString(),
+      });
+    });
+    await updateRecording(recording.id, {
+      processing_stage: "transcribing",
+      processing_progress: 55,
+      processing_updated_at: new Date().toISOString(),
+    });
+    try {
+      const transcription = await transcribeReadyRecording(updated, user, { supportToken: getBearerToken(req), progressStart: 55 });
+      return res.status(200).json({ ...transcription, transcriptionStartedAutomatically: true });
+    } catch (transcriptionError) {
+      const latest = await loadOne("meeting_recordings", `select=*&id=eq.${encodeURIComponent(recording.id)}&limit=1`);
+      return res.status(200).json({
+        recording: latest || updated,
+        transcriptionStartedAutomatically: true,
+        transcriptionError: String(transcriptionError?.message || "Automatic transcription failed."),
+      });
+    }
   } catch (error) {
     const status = error?.code === "MISSING_CHUNKS" ? 409 : 500;
-    if (recording?.id) await updateRecording(recording.id, { status: "recorded", processing_error: String(error?.message || error) }).catch(() => null);
+    if (recording?.id) await updateRecording(recording.id, {
+      status: "recorded",
+      processing_stage: "failed",
+      processing_updated_at: new Date().toISOString(),
+      processing_error: String(error?.message || error),
+    }).catch(() => null);
     return res.status(status).json({ error: String(error?.message || "Unable to finalize recording."), missingSequences: error?.missingSequences || [] });
   }
 }

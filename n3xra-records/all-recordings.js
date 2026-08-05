@@ -830,6 +830,11 @@ async function loadRecordings() {
       audio_mime_type,
       file_size,
       processing_error,
+      processing_stage,
+      processing_progress,
+      processing_started_at,
+      processing_updated_at,
+      processing_completed_at,
       notes_plain_text,
       ai_review_json,
       ai_draft_document_id,
@@ -882,6 +887,10 @@ function renderRecordings() {
     const errorCopy = recording.processing_error
       ? `<p class="recording-row-note recording-row-note-error">${escapeHtml(recording.processing_error)}</p>`
       : "";
+    const progress = Math.max(0, Math.min(100, Number(recording.processing_progress || 0)));
+    const progressCopy = progress > 0 && progress < 100
+      ? `<div class="recording-row-progress"><span style="width:${progress}%"></span></div><p class="recording-row-progress-copy">${escapeHtml(formatRecordingStatus(recording.processing_stage))} · ${progress}%</p>`
+      : "";
     const item = document.createElement("article");
     item.className = "recording-row";
     item.setAttribute("data-recording-id", recording.id);
@@ -901,6 +910,7 @@ function renderRecordings() {
         <span>${escapeHtml(formatRecordingStatus(recording.transcript_status))} transcript</span>
         <span>${escapeHtml(formatRecordingStatus(recording.ai_review_status || "not_started"))} AI review</span>
       </div>
+      ${progressCopy}
       ${errorCopy}
     `;
     recordingsList.append(item);

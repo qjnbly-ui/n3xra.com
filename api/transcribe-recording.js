@@ -318,7 +318,7 @@ async function transcribeAudioFile(arrayBuffer, recording, fileOptions = {}) {
   return sendGroqTranscription(form, model);
 }
 
-async function transcribeTemporaryDerivative(arrayBuffer, recording, model = GROQ_LARGE_TRANSCRIPTION_MODEL) {
+async function transcribeTemporaryDerivative(arrayBuffer, recording, model = GROQ_LARGE_TRANSCRIPTION_MODEL, onSegmentProgress = async () => {}) {
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "n3xra-transcription-"));
   const inputPath = path.join(tempDir, `source.${getAudioExtension(recording)}`);
   const outputPattern = path.join(tempDir, `part-%03d.${TRANSCRIPTION_SEGMENT_EXTENSION}`);
@@ -367,6 +367,7 @@ async function transcribeTemporaryDerivative(arrayBuffer, recording, model = GRO
         model,
       });
       transcriptParts.push(segmentText);
+      await onSegmentProgress(index + 1, files.length);
     }
 
     return transcriptParts.filter(Boolean).join("\n\n").trim();
@@ -375,14 +376,14 @@ async function transcribeTemporaryDerivative(arrayBuffer, recording, model = GRO
   }
 }
 
-async function transcribeRecordingAudio(recording) {
+async function transcribeRecordingAudio(recording, onSegmentProgress = async () => {}) {
   const recordedSize = Number(recording?.file_size || 0);
   if (recordedSize > MAX_AUDIO_BYTES) {
     throw new Error(`This audio file is larger than the ${formatBytes(MAX_AUDIO_BYTES)} transcription limit.`);
   }
 
   const audio = await downloadRecordingAudio(recording);
-  return transcribeTemporaryDerivative(audio, recording, GROQ_LARGE_TRANSCRIPTION_MODEL);
+  return transcribeTemporaryDerivative(audio, recording, GROQ_LARGE_TRANSCRIPTION_MODEL, onSegmentProgress);
 }
 
 async function uploadTranscriptDocument(recording, user, transcriptText) {
@@ -465,6 +466,61 @@ async function uploadTranscriptDocument(recording, user, transcriptText) {
   return Array.isArray(rows) ? rows[0] || null : null;
 }
 
+async function transcribeReadyRecording(recording, user, options = {}) {
+  const progressStart = Math.max(0, Math.min(90, Number(options.progressStart || 55)));
+  const processingStartedAt = recording.processing_started_at || new Date().toISOString();
+  try {
+    await updateRecording(recording.id, {
+      status: "transcribing",
+      transcript_status: "processing",
+      processing_stage: "transcribing",
+      processing_progress: progressStart,
+      processing_started_at: processingStartedAt,
+      processing_updated_at: new Date().toISOString(),
+      processing_completed_at: null,
+      processing_error: null,
+    });
+
+    const transcriptText = await transcribeRecordingAudio(recording, async (completed, total) => {
+      const progress = Math.min(94, progressStart + Math.round((completed / Math.max(total, 1)) * (94 - progressStart)));
+      await updateRecording(recording.id, {
+        processing_stage: "transcribing",
+        processing_progress: progress,
+        processing_updated_at: new Date().toISOString(),
+      });
+    });
+    const document = await uploadTranscriptDocument(recording, user, transcriptText);
+    const completedAt = new Date().toISOString();
+    const updatedRecording = await updateRecording(recording.id, {
+      document_id: document?.id || recording.document_id || null,
+      status: "ready",
+      transcript_status: "ready",
+      transcript_text: transcriptText,
+      transcript_generated_at: completedAt,
+      processing_stage: "complete",
+      processing_progress: 100,
+      processing_updated_at: completedAt,
+      processing_completed_at: completedAt,
+      processing_error: null,
+    });
+
+    if (options.supportToken) {
+      await recordRecordsSupportEvent(options.supportToken, recording.organization_id, "content_changed", "meeting_recording", recording.id);
+    }
+    return { recording: updatedRecording, document, transcriptLength: transcriptText.length };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unable to transcribe recording.";
+    await updateRecording(recording.id, {
+      status: recording.storage_path ? "uploaded" : "failed",
+      transcript_status: "failed",
+      processing_stage: "failed",
+      processing_updated_at: new Date().toISOString(),
+      processing_error: message,
+    }).catch(() => null);
+    throw error;
+  }
+}
+
 async function handler(req, res) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
@@ -496,38 +552,10 @@ async function handler(req, res) {
       return res.status(403).json({ error: "You do not have access to transcribe this recording." });
     }
 
-    await updateRecording(recording.id, {
-      status: "transcribing",
-      transcript_status: "processing",
-      processing_error: null,
-    });
-
-    const transcriptText = await transcribeRecordingAudio(recording);
-    const document = await uploadTranscriptDocument(recording, user, transcriptText);
-    const updatedRecording = await updateRecording(recording.id, {
-      document_id: document?.id || recording.document_id || null,
-      status: "ready",
-      transcript_status: "ready",
-      transcript_text: transcriptText,
-      transcript_generated_at: new Date().toISOString(),
-      processing_error: null,
-    });
-
-    await recordRecordsSupportEvent(getBearerToken(req), recording.organization_id, "content_changed", "meeting_recording", recording.id);
-    return res.status(200).json({
-      recording: updatedRecording,
-      document,
-      transcriptLength: transcriptText.length,
-    });
+    const result = await transcribeReadyRecording(recording, user, { supportToken: getBearerToken(req), progressStart: 55 });
+    return res.status(200).json(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to transcribe recording.";
-    if (recording?.id) {
-      await updateRecording(recording.id, {
-        status: recording.storage_path ? "uploaded" : "failed",
-        transcript_status: "failed",
-        processing_error: message,
-      }).catch(() => null);
-    }
     return res.status(500).json({ error: message });
   }
 }
@@ -538,4 +566,7 @@ module.exports.config = {
 };
 module.exports._test = {
   isTranscriptionDerivativeFile,
+};
+module.exports._internal = {
+  transcribeReadyRecording,
 };
