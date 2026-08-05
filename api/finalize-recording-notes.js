@@ -1022,10 +1022,6 @@ async function handler(req, res) {
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
     return res.status(500).json({ error: "Missing Supabase service config." });
   }
-  if (!GROQ_RECORDS_API_KEY) {
-    return res.status(500).json({ error: "Missing GROQ_RECORDS_API_KEY." });
-  }
-
   let user = null;
   try {
     user = await verifyUser(getBearerToken(req));
@@ -1039,6 +1035,7 @@ async function handler(req, res) {
     const body = await parseJson(req);
     const recordingId = String(body.recordingId || "").trim();
     const acceptedSuggestionIndexes = Array.isArray(body.acceptedSuggestionIndexes) ? body.acceptedSuggestionIndexes : [];
+    const hasEditedDraftText = Object.prototype.hasOwnProperty.call(body, "editedDraftText");
     if (!recordingId) return res.status(400).json({ error: "recordingId is required." });
 
     recording = await loadRecording(recordingId);
@@ -1048,6 +1045,51 @@ async function handler(req, res) {
     if (!organization) return res.status(404).json({ error: "Recording library not found." });
     if (!(await userCanReviewRecording(organization, user))) {
       return res.status(403).json({ error: "You do not have access to review this recording." });
+    }
+    const template = await loadTemplate(recording.selected_template_id, recording.organization_id);
+    const notesText = normalizeWhitespace(recording.notes_plain_text || plainTextFromContentJson(recording.notes_content_json));
+    const previousReview = recording.ai_review_json && typeof recording.ai_review_json === "object" ? recording.ai_review_json : null;
+    const currentDraftDocument = await loadTargetDocument(recording).catch(() => null);
+    const currentDraftText = normalizeWhitespace(
+      currentDraftDocument?.plain_text || plainTextFromContentJson(currentDraftDocument?.content_json)
+    );
+
+    if (hasEditedDraftText) {
+      if (!previousReview || !currentDraftDocument?.id) {
+        return res.status(400).json({ error: "Create an AI draft before editing it." });
+      }
+      const editedDraftText = normalizeWhitespace(body.editedDraftText);
+      if (!editedDraftText) return res.status(400).json({ error: "The AI draft cannot be empty." });
+      if (editedDraftText.length > MAX_CURRENT_DRAFT_CHARS) {
+        return res.status(400).json({ error: `The AI draft must be ${MAX_CURRENT_DRAFT_CHARS.toLocaleString()} characters or fewer.` });
+      }
+
+      const editedReview = {
+        ...previousReview,
+        final_document_text: editedDraftText,
+        manually_edited_at: new Date().toISOString(),
+      };
+      const updatedDocument = await updateTargetDocument(currentDraftDocument, recording, {
+        document_title: previousReview.document_title || currentDraftDocument.title || `${recording.title || "Untitled recording"} Notes`,
+        final_document_text: editedDraftText,
+      }, template);
+      const updatedRecording = await updateRecording(recording.id, {
+        ai_review_status: "ready",
+        ai_review_json: editedReview,
+        ai_draft_document_id: updatedDocument?.id || recording.ai_draft_document_id || null,
+        processing_error: null,
+      });
+      await recordRecordsSupportEvent(getBearerToken(req), recording.organization_id, "content_changed", "app_document", updatedDocument?.id || recording.id);
+      return res.status(200).json({
+        recording: updatedRecording,
+        draftDocument: updatedDocument,
+        review: editedReview,
+        saved: true,
+      });
+    }
+
+    if (!GROQ_RECORDS_API_KEY) {
+      return res.status(500).json({ error: "Missing GROQ_RECORDS_API_KEY." });
     }
     if (recording.transcript_status !== "ready" || !normalizeWhitespace(recording.transcript_text)) {
       return res.status(400).json({ error: "The transcript must be ready before AI can review this recording." });
@@ -1059,14 +1101,6 @@ async function handler(req, res) {
       ai_review_status: "processing",
       processing_error: null,
     });
-
-    const template = await loadTemplate(recording.selected_template_id, recording.organization_id);
-    const notesText = normalizeWhitespace(recording.notes_plain_text || plainTextFromContentJson(recording.notes_content_json));
-    const previousReview = recording.ai_review_json && typeof recording.ai_review_json === "object" ? recording.ai_review_json : null;
-    const currentDraftDocument = await loadTargetDocument(recording).catch(() => null);
-    const currentDraftText = normalizeWhitespace(
-      currentDraftDocument?.plain_text || plainTextFromContentJson(currentDraftDocument?.content_json)
-    );
 
     if (acceptedSuggestionIndexes.length) {
       if (!previousReview) {

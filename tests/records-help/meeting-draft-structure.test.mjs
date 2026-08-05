@@ -9,6 +9,16 @@ const pdfGeneratorPath = new URL(
   "../../supabase/functions/generate-app-document-pdf/index.ts",
   import.meta.url,
 );
+const meetingNotesPages = [
+  new URL("../../n3xra-records/meeting-notes/index.html", import.meta.url),
+  new URL("../../n3xra-records/recordings.html", import.meta.url),
+  new URL("../../n3xra-records/all-recordings.html", import.meta.url),
+  new URL("../../n3xra-records/all-meeting-notes/index.html", import.meta.url),
+];
+const recordingClients = [
+  new URL("../../n3xra-records/recordings.js", import.meta.url),
+  new URL("../../n3xra-records/all-recordings.js", import.meta.url),
+];
 
 function nodeText(node) {
   if (!node || typeof node !== "object") return "";
@@ -83,4 +93,33 @@ test("PDF export keeps headings and list markers with their following content", 
   assert.match(source, /keepHeadingWithNext\(state, node, content\.content\[index \+ 1\]\)/);
   assert.match(source, /estimateFirstBlockHeight\(state, firstChild\)/);
   assert.match(source, /Long paragraphs may split, but never begin with a single orphaned line/);
+});
+
+test("AI drafts are editable and save before suggestions or finalization", async () => {
+  for (const pagePath of meetingNotesPages) {
+    const html = await readFile(pagePath, "utf8");
+    assert.match(html, /<textarea[^>]+id="recording-detail-ai-draft-preview"/);
+    assert.match(html, /id="recording-detail-ai-draft-save"[^>]*>Save draft changes</);
+    assert.match(html, /Edit wording here before applying suggestions/);
+  }
+
+  for (const clientPath of recordingClients) {
+    const source = await readFile(clientPath, "utf8");
+    assert.match(source, /editedDraftText/);
+    assert.match(source, /Saving your draft edits before updating suggestions/);
+    assert.match(source, /if \(!aiDraftHasUnsavedChanges\(\)\) return;/);
+    assert.match(source, /window\.location\.href = destination/);
+  }
+});
+
+test("manual AI draft saves update the review and Document Builder draft without an AI call", async () => {
+  const source = await readFile(new URL("../../api/finalize-recording-notes.js", import.meta.url), "utf8");
+  const manualSaveIndex = source.indexOf("if (hasEditedDraftText)");
+  const aiUsageIndex = source.indexOf("const usageContext = await prepareRecordsAiUsage", manualSaveIndex);
+
+  assert.ok(manualSaveIndex > 0);
+  assert.ok(aiUsageIndex > manualSaveIndex);
+  assert.match(source.slice(manualSaveIndex, aiUsageIndex), /final_document_text: editedDraftText/);
+  assert.match(source.slice(manualSaveIndex, aiUsageIndex), /updateTargetDocument/);
+  assert.match(source.slice(manualSaveIndex, aiUsageIndex), /manually_edited_at/);
 });

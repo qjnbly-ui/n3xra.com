@@ -80,6 +80,7 @@ const recordingDetailReferencePreviewOpen = document.getElementById("recording-d
 const recordingDetailReferencePreviewRemove = document.getElementById("recording-detail-reference-preview-remove");
 const recordingDetailReferenceFrame = document.getElementById("recording-detail-reference-frame");
 const recordingDetailAiDraftPreview = document.getElementById("recording-detail-ai-draft-preview");
+const recordingDetailAiDraftSave = document.getElementById("recording-detail-ai-draft-save");
 const recordingAiReviewPanel = document.getElementById("recording-ai-review-panel");
 const recordingAiSuggestions = document.getElementById("recording-ai-suggestions");
 const recordingAiConflicts = document.getElementById("recording-ai-conflicts");
@@ -522,6 +523,41 @@ async function requestRecordingAiReview(recordingId) {
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data?.error || "Unable to review meeting notes.");
   return data;
+}
+
+function aiDraftHasUnsavedChanges() {
+  if (!recordingDetailAiDraftPreview || recordingDetailAiDraftPreview.disabled) return false;
+  return recordingDetailAiDraftPreview.value.trim() !== String(recordingDetailAiDraftPreview.dataset.savedValue || "").trim();
+}
+
+async function saveRecordingAiDraft({ quiet = false } = {}) {
+  const recording = getRecordingById(activeDetailRecordingId);
+  if (!recording || !recordingDetailAiDraftPreview) return null;
+  const editedDraftText = recordingDetailAiDraftPreview.value.trim();
+  if (!editedDraftText) throw new Error("The AI draft cannot be empty.");
+  if (!aiDraftHasUnsavedChanges()) return recording;
+
+  const accessToken = await getFreshAccessToken();
+  if (!accessToken) throw new Error("Your session expired. Sign in again and retry.");
+  if (recordingDetailAiDraftSave) recordingDetailAiDraftSave.disabled = true;
+  if (!quiet) setStatus(recordingDetailStatusMessage, "Saving draft changes...");
+
+  const response = await fetch("/api/finalize-recording-notes", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({ recordingId: recording.id, editedDraftText }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data?.error || "Unable to save AI draft changes.");
+  if (data.recording) mergeRecordingUpdate(data.recording);
+  const updated = getRecordingById(recording.id) || data.recording || recording;
+  populateRecordingDetails(updated);
+  renderRecordings();
+  if (!quiet) setStatus(recordingDetailStatusMessage, "Draft changes saved.", "success");
+  return updated;
 }
 
 async function reconcileMissingRecordingObject(recording, error) {
@@ -1096,7 +1132,10 @@ function populateRecordingDetails(recording) {
   recordingDetailNotes.disabled = !getActiveCapabilities().canEditDocuments;
   const aiDraftPreview = String(recording.ai_review_json?.final_document_text || "").trim();
   if (recordingDetailAiDraftPreview) {
-    recordingDetailAiDraftPreview.textContent = aiDraftPreview || "No AI draft created yet.";
+    recordingDetailAiDraftPreview.value = aiDraftPreview;
+    recordingDetailAiDraftPreview.placeholder = "No AI draft created yet.";
+    recordingDetailAiDraftPreview.dataset.savedValue = aiDraftPreview;
+    recordingDetailAiDraftPreview.disabled = !getActiveCapabilities().canEditDocuments || !aiDraftPreview;
   }
   if (recordingDetailTranscriptCopy) {
     if (recording.document_id) {
@@ -1121,6 +1160,8 @@ function populateRecordingDetails(recording) {
     recordingDetailTranscriptDocument.href = `/n3xra-records/library?id=${encodeURIComponent(recording.document_id)}`;
   }
   const reviewDocumentId = recording.final_document_id || recording.ai_draft_document_id || "";
+  show(recordingDetailAiDraftSave, Boolean(reviewDocumentId && aiDraftPreview && getActiveCapabilities().canEditDocuments));
+  if (recordingDetailAiDraftSave) recordingDetailAiDraftSave.disabled = true;
   show(recordingDetailAiDraft, Boolean(reviewDocumentId));
   if (reviewDocumentId) {
     recordingDetailAiDraft.href = `/n3xra-records/documents.html?id=${encodeURIComponent(reviewDocumentId)}`;
@@ -1352,7 +1393,7 @@ function updateActiveRecordingReview(review) {
 
 async function handleReviewSuggestionAction(action, index = null) {
   if (reviewActionPending) return;
-  const recording = getRecordingById(activeDetailRecordingId);
+  let recording = getRecordingById(activeDetailRecordingId);
   if (!recording) return;
   if (!getActiveCapabilities().canEditDocuments) {
     setStatus(recordingDetailStatusMessage, "You need editor access to apply AI suggestions.", "error");
@@ -1363,6 +1404,10 @@ async function handleReviewSuggestionAction(action, index = null) {
   setReviewActionsDisabled(true);
 
   try {
+    if (aiDraftHasUnsavedChanges()) {
+      setStatus(recordingDetailStatusMessage, "Saving your draft edits before updating suggestions...");
+      recording = await saveRecordingAiDraft({ quiet: true }) || recording;
+    }
     if (action === "apply-all") {
       const indexes = getOpenSuggestionIndexes(recording.ai_review_json || {});
       if (!indexes.length) {
@@ -1603,6 +1648,26 @@ async function init() {
     void previewReferenceDocument(reference || null);
   });
   recordingDetailNotes?.addEventListener("input", queueRecordingDetailNotesSave);
+  recordingDetailAiDraftPreview?.addEventListener("input", () => {
+    if (recordingDetailAiDraftSave) recordingDetailAiDraftSave.disabled = !aiDraftHasUnsavedChanges();
+  });
+  recordingDetailAiDraftSave?.addEventListener("click", () => {
+    void saveRecordingAiDraft().catch((error) => {
+      if (recordingDetailAiDraftSave) recordingDetailAiDraftSave.disabled = false;
+      setStatus(recordingDetailStatusMessage, getErrorMessage(error, "Unable to save AI draft changes."), "error");
+    });
+  });
+  recordingDetailAiDraft?.addEventListener("click", (event) => {
+    if (!aiDraftHasUnsavedChanges()) return;
+    event.preventDefault();
+    const destination = recordingDetailAiDraft.href;
+    void saveRecordingAiDraft({ quiet: true })
+      .then(() => { window.location.href = destination; })
+      .catch((error) => {
+        if (recordingDetailAiDraftSave) recordingDetailAiDraftSave.disabled = false;
+        setStatus(recordingDetailStatusMessage, getErrorMessage(error, "Unable to save AI draft changes."), "error");
+      });
+  });
   recordingDetailTabs.forEach((button) => {
     button.addEventListener("click", () => {
       setRecordingDetailTab(button.dataset.recordingDetailTab || "details");

@@ -1435,6 +1435,17 @@ textarea {
   max-height: min(32vh, 320px);
 }
 
+.recording-ai-draft-editor {
+  width: 100%;
+  min-height: min(38vh, 390px);
+  resize: vertical;
+}
+
+.recording-ai-draft-editor:not(:disabled):focus {
+  border-color: rgba(18, 112, 98, 0.55);
+  outline: 3px solid rgba(18, 112, 98, 0.12);
+}
+
 .recording-review-list {
   display: grid;
   gap: 0.55rem;
