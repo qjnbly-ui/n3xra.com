@@ -398,6 +398,31 @@ function listNode(type, items) {
   };
 }
 
+function nextMeaningfulLineIndex(lines, startIndex) {
+  for (let index = startIndex; index < lines.length; index += 1) {
+    if (String(lines[index] || "").trim()) return index;
+  }
+  return -1;
+}
+
+function draftLineStructure(lines) {
+  const numberedSectionIndexes = new Set();
+  lines.forEach((line, index) => {
+    if (!/^\s*\d+[.)]\s+\S/.test(String(line || ""))) return;
+    const nextIndex = nextMeaningfulLineIndex(lines, index + 1);
+    if (nextIndex >= 0 && /^\s*[-*]\s+\S/.test(String(lines[nextIndex] || ""))) {
+      numberedSectionIndexes.add(index);
+    }
+  });
+
+  return {
+    // A repeated "1. Section" followed by body bullets is a common model output
+    // for agenda headings. Requiring at least two matches keeps ordinary numbered
+    // lists as real ordered lists.
+    numberedSectionIndexes: numberedSectionIndexes.size >= 2 ? numberedSectionIndexes : new Set(),
+  };
+}
+
 function plainTextToTiptapDoc(text, templateContentJson = null) {
   const lines = normalizeWhitespace(text).split("\n");
   const content = [];
@@ -405,6 +430,8 @@ function plainTextToTiptapDoc(text, templateContentJson = null) {
   let bulletItems = [];
   let orderedItems = [];
   const templateStyleIndex = buildTemplateStyleIndex(templateContentJson);
+  const lineStructure = draftLineStructure(lines);
+  const firstMeaningfulIndex = nextMeaningfulLineIndex(lines, 0);
 
   function flushParagraph() {
     if (!paragraphLines.length) return;
@@ -429,7 +456,7 @@ function plainTextToTiptapDoc(text, templateContentJson = null) {
     flushOrdered();
   }
 
-  lines.forEach((line) => {
+  lines.forEach((line, lineIndex) => {
     const trimmed = line.trim();
     if (!trimmed) {
       flushParagraph();
@@ -437,11 +464,42 @@ function plainTextToTiptapDoc(text, templateContentJson = null) {
       return;
     }
 
+    const nextLineIndex = nextMeaningfulLineIndex(lines, lineIndex + 1);
     const templateStyle = findTemplateLineStyle(templateStyleIndex, trimmed);
     if (templateStyle?.type === "heading") {
       flushParagraph();
       flushLists();
       content.push(headingNode(trimmed, templateStyle.level));
+      return;
+    }
+
+    const numberedSectionMatch = trimmed.match(/^\d+[.)]\s+(.+)$/);
+    if (numberedSectionMatch && lineStructure.numberedSectionIndexes.has(lineIndex)) {
+      flushParagraph();
+      flushLists();
+      content.push(headingNode(numberedSectionMatch[1], 2));
+      return;
+    }
+
+    const isStandaloneSectionLabel = /:$/.test(trimmed)
+      && !/^\S+\s*:\s*\S/.test(trimmed)
+      && nextLineIndex >= 0
+      && (lineStructure.numberedSectionIndexes.has(nextLineIndex)
+        || /^\s*[-*]\s+\S/.test(String(lines[nextLineIndex] || "")));
+    if (isStandaloneSectionLabel) {
+      flushParagraph();
+      flushLists();
+      content.push(headingNode(trimmed.replace(/:$/, ""), 2));
+      return;
+    }
+
+    const isLikelyDocumentTitle = lineIndex === firstMeaningfulIndex
+      && nextLineIndex >= 0
+      && /^(date|meeting date)\s*:/i.test(String(lines[nextLineIndex] || "").trim());
+    if (isLikelyDocumentTitle) {
+      flushParagraph();
+      flushLists();
+      content.push(headingNode(trimmed, 1));
       return;
     }
 
@@ -509,10 +567,14 @@ function buildPrompt({ recording, organization, template, notesText, transcriptT
     "- The transcript is supporting evidence. Use it to fill safe missing detail, names, dates, decisions, and action items only when it does not conflict with notes.",
     "- Do not invent motions, votes, attendance, dates, dollar amounts, decisions, or action owners.",
     "- If transcript details conflict with notes, keep the notes in the draft and list the conflict.",
+    "- Do not silently turn unclear or implausible transcript wording into an authoritative fact. Use cautious neutral wording in the draft and list the exact uncertain name or term in conflicts for human review.",
     "- Preserve the notetaker's meaning. Improve clarity and organization, not facts.",
     "- Keep the final document close to the template/notes layout. Do not reorganize short notes into new sections unless those sections already exist in the template or notes.",
     "- Return final_document_text as plain editable document text. Do not use Markdown markers such as #, **, __, or backticks.",
     "- Keep labels as normal text, for example Date: June 12, 2026. Do not wrap labels in formatting characters.",
+    "- Put every section title on its own line, followed by its content on the next line. Preserve the template's section titles exactly when available.",
+    "- Do not format agenda section titles as separate one-item numbered lists. If the source truly requires numbered agenda sections, keep one continuous sequence (1, 2, 3...) and never restart every section at 1.",
+    "- Keep content under the correct section. Never leave a section title with an empty bullet or move its content beneath a page break or later section.",
     "- Use simple bullet lists only when the template or notes already use a list, or when the notes clearly describe multiple action items.",
     "- suggested_additions are transcript details that add meaningful substance beyond the notetaker notes and should be accepted by a human.",
     "- Include suggested_additions for useful context, reasons, implementation details, action timing, or specific wording that the notes only mention broadly.",
@@ -1150,4 +1212,8 @@ async function handler(req, res) {
 module.exports = handler;
 module.exports.config = {
   maxDuration: 60,
+};
+module.exports._test = {
+  buildPrompt,
+  plainTextToTiptapDoc,
 };

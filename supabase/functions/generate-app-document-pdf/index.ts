@@ -292,9 +292,19 @@ function drawInlineBlock(
   const lines = splitIntoLines(state.fonts, normalized, size, maxWidth);
 
   state.y -= options.spacingBefore || 0;
-  ensureSpace(state, lines.length * lineHeight + (options.spacingAfter || 0));
+  const fullHeight = lines.length * lineHeight + (options.spacingAfter || 0);
+  const availableHeight = state.y - MARGIN_BOTTOM;
+  if (fullHeight <= PAGE_HEIGHT - MARGIN_TOP - MARGIN_BOTTOM && fullHeight <= availableHeight) {
+    // Keep compact blocks together when they already fit on the current page.
+  } else if (lines.length <= 3) {
+    ensureSpace(state, fullHeight);
+  } else {
+    // Long paragraphs may split, but never begin with a single orphaned line.
+    ensureSpace(state, Math.min(lines.length, 2) * lineHeight);
+  }
 
   lines.forEach((line) => {
+    ensureSpace(state, lineHeight);
     const width = lineWidth(state.fonts, line, size);
     let x = MARGIN_X + indent;
     if (align === "center") x += Math.max(0, (maxWidth - width) / 2);
@@ -347,6 +357,41 @@ function nodeText(node: any) {
 function textAlign(node: any) {
   const value = String(node?.attrs?.textAlign || node?.attrs?.align || "").toLowerCase();
   return ["left", "center", "right", "justify"].includes(value) ? value : "left";
+}
+
+function estimateFirstBlockHeight(state: RenderState, node: any) {
+  if (!node || typeof node !== "object") return 0;
+  if (node.type === "heading") {
+    const level = Number(node?.attrs?.level || 2);
+    const size = level === 1 ? 20 : level === 2 ? 16 : 13.5;
+    const lineHeight = level === 1 ? 25 : 21;
+    const lines = splitIntoLines(state.fonts, inlineSegments(node), size, PAGE_WIDTH - MARGIN_X * 2);
+    return (level === 1 ? 5 : 2) + lines.length * lineHeight + 8;
+  }
+  if (node.type === "paragraph" || node.type === "blockquote") {
+    const indent = node.type === "blockquote" ? 14 : 0;
+    const lines = splitIntoLines(
+      state.fonts,
+      inlineSegments(node),
+      BODY_SIZE,
+      PAGE_WIDTH - MARGIN_X * 2 - indent,
+    );
+    return Math.min(Math.max(lines.length, 1), 2) * LINE_HEIGHT + 7;
+  }
+  if (node.type === "bulletList" || node.type === "orderedList" || node.type === "listItem") {
+    const firstChild = Array.isArray(node.content) ? node.content[0] : null;
+    return estimateFirstBlockHeight(state, firstChild) || LINE_HEIGHT;
+  }
+  if (node.type === "table") return 30;
+  const firstChild = Array.isArray(node.content) ? node.content[0] : null;
+  return estimateFirstBlockHeight(state, firstChild);
+}
+
+function keepHeadingWithNext(state: RenderState, heading: any, nextNode: any) {
+  if (heading?.type !== "heading" || !nextNode) return;
+  const headingHeight = estimateFirstBlockHeight(state, heading);
+  const nextHeight = estimateFirstBlockHeight(state, nextNode);
+  ensureSpace(state, headingHeight + Math.max(nextHeight, LINE_HEIGHT));
 }
 
 function renderTable(state: RenderState, tableNode: any) {
@@ -459,7 +504,8 @@ function renderNode(state: RenderState, node: any, context: { indent?: number; o
 
   if (node.type === "listItem") {
     const label = pdfSafeText(context.orderedIndex ? `${context.orderedIndex}.` : "•");
-    ensureSpace(state, LINE_HEIGHT);
+    const firstChild = Array.isArray(node.content) ? node.content[0] : null;
+    ensureSpace(state, Math.max(LINE_HEIGHT, estimateFirstBlockHeight(state, firstChild)));
     state.page.drawText(label, {
       x: MARGIN_X + Math.max(0, indent - 16),
       y: state.y,
@@ -534,7 +580,10 @@ async function buildPdf(options: {
 
   const content = options.contentJson;
   if (content?.type === "doc" && Array.isArray(content.content)) {
-    content.content.forEach((node: any) => renderNode(state, node));
+    content.content.forEach((node: any, index: number) => {
+      keepHeadingWithNext(state, node, content.content[index + 1]);
+      renderNode(state, node);
+    });
   } else if (typeof content?.html === "string") {
     renderPlainText(state, stripHtml(content.html));
   } else {
