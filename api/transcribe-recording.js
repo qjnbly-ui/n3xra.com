@@ -29,6 +29,7 @@ const TRANSCRIPTION_SEGMENT_SECONDS = Math.max(
 const TRANSCRIPTION_SEGMENT_BITRATE = String(process.env.GROQ_RECORDS_TRANSCRIPTION_SEGMENT_BITRATE || "48k").trim();
 const TRANSCRIPTION_SEGMENT_EXTENSION = "mp3";
 const TRANSCRIPTION_SEGMENT_MIME_TYPE = "audio/mpeg";
+const { identifyRecordingSpeakers } = require("./_records-speaker-identification");
 
 function isTranscriptionDerivativeFile(file) {
   return new RegExp(`^part-\\d+\\.${TRANSCRIPTION_SEGMENT_EXTENSION}$`).test(String(file || ""));
@@ -291,7 +292,9 @@ async function sendGroqTranscription(form, model = GROQ_TRANSCRIPTION_MODEL) {
 
   form.append("model", model);
   form.append("temperature", "0");
-  form.append("response_format", "json");
+  form.append("response_format", "verbose_json");
+  form.append("timestamp_granularities[]", "word");
+  form.append("timestamp_granularities[]", "segment");
 
   const response = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
     method: "POST",
@@ -306,7 +309,11 @@ async function sendGroqTranscription(form, model = GROQ_TRANSCRIPTION_MODEL) {
   }
   const text = String(data?.text || "").trim();
   if (!text) throw new Error("Transcription returned no text.");
-  return text;
+  return {
+    text,
+    words: Array.isArray(data?.words) ? data.words : [],
+    segments: Array.isArray(data?.segments) ? data.segments : [],
+  };
 }
 
 async function transcribeAudioFile(arrayBuffer, recording, fileOptions = {}) {
@@ -353,6 +360,8 @@ async function transcribeTemporaryDerivative(arrayBuffer, recording, model = GRO
     if (!files.length) throw new Error("No audio segments were created for transcription.");
 
     const transcriptParts = [];
+    const transcriptWords = [];
+    const transcriptSegments = [];
     for (let index = 0; index < files.length; index += 1) {
       const file = files[index];
       const segmentPath = path.join(tempDir, file);
@@ -361,28 +370,43 @@ async function transcribeTemporaryDerivative(arrayBuffer, recording, model = GRO
         throw new Error("A prepared audio segment is still larger than Groq's 25 MB transcription limit.");
       }
       const segmentBuffer = await fs.readFile(segmentPath);
-      const segmentText = await transcribeAudioFile(segmentBuffer, recording, {
+      const segmentTranscript = await transcribeAudioFile(segmentBuffer, recording, {
         fileName: `${slugify(recording.title)}-part-${String(index + 1).padStart(2, "0")}.${TRANSCRIPTION_SEGMENT_EXTENSION}`,
         mimeType: TRANSCRIPTION_SEGMENT_MIME_TYPE,
         model,
       });
-      transcriptParts.push(segmentText);
+      const offsetSeconds = index * TRANSCRIPTION_SEGMENT_SECONDS;
+      transcriptParts.push(segmentTranscript.text);
+      transcriptWords.push(...segmentTranscript.words.map((word) => ({
+        word: word.word || word.text || "",
+        start: Number(word.start || 0) + offsetSeconds,
+        end: Number(word.end || 0) + offsetSeconds,
+      })));
+      transcriptSegments.push(...segmentTranscript.segments.map((segment) => ({
+        text: segment.text || "",
+        start: Number(segment.start || 0) + offsetSeconds,
+        end: Number(segment.end || 0) + offsetSeconds,
+      })));
       await onSegmentProgress(index + 1, files.length);
     }
 
-    return transcriptParts.filter(Boolean).join("\n\n").trim();
+    return {
+      text: transcriptParts.filter(Boolean).join("\n\n").trim(),
+      words: transcriptWords,
+      segments: transcriptSegments,
+    };
   } finally {
     await fs.rm(tempDir, { recursive: true, force: true }).catch(() => null);
   }
 }
 
-async function transcribeRecordingAudio(recording, onSegmentProgress = async () => {}) {
+async function transcribeRecordingAudio(recording, onSegmentProgress = async () => {}, suppliedAudio = null) {
   const recordedSize = Number(recording?.file_size || 0);
   if (recordedSize > MAX_AUDIO_BYTES) {
     throw new Error(`This audio file is larger than the ${formatBytes(MAX_AUDIO_BYTES)} transcription limit.`);
   }
 
-  const audio = await downloadRecordingAudio(recording);
+  const audio = suppliedAudio || await downloadRecordingAudio(recording);
   return transcribeTemporaryDerivative(audio, recording, GROQ_LARGE_TRANSCRIPTION_MODEL, onSegmentProgress);
 }
 
@@ -481,15 +505,53 @@ async function transcribeReadyRecording(recording, user, options = {}) {
       processing_error: null,
     });
 
-    const transcriptText = await transcribeRecordingAudio(recording, async (completed, total) => {
+    const audio = await downloadRecordingAudio(recording);
+    const transcription = await transcribeRecordingAudio(recording, async (completed, total) => {
       const progress = Math.min(94, progressStart + Math.round((completed / Math.max(total, 1)) * (94 - progressStart)));
       await updateRecording(recording.id, {
         processing_stage: "transcribing",
         processing_progress: progress,
         processing_updated_at: new Date().toISOString(),
       });
+    }, audio);
+    const transcriptText = transcription.text;
+    const transcriptTiming = {
+      words: transcription.words,
+      segments: transcription.segments,
+    };
+    const transcriptReadyAt = new Date().toISOString();
+    const transcriptRecording = await updateRecording(recording.id, {
+      status: "ready",
+      transcript_status: "ready",
+      transcript_text: transcriptText,
+      transcript_timing_json: transcriptTiming,
+      transcript_generated_at: transcriptReadyAt,
+      processing_progress: 95,
+      processing_updated_at: transcriptReadyAt,
+      speaker_transcript_text: null,
+      speaker_identification_json: {},
+      speaker_identification_status: "not_started",
+      speaker_identification_job_id: null,
+      speaker_identification_error: null,
+      speaker_identified_at: null,
     });
-    const document = await uploadTranscriptDocument(recording, user, transcriptText);
+    let document = await uploadTranscriptDocument(recording, user, transcriptText);
+    const transcriptRecordingWithDocument = await updateRecording(recording.id, {
+      document_id: document?.id || recording.document_id || null,
+    });
+    const identifiedRecording = await identifyRecordingSpeakers(
+      transcriptRecordingWithDocument || transcriptRecording || { ...recording, transcript_timing_json: transcriptTiming },
+      audio,
+      transcriptTiming,
+      { maxWaitMs: 45000 },
+    );
+    if (identifiedRecording?.speaker_transcript_text) {
+      document = await uploadTranscriptDocument(
+        { ...recording, document_id: document?.id || recording.document_id || null },
+        user,
+        identifiedRecording.speaker_transcript_text,
+      );
+    }
     const completedAt = new Date().toISOString();
     const updatedRecording = await updateRecording(recording.id, {
       document_id: document?.id || recording.document_id || null,
@@ -569,4 +631,8 @@ module.exports._test = {
 };
 module.exports._internal = {
   transcribeReadyRecording,
+  loadRecording,
+  loadOrganization,
+  userCanTranscribeRecording,
+  uploadTranscriptDocument,
 };

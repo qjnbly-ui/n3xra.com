@@ -263,6 +263,20 @@ const createInviteStatus = document.getElementById("create-invite-status");
 const inviteList = document.getElementById("invite-list");
 const memberList = document.getElementById("member-list");
 const memberStatus = document.getElementById("member-status");
+const voiceProfileList = document.getElementById("voice-profile-list");
+const voiceProfileCount = document.getElementById("voice-profile-count");
+const voiceDirectoryStatus = document.getElementById("voice-directory-status");
+const voiceEnrollmentCard = document.getElementById("voice-enrollment-card");
+const voiceEnrollmentClose = document.getElementById("voice-enrollment-close");
+const voiceEnrollmentName = document.getElementById("voice-enrollment-name");
+const voiceRecordStart = document.getElementById("voice-record-start");
+const voiceRecordStop = document.getElementById("voice-record-stop");
+const voiceRecordTimer = document.getElementById("voice-record-timer");
+const voiceRecordPreview = document.getElementById("voice-record-preview");
+const voiceProfileConsent = document.getElementById("voice-profile-consent");
+const voiceProfileSubmit = document.getElementById("voice-profile-submit");
+const voiceRecordAgain = document.getElementById("voice-record-again");
+const voiceProfileStatus = document.getElementById("voice-profile-status");
 const uploadForm = document.getElementById("upload-form");
 const searchQueryLabel = document.getElementById("search-query-label");
 const searchQueryInput = document.getElementById("search-query");
@@ -341,6 +355,16 @@ let activeModalObjectUrl = "";
 let searchMode = "keyword";
 let inviteCache = [];
 let memberCache = [];
+let voiceProfileStatusMap = new Map();
+let voiceMediaRecorder = null;
+let voiceMediaStream = null;
+let voiceRecordingChunks = [];
+let voiceRecordingBlob = null;
+let voiceRecordingObjectUrl = "";
+let voiceRecordingStartedAt = 0;
+let voiceRecordingDurationMs = 0;
+let voiceRecordingTimerId = null;
+let voiceRecordingGeneration = 0;
 let contactCache = [];
 let appTemplates = [];
 let recordsAiUsageSummary = null;
@@ -955,6 +979,7 @@ function updateAdminTabs(availability = {}) {
 const desktopAccountViewLabels = {
   profile: "Profile",
   users: "Users",
+  voice: "Voice profiles",
   contacts: "Contacts",
   templates: "Templates",
   access: "Invites & access",
@@ -969,6 +994,7 @@ const desktopAccountViewLabels = {
 
 const desktopManageLibraryViews = new Set([
   "users",
+  "voice",
   "contacts",
   "templates",
   "access",
@@ -1016,7 +1042,7 @@ function setDesktopAccountView(view = "profile") {
   document.body.classList.toggle("desktop-account-users-view", view === "users");
   document.body.classList.toggle(
     "desktop-account-secondary-view",
-    ["templates", "access", "support", "library", "phone", "ai", "billing", "storage", "activity"].includes(view),
+    ["voice", "templates", "access", "support", "library", "phone", "ai", "billing", "storage", "activity"].includes(view),
   );
 
   if (isProfile && accountSection && profileSettingsModal && !accountSection.contains(profileSettingsModal)) {
@@ -2943,6 +2969,35 @@ async function loadMembers() {
     profile: profileMap.get(membership.user_id) || null,
   }));
   renderMembers();
+  renderVoiceProfiles();
+  await loadVoiceProfiles();
+}
+
+async function loadVoiceProfiles() {
+  const organizationId = getActiveOrganization()?.id;
+  const accessToken = currentSession?.access_token;
+  if (!voiceProfileList || !organizationId || !accessToken || isSupportView()) {
+    voiceProfileStatusMap = new Map();
+    renderVoiceProfiles();
+    return;
+  }
+
+  try {
+    const response = await fetch(`/api/records-voice-profile?organizationId=${encodeURIComponent(organizationId)}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data?.error || "Unable to load voice profiles.");
+    voiceProfileStatusMap = new Map(
+      (Array.isArray(data.profiles) ? data.profiles : []).map((profile) => [profile.userId, profile]),
+    );
+    setStatus(voiceDirectoryStatus, "");
+    renderVoiceProfiles();
+  } catch (error) {
+    voiceProfileStatusMap = new Map();
+    renderVoiceProfiles();
+    setStatus(voiceDirectoryStatus, getErrorMessage(error, "Unable to load voice profiles."), "error");
+  }
 }
 
 async function loadContacts() {
@@ -3562,6 +3617,7 @@ function renderProfile() {
   const canSeeAccessSettings = hasLibraryAccess;
   const canSeePublishingSettings = canSeeEmbedSettings;
   const supportMode = isSupportView();
+  const canSeeVoiceProfiles = hasLibraryAccess && !supportMode;
   const canSeeBillingSettings = hasLibraryAccess && (canSeeBilling || supportMode);
   const canSeeReviewSettings = hasLibraryAccess && capabilities.canManageLibrarySettings;
   const canSeeTemplateSettings = hasLibraryAccess && capabilities.canManageTemplates;
@@ -3677,6 +3733,7 @@ function renderProfile() {
   show(storagePanelNotice, supportMode);
   updateAdminTabs({
     users: canSeeMemberManagement,
+    voice: canSeeVoiceProfiles,
     contacts: canSeeContactsSettings,
     templates: canSeeTemplateSettings,
     access: canSeeAccessSettings,
@@ -4152,6 +4209,264 @@ function renderMembers() {
   }
 }
 
+function renderVoiceProfiles() {
+  if (!voiceProfileList) return;
+  voiceProfileList.innerHTML = "";
+  const enrolledCount = memberCache.filter((member) => voiceProfileStatusMap.get(member.user_id)?.status === "enrolled").length;
+  if (voiceProfileCount) voiceProfileCount.textContent = `${enrolledCount} of ${memberCache.length} ready`;
+
+  memberCache.forEach((member) => {
+    const isOwner = member.user_id === getActiveOrganization()?.owner_user_id;
+    const isSelf = member.user_id === currentSession?.user?.id;
+    const effectiveRole = isOwner ? "billing_owner" : getMembershipRole(member);
+    const profile = voiceProfileStatusMap.get(member.user_id) || { status: "not_enrolled" };
+    const statusLabels = {
+      enrolled: "Enrolled",
+      processing: "Processing",
+      failed: "Needs another recording",
+      revoked: "Removed",
+      not_enrolled: "Not enrolled",
+    };
+    let action = '<button class="btn secondary voice-profile-enroll" type="button" disabled>Waiting for member</button>';
+    if (isSelf) {
+      if (profile.status === "processing") {
+        action = '<button class="btn secondary voice-profile-enroll" type="button" disabled>Processing…</button>';
+      } else if (profile.status === "enrolled") {
+        action = '<button class="btn secondary voice-profile-enroll" type="button" data-action="voice-enroll">Record again</button><button class="btn secondary voice-profile-remove" type="button" data-action="voice-remove">Remove</button>';
+      } else {
+        action = `<button class="btn secondary voice-profile-enroll" type="button" data-action="voice-enroll">${profile.status === "failed" ? "Try again" : "Set up voice"}</button>`;
+      }
+    }
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td>
+        <strong>${escapeHtml(member.profile?.full_name || "Unknown member")}</strong>
+        ${isSelf ? '<span class="voice-profile-you">You</span>' : ""}
+      </td>
+      <td>${escapeHtml(member.profile?.email || "")}</td>
+      <td>${escapeHtml(formatRoleLabel(effectiveRole))}${isOwner ? " (Owner)" : ""}</td>
+      <td><span class="voice-profile-status is-${escapeHtml(profile.status)}">${escapeHtml(statusLabels[profile.status] || "Not enrolled")}</span></td>
+      <td><div class="voice-profile-actions">${action}</div></td>
+    `;
+    voiceProfileList.append(row);
+  });
+
+  if (!memberCache.length) {
+    voiceProfileList.innerHTML = '<tr><td colspan="5">No workspace members found.</td></tr>';
+  }
+}
+
+function updateVoiceEnrollmentSubmitState() {
+  if (!voiceProfileSubmit) return;
+  voiceProfileSubmit.disabled = !voiceRecordingBlob
+    || voiceRecordingDurationMs < 6000
+    || !voiceProfileConsent?.checked;
+}
+
+function releaseVoiceMediaStream() {
+  if (voiceRecordingTimerId) window.clearInterval(voiceRecordingTimerId);
+  voiceRecordingTimerId = null;
+  if (voiceMediaStream) voiceMediaStream.getTracks().forEach((track) => track.stop());
+  voiceMediaStream = null;
+  voiceMediaRecorder = null;
+  show(voiceRecordStop, false);
+  if (voiceRecordStart) voiceRecordStart.disabled = false;
+}
+
+function resetVoiceRecording({ clearStatus = true } = {}) {
+  voiceRecordingGeneration += 1;
+  if (voiceMediaRecorder?.state === "recording") voiceMediaRecorder.stop();
+  releaseVoiceMediaStream();
+  voiceRecordingChunks = [];
+  voiceRecordingBlob = null;
+  voiceRecordingDurationMs = 0;
+  voiceRecordingStartedAt = 0;
+  if (voiceRecordingObjectUrl) URL.revokeObjectURL(voiceRecordingObjectUrl);
+  voiceRecordingObjectUrl = "";
+  if (voiceRecordPreview) {
+    voiceRecordPreview.removeAttribute("src");
+    voiceRecordPreview.load();
+  }
+  show(voiceRecordPreview, false);
+  if (voiceRecordTimer) voiceRecordTimer.textContent = "0:00";
+  if (voiceRecordAgain) voiceRecordAgain.disabled = true;
+  if (voiceRecordStart) {
+    voiceRecordStart.disabled = false;
+    voiceRecordStart.textContent = "Start recording";
+  }
+  if (clearStatus) setStatus(voiceProfileStatus, "");
+  updateVoiceEnrollmentSubmitState();
+}
+
+function setVoiceEnrollmentOpen(isOpen) {
+  show(voiceEnrollmentCard, isOpen);
+  if (isOpen) {
+    if (voiceEnrollmentName) voiceEnrollmentName.textContent = currentProfile?.full_name || "a N3XRA Records member";
+    resetVoiceRecording();
+    voiceProfileConsent.checked = false;
+    voiceEnrollmentCard?.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+  resetVoiceRecording();
+}
+
+function preferredVoiceRecordingType() {
+  const candidates = ["audio/webm;codecs=opus", "audio/mp4", "audio/webm", "audio/ogg;codecs=opus"];
+  return candidates.find((type) => window.MediaRecorder?.isTypeSupported?.(type)) || "";
+}
+
+async function startVoiceRecording() {
+  if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+    setStatus(voiceProfileStatus, "Voice recording is not supported in this browser.", "error");
+    return;
+  }
+  resetVoiceRecording();
+  const recordingGeneration = voiceRecordingGeneration;
+  try {
+    const mediaStream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+    });
+    if (recordingGeneration !== voiceRecordingGeneration) {
+      mediaStream.getTracks().forEach((track) => track.stop());
+      return;
+    }
+    voiceMediaStream = mediaStream;
+    const mimeType = preferredVoiceRecordingType();
+    const mediaRecorder = mimeType
+      ? new MediaRecorder(mediaStream, { mimeType })
+      : new MediaRecorder(mediaStream);
+    voiceMediaRecorder = mediaRecorder;
+    voiceRecordingChunks = [];
+    const recordingChunks = [];
+    mediaRecorder.addEventListener("dataavailable", (event) => {
+      if (event.data?.size) recordingChunks.push(event.data);
+    });
+    mediaRecorder.addEventListener("stop", () => {
+      if (recordingGeneration !== voiceRecordingGeneration) return;
+      voiceRecordingChunks = recordingChunks;
+      voiceRecordingDurationMs = Math.max(0, Date.now() - voiceRecordingStartedAt);
+      const recordingType = mediaRecorder.mimeType || mimeType || "audio/webm";
+      voiceRecordingBlob = new Blob(recordingChunks, { type: recordingType });
+      releaseVoiceMediaStream();
+      if (voiceRecordingDurationMs < 6000) {
+        setStatus(voiceProfileStatus, "Please record at least 6 seconds and read the complete script.", "error");
+      } else {
+        voiceRecordingObjectUrl = URL.createObjectURL(voiceRecordingBlob);
+        voiceRecordPreview.src = voiceRecordingObjectUrl;
+        show(voiceRecordPreview, true);
+        setStatus(voiceProfileStatus, "Recording ready. Listen once, then confirm consent to continue.", "success");
+      }
+      if (voiceRecordAgain) voiceRecordAgain.disabled = false;
+      if (voiceRecordStart) voiceRecordStart.textContent = "Record again";
+      updateVoiceEnrollmentSubmitState();
+    }, { once: true });
+    voiceRecordingStartedAt = Date.now();
+    mediaRecorder.start(250);
+    voiceRecordStart.disabled = true;
+    show(voiceRecordStop, true);
+    setStatus(voiceProfileStatus, "Recording… read the complete script in your normal voice.");
+    voiceRecordingTimerId = window.setInterval(() => {
+      const elapsedSeconds = Math.min(20, Math.floor((Date.now() - voiceRecordingStartedAt) / 1000));
+      if (voiceRecordTimer) voiceRecordTimer.textContent = `0:${String(elapsedSeconds).padStart(2, "0")}`;
+      if (elapsedSeconds >= 20 && mediaRecorder.state === "recording") mediaRecorder.stop();
+    }, 250);
+  } catch (error) {
+    releaseVoiceMediaStream();
+    setStatus(voiceProfileStatus, getErrorMessage(error, "Microphone access is required to record your voice profile."), "error");
+  }
+}
+
+function stopVoiceRecording() {
+  if (voiceMediaRecorder?.state === "recording") voiceMediaRecorder.stop();
+}
+
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.addEventListener("load", () => resolve(String(reader.result || "").split(",")[1] || ""), { once: true });
+    reader.addEventListener("error", () => reject(reader.error || new Error("Unable to read the recording.")), { once: true });
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function waitForVoiceEnrollment() {
+  for (let attempt = 0; attempt < 30; attempt += 1) {
+    await new Promise((resolve) => window.setTimeout(resolve, 2000));
+    await loadVoiceProfiles();
+    const current = voiceProfileStatusMap.get(currentSession?.user?.id);
+    if (current?.status === "enrolled") return current;
+    if (current?.status === "failed") throw new Error(current.error || "Voice-profile creation failed. Please record another sample.");
+  }
+  return null;
+}
+
+async function submitVoiceEnrollment() {
+  if (!voiceRecordingBlob || !voiceProfileConsent?.checked || !currentSession?.access_token) return;
+  voiceProfileSubmit.disabled = true;
+  voiceRecordAgain.disabled = true;
+  setStatus(voiceProfileStatus, "Securely creating your voice profile…");
+  try {
+    const audioBase64 = await blobToBase64(voiceRecordingBlob);
+    const response = await fetch("/api/records-voice-profile", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${currentSession.access_token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        organizationId: getActiveOrganization()?.id,
+        audioBase64,
+        audioType: voiceRecordingBlob.type,
+        consent: true,
+      }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data?.error || "Unable to create the voice profile.");
+    setStatus(voiceProfileStatus, "Voice sample received. Finishing secure enrollment…");
+    const enrolled = await waitForVoiceEnrollment();
+    if (enrolled) {
+      setStatus(voiceProfileStatus, "Your voice profile is ready.", "success");
+      return;
+    }
+    setStatus(voiceProfileStatus, "Your voice profile is still processing. You can close this panel and check again shortly.");
+  } catch (error) {
+    setStatus(voiceProfileStatus, getErrorMessage(error, "Unable to create the voice profile."), "error");
+  } finally {
+    voiceRecordAgain.disabled = false;
+    updateVoiceEnrollmentSubmitState();
+  }
+}
+
+async function removeOwnVoiceProfile() {
+  const confirmed = window.confirm("Remove your voice profile? Future meetings will no longer identify you by voice until you enroll again.");
+  if (!confirmed || !currentSession?.access_token) return;
+  setStatus(voiceDirectoryStatus, "Removing your voice profile…");
+  try {
+    const response = await fetch("/api/records-voice-profile", {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${currentSession.access_token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ organizationId: getActiveOrganization()?.id }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data?.error || "Unable to remove the voice profile.");
+    setVoiceEnrollmentOpen(false);
+    await loadVoiceProfiles();
+    setStatus(voiceDirectoryStatus, "Your voice profile was removed.", "success");
+  } catch (error) {
+    setStatus(voiceDirectoryStatus, getErrorMessage(error, "Unable to remove the voice profile."), "error");
+  }
+}
+
+function handleVoiceProfileAction(event) {
+  const button = event.target.closest("button[data-action]");
+  if (!button) return;
+  if (button.dataset.action === "voice-enroll") setVoiceEnrollmentOpen(true);
+  if (button.dataset.action === "voice-remove") void removeOwnVoiceProfile();
+}
+
 function setContactFormOpen(isOpen, shouldFocus = false) {
   show(contactFormPanel, isOpen);
   if (contactFormToggle) {
@@ -4345,6 +4660,7 @@ async function loadActiveOrganizationData() {
     editableDocumentsBySourceId = new Map();
     inviteCache = [];
     memberCache = [];
+    voiceProfileStatusMap = new Map();
     contactCache = [];
     appTemplates = [];
     recordsAiUsageSummary = null;
@@ -4357,6 +4673,7 @@ async function loadActiveOrganizationData() {
     renderRecentFiles();
     renderInvites();
     renderMembers();
+    renderVoiceProfiles();
     renderContacts();
     renderAdminTemplates();
     renderActivityLog();
@@ -5885,6 +6202,13 @@ async function init() {
   createInviteForm.addEventListener("submit", handleCreateInvite);
   inviteList.addEventListener("click", handleInviteAction);
   memberList.addEventListener("change", handleMemberRoleChange);
+  voiceProfileList?.addEventListener("click", handleVoiceProfileAction);
+  voiceEnrollmentClose?.addEventListener("click", () => setVoiceEnrollmentOpen(false));
+  voiceRecordStart?.addEventListener("click", startVoiceRecording);
+  voiceRecordStop?.addEventListener("click", stopVoiceRecording);
+  voiceRecordAgain?.addEventListener("click", startVoiceRecording);
+  voiceProfileConsent?.addEventListener("change", updateVoiceEnrollmentSubmitState);
+  voiceProfileSubmit?.addEventListener("click", submitVoiceEnrollment);
   openDeleteAccountModalButton.addEventListener("click", () => setDeleteAccountModalOpen(true));
   deleteAccountCancel.addEventListener("click", () => setDeleteAccountModalOpen(false));
   deleteRecordsSubmit.addEventListener("click", () => deleteAccount("app"));

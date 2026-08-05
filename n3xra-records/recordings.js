@@ -159,6 +159,7 @@ const recordingMinutesStyleOptions = Array.from(document.querySelectorAll('input
 const recordingMinutesStyleNote = document.getElementById("recording-minutes-style-note");
 const recordingDetailTranscriptCopy = document.getElementById("recording-detail-transcript-copy");
 const recordingDetailTranscriptText = document.getElementById("recording-detail-transcript-text");
+const recordingDetailCorrectSpeaker = document.getElementById("recording-detail-correct-speaker");
 const recordingDetailPlay = document.getElementById("recording-detail-play");
 const recordingDetailTranscribe = document.getElementById("recording-detail-transcribe");
 const recordingDetailRetry = document.getElementById("recording-detail-retry");
@@ -212,6 +213,7 @@ let currentSession = null;
 let memberships = [];
 let activeMembership = null;
 let recordingsCache = [];
+const speakerIdentificationRefreshIds = new Set();
 let recordingTemplates = [];
 let referenceDocuments = [];
 let recordsUsageSummary = null;
@@ -903,6 +905,8 @@ function isMissingRecordingWorkflowSchemaError(error) {
     message.includes("ai_draft_document_id") ||
     message.includes("processing_progress") ||
     message.includes("processing_stage") ||
+    message.includes("speaker_transcript_text") ||
+    message.includes("speaker_identification_status") ||
     message.includes("minutes_style") ||
     message.includes("schema cache")
   );
@@ -2535,6 +2539,11 @@ async function loadRecordings() {
       status,
       transcript_status,
       transcript_text,
+      speaker_transcript_text,
+      speaker_identification_status,
+      speaker_identification_json,
+      speaker_identification_error,
+      speaker_identified_at,
       ai_review_status,
       minutes_style,
       selected_template_id,
@@ -2672,6 +2681,71 @@ function renderRecordings() {
       `;
     })
     .join("");
+}
+
+async function refreshRecordingSpeakerIdentification(recording) {
+  if (
+    !recording?.id
+    || recording.speaker_identification_status !== "processing"
+    || !currentSession?.access_token
+    || !getActiveCapabilities().canEditDocuments
+    || speakerIdentificationRefreshIds.has(recording.id)
+  ) return;
+  speakerIdentificationRefreshIds.add(recording.id);
+  try {
+    const response = await fetch("/api/identify-recording-speakers", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${currentSession.access_token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ recordingId: recording.id }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data?.error || "Unable to finish speaker identification.");
+    if (data?.recording) mergeRecordingUpdate(data.recording);
+    const updated = getRecordingById(recording.id);
+    if (activeDetailRecordingId === recording.id && updated) populateRecordingDetails(updated);
+    renderRecordings();
+  } catch (error) {
+    if (activeDetailRecordingId === recording.id) {
+      setStatus(recordingDetailStatusMessage, getErrorMessage(error, "Unable to finish speaker identification."), "error");
+    }
+  }
+}
+
+async function correctRecordingSpeakerName() {
+  const recording = getRecordingById(activeDetailRecordingId);
+  const speakers = Array.isArray(recording?.speaker_identification_json?.speakers)
+    ? recording.speaker_identification_json.speakers
+    : [];
+  if (!recording || !speakers.length || !currentSession?.access_token) return;
+  const choice = window.prompt(`Which speaker should be corrected?\n${speakers.map((speaker, index) => `${index + 1}. ${speaker.displayName}`).join("\n")}\n\nEnter a number:`);
+  if (choice === null) return;
+  const selected = speakers[Number.parseInt(choice, 10) - 1];
+  if (!selected) {
+    setStatus(recordingDetailStatusMessage, "Choose one of the listed speaker numbers.", "error");
+    return;
+  }
+  const displayName = window.prompt("Enter the correct speaker name:", selected.displayName || "");
+  if (displayName === null || !displayName.trim()) return;
+  recordingDetailCorrectSpeaker.disabled = true;
+  try {
+    const response = await fetch("/api/correct-recording-speaker", {
+      method: "PATCH",
+      headers: { Authorization: `Bearer ${currentSession.access_token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ recordingId: recording.id, speakerKey: selected.speakerKey, displayName: displayName.trim() }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data?.error || "Unable to correct the speaker name.");
+    mergeRecordingUpdate(data.recording);
+    populateRecordingDetails(getRecordingById(recording.id));
+    setStatus(recordingDetailStatusMessage, "Speaker name corrected throughout the transcript.", "success");
+  } catch (error) {
+    setStatus(recordingDetailStatusMessage, getErrorMessage(error, "Unable to correct the speaker name."), "error");
+  } finally {
+    recordingDetailCorrectSpeaker.disabled = false;
+  }
 }
 
 function formatSuggestionStatus(status) {
@@ -2880,7 +2954,14 @@ async function removeDetailReference(referenceId) {
 function populateRecordingDetails(recording) {
   recordingDetailTitle.textContent = recording.title || "Untitled meeting note";
   recordingDetailStatus.textContent = formatRecordingStatus(recording.status);
-  recordingDetailTranscriptStatus.textContent = formatRecordingStatus(recording.transcript_status);
+  const speakerStatus = String(recording.speaker_identification_status || "not_started");
+  recordingDetailTranscriptStatus.textContent = recording.transcript_status === "ready" && speakerStatus === "processing"
+    ? "Ready · Identifying speakers"
+    : recording.transcript_status === "ready" && speakerStatus === "ready"
+      ? "Ready · Speakers identified"
+      : recording.transcript_status === "ready" && speakerStatus === "failed"
+        ? "Ready · Speaker identification unavailable"
+        : formatRecordingStatus(recording.transcript_status);
   recordingDetailTemplate.textContent = getTemplateLabel(recording.selected_template_id || "");
   recordingDetailAiStatus.textContent = formatRecordingStatus(recording.ai_review_status || "not_started");
   recordingDetailStartedAt.textContent = formatDateTime(recording.started_at || recording.created_at);
@@ -2910,7 +2991,11 @@ function populateRecordingDetails(recording) {
   }
   if (recordingDetailTranscriptCopy) {
     if (recording.document_id) {
-      recordingDetailTranscriptCopy.textContent = "Transcript file is ready. Open it to view, download, share, or manage it from Files.";
+      recordingDetailTranscriptCopy.textContent = speakerStatus === "processing"
+        ? "The transcript is ready while enrolled speaker voices are being matched."
+        : speakerStatus === "ready"
+          ? "Known speakers were identified by voice. Uncertain speakers remain generically labeled."
+          : "Transcript file is ready. Open it to view, download, share, or manage it from Files.";
     } else if (recording.transcript_status === "processing" || recording.transcript_status === "queued") {
       recordingDetailTranscriptCopy.textContent = "Transcript is being created. Check back shortly.";
     } else if (recording.transcript_status === "failed") {
@@ -2921,8 +3006,14 @@ function populateRecordingDetails(recording) {
   }
   renderRecordingInterruptions(recording);
   if (recordingDetailTranscriptText) {
-    recordingDetailTranscriptText.textContent = stripRecordingInterruptionMarkers(recording.transcript_text) || "No transcript available yet.";
+    recordingDetailTranscriptText.textContent = stripRecordingInterruptionMarkers(
+      recording.speaker_transcript_text || recording.transcript_text,
+    ) || "No transcript available yet.";
   }
+  show(recordingDetailCorrectSpeaker, speakerStatus === "ready"
+    && Array.isArray(recording.speaker_identification_json?.speakers)
+    && recording.speaker_identification_json.speakers.length > 0
+    && getActiveCapabilities().canEditDocuments);
   show(recordingDetailTranscriptDocument, Boolean(recording.document_id));
   if (recording.document_id) {
     recordingDetailTranscriptDocument.href = `/n3xra-records/library?id=${encodeURIComponent(recording.document_id)}`;
@@ -2943,7 +3034,12 @@ function populateRecordingDetails(recording) {
     ? "Regenerate the AI draft while preserving applied suggestions."
     : "";
   recordingDetailAiReview.disabled = !recordingWorkflowSchemaAvailable || recording.transcript_status !== "ready";
-  setStatus(recordingDetailStatusMessage, recording.processing_error || "");
+  setStatus(
+    recordingDetailStatusMessage,
+    recording.processing_error
+      || (["failed", "skipped"].includes(speakerStatus) ? recording.speaker_identification_error || "" : ""),
+  );
+  if (speakerStatus === "processing") void refreshRecordingSpeakerIdentification(recording);
 }
 
 function renderRecordingInterruptions(recording) {
@@ -4934,6 +5030,7 @@ async function init() {
     if (!activeDetailRecordingId) return;
     void transcribeRecording(activeDetailRecordingId);
   });
+  recordingDetailCorrectSpeaker?.addEventListener("click", () => void correctRecordingSpeakerName());
   recordingDetailDelete?.addEventListener("click", () => {
     if (!activeDetailRecordingId) return;
     promptDeleteRecording(activeDetailRecordingId);

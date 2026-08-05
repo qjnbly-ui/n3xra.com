@@ -1125,7 +1125,8 @@ async function handler(req, res) {
     if (!GROQ_RECORDS_API_KEY) {
       return res.status(500).json({ error: "Missing GROQ_RECORDS_API_KEY." });
     }
-    if (recording.transcript_status !== "ready" || !normalizeWhitespace(recording.transcript_text)) {
+    const transcriptText = recording.speaker_transcript_text || recording.transcript_text;
+    if (recording.transcript_status !== "ready" || !normalizeWhitespace(transcriptText)) {
       return res.status(400).json({ error: "The transcript must be ready before AI can review this recording." });
     }
 
@@ -1176,7 +1177,7 @@ async function handler(req, res) {
         organization,
         template,
         notesText,
-        transcriptText: recording.transcript_text,
+        transcriptText,
         currentDraftText,
         acceptedItems,
         dismissedItems,
@@ -1229,7 +1230,7 @@ async function handler(req, res) {
       organization,
       template,
       notesText,
-      transcriptText: recording.transcript_text,
+      transcriptText,
       previousReview,
       currentDraftText,
       minutesStyle,

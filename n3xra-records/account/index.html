@@ -103,6 +103,7 @@
 
                 <p class="records-desktop-nav-group-label">People and access</p>
                 <button type="button" data-records-account-view="users">Users</button>
+                <button type="button" data-records-account-view="voice">Voice profiles</button>
                 <button type="button" data-records-account-view="contacts">Contacts</button>
                 <button type="button" data-records-account-view="access">Invites &amp; access</button>
 
@@ -252,6 +253,7 @@
             <div class="admin-settings-layout">
               <div class="admin-tabs" role="tablist" aria-label="Admin settings">
                 <button class="admin-tab is-active" id="admin-users-tab" type="button" role="tab" aria-selected="true" aria-controls="admin-users-panel" data-admin-tab="users">Users</button>
+                <button class="admin-tab" id="admin-voice-tab" type="button" role="tab" aria-selected="false" aria-controls="admin-voice-panel" data-admin-tab="voice">Voice profiles</button>
                 <button class="admin-tab" id="admin-contacts-tab" type="button" role="tab" aria-selected="false" aria-controls="admin-contacts-panel" data-admin-tab="contacts">Contacts</button>
                 <button class="admin-tab" id="admin-templates-tab" type="button" role="tab" aria-selected="false" aria-controls="admin-templates-panel" data-admin-tab="templates">Templates</button>
                 <button class="admin-tab" id="admin-phone-tab" type="button" role="tab" aria-selected="false" aria-controls="admin-phone-panel" data-admin-tab="phone">Phone Meetings</button>
@@ -300,6 +302,63 @@
                       </div>
                     </div>
                   </div>
+                </section>
+
+                <section class="admin-panel" id="admin-voice-panel" role="tabpanel" aria-labelledby="admin-voice-tab" data-admin-panel="voice" hidden>
+                  <div class="admin-panel-head">
+                    <p class="records-account-view-kicker">Speaker identification</p>
+                    <h4>Voice profiles</h4>
+                    <p>Prepare workspace members to be identified by name in future meeting transcripts.</p>
+                  </div>
+                  <div class="voice-profile-overview">
+                    <div>
+                      <p class="account-label">Enrollment</p>
+                      <p class="voice-profile-count" id="voice-profile-count">0 of 0 ready</p>
+                    </div>
+                    <p>Every active workspace member appears here automatically. Each person enrolls their own voice with consent.</p>
+                  </div>
+                  <p class="status" id="voice-directory-status" role="status"></p>
+                  <section class="voice-enrollment-card hidden" id="voice-enrollment-card" aria-labelledby="voice-enrollment-title">
+                    <div class="voice-enrollment-head">
+                      <div>
+                        <p class="records-account-view-kicker">Your voice</p>
+                        <h5 id="voice-enrollment-title">Create your voice profile</h5>
+                        <p>Record the script in your normal speaking voice from a quiet place.</p>
+                      </div>
+                      <button class="btn secondary" id="voice-enrollment-close" type="button">Close</button>
+                    </div>
+                    <blockquote class="voice-enrollment-script">Hello, my name is <span id="voice-enrollment-name">a N3XRA Records member</span>. I am recording this sample so N3XRA Records can identify my voice in meeting transcripts. Today I am speaking clearly in my normal voice.</blockquote>
+                    <div class="voice-recorder-controls">
+                      <button class="btn" id="voice-record-start" type="button">Start recording</button>
+                      <button class="btn secondary hidden" id="voice-record-stop" type="button">Stop recording</button>
+                      <span class="voice-record-timer" id="voice-record-timer">0:00</span>
+                    </div>
+                    <audio class="voice-record-preview hidden" id="voice-record-preview" controls preload="metadata"></audio>
+                    <label class="voice-consent-check">
+                      <input id="voice-profile-consent" type="checkbox">
+                      <span>I consent to N3XRA creating and storing a biometric voice profile for speaker identification. My recording will be sent temporarily to pyannoteAI and will not be retained by N3XRA.</span>
+                    </label>
+                    <div class="actions">
+                      <button class="btn" id="voice-profile-submit" type="button" disabled>Create voice profile</button>
+                      <button class="btn secondary" id="voice-record-again" type="button" disabled>Record again</button>
+                    </div>
+                    <p class="status" id="voice-profile-status" role="status"></p>
+                  </section>
+                  <div class="table-shell voice-profile-table-shell">
+                    <table class="data-table voice-profile-table">
+                      <thead>
+                        <tr>
+                          <th>Member</th>
+                          <th>Email</th>
+                          <th>Access</th>
+                          <th>Voice profile</th>
+                          <th>Enrollment</th>
+                        </tr>
+                      </thead>
+                      <tbody id="voice-profile-list"></tbody>
+                    </table>
+                  </div>
+                  <p class="field-note voice-profile-privacy-note">Voice enrollment will be optional and consent-based. Voice profiles will identify speakers in transcripts, not authenticate accounts.</p>
                 </section>
 
                 <section class="admin-panel" id="admin-contacts-panel" role="tabpanel" aria-labelledby="admin-contacts-tab" data-admin-panel="contacts" hidden>
@@ -1215,6 +1274,6 @@
 
   <script src="/shared/config.js"></script>
   <script type="module" src="/n3xra-records/lib/desktop-shell.js?v=20260801-guide-focused-topics"></script>
-  <script type="module" src="/n3xra-records/dashboard.js?v=20260805-minutes-style"></script>
+  <script type="module" src="/n3xra-records/dashboard.js?v=20260805-voice-enrollment"></script>
 </body>
 </html>

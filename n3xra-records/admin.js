@@ -673,7 +673,7 @@ function renderSupportRecordings(rows, allowed) {
   renderSupportGate(supportRecordingsList, allowed, "The customer has not granted recording or transcript access.");
   if (!allowed) return;
   supportRecordingsList.innerHTML = rows.length ? rows.map((row) => `
-    <details class="records-support-item records-support-recording"><summary><div><strong>${escapeHtml(row.title || "Untitled recording")}</strong><span>${escapeHtml(row.transcript_status || row.status || "Saved")} · ${escapeHtml(formatDateTime(row.started_at || row.created_at))}</span></div><span class="records-support-badge">Review</span></summary><div class="records-support-transcript">${escapeHtml(row.transcript_text || "No transcript is available.")}</div></details>
+    <details class="records-support-item records-support-recording"><summary><div><strong>${escapeHtml(row.title || "Untitled recording")}</strong><span>${escapeHtml(row.transcript_status || row.status || "Saved")} · ${escapeHtml(formatDateTime(row.started_at || row.created_at))}</span></div><span class="records-support-badge">Review</span></summary><div class="records-support-transcript">${escapeHtml(row.speaker_transcript_text || row.transcript_text || "No transcript is available.")}</div></details>
   `).join("") : '<p class="field-note">No recordings are stored in this organization.</p>';
 }
 
@@ -727,7 +727,7 @@ async function loadRecordsSupportWorkspace() {
       ? supabase.from("documents").select("id, title, original_filename, status, is_public, created_at").eq("organization_id", organization.id).order("created_at", { ascending: false }).limit(100)
       : Promise.resolve({ data: [], error: null }),
     canViewRecordings
-      ? supabase.from("meeting_recordings").select("id, title, status, transcript_status, transcript_text, started_at, created_at").eq("organization_id", organization.id).order("created_at", { ascending: false }).limit(100)
+      ? supabase.from("meeting_recordings").select("id, title, status, transcript_status, transcript_text, speaker_transcript_text, started_at, created_at").eq("organization_id", organization.id).order("created_at", { ascending: false }).limit(100)
       : Promise.resolve({ data: [], error: null }),
   ];
   const [auditResult, documentResult, recordingResult] = await Promise.all(requests);

@@ -5359,6 +5359,187 @@ body:has(.confirm-modal.is-open) {
   }
 }
 
+.voice-profile-overview {
+  display: grid;
+  grid-template-columns: minmax(150px, 0.45fr) minmax(0, 1.55fr);
+  gap: clamp(1rem, 4vw, 3rem);
+  align-items: center;
+  padding: 1.15rem 1.25rem;
+  border: 1px solid rgba(23, 111, 102, 0.18);
+  border-radius: 12px;
+  background: rgba(23, 111, 102, 0.055);
+}
+
+.voice-profile-overview p {
+  margin: 0;
+}
+
+.voice-profile-overview > p {
+  color: var(--slate);
+  font-size: 0.88rem;
+  line-height: 1.6;
+}
+
+.voice-profile-count {
+  margin-top: 0.25rem !important;
+  color: var(--ink);
+  font-size: 1.15rem;
+  font-weight: 800;
+}
+
+.voice-profile-status,
+.voice-profile-you {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0.18rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.voice-profile-status {
+  color: #77551c;
+  background: rgba(234, 155, 63, 0.16);
+}
+
+.voice-profile-status.is-enrolled {
+  color: #0c655b;
+  background: rgba(23, 111, 102, 0.12);
+}
+
+.voice-profile-status.is-processing {
+  color: #315e85;
+  background: rgba(67, 135, 190, 0.13);
+}
+
+.voice-profile-status.is-failed {
+  color: #8a2c3c;
+  background: rgba(168, 46, 66, 0.12);
+}
+
+.voice-profile-you {
+  margin-left: 0.45rem;
+  color: var(--teal);
+  background: rgba(23, 111, 102, 0.1);
+}
+
+.voice-profile-enroll:disabled {
+  cursor: default;
+  opacity: 0.62;
+}
+
+.voice-profile-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.voice-profile-actions .btn {
+  min-height: 36px;
+  padding: 0.45rem 0.7rem;
+  font-size: 0.72rem;
+}
+
+.voice-enrollment-card {
+  display: grid;
+  gap: 1.15rem;
+  margin-top: 1.35rem;
+  padding: clamp(1.1rem, 3vw, 1.6rem);
+  border: 1px solid rgba(23, 111, 102, 0.2);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 14px 36px rgba(7, 12, 18, 0.06);
+}
+
+.voice-enrollment-card.hidden {
+  display: none;
+}
+
+.voice-enrollment-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.voice-enrollment-head h5,
+.voice-enrollment-head p {
+  margin: 0;
+}
+
+.voice-enrollment-head h5 {
+  color: var(--ink);
+  font-size: 1.1rem;
+}
+
+.voice-enrollment-head h5 + p {
+  margin-top: 0.35rem;
+  color: var(--slate);
+  font-size: 0.88rem;
+}
+
+.voice-enrollment-script {
+  margin: 0;
+  padding: 1rem 1.1rem;
+  border-left: 3px solid var(--teal);
+  border-radius: 0 9px 9px 0;
+  color: var(--ink);
+  background: rgba(23, 111, 102, 0.055);
+  font-size: 0.98rem;
+  line-height: 1.7;
+}
+
+.voice-recorder-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.voice-record-timer {
+  min-width: 3rem;
+  color: var(--slate);
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+}
+
+.voice-record-preview {
+  width: min(100%, 520px);
+}
+
+.voice-consent-check {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.7rem;
+  align-items: start;
+  color: var(--slate);
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+
+.voice-consent-check input {
+  margin-top: 0.2rem;
+}
+
+.voice-profile-privacy-note {
+  margin-top: 1rem;
+}
+
+@media (max-width: 640px) {
+  .voice-profile-overview {
+    grid-template-columns: 1fr;
+  }
+
+  .voice-enrollment-head {
+    display: grid;
+  }
+
+  .voice-enrollment-head .btn {
+    justify-self: start;
+  }
+}
+
 /* Meeting Notes uses the same focused library-and-workspace model as Documents and Communication. */
 .records-meeting-notes-page .meeting-notes-page {
   height: 100%;
@@ -6705,6 +6886,11 @@ body:has(.confirm-modal.is-open) {
   .records-account-page.desktop-account-secondary-view #admin-storage-panel .storage-overview,
   .records-account-page.desktop-account-secondary-view #admin-storage-panel .storage-two-column,
   .records-account-page.desktop-account-secondary-view #admin-activity-panel > .table-shell {
+    margin-top: 1.35rem;
+  }
+
+  .records-account-page.desktop-account-secondary-view .voice-profile-overview,
+  .records-account-page.desktop-account-secondary-view .voice-profile-table-shell {
     margin-top: 1.35rem;
   }
 

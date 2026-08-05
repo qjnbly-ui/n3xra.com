@@ -241,7 +241,8 @@ test("FFmpeg duration parsing supports recordings longer than one hour", () => {
 test("transcription keeps interruption events separate from spoken text", async () => {
   const transcription = await readFile(transcriptionPath, "utf8");
   assert.doesNotMatch(transcription, /addInterruptionMarkers/);
-  assert.match(transcription, /const transcriptText = await transcribeRecordingAudio\(recording,/);
+  assert.match(transcription, /const transcription = await transcribeRecordingAudio\(recording,/);
+  assert.match(transcription, /const transcriptText = transcription\.text/);
   assert.match(transcription, /transcribeTemporaryDerivative/);
   assert.match(transcription, /"-ar",\s*"16000"/);
   assert.match(transcription, /TRANSCRIPTION_SEGMENT_BITRATE/);
@@ -254,7 +255,7 @@ test("Meeting Notes displays interruption history outside the transcript", async
     readFile(meetingNotesPath, "utf8"),
   ]);
   assert.match(recordings, /renderRecordingInterruptions\(recording\)/);
-  assert.match(recordings, /stripRecordingInterruptionMarkers\(recording\.transcript_text\)/);
+  assert.match(recordings, /recording\.speaker_transcript_text \|\| recording\.transcript_text/);
   assert.match(recordings, /metadata,/);
   assert.match(interruptionUi, /No audio was captured during/);
   assert.match(meetingNotes, /id="recording-detail-interruptions"/);
