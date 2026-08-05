@@ -1,6 +1,6 @@
 # Ask N3XRA — current product and workflow knowledge
 
-Updated July 24, 2026.
+Updated August 5, 2026.
 
 This is the authoritative, public-safe knowledge for Ask N3XRA. It describes current offerings and customer-facing workflows. It does not provide access to a visitor's account, files, proposals, billing records, or private content. When this file conflicts with an older extracted page, this file controls.
 
@@ -64,6 +64,8 @@ This is the authoritative, public-safe knowledge for Ask N3XRA. It describes cur
 - It supports file uploads and batch imports, metadata, keyword and date search, previews, downloads, editable documents and templates, generated PDFs, contacts, public records pages and embeds, shared libraries, role-based permissions, and meeting-note workflows.
 - Supported record workflows include PDFs, DOCX, text, Markdown, CSV, JSON, HTML, and stored scans. Selectable document text can be searchable; scanned material may require OCR before its contents can be searched or edited.
 - Meeting-note tools include browser recording or audio upload, playback, transcript processing, saved notes, AI-assisted review and drafting, retry when processing fails, and deletion when the user's role permits it.
+- New meeting transcripts use speaker detection by default. Without enrolled voices they use generic labels such as Speaker 1 and Speaker 2. Optional, consent-based voice profiles can replace confident matches with workspace members' names while unknown or uncertain speakers stay generic.
+- Workspace members enroll their own voice from Voice Profiles. N3XRA stores the resulting voiceprint for identification and does not retain the raw enrollment recording. Account administrators can disable speaker detection for future meetings in AI Settings.
 - Records are private by default. Public pages and embeds show only material deliberately marked public in a library with public access enabled.
 - Owners, account administrators, editors, and viewers have different permissions.
 - N3XRA administers the service by default, not the customer's private content. Standard support can see account identity, plan, limits, usage totals, and sanitized system health without seeing document names, filenames, recordings, transcripts, private contacts, or file contents.

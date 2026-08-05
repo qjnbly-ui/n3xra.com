@@ -104,6 +104,18 @@ Ask Records AI answers product and workflow questions about N3XRA Records. It is
 - Suggested additions should be specific transcript details. Conflicts identify disagreement or low confidence.
 - Applying suggestions rewrites the draft cleanly. Regenerating should preserve applied and dismissed decisions where possible.
 
+## Meeting speaker detection and voice profiles
+- Speaker detection is enabled by default for newly processed meetings. It does not require an enrolled voice profile.
+- With no enrolled voice profiles, the transcript uses generic labels such as **Speaker 1** and **Speaker 2**.
+- When one or more workspace members have enrolled, matching voices can use those members' names. Unmatched or uncertain voices remain generic speakers rather than receiving a guessed name.
+- Account Admin can turn speaker detection off under **Manage library** → **AI settings** → **Meeting speakers** by clearing **Identify speakers in meeting transcripts**. Turning it off prevents new meeting audio from being sent to pyannoteAI for speaker detection.
+- **Voice profiles** is always available under **Manage library** → **People and access** for active library members; opening **Users** first is not required.
+- Every active workspace member appears automatically in **Voice profiles**. Enrollment is optional, consent-based, and self-service: each member records their own displayed script in a quiet place, reviews the recording, checks the biometric consent box, and selects **Create voice profile**.
+- A short clear sample is enough; longer audio is not automatically better. The saved profile is a voiceprint, and N3XRA does not retain the raw enrollment recording.
+- The 60% threshold applies only to deciding whether an enrolled voice should be replaced with a name. It does not control generic speaker separation.
+- Speaker-aware transcripts are produced for new processing. Existing plain transcripts are not automatically reprocessed.
+- Authorized editors can correct a speaker name after processing; the corrected label is applied across that saved transcript and its linked document.
+
 ## Sending documents
 - In Document Builder, the exact action is **Send document**. There is no two-stage **Send** → **Send document** control.
 - The send modal uses **Recipient email**, **Recipients**, **Subject**, and **Message**.

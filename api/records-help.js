@@ -35,6 +35,7 @@ const RECORDS_HELP_ACTIONS = Object.freeze({
   "account.phone": "Open Phone Meetings",
   "account.ai": "Open AI settings",
   "account.users": "Open Users",
+  "account.voice": "Open Voice profiles",
   "account.contacts": "Open Contacts",
   "account.access": "Open Invites & access",
   "account.storage": "Open Storage",
@@ -56,6 +57,7 @@ const RECORDS_HELP_ACTION_ROUTES = Object.freeze({
   "account.phone": "/n3xra-records/account/?view=phone",
   "account.ai": "/n3xra-records/account/?view=ai",
   "account.users": "/n3xra-records/account/?view=users",
+  "account.voice": "/n3xra-records/account/?view=voice",
   "account.contacts": "/n3xra-records/account/?view=contacts",
   "account.access": "/n3xra-records/account/?view=access",
   "account.storage": "/n3xra-records/account/?view=storage",
@@ -77,6 +79,7 @@ const RECORDS_HELP_ACTION_ALIASES = Object.freeze({
   "account.phone": ["phone meetings settings", "phone meeting settings", "enable phone meetings", "configure phone meetings"],
   "account.ai": ["ai settings", "saved ai memory"],
   "account.users": ["manage users", "account users", "user list"],
+  "account.voice": ["voice profiles", "voice profile", "enroll my voice", "speaker identification", "identify my voice"],
   "account.contacts": ["manage contacts", "address book", "contact list"],
   "account.access": ["invite code", "invite codes", "invite a user", "invite staff", "invite member", "shared access", "join code"],
   "account.storage": ["storage usage", "storage limit", "storage plan"],
@@ -151,7 +154,7 @@ const RECORDS_HELP_SAFE_PREVIEW_ANSWERS = Object.freeze({
 const RECORDS_HELP_CONSEQUENTIAL_TARGET = /\b(?:create|send|delete|remove|save|submit|upload|start|record|grant|revoke|purchase|pay|checkout|publish)\b/i;
 const RECORDS_HELP_NAVIGATION_LABELS = new Set([
   "library", "meeting notes", "document builder", "communication", "manage library", "profile",
-  "library settings", "templates", "phone meetings", "ai settings", "users", "contacts",
+  "library settings", "templates", "phone meetings", "ai settings", "users", "voice profiles", "contacts",
   "invites & access", "storage", "billing", "audit activity", "n3xra support access",
 ]);
 
@@ -166,6 +169,7 @@ const RECORDS_GUIDE_ROUTES = new Set([
   "/n3xra-records/account/?view=phone",
   "/n3xra-records/account/?view=ai",
   "/n3xra-records/account/?view=users",
+  "/n3xra-records/account/?view=voice",
   "/n3xra-records/account/?view=contacts",
   "/n3xra-records/account/?view=access",
   "/n3xra-records/account/?view=storage",
@@ -700,9 +704,9 @@ function buildSystemPrompt(user, appContext, verifiedUiLabels = []) {
     "Give directions for the current display first. Mention the other layout only if the user asks how desktop and mobile differ.",
     "You cannot make data changes, submit forms, upload files, send messages, or change settings.",
     "You can offer safe navigation and page-highlighting buttons. For a simple destination, append an allowlisted action token. For a multi-step workflow, append one generic guide token. Put tokens at the very end of the answer, each on its own line; the app removes them and renders buttons.",
-    "Simple action allowlist: [[action:library.search]], [[action:library.ai_search]], [[action:library.upload]], [[action:meeting.new]], [[action:documents.new]], [[action:messages.compose]], [[action:account.profile]], [[action:account.library]], [[action:account.templates]], [[action:account.phone]], [[action:account.ai]], [[action:account.users]], [[action:account.contacts]], [[action:account.access]], [[action:account.storage]], [[action:account.billing]], [[action:account.activity]], [[action:account.support]].",
+    "Simple action allowlist: [[action:library.search]], [[action:library.ai_search]], [[action:library.upload]], [[action:meeting.new]], [[action:documents.new]], [[action:messages.compose]], [[action:account.profile]], [[action:account.library]], [[action:account.templates]], [[action:account.phone]], [[action:account.ai]], [[action:account.users]], [[action:account.voice]], [[action:account.contacts]], [[action:account.access]], [[action:account.storage]], [[action:account.billing]], [[action:account.activity]], [[action:account.support]].",
     "Generic guide format: [[guide:Button label|SAFE_ROUTE|Exact UI label~Natural spoken instruction>Exact UI label~Natural spoken instruction]]. Use 2 to 7 verified interface labels in the order the user would encounter them.",
-    "SAFE_ROUTE must be one of: /n3xra-records/library, /n3xra-records/meeting-notes, /n3xra-records/documents.html, /n3xra-records/messages.html, or /n3xra-records/account/?view= followed by profile, library, templates, phone, ai, users, contacts, access, storage, billing, activity, or support.",
+    "SAFE_ROUTE must be one of: /n3xra-records/library, /n3xra-records/meeting-notes, /n3xra-records/documents.html, /n3xra-records/messages.html, or /n3xra-records/account/?view= followed by profile, library, templates, phone, ai, users, voice, contacts, access, storage, billing, activity, or support.",
     "Guide targets must be exact visible interface labels from product knowledge. Narration should explain what each highlighted choice means in the user's workflow, not merely read a button label. The guide may reveal expandable sections but never submits forms, starts recordings or calls, sends messages, uploads files, changes settings, or activates destructive controls.",
     "Keep each answer and guide scoped to the topic the user asked about. Do not tour or explain every feature, field, or alternative on the destination page unless the user explicitly asks for an overview, comparison, tour, or all options.",
     "When the user asks not to save, submit, send, or complete an action, end by explaining the final consequential control without activating it. Do not add a cancel, close, discard, or rollback step unless the user explicitly asks to close or discard the work.",

@@ -27,7 +27,7 @@ const PRODUCTS = [
     id: "records",
     name: "N3XRA Records",
     route: "/records/",
-    summary: "Searchable records, documents, communication, meeting notes, phone-connected meeting capture, organization workspaces, and access controls.",
+    summary: "Searchable records, documents, communication, meeting notes, speaker-aware transcripts, phone-connected meeting capture, organization workspaces, and access controls.",
   },
   {
     id: "utilities",
@@ -68,6 +68,7 @@ const MAJOR_MODULES = [
   "Website project lifecycle",
   "Records and document systems",
   "Phone-connected meeting workflows",
+  "Speaker-aware meeting transcription",
   "Financial operations and reporting",
   "Subscriptions and billing",
   "Partner and referral programs",
@@ -77,6 +78,12 @@ const MAJOR_MODULES = [
 ];
 
 const RECENT_CAPABILITIES = [
+  {
+    introducedBy: "80b70cb",
+    date: "2026-08-05",
+    title: "Speaker-aware Records transcripts",
+    summary: "N3XRA Records now separates meeting transcripts into generic speakers by default and can replace confident matches with consenting workspace members' names through optional voice profiles.",
+  },
   {
     introducedBy: "c633e77",
     date: "2026-08-04",

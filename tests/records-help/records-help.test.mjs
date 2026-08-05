@@ -39,6 +39,8 @@ test("the help prompt explicitly prohibits unverified interface guesses", () => 
   assert.match(prompt, /Never call it a header-right Profile link/);
   assert.match(prompt, /safe navigation and page-highlighting buttons/);
   assert.match(prompt, /\[\[action:library\.search\]\]/);
+  assert.match(prompt, /\[\[action:account\.voice\]\]/);
+  assert.match(prompt, /Speaker detection is enabled by default/);
   assert.match(prompt, /Generic guide format/);
   assert.match(prompt, /Use 2 to 7 verified interface labels/);
   assert.match(prompt, /Keep each answer and guide scoped to the topic the user asked about/);
@@ -78,6 +80,13 @@ test("ordinary how-to questions receive a grounded guided action when the model 
   );
   assert.equal(
     recordsHelp.inferRecordsHelpAction(
+      "Where do I enroll my voice?",
+      "Open Voice profiles under People and access."
+    ),
+    "account.voice"
+  );
+  assert.equal(
+    recordsHelp.inferRecordsHelpAction(
       "What is Document Builder?",
       "Document Builder is where app-native documents are created."
     ),
@@ -95,6 +104,7 @@ test("ordinary how-to questions receive a grounded guided action when the model 
 test("the verified UI catalog is generated from the current destination markup", () => {
   const labels = recordsHelp.loadRecordsUiCatalog("account.contacts");
   const meetingLabels = recordsHelp.loadRecordsUiCatalog("meeting.new");
+  const voiceLabels = recordsHelp.loadRecordsUiCatalog("account.voice");
 
   assert.ok(labels.includes("New contact"));
   assert.ok(labels.includes("Name"));
@@ -113,6 +123,8 @@ test("the verified UI catalog is generated from the current destination markup",
     steps: [{ target: "Contacts" }],
   }, "account.contacts"), false);
   assert.ok(meetingLabels.includes("New meeting note"));
+  assert.ok(voiceLabels.includes("Voice profiles"));
+  assert.ok(voiceLabels.includes("Create voice profile"));
   assert.equal(meetingLabels.some((label) => /New meeting note\s+Start\s*\+/i.test(label)), false);
 });
 

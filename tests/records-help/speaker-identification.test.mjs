@@ -10,6 +10,9 @@ const recordingsPath = new URL("../../n3xra-records/recordings.js", import.meta.
 const correctionApiPath = new URL("../../api/correct-recording-speaker.js", import.meta.url);
 const accountPath = new URL("../../n3xra-records/account/index.html", import.meta.url);
 const dashboardPath = new URL("../../n3xra-records/dashboard.js", import.meta.url);
+const helpKnowledgePath = new URL("../../api/records-help-knowledge.md", import.meta.url);
+const publicKnowledgePath = new URL("../../api/ask-knowledge.md", import.meta.url);
+const projectPulseBuilderPath = new URL("../../scripts/build-project-pulse.js", import.meta.url);
 const migrationPath = new URL(
   "../../supabase/migrations/20260805150308_meeting_speaker_identification.sql",
   import.meta.url,
@@ -117,4 +120,17 @@ test("speaker detection is enabled by default and can be disabled in AI settings
   assert.match(dashboard, /records_speaker_detection_enabled: organizationSpeakerDetectionEnabledInput\?\.checked !== false/);
   assert.match(speakerApi, /hasVoiceprints \? "\/identify" : "\/diarize"/);
   assert.match(speakerApi, /Speaker detection is disabled in AI settings/);
+});
+
+test("Records AI and Project Pulse describe the speaker workflow", async () => {
+  const [helpKnowledge, publicKnowledge, projectPulseBuilder] = await Promise.all([
+    readFile(helpKnowledgePath, "utf8"),
+    readFile(publicKnowledgePath, "utf8"),
+    readFile(projectPulseBuilderPath, "utf8"),
+  ]);
+
+  assert.match(helpKnowledge, /With no enrolled voice profiles, the transcript uses generic labels/);
+  assert.match(helpKnowledge, /Voice profiles.*always available/s);
+  assert.match(publicKnowledge, /Optional, consent-based voice profiles/);
+  assert.match(projectPulseBuilder, /Speaker-aware Records transcripts/);
 });

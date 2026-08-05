@@ -2,39 +2,39 @@
   "schemaVersion": 1,
   "name": "N3XRA Project Pulse",
   "visibility": "public-safe",
-  "generatedAt": "2026-08-04T14:55:21.520Z",
-  "updatedAt": "2026-08-04T07:45:06-07:00",
-  "commit": "c633e77",
+  "generatedAt": "2026-08-05T17:07:19.289Z",
+  "updatedAt": "2026-08-05T08:45:10-07:00",
+  "commit": "80b70cb",
   "summary": {
-    "statement": "N3XRA is a connected technology platform comprising approximately 141,000 lines of source code across customer experiences, software products, APIs, database systems, administrative tools, and operational infrastructure.",
-    "sourceFiles": 417,
-    "sourceLines": 141249,
+    "statement": "N3XRA is a connected technology platform comprising approximately 148,000 lines of source code across customer experiences, software products, APIs, database systems, administrative tools, and operational infrastructure.",
+    "sourceFiles": 435,
+    "sourceLines": 147636,
     "products": 7,
-    "pages": 97,
-    "apiFunctions": 58,
-    "edgeFunctions": 21,
-    "databaseMigrations": 96
+    "pages": 99,
+    "apiFunctions": 61,
+    "edgeFunctions": 22,
+    "databaseMigrations": 105
   },
   "sourceBreakdown": {
     "css": {
-      "files": 26,
-      "lines": 31875
+      "files": 27,
+      "lines": 32731
     },
     "html": {
-      "files": 97,
-      "lines": 28515
+      "files": 99,
+      "lines": 28967
     },
     "js": {
-      "files": 166,
-      "lines": 58968
+      "files": 171,
+      "lines": 62297
     },
     "sql": {
-      "files": 104,
-      "lines": 14117
+      "files": 113,
+      "lines": 15297
     },
     "ts": {
-      "files": 24,
-      "lines": 7774
+      "files": 25,
+      "lines": 8344
     }
   },
   "products": [
@@ -48,7 +48,7 @@
       "id": "records",
       "name": "N3XRA Records",
       "route": "/records/",
-      "summary": "Searchable records, documents, communication, meeting notes, phone-connected meeting capture, organization workspaces, and access controls."
+      "summary": "Searchable records, documents, communication, meeting notes, speaker-aware transcripts, phone-connected meeting capture, organization workspaces, and access controls."
     },
     {
       "id": "utilities",
@@ -88,6 +88,7 @@
     "Website project lifecycle",
     "Records and document systems",
     "Phone-connected meeting workflows",
+    "Speaker-aware meeting transcription",
     "Financial operations and reporting",
     "Subscriptions and billing",
     "Partner and referral programs",
@@ -96,6 +97,11 @@
     "Company governance planning"
   ],
   "recentCapabilities": [
+    {
+      "date": "2026-08-05",
+      "title": "Speaker-aware Records transcripts",
+      "summary": "N3XRA Records now separates meeting transcripts into generic speakers by default and can replace confident matches with consenting workspace members' names through optional voice profiles."
+    },
     {
       "date": "2026-08-04",
       "title": "Account-connected phone and messaging setup",
