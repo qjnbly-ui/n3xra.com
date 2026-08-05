@@ -7,6 +7,8 @@ const require = createRequire(import.meta.url);
 const speakerIdentification = require("../../api/_records-speaker-identification.js");
 const transcriptionPath = new URL("../../api/transcribe-recording.js", import.meta.url);
 const recordingsPath = new URL("../../n3xra-records/recordings.js", import.meta.url);
+const allRecordingsPath = new URL("../../n3xra-records/all-recordings.js", import.meta.url);
+const correctionModalPath = new URL("../../n3xra-records/lib/speaker-correction-modal.js", import.meta.url);
 const correctionApiPath = new URL("../../api/correct-recording-speaker.js", import.meta.url);
 const accountPath = new URL("../../n3xra-records/account/index.html", import.meta.url);
 const dashboardPath = new URL("../../n3xra-records/dashboard.js", import.meta.url);
@@ -96,12 +98,23 @@ test("meeting identification stores sanitized results separately from biometric 
 });
 
 test("editors can correct a speaker label across the transcript and saved document", async () => {
-  const [recordings, correctionApi] = await Promise.all([
+  const [recordings, allRecordings, correctionModal, correctionApi] = await Promise.all([
     readFile(recordingsPath, "utf8"),
+    readFile(allRecordingsPath, "utf8"),
+    readFile(correctionModalPath, "utf8"),
     readFile(correctionApiPath, "utf8"),
   ]);
 
   assert.match(recordings, /Correct a speaker name|correctRecordingSpeakerName/);
+  assert.match(recordings, /openSpeakerCorrectionModal/);
+  assert.match(allRecordings, /openSpeakerCorrectionModal/);
+  assert.doesNotMatch(recordings, /window\.prompt/);
+  assert.doesNotMatch(allRecordings, /window\.prompt/);
+  assert.match(correctionModal, /Choose a speaker/);
+  assert.match(correctionModal, /Correct name/);
+  assert.match(correctionModal, /Save correction/);
+  assert.match(correctionModal, /aria-modal="true"/);
+  assert.match(correctionModal, /event\.key === "Escape"/);
   assert.match(correctionApi, /utterance\.speakerKey === speakerKey/);
   assert.match(correctionApi, /speakerTranscriptFromUtterances/);
   assert.match(correctionApi, /uploadTranscriptDocument/);

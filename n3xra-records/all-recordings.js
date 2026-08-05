@@ -21,6 +21,7 @@ import {
 } from "./lib/recording-suggestions.js";
 import { createAppDocumentPdfObjectUrl } from "./lib/app-document-pdf.js";
 import { getRecordingInterruptions, stripRecordingInterruptionMarkers } from "./lib/recording-interruptions.js";
+import { openSpeakerCorrectionModal } from "./lib/speaker-correction-modal.js";
 import {
   formatRecordingDuration as formatDuration,
   getRecordingDurationSeconds,
@@ -361,32 +362,27 @@ async function correctRecordingSpeakerName() {
     ? recording.speaker_identification_json.speakers
     : [];
   if (!recording || !speakers.length || !currentSession?.access_token) return;
-  const choice = window.prompt(`Which speaker should be corrected?\n${speakers.map((speaker, index) => `${index + 1}. ${speaker.displayName}`).join("\n")}\n\nEnter a number:`);
-  if (choice === null) return;
-  const selected = speakers[Number.parseInt(choice, 10) - 1];
-  if (!selected) {
-    setStatus(recordingDetailStatusMessage, "Choose one of the listed speaker numbers.", "error");
-    return;
-  }
-  const displayName = window.prompt("Enter the correct speaker name:", selected.displayName || "");
-  if (displayName === null || !displayName.trim()) return;
-  recordingDetailCorrectSpeaker.disabled = true;
-  try {
-    const response = await fetch("/api/correct-recording-speaker", {
-      method: "PATCH",
-      headers: { Authorization: `Bearer ${currentSession.access_token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ recordingId: recording.id, speakerKey: selected.speakerKey, displayName: displayName.trim() }),
-    });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data?.error || "Unable to correct the speaker name.");
-    mergeRecordingUpdate(data.recording);
-    populateRecordingDetails(getRecordingById(recording.id));
-    setStatus(recordingDetailStatusMessage, "Speaker name corrected throughout the transcript.", "success");
-  } catch (error) {
-    setStatus(recordingDetailStatusMessage, getErrorMessage(error, "Unable to correct the speaker name."), "error");
-  } finally {
-    recordingDetailCorrectSpeaker.disabled = false;
-  }
+  await openSpeakerCorrectionModal({
+    speakers,
+    trigger: recordingDetailCorrectSpeaker,
+    onSubmit: async ({ speakerKey, displayName }) => {
+      recordingDetailCorrectSpeaker.disabled = true;
+      try {
+        const response = await fetch("/api/correct-recording-speaker", {
+          method: "PATCH",
+          headers: { Authorization: `Bearer ${currentSession.access_token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ recordingId: recording.id, speakerKey, displayName }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data?.error || "Unable to correct the speaker name.");
+        mergeRecordingUpdate(data.recording);
+        populateRecordingDetails(getRecordingById(recording.id));
+        setStatus(recordingDetailStatusMessage, "Speaker name corrected throughout the transcript.", "success");
+      } finally {
+        recordingDetailCorrectSpeaker.disabled = false;
+      }
+    },
+  });
 }
 
 function getTemplateLabel(templateId) {
