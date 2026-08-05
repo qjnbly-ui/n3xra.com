@@ -8,8 +8,14 @@ const speakerIdentification = require("../../api/_records-speaker-identification
 const transcriptionPath = new URL("../../api/transcribe-recording.js", import.meta.url);
 const recordingsPath = new URL("../../n3xra-records/recordings.js", import.meta.url);
 const correctionApiPath = new URL("../../api/correct-recording-speaker.js", import.meta.url);
+const accountPath = new URL("../../n3xra-records/account/index.html", import.meta.url);
+const dashboardPath = new URL("../../n3xra-records/dashboard.js", import.meta.url);
 const migrationPath = new URL(
   "../../supabase/migrations/20260805150308_meeting_speaker_identification.sql",
+  import.meta.url,
+);
+const settingMigrationPath = new URL(
+  "../../supabase/migrations/20260805154152_records_speaker_detection_setting.sql",
   import.meta.url,
 );
 
@@ -40,6 +46,28 @@ test("timestamped transcript words are assigned to known and unknown speakers", 
   assert.equal(result.utterances[0].userId, "user-1");
   assert.equal(result.utterances[0].confidence, 87);
   assert.equal(result.utterances[1].userId, null);
+});
+
+test("generic diarization labels speakers without enrolled voice profiles", () => {
+  const timing = {
+    words: [
+      { word: "Motion", start: 0.1, end: 0.5 },
+      { word: "made.", start: 0.6, end: 1.1 },
+      { word: "Seconded.", start: 1.6, end: 2.2 },
+    ],
+  };
+  const output = {
+    exclusiveDiarization: [
+      { speaker: "SPEAKER_00", start: 0, end: 1.4 },
+      { speaker: "SPEAKER_01", start: 1.4, end: 2.5 },
+    ],
+  };
+
+  const result = speakerIdentification.buildSpeakerTranscript(timing, output, []);
+
+  assert.match(result.text, /Speaker 1 \[0:00\]\nMotion made\./);
+  assert.match(result.text, /Speaker 2 \[0:01\]\nSeconded\./);
+  assert.equal(result.utterances.every((utterance) => utterance.userId === null), true);
 });
 
 test("the recording pipeline requests Groq timestamps and pyannote identification", async () => {
@@ -74,4 +102,19 @@ test("editors can correct a speaker label across the transcript and saved docume
   assert.match(correctionApi, /utterance\.speakerKey === speakerKey/);
   assert.match(correctionApi, /speakerTranscriptFromUtterances/);
   assert.match(correctionApi, /uploadTranscriptDocument/);
+});
+
+test("speaker detection is enabled by default and can be disabled in AI settings", async () => {
+  const [speakerApi, account, dashboard, migration] = await Promise.all([
+    readFile(new URL("../../api/_records-speaker-identification.js", import.meta.url), "utf8"),
+    readFile(accountPath, "utf8"),
+    readFile(dashboardPath, "utf8"),
+    readFile(settingMigrationPath, "utf8"),
+  ]);
+
+  assert.match(migration, /records_speaker_detection_enabled boolean not null default true/);
+  assert.match(account, /id="organization-speaker-detection-enabled"[^>]*checked/);
+  assert.match(dashboard, /records_speaker_detection_enabled: organizationSpeakerDetectionEnabledInput\?\.checked !== false/);
+  assert.match(speakerApi, /hasVoiceprints \? "\/identify" : "\/diarize"/);
+  assert.match(speakerApi, /Speaker detection is disabled in AI settings/);
 });

@@ -104,6 +104,14 @@ async function loadEnrolledVoiceprints(organizationId) {
     }));
 }
 
+async function speakerDetectionIsEnabled(organizationId) {
+  const organizations = await serviceRequest(
+    `organizations?select=records_speaker_detection_enabled&id=eq.${encodeFilter(organizationId)}&limit=1`,
+  );
+  const organization = Array.isArray(organizations) ? organizations[0] || null : null;
+  return organization?.records_speaker_detection_enabled !== false;
+}
+
 function audioExtension(recording) {
   const source = `${recording?.audio_mime_type || ""} ${recording?.storage_path || ""}`.toLowerCase();
   if (source.includes("mpeg") || source.includes("mp3")) return "mp3";
@@ -114,7 +122,7 @@ function audioExtension(recording) {
   return "webm";
 }
 
-async function submitIdentification(recording, audio, directory) {
+async function submitSpeakerDetection(recording, audio, directory) {
   const objectKey = `records-meeting-identification/${recording.organization_id}/${recording.id}/${Date.now()}-${randomUUID()}.${audioExtension(recording)}`;
   const mediaKey = `media://${objectKey}`;
   const upload = await pyannoteRequest("/media/input", {
@@ -129,19 +137,23 @@ async function submitIdentification(recording, audio, directory) {
   });
   if (!uploadResponse.ok) throw new Error("The temporary meeting-audio upload failed.");
 
-  const job = await pyannoteRequest("/identify", {
+  const hasVoiceprints = directory.length > 0;
+  const job = await pyannoteRequest(hasVoiceprints ? "/identify" : "/diarize", {
     method: "POST",
     body: JSON.stringify({
       url: mediaKey,
       model: PYANNOTE_MODEL,
-      voiceprints: directory.map((entry) => ({ label: entry.userId, voiceprint: entry.voiceprint })),
       exclusive: true,
       turnLevelConfidence: true,
-      matching: { exclusive: true, threshold: MATCH_THRESHOLD },
+      confidence: true,
+      ...(hasVoiceprints ? {
+        voiceprints: directory.map((entry) => ({ label: entry.userId, voiceprint: entry.voiceprint })),
+        matching: { exclusive: true, threshold: MATCH_THRESHOLD },
+      } : {}),
     }),
   });
-  if (!job?.jobId) throw new Error("pyannoteAI did not start the speaker-identification job.");
-  return String(job.jobId);
+  if (!job?.jobId) throw new Error("pyannoteAI did not start the speaker-detection job.");
+  return { jobId: String(job.jobId), mode: hasVoiceprints ? "identification" : "diarization" };
 }
 
 async function waitForJob(jobId, maxWaitMs = 60000) {
@@ -180,7 +192,9 @@ function normalizeIdentificationTurns(output, directory) {
   const confidenceMap = confidenceByDiarizationSpeaker(output);
   const unknownNames = new Map();
   let unknownCount = 0;
-  return (Array.isArray(output?.identification) ? output.identification : [])
+  const rawTurns = [output?.identification, output?.exclusiveDiarization, output?.exclusive_diarization, output?.diarization]
+    .find((turns) => Array.isArray(turns)) || [];
+  return rawTurns
     .map((turn) => {
       const start = numberValue(turn?.start);
       const end = numberValue(turn?.end);
@@ -325,7 +339,8 @@ async function finalizeIdentificationJob(recording, job, directory, timing) {
     speaker_identification_json: {
       provider: "pyannote",
       model: PYANNOTE_MODEL,
-      threshold: MATCH_THRESHOLD,
+      mode: directory.length ? "identification" : "diarization",
+      threshold: directory.length ? MATCH_THRESHOLD : null,
       speakers: Array.from(new Map(result.speakerTurns.map((turn) => [turn.speakerKey, {
         speakerKey: turn.speakerKey,
         displayName: turn.displayName,
@@ -349,22 +364,22 @@ async function identifyRecordingSpeakers(recording, audio, timing, { maxWaitMs =
       speaker_identification_updated_at: now,
     });
   }
-  const directory = await loadEnrolledVoiceprints(recording.organization_id);
-  if (!directory.length) {
+  if (!(await speakerDetectionIsEnabled(recording.organization_id))) {
     return updateRecording(recording.id, {
       speaker_identification_status: "skipped",
-      speaker_identification_error: "No workspace members have enrolled voice profiles yet.",
+      speaker_identification_error: "Speaker detection is disabled in AI settings.",
       speaker_identification_updated_at: now,
     });
   }
+  const directory = await loadEnrolledVoiceprints(recording.organization_id);
 
   try {
-    const jobId = await submitIdentification(recording, audio, directory);
+    const { jobId, mode } = await submitSpeakerDetection(recording, audio, directory);
     await updateRecording(recording.id, {
       speaker_identification_status: "processing",
       speaker_identification_job_id: jobId,
       speaker_identification_model: PYANNOTE_MODEL,
-      speaker_identification_threshold: MATCH_THRESHOLD,
+      speaker_identification_threshold: mode === "identification" ? MATCH_THRESHOLD : null,
       speaker_identification_error: null,
       speaker_identification_updated_at: new Date().toISOString(),
     });
@@ -382,7 +397,6 @@ async function identifyRecordingSpeakers(recording, audio, timing, { maxWaitMs =
 async function refreshIdentification(recording, { maxWaitMs = 20000 } = {}) {
   if (!recording?.speaker_identification_job_id || recording.speaker_identification_status !== "processing") return recording;
   const directory = await loadEnrolledVoiceprints(recording.organization_id);
-  if (!directory.length) return recording;
   const job = await waitForJob(recording.speaker_identification_job_id, maxWaitMs);
   return finalizeIdentificationJob(recording, job, directory, recording.transcript_timing_json || {});
 }
@@ -393,5 +407,6 @@ module.exports = {
   buildSpeakerTranscript,
   normalizeIdentificationTurns,
   speakerTranscriptFromUtterances,
+  speakerDetectionIsEnabled,
   MATCH_THRESHOLD,
 };

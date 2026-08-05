@@ -127,11 +127,12 @@ Ask Records AI answers product and workflow questions about N3XRA Records. It is
 
 ## Manage library destinations
 - **Users**: account users and the path into invite-code creation.
+- **Voice profiles**: optional consent-based enrollment that lets future meeting transcripts replace generic speaker labels with a member's name.
 - **Contacts**: saved document and Communication recipients.
 - **Templates**: reusable document templates.
 - **Invites & access**: invite codes, member roles, and shared access.
 - **Library settings**: library profile and branding.
-- **AI settings**: Records AI settings and saved library memory where available.
+- **AI settings**: Records AI settings, saved library memory, and **Identify speakers in meeting transcripts**. Speaker detection is on by default; without enrolled voices it uses Speaker 1, Speaker 2, and so on.
 - **Billing**: plan, limits, billing management, and subscription status.
 - **N3XRA support access**: temporary, scoped customer-authorized support access.
 

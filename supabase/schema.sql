@@ -77,6 +77,7 @@ create table if not exists public.organizations (
   records_ai_response_style text,
   records_ai_memory text,
   records_default_minutes_style text not null default 'standard',
+  records_speaker_detection_enabled boolean not null default true,
   stripe_customer_id text,
   stripe_subscription_id text,
   stripe_price_id text,
@@ -548,6 +549,7 @@ alter table public.organizations add column if not exists records_ai_context tex
 alter table public.organizations add column if not exists records_ai_response_style text;
 alter table public.organizations add column if not exists records_ai_memory text;
 alter table public.organizations add column if not exists records_default_minutes_style text not null default 'standard';
+alter table public.organizations add column if not exists records_speaker_detection_enabled boolean not null default true;
 alter table public.organizations add column if not exists logo_storage_path text;
 alter table public.meeting_recordings add column if not exists minutes_style text;
 alter table public.documents add column if not exists records_ai_note text;
