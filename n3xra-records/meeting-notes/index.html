@@ -394,6 +394,7 @@
             <audio class="recording-player hidden" id="recording-detail-player" controls preload="metadata"></audio>
             <div class="recording-detail-panel-actions">
               <button class="btn secondary" id="recording-detail-play" type="button">Play</button>
+              <button class="btn secondary hidden" id="recording-detail-transfer" type="button">Transfer record packet</button>
               <button class="btn btn-delete-solid" id="recording-detail-delete" type="button">Delete</button>
             </div>
             <section class="recording-interruptions hidden" id="recording-detail-interruptions" aria-labelledby="recording-detail-interruptions-title">
@@ -495,6 +496,56 @@
           </div>
         </div>
         <p class="status" id="recording-detail-status-message"></p>
+      </div>
+    </div>
+  </div>
+
+  <div class="confirm-modal" id="recording-transfer-modal" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="confirm-modal-dialog">
+      <div class="confirm-modal-header">
+        <div>
+          <p class="confirm-modal-kicker">Transfer record packet</p>
+          <h3 class="confirm-modal-title">Where should this packet go?</h3>
+        </div>
+      </div>
+      <div class="confirm-modal-body">
+        <p class="confirm-modal-copy" id="recording-transfer-copy">The recording, transcript, notes, linked references, and generated documents stay together.</p>
+        <div class="recording-transfer-options" role="tablist" aria-label="Transfer method">
+          <button class="recording-transfer-option is-active" id="recording-transfer-mode-workspace" type="button" role="tab" aria-selected="true">
+            <strong>Move to your workspace</strong>
+            <span>Use another Organization workspace you already administer.</span>
+          </button>
+          <button class="recording-transfer-option" id="recording-transfer-mode-external" type="button" role="tab" aria-selected="false">
+            <strong>Transfer to another organization</strong>
+            <span>Email a secure, 7-day invitation to an unrelated account.</span>
+          </button>
+        </div>
+        <div class="field" id="recording-transfer-workspace-panel">
+          <label for="recording-transfer-destination">Destination workspace</label>
+          <select id="recording-transfer-destination"></select>
+          <p class="field-note" id="recording-transfer-workspace-note">You must be an Account Admin in both workspaces. Existing share links are revoked.</p>
+        </div>
+        <div class="hidden" id="recording-transfer-external-panel">
+          <div class="field">
+            <label for="recording-transfer-recipient-email">Recipient's account email</label>
+            <input id="recording-transfer-recipient-email" type="email" autocomplete="email" placeholder="records@example.gov">
+          </div>
+          <div class="field">
+            <label for="recording-transfer-recipient-organization">Recipient organization <span class="field-optional">Optional</span></label>
+            <input id="recording-transfer-recipient-organization" type="text" maxlength="160" placeholder="Bonanza City">
+            <p class="field-note">The packet stays here until the recipient signs in, chooses their Organization workspace, and accepts.</p>
+          </div>
+          <div class="notice hidden" id="recording-transfer-pending">
+            <strong>Transfer invitation pending</strong>
+            <p id="recording-transfer-pending-copy"></p>
+            <button class="btn secondary" id="recording-transfer-cancel-invitation" type="button">Cancel invitation</button>
+          </div>
+        </div>
+        <div class="confirm-modal-actions">
+          <button class="btn secondary" id="recording-transfer-cancel" type="button">Cancel</button>
+          <button class="btn" id="recording-transfer-submit" type="button">Move record packet</button>
+        </div>
+        <p class="status" id="recording-transfer-status"></p>
       </div>
     </div>
   </div>

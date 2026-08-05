@@ -4,24 +4,32 @@ import test from "node:test";
 
 const recordingsPath = new URL("../../n3xra-records/recordings.js", import.meta.url);
 const recordingsHtmlPath = new URL("../../n3xra-records/recordings.html", import.meta.url);
+const meetingNotesRoutePath = new URL("../../n3xra-records/meeting-notes/index.html", import.meta.url);
 const allRecordingsHtmlPath = new URL("../../n3xra-records/all-recordings.html", import.meta.url);
+const allMeetingNotesRoutePath = new URL("../../n3xra-records/all-meeting-notes/index.html", import.meta.url);
 const migrationPath = new URL("../../supabase/migrations/20260805043224_transfer_record_packets.sql", import.meta.url);
 const externalMigrationPath = new URL("../../supabase/migrations/20260805055916_external_record_packet_transfers.sql", import.meta.url);
 const transferFunctionPath = new URL("../../supabase/functions/transfer-record-packet/index.ts", import.meta.url);
 const transferPagePath = new URL("../../n3xra-records/record-transfer.html", import.meta.url);
 
 test("record packets expose an administrator-only destination workflow", async () => {
-  const [recordings, recordingsHtml, allRecordingsHtml] = await Promise.all([
+  const [recordings, recordingsHtml, meetingNotesRoute, allRecordingsHtml, allMeetingNotesRoute] = await Promise.all([
     readFile(recordingsPath, "utf8"),
     readFile(recordingsHtmlPath, "utf8"),
+    readFile(meetingNotesRoutePath, "utf8"),
     readFile(allRecordingsHtmlPath, "utf8"),
+    readFile(allMeetingNotesRoutePath, "utf8"),
   ]);
 
   assert.match(recordingsHtml, /id="recording-detail-transfer"[^>]*>Transfer record packet</);
   assert.match(recordingsHtml, /id="recording-transfer-destination"/);
   assert.match(recordingsHtml, /Move to your workspace/);
   assert.match(recordingsHtml, /Transfer to another organization/);
+  assert.match(meetingNotesRoute, /id="recording-detail-transfer"[^>]*>Transfer record packet</);
+  assert.match(meetingNotesRoute, /Move to your workspace/);
+  assert.match(meetingNotesRoute, /Transfer to another organization/);
   assert.match(allRecordingsHtml, /id="recording-detail-transfer-link"/);
+  assert.match(allMeetingNotesRoute, /id="recording-detail-transfer-link"/);
   assert.match(recordings, /getMembershipRole\(activeMembership\) !== "account_admin"/);
   assert.match(recordings, /getMembershipRole\(membership\) === "account_admin"/);
   assert.match(recordings, /subscription_tier === "organization"/);
