@@ -86,6 +86,37 @@ test("meeting draft prompt requires section continuity and flags uncertain trans
   assert.match(prompt, /Never leave a section title with an empty bullet/i);
 });
 
+test("meeting draft prompt applies brief, standard, and detailed minutes guidance", () => {
+  const baseInput = {
+    recording: { title: "Council meeting" },
+    organization: { name: "Bonanza", records_default_minutes_style: "standard" },
+    template: null,
+    notesText: "The council discussed the project.",
+    transcriptText: "Discussion transcript",
+  };
+
+  const briefPrompt = buildPrompt({ ...baseInput, minutesStyle: "brief" });
+  const standardPrompt = buildPrompt(baseInput);
+  const detailedPrompt = buildPrompt({ ...baseInput, minutesStyle: "detailed" });
+
+  assert.match(briefPrompt, /Selected minutes style: brief/);
+  assert.match(briefPrompt, /compact official record/);
+  assert.match(standardPrompt, /Selected minutes style: standard/);
+  assert.match(standardPrompt, /balanced record/);
+  assert.match(detailedPrompt, /Selected minutes style: detailed/);
+  assert.match(detailedPrompt, /differing viewpoints/);
+});
+
+test("current meeting notes UI exposes a minutes style selector", async () => {
+  const html = await readFile(new URL("../../n3xra-records/meeting-notes/index.html", import.meta.url), "utf8");
+  const source = await readFile(new URL("../../n3xra-records/recordings.js", import.meta.url), "utf8");
+
+  assert.match(html, /name="recording-minutes-style" value="brief"/);
+  assert.match(html, /name="recording-minutes-style" value="standard"/);
+  assert.match(html, /name="recording-minutes-style" value="detailed"/);
+  assert.match(source, /JSON\.stringify\(\{ recordingId, minutesStyle:/);
+});
+
 test("PDF export keeps headings and list markers with their following content", async () => {
   const source = await readFile(pdfGeneratorPath, "utf8");
 

@@ -155,6 +155,8 @@ const recordingAiReviewPanel = document.getElementById("recording-ai-review-pane
 const recordingDetailClearReview = recordingAiReviewPanel?.querySelector('[data-review-action="clear"]');
 const recordingAiSuggestions = document.getElementById("recording-ai-suggestions");
 const recordingAiConflicts = document.getElementById("recording-ai-conflicts");
+const recordingMinutesStyleOptions = Array.from(document.querySelectorAll('input[name="recording-minutes-style"]'));
+const recordingMinutesStyleNote = document.getElementById("recording-minutes-style-note");
 const recordingDetailTranscriptCopy = document.getElementById("recording-detail-transcript-copy");
 const recordingDetailTranscriptText = document.getElementById("recording-detail-transcript-text");
 const recordingDetailPlay = document.getElementById("recording-detail-play");
@@ -197,6 +199,7 @@ const RECORDING_CHUNK_INTERVAL_MS = 20000;
 const MAX_RECORDING_AUDIO_BYTES = 250 * 1024 * 1024;
 const BLANK_NOTES_TEMPLATE_VALUE = "__blank_notes__";
 const HANDWRITTEN_NOTE_MAX_BYTES = 3 * 1024 * 1024;
+const MINUTES_STYLES = new Set(["brief", "standard", "detailed"]);
 const MIME_TYPE_CANDIDATES = [
   "audio/webm;codecs=opus",
   "audio/webm",
@@ -900,6 +903,7 @@ function isMissingRecordingWorkflowSchemaError(error) {
     message.includes("ai_draft_document_id") ||
     message.includes("processing_progress") ||
     message.includes("processing_stage") ||
+    message.includes("minutes_style") ||
     message.includes("schema cache")
   );
 }
@@ -1383,6 +1387,33 @@ function resolveRecordingsConfirm(value) {
 
 function getActiveOrganization() {
   return activeMembership?.organization || null;
+}
+
+function normalizeMinutesStyle(value, fallback = "standard") {
+  const style = String(value || "").trim().toLowerCase();
+  return MINUTES_STYLES.has(style) ? style : fallback;
+}
+
+function getSelectedMinutesStyle() {
+  const selected = recordingMinutesStyleOptions.find((option) => option.checked)?.value;
+  return normalizeMinutesStyle(selected, normalizeMinutesStyle(getActiveOrganization()?.records_default_minutes_style));
+}
+
+function renderMinutesStyle(recording) {
+  const libraryDefault = normalizeMinutesStyle(getActiveOrganization()?.records_default_minutes_style);
+  const meetingStyle = MINUTES_STYLES.has(String(recording?.minutes_style || "").toLowerCase())
+    ? String(recording.minutes_style).toLowerCase()
+    : "";
+  const activeStyle = meetingStyle || libraryDefault;
+  recordingMinutesStyleOptions.forEach((option) => {
+    option.checked = option.value === activeStyle;
+    option.disabled = !getActiveCapabilities().canEditDocuments || recording?.ai_review_status === "processing";
+  });
+  if (recordingMinutesStyleNote) {
+    recordingMinutesStyleNote.textContent = meetingStyle
+      ? `${activeStyle[0].toUpperCase()}${activeStyle.slice(1)} is saved for this meeting.`
+      : `Using the library default: ${libraryDefault[0].toUpperCase()}${libraryDefault.slice(1)}.`;
+  }
 }
 
 async function getFreshAccessToken() {
@@ -2357,7 +2388,8 @@ async function bootstrapAccess() {
         document_limit,
         user_limit,
         account_status,
-        owner_user_id
+        owner_user_id,
+        records_default_minutes_style
       )
     `)
     .eq("user_id", currentSession.user.id)
@@ -2504,6 +2536,7 @@ async function loadRecordings() {
       transcript_status,
       transcript_text,
       ai_review_status,
+      minutes_style,
       selected_template_id,
       started_at,
       ended_at,
@@ -2904,6 +2937,7 @@ function populateRecordingDetails(recording) {
   }
   renderDetailReferences(recording);
   renderAiReview(recording.ai_review_json || null);
+  renderMinutesStyle(recording);
   recordingDetailAiReview.textContent = recording.ai_review_status === "ready" ? "Regenerate AI review" : "Review with AI";
   recordingDetailAiReview.title = recording.ai_review_status === "ready"
     ? "Regenerate the AI draft while preserving applied suggestions."
@@ -3504,7 +3538,7 @@ async function handleRecordingSelection(recordingId) {
   if (recovered) setRecordPanelOpen(true, { scroll: true });
 }
 
-async function requestRecordingAiReview(recordingId) {
+async function requestRecordingAiReview(recordingId, minutesStyle) {
   const accessToken = await getFreshAccessToken();
   if (!accessToken) throw new Error("Your session expired. Sign in again and retry.");
 
@@ -3514,7 +3548,7 @@ async function requestRecordingAiReview(recordingId) {
       "Content-Type": "application/json",
       Authorization: `Bearer ${accessToken}`,
     },
-    body: JSON.stringify({ recordingId }),
+    body: JSON.stringify({ recordingId, minutesStyle: normalizeMinutesStyle(minutesStyle) }),
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data?.error || "Unable to review meeting notes.");
@@ -3574,7 +3608,7 @@ async function handleRecordingAiReview(recordingId) {
   );
 
   try {
-    const result = await requestRecordingAiReview(recording.id);
+    const result = await requestRecordingAiReview(recording.id, getSelectedMinutesStyle());
     if (result?.recording) {
       mergeRecordingUpdate(result.recording);
       populateRecordingDetails(getRecordingById(recording.id) || result.recording);
@@ -4831,6 +4865,13 @@ async function init() {
       button.getAttribute("data-review-action") || "",
       button.getAttribute("data-review-index")
     );
+  });
+  recordingMinutesStyleOptions.forEach((option) => {
+    option.addEventListener("change", () => {
+      if (!option.checked || !recordingMinutesStyleNote) return;
+      const label = `${option.value[0].toUpperCase()}${option.value.slice(1)}`;
+      recordingMinutesStyleNote.textContent = `${label} will be saved when you generate the AI draft.`;
+    });
   });
   recordingDetailNotes?.addEventListener("input", queueRecordingDetailNotesSave);
   recordingDetailAiDraftPreview?.addEventListener("input", () => {

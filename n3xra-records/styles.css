@@ -1349,6 +1349,69 @@ textarea {
   justify-content: flex-end;
 }
 
+.minutes-style-field {
+  display: grid;
+  gap: 0.55rem;
+  margin: 1rem 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.minutes-style-field legend {
+  margin-bottom: 0.55rem;
+  font-size: 0.76rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--teal);
+}
+
+.minutes-style-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.35rem;
+  padding: 0.3rem;
+  border: 1px solid rgba(15, 22, 32, 0.1);
+  border-radius: var(--radius-pill);
+  background: var(--fog);
+}
+
+.minutes-style-options label {
+  cursor: pointer;
+}
+
+.minutes-style-options input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.minutes-style-options span {
+  display: block;
+  padding: 0.62rem 0.8rem;
+  border-radius: var(--radius-pill);
+  text-align: center;
+  font-weight: 700;
+  color: var(--slate);
+  transition: background 160ms ease, color 160ms ease, box-shadow 160ms ease;
+}
+
+.minutes-style-options input:checked + span {
+  background: #fff;
+  color: var(--teal);
+  box-shadow: 0 1px 4px rgba(15, 22, 32, 0.12);
+}
+
+.minutes-style-options input:focus-visible + span {
+  outline: 2px solid var(--teal);
+  outline-offset: 2px;
+}
+
+.minutes-style-options input:disabled + span {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
 .recording-detail-panel-actions .recording-transfer-discreet {
   order: -1;
   margin-right: auto;

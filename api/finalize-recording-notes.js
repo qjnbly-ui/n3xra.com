@@ -22,6 +22,7 @@ const MAX_NOTES_CHARS = 30000;
 const MAX_TRANSCRIPT_CHARS = 70000;
 const MAX_CURRENT_DRAFT_CHARS = 45000;
 const MAX_REVIEW_DECISION_CHARS = 14000;
+const MINUTES_STYLES = new Set(["brief", "standard", "detailed"]);
 
 function parseJson(req) {
   if (req.body && typeof req.body === "object") return Promise.resolve(req.body);
@@ -115,7 +116,7 @@ async function loadRecording(recordingId) {
 
 async function loadOrganization(organizationId) {
   const rows = await fetchSupabaseJson(
-    `${SUPABASE_URL}/rest/v1/organizations?select=id,name,owner_user_id,subscription_tier&id=eq.${encodeFilter(organizationId)}&limit=1`,
+    `${SUPABASE_URL}/rest/v1/organizations?select=id,name,owner_user_id,subscription_tier,records_default_minutes_style&id=eq.${encodeFilter(organizationId)}&limit=1`,
     { headers: serviceHeaders() }
   );
   return Array.isArray(rows) ? rows[0] || null : null;
@@ -156,6 +157,30 @@ function normalizeWhitespace(value) {
     .replace(/[ \t]+\n/g, "\n")
     .replace(/\n{4,}/g, "\n\n\n")
     .trim();
+}
+
+function normalizeMinutesStyle(value, fallback = "standard") {
+  const style = String(value || "").trim().toLowerCase();
+  return MINUTES_STYLES.has(style) ? style : fallback;
+}
+
+function getMinutesStyleGuidance(value) {
+  const style = normalizeMinutesStyle(value);
+  const guidance = {
+    brief: [
+      "- Minutes style is BRIEF: produce a compact official record focused on decisions, motions, votes, and action items.",
+      "- Omit conversational detail and repeated context, but never omit a required template section or a material uncertainty.",
+    ],
+    standard: [
+      "- Minutes style is STANDARD: produce a balanced record with the main discussion context, decisions, and action items.",
+      "- Include enough rationale to make outcomes understandable without reproducing the conversation.",
+    ],
+    detailed: [
+      "- Minutes style is DETAILED: preserve substantive discussion, rationale, differing viewpoints, decisions, and action items.",
+      "- Keep meaningful wording and nuance where it affects interpretation, but do not create a transcript-like replay or repeat content.",
+    ],
+  };
+  return [`Selected minutes style: ${style}`, ...guidance[style]];
 }
 
 function stripMarkdownArtifacts(value) {
@@ -549,7 +574,7 @@ function cleanTitle(value, fallback) {
     .slice(0, 120) || "Meeting notes";
 }
 
-function buildPrompt({ recording, organization, template, notesText, transcriptText, previousReview = null, currentDraftText = "" }) {
+function buildPrompt({ recording, organization, template, notesText, transcriptText, previousReview = null, currentDraftText = "", minutesStyle = "" }) {
   const templateText = template
     ? normalizeWhitespace(templateNotesTextFromContentJson(template.content_json) || template.plain_text || plainTextFromContentJson(template.content_json))
     : "";
@@ -584,6 +609,7 @@ function buildPrompt({ recording, organization, template, notesText, transcriptT
     "- On regeneration, compare transcript details against the original template/notetaker notes and previous human decisions, not only against the current AI draft.",
     "- Do not return an empty suggested_additions array when the transcript contains unresolved details that would materially improve the document.",
     "- conflicts are places where the transcript and notes do not agree or where confidence is low.",
+    ...getMinutesStyleGuidance(minutesStyle || recording?.minutes_style || organization?.records_default_minutes_style),
     "",
     `Library: ${organization?.name || "Current library"}`,
     `Recording title: ${recording.title || "Untitled recording"}`,
@@ -870,7 +896,7 @@ function buildReviewDecisionContext(previousReview, currentDraftText = "") {
   ].join("\n");
 }
 
-function buildMergePrompt({ recording, organization, template, notesText, transcriptText, currentDraftText, acceptedItems, dismissedItems }) {
+function buildMergePrompt({ recording, organization, template, notesText, transcriptText, currentDraftText, acceptedItems, dismissedItems, minutesStyle = "" }) {
   const templateText = template
     ? normalizeWhitespace(templateNotesTextFromContentJson(template.content_json) || template.plain_text || plainTextFromContentJson(template.content_json))
     : "";
@@ -889,6 +915,7 @@ function buildMergePrompt({ recording, organization, template, notesText, transc
     "- Do not invent motions, votes, attendance, dates, dollar amounts, decisions, or action owners.",
     "- Use the transcript only as supporting evidence for the accepted additions and obvious missing details.",
     "- Keep labels as normal text, for example Date: June 12, 2026.",
+    ...getMinutesStyleGuidance(minutesStyle || recording?.minutes_style || organization?.records_default_minutes_style),
     "",
     `Library: ${organization?.name || "Current library"}`,
     `Recording title: ${recording.title || "Untitled recording"}`,
@@ -1036,7 +1063,11 @@ async function handler(req, res) {
     const recordingId = String(body.recordingId || "").trim();
     const acceptedSuggestionIndexes = Array.isArray(body.acceptedSuggestionIndexes) ? body.acceptedSuggestionIndexes : [];
     const hasEditedDraftText = Object.prototype.hasOwnProperty.call(body, "editedDraftText");
+    const requestedMinutesStyle = String(body.minutesStyle || "").trim().toLowerCase();
     if (!recordingId) return res.status(400).json({ error: "recordingId is required." });
+    if (requestedMinutesStyle && !MINUTES_STYLES.has(requestedMinutesStyle)) {
+      return res.status(400).json({ error: "minutesStyle must be brief, standard, or detailed." });
+    }
 
     recording = await loadRecording(recordingId);
     if (!recording) return res.status(404).json({ error: "Recording not found." });
@@ -1052,6 +1083,9 @@ async function handler(req, res) {
     const currentDraftDocument = await loadTargetDocument(recording).catch(() => null);
     const currentDraftText = normalizeWhitespace(
       currentDraftDocument?.plain_text || plainTextFromContentJson(currentDraftDocument?.content_json)
+    );
+    const minutesStyle = normalizeMinutesStyle(
+      requestedMinutesStyle || recording.minutes_style || organization.records_default_minutes_style
     );
 
     if (hasEditedDraftText) {
@@ -1099,6 +1133,7 @@ async function handler(req, res) {
     reviewStarted = true;
     await updateRecording(recording.id, {
       ai_review_status: "processing",
+      minutes_style: minutesStyle,
       processing_error: null,
     });
 
@@ -1145,6 +1180,7 @@ async function handler(req, res) {
         currentDraftText,
         acceptedItems,
         dismissedItems,
+        minutesStyle,
       });
 
       const rewriteResult = await rewriteRecordingDocument(prompt);
@@ -1160,6 +1196,7 @@ async function handler(req, res) {
         template_id: template?.id || markedReview.template_id || null,
         transcript_document_id: recording.document_id || markedReview.transcript_document_id || null,
         draft_document_id: updatedDocument?.id || currentDraftDocument.id,
+        minutes_style: minutesStyle,
         merged_at: new Date().toISOString(),
       };
       const recorded = await recordRecordsAiUsage({
@@ -1195,6 +1232,7 @@ async function handler(req, res) {
       transcriptText: recording.transcript_text,
       previousReview,
       currentDraftText,
+      minutesStyle,
     });
 
     const reviewResult = await reviewRecordingNotes(prompt);
@@ -1215,6 +1253,7 @@ async function handler(req, res) {
       template_id: template?.id || null,
       transcript_document_id: recording.document_id || null,
       draft_document_id: draftDocument?.id || null,
+      minutes_style: minutesStyle,
       generated_at: new Date().toISOString(),
     };
     const updatedRecording = await updateRecording(recording.id, {
@@ -1222,6 +1261,7 @@ async function handler(req, res) {
       ai_review_json: reviewJson,
       ai_reviewed_at: new Date().toISOString(),
       ai_draft_document_id: draftDocument?.id || recording.ai_draft_document_id || null,
+      minutes_style: minutesStyle,
       processing_error: null,
     });
 

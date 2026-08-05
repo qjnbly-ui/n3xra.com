@@ -76,6 +76,7 @@ create table if not exists public.organizations (
   records_ai_context text,
   records_ai_response_style text,
   records_ai_memory text,
+  records_default_minutes_style text not null default 'standard',
   stripe_customer_id text,
   stripe_subscription_id text,
   stripe_price_id text,
@@ -86,7 +87,9 @@ create table if not exists public.organizations (
   constraint organizations_subscription_tier_check
     check (subscription_tier in ('free', 'starter', 'organization')),
   constraint organizations_account_status_check
-    check (account_status in ('active', 'trialing', 'past_due', 'canceled', 'suspended'))
+    check (account_status in ('active', 'trialing', 'past_due', 'canceled', 'suspended')),
+  constraint organizations_records_default_minutes_style_check
+    check (records_default_minutes_style in ('brief', 'standard', 'detailed'))
 );
 
 create table if not exists public.organization_memberships (
@@ -289,6 +292,7 @@ create table if not exists public.meeting_recordings (
   notes_updated_at timestamptz,
   ai_review_json jsonb not null default '{}'::jsonb,
   ai_reviewed_at timestamptz,
+  minutes_style text,
   ai_draft_document_id uuid references public.app_documents (id) on delete set null,
   final_document_id uuid references public.app_documents (id) on delete set null,
   metadata jsonb not null default '{}'::jsonb,
@@ -304,6 +308,8 @@ create table if not exists public.meeting_recordings (
     check (jsonb_typeof(notes_content_json) = 'object'),
   constraint meeting_recordings_ai_review_json_object_check
     check (jsonb_typeof(ai_review_json) = 'object'),
+  constraint meeting_recordings_minutes_style_check
+    check (minutes_style is null or minutes_style in ('brief', 'standard', 'detailed')),
   constraint meeting_recordings_duration_check
     check (duration_seconds is null or duration_seconds >= 0),
   constraint meeting_recordings_processing_stage_check
@@ -541,7 +547,9 @@ $$;
 alter table public.organizations add column if not exists records_ai_context text;
 alter table public.organizations add column if not exists records_ai_response_style text;
 alter table public.organizations add column if not exists records_ai_memory text;
+alter table public.organizations add column if not exists records_default_minutes_style text not null default 'standard';
 alter table public.organizations add column if not exists logo_storage_path text;
+alter table public.meeting_recordings add column if not exists minutes_style text;
 alter table public.documents add column if not exists records_ai_note text;
 
 create table if not exists public.records_ai_usage_events (

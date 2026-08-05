@@ -213,6 +213,7 @@ const aiSettingsBody = document.getElementById("ai-settings-body");
 const organizationAiSettingsForm = document.getElementById("organization-ai-settings-form");
 const organizationAiContextInput = document.getElementById("organization-ai-context");
 const organizationAiResponseStyleInput = document.getElementById("organization-ai-response-style");
+const organizationDefaultMinutesStyleInput = document.getElementById("organization-default-minutes-style");
 const organizationAiMemoryInput = document.getElementById("organization-ai-memory");
 const organizationAiMemoryList = document.getElementById("organization-ai-memory-list");
 const organizationAiMemoryNewInput = document.getElementById("organization-ai-memory-new");
@@ -1887,7 +1888,7 @@ function handleAiMemoryBubbleKeydown(event) {
 function isMissingAiSettingsSchemaError(error) {
   const message = String(error?.message || "").toLowerCase();
   return (
-    (message.includes("records_ai_context") || message.includes("records_ai_response_style") || message.includes("records_ai_memory")) &&
+    (message.includes("records_ai_context") || message.includes("records_ai_response_style") || message.includes("records_ai_memory") || message.includes("records_default_minutes_style")) &&
     (message.includes("does not exist") || message.includes("schema cache"))
   );
 }
@@ -2822,7 +2823,8 @@ async function bootstrapAccess() {
           stripe_price_id,
           subscription_current_period_end,
           branded_primary_color,
-          branded_accent_color
+          branded_accent_color,
+          records_default_minutes_style
         )
       `)
       .eq("user_id", currentSession.user.id)
@@ -2846,7 +2848,7 @@ async function bootstrapAccess() {
   if (supportOrgId && isPlatformAdminEmail(currentSession.user.email)) {
     const { data: supportOrg, error: supportError } = await supabase
       .from("organizations")
-      .select("id, name, slug, owner_user_id, subscription_tier, account_status, document_limit, storage_limit_mb, user_limit, public_embed_enabled, public_embed_token, transcript_preview_enabled, keyword_search_enabled, file_preview_cards_enabled, hosted_public_portal_enabled, cancel_at_period_end, billing_cycle, branded_primary_color, branded_accent_color, stripe_customer_id, stripe_subscription_id, stripe_price_id, subscription_current_period_end")
+      .select("id, name, slug, owner_user_id, subscription_tier, account_status, document_limit, storage_limit_mb, user_limit, public_embed_enabled, public_embed_token, transcript_preview_enabled, keyword_search_enabled, file_preview_cards_enabled, hosted_public_portal_enabled, cancel_at_period_end, billing_cycle, branded_primary_color, branded_accent_color, records_default_minutes_style, stripe_customer_id, stripe_subscription_id, stripe_price_id, subscription_current_period_end")
       .eq("id", supportOrgId)
       .maybeSingle();
 
@@ -3218,7 +3220,7 @@ async function loadOrganizationAiSettings() {
 
   const { data, error } = await supabase
     .from("organizations")
-    .select("id, records_ai_context, records_ai_response_style, records_ai_memory")
+    .select("id, records_ai_context, records_ai_response_style, records_ai_memory, records_default_minutes_style")
     .eq("id", organization.id)
     .maybeSingle();
 
@@ -3586,6 +3588,9 @@ function renderProfile() {
   organizationAccentColorInput.value = normalizeHexColor(organization?.branded_accent_color, DEFAULT_ACCENT_COLOR);
   organizationAiContextInput.value = organization?.records_ai_context || "";
   organizationAiResponseStyleInput.value = organization?.records_ai_response_style || "";
+  organizationDefaultMinutesStyleInput.value = ["brief", "standard", "detailed"].includes(organization?.records_default_minutes_style)
+    ? organization.records_default_minutes_style
+    : "standard";
   organizationAiMemoryInput.value = organization?.records_ai_memory || "";
   renderLibraryLogo();
   renderAiMemoryBubbles();
@@ -3599,6 +3604,7 @@ function renderProfile() {
   if (libraryLogoRemove) libraryLogoRemove.disabled = !organization?.logo_storage_path || !capabilities.canManageLibrarySettings;
   organizationAiContextInput.disabled = !capabilities.canManageLibrarySettings;
   organizationAiResponseStyleInput.disabled = !capabilities.canManageLibrarySettings;
+  organizationDefaultMinutesStyleInput.disabled = !capabilities.canManageLibrarySettings;
   organizationAiMemoryInput.disabled = !capabilities.canManageLibrarySettings;
   organizationAiMemoryNewInput.disabled = !capabilities.canManageLibrarySettings;
   organizationAiMemoryAdd.disabled = !capabilities.canManageLibrarySettings;
@@ -4590,13 +4596,16 @@ async function handleOrganizationAiSettingsSave(event) {
     records_ai_context: trimOrNull(organizationAiContextInput.value),
     records_ai_response_style: trimOrNull(organizationAiResponseStyleInput.value),
     records_ai_memory: trimOrNull(organizationAiMemoryInput.value),
+    records_default_minutes_style: ["brief", "standard", "detailed"].includes(organizationDefaultMinutesStyleInput.value)
+      ? organizationDefaultMinutesStyleInput.value
+      : "standard",
   };
 
   const { data, error } = await supabase
     .from("organizations")
     .update(updates)
     .eq("id", organization.id)
-    .select("id, records_ai_context, records_ai_response_style, records_ai_memory")
+    .select("id, records_ai_context, records_ai_response_style, records_ai_memory, records_default_minutes_style")
     .single();
 
   organizationAiSettingsSave.disabled = false;
