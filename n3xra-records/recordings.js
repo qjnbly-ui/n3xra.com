@@ -2723,6 +2723,8 @@ async function correctRecordingSpeakerName() {
   if (!recording || !speakers.length || !currentSession?.access_token) return;
   await openSpeakerCorrectionModal({
     speakers,
+    utterances: recording.speaker_identification_json?.utterances || [],
+    audioElement: recordingDetailPlayer,
     trigger: recordingDetailCorrectSpeaker,
     onSubmit: async ({ speakerKey, displayName }) => {
       recordingDetailCorrectSpeaker.disabled = true;

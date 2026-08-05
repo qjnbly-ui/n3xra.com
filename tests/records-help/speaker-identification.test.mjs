@@ -113,11 +113,29 @@ test("editors can correct a speaker label across the transcript and saved docume
   assert.match(correctionModal, /Choose a speaker/);
   assert.match(correctionModal, /Correct name/);
   assert.match(correctionModal, /Save correction/);
+  assert.match(correctionModal, /Play sample/);
+  assert.match(correctionModal, /audioElement\.currentTime = sample\.start/);
   assert.match(correctionModal, /aria-modal="true"/);
   assert.match(correctionModal, /event\.key === "Escape"/);
   assert.match(correctionApi, /utterance\.speakerKey === speakerKey/);
   assert.match(correctionApi, /speakerTranscriptFromUtterances/);
   assert.match(correctionApi, /uploadTranscriptDocument/);
+});
+
+test("speaker correction chooses a useful, bounded voice sample", async () => {
+  const { findSpeakerSample } = await import(correctionModalPath);
+  const utterances = [
+    { speakerKey: "unknown:SPEAKER_00", start: 1, end: 3, text: "Short sample." },
+    { speakerKey: "unknown:SPEAKER_01", start: 4, end: 20, text: "Different speaker." },
+    { speakerKey: "unknown:SPEAKER_00", start: 22, end: 34, text: "The clearest longer sample." },
+  ];
+
+  assert.deepEqual(findSpeakerSample(utterances, "unknown:SPEAKER_00"), {
+    start: 22,
+    end: 30,
+    text: "The clearest longer sample.",
+  });
+  assert.equal(findSpeakerSample(utterances, "unknown:SPEAKER_99"), null);
 });
 
 test("speaker detection is enabled by default and can be disabled in AI settings", async () => {

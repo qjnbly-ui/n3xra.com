@@ -47,7 +47,41 @@ function formatSpeakerNote(speaker) {
   return "Detected in this meeting";
 }
 
-export function openSpeakerCorrectionModal({ speakers = [], trigger = null, onSubmit }) {
+export function findSpeakerSample(utterances = [], speakerKey, maxDuration = 8) {
+  const candidates = utterances
+    .filter((utterance) => utterance?.speakerKey === speakerKey)
+    .map((utterance) => ({
+      start: Number(utterance.start),
+      end: Number(utterance.end),
+      text: String(utterance.text || "").trim(),
+    }))
+    .filter((utterance) => Number.isFinite(utterance.start)
+      && Number.isFinite(utterance.end)
+      && utterance.end > utterance.start)
+    .sort((a, b) => (b.end - b.start) - (a.end - a.start) || a.start - b.start);
+  const selected = candidates[0];
+  if (!selected) return null;
+  return {
+    start: Math.max(0, selected.start),
+    end: Math.min(selected.end, selected.start + Math.max(2, maxDuration)),
+    text: selected.text,
+  };
+}
+
+function resetSampleButton(button) {
+  if (!button) return;
+  button.classList.remove("is-playing");
+  button.textContent = "Play sample";
+  button.setAttribute("aria-label", `Play voice sample for ${button.dataset.speakerName || "this speaker"}`);
+}
+
+export function openSpeakerCorrectionModal({
+  speakers = [],
+  utterances = [],
+  audioElement = null,
+  trigger = null,
+  onSubmit,
+}) {
   const choices = speakers.filter((speaker) => speaker?.speakerKey);
   if (!choices.length || typeof onSubmit !== "function") return Promise.resolve(false);
 
@@ -65,11 +99,18 @@ export function openSpeakerCorrectionModal({ speakers = [], trigger = null, onSu
   const { signal } = controller;
   let selectedIndex = 0;
   let isSaving = false;
+  let activeSampleButton = null;
+  let activeSampleEnd = null;
+  const originalAudioTime = Number.isFinite(audioElement?.currentTime) ? audioElement.currentTime : 0;
+
+  if (audioElement && !audioElement.paused) audioElement.pause();
 
   options.replaceChildren();
   choices.forEach((speaker, index) => {
+    const row = document.createElement("div");
+    row.className = "speaker-correction-option";
     const label = document.createElement("label");
-    label.className = "speaker-correction-option";
+    label.className = "speaker-correction-option-select";
 
     const radio = document.createElement("input");
     radio.type = "radio";
@@ -90,8 +131,21 @@ export function openSpeakerCorrectionModal({ speakers = [], trigger = null, onSu
     note.textContent = formatSpeakerNote(speaker);
     copy.append(title, note);
 
+    const sample = findSpeakerSample(utterances, speaker.speakerKey);
+    const sampleButton = document.createElement("button");
+    sampleButton.className = "speaker-correction-sample";
+    sampleButton.type = "button";
+    sampleButton.textContent = sample ? "Play sample" : "No sample";
+    sampleButton.disabled = !sample;
+    sampleButton.dataset.speakerSampleIndex = String(index);
+    sampleButton.dataset.speakerName = title.textContent;
+    sampleButton.setAttribute("aria-label", sample
+      ? `Play voice sample for ${title.textContent}`
+      : `No voice sample available for ${title.textContent}`);
+
     label.append(radio, marker, copy);
-    options.append(label);
+    row.append(label, sampleButton);
+    options.append(row);
   });
 
   const updateSaveState = () => {
@@ -111,8 +165,25 @@ export function openSpeakerCorrectionModal({ speakers = [], trigger = null, onSu
   };
 
   return new Promise((resolve) => {
+    const stopSample = ({ restorePosition = false } = {}) => {
+      if (audioElement) {
+        audioElement.pause();
+        if (restorePosition && Number.isFinite(originalAudioTime)) {
+          try {
+            audioElement.currentTime = originalAudioTime;
+          } catch {
+            // The source may still be loading; leaving it paused is safe.
+          }
+        }
+      }
+      resetSampleButton(activeSampleButton);
+      activeSampleButton = null;
+      activeSampleEnd = null;
+    };
+
     const close = (saved = false) => {
       if (isSaving && !saved) return;
+      stopSample({ restorePosition: true });
       controller.abort();
       modal.classList.remove("is-open");
       modal.setAttribute("aria-hidden", "true");
@@ -124,7 +195,63 @@ export function openSpeakerCorrectionModal({ speakers = [], trigger = null, onSu
 
     options.addEventListener("change", (event) => {
       const radio = event.target.closest('input[name="speaker-correction-choice"]');
-      if (radio) selectSpeaker(Number.parseInt(radio.value, 10), true);
+      if (radio) {
+        stopSample();
+        selectSpeaker(Number.parseInt(radio.value, 10), true);
+      }
+    }, { signal });
+    options.addEventListener("click", async (event) => {
+      const button = event.target.closest("[data-speaker-sample-index]");
+      if (!button || button.disabled) return;
+      const index = Number.parseInt(button.dataset.speakerSampleIndex, 10);
+      const sample = findSpeakerSample(utterances, choices[index]?.speakerKey);
+      if (!sample || !audioElement) return;
+
+      const radio = options.querySelector(`input[name="speaker-correction-choice"][value="${index}"]`);
+      if (radio) radio.checked = true;
+      if (index !== selectedIndex) selectSpeaker(index);
+
+      if (activeSampleButton === button && !audioElement.paused) {
+        stopSample();
+        status.textContent = "Voice sample stopped.";
+        status.className = "status speaker-correction-status";
+        return;
+      }
+      if (!audioElement.currentSrc && !audioElement.getAttribute("src")) {
+        status.textContent = "The recording audio is still loading. Try the sample again in a moment.";
+        status.className = "status speaker-correction-status notice";
+        return;
+      }
+
+      stopSample();
+      activeSampleButton = button;
+      activeSampleEnd = sample.end;
+      button.classList.add("is-playing");
+      button.textContent = "Stop sample";
+      button.setAttribute("aria-label", `Stop voice sample for ${button.dataset.speakerName}`);
+      status.textContent = `Playing a short sample of ${button.dataset.speakerName}.`;
+      status.className = "status speaker-correction-status notice";
+      try {
+        audioElement.currentTime = sample.start;
+        await audioElement.play();
+      } catch {
+        stopSample();
+        status.textContent = "The voice sample could not play. Try again after the recording finishes loading.";
+        status.className = "status speaker-correction-status error";
+      }
+    }, { signal });
+    audioElement?.addEventListener("timeupdate", () => {
+      if (activeSampleEnd !== null && audioElement.currentTime >= activeSampleEnd) {
+        stopSample();
+        status.textContent = "Voice sample finished.";
+        status.className = "status speaker-correction-status";
+      }
+    }, { signal });
+    audioElement?.addEventListener("ended", () => {
+      if (!activeSampleButton) return;
+      stopSample();
+      status.textContent = "Voice sample finished.";
+      status.className = "status speaker-correction-status";
     }, { signal });
     nameInput.addEventListener("input", updateSaveState, { signal });
     cancelButton.addEventListener("click", () => close(false), { signal });
@@ -161,6 +288,7 @@ export function openSpeakerCorrectionModal({ speakers = [], trigger = null, onSu
         return;
       }
 
+      stopSample();
       isSaving = true;
       saveButton.textContent = "Saving…";
       updateSaveState();
