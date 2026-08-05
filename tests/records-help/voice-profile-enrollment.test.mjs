@@ -7,6 +7,7 @@ const require = createRequire(import.meta.url);
 const voiceProfileApi = require("../../api/records-voice-profile.js");
 const accountPath = new URL("../../n3xra-records/account/index.html", import.meta.url);
 const dashboardPath = new URL("../../n3xra-records/dashboard.js", import.meta.url);
+const desktopShellPath = new URL("../../n3xra-records/lib/desktop-shell.js", import.meta.url);
 const migrationPath = new URL(
   "../../supabase/migrations/20260805144642_records_voice_profiles.sql",
   import.meta.url,
@@ -38,9 +39,10 @@ test("voice enrollment validates the supported recording envelope", () => {
 });
 
 test("voice enrollment is self-service and explicitly consent based", async () => {
-  const [account, dashboard] = await Promise.all([
+  const [account, dashboard, desktopShell] = await Promise.all([
     readFile(accountPath, "utf8"),
     readFile(dashboardPath, "utf8"),
+    readFile(desktopShellPath, "utf8"),
   ]);
 
   assert.match(account, /id="voice-profile-consent"/);
@@ -50,6 +52,8 @@ test("voice enrollment is self-service and explicitly consent based", async () =
   assert.match(dashboard, /consent: true/);
   assert.match(dashboard, /method: "DELETE"/);
   assert.match(dashboard, /voice: canSeeVoiceProfiles/);
+  assert.match(desktopShell, /\{ label: "Voice profiles", view: "voice" \}/);
+  assert.match(desktopShell, /account\.voice.*view=voice.*admin-voice-panel/);
 });
 
 test("voiceprints are isolated behind the server role", async () => {

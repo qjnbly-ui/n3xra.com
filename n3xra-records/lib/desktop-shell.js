@@ -81,6 +81,7 @@ const RECORDS_AI_ACTIONS = Object.freeze({
   "account.phone": { label: "Open Phone Meetings", href: "/n3xra-records/account/?view=phone", selector: "#admin-phone-panel" },
   "account.ai": { label: "Open AI settings", href: "/n3xra-records/account/?view=ai", selector: "#admin-ai-panel" },
   "account.users": { label: "Open Users", href: "/n3xra-records/account/?view=users", selector: "#admin-users-panel" },
+  "account.voice": { label: "Open Voice profiles", href: "/n3xra-records/account/?view=voice", selector: "#admin-voice-panel" },
   "account.contacts": { label: "Open Contacts", href: "/n3xra-records/account/?view=contacts", selector: "#admin-contacts-panel" },
   "account.access": { label: "Open Invites & access", href: "/n3xra-records/account/?view=access", selector: "#admin-access-panel" },
   "account.storage": { label: "Open Storage", href: "/n3xra-records/account/?view=storage", selector: "#admin-storage-panel" },
@@ -110,6 +111,7 @@ const RECORDS_MANAGE_GROUPS = [
     label: "People and access",
     links: [
       { label: "Users", view: "users" },
+      { label: "Voice profiles", view: "voice" },
       { label: "Contacts", view: "contacts" },
       { label: "Invites & access", view: "access" },
     ],
@@ -870,6 +872,7 @@ function getRecordsAiSelectionLabel(action, destination) {
       phone: "Phone Meetings",
       ai: "AI settings",
       users: "Users",
+      voice: "Voice profiles",
       contacts: "Contacts",
       access: "Invites & access",
       storage: "Storage",
