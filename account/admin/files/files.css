@@ -28,4 +28,14 @@
 .n3xra-access-options { display:flex; flex-wrap:wrap; gap:.6rem 1rem; padding:.9rem 0; }
 .n3xra-access-options label { display:flex; gap:.4rem; align-items:center; font-size:.9rem; }
 .n3xra-empty { padding:2.5rem 1rem; color:var(--portal-muted); border:1px dashed var(--portal-line); border-radius:12px; text-align:center; }
+.n3xra-modal[hidden] { display:none; }
+.n3xra-modal { position:fixed; inset:0; z-index:100; display:grid; place-items:center; padding:1.25rem; }
+.n3xra-modal-scrim { position:absolute; inset:0; background:rgba(4,10,18,.66); backdrop-filter:blur(5px); }
+.n3xra-modal-dialog { position:relative; width:min(460px,100%); padding:1.7rem; background:#fff; border:1px solid rgba(8,17,29,.1); border-radius:18px; box-shadow:0 24px 70px rgba(0,0,0,.28); }
+.n3xra-modal-dialog h2 { margin:.35rem 0 .6rem; font-family:Fraunces,Georgia,serif; font-size:1.8rem; }
+.n3xra-modal-dialog p:not(.portal-kicker) { margin:0; color:var(--portal-muted); line-height:1.55; overflow-wrap:anywhere; }
+.n3xra-modal-actions { display:flex; justify-content:flex-end; gap:.65rem; margin-top:1.5rem; }
+.n3xra-danger-button { background:#9f3535; border-color:#9f3535; color:#fff; }
+.n3xra-danger-button:hover, .n3xra-danger-button:focus-visible { background:#812626; border-color:#812626; color:#fff; }
+body.n3xra-modal-open { overflow:hidden; }
 @media (max-width:700px) { .n3xra-files-toolbar, .n3xra-file-row { grid-template-columns:1fr; display:grid; } .n3xra-files-actions, .n3xra-file-controls { justify-content:flex-start; } }

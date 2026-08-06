@@ -166,9 +166,34 @@ async function downloadFile(id) {
   } catch (error) { fileStatus(error.message, "error"); }
 }
 
+function confirmDelete(fileName) {
+  const modal = document.getElementById("file-confirm-modal");
+  const copy = document.getElementById("file-confirm-copy");
+  const confirmButton = document.getElementById("file-confirm-delete");
+  if (!modal || !copy || !confirmButton) return Promise.resolve(false);
+  copy.textContent = `“${fileName}” will be permanently removed from N3XRA Files.`;
+  modal.hidden = false;
+  document.body.classList.add("n3xra-modal-open");
+  return new Promise((resolve) => {
+    const finish = (confirmed) => {
+      modal.hidden = true;
+      document.body.classList.remove("n3xra-modal-open");
+      confirmButton.onclick = null;
+      modal.querySelectorAll("[data-modal-cancel]").forEach((element) => { element.onclick = null; });
+      document.removeEventListener("keydown", onKeyDown);
+      resolve(confirmed);
+    };
+    const onKeyDown = (event) => { if (event.key === "Escape") finish(false); };
+    confirmButton.onclick = () => finish(true);
+    modal.querySelectorAll("[data-modal-cancel]").forEach((element) => { element.onclick = () => finish(false); });
+    document.addEventListener("keydown", onKeyDown);
+    confirmButton.focus();
+  });
+}
+
 async function deleteFile(id) {
   const file = fileState.files.find((item) => String(item.id) === String(id));
-  if (!file || !window.confirm(`Delete ${file.name}?`)) return;
+  if (!file || !(await confirmDelete(file.name))) return;
   fileStatus("Deleting file…");
   try { await fileInvoke("delete-n3xra-file", { fileId: id }); await loadFiles(); }
   catch (error) { fileStatus(error.message, "error"); }
@@ -209,6 +234,11 @@ export async function startFiles({ supabase, invoke }) {
     const download = event.target.closest("[data-file-download]");
     const remove = event.target.closest("[data-file-delete]");
     const save = event.target.closest("[data-file-save-access]");
+    if (folder) {
+      currentFolderPath = folder.dataset.folderPath || "";
+      renderFiles();
+      return;
+    }
     if (download) downloadFile(download.dataset.fileDownload);
     if (remove) deleteFile(remove.dataset.fileDelete);
     if (save) saveAccess(save);
@@ -220,8 +250,3 @@ export async function startFiles({ supabase, invoke }) {
     renderFiles();
   });
 }
-    if (folder) {
-      currentFolderPath = folder.dataset.folderPath || "";
-      renderFiles();
-      return;
-    }

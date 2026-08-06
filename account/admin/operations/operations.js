@@ -6,6 +6,7 @@ import {
   parseCsv,
   rowsToObjects,
 } from "/lib/operations/import-review.mjs";
+import { confirmAdminAction, promptAdminText } from "/account/admin/admin-dialogs.js";
 
 let supabase;
 let session;
@@ -356,7 +357,7 @@ async function importStripeInvoices() {
   const ids = $$('[data-stripe-invoice]:checked').map((input) => input.dataset.stripeInvoice);
   const errorBox = $("#ops-stripe-sync-error");
   if (!ids.length) return errorBox.textContent = "Choose at least one invoice to import.";
-  if (!window.confirm(`Import ${ids.length} selected Stripe invoice${ids.length === 1 ? "" : "s"} into Operations? Paid invoices will also create revenue entries.`)) return;
+  if (!(await confirmAdminAction(`Import ${ids.length} selected Stripe invoice${ids.length === 1 ? "" : "s"} into Operations? Paid invoices will also create revenue entries.`, { title: "Import Stripe invoices", confirmLabel: "Import invoices" }))) return;
   const button = document.querySelector("[data-stripe-import]");
   errorBox.textContent = "";
   button.disabled = true;
@@ -1088,7 +1089,7 @@ async function updateImportField(control) {
 async function addImportCategory(id) {
   const row = state.importRows.find((item) => item.id === id);
   if (!row || row.status === "posted") return;
-  const entered = window.prompt("New expense category name:");
+  const entered = await promptAdminText("Enter a new category name for this expense.", { title: "Add expense category", inputLabel: "Category name" });
   if (entered === null) return;
   const category = entered.trim().replace(/\s+/g, " ");
   if (!category || category.length > 120 || !isResolvedExpenseCategory(category)) {
@@ -1164,7 +1165,7 @@ async function postImportBatch() {
   if (pending) return setStatus(`${pending} transactions still need an approval or exclusion decision.`, "error");
   if (!approved.length) return setStatus("Approve at least one business expense before posting.", "error");
   const total = approved.reduce((sum, row) => sum + Number(row.deductible_cents || 0), 0);
-  if (!window.confirm(`Post ${approved.length} approved expenses totaling ${moneyCents(total)} to the permanent Operations ledger? Posted rows cannot be edited; corrections must be voided.`)) return;
+  if (!(await confirmAdminAction(`Post ${approved.length} approved expenses totaling ${moneyCents(total)} to the permanent Operations ledger? Posted rows cannot be edited; corrections must be voided.`, { title: "Post approved expenses", confirmLabel: "Post expenses" }))) return;
   const button = $("[data-import-post]");
   button.disabled = true;
   button.textContent = "Posting…";

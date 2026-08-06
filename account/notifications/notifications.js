@@ -6,10 +6,10 @@ import {
 import { isPlatformAdminEmail } from "/shared/lib/orgs.js";
 import { arrangeAdminWorkspace } from "/account/admin/admin-navigation.js?v=3";
 
-let setupPanel, notificationPanel, accountNavLink, notificationProductInput, notificationChannelInput, notificationSubjectInput, notificationCtaUrlInput, notificationPreheaderInput, notificationMessageInput, notificationCtaLabelInput, notificationFilterInput, notificationLoadRecipientsButton, notificationSelectVisibleButton, notificationClearSelectedButton, notificationSelectedCount, notificationLoadedCount, notificationRecipientList, notificationReviewButton, notificationStatus, notificationReviewModal, notificationReviewClose, notificationReviewCancel, notificationReviewProduct, notificationReviewCount, notificationReviewChannel, notificationReviewSubject, notificationEmailPreview, notificationSendButton, notificationReviewStatus;
+let setupPanel, notificationPanel, accountNavLink, notificationProductInput, notificationChannelInput, notificationSubjectInput, notificationCtaUrlInput, notificationPreheaderInput, notificationMessageInput, notificationMessageCount, notificationCtaLabelInput, notificationFilterInput, notificationLoadRecipientsButton, notificationSelectVisibleButton, notificationClearSelectedButton, notificationClearDraftButton, notificationSelectedCount, notificationLoadedCount, notificationRecipientList, notificationReviewButton, notificationStatus, notificationReviewModal, notificationReviewClose, notificationReviewCancel, notificationReviewProduct, notificationReviewCount, notificationReviewChannel, notificationReviewSubject, notificationEmailPreview, notificationSendButton, notificationReviewStatus;
 
 function bindNotificationDom() {
-  setupPanel = document.getElementById("setup-panel"); notificationPanel = document.getElementById("notification-panel"); accountNavLink = document.getElementById("account-nav-link"); notificationProductInput = document.getElementById("notification-product"); notificationChannelInput = document.getElementById("notification-channel"); notificationSubjectInput = document.getElementById("notification-subject"); notificationCtaUrlInput = document.getElementById("notification-cta-url"); notificationPreheaderInput = document.getElementById("notification-preheader"); notificationMessageInput = document.getElementById("notification-message"); notificationCtaLabelInput = document.getElementById("notification-cta-label"); notificationFilterInput = document.getElementById("notification-filter"); notificationLoadRecipientsButton = document.getElementById("notification-load-recipients"); notificationSelectVisibleButton = document.getElementById("notification-select-visible"); notificationClearSelectedButton = document.getElementById("notification-clear-selected"); notificationSelectedCount = document.getElementById("notification-selected-count"); notificationLoadedCount = document.getElementById("notification-loaded-count"); notificationRecipientList = document.getElementById("notification-recipient-list"); notificationReviewButton = document.getElementById("notification-review"); notificationStatus = document.getElementById("notification-status"); notificationReviewModal = document.getElementById("notification-review-modal"); notificationReviewClose = document.getElementById("notification-review-close"); notificationReviewCancel = document.getElementById("notification-review-cancel"); notificationReviewProduct = document.getElementById("notification-review-product"); notificationReviewCount = document.getElementById("notification-review-count"); notificationReviewChannel = document.getElementById("notification-review-channel"); notificationReviewSubject = document.getElementById("notification-review-subject"); notificationEmailPreview = document.getElementById("notification-email-preview"); notificationSendButton = document.getElementById("notification-send"); notificationReviewStatus = document.getElementById("notification-review-status");
+  setupPanel = document.getElementById("setup-panel"); notificationPanel = document.getElementById("notification-panel"); accountNavLink = document.getElementById("account-nav-link"); notificationProductInput = document.getElementById("notification-product"); notificationChannelInput = document.getElementById("notification-channel"); notificationSubjectInput = document.getElementById("notification-subject"); notificationCtaUrlInput = document.getElementById("notification-cta-url"); notificationPreheaderInput = document.getElementById("notification-preheader"); notificationMessageInput = document.getElementById("notification-message"); notificationMessageCount = document.getElementById("notification-message-count"); notificationCtaLabelInput = document.getElementById("notification-cta-label"); notificationFilterInput = document.getElementById("notification-filter"); notificationLoadRecipientsButton = document.getElementById("notification-load-recipients"); notificationSelectVisibleButton = document.getElementById("notification-select-visible"); notificationClearSelectedButton = document.getElementById("notification-clear-selected"); notificationClearDraftButton = document.getElementById("notification-clear-draft"); notificationSelectedCount = document.getElementById("notification-selected-count"); notificationLoadedCount = document.getElementById("notification-loaded-count"); notificationRecipientList = document.getElementById("notification-recipient-list"); notificationReviewButton = document.getElementById("notification-review"); notificationStatus = document.getElementById("notification-status"); notificationReviewModal = document.getElementById("notification-review-modal"); notificationReviewClose = document.getElementById("notification-review-close"); notificationReviewCancel = document.getElementById("notification-review-cancel"); notificationReviewProduct = document.getElementById("notification-review-product"); notificationReviewCount = document.getElementById("notification-review-count"); notificationReviewChannel = document.getElementById("notification-review-channel"); notificationReviewSubject = document.getElementById("notification-review-subject"); notificationEmailPreview = document.getElementById("notification-email-preview"); notificationSendButton = document.getElementById("notification-send"); notificationReviewStatus = document.getElementById("notification-review-status");
 }
 
 let supabase = null;
@@ -69,6 +69,16 @@ function getNotificationProductLabel(productId = notificationProductInput?.value
   return PRODUCT_LABELS[productId] || PRODUCT_LABELS.records;
 }
 
+function syncNotificationComposer() {
+  const isTextOnly = notificationChannelInput?.value === "sms";
+  document.querySelectorAll("[data-notification-email-only]").forEach((field) => {
+    field.hidden = isTextOnly;
+  });
+  if (notificationMessageCount) {
+    notificationMessageCount.textContent = `${notificationMessageInput?.value.length || 0} / 8,000`;
+  }
+}
+
 function getFilteredNotificationRecipients() {
   const query = String(notificationFilterInput?.value || "").trim().toLowerCase();
   if (!query) return notificationRecipients;
@@ -102,13 +112,13 @@ function renderNotificationRecipients() {
   notificationRecipientList.innerHTML = "";
 
   if (!notificationRecipients.length) {
-    notificationRecipientList.innerHTML = '<tr><td colspan="6">Load accounts to choose recipients.</td></tr>';
+    notificationRecipientList.innerHTML = '<div class="notification-empty-state">Load an audience to view accounts.</div>';
     updateNotificationCounts();
     return;
   }
 
   if (!recipients.length) {
-    notificationRecipientList.innerHTML = '<tr><td colspan="6">No accounts match this filter.</td></tr>';
+    notificationRecipientList.innerHTML = '<div class="notification-empty-state">No accounts match this search.</div>';
     updateNotificationCounts();
     return;
   }
@@ -116,14 +126,17 @@ function renderNotificationRecipients() {
   recipients.forEach((recipient) => {
     const email = normalizeEmail(recipient.email);
     const checked = selectedNotificationEmails.has(email) ? " checked" : "";
-    const row = document.createElement("tr");
+    const row = document.createElement("label");
+    row.className = "notification-recipient-row";
     row.innerHTML = `
-      <td><input type="checkbox" data-notification-email="${escapeHtml(email)}"${checked}></td>
-      <td><strong>${escapeHtml(recipient.name || recipient.email)}</strong><br><small>${escapeHtml(recipient.email)}</small></td>
-      <td>${escapeHtml(recipient.productLabel || getNotificationProductLabel())}</td>
-      <td>${escapeHtml([recipient.plan, recipient.status].filter(Boolean).join(" / ") || "-")}</td>
-      <td>${escapeHtml(recipient.context || "-")}</td>
-      <td><span class="notification-sms-badge${recipient.smsOptedIn ? " is-active" : ""}">${recipient.smsOptedIn ? "Opted in" : "Not available"}</span></td>
+      <input type="checkbox" data-notification-email="${escapeHtml(email)}"${checked}>
+      <span class="notification-recipient-avatar">${escapeHtml(String(recipient.name || recipient.email).trim().charAt(0).toUpperCase() || "N")}</span>
+      <span class="notification-recipient-copy">
+        <strong>${escapeHtml(recipient.name || recipient.email)}</strong>
+        <small>${escapeHtml(recipient.email)}</small>
+        <span>${escapeHtml([recipient.plan, recipient.status].filter(Boolean).join(" · ") || recipient.context || recipient.productLabel || "N3XRA account")}</span>
+      </span>
+      <span class="notification-sms-badge${recipient.smsOptedIn ? " is-active" : ""}">${recipient.smsOptedIn ? "SMS" : "Email"}</span>
     `;
     notificationRecipientList.append(row);
   });
@@ -182,6 +195,18 @@ function selectVisibleNotificationRecipients() {
 function clearNotificationRecipients() {
   selectedNotificationEmails = new Set();
   renderNotificationRecipients();
+}
+
+function clearNotificationDraft() {
+  notificationSubjectInput.value = "";
+  notificationPreheaderInput.value = "";
+  notificationMessageInput.value = "";
+  notificationCtaLabelInput.value = "";
+  notificationCtaUrlInput.value = "";
+  notificationChannelInput.value = "email";
+  setStatus(notificationStatus, "");
+  syncNotificationComposer();
+  notificationSubjectInput.focus();
 }
 
 function getSelectedNotificationRecipients() {
@@ -301,11 +326,14 @@ function bindEvents() {
     window.location.assign("/account");
   });
   notificationProductInput?.addEventListener("change", resetNotificationRecipients);
+  notificationChannelInput?.addEventListener("change", syncNotificationComposer);
+  notificationMessageInput?.addEventListener("input", syncNotificationComposer);
   notificationLoadRecipientsButton?.addEventListener("click", loadNotificationRecipients);
   notificationFilterInput?.addEventListener("input", renderNotificationRecipients);
   notificationRecipientList?.addEventListener("change", handleNotificationRecipientToggle);
   notificationSelectVisibleButton?.addEventListener("click", selectVisibleNotificationRecipients);
   notificationClearSelectedButton?.addEventListener("click", clearNotificationRecipients);
+  notificationClearDraftButton?.addEventListener("click", clearNotificationDraft);
   notificationReviewButton?.addEventListener("click", handleNotificationReview);
   notificationReviewClose?.addEventListener("click", () => setNotificationReviewOpen(false));
   notificationReviewCancel?.addEventListener("click", () => setNotificationReviewOpen(false));
@@ -340,6 +368,7 @@ export async function startNotifications() {
   show(notificationPanel, true);
   arrangeAdminWorkspace();
   bindEvents();
+  syncNotificationComposer();
 }
 
 if (!window.__n3xraAdminSoftNavigation) startNotifications();

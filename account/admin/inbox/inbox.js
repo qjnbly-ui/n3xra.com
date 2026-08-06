@@ -1,5 +1,6 @@
 import { createBrowserSupabase, hasConfig } from "/shared/lib/supabase-client.js";
 import { verifyPlatformAdmin } from "/client-portal/admin-access.js";
+import { confirmAdminAction } from "/account/admin/admin-dialogs.js";
 
 const list = document.getElementById("notification-list");
 const status = document.getElementById("admin-inbox-status");
@@ -87,7 +88,7 @@ async function act(action, id) {
   if (action === "trash") return update(id, { deleted_at: now });
   if (action === "restore") return update(id, { deleted_at: null, archived_at: null });
   if (action === "destroy") {
-    if (!window.confirm("Permanently delete this notification? This cannot be undone.")) return;
+    if (!(await confirmAdminAction("Permanently delete this notification? This cannot be undone.", { title: "Delete notification", confirmLabel: "Delete notification" }))) return;
     const { error } = await supabase.from("admin_notifications").delete().eq("id", id);
     if (error) throw error;
     await load();

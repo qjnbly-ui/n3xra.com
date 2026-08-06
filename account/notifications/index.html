@@ -18,7 +18,7 @@
   <link rel="stylesheet" href="/client-portal/portal.css?v=9">
   <link rel="stylesheet" href="/account/admin/admin.css">
   <link rel="stylesheet" href="/assets/home-shell.css?v=1">
-  <link rel="stylesheet" href="/account/notifications/notifications.css?v=1">
+  <link rel="stylesheet" href="/account/notifications/notifications.css?v=7">
   <script src="/shared/config.js"></script>
   <script src="/assets/site-nav.js" defer></script>
   <script>
@@ -62,13 +62,6 @@
   </header>
 
   <main class="portal-shell account-admin-page notification-page">
-    <section class="portal-heading">
-      <div>
-        <p class="portal-kicker">Platform administration</p>
-        <h1>Platform Notification Admin</h1>
-      </div>
-    </section>
-
     <section class="portal-workspace notification-setup hidden" id="setup-panel">
       <div class="portal-workspace-head">
         <div>
@@ -100,25 +93,17 @@
       </nav>
 
       <section class="portal-workspace notification-admin-shell">
-        <div class="portal-workspace-head">
-          <div>
-            <p class="portal-kicker">Product updates</p>
-            <h2>Compose notification</h2>
-            <p>Write an update, choose its audience, review the final message, then send.</p>
-          </div>
-        </div>
         <div class="notification-layout">
-          <section class="notification-compose portal-form">
-            <div class="portal-form-head">
-              <div>
-                <h3>Message</h3>
-                <p>Choose email, text, or both. The review step is required before sending.</p>
-              </div>
+          <aside class="notification-recipients" aria-label="Broadcast audience">
+            <div class="notification-pane-head">
+              <div><h3>Audience</h3><p>Select the accounts that should receive this message.</p></div>
+              <strong id="notification-selected-count">0 selected</strong>
             </div>
-            <div class="stack">
-              <div class="grid-3">
+
+            <div class="notification-recipient-body">
+              <div class="notification-audience-controls">
                 <div class="field">
-                  <label for="notification-product">Product</label>
+                  <label for="notification-product">Product audience</label>
                   <select id="notification-product">
                     <option value="records">N3XRA Records</option>
                     <option value="ai_music">AI Music Generator</option>
@@ -127,82 +112,70 @@
                     <option value="all">All N3XRA accounts</option>
                   </select>
                 </div>
-                <div class="field">
-                  <label for="notification-channel">Send by</label>
-                  <select id="notification-channel">
-                    <option value="email">Email</option>
-                    <option value="sms">Text</option>
-                    <option value="both">Email + text</option>
-                  </select>
-                  <small class="field-note">Text messages go only to saved numbers with active SMS consent.</small>
-                </div>
-                <div class="field">
-                  <label for="notification-subject">Subject</label>
-                  <input id="notification-subject" type="text" maxlength="180" placeholder="Update from N3XRA">
-                </div>
-                <div class="field">
-                  <label for="notification-cta-url">Button link</label>
-                  <input id="notification-cta-url" type="url" placeholder="https://n3xra.com/account">
+                <div class="field notification-search-field">
+                  <label for="notification-filter">Search accounts</label>
+                  <input id="notification-filter" type="search" placeholder="Name, email, plan…">
                 </div>
               </div>
-              <div class="field">
-                <label for="notification-preheader">Preview text</label>
-                <input id="notification-preheader" type="text" maxlength="220" placeholder="Short inbox preview for this update.">
+
+              <div class="notification-audience-actions">
+                <button class="portal-button" id="notification-load-recipients" type="button">Load audience</button>
+                <button class="portal-button portal-button-secondary" id="notification-select-visible" type="button">Select all</button>
+                <button class="notification-clear-button" id="notification-clear-selected" type="button">Clear</button>
               </div>
-              <div class="field">
-                <label for="notification-message">Message</label>
-                <textarea id="notification-message" rows="9" maxlength="8000" placeholder="Write the update. Use short paragraphs."></textarea>
+              <p class="notification-loaded-count" id="notification-loaded-count">No accounts loaded.</p>
+              <div class="notification-recipient-list" id="notification-recipient-list">
+                <div class="notification-empty-state">Load an audience to view accounts.</div>
               </div>
-              <div class="grid-2">
+            </div>
+          </aside>
+
+          <section class="notification-compose portal-form" aria-label="Message composer">
+            <div class="notification-pane-head notification-compose-head">
+              <div><h3>Message</h3><p>Write once and deliver by email, text, or both.</p></div>
+              <div class="field notification-channel-field">
+                <label for="notification-channel">Delivery</label>
+                <select id="notification-channel">
+                  <option value="email">Email</option>
+                  <option value="sms">Text</option>
+                  <option value="both">Email + text</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="notification-composer-fields">
+              <div class="field" data-notification-email-only>
+                <label for="notification-subject">Subject</label>
+                <input id="notification-subject" type="text" maxlength="180" placeholder="Update from N3XRA">
+              </div>
+              <div class="field" data-notification-email-only>
+                <label for="notification-preheader">Inbox preview</label>
+                <input id="notification-preheader" type="text" maxlength="220" placeholder="A short preview of this update">
+              </div>
+              <div class="field notification-message-field">
+                <label class="notification-message-label" for="notification-message">Message <span id="notification-message-count">0 / 8,000</span></label>
+                <textarea id="notification-message" rows="12" maxlength="8000" placeholder="Write your message…"></textarea>
+                <small class="field-note">Text delivery is limited to accounts with active SMS consent.</small>
+              </div>
+              <div class="notification-link-fields">
                 <div class="field">
-                  <label for="notification-cta-label">Button label</label>
+                  <label for="notification-cta-label">Link label</label>
                   <input id="notification-cta-label" type="text" maxlength="80" placeholder="Open N3XRA">
                 </div>
                 <div class="field">
-                  <label for="notification-filter">Filter accounts</label>
-                  <input id="notification-filter" type="search" placeholder="Search name, email, plan, product">
+                  <label for="notification-cta-url">Link URL</label>
+                  <input id="notification-cta-url" type="url" placeholder="https://n3xra.com/account">
                 </div>
               </div>
             </div>
-          </section>
 
-          <section class="notification-recipients">
-            <div class="notification-toolbar">
-              <div>
-                <h3>Recipients</h3>
-                <p class="field-note">Load an audience, then select individual accounts or the visible filtered set.</p>
+            <footer class="notification-composer-footer">
+              <p class="status" id="notification-status"></p>
+              <div class="notification-footer-actions">
+                <button class="portal-button portal-button-secondary" id="notification-clear-draft" type="button">Clear</button>
+                <button class="portal-button" id="notification-review" type="button">Review &amp; send</button>
               </div>
-              <div class="inline-actions">
-                <button class="portal-button portal-button-secondary" id="notification-load-recipients" type="button">Load accounts</button>
-                <button class="portal-button portal-button-secondary" id="notification-select-visible" type="button">Select visible</button>
-                <button class="portal-button portal-button-secondary" id="notification-clear-selected" type="button">Clear</button>
-              </div>
-            </div>
-            <div class="notification-summary">
-              <strong id="notification-selected-count">0 selected</strong>
-              <span id="notification-loaded-count">No accounts loaded.</span>
-            </div>
-            <div class="table-shell notification-recipient-shell">
-              <table class="data-table">
-                <thead>
-                  <tr>
-                    <th>Select</th>
-                    <th>Account</th>
-                    <th>Product</th>
-                    <th>Plan/status</th>
-                    <th>Context</th>
-                    <th>Text</th>
-                  </tr>
-                </thead>
-                <tbody id="notification-recipient-list">
-                  <tr><td colspan="6">Load accounts to choose recipients.</td></tr>
-                </tbody>
-              </table>
-            </div>
-            <div class="actions notification-actions">
-              <button class="portal-button" id="notification-review" type="button">Review message</button>
-            </div>
-            <p class="status" id="notification-status"></p>
+            </footer>
           </section>
         </div>
       </section>
