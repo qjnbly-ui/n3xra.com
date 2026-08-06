@@ -39,7 +39,7 @@ body {
 }
 
 .notification-compose .grid-3 {
-  grid-template-columns: minmax(190px, .7fr) minmax(280px, 1.15fr) minmax(280px, 1.15fr);
+  grid-template-columns: minmax(190px, .7fr) minmax(190px, .8fr) minmax(280px, 1.15fr) minmax(280px, 1.15fr);
 }
 
 .notification-compose .grid-2 {
@@ -70,6 +70,12 @@ body {
   border: 1px solid var(--portal-line);
   border-radius: 8px;
   font: inherit;
+}
+
+.notification-compose .field-note {
+  margin: 0;
+  font-size: .78rem;
+  line-height: 1.4;
 }
 
 .notification-compose textarea {
@@ -123,7 +129,7 @@ body {
 
 .notification-recipient-shell table {
   width: 100%;
-  min-width: 760px;
+  min-width: 860px;
   border-collapse: collapse;
 }
 
@@ -145,6 +151,22 @@ body {
 
 .notification-recipient-shell small {
   color: var(--portal-muted);
+}
+
+.notification-sms-badge {
+  display: inline-block;
+  padding: .25rem .45rem;
+  color: var(--portal-muted);
+  background: #eef2f5;
+  border-radius: 999px;
+  font-size: .68rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.notification-sms-badge.is-active {
+  color: #14725d;
+  background: #e1f3ed;
 }
 
 .notification-actions {

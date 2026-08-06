@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>N3XRA | Platform Notification Admin</title>
-  <meta name="description" content="Platform admin product update email tools for N3XRA.">
+  <meta name="description" content="Platform admin product update messaging tools for N3XRA.">
   <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
   <link rel="canonical" href="https://n3xra.com/account/notifications/">
   <meta name="theme-color" content="#070c12">
@@ -85,7 +85,7 @@
         <a href="/account/admin/platform-admins/">Platform Admins</a>
         <a href="/account/admin/billing/">Billing</a>
         <a href="/account/admin/support/">Support</a>
-        <a class="is-current" href="/account/notifications/">Compose email</a>
+        <a class="is-current" href="/account/notifications/">Compose message</a>
         <div class="portal-nav-divider"></div><p class="portal-nav-label">Investment</p>
         <a href="/account/admin/investment/#shareholders">Shareholders</a><a href="/account/admin/investment/#share-classes">Share Classes</a><a href="/account/admin/investment/#share-ledger">Share Ledger</a><a href="/account/admin/investment/#board-resolutions">Board Resolutions</a><a href="/account/admin/investment/#dividend-history">Dividend History</a><a href="/account/admin/investment/#cap-table">Cap Table</a><a href="/account/admin/investment/#valuation-history">Company Valuation</a><a href="/account/admin/investment/#vesting">Vesting Schedules</a><a href="/account/admin/investment/#voting">Voting Rights</a><a href="/account/admin/investment/#certificates">Stock Certificates</a><a href="/account/admin/investment/#transfers">Share Transfer Requests</a><a href="/account/admin/investment/#buybacks">Company Buyback Requests</a>
         <div class="portal-nav-divider"></div>
@@ -111,8 +111,8 @@
           <section class="notification-compose portal-form">
             <div class="portal-form-head">
               <div>
-                <h3>Email</h3>
-                <p>Keep updates short and specific. The review step is required before sending.</p>
+                <h3>Message</h3>
+                <p>Choose email, text, or both. The review step is required before sending.</p>
               </div>
             </div>
             <div class="stack">
@@ -126,6 +126,15 @@
                     <option value="utilities">N3XRA Utilities</option>
                     <option value="all">All N3XRA accounts</option>
                   </select>
+                </div>
+                <div class="field">
+                  <label for="notification-channel">Send by</label>
+                  <select id="notification-channel">
+                    <option value="email">Email</option>
+                    <option value="sms">Text</option>
+                    <option value="both">Email + text</option>
+                  </select>
+                  <small class="field-note">Text messages go only to saved numbers with active SMS consent.</small>
                 </div>
                 <div class="field">
                   <label for="notification-subject">Subject</label>
@@ -182,15 +191,16 @@
                     <th>Product</th>
                     <th>Plan/status</th>
                     <th>Context</th>
+                    <th>Text</th>
                   </tr>
                 </thead>
                 <tbody id="notification-recipient-list">
-                  <tr><td colspan="5">Load accounts to choose recipients.</td></tr>
+                  <tr><td colspan="6">Load accounts to choose recipients.</td></tr>
                 </tbody>
               </table>
             </div>
             <div class="actions notification-actions">
-              <button class="portal-button" id="notification-review" type="button">Review email</button>
+              <button class="portal-button" id="notification-review" type="button">Review message</button>
             </div>
             <p class="status" id="notification-status"></p>
           </section>
@@ -204,7 +214,7 @@
       <div class="settings-modal-header">
         <div>
           <p class="settings-modal-kicker">Product update</p>
-          <h3 class="settings-modal-title">Review email before sending</h3>
+          <h3 class="settings-modal-title">Review message before sending</h3>
         </div>
         <button class="settings-modal-close" id="notification-review-close" type="button">Close</button>
       </div>
@@ -212,12 +222,13 @@
         <div class="notification-review-meta">
           <p><strong>Product:</strong> <span id="notification-review-product">-</span></p>
           <p><strong>Recipients:</strong> <span id="notification-review-count">0</span></p>
+          <p><strong>Send by:</strong> <span id="notification-review-channel">Email</span></p>
           <p><strong>Subject:</strong> <span id="notification-review-subject">-</span></p>
         </div>
         <div class="notification-email-preview" id="notification-email-preview"></div>
         <div class="actions">
-          <button class="btn secondary" id="notification-review-cancel" type="button">Edit email</button>
-          <button class="btn" id="notification-send" type="button">Send update email</button>
+          <button class="btn secondary" id="notification-review-cancel" type="button">Edit message</button>
+          <button class="btn" id="notification-send" type="button">Send update</button>
         </div>
         <p class="status" id="notification-review-status"></p>
       </div>
