@@ -251,6 +251,9 @@ function setNotificationReviewOpen(isOpen) {
 }
 
 function renderNotificationReview(payload) {
+  if (!notificationReviewModal || !notificationReviewProduct || !notificationReviewCount || !notificationReviewChannel || !notificationReviewSubject || !notificationEmailPreview) {
+    throw new Error("The message review panel is unavailable. Refresh this page and try again.");
+  }
   notificationReviewProduct.textContent = payload.productLabel;
   notificationReviewCount.textContent = String(payload.recipients.length);
   notificationReviewChannel.textContent = { email: "Email", sms: "Text", both: "Email + text" }[payload.channel] || "Email";

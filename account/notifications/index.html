@@ -180,33 +180,32 @@
         </div>
       </section>
     </section>
-  </main>
-
-  <div class="settings-modal" id="notification-review-modal" role="dialog" aria-modal="true" aria-hidden="true">
-    <div class="settings-modal-dialog">
-      <div class="settings-modal-header">
-        <div>
-          <p class="settings-modal-kicker">Product update</p>
-          <h3 class="settings-modal-title">Review message before sending</h3>
+    <div class="settings-modal" id="notification-review-modal" role="dialog" aria-modal="true" aria-hidden="true">
+      <div class="settings-modal-dialog">
+        <div class="settings-modal-header">
+          <div>
+            <p class="settings-modal-kicker">Product update</p>
+            <h3 class="settings-modal-title">Review message before sending</h3>
+          </div>
+          <button class="settings-modal-close" id="notification-review-close" type="button">Close</button>
         </div>
-        <button class="settings-modal-close" id="notification-review-close" type="button">Close</button>
-      </div>
-      <div class="settings-modal-body stack">
-        <div class="notification-review-meta">
-          <p><strong>Product:</strong> <span id="notification-review-product">-</span></p>
-          <p><strong>Recipients:</strong> <span id="notification-review-count">0</span></p>
-          <p><strong>Send by:</strong> <span id="notification-review-channel">Email</span></p>
-          <p><strong>Subject:</strong> <span id="notification-review-subject">-</span></p>
+        <div class="settings-modal-body stack">
+          <div class="notification-review-meta">
+            <p><strong>Product:</strong> <span id="notification-review-product">-</span></p>
+            <p><strong>Recipients:</strong> <span id="notification-review-count">0</span></p>
+            <p><strong>Send by:</strong> <span id="notification-review-channel">Email</span></p>
+            <p><strong>Subject:</strong> <span id="notification-review-subject">-</span></p>
+          </div>
+          <div class="notification-email-preview" id="notification-email-preview"></div>
+          <div class="actions">
+            <button class="btn secondary" id="notification-review-cancel" type="button">Edit message</button>
+            <button class="btn" id="notification-send" type="button">Send update</button>
+          </div>
+          <p class="status" id="notification-review-status"></p>
         </div>
-        <div class="notification-email-preview" id="notification-email-preview"></div>
-        <div class="actions">
-          <button class="btn secondary" id="notification-review-cancel" type="button">Edit message</button>
-          <button class="btn" id="notification-send" type="button">Send update</button>
-        </div>
-        <p class="status" id="notification-review-status"></p>
       </div>
     </div>
-  </div>
+  </main>
 
   <footer class="site-footer home-footer">
     <div class="page-shell footer-grid">
