@@ -63,9 +63,9 @@ async function loadFiles() {
   fileStatus(`${fileState.files.length} file${fileState.files.length === 1 ? "" : "s"} available to you.`, "success");
 }
 
-async function uploadFiles(event) {
-  const selected = Array.from(event.target.files || []);
-  event.target.value = "";
+async function uploadFiles(input) {
+  const selected = Array.isArray(input) ? input : Array.from(input.target.files || []);
+  if (!Array.isArray(input)) input.target.value = "";
   if (!selected.length) return;
   for (const file of selected) {
     fileStatus(`Uploading ${file.name}…`);
@@ -83,6 +83,36 @@ async function uploadFiles(event) {
     }
   }
   await loadFiles();
+}
+
+async function readDirectoryFiles(directoryHandle, parentPath = "") {
+  const files = [];
+  for await (const [name, handle] of directoryHandle.entries()) {
+    const relativePath = parentPath ? `${parentPath}/${name}` : name;
+    if (handle.kind === "file") {
+      const file = await handle.getFile();
+      Object.defineProperty(file, "webkitRelativePath", { value: relativePath });
+      files.push(file);
+    } else if (handle.kind === "directory") {
+      files.push(...await readDirectoryFiles(handle, relativePath));
+    }
+  }
+  return files;
+}
+
+async function chooseFolder() {
+  try {
+    if (typeof window.showDirectoryPicker === "function") {
+      const directory = await window.showDirectoryPicker({ mode: "read" });
+      const files = await readDirectoryFiles(directory, directory.name);
+      if (files.length) await uploadFiles(files);
+      else fileStatus("That folder is empty.", "error");
+      return;
+    }
+    document.getElementById("n3xra-folder-input")?.click();
+  } catch (error) {
+    if (error?.name !== "AbortError") fileStatus(error.message || "Unable to open that folder.", "error");
+  }
 }
 
 async function downloadFile(id) {
@@ -134,6 +164,7 @@ export async function startFiles({ supabase, invoke }) {
   });
   document.getElementById("n3xra-file-input")?.addEventListener("change", uploadFiles);
   document.getElementById("n3xra-folder-input")?.addEventListener("change", uploadFiles);
+  document.getElementById("n3xra-folder-button")?.addEventListener("click", chooseFolder);
   document.getElementById("n3xra-file-list")?.addEventListener("click", (event) => {
     const download = event.target.closest("[data-file-download]");
     const remove = event.target.closest("[data-file-delete]");
