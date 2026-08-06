@@ -38,6 +38,34 @@ function fileType(file) {
   return { label: (extension || "FILE").slice(0, 4).toUpperCase(), tone: "default" };
 }
 
+function filePreviewMarkup(file, type) {
+  const key = fileSelectionKey(file);
+  return `<span class="n3xra-file-type is-${type.tone}" data-file-preview="${fileEscape(key)}" aria-hidden="true"><img alt="" hidden><span>${type.label}</span></span>`;
+}
+
+async function hydrateFilePreviews() {
+  const previews = Array.from(document.querySelectorAll("#n3xra-file-list [data-file-preview]"));
+  await Promise.all(previews.map(async (preview) => {
+    const file = fileState.files.find((item) => fileSelectionKey(item) === preview.dataset.filePreview);
+    if (!file || fileType(file).tone !== "image") return;
+    try {
+      const data = file.source === "website" ? await websiteFileUrl(file) : await fileInvoke("get-n3xra-file-url", { fileId: file.id });
+      const image = preview.querySelector("img");
+      const fallback = preview.querySelector(":scope > span");
+      if (!image || !data?.url || !preview.isConnected) return;
+      image.addEventListener("load", () => {
+        if (!preview.isConnected) return;
+        image.hidden = false;
+        if (fallback) fallback.hidden = true;
+        preview.classList.add("has-preview");
+      }, { once: true });
+      image.src = data.url;
+    } catch {
+      // Keep the file-type badge when a preview URL is unavailable.
+    }
+  }));
+}
+
 function safeUploadPath(value) {
   return String(value || "file")
     .split(/[\\/]+/)
@@ -210,7 +238,7 @@ function renderFiles() {
     const selectionKey = fileSelectionKey(file);
     return `<article class="n3xra-file-row is-selectable${selectedFileKeys.has(selectionKey) ? " is-selected" : ""}" data-selectable-file="${fileEscape(selectionKey)}">
       <label class="n3xra-file-select"><input type="checkbox" data-file-select="${fileEscape(selectionKey)}"${selectedFileKeys.has(selectionKey) ? " checked" : ""} aria-label="Select ${fileEscape(pathParts(file.name).at(-1))}"></label>
-      <button class="n3xra-file-name" type="button" data-file-open="${fileEscape(file.id)}"><span class="n3xra-file-type is-${type.tone}" aria-hidden="true">${type.label}</span><span><strong>${fileEscape(pathParts(file.name).at(-1))}</strong><small>${fileEscape(fileMeta)}</small></span></button>
+      <button class="n3xra-file-name" type="button" data-file-open="${fileEscape(file.id)}">${filePreviewMarkup(file, type)}<span><strong>${fileEscape(pathParts(file.name).at(-1))}</strong><small>${fileEscape(fileMeta)}</small></span></button>
       ${websiteFile ? `<span class="n3xra-file-access is-status"><span aria-hidden="true">●</span>${fileEscape(accessLabel)}</span>` : `<button class="n3xra-file-access" type="button" data-file-manage-access="${fileEscape(file.id)}"><span aria-hidden="true">●</span>${accessLabel}</button>`}
       <time datetime="${fileEscape(file.created_at)}">${fileEscape(fileDate(file.created_at))}</time>
       <span class="n3xra-file-size">${fileEscape(fileSize(file.size_bytes))}</span>
@@ -219,6 +247,7 @@ function renderFiles() {
     </article>`;
   }).join("");
   list.innerHTML = listHeader + fileMarkup;
+  void hydrateFilePreviews();
 }
 
 async function loadWebsiteFiles() {

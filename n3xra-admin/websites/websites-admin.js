@@ -147,6 +147,34 @@ function assetFileType(version) {
   return { label: (extension || "FILE").slice(0, 4).toUpperCase(), tone: "default" };
 }
 
+function assetFilePreviewMarkup(version, type) {
+  return `<span class="website-asset-file-type is-${type.tone}" data-version-preview="${version.id}" aria-hidden="true"><img alt="" hidden><span>${type.label}</span></span>`;
+}
+
+async function hydrateVersionPreviews() {
+  const previews = Array.from(assetGrid?.querySelectorAll("[data-version-preview]") || []);
+  await Promise.all(previews.map(async (preview) => {
+    const version = versions.find((row) => row.id === preview.dataset.versionPreview);
+    if (!version || !String(version.mime_type || "").startsWith("image/")) return;
+    let url = version.public_url;
+    if (!url) {
+      const { data, error } = await supabase.storage.from(version.storage_bucket).createSignedUrl(version.storage_path, 600);
+      if (error || !data?.signedUrl) return;
+      url = data.signedUrl;
+    }
+    const image = preview.querySelector("img");
+    const fallback = preview.querySelector(":scope > span");
+    if (!image || !url || !preview.isConnected) return;
+    image.addEventListener("load", () => {
+      if (!preview.isConnected) return;
+      image.hidden = false;
+      if (fallback) fallback.hidden = true;
+      preview.classList.add("has-preview");
+    }, { once: true });
+    image.src = url;
+  }));
+}
+
 function assetTableHeader(versionIds = []) {
   const allSelected = versionIds.length > 0 && versionIds.every((id) => selectedVersionIds.has(id));
   return `<div class="website-assets-table-head is-selectable"><label class="website-asset-select"><input type="checkbox" data-select-all-versions${allSelected ? " checked" : ""} aria-label="Select all files in this folder"></label><span>File</span><span>Status</span><span>Modified</span><span>Size</span><span></span></div>`;
@@ -467,11 +495,12 @@ function renderAssets() {
     }
     return assetVersions.map((version) => {
       const type = assetFileType(version);
-      return `<article class="website-asset-version is-selectable${selectedVersionIds.has(version.id) ? " is-selected" : ""}" data-selectable-version="${version.id}"><label class="website-asset-select"><input type="checkbox" data-select-version="${version.id}"${selectedVersionIds.has(version.id) ? " checked" : ""} aria-label="Select ${escapeHtml(version.original_filename)}"></label><div class="website-asset-file"><span class="website-asset-file-type is-${type.tone}" aria-hidden="true">${type.label}</span><span><strong>${escapeHtml(version.original_filename)}</strong><small>${escapeHtml(asset.label)} · Version ${version.version_number}${version.change_note ? ` · ${escapeHtml(version.change_note)}` : ""}</small></span></div><span class="website-asset-status is-${escapeHtml(version.status)}">${escapeHtml(version.status.replaceAll("_", " "))}</span><time datetime="${escapeHtml(version.created_at)}">${formatDate(version.created_at)}</time><span class="website-asset-size">${formatBytes(version.size_bytes) || "—"}</span><details class="website-asset-actions"><summary aria-label="Actions for ${escapeHtml(version.original_filename)}">•••</summary><div class="website-asset-action-menu">${versionActions(version)}</div></details></article>`;
+      return `<article class="website-asset-version is-selectable${selectedVersionIds.has(version.id) ? " is-selected" : ""}" data-selectable-version="${version.id}"><label class="website-asset-select"><input type="checkbox" data-select-version="${version.id}"${selectedVersionIds.has(version.id) ? " checked" : ""} aria-label="Select ${escapeHtml(version.original_filename)}"></label><div class="website-asset-file">${assetFilePreviewMarkup(version, type)}<span><strong>${escapeHtml(version.original_filename)}</strong><small>${escapeHtml(asset.label)} · Version ${version.version_number}${version.change_note ? ` · ${escapeHtml(version.change_note)}` : ""}</small></span></div><span class="website-asset-status is-${escapeHtml(version.status)}">${escapeHtml(version.status.replaceAll("_", " "))}</span><time datetime="${escapeHtml(version.created_at)}">${formatDate(version.created_at)}</time><span class="website-asset-size">${formatBytes(version.size_bytes) || "—"}</span><details class="website-asset-actions"><summary aria-label="Actions for ${escapeHtml(version.original_filename)}">•••</summary><div class="website-asset-action-menu">${versionActions(version)}</div></details></article>`;
     });
   });
   const visibleVersionIds = visibleAssets.flatMap((asset) => versions.filter((version) => version.asset_id === asset.id).map((version) => version.id));
   assetGrid.innerHTML = assetTableHeader(visibleVersionIds) + (rows.length ? rows.join("") : '<div class="website-assets-empty"><p>No files match this search.</p></div>');
+  void hydrateVersionPreviews();
 }
 
 function renderAssetBatchActions() {
