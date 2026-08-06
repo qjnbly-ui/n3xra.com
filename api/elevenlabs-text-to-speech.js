@@ -2,7 +2,9 @@ const { createAdminNotification } = require("./_admin-notifications");
 const { cleanSpeechText } = require("./_speech-text");
 
 const API_KEY = String(process.env.ELEVENLABS_API_KEY || "").trim();
-const VOICE_ID = String(process.env.ELEVENLABS_VOICE_ID || "JBFqnCBsd6RMkjVDRZzb").trim();
+const TWILIO_DEFAULT_RECEPTIONIST_VOICE_ID = "UgBBYS2sOqTuMpoF3BR0";
+const RECEPTIONIST_VOICE = String(process.env.TWILIO_RECEPTIONIST_VOICE || TWILIO_DEFAULT_RECEPTIONIST_VOICE_ID).trim();
+const VOICE_ID = RECEPTIONIST_VOICE.split("-", 1)[0] || TWILIO_DEFAULT_RECEPTIONIST_VOICE_ID;
 const MODEL_ID = String(process.env.ELEVENLABS_TTS_MODEL || "eleven_flash_v2_5").trim();
 const rateMap = new Map();
 

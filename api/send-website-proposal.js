@@ -113,21 +113,6 @@ export default async function handler(req, res) {
       headers: headers({ Prefer: "return=minimal" }),
       body: JSON.stringify({ email_sent_at: new Date().toISOString(), email_recipient: request.contact_email, email_message_id: emailResult.id || null }),
     });
-    await createAdminNotification({
-      eventType: "proposal.email_sent",
-      product: "websites",
-      priority: "activity",
-      title: "Website proposal emailed",
-      summary: `${proposal.title} · ${request.contact_email}`,
-      messageText: buildText(payload),
-      messageHtml: buildHtml(payload),
-      actorName: request.contact_name,
-      actorEmail: request.contact_email,
-      sourceTable: "website_proposals",
-      sourceId: proposal.id,
-      actionUrl: "/n3xra-admin/proposals/",
-      metadata: { version_id: version.id, email_message_id: emailResult.id || null },
-    }).catch((error) => console.error("Proposal email audit notification failed:", error));
     return res.status(200).json({ ok: true, recipient: request.contact_email });
   } catch (error) {
     await createAdminNotification({
