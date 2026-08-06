@@ -901,13 +901,13 @@ Deno.serve(async (request) => {
     if (action === "get-n3xra-file-url") {
       const fileId = String(payload.fileId || "").trim();
       if (!isValidUuid(fileId)) return jsonResponse({ error: "A valid fileId is required." }, 400);
-      const { data: file, error: fileError } = await adminClient.from("n3xra_files").select("id,name,storage_path").eq("id", fileId).maybeSingle();
+      const { data: file, error: fileError } = await adminClient.from("n3xra_files").select("id,name,storage_path,mime_type").eq("id", fileId).maybeSingle();
       if (fileError || !file) return jsonResponse({ error: fileError?.message || "File not found." }, 404);
       const { data: grant, error: grantError } = await adminClient.from("n3xra_file_access").select("file_id").eq("file_id", fileId).eq("user_id", user.id).maybeSingle();
       if (grantError || !grant) return jsonResponse({ error: "You do not have access to this file." }, 403);
       const { data: signed, error: signedError } = await adminClient.storage.from("n3xra-files").createSignedUrl(file.storage_path, 60 * 10);
       if (signedError || !signed?.signedUrl) return jsonResponse({ error: signedError?.message || "Unable to prepare the file." }, 400);
-      return jsonResponse({ ok: true, url: signed.signedUrl, name: file.name });
+      return jsonResponse({ ok: true, url: signed.signedUrl, name: file.name, mimeType: file.mime_type });
     }
 
     if (action === "delete-n3xra-file") {
@@ -920,6 +920,20 @@ Deno.serve(async (request) => {
       const { error: deleteError } = await adminClient.from("n3xra_files").delete().eq("id", fileId);
       if (deleteError) return jsonResponse({ error: deleteError.message }, 400);
       return jsonResponse({ ok: true });
+    }
+
+    if (action === "delete-n3xra-folder") {
+      const folderPath = String(payload.folderPath || "").trim().replace(/^\/|\/$/g, "");
+      if (!folderPath || folderPath.includes("..")) return jsonResponse({ error: "A valid folder path is required." }, 400);
+      const { data: files, error: filesError } = await adminClient.from("n3xra_files").select("id,storage_path").like("name", `${folderPath}/%`);
+      if (filesError) return jsonResponse({ error: filesError.message }, 400);
+      if (files?.length) {
+        const { error: storageError } = await adminClient.storage.from("n3xra-files").remove(files.map((file) => file.storage_path));
+        if (storageError) return jsonResponse({ error: storageError.message }, 400);
+        const { error: deleteError } = await adminClient.from("n3xra_files").delete().in("id", files.map((file) => file.id));
+        if (deleteError) return jsonResponse({ error: deleteError.message }, 400);
+      }
+      return jsonResponse({ ok: true, deletedCount: files?.length || 0 });
     }
 
     if (action === "open-admin-records-workspace") {
