@@ -780,6 +780,9 @@ async function loadAdminView() {
     document.getElementById("account-search")?.addEventListener("input", (event) => renderAccountOptions(event.target.value));
     document.getElementById("account-select")?.addEventListener("change", renderSelectedAccount);
     await loadAccounts();
+  } else if (view === "files") {
+    const files = await import("/account/admin/files/files.js?v=1");
+    await files.startFiles({ supabase, session, invoke });
   } else if (view === "billing") {
     document.getElementById("billing-filter")?.addEventListener("input", renderBilling);
     document.getElementById("billing-product")?.addEventListener("change", renderBilling);

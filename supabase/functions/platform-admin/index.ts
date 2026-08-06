@@ -45,6 +45,12 @@ function normalizeEmail(value: unknown) {
   return String(value || "").trim().toLowerCase();
 }
 
+function normalizePhone(value: unknown) {
+  let digits = String(value || "").replace(/\D/g, "");
+  if (digits.length === 10) digits = `1${digits}`;
+  return /^[1-9][0-9]{7,14}$/.test(digits) ? `+${digits}` : "";
+}
+
 function normalizeProduct(value: unknown) {
   const product = String(value || "records").trim().toLowerCase();
   return PRODUCT_LABELS[product] ? product : "records";
@@ -411,6 +417,7 @@ function addRecipient(
     existing.context = Array.from(contexts).join(" | ");
     if (!existing.plan && input.plan) existing.plan = input.plan;
     if (!existing.status && input.status) existing.status = input.status;
+    if (!existing.user_id && input.user_id) existing.user_id = input.user_id;
     return;
   }
 
@@ -455,7 +462,6 @@ async function listNotificationRecipients(adminClient: ReturnType<typeof createC
         context: "Shared N3XRA account",
       });
     });
-    return Array.from(recipients.values()).sort(sortRecipients);
   }
 
   if (product === "records") {
@@ -581,7 +587,34 @@ async function listNotificationRecipients(adminClient: ReturnType<typeof createC
     });
   }
 
-  return Array.from(recipients.values()).sort(sortRecipients);
+  const recipientList = Array.from(recipients.values()).sort(sortRecipients);
+  const userIds = recipientList.map((recipient) => String(recipient.user_id || "")).filter(isValidUuid);
+  if (!userIds.length) return recipientList;
+
+  const [{ data: credentials, error: credentialsError }, { data: consentEvents, error: consentError }] = await Promise.all([
+    adminClient.from("account_phone_credentials").select("user_id,phone_e164").in("user_id", userIds),
+    adminClient.from("sms_consent_events").select("phone_e164,event_type,created_at").order("created_at", { ascending: false }).limit(10000),
+  ]);
+  if (credentialsError || consentError) {
+    throw new Error(credentialsError?.message || consentError?.message || "Unable to load SMS settings.");
+  }
+
+  const latestConsentByPhone = new Map<string, Record<string, unknown>>();
+  (consentEvents || []).forEach((event) => {
+    const phone = normalizePhone(event.phone_e164);
+    if (phone && !latestConsentByPhone.has(phone)) latestConsentByPhone.set(phone, event);
+  });
+  const credentialByUser = new Map((credentials || []).map((credential) => [String(credential.user_id || ""), credential]));
+  return recipientList.map((recipient) => {
+    const credential = credentialByUser.get(String(recipient.user_id || ""));
+    const phone = normalizePhone(credential?.phone_e164);
+    const consent = phone ? latestConsentByPhone.get(phone) : null;
+    return {
+      ...recipient,
+      phone,
+      smsOptedIn: Boolean(phone && consent?.event_type === "opt_in"),
+    };
+  });
 }
 
 function sortRecipients(first: Record<string, unknown>, second: Record<string, unknown>) {
@@ -603,6 +636,20 @@ function buildNotificationText(options: {
     "",
     "You are receiving this because your account is connected to N3XRA.",
   ].filter((line, index, lines) => line || lines[index - 1]).join("\n");
+}
+
+function buildNotificationSms(options: {
+  productLabel: string;
+  message: string;
+  ctaUrl: string;
+  ctaLabel: string;
+}) {
+  return [
+    `${options.productLabel}:`,
+    options.message,
+    options.ctaUrl ? `${options.ctaLabel}: ${options.ctaUrl}` : "",
+    "Reply STOP to opt out or HELP for help.",
+  ].filter(Boolean).join("\n\n").slice(0, 1200);
 }
 
 function buildNotificationHtml(options: {
@@ -796,6 +843,83 @@ Deno.serve(async (request) => {
           status: platformAdmin.status,
         },
       });
+    }
+
+    if (action === "list-n3xra-files") {
+      const [{ data: files, error: filesError }, { data: access, error: accessError }, { data: admins, error: adminsError }] = await Promise.all([
+        adminClient.from("n3xra_files").select("id,name,storage_path,mime_type,size_bytes,created_by,created_at").order("created_at", { ascending: false }),
+        adminClient.from("n3xra_file_access").select("file_id,user_id"),
+        adminClient.from("platform_admins").select("user_id,email,role,status").eq("status", "active").order("email", { ascending: true }),
+      ]);
+      if (filesError || accessError || adminsError) {
+        return jsonResponse({ error: filesError?.message || accessError?.message || adminsError?.message || "Unable to load N3XRA Files." }, 400);
+      }
+      const allowedFileIds = new Set((access || []).filter((item) => String(item.user_id) === user.id).map((item) => String(item.file_id)));
+      const visibleFiles = (files || []).filter((file) => allowedFileIds.has(String(file.id)));
+      return jsonResponse({
+        ok: true,
+        files: visibleFiles,
+        access: access || [],
+        admins: admins || [],
+      });
+    }
+
+    if (action === "create-n3xra-file") {
+      const name = textValue(payload.name, 180);
+      const storagePath = String(payload.storagePath || "").trim();
+      const mimeType = textValue(payload.mimeType || "application/octet-stream", 180);
+      const sizeBytes = Math.max(0, Number(payload.sizeBytes || 0));
+      if (!name || !storagePath || !Number.isFinite(sizeBytes)) return jsonResponse({ error: "File name, storage path, and size are required." }, 400);
+      if (!storagePath.startsWith("uploads/") || storagePath.includes("..")) return jsonResponse({ error: "Invalid storage path." }, 400);
+      const { data: file, error: fileError } = await adminClient.from("n3xra_files").insert({
+        name,
+        storage_path: storagePath,
+        mime_type: mimeType,
+        size_bytes: Math.round(sizeBytes),
+        created_by: user.id,
+      }).select("id,name,storage_path,mime_type,size_bytes,created_by,created_at").single();
+      if (fileError) return jsonResponse({ error: fileError.message }, 400);
+      const { error: accessError } = await adminClient.from("n3xra_file_access").insert({ file_id: file.id, user_id: user.id, granted_by: user.id });
+      if (accessError) return jsonResponse({ error: accessError.message }, 400);
+      return jsonResponse({ ok: true, file });
+    }
+
+    if (action === "update-n3xra-file-access") {
+      const fileId = String(payload.fileId || "").trim();
+      const userIds = Array.isArray(payload.userIds) ? Array.from(new Set(payload.userIds.map((value) => String(value || "").trim()).filter(isValidUuid))) : [];
+      if (!isValidUuid(fileId)) return jsonResponse({ error: "A valid fileId is required." }, 400);
+      const { data: file, error: fileError } = await adminClient.from("n3xra_files").select("id").eq("id", fileId).maybeSingle();
+      if (fileError || !file) return jsonResponse({ error: fileError?.message || "File not found." }, 404);
+      const { error: deleteError } = await adminClient.from("n3xra_file_access").delete().eq("file_id", fileId);
+      if (deleteError) return jsonResponse({ error: deleteError.message }, 400);
+      const rows = Array.from(new Set([user.id, ...userIds])).map((userId) => ({ file_id: fileId, user_id: userId, granted_by: user.id }));
+      const { error: insertError } = await adminClient.from("n3xra_file_access").insert(rows);
+      if (insertError) return jsonResponse({ error: insertError.message }, 400);
+      return jsonResponse({ ok: true, userIds: rows.map((row) => row.user_id) });
+    }
+
+    if (action === "get-n3xra-file-url") {
+      const fileId = String(payload.fileId || "").trim();
+      if (!isValidUuid(fileId)) return jsonResponse({ error: "A valid fileId is required." }, 400);
+      const { data: file, error: fileError } = await adminClient.from("n3xra_files").select("id,name,storage_path").eq("id", fileId).maybeSingle();
+      if (fileError || !file) return jsonResponse({ error: fileError?.message || "File not found." }, 404);
+      const { data: grant, error: grantError } = await adminClient.from("n3xra_file_access").select("file_id").eq("file_id", fileId).eq("user_id", user.id).maybeSingle();
+      if (grantError || !grant) return jsonResponse({ error: "You do not have access to this file." }, 403);
+      const { data: signed, error: signedError } = await adminClient.storage.from("n3xra-files").createSignedUrl(file.storage_path, 60 * 10);
+      if (signedError || !signed?.signedUrl) return jsonResponse({ error: signedError?.message || "Unable to prepare the file." }, 400);
+      return jsonResponse({ ok: true, url: signed.signedUrl, name: file.name });
+    }
+
+    if (action === "delete-n3xra-file") {
+      const fileId = String(payload.fileId || "").trim();
+      if (!isValidUuid(fileId)) return jsonResponse({ error: "A valid fileId is required." }, 400);
+      const { data: file, error: fileError } = await adminClient.from("n3xra_files").select("id,storage_path").eq("id", fileId).maybeSingle();
+      if (fileError || !file) return jsonResponse({ error: fileError?.message || "File not found." }, 404);
+      const { error: storageError } = await adminClient.storage.from("n3xra-files").remove([file.storage_path]);
+      if (storageError) return jsonResponse({ error: storageError.message }, 400);
+      const { error: deleteError } = await adminClient.from("n3xra_files").delete().eq("id", fileId);
+      if (deleteError) return jsonResponse({ error: deleteError.message }, 400);
+      return jsonResponse({ ok: true });
     }
 
     if (action === "open-admin-records-workspace") {
@@ -1521,13 +1645,9 @@ Deno.serve(async (request) => {
     }
 
     if (action === "send-notification-email") {
-      const resendApiKey = Deno.env.get("RESEND_API_KEY");
-      if (!resendApiKey) {
-        return jsonResponse({ error: "RESEND_API_KEY is missing." }, 500);
-      }
-
       const product = normalizeProduct(payload.product);
       const productLabel = PRODUCT_LABELS[product];
+      const channel = String(payload.channel || "email").trim().toLowerCase();
       const subject = textValue(payload.subject, 180);
       const preheader = textValue(payload.preheader, 220);
       const message = String(payload.message || "").trim().slice(0, 8000);
@@ -1536,8 +1656,14 @@ Deno.serve(async (request) => {
       const rawEmails = Array.isArray(payload.recipientEmails) ? payload.recipientEmails : [];
       const recipientEmails = Array.from(new Set(rawEmails.map(normalizeEmail).filter(Boolean))).slice(0, 500);
 
-      if (!subject || !message || !recipientEmails.length) {
-        return jsonResponse({ error: "subject, message, and recipientEmails are required." }, 400);
+      if (!["email", "sms", "both"].includes(channel)) {
+        return jsonResponse({ error: "channel must be email, sms, or both." }, 400);
+      }
+      if (["email", "both"].includes(channel) && !subject) {
+        return jsonResponse({ error: "subject is required for email delivery." }, 400);
+      }
+      if (!message || !recipientEmails.length) {
+        return jsonResponse({ error: "message and recipientEmails are required." }, 400);
       }
       const invalidEmail = recipientEmails.find((email) => !isValidEmail(email));
       if (invalidEmail) {
@@ -1554,35 +1680,53 @@ Deno.serve(async (request) => {
         return jsonResponse({ error: `Recipient is not in the selected product audience: ${unauthorizedEmail}` }, 400);
       }
 
-      const html = buildNotificationHtml({ productLabel, subject, preheader, message, ctaUrl, ctaLabel });
-      const text = buildNotificationText({ productLabel, message, ctaUrl, ctaLabel });
-      const fromEmail = Deno.env.get("PLATFORM_UPDATE_FROM_EMAIL") || "N3XRA <updates@n3xra.com>";
-
-      const sent: Array<{ email: string; id: string | null }> = [];
+      const sent: Array<{ email: string; id: string | null; channel: string }> = [];
       const failed: Array<{ email: string; error: string }> = [];
 
-      for (const email of recipientEmails) {
-        const emailResponse = await fetch("https://api.resend.com/emails", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${resendApiKey}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            from: fromEmail,
-            to: [email],
-            subject,
-            html,
-            text,
-            reply_to: user.email,
-          }),
-        });
+      if (["email", "both"].includes(channel)) {
+        const resendApiKey = Deno.env.get("RESEND_API_KEY");
+        if (!resendApiKey) return jsonResponse({ error: "RESEND_API_KEY is missing." }, 500);
+        const html = buildNotificationHtml({ productLabel, subject, preheader, message, ctaUrl, ctaLabel });
+        const text = buildNotificationText({ productLabel, message, ctaUrl, ctaLabel });
+        const fromEmail = Deno.env.get("PLATFORM_UPDATE_FROM_EMAIL") || "N3XRA <updates@n3xra.com>";
+        for (const email of recipientEmails) {
+          const emailResponse = await fetch("https://api.resend.com/emails", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${resendApiKey}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ from: fromEmail, to: [email], subject, html, text, reply_to: user.email }),
+          });
+          const emailPayload = await emailResponse.json().catch(() => ({}));
+          if (emailResponse.ok) sent.push({ email, id: typeof emailPayload?.id === "string" ? emailPayload.id : null, channel: "email" });
+          else failed.push({ email, error: String(emailPayload?.message || emailPayload?.error || "Update email failed to send.") });
+        }
+      }
 
-        const emailPayload = await emailResponse.json().catch(() => ({}));
-        if (emailResponse.ok) {
-          sent.push({ email, id: typeof emailPayload?.id === "string" ? emailPayload.id : null });
-        } else {
-          failed.push({ email, error: String(emailPayload?.message || emailPayload?.error || "Update email failed to send.") });
+      if (["sms", "both"].includes(channel)) {
+        const accountSid = String(Deno.env.get("TWILIO_ACCOUNT_SID") || "").trim();
+        const authToken = String(Deno.env.get("TWILIO_AUTH_TOKEN") || "").trim();
+        const fromPhone = normalizePhone(Deno.env.get("TWILIO_RECEPTIONIST_NUMBER") || "+15416526840");
+        if (!accountSid || !authToken || !fromPhone) return jsonResponse({ error: "Twilio messaging is not configured." }, 500);
+        const recipientByEmail = new Map(allowedRecipients.map((recipient) => [normalizeEmail(recipient.email), recipient]));
+        const smsBody = buildNotificationSms({ productLabel, message, ctaUrl, ctaLabel });
+        for (const email of recipientEmails) {
+          const recipient = recipientByEmail.get(email);
+          const phone = normalizePhone(recipient?.phone);
+          if (!phone || recipient?.smsOptedIn !== true) {
+            failed.push({ email, error: "Text skipped because this account has no active SMS consent." });
+            continue;
+          }
+          const form = new URLSearchParams({ From: fromPhone, To: phone, Body: smsBody });
+          const smsResponse = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(accountSid)}/Messages.json`, {
+            method: "POST",
+            headers: {
+              Authorization: `Basic ${btoa(`${accountSid}:${authToken}`)}`,
+              "Content-Type": "application/x-www-form-urlencoded",
+            },
+            body: form.toString(),
+          });
+          const smsPayload = await smsResponse.json().catch(() => ({}));
+          if (smsResponse.ok) sent.push({ email, id: typeof smsPayload?.sid === "string" ? smsPayload.sid : null, channel: "sms" });
+          else failed.push({ email, error: String(smsPayload?.message || "Text message failed to send.") });
         }
       }
 
@@ -1591,6 +1735,8 @@ Deno.serve(async (request) => {
         sent,
         failed,
         sentCount: sent.length,
+        emailSentCount: sent.filter((item) => item.channel === "email").length,
+        smsSentCount: sent.filter((item) => item.channel === "sms").length,
         failedCount: failed.length,
       }, sent.length ? 200 : 400);
     }

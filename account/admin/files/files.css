@@ -1,0 +1,24 @@
+.n3xra-files-shell { max-width: 980px; }
+.n3xra-files-breadcrumb { display:flex; gap:.55rem; align-items:center; color:var(--portal-muted); font-size:.8rem; margin:1.5rem 0; }
+.n3xra-files-breadcrumb strong { color:var(--portal-ink); }
+.n3xra-folder-view { min-height: 300px; display:flex; align-items:flex-start; }
+.n3xra-folder-card { width:150px; padding:1.1rem 1rem 1rem; display:grid; gap:.45rem; text-align:left; color:var(--portal-ink); background:#fff; border:1px solid var(--portal-line); border-radius:14px; box-shadow:0 8px 22px rgba(9,18,32,.06); cursor:pointer; }
+.n3xra-folder-card:hover { border-color:#7d9e96; transform:translateY(-2px); }
+.n3xra-folder-icon { color:#b88136; font-size:2rem; line-height:1; }
+.n3xra-folder-card small { color:var(--portal-muted); }
+.n3xra-files-toolbar { display:flex; justify-content:space-between; align-items:center; gap:1rem; margin-bottom:1rem; }
+.n3xra-files-toolbar h3 { margin:.2rem 0 0; }
+.n3xra-files-actions { display:flex; gap:.6rem; flex-wrap:wrap; }
+.n3xra-file-list { display:grid; gap:.7rem; }
+.n3xra-file-row { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:1rem; align-items:center; padding:1rem 1.1rem; border:1px solid var(--portal-line); border-radius:12px; background:#fff; }
+.n3xra-file-meta { display:flex; gap:.75rem; align-items:center; min-width:0; }
+.n3xra-file-meta span { font-size:1.4rem; }
+.n3xra-file-meta strong, .n3xra-file-meta small { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.n3xra-file-meta small { color:var(--portal-muted); margin-top:.25rem; }
+.n3xra-file-controls { display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; justify-content:flex-end; }
+.n3xra-access-panel { grid-column:1 / -1; padding-top:.8rem; border-top:1px solid var(--portal-line); }
+.n3xra-access-panel summary { cursor:pointer; font-weight:700; }
+.n3xra-access-options { display:flex; flex-wrap:wrap; gap:.6rem 1rem; padding:.9rem 0; }
+.n3xra-access-options label { display:flex; gap:.4rem; align-items:center; font-size:.9rem; }
+.n3xra-empty { padding:2.5rem 1rem; color:var(--portal-muted); border:1px dashed var(--portal-line); border-radius:12px; text-align:center; }
+@media (max-width:700px) { .n3xra-files-toolbar, .n3xra-file-row { grid-template-columns:1fr; display:grid; } .n3xra-files-actions, .n3xra-file-controls { justify-content:flex-start; } }

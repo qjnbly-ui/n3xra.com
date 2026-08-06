@@ -1,5 +1,6 @@
 const accountLinks = [
   ["/account/admin/accounts/", "Accounts & Access"],
+  ["/account/admin/files/", "N3XRA Files"],
   ["/account/admin/platform-admins/", "Platform Admins"],
   ["/account/admin/billing/", "Billing"],
   ["/account/admin/operations/", "Operations"],
