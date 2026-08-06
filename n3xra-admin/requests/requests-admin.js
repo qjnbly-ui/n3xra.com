@@ -32,6 +32,18 @@ let websites = [];
 let websiteMembers = [];
 let selectedRequestId = "";
 let currentFilter = "open";
+let supplementalLoadToken = 0;
+const LOAD_TIMEOUT_MS = 12000;
+
+function withTimeout(task, label) {
+  let timer;
+  return Promise.race([
+    Promise.resolve(task),
+    new Promise((_, reject) => {
+      timer = window.setTimeout(() => reject(new Error(`${label} took too long to respond.`)), LOAD_TIMEOUT_MS);
+    }),
+  ]).finally(() => window.clearTimeout(timer));
+}
 
 function escapeHtml(value = "") {
   return String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
@@ -203,24 +215,14 @@ function render() {
 }
 
 async function loadRequests() {
-  const [requestResult, proposalResult, reviewResult, websiteResult, memberResult] = await Promise.all([
+  requestSummary.textContent = "Loading submitted requests…";
+  const requestResult = await withTimeout(
     supabase.from("website_service_requests").select("*").order("created_at", { ascending: false }),
-    supabase.from("website_proposals").select("id,request_id"),
-    supabase.from("website_request_ai_reviews").select("*").order("created_at", { ascending: false }).limit(250),
-    supabase.from("client_websites").select("id,name,status,live_url").neq("status", "archived").order("name"),
-    supabase.from("website_members").select("website_id,user_id,status,role"),
-  ]);
+    "The request queue",
+  );
   if (requestResult.error) throw requestResult.error;
-  if (proposalResult.error) throw proposalResult.error;
-  if (reviewResult.error) throw reviewResult.error;
-  if (websiteResult.error) throw websiteResult.error;
-  if (memberResult.error) throw memberResult.error;
-  const proposals = new Map((proposalResult.data || []).map((proposal) => [proposal.request_id, proposal.id]));
-  allRequests = (requestResult.data || []).map((request) => ({ ...request, proposal_id: proposals.get(request.id) || "" }));
+  allRequests = requestResult.data || [];
   requests = allRequests.filter((request) => request.status !== "archived");
-  aiReviews = reviewResult.data || [];
-  websites = websiteResult.data || [];
-  websiteMembers = memberResult.data || [];
   const requestedId = new URLSearchParams(window.location.search).get("request");
   const requested = requests.find((request) => request.id === requestedId);
   if (!selectedRequestId && requested) {
@@ -228,6 +230,37 @@ async function loadRequests() {
     if (!ACTIONABLE_STATUSES.has(requested.status)) currentFilter = "all";
   }
   requestFilters.querySelectorAll("button").forEach((item) => item.classList.toggle("is-current", item.dataset.requestFilter === currentFilter));
+  render();
+  void loadRequestSupplemental().catch((error) => console.warn("Request context could not be loaded", error));
+}
+
+async function loadRequestSupplemental() {
+  const loadToken = ++supplementalLoadToken;
+  const supplemental = await Promise.allSettled([
+    withTimeout(supabase.from("website_proposals").select("id,request_id"), "Proposal links"),
+    withTimeout(supabase.from("website_request_ai_reviews").select("*").order("created_at", { ascending: false }).limit(250), "Incomplete intake history"),
+    withTimeout(supabase.from("client_websites").select("id,name,status,live_url").neq("status", "archived").order("name"), "Organization workspaces"),
+    withTimeout(supabase.from("website_members").select("website_id,user_id,status,role"), "Organization memberships"),
+  ]);
+  if (loadToken !== supplementalLoadToken) return;
+  const resultData = supplemental.map((result) => {
+    if (result.status === "rejected") {
+      console.warn("Website request supplemental data unavailable", result.reason);
+      return [];
+    }
+    if (result.value.error) {
+      console.warn("Website request supplemental query failed", result.value.error);
+      return [];
+    }
+    return result.value.data || [];
+  });
+  const [proposalRows, reviewRows, websiteRows, memberRows] = resultData;
+  const proposals = new Map(proposalRows.map((proposal) => [proposal.request_id, proposal.id]));
+  allRequests = allRequests.map((request) => ({ ...request, proposal_id: proposals.get(request.id) || "" }));
+  requests = allRequests.filter((request) => request.status !== "archived");
+  aiReviews = reviewRows;
+  websites = websiteRows;
+  websiteMembers = memberRows;
   render();
 }
 
@@ -332,15 +365,17 @@ async function runAction(action) {
 async function init() {
   if (!hasConfig()) throw new Error("Supabase configuration is missing.");
   supabase = createBrowserSupabase();
-  const { data } = await supabase.auth.getSession();
+  statusScreen.textContent = "Checking your admin session…";
+  const { data } = await withTimeout(supabase.auth.getSession(), "Your admin session");
   currentUser = data?.session?.user;
   if (!currentUser) {
     window.location.replace("/account/?next=%2Fn3xra-admin%2Frequests%2F");
     return;
   }
-  if (!await verifyPlatformAdmin(supabase, currentUser)) throw new Error("You do not have request administration access.");
+  statusScreen.textContent = "Verifying request administration access…";
+  if (!await withTimeout(verifyPlatformAdmin(supabase, currentUser), "Admin access verification")) throw new Error("You do not have request administration access.");
+  statusScreen.textContent = "Opening website requests…";
   await loadRequests();
-  await markRequestNotificationRead(selectedRequestId);
 
   requestFilters.addEventListener("click", (event) => {
     const button = event.target.closest("[data-request-filter]");
@@ -395,6 +430,20 @@ async function init() {
   });
   document.body.classList.remove("portal-loading");
   statusScreen.hidden = true;
+  void withTimeout(markRequestNotificationRead(selectedRequestId), "Notification update").catch((error) => console.warn("Request notification could not be updated", error));
 }
 
-init().catch((error) => { statusScreen.textContent = error?.message || "Website requests could not be opened."; });
+function showLoadFailure(error) {
+  const message = error?.message || "Website requests could not be opened.";
+  document.body.classList.remove("portal-loading");
+  statusScreen.hidden = false;
+  statusScreen.classList.add("is-error");
+  statusScreen.textContent = message;
+  requestSummary.textContent = "The request queue could not be loaded.";
+  requestCounts.replaceChildren();
+  requestList.innerHTML = '<div class="website-request-queue-empty"><strong>Unable to load requests</strong><p>Retry the connection to the request queue.</p><button class="portal-button portal-button-secondary" type="button" data-retry-requests>Retry</button></div>';
+  requestDetail.innerHTML = `<div class="website-request-detail-empty"><p class="portal-kicker">Request queue unavailable</p><h2>We could not open this workspace</h2><p>${escapeHtml(message)}</p></div>`;
+  requestList.querySelector("[data-retry-requests]")?.addEventListener("click", () => window.location.reload());
+}
+
+init().catch(showLoadFailure);
