@@ -1395,11 +1395,6 @@ async function init() {
     window.location.replace("/n3xra-records/login");
     return;
   }
-  if (isPlatformAdminEmail(currentSession.user.email) && !getSupportOrganizationId()) {
-    window.location.replace("/n3xra-admin/records");
-    return;
-  }
-
   show(setupPanel, false);
   show(documentsPanel, true);
   initTiptapEditor();

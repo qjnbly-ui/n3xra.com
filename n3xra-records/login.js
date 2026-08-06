@@ -146,7 +146,7 @@ function getRequestedRedirectDestination(session) {
 function getPostAuthDestination(session) {
   const requestedRedirect = getRequestedRedirectDestination(session);
   if (requestedRedirect) return requestedRedirect;
-  return isPlatformAdminEmail(session?.user?.email) ? "/n3xra-admin/records" : "/n3xra-records/library";
+  return "/n3xra-records/library";
 }
 
 function setStatus(message, tone = "") {

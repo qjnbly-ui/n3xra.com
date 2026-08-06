@@ -459,11 +459,6 @@ async function init() {
     window.location.replace("/n3xra-records/login");
     return;
   }
-  if (isPlatformAdminEmail(currentSession.user.email)) {
-    window.location.replace("/n3xra-admin/records");
-    return;
-  }
-
   show(setupPanel, false);
   show(messagesPanel, true);
 

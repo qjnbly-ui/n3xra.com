@@ -297,11 +297,6 @@ async function init() {
     return;
   }
 
-  if (isPlatformAdminEmail(currentSession.user.email)) {
-    window.location.replace("/n3xra-admin/records");
-    return;
-  }
-
   show(setupPanel, false);
   show(storagePanel, true);
 

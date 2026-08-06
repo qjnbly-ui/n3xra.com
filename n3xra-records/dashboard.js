@@ -6106,11 +6106,6 @@ async function init() {
     return;
   }
 
-  if (isPlatformAdminEmail(currentSession.user.email) && !getSupportOrganizationId()) {
-    window.location.replace("/n3xra-admin/records");
-    return;
-  }
-
   try {
     await bootstrapAccess();
     await loadActiveSupportGrant();
