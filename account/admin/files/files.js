@@ -1,3 +1,5 @@
+import { renderPdfFirstPage } from "/shared/lib/file-preview.js";
+
 let fileState = { files: [], access: [], admins: [], websites: [], websiteAssets: [], websiteVersions: [] };
 let fileSupabase = null;
 let fileInvoke = null;
@@ -40,19 +42,31 @@ function fileType(file) {
 
 function filePreviewMarkup(file, type) {
   const key = fileSelectionKey(file);
-  return `<span class="n3xra-file-type is-${type.tone}" data-file-preview="${fileEscape(key)}" aria-hidden="true"><img alt="" hidden><span>${type.label}</span></span>`;
+  return `<span class="n3xra-file-type is-${type.tone}" data-file-preview="${fileEscape(key)}" aria-hidden="true"><img alt="" hidden><canvas hidden></canvas><span>${type.label}</span></span>`;
 }
 
 async function hydrateFilePreviews() {
   const previews = Array.from(document.querySelectorAll("#n3xra-file-list [data-file-preview]"));
   await Promise.all(previews.map(async (preview) => {
     const file = fileState.files.find((item) => fileSelectionKey(item) === preview.dataset.filePreview);
-    if (!file || fileType(file).tone !== "image") return;
+    if (!file) return;
+    const type = fileType(file);
+    if (!["image", "pdf"].includes(type.tone)) return;
     try {
       const data = file.source === "website" ? await websiteFileUrl(file) : await fileInvoke("get-n3xra-file-url", { fileId: file.id });
       const image = preview.querySelector("img");
+      const canvas = preview.querySelector("canvas");
       const fallback = preview.querySelector(":scope > span");
-      if (!image || !data?.url || !preview.isConnected) return;
+      if (!data?.url || !preview.isConnected) return;
+      if (type.tone === "pdf" && canvas) {
+        await renderPdfFirstPage(data.url, canvas);
+        if (!preview.isConnected) return;
+        canvas.hidden = false;
+        if (fallback) fallback.hidden = true;
+        preview.classList.add("has-preview");
+        return;
+      }
+      if (!image) return;
       image.addEventListener("load", () => {
         if (!preview.isConnected) return;
         image.hidden = false;

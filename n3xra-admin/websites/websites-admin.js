@@ -1,6 +1,7 @@
 import { createBrowserSupabase, hasConfig } from "/shared/lib/supabase-client.js";
 import { readWorkspaceContext, writeWorkspaceContext } from "/client-portal/workspace-context.js";
 import { verifyPlatformAdmin } from "/client-portal/admin-access.js";
+import { renderPdfFirstPage } from "/shared/lib/file-preview.js";
 
 const PRIVATE_BUCKET = "website-assets-private";
 const PUBLIC_BUCKET = "website-assets-public";
@@ -148,14 +149,16 @@ function assetFileType(version) {
 }
 
 function assetFilePreviewMarkup(version, type) {
-  return `<span class="website-asset-file-type is-${type.tone}" data-version-preview="${version.id}" aria-hidden="true"><img alt="" hidden><span>${type.label}</span></span>`;
+  return `<span class="website-asset-file-type is-${type.tone}" data-version-preview="${version.id}" aria-hidden="true"><img alt="" hidden><canvas hidden></canvas><span>${type.label}</span></span>`;
 }
 
 async function hydrateVersionPreviews() {
   const previews = Array.from(assetGrid?.querySelectorAll("[data-version-preview]") || []);
   await Promise.all(previews.map(async (preview) => {
     const version = versions.find((row) => row.id === preview.dataset.versionPreview);
-    if (!version || !String(version.mime_type || "").startsWith("image/")) return;
+    if (!version) return;
+    const type = assetFileType(version);
+    if (!['image', 'pdf'].includes(type.tone)) return;
     let url = version.public_url;
     if (!url) {
       const { data, error } = await supabase.storage.from(version.storage_bucket).createSignedUrl(version.storage_path, 600);
@@ -163,8 +166,22 @@ async function hydrateVersionPreviews() {
       url = data.signedUrl;
     }
     const image = preview.querySelector("img");
+    const canvas = preview.querySelector("canvas");
     const fallback = preview.querySelector(":scope > span");
-    if (!image || !url || !preview.isConnected) return;
+    if (!url || !preview.isConnected) return;
+    if (type.tone === "pdf" && canvas) {
+      try {
+        await renderPdfFirstPage(url, canvas);
+        if (!preview.isConnected) return;
+        canvas.hidden = false;
+        if (fallback) fallback.hidden = true;
+        preview.classList.add("has-preview");
+      } catch {
+        // Keep the PDF badge when the first page cannot be rendered.
+      }
+      return;
+    }
+    if (!image) return;
     image.addEventListener("load", () => {
       if (!preview.isConnected) return;
       image.hidden = false;
