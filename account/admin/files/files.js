@@ -19,6 +19,15 @@ function fileDate(value) {
   return Number.isNaN(date.getTime()) ? "" : date.toLocaleDateString(undefined, { dateStyle: "medium" });
 }
 
+function safeUploadPath(value) {
+  return String(value || "file")
+    .split(/[\\/]+/)
+    .map((part) => part.trim().replace(/[^a-zA-Z0-9._ -]+/g, "-").replace(/\s+/g, "-").replace(/^-+|-+$/g, ""))
+    .filter((part) => part && part !== "." && part !== "..")
+    .join("/")
+    .replaceAll("..", ".") || "file";
+}
+
 function fileStatus(message = "", tone = "") {
   const element = document.getElementById("admin-status");
   if (!element) return;
@@ -60,12 +69,13 @@ async function uploadFiles(event) {
   if (!selected.length) return;
   for (const file of selected) {
     fileStatus(`Uploading ${file.name}…`);
-    const safeName = file.name.trim().replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/^-+|-+$/g, "") || "file";
-    const path = `uploads/${crypto.randomUUID()}-${safeName.slice(0, 180)}`;
+    const relativeName = file.webkitRelativePath || file.name;
+    const safeName = safeUploadPath(relativeName).slice(0, 240);
+    const path = `uploads/${crypto.randomUUID()}-${safeName}`;
     const { error } = await fileSupabase.storage.from("n3xra-files").upload(path, file, { contentType: file.type || "application/octet-stream", upsert: false });
     if (error) { fileStatus(error.message, "error"); return; }
     try {
-      await fileInvoke("create-n3xra-file", { name: file.name, storagePath: path, mimeType: file.type || "application/octet-stream", sizeBytes: file.size });
+      await fileInvoke("create-n3xra-file", { name: relativeName, storagePath: path, mimeType: file.type || "application/octet-stream", sizeBytes: file.size });
     } catch (error) {
       await fileSupabase.storage.from("n3xra-files").remove([path]);
       fileStatus(error.message, "error");
@@ -123,6 +133,7 @@ export async function startFiles({ supabase, invoke }) {
     document.getElementById("n3xra-folder-view")?.classList.remove("hidden");
   });
   document.getElementById("n3xra-file-input")?.addEventListener("change", uploadFiles);
+  document.getElementById("n3xra-folder-input")?.addEventListener("change", uploadFiles);
   document.getElementById("n3xra-file-list")?.addEventListener("click", (event) => {
     const download = event.target.closest("[data-file-download]");
     const remove = event.target.closest("[data-file-delete]");

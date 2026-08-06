@@ -781,7 +781,7 @@ async function loadAdminView() {
     document.getElementById("account-select")?.addEventListener("change", renderSelectedAccount);
     await loadAccounts();
   } else if (view === "files") {
-    const files = await import("/account/admin/files/files.js?v=1");
+    const files = await import("/account/admin/files/files.js?v=2");
     await files.startFiles({ supabase, session, invoke });
   } else if (view === "billing") {
     document.getElementById("billing-filter")?.addEventListener("input", renderBilling);
