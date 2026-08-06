@@ -808,8 +808,16 @@ async function submitAuthenticatedRequest({ automatic = false } = {}) {
   submitButton.disabled = true;
   setStatus(automatic ? "Email verified. Submitting your project…" : "Submitting your request…");
   try {
-    const { error } = await supabase.from("website_service_requests").insert(requestPayload());
-    if (error) throw error;
+    const response = await fetch("/api/submit-website-request", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify(requestPayload()),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result?.error || "Unable to submit your request.");
 
     form.reset();
     validatedReferralCode = "";
@@ -834,7 +842,7 @@ async function submitAuthenticatedRequest({ automatic = false } = {}) {
     cleanSubmitIntent();
     updateAccountState();
     if (verificationCard) verificationCard.hidden = true;
-    setStatus("Your website request was submitted and connected to your N3XRA account.");
+    setStatus("Your website request is submitted. N3XRA has been notified and will contact you by email with the next step.");
     await loadRequests();
   } catch (error) {
     setStatus(error?.message || "Unable to submit your request.", true);

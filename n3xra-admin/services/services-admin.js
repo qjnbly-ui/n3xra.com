@@ -1,6 +1,7 @@
 import { createBrowserSupabase, hasConfig } from "/shared/lib/supabase-client.js";
 import { verifyPlatformAdmin } from "/client-portal/admin-access.js";
 import { readWorkspaceContext, writeWorkspaceContext } from "/client-portal/workspace-context.js";
+import { confirmAdminAction } from "/account/admin/admin-dialogs.js";
 
 const websiteSelect = document.getElementById("admin-services-website-select");
 const statusScreen = document.getElementById("portal-status");
@@ -112,7 +113,7 @@ document.querySelector(".portal-workspace").addEventListener("click", async (eve
     const rows = edit.dataset.editKind === "service" ? services : edit.dataset.editKind === "domain" ? domains : repositories;
     const row = rows.find((item) => item.id === edit.dataset.editId); if (row) fill(edit.dataset.editKind, row);
   }
-  if (remove && window.confirm("Delete this record?")) {
+  if (remove && await confirmAdminAction("Delete this record? This cannot be undone.", { title: "Delete ownership record", confirmLabel: "Delete permanently" })) {
     const table = remove.dataset.deleteKind === "service" ? "website_services" : remove.dataset.deleteKind === "domain" ? "website_domains" : "website_repositories";
     const { error } = await supabase.from(table).delete().eq("id", remove.dataset.deleteId); if (error) inlineStatus.textContent = error.message; else await loadData(selectedWebsite.id);
   }

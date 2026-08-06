@@ -1,6 +1,7 @@
 import { createBrowserSupabase, getSessionOrNull, hasConfig } from "/shared/lib/supabase-client.js";
 import { readWorkspaceContext, writeWorkspaceContext } from "/client-portal/workspace-context.js";
 import { renderPdfFirstPage } from "/shared/lib/file-preview.js";
+import { openAssetPreview } from "/client-portal/asset-preview-modal.js?v=1";
 
 const PRIVATE_BUCKET = "website-assets-private";
 const statusScreen = document.getElementById("portal-status");
@@ -746,6 +747,17 @@ async function downloadVersion(versionId) {
   if (url) window.open(url, "_blank", "noopener");
 }
 
+async function openClientVersion(versionId) {
+  const version = versions.find((row) => row.id === versionId);
+  if (!version) return;
+  const previewResult = version.public_url
+    ? { data: { signedUrl: version.public_url }, error: null }
+    : await supabase.storage.from(version.storage_bucket).createSignedUrl(version.storage_path, 600);
+  if (previewResult.error || !previewResult.data?.signedUrl) throw previewResult.error || new Error("A preview link could not be created.");
+  const downloadUrl = version.public_url || await clientDownloadUrl(version);
+  await openAssetPreview({ name: version.original_filename, mimeType: version.mime_type, url: previewResult.data.signedUrl, downloadUrl, kicker: "Client Files & Assets" });
+}
+
 async function clientDownloadUrl(version) {
   if (version.public_url) return version.public_url;
   const { data, error } = await supabase.storage
@@ -973,10 +985,8 @@ async function initPortal() {
     assetGrid.addEventListener("click", async (event) => {
       const selectableRow = event.target.closest("[data-client-selectable-version]");
       if (selectableRow && !event.target.closest("input, label, button, a, summary, details")) {
-        const versionId = selectableRow.dataset.clientSelectableVersion;
-        if (selectedClientVersionIds.has(versionId)) selectedClientVersionIds.delete(versionId);
-        else selectedClientVersionIds.add(versionId);
-        renderAssets();
+        try { await openClientVersion(selectableRow.dataset.clientSelectableVersion); }
+        catch (error) { showToast(error?.message || "The file could not be opened.", "error"); }
         return;
       }
       const menu = event.target.closest(".website-asset-actions");

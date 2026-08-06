@@ -1,13 +1,6 @@
 const items = [
-  ["/n3xra-admin/websites/", "Overview"],
-  ["/n3xra-admin/services/", "Services & Ownership"],
+  ["/n3xra-admin/websites/", "Organization Workspace"],
   ["/n3xra-admin/requests/", "Requests"],
-  ["/n3xra-admin/proposals/", "Proposals"],
-  ["/n3xra-admin/projects/", "Progress"],
-  ["/n3xra-admin/onboarding/", "Onboarding"],
-  ["/n3xra-admin/assets/", "Files & Assets"],
-  ["/n3xra-admin/billing/", "Billing"],
-  ["/support/", "Support"],
 ];
 
 const actions = document.querySelector(".site-nav-actions");

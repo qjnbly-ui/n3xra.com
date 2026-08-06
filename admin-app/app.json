@@ -1,0 +1,27 @@
+{
+  "expo": {
+    "name": "N3XRA Admin",
+    "slug": "n3xra-admin",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "scheme": "n3xra-admin",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.n3xra.admin",
+      "infoPlist": {
+        "NSUserNotificationsUsageDescription": "N3XRA Admin uses notifications to alert you about important platform activity."
+      }
+    },
+    "android": {
+      "package": "com.n3xra.admin",
+      "permissions": ["POST_NOTIFICATIONS"]
+    },
+    "plugins": ["expo-notifications"],
+    "extra": {
+      "eas": {
+        "projectId": "REPLACE_WITH_EXPO_PROJECT_ID"
+      }
+    }
+  }
+}

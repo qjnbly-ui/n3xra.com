@@ -11,7 +11,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/site-nav.css">
   <link rel="stylesheet" href="/client-portal/portal.css?v=11">
-  <link rel="stylesheet" href="/account/admin/admin.css?v=12">
+  <link rel="stylesheet" href="/account/admin/admin.css?v=16">
   <script src="/shared/config.js"></script>
   <script src="/assets/site-nav.js" defer></script>
   <script>
@@ -19,7 +19,7 @@
   </script>
   <script defer src="/_vercel/insights/script.js"></script>
 </head>
-<body data-admin-view="platform-admins">
+<body class="platform-admins-page" data-admin-view="platform-admins">
   <header class="site-topbar">
     <div class="site-topbar-inner">
       <div class="site-topbar-row">
@@ -30,18 +30,7 @@
           <button class="site-menu-toggle" data-site-menu-toggle type="button" aria-controls="admin-menu" aria-expanded="false"><span></span><span></span><span></span></button>
         </div>
       </div>
-      <nav class="site-mobile-menu" id="admin-menu" hidden>
-        <div class="site-mobile-menu-head"><p class="site-mobile-menu-title">N3XRA Accounts</p></div>
-        <a class="site-menu-link" href="/account/admin/accounts/">Accounts &amp; Access</a>
-        <a class="site-menu-link is-current" href="/account/admin/platform-admins/">Platform Admins</a>
-        <a class="site-menu-link" href="/account/admin/billing/">Billing</a>
-        <a class="site-menu-link" href="/account/admin/support/">Support</a>
-        <a class="site-menu-link" href="/account/notifications/">Platform Notifications</a>
-        <div class="site-mobile-menu-head"><p class="site-mobile-menu-title">Investment</p></div>
-        <a class="site-menu-link" href="/account/admin/investment/#shareholders">Shareholders</a><a class="site-menu-link" href="/account/admin/investment/#share-classes">Share Classes</a><a class="site-menu-link" href="/account/admin/investment/#share-ledger">Share Ledger</a><a class="site-menu-link" href="/account/admin/investment/#board-resolutions">Board Resolutions</a><a class="site-menu-link" href="/account/admin/investment/#dividend-history">Dividend History</a><a class="site-menu-link" href="/account/admin/investment/#cap-table">Cap Table</a><a class="site-menu-link" href="/account/admin/investment/#valuation-history">Company Valuation</a><a class="site-menu-link" href="/account/admin/investment/#vesting">Vesting Schedules</a><a class="site-menu-link" href="/account/admin/investment/#voting">Voting Rights</a><a class="site-menu-link" href="/account/admin/investment/#certificates">Stock Certificates</a><a class="site-menu-link" href="/account/admin/investment/#transfers">Share Transfer Requests</a><a class="site-menu-link" href="/account/admin/investment/#buybacks">Company Buyback Requests</a>
-        <div class="site-mobile-menu-head"><p class="site-mobile-menu-title">Internal resources</p></div>
-        <a class="site-menu-link" href="/account/admin/business-framework/">Business Framework</a><a class="site-menu-link" href="/account/admin/codebase-ai/">Codebase AI</a>
-      </nav>
+      <nav class="site-mobile-menu" id="admin-menu" hidden></nav>
     </div>
   </header>
 
@@ -52,64 +41,28 @@
     </section>
 
     <div class="portal-layout hidden" id="admin-panel">
-      <nav class="portal-nav">
-        <p class="portal-nav-label">N3XRA Accounts</p>
-        <a href="/account/admin/accounts/">Accounts &amp; Access</a>
-        <a class="is-current" href="/account/admin/platform-admins/">Platform Admins</a>
-        <a href="/account/admin/billing/">Billing</a>
-        <a href="/account/admin/support/">Support</a>
-        <a href="/account/notifications/">Platform Notifications</a>
-        <div class="portal-nav-divider"></div><p class="portal-nav-label">Investment</p>
-        <a href="/account/admin/investment/#shareholders">Shareholders</a><a href="/account/admin/investment/#share-classes">Share Classes</a><a href="/account/admin/investment/#share-ledger">Share Ledger</a><a href="/account/admin/investment/#board-resolutions">Board Resolutions</a><a href="/account/admin/investment/#dividend-history">Dividend History</a><a href="/account/admin/investment/#cap-table">Cap Table</a><a href="/account/admin/investment/#valuation-history">Company Valuation</a><a href="/account/admin/investment/#vesting">Vesting Schedules</a><a href="/account/admin/investment/#voting">Voting Rights</a><a href="/account/admin/investment/#certificates">Stock Certificates</a><a href="/account/admin/investment/#transfers">Share Transfer Requests</a><a href="/account/admin/investment/#buybacks">Company Buyback Requests</a>
-        <div class="portal-nav-divider"></div>
-        <p class="portal-nav-label">Product admin apps</p>
-        <a href="/n3xra-admin/websites/">Website Admin</a>
-        <a href="/n3xra-admin/records/">Records Admin</a>
-        <a href="/n3xra-admin/utilities/">Utilities Admin</a>
-        <a href="/n3xra-admin/partners/">Partner Admin</a>
-        <div class="portal-nav-divider"></div>
-        <p class="portal-nav-label">Internal resources</p>
-        <a href="/account/admin/business-framework/">Business Framework</a><a class="site-menu-link" href="/account/admin/codebase-ai/">Codebase AI</a>
-      </nav>
-
-      <section class="portal-workspace">
-        <div class="portal-workspace-head">
-          <div>
-            <p class="portal-kicker">Master owner access</p>
-            <h2>Platform administrator access</h2>
-            <p>Invite and manage the people who can use N3XRA administration tools.</p>
-          </div>
+      <nav class="portal-nav"></nav>
+      <section class="portal-workspace platform-admin-directory-app">
+        <div class="platform-admin-workbench">
+          <aside class="platform-admin-roster-pane">
+            <div class="platform-admin-roster-head"><div><p class="portal-kicker">Access roster</p><strong>Platform administrators</strong></div><button class="platform-admin-icon-button" id="platform-admin-refresh" type="button" aria-label="Refresh administrators">↻</button></div>
+            <label class="account-admin-field"><span>Find an administrator</span><input id="platform-admin-search" type="search" placeholder="Name or email" autocomplete="off"></label>
+            <div class="platform-admin-roster-group"><div class="platform-admin-roster-label"><span>Current admins</span><span id="platform-admin-count"></span></div><div class="platform-admin-list" id="platform-admin-list"></div></div>
+            <div class="platform-admin-roster-group"><div class="platform-admin-roster-label"><span>Invitations</span><span id="platform-admin-invite-count"></span></div><div class="platform-admin-list" id="platform-admin-invite-list"></div></div>
+          </aside>
+          <section class="platform-admin-detail-pane">
+            <section class="platform-admin-invite-card">
+              <div class="platform-admin-command-head"><div><p class="portal-kicker">Master owner access</p><h2>Invite an administrator</h2><p>Grant access to the N3XRA administration workspace. Invitations remain pending until accepted.</p></div></div>
+              <form class="platform-admin-invite-form" id="platform-admin-invite-form"><label class="account-admin-field"><span>Admin email</span><input id="platform-admin-invite-email" type="email" autocomplete="email" placeholder="admin@example.com" required></label><button class="portal-button" type="submit">Create invite</button></form>
+              <div class="platform-admin-invite-link hidden" id="platform-admin-invite-link"><div><span>Admin invite link</span><p id="platform-admin-invite-url"></p></div><button class="portal-button portal-button-secondary" id="platform-admin-copy-invite" type="button">Copy link</button></div>
+            </section>
+            <section id="platform-admin-detail"></section>
+          </section>
         </div>
-
-        <section class="platform-admin-section">
-          <form class="platform-admin-invite-form" id="platform-admin-invite-form">
-            <label class="account-admin-field">
-              <span>Admin email</span>
-              <input id="platform-admin-invite-email" type="email" autocomplete="email" placeholder="admin@example.com" required>
-            </label>
-            <button class="portal-button" type="submit">Create admin invite</button>
-          </form>
-
-          <div class="platform-admin-invite-link hidden" id="platform-admin-invite-link">
-            <div><span>Admin invite link</span><p id="platform-admin-invite-url"></p></div>
-            <button class="portal-button portal-button-secondary" id="platform-admin-copy-invite" type="button">Copy link</button>
-          </div>
-
-          <div class="platform-admin-toolbar">
-            <div><p class="portal-kicker">Access</p><h3>Current admins</h3></div>
-            <button class="portal-button portal-button-secondary" id="platform-admin-refresh" type="button">Refresh</button>
-          </div>
-          <div class="platform-admin-list" id="platform-admin-list"></div>
-
-          <div class="platform-admin-toolbar platform-admin-invites-heading">
-            <div><p class="portal-kicker">Invitations</p><h3>Admin invites</h3></div>
-          </div>
-          <div class="platform-admin-list" id="platform-admin-invite-list"></div>
-        </section>
         <p class="admin-status" id="admin-status" role="status"></p>
       </section>
     </div>
   </main>
-  <script type="module" src="/account/admin/admin.js?v=2"></script>
+  <script type="module" src="/account/admin/admin.js?v=3"></script>
 </body>
 </html>

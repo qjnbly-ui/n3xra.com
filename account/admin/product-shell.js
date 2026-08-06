@@ -1,4 +1,5 @@
-import { renderAdminNavigation } from "/account/admin/admin-navigation.js?v=3";
+import { renderAdminNavigation } from "/account/admin/admin-navigation.js?v=5";
+import { initializeAdminSelects } from "/account/admin/admin-select.js?v=1";
 
 function createNativeLayout(main) {
   const layout = document.createElement("div");
@@ -41,4 +42,5 @@ function addRecordsNavigationCompatibility() {
 
 prepareNativeProductShell();
 renderAdminNavigation();
+initializeAdminSelects();
 addRecordsNavigationCompatibility();

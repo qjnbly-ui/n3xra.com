@@ -210,7 +210,12 @@ async function loadOrganizations() {
   setStatus("Loading utility organizations...");
   const data = await apiFetch("");
   organizations = data.organizations || [];
-  if (!selectedOrganizationId && organizations[0]) selectedOrganizationId = organizations[0].id;
+  const requestedOrganizationId = new URLSearchParams(window.location.search).get("organization") || "";
+  if (requestedOrganizationId && organizations.some((organization) => organization.id === requestedOrganizationId)) {
+    selectedOrganizationId = requestedOrganizationId;
+  } else if (!selectedOrganizationId && organizations[0]) {
+    selectedOrganizationId = organizations[0].id;
+  }
   if (selectedOrganizationId && !organizations.some((organization) => organization.id === selectedOrganizationId)) {
     selectedOrganizationId = organizations[0]?.id || "";
   }

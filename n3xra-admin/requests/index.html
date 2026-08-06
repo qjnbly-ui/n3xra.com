@@ -7,13 +7,15 @@
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&amp;family=Manrope:wght@400;600;700;800&amp;display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/site-nav.css"><link rel="stylesheet" href="/client-portal/portal.css?v=12">
-  <script src="/shared/config.js"></script><script src="/n3xra-admin/admin-shell.js?v=2" defer></script>
+  <script src="/shared/config.js"></script><script src="/n3xra-admin/admin-shell.js?v=3" defer></script>
   <script>
     window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
   </script>
   <script defer src="/_vercel/insights/script.js"></script>
   <link rel="stylesheet" href="/account/admin/admin.css?v=11">
-  <script type="module" src="/account/admin/product-shell.js?v=2"></script>
+  <link rel="stylesheet" href="/n3xra-admin/website-admin.css?v=5">
+  <script type="module" src="/account/admin/product-shell.js?v=3"></script>
+  <script type="module" src="/n3xra-admin/website-admin-workspace.js?v=5"></script>
 </head>
 <body class="portal-loading">
   <header class="site-topbar"><div class="site-topbar-inner"><div class="site-topbar-row"><a class="site-brand" href="/" aria-label="N3XRA home"><img src="/assets/n3xra_logo_transparent_small.png" alt=""><span>N3XRA</span></a><div class="site-nav-actions"><a class="site-menu-link" href="/account/">Dashboard</a><button class="site-menu-link portal-logout" id="portal-logout" type="button">Sign out</button></div></div></div></header>
@@ -21,10 +23,31 @@
     <section class="portal-heading"><div><p class="portal-kicker">Master administration</p><h1>Website Requests</h1></div></section>
     <div class="portal-layout">
       <nav class="portal-nav" aria-label="Website administration"><a href="/n3xra-admin/websites/">Overview</a><a href="/n3xra-admin/services/">Services &amp; Ownership</a><a class="is-current" href="/n3xra-admin/requests/">Requests</a><a href="/n3xra-admin/proposals/">Proposals</a><a href="/n3xra-admin/projects/">Progress</a><a href="/n3xra-admin/onboarding/">Onboarding</a><a href="/n3xra-admin/assets/">Files &amp; Assets</a><a href="/n3xra-admin/billing/">Billing</a><span class="is-placeholder">Renewals</span><a href="/support/">Support</a></nav>
-      <section class="portal-workspace"><div class="portal-workspace-head"><div><p class="portal-kicker">Beginning of lifecycle</p><h2>Requests</h2><p>Review new requests before creating proposals and active projects.</p></div></div><div class="portal-request-list" id="admin-request-list"></div><div class="portal-toolbar"><div><p class="portal-kicker">Permanent audit</p><h3>AI review history</h3><p>Every generated intake review, including reviews not followed by a submission.</p></div></div><div class="portal-request-list" id="admin-ai-review-list"></div></section>
+      <section class="portal-workspace">
+        <div class="portal-workspace-head"><div><p class="portal-kicker">Intake desk</p><h2>Request processing</h2><p>Open a submitted request, contact the client, qualify the work, and move it into a proposal.</p></div></div>
+        <section class="website-request-command" aria-labelledby="request-queue-title">
+          <header class="website-request-command-head">
+            <div><p class="portal-kicker">Submitted requests</p><h2 id="request-queue-title">Intake queue</h2><p id="admin-request-summary">Loading requests…</p></div>
+            <div class="website-request-counts" id="admin-request-counts" aria-label="Request counts"></div>
+          </header>
+          <div class="website-request-filters" id="admin-request-filters" aria-label="Filter requests">
+            <button class="is-current" type="button" data-request-filter="open">Needs action</button>
+            <button type="button" data-request-filter="all">All active</button>
+          </div>
+          <div class="website-request-workspace">
+            <aside class="website-request-queue" id="admin-request-list" aria-label="Submitted requests"></aside>
+            <section class="website-request-detail" id="admin-request-detail" aria-live="polite"></section>
+          </div>
+        </section>
+        <details class="website-request-audit">
+          <summary><span><strong>Incomplete intakes</strong><small>AI reviews that were started but never submitted</small></span><span id="admin-ai-review-count">0</span></summary>
+          <div class="website-request-audit-note"><strong>These are not submitted requests.</strong> No action or customer follow-up is required unless you choose to contact them.</div>
+          <div class="portal-request-list" id="admin-ai-review-list"></div>
+        </details>
+      </section>
     </div>
   </main>
   <div class="portal-status" id="portal-status" role="status">Opening website requests…</div>
-  <script type="module" src="/client-portal/portal-shell.js"></script><script type="module" src="/n3xra-admin/requests/requests-admin.js?v=4"></script>
+  <script type="module" src="/client-portal/portal-shell.js"></script><script type="module" src="/n3xra-admin/requests/requests-admin.js?v=5"></script>
 </body>
 </html>

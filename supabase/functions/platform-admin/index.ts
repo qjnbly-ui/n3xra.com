@@ -173,9 +173,10 @@ async function loadPlatformAccountData(adminClient: ReturnType<typeof createClie
     utilityRolesResult,
     musicProfilesResult,
     viralsProfilesResult,
+    accountPhonesResult,
     authUsers,
   ] = await Promise.all([
-    adminClient.from("profiles").select("id, email, full_name, created_at, updated_at"),
+    adminClient.from("profiles").select("id, email, full_name, organization_name, role, subscription_tier, account_status, created_at, updated_at"),
     adminClient.from("organizations").select("id, name, owner_user_id, subscription_tier, account_status, billing_cycle, document_limit, user_limit, storage_limit_mb, stripe_customer_id, stripe_subscription_id, subscription_current_period_end"),
     adminClient.from("organization_memberships").select("id, organization_id, user_id, role, created_at"),
     adminClient.from("client_websites").select("id, name, status"),
@@ -185,6 +186,7 @@ async function loadPlatformAccountData(adminClient: ReturnType<typeof createClie
     adminClient.from("utility_roles").select("id, name, display_name"),
     adminClient.from("music_profiles").select("user_id, display_name, plan, account_status, monthly_song_limit, songs_used, stripe_customer_id, stripe_subscription_id, subscription_current_period_end"),
     adminClient.from("virals_profiles").select("user_id, plan, account_status, monthly_analysis_limit, analyses_used, stripe_customer_id, stripe_subscription_id, subscription_current_period_end"),
+    adminClient.from("account_phone_credentials").select("user_id, phone_e164, failed_attempts, locked_until, last_authenticated_at, last_password_reset_sent_at, created_at, updated_at"),
     listAllAuthUsers(adminClient),
   ]);
 
@@ -199,6 +201,7 @@ async function loadPlatformAccountData(adminClient: ReturnType<typeof createClie
     utilityRolesResult,
     musicProfilesResult,
     viralsProfilesResult,
+    accountPhonesResult,
   ];
   const firstError = results.find((result) => result.error)?.error;
   if (firstError) throw new Error(firstError.message);
@@ -210,12 +213,26 @@ async function loadPlatformAccountData(adminClient: ReturnType<typeof createClie
   const websiteMap = new Map((websitesResult.data || []).map((website) => [String(website.id), website]));
   const utilityMap = new Map((utilityOrganizationsResult.data || []).map((organization) => [String(organization.id), organization]));
   const utilityRoleMap = new Map((utilityRolesResult.data || []).map((role) => [String(role.id), role]));
+  const accountPhoneMap = new Map((accountPhonesResult.data || []).map((credential) => [String(credential.user_id), credential]));
   const accessMap = new Map<string, Array<Record<string, unknown>>>();
 
   const addAccess = (userId: unknown, access: Record<string, unknown>) => {
     const key = String(userId || "");
     if (!key) return;
     const items = accessMap.get(key) || [];
+    const existingIndex = items.findIndex((item) =>
+      String(item.product || "") === String(access.product || "") &&
+      String(item.organizationId || "") === String(access.organizationId || "")
+    );
+    if (existingIndex >= 0) {
+      const existing = items[existingIndex];
+      const role = [existing.role, access.role].map((value) => String(value || "")).includes("owner")
+        ? "owner"
+        : access.role || existing.role;
+      items[existingIndex] = { ...existing, ...access, role };
+      accessMap.set(key, items);
+      return;
+    }
     items.push(access);
     accessMap.set(key, items);
   };
@@ -260,14 +277,39 @@ async function loadPlatformAccountData(adminClient: ReturnType<typeof createClie
   const accounts = Array.from(knownUserIds).map((userId) => {
     const profile = profileMap.get(userId);
     const authUser = authMap.get(userId);
+    const phoneCredential = accountPhoneMap.get(userId);
+    const authProviders = Array.from(new Set([
+      ...(Array.isArray(authUser?.app_metadata?.providers) ? authUser.app_metadata.providers : []),
+      ...(Array.isArray(authUser?.identities) ? authUser.identities.map((identity: any) => identity?.provider) : []),
+      authUser?.app_metadata?.provider,
+    ].map((provider) => String(provider || "").trim()).filter(Boolean)));
+    const authPhone = normalizePhone(authUser?.phone || authUser?.user_metadata?.phone || authUser?.user_metadata?.phone_number);
+    const accountPhone = normalizePhone(phoneCredential?.phone_e164);
     return {
       id: userId,
       email: normalizeEmail(profile?.email || authUser?.email),
       name: textValue(profile?.full_name || authUser?.user_metadata?.full_name || authUser?.user_metadata?.name || authUser?.email, 180),
       createdAt: authUser?.created_at || profile?.created_at || null,
+      updatedAt: authUser?.updated_at || profile?.updated_at || null,
       lastSignInAt: authUser?.last_sign_in_at || null,
       bannedUntil: authUser?.banned_until || null,
       emailConfirmedAt: authUser?.email_confirmed_at || null,
+      phone: authPhone || accountPhone,
+      authPhone: authPhone || "",
+      phoneConfirmedAt: authUser?.phone_confirmed_at || null,
+      phoneAccessConfigured: Boolean(accountPhone),
+      phoneAccessCreatedAt: phoneCredential?.created_at || null,
+      phoneAccessUpdatedAt: phoneCredential?.updated_at || null,
+      phoneLastAuthenticatedAt: phoneCredential?.last_authenticated_at || null,
+      phoneLockedUntil: phoneCredential?.locked_until || null,
+      phoneFailedAttempts: Number(phoneCredential?.failed_attempts || 0),
+      phonePasswordResetSentAt: phoneCredential?.last_password_reset_sent_at || null,
+      providers: authProviders,
+      isAnonymous: Boolean(authUser?.is_anonymous),
+      profileOrganization: textValue(profile?.organization_name, 180),
+      profileRole: textValue(profile?.role, 80),
+      profilePlan: textValue(profile?.subscription_tier, 80),
+      profileStatus: textValue(profile?.account_status, 80),
       access: accessMap.get(userId) || [],
     };
   }).filter((account) => account.email).sort((a, b) => a.email.localeCompare(b.email));
@@ -948,6 +990,62 @@ Deno.serve(async (request) => {
     if (action === "list-platform-accounts") {
       const { accounts } = await loadPlatformAccountData(adminClient);
       return jsonResponse({ ok: true, accounts, count: accounts.length });
+    }
+
+    if (action === "update-platform-account") {
+      const userId = String(payload.userId || "").trim();
+      const name = textValue(payload.name, 180);
+      const email = normalizeEmail(payload.email);
+      if (!isValidUuid(userId)) return jsonResponse({ error: "A valid userId is required." }, 400);
+      if (!name) return jsonResponse({ error: "Account name is required." }, 400);
+      if (!isValidEmail(email)) return jsonResponse({ error: "A valid email is required." }, 400);
+
+      const { data: currentUser, error: currentUserError } = await adminClient.auth.admin.getUserById(userId);
+      if (currentUserError || !currentUser?.user) {
+        return jsonResponse({ error: currentUserError?.message || "Account not found." }, 404);
+      }
+      const { data: updatedAuth, error: updateAuthError } = await adminClient.auth.admin.updateUserById(userId, {
+        email,
+        user_metadata: { ...(currentUser.user.user_metadata || {}), full_name: name, name },
+      });
+      if (updateAuthError || !updatedAuth?.user) {
+        return jsonResponse({ error: updateAuthError?.message || "Unable to update the account." }, 400);
+      }
+      const { error: profileError } = await adminClient.from("profiles").upsert({
+        id: userId,
+        email,
+        full_name: name,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "id" });
+      if (profileError) return jsonResponse({ error: profileError.message }, 400);
+
+      return jsonResponse({
+        ok: true,
+        account: {
+          id: userId,
+          email: normalizeEmail(updatedAuth.user.email),
+          name,
+          emailConfirmedAt: updatedAuth.user.email_confirmed_at || null,
+        },
+      });
+    }
+
+    if (action === "set-platform-account-suspension") {
+      const userId = String(payload.userId || "").trim();
+      const suspended = payload.suspended === true;
+      if (!isValidUuid(userId)) return jsonResponse({ error: "A valid userId is required." }, 400);
+      if (userId === user.id) return jsonResponse({ error: "You cannot suspend your own administrator account." }, 400);
+      const { data: updatedAuth, error: updateError } = await adminClient.auth.admin.updateUserById(userId, {
+        ban_duration: suspended ? "876000h" : "none",
+      });
+      if (updateError || !updatedAuth?.user) {
+        return jsonResponse({ error: updateError?.message || "Unable to update account access." }, 400);
+      }
+      return jsonResponse({
+        ok: true,
+        suspended,
+        bannedUntil: updatedAuth.user.banned_until || null,
+      });
     }
 
     if (action === "list-records-demo-workspaces") {

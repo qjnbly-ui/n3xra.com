@@ -1,6 +1,9 @@
 import { createBrowserSupabase, hasConfig } from "/shared/lib/supabase-client.js";
 import { verifyPlatformAdmin } from "/client-portal/admin-access.js";
 import { confirmAdminAction } from "/account/admin/admin-dialogs.js";
+import { initializeAdminSelects } from "/account/admin/admin-select.js?v=1";
+
+initializeAdminSelects();
 
 const list = document.getElementById("notification-list");
 const status = document.getElementById("admin-inbox-status");
@@ -104,6 +107,14 @@ function recordRows(item) {
   `).join("");
 }
 
+function relatedActionUrl(item) {
+  if (!item.action_url) return "";
+  if (item.source_table !== "website_service_requests" || !item.source_id) return item.action_url;
+  const url = new URL(item.action_url, window.location.origin);
+  url.searchParams.set("request", item.source_id);
+  return `${url.pathname}${url.search}${url.hash}`;
+}
+
 async function openNotification(id) {
   const item = notifications.find((entry) => entry.id === id);
   if (!item) return;
@@ -117,7 +128,8 @@ async function openNotification(id) {
   document.getElementById("notification-detail-meta").textContent = [item.actor_name, item.actor_email, dateTime(item.created_at)].filter(Boolean).join(" · ");
   document.getElementById("notification-detail-message").textContent = item.message_text || item.summary || "No additional message.";
   document.getElementById("notification-detail-record").innerHTML = recordRows(item);
-  document.getElementById("notification-detail-actions").innerHTML = item.action_url ? `<a class="portal-button" href="${escapeHtml(item.action_url)}">Open related admin page</a>` : "";
+  const actionUrl = relatedActionUrl(item);
+  document.getElementById("notification-detail-actions").innerHTML = actionUrl ? `<a class="portal-button" href="${escapeHtml(actionUrl)}">Open and process request</a>` : "";
   dialog.showModal();
 }
 

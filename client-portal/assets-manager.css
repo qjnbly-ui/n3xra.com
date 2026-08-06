@@ -16,6 +16,10 @@
 .website-assets-client-site span, .website-assets-client-site strong { display:block; }
 .website-assets-client-site span { color:var(--portal-muted); font-size:.68rem; }
 .website-assets-client-site strong { margin-top:.2rem; font-size:.86rem; }
+.website-assets-admin-site { align-items:flex-start; }
+.website-assets-admin-site > div:first-child { min-width:0; }
+.website-assets-admin-site > div:last-child { flex:0 0 auto; display:grid; justify-items:end; gap:.35rem; }
+.website-assets-admin-site small { display:block; max-width:190px; margin-top:.25rem; overflow:hidden; color:var(--portal-muted); font-size:.63rem; line-height:1.35; text-overflow:ellipsis; white-space:nowrap; }
 .website-assets-search { position:relative; display:block; margin:1.2rem 1.35rem 1rem; }
 .website-assets-search > span { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
 .website-assets-search input { width:100%; box-sizing:border-box; padding:.72rem .8rem .72rem 2.4rem; color:var(--portal-ink); background:#f8fafb url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23708392' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E") no-repeat .78rem center; border:1px solid #d9e1e5; border-radius:7px; font:inherit; font-size:.78rem; }
@@ -86,12 +90,28 @@
 .website-assets-upload-drawer { position:absolute; z-index:35; top:0; right:0; bottom:0; width:min(560px,100%); box-sizing:border-box; margin:0 !important; overflow-y:auto; padding:1.5rem !important; background:#fff !important; border:0 !important; border-left:1px solid var(--portal-line) !important; border-radius:0 !important; box-shadow:-18px 0 45px rgba(11,24,34,.16) !important; }
 .website-assets-upload-drawer[hidden] { display:none; }
 
+.website-asset-preview-modal[hidden] { display:none; }
+.website-asset-preview-modal { position:fixed; inset:0; z-index:220; display:grid; place-items:center; padding:1.25rem; box-sizing:border-box; }
+.website-asset-preview-scrim { position:absolute; inset:0; background:rgba(4,10,18,.66); backdrop-filter:blur(6px); }
+.website-asset-preview-dialog { position:relative; width:min(960px,100%); max-height:calc(100svh - 2.5rem); box-sizing:border-box; overflow:auto; padding:1.35rem; background:#fff; border:1px solid rgba(8,17,29,.1); border-radius:18px; box-shadow:0 24px 70px rgba(0,0,0,.28); }
+.website-asset-preview-head { display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; }
+.website-asset-preview-head h2 { margin:.35rem 0 0; font:700 clamp(1.35rem,2.4vw,1.85rem)/1.15 Fraunces,Georgia,serif; overflow-wrap:anywhere; }
+.website-asset-preview-close { border:0; background:transparent; color:var(--portal-muted); font-size:2rem; line-height:1; cursor:pointer; }
+.website-asset-preview-body { display:grid; place-items:center; min-height:180px; margin-top:1.1rem; padding:1rem; box-sizing:border-box; background:#f4f7fa; border-radius:12px; }
+.website-asset-preview-body img, .website-asset-preview-body video { max-width:100%; max-height:62vh; object-fit:contain; }
+.website-asset-preview-body iframe { width:100%; height:65vh; border:0; background:#fff; }
+.website-asset-preview-body audio { width:min(520px,100%); }
+.website-asset-preview-body pre { width:100%; max-height:60vh; margin:0; overflow:auto; white-space:pre-wrap; text-align:left; font:.85rem/1.55 ui-monospace,SFMono-Regular,Menlo,monospace; }
+.website-asset-preview-body p { color:var(--portal-muted); text-align:center; }
+.website-asset-preview-actions { display:flex; justify-content:flex-end; gap:.65rem; margin-top:1.15rem; }
+body.website-asset-preview-open { overflow:hidden; }
+
 @media (min-width:801px) {
   body.admin-assets-view, body.client-files-active { height:100svh; overflow:hidden; }
   .website-assets-admin-page.account-admin-page, body.client-files-active .client-portal-page { height:calc(100svh - 76px); min-height:0; overflow:hidden; }
   .website-assets-admin-page > .portal-layout, body.client-files-active .client-portal-page > .portal-layout { height:100%; min-height:0; overflow:hidden; }
   .website-assets-admin-page .portal-nav, body.client-files-active .client-portal-page .portal-nav { position:relative; top:auto; height:100%; }
-  .website-assets-admin-page .portal-layout > .website-assets-workspace, body.client-files-active .client-portal-page .portal-layout > .portal-workspace { height:100%; min-height:0; padding:0; overflow:hidden; }
+  .website-assets-admin-page .portal-layout > .website-assets-workspace, body.client-files-active .client-portal-page .portal-layout > .portal-workspace { height:100%; min-height:0; padding:0 !important; overflow:hidden; }
   body.client-files-active .client-workspace-banner, body.client-files-active .client-portal-page .portal-project-picker { display:none; }
   body.client-files-active #portal-view-files { position:relative; display:block; height:100%; overflow:hidden; }
 }

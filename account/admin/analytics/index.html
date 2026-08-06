@@ -11,7 +11,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&amp;family=Manrope:wght@400;600;700;800&amp;display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/site-nav.css">
   <link rel="stylesheet" href="/client-portal/portal.css?v=11">
-  <link rel="stylesheet" href="/account/admin/admin.css?v=13">
+  <link rel="stylesheet" href="/account/admin/admin.css?v=22">
   <script src="/shared/config.js"></script>
   <script src="/assets/site-nav.js" defer></script>
   <script>
@@ -19,7 +19,7 @@
   </script>
   <script defer src="/_vercel/insights/script.js"></script>
 </head>
-<body data-admin-view="analytics">
+<body class="analytics-admin-page" data-admin-view="analytics">
   <header class="site-topbar">
     <div class="site-topbar-inner">
       <div class="site-topbar-row">
@@ -40,75 +40,52 @@
 
     <div class="portal-layout hidden" id="admin-panel">
       <nav class="portal-nav"></nav>
+      <section class="portal-workspace analytics-operations-app">
+        <div class="analytics-workbench">
+          <section class="analytics-report-pane">
+            <section class="analytics-configuration hidden" id="analytics-configuration">
+              <div><p class="portal-kicker">One-time connection</p><h2>Connect Vercel Analytics</h2><p>Add the listed values to the Vercel project’s server environment. The access token is never sent to the browser.</p></div>
+              <ul id="analytics-missing-config"></ul>
+            </section>
 
-      <section class="portal-workspace analytics-workspace">
-        <div class="analytics-toolbar">
-          <div>
-            <p class="portal-kicker">Vercel Web Analytics</p>
-            <strong>Production traffic</strong>
-          </div>
-          <div class="analytics-toolbar-actions">
-            <label for="analytics-range">Timeframe</label>
-            <select id="analytics-range">
-              <option value="7">Last 7 days</option>
-              <option value="30" selected>Last 30 days</option>
-            </select>
-            <button class="portal-button portal-button-secondary" id="analytics-refresh" type="button">Refresh</button>
-          </div>
-        </div>
+            <div id="analytics-dashboard">
+              <section class="analytics-report-head" id="analytics-overview">
+                <div><p class="portal-kicker">Production traffic</p><h2>Website analytics</h2><p id="analytics-period-label">Last 30 days</p><small id="analytics-updated">Loading current data…</small></div>
+                <div class="analytics-report-controls">
+                  <label class="account-admin-field"><span>Timeframe</span><select id="analytics-range"><option value="7">Last 7 days</option><option value="30" selected>Last 30 days</option></select></label>
+                  <button class="portal-button portal-button-secondary" id="analytics-refresh" type="button">Refresh report</button>
+                  <div class="analytics-report-source"><span>Vercel Web Analytics</span><small id="analytics-source-updated">Waiting for current data…</small></div>
+                </div>
+              </section>
 
-        <section class="analytics-configuration hidden" id="analytics-configuration">
-          <div>
-            <p class="portal-kicker">One-time connection</p>
-            <h2>Connect Vercel Analytics</h2>
-            <p>Add the listed values to the Vercel project’s server environment. The access token is never sent to the browser.</p>
-          </div>
-          <ul id="analytics-missing-config"></ul>
-        </section>
+              <section class="analytics-metrics" aria-label="Traffic summary">
+                <article><span>Visitors</span><strong id="analytics-visitors">—</strong><small>Unique daily visitors</small></article>
+                <article><span>Page views</span><strong id="analytics-pageviews">—</strong><small>Pages loaded</small></article>
+                <article><span>Pages / visitor</span><strong id="analytics-pages-per-visitor">—</strong><small>Average engagement</small></article>
+                <article><span>Custom events</span><strong id="analytics-events">—</strong><small>Tracked interactions</small></article>
+              </section>
 
-        <div id="analytics-dashboard">
-          <section class="analytics-metrics" aria-label="Traffic summary">
-            <article><span>Visitors</span><strong id="analytics-visitors">—</strong><small>Unique daily visitors</small></article>
-            <article><span>Page views</span><strong id="analytics-pageviews">—</strong><small>Pages loaded</small></article>
-            <article><span>Pages / visitor</span><strong id="analytics-pages-per-visitor">—</strong><small>Average engagement</small></article>
-            <article><span>Custom events</span><strong id="analytics-events">—</strong><small>Tracked interactions</small></article>
-          </section>
+              <section class="analytics-warning-list hidden" id="analytics-warnings" aria-label="Analytics availability warnings"></section>
 
-          <section class="analytics-panel analytics-trend-panel">
-            <div class="analytics-panel-head">
-              <div><span>Traffic trend</span><strong>Page views by day</strong></div>
-              <small id="analytics-updated">Loading current data…</small>
+              <section class="analytics-panel analytics-trend-panel" id="analytics-traffic">
+                <div class="analytics-panel-head"><div><span>Traffic trend</span><strong>Page views by day</strong></div></div>
+                <div class="analytics-chart" id="analytics-chart" role="img" aria-label="Daily page views chart"></div>
+              </section>
+
+              <section class="analytics-breakdowns">
+                <article class="analytics-panel" id="analytics-content"><div class="analytics-panel-head"><div><span>Content</span><strong>Top pages</strong></div></div><div class="analytics-list" id="analytics-pages"></div></article>
+                <article class="analytics-panel" id="analytics-acquisition"><div class="analytics-panel-head"><div><span>Acquisition</span><strong>Top referrers</strong></div></div><div class="analytics-list" id="analytics-referrers"></div></article>
+                <article class="analytics-panel" id="analytics-audience"><div class="analytics-panel-head"><div><span>Audience</span><strong>Countries</strong></div></div><div class="analytics-list" id="analytics-countries"></div></article>
+                <article class="analytics-panel" id="analytics-technology"><div class="analytics-panel-head"><div><span>Technology</span><strong>Devices</strong></div></div><div class="analytics-list" id="analytics-devices"></div></article>
+                <article class="analytics-panel analytics-events-panel" id="analytics-interactions"><div class="analytics-panel-head"><div><span>Interactions</span><strong>Custom events</strong></div></div><div class="analytics-list" id="analytics-event-list"></div></article>
+              </section>
             </div>
-            <div class="analytics-chart" id="analytics-chart" role="img" aria-label="Daily page views chart"></div>
-          </section>
-
-          <section class="analytics-breakdowns">
-            <article class="analytics-panel">
-              <div class="analytics-panel-head"><div><span>Content</span><strong>Top pages</strong></div></div>
-              <div class="analytics-list" id="analytics-pages"></div>
-            </article>
-            <article class="analytics-panel">
-              <div class="analytics-panel-head"><div><span>Acquisition</span><strong>Top referrers</strong></div></div>
-              <div class="analytics-list" id="analytics-referrers"></div>
-            </article>
-            <article class="analytics-panel">
-              <div class="analytics-panel-head"><div><span>Audience</span><strong>Countries</strong></div></div>
-              <div class="analytics-list" id="analytics-countries"></div>
-            </article>
-            <article class="analytics-panel">
-              <div class="analytics-panel-head"><div><span>Technology</span><strong>Devices</strong></div></div>
-              <div class="analytics-list" id="analytics-devices"></div>
-            </article>
-            <article class="analytics-panel analytics-events-panel">
-              <div class="analytics-panel-head"><div><span>Interactions</span><strong>Custom events</strong></div></div>
-              <div class="analytics-list" id="analytics-event-list"></div>
-            </article>
           </section>
         </div>
         <p class="admin-status" id="admin-status" role="status"></p>
       </section>
     </div>
   </main>
-  <script type="module" src="/account/admin/admin.js?v=8"></script>
+  <script type="module" src="/account/admin/admin.js?v=24"></script>
 </body>
 </html>

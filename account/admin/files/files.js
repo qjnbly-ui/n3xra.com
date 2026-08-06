@@ -728,10 +728,8 @@ export async function startFiles({ supabase, session, invoke }) {
   document.getElementById("n3xra-file-list")?.addEventListener("click", (event) => {
     const selectableRow = event.target.closest("[data-selectable-file]");
     if (selectableRow && !event.target.closest("input, label, button, a, summary, details")) {
-      const key = selectableRow.dataset.selectableFile;
-      if (selectedFileKeys.has(key)) selectedFileKeys.delete(key);
-      else selectedFileKeys.add(key);
-      renderFiles();
+      const file = fileState.files.find((item) => fileSelectionKey(item) === selectableRow.dataset.selectableFile);
+      if (file) void openFile(file.id);
       return;
     }
     const menu = event.target.closest(".n3xra-file-menu");

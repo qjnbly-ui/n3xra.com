@@ -127,23 +127,26 @@ function renderWorkspace() {
 }
 
 async function loadData(preferredId) {
-  const [proposalResult, onboardingResult, responseResult, fileResult] = await Promise.all([
+  const [proposalResult, onboardingResult, responseResult, fileResult, projectResult] = await Promise.all([
     supabase.from("website_proposals").select("id,request_id,project_id,client_user_id,title,status,website_service_requests(business_name)").eq("status", "approved").order("created_at", { ascending: false }),
     supabase.from("website_onboardings").select("*,website_service_requests(business_name,project_type),website_proposals(title,status),website_projects(name,managed_website_id)").order("created_at", { ascending: false }),
     supabase.from("website_onboarding_responses").select("*"),
     supabase.from("website_onboarding_files").select("*").order("created_at", { ascending: false }),
+    supabase.from("website_projects").select("id,managed_website_id,client_user_id"),
   ]);
   if (proposalResult.error) throw proposalResult.error;
   if (onboardingResult.error) throw onboardingResult.error;
   if (responseResult.error) throw responseResult.error;
   if (fileResult.error) throw fileResult.error;
-  approvedProposals = proposalResult.data || [];
-  onboardings = onboardingResult.data || [];
+  if (projectResult.error) throw projectResult.error;
+  const context = readWorkspaceContext("admin", currentUser.id);
+  onboardings = (onboardingResult.data || []).filter((onboarding) => !context.websiteId || onboarding.website_projects?.managed_website_id === context.websiteId);
+  const organizationProjectIds = new Set((projectResult.data || []).filter((project) => !context.websiteId || project.managed_website_id === context.websiteId).map((project) => project.id));
+  approvedProposals = (proposalResult.data || []).filter((proposal) => !context.websiteId || organizationProjectIds.has(proposal.project_id));
   responses = responseResult.data || [];
   files = fileResult.data || [];
   renderProposalQueue();
   renderOptions();
-  const context = readWorkspaceContext("admin", currentUser.id);
   const requested = preferredId || new URLSearchParams(window.location.search).get("onboarding") || context.onboardingId;
   selectedOnboarding = onboardings.find((onboarding) => onboarding.id === requested)
     || onboardings.find((onboarding) =>

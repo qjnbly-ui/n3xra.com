@@ -475,25 +475,39 @@ function collectVersion() {
 }
 
 async function loadData(preferredRequestId) {
-  const [requestResult, proposalResult, versionResult, lineItemResult, billingResult] = await Promise.all([
+  const [requestResult, proposalResult, versionResult, lineItemResult, billingResult, projectResult, memberResult] = await Promise.all([
     supabase.from("website_service_requests").select("*").order("created_at", { ascending: false }),
     supabase.from("website_proposals").select("*").order("created_at", { ascending: false }),
     supabase.from("website_proposal_versions").select("*").order("version_number", { ascending: false }),
     supabase.from("website_proposal_line_items").select("*").order("sort_order"),
     supabase.from("website_billing_snapshots").select("id,proposal_id,project_id,status"),
+    supabase.from("website_projects").select("id,request_id,proposal_id,managed_website_id,client_user_id"),
+    supabase.from("website_members").select("website_id,user_id,status"),
   ]);
   if (requestResult.error) throw requestResult.error;
   if (proposalResult.error) throw proposalResult.error;
   if (versionResult.error) throw versionResult.error;
   if (lineItemResult.error) throw lineItemResult.error;
   if (billingResult.error) throw billingResult.error;
-  requests = requestResult.data || [];
-  proposals = proposalResult.data || [];
+  if (projectResult.error) throw projectResult.error;
+  if (memberResult.error) throw memberResult.error;
+  const context = readWorkspaceContext("admin", currentUser.id);
+  const organizationProjects = context.websiteId
+    ? (projectResult.data || []).filter((project) => project.managed_website_id === context.websiteId)
+    : (projectResult.data || []);
+  const organizationProjectIds = new Set(organizationProjects.map((project) => project.id));
+  const organizationRequestIds = new Set(organizationProjects.map((project) => project.request_id).filter(Boolean));
+  const organizationClientIds = new Set([
+    ...organizationProjects.map((project) => project.client_user_id).filter(Boolean),
+    ...(memberResult.data || []).filter((member) => member.website_id === context.websiteId && member.status === "active").map((member) => member.user_id),
+  ]);
+  proposals = (proposalResult.data || []).filter((proposal) => !context.websiteId || organizationProjectIds.has(proposal.project_id) || organizationRequestIds.has(proposal.request_id) || organizationClientIds.has(proposal.client_user_id));
+  proposals.forEach((proposal) => organizationRequestIds.add(proposal.request_id));
+  requests = (requestResult.data || []).filter((request) => !context.websiteId || organizationRequestIds.has(request.id) || organizationClientIds.has(request.user_id));
   versions = versionResult.data || [];
   lineItems = lineItemResult.data || [];
   billingSnapshots = billingResult.data || [];
   renderRequestOptions();
-  const context = readWorkspaceContext("admin", currentUser.id);
   const params = new URLSearchParams(window.location.search);
   const explicitProposal = proposals.find((proposal) => proposal.id === params.get("proposal"));
   const requested = preferredRequestId || explicitProposal?.request_id || params.get("request") || context.requestId;

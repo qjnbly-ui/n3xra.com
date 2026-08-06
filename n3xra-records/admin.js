@@ -434,7 +434,10 @@ async function loadOrganizations() {
     member_count: memberCounts.get(organization.id) || 0,
   }));
 
-  if (!selectedOrganizationId && organizations[0]) {
+  const requestedOrganizationId = new URLSearchParams(window.location.search).get("organization") || "";
+  if (requestedOrganizationId && organizations.some((organization) => organization.id === requestedOrganizationId)) {
+    selectedOrganizationId = requestedOrganizationId;
+  } else if (!selectedOrganizationId && organizations[0]) {
     selectedOrganizationId = organizations[0].id;
   }
 

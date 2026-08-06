@@ -13,14 +13,18 @@ const productApps = [
     key: "websites",
     label: "Website Admin",
     sections: [
-      ["overview", "Overview", "/n3xra-admin/websites/"],
-      ["services", "Services & Ownership", "/n3xra-admin/services/"],
+      ["workspace", "Organization Workspace", "/n3xra-admin/websites/"],
       ["requests", "Requests", "/n3xra-admin/requests/"],
-      ["proposals", "Proposals", "/n3xra-admin/proposals/"],
-      ["progress", "Progress", "/n3xra-admin/projects/"],
-      ["onboarding", "Onboarding", "/n3xra-admin/onboarding/"],
-      ["assets", "Files & Assets", "/n3xra-admin/assets/"],
-      ["billing", "Billing", "/n3xra-admin/billing/"],
+    ],
+    paths: [
+      "/n3xra-admin/websites/",
+      "/n3xra-admin/services/",
+      "/n3xra-admin/requests/",
+      "/n3xra-admin/proposals/",
+      "/n3xra-admin/projects/",
+      "/n3xra-admin/onboarding/",
+      "/n3xra-admin/assets/",
+      "/n3xra-admin/billing/",
     ],
   },
   {
@@ -88,7 +92,10 @@ function productAppFromUrl() {
     return productApps.find((app) => app.key === key) || null;
   }
   const currentPath = normalizePath(window.location.pathname);
-  return productApps.find((app) => app.sections.some(([, , href]) => href === currentPath)) || null;
+  return productApps.find((app) => {
+    const paths = app.paths || app.sections.map(([, , href]) => href);
+    return paths.some((href) => normalizePath(href) === currentPath);
+  }) || null;
 }
 
 function productHref(app, section = app.sections[0]?.[0]) {

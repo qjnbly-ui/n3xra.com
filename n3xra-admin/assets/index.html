@@ -6,14 +6,16 @@
   <link rel="icon" href="/assets/n3xra_logo_transparent_small.png">
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&amp;family=Manrope:wght@400;600;700;800&amp;display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/site-nav.css"><link rel="stylesheet" href="/client-portal/portal.css?v=12"><link rel="stylesheet" href="/client-portal/assets-manager.css?v=10">
-  <script src="/shared/config.js"></script><script src="/n3xra-admin/admin-shell.js?v=2" defer></script>
+  <link rel="stylesheet" href="/assets/site-nav.css"><link rel="stylesheet" href="/client-portal/portal.css?v=12"><link rel="stylesheet" href="/client-portal/assets-manager.css?v=13">
+  <script src="/shared/config.js"></script><script src="/n3xra-admin/admin-shell.js?v=3" defer></script>
   <script>
     window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
   </script>
   <script defer src="/_vercel/insights/script.js"></script>
   <link rel="stylesheet" href="/account/admin/admin.css?v=11">
-  <script type="module" src="/account/admin/product-shell.js?v=2"></script>
+  <link rel="stylesheet" href="/n3xra-admin/website-admin.css?v=5">
+  <script type="module" src="/account/admin/product-shell.js?v=3"></script>
+  <script type="module" src="/n3xra-admin/website-admin-workspace.js?v=5"></script>
 </head>
 <body class="portal-loading admin-assets-view">
   <header class="site-topbar"><div class="site-topbar-inner"><div class="site-topbar-row"><a class="site-brand" href="/" aria-label="N3XRA home"><img src="/assets/n3xra_logo_transparent_small.png" alt=""><span>N3XRA</span></a><div class="site-nav-actions"><a class="site-menu-link" href="/account/">Dashboard</a><button class="site-menu-link portal-logout" id="portal-logout" type="button">Sign out</button></div></div></div></header>
@@ -23,17 +25,14 @@
       <section class="portal-workspace website-assets-workspace">
         <section class="website-assets-manager">
           <aside class="website-assets-sidebar">
-            <div class="website-assets-site-picker">
-              <label>Website<select class="portal-select" id="admin-website-select"></select></label>
-              <button class="website-assets-refresh" id="refresh-admin" type="button">Refresh</button>
-            </div>
-            <div class="website-assets-site-summary" id="admin-site-summary" hidden><div><p class="portal-kicker" id="admin-site-status">Managed website</p><h2 id="admin-site-name">Website</h2><p id="admin-site-meta"></p></div><div><a id="admin-live-link" href="#" target="_blank" rel="noopener">Live site</a><a id="admin-client-view" href="/client-portal/">Client view</a></div></div>
+            <div class="website-assets-site-picker"><label>Working with<select class="portal-select" id="admin-website-select"></select></label></div>
+            <div class="website-assets-client-site website-assets-admin-site" id="admin-site-summary" hidden><div><span id="admin-site-status">Managed website</span><strong id="admin-site-name">Website</strong><small id="admin-site-meta"></small></div><div><a id="admin-live-link" href="#" target="_blank" rel="noopener">Visit live site</a><a id="admin-client-view" href="/client-portal/">Open client files</a></div></div>
             <label class="website-assets-search"><span>Search this folder</span><input id="admin-asset-search" type="search" placeholder="Search this folder"></label>
             <p class="website-assets-folder-label">Folders</p>
             <div class="website-assets-folder-list" id="admin-asset-folders"></div>
           </aside>
           <section class="website-assets-content">
-            <header class="website-assets-content-head"><div><p class="portal-kicker">Folder contents</p><h1 id="admin-selected-asset-name">Select a folder</h1><p id="admin-selected-asset-meta">Choose a folder from the left.</p></div><div id="admin-selected-asset-actions"></div></header>
+            <header class="website-assets-content-head"><div><p class="portal-kicker">Folder contents</p><h1 id="admin-selected-asset-name">Select a folder</h1><p id="admin-selected-asset-meta">Choose a folder from the left.</p></div><div class="website-assets-head-actions" id="admin-selected-asset-actions"><button class="portal-button portal-button-secondary" id="refresh-admin" type="button">Refresh</button></div></header>
             <div class="website-assets-batch" id="admin-asset-toolbar" hidden><p class="portal-inline-status" id="admin-batch-status" role="status"></p><div><button class="portal-button portal-button-secondary" id="clear-asset-selection" type="button">Clear selection</button><button class="portal-button portal-button-secondary" id="download-selected-files" type="button">Download selected</button><button class="portal-button portal-button-secondary" id="copy-published-links" type="button" hidden>Copy published links</button><button class="portal-button portal-button-secondary" id="reject-pending-batch" type="button" hidden>Reject pending</button><button class="portal-button portal-button-secondary" id="approve-pending-batch" type="button" hidden>Approve pending</button><button class="portal-button" id="publish-approved-batch" type="button" hidden>Publish approved</button><button class="portal-button portal-button-danger" id="delete-selected-files" type="button">Delete selected</button></div></div>
             <div class="website-assets-table" id="admin-asset-grid"></div><div class="website-assets-empty" id="admin-empty"><p>No assets are available for this website yet.</p></div>
           </section>
@@ -42,6 +41,6 @@
     </div>
   </main>
   <div class="portal-status" id="portal-status" role="status">Opening files and assets…</div>
-  <script type="module" src="/client-portal/portal-shell.js"></script><script type="module" src="/n3xra-admin/websites/websites-admin.js?v=10"></script>
+  <script type="module" src="/client-portal/portal-shell.js"></script><script type="module" src="/n3xra-admin/websites/websites-admin.js?v=13"></script>
 </body>
 </html>

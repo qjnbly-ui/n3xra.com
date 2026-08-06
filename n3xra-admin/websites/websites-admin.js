@@ -2,6 +2,8 @@ import { createBrowserSupabase, hasConfig } from "/shared/lib/supabase-client.js
 import { readWorkspaceContext, writeWorkspaceContext } from "/client-portal/workspace-context.js";
 import { verifyPlatformAdmin } from "/client-portal/admin-access.js";
 import { renderPdfFirstPage } from "/shared/lib/file-preview.js";
+import { confirmAdminAction, promptAdminText } from "/account/admin/admin-dialogs.js";
+import { openAssetPreview } from "/client-portal/asset-preview-modal.js?v=1";
 
 const PRIVATE_BUCKET = "website-assets-private";
 const PUBLIC_BUCKET = "website-assets-public";
@@ -483,7 +485,6 @@ function renderAssets() {
     selectedAssetCategory = "";
     if (selectedAssetName) selectedAssetName.textContent = "Select a folder";
     if (selectedAssetMeta) selectedAssetMeta.textContent = "Choose a folder from the left.";
-    if (selectedAssetActions) selectedAssetActions.innerHTML = "";
     emptyState.hidden = false;
     emptyState.querySelector("p").textContent = selectedWebsite
       ? "No assets have been added for this website."
@@ -499,7 +500,6 @@ function renderAssets() {
   const folderVersions = versions.filter((version) => folderAssets.some((asset) => asset.id === version.asset_id));
   if (selectedAssetName) selectedAssetName.textContent = folderLabel(selectedAssetCategory);
   if (selectedAssetMeta) selectedAssetMeta.textContent = `${folderAssets.length} file${folderAssets.length === 1 ? "" : "s"} · ${folderVersions.length} version${folderVersions.length === 1 ? "" : "s"}`;
-  if (selectedAssetActions) selectedAssetActions.innerHTML = "";
   if (assetFolderList) assetFolderList.innerHTML = categories.map((category) => {
     const categoryAssets = assets.filter((asset) => assetCategory(asset) === category);
     return `<button class="website-asset-folder${category === selectedAssetCategory ? " is-current" : ""}" type="button" data-select-category="${escapeHtml(category)}"><span class="website-asset-folder-icon" aria-hidden="true"></span><span><strong>${escapeHtml(folderLabel(category))}</strong><small>${categoryAssets.length} file${categoryAssets.length === 1 ? "" : "s"}</small></span><span class="website-asset-folder-count">${categoryAssets.length}</span></button>`;
@@ -821,9 +821,13 @@ async function loadWebsites(preferredId) {
 
 async function updateVersionStatus(versionId, status) {
   const now = new Date().toISOString();
+  const rejectionReason = status === "rejected"
+    ? await promptAdminText("Add an optional note explaining why this file was rejected.", { title: "Reject file", inputLabel: "Rejection note", confirmLabel: "Reject file" })
+    : null;
+  if (status === "rejected" && rejectionReason === null) return;
   const values = status === "approved"
     ? { status, approved_by_user_id: currentUser.id, approved_at: now, rejection_reason: null }
-    : { status, rejected_by_user_id: currentUser.id, rejected_at: now, rejection_reason: window.prompt("Optional rejection note:") || null };
+    : { status, rejected_by_user_id: currentUser.id, rejected_at: now, rejection_reason: rejectionReason.trim() || null };
   const { error } = await supabase.from("website_asset_versions").update(values).eq("id", versionId);
   if (error) throw error;
   await loadAssets();
@@ -873,7 +877,7 @@ async function publishVersion(versionId, { reload = true, copyUrl = true } = {})
 async function approvePendingBatch() {
   const pendingVersions = versions.filter((version) => selectedVersionIds.has(version.id) && version.status === "pending_review");
   if (!pendingVersions.length) return;
-  if (!window.confirm(`Approve ${pendingVersions.length} pending file${pendingVersions.length === 1 ? "" : "s"} for ${selectedWebsite.name}?`)) return;
+  if (!await confirmAdminAction(`Approve ${pendingVersions.length} pending file${pendingVersions.length === 1 ? "" : "s"} for ${selectedWebsite.name}?`, { title: "Approve selected files", confirmLabel: "Approve files" })) return;
 
   approvePendingBatchButton.disabled = true;
   publishApprovedBatchButton.disabled = true;
@@ -903,7 +907,7 @@ async function approvePendingBatch() {
 async function rejectPendingBatch() {
   const pendingVersions = versions.filter((version) => selectedVersionIds.has(version.id) && version.status === "pending_review");
   if (!pendingVersions.length) return;
-  const reason = window.prompt(`Reject ${pendingVersions.length} selected pending file${pendingVersions.length === 1 ? "" : "s"}. Add an optional reason:`);
+  const reason = await promptAdminText(`Reject ${pendingVersions.length} selected pending file${pendingVersions.length === 1 ? "" : "s"}. Add an optional reason.`, { title: "Reject selected files", inputLabel: "Rejection note", confirmLabel: "Reject files" });
   if (reason === null) return;
 
   rejectPendingBatchButton.disabled = true;
@@ -930,7 +934,7 @@ async function rejectPendingBatch() {
 async function publishApprovedBatch() {
   const approvedVersions = getPublishableApprovedVersions();
   if (!approvedVersions.length) return;
-  if (!window.confirm(`Publish ${approvedVersions.length} approved image${approvedVersions.length === 1 ? "" : "s"} to the CDN for ${selectedWebsite.name}?`)) return;
+  if (!await confirmAdminAction(`Publish ${approvedVersions.length} approved image${approvedVersions.length === 1 ? "" : "s"} to the CDN for ${selectedWebsite.name}?`, { title: "Publish selected files", confirmLabel: "Publish files" })) return;
 
   approvePendingBatchButton.disabled = true;
   publishApprovedBatchButton.disabled = true;
@@ -977,6 +981,15 @@ async function downloadVersion(version) {
   window.open(url, "_blank", "noopener");
 }
 
+async function openVersion(version) {
+  const previewResult = version.public_url
+    ? { data: { signedUrl: version.public_url }, error: null }
+    : await supabase.storage.from(version.storage_bucket).createSignedUrl(version.storage_path, 600);
+  if (previewResult.error || !previewResult.data?.signedUrl) throw previewResult.error || new Error("A preview link could not be created.");
+  const downloadUrl = version.public_url || await downloadUrlForVersion(version);
+  await openAssetPreview({ name: version.original_filename, mimeType: version.mime_type, url: previewResult.data.signedUrl, downloadUrl, kicker: "Website Admin Files & Assets" });
+}
+
 async function downloadUrlForVersion(version) {
   if (version.public_url) return version.public_url;
   const { data, error } = await supabase.storage
@@ -989,7 +1002,7 @@ async function downloadUrlForVersion(version) {
 async function downloadSelectedFiles() {
   const selectedVersions = versions.filter((version) => selectedVersionIds.has(version.id));
   if (!selectedVersions.length) return;
-  if (selectedVersions.length > 5 && !window.confirm(`Download ${selectedVersions.length} selected files? Your browser may ask for permission to download multiple files.`)) return;
+  if (selectedVersions.length > 5 && !await confirmAdminAction(`Download ${selectedVersions.length} selected files? Your browser may ask for permission to download multiple files.`, { title: "Download selected files", confirmLabel: "Start downloads" })) return;
   downloadSelectedFilesButton.disabled = true;
   batchStatus.textContent = `Preparing ${selectedVersions.length} downloads…`;
   try {
@@ -1031,8 +1044,8 @@ async function deleteVersionAsAdmin(version) {
   const warning = isPublished
     ? `Permanently delete the published file “${version.original_filename}”? It may already be used by the live website, and its URL will stop working.`
     : `Permanently delete “${version.original_filename}”? This cannot be undone.`;
-  if (!window.confirm(warning)) return;
-  if (isPublished && !window.confirm("This file is published or currently selected. Confirm again to permanently remove it.")) return;
+  if (!await confirmAdminAction(warning, { title: isPublished ? "Delete published file" : "Delete file", confirmLabel: "Delete permanently" })) return;
+  if (isPublished && !await confirmAdminAction("This file is published or currently selected. Its live URL will stop working.", { title: "Final confirmation", confirmLabel: "Delete published file" })) return;
 
   if (asset.current_version_id === version.id) {
     const { error: currentError } = await supabase.from("website_assets")
@@ -1073,9 +1086,9 @@ async function deleteSelectedFiles() {
     return version.status === "published" || Boolean(version.public_url) || asset?.current_version_id === version.id;
   });
   if (publishedVersions.length) {
-    const confirmation = window.prompt(`This will permanently delete ${selectedVersions.length} selected file${selectedVersions.length === 1 ? "" : "s"}, including ${publishedVersions.length} published file${publishedVersions.length === 1 ? "" : "s"}. Their live URLs will stop working. Type DELETE to continue.`);
+    const confirmation = await promptAdminText(`This will permanently delete ${selectedVersions.length} selected file${selectedVersions.length === 1 ? "" : "s"}, including ${publishedVersions.length} published file${publishedVersions.length === 1 ? "" : "s"}. Their live URLs will stop working. Type DELETE to continue.`, { title: "Delete published files", inputLabel: "Type DELETE", confirmLabel: "Delete permanently" });
     if (confirmation !== "DELETE") return;
-  } else if (!window.confirm(`Permanently delete ${selectedVersions.length} selected file${selectedVersions.length === 1 ? "" : "s"}? This cannot be undone.`)) {
+  } else if (!await confirmAdminAction(`Permanently delete ${selectedVersions.length} selected file${selectedVersions.length === 1 ? "" : "s"}? This cannot be undone.`, { title: "Delete selected files", confirmLabel: "Delete permanently" })) {
     return;
   }
 
@@ -1133,7 +1146,7 @@ async function deleteEmptyAssetAsAdmin(assetId) {
   if (!asset || assetVersions.length || asset.current_version_id) {
     throw new Error("Only an empty, unused asset can be deleted here.");
   }
-  if (!window.confirm(`Permanently delete the empty failed upload “${asset.label}”?`)) return;
+  if (!await confirmAdminAction(`Permanently delete the empty failed upload “${asset.label}”?`, { title: "Delete failed upload", confirmLabel: "Delete permanently" })) return;
   const { error } = await supabase.from("website_assets").delete().eq("id", asset.id);
   if (error) throw error;
   showToast("Empty failed upload deleted.");
@@ -1143,10 +1156,11 @@ async function deleteEmptyAssetAsAdmin(assetId) {
 async function handleAssetAction(event) {
   const selectableRow = event.target.closest("[data-selectable-version]");
   if (selectableRow && !event.target.closest("input, label, button, a, summary, details")) {
-    const versionId = selectableRow.dataset.selectableVersion;
-    if (selectedVersionIds.has(versionId)) selectedVersionIds.delete(versionId);
-    else selectedVersionIds.add(versionId);
-    renderAssets();
+    const version = versions.find((row) => row.id === selectableRow.dataset.selectableVersion);
+    if (version) {
+      try { await openVersion(version); }
+      catch (error) { showToast(error?.message || "The file could not be opened.", "error"); }
+    }
     return;
   }
   const menu = event.target.closest(".website-asset-actions");

@@ -1,6 +1,7 @@
 import { createBrowserSupabase, hasConfig } from "/shared/lib/supabase-client.js";
 import { projectContext, readWorkspaceContext, writeWorkspaceContext } from "/client-portal/workspace-context.js";
 import { verifyPlatformAdmin } from "/client-portal/admin-access.js";
+import { confirmAdminAction } from "/account/admin/admin-dialogs.js";
 
 const statusScreen = document.getElementById("portal-status");
 const projectSelect = document.getElementById("admin-project-select");
@@ -173,7 +174,7 @@ function setActionStatus(message = "", isError = false) {
 
 async function completeProject() {
   if (!selectedProject) return;
-  if (!window.confirm(`Mark ${selectedProject.name} complete? All applicable roadmap stages will be completed.`)) return;
+  if (!await confirmAdminAction(`Mark ${selectedProject.name} complete? All applicable roadmap stages will be completed.`, { title: "Complete project", confirmLabel: "Mark complete" })) return;
   completeButton.disabled = true;
   setActionStatus("Completing project…");
   try {
@@ -188,7 +189,7 @@ async function completeProject() {
 
 async function closeProject() {
   if (!selectedProject) return;
-  if (!window.confirm(`Close ${selectedProject.name}? Its history will remain available.`)) return;
+  if (!await confirmAdminAction(`Close ${selectedProject.name}? Its history will remain available.`, { title: "Close project", confirmLabel: "Close project" })) return;
   closeButton.disabled = true;
   setActionStatus("Closing project…");
   try {
@@ -259,13 +260,13 @@ async function loadData(preferredId) {
   if (onboardingResult.error) throw onboardingResult.error;
   if (websiteResult.error) throw websiteResult.error;
   if (proposalResult.error) throw proposalResult.error;
-  projects = projectResult.data || [];
+  const context = readWorkspaceContext("admin", currentUser.id);
+  projects = (projectResult.data || []).filter((project) => !context.websiteId || project.managed_website_id === context.websiteId);
   milestones = milestoneResult.data || [];
   onboardings = onboardingResult.data || [];
   websites = websiteResult.data || [];
   proposals = proposalResult.data || [];
   renderOptions();
-  const context = readWorkspaceContext("admin", currentUser.id);
   const requested = preferredId || new URLSearchParams(window.location.search).get("project") || context.projectId;
   selectedProject = projects.find((project) => project.id === requested)
     || projects.find((project) => project.managed_website_id === context.websiteId)
