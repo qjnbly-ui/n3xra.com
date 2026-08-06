@@ -1,6 +1,7 @@
 let fileState = { files: [], access: [], admins: [] };
 let fileSupabase = null;
 let fileInvoke = null;
+let currentFolderPath = "";
 
 function fileEscape(value) {
   return String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
@@ -39,21 +40,57 @@ function accessFor(fileId) {
   return new Set(fileState.access.filter((item) => String(item.file_id) === String(fileId)).map((item) => String(item.user_id)));
 }
 
+function pathParts(value) {
+  return String(value || "").split(/[\\/]+/).filter(Boolean);
+}
+
+function isUnderPath(parts, parentParts) {
+  return parentParts.every((part, index) => parts[index] === part);
+}
+
+function renderBreadcrumb() {
+  const breadcrumb = document.querySelector(".n3xra-files-breadcrumb");
+  if (!breadcrumb) return;
+  const parts = pathParts(currentFolderPath);
+  breadcrumb.innerHTML = `<button class="n3xra-breadcrumb-button${parts.length ? "" : " is-current"}" type="button" data-folder-path="">N3XRA Files</button>${parts.map((part, index) => `<span aria-hidden="true">/</span><button class="n3xra-breadcrumb-button${index === parts.length - 1 ? " is-current" : ""}" type="button" data-folder-path="${fileEscape(parts.slice(0, index + 1).join("/"))}">${fileEscape(part)}</button>`).join("")}`;
+}
+
 function renderFiles() {
   const list = document.getElementById("n3xra-file-list");
   if (!list) return;
-  if (!fileState.files.length) {
+  renderBreadcrumb();
+  const parentParts = pathParts(currentFolderPath);
+  const folders = new Map();
+  const files = [];
+  fileState.files.forEach((file) => {
+    const parts = pathParts(file.name);
+    if (!isUnderPath(parts, parentParts) || parts.length <= parentParts.length) return;
+    const remaining = parts.slice(parentParts.length);
+    if (remaining.length > 1) {
+      const folderName = remaining[0];
+      const folderPath = [...parentParts, folderName].join("/");
+      const entry = folders.get(folderPath) || { name: folderName, path: folderPath, count: 0 };
+      entry.count += 1;
+      folders.set(folderPath, entry);
+    } else {
+      files.push(file);
+    }
+  });
+  const folderEntries = [...folders.values()].sort((a, b) => a.name.localeCompare(b.name));
+  if (!folderEntries.length && !files.length) {
     list.innerHTML = '<div class="n3xra-empty">This folder is empty. Upload a file to get started.</div>';
     return;
   }
-  list.innerHTML = fileState.files.map((file) => {
+  const folderMarkup = folderEntries.map((folder) => `<button class="n3xra-folder-entry" type="button" data-folder-path="${fileEscape(folder.path)}"><span class="n3xra-folder-entry-icon" aria-hidden="true">▰</span><span><strong>${fileEscape(folder.name)}</strong><small>${folder.count} file${folder.count === 1 ? "" : "s"}</small></span><span class="n3xra-folder-entry-chevron" aria-hidden="true">›</span></button>`).join("");
+  const fileMarkup = files.sort((a, b) => a.name.localeCompare(b.name)).map((file) => {
     const access = accessFor(file.id);
     return `<article class="n3xra-file-row">
-      <div class="n3xra-file-meta"><span aria-hidden="true">📄</span><div><strong>${fileEscape(file.name)}</strong><small>${fileEscape(fileSize(file.size_bytes))} · added ${fileEscape(fileDate(file.created_at))}</small></div></div>
+      <div class="n3xra-file-meta"><span aria-hidden="true">📄</span><div><strong>${fileEscape(pathParts(file.name).at(-1))}</strong><small>${fileEscape(fileSize(file.size_bytes))} · added ${fileEscape(fileDate(file.created_at))}</small></div></div>
       <div class="n3xra-file-controls"><button class="portal-button portal-button-secondary" type="button" data-file-download="${fileEscape(file.id)}">Download</button><button class="portal-button portal-button-secondary" type="button" data-file-delete="${fileEscape(file.id)}">Delete</button></div>
       <details class="n3xra-access-panel"><summary>Assign access</summary><div class="n3xra-access-options">${fileState.admins.map((admin) => `<label><input type="checkbox" data-file-access="${fileEscape(file.id)}" value="${fileEscape(admin.user_id)}"${access.has(String(admin.user_id)) ? " checked" : ""}>${fileEscape(admin.email)}${admin.role === "owner" ? " (owner)" : ""}</label>`).join("")}</div><button class="portal-button portal-button-secondary" type="button" data-file-save-access="${fileEscape(file.id)}">Save access</button></details>
     </article>`;
   }).join("");
+  list.innerHTML = folderMarkup + fileMarkup;
 }
 
 async function loadFiles() {
@@ -154,11 +191,13 @@ export async function startFiles({ supabase, invoke }) {
   fileSupabase = supabase;
   fileInvoke = invoke;
   document.getElementById("open-files-folder")?.addEventListener("click", () => {
+    currentFolderPath = "";
     document.getElementById("n3xra-folder-view")?.classList.add("hidden");
     document.getElementById("n3xra-file-view")?.classList.remove("hidden");
     loadFiles().catch((error) => fileStatus(error.message, "error"));
   });
   document.getElementById("close-files-folder")?.addEventListener("click", () => {
+    currentFolderPath = "";
     document.getElementById("n3xra-file-view")?.classList.add("hidden");
     document.getElementById("n3xra-folder-view")?.classList.remove("hidden");
   });
@@ -166,6 +205,7 @@ export async function startFiles({ supabase, invoke }) {
   document.getElementById("n3xra-folder-input")?.addEventListener("change", uploadFiles);
   document.getElementById("n3xra-folder-button")?.addEventListener("click", chooseFolder);
   document.getElementById("n3xra-file-list")?.addEventListener("click", (event) => {
+    const folder = event.target.closest("[data-folder-path]");
     const download = event.target.closest("[data-file-download]");
     const remove = event.target.closest("[data-file-delete]");
     const save = event.target.closest("[data-file-save-access]");
@@ -173,4 +213,15 @@ export async function startFiles({ supabase, invoke }) {
     if (remove) deleteFile(remove.dataset.fileDelete);
     if (save) saveAccess(save);
   });
+  document.querySelector(".n3xra-files-breadcrumb")?.addEventListener("click", (event) => {
+    const folder = event.target.closest("[data-folder-path]");
+    if (!folder) return;
+    currentFolderPath = folder.dataset.folderPath || "";
+    renderFiles();
+  });
 }
+    if (folder) {
+      currentFolderPath = folder.dataset.folderPath || "";
+      renderFiles();
+      return;
+    }
