@@ -50,7 +50,6 @@ const resourceLinks = [
   ["/account/admin/files/", "N3XRA Files"],
   ["/account/admin/business-framework/", "Business Framework"],
   ["/account/admin/codebase-ai/", "Codebase AI"],
-  ["/project-pulse/", "Project Pulse"],
 ];
 
 const investmentLinks = [

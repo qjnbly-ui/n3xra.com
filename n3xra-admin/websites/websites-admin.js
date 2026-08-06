@@ -14,11 +14,20 @@ const liveLink = document.getElementById("admin-live-link");
 const clientView = document.getElementById("admin-client-view");
 const assetToolbar = document.getElementById("admin-asset-toolbar");
 const assetGrid = document.getElementById("admin-asset-grid");
+const assetFolderList = document.getElementById("admin-asset-folders");
+const assetSearch = document.getElementById("admin-asset-search");
+const selectedAssetName = document.getElementById("admin-selected-asset-name");
+const selectedAssetMeta = document.getElementById("admin-selected-asset-meta");
+const selectedAssetActions = document.getElementById("admin-selected-asset-actions");
 const emptyState = document.getElementById("admin-empty");
 const refreshButton = document.getElementById("refresh-admin");
 const approvePendingBatchButton = document.getElementById("approve-pending-batch");
+const rejectPendingBatchButton = document.getElementById("reject-pending-batch");
 const publishApprovedBatchButton = document.getElementById("publish-approved-batch");
 const copyPublishedLinksButton = document.getElementById("copy-published-links");
+const clearAssetSelectionButton = document.getElementById("clear-asset-selection");
+const downloadSelectedFilesButton = document.getElementById("download-selected-files");
+const deleteSelectedFilesButton = document.getElementById("delete-selected-files");
 const batchStatus = document.getElementById("admin-batch-status");
 const siteForm = document.getElementById("site-form");
 const siteFormStatus = document.getElementById("site-form-status");
@@ -58,6 +67,8 @@ let websites = [];
 let selectedWebsite;
 let assets = [];
 let versions = [];
+let selectedAssetCategory = "";
+const selectedVersionIds = new Set();
 let members = [];
 let serviceRequests = [];
 let selectedProject;
@@ -125,6 +136,30 @@ function formatBytes(value) {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1048576) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / 1048576).toFixed(1)} MB`;
+}
+
+function assetFileType(version) {
+  const extension = String(version?.original_filename || "").split(".").pop()?.toLowerCase() || "";
+  const mime = String(version?.mime_type || "").toLowerCase();
+  if (mime === "application/pdf" || extension === "pdf") return { label: "PDF", tone: "pdf" };
+  if (mime.startsWith("image/") || /^(png|jpe?g|gif|webp|svg)$/.test(extension)) return { label: "IMG", tone: "image" };
+  if (/^(docx?|txt|rtf|md)$/.test(extension)) return { label: "DOC", tone: "document" };
+  return { label: (extension || "FILE").slice(0, 4).toUpperCase(), tone: "default" };
+}
+
+function assetTableHeader(versionIds = []) {
+  const allSelected = versionIds.length > 0 && versionIds.every((id) => selectedVersionIds.has(id));
+  return `<div class="website-assets-table-head is-selectable"><label class="website-asset-select"><input type="checkbox" data-select-all-versions${allSelected ? " checked" : ""} aria-label="Select all files in this folder"></label><span>File</span><span>Status</span><span>Modified</span><span>Size</span><span></span></div>`;
+}
+
+function assetCategory(asset) {
+  return String(asset?.category || "Uncategorized").trim() || "Uncategorized";
+}
+
+function folderLabel(value) {
+  const normalized = String(value || "Uncategorized").trim().toLowerCase().replaceAll("_", " ");
+  const labels = { image: "Images", images: "Images", brand: "Brand assets", document: "Documents", documents: "Documents", video: "Videos", font: "Fonts", other: "Other files", uncategorized: "Uncategorized" };
+  return labels[normalized] || normalized.replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 function setSiteFormStatus(message = "", isError = false) {
@@ -215,6 +250,7 @@ function renderSelectedWebsite() {
     summary.hidden = true;
     if (assetToolbar) assetToolbar.hidden = true;
     if (assetGrid) assetGrid.innerHTML = "";
+    if (assetFolderList) assetFolderList.innerHTML = "";
     if (emptyState) emptyState.hidden = false;
     if (accessPanel) accessPanel.hidden = true;
     if (projectLinkPanel) projectLinkPanel.hidden = true;
@@ -380,48 +416,29 @@ async function loadProjectLifecycle() {
 function versionActions(version) {
   const actions = [];
   if (version.status === "pending_review") {
-    actions.push(`<button class="portal-button portal-button-secondary" data-version-action="approve" data-version-id="${version.id}">Approve</button>`);
-    actions.push(`<button class="portal-button portal-button-secondary" data-version-action="reject" data-version-id="${version.id}">Reject</button>`);
+    actions.push(`<button data-version-action="approve" data-version-id="${version.id}">Approve</button>`);
+    actions.push(`<button data-version-action="reject" data-version-id="${version.id}">Reject</button>`);
   }
   if (version.status === "approved" && String(version.mime_type || "").startsWith("image/")) {
-    actions.push(`<button class="portal-button" data-version-action="publish" data-version-id="${version.id}">Publish to CDN</button>`);
+    actions.push(`<button data-version-action="publish" data-version-id="${version.id}">Publish to CDN</button>`);
   }
-  actions.push(`<button class="portal-button portal-button-secondary" data-version-action="download" data-version-id="${version.id}">Download</button>`);
+  actions.push(`<button data-version-action="download" data-version-id="${version.id}">Download</button>`);
   if (version.public_url) {
-    actions.push(`<button class="portal-button portal-button-secondary" data-version-action="copy" data-version-id="${version.id}">Copy URL</button>`);
+    actions.push(`<button data-version-action="copy" data-version-id="${version.id}">Copy published URL</button>`);
   }
-  actions.push(`<button class="portal-button portal-button-danger" data-version-action="delete" data-version-id="${version.id}">Delete</button>`);
+  actions.push(`<button class="is-danger" data-version-action="delete" data-version-id="${version.id}">Delete</button>`);
   return actions.join("");
-}
-
-async function hydrateAssetPreviews() {
-  const previews = Array.from(assetGrid.querySelectorAll("[data-preview-version]"));
-  await Promise.all(previews.map(async (preview) => {
-    const version = versions.find((row) => row.id === preview.dataset.previewVersion);
-    if (!version || !String(version.mime_type || "").startsWith("image/")) return;
-    let url = version.public_url;
-    if (!url) {
-      const { data, error } = await supabase.storage
-        .from(version.storage_bucket)
-        .createSignedUrl(version.storage_path, 600);
-      if (error) return;
-      url = data.signedUrl;
-    }
-    const image = preview.querySelector("img");
-    const fallback = preview.querySelector(".portal-asset-preview-fallback");
-    if (!image || !url) return;
-    image.addEventListener("load", () => {
-      image.hidden = false;
-      if (fallback) fallback.hidden = true;
-    }, { once: true });
-    image.src = url;
-  }));
 }
 
 function renderAssets() {
   renderAssetBatchActions();
   if (!selectedWebsite || !assets.length) {
     assetGrid.innerHTML = "";
+    if (assetFolderList) assetFolderList.innerHTML = "";
+    selectedAssetCategory = "";
+    if (selectedAssetName) selectedAssetName.textContent = "Select a folder";
+    if (selectedAssetMeta) selectedAssetMeta.textContent = "Choose a folder from the left.";
+    if (selectedAssetActions) selectedAssetActions.innerHTML = "";
     emptyState.hidden = false;
     emptyState.querySelector("p").textContent = selectedWebsite
       ? "No assets have been added for this website."
@@ -429,57 +446,53 @@ function renderAssets() {
     return;
   }
 
-  emptyState.hidden = true;
-  assetGrid.innerHTML = assets.map((asset) => {
-    const assetVersions = versions.filter((version) => version.asset_id === asset.id);
-    const previewVersion = assetVersions.find((version) => String(version.mime_type || "").startsWith("image/"));
-    return `
-      <article class="portal-asset-card">
-        <div class="portal-asset-preview"${previewVersion ? ` data-preview-version="${previewVersion.id}"` : ""}>
-          <img alt="" hidden>
-          <div class="portal-asset-preview-fallback">${escapeHtml(asset.category || "asset")}</div>
-        </div>
-        <div class="portal-asset-body">
-          <div class="portal-asset-head">
-            <div>
-              <p class="portal-kicker">${escapeHtml(asset.category || "asset")}</p>
-              <h3>${escapeHtml(asset.label)}</h3>
-              <p><code>${escapeHtml(asset.asset_key)}</code> · ${escapeHtml((asset.replacement_type || "download_only").replaceAll("_", " "))}</p>
-            </div>
-            <div class="portal-card-actions">
-              <span class="portal-badge">${assetVersions.length} version${assetVersions.length === 1 ? "" : "s"}</span>
-              ${assetVersions.length === 0 && !asset.current_version_id
-                ? `<button class="portal-button portal-button-danger" data-delete-empty-asset="${asset.id}">Delete empty asset</button>`
-                : ""}
-            </div>
-          </div>
-          <div class="portal-version-list">
-            ${assetVersions.length ? assetVersions.map((version) => `
-              <div class="portal-version">
-                <div>
-                  <strong>Version ${version.version_number}</strong>
-                  <span class="portal-badge portal-status-${escapeHtml(version.status)}">${escapeHtml(version.status.replaceAll("_", " "))}</span>
-                  <p>${escapeHtml(version.original_filename)}${version.size_bytes ? ` · ${formatBytes(version.size_bytes)}` : ""}</p>
-                  <p>${formatDate(version.created_at)}${version.change_note ? ` · ${escapeHtml(version.change_note)}` : ""}</p>
-                </div>
-                <div class="portal-card-actions">${versionActions(version)}</div>
-              </div>
-            `).join("") : "<p>No versions uploaded.</p>"}
-          </div>
-        </div>
-      </article>
-    `;
+  const categories = [...new Set(assets.map(assetCategory))].sort((left, right) => left.localeCompare(right));
+  if (!categories.includes(selectedAssetCategory)) selectedAssetCategory = categories[0];
+  const folderAssets = assets.filter((asset) => assetCategory(asset) === selectedAssetCategory);
+  const query = String(assetSearch?.value || "").trim().toLowerCase();
+  const visibleAssets = folderAssets.filter((asset) => [asset.label, asset.asset_key, asset.category].some((value) => String(value || "").toLowerCase().includes(query)));
+  const folderVersions = versions.filter((version) => folderAssets.some((asset) => asset.id === version.asset_id));
+  if (selectedAssetName) selectedAssetName.textContent = folderLabel(selectedAssetCategory);
+  if (selectedAssetMeta) selectedAssetMeta.textContent = `${folderAssets.length} file${folderAssets.length === 1 ? "" : "s"} · ${folderVersions.length} version${folderVersions.length === 1 ? "" : "s"}`;
+  if (selectedAssetActions) selectedAssetActions.innerHTML = "";
+  if (assetFolderList) assetFolderList.innerHTML = categories.map((category) => {
+    const categoryAssets = assets.filter((asset) => assetCategory(asset) === category);
+    return `<button class="website-asset-folder${category === selectedAssetCategory ? " is-current" : ""}" type="button" data-select-category="${escapeHtml(category)}"><span class="website-asset-folder-icon" aria-hidden="true"></span><span><strong>${escapeHtml(folderLabel(category))}</strong><small>${categoryAssets.length} file${categoryAssets.length === 1 ? "" : "s"}</small></span><span class="website-asset-folder-count">${categoryAssets.length}</span></button>`;
   }).join("");
-  void hydrateAssetPreviews();
+  emptyState.hidden = true;
+  const rows = visibleAssets.flatMap((asset) => {
+    const assetVersions = versions.filter((version) => version.asset_id === asset.id);
+    if (!assetVersions.length) {
+      return [`<article class="website-asset-version is-selectable"><span></span><div class="website-asset-file"><span class="website-asset-file-type" aria-hidden="true">FILE</span><span><strong>${escapeHtml(asset.label)}</strong><small>${escapeHtml(asset.asset_key)} · No versions uploaded</small></span></div><span class="website-asset-status">Empty</span><span class="website-asset-date">—</span><span class="website-asset-size">—</span><details class="website-asset-actions"><summary aria-label="Actions for ${escapeHtml(asset.label)}">•••</summary><div class="website-asset-action-menu"><button class="is-danger" data-delete-empty-asset="${asset.id}" type="button">Delete empty asset</button></div></details></article>`];
+    }
+    return assetVersions.map((version) => {
+      const type = assetFileType(version);
+      return `<article class="website-asset-version is-selectable${selectedVersionIds.has(version.id) ? " is-selected" : ""}" data-selectable-version="${version.id}"><label class="website-asset-select"><input type="checkbox" data-select-version="${version.id}"${selectedVersionIds.has(version.id) ? " checked" : ""} aria-label="Select ${escapeHtml(version.original_filename)}"></label><div class="website-asset-file"><span class="website-asset-file-type is-${type.tone}" aria-hidden="true">${type.label}</span><span><strong>${escapeHtml(version.original_filename)}</strong><small>${escapeHtml(asset.label)} · Version ${version.version_number}${version.change_note ? ` · ${escapeHtml(version.change_note)}` : ""}</small></span></div><span class="website-asset-status is-${escapeHtml(version.status)}">${escapeHtml(version.status.replaceAll("_", " "))}</span><time datetime="${escapeHtml(version.created_at)}">${formatDate(version.created_at)}</time><span class="website-asset-size">${formatBytes(version.size_bytes) || "—"}</span><details class="website-asset-actions"><summary aria-label="Actions for ${escapeHtml(version.original_filename)}">•••</summary><div class="website-asset-action-menu">${versionActions(version)}</div></details></article>`;
+    });
+  });
+  const visibleVersionIds = visibleAssets.flatMap((asset) => versions.filter((version) => version.asset_id === asset.id).map((version) => version.id));
+  assetGrid.innerHTML = assetTableHeader(visibleVersionIds) + (rows.length ? rows.join("") : '<div class="website-assets-empty"><p>No files match this search.</p></div>');
 }
 
 function renderAssetBatchActions() {
   if (!approvePendingBatchButton || !publishApprovedBatchButton || !copyPublishedLinksButton) return;
-  const pendingCount = versions.filter((version) => version.status === "pending_review").length;
+  const availableIds = new Set(versions.map((version) => version.id));
+  [...selectedVersionIds].forEach((id) => { if (!availableIds.has(id)) selectedVersionIds.delete(id); });
+  const selectedVersions = versions.filter((version) => selectedVersionIds.has(version.id));
+  const pendingCount = selectedVersions.filter((version) => version.status === "pending_review").length;
   const approvedCount = getPublishableApprovedVersions().length;
   const publishedCount = getCurrentPublishedLinks().length;
+  assetToolbar.hidden = selectedVersions.length === 0;
+  clearAssetSelectionButton.hidden = selectedVersions.length === 0;
+  downloadSelectedFilesButton.hidden = selectedVersions.length === 0;
+  deleteSelectedFilesButton.hidden = selectedVersions.length === 0;
+  batchStatus.textContent = `${selectedVersions.length} file${selectedVersions.length === 1 ? "" : "s"} selected`;
   approvePendingBatchButton.hidden = pendingCount === 0;
   approvePendingBatchButton.textContent = `Approve pending (${pendingCount})`;
+  rejectPendingBatchButton.hidden = pendingCount === 0;
+  rejectPendingBatchButton.textContent = `Reject pending (${pendingCount})`;
+  downloadSelectedFilesButton.textContent = `Download selected (${selectedVersions.length})`;
+  deleteSelectedFilesButton.textContent = `Delete selected (${selectedVersions.length})`;
   publishApprovedBatchButton.hidden = approvedCount === 0;
   publishApprovedBatchButton.textContent = `Publish approved (${approvedCount})`;
   copyPublishedLinksButton.hidden = publishedCount === 0;
@@ -487,15 +500,16 @@ function renderAssetBatchActions() {
 }
 
 function getCurrentPublishedLinks() {
-  return assets.flatMap((asset) => {
-    const version = versions.find((row) => row.id === asset.current_version_id && row.public_url);
-    return version ? [{ label: asset.label, url: version.public_url }] : [];
+  return versions.filter((version) => selectedVersionIds.has(version.id) && version.public_url).map((version) => {
+    const asset = assets.find((row) => row.id === version.asset_id);
+    return { label: `${asset?.label || version.original_filename} · v${version.version_number}`, url: version.public_url };
   });
 }
 
 function getPublishableApprovedVersions() {
   const newestByAsset = new Map();
   versions.forEach((version) => {
+    if (!selectedVersionIds.has(version.id)) return;
     if (version.status !== "approved" || !String(version.mime_type || "").startsWith("image/")) return;
     const current = newestByAsset.get(version.asset_id);
     if (!current || Number(version.version_number) > Number(current.version_number)) {
@@ -503,6 +517,23 @@ function getPublishableApprovedVersions() {
     }
   });
   return Array.from(newestByAsset.values());
+}
+
+function handleAssetSelection(event) {
+  const selectAll = event.target.closest("[data-select-all-versions]");
+  const selectVersion = event.target.closest("[data-select-version]");
+  if (selectAll) {
+    assetGrid.querySelectorAll("[data-select-version]").forEach((checkbox) => {
+      if (selectAll.checked) selectedVersionIds.add(checkbox.dataset.selectVersion);
+      else selectedVersionIds.delete(checkbox.dataset.selectVersion);
+    });
+    renderAssets();
+    return;
+  }
+  if (!selectVersion) return;
+  if (selectVersion.checked) selectedVersionIds.add(selectVersion.dataset.selectVersion);
+  else selectedVersionIds.delete(selectVersion.dataset.selectVersion);
+  renderAssets();
 }
 
 async function loadAssets() {
@@ -529,6 +560,9 @@ async function loadAssets() {
 
 async function selectWebsite(id) {
   selectedWebsite = websites.find((site) => site.id === id) || websites[0];
+  selectedAssetCategory = "";
+  selectedVersionIds.clear();
+  if (assetSearch) assetSearch.value = "";
   if (projectLinkForm) {
     projectLinkForm.hidden = true;
     setProjectStatus("");
@@ -791,7 +825,7 @@ async function publishVersion(versionId, { reload = true, copyUrl = true } = {})
 }
 
 async function approvePendingBatch() {
-  const pendingVersions = versions.filter((version) => version.status === "pending_review");
+  const pendingVersions = versions.filter((version) => selectedVersionIds.has(version.id) && version.status === "pending_review");
   if (!pendingVersions.length) return;
   if (!window.confirm(`Approve ${pendingVersions.length} pending file${pendingVersions.length === 1 ? "" : "s"} for ${selectedWebsite.name}?`)) return;
 
@@ -809,6 +843,7 @@ async function approvePendingBatch() {
     if (error) throw error;
     batchStatus.textContent = `${pendingVersions.length} files approved.`;
     showToast(`${pendingVersions.length} pending file${pendingVersions.length === 1 ? "" : "s"} approved.`);
+    selectedVersionIds.clear();
     await loadAssets();
   } catch (error) {
     batchStatus.textContent = error?.message || "The pending files could not be approved.";
@@ -816,6 +851,33 @@ async function approvePendingBatch() {
   } finally {
     approvePendingBatchButton.disabled = false;
     publishApprovedBatchButton.disabled = false;
+  }
+}
+
+async function rejectPendingBatch() {
+  const pendingVersions = versions.filter((version) => selectedVersionIds.has(version.id) && version.status === "pending_review");
+  if (!pendingVersions.length) return;
+  const reason = window.prompt(`Reject ${pendingVersions.length} selected pending file${pendingVersions.length === 1 ? "" : "s"}. Add an optional reason:`);
+  if (reason === null) return;
+
+  rejectPendingBatchButton.disabled = true;
+  batchStatus.textContent = `Rejecting ${pendingVersions.length} files…`;
+  try {
+    const { error } = await supabase.from("website_asset_versions").update({
+      status: "rejected",
+      rejected_by_user_id: currentUser.id,
+      rejected_at: new Date().toISOString(),
+      rejection_reason: reason.trim() || null,
+    }).in("id", pendingVersions.map((version) => version.id));
+    if (error) throw error;
+    selectedVersionIds.clear();
+    showToast(`${pendingVersions.length} pending file${pendingVersions.length === 1 ? "" : "s"} rejected.`);
+    await loadAssets();
+  } catch (error) {
+    batchStatus.textContent = error?.message || "The selected files could not be rejected.";
+    showToast(batchStatus.textContent, "error");
+  } finally {
+    rejectPendingBatchButton.disabled = false;
   }
 }
 
@@ -835,6 +897,7 @@ async function publishApprovedBatch() {
     }
     batchStatus.textContent = `${publishedCount} images published to the CDN.`;
     showToast(`${publishedCount} approved image${publishedCount === 1 ? "" : "s"} published to the CDN.`);
+    selectedVersionIds.clear();
     await loadAssets();
   } catch (error) {
     batchStatus.textContent = `${publishedCount ? `${publishedCount} published. ` : ""}${error?.message || "The remaining images could not be published."}`;
@@ -864,15 +927,44 @@ async function copyPublishedLinks() {
 }
 
 async function downloadVersion(version) {
-  if (version.public_url) {
-    window.open(version.public_url, "_blank", "noopener");
-    return;
-  }
+  const url = await downloadUrlForVersion(version);
+  window.open(url, "_blank", "noopener");
+}
+
+async function downloadUrlForVersion(version) {
+  if (version.public_url) return version.public_url;
   const { data, error } = await supabase.storage
     .from(version.storage_bucket)
     .createSignedUrl(version.storage_path, 600, { download: version.original_filename });
   if (error) throw error;
-  window.open(data.signedUrl, "_blank", "noopener");
+  return data.signedUrl;
+}
+
+async function downloadSelectedFiles() {
+  const selectedVersions = versions.filter((version) => selectedVersionIds.has(version.id));
+  if (!selectedVersions.length) return;
+  if (selectedVersions.length > 5 && !window.confirm(`Download ${selectedVersions.length} selected files? Your browser may ask for permission to download multiple files.`)) return;
+  downloadSelectedFilesButton.disabled = true;
+  batchStatus.textContent = `Preparing ${selectedVersions.length} downloads…`;
+  try {
+    const downloads = await Promise.all(selectedVersions.map(async (version) => ({ version, url: await downloadUrlForVersion(version) })));
+    downloads.forEach(({ version, url }) => {
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = version.original_filename;
+      link.target = "_blank";
+      link.rel = "noopener";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    });
+    batchStatus.textContent = `${downloads.length} download${downloads.length === 1 ? "" : "s"} started.`;
+  } catch (error) {
+    batchStatus.textContent = error?.message || "The selected files could not be downloaded.";
+    showToast(batchStatus.textContent, "error");
+  } finally {
+    downloadSelectedFilesButton.disabled = false;
+  }
 }
 
 function publicStoragePath(version) {
@@ -925,6 +1017,70 @@ async function deleteVersionAsAdmin(version) {
   await loadAssets();
 }
 
+async function deleteSelectedFiles() {
+  const selectedVersions = versions.filter((version) => selectedVersionIds.has(version.id));
+  if (!selectedVersions.length) return;
+  const selectedIds = new Set(selectedVersions.map((version) => version.id));
+  const affectedAssets = assets.filter((asset) => selectedVersions.some((version) => version.asset_id === asset.id));
+  const publishedVersions = selectedVersions.filter((version) => {
+    const asset = assets.find((row) => row.id === version.asset_id);
+    return version.status === "published" || Boolean(version.public_url) || asset?.current_version_id === version.id;
+  });
+  if (publishedVersions.length) {
+    const confirmation = window.prompt(`This will permanently delete ${selectedVersions.length} selected file${selectedVersions.length === 1 ? "" : "s"}, including ${publishedVersions.length} published file${publishedVersions.length === 1 ? "" : "s"}. Their live URLs will stop working. Type DELETE to continue.`);
+    if (confirmation !== "DELETE") return;
+  } else if (!window.confirm(`Permanently delete ${selectedVersions.length} selected file${selectedVersions.length === 1 ? "" : "s"}? This cannot be undone.`)) {
+    return;
+  }
+
+  deleteSelectedFilesButton.disabled = true;
+  batchStatus.textContent = `Deleting ${selectedVersions.length} files…`;
+  try {
+    const currentAssets = affectedAssets.filter((asset) => selectedIds.has(asset.current_version_id));
+    if (currentAssets.length) {
+      const { error } = await supabase.from("website_assets").update({ current_version_id: null }).in("id", currentAssets.map((asset) => asset.id));
+      if (error) throw error;
+    }
+
+    const pathsByBucket = new Map();
+    selectedVersions.forEach((version) => {
+      if (version.storage_bucket && version.storage_path) {
+        const paths = pathsByBucket.get(version.storage_bucket) || [];
+        paths.push(version.storage_path);
+        pathsByBucket.set(version.storage_bucket, paths);
+      }
+      const publishedPath = publicStoragePath(version);
+      if (publishedPath) {
+        const paths = pathsByBucket.get(PUBLIC_BUCKET) || [];
+        paths.push(publishedPath);
+        pathsByBucket.set(PUBLIC_BUCKET, paths);
+      }
+    });
+    for (const [bucket, paths] of pathsByBucket) {
+      const { error } = await supabase.storage.from(bucket).remove([...new Set(paths)]);
+      if (error) throw error;
+    }
+
+    const { error: versionError } = await supabase.from("website_asset_versions").delete().in("id", [...selectedIds]);
+    if (versionError) throw versionError;
+    const emptyAssetIds = affectedAssets
+      .filter((asset) => !versions.some((version) => version.asset_id === asset.id && !selectedIds.has(version.id)))
+      .map((asset) => asset.id);
+    if (emptyAssetIds.length) {
+      const { error: assetError } = await supabase.from("website_assets").delete().in("id", emptyAssetIds);
+      if (assetError) throw assetError;
+    }
+    selectedVersionIds.clear();
+    showToast(`${selectedVersions.length} file${selectedVersions.length === 1 ? "" : "s"} permanently deleted.`);
+    await loadAssets();
+  } catch (error) {
+    batchStatus.textContent = error?.message || "The selected files could not be deleted.";
+    showToast(batchStatus.textContent, "error");
+  } finally {
+    deleteSelectedFilesButton.disabled = false;
+  }
+}
+
 async function deleteEmptyAssetAsAdmin(assetId) {
   const asset = assets.find((row) => row.id === assetId);
   const assetVersions = versions.filter((row) => row.asset_id === assetId);
@@ -939,6 +1095,18 @@ async function deleteEmptyAssetAsAdmin(assetId) {
 }
 
 async function handleAssetAction(event) {
+  const selectableRow = event.target.closest("[data-selectable-version]");
+  if (selectableRow && !event.target.closest("input, label, button, a, summary, details")) {
+    const versionId = selectableRow.dataset.selectableVersion;
+    if (selectedVersionIds.has(versionId)) selectedVersionIds.delete(versionId);
+    else selectedVersionIds.add(versionId);
+    renderAssets();
+    return;
+  }
+  const menu = event.target.closest(".website-asset-actions");
+  if (event.target.closest(".website-asset-actions > summary")) {
+    document.querySelectorAll(".website-asset-actions[open]").forEach((item) => { if (item !== menu) item.removeAttribute("open"); });
+  }
   const emptyAssetButton = event.target.closest("[data-delete-empty-asset]");
   if (emptyAssetButton) {
     emptyAssetButton.disabled = true;
@@ -955,6 +1123,7 @@ async function handleAssetAction(event) {
   if (!button) return;
   const version = versions.find((row) => row.id === button.dataset.versionId);
   if (!version) return;
+  menu?.removeAttribute("open");
   button.disabled = true;
   try {
     if (button.dataset.versionAction === "approve") await updateVersionStatus(version.id, "approved");
@@ -1029,8 +1198,26 @@ async function initWebsiteAdmin() {
     refreshButton?.addEventListener("click", () => loadWebsites(selectedWebsite?.id).catch((loadError) => showToast(loadError.message, "error")));
     copyPublishedLinksButton?.addEventListener("click", copyPublishedLinks);
     approvePendingBatchButton?.addEventListener("click", approvePendingBatch);
+    rejectPendingBatchButton?.addEventListener("click", rejectPendingBatch);
     publishApprovedBatchButton?.addEventListener("click", publishApprovedBatch);
+    downloadSelectedFilesButton?.addEventListener("click", downloadSelectedFiles);
+    deleteSelectedFilesButton?.addEventListener("click", deleteSelectedFiles);
+    clearAssetSelectionButton?.addEventListener("click", () => {
+      selectedVersionIds.clear();
+      renderAssets();
+    });
     assetGrid?.addEventListener("click", handleAssetAction);
+    assetGrid?.addEventListener("change", handleAssetSelection);
+    selectedAssetActions?.addEventListener("click", handleAssetAction);
+    assetFolderList?.addEventListener("click", (event) => {
+      const folder = event.target.closest("[data-select-category]");
+      if (!folder) return;
+      selectedAssetCategory = folder.dataset.selectCategory;
+      selectedVersionIds.clear();
+      if (assetSearch) assetSearch.value = "";
+      renderAssets();
+    });
+    assetSearch?.addEventListener("input", renderAssets);
     adminRequestList?.addEventListener("click", (event) => {
       const button = event.target.closest("[data-save-request]");
       if (!button) return;

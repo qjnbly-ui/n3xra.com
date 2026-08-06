@@ -14,6 +14,7 @@
   <link rel="stylesheet" href="/assets/site-nav.css">
   <link rel="stylesheet" href="/client-portal/portal.css?v=12">
   <link rel="stylesheet" href="/client-portal/client-shell.css?v=2">
+  <link rel="stylesheet" href="/client-portal/assets-manager.css?v=8">
   <link rel="stylesheet" href="/website-request/request.css?v=7">
   <script src="/shared/config.js"></script>
   <script src="/assets/site-nav.js" defer></script>
@@ -121,31 +122,23 @@
         </div>
 
         <div class="portal-view" id="portal-view-files" data-portal-panel="files" hidden>
-          <div class="portal-workspace-head">
-            <div>
-              <p class="portal-kicker">Selected website</p>
-              <h2>Files &amp; Assets</h2>
-              <p>Website images, logos, documents, icons, and published file versions.</p>
-            </div>
-          </div>
+          <section class="website-assets-manager website-assets-client-manager">
+            <aside class="website-assets-sidebar">
+              <div class="website-assets-site-picker"><label>Website<select class="portal-select" id="files-website-select"></select></label></div>
+              <div class="website-assets-client-site"><div><span>Viewing files for</span><strong id="files-website-name">Selected website</strong></div><a id="files-live-link" href="#" target="_blank" rel="noopener">Visit live site</a></div>
+              <label class="website-assets-search"><span>Search this folder</span><input id="client-asset-search" type="search" placeholder="Search this folder"></label>
+              <p class="website-assets-folder-label">Folders</p>
+              <div class="website-assets-folder-list" id="client-asset-folders"></div>
+            </aside>
+            <section class="website-assets-content">
+              <header class="website-assets-content-head" id="asset-toolbar" hidden><div><p class="portal-kicker">Folder contents</p><h1 id="client-selected-asset-name">Select a folder</h1><p id="client-selected-asset-meta">Choose a folder from the left.</p></div><div class="website-assets-head-actions"><button class="portal-button" id="open-upload" type="button">Upload files</button></div></header>
+              <div class="website-assets-batch" id="client-selection-toolbar" hidden><p class="portal-inline-status" id="client-selection-status" role="status"></p><div><button class="portal-button portal-button-secondary" id="client-clear-selection" type="button">Clear selection</button><button class="portal-button portal-button-secondary" id="client-download-selected" type="button">Download selected</button><button class="portal-button portal-button-secondary" id="client-copy-links" type="button" hidden>Copy published links</button><button class="portal-button portal-button-danger" id="client-delete-selected" type="button" hidden>Delete selected</button></div></div>
+              <div class="website-assets-table" id="asset-grid"></div>
+              <div class="website-assets-empty" id="portal-empty"><p>No files or assets have been added to this website yet.</p></div>
+            </section>
+          </section>
 
-          <div class="portal-files-project">
-            <div>
-              <span>Viewing files for</span>
-              <strong id="files-website-name">Selected website</strong>
-            </div>
-            <a class="portal-text-action" id="files-live-link" href="#" target="_blank" rel="noopener">Visit live site</a>
-          </div>
-
-          <div class="portal-toolbar" id="asset-toolbar" hidden>
-            <div>
-              <h3>File library</h3>
-              <p>Approved files and proposed replacements for this website.</p>
-            </div>
-            <button class="portal-button" id="open-upload" type="button">Upload files</button>
-          </div>
-
-          <form class="portal-form" id="asset-upload-form" hidden>
+          <form class="portal-form website-assets-upload-drawer" id="asset-upload-form" hidden>
             <div class="portal-form-head">
               <div>
                 <p class="portal-kicker">Private draft</p>
@@ -210,10 +203,6 @@
             </div>
           </form>
 
-          <div class="portal-asset-grid" id="asset-grid"></div>
-          <div class="portal-empty" id="portal-empty">
-            <p>No files or assets have been added to this website yet.</p>
-          </div>
         </div>
 
         <div class="portal-view" id="portal-view-support" data-portal-panel="support" hidden>
@@ -312,7 +301,7 @@
 
   <div class="portal-status" id="portal-status" role="status">Opening your website portal…</div>
   <script type="module" src="/client-portal/client-shell.js?v=2"></script>
-  <script type="module" src="/client-portal/portal.js?v=11"></script>
+  <script type="module" src="/client-portal/portal.js?v=15"></script>
   <script type="module" src="/website-request/request.js?v=10"></script>
 </body>
 </html>
