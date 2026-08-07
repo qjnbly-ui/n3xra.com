@@ -1,4 +1,4 @@
-import { createBrowserSupabase, hasConfig } from "/shared/lib/supabase-client.js";
+import { createBrowserSupabase, getConfig, hasConfig } from "/shared/lib/supabase-client.js";
 import { verifyPlatformAdmin } from "/client-portal/admin-access.js";
 import { adminDialog, confirmAdminAction } from "/account/admin/admin-dialogs.js";
 import { readWorkspaceContext, writeWorkspaceContext } from "/client-portal/workspace-context.js";
@@ -18,12 +18,17 @@ const STATUS_LABELS = {
   reviewing: "In review",
   needs_info: "Waiting on client",
   qualified: "Qualified",
+  proposal_drafting: "Proposal drafting",
+  proposal_sent: "Proposal sent",
+  approved: "Approved",
+  proposal_approved: "Proposal approved",
   declined: "Declined",
   converted: "Converted",
   archived: "Archived",
 };
 
 let supabase;
+let currentSession;
 let currentUser;
 let requests = [];
 let allRequests = [];
@@ -34,6 +39,34 @@ let selectedRequestId = "";
 let currentFilter = "open";
 let supplementalLoadToken = 0;
 const LOAD_TIMEOUT_MS = 12000;
+
+async function fetchRequestRows() {
+  const config = getConfig();
+  const accessToken = currentSession?.access_token;
+  if (!config.supabaseUrl || !config.supabaseAnonKey || !accessToken) throw new Error("Your admin session is unavailable. Refresh the page and sign in again.");
+
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 8000);
+  try {
+    const query = new URLSearchParams({ select: "*", order: "created_at.desc" });
+    const response = await fetch(`${config.supabaseUrl}/rest/v1/website_service_requests?${query}`, {
+      headers: {
+        apikey: config.supabaseAnonKey,
+        Authorization: `Bearer ${accessToken}`,
+        Accept: "application/json",
+      },
+      signal: controller.signal,
+    });
+    const data = await response.json().catch(() => null);
+    if (!response.ok) throw new Error(data?.message || data?.error || `The request queue returned ${response.status}.`);
+    return Array.isArray(data) ? data : [];
+  } catch (error) {
+    if (error?.name === "AbortError") throw new Error("The request queue took too long to respond. Check your connection and retry.");
+    throw error;
+  } finally {
+    window.clearTimeout(timeout);
+  }
+}
 
 function withTimeout(task, label) {
   let timer;
@@ -216,13 +249,9 @@ function render() {
 
 async function loadRequests() {
   requestSummary.textContent = "Loading submitted requests…";
-  const requestResult = await withTimeout(
-    supabase.from("website_service_requests").select("*").order("created_at", { ascending: false }),
-    "The request queue",
-  );
-  if (requestResult.error) throw requestResult.error;
-  allRequests = requestResult.data || [];
+  allRequests = await fetchRequestRows();
   requests = allRequests.filter((request) => request.status !== "archived");
+  if (currentFilter === "open" && requests.length && !requests.some((request) => ACTIONABLE_STATUSES.has(request.status))) currentFilter = "all";
   const requestedId = new URLSearchParams(window.location.search).get("request");
   const requested = requests.find((request) => request.id === requestedId);
   if (!selectedRequestId && requested) {
@@ -367,7 +396,8 @@ async function init() {
   supabase = createBrowserSupabase();
   statusScreen.textContent = "Checking your admin session…";
   const { data } = await withTimeout(supabase.auth.getSession(), "Your admin session");
-  currentUser = data?.session?.user;
+  currentSession = data?.session || null;
+  currentUser = currentSession?.user;
   if (!currentUser) {
     window.location.replace("/account/?next=%2Fn3xra-admin%2Frequests%2F");
     return;
