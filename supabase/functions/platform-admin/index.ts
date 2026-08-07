@@ -908,6 +908,64 @@ Deno.serve(async (request) => {
       });
     }
 
+    if (action === "recover-website-request-review") {
+      const reviewId = String(payload.reviewId || "").trim();
+      if (!isValidUuid(reviewId)) return jsonResponse({ error: "A valid intake review is required." }, 400);
+      const { data: review, error: reviewError } = await adminClient
+        .from("website_request_ai_reviews")
+        .select("id,user_id,contact_email,project_snapshot,created_at")
+        .eq("id", reviewId)
+        .single();
+      if (reviewError || !review) return jsonResponse({ error: reviewError?.message || "The intake review was not found." }, 404);
+
+      const { data: existing } = await adminClient
+        .from("website_service_requests")
+        .select("*")
+        .eq("ai_review_id", review.id)
+        .maybeSingle();
+      if (existing) return jsonResponse({ ok: true, request: existing, recovered: false });
+
+      const project = review.project_snapshot || {};
+      const email = normalizeEmail(review.contact_email || project.email);
+      const authUser = review.user_id ? { id: review.user_id } : await findAuthUserByEmail(adminClient, email);
+      if (!authUser?.id) return jsonResponse({ error: "The client must verify their email before this intake can be recovered." }, 400);
+      const contactName = textValue(project.contactName, 160);
+      const businessName = textValue(project.businessName, 180);
+      const primaryGoal = textValue(project.primaryGoal, 2000);
+      if (!contactName || !businessName || !email || !primaryGoal) return jsonResponse({ error: "This intake is missing required contact or project information." }, 400);
+
+      const { data: recoveredRequest, error: recoverError } = await adminClient
+        .from("website_service_requests")
+        .insert({
+          user_id: authUser.id,
+          contact_name: contactName,
+          business_name: businessName,
+          contact_email: email,
+          contact_phone: textValue(project.phone, 40) || null,
+          project_type: textValue(project.projectType, 40) || "new_website",
+          existing_website_url: textValue(project.existingWebsiteUrl, 500) || null,
+          primary_goal: primaryGoal,
+          audience: textValue(project.primaryAudience, 2000) || null,
+          requested_pages: Array.isArray(project.requestedPages) ? project.requestedPages.map((item: unknown) => textValue(item, 160)).filter(Boolean) : [],
+          requested_features: Array.isArray(project.requestedFeatures) ? project.requestedFeatures.map((item: unknown) => textValue(item, 160)).filter(Boolean) : [],
+          service_plan: textValue(project.servicePlan, 40) || null,
+          service_plan_auto_applied: Boolean(project.servicePlanAutoApplied),
+          service_plan_reason: textValue(project.servicePlanReason, 1000) || null,
+          budget_range: textValue(project.budgetRange, 80) || null,
+          target_launch_date: textValue(project.preferredLaunchDate, 20) || null,
+          referral_code: textValue(project.referralCode, 80) || null,
+          offer_code: textValue(project.offerCode, 80) || null,
+          additional_notes: textValue(project.additionalNotes, 4000) || null,
+          ai_review_id: review.id,
+          status: "submitted",
+          created_at: review.created_at,
+        })
+        .select("*")
+        .single();
+      if (recoverError) return jsonResponse({ error: recoverError.message }, 400);
+      return jsonResponse({ ok: true, request: recoveredRequest, recovered: true });
+    }
+
     if (action === "list-n3xra-files") {
       const [{ data: files, error: filesError }, { data: access, error: accessError }, { data: admins, error: adminsError }] = await Promise.all([
         adminClient.from("n3xra_files").select("id,name,storage_path,mime_type,size_bytes,created_by,created_at").order("created_at", { ascending: false }),

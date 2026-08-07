@@ -9,8 +9,9 @@ const requestSummary = document.getElementById("admin-request-summary");
 const requestCounts = document.getElementById("admin-request-counts");
 const requestFilters = document.getElementById("admin-request-filters");
 
-const ACTIONABLE_STATUSES = new Set(["submitted", "reviewing", "needs_info"]);
+const ACTIONABLE_STATUSES = new Set(["unsubmitted", "submitted", "reviewing", "needs_info"]);
 const STATUS_LABELS = {
+  unsubmitted: "Recovery needed",
   submitted: "New",
   reviewing: "In review",
   needs_info: "Waiting on client",
@@ -37,6 +38,10 @@ let currentFilter = "open";
 const LOAD_TIMEOUT_MS = 12000;
 
 async function fetchRequestWorkspace() {
+  return postPlatformAdmin("list-website-request-workspace");
+}
+
+async function postPlatformAdmin(action, payload = {}) {
   const config = getConfig();
   const accessToken = currentSession?.access_token;
   if (!config.supabaseUrl || !config.supabaseAnonKey || !accessToken) throw new Error("Your admin session is unavailable. Refresh the page and sign in again.");
@@ -51,7 +56,7 @@ async function fetchRequestWorkspace() {
         Authorization: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ action: "list-website-request-workspace" }),
+      body: JSON.stringify({ action, ...payload }),
       signal: controller.signal,
     });
     const data = await response.json().catch(() => null);
@@ -114,6 +119,7 @@ function organizationForRequest(request) {
 }
 
 function nextStep(request) {
+  if (request.recoverable_review) return { title: "Recover this completed intake", copy: "The client finished the intake and verified their email, but the final submission handoff did not create a request. Recover it to continue normally.", action: "recover" };
   if (!organizationForRequest(request) && ["qualified", "converted"].includes(request.status)) return { title: "Attach an organization", copy: "Choose or create the organization workspace before preparing its proposal.", action: "organization" };
   if (request.proposal_id) return { title: "Continue the proposal", copy: "A proposal already exists for this request.", action: "proposal" };
   if (request.status === "submitted") return { title: "Start the review", copy: "Read the scope, contact the client if needed, and record your decision.", action: "review" };
@@ -172,6 +178,7 @@ function renderDetail() {
   const linkedReview = aiReviews.find((review) => review.id === request.ai_review_id);
   const organization = organizationForRequest(request);
   const reviewResult = linkedReview?.review_snapshot || {};
+  const isRecoverable = Boolean(request.recoverable_review);
   const proposalHref = `/n3xra-admin/proposals/?request=${encodeURIComponent(request.id)}`;
   requestDetail.innerHTML = `
     <header class="website-request-detail-head">
@@ -182,19 +189,20 @@ function renderDetail() {
       <div><p class="portal-kicker">Next step</p><h3>${escapeHtml(step.title)}</h3><p>${escapeHtml(step.copy)}</p></div>
       <div class="website-request-primary-actions">
         ${step.action === "review" ? `<button class="portal-button" type="button" data-request-action="review">Start review</button>` : ""}
+        ${step.action === "recover" ? `<button class="portal-button" type="button" data-request-action="recover">Recover into request queue</button>` : ""}
         ${["decision", "waiting"].includes(step.action) ? `<button class="portal-button" type="button" data-request-action="qualified">Qualify request</button>` : ""}
         ${step.action === "organization" ? '<button class="portal-button" type="button" data-request-action="attach">Attach organization</button>' : ""}
         ${step.action === "proposal" ? `<a class="portal-button" href="${proposalHref}" data-open-request-proposal>${request.proposal_id ? "Open proposal" : "Create proposal"}</a>` : ""}
       </div>
     </section>
-    <section class="website-request-section website-request-organization">
+    ${!isRecoverable ? `<section class="website-request-section website-request-organization">
       <div class="website-request-section-head"><div><p class="portal-kicker">Organization workspace</p><h3>${organization ? escapeHtml(organization.name) : "Not connected"}</h3><p>${organization ? "This request will remain scoped to this organization across Website Admin." : "Connect this client before moving the request into proposals, projects, files, or billing."}</p></div>${organization ? '<span class="website-request-status status-qualified">Connected</span>' : '<span class="website-request-status status-needs_info">Required</span>'}</div>
       <div class="website-request-organization-controls">
         <label>Organization<select data-request-organization="${request.id}">${websites.map((website) => `<option value="${website.id}"${website.id === organization?.id ? " selected" : ""}>${escapeHtml(website.name)}</option>`).join("")}</select></label>
         <button class="portal-button portal-button-secondary" type="button" data-request-action="attach">${organization ? "Use selected organization" : "Attach to selected"}</button>
         ${organization ? '<button class="portal-button portal-button-secondary" type="button" data-request-action="open-organization">Open organization overview</button>' : `<button class="portal-link-button" type="button" data-request-action="create-organization">Create “${escapeHtml(request.business_name)}”</button>`}
       </div>
-    </section>
+    </section>` : ""}
     <div class="website-request-detail-grid">
       <section class="website-request-section">
         <div class="website-request-section-head"><div><p class="portal-kicker">Contact</p><h3>${escapeHtml(request.contact_name)}</h3></div><div><a class="portal-button portal-button-secondary" href="${contactMailto(request)}">Email</a>${request.contact_phone ? `<a class="portal-button portal-button-secondary" href="tel:${escapeHtml(request.contact_phone)}">Call</a>` : ""}</div></div>
@@ -211,7 +219,7 @@ function renderDetail() {
       ${request.service_plan_reason ? `<div class="website-request-plan-note"><strong>Plan fit</strong><p>${escapeHtml(request.service_plan_reason)}</p></div>` : ""}
     </section>
     ${linkedReview ? `<details class="website-request-ai-summary"><summary>View pre-submission AI review</summary><div><p>${escapeHtml(reviewResult.message || "No AI confirmation saved.")}</p></div></details>` : ""}
-    <section class="website-request-decision">
+    ${isRecoverable ? `<section class="website-request-decision"><div><p class="portal-kicker">Completed intake</p><h3>Ready to recover</h3><p>Recovering creates the missing submitted request and preserves this intake’s original date and AI review.</p></div><div class="website-request-decision-actions"><button class="portal-button" type="button" data-request-action="recover">Recover into request queue</button><a class="portal-button portal-button-secondary" href="${contactMailto(request)}">Email ${escapeHtml(request.contact_name.split(/\s+/)[0] || "client")}</a></div></section>` : `<section class="website-request-decision">
       <div><p class="portal-kicker">Admin record</p><h3>Decision and private notes</h3><p>Save context here so another administrator can understand what happened.</p></div>
       <label>Status<select data-request-status="${request.id}">${["submitted", "reviewing", "needs_info", "qualified", "declined", "converted"].map((status) => `<option value="${status}"${request.status === status ? " selected" : ""}>${escapeHtml(STATUS_LABELS[status] || formatLabel(status))}</option>`).join("")}</select></label>
       <label>Private notes<textarea rows="5" data-request-notes="${request.id}" placeholder="Call notes, missing details, fit assessment, or follow-up…">${escapeHtml(request.admin_notes || "")}</textarea></label>
@@ -223,7 +231,7 @@ function renderDetail() {
         ${!request.proposal_id ? `<button class="portal-link-button is-danger" type="button" data-request-action="delete">Delete permanently</button>` : ""}
       </div>
       <p class="portal-inline-status" id="admin-request-action-status" role="status"></p>
-    </section>
+    </section>`}
   `;
 }
 
@@ -237,8 +245,38 @@ async function loadRequests() {
   requestSummary.textContent = "Loading submitted requests…";
   const workspace = await fetchRequestWorkspace();
   const proposals = new Map((workspace.proposals || []).map((proposal) => [proposal.request_id, proposal.id]));
-  allRequests = (workspace.requests || []).map((request) => ({ ...request, proposal_id: proposals.get(request.id) || "" }));
   aiReviews = workspace.aiReviews || [];
+  const submittedRequests = (workspace.requests || []).map((request) => ({ ...request, proposal_id: proposals.get(request.id) || "" }));
+  const linkedReviewIds = new Set(submittedRequests.map((request) => request.ai_review_id).filter(Boolean));
+  const recoverableRequests = aiReviews.filter((review) => !linkedReviewIds.has(review.id)).map((review) => {
+    const project = review.project_snapshot || {};
+    return {
+      id: `review:${review.id}`,
+      review_id: review.id,
+      recoverable_review: true,
+      ai_review_id: review.id,
+      user_id: review.user_id || null,
+      contact_name: project.contactName || "Unknown contact",
+      business_name: project.businessName || "Incomplete website intake",
+      contact_email: review.contact_email || project.email || "",
+      contact_phone: project.phone || null,
+      project_type: project.projectType || "new_website",
+      existing_website_url: project.existingWebsiteUrl || null,
+      primary_goal: project.primaryGoal || "No project goal was saved.",
+      audience: project.primaryAudience || null,
+      requested_pages: project.requestedPages || [],
+      requested_features: project.requestedFeatures || [],
+      service_plan: project.servicePlan || null,
+      service_plan_reason: project.servicePlanReason || null,
+      budget_range: project.budgetRange || null,
+      target_launch_date: project.preferredLaunchDate || null,
+      referral_code: project.referralCode || null,
+      additional_notes: project.additionalNotes || null,
+      status: "unsubmitted",
+      created_at: review.created_at,
+    };
+  }).filter((request) => request.contact_email && request.business_name !== "Incomplete website intake");
+  allRequests = [...submittedRequests, ...recoverableRequests].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   websites = workspace.websites || [];
   websiteMembers = workspace.websiteMembers || [];
   requests = allRequests.filter((request) => request.status !== "archived");
@@ -332,7 +370,12 @@ async function deleteRequest(requestId) {
 async function runAction(action) {
   const request = requests.find((item) => item.id === selectedRequestId);
   if (!request) return;
-  if (action === "save") await saveRequest(request.id);
+  if (action === "recover") {
+    const result = await postPlatformAdmin("recover-website-request-review", { reviewId: request.review_id });
+    selectedRequestId = result.request?.id || "";
+    await loadRequests();
+  }
+  else if (action === "save") await saveRequest(request.id);
   else if (action === "review") await updateRequest(request.id, { status: "reviewing" });
   else if (action === "qualified") await updateRequest(request.id, { status: "qualified" });
   else if (action === "attach") {
@@ -383,7 +426,8 @@ async function init() {
     window.history.replaceState({}, "", url);
     renderQueue();
     renderDetail();
-    markRequestNotificationRead(selectedRequestId);
+    const selectedRequest = requests.find((request) => request.id === selectedRequestId);
+    if (!selectedRequest?.recoverable_review) markRequestNotificationRead(selectedRequestId);
   });
   requestDetail.addEventListener("click", async (event) => {
     const proposalLink = event.target.closest("[data-open-request-proposal]");
