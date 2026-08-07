@@ -203,17 +203,6 @@
 .website-request-detail-empty { display:grid; place-content:center; min-height:500px; padding:2rem; text-align:center; }
 .website-request-detail-empty h2 { margin:.3rem 0; font:700 2rem Fraunces,Georgia,serif; }
 .website-request-detail-empty p:not(.portal-kicker) { color:var(--portal-muted); }
-.website-request-audit { margin:1.25rem; background:#fff; border:1px solid var(--website-admin-border); }
-.website-request-audit > summary { display:flex; align-items:center; justify-content:space-between; padding:1rem 1.2rem; cursor:pointer; }
-.website-request-audit > summary span:first-child { display:grid; gap:.25rem; }
-.website-request-audit > summary small { color:var(--portal-muted); font-weight:500; }
-.website-request-audit > summary span:last-child { display:grid; place-items:center; min-width:30px; min-height:30px; background:#edf0f3; border-radius:50%; font-size:.72rem; font-weight:800; }
-.website-request-audit-note { margin:0 1.2rem 1rem; padding:.8rem 1rem; color:#655325; background:#fff8df; border:1px solid #eadba5; font-size:.72rem; }
-.website-request-incomplete { display:flex; align-items:center; justify-content:space-between; gap:1rem; padding:1rem 1.2rem; border-top:1px solid var(--website-admin-border); }
-.website-request-incomplete h3 { margin:.15rem 0; font-size:.9rem; }
-.website-request-incomplete p:not(.portal-kicker) { margin:0; color:var(--portal-muted); font-size:.72rem; }
-.website-request-incomplete > div:last-child { display:flex; align-items:center; gap:.55rem; }
-
 @media (min-width:801px) {
   body.website-admin-product { height:100svh; overflow:hidden; }
   .website-admin-product .website-admin-page { height:calc(100svh - 76px); min-height:0 !important; overflow:hidden; }
@@ -242,8 +231,7 @@
   .website-request-detail { overflow:visible; border-right:0; }
   .website-request-detail-grid { grid-template-columns:1fr; }
   .website-request-next-step,
-  .website-request-detail-head,
-  .website-request-incomplete { align-items:flex-start; flex-direction:column; }
+  .website-request-detail-head { align-items:flex-start; flex-direction:column; }
   .website-request-fields,
   .website-request-scope { grid-template-columns:1fr; }
 }

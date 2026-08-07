@@ -8,8 +8,6 @@ const requestDetail = document.getElementById("admin-request-detail");
 const requestSummary = document.getElementById("admin-request-summary");
 const requestCounts = document.getElementById("admin-request-counts");
 const requestFilters = document.getElementById("admin-request-filters");
-const aiReviewList = document.getElementById("admin-ai-review-list");
-const aiReviewCount = document.getElementById("admin-ai-review-count");
 
 const ACTIONABLE_STATUSES = new Set(["submitted", "reviewing", "needs_info"]);
 const STATUS_LABELS = {
@@ -229,21 +227,10 @@ function renderDetail() {
   `;
 }
 
-function renderAiReviews() {
-  const linkedReviewIds = new Set(allRequests.map((request) => request.ai_review_id).filter(Boolean));
-  const incomplete = aiReviews.filter((review) => !linkedReviewIds.has(review.id));
-  aiReviewCount.textContent = String(incomplete.length);
-  aiReviewList.innerHTML = incomplete.length ? incomplete.map((review) => {
-    const project = review.project_snapshot || {};
-    return `<article class="website-request-incomplete"><div><p class="portal-kicker">${escapeHtml(formatDate(review.created_at))}</p><h3>${escapeHtml(project.businessName || "Incomplete intake")}</h3><p>${escapeHtml(project.contactName || "Unknown contact")} · ${escapeHtml(review.contact_email || project.email || "No email")}</p></div><div><span class="website-request-status status-incomplete">Not submitted</span>${review.contact_email || project.email ? `<a class="portal-button portal-button-secondary" href="mailto:${encodeURIComponent(review.contact_email || project.email)}">Email contact</a>` : ""}</div></article>`;
-  }).join("") : '<div class="portal-empty"><p>No incomplete intakes.</p></div>';
-}
-
 function render() {
   renderCounts();
   renderQueue();
   renderDetail();
-  renderAiReviews();
 }
 
 async function loadRequests() {
