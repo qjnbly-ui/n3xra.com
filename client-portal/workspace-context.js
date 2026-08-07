@@ -18,6 +18,7 @@ export function writeWorkspaceContext(scope, userId, values) {
     if (context[key] === undefined || context[key] === null || context[key] === "") delete context[key];
   });
   localStorage.setItem(keys[scope], JSON.stringify(context));
+  window.dispatchEvent(new CustomEvent("n3xra:workspace-context-change", { detail: { scope, context } }));
   return context;
 }
 

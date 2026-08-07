@@ -148,7 +148,20 @@ async function load() {
     return;
   }
 
-  content.innerHTML = records.projects.length ? records.projects.map(card).join("") : `<div class="portal-empty"><p>No website billing records are available yet.</p></div>`;
+  const context = readWorkspaceContext("client", currentUser.id);
+  const linkedProject = records.projects.find((project) => project.id === projectId);
+  const selectedWebsiteId = linkedProject?.managed_website_id || context.websiteId;
+  const selectedProjects = selectedWebsiteId
+    ? records.projects.filter((project) => project.managed_website_id === selectedWebsiteId)
+    : linkedProject ? [linkedProject] : records.projects.slice(0, 1);
+  if (selectedProjects[0]?.managed_website_id && selectedProjects[0].managed_website_id !== context.websiteId) {
+    writeWorkspaceContext("client", currentUser.id, {
+      websiteId: selectedProjects[0].managed_website_id,
+      projectId: selectedProjects[0].id,
+      name: selectedProjects[0].name,
+    });
+  }
+  content.innerHTML = selectedProjects.length ? selectedProjects.map(card).join("") : `<div class="portal-empty"><p>No website billing records are available for this organization yet.</p></div>`;
 }
 
 function renderWebsiteSelector() {
