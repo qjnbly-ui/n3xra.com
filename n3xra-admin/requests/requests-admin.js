@@ -219,7 +219,7 @@ function renderDetail() {
       ${request.service_plan_reason ? `<div class="website-request-plan-note"><strong>Plan fit</strong><p>${escapeHtml(request.service_plan_reason)}</p></div>` : ""}
     </section>
     ${linkedReview ? `<details class="website-request-ai-summary"><summary>View pre-submission AI review</summary><div><p>${escapeHtml(reviewResult.message || "No AI confirmation saved.")}</p></div></details>` : ""}
-    ${isRecoverable ? `<section class="website-request-decision"><div><p class="portal-kicker">Completed intake</p><h3>Ready to recover</h3><p>Recovering creates the missing submitted request and preserves this intake’s original date and AI review.</p></div><div class="website-request-decision-actions"><button class="portal-button" type="button" data-request-action="recover">Recover into request queue</button><a class="portal-button portal-button-secondary" href="${contactMailto(request)}">Email ${escapeHtml(request.contact_name.split(/\s+/)[0] || "client")}</a></div></section>` : `<section class="website-request-decision">
+    ${isRecoverable ? `<section class="website-request-decision"><div><p class="portal-kicker">Completed intake</p><h3>Ready to recover</h3><p>Recovering creates the missing submitted request and preserves this intake’s original date and AI review.</p></div><div class="website-request-decision-actions"><button class="portal-button" type="button" data-request-action="recover">Recover into request queue</button><a class="portal-button portal-button-secondary" href="${contactMailto(request)}">Email ${escapeHtml(request.contact_name.split(/\s+/)[0] || "client")}</a><button class="portal-link-button is-danger" type="button" data-request-action="delete-review">Delete permanently</button></div></section>` : `<section class="website-request-decision">
       <div><p class="portal-kicker">Admin record</p><h3>Decision and private notes</h3><p>Save context here so another administrator can understand what happened.</p></div>
       <label>Status<select data-request-status="${request.id}">${["submitted", "reviewing", "needs_info", "qualified", "declined", "converted"].map((status) => `<option value="${status}"${request.status === status ? " selected" : ""}>${escapeHtml(STATUS_LABELS[status] || formatLabel(status))}</option>`).join("")}</select></label>
       <label>Private notes<textarea rows="5" data-request-notes="${request.id}" placeholder="Call notes, missing details, fit assessment, or follow-up…">${escapeHtml(request.admin_notes || "")}</textarea></label>
@@ -370,7 +370,16 @@ async function deleteRequest(requestId) {
 async function runAction(action) {
   const request = requests.find((item) => item.id === selectedRequestId);
   if (!request) return;
-  if (action === "recover") {
+  if (action === "delete-review") {
+    if (!request.recoverable_review || !request.review_id) throw new Error("Only unrecovered intake drafts can be deleted here.");
+    if (!await confirmAdminAction(`Permanently delete the saved intake for “${request.business_name}”? This cannot be undone.`, { title: "Delete saved intake", confirmLabel: "Delete permanently" })) return;
+    await postPlatformAdmin("delete-website-request-review", { reviewId: request.review_id });
+    selectedRequestId = "";
+    const url = new URL(window.location.href);
+    url.searchParams.delete("request");
+    window.history.replaceState({}, "", url);
+    await loadRequests();
+  } else if (action === "recover") {
     const result = await postPlatformAdmin("recover-website-request-review", { reviewId: request.review_id });
     selectedRequestId = result.request?.id || "";
     await loadRequests();

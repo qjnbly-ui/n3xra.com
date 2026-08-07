@@ -966,6 +966,29 @@ Deno.serve(async (request) => {
       return jsonResponse({ ok: true, request: recoveredRequest, recovered: true });
     }
 
+    if (action === "delete-website-request-review") {
+      const reviewId = String(payload.reviewId || "").trim();
+      if (!isValidUuid(reviewId)) return jsonResponse({ error: "A valid intake review is required." }, 400);
+
+      const { data: linkedRequest, error: linkedRequestError } = await adminClient
+        .from("website_service_requests")
+        .select("id")
+        .eq("ai_review_id", reviewId)
+        .maybeSingle();
+      if (linkedRequestError) return jsonResponse({ error: linkedRequestError.message }, 400);
+      if (linkedRequest) return jsonResponse({ error: "This intake has already been recovered. Delete or archive the submitted request instead." }, 409);
+
+      const { data: deletedReview, error: deleteError } = await adminClient
+        .from("website_request_ai_reviews")
+        .delete()
+        .eq("id", reviewId)
+        .select("id")
+        .maybeSingle();
+      if (deleteError) return jsonResponse({ error: deleteError.message }, 400);
+      if (!deletedReview) return jsonResponse({ error: "The saved intake was not found." }, 404);
+      return jsonResponse({ ok: true, deletedId: deletedReview.id });
+    }
+
     if (action === "list-n3xra-files") {
       const [{ data: files, error: filesError }, { data: access, error: accessError }, { data: admins, error: adminsError }] = await Promise.all([
         adminClient.from("n3xra_files").select("id,name,storage_path,mime_type,size_bytes,created_by,created_at").order("created_at", { ascending: false }),
