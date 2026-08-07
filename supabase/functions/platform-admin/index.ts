@@ -887,6 +887,27 @@ Deno.serve(async (request) => {
       });
     }
 
+    if (action === "list-website-request-workspace") {
+      const [requestsResult, proposalsResult, reviewsResult, websitesResult, membersResult] = await Promise.all([
+        adminClient.from("website_service_requests").select("*").order("created_at", { ascending: false }),
+        adminClient.from("website_proposals").select("id,request_id"),
+        adminClient.from("website_request_ai_reviews").select("*").order("created_at", { ascending: false }).limit(250),
+        adminClient.from("client_websites").select("id,name,status,live_url").neq("status", "archived").order("name"),
+        adminClient.from("website_members").select("website_id,user_id,status,role"),
+      ]);
+      const firstError = [requestsResult, proposalsResult, reviewsResult, websitesResult, membersResult]
+        .find((result) => result.error)?.error;
+      if (firstError) return jsonResponse({ error: firstError.message }, 400);
+      return jsonResponse({
+        ok: true,
+        requests: requestsResult.data || [],
+        proposals: proposalsResult.data || [],
+        aiReviews: reviewsResult.data || [],
+        websites: websitesResult.data || [],
+        websiteMembers: membersResult.data || [],
+      });
+    }
+
     if (action === "list-n3xra-files") {
       const [{ data: files, error: filesError }, { data: access, error: accessError }, { data: admins, error: adminsError }] = await Promise.all([
         adminClient.from("n3xra_files").select("id,name,storage_path,mime_type,size_bytes,created_by,created_at").order("created_at", { ascending: false }),

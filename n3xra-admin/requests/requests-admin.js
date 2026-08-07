@@ -1,5 +1,4 @@
 import { createBrowserSupabase, getConfig, hasConfig } from "/shared/lib/supabase-client.js";
-import { verifyPlatformAdmin } from "/client-portal/admin-access.js";
 import { adminDialog, confirmAdminAction } from "/account/admin/admin-dialogs.js";
 import { readWorkspaceContext, writeWorkspaceContext } from "/client-portal/workspace-context.js";
 
@@ -37,29 +36,29 @@ let websites = [];
 let websiteMembers = [];
 let selectedRequestId = "";
 let currentFilter = "open";
-let supplementalLoadToken = 0;
 const LOAD_TIMEOUT_MS = 12000;
 
-async function fetchRequestRows() {
+async function fetchRequestWorkspace() {
   const config = getConfig();
   const accessToken = currentSession?.access_token;
   if (!config.supabaseUrl || !config.supabaseAnonKey || !accessToken) throw new Error("Your admin session is unavailable. Refresh the page and sign in again.");
 
   const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), 8000);
+  const timeout = window.setTimeout(() => controller.abort(), 12000);
   try {
-    const query = new URLSearchParams({ select: "*", order: "created_at.desc" });
-    const response = await fetch(`${config.supabaseUrl}/rest/v1/website_service_requests?${query}`, {
+    const response = await fetch(`${config.supabaseUrl}/functions/v1/platform-admin`, {
+      method: "POST",
       headers: {
         apikey: config.supabaseAnonKey,
         Authorization: `Bearer ${accessToken}`,
-        Accept: "application/json",
+        "Content-Type": "application/json",
       },
+      body: JSON.stringify({ action: "list-website-request-workspace" }),
       signal: controller.signal,
     });
     const data = await response.json().catch(() => null);
-    if (!response.ok) throw new Error(data?.message || data?.error || `The request queue returned ${response.status}.`);
-    return Array.isArray(data) ? data : [];
+    if (!response.ok || data?.error) throw new Error(data?.error || `The request workspace returned ${response.status}.`);
+    return data || {};
   } catch (error) {
     if (error?.name === "AbortError") throw new Error("The request queue took too long to respond. Check your connection and retry.");
     throw error;
@@ -249,7 +248,12 @@ function render() {
 
 async function loadRequests() {
   requestSummary.textContent = "Loading submitted requests…";
-  allRequests = await fetchRequestRows();
+  const workspace = await fetchRequestWorkspace();
+  const proposals = new Map((workspace.proposals || []).map((proposal) => [proposal.request_id, proposal.id]));
+  allRequests = (workspace.requests || []).map((request) => ({ ...request, proposal_id: proposals.get(request.id) || "" }));
+  aiReviews = workspace.aiReviews || [];
+  websites = workspace.websites || [];
+  websiteMembers = workspace.websiteMembers || [];
   requests = allRequests.filter((request) => request.status !== "archived");
   if (currentFilter === "open" && requests.length && !requests.some((request) => ACTIONABLE_STATUSES.has(request.status))) currentFilter = "all";
   const requestedId = new URLSearchParams(window.location.search).get("request");
@@ -259,37 +263,6 @@ async function loadRequests() {
     if (!ACTIONABLE_STATUSES.has(requested.status)) currentFilter = "all";
   }
   requestFilters.querySelectorAll("button").forEach((item) => item.classList.toggle("is-current", item.dataset.requestFilter === currentFilter));
-  render();
-  void loadRequestSupplemental().catch((error) => console.warn("Request context could not be loaded", error));
-}
-
-async function loadRequestSupplemental() {
-  const loadToken = ++supplementalLoadToken;
-  const supplemental = await Promise.allSettled([
-    withTimeout(supabase.from("website_proposals").select("id,request_id"), "Proposal links"),
-    withTimeout(supabase.from("website_request_ai_reviews").select("*").order("created_at", { ascending: false }).limit(250), "Incomplete intake history"),
-    withTimeout(supabase.from("client_websites").select("id,name,status,live_url").neq("status", "archived").order("name"), "Organization workspaces"),
-    withTimeout(supabase.from("website_members").select("website_id,user_id,status,role"), "Organization memberships"),
-  ]);
-  if (loadToken !== supplementalLoadToken) return;
-  const resultData = supplemental.map((result) => {
-    if (result.status === "rejected") {
-      console.warn("Website request supplemental data unavailable", result.reason);
-      return [];
-    }
-    if (result.value.error) {
-      console.warn("Website request supplemental query failed", result.value.error);
-      return [];
-    }
-    return result.value.data || [];
-  });
-  const [proposalRows, reviewRows, websiteRows, memberRows] = resultData;
-  const proposals = new Map(proposalRows.map((proposal) => [proposal.request_id, proposal.id]));
-  allRequests = allRequests.map((request) => ({ ...request, proposal_id: proposals.get(request.id) || "" }));
-  requests = allRequests.filter((request) => request.status !== "archived");
-  aiReviews = reviewRows;
-  websites = websiteRows;
-  websiteMembers = memberRows;
   render();
 }
 
@@ -403,7 +376,6 @@ async function init() {
     return;
   }
   statusScreen.textContent = "Verifying request administration access…";
-  if (!await withTimeout(verifyPlatformAdmin(supabase, currentUser), "Admin access verification")) throw new Error("You do not have request administration access.");
   statusScreen.textContent = "Opening website requests…";
   await loadRequests();
 
