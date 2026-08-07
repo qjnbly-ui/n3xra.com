@@ -147,7 +147,7 @@ function renderQueue() {
   const visible = filteredRequests();
   if (!visible.some((request) => request.id === selectedRequestId)) selectedRequestId = visible[0]?.id || "";
   requestList.innerHTML = visible.length ? visible.map((request) => `
-    <button class="website-request-queue-item${request.id === selectedRequestId ? " is-current" : "}" type="button" data-select-request="${request.id}">
+    <button class="website-request-queue-item${request.id === selectedRequestId ? " is-current" : ""}" type="button" data-select-request="${request.id}">
       <span class="website-request-queue-top"><strong>${escapeHtml(request.business_name)}</strong><span class="website-request-status status-${escapeHtml(request.status)}">${escapeHtml(requestStatus(request))}</span></span>
       <span>${escapeHtml(request.contact_name)} · ${escapeHtml(formatLabel(request.project_type))}</span>
       <small>${escapeHtml(formatDate(request.created_at))}</small>
