@@ -9,6 +9,7 @@ function ensureDialog() {
   if (modal) return modal;
   modal = document.createElement("div");
   modal.id = "n3xra-admin-dialog";
+  modal.className = "n3xra-admin-dialog";
   modal.hidden = true;
   modal.innerHTML = `<div class="n3xra-admin-dialog-scrim" data-dialog-cancel></div><section class="n3xra-admin-dialog-card" role="dialog" aria-modal="true" aria-labelledby="n3xra-admin-dialog-title"><p class="portal-kicker">N3XRA Administration</p><h2 id="n3xra-admin-dialog-title"></h2><p id="n3xra-admin-dialog-copy"></p><label class="n3xra-admin-dialog-input-wrap" id="n3xra-admin-dialog-input-wrap"><span id="n3xra-admin-dialog-input-label"></span><input id="n3xra-admin-dialog-input" type="text"></label><div class="n3xra-admin-dialog-actions"><button class="portal-button portal-button-secondary" type="button" data-dialog-cancel>Cancel</button><button class="portal-button" id="n3xra-admin-dialog-confirm" type="button">Continue</button></div></section>`;
   document.body.append(modal);

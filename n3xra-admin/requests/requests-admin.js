@@ -1,5 +1,5 @@
 import { createBrowserSupabase, getConfig, hasConfig } from "/shared/lib/supabase-client.js";
-import { adminDialog, confirmAdminAction } from "/account/admin/admin-dialogs.js";
+import { adminDialog, confirmAdminAction } from "/account/admin/admin-dialogs.js?v=2";
 import { readWorkspaceContext, writeWorkspaceContext } from "/client-portal/workspace-context.js";
 
 const statusScreen = document.getElementById("portal-status");
