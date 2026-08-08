@@ -150,7 +150,8 @@ async function ensureAdminRecordsWorkspace(
   const { data: activeAdmins, error: activeAdminsError } = await adminClient
     .from("platform_admins")
     .select("user_id")
-    .eq("status", "active");
+    .eq("status", "active")
+    .in("role", ["owner", "admin"]);
   if (activeAdminsError) throw new Error(activeAdminsError.message);
 
   const adminUserIds = Array.from(new Set([
@@ -445,11 +446,89 @@ async function getPlatformAdmin(adminClient: ReturnType<typeof createClient>, us
     .maybeSingle();
 
   if (error) throw new Error(error.message);
-  return data || null;
+  if (data) return data;
+
+  const { data: reviewer, error: reviewerError } = await adminClient
+    .from("platform_app_reviewers")
+    .select("user_id, email, status")
+    .eq("user_id", user.id)
+    .eq("status", "active")
+    .maybeSingle();
+  if (reviewerError) throw new Error(reviewerError.message);
+  return reviewer ? { ...reviewer, role: "reviewer" } : null;
 }
 
 function isOwnerAdmin(adminRecord: Record<string, unknown> | null) {
   return String(adminRecord?.role || "") === "owner";
+}
+
+function isReviewerAdmin(adminRecord: Record<string, unknown> | null) {
+  return String(adminRecord?.role || "") === "reviewer";
+}
+
+async function prepareReviewerAccount(
+  adminClient: ReturnType<typeof createClient>,
+  userId: string,
+) {
+  const createdAt = Date.now();
+  const reviewNotifications = [
+    {
+      reviewer_user_id: userId,
+      seed_key: "review-account-ready",
+      title: "Review account ready",
+      summary: "This review-only account uses synthetic activity and cannot access live N3XRA customer or administrative data.",
+      priority: "system",
+      product: "N3XRA Admin",
+      action_url: null,
+      created_at: new Date(createdAt - 2 * 60 * 1000).toISOString(),
+    },
+    {
+      reviewer_user_id: userId,
+      seed_key: "sample-website-request",
+      title: "Sample website request received",
+      summary: "Demo Coffee Company submitted a synthetic website request for app-review testing.",
+      priority: "important",
+      product: "Websites",
+      action_url: null,
+      created_at: new Date(createdAt - 18 * 60 * 1000).toISOString(),
+    },
+    {
+      reviewer_user_id: userId,
+      seed_key: "sample-records-activity",
+      title: "Sample records activity",
+      summary: "A synthetic records workspace added three example documents. No customer files are included.",
+      priority: "activity",
+      product: "Records",
+      action_url: null,
+      created_at: new Date(createdAt - 45 * 60 * 1000).toISOString(),
+    },
+  ];
+
+  const { error: notificationError } = await adminClient
+    .from("admin_review_notifications")
+    .upsert(reviewNotifications, { onConflict: "reviewer_user_id,seed_key" });
+  if (notificationError) throw new Error(notificationError.message);
+
+  const { error: liveDeviceError } = await adminClient
+    .from("admin_push_devices")
+    .delete()
+    .eq("user_id", userId);
+  if (liveDeviceError) throw new Error(liveDeviceError.message);
+
+  const { data: adminWorkspace, error: workspaceError } = await adminClient
+    .from("organizations")
+    .select("id")
+    .eq("slug", ADMIN_RECORDS_WORKSPACE_SLUG)
+    .maybeSingle();
+  if (workspaceError) throw new Error(workspaceError.message);
+  if (adminWorkspace?.id) {
+    const { error: membershipError } = await adminClient
+      .from("organization_memberships")
+      .delete()
+      .eq("organization_id", adminWorkspace.id)
+      .eq("user_id", userId);
+    if (membershipError) throw new Error(membershipError.message);
+  }
 }
 
 function addRecipient(
@@ -844,19 +923,55 @@ Deno.serve(async (request) => {
         return jsonResponse({ error: `This invite is for ${invite.email}. Sign in with that email to redeem it.` }, 403);
       }
 
-      const now = new Date().toISOString();
-      const { error: adminError } = await adminClient
-        .from("platform_admins")
-        .upsert({
-          user_id: user.id,
-          email: userEmail,
-          role: "admin",
-          status: "active",
-          invited_by_user_id: invite.created_by_user_id || null,
-          updated_at: now,
-        }, { onConflict: "user_id" });
+      const inviteRole = String(invite.role || "admin").trim().toLowerCase();
+      if (!["admin", "reviewer"].includes(inviteRole)) {
+        return jsonResponse({ error: "This invite has an unsupported access role." }, 400);
+      }
 
-      if (adminError) return jsonResponse({ error: adminError.message }, 400);
+      const now = new Date().toISOString();
+      if (inviteRole === "reviewer") {
+        const { error: reviewerError } = await adminClient
+          .from("platform_app_reviewers")
+          .upsert({
+            user_id: user.id,
+            email: userEmail,
+            status: "active",
+            invited_by_user_id: invite.created_by_user_id || null,
+            updated_at: now,
+          }, { onConflict: "user_id" });
+        if (reviewerError) return jsonResponse({ error: reviewerError.message }, 400);
+
+        const { error: removeAdminError } = await adminClient
+          .from("platform_admins")
+          .delete()
+          .eq("user_id", user.id)
+          .neq("role", "owner");
+        if (removeAdminError) return jsonResponse({ error: removeAdminError.message }, 400);
+
+        try {
+          await prepareReviewerAccount(adminClient, user.id);
+        } catch (error) {
+          return jsonResponse({ error: error instanceof Error ? error.message : "Unable to prepare the review account." }, 400);
+        }
+      } else {
+        const { error: adminError } = await adminClient
+          .from("platform_admins")
+          .upsert({
+            user_id: user.id,
+            email: userEmail,
+            role: "admin",
+            status: "active",
+            invited_by_user_id: invite.created_by_user_id || null,
+            updated_at: now,
+          }, { onConflict: "user_id" });
+        if (adminError) return jsonResponse({ error: adminError.message }, 400);
+
+        const { error: removeReviewerError } = await adminClient
+          .from("platform_app_reviewers")
+          .update({ status: "revoked", updated_at: now })
+          .eq("user_id", user.id);
+        if (removeReviewerError) return jsonResponse({ error: removeReviewerError.message }, 400);
+      }
 
       const { error: redeemError } = await adminClient
         .from("platform_admin_invites")
@@ -869,7 +984,7 @@ Deno.serve(async (request) => {
         .eq("id", invite.id);
 
       if (redeemError) return jsonResponse({ error: redeemError.message }, 400);
-      return jsonResponse({ ok: true, role: "admin" });
+      return jsonResponse({ ok: true, role: inviteRole });
     }
 
     if (action === "claim-records-demo-workspace") {
@@ -908,6 +1023,10 @@ Deno.serve(async (request) => {
           status: platformAdmin.status,
         },
       });
+    }
+
+    if (isReviewerAdmin(platformAdmin)) {
+      return jsonResponse({ error: "Reviewer access is limited to the N3XRA Admin mobile app." }, 403);
     }
 
     if (action === "list-website-request-workspace") {
@@ -1933,11 +2052,15 @@ Deno.serve(async (request) => {
         return jsonResponse({ error: "Owner admin access required." }, 403);
       }
 
-      const [{ data: admins, error: adminsError }, { data: invites, error: invitesError }] = await Promise.all([
+      const [adminsResult, reviewersResult, invitesResult] = await Promise.all([
         adminClient
           .from("platform_admins")
           .select("user_id, email, role, status, invited_by_user_id, created_at, updated_at")
           .order("role", { ascending: false })
+          .order("email", { ascending: true }),
+        adminClient
+          .from("platform_app_reviewers")
+          .select("user_id, email, status, invited_by_user_id, created_at, updated_at")
           .order("email", { ascending: true }),
         adminClient
           .from("platform_admin_invites")
@@ -1946,11 +2069,12 @@ Deno.serve(async (request) => {
           .limit(100),
       ]);
 
-      if (adminsError || invitesError) {
-        return jsonResponse({ error: adminsError?.message || invitesError?.message || "Unable to load platform admins." }, 400);
+      if (adminsResult.error || reviewersResult.error || invitesResult.error) {
+        return jsonResponse({ error: adminsResult.error?.message || reviewersResult.error?.message || invitesResult.error?.message || "Unable to load platform access." }, 400);
       }
 
-      return jsonResponse({ ok: true, admins: admins || [], invites: invites || [] });
+      const reviewers = (reviewersResult.data || []).map((reviewer) => ({ ...reviewer, role: "reviewer" }));
+      return jsonResponse({ ok: true, admins: [...(adminsResult.data || []), ...reviewers], invites: invitesResult.data || [] });
     }
 
     if (action === "create-platform-admin-invite") {
@@ -1961,6 +2085,10 @@ Deno.serve(async (request) => {
       const email = normalizeEmail(payload.email);
       if (!email || !isValidEmail(email)) {
         return jsonResponse({ error: "Enter a valid admin email." }, 400);
+      }
+      const role = String(payload.role || "admin").trim().toLowerCase();
+      if (!["admin", "reviewer"].includes(role)) {
+        return jsonResponse({ error: "Role must be admin or reviewer." }, 400);
       }
       if (email === PLATFORM_OWNER_EMAIL) {
         return jsonResponse({ error: "The owner account is already the master admin." }, 400);
@@ -1973,7 +2101,7 @@ Deno.serve(async (request) => {
         .from("platform_admin_invites")
         .insert({
           email,
-          role: "admin",
+          role,
           token_hash: tokenHash,
           expires_at: expiresAt,
           created_by_user_id: user.id,
@@ -2045,6 +2173,11 @@ Deno.serve(async (request) => {
         .neq("role", "owner");
 
       if (error) return jsonResponse({ error: error.message }, 400);
+      const { error: reviewerError } = await adminClient
+        .from("platform_app_reviewers")
+        .update({ status: "revoked", updated_at: new Date().toISOString() })
+        .eq("user_id", userId);
+      if (reviewerError) return jsonResponse({ error: reviewerError.message }, 400);
       return jsonResponse({ ok: true });
     }
 

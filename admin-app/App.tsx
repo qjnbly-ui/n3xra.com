@@ -24,10 +24,13 @@ type NotificationRow = {
   read_at: string | null;
 };
 
+type AdminRole = "owner" | "admin" | "reviewer";
+
 const colors = { background: "#070c12", surface: "#101923", border: "#243342", text: "#f2f5f7", muted: "#9aa9b6", accent: "#b7d5c2", danger: "#e58b8b" };
 
 export default function App() {
   const [sessionUser, setSessionUser] = useState<User | null>(null);
+  const [accessRole, setAccessRole] = useState<AdminRole | null>(null);
   const [loading, setLoading] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -38,18 +41,33 @@ export default function App() {
 
   useEffect(() => {
     if (!supabase) { setStatus("Add Supabase credentials to admin-app/.env first."); setLoading(false); return; }
-    supabase.auth.getSession().then(({ data }) => { setSessionUser(data.session?.user ?? null); setLoading(false); });
-    const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => setSessionUser(nextSession?.user ?? null));
-    return () => { data.subscription.unsubscribe(); notificationListener.current?.remove(); };
+    let active = true;
+    supabase.auth.getSession().then(async ({ data }) => {
+      const user = data.session?.user ?? null;
+      if (user) {
+        try {
+          const role = await getAdminAccess();
+          if (active) { setSessionUser(user); setAccessRole(role); }
+        } catch {
+          await supabase.auth.signOut();
+          if (active) setStatus("This account does not have access to the N3XRA Admin app.");
+        }
+      }
+      if (active) setLoading(false);
+    });
+    const { data } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_OUT") { setSessionUser(null); setAccessRole(null); setNotifications([]); }
+    });
+    return () => { active = false; data.subscription.unsubscribe(); notificationListener.current?.remove(); };
   }, []);
 
   useEffect(() => {
-    if (!sessionUser) return;
+    if (!sessionUser || !accessRole) return;
     loadNotifications();
-    registerForPushNotifications(sessionUser.id).catch((error) => setStatus(error.message));
+    registerForPushNotifications(sessionUser.id, accessRole).catch((error) => setStatus(error.message));
     notificationListener.current = Notifications.addNotificationReceivedListener(() => loadNotifications());
     return () => notificationListener.current?.remove();
-  }, [sessionUser]);
+  }, [sessionUser, accessRole]);
 
   async function signIn() {
     if (!supabase) return;
@@ -57,30 +75,41 @@ export default function App() {
     const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
     if (error) setStatus(error.message);
     else {
-      const { data: admin } = await supabase.functions.invoke("platform-admin", { body: { action: "get-platform-admin-access" } });
-      if (!admin?.ok && !admin?.admin) { await supabase.auth.signOut(); setStatus("This account does not have platform-admin access."); }
-      else setSessionUser(data.user);
+      try {
+        const role = await getAdminAccess();
+        setAccessRole(role);
+        setSessionUser(data.user);
+      } catch {
+        await supabase.auth.signOut();
+        setStatus("This account does not have access to the N3XRA Admin app.");
+      }
     }
     setBusy(false);
   }
 
   async function loadNotifications() {
-    if (!supabase) return;
-    const { data, error } = await supabase.from("admin_notifications").select("id,title,summary,priority,product,action_url,created_at,read_at").is("deleted_at", null).is("archived_at", null).order("created_at", { ascending: false }).limit(100);
+    if (!supabase || !accessRole) return;
+    const table = accessRole === "reviewer" ? "admin_review_notifications" : "admin_notifications";
+    let query = supabase.from(table).select("id,title,summary,priority,product,action_url,created_at,read_at");
+    if (accessRole !== "reviewer") query = query.is("deleted_at", null).is("archived_at", null);
+    const { data, error } = await query.order("created_at", { ascending: false }).limit(100);
     if (error) setStatus(error.message); else setNotifications((data ?? []) as NotificationRow[]);
   }
 
   async function markRead(id: string) {
-    if (!supabase) return;
-    await supabase.from("admin_notifications").update({ read_at: new Date().toISOString() }).eq("id", id);
-    setNotifications((rows) => rows.map((row) => row.id === id ? { ...row, read_at: new Date().toISOString() } : row));
+    if (!supabase || !accessRole) return;
+    const readAt = new Date().toISOString();
+    const table = accessRole === "reviewer" ? "admin_review_notifications" : "admin_notifications";
+    const { error } = await supabase.from(table).update({ read_at: readAt }).eq("id", id);
+    if (error) { setStatus(error.message); return; }
+    setNotifications((rows) => rows.map((row) => row.id === id ? { ...row, read_at: readAt } : row));
   }
 
   if (loading) return <Centered><ActivityIndicator color={colors.accent} /></Centered>;
   if (!sessionUser) return <Login email={email} password={password} setEmail={setEmail} setPassword={setPassword} signIn={signIn} busy={busy} status={status} />;
   return <SafeAreaView style={styles.safe}><StatusBar barStyle="light-content" /><View style={styles.container}>
     <View style={styles.header}><View><Text style={styles.eyebrow}>N3XRA ADMIN</Text><Text style={styles.heading}>Notifications</Text></View><Pressable onPress={() => supabase?.auth.signOut()}><Text style={styles.link}>Sign out</Text></Pressable></View>
-    <Text style={styles.subheading}>Live platform activity for {sessionUser.email}</Text>
+    <Text style={styles.subheading}>{accessRole === "reviewer" ? "Review-safe sample activity" : "Live platform activity"} for {sessionUser.email}</Text>
     {status ? <Text style={styles.status}>{status}</Text> : null}
     <FlatList data={notifications} keyExtractor={(item) => item.id} onRefresh={loadNotifications} refreshing={false} contentContainerStyle={notifications.length ? undefined : styles.emptyList} renderItem={({ item }) => <Pressable style={[styles.card, !item.read_at && styles.unread]} onPress={() => markRead(item.id)}><View style={styles.cardTop}><Text style={styles.product}>{item.product || "N3XRA"}</Text><Text style={styles.date}>{new Date(item.created_at).toLocaleString()}</Text></View><Text style={styles.cardTitle}>{item.title}</Text><Text style={styles.cardSummary}>{item.summary}</Text>{!item.read_at ? <Text style={styles.unreadLabel}>UNREAD · TAP TO MARK READ</Text> : null}</Pressable>} ListEmptyComponent={<Text style={styles.empty}>No notifications yet.</Text>} />
   </View></SafeAreaView>;
@@ -92,7 +121,17 @@ function Login({ email, password, setEmail, setPassword, signIn, busy, status }:
 
 function Centered({ children }: { children: React.ReactNode }) { return <View style={styles.centered}>{children}</View>; }
 
-async function registerForPushNotifications(userId: string) {
+async function getAdminAccess(): Promise<AdminRole> {
+  if (!supabase) throw new Error("Supabase is not configured.");
+  const { data, error } = await supabase.functions.invoke("platform-admin", { body: { action: "get-platform-admin-access" } });
+  const role = String(data?.admin?.role || "") as AdminRole;
+  if (error || !data?.ok || !["owner", "admin", "reviewer"].includes(role)) {
+    throw new Error("Admin app access is required.");
+  }
+  return role;
+}
+
+async function registerForPushNotifications(userId: string, role: AdminRole) {
   if (!supabase || !Device.isDevice) return;
   const existing = await Notifications.getPermissionsAsync();
   let permission = existing.status;
@@ -100,7 +139,11 @@ async function registerForPushNotifications(userId: string) {
   if (permission !== "granted") throw new Error("Push notifications are disabled. Enable them in your phone settings.");
   const projectId = Constants.expoConfig?.extra?.eas?.projectId;
   const token = (await Notifications.getExpoPushTokenAsync(projectId ? { projectId } : undefined)).data;
-  await supabase.from("admin_push_devices").upsert({ user_id: userId, expo_push_token: token, platform: Platform.OS, last_seen_at: new Date().toISOString(), disabled_at: null }, { onConflict: "user_id,expo_push_token" });
+  const reviewer = role === "reviewer";
+  const table = reviewer ? "admin_review_push_devices" : "admin_push_devices";
+  const userColumn = reviewer ? "reviewer_user_id" : "user_id";
+  const { error } = await supabase.from(table).upsert({ [userColumn]: userId, expo_push_token: token, platform: Platform.OS, last_seen_at: new Date().toISOString(), disabled_at: null }, { onConflict: `${userColumn},expo_push_token` });
+  if (error) throw error;
 }
 
 const styles = StyleSheet.create({ safe: { flex: 1, backgroundColor: colors.background }, container: { flex: 1, padding: 22 }, login: { flex: 1, justifyContent: "center", padding: 24, backgroundColor: colors.background }, centered: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.background }, header: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }, eyebrow: { color: colors.accent, fontSize: 12, fontWeight: "800", letterSpacing: 2 }, heading: { color: colors.text, fontSize: 34, fontWeight: "800", marginTop: 8 }, subheading: { color: colors.muted, fontSize: 14, lineHeight: 21, marginBottom: 20 }, link: { color: colors.accent, fontWeight: "700", marginTop: 5 }, input: { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: 10, color: colors.text, padding: 15, marginTop: 12 }, button: { backgroundColor: colors.accent, borderRadius: 10, alignItems: "center", padding: 15, marginTop: 16 }, buttonText: { color: colors.background, fontWeight: "800" }, status: { color: colors.danger, marginBottom: 14, lineHeight: 20 }, card: { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: 12, padding: 16, marginBottom: 12 }, unread: { borderColor: colors.accent }, cardTop: { flexDirection: "row", justifyContent: "space-between", marginBottom: 9 }, product: { color: colors.accent, fontSize: 11, fontWeight: "800", letterSpacing: 1 }, date: { color: colors.muted, fontSize: 11 }, cardTitle: { color: colors.text, fontSize: 17, fontWeight: "800", marginBottom: 6 }, cardSummary: { color: colors.muted, fontSize: 14, lineHeight: 21 }, unreadLabel: { color: colors.accent, fontSize: 10, fontWeight: "800", letterSpacing: 1, marginTop: 13 }, emptyList: { flex: 1, justifyContent: "center" }, empty: { color: colors.muted, textAlign: "center" } });

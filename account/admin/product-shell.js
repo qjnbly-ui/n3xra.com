@@ -1,5 +1,7 @@
 import { renderAdminNavigation } from "/account/admin/admin-navigation.js?v=9";
 import { initializeAdminSelects } from "/account/admin/admin-select.js?v=1";
+import { createBrowserSupabase, getSessionOrNull, hasConfig } from "/shared/lib/supabase-client.js";
+import { isPlatformAdminEmail } from "/shared/lib/orgs.js";
 
 function createNativeLayout(main) {
   const layout = document.createElement("div");
@@ -40,7 +42,31 @@ function addRecordsNavigationCompatibility() {
   });
 }
 
-prepareNativeProductShell();
-renderAdminNavigation();
-initializeAdminSelects();
-addRecordsNavigationCompatibility();
+async function hasFullAdminAccess() {
+  if (!hasConfig()) return false;
+  const supabase = createBrowserSupabase();
+  const session = await getSessionOrNull(supabase);
+  if (!session?.user) {
+    window.location.replace(`/account?next=${encodeURIComponent(window.location.pathname)}`);
+    return false;
+  }
+  if (isPlatformAdminEmail(session.user.email)) return true;
+  const { data, error } = await supabase.functions.invoke("platform-admin", {
+    body: { action: "get-platform-admin-access" },
+  });
+  if (error || !["owner", "admin"].includes(String(data?.admin?.role || ""))) {
+    window.location.replace("/account");
+    return false;
+  }
+  return true;
+}
+
+async function startProductShell() {
+  if (!(await hasFullAdminAccess())) return;
+  prepareNativeProductShell();
+  renderAdminNavigation();
+  initializeAdminSelects();
+  addRecordsNavigationCompatibility();
+}
+
+startProductShell().catch(() => window.location.replace("/account"));

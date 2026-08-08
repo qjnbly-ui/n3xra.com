@@ -45,15 +45,15 @@
       <section class="portal-workspace platform-admin-directory-app">
         <div class="platform-admin-workbench">
           <aside class="platform-admin-roster-pane">
-            <div class="platform-admin-roster-head"><div><p class="portal-kicker">Access roster</p><strong>Platform administrators</strong></div><button class="platform-admin-icon-button" id="platform-admin-refresh" type="button" aria-label="Refresh administrators">↻</button></div>
-            <label class="account-admin-field"><span>Find an administrator</span><input id="platform-admin-search" type="search" placeholder="Name or email" autocomplete="off"></label>
-            <div class="platform-admin-roster-group"><div class="platform-admin-roster-label"><span>Current admins</span><span id="platform-admin-count"></span></div><div class="platform-admin-list" id="platform-admin-list"></div></div>
+            <div class="platform-admin-roster-head"><div><p class="portal-kicker">Access roster</p><strong>Administrators and reviewers</strong></div><button class="platform-admin-icon-button" id="platform-admin-refresh" type="button" aria-label="Refresh access roster">↻</button></div>
+            <label class="account-admin-field"><span>Find an account</span><input id="platform-admin-search" type="search" placeholder="Name, email, or role" autocomplete="off"></label>
+            <div class="platform-admin-roster-group"><div class="platform-admin-roster-label"><span>Current access</span><span id="platform-admin-count"></span></div><div class="platform-admin-list" id="platform-admin-list"></div></div>
             <div class="platform-admin-roster-group"><div class="platform-admin-roster-label"><span>Invitations</span><span id="platform-admin-invite-count"></span></div><div class="platform-admin-list" id="platform-admin-invite-list"></div></div>
           </aside>
           <section class="platform-admin-detail-pane">
             <section class="platform-admin-invite-card">
-              <div class="platform-admin-command-head"><div><p class="portal-kicker">Master owner access</p><h2>Invite an administrator</h2><p>Grant access to the N3XRA administration workspace. Invitations remain pending until accepted.</p></div></div>
-              <form class="platform-admin-invite-form" id="platform-admin-invite-form"><label class="account-admin-field"><span>Admin email</span><input id="platform-admin-invite-email" type="email" autocomplete="email" placeholder="admin@example.com" required></label><button class="portal-button" type="submit">Create invite</button></form>
+              <div class="platform-admin-command-head"><div><p class="portal-kicker">Master owner access</p><h2>Invite an account</h2><p>Administrators receive the web workspace. App reviewers receive only synthetic data in the mobile app.</p></div></div>
+              <form class="platform-admin-invite-form" id="platform-admin-invite-form"><label class="account-admin-field"><span>Email</span><input id="platform-admin-invite-email" type="email" autocomplete="email" placeholder="person@example.com" required></label><label class="account-admin-field"><span>Role</span><select id="platform-admin-invite-role"><option value="reviewer">App reviewer (review-only)</option><option value="admin">Platform administrator</option></select></label><button class="portal-button" type="submit">Create invite</button></form>
               <div class="platform-admin-invite-link hidden" id="platform-admin-invite-link"><div><span>Admin invite link</span><p id="platform-admin-invite-url"></p></div><button class="portal-button portal-button-secondary" id="platform-admin-copy-invite" type="button">Copy link</button></div>
             </section>
             <section id="platform-admin-detail"></section>
@@ -63,6 +63,6 @@
       </section>
     </div>
   </main>
-  <script type="module" src="/account/admin/admin.js?v=26"></script>
+  <script type="module" src="/account/admin/admin.js?v=28"></script>
 </body>
 </html>

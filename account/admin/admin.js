@@ -573,7 +573,9 @@ function renderPlatformAdminDetail() {
   const email = String(item.email || "Unknown account");
   const status = String(item.status || "active");
   const isAdmin = type === "admin";
-  const isOwner = String(item.role || "admin") === "owner";
+  const role = String(item.role || "admin");
+  const isOwner = role === "owner";
+  const isReviewer = role === "reviewer";
   const pending = !isAdmin && status === "pending";
   const accountParams = new URLSearchParams({ email });
   if (item.user_id) accountParams.set("user", item.user_id);
@@ -581,12 +583,12 @@ function renderPlatformAdminDetail() {
     <article class="platform-admin-detail-card">
       <div class="platform-admin-detail-head"><div class="account-admin-identity"><span class="account-admin-avatar" aria-hidden="true">${escapeHtml(platformAdminInitials(email))}</span><div><p class="portal-kicker">${isAdmin ? "Administrator account" : "Administrator invitation"}</p><h3>${escapeHtml(email)}</h3><span class="account-state-pill ${status === "active" || pending ? "is-active" : "is-suspended"}">${escapeHtml(status)}</span></div></div>${isAdmin ? `<a class="portal-button portal-button-secondary" href="/account/admin/accounts/?${escapeHtml(accountParams.toString())}">Open account</a>` : ""}</div>
       <div class="platform-admin-detail-facts">
-        <div><span>Access level</span><strong>${isOwner ? "Master owner" : isAdmin ? "Platform administrator" : "Platform admin invitation"}</strong></div>
+        <div><span>Access level</span><strong>${isOwner ? "Master owner" : isReviewer ? "App reviewer" : isAdmin ? "Platform administrator" : "Access invitation"}</strong></div>
         <div><span>Status</span><strong>${escapeHtml(status)}</strong></div>
         <div><span>${isAdmin ? "Access granted" : "Created"}</span><strong>${escapeHtml(formatAdminDate(item.created_at))}</strong></div>
         <div><span>${isAdmin ? "Last updated" : "Expires"}</span><strong>${escapeHtml(formatAdminDate(isAdmin ? item.updated_at : item.expires_at))}</strong></div>
       </div>
-      <div class="platform-admin-permission-note"><div><p class="portal-kicker">Permission scope</p><h4>${isOwner ? "Full owner control" : "N3XRA administration access"}</h4><p>${isOwner ? "The master owner controls administrator invitations and cannot be revoked from this page." : isAdmin ? "This account can open N3XRA administration tools and internal admin workspaces." : "This person receives platform administration access after accepting the secure invitation."}</p></div></div>
+      <div class="platform-admin-permission-note"><div><p class="portal-kicker">Permission scope</p><h4>${isOwner ? "Full owner control" : isReviewer ? "Review-only mobile access" : "N3XRA administration access"}</h4><p>${isOwner ? "The master owner controls administrator invitations and cannot be revoked from this page." : isReviewer ? "This account can sign in to the N3XRA Admin mobile app and see synthetic review data only. It cannot open web administration or live customer data." : isAdmin ? "This account can open N3XRA administration tools and internal admin workspaces." : role === "reviewer" ? "This person receives review-only mobile access after accepting the secure invitation." : "This person receives platform administration access after accepting the secure invitation."}</p></div></div>
       ${(isAdmin && !isOwner && status === "active") || pending ? `<div class="platform-admin-detail-actions"><button class="portal-button portal-button-secondary account-danger-button" type="button" data-platform-admin-action="${isAdmin ? "revoke-admin" : "revoke-invite"}" data-platform-admin-id="${escapeHtml(String(isAdmin ? item.user_id : item.id))}">${isAdmin ? "Revoke administrator access" : "Revoke invitation"}</button></div>` : ""}
     </article>
   `;
@@ -610,7 +612,8 @@ function renderPlatformAdmins(data = {}) {
     ? admins.map((admin) => {
       const key = `admin:${admin.user_id}`;
       const role = String(admin.role || "admin");
-      return `<button class="platform-admin-roster-item${key === selectedPlatformAdminKey ? " is-selected" : ""}" type="button" data-platform-entry-key="${escapeHtml(key)}"><span class="platform-admin-roster-avatar">${escapeHtml(platformAdminInitials(admin.email))}</span><span><strong>${escapeHtml(admin.email || "Unknown admin")}</strong><small>${role === "owner" ? "Master owner" : "Platform administrator"} · ${escapeHtml(admin.status || "active")}</small></span></button>`;
+      const roleLabel = role === "owner" ? "Master owner" : role === "reviewer" ? "App reviewer" : "Platform administrator";
+      return `<button class="platform-admin-roster-item${key === selectedPlatformAdminKey ? " is-selected" : ""}" type="button" data-platform-entry-key="${escapeHtml(key)}"><span class="platform-admin-roster-avatar">${escapeHtml(platformAdminInitials(admin.email))}</span><span><strong>${escapeHtml(admin.email || "Unknown admin")}</strong><small>${roleLabel} · ${escapeHtml(admin.status || "active")}</small></span></button>`;
     }).join("")
     : '<p class="platform-admin-empty">No platform admins found.</p>';
 
@@ -618,7 +621,8 @@ function renderPlatformAdmins(data = {}) {
     ? invites.map((invite) => {
       const key = `invite:${invite.id}`;
       const status = String(invite.status || "pending");
-      return `<button class="platform-admin-roster-item${key === selectedPlatformAdminKey ? " is-selected" : ""}" type="button" data-platform-entry-key="${escapeHtml(key)}"><span class="platform-admin-roster-avatar is-invite">${escapeHtml(platformAdminInitials(invite.email))}</span><span><strong>${escapeHtml(invite.email || "Unknown invite")}</strong><small>${escapeHtml(status)} · expires ${escapeHtml(formatAdminDate(invite.expires_at))}</small></span></button>`;
+      const roleLabel = String(invite.role || "admin") === "reviewer" ? "App reviewer" : "Platform administrator";
+      return `<button class="platform-admin-roster-item${key === selectedPlatformAdminKey ? " is-selected" : ""}" type="button" data-platform-entry-key="${escapeHtml(key)}"><span class="platform-admin-roster-avatar is-invite">${escapeHtml(platformAdminInitials(invite.email))}</span><span><strong>${escapeHtml(invite.email || "Unknown invite")}</strong><small>${roleLabel} · ${escapeHtml(status)} · expires ${escapeHtml(formatAdminDate(invite.expires_at))}</small></span></button>`;
     }).join("")
     : '<p class="platform-admin-empty">No admin invites yet.</p>';
   const adminCount = document.getElementById("platform-admin-count");
@@ -644,15 +648,17 @@ async function createPlatformAdminInvite(event) {
   event.preventDefault();
   const form = event.currentTarget;
   const emailInput = document.getElementById("platform-admin-invite-email");
+  const roleInput = document.getElementById("platform-admin-invite-role");
   const email = String(emailInput?.value || "").trim().toLowerCase();
+  const role = String(roleInput?.value || "admin").trim().toLowerCase();
   if (!email) {
-    setStatus("Enter an admin email first.", "error");
+    setStatus("Enter an email first.", "error");
     return;
   }
 
-  setStatus("Creating admin invite…");
+  setStatus("Creating access invite…");
   try {
-    const data = await invoke("create-platform-admin-invite", { email });
+    const data = await invoke("create-platform-admin-invite", { email, role });
     platformAdminInviteUrl = String(data.inviteUrl || "");
     if (data.invite?.id) selectedPlatformAdminKey = `invite:${data.invite.id}`;
     const inviteLink = document.getElementById("platform-admin-invite-link");
@@ -661,7 +667,7 @@ async function createPlatformAdminInvite(event) {
     inviteLink?.classList.toggle("hidden", !platformAdminInviteUrl);
     form.reset();
     await loadPlatformAdmins();
-    setStatus("Admin invite created. Send the secure link to the new administrator.", "success");
+    setStatus(`${role === "reviewer" ? "App reviewer" : "Administrator"} invite created. Send the secure link to that person.`, "success");
   } catch (error) {
     setStatus(error.message || "Unable to create the admin invite.", "error");
   }
@@ -1327,7 +1333,13 @@ export async function startAdmin() {
     return;
   }
   if (!isPlatformAdminEmail(session.user.email)) {
-    try { await invoke("get-platform-admin-access"); } catch { window.location.replace("/account"); return; }
+    try {
+      const access = await invoke("get-platform-admin-access");
+      if (!["owner", "admin"].includes(String(access?.admin?.role || ""))) {
+        window.location.replace("/account");
+        return;
+      }
+    } catch { window.location.replace("/account"); return; }
   }
   adminPanel?.classList.remove("hidden");
   arrangeAdminWorkspace();

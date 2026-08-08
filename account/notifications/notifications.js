@@ -25,7 +25,7 @@ async function hasPlatformAdminAccess() {
       action: "get-platform-admin-access",
     },
   });
-  return Boolean(!error && data?.ok);
+  return Boolean(!error && data?.ok && ["owner", "admin"].includes(String(data?.admin?.role || "")));
 }
 
 const PRODUCT_LABELS = {

@@ -181,7 +181,11 @@ function writeStoredValue(prefix, value) {
 }
 
 function hasCachedAdminAccess() {
-  return readStoredValue(ADMIN_ACCESS_CACHE_PREFIX) === "active";
+  return ["owner", "admin"].includes(readStoredValue(ADMIN_ACCESS_CACHE_PREFIX));
+}
+
+function hasFullPlatformAdminAccess(access) {
+  return ["owner", "admin"].includes(String(access?.role || ""));
 }
 
 function getPreferredDashboardView() {
@@ -547,7 +551,7 @@ async function loadPlatformAdminAccess() {
       role: isPlatformOwnerEmail(currentSession.user.email) ? "owner" : "admin",
       status: "active",
     };
-    writeStoredValue(ADMIN_ACCESS_CACHE_PREFIX, "active");
+    writeStoredValue(ADMIN_ACCESS_CACHE_PREFIX, platformAdminAccess.role);
     return platformAdminAccess;
   }
 
@@ -555,9 +559,10 @@ async function loadPlatformAdminAccess() {
     const data = await invokePlatformAdmin("get-platform-admin-access");
     platformAdminAccess = data.admin || null;
   } catch {
-    platformAdminAccess = hasCachedAdminAccess() ? { status: "cached" } : null;
+    const cachedRole = readStoredValue(ADMIN_ACCESS_CACHE_PREFIX);
+    platformAdminAccess = hasCachedAdminAccess() ? { role: cachedRole, status: "cached" } : null;
   }
-  writeStoredValue(ADMIN_ACCESS_CACHE_PREFIX, platformAdminAccess ? "active" : "");
+  writeStoredValue(ADMIN_ACCESS_CACHE_PREFIX, hasFullPlatformAdminAccess(platformAdminAccess) ? platformAdminAccess.role : "");
   return platformAdminAccess;
 }
 
@@ -621,7 +626,7 @@ async function maybeRedeemPlatformAdminInvite() {
   url.searchParams.delete("admin_invite");
   url.searchParams.delete("mode");
   window.history.replaceState({}, "", url.toString());
-  return data?.ok ? "Platform admin invite redeemed." : "";
+  return data?.ok ? (data.role === "reviewer" ? "App reviewer invite redeemed." : "Platform admin invite redeemed.") : "";
 }
 
 async function renderDashboard(message = "") {
@@ -745,7 +750,7 @@ async function renderDashboard(message = "") {
     console.warn("Phone access could not be loaded", error);
   }
 
-  canViewAdminApps = Boolean(platformAdminAccess) || isPlatformAdminEmail(currentSession.user.email);
+  canViewAdminApps = hasFullPlatformAdminAccess(platformAdminAccess) || isPlatformAdminEmail(currentSession.user.email);
   show(dashboardViewToggle, canViewAdminApps);
   show(adminNotificationButton, canViewAdminApps);
   if (canViewAdminApps && adminNotificationCount) {
