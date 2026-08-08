@@ -291,6 +291,12 @@ function installWorkspaceStyles(page) {
   });
 }
 
+function syncAdminPageClasses(page) {
+  const isAdminPageClass = (className) => className.endsWith("-admin-page");
+  [...document.body.classList].filter(isAdminPageClass).forEach((className) => document.body.classList.remove(className));
+  [...page.body.classList].filter(isAdminPageClass).forEach((className) => document.body.classList.add(className));
+}
+
 export async function navigateAdminWorkspace(destination, { history = "push", desktopScrollTop } = {}) {
   const url = new URL(destination, window.location.origin);
   if (!isWorkspaceUrl(url)) {
@@ -316,6 +322,7 @@ export async function navigateAdminWorkspace(destination, { history = "push", de
 
   installWorkspaceStyles(page);
   document.body.classList.remove("admin-ready");
+  syncAdminPageClasses(page);
   currentMain.replaceWith(document.importNode(nextMain, true));
   document.body.dataset.adminView = page.body.dataset.adminView || "";
   document.title = page.title || document.title;
