@@ -18,7 +18,7 @@
   </script>
   <script defer src="/_vercel/insights/script.js"></script>
   <link rel="stylesheet" href="/account/admin/admin.css?v=11">
-  <link rel="stylesheet" href="/n3xra-admin/website-admin.css?v=7">
+  <link rel="stylesheet" href="/n3xra-admin/website-admin.css?v=8">
   <script type="module" src="/account/admin/product-shell.js?v=5"></script>
   <script type="module" src="/n3xra-admin/website-admin-workspace.js?v=7"></script>
 </head>
@@ -143,6 +143,47 @@
             </div>
           </div>
 
+          <section class="portal-form-section proposal-copilot" id="proposal-copilot" aria-labelledby="proposal-copilot-title">
+            <div class="portal-form-section-head">
+              <div>
+                <p class="portal-kicker">Proposal Copilot</p>
+                <h4 id="proposal-copilot-title">Draft changes with AI</h4>
+                <p>Describe an idea or update, review each proposed change, then apply only the changes you accept.</p>
+              </div>
+              <button class="portal-button portal-button-secondary" id="refresh-proposal-ai" data-copilot-control type="button">Refresh history</button>
+            </div>
+            <div class="proposal-copilot-compose">
+              <label class="portal-form-wide">Instruction
+                <textarea id="proposal-ai-instruction" data-copilot-control rows="4" maxlength="6000" placeholder="For example: Make the scope clearer and add the approved gallery described in onboarding. Do not change pricing."></textarea>
+              </label>
+              <fieldset class="proposal-copilot-fieldset" id="proposal-ai-sections" data-copilot-control>
+                <legend>Sections to consider</legend>
+                <label><input type="checkbox" value="overview" checked> Overview</label>
+                <label><input type="checkbox" value="scope" checked> Scope</label>
+                <label><input type="checkbox" value="schedule"> Schedule</label>
+                <label><input type="checkbox" value="investment"> Investment</label>
+                <label><input type="checkbox" value="terms"> Terms</label>
+              </fieldset>
+              <details class="proposal-copilot-sources" open>
+                <summary>Sources and files</summary>
+                <p class="proposal-copilot-help">The saved proposal baseline is always included. Published or approved website assets are selected by default; pending onboarding imports and unrelated portal files are opt-in.</p>
+                <div class="proposal-copilot-source-grid">
+                  <fieldset id="proposal-ai-source-list" data-copilot-control><legend>Structured sources</legend><p>Save the proposal to load sources.</p></fieldset>
+                  <fieldset id="proposal-ai-file-list" data-copilot-control><legend>Files sent to OpenAI</legend><p>No eligible files loaded.</p></fieldset>
+                </div>
+              </details>
+              <div class="portal-form-actions proposal-copilot-actions">
+                <button class="portal-button" id="generate-proposal-ai" data-copilot-control type="button">Generate suggestions</button>
+                <p class="portal-inline-status" id="proposal-ai-status" role="status"></p>
+              </div>
+            </div>
+            <div class="proposal-copilot-review" id="proposal-ai-review" hidden></div>
+            <div class="proposal-copilot-history-wrap">
+              <h5>Recent runs</h5>
+              <div class="proposal-copilot-history" id="proposal-ai-history"><p>No Proposal Copilot runs yet.</p></div>
+            </div>
+          </section>
+
           <div class="portal-form-actions portal-proposal-actions">
             <button class="portal-button portal-button-secondary" id="save-proposal" type="submit">Save draft</button>
             <button class="portal-button portal-button-secondary" id="preview-proposal-email" type="button">Preview email</button>
@@ -183,6 +224,6 @@
 
   <div class="portal-status" id="portal-status" role="status">Verifying proposal access…</div>
   <script type="module" src="/client-portal/portal-shell.js"></script>
-  <script type="module" src="/n3xra-admin/proposals/proposals-admin.js?v=16"></script>
+  <script type="module" src="/n3xra-admin/proposals/proposals-admin.js?v=17"></script>
 </body>
 </html>

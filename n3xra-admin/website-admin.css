@@ -136,6 +136,54 @@
 .website-admin-view-proposals .portal-intake-summary { margin:0; padding:1.25rem 2rem; border-width:0 0 1px; border-radius:0; }
 .website-admin-view-proposals .portal-proposal-form { min-height:100%; margin:0; padding:1.35rem 2rem 0; box-sizing:border-box; background:#fff; border:0; border-radius:0; }
 .website-admin-view-proposals .portal-proposal-actions { bottom:0; z-index:15; margin:1.35rem -2rem 0; padding:1rem 2rem; background:rgba(255,255,255,.97); border:0; border-top:1px solid var(--website-admin-border); border-radius:0; box-shadow:none; }
+
+.proposal-copilot { display:grid; gap:1rem; }
+.proposal-copilot .portal-form-section-head { align-items:flex-start; }
+.proposal-copilot .portal-form-section-head h4 { margin:.15rem 0 .35rem; }
+.proposal-copilot .portal-form-section-head p { margin:0; }
+.proposal-copilot-compose { display:grid; gap:1rem; padding:1rem; border:1px solid var(--website-admin-border); border-radius:14px; background:#f8fafc; }
+.proposal-copilot-fieldset,
+.proposal-copilot-source-grid fieldset { margin:0; padding:.85rem; border:1px solid var(--website-admin-border); border-radius:12px; background:#fff; }
+.proposal-copilot-fieldset { display:flex; flex-wrap:wrap; gap:.55rem 1.1rem; }
+.proposal-copilot-fieldset legend,
+.proposal-copilot-source-grid legend { padding:0 .3rem; font-weight:800; }
+.proposal-copilot-fieldset label,
+.proposal-copilot-source-grid label { display:flex; align-items:flex-start; gap:.5rem; font-weight:600; }
+.proposal-copilot-source-grid label + label { margin-top:.7rem; }
+.proposal-copilot-source-grid small { display:block; color:var(--portal-muted, #64748b); font-weight:400; }
+.proposal-copilot-sources summary { cursor:pointer; font-weight:800; }
+.proposal-copilot-help { margin:.55rem 0 .8rem; color:var(--portal-muted, #64748b); font-size:.9rem; }
+.proposal-copilot-source-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.8rem; }
+.proposal-copilot-actions { margin:0; padding:0; }
+.proposal-copilot-review { display:grid; gap:.8rem; }
+.proposal-ai-summary { margin:0; padding:.85rem 1rem; border-radius:12px; background:#eef6ff; }
+.proposal-ai-operation { display:grid; gap:.7rem; padding:1rem; border:1px solid var(--website-admin-border); border-radius:14px; background:#fff; }
+.proposal-ai-operation.is-unsupported { border-color:#e8b4ad; background:#fff8f6; }
+.proposal-ai-operation-head { display:flex; justify-content:space-between; gap:1rem; align-items:flex-start; }
+.proposal-ai-operation-head h5 { margin:0; font-size:1rem; }
+.proposal-ai-risk { display:inline-flex; padding:.2rem .5rem; border-radius:999px; background:#edf2f7; font-size:.75rem; font-weight:800; text-transform:uppercase; }
+.proposal-ai-risk.is-protected { background:#fff0d8; color:#7a4300; }
+.proposal-ai-diff { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.75rem; }
+.proposal-ai-value { min-width:0; padding:.75rem; border-radius:10px; background:#f7f8fa; }
+.proposal-ai-value strong { display:block; margin-bottom:.3rem; font-size:.78rem; text-transform:uppercase; color:var(--portal-muted, #64748b); }
+.proposal-ai-value pre { margin:0; overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; font:inherit; }
+.proposal-ai-evidence { margin:0; padding-left:1.15rem; color:var(--portal-muted, #64748b); font-size:.88rem; }
+.proposal-ai-decision { display:flex; flex-wrap:wrap; gap:1rem; }
+.proposal-ai-decision label { display:flex; gap:.4rem; align-items:center; font-weight:700; }
+.proposal-ai-rejection { margin:0; color:#9b2c2c; font-weight:700; }
+.proposal-copilot-history-wrap { padding-top:.5rem; }
+.proposal-copilot-history-wrap h5 { margin:0 0 .65rem; }
+.proposal-copilot-history { display:grid; gap:.55rem; }
+.proposal-ai-history-row { display:flex; justify-content:space-between; align-items:center; gap:1rem; padding:.7rem .8rem; border:1px solid var(--website-admin-border); border-radius:10px; background:#fff; }
+.proposal-ai-history-row p { margin:0; }
+.proposal-ai-history-row small { color:var(--portal-muted, #64748b); }
+.proposal-ai-history-row button { flex:0 0 auto; }
+
+@media (max-width:720px) {
+  .proposal-copilot-source-grid,
+  .proposal-ai-diff { grid-template-columns:1fr; }
+  .proposal-ai-history-row { align-items:flex-start; flex-direction:column; }
+}
 .website-admin-view-progress .portal-empty,
 .website-admin-view-onboarding .portal-empty,
 .website-admin-view-proposals .portal-empty { min-height:calc(100% - 42px); margin:0; border:0; border-radius:0; }

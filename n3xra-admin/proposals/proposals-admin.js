@@ -28,6 +28,15 @@ const referralDiscountWrap = document.getElementById("proposal-referral-discount
 const referralDiscountToggle = document.getElementById("proposal-referral-discount");
 const referralDiscountHelp = document.getElementById("proposal-referral-discount-help");
 const prepareBillingButton = document.getElementById("prepare-proposal-billing");
+const copilotPanel = document.getElementById("proposal-copilot");
+const copilotInstruction = document.getElementById("proposal-ai-instruction");
+const copilotSources = document.getElementById("proposal-ai-source-list");
+const copilotFiles = document.getElementById("proposal-ai-file-list");
+const copilotGenerateButton = document.getElementById("generate-proposal-ai");
+const copilotRefreshButton = document.getElementById("refresh-proposal-ai");
+const copilotReview = document.getElementById("proposal-ai-review");
+const copilotHistory = document.getElementById("proposal-ai-history");
+const copilotStatus = document.getElementById("proposal-ai-status");
 
 let supabase;
 let currentUser;
@@ -39,6 +48,7 @@ let billingSnapshots = [];
 let selectedRequest;
 let selectedProposal;
 let editingVersion;
+let copilotLoadSequence = 0;
 
 const itemCategories = {
   website_build: "Website build",
@@ -107,6 +117,11 @@ function lines(value) {
 function setStatus(message = "", isError = false) {
   formStatus.textContent = message;
   formStatus.classList.toggle("is-error", isError);
+}
+
+function setCopilotStatus(message = "", isError = false) {
+  copilotStatus.textContent = message;
+  copilotStatus.classList.toggle("is-error", isError);
 }
 
 function updateTotal() {
@@ -399,7 +414,7 @@ function renderEditor() {
   const isDraft = !editingVersion || editingVersion.status === "draft";
   const isApproved = !isDraft && selectedProposal?.status === "approved";
   Array.from(form.elements).forEach((element) => {
-    if (element === newVersionButton || element === deleteVersionButton || element === previewLink || element === prepareBillingButton) return;
+    if (element === newVersionButton || element === deleteVersionButton || element === previewLink || element === prepareBillingButton || element.closest("#proposal-copilot")) return;
     if (element.id === "send-proposal") element.disabled = false;
     else if (element.id === "preview-proposal-email") element.disabled = !isDraft;
     else if (element.id === "save-proposal") element.disabled = !isDraft;
@@ -433,6 +448,13 @@ function renderEditor() {
     prepareBillingButton.textContent = selectedProposal?.status === "sent"
       ? "Billing available after client approval"
       : "Approve proposal before billing";
+  }
+  copilotPanel.hidden = !selectedProposal || !editingVersion;
+  if (copilotPanel.hidden) {
+    copilotReview.hidden = true;
+    copilotHistory.innerHTML = "<p>Save the proposal draft before using Copilot.</p>";
+  } else {
+    loadCopilotWorkspace().catch((error) => setCopilotStatus(error.message, true));
   }
 }
 
@@ -699,34 +721,178 @@ async function sendProposal() {
 
 async function createRevision() {
   if (!selectedProposal || !editingVersion) return;
-  const nextNumber = Math.max(...versions.filter((version) => version.proposal_id === selectedProposal.id).map((version) => version.version_number)) + 1;
-  const copy = { ...editingVersion };
-  ["id", "created_at", "updated_at", "sent_at"].forEach((key) => delete copy[key]);
-  const { data: createdVersion, error } = await supabase.from("website_proposal_versions").insert({
-    ...copy,
-    proposal_id: selectedProposal.id,
-    version_number: nextNumber,
-    status: "draft",
-    created_by_user_id: currentUser.id,
-  }).select().single();
+  const { data, error } = await supabase.rpc("create_website_proposal_draft_revision", {
+    target_version_id: editingVersion.id,
+  });
   if (error) throw error;
-  const sourceItems = lineItems.filter((item) => item.version_id === editingVersion.id).map((item, index) => ({
-    version_id: createdVersion.id,
-    category: item.category,
-    name: item.name,
-    description: item.description,
-    billing_type: item.billing_type,
-    quantity: item.quantity,
-    unit_amount_cents: item.unit_amount_cents,
-    recurring_interval: item.recurring_interval,
-    sort_order: index,
-  }));
-  if (sourceItems.length) {
-    const itemResult = await supabase.from("website_proposal_line_items").insert(sourceItems);
-    if (itemResult.error) throw itemResult.error;
-  }
   await loadData(selectedRequest.id);
-  setStatus(`Version ${nextNumber} is ready to edit.`);
+  setStatus(`Version ${data?.version_number || ""} is ready to edit.`.replace("  ", " "));
+}
+
+async function proposalAiRequest(payload) {
+  const { data } = await supabase.auth.getSession();
+  const token = data?.session?.access_token;
+  if (!token) throw new Error("Your session expired. Sign in again before using Proposal Copilot.");
+  const response = await fetch("/api/website-proposal-ai", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify(payload),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(result.error || "Proposal Copilot is unavailable.");
+  return result;
+}
+
+function renderCopilotSources(sources = [], files = []) {
+  copilotSources.innerHTML = sources.length ? sources.map((source) => {
+    const mandatory = source.source_type === "proposal";
+    return `<label><input data-ai-source type="checkbox" value="${escapeHtml(source.key)}"${mandatory || source.default_included ? " checked" : ""}${mandatory ? " disabled" : ""}><span>${escapeHtml(source.label)}<small>${escapeHtml(formatLabel(source.authority))} · ${escapeHtml(formatLabel(source.status))}${source.updated_at ? ` · ${escapeHtml(new Date(source.updated_at).toLocaleDateString())}` : ""}</small></span></label>`;
+  }).join("") : "<p>No additional structured sources are available.</p>";
+  copilotFiles.innerHTML = files.length ? files.map((file) => {
+    const supported = file.ai_supported !== false;
+    const checked = supported && file.default_included;
+    return `<label><input data-ai-file type="checkbox" value="${escapeHtml(file.file_key)}"${checked ? " checked" : ""}${supported ? "" : " disabled"}><span>${escapeHtml(file.label || file.filename)}<small>${escapeHtml(formatLabel(file.category))} · ${escapeHtml(formatLabel(file.status))}${supported ? "" : " · unsupported file type"}</small></span></label>`;
+  }).join("") : "<p>No eligible project files are available.</p>";
+}
+
+function historySummary(run) {
+  const date = new Date(run.created_at).toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
+  const instruction = String(run.instruction_preview || run.instruction || "").trim();
+  const outcome = run.status === "applied"
+    ? `${run.accepted_count} accepted · ${run.rejected_count} rejected`
+    : run.status === "failed" ? "Failed" : `${run.suggestion_count} suggestions`;
+  return `<div><p><strong>${escapeHtml(date)}</strong> · ${escapeHtml(formatLabel(run.status))}</p><small>${escapeHtml(instruction.slice(0, 110))}${instruction.length > 110 ? "…" : ""} · ${escapeHtml(outcome)} · ${escapeHtml(run.model)}</small></div>`;
+}
+
+function renderCopilotHistory(runs = []) {
+  copilotHistory.innerHTML = runs.length ? runs.map((run) => `
+    <article class="proposal-ai-history-row">
+      ${historySummary(run)}
+      <button class="portal-button portal-button-secondary" data-ai-run-detail="${escapeHtml(run.id)}" type="button">View details</button>
+    </article>
+  `).join("") : "<p>No Proposal Copilot runs yet.</p>";
+}
+
+function valueText(value) {
+  if (value === null || value === undefined || value === "") return "Not set";
+  return typeof value === "string" ? value : JSON.stringify(value, null, 2);
+}
+
+function reviewIds(run) {
+  return {
+    accepted: new Set(run.review_result?.accepted_operation_ids || []),
+    rejected: new Set(run.review_result?.rejected_operation_ids || []),
+  };
+}
+
+function renderCopilotRun(run) {
+  const operations = run.change_set?.operations || [];
+  const reviewed = reviewIds(run);
+  const readonly = run.status !== "ready";
+  copilotReview.hidden = false;
+  copilotReview.dataset.runId = run.id;
+  copilotReview.innerHTML = `
+    <p class="proposal-ai-summary"><strong>${operations.length} suggestion${operations.length === 1 ? "" : "s"}.</strong> ${escapeHtml(run.change_set?.summary || "Review every change before applying it.")}</p>
+    ${operations.map((operation) => {
+      const supported = operation.server_validation?.supported === true;
+      const accepted = reviewed.accepted.has(operation.id);
+      const rejected = reviewed.rejected.has(operation.id) || !supported;
+      return `<article class="proposal-ai-operation${supported ? "" : " is-unsupported"}" data-ai-operation="${escapeHtml(operation.id)}">
+        <div class="proposal-ai-operation-head"><div><h5>${escapeHtml(formatLabel(operation.target.kind))} · ${escapeHtml(formatLabel(operation.field))}</h5><p>${escapeHtml(operation.rationale || "Suggested update")}</p></div><span class="proposal-ai-risk${operation.risk === "protected" ? " is-protected" : ""}">${escapeHtml(operation.risk)}</span></div>
+        <div class="proposal-ai-diff"><div class="proposal-ai-value"><strong>Original</strong><pre>${escapeHtml(valueText(operation.original))}</pre></div><div class="proposal-ai-value"><strong>Proposed</strong><pre>${escapeHtml(valueText(operation.proposed))}</pre></div></div>
+        ${operation.evidence?.length ? `<ul class="proposal-ai-evidence">${operation.evidence.map((item) => `<li>${escapeHtml(item.source_type)}: “${escapeHtml(item.supporting_value)}”</li>`).join("")}</ul>` : ""}
+        ${supported ? `<div class="proposal-ai-decision"><label><input type="radio" name="proposal-ai-${escapeHtml(operation.id)}" value="accept"${accepted ? " checked" : ""}${readonly ? " disabled" : ""}> Accept</label><label><input type="radio" name="proposal-ai-${escapeHtml(operation.id)}" value="reject"${rejected ? " checked" : ""}${readonly ? " disabled" : ""}> Reject</label></div>` : `<p class="proposal-ai-rejection">Not applicable: ${escapeHtml(operation.server_validation?.reason || "Protected value is unsupported.")}</p><input type="hidden" data-ai-forced-reject value="${escapeHtml(operation.id)}">`}
+      </article>`;
+    }).join("")}
+    ${run.error ? `<p class="proposal-ai-rejection">${escapeHtml(run.error)}</p>` : ""}
+    ${run.status === "ready" ? `<div class="portal-form-actions proposal-copilot-actions"><button class="portal-button" id="apply-proposal-ai" type="button" disabled>Apply reviewed changes</button><p class="portal-inline-status">Choose Accept or Reject for every suggestion.</p></div>` : ""}
+  `;
+  updateCopilotApplyState();
+}
+
+function collectCopilotReview() {
+  const accepted = [];
+  const rejected = Array.from(copilotReview.querySelectorAll("[data-ai-forced-reject]")).map((input) => input.value);
+  const cards = Array.from(copilotReview.querySelectorAll("[data-ai-operation]"));
+  for (const card of cards) {
+    if (card.querySelector("[data-ai-forced-reject]")) continue;
+    const choice = card.querySelector('input[type="radio"]:checked')?.value;
+    if (choice === "accept") accepted.push(card.dataset.aiOperation);
+    else if (choice === "reject") rejected.push(card.dataset.aiOperation);
+  }
+  return { accepted, rejected, complete: accepted.length + rejected.length === cards.length };
+}
+
+function updateCopilotApplyState() {
+  const button = document.getElementById("apply-proposal-ai");
+  if (!button) return;
+  const review = collectCopilotReview();
+  button.disabled = !review.complete;
+  button.textContent = review.complete && review.accepted.length === 0 ? "Finish review" : "Apply reviewed changes";
+  const note = button.nextElementSibling;
+  if (note) note.textContent = review.complete ? `${review.accepted.length} accepted · ${review.rejected.length} rejected` : "Choose Accept or Reject for every suggestion.";
+}
+
+async function loadCopilotWorkspace() {
+  if (!selectedProposal?.id || !editingVersion?.id) return;
+  const sequence = ++copilotLoadSequence;
+  setCopilotStatus("Loading Proposal Copilot…");
+  const result = await proposalAiRequest({ action: "history", proposal_id: selectedProposal.id });
+  if (sequence !== copilotLoadSequence || result.runs?.[0]?.proposal_id && result.runs[0].proposal_id !== selectedProposal.id) return;
+  renderCopilotSources(result.sources, result.files);
+  renderCopilotHistory(result.runs);
+  setCopilotStatus("");
+}
+
+async function generateCopilotSuggestions() {
+  if (!selectedProposal?.id || !editingVersion?.id) throw new Error("Save the proposal draft before using Copilot.");
+  const instruction = copilotInstruction.value.trim();
+  if (!instruction) throw new Error("Enter an instruction or idea for Copilot.");
+  const sourceKeys = Array.from(copilotSources.querySelectorAll("[data-ai-source]:checked")).map((input) => input.value);
+  const fileKeys = Array.from(copilotFiles.querySelectorAll("[data-ai-file]:checked")).map((input) => input.value);
+  const targetSections = Array.from(document.querySelectorAll('#proposal-ai-sections input[type="checkbox"]:checked')).map((input) => input.value);
+  copilotGenerateButton.disabled = true;
+  setCopilotStatus("Saving the baseline and generating suggestions…");
+  try {
+    if (editingVersion.status === "draft") await saveDraft(null, true);
+    const result = await proposalAiRequest({
+      action: "generate", proposal_id: selectedProposal.id, instruction,
+      source_keys: sourceKeys, file_keys: fileKeys, target_sections: targetSections,
+    });
+    renderCopilotRun(result.run);
+    setCopilotStatus(`Generated ${result.run.suggestion_count} suggestion${result.run.suggestion_count === 1 ? "" : "s"}.`);
+    await loadCopilotWorkspace();
+    copilotReview.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  } finally {
+    copilotGenerateButton.disabled = false;
+  }
+}
+
+async function loadCopilotRun(runId) {
+  setCopilotStatus("Loading run details…");
+  const result = await proposalAiRequest({ action: "detail", proposal_id: selectedProposal.id, run_id: runId });
+  renderCopilotRun(result.run);
+  setCopilotStatus("");
+  copilotReview.scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+async function applyCopilotRun() {
+  const button = document.getElementById("apply-proposal-ai");
+  const review = collectCopilotReview();
+  if (!review.complete) return;
+  button.disabled = true;
+  setCopilotStatus("Applying accepted changes in one transaction…");
+  try {
+    const result = await proposalAiRequest({
+      action: "apply", proposal_id: selectedProposal.id, run_id: copilotReview.dataset.runId,
+      accepted_operation_ids: review.accepted, rejected_operation_ids: review.rejected,
+    });
+    await loadData(selectedRequest.id);
+    setCopilotStatus(`Applied ${result.result?.accepted_count || 0} change${result.result?.accepted_count === 1 ? "" : "s"} to draft version ${result.result?.version_number || ""}.`);
+  } catch (error) {
+    button.disabled = false;
+    throw error;
+  }
 }
 
 async function deleteDraftVersion() {
@@ -850,6 +1016,16 @@ async function init() {
     renderEditor();
   });
   refreshButton.addEventListener("click", () => loadData(selectedRequest?.id).catch((error) => setStatus(error.message, true)));
+  copilotGenerateButton.addEventListener("click", () => generateCopilotSuggestions().catch((error) => setCopilotStatus(error.message, true)));
+  copilotRefreshButton.addEventListener("click", () => loadCopilotWorkspace().catch((error) => setCopilotStatus(error.message, true)));
+  copilotHistory.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-ai-run-detail]");
+    if (button) loadCopilotRun(button.dataset.aiRunDetail).catch((error) => setCopilotStatus(error.message, true));
+  });
+  copilotReview.addEventListener("change", updateCopilotApplyState);
+  copilotReview.addEventListener("click", (event) => {
+    if (event.target.closest("#apply-proposal-ai")) applyCopilotRun().catch((error) => setCopilotStatus(error.message, true));
+  });
   document.getElementById(fieldIds.discount_cents).addEventListener("input", updateTotal);
   referralDiscountToggle.addEventListener("change", () => {
     if (!referralDiscountToggle.checked) document.getElementById(fieldIds.discount_cents).value = "0.00";

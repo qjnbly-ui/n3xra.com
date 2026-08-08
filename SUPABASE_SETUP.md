@@ -388,3 +388,14 @@ After the initial billing foundation is active, apply
 Future service dates must be at least 48 hours away so Checkout can securely collect
 the payment method before the subscription begins. Stripe webhook state remains
 authoritative for invoice, payment, and subscription status.
+
+## Website Proposal Copilot
+
+Proposal Copilot runs through the server-only `/api/website-proposal-ai` route. Before enabling it in a deployment:
+
+- apply `supabase/migrations/20260808204032_admin_asset_uploads_and_onboarding_import.sql`
+- apply `supabase/migrations/20260808213831_website_proposal_copilot.sql`
+- set `OPENAI_API_KEY` in the Vercel environment
+- optionally set `OPENAI_PROPOSAL_MODEL`; if unset, `OPENAI_WEBSITE_AI_MODEL` is used, then `gpt-5.6-terra`
+
+Keep the OpenAI key and Supabase service-role key server-only. The browser sends only the signed-in administrator JWT and selected source IDs to the API.
