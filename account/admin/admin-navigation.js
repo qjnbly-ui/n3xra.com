@@ -315,6 +315,7 @@ export async function navigateAdminWorkspace(destination, { history = "push", de
   }
 
   installWorkspaceStyles(page);
+  document.body.classList.remove("admin-ready");
   currentMain.replaceWith(document.importNode(nextMain, true));
   document.body.dataset.adminView = page.body.dataset.adminView || "";
   document.title = page.title || document.title;

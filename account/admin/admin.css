@@ -1,5 +1,9 @@
 .hidden { display: none !important; }
 
+.account-admin-page:not(.admin-ready) main {
+  visibility: hidden;
+}
+
 .portal-nav .site-menu-link {
   min-height: 0;
   letter-spacing: normal;

@@ -20,6 +20,10 @@ body {
   font-family: "Manrope", Arial, sans-serif;
 }
 
+body.portal-loading main {
+  visibility: hidden;
+}
+
 body.portal-denied main {
   visibility: hidden;
 }

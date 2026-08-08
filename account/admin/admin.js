@@ -1,6 +1,6 @@
 import { createBrowserSupabase, getSessionOrNull, hasConfig } from "/shared/lib/supabase-client.js";
 import { isPlatformAdminEmail } from "/shared/lib/orgs.js";
-import { arrangeAdminWorkspace } from "/account/admin/admin-navigation.js?v=5";
+import { arrangeAdminWorkspace } from "/account/admin/admin-navigation.js?v=6";
 import { confirmAdminAction } from "/account/admin/admin-dialogs.js";
 import { initializeAdminSelects } from "/account/admin/admin-select.js?v=1";
 
@@ -1314,6 +1314,7 @@ export async function startAdmin() {
   bindAdminDom();
   if (!hasConfig()) {
     setupPanel?.classList.remove("hidden");
+    document.body.classList.add("admin-ready");
     return;
   }
   if (!supabase) supabase = createBrowserSupabase();
@@ -1335,8 +1336,12 @@ export async function startAdmin() {
     });
   }
   await loadAdminView();
+  document.body.classList.add("admin-ready");
 }
 
 if (!window.__n3xraAdminSoftNavigation) {
-  startAdmin().catch((error) => setStatus(error.message || "Unable to load admin app.", "error"));
+  startAdmin().catch((error) => {
+    document.body.classList.add("admin-ready");
+    setStatus(error.message || "Unable to load admin app.", "error");
+  });
 }

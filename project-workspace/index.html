@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&amp;family=Manrope:wght@400;600;700;800&amp;display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/site-nav.css">
-  <link rel="stylesheet" href="/client-portal/portal.css?v=11">
+  <link rel="stylesheet" href="/client-portal/portal.css?v=16">
   <link rel="stylesheet" href="/client-portal/client-shell.css?v=5">
   <script src="/shared/config.js"></script>
   <script src="/assets/site-nav.js" defer></script>
@@ -32,7 +32,7 @@
       </div>
       <nav class="site-mobile-menu" id="project-portal-menu" aria-label="Portal navigation" hidden>
         <div class="site-mobile-menu-head"><p class="site-mobile-menu-title">Website portal</p></div>
-        <a class="site-menu-link" href="/client-portal/">Overview</a><a class="site-menu-link" href="/client-portal/services/">Services &amp; Ownership</a><a class="site-menu-link" href="/project-workspace/">Progress</a><a class="site-menu-link" href="/proposals/">Proposals</a><a class="site-menu-link" href="/website-onboarding/">Onboarding</a><a class="site-menu-link" href="/client-portal/#files-assets">Files &amp; Assets</a><a class="site-menu-link" href="/website-request/">Start new project</a>
+        <a class="site-menu-link" href="/client-portal/services/">Services &amp; Ownership</a><a class="site-menu-link" href="/project-workspace/">Progress</a><a class="site-menu-link" href="/proposals/">Proposals</a><a class="site-menu-link" href="/website-onboarding/">Onboarding</a><a class="site-menu-link" href="/client-portal/#files-assets">Files &amp; Assets</a><a class="site-menu-link" href="/website-request/">Start new project</a>
       </nav>
     </div>
   </header>
@@ -52,7 +52,6 @@
 
     <div class="portal-layout">
       <nav class="portal-nav" aria-label="Website client portal">
-        <a href="/client-portal/">Overview</a>
         <a href="/client-portal/services/">Services &amp; Ownership</a>
         <a class="is-current" href="/project-workspace/">Progress</a>
         <a href="/proposals/">Proposals</a>
@@ -72,7 +71,7 @@
           <div>
             <h3 id="project-workspace-empty-title">No active project timeline</h3>
             <p id="project-workspace-empty-copy">This website was added after launch, so proposal, onboarding, and build progress do not apply.</p>
-            <a class="portal-button" id="project-workspace-website-link" href="/client-portal/">Return to website overview</a>
+            <a class="portal-button" id="project-workspace-website-link" href="/project-workspace/">Return to progress</a>
           </div>
         </div>
 
@@ -85,7 +84,6 @@
               </div>
               <h3 id="project-name">Website project</h3>
               <p id="project-summary"></p>
-              <div class="portal-project-actions" id="project-actions"></div>
             </div>
             <div class="portal-project-progress">
               <strong id="project-progress-value">0%</strong>
@@ -126,7 +124,7 @@
   </main>
 
   <div class="portal-status" id="portal-status" role="status">Opening your project workspace…</div>
-  <script type="module" src="/client-portal/client-shell.js?v=4"></script>
+  <script type="module" src="/client-portal/client-shell.js?v=6"></script>
   <script type="module" src="/client-portal/portal-shell.js"></script>
   <script type="module" src="/project-workspace/project-workspace.js?v=2"></script>
 </body>

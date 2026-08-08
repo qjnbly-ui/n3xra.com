@@ -1,5 +1,6 @@
 import { createBrowserSupabase, hasConfig } from "/shared/lib/supabase-client.js";
 import { readWorkspaceContext, writeWorkspaceContext } from "/client-portal/workspace-context.js";
+import { resolveWebsiteUrl } from "/client-portal/website-url.js";
 
 const ORGANIZATION_ROUTES = [
   [["overview"], "Overview", "/n3xra-admin/websites/"],
@@ -49,9 +50,14 @@ export async function initializeWebsiteOrganizationContext(panel, { pageKey = "o
   const supabase = createBrowserSupabase();
   const { data: { session } } = await supabase.auth.getSession();
   if (!session?.user) return;
-  const websiteResult = await supabase.from("client_websites").select("id,name,status,live_url").order("name");
+  const [websiteResult, domainResult] = await Promise.all([
+    supabase.from("client_websites").select("id,name,status,live_url").order("name"),
+    supabase.from("website_domains").select("website_id,domain_name,is_primary").order("is_primary", { ascending: false }),
+  ]);
   if (websiteResult.error) throw websiteResult.error;
+  if (domainResult.error) throw domainResult.error;
   const websites = websiteResult.data || [];
+  const domains = domainResult.data || [];
   const context = readWorkspaceContext("admin", session.user.id);
   const selectedId = websites.some((website) => website.id === context.websiteId) ? context.websiteId : websites[0]?.id || "";
   const picker = panel.querySelector("#website-admin-organization-picker");
@@ -72,10 +78,11 @@ export async function initializeWebsiteOrganizationContext(panel, { pageKey = "o
       return;
     }
     card.hidden = false;
+    const websiteUrl = resolveWebsiteUrl(website, domains);
     panel.querySelector("#website-admin-organization-status").textContent = statusLabel(website.status);
     panel.querySelector("#website-admin-organization-name").textContent = website.name;
-    panel.querySelector("#website-admin-organization-url").textContent = website.live_url || "No live website connected";
-    panel.querySelector("#website-admin-organization-links").innerHTML = `${website.live_url ? `<a href="${escapeHtml(website.live_url)}" target="_blank" rel="noopener">Visit website</a>` : ""}<a href="/client-portal/?website=${encodeURIComponent(website.id)}">Client workspace</a>`;
+    panel.querySelector("#website-admin-organization-url").textContent = websiteUrl || "No live website connected";
+    panel.querySelector("#website-admin-organization-links").innerHTML = `${websiteUrl ? `<a href="${escapeHtml(websiteUrl)}" target="_blank" rel="noopener">Visit website</a>` : ""}<a href="/client-portal/?website=${encodeURIComponent(website.id)}">Client workspace</a>`;
     if (persist) {
       const previous = readWorkspaceContext("admin", session.user.id);
       writeWorkspaceContext("admin", session.user.id, {

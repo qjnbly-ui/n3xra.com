@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/site-nav.css">
-  <link rel="stylesheet" href="/client-portal/portal.css?v=12">
+  <link rel="stylesheet" href="/client-portal/portal.css?v=16">
   <link rel="stylesheet" href="/client-portal/client-shell.css?v=5">
   <link rel="stylesheet" href="/client-portal/assets-manager.css?v=12">
   <link rel="stylesheet" href="/website-request/request.css?v=7">
@@ -41,7 +41,6 @@
       </div>
       <nav class="site-mobile-menu" id="client-portal-menu" aria-label="Mobile primary" hidden>
         <div class="site-mobile-menu-head"><p class="site-mobile-menu-title">Website portal</p></div>
-        <a class="site-menu-link" href="/client-portal/">Overview</a>
         <a class="site-menu-link" href="/client-portal/services/">Services &amp; Ownership</a>
         <a class="site-menu-link" href="/project-workspace/">Progress</a>
         <a class="site-menu-link" href="/proposals/">Proposals</a>
@@ -76,7 +75,6 @@
     <div class="portal-layout">
       <nav class="portal-nav" aria-label="Selected website sections">
         <p class="portal-nav-label">Project sections</p>
-        <button class="is-current" type="button" data-portal-view="overview">Overview</button>
         <a href="/client-portal/services/">Services &amp; Ownership</a>
         <a href="/project-workspace/">Progress</a>
         <a href="/proposals/">Proposals</a>
@@ -91,37 +89,7 @@
       </nav>
 
       <section class="portal-workspace" aria-live="polite">
-        <div class="portal-view" id="portal-view-overview" data-portal-panel="overview">
-          <div class="portal-workspace-head">
-            <div>
-              <p class="portal-kicker">Project overview</p>
-              <h2 id="client-websites-title">Overview</h2>
-              <p>The essential details and access for the selected website.</p>
-            </div>
-          </div>
-
-          <section class="portal-overview-summary" id="website-summary" hidden>
-            <div class="portal-overview-summary-main">
-              <div>
-                <p class="portal-kicker">Website</p>
-                <h3 id="website-name">Website</h3>
-                <a class="portal-overview-domain" id="website-domain" href="#" target="_blank" rel="noopener" hidden></a>
-              </div>
-              <span class="portal-overview-status" id="website-status">Website project</span>
-            </div>
-            <div class="portal-overview-summary-footer">
-              <p class="portal-overview-access"><span>Your access</span><strong id="website-role">Website access</strong></p>
-              <div class="portal-overview-actions">
-                <a class="portal-button" id="website-live-link" href="#" target="_blank" rel="noopener">Visit website</a>
-                <a class="portal-text-action" href="/project-workspace/">View progress</a>
-                <button class="portal-text-action" type="button" data-open-portal-view="files">Files &amp; Assets</button>
-                <a class="portal-text-action" href="/support/">Get support</a>
-              </div>
-            </div>
-          </section>
-        </div>
-
-        <div class="portal-view" id="portal-view-files" data-portal-panel="files" hidden>
+        <div class="portal-view" id="portal-view-files" data-portal-panel="files">
           <section class="website-assets-manager website-assets-client-manager">
             <aside class="website-assets-sidebar">
               <div class="website-assets-site-picker"><label>Website<select class="portal-select" id="files-website-select"></select></label></div>
@@ -300,8 +268,8 @@
   </main>
 
   <div class="portal-status" id="portal-status" role="status">Opening your website portal…</div>
-  <script type="module" src="/client-portal/client-shell.js?v=4"></script>
-  <script type="module" src="/client-portal/portal.js?v=19"></script>
+  <script type="module" src="/client-portal/client-shell.js?v=6"></script>
+  <script type="module" src="/client-portal/portal.js?v=20"></script>
   <script type="module" src="/website-request/request.js?v=11"></script>
 </body>
 </html>

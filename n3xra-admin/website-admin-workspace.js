@@ -1,9 +1,9 @@
 import { initializeWebsiteOrganizationContext } from "/n3xra-admin/website-admin-context.js?v=4";
 
 const projectStageRoutes = [
-  ["proposals", "Proposal", "/n3xra-admin/proposals/"],
-  ["onboarding", "Onboarding", "/n3xra-admin/onboarding/"],
   ["progress", "Progress", "/n3xra-admin/projects/"],
+  ["onboarding", "Onboarding", "/n3xra-admin/onboarding/"],
+  ["proposals", "Proposal", "/n3xra-admin/proposals/"],
 ];
 
 const routeDetails = {

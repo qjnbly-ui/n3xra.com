@@ -4,6 +4,7 @@ import { verifyPlatformAdmin } from "/client-portal/admin-access.js";
 import { renderPdfFirstPage } from "/shared/lib/file-preview.js";
 import { confirmAdminAction, promptAdminText } from "/account/admin/admin-dialogs.js";
 import { openAssetPreview } from "/client-portal/asset-preview-modal.js?v=1";
+import { resolveWebsiteRepository, resolveWebsiteUrl } from "/client-portal/website-url.js";
 
 const PRIVATE_BUCKET = "website-assets-private";
 const PUBLIC_BUCKET = "website-assets-public";
@@ -14,7 +15,6 @@ const siteName = document.getElementById("admin-site-name");
 const siteStatus = document.getElementById("admin-site-status");
 const siteMeta = document.getElementById("admin-site-meta");
 const liveLink = document.getElementById("admin-live-link");
-const clientView = document.getElementById("admin-client-view");
 const assetToolbar = document.getElementById("admin-asset-toolbar");
 const assetGrid = document.getElementById("admin-asset-grid");
 const assetFolderList = document.getElementById("admin-asset-folders");
@@ -36,6 +36,10 @@ const siteForm = document.getElementById("site-form");
 const siteFormStatus = document.getElementById("site-form-status");
 const openSiteFormButton = document.getElementById("open-site-form");
 const closeSiteFormButton = document.getElementById("close-site-form");
+const editSiteButton = document.getElementById("edit-site");
+const siteFormKicker = document.getElementById("site-form-kicker");
+const siteFormTitle = document.getElementById("site-form-title");
+const siteFormSubmit = document.getElementById("site-form-submit");
 const siteNameInput = document.getElementById("site-name");
 const siteSlugInput = document.getElementById("site-slug");
 const siteLiveUrlInput = document.getElementById("site-live-url");
@@ -67,6 +71,8 @@ const projectOpenOnboarding = document.getElementById("project-open-onboarding")
 let supabase;
 let currentUser;
 let websites = [];
+let domains = [];
+let repositories = [];
 let selectedWebsite;
 let assets = [];
 let versions = [];
@@ -78,6 +84,7 @@ let selectedProject;
 let projectProposals = [];
 let projectOnboarding;
 let toastTimer;
+let editingWebsiteId = null;
 
 function showStatus(message) {
   statusScreen.textContent = message;
@@ -306,12 +313,14 @@ function renderSelectedWebsite() {
 
   summary.hidden = false;
   if (assetToolbar) assetToolbar.hidden = false;
+  const websiteUrl = resolveWebsiteUrl(selectedWebsite, domains);
+  const websiteRepository = resolveWebsiteRepository(selectedWebsite, repositories);
   siteName.textContent = selectedWebsite.name;
   siteStatus.textContent = `${selectedWebsite.status || "active"} website`;
-  siteMeta.textContent = [selectedWebsite.live_url, selectedWebsite.repository_full_name].filter(Boolean).join(" · ") || "No live URL or repository recorded.";
-  liveLink.hidden = !selectedWebsite.live_url;
-  if (selectedWebsite.live_url) liveLink.href = selectedWebsite.live_url;
-  clientView.href = `/client-portal/?website=${encodeURIComponent(selectedWebsite.id)}`;
+  siteMeta.textContent = [websiteUrl, websiteRepository].filter(Boolean).join(" · ") || "No live URL, domain, or repository recorded.";
+  liveLink.hidden = !websiteUrl;
+  if (websiteUrl) liveLink.href = websiteUrl;
+  if (editSiteButton) editSiteButton.hidden = !selectedWebsite;
   if (accessPanel) accessPanel.hidden = false;
   if (projectLinkPanel) projectLinkPanel.hidden = false;
 }
@@ -373,15 +382,6 @@ function renderProjectLifecycle() {
       <p class="portal-kicker">${escapeHtml(formatProjectLabel(selectedProject.status))} project</p>
       <h4>${escapeHtml(selectedProject.name)}</h4>
       <p>${escapeHtml(selectedProject.progress_percent)}% complete · ${escapeHtml(formatProjectLabel(selectedProject.current_stage))}</p>
-    </div>
-    <div class="portal-card-actions">
-      <a class="portal-button portal-button-secondary" href="/n3xra-admin/projects/?project=${encodeURIComponent(selectedProject.id)}">Open Progress</a>
-      ${latestProposal
-        ? `<a class="portal-button portal-button-secondary" href="/n3xra-admin/proposals/?proposal=${encodeURIComponent(latestProposal.id)}">Open Proposal</a>`
-        : `<button class="portal-button portal-button-secondary" type="button" data-show-project-proposal>Create proposal</button>`}
-      ${projectOnboarding
-        ? `<a class="portal-button portal-button-secondary" href="/n3xra-admin/onboarding/?onboarding=${encodeURIComponent(projectOnboarding.id)}">Open Onboarding</a>`
-        : `<button class="portal-button portal-button-secondary" type="button" data-open-project-onboarding>Open onboarding</button>`}
     </div>
     ${latestProposal ? "" : `
       <form class="portal-project-quick-form" data-project-proposal-form hidden>
@@ -810,9 +810,17 @@ function handleProjectLinkClick(event) {
 }
 
 async function loadWebsites(preferredId) {
-  const { data, error } = await supabase.from("client_websites").select("*").order("name");
-  if (error) throw error;
-  websites = data || [];
+  const [websiteResult, domainResult, repositoryResult] = await Promise.all([
+    supabase.from("client_websites").select("*").order("name"),
+    supabase.from("website_domains").select("website_id,domain_name,is_primary").order("is_primary", { ascending: false }),
+    supabase.from("website_repositories").select("website_id,full_name,created_at").order("created_at"),
+  ]);
+  if (websiteResult.error) throw websiteResult.error;
+  if (domainResult.error) throw domainResult.error;
+  if (repositoryResult.error) throw repositoryResult.error;
+  websites = websiteResult.data || [];
+  domains = domainResult.data || [];
+  repositories = repositoryResult.data || [];
   renderWebsiteOptions();
   const requested = preferredId || new URLSearchParams(window.location.search).get("website")
     || readWorkspaceContext("admin", currentUser?.id).websiteId;
@@ -1206,20 +1214,27 @@ async function createWebsite(event) {
   event.preventDefault();
   const submitButton = siteForm.querySelector('[type="submit"]');
   submitButton.disabled = true;
-  setSiteFormStatus("Creating website…");
+  setSiteFormStatus(editingWebsiteId ? "Saving website…" : "Creating website…");
   const slug = slugify(siteSlugInput.value);
   try {
     if (!slug) throw new Error("Enter a valid website slug.");
-    const { data, error } = await supabase.from("client_websites").insert({
+    const websiteValues = {
       name: siteNameInput.value.trim(),
       slug,
       live_url: siteLiveUrlInput.value.trim() || null,
       repository_full_name: siteRepositoryInput.value.trim() || null,
-      status: "active",
-    }).select().single();
+    };
+    const query = editingWebsiteId
+      ? supabase.from("client_websites").update(websiteValues).eq("id", editingWebsiteId).select().single()
+      : supabase.from("client_websites").insert({ ...websiteValues, status: "active" }).select().single();
+    const { data, error } = await query;
     if (error) throw error;
     siteForm.reset();
-    setSiteFormStatus("Website created.");
+    editingWebsiteId = null;
+    if (siteFormKicker) siteFormKicker.textContent = "New managed site";
+    if (siteFormTitle) siteFormTitle.textContent = "Create website record";
+    if (siteFormSubmit) siteFormSubmit.textContent = "Create website";
+    setSiteFormStatus(data ? "Website saved." : "Website created.");
     await loadWebsites(data.id);
   } catch (error) {
     setSiteFormStatus(error?.message || "Unable to create this website.", true);
@@ -1309,10 +1324,31 @@ async function initWebsiteAdmin() {
       void createProjectProposal(proposalForm);
     });
     openSiteFormButton?.addEventListener("click", () => {
+      editingWebsiteId = null;
+      siteForm.reset();
+      siteSlugInput.dataset.edited = "";
+      if (siteFormKicker) siteFormKicker.textContent = "New managed site";
+      if (siteFormTitle) siteFormTitle.textContent = "Create website record";
+      if (siteFormSubmit) siteFormSubmit.textContent = "Create website";
+      siteForm.hidden = false;
+      siteNameInput.focus();
+    });
+    editSiteButton?.addEventListener("click", () => {
+      if (!selectedWebsite) return;
+      editingWebsiteId = selectedWebsite.id;
+      siteNameInput.value = selectedWebsite.name || "";
+      siteSlugInput.value = selectedWebsite.slug || "";
+      siteSlugInput.dataset.edited = "true";
+      siteLiveUrlInput.value = resolveWebsiteUrl(selectedWebsite, domains);
+      siteRepositoryInput.value = resolveWebsiteRepository(selectedWebsite, repositories);
+      if (siteFormKicker) siteFormKicker.textContent = "Existing managed site";
+      if (siteFormTitle) siteFormTitle.textContent = "Edit website record";
+      if (siteFormSubmit) siteFormSubmit.textContent = "Save website";
       siteForm.hidden = false;
       siteNameInput.focus();
     });
     closeSiteFormButton?.addEventListener("click", () => {
+      editingWebsiteId = null;
       siteForm.hidden = true;
       setSiteFormStatus("");
     });

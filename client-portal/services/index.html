@@ -6,7 +6,7 @@
   <link rel="icon" href="/assets/n3xra_logo_transparent_small.png">
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&amp;family=Manrope:wght@400;600;700;800&amp;display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/site-nav.css"><link rel="stylesheet" href="/client-portal/portal.css?v=10"><link rel="stylesheet" href="/client-portal/client-shell.css?v=5">
+  <link rel="stylesheet" href="/assets/site-nav.css"><link rel="stylesheet" href="/client-portal/portal.css?v=16"><link rel="stylesheet" href="/client-portal/client-shell.css?v=5">
   <script src="/shared/config.js"></script><script src="/assets/site-nav.js" defer></script>
   <script>
     window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
@@ -15,13 +15,13 @@
 </head>
 <body class="portal-loading">
   <header class="site-topbar"><div class="site-topbar-inner"><div class="site-topbar-row"><a class="site-brand" href="/" aria-label="N3XRA home"><img src="/assets/n3xra_logo_transparent_small.png" alt=""><span>N3XRA</span></a><div class="site-nav-actions"><a class="site-menu-link" href="/account/">Dashboard</a><button class="site-menu-link portal-logout" id="portal-logout" type="button">Sign out</button><button class="site-menu-toggle" type="button" aria-expanded="false" aria-controls="services-portal-menu" aria-label="Open menu" data-site-menu-toggle><span></span><span></span><span></span></button></div></div>
-    <nav class="site-mobile-menu" id="services-portal-menu" aria-label="Portal navigation" hidden><div class="site-mobile-menu-head"><p class="site-mobile-menu-title">Website portal</p></div><a class="site-menu-link" href="/client-portal/">Overview</a><a class="site-menu-link" href="/client-portal/services/">Services &amp; Ownership</a><a class="site-menu-link" href="/project-workspace/">Progress</a><a class="site-menu-link" href="/proposals/">Proposals</a><a class="site-menu-link" href="/website-onboarding/">Onboarding</a><a class="site-menu-link" href="/client-portal/#files-assets">Files &amp; Assets</a><a class="site-menu-link" href="/website-request/">Start new project</a></nav>
+    <nav class="site-mobile-menu" id="services-portal-menu" aria-label="Portal navigation" hidden><div class="site-mobile-menu-head"><p class="site-mobile-menu-title">Website portal</p></div><a class="site-menu-link" href="/client-portal/services/">Services &amp; Ownership</a><a class="site-menu-link" href="/project-workspace/">Progress</a><a class="site-menu-link" href="/proposals/">Proposals</a><a class="site-menu-link" href="/website-onboarding/">Onboarding</a><a class="site-menu-link" href="/client-portal/#files-assets">Files &amp; Assets</a><a class="site-menu-link" href="/website-request/">Start new project</a></nav>
   </div></header>
   <main class="portal-shell">
     <section class="portal-heading"><div><p class="portal-kicker">Client services</p><h1>Website Client Portal</h1></div></section>
     <section class="portal-project-picker" aria-labelledby="services-picker-title"><div><p class="portal-kicker">Current workspace</p><h2 id="services-picker-title">Selected website</h2><p>Review the services, ownership, domains, and source-code access associated with this website.</p></div><label class="portal-project-select">Website<select class="portal-select" id="services-website-select"></select></label></section>
     <div class="portal-layout">
-      <nav class="portal-nav" aria-label="Website client portal"><a href="/client-portal/">Overview</a><a class="is-current" href="/client-portal/services/">Services &amp; Ownership</a><a href="/project-workspace/">Progress</a><a href="/proposals/">Proposals</a><a href="/website-onboarding/">Onboarding</a><a href="/client-portal/#files-assets">Files &amp; Assets</a><a href="/client-portal/billing/">Billing</a><span class="is-placeholder">Renewals</span><a href="/support/">Support</a><div class="portal-nav-divider"></div><a href="/website-request/">Start a new project</a></nav>
+      <nav class="portal-nav" aria-label="Website client portal"><a class="is-current" href="/client-portal/services/">Services &amp; Ownership</a><a href="/project-workspace/">Progress</a><a href="/proposals/">Proposals</a><a href="/website-onboarding/">Onboarding</a><a href="/client-portal/#files-assets">Files &amp; Assets</a><a href="/client-portal/billing/">Billing</a><span class="is-placeholder">Renewals</span><a href="/support/">Support</a><div class="portal-nav-divider"></div><a href="/website-request/">Start a new project</a></nav>
       <section class="portal-workspace">
         <div class="portal-workspace-head"><div><p class="portal-kicker">Ownership center</p><h2>Services &amp; Ownership</h2><p>A permanent record of what supports your website and who controls it.</p></div></div>
         <section class="portal-ownership-section"><div class="portal-section-heading"><p class="portal-kicker">Active services</p><h3>Services attached to this website</h3></div><div class="portal-service-grid" id="client-service-grid"></div></section>
@@ -42,6 +42,6 @@
     </form>
   </dialog>
   <div class="portal-status" id="portal-status" role="status">Opening services and ownership…</div>
-  <script type="module" src="/client-portal/client-shell.js?v=4"></script><script type="module" src="/client-portal/portal-shell.js"></script><script type="module" src="/client-portal/services/services.js"></script>
+  <script type="module" src="/client-portal/client-shell.js?v=6"></script><script type="module" src="/client-portal/portal-shell.js"></script><script type="module" src="/client-portal/services/services.js"></script>
 </body>
 </html>

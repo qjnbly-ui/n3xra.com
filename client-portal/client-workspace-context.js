@@ -1,9 +1,9 @@
 import { createBrowserSupabase, hasConfig } from "/shared/lib/supabase-client.js";
 import { readWorkspaceContext, writeWorkspaceContext } from "/client-portal/workspace-context.js";
+import { resolveWebsiteUrl } from "/client-portal/website-url.js";
 
 const CLIENT_ROUTES = [
-  [["overview"], "Overview", "/client-portal/"],
-  [["proposals", "progress", "onboarding"], "Project", "/project-workspace/"],
+  [["proposals", "progress", "onboarding"], "Progress", "/project-workspace/"],
   [["assets"], "Files & assets", "/client-portal/#files-assets"],
   [["services"], "Services & ownership", "/client-portal/services/"],
   [["billing"], "Billing", "/client-portal/billing/"],
@@ -45,12 +45,14 @@ export async function initializeClientWorkspaceContext(panel, { pageKey = "overv
   const { data: { session } } = await supabase.auth.getSession();
   if (!session?.user) return;
 
-  const { data, error } = await supabase
-    .from("client_websites")
-    .select("id,name,status,live_url,website_members(role,status,user_id)")
-    .order("name");
-  if (error) throw error;
-  const websites = data || [];
+  const [websiteResult, domainResult] = await Promise.all([
+    supabase.from("client_websites").select("id,name,status,live_url,website_members(role,status,user_id)").order("name"),
+    supabase.from("website_domains").select("website_id,domain_name,is_primary").order("is_primary", { ascending: false }),
+  ]);
+  if (websiteResult.error) throw websiteResult.error;
+  if (domainResult.error) throw domainResult.error;
+  const websites = websiteResult.data || [];
+  const domains = domainResult.data || [];
   const context = readWorkspaceContext("client", session.user.id);
   const explicitWebsiteId = new URLSearchParams(window.location.search).get("website");
   let selectedId = websites.some((website) => website.id === explicitWebsiteId)
@@ -83,13 +85,14 @@ export async function initializeClientWorkspaceContext(panel, { pageKey = "overv
     }
     selectedId = website.id;
     selectedValue.textContent = website.name;
+    const websiteUrl = resolveWebsiteUrl(website, domains);
     options().forEach((option) => option.setAttribute("aria-selected", String(option.dataset.organizationId === website.id)));
     const membership = (website.website_members || []).find((row) => row.user_id === session.user.id && row.status === "active");
     card.hidden = false;
     panel.querySelector("#client-organization-status").textContent = membership?.role ? `${statusLabel(membership.role)} access` : statusLabel(website.status);
     panel.querySelector("#client-organization-name").textContent = website.name;
-    panel.querySelector("#client-organization-url").textContent = website.live_url || "Website is not live yet";
-    panel.querySelector("#client-organization-links").innerHTML = website.live_url ? `<a href="${escapeHtml(website.live_url)}" target="_blank" rel="noopener">Visit website</a>` : "";
+    panel.querySelector("#client-organization-url").textContent = websiteUrl || "Website is not live yet";
+    panel.querySelector("#client-organization-links").innerHTML = websiteUrl ? `<a href="${escapeHtml(websiteUrl)}" target="_blank" rel="noopener">Visit website</a>` : "";
     if (persist) {
       const previous = readWorkspaceContext("client", session.user.id);
       writeWorkspaceContext("client", session.user.id, {

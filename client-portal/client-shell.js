@@ -1,7 +1,10 @@
-import { initializeClientWorkspaceContext } from "/client-portal/client-workspace-context.js?v=2";
+import { initializeClientWorkspaceContext } from "/client-portal/client-workspace-context.js?v=3";
+
+if (window.location.pathname === "/client-portal/" && !window.location.hash && !new URLSearchParams(window.location.search).has("view")) {
+  window.location.replace(`/project-workspace/${window.location.search}`);
+}
 
 const clientSections = [
-  { key: "overview", label: "Overview", href: "/client-portal/", path: "/client-portal/", view: "overview" },
   { key: "project", label: "Project", href: "/project-workspace/", path: "/project-workspace/" },
   { key: "assets", label: "Files & Assets", href: "/client-portal/#files-assets", path: "/client-portal/", hash: "#files-assets", view: "files" },
   { key: "services", label: "Services & Ownership", href: "/client-portal/services/", path: "/client-portal/services/" },
@@ -9,13 +12,13 @@ const clientSections = [
 ];
 
 const projectStageRoutes = [
-  ["proposals", "Proposal", "/proposals/"],
-  ["onboarding", "Onboarding", "/website-onboarding/"],
   ["progress", "Progress", "/project-workspace/"],
+  ["onboarding", "Onboarding", "/website-onboarding/"],
+  ["proposals", "Proposal", "/proposals/"],
 ];
 
 const routeDetails = {
-  "/client-portal/": { key: "overview", kicker: "Website workspace", title: "Overview", description: "Website details, access, and the work connected to this organization." },
+  "/client-portal/": { key: "assets", kicker: "Website workspace", title: "Files & Assets", description: "Open folders, preview files, upload assets, and manage approved website content." },
   "/client-portal/services/": { key: "services", kicker: "Website workspace", title: "Services & Ownership", description: "Services, domains, source code, and ownership records for this organization." },
   "/project-workspace/": { key: "progress", kicker: "Website workspace", title: "Progress", description: "Current stage, milestones, timing, and the next step for this website." },
   "/proposals/": { key: "proposals", kicker: "Website workspace", title: "Proposals", description: "Review proposal details, versions, pricing, and decisions." },
@@ -26,7 +29,7 @@ const routeDetails = {
 const homeViews = {
   "#files-assets": { key: "assets", kicker: "Website workspace", title: "Files & Assets", description: "Open folders, preview files, upload assets, and manage approved website content." },
   "#support": { key: "support", kicker: "Website workspace", title: "Support", description: "Get help with this website, account access, billing, or active project work." },
-  "#new-project": { key: "overview", kicker: "New work", title: "Start a new project", description: "Request separate work without changing the organization selected here." },
+  "#new-project": { key: "assets", kicker: "New work", title: "Start a new project", description: "Request separate work without changing the organization selected here." },
 };
 
 function normalizePath(pathname) {

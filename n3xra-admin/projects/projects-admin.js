@@ -10,7 +10,6 @@ const emptyState = document.getElementById("admin-project-empty");
 const form = document.getElementById("project-admin-form");
 const nameElement = document.getElementById("admin-project-name");
 const metaElement = document.getElementById("admin-project-meta");
-const linksElement = document.getElementById("admin-project-links");
 const progressValue = document.getElementById("admin-project-progress-value");
 const progressBar = document.getElementById("admin-project-progress-bar");
 const milestoneList = document.getElementById("admin-project-milestones");
@@ -65,18 +64,6 @@ function selectedMilestones() {
     .sort((a, b) => a.sequence_number - b.sequence_number);
 }
 
-function selectedOnboarding() {
-  return onboardings.find((onboarding) =>
-    onboarding.project_id === selectedProject?.id
-    || onboarding.proposal_id === selectedProject?.proposal_id
-  );
-}
-
-function selectedProposal() {
-  return proposals.find((proposal) => proposal.project_id === selectedProject?.id)
-    || proposals.find((proposal) => proposal.id === selectedProject?.proposal_id);
-}
-
 function renderOptions() {
   projectSelect.innerHTML = projects.length
     ? projects.map((project) => `<option value="${project.id}">${escapeHtml(project.name)} · ${escapeHtml(formatLabel(project.status))}</option>`).join("")
@@ -117,18 +104,6 @@ function renderMilestones() {
   `).join("");
 }
 
-function renderLinks() {
-  const proposal = selectedProposal();
-  const onboarding = selectedOnboarding();
-  const website = relation(selectedProject.client_websites);
-  linksElement.innerHTML = [
-    `<a class="portal-button portal-button-secondary" href="/project-workspace/?project=${encodeURIComponent(selectedProject.id)}">Client view</a>`,
-    proposal ? `<a class="portal-button portal-button-secondary" href="/n3xra-admin/proposals/?proposal=${encodeURIComponent(proposal.id)}">Proposal</a>` : "",
-    onboarding ? `<a class="portal-button portal-button-secondary" href="/n3xra-admin/onboarding/?onboarding=${encodeURIComponent(onboarding.id)}">Onboarding</a>` : "",
-    website ? `<a class="portal-button portal-button-secondary" href="/n3xra-admin/websites/?website=${encodeURIComponent(website.id)}">Website</a>` : "",
-  ].filter(Boolean).join("");
-}
-
 function renderProjectControls() {
   const completed = selectedProject?.status === "completed";
   const closed = selectedProject?.status === "archived";
@@ -157,7 +132,6 @@ function renderWorkspace() {
   document.getElementById("admin-project-next-step").value = selectedProject.admin_next_step || "";
   renderWebsiteOptions();
   renderMilestones();
-  renderLinks();
   renderProjectControls();
 }
 

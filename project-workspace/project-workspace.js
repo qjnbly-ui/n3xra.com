@@ -15,7 +15,6 @@ const progressBar = document.getElementById("project-progress-bar");
 const currentStage = document.getElementById("project-current-stage");
 const startDate = document.getElementById("project-start-date");
 const launchDate = document.getElementById("project-launch-date");
-const actions = document.getElementById("project-actions");
 const roadmap = document.getElementById("project-roadmap");
 const nextStepTitle = document.getElementById("project-next-step-title");
 const nextStep = document.getElementById("project-next-step");
@@ -102,17 +101,6 @@ function renderOptions() {
   projectSelect.hidden = !websites.length;
 }
 
-function renderActions() {
-  const proposal = currentProposal();
-  const onboarding = currentOnboarding();
-  const website = relation(selectedProject.client_websites);
-  actions.innerHTML = [
-    proposal ? `<a class="portal-button portal-button-secondary" href="/proposals/?proposal=${encodeURIComponent(proposal.id)}">View proposal</a>` : "",
-    onboarding ? `<a class="portal-button portal-button-secondary" href="/website-onboarding/?onboarding=${encodeURIComponent(onboarding.id)}">Open onboarding</a>` : "",
-    website ? `<a class="portal-button" href="/client-portal/?website=${encodeURIComponent(website.id)}">Manage website</a>` : "",
-  ].filter(Boolean).join("");
-}
-
 function renderRoadmap() {
   const onboarding = currentOnboarding();
   roadmap.innerHTML = currentProjectMilestones().map((milestone) => {
@@ -184,7 +172,6 @@ function renderWorkspace() {
     || milestone?.client_note
     || milestone?.client_description
     || "N3XRA will update this workspace as your project moves forward.";
-  renderActions();
   renderRoadmap();
   renderReference();
 }

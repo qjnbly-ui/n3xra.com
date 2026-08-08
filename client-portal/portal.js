@@ -2,18 +2,13 @@ import { createBrowserSupabase, getSessionOrNull, hasConfig } from "/shared/lib/
 import { readWorkspaceContext, writeWorkspaceContext } from "/client-portal/workspace-context.js";
 import { renderPdfFirstPage } from "/shared/lib/file-preview.js";
 import { openAssetPreview } from "/client-portal/asset-preview-modal.js?v=1";
+import { resolveWebsiteUrl } from "/client-portal/website-url.js";
 
 const PRIVATE_BUCKET = "website-assets-private";
 const statusScreen = document.getElementById("portal-status");
 const logoutButton = document.getElementById("portal-logout");
 const websiteSelect = document.getElementById("website-select");
 const filesWebsiteSelect = document.getElementById("files-website-select");
-const websiteSummary = document.getElementById("website-summary");
-const websiteName = document.getElementById("website-name");
-const websiteRole = document.getElementById("website-role");
-const websiteStatus = document.getElementById("website-status");
-const websiteDomain = document.getElementById("website-domain");
-const websiteLiveLink = document.getElementById("website-live-link");
 const filesWebsiteName = document.getElementById("files-website-name");
 const filesLiveLink = document.getElementById("files-live-link");
 const portalViewButtons = Array.from(document.querySelectorAll("[data-portal-view]"));
@@ -53,8 +48,8 @@ const newAssetFields = Array.from(document.querySelectorAll("[data-new-asset-fie
 let supabase = null;
 let currentSession = null;
 let websites = [];
+let websiteDomains = [];
 let selectedWebsite = null;
-let selectedRole = "";
 let canEditSelectedWebsite = false;
 let assets = [];
 let versions = [];
@@ -62,7 +57,7 @@ let selectedAssetCategory = "";
 const selectedClientVersionIds = new Set();
 let batchItems = [];
 let batchReviewIndex = 0;
-let activePortalView = "overview";
+let activePortalView = "files";
 let toastTimer;
 const isAssetsRoute = document.body.classList.contains("client-assets-view")
   || document.body.dataset.portalView === "assets"
@@ -70,7 +65,7 @@ const isAssetsRoute = document.body.classList.contains("client-assets-view")
   || new URLSearchParams(window.location.search).get("view") === "files";
 
 function showPortalView(view) {
-  const nextView = portalViewPanels.some((panel) => panel.dataset.portalPanel === view) ? view : "overview";
+  const nextView = portalViewPanels.some((panel) => panel.dataset.portalPanel === view) ? view : "files";
   activePortalView = nextView;
   portalViewButtons.forEach((button) => {
     const isCurrent = button.dataset.portalView === nextView;
@@ -142,30 +137,9 @@ function formatDate(value) {
   return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
 }
 
-function displayHostname(value) {
-  if (!value) return "";
-  try {
-    return new URL(value).hostname.replace(/^www\./, "");
-  } catch {
-    return String(value);
-  }
-}
-
 function formatLabel(value, fallback = "") {
   const label = String(value || fallback).replaceAll("_", " ").trim();
   return label ? label.replace(/\b\w/g, (character) => character.toUpperCase()) : "";
-}
-
-function formatAccessRole(value) {
-  const normalized = String(value || "").toLowerCase().replaceAll("_", " ").trim();
-  const labels = {
-    "platform admin": "Full access",
-    owner: "Owner",
-    manager: "Manager",
-    editor: "Editor",
-    viewer: "View only",
-  };
-  return labels[normalized] || formatLabel(normalized, "Website access");
 }
 
 function formatBytes(value) {
@@ -397,20 +371,21 @@ function syncNewAssetFields() {
 }
 
 async function loadWebsites() {
-  const { data, error } = await supabase
-    .from("client_websites")
-    .select("id,name,slug,live_url,status,website_members(role,status,user_id)")
-    .order("name");
-  if (error) throw error;
+  const [websiteResult, domainResult] = await Promise.all([
+    supabase.from("client_websites").select("id,name,slug,live_url,status,website_members(role,status,user_id)").order("name"),
+    supabase.from("website_domains").select("website_id,domain_name,is_primary").order("is_primary", { ascending: false }),
+  ]);
+  if (websiteResult.error) throw websiteResult.error;
+  if (domainResult.error) throw domainResult.error;
 
-  websites = data || [];
+  websites = websiteResult.data || [];
+  websiteDomains = domainResult.data || [];
   websiteSelect.innerHTML = websites.length
     ? websites.map((website) => `<option value="${website.id}">${escapeHtml(website.name)}</option>`).join("")
     : '<option value="">No websites assigned</option>';
   if (filesWebsiteSelect) filesWebsiteSelect.innerHTML = websiteSelect.innerHTML;
 
   if (!websites.length) {
-    websiteSummary.hidden = true;
     assetToolbar.hidden = true;
     filesWebsiteName.textContent = "No website selected";
     filesLiveLink.hidden = true;
@@ -442,28 +417,16 @@ async function selectWebsite(websiteId) {
       ? { projectId: null, requestId: null, proposalId: null, onboardingId: null }
       : {}),
   });
-  const membership = (selectedWebsite.website_members || []).find((row) => row.user_id === currentSession.user.id && row.status === "active");
-  selectedRole = membership?.role || "platform admin";
-
   const { data: canEdit, error: accessError } = await supabase.rpc("can_edit_client_website", {
     target_website_id: selectedWebsite.id,
   });
   if (accessError) throw accessError;
   canEditSelectedWebsite = Boolean(canEdit);
 
-  websiteName.textContent = selectedWebsite.name;
-  websiteRole.textContent = formatAccessRole(selectedRole);
-  websiteStatus.textContent = formatLabel(selectedWebsite.status, "Website project");
-  websiteStatus.dataset.status = String(selectedWebsite.status || "").toLowerCase();
-  websiteDomain.textContent = displayHostname(selectedWebsite.live_url);
-  websiteDomain.href = selectedWebsite.live_url || "#";
-  websiteDomain.hidden = !selectedWebsite.live_url;
-  websiteLiveLink.href = selectedWebsite.live_url || "#";
-  websiteLiveLink.hidden = !selectedWebsite.live_url;
+  const websiteUrl = resolveWebsiteUrl(selectedWebsite, websiteDomains);
   filesWebsiteName.textContent = selectedWebsite.name;
-  filesLiveLink.href = selectedWebsite.live_url || "#";
-  filesLiveLink.hidden = !selectedWebsite.live_url;
-  websiteSummary.hidden = false;
+  filesLiveLink.href = websiteUrl || "#";
+  filesLiveLink.hidden = !websiteUrl;
   assetToolbar.hidden = false;
   openUploadButton.hidden = !canEditSelectedWebsite;
   closeUploadForm();
@@ -927,7 +890,7 @@ async function initPortal() {
           ? "support"
         : window.location.hash === "#new-project"
           ? "new-request"
-          : "overview"
+          : "files"
     );
     document.body.classList.remove("portal-loading");
     statusScreen.hidden = true;
@@ -944,7 +907,7 @@ async function initPortal() {
       if (isAssetsRoute || window.location.hash === "#files-assets") showPortalView("files");
       else if (window.location.hash === "#support") showPortalView("support");
       else if (window.location.hash === "#new-project") showPortalView("new-request");
-      else showPortalView("overview");
+      else showPortalView("files");
     });
     openUploadButton.addEventListener("click", () => openUploadForm("", { chooseFile: true }));
     closeUploadButton.addEventListener("click", closeUploadForm);
