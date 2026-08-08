@@ -122,6 +122,22 @@ function renderProgress(answers = collectAnswers()) {
   progressLabel.textContent = `${completion}% complete`;
   progressBar.style.width = `${completion}%`;
   progressBar.parentElement.setAttribute("aria-label", `${completion}% complete`);
+  sections.forEach((section) => {
+    const button = document.querySelector(`[data-section="${section}"]`);
+    if (!button) return;
+    let sectionCompletion = 0;
+    if (["business", "brand", "content", "technical", "legal"].includes(section)) {
+      const controls = Array.from(form.querySelectorAll(`[data-answer^="${section}."]`));
+      const filled = controls.filter((control) => control.value.trim()).length;
+      sectionCompletion = controls.length ? Math.round((filled / controls.length) * 100) : 0;
+    } else if (section === "files") {
+      sectionCompletion = files.some((file) => file.onboarding_id === selectedOnboarding?.id) ? 100 : 0;
+    } else if (section === "review") {
+      sectionCompletion = completion === 100 ? 100 : completion;
+    }
+    button.classList.toggle("is-complete", sectionCompletion === 100);
+    button.title = `${formatLabel(section)}: ${sectionCompletion}% complete`;
+  });
   return completion;
 }
 
@@ -150,7 +166,12 @@ function showSection(section) {
   previousButton.hidden = index === 0;
   nextButton.hidden = index === sections.length - 1;
   if (activeSection === "review") renderReview();
-  window.scrollTo({ top: Math.max(0, form.getBoundingClientRect().top + window.scrollY - 120), behavior: "smooth" });
+  const activePanel = form.querySelector(`[data-onboarding-section="${activeSection}"]`);
+  if (window.matchMedia("(max-width: 800px)").matches) {
+    window.scrollTo({ top: Math.max(0, form.getBoundingClientRect().top + window.scrollY - 120), behavior: "smooth" });
+  } else if (activePanel) {
+    activePanel.scrollTop = 0;
+  }
 }
 
 function setFormEditable(editable) {
