@@ -15,13 +15,18 @@
     },
     "android": {
       "package": "com.n3xra.admin",
-      "permissions": ["POST_NOTIFICATIONS"]
+      "permissions": [
+        "POST_NOTIFICATIONS"
+      ]
     },
-    "plugins": ["expo-notifications"],
+    "plugins": [
+      "expo-notifications"
+    ],
     "extra": {
       "eas": {
-        "projectId": "REPLACE_WITH_EXPO_PROJECT_ID"
+        "projectId": "f6b0bbe2-6691-4c95-b8d3-a4cfa7b3b37e"
       }
-    }
+    },
+    "owner": "n3xra"
   }
 }
