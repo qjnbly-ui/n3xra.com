@@ -2,13 +2,11 @@ import { createBrowserSupabase, hasConfig } from "/shared/lib/supabase-client.js
 import { readWorkspaceContext, writeWorkspaceContext } from "/client-portal/workspace-context.js";
 
 const ORGANIZATION_ROUTES = [
-  ["overview", "Overview", "/n3xra-admin/websites/"],
-  ["services", "Services & ownership", "/n3xra-admin/services/"],
-  ["proposals", "Proposals", "/n3xra-admin/proposals/"],
-  ["progress", "Project", "/n3xra-admin/projects/"],
-  ["onboarding", "Onboarding", "/n3xra-admin/onboarding/"],
-  ["assets", "Files & assets", "/n3xra-admin/assets/"],
-  ["billing", "Billing", "/n3xra-admin/billing/"],
+  [["overview"], "Overview", "/n3xra-admin/websites/"],
+  [["proposals", "progress", "onboarding"], "Project", "/n3xra-admin/projects/"],
+  [["assets"], "Files & assets", "/n3xra-admin/assets/"],
+  [["services"], "Services & ownership", "/n3xra-admin/services/"],
+  [["billing"], "Billing", "/n3xra-admin/billing/"],
 ];
 
 function escapeHtml(value = "") {
@@ -38,8 +36,8 @@ function renderShell(panel, pageKey) {
       <div id="website-admin-organization-links"></div>
     </section>
     <nav class="website-organization-navigation" aria-label="Selected organization sections">
-      <p>Organization sections</p>
-      ${ORGANIZATION_ROUTES.map(([key, label, href]) => `<a class="${key === pageKey ? "is-current" : ""}" href="${href}">${label}</a>`).join("")}
+      <p>Workspace</p>
+      ${ORGANIZATION_ROUTES.map(([keys, label, href]) => `<a class="${keys.includes(pageKey) ? "is-current" : ""}" href="${href}">${label}</a>`).join("")}
     </nav>
     <div class="website-organization-intake-link"><span>Not attached yet?</span><a href="/n3xra-admin/requests/">Open intake inbox</a></div>
   `;

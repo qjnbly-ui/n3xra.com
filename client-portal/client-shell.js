@@ -1,14 +1,17 @@
-import { initializeClientWorkspaceContext } from "/client-portal/client-workspace-context.js?v=1";
+import { initializeClientWorkspaceContext } from "/client-portal/client-workspace-context.js?v=2";
 
 const clientSections = [
   { key: "overview", label: "Overview", href: "/client-portal/", path: "/client-portal/", view: "overview" },
-  { key: "services", label: "Services & Ownership", href: "/client-portal/services/", path: "/client-portal/services/" },
-  { key: "progress", label: "Progress", href: "/project-workspace/", path: "/project-workspace/" },
-  { key: "proposals", label: "Proposals", href: "/proposals/", path: "/proposals/" },
-  { key: "onboarding", label: "Onboarding", href: "/website-onboarding/", path: "/website-onboarding/" },
+  { key: "project", label: "Project", href: "/project-workspace/", path: "/project-workspace/" },
   { key: "assets", label: "Files & Assets", href: "/client-portal/#files-assets", path: "/client-portal/", hash: "#files-assets", view: "files" },
+  { key: "services", label: "Services & Ownership", href: "/client-portal/services/", path: "/client-portal/services/" },
   { key: "billing", label: "Billing", href: "/client-portal/billing/", path: "/client-portal/billing/" },
-  { key: "support", label: "Support", href: "/client-portal/#support", path: "/client-portal/", hash: "#support", view: "support" },
+];
+
+const projectStageRoutes = [
+  ["proposals", "Proposal", "/proposals/"],
+  ["onboarding", "Onboarding", "/website-onboarding/"],
+  ["progress", "Progress", "/project-workspace/"],
 ];
 
 const routeDetails = {
@@ -39,6 +42,7 @@ function currentDetails() {
 }
 
 function isCurrentSection(section) {
+  if (section.key === "project" && ["/project-workspace/", "/proposals/", "/website-onboarding/"].includes(normalizePath(window.location.pathname))) return true;
   if (normalizePath(window.location.pathname) !== normalizePath(section.path)) return false;
   if (section.hash) return window.location.hash === section.hash;
   return section.path !== "/client-portal/" || !["#files-assets", "#support", "#new-project"].includes(window.location.hash);
@@ -63,7 +67,7 @@ function renderClientNavigation(layout) {
   `;
   const mobileNav = document.querySelector(".site-mobile-menu");
   if (mobileNav) {
-    mobileNav.innerHTML = `<div class="site-mobile-menu-head"><p class="site-mobile-menu-title">Website portal</p></div>${clientSections.map((section) => `<a class="site-menu-link${isCurrentSection(section) ? " is-current" : ""}" href="${section.href}">${section.label}</a>`).join("")}<a class="site-menu-link" href="/client-portal/#new-project">Start a new project</a>`;
+    mobileNav.innerHTML = `<div class="site-mobile-menu-head"><p class="site-mobile-menu-title">Website portal</p></div>${clientSections.map((section) => `<a class="site-menu-link${isCurrentSection(section) ? " is-current" : ""}" href="${section.href}">${section.label}</a>`).join("")}<a class="site-menu-link" href="/client-portal/#support">Support</a><a class="site-menu-link" href="/client-portal/#new-project">Start a new project</a>`;
   }
 }
 
@@ -103,7 +107,10 @@ function buildClientWorkspace() {
   content.className = "client-workspace-content-column";
   const bar = document.createElement("header");
   bar.className = "client-workspace-pagebar";
-  bar.innerHTML = '<div class="client-workspace-page-title"><p class="portal-kicker"></p><h1></h1><p class="client-workspace-page-description"></p></div>';
+  bar.innerHTML = '<div class="client-workspace-page-title"><p class="portal-kicker"></p><h1></h1><p class="client-workspace-page-description"></p></div><div class="client-workspace-page-actions"></div>';
+  if (["proposals", "onboarding", "progress"].includes(details.key)) {
+    bar.querySelector(".client-workspace-page-actions").innerHTML = `<nav class="website-project-stage-navigation" aria-label="Project stages">${projectStageRoutes.map(([key, label, href]) => `<a class="${key === details.key ? "is-current" : ""}" href="${href}">${label}</a>`).join("")}</nav>`;
+  }
   const scroll = document.createElement("div");
   scroll.className = "client-workspace-scroll-region";
   [...workspace.children].forEach((child) => scroll.append(child));

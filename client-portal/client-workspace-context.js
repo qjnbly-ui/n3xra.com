@@ -2,14 +2,11 @@ import { createBrowserSupabase, hasConfig } from "/shared/lib/supabase-client.js
 import { readWorkspaceContext, writeWorkspaceContext } from "/client-portal/workspace-context.js";
 
 const CLIENT_ROUTES = [
-  ["overview", "Overview", "/client-portal/"],
-  ["services", "Services & ownership", "/client-portal/services/"],
-  ["progress", "Progress", "/project-workspace/"],
-  ["proposals", "Proposals", "/proposals/"],
-  ["onboarding", "Onboarding", "/website-onboarding/"],
-  ["assets", "Files & assets", "/client-portal/#files-assets"],
-  ["billing", "Billing", "/client-portal/billing/"],
-  ["support", "Support", "/client-portal/#support"],
+  [["overview"], "Overview", "/client-portal/"],
+  [["proposals", "progress", "onboarding"], "Project", "/project-workspace/"],
+  [["assets"], "Files & assets", "/client-portal/#files-assets"],
+  [["services"], "Services & ownership", "/client-portal/services/"],
+  [["billing"], "Billing", "/client-portal/billing/"],
 ];
 
 const escapeHtml = (value = "") => String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
@@ -34,10 +31,10 @@ function renderShell(panel, pageKey) {
       <div id="client-organization-links"></div>
     </section>
     <nav class="website-organization-navigation" aria-label="Selected organization sections">
-      <p>Organization sections</p>
-      ${CLIENT_ROUTES.map(([key, label, href]) => `<a class="${key === pageKey ? "is-current" : ""}" href="${href}">${label}</a>`).join("")}
+      <p>Workspace</p>
+      ${CLIENT_ROUTES.map(([keys, label, href]) => `<a class="${keys.includes(pageKey) ? "is-current" : ""}" href="${href}">${label}</a>`).join("")}
     </nav>
-    <div class="website-organization-intake-link"><span>Need something new?</span><a href="/client-portal/#new-project">Start a new project</a></div>
+    <div class="website-organization-intake-link"><span>Workspace tools</span><a href="/client-portal/#support">Get support</a><a href="/client-portal/#new-project">Start a new project</a></div>
   `;
 }
 

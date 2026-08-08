@@ -1,4 +1,10 @@
-import { initializeWebsiteOrganizationContext } from "/n3xra-admin/website-admin-context.js?v=3";
+import { initializeWebsiteOrganizationContext } from "/n3xra-admin/website-admin-context.js?v=4";
+
+const projectStageRoutes = [
+  ["proposals", "Proposal", "/n3xra-admin/proposals/"],
+  ["onboarding", "Onboarding", "/n3xra-admin/onboarding/"],
+  ["progress", "Progress", "/n3xra-admin/projects/"],
+];
 
 const routeDetails = {
   "/n3xra-admin/websites/": { key: "overview", kicker: "Website Admin", title: "Overview", description: "Managed websites, client access, and connected project workspaces." },
@@ -73,10 +79,17 @@ function buildWorkspace(attempt = 0) {
   bar.querySelector("h1").textContent = title;
   bar.querySelector(".website-admin-page-description").textContent = details.description;
   const actions = bar.querySelector(".website-admin-page-actions");
+  if (["proposals", "onboarding", "progress"].includes(details.key)) {
+    const stageNavigation = document.createElement("nav");
+    stageNavigation.className = "website-project-stage-navigation";
+    stageNavigation.setAttribute("aria-label", "Project stages");
+    stageNavigation.innerHTML = projectStageRoutes.map(([key, label, href]) => `<a class="${key === details.key ? "is-current" : ""}" href="${href}">${label}</a>`).join("");
+    actions.append(stageNavigation);
+  }
 
   const pickerLabel = picker?.querySelector("label");
   if (pickerLabel) {
-    const organizationPicker = ["overview", "services", "billing"].includes(details.key);
+    const organizationPicker = details.key !== "requests";
     if (organizationPicker) {
       pickerLabel.classList.add("website-admin-native-context");
     } else {

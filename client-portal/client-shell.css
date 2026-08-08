@@ -1,4 +1,4 @@
-@import url("/n3xra-admin/website-admin.css?v=5");
+@import url("/n3xra-admin/website-admin.css?v=6");
 
 :root { --client-workspace-surface:#edf3f5; --client-workspace-panel:#fff; --client-workspace-border:#d9e1e5; }
 
@@ -27,6 +27,7 @@
 .client-workspace-content-column { display:flex; flex-direction:column; min-width:0; min-height:0; overflow:hidden; }
 .client-workspace-pagebar { flex:0 0 auto; min-height:116px; box-sizing:border-box; display:flex; align-items:center; justify-content:space-between; gap:1.5rem; padding:1.35rem 2rem; background:#fff; border-bottom:1px solid var(--portal-line); }
 .client-workspace-page-title { min-width:0; }
+.client-workspace-page-actions { display:flex; align-items:center; justify-content:flex-end; }
 .client-workspace-page-title .portal-kicker { margin:0 0 .42rem; }
 .client-workspace-page-title h1 { margin:0; font:700 clamp(1.55rem,2.4vw,2.05rem)/1.08 Fraunces,Georgia,serif; }
 .client-workspace-page-description { max-width:680px; margin:.38rem 0 0; color:var(--portal-muted); font-size:.74rem; line-height:1.45; }
@@ -80,7 +81,8 @@ body[data-client-workspace-view="assets"] .website-assets-client-site { display:
   .client-workspace-organization-panel .website-organization-navigation,
   .client-workspace-organization-panel .website-organization-intake-link { display:none; }
   .client-workspace-content-column { overflow:visible; }
-  .client-workspace-pagebar { min-height:0; padding:1.15rem; }
+  .client-workspace-pagebar { min-height:0; display:grid; align-items:start; padding:1.15rem; }
+  .client-workspace-page-actions { justify-content:flex-start; min-width:0; }
   .client-workspace-scroll-region { overflow:visible; padding:1rem 1rem 3rem; }
   body[data-client-workspace-view="assets"] .client-workspace-scroll-region { overflow:visible; }
   body[data-client-workspace-view="assets"] .client-workspace-scroll-region > .portal-view:not([hidden]),
