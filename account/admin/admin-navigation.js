@@ -335,7 +335,7 @@ export async function navigateAdminWorkspace(destination, { history = "push", de
       const notifications = await import("/account/notifications/notifications.js");
       await notifications.startNotifications();
     } else {
-      const admin = await import("/account/admin/admin.js");
+      const admin = await import("/account/admin/admin.js?v=25");
       await admin.startAdmin();
     }
   } finally {
