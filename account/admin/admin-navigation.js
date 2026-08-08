@@ -51,6 +51,7 @@ const productApps = [
 ];
 
 const resourceLinks = [
+  ["/account/admin/business-info/", "Business Information"],
   ["/account/admin/files/", "N3XRA Files"],
   ["/account/admin/business-framework/", "Business Framework"],
   ["/account/admin/codebase-ai/", "Codebase AI"],
@@ -252,15 +253,8 @@ export function renderAdminNavigation({ desktopScrollTop } = {}) {
 
 export function arrangeAdminWorkspace() {
   const main = document.querySelector("main.account-admin-page");
-  const layout = main?.querySelector(":scope > .portal-layout");
-  const heading = main?.querySelector(":scope > .portal-heading");
-  const workspace = layout?.querySelector(":scope > .portal-workspace");
-  if (heading && workspace) {
-    const pageName = heading.querySelector("h1")?.textContent?.trim() || "Admin";
-    heading.classList.add("admin-workspace-banner");
-    heading.innerHTML = `<p class="portal-kicker">N3XRA Administration</p><strong>${pageName}</strong><span>Platform workspace</span>`;
-    workspace.prepend(heading);
-  }
+  main?.querySelectorAll(":scope > .portal-heading, :scope > .portal-layout > .portal-workspace > .admin-workspace-banner")
+    .forEach((heading) => heading.remove());
 }
 
 function isWorkspaceUrl(url) {
@@ -335,7 +329,7 @@ export async function navigateAdminWorkspace(destination, { history = "push", de
       const notifications = await import("/account/notifications/notifications.js");
       await notifications.startNotifications();
     } else {
-      const admin = await import("/account/admin/admin.js?v=25");
+      const admin = await import("/account/admin/admin.js?v=26");
       await admin.startAdmin();
     }
   } finally {

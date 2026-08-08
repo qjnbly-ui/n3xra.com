@@ -11,13 +11,13 @@
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&amp;family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/site-nav.css">
   <link rel="stylesheet" href="/client-portal/portal.css?v=16">
-  <link rel="stylesheet" href="/account/admin/admin.css?v=12">
-  <link rel="stylesheet" href="/account/admin/operations/operations.css?v=8">
+  <link rel="stylesheet" href="/account/admin/admin.css?v=20">
+  <link rel="stylesheet" href="/account/admin/operations/operations.css?v=10">
   <script src="/shared/config.js"></script>
   <script src="/assets/vendor/xlsx.full.min.js" defer></script>
   <script src="/assets/site-nav.js" defer></script>
 </head>
-<body data-admin-view="operations">
+<body class="operations-admin-page" data-admin-view="operations">
   <header class="site-topbar">
     <div class="site-topbar-inner">
       <div class="site-topbar-row">
@@ -39,26 +39,8 @@
     <div class="portal-layout hidden" id="admin-panel">
       <nav class="portal-nav"></nav>
       <section class="portal-workspace operations-workspace">
-        <div class="portal-workspace-head">
-          <div>
-            <p class="portal-kicker">Internal financial operations</p>
-            <h2>N3XRA Operations</h2>
-            <p>Track company revenue, expenses, invoices, deposits, customers, projects, and financial accounts in one audit-friendly workspace.</p>
-          </div>
-          <div class="operations-head-actions">
-            <button class="portal-button portal-button-secondary" type="button" data-export="ledger">Export ledger</button>
-            <button class="portal-button portal-button-secondary" type="button" data-print-report>Print report</button>
-            <button class="portal-button" type="button" data-create="transaction">Record transaction</button>
-          </div>
-        </div>
-
-        <div class="operations-security-note">
-          <strong>N3XRA internal only</strong>
-          <span>Only authenticated platform administrators can read or change these records. Stripe revenue is synchronized; uploaded expenses remain unposted until an administrator approves them.</span>
-        </div>
-
         <nav class="operations-tabs" aria-label="Operations sections">
-          <button class="is-active" type="button" data-operations-view="overview">Overview</button>
+          <button class="is-active" type="button" data-operations-view="overview" aria-current="page">Overview</button>
           <button type="button" data-operations-view="ledger">Ledger</button>
           <button type="button" data-operations-view="invoices">Invoices</button>
           <button type="button" data-operations-view="directory">Customers &amp; projects</button>
@@ -68,6 +50,10 @@
         </nav>
 
         <section class="operations-view" data-operations-panel="overview">
+          <div class="operations-section-head">
+            <div><p class="portal-kicker">Financial summary</p><h3>Overview</h3><p>Review current balances, performance, and items that need attention.</p></div>
+            <button class="portal-button portal-button-secondary" type="button" data-print-report>Print report</button>
+          </div>
           <div class="operations-metrics">
             <article><span>Confirmed balances</span><strong id="ops-bank-balance">$0.00</strong><small id="ops-bank-balance-note">No financial accounts</small></article>
             <article><span>Outstanding invoices</span><strong id="ops-outstanding">$0.00</strong><small>Unpaid confirmed balance</small></article>
@@ -97,7 +83,10 @@
         <section class="operations-view" data-operations-panel="ledger" hidden>
           <div class="operations-section-head">
             <div><p class="portal-kicker">Company ledger</p><h3>Revenue and expenses</h3><p>Transactions remain in the history. Incorrect entries are voided rather than deleted.</p></div>
-            <button class="portal-button" type="button" data-create="transaction">Record transaction</button>
+            <div class="operations-head-actions">
+              <button class="portal-button portal-button-secondary" type="button" data-export="ledger">Export ledger</button>
+              <button class="portal-button" type="button" data-create="transaction">Record transaction</button>
+            </div>
           </div>
           <div class="operations-filters">
             <label>Search<input id="ops-ledger-search" type="search" placeholder="Description, customer, category, or reference"></label>
@@ -117,6 +106,9 @@
         </section>
 
         <section class="operations-view" data-operations-panel="directory" hidden>
+          <div class="operations-section-head">
+            <div><p class="portal-kicker">Business directory</p><h3>Customers, vendors, products, and projects</h3><p>Manage the records used to classify transactions, invoices, and delivery work.</p></div>
+          </div>
           <div class="operations-directory-grid">
             <article class="operations-card"><div class="operations-card-head"><div><p class="portal-kicker">Directory</p><h3>Customers &amp; vendors</h3></div><button class="portal-button portal-button-secondary" type="button" data-create="party">Add</button></div><div id="ops-party-list" class="operations-list"></div></article>
             <article class="operations-card"><div class="operations-card-head"><div><p class="portal-kicker">Offerings</p><h3>Products &amp; services</h3></div><button class="portal-button portal-button-secondary" type="button" data-create="product">Add</button></div><div id="ops-product-list" class="operations-list"></div></article>
@@ -125,6 +117,9 @@
         </section>
 
         <section class="operations-view" data-operations-panel="banking" hidden>
+          <div class="operations-section-head">
+            <div><p class="portal-kicker">Cash management</p><h3>Banking and deposits</h3><p>Track reconciled balances and match received cash to recorded deposits.</p></div>
+          </div>
           <div class="operations-directory-grid">
             <article class="operations-card"><div class="operations-card-head"><div><p class="portal-kicker">Reconciled balances</p><h3>Financial accounts</h3></div><button class="portal-button portal-button-secondary" type="button" data-create="account">Add</button></div><div id="ops-account-list" class="operations-list"></div></article>
             <article class="operations-card"><div class="operations-card-head"><div><p class="portal-kicker">Cash controls</p><h3>Deposits</h3></div><button class="portal-button portal-button-secondary" type="button" data-create="deposit">Add</button></div><div id="ops-deposit-list" class="operations-list"></div></article>
@@ -231,6 +226,6 @@
     </section>
   </dialog>
 
-  <script type="module" src="/account/admin/admin.js?v=25"></script>
+  <script type="module" src="/account/admin/admin.js?v=27"></script>
 </body>
 </html>

@@ -1,6 +1,6 @@
 import { createBrowserSupabase, getSessionOrNull, hasConfig } from "/shared/lib/supabase-client.js";
 import { isPlatformAdminEmail } from "/shared/lib/orgs.js";
-import { arrangeAdminWorkspace } from "/account/admin/admin-navigation.js?v=7";
+import { arrangeAdminWorkspace } from "/account/admin/admin-navigation.js?v=9";
 import { confirmAdminAction } from "/account/admin/admin-dialogs.js";
 import { initializeAdminSelects } from "/account/admin/admin-select.js?v=1";
 
@@ -1255,8 +1255,11 @@ async function loadAdminView() {
     });
     await loadAccounts();
   } else if (view === "files") {
-    const files = await import("/account/admin/files/files.js?v=17");
+    const files = await import("/account/admin/files/files.js?v=18");
     await files.startFiles({ supabase, session, invoke });
+  } else if (view === "business-info") {
+    const businessInformation = await import("/account/admin/business-info/business-info.js?v=1");
+    await businessInformation.startBusinessInformation({ invoke });
   } else if (view === "billing") {
     document.getElementById("billing-filter")?.addEventListener("input", renderBilling);
     document.getElementById("billing-product")?.addEventListener("change", renderBilling);
@@ -1269,7 +1272,7 @@ async function loadAdminView() {
     });
     await loadBilling();
   } else if (view === "operations") {
-    const operations = await import("/account/admin/operations/operations.js?v=10");
+    const operations = await import("/account/admin/operations/operations.js?v=11");
     await operations.startOperations({ supabase, session, invoke });
   } else if (view === "support") {
     document.getElementById("support-search")?.addEventListener("input", renderSupportOptions);

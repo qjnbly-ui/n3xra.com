@@ -163,6 +163,9 @@ function renderFolderTree() {
   const websiteRoot = folders.get("Websites") || { name: "Websites", path: "Websites", depth: 0, count: 0, protected: true };
   websiteRoot.protected = true;
   folders.set("Websites", websiteRoot);
+  const businessRecordsRoot = folders.get("Business Records") || { name: "Business Records", path: "Business Records", depth: 0, count: 0, protected: true };
+  businessRecordsRoot.protected = true;
+  folders.set("Business Records", businessRecordsRoot);
   fileState.websites.forEach((website) => {
     const existing = folders.get(website.folder_path) || { name: website.name, path: website.folder_path, depth: 1, count: 0 };
     existing.protected = true;
@@ -810,8 +813,11 @@ export async function startFiles({ supabase, session, invoke }) {
   fileSupabase = supabase;
   fileInvoke = invoke;
   fileUserId = session?.user?.id || null;
-  currentFolderPath = "";
+  const requestedFolder = new URLSearchParams(window.location.search).get("folder");
+  currentFolderPath = requestedFolder ? pathParts(requestedFolder).join("/") : "";
   expandedFolderPaths.clear();
+  const requestedParts = pathParts(currentFolderPath);
+  requestedParts.slice(0, -1).forEach((_, index) => expandedFolderPaths.add(requestedParts.slice(0, index + 1).join("/")));
   selectedFileKeys.clear();
   document.getElementById("n3xra-file-input")?.addEventListener("change", uploadFiles);
   document.getElementById("n3xra-folder-input")?.addEventListener("change", uploadFiles);

@@ -546,7 +546,12 @@ function renderAll() {
 }
 
 function showPanel(name) {
-  $$("[data-operations-view]").forEach((button) => button.classList.toggle("is-active", button.dataset.operationsView === name));
+  $$("[data-operations-view]").forEach((button) => {
+    const active = button.dataset.operationsView === name;
+    button.classList.toggle("is-active", active);
+    if (active) button.setAttribute("aria-current", "page");
+    else button.removeAttribute("aria-current");
+  });
   $$("[data-operations-panel]").forEach((panel) => { panel.hidden = panel.dataset.operationsPanel !== name; });
 }
 

@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>N3XRA | Business Information</title><meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
+  <link rel="icon" href="/assets/n3xra_logo_transparent_small.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&amp;family=Manrope:wght@400;600;700;800&amp;display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/site-nav.css"><link rel="stylesheet" href="/client-portal/portal.css?v=16"><link rel="stylesheet" href="/account/admin/admin.css?v=12"><link rel="stylesheet" href="/account/admin/business-info/business-info.css?v=1">
+  <script src="/shared/config.js"></script><script src="/assets/site-nav.js" defer></script>
+</head>
+<body data-admin-view="business-info" class="business-info-admin-page">
+  <header class="site-topbar"><div class="site-topbar-inner"><div class="site-topbar-row"><a class="site-brand" href="/"><img src="/assets/n3xra_logo_transparent_small.png" alt=""><span>N3XRA</span></a><div class="site-nav-actions"><a class="site-menu-link" href="/account">Dashboard</a><button class="site-menu-link portal-logout" id="admin-sign-out" type="button">Sign out</button><button class="site-menu-toggle" data-site-menu-toggle type="button" aria-controls="admin-menu" aria-expanded="false"><span></span><span></span><span></span></button></div></div><nav class="site-mobile-menu" id="admin-menu" hidden></nav></div></header>
+  <main class="portal-shell account-admin-page">
+    <section class="portal-heading"><div><p class="portal-kicker">N3XRA Administration</p><h1>Business Information</h1><p>Company identifiers, registration details, and supporting records in one private workspace.</p></div></section>
+    <section class="portal-workspace hidden" id="setup-panel"><div class="portal-workspace-head"><div><h2>Connect Supabase</h2><p>Add the browser project configuration to continue.</p></div></div></section>
+    <div class="portal-layout hidden" id="admin-panel">
+      <nav class="portal-nav"></nav>
+      <section class="portal-workspace business-info-workspace">
+        <div class="business-info-intro">
+          <div><p class="portal-kicker">Company record</p><h2>Everything you reach for often</h2><p>Keep official identifiers here and connect each item to its source document in N3XRA Files.</p></div>
+          <a class="portal-button portal-button-secondary" href="/account/admin/files/?folder=Business%20Records">Open Business Records</a>
+        </div>
+
+        <section class="business-quick-section" aria-labelledby="business-quick-heading">
+          <div class="business-section-heading"><div><p class="portal-kicker">Quick access</p><h3 id="business-quick-heading">Company identifiers</h3></div><p id="business-last-updated">Not saved yet</p></div>
+          <div class="business-quick-grid" id="business-quick-grid"></div>
+        </section>
+
+        <form class="business-profile-form" id="business-profile-form">
+          <section class="business-form-section">
+            <div class="business-form-heading"><span>01</span><div><h3>Legal identity</h3><p>Official company name, structure, and registration status.</p></div></div>
+            <div class="business-field-grid">
+              <label class="account-admin-field business-field-wide"><span>Legal business name</span><input name="legalName" autocomplete="organization" maxlength="240" placeholder="N3XRA LLC"></label>
+              <label class="account-admin-field"><span>Doing business as</span><input name="doingBusinessAs" maxlength="240" placeholder="N3XRA"></label>
+              <label class="account-admin-field"><span>Entity type</span><select name="entityType"><option value="">Select entity type</option><option>Limited Liability Company (LLC)</option><option>C Corporation</option><option>S Corporation</option><option>Sole Proprietorship</option><option>Partnership</option><option>Nonprofit Corporation</option><option>Other</option></select></label>
+              <label class="account-admin-field"><span>Business status</span><select name="businessStatus"><option value="">Select status</option><option>Active</option><option>Good Standing</option><option>Inactive</option><option>Dissolved</option></select></label>
+              <label class="account-admin-field"><span>Formation jurisdiction</span><input name="formationJurisdiction" maxlength="120" placeholder="California"></label>
+              <label class="account-admin-field"><span>Formation date</span><input name="formationDate" type="date"></label>
+              <label class="account-admin-field business-field-wide"><span>State registration / entity number</span><input name="stateRegistrationNumber" maxlength="80" placeholder="State-issued entity number"></label>
+            </div>
+          </section>
+
+          <section class="business-form-section">
+            <div class="business-form-heading"><span>02</span><div><h3>Government and vendor identifiers</h3><p>Numbers used for tax, credit, grants, and contracting.</p></div></div>
+            <div class="business-field-grid">
+              <label class="account-admin-field"><span>EIN</span><input name="ein" inputmode="numeric" maxlength="10" placeholder="12-3456789" aria-describedby="ein-help"><small id="ein-help">9 digits; saved in IRS format.</small></label>
+              <label class="account-admin-field"><span>D-U-N-S number</span><input name="dunsNumber" inputmode="numeric" maxlength="11" placeholder="123456789"><small>9-digit Dun &amp; Bradstreet identifier.</small></label>
+              <label class="account-admin-field"><span>Unique Entity ID (UEI)</span><input name="uniqueEntityId" maxlength="40" placeholder="SAM.gov UEI"></label>
+              <label class="account-admin-field"><span>CAGE code</span><input name="cageCode" maxlength="20" placeholder="Optional"></label>
+              <label class="account-admin-field business-field-wide"><span>NAICS code(s)</span><input name="naicsCodes" maxlength="300" placeholder="Separate multiple codes with commas"></label>
+            </div>
+          </section>
+
+          <section class="business-form-section">
+            <div class="business-form-heading"><span>03</span><div><h3>Contact and filing details</h3><p>Addresses and contacts used on applications and official forms.</p></div></div>
+            <div class="business-field-grid">
+              <label class="account-admin-field"><span>Website</span><input name="websiteUrl" type="url" maxlength="500" placeholder="https://www.n3xra.com"></label>
+              <label class="account-admin-field"><span>Business email</span><input name="businessEmail" type="email" maxlength="320" autocomplete="email"></label>
+              <label class="account-admin-field"><span>Business phone</span><input name="businessPhone" type="tel" maxlength="50" autocomplete="tel"></label>
+              <label class="account-admin-field"><span>Fiscal year end</span><input name="fiscalYearEnd" maxlength="80" placeholder="December 31"></label>
+              <label class="account-admin-field business-field-wide"><span>Principal business address</span><textarea name="principalAddress" rows="3" maxlength="1000" autocomplete="street-address"></textarea></label>
+              <label class="account-admin-field business-field-wide"><span>Mailing address</span><textarea name="mailingAddress" rows="3" maxlength="1000"></textarea></label>
+              <label class="account-admin-field business-field-wide"><span>Registered agent</span><textarea name="registeredAgent" rows="2" maxlength="500" placeholder="Name and registered-office address"></textarea></label>
+              <label class="account-admin-field business-field-wide"><span>Internal notes</span><textarea name="notes" rows="4" maxlength="5000" placeholder="Renewal dates, filing reminders, or other useful context"></textarea></label>
+            </div>
+          </section>
+
+          <div class="business-save-bar"><p>Only platform administrators can access this private record.</p><button class="portal-button" id="business-save-button" type="submit">Save business information</button></div>
+        </form>
+
+        <section class="business-documents-section" aria-labelledby="business-documents-heading">
+          <div class="business-section-heading"><div><p class="portal-kicker">Supporting records</p><h3 id="business-documents-heading">Linked N3XRA Files</h3><p>Attach formation papers, IRS letters, D-U-N-S confirmations, licenses, and related documents.</p></div><a href="/account/admin/files/?folder=Business%20Records">Manage all files</a></div>
+          <form class="business-attach-form" id="business-attach-form">
+            <label class="account-admin-field"><span>Document</span><select id="business-file-select" name="fileId" required><option value="">Choose a file</option></select></label>
+            <label class="account-admin-field"><span>Record type</span><select name="documentType"><option>Formation document</option><option>IRS / EIN record</option><option>D-U-N-S record</option><option>State registration</option><option>License or permit</option><option>Banking record</option><option>Insurance record</option><option>Other</option></select></label>
+            <button class="portal-button portal-button-secondary" id="business-attach-button" type="submit">Link file</button>
+          </form>
+          <div class="business-document-list" id="business-document-list"></div>
+        </section>
+        <p class="admin-status" id="admin-status" role="status" aria-live="polite"></p>
+      </section>
+    </div>
+  </main>
+  <script type="module" src="/account/admin/admin.js?v=26"></script>
+</body>
+</html>

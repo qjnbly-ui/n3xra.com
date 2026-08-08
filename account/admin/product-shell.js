@@ -1,4 +1,4 @@
-import { renderAdminNavigation } from "/account/admin/admin-navigation.js?v=7";
+import { renderAdminNavigation } from "/account/admin/admin-navigation.js?v=9";
 import { initializeAdminSelects } from "/account/admin/admin-select.js?v=1";
 
 function createNativeLayout(main) {

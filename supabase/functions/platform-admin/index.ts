@@ -51,6 +51,20 @@ function normalizePhone(value: unknown) {
   return /^[1-9][0-9]{7,14}$/.test(digits) ? `+${digits}` : "";
 }
 
+function normalizeEin(value: unknown) {
+  const input = String(value || "").trim();
+  if (!input) return "";
+  const digits = input.replace(/\D/g, "");
+  return digits.length === 9 ? `${digits.slice(0, 2)}-${digits.slice(2)}` : "";
+}
+
+function normalizeDuns(value: unknown) {
+  const input = String(value || "").trim();
+  if (!input) return "";
+  const digits = input.replace(/\D/g, "");
+  return digits.length === 9 ? digits : "";
+}
+
 function normalizeProduct(value: unknown) {
   const product = String(value || "records").trim().toLowerCase();
   return PRODUCT_LABELS[product] ? product : "records";
@@ -996,6 +1010,131 @@ Deno.serve(async (request) => {
       if (deleteError) return jsonResponse({ error: deleteError.message }, 400);
       if (!deletedReview) return jsonResponse({ error: "The saved intake was not found." }, 404);
       return jsonResponse({ ok: true, deletedId: deletedReview.id });
+    }
+
+    if (action === "get-business-information") {
+      const [{ data: profile, error: profileError }, { data: links, error: linksError }] = await Promise.all([
+        adminClient.from("n3xra_business_information").select("*").eq("id", 1).maybeSingle(),
+        adminClient
+          .from("n3xra_business_file_links")
+          .select("id,file_id,document_type,created_at,file:n3xra_files(id,name,mime_type,size_bytes,created_at)")
+          .eq("business_information_id", 1)
+          .order("created_at", { ascending: false }),
+      ]);
+      if (profileError || linksError) {
+        return jsonResponse({ error: profileError?.message || linksError?.message || "Unable to load business information." }, 400);
+      }
+      const fileIds = (links || []).map((link) => String(link.file_id || "")).filter(isValidUuid);
+      const { data: access, error: accessError } = fileIds.length
+        ? await adminClient.from("n3xra_file_access").select("file_id").eq("user_id", user.id).in("file_id", fileIds)
+        : { data: [], error: null };
+      if (accessError) return jsonResponse({ error: accessError.message }, 400);
+      const allowedFileIds = new Set((access || []).map((grant) => String(grant.file_id)));
+      return jsonResponse({
+        ok: true,
+        profile: profile || { id: 1 },
+        fileLinks: (links || []).filter((link) => allowedFileIds.has(String(link.file_id))),
+      });
+    }
+
+    if (action === "save-business-information") {
+      const einInput = String(payload.ein || "").trim();
+      const dunsInput = String(payload.dunsNumber || "").trim();
+      const ein = normalizeEin(einInput);
+      const dunsNumber = normalizeDuns(dunsInput);
+      if (einInput && !ein) return jsonResponse({ error: "EIN must contain exactly 9 digits." }, 400);
+      if (dunsInput && !dunsNumber) return jsonResponse({ error: "D-U-N-S number must contain exactly 9 digits." }, 400);
+      const formationDate = String(payload.formationDate || "").trim();
+      if (formationDate && !/^\d{4}-\d{2}-\d{2}$/.test(formationDate)) {
+        return jsonResponse({ error: "Formation date must be a valid date." }, 400);
+      }
+      const businessEmail = normalizeEmail(payload.businessEmail);
+      if (businessEmail && !isValidEmail(businessEmail)) {
+        return jsonResponse({ error: "Enter a valid business email address." }, 400);
+      }
+      const websiteUrl = textValue(payload.websiteUrl, 500);
+      if (websiteUrl) {
+        try {
+          const parsedWebsite = new URL(websiteUrl);
+          if (!["http:", "https:"].includes(parsedWebsite.protocol)) throw new Error("Invalid protocol");
+        } catch {
+          return jsonResponse({ error: "Enter a complete business website URL beginning with http:// or https://." }, 400);
+        }
+      }
+      const profile = {
+        id: 1,
+        legal_name: textValue(payload.legalName, 240) || null,
+        doing_business_as: textValue(payload.doingBusinessAs, 240) || null,
+        entity_type: textValue(payload.entityType, 120) || null,
+        business_status: textValue(payload.businessStatus, 80) || null,
+        formation_jurisdiction: textValue(payload.formationJurisdiction, 120) || null,
+        formation_date: formationDate || null,
+        ein: ein || null,
+        duns_number: dunsNumber || null,
+        unique_entity_id: textValue(payload.uniqueEntityId, 40).toUpperCase() || null,
+        cage_code: textValue(payload.cageCode, 20).toUpperCase() || null,
+        state_registration_number: textValue(payload.stateRegistrationNumber, 80) || null,
+        naics_codes: textValue(payload.naicsCodes, 300) || null,
+        website_url: websiteUrl || null,
+        business_email: businessEmail || null,
+        business_phone: textValue(payload.businessPhone, 50) || null,
+        principal_address: textValue(payload.principalAddress, 1000) || null,
+        mailing_address: textValue(payload.mailingAddress, 1000) || null,
+        registered_agent: textValue(payload.registeredAgent, 500) || null,
+        fiscal_year_end: textValue(payload.fiscalYearEnd, 80) || null,
+        notes: textValue(payload.notes, 5000) || null,
+        updated_by: user.id,
+      };
+      const { data: saved, error: saveError } = await adminClient
+        .from("n3xra_business_information")
+        .upsert(profile, { onConflict: "id" })
+        .select("*")
+        .single();
+      if (saveError) return jsonResponse({ error: saveError.message }, 400);
+      return jsonResponse({ ok: true, profile: saved });
+    }
+
+    if (action === "attach-business-file") {
+      const fileId = String(payload.fileId || "").trim();
+      if (!isValidUuid(fileId)) return jsonResponse({ error: "Choose a valid N3XRA file." }, 400);
+      const { data: access, error: accessError } = await adminClient
+        .from("n3xra_file_access")
+        .select("file_id")
+        .eq("file_id", fileId)
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (accessError || !access) return jsonResponse({ error: "You do not have access to that file." }, 403);
+      const { data: link, error: linkError } = await adminClient
+        .from("n3xra_business_file_links")
+        .upsert({
+          business_information_id: 1,
+          file_id: fileId,
+          document_type: textValue(payload.documentType, 100) || null,
+          created_by: user.id,
+        }, { onConflict: "business_information_id,file_id" })
+        .select("id,file_id,document_type,created_at")
+        .single();
+      if (linkError) return jsonResponse({ error: linkError.message }, 400);
+      return jsonResponse({ ok: true, fileLink: link });
+    }
+
+    if (action === "detach-business-file") {
+      const fileId = String(payload.fileId || "").trim();
+      if (!isValidUuid(fileId)) return jsonResponse({ error: "A valid linked file is required." }, 400);
+      const { data: access, error: accessError } = await adminClient
+        .from("n3xra_file_access")
+        .select("file_id")
+        .eq("file_id", fileId)
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (accessError || !access) return jsonResponse({ error: "You do not have access to that file." }, 403);
+      const { error: deleteError } = await adminClient
+        .from("n3xra_business_file_links")
+        .delete()
+        .eq("business_information_id", 1)
+        .eq("file_id", fileId);
+      if (deleteError) return jsonResponse({ error: deleteError.message }, 400);
+      return jsonResponse({ ok: true });
     }
 
     if (action === "list-n3xra-files") {

@@ -18,7 +18,7 @@
   </script>
   <script defer src="/_vercel/insights/script.js"></script>
   <link rel="stylesheet" href="/account/admin/admin.css?v=11">
-  <link rel="stylesheet" href="/n3xra-admin/website-admin.css?v=6">
+  <link rel="stylesheet" href="/n3xra-admin/website-admin.css?v=7">
   <script type="module" src="/account/admin/product-shell.js?v=4"></script>
   <script type="module" src="/n3xra-admin/website-admin-workspace.js?v=7"></script>
 </head>
@@ -63,7 +63,7 @@
           <button class="portal-button portal-button-secondary" id="refresh-onboarding-admin" type="button">Refresh</button>
         </div>
 
-        <section class="portal-admin-onboarding-queue">
+        <section class="portal-admin-onboarding-queue" id="approved-proposal-queue" hidden>
           <div class="portal-toolbar">
             <div><h3>Approved proposals</h3><p>Onboarding can be opened only for an approved proposal.</p></div>
           </div>
@@ -113,6 +113,6 @@
 
   <div class="portal-status" id="portal-status" role="status">Verifying onboarding administration…</div>
   <script type="module" src="/client-portal/portal-shell.js"></script>
-  <script type="module" src="/n3xra-admin/onboarding/onboarding-admin.js?v=2"></script>
+  <script type="module" src="/n3xra-admin/onboarding/onboarding-admin.js?v=3"></script>
 </body>
 </html>

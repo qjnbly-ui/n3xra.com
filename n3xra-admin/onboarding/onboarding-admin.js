@@ -13,6 +13,7 @@ const sectionLabels = {
 };
 
 const statusScreen = document.getElementById("portal-status");
+const proposalQueue = document.getElementById("approved-proposal-queue");
 const proposalList = document.getElementById("approved-proposal-list");
 const onboardingSelect = document.getElementById("admin-onboarding-select");
 const onboardingState = document.getElementById("admin-onboarding-state");
@@ -58,6 +59,7 @@ function formatAnswer(value) {
 }
 
 function renderProposalQueue() {
+  proposalQueue.hidden = !approvedProposals.length;
   const onboardingByProposal = new Map(onboardings.map((onboarding) => [onboarding.proposal_id, onboarding]));
   proposalList.innerHTML = approvedProposals.length ? approvedProposals.map((proposal) => {
     const onboarding = onboardingByProposal.get(proposal.id)

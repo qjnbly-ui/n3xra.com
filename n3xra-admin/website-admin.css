@@ -108,6 +108,38 @@
 .website-admin-scroll-region .portal-form[hidden],
 .website-admin-scroll-region [hidden] { display:none; }
 
+/* Project stages are full workspaces, not cards floating inside the page. */
+.website-admin-view-progress .website-admin-scroll-region,
+.website-admin-view-onboarding .website-admin-scroll-region,
+.website-admin-view-proposals .website-admin-scroll-region { height:100%; padding:0; background:#fff; }
+.website-admin-view-progress .website-admin-scroll-region > .portal-admin-picker,
+.website-admin-view-onboarding .website-admin-scroll-region > .portal-admin-picker,
+.website-admin-view-proposals .website-admin-scroll-region > .portal-admin-picker { min-height:42px; margin:0; padding:.55rem 1.5rem; box-sizing:border-box; background:#f8fafb; border:0; border-bottom:1px solid var(--website-admin-border); }
+.website-admin-view-progress .portal-admin-picker > div,
+.website-admin-view-onboarding .portal-admin-picker > div,
+.website-admin-view-proposals .portal-admin-picker > div,
+.website-admin-view-proposals .portal-proposal-state { padding:0; }
+
+.website-admin-view-progress .portal-project-admin-form { min-height:100%; margin:0; align-content:start; background:#fff; }
+.website-admin-view-progress .portal-project-admin-settings,
+.website-admin-view-progress .portal-project-admin-milestones,
+.website-admin-view-progress .portal-project-admin-controls { border-width:0 0 1px; }
+.website-admin-view-progress .portal-project-savebar { bottom:0; margin:0; padding:1rem 1.5rem; background:rgba(255,255,255,.97); border:0; border-top:1px solid var(--website-admin-border); border-radius:0; box-shadow:none; }
+
+.website-admin-view-onboarding .website-admin-scroll-region .portal-admin-onboarding-queue { margin:0; border-width:0 0 1px; }
+.website-admin-view-onboarding #admin-onboarding-workspace { min-height:100%; margin:0; align-content:start; background:#fff; }
+.website-admin-view-onboarding .portal-onboarding-overview { margin:0; border-width:0 0 1px; }
+.website-admin-view-onboarding .portal-admin-onboarding-grid { border:0; }
+.website-admin-view-onboarding .portal-admin-onboarding-grid > section { border-right:1px solid var(--website-admin-border); }
+.website-admin-view-onboarding #admin-onboarding-review-form { margin:1.35rem -1.35rem -1.35rem; padding:1.35rem; background:#f8fafb; border-width:1px 0 0; border-radius:0; }
+
+.website-admin-view-proposals .portal-intake-summary { margin:0; padding:1.25rem 2rem; border-width:0 0 1px; border-radius:0; }
+.website-admin-view-proposals .portal-proposal-form { min-height:100%; margin:0; padding:1.35rem 2rem 0; box-sizing:border-box; background:#fff; border:0; border-radius:0; }
+.website-admin-view-proposals .portal-proposal-actions { bottom:0; z-index:15; margin:1.35rem -2rem 0; padding:1rem 2rem; background:rgba(255,255,255,.97); border:0; border-top:1px solid var(--website-admin-border); border-radius:0; box-shadow:none; }
+.website-admin-view-progress .portal-empty,
+.website-admin-view-onboarding .portal-empty,
+.website-admin-view-proposals .portal-empty { min-height:calc(100% - 42px); margin:0; border:0; border-radius:0; }
+
 /* Files remain inside the selected organization while retaining their folder browser. */
 .website-admin-view-assets .website-admin-assets-frame .website-assets-manager { height:100%; min-height:0; }
 .website-admin-view-assets .website-assets-site-picker,
@@ -229,6 +261,12 @@
   .website-admin-context-select { width:100%; min-width:0; }
   .website-admin-scroll-region { overflow:visible; padding:1rem 1rem 3rem; }
   .website-admin-view-requests .website-admin-scroll-region { padding:0; }
+  .website-admin-view-progress .website-admin-scroll-region,
+  .website-admin-view-onboarding .website-admin-scroll-region,
+  .website-admin-view-proposals .website-admin-scroll-region { padding:0; }
+  .website-admin-view-onboarding .portal-admin-onboarding-grid > section { border-right:0; border-bottom:1px solid var(--website-admin-border); }
+  .website-admin-view-proposals .portal-proposal-form { padding-right:1rem; padding-left:1rem; }
+  .website-admin-view-proposals .portal-proposal-actions { position:static; margin-right:-1rem; margin-left:-1rem; padding:1rem; }
   .website-request-command-head { align-items:start; padding:1.1rem; }
   .website-request-counts { display:none; }
   .website-request-filters { padding:0 1.1rem; }

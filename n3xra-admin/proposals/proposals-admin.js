@@ -510,12 +510,24 @@ async function loadData(preferredRequestId) {
   renderRequestOptions();
   const params = new URLSearchParams(window.location.search);
   const explicitProposal = proposals.find((proposal) => proposal.id === params.get("proposal"));
-  const requested = preferredRequestId || explicitProposal?.request_id || params.get("request") || context.requestId;
+  const contextualProposal = explicitProposal
+    || proposals.find((proposal) => proposal.id === context.proposalId)
+    || proposals.find((proposal) => proposal.project_id && proposal.project_id === context.projectId)
+    || (proposals.length === 1 ? proposals[0] : undefined);
+  const requested = preferredRequestId
+    || explicitProposal?.request_id
+    || params.get("request")
+    || context.requestId
+    || contextualProposal?.request_id;
   selectedRequest = requests.find((request) => request.id === requested)
+    || requests.find((request) => request.id === contextualProposal?.request_id)
+    || (requests.length === 1 ? requests[0] : undefined)
     || (!context.websiteId && !context.projectId ? requests[0] : undefined);
   if (selectedRequest) requestSelect.value = selectedRequest.id;
   else requestSelect.selectedIndex = -1;
-  selectedProposal = proposals.find((proposal) => proposal.request_id === selectedRequest?.id);
+  selectedProposal = contextualProposal?.request_id === selectedRequest?.id
+    ? contextualProposal
+    : proposals.find((proposal) => proposal.request_id === selectedRequest?.id);
   if (selectedRequest) writeWorkspaceContext("admin", currentUser.id, {
     requestId: selectedRequest.id,
     proposalId: selectedProposal?.id,
