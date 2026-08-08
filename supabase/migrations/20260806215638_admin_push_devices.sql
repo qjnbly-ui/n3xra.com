@@ -17,6 +17,12 @@ where disabled_at is null;
 
 alter table public.admin_push_devices enable row level security;
 
+drop policy if exists "admin_push_devices_select_own" on public.admin_push_devices;
+create policy "admin_push_devices_select_own"
+on public.admin_push_devices
+for select to authenticated
+using (user_id = auth.uid() and public.is_platform_admin());
+
 drop policy if exists "admin_push_devices_insert_own" on public.admin_push_devices;
 create policy "admin_push_devices_insert_own"
 on public.admin_push_devices

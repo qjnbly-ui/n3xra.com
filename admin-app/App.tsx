@@ -48,7 +48,13 @@ export default function App() {
     loadNotifications();
     registerForPushNotifications(sessionUser.id).catch((error) => setStatus(error.message));
     notificationListener.current = Notifications.addNotificationReceivedListener(() => loadNotifications());
-    return () => notificationListener.current?.remove();
+    const channel = supabase?.channel("admin-notifications-live")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "admin_notifications" }, () => loadNotifications())
+      .subscribe();
+    return () => {
+      notificationListener.current?.remove();
+      if (channel) supabase?.removeChannel(channel);
+    };
   }, [sessionUser]);
 
   async function signIn() {
