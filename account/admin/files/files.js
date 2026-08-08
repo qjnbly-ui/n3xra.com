@@ -132,6 +132,10 @@ function selectedFiles() {
   return fileState.files.filter((file) => selectedFileKeys.has(fileSelectionKey(file)));
 }
 
+function publishedUrl(file) {
+  return file.cdn_url || file.public_url || "";
+}
+
 function isUnderPath(parts, parentParts) {
   return parentParts.every((part, index) => parts[index] === part);
 }
@@ -200,18 +204,22 @@ function renderFileSelectionActions() {
   const status = document.getElementById("n3xra-file-selection-status");
   const clearButton = document.getElementById("n3xra-clear-selection");
   const downloadButton = document.getElementById("n3xra-download-selected");
+  const publishButton = document.getElementById("n3xra-publish-selected");
   const copyButton = document.getElementById("n3xra-copy-selected-links");
   const deleteButton = document.getElementById("n3xra-delete-selected");
-  if (!toolbar || !status || !clearButton || !downloadButton || !copyButton || !deleteButton) return;
+  if (!toolbar || !status || !clearButton || !downloadButton || !publishButton || !copyButton || !deleteButton) return;
   const availableKeys = new Set(fileState.files.map(fileSelectionKey));
   [...selectedFileKeys].forEach((key) => { if (!availableKeys.has(key)) selectedFileKeys.delete(key); });
   const selected = selectedFiles();
-  const publishedCount = selected.filter((file) => file.public_url).length;
+  const publishableCount = selected.filter((file) => file.source !== "website" && !file.cdn_url).length;
+  const publishedCount = selected.filter((file) => publishedUrl(file)).length;
   toolbar.hidden = selected.length === 0;
   clearButton.hidden = selected.length === 0;
   downloadButton.hidden = selected.length === 0;
   status.textContent = `${selected.length} file${selected.length === 1 ? "" : "s"} selected`;
   downloadButton.textContent = `Download selected (${selected.length})`;
+  publishButton.hidden = publishableCount === 0;
+  publishButton.textContent = `Publish to CDN (${publishableCount})`;
   copyButton.hidden = publishedCount === 0;
   copyButton.textContent = `Copy published links (${publishedCount})`;
   deleteButton.hidden = selected.length === 0;
@@ -248,7 +256,10 @@ function renderFiles() {
     const access = websiteFile ? new Set() : accessFor(file.id);
     const type = fileType(file);
     const accessLabel = websiteFile ? String(file.status || "draft").replaceAll("_", " ") : access.size ? `${access.size} admin${access.size === 1 ? "" : "s"}` : "Private";
-    const fileMeta = websiteFile ? `${file.asset_key} · Version ${file.version_number}` : file.mime_type || "File";
+    const fileMeta = websiteFile ? `${file.asset_key} · Version ${file.version_number}` : `${file.mime_type || "File"}${file.cdn_url ? " · CDN published" : ""}`;
+    const cdnActions = !websiteFile && file.cdn_url
+      ? `<button type="button" data-file-open-cdn="${fileEscape(file.id)}">Open CDN URL</button><button type="button" data-file-copy-cdn="${fileEscape(file.id)}">Copy CDN link</button><button type="button" data-file-unpublish="${fileEscape(file.id)}">Unpublish from CDN</button>`
+      : !websiteFile ? `<button type="button" data-file-publish="${fileEscape(file.id)}">Publish to CDN</button>` : "";
     const selectionKey = fileSelectionKey(file);
     return `<article class="n3xra-file-row is-selectable${selectedFileKeys.has(selectionKey) ? " is-selected" : ""}" data-selectable-file="${fileEscape(selectionKey)}">
       <label class="n3xra-file-select"><input type="checkbox" data-file-select="${fileEscape(selectionKey)}"${selectedFileKeys.has(selectionKey) ? " checked" : ""} aria-label="Select ${fileEscape(pathParts(file.name).at(-1))}"></label>
@@ -256,7 +267,7 @@ function renderFiles() {
       ${websiteFile ? `<span class="n3xra-file-access is-status"><span aria-hidden="true">●</span>${fileEscape(accessLabel)}</span>` : `<button class="n3xra-file-access" type="button" data-file-manage-access="${fileEscape(file.id)}"><span aria-hidden="true">●</span>${accessLabel}</button>`}
       <time datetime="${fileEscape(file.created_at)}">${fileEscape(fileDate(file.created_at))}</time>
       <span class="n3xra-file-size">${fileEscape(fileSize(file.size_bytes))}</span>
-      <details class="n3xra-file-menu"><summary aria-label="Actions for ${fileEscape(file.name)}">•••</summary><div class="n3xra-file-menu-popover"><button type="button" data-file-open="${fileEscape(file.id)}">Open</button><button type="button" data-file-download="${fileEscape(file.id)}">Download</button>${websiteFile ? "" : `<button type="button" data-file-manage-access="${fileEscape(file.id)}">Manage access</button>`}<button class="is-danger" type="button" data-file-delete="${fileEscape(file.id)}">Delete</button></div></details>
+      <details class="n3xra-file-menu"><summary aria-label="Actions for ${fileEscape(file.name)}">•••</summary><div class="n3xra-file-menu-popover"><button type="button" data-file-open="${fileEscape(file.id)}">Open</button><button type="button" data-file-download="${fileEscape(file.id)}">Download</button>${cdnActions}${websiteFile ? "" : `<button type="button" data-file-manage-access="${fileEscape(file.id)}">Manage access</button>`}<button class="is-danger" type="button" data-file-delete="${fileEscape(file.id)}">Delete</button></div></details>
       ${websiteFile ? "" : `<section class="n3xra-access-panel" id="file-access-${fileEscape(file.id)}" hidden><div class="n3xra-access-head"><div><strong>Manage access</strong><span>Choose the administrators who can open this file.</span></div><button type="button" data-file-close-access="${fileEscape(file.id)}" aria-label="Close access controls">×</button></div><div class="n3xra-access-options">${fileState.admins.map((admin) => `<label><input type="checkbox" data-file-access="${fileEscape(file.id)}" value="${fileEscape(admin.user_id)}"${access.has(String(admin.user_id)) ? " checked" : ""}>${fileEscape(admin.email)}${admin.role === "owner" ? " (owner)" : ""}</label>`).join("")}</div><div class="n3xra-access-actions"><button class="portal-button portal-button-secondary" type="button" data-file-close-access="${fileEscape(file.id)}">Cancel</button><button class="portal-button" type="button" data-file-save-access="${fileEscape(file.id)}">Save access</button></div></section>`}
     </article>`;
   }).join("");
@@ -470,7 +481,11 @@ async function fileDownloadData(file) {
 async function downloadSelectedFiles() {
   const selected = selectedFiles();
   if (!selected.length) return;
-  if (selected.length > 5 && !window.confirm(`Download ${selected.length} selected files? Your browser may ask for permission to download multiple files.`)) return;
+  if (selected.length > 5 && !(await confirmAction({
+    title: "Download selected files?",
+    copy: `Your browser may ask for permission to download ${selected.length} files.`,
+    confirmLabel: "Download files",
+  }))) return;
   const button = document.getElementById("n3xra-download-selected");
   if (button) button.disabled = true;
   fileStatus(`Preparing ${selected.length} downloads…`);
@@ -495,15 +510,65 @@ async function downloadSelectedFiles() {
 }
 
 async function copySelectedPublishedLinks() {
-  const published = selectedFiles().filter((file) => file.public_url);
+  const published = selectedFiles().filter((file) => publishedUrl(file));
   if (!published.length) return;
-  const links = published.map((file) => `${pathParts(file.name).at(-1)} — ${file.public_url}`).join("\n");
+  const links = published.map((file) => `${pathParts(file.name).at(-1)} — ${publishedUrl(file)}`).join("\n");
   try {
     await navigator.clipboard.writeText(links);
     fileStatus(`${published.length} published link${published.length === 1 ? "" : "s"} copied.`, "success");
   } catch {
     fileStatus("The published links could not be copied. Check this browser’s clipboard permission.", "error");
   }
+}
+
+async function publishFileToCdn(id, { refresh = true } = {}) {
+  const file = fileState.files.find((item) => item.source !== "website" && String(item.id) === String(id));
+  if (!file || file.cdn_url) return file;
+  const data = await fileInvoke("publish-n3xra-file", { fileId: file.id });
+  if (refresh) await loadFiles();
+  return data.file;
+}
+
+async function publishSelectedFiles() {
+  const files = selectedFiles().filter((file) => file.source !== "website" && !file.cdn_url);
+  if (!files.length) return;
+  const button = document.getElementById("n3xra-publish-selected");
+  if (button) button.disabled = true;
+  fileStatus(`Publishing ${files.length} file${files.length === 1 ? "" : "s"} to the CDN…`);
+  try {
+    for (const file of files) await publishFileToCdn(file.id, { refresh: false });
+    await loadFiles();
+    fileStatus(`${files.length} file${files.length === 1 ? " is" : "s are"} now available on the CDN.`, "success");
+  } catch (error) {
+    await loadFiles().catch(() => {});
+    fileStatus(error.message || "The selected files could not be published.", "error");
+  } finally {
+    if (button) button.disabled = false;
+  }
+}
+
+async function publishFile(id) {
+  fileStatus("Publishing file to the CDN…");
+  try {
+    await publishFileToCdn(id);
+    fileStatus("File published to the CDN.", "success");
+  } catch (error) { fileStatus(error.message || "The file could not be published.", "error"); }
+}
+
+async function copyCdnLink(id) {
+  const file = fileState.files.find((item) => item.source !== "website" && String(item.id) === String(id));
+  if (!file?.cdn_url) return;
+  try {
+    await navigator.clipboard.writeText(file.cdn_url);
+    fileStatus("CDN link copied.", "success");
+  } catch {
+    fileStatus("The CDN link could not be copied. Check this browser’s clipboard permission.", "error");
+  }
+}
+
+function openCdnLink(id) {
+  const file = fileState.files.find((item) => item.source !== "website" && String(item.id) === String(id));
+  if (file?.cdn_url) window.open(file.cdn_url, "_blank", "noopener,noreferrer");
 }
 
 async function openFile(id) {
@@ -546,12 +611,16 @@ function closePreview() {
   document.body.classList.remove("n3xra-modal-open");
 }
 
-function confirmDelete(fileName) {
+function confirmAction({ title, copy: message, confirmLabel, danger = false }) {
   const modal = document.getElementById("file-confirm-modal");
+  const titleElement = document.getElementById("file-confirm-title");
   const copy = document.getElementById("file-confirm-copy");
   const confirmButton = document.getElementById("file-confirm-delete");
-  if (!modal || !copy || !confirmButton) return Promise.resolve(false);
-  copy.textContent = `“${fileName}” will be permanently removed from N3XRA Files.`;
+  if (!modal || !titleElement || !copy || !confirmButton) return Promise.resolve(false);
+  titleElement.textContent = title;
+  copy.textContent = message;
+  confirmButton.textContent = confirmLabel;
+  confirmButton.classList.toggle("n3xra-danger-button", danger);
   modal.hidden = false;
   document.body.classList.add("n3xra-modal-open");
   return new Promise((resolve) => {
@@ -569,6 +638,28 @@ function confirmDelete(fileName) {
     document.addEventListener("keydown", onKeyDown);
     confirmButton.focus();
   });
+}
+
+function confirmDelete(fileName) {
+  return confirmAction({ title: "Delete file?", copy: `“${fileName}” will be permanently removed from N3XRA Files.`, confirmLabel: "Delete file", danger: true });
+}
+
+async function unpublishFile(id) {
+  const file = fileState.files.find((item) => item.source !== "website" && String(item.id) === String(id));
+  if (!file?.cdn_url) return;
+  const confirmed = await confirmAction({
+    title: "Remove from CDN?",
+    copy: `“${file.name}” will no longer be publicly available at its CDN link. The private file will remain in N3XRA Files.`,
+    confirmLabel: "Unpublish file",
+    danger: true,
+  });
+  if (!confirmed) return;
+  fileStatus("Removing file from the CDN…");
+  try {
+    await fileInvoke("unpublish-n3xra-file", { fileId: file.id });
+    await loadFiles();
+    fileStatus("File removed from the CDN. The private copy is unchanged.", "success");
+  } catch (error) { fileStatus(error.message || "The file could not be unpublished.", "error"); }
 }
 
 async function deleteFolder(folderPath) {
@@ -738,6 +829,10 @@ export async function startFiles({ supabase, session, invoke }) {
     const open = event.target.closest("[data-file-open]");
     const download = event.target.closest("[data-file-download]");
     const remove = event.target.closest("[data-file-delete]");
+    const publish = event.target.closest("[data-file-publish]");
+    const unpublish = event.target.closest("[data-file-unpublish]");
+    const copyCdn = event.target.closest("[data-file-copy-cdn]");
+    const openCdn = event.target.closest("[data-file-open-cdn]");
     const manage = event.target.closest("[data-file-manage-access]");
     const closeAccess = event.target.closest("[data-file-close-access]");
     const save = event.target.closest("[data-file-save-access]");
@@ -753,6 +848,10 @@ export async function startFiles({ supabase, session, invoke }) {
     }
     if (open) { menu?.removeAttribute("open"); openFile(open.dataset.fileOpen); return; }
     if (download) { menu?.removeAttribute("open"); downloadFile(download.dataset.fileDownload); }
+    if (publish) { menu?.removeAttribute("open"); publishFile(publish.dataset.filePublish); }
+    if (unpublish) { menu?.removeAttribute("open"); unpublishFile(unpublish.dataset.fileUnpublish); }
+    if (copyCdn) { menu?.removeAttribute("open"); copyCdnLink(copyCdn.dataset.fileCopyCdn); }
+    if (openCdn) { menu?.removeAttribute("open"); openCdnLink(openCdn.dataset.fileOpenCdn); }
     if (remove) { menu?.removeAttribute("open"); deleteFile(remove.dataset.fileDelete); }
     if (save) saveAccess(save);
   });
@@ -762,6 +861,7 @@ export async function startFiles({ supabase, session, invoke }) {
     renderFiles();
   });
   document.getElementById("n3xra-download-selected")?.addEventListener("click", downloadSelectedFiles);
+  document.getElementById("n3xra-publish-selected")?.addEventListener("click", publishSelectedFiles);
   document.getElementById("n3xra-copy-selected-links")?.addEventListener("click", copySelectedPublishedLinks);
   document.getElementById("n3xra-delete-selected")?.addEventListener("click", deleteSelectedFiles);
   document.getElementById("n3xra-folder-tree")?.addEventListener("click", (event) => {

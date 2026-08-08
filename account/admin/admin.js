@@ -1255,7 +1255,7 @@ async function loadAdminView() {
     });
     await loadAccounts();
   } else if (view === "files") {
-    const files = await import("/account/admin/files/files.js?v=16");
+    const files = await import("/account/admin/files/files.js?v=17");
     await files.startFiles({ supabase, session, invoke });
   } else if (view === "billing") {
     document.getElementById("billing-filter")?.addEventListener("input", renderBilling);

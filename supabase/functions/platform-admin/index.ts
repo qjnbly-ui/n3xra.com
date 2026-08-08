@@ -64,6 +64,15 @@ function isValidUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
+function safeStorageFilename(value: unknown) {
+  const leaf = String(value || "file").split(/[\\/]+/).filter(Boolean).at(-1) || "file";
+  return leaf
+    .trim()
+    .replace(/[^a-zA-Z0-9._-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 160) || "file";
+}
+
 async function findAuthUserByEmail(adminClient: ReturnType<typeof createClient>, inputEmail: string) {
   const email = normalizeEmail(inputEmail);
   for (let page = 1; page <= 20; page += 1) {
@@ -991,7 +1000,7 @@ Deno.serve(async (request) => {
 
     if (action === "list-n3xra-files") {
       const [{ data: files, error: filesError }, { data: access, error: accessError }, { data: admins, error: adminsError }] = await Promise.all([
-        adminClient.from("n3xra_files").select("id,name,storage_path,mime_type,size_bytes,created_by,created_at").order("created_at", { ascending: false }),
+        adminClient.from("n3xra_files").select("id,name,storage_path,mime_type,size_bytes,created_by,created_at,cdn_storage_path,cdn_url,published_at,published_by").order("created_at", { ascending: false }),
         adminClient.from("n3xra_file_access").select("file_id,user_id"),
         adminClient.from("platform_admins").select("user_id,email,role,status").eq("status", "active").order("email", { ascending: true }),
       ]);
@@ -1021,7 +1030,7 @@ Deno.serve(async (request) => {
         mime_type: mimeType,
         size_bytes: Math.round(sizeBytes),
         created_by: user.id,
-      }).select("id,name,storage_path,mime_type,size_bytes,created_by,created_at").single();
+      }).select("id,name,storage_path,mime_type,size_bytes,created_by,created_at,cdn_storage_path,cdn_url,published_at,published_by").single();
       if (fileError) return jsonResponse({ error: fileError.message }, 400);
       const { error: accessError } = await adminClient.from("n3xra_file_access").insert({ file_id: file.id, user_id: user.id, granted_by: user.id });
       if (accessError) return jsonResponse({ error: accessError.message }, 400);
@@ -1054,13 +1063,80 @@ Deno.serve(async (request) => {
       return jsonResponse({ ok: true, url: signed.signedUrl, name: file.name, mimeType: file.mime_type });
     }
 
+    if (action === "publish-n3xra-file") {
+      const fileId = String(payload.fileId || "").trim();
+      if (!isValidUuid(fileId)) return jsonResponse({ error: "A valid fileId is required." }, 400);
+      const [{ data: file, error: fileError }, { data: grant, error: grantError }] = await Promise.all([
+        adminClient.from("n3xra_files").select("id,name,storage_path,mime_type,cdn_storage_path,cdn_url,published_at,published_by").eq("id", fileId).maybeSingle(),
+        adminClient.from("n3xra_file_access").select("file_id").eq("file_id", fileId).eq("user_id", user.id).maybeSingle(),
+      ]);
+      if (fileError || !file) return jsonResponse({ error: fileError?.message || "File not found." }, 404);
+      if (grantError || !grant) return jsonResponse({ error: "You do not have access to this file." }, 403);
+      if (file.cdn_storage_path && file.cdn_url) return jsonResponse({ ok: true, file });
+
+      const cdnStoragePath = `${file.id}/${safeStorageFilename(file.name)}`;
+      const { data: privateFile, error: downloadError } = await adminClient.storage.from("n3xra-files").download(file.storage_path);
+      if (downloadError || !privateFile) return jsonResponse({ error: downloadError?.message || "Unable to read the private file." }, 400);
+      const { error: uploadError } = await adminClient.storage.from("n3xra-files-public").upload(cdnStoragePath, privateFile, {
+        contentType: file.mime_type || "application/octet-stream",
+        cacheControl: "31536000",
+        upsert: true,
+      });
+      if (uploadError) return jsonResponse({ error: uploadError.message }, 400);
+      const { data: publicData } = adminClient.storage.from("n3xra-files-public").getPublicUrl(cdnStoragePath);
+      const cdnUrl = publicData?.publicUrl || "";
+      if (!cdnUrl) {
+        await adminClient.storage.from("n3xra-files-public").remove([cdnStoragePath]);
+        return jsonResponse({ error: "Unable to create the CDN URL." }, 400);
+      }
+      const publishedAt = new Date().toISOString();
+      const { data: publishedFile, error: updateError } = await adminClient.from("n3xra_files").update({
+        cdn_storage_path: cdnStoragePath,
+        cdn_url: cdnUrl,
+        published_at: publishedAt,
+        published_by: user.id,
+      }).eq("id", fileId).select("id,name,storage_path,mime_type,size_bytes,created_by,created_at,cdn_storage_path,cdn_url,published_at,published_by").single();
+      if (updateError || !publishedFile) {
+        await adminClient.storage.from("n3xra-files-public").remove([cdnStoragePath]);
+        return jsonResponse({ error: updateError?.message || "Unable to save the CDN publication." }, 400);
+      }
+      return jsonResponse({ ok: true, file: publishedFile });
+    }
+
+    if (action === "unpublish-n3xra-file") {
+      const fileId = String(payload.fileId || "").trim();
+      if (!isValidUuid(fileId)) return jsonResponse({ error: "A valid fileId is required." }, 400);
+      const [{ data: file, error: fileError }, { data: grant, error: grantError }] = await Promise.all([
+        adminClient.from("n3xra_files").select("id,cdn_storage_path").eq("id", fileId).maybeSingle(),
+        adminClient.from("n3xra_file_access").select("file_id").eq("file_id", fileId).eq("user_id", user.id).maybeSingle(),
+      ]);
+      if (fileError || !file) return jsonResponse({ error: fileError?.message || "File not found." }, 404);
+      if (grantError || !grant) return jsonResponse({ error: "You do not have access to this file." }, 403);
+      if (file.cdn_storage_path) {
+        const { error: storageError } = await adminClient.storage.from("n3xra-files-public").remove([file.cdn_storage_path]);
+        if (storageError) return jsonResponse({ error: storageError.message }, 400);
+      }
+      const { error: updateError } = await adminClient.from("n3xra_files").update({
+        cdn_storage_path: null,
+        cdn_url: null,
+        published_at: null,
+        published_by: null,
+      }).eq("id", fileId);
+      if (updateError) return jsonResponse({ error: updateError.message }, 400);
+      return jsonResponse({ ok: true });
+    }
+
     if (action === "delete-n3xra-file") {
       const fileId = String(payload.fileId || "").trim();
       if (!isValidUuid(fileId)) return jsonResponse({ error: "A valid fileId is required." }, 400);
-      const { data: file, error: fileError } = await adminClient.from("n3xra_files").select("id,storage_path").eq("id", fileId).maybeSingle();
+      const { data: file, error: fileError } = await adminClient.from("n3xra_files").select("id,storage_path,cdn_storage_path").eq("id", fileId).maybeSingle();
       if (fileError || !file) return jsonResponse({ error: fileError?.message || "File not found." }, 404);
       const { error: storageError } = await adminClient.storage.from("n3xra-files").remove([file.storage_path]);
       if (storageError) return jsonResponse({ error: storageError.message }, 400);
+      if (file.cdn_storage_path) {
+        const { error: cdnStorageError } = await adminClient.storage.from("n3xra-files-public").remove([file.cdn_storage_path]);
+        if (cdnStorageError) return jsonResponse({ error: cdnStorageError.message }, 400);
+      }
       const { error: deleteError } = await adminClient.from("n3xra_files").delete().eq("id", fileId);
       if (deleteError) return jsonResponse({ error: deleteError.message }, 400);
       return jsonResponse({ ok: true });
@@ -1069,11 +1145,16 @@ Deno.serve(async (request) => {
     if (action === "delete-n3xra-folder") {
       const folderPath = String(payload.folderPath || "").trim().replace(/^\/|\/$/g, "");
       if (!folderPath || folderPath.includes("..")) return jsonResponse({ error: "A valid folder path is required." }, 400);
-      const { data: files, error: filesError } = await adminClient.from("n3xra_files").select("id,storage_path").like("name", `${folderPath}/%`);
+      const { data: files, error: filesError } = await adminClient.from("n3xra_files").select("id,storage_path,cdn_storage_path").like("name", `${folderPath}/%`);
       if (filesError) return jsonResponse({ error: filesError.message }, 400);
       if (files?.length) {
         const { error: storageError } = await adminClient.storage.from("n3xra-files").remove(files.map((file) => file.storage_path));
         if (storageError) return jsonResponse({ error: storageError.message }, 400);
+        const cdnStoragePaths = files.map((file) => file.cdn_storage_path).filter(Boolean);
+        if (cdnStoragePaths.length) {
+          const { error: cdnStorageError } = await adminClient.storage.from("n3xra-files-public").remove(cdnStoragePaths);
+          if (cdnStorageError) return jsonResponse({ error: cdnStorageError.message }, 400);
+        }
         const { error: deleteError } = await adminClient.from("n3xra_files").delete().in("id", files.map((file) => file.id));
         if (deleteError) return jsonResponse({ error: deleteError.message }, 400);
       }
