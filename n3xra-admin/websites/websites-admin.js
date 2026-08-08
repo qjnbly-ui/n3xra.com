@@ -5,6 +5,13 @@ import { renderPdfFirstPage } from "/shared/lib/file-preview.js";
 import { confirmAdminAction, promptAdminText } from "/account/admin/admin-dialogs.js";
 import { openAssetPreview } from "/client-portal/asset-preview-modal.js?v=1";
 import { resolveWebsiteRepository, resolveWebsiteUrl } from "/client-portal/website-url.js";
+import {
+  humanizeWebsiteAssetFilename,
+  safeWebsiteAssetFilename as safeFilename,
+  uniqueWebsiteAssetKey,
+  validateWebsiteAssetRename,
+  websiteAssetKeyFromLabel,
+} from "/shared/lib/website-asset-utils.js";
 
 const PRIVATE_BUCKET = "website-assets-private";
 const PUBLIC_BUCKET = "website-assets-public";
@@ -67,6 +74,15 @@ const projectCreateProposal = document.getElementById("project-create-proposal")
 const projectProposalTitleWrap = document.getElementById("project-proposal-title-wrap");
 const projectProposalTitle = document.getElementById("project-proposal-title");
 const projectOpenOnboarding = document.getElementById("project-open-onboarding");
+const adminUploadForm = document.getElementById("admin-asset-upload-form");
+const openAdminUploadButton = document.getElementById("open-admin-upload");
+const closeAdminUploadButton = document.getElementById("close-admin-upload");
+const adminUploadFiles = document.getElementById("admin-upload-files");
+const adminUploadCategory = document.getElementById("admin-upload-category");
+const adminUploadReplacementType = document.getElementById("admin-upload-replacement-type");
+const adminUploadNote = document.getElementById("admin-upload-note");
+const adminUploadStatus = document.getElementById("admin-upload-status");
+const adminUploadSubmit = document.getElementById("admin-upload-submit");
 
 let supabase;
 let currentUser;
@@ -127,12 +143,6 @@ function escapeHtml(value = "") {
 
 function slugify(value = "") {
   return String(value).toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-}
-
-function safeFilename(value = "asset") {
-  const parts = String(value).split(".");
-  const extension = parts.length > 1 ? `.${parts.pop().toLowerCase().replace(/[^a-z0-9]/g, "")}` : "";
-  return `${slugify(parts.join(".")) || "asset"}${extension}`;
 }
 
 function formatDate(value) {
@@ -308,6 +318,7 @@ function renderSelectedWebsite() {
     if (emptyState) emptyState.hidden = false;
     if (accessPanel) accessPanel.hidden = true;
     if (projectLinkPanel) projectLinkPanel.hidden = true;
+    if (openAdminUploadButton) openAdminUploadButton.hidden = true;
     return;
   }
 
@@ -323,6 +334,7 @@ function renderSelectedWebsite() {
   if (editSiteButton) editSiteButton.hidden = !selectedWebsite;
   if (accessPanel) accessPanel.hidden = false;
   if (projectLinkPanel) projectLinkPanel.hidden = false;
+  if (openAdminUploadButton) openAdminUploadButton.hidden = false;
 }
 
 function renderMembers() {
@@ -469,6 +481,7 @@ function versionActions(version) {
   if (version.status === "approved" && String(version.mime_type || "").startsWith("image/")) {
     actions.push(`<button data-version-action="publish" data-version-id="${version.id}">Publish to CDN</button>`);
   }
+  actions.push(`<button data-version-action="rename" data-version-id="${version.id}">Rename file</button>`);
   actions.push(`<button data-version-action="download" data-version-id="${version.id}">Download</button>`);
   if (version.public_url) {
     actions.push(`<button data-version-action="copy" data-version-id="${version.id}">Copy published URL</button>`);
@@ -604,7 +617,109 @@ async function loadAssets() {
   renderAssets();
 }
 
+function setAdminUploadStatus(message = "", isError = false) {
+  if (!adminUploadStatus) return;
+  adminUploadStatus.textContent = message;
+  adminUploadStatus.classList.toggle("is-error", isError);
+}
+
+function openAdminUpload() {
+  if (!adminUploadForm || !selectedWebsite) return;
+  adminUploadForm.hidden = false;
+  setAdminUploadStatus(`Images will be added to ${selectedWebsite.name}.`);
+  adminUploadFiles?.focus();
+}
+
+function closeAdminUpload() {
+  if (!adminUploadForm) return;
+  adminUploadForm.hidden = true;
+  adminUploadForm.reset();
+  setAdminUploadStatus("");
+}
+
+async function uploadAdminImage(file, reservedKeys) {
+  const isImage = String(file.type || "").startsWith("image/") || /\.(avif|gif|jpe?g|png|svg|webp)$/i.test(file.name);
+  if (!isImage) throw new Error(`${file.name} is not a supported image.`);
+
+  const assetId = crypto.randomUUID();
+  const label = humanizeWebsiteAssetFilename(file.name);
+  const assetKey = uniqueWebsiteAssetKey(websiteAssetKeyFromLabel(label), reservedKeys);
+  const storagePath = `${selectedWebsite.id}/${assetId}/v1-${crypto.randomUUID()}-${safeFilename(file.name)}`;
+  let assetCreated = false;
+  let objectUploaded = false;
+  try {
+    const { error: assetError } = await supabase.from("website_assets").insert({
+      id: assetId,
+      website_id: selectedWebsite.id,
+      asset_key: assetKey,
+      label,
+      category: adminUploadCategory.value,
+      replacement_type: adminUploadReplacementType.value,
+      created_by_user_id: currentUser.id,
+    });
+    if (assetError) throw assetError;
+    assetCreated = true;
+
+    const uploadOptions = { cacheControl: "3600", upsert: false };
+    if (file.type) uploadOptions.contentType = file.type;
+    const { error: uploadError } = await supabase.storage.from(PRIVATE_BUCKET).upload(storagePath, file, uploadOptions);
+    if (uploadError) throw uploadError;
+    objectUploaded = true;
+
+    const now = new Date().toISOString();
+    const { error: versionError } = await supabase.from("website_asset_versions").insert({
+      asset_id: assetId,
+      version_number: 1,
+      status: "approved",
+      storage_bucket: PRIVATE_BUCKET,
+      storage_path: storagePath,
+      original_filename: file.name,
+      mime_type: file.type || null,
+      size_bytes: file.size,
+      change_note: adminUploadNote.value.trim() || "Uploaded by N3XRA admin",
+      uploaded_by_user_id: currentUser.id,
+      approved_by_user_id: currentUser.id,
+      approved_at: now,
+    });
+    if (versionError) throw versionError;
+    reservedKeys.add(assetKey);
+  } catch (error) {
+    if (objectUploaded) await supabase.storage.from(PRIVATE_BUCKET).remove([storagePath]);
+    if (assetCreated) await supabase.from("website_assets").delete().eq("id", assetId);
+    throw error;
+  }
+}
+
+async function uploadAdminImages(event) {
+  event.preventDefault();
+  if (!selectedWebsite) return;
+  const selectedFiles = Array.from(adminUploadFiles?.files || []);
+  if (!selectedFiles.length) {
+    setAdminUploadStatus("Choose at least one image.", true);
+    return;
+  }
+  adminUploadSubmit.disabled = true;
+  const reservedKeys = new Set(assets.map((asset) => asset.asset_key));
+  let uploadedCount = 0;
+  try {
+    for (const file of selectedFiles) {
+      setAdminUploadStatus(`Uploading ${uploadedCount + 1} of ${selectedFiles.length}: ${file.name}`);
+      await uploadAdminImage(file, reservedKeys);
+      uploadedCount += 1;
+    }
+    showToast(`${uploadedCount} image${uploadedCount === 1 ? "" : "s"} added to ${selectedWebsite.name}.`);
+    await loadAssets();
+    closeAdminUpload();
+  } catch (error) {
+    if (uploadedCount) await loadAssets();
+    setAdminUploadStatus(`${uploadedCount ? `${uploadedCount} uploaded. ` : ""}${error?.message || "The remaining images could not be uploaded."}`, true);
+  } finally {
+    adminUploadSubmit.disabled = false;
+  }
+}
+
 async function selectWebsite(id) {
+  closeAdminUpload();
   selectedWebsite = websites.find((site) => site.id === id) || websites[0];
   selectedAssetCategory = "";
   selectedVersionIds.clear();
@@ -989,6 +1104,22 @@ async function downloadVersion(version) {
   window.open(url, "_blank", "noopener");
 }
 
+async function renameVersion(version) {
+  const nextName = await promptAdminText(
+    version.public_url
+      ? "Change the filename shown in the workspace and used for downloads. The published URL will stay unchanged so live website links do not break."
+      : "Change the filename shown in the workspace and used for downloads.",
+    { title: "Rename file", inputLabel: "Filename", defaultValue: version.original_filename, confirmLabel: "Rename file" },
+  );
+  if (nextName === null) return;
+  const filename = validateWebsiteAssetRename(nextName, version.original_filename);
+  if (filename === version.original_filename) return;
+  const { error } = await supabase.from("website_asset_versions").update({ original_filename: filename }).eq("id", version.id);
+  if (error) throw error;
+  showToast(`Renamed to ${filename}.`);
+  await loadAssets();
+}
+
 async function openVersion(version) {
   const previewResult = version.public_url
     ? { data: { signedUrl: version.public_url }, error: null }
@@ -1197,6 +1328,7 @@ async function handleAssetAction(event) {
     if (button.dataset.versionAction === "approve") await updateVersionStatus(version.id, "approved");
     if (button.dataset.versionAction === "reject") await updateVersionStatus(version.id, "rejected");
     if (button.dataset.versionAction === "publish") await publishVersion(version.id);
+    if (button.dataset.versionAction === "rename") await renameVersion(version);
     if (button.dataset.versionAction === "download") await downloadVersion(version);
     if (button.dataset.versionAction === "delete") await deleteVersionAsAdmin(version);
     if (button.dataset.versionAction === "copy") {
@@ -1271,6 +1403,13 @@ async function initWebsiteAdmin() {
 
     websiteSelect?.addEventListener("change", () => selectWebsite(websiteSelect.value).catch((loadError) => showToast(loadError.message, "error")));
     refreshButton?.addEventListener("click", () => loadWebsites(selectedWebsite?.id).catch((loadError) => showToast(loadError.message, "error")));
+    openAdminUploadButton?.addEventListener("click", openAdminUpload);
+    closeAdminUploadButton?.addEventListener("click", closeAdminUpload);
+    adminUploadForm?.addEventListener("submit", uploadAdminImages);
+    adminUploadCategory?.addEventListener("change", () => {
+      if (!adminUploadReplacementType) return;
+      adminUploadReplacementType.value = adminUploadCategory.value === "social" ? "metadata" : "html_src";
+    });
     copyPublishedLinksButton?.addEventListener("click", copyPublishedLinks);
     approvePendingBatchButton?.addEventListener("click", approvePendingBatch);
     rejectPendingBatchButton?.addEventListener("click", rejectPendingBatch);

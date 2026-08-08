@@ -1,7 +1,15 @@
 import { createBrowserSupabase, getSessionOrNull, hasConfig } from "/shared/lib/supabase-client.js";
 import { readWorkspaceContext, writeWorkspaceContext } from "/client-portal/workspace-context.js";
+import {
+  humanizeWebsiteAssetFilename,
+  onboardingCategoryToWebsiteAsset,
+  safeWebsiteAssetFilename,
+  uniqueWebsiteAssetKey,
+  websiteAssetKeyFromLabel,
+} from "/shared/lib/website-asset-utils.js";
 
 const BUCKET = "website-onboarding-private";
+const ASSET_BUCKET = "website-assets-private";
 const sections = ["business", "brand", "content", "technical", "legal", "files", "review"];
 const requiredAnswerPaths = [
   "business.legalName",
@@ -67,6 +75,79 @@ function safeFilename(value = "file") {
   const extension = parts.length > 1 ? `.${parts.pop().toLowerCase().replace(/[^a-z0-9]/g, "")}` : "";
   const stem = parts.join(".").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "file";
   return `${stem}${extension}`;
+}
+
+async function registerOnboardingFileInWebsiteAssets(file, category, note, reservedKeys, uploadBatchId) {
+  if (!selectedWebsite?.id) throw new Error("This onboarding is not connected to a website workspace yet.");
+  const assetId = crypto.randomUUID();
+  const label = humanizeWebsiteAssetFilename(file.name);
+  const assetKey = uniqueWebsiteAssetKey(websiteAssetKeyFromLabel(label), reservedKeys);
+  const placement = onboardingCategoryToWebsiteAsset(category);
+  const storagePath = `${selectedWebsite.id}/${assetId}/v1-${crypto.randomUUID()}-${safeWebsiteAssetFilename(file.name)}`;
+  let assetCreated = false;
+  let objectUploaded = false;
+  try {
+    const { error: assetError } = await supabase.from("website_assets").insert({
+      id: assetId,
+      website_id: selectedWebsite.id,
+      asset_key: assetKey,
+      label,
+      category: placement.category,
+      replacement_type: placement.replacementType,
+      created_by_user_id: session.user.id,
+    });
+    if (assetError) throw assetError;
+    assetCreated = true;
+
+    const uploadOptions = { cacheControl: "3600", upsert: false };
+    if (file.type) uploadOptions.contentType = file.type;
+    const { error: uploadError } = await supabase.storage.from(ASSET_BUCKET).upload(storagePath, file, uploadOptions);
+    if (uploadError) throw uploadError;
+    objectUploaded = true;
+
+    const { data: version, error: versionError } = await supabase.from("website_asset_versions").insert({
+      asset_id: assetId,
+      version_number: 1,
+      status: "pending_review",
+      storage_bucket: ASSET_BUCKET,
+      storage_path: storagePath,
+      original_filename: file.name,
+      mime_type: file.type || null,
+      size_bytes: file.size,
+      change_note: note || "Provided during website onboarding",
+      uploaded_by_user_id: session.user.id,
+      upload_batch_id: uploadBatchId,
+    }).select("id,asset_id,storage_bucket,storage_path,status").single();
+    if (versionError) throw versionError;
+    reservedKeys.add(assetKey);
+    return version;
+  } catch (error) {
+    if (objectUploaded) await supabase.storage.from(ASSET_BUCKET).remove([storagePath]);
+    if (assetCreated) await supabase.from("website_assets").delete().eq("id", assetId);
+    throw error;
+  }
+}
+
+async function removeWebsiteAssetImportedFromOnboarding(version) {
+  if (!version) return;
+  if (version.status && !["draft", "pending_review", "rejected"].includes(version.status)) return;
+  if (version.storage_bucket && version.storage_path) {
+    const { error: storageError } = await supabase.storage.from(version.storage_bucket).remove([version.storage_path]);
+    if (storageError) throw storageError;
+  }
+  const { error: versionError } = await supabase.from("website_asset_versions").delete().eq("id", version.id);
+  if (versionError) throw versionError;
+  const { data: remainingVersion, error: remainingError } = await supabase
+    .from("website_asset_versions")
+    .select("id")
+    .eq("asset_id", version.asset_id)
+    .limit(1)
+    .maybeSingle();
+  if (remainingError) throw remainingError;
+  if (!remainingVersion) {
+    const { error: assetError } = await supabase.from("website_assets").delete().eq("id", version.asset_id);
+    if (assetError) throw assetError;
+  }
 }
 
 function getNested(source, path) {
@@ -306,6 +387,16 @@ async function uploadFiles() {
   uploadButton.disabled = true;
   uploadStatus.classList.remove("is-error");
   try {
+    if (!selectedWebsite?.id) throw new Error("This onboarding is not connected to a website workspace yet.");
+    const { data: existingAssets, error: assetListError } = await supabase
+      .from("website_assets")
+      .select("asset_key")
+      .eq("website_id", selectedWebsite.id);
+    if (assetListError) throw assetListError;
+    const reservedKeys = new Set((existingAssets || []).map((asset) => asset.asset_key));
+    const category = document.getElementById("onboarding-file-category").value;
+    const note = document.getElementById("onboarding-file-note").value.trim();
+    const uploadBatchId = crypto.randomUUID();
     for (let index = 0; index < selectedFiles.length; index += 1) {
       const file = selectedFiles[index];
       uploadStatus.textContent = `Uploading ${index + 1} of ${selectedFiles.length}…`;
@@ -315,25 +406,34 @@ async function uploadFiles() {
         upsert: false,
       });
       if (uploadError) throw uploadError;
+      let assetVersion;
+      try {
+        assetVersion = await registerOnboardingFileInWebsiteAssets(file, category, note, reservedKeys, uploadBatchId);
+      } catch (assetError) {
+        await supabase.storage.from(BUCKET).remove([storagePath]);
+        throw assetError;
+      }
       const { error: recordError } = await supabase.from("website_onboarding_files").insert({
         onboarding_id: selectedOnboarding.id,
         uploaded_by_user_id: session.user.id,
-        category: document.getElementById("onboarding-file-category").value,
+        category,
         storage_bucket: BUCKET,
         storage_path: storagePath,
         original_filename: file.name,
         mime_type: file.type || null,
         size_bytes: file.size,
-        note: document.getElementById("onboarding-file-note").value.trim() || null,
+        note: note || null,
+        asset_version_id: assetVersion.id,
       });
       if (recordError) {
+        await removeWebsiteAssetImportedFromOnboarding(assetVersion);
         await supabase.storage.from(BUCKET).remove([storagePath]);
         throw recordError;
       }
     }
     input.value = "";
     document.getElementById("onboarding-file-note").value = "";
-    uploadStatus.textContent = "Files uploaded.";
+    uploadStatus.textContent = "Files uploaded and added to Files & Assets.";
     await loadData(selectedOnboarding.id);
     showSection("files");
   } catch (error) {
@@ -348,7 +448,7 @@ function renderFiles() {
   const onboardingFiles = files.filter((file) => file.onboarding_id === selectedOnboarding?.id);
   fileList.innerHTML = onboardingFiles.length ? onboardingFiles.map((file) => `
     <article class="portal-file-row">
-      <div><span class="portal-pill">${escapeHtml(file.category)}</span><strong>${escapeHtml(file.original_filename)}</strong><p>${file.note ? escapeHtml(file.note) : "No note"} · ${new Date(file.created_at).toLocaleDateString()}</p></div>
+      <div><span class="portal-pill">${escapeHtml(file.category)}</span><strong>${escapeHtml(file.original_filename)}</strong><p>${file.note ? escapeHtml(file.note) : "No note"} · ${new Date(file.created_at).toLocaleDateString()}${file.asset_version_id ? " · Added to Files & Assets" : ""}</p></div>
       <div class="portal-card-actions">
         <button class="portal-link-button" type="button" data-file-download="${file.id}">Download</button>
         ${isEditable() && file.uploaded_by_user_id === session.user.id ? `<button class="portal-link-button is-danger" type="button" data-file-delete="${file.id}">Remove</button>` : ""}
@@ -372,6 +472,15 @@ async function handleFileAction(event) {
   }
   if (deleteButton) {
     deleteButton.disabled = true;
+    if (file.asset_version_id) {
+      const { data: assetVersion, error: versionLookupError } = await supabase
+        .from("website_asset_versions")
+        .select("id,asset_id,storage_bucket,storage_path,status")
+        .eq("id", file.asset_version_id)
+        .maybeSingle();
+      if (versionLookupError) throw versionLookupError;
+      await removeWebsiteAssetImportedFromOnboarding(assetVersion);
+    }
     const storageResult = await supabase.storage.from(BUCKET).remove([file.storage_path]);
     if (storageResult.error) throw storageResult.error;
     const { error } = await supabase.from("website_onboarding_files").delete().eq("id", file.id);

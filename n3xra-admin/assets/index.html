@@ -6,7 +6,7 @@
   <link rel="icon" href="/assets/n3xra_logo_transparent_small.png">
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&amp;family=Manrope:wght@400;600;700;800&amp;display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/site-nav.css"><link rel="stylesheet" href="/client-portal/portal.css?v=16"><link rel="stylesheet" href="/client-portal/assets-manager.css?v=13">
+  <link rel="stylesheet" href="/assets/site-nav.css"><link rel="stylesheet" href="/client-portal/portal.css?v=16"><link rel="stylesheet" href="/client-portal/assets-manager.css?v=14">
   <script src="/shared/config.js"></script><script src="/n3xra-admin/admin-shell.js?v=3" defer></script>
   <script>
     window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
@@ -32,15 +32,25 @@
             <div class="website-assets-folder-list" id="admin-asset-folders"></div>
           </aside>
           <section class="website-assets-content">
-            <header class="website-assets-content-head"><div><p class="portal-kicker">Folder contents</p><h1 id="admin-selected-asset-name">Select a folder</h1><p id="admin-selected-asset-meta">Choose a folder from the left.</p></div><div class="website-assets-head-actions" id="admin-selected-asset-actions"><button class="portal-button portal-button-secondary" id="refresh-admin" type="button">Refresh</button></div></header>
+            <header class="website-assets-content-head"><div><p class="portal-kicker">Folder contents</p><h1 id="admin-selected-asset-name">Select a folder</h1><p id="admin-selected-asset-meta">Choose a folder from the left.</p></div><div class="website-assets-head-actions" id="admin-selected-asset-actions"><button class="portal-button" id="open-admin-upload" type="button">Upload images</button><button class="portal-button portal-button-secondary" id="refresh-admin" type="button">Refresh</button></div></header>
             <div class="website-assets-batch" id="admin-asset-toolbar" hidden><p class="portal-inline-status" id="admin-batch-status" role="status"></p><div><button class="portal-button portal-button-secondary" id="clear-asset-selection" type="button">Clear selection</button><button class="portal-button portal-button-secondary" id="download-selected-files" type="button">Download selected</button><button class="portal-button portal-button-secondary" id="copy-published-links" type="button" hidden>Copy published links</button><button class="portal-button portal-button-secondary" id="reject-pending-batch" type="button" hidden>Reject pending</button><button class="portal-button portal-button-secondary" id="approve-pending-batch" type="button" hidden>Approve pending</button><button class="portal-button" id="publish-approved-batch" type="button" hidden>Publish approved</button><button class="portal-button portal-button-danger" id="delete-selected-files" type="button">Delete selected</button></div></div>
             <div class="website-assets-table" id="admin-asset-grid"></div><div class="website-assets-empty" id="admin-empty"><p>No assets are available for this website yet.</p></div>
           </section>
         </section>
+        <form class="portal-form website-assets-upload-drawer" id="admin-asset-upload-form" hidden>
+          <div class="portal-form-head"><div><p class="portal-kicker">Admin upload</p><h3>Add images to this client workspace</h3></div><button class="portal-close" id="close-admin-upload" type="button">Close</button></div>
+          <div class="portal-form-grid">
+            <label class="portal-form-wide">Choose images<input id="admin-upload-files" type="file" accept="image/*,.svg,.avif" multiple required></label>
+            <label>Folder<select id="admin-upload-category"><option value="image">Images</option><option value="logo">Logos</option><option value="brand">Brand assets</option><option value="social">Social</option></select></label>
+            <label>Website usage<select id="admin-upload-replacement-type"><option value="html_src">HTML image</option><option value="css_background">CSS background</option><option value="carousel_slide">Carousel slide</option><option value="metadata">Social or metadata image</option></select></label>
+            <label class="portal-form-wide">Optional note<textarea id="admin-upload-note" rows="3" placeholder="Where should these images be used?"></textarea></label>
+          </div>
+          <div class="portal-form-actions"><button class="portal-button" id="admin-upload-submit" type="submit">Upload images</button><p class="portal-inline-status" id="admin-upload-status" role="status"></p></div>
+        </form>
       </section>
     </div>
   </main>
   <div class="portal-status" id="portal-status" role="status">Opening files and assets…</div>
-  <script type="module" src="/client-portal/portal-shell.js"></script><script type="module" src="/n3xra-admin/websites/websites-admin.js?v=13"></script>
+  <script type="module" src="/client-portal/portal-shell.js"></script><script type="module" src="/n3xra-admin/websites/websites-admin.js?v=14"></script>
 </body>
 </html>

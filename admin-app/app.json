@@ -4,8 +4,9 @@
     "slug": "n3xra-admin",
     "version": "0.1.0",
     "orientation": "portrait",
-    "userInterfaceStyle": "dark",
+    "userInterfaceStyle": "light",
     "scheme": "n3xra-admin",
+    "icon": "./assets/n3xra-logo.png",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.n3xra.admin",
@@ -15,6 +16,10 @@
     },
     "android": {
       "package": "com.n3xra.admin",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/n3xra-logo.png",
+        "backgroundColor": "#050a12"
+      },
       "permissions": [
         "POST_NOTIFICATIONS"
       ]
