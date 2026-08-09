@@ -3,6 +3,7 @@ import fs from "node:fs";
 import test from "node:test";
 
 const migration = fs.readFileSync(new URL("../../supabase/migrations/20260808213831_website_proposal_copilot.sql", import.meta.url), "utf8");
+const deletionRepair = fs.readFileSync(new URL("../../supabase/migrations/20260809053401_preserve_proposal_ai_history_on_draft_delete.sql", import.meta.url), "utf8");
 
 test("migration keeps AI runs server-managed and RPCs guarded", () => {
   assert.match(migration, /alter table public\.website_proposal_ai_runs enable row level security/i);
@@ -24,4 +25,10 @@ test("revision token covers proposal, full version, and deterministically ordere
 test("manual and AI revision paths share the private atomic copy helper", () => {
   assert.match(migration, /private\.copy_website_proposal_version_to_draft\(target_version_id, auth\.uid\(\)\)/i);
   assert.match(migration, /private\.copy_website_proposal_version_to_draft\(base_version\.id, auth\.uid\(\)\)/i);
+});
+
+test("AI audit identifiers do not block guarded draft-version deletion", () => {
+  assert.match(deletionRepair, /drop constraint if exists website_proposal_ai_runs_base_version_id_fkey/i);
+  assert.match(deletionRepair, /drop constraint if exists website_proposal_ai_runs_applied_version_id_fkey/i);
+  assert.doesNotMatch(deletionRepair, /delete from public\.website_proposal_ai_runs/i);
 });

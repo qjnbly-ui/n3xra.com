@@ -21,7 +21,14 @@ test("section actions share the saved-baseline and targeted generation workflow"
   assert.match(script, /await saveDraft\(null, true\)/);
   assert.match(script, /const targetSections = section \? \[section\] : \[\.\.\.copilotSections\]/);
   assert.match(script, /target_sections: targetSections/);
-  assert.match(script, /approved onboarding, current project information, and selected approved assets/);
+  assert.match(script, /approved onboarding, current project information, and approved asset list/);
+});
+
+test("project context is automatic and the technical source picker is not shown", () => {
+  assert.doesNotMatch(html, /Sources and files/);
+  assert.doesNotMatch(html, /proposal-ai-source-list|proposal-ai-file-list/);
+  assert.match(html, /Included automatically:/);
+  assert.doesNotMatch(script, /source_keys:|file_keys:/);
 });
 
 test("the model is explicitly instructed to fill incomplete targeted sections", () => {

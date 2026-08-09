@@ -3,15 +3,14 @@ const {
   apiError, callerRpc, parseJson, serviceRequest, verifyAdminRequest,
 } = require("./_website-proposal-ai-supabase");
 const {
-  buildSourceManifest, evidenceSources, loadProposalCopilotContext, materializeSelectedFiles,
+  buildSourceManifest, evidenceSources, loadProposalCopilotContext,
 } = require("./_website-proposal-context");
 const { validateChangeSet } = require("./_website-proposal-ai-validation");
 
-const OPENAI_API_KEY = String(process.env.OPENAI_API_KEY || "").trim();
+const GROQ_API_KEY = String(process.env.GROQ_API_KEY || "").trim();
 const MODEL = String(
-  process.env.OPENAI_PROPOSAL_MODEL
-  || process.env.OPENAI_WEBSITE_AI_MODEL
-  || "gpt-5.6-terra"
+  process.env.GROQ_PROPOSAL_MODEL
+  || "openai/gpt-oss-120b"
 ).trim();
 const RATE_WINDOW_MS = 60 * 1000;
 const RATE_MAX = 5;
@@ -22,13 +21,13 @@ const LINE_ITEM_VALUE_SCHEMA = {
   type: "object",
   additionalProperties: false,
   properties: {
-    category: { type: "string" },
+    category: { type: "string", enum: ["website_build", "domain", "hosting", "maintenance", "email", "ssl_cdn", "content", "ecommerce", "integration", "other"] },
     name: { type: "string" },
     description: { type: ["string", "null"] },
-    billing_type: { type: "string" },
+    billing_type: { type: "string", enum: ["one_time", "recurring"] },
     quantity: { type: "number" },
     unit_amount_cents: { type: "integer" },
-    recurring_interval: { type: ["string", "null"] },
+    recurring_interval: { type: ["string", "null"], enum: [null, "monthly", "quarterly", "yearly"] },
     sort_order: { type: "integer" },
   },
   required: ["category", "name", "description", "billing_type", "quantity", "unit_amount_cents", "recurring_interval", "sort_order"],
@@ -46,7 +45,6 @@ const CHANGE_SET_SCHEMA = {
     summary: { type: "string" },
     operations: {
       type: "array",
-      maxItems: 40,
       items: {
         type: "object",
         additionalProperties: false,
@@ -113,28 +111,15 @@ function operationSection(operation) {
   return "terms";
 }
 
-function openAIFilePart(file) {
-  const mime = String(file.mime_type || "application/octet-stream").toLowerCase();
-  const dataUrl = `data:${mime};base64,${file.bytes.toString("base64")}`;
-  if (mime.startsWith("image/")) return { type: "input_image", image_url: dataUrl, detail: "auto" };
-  if (/^(application\/pdf|text\/|application\/(json|msword|vnd\.openxmlformats-officedocument\.|vnd\.ms-excel|vnd\.ms-powerpoint))/.test(mime)) {
-    return { type: "input_file", filename: file.filename, file_data: dataUrl };
+function extractGroqOutput(data) {
+  const message = data?.choices?.[0]?.message;
+  if (message?.refusal) throw apiError(message.refusal || "Proposal AI declined this request.", 422);
+  if (typeof message?.content === "string" && message.content.trim()) return message.content;
+  if (Array.isArray(message?.content)) {
+    const text = message.content.map((part) => part?.text || "").join("").trim();
+    if (text) return text;
   }
-  throw apiError(`${file.filename} is not a supported Proposal Copilot file type.`, 400);
-}
-
-function extractOutputText(data) {
-  if (data?.status === "incomplete" || data?.incomplete_details) {
-    throw apiError("OpenAI could not complete this proposal review.", 502, data.incomplete_details);
-  }
-  if (typeof data?.output_text === "string" && data.output_text.trim()) return data.output_text;
-  for (const output of data?.output || []) {
-    for (const content of output?.content || []) {
-      if (content?.type === "refusal") throw apiError(content.refusal || "OpenAI declined this request.", 422);
-      if (content?.type === "output_text" && typeof content.text === "string") return content.text;
-    }
-  }
-  throw apiError("OpenAI returned no structured proposal suggestions.", 502);
+  throw apiError("Groq returned no structured proposal suggestions.", 502);
 }
 
 function promptFor(context, instruction, targetSections, instructionSource) {
@@ -153,39 +138,34 @@ function promptFor(context, instruction, targetSections, instructionSource) {
   ].join("\n");
 }
 
-async function callOpenAI(context, instruction, targetSections, instructionSource, files) {
-  if (!OPENAI_API_KEY) throw apiError("OPENAI_API_KEY is not configured.", 503);
-  const content = [{ type: "input_text", text: promptFor(context, instruction, targetSections, instructionSource) }];
-  for (const file of files) {
-    content.push({
-      type: "input_text",
-      text: `SOURCE ${file.source_type}:${file.source_id}\nSelected file: ${file.filename}\nStatus: ${file.status}`,
-    });
-    content.push(openAIFilePart(file));
-  }
-  const response = await fetch("https://api.openai.com/v1/responses", {
+async function callGroq(context, instruction, targetSections, instructionSource) {
+  if (!GROQ_API_KEY) throw apiError("GROQ_API_KEY is not configured.", 503);
+  const systemInstruction = [
+    "You are Proposal AI for a website-services administrator.",
+    "Return only useful, discrete edits to the existing proposal baseline using the required schema.",
+    "When a requested target section has blank or incomplete standard fields, draft client-ready values from the included authoritative sources. When it already has useful content, improve it without discarding accurate details.",
+    "Never invent pricing, discounts, deposits, schedules, dates, revision limits, payment terms, or contractual language.",
+    "A protected change must cite an exact supporting excerpt from a source supplied in this request.",
+    "Onboarding may clarify how to implement approved scope but cannot silently add billable functionality or materially expand scope.",
+    "Use only record IDs shown in the supplied baseline. For a line-item addition use a null target ID and field item. When billing type and recurring interval change together, replace the complete line item using field item so the values remain consistent.",
+    "For every line item, use billing_type one_time with a null recurring_interval, or billing_type recurring with recurring_interval monthly, quarterly, or yearly. Prices are integer cents and sort_order is an integer.",
+    "Replace deliverables and exclusions only as complete arrays. Do not emit subtotal, total, or recurring summary edits; the server recalculates them from line items.",
+    "For each evidence item, source_type and source_id must exactly match a supplied SOURCE label.",
+    "Use a separate verbatim evidence excerpt for each protected price, quantity, or date. Set field_path to the supporting field name, including _cents or quantity for structured numeric sources.",
+    "Keep suggestions concise. If the instruction is already satisfied or unsupported, return no operation for it and explain briefly in summary.",
+  ].join(" ");
+  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
-    headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
+    headers: { Authorization: `Bearer ${GROQ_API_KEY}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       model: MODEL,
-      store: false,
-      instructions: [
-        "You are Proposal Copilot for a website-services administrator.",
-        "Return only useful, discrete edits to the existing proposal baseline using the required schema.",
-        "When a requested target section has blank or incomplete standard fields, draft client-ready values from the included authoritative sources. When it already has useful content, improve it without discarding accurate details.",
-        "Never invent pricing, discounts, deposits, schedules, dates, revision limits, payment terms, or contractual language.",
-        "A protected change must cite an exact supporting excerpt from a source supplied in this request.",
-        "Onboarding may clarify how to implement approved scope but cannot silently add billable functionality or materially expand scope.",
-        "Use only record IDs shown in the supplied baseline. For a line-item addition use a null target ID and field item. When billing type and recurring interval change together, replace the complete line item using field item so the values remain consistent.",
-        "Replace deliverables and exclusions only as complete arrays. Do not emit subtotal, total, or recurring summary edits; the server recalculates them from line items.",
-        "For each evidence item, source_type and source_id must exactly match a supplied SOURCE label.",
-        "Use a separate verbatim evidence excerpt for each protected price, quantity, or date. Set field_path to the supporting field name, including _cents or quantity for structured numeric sources.",
-        "Keep suggestions concise. If the instruction is already satisfied or unsupported, return no operation for it and explain briefly in summary.",
-      ].join(" "),
-      input: [{ role: "user", content }],
-      text: {
-        format: {
-          type: "json_schema",
+      messages: [
+        { role: "system", content: systemInstruction },
+        { role: "user", content: promptFor(context, instruction, targetSections, instructionSource) },
+      ],
+      response_format: {
+        type: "json_schema",
+        json_schema: {
           name: "website_proposal_change_set",
           strict: true,
           schema: CHANGE_SET_SCHEMA,
@@ -195,12 +175,12 @@ async function callOpenAI(context, instruction, targetSections, instructionSourc
     signal: AbortSignal.timeout(60_000),
   });
   const data = await response.json().catch(() => null);
-  if (!response.ok) throw apiError(data?.error?.message || `OpenAI request failed (${response.status}).`, response.status === 429 ? 429 : 502, data);
+  if (!response.ok) throw apiError(data?.error?.message || `Groq request failed (${response.status}).`, response.status === 429 ? 429 : 502, data);
   let parsed;
-  try { parsed = JSON.parse(extractOutputText(data)); }
+  try { parsed = JSON.parse(extractGroqOutput(data)); }
   catch (error) {
     if (error?.status) throw error;
-    throw apiError("OpenAI returned malformed structured output.", 502);
+    throw apiError("Groq returned malformed structured output.", 502);
   }
   return parsed;
 }
@@ -228,11 +208,8 @@ async function generate(body, auth) {
     authority: "admin_instruction", status: "immutable", updated_at: new Date().toISOString(),
     target_sections: targetSections,
   };
-  const context = await loadProposalCopilotContext(proposalId, {
-    sourceKeys: cleanIds(body.source_keys), fileKeys: cleanIds(body.file_keys),
-  });
-  const files = await materializeSelectedFiles(context.selectedFiles);
-  const manifest = buildSourceManifest(context, instructionSource, files);
+  const context = await loadProposalCopilotContext(proposalId);
+  const manifest = buildSourceManifest(context, instructionSource);
   const inserted = await serviceRequest("website_proposal_ai_runs", {
     method: "POST",
     headers: { Prefer: "return=representation" },
@@ -243,23 +220,15 @@ async function generate(body, auth) {
       created_by_user_id: auth.user.id,
       instruction,
       source_manifest: manifest,
-      model: MODEL,
+      model: `groq:${MODEL}`,
     }),
   });
   const run = inserted?.[0];
   if (!run) throw apiError("Unable to create the Proposal Copilot run.", 500);
 
   try {
-    const raw = await callOpenAI(context, instruction, targetSections, instructionSource, files);
+    const raw = await callGroq(context, instruction, targetSections, instructionSource);
     const evidenceMap = evidenceSources(context, instructionSource, instruction);
-    for (const file of files) {
-      if (/^(text\/|application\/(json|xml))/.test(String(file.mime_type || ""))) {
-        evidenceMap.set(`${file.source_type}:${file.source_id}`, {
-          text: file.bytes.toString("utf8"),
-          authority: manifest.find((item) => item.source_type === file.source_type && item.source_id === file.source_id)?.authority,
-        });
-      }
-    }
     const changeSet = validateChangeSet(raw, context.proposalBaseline, evidenceMap, new Date(run.created_at));
     if (targetSections.length) {
       changeSet.operations = changeSet.operations.filter((operation) => targetSections.includes(operationSection(operation)));
@@ -293,7 +262,7 @@ async function history(body) {
     ...run,
     instruction_preview: String(instruction || "").trim().slice(0, 140),
   }));
-  return { runs: summaries, sources: context.sourceOptions, files: context.fileOptions };
+  return { runs: summaries };
 }
 
 async function detail(body) {
@@ -354,4 +323,4 @@ module.exports = async function handler(req, res) {
   }
 };
 
-module.exports._test = { extractOutputText, openAIFilePart, CHANGE_SET_SCHEMA };
+module.exports._test = { extractGroqOutput, CHANGE_SET_SCHEMA };

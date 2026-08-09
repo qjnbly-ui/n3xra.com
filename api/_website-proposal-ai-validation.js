@@ -117,9 +117,9 @@ function canonicalOriginal(operation, baseline) {
 }
 
 function validateShape(operation, baseline) {
-  if (!operation || typeof operation !== "object") throw apiError("OpenAI returned an invalid suggestion.", 422);
+  if (!operation || typeof operation !== "object") throw apiError("Proposal AI returned an invalid suggestion.", 422);
   operation.id = plain(operation.id).slice(0, 100);
-  if (!operation.id) throw apiError("OpenAI returned a suggestion without an ID.", 422);
+  if (!operation.id) throw apiError("Proposal AI returned a suggestion without an ID.", 422);
   const kind = operation.target?.kind;
   const type = operation.operation;
   if (!new Set(["proposal", "version", "line_item"]).has(kind)) throw apiError(`Suggestion ${operation.id} has an invalid target.`, 422);
@@ -302,13 +302,13 @@ function supportedProtected(operation, evidenceMap, now) {
 }
 
 function validateChangeSet(raw, baseline, evidenceMap, now = new Date()) {
-  if (!raw || typeof raw !== "object" || !Array.isArray(raw.operations)) throw apiError("OpenAI returned malformed structured output.", 422);
-  if (raw.operations.length > 40) throw apiError("OpenAI returned too many suggestions for one review.", 422);
+  if (!raw || typeof raw !== "object" || !Array.isArray(raw.operations)) throw apiError("Proposal AI returned malformed structured output.", 422);
+  if (raw.operations.length > 40) throw apiError("Proposal AI returned too many suggestions for one review.", 422);
   const seen = new Set();
   const operations = raw.operations.map((input) => {
     const operation = structuredClone(input);
     validateShape(operation, baseline);
-    if (seen.has(operation.id)) throw apiError(`OpenAI returned duplicate suggestion ID ${operation.id}.`, 422);
+    if (seen.has(operation.id)) throw apiError(`Proposal AI returned duplicate suggestion ID ${operation.id}.`, 422);
     seen.add(operation.id);
     operation.risk = protectedOperation(operation) ? "protected" : "standard";
     operation.server_validation = operation.risk === "protected"

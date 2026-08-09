@@ -18,7 +18,7 @@
   </script>
   <script defer src="/_vercel/insights/script.js"></script>
   <link rel="stylesheet" href="/account/admin/admin.css?v=11">
-  <link rel="stylesheet" href="/n3xra-admin/website-admin.css?v=9">
+  <link rel="stylesheet" href="/n3xra-admin/website-admin.css?v=10">
   <script type="module" src="/account/admin/product-shell.js?v=5"></script>
   <script type="module" src="/n3xra-admin/website-admin-workspace.js?v=7"></script>
 </head>
@@ -104,14 +104,7 @@
                 <p class="portal-inline-status" id="proposal-ai-status" role="status"></p>
               </div>
               <p class="proposal-copilot-help proposal-copilot-section-help">While this assistant is open, every section below has a <strong>Fill with AI</strong> or <strong>Improve with AI</strong> button.</p>
-              <details class="proposal-copilot-sources">
-                <summary>Sources and files</summary>
-                <p class="proposal-copilot-help">The saved proposal baseline is always included. Relevant structured project information and approved onboarding are selected automatically when available. Published or approved website assets are selected by default; pending imports and unrelated portal files are opt-in.</p>
-                <div class="proposal-copilot-source-grid">
-                  <fieldset id="proposal-ai-source-list" data-copilot-control><legend>Project information</legend><p>The assistant will save a starter draft before loading sources.</p></fieldset>
-                  <fieldset id="proposal-ai-file-list" data-copilot-control><legend>Files sent to OpenAI</legend><p>No eligible files loaded.</p></fieldset>
-                </div>
-              </details>
+              <p class="proposal-copilot-context"><strong>Included automatically:</strong> your statement, saved proposal, website request, approved onboarding, current project details, and the approved asset list.</p>
               <details class="proposal-copilot-history-wrap">
                 <summary>Recent AI runs</summary>
                 <div class="proposal-copilot-history-head">
@@ -245,6 +238,6 @@
 
   <div class="portal-status" id="portal-status" role="status">Verifying proposal access…</div>
   <script type="module" src="/client-portal/portal-shell.js"></script>
-  <script type="module" src="/n3xra-admin/proposals/proposals-admin.js?v=18"></script>
+  <script type="module" src="/n3xra-admin/proposals/proposals-admin.js?v=19"></script>
 </body>
 </html>

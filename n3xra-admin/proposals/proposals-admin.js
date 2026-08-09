@@ -30,8 +30,6 @@ const referralDiscountHelp = document.getElementById("proposal-referral-discount
 const prepareBillingButton = document.getElementById("prepare-proposal-billing");
 const copilotPanel = document.getElementById("proposal-copilot");
 const copilotInstruction = document.getElementById("proposal-ai-instruction");
-const copilotSources = document.getElementById("proposal-ai-source-list");
-const copilotFiles = document.getElementById("proposal-ai-file-list");
 const copilotGenerateButton = document.getElementById("generate-proposal-ai");
 const copilotRefreshButton = document.getElementById("refresh-proposal-ai");
 const copilotReview = document.getElementById("proposal-ai-review");
@@ -513,8 +511,6 @@ function renderEditor() {
   if (!selectedProposal || !editingVersion) {
     copilotReview.hidden = true;
     copilotGlobalResult.append(copilotReview);
-    copilotSources.innerHTML = "<p>The assistant will save a starter draft before loading project information.</p>";
-    copilotFiles.innerHTML = "<p>Files will be available after the starter draft is saved.</p>";
     copilotHistory.innerHTML = "<p>No Proposal Copilot runs yet.</p>";
   } else {
     loadCopilotWorkspace().catch((error) => setCopilotStatus(error.message, true));
@@ -806,25 +802,16 @@ async function proposalAiRequest(payload) {
   return result;
 }
 
-function renderCopilotSources(sources = [], files = []) {
-  copilotSources.innerHTML = sources.length ? sources.map((source) => {
-    const mandatory = source.source_type === "proposal";
-    return `<label><input data-ai-source type="checkbox" value="${escapeHtml(source.key)}"${mandatory || source.default_included ? " checked" : ""}${mandatory ? " disabled" : ""}><span>${escapeHtml(source.label)}<small>${escapeHtml(formatLabel(source.authority))} · ${escapeHtml(formatLabel(source.status))}${source.updated_at ? ` · ${escapeHtml(new Date(source.updated_at).toLocaleDateString())}` : ""}</small></span></label>`;
-  }).join("") : "<p>No additional structured sources are available.</p>";
-  copilotFiles.innerHTML = files.length ? files.map((file) => {
-    const supported = file.ai_supported !== false;
-    const checked = supported && file.default_included;
-    return `<label><input data-ai-file type="checkbox" value="${escapeHtml(file.file_key)}"${checked ? " checked" : ""}${supported ? "" : " disabled"}><span>${escapeHtml(file.label || file.filename)}<small>${escapeHtml(formatLabel(file.category))} · ${escapeHtml(formatLabel(file.status))}${supported ? "" : " · unsupported file type"}</small></span></label>`;
-  }).join("") : "<p>No eligible project files are available.</p>";
-}
-
 function historySummary(run) {
   const date = new Date(run.created_at).toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
   const instruction = String(run.instruction_preview || run.instruction || "").trim();
+  const model = String(run.model || "").startsWith("groq:")
+    ? `Groq · ${String(run.model).slice(5).replace(/^openai\//, "").replaceAll("-", " ").toUpperCase()}`
+    : `OpenAI · ${String(run.model || "unknown").replaceAll("-", " ").toUpperCase()}`;
   const outcome = run.status === "applied"
     ? `${run.accepted_count} accepted · ${run.rejected_count} rejected`
     : run.status === "failed" ? "Failed" : `${run.suggestion_count} suggestions`;
-  return `<div><p><strong>${escapeHtml(date)}</strong> · ${escapeHtml(formatLabel(run.status))}</p><small>${escapeHtml(instruction.slice(0, 110))}${instruction.length > 110 ? "…" : ""} · ${escapeHtml(outcome)} · ${escapeHtml(run.model)}</small></div>`;
+  return `<div><p><strong>${escapeHtml(date)}</strong> · ${escapeHtml(formatLabel(run.status))}</p><small>${escapeHtml(instruction.slice(0, 110))}${instruction.length > 110 ? "…" : ""} · ${escapeHtml(outcome)} · ${escapeHtml(model)}</small></div>`;
 }
 
 function renderCopilotHistory(runs = []) {
@@ -921,15 +908,12 @@ function updateCopilotApplyState() {
 
 async function loadCopilotWorkspace() {
   if (!selectedProposal?.id || !editingVersion?.id) {
-    copilotSources.innerHTML = "<p>The assistant will save a starter draft before loading project information.</p>";
-    copilotFiles.innerHTML = "<p>Files will be available after the starter draft is saved.</p>";
     return;
   }
   const sequence = ++copilotLoadSequence;
   setCopilotStatus("Loading Proposal Copilot…");
   const result = await proposalAiRequest({ action: "history", proposal_id: selectedProposal.id });
   if (sequence !== copilotLoadSequence || result.runs?.[0]?.proposal_id && result.runs[0].proposal_id !== selectedProposal.id) return;
-  renderCopilotSources(result.sources, result.files);
   renderCopilotHistory(result.runs);
   setCopilotStatus("");
 }
@@ -949,7 +933,7 @@ function generatedCopilotInstruction(targetSections) {
     : "draft all proposal sections";
   return [
     adminStatement || "Use the included authoritative project information to prepare this proposal.",
-    `Task: ${sectionText} using the saved proposal, website request, approved onboarding, current project information, and selected approved assets.`,
+    `Task: ${sectionText} using the saved proposal, website request, approved onboarding, current project information, and approved asset list.`,
     "Write client-ready content and fill missing standard fields. Preserve accurate existing content. Do not invent prices, dates, scope, promises, revision limits, payment terms, or contractual language.",
   ].join("\n\n");
 }
@@ -964,12 +948,10 @@ async function generateCopilotSuggestions(section = null) {
     if (!createdBaseline && editingVersion.status === "draft") await saveDraft(null, true);
     await loadCopilotWorkspace();
     const instruction = generatedCopilotInstruction(targetSections);
-    const sourceKeys = Array.from(copilotSources.querySelectorAll("[data-ai-source]:checked")).map((input) => input.value);
-    const fileKeys = Array.from(copilotFiles.querySelectorAll("[data-ai-file]:checked")).map((input) => input.value);
     setCopilotStatus(section ? `Drafting the ${formatLabel(section)} section from your statement and project information…` : "Drafting the full proposal from your statement and project information…");
     const result = await proposalAiRequest({
       action: "generate", proposal_id: selectedProposal.id, instruction,
-      source_keys: sourceKeys, file_keys: fileKeys, target_sections: targetSections,
+      target_sections: targetSections,
     });
     renderCopilotRun(result.run, section);
     setCopilotStatus(`Review ${result.run.suggestion_count} AI suggestion${result.run.suggestion_count === 1 ? "" : "s"}, then apply the changes you want.`);

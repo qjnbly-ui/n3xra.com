@@ -395,7 +395,8 @@ Proposal Copilot runs through the server-only `/api/website-proposal-ai` route. 
 
 - apply `supabase/migrations/20260808204032_admin_asset_uploads_and_onboarding_import.sql`
 - apply `supabase/migrations/20260808213831_website_proposal_copilot.sql`
-- set `OPENAI_API_KEY` in the Vercel environment
-- optionally set `OPENAI_PROPOSAL_MODEL`; if unset, `OPENAI_WEBSITE_AI_MODEL` is used, then `gpt-5.6-terra`
+- apply `supabase/migrations/20260809053401_preserve_proposal_ai_history_on_draft_delete.sql`
+- set `GROQ_API_KEY` in the Vercel environment
+- optionally set `GROQ_PROPOSAL_MODEL`; if unset, `openai/gpt-oss-120b` is used
 
-Keep the OpenAI key and Supabase service-role key server-only. The browser sends only the signed-in administrator JWT and selected source IDs to the API.
+Keep the Groq key and Supabase service-role key server-only. The browser sends only the signed-in administrator JWT and proposal instruction to the API. The server includes the safe project context automatically.

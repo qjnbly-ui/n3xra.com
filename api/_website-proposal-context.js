@@ -226,6 +226,24 @@ async function loadProposalCopilotContext(proposalId, selections = {}) {
   ));
   if (project) sources.push(source("website_project", project.id, "Website project", "operational", project.status, project.updated_at, safeProject(project), true));
   if (operational.website) sources.push(source("website_operations", operational.website.id, "Current website operations", "operational", operational.website.status, operational.website.updated_at, operational, true));
+  const approvedAssetSummary = fileOptions.filter((file) => file.default_included).map((file) => ({
+    id: file.source_id,
+    label: file.label,
+    category: file.category,
+    status: file.status,
+    filename: file.filename,
+    mime_type: file.mime_type,
+  }));
+  if (approvedAssetSummary.length) sources.push(source(
+    "website_assets",
+    project?.managed_website_id || proposal.id,
+    "Approved website assets",
+    "implementation",
+    "approved",
+    fileOptions.filter((file) => file.default_included).map((file) => file.updated_at).filter(Boolean).sort().at(-1),
+    { assets: approvedAssetSummary },
+    true,
+  ));
 
   const selectedSourceKeys = Array.isArray(selections.sourceKeys) ? new Set(selections.sourceKeys.map(String)) : null;
   const includedSources = sources.filter((item) => item.source_type === "proposal"
