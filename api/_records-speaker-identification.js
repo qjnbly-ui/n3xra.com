@@ -5,7 +5,11 @@ const SUPABASE_SERVICE_ROLE_KEY = String(process.env.SUPABASE_SERVICE_ROLE_KEY |
 const PYANNOTE_API_KEY = String(process.env.PYANNOTE_API_KEY || "").trim();
 const PYANNOTE_API_URL = "https://api.pyannote.ai/v1";
 const PYANNOTE_MODEL = "precision-2";
-const MATCH_THRESHOLD = Math.max(0, Math.min(100, Number(process.env.PYANNOTE_MATCH_THRESHOLD || 60) || 60));
+// Prefer an unnamed speaker to a wrong name. A deployment may make this stricter,
+// but it may never lower the minimum confidence required for an automatic name.
+const MATCH_THRESHOLD = Math.max(80, Math.min(100, Number(process.env.PYANNOTE_MATCH_THRESHOLD || 80) || 80));
+const MATCH_CONFIDENCE_MARGIN = Math.max(15, Math.min(100, Number(process.env.PYANNOTE_MATCH_CONFIDENCE_MARGIN || 15) || 15));
+const MIN_MATCH_SPEECH_SECONDS = Math.max(8, Number(process.env.PYANNOTE_MIN_MATCH_SPEECH_SECONDS || 8) || 8);
 const MAX_VOICEPRINTS = 50;
 
 function serviceHeaders(extra = {}) {
@@ -180,11 +184,58 @@ function confidenceByDiarizationSpeaker(output) {
   (Array.isArray(output?.voiceprints) ? output.voiceprints : []).forEach((entry) => {
     const key = String(entry?.speaker || entry?.diarizationSpeaker || "");
     if (!key) return;
-    const match = String(entry?.match || "");
-    const confidence = numberValue(entry?.confidence?.[match]);
-    map.set(key, confidence || null);
+    const scores = Object.entries(entry?.confidence || {})
+      .map(([label, score]) => ({ label, score: numberValue(score) }))
+      .filter(({ label }) => label)
+      .sort((a, b) => b.score - a.score);
+    map.set(key, scores);
   });
   return map;
+}
+
+function speechSecondsByDiarizationSpeaker(turns) {
+  const intervalsBySpeaker = new Map();
+  turns.forEach((turn) => {
+    const start = numberValue(turn?.start);
+    const end = numberValue(turn?.end);
+    if (end <= start) return;
+    const key = diarizationKey(turn);
+    const intervals = intervalsBySpeaker.get(key) || [];
+    intervals.push([start, end]);
+    intervalsBySpeaker.set(key, intervals);
+  });
+  return new Map(Array.from(intervalsBySpeaker.entries()).map(([key, intervals]) => {
+    const sorted = intervals.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+    let total = 0;
+    let [rangeStart, rangeEnd] = sorted[0];
+    sorted.slice(1).forEach(([start, end]) => {
+      if (start <= rangeEnd) {
+        rangeEnd = Math.max(rangeEnd, end);
+        return;
+      }
+      total += rangeEnd - rangeStart;
+      rangeStart = start;
+      rangeEnd = end;
+    });
+    total += rangeEnd - rangeStart;
+    return [key, total];
+  }));
+}
+
+function matchDecision(matchedUserId, sourceSpeaker, directoryMap, confidenceMap, speechSecondsMap) {
+  const speechSeconds = speechSecondsMap.get(sourceSpeaker) || 0;
+  const scores = confidenceMap.get(sourceSpeaker) || [];
+  const matchedConfidence = scores.find(({ label }) => label === matchedUserId)?.score ?? null;
+  const runnerUpConfidence = scores.find(({ label }) => label !== matchedUserId)?.score ?? null;
+  const evidence = { matchedConfidence, runnerUpConfidence, speechSeconds };
+  if (!matchedUserId || !directoryMap.has(matchedUserId)) return { ...evidence, accepted: false, reason: "unmatched" };
+  if (matchedConfidence === null) return { ...evidence, accepted: false, reason: "missing_confidence" };
+  if (speechSeconds < MIN_MATCH_SPEECH_SECONDS) return { ...evidence, accepted: false, reason: "insufficient_speech" };
+  if (matchedConfidence < MATCH_THRESHOLD) return { ...evidence, accepted: false, reason: "low_confidence" };
+  if (runnerUpConfidence !== null && matchedConfidence - runnerUpConfidence < MATCH_CONFIDENCE_MARGIN) {
+    return { ...evidence, accepted: false, reason: "ambiguous" };
+  }
+  return { ...evidence, accepted: true, reason: "matched" };
 }
 
 function normalizeIdentificationTurns(output, directory) {
@@ -194,6 +245,7 @@ function normalizeIdentificationTurns(output, directory) {
   let unknownCount = 0;
   const rawTurns = [output?.identification, output?.exclusiveDiarization, output?.exclusive_diarization, output?.diarization]
     .find((turns) => Array.isArray(turns)) || [];
+  const speechSecondsMap = speechSecondsByDiarizationSpeaker(rawTurns);
   return rawTurns
     .map((turn) => {
       const start = numberValue(turn?.start);
@@ -201,7 +253,8 @@ function normalizeIdentificationTurns(output, directory) {
       if (end <= start) return null;
       const sourceSpeaker = diarizationKey(turn);
       const matchedUserId = String(turn?.match || "");
-      const userId = directoryMap.has(matchedUserId) ? matchedUserId : null;
+      const decision = matchDecision(matchedUserId, sourceSpeaker, directoryMap, confidenceMap, speechSecondsMap);
+      const userId = decision.accepted ? matchedUserId : null;
       if (!userId && !unknownNames.has(sourceSpeaker)) {
         unknownCount += 1;
         unknownNames.set(sourceSpeaker, `Speaker ${unknownCount}`);
@@ -212,7 +265,12 @@ function normalizeIdentificationTurns(output, directory) {
         speakerKey: userId ? `user:${userId}` : `unknown:${sourceSpeaker}`,
         displayName: userId ? directoryMap.get(userId) : unknownNames.get(sourceSpeaker),
         userId,
-        confidence: userId ? confidenceMap.get(sourceSpeaker) || null : null,
+        candidateUserId: directoryMap.has(matchedUserId) ? matchedUserId : null,
+        confidence: userId ? decision.matchedConfidence : null,
+        matchDecision: decision.reason,
+        candidateConfidence: decision.matchedConfidence,
+        runnerUpConfidence: decision.runnerUpConfidence,
+        speechSeconds: decision.speechSeconds,
         sourceSpeaker,
       };
     })
@@ -341,11 +399,19 @@ async function finalizeIdentificationJob(recording, job, directory, timing) {
       model: PYANNOTE_MODEL,
       mode: directory.length ? "identification" : "diarization",
       threshold: directory.length ? MATCH_THRESHOLD : null,
+      confidenceMargin: directory.length ? MATCH_CONFIDENCE_MARGIN : null,
+      minimumMatchSpeechSeconds: directory.length ? MIN_MATCH_SPEECH_SECONDS : null,
+      candidateProfileCount: directory.length,
       speakers: Array.from(new Map(result.speakerTurns.map((turn) => [turn.speakerKey, {
         speakerKey: turn.speakerKey,
         displayName: turn.displayName,
         userId: turn.userId,
+        candidateUserId: turn.candidateUserId,
         confidence: turn.confidence,
+        matchDecision: turn.matchDecision,
+        candidateConfidence: turn.candidateConfidence,
+        runnerUpConfidence: turn.runnerUpConfidence,
+        speechSeconds: turn.speechSeconds,
       }])).values()),
       utterances: result.utterances,
     },
@@ -409,4 +475,6 @@ module.exports = {
   speakerTranscriptFromUtterances,
   speakerDetectionIsEnabled,
   MATCH_THRESHOLD,
+  MATCH_CONFIDENCE_MARGIN,
+  MIN_MATCH_SPEECH_SECONDS,
 };

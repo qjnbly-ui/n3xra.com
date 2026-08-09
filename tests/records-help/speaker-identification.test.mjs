@@ -38,6 +38,7 @@ test("timestamped transcript words are assigned to known and unknown speakers", 
     identification: [
       { speaker: "user-1", match: "user-1", diarizationSpeaker: "SPEAKER_00", start: 0, end: 2 },
       { speaker: "SPEAKER_01", match: null, diarizationSpeaker: "SPEAKER_01", start: 2, end: 4 },
+      { speaker: "user-1", match: "user-1", diarizationSpeaker: "SPEAKER_00", start: 4, end: 11 },
     ],
     voiceprints: [
       { speaker: "SPEAKER_00", match: "user-1", confidence: { "user-1": 87 } },
@@ -51,6 +52,91 @@ test("timestamped transcript words are assigned to known and unknown speakers", 
   assert.equal(result.utterances[0].userId, "user-1");
   assert.equal(result.utterances[0].confidence, 87);
   assert.equal(result.utterances[1].userId, null);
+});
+
+test("weak voice matches remain generic even with only one enrolled profile", () => {
+  const directory = [{ userId: "user-1", displayName: "Known member" }];
+  const timing = { segments: [{ text: "Guest speaking.", start: 0, end: 2 }] };
+  const output = {
+    identification: [
+      { match: "user-1", diarizationSpeaker: "SPEAKER_00", start: 0, end: 10 },
+    ],
+    voiceprints: [
+      { speaker: "SPEAKER_00", match: "user-1", confidence: { "user-1": 79 } },
+    ],
+  };
+
+  const result = speakerIdentification.buildSpeakerTranscript(timing, output, directory);
+
+  assert.match(result.text, /Speaker 1 \[0:00\]\nGuest speaking\./);
+  assert.equal(result.utterances[0].userId, null);
+  assert.equal(result.speakerTurns[0].matchDecision, "low_confidence");
+});
+
+test("short or ambiguous voice matches remain generic speakers", () => {
+  const directory = [
+    { userId: "user-1", displayName: "Known member" },
+    { userId: "user-2", displayName: "Another member" },
+  ];
+  const timing = { segments: [{ text: "Guest speaking.", start: 0, end: 2 }] };
+  const output = {
+    identification: [
+      { match: "user-1", diarizationSpeaker: "SPEAKER_00", start: 0, end: 2 },
+    ],
+    voiceprints: [
+      { speaker: "SPEAKER_00", match: "user-1", confidence: { "user-1": 94, "user-2": 90 } },
+    ],
+  };
+
+  const result = speakerIdentification.buildSpeakerTranscript(timing, output, directory);
+
+  assert.match(result.text, /Speaker 1 \[0:00\]\nGuest speaking\./);
+  assert.equal(result.utterances[0].userId, null);
+  assert.equal(result.speakerTurns[0].matchDecision, "insufficient_speech");
+});
+
+test("long but ambiguous matches remain generic speakers", () => {
+  const directory = [
+    { userId: "user-1", displayName: "Known member" },
+    { userId: "user-2", displayName: "Another member" },
+  ];
+  const timing = { segments: [{ text: "Guest speaking.", start: 0, end: 2 }] };
+  const output = {
+    identification: [
+      { match: "user-1", diarizationSpeaker: "SPEAKER_00", start: 0, end: 10 },
+    ],
+    voiceprints: [
+      { speaker: "SPEAKER_00", match: "user-1", confidence: { "user-1": 94, "user-2": 90 } },
+    ],
+  };
+
+  const result = speakerIdentification.buildSpeakerTranscript(timing, output, directory);
+
+  assert.match(result.text, /Speaker 1 \[0:00\]\nGuest speaking\./);
+  assert.equal(result.utterances[0].userId, null);
+  assert.equal(result.speakerTurns[0].matchDecision, "ambiguous");
+});
+
+test("a strong, sufficiently long match is named with multiple enrolled profiles", () => {
+  const directory = [
+    { userId: "user-1", displayName: "Known member" },
+    { userId: "user-2", displayName: "Another member" },
+  ];
+  const timing = { segments: [{ text: "Known speaker talking.", start: 0, end: 2 }] };
+  const output = {
+    identification: [
+      { match: "user-1", diarizationSpeaker: "SPEAKER_00", start: 0, end: 10 },
+    ],
+    voiceprints: [
+      { speaker: "SPEAKER_00", match: "user-1", confidence: { "user-1": 93, "user-2": 60 } },
+    ],
+  };
+
+  const result = speakerIdentification.buildSpeakerTranscript(timing, output, directory);
+
+  assert.match(result.text, /Known member \[0:00\]\nKnown speaker talking\./);
+  assert.equal(result.utterances[0].userId, "user-1");
+  assert.equal(result.speakerTurns[0].matchDecision, "matched");
 });
 
 test("generic diarization labels speakers without enrolled voice profiles", () => {

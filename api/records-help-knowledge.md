@@ -112,7 +112,7 @@ Ask Records AI answers product and workflow questions about N3XRA Records. It is
 - **Voice profiles** is always available under **Manage library** → **People and access** for active library members; opening **Users** first is not required.
 - Every active workspace member appears automatically in **Voice profiles**. Enrollment is optional, consent-based, and self-service: each member records their own displayed script in a quiet place, reviews the recording, checks the biometric consent box, and selects **Create voice profile**.
 - A short clear sample is enough; longer audio is not automatically better. The saved profile is a voiceprint, and N3XRA does not retain the raw enrollment recording.
-- The 60% threshold applies only to deciding whether an enrolled voice should be replaced with a name. It does not control generic speaker separation.
+- Every detected voice starts with a generic speaker label. A name is shown automatically only when the enrolled voice has at least 80% confidence, is clearly ahead of another enrolled voice when alternatives exist, and has at least eight seconds of detected speech. Otherwise the transcript keeps the generic label. No attendance list is required.
 - Speaker-aware transcripts are produced for new processing. Existing plain transcripts are not automatically reprocessed.
 - Authorized editors can correct a speaker name after processing; the corrected label is applied across that saved transcript and its linked document.
 - The correction window includes a play control for each detected speaker. It plays a short excerpt from that speaker's existing meeting audio so an editor can verify who they are before saving a name. Playing the excerpt does not enroll or change a voice profile.
