@@ -318,7 +318,8 @@ function installWorkspaceStyles(page) {
 }
 
 function syncAdminPageClasses(page) {
-  const isAdminPageClass = (className) => className.endsWith("-admin-page");
+  const isAdminPageClass = (className) => className.endsWith("-admin-page")
+    || (className.startsWith("admin-") && className.endsWith("-page"));
   [...document.body.classList].filter(isAdminPageClass).forEach((className) => document.body.classList.remove(className));
   [...page.body.classList].filter(isAdminPageClass).forEach((className) => document.body.classList.add(className));
 }

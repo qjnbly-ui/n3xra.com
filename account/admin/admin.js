@@ -1312,6 +1312,9 @@ async function loadAdminView() {
     await loadCodebaseAi();
   } else if (view === "analytics") {
     await loadAnalyticsView();
+  } else if (view === "applications") {
+    const applications = await import("/admin/applications/applications.js?v=3");
+    await applications.startApplications({ supabase, session });
   } else if (view === "investment") {
     selectInvestmentSection();
   } else if (view === "product-apps") {
