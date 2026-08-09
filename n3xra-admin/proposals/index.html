@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>N3XRA | Website Proposals</title>
+  <title>N3XRA | Proposal &amp; Agreement</title>
   <meta name="robots" content="noindex, nofollow, noarchive">
   <link rel="icon" href="/assets/n3xra_logo_transparent_small.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -18,7 +18,7 @@
   </script>
   <script defer src="/_vercel/insights/script.js"></script>
   <link rel="stylesheet" href="/account/admin/admin.css?v=11">
-  <link rel="stylesheet" href="/n3xra-admin/website-admin.css?v=12">
+  <link rel="stylesheet" href="/n3xra-admin/website-admin.css?v=13">
   <script type="module" src="/account/admin/product-shell.js?v=5"></script>
   <script type="module" src="/n3xra-admin/website-admin-workspace.js?v=7"></script>
 </head>
@@ -36,11 +36,11 @@
     <section class="portal-heading">
       <div>
         <p class="portal-kicker">Master administration</p>
-        <h1>Proposals</h1>
+        <h1>Proposal &amp; Agreement</h1>
       </div>
     </section>
     <section class="portal-project-picker" aria-labelledby="admin-proposal-picker-title">
-      <div><p class="portal-kicker">Proposal workspace</p><h2 id="admin-proposal-picker-title">Selected request</h2><p>Choose the request whose proposal you want to prepare or revise.</p></div>
+      <div><p class="portal-kicker">Agreement workspace</p><h2 id="admin-proposal-picker-title">Selected request</h2><p>Turn the accepted request and approved onboarding into one clear client agreement.</p></div>
       <label class="portal-project-select">Request<select class="portal-select" id="proposal-request-select"></select></label>
     </section>
 
@@ -59,7 +59,7 @@
 
       <section class="portal-workspace">
         <div class="portal-workspace-head">
-          <div><p class="portal-kicker">Proposal pipeline</p><h2>Prepare client proposal</h2></div>
+          <div><p class="portal-kicker">Proposal pipeline</p><h2>Prepare the Proposal &amp; Agreement</h2></div>
           <button class="portal-button portal-button-secondary" id="refresh-proposals" type="button">Refresh</button>
         </div>
 
@@ -76,14 +76,18 @@
         <form class="portal-form portal-proposal-form" id="proposal-form" hidden>
           <div class="portal-form-head">
             <div>
-              <p class="portal-kicker" id="proposal-version-label">Draft proposal</p>
-              <h3 id="proposal-editor-title">Proposal details</h3>
+              <p class="portal-kicker" id="proposal-version-label">Draft agreement</p>
+              <h3 id="proposal-editor-title">Proposal &amp; Agreement</h3>
             </div>
             <div class="portal-form-actions">
               <button class="portal-button portal-button-secondary" id="new-proposal-version" type="button" hidden>Create revision</button>
               <button class="portal-button portal-button-danger" id="delete-proposal-version" type="button" hidden>Delete draft version</button>
             </div>
           </div>
+
+          <ol class="proposal-agreement-steps" aria-label="Agreement sections">
+            <li><span>1</span>Summary</li><li><span>2</span>Scope</li><li><span>3</span>Timeline</li><li><span>4</span>Investment</li><li><span>5</span>Terms</li><li><span>6</span>Approval</li>
+          </ol>
 
           <details class="portal-form-section proposal-copilot proposal-copilot-top" id="proposal-copilot" aria-labelledby="proposal-copilot-title">
             <summary class="proposal-copilot-summary">
@@ -121,20 +125,20 @@
 
           <div class="portal-form-section proposal-ai-editable-section" data-proposal-section="overview">
             <div class="portal-form-section-head proposal-ai-section-head">
-              <div><h4>Overview</h4><p>Introduce the project and explain what success looks like.</p></div>
+              <div><p class="portal-kicker">01 · Project summary</p><h4>What you are agreeing to build</h4><p>Give the client one concise, useful description of the project and intended outcome.</p></div>
               <button class="portal-button portal-button-secondary proposal-ai-section-action" data-ai-section="overview" type="button"><span data-ai-action-label>Fill with AI</span></button>
             </div>
             <div class="portal-form-grid">
-              <label class="portal-form-wide">Proposal title<input id="proposal-title" required maxlength="160"></label>
-              <label class="portal-form-wide">Introduction<textarea id="proposal-introduction" rows="3" placeholder="A short, personal introduction for the client."></textarea></label>
-              <label class="portal-form-wide">Project objective<textarea id="proposal-objective" rows="4" required></textarea></label>
+              <label class="portal-form-wide">Agreement title<input id="proposal-title" required maxlength="160"></label>
+              <input id="proposal-introduction" type="hidden">
+              <label class="portal-form-wide">Project summary<textarea id="proposal-objective" rows="6" required placeholder="What is being built, who it serves, and what a successful result looks like."></textarea></label>
             </div>
             <div class="proposal-ai-result-slot" data-ai-result-slot="overview"></div>
           </div>
 
           <div class="portal-form-section proposal-ai-editable-section" data-proposal-section="scope">
             <div class="portal-form-section-head proposal-ai-section-head">
-              <div><h4>Scope, deliverables, and boundaries</h4><p>Turn the approved project information into a clear description of what will be delivered.</p></div>
+              <div><p class="portal-kicker">02 · Scope</p><h4>Deliverables and boundaries</h4><p>State exactly what is included and what would require a later change or quote.</p></div>
               <button class="portal-button portal-button-secondary proposal-ai-section-action" data-ai-section="scope" type="button"><span data-ai-action-label>Fill with AI</span></button>
             </div>
             <div class="portal-form-grid">
@@ -147,21 +151,21 @@
 
           <div class="portal-form-section proposal-ai-editable-section" data-proposal-section="schedule">
             <div class="portal-form-section-head proposal-ai-section-head">
-              <div><h4>Schedule</h4><p>Draft a realistic timeline from approved dates and project context.</p></div>
+              <div><p class="portal-kicker">03 · Timeline</p><h4>Schedule and dependencies</h4><p>Set expectations without promising dates the available information cannot support.</p></div>
               <button class="portal-button portal-button-secondary proposal-ai-section-action" data-ai-section="schedule" type="button"><span data-ai-action-label>Fill with AI</span></button>
             </div>
             <div class="portal-form-grid">
               <label class="portal-form-wide">Timeline description<textarea id="proposal-timeline" rows="3" required></textarea></label>
               <label>Estimated start<input id="proposal-start-date" type="date"></label>
               <label>Estimated completion<input id="proposal-completion-date" type="date"></label>
-              <label>Proposal valid until<input id="proposal-valid-until" type="date"></label>
+              <label>Agreement valid until<input id="proposal-valid-until" type="date"></label>
             </div>
             <div class="proposal-ai-result-slot" data-ai-result-slot="schedule"></div>
           </div>
 
           <div class="portal-form-section proposal-ai-editable-section" data-proposal-section="investment">
             <div class="portal-form-section-head">
-              <div><h4>Investment</h4><p>Add each proposed project cost or outside service separately. This is not a bill; the client must approve the proposal before billing is created.</p></div>
+              <div><p class="portal-kicker">04 · Investment &amp; payment</p><h4>Project cost and billing plan</h4><p>Add each build cost, ongoing service, and outside expense separately. Acceptance authorizes these terms; billing is created afterward.</p></div>
               <div class="proposal-section-actions">
                 <button class="portal-button portal-button-secondary proposal-ai-section-action" data-ai-section="investment" type="button"><span data-ai-action-label>Improve with AI</span></button>
                 <div class="proposal-plan-actions"><button class="portal-button portal-button-secondary" id="add-starter-plan" type="button">Add Starter</button><button class="portal-button portal-button-secondary" id="add-starter-plus-plan" type="button">Add Starter+</button><button class="portal-button portal-button-secondary" id="add-advanced-plan" type="button">Add Advanced</button><button class="portal-button portal-button-secondary" id="add-proposal-line-item" type="button">Add other service</button></div>
@@ -188,20 +192,27 @@
 
           <div class="portal-form-section proposal-ai-editable-section" data-proposal-section="terms">
             <div class="portal-form-section-head proposal-ai-section-head">
-              <div><h4>Terms and revisions</h4><p>Review AI-drafted wording beside each field before applying it.</p></div>
+              <div><p class="portal-kicker">05 · Agreement terms</p><h4>Responsibilities, revisions, and ownership</h4><p>Keep only terms that matter to this project and review every AI suggestion before accepting it.</p></div>
               <button class="portal-button portal-button-secondary proposal-ai-section-action" data-ai-section="terms" type="button"><span data-ai-action-label>Improve with AI</span></button>
             </div>
             <div class="portal-form-grid">
               <label class="portal-form-wide">Revision policy<textarea id="proposal-revisions" rows="3"></textarea></label>
-              <label class="portal-form-wide">Proposal terms<textarea id="proposal-terms" rows="7" required></textarea></label>
+              <label class="portal-form-wide">Agreement terms<textarea id="proposal-terms" rows="7" required></textarea></label>
             </div>
             <div class="proposal-ai-result-slot" data-ai-result-slot="terms"></div>
+          </div>
+
+          <div class="portal-form-section proposal-approval-preview">
+            <div class="portal-form-section-head">
+              <div><p class="portal-kicker">06 · Client approval</p><h4>Recorded acceptance</h4><p>The client reviews this exact immutable version, enters their name, and approves, requests changes, or declines. Approval records the version, identity, acknowledgment, and time before billing or production can proceed.</p></div>
+            </div>
+            <div class="proposal-approval-facts"><span>Exact version preserved</span><span>Changes create a revision</span><span>Billing uses approved totals</span></div>
           </div>
 
           <div class="portal-form-actions portal-proposal-actions">
             <button class="portal-button portal-button-secondary" id="save-proposal" type="submit">Save draft</button>
             <button class="portal-button portal-button-secondary" id="preview-proposal-email" type="button">Preview email</button>
-            <button class="portal-button" id="send-proposal" type="button">Send to client</button>
+            <button class="portal-button" id="send-proposal" type="button">Send for approval</button>
             <a class="portal-button portal-button-secondary" id="preview-proposal" href="/proposals/" target="_blank" rel="noopener" hidden>Open client view</a>
             <button class="portal-button" id="prepare-proposal-billing" type="button" hidden>Prepare billing</button>
             <p class="portal-inline-status" id="proposal-form-status" role="status"></p>
@@ -238,6 +249,6 @@
 
   <div class="portal-status" id="portal-status" role="status">Verifying proposal access…</div>
   <script type="module" src="/client-portal/portal-shell.js"></script>
-  <script type="module" src="/n3xra-admin/proposals/proposals-admin.js?v=21"></script>
+  <script type="module" src="/n3xra-admin/proposals/proposals-admin.js?v=22"></script>
 </body>
 </html>

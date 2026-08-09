@@ -32,7 +32,8 @@ const refreshButton = document.getElementById("refresh-onboarding-admin");
 
 let supabase;
 let currentUser;
-let approvedProposals = [];
+let onboardingCandidates = [];
+let proposals = [];
 let onboardings = [];
 let responses = [];
 let files = [];
@@ -59,22 +60,22 @@ function formatAnswer(value) {
 }
 
 function renderProposalQueue() {
-  proposalQueue.hidden = !approvedProposals.length;
-  const onboardingByProposal = new Map(onboardings.map((onboarding) => [onboarding.proposal_id, onboarding]));
-  proposalList.innerHTML = approvedProposals.length ? approvedProposals.map((proposal) => {
-    const onboarding = onboardingByProposal.get(proposal.id)
-      || onboardings.find((item) => item.project_id && item.project_id === proposal.project_id);
+  proposalQueue.hidden = !onboardingCandidates.length;
+  proposalList.innerHTML = onboardingCandidates.length ? onboardingCandidates.map((request) => {
+    const proposal = proposals.find((item) => item.request_id === request.id);
+    const onboarding = onboardings.find((item) => item.request_id === request.id)
+      || onboardings.find((item) => item.proposal_id && item.proposal_id === proposal?.id);
     return `
       <article class="portal-request-card">
-        <div><p class="portal-kicker">Approved proposal</p><h3>${escapeHtml(proposal.title)}</h3><p>${escapeHtml(proposal.website_service_requests?.business_name || "Website project")}</p></div>
+        <div><p class="portal-kicker">${proposal ? "Proposal in progress" : "Accepted request"}</p><h3>${escapeHtml(request.business_name || proposal?.title || "Website project")}</h3><p>${escapeHtml(formatLabel(request.project_type || request.status))}</p></div>
         <div class="portal-request-client-actions">
           ${onboarding
             ? `<span class="portal-badge portal-status-${escapeHtml(onboarding.status)}">${escapeHtml(formatLabel(onboarding.status))}</span><button class="portal-button portal-button-secondary" type="button" data-open-onboarding="${onboarding.id}">Review onboarding</button>`
-            : `<button class="portal-button" type="button" data-unlock-proposal="${proposal.id}">Open onboarding</button>`}
+            : `<button class="portal-button" type="button" data-unlock-request="${request.id}">Give onboarding access</button>`}
         </div>
       </article>
     `;
-  }).join("") : '<div class="portal-empty portal-empty-compact"><p>No approved proposals are waiting for onboarding.</p></div>';
+  }).join("") : '<div class="portal-empty portal-empty-compact"><p>No accepted requests are waiting for onboarding.</p></div>';
 }
 
 function renderOptions() {
@@ -114,7 +115,7 @@ function renderWorkspace() {
   if (!selectedOnboarding) return;
   const businessName = selectedOnboarding.website_service_requests?.business_name || selectedOnboarding.website_projects?.name || "Website project";
   nameElement.textContent = businessName;
-  metaElement.textContent = `${selectedOnboarding.website_proposals?.title || "Direct project onboarding"} · ${formatLabel(selectedOnboarding.status)}`;
+  metaElement.textContent = `${selectedOnboarding.website_proposals?.title || "Intake before agreement"} · ${formatLabel(selectedOnboarding.status)}`;
   onboardingState.innerHTML = `<span class="portal-badge portal-status-${escapeHtml(selectedOnboarding.status)}">${escapeHtml(formatLabel(selectedOnboarding.status))}</span>`;
   const completion = Number(selectedResponse?.completion_percent || 0);
   progressElement.textContent = `${completion}% complete`;
@@ -129,22 +130,29 @@ function renderWorkspace() {
 }
 
 async function loadData(preferredId) {
-  const [proposalResult, onboardingResult, responseResult, fileResult, projectResult] = await Promise.all([
-    supabase.from("website_proposals").select("id,request_id,project_id,client_user_id,title,status,website_service_requests(business_name)").eq("status", "approved").order("created_at", { ascending: false }),
+  const [requestResult, proposalResult, onboardingResult, responseResult, fileResult, projectResult, memberResult] = await Promise.all([
+    supabase.from("website_service_requests").select("id,user_id,business_name,project_type,status,created_at").in("status", ["qualified", "proposal_drafting", "proposal_sent", "proposal_changes_requested", "proposal_approved"]).order("created_at", { ascending: false }),
+    supabase.from("website_proposals").select("id,request_id,project_id,client_user_id,title,status").order("created_at", { ascending: false }),
     supabase.from("website_onboardings").select("*,website_service_requests(business_name,project_type),website_proposals(title,status),website_projects(name,managed_website_id)").order("created_at", { ascending: false }),
     supabase.from("website_onboarding_responses").select("*"),
     supabase.from("website_onboarding_files").select("*").order("created_at", { ascending: false }),
     supabase.from("website_projects").select("id,managed_website_id,client_user_id"),
+    supabase.from("website_members").select("website_id,user_id,status"),
   ]);
+  if (requestResult.error) throw requestResult.error;
   if (proposalResult.error) throw proposalResult.error;
   if (onboardingResult.error) throw onboardingResult.error;
   if (responseResult.error) throw responseResult.error;
   if (fileResult.error) throw fileResult.error;
   if (projectResult.error) throw projectResult.error;
+  if (memberResult.error) throw memberResult.error;
   const context = readWorkspaceContext("admin", currentUser.id);
-  onboardings = (onboardingResult.data || []).filter((onboarding) => !context.websiteId || onboarding.website_projects?.managed_website_id === context.websiteId);
-  const organizationProjectIds = new Set((projectResult.data || []).filter((project) => !context.websiteId || project.managed_website_id === context.websiteId).map((project) => project.id));
-  approvedProposals = (proposalResult.data || []).filter((proposal) => !context.websiteId || organizationProjectIds.has(proposal.project_id));
+  const organizationUsers = new Set((memberResult.data || []).filter((member) => member.status === "active" && (!context.websiteId || member.website_id === context.websiteId)).map((member) => member.user_id));
+  onboardings = (onboardingResult.data || []).filter((onboarding) => !context.websiteId
+    || onboarding.website_projects?.managed_website_id === context.websiteId
+    || organizationUsers.has(onboarding.client_user_id));
+  proposals = proposalResult.data || [];
+  onboardingCandidates = (requestResult.data || []).filter((request) => !context.websiteId || organizationUsers.has(request.user_id));
   responses = responseResult.data || [];
   files = fileResult.data || [];
   renderProposalQueue();
@@ -170,14 +178,15 @@ async function loadData(preferredId) {
   renderWorkspace();
 }
 
-async function unlockOnboarding(proposalId) {
-  const proposal = approvedProposals.find((item) => item.id === proposalId);
-  if (!proposal) throw new Error("The approved proposal is no longer available.");
+async function unlockOnboarding(requestId) {
+  const request = onboardingCandidates.find((item) => item.id === requestId);
+  if (!request) throw new Error("The accepted request is no longer available.");
+  const proposal = proposals.find((item) => item.request_id === request.id);
   const { data, error } = await supabase.from("website_onboardings").insert({
-    project_id: proposal.project_id || null,
-    request_id: proposal.request_id,
-    proposal_id: proposal.id,
-    client_user_id: proposal.client_user_id,
+    project_id: proposal?.project_id || null,
+    request_id: request.id,
+    proposal_id: proposal?.id || null,
+    client_user_id: request.user_id,
     status: "not_started",
     unlocked_by_user_id: currentUser.id,
   }).select().single();
@@ -239,11 +248,11 @@ async function init() {
   await loadData();
 
   proposalList.addEventListener("click", (event) => {
-    const unlock = event.target.closest("[data-unlock-proposal]");
+    const unlock = event.target.closest("[data-unlock-request]");
     const open = event.target.closest("[data-open-onboarding]");
     if (unlock) {
       unlock.disabled = true;
-      unlockOnboarding(unlock.dataset.unlockProposal).catch((error) => {
+      unlockOnboarding(unlock.dataset.unlockRequest).catch((error) => {
         unlock.disabled = false;
         proposalList.insertAdjacentHTML("afterbegin", `<p class="portal-inline-status is-error">${escapeHtml(error.message)}</p>`);
       });

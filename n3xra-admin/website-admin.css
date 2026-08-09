@@ -137,6 +137,15 @@
 .website-admin-view-proposals .portal-proposal-form { min-height:100%; margin:0; padding:1.35rem 2rem 0; box-sizing:border-box; background:#fff; border:0; border-radius:0; }
 .website-admin-view-proposals .portal-proposal-actions { bottom:0; z-index:15; margin:1.35rem -2rem 0; padding:1rem 2rem; background:rgba(255,255,255,.97); border:0; border-top:1px solid var(--website-admin-border); border-radius:0; box-shadow:none; }
 
+.proposal-agreement-steps { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:1px; margin:0 -2rem; padding:0; overflow:hidden; background:var(--website-admin-border); border-bottom:1px solid var(--website-admin-border); list-style:none; }
+.proposal-agreement-steps li { display:flex; align-items:center; justify-content:center; gap:.45rem; min-height:46px; padding:.55rem; color:#647184; background:#f8fafb; font-size:.66rem; font-weight:800; text-transform:uppercase; letter-spacing:.04em; }
+.proposal-agreement-steps span { display:grid; place-items:center; width:21px; height:21px; color:#0d746b; background:#def1ed; border-radius:50%; font-size:.65rem; }
+.website-admin-view-proposals .proposal-ai-editable-section,
+.website-admin-view-proposals .proposal-approval-preview { margin:1rem 0 0; padding:1.25rem; border:1px solid var(--website-admin-border); border-radius:12px; }
+.proposal-approval-preview { background:linear-gradient(135deg,#f7faf9,#f3f8fc); }
+.proposal-approval-facts { display:flex; flex-wrap:wrap; gap:.55rem; }
+.proposal-approval-facts span { padding:.48rem .7rem; color:#176a60; background:#fff; border:1px solid #c5dfdb; border-radius:999px; font-size:.7rem; font-weight:800; }
+
 .proposal-copilot-top { margin:0 -2rem !important; padding:0 !important; background:linear-gradient(135deg,#f1fbf9 0%,#f7f9ff 100%); border-bottom:1px solid #b9d9d4 !important; }
 .proposal-copilot-summary { display:flex; align-items:center; justify-content:space-between; gap:1.2rem; padding:1.05rem 2rem; cursor:pointer; list-style:none; }
 .proposal-copilot-summary::-webkit-details-marker { display:none; }
@@ -195,6 +204,7 @@
 .proposal-ai-history-actions { display:flex; flex:0 0 auto; flex-wrap:wrap; gap:.45rem; }
 
 @media (max-width:720px) {
+  .proposal-agreement-steps { grid-template-columns:repeat(3,minmax(0,1fr)); margin-right:-1rem; margin-left:-1rem; }
   .proposal-copilot-top { margin:0 -1rem !important; }
   .proposal-copilot-summary { align-items:flex-start; padding:1rem; }
   .proposal-copilot-body { padding:0 1rem 1rem; }

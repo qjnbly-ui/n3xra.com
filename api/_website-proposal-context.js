@@ -138,8 +138,8 @@ async function loadProposalCopilotContext(proposalId, selections = {}) {
   );
   const project = projectRows?.[0] || null;
   const onboardingQuery = project?.id
-    ? `website_onboardings?select=*&or=(proposal_id.eq.${proposal.id},project_id.eq.${project.id})&limit=1`
-    : `website_onboardings?select=*&proposal_id=eq.${encodeURIComponent(proposal.id)}&limit=1`;
+    ? `website_onboardings?select=*&or=(proposal_id.eq.${proposal.id},project_id.eq.${project.id},request_id.eq.${proposal.request_id})&limit=1`
+    : `website_onboardings?select=*&or=(proposal_id.eq.${proposal.id},request_id.eq.${proposal.request_id})&limit=1`;
   const onboarding = (await serviceRequest(onboardingQuery))?.[0] || null;
   const onboardingResponse = onboarding ? (await serviceRequest(
     `website_onboarding_responses?select=*&onboarding_id=eq.${encodeURIComponent(onboarding.id)}&limit=1`,

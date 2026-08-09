@@ -120,12 +120,12 @@ function organizationForRequest(request) {
 
 function nextStep(request) {
   if (request.recoverable_review) return { title: "Recover this completed intake", copy: "The client finished the intake and verified their email, but the final submission handoff did not create a request. Recover it to continue normally.", action: "recover" };
-  if (!organizationForRequest(request) && ["qualified", "converted"].includes(request.status)) return { title: "Attach an organization", copy: "Choose or create the organization workspace before preparing its proposal.", action: "organization" };
+  if (!organizationForRequest(request) && ["qualified", "converted"].includes(request.status)) return { title: "Attach an organization", copy: "Choose or create the organization workspace before opening client onboarding.", action: "organization" };
   if (request.proposal_id) return { title: "Continue the proposal", copy: "A proposal already exists for this request.", action: "proposal" };
   if (request.status === "submitted") return { title: "Start the review", copy: "Read the scope, contact the client if needed, and record your decision.", action: "review" };
   if (request.status === "reviewing") return { title: "Make a qualification decision", copy: "Request missing information or qualify the request for a proposal.", action: "decision" };
   if (request.status === "needs_info") return { title: "Wait for the client’s reply", copy: "When the missing details arrive, resume review or qualify the request.", action: "waiting" };
-  if (request.status === "qualified") return { title: "Create the proposal", copy: "The scope is qualified and ready for pricing and terms.", action: "proposal" };
+  if (request.status === "qualified") return { title: "Open client onboarding", copy: "The request is accepted. Collect the client’s detailed content, files, and preferences before drafting the agreement.", action: "onboarding" };
   if (request.status === "declined") return { title: "Close out the request", copy: "Keep the record for reference or archive it from the active queue.", action: "closed" };
   return { title: "Review this request", copy: "Choose the appropriate next action below.", action: "decision" };
 }
@@ -180,6 +180,7 @@ function renderDetail() {
   const reviewResult = linkedReview?.review_snapshot || {};
   const isRecoverable = Boolean(request.recoverable_review);
   const proposalHref = `/n3xra-admin/proposals/?request=${encodeURIComponent(request.id)}`;
+  const onboardingHref = `/n3xra-admin/onboarding/?request=${encodeURIComponent(request.id)}`;
   requestDetail.innerHTML = `
     <header class="website-request-detail-head">
       <div><p class="portal-kicker">${escapeHtml(formatLabel(request.project_type))} · received ${escapeHtml(formatDate(request.created_at))}</p><h2>${escapeHtml(request.business_name)}</h2><p>${escapeHtml(request.primary_goal)}</p></div>
@@ -192,6 +193,7 @@ function renderDetail() {
         ${step.action === "recover" ? `<button class="portal-button" type="button" data-request-action="recover">Recover into request queue</button>` : ""}
         ${["decision", "waiting"].includes(step.action) ? `<button class="portal-button" type="button" data-request-action="qualified">Qualify request</button>` : ""}
         ${step.action === "organization" ? '<button class="portal-button" type="button" data-request-action="attach">Attach organization</button>' : ""}
+        ${step.action === "onboarding" ? `<a class="portal-button" href="${onboardingHref}">Open onboarding</a>` : ""}
         ${step.action === "proposal" ? `<a class="portal-button" href="${proposalHref}" data-open-request-proposal>${request.proposal_id ? "Open proposal" : "Create proposal"}</a>` : ""}
       </div>
     </section>
@@ -226,7 +228,7 @@ function renderDetail() {
       <div class="website-request-decision-actions">
         <button class="portal-button" type="button" data-request-action="save">Save review</button>
         <a class="portal-button portal-button-secondary" href="${contactMailto(request, true)}" data-needs-info-email>Request information</a>
-        ${organization ? (!request.proposal_id ? `<a class="portal-button portal-button-secondary" href="${proposalHref}" data-open-request-proposal>Create proposal</a>` : `<a class="portal-button portal-button-secondary" href="${proposalHref}" data-open-request-proposal>Open proposal</a>`) : '<button class="portal-button portal-button-secondary" type="button" data-request-action="attach">Attach organization before proposal</button>'}
+        ${organization ? (request.status === "qualified" && !request.proposal_id ? `<a class="portal-button portal-button-secondary" href="${onboardingHref}">Open onboarding</a>` : (!request.proposal_id ? `<a class="portal-button portal-button-secondary" href="${proposalHref}" data-open-request-proposal>Create agreement</a>` : `<a class="portal-button portal-button-secondary" href="${proposalHref}" data-open-request-proposal>Open agreement</a>`)) : '<button class="portal-button portal-button-secondary" type="button" data-request-action="attach">Attach organization first</button>'}
         <button class="portal-button portal-button-secondary" type="button" data-request-action="archive">Archive</button>
         ${!request.proposal_id ? `<button class="portal-link-button is-danger" type="button" data-request-action="delete">Delete permanently</button>` : ""}
       </div>

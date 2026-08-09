@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>N3XRA | Your Proposals</title>
+  <title>N3XRA | Proposal &amp; Agreement</title>
   <meta name="robots" content="noindex, nofollow">
   <link rel="icon" href="/assets/n3xra_logo_transparent_small.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -26,7 +26,7 @@
         <a class="site-brand" href="/" aria-label="N3XRA home"><img src="/assets/n3xra_logo_transparent_small.png" alt=""><span>N3XRA</span></a>
         <div class="site-nav-actions"><a class="site-menu-link" href="/account/">Dashboard</a><button class="site-menu-link portal-logout" id="portal-logout" type="button">Sign out</button><button class="site-menu-toggle" type="button" aria-expanded="false" aria-controls="proposal-portal-menu" aria-label="Open menu" data-site-menu-toggle><span></span><span></span><span></span></button></div>
       </div>
-      <nav class="site-mobile-menu" id="proposal-portal-menu" aria-label="Portal navigation" hidden><div class="site-mobile-menu-head"><p class="site-mobile-menu-title">Website portal</p></div><a class="site-menu-link" href="/client-portal/services/">Services &amp; Ownership</a><a class="site-menu-link" href="/project-workspace/">Progress</a><a class="site-menu-link" href="/proposals/">Proposals</a><a class="site-menu-link" href="/website-onboarding/">Onboarding</a><a class="site-menu-link" href="/client-portal/#files-assets">Files &amp; Assets</a><a class="site-menu-link" href="/website-request/">Start new project</a></nav>
+      <nav class="site-mobile-menu" id="proposal-portal-menu" aria-label="Portal navigation" hidden><div class="site-mobile-menu-head"><p class="site-mobile-menu-title">Website portal</p></div><a class="site-menu-link" href="/client-portal/services/">Services &amp; Ownership</a><a class="site-menu-link" href="/project-workspace/">Progress</a><a class="site-menu-link" href="/proposals/">Proposal &amp; Agreement</a><a class="site-menu-link" href="/website-onboarding/">Onboarding</a><a class="site-menu-link" href="/client-portal/#files-assets">Files &amp; Assets</a><a class="site-menu-link" href="/website-request/">Start new project</a></nav>
     </div>
   </header>
 
@@ -45,9 +45,9 @@
 
     <div class="portal-layout">
       <nav class="portal-nav" aria-label="Website client portal">
-        <a href="/client-portal/services/">Services &amp; Ownership</a><a class="site-menu-link" href="/client-portal/services/">Services &amp; Ownership</a>
+        <a href="/client-portal/services/">Services &amp; Ownership</a>
         <a href="/project-workspace/">Progress</a>
-        <a class="is-current" href="/proposals/">Proposals</a>
+        <a class="is-current" href="/proposals/">Proposal &amp; Agreement</a>
         <a href="/website-onboarding/">Onboarding</a>
         <a href="/client-portal/#files-assets">Files &amp; Assets</a>
         <a href="/client-portal/billing/">Billing</a><span class="is-placeholder">Renewals</span><a href="/support/">Support</a>
@@ -57,21 +57,21 @@
 
       <section class="portal-workspace">
         <div class="portal-workspace-head">
-          <div><p class="portal-kicker">Proposal center</p><h2>Review and respond</h2></div>
+          <div><p class="portal-kicker">Proposal &amp; Agreement</p><h2>Review the complete project agreement</h2></div>
         </div>
 
         <div class="portal-empty" id="client-proposal-empty">
-          <div><h3>No proposal for this website</h3><p>This website may have been added after launch, so an earlier proposal does not apply.</p></div>
+          <div><h3>No agreement is ready yet</h3><p>Once N3XRA prepares an agreement from your request and onboarding, it will appear here.</p></div>
         </div>
 
         <article class="portal-proposal-document" id="client-proposal-document" hidden></article>
 
         <section class="portal-decision-panel" id="proposal-decision-panel" hidden>
           <div class="portal-toolbar">
-            <div><p class="portal-kicker">Your response</p><h3>Respond to this proposal</h3><p>Your response is recorded with this exact proposal version.</p></div>
+            <div><p class="portal-kicker">06 · Your approval</p><h3>Respond to this agreement</h3><p>Your response is recorded with this exact immutable version.</p></div>
           </div>
           <div class="portal-decision-options" role="group" aria-label="Proposal response">
-            <button class="portal-decision-option is-selected" type="button" data-decision="approved">Approve proposal</button>
+            <button class="portal-decision-option is-selected" type="button" data-decision="approved">Accept agreement</button>
             <button class="portal-decision-option" type="button" data-decision="changes_requested">Request changes</button>
             <button class="portal-decision-option" type="button" data-decision="declined">Decline</button>
           </div>
@@ -80,10 +80,10 @@
             <label class="portal-form-wide">Message or requested changes<textarea id="decision-message" rows="4" placeholder="Optional for approval; required when requesting changes."></textarea></label>
             <label class="portal-check portal-form-wide">
               <input id="decision-acknowledgment" type="checkbox" required>
-              <span id="decision-acknowledgment-copy">I reviewed this proposal and confirm my response.</span>
+              <span id="decision-acknowledgment-copy">I reviewed this agreement and confirm my response.</span>
             </label>
             <div class="portal-form-actions portal-form-wide">
-              <button class="portal-button" id="decision-submit" type="submit">Approve proposal</button>
+              <button class="portal-button" id="decision-submit" type="submit">Accept agreement</button>
               <p class="portal-inline-status" id="decision-status" role="status"></p>
             </div>
           </form>
@@ -95,6 +95,6 @@
   <div class="portal-status" id="portal-status" role="status">Opening your proposals…</div>
   <script type="module" src="/client-portal/client-shell.js?v=6"></script>
   <script type="module" src="/client-portal/portal-shell.js"></script>
-  <script type="module" src="/proposals/proposals.js"></script>
+  <script type="module" src="/proposals/proposals.js?v=2"></script>
 </body>
 </html>

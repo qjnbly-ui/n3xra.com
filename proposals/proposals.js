@@ -95,6 +95,7 @@ function currentOnboarding() {
   return onboardings.find((onboarding) =>
     onboarding.proposal_id === selectedProposal?.id
     || onboarding.project_id === project?.id
+    || onboarding.request_id === selectedProposal?.request_id
   );
 }
 
@@ -122,13 +123,13 @@ function renderProposal() {
   documentView.hidden = !selectedProposal || !version;
   decisionPanel.hidden = !selectedProposal || !version || selectedProposal.status !== "sent" || Boolean(decision);
   if (!selectedProposal || !version) return;
+  const summary = [version.introduction, version.project_objective].filter((value) => String(value || "").trim()).join("\n\n");
 
   documentView.innerHTML = `
     <header class="portal-proposal-cover">
       <div>
-        <p class="portal-kicker">Website proposal · Version ${version.version_number}</p>
+        <p class="portal-kicker">Proposal &amp; Agreement · Version ${version.version_number}</p>
         <h2>${escapeHtml(selectedProposal.title)}</h2>
-        ${version.introduction ? `<p>${paragraphs(version.introduction)}</p>` : ""}
       </div>
       <div class="portal-proposal-cover-meta">
         <span class="portal-badge portal-status-${escapeHtml(selectedProposal.status)}">${escapeHtml(formatLabel(selectedProposal.status))}</span>
@@ -149,9 +150,9 @@ function renderProposal() {
     ` : ""}
 
     <section class="portal-proposal-section">
-      <p class="portal-kicker">01 · Objective</p>
-      <h3>What this project will accomplish</h3>
-      <p>${paragraphs(version.project_objective)}</p>
+      <p class="portal-kicker">01 · Project summary</p>
+      <h3>What we are agreeing to build</h3>
+      <p>${paragraphs(summary)}</p>
     </section>
     <section class="portal-proposal-section">
       <p class="portal-kicker">02 · Scope</p>
@@ -161,11 +162,10 @@ function renderProposal() {
         <div><h4>Deliverables</h4>${list(version.deliverables)}</div>
         <div><h4>Not included</h4>${list(version.exclusions)}</div>
       </div>
-      ${version.revision_policy ? `<div class="portal-proposal-note"><strong>Revision policy</strong><p>${paragraphs(version.revision_policy)}</p></div>` : ""}
     </section>
     <section class="portal-proposal-section">
-      <p class="portal-kicker">03 · Schedule</p>
-      <h3>Timeline</h3>
+      <p class="portal-kicker">03 · Timeline</p>
+      <h3>Schedule and expected delivery</h3>
       <p>${paragraphs(version.timeline)}</p>
       <dl class="portal-proposal-facts">
         <div><dt>Estimated start</dt><dd>${formatDate(version.estimated_start_date)}</dd></div>
@@ -173,22 +173,23 @@ function renderProposal() {
       </dl>
     </section>
     <section class="portal-proposal-section">
-      <p class="portal-kicker">04 · Investment</p>
-      <h3>Project investment</h3>
-      <div class="portal-proposal-note"><strong>This is a proposal, not a bill.</strong><p>No payment is due at this stage. Once you approve the proposal, the applicable contract and billing steps will be prepared separately.</p></div>
+      <p class="portal-kicker">04 · Investment &amp; payment</p>
+      <h3>Approved project cost</h3>
+      <div class="portal-proposal-note"><strong>Acceptance comes before billing.</strong><p>No payment is collected on this page. If you approve, N3XRA prepares billing from the investment and payment schedule shown in this exact version.</p></div>
       <div class="portal-price-table">
         ${oneTimeItems.length ? oneTimeItems.map((item) => `<div><span>${escapeHtml(item.name)}${item.description ? `<small>${escapeHtml(item.description)}</small>` : ""}</span><strong>${formatMoney(Math.round(Number(item.quantity) * item.unit_amount_cents))}</strong></div>`).join("") : `<div><span>Project subtotal</span><strong>${formatMoney(version.subtotal_cents)}</strong></div>`}
         ${version.discount_cents ? `<div><span>Discount</span><strong>−${formatMoney(version.discount_cents)}</strong></div>` : ""}
         <div class="is-total"><span>Total project investment</span><strong>${formatMoney(version.total_cents)}</strong></div>
-        <div><span>Deposit due at contract</span><strong>${formatMoney(version.deposit_cents)}</strong></div>
+        <div><span>Initial payment</span><strong>${formatMoney(version.deposit_cents)}</strong></div>
         ${recurringItems.map((item) => `<div><span>${escapeHtml(item.name)}${item.description ? `<small>${escapeHtml(item.description)}</small>` : ""}</span><strong>${formatMoney(Math.round(Number(item.quantity) * item.unit_amount_cents))} / ${escapeHtml(item.recurring_interval)}</strong></div>`).join("")}
         ${!recurringItems.length && version.recurring_cents ? `<div><span>Ongoing service</span><strong>${formatMoney(version.recurring_cents)} / ${escapeHtml(version.recurring_interval)}</strong></div>` : ""}
       </div>
       ${version.payment_schedule ? `<div class="portal-proposal-note"><strong>Payment schedule</strong><p>${paragraphs(version.payment_schedule)}</p></div>` : ""}
     </section>
     <section class="portal-proposal-section">
-      <p class="portal-kicker">05 · Terms</p>
-      <h3>Proposal terms</h3>
+      <p class="portal-kicker">05 · Agreement terms</p>
+      <h3>Responsibilities, revisions, and ownership</h3>
+      ${version.revision_policy ? `<div class="portal-proposal-note"><strong>Revision policy</strong><p>${paragraphs(version.revision_policy)}</p></div>` : ""}
       <p>${paragraphs(version.terms)}</p>
     </section>
   `;
@@ -198,14 +199,14 @@ function renderProposal() {
 function updateDecisionCopy() {
   const version = currentVersion();
   const labels = {
-    approved: "Approve proposal",
+    approved: "Accept agreement",
     changes_requested: "Send change request",
     declined: "Decline proposal",
   };
   decisionSubmit.textContent = labels[selectedDecision];
   acknowledgmentCopy.textContent = selectedDecision === "approved"
-    ? `I reviewed and approve proposal version ${version?.version_number}, including its scope, investment, and terms.`
-    : `I reviewed proposal version ${version?.version_number} and confirm this response.`;
+    ? `I reviewed and accept Proposal & Agreement version ${version?.version_number}, including its scope, investment, payment schedule, and terms.`
+    : `I reviewed Proposal & Agreement version ${version?.version_number} and confirm this response.`;
   document.querySelectorAll("[data-decision]").forEach((button) => {
     button.classList.toggle("is-selected", button.dataset.decision === selectedDecision);
   });
@@ -217,7 +218,7 @@ async function loadProposals(preferredId) {
     supabase.from("website_proposal_versions").select("*").order("version_number", { ascending: false }),
     supabase.from("website_proposal_line_items").select("*").order("sort_order"),
     supabase.from("website_proposal_decisions").select("*").order("created_at", { ascending: false }),
-    supabase.from("website_onboardings").select("id,project_id,proposal_id,status").order("created_at", { ascending: false }),
+    supabase.from("website_onboardings").select("id,project_id,proposal_id,request_id,status").order("created_at", { ascending: false }),
     supabase.from("website_projects").select("id,proposal_id,request_id,managed_website_id,name,status,client_websites(id,name)").order("created_at", { ascending: false }),
     supabase.from("client_websites").select("id,name,status").order("name"),
   ]);

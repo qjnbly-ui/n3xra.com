@@ -6,6 +6,7 @@ const migration = fs.readFileSync(new URL("../../supabase/migrations/20260808213
 const deletionRepair = fs.readFileSync(new URL("../../supabase/migrations/20260809053401_preserve_proposal_ai_history_on_draft_delete.sql", import.meta.url), "utf8");
 const retention = fs.readFileSync(new URL("../../supabase/migrations/20260809060052_proposal_ai_run_retention.sql", import.meta.url), "utf8");
 const adminReview = fs.readFileSync(new URL("../../supabase/migrations/20260809062321_allow_admin_reviewed_proposal_ai_changes.sql", import.meta.url), "utf8");
+const onboardingFirst = fs.readFileSync(new URL("../../supabase/migrations/20260809070000_onboarding_before_proposal_agreement_flow.sql", import.meta.url), "utf8");
 
 test("migration keeps AI runs server-managed and RPCs guarded", () => {
   assert.match(migration, /alter table public\.website_proposal_ai_runs enable row level security/i);
@@ -59,4 +60,20 @@ test("admin approval, not evidence matching, controls protected suggestions", ()
   assert.match(migration, /auth\.uid\(\) is null or not public\.is_platform_admin\(\)/i);
   assert.match(migration, /resulting discount and deposit must be non-negative/i);
   assert.match(migration, /deposit exceeds the recalculated proposal total/i);
+});
+
+test("qualified requests can begin onboarding before a proposal exists", () => {
+  assert.match(onboardingFirst, /check \(request_id is not null or proposal_id is not null or project_id is not null\)/i);
+  assert.match(onboardingFirst, /request\.status in[\s\S]+'qualified'[\s\S]+'proposal_drafting'/i);
+  assert.match(onboardingFirst, /old\.proposal_id is not null or new\.proposal_id is null/i);
+  assert.match(onboardingFirst, /proposal\.request_id = new\.request_id[\s\S]+proposal\.client_user_id = new\.client_user_id/i);
+});
+
+test("approved project creation attaches the existing onboarding record", () => {
+  assert.match(onboardingFirst, /create or replace function private\.attach_website_onboarding_to_proposal/i);
+  assert.match(onboardingFirst, /where proposal_id is null[\s\S]+request_id = new\.request_id/i);
+  assert.match(onboardingFirst, /after insert on public\.website_proposals/i);
+  assert.match(onboardingFirst, /create or replace function private\.attach_website_onboarding_to_project/i);
+  assert.match(onboardingFirst, /where project_id is null[\s\S]+proposal_id = new\.proposal_id[\s\S]+request_id = new\.request_id/i);
+  assert.match(onboardingFirst, /after insert on public\.website_projects/i);
 });

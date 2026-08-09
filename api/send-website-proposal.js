@@ -48,18 +48,18 @@ function buildHtml(payload) {
   return `<div style="margin:0;padding:32px 16px;background:#edf2f8;font-family:Arial,sans-serif;color:#0f1620;line-height:1.65;">
     <div style="max-width:640px;margin:auto;overflow:hidden;border-radius:22px;background:#fff;box-shadow:0 24px 60px rgba(12,18,28,.12);">
       <div style="padding:32px;background:linear-gradient(135deg,#07111d,#123047);color:#fff;">
-        <p style="margin:0 0 10px;font-size:12px;letter-spacing:.16em;text-transform:uppercase;font-weight:700;color:#a9e9ff;">N3XRA · Website proposal</p>
-        <h1 style="margin:0;font-size:32px;line-height:1.15;">Your proposal is ready.</h1>
+        <p style="margin:0 0 10px;font-size:12px;letter-spacing:.16em;text-transform:uppercase;font-weight:700;color:#a9e9ff;">N3XRA · Proposal &amp; Agreement</p>
+        <h1 style="margin:0;font-size:32px;line-height:1.15;">Your agreement is ready to review.</h1>
       </div>
       <div style="padding:32px;">
         <p>Hi ${escapeHtml(firstName)},</p>
-        <p>We’ve put together the proposal for <strong>${escapeHtml(payload.proposal.title)}</strong>. It includes the project scope, schedule, investment, and terms for you to review in your secure dashboard.</p>
+        <p>We’ve prepared the Proposal &amp; Agreement for <strong>${escapeHtml(payload.proposal.title)}</strong>. It includes the project scope, schedule, investment, payment plan, and terms for you to review in your secure dashboard.</p>
         <div style="margin:24px 0;padding:18px;border:1px solid #dbe4ec;border-radius:12px;background:#f8fafc;"><strong>Project at a glance</strong><p style="margin:8px 0;">${escapeHtml(payload.version.project_objective)}</p><p style="margin:8px 0 0;"><strong>Timeline:</strong> ${escapeHtml(payload.version.timeline)}</p></div>
         ${oneTime.length ? `<h2 style="margin:28px 0 6px;font-size:19px;">Project investment</h2><table role="presentation" width="100%" cellpadding="0" cellspacing="0">${itemRows(oneTime)}${payload.version.discount_cents ? `<tr><td style="padding:12px 0;">Discount</td><td style="padding:12px 0;text-align:right;font-weight:700;">−${money(payload.version.discount_cents)}</td></tr>` : ""}<tr><td style="padding:14px 0;font-size:17px;font-weight:700;">Total</td><td style="padding:14px 0;text-align:right;font-size:17px;font-weight:700;">${money(payload.version.total_cents)}</td></tr></table>` : ""}
         ${recurring.length ? `<h2 style="margin:28px 0 6px;font-size:19px;">Ongoing services</h2><table role="presentation" width="100%" cellpadding="0" cellspacing="0">${itemRows(recurring)}</table>` : ""}
-        <div style="margin:24px 0;padding:16px;border:1px solid #bae6fd;border-radius:12px;background:#f0f9ff;color:#0c4a6e;"><strong>This is a proposal, not a bill.</strong><br>No payment is due from this email. After you approve the proposal, the applicable contract and billing steps will be prepared separately.</div>
-        <p style="margin-top:28px;">When you’re ready, open your dashboard to read the complete proposal and respond.</p>
-        <p style="margin:26px 0;"><a href="${DASHBOARD_URL}" style="display:inline-block;padding:14px 20px;border-radius:9px;background:#09111a;color:#fff;font-weight:700;text-decoration:none;">Review proposal in your dashboard</a></p>
+        <div style="margin:24px 0;padding:16px;border:1px solid #bae6fd;border-radius:12px;background:#f0f9ff;color:#0c4a6e;"><strong>No payment is collected from this email.</strong><br>Approving the agreement records acceptance of this exact version. N3XRA then prepares billing from the approved investment and payment schedule.</div>
+        <p style="margin-top:28px;">When you’re ready, open your dashboard to read the complete agreement and respond.</p>
+        <p style="margin:26px 0;"><a href="${DASHBOARD_URL}" style="display:inline-block;padding:14px 20px;border-radius:9px;background:#09111a;color:#fff;font-weight:700;text-decoration:none;">Review agreement in your dashboard</a></p>
         <p style="color:#475569;">We’re excited about the opportunity to help bring this project to life.<br><strong>N3XRA</strong></p>
       </div>
     </div>
@@ -68,7 +68,7 @@ function buildHtml(payload) {
 
 function buildText(payload) {
   const items = payload.items.map((item) => `- ${item.name}: ${money(Math.round(Number(item.quantity) * item.unit_amount_cents))}${item.billing_type === "recurring" ? ` / ${item.recurring_interval}` : ""}`);
-  return [`Hi ${payload.request.contact_name.split(/\s+/)[0]},`, "", `Your proposal for ${payload.proposal.title} is ready.`, "", ...items, "", "This is a proposal, not a bill. No payment is due from this email. After approval, the applicable contract and billing steps will be prepared separately.", "", `Review the complete proposal: ${DASHBOARD_URL}`, "", "We’re excited to help bring this project to life.", "N3XRA"].join("\n");
+  return [`Hi ${payload.request.contact_name.split(/\s+/)[0]},`, "", `Your Proposal & Agreement for ${payload.proposal.title} is ready.`, "", ...items, "", "No payment is collected from this email. Acceptance records this exact version; N3XRA then prepares billing from the approved investment and payment schedule.", "", `Review the complete agreement: ${DASHBOARD_URL}`, "", "We’re excited to help bring this project to life.", "N3XRA"].join("\n");
 }
 
 export default async function handler(req, res) {
@@ -88,7 +88,7 @@ export default async function handler(req, res) {
     const versionId = String(body.versionId || "");
     const proposal = await one("website_proposals", `select=*&id=eq.${encodeURIComponent(proposalId)}`);
     const version = await one("website_proposal_versions", `select=*&id=eq.${encodeURIComponent(versionId)}&proposal_id=eq.${encodeURIComponent(proposalId)}`);
-    if (!proposal || !version || proposal.status !== "sent" || proposal.current_version_id !== version.id) return res.status(409).json({ error: "Publish this proposal version before emailing it." });
+    if (!proposal || !version || proposal.status !== "sent" || proposal.current_version_id !== version.id) return res.status(409).json({ error: "Publish this agreement version before emailing it." });
     const request = await one("website_service_requests", `select=id,contact_name,contact_email,business_name&id=eq.${encodeURIComponent(proposal.request_id)}`);
     if (!request?.contact_email) return res.status(400).json({ error: "The client request does not have an email address." });
     const items = await json(`${SUPABASE_URL}/rest/v1/website_proposal_line_items?select=*&version_id=eq.${encodeURIComponent(version.id)}&order=sort_order.asc`, { headers: headers() });
@@ -101,13 +101,13 @@ export default async function handler(req, res) {
         from: process.env.PROPOSAL_FROM_EMAIL || "N3XRA <noreply@n3xra.com>",
         to: [request.contact_email],
         reply_to: process.env.PROPOSAL_REPLY_TO || "quentin@n3xra.com",
-        subject: `Your N3XRA proposal is ready — ${proposal.title}`,
+        subject: `Your N3XRA Proposal & Agreement is ready — ${proposal.title}`,
         html: buildHtml(payload),
         text: buildText(payload),
       }),
     });
     const emailResult = await emailResponse.json().catch(() => ({}));
-    if (!emailResponse.ok) throw new Error(emailResult.message || "Unable to send the proposal email.");
+    if (!emailResponse.ok) throw new Error(emailResult.message || "Unable to send the agreement email.");
     await json(`${SUPABASE_URL}/rest/v1/website_proposals?id=eq.${encodeURIComponent(proposal.id)}`, {
       method: "PATCH",
       headers: headers({ Prefer: "return=minimal" }),
@@ -120,7 +120,7 @@ export default async function handler(req, res) {
       product: "websites",
       priority: "important",
       title: "Proposal email failed",
-      summary: error?.message || "Unable to send the proposal email.",
+      summary: error?.message || "Unable to send the agreement email.",
       messageText: notificationPayload ? buildText(notificationPayload) : null,
       actorName: notificationPayload?.request?.contact_name,
       actorEmail: notificationPayload?.request?.contact_email,
@@ -128,6 +128,6 @@ export default async function handler(req, res) {
       sourceId: notificationPayload?.proposal?.id,
       actionUrl: "/n3xra-admin/proposals/",
     }).catch(() => null);
-    return res.status(500).json({ error: error?.message || "Unable to send the proposal email." });
+    return res.status(500).json({ error: error?.message || "Unable to send the agreement email." });
   }
 }

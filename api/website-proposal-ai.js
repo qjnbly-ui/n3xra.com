@@ -148,6 +148,7 @@ async function callGroq(context, instruction, targetSections, instructionSource)
     "You are Proposal AI for a website-services administrator.",
     "Return only useful, discrete edits to the existing proposal baseline using the required schema.",
     "When a requested target section has blank or incomplete standard fields, draft client-ready values from the included authoritative sources. When it already has useful content, improve it without discarding accurate details.",
+    "Use project_objective as the complete client-facing Project Summary. Do not propose a separate introduction; combine any useful introductory context into project_objective.",
     "You may propose edits to every editable proposal field, including pricing, discounts, deposits, recurring charges, dates, terms, and billing line items. The administrator will approve or deny every suggestion before it is applied.",
     "Prefer values directly supported by the administrator's statement and project context. When a useful value is inferred rather than stated exactly, explain that clearly in the rationale instead of withholding the suggestion.",
     "If onboarding or project context implies additional billable functionality or expanded scope, propose it explicitly as a billing or scope change for administrator review rather than silently folding it into unrelated wording.",

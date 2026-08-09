@@ -6,6 +6,8 @@ const root = new URL("../../", import.meta.url);
 const html = await readFile(new URL("n3xra-admin/proposals/index.html", root), "utf8");
 const script = await readFile(new URL("n3xra-admin/proposals/proposals-admin.js", root), "utf8");
 const api = await readFile(new URL("api/website-proposal-ai.js", root), "utf8");
+const clientHtml = await readFile(new URL("proposals/index.html", root), "utf8");
+const clientScript = await readFile(new URL("proposals/proposals.js", root), "utf8");
 
 test("Proposal AI opens before the editor sections and exposes one action per section", () => {
   assert.ok(html.indexOf('id="proposal-copilot"') < html.indexOf('data-proposal-section="overview"'));
@@ -57,4 +59,21 @@ test("Proposal AI may suggest billing and contractual values for admin review", 
   assert.match(api, /including pricing, discounts, deposits, recurring charges, dates, terms, and billing line items/);
   assert.doesNotMatch(api, /Unsupported protected suggestion cannot be applied/);
   assert.match(script, /You may propose pricing, billing items, dates, scope/);
+});
+
+test("the editor is one six-stage Proposal & Agreement", () => {
+  for (const label of ["Project summary", "Scope", "Timeline", "Investment &amp; payment", "Agreement terms", "Client approval"]) {
+    assert.match(html, new RegExp(label));
+  }
+  assert.match(html, /id="proposal-introduction" type="hidden"/);
+  assert.match(script, /introduction: null/);
+  assert.match(script, /values\.introduction, values\.project_objective/);
+});
+
+test("the client accepts the same agreement version used for billing", () => {
+  assert.match(clientHtml, /Proposal &amp; Agreement/);
+  assert.match(clientHtml, /Accept agreement/);
+  assert.match(clientScript, /Proposal & Agreement version/);
+  assert.match(clientScript, /billing from the investment and payment schedule shown in this exact version/);
+  assert.doesNotMatch(clientScript, /applicable contract and billing steps will be prepared separately/);
 });

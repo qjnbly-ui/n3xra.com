@@ -128,7 +128,7 @@ function setCopilotStatus(message = "", isError = false) {
 function sectionCompletion(section) {
   const values = (keys) => keys.map((key) => String(document.getElementById(fieldIds[key])?.value || "").trim());
   let required = [];
-  if (section === "overview") required = values(["title", "introduction", "project_objective"]);
+  if (section === "overview") required = values(["title", "project_objective"]);
   else if (section === "scope") required = values(["scope_summary", "deliverables", "exclusions"]);
   else if (section === "schedule") required = values(["timeline"]);
   else if (section === "terms") required = values(["revision_policy", "terms"]);
@@ -433,8 +433,8 @@ function defaultVersion() {
     recurring_cents: 0,
     recurring_interval: "",
     payment_schedule: "",
-    revision_policy: "The project includes the revisions specifically listed in the final contract. Work outside the approved scope will be quoted separately.",
-    terms: "This proposal describes the intended project scope and pricing. Final work begins after the related contract is signed and the required deposit is paid.\n\nAny Founding Client service rate shown remains available while the qualifying service stays continuously active. If service is canceled, future service may be offered under the pricing and terms available at that time.\n\nIncluded monthly edit time applies only to routine content, image, and minor layout changes, expires at the end of each month, and does not roll over. New pages, redesigns, custom features, integrations, and urgent after-hours work are quoted separately. Priority handling does not guarantee an immediate response at every hour. Domains and third-party services are billed separately when applicable.",
+    revision_policy: "Work includes the deliverables and revisions stated in this agreement. Material additions or work outside the approved scope require written approval and may be quoted separately.",
+    terms: "Approval of this Proposal & Agreement authorizes N3XRA to perform the described work and prepare billing according to the accepted investment and payment schedule. Work begins after any required initial payment and client materials are received.\n\nAny Founding Client service rate shown remains available while the qualifying service stays continuously active. If service is canceled, future service may be offered under the pricing and terms available at that time.\n\nIncluded monthly edit time applies only to routine content, image, and minor layout changes, expires at the end of each month, and does not roll over. New pages, redesigns, custom features, integrations, and urgent after-hours work are quoted separately. Priority handling does not guarantee an immediate response at every hour. Domains and third-party services are billed separately when applicable.",
     valid_until: "",
   };
 }
@@ -443,7 +443,9 @@ function fillForm(version) {
   const values = version || defaultVersion();
   Object.entries(fieldIds).forEach(([key, id]) => {
     const input = document.getElementById(id);
-    if (key === "title") input.value = selectedProposal?.title || `${selectedRequest?.business_name || "Website"} Website Proposal`;
+    if (key === "title") input.value = selectedProposal?.title || `${selectedRequest?.business_name || "Website"} Proposal & Agreement`;
+    else if (key === "introduction") input.value = "";
+    else if (key === "project_objective") input.value = [values.introduction, values.project_objective].filter((value) => String(value || "").trim()).join("\n\n");
     else if (["deliverables", "exclusions"].includes(key)) input.value = (values[key] || []).join("\n");
     else if (key.endsWith("_cents")) input.value = centsToMoney(values[key]);
     else input.value = values[key] || "";
@@ -481,7 +483,7 @@ function renderEditor() {
   // the founder-offer lock after it so the waiver cannot be toggled off.
   configureReferralDiscount({ apply: Boolean(!editingVersion && selectedRequest?.referral_code) });
   updateInvestmentTotals();
-  sendButton.textContent = isDraft ? "Send to client" : "Resend email";
+  sendButton.textContent = isDraft ? "Send for approval" : "Resend agreement";
   newVersionButton.hidden = !selectedProposal || isDraft;
   newVersionButton.textContent = isApproved ? "Create billing revision" : "Create revision";
   deleteVersionButton.hidden = !editingVersion?.id || editingVersion.status !== "draft";
@@ -504,7 +506,7 @@ function renderEditor() {
     prepareBillingButton.disabled = true;
     prepareBillingButton.textContent = selectedProposal?.status === "sent"
       ? "Billing available after client approval"
-      : "Approve proposal before billing";
+      : "Accept agreement before billing";
   }
   copilotPanel.hidden = false;
   updateCopilotSectionActions();
@@ -534,7 +536,7 @@ function collectVersion() {
   return {
     lineItems: items,
     version: {
-    introduction: document.getElementById(fieldIds.introduction).value.trim() || null,
+    introduction: null,
     project_objective: document.getElementById(fieldIds.project_objective).value.trim(),
     scope_summary: document.getElementById(fieldIds.scope_summary).value.trim(),
     deliverables: lines(document.getElementById(fieldIds.deliverables).value),
@@ -672,7 +674,7 @@ async function saveDraft(event, rethrow = false) {
     setStatus("Draft saved.");
     await loadData(selectedRequest.id);
   } catch (error) {
-    setStatus(error?.message || "Unable to save this proposal.", true);
+    setStatus(error?.message || "Unable to save this agreement.", true);
     if (rethrow) throw error;
   } finally {
     saveButton.disabled = false;
@@ -694,16 +696,16 @@ function emailPreviewMarkup() {
   document.getElementById("proposal-email-meta").textContent = `To: ${selectedRequest.contact_name} · ${selectedRequest.contact_email}`;
   return `
     <div class="proposal-email-card">
-      <div class="proposal-email-hero"><p>N3XRA · Website proposal</p><h2>Your proposal is ready.</h2></div>
+      <div class="proposal-email-hero"><p>N3XRA · Proposal &amp; Agreement</p><h2>Your agreement is ready to review.</h2></div>
       <div class="proposal-email-body">
         <p>Hi ${escapeHtml(selectedRequest.contact_name.split(/\s+/)[0] || selectedRequest.contact_name)},</p>
-        <p>We’ve put together the proposal for <strong>${escapeHtml(title)}</strong>. It includes the project scope, schedule, investment, and terms for you to review in your secure dashboard.</p>
+        <p>We’ve prepared the Proposal &amp; Agreement for <strong>${escapeHtml(title)}</strong>. It includes the project scope, schedule, investment, payment plan, and terms for you to review in your secure dashboard.</p>
         <div class="proposal-email-summary"><strong>Project at a glance</strong><p>${escapeHtml(collected.version.project_objective)}</p><p><strong>Timeline:</strong> ${escapeHtml(collected.version.timeline)}</p></div>
         ${oneTime.length ? `<h3>Project investment</h3>${rows(oneTime)}${collected.version.discount_cents ? `<div class="proposal-email-item"><span>Discount</span><strong>−${formatMoney(collected.version.discount_cents)}</strong></div>` : ""}<div class="proposal-email-item is-total"><span>Total</span><strong>${formatMoney(collected.version.total_cents)}</strong></div>` : ""}
         ${recurring.length ? `<h3>Ongoing services</h3>${rows(recurring)}` : ""}
-        <div class="proposal-email-notice"><strong>This is a proposal, not a bill.</strong><br>No payment is due from this email. After you approve the proposal, the applicable contract and billing steps will be prepared separately.</div>
-        <p>When you’re ready, open your dashboard to read the complete proposal and respond.</p>
-        <a class="proposal-email-cta" href="https://www.n3xra.com/account">Review proposal in your dashboard</a>
+        <div class="proposal-email-notice"><strong>No payment is collected from this email.</strong><br>Approving the agreement records your acceptance of this version. N3XRA then prepares billing from the approved investment and payment schedule.</div>
+        <p>When you’re ready, open your dashboard to read the complete agreement and respond.</p>
+        <a class="proposal-email-cta" href="https://www.n3xra.com/account">Review agreement in your dashboard</a>
         <p class="proposal-email-signoff">We’re excited about the opportunity to help bring this project to life.<br><strong>N3XRA</strong></p>
       </div>
     </div>
@@ -725,17 +727,17 @@ async function emailProposal(proposalId, versionId) {
     body: JSON.stringify({ proposalId, versionId }),
   });
   const result = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(result.error || "The proposal was published, but the email could not be sent.");
+  if (!response.ok) throw new Error(result.error || "The agreement was published, but the email could not be sent.");
   return result;
 }
 
 async function sendProposal() {
   sendButton.disabled = true;
-  setStatus("Publishing proposal…");
+  setStatus("Publishing agreement…");
   let proposalPublished = false;
   try {
     if (editingVersion?.status === "sent" && selectedProposal?.current_version_id === editingVersion.id) {
-      setStatus("Sending proposal email…");
+      setStatus("Sending agreement email…");
       await emailProposal(selectedProposal.id, editingVersion.id);
       setStatus(`Proposal email sent to ${selectedRequest.contact_email}.`);
       emailDialog.close();
@@ -745,7 +747,7 @@ async function sendProposal() {
     await saveDraft(null, true);
     const proposal = proposals.find((item) => item.request_id === selectedRequest.id);
     const draft = versions.find((version) => version.proposal_id === proposal?.id && version.status === "draft");
-    if (!proposal || !draft) throw new Error("Save the proposal draft before sending it.");
+    if (!proposal || !draft) throw new Error("Save the agreement draft before sending it.");
 
     const priorSent = versions.filter((version) => version.proposal_id === proposal.id && version.status === "sent");
     for (const version of priorSent) {
@@ -772,7 +774,7 @@ async function sendProposal() {
     emailDialog.close();
     await loadData(selectedRequest.id);
   } catch (error) {
-    setStatus(error?.message || "Unable to send this proposal.", true);
+    setStatus(error?.message || "Unable to send this agreement.", true);
     if (proposalPublished) await loadData(selectedRequest.id);
   } finally {
     sendButton.disabled = false;
