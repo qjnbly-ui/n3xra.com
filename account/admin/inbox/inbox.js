@@ -2,6 +2,7 @@ import { createBrowserSupabase, hasConfig } from "/shared/lib/supabase-client.js
 import { verifyPlatformAdmin } from "/client-portal/admin-access.js";
 import { confirmAdminAction } from "/account/admin/admin-dialogs.js";
 import { initializeAdminSelects } from "/account/admin/admin-select.js?v=1";
+import { renderAdminNavigation } from "/account/admin/admin-navigation.js?v=9";
 
 initializeAdminSelects();
 
@@ -139,6 +140,8 @@ async function init() {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) return window.location.replace("/account/?next=%2Faccount%2Fadmin%2Finbox%2F");
   if (!await verifyPlatformAdmin(supabase, session.user)) return window.location.replace("/account/");
+  renderAdminNavigation();
+  document.body.classList.add("admin-ready");
   document.getElementById("admin-sign-out").addEventListener("click", async () => { await supabase.auth.signOut(); window.location.replace("/account/"); });
   document.querySelectorAll("[data-folder]").forEach((button) => button.addEventListener("click", () => {
     folder = button.dataset.folder;

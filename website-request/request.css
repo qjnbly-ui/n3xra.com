@@ -992,6 +992,12 @@
   color: rgba(255, 255, 255, 0.58);
 }
 
+@media (min-width: 801px) {
+  .request-page .site-menu-toggle {
+    display: none;
+  }
+}
+
 .request-page .request-shell {
   width: 100%;
   min-height: calc(100svh - 76px);

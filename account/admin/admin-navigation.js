@@ -4,7 +4,8 @@ const accountLinks = [
   ["/account/admin/billing/", "Billing"],
   ["/account/admin/operations/", "Operations"],
   ["/account/admin/support/", "Support"],
-  ["/account/notifications/", "Platform Notifications"],
+  ["/account/admin/inbox/", "Admin Inbox"],
+  ["/account/notifications/", "Platform Messages"],
   ["/account/admin/analytics/", "Analytics"],
 ];
 
@@ -258,6 +259,7 @@ export function arrangeAdminWorkspace() {
 }
 
 function isWorkspaceUrl(url) {
+  if (url.pathname === "/account/admin/inbox/") return false;
   return url.origin === window.location.origin
     && (url.pathname.startsWith("/account/admin/") || url.pathname === "/account/notifications/");
 }
