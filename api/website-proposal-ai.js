@@ -103,6 +103,10 @@ function cleanIds(values) {
   return [...new Set(values.map((value) => String(value || "").trim()).filter(Boolean))];
 }
 
+function isRunRemovable(run) {
+  return run?.status !== "applied" || Number(run?.accepted_count || 0) === 0;
+}
+
 function operationSection(operation) {
   if (operation.target?.kind === "proposal" || ["introduction", "project_objective"].includes(operation.field)) return "overview";
   if (["scope_summary", "deliverables", "exclusions"].includes(operation.field)) return "scope";
@@ -277,6 +281,26 @@ async function detail(body) {
   return { run };
 }
 
+async function remove(body) {
+  const runId = String(body.run_id || "").trim();
+  const proposalId = String(body.proposal_id || "").trim();
+  if (!runId || !proposalId) throw apiError("Choose a Proposal Copilot run.", 400);
+  const rows = await serviceRequest(
+    `website_proposal_ai_runs?select=id,status,accepted_count&id=eq.${encodeURIComponent(runId)}&proposal_id=eq.${encodeURIComponent(proposalId)}&limit=1`,
+  );
+  const run = rows?.[0];
+  if (!run) throw apiError("This Proposal Copilot run no longer exists.", 404);
+  if (!isRunRemovable(run)) {
+    throw apiError("Applied Proposal AI history stays with the proposal and cannot be removed independently.", 409);
+  }
+  const deleted = await serviceRequest(
+    `website_proposal_ai_runs?id=eq.${encodeURIComponent(runId)}&proposal_id=eq.${encodeURIComponent(proposalId)}`,
+    { method: "DELETE", headers: { Prefer: "return=representation" } },
+  );
+  if (!deleted?.length) throw apiError("This Proposal Copilot run could not be removed.", 409);
+  return { deleted: true, run_id: runId };
+}
+
 async function apply(body, auth) {
   const runId = String(body.run_id || "").trim();
   const proposalId = String(body.proposal_id || "").trim();
@@ -314,6 +338,7 @@ module.exports = async function handler(req, res) {
     if (action === "generate") result = await generate(body, auth);
     else if (action === "history") result = await history(body);
     else if (action === "detail") result = await detail(body);
+    else if (action === "remove") result = await remove(body);
     else if (action === "apply") result = await apply(body, auth);
     else throw apiError("Unknown Proposal Copilot action.", 400);
     return res.status(200).json(result);
@@ -323,4 +348,4 @@ module.exports = async function handler(req, res) {
   }
 };
 
-module.exports._test = { extractGroqOutput, CHANGE_SET_SCHEMA };
+module.exports._test = { extractGroqOutput, isRunRemovable, CHANGE_SET_SCHEMA };

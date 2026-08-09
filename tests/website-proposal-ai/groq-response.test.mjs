@@ -3,7 +3,7 @@ import { createRequire } from "node:module";
 import test from "node:test";
 
 const require = createRequire(import.meta.url);
-const { extractGroqOutput, CHANGE_SET_SCHEMA } = require("../../api/website-proposal-ai.js")._test;
+const { extractGroqOutput, isRunRemovable, CHANGE_SET_SCHEMA } = require("../../api/website-proposal-ai.js")._test;
 
 test("Groq structured output is extracted from Chat Completions", () => {
   const text = extractGroqOutput({
@@ -25,4 +25,11 @@ test("the strict schema constrains line-item categories, billing, and intervals"
   assert.deepEqual(lineItem.properties.billing_type.enum, ["one_time", "recurring"]);
   assert.deepEqual(lineItem.properties.recurring_interval.enum, [null, "monthly", "quarterly", "yearly"]);
   assert.ok(lineItem.properties.category.enum.includes("domain"));
+});
+
+test("only meaningful applied runs are individually retained", () => {
+  assert.equal(isRunRemovable({ status: "failed", accepted_count: 0 }), true);
+  assert.equal(isRunRemovable({ status: "ready", accepted_count: 0 }), true);
+  assert.equal(isRunRemovable({ status: "applied", accepted_count: 0 }), true);
+  assert.equal(isRunRemovable({ status: "applied", accepted_count: 2 }), false);
 });

@@ -35,3 +35,10 @@ test("the model is explicitly instructed to fill incomplete targeted sections", 
   assert.match(api, /blank or incomplete standard fields/);
   assert.match(api, /draft client-ready values from the included authoritative sources/);
 });
+
+test("failed and unused history can be removed without exposing applied history removal", () => {
+  assert.match(script, /data-ai-run-remove/);
+  assert.match(script, /run\.status !== "applied" \|\| Number\(run\.accepted_count \|\| 0\) === 0/);
+  assert.match(script, /action: "remove"/);
+  assert.match(api, /Applied Proposal AI history stays with the proposal and cannot be removed independently/);
+});

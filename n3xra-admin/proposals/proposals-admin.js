@@ -818,7 +818,12 @@ function renderCopilotHistory(runs = []) {
   copilotHistory.innerHTML = runs.length ? runs.map((run) => `
     <article class="proposal-ai-history-row">
       ${historySummary(run)}
-      <button class="portal-button portal-button-secondary" data-ai-run-detail="${escapeHtml(run.id)}" type="button">View details</button>
+      <div class="proposal-ai-history-actions">
+        <button class="portal-button portal-button-secondary" data-ai-run-detail="${escapeHtml(run.id)}" type="button">View details</button>
+        ${run.status !== "applied" || Number(run.accepted_count || 0) === 0
+          ? `<button class="portal-button portal-button-danger" data-ai-run-remove="${escapeHtml(run.id)}" type="button">Remove</button>`
+          : ""}
+      </div>
     </article>
   `).join("") : "<p>No Proposal Copilot runs yet.</p>";
 }
@@ -968,6 +973,19 @@ async function loadCopilotRun(runId) {
   renderCopilotRun(result.run, runTargetSection(result.run));
   setCopilotStatus("");
   copilotReview.scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+async function removeCopilotRun(runId) {
+  if (!window.confirm("Remove this failed or unused AI attempt?")) return;
+  setCopilotStatus("Removing AI attempt…");
+  await proposalAiRequest({ action: "remove", proposal_id: selectedProposal.id, run_id: runId });
+  if (copilotReview.dataset.runId === runId) {
+    copilotReview.hidden = true;
+    copilotReview.removeAttribute("data-run-id");
+    copilotGlobalResult.append(copilotReview);
+  }
+  await loadCopilotWorkspace();
+  setCopilotStatus("AI attempt removed.");
 }
 
 async function applyCopilotRun() {
@@ -1135,8 +1153,10 @@ async function init() {
   form.addEventListener("change", updateCopilotSectionActions);
   copilotRefreshButton.addEventListener("click", () => loadCopilotWorkspace().catch((error) => setCopilotStatus(error.message, true)));
   copilotHistory.addEventListener("click", (event) => {
-    const button = event.target.closest("[data-ai-run-detail]");
-    if (button) loadCopilotRun(button.dataset.aiRunDetail).catch((error) => setCopilotStatus(error.message, true));
+    const detailButton = event.target.closest("[data-ai-run-detail]");
+    if (detailButton) loadCopilotRun(detailButton.dataset.aiRunDetail).catch((error) => setCopilotStatus(error.message, true));
+    const removeButton = event.target.closest("[data-ai-run-remove]");
+    if (removeButton) removeCopilotRun(removeButton.dataset.aiRunRemove).catch((error) => setCopilotStatus(error.message, true));
   });
   copilotReview.addEventListener("change", updateCopilotApplyState);
   copilotReview.addEventListener("click", (event) => {

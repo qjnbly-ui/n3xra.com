@@ -188,6 +188,7 @@
 .proposal-ai-history-row p { margin:0; }
 .proposal-ai-history-row small { color:var(--portal-muted, #64748b); }
 .proposal-ai-history-row button { flex:0 0 auto; }
+.proposal-ai-history-actions { display:flex; flex:0 0 auto; flex-wrap:wrap; gap:.45rem; }
 
 @media (max-width:720px) {
   .proposal-copilot-top { margin:0 -1rem !important; }
