@@ -148,15 +148,15 @@ async function callGroq(context, instruction, targetSections, instructionSource)
     "You are Proposal AI for a website-services administrator.",
     "Return only useful, discrete edits to the existing proposal baseline using the required schema.",
     "When a requested target section has blank or incomplete standard fields, draft client-ready values from the included authoritative sources. When it already has useful content, improve it without discarding accurate details.",
-    "Never invent pricing, discounts, deposits, schedules, dates, revision limits, payment terms, or contractual language.",
-    "A protected change must cite an exact supporting excerpt from a source supplied in this request.",
-    "Onboarding may clarify how to implement approved scope but cannot silently add billable functionality or materially expand scope.",
+    "You may propose edits to every editable proposal field, including pricing, discounts, deposits, recurring charges, dates, terms, and billing line items. The administrator will approve or deny every suggestion before it is applied.",
+    "Prefer values directly supported by the administrator's statement and project context. When a useful value is inferred rather than stated exactly, explain that clearly in the rationale instead of withholding the suggestion.",
+    "If onboarding or project context implies additional billable functionality or expanded scope, propose it explicitly as a billing or scope change for administrator review rather than silently folding it into unrelated wording.",
     "Use only record IDs shown in the supplied baseline. For a line-item addition use a null target ID and field item. When billing type and recurring interval change together, replace the complete line item using field item so the values remain consistent.",
     "For every line item, use billing_type one_time with a null recurring_interval, or billing_type recurring with recurring_interval monthly, quarterly, or yearly. Prices are integer cents and sort_order is an integer.",
     "Replace deliverables and exclusions only as complete arrays. Do not emit subtotal, total, or recurring summary edits; the server recalculates them from line items.",
     "For each evidence item, source_type and source_id must exactly match a supplied SOURCE label.",
-    "Use a separate verbatim evidence excerpt for each protected price, quantity, or date. Set field_path to the supporting field name, including _cents or quantity for structured numeric sources.",
-    "Keep suggestions concise. If the instruction is already satisfied or unsupported, return no operation for it and explain briefly in summary.",
+    "Cite evidence when a source directly supports a value, but do not omit a useful suggestion merely because the final wording or number is not quoted verbatim.",
+    "Keep suggestions concise. If the instruction is already satisfied, return no operation for it and explain briefly in summary.",
   ].join(" ");
   const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
@@ -313,9 +313,6 @@ async function apply(body, auth) {
   if (run.status !== "ready" || run.applied_version_id) throw apiError("This Proposal Copilot run cannot be applied again.", 409);
   const accepted = cleanIds(body.accepted_operation_ids);
   const rejected = cleanIds(body.rejected_operation_ids);
-  const operations = run.change_set?.operations || [];
-  const unsupported = operations.filter((operation) => accepted.includes(operation.id) && operation.server_validation?.supported !== true);
-  if (unsupported.length) throw apiError(`Unsupported protected suggestion cannot be applied: ${unsupported[0].server_validation?.reason || unsupported[0].id}`, 422);
   const result = await callerRpc("apply_website_proposal_ai_run", auth.token, {
     target_run_id: runId,
     accepted_operation_ids: accepted,

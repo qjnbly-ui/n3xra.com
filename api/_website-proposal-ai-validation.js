@@ -194,6 +194,34 @@ function validateLineItemValue(value, operationId) {
   }
 }
 
+function normalizeLineItemOperation(operation, baseline) {
+  if (operation?.target?.kind !== "line_item" || operation.operation === "remove") return;
+  const originalField = operation.field;
+  const existing = operation.target.id
+    ? baseline.line_items.find((row) => row.id === operation.target.id)
+    : null;
+  if (operation.operation === "replace" && ["billing_type", "recurring_interval"].includes(originalField) && existing) {
+    operation.field = "item";
+    operation.proposed = { ...existing, [originalField]: operation.proposed };
+  }
+  if (operation.field !== "item" || !operation.proposed || typeof operation.proposed !== "object") return;
+  const value = { ...operation.proposed };
+  const intervals = new Set(["monthly", "quarterly", "yearly"]);
+  if (originalField === "billing_type") {
+    if (value.billing_type === "one_time") value.recurring_interval = null;
+    else if (!intervals.has(value.recurring_interval)) value.recurring_interval = existing?.recurring_interval || (value.category === "domain" ? "yearly" : "monthly");
+  } else if (originalField === "recurring_interval" && intervals.has(value.recurring_interval)) {
+    value.billing_type = "recurring";
+  } else if (intervals.has(value.recurring_interval)) {
+    value.billing_type = "recurring";
+  } else if (value.billing_type === "one_time") {
+    value.recurring_interval = null;
+  } else if (value.billing_type === "recurring") {
+    value.recurring_interval = existing?.recurring_interval || (value.category === "domain" ? "yearly" : "monthly");
+  }
+  operation.proposed = value;
+}
+
 function referencedEvidence(operation, evidenceMap) {
   return operation.evidence.flatMap((evidence) => {
     const key = `${plain(evidence?.source_type)}:${plain(evidence?.source_id)}`;
@@ -307,13 +335,20 @@ function validateChangeSet(raw, baseline, evidenceMap, now = new Date()) {
   const seen = new Set();
   const operations = raw.operations.map((input) => {
     const operation = structuredClone(input);
+    normalizeLineItemOperation(operation, baseline);
     validateShape(operation, baseline);
     if (seen.has(operation.id)) throw apiError(`Proposal AI returned duplicate suggestion ID ${operation.id}.`, 422);
     seen.add(operation.id);
     operation.risk = protectedOperation(operation) ? "protected" : "standard";
-    operation.server_validation = operation.risk === "protected"
+    const evidenceReview = operation.risk === "protected"
       ? supportedProtected(operation, evidenceMap, now)
       : { supported: true };
+    operation.server_validation = {
+      supported: true,
+      review_required: true,
+      evidence_supported: operation.risk === "protected" ? evidenceReview.supported : null,
+      warning: evidenceReview.supported ? null : evidenceReview.reason,
+    };
     return operation;
   });
   return { summary: plain(raw.summary).slice(0, 2000), operations };

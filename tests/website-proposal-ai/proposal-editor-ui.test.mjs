@@ -42,3 +42,19 @@ test("failed and unused history can be removed without exposing applied history 
   assert.match(script, /action: "remove"/);
   assert.match(api, /Applied Proposal AI history stays with the proposal and cannot be removed independently/);
 });
+
+test("every AI suggestion is reviewed beside its affected field", () => {
+  assert.match(script, /function operationAnchor\(operation\)/);
+  assert.match(script, /proposal-ai-inline-host/);
+  assert.match(script, /AI suggests/);
+  assert.match(script, /> Approve</);
+  assert.match(script, /> Deny</);
+  assert.doesNotMatch(script, /data-ai-forced-reject/);
+  assert.doesNotMatch(script, /!readonly && !hasSavedReview/);
+});
+
+test("Proposal AI may suggest billing and contractual values for admin review", () => {
+  assert.match(api, /including pricing, discounts, deposits, recurring charges, dates, terms, and billing line items/);
+  assert.doesNotMatch(api, /Unsupported protected suggestion cannot be applied/);
+  assert.match(script, /You may propose pricing, billing items, dates, scope/);
+});

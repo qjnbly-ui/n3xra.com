@@ -320,7 +320,7 @@ function editingLineItems(version = editingVersion) {
 
 function lineItemMarkup(item = newLineItem()) {
   return `
-    <div class="proposal-line-item">
+    <div class="proposal-line-item" data-line-item-id="${escapeHtml(item.id || "")}">
       <label>Service type<select data-line-field="category">${Object.entries(itemCategories).map(([value, label]) => `<option value="${value}"${item.category === value ? " selected" : ""}>${label}</option>`).join("")}</select></label>
       <label class="proposal-line-name">Name<input data-line-field="name" maxlength="160" required value="${escapeHtml(item.name)}"></label>
       <label>Billing<select data-line-field="billing_type"><option value="one_time"${item.billing_type === "one_time" ? " selected" : ""}>One time</option><option value="recurring"${item.billing_type === "recurring" ? " selected" : ""}>Recurring</option></select></label>
@@ -453,6 +453,7 @@ function fillForm(version) {
 }
 
 function renderEditor() {
+  clearProposalAiInlineReview();
   renderRequestSummary();
   emptyState.hidden = Boolean(selectedRequest);
   form.hidden = !selectedRequest;
@@ -828,8 +829,23 @@ function renderCopilotHistory(runs = []) {
   `).join("") : "<p>No Proposal Copilot runs yet.</p>";
 }
 
-function valueText(value) {
-  if (value === null || value === undefined || value === "") return "Not set";
+function valueText(operation, value = operation.proposed) {
+  if (operation.target?.kind === "line_item" && operation.operation === "remove") {
+    return `Remove ${operation.original?.name || "this billing item"}`;
+  }
+  if (value && typeof value === "object" && !Array.isArray(value) && operation.target?.kind === "line_item") {
+    const interval = value.billing_type === "recurring" ? ` / ${value.recurring_interval}` : " one time";
+    return [
+      value.name,
+      `${value.quantity} × $${centsToMoney(value.unit_amount_cents)}${interval}`,
+      value.description,
+    ].filter(Boolean).join("\n");
+  }
+  if (["discount_cents", "deposit_cents", "unit_amount_cents"].includes(operation.field) && Number.isFinite(Number(value))) {
+    return `$${centsToMoney(value)}`;
+  }
+  if (Array.isArray(value)) return value.join("\n");
+  if (value === null || value === undefined || value === "") return "Clear this field";
   return typeof value === "string" ? value : JSON.stringify(value, null, 2);
 }
 
@@ -857,41 +873,97 @@ function placeCopilotReview(section = null) {
   }
 }
 
+function clearProposalAiInlineReview() {
+  document.querySelectorAll(".proposal-ai-inline-host").forEach((host) => host.remove());
+  form?.removeAttribute("data-ai-review-run");
+}
+
+function operationSectionName(operation) {
+  if (operation.target?.kind === "proposal" || ["introduction", "project_objective"].includes(operation.field)) return "overview";
+  if (["scope_summary", "deliverables", "exclusions"].includes(operation.field)) return "scope";
+  if (["timeline", "estimated_start_date", "estimated_completion_date", "valid_until"].includes(operation.field)) return "schedule";
+  if (operation.target?.kind === "line_item" || ["discount_cents", "deposit_cents", "payment_schedule"].includes(operation.field)) return "investment";
+  return "terms";
+}
+
+function operationAnchor(operation) {
+  if (["proposal", "version"].includes(operation.target?.kind)) {
+    const input = document.getElementById(fieldIds[operation.field]);
+    if (input) return { element: input.closest("label") || input, after: true };
+  }
+  if (operation.target?.kind === "line_item") {
+    if (operation.operation === "add") return { element: lineItemsContainer, after: false };
+    const row = Array.from(lineItemsContainer.querySelectorAll(".proposal-line-item"))
+      .find((item) => item.dataset.lineItemId === operation.target.id);
+    if (row) {
+      if (operation.field === "item" || operation.operation === "remove") return { element: row, after: true };
+      const lineField = operation.field === "unit_amount_cents" ? "unit_amount" : operation.field;
+      const input = row.querySelector(`[data-line-field="${lineField}"]`);
+      return { element: input?.closest("label") || row, after: Boolean(input) };
+    }
+  }
+  return { element: document.querySelector(`[data-ai-result-slot="${operationSectionName(operation)}"]`) || copilotGlobalResult, after: false };
+}
+
+function operationReviewMarkup(operation, run, reviewed, readonly) {
+  const accepted = reviewed.accepted.has(operation.id);
+  const rejected = reviewed.rejected.has(operation.id);
+  const warning = operation.server_validation?.warning
+    || (operation.server_validation?.supported === false
+      ? operation.server_validation?.reason || "This value was inferred rather than directly matched to a source."
+      : "");
+  const title = operation.target?.kind === "line_item"
+    ? operation.operation === "add" ? "Add billing item" : operation.operation === "remove" ? "Remove billing item" : "Update billing item"
+    : `AI suggestion for ${formatLabel(operation.field)}`;
+  return `<article class="proposal-ai-operation proposal-ai-inline-operation" data-ai-operation="${escapeHtml(operation.id)}" data-ai-review-run="${escapeHtml(run.id)}">
+    <div class="proposal-ai-operation-head"><div><h5>${escapeHtml(title)}</h5><p>${escapeHtml(operation.rationale || "Suggested update")}</p></div><span class="proposal-ai-risk${operation.risk === "protected" ? " is-protected" : ""}">${operation.risk === "protected" ? "Review carefully" : "AI draft"}</span></div>
+    <div class="proposal-ai-value proposal-ai-proposed-value"><strong>AI suggests</strong><pre>${escapeHtml(valueText(operation))}</pre></div>
+    ${warning ? `<p class="proposal-ai-review-note"><strong>Check before approving:</strong> ${escapeHtml(warning)}</p>` : ""}
+    <div class="proposal-ai-decision"><label><input type="radio" name="proposal-ai-${escapeHtml(run.id)}-${escapeHtml(operation.id)}" value="accept"${accepted ? " checked" : ""}${readonly ? " disabled" : ""}> Approve</label><label><input type="radio" name="proposal-ai-${escapeHtml(run.id)}-${escapeHtml(operation.id)}" value="reject"${rejected ? " checked" : ""}${readonly ? " disabled" : ""}> Deny</label></div>
+  </article>`;
+}
+
+function mountOperationReview(operation, run, reviewed, readonly) {
+  const host = document.createElement("div");
+  host.className = "proposal-ai-inline-host";
+  host.dataset.aiReviewRun = run.id;
+  host.innerHTML = operationReviewMarkup(operation, run, reviewed, readonly);
+  const anchor = operationAnchor(operation);
+  if (anchor.after) anchor.element.insertAdjacentElement("afterend", host);
+  else anchor.element.append(host);
+}
+
+function firstOperationReview(runId) {
+  return Array.from(form.querySelectorAll(".proposal-ai-inline-host"))
+    .find((host) => host.dataset.aiReviewRun === runId);
+}
+
 function renderCopilotRun(run, preferredSection = null) {
   const operations = run.change_set?.operations || [];
   const reviewed = reviewIds(run);
   const readonly = run.status !== "ready";
-  const hasSavedReview = Boolean(run.review_result);
   const section = preferredSection || runTargetSection(run);
+  clearProposalAiInlineReview();
+  form.dataset.aiReviewRun = run.id;
   placeCopilotReview(section);
   copilotReview.hidden = false;
   copilotReview.dataset.runId = run.id;
   copilotReview.innerHTML = `
-    <p class="proposal-ai-summary"><strong>${operations.length} suggestion${operations.length === 1 ? "" : "s"}.</strong> ${escapeHtml(run.change_set?.summary || "Review every change before applying it.")}</p>
-    ${operations.map((operation) => {
-      const supported = operation.server_validation?.supported === true;
-      const accepted = reviewed.accepted.has(operation.id)
-        || (!readonly && !hasSavedReview && supported && operation.risk !== "protected");
-      const rejected = reviewed.rejected.has(operation.id) || !supported;
-      return `<article class="proposal-ai-operation${supported ? "" : " is-unsupported"}" data-ai-operation="${escapeHtml(operation.id)}">
-        <div class="proposal-ai-operation-head"><div><h5>${escapeHtml(formatLabel(operation.target.kind))} · ${escapeHtml(formatLabel(operation.field))}</h5><p>${escapeHtml(operation.rationale || "Suggested update")}</p></div><span class="proposal-ai-risk${operation.risk === "protected" ? " is-protected" : ""}">${escapeHtml(operation.risk)}</span></div>
-        <div class="proposal-ai-diff"><div class="proposal-ai-value"><strong>Original</strong><pre>${escapeHtml(valueText(operation.original))}</pre></div><div class="proposal-ai-value"><strong>Proposed</strong><pre>${escapeHtml(valueText(operation.proposed))}</pre></div></div>
-        ${operation.evidence?.length ? `<ul class="proposal-ai-evidence">${operation.evidence.map((item) => `<li>${escapeHtml(item.source_type)}: “${escapeHtml(item.supporting_value)}”</li>`).join("")}</ul>` : ""}
-        ${supported ? `<div class="proposal-ai-decision"><label><input type="radio" name="proposal-ai-${escapeHtml(operation.id)}" value="accept"${accepted ? " checked" : ""}${readonly ? " disabled" : ""}> Accept</label><label><input type="radio" name="proposal-ai-${escapeHtml(operation.id)}" value="reject"${rejected ? " checked" : ""}${readonly ? " disabled" : ""}> Reject</label></div>` : `<p class="proposal-ai-rejection">Not applicable: ${escapeHtml(operation.server_validation?.reason || "Protected value is unsupported.")}</p><input type="hidden" data-ai-forced-reject value="${escapeHtml(operation.id)}">`}
-      </article>`;
-    }).join("")}
+    <p class="proposal-ai-summary"><strong>${operations.length} suggestion${operations.length === 1 ? "" : "s"} placed beside the affected fields.</strong> ${escapeHtml(run.change_set?.summary || "Approve or deny every change before applying it.")}</p>
     ${run.error ? `<p class="proposal-ai-rejection">${escapeHtml(run.error)}</p>` : ""}
-    ${run.status === "ready" ? `<div class="portal-form-actions proposal-copilot-actions"><button class="portal-button" id="apply-proposal-ai" type="button" disabled>Apply reviewed changes</button><p class="portal-inline-status">Choose Accept or Reject for every suggestion.</p></div>` : ""}
+    ${run.status === "ready" ? `<div class="portal-form-actions proposal-copilot-actions"><button class="portal-button" id="apply-proposal-ai" type="button" disabled>Apply reviewed changes</button><p class="portal-inline-status">Choose Approve or Deny beside every affected field.</p></div>` : ""}
   `;
+  operations.forEach((operation) => mountOperationReview(operation, run, reviewed, readonly));
   updateCopilotApplyState();
 }
 
 function collectCopilotReview() {
   const accepted = [];
-  const rejected = Array.from(copilotReview.querySelectorAll("[data-ai-forced-reject]")).map((input) => input.value);
-  const cards = Array.from(copilotReview.querySelectorAll("[data-ai-operation]"));
+  const rejected = [];
+  const runId = form.dataset.aiReviewRun;
+  const cards = Array.from(form.querySelectorAll("[data-ai-operation]"))
+    .filter((card) => card.dataset.aiReviewRun === runId);
   for (const card of cards) {
-    if (card.querySelector("[data-ai-forced-reject]")) continue;
     const choice = card.querySelector('input[type="radio"]:checked')?.value;
     if (choice === "accept") accepted.push(card.dataset.aiOperation);
     else if (choice === "reject") rejected.push(card.dataset.aiOperation);
@@ -908,7 +980,7 @@ function updateCopilotApplyState() {
     ? "Finish review"
     : `Apply ${review.accepted.length} AI change${review.accepted.length === 1 ? "" : "s"}`;
   const note = button.nextElementSibling;
-  if (note) note.textContent = review.complete ? `${review.accepted.length} accepted · ${review.rejected.length} rejected` : "Choose Accept or Reject for every suggestion.";
+  if (note) note.textContent = review.complete ? `${review.accepted.length} approved · ${review.rejected.length} denied` : "Choose Approve or Deny beside every affected field.";
 }
 
 async function loadCopilotWorkspace() {
@@ -939,7 +1011,7 @@ function generatedCopilotInstruction(targetSections) {
   return [
     adminStatement || "Use the included authoritative project information to prepare this proposal.",
     `Task: ${sectionText} using the saved proposal, website request, approved onboarding, current project information, and approved asset list.`,
-    "Write client-ready content and fill missing standard fields. Preserve accurate existing content. Do not invent prices, dates, scope, promises, revision limits, payment terms, or contractual language.",
+    "Write client-ready content and fill missing fields. Preserve accurate existing content. You may propose pricing, billing items, dates, scope, promises, revision limits, payment terms, and contractual language; clearly explain inferred values so I can approve or deny each one.",
   ].join("\n\n");
 }
 
@@ -961,7 +1033,7 @@ async function generateCopilotSuggestions(section = null) {
     renderCopilotRun(result.run, section);
     setCopilotStatus(`Review ${result.run.suggestion_count} AI suggestion${result.run.suggestion_count === 1 ? "" : "s"}, then apply the changes you want.`);
     await loadCopilotWorkspace();
-    copilotReview.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    (firstOperationReview(result.run.id) || copilotReview).scrollIntoView({ behavior: "smooth", block: "center" });
   } finally {
     setCopilotButtonBusy(section, false);
   }
@@ -972,7 +1044,7 @@ async function loadCopilotRun(runId) {
   const result = await proposalAiRequest({ action: "detail", proposal_id: selectedProposal.id, run_id: runId });
   renderCopilotRun(result.run, runTargetSection(result.run));
   setCopilotStatus("");
-  copilotReview.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  (firstOperationReview(result.run.id) || copilotReview).scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
 async function removeCopilotRun(runId) {
@@ -980,6 +1052,7 @@ async function removeCopilotRun(runId) {
   setCopilotStatus("Removing AI attempt…");
   await proposalAiRequest({ action: "remove", proposal_id: selectedProposal.id, run_id: runId });
   if (copilotReview.dataset.runId === runId) {
+    clearProposalAiInlineReview();
     copilotReview.hidden = true;
     copilotReview.removeAttribute("data-run-id");
     copilotGlobalResult.append(copilotReview);
@@ -1150,7 +1223,10 @@ async function init() {
     });
   });
   form.addEventListener("input", updateCopilotSectionActions);
-  form.addEventListener("change", updateCopilotSectionActions);
+  form.addEventListener("change", (event) => {
+    updateCopilotSectionActions();
+    if (event.target.closest("[data-ai-operation]")) updateCopilotApplyState();
+  });
   copilotRefreshButton.addEventListener("click", () => loadCopilotWorkspace().catch((error) => setCopilotStatus(error.message, true)));
   copilotHistory.addEventListener("click", (event) => {
     const detailButton = event.target.closest("[data-ai-run-detail]");
@@ -1158,7 +1234,6 @@ async function init() {
     const removeButton = event.target.closest("[data-ai-run-remove]");
     if (removeButton) removeCopilotRun(removeButton.dataset.aiRunRemove).catch((error) => setCopilotStatus(error.message, true));
   });
-  copilotReview.addEventListener("change", updateCopilotApplyState);
   copilotReview.addEventListener("click", (event) => {
     if (event.target.closest("#apply-proposal-ai")) applyCopilotRun().catch((error) => setCopilotStatus(error.message, true));
   });

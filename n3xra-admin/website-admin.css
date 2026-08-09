@@ -168,6 +168,8 @@
 .proposal-ai-summary { margin:0; padding:.85rem 1rem; border-radius:12px; background:#eef6ff; }
 .proposal-ai-operation { display:grid; gap:.7rem; padding:1rem; border:1px solid var(--website-admin-border); border-radius:14px; background:#fff; }
 .proposal-ai-operation.is-unsupported { border-color:#e8b4ad; background:#fff8f6; }
+.proposal-ai-inline-host { grid-column:1 / -1; min-width:0; margin:.15rem 0 .5rem; }
+.proposal-ai-inline-operation { border-color:#91c8c0; background:#f7fcfb; box-shadow:0 8px 22px rgba(18,111,103,.07); }
 .proposal-ai-operation-head { display:flex; justify-content:space-between; gap:1rem; align-items:flex-start; }
 .proposal-ai-operation-head h5 { margin:0; font-size:1rem; }
 .proposal-ai-risk { display:inline-flex; padding:.2rem .5rem; border-radius:999px; background:#edf2f7; font-size:.75rem; font-weight:800; text-transform:uppercase; }
@@ -176,9 +178,11 @@
 .proposal-ai-value { min-width:0; padding:.75rem; border-radius:10px; background:#f7f8fa; }
 .proposal-ai-value strong { display:block; margin-bottom:.3rem; font-size:.78rem; text-transform:uppercase; color:var(--portal-muted, #64748b); }
 .proposal-ai-value pre { margin:0; overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; font:inherit; }
+.proposal-ai-proposed-value { border:1px solid #cfe5e1; background:#fff; }
+.proposal-ai-review-note { margin:0; padding:.65rem .75rem; border-radius:9px; color:#6c4a12; background:#fff8e8; font-size:.82rem; line-height:1.45; }
 .proposal-ai-evidence { margin:0; padding-left:1.15rem; color:var(--portal-muted, #64748b); font-size:.88rem; }
 .proposal-ai-decision { display:flex; flex-wrap:wrap; gap:1rem; }
-.proposal-ai-decision label { display:flex; gap:.4rem; align-items:center; font-weight:700; }
+.proposal-ai-decision label { display:flex; gap:.4rem; align-items:center; padding:.42rem .65rem; border:1px solid #cbd8da; border-radius:999px; background:#fff; font-weight:800; cursor:pointer; }
 .proposal-ai-rejection { margin:0; color:#9b2c2c; font-weight:700; }
 .proposal-copilot-history-wrap { padding-top:.15rem; }
 .proposal-copilot-history-head { display:flex; align-items:center; justify-content:space-between; gap:1rem; margin:.65rem 0; }

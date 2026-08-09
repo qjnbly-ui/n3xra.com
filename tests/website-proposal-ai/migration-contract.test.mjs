@@ -5,6 +5,7 @@ import test from "node:test";
 const migration = fs.readFileSync(new URL("../../supabase/migrations/20260808213831_website_proposal_copilot.sql", import.meta.url), "utf8");
 const deletionRepair = fs.readFileSync(new URL("../../supabase/migrations/20260809053401_preserve_proposal_ai_history_on_draft_delete.sql", import.meta.url), "utf8");
 const retention = fs.readFileSync(new URL("../../supabase/migrations/20260809060052_proposal_ai_run_retention.sql", import.meta.url), "utf8");
+const adminReview = fs.readFileSync(new URL("../../supabase/migrations/20260809062321_allow_admin_reviewed_proposal_ai_changes.sql", import.meta.url), "utf8");
 
 test("migration keeps AI runs server-managed and RPCs guarded", () => {
   assert.match(migration, /alter table public\.website_proposal_ai_runs enable row level security/i);
@@ -49,4 +50,13 @@ test("the revised draft deletion RPC remains admin-only", () => {
   assert.match(retention, /security definer[\s\S]+set search_path = pg_catalog, public/i);
   assert.match(retention, /revoke all on function public\.delete_website_proposal_draft_version\(uuid\) from anon/i);
   assert.match(retention, /grant execute on function public\.delete_website_proposal_draft_version\(uuid\) to authenticated/i);
+});
+
+test("admin approval, not evidence matching, controls protected suggestions", () => {
+  assert.match(adminReview, /create or replace function private\.website_proposal_ai_operation_is_protected/i);
+  assert.match(adminReview, /select false/i);
+  assert.match(adminReview, /source evidence is advisory rather than a database veto/i);
+  assert.match(migration, /auth\.uid\(\) is null or not public\.is_platform_admin\(\)/i);
+  assert.match(migration, /resulting discount and deposit must be non-negative/i);
+  assert.match(migration, /deposit exceeds the recalculated proposal total/i);
 });
