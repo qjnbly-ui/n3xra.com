@@ -1,3 +1,5 @@
+import { createBrowserSupabase, hasConfig } from "/shared/lib/supabase-client.js";
+
 const accountLinks = [
   ["/account/admin/accounts/", "Accounts & Access"],
   ["/account/admin/platform-admins/", "Platform Admins"],
@@ -84,8 +86,34 @@ function isCurrentPath(href) {
 
 function linkMarkup([href, label], mobile = false) {
   const current = isCurrentPath(href) ? " is-current" : "";
-  const className = mobile ? ` class="site-menu-link${current}"` : current ? ' class="is-current"' : "";
-  return `<a${className} href="${href}">${label}</a>`;
+  const hasInboxBadge = normalizePath(href) === "/account/admin/inbox/";
+  const classes = [mobile ? "site-menu-link" : "", current.trim(), hasInboxBadge ? "has-admin-inbox-badge" : ""].filter(Boolean).join(" ");
+  const className = classes ? ` class="${classes}"` : "";
+  const badge = hasInboxBadge ? '<span class="admin-inbox-nav-badge" data-admin-inbox-count hidden></span>' : "";
+  const content = hasInboxBadge ? `<span class="admin-inbox-nav-label">${label}</span>${badge}` : label;
+  return `<a${className} href="${href}">${content}</a>`;
+}
+
+export async function refreshAdminInboxBadge() {
+  const badges = [...document.querySelectorAll("[data-admin-inbox-count]")];
+  if (!badges.length || !hasConfig()) return;
+  try {
+    const supabase = createBrowserSupabase();
+    const { count, error } = await supabase.from("admin_notifications")
+      .select("id", { count: "exact", head: true })
+      .is("read_at", null)
+      .is("archived_at", null)
+      .is("deleted_at", null);
+    if (error) throw error;
+    const unreadCount = Number(count || 0);
+    badges.forEach((badge) => {
+      badge.textContent = unreadCount > 99 ? "99+" : String(unreadCount);
+      badge.hidden = unreadCount < 1;
+      badge.setAttribute("aria-label", `${unreadCount} unread notification${unreadCount === 1 ? "" : "s"}`);
+    });
+  } catch {
+    badges.forEach((badge) => { badge.hidden = true; });
+  }
 }
 
 function productAppFromUrl() {
@@ -250,6 +278,7 @@ export function renderAdminNavigation({ desktopScrollTop } = {}) {
   if (isCurrentPath("/account/admin/investment/")) {
     window.dispatchEvent(new Event("hashchange"));
   }
+  refreshAdminInboxBadge();
 }
 
 export function arrangeAdminWorkspace() {

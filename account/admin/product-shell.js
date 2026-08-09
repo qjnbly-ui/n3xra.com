@@ -1,4 +1,4 @@
-import { renderAdminNavigation } from "/account/admin/admin-navigation.js?v=9";
+import { renderAdminNavigation } from "/account/admin/admin-navigation.js?v=10";
 import { initializeAdminSelects } from "/account/admin/admin-select.js?v=1";
 import { createBrowserSupabase, getSessionOrNull, hasConfig } from "/shared/lib/supabase-client.js";
 import { isPlatformAdminEmail } from "/shared/lib/orgs.js";

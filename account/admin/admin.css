@@ -10,6 +10,53 @@
   text-transform: none;
 }
 
+.portal-nav .has-admin-inbox-badge,
+.site-mobile-menu .has-admin-inbox-badge {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+}
+
+.portal-nav .has-admin-inbox-badge > .admin-inbox-nav-label,
+.portal-nav .has-admin-inbox-badge > .admin-inbox-nav-badge,
+.site-mobile-menu .has-admin-inbox-badge > .admin-inbox-nav-label,
+.site-mobile-menu .has-admin-inbox-badge > .admin-inbox-nav-badge {
+  width: auto;
+  min-height: 0;
+  display: inline-block;
+  padding: 0;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: none;
+}
+
+.portal-nav .has-admin-inbox-badge > .admin-inbox-nav-badge,
+.site-mobile-menu .has-admin-inbox-badge > .admin-inbox-nav-badge {
+  flex: 0 0 auto;
+  min-width: 1.35rem;
+  min-height: 1.35rem;
+  display: inline-grid;
+  place-items: center;
+  padding: 0.15rem 0.35rem;
+  color: #ffffff;
+  background: #b42318;
+  border-radius: 999px;
+  font-size: 0.62rem;
+  font-weight: 900;
+  letter-spacing: 0;
+  line-height: 1;
+}
+
+.portal-nav .admin-inbox-nav-badge[hidden],
+.site-mobile-menu .admin-inbox-nav-badge[hidden] {
+  display: none;
+}
+
 .account-admin-page {
   width: 100% !important;
   max-width: none !important;

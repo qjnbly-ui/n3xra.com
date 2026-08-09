@@ -1,6 +1,6 @@
 import { createBrowserSupabase, getSessionOrNull, hasConfig } from "/shared/lib/supabase-client.js";
 import { isPlatformAdminEmail } from "/shared/lib/orgs.js";
-import { arrangeAdminWorkspace } from "/account/admin/admin-navigation.js?v=9";
+import { arrangeAdminWorkspace } from "/account/admin/admin-navigation.js?v=10";
 import { confirmAdminAction } from "/account/admin/admin-dialogs.js";
 import { initializeAdminSelects } from "/account/admin/admin-select.js?v=1";
 

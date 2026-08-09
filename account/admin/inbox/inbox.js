@@ -2,7 +2,7 @@ import { createBrowserSupabase, hasConfig } from "/shared/lib/supabase-client.js
 import { verifyPlatformAdmin } from "/client-portal/admin-access.js";
 import { confirmAdminAction } from "/account/admin/admin-dialogs.js";
 import { initializeAdminSelects } from "/account/admin/admin-select.js?v=1";
-import { renderAdminNavigation } from "/account/admin/admin-navigation.js?v=9";
+import { refreshAdminInboxBadge, renderAdminNavigation } from "/account/admin/admin-navigation.js?v=10";
 
 initializeAdminSelects();
 
@@ -76,6 +76,7 @@ async function load() {
   if (error) throw error;
   notifications = data || [];
   render();
+  await refreshAdminInboxBadge();
 }
 
 async function update(id, values) {
