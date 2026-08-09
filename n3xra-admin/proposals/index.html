@@ -18,7 +18,7 @@
   </script>
   <script defer src="/_vercel/insights/script.js"></script>
   <link rel="stylesheet" href="/account/admin/admin.css?v=11">
-  <link rel="stylesheet" href="/n3xra-admin/website-admin.css?v=8">
+  <link rel="stylesheet" href="/n3xra-admin/website-admin.css?v=9">
   <script type="module" src="/account/admin/product-shell.js?v=5"></script>
   <script type="module" src="/n3xra-admin/website-admin-workspace.js?v=7"></script>
 </head>
@@ -84,39 +84,95 @@
               <button class="portal-button portal-button-danger" id="delete-proposal-version" type="button" hidden>Delete draft version</button>
             </div>
           </div>
-          <div class="portal-form-section">
-            <h4>Overview</h4>
+
+          <details class="portal-form-section proposal-copilot proposal-copilot-top" id="proposal-copilot" aria-labelledby="proposal-copilot-title">
+            <summary class="proposal-copilot-summary">
+              <span class="proposal-copilot-summary-copy">
+                <span class="portal-kicker">Proposal AI</span>
+                <strong id="proposal-copilot-title">Draft with onboarding and your ideas</strong>
+                <small>Open the assistant, describe what matters, then use AI from any proposal section.</small>
+              </span>
+              <span class="proposal-copilot-summary-action">Open assistant</span>
+            </summary>
+            <div class="proposal-copilot-body">
+              <label class="portal-form-wide proposal-copilot-instruction">Your statement or updated ideas
+                <textarea id="proposal-ai-instruction" data-copilot-control rows="4" maxlength="6000" placeholder="For example: Keep this simple and welcoming. Emphasize the outdoor store, local service, and online product catalog. Use the approved onboarding information for the details."></textarea>
+                <small>AI combines this statement with the website request, approved onboarding, current project information, and approved assets.</small>
+              </label>
+              <div class="portal-form-actions proposal-copilot-actions">
+                <button class="portal-button" id="generate-proposal-ai" data-copilot-control type="button">Draft all proposal sections</button>
+                <p class="portal-inline-status" id="proposal-ai-status" role="status"></p>
+              </div>
+              <p class="proposal-copilot-help proposal-copilot-section-help">While this assistant is open, every section below has a <strong>Fill with AI</strong> or <strong>Improve with AI</strong> button.</p>
+              <details class="proposal-copilot-sources">
+                <summary>Sources and files</summary>
+                <p class="proposal-copilot-help">The saved proposal baseline is always included. Relevant structured project information and approved onboarding are selected automatically when available. Published or approved website assets are selected by default; pending imports and unrelated portal files are opt-in.</p>
+                <div class="proposal-copilot-source-grid">
+                  <fieldset id="proposal-ai-source-list" data-copilot-control><legend>Project information</legend><p>The assistant will save a starter draft before loading sources.</p></fieldset>
+                  <fieldset id="proposal-ai-file-list" data-copilot-control><legend>Files sent to OpenAI</legend><p>No eligible files loaded.</p></fieldset>
+                </div>
+              </details>
+              <details class="proposal-copilot-history-wrap">
+                <summary>Recent AI runs</summary>
+                <div class="proposal-copilot-history-head">
+                  <p>Previous suggestions and review results.</p>
+                  <button class="portal-button portal-button-secondary" id="refresh-proposal-ai" data-copilot-control type="button">Refresh</button>
+                </div>
+                <div class="proposal-copilot-history" id="proposal-ai-history"><p>No Proposal Copilot runs yet.</p></div>
+              </details>
+              <div class="proposal-ai-result-slot proposal-ai-global-result" id="proposal-ai-global-result">
+                <div class="proposal-copilot-review" id="proposal-ai-review" hidden></div>
+              </div>
+            </div>
+          </details>
+
+          <div class="portal-form-section proposal-ai-editable-section" data-proposal-section="overview">
+            <div class="portal-form-section-head proposal-ai-section-head">
+              <div><h4>Overview</h4><p>Introduce the project and explain what success looks like.</p></div>
+              <button class="portal-button portal-button-secondary proposal-ai-section-action" data-ai-section="overview" type="button"><span data-ai-action-label>Fill with AI</span></button>
+            </div>
             <div class="portal-form-grid">
               <label class="portal-form-wide">Proposal title<input id="proposal-title" required maxlength="160"></label>
               <label class="portal-form-wide">Introduction<textarea id="proposal-introduction" rows="3" placeholder="A short, personal introduction for the client."></textarea></label>
               <label class="portal-form-wide">Project objective<textarea id="proposal-objective" rows="4" required></textarea></label>
-              <label class="portal-form-wide">Scope summary<textarea id="proposal-scope" rows="5" required></textarea></label>
             </div>
+            <div class="proposal-ai-result-slot" data-ai-result-slot="overview"></div>
           </div>
 
-          <div class="portal-form-section">
-            <h4>Deliverables and boundaries</h4>
+          <div class="portal-form-section proposal-ai-editable-section" data-proposal-section="scope">
+            <div class="portal-form-section-head proposal-ai-section-head">
+              <div><h4>Scope, deliverables, and boundaries</h4><p>Turn the approved project information into a clear description of what will be delivered.</p></div>
+              <button class="portal-button portal-button-secondary proposal-ai-section-action" data-ai-section="scope" type="button"><span data-ai-action-label>Fill with AI</span></button>
+            </div>
             <div class="portal-form-grid">
+              <label class="portal-form-wide">Scope summary<textarea id="proposal-scope" rows="5" required></textarea></label>
               <label class="portal-form-wide">Deliverables <span>One item per line</span><textarea id="proposal-deliverables" rows="6" required></textarea></label>
               <label class="portal-form-wide">Not included <span>One item per line</span><textarea id="proposal-exclusions" rows="4"></textarea></label>
-              <label class="portal-form-wide">Revision policy<textarea id="proposal-revisions" rows="3"></textarea></label>
             </div>
+            <div class="proposal-ai-result-slot" data-ai-result-slot="scope"></div>
           </div>
 
-          <div class="portal-form-section">
-            <h4>Schedule</h4>
+          <div class="portal-form-section proposal-ai-editable-section" data-proposal-section="schedule">
+            <div class="portal-form-section-head proposal-ai-section-head">
+              <div><h4>Schedule</h4><p>Draft a realistic timeline from approved dates and project context.</p></div>
+              <button class="portal-button portal-button-secondary proposal-ai-section-action" data-ai-section="schedule" type="button"><span data-ai-action-label>Fill with AI</span></button>
+            </div>
             <div class="portal-form-grid">
               <label class="portal-form-wide">Timeline description<textarea id="proposal-timeline" rows="3" required></textarea></label>
               <label>Estimated start<input id="proposal-start-date" type="date"></label>
               <label>Estimated completion<input id="proposal-completion-date" type="date"></label>
               <label>Proposal valid until<input id="proposal-valid-until" type="date"></label>
             </div>
+            <div class="proposal-ai-result-slot" data-ai-result-slot="schedule"></div>
           </div>
 
-          <div class="portal-form-section">
+          <div class="portal-form-section proposal-ai-editable-section" data-proposal-section="investment">
             <div class="portal-form-section-head">
               <div><h4>Investment</h4><p>Add each proposed project cost or outside service separately. This is not a bill; the client must approve the proposal before billing is created.</p></div>
-              <div class="proposal-plan-actions"><button class="portal-button portal-button-secondary" id="add-starter-plan" type="button">Add Starter</button><button class="portal-button portal-button-secondary" id="add-starter-plus-plan" type="button">Add Starter+</button><button class="portal-button portal-button-secondary" id="add-advanced-plan" type="button">Add Advanced</button><button class="portal-button portal-button-secondary" id="add-proposal-line-item" type="button">Add other service</button></div>
+              <div class="proposal-section-actions">
+                <button class="portal-button portal-button-secondary proposal-ai-section-action" data-ai-section="investment" type="button"><span data-ai-action-label>Improve with AI</span></button>
+                <div class="proposal-plan-actions"><button class="portal-button portal-button-secondary" id="add-starter-plan" type="button">Add Starter</button><button class="portal-button portal-button-secondary" id="add-starter-plus-plan" type="button">Add Starter+</button><button class="portal-button portal-button-secondary" id="add-advanced-plan" type="button">Add Advanced</button><button class="portal-button portal-button-secondary" id="add-proposal-line-item" type="button">Add other service</button></div>
+              </div>
             </div>
             <div class="proposal-line-items" id="proposal-line-items"></div>
             <div class="proposal-pricing-guidance">
@@ -134,55 +190,20 @@
               <label>Deposit due ($)<input id="proposal-deposit" type="number" min="0" step="0.01" value="0"></label>
               <label class="portal-form-wide">Payment schedule<textarea id="proposal-payment-schedule" rows="3"></textarea></label>
             </div>
+            <div class="proposal-ai-result-slot" data-ai-result-slot="investment"></div>
           </div>
 
-          <div class="portal-form-section">
-            <h4>Terms</h4>
+          <div class="portal-form-section proposal-ai-editable-section" data-proposal-section="terms">
+            <div class="portal-form-section-head proposal-ai-section-head">
+              <div><h4>Terms and revisions</h4><p>Use only approved contractual language or wording supplied in your statement.</p></div>
+              <button class="portal-button portal-button-secondary proposal-ai-section-action" data-ai-section="terms" type="button"><span data-ai-action-label>Improve with AI</span></button>
+            </div>
             <div class="portal-form-grid">
+              <label class="portal-form-wide">Revision policy<textarea id="proposal-revisions" rows="3"></textarea></label>
               <label class="portal-form-wide">Proposal terms<textarea id="proposal-terms" rows="7" required></textarea></label>
             </div>
+            <div class="proposal-ai-result-slot" data-ai-result-slot="terms"></div>
           </div>
-
-          <section class="portal-form-section proposal-copilot" id="proposal-copilot" aria-labelledby="proposal-copilot-title">
-            <div class="portal-form-section-head">
-              <div>
-                <p class="portal-kicker">Proposal Copilot</p>
-                <h4 id="proposal-copilot-title">Draft changes with AI</h4>
-                <p>Describe an idea or update, review each proposed change, then apply only the changes you accept.</p>
-              </div>
-              <button class="portal-button portal-button-secondary" id="refresh-proposal-ai" data-copilot-control type="button">Refresh history</button>
-            </div>
-            <div class="proposal-copilot-compose">
-              <label class="portal-form-wide">Instruction
-                <textarea id="proposal-ai-instruction" data-copilot-control rows="4" maxlength="6000" placeholder="For example: Make the scope clearer and add the approved gallery described in onboarding. Do not change pricing."></textarea>
-              </label>
-              <fieldset class="proposal-copilot-fieldset" id="proposal-ai-sections" data-copilot-control>
-                <legend>Sections to consider</legend>
-                <label><input type="checkbox" value="overview" checked> Overview</label>
-                <label><input type="checkbox" value="scope" checked> Scope</label>
-                <label><input type="checkbox" value="schedule"> Schedule</label>
-                <label><input type="checkbox" value="investment"> Investment</label>
-                <label><input type="checkbox" value="terms"> Terms</label>
-              </fieldset>
-              <details class="proposal-copilot-sources" open>
-                <summary>Sources and files</summary>
-                <p class="proposal-copilot-help">The saved proposal baseline is always included. Published or approved website assets are selected by default; pending onboarding imports and unrelated portal files are opt-in.</p>
-                <div class="proposal-copilot-source-grid">
-                  <fieldset id="proposal-ai-source-list" data-copilot-control><legend>Structured sources</legend><p>Save the proposal to load sources.</p></fieldset>
-                  <fieldset id="proposal-ai-file-list" data-copilot-control><legend>Files sent to OpenAI</legend><p>No eligible files loaded.</p></fieldset>
-                </div>
-              </details>
-              <div class="portal-form-actions proposal-copilot-actions">
-                <button class="portal-button" id="generate-proposal-ai" data-copilot-control type="button">Generate suggestions</button>
-                <p class="portal-inline-status" id="proposal-ai-status" role="status"></p>
-              </div>
-            </div>
-            <div class="proposal-copilot-review" id="proposal-ai-review" hidden></div>
-            <div class="proposal-copilot-history-wrap">
-              <h5>Recent runs</h5>
-              <div class="proposal-copilot-history" id="proposal-ai-history"><p>No Proposal Copilot runs yet.</p></div>
-            </div>
-          </section>
 
           <div class="portal-form-actions portal-proposal-actions">
             <button class="portal-button portal-button-secondary" id="save-proposal" type="submit">Save draft</button>
@@ -224,6 +245,6 @@
 
   <div class="portal-status" id="portal-status" role="status">Verifying proposal access…</div>
   <script type="module" src="/client-portal/portal-shell.js"></script>
-  <script type="module" src="/n3xra-admin/proposals/proposals-admin.js?v=17"></script>
+  <script type="module" src="/n3xra-admin/proposals/proposals-admin.js?v=18"></script>
 </body>
 </html>

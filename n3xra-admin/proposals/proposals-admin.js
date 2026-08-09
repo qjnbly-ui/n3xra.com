@@ -37,6 +37,7 @@ const copilotRefreshButton = document.getElementById("refresh-proposal-ai");
 const copilotReview = document.getElementById("proposal-ai-review");
 const copilotHistory = document.getElementById("proposal-ai-history");
 const copilotStatus = document.getElementById("proposal-ai-status");
+const copilotGlobalResult = document.getElementById("proposal-ai-global-result");
 
 let supabase;
 let currentUser;
@@ -49,6 +50,8 @@ let selectedRequest;
 let selectedProposal;
 let editingVersion;
 let copilotLoadSequence = 0;
+
+const copilotSections = ["overview", "scope", "schedule", "investment", "terms"];
 
 const itemCategories = {
   website_build: "Website build",
@@ -122,6 +125,61 @@ function setStatus(message = "", isError = false) {
 function setCopilotStatus(message = "", isError = false) {
   copilotStatus.textContent = message;
   copilotStatus.classList.toggle("is-error", isError);
+}
+
+function sectionCompletion(section) {
+  const values = (keys) => keys.map((key) => String(document.getElementById(fieldIds[key])?.value || "").trim());
+  let required = [];
+  if (section === "overview") required = values(["title", "introduction", "project_objective"]);
+  else if (section === "scope") required = values(["scope_summary", "deliverables", "exclusions"]);
+  else if (section === "schedule") required = values(["timeline"]);
+  else if (section === "terms") required = values(["revision_policy", "terms"]);
+  else if (section === "investment") {
+    const rows = Array.from(lineItemsContainer.querySelectorAll(".proposal-line-item"));
+    required = rows.flatMap((row) => [
+      row.querySelector('[data-line-field="name"]')?.value.trim() || "",
+      Number(row.querySelector('[data-line-field="unit_amount"]')?.value || 0) > 0 ? "priced" : "",
+    ]);
+  }
+  const populated = required.filter(Boolean).length;
+  if (!populated) return "fill";
+  if (populated < required.length) return "complete";
+  return "improve";
+}
+
+function updateCopilotSectionActions() {
+  document.querySelectorAll("[data-ai-section]").forEach((button) => {
+    const state = sectionCompletion(button.dataset.aiSection);
+    const label = state === "fill" ? "Fill with AI" : state === "complete" ? "Complete with AI" : "Improve with AI";
+    const output = button.querySelector("[data-ai-action-label]");
+    if (output && !button.disabled) output.textContent = label;
+  });
+}
+
+function setCopilotButtonBusy(section, busy) {
+  const buttons = [copilotGenerateButton, ...document.querySelectorAll("[data-ai-section]")];
+  buttons.forEach((button) => {
+    button.disabled = busy;
+  });
+  const activeButton = section
+    ? document.querySelector(`[data-ai-section="${section}"]`)
+    : copilotGenerateButton;
+  if (activeButton === copilotGenerateButton) {
+    activeButton.textContent = busy ? "Drafting proposal…" : "Draft all proposal sections";
+  } else {
+    const output = activeButton?.querySelector("[data-ai-action-label]");
+    if (output && busy) output.textContent = "Drafting…";
+  }
+  if (!busy) {
+    copilotGenerateButton.textContent = "Draft all proposal sections";
+    updateCopilotSectionActions();
+  }
+}
+
+function syncCopilotOpenState() {
+  form.classList.toggle("is-copilot-open", copilotPanel.open);
+  const summaryAction = copilotPanel.querySelector(".proposal-copilot-summary-action");
+  if (summaryAction) summaryAction.textContent = copilotPanel.open ? "Assistant on" : "Open assistant";
 }
 
 function updateTotal() {
@@ -414,7 +472,7 @@ function renderEditor() {
   const isDraft = !editingVersion || editingVersion.status === "draft";
   const isApproved = !isDraft && selectedProposal?.status === "approved";
   Array.from(form.elements).forEach((element) => {
-    if (element === newVersionButton || element === deleteVersionButton || element === previewLink || element === prepareBillingButton || element.closest("#proposal-copilot")) return;
+    if (element === newVersionButton || element === deleteVersionButton || element === previewLink || element === prepareBillingButton || element.matches("[data-ai-section]") || element.closest("#proposal-copilot")) return;
     if (element.id === "send-proposal") element.disabled = false;
     else if (element.id === "preview-proposal-email") element.disabled = !isDraft;
     else if (element.id === "save-proposal") element.disabled = !isDraft;
@@ -449,10 +507,15 @@ function renderEditor() {
       ? "Billing available after client approval"
       : "Approve proposal before billing";
   }
-  copilotPanel.hidden = !selectedProposal || !editingVersion;
-  if (copilotPanel.hidden) {
+  copilotPanel.hidden = false;
+  updateCopilotSectionActions();
+  syncCopilotOpenState();
+  if (!selectedProposal || !editingVersion) {
     copilotReview.hidden = true;
-    copilotHistory.innerHTML = "<p>Save the proposal draft before using Copilot.</p>";
+    copilotGlobalResult.append(copilotReview);
+    copilotSources.innerHTML = "<p>The assistant will save a starter draft before loading project information.</p>";
+    copilotFiles.innerHTML = "<p>Files will be available after the starter draft is saved.</p>";
+    copilotHistory.innerHTML = "<p>No Proposal Copilot runs yet.</p>";
   } else {
     loadCopilotWorkspace().catch((error) => setCopilotStatus(error.message, true));
   }
@@ -785,17 +848,38 @@ function reviewIds(run) {
   };
 }
 
-function renderCopilotRun(run) {
+function runTargetSection(run) {
+  const instructionSource = (run.source_manifest || []).find((item) => item.source_type === "admin_instruction");
+  const targets = instructionSource?.target_sections || [];
+  return targets.length === 1 && copilotSections.includes(targets[0]) ? targets[0] : null;
+}
+
+function placeCopilotReview(section = null) {
+  const destination = section
+    ? document.querySelector(`[data-ai-result-slot="${section}"]`)
+    : copilotGlobalResult;
+  (destination || copilotGlobalResult).append(copilotReview);
+  if (!destination || !section) {
+    copilotPanel.open = true;
+    syncCopilotOpenState();
+  }
+}
+
+function renderCopilotRun(run, preferredSection = null) {
   const operations = run.change_set?.operations || [];
   const reviewed = reviewIds(run);
   const readonly = run.status !== "ready";
+  const hasSavedReview = Boolean(run.review_result);
+  const section = preferredSection || runTargetSection(run);
+  placeCopilotReview(section);
   copilotReview.hidden = false;
   copilotReview.dataset.runId = run.id;
   copilotReview.innerHTML = `
     <p class="proposal-ai-summary"><strong>${operations.length} suggestion${operations.length === 1 ? "" : "s"}.</strong> ${escapeHtml(run.change_set?.summary || "Review every change before applying it.")}</p>
     ${operations.map((operation) => {
       const supported = operation.server_validation?.supported === true;
-      const accepted = reviewed.accepted.has(operation.id);
+      const accepted = reviewed.accepted.has(operation.id)
+        || (!readonly && !hasSavedReview && supported && operation.risk !== "protected");
       const rejected = reviewed.rejected.has(operation.id) || !supported;
       return `<article class="proposal-ai-operation${supported ? "" : " is-unsupported"}" data-ai-operation="${escapeHtml(operation.id)}">
         <div class="proposal-ai-operation-head"><div><h5>${escapeHtml(formatLabel(operation.target.kind))} · ${escapeHtml(formatLabel(operation.field))}</h5><p>${escapeHtml(operation.rationale || "Suggested update")}</p></div><span class="proposal-ai-risk${operation.risk === "protected" ? " is-protected" : ""}">${escapeHtml(operation.risk)}</span></div>
@@ -828,13 +912,19 @@ function updateCopilotApplyState() {
   if (!button) return;
   const review = collectCopilotReview();
   button.disabled = !review.complete;
-  button.textContent = review.complete && review.accepted.length === 0 ? "Finish review" : "Apply reviewed changes";
+  button.textContent = review.complete && review.accepted.length === 0
+    ? "Finish review"
+    : `Apply ${review.accepted.length} AI change${review.accepted.length === 1 ? "" : "s"}`;
   const note = button.nextElementSibling;
   if (note) note.textContent = review.complete ? `${review.accepted.length} accepted · ${review.rejected.length} rejected` : "Choose Accept or Reject for every suggestion.";
 }
 
 async function loadCopilotWorkspace() {
-  if (!selectedProposal?.id || !editingVersion?.id) return;
+  if (!selectedProposal?.id || !editingVersion?.id) {
+    copilotSources.innerHTML = "<p>The assistant will save a starter draft before loading project information.</p>";
+    copilotFiles.innerHTML = "<p>Files will be available after the starter draft is saved.</p>";
+    return;
+  }
   const sequence = ++copilotLoadSequence;
   setCopilotStatus("Loading Proposal Copilot…");
   const result = await proposalAiRequest({ action: "history", proposal_id: selectedProposal.id });
@@ -844,34 +934,56 @@ async function loadCopilotWorkspace() {
   setCopilotStatus("");
 }
 
-async function generateCopilotSuggestions() {
-  if (!selectedProposal?.id || !editingVersion?.id) throw new Error("Save the proposal draft before using Copilot.");
-  const instruction = copilotInstruction.value.trim();
-  if (!instruction) throw new Error("Enter an instruction or idea for Copilot.");
-  const sourceKeys = Array.from(copilotSources.querySelectorAll("[data-ai-source]:checked")).map((input) => input.value);
-  const fileKeys = Array.from(copilotFiles.querySelectorAll("[data-ai-file]:checked")).map((input) => input.value);
-  const targetSections = Array.from(document.querySelectorAll('#proposal-ai-sections input[type="checkbox"]:checked')).map((input) => input.value);
-  copilotGenerateButton.disabled = true;
-  setCopilotStatus("Saving the baseline and generating suggestions…");
+async function ensureCopilotBaseline() {
+  if (selectedProposal?.id && editingVersion?.id) return false;
+  setCopilotStatus("Saving a starter proposal so AI can use an auditable baseline…");
+  await saveDraft(null, true);
+  if (!selectedProposal?.id || !editingVersion?.id) throw new Error("The starter proposal could not be saved.");
+  return true;
+}
+
+function generatedCopilotInstruction(targetSections) {
+  const adminStatement = copilotInstruction.value.trim();
+  const sectionText = targetSections.length === 1
+    ? `${sectionCompletion(targetSections[0])} the ${targetSections[0]} section`
+    : "draft all proposal sections";
+  return [
+    adminStatement || "Use the included authoritative project information to prepare this proposal.",
+    `Task: ${sectionText} using the saved proposal, website request, approved onboarding, current project information, and selected approved assets.`,
+    "Write client-ready content and fill missing standard fields. Preserve accurate existing content. Do not invent prices, dates, scope, promises, revision limits, payment terms, or contractual language.",
+  ].join("\n\n");
+}
+
+async function generateCopilotSuggestions(section = null) {
+  const targetSections = section ? [section] : [...copilotSections];
+  if (section && !copilotSections.includes(section)) throw new Error("Choose a supported proposal section.");
+  setCopilotButtonBusy(section, true);
+  setCopilotStatus(section ? `Preparing the ${formatLabel(section)} section…` : "Preparing the proposal…");
   try {
-    if (editingVersion.status === "draft") await saveDraft(null, true);
+    const createdBaseline = await ensureCopilotBaseline();
+    if (!createdBaseline && editingVersion.status === "draft") await saveDraft(null, true);
+    await loadCopilotWorkspace();
+    const instruction = generatedCopilotInstruction(targetSections);
+    const sourceKeys = Array.from(copilotSources.querySelectorAll("[data-ai-source]:checked")).map((input) => input.value);
+    const fileKeys = Array.from(copilotFiles.querySelectorAll("[data-ai-file]:checked")).map((input) => input.value);
+    setCopilotStatus(section ? `Drafting the ${formatLabel(section)} section from your statement and project information…` : "Drafting the full proposal from your statement and project information…");
     const result = await proposalAiRequest({
       action: "generate", proposal_id: selectedProposal.id, instruction,
       source_keys: sourceKeys, file_keys: fileKeys, target_sections: targetSections,
     });
-    renderCopilotRun(result.run);
-    setCopilotStatus(`Generated ${result.run.suggestion_count} suggestion${result.run.suggestion_count === 1 ? "" : "s"}.`);
+    renderCopilotRun(result.run, section);
+    setCopilotStatus(`Review ${result.run.suggestion_count} AI suggestion${result.run.suggestion_count === 1 ? "" : "s"}, then apply the changes you want.`);
     await loadCopilotWorkspace();
     copilotReview.scrollIntoView({ behavior: "smooth", block: "nearest" });
   } finally {
-    copilotGenerateButton.disabled = false;
+    setCopilotButtonBusy(section, false);
   }
 }
 
 async function loadCopilotRun(runId) {
   setCopilotStatus("Loading run details…");
   const result = await proposalAiRequest({ action: "detail", proposal_id: selectedProposal.id, run_id: runId });
-  renderCopilotRun(result.run);
+  renderCopilotRun(result.run, runTargetSection(result.run));
   setCopilotStatus("");
   copilotReview.scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
@@ -888,6 +1000,9 @@ async function applyCopilotRun() {
       accepted_operation_ids: review.accepted, rejected_operation_ids: review.rejected,
     });
     await loadData(selectedRequest.id);
+    copilotReview.hidden = true;
+    copilotGlobalResult.append(copilotReview);
+    updateCopilotSectionActions();
     setCopilotStatus(`Applied ${result.result?.accepted_count || 0} change${result.result?.accepted_count === 1 ? "" : "s"} to draft version ${result.result?.version_number || ""}.`);
   } catch (error) {
     button.disabled = false;
@@ -1016,7 +1131,26 @@ async function init() {
     renderEditor();
   });
   refreshButton.addEventListener("click", () => loadData(selectedRequest?.id).catch((error) => setStatus(error.message, true)));
-  copilotGenerateButton.addEventListener("click", () => generateCopilotSuggestions().catch((error) => setCopilotStatus(error.message, true)));
+  copilotPanel.addEventListener("toggle", () => {
+    syncCopilotOpenState();
+    if (copilotPanel.open && selectedProposal?.id && editingVersion?.id) {
+      loadCopilotWorkspace().catch((error) => setCopilotStatus(error.message, true));
+    }
+  });
+  copilotGenerateButton.addEventListener("click", () => generateCopilotSuggestions().catch((error) => {
+    copilotPanel.open = true;
+    setCopilotStatus(error.message, true);
+  }));
+  form.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-ai-section]");
+    if (!button) return;
+    generateCopilotSuggestions(button.dataset.aiSection).catch((error) => {
+      copilotPanel.open = true;
+      setCopilotStatus(error.message, true);
+    });
+  });
+  form.addEventListener("input", updateCopilotSectionActions);
+  form.addEventListener("change", updateCopilotSectionActions);
   copilotRefreshButton.addEventListener("click", () => loadCopilotWorkspace().catch((error) => setCopilotStatus(error.message, true)));
   copilotHistory.addEventListener("click", (event) => {
     const button = event.target.closest("[data-ai-run-detail]");
