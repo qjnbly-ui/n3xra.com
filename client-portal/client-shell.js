@@ -29,7 +29,7 @@ const routeDetails = {
 const homeViews = {
   "#files-assets": { key: "assets", kicker: "Website workspace", title: "Files & Assets", description: "Open folders, preview files, upload assets, and manage approved website content." },
   "#support": { key: "support", kicker: "Website workspace", title: "Support", description: "Get help with this website, account access, billing, or active project work." },
-  "#new-project": { key: "assets", kicker: "New work", title: "Start a new project", description: "Request separate work without changing the organization selected here." },
+  "#new-project": { key: "new-request", kicker: "New work", title: "Start a new project", description: "Request separate work without changing the organization selected here." },
 };
 
 function normalizePath(pathname) {

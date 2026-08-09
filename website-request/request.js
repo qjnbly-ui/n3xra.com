@@ -100,6 +100,17 @@ const servicePlanDialogClose = document.getElementById("request-service-plan-dia
 const servicePlanOptions = [...document.querySelectorAll("[data-plan-option]")];
 const isEmbedded = form?.dataset.portalEmbedded === "true";
 
+function signedInWorkspaceUrl() {
+  const source = new URL(window.location.href);
+  const destination = new URL("/client-portal/", window.location.origin);
+  ["submit", "offer", "ref"].forEach((name) => {
+    const value = source.searchParams.get(name);
+    if (value) destination.searchParams.set(name, value);
+  });
+  destination.hash = "new-project";
+  return destination.href;
+}
+
 let supabase = null;
 let session = null;
 let restoredDraft = false;
@@ -1013,6 +1024,11 @@ async function init() {
   } catch {
     session = null;
     setStatus("This verification link is invalid or expired. Send a new link to continue.", true);
+  }
+
+  if (!isEmbedded && session?.user) {
+    window.location.replace(signedInWorkspaceUrl());
+    return;
   }
 
   if (isEmbedded && !session?.user) return;

@@ -24,7 +24,7 @@
     <div class="site-topbar-inner">
       <div class="site-topbar-row">
         <a class="site-brand" href="/" aria-label="N3XRA home"><img src="/assets/n3xra_logo_transparent_small.png" alt=""><span>N3XRA</span></a>
-        <div class="site-nav-actions"><a class="site-menu-link" href="/account/?next=%2Fwebsite-request%2F" id="request-account-link">Account</a><button class="site-menu-link portal-logout request-auth-only" id="portal-logout" type="button">Sign out</button><button class="site-menu-toggle" type="button" aria-expanded="false" aria-controls="request-portal-menu" aria-label="Open menu" data-site-menu-toggle><span></span><span></span><span></span></button></div>
+        <div class="site-nav-actions"><a class="site-menu-link" href="/account/?next=%2Fwebsite-request%2F" id="request-account-link">Account</a><button class="site-menu-toggle" type="button" aria-expanded="false" aria-controls="request-portal-menu" aria-label="Open menu" data-site-menu-toggle><span></span><span></span><span></span></button></div>
       </div>
       <nav class="site-mobile-menu" id="request-portal-menu" aria-label="Project intake navigation" hidden>
         <div class="site-mobile-menu-head"><p class="site-mobile-menu-title" id="request-menu-title">Start a project</p></div>
@@ -32,29 +32,11 @@
         <a class="site-menu-link request-guest-only" href="/projects/">Projects</a>
         <a class="site-menu-link request-guest-only" href="/services/">Services</a>
         <a class="site-menu-link request-guest-only" href="/support/">Support</a>
-        <a class="site-menu-link request-auth-only" href="/client-portal/">Overview</a>
-        <a class="site-menu-link request-auth-only" href="/client-portal/services/">Services &amp; Ownership</a>
-        <a class="site-menu-link request-auth-only" href="/project-workspace/">Progress</a>
-        <a class="site-menu-link request-auth-only" href="/proposals/">Proposals</a>
-        <a class="site-menu-link request-auth-only" href="/website-onboarding/">Onboarding</a>
-        <a class="site-menu-link request-auth-only" href="/client-portal/#files-assets">Files &amp; Assets</a>
-        <a class="site-menu-link request-auth-only" href="/website-request/">Start new project</a>
       </nav>
     </div>
   </header>
   <main class="portal-shell request-shell">
     <div class="portal-layout">
-      <nav class="portal-nav request-auth-only" aria-label="Website client portal">
-        <a href="/client-portal/">Overview</a>
-        <a href="/client-portal/services/">Services &amp; Ownership</a>
-        <a href="/project-workspace/">Progress</a>
-        <a href="/proposals/">Proposals</a>
-        <a href="/website-onboarding/">Onboarding</a>
-        <a href="/client-portal/#files-assets">Files &amp; Assets</a>
-        <span class="is-placeholder">Billing</span><span class="is-placeholder">Renewals</span><a href="/support/">Support</a>
-        <div class="portal-nav-divider"></div>
-        <a class="is-current" href="/website-request/">Start a new project</a>
-      </nav>
       <section class="portal-workspace">
         <div class="portal-workspace-head">
           <div>
@@ -177,15 +159,11 @@
             <button class="portal-button portal-button-secondary" id="request-resend-link" type="button">Send another link</button>
           </section>
         </form>
-        <section class="request-auth-only" id="request-history">
-          <div class="portal-toolbar"><div><h3>Your requests</h3><p>Requests connected to this N3XRA account.</p></div></div>
-          <div class="portal-request-list" id="request-list"></div>
-        </section>
       </section>
     </div>
   </main>
   <div class="portal-status" id="portal-status">Opening project intake…</div>
   <script type="module" src="/client-portal/portal-shell.js"></script>
-  <script type="module" src="/website-request/request.js?v=13"></script>
+  <script type="module" src="/website-request/request.js?v=14"></script>
 </body>
 </html>
