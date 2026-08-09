@@ -12,6 +12,11 @@ import {
   validateWebsiteAssetRename,
   websiteAssetKeyFromLabel,
 } from "/shared/lib/website-asset-utils.js";
+import {
+  CDN_BROWSER_CACHE_SECONDS,
+  canOptimizeCdnImage,
+  prepareCdnImage,
+} from "/shared/lib/cdn-image-optimizer.js";
 
 const PRIVATE_BUCKET = "website-assets-private";
 const PUBLIC_BUCKET = "website-assets-public";
@@ -35,6 +40,7 @@ const approvePendingBatchButton = document.getElementById("approve-pending-batch
 const rejectPendingBatchButton = document.getElementById("reject-pending-batch");
 const publishApprovedBatchButton = document.getElementById("publish-approved-batch");
 const copyPublishedLinksButton = document.getElementById("copy-published-links");
+const optimizePublishedBatchButton = document.getElementById("optimize-published-batch");
 const clearAssetSelectionButton = document.getElementById("clear-asset-selection");
 const downloadSelectedFilesButton = document.getElementById("download-selected-files");
 const deleteSelectedFilesButton = document.getElementById("delete-selected-files");
@@ -472,7 +478,7 @@ async function loadProjectLifecycle() {
   renderProjectLifecycle();
 }
 
-function versionActions(version) {
+function versionActions(version, asset) {
   const actions = [];
   if (version.status === "pending_review") {
     actions.push(`<button data-version-action="approve" data-version-id="${version.id}">Approve</button>`);
@@ -480,11 +486,18 @@ function versionActions(version) {
   }
   if (version.status === "approved" && String(version.mime_type || "").startsWith("image/")) {
     actions.push(`<button data-version-action="publish" data-version-id="${version.id}">Publish to CDN</button>`);
+    if (canOptimizeCdnImage(asset, version)) {
+      actions.push(`<button data-version-action="publish-original" data-version-id="${version.id}">Publish full quality</button>`);
+    }
   }
   actions.push(`<button data-version-action="rename" data-version-id="${version.id}">Rename file</button>`);
   actions.push(`<button data-version-action="download" data-version-id="${version.id}">Download</button>`);
   if (version.public_url) {
     actions.push(`<button data-version-action="copy" data-version-id="${version.id}">Copy published URL</button>`);
+  }
+  if (version.public_url && canOptimizeCdnImage(asset, version)) {
+    actions.push(`<button data-version-action="optimize" data-version-id="${version.id}">Optimize CDN file</button>`);
+    actions.push(`<button data-version-action="restore-original" data-version-id="${version.id}">Use full-quality CDN file</button>`);
   }
   actions.push(`<button class="is-danger" data-version-action="delete" data-version-id="${version.id}">Delete</button>`);
   return actions.join("");
@@ -525,7 +538,7 @@ function renderAssets() {
     }
     return assetVersions.map((version) => {
       const type = assetFileType(version);
-      return `<article class="website-asset-version is-selectable${selectedVersionIds.has(version.id) ? " is-selected" : ""}" data-selectable-version="${version.id}"><label class="website-asset-select"><input type="checkbox" data-select-version="${version.id}"${selectedVersionIds.has(version.id) ? " checked" : ""} aria-label="Select ${escapeHtml(version.original_filename)}"></label><div class="website-asset-file">${assetFilePreviewMarkup(version, type)}<span><strong>${escapeHtml(version.original_filename)}</strong><small>${escapeHtml(asset.label)} · Version ${version.version_number}${version.change_note ? ` · ${escapeHtml(version.change_note)}` : ""}</small></span></div><span class="website-asset-status is-${escapeHtml(version.status)}">${escapeHtml(version.status.replaceAll("_", " "))}</span><time datetime="${escapeHtml(version.created_at)}">${formatDate(version.created_at)}</time><span class="website-asset-size">${formatBytes(version.size_bytes) || "—"}</span><details class="website-asset-actions"><summary aria-label="Actions for ${escapeHtml(version.original_filename)}">•••</summary><div class="website-asset-action-menu">${versionActions(version)}</div></details></article>`;
+      return `<article class="website-asset-version is-selectable${selectedVersionIds.has(version.id) ? " is-selected" : ""}" data-selectable-version="${version.id}"><label class="website-asset-select"><input type="checkbox" data-select-version="${version.id}"${selectedVersionIds.has(version.id) ? " checked" : ""} aria-label="Select ${escapeHtml(version.original_filename)}"></label><div class="website-asset-file">${assetFilePreviewMarkup(version, type)}<span><strong>${escapeHtml(version.original_filename)}</strong><small>${escapeHtml(asset.label)} · Version ${version.version_number}${version.change_note ? ` · ${escapeHtml(version.change_note)}` : ""}</small></span></div><span class="website-asset-status is-${escapeHtml(version.status)}">${escapeHtml(version.status.replaceAll("_", " "))}</span><time datetime="${escapeHtml(version.created_at)}">${formatDate(version.created_at)}</time><span class="website-asset-size">${formatBytes(version.size_bytes) || "—"}</span><details class="website-asset-actions"><summary aria-label="Actions for ${escapeHtml(version.original_filename)}">•••</summary><div class="website-asset-action-menu">${versionActions(version, asset)}</div></details></article>`;
     });
   });
   const visibleVersionIds = visibleAssets.flatMap((asset) => versions.filter((version) => version.asset_id === asset.id).map((version) => version.id));
@@ -541,6 +554,7 @@ function renderAssetBatchActions() {
   const pendingCount = selectedVersions.filter((version) => version.status === "pending_review").length;
   const approvedCount = getPublishableApprovedVersions().length;
   const publishedCount = getCurrentPublishedLinks().length;
+  const optimizableCount = getOptimizablePublishedVersions().length;
   assetToolbar.hidden = selectedVersions.length === 0;
   clearAssetSelectionButton.hidden = selectedVersions.length === 0;
   downloadSelectedFilesButton.hidden = selectedVersions.length === 0;
@@ -556,6 +570,18 @@ function renderAssetBatchActions() {
   publishApprovedBatchButton.textContent = `Publish approved (${approvedCount})`;
   copyPublishedLinksButton.hidden = publishedCount === 0;
   copyPublishedLinksButton.textContent = `Copy published links (${publishedCount})`;
+  if (optimizePublishedBatchButton) {
+    optimizePublishedBatchButton.hidden = optimizableCount === 0;
+    optimizePublishedBatchButton.textContent = `Optimize CDN files (${optimizableCount})`;
+  }
+}
+
+function getOptimizablePublishedVersions() {
+  return versions.filter((version) => {
+    if (!selectedVersionIds.has(version.id) || !version.public_url) return false;
+    const asset = assets.find((row) => row.id === version.asset_id);
+    return canOptimizeCdnImage(asset, version);
+  });
 }
 
 function getCurrentPublishedLinks() {
@@ -956,16 +982,13 @@ async function updateVersionStatus(versionId, status) {
   await loadAssets();
 }
 
-async function publishVersion(versionId, { reload = true, copyUrl = true } = {}) {
+async function publishVersion(versionId, { reload = true, copyUrl = true, preserveOriginal = false } = {}) {
   const version = versions.find((row) => row.id === versionId);
   const asset = assets.find((row) => row.id === version?.asset_id);
   if (!version || !asset) throw new Error("This asset version is no longer available.");
 
   const publicPath = `${selectedWebsite.id}/${asset.id}/v${version.version_number}-${safeFilename(version.original_filename)}`;
-  const { error: copyError } = await supabase.storage
-    .from(PRIVATE_BUCKET)
-    .copy(version.storage_path, publicPath, { destinationBucket: PUBLIC_BUCKET });
-  if (copyError && !/already exists|duplicate/i.test(copyError.message || "")) throw copyError;
+  const cdnResult = await writeCdnObject(version, asset, publicPath, { preserveOriginal });
 
   const { data: urlData } = supabase.storage.from(PUBLIC_BUCKET).getPublicUrl(publicPath);
   const publicUrl = urlData.publicUrl;
@@ -973,6 +996,12 @@ async function publishVersion(versionId, { reload = true, copyUrl = true } = {})
   const { error: versionError } = await supabase.from("website_asset_versions").update({
     status: "published",
     public_url: publicUrl,
+    cdn_size_bytes: cdnResult.blob.size,
+    cdn_mime_type: cdnResult.contentType,
+    cdn_width: cdnResult.width,
+    cdn_height: cdnResult.height,
+    cdn_optimized: cdnResult.optimized,
+    cdn_processed_at: now,
     published_by_user_id: currentUser.id,
     published_at: now,
   }).eq("id", version.id);
@@ -994,7 +1023,112 @@ async function publishVersion(versionId, { reload = true, copyUrl = true } = {})
   } catch {
     copied = false;
   }
-  showToast(copied ? "Published to the CDN and copied the URL." : "Published to the CDN. Use Copy URL when you need the link.");
+  const optimizationMessage = cdnResult.optimized ? ` Optimized from ${formatBytes(version.size_bytes)} to ${formatBytes(cdnResult.blob.size)}.` : "";
+  showToast(copied ? `Published to the CDN and copied the URL.${optimizationMessage}` : `Published to the CDN.${optimizationMessage} Use Copy URL when you need the link.`);
+}
+
+async function writeCdnObject(version, asset, publicPath, { preserveOriginal = false } = {}) {
+  const { data: original, error: downloadError } = await supabase.storage.from(PRIVATE_BUCKET).download(version.storage_path);
+  if (downloadError || !original) throw downloadError || new Error("The private original could not be read.");
+
+  let prepared;
+  try {
+    prepared = preserveOriginal
+      ? { blob: original, contentType: version.mime_type || original.type || "application/octet-stream", width: null, height: null, optimized: false }
+      : await prepareCdnImage(original, asset, version);
+  } catch (error) {
+    console.warn("CDN image optimization was skipped.", error);
+    prepared = {
+      blob: original,
+      contentType: version.mime_type || original.type || "application/octet-stream",
+      width: null,
+      height: null,
+      optimized: false,
+    };
+  }
+
+  const { error: uploadError } = await supabase.storage.from(PUBLIC_BUCKET).upload(publicPath, prepared.blob, {
+    cacheControl: CDN_BROWSER_CACHE_SECONDS,
+    contentType: prepared.contentType,
+    upsert: true,
+  });
+  if (uploadError) throw uploadError;
+  return prepared;
+}
+
+async function optimizePublishedVersion(versionId, { reload = true, notify = true } = {}) {
+  const version = versions.find((row) => row.id === versionId);
+  const asset = assets.find((row) => row.id === version?.asset_id);
+  const publicPath = publicStoragePath(version);
+  if (!version || !asset || !publicPath) throw new Error("This published CDN file is no longer available.");
+
+  const cdnResult = await writeCdnObject(version, asset, publicPath);
+  const now = new Date().toISOString();
+  const { error } = await supabase.from("website_asset_versions").update({
+    cdn_size_bytes: cdnResult.blob.size,
+    cdn_mime_type: cdnResult.contentType,
+    cdn_width: cdnResult.width,
+    cdn_height: cdnResult.height,
+    cdn_optimized: cdnResult.optimized,
+    cdn_processed_at: now,
+  }).eq("id", version.id);
+  if (error) throw error;
+
+  if (notify) {
+    const message = cdnResult.optimized
+      ? `CDN file optimized from ${formatBytes(version.size_bytes)} to ${formatBytes(cdnResult.blob.size)}. The URL did not change.`
+      : "The CDN file was refreshed at its existing URL; the original was already the smaller choice.";
+    showToast(message);
+  }
+  if (reload) await loadAssets();
+  return cdnResult;
+}
+
+async function restoreOriginalCdnVersion(versionId) {
+  const version = versions.find((row) => row.id === versionId);
+  const asset = assets.find((row) => row.id === version?.asset_id);
+  const publicPath = publicStoragePath(version);
+  if (!version || !asset || !publicPath) throw new Error("This published CDN file is no longer available.");
+  if (!await confirmAdminAction("Use the private full-quality original at this existing CDN URL? The link will not change.", { title: "Use full-quality file", confirmLabel: "Use full quality" })) return;
+
+  const cdnResult = await writeCdnObject(version, asset, publicPath, { preserveOriginal: true });
+  const { error } = await supabase.from("website_asset_versions").update({
+    cdn_size_bytes: cdnResult.blob.size,
+    cdn_mime_type: cdnResult.contentType,
+    cdn_width: null,
+    cdn_height: null,
+    cdn_optimized: false,
+    cdn_processed_at: new Date().toISOString(),
+  }).eq("id", version.id);
+  if (error) throw error;
+  showToast("The full-quality original now uses the same CDN URL.");
+  await loadAssets();
+}
+
+async function optimizePublishedBatch() {
+  const publishedVersions = getOptimizablePublishedVersions();
+  if (!publishedVersions.length) return;
+  if (!await confirmAdminAction(`Optimize ${publishedVersions.length} published image${publishedVersions.length === 1 ? "" : "s"} without changing any CDN links?`, { title: "Optimize CDN files", confirmLabel: "Optimize files" })) return;
+
+  optimizePublishedBatchButton.disabled = true;
+  let optimizedCount = 0;
+  try {
+    for (const version of publishedVersions) {
+      batchStatus.textContent = `Optimizing ${optimizedCount + 1} of ${publishedVersions.length}: ${version.original_filename}`;
+      await optimizePublishedVersion(version.id, { reload: false, notify: false });
+      optimizedCount += 1;
+    }
+    batchStatus.textContent = `${optimizedCount} CDN file${optimizedCount === 1 ? "" : "s"} refreshed without changing links.`;
+    showToast(batchStatus.textContent);
+    selectedVersionIds.clear();
+    await loadAssets();
+  } catch (error) {
+    batchStatus.textContent = `${optimizedCount ? `${optimizedCount} optimized. ` : ""}${error?.message || "The remaining CDN files could not be optimized."}`;
+    showToast(batchStatus.textContent, "error");
+    await loadAssets();
+  } finally {
+    optimizePublishedBatchButton.disabled = false;
+  }
 }
 
 async function approvePendingBatch() {
@@ -1130,7 +1264,10 @@ async function openVersion(version) {
 }
 
 async function downloadUrlForVersion(version) {
-  if (version.public_url) return version.public_url;
+  if (!version.storage_bucket || !version.storage_path) {
+    if (version.public_url) return version.public_url;
+    throw new Error("The private original is no longer available.");
+  }
   const { data, error } = await supabase.storage
     .from(version.storage_bucket)
     .createSignedUrl(version.storage_path, 600, { download: version.original_filename });
@@ -1328,6 +1465,7 @@ async function handleAssetAction(event) {
     if (button.dataset.versionAction === "approve") await updateVersionStatus(version.id, "approved");
     if (button.dataset.versionAction === "reject") await updateVersionStatus(version.id, "rejected");
     if (button.dataset.versionAction === "publish") await publishVersion(version.id);
+    if (button.dataset.versionAction === "publish-original") await publishVersion(version.id, { preserveOriginal: true });
     if (button.dataset.versionAction === "rename") await renameVersion(version);
     if (button.dataset.versionAction === "download") await downloadVersion(version);
     if (button.dataset.versionAction === "delete") await deleteVersionAsAdmin(version);
@@ -1335,6 +1473,8 @@ async function handleAssetAction(event) {
       await navigator.clipboard.writeText(version.public_url);
       button.textContent = "Copied";
     }
+    if (button.dataset.versionAction === "optimize") await optimizePublishedVersion(version.id);
+    if (button.dataset.versionAction === "restore-original") await restoreOriginalCdnVersion(version.id);
   } catch (error) {
     showToast(error?.message || "This action could not be completed.", "error");
   } finally {
@@ -1411,6 +1551,7 @@ async function initWebsiteAdmin() {
       adminUploadReplacementType.value = adminUploadCategory.value === "social" ? "metadata" : "html_src";
     });
     copyPublishedLinksButton?.addEventListener("click", copyPublishedLinks);
+    optimizePublishedBatchButton?.addEventListener("click", optimizePublishedBatch);
     approvePendingBatchButton?.addEventListener("click", approvePendingBatch);
     rejectPendingBatchButton?.addEventListener("click", rejectPendingBatch);
     publishApprovedBatchButton?.addEventListener("click", publishApprovedBatch);
