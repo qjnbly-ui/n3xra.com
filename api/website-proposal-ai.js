@@ -126,6 +126,12 @@ function extractGroqOutput(data) {
   throw apiError("Groq returned no structured proposal suggestions.", 502);
 }
 
+function isGroqSchemaError(data) {
+  const message = String(data?.error?.message || "");
+  return Boolean(data?.error?.failed_generation)
+    || /generated json|expected schema|jsonschema|schema validation/i.test(message);
+}
+
 function promptFor(context, instruction, targetSections, instructionSource) {
   const sourceText = context.includedSources.map((item) => [
     `SOURCE ${item.source_type}:${item.source_id}`,
@@ -157,37 +163,50 @@ async function callGroq(context, instruction, targetSections, instructionSource)
     "Replace deliverables and exclusions only as complete arrays. Do not emit subtotal, total, or recurring summary edits; the server recalculates them from line items.",
     "For each evidence item, source_type and source_id must exactly match a supplied SOURCE label.",
     "Cite evidence when a source directly supports a value, but do not omit a useful suggestion merely because the final wording or number is not quoted verbatim.",
-    "Keep suggestions concise. If the instruction is already satisfied, return no operation for it and explain briefly in summary.",
+    "Keep suggestions concise and return no more than 12 complete operations. Never begin an operation unless every required property can be completed. If the instruction is already satisfied, return no operation for it and explain briefly in summary.",
   ].join(" ");
-  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${GROQ_API_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: MODEL,
-      messages: [
-        { role: "system", content: systemInstruction },
-        { role: "user", content: promptFor(context, instruction, targetSections, instructionSource) },
-      ],
-      response_format: {
-        type: "json_schema",
-        json_schema: {
-          name: "website_proposal_change_set",
-          strict: true,
-          schema: CHANGE_SET_SCHEMA,
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${GROQ_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: MODEL,
+        reasoning_effort: "low",
+        max_completion_tokens: 20000,
+        messages: [
+          { role: "system", content: attempt
+            ? `${systemInstruction} This is a retry after an incomplete structured response. Return fewer operations and complete every required property.`
+            : systemInstruction },
+          { role: "user", content: promptFor(context, instruction, targetSections, instructionSource) },
+        ],
+        response_format: {
+          type: "json_schema",
+          json_schema: {
+            name: "website_proposal_change_set",
+            strict: true,
+            schema: CHANGE_SET_SCHEMA,
+          },
         },
-      },
-    }),
-    signal: AbortSignal.timeout(60_000),
-  });
-  const data = await response.json().catch(() => null);
-  if (!response.ok) throw apiError(data?.error?.message || `Groq request failed (${response.status}).`, response.status === 429 ? 429 : 502, data);
-  let parsed;
-  try { parsed = JSON.parse(extractGroqOutput(data)); }
-  catch (error) {
-    if (error?.status) throw error;
-    throw apiError("Groq returned malformed structured output.", 502);
+      }),
+      signal: AbortSignal.timeout(60_000),
+    });
+    const data = await response.json().catch(() => null);
+    if (!response.ok) {
+      if (attempt === 0 && isGroqSchemaError(data)) continue;
+      if (isGroqSchemaError(data)) {
+        throw apiError("Proposal AI could not finish a valid draft. Try one section at a time, or shorten the instruction.", 502);
+      }
+      throw apiError(data?.error?.message || `Groq request failed (${response.status}).`, response.status === 429 ? 429 : 502, data);
+    }
+    try {
+      return JSON.parse(extractGroqOutput(data));
+    } catch (error) {
+      if (error?.status) throw error;
+      if (attempt === 0) continue;
+      throw apiError("Proposal AI could not finish a valid draft. Try one section at a time, or shorten the instruction.", 502);
+    }
   }
-  return parsed;
+  throw apiError("Proposal AI could not finish a valid draft.", 502);
 }
 
 async function updateRun(runId, values) {
@@ -346,4 +365,4 @@ module.exports = async function handler(req, res) {
   }
 };
 
-module.exports._test = { extractGroqOutput, isRunRemovable, CHANGE_SET_SCHEMA };
+module.exports._test = { extractGroqOutput, isGroqSchemaError, isRunRemovable, CHANGE_SET_SCHEMA };

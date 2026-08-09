@@ -150,12 +150,12 @@ function renderProposal() {
     ` : ""}
 
     <section class="portal-proposal-section">
-      <p class="portal-kicker">01 · Project summary</p>
+      <p class="portal-kicker">Project summary</p>
       <h3>What we are agreeing to build</h3>
       <p>${paragraphs(summary)}</p>
     </section>
     <section class="portal-proposal-section">
-      <p class="portal-kicker">02 · Scope</p>
+      <p class="portal-kicker">Scope</p>
       <h3>Project scope</h3>
       <p>${paragraphs(version.scope_summary)}</p>
       <div class="portal-proposal-columns">
@@ -164,7 +164,7 @@ function renderProposal() {
       </div>
     </section>
     <section class="portal-proposal-section">
-      <p class="portal-kicker">03 · Timeline</p>
+      <p class="portal-kicker">Timeline</p>
       <h3>Schedule and expected delivery</h3>
       <p>${paragraphs(version.timeline)}</p>
       <dl class="portal-proposal-facts">
@@ -173,7 +173,7 @@ function renderProposal() {
       </dl>
     </section>
     <section class="portal-proposal-section">
-      <p class="portal-kicker">04 · Investment &amp; payment</p>
+      <p class="portal-kicker">Investment &amp; payment</p>
       <h3>Approved project cost</h3>
       <div class="portal-proposal-note"><strong>Acceptance comes before billing.</strong><p>No payment is collected on this page. If you approve, N3XRA prepares billing from the investment and payment schedule shown in this exact version.</p></div>
       <div class="portal-price-table">
@@ -187,7 +187,7 @@ function renderProposal() {
       ${version.payment_schedule ? `<div class="portal-proposal-note"><strong>Payment schedule</strong><p>${paragraphs(version.payment_schedule)}</p></div>` : ""}
     </section>
     <section class="portal-proposal-section">
-      <p class="portal-kicker">05 · Agreement terms</p>
+      <p class="portal-kicker">Agreement terms</p>
       <h3>Responsibilities, revisions, and ownership</h3>
       ${version.revision_policy ? `<div class="portal-proposal-note"><strong>Revision policy</strong><p>${paragraphs(version.revision_policy)}</p></div>` : ""}
       <p>${paragraphs(version.terms)}</p>

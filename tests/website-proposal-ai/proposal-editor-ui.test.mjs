@@ -61,10 +61,12 @@ test("Proposal AI may suggest billing and contractual values for admin review", 
   assert.match(script, /You may propose pricing, billing items, dates, scope/);
 });
 
-test("the editor is one six-stage Proposal & Agreement", () => {
-  for (const label of ["Project summary", "Scope", "Timeline", "Investment &amp; payment", "Agreement terms", "Client approval"]) {
+test("the editor is a professional Proposal & Agreement workspace, not a step wizard", () => {
+  for (const label of ["Project summary", "Scope", "Timeline", "Investment &amp; payment", "Agreement terms"]) {
     assert.match(html, new RegExp(label));
   }
+  assert.doesNotMatch(html, /proposal-agreement-steps|Exact version preserved|Changes create a revision|Billing uses approved totals/);
+  assert.doesNotMatch(html, />0[1-6] ·/);
   assert.match(html, /id="proposal-introduction" type="hidden"/);
   assert.match(script, /introduction: null/);
   assert.match(script, /values\.introduction, values\.project_objective/);
