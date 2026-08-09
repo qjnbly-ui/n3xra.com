@@ -107,6 +107,36 @@ async function sendAdminEmail(request) {
   return data;
 }
 
+async function createRecoveryNotification(payload, reason) {
+  if (!payload.ai_review_id) return null;
+  const query = new URLSearchParams({
+    select: "id",
+    event_type: "eq.websites.request_recovery.needed",
+    source_table: "eq.website_request_ai_reviews",
+    source_id: `eq.${payload.ai_review_id}`,
+    deleted_at: "is.null",
+    limit: "1",
+  });
+  const existingResponse = await fetch(`${SUPABASE_URL}/rest/v1/admin_notifications?${query}`, {
+    headers: { apikey: SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
+  });
+  const existing = await existingResponse.json().catch(() => []);
+  if (existingResponse.ok && Array.isArray(existing) && existing.length) return existing[0];
+  return createAdminNotification({
+    eventType: "websites.request_recovery.needed",
+    product: "websites",
+    priority: "important",
+    title: "Website request recovery needed",
+    summary: `${payload.business_name || payload.contact_name || "A verified client"} completed intake, but the submitted request was not created.`,
+    actorName: payload.contact_name,
+    actorEmail: payload.contact_email,
+    sourceTable: "website_request_ai_reviews",
+    sourceId: payload.ai_review_id,
+    actionUrl: "/n3xra-admin/requests/",
+    metadata: { ai_review_id: payload.ai_review_id, submission_error: clean(reason, 800) },
+  });
+}
+
 module.exports = async function handler(req, res) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
@@ -119,6 +149,7 @@ module.exports = async function handler(req, res) {
 
   const payload = normalizePayload(parseBody(req), user);
   if (!payload.contact_name || !payload.business_name || !payload.contact_email || !payload.primary_goal || !payload.service_plan) {
+    await createRecoveryNotification(payload, "Required request details were missing during the verified submission handoff.").catch(() => null);
     return res.status(400).json({ error: "Complete the required request details before submitting." });
   }
 
@@ -133,7 +164,11 @@ module.exports = async function handler(req, res) {
     body: JSON.stringify(payload),
   });
   const rows = await response.json().catch(() => []);
-  if (!response.ok) return res.status(response.status).json({ error: clean(rows?.message || rows?.error, 800) || "Unable to save the website request." });
+  if (!response.ok) {
+    const saveError = clean(rows?.message || rows?.error, 800) || "Unable to save the website request.";
+    await createRecoveryNotification(payload, saveError).catch(() => null);
+    return res.status(response.status).json({ error: saveError });
+  }
   const request = Array.isArray(rows) ? rows[0] : rows;
 
   let emailWarning = "";
