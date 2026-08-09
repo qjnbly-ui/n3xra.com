@@ -1,4 +1,7 @@
 import { renderPdfFirstPage } from "/shared/lib/file-preview.js";
+import { promptAdminText } from "/account/admin/admin-dialogs.js";
+import { safeWebsiteAssetFilename, validateWebsiteAssetRename } from "/shared/lib/website-asset-utils.js";
+import { CDN_BROWSER_CACHE_SECONDS, canOptimizeCdnImage, prepareCdnImage } from "/shared/lib/cdn-image-optimizer.js";
 
 let fileState = { files: [], access: [], admins: [], websites: [], websiteAssets: [], websiteVersions: [] };
 let fileSupabase = null;
@@ -9,6 +12,22 @@ const expandedFolderPaths = new Set();
 const selectedFileKeys = new Set();
 const WEBSITE_PRIVATE_BUCKET = "website-assets-private";
 const WEBSITE_PUBLIC_BUCKET = "website-assets-public";
+const WEBSITE_FOLDER_LABELS = {
+  image: "Images",
+  images: "Images",
+  logo: "Logo",
+  brand: "Brand assets",
+  social: "Social",
+  document: "Documents",
+  documents: "Documents",
+  video: "Videos",
+  font: "Fonts",
+  other: "Other files",
+  uncategorized: "Uncategorized",
+};
+let websiteFilesChannel = null;
+let websiteFilesRefreshTimer = null;
+let websiteFilesVisibilityHandler = null;
 
 function fileEscape(value) {
   return String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
@@ -101,6 +120,19 @@ function websiteAssetCategory(file) {
   return "other";
 }
 
+function websiteCategoryFolder(value) {
+  const category = String(value || "uncategorized").trim().toLowerCase().replaceAll("_", " ");
+  return WEBSITE_FOLDER_LABELS[category] || category.replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function websiteCategoryForFolder(website, folderPath = currentFolderPath) {
+  if (!website) return "";
+  const websiteParts = pathParts(website.folder_path);
+  const categoryFolder = pathParts(folderPath).slice(websiteParts.length)[0];
+  if (!categoryFolder) return "";
+  return Object.entries(WEBSITE_FOLDER_LABELS).find(([, label]) => label === categoryFolder)?.[0] || "";
+}
+
 function fileStatus(message = "", tone = "") {
   const element = document.getElementById("admin-status");
   if (!element) return;
@@ -121,7 +153,7 @@ function websiteFolderSegment(value) {
 }
 
 function currentWebsite() {
-  return fileState.websites.find((website) => website.folder_path === currentFolderPath) || null;
+  return fileState.websites.find((website) => currentFolderPath === website.folder_path || currentFolderPath.startsWith(`${website.folder_path}/`)) || null;
 }
 
 function fileSelectionKey(file) {
@@ -170,6 +202,9 @@ function renderFolderTree() {
     const existing = folders.get(website.folder_path) || { name: website.name, path: website.folder_path, depth: 1, count: 0 };
     existing.protected = true;
     folders.set(website.folder_path, existing);
+    folders.forEach((folder) => {
+      if (folder.path.startsWith(`${website.folder_path}/`)) folder.protected = true;
+    });
   });
   const children = new Map();
   folders.forEach((folder) => {
@@ -208,23 +243,34 @@ function renderFileSelectionActions() {
   const clearButton = document.getElementById("n3xra-clear-selection");
   const downloadButton = document.getElementById("n3xra-download-selected");
   const publishButton = document.getElementById("n3xra-publish-selected");
+  const approveButton = document.getElementById("n3xra-approve-selected");
+  const rejectButton = document.getElementById("n3xra-reject-selected");
   const copyButton = document.getElementById("n3xra-copy-selected-links");
+  const refreshButton = document.getElementById("n3xra-refresh-selected-cdn");
   const deleteButton = document.getElementById("n3xra-delete-selected");
-  if (!toolbar || !status || !clearButton || !downloadButton || !publishButton || !copyButton || !deleteButton) return;
+  if (!toolbar || !status || !clearButton || !downloadButton || !publishButton || !approveButton || !rejectButton || !copyButton || !refreshButton || !deleteButton) return;
   const availableKeys = new Set(fileState.files.map(fileSelectionKey));
   [...selectedFileKeys].forEach((key) => { if (!availableKeys.has(key)) selectedFileKeys.delete(key); });
   const selected = selectedFiles();
-  const publishableCount = selected.filter((file) => file.source !== "website" && !file.cdn_url).length;
+  const pendingCount = selected.filter((file) => file.source === "website" && file.status === "pending_review").length;
+  const publishableCount = selected.filter((file) => (file.source !== "website" && !file.cdn_url) || (file.source === "website" && file.status === "approved" && String(file.mime_type || "").startsWith("image/"))).length;
   const publishedCount = selected.filter((file) => publishedUrl(file)).length;
+  const refreshableCount = selected.filter((file) => file.source === "website" && file.public_url && String(file.mime_type || "").startsWith("image/")).length;
   toolbar.hidden = selected.length === 0;
   clearButton.hidden = selected.length === 0;
   downloadButton.hidden = selected.length === 0;
   status.textContent = `${selected.length} file${selected.length === 1 ? "" : "s"} selected`;
   downloadButton.textContent = `Download selected (${selected.length})`;
+  approveButton.hidden = pendingCount === 0;
+  approveButton.textContent = `Approve pending (${pendingCount})`;
+  rejectButton.hidden = pendingCount === 0;
+  rejectButton.textContent = `Reject pending (${pendingCount})`;
   publishButton.hidden = publishableCount === 0;
   publishButton.textContent = `Publish to CDN (${publishableCount})`;
   copyButton.hidden = publishedCount === 0;
   copyButton.textContent = `Copy published links (${publishedCount})`;
+  refreshButton.hidden = refreshableCount === 0;
+  refreshButton.textContent = `Refresh CDN files (${refreshableCount})`;
   deleteButton.hidden = selected.length === 0;
   deleteButton.textContent = `Delete selected (${selected.length})`;
 }
@@ -260,9 +306,17 @@ function renderFiles() {
     const type = fileType(file);
     const accessLabel = websiteFile ? String(file.status || "draft").replaceAll("_", " ") : access.size ? `${access.size} admin${access.size === 1 ? "" : "s"}` : "Private";
     const fileMeta = websiteFile ? `${file.asset_key} · Version ${file.version_number}` : `${file.mime_type || "File"}${file.cdn_url ? " · CDN published" : ""}`;
+    const asset = websiteFile ? fileState.websiteAssets.find((item) => String(item.id) === String(file.asset_id)) : null;
+    const websiteActions = websiteFile ? [
+      file.status === "pending_review" ? `<button type="button" data-website-file-approve="${fileEscape(file.id)}">Approve</button><button type="button" data-website-file-reject="${fileEscape(file.id)}">Reject</button>` : "",
+      file.status === "approved" && String(file.mime_type || "").startsWith("image/") ? `<button type="button" data-website-file-publish="${fileEscape(file.id)}">Publish to CDN</button>${canOptimizeCdnImage(asset, file) ? `<button type="button" data-website-file-publish-original="${fileEscape(file.id)}">Publish full quality</button>` : ""}` : "",
+      `<button type="button" data-website-file-rename="${fileEscape(file.id)}">Rename file</button>`,
+      file.public_url ? `<button type="button" data-website-file-copy="${fileEscape(file.id)}">Copy published URL</button>` : "",
+      file.public_url && canOptimizeCdnImage(asset, file) ? `<button type="button" data-website-file-optimize="${fileEscape(file.id)}">Optimize CDN file</button><button type="button" data-website-file-original="${fileEscape(file.id)}">Use full-quality CDN file</button>` : file.public_url && String(file.mime_type || "").startsWith("image/") ? `<button type="button" data-website-file-optimize="${fileEscape(file.id)}">Refresh CDN cache</button>` : "",
+    ].join("") : "";
     const cdnActions = !websiteFile && file.cdn_url
       ? `<button type="button" data-file-open-cdn="${fileEscape(file.id)}">Open CDN URL</button><button type="button" data-file-copy-cdn="${fileEscape(file.id)}">Copy CDN link</button><button type="button" data-file-unpublish="${fileEscape(file.id)}">Unpublish from CDN</button>`
-      : !websiteFile ? `<button type="button" data-file-publish="${fileEscape(file.id)}">Publish to CDN</button>` : "";
+      : !websiteFile ? `<button type="button" data-file-publish="${fileEscape(file.id)}">Publish to CDN</button>` : websiteActions;
     const selectionKey = fileSelectionKey(file);
     return `<article class="n3xra-file-row is-selectable${selectedFileKeys.has(selectionKey) ? " is-selected" : ""}" data-selectable-file="${fileEscape(selectionKey)}">
       <label class="n3xra-file-select"><input type="checkbox" data-file-select="${fileEscape(selectionKey)}"${selectedFileKeys.has(selectionKey) ? " checked" : ""} aria-label="Select ${fileEscape(pathParts(file.name).at(-1))}"></label>
@@ -298,7 +352,7 @@ async function loadWebsiteFiles() {
   const assets = assetResult.data || [];
   const assetIds = assets.map((asset) => asset.id);
   const versionResult = assetIds.length
-    ? await fileSupabase.from("website_asset_versions").select("id,asset_id,version_number,status,storage_bucket,storage_path,public_url,original_filename,mime_type,size_bytes,uploaded_by_user_id,created_at").in("asset_id", assetIds).order("created_at", { ascending: false })
+    ? await fileSupabase.from("website_asset_versions").select("*").in("asset_id", assetIds).order("created_at", { ascending: false })
     : { data: [], error: null };
   if (versionResult.error) throw versionResult.error;
   const websiteById = new Map(websites.map((website) => [String(website.id), website]));
@@ -306,7 +360,7 @@ async function loadWebsiteFiles() {
   const files = (versionResult.data || []).flatMap((version) => {
     const asset = assetById.get(String(version.asset_id));
     const website = asset && websiteById.get(String(asset.website_id));
-    return website ? [{ ...version, source: "website", website_id: website.id, website_name: website.name, asset_id: asset.id, asset_key: asset.asset_key, current_version_id: asset.current_version_id, name: `${website.folder_path}/${version.original_filename}` }] : [];
+    return website ? [{ ...version, source: "website", website_id: website.id, website_name: website.name, asset_id: asset.id, asset_key: asset.asset_key, asset_category: asset.category, current_version_id: asset.current_version_id, name: `${website.folder_path}/${websiteCategoryFolder(asset.category)}/${version.original_filename}` }] : [];
   });
   return { websites, assets, versions: versionResult.data || [], files };
 }
@@ -316,6 +370,30 @@ async function loadFiles() {
   fileState = { files: [...(data.files || []).map((file) => ({ ...file, source: "n3xra" })), ...websiteData.files], access: data.access || [], admins: data.admins || [], websites: websiteData.websites, websiteAssets: websiteData.assets, websiteVersions: websiteData.versions };
   renderFiles();
   fileStatus();
+}
+
+function scheduleWebsiteFilesRefresh() {
+  window.clearTimeout(websiteFilesRefreshTimer);
+  websiteFilesRefreshTimer = window.setTimeout(() => {
+    if (!document.getElementById("n3xra-file-list")) return;
+    loadFiles().catch((error) => fileStatus(error.message || "Website libraries could not refresh.", "error"));
+  }, 350);
+}
+
+async function subscribeToWebsiteLibraries() {
+  if (websiteFilesChannel) await fileSupabase.removeChannel(websiteFilesChannel);
+  websiteFilesChannel = fileSupabase
+    .channel("n3xra-files-website-libraries")
+    .on("postgres_changes", { event: "*", schema: "public", table: "client_websites" }, scheduleWebsiteFilesRefresh)
+    .on("postgres_changes", { event: "*", schema: "public", table: "website_assets" }, scheduleWebsiteFilesRefresh)
+    .on("postgres_changes", { event: "*", schema: "public", table: "website_asset_versions" }, scheduleWebsiteFilesRefresh)
+    .subscribe();
+
+  if (websiteFilesVisibilityHandler) document.removeEventListener("visibilitychange", websiteFilesVisibilityHandler);
+  websiteFilesVisibilityHandler = () => {
+    if (document.visibilityState === "visible") scheduleWebsiteFilesRefresh();
+  };
+  document.addEventListener("visibilitychange", websiteFilesVisibilityHandler);
 }
 
 async function uploadFiles(input) {
@@ -368,7 +446,7 @@ async function uploadWebsiteFiles(selected, website) {
       website_id: website.id,
       asset_key: key,
       label: file.name.replace(/\.[^.]+$/, "") || file.name,
-      category: websiteAssetCategory(file),
+      category: websiteCategoryForFolder(website) || websiteAssetCategory(file),
       replacement_type: "download_only",
       created_by_user_id: fileUserId,
     }).select("id").single();
@@ -383,13 +461,15 @@ async function uploadWebsiteFiles(selected, website) {
       const version = {
         asset_id: asset.id,
         version_number: nextVersion,
-        status: "pending_review",
+        status: "approved",
         storage_bucket: WEBSITE_PRIVATE_BUCKET,
         storage_path: storagePath,
         original_filename: file.name,
         mime_type: file.type || null,
         size_bytes: file.size,
         uploaded_by_user_id: fileUserId,
+        approved_by_user_id: fileUserId,
+        approved_at: new Date().toISOString(),
         upload_batch_id: uploadBatchId,
       };
       let { error: versionError } = await fileSupabase.from("website_asset_versions").insert(version);
@@ -407,7 +487,7 @@ async function uploadWebsiteFiles(selected, website) {
     }
   }
   await loadFiles();
-  fileStatus(`${uploadedCount} website file${uploadedCount === 1 ? "" : "s"} uploaded for review.`, "success");
+  fileStatus(`${uploadedCount} website file${uploadedCount === 1 ? "" : "s"} uploaded and approved.`, "success");
 }
 
 async function readDirectoryFiles(directoryHandle, parentPath = "") {
@@ -448,6 +528,157 @@ function websitePublicStoragePath(version) {
     return pathname.includes(marker) ? decodeURIComponent(pathname.split(marker)[1] || "") : "";
   } catch {
     return "";
+  }
+}
+
+function websiteFileById(id) {
+  return fileState.files.find((file) => file.source === "website" && String(file.id) === String(id));
+}
+
+function websiteAssetFor(file) {
+  return fileState.websiteAssets.find((asset) => String(asset.id) === String(file?.asset_id));
+}
+
+async function updateWebsiteFileStatus(id, status) {
+  const file = websiteFileById(id);
+  if (!file) throw new Error("This website file is no longer available.");
+  const now = new Date().toISOString();
+  const rejectionReason = status === "rejected"
+    ? await promptAdminText("Add an optional note explaining why this file was rejected.", { title: "Reject file", inputLabel: "Rejection note", confirmLabel: "Reject file" })
+    : null;
+  if (status === "rejected" && rejectionReason === null) return false;
+  const values = status === "approved"
+    ? { status, approved_by_user_id: fileUserId, approved_at: now, rejection_reason: null }
+    : { status, rejected_by_user_id: fileUserId, rejected_at: now, rejection_reason: rejectionReason.trim() || null };
+  const { error } = await fileSupabase.from("website_asset_versions").update(values).eq("id", file.id);
+  if (error) throw error;
+  await loadFiles();
+  fileStatus(status === "approved" ? "Website file approved." : "Website file rejected.", "success");
+  return true;
+}
+
+async function renameWebsiteFile(id) {
+  const file = websiteFileById(id);
+  if (!file) throw new Error("This website file is no longer available.");
+  const nextName = await promptAdminText(
+    file.public_url
+      ? "Change the filename shown in the library and used for downloads. The published URL will stay unchanged so live website links do not break."
+      : "Change the filename shown in the library and used for downloads.",
+    { title: "Rename file", inputLabel: "Filename", defaultValue: file.original_filename, confirmLabel: "Rename file" },
+  );
+  if (nextName === null) return;
+  const filename = validateWebsiteAssetRename(nextName, file.original_filename);
+  if (filename === file.original_filename) return;
+  const { error } = await fileSupabase.from("website_asset_versions").update({ original_filename: filename }).eq("id", file.id);
+  if (error) throw error;
+  await loadFiles();
+  fileStatus(`Renamed to ${filename}.`, "success");
+}
+
+async function writeWebsiteCdnObject(file, asset, publicPath, { preserveOriginal = false } = {}) {
+  const { data: original, error: downloadError } = await fileSupabase.storage.from(file.storage_bucket).download(file.storage_path);
+  if (downloadError || !original) throw downloadError || new Error("The private original could not be read.");
+  let prepared;
+  try {
+    prepared = preserveOriginal
+      ? { blob: original, contentType: file.mime_type || original.type || "application/octet-stream", width: null, height: null, optimized: false }
+      : await prepareCdnImage(original, asset, file);
+  } catch (error) {
+    console.warn("CDN image optimization was skipped.", error);
+    prepared = { blob: original, contentType: file.mime_type || original.type || "application/octet-stream", width: null, height: null, optimized: false };
+  }
+  const { error: uploadError } = await fileSupabase.storage.from(WEBSITE_PUBLIC_BUCKET).upload(publicPath, prepared.blob, {
+    cacheControl: CDN_BROWSER_CACHE_SECONDS,
+    contentType: prepared.contentType,
+    upsert: true,
+  });
+  if (uploadError) throw uploadError;
+  return prepared;
+}
+
+async function publishWebsiteFile(id, { refresh = true, preserveOriginal = false, copyUrl = true } = {}) {
+  const file = websiteFileById(id);
+  const asset = websiteAssetFor(file);
+  const website = fileState.websites.find((item) => String(item.id) === String(file?.website_id));
+  if (!file || !asset || !website) throw new Error("This website file is no longer available.");
+  if (file.status !== "approved" || !String(file.mime_type || "").startsWith("image/")) throw new Error("Approve this image before publishing it.");
+  const publicPath = `${website.id}/${asset.id}/v${file.version_number}-${safeWebsiteAssetFilename(file.original_filename)}`;
+  const cdnResult = await writeWebsiteCdnObject(file, asset, publicPath, { preserveOriginal });
+  const { data: urlData } = fileSupabase.storage.from(WEBSITE_PUBLIC_BUCKET).getPublicUrl(publicPath);
+  const publicUrl = urlData.publicUrl;
+  const now = new Date().toISOString();
+  const { error: versionError } = await fileSupabase.from("website_asset_versions").update({
+    status: "published",
+    public_url: publicUrl,
+    cdn_size_bytes: cdnResult.blob.size,
+    cdn_mime_type: cdnResult.contentType,
+    cdn_width: cdnResult.width,
+    cdn_height: cdnResult.height,
+    cdn_optimized: cdnResult.optimized,
+    cdn_processed_at: now,
+    published_by_user_id: fileUserId,
+    published_at: now,
+  }).eq("id", file.id);
+  if (versionError) throw versionError;
+  const { error: assetError } = await fileSupabase.from("website_assets").update({ current_version_id: file.id, updated_at: now }).eq("id", asset.id);
+  if (assetError) throw assetError;
+  if (copyUrl) {
+    try { await navigator.clipboard.writeText(publicUrl); } catch { /* The published URL remains available in the menu. */ }
+  }
+  if (refresh) await loadFiles();
+  return { publicUrl, cdnResult };
+}
+
+async function refreshWebsiteCdnFile(id, { refresh = true, preserveOriginal = false } = {}) {
+  const file = websiteFileById(id);
+  const asset = websiteAssetFor(file);
+  const publicPath = websitePublicStoragePath(file);
+  if (!file || !asset || !publicPath) throw new Error("This published CDN file is no longer available.");
+  const cdnResult = await writeWebsiteCdnObject(file, asset, publicPath, { preserveOriginal });
+  const { error } = await fileSupabase.from("website_asset_versions").update({
+    cdn_size_bytes: cdnResult.blob.size,
+    cdn_mime_type: cdnResult.contentType,
+    cdn_width: cdnResult.width,
+    cdn_height: cdnResult.height,
+    cdn_optimized: cdnResult.optimized,
+    cdn_processed_at: new Date().toISOString(),
+  }).eq("id", file.id);
+  if (error) throw error;
+  if (refresh) await loadFiles();
+  return cdnResult;
+}
+
+async function copyWebsitePublishedLink(id) {
+  const file = websiteFileById(id);
+  if (!file?.public_url) return;
+  await navigator.clipboard.writeText(file.public_url);
+  fileStatus("Published URL copied.", "success");
+}
+
+async function handleWebsiteFileAction(action, id) {
+  fileStatus("Updating website file…");
+  try {
+    if (action === "approve") await updateWebsiteFileStatus(id, "approved");
+    if (action === "reject") await updateWebsiteFileStatus(id, "rejected");
+    if (action === "rename") await renameWebsiteFile(id);
+    if (action === "copy") await copyWebsitePublishedLink(id);
+    if (action === "publish" || action === "publish-original") {
+      const result = await publishWebsiteFile(id, { preserveOriginal: action === "publish-original" });
+      const optimized = result.cdnResult.optimized ? ` Optimized to ${fileSize(result.cdnResult.blob.size)}.` : "";
+      fileStatus(`Published to the CDN and copied the URL.${optimized}`, "success");
+    }
+    if (action === "optimize") {
+      const result = await refreshWebsiteCdnFile(id);
+      fileStatus(result.optimized ? "CDN file optimized without changing its URL." : "CDN cache refreshed without changing its URL.", "success");
+    }
+    if (action === "original") {
+      const confirmed = await confirmAction({ title: "Use full-quality file?", copy: "The private full-quality original will replace the CDN copy at the same URL.", confirmLabel: "Use full quality" });
+      if (!confirmed) return;
+      await refreshWebsiteCdnFile(id, { preserveOriginal: true });
+      fileStatus("The full-quality original now uses the same CDN URL.", "success");
+    }
+  } catch (error) {
+    fileStatus(error.message || "The website file could not be updated.", "error");
   }
 }
 
@@ -534,17 +765,87 @@ async function publishFileToCdn(id, { refresh = true } = {}) {
 
 async function publishSelectedFiles() {
   const files = selectedFiles().filter((file) => file.source !== "website" && !file.cdn_url);
-  if (!files.length) return;
+  const websiteFiles = selectedFiles().filter((file) => file.source === "website" && file.status === "approved" && String(file.mime_type || "").startsWith("image/"));
+  const total = files.length + websiteFiles.length;
+  if (!total) return;
+  if (websiteFiles.length && !(await confirmAction({ title: "Publish selected files?", copy: `${websiteFiles.length} approved website image${websiteFiles.length === 1 ? "" : "s"} will be published to the CDN.`, confirmLabel: "Publish files" }))) return;
   const button = document.getElementById("n3xra-publish-selected");
   if (button) button.disabled = true;
-  fileStatus(`Publishing ${files.length} file${files.length === 1 ? "" : "s"} to the CDN…`);
+  fileStatus(`Publishing ${total} file${total === 1 ? "" : "s"} to the CDN…`);
   try {
     for (const file of files) await publishFileToCdn(file.id, { refresh: false });
+    for (const file of websiteFiles) await publishWebsiteFile(file.id, { refresh: false, copyUrl: false });
+    selectedFileKeys.clear();
     await loadFiles();
-    fileStatus(`${files.length} file${files.length === 1 ? " is" : "s are"} now available on the CDN.`, "success");
+    fileStatus(`${total} file${total === 1 ? " is" : "s are"} now available on the CDN.`, "success");
   } catch (error) {
     await loadFiles().catch(() => {});
     fileStatus(error.message || "The selected files could not be published.", "error");
+  } finally {
+    if (button) button.disabled = false;
+  }
+}
+
+async function approveSelectedWebsiteFiles() {
+  const files = selectedFiles().filter((file) => file.source === "website" && file.status === "pending_review");
+  if (!files.length) return;
+  const button = document.getElementById("n3xra-approve-selected");
+  if (button) button.disabled = true;
+  fileStatus(`Approving ${files.length} website file${files.length === 1 ? "" : "s"}…`);
+  try {
+    const now = new Date().toISOString();
+    const { error } = await fileSupabase.from("website_asset_versions").update({ status: "approved", approved_by_user_id: fileUserId, approved_at: now, rejection_reason: null }).in("id", files.map((file) => file.id));
+    if (error) throw error;
+    selectedFileKeys.clear();
+    await loadFiles();
+    fileStatus(`${files.length} website file${files.length === 1 ? "" : "s"} approved.`, "success");
+  } catch (error) {
+    fileStatus(error.message || "The selected files could not be approved.", "error");
+  } finally {
+    if (button) button.disabled = false;
+  }
+}
+
+async function rejectSelectedWebsiteFiles() {
+  const files = selectedFiles().filter((file) => file.source === "website" && file.status === "pending_review");
+  if (!files.length) return;
+  const reason = await promptAdminText(`Reject ${files.length} selected pending file${files.length === 1 ? "" : "s"}. Add an optional reason.`, { title: "Reject selected files", inputLabel: "Rejection note", confirmLabel: "Reject files" });
+  if (reason === null) return;
+  const button = document.getElementById("n3xra-reject-selected");
+  if (button) button.disabled = true;
+  fileStatus(`Rejecting ${files.length} website file${files.length === 1 ? "" : "s"}…`);
+  try {
+    const { error } = await fileSupabase.from("website_asset_versions").update({ status: "rejected", rejected_by_user_id: fileUserId, rejected_at: new Date().toISOString(), rejection_reason: reason.trim() || null }).in("id", files.map((file) => file.id));
+    if (error) throw error;
+    selectedFileKeys.clear();
+    await loadFiles();
+    fileStatus(`${files.length} website file${files.length === 1 ? "" : "s"} rejected.`, "success");
+  } catch (error) {
+    fileStatus(error.message || "The selected files could not be rejected.", "error");
+  } finally {
+    if (button) button.disabled = false;
+  }
+}
+
+async function refreshSelectedWebsiteCdnFiles() {
+  const files = selectedFiles().filter((file) => file.source === "website" && file.public_url && String(file.mime_type || "").startsWith("image/"));
+  if (!files.length) return;
+  if (!(await confirmAction({ title: "Refresh CDN files?", copy: `Refresh ${files.length} published image${files.length === 1 ? "" : "s"} without changing any links? Photos will be optimized; logos and brand files will remain full quality.`, confirmLabel: "Refresh files" }))) return;
+  const button = document.getElementById("n3xra-refresh-selected-cdn");
+  if (button) button.disabled = true;
+  let refreshed = 0;
+  try {
+    for (const file of files) {
+      fileStatus(`Refreshing ${refreshed + 1} of ${files.length}: ${file.original_filename}…`);
+      await refreshWebsiteCdnFile(file.id, { refresh: false });
+      refreshed += 1;
+    }
+    selectedFileKeys.clear();
+    await loadFiles();
+    fileStatus(`${refreshed} CDN file${refreshed === 1 ? "" : "s"} refreshed without changing links.`, "success");
+  } catch (error) {
+    await loadFiles().catch(() => {});
+    fileStatus(`${refreshed ? `${refreshed} refreshed. ` : ""}${error.message || "The remaining CDN files could not be refreshed."}`, "error");
   } finally {
     if (button) button.disabled = false;
   }
@@ -842,6 +1143,14 @@ export async function startFiles({ supabase, session, invoke }) {
     const manage = event.target.closest("[data-file-manage-access]");
     const closeAccess = event.target.closest("[data-file-close-access]");
     const save = event.target.closest("[data-file-save-access]");
+    const websiteActionButton = event.target.closest("[data-website-file-approve], [data-website-file-reject], [data-website-file-publish], [data-website-file-publish-original], [data-website-file-rename], [data-website-file-copy], [data-website-file-optimize], [data-website-file-original]");
+    if (websiteActionButton) {
+      const actionEntry = Object.entries(websiteActionButton.dataset).find(([key]) => key.startsWith("websiteFile"));
+      const action = actionEntry?.[0].replace("websiteFile", "").replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`).replace(/^-/, "");
+      menu?.removeAttribute("open");
+      if (action && actionEntry?.[1]) void handleWebsiteFileAction(action, actionEntry[1]);
+      return;
+    }
     if (manage) {
       const panel = document.getElementById(`file-access-${manage.dataset.fileManageAccess}`);
       if (panel) panel.hidden = !panel.hidden;
@@ -867,8 +1176,11 @@ export async function startFiles({ supabase, session, invoke }) {
     renderFiles();
   });
   document.getElementById("n3xra-download-selected")?.addEventListener("click", downloadSelectedFiles);
+  document.getElementById("n3xra-approve-selected")?.addEventListener("click", approveSelectedWebsiteFiles);
+  document.getElementById("n3xra-reject-selected")?.addEventListener("click", rejectSelectedWebsiteFiles);
   document.getElementById("n3xra-publish-selected")?.addEventListener("click", publishSelectedFiles);
   document.getElementById("n3xra-copy-selected-links")?.addEventListener("click", copySelectedPublishedLinks);
+  document.getElementById("n3xra-refresh-selected-cdn")?.addEventListener("click", refreshSelectedWebsiteCdnFiles);
   document.getElementById("n3xra-delete-selected")?.addEventListener("click", deleteSelectedFiles);
   document.getElementById("n3xra-folder-tree")?.addEventListener("click", (event) => {
     const removeFolder = event.target.closest("[data-folder-delete]");
@@ -894,4 +1206,5 @@ export async function startFiles({ supabase, session, invoke }) {
   document.querySelectorAll("[data-preview-close]").forEach((element) => element.addEventListener("click", closePreview));
   document.addEventListener("keydown", (event) => { if (event.key === "Escape") closePreview(); });
   await loadFiles();
+  await subscribeToWebsiteLibraries();
 }

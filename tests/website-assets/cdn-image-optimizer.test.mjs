@@ -43,4 +43,5 @@ test("refreshes CDN bytes in place while retaining private-original downloads", 
   assert.match(adminSource, /upload\(publicPath, prepared\.blob,[\s\S]*upsert: true/);
   assert.match(adminSource, /createSignedUrl\(version\.storage_path, 600, \{ download: version\.original_filename \}\)/);
   assert.match(adminSource, /data-version-action="restore-original"/);
+  assert.match(adminSource, /data-version-action="refresh-cdn"/);
 });

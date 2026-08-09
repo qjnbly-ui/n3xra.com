@@ -498,6 +498,8 @@ function versionActions(version, asset) {
   if (version.public_url && canOptimizeCdnImage(asset, version)) {
     actions.push(`<button data-version-action="optimize" data-version-id="${version.id}">Optimize CDN file</button>`);
     actions.push(`<button data-version-action="restore-original" data-version-id="${version.id}">Use full-quality CDN file</button>`);
+  } else if (version.public_url && String(version.mime_type || "").startsWith("image/")) {
+    actions.push(`<button data-version-action="refresh-cdn" data-version-id="${version.id}">Refresh CDN cache</button>`);
   }
   actions.push(`<button class="is-danger" data-version-action="delete" data-version-id="${version.id}">Delete</button>`);
   return actions.join("");
@@ -554,7 +556,7 @@ function renderAssetBatchActions() {
   const pendingCount = selectedVersions.filter((version) => version.status === "pending_review").length;
   const approvedCount = getPublishableApprovedVersions().length;
   const publishedCount = getCurrentPublishedLinks().length;
-  const optimizableCount = getOptimizablePublishedVersions().length;
+  const refreshableCount = getRefreshablePublishedVersions().length;
   assetToolbar.hidden = selectedVersions.length === 0;
   clearAssetSelectionButton.hidden = selectedVersions.length === 0;
   downloadSelectedFilesButton.hidden = selectedVersions.length === 0;
@@ -571,16 +573,15 @@ function renderAssetBatchActions() {
   copyPublishedLinksButton.hidden = publishedCount === 0;
   copyPublishedLinksButton.textContent = `Copy published links (${publishedCount})`;
   if (optimizePublishedBatchButton) {
-    optimizePublishedBatchButton.hidden = optimizableCount === 0;
-    optimizePublishedBatchButton.textContent = `Optimize CDN files (${optimizableCount})`;
+    optimizePublishedBatchButton.hidden = refreshableCount === 0;
+    optimizePublishedBatchButton.textContent = `Refresh CDN files (${refreshableCount})`;
   }
 }
 
-function getOptimizablePublishedVersions() {
+function getRefreshablePublishedVersions() {
   return versions.filter((version) => {
     if (!selectedVersionIds.has(version.id) || !version.public_url) return false;
-    const asset = assets.find((row) => row.id === version.asset_id);
-    return canOptimizeCdnImage(asset, version);
+    return String(version.mime_type || "").startsWith("image/");
   });
 }
 
@@ -1077,7 +1078,7 @@ async function optimizePublishedVersion(versionId, { reload = true, notify = tru
   if (notify) {
     const message = cdnResult.optimized
       ? `CDN file optimized from ${formatBytes(version.size_bytes)} to ${formatBytes(cdnResult.blob.size)}. The URL did not change.`
-      : "The CDN file was refreshed at its existing URL; the original was already the smaller choice.";
+      : "The unchanged full-quality file now has refreshed long-term CDN caching at the same URL.";
     showToast(message);
   }
   if (reload) await loadAssets();
@@ -1106,15 +1107,15 @@ async function restoreOriginalCdnVersion(versionId) {
 }
 
 async function optimizePublishedBatch() {
-  const publishedVersions = getOptimizablePublishedVersions();
+  const publishedVersions = getRefreshablePublishedVersions();
   if (!publishedVersions.length) return;
-  if (!await confirmAdminAction(`Optimize ${publishedVersions.length} published image${publishedVersions.length === 1 ? "" : "s"} without changing any CDN links?`, { title: "Optimize CDN files", confirmLabel: "Optimize files" })) return;
+  if (!await confirmAdminAction(`Refresh ${publishedVersions.length} published image${publishedVersions.length === 1 ? "" : "s"} without changing any CDN links? Photos will be optimized; logos and brand files will remain unchanged.`, { title: "Refresh CDN files", confirmLabel: "Refresh files" })) return;
 
   optimizePublishedBatchButton.disabled = true;
   let optimizedCount = 0;
   try {
     for (const version of publishedVersions) {
-      batchStatus.textContent = `Optimizing ${optimizedCount + 1} of ${publishedVersions.length}: ${version.original_filename}`;
+      batchStatus.textContent = `Refreshing ${optimizedCount + 1} of ${publishedVersions.length}: ${version.original_filename}`;
       await optimizePublishedVersion(version.id, { reload: false, notify: false });
       optimizedCount += 1;
     }
@@ -1123,7 +1124,7 @@ async function optimizePublishedBatch() {
     selectedVersionIds.clear();
     await loadAssets();
   } catch (error) {
-    batchStatus.textContent = `${optimizedCount ? `${optimizedCount} optimized. ` : ""}${error?.message || "The remaining CDN files could not be optimized."}`;
+    batchStatus.textContent = `${optimizedCount ? `${optimizedCount} refreshed. ` : ""}${error?.message || "The remaining CDN files could not be refreshed."}`;
     showToast(batchStatus.textContent, "error");
     await loadAssets();
   } finally {
@@ -1474,6 +1475,7 @@ async function handleAssetAction(event) {
       button.textContent = "Copied";
     }
     if (button.dataset.versionAction === "optimize") await optimizePublishedVersion(version.id);
+    if (button.dataset.versionAction === "refresh-cdn") await optimizePublishedVersion(version.id);
     if (button.dataset.versionAction === "restore-original") await restoreOriginalCdnVersion(version.id);
   } catch (error) {
     showToast(error?.message || "This action could not be completed.", "error");

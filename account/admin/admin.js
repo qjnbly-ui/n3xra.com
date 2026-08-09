@@ -1261,7 +1261,7 @@ async function loadAdminView() {
     });
     await loadAccounts();
   } else if (view === "files") {
-    const files = await import("/account/admin/files/files.js?v=18");
+    const files = await import("/account/admin/files/files.js?v=20");
     await files.startFiles({ supabase, session, invoke });
   } else if (view === "business-info") {
     const businessInformation = await import("/account/admin/business-info/business-info.js?v=1");
