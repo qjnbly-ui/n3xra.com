@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Careers at N3XRA</title><meta name="description" content="Apply to work with N3XRA.">
+  <link rel="icon" href="/assets/n3xra_logo_transparent_small.png"><link rel="stylesheet" href="/assets/site-nav.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&amp;family=Manrope:wght@400;600;700;800&amp;display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/home.css?v=43"><link rel="stylesheet" href="/careers/careers.css"><script src="/shared/config.js"></script><script src="/assets/site-nav.js" defer></script>
+</head>
+<body>
+  <header class="site-topbar home-topbar"><div class="site-topbar-inner"><div class="site-topbar-row"><a class="site-brand home-brand" href="/" aria-label="N3XRA home"><img src="/assets/n3xra_logo_transparent_small.png" alt=""><span>N3XRA</span></a><nav class="desktop-nav" aria-label="Primary"><a href="/projects/">Projects</a><a href="/services/">Services</a><a href="/support/">Support</a><a href="/#software">Software</a></nav><div class="site-nav-actions"><a class="site-menu-link" href="/account/">Login</a><button class="site-menu-toggle" type="button" aria-expanded="false" aria-controls="careers-menu" aria-label="Open menu" data-site-menu-toggle><span></span><span></span><span></span></button></div></div><nav class="site-mobile-menu" id="careers-menu" aria-label="Primary" hidden><div class="site-mobile-menu-head"><p class="site-mobile-menu-title">Explore N3XRA</p></div><a class="site-menu-link" href="/projects/">Projects</a><a class="site-menu-link" href="/services/">Services</a><a class="site-menu-link" href="/support/">Support</a><a class="site-menu-link" href="/#software">Software</a></nav></div></header>
+  <main><section class="careers-hero"><div><p>Work with N3XRA</p><h1>Build useful things with us.</h1><p class="lede">We welcome thoughtful developers, designers, and students who want to grow through real work.</p></div></section>
+  <section class="careers-content"><div class="careers-intro"><h2>Tell us about yourself.</h2><p>We keep promising applications on file for current and upcoming opportunities. Creating an N3XRA account is optional; it simply connects your application to your account.</p></div>
+  <form id="careers-form" class="careers-form"><div class="form-grid">
+    <label>Full name<input name="full_name" autocomplete="name" required maxlength="160"></label>
+    <label>Email<input name="email" type="email" autocomplete="email" required maxlength="320"></label>
+    <label>Location / timezone<input name="location_timezone" placeholder="Lagos, WAT" maxlength="160"></label>
+    <label>Role of interest<select name="role_interest" required><option value="frontend_developer">Frontend developer</option><option value="software_developer">Software developer</option><option value="design">Design</option><option value="internship">Internship</option><option value="other">Other</option></select></label>
+    <label>Work arrangement<select name="work_arrangement"><option value="flexible">Flexible</option><option value="remote">Remote</option><option value="onsite">On-site</option></select></label>
+    <label>Availability<input name="availability" placeholder="e.g. 15–20 hrs/week" maxlength="300"></label>
+    <label>Portfolio URL<input name="portfolio_url" type="url" placeholder="https://" maxlength="1000"></label>
+    <label>GitHub URL<input name="github_url" type="url" placeholder="https://github.com/" maxlength="1000"></label>
+    <label>CV / résumé link <span>(optional)</span><input name="cv_url" type="url" placeholder="A shareable Drive, Dropbox, or portfolio link" maxlength="1000"></label>
+    <label>Upload CV / résumé <span>(PDF, DOC, or DOCX · 10 MB max)</span><input name="cv_file" type="file" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"></label>
+    <label class="form-full">What would you like to contribute?<textarea name="message" required rows="7" maxlength="10000" placeholder="Share your experience, interests, and why you’d like to work with N3XRA."></textarea></label>
+  </div><div class="form-actions"><button type="submit">Send application</button><p id="careers-status" role="status"></p></div></form></section></main>
+  <script type="module" src="/careers/careers.js"></script>
+</body></html>

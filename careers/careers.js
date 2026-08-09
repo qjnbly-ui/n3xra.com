@@ -1,0 +1,42 @@
+import { createBrowserSupabase, getSessionOrNull, hasConfig } from "/shared/lib/supabase-client.js";
+const form = document.querySelector("#careers-form"); const status = document.querySelector("#careers-status");
+const clean = (value) => String(value || "").trim();
+const allowedFileTypes = new Set(["application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"]);
+const safeFilename = (value) => clean(value).replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 140) || "resume";
+
+async function prefillFromAccount() {
+  if (!hasConfig()) return;
+  const supabase = createBrowserSupabase();
+  const session = await getSessionOrNull(supabase);
+  const user = session?.user;
+  if (!user) return;
+  const name = clean(user.user_metadata?.full_name || user.user_metadata?.name);
+  const email = clean(user.email);
+  if (name && !form.elements.full_name.value) form.elements.full_name.value = name;
+  if (email && !form.elements.email.value) form.elements.email.value = email;
+}
+
+prefillFromAccount().catch(() => {});
+
+form?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!hasConfig()) { status.textContent = "Applications are temporarily unavailable. Please email hello@n3xra.com."; return; }
+  const button = form.querySelector("button[type=submit]"); button.disabled = true; status.textContent = "Sending…";
+  try {
+    const supabase = createBrowserSupabase(); const session = await getSessionOrNull(supabase); const input = new FormData(form);
+    const file = input.get("cv_file"); input.delete("cv_file");
+    const values = Object.fromEntries([...input.entries()].map(([key, value]) => [key, clean(value)]));
+    if (file?.size) {
+      if (file.size > 10 * 1024 * 1024 || !allowedFileTypes.has(file.type)) throw new Error("Upload a PDF, DOC, or DOCX file up to 10 MB.");
+      const path = `applications/${crypto.randomUUID()}/${safeFilename(file.name)}`;
+      const { error: uploadError } = await supabase.storage.from("careers-files").upload(path, file, { contentType: file.type, upsert: false });
+      if (uploadError) throw uploadError;
+      values.cv_storage_path = path; values.cv_filename = file.name;
+    }
+    const payload = { ...values, account_user_id: session?.user?.id || null, status: "new" };
+    const { error } = await supabase.from("careers_applications").insert(payload);
+    if (error) throw error;
+    form.reset(); status.textContent = "Thank you — your application has been received.";
+  } catch (error) { status.textContent = error.message || "We could not send your application. Please try again."; }
+  finally { button.disabled = false; }
+});

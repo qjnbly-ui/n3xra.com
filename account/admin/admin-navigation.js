@@ -6,6 +6,7 @@ const accountLinks = [
   ["/account/admin/billing/", "Billing"],
   ["/account/admin/operations/", "Operations"],
   ["/account/admin/support/", "Support"],
+  ["/account/admin/applications/", "Applications"],
   ["/account/admin/inbox/", "Admin Inbox"],
   ["/account/notifications/", "Platform Messages"],
   ["/account/admin/analytics/", "Analytics"],

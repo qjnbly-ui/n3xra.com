@@ -1026,11 +1026,6 @@ async function init() {
     setStatus("This verification link is invalid or expired. Send a new link to continue.", true);
   }
 
-  if (!isEmbedded && session?.user) {
-    window.location.replace(signedInWorkspaceUrl());
-    return;
-  }
-
   if (isEmbedded && !session?.user) return;
 
   setMode(Boolean(session?.user));
