@@ -1,5 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.8";
 
+let browserSupabaseClient = null;
+
 export function getConfig() {
   return window.RECORDS_APP_CONFIG || {};
 }
@@ -12,7 +14,10 @@ export function hasConfig() {
 export function createBrowserSupabase() {
   const config = getConfig();
   if (!config.supabaseUrl || !config.supabaseAnonKey) return null;
-  return createClient(config.supabaseUrl, config.supabaseAnonKey);
+  if (!browserSupabaseClient) {
+    browserSupabaseClient = createClient(config.supabaseUrl, config.supabaseAnonKey);
+  }
+  return browserSupabaseClient;
 }
 
 export function getAppUrl(path = "/n3xra-records") {
