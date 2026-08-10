@@ -1,4 +1,5 @@
-import { createBrowserSupabase, hasConfig } from "/shared/lib/supabase-client.js";
+import { hasConfig } from "/shared/lib/supabase-client.js";
+import { getAdminSession } from "/account/admin/admin-session.js?v=2";
 import { readWorkspaceContext, writeWorkspaceContext } from "/client-portal/workspace-context.js";
 import { resolveWebsiteUrl } from "/client-portal/website-url.js";
 
@@ -8,6 +9,10 @@ const ORGANIZATION_ROUTES = [
   [["assets"], "Files & assets", "/n3xra-admin/assets/"],
   [["services"], "Services & ownership", "/n3xra-admin/services/"],
   [["billing"], "Billing", "/n3xra-admin/billing/"],
+];
+
+const ADVANCED_WEBSITE_ROUTES = [
+  [["portal"], "Website Portal", "/n3xra-admin/website-portal/"],
 ];
 
 function escapeHtml(value = "") {
@@ -39,6 +44,8 @@ function renderShell(panel, pageKey) {
     <nav class="website-organization-navigation" aria-label="Selected organization sections">
       <p>Workspace</p>
       ${ORGANIZATION_ROUTES.map(([keys, label, href]) => `<a class="${keys.includes(pageKey) ? "is-current" : ""}" href="${href}">${label}</a>`).join("")}
+      <p>Advanced website options</p>
+      ${ADVANCED_WEBSITE_ROUTES.map(([keys, label, href]) => `<a class="${keys.includes(pageKey) ? "is-current" : ""}" href="${href}">${label}</a>`).join("")}
     </nav>
     <div class="website-organization-intake-link"><span>Not attached yet?</span><a href="/n3xra-admin/requests/">Open intake inbox</a></div>
   `;
@@ -47,9 +54,9 @@ function renderShell(panel, pageKey) {
 export async function initializeWebsiteOrganizationContext(panel, { pageKey = "overview" } = {}) {
   if (!panel || !hasConfig()) return;
   renderShell(panel, pageKey);
-  const supabase = createBrowserSupabase();
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session?.user) return;
+  const adminContext = await getAdminSession();
+  if (!adminContext.allowed) return;
+  const { supabase, session } = adminContext;
   const [websiteResult, domainResult] = await Promise.all([
     supabase.from("client_websites").select("id,name,status,live_url").order("name"),
     supabase.from("website_domains").select("website_id,domain_name,is_primary").order("is_primary", { ascending: false }),

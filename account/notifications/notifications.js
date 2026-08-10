@@ -4,7 +4,7 @@ import {
   hasConfig,
 } from "/shared/lib/supabase-client.js";
 import { isPlatformAdminEmail } from "/shared/lib/orgs.js";
-import { arrangeAdminWorkspace } from "/account/admin/admin-navigation.js?v=10";
+import { arrangeAdminWorkspace } from "/account/admin/admin-navigation.js?v=14";
 
 let setupPanel, notificationPanel, accountNavLink, notificationProductInput, notificationChannelInput, notificationSubjectInput, notificationCtaUrlInput, notificationPreheaderInput, notificationMessageInput, notificationMessageCount, notificationCtaLabelInput, notificationFilterInput, notificationLoadRecipientsButton, notificationSelectVisibleButton, notificationClearSelectedButton, notificationClearDraftButton, notificationSelectedCount, notificationLoadedCount, notificationRecipientList, notificationReviewButton, notificationStatus, notificationReviewModal, notificationReviewClose, notificationReviewCancel, notificationReviewProduct, notificationReviewCount, notificationReviewChannel, notificationReviewSubject, notificationEmailPreview, notificationSendButton, notificationReviewStatus;
 

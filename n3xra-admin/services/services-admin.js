@@ -1,5 +1,5 @@
-import { createBrowserSupabase, hasConfig } from "/shared/lib/supabase-client.js";
-import { verifyPlatformAdmin } from "/client-portal/admin-access.js";
+import { hasConfig } from "/shared/lib/supabase-client.js";
+import { getAdminSession } from "/account/admin/admin-session.js?v=2";
 import { readWorkspaceContext, writeWorkspaceContext } from "/client-portal/workspace-context.js";
 import { confirmAdminAction } from "/account/admin/admin-dialogs.js";
 
@@ -130,9 +130,10 @@ document.querySelector(".portal-workspace").addEventListener("click", async (eve
 
 async function init() {
   if (!hasConfig()) throw new Error("Supabase configuration is missing.");
-  supabase = createBrowserSupabase(); const { data } = await supabase.auth.getSession(); user = data?.session?.user;
-  if (!user) { window.location.replace("/account/?next=%2Fn3xra-admin%2Fservices%2F"); return; }
-  if (!await verifyPlatformAdmin(supabase, user)) throw new Error("You do not have service administration access.");
+  const context = await getAdminSession();
+  if (!context.allowed) return;
+  supabase = context.supabase;
+  user = context.user;
   await loadData();
   websiteSelect.addEventListener("change", () => {
     selectedWebsite = websites.find((website) => website.id === websiteSelect.value);

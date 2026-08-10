@@ -225,7 +225,7 @@
 .website-admin-view-assets .website-assets-content-head .portal-kicker { display:none; }
 .website-admin-view-assets .website-assets-content-head h1 { overflow:hidden; margin:0; font:700 1.2rem/1.2 Fraunces,Georgia,serif; text-overflow:ellipsis; white-space:nowrap; }
 .website-admin-view-assets .website-assets-content-head p:last-child { margin:0; font-size:.69rem; white-space:nowrap; }
-.website-admin-view-assets .website-assets-content-head .portal-button { min-height:36px; padding:.5rem .75rem; font-size:.68rem; }
+.website-admin-view-assets .website-assets-content-head .portal-button { min-height:42px; padding:.65rem .9rem; font-size:.84rem; }
 .website-admin-view-assets .website-assets-table-head,
 .website-admin-view-assets .website-asset-version { grid-template-columns:minmax(200px,1fr) 110px 42px; }
 .website-admin-view-assets .website-assets-table-head.is-selectable,

@@ -12,6 +12,20 @@ const accountLinks = [
   ["/account/admin/analytics/", "Analytics"],
 ];
 
+const websiteWorkspacePaths = new Set([
+  "/n3xra-admin/websites/",
+  "/n3xra-admin/website-portal/",
+  "/n3xra-admin/services/",
+  "/n3xra-admin/requests/",
+  "/n3xra-admin/proposals/",
+  "/n3xra-admin/projects/",
+  "/n3xra-admin/onboarding/",
+  "/n3xra-admin/assets/",
+  "/n3xra-admin/billing/",
+]);
+
+let softNavigationSequence = 0;
+
 const productApps = [
   {
     key: "websites",
@@ -22,6 +36,7 @@ const productApps = [
     ],
     paths: [
       "/n3xra-admin/websites/",
+      "/n3xra-admin/website-portal/",
       "/n3xra-admin/services/",
       "/n3xra-admin/requests/",
       "/n3xra-admin/proposals/",
@@ -291,7 +306,9 @@ export function arrangeAdminWorkspace() {
 function isWorkspaceUrl(url) {
   if (url.pathname === "/account/admin/inbox/") return false;
   return url.origin === window.location.origin
-    && (url.pathname.startsWith("/account/admin/") || url.pathname === "/account/notifications/");
+    && (url.pathname.startsWith("/account/admin/")
+      || url.pathname === "/account/notifications/"
+      || websiteWorkspacePaths.has(normalizePath(url.pathname)));
 }
 
 function installWorkspaceStyles(page) {
@@ -319,9 +336,44 @@ function installWorkspaceStyles(page) {
 
 function syncAdminPageClasses(page) {
   const isAdminPageClass = (className) => className.endsWith("-admin-page")
-    || (className.startsWith("admin-") && className.endsWith("-page"));
+    || className.startsWith("admin-")
+    || className.startsWith("website-admin-")
+    || ["portal-loading", "portal-denied", "product-native-admin"].includes(className);
   [...document.body.classList].filter(isAdminPageClass).forEach((className) => document.body.classList.remove(className));
   [...page.body.classList].filter(isAdminPageClass).forEach((className) => document.body.classList.add(className));
+}
+
+function syncAdminPageOverlays(page) {
+  const selector = ":scope > dialog, :scope > .portal-status";
+  document.body.querySelectorAll(selector).forEach((element) => element.remove());
+  page.body.querySelectorAll(selector).forEach((element) => {
+    document.body.append(document.importNode(element, true));
+  });
+}
+
+function websitePageController(page) {
+  const excluded = new Set([
+    "/account/admin/product-shell.js",
+    "/n3xra-admin/website-admin-workspace.js",
+    "/client-portal/portal-shell.js",
+  ]);
+  return [...page.querySelectorAll('script[type="module"][src]')]
+    .map((script) => new URL(script.getAttribute("src"), window.location.origin))
+    .reverse()
+    .find((scriptUrl) => !excluded.has(scriptUrl.pathname));
+}
+
+async function startWebsiteWorkspace(page) {
+  const productShell = await import("/account/admin/product-shell.js?v=10");
+  await productShell.startProductShell();
+  const websiteWorkspace = await import("/n3xra-admin/website-admin-workspace.js?v=10");
+  websiteWorkspace.startWebsiteAdminWorkspace();
+
+  const controllerUrl = websitePageController(page);
+  if (!controllerUrl) throw new Error("This Website Admin page has no controller.");
+  softNavigationSequence += 1;
+  controllerUrl.searchParams.set("admin_view", String(softNavigationSequence));
+  await import(controllerUrl.href);
 }
 
 export async function navigateAdminWorkspace(destination, { history = "push", desktopScrollTop } = {}) {
@@ -330,6 +382,8 @@ export async function navigateAdminWorkspace(destination, { history = "push", de
     window.location.assign(url.href);
     return;
   }
+
+  if (url.href === window.location.href) return;
 
   if (url.pathname === window.location.pathname && url.hash) {
     window.location.hash = url.hash;
@@ -350,7 +404,12 @@ export async function navigateAdminWorkspace(destination, { history = "push", de
   installWorkspaceStyles(page);
   document.body.classList.remove("admin-ready");
   syncAdminPageClasses(page);
-  currentMain.replaceWith(document.importNode(nextMain, true));
+  const importedMain = document.importNode(nextMain, true);
+  const currentNavigation = currentMain.querySelector(":scope > .portal-layout > .portal-nav");
+  const importedNavigation = importedMain.querySelector(":scope > .portal-layout > .portal-nav");
+  if (currentNavigation && importedNavigation) importedNavigation.replaceWith(currentNavigation);
+  currentMain.replaceWith(importedMain);
+  syncAdminPageOverlays(page);
   document.body.dataset.adminView = page.body.dataset.adminView || "";
   document.title = page.title || document.title;
   if (history === "push") window.history.pushState({}, "", url.href);
@@ -358,7 +417,9 @@ export async function navigateAdminWorkspace(destination, { history = "push", de
 
   window.__n3xraAdminSoftNavigation = true;
   try {
-    if (url.pathname === "/account/notifications/") {
+    if (websiteWorkspacePaths.has(normalizePath(url.pathname))) {
+      await startWebsiteWorkspace(page);
+    } else if (url.pathname === "/account/notifications/") {
       const notifications = await import("/account/notifications/notifications.js");
       await notifications.startNotifications();
     } else {
@@ -378,7 +439,7 @@ document.addEventListener("click", (event) => {
     return;
   }
 
-  const link = event.target.closest(".portal-nav a, .site-mobile-menu a");
+  const link = event.target.closest(".portal-nav a, .site-mobile-menu a, .website-organization-navigation a, .website-project-stage-navigation a");
   if (!link || link.target || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
   const url = new URL(link.href, window.location.origin);
   if (link.closest(".site-mobile-menu")) closeMobileMenu();

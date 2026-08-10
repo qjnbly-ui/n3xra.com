@@ -1,4 +1,5 @@
-import { createBrowserSupabase, getConfig, hasConfig } from "/shared/lib/supabase-client.js";
+import { getConfig, hasConfig } from "/shared/lib/supabase-client.js";
+import { getAdminSession } from "/account/admin/admin-session.js?v=2";
 import { adminDialog, confirmAdminAction } from "/account/admin/admin-dialogs.js?v=2";
 import { readWorkspaceContext, writeWorkspaceContext } from "/client-portal/workspace-context.js";
 
@@ -407,16 +408,12 @@ async function runAction(action) {
 
 async function init() {
   if (!hasConfig()) throw new Error("Supabase configuration is missing.");
-  supabase = createBrowserSupabase();
   statusScreen.textContent = "Checking your admin session…";
-  const { data } = await withTimeout(supabase.auth.getSession(), "Your admin session");
-  currentSession = data?.session || null;
-  currentUser = currentSession?.user;
-  if (!currentUser) {
-    window.location.replace("/account/?next=%2Fn3xra-admin%2Frequests%2F");
-    return;
-  }
-  statusScreen.textContent = "Verifying request administration access…";
+  const context = await withTimeout(getAdminSession(), "Your admin session");
+  if (!context.allowed) return;
+  supabase = context.supabase;
+  currentSession = context.session;
+  currentUser = context.user;
   statusScreen.textContent = "Opening website requests…";
   await loadRequests();
 

@@ -1,6 +1,6 @@
-import { createBrowserSupabase, hasConfig } from "/shared/lib/supabase-client.js";
+import { hasConfig } from "/shared/lib/supabase-client.js";
+import { getAdminSession } from "/account/admin/admin-session.js?v=2";
 import { readWorkspaceContext, writeWorkspaceContext } from "/client-portal/workspace-context.js";
-import { verifyPlatformAdmin } from "/client-portal/admin-access.js";
 import { renderPdfFirstPage } from "/shared/lib/file-preview.js";
 import { confirmAdminAction, promptAdminText } from "/account/admin/admin-dialogs.js";
 import { openAssetPreview } from "/client-portal/asset-preview-modal.js?v=1";
@@ -1524,20 +1524,11 @@ async function initWebsiteAdmin() {
     return;
   }
 
-  supabase = createBrowserSupabase();
   try {
-    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-    if (sessionError || !sessionData?.session?.user) {
-      openLogin();
-      return;
-    }
-    currentUser = sessionData.session.user;
-
-    if (!await verifyPlatformAdmin(supabase, currentUser)) {
-      document.body.classList.add("portal-denied");
-      showStatus("You do not have access to website administration.");
-      return;
-    }
+    const context = await getAdminSession();
+    if (!context.allowed) return;
+    supabase = context.supabase;
+    currentUser = context.user;
 
     await loadWebsites();
     document.body.classList.remove("portal-loading");

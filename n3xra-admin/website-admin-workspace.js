@@ -8,6 +8,7 @@ const projectStageRoutes = [
 
 const routeDetails = {
   "/n3xra-admin/websites/": { key: "overview", kicker: "Website Admin", title: "Overview", description: "Managed websites, client access, and connected project workspaces." },
+  "/n3xra-admin/website-portal/": { key: "portal", kicker: "Website Admin", title: "Website Portal", description: "Activate and configure the client-branded website management portal." },
   "/n3xra-admin/services/": { key: "services", kicker: "Website Admin", title: "Services & Ownership", description: "Providers, domains, repositories, renewals, and ownership records." },
   "/n3xra-admin/requests/": { key: "requests", kicker: "Website Admin", title: "Requests", description: "Qualify incoming work before it becomes a proposal or project." },
   "/n3xra-admin/proposals/": { key: "proposals", kicker: "Website Admin", title: "Proposals", description: "Build, review, send, and track client proposals." },
@@ -25,16 +26,13 @@ function directChildren(parent, selector) {
   return [...parent.children].filter((child) => child.matches(selector));
 }
 
-function buildWorkspace(attempt = 0) {
+export function startWebsiteAdminWorkspace() {
   const path = normalizePath(window.location.pathname);
   const details = routeDetails[path];
   if (!details) return;
 
   const main = document.querySelector("main");
-  if (!main?.classList.contains("product-native-page") && attempt < 20) {
-    window.requestAnimationFrame(() => buildWorkspace(attempt + 1));
-    return;
-  }
+  if (!main?.classList.contains("product-native-page")) return;
   document.body.classList.add("website-admin-product", `website-admin-view-${details.key}`);
   main?.classList.add("website-admin-page");
 
@@ -136,4 +134,5 @@ function buildWorkspace(attempt = 0) {
   workspace.replaceChildren(frame);
 }
 
-buildWorkspace();
+document.addEventListener("n3xra:product-shell-ready", startWebsiteAdminWorkspace);
+if (!window.__n3xraAdminSoftNavigation) startWebsiteAdminWorkspace();

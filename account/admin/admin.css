@@ -176,6 +176,11 @@
     padding-bottom: 0.66rem;
   }
 
+  .account-admin-page .portal-nav .is-current {
+    color: #164f48;
+    background: #deefec;
+  }
+
   .account-admin-page .portal-layout > .portal-workspace {
     min-height: calc(100svh - 76px);
     padding: clamp(1.75rem, 4vw, 3.25rem);

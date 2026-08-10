@@ -1,6 +1,6 @@
-import { createBrowserSupabase, hasConfig } from "/shared/lib/supabase-client.js";
+import { hasConfig } from "/shared/lib/supabase-client.js";
+import { getAdminSession } from "/account/admin/admin-session.js?v=2";
 import { readWorkspaceContext, writeWorkspaceContext } from "/client-portal/workspace-context.js";
-import { verifyPlatformAdmin } from "/client-portal/admin-access.js";
 
 const BUCKET = "website-onboarding-private";
 const sectionLabels = {
@@ -237,14 +237,10 @@ async function downloadFile(fileId) {
 
 async function init() {
   if (!hasConfig()) throw new Error("Supabase configuration is missing.");
-  supabase = createBrowserSupabase();
-  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-  if (sessionError || !sessionData?.session?.user) {
-    window.location.replace("/account/?next=%2Fn3xra-admin%2Fonboarding%2F");
-    return;
-  }
-  currentUser = sessionData.session.user;
-  if (!await verifyPlatformAdmin(supabase, currentUser)) throw new Error("You do not have onboarding administration access.");
+  const context = await getAdminSession();
+  if (!context.allowed) return;
+  supabase = context.supabase;
+  currentUser = context.user;
   await loadData();
 
   proposalList.addEventListener("click", (event) => {

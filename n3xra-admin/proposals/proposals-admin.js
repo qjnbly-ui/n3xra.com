@@ -1,6 +1,6 @@
-import { createBrowserSupabase, hasConfig } from "/shared/lib/supabase-client.js";
+import { hasConfig } from "/shared/lib/supabase-client.js";
+import { getAdminSession } from "/account/admin/admin-session.js?v=2";
 import { readWorkspaceContext, writeWorkspaceContext } from "/client-portal/workspace-context.js";
-import { verifyPlatformAdmin } from "/client-portal/admin-access.js";
 
 const statusScreen = document.getElementById("portal-status");
 const requestSelect = document.getElementById("proposal-request-select");
@@ -1137,14 +1137,10 @@ async function prepareBilling() {
 
 async function init() {
   if (!hasConfig()) throw new Error("Supabase configuration is missing.");
-  supabase = createBrowserSupabase();
-  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-  if (sessionError || !sessionData?.session?.user) {
-    window.location.replace("/account/?next=%2Fn3xra-admin%2Fproposals%2F");
-    return;
-  }
-  currentUser = sessionData.session.user;
-  if (!await verifyPlatformAdmin(supabase, currentUser)) throw new Error("You do not have proposal administration access.");
+  const context = await getAdminSession();
+  if (!context.allowed) return;
+  supabase = context.supabase;
+  currentUser = context.user;
 
   await loadData();
   form.addEventListener("submit", saveDraft);

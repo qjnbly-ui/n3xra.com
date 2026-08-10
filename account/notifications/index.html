@@ -16,9 +16,9 @@
   <link rel="stylesheet" href="/n3xra-records/styles.css?v=20260612-modal-system">
   <link rel="stylesheet" href="/account/account.css">
   <link rel="stylesheet" href="/client-portal/portal.css?v=16">
-  <link rel="stylesheet" href="/account/admin/admin.css">
+  <link rel="stylesheet" href="/account/admin/admin.css?v=24">
   <link rel="stylesheet" href="/assets/home-shell.css?v=1">
-  <link rel="stylesheet" href="/account/notifications/notifications.css?v=7">
+  <link rel="stylesheet" href="/account/notifications/notifications.css?v=8">
   <script src="/shared/config.js"></script>
   <script src="/assets/site-nav.js" defer></script>
   <script>
@@ -43,21 +43,7 @@
           </button>
         </div>
       </div>
-      <nav class="site-mobile-menu" id="admin-menu" aria-label="N3XRA administration" hidden>
-        <div class="site-mobile-menu-head">
-          <p class="site-mobile-menu-title">Platform administration</p>
-        </div>
-        <a class="site-menu-link" href="/account">Dashboard</a>
-        <a class="site-menu-link" href="/account/admin/accounts/">Accounts &amp; Access</a>
-        <a class="site-menu-link" href="/account/admin/platform-admins/">Platform Admins</a>
-        <a class="site-menu-link" href="/account/admin/billing/">Billing</a>
-        <a class="site-menu-link" href="/account/admin/support/">Support</a>
-        <a class="site-menu-link is-current" href="/account/notifications/">Platform Notifications</a>
-        <div class="site-mobile-menu-head"><p class="site-mobile-menu-title">Investment</p></div>
-        <a class="site-menu-link" href="/account/admin/investment/#shareholders">Shareholders</a><a class="site-menu-link" href="/account/admin/investment/#share-classes">Share Classes</a><a class="site-menu-link" href="/account/admin/investment/#share-ledger">Share Ledger</a><a class="site-menu-link" href="/account/admin/investment/#board-resolutions">Board Resolutions</a><a class="site-menu-link" href="/account/admin/investment/#dividend-history">Dividend History</a><a class="site-menu-link" href="/account/admin/investment/#cap-table">Cap Table</a><a class="site-menu-link" href="/account/admin/investment/#valuation-history">Company Valuation</a><a class="site-menu-link" href="/account/admin/investment/#vesting">Vesting Schedules</a><a class="site-menu-link" href="/account/admin/investment/#voting">Voting Rights</a><a class="site-menu-link" href="/account/admin/investment/#certificates">Stock Certificates</a><a class="site-menu-link" href="/account/admin/investment/#transfers">Share Transfer Requests</a><a class="site-menu-link" href="/account/admin/investment/#buybacks">Company Buyback Requests</a>
-        <div class="site-mobile-menu-head"><p class="site-mobile-menu-title">Internal resources</p></div>
-        <a class="site-menu-link" href="/account/admin/business-framework/">Business Framework</a><a class="site-menu-link" href="/account/admin/codebase-ai/">Codebase AI</a>
-      </nav>
+      <nav class="site-mobile-menu" id="admin-menu" aria-label="N3XRA administration" hidden></nav>
     </div>
   </header>
 
@@ -72,25 +58,7 @@
     </section>
 
     <section class="portal-layout hidden" id="notification-panel">
-      <nav class="portal-nav" aria-label="Platform notification administration">
-        <p class="portal-nav-label">N3XRA Accounts</p>
-        <a href="/account/admin/accounts/">Accounts &amp; Access</a>
-        <a href="/account/admin/platform-admins/">Platform Admins</a>
-        <a href="/account/admin/billing/">Billing</a>
-        <a href="/account/admin/support/">Support</a>
-        <a class="is-current" href="/account/notifications/">Compose message</a>
-        <div class="portal-nav-divider"></div><p class="portal-nav-label">Investment</p>
-        <a href="/account/admin/investment/#shareholders">Shareholders</a><a href="/account/admin/investment/#share-classes">Share Classes</a><a href="/account/admin/investment/#share-ledger">Share Ledger</a><a href="/account/admin/investment/#board-resolutions">Board Resolutions</a><a href="/account/admin/investment/#dividend-history">Dividend History</a><a href="/account/admin/investment/#cap-table">Cap Table</a><a href="/account/admin/investment/#valuation-history">Company Valuation</a><a href="/account/admin/investment/#vesting">Vesting Schedules</a><a href="/account/admin/investment/#voting">Voting Rights</a><a href="/account/admin/investment/#certificates">Stock Certificates</a><a href="/account/admin/investment/#transfers">Share Transfer Requests</a><a href="/account/admin/investment/#buybacks">Company Buyback Requests</a>
-        <div class="portal-nav-divider"></div>
-        <p class="portal-nav-label">Product admin apps</p>
-        <a href="/n3xra-admin/websites/">Website Admin</a>
-        <a href="/n3xra-admin/records/">Records Admin</a>
-        <a href="/n3xra-admin/utilities/">Utilities Admin</a>
-        <a href="/n3xra-admin/partners/">Partner Admin</a>
-        <div class="portal-nav-divider"></div>
-        <p class="portal-nav-label">Internal resources</p>
-        <a href="/account/admin/business-framework/">Business Framework</a><a class="site-menu-link" href="/account/admin/codebase-ai/">Codebase AI</a>
-      </nav>
+      <nav class="portal-nav" aria-label="Platform notification administration"></nav>
 
       <section class="portal-workspace notification-admin-shell">
         <div class="notification-layout">
@@ -219,6 +187,6 @@
     </div>
   </footer>
 
-  <script type="module" src="/account/notifications/notifications.js?v=8"></script>
+  <script type="module" src="/account/notifications/notifications.js?v=9"></script>
 </body>
 </html>

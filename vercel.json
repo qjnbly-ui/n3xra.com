@@ -5,6 +5,26 @@
   "trailingSlash": false,
   "redirects": [
     {
+      "source": "/admin/applications",
+      "destination": "/account/admin/applications",
+      "permanent": true
+    },
+    {
+      "source": "/n3xra-admin/records",
+      "destination": "/n3xra-admin/records/organizations",
+      "permanent": true
+    },
+    {
+      "source": "/n3xra-virals/web",
+      "destination": "/virals",
+      "permanent": true
+    },
+    {
+      "source": "/n3xra-records/login/",
+      "destination": "/n3xra-records/login",
+      "permanent": true
+    },
+    {
       "source": "/software",
       "destination": "/records",
       "permanent": true
@@ -201,10 +221,6 @@
     {
       "source": "/n3xra-records/account",
       "destination": "/n3xra-records/account/index.html"
-    },
-    {
-      "source": "/n3xra-admin/records",
-      "destination": "/n3xra-admin/records/index.html"
     },
     {
       "source": "/n3xra-admin/utilities",
