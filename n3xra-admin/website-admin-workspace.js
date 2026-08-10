@@ -42,6 +42,9 @@ export function startWebsiteAdminWorkspace() {
   if (details.key === "assets") {
     const manager = workspace.querySelector(":scope > .website-assets-manager");
     if (!manager) return;
+    // The upload drawer is a sibling of the manager. Keep it in the rebuilt
+    // product layout so the Upload images button can reveal and submit it.
+    const uploadDrawer = workspace.querySelector(":scope > #admin-asset-upload-form");
     const frame = document.createElement("div");
     frame.className = "website-admin-frame website-admin-assets-frame";
     const contextLayout = document.createElement("div");
@@ -52,6 +55,7 @@ export function startWebsiteAdminWorkspace() {
     const content = document.createElement("div");
     content.className = "website-admin-content-column";
     content.append(manager);
+    if (uploadDrawer) content.append(uploadDrawer);
     contextLayout.append(contextPanel, content);
     frame.append(contextLayout);
     initializeWebsiteOrganizationContext(contextPanel, { pageKey: details.key }).catch((error) => {

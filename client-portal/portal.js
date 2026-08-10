@@ -226,9 +226,19 @@ function slugifyFilename(filename) {
 }
 
 function keyFromLabel(value) {
-  const words = String(value || "").trim().replace(/[^a-zA-Z0-9]+/g, " ").split(/\s+/).filter(Boolean);
-  if (!words.length) return "";
-  return words[0].toLowerCase() + words.slice(1).map((word) => word[0].toUpperCase() + word.slice(1)).join("");
+  const base = String(value || "asset")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "asset";
+  // Keep this aligned with the N3XRA Files uploader and the database rule.
+  // Filenames such as "12-roots-relics-logo-light.png" cannot begin an
+  // asset key directly because website_assets.asset_key must start with a letter.
+  return /^[a-z]/.test(base) ? base : `file-${base}`;
+}
+
+function isValidAssetKey(value) {
+  return /^[a-z][a-zA-Z0-9._-]*$/.test(String(value || ""));
 }
 
 function uniqueAssetKey(preferredKey, reservedKeys = new Set()) {
@@ -675,6 +685,11 @@ async function uploadAssetVersion(event) {
     : null;
   if (existingKey) {
     setInlineStatus(`Asset key “${existingKey.key}” already exists. Change the key, or use Replace on the existing asset.`, true);
+    return;
+  }
+  const invalidKey = !existingAsset ? items.find((item) => !isValidAssetKey(item.key)) : null;
+  if (invalidKey) {
+    setInlineStatus(`Asset key “${invalidKey.key}” for ${invalidKey.file.name} is invalid. Use a key that starts with a letter and contains only letters, numbers, periods, underscores, or hyphens.`, true);
     return;
   }
 
