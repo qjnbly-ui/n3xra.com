@@ -26,6 +26,7 @@ form?.addEventListener("submit", async (event) => {
     const supabase = createBrowserSupabase(); const session = await getSessionOrNull(supabase); const input = new FormData(form);
     const file = input.get("cv_file"); input.delete("cv_file");
     const values = Object.fromEntries([...input.entries()].map(([key, value]) => [key, clean(value)]));
+    values.information_retention_consent = form.elements.information_retention_consent.checked;
     if (file?.size) {
       if (file.size > 10 * 1024 * 1024 || !allowedFileTypes.has(file.type)) throw new Error("Upload a PDF, DOC, or DOCX file up to 10 MB.");
       const path = `applications/${crypto.randomUUID()}/${safeFilename(file.name)}`;

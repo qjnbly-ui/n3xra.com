@@ -21,9 +21,15 @@
     <label>Availability<input name="availability" placeholder="e.g. 15–20 hrs/week" maxlength="300"></label>
     <label>Portfolio URL<input name="portfolio_url" type="url" placeholder="https://" maxlength="1000"></label>
     <label>GitHub URL<input name="github_url" type="url" placeholder="https://github.com/" maxlength="1000"></label>
+    <label>LinkedIn URL <span>(optional)</span><input name="linkedin_url" type="url" placeholder="https://linkedin.com/in/" maxlength="1000"></label>
+    <label>Current school or company <span>(optional)</span><input name="current_school_company" placeholder="e.g. Portland State University" maxlength="300"></label>
+    <label>Experience level<select name="experience_level" required><option value="student">Student</option><option value="entry_level">Entry level</option><option value="junior">Junior</option><option value="mid_level">Mid-level</option><option value="senior">Senior</option></select></label>
+    <label>Primary technologies / skills <span>(optional · separate with commas)</span><input name="primary_skills" placeholder="React, TypeScript, Python" maxlength="1000"></label>
+    <label>How did you hear about N3XRA? <span>(optional)</span><input name="referral_source" placeholder="e.g. Search, friend, social media" maxlength="300"></label>
     <label>CV / résumé link <span>(optional)</span><input name="cv_url" type="url" placeholder="A shareable Drive, Dropbox, or portfolio link" maxlength="1000"></label>
     <label>Upload CV / résumé <span>(PDF, DOC, or DOCX · 10 MB max)</span><input name="cv_file" type="file" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"></label>
     <label class="form-full">What would you like to contribute?<textarea name="message" required rows="7" maxlength="10000" placeholder="Share your experience, interests, and why you’d like to work with N3XRA."></textarea></label>
+    <label class="form-full consent-field"><input name="information_retention_consent" type="checkbox" required> <span>I agree that N3XRA may retain my application information for consideration for current and future opportunities.</span></label>
   </div><div class="form-actions"><button type="submit">Send application</button><p id="careers-status" role="status"></p></div></form></section></main>
   <script type="module" src="/careers/careers.js"></script>
 </body></html>
