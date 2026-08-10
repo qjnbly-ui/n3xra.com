@@ -4323,6 +4323,21 @@ code.inline {
   display: flex;
 }
 
+.recording-processing-modal {
+  z-index: 75;
+}
+
+.recording-processing-modal .confirm-modal-dialog {
+  width: min(500px, 96vw);
+}
+
+.recording-processing-modal .upload-progress {
+  padding: 1rem;
+  border: 1px solid rgba(23, 111, 102, 0.18);
+  border-radius: 14px;
+  background: rgba(23, 111, 102, 0.05);
+}
+
 .confirm-modal-dialog {
   width: min(460px, 96vw);
   max-height: calc(100vh - 2.4rem);

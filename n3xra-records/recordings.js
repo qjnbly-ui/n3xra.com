@@ -96,6 +96,7 @@ const recorderStateLabel = document.getElementById("recorder-state-label");
 const recorderStateCopy = document.getElementById("recorder-state-copy");
 const recordingDuration = document.getElementById("recording-duration");
 const uploadStateValue = document.getElementById("upload-state-value");
+const recordingProcessingModal = document.getElementById("recording-processing-modal");
 const uploadProgressShell = document.getElementById("upload-progress-shell");
 const uploadProgressCopy = document.getElementById("upload-progress-copy");
 const recordingProcessingProgress = document.getElementById("recording-processing-progress");
@@ -1544,6 +1545,8 @@ function setRecorderState(label, copy) {
 
 function setUploadProgressVisible(isVisible, copy = "") {
   show(uploadProgressShell, isVisible);
+  recordingProcessingModal?.classList.toggle("is-open", isVisible);
+  recordingProcessingModal?.setAttribute("aria-hidden", String(!isVisible));
   if (copy) {
     uploadProgressCopy.textContent = copy;
   } else {
@@ -3079,6 +3082,7 @@ async function reconcileRecordingDurationFromPlayer(recording) {
 async function openRecordingDetail(recordingId) {
   const recording = getRecordingById(recordingId);
   if (!recording) return;
+  setUploadProgressVisible(false);
   activeDetailRecordingId = recording.id;
   populateRecordingDetails(recording);
   clearDetailPlayer();
@@ -4105,6 +4109,7 @@ async function handleSaveStoppedRecording() {
     await loadRecordings();
     await openRecordingDetail(recordingId);
   } catch (error) {
+    setUploadProgressVisible(false);
     setRecorderState("Stopped", "The recording is still available. Try saving again.");
     uploadStateValue.textContent = "Save failed";
     setStatus(recordingStatus, getErrorMessage(error, "Unable to save the meeting note."), "error");
@@ -4166,6 +4171,7 @@ async function handleSaveUploadedRecording() {
     await loadRecordings();
     await openRecordingDetail(createdRecording.id);
   } catch (error) {
+    setUploadProgressVisible(false);
     if (createdRecording?.id) {
       try {
         await updateMeetingRecording(createdRecording.id, {

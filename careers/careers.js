@@ -1,8 +1,39 @@
 import { createBrowserSupabase, getSessionOrNull, hasConfig } from "/shared/lib/supabase-client.js";
 const form = document.querySelector("#careers-form"); const status = document.querySelector("#careers-status");
+const confirmationDialog = document.querySelector("#careers-confirmation");
+const confirmationHeading = document.querySelector("#careers-confirmation-heading");
+const confirmationMessage = document.querySelector("#careers-confirmation-message");
+const confirmationNextStep = document.querySelector("#careers-confirmation-next-step");
 const clean = (value) => String(value || "").trim();
 const allowedFileTypes = new Set(["application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"]);
 const safeFilename = (value) => clean(value).replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 140) || "resume";
+
+function fallbackConfirmation(name) {
+  const firstName = clean(name).split(/\s+/)[0] || "there";
+  return {
+    heading: `Thank you, ${firstName}.`,
+    message: "Your application has been received and is safely in our hands.",
+    next_step: "Our team will review it and contact you by email if there is a next step.",
+  };
+}
+
+async function showConfirmation(applicationId, name) {
+  const fallback = fallbackConfirmation(name);
+  let confirmation = fallback;
+  try {
+    const response = await fetch("/api/careers-submission-confirmation", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ applicationId }),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (response.ok) confirmation = { ...fallback, ...result };
+  } catch (_) {}
+  confirmationHeading.textContent = clean(confirmation.heading) || fallback.heading;
+  confirmationMessage.textContent = clean(confirmation.message) || fallback.message;
+  confirmationNextStep.textContent = clean(confirmation.next_step) || fallback.next_step;
+  confirmationDialog?.showModal();
+}
 
 async function prefillFromAccount() {
   if (!hasConfig()) return;
@@ -34,10 +65,13 @@ form?.addEventListener("submit", async (event) => {
       if (uploadError) throw uploadError;
       values.cv_storage_path = path; values.cv_filename = file.name;
     }
-    const payload = { ...values, account_user_id: session?.user?.id || null, status: "new" };
+    const payload = { id: crypto.randomUUID(), ...values, account_user_id: session?.user?.id || null, status: "new" };
     const { error } = await supabase.from("careers_applications").insert(payload);
     if (error) throw error;
     form.reset(); status.textContent = "Thank you — your application has been received.";
+    await showConfirmation(payload.id, payload.full_name);
   } catch (error) { status.textContent = error.message || "We could not send your application. Please try again."; }
   finally { button.disabled = false; }
 });
+
+document.querySelector("#careers-confirmation-close")?.addEventListener("click", () => confirmationDialog?.close());

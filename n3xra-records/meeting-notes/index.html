@@ -307,13 +307,6 @@
               </div>
             </section>
 
-            <div class="upload-progress hidden" id="upload-progress-shell" aria-live="polite">
-              <div class="upload-progress-bar" id="recording-processing-progress" role="progressbar" aria-label="Meeting processing progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
-                <span class="upload-progress-fill" id="recording-processing-progress-fill"></span>
-              </div>
-              <p class="upload-progress-copy" id="upload-progress-copy">Upload in progress. Do not leave this page until it finishes.</p>
-            </div>
-
             <p class="status" id="recording-status"></p>
             <p class="account-note" id="recorder-state-copy">Ready to create a new meeting note.</p>
 
@@ -609,6 +602,13 @@
         </div>
         <p class="status" id="recording-upload-status"></p>
       </div>
+    </div>
+  </div>
+
+  <div class="confirm-modal recording-processing-modal" id="recording-processing-modal" role="dialog" aria-modal="true" aria-labelledby="recording-processing-title" aria-hidden="true">
+    <div class="confirm-modal-dialog">
+      <div class="confirm-modal-header"><div><p class="confirm-modal-kicker">Meeting note</p><h3 class="confirm-modal-title" id="recording-processing-title">Saving your meeting</h3></div></div>
+      <div class="confirm-modal-body"><p class="confirm-modal-copy">Your audio is being securely uploaded and prepared for review. Keep this page open until it finishes.</p><div class="upload-progress" id="upload-progress-shell" aria-live="polite"><div class="upload-progress-bar" id="recording-processing-progress" role="progressbar" aria-label="Meeting processing progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="upload-progress-fill" id="recording-processing-progress-fill"></span></div><p class="upload-progress-copy" id="upload-progress-copy">Preparing meeting note…</p></div></div>
     </div>
   </div>
 
