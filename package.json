@@ -9,6 +9,7 @@
     "test:receptionist": "node --test tests/receptionist/*.test.mjs",
     "test:records-help": "node --test tests/records-help/*.test.mjs",
     "test:proposal-ai": "node --test tests/website-proposal-ai/*.test.mjs",
+    "test:website-portal": "node --test tests/website-portal/*.test.mjs",
     "build:project-pulse": "node scripts/build-project-pulse.js",
     "build:private-code-index": "node scripts/build-private-code-index.js",
     "refresh:ask-knowledge": "node scripts/build-site-knowledge.js"

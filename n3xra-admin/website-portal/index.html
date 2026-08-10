@@ -1,46 +1,162 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>N3XRA | Website Portal</title><meta name="robots" content="noindex, nofollow, noarchive">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>N3XRA | Website Portal</title>
+  <meta name="robots" content="noindex, nofollow, noarchive">
   <link rel="icon" href="/assets/n3xra_logo_transparent_small.png">
-  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&amp;family=Manrope:wght@400;600;700;800&amp;display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/site-nav.css"><link rel="stylesheet" href="/client-portal/portal.css?v=16">
-  <link rel="stylesheet" href="/account/admin/admin.css?v=24"><link rel="stylesheet" href="/n3xra-admin/website-admin.css?v=6">
+  <link rel="stylesheet" href="/assets/site-nav.css">
+  <link rel="stylesheet" href="/client-portal/portal.css?v=16">
+  <link rel="stylesheet" href="/account/admin/admin.css?v=24">
+  <link rel="stylesheet" href="/n3xra-admin/website-admin.css?v=6">
+  <link rel="stylesheet" href="/n3xra-admin/website-portal/website-portal-admin.css?v=1">
   <script src="/shared/config.js"></script>
   <script type="module" src="/account/admin/product-shell.js?v=10"></script>
   <script type="module" src="/n3xra-admin/website-admin-workspace.js?v=10"></script>
 </head>
 <body class="portal-loading">
-  <header class="site-topbar"><div class="site-topbar-inner"><div class="site-topbar-row"><a class="site-brand" href="/"><img src="/assets/n3xra_logo_transparent_small.png" alt=""><span>N3XRA</span></a><div class="site-nav-actions"><a class="site-menu-link" href="/account/">Dashboard</a><button class="site-menu-link portal-logout" id="portal-logout" type="button">Sign out</button></div></div></div></header>
+  <header class="site-topbar">
+    <div class="site-topbar-inner">
+      <div class="site-topbar-row">
+        <a class="site-brand" href="/"><img src="/assets/n3xra_logo_transparent_small.png" alt=""><span>N3XRA</span></a>
+        <div class="site-nav-actions"><a class="site-menu-link" href="/account/">Dashboard</a><button class="site-menu-link portal-logout" id="portal-logout" type="button">Sign out</button></div>
+      </div>
+    </div>
+  </header>
   <main class="portal-shell">
-    <section class="portal-heading"><div><p class="portal-kicker">Master administration</p><h1>Website Portal</h1><p>Turn on and configure a client-branded website management portal.</p></div></section>
-    <section class="portal-project-picker"><div><p class="portal-kicker">Current workspace</p><h2>Selected website</h2></div><label class="portal-project-select">Website<select class="portal-select" id="portal-website-select"></select></label></section>
+    <section class="portal-heading">
+      <div><p class="portal-kicker">Master administration</p><h1>Website Portal</h1><p>Connect, review, and activate a client-branded website management portal.</p></div>
+    </section>
+    <section class="portal-project-picker">
+      <div><p class="portal-kicker">Current workspace</p><h2>Selected website</h2></div>
+      <label class="portal-project-select">Website<select class="portal-select" id="portal-website-select"></select></label>
+    </section>
     <div class="portal-layout">
       <nav class="portal-nav" aria-label="Website administration"></nav>
       <section class="portal-workspace">
-        <div class="portal-workspace-head"><div><p class="portal-kicker">Portal availability</p><h2 id="portal-site-name">Website Portal</h2><p>Enabling this makes the shared N3XRA management experience available at the client’s management domain.</p></div></div>
-        <form class="portal-form" id="portal-settings-form">
-          <div class="portal-form-grid">
-            <label class="portal-check-row"><input id="portal-enabled" type="checkbox"><span><strong>Enable Website Portal</strong><small>Clients can use the branded portal only after the management domain is connected.</small></span></label>
-            <label>Management domain<input id="portal-domain" type="text" inputmode="url" placeholder="manage.clientwebsite.com"></label>
-            <label>Theme preset<select id="portal-theme"><option value="classic">Classic</option><option value="editorial">Editorial</option><option value="minimal">Minimal</option></select></label>
-            <label>Logo asset<select id="portal-logo-asset"><option value="">Use website name</option></select></label>
-            <label>Favicon asset<select id="portal-favicon-asset"><option value="">Use default favicon</option></select></label>
-            <label>Primary color<input id="portal-primary-color" type="color" value="#17231b"></label>
-            <label>Accent color<input id="portal-accent-color" type="color" value="#b77946"></label>
-            <label>Heading font<input id="portal-heading-font" maxlength="100" value="Fraunces"></label>
-            <label>Body font<input id="portal-body-font" maxlength="100" value="Manrope"></label>
-            <label>Footer label<input id="portal-powered-by" maxlength="100" value="Powered by N3XRA"></label>
+        <div class="portal-workspace-head">
+          <div><p class="portal-kicker">Advanced website options</p><h2 id="portal-site-name">Website Portal</h2><p>Automatic setup uses existing N3XRA website records first, then safely inspects the live site when available.</p></div>
+        </div>
+
+        <div class="website-portal-console" id="portal-console" hidden>
+          <section class="website-portal-summary" aria-labelledby="portal-summary-title">
+            <div class="website-portal-summary-copy">
+              <div class="website-portal-summary-heading">
+                <span class="website-portal-state is-off" id="portal-state">Not active</span>
+                <span class="website-portal-scan-state" id="portal-scan-state">Using saved N3XRA data</span>
+              </div>
+              <p class="portal-kicker">Client management access</p>
+              <h2 id="portal-summary-title">Set up this website portal</h2>
+              <p id="portal-summary-copy">N3XRA will reuse the website, repository, services, files, and branding already associated with this organization.</p>
+              <div class="website-portal-address" id="portal-address" hidden><span>Proposed address</span><strong id="portal-address-value"></strong></div>
+            </div>
+            <div class="website-portal-readiness" aria-label="Portal setup progress">
+              <strong id="portal-readiness-value">0%</strong>
+              <span>setup ready</span>
+              <div class="website-portal-readiness-track"><i id="portal-readiness-bar"></i></div>
+            </div>
+          </section>
+
+          <section class="website-portal-actionbar" aria-label="Website Portal setup actions">
+            <div>
+              <strong id="portal-next-step-title">Reviewing the current setup</strong>
+              <span id="portal-next-step-copy">Connection checks will identify the next required action.</span>
+            </div>
+            <div class="website-portal-action-buttons">
+              <button class="portal-button portal-button-secondary" id="portal-refresh-analysis" type="button">Refresh checks</button>
+              <button class="portal-button" id="portal-auto-configure" type="button">Apply recommended setup</button>
+            </div>
+          </section>
+
+          <div class="website-portal-grid">
+            <section class="website-portal-panel website-portal-connections" aria-labelledby="portal-connections-title">
+              <div class="website-portal-panel-head">
+                <div><p class="portal-kicker">Connected systems</p><h3 id="portal-connections-title">Website infrastructure</h3></div>
+                <span id="portal-connection-count">Checking…</span>
+              </div>
+              <div class="website-portal-connection-list" id="portal-connection-list" aria-live="polite"></div>
+            </section>
+
+            <section class="website-portal-panel website-portal-brand-panel" aria-labelledby="portal-brand-title">
+              <div class="website-portal-panel-head">
+                <div><p class="portal-kicker">Detected branding</p><h3 id="portal-brand-title">Client portal preview</h3></div>
+                <button class="website-portal-text-button" id="portal-open-customize" type="button">Customize</button>
+              </div>
+              <div class="website-portal-brand-preview" id="portal-brand-preview">
+                <div class="website-portal-brand-topbar">
+                  <div class="website-portal-brand-logo"><img id="portal-brand-logo" alt="" hidden><strong id="portal-brand-name">Website</strong></div>
+                  <span>Management portal</span>
+                </div>
+                <div class="website-portal-brand-body">
+                  <small>Welcome back</small>
+                  <strong>Manage your website</strong>
+                  <span>Updates, files, services, and support in one place.</span>
+                  <i></i>
+                </div>
+              </div>
+              <dl class="website-portal-brand-facts">
+                <div><dt>Colors</dt><dd><i id="portal-primary-swatch"></i><i id="portal-accent-swatch"></i><span id="portal-colors-label"></span></dd></div>
+                <div><dt>Type</dt><dd id="portal-fonts-label"></dd></div>
+                <div><dt>Logo</dt><dd id="portal-logo-label"></dd></div>
+              </dl>
+              <p class="website-portal-detection-note" id="portal-detection-note">Branding is generated from approved website files and saved settings.</p>
+            </section>
           </div>
-          <fieldset class="portal-form" style="margin-top:1rem"><legend><strong>Portal sections</strong></legend><div class="portal-form-grid" id="portal-feature-grid"><label><input type="checkbox" value="overview" checked> Overview</label><label><input type="checkbox" value="progress" checked> Progress</label><label><input type="checkbox" value="files_assets" checked> Files &amp; Assets</label><label><input type="checkbox" value="services" checked> Services</label><label><input type="checkbox" value="billing" checked> Billing</label><label><input type="checkbox" value="support" checked> Support</label></div></fieldset>
-          <div class="portal-form-actions"><button class="portal-button" type="submit">Save Website Portal</button><p class="portal-inline-status" id="portal-settings-status" role="status"></p></div>
-        </form>
+
+          <section class="website-portal-panel website-portal-features" aria-labelledby="portal-features-title">
+            <div class="website-portal-panel-head">
+              <div><p class="portal-kicker">Client experience</p><h3 id="portal-features-title">Portal sections</h3><p>Choose what clients can see after they sign in. These controls do not grant access to other organizations.</p></div>
+            </div>
+            <div class="website-portal-feature-grid" id="portal-feature-grid">
+              <label><span><strong>Overview</strong><small>Website summary and current status</small></span><input type="checkbox" value="overview" checked><i></i></label>
+              <label><span><strong>Progress</strong><small>Project milestones and updates</small></span><input type="checkbox" value="progress" checked><i></i></label>
+              <label><span><strong>Files &amp; Assets</strong><small>Approved uploads and website media</small></span><input type="checkbox" value="files_assets" checked><i></i></label>
+              <label><span><strong>Services</strong><small>Domains, hosting, and ownership</small></span><input type="checkbox" value="services" checked><i></i></label>
+              <label><span><strong>Billing</strong><small>Charges, invoices, and subscriptions</small></span><input type="checkbox" value="billing" checked><i></i></label>
+              <label><span><strong>Support</strong><small>Requests and N3XRA assistance</small></span><input type="checkbox" value="support" checked><i></i></label>
+            </div>
+          </section>
+
+          <details class="website-portal-panel website-portal-customize" id="portal-customize">
+            <summary><span><span class="portal-kicker">Optional overrides</span><strong>Customize portal branding and domain</strong><small>Recommended values are filled automatically. Change only what should differ from the website.</small></span><i aria-hidden="true"></i></summary>
+            <form id="portal-settings-form">
+              <div class="website-portal-form-grid">
+                <label>Management domain<input id="portal-domain" type="text" inputmode="url" autocomplete="off" placeholder="manage.clientwebsite.com"><small>The proposed management subdomain can be changed before activation.</small></label>
+                <label>Theme preset<select id="portal-theme"><option value="classic">Classic</option><option value="editorial">Editorial</option><option value="minimal">Minimal</option></select><small>Controls portal component styling, not the public website.</small></label>
+                <label>Logo asset<select id="portal-logo-asset"><option value="">Use website name</option></select><small>Approved website assets are available here automatically.</small></label>
+                <label>Favicon asset<select id="portal-favicon-asset"><option value="">Use default favicon</option></select><small>Used in the management portal browser tab.</small></label>
+                <label>Primary color<span class="website-portal-color-control"><input id="portal-primary-color" type="color" value="#17231b"><input id="portal-primary-color-text" type="text" value="#17231b" maxlength="7" pattern="#[0-9A-Fa-f]{6}"></span></label>
+                <label>Accent color<span class="website-portal-color-control"><input id="portal-accent-color" type="color" value="#b77946"><input id="portal-accent-color-text" type="text" value="#b77946" maxlength="7" pattern="#[0-9A-Fa-f]{6}"></span></label>
+                <label>Heading font<input id="portal-heading-font" maxlength="100" value="Fraunces"></label>
+                <label>Body font<input id="portal-body-font" maxlength="100" value="Manrope"></label>
+                <label class="website-portal-form-wide">Footer label<input id="portal-powered-by" maxlength="100" value="Powered by N3XRA"><small>Leave blank if the client’s plan does not display a provider label.</small></label>
+              </div>
+              <div class="website-portal-form-actions"><button class="portal-button portal-button-secondary" type="submit">Save overrides</button><button class="website-portal-text-button" id="portal-reset-recommendations" type="button">Restore recommendations</button></div>
+            </form>
+          </details>
+
+          <section class="website-portal-activation" aria-labelledby="portal-activation-title">
+            <div>
+              <p class="portal-kicker">Activation</p>
+              <h3 id="portal-activation-title">Keep the portal controlled until it is ready</h3>
+              <p id="portal-activation-copy">Apply the setup and resolve required checks before making client-branded access available.</p>
+            </div>
+            <div class="website-portal-activation-actions"><button class="portal-button" id="portal-activate" type="button" disabled>Activate Website Portal</button><button class="portal-button portal-button-secondary" id="portal-deactivate" type="button" hidden>Deactivate</button></div>
+          </section>
+
+          <p class="portal-inline-status website-portal-status" id="portal-settings-status" role="status" aria-live="polite"></p>
+        </div>
+
+        <div class="website-portal-empty" id="portal-empty" hidden><h2>No managed website selected</h2><p>Create or select a website record before configuring its client portal.</p><a class="portal-button" href="/n3xra-admin/websites/">Open Website Overview</a></div>
       </section>
     </div>
   </main>
-  <div class="portal-status" id="portal-status" role="status">Opening Website Portal settings…</div>
-  <script type="module" src="/client-portal/portal-shell.js"></script><script type="module" src="/n3xra-admin/website-portal/website-portal-admin.js"></script>
+  <div class="portal-status" id="portal-status" role="status">Opening Website Portal setup…</div>
+  <script type="module" src="/client-portal/portal-shell.js"></script>
+  <script type="module" src="/n3xra-admin/website-portal/website-portal-admin.js?v=2"></script>
 </body>
 </html>
