@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>A website preview for Jennifer | N3XRA</title>
+  <meta name="description" content="A personal preview of the current progress on the Roots & Relics Greenhouse website.">
+  <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
+  <meta name="referrer" content="no-referrer">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Jennifer, I wanted to share this with you">
+  <meta property="og:description" content="Here is the current progress on the Roots & Relics Greenhouse website.">
+  <meta property="og:url" content="https://www.n3xra.com/jennifer/">
+  <meta property="og:image" content="https://www.n3xra.com/jennifer/og.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="A personal N3XRA website preview for Jennifer">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Jennifer, I wanted to share this with you">
+  <meta name="twitter:description" content="Here is the current progress on the Roots & Relics Greenhouse website.">
+  <meta name="twitter:image" content="https://www.n3xra.com/jennifer/og.png">
+  <link rel="icon" type="image/png" sizes="284x284" href="/assets/n3xra_logo_transparent_small.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&amp;family=Manrope:wght@400;600;700;800&amp;display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: Manrope, ui-sans-serif, system-ui, sans-serif;
+      background: #050a12;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      min-height: 100%;
+      margin: 0;
+    }
+
+    body {
+      overflow: hidden;
+      color: #fff;
+      background: #050a12;
+    }
+
+    button {
+      font: inherit;
+    }
+
+    .intro {
+      position: fixed;
+      z-index: 2;
+      inset: 0;
+      display: grid;
+      min-height: 100vh;
+      min-height: 100svh;
+      place-items: center;
+      padding: clamp(1.5rem, 5vw, 4rem);
+      overflow: hidden;
+      background:
+        radial-gradient(42rem 30rem at 12% 15%, rgba(36, 207, 235, 0.18), transparent 68%),
+        radial-gradient(38rem 30rem at 90% 82%, rgba(55, 104, 231, 0.16), transparent 70%),
+        #050a12;
+      transition: opacity 700ms ease, visibility 700ms ease;
+    }
+
+    .intro::before {
+      position: absolute;
+      width: min(70vw, 720px);
+      aspect-ratio: 1;
+      border: 1px solid rgba(168, 239, 255, 0.08);
+      border-radius: 50%;
+      box-shadow:
+        0 0 0 70px rgba(168, 239, 255, 0.018),
+        0 0 0 150px rgba(168, 239, 255, 0.012);
+      content: "";
+      animation: breathe 7s ease-in-out infinite;
+    }
+
+    .intro-card {
+      position: relative;
+      z-index: 1;
+      width: min(100%, 820px);
+      text-align: center;
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.7rem;
+      margin-bottom: clamp(2rem, 7vh, 4.5rem);
+      color: rgba(255, 255, 255, 0.88);
+      font-size: 0.82rem;
+      font-weight: 800;
+      letter-spacing: 0.22em;
+      opacity: 0;
+      text-transform: uppercase;
+      animation: rise-in 700ms 250ms ease forwards;
+    }
+
+    .brand img {
+      width: 2rem;
+      height: 2rem;
+      object-fit: contain;
+    }
+
+    .eyebrow {
+      margin: 0 0 1.1rem;
+      color: #a8efff;
+      font-size: clamp(0.72rem, 1.8vw, 0.86rem);
+      font-weight: 800;
+      letter-spacing: 0.2em;
+      opacity: 0;
+      text-transform: uppercase;
+      animation: rise-in 700ms 700ms ease forwards;
+    }
+
+    h1 {
+      max-width: 760px;
+      margin: 0 auto;
+      font-family: Fraunces, Georgia, serif;
+      font-size: clamp(2.65rem, 8vw, 6.2rem);
+      font-weight: 600;
+      letter-spacing: -0.045em;
+      line-height: 0.96;
+      opacity: 0;
+      text-wrap: balance;
+      animation: rise-in 850ms 1.05s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+
+    .message {
+      max-width: 620px;
+      margin: clamp(1.4rem, 4vh, 2.2rem) auto 0;
+      color: rgba(255, 255, 255, 0.7);
+      font-size: clamp(1rem, 2.6vw, 1.3rem);
+      line-height: 1.65;
+      opacity: 0;
+      text-wrap: balance;
+      animation: rise-in 750ms 1.65s ease forwards;
+    }
+
+    .actions {
+      display: grid;
+      gap: 0.9rem;
+      justify-items: center;
+      margin-top: clamp(2rem, 6vh, 3.4rem);
+      opacity: 0;
+      animation: rise-in 700ms 2.2s ease forwards;
+    }
+
+    .preview-button {
+      min-width: min(100%, 290px);
+      padding: 1rem 1.5rem;
+      border: 1px solid rgba(168, 239, 255, 0.52);
+      border-radius: 999px;
+      color: #051016;
+      background: linear-gradient(135deg, #d8faff, #86e9fb);
+      box-shadow: 0 18px 55px rgba(36, 207, 235, 0.18);
+      cursor: pointer;
+      font-weight: 800;
+      transition: transform 180ms ease, box-shadow 180ms ease;
+    }
+
+    .preview-button:hover {
+      box-shadow: 0 22px 65px rgba(36, 207, 235, 0.26);
+      transform: translateY(-2px);
+    }
+
+    .preview-button:focus-visible,
+    .preview-back:focus-visible {
+      outline: 3px solid #fff;
+      outline-offset: 4px;
+    }
+
+    .auto-note {
+      margin: 0;
+      color: rgba(255, 255, 255, 0.38);
+      font-size: 0.76rem;
+      letter-spacing: 0.04em;
+    }
+
+    .preview {
+      position: fixed;
+      z-index: 1;
+      inset: 0;
+      background: #fff;
+    }
+
+    .preview iframe {
+      display: block;
+      width: 100%;
+      height: 100%;
+      border: 0;
+      background: #fff;
+    }
+
+    .preview-back {
+      position: fixed;
+      z-index: 3;
+      top: max(0.9rem, env(safe-area-inset-top));
+      left: max(0.9rem, env(safe-area-inset-left));
+      padding: 0.65rem 0.9rem;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 999px;
+      color: #fff;
+      background: rgba(5, 10, 18, 0.82);
+      backdrop-filter: blur(12px);
+      cursor: pointer;
+      font-size: 0.75rem;
+      font-weight: 800;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(-6px);
+      transition: opacity 180ms ease, transform 180ms ease;
+    }
+
+    .is-previewing .intro {
+      opacity: 0;
+      visibility: hidden;
+    }
+
+    .is-previewing .preview-back {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateY(0);
+    }
+
+    @keyframes rise-in {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes breathe {
+      0%, 100% { opacity: 0.7; transform: scale(0.96); }
+      50% { opacity: 1; transform: scale(1.04); }
+    }
+
+    @media (max-width: 560px) {
+      .brand {
+        margin-bottom: 2.8rem;
+      }
+
+      .message br {
+        display: none;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        scroll-behavior: auto !important;
+        animation-duration: 1ms !important;
+        animation-delay: 0ms !important;
+        transition-duration: 1ms !important;
+      }
+
+      .auto-note {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="intro" aria-labelledby="welcome-title">
+      <div class="intro-card">
+        <div class="brand"><img src="/assets/n3xra_logo_transparent_small.png" alt=""><span>N3XRA</span></div>
+        <p class="eyebrow">A personal preview</p>
+        <h1 id="welcome-title">Hey Jennifer,</h1>
+        <p class="message">I wanted to share this with you. Here is the current progress on the Roots &amp; Relics Greenhouse website.</p>
+        <div class="actions">
+          <button class="preview-button" id="view-preview" type="button">View the current progress</button>
+          <p class="auto-note" id="auto-note">Opening the preview shortly…</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="preview" aria-label="Roots and Relics Greenhouse website preview">
+      <iframe
+        id="site-preview"
+        title="Current Roots and Relics Greenhouse website preview"
+        data-src="https://rootsandrelicsgreenhouse-com.vercel.app/"
+        referrerpolicy="no-referrer"
+      ></iframe>
+      <button class="preview-back" id="back-to-intro" type="button" aria-label="Return to Jennifer's introduction">← N3XRA intro</button>
+    </section>
+  </main>
+
+  <script>
+    (() => {
+      const body = document.body;
+      const preview = document.getElementById("site-preview");
+      const viewButton = document.getElementById("view-preview");
+      const backButton = document.getElementById("back-to-intro");
+      const autoNote = document.getElementById("auto-note");
+      const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      let timer = null;
+
+      function loadPreview() {
+        if (!preview.getAttribute("src")) preview.src = preview.dataset.src;
+      }
+
+      function showPreview({ updateHistory = true } = {}) {
+        clearTimeout(timer);
+        loadPreview();
+        body.classList.add("is-previewing");
+        if (updateHistory && window.location.hash !== "#preview") {
+          history.pushState({ preview: true }, "", "#preview");
+        }
+      }
+
+      function showIntro({ updateHistory = true } = {}) {
+        clearTimeout(timer);
+        body.classList.remove("is-previewing");
+        if (updateHistory && window.location.hash) {
+          history.pushState({}, "", window.location.pathname + window.location.search);
+        }
+        viewButton.focus({ preventScroll: true });
+      }
+
+      viewButton.addEventListener("click", () => showPreview());
+      backButton.addEventListener("click", () => showIntro());
+
+      window.addEventListener("popstate", () => {
+        if (window.location.hash === "#preview") showPreview({ updateHistory: false });
+        else showIntro({ updateHistory: false });
+      });
+
+      if (window.location.hash === "#preview") {
+        showPreview({ updateHistory: false });
+      } else if (!reduceMotion) {
+        timer = window.setTimeout(() => showPreview(), 7200);
+      } else {
+        autoNote.hidden = true;
+      }
+    })();
+  </script>
+</body>
+</html>
