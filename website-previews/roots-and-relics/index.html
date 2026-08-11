@@ -3,22 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>A website preview for Jennifer | N3XRA</title>
+  <title>Roots &amp; Relics Greenhouse Website Preview | N3XRA</title>
   <meta name="description" content="A personal preview of the current progress on the Roots & Relics Greenhouse website.">
   <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
   <meta name="referrer" content="no-referrer">
   <meta property="og:type" content="website">
-  <meta property="og:title" content="Jennifer, I wanted to share this with you">
+  <meta property="og:title" content="Roots &amp; Relics Greenhouse Website Preview">
   <meta property="og:description" content="Here is the current progress on the Roots & Relics Greenhouse website.">
-  <meta property="og:url" content="https://www.n3xra.com/jennifer/">
-  <meta property="og:image" content="https://www.n3xra.com/jennifer/og.png">
-  <meta property="og:image:width" content="1200">
-  <meta property="og:image:height" content="630">
-  <meta property="og:image:alt" content="A personal N3XRA website preview for Jennifer">
-  <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="Jennifer, I wanted to share this with you">
+  <meta property="og:url" content="https://www.n3xra.com/website-previews/roots-and-relics/">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Roots &amp; Relics Greenhouse Website Preview">
   <meta name="twitter:description" content="Here is the current progress on the Roots & Relics Greenhouse website.">
-  <meta name="twitter:image" content="https://www.n3xra.com/jennifer/og.png">
   <link rel="icon" type="image/png" sizes="284x284" href="/assets/n3xra_logo_transparent_small.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -68,19 +63,6 @@
       transition: opacity 700ms ease, visibility 700ms ease;
     }
 
-    .intro::before {
-      position: absolute;
-      width: min(70vw, 720px);
-      aspect-ratio: 1;
-      border: 1px solid rgba(168, 239, 255, 0.08);
-      border-radius: 50%;
-      box-shadow:
-        0 0 0 70px rgba(168, 239, 255, 0.018),
-        0 0 0 150px rgba(168, 239, 255, 0.012);
-      content: "";
-      animation: breathe 7s ease-in-out infinite;
-    }
-
     .intro-card {
       position: relative;
       z-index: 1;
@@ -91,10 +73,10 @@
     .brand {
       display: inline-flex;
       align-items: center;
-      gap: 0.7rem;
+      gap: 1.8rem;
       margin-bottom: clamp(2rem, 7vh, 4.5rem);
       color: rgba(255, 255, 255, 0.88);
-      font-size: 0.82rem;
+      font-size: 2rem;
       font-weight: 800;
       letter-spacing: 0.22em;
       opacity: 0;
@@ -103,8 +85,8 @@
     }
 
     .brand img {
-      width: 2rem;
-      height: 2rem;
+      width: 6.5rem;
+      height: 6.5rem;
       object-fit: contain;
     }
 
@@ -122,11 +104,11 @@
     h1 {
       max-width: 760px;
       margin: 0 auto;
-      font-family: Fraunces, Georgia, serif;
-      font-size: clamp(2.65rem, 8vw, 6.2rem);
-      font-weight: 600;
-      letter-spacing: -0.045em;
-      line-height: 0.96;
+      font-family: Manrope, ui-sans-serif, system-ui, sans-serif;
+      font-size: clamp(2.5rem, 7.2vw, 5.6rem);
+      font-weight: 700;
+      letter-spacing: -0.055em;
+      line-height: 1;
       opacity: 0;
       text-wrap: balance;
       animation: rise-in 850ms 1.05s cubic-bezier(0.22, 1, 0.36, 1) forwards;
@@ -170,8 +152,7 @@
       transform: translateY(-2px);
     }
 
-    .preview-button:focus-visible,
-    .preview-back:focus-visible {
+    .preview-button:focus-visible {
       outline: 3px solid #fff;
       outline-offset: 4px;
     }
@@ -198,45 +179,14 @@
       background: #fff;
     }
 
-    .preview-back {
-      position: fixed;
-      z-index: 3;
-      top: max(0.9rem, env(safe-area-inset-top));
-      left: max(0.9rem, env(safe-area-inset-left));
-      padding: 0.65rem 0.9rem;
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      border-radius: 999px;
-      color: #fff;
-      background: rgba(5, 10, 18, 0.82);
-      backdrop-filter: blur(12px);
-      cursor: pointer;
-      font-size: 0.75rem;
-      font-weight: 800;
-      opacity: 0;
-      pointer-events: none;
-      transform: translateY(-6px);
-      transition: opacity 180ms ease, transform 180ms ease;
-    }
-
     .is-previewing .intro {
       opacity: 0;
       visibility: hidden;
     }
 
-    .is-previewing .preview-back {
-      opacity: 1;
-      pointer-events: auto;
-      transform: translateY(0);
-    }
-
     @keyframes rise-in {
       from { opacity: 0; transform: translateY(20px); }
       to { opacity: 1; transform: translateY(0); }
-    }
-
-    @keyframes breathe {
-      0%, 100% { opacity: 0.7; transform: scale(0.96); }
-      50% { opacity: 1; transform: scale(1.04); }
     }
 
     @media (max-width: 560px) {
@@ -285,7 +235,6 @@
         data-src="https://rootsandrelicsgreenhouse-com.vercel.app/"
         referrerpolicy="no-referrer"
       ></iframe>
-      <button class="preview-back" id="back-to-intro" type="button" aria-label="Return to Jennifer's introduction">← N3XRA intro</button>
     </section>
   </main>
 
@@ -294,7 +243,6 @@
       const body = document.body;
       const preview = document.getElementById("site-preview");
       const viewButton = document.getElementById("view-preview");
-      const backButton = document.getElementById("back-to-intro");
       const autoNote = document.getElementById("auto-note");
       const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       let timer = null;
@@ -322,7 +270,6 @@
       }
 
       viewButton.addEventListener("click", () => showPreview());
-      backButton.addEventListener("click", () => showIntro());
 
       window.addEventListener("popstate", () => {
         if (window.location.hash === "#preview") showPreview({ updateHistory: false });
