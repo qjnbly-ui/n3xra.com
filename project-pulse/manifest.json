@@ -2,39 +2,43 @@
   "schemaVersion": 1,
   "name": "N3XRA Project Pulse",
   "visibility": "public-safe",
-  "generatedAt": "2026-08-05T20:15:50.786Z",
-  "updatedAt": "2026-08-05T12:24:58-07:00",
-  "commit": "80fde5e",
+  "generatedAt": "2026-08-11T06:22:08.020Z",
+  "updatedAt": "2026-08-10T10:21:12-07:00",
+  "commit": "1443f2f",
   "summary": {
-    "statement": "N3XRA is a connected technology platform comprising approximately 148,000 lines of source code across customer experiences, software products, APIs, database systems, administrative tools, and operational infrastructure.",
-    "sourceFiles": 436,
-    "sourceLines": 148291,
+    "statement": "N3XRA is a connected technology platform comprising approximately 162,000 lines of source code across customer experiences, software products, APIs, database systems, administrative tools, and operational infrastructure.",
+    "sourceFiles": 497,
+    "sourceLines": 162384,
     "products": 7,
-    "pages": 99,
-    "apiFunctions": 61,
+    "pages": 101,
+    "apiFunctions": 65,
     "edgeFunctions": 22,
-    "databaseMigrations": 105
+    "databaseMigrations": 124
   },
   "sourceBreakdown": {
     "css": {
-      "files": 27,
-      "lines": 32913
+      "files": 36,
+      "lines": 35367
     },
     "html": {
-      "files": 99,
-      "lines": 28989
+      "files": 101,
+      "lines": 29565
     },
     "js": {
-      "files": 172,
-      "lines": 62748
+      "files": 201,
+      "lines": 70535
     },
     "sql": {
-      "files": 113,
-      "lines": 15297
+      "files": 132,
+      "lines": 17226
     },
     "ts": {
-      "files": 25,
-      "lines": 8344
+      "files": 26,
+      "lines": 9193
+    },
+    "tsx": {
+      "files": 1,
+      "lines": 498
     }
   },
   "products": [
@@ -42,7 +46,7 @@
       "id": "websites",
       "name": "Websites & Client Services",
       "route": "/services/",
-      "summary": "Custom websites, project intake, proposals, onboarding, delivery, billing, and ongoing client service."
+      "summary": "Custom websites, project intake, AI-assisted proposals, onboarding, branded client portals, asset delivery, billing, and ongoing client service."
     },
     {
       "id": "records",
@@ -78,7 +82,7 @@
       "id": "company",
       "name": "N3XRA Company Platform",
       "route": "/account/",
-      "summary": "Shared identity, customer dashboards, billing, support, AI receptionist, transactional messaging, governance planning, and platform administration."
+      "summary": "Shared identity, customer dashboards, billing, support, AI receptionist, transactional messaging, careers, governance planning, and web and mobile administration."
     }
   ],
   "majorModules": [
@@ -86,6 +90,7 @@
     "Customer and organization dashboards",
     "Administrative workspaces",
     "Website project lifecycle",
+    "Website portals and asset delivery",
     "Records and document systems",
     "Phone-connected meeting workflows",
     "Speaker-aware meeting transcription",
@@ -94,9 +99,95 @@
     "Partner and referral programs",
     "AI receptionist, messaging, and support",
     "AI-assisted workflows",
+    "Careers and applicant management",
     "Company governance planning"
   ],
   "recentCapabilities": [
+    {
+      "date": "2026-08-10",
+      "title": "Clearer meeting upload and processing",
+      "summary": "N3XRA Records now gives users a focused, progress-aware save experience while uploaded or recorded meeting audio is securely prepared for review."
+    },
+    {
+      "date": "2026-08-10",
+      "title": "Careers and applicant workspace",
+      "summary": "N3XRA now accepts structured career applications, optional résumés, and account-linked applicant details, then organizes submissions, notes, statuses, and follow-up in a dedicated talent workspace."
+    },
+    {
+      "date": "2026-08-09",
+      "title": "Branded website management portals",
+      "summary": "Website clients can receive a management portal configured from their project context, with recommended branding, theme controls, approved logos and favicons, readiness checks, and controlled activation."
+    },
+    {
+      "date": "2026-08-09",
+      "title": "Connected website asset libraries",
+      "summary": "Website files and approved assets now move through shared, live-updating libraries with previews, organized uploads, optimized CDN delivery, and clearer access for clients and administrators."
+    },
+    {
+      "date": "2026-08-09",
+      "title": "Unified N3XRA administration",
+      "summary": "Company and product administration now share a more consistent account-connected workspace for customers, websites, applications, billing, support, operations, analytics, and platform access."
+    },
+    {
+      "date": "2026-08-09",
+      "title": "Review-first website proposals and agreements",
+      "summary": "Website proposals now move through a clearer onboarding-first drafting, revision, email preview, client approval, agreement, and billing-preparation workflow."
+    },
+    {
+      "date": "2026-08-09",
+      "title": "Targeted customer update messaging",
+      "summary": "N3XRA administrators can prepare, preview, and send product-aware updates to selected customer audiences through account notifications or email."
+    },
+    {
+      "date": "2026-08-08",
+      "title": "Human-reviewed Proposal AI",
+      "summary": "Proposal AI can draft an entire website agreement or improve individual sections from approved intake, onboarding, project, and asset context, while keeping every suggested change subject to human review."
+    },
+    {
+      "date": "2026-08-08",
+      "title": "Precision-first speaker identification",
+      "summary": "Records speaker identification now favors verified matches over uncertain guesses, reducing false assignments while preserving the human correction workflow."
+    },
+    {
+      "date": "2026-08-08",
+      "title": "Mobile admin notifications with scoped review access",
+      "summary": "N3XRA added a mobile administration experience for secure notifications and introduced isolated reviewer access for approved app-review workflows."
+    },
+    {
+      "date": "2026-08-07",
+      "title": "Guided website onboarding",
+      "summary": "Website customers now move through a focused, progress-aware onboarding workspace covering business details, brand direction, content, technical needs, legal and launch requirements, files, and final review."
+    },
+    {
+      "date": "2026-08-07",
+      "title": "Private business information workspace",
+      "summary": "Authorized administrators can keep frequently used company identifiers, registration details, filing contacts, and supporting N3XRA Files together in one protected company record."
+    },
+    {
+      "date": "2026-08-07",
+      "title": "Rebuilt website client workspace",
+      "summary": "Website services, progress, proposals, onboarding, assets, billing, renewals, and support now share one selected-project context and a more consistent client portal experience."
+    },
+    {
+      "date": "2026-08-07",
+      "title": "More resilient website request management",
+      "summary": "The website project pipeline can now recover completed intake details, surface requests through the protected admin workflow, and remove recoverable intake records when appropriate."
+    },
+    {
+      "date": "2026-08-07",
+      "title": "N3XRA Files and CDN publishing",
+      "summary": "A new internal file workspace supports multi-file and folder uploads, nested navigation, search, previews, approvals, downloads, and controlled publishing of approved assets to the N3XRA CDN."
+    },
+    {
+      "date": "2026-08-05",
+      "title": "A more focused administration inbox",
+      "summary": "Administrative notifications now prioritize decisions, exceptions, account changes, support requests, and items that need review while reducing routine activity noise."
+    },
+    {
+      "date": "2026-08-05",
+      "title": "Shared Records workspace for administration",
+      "summary": "Authorized platform administrators can open a shared N3XRA Records workspace directly from their account while keeping product oversight tools separate."
+    },
     {
       "date": "2026-08-05",
       "title": "Interruption-aware AI receptionist",
@@ -283,7 +374,7 @@
       {
         "id": "experiences",
         "name": "Public experiences",
-        "description": "Websites, product pages, project discovery, forms, AI phone reception, messaging, support, and Ask N3XRA."
+        "description": "Websites, product pages, project discovery, careers, forms, AI phone reception, messaging, support, and Ask N3XRA."
       },
       {
         "id": "accounts",
@@ -293,12 +384,12 @@
       {
         "id": "products",
         "name": "Products & workflows",
-        "description": "Records, utilities, websites, Virals, music, partners, and company operations."
+        "description": "Records, utilities, websites, branded client portals, Virals, music, partners, and company operations."
       },
       {
         "id": "operations",
         "name": "Administration",
-        "description": "Product-specific and company-wide tools support accounts, billing, service, customer communications, and planning."
+        "description": "Web and mobile tools support accounts, billing, service, customer communications, files, careers, analytics, and planning."
       },
       {
         "id": "infrastructure",

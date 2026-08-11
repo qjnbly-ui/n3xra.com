@@ -21,7 +21,7 @@ const PRODUCTS = [
     id: "websites",
     name: "Websites & Client Services",
     route: "/services/",
-    summary: "Custom websites, project intake, proposals, onboarding, delivery, billing, and ongoing client service.",
+    summary: "Custom websites, project intake, AI-assisted proposals, onboarding, branded client portals, asset delivery, billing, and ongoing client service.",
   },
   {
     id: "records",
@@ -57,7 +57,7 @@ const PRODUCTS = [
     id: "company",
     name: "N3XRA Company Platform",
     route: "/account/",
-    summary: "Shared identity, customer dashboards, billing, support, AI receptionist, transactional messaging, governance planning, and platform administration.",
+    summary: "Shared identity, customer dashboards, billing, support, AI receptionist, transactional messaging, careers, governance planning, and web and mobile administration.",
   },
 ];
 
@@ -66,6 +66,7 @@ const MAJOR_MODULES = [
   "Customer and organization dashboards",
   "Administrative workspaces",
   "Website project lifecycle",
+  "Website portals and asset delivery",
   "Records and document systems",
   "Phone-connected meeting workflows",
   "Speaker-aware meeting transcription",
@@ -74,12 +75,115 @@ const MAJOR_MODULES = [
   "Partner and referral programs",
   "AI receptionist, messaging, and support",
   "AI-assisted workflows",
+  "Careers and applicant management",
   "Company governance planning",
 ];
 
 const RECENT_CAPABILITIES = [
   {
-    introducedBy: "80fde5e",
+    introducedBy: "b072cc8",
+    date: "2026-08-10",
+    title: "Clearer meeting upload and processing",
+    summary: "N3XRA Records now gives users a focused, progress-aware save experience while uploaded or recorded meeting audio is securely prepared for review.",
+  },
+  {
+    introducedBy: "16e2293",
+    date: "2026-08-10",
+    title: "Careers and applicant workspace",
+    summary: "N3XRA now accepts structured career applications, optional résumés, and account-linked applicant details, then organizes submissions, notes, statuses, and follow-up in a dedicated talent workspace.",
+  },
+  {
+    introducedBy: "2d30545",
+    date: "2026-08-09",
+    title: "Branded website management portals",
+    summary: "Website clients can receive a management portal configured from their project context, with recommended branding, theme controls, approved logos and favicons, readiness checks, and controlled activation.",
+  },
+  {
+    introducedBy: "b436625",
+    date: "2026-08-09",
+    title: "Connected website asset libraries",
+    summary: "Website files and approved assets now move through shared, live-updating libraries with previews, organized uploads, optimized CDN delivery, and clearer access for clients and administrators.",
+  },
+  {
+    introducedBy: "a7fe222",
+    date: "2026-08-09",
+    title: "Unified N3XRA administration",
+    summary: "Company and product administration now share a more consistent account-connected workspace for customers, websites, applications, billing, support, operations, analytics, and platform access.",
+  },
+  {
+    introducedBy: "27d0a67",
+    date: "2026-08-09",
+    title: "Review-first website proposals and agreements",
+    summary: "Website proposals now move through a clearer onboarding-first drafting, revision, email preview, client approval, agreement, and billing-preparation workflow.",
+  },
+  {
+    introducedBy: "877cacb",
+    date: "2026-08-09",
+    title: "Targeted customer update messaging",
+    summary: "N3XRA administrators can prepare, preview, and send product-aware updates to selected customer audiences through account notifications or email.",
+  },
+  {
+    introducedBy: "d53da2e",
+    date: "2026-08-08",
+    title: "Human-reviewed Proposal AI",
+    summary: "Proposal AI can draft an entire website agreement or improve individual sections from approved intake, onboarding, project, and asset context, while keeping every suggested change subject to human review.",
+  },
+  {
+    introducedBy: "c64d6e1",
+    date: "2026-08-08",
+    title: "Precision-first speaker identification",
+    summary: "Records speaker identification now favors verified matches over uncertain guesses, reducing false assignments while preserving the human correction workflow.",
+  },
+  {
+    introducedBy: "0395d03",
+    date: "2026-08-08",
+    title: "Mobile admin notifications with scoped review access",
+    summary: "N3XRA added a mobile administration experience for secure notifications and introduced isolated reviewer access for approved app-review workflows.",
+  },
+  {
+    introducedBy: "ed480de",
+    date: "2026-08-07",
+    title: "Guided website onboarding",
+    summary: "Website customers now move through a focused, progress-aware onboarding workspace covering business details, brand direction, content, technical needs, legal and launch requirements, files, and final review.",
+  },
+  {
+    introducedBy: "f849bea",
+    date: "2026-08-07",
+    title: "Private business information workspace",
+    summary: "Authorized administrators can keep frequently used company identifiers, registration details, filing contacts, and supporting N3XRA Files together in one protected company record.",
+  },
+  {
+    introducedBy: "49a2b4a",
+    date: "2026-08-07",
+    title: "Rebuilt website client workspace",
+    summary: "Website services, progress, proposals, onboarding, assets, billing, renewals, and support now share one selected-project context and a more consistent client portal experience.",
+  },
+  {
+    introducedBy: "d00f049",
+    date: "2026-08-07",
+    title: "More resilient website request management",
+    summary: "The website project pipeline can now recover completed intake details, surface requests through the protected admin workflow, and remove recoverable intake records when appropriate.",
+  },
+  {
+    introducedBy: "57e686b",
+    date: "2026-08-07",
+    title: "N3XRA Files and CDN publishing",
+    summary: "A new internal file workspace supports multi-file and folder uploads, nested navigation, search, previews, approvals, downloads, and controlled publishing of approved assets to the N3XRA CDN.",
+  },
+  {
+    introducedBy: "bb476c8",
+    date: "2026-08-05",
+    title: "A more focused administration inbox",
+    summary: "Administrative notifications now prioritize decisions, exceptions, account changes, support requests, and items that need review while reducing routine activity noise.",
+  },
+  {
+    introducedBy: "60fb027",
+    date: "2026-08-05",
+    title: "Shared Records workspace for administration",
+    summary: "Authorized platform administrators can open a shared N3XRA Records workspace directly from their account while keeping product oversight tools separate.",
+  },
+  {
+    introducedBy: "d085662",
     date: "2026-08-05",
     title: "Interruption-aware AI receptionist",
     summary: "Phone conversations now use sentence-sized speech, backchannel filtering, natural-pause tolerance, larger complete answers, and exact resume behavior when a caller interrupts and asks to continue.",
@@ -301,7 +405,7 @@ const SYSTEM_MAP = {
     {
       id: "experiences",
       name: "Public experiences",
-      description: "Websites, product pages, project discovery, forms, AI phone reception, messaging, support, and Ask N3XRA.",
+      description: "Websites, product pages, project discovery, careers, forms, AI phone reception, messaging, support, and Ask N3XRA.",
     },
     {
       id: "accounts",
@@ -311,12 +415,12 @@ const SYSTEM_MAP = {
     {
       id: "products",
       name: "Products & workflows",
-      description: "Records, utilities, websites, Virals, music, partners, and company operations.",
+      description: "Records, utilities, websites, branded client portals, Virals, music, partners, and company operations.",
     },
     {
       id: "operations",
       name: "Administration",
-      description: "Product-specific and company-wide tools support accounts, billing, service, customer communications, and planning.",
+      description: "Web and mobile tools support accounts, billing, service, customer communications, files, careers, analytics, and planning.",
     },
     {
       id: "infrastructure",
