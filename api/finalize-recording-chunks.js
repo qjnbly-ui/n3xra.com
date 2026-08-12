@@ -12,7 +12,7 @@ const {
   validateAndGroupChunks,
 } = require("./_recording-chunk-core");
 const { contextAllows, contextCanAccessAdminOnly, getRecordsAccessContext } = require("./_records-support-access");
-const { transcribeReadyRecording } = require("./transcribe-recording")._internal;
+const { redactAdminOnlyTranscriptionResult, transcribeReadyRecording } = require("./transcribe-recording")._internal;
 
 const SUPABASE_URL = String(process.env.SUPABASE_URL || "https://vdbjlgmbpykjblprqnak.supabase.co").trim();
 const SUPABASE_ANON_KEY = String(process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "").trim();
@@ -201,7 +201,8 @@ async function handler(req, res) {
     if (!recording) return res.status(404).json({ error: "Meeting recording not found." });
     const organization = await loadOne("organizations", `select=id,name,owner_user_id,subscription_tier&id=eq.${encodeURIComponent(recording.organization_id)}&limit=1`);
     const access = await getRecordsAccessContext(organization, user);
-    if (recording.admin_only && !contextCanAccessAdminOnly(access, "can_view_recordings")) {
+    const canFinishOwnPrivateRecording = recording.created_by_user_id === user.id && !recording.document_id;
+    if (recording.admin_only && !canFinishOwnPrivateRecording && !contextCanAccessAdminOnly(access, "can_view_recordings")) {
       return res.status(403).json({ error: "You do not have access to finalize this recording." });
     }
     if (!contextAllows(access, "can_change_content")) return res.status(403).json({ error: "You do not have access to finalize this recording." });
@@ -236,11 +237,17 @@ async function handler(req, res) {
     });
     try {
       const transcription = await transcribeReadyRecording(updated, user, { supportToken: getBearerToken(req), progressStart: 55 });
-      return res.status(200).json({ ...transcription, transcriptionStartedAutomatically: true });
+      const safeTranscription = transcription?.recording?.admin_only && !contextCanAccessAdminOnly(access, "can_view_recordings")
+        ? redactAdminOnlyTranscriptionResult(transcription)
+        : transcription;
+      return res.status(200).json({ ...safeTranscription, transcriptionStartedAutomatically: true });
     } catch (transcriptionError) {
       const latest = await loadOne("meeting_recordings", `select=*&id=eq.${encodeURIComponent(recording.id)}&limit=1`);
+      const failureRecording = (latest || updated)?.admin_only && !contextCanAccessAdminOnly(access, "can_view_recordings")
+        ? redactAdminOnlyTranscriptionResult({ recording: latest || updated }).recording
+        : latest || updated;
       return res.status(200).json({
-        recording: latest || updated,
+        recording: failureRecording,
         transcriptionStartedAutomatically: true,
         transcriptionError: String(transcriptionError?.message || "Automatic transcription failed."),
       });

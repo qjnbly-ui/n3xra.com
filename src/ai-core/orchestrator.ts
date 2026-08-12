@@ -136,7 +136,7 @@ export class AssistantOrchestrator {
       }
     }
 
-    const siteContext = await getSiteContext(request.question, session.history, identity, request.page);
+    const siteContext = await getSiteContext(request.question, session.history, identity, request.page, intent.capability);
     const trustedDataSummary = liveResult?.data ? structuredSummary(intent.capability, liveResult) : "No verified live data is available for this request.";
     const completion = await completeWithFallback(this.providers, {
       maxTokens: identity.audience === "admin" ? 1_000 : 700,

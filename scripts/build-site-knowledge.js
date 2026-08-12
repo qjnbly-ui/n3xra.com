@@ -96,6 +96,7 @@ function extractImportantContent(html, maxChars = 3600) {
     /<label[^>]*>([\s\S]*?)<\/label>/gi,
     /<dt[^>]*>([\s\S]*?)<\/dt>/gi,
     /<dd[^>]*>([\s\S]*?)<\/dd>/gi,
+    /<a[^>]*href=["'][^"']+["'][^>]*>([\s\S]*?)<\/a>/gi,
   ];
 
   for (const pattern of patterns) {

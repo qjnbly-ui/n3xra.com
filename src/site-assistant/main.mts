@@ -1,4 +1,5 @@
 import { AssistantVoiceController } from "./voice.mjs";
+import { renderAssistantMarkdown } from "./markdown.mjs";
 
 type Audience = "public" | "account" | "admin";
 type AssistantMode = "shared" | "codebase";
@@ -11,8 +12,8 @@ type BrowserSupabaseModule = {
 };
 
 const RECORDS_APP_PREFIX = "/n3xra-records";
-const CONVERSATION_KEY = "n3xra:site-assistant:conversation";
-const HISTORY_KEY = "n3xra:site-assistant:history";
+const CONVERSATION_KEY = "n3xra:site-assistant:conversation:v2";
+const HISTORY_KEY = "n3xra:site-assistant:history:v2";
 
 function queryRequired<T extends Element>(root: ParentNode, selector: string): T {
   const element = root.querySelector<T>(selector);
@@ -105,8 +106,13 @@ function appendMessage(container: HTMLElement, role: HistoryMessage["role"], val
   article.className = `site-assistant-message is-${role}`;
   const label = document.createElement("small");
   label.textContent = role === "user" ? "You" : (meta || "N3XRA");
-  const body = document.createElement("p");
-  body.textContent = value;
+  const body = role === "assistant" ? document.createElement("div") : document.createElement("p");
+  if (role === "assistant") {
+    body.className = "site-assistant-message-body";
+    renderAssistantMarkdown(body, value);
+  } else {
+    body.textContent = value;
+  }
   article.append(label, body);
   if (sources.length) {
     const list = document.createElement("ul");

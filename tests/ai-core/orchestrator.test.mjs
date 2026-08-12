@@ -87,6 +87,25 @@ test("local knowledge remains available to existing integrations", async () => {
   assert.match(localGroundedAnswer("help", "records_handoff", { path: "/n3xra-records/library", title: "Records" }), /dedicated assistant/);
 });
 
+test("current-page questions always receive the exact current public page extract", async () => {
+  const context = await getSiteContext("What am I looking at?", [], publicIdentity, { path: "/", title: "N3XRA home" }, "current_page");
+  assert.match(context, /CURRENT PAGE EXTRACT[\s\S]*Route \/:/);
+  assert.match(context, /Ideas, already brought to life/);
+  assert.match(context, /mention only sections, labels, destinations, and actions explicitly present/i);
+  assert.doesNotMatch(context, /PUBLIC PROJECT PULSE/);
+  assert.match(context, /Answer from this extract only/);
+});
+
+test("public and admin contexts use separate mode profiles", async () => {
+  const publicContext = await getSiteContext("What does N3XRA offer?", [], publicIdentity, { path: "/", title: "N3XRA" });
+  const adminContext = await getSiteContext("What does N3XRA offer?", [], adminIdentity, { path: "/", title: "N3XRA" });
+  assert.match(publicContext, /sales professional and trusted friend/i);
+  assert.doesNotMatch(adminContext, /sales professional and trusted friend/i);
+  assert.match(adminContext, /direct, operational, and concise/i);
+  assert.match(publicContext, /pronounced Nexra/i);
+  assert.match(adminContext, /pronounced Nexra/i);
+});
+
 test("historically unreliable questions resolve through capabilities", async () => {
   const overview = { accounts: 10, openSupport: 2, careerApplications: 0, partnerApplications: 1, creatorApplications: 3, websiteRequests: 4, activeWebsiteProjects: 2, unreadNotifications: 5 };
   const orchestrator = new AssistantOrchestrator({

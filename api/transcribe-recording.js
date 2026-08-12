@@ -168,10 +168,29 @@ async function loadOrganization(organizationId) {
 async function userCanTranscribeRecording(organization, user, recording = null) {
   if (!organization?.id || !user?.id) return false;
   const access = await getRecordsAccessContext(organization, user);
-  if (recording?.admin_only && !contextCanAccessAdminOnly(access, "can_view_recordings")) return false;
+  const canFinishOwnPrivateRecording = recording?.created_by_user_id === user.id && !recording?.document_id;
+  if (recording?.admin_only && !canFinishOwnPrivateRecording && !contextCanAccessAdminOnly(access, "can_view_recordings")) return false;
   if (!contextAllows(access, "can_change_content")) return false;
   if (!access.isMember) return contextAllows(access, "can_view_recordings");
   return ["account_owner", "account_admin", "editor"].includes(access.membershipRole) && organization.subscription_tier === "organization";
+}
+
+function redactAdminOnlyTranscriptionResult(result) {
+  const recording = result?.recording && typeof result.recording === "object"
+    ? { ...result.recording }
+    : null;
+  if (recording) {
+    delete recording.transcript_text;
+    delete recording.transcript_timing_json;
+    delete recording.speaker_transcript_text;
+    delete recording.speaker_identification_json;
+    delete recording.storage_path;
+  }
+  return {
+    ...result,
+    recording,
+    document: result?.document?.id ? { id: result.document.id, admin_only: true } : null,
+  };
 }
 
 function monthName(date) {
@@ -617,7 +636,11 @@ async function handler(req, res) {
     }
 
     const result = await transcribeReadyRecording(recording, user, { supportToken: getBearerToken(req), progressStart: 55 });
-    return res.status(200).json(result);
+    const access = await getRecordsAccessContext(organization, user);
+    const responseResult = result?.recording?.admin_only && !contextCanAccessAdminOnly(access, "can_view_recordings")
+      ? redactAdminOnlyTranscriptionResult(result)
+      : result;
+    return res.status(200).json(responseResult);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to transcribe recording.";
     return res.status(500).json({ error: message });
@@ -637,4 +660,5 @@ module.exports._internal = {
   loadOrganization,
   userCanTranscribeRecording,
   uploadTranscriptDocument,
+  redactAdminOnlyTranscriptionResult,
 };

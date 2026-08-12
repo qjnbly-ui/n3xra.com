@@ -1444,10 +1444,33 @@ function getActiveCapabilities() {
 function canRecordInActiveOrganization() {
   const capabilities = getActiveCapabilities();
   const organization = getActiveOrganization();
-  const privacyAllowsRecording = organization?.records_admin_only_meetings_enabled !== true
-    || getMembershipRole(activeMembership) === "account_admin"
-    || capabilities.isPlatformAdmin;
-  return Boolean(organization) && capabilities.canManageDocuments && capabilities.canUseRecordings && privacyAllowsRecording;
+  return Boolean(organization) && capabilities.canManageDocuments && capabilities.canUseRecordings;
+}
+
+function canViewRecordingPrivateContent(recording) {
+  return !recording?.admin_only || recording?._private_content_visible === true;
+}
+
+async function loadRecordingPrivateContent(recordings = []) {
+  const organization = getActiveOrganization();
+  const ids = recordings.map((recording) => recording?.id).filter(Boolean).slice(0, 250);
+  if (!organization?.id || !ids.length) return recordings;
+
+  const { data, error } = await supabase.rpc("get_meeting_recording_private_content", {
+    input_organization_id: organization.id,
+    input_recording_ids: ids,
+  });
+  if (error) throw error;
+
+  const privateContentById = new Map((data || []).map((row) => [row.id, row]));
+  return recordings.map((recording) => {
+    const privateContent = privateContentById.get(recording.id);
+    return {
+      ...recording,
+      ...(privateContent || {}),
+      _private_content_visible: Boolean(privateContent),
+    };
+  });
 }
 
 function formatDateTime(value) {
@@ -1893,13 +1916,16 @@ function isRetryableRecording(recording) {
 
 function canPlaybackRecording(recording) {
   const status = String(recording?.status || "").trim().toLowerCase();
-  return Boolean(recording?.storage_path) && ["uploaded", "transcribing", "ready"].includes(status);
+  return canViewRecordingPrivateContent(recording)
+    && Boolean(recording?.storage_path)
+    && ["uploaded", "transcribing", "ready"].includes(status);
 }
 
 function canTranscribeRecording(recording) {
   const status = String(recording?.status || "").trim().toLowerCase();
   const transcriptStatus = String(recording?.transcript_status || "").trim().toLowerCase();
-  return Boolean(recording?.storage_path) &&
+  return canViewRecordingPrivateContent(recording) &&
+    Boolean(recording?.storage_path) &&
     ["uploaded", "ready"].includes(status) &&
     !["processing", "ready"].includes(transcriptStatus) &&
     getActiveCapabilities().canManageDocuments;
@@ -2547,10 +2573,7 @@ async function loadRecordings() {
       title,
       status,
       transcript_status,
-      transcript_text,
-      speaker_transcript_text,
       speaker_identification_status,
-      speaker_identification_json,
       speaker_identification_error,
       speaker_identified_at,
       ai_review_status,
@@ -2574,6 +2597,7 @@ async function loadRecordings() {
       final_document_id,
       metadata,
       created_by_user_id,
+      admin_only,
       created_at
     `, { count: "exact" })
     .eq("organization_id", organization.id)
@@ -2617,7 +2641,15 @@ async function loadRecordings() {
     return;
   }
 
-  recordingsCache = Array.isArray(data) ? data : [];
+  try {
+    recordingsCache = await loadRecordingPrivateContent(Array.isArray(data) ? data : []);
+  } catch (privateContentError) {
+    recordingsCache = (Array.isArray(data) ? data : []).map((recording) => ({
+      ...recording,
+      _private_content_visible: !recording.admin_only,
+    }));
+    error = privateContentError;
+  }
   let referenceLoadError = null;
   try {
     await loadReferencesForRecordings(recordingsCache.map((recording) => recording.id));
@@ -2958,10 +2990,13 @@ async function removeDetailReference(referenceId) {
 }
 
 function populateRecordingDetails(recording) {
+  const canViewPrivateContent = canViewRecordingPrivateContent(recording);
   recordingDetailTitle.textContent = recording.title || "Untitled meeting note";
   recordingDetailStatus.textContent = formatRecordingStatus(recording.status);
   const speakerStatus = String(recording.speaker_identification_status || "not_started");
-  recordingDetailTranscriptStatus.textContent = recording.transcript_status === "ready" && speakerStatus === "processing"
+  recordingDetailTranscriptStatus.textContent = !canViewPrivateContent
+    ? "Admin-only"
+    : recording.transcript_status === "ready" && speakerStatus === "processing"
     ? "Ready · Identifying speakers"
     : recording.transcript_status === "ready" && speakerStatus === "ready"
       ? "Ready · Speakers identified"
@@ -2996,7 +3031,9 @@ function populateRecordingDetails(recording) {
     recordingDetailAiDraftPreview.disabled = !getActiveCapabilities().canEditDocuments || !aiDraftPreview;
   }
   if (recordingDetailTranscriptCopy) {
-    if (recording.document_id) {
+    if (!canViewPrivateContent) {
+      recordingDetailTranscriptCopy.textContent = "The recording and transcript are available only to Account Admins. The rest of this meeting note remains available.";
+    } else if (recording.document_id) {
       recordingDetailTranscriptCopy.textContent = speakerStatus === "processing"
         ? "The transcript is ready while enrolled speaker voices are being matched."
         : speakerStatus === "ready"
@@ -3012,16 +3049,18 @@ function populateRecordingDetails(recording) {
   }
   renderRecordingInterruptions(recording);
   if (recordingDetailTranscriptText) {
-    recordingDetailTranscriptText.textContent = stripRecordingInterruptionMarkers(
-      recording.speaker_transcript_text || recording.transcript_text,
-    ) || "No transcript available yet.";
+    recordingDetailTranscriptText.textContent = canViewPrivateContent
+      ? stripRecordingInterruptionMarkers(
+        recording.speaker_transcript_text || recording.transcript_text,
+      ) || "No transcript available yet."
+      : "Transcript hidden by the account's meeting privacy setting.";
   }
-  show(recordingDetailCorrectSpeaker, speakerStatus === "ready"
+  show(recordingDetailCorrectSpeaker, canViewPrivateContent && speakerStatus === "ready"
     && Array.isArray(recording.speaker_identification_json?.speakers)
     && recording.speaker_identification_json.speakers.length > 0
     && getActiveCapabilities().canEditDocuments);
-  show(recordingDetailTranscriptDocument, Boolean(recording.document_id));
-  if (recording.document_id) {
+  show(recordingDetailTranscriptDocument, Boolean(canViewPrivateContent && recording.document_id));
+  if (canViewPrivateContent && recording.document_id) {
     recordingDetailTranscriptDocument.href = `/n3xra-records/library?id=${encodeURIComponent(recording.document_id)}`;
   }
   const reviewDocumentId = recording.final_document_id || recording.ai_draft_document_id || "";
@@ -3039,7 +3078,7 @@ function populateRecordingDetails(recording) {
   recordingDetailAiReview.title = recording.ai_review_status === "ready"
     ? "Regenerate the AI draft while preserving applied suggestions."
     : "";
-  recordingDetailAiReview.disabled = !recordingWorkflowSchemaAvailable || recording.transcript_status !== "ready";
+  recordingDetailAiReview.disabled = !canViewPrivateContent || !recordingWorkflowSchemaAvailable || recording.transcript_status !== "ready";
   setStatus(
     recordingDetailStatusMessage,
     recording.processing_error

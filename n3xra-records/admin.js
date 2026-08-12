@@ -730,12 +730,24 @@ async function loadRecordsSupportWorkspace() {
       ? supabase.from("documents").select("id, title, original_filename, status, is_public, created_at").eq("organization_id", organization.id).order("created_at", { ascending: false }).limit(100)
       : Promise.resolve({ data: [], error: null }),
     canViewRecordings
-      ? supabase.from("meeting_recordings").select("id, title, status, transcript_status, transcript_text, speaker_transcript_text, started_at, created_at").eq("organization_id", organization.id).order("created_at", { ascending: false }).limit(100)
+      ? supabase.from("meeting_recordings").select("id, title, status, transcript_status, started_at, created_at, admin_only").eq("organization_id", organization.id).order("created_at", { ascending: false }).limit(100)
       : Promise.resolve({ data: [], error: null }),
   ];
   const [auditResult, documentResult, recordingResult] = await Promise.all(requests);
   const accessError = documentResult.error || recordingResult.error;
   if (auditResult.error) throw auditResult.error;
+  if (canViewRecordings && !recordingResult.error && recordingResult.data?.length) {
+    const { data: privateRows, error: privateContentError } = await supabase.rpc("get_meeting_recording_private_content", {
+      input_organization_id: organization.id,
+      input_recording_ids: recordingResult.data.map((recording) => recording.id).slice(0, 100),
+    });
+    if (privateContentError) throw privateContentError;
+    const privateContentById = new Map((privateRows || []).map((row) => [row.id, row]));
+    recordingResult.data = recordingResult.data.map((recording) => ({
+      ...recording,
+      ...(privateContentById.get(recording.id) || {}),
+    }));
+  }
   renderSupportAudit(auditResult.data || []);
   renderSupportDocuments(documentResult.data || [], canViewDocuments);
   renderSupportRecordings(recordingResult.data || [], canViewRecordings);

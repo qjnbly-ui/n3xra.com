@@ -15,14 +15,14 @@ if (!location.pathname.startsWith("/n3xra-records")) {
   if (!document.querySelector('link[data-site-assistant-style]')) {
     const assistantStyle = document.createElement("link");
     assistantStyle.rel = "stylesheet";
-    assistantStyle.href = "/assets/site-assistant.css?v=2";
+    assistantStyle.href = "/assets/site-assistant.css?v=4";
     assistantStyle.dataset.siteAssistantStyle = "true";
     document.head.append(assistantStyle);
   }
   if (!document.querySelector('script[data-site-assistant-script]')) {
     const assistantScript = document.createElement("script");
     assistantScript.type = "module";
-    assistantScript.src = "/assets/site-assistant/main.mjs?v=1";
+    assistantScript.src = "/assets/site-assistant/main.mjs?v=3";
     assistantScript.dataset.siteAssistantScript = "true";
     document.head.append(assistantScript);
   }

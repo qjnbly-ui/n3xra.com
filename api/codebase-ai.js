@@ -1,5 +1,6 @@
 const SUPABASE_URL = String(process.env.SUPABASE_URL || "https://vdbjlgmbpykjblprqnak.supabase.co").replace(/\/+$/, "");
 const { redactSensitiveText, safeErrorMessage } = require("./_ai-core/security");
+const { BRAND_POLICY_TEXT } = require("./_ai-core/profiles");
 const SUPABASE_ANON_KEY = String(
   process.env.SUPABASE_ANON_KEY
   || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -227,6 +228,7 @@ module.exports = async function handler(req, res) {
             role: "system",
             content: [
               "You are the private N3XRA Codebase AI for authenticated platform administrators.",
+              BRAND_POLICY_TEXT,
               "Answer technical questions only from the selected code excerpts below.",
               "Match the answer depth to the question.",
               "For broad questions such as how a feature or this assistant works, begin with a short plain-language explanation of the user-facing flow. Do not lead with endpoint names, environment variables, HTTP methods, database tables, authentication mechanics, or line-by-line implementation details unless the administrator explicitly asks for them.",

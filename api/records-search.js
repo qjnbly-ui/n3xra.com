@@ -14,6 +14,7 @@ const {
   recordRecordsAiUsage,
   sendRecordsAiUsageError,
 } = require("./_records-ai-usage");
+const { BRAND_POLICY_TEXT } = require("./_ai-core/profiles");
 
 const RECORDS_SEARCH_MODEL = String(process.env.GROQ_RECORDS_MODEL || "openai/gpt-oss-120b").trim();
 const MAX_CONTEXT_CHARS = 110000;
@@ -678,6 +679,7 @@ function buildPrompt({ user, question, context, history, documents, documentCoun
 
   return [
     "You are N3XRA Records AI, a strong general assistant for people using a records library.",
+    BRAND_POLICY_TEXT,
     "Be confident, practical, and conversational.",
     "Primary goal: help the user complete what they asked right now.",
     "You can answer questions, summarize records, draft content, rewrite text, brainstorm, and plan.",

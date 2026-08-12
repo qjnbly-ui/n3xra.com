@@ -221,7 +221,9 @@ test("permanent playback is 48 kHz mono MP3 at 96 kbps without chunk boundary ch
     assert.deepEqual(await readFile(chunkedOutputPath), await readFile(sourceOutputPath));
 
     const inspection = await runFfmpeg(["-hide_banner", "-i", chunkedOutputPath, "-f", "null", "-"]);
-    assert.match(inspection, /Audio: mp3, 48000 Hz, mono/);
+    const playbackFormat = /Audio: mp3(?: \([^)]+\))?, 48000 Hz, mono/;
+    assert.match("Audio: mp3 (mp3float), 48000 Hz, mono", playbackFormat);
+    assert.match(inspection, playbackFormat);
     assert.match(inspection, /96 kb\/s/);
     const duration = parseFfmpegDurationSeconds(inspection);
     assert.equal(duration, 1);
