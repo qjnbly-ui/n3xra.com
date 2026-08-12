@@ -52,6 +52,34 @@ test("the shared assistant submits with Enter and preserves Shift+Enter for a ne
   assert.match(assistant, /if \(!submit\.disabled\) form\.requestSubmit\(\)/);
 });
 
+test("every shared assistant mode replaces starter chips with contextual follow-ups", () => {
+  const assistant = fs.readFileSync(new URL("../../src/site-assistant/main.mts", import.meta.url), "utf8");
+  assert.match(assistant, /requestAiFollowUps/);
+  assert.match(assistant, /surface: Audience \| "codebase"/);
+  assert.match(assistant, /void refreshFollowUps\(value, answer/);
+  assert.match(assistant, /renderStarterPrompts\(prompts\)/);
+  assert.match(assistant, /followUpRequestVersion/);
+  assert.match(assistant, /question\.value = button\.dataset\.assistantPrompt \|\| "";\s+form\.requestSubmit\(\)/);
+});
+
+test("the dedicated Codebase AI page updates its suggested questions per answer", () => {
+  const controller = fs.readFileSync(new URL("../../account/admin/controllers/codebase-ai.js", import.meta.url), "utf8");
+  assert.match(controller, /requestAiFollowUps/);
+  assert.match(controller, /surface: "codebase"/);
+  assert.match(controller, /refreshCodebaseFollowUps\(question, data\.answer/);
+  assert.match(controller, /followUps/);
+  assert.match(controller, /input\.value = button\.dataset\.codebasePrompt \|\| "";[\s\S]*?form\?\.requestSubmit\(\)/);
+});
+
+test("Records AI updates its suggested questions after each answer", () => {
+  const shell = fs.readFileSync(new URL("../../n3xra-records/lib/desktop-shell.js", import.meta.url), "utf8");
+  assert.match(shell, /requestAiFollowUps/);
+  assert.match(shell, /surface: "records"/);
+  assert.match(shell, /refreshRecordsAiFollowUps\(question, answer\)/);
+  assert.match(shell, /renderRecordsAiPrompts\(followUps\)/);
+  assert.match(shell, /input\.value = button\.dataset\.recordsAiPrompt \|\| "";\s+input\.form\?\.requestSubmit\(\)/);
+});
+
 test("browser assistant source is strict TypeScript with a dedicated production build", () => {
   const config = JSON.parse(fs.readFileSync(new URL("../../tsconfig.site-assistant.json", import.meta.url), "utf8"));
   const pkg = JSON.parse(fs.readFileSync(new URL("../../package.json", import.meta.url), "utf8"));

@@ -1,8 +1,14 @@
 import { createBrowserSupabase, hasConfig } from "/shared/lib/supabase-client.js";
 import { getStoredActiveOrganizationId } from "/shared/lib/orgs.js";
+import { requestAiFollowUps } from "/shared/lib/ai-follow-ups.js?v=20260812";
 
 const DESKTOP_SHELL_BREAKPOINT = 981;
 const RECORDS_AI_HISTORY_LIMIT = 8;
+const RECORDS_AI_STARTER_PROMPTS = [
+  "Give me the shortest steps to start and finish a meeting note.",
+  "Give me the shortest steps to invite a user and choose their access.",
+  "Where do I change this library's AI settings?",
+];
 const RECORDS_AI_PENDING_GUIDE_KEY = "n3xra-records-pending-guide";
 const RECORDS_AI_PENDING_ACTION_KEY = "n3xra-records-pending-action";
 const RECORDS_AI_GUIDE_ROUTES = new Set([
@@ -63,6 +69,7 @@ let recordsAiWakeLockWanted = false;
 let recordsAiGuideAudio = null;
 let recordsAiGuideAudioUrl = "";
 let recordsAiGuideVoiceEnabled = true;
+let recordsAiFollowUpVersion = 0;
 
 try {
   recordsAiGuideVoiceEnabled = window.localStorage.getItem("n3xra-records-guide-voice") !== "off";
@@ -1408,6 +1415,38 @@ async function askRecordsAi(question) {
   };
 }
 
+function renderRecordsAiPrompts(prompts = RECORDS_AI_STARTER_PROMPTS) {
+  const container = document.querySelector(".records-ai-starters");
+  if (!container) return;
+  container.replaceChildren();
+  for (const prompt of prompts.slice(0, 3)) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.dataset.recordsAiPrompt = prompt;
+    button.textContent = prompt;
+    container.append(button);
+  }
+}
+
+async function refreshRecordsAiFollowUps(question, answer) {
+  const requestVersion = ++recordsAiFollowUpVersion;
+  renderRecordsAiPrompts();
+  try {
+    const accessToken = await getRecordsAiAccessToken();
+    if (!accessToken) return;
+    const followUps = await requestAiFollowUps({
+      question,
+      answer,
+      surface: "records",
+      token: accessToken,
+    });
+    if (requestVersion !== recordsAiFollowUpVersion || !followUps.length) return;
+    renderRecordsAiPrompts(followUps);
+  } catch {
+    // Keep the starter prompts when optional follow-up generation is unavailable.
+  }
+}
+
 async function handleRecordsAiSubmit(event) {
   event.preventDefault();
   const form = event.currentTarget;
@@ -1445,6 +1484,7 @@ async function handleRecordsAiSubmit(event) {
     }
     setRecordsAiStatus("");
     if (shouldSpeak) void speakRecordsAiAnswer(answer);
+    void refreshRecordsAiFollowUps(question, answer);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to ask Records AI.";
     appendRecordsAiMessage(messages, "assistant", message);
@@ -1485,9 +1525,6 @@ function installRecordsAiAssistant() {
       </header>
       <div class="records-ai-messages" data-records-ai-messages aria-live="polite"></div>
       <div class="records-ai-starters" aria-label="Suggested questions">
-        <button type="button" data-records-ai-prompt="Give me the shortest steps to start and finish a meeting note.">Meeting notes</button>
-        <button type="button" data-records-ai-prompt="Give me the shortest steps to invite a user and choose their access.">Invite a user</button>
-        <button type="button" data-records-ai-prompt="Where do I change this library's AI settings?">AI settings</button>
       </div>
       <form class="records-ai-composer" data-records-ai-form>
         <label for="records-ai-question">Ask a Records question</label>
@@ -1506,6 +1543,7 @@ function installRecordsAiAssistant() {
     </aside>
   `;
   document.body.append(layer);
+  renderRecordsAiPrompts();
 
   const messages = layer.querySelector("[data-records-ai-messages]");
   appendRecordsAiMessage(
@@ -1540,12 +1578,12 @@ function installRecordsAiAssistant() {
       event.currentTarget.form?.requestSubmit();
     }
   });
-  layer.querySelectorAll("[data-records-ai-prompt]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const input = layer.querySelector("[data-records-ai-question]");
-      input.value = button.dataset.recordsAiPrompt || "";
-      input.focus();
-    });
+  layer.querySelector(".records-ai-starters")?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-records-ai-prompt]");
+    if (!button) return;
+    const input = layer.querySelector("[data-records-ai-question]");
+    input.value = button.dataset.recordsAiPrompt || "";
+    input.form?.requestSubmit();
   });
   layer.querySelector("[data-records-ai-messages]")?.addEventListener("click", (event) => {
     const button = event.target.closest("[data-records-ai-action], [data-records-ai-guide]");

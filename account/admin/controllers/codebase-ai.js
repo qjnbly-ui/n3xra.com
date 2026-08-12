@@ -1,3 +1,11 @@
+import { requestAiFollowUps } from "/shared/lib/ai-follow-ups.js?v=20260812";
+
+const CODEBASE_STARTER_PROMPTS = [
+  "Where is platform administrator access controlled?",
+  "How does subscription billing sync across N3XRA products?",
+  "Trace the N3XRA Files folder upload flow from the page to storage.",
+];
+
 let session;
 let escapeHtml;
 let formatDate;
@@ -6,6 +14,38 @@ let codebaseHistory = [];
 let codebaseTurns = [];
 let selectedCodebaseTurnId = "";
 let currentCodebaseAnswerText = "";
+let codebaseFollowUpVersion = 0;
+
+function renderCodebasePrompts(prompts = CODEBASE_STARTER_PROMPTS) {
+  const section = document.querySelector(".codebase-ai-prompt-section");
+  if (!section) return;
+  section.querySelectorAll("[data-codebase-prompt]").forEach((button) => button.remove());
+  for (const prompt of prompts.slice(0, 3)) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.dataset.codebasePrompt = prompt;
+    button.textContent = prompt;
+    section.append(button);
+  }
+}
+
+async function refreshCodebaseFollowUps(question, answer, turnId) {
+  const requestVersion = ++codebaseFollowUpVersion;
+  renderCodebasePrompts();
+  try {
+    const followUps = await requestAiFollowUps({
+      question,
+      answer,
+      surface: "codebase",
+      token: session.access_token,
+    });
+    if (requestVersion !== codebaseFollowUpVersion || !followUps.length) return;
+    codebaseTurns = codebaseTurns.map((turn) => turn.id === turnId ? { ...turn, followUps } : turn);
+    if (selectedCodebaseTurnId === turnId) renderCodebasePrompts(followUps);
+  } catch {
+    // Keep the starter prompts when optional follow-up generation is unavailable.
+  }
+}
 
 async function codebaseRequest(path = "", options = {}) {
   const response = await fetch(`/api/codebase-ai${path}`, {
@@ -153,10 +193,12 @@ function renderCodebaseAnswer(data = {}, question = "") {
   document.getElementById("codebase-ai-empty-response")?.classList.add("hidden");
   answer.classList.remove("hidden");
   renderCodebaseIndex(data.index || {});
+  renderCodebasePrompts(Array.isArray(data.followUps) && data.followUps.length ? data.followUps : CODEBASE_STARTER_PROMPTS);
   document.getElementById("codebase-ai-response-pane")?.scrollTo({ top: 0, behavior: "smooth" });
 }
 
 function resetCodebaseConversation() {
+  codebaseFollowUpVersion += 1;
   codebaseHistory = [];
   codebaseTurns = [];
   selectedCodebaseTurnId = "";
@@ -168,6 +210,7 @@ function resetCodebaseConversation() {
   const count = document.getElementById("codebase-ai-character-count");
   if (count) count.textContent = "0";
   renderCodebaseHistory();
+  renderCodebasePrompts();
   input?.focus();
   setStatus("New Codebase AI conversation started.", "success");
 }
@@ -197,7 +240,7 @@ async function askCodebase(event) {
       method: "POST",
       body: JSON.stringify({ question, history: codebaseHistory }),
     });
-    const turn = { id: `${Date.now()}-${codebaseTurns.length}`, question, answer: data.answer || "", sources: data.sources || [], index: data.index || {} };
+    const turn = { id: `${Date.now()}-${codebaseTurns.length}`, question, answer: data.answer || "", sources: data.sources || [], index: data.index || {}, followUps: [] };
     codebaseTurns = [...codebaseTurns, turn].slice(-20);
     selectedCodebaseTurnId = turn.id;
     renderCodebaseHistory();
@@ -207,6 +250,7 @@ async function askCodebase(event) {
     const characterCount = document.getElementById("codebase-ai-character-count");
     if (characterCount) characterCount.textContent = "0";
     setStatus("Answer grounded in the current private code index.", "success");
+    void refreshCodebaseFollowUps(question, data.answer || "", turn.id);
   } catch (error) {
     setStatus(error.message, "error");
   } finally {
@@ -237,7 +281,7 @@ async function loadCodebaseAi() {
     if (!button || !input) return;
     input.value = button.dataset.codebasePrompt || "";
     input.dispatchEvent(new Event("input", { bubbles: true }));
-    input.focus();
+    form?.requestSubmit();
   });
   document.getElementById("codebase-ai-history")?.addEventListener("click", (event) => {
     const button = event.target.closest("[data-codebase-turn-id]");
@@ -249,6 +293,7 @@ async function loadCodebaseAi() {
     renderCodebaseAnswer(turn, turn.question);
   });
   renderCodebaseHistory();
+  renderCodebasePrompts();
   const data = await codebaseRequest("", { method: "GET" });
   renderCodebaseIndex(data.index || {});
   setStatus("Private codebase index ready.", "success");

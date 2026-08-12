@@ -211,7 +211,7 @@ async function loadAdminView() {
     const platformAdmins = await import("/account/admin/controllers/platform-admins.js?v=1");
     await platformAdmins.startPlatformAdmins({ invoke, escapeHtml, setStatus, confirmAdminAction });
   } else if (view === "codebase-ai") {
-    const codebaseAi = await import("/account/admin/controllers/codebase-ai.js?v=1");
+    const codebaseAi = await import("/account/admin/controllers/codebase-ai.js?v=2");
     await codebaseAi.startCodebaseAi({ session, escapeHtml, formatDate, setStatus });
   } else if (view === "analytics") {
     const analytics = await import("/account/admin/controllers/analytics.js?v=1");

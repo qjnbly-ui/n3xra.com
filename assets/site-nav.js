@@ -22,7 +22,7 @@ if (!location.pathname.startsWith("/n3xra-records")) {
   if (!document.querySelector('script[data-site-assistant-script]')) {
     const assistantScript = document.createElement("script");
     assistantScript.type = "module";
-    assistantScript.src = "/assets/site-assistant/main.mjs?v=3";
+    assistantScript.src = "/assets/site-assistant/main.mjs?v=4";
     assistantScript.dataset.siteAssistantScript = "true";
     document.head.append(assistantScript);
   }

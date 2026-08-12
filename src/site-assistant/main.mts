@@ -10,6 +10,14 @@ type BrowserSupabaseModule = {
   getSessionOrNull(client: unknown): Promise<{ access_token?: string; user?: { id?: string } } | null>;
   hasConfig(): boolean;
 };
+type FollowUpModule = {
+  requestAiFollowUps(options: {
+    question: string;
+    answer: string;
+    surface: Audience | "codebase";
+    token: string;
+  }): Promise<string[]>;
+};
 
 const RECORDS_APP_PREFIX = "/n3xra-records";
 const CONVERSATION_KEY = "n3xra:site-assistant:conversation:v2";
@@ -199,6 +207,7 @@ async function initializeSiteAssistant(): Promise<void> {
   let audience: Audience = "public";
   let activeMode: AssistantMode = "shared";
   let codebaseReady = false;
+  let followUpRequestVersion = 0;
 
   const voice = new AssistantVoiceController({
     voiceButton: queryRequired(layer, "[data-assistant-voice]"),
@@ -211,7 +220,45 @@ async function initializeSiteAssistant(): Promise<void> {
   });
 
   const currentHistory = (): HistoryMessage[] => activeMode === "codebase" ? codebaseHistory : sharedHistory;
+  const renderStarterPrompts = (prompts: string[]): void => {
+    starters.replaceChildren();
+    for (const prompt of prompts.slice(0, 3)) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.dataset.assistantPrompt = prompt;
+      button.textContent = prompt;
+      starters.append(button);
+    }
+  };
+  const refreshFollowUps = async (
+    latestQuestion: string,
+    latestAnswer: string,
+    surface: Audience | "codebase",
+    requestedMode: AssistantMode,
+  ): Promise<void> => {
+    const requestVersion = ++followUpRequestVersion;
+    renderStarterPrompts(modeContent(requestedMode, audience).prompts);
+    starters.setAttribute("aria-busy", "true");
+    try {
+      const modulePath = "/shared/lib/ai-follow-ups.js?v=20260812";
+      const { requestAiFollowUps } = await import(modulePath) as FollowUpModule;
+      const prompts = await requestAiFollowUps({
+        question: latestQuestion,
+        answer: latestAnswer,
+        surface,
+        token: session.token,
+      });
+      if (requestVersion !== followUpRequestVersion || activeMode !== requestedMode || !prompts.length) return;
+      renderStarterPrompts(prompts);
+    } catch {
+      // The assistant answer remains useful when optional follow-up generation is unavailable.
+    } finally {
+      if (requestVersion === followUpRequestVersion) starters.removeAttribute("aria-busy");
+    }
+  };
   const renderMode = (): void => {
+    followUpRequestVersion += 1;
+    starters.removeAttribute("aria-busy");
     const content = modeContent(activeMode, audience);
     layer.dataset.mode = activeMode;
     queryRequired<HTMLElement>(layer, "[data-assistant-kicker]").textContent = content.kicker;
@@ -225,14 +272,7 @@ async function initializeSiteAssistant(): Promise<void> {
     messages.replaceChildren();
     appendMessage(messages, "assistant", content.welcome, content.assistantName);
     for (const item of currentHistory()) appendMessage(messages, item.role, item.content, content.assistantName);
-    starters.replaceChildren();
-    for (const prompt of content.prompts) {
-      const button = document.createElement("button");
-      button.type = "button";
-      button.dataset.assistantPrompt = prompt;
-      button.textContent = prompt;
-      starters.append(button);
-    }
+    renderStarterPrompts(content.prompts);
     layer.querySelectorAll<HTMLButtonElement>("[data-assistant-mode]").forEach((button) => {
       const selected = button.dataset.assistantMode === activeMode;
       button.classList.toggle("is-active", selected);
@@ -263,7 +303,7 @@ async function initializeSiteAssistant(): Promise<void> {
     const button = event.target.closest<HTMLButtonElement>("[data-assistant-prompt]");
     if (!button) return;
     question.value = button.dataset.assistantPrompt || "";
-    question.focus();
+    form.requestSubmit();
   });
 
   modes.addEventListener("click", async (event) => {
@@ -345,6 +385,7 @@ async function initializeSiteAssistant(): Promise<void> {
         sessionStorage.setItem(sharedHistoryKey, JSON.stringify(sharedHistory));
         status.textContent = result.dataStatus === "cached" ? "Using the latest recorded data" : "";
       }
+      void refreshFollowUps(value, answer, isCodebase ? "codebase" : audience, activeMode);
     } catch (error) {
       appendMessage(messages, "assistant", error instanceof Error ? error.message : "The assistant could not answer this request.", activeMode === "codebase" ? "Codebase AI" : "N3XRA");
       status.textContent = "";

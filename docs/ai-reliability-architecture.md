@@ -10,6 +10,8 @@ The shared core now powers the existing `/api/ask` endpoint and the context-awar
 
 The N3XRA Records assistant endpoints and interfaces are intentionally unchanged. Pages under `/n3xra-records` do not load the shared widget. Proposal Copilot and the other specialized AI endpoints also remain independent in this release.
 
+Every conversational AI interface that presents suggested-question chips uses the shared `/api/ai-follow-ups` service after an answer. This covers the public, account, and admin shared assistant; both Codebase AI interfaces; and Records AI. The service generates three concise likely next questions from only the latest question and answer. It is optional: if generation fails or is unavailable, the interface keeps its safe mode-specific starter prompts and the completed answer remains unaffected.
+
 Verified platform admins see `Ask Admin AI` in the navigation. Inside its drawer they can explicitly select `Turn on Codebase AI`, which uses the existing private `/api/codebase-ai` endpoint and private generated index. Public visitors and normal account users never receive that mode control, and the endpoint independently re-verifies platform-admin access.
 
 ## Security boundary
@@ -58,6 +60,8 @@ The latest-known-good cache survives warm serverless invocations. It is intentio
 
 Conversation state is keyed by both the server-verified identity and conversation ID. No model receives a generic database, filesystem, or cross-assistant tool. Shared AI sees only the normalized output of its capability loader; Codebase AI sees only selected redacted source excerpts; Records AI separately verifies organization access before building its Records-specific context.
 
+The follow-up service performs no database read or write beyond session and administrator verification. Account and Records suggestions require a valid Supabase user session, while Admin and Codebase suggestions additionally require a current active platform-admin role. The browser never sends a service key. Inputs are bounded and redacted, the model receives only the latest visible exchange, and its strict structured output is normalized before becoming clickable text.
+
 ## Environment variables
 
 Existing production variables continue to work:
@@ -67,6 +71,7 @@ Existing production variables continue to work:
 - `SUPABASE_SECRET_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, or `SERVICE_ROLE_KEY`
 - `GROQ_API_KEY`
 - `GROQ_ASSISTANT_MODEL` or the existing `GROQ_ASK_MODEL`
+- `GROQ_FOLLOW_UP_MODEL` optionally overrides the efficient `openai/gpt-oss-20b` follow-up model
 
 Optional fallback configuration:
 
