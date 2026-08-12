@@ -3075,6 +3075,22 @@ on public.meeting_recording_chunks as restrictive for select to authenticated us
   )
 );
 
+revoke select on public.meeting_recordings from anon, authenticated;
+grant select (
+  id, organization_id, created_by_user_id, document_id, title, status,
+  transcript_status, started_at, ended_at, duration_seconds, storage_path,
+  storage_bucket, audio_mime_type, file_size, processing_error,
+  transcript_generated_at, metadata, created_at, updated_at,
+  selected_template_id, notes_content_json, notes_plain_text,
+  notes_updated_at, ai_review_status, ai_review_json, ai_reviewed_at,
+  ai_draft_document_id, final_document_id, processing_stage,
+  processing_progress, processing_started_at, processing_updated_at,
+  processing_completed_at, minutes_style, speaker_identification_status,
+  speaker_identification_job_id, speaker_identification_model,
+  speaker_identification_threshold, speaker_identification_error,
+  speaker_identified_at, speaker_identification_updated_at, admin_only
+) on public.meeting_recordings to anon, authenticated;
+
 create or replace function public.get_meeting_recording_private_content(
   input_organization_id uuid,
   input_recording_ids uuid[]

@@ -1299,7 +1299,9 @@ function populateRecordingDetails(recording) {
     && Array.isArray(recording.speaker_identification_json?.speakers)
     && recording.speaker_identification_json.speakers.length > 0
     && getActiveCapabilities().canEditDocuments);
-  recordingDetailPlay.disabled = !canPlaybackRecording(recording);
+  const canPlayRecording = canPlaybackRecording(recording);
+  show(recordingDetailPlay, canPlayRecording);
+  recordingDetailPlay.disabled = !canPlayRecording;
   show(recordingDetailTranscribe, canTranscribeRecording(recording));
   show(recordingDetailRetry, isRetryableRecording(recording));
   show(recordingDetailTranscriptDocument, Boolean(canViewPrivateContent && recording.document_id));

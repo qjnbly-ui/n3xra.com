@@ -3009,7 +3009,9 @@ function populateRecordingDetails(recording) {
   recordingDetailEndedAt.textContent = recording.ended_at ? formatDateTime(recording.ended_at) : "Not finished";
   recordingDetailDuration.textContent = formatDuration(getRecordingDurationSeconds(recording));
   recordingDetailSize.textContent = formatBytes(recording.file_size || 0);
-  recordingDetailPlay.disabled = !canPlaybackRecording(recording);
+  const canPlayRecording = canPlaybackRecording(recording);
+  show(recordingDetailPlay, canPlayRecording);
+  recordingDetailPlay.disabled = !canPlayRecording;
   show(recordingDetailTranscribe, canTranscribeRecording(recording));
   show(recordingDetailRetry, isRetryableRecording(recording));
   show(recordingDetailTransfer, canTransferRecordPacket(recording));
