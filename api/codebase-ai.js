@@ -1,14 +1,19 @@
 const SUPABASE_URL = String(process.env.SUPABASE_URL || "https://vdbjlgmbpykjblprqnak.supabase.co").replace(/\/+$/, "");
+const { redactSensitiveText, safeErrorMessage } = require("./_ai-core/security");
 const SUPABASE_ANON_KEY = String(
   process.env.SUPABASE_ANON_KEY
   || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  || ""
+).trim();
+const SUPABASE_SERVICE_ROLE_KEY = String(
+  process.env.SUPABASE_SECRET_KEY
   || process.env.SUPABASE_SERVICE_ROLE_KEY
   || process.env.SERVICE_ROLE_KEY
   || ""
 ).trim();
-const SUPABASE_SERVICE_ROLE_KEY = String(process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY || "").trim();
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT_MAX = 12;
+const MAX_BODY_BYTES = 96 * 1024;
 const rateMap = new Map();
 const STOP_WORDS = new Set([
   "a", "about", "all", "an", "and", "are", "as", "at", "be", "by", "can", "do", "does",
@@ -33,13 +38,35 @@ function getBearerToken(req) {
 
 function parseJson(req) {
   return new Promise((resolve, reject) => {
-    if (req.body && typeof req.body === "object") return resolve(req.body);
+    if (req.body && typeof req.body === "object") {
+      if (Buffer.byteLength(JSON.stringify(req.body), "utf8") > MAX_BODY_BYTES) {
+        const error = new Error("Request body is too large.");
+        error.status = 413;
+        return reject(error);
+      }
+      return resolve(req.body);
+    }
     const chunks = [];
-    req.on("data", (chunk) => chunks.push(chunk));
+    let size = 0;
+    let failed = false;
+    req.on("data", (chunk) => {
+      if (failed) return;
+      size += chunk.length;
+      if (size > MAX_BODY_BYTES) {
+        failed = true;
+        const error = new Error("Request body is too large.");
+        error.status = 413;
+        reject(error);
+        return;
+      }
+      chunks.push(chunk);
+    });
     req.on("end", () => {
+      if (failed) return;
       try {
         resolve(chunks.length ? JSON.parse(Buffer.concat(chunks).toString("utf8")) : {});
       } catch (error) {
+        error.status = 400;
         reject(error);
       }
     });
@@ -55,6 +82,7 @@ async function verifyUser(token) {
   }
   const response = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
     headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}` },
+    signal: AbortSignal.timeout(5_000),
   });
   const user = await response.json().catch(() => null);
   if (!response.ok || !user?.id) {
@@ -66,17 +94,19 @@ async function verifyUser(token) {
 }
 
 async function requireActivePlatformAdmin(user) {
+  const elevatedHeaders = SUPABASE_SERVICE_ROLE_KEY.startsWith("sb_secret_")
+    ? { apikey: SUPABASE_SERVICE_ROLE_KEY }
+    : { apikey: SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` };
   const response = await fetch(
     `${SUPABASE_URL}/rest/v1/platform_admins?select=user_id,role,status&user_id=eq.${encodeURIComponent(user.id)}&status=eq.active&limit=1`,
     {
-      headers: {
-        apikey: SUPABASE_SERVICE_ROLE_KEY,
-        Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-      },
+      headers: elevatedHeaders,
+      signal: AbortSignal.timeout(5_000),
     },
   );
   const rows = await response.json().catch(() => []);
-  if (!response.ok || !Array.isArray(rows) || !rows.length) {
+  const role = String(rows?.[0]?.role || "").toLowerCase();
+  if (!response.ok || !Array.isArray(rows) || !rows.length || !["owner", "admin"].includes(role)) {
     const error = new Error("Active platform administrator access is required.");
     error.status = 403;
     throw error;
@@ -187,6 +217,7 @@ module.exports = async function handler(req, res) {
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: { Authorization: `Bearer ${groqApiKey}`, "Content-Type": "application/json" },
+      signal: AbortSignal.timeout(18_000),
       body: JSON.stringify({
         model: String(process.env.GROQ_CODEBASE_MODEL || process.env.GROQ_ASK_MODEL || "openai/gpt-oss-120b").trim(),
         temperature: 0.1,
@@ -220,18 +251,18 @@ module.exports = async function handler(req, res) {
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
-      return res.status(502).json({ error: String(data?.error?.message || "Private AI request failed.") });
+      return res.status(502).json({ error: safeErrorMessage(data?.error?.message, "Private AI request failed.") });
     }
     const answer = String(data?.choices?.[0]?.message?.content || "").trim();
     if (!answer) return res.status(502).json({ error: "The private AI returned an empty answer." });
     return res.status(200).json({
-      answer,
+      answer: redactSensitiveText(answer),
       sources: selectedSources,
       index: { generatedAt: index.generatedAt, fileCount: index.fileCount, chunkCount: index.chunkCount },
     });
   } catch (error) {
     return res.status(Number(error?.status || 500)).json({
-      error: error instanceof Error ? error.message : "Unable to use the private codebase assistant.",
+      error: safeErrorMessage(error, "Unable to use the private codebase assistant."),
     });
   }
 };

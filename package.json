@@ -3,10 +3,17 @@
   "private": true,
   "version": "1.0.0",
   "scripts": {
-    "build": "npm run build:project-pulse && npm run build:private-code-index && npm run refresh:ask-knowledge",
+    "build": "npm run build:ai-core && npm run build:project-pulse && npm run build:private-code-index && npm run refresh:ask-knowledge",
+    "build:ai-core": "tsc -p tsconfig.ai.json",
+    "typecheck": "tsc -p tsconfig.ai.json --noEmit",
+    "test": "npm run build:ai-core && node --test tests/**/*.test.mjs",
+    "test:ai-core": "npm run build:ai-core && node --test tests/ai-core/*.test.mjs",
+    "test:ai-coverage": "npm run build:ai-core && node --experimental-test-coverage --test-coverage-include=api/_ai-core/*.js --test-coverage-exclude=api/_ai-core/contracts.js --test-coverage-lines=80 --test-coverage-functions=75 --test-coverage-branches=70 --test tests/ai-core/*.test.mjs",
+    "verify:ai-secrets": "node scripts/check-ai-secret-boundaries.mjs",
+    "smoke:ai": "node scripts/smoke-ai-reliability.mjs",
     "test:loans": "node --test tests/loans/*.test.mjs",
     "test:operations": "node --test tests/operations/*.test.mjs",
-    "test:receptionist": "node --test tests/receptionist/*.test.mjs",
+    "test:receptionist": "npm run build:ai-core && node --test tests/receptionist/*.test.mjs",
     "test:records-help": "node --test tests/records-help/*.test.mjs",
     "test:proposal-ai": "node --test tests/website-proposal-ai/*.test.mjs",
     "test:website-portal": "node --test tests/website-portal/*.test.mjs",
@@ -19,5 +26,9 @@
     "ffmpeg-static": "^5.2.0",
     "twilio": "^5.10.4",
     "ws": "^8.21.0"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.0",
+    "typescript": "5.9.3"
   }
 }

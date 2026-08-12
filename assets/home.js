@@ -363,17 +363,17 @@
     return html.replace(/\n/g, "<br>");
   }
 
-  function saveLastAnswer(question, answerText) {
+  function saveLastAnswer(question, answerText, scope = "public") {
     try {
-      sessionStorage.setItem(savedAnswerKey, JSON.stringify({ question, answer: answerText }));
+      sessionStorage.setItem(`${savedAnswerKey}:${scope}`, JSON.stringify({ question, answer: answerText }));
     } catch {
       // The answer still works when browser storage is unavailable.
     }
   }
 
-  function restoreLastAnswer() {
+  function restoreLastAnswer(scope = "public") {
     try {
-      const saved = JSON.parse(sessionStorage.getItem(savedAnswerKey) || "null");
+      const saved = JSON.parse(sessionStorage.getItem(`${savedAnswerKey}:${scope}`) || "null");
       const question = String(saved?.question || "").trim();
       const answerText = String(saved?.answer || "").trim();
       if (!question || !answerText) return;
@@ -410,8 +410,6 @@
       .replace(/\s+/g, " ")
       .trim();
   }
-
-  restoreLastAnswer();
 
   function setVoiceButton(recording) {
     if (!voiceButton) return;
@@ -502,6 +500,31 @@
     if (mediaRecorder && mediaRecorder.state === "recording") mediaRecorder.stop();
   }
 
+  async function assistantSessionContext() {
+    try {
+      const { createBrowserSupabase, getSessionOrNull, hasConfig } = await import("/shared/lib/supabase-client.js");
+      if (!hasConfig()) return { headers: {}, scope: "public" };
+      const session = await getSessionOrNull(createBrowserSupabase());
+      return {
+        headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {},
+        scope: String(session?.user?.id || "public"),
+      };
+    } catch {
+      return { headers: {}, scope: "public" };
+    }
+  }
+
+  assistantSessionContext().then(({ scope }) => restoreLastAnswer(scope));
+
+  function assistantConversationId(scope) {
+    const key = `n3xra:site-assistant:conversation:${scope}`;
+    const existing = String(sessionStorage.getItem(key) || "");
+    if (/^[a-zA-Z0-9:_-]{8,120}$/.test(existing)) return existing;
+    const created = `home-${crypto.randomUUID()}`;
+    sessionStorage.setItem(key, created);
+    return created;
+  }
+
   if (voiceButton) {
     if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
       voiceButton.hidden = true;
@@ -587,10 +610,16 @@
     submit.textContent = "Thinking...";
 
     try {
+      const assistantSession = await assistantSessionContext();
       const response = await fetch("/api/ask", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question, history: chatHistory }),
+        headers: { "Content-Type": "application/json", ...assistantSession.headers },
+        body: JSON.stringify({
+          question,
+          conversationId: assistantConversationId(assistantSession.scope),
+          history: chatHistory,
+          page: { path: location.pathname, title: document.title, description: document.querySelector('meta[name="description"]')?.content || "" },
+        }),
       });
       const data = await response.json().catch(() => ({}));
 
@@ -606,7 +635,7 @@
       if (audioControls) audioControls.hidden = !answerText;
 
       if (answerText) {
-        saveLastAnswer(question, answerText);
+        saveLastAnswer(question, answerText, assistantSession.scope);
         chatHistory.push({ role: "user", content: question });
         chatHistory.push({ role: "assistant", content: answerText });
         if (chatHistory.length > maxHistoryMessages) {

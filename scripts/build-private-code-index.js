@@ -48,7 +48,7 @@ function shouldIndex(file) {
 
 function redactSensitiveText(value) {
   return String(value)
-    .replace(/\b(?:sk|gsk|sb_secret)_[A-Za-z0-9_-]{16,}\b/g, "[REDACTED_SECRET]")
+    .replace(/\b(?:sk[-_]|gsk_|sb_secret_)[A-Za-z0-9_-]{12,}\b/g, "[REDACTED_SECRET]")
     .replace(/\beyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{10,}\b/g, "[REDACTED_TOKEN]")
     .replace(/((?:api[_-]?key|secret|password|service[_-]?role)[\"'\s:=]+)[\"']?[^\"'\s,;]{12,}/gi, "$1[REDACTED]");
 }
@@ -78,14 +78,21 @@ function chunkFile(file) {
   return chunks;
 }
 
-const indexedFiles = walk(ROOT).filter(shouldIndex);
-const chunks = indexedFiles.flatMap(chunkFile);
-const payload = {
-  generatedAt: new Date().toISOString(),
-  fileCount: indexedFiles.length,
-  chunkCount: chunks.length,
-  chunks,
-};
+function buildPrivateCodeIndex() {
+  const indexedFiles = walk(ROOT).filter(shouldIndex);
+  const chunks = indexedFiles.flatMap(chunkFile);
+  const payload = {
+    generatedAt: new Date().toISOString(),
+    fileCount: indexedFiles.length,
+    chunkCount: chunks.length,
+    chunks,
+  };
 
-fs.writeFileSync(OUTPUT, `module.exports = ${JSON.stringify(payload)};\n`, "utf8");
-process.stdout.write(`Wrote private index with ${payload.fileCount} files and ${payload.chunkCount} chunks.\n`);
+  fs.writeFileSync(OUTPUT, `module.exports = ${JSON.stringify(payload)};\n`, "utf8");
+  process.stdout.write(`Wrote private index with ${payload.fileCount} files and ${payload.chunkCount} chunks.\n`);
+  return payload;
+}
+
+if (require.main === module) buildPrivateCodeIndex();
+
+module.exports = { buildPrivateCodeIndex, redactSensitiveText, shouldIndex };
