@@ -95,12 +95,8 @@ body {
 }
 
 .account-overview {
-  border: 1px solid rgba(15, 22, 32, 0.08);
-  border-radius: var(--radius-md);
-  background:
-    radial-gradient(420px 180px at 0% 0%, rgba(23, 111, 102, 0.12), transparent 58%),
-    linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-  padding: clamp(1rem, 2.5vw, 1.4rem);
+  padding: 0.35rem 0 1.15rem;
+  border-bottom: 1px solid rgba(15, 22, 32, 0.1);
 }
 
 .account-identity {
@@ -282,12 +278,49 @@ body {
 }
 
 .admin-app-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
+.admin-app-card {
+  min-height: 168px;
+  gap: 0.72rem;
+  padding: 0.9rem;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: 0 8px 24px rgba(15, 22, 32, 0.035);
+}
+
+.admin-app-card .auth-kicker {
+  font-size: 0.66rem;
+}
+
+.admin-app-card h3 {
+  font-size: 1.05rem;
+  line-height: 1.15;
+}
+
+.admin-app-card p:not(.auth-kicker) {
+  margin-top: 0.3rem;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.admin-app-card > .btn {
+  width: max-content;
+  max-width: 100%;
+  min-height: 34px;
+  padding: 0.45rem 0.72rem;
+  font-size: 0.72rem;
+}
+
+.admin-app-card > .btn.block {
+  width: max-content;
 }
 
 .admin-product-section-head {
-  margin-top: 1.5rem;
-  padding-top: 1.5rem;
+  margin-top: 1.1rem;
+  padding-top: 1.1rem;
   border-top: 1px solid rgba(15, 22, 32, 0.1);
 }
 
@@ -788,6 +821,12 @@ body {
 
   .account-status {
     grid-column: auto;
+  }
+}
+
+@media (min-width: 861px) and (max-width: 1120px) {
+  .admin-app-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
