@@ -53,6 +53,13 @@ function contextAllows(context, scope) {
   return Boolean(context.grant[scope]);
 }
 
+function contextCanAccessAdminOnly(context, scope) {
+  if (context?.isMember) {
+    return ["account_owner", "account_admin"].includes(String(context.membershipRole || ""));
+  }
+  return contextAllows(context, scope);
+}
+
 async function recordRecordsSupportEvent(token, organizationId, eventType, resourceType, resourceId) {
   if (!token || !organizationId || !ANON_KEY) return;
   await fetch(`${SUPABASE_URL}/rest/v1/rpc/record_records_support_event`, {
@@ -69,4 +76,4 @@ async function recordRecordsSupportEvent(token, organizationId, eventType, resou
   }).catch(() => null);
 }
 
-module.exports = { contextAllows, getRecordsAccessContext, recordRecordsSupportEvent };
+module.exports = { contextAllows, contextCanAccessAdminOnly, getRecordsAccessContext, recordRecordsSupportEvent };

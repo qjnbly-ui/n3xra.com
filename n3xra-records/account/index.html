@@ -786,6 +786,16 @@
                         </div>
                         <p class="field-note">On by default. Turn this off to prevent new meeting audio from being sent to pyannoteAI for speaker detection.</p>
                       </div>
+                      <div class="settings-subsection">
+                        <div class="settings-subsection-head">
+                          <h4>Meeting privacy</h4>
+                          <p>Control who can access future meeting records.</p>
+                        </div>
+                        <div class="setting-toggles">
+                          <label class="toggle-pill"><input id="organization-admin-only-meetings-enabled" type="checkbox"> Keep new meeting records admin-only</label>
+                        </div>
+                        <p class="field-note">When on, meeting notes created afterward—including their audio and generated transcript—are visible only to Account Admins. Existing meeting records are unchanged.</p>
+                      </div>
                       <div class="field">
                         <label for="organization-ai-memory">Saved AI memory</label>
                         <textarea class="hidden" id="organization-ai-memory" maxlength="2400"></textarea>
@@ -799,7 +809,7 @@
                         <p class="field-note">Each memory saves into the same library memory field. Keep these curated so the AI does not inherit outdated assumptions.</p>
                       </div>
                       <div class="actions">
-                        <button class="btn" id="organization-ai-settings-save" type="submit">Save AI settings</button>
+                        <button class="btn" id="organization-ai-settings-save" type="submit">Save settings</button>
                       </div>
                       <p class="status" id="organization-ai-settings-status"></p>
                     </form>
@@ -1284,6 +1294,6 @@
 
   <script src="/shared/config.js"></script>
   <script type="module" src="/n3xra-records/lib/desktop-shell.js?v=20260805-voice-ai-guide"></script>
-  <script type="module" src="/n3xra-records/dashboard.js?v=20260805-speaker-detection-setting"></script>
+  <script type="module" src="/n3xra-records/dashboard.js?v=20260811-admin-only-meetings"></script>
 </body>
 </html>

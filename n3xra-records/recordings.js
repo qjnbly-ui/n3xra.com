@@ -26,7 +26,7 @@ import {
   deleteLocalChunksForRecording,
 } from "./lib/meeting-recording-chunks.js";
 import { getRecordingInterruptions, stripRecordingInterruptionMarkers } from "./lib/recording-interruptions.js";
-import { openSpeakerCorrectionModal } from "./lib/speaker-correction-modal.js";
+import { openSpeakerCorrectionModal } from "./lib/speaker-correction-modal.js?v=20260811-modal-controls";
 import {
   formatRecordingDuration as formatDuration,
   getRecordingDurationSeconds,
@@ -1443,7 +1443,11 @@ function getActiveCapabilities() {
 
 function canRecordInActiveOrganization() {
   const capabilities = getActiveCapabilities();
-  return Boolean(getActiveOrganization()) && capabilities.canManageDocuments && capabilities.canUseRecordings;
+  const organization = getActiveOrganization();
+  const privacyAllowsRecording = organization?.records_admin_only_meetings_enabled !== true
+    || getMembershipRole(activeMembership) === "account_admin"
+    || capabilities.isPlatformAdmin;
+  return Boolean(organization) && capabilities.canManageDocuments && capabilities.canUseRecordings && privacyAllowsRecording;
 }
 
 function formatDateTime(value) {
@@ -2397,7 +2401,8 @@ async function bootstrapAccess() {
         user_limit,
         account_status,
         owner_user_id,
-        records_default_minutes_style
+        records_default_minutes_style,
+        records_admin_only_meetings_enabled
       )
     `)
     .eq("user_id", currentSession.user.id)
@@ -5082,11 +5087,6 @@ async function init() {
     retryRecording(activeDetailRecordingId);
   });
   recordingDetailClose.addEventListener("click", closeRecordingDetail);
-  recordingDetailModal.addEventListener("click", (event) => {
-    if (event.target === recordingDetailModal) {
-      closeRecordingDetail();
-    }
-  });
   recordingsConfirmCancel?.addEventListener("click", () => resolveRecordingsConfirm(false));
   recordingsConfirmOk?.addEventListener("click", () => resolveRecordingsConfirm(true));
   recordingsConfirmModal?.addEventListener("click", (event) => {
@@ -5126,10 +5126,6 @@ async function init() {
     }
     if (event.key === "Escape" && recordingDeleteModal?.classList.contains("is-open")) {
       setRecordingDeleteModalOpen(false);
-      return;
-    }
-    if (event.key === "Escape" && recordingDetailModal.classList.contains("is-open")) {
-      closeRecordingDetail();
       return;
     }
     if (event.key === "Escape" && recordingsConfirmModal?.classList.contains("is-open")) {

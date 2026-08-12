@@ -21,7 +21,7 @@ import {
 } from "./lib/recording-suggestions.js";
 import { createAppDocumentPdfObjectUrl } from "./lib/app-document-pdf.js";
 import { getRecordingInterruptions, stripRecordingInterruptionMarkers } from "./lib/recording-interruptions.js";
-import { openSpeakerCorrectionModal } from "./lib/speaker-correction-modal.js";
+import { openSpeakerCorrectionModal } from "./lib/speaker-correction-modal.js?v=20260811-modal-controls";
 import {
   formatRecordingDuration as formatDuration,
   getRecordingDurationSeconds,
@@ -1739,11 +1739,6 @@ async function init() {
   recordingDetailClose.addEventListener("click", () => {
     void closeRecordingDetail();
   });
-  recordingDetailModal.addEventListener("click", (event) => {
-    if (event.target === recordingDetailModal) {
-      void closeRecordingDetail();
-    }
-  });
   recordingAiReviewPanel?.addEventListener("click", (event) => {
     const button = event.target.closest("[data-review-action]");
     if (!button) return;
@@ -1855,9 +1850,6 @@ async function init() {
     if (recordingDeleteModal.classList.contains("is-open")) {
       setRecordingDeleteModalOpen(false);
       return;
-    }
-    if (recordingDetailModal.classList.contains("is-open")) {
-      void closeRecordingDetail();
     }
   });
 

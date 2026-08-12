@@ -231,27 +231,13 @@
       <div class="section-inner">
         <div class="section-head center">
           <p class="eyebrow">Ask N3XRA</p>
-          <h2 id="ask-title"></h2>
+          <h2 id="ask-title">One assistant, wherever you are.</h2>
           <p class="section-copy">Ask about anything across N3XRA—software, services, website projects, proposals, your dashboard, support, or where to go next.</p>
         </div>
 
-        <div class="ask-shell">
-          <p class="ask-answer" id="ask-answer" hidden></p>
-          <div class="ask-audio-controls" id="ask-audio-controls" hidden>
-            <button class="ask-listen" id="ask-listen" type="button">Listen</button>
-            <button class="ask-listen" id="ask-stop-audio" type="button" hidden>Stop</button>
-          </div>
-          <div class="ask-grid">
-            <form class="ask-form" id="ask-form">
-              <label for="ask-input">Your question</label>
-              <textarea id="ask-input" name="question" maxlength="800" placeholder="What does N3XRA Records do?"></textarea>
-              <div class="ask-controls">
-                <button class="ask-submit" id="ask-submit" type="submit">Ask</button>
-                <button class="ask-voice" id="ask-voice" type="button" aria-pressed="false"><span aria-hidden="true">●</span> Talk to N3XRA</button>
-              </div>
-              <p class="ask-status" id="ask-status" role="status" aria-live="polite"></p>
-            </form>
-          </div>
+        <div class="ask-shell ask-launcher">
+          <p>Open one assistant for typed or spoken questions. When you sign in, it automatically recognizes your account or verified administrator access.</p>
+          <button class="ask-submit ask-launcher-button" type="button" data-site-assistant-open aria-expanded="false" aria-controls="site-assistant-layer">Open Ask N3XRA</button>
         </div>
       </div>
     </section>

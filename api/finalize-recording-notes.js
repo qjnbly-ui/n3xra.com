@@ -13,7 +13,7 @@ const SUPABASE_ANON_KEY = String(
   ""
 ).trim();
 const SUPABASE_SERVICE_ROLE_KEY = String(process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY || "").trim();
-const { contextAllows, getRecordsAccessContext, recordRecordsSupportEvent } = require("./_records-support-access");
+const { contextAllows, contextCanAccessAdminOnly, getRecordsAccessContext, recordRecordsSupportEvent } = require("./_records-support-access");
 const GROQ_RECORDS_API_KEY = String(process.env.GROQ_RECORDS_API_KEY || process.env.GROQ_API_KEY || "").trim();
 const GROQ_RECORDING_NOTES_MODEL = String(process.env.GROQ_RECORDS_NOTES_MODEL || "openai/gpt-oss-120b").trim();
 
@@ -131,9 +131,10 @@ async function loadTemplate(templateId, organizationId) {
   return Array.isArray(rows) ? rows[0] || null : null;
 }
 
-async function userCanReviewRecording(organization, user) {
+async function userCanReviewRecording(organization, user, recording = null) {
   if (!organization?.id || !user?.id) return false;
   const access = await getRecordsAccessContext(organization, user);
+  if (recording?.admin_only && !contextCanAccessAdminOnly(access, "can_view_recordings")) return false;
   if (!contextAllows(access, "can_change_content")) return false;
   if (!access.isMember) return contextAllows(access, "can_view_recordings");
   return ["account_owner", "account_admin", "editor"].includes(access.membershipRole) && organization.subscription_tier === "organization";
@@ -1074,7 +1075,7 @@ async function handler(req, res) {
 
     const organization = await loadOrganization(recording.organization_id);
     if (!organization) return res.status(404).json({ error: "Recording library not found." });
-    if (!(await userCanReviewRecording(organization, user))) {
+    if (!(await userCanReviewRecording(organization, user, recording))) {
       return res.status(403).json({ error: "You do not have access to review this recording." });
     }
     const template = await loadTemplate(recording.selected_template_id, recording.organization_id);

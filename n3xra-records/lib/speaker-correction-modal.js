@@ -12,7 +12,7 @@ function createModal() {
           <p class="confirm-modal-kicker">Meeting transcript</p>
           <h2 class="confirm-modal-title" id="speaker-correction-title">Correct speaker name</h2>
         </div>
-        <button class="modal-close" type="button" data-speaker-correction-close aria-label="Close speaker correction">Close</button>
+        <button class="settings-modal-close" type="button" data-speaker-correction-close aria-label="Close speaker correction">Close</button>
       </header>
       <form class="confirm-modal-body speaker-correction-form" novalidate>
         <p class="confirm-modal-copy" id="speaker-correction-copy">Choose a speaker, then enter the name that should appear throughout this transcript.</p>
@@ -27,8 +27,7 @@ function createModal() {
         </div>
         <p class="status speaker-correction-status" data-speaker-correction-status role="status" aria-live="polite"></p>
         <div class="confirm-modal-actions">
-          <button class="btn secondary" type="button" data-speaker-correction-cancel>Cancel</button>
-          <button class="btn" type="submit" data-speaker-correction-save>Save correction</button>
+          <button class="btn" type="submit" data-speaker-correction-save>Save speaker name</button>
         </div>
       </form>
     </section>
@@ -82,7 +81,9 @@ export function openSpeakerCorrectionModal({
   trigger = null,
   onSubmit,
 }) {
-  const choices = speakers.filter((speaker) => speaker?.speakerKey);
+  const choices = speakers
+    .filter((speaker) => speaker?.speakerKey)
+    .map((speaker) => ({ ...speaker }));
   if (!choices.length || typeof onSubmit !== "function") return Promise.resolve(false);
 
   if (activeModalClose) return Promise.resolve(false);
@@ -92,13 +93,13 @@ export function openSpeakerCorrectionModal({
   const nameInput = modal.querySelector("[data-speaker-correction-name]");
   const status = modal.querySelector("[data-speaker-correction-status]");
   const saveButton = modal.querySelector("[data-speaker-correction-save]");
-  const cancelButton = modal.querySelector("[data-speaker-correction-cancel]");
   const closeButton = modal.querySelector("[data-speaker-correction-close]");
   const previousFocus = trigger || document.activeElement;
   const controller = new AbortController();
   const { signal } = controller;
   let selectedIndex = 0;
   let isSaving = false;
+  let hasSaved = false;
   let activeSampleButton = null;
   let activeSampleEnd = null;
   const originalAudioTime = Number.isFinite(audioElement?.currentTime) ? audioElement.currentTime : 0;
@@ -149,7 +150,9 @@ export function openSpeakerCorrectionModal({
   });
 
   const updateSaveState = () => {
-    saveButton.disabled = isSaving || !nameInput.value.trim();
+    const displayName = nameInput.value.trim();
+    const savedName = String(choices[selectedIndex]?.displayName || `Speaker ${selectedIndex + 1}`).trim();
+    saveButton.disabled = isSaving || !displayName || displayName === savedName;
   };
 
   const selectSpeaker = (index, focusName = false) => {
@@ -181,15 +184,15 @@ export function openSpeakerCorrectionModal({
       activeSampleEnd = null;
     };
 
-    const close = (saved = false) => {
-      if (isSaving && !saved) return;
+    const close = () => {
+      if (isSaving) return;
       stopSample({ restorePosition: true });
       controller.abort();
       modal.classList.remove("is-open");
       modal.setAttribute("aria-hidden", "true");
       activeModalClose = null;
       if (previousFocus instanceof HTMLElement && previousFocus.isConnected) previousFocus.focus();
-      resolve(saved);
+      resolve(hasSaved);
     };
     activeModalClose = close;
 
@@ -254,17 +257,8 @@ export function openSpeakerCorrectionModal({
       status.className = "status speaker-correction-status";
     }, { signal });
     nameInput.addEventListener("input", updateSaveState, { signal });
-    cancelButton.addEventListener("click", () => close(false), { signal });
-    closeButton.addEventListener("click", () => close(false), { signal });
-    modal.addEventListener("click", (event) => {
-      if (event.target === modal) close(false);
-    }, { signal });
+    closeButton.addEventListener("click", close, { signal });
     modal.addEventListener("keydown", (event) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        close(false);
-        return;
-      }
       if (event.key !== "Tab") return;
       const focusable = getFocusableElements(modal);
       if (!focusable.length) return;
@@ -281,6 +275,7 @@ export function openSpeakerCorrectionModal({
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
       const displayName = nameInput.value.trim();
+      const submittedIndex = selectedIndex;
       if (!displayName) {
         status.textContent = "Enter the correct speaker name.";
         status.className = "status speaker-correction-status error";
@@ -296,15 +291,28 @@ export function openSpeakerCorrectionModal({
       status.className = "status speaker-correction-status notice";
       try {
         await onSubmit({
-          speaker: choices[selectedIndex],
-          speakerKey: choices[selectedIndex].speakerKey,
+          speaker: choices[submittedIndex],
+          speakerKey: choices[submittedIndex].speakerKey,
           displayName,
         });
         isSaving = false;
-        close(true);
+        hasSaved = true;
+        choices[submittedIndex].displayName = displayName;
+        const selectedOption = options.children[submittedIndex];
+        const selectedTitle = selectedOption?.querySelector(".speaker-correction-option-copy strong");
+        const selectedSampleButton = selectedOption?.querySelector("[data-speaker-sample-index]");
+        if (selectedTitle) selectedTitle.textContent = displayName;
+        if (selectedSampleButton) {
+          selectedSampleButton.dataset.speakerName = displayName;
+          resetSampleButton(selectedSampleButton);
+        }
+        saveButton.textContent = "Save speaker name";
+        updateSaveState();
+        status.textContent = "Speaker name saved. You can correct another speaker or select Close.";
+        status.className = "status speaker-correction-status success";
       } catch (error) {
         isSaving = false;
-        saveButton.textContent = "Save correction";
+        saveButton.textContent = "Save speaker name";
         updateSaveState();
         status.textContent = error?.message || "Unable to correct the speaker name.";
         status.className = "status speaker-correction-status error";
@@ -312,7 +320,7 @@ export function openSpeakerCorrectionModal({
     }, { signal });
 
     selectSpeaker(0);
-    saveButton.textContent = "Save correction";
+    saveButton.textContent = "Save speaker name";
     modal.classList.add("is-open");
     modal.setAttribute("aria-hidden", "false");
     requestAnimationFrame(() => options.querySelector("input:checked")?.focus());

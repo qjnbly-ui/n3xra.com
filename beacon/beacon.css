@@ -1,0 +1,269 @@
+:root {
+  --beacon-night: #101820;
+  --beacon-evergreen: #254e46;
+  --beacon-white: #f7f6f2;
+  --beacon-muted: #66757f;
+  --beacon-amber: #f4ad45;
+  --beacon-critical: #c94b4b;
+  --beacon-display: "Space Grotesk", "Manrope", Arial, sans-serif;
+  --beacon-body: "Manrope", Arial, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-width: 320px;
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  color: var(--beacon-white);
+  background: var(--beacon-night);
+  font-family: var(--beacon-body);
+}
+
+::selection {
+  color: var(--beacon-night);
+  background: var(--beacon-amber);
+}
+
+.beacon {
+  position: relative;
+  isolation: isolate;
+  min-height: 100vh;
+  min-height: 100svh;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  padding: clamp(2rem, 5vw, 4rem);
+  background:
+    radial-gradient(circle at 50% 43%, rgba(244, 173, 69, 0.075), transparent 29rem),
+    linear-gradient(145deg, #18252d 0%, var(--beacon-night) 48%, #0b1116 100%);
+}
+
+.beacon::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  width: min(70vw, 44rem);
+  aspect-ratio: 1;
+  border: 1px solid rgba(255, 255, 255, 0.035);
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 10rem rgba(255, 255, 255, 0.012),
+    0 0 0 20rem rgba(255, 255, 255, 0.008);
+}
+
+.beacon-grid {
+  position: absolute;
+  z-index: -3;
+  inset: 0;
+  opacity: 0.16;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.055) 1px, transparent 1px);
+  background-size: 72px 72px;
+  mask-image: radial-gradient(circle at center, #000 0%, transparent 68%);
+  -webkit-mask-image: radial-gradient(circle at center, #000 0%, transparent 68%);
+}
+
+.beacon-glow {
+  position: absolute;
+  z-index: -2;
+  border-radius: 50%;
+  filter: blur(8px);
+  pointer-events: none;
+}
+
+.beacon-glow-one {
+  top: -16rem;
+  right: -12rem;
+  width: 36rem;
+  height: 36rem;
+  background: radial-gradient(circle, rgba(244, 173, 69, 0.07), transparent 67%);
+}
+
+.beacon-glow-two {
+  bottom: -20rem;
+  left: -14rem;
+  width: 42rem;
+  height: 42rem;
+  background: radial-gradient(circle, rgba(37, 78, 70, 0.2), transparent 68%);
+}
+
+.beacon-identity {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(2.2rem, 6vw, 3.5rem);
+  text-align: center;
+  animation: beacon-arrive 900ms cubic-bezier(0.2, 0.75, 0.2, 1) both;
+}
+
+.beacon-mark {
+  position: relative;
+  width: clamp(7rem, 18vw, 10rem);
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+}
+
+.beacon-ring,
+.beacon-core {
+  position: absolute;
+  border-radius: 50%;
+}
+
+.beacon-ring {
+  border: 1px solid rgba(244, 173, 69, 0.38);
+}
+
+.beacon-ring-outer {
+  inset: 0;
+  border-color: rgba(244, 173, 69, 0.13);
+  animation: beacon-pulse 3.6s ease-out infinite;
+}
+
+.beacon-ring-middle {
+  inset: 19%;
+  border-color: rgba(244, 173, 69, 0.25);
+  animation: beacon-pulse 3.6s 0.6s ease-out infinite;
+}
+
+.beacon-ring-inner {
+  inset: 37%;
+  border-color: rgba(244, 173, 69, 0.48);
+}
+
+.beacon-core {
+  width: 11%;
+  aspect-ratio: 1;
+  background: var(--beacon-amber);
+  box-shadow:
+    0 0 1rem rgba(244, 173, 69, 0.95),
+    0 0 3.5rem rgba(244, 173, 69, 0.48),
+    0 0 7rem rgba(244, 173, 69, 0.2);
+}
+
+.beacon-copy h1 {
+  margin: 0;
+  font-family: var(--beacon-display);
+  font-size: clamp(3rem, 7vw, 6.25rem);
+  font-weight: 600;
+  line-height: 0.84;
+  letter-spacing: 0.035em;
+  text-shadow: 0 1rem 4rem rgba(0, 0, 0, 0.32);
+}
+
+.beacon-copy p {
+  max-width: 42rem;
+  margin: clamp(1.15rem, 3vw, 1.65rem) 0 0;
+  color: var(--beacon-muted);
+  font-size: clamp(0.75rem, 1.4vw, 0.92rem);
+  font-weight: 700;
+  letter-spacing: 0.28em;
+  line-height: 1.5;
+  text-transform: uppercase;
+}
+
+.powered-by {
+  position: absolute;
+  right: clamp(1.5rem, 4vw, 3.5rem);
+  bottom: clamp(1.4rem, 4vw, 3rem);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: rgba(255, 255, 255, 0.56);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-decoration: none;
+  text-transform: uppercase;
+  transition: color 180ms ease, transform 180ms ease;
+}
+
+.powered-by img {
+  width: 1.25rem;
+  height: 1.25rem;
+  object-fit: contain;
+}
+
+.powered-by strong {
+  color: rgba(255, 255, 255, 0.84);
+  font-family: var(--beacon-display);
+  font-size: 0.72rem;
+  letter-spacing: 0.18em;
+}
+
+.powered-by:hover {
+  color: var(--beacon-amber);
+  transform: translateY(-2px);
+}
+
+.powered-by:focus-visible {
+  outline: 2px solid var(--beacon-amber);
+  outline-offset: 0.5rem;
+  border-radius: 0.2rem;
+}
+
+@keyframes beacon-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(1rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes beacon-pulse {
+  0%,
+  20% {
+    opacity: 0;
+    transform: scale(0.58);
+  }
+  55% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.18);
+  }
+}
+
+@media (max-width: 560px) {
+  .beacon {
+    padding-inline: 1.25rem;
+  }
+
+  .beacon-copy h1 {
+    font-size: clamp(2.2rem, 10.5vw, 3rem);
+    letter-spacing: 0.01em;
+  }
+
+  .beacon-copy p {
+    max-width: 21rem;
+    letter-spacing: 0.12em;
+  }
+
+  .powered-by {
+    right: 50%;
+    transform: translateX(50%);
+    white-space: nowrap;
+  }
+
+  .powered-by:hover {
+    transform: translate(50%, -2px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .beacon-identity,
+  .beacon-ring {
+    animation: none;
+  }
+}

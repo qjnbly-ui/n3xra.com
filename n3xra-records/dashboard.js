@@ -215,6 +215,7 @@ const organizationAiContextInput = document.getElementById("organization-ai-cont
 const organizationAiResponseStyleInput = document.getElementById("organization-ai-response-style");
 const organizationDefaultMinutesStyleInput = document.getElementById("organization-default-minutes-style");
 const organizationSpeakerDetectionEnabledInput = document.getElementById("organization-speaker-detection-enabled");
+const organizationAdminOnlyMeetingsEnabledInput = document.getElementById("organization-admin-only-meetings-enabled");
 const organizationAiMemoryInput = document.getElementById("organization-ai-memory");
 const organizationAiMemoryList = document.getElementById("organization-ai-memory-list");
 const organizationAiMemoryNewInput = document.getElementById("organization-ai-memory-new");
@@ -1915,7 +1916,7 @@ function handleAiMemoryBubbleKeydown(event) {
 function isMissingAiSettingsSchemaError(error) {
   const message = String(error?.message || "").toLowerCase();
   return (
-    (message.includes("records_ai_context") || message.includes("records_ai_response_style") || message.includes("records_ai_memory") || message.includes("records_default_minutes_style") || message.includes("records_speaker_detection_enabled")) &&
+    (message.includes("records_ai_context") || message.includes("records_ai_response_style") || message.includes("records_ai_memory") || message.includes("records_default_minutes_style") || message.includes("records_speaker_detection_enabled") || message.includes("records_admin_only_meetings_enabled")) &&
     (message.includes("does not exist") || message.includes("schema cache"))
   );
 }
@@ -2852,7 +2853,8 @@ async function bootstrapAccess() {
           branded_primary_color,
           branded_accent_color,
           records_default_minutes_style,
-          records_speaker_detection_enabled
+          records_speaker_detection_enabled,
+          records_admin_only_meetings_enabled
         )
       `)
       .eq("user_id", currentSession.user.id)
@@ -2876,7 +2878,7 @@ async function bootstrapAccess() {
   if (supportOrgId && isPlatformAdminEmail(currentSession.user.email)) {
     const { data: supportOrg, error: supportError } = await supabase
       .from("organizations")
-      .select("id, name, slug, owner_user_id, subscription_tier, account_status, document_limit, storage_limit_mb, user_limit, public_embed_enabled, public_embed_token, transcript_preview_enabled, keyword_search_enabled, file_preview_cards_enabled, hosted_public_portal_enabled, cancel_at_period_end, billing_cycle, branded_primary_color, branded_accent_color, records_default_minutes_style, records_speaker_detection_enabled, stripe_customer_id, stripe_subscription_id, stripe_price_id, subscription_current_period_end")
+      .select("id, name, slug, owner_user_id, subscription_tier, account_status, document_limit, storage_limit_mb, user_limit, public_embed_enabled, public_embed_token, transcript_preview_enabled, keyword_search_enabled, file_preview_cards_enabled, hosted_public_portal_enabled, cancel_at_period_end, billing_cycle, branded_primary_color, branded_accent_color, records_default_minutes_style, records_speaker_detection_enabled, records_admin_only_meetings_enabled, stripe_customer_id, stripe_subscription_id, stripe_price_id, subscription_current_period_end")
       .eq("id", supportOrgId)
       .maybeSingle();
 
@@ -3277,7 +3279,7 @@ async function loadOrganizationAiSettings() {
 
   const { data, error } = await supabase
     .from("organizations")
-    .select("id, records_ai_context, records_ai_response_style, records_ai_memory, records_default_minutes_style, records_speaker_detection_enabled")
+    .select("id, records_ai_context, records_ai_response_style, records_ai_memory, records_default_minutes_style, records_speaker_detection_enabled, records_admin_only_meetings_enabled")
     .eq("id", organization.id)
     .maybeSingle();
 
@@ -3652,6 +3654,9 @@ function renderProfile() {
   if (organizationSpeakerDetectionEnabledInput) {
     organizationSpeakerDetectionEnabledInput.checked = organization?.records_speaker_detection_enabled !== false;
   }
+  if (organizationAdminOnlyMeetingsEnabledInput) {
+    organizationAdminOnlyMeetingsEnabledInput.checked = organization?.records_admin_only_meetings_enabled === true;
+  }
   organizationAiMemoryInput.value = organization?.records_ai_memory || "";
   renderLibraryLogo();
   renderAiMemoryBubbles();
@@ -3668,6 +3673,9 @@ function renderProfile() {
   organizationDefaultMinutesStyleInput.disabled = !capabilities.canManageLibrarySettings;
   if (organizationSpeakerDetectionEnabledInput) {
     organizationSpeakerDetectionEnabledInput.disabled = !capabilities.canManageLibrarySettings;
+  }
+  if (organizationAdminOnlyMeetingsEnabledInput) {
+    organizationAdminOnlyMeetingsEnabledInput.disabled = !capabilities.canManageLibrarySettings;
   }
   organizationAiMemoryInput.disabled = !capabilities.canManageLibrarySettings;
   organizationAiMemoryNewInput.disabled = !capabilities.canManageLibrarySettings;
@@ -4910,12 +4918,12 @@ async function handleOrganizationAiSettingsSave(event) {
   const organization = getActiveOrganization();
   if (!organization) return;
   if (!getActiveCapabilities().canManageLibrarySettings) {
-    setStatus(organizationAiSettingsStatus, "You do not have permission to change AI settings.", "error");
+    setStatus(organizationAiSettingsStatus, "You do not have permission to change these settings.", "error");
     return;
   }
 
   organizationAiSettingsSave.disabled = true;
-  setStatus(organizationAiSettingsStatus, "Saving AI settings...");
+  setStatus(organizationAiSettingsStatus, "Saving settings...");
 
   const updates = {
     records_ai_context: trimOrNull(organizationAiContextInput.value),
@@ -4925,13 +4933,14 @@ async function handleOrganizationAiSettingsSave(event) {
       ? organizationDefaultMinutesStyleInput.value
       : "standard",
     records_speaker_detection_enabled: organizationSpeakerDetectionEnabledInput?.checked !== false,
+    records_admin_only_meetings_enabled: organizationAdminOnlyMeetingsEnabledInput?.checked === true,
   };
 
   const { data, error } = await supabase
     .from("organizations")
     .update(updates)
     .eq("id", organization.id)
-    .select("id, records_ai_context, records_ai_response_style, records_ai_memory, records_default_minutes_style, records_speaker_detection_enabled")
+    .select("id, records_ai_context, records_ai_response_style, records_ai_memory, records_default_minutes_style, records_speaker_detection_enabled, records_admin_only_meetings_enabled")
     .single();
 
   organizationAiSettingsSave.disabled = false;
@@ -4948,7 +4957,7 @@ async function handleOrganizationAiSettingsSave(event) {
 
   mergeActiveOrganizationUpdate(data);
   renderProfile();
-  setStatus(organizationAiSettingsStatus, "AI settings updated.", "success");
+  setStatus(organizationAiSettingsStatus, "Settings updated.", "success");
 }
 
 async function handleOrganizationReviewSave(event) {

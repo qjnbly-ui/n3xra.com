@@ -65,7 +65,7 @@ async function handler(req, res) {
     const recording = await transcriptionApi._internal.loadRecording(recordingId);
     if (!recording) return res.status(404).json({ error: "Recording not found." });
     const organization = await transcriptionApi._internal.loadOrganization(recording.organization_id);
-    if (!organization || !(await transcriptionApi._internal.userCanTranscribeRecording(organization, user))) {
+    if (!organization || !(await transcriptionApi._internal.userCanTranscribeRecording(organization, user, recording))) {
       return res.status(403).json({ error: "You do not have access to correct this transcript." });
     }
 

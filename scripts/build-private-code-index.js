@@ -41,6 +41,7 @@ function relative(file) {
 function shouldIndex(file) {
   const filePath = relative(file);
   if (SKIP_FILES.has(filePath)) return false;
+  if (filePath.startsWith("assets/site-assistant/")) return false;
   if (!ALLOWED_EXTENSIONS.has(path.extname(file).toLowerCase())) return false;
   const stat = fs.statSync(file);
   return stat.size > 0 && stat.size <= MAX_FILE_BYTES;

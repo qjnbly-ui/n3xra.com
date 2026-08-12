@@ -4451,7 +4451,7 @@ code.inline {
   color: var(--teal);
 }
 
-.speaker-correction-modal .modal-close {
+.speaker-correction-modal .settings-modal-close {
   flex: 0 0 auto;
 }
 

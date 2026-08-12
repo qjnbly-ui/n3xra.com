@@ -11,7 +11,7 @@ const {
   parseFfmpegDurationSeconds,
   validateAndGroupChunks,
 } = require("./_recording-chunk-core");
-const { contextAllows, getRecordsAccessContext } = require("./_records-support-access");
+const { contextAllows, contextCanAccessAdminOnly, getRecordsAccessContext } = require("./_records-support-access");
 const { transcribeReadyRecording } = require("./transcribe-recording")._internal;
 
 const SUPABASE_URL = String(process.env.SUPABASE_URL || "https://vdbjlgmbpykjblprqnak.supabase.co").trim();
@@ -201,6 +201,9 @@ async function handler(req, res) {
     if (!recording) return res.status(404).json({ error: "Meeting recording not found." });
     const organization = await loadOne("organizations", `select=id,name,owner_user_id,subscription_tier&id=eq.${encodeURIComponent(recording.organization_id)}&limit=1`);
     const access = await getRecordsAccessContext(organization, user);
+    if (recording.admin_only && !contextCanAccessAdminOnly(access, "can_view_recordings")) {
+      return res.status(403).json({ error: "You do not have access to finalize this recording." });
+    }
     if (!contextAllows(access, "can_change_content")) return res.status(403).json({ error: "You do not have access to finalize this recording." });
 
     const processingStartedAt = new Date().toISOString();
