@@ -99,10 +99,22 @@
 .website-portal-customize[open] > summary > i { transform:rotate(225deg); }
 .website-portal-customize form { padding:1.25rem; background:#f9fbfb; border-top:1px solid var(--website-admin-border,#d9e2e4); }
 .website-portal-form-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:1rem; }
-.website-portal-form-grid > label { min-width:0; display:grid; gap:.42rem; color:#526072; font-size:.62rem; font-weight:800; text-transform:uppercase; letter-spacing:.06em; }
+.website-portal-form-grid > label, .website-portal-form-grid > fieldset { min-width:0; display:grid; gap:.42rem; color:#526072; font-size:.62rem; font-weight:800; text-transform:uppercase; letter-spacing:.06em; }
+.website-portal-form-grid > fieldset { margin:0; padding:0; border:0; }
+.website-portal-form-grid > fieldset > legend { margin:0 0 .42rem; padding:0; }
 .website-portal-form-grid input, .website-portal-form-grid select { width:100%; min-height:43px; box-sizing:border-box; padding:.62rem .75rem; color:var(--portal-ink,#111827); background:#fff; border:1px solid #cad5d8; border-radius:7px; font:600 .74rem Manrope,Arial,sans-serif; letter-spacing:normal; text-transform:none; }
-.website-portal-form-grid label > small { color:#748091; font-size:.58rem; font-weight:500; line-height:1.4; letter-spacing:normal; text-transform:none; }
+.website-portal-form-grid label > small, .website-portal-form-grid fieldset > small { color:#748091; font-size:.58rem; font-weight:500; line-height:1.4; letter-spacing:normal; text-transform:none; }
 .website-portal-form-wide { grid-column:1/-1; }
+.website-portal-logo-picker { display:grid; grid-template-columns:repeat(auto-fill,minmax(112px,1fr)); gap:.55rem; max-height:340px; overflow:auto; padding:.55rem; background:#fff; border:1px solid #cad5d8; border-radius:7px; }
+.website-portal-logo-option { position:relative; min-width:0; display:grid; grid-template-rows:86px auto; padding:0; overflow:hidden; color:#526072; background:#fff; border:1px solid #d8e0e2; border-radius:7px; cursor:pointer; }
+.website-portal-logo-option:hover { border-color:#84939a; transform:translateY(-1px); }
+.website-portal-logo-option.is-selected { border-color:#0f8175; box-shadow:0 0 0 2px rgba(15,129,117,.18); }
+.website-portal-logo-option.is-selected::after { content:"✓"; position:absolute; top:4px; right:4px; width:18px; height:18px; display:grid; place-items:center; color:#fff; background:#0f8175; border-radius:999px; font:800 .62rem/1 Manrope,Arial,sans-serif; }
+.website-portal-logo-image { min-width:0; display:grid; place-items:center; padding:.55rem; overflow:hidden; background:linear-gradient(135deg,#26352e 0 50%,#f1f3ef 50% 100%); }
+.website-portal-logo-image img { display:block; max-width:100%; max-height:100%; object-fit:contain; }
+.website-portal-logo-name { min-width:0; padding:.45rem .5rem; overflow:hidden; color:#344139; background:#fff; border-top:1px solid #d8e0e2; font:700 .62rem/1.25 Manrope,Arial,sans-serif; letter-spacing:normal; text-align:center; text-overflow:ellipsis; text-transform:none; white-space:nowrap; }
+.website-portal-logo-option-fallback .website-portal-logo-image > span { padding:.2rem .35rem; color:#17231b; background:rgba(255,255,255,.86); border-radius:4px; font:700 1.25rem/1 Fraunces,Georgia,serif; text-transform:none; }
+.website-portal-logo-empty { grid-column:1/-1; margin:0; padding:1rem; color:#748091; font-size:.66rem; font-weight:600; line-height:1.5; text-align:center; text-transform:none; }
 .website-portal-color-control { display:grid; grid-template-columns:44px minmax(0,1fr); }
 .website-portal-color-control input[type="color"] { padding:4px; border-radius:7px 0 0 7px; }
 .website-portal-color-control input[type="text"] { border-left:0; border-radius:0 7px 7px 0; }

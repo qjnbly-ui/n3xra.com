@@ -1,4 +1,4 @@
-import { initializeClientWorkspaceContext } from "/client-portal/client-workspace-context.js?v=3";
+import { initializeClientWorkspaceContext } from "/client-portal/client-workspace-context.js?v=4";
 import { initializePortalBrandShell } from "/client-portal/brand-shell.js?v=1";
 
 void initializePortalBrandShell();

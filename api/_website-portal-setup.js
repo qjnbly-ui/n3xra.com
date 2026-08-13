@@ -112,6 +112,61 @@ function expandHex(value = "") {
   return "";
 }
 
+function channelHex(value) {
+  return Math.max(0, Math.min(255, Math.round(value))).toString(16).padStart(2, "0");
+}
+
+function parseRgbChannel(value = "") {
+  const text = String(value).trim();
+  const number = Number.parseFloat(text);
+  if (!Number.isFinite(number)) return null;
+  return text.endsWith("%") ? number * 2.55 : number;
+}
+
+function hslToHex(hue, saturation, lightness) {
+  const normalizedHue = ((hue % 360) + 360) % 360;
+  const sat = Math.max(0, Math.min(1, saturation / 100));
+  const light = Math.max(0, Math.min(1, lightness / 100));
+  const chroma = (1 - Math.abs(2 * light - 1)) * sat;
+  const segment = normalizedHue / 60;
+  const secondary = chroma * (1 - Math.abs((segment % 2) - 1));
+  const [red, green, blue] = segment < 1 ? [chroma, secondary, 0]
+    : segment < 2 ? [secondary, chroma, 0]
+      : segment < 3 ? [0, chroma, secondary]
+        : segment < 4 ? [0, secondary, chroma]
+          : segment < 5 ? [secondary, 0, chroma]
+            : [chroma, 0, secondary];
+  const match = light - chroma / 2;
+  return `#${channelHex((red + match) * 255)}${channelHex((green + match) * 255)}${channelHex((blue + match) * 255)}`;
+}
+
+function normalizeCssColor(value = "") {
+  const hex = expandHex(value);
+  if (hex) return hex;
+  const rgb = String(value).match(/^rgba?\(\s*([^)]*)\)$/i);
+  if (rgb) {
+    const components = rgb[1].split(/[,\s/]+/).filter(Boolean).slice(0, 3).map(parseRgbChannel);
+    if (components.length === 3 && components.every((component) => component !== null)) {
+      return `#${components.map(channelHex).join("")}`;
+    }
+  }
+  const hsl = String(value).match(/^hsla?\(\s*([^)]*)\)$/i);
+  if (hsl) {
+    const components = hsl[1].split(/[,\s/]+/).filter(Boolean).slice(0, 3);
+    const hue = Number.parseFloat(components[0]);
+    const saturation = Number.parseFloat(components[1]);
+    const lightness = Number.parseFloat(components[2]);
+    if (components[1]?.endsWith("%") && components[2]?.endsWith("%") && [hue, saturation, lightness].every(Number.isFinite)) {
+      return hslToHex(hue, saturation, lightness);
+    }
+  }
+  return "";
+}
+
+function cssColorTokens(value = "") {
+  return String(value).match(/#[0-9a-fA-F]{8}\b|#[0-9a-fA-F]{6}\b|#[0-9a-fA-F]{4}\b|#[0-9a-fA-F]{3}\b|rgba?\([^)]{1,80}\)|hsla?\([^)]{1,80}\)/g) || [];
+}
+
 function colorChannels(value = "") {
   const hex = expandHex(value);
   return hex ? [1, 3, 5].map((index) => Number.parseInt(hex.slice(index, index + 2), 16)) : null;
@@ -152,25 +207,24 @@ function colorQuality(value = "") {
 
 function detectColorCandidates(source = "") {
   const candidates = new Map();
-  const add = (rawValue, { score = 0, primaryScore = 0, accentScore = 0 } = {}) => {
-    const value = expandHex(rawValue);
+  const add = (rawValue, { score = 0, primaryScore = 0, accentScore = 0, evidence = "" } = {}) => {
+    const value = normalizeCssColor(rawValue);
     if (colorQuality(value) < 0) return;
-    const current = candidates.get(value) || { value, count: 0, score: colorQuality(value) / 4, primaryScore: 0, accentScore: 0 };
+    const current = candidates.get(value) || { value, count: 0, score: colorQuality(value) / 4, primaryScore: 0, accentScore: 0, evidence: [] };
     current.count += 1;
     current.score += score;
     current.primaryScore = Math.max(current.primaryScore, primaryScore);
     current.accentScore = Math.max(current.accentScore, accentScore);
+    if (evidence && current.evidence.length < 6 && !current.evidence.includes(evidence)) current.evidence.push(evidence);
     candidates.set(value, current);
   };
   const text = String(source);
 
-  for (const match of text.matchAll(/#[0-9a-fA-F]{8}\b|#[0-9a-fA-F]{6}\b|#[0-9a-fA-F]{4}\b|#[0-9a-fA-F]{3}\b/g)) {
-    add(match[0], { score: 4 });
-  }
+  for (const value of cssColorTokens(text)) add(value, { score: 4 });
 
   for (const match of text.matchAll(/([\w-]+)\s*:\s*([^;}]+)/g)) {
     const property = match[1].toLowerCase();
-    const values = match[2].match(/#[0-9a-fA-F]{8}\b|#[0-9a-fA-F]{6}\b|#[0-9a-fA-F]{4}\b|#[0-9a-fA-F]{3}\b/g) || [];
+    const values = cssColorTokens(match[2]);
     const isStrongPrimaryName = /(?:^|[-_])(primary|brand|theme|main|bg|navy|forest|pine|moss|green|dark)(?:[-_]|$)/.test(property);
     const isFallbackPrimaryName = /(?:^|[-_])(ink|charcoal|black)(?:[-_]|$)/.test(property);
     const isAccentName = /(?:^|[-_])(accent|secondary|highlight|gold|lime|sun|orange|cta|action)(?:[-_]|$)/.test(property);
@@ -182,14 +236,16 @@ function detectColorCandidates(source = "") {
         score: isUtilityName ? 0 : 8,
         primaryScore: (isStrongPrimaryName ? 220 : (isFallbackPrimaryName ? 110 : 0)) + (isBackground && !isUtilityName ? 35 : 0),
         accentScore: (isAccentName ? 180 : 0) + (isDecorative && !isUtilityName ? 18 : 0),
+        evidence: `${property}: ${normalizeCssColor(value)}`,
       });
     }
   }
 
   for (const tag of text.matchAll(/<meta\b[^>]*>/gi)) {
     if (!/name\s*=\s*["']theme-color["']/i.test(tag[0])) continue;
-    const value = tag[0].match(/content\s*=\s*["'](#[0-9a-fA-F]{3,8})["']/i)?.[1];
-    if (value) add(value, { score: 80, primaryScore: 240 });
+    const rawValue = tag[0].match(/content\s*=\s*["']([^"']+)["']/i)?.[1];
+    const value = normalizeCssColor(rawValue);
+    if (value) add(value, { score: 80, primaryScore: 240, evidence: `meta theme-color: ${value}` });
   }
 
   return [...candidates.values()]
@@ -272,14 +328,28 @@ function detectLinkedStylesheets(html = "", pageUrl = "") {
   return values.slice(0, 4);
 }
 
-function assetScore(asset, kind) {
+function assetScore(asset, kind, backgroundColor = DEFAULT_BRAND.primary_color) {
   const text = `${asset.asset_key || ""} ${asset.label || ""} ${asset.category || ""}`.toLowerCase();
   if (kind === "favicon") return (text.includes("favicon") ? 100 : 0) + (text.includes("icon") ? 40 : 0) + (asset.category === "logo" ? 10 : 0);
-  return (asset.category === "logo" ? 80 : 0) + (text.includes("logo") ? 60 : 0) + (text.includes("brand") ? 20 : 0) - (text.includes("favicon") ? 80 : 0);
+  const lightVariant = /(?:^|[\s_.-])(light|white|reverse|reversed|negative|knockout)(?:[\s_.-]|$)|on[\s_.-]*dark/.test(text);
+  const darkVariant = /(?:^|[\s_.-])(dark|black)(?:[\s_.-]|$)|on[\s_.-]*light/.test(text);
+  const darkBackground = relativeLuminance(backgroundColor) < 0.35;
+  const variantScore = darkBackground
+    ? (lightVariant ? 180 : 0) - (darkVariant ? 120 : 0)
+    : (darkVariant ? 180 : 0) - (lightVariant ? 120 : 0);
+  return (asset.category === "logo" ? 80 : 0) + (text.includes("logo") ? 60 : 0) + (text.includes("brand") ? 20 : 0) - (text.includes("favicon") ? 80 : 0) + variantScore;
 }
 
-function bestAsset(assets = [], kind) {
-  return [...assets].filter((asset) => asset.status !== "archived").sort((a, b) => assetScore(b, kind) - assetScore(a, kind))[0] || null;
+function bestAsset(assets = [], kind, backgroundColor = DEFAULT_BRAND.primary_color) {
+  const eligible = assets.filter((asset) => asset.status !== "archived" && (kind !== "logo" || asset.category === "logo"));
+  return [...eligible].sort((a, b) => assetScore(b, kind, backgroundColor) - assetScore(a, kind, backgroundColor))[0] || null;
+}
+
+function rankLogoAssets(assets = [], backgroundColor = DEFAULT_BRAND.primary_color) {
+  return assets
+    .filter((asset) => asset.status !== "archived" && asset.category === "logo" && asset.public_url)
+    .map((asset) => ({ ...asset, score: assetScore(asset, "logo", backgroundColor) }))
+    .sort((left, right) => right.score - left.score);
 }
 
 function proposedPortalDomain(records = {}) {
@@ -403,7 +473,6 @@ async function inspectLiveBranding(liveUrl, options = {}) {
 
 async function analyzePortalSetup(records, options = {}) {
   const assets = publicAssetOptions(records.assets, records.versions);
-  const logo = bestAsset(assets, "logo");
   const favicon = bestAsset(assets, "favicon");
   const repository = chooseRepository(records);
   const vercel = chooseVercelService(records);
@@ -416,6 +485,8 @@ async function analyzePortalSetup(records, options = {}) {
     : [{ connected: null, colors: [], fonts: [], sourceUrl: normalizedUrl(records.website?.live_url), error: "" }, null, null];
   const branding = records.branding || {};
   const portalColors = choosePortalColors(remote.colorCandidates || remote.colors, branding);
+  const logoCandidates = rankLogoAssets(assets, portalColors.primary_color);
+  const logo = logoCandidates[0] || bestAsset(assets, "logo", portalColors.primary_color);
   const savedPortal = records.domains?.find((row) => row.domain_purpose === "portal");
   const proposed = {
     portal_domain: proposedPortalDomain(records),
@@ -464,7 +535,21 @@ async function analyzePortalSetup(records, options = {}) {
     assets,
     connections,
     readiness: { activation_ready: requiredReady, completed, total: connections.length, percent: Math.round((completed / connections.length) * 100) },
-    discovery: { remote_scanned: Boolean(options.includeRemote), live_site: remote, detected_colors: remote.colors, detected_fonts: remote.fonts },
+    discovery: {
+      remote_scanned: Boolean(options.includeRemote),
+      live_site: remote,
+      detected_colors: remote.colors,
+      detected_fonts: remote.fonts,
+      color_candidates: remote.colorCandidates || [],
+      logo_candidates: logoCandidates.slice(0, 8).map((asset) => ({
+        id: asset.id,
+        label: asset.label,
+        asset_key: asset.asset_key,
+        public_url: asset.public_url,
+        mime_type: asset.mime_type,
+        score: asset.score,
+      })),
+    },
   };
 }
 
@@ -473,10 +558,12 @@ module.exports = {
   FEATURE_DEFAULTS,
   analyzePortalSetup,
   choosePortalColors,
+  colorContrast,
   detectColorCandidates,
   detectColors,
   detectFonts,
   normalizeHostname,
   proposedPortalDomain,
+  rankLogoAssets,
   verifyVercel,
 };

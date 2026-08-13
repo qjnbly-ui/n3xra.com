@@ -27,10 +27,13 @@ test("the tenant login is client-branded and authenticates without the N3XRA acc
 });
 
 test("the branded dashboard removes master-platform navigation and the admin assistant", async () => {
-  const [shell, context, navigation] = await Promise.all([
+  const [shell, context, navigation, workspaceContext, portalHtml, loginHtml] = await Promise.all([
     projectFile("client-portal/brand-shell.js"),
     projectFile("client-portal/tenant-context.js"),
     projectFile("assets/site-nav.js"),
+    projectFile("client-portal/client-workspace-context.js"),
+    projectFile("client-portal/index.html"),
+    projectFile("client-portal/login/index.html"),
   ]);
 
   assert.match(shell, /showGenericPortalIdentity/);
@@ -41,6 +44,10 @@ test("the branded dashboard removes master-platform navigation and the admin ass
   assert.match(context, /portal-provider-label/);
   assert.match(navigation, /\.portal\.n3xra\.com/);
   assert.match(navigation, /portal-white-label-host/);
+  assert.match(workspaceContext, /Back to \$\{escapeHtml\(website\.name\)\} Website/);
+  assert.doesNotMatch(workspaceContext, /Back to[\s\S]{0,160}target="_blank"/);
+  assert.doesNotMatch(portalHtml.match(/<a id="files-live-link"[^>]*>/)?.[0] || "", /target=/);
+  assert.doesNotMatch(loginHtml.match(/<a class="portal-login-return"[^>]*>/)?.[0] || "", /target=/);
 });
 
 test("client portal sign-out clears only the current session and always returns to its branded login", async () => {
@@ -54,7 +61,7 @@ test("client portal sign-out clears only the current session and always returns 
   ]);
 
   assert.match(html, /portal-shell\.js\?v=4/);
-  assert.match(loginHtml, /login\.js\?v=2/);
+  assert.match(loginHtml, /login\.js\?v=3/);
   assert.match(shell, /signOut\(\{ scope: "local" \}\)/);
   assert.match(shell, /finally/);
   assert.match(shell, /window\.location\.replace\(portalSignedOutUrl\(\)\)/);

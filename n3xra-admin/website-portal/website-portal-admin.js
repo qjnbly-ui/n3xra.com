@@ -42,6 +42,15 @@ function portalUrl(domain = "") {
   return hostname ? `https://${hostname}/` : "";
 }
 
+function safeAssetUrl(value = "") {
+  try {
+    const url = new URL(String(value || ""), window.location.origin);
+    return ["http:", "https:"].includes(url.protocol) ? url.toString() : "";
+  } catch {
+    return "";
+  }
+}
+
 function message(text = "", isError = false) {
   status.textContent = text;
   status.classList.toggle("is-error", isError);
@@ -67,10 +76,25 @@ function connection(key, label, state, detail, required = false, action = "") {
   return { key, label, state, detail, required, action };
 }
 
-function assetScore(asset, favicon = false) {
+function colorLuminance(value = "") {
+  const match = String(value).match(/^#([0-9a-f]{6})$/i);
+  if (!match) return 0;
+  const channels = [0, 2, 4].map((index) => Number.parseInt(match[1].slice(index, index + 2), 16) / 255).map((channel) => (
+    channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4
+  ));
+  return channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722;
+}
+
+function assetScore(asset, favicon = false, backgroundColor = DEFAULT_BRAND.primary_color) {
   const text = `${asset.asset_key || ""} ${asset.label || ""} ${asset.category || ""}`.toLowerCase();
   if (favicon) return (text.includes("favicon") ? 100 : 0) + (text.includes("icon") ? 40 : 0) + (asset.category === "logo" ? 10 : 0);
-  return (asset.category === "logo" ? 80 : 0) + (text.includes("logo") ? 60 : 0) + (text.includes("brand") ? 20 : 0) - (text.includes("favicon") ? 80 : 0);
+  const lightVariant = /(?:^|[\s_.-])(light|white|reverse|reversed|negative|knockout)(?:[\s_.-]|$)|on[\s_.-]*dark/.test(text);
+  const darkVariant = /(?:^|[\s_.-])(dark|black)(?:[\s_.-]|$)|on[\s_.-]*light/.test(text);
+  const darkBackground = colorLuminance(backgroundColor) < 0.35;
+  const variantScore = darkBackground
+    ? (lightVariant ? 180 : 0) - (darkVariant ? 120 : 0)
+    : (darkVariant ? 180 : 0) - (lightVariant ? 120 : 0);
+  return (asset.category === "logo" ? 80 : 0) + (text.includes("logo") ? 60 : 0) + (text.includes("brand") ? 20 : 0) - (text.includes("favicon") ? 80 : 0) + variantScore;
 }
 
 async function directAnalysis(website) {
@@ -93,9 +117,11 @@ async function directAnalysis(website) {
   if (versionResult.error) throw versionResult.error;
   const versions = new Map((versionResult.data || []).map((version) => [version.id, version]));
   const assets = rawAssets.map((asset) => ({ ...asset, public_url: versions.get(asset.current_version_id)?.public_url || null, mime_type: versions.get(asset.current_version_id)?.mime_type || null }));
-  const logo = [...assets].sort((a, b) => assetScore(b) - assetScore(a))[0] || null;
-  const favicon = [...assets].sort((a, b) => assetScore(b, true) - assetScore(a, true))[0] || null;
   const branding = brandingResult.data || {};
+  const logoAssets = assets.filter((asset) => asset.category === "logo");
+  const logoBackground = branding.primary_color || DEFAULT_BRAND.primary_color;
+  const logo = [...logoAssets].sort((a, b) => assetScore(b, false, logoBackground) - assetScore(a, false, logoBackground))[0] || null;
+  const favicon = [...assets].sort((a, b) => assetScore(b, true) - assetScore(a, true))[0] || null;
   const websiteDomains = domains.filter((item) => item.website_id === website.id);
   const domain = websiteDomains.find((item) => item.domain_purpose === "portal");
   const portalSlug = String(website.portal_slug || website.slug || "").trim();
@@ -165,6 +191,7 @@ function applyValues(values, { force = false } = {}) {
   byId("portal-domain").value = values.management_domain || "";
   byId("portal-theme").value = values.theme_id || "classic";
   byId("portal-logo-asset").value = values.logo_asset_id || "";
+  updateLogoSelection(values.logo_asset_id || "");
   byId("portal-favicon-asset").value = values.favicon_asset_id || "";
   setColor("primary", values.primary_color || DEFAULT_BRAND.primary_color);
   setColor("accent", values.accent_color || DEFAULT_BRAND.accent_color);
@@ -183,8 +210,24 @@ function setColor(kind, value) {
 
 function renderAssetOptions(result) {
   const options = result.assets.map((asset) => `<option value="${escapeHtml(asset.id)}">${escapeHtml(asset.label)} · ${escapeHtml(asset.category || "asset")}</option>`).join("");
-  byId("portal-logo-asset").innerHTML = `<option value="">Use website name</option>${options}`;
   byId("portal-favicon-asset").innerHTML = `<option value="">Use default favicon</option>${options}`;
+  const logoAssets = result.assets.filter((asset) => asset.category === "logo" && safeAssetUrl(asset.public_url) && String(asset.mime_type || "").startsWith("image/"));
+  const selectedId = result.proposed.logo_asset_id || "";
+  byId("portal-logo-picker").innerHTML = `
+    <button class="website-portal-logo-option website-portal-logo-option-fallback" type="button" data-logo-asset-id="" role="option" title="Use website name" aria-label="Use website name instead of a logo"><span class="website-portal-logo-image"><span>Aa</span></span><span class="website-portal-logo-name">Website name</span></button>
+    ${logoAssets.map((asset) => `<button class="website-portal-logo-option" type="button" data-logo-asset-id="${escapeHtml(asset.id)}" role="option" title="${escapeHtml(asset.label || "Logo image")}" aria-label="Use ${escapeHtml(asset.label || "logo image")}"><span class="website-portal-logo-image"><img src="${escapeHtml(safeAssetUrl(asset.public_url))}" alt="" loading="lazy"></span><span class="website-portal-logo-name">${escapeHtml(asset.label || "Logo image")}</span></button>`).join("")}
+    ${logoAssets.length ? "" : '<p class="website-portal-logo-empty">No approved images are currently available in this website’s Logo folder.</p>'}
+  `;
+  updateLogoSelection(selectedId);
+}
+
+function updateLogoSelection(assetId = "") {
+  const selectedId = String(assetId || "");
+  byId("portal-logo-picker")?.querySelectorAll("[data-logo-asset-id]").forEach((button) => {
+    const selected = button.dataset.logoAssetId === selectedId;
+    button.classList.toggle("is-selected", selected);
+    button.setAttribute("aria-selected", String(selected));
+  });
 }
 
 function renderConnections(result) {
@@ -220,8 +263,12 @@ function renderBrand(result) {
   const detectedParts = [];
   if (result.discovery.detected_colors?.length) detectedParts.push(`${result.discovery.detected_colors.length} colors`);
   if (result.discovery.detected_fonts?.length) detectedParts.push(`${result.discovery.detected_fonts.length} fonts`);
+  const aiReview = result.discovery.ai_brand_analysis;
+  const aiCopy = aiReview?.available
+    ? `${aiReview.cached ? "Cached AI review" : "AI review"} ${aiReview.used ? "refined the recommendation" : "confirmed or preserved the guarded recommendation"}.`
+    : "Deterministic brand analysis was used.";
   byId("portal-detection-note").textContent = result.discovery.remote_scanned
-    ? (detectedParts.length ? `This selected website scan detected ${detectedParts.join(" and ")}. These are recommendations only until you apply or save them.` : "This selected website was checked. Its saved branding remains unchanged until you apply or save a recommendation.")
+    ? (detectedParts.length ? `This selected website scan detected ${detectedParts.join(" and ")}. ${aiCopy} These are recommendations only until you apply or save them.` : `This selected website was checked. ${aiCopy} Its saved branding remains unchanged until you apply or save a recommendation.`)
     : "Showing this website’s saved branding. Use Refresh selected site to inspect only this website’s live CSS; nothing is saved automatically.";
 }
 
@@ -310,7 +357,9 @@ async function analyze({ includeRemote = false, announce = true } = {}) {
       : await directAnalysis(selectedWebsite);
     if (sequence !== analysisSequence) return;
     renderAnalysis(result);
-    scanState.textContent = includeRemote && result.discovery.remote_scanned ? "Live website scan complete" : "Using saved N3XRA data";
+    scanState.textContent = includeRemote && result.discovery.remote_scanned
+      ? (result.discovery.ai_brand_analysis?.available ? "Live + AI brand review complete" : "Live website scan complete")
+      : "Using saved N3XRA data";
     if (announce) message(includeRemote && isLocalStaticPreview()
       ? "Saved connections refreshed. Live-site inspection runs in a deployed preview or production."
       : `${selectedWebsite.name} recommendations refreshed. Review them, then apply or save only if they look right.`);
@@ -443,6 +492,14 @@ function bindEvents() {
   featureGrid.addEventListener("change", () => { formDirty = true; });
   byId("portal-refresh-analysis").addEventListener("click", () => analyze({ includeRemote: true }).catch((error) => message(error.message, true)));
   byId("portal-auto-configure").addEventListener("click", applyRecommended);
+  byId("portal-logo-picker").addEventListener("click", (event) => {
+    const option = event.target.closest("[data-logo-asset-id]");
+    if (!option) return;
+    byId("portal-logo-asset").value = option.dataset.logoAssetId || "";
+    updateLogoSelection(byId("portal-logo-asset").value);
+    formDirty = true;
+    renderPreviewFromForm();
+  });
   byId("portal-activate").addEventListener("click", () => activate(true));
   byId("portal-deactivate").addEventListener("click", () => activate(false));
   byId("portal-open-customize").addEventListener("click", () => { byId("portal-customize").open = true; byId("portal-customize").scrollIntoView({ behavior: "smooth", block: "start" }); });
@@ -454,7 +511,7 @@ function bindEvents() {
     try {
       await navigator.clipboard.writeText(address);
       button.textContent = "Copied";
-      message("Portal URL copied. Paste it into the client website’s sign-in button.");
+      message("Portal URL copied. Use it as a normal sign-in link so the portal opens and returns in the same tab.");
       window.setTimeout(() => { button.textContent = "Copy URL"; }, 1800);
     } catch {
       message("The portal URL could not be copied automatically. Select the URL above and copy it manually.", true);

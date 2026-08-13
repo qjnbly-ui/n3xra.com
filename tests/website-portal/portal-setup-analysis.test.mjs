@@ -87,6 +87,37 @@ test("saved custom portal colors stay authoritative over later scans", () => {
   });
 });
 
+test("a dark portal background automatically prefers a light logo variant", async () => {
+  const input = records({
+    assets: [
+      { id: "logo-dark", asset_key: "brand.logo-dark", label: "Logo Dark", category: "logo", status: "active", current_version_id: "version-dark" },
+      { id: "logo-light", asset_key: "brand.logo-light", label: "Logo Light", category: "logo", status: "active", current_version_id: "version-light" },
+    ],
+    versions: [
+      { id: "version-dark", public_url: "https://cdn.example/logo-dark.png", mime_type: "image/png" },
+      { id: "version-light", public_url: "https://cdn.example/logo-light.png", mime_type: "image/png" },
+    ],
+  });
+  const result = await analyzePortalSetup(input, { includeRemote: false });
+  assert.equal(result.proposed.logo_asset_id, "logo-light");
+});
+
+test("a light portal background automatically prefers a dark logo variant", async () => {
+  const input = records({
+    branding: { primary_color: "#f4f0e7", accent_color: "#536a2c" },
+    assets: [
+      { id: "logo-dark", asset_key: "brand.logo-dark", label: "Logo Dark", category: "logo", status: "active", current_version_id: "version-dark" },
+      { id: "logo-light", asset_key: "brand.logo-light", label: "Logo Light", category: "logo", status: "active", current_version_id: "version-light" },
+    ],
+    versions: [
+      { id: "version-dark", public_url: "https://cdn.example/logo-dark.png", mime_type: "image/png" },
+      { id: "version-light", public_url: "https://cdn.example/logo-light.png", mime_type: "image/png" },
+    ],
+  });
+  const result = await analyzePortalSetup(input, { includeRemote: false });
+  assert.equal(result.proposed.logo_asset_id, "logo-dark");
+});
+
 test("a partially customized saved palette is protected as one intentional pair", () => {
   assert.deepEqual(choosePortalColors(["#ef7b2d", "#102a43"], {
     primary_color: "#17231b",
@@ -113,6 +144,21 @@ test("semantic CSS variables outrank repeated utility colors", () => {
   }), {
     primary_color: "#123f5a",
     accent_color: "#f2a23a",
+  });
+});
+
+test("modern RGB and HSL brand tokens are normalized into exact hex colors", () => {
+  const detected = detectColorCandidates(`:root {
+    --brand-primary: rgb(18 63 90);
+    --brand-accent: hsl(36 88% 59%);
+    --surface: rgba(250, 250, 250, 0.9);
+  }`);
+  assert.deepEqual(choosePortalColors(detected, {
+    primary_color: "#17231b",
+    accent_color: "#b77946",
+  }), {
+    primary_color: "#123f5a",
+    accent_color: "#f2a93a",
   });
 });
 
@@ -205,6 +251,8 @@ test("portal interface keeps setup, overrides, feature permissions, and activati
   assert.match(html, /id="portal-auto-configure"/);
   assert.match(html, /id="portal-connection-list"/);
   assert.match(html, /id="portal-customize"/);
+  assert.match(html, /id="portal-logo-picker"/);
+  assert.match(html, /id="portal-logo-asset" type="hidden"/);
   assert.match(html, /id="portal-copy-url"/);
   assert.match(html, /id="portal-open-url"/);
   assert.match(html, /id="portal-feature-grid"/);
@@ -212,6 +260,11 @@ test("portal interface keeps setup, overrides, feature permissions, and activati
   assert.match(script, /activation_ready/);
   assert.match(script, /portal_enabled/);
   assert.match(script, /navigator\.clipboard\.writeText\(address\)/);
+  assert.match(script, /data-logo-asset-id/);
+  assert.match(script, /safeAssetUrl\(asset\.public_url\)/);
+  assert.match(script, /asset\.category === "logo"/);
+  assert.match(script, /website-portal-logo-name/);
+  assert.doesNotMatch(script, /likelyLogos/);
   assert.match(script, /https:\/\/\$\{hostname\}\//);
   assert.match(script, /status: sameDomain \? oldDomain\.status : "pending"/);
   assert.match(script, /Authorization: `Bearer \$\{currentSession\.access_token\}`/);

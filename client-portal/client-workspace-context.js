@@ -100,7 +100,7 @@ export async function initializeClientWorkspaceContext(panel, { pageKey = "overv
     panel.querySelector("#client-organization-name").textContent = website.name;
     panel.querySelector("#client-organization-url").textContent = websiteUrl || "Website is not live yet";
     panel.querySelector("#client-organization-links").innerHTML = websiteUrl
-      ? `<a href="${escapeHtml(websiteUrl)}" target="_blank" rel="noopener">Back to ${escapeHtml(website.name)} Website</a>`
+      ? `<a href="${escapeHtml(websiteUrl)}">Back to ${escapeHtml(website.name)} Website</a>`
       : "";
     if (persist) {
       const previous = readWorkspaceContext("client", session.user.id);
