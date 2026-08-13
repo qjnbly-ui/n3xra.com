@@ -86,8 +86,11 @@ async function loadPortalApps() {
     if (!session?.user)
         return;
     const tenant = await resolvePortalTenant(supabase);
+    if (tenant.mode === "unbound") {
+        window.location.replace(websiteApp().href);
+        return;
+    }
     if (tenant.mode !== "tenant") {
-        renderApps([websiteApp()]);
         return;
     }
     const { data: website, error: websiteError } = await supabase

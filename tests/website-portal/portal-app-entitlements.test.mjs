@@ -43,6 +43,21 @@ test("website-only portals skip the app dashboard after subscriptions load", asy
   assert.match(apps, /catch\(\(error\) => \{[\s\S]*renderApps\(\[websiteApp\(\)\]\)/);
 });
 
+test("the N3XRA website portal opens Website Management without the branded app chooser", async () => {
+  const [apps, shell, workspaceContext, brandShell] = await Promise.all([
+    projectFile("client-portal/portal-apps.js"),
+    projectFile("client-portal/client-shell.js"),
+    projectFile("client-portal/client-workspace-context.js"),
+    projectFile("client-portal/brand-shell.js"),
+  ]);
+
+  assert.match(apps, /tenant\.mode === "unbound"[\s\S]*window\.location\.replace\(websiteApp\(\)\.href\)/);
+  assert.match(shell, /isBrandedPortalHostname\(\)[\s\S]*Dashboard/);
+  assert.match(workspaceContext, /isBrandedPortalHostname\(\)[\s\S]*Dashboard/);
+  assert.match(brandShell, /showN3xraPortalIdentity/);
+  assert.match(brandShell, /N3XRA \| Website Management/);
+});
+
 test("organization app entitlements are RLS protected and synchronized from subscriptions", async () => {
   const migration = await projectFile("supabase/migrations/20260813164832_branded_portal_app_entitlements.sql");
 

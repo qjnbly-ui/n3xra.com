@@ -120,8 +120,11 @@ async function loadPortalApps(): Promise<void> {
   if (!session?.user) return;
 
   const tenant = await resolvePortalTenant(supabase);
+  if (tenant.mode === "unbound") {
+    window.location.replace(websiteApp().href);
+    return;
+  }
   if (tenant.mode !== "tenant") {
-    renderApps([websiteApp()]);
     return;
   }
 

@@ -1,10 +1,13 @@
-import { initializeClientWorkspaceContext } from "/client-portal/client-workspace-context.js?v=4";
+import { initializeClientWorkspaceContext } from "/client-portal/client-workspace-context.js?v=5";
 import { initializePortalBrandShell } from "/client-portal/brand-shell.js?v=1";
+import { isBrandedPortalHostname } from "/client-portal/tenant-context.js";
 
 void initializePortalBrandShell();
 
 const clientSections = [
-  { key: "dashboard", label: "Dashboard", href: "/client-portal/", path: "/client-portal/", view: "dashboard" },
+  ...(isBrandedPortalHostname()
+    ? [{ key: "dashboard", label: "Dashboard", href: "/client-portal/", path: "/client-portal/", view: "dashboard" }]
+    : []),
   { key: "project", label: "Project", href: "/project-workspace/", path: "/project-workspace/" },
   { key: "assets", label: "Files & Assets", href: "/client-portal/#files-assets", path: "/client-portal/", hash: "#files-assets", view: "files" },
   { key: "services", label: "Services & Ownership", href: "/client-portal/services/", path: "/client-portal/services/" },

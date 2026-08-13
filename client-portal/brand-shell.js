@@ -19,9 +19,26 @@ function showGenericPortalIdentity() {
     document.querySelectorAll('.site-nav-actions a[href^="/account"], [data-site-assistant-open], [data-site-assistant-layer]').forEach((element) => element.remove());
     return null;
 }
+function showN3xraPortalIdentity() {
+    document.title = "N3XRA | Website Management";
+    document.querySelectorAll(".site-brand").forEach((brand) => {
+        brand.href = "/";
+        brand.setAttribute("aria-label", "N3XRA home");
+        const label = brand.querySelector("span");
+        if (label)
+            label.textContent = "N3XRA";
+        const image = brand.querySelector("img");
+        if (image) {
+            image.hidden = false;
+            image.alt = "";
+            image.src = "/assets/n3xra_logo_transparent_small.png";
+        }
+    });
+    return null;
+}
 export async function initializePortalBrandShell() {
     if (!isBrandedPortalHostname())
-        return null;
+        return showN3xraPortalIdentity();
     document.documentElement.classList.add("portal-white-label-host");
     if (!hasConfig()) {
         showGenericPortalIdentity();

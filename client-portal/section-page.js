@@ -14,5 +14,5 @@ if (view === "assets") {
 }
 
 await import("/assets/site-nav.js");
-await import("/client-portal/client-shell.js?v=7");
+await import("/client-portal/client-shell.js?v=8");
 await import("/client-portal/portal.js?v=19");

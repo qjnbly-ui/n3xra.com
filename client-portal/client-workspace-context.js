@@ -2,13 +2,14 @@ import { createBrowserSupabase, hasConfig } from "/shared/lib/supabase-client.js
 import { readWorkspaceContext, writeWorkspaceContext } from "/client-portal/workspace-context.js";
 import { resolveWebsiteUrl } from "/client-portal/website-url.js";
 import {
+  isBrandedPortalHostname,
   portalTenantEmptyMessage,
   resolvePortalTenant,
   scopeWebsitesToPortalTenant,
 } from "/client-portal/tenant-context.js";
 
 const CLIENT_ROUTES = [
-  [["dashboard"], "Dashboard", "/client-portal/"],
+  ...(isBrandedPortalHostname() ? [[["dashboard"], "Dashboard", "/client-portal/"]] : []),
   [["proposals", "progress", "onboarding"], "Progress", "/project-workspace/"],
   [["assets"], "Files & assets", "/client-portal/#files-assets"],
   [["services"], "Services & ownership", "/client-portal/services/"],
