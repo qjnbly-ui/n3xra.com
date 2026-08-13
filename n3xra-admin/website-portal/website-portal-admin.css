@@ -105,7 +105,24 @@
 .website-portal-form-grid input, .website-portal-form-grid select { width:100%; min-height:43px; box-sizing:border-box; padding:.62rem .75rem; color:var(--portal-ink,#111827); background:#fff; border:1px solid #cad5d8; border-radius:7px; font:600 .74rem Manrope,Arial,sans-serif; letter-spacing:normal; text-transform:none; }
 .website-portal-form-grid label > small, .website-portal-form-grid fieldset > small { color:#748091; font-size:.58rem; font-weight:500; line-height:1.4; letter-spacing:normal; text-transform:none; }
 .website-portal-form-wide { grid-column:1/-1; }
-.website-portal-logo-picker { display:grid; grid-template-columns:repeat(auto-fill,minmax(112px,1fr)); gap:.55rem; max-height:340px; overflow:auto; padding:.55rem; background:#fff; border:1px solid #cad5d8; border-radius:7px; }
+.website-portal-asset-trigger { width:100%; min-height:64px; display:grid; grid-template-columns:72px minmax(0,1fr) 12px; align-items:center; gap:.75rem; padding:.4rem .75rem .4rem .4rem; color:#526072; background:#fff; border:1px solid #cad5d8; border-radius:7px; cursor:pointer; text-align:left; }
+.website-portal-asset-trigger:hover { border-color:#84939a; }
+.website-portal-asset-trigger:focus-visible { outline:3px solid rgba(15,129,117,.2); outline-offset:2px; }
+.website-portal-asset-trigger-image { width:72px; height:52px; display:grid; place-items:center; overflow:hidden; background:linear-gradient(135deg,#26352e 0 50%,#f1f3ef 50% 100%); border:1px solid #d8e0e2; border-radius:5px; }
+.website-portal-asset-trigger-image img { display:block; max-width:90%; max-height:86%; object-fit:contain; }
+.website-portal-asset-trigger-image > span { padding:.18rem .3rem; color:#17231b; background:rgba(255,255,255,.88); border-radius:4px; font:700 1rem/1 Fraunces,Georgia,serif; text-transform:none; }
+.website-portal-asset-trigger > span:nth-child(2) { min-width:0; display:grid; gap:.22rem; }
+.website-portal-asset-trigger strong { overflow:hidden; color:#1f2937; font:700 .72rem/1.25 Manrope,Arial,sans-serif; letter-spacing:normal; text-overflow:ellipsis; text-transform:none; white-space:nowrap; }
+.website-portal-asset-trigger small { color:#748091; font:600 .58rem/1.25 Manrope,Arial,sans-serif; letter-spacing:normal; text-transform:none; }
+.website-portal-asset-trigger > i { width:7px; height:7px; border-right:2px solid #526072; border-bottom:2px solid #526072; transform:rotate(45deg); }
+.website-portal-asset-dialog { width:min(760px,calc(100vw - 2rem)); max-height:min(720px,calc(100vh - 2rem)); box-sizing:border-box; padding:0; overflow:hidden; color:#111827; background:#f8faf9; border:1px solid #cad5d8; border-radius:10px; box-shadow:0 24px 70px rgba(15,23,42,.32); }
+.website-portal-asset-dialog::backdrop { background:rgba(6,14,20,.58); backdrop-filter:blur(2px); }
+.website-portal-asset-dialog-head { display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; padding:1.15rem 1.25rem; background:#fff; border-bottom:1px solid #d8e0e2; }
+.website-portal-asset-dialog-head h2 { margin:.2rem 0 .25rem; font:700 1.15rem/1.15 Fraunces,Georgia,serif; }
+.website-portal-asset-dialog-head p { margin:0; color:#667487; font:.65rem/1.45 Manrope,Arial,sans-serif; }
+.website-portal-asset-dialog-close { width:34px; height:34px; flex:0 0 auto; display:grid; place-items:center; padding:0; color:#526072; background:#f5f7f7; border:1px solid #d8e0e2; border-radius:999px; cursor:pointer; font:500 1.25rem/1 Arial,sans-serif; }
+.website-portal-asset-dialog-close:hover { color:#111827; background:#edf2f1; }
+.website-portal-logo-picker { display:grid; grid-template-columns:repeat(auto-fill,minmax(132px,1fr)); gap:.7rem; max-height:min(520px,calc(100vh - 180px)); overflow:auto; padding:1rem; background:#f8faf9; }
 .website-portal-logo-option { position:relative; min-width:0; display:grid; grid-template-rows:86px auto; padding:0; overflow:hidden; color:#526072; background:#fff; border:1px solid #d8e0e2; border-radius:7px; cursor:pointer; }
 .website-portal-logo-option:hover { border-color:#84939a; transform:translateY(-1px); }
 .website-portal-logo-option.is-selected { border-color:#0f8175; box-shadow:0 0 0 2px rgba(15,129,117,.18); }

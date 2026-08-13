@@ -248,11 +248,16 @@ test("Vercel verification matches the connected GitHub repository to a deployed 
 test("portal interface keeps setup, overrides, feature permissions, and activation separate", async () => {
   const html = await readFile(new URL("../../n3xra-admin/website-portal/index.html", import.meta.url), "utf8");
   const script = await readFile(new URL("../../n3xra-admin/website-portal/website-portal-admin.js", import.meta.url), "utf8");
+  const workspace = await readFile(new URL("../../n3xra-admin/website-admin-workspace.js", import.meta.url), "utf8");
+  const workspaceStyles = await readFile(new URL("../../n3xra-admin/website-admin.css", import.meta.url), "utf8");
   assert.match(html, /id="portal-auto-configure"/);
   assert.match(html, /id="portal-connection-list"/);
   assert.match(html, /id="portal-customize"/);
   assert.match(html, /id="portal-logo-picker"/);
   assert.match(html, /id="portal-logo-asset" type="hidden"/);
+  assert.match(html, /id="portal-favicon-picker"/);
+  assert.match(html, /id="portal-favicon-asset" type="hidden"/);
+  assert.match(html, /id="portal-asset-dialog"/);
   assert.match(html, /id="portal-copy-url"/);
   assert.match(html, /id="portal-open-url"/);
   assert.match(html, /id="portal-feature-grid"/);
@@ -260,7 +265,9 @@ test("portal interface keeps setup, overrides, feature permissions, and activati
   assert.match(script, /activation_ready/);
   assert.match(script, /portal_enabled/);
   assert.match(script, /navigator\.clipboard\.writeText\(address\)/);
-  assert.match(script, /data-logo-asset-id/);
+  assert.match(script, /data-portal-asset-choice/);
+  assert.match(script, /openPortalAssetDialog/);
+  assert.match(script, /portalAssetChoices = result\.assets\.filter\(\(asset\) => asset\.category === "logo"/);
   assert.match(script, /safeAssetUrl\(asset\.public_url\)/);
   assert.match(script, /asset\.category === "logo"/);
   assert.match(script, /website-portal-logo-name/);
@@ -270,4 +277,9 @@ test("portal interface keeps setup, overrides, feature permissions, and activati
   assert.match(script, /Authorization: `Bearer \$\{currentSession\.access_token\}`/);
   assert.doesNotMatch(script, /void analyze\(\{ includeRemote: true/);
   assert.match(script, /portal-refresh-analysis[\s\S]*analyze\(\{ includeRemote: true \}\)/);
+  assert.match(script, /scrollRegion\.scrollTo\(\{ top: Math\.max\(0, targetTop\), behavior: "smooth" \}\)/);
+  assert.doesNotMatch(script, /portal-customize"\)\.scrollIntoView/);
+  assert.match(workspace, /document\.documentElement\.classList\.add\("website-admin-root"\)/);
+  assert.match(workspace, /window\.scrollTo\(0, 0\)/);
+  assert.match(workspaceStyles, /html\.website-admin-root \{ height:100%; overflow:hidden;/);
 });

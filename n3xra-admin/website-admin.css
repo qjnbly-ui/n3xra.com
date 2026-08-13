@@ -317,6 +317,7 @@
 .website-request-detail-empty h2 { margin:.3rem 0; font:700 2rem Fraunces,Georgia,serif; }
 .website-request-detail-empty p:not(.portal-kicker) { color:var(--portal-muted); }
 @media (min-width:801px) {
+  html.website-admin-root { height:100%; overflow:hidden; overscroll-behavior:none; }
   body.website-admin-product { height:100svh; overflow:hidden; }
   .website-admin-product .website-admin-page { height:calc(100svh - 76px); min-height:0 !important; overflow:hidden; }
   .website-admin-product .website-admin-page > .portal-layout { height:100%; min-height:0 !important; overflow:hidden; }

@@ -366,7 +366,7 @@ function websitePageController(page) {
 async function startWebsiteWorkspace(page) {
   const productShell = await import("/account/admin/product-shell.js?v=10");
   await productShell.startProductShell();
-  const websiteWorkspace = await import("/n3xra-admin/website-admin-workspace.js?v=10");
+  const websiteWorkspace = await import("/n3xra-admin/website-admin-workspace.js?v=12");
   websiteWorkspace.startWebsiteAdminWorkspace();
 
   const controllerUrl = websitePageController(page);
@@ -410,6 +410,7 @@ export async function navigateAdminWorkspace(destination, { history = "push", de
   if (currentNavigation && importedNavigation) importedNavigation.replaceWith(currentNavigation);
   currentMain.replaceWith(importedMain);
   syncAdminPageOverlays(page);
+  document.documentElement.classList.toggle("website-admin-root", websiteWorkspacePaths.has(normalizePath(url.pathname)));
   document.body.dataset.adminView = page.body.dataset.adminView || "";
   document.title = page.title || document.title;
   if (history === "push") window.history.pushState({}, "", url.href);

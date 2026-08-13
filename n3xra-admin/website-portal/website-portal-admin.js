@@ -26,6 +26,7 @@ let analysis = null;
 let selectedWebsite = null;
 let formDirty = false;
 let analysisSequence = 0;
+let portalAssetChoices = [];
 
 function escapeHtml(value = "") {
   return String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
@@ -190,9 +191,8 @@ function applyValues(values, { force = false } = {}) {
   if (!values || (formDirty && !force)) return;
   byId("portal-domain").value = values.management_domain || "";
   byId("portal-theme").value = values.theme_id || "classic";
-  byId("portal-logo-asset").value = values.logo_asset_id || "";
-  updateLogoSelection(values.logo_asset_id || "");
-  byId("portal-favicon-asset").value = values.favicon_asset_id || "";
+  setPortalAssetValue("logo", values.logo_asset_id || "");
+  setPortalAssetValue("favicon", values.favicon_asset_id || "");
   setColor("primary", values.primary_color || DEFAULT_BRAND.primary_color);
   setColor("accent", values.accent_color || DEFAULT_BRAND.accent_color);
   byId("portal-heading-font").value = values.heading_font || DEFAULT_BRAND.heading_font;
@@ -209,25 +209,75 @@ function setColor(kind, value) {
 }
 
 function renderAssetOptions(result) {
-  const options = result.assets.map((asset) => `<option value="${escapeHtml(asset.id)}">${escapeHtml(asset.label)} · ${escapeHtml(asset.category || "asset")}</option>`).join("");
-  byId("portal-favicon-asset").innerHTML = `<option value="">Use default favicon</option>${options}`;
-  const logoAssets = result.assets.filter((asset) => asset.category === "logo" && safeAssetUrl(asset.public_url) && String(asset.mime_type || "").startsWith("image/"));
-  const selectedId = result.proposed.logo_asset_id || "";
-  byId("portal-logo-picker").innerHTML = `
-    <button class="website-portal-logo-option website-portal-logo-option-fallback" type="button" data-logo-asset-id="" role="option" title="Use website name" aria-label="Use website name instead of a logo"><span class="website-portal-logo-image"><span>Aa</span></span><span class="website-portal-logo-name">Website name</span></button>
-    ${logoAssets.map((asset) => `<button class="website-portal-logo-option" type="button" data-logo-asset-id="${escapeHtml(asset.id)}" role="option" title="${escapeHtml(asset.label || "Logo image")}" aria-label="Use ${escapeHtml(asset.label || "logo image")}"><span class="website-portal-logo-image"><img src="${escapeHtml(safeAssetUrl(asset.public_url))}" alt="" loading="lazy"></span><span class="website-portal-logo-name">${escapeHtml(asset.label || "Logo image")}</span></button>`).join("")}
-    ${logoAssets.length ? "" : '<p class="website-portal-logo-empty">No approved images are currently available in this website’s Logo folder.</p>'}
-  `;
-  updateLogoSelection(selectedId);
+  portalAssetChoices = result.assets.filter((asset) => asset.category === "logo" && safeAssetUrl(asset.public_url) && String(asset.mime_type || "").startsWith("image/"));
+  updatePortalAssetTrigger("logo");
+  updatePortalAssetTrigger("favicon");
 }
 
-function updateLogoSelection(assetId = "") {
-  const selectedId = String(assetId || "");
-  byId("portal-logo-picker")?.querySelectorAll("[data-logo-asset-id]").forEach((button) => {
-    const selected = button.dataset.logoAssetId === selectedId;
-    button.classList.toggle("is-selected", selected);
-    button.setAttribute("aria-selected", String(selected));
-  });
+function portalAssetFallback(kind) {
+  return kind === "logo"
+    ? { name: "Website name", prompt: "Choose logo", mark: "Aa" }
+    : { name: "Default favicon", prompt: "Choose favicon", mark: "◇" };
+}
+
+function setPortalAssetValue(kind, assetId = "") {
+  const selectedId = portalAssetChoices.some((asset) => asset.id === assetId) ? String(assetId) : "";
+  byId(`portal-${kind}-asset`).value = selectedId;
+  updatePortalAssetTrigger(kind);
+}
+
+function updatePortalAssetTrigger(kind) {
+  const selectedId = byId(`portal-${kind}-asset`)?.value || "";
+  const asset = portalAssetChoices.find((item) => item.id === selectedId);
+  const fallback = portalAssetFallback(kind);
+  const image = byId(`portal-${kind}-picker-image`);
+  if (!image) return;
+  image.innerHTML = asset
+    ? `<img src="${escapeHtml(safeAssetUrl(asset.public_url))}" alt="">`
+    : `<span>${fallback.mark}</span>`;
+  byId(`portal-${kind}-picker-name`).textContent = asset?.label || fallback.name;
+}
+
+function renderPortalAssetDialog(kind) {
+  const selectedId = byId(`portal-${kind}-asset`).value;
+  const fallback = portalAssetFallback(kind);
+  byId("portal-asset-dialog-title").textContent = kind === "logo" ? "Choose portal logo" : "Choose browser favicon";
+  byId("portal-asset-dialog-copy").textContent = `Only approved images from ${selectedWebsite?.name || "this website"}’s Logo folder are shown.`;
+  byId("portal-asset-dialog-options").setAttribute("aria-label", kind === "logo" ? "Choose a portal logo" : "Choose a browser favicon");
+  byId("portal-asset-dialog-options").innerHTML = `
+    <button class="website-portal-logo-option website-portal-logo-option-fallback${selectedId ? "" : " is-selected"}" type="button" data-portal-asset-choice="" role="option" aria-selected="${selectedId ? "false" : "true"}" aria-label="Use ${escapeHtml(fallback.name)}"><span class="website-portal-logo-image"><span>${fallback.mark}</span></span><span class="website-portal-logo-name">${escapeHtml(fallback.name)}</span></button>
+    ${portalAssetChoices.map((asset) => `<button class="website-portal-logo-option${asset.id === selectedId ? " is-selected" : ""}" type="button" data-portal-asset-choice="${escapeHtml(asset.id)}" role="option" aria-selected="${asset.id === selectedId}" title="${escapeHtml(asset.label || "Logo image")}" aria-label="Use ${escapeHtml(asset.label || "logo image")}"><span class="website-portal-logo-image"><img src="${escapeHtml(safeAssetUrl(asset.public_url))}" alt="" loading="lazy"></span><span class="website-portal-logo-name">${escapeHtml(asset.label || "Logo image")}</span></button>`).join("")}
+    ${portalAssetChoices.length ? "" : '<p class="website-portal-logo-empty">No approved images are currently available in this website’s Logo folder.</p>'}
+  `;
+}
+
+function openPortalAssetDialog(kind) {
+  const dialog = byId("portal-asset-dialog");
+  dialog.dataset.assetKind = kind;
+  renderPortalAssetDialog(kind);
+  if (typeof dialog.showModal === "function") dialog.showModal();
+  else dialog.setAttribute("open", "");
+}
+
+function closePortalAssetDialog() {
+  const dialog = byId("portal-asset-dialog");
+  if (typeof dialog.close === "function") dialog.close();
+  else dialog.removeAttribute("open");
+}
+
+function openPortalCustomize() {
+  const customize = byId("portal-customize");
+  customize.open = true;
+  const scrollRegion = customize.closest(".website-admin-scroll-region");
+  if (!scrollRegion || getComputedStyle(scrollRegion).overflowY === "visible") {
+    customize.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+
+  const regionBounds = scrollRegion.getBoundingClientRect();
+  const customizeBounds = customize.getBoundingClientRect();
+  const targetTop = scrollRegion.scrollTop + customizeBounds.top - regionBounds.top - 16;
+  scrollRegion.scrollTo({ top: Math.max(0, targetTop), behavior: "smooth" });
 }
 
 function renderConnections(result) {
@@ -492,17 +542,21 @@ function bindEvents() {
   featureGrid.addEventListener("change", () => { formDirty = true; });
   byId("portal-refresh-analysis").addEventListener("click", () => analyze({ includeRemote: true }).catch((error) => message(error.message, true)));
   byId("portal-auto-configure").addEventListener("click", applyRecommended);
-  byId("portal-logo-picker").addEventListener("click", (event) => {
-    const option = event.target.closest("[data-logo-asset-id]");
+  document.querySelectorAll("[data-portal-asset-picker]").forEach((button) => button.addEventListener("click", () => openPortalAssetDialog(button.dataset.portalAssetPicker)));
+  byId("portal-asset-dialog-options").addEventListener("click", (event) => {
+    const option = event.target.closest("[data-portal-asset-choice]");
     if (!option) return;
-    byId("portal-logo-asset").value = option.dataset.logoAssetId || "";
-    updateLogoSelection(byId("portal-logo-asset").value);
+    const kind = byId("portal-asset-dialog").dataset.assetKind;
+    setPortalAssetValue(kind, option.dataset.portalAssetChoice || "");
     formDirty = true;
     renderPreviewFromForm();
+    closePortalAssetDialog();
   });
+  byId("portal-asset-dialog-close").addEventListener("click", closePortalAssetDialog);
+  byId("portal-asset-dialog").addEventListener("click", (event) => { if (event.target === byId("portal-asset-dialog")) closePortalAssetDialog(); });
   byId("portal-activate").addEventListener("click", () => activate(true));
   byId("portal-deactivate").addEventListener("click", () => activate(false));
-  byId("portal-open-customize").addEventListener("click", () => { byId("portal-customize").open = true; byId("portal-customize").scrollIntoView({ behavior: "smooth", block: "start" }); });
+  byId("portal-open-customize").addEventListener("click", openPortalCustomize);
   byId("portal-reset-recommendations").addEventListener("click", () => { applyValues(analysis?.proposed, { force: true }); renderPreviewFromForm(); message("Recommended values restored locally. Save to keep them."); });
   byId("portal-copy-url").addEventListener("click", async () => {
     const address = portalUrl(analysis?.proposed?.portal_domain);

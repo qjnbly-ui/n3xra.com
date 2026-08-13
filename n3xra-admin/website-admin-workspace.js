@@ -22,6 +22,17 @@ function normalizePath(pathname) {
   return pathname.endsWith("/") ? pathname : `${pathname}/`;
 }
 
+function prepareWebsiteAdminViewport() {
+  const path = normalizePath(window.location.pathname);
+  if (!routeDetails[path]) return;
+
+  document.documentElement.classList.add("website-admin-root");
+  document.body.classList.add("website-admin-product");
+  if (window.matchMedia("(min-width: 801px)").matches && (window.scrollX || window.scrollY)) {
+    window.scrollTo(0, 0);
+  }
+}
+
 function directChildren(parent, selector) {
   return [...parent.children].filter((child) => child.matches(selector));
 }
@@ -30,6 +41,7 @@ export function startWebsiteAdminWorkspace() {
   const path = normalizePath(window.location.pathname);
   const details = routeDetails[path];
   if (!details) return;
+  prepareWebsiteAdminViewport();
 
   const main = document.querySelector("main");
   if (!main?.classList.contains("product-native-page")) return;
@@ -138,5 +150,7 @@ export function startWebsiteAdminWorkspace() {
   workspace.replaceChildren(frame);
 }
 
+prepareWebsiteAdminViewport();
+window.addEventListener("pageshow", prepareWebsiteAdminViewport);
 document.addEventListener("n3xra:product-shell-ready", startWebsiteAdminWorkspace);
 if (!window.__n3xraAdminSoftNavigation) startWebsiteAdminWorkspace();

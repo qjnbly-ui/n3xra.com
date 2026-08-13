@@ -12,11 +12,11 @@
   <link rel="stylesheet" href="/assets/site-nav.css">
   <link rel="stylesheet" href="/client-portal/portal.css?v=16">
   <link rel="stylesheet" href="/account/admin/admin.css?v=24">
-  <link rel="stylesheet" href="/n3xra-admin/website-admin.css?v=6">
-  <link rel="stylesheet" href="/n3xra-admin/website-portal/website-portal-admin.css?v=3">
+  <link rel="stylesheet" href="/n3xra-admin/website-admin.css?v=15">
+  <link rel="stylesheet" href="/n3xra-admin/website-portal/website-portal-admin.css?v=4">
   <script src="/shared/config.js"></script>
   <script type="module" src="/account/admin/product-shell.js?v=10"></script>
-  <script type="module" src="/n3xra-admin/website-admin-workspace.js?v=10"></script>
+  <script type="module" src="/n3xra-admin/website-admin-workspace.js?v=12"></script>
 </head>
 <body class="portal-loading">
   <header class="site-topbar">
@@ -134,8 +134,8 @@
               <div class="website-portal-form-grid">
                 <label>Custom portal domain (optional)<input id="portal-domain" type="text" inputmode="url" autocomplete="off" placeholder="portal.clientwebsite.com"><small>Leave blank to use the automatic N3XRA portal address shown above.</small></label>
                 <label>Theme preset<select id="portal-theme"><option value="classic">Classic</option><option value="editorial">Editorial</option><option value="minimal">Minimal</option></select><small>Controls portal component styling, not the public website.</small></label>
-                <fieldset class="website-portal-logo-field"><legend>Logo asset</legend><div class="website-portal-logo-picker" id="portal-logo-picker" role="listbox" aria-label="Choose a logo image"></div><input id="portal-logo-asset" type="hidden"><small>Only approved images from this website’s Logo folder are shown.</small></fieldset>
-                <label>Favicon asset<select id="portal-favicon-asset"><option value="">Use default favicon</option></select><small>Used in the management portal browser tab.</small></label>
+                <fieldset class="website-portal-asset-field"><legend>Logo asset</legend><button class="website-portal-asset-trigger" id="portal-logo-picker" type="button" data-portal-asset-picker="logo" aria-haspopup="dialog"><span class="website-portal-asset-trigger-image" id="portal-logo-picker-image"></span><span><strong id="portal-logo-picker-name">Website name</strong><small>Choose logo</small></span><i aria-hidden="true"></i></button><input id="portal-logo-asset" type="hidden"><small>Choose from approved images in this website’s Logo folder.</small></fieldset>
+                <fieldset class="website-portal-asset-field"><legend>Favicon asset</legend><button class="website-portal-asset-trigger" id="portal-favicon-picker" type="button" data-portal-asset-picker="favicon" aria-haspopup="dialog"><span class="website-portal-asset-trigger-image" id="portal-favicon-picker-image"></span><span><strong id="portal-favicon-picker-name">Default favicon</strong><small>Choose favicon</small></span><i aria-hidden="true"></i></button><input id="portal-favicon-asset" type="hidden"><small>Choose from the same approved Logo folder images for the browser tab.</small></fieldset>
                 <label>Primary color<span class="website-portal-color-control"><input id="portal-primary-color" type="color" value="#17231b"><input id="portal-primary-color-text" type="text" value="#17231b" maxlength="7" pattern="#[0-9A-Fa-f]{6}"></span></label>
                 <label>Accent color<span class="website-portal-color-control"><input id="portal-accent-color" type="color" value="#b77946"><input id="portal-accent-color-text" type="text" value="#b77946" maxlength="7" pattern="#[0-9A-Fa-f]{6}"></span></label>
                 <label>Heading font<input id="portal-heading-font" maxlength="100" value="Fraunces"></label>
@@ -162,8 +162,12 @@
       </section>
     </div>
   </main>
+  <dialog class="website-portal-asset-dialog" id="portal-asset-dialog" aria-labelledby="portal-asset-dialog-title">
+    <div class="website-portal-asset-dialog-head"><div><span class="portal-kicker">Approved website files</span><h2 id="portal-asset-dialog-title">Choose an image</h2><p id="portal-asset-dialog-copy">Only images from this website’s Logo folder are available.</p></div><button class="website-portal-asset-dialog-close" id="portal-asset-dialog-close" type="button" aria-label="Close image chooser">×</button></div>
+    <div class="website-portal-logo-picker" id="portal-asset-dialog-options" role="listbox" aria-label="Choose an approved logo image"></div>
+  </dialog>
   <div class="portal-status" id="portal-status" role="status">Opening Website Portal setup…</div>
   <script type="module" src="/client-portal/portal-shell.js?v=4"></script>
-  <script type="module" src="/n3xra-admin/website-portal/website-portal-admin.js?v=5"></script>
+  <script type="module" src="/n3xra-admin/website-portal/website-portal-admin.js?v=7"></script>
 </body>
 </html>
