@@ -13,7 +13,7 @@ test("the branded portal root is the business dashboard instead of the project w
 
   assert.match(html, /id="portal-view-dashboard"/);
   assert.match(html, /id="portal-app-grid"/);
-  assert.match(html, /portal-apps\.js\?v=4/);
+  assert.match(html, /portal-apps\.js\?v=5/);
   assert.doesNotMatch(html, /portal-dashboard-hero|portal-apps-heading|portal-app-summary/);
   assert.match(shell, /key: "dashboard"[\s\S]*href: "\/client-portal\/"/);
   assert.doesNotMatch(shell, /window\.location\.replace\(`\/project-workspace/);
@@ -21,17 +21,38 @@ test("the branded portal root is the business dashboard instead of the project w
   assert.match(portal, /else showPortalView\("dashboard"\)/);
 });
 
-test("portal apps are loaded from the tenant website's linked organization", async () => {
+test("portal apps use the signed-in account's memberships without a website organization preference", async () => {
   const apps = await projectFile("client-portal/portal-apps.js");
 
   assert.match(apps, /resolvePortalTenant/);
-  assert.match(apps, /\.from\("client_websites"\)/);
-  assert.match(apps, /\.eq\("id", tenant\.website_id\)/);
   assert.match(apps, /\.from\("organization_product_entitlements"\)/);
-  assert.match(apps, /\.eq\("organization_id", organizationId\)/);
-  assert.match(apps, /setStoredActiveOrganizationId/);
+  assert.match(apps, /\.from\("organization_memberships"\)/);
+  assert.match(apps, /\.eq\("user_id", session\.user\.id\)/);
+  assert.match(apps, /\.in\("organization_id", organizationIds\)/);
+  assert.match(apps, /renderedProducts/);
+  assert.doesNotMatch(apps, /\.from\("client_websites"\)/);
+  assert.doesNotMatch(apps, /linkedOrganizationId|selectedEntitlements|setStoredActiveOrganizationId/);
+  assert.doesNotMatch(apps, /portal_org=|portal_website=/);
+  assert.doesNotMatch(apps, /\?support_org=/);
   assert.match(apps, /safePortalPath/);
   assert.doesNotMatch(apps, /target\s*=|window\.open\s*\(/);
+});
+
+test("branded Records keeps the user's normal library selection independent from the website", async () => {
+  const [organizations, migration, adminHtml, adminScript] = await Promise.all([
+    projectFile("shared/lib/orgs.js"),
+    projectFile("supabase/migrations/20260813185503_require_explicit_website_organization_links.sql"),
+    projectFile("n3xra-admin/websites/index.html"),
+    projectFile("n3xra-admin/websites/websites-admin.js"),
+  ]);
+
+  assert.match(organizations, /getStoredActiveOrganizationId/);
+  assert.match(organizations, /const fromStored = list\.find/);
+  assert.doesNotMatch(organizations, /getPortalOrganizationId|portal_org|portal_website/);
+  assert.match(migration, /drop trigger if exists organization_memberships_link_owned_websites/);
+  assert.match(migration, /drop trigger if exists website_members_link_single_organization/);
+  assert.doesNotMatch(adminHtml, /Connected N3XRA business account|Website only — no apps connected/);
+  assert.doesNotMatch(adminScript, /siteOrganizationInput|organization_id: siteOrganizationInput/);
 });
 
 test("website-only portals skip the app dashboard after subscriptions load", async () => {

@@ -73,12 +73,19 @@ function renderShell(panel, pageKey) {
   `;
 }
 
-async function hasAdditionalPortalApps(supabase, organizationId) {
-  if (!organizationId) return false;
+async function hasAdditionalPortalApps(supabase, userId) {
+  if (!userId) return false;
+  const { data: memberships, error: membershipError } = await supabase
+    .from("organization_memberships")
+    .select("organization_id")
+    .eq("user_id", userId);
+  if (membershipError) return false;
+  const organizationIds = [...new Set((memberships || []).map((row) => row.organization_id).filter(Boolean))];
+  if (!organizationIds.length) return false;
   const { data, error } = await supabase
     .from("organization_product_entitlements")
     .select("product:n3xra_product_catalog(status,client_portal_available)")
-    .eq("organization_id", organizationId)
+    .in("organization_id", organizationIds)
     .eq("portal_enabled", true)
     .in("status", ["trialing", "active", "past_due"]);
   if (error) return false;
@@ -103,7 +110,7 @@ export async function initializeClientWorkspaceContext(panel, { pageKey = "overv
   const tenantResolution = await resolvePortalTenant(supabase);
 
   const [websiteResult, domainResult] = await Promise.all([
-    supabase.from("client_websites").select("id,name,status,live_url,organization_id,website_members(role,status,user_id)").order("name"),
+    supabase.from("client_websites").select("id,name,status,live_url,website_members(role,status,user_id)").order("name"),
     supabase.from("website_domains").select("website_id,domain_name,is_primary").order("is_primary", { ascending: false }),
   ]);
   if (websiteResult.error) throw websiteResult.error;
@@ -115,9 +122,8 @@ export async function initializeClientWorkspaceContext(panel, { pageKey = "overv
   let selectedId = websites.some((website) => website.id === explicitWebsiteId)
     ? explicitWebsiteId
     : websites.some((website) => website.id === context.websiteId) ? context.websiteId : websites[0]?.id || "";
-  const selectedWebsite = websites.find((website) => website.id === selectedId);
   const additionalAppsAvailable = tenantResolution.mode === "tenant"
-    ? await hasAdditionalPortalApps(supabase, selectedWebsite?.organization_id)
+    ? await hasAdditionalPortalApps(supabase, session.user.id)
     : false;
   setAppsDashboardAvailability(additionalAppsAvailable);
 
