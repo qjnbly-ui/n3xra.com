@@ -5,6 +5,17 @@
   "trailingSlash": false,
   "redirects": [
     {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?<portalTenant>[^.]+)\\.portal\\.n3xra\\.com"
+        }
+      ],
+      "destination": "/client-portal/login",
+      "permanent": false
+    },
+    {
       "source": "/admin/applications",
       "destination": "/account/admin/applications",
       "permanent": true

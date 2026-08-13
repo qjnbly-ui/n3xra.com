@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const require = createRequire(import.meta.url);
@@ -63,4 +64,16 @@ test("client access requires an active membership for the resolved website", () 
   assert.equal(hasActiveWebsiteAccess(members, "client-b"), false);
   assert.equal(hasActiveWebsiteAccess(members, "different-client"), false);
   assert.equal(hasActiveWebsiteAccess(members, "platform-admin", true), true);
+});
+
+test("standard portal roots route to the client login without changing the N3XRA homepage", async () => {
+  const config = JSON.parse(await readFile(new URL("../../vercel.json", import.meta.url), "utf8"));
+  const homepage = await readFile(new URL("../../index.html", import.meta.url), "utf8");
+  const portalRedirect = config.redirects.find((redirect) => redirect.source === "/" && redirect.has?.some((condition) => condition.type === "host"));
+
+  assert.equal(portalRedirect.destination, "/client-portal/login");
+  assert.equal(portalRedirect.permanent, false);
+  assert.match(portalRedirect.has[0].value, /portal/);
+  assert.match(homepage, /hostname\.endsWith\("\.portal\.n3xra\.com"\)/);
+  assert.match(homepage, /window\.location\.replace\(`\/client-portal\/login/);
 });
