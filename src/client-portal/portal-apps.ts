@@ -34,7 +34,6 @@ interface PortalApp {
 
 const appGrid = document.querySelector<HTMLElement>("#portal-app-grid");
 const appStatus = document.querySelector<HTMLElement>("#portal-app-status");
-const appSummary = document.querySelector<HTMLElement>("#portal-app-summary");
 
 function escapeHtml(value: string): string {
   return value
@@ -79,11 +78,6 @@ function appMarkup(app: PortalApp): string {
 function renderApps(apps: PortalApp[]): void {
   if (!appGrid) return;
   appGrid.innerHTML = apps.sort((a, b) => a.sortOrder - b.sortOrder).map(appMarkup).join("");
-  if (appSummary) {
-    appSummary.textContent = apps.length === 1
-      ? "Your website workspace is ready. Other subscribed business tools will appear here automatically."
-      : `${apps.length} business tools are available through this portal.`;
-  }
   if (appStatus) appStatus.hidden = true;
 }
 
@@ -98,7 +92,7 @@ function routeOrRenderApps(apps: PortalApp[]): void {
     openOnlyAvailableApp(onlyApp);
     return;
   }
-  renderApps(apps);
+  renderApps(apps.filter((app) => app.key !== "website"));
 }
 
 function websiteApp(): PortalApp {
@@ -108,7 +102,7 @@ function websiteApp(): PortalApp {
     description: "Website progress, files, services, billing, and support.",
     href: "/project-workspace/",
     iconKey: "website",
-    badge: "Included",
+    badge: "",
     sortOrder: 10,
   };
 }
@@ -183,11 +177,6 @@ appGrid?.addEventListener("click", (event) => {
 });
 
 void loadPortalApps().catch((error: unknown) => {
-  renderApps([websiteApp()]);
-  if (appStatus) {
-    appStatus.hidden = false;
-    appStatus.textContent = error instanceof Error
-      ? "Your additional subscribed tools could not be loaded right now."
-      : "Your subscribed tools are temporarily unavailable.";
-  }
+  console.warn("Portal applications could not be loaded.", error);
+  openOnlyAvailableApp(websiteApp());
 });

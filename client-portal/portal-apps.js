@@ -3,7 +3,6 @@ import { setStoredActiveOrganizationId } from "/shared/lib/orgs.js";
 import { resolvePortalTenant } from "./tenant-context.js";
 const appGrid = document.querySelector("#portal-app-grid");
 const appStatus = document.querySelector("#portal-app-status");
-const appSummary = document.querySelector("#portal-app-summary");
 function escapeHtml(value) {
     return value
         .replaceAll("&", "&amp;")
@@ -46,11 +45,6 @@ function renderApps(apps) {
     if (!appGrid)
         return;
     appGrid.innerHTML = apps.sort((a, b) => a.sortOrder - b.sortOrder).map(appMarkup).join("");
-    if (appSummary) {
-        appSummary.textContent = apps.length === 1
-            ? "Your website workspace is ready. Other subscribed business tools will appear here automatically."
-            : `${apps.length} business tools are available through this portal.`;
-    }
     if (appStatus)
         appStatus.hidden = true;
 }
@@ -65,7 +59,7 @@ function routeOrRenderApps(apps) {
         openOnlyAvailableApp(onlyApp);
         return;
     }
-    renderApps(apps);
+    renderApps(apps.filter((app) => app.key !== "website"));
 }
 function websiteApp() {
     return {
@@ -74,7 +68,7 @@ function websiteApp() {
         description: "Website progress, files, services, billing, and support.",
         href: "/project-workspace/",
         iconKey: "website",
-        badge: "Included",
+        badge: "",
         sortOrder: 10,
     };
 }
@@ -147,11 +141,6 @@ appGrid?.addEventListener("click", (event) => {
     setStoredActiveOrganizationId(link.dataset.portalAppOrganization || "");
 });
 void loadPortalApps().catch((error) => {
-    renderApps([websiteApp()]);
-    if (appStatus) {
-        appStatus.hidden = false;
-        appStatus.textContent = error instanceof Error
-            ? "Your additional subscribed tools could not be loaded right now."
-            : "Your subscribed tools are temporarily unavailable.";
-    }
+    console.warn("Portal applications could not be loaded.", error);
+    openOnlyAvailableApp(websiteApp());
 });

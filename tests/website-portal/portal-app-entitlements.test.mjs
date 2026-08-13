@@ -13,7 +13,8 @@ test("the branded portal root is the business dashboard instead of the project w
 
   assert.match(html, /id="portal-view-dashboard"/);
   assert.match(html, /id="portal-app-grid"/);
-  assert.match(html, /portal-apps\.js\?v=3/);
+  assert.match(html, /portal-apps\.js\?v=4/);
+  assert.doesNotMatch(html, /portal-dashboard-hero|portal-apps-heading|portal-app-summary/);
   assert.match(shell, /key: "dashboard"[\s\S]*href: "\/client-portal\/"/);
   assert.doesNotMatch(shell, /window\.location\.replace\(`\/project-workspace/);
   assert.match(portal, /activePortalView = "dashboard"/);
@@ -40,7 +41,19 @@ test("website-only portals skip the app dashboard after subscriptions load", asy
   assert.match(apps, /if \(apps\.length === 1 && onlyApp\)/);
   assert.match(apps, /window\.location\.replace\(app\.href\)/);
   assert.match(apps, /routeOrRenderApps\(apps\)/);
-  assert.match(apps, /catch\(\(error\) => \{[\s\S]*renderApps\(\[websiteApp\(\)\]\)/);
+  assert.match(apps, /catch\(\(error\) => \{[\s\S]*openOnlyAvailableApp\(websiteApp\(\)\)/);
+});
+
+test("the app dashboard shows only additional subscriptions, not Website Management", async () => {
+  const [apps, styles] = await Promise.all([
+    projectFile("client-portal/portal-apps.js"),
+    projectFile("client-portal/portal-apps.css"),
+  ]);
+
+  assert.match(apps, /renderApps\(apps\.filter\(\(app\) => app\.key !== "website"\)\)/);
+  assert.doesNotMatch(apps, /badge: "Included"/);
+  assert.doesNotMatch(styles, /\.portal-dashboard-hero|\.portal-apps-heading/);
+  assert.match(styles, /\.portal-apps-section\s*\{[\s\S]*width: 100%[\s\S]*min-height: 100%/);
 });
 
 test("website workspace hash routes are never replaced by the app dashboard redirect", async () => {
