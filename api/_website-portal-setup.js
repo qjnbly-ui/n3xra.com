@@ -380,9 +380,14 @@ async function analyzePortalSetup(records, options = {}) {
     features: { ...FEATURE_DEFAULTS, ...Object.fromEntries((records.features || []).map((row) => [row.feature_key, row.enabled])) },
   };
   const activeMembers = (records.members || []).filter((member) => member.status === "active");
+  const websiteStatus = records.website?.status || "missing";
+  const websiteState = websiteStatus === "active" ? "connected" : (websiteStatus === "draft" ? "default" : "attention");
+  const websiteDetail = websiteStatus === "active"
+    ? `${records.website.name} is active`
+    : (websiteStatus === "draft" ? `${records.website.name} is a draft · portal testing is allowed` : `Website status is ${websiteStatus}`);
   const wildcardReady = options.portalRootVerified === true;
   const connections = [
-    connection("website", "Website record", records.website?.status === "active" ? "connected" : "attention", records.website?.status === "active" ? `${records.website.name} is active` : `Website status is ${records.website?.status || "missing"}`, { required: true, action: "/n3xra-admin/websites/" }),
+    connection("website", "Website record", websiteState, websiteDetail, { required: true, action: "/n3xra-admin/websites/" }),
     connection("portal_host", "N3XRA portal address", wildcardReady ? "connected" : "attention", wildcardReady ? `${proposed.portal_domain} · shared wildcard verified` : `${proposed.portal_domain || "Portal address"} · wildcard infrastructure is not verified yet`, { required: true, action: "/n3xra-admin/website-portal/" }),
     connection("membership", "Client access", activeMembers.length ? "connected" : "attention", activeMembers.length ? `${activeMembers.length} active website member${activeMembers.length === 1 ? "" : "s"}` : "Assign at least one active website member before activation", { required: true, action: "/n3xra-admin/websites/" }),
     connection("domain", "Custom portal domain", savedPortal ? (savedPortal.status === "active" ? "connected" : "attention") : "default", savedPortal ? `${savedPortal.domain_name} · ${savedPortal.status}` : "Optional · the N3XRA portal address will be used", { action: "/n3xra-admin/services/" }),

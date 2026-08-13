@@ -44,7 +44,7 @@ function activeCustomPortalDomain(records = {}) {
 function resolvePortalTenant(records = {}, hostname, rootDomain = DEFAULT_PORTAL_ROOT) {
   const website = records.website || {};
   const host = normalizeHostname(hostname);
-  if (!host || website.status !== "active" || !website.portal_enabled) return null;
+  if (!host || !["draft", "active"].includes(website.status) || !website.portal_enabled) return null;
   const standardHost = standardPortalHostname(website, rootDomain);
   const customDomain = activeCustomPortalDomain(records);
   const customHost = normalizeHostname(customDomain?.domain_name);

@@ -38,9 +38,15 @@ test("the standard wildcard hostname resolves one active portal tenant", () => {
   });
 });
 
-test("unrelated hosts and disabled portal tenants do not resolve", () => {
+test("an explicitly enabled draft portal resolves for pre-launch testing", () => {
+  const input = records({ website: { ...records().website, status: "draft" } });
+  assert.equal(resolvePortalTenant(input, "roots-and-relics.portal.n3xra.com")?.website_id, input.website.id);
+});
+
+test("unrelated hosts, disabled portals, and paused websites do not resolve", () => {
   assert.equal(resolvePortalTenant(records(), "another-client.portal.n3xra.com"), null);
   assert.equal(resolvePortalTenant(records({ website: { ...records().website, portal_enabled: false } }), "roots-and-relics.portal.n3xra.com"), null);
+  assert.equal(resolvePortalTenant(records({ website: { ...records().website, status: "paused" } }), "roots-and-relics.portal.n3xra.com"), null);
 });
 
 test("an active custom domain resolves as an alias", () => {

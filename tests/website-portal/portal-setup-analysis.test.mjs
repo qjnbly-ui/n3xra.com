@@ -102,6 +102,15 @@ test("verified wildcard infrastructure and an active member complete required ac
   assert.equal(result.readiness.activation_ready, true);
 });
 
+test("a draft website can be activated for portal testing", async () => {
+  const input = records({ website: { ...records().website, status: "draft" } });
+  const result = await analyzePortalSetup(input, { includeRemote: false, portalRootVerified: true });
+  const websiteConnection = result.connections.find((item) => item.key === "website");
+  assert.equal(result.readiness.activation_ready, true);
+  assert.equal(websiteConnection.state, "default");
+  assert.match(websiteConnection.detail, /portal testing is allowed/);
+});
+
 test("a website without an active member cannot be activated", async () => {
   const input = records({ members: [{ user_id: "client-user", role: "owner", status: "revoked" }] });
   const result = await analyzePortalSetup(input, { includeRemote: false, portalRootVerified: true });
@@ -109,7 +118,7 @@ test("a website without an active member cannot be activated", async () => {
   assert.equal(result.connections.find((item) => item.key === "membership").state, "attention");
 });
 
-test("an inactive website blocks portal activation", async () => {
+test("a paused website still blocks portal activation", async () => {
   const input = records({ website: { ...records().website, status: "paused" } });
   const result = await analyzePortalSetup(input, { includeRemote: false, portalRootVerified: true });
   assert.equal(result.readiness.activation_ready, false);

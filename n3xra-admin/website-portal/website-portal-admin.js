@@ -100,6 +100,10 @@ async function directAnalysis(website) {
     || (website.repository_full_name ? { provider: "github", full_name: website.repository_full_name, default_branch: "main", access_status: "recorded" } : null);
   const vercel = serviceResult.data?.find((item) => /vercel/i.test(`${item.provider || ""} ${item.name || ""}`));
   const features = { ...FEATURE_DEFAULTS, ...Object.fromEntries((featureResult.data || []).map((item) => [item.feature_key, item.enabled])) };
+  const websiteState = website.status === "active" ? "connected" : (website.status === "draft" ? "default" : "attention");
+  const websiteDetail = website.status === "active"
+    ? `${website.name} is active`
+    : (website.status === "draft" ? `${website.name} is a draft · portal testing is allowed` : `Website status is ${website.status}`);
   const proposed = {
     portal_domain: proposedDomain,
     management_domain: normalizeHostname(domain?.domain_name),
@@ -114,7 +118,7 @@ async function directAnalysis(website) {
     features,
   };
   const connections = [
-    connection("website", "Website record", website.status === "active" ? "connected" : "attention", website.status === "active" ? `${website.name} is active` : `Website status is ${website.status}`, true, "/n3xra-admin/websites/"),
+    connection("website", "Website record", websiteState, websiteDetail, true, "/n3xra-admin/websites/"),
     connection("portal_host", "N3XRA portal address", "attention", `${proposedDomain || "Portal address"} · wildcard infrastructure is verified by the deployed setup check`, true, "/n3xra-admin/website-portal/"),
     connection("membership", "Client access", activeMembers.length ? "connected" : "attention", activeMembers.length ? `${activeMembers.length} active website member${activeMembers.length === 1 ? "" : "s"}` : "Assign at least one active website member before activation", true, "/n3xra-admin/websites/"),
     connection("domain", "Custom portal domain", domain ? (domain.status === "active" ? "connected" : "attention") : "default", domain ? `${domain.domain_name} · ${domain.status}` : "Optional · the N3XRA portal address will be used", false, "/n3xra-admin/services/"),
