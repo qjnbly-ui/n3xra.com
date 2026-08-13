@@ -40,16 +40,24 @@ test("the branded dashboard removes master-platform navigation and the admin ass
 });
 
 test("client portal sign-out clears only the current session and always returns to its branded login", async () => {
-  const [html, shell, portal] = await Promise.all([
+  const [html, loginHtml, login, shell, portal, context] = await Promise.all([
     projectFile("client-portal/index.html"),
+    projectFile("client-portal/login/index.html"),
+    projectFile("client-portal/login.js"),
     projectFile("client-portal/portal-shell.js"),
     projectFile("client-portal/portal.js"),
+    projectFile("client-portal/tenant-context.js"),
   ]);
 
-  assert.match(html, /portal-shell\.js\?v=3/);
+  assert.match(html, /portal-shell\.js\?v=4/);
+  assert.match(loginHtml, /login\.js\?v=2/);
   assert.match(shell, /signOut\(\{ scope: "local" \}\)/);
   assert.match(shell, /finally/);
-  assert.match(shell, /window\.location\.replace\(portalLoginUrl\(\)\)/);
+  assert.match(shell, /window\.location\.replace\(portalSignedOutUrl\(\)\)/);
+  assert.match(context, /client-portal\/login\?signed_out=1/);
+  assert.match(login, /searchParams\.get\("signed_out"\) === "1"/);
+  assert.match(login, /You have been signed out\./);
+  assert.match(login, /replaceState\(\{\}, document\.title, "\/client-portal\/login"\)/);
   assert.doesNotMatch(portal, /logoutButton/);
 });
 

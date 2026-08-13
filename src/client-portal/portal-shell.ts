@@ -1,5 +1,5 @@
 import { createBrowserSupabase, hasConfig } from "/shared/lib/supabase-client.js";
-import { portalLoginUrl } from "./tenant-context.js";
+import { portalSignedOutUrl } from "./tenant-context.js";
 
 const logoutButton = document.querySelector<HTMLButtonElement>("#portal-logout");
 
@@ -18,6 +18,6 @@ logoutButton?.addEventListener("click", async () => {
   } catch (error) {
     console.warn("Portal sign-out did not complete cleanly.", error);
   } finally {
-    window.location.replace(portalLoginUrl());
+    window.location.replace(portalSignedOutUrl());
   }
 });

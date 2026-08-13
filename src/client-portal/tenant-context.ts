@@ -68,6 +68,11 @@ export function portalLoginUrl(nextPath = `${window.location.pathname}${window.l
   return `/account?next=${encodeURIComponent(nextPath)}`;
 }
 
+export function portalSignedOutUrl(): string {
+  if (isBrandedPortalHostname()) return "/client-portal/login?signed_out=1";
+  return "/account/";
+}
+
 function brandingText(branding: Record<string, unknown>, key: string, fallback = ""): string {
   const value = branding[key];
   return typeof value === "string" && value.trim() ? value.trim() : fallback;

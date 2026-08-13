@@ -202,9 +202,19 @@ async function initialize() {
         returnLink.href = identity.websiteUrl || "#";
         returnLink.textContent = `Return to ${identity.websiteName} website`;
     }
+    const searchParams = new URLSearchParams(window.location.search);
+    if (searchParams.get("signed_out") === "1") {
+        await supabase.auth.signOut({ scope: "local" }).catch(() => undefined);
+        window.history.replaceState({}, document.title, "/client-portal/login");
+        setView("login");
+        setStatus("You have been signed out.");
+        document.body.classList.remove("portal-login-loading");
+        await initializeCaptcha();
+        return;
+    }
     const callbackType = getSupabaseAuthCallbackType();
     const callbackSession = await consumeAuthCallbackSessionIfPresent(supabase).catch(() => null);
-    const requestedRecovery = callbackType === "recovery" || new URLSearchParams(window.location.search).get("mode") === "recovery";
+    const requestedRecovery = callbackType === "recovery" || searchParams.get("mode") === "recovery";
     if (requestedRecovery && callbackSession?.user) {
         setView("recovery");
     }
