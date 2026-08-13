@@ -23,7 +23,9 @@ test("the tenant login is client-branded and authenticates without the N3XRA acc
   assert.match(script, /size: "flexible"/);
   assert.match(styles, /\.portal-login-captcha\s*\{[\s\S]*justify-items: center/);
   assert.match(styles, /#portal-login-turnstile\s*\{[\s\S]*text-align: center/);
-  assert.match(styles, /\.portal-login-return\s*\{[\s\S]*display: inline-flex/);
+  const returnRule = styles.match(/\.portal-login-return\s*\{([^}]*)\}/)?.[1] || "";
+  assert.match(returnRule, /text-underline-offset/);
+  assert.doesNotMatch(returnRule, /background|border|border-radius/);
   assert.doesNotMatch(script, /window\.location\.replace\("\/account/);
 });
 

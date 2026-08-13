@@ -1,0 +1,22 @@
+---
+interface Props {
+  href: string;
+  label?: string;
+  class?: string;
+}
+
+const {
+  href,
+  label = "Admin Login",
+  class: className = "portal-sign-in-link",
+} = Astro.props;
+
+const portalUrl = new URL(href);
+const isLocalDevelopment = ["localhost", "127.0.0.1"].includes(portalUrl.hostname);
+
+if (portalUrl.protocol !== "https:" && !isLocalDevelopment) {
+  throw new Error("Portal sign-in links must use HTTPS.");
+}
+---
+
+<a class={className} href={portalUrl.toString()}>{label}</a>

@@ -228,6 +228,10 @@ All client portals should run from the shared N3XRA portal application rather th
 
 Updates to the shared application should improve all client portals.
 
+Client websites should link to their portal with a normal same-tab anchor. Do not add `target="_blank"` or use `window.open()` for the portal sign-in link. The portal's return-to-website link should also stay in the same tab so the client can move between the website and its branded portal without accumulating browser tabs.
+
+The N3XRA client website starter must use its dedicated `PortalSignInLink.astro` component for this link. That component must not expose a `target` property, and its regression test must remain part of the website portal test suite.
+
 ---
 
 # 6. Tenant Architecture

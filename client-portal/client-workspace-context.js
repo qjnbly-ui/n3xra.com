@@ -8,6 +8,7 @@ import {
 } from "/client-portal/tenant-context.js";
 
 const CLIENT_ROUTES = [
+  [["dashboard"], "Dashboard", "/client-portal/"],
   [["proposals", "progress", "onboarding"], "Progress", "/project-workspace/"],
   [["assets"], "Files & assets", "/client-portal/#files-assets"],
   [["services"], "Services & ownership", "/client-portal/services/"],

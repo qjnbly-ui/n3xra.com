@@ -132,6 +132,11 @@ export function applyPortalTenantBranding(resolution) {
         element.hidden = !identity.poweredByLabel;
         element.textContent = identity.poweredByLabel;
     });
+    document.querySelectorAll('[data-portal-return-link]').forEach((link) => {
+        link.hidden = !identity.websiteUrl;
+        link.href = identity.websiteUrl || "#";
+        link.textContent = `Back to ${identity.websiteName} Website`;
+    });
     return identity;
 }
 function asTenantRow(value) {

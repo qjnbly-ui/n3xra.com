@@ -5,7 +5,8 @@
     "moduleResolution": "Bundler",
     "baseUrl": ".",
     "paths": {
-      "/shared/lib/supabase-client.js": ["src/client-portal/browser-modules.d.ts"]
+      "/shared/lib/supabase-client.js": ["src/client-portal/browser-modules.d.ts"],
+      "/shared/lib/orgs.js": ["src/client-portal/orgs-module.d.ts"]
     },
     "rootDir": "src/client-portal",
     "outDir": "client-portal",

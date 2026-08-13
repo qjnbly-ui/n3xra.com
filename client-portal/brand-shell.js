@@ -17,24 +17,24 @@ function showGenericPortalIdentity() {
         }
     });
     document.querySelectorAll('.site-nav-actions a[href^="/account"], [data-site-assistant-open], [data-site-assistant-layer]').forEach((element) => element.remove());
+    return null;
 }
 export async function initializePortalBrandShell() {
     if (!isBrandedPortalHostname())
-        return;
+        return null;
     document.documentElement.classList.add("portal-white-label-host");
     if (!hasConfig()) {
         showGenericPortalIdentity();
-        return;
+        return null;
     }
     try {
         const supabase = createBrowserSupabase();
         if (!supabase)
             throw new Error("Portal configuration is unavailable.");
         const resolution = await resolvePortalTenant(supabase);
-        if (!applyPortalTenantBranding(resolution))
-            showGenericPortalIdentity();
+        return applyPortalTenantBranding(resolution) || showGenericPortalIdentity();
     }
     catch {
-        showGenericPortalIdentity();
+        return showGenericPortalIdentity();
     }
 }

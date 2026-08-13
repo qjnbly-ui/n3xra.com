@@ -62,7 +62,7 @@ let selectedAssetCategory = "";
 const selectedClientVersionIds = new Set();
 let batchItems = [];
 let batchReviewIndex = 0;
-let activePortalView = "files";
+let activePortalView = "dashboard";
 let toastTimer;
 const isAssetsRoute = document.body.classList.contains("client-assets-view")
   || document.body.dataset.portalView === "assets"
@@ -70,7 +70,7 @@ const isAssetsRoute = document.body.classList.contains("client-assets-view")
   || new URLSearchParams(window.location.search).get("view") === "files";
 
 function showPortalView(view) {
-  const nextView = portalViewPanels.some((panel) => panel.dataset.portalPanel === view) ? view : "files";
+  const nextView = portalViewPanels.some((panel) => panel.dataset.portalPanel === view) ? view : "dashboard";
   activePortalView = nextView;
   portalViewButtons.forEach((button) => {
     const isCurrent = button.dataset.portalView === nextView;
@@ -912,7 +912,7 @@ async function initPortal() {
           ? "support"
         : window.location.hash === "#new-project"
           ? "new-request"
-          : "files"
+          : "dashboard"
     );
     document.body.classList.remove("portal-loading");
     statusScreen.hidden = true;
@@ -929,7 +929,7 @@ async function initPortal() {
       if (isAssetsRoute || window.location.hash === "#files-assets") showPortalView("files");
       else if (window.location.hash === "#support") showPortalView("support");
       else if (window.location.hash === "#new-project") showPortalView("new-request");
-      else showPortalView("files");
+      else showPortalView("dashboard");
     });
     openUploadButton.addEventListener("click", () => openUploadForm("", { chooseFile: true }));
     closeUploadButton.addEventListener("click", closeUploadForm);

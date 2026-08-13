@@ -88,26 +88,12 @@ body {
 }
 
 .portal-login-return {
-  min-height: 44px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  width: fit-content;
   margin-top: 1.7rem;
-  padding: .72rem 1rem;
   color: #fff;
-  background: color-mix(in srgb, var(--portal-accent) 16%, transparent);
-  border: 1px solid color-mix(in srgb, var(--portal-accent) 70%, #fff);
-  border-radius: 999px;
   font-size: .75rem;
   font-weight: 800;
-  line-height: 1.25;
-  text-decoration: none;
-}
-
-.portal-login-return:hover,
-.portal-login-return:focus-visible {
-  background: color-mix(in srgb, var(--portal-accent) 28%, transparent);
-  outline: none;
+  text-underline-offset: .28em;
 }
 
 .portal-login-auth-panel {

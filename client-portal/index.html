@@ -13,6 +13,7 @@
   <link rel="stylesheet" href="/assets/site-nav.css">
   <link rel="stylesheet" href="/client-portal/portal.css?v=16">
   <link rel="stylesheet" href="/client-portal/client-shell.css?v=5">
+  <link rel="stylesheet" href="/client-portal/portal-apps.css?v=1">
   <link rel="stylesheet" href="/client-portal/assets-manager.css?v=12">
   <link rel="stylesheet" href="/website-request/request.css?v=9">
   <script src="/shared/config.js"></script>
@@ -87,7 +88,28 @@
       </nav>
 
       <section class="portal-workspace" aria-live="polite">
-        <div class="portal-view" id="portal-view-files" data-portal-panel="files">
+        <div class="portal-view portal-dashboard-view" id="portal-view-dashboard" data-portal-panel="dashboard">
+          <section class="portal-dashboard-hero">
+            <div>
+              <p class="portal-kicker">Business dashboard</p>
+              <h2>Welcome to <span data-portal-business-name>your portal</span></h2>
+              <p id="portal-app-summary">Your subscribed business tools are loading.</p>
+            </div>
+            <a class="portal-dashboard-return" data-portal-return-link href="#" hidden>Back to business website</a>
+          </section>
+          <section class="portal-apps-section" aria-labelledby="portal-apps-title">
+            <div class="portal-apps-heading">
+              <div><p class="portal-kicker">Your tools</p><h3 id="portal-apps-title">Business applications</h3></div>
+              <p>Only subscriptions connected to this business appear here.</p>
+            </div>
+            <div class="portal-app-grid" id="portal-app-grid" aria-live="polite">
+              <div class="portal-app-loading"><span></span><p>Loading your business tools…</p></div>
+            </div>
+            <p class="portal-inline-status" id="portal-app-status" role="status" hidden></p>
+          </section>
+        </div>
+
+        <div class="portal-view" id="portal-view-files" data-portal-panel="files" hidden>
           <section class="website-assets-manager website-assets-client-manager">
             <aside class="website-assets-sidebar">
               <div class="website-assets-site-picker"><label>Website<select class="portal-select" id="files-website-select"></select></label></div>
@@ -296,6 +318,7 @@
   <div class="portal-status" id="portal-status" role="status">Opening your website portal…</div>
   <script type="module" src="/client-portal/client-shell.js?v=7"></script>
   <script type="module" src="/client-portal/portal-shell.js?v=4"></script>
+  <script type="module" src="/client-portal/portal-apps.js?v=2"></script>
   <script type="module" src="/client-portal/portal.js?v=21"></script>
   <script type="module" src="/website-request/request.js?v=14"></script>
 </body>

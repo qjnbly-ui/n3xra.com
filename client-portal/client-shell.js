@@ -3,11 +3,8 @@ import { initializePortalBrandShell } from "/client-portal/brand-shell.js?v=1";
 
 void initializePortalBrandShell();
 
-if (window.location.pathname === "/client-portal/" && !window.location.hash && !new URLSearchParams(window.location.search).has("view")) {
-  window.location.replace(`/project-workspace/${window.location.search}`);
-}
-
 const clientSections = [
+  { key: "dashboard", label: "Dashboard", href: "/client-portal/", path: "/client-portal/", view: "dashboard" },
   { key: "project", label: "Project", href: "/project-workspace/", path: "/project-workspace/" },
   { key: "assets", label: "Files & Assets", href: "/client-portal/#files-assets", path: "/client-portal/", hash: "#files-assets", view: "files" },
   { key: "services", label: "Services & Ownership", href: "/client-portal/services/", path: "/client-portal/services/" },
@@ -21,7 +18,7 @@ const projectStageRoutes = [
 ];
 
 const routeDetails = {
-  "/client-portal/": { key: "assets", kicker: "Website workspace", title: "Files & Assets", description: "Open folders, preview files, upload assets, and manage approved website content." },
+  "/client-portal/": { key: "dashboard", kicker: "Business portal", title: "Dashboard", description: "Open the business tools and subscriptions available to this organization." },
   "/client-portal/services/": { key: "services", kicker: "Website workspace", title: "Services & Ownership", description: "Services, domains, source code, and ownership records for this organization." },
   "/project-workspace/": { key: "progress", kicker: "Website workspace", title: "Progress", description: "Current stage, milestones, timing, and the next step for this website." },
   "/proposals/": { key: "proposals", kicker: "Website workspace", title: "Proposals", description: "Review proposal details, versions, pricing, and decisions." },
@@ -30,6 +27,7 @@ const routeDetails = {
 };
 
 const homeViews = {
+  "": { key: "dashboard", kicker: "Business portal", title: "Dashboard", description: "Open the business tools and subscriptions available to this organization." },
   "#files-assets": { key: "assets", kicker: "Website workspace", title: "Files & Assets", description: "Open folders, preview files, upload assets, and manage approved website content." },
   "#support": { key: "support", kicker: "Website workspace", title: "Support", description: "Get help with this website, account access, billing, or active project work." },
   "#new-project": { key: "new-request", kicker: "New work", title: "Start a new project", description: "Request separate work without changing the organization selected here." },
@@ -42,7 +40,7 @@ function normalizePath(pathname) {
 
 function currentDetails() {
   const path = normalizePath(window.location.pathname);
-  return path === "/client-portal/" && homeViews[window.location.hash]
+  return path === "/client-portal/" && homeViews[window.location.hash] !== undefined
     ? homeViews[window.location.hash]
     : routeDetails[path];
 }
@@ -51,7 +49,7 @@ function isCurrentSection(section) {
   if (section.key === "project" && ["/project-workspace/", "/proposals/", "/website-onboarding/"].includes(normalizePath(window.location.pathname))) return true;
   if (normalizePath(window.location.pathname) !== normalizePath(section.path)) return false;
   if (section.hash) return window.location.hash === section.hash;
-  return section.path !== "/client-portal/" || !["#files-assets", "#support", "#new-project"].includes(window.location.hash);
+  return section.path !== "/client-portal/" || (section.key === "dashboard" && !window.location.hash);
 }
 
 function sectionMarkup(section, onPortalHome) {
