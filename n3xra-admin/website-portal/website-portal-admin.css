@@ -12,9 +12,13 @@
 @keyframes portal-spin { to { transform:rotate(360deg); } }
 .website-portal-summary h2 { margin:.25rem 0 .45rem; font:700 clamp(1.55rem,2.4vw,2.15rem)/1.1 Fraunces,Georgia,serif; }
 .website-portal-summary-copy > p:last-of-type { max-width:720px; margin:0; color:var(--portal-muted,#64748b); font-size:.8rem; line-height:1.55; }
-.website-portal-address { display:flex; align-items:baseline; flex-wrap:wrap; gap:.5rem; margin-top:1.15rem; }
+.website-portal-address { display:flex; align-items:center; flex-wrap:wrap; gap:.55rem; margin-top:1.15rem; }
 .website-portal-address span { color:var(--portal-muted,#64748b); font-size:.65rem; font-weight:800; text-transform:uppercase; letter-spacing:.07em; }
-.website-portal-address strong { font-size:.8rem; }
+.website-portal-address strong { padding:.48rem .62rem; background:#f4f7f8; border:1px solid #dce4e6; border-radius:6px; font:.7rem/1.35 ui-monospace,SFMono-Regular,Menlo,monospace; }
+.website-portal-address-actions { display:flex; align-items:center; flex-wrap:wrap; gap:.4rem; }
+.website-portal-address-button { min-height:32px; display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; padding:.38rem .62rem; color:#126d65; background:#fff; border:1px solid #bfd2d0; border-radius:6px; font:800 .62rem Manrope,Arial,sans-serif; text-decoration:none; cursor:pointer; }
+.website-portal-address-button:hover { color:#0b504b; background:#f2f8f7; }
+.website-portal-address-button:disabled { color:#8a949f; background:#f4f5f6; border-color:#d9dfe2; cursor:not-allowed; }
 .website-portal-readiness { width:150px; flex:0 0 150px; display:grid; align-content:center; text-align:right; }
 .website-portal-readiness strong { font:700 2.1rem/1 Fraunces,Georgia,serif; }
 .website-portal-readiness span { margin-top:.25rem; color:var(--portal-muted,#64748b); font-size:.63rem; font-weight:800; text-transform:uppercase; letter-spacing:.08em; }

@@ -1,16 +1,23 @@
 import { createBrowserSupabase, hasConfig } from "/shared/lib/supabase-client.js";
-import { portalLoginUrl } from "/client-portal/tenant-context.js";
-
-const logoutButton = document.getElementById("portal-logout");
-
+import { portalLoginUrl } from "./tenant-context.js";
+const logoutButton = document.querySelector("#portal-logout");
 logoutButton?.addEventListener("click", async () => {
-  logoutButton.disabled = true;
-  try {
-    if (hasConfig()) {
-      const supabase = createBrowserSupabase();
-      await supabase.auth.signOut();
+    logoutButton.disabled = true;
+    logoutButton.textContent = "Signing out…";
+    try {
+        if (hasConfig()) {
+            const supabase = createBrowserSupabase();
+            if (supabase) {
+                const { error } = await supabase.auth.signOut({ scope: "local" });
+                if (error)
+                    throw error;
+            }
+        }
     }
-  } finally {
-    window.location.replace(portalLoginUrl());
-  }
+    catch (error) {
+        console.warn("Portal sign-out did not complete cleanly.", error);
+    }
+    finally {
+        window.location.replace(portalLoginUrl());
+    }
 });

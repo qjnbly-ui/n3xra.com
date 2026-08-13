@@ -37,6 +37,11 @@ function normalizeHostname(value = "") {
   try { return new URL(text.includes("://") ? text : `https://${text}`).hostname.toLowerCase().replace(/\.$/, ""); } catch { return ""; }
 }
 
+function portalUrl(domain = "") {
+  const hostname = normalizeHostname(domain);
+  return hostname ? `https://${hostname}/` : "";
+}
+
 function message(text = "", isError = false) {
   status.textContent = text;
   status.classList.toggle("is-error", isError);
@@ -252,7 +257,10 @@ function renderAnalysis(result, { apply = false } = {}) {
     ? "Client-branded access is enabled. Connection checks remain visible so infrastructure changes do not become hidden problems."
     : "N3XRA has assembled recommended settings from this website’s existing records, approved assets, and connected services.";
   byId("portal-address").hidden = !result.proposed.portal_domain;
-  byId("portal-address-value").textContent = result.proposed.portal_domain || "";
+  const address = portalUrl(result.proposed.portal_domain);
+  byId("portal-address-value").textContent = address;
+  byId("portal-copy-url").disabled = !address;
+  byId("portal-open-url").href = address || "#";
   byId("portal-readiness-value").textContent = `${result.readiness.percent}%`;
   byId("portal-readiness-bar").style.width = `${result.readiness.percent}%`;
   const state = byId("portal-state");
@@ -437,6 +445,19 @@ function bindEvents() {
   byId("portal-deactivate").addEventListener("click", () => activate(false));
   byId("portal-open-customize").addEventListener("click", () => { byId("portal-customize").open = true; byId("portal-customize").scrollIntoView({ behavior: "smooth", block: "start" }); });
   byId("portal-reset-recommendations").addEventListener("click", () => { applyValues(analysis?.proposed, { force: true }); renderPreviewFromForm(); message("Recommended values restored locally. Save to keep them."); });
+  byId("portal-copy-url").addEventListener("click", async () => {
+    const address = portalUrl(analysis?.proposed?.portal_domain);
+    if (!address) return;
+    const button = byId("portal-copy-url");
+    try {
+      await navigator.clipboard.writeText(address);
+      button.textContent = "Copied";
+      message("Portal URL copied. Paste it into the client website’s sign-in button.");
+      window.setTimeout(() => { button.textContent = "Copy URL"; }, 1800);
+    } catch {
+      message("The portal URL could not be copied automatically. Select the URL above and copy it manually.", true);
+    }
+  });
   ["primary", "accent"].forEach((kind) => {
     byId(`portal-${kind}-color`).addEventListener("input", (event) => { byId(`portal-${kind}-color-text`).value = event.target.value; });
     byId(`portal-${kind}-color-text`).addEventListener("input", (event) => { if (/^#[0-9a-f]{6}$/i.test(event.target.value)) byId(`portal-${kind}-color`).value = event.target.value; });

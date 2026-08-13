@@ -165,10 +165,14 @@ test("portal interface keeps setup, overrides, feature permissions, and activati
   assert.match(html, /id="portal-auto-configure"/);
   assert.match(html, /id="portal-connection-list"/);
   assert.match(html, /id="portal-customize"/);
+  assert.match(html, /id="portal-copy-url"/);
+  assert.match(html, /id="portal-open-url"/);
   assert.match(html, /id="portal-feature-grid"/);
   assert.match(html, /id="portal-activate"[^>]*disabled/);
   assert.match(script, /activation_ready/);
   assert.match(script, /portal_enabled/);
+  assert.match(script, /navigator\.clipboard\.writeText\(address\)/);
+  assert.match(script, /https:\/\/\$\{hostname\}\//);
   assert.match(script, /status: sameDomain \? oldDomain\.status : "pending"/);
   assert.match(script, /Authorization: `Bearer \$\{currentSession\.access_token\}`/);
 });

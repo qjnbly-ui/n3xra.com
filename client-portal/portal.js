@@ -12,7 +12,6 @@ import {
 
 const PRIVATE_BUCKET = "website-assets-private";
 const statusScreen = document.getElementById("portal-status");
-const logoutButton = document.getElementById("portal-logout");
 const websiteSelect = document.getElementById("website-select");
 const filesWebsiteSelect = document.getElementById("files-website-select");
 const filesWebsiteName = document.getElementById("files-website-name");
@@ -1024,12 +1023,6 @@ async function initPortal() {
       renderAssets();
     });
     assetSearch?.addEventListener("input", renderAssets);
-
-    logoutButton?.addEventListener("click", async () => {
-      logoutButton.disabled = true;
-      await supabase.auth.signOut();
-      window.location.replace(portalLoginUrl());
-    });
 
     supabase.auth.onAuthStateChange((event, nextSession) => {
       if (event === "SIGNED_OUT" || !nextSession?.user) openLogin();

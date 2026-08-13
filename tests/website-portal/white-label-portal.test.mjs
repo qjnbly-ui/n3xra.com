@@ -39,6 +39,20 @@ test("the branded dashboard removes master-platform navigation and the admin ass
   assert.match(navigation, /portal-white-label-host/);
 });
 
+test("client portal sign-out clears only the current session and always returns to its branded login", async () => {
+  const [html, shell, portal] = await Promise.all([
+    projectFile("client-portal/index.html"),
+    projectFile("client-portal/portal-shell.js"),
+    projectFile("client-portal/portal.js"),
+  ]);
+
+  assert.match(html, /portal-shell\.js\?v=3/);
+  assert.match(shell, /signOut\(\{ scope: "local" \}\)/);
+  assert.match(shell, /finally/);
+  assert.match(shell, /window\.location\.replace\(portalLoginUrl\(\)\)/);
+  assert.doesNotMatch(portal, /logoutButton/);
+});
+
 test("every tenant workspace disables the N3XRA site assistant", async () => {
   const pages = [
     "client-portal/index.html",
