@@ -110,6 +110,32 @@ function expandHex(value = "") {
   return "";
 }
 
+function colorChannels(value = "") {
+  const hex = expandHex(value);
+  return hex ? [1, 3, 5].map((index) => Number.parseInt(hex.slice(index, index + 2), 16)) : null;
+}
+
+function relativeLuminance(value = "") {
+  const channels = colorChannels(value);
+  if (!channels) return 1;
+  const [red, green, blue] = channels.map((channel) => {
+    const normalized = channel / 255;
+    return normalized <= 0.04045 ? normalized / 12.92 : ((normalized + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+}
+
+function colorContrast(left, right) {
+  const lighter = Math.max(relativeLuminance(left), relativeLuminance(right));
+  const darker = Math.min(relativeLuminance(left), relativeLuminance(right));
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+function colorChroma(value = "") {
+  const channels = colorChannels(value);
+  return channels ? Math.max(...channels) - Math.min(...channels) : 0;
+}
+
 function colorQuality(value = "") {
   const hex = expandHex(value);
   if (!hex) return -1;
@@ -135,6 +161,33 @@ function detectColors(source = "") {
     .map((item) => item.value)
     .filter((value, index, values) => values.indexOf(value) === index)
     .slice(0, 8);
+}
+
+function choosePortalColors(detectedColors = [], branding = {}) {
+  const palette = detectedColors.map(expandHex).filter(Boolean);
+  const savedPrimary = expandHex(branding.primary_color) || DEFAULT_BRAND.primary_color;
+  const savedAccent = expandHex(branding.accent_color) || DEFAULT_BRAND.accent_color;
+  const primaryWasCustomized = savedPrimary !== DEFAULT_BRAND.primary_color;
+  const accentWasCustomized = savedAccent !== DEFAULT_BRAND.accent_color;
+
+  const primary = primaryWasCustomized ? savedPrimary : palette
+    .map((color, index) => ({
+      color,
+      score: colorContrast(color, "#ffffff") * 14 + colorChroma(color) + Math.max(0, 8 - index) * 3,
+    }))
+    .filter((candidate) => colorContrast(candidate.color, "#ffffff") >= 7)
+    .sort((left, right) => right.score - left.score)[0]?.color || savedPrimary;
+
+  const accent = accentWasCustomized ? savedAccent : palette
+    .filter((color) => color !== primary)
+    .map((color, index) => ({
+      color,
+      score: colorContrast(color, primary) * 18 + colorChroma(color) + Math.max(0, 8 - index) * 3,
+    }))
+    .filter((candidate) => colorContrast(candidate.color, primary) >= 3)
+    .sort((left, right) => right.score - left.score)[0]?.color || savedAccent;
+
+  return { primary_color: primary, accent_color: accent };
 }
 
 function cleanFontFamily(value = "") {
@@ -311,6 +364,7 @@ async function analyzePortalSetup(records, options = {}) {
     ])
     : [{ connected: null, colors: [], fonts: [], sourceUrl: normalizedUrl(records.website?.live_url), error: "" }, null, null];
   const branding = records.branding || {};
+  const portalColors = choosePortalColors(remote.colors, branding);
   const savedPortal = records.domains?.find((row) => row.domain_purpose === "portal");
   const proposed = {
     portal_domain: proposedPortalDomain(records),
@@ -318,8 +372,8 @@ async function analyzePortalSetup(records, options = {}) {
     theme_id: records.website?.portal_theme_id || "classic",
     logo_asset_id: branding.logo_asset_id || logo?.id || null,
     favicon_asset_id: branding.favicon_asset_id || favicon?.id || logo?.id || null,
-    primary_color: remote.colors[0] || branding.primary_color || DEFAULT_BRAND.primary_color,
-    accent_color: remote.colors.find((color) => color !== remote.colors[0]) || branding.accent_color || DEFAULT_BRAND.accent_color,
+    primary_color: portalColors.primary_color,
+    accent_color: portalColors.accent_color,
     heading_font: remote.fonts[0] || branding.heading_font || DEFAULT_BRAND.heading_font,
     body_font: remote.fonts.find((font) => font !== remote.fonts[0]) || branding.body_font || DEFAULT_BRAND.body_font,
     powered_by_label: branding.powered_by_label ?? DEFAULT_BRAND.powered_by_label,
@@ -362,6 +416,7 @@ module.exports = {
   DEFAULT_BRAND,
   FEATURE_DEFAULTS,
   analyzePortalSetup,
+  choosePortalColors,
   detectColors,
   detectFonts,
   normalizeHostname,

@@ -5,7 +5,7 @@ import test from "node:test";
 
 const require = createRequire(import.meta.url);
 const {
-  analyzePortalSetup, detectColors, detectFonts, proposedPortalDomain, verifyVercel,
+  analyzePortalSetup, choosePortalColors, detectColors, detectFonts, proposedPortalDomain, verifyVercel,
 } = require("../../api/_website-portal-setup.js");
 
 function records(overrides = {}) {
@@ -55,6 +55,36 @@ test("branding detection ignores near-white colors and finds named font families
   const source = `body{color:#ffffff;background:#17231b;font-family:'Manrope',sans-serif}.hero{color:#b77946;font-family:"Fraunces",serif}.more{border-color:#b77946}`;
   assert.deepEqual(detectColors(source).slice(0, 2), ["#b77946", "#17231b"]);
   assert.deepEqual(detectFonts(source), ["Manrope", "Fraunces"]);
+});
+
+test("bright detected accents never become the full portal background", () => {
+  assert.deepEqual(choosePortalColors(["#d8b95f", "#a84f32"], {
+    primary_color: "#17231b",
+    accent_color: "#b77946",
+  }), {
+    primary_color: "#17231b",
+    accent_color: "#d8b95f",
+  });
+});
+
+test("a readable dark brand color becomes the portal background", () => {
+  assert.deepEqual(choosePortalColors(["#d8b95f", "#a84f32", "#1f2d1a"], {
+    primary_color: "#17231b",
+    accent_color: "#b77946",
+  }), {
+    primary_color: "#1f2d1a",
+    accent_color: "#d8b95f",
+  });
+});
+
+test("saved custom portal colors stay authoritative over later scans", () => {
+  assert.deepEqual(choosePortalColors(["#d8b95f", "#1f2d1a"], {
+    primary_color: "#123456",
+    accent_color: "#abcdef",
+  }), {
+    primary_color: "#123456",
+    accent_color: "#abcdef",
+  });
 });
 
 test("quick analysis reuses approved assets and keeps optional integrations non-blocking", async () => {
