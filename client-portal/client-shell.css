@@ -9,6 +9,9 @@
 .site-topbar.client-portal-topbar .site-brand img { width:34px; height:34px; }
 .site-topbar.client-portal-topbar .site-nav-actions .site-menu-link,
 .site-topbar.client-portal-topbar .site-nav-actions .portal-logout { min-height:44px; padding:.55rem .88rem; color:#fff; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.16); border-radius:999px; font-size:.72rem; letter-spacing:.07em; text-transform:uppercase; }
+.site-topbar.client-portal-topbar .site-nav-actions .client-website-return-link { border-color:rgba(255,255,255,.88); border-radius:8px; background:#fff; color:#07101a; }
+.site-topbar.client-portal-topbar .site-nav-actions .client-website-return-link:hover,
+.site-topbar.client-portal-topbar .site-nav-actions .client-website-return-link:focus-visible { border-color:#8fd8ce; background:#dff4f0; color:#07101a; }
 .site-topbar.client-portal-topbar .site-menu-toggle { background:rgba(255,255,255,.06); border-color:rgba(255,255,255,.16); }
 .site-topbar.client-portal-topbar .site-menu-toggle span { background:#fff; }
 

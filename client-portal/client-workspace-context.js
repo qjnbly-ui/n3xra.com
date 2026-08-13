@@ -24,6 +24,24 @@ const WEBSITE_ROUTES = [
 const escapeHtml = (value = "") => String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
 const statusLabel = (value = "") => String(value || "active").replaceAll("_", " ").replace(/\b\w/g, (character) => character.toUpperCase());
 
+function updateWebsiteReturnLink(websiteUrl, websiteName = "your website") {
+  const actions = document.querySelector(".client-portal-topbar .site-nav-actions");
+  let returnLink = actions?.querySelector("[data-client-website-return]");
+  if (!actions || !websiteUrl) {
+    returnLink?.remove();
+    return;
+  }
+  if (!returnLink) {
+    returnLink = document.createElement("a");
+    returnLink.className = "site-menu-link client-website-return-link";
+    returnLink.dataset.clientWebsiteReturn = "";
+    returnLink.textContent = "Return to Website";
+    actions.prepend(returnLink);
+  }
+  returnLink.href = websiteUrl;
+  returnLink.setAttribute("aria-label", `Return to ${websiteName} website`);
+}
+
 function routeMarkup(route, pageKey) {
   const availability = route.requiresAdditionalApps ? " data-client-app-dashboard hidden" : "";
   return `<a class="${route.keys.includes(pageKey) ? "is-current" : ""}" href="${route.href}"${availability}>${route.label}</a>`;
@@ -45,7 +63,6 @@ function renderShell(panel, pageKey) {
       <span id="client-organization-status">Website access</span>
       <strong id="client-organization-name">Organization</strong>
       <small id="client-organization-url"></small>
-      <div id="client-organization-links"></div>
     </section>
     <nav class="website-organization-navigation" aria-label="Selected organization sections">
       <p>${brandedPortal ? "Apps" : "N3XRA"}</p>
@@ -127,6 +144,7 @@ export async function initializeClientWorkspaceContext(panel, { pageKey = "overv
     if (!website) {
       selectedValue.textContent = portalTenantEmptyMessage(tenantResolution);
       card.hidden = true;
+      updateWebsiteReturnLink("");
       return;
     }
     selectedId = website.id;
@@ -138,9 +156,7 @@ export async function initializeClientWorkspaceContext(panel, { pageKey = "overv
     panel.querySelector("#client-organization-status").textContent = membership?.role ? `${statusLabel(membership.role)} access` : statusLabel(website.status);
     panel.querySelector("#client-organization-name").textContent = website.name;
     panel.querySelector("#client-organization-url").textContent = websiteUrl || "Website is not live yet";
-    panel.querySelector("#client-organization-links").innerHTML = websiteUrl
-      ? `<a href="${escapeHtml(websiteUrl)}">Back to ${escapeHtml(website.name)} Website</a>`
-      : "";
+    updateWebsiteReturnLink(websiteUrl, website.name);
     if (persist) {
       const previous = readWorkspaceContext("client", session.user.id);
       writeWorkspaceContext("client", session.user.id, {

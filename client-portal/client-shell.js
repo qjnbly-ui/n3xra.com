@@ -1,4 +1,4 @@
-import { initializeClientWorkspaceContext } from "/client-portal/client-workspace-context.js?v=6";
+import { initializeClientWorkspaceContext } from "/client-portal/client-workspace-context.js?v=7";
 import { initializePortalBrandShell } from "/client-portal/brand-shell.js?v=1";
 import { isBrandedPortalHostname } from "/client-portal/tenant-context.js";
 
@@ -37,7 +37,7 @@ const routeDetails = {
 const homeViews = {
   "": { key: "dashboard", kicker: "Business portal", title: "Apps Dashboard", description: "Open the business tools and subscriptions available to this organization." },
   "#files-assets": { key: "assets", kicker: "Website workspace", title: "Files & Assets", description: "Open folders, preview files, upload assets, and manage approved website content." },
-  "#support": { key: "support", kicker: "Website workspace", title: "Support", description: "Get help with this website, account access, billing, or active project work." },
+  "#support": { key: "support", kicker: "Business portal", title: "Support", description: "Get help with this website, subscribed apps, account access, billing, or active project work." },
   "#new-project": { key: "new-request", kicker: "New work", title: "Start a new project", description: "Request separate work without changing the organization selected here." },
 };
 

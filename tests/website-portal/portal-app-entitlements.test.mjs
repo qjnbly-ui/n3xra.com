@@ -93,7 +93,12 @@ test("client navigation separates apps from the website workspace", async () => 
   assert.match(workspaceContext, /const APP_ROUTES = \[[\s\S]*Apps Dashboard[\s\S]*Support/);
   assert.match(workspaceContext, /const WEBSITE_ROUTES = \[[\s\S]*Progress[\s\S]*Files & Assets[\s\S]*Start a New Project/);
   assert.doesNotMatch(workspaceContext, /website-organization-intake-link/);
+  assert.match(workspaceContext, /updateWebsiteReturnLink/);
+  assert.match(workspaceContext, /actions\.prepend\(returnLink\)/);
+  assert.match(workspaceContext, /Return to Website/);
+  assert.doesNotMatch(workspaceContext, /client-organization-links/);
   assert.match(styles, /website-organization-navigation p\.is-separated/);
+  assert.match(styles, /\.client-website-return-link/);
 });
 
 test("Apps Dashboard navigation appears only when the tenant has another subscribed app", async () => {
