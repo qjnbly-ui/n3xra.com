@@ -1,17 +1,22 @@
-import { initializeClientWorkspaceContext } from "/client-portal/client-workspace-context.js?v=5";
+import { initializeClientWorkspaceContext } from "/client-portal/client-workspace-context.js?v=6";
 import { initializePortalBrandShell } from "/client-portal/brand-shell.js?v=1";
 import { isBrandedPortalHostname } from "/client-portal/tenant-context.js";
 
 void initializePortalBrandShell();
 
-const clientSections = [
-  ...(isBrandedPortalHostname()
-    ? [{ key: "dashboard", label: "Dashboard", href: "/client-portal/", path: "/client-portal/", view: "dashboard" }]
+const brandedPortal = isBrandedPortalHostname();
+const appSections = [
+  ...(brandedPortal
+    ? [{ key: "dashboard", label: "Apps Dashboard", href: "/client-portal/", path: "/client-portal/", view: "dashboard", requiresAdditionalApps: true }]
     : []),
-  { key: "project", label: "Project", href: "/project-workspace/", path: "/project-workspace/" },
+  { key: "support", label: "Support", href: "/client-portal/#support", path: "/client-portal/", hash: "#support", view: "support" },
+];
+const websiteSections = [
+  { key: "project", label: "Progress", href: "/project-workspace/", path: "/project-workspace/" },
   { key: "assets", label: "Files & Assets", href: "/client-portal/#files-assets", path: "/client-portal/", hash: "#files-assets", view: "files" },
   { key: "services", label: "Services & Ownership", href: "/client-portal/services/", path: "/client-portal/services/" },
   { key: "billing", label: "Billing", href: "/client-portal/billing/", path: "/client-portal/billing/" },
+  { key: "new-request", label: "Start a New Project", href: "/client-portal/#new-project", path: "/client-portal/", hash: "#new-project", view: "new-request" },
 ];
 
 const projectStageRoutes = [
@@ -21,7 +26,7 @@ const projectStageRoutes = [
 ];
 
 const routeDetails = {
-  "/client-portal/": { key: "dashboard", kicker: "Business portal", title: "Dashboard", description: "Open the business tools and subscriptions available to this organization." },
+  "/client-portal/": { key: "dashboard", kicker: "Business portal", title: "Apps Dashboard", description: "Open the business tools and subscriptions available to this organization." },
   "/client-portal/services/": { key: "services", kicker: "Website workspace", title: "Services & Ownership", description: "Services, domains, source code, and ownership records for this organization." },
   "/project-workspace/": { key: "progress", kicker: "Website workspace", title: "Progress", description: "Current stage, milestones, timing, and the next step for this website." },
   "/proposals/": { key: "proposals", kicker: "Website workspace", title: "Proposals", description: "Review proposal details, versions, pricing, and decisions." },
@@ -30,7 +35,7 @@ const routeDetails = {
 };
 
 const homeViews = {
-  "": { key: "dashboard", kicker: "Business portal", title: "Dashboard", description: "Open the business tools and subscriptions available to this organization." },
+  "": { key: "dashboard", kicker: "Business portal", title: "Apps Dashboard", description: "Open the business tools and subscriptions available to this organization." },
   "#files-assets": { key: "assets", kicker: "Website workspace", title: "Files & Assets", description: "Open folders, preview files, upload assets, and manage approved website content." },
   "#support": { key: "support", kicker: "Website workspace", title: "Support", description: "Get help with this website, account access, billing, or active project work." },
   "#new-project": { key: "new-request", kicker: "New work", title: "Start a new project", description: "Request separate work without changing the organization selected here." },
@@ -57,8 +62,14 @@ function isCurrentSection(section) {
 
 function sectionMarkup(section, onPortalHome) {
   const current = isCurrentSection(section) ? " is-current" : "";
-  if (onPortalHome && section.view) return `<button class="${current.trim()}" type="button" data-portal-view="${section.view}">${section.label}</button>`;
-  return `<a class="${current.trim()}" href="${section.href}">${section.label}</a>`;
+  const availability = section.requiresAdditionalApps ? " data-client-app-dashboard hidden" : "";
+  if (onPortalHome && section.view) return `<button class="${current.trim()}" type="button" data-portal-view="${section.view}"${availability}>${section.label}</button>`;
+  return `<a class="${current.trim()}" href="${section.href}"${availability}>${section.label}</a>`;
+}
+
+function mobileSectionMarkup(section) {
+  const availability = section.requiresAdditionalApps ? " data-client-app-dashboard hidden" : "";
+  return `<a class="site-menu-link${isCurrentSection(section) ? " is-current" : ""}" href="${section.href}"${availability}>${section.label}</a>`;
 }
 
 function renderClientNavigation(layout) {
@@ -66,15 +77,15 @@ function renderClientNavigation(layout) {
   if (!nav) return;
   const onPortalHome = normalizePath(window.location.pathname) === "/client-portal/";
   nav.innerHTML = `
-    <p class="portal-nav-label">Website portal</p>
-    ${clientSections.map((section) => sectionMarkup(section, onPortalHome)).join("")}
+    <p class="portal-nav-label">${brandedPortal ? "Apps" : "N3XRA"}</p>
+    ${appSections.map((section) => sectionMarkup(section, onPortalHome)).join("")}
     <div class="portal-nav-divider"></div>
-    <p class="portal-nav-label">New work</p>
-    ${onPortalHome ? '<button type="button" data-portal-view="new-request">Start a new project</button>' : '<a href="/client-portal/#new-project">Start a new project</a>'}
+    <p class="portal-nav-label">Website Workspace</p>
+    ${websiteSections.map((section) => sectionMarkup(section, onPortalHome)).join("")}
   `;
   const mobileNav = document.querySelector(".site-mobile-menu");
   if (mobileNav) {
-    mobileNav.innerHTML = `<div class="site-mobile-menu-head"><p class="site-mobile-menu-title">Website portal</p></div>${clientSections.map((section) => `<a class="site-menu-link${isCurrentSection(section) ? " is-current" : ""}" href="${section.href}">${section.label}</a>`).join("")}<a class="site-menu-link" href="/client-portal/#support">Support</a><a class="site-menu-link" href="/client-portal/#new-project">Start a new project</a>`;
+    mobileNav.innerHTML = `<div class="site-mobile-menu-head"><p class="site-mobile-menu-title">${brandedPortal ? "Apps" : "N3XRA"}</p></div>${appSections.map(mobileSectionMarkup).join("")}<div class="site-mobile-menu-head"><p class="site-mobile-menu-title">Website Workspace</p></div>${websiteSections.map(mobileSectionMarkup).join("")}`;
   }
 }
 

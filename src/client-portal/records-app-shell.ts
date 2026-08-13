@@ -43,13 +43,9 @@ export async function initializeRecordsPortalShell(): Promise<void> {
   const dashboardLink = actions?.querySelector<HTMLAnchorElement>('a[href="/account/"]');
   if (dashboardLink) {
     dashboardLink.href = "/client-portal/";
-    dashboardLink.textContent = "Portal home";
-  }
-  if (actions && identity.websiteUrl && !actions.querySelector("[data-records-portal-return]")) {
-    const returnLink = document.createElement("a");
-    returnLink.href = identity.websiteUrl;
-    returnLink.textContent = `Back to ${identity.websiteName} Website`;
-    returnLink.dataset.recordsPortalReturn = "";
-    actions.insertBefore(returnLink, actions.querySelector("button"));
+    dashboardLink.textContent = "Return to dashboard";
+    dashboardLink.classList.add("records-portal-dashboard-link");
+    dashboardLink.dataset.recordsPortalDashboard = "";
+    actions?.prepend(dashboardLink);
   }
 }

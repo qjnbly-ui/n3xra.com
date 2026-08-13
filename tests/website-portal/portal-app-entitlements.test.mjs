@@ -78,6 +78,37 @@ test("the N3XRA website portal opens Website Management without the branded app 
   assert.match(brandShell, /N3XRA \| Website Management/);
 });
 
+test("client navigation separates apps from the website workspace", async () => {
+  const [shell, workspaceContext, styles] = await Promise.all([
+    projectFile("client-portal/client-shell.js"),
+    projectFile("client-portal/client-workspace-context.js"),
+    projectFile("client-portal/client-shell.css"),
+  ]);
+
+  assert.match(shell, /const appSections = \[[\s\S]*Apps Dashboard[\s\S]*Support/);
+  assert.match(shell, /const websiteSections = \[[\s\S]*label: "Progress"/);
+  assert.match(shell, /Website Workspace/);
+  assert.match(shell, /Start a New Project/);
+  assert.doesNotMatch(shell, /portal-nav-label">New work/);
+  assert.match(workspaceContext, /const APP_ROUTES = \[[\s\S]*Apps Dashboard[\s\S]*Support/);
+  assert.match(workspaceContext, /const WEBSITE_ROUTES = \[[\s\S]*Progress[\s\S]*Files & Assets[\s\S]*Start a New Project/);
+  assert.doesNotMatch(workspaceContext, /website-organization-intake-link/);
+  assert.match(styles, /website-organization-navigation p\.is-separated/);
+});
+
+test("Apps Dashboard navigation appears only when the tenant has another subscribed app", async () => {
+  const [shell, workspaceContext] = await Promise.all([
+    projectFile("client-portal/client-shell.js"),
+    projectFile("client-portal/client-workspace-context.js"),
+  ]);
+
+  assert.match(shell, /data-client-app-dashboard hidden/);
+  assert.match(workspaceContext, /hasAdditionalPortalApps/);
+  assert.match(workspaceContext, /\.from\("organization_product_entitlements"\)/);
+  assert.match(workspaceContext, /setAppsDashboardAvailability\(additionalAppsAvailable\)/);
+  assert.match(workspaceContext, /data-client-app-dashboard hidden/);
+});
+
 test("organization app entitlements are RLS protected and synchronized from subscriptions", async () => {
   const migration = await projectFile("supabase/migrations/20260813164832_branded_portal_app_entitlements.sql");
 
@@ -90,16 +121,21 @@ test("organization app entitlements are RLS protected and synchronized from subs
   assert.doesNotMatch(migration, /grant (select|all).*organization_product_entitlements to anon/i);
 });
 
-test("Records adopts the client portal brand on a branded hostname", async () => {
-  const [recordsShell, desktopShell] = await Promise.all([
+test("Records adopts the client portal brand and returns only to its app dashboard", async () => {
+  const [recordsShell, desktopShell, recordsStyles] = await Promise.all([
     projectFile("client-portal/records-app-shell.js"),
     projectFile("n3xra-records/lib/desktop-shell.js"),
+    projectFile("n3xra-records/styles.css"),
   ]);
 
   assert.match(desktopShell, /initializeRecordsPortalShell/);
   assert.match(recordsShell, /identity\.websiteName/);
   assert.match(recordsShell, /identity\.logoUrl/);
-  assert.match(recordsShell, /Portal home/);
-  assert.match(recordsShell, /Back to \$\{identity\.websiteName\} Website/);
+  assert.match(recordsShell, /Return to dashboard/);
+  assert.match(recordsShell, /actions\?\.prepend\(dashboardLink\)/);
+  assert.match(recordsShell, /records-portal-dashboard-link/);
+  assert.doesNotMatch(recordsShell, /Back to \$\{identity\.websiteName\} Website/);
+  assert.doesNotMatch(recordsShell, /Portal home/);
+  assert.match(recordsStyles, /\.records-desktop-app-actions \.records-portal-dashboard-link/);
   assert.doesNotMatch(recordsShell, /target\s*=|window\.open\s*\(/);
 });

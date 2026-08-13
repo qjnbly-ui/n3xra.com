@@ -6473,6 +6473,18 @@ body:has(.confirm-modal.is-open) {
     border-color: rgba(105, 210, 196, 0.44);
     background: rgba(29, 121, 110, 0.2);
   }
+  .records-desktop-app-actions .records-portal-dashboard-link {
+    border-color: rgba(255, 255, 255, 0.88);
+    border-radius: 8px;
+    background: #fff;
+    color: #07101a;
+  }
+  .records-desktop-app-actions .records-portal-dashboard-link:hover,
+  .records-desktop-app-actions .records-portal-dashboard-link:focus-visible {
+    border-color: #8fd8ce;
+    background: #dff4f0;
+    color: #07101a;
+  }
   .records-account-page .main { width: 100%; min-height: 0; height: 100%; overflow: hidden; padding: 0; }
   .records-account-page #dashboard-panel { display: flex; flex-direction: column; height: 100%; min-height: 0; padding: 0; overflow: hidden; border: 0; border-radius: 0; box-shadow: none; }
   .records-account-page #dashboard-panel > #support-banner { margin: 1.25rem 1.25rem 0; }

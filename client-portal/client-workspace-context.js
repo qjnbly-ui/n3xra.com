@@ -8,16 +8,26 @@ import {
   scopeWebsitesToPortalTenant,
 } from "/client-portal/tenant-context.js";
 
-const CLIENT_ROUTES = [
-  ...(isBrandedPortalHostname() ? [[["dashboard"], "Dashboard", "/client-portal/"]] : []),
-  [["proposals", "progress", "onboarding"], "Progress", "/project-workspace/"],
-  [["assets"], "Files & assets", "/client-portal/#files-assets"],
-  [["services"], "Services & ownership", "/client-portal/services/"],
-  [["billing"], "Billing", "/client-portal/billing/"],
+const brandedPortal = isBrandedPortalHostname();
+const APP_ROUTES = [
+  ...(brandedPortal ? [{ keys: ["dashboard"], label: "Apps Dashboard", href: "/client-portal/", requiresAdditionalApps: true }] : []),
+  { keys: ["support"], label: "Support", href: "/client-portal/#support" },
+];
+const WEBSITE_ROUTES = [
+  { keys: ["proposals", "progress", "onboarding"], label: "Progress", href: "/project-workspace/" },
+  { keys: ["assets"], label: "Files & Assets", href: "/client-portal/#files-assets" },
+  { keys: ["services"], label: "Services & Ownership", href: "/client-portal/services/" },
+  { keys: ["billing"], label: "Billing", href: "/client-portal/billing/" },
+  { keys: ["new-request"], label: "Start a New Project", href: "/client-portal/#new-project" },
 ];
 
 const escapeHtml = (value = "") => String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
 const statusLabel = (value = "") => String(value || "active").replaceAll("_", " ").replace(/\b\w/g, (character) => character.toUpperCase());
+
+function routeMarkup(route, pageKey) {
+  const availability = route.requiresAdditionalApps ? " data-client-app-dashboard hidden" : "";
+  return `<a class="${route.keys.includes(pageKey) ? "is-current" : ""}" href="${route.href}"${availability}>${route.label}</a>`;
+}
 
 function renderShell(panel, pageKey) {
   panel.innerHTML = `
@@ -38,11 +48,33 @@ function renderShell(panel, pageKey) {
       <div id="client-organization-links"></div>
     </section>
     <nav class="website-organization-navigation" aria-label="Selected organization sections">
-      <p>Workspace</p>
-      ${CLIENT_ROUTES.map(([keys, label, href]) => `<a class="${keys.includes(pageKey) ? "is-current" : ""}" href="${href}">${label}</a>`).join("")}
+      <p>${brandedPortal ? "Apps" : "N3XRA"}</p>
+      ${APP_ROUTES.map((route) => routeMarkup(route, pageKey)).join("")}
+      <p class="is-separated">Website Workspace</p>
+      ${WEBSITE_ROUTES.map((route) => routeMarkup(route, pageKey)).join("")}
     </nav>
-    <div class="website-organization-intake-link"><span>Workspace tools</span><a href="/client-portal/#support">Get support</a><a href="/client-portal/#new-project">Start a new project</a></div>
   `;
+}
+
+async function hasAdditionalPortalApps(supabase, organizationId) {
+  if (!organizationId) return false;
+  const { data, error } = await supabase
+    .from("organization_product_entitlements")
+    .select("product:n3xra_product_catalog(status,client_portal_available)")
+    .eq("organization_id", organizationId)
+    .eq("portal_enabled", true)
+    .in("status", ["trialing", "active", "past_due"]);
+  if (error) return false;
+  return (data || []).some((row) => {
+    const products = Array.isArray(row.product) ? row.product : [row.product];
+    return products.some((product) => product?.status === "active" && product?.client_portal_available);
+  });
+}
+
+function setAppsDashboardAvailability(available) {
+  document.querySelectorAll("[data-client-app-dashboard]").forEach((item) => {
+    item.hidden = !available;
+  });
 }
 
 export async function initializeClientWorkspaceContext(panel, { pageKey = "overview" } = {}) {
@@ -54,7 +86,7 @@ export async function initializeClientWorkspaceContext(panel, { pageKey = "overv
   const tenantResolution = await resolvePortalTenant(supabase);
 
   const [websiteResult, domainResult] = await Promise.all([
-    supabase.from("client_websites").select("id,name,status,live_url,website_members(role,status,user_id)").order("name"),
+    supabase.from("client_websites").select("id,name,status,live_url,organization_id,website_members(role,status,user_id)").order("name"),
     supabase.from("website_domains").select("website_id,domain_name,is_primary").order("is_primary", { ascending: false }),
   ]);
   if (websiteResult.error) throw websiteResult.error;
@@ -66,6 +98,11 @@ export async function initializeClientWorkspaceContext(panel, { pageKey = "overv
   let selectedId = websites.some((website) => website.id === explicitWebsiteId)
     ? explicitWebsiteId
     : websites.some((website) => website.id === context.websiteId) ? context.websiteId : websites[0]?.id || "";
+  const selectedWebsite = websites.find((website) => website.id === selectedId);
+  const additionalAppsAvailable = tenantResolution.mode === "tenant"
+    ? await hasAdditionalPortalApps(supabase, selectedWebsite?.organization_id)
+    : false;
+  setAppsDashboardAvailability(additionalAppsAvailable);
 
   const picker = panel.querySelector("#client-organization-picker");
   const trigger = panel.querySelector("#client-organization-trigger");

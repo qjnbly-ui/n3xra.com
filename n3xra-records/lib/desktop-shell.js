@@ -1,7 +1,7 @@
 import { createBrowserSupabase, hasConfig } from "/shared/lib/supabase-client.js";
 import { getStoredActiveOrganizationId } from "/shared/lib/orgs.js";
 import { requestAiFollowUps } from "/shared/lib/ai-follow-ups.js?v=20260812";
-import { initializeRecordsPortalShell } from "/client-portal/records-app-shell.js?v=1";
+import { initializeRecordsPortalShell } from "/client-portal/records-app-shell.js?v=2";
 
 const DESKTOP_SHELL_BREAKPOINT = 981;
 const RECORDS_AI_HISTORY_LIMIT = 8;
