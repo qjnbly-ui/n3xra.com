@@ -1,5 +1,11 @@
 import { createBrowserSupabase, getSessionOrNull, hasConfig } from "/shared/lib/supabase-client.js";
 import { readWorkspaceContext, writeWorkspaceContext } from "/client-portal/workspace-context.js";
+import {
+  portalTenantEmptyMessage,
+  resolvePortalTenant,
+  scopeRowsToPortalTenant,
+  scopeWebsitesToPortalTenant,
+} from "/client-portal/tenant-context.js";
 
 const websiteSelect = document.getElementById("services-website-select");
 const serviceGrid = document.getElementById("client-service-grid");
@@ -80,6 +86,7 @@ function render() {
 }
 
 async function loadData() {
+  const tenantResolution = await resolvePortalTenant(supabase);
   const [websiteResult, serviceResult, domainResult, repositoryResult, requestResult] = await Promise.all([
     supabase.from("client_websites").select("id,name,status").order("name"),
     supabase.from("website_services").select("*").order("sort_order").order("name"),
@@ -88,8 +95,13 @@ async function loadData() {
     supabase.from("website_service_access_requests").select("*").order("created_at", { ascending: false }),
   ]);
   for (const result of [websiteResult, serviceResult, domainResult, repositoryResult, requestResult]) if (result.error) throw result.error;
-  websites = websiteResult.data || []; services = serviceResult.data || []; domains = domainResult.data || []; repositories = repositoryResult.data || []; requests = requestResult.data || [];
-  websiteSelect.innerHTML = websites.length ? websites.map((website) => `<option value="${website.id}">${escapeHtml(website.name)}</option>`).join("") : '<option value="">No websites</option>';
+  websites = scopeWebsitesToPortalTenant(websiteResult.data || [], tenantResolution);
+  services = scopeRowsToPortalTenant(serviceResult.data || [], tenantResolution, (item) => item.website_id);
+  domains = scopeRowsToPortalTenant(domainResult.data || [], tenantResolution, (item) => item.website_id);
+  repositories = scopeRowsToPortalTenant(repositoryResult.data || [], tenantResolution, (item) => item.website_id);
+  requests = scopeRowsToPortalTenant(requestResult.data || [], tenantResolution, (item) => item.website_id);
+  websiteSelect.innerHTML = websites.length ? websites.map((website) => `<option value="${website.id}">${escapeHtml(website.name)}</option>`).join("") : `<option value="">${escapeHtml(portalTenantEmptyMessage(tenantResolution))}</option>`;
+  websiteSelect.disabled = tenantResolution.mode !== "unbound" || !websites.length;
   const context = readWorkspaceContext("client", session.user.id);
   selectedWebsite = websites.find((website) => website.id === context.websiteId) || websites[0];
   if (selectedWebsite) websiteSelect.value = selectedWebsite.id;

@@ -37,14 +37,6 @@ function normalizeHostname(value = "") {
   try { return new URL(text.includes("://") ? text : `https://${text}`).hostname.toLowerCase().replace(/\.$/, ""); } catch { return ""; }
 }
 
-function rootDomain(website, websiteDomains) {
-  const savedPortal = websiteDomains.find((item) => item.domain_purpose === "portal");
-  if (savedPortal) return normalizeHostname(savedPortal.domain_name);
-  const primary = websiteDomains.find((item) => item.is_primary && (item.domain_purpose || "website") === "website")
-    || websiteDomains.find((item) => (item.domain_purpose || "website") === "website");
-  return normalizeHostname(primary?.domain_name || website?.live_url).replace(/^www\./, "");
-}
-
 function message(text = "", isError = false) {
   status.textContent = text;
   status.classList.toggle("is-error", isError);
@@ -84,9 +76,10 @@ async function directAnalysis(website) {
     supabase.from("website_assets").select("id,asset_key,label,category,status,current_version_id").eq("website_id", websiteId).neq("status", "archived"),
     supabase.from("website_repositories").select("provider,full_name,default_branch,access_status").eq("website_id", websiteId).order("created_at"),
     supabase.from("website_services").select("service_type,name,provider,status,public_url").eq("website_id", websiteId).order("sort_order"),
+    supabase.from("website_members").select("user_id,role,status").eq("website_id", websiteId),
   ]);
   for (const result of results) if (result.error) throw result.error;
-  const [brandingResult, featureResult, assetResult, repositoryResult, serviceResult] = results;
+  const [brandingResult, featureResult, assetResult, repositoryResult, serviceResult, memberResult] = results;
   const rawAssets = assetResult.data || [];
   const assetIds = rawAssets.map((asset) => asset.current_version_id).filter(Boolean);
   const versionResult = assetIds.length
@@ -100,14 +93,16 @@ async function directAnalysis(website) {
   const branding = brandingResult.data || {};
   const websiteDomains = domains.filter((item) => item.website_id === website.id);
   const domain = websiteDomains.find((item) => item.domain_purpose === "portal");
-  const root = rootDomain(website, websiteDomains);
-  const proposedDomain = domain?.domain_name || (root ? `manage.${root}` : "");
+  const portalSlug = String(website.portal_slug || website.slug || "").trim();
+  const proposedDomain = portalSlug ? `${portalSlug}.portal.n3xra.com` : "";
+  const activeMembers = (memberResult.data || []).filter((member) => member.status === "active");
   const repository = repositoryResult.data?.find((item) => item.provider === "github")
     || (website.repository_full_name ? { provider: "github", full_name: website.repository_full_name, default_branch: "main", access_status: "recorded" } : null);
   const vercel = serviceResult.data?.find((item) => /vercel/i.test(`${item.provider || ""} ${item.name || ""}`));
   const features = { ...FEATURE_DEFAULTS, ...Object.fromEntries((featureResult.data || []).map((item) => [item.feature_key, item.enabled])) };
   const proposed = {
-    management_domain: proposedDomain,
+    portal_domain: proposedDomain,
+    management_domain: normalizeHostname(domain?.domain_name),
     theme_id: website.portal_theme_id || "classic",
     logo_asset_id: branding.logo_asset_id || logo?.id || null,
     favicon_asset_id: branding.favicon_asset_id || favicon?.id || logo?.id || null,
@@ -120,7 +115,9 @@ async function directAnalysis(website) {
   };
   const connections = [
     connection("website", "Website record", website.status === "active" ? "connected" : "attention", website.status === "active" ? `${website.name} is active` : `Website status is ${website.status}`, true, "/n3xra-admin/websites/"),
-    connection("domain", "Management domain", domain ? (domain.status === "active" ? "connected" : "attention") : (proposedDomain ? "suggested" : "missing"), domain ? `${domain.domain_name} · ${domain.status}` : (proposedDomain ? `${proposedDomain} can be configured` : "Add a live website domain first"), true, "/n3xra-admin/services/"),
+    connection("portal_host", "N3XRA portal address", "attention", `${proposedDomain || "Portal address"} · wildcard infrastructure is verified by the deployed setup check`, true, "/n3xra-admin/website-portal/"),
+    connection("membership", "Client access", activeMembers.length ? "connected" : "attention", activeMembers.length ? `${activeMembers.length} active website member${activeMembers.length === 1 ? "" : "s"}` : "Assign at least one active website member before activation", true, "/n3xra-admin/websites/"),
+    connection("domain", "Custom portal domain", domain ? (domain.status === "active" ? "connected" : "attention") : "default", domain ? `${domain.domain_name} · ${domain.status}` : "Optional · the N3XRA portal address will be used", false, "/n3xra-admin/services/"),
     connection("branding", "Branding", proposed.logo_asset_id ? "connected" : "default", proposed.logo_asset_id ? `${assets.find((item) => item.id === proposed.logo_asset_id)?.label || "Logo"} and saved brand settings` : "Safe N3XRA defaults will be used", true, "/n3xra-admin/assets/"),
     connection("github", "GitHub", repository ? "recorded" : "missing", repository ? `${repository.full_name} · ${repository.default_branch || "main"}` : "No repository is connected", false, "/n3xra-admin/services/"),
     connection("vercel", "Vercel", vercel?.status === "active" ? "connected" : (vercel ? "attention" : "missing"), vercel ? `${vercel.name}${vercel.public_url ? ` · ${vercel.public_url}` : ""}` : "No Vercel hosting record is connected", false, "/n3xra-admin/services/"),
@@ -130,7 +127,7 @@ async function directAnalysis(website) {
   const requiredReady = connections.filter((item) => item.required).every((item) => ["connected", "default"].includes(item.state));
   const completed = connections.filter((item) => ["connected", "recorded", "default"].includes(item.state)).length;
   return {
-    website: { id: website.id, name: website.name, status: website.status, live_url: website.live_url, portal_enabled: Boolean(website.portal_enabled) },
+    website: { id: website.id, name: website.name, status: website.status, live_url: website.live_url, portal_enabled: Boolean(website.portal_enabled), portal_slug: portalSlug, organization_id: website.organization_id || null },
     proposed,
     assets,
     connections,
@@ -250,8 +247,8 @@ function renderAnalysis(result, { apply = false } = {}) {
   byId("portal-summary-copy").textContent = result.website.portal_enabled
     ? "Client-branded access is enabled. Connection checks remain visible so infrastructure changes do not become hidden problems."
     : "N3XRA has assembled recommended settings from this website’s existing records, approved assets, and connected services.";
-  byId("portal-address").hidden = !result.proposed.management_domain;
-  byId("portal-address-value").textContent = result.proposed.management_domain || "";
+  byId("portal-address").hidden = !result.proposed.portal_domain;
+  byId("portal-address-value").textContent = result.proposed.portal_domain || "";
   byId("portal-readiness-value").textContent = `${result.readiness.percent}%`;
   byId("portal-readiness-bar").style.width = `${result.readiness.percent}%`;
   const state = byId("portal-state");
@@ -261,7 +258,7 @@ function renderAnalysis(result, { apply = false } = {}) {
   byId("portal-deactivate").hidden = !result.website.portal_enabled;
   byId("portal-activate").disabled = !result.readiness.activation_ready;
   byId("portal-activation-copy").textContent = result.readiness.activation_ready
-    ? (result.website.portal_enabled ? "Client access is active. Deactivation preserves all settings and can be reversed." : "Required checks are complete. Activating makes the portal resolvable for authenticated clients at the management domain.")
+    ? (result.website.portal_enabled ? "Client access is active. Deactivation preserves all settings and can be reversed." : `Required checks are complete. Activating makes the portal available to assigned clients at ${result.proposed.portal_domain}.`)
     : "Resolve the required setup items shown above before activating client access.";
   renderPreviewFromForm();
 }
@@ -338,7 +335,6 @@ function settingsPayload() {
 
 async function saveSettings({ enabled = selectedWebsite?.portal_enabled, success = "Website Portal settings saved." } = {}) {
   const payload = settingsPayload();
-  if (enabled && !payload.domainName) throw new Error("A valid management domain is required before activation.");
   const websiteResult = await supabase.from("client_websites").update({ ...payload.website, portal_enabled: Boolean(enabled) }).eq("id", selectedWebsite.id);
   if (websiteResult.error) throw websiteResult.error;
   const brandingResult = await supabase.from("website_portal_branding").upsert(payload.branding, { onConflict: "website_id" });
@@ -399,7 +395,7 @@ async function activate(enabled) {
 
 async function loadBaseData(preferredId, { keepVisible = false } = {}) {
   const [websiteResult, domainResult] = await Promise.all([
-    supabase.from("client_websites").select("id,name,status,live_url,repository_full_name,portal_enabled,portal_theme_id").order("name"),
+    supabase.from("client_websites").select("id,name,slug,portal_slug,organization_id,status,live_url,repository_full_name,portal_enabled,portal_theme_id").order("name"),
     supabase.from("website_domains").select("id,website_id,domain_name,domain_purpose,status,is_primary").order("is_primary", { ascending: false }),
   ]);
   if (websiteResult.error) throw websiteResult.error;

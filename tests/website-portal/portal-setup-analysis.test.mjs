@@ -14,6 +14,8 @@ function records(overrides = {}) {
       id: "a2f7a988-fc9f-4e54-ad60-889beeb79cd8",
       name: "Roots and Relics",
       slug: "roots-and-relics",
+      portal_slug: "roots-and-relics",
+      organization_id: "23aed60f-b87c-49e1-8152-f51e5e17db3a",
       status: "active",
       live_url: "https://rootsandrelicsgreenhouse.com/",
       repository_full_name: "qjnbly-ui/rootsandrelicsgreenhouse.com",
@@ -27,22 +29,26 @@ function records(overrides = {}) {
     versions: [{ id: "version-logo", public_url: "https://cdn.example/logo.png", mime_type: "image/png" }],
     branding: null,
     features: [],
+    members: [{ user_id: "client-user", role: "owner", status: "active" }],
     ...overrides,
   };
 }
 
-test("portal setup proposes a management subdomain from the primary website domain", () => {
-  assert.equal(proposedPortalDomain(records()), "manage.rootsandrelicsgreenhouse.com");
+test("portal setup proposes the standard tenant address from the stable portal slug", () => {
+  assert.equal(proposedPortalDomain(records()), "roots-and-relics.portal.n3xra.com");
 });
 
-test("saved portal domains take precedence over generated domains", () => {
+test("a saved custom domain remains an optional alias instead of replacing the standard address", async () => {
   const input = records({
     domains: [
       { domain_name: "rootsandrelicsgreenhouse.com", status: "active", is_primary: true, domain_purpose: "website" },
       { domain_name: "studio.rootsandrelicsgreenhouse.com", status: "active", is_primary: false, domain_purpose: "portal" },
     ],
   });
-  assert.equal(proposedPortalDomain(input), "studio.rootsandrelicsgreenhouse.com");
+  const result = await analyzePortalSetup(input, { includeRemote: false, portalRootVerified: true });
+  assert.equal(result.proposed.portal_domain, "roots-and-relics.portal.n3xra.com");
+  assert.equal(result.proposed.management_domain, "studio.rootsandrelicsgreenhouse.com");
+  assert.equal(result.connections.find((item) => item.key === "domain").required, false);
 });
 
 test("branding detection ignores near-white colors and finds named font families", () => {
@@ -54,26 +60,28 @@ test("branding detection ignores near-white colors and finds named font families
 test("quick analysis reuses approved assets and keeps optional integrations non-blocking", async () => {
   const result = await analyzePortalSetup(records(), { includeRemote: false });
   assert.equal(result.proposed.logo_asset_id, "asset-logo");
-  assert.equal(result.proposed.management_domain, "manage.rootsandrelicsgreenhouse.com");
+  assert.equal(result.proposed.portal_domain, "roots-and-relics.portal.n3xra.com");
   assert.equal(result.readiness.activation_ready, false);
+  assert.equal(result.connections.find((item) => item.key === "portal_host").state, "attention");
   assert.equal(result.connections.find((item) => item.key === "github").state, "recorded");
   assert.equal(result.connections.find((item) => item.key === "vercel").required, false);
 });
 
-test("an active management domain completes the required activation checks", async () => {
-  const input = records({
-    domains: [
-      { domain_name: "rootsandrelicsgreenhouse.com", status: "active", is_primary: true, domain_purpose: "website" },
-      { domain_name: "manage.rootsandrelicsgreenhouse.com", status: "active", is_primary: false, domain_purpose: "portal" },
-    ],
-  });
-  const result = await analyzePortalSetup(input, { includeRemote: false });
+test("verified wildcard infrastructure and an active member complete required activation checks", async () => {
+  const result = await analyzePortalSetup(records(), { includeRemote: false, portalRootVerified: true });
   assert.equal(result.readiness.activation_ready, true);
+});
+
+test("a website without an active member cannot be activated", async () => {
+  const input = records({ members: [{ user_id: "client-user", role: "owner", status: "revoked" }] });
+  const result = await analyzePortalSetup(input, { includeRemote: false, portalRootVerified: true });
+  assert.equal(result.readiness.activation_ready, false);
+  assert.equal(result.connections.find((item) => item.key === "membership").state, "attention");
 });
 
 test("an inactive website blocks portal activation", async () => {
   const input = records({ website: { ...records().website, status: "paused" } });
-  const result = await analyzePortalSetup(input, { includeRemote: false });
+  const result = await analyzePortalSetup(input, { includeRemote: false, portalRootVerified: true });
   assert.equal(result.readiness.activation_ready, false);
 });
 

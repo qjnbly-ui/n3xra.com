@@ -3,6 +3,11 @@ import { readWorkspaceContext, writeWorkspaceContext } from "/client-portal/work
 import { renderPdfFirstPage } from "/shared/lib/file-preview.js";
 import { openAssetPreview } from "/client-portal/asset-preview-modal.js?v=1";
 import { resolveWebsiteUrl } from "/client-portal/website-url.js";
+import {
+  portalTenantEmptyMessage,
+  resolvePortalTenant,
+  scopeWebsitesToPortalTenant,
+} from "/client-portal/tenant-context.js";
 
 const PRIVATE_BUCKET = "website-assets-private";
 const statusScreen = document.getElementById("portal-status");
@@ -381,6 +386,7 @@ function syncNewAssetFields() {
 }
 
 async function loadWebsites() {
+  const tenantResolution = await resolvePortalTenant(supabase);
   const [websiteResult, domainResult] = await Promise.all([
     supabase.from("client_websites").select("id,name,slug,live_url,status,website_members(role,status,user_id)").order("name"),
     supabase.from("website_domains").select("website_id,domain_name,is_primary").order("is_primary", { ascending: false }),
@@ -388,19 +394,21 @@ async function loadWebsites() {
   if (websiteResult.error) throw websiteResult.error;
   if (domainResult.error) throw domainResult.error;
 
-  websites = websiteResult.data || [];
+  websites = scopeWebsitesToPortalTenant(websiteResult.data || [], tenantResolution);
   websiteDomains = domainResult.data || [];
   websiteSelect.innerHTML = websites.length
     ? websites.map((website) => `<option value="${website.id}">${escapeHtml(website.name)}</option>`).join("")
     : '<option value="">No websites assigned</option>';
   if (filesWebsiteSelect) filesWebsiteSelect.innerHTML = websiteSelect.innerHTML;
+  websiteSelect.disabled = tenantResolution.mode !== "unbound";
+  if (filesWebsiteSelect) filesWebsiteSelect.disabled = tenantResolution.mode !== "unbound";
 
   if (!websites.length) {
     assetToolbar.hidden = true;
     filesWebsiteName.textContent = "No website selected";
     filesLiveLink.hidden = true;
     emptyState.hidden = false;
-    emptyState.innerHTML = "<p>No projects are currently assigned to this account.</p>";
+    emptyState.innerHTML = `<p>${escapeHtml(portalTenantEmptyMessage(tenantResolution))}</p>`;
     return;
   }
 

@@ -1,5 +1,10 @@
 import { createBrowserSupabase, getSessionOrNull, hasConfig } from "/shared/lib/supabase-client.js";
 import { projectContext, readWorkspaceContext, writeWorkspaceContext } from "/client-portal/workspace-context.js";
+import {
+  resolvePortalTenant,
+  scopeRowsToPortalTenant,
+  scopeWebsitesToPortalTenant,
+} from "/client-portal/tenant-context.js";
 
 const statusScreen = document.getElementById("portal-status");
 const proposalSelect = document.getElementById("client-proposal-select");
@@ -213,6 +218,7 @@ function updateDecisionCopy() {
 }
 
 async function loadProposals(preferredId) {
+  const tenantResolution = await resolvePortalTenant(supabase);
   const [proposalResult, versionResult, lineItemResult, decisionResult, onboardingResult, projectResult, websiteResult] = await Promise.all([
     supabase.from("website_proposals").select("*").order("created_at", { ascending: false }),
     supabase.from("website_proposal_versions").select("*").order("version_number", { ascending: false }),
@@ -229,13 +235,23 @@ async function loadProposals(preferredId) {
   if (onboardingResult.error) throw onboardingResult.error;
   if (projectResult.error) throw projectResult.error;
   if (websiteResult.error) throw websiteResult.error;
-  proposals = proposalResult.data || [];
-  versions = versionResult.data || [];
-  lineItems = lineItemResult.data || [];
-  decisions = decisionResult.data || [];
-  onboardings = onboardingResult.data || [];
-  projects = projectResult.data || [];
-  websites = websiteResult.data || [];
+  projects = scopeRowsToPortalTenant(projectResult.data || [], tenantResolution, (project) => project.managed_website_id);
+  websites = scopeWebsitesToPortalTenant(websiteResult.data || [], tenantResolution);
+  const projectIds = new Set(projects.map((project) => project.id));
+  const projectProposalIds = new Set(projects.map((project) => project.proposal_id).filter(Boolean));
+  const projectRequestIds = new Set(projects.map((project) => project.request_id).filter(Boolean));
+  proposals = (proposalResult.data || []).filter((proposal) => tenantResolution.mode === "unbound"
+    || projectIds.has(proposal.project_id)
+    || projectProposalIds.has(proposal.id)
+    || projectRequestIds.has(proposal.request_id));
+  const proposalIds = new Set(proposals.map((proposal) => proposal.id));
+  versions = (versionResult.data || []).filter((version) => tenantResolution.mode === "unbound" || proposalIds.has(version.proposal_id));
+  lineItems = (lineItemResult.data || []).filter((item) => tenantResolution.mode === "unbound" || proposalIds.has(item.proposal_id));
+  decisions = (decisionResult.data || []).filter((decision) => tenantResolution.mode === "unbound" || proposalIds.has(decision.proposal_id));
+  onboardings = (onboardingResult.data || []).filter((onboarding) => tenantResolution.mode === "unbound"
+    || projectIds.has(onboarding.project_id)
+    || proposalIds.has(onboarding.proposal_id));
+  proposalSelect.disabled = tenantResolution.mode !== "unbound" || !websites.length;
   renderOptions();
   const context = readWorkspaceContext("client", session.user.id);
   const explicitProposal = preferredId || new URLSearchParams(window.location.search).get("proposal");

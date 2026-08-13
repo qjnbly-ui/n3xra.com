@@ -1,5 +1,10 @@
 import { createBrowserSupabase, getSessionOrNull, hasConfig } from "/shared/lib/supabase-client.js";
 import { projectContext, readWorkspaceContext, writeWorkspaceContext } from "/client-portal/workspace-context.js";
+import {
+  resolvePortalTenant,
+  scopeRowsToPortalTenant,
+  scopeWebsitesToPortalTenant,
+} from "/client-portal/tenant-context.js";
 
 const statusScreen = document.getElementById("portal-status");
 const projectSelect = document.getElementById("project-workspace-select");
@@ -177,6 +182,7 @@ function renderWorkspace() {
 }
 
 async function loadData(preferredId) {
+  const tenantResolution = await resolvePortalTenant(supabase);
   const [projectResult, websiteResult, milestoneResult, onboardingResult, proposalResult] = await Promise.all([
     supabase.from("website_projects")
       .select("*,website_service_requests(business_name,project_type,primary_goal),client_websites(id,name,live_url,status)")
@@ -191,11 +197,17 @@ async function loadData(preferredId) {
   if (milestoneResult.error) throw milestoneResult.error;
   if (onboardingResult.error) throw onboardingResult.error;
   if (proposalResult.error) throw proposalResult.error;
-  projects = (projectResult.data || []).filter((project) => !["archived", "cancelled"].includes(project.status));
-  websites = websiteResult.data || [];
-  milestones = milestoneResult.data || [];
-  onboardings = onboardingResult.data || [];
-  proposals = proposalResult.data || [];
+  projects = scopeRowsToPortalTenant(
+    (projectResult.data || []).filter((project) => !["archived", "cancelled"].includes(project.status)),
+    tenantResolution,
+    projectWebsiteId,
+  );
+  websites = scopeWebsitesToPortalTenant(websiteResult.data || [], tenantResolution);
+  const projectIds = new Set(projects.map((project) => project.id));
+  milestones = (milestoneResult.data || []).filter((milestone) => tenantResolution.mode === "unbound" || projectIds.has(milestone.project_id));
+  onboardings = (onboardingResult.data || []).filter((onboarding) => tenantResolution.mode === "unbound" || projectIds.has(onboarding.project_id));
+  proposals = (proposalResult.data || []).filter((proposal) => tenantResolution.mode === "unbound" || projectIds.has(proposal.project_id));
+  projectSelect.disabled = tenantResolution.mode !== "unbound" || !websites.length;
   renderOptions();
   const context = readWorkspaceContext("client", userId);
   const params = new URLSearchParams(window.location.search);

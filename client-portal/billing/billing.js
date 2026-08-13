@@ -1,6 +1,7 @@
 import { createBrowserSupabase, hasConfig } from "/shared/lib/supabase-client.js";
 import { verifyPlatformAdmin } from "/client-portal/admin-access.js";
 import { readWorkspaceContext, writeWorkspaceContext } from "/client-portal/workspace-context.js";
+import { resolvePortalTenant, scopeRowsToPortalTenant } from "/client-portal/tenant-context.js";
 
 const adminMode = document.body.dataset.billingRole === "admin";
 const content = document.getElementById("billing-content");
@@ -129,7 +130,10 @@ function openReview(title, body, confirmLabel, action) {
 
 async function load() {
   const projectId = new URLSearchParams(location.search).get("project");
-  records = await invoke("get-website-billing-status", adminMode ? {} : (projectId ? { project_id: projectId } : {}));
+  const tenantResolution = adminMode ? null : await resolvePortalTenant(supabase);
+  records = await invoke("get-website-billing-status", adminMode || tenantResolution?.mode !== "unbound"
+    ? {}
+    : (projectId ? { project_id: projectId } : {}));
 
   if (adminMode) {
     const { data, error } = await supabase.from("client_websites").select("id,name,status").order("name");
@@ -148,9 +152,17 @@ async function load() {
     return;
   }
 
+  records.projects = scopeRowsToPortalTenant(records.projects || [], tenantResolution, (project) => project.managed_website_id);
+  const tenantProjectIds = new Set(records.projects.map((project) => project.id));
+  for (const key of ["snapshots", "subscriptions", "invoices", "schedules", "charges", "communications"]) {
+    records[key] = (records[key] || []).filter((item) => tenantProjectIds.has(item.project_id));
+  }
+
   const context = readWorkspaceContext("client", currentUser.id);
   const linkedProject = records.projects.find((project) => project.id === projectId);
-  const selectedWebsiteId = linkedProject?.managed_website_id || context.websiteId;
+  const selectedWebsiteId = tenantResolution.mode === "tenant"
+    ? tenantResolution.website_id
+    : linkedProject?.managed_website_id || context.websiteId;
   const selectedProjects = selectedWebsiteId
     ? records.projects.filter((project) => project.managed_website_id === selectedWebsiteId)
     : linkedProject ? [linkedProject] : records.projects.slice(0, 1);

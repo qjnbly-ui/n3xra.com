@@ -11,14 +11,15 @@ function one(rows) {
 
 async function loadRecords(websiteId) {
   const encoded = encodeURIComponent(websiteId);
-  const [websites, domains, repositories, services, assets, branding, features] = await Promise.all([
-    serviceRequest(`client_websites?select=id,name,slug,status,live_url,repository_full_name,portal_enabled,portal_theme_id,updated_at&id=eq.${encoded}&limit=1`),
+  const [websites, domains, repositories, services, assets, branding, features, members] = await Promise.all([
+    serviceRequest(`client_websites?select=id,name,slug,portal_slug,organization_id,status,live_url,repository_full_name,portal_enabled,portal_theme_id,updated_at&id=eq.${encoded}&limit=1`),
     serviceRequest(`website_domains?select=id,website_id,domain_name,status,is_primary,domain_purpose,metadata&website_id=eq.${encoded}`),
     serviceRequest(`website_repositories?select=id,website_id,provider,full_name,html_url,default_branch,visibility,access_status,last_synced_at,metadata&website_id=eq.${encoded}`),
     serviceRequest(`website_services?select=id,website_id,service_type,name,provider,status,account_identifier,public_url,metadata&website_id=eq.${encoded}`),
     serviceRequest(`website_assets?select=id,website_id,asset_key,label,category,status,current_version_id&website_id=eq.${encoded}`),
     serviceRequest(`website_portal_branding?select=*&website_id=eq.${encoded}&limit=1`),
     serviceRequest(`website_portal_features?select=feature_key,enabled&website_id=eq.${encoded}`),
+    serviceRequest(`website_members?select=user_id,role,status&website_id=eq.${encoded}`),
   ]);
   const website = one(websites);
   if (!website) throw apiError("This managed website no longer exists.", 404);
@@ -26,7 +27,7 @@ async function loadRecords(websiteId) {
   const versions = assetIds.length ? await serviceRequest(
     `website_asset_versions?select=id,asset_id,public_url,mime_type,status&asset_id=in.(${assetIds.join(",")})`,
   ) : [];
-  return { website, domains, repositories, services, assets, versions, branding: one(branding), features };
+  return { website, domains, repositories, services, assets, versions, branding: one(branding), features, members };
 }
 
 module.exports = async function handler(req, res) {
@@ -48,6 +49,7 @@ module.exports = async function handler(req, res) {
       vercelToken: String(process.env.VERCEL_TOKEN || "").trim(),
       teamId: String(process.env.VERCEL_TEAM_ID || "").trim(),
       teamSlug: String(process.env.VERCEL_TEAM_SLUG || "").trim(),
+      portalRootVerified: String(process.env.PORTAL_ROOT_VERIFIED || "").toLowerCase() === "true",
     });
     return res.status(200).json(result);
   } catch (error) {

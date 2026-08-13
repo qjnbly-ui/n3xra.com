@@ -1,6 +1,11 @@
 import { createBrowserSupabase, getSessionOrNull, hasConfig } from "/shared/lib/supabase-client.js";
 import { readWorkspaceContext, writeWorkspaceContext } from "/client-portal/workspace-context.js";
 import {
+  resolvePortalTenant,
+  scopeRowsToPortalTenant,
+  scopeWebsitesToPortalTenant,
+} from "/client-portal/tenant-context.js";
+import {
   humanizeWebsiteAssetFilename,
   onboardingCategoryToWebsiteAsset,
   safeWebsiteAssetFilename,
@@ -289,6 +294,7 @@ function renderWorkspace() {
 }
 
 async function loadData(preferredId) {
+  const tenantResolution = await resolvePortalTenant(supabase);
   const [onboardingResult, responseResult, fileResult, projectResult, websiteResult] = await Promise.all([
     supabase.from("website_onboardings").select("*,website_service_requests(business_name,project_type),website_proposals(title,status)").order("created_at", { ascending: false }),
     supabase.from("website_onboarding_responses").select("*"),
@@ -301,11 +307,19 @@ async function loadData(preferredId) {
   if (fileResult.error) throw fileResult.error;
   if (projectResult.error) throw projectResult.error;
   if (websiteResult.error) throw websiteResult.error;
-  onboardings = onboardingResult.data || [];
-  responses = responseResult.data || [];
-  files = fileResult.data || [];
-  projects = projectResult.data || [];
-  websites = websiteResult.data || [];
+  projects = scopeRowsToPortalTenant(projectResult.data || [], tenantResolution, (project) => project.managed_website_id);
+  websites = scopeWebsitesToPortalTenant(websiteResult.data || [], tenantResolution);
+  const projectIds = new Set(projects.map((project) => project.id));
+  const proposalIds = new Set(projects.map((project) => project.proposal_id).filter(Boolean));
+  const requestIds = new Set(projects.map((project) => project.request_id).filter(Boolean));
+  onboardings = (onboardingResult.data || []).filter((onboarding) => tenantResolution.mode === "unbound"
+    || projectIds.has(onboarding.project_id)
+    || proposalIds.has(onboarding.proposal_id)
+    || requestIds.has(onboarding.request_id));
+  const onboardingIds = new Set(onboardings.map((onboarding) => onboarding.id));
+  responses = (responseResult.data || []).filter((response) => tenantResolution.mode === "unbound" || onboardingIds.has(response.onboarding_id));
+  files = (fileResult.data || []).filter((file) => tenantResolution.mode === "unbound" || onboardingIds.has(file.onboarding_id));
+  onboardingSelect.disabled = tenantResolution.mode !== "unbound" || !websites.length;
   renderOptions();
   const context = readWorkspaceContext("client", session.user.id);
   const explicitOnboarding = preferredId || new URLSearchParams(window.location.search).get("onboarding");

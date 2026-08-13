@@ -1,6 +1,11 @@
 import { createBrowserSupabase, hasConfig } from "/shared/lib/supabase-client.js";
 import { readWorkspaceContext, writeWorkspaceContext } from "/client-portal/workspace-context.js";
 import { resolveWebsiteUrl } from "/client-portal/website-url.js";
+import {
+  portalTenantEmptyMessage,
+  resolvePortalTenant,
+  scopeWebsitesToPortalTenant,
+} from "/client-portal/tenant-context.js";
 
 const CLIENT_ROUTES = [
   [["proposals", "progress", "onboarding"], "Progress", "/project-workspace/"],
@@ -44,6 +49,7 @@ export async function initializeClientWorkspaceContext(panel, { pageKey = "overv
   const supabase = createBrowserSupabase();
   const { data: { session } } = await supabase.auth.getSession();
   if (!session?.user) return;
+  const tenantResolution = await resolvePortalTenant(supabase);
 
   const [websiteResult, domainResult] = await Promise.all([
     supabase.from("client_websites").select("id,name,status,live_url,website_members(role,status,user_id)").order("name"),
@@ -51,7 +57,7 @@ export async function initializeClientWorkspaceContext(panel, { pageKey = "overv
   ]);
   if (websiteResult.error) throw websiteResult.error;
   if (domainResult.error) throw domainResult.error;
-  const websites = websiteResult.data || [];
+  const websites = scopeWebsitesToPortalTenant(websiteResult.data || [], tenantResolution);
   const domains = domainResult.data || [];
   const context = readWorkspaceContext("client", session.user.id);
   const explicitWebsiteId = new URLSearchParams(window.location.search).get("website");
@@ -63,6 +69,7 @@ export async function initializeClientWorkspaceContext(panel, { pageKey = "overv
   const trigger = panel.querySelector("#client-organization-trigger");
   const selectedValue = panel.querySelector("#client-organization-value");
   const menu = panel.querySelector("#client-organization-options");
+  picker.hidden = tenantResolution.mode !== "unbound";
 
   function options() {
     return [...menu.querySelectorAll('[role="option"]')];
@@ -71,15 +78,15 @@ export async function initializeClientWorkspaceContext(panel, { pageKey = "overv
   function renderOptions() {
     menu.innerHTML = websites.length
       ? websites.map((website) => `<button type="button" role="option" data-organization-id="${escapeHtml(website.id)}" aria-selected="${website.id === selectedId}"><span>${escapeHtml(website.name)}</span><i aria-hidden="true"></i></button>`).join("")
-      : '<div class="website-organization-picker-empty">No website workspaces</div>';
-    trigger.disabled = !websites.length;
+      : `<div class="website-organization-picker-empty">${escapeHtml(portalTenantEmptyMessage(tenantResolution))}</div>`;
+    trigger.disabled = tenantResolution.mode !== "unbound" || !websites.length;
   }
 
   function showOrganization(websiteId, { persist = true } = {}) {
     const website = websites.find((item) => item.id === websiteId);
     const card = panel.querySelector("#client-organization-card");
     if (!website) {
-      selectedValue.textContent = "No website workspaces";
+      selectedValue.textContent = portalTenantEmptyMessage(tenantResolution);
       card.hidden = true;
       return;
     }
@@ -92,7 +99,9 @@ export async function initializeClientWorkspaceContext(panel, { pageKey = "overv
     panel.querySelector("#client-organization-status").textContent = membership?.role ? `${statusLabel(membership.role)} access` : statusLabel(website.status);
     panel.querySelector("#client-organization-name").textContent = website.name;
     panel.querySelector("#client-organization-url").textContent = websiteUrl || "Website is not live yet";
-    panel.querySelector("#client-organization-links").innerHTML = websiteUrl ? `<a href="${escapeHtml(websiteUrl)}" target="_blank" rel="noopener">Visit website</a>` : "";
+    panel.querySelector("#client-organization-links").innerHTML = websiteUrl
+      ? `<a href="${escapeHtml(websiteUrl)}" target="_blank" rel="noopener">Back to ${escapeHtml(website.name)} Website</a>`
+      : "";
     if (persist) {
       const previous = readWorkspaceContext("client", session.user.id);
       writeWorkspaceContext("client", session.user.id, {

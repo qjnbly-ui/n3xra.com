@@ -1,5 +1,6 @@
 const dns = require("node:dns").promises;
 const net = require("node:net");
+const { standardPortalHostname } = require("./_website-portal-tenant");
 
 const DEFAULT_BRAND = Object.freeze({
   primary_color: "#17231b",
@@ -178,20 +179,8 @@ function bestAsset(assets = [], kind) {
   return [...assets].filter((asset) => asset.status !== "archived").sort((a, b) => assetScore(b, kind) - assetScore(a, kind))[0] || null;
 }
 
-function rootDomainFor(records = {}) {
-  const portalDomain = records.domains?.find((row) => row.domain_purpose === "portal")?.domain_name;
-  if (portalDomain) return normalizeHostname(portalDomain);
-  const primary = records.domains?.find((row) => row.is_primary && (row.domain_purpose || "website") === "website")
-    || records.domains?.find((row) => (row.domain_purpose || "website") === "website");
-  const hostname = normalizeHostname(primary?.domain_name || records.website?.live_url);
-  return hostname.replace(/^www\./, "");
-}
-
 function proposedPortalDomain(records = {}) {
-  const saved = records.domains?.find((row) => row.domain_purpose === "portal")?.domain_name;
-  if (saved) return normalizeHostname(saved);
-  const root = rootDomainFor(records);
-  return root ? `manage.${root}` : "";
+  return standardPortalHostname(records.website, process.env.PORTAL_ROOT_DOMAIN || "portal.n3xra.com");
 }
 
 function publicAssetOptions(assets = [], versions = []) {
@@ -322,8 +311,10 @@ async function analyzePortalSetup(records, options = {}) {
     ])
     : [{ connected: null, colors: [], fonts: [], sourceUrl: normalizedUrl(records.website?.live_url), error: "" }, null, null];
   const branding = records.branding || {};
+  const savedPortal = records.domains?.find((row) => row.domain_purpose === "portal");
   const proposed = {
-    management_domain: proposedPortalDomain(records),
+    portal_domain: proposedPortalDomain(records),
+    management_domain: normalizeHostname(savedPortal?.domain_name),
     theme_id: records.website?.portal_theme_id || "classic",
     logo_asset_id: branding.logo_asset_id || logo?.id || null,
     favicon_asset_id: branding.favicon_asset_id || favicon?.id || logo?.id || null,
@@ -334,10 +325,13 @@ async function analyzePortalSetup(records, options = {}) {
     powered_by_label: branding.powered_by_label ?? DEFAULT_BRAND.powered_by_label,
     features: { ...FEATURE_DEFAULTS, ...Object.fromEntries((records.features || []).map((row) => [row.feature_key, row.enabled])) },
   };
-  const savedPortal = records.domains?.find((row) => row.domain_purpose === "portal");
+  const activeMembers = (records.members || []).filter((member) => member.status === "active");
+  const wildcardReady = options.portalRootVerified === true;
   const connections = [
     connection("website", "Website record", records.website?.status === "active" ? "connected" : "attention", records.website?.status === "active" ? `${records.website.name} is active` : `Website status is ${records.website?.status || "missing"}`, { required: true, action: "/n3xra-admin/websites/" }),
-    connection("domain", "Management domain", savedPortal ? (savedPortal.status === "active" ? "connected" : "attention") : (proposed.management_domain ? "suggested" : "missing"), savedPortal ? `${savedPortal.domain_name} · ${savedPortal.status}` : (proposed.management_domain ? `${proposed.management_domain} can be configured` : "Add a live website domain first"), { required: true, action: "/n3xra-admin/services/" }),
+    connection("portal_host", "N3XRA portal address", wildcardReady ? "connected" : "attention", wildcardReady ? `${proposed.portal_domain} · shared wildcard verified` : `${proposed.portal_domain || "Portal address"} · wildcard infrastructure is not verified yet`, { required: true, action: "/n3xra-admin/website-portal/" }),
+    connection("membership", "Client access", activeMembers.length ? "connected" : "attention", activeMembers.length ? `${activeMembers.length} active website member${activeMembers.length === 1 ? "" : "s"}` : "Assign at least one active website member before activation", { required: true, action: "/n3xra-admin/websites/" }),
+    connection("domain", "Custom portal domain", savedPortal ? (savedPortal.status === "active" ? "connected" : "attention") : "default", savedPortal ? `${savedPortal.domain_name} · ${savedPortal.status}` : "Optional · the N3XRA portal address will be used", { action: "/n3xra-admin/services/" }),
     connection("branding", "Branding", proposed.logo_asset_id ? "connected" : "default", proposed.logo_asset_id ? `${assets.find((asset) => asset.id === proposed.logo_asset_id)?.label || "Logo"} and brand settings detected` : "Safe N3XRA defaults will be used", { required: true, action: "/n3xra-admin/assets/" }),
     connection("github", "GitHub", repository ? (github?.verified ? "connected" : (github ? "attention" : "recorded")) : "missing", repository ? `${repository.full_name}${github?.verified ? ` · ${github.default_branch || repository.default_branch || "main"}` : ""}` : "No repository is connected", { action: "/n3xra-admin/services/" }),
     connection("vercel", "Vercel", vercelApi?.verified ? (vercelApi.live ? "connected" : "attention") : (vercel?.status === "active" ? "recorded" : (vercel ? "attention" : "missing")), vercelApi?.verified ? `${vercelApi.name} · API verified${vercelApi.framework ? ` · ${vercelApi.framework}` : ""}` : (vercel ? `${vercel.name}${vercel.public_url ? ` · ${vercel.public_url}` : ""}` : (vercelApi ? "No Vercel project matched the connected repository" : "No Vercel hosting record is connected")), { action: "/n3xra-admin/services/" }),
@@ -353,6 +347,8 @@ async function analyzePortalSetup(records, options = {}) {
       status: records.website.status,
       live_url: records.website.live_url,
       portal_enabled: Boolean(records.website.portal_enabled),
+      portal_slug: records.website.portal_slug || records.website.slug,
+      organization_id: records.website.organization_id || null,
     },
     proposed,
     assets,
