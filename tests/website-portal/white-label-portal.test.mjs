@@ -23,6 +23,7 @@ test("the tenant login is client-branded and authenticates without the N3XRA acc
   assert.match(script, /size: "flexible"/);
   assert.match(styles, /\.portal-login-captcha\s*\{[\s\S]*justify-items: center/);
   assert.match(styles, /#portal-login-turnstile\s*\{[\s\S]*text-align: center/);
+  assert.match(styles, /\.portal-login-return\s*\{[\s\S]*display: inline-flex/);
   assert.doesNotMatch(script, /window\.location\.replace\("\/account/);
 });
 
@@ -61,7 +62,7 @@ test("client portal sign-out clears only the current session and always returns 
   ]);
 
   assert.match(html, /portal-shell\.js\?v=4/);
-  assert.match(loginHtml, /login\.js\?v=3/);
+  assert.match(loginHtml, /login\.js\?v=4/);
   assert.match(shell, /signOut\(\{ scope: "local" \}\)/);
   assert.match(shell, /finally/);
   assert.match(shell, /window\.location\.replace\(portalSignedOutUrl\(\)\)/);
@@ -101,4 +102,13 @@ test("public tenant resolution exposes only published assets copied to the publi
   assert.match(migration, /logo_version\.status = 'published'/);
   assert.match(migration, /logo_version\.public_url ~ '\^https:\/\/\[\^\/\]\+\/storage\/v1\/object\/public\/website-assets-public\/'/);
   assert.match(migration, /'website_url', cw\.live_url/);
+});
+
+test("every portal resolves a return URL from the live site or its active website domain", async () => {
+  const migration = await projectFile("supabase/migrations/20260813161533_add_default_portal_return_url.sql");
+
+  assert.match(migration, /nullif\(trim\(cw\.live_url\), ''\)/);
+  assert.match(migration, /select 'https:\/\/' \|\| wd\.domain_name/);
+  assert.match(migration, /wd\.domain_purpose = 'website'/);
+  assert.match(migration, /order by wd\.is_primary desc, wd\.created_at asc/);
 });
