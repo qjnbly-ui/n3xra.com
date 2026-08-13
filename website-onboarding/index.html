@@ -3,9 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>N3XRA | Website Onboarding</title>
+  <title>Website Onboarding | Management Portal</title>
   <meta name="robots" content="noindex, nofollow">
-  <link rel="icon" href="/assets/n3xra_logo_transparent_small.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -20,12 +19,12 @@
   </script>
   <script defer src="/_vercel/insights/script.js"></script>
 </head>
-<body class="portal-loading">
+<body class="portal-loading" data-disable-site-assistant>
   <header class="site-topbar">
     <div class="site-topbar-inner">
       <div class="site-topbar-row">
-        <a class="site-brand" href="/" aria-label="N3XRA home"><img src="/assets/n3xra_logo_transparent_small.png" alt=""><span>N3XRA</span></a>
-        <div class="site-nav-actions"><a class="site-menu-link" href="/account/">Dashboard</a><button class="site-menu-link portal-logout" id="portal-logout" type="button">Sign out</button><button class="site-menu-toggle" type="button" aria-expanded="false" aria-controls="onboarding-portal-menu" aria-label="Open menu" data-site-menu-toggle><span></span><span></span><span></span></button></div>
+        <a class="site-brand" href="/client-portal/" aria-label="Client management portal"><img data-portal-business-logo hidden alt=""><span data-portal-business-name>Client Portal</span></a>
+        <div class="site-nav-actions"><button class="site-menu-link portal-logout" id="portal-logout" type="button">Sign out</button><button class="site-menu-toggle" type="button" aria-expanded="false" aria-controls="onboarding-portal-menu" aria-label="Open menu" data-site-menu-toggle><span></span><span></span><span></span></button></div>
       </div>
       <nav class="site-mobile-menu" id="onboarding-portal-menu" aria-label="Portal navigation" hidden><div class="site-mobile-menu-head"><p class="site-mobile-menu-title">Website portal</p></div><a class="site-menu-link" href="/client-portal/services/">Services &amp; Ownership</a><a class="site-menu-link" href="/project-workspace/">Progress</a><a class="site-menu-link" href="/proposals/">Proposals</a><a class="site-menu-link" href="/website-onboarding/">Onboarding</a><a class="site-menu-link" href="/client-portal/#files-assets">Files &amp; Assets</a><a class="site-menu-link" href="/website-request/">Start new project</a></nav>
     </div>
@@ -132,7 +131,7 @@
               </section>
 
               <section class="portal-onboarding-section" data-onboarding-section="technical" hidden>
-                <div class="portal-section-heading"><p class="portal-kicker">Section 4</p><h3>Domain and integrations</h3><p>Do not paste passwords here. N3XRA will use delegated access or provider invitations when access is required.</p></div>
+                <div class="portal-section-heading"><p class="portal-kicker">Section 4</p><h3>Domain and integrations</h3><p>Do not paste passwords here. Your website team will use delegated access or provider invitations when access is required.</p></div>
                 <div class="portal-form-grid">
                   <label>Current or planned domain<input id="onboarding-domain" data-answer="technical.domain" placeholder="example.com"></label>
                   <label>Domain registrar<input id="onboarding-registrar" data-answer="technical.registrar" placeholder="GoDaddy, Namecheap, Cloudflare"></label>
@@ -184,11 +183,11 @@
               </section>
 
               <section class="portal-onboarding-section" data-onboarding-section="review" hidden>
-                <div class="portal-section-heading"><p class="portal-kicker">Section 7</p><h3>Review and submit</h3><p>You can keep saving until everything is ready. Submission locks your answers while N3XRA reviews them.</p></div>
+                <div class="portal-section-heading"><p class="portal-kicker">Section 7</p><h3>Review and submit</h3><p>You can keep saving until everything is ready. Submission locks your answers while your website team reviews them.</p></div>
                 <div class="portal-review-checklist" id="onboarding-review-checklist"></div>
                 <label class="portal-check portal-onboarding-confirm">
                   <input id="onboarding-submit-confirm" type="checkbox">
-                  <span>I reviewed the information and confirm it is ready for N3XRA’s project review.</span>
+                  <span>I reviewed the information and confirm it is ready for project review.</span>
                 </label>
                 <div class="portal-form-actions">
                   <button class="portal-button" id="onboarding-submit-button" type="button">Submit onboarding</button>
@@ -211,7 +210,7 @@
   </main>
 
   <div class="portal-status" id="portal-status" role="status">Opening onboarding…</div>
-  <script type="module" src="/client-portal/client-shell.js?v=6"></script>
+  <script type="module" src="/client-portal/client-shell.js?v=7"></script>
   <script type="module" src="/client-portal/portal-shell.js"></script>
   <script type="module" src="/website-onboarding/onboarding.js?v=3"></script>
 </body>

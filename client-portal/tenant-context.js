@@ -1,5 +1,7 @@
 const BASE_HOSTNAMES = new Set(["", "localhost", "127.0.0.1", "::1", "n3xra.com", "www.n3xra.com"]);
 const STANDARD_PORTAL_SUFFIX = ".portal.n3xra.com";
+const DEFAULT_PRIMARY_COLOR = "#17231b";
+const DEFAULT_ACCENT_COLOR = "#b77946";
 function currentHostname() {
     return typeof window === "undefined" ? "" : window.location.hostname;
 }
@@ -9,6 +11,123 @@ export function normalizePortalHostname(value) {
 export function isUnboundPortalHostname(value) {
     const hostname = normalizePortalHostname(value);
     return BASE_HOSTNAMES.has(hostname) || hostname.endsWith(".vercel.app");
+}
+export function isBrandedPortalHostname(value = currentHostname()) {
+    return !isUnboundPortalHostname(value);
+}
+export function portalLoginUrl(nextPath = `${window.location.pathname}${window.location.search}${window.location.hash}`) {
+    if (isBrandedPortalHostname())
+        return "/client-portal/login";
+    return `/account?next=${encodeURIComponent(nextPath)}`;
+}
+function brandingText(branding, key, fallback = "") {
+    const value = branding[key];
+    return typeof value === "string" && value.trim() ? value.trim() : fallback;
+}
+function safeColor(value, fallback) {
+    return /^#[0-9a-f]{6}$/i.test(value) ? value.toLowerCase() : fallback;
+}
+function safeWebUrl(value) {
+    if (!value)
+        return "";
+    try {
+        const url = new URL(value);
+        return ["http:", "https:"].includes(url.protocol) ? url.toString() : "";
+    }
+    catch {
+        return "";
+    }
+}
+function safeFontName(value, fallback) {
+    const normalized = value.replace(/[^a-zA-Z0-9 -]/g, "").trim();
+    return normalized || fallback;
+}
+export function portalBrandIdentity(resolution) {
+    if (resolution.mode !== "tenant")
+        return null;
+    const branding = resolution.branding;
+    return {
+        websiteName: resolution.website_name,
+        logoUrl: safeWebUrl(brandingText(branding, "logo_url")),
+        faviconUrl: safeWebUrl(brandingText(branding, "favicon_url")),
+        websiteUrl: safeWebUrl(brandingText(branding, "website_url")),
+        primaryColor: safeColor(brandingText(branding, "primary_color"), DEFAULT_PRIMARY_COLOR),
+        accentColor: safeColor(brandingText(branding, "accent_color"), DEFAULT_ACCENT_COLOR),
+        headingFont: safeFontName(brandingText(branding, "heading_font"), "Fraunces"),
+        bodyFont: safeFontName(brandingText(branding, "body_font"), "Manrope"),
+        poweredByLabel: brandingText(branding, "powered_by_label"),
+    };
+}
+function updateFavicon(href) {
+    if (!href)
+        return;
+    let favicon = document.querySelector('link[rel~="icon"]');
+    if (!favicon) {
+        favicon = document.createElement("link");
+        favicon.rel = "icon";
+        document.head.append(favicon);
+    }
+    favicon.href = href;
+}
+export function applyPortalTenantBranding(resolution) {
+    if (resolution.mode !== "tenant")
+        return null;
+    const identity = portalBrandIdentity(resolution);
+    if (!identity)
+        return null;
+    const root = document.documentElement;
+    root.classList.add("portal-white-label-host", "portal-white-label-ready");
+    root.style.setProperty("--portal-deep", identity.primaryColor);
+    root.style.setProperty("--portal-accent", identity.accentColor);
+    root.style.setProperty("--portal-heading-font", `"${identity.headingFont}"`);
+    root.style.setProperty("--portal-body-font", `"${identity.bodyFont}"`);
+    document.body.dataset.portalWebsiteId = resolution.website_id;
+    document.title = `${identity.websiteName} | Management Portal`;
+    updateFavicon(identity.faviconUrl || identity.logoUrl);
+    document.querySelectorAll(".site-brand").forEach((brand) => {
+        brand.href = identity.websiteUrl || "/client-portal/";
+        brand.setAttribute("aria-label", `${identity.websiteName} management portal`);
+        const label = brand.querySelector("span");
+        if (label)
+            label.textContent = identity.websiteName;
+        const image = brand.querySelector("img");
+        if (image) {
+            image.hidden = !identity.logoUrl;
+            image.alt = identity.logoUrl ? `${identity.websiteName} logo` : "";
+            if (identity.logoUrl)
+                image.src = identity.logoUrl;
+            else
+                image.removeAttribute("src");
+        }
+    });
+    document.querySelectorAll('.site-nav-actions a[href^="/account"], [data-site-assistant-open], [data-site-assistant-layer]').forEach((element) => element.remove());
+    document.querySelectorAll(".site-nav-actions").forEach((actions) => {
+        let provider = actions.querySelector("[data-portal-provider-label]");
+        if (!provider) {
+            provider = document.createElement("span");
+            provider.className = "portal-provider-label";
+            provider.dataset.portalProviderLabel = "";
+            actions.prepend(provider);
+        }
+        provider.hidden = !identity.poweredByLabel;
+        provider.textContent = identity.poweredByLabel;
+    });
+    document.querySelectorAll('[data-portal-business-name]').forEach((element) => {
+        element.textContent = identity.websiteName;
+    });
+    document.querySelectorAll('[data-portal-business-logo]').forEach((image) => {
+        image.hidden = !identity.logoUrl;
+        image.alt = identity.logoUrl ? `${identity.websiteName} logo` : "";
+        if (identity.logoUrl)
+            image.src = identity.logoUrl;
+        else
+            image.removeAttribute("src");
+    });
+    document.querySelectorAll('[data-portal-provider-label]').forEach((element) => {
+        element.hidden = !identity.poweredByLabel;
+        element.textContent = identity.poweredByLabel;
+    });
+    return identity;
 }
 function asTenantRow(value) {
     const candidate = Array.isArray(value) ? value[0] : value;

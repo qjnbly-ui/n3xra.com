@@ -1,4 +1,5 @@
 import { createBrowserSupabase, hasConfig } from "/shared/lib/supabase-client.js";
+import { portalLoginUrl } from "/client-portal/tenant-context.js";
 
 const logoutButton = document.getElementById("portal-logout");
 
@@ -10,6 +11,6 @@ logoutButton?.addEventListener("click", async () => {
       await supabase.auth.signOut();
     }
   } finally {
-    window.location.replace("/account");
+    window.location.replace(portalLoginUrl());
   }
 });

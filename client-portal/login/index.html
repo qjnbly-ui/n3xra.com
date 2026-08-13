@@ -3,34 +3,73 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>N3XRA | Website Client Login</title>
+  <title>Client Management Portal</title>
   <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
-  <link rel="canonical" href="https://n3xra.com/client-portal/login/">
-  <link rel="icon" type="image/png" sizes="284x284" href="/assets/n3xra_logo_transparent_small.png">
+  <meta name="theme-color" content="#17231b">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&amp;family=Manrope:wght@400;600;700;800&amp;display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/client-portal/login/login.css?v=1">
   <script src="/shared/config.js"></script>
-  <script>
-    window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
-  </script>
-  <script defer src="/_vercel/insights/script.js"></script>
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
 </head>
-<body>
-  <p>Opening N3XRA login…</p>
-  <script type="module">
-    import { createBrowserSupabase, getSessionOrNull, hasConfig } from "/shared/lib/supabase-client.js";
+<body class="portal-login-loading">
+  <main class="portal-login-shell">
+    <section class="portal-login-card" aria-labelledby="portal-login-title">
+      <div class="portal-login-brand-panel">
+        <a class="portal-login-logo-link" id="portal-website-link" href="#" hidden>
+          <img class="portal-login-logo" data-portal-business-logo hidden alt="">
+        </a>
+        <p class="portal-login-kicker">Website management portal</p>
+        <h1 id="portal-login-title" data-portal-business-name>Client Portal</h1>
+        <p>Sign in to view progress, manage files, review services, and get support for your website.</p>
+        <a class="portal-login-return" id="portal-return-link" href="#" hidden>Return to website</a>
+      </div>
 
-    async function routeToPortal() {
-      if (hasConfig()) {
-        const supabase = createBrowserSupabase();
-        const session = await getSessionOrNull(supabase).catch(() => null);
-        if (session?.user) {
-          window.location.replace("/client-portal/");
-          return;
-        }
-      }
-      window.location.replace("/account?next=%2Fclient-portal%2F");
-    }
+      <div class="portal-login-auth-panel">
+        <div id="portal-login-view">
+          <p class="portal-login-eyebrow">Welcome back</p>
+          <h2>Sign in</h2>
+          <p>Use the email and password connected to your website account.</p>
+          <form class="portal-login-form" id="portal-login-form">
+            <label>Email address<input id="portal-login-email" type="email" autocomplete="email" required></label>
+            <label>Password<input id="portal-login-password" type="password" autocomplete="current-password" required></label>
+            <div class="portal-login-captcha" id="portal-login-captcha" hidden>
+              <span>Security check</span>
+              <div id="portal-login-turnstile"></div>
+            </div>
+            <button class="portal-login-submit" type="submit">Sign in</button>
+            <button class="portal-login-text-button" id="portal-forgot-password" type="button">Forgot password?</button>
+          </form>
+        </div>
 
-    routeToPortal();
-  </script>
+        <div id="portal-reset-view" hidden>
+          <p class="portal-login-eyebrow">Account access</p>
+          <h2>Reset password</h2>
+          <p>Enter your email and we’ll send a secure password-reset link.</p>
+          <form class="portal-login-form" id="portal-reset-form">
+            <label>Email address<input id="portal-reset-email" type="email" autocomplete="email" required></label>
+            <button class="portal-login-submit" type="submit">Send reset link</button>
+            <button class="portal-login-text-button" id="portal-back-to-login" type="button">Back to sign in</button>
+          </form>
+        </div>
+
+        <div id="portal-recovery-view" hidden>
+          <p class="portal-login-eyebrow">Secure account</p>
+          <h2>Choose a new password</h2>
+          <p>Your new password must contain at least eight characters.</p>
+          <form class="portal-login-form" id="portal-recovery-form">
+            <label>New password<input id="portal-recovery-password" type="password" autocomplete="new-password" minlength="8" required></label>
+            <label>Confirm password<input id="portal-recovery-confirm" type="password" autocomplete="new-password" minlength="8" required></label>
+            <button class="portal-login-submit" type="submit">Update password</button>
+          </form>
+        </div>
+
+        <p class="portal-login-status" id="portal-login-status" role="status" aria-live="polite">Confirming this portal…</p>
+        <p class="portal-login-provider" data-portal-provider-label hidden></p>
+      </div>
+    </section>
+  </main>
+  <script type="module" src="/client-portal/login.js?v=1"></script>
 </body>
 </html>

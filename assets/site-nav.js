@@ -11,7 +11,11 @@ document.querySelectorAll("[data-site-menu-toggle]").forEach((toggle) => {
   });
 });
 
-if (!location.pathname.startsWith("/n3xra-records")) {
+if (String(window.location.hostname || "").toLowerCase().endsWith(".portal.n3xra.com")) {
+  document.documentElement.classList.add("portal-white-label-host");
+}
+
+if (!document.body?.hasAttribute("data-disable-site-assistant") && !location.pathname.startsWith("/n3xra-records")) {
   if (!document.querySelector('link[data-site-assistant-style]')) {
     const assistantStyle = document.createElement("link");
     assistantStyle.rel = "stylesheet";

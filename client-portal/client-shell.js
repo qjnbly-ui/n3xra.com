@@ -1,4 +1,7 @@
 import { initializeClientWorkspaceContext } from "/client-portal/client-workspace-context.js?v=3";
+import { initializePortalBrandShell } from "/client-portal/brand-shell.js?v=1";
+
+void initializePortalBrandShell();
 
 if (window.location.pathname === "/client-portal/" && !window.location.hash && !new URLSearchParams(window.location.search).has("view")) {
   window.location.replace(`/project-workspace/${window.location.search}`);

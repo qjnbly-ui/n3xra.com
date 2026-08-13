@@ -10,7 +10,16 @@ const tenantRow = {
   website_name: "Client A",
   website_slug: "client-a",
   portal_theme_id: "classic",
-  branding: { primary_color: "#17231b" },
+  branding: {
+    primary_color: "#17231b",
+    accent_color: "#d8b95f",
+    logo_url: "https://cdn.example/client-a-logo.png",
+    favicon_url: "https://cdn.example/client-a-icon.png",
+    website_url: "https://client-a.example/",
+    heading_font: "Fraunces",
+    body_font: "Manrope",
+    powered_by_label: "Powered by N3XRA",
+  },
   features: { billing: true },
 };
 
@@ -45,6 +54,27 @@ test("a branded hostname resolves and locks website rows to its tenant", async (
     ),
     [{ website_id: "website-a" }],
   );
+});
+
+test("a resolved tenant exposes only its client-facing brand identity", () => {
+  const identity = tenantContext.portalBrandIdentity({
+    mode: "tenant",
+    hostname: "client-a.portal.n3xra.com",
+    hostType: "standard",
+    ...tenantRow,
+  });
+
+  assert.deepEqual(identity, {
+    websiteName: "Client A",
+    logoUrl: "https://cdn.example/client-a-logo.png",
+    faviconUrl: "https://cdn.example/client-a-icon.png",
+    websiteUrl: "https://client-a.example/",
+    primaryColor: "#17231b",
+    accentColor: "#d8b95f",
+    headingFont: "Fraunces",
+    bodyFont: "Manrope",
+    poweredByLabel: "Powered by N3XRA",
+  });
 });
 
 test("an unknown custom hostname fails closed instead of showing another workspace", async () => {

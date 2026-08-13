@@ -7,12 +7,12 @@ document.body.innerHTML = source.body.innerHTML;
 document.body.className = `portal-loading client-${view}-view`;
 
 if (view === "assets") {
-  document.title = "N3XRA | Files & Assets";
+  document.title = "Files & Assets | Management Portal";
   document.querySelector(".portal-heading h1").textContent = "Website Client Portal";
   document.querySelectorAll("[data-portal-panel]").forEach((panel) => { panel.hidden = panel.dataset.portalPanel !== "files"; });
   document.querySelectorAll("[data-portal-view]").forEach((item) => item.classList.toggle("is-current", item.dataset.portalView === "files"));
 }
 
 await import("/assets/site-nav.js");
-await import("/client-portal/client-shell.js?v=5");
+await import("/client-portal/client-shell.js?v=7");
 await import("/client-portal/portal.js?v=19");

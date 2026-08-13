@@ -3,9 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>N3XRA | Proposal &amp; Agreement</title>
+  <title>Proposal &amp; Agreement | Management Portal</title>
   <meta name="robots" content="noindex, nofollow">
-  <link rel="icon" href="/assets/n3xra_logo_transparent_small.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -19,12 +18,12 @@
   </script>
   <script defer src="/_vercel/insights/script.js"></script>
 </head>
-<body class="portal-loading">
+<body class="portal-loading" data-disable-site-assistant>
   <header class="site-topbar">
     <div class="site-topbar-inner">
       <div class="site-topbar-row">
-        <a class="site-brand" href="/" aria-label="N3XRA home"><img src="/assets/n3xra_logo_transparent_small.png" alt=""><span>N3XRA</span></a>
-        <div class="site-nav-actions"><a class="site-menu-link" href="/account/">Dashboard</a><button class="site-menu-link portal-logout" id="portal-logout" type="button">Sign out</button><button class="site-menu-toggle" type="button" aria-expanded="false" aria-controls="proposal-portal-menu" aria-label="Open menu" data-site-menu-toggle><span></span><span></span><span></span></button></div>
+        <a class="site-brand" href="/client-portal/" aria-label="Client management portal"><img data-portal-business-logo hidden alt=""><span data-portal-business-name>Client Portal</span></a>
+        <div class="site-nav-actions"><button class="site-menu-link portal-logout" id="portal-logout" type="button">Sign out</button><button class="site-menu-toggle" type="button" aria-expanded="false" aria-controls="proposal-portal-menu" aria-label="Open menu" data-site-menu-toggle><span></span><span></span><span></span></button></div>
       </div>
       <nav class="site-mobile-menu" id="proposal-portal-menu" aria-label="Portal navigation" hidden><div class="site-mobile-menu-head"><p class="site-mobile-menu-title">Website portal</p></div><a class="site-menu-link" href="/client-portal/services/">Services &amp; Ownership</a><a class="site-menu-link" href="/project-workspace/">Progress</a><a class="site-menu-link" href="/proposals/">Proposal &amp; Agreement</a><a class="site-menu-link" href="/website-onboarding/">Onboarding</a><a class="site-menu-link" href="/client-portal/#files-assets">Files &amp; Assets</a><a class="site-menu-link" href="/website-request/">Start new project</a></nav>
     </div>
@@ -61,7 +60,7 @@
         </div>
 
         <div class="portal-empty" id="client-proposal-empty">
-          <div><h3>No agreement is ready yet</h3><p>Once N3XRA prepares an agreement from your request and onboarding, it will appear here.</p></div>
+          <div><h3>No agreement is ready yet</h3><p>Once your website team prepares an agreement from your request and onboarding, it will appear here.</p></div>
         </div>
 
         <article class="portal-proposal-document" id="client-proposal-document" hidden></article>
@@ -93,7 +92,7 @@
   </main>
 
   <div class="portal-status" id="portal-status" role="status">Opening your proposals…</div>
-  <script type="module" src="/client-portal/client-shell.js?v=6"></script>
+  <script type="module" src="/client-portal/client-shell.js?v=7"></script>
   <script type="module" src="/client-portal/portal-shell.js"></script>
   <script type="module" src="/proposals/proposals.js?v=3"></script>
 </body>

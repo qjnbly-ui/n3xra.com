@@ -1,6 +1,7 @@
 import { createBrowserSupabase, getSessionOrNull, hasConfig } from "/shared/lib/supabase-client.js";
 import { readWorkspaceContext, writeWorkspaceContext } from "/client-portal/workspace-context.js";
 import {
+  portalLoginUrl,
   resolvePortalTenant,
   scopeRowsToPortalTenant,
   scopeWebsitesToPortalTenant,
@@ -282,7 +283,7 @@ function renderWorkspace() {
   statusBadge.textContent = formatLabel(selectedOnboarding.status);
   statusBadge.className = `portal-badge portal-status-${selectedOnboarding.status}`;
   reviewNote.textContent = selectedOnboarding.status === "needs_changes"
-    ? selectedOnboarding.admin_notes || "N3XRA requested updates before onboarding can be approved."
+    ? selectedOnboarding.admin_notes || "Your website team requested updates before onboarding can be approved."
     : selectedOnboarding.admin_notes || "";
   reviewNote.hidden = !reviewNote.textContent;
   fillAnswers();
@@ -546,7 +547,7 @@ async function init() {
   supabase = createBrowserSupabase();
   session = await getSessionOrNull(supabase);
   if (!session?.user) {
-    window.location.replace("/account/?next=%2Fwebsite-onboarding%2F");
+    window.location.replace(portalLoginUrl());
     return;
   }
   await loadData();

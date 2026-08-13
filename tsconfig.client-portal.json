@@ -3,6 +3,10 @@
     "target": "ES2022",
     "module": "ES2022",
     "moduleResolution": "Bundler",
+    "baseUrl": ".",
+    "paths": {
+      "/shared/lib/supabase-client.js": ["src/client-portal/browser-modules.d.ts"]
+    },
     "rootDir": "src/client-portal",
     "outDir": "client-portal",
     "strict": true,

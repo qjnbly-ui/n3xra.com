@@ -1,7 +1,7 @@
 import { createBrowserSupabase, hasConfig } from "/shared/lib/supabase-client.js";
 import { verifyPlatformAdmin } from "/client-portal/admin-access.js";
 import { readWorkspaceContext, writeWorkspaceContext } from "/client-portal/workspace-context.js";
-import { resolvePortalTenant, scopeRowsToPortalTenant } from "/client-portal/tenant-context.js";
+import { portalLoginUrl, resolvePortalTenant, scopeRowsToPortalTenant } from "/client-portal/tenant-context.js";
 
 const adminMode = document.body.dataset.billingRole === "admin";
 const content = document.getElementById("billing-content");
@@ -318,7 +318,7 @@ async function init() {
   supabase = createBrowserSupabase();
   const { data } = await supabase.auth.getSession();
   currentUser = data?.session?.user;
-  if (!currentUser) return location.replace(`/account/?next=${encodeURIComponent(location.pathname + location.search)}`);
+  if (!currentUser) return location.replace(portalLoginUrl());
   if (adminMode && !await verifyPlatformAdmin(supabase, currentUser)) throw new Error("Website billing administration access is required.");
   websiteSelect?.addEventListener("change", () => {
     selectedWorkspaceKey = websiteSelect.value;

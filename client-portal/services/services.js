@@ -1,6 +1,7 @@
 import { createBrowserSupabase, getSessionOrNull, hasConfig } from "/shared/lib/supabase-client.js";
 import { readWorkspaceContext, writeWorkspaceContext } from "/client-portal/workspace-context.js";
 import {
+  portalLoginUrl,
   portalTenantEmptyMessage,
   resolvePortalTenant,
   scopeRowsToPortalTenant,
@@ -147,7 +148,7 @@ async function submitRequest(event) {
 async function init() {
   if (!hasConfig()) throw new Error("Supabase configuration is missing.");
   supabase = createBrowserSupabase(); session = await getSessionOrNull(supabase);
-  if (!session?.user) { window.location.replace("/account/?next=%2Fclient-portal%2Fservices%2F"); return; }
+  if (!session?.user) { window.location.replace(portalLoginUrl()); return; }
   await loadData();
   websiteSelect.addEventListener("change", () => {
     selectedWebsite = websites.find((website) => website.id === websiteSelect.value);

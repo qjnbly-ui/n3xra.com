@@ -4,6 +4,7 @@ import { renderPdfFirstPage } from "/shared/lib/file-preview.js";
 import { openAssetPreview } from "/client-portal/asset-preview-modal.js?v=1";
 import { resolveWebsiteUrl } from "/client-portal/website-url.js";
 import {
+  portalLoginUrl,
   portalTenantEmptyMessage,
   resolvePortalTenant,
   scopeWebsitesToPortalTenant,
@@ -124,8 +125,7 @@ function showToast(message, type = "success") {
 }
 
 function openLogin() {
-  const next = encodeURIComponent(`${window.location.pathname}${window.location.search}`);
-  window.location.replace(`/account?next=${next}`);
+  window.location.replace(portalLoginUrl());
 }
 
 function escapeHtml(value = "") {
@@ -1028,7 +1028,7 @@ async function initPortal() {
     logoutButton?.addEventListener("click", async () => {
       logoutButton.disabled = true;
       await supabase.auth.signOut();
-      window.location.replace("/account");
+      window.location.replace(portalLoginUrl());
     });
 
     supabase.auth.onAuthStateChange((event, nextSession) => {

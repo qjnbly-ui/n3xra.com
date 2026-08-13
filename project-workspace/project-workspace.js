@@ -1,6 +1,7 @@
 import { createBrowserSupabase, getSessionOrNull, hasConfig } from "/shared/lib/supabase-client.js";
 import { projectContext, readWorkspaceContext, writeWorkspaceContext } from "/client-portal/workspace-context.js";
 import {
+  portalLoginUrl,
   resolvePortalTenant,
   scopeRowsToPortalTenant,
   scopeWebsitesToPortalTenant,
@@ -113,7 +114,7 @@ function renderRoadmap() {
     const onboardingAction = milestone.stage === "onboarding"
       ? onboarding
         ? `<a class="portal-link-button" href="/website-onboarding/?onboarding=${encodeURIComponent(onboarding.id)}">Open onboarding</a>`
-        : '<span class="portal-stage-muted">N3XRA will open this step when it is ready.</span>'
+        : '<span class="portal-stage-muted">Your website team will open this step when it is ready.</span>'
       : "";
     return `
       <article class="portal-project-stage ${isCurrent ? "is-current" : ""}">
@@ -154,7 +155,7 @@ function renderWorkspace() {
     title.textContent = "Progress";
     emptyTitle.textContent = selectedWebsite ? "No project timeline for this website" : "No website selected";
     emptyCopy.textContent = selectedWebsite
-      ? "N3XRA has not opened a project workspace for this website yet."
+      ? "Your website team has not opened a project workspace for this website yet."
       : "Choose a website from the portal overview first.";
     websiteLink.href = selectedWebsite ? `/client-portal/?website=${encodeURIComponent(selectedWebsite.id)}` : "/client-portal/";
     return;
@@ -176,7 +177,7 @@ function renderWorkspace() {
   nextStep.textContent = selectedProject.admin_next_step
     || milestone?.client_note
     || milestone?.client_description
-    || "N3XRA will update this workspace as your project moves forward.";
+    || "Your website team will update this workspace as your project moves forward.";
   renderRoadmap();
   renderReference();
 }
@@ -231,7 +232,7 @@ async function init() {
   supabase = createBrowserSupabase();
   const session = await getSessionOrNull(supabase);
   if (!session?.user) {
-    window.location.replace("/account/?next=%2Fproject-workspace%2F");
+    window.location.replace(portalLoginUrl());
     return;
   }
   userId = session.user.id;

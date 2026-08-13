@@ -3,11 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>N3XRA | Website Client Portal</title>
-  <meta name="description" content="N3XRA website client portal.">
+  <title>Website Management Portal</title>
+  <meta name="description" content="Private website management portal.">
   <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
   <link rel="canonical" href="https://n3xra.com/client-portal/">
-  <link rel="icon" type="image/png" sizes="284x284" href="/assets/n3xra_logo_transparent_small.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -23,16 +22,15 @@
   </script>
   <script defer src="/_vercel/insights/script.js"></script>
 </head>
-<body class="portal-loading">
+<body class="portal-loading" data-disable-site-assistant>
   <header class="site-topbar">
     <div class="site-topbar-inner">
       <div class="site-topbar-row">
-        <a class="site-brand" href="/" aria-label="N3XRA home">
-          <img src="/assets/n3xra_logo_transparent_small.png" alt="">
-          <span>N3XRA</span>
+        <a class="site-brand" href="/client-portal/" aria-label="Client management portal">
+          <img data-portal-business-logo hidden alt="">
+          <span data-portal-business-name>Client Portal</span>
         </a>
         <div class="site-nav-actions">
-          <a class="site-menu-link" href="/account">Dashboard</a>
           <button class="site-menu-link portal-logout" id="portal-logout" type="button">Sign out</button>
           <button class="site-menu-toggle" type="button" aria-expanded="false" aria-controls="client-portal-menu" aria-label="Open menu" data-site-menu-toggle>
             <span></span><span></span><span></span>
@@ -187,7 +185,7 @@
               <div>
                 <p class="portal-kicker">Support center</p>
                 <h3>How can we help?</h3>
-                <p>Send the details through the N3XRA support center and we’ll connect the request to the right team.</p>
+                <p>Send the details through the support center and we’ll connect the request to the right team.</p>
               </div>
               <a class="portal-button" href="/support/">Open support center</a>
             </div>
@@ -288,7 +286,7 @@
               </div>
             </section>
           </form>
-          <div class="portal-toolbar"><div><h3>Your requests</h3><p>Requests connected to this N3XRA account.</p></div></div>
+          <div class="portal-toolbar"><div><h3>Your requests</h3><p>Requests connected to this website portal account.</p></div></div>
           <div class="portal-request-list" id="request-list"></div>
         </div>
       </section>
@@ -296,7 +294,7 @@
   </main>
 
   <div class="portal-status" id="portal-status" role="status">Opening your website portal…</div>
-  <script type="module" src="/client-portal/client-shell.js?v=6"></script>
+  <script type="module" src="/client-portal/client-shell.js?v=7"></script>
   <script type="module" src="/client-portal/portal.js?v=20"></script>
   <script type="module" src="/website-request/request.js?v=14"></script>
 </body>

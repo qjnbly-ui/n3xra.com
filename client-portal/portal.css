@@ -6,6 +6,8 @@
   --portal-border: rgba(14, 23, 35, 0.13);
   --portal-accent: #16b9ed;
   --portal-deep: #070c12;
+  --portal-heading-font: "Fraunces";
+  --portal-body-font: "Manrope";
 }
 
 * {
@@ -17,7 +19,7 @@ body {
   margin: 0;
   color: var(--portal-ink);
   background: var(--portal-bg);
-  font-family: "Manrope", Arial, sans-serif;
+  font-family: var(--portal-body-font), Arial, sans-serif;
 }
 
 body.portal-loading main {
@@ -49,6 +51,7 @@ body.portal-denied main {
 .site-brand img {
   width: 30px;
   height: 30px;
+  object-fit: contain;
 }
 
 .site-topbar .site-menu-link {
@@ -102,9 +105,25 @@ body.portal-denied main {
 
 .portal-heading h1 {
   margin: 0;
-  font-family: "Fraunces", Georgia, serif;
+  font-family: var(--portal-heading-font), Georgia, serif;
   font-size: clamp(2rem, 5vw, 3.6rem);
   line-height: 1;
+}
+
+.portal-provider-label {
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+html.portal-white-label-host:not(.portal-white-label-ready) .site-brand {
+  visibility: hidden;
+}
+
+html.portal-white-label-host .site-nav-actions > a[href^="/account"] {
+  display: none !important;
 }
 
 .portal-logout {

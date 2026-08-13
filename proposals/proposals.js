@@ -1,6 +1,7 @@
 import { createBrowserSupabase, getSessionOrNull, hasConfig } from "/shared/lib/supabase-client.js";
 import { projectContext, readWorkspaceContext, writeWorkspaceContext } from "/client-portal/workspace-context.js";
 import {
+  portalLoginUrl,
   resolvePortalTenant,
   scopeRowsToPortalTenant,
   scopeWebsitesToPortalTenant,
@@ -180,7 +181,7 @@ function renderProposal() {
     <section class="portal-proposal-section">
       <p class="portal-kicker">Investment &amp; payment</p>
       <h3>Approved project cost</h3>
-      <div class="portal-proposal-note"><strong>Acceptance comes before billing.</strong><p>No payment is collected on this page. If you approve, N3XRA prepares billing from the investment and payment schedule shown in this exact version.</p></div>
+      <div class="portal-proposal-note"><strong>Acceptance comes before billing.</strong><p>No payment is collected on this page. If you approve, your website team prepares billing from the investment and payment schedule shown in this exact version.</p></div>
       <div class="portal-price-table">
         ${oneTimeItems.length ? oneTimeItems.map((item) => `<div><span>${escapeHtml(item.name)}${item.description ? `<small>${escapeHtml(item.description)}</small>` : ""}</span><strong>${formatMoney(Math.round(Number(item.quantity) * item.unit_amount_cents))}</strong></div>`).join("") : `<div><span>Project subtotal</span><strong>${formatMoney(version.subtotal_cents)}</strong></div>`}
         ${version.discount_cents ? `<div><span>Discount</span><strong>−${formatMoney(version.discount_cents)}</strong></div>` : ""}
@@ -311,7 +312,7 @@ async function init() {
   supabase = createBrowserSupabase();
   session = await getSessionOrNull(supabase);
   if (!session?.user) {
-    window.location.replace("/account/?next=%2Fproposals%2F");
+    window.location.replace(portalLoginUrl());
     return;
   }
   decisionName.value = String(session.user.user_metadata?.full_name || "").trim();
