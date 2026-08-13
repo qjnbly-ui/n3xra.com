@@ -66,6 +66,7 @@ async function initializeCaptcha() {
     }
     captchaWidgetId = window.turnstile.render(captchaElement, {
         sitekey: isTestHostname() ? "1x00000000000000000000AA" : siteKey,
+        size: "flexible",
         callback: (token) => { captchaToken = String(token || ""); },
         "expired-callback": () => { captchaToken = ""; },
         "error-callback": () => { captchaToken = ""; },

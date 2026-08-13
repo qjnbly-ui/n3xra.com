@@ -221,8 +221,8 @@ function renderBrand(result) {
   if (result.discovery.detected_colors?.length) detectedParts.push(`${result.discovery.detected_colors.length} colors`);
   if (result.discovery.detected_fonts?.length) detectedParts.push(`${result.discovery.detected_fonts.length} fonts`);
   byId("portal-detection-note").textContent = result.discovery.remote_scanned
-    ? (detectedParts.length ? `Live-site scan detected ${detectedParts.join(" and ")}; approved N3XRA assets remain the source for logo files.` : "The live site was checked; saved branding and approved assets remain the strongest available sources.")
-    : "Branding is generated from approved website files and saved settings. A deployed scan can also inspect live CSS.";
+    ? (detectedParts.length ? `This selected website scan detected ${detectedParts.join(" and ")}. These are recommendations only until you apply or save them.` : "This selected website was checked. Its saved branding remains unchanged until you apply or save a recommendation.")
+    : "Showing this website’s saved branding. Use Refresh selected site to inspect only this website’s live CSS; nothing is saved automatically.";
 }
 
 function renderNextStep(result) {
@@ -311,7 +311,9 @@ async function analyze({ includeRemote = false, announce = true } = {}) {
     if (sequence !== analysisSequence) return;
     renderAnalysis(result);
     scanState.textContent = includeRemote && result.discovery.remote_scanned ? "Live website scan complete" : "Using saved N3XRA data";
-    if (announce) message(includeRemote && isLocalStaticPreview() ? "Saved connections refreshed. Live-site inspection runs in a deployed preview or production." : "Website Portal checks refreshed.");
+    if (announce) message(includeRemote && isLocalStaticPreview()
+      ? "Saved connections refreshed. Live-site inspection runs in a deployed preview or production."
+      : `${selectedWebsite.name} recommendations refreshed. Review them, then apply or save only if they look right.`);
   } catch (error) {
     if (sequence !== analysisSequence) return;
     if (includeRemote && analysis) {
@@ -433,7 +435,7 @@ function bindEvents() {
     if (!selectedWebsite) return;
     formDirty = false;
     writeWorkspaceContext("admin", currentUser.id, { websiteId: selectedWebsite.id, name: selectedWebsite.name, projectId: null, requestId: null, proposalId: null, onboardingId: null });
-    try { await loadBaseData(selectedWebsite.id); void analyze({ includeRemote: true, announce: false }); } catch (error) { message(error?.message || "Website Portal setup could not be loaded.", true); }
+    try { await loadBaseData(selectedWebsite.id); } catch (error) { message(error?.message || "Website Portal setup could not be loaded.", true); }
   });
   form.addEventListener("submit", handleSave);
   form.addEventListener("input", () => { formDirty = true; renderPreviewFromForm(); });
@@ -474,7 +476,6 @@ async function init() {
   await loadBaseData();
   document.body.classList.remove("portal-loading");
   statusScreen.hidden = true;
-  if (selectedWebsite) void analyze({ includeRemote: true, announce: false });
 }
 
 init().catch((error) => {

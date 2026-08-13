@@ -12,9 +12,7 @@ body {
   min-height: 100svh;
   margin: 0;
   color: #142019;
-  background:
-    radial-gradient(circle at 8% 10%, color-mix(in srgb, var(--portal-accent) 22%, transparent), transparent 34rem),
-    linear-gradient(135deg, color-mix(in srgb, var(--portal-deep) 94%, #000), var(--portal-deep));
+  background: color-mix(in srgb, var(--portal-deep) 94%, #000);
   font-family: var(--portal-body-font), Arial, sans-serif;
 }
 
@@ -38,43 +36,31 @@ body {
 }
 
 .portal-login-brand-panel {
-  position: relative;
   display: flex;
   flex-direction: column;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: center;
   padding: clamp(2rem, 5vw, 4.5rem);
   color: #fff;
-  background:
-    linear-gradient(160deg, color-mix(in srgb, var(--portal-deep) 86%, transparent), var(--portal-deep)),
-    var(--portal-deep);
-}
-
-.portal-login-brand-panel::before {
-  content: "";
-  position: absolute;
-  width: 300px;
-  height: 300px;
-  top: -150px;
-  right: -130px;
-  background: var(--portal-accent);
-  border-radius: 50%;
-  opacity: .22;
-  filter: blur(4px);
+  background: var(--portal-deep);
+  text-align: center;
 }
 
 .portal-login-logo-link {
-  position: absolute;
-  z-index: 1;
-  top: clamp(2rem, 5vw, 4rem);
-  left: clamp(2rem, 5vw, 4.5rem);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
+  margin: 0 0 clamp(1.5rem, 4vw, 3rem);
 }
 
 .portal-login-logo {
-  width: min(180px, 42vw);
-  max-height: 96px;
+  display: block;
+  width: auto;
+  max-width: min(220px, 100%);
+  max-height: 112px;
   object-fit: contain;
-  object-position: left center;
-  filter: drop-shadow(0 5px 14px rgba(0, 0, 0, .16));
+  object-position: center;
 }
 
 .portal-login-kicker,
@@ -88,14 +74,12 @@ body {
 }
 
 .portal-login-brand-panel h1 {
-  position: relative;
   margin: 0;
   font: 700 clamp(2.5rem, 5vw, 4.6rem)/.98 var(--portal-heading-font), Georgia, serif;
   letter-spacing: -.04em;
 }
 
 .portal-login-brand-panel > p:last-of-type {
-  position: relative;
   max-width: 470px;
   margin: 1.2rem 0 0;
   color: rgba(255, 255, 255, .74);
@@ -104,7 +88,6 @@ body {
 }
 
 .portal-login-return {
-  position: relative;
   width: fit-content;
   margin-top: 1.7rem;
   color: #fff;
@@ -119,6 +102,14 @@ body {
   justify-content: center;
   padding: clamp(2rem, 5vw, 4.25rem);
   background: #fff;
+}
+
+.portal-login-auth-panel > div,
+.portal-login-status,
+.portal-login-provider {
+  width: min(100%, 360px);
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .portal-login-auth-panel h2 {
@@ -188,7 +179,17 @@ body {
   cursor: pointer;
 }
 
-.portal-login-captcha { display: grid; gap: .5rem; }
+.portal-login-captcha {
+  display: grid;
+  justify-items: center;
+  gap: .5rem;
+}
+
+.portal-login-captcha > span,
+#portal-login-turnstile {
+  width: 100%;
+  text-align: center;
+}
 
 .portal-login-status {
   min-height: 1.2rem;
@@ -213,9 +214,9 @@ body {
 @media (max-width: 760px) {
   .portal-login-shell { align-items: start; padding: 0; }
   .portal-login-card { min-height: 100svh; grid-template-columns: 1fr; border: 0; border-radius: 0; }
-  .portal-login-brand-panel { min-height: 270px; justify-content: flex-end; padding: 2rem 1.35rem; }
-  .portal-login-logo-link { top: 1.5rem; left: 1.35rem; }
-  .portal-login-logo { max-height: 62px; }
+  .portal-login-brand-panel { min-height: 310px; padding: 2.5rem 1.35rem; }
+  .portal-login-logo-link { margin-bottom: 1.5rem; }
+  .portal-login-logo { max-width: min(190px, 70vw); max-height: 82px; }
   .portal-login-brand-panel h1 { font-size: clamp(2.25rem, 12vw, 3.5rem); }
   .portal-login-auth-panel { padding: 2rem 1.35rem 3rem; }
 }

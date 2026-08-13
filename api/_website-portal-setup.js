@@ -107,6 +107,8 @@ function expandHex(value = "") {
   const normalized = String(value).toLowerCase();
   if (/^#[0-9a-f]{6}$/.test(normalized)) return normalized;
   if (/^#[0-9a-f]{3}$/.test(normalized)) return `#${normalized.slice(1).split("").map((part) => `${part}${part}`).join("")}`;
+  if (/^#[0-9a-f]{8}$/.test(normalized)) return normalized.slice(0, 7);
+  if (/^#[0-9a-f]{4}$/.test(normalized)) return `#${normalized.slice(1, 4).split("").map((part) => `${part}${part}`).join("")}`;
   return "";
 }
 
@@ -144,45 +146,93 @@ function colorQuality(value = "") {
   const min = Math.min(...channels);
   const saturation = max - min;
   const brightness = channels.reduce((total, channel) => total + channel, 0) / 3;
-  if (brightness < 20 || brightness > 242) return -1;
+  if (brightness < 4 || brightness > 248) return -1;
   return saturation + Math.abs(128 - brightness) / 8;
 }
 
-function detectColors(source = "") {
-  const counts = new Map();
-  for (const match of String(source).matchAll(/#[0-9a-fA-F]{3}(?:[0-9a-fA-F]{3})?\b/g)) {
-    const value = expandHex(match[0]);
-    if (colorQuality(value) < 0) continue;
-    counts.set(value, (counts.get(value) || 0) + 1);
+function detectColorCandidates(source = "") {
+  const candidates = new Map();
+  const add = (rawValue, { score = 0, primaryScore = 0, accentScore = 0 } = {}) => {
+    const value = expandHex(rawValue);
+    if (colorQuality(value) < 0) return;
+    const current = candidates.get(value) || { value, count: 0, score: colorQuality(value) / 4, primaryScore: 0, accentScore: 0 };
+    current.count += 1;
+    current.score += score;
+    current.primaryScore = Math.max(current.primaryScore, primaryScore);
+    current.accentScore = Math.max(current.accentScore, accentScore);
+    candidates.set(value, current);
+  };
+  const text = String(source);
+
+  for (const match of text.matchAll(/#[0-9a-fA-F]{8}\b|#[0-9a-fA-F]{6}\b|#[0-9a-fA-F]{4}\b|#[0-9a-fA-F]{3}\b/g)) {
+    add(match[0], { score: 4 });
   }
-  return [...counts]
-    .map(([value, count]) => ({ value, score: count * 8 + colorQuality(value) }))
-    .sort((a, b) => b.score - a.score)
-    .map((item) => item.value)
-    .filter((value, index, values) => values.indexOf(value) === index)
-    .slice(0, 8);
+
+  for (const match of text.matchAll(/([\w-]+)\s*:\s*([^;}]+)/g)) {
+    const property = match[1].toLowerCase();
+    const values = match[2].match(/#[0-9a-fA-F]{8}\b|#[0-9a-fA-F]{6}\b|#[0-9a-fA-F]{4}\b|#[0-9a-fA-F]{3}\b/g) || [];
+    const isStrongPrimaryName = /(?:^|[-_])(primary|brand|theme|main|bg|navy|forest|pine|moss|green|dark)(?:[-_]|$)/.test(property);
+    const isFallbackPrimaryName = /(?:^|[-_])(ink|charcoal|black)(?:[-_]|$)/.test(property);
+    const isAccentName = /(?:^|[-_])(accent|secondary|highlight|gold|lime|sun|orange|cta|action)(?:[-_]|$)/.test(property);
+    const isUtilityName = /(?:^|[-_])(paper|surface|card|light|muted|border|line|shadow|overlay|danger|error|success|warning)(?:[-_]|$)/.test(property);
+    const isBackground = /(?:^|-)background(?:-color)?$/.test(property);
+    const isDecorative = /(?:^|-)(border|outline|fill|stroke)(?:-|$)/.test(property);
+    for (const value of values) {
+      add(value, {
+        score: isUtilityName ? 0 : 8,
+        primaryScore: (isStrongPrimaryName ? 220 : (isFallbackPrimaryName ? 110 : 0)) + (isBackground && !isUtilityName ? 35 : 0),
+        accentScore: (isAccentName ? 180 : 0) + (isDecorative && !isUtilityName ? 18 : 0),
+      });
+    }
+  }
+
+  for (const tag of text.matchAll(/<meta\b[^>]*>/gi)) {
+    if (!/name\s*=\s*["']theme-color["']/i.test(tag[0])) continue;
+    const value = tag[0].match(/content\s*=\s*["'](#[0-9a-fA-F]{3,8})["']/i)?.[1];
+    if (value) add(value, { score: 80, primaryScore: 240 });
+  }
+
+  return [...candidates.values()]
+    .map((candidate) => ({ ...candidate, score: candidate.score + candidate.count * 2 }))
+    .sort((left, right) => Math.max(right.primaryScore, right.accentScore, right.score) - Math.max(left.primaryScore, left.accentScore, left.score))
+    .slice(0, 12);
+}
+
+function detectColors(source = "") {
+  return detectColorCandidates(source).map((candidate) => candidate.value).slice(0, 8);
 }
 
 function choosePortalColors(detectedColors = [], branding = {}) {
-  const palette = detectedColors.map(expandHex).filter(Boolean);
+  const palette = detectedColors
+    .map((candidate, index) => typeof candidate === "string"
+      ? { value: expandHex(candidate), score: Math.max(0, 8 - index) * 3, primaryScore: 0, accentScore: 0 }
+      : { ...candidate, value: expandHex(candidate?.value) })
+    .filter((candidate) => candidate.value);
   const savedPrimary = expandHex(branding.primary_color) || DEFAULT_BRAND.primary_color;
   const savedAccent = expandHex(branding.accent_color) || DEFAULT_BRAND.accent_color;
   const primaryWasCustomized = savedPrimary !== DEFAULT_BRAND.primary_color;
   const accentWasCustomized = savedAccent !== DEFAULT_BRAND.accent_color;
 
-  const primary = primaryWasCustomized ? savedPrimary : palette
-    .map((color, index) => ({
-      color,
-      score: colorContrast(color, "#ffffff") * 14 + colorChroma(color) + Math.max(0, 8 - index) * 3,
+  // Treat the saved palette as one intentional choice. This protects a site such
+  // as Roots and Relics even when only one of its two colors differs from defaults.
+  if (primaryWasCustomized || accentWasCustomized) {
+    return { primary_color: savedPrimary, accent_color: savedAccent };
+  }
+
+  const primary = palette
+    .map((candidate) => ({
+      color: candidate.value,
+      score: candidate.primaryScore + candidate.score + colorContrast(candidate.value, "#ffffff") * 14 + colorChroma(candidate.value) * 0.3,
+      minimumContrast: candidate.primaryScore >= 80 ? 4.5 : 7,
     }))
-    .filter((candidate) => colorContrast(candidate.color, "#ffffff") >= 7)
+    .filter((candidate) => colorContrast(candidate.color, "#ffffff") >= candidate.minimumContrast)
     .sort((left, right) => right.score - left.score)[0]?.color || savedPrimary;
 
-  const accent = accentWasCustomized ? savedAccent : palette
-    .filter((color) => color !== primary)
-    .map((color, index) => ({
-      color,
-      score: colorContrast(color, primary) * 18 + colorChroma(color) + Math.max(0, 8 - index) * 3,
+  const accent = palette
+    .filter((candidate) => candidate.value !== primary)
+    .map((candidate) => ({
+      color: candidate.value,
+      score: candidate.accentScore + candidate.score * 0.5 + colorContrast(candidate.value, primary) * 18 + colorChroma(candidate.value) * 0.7,
     }))
     .filter((candidate) => colorContrast(candidate.color, primary) >= 3)
     .sort((left, right) => right.score - left.score)[0]?.color || savedAccent;
@@ -344,7 +394,8 @@ async function inspectLiveBranding(liveUrl, options = {}) {
     const stylesheets = detectLinkedStylesheets(page.text, page.url);
     const cssResults = await Promise.allSettled(stylesheets.map((url) => fetchPublicText(url, { ...options, maxBytes: 600_000, redirects: 2 })));
     const source = [page.text, ...cssResults.filter((result) => result.status === "fulfilled").map((result) => result.value.text)].join("\n");
-    return { connected: true, colors: detectColors(source), fonts: detectFonts(source), sourceUrl: page.url, error: "" };
+    const candidates = detectColorCandidates(source);
+    return { connected: true, colors: candidates.map((candidate) => candidate.value).slice(0, 8), colorCandidates: candidates, fonts: detectFonts(source), sourceUrl: page.url, error: "" };
   } catch (error) {
     return { connected: false, colors: [], fonts: [], sourceUrl: normalizedUrl(liveUrl), error: error?.message || "The live site could not be scanned." };
   }
@@ -364,7 +415,7 @@ async function analyzePortalSetup(records, options = {}) {
     ])
     : [{ connected: null, colors: [], fonts: [], sourceUrl: normalizedUrl(records.website?.live_url), error: "" }, null, null];
   const branding = records.branding || {};
-  const portalColors = choosePortalColors(remote.colors, branding);
+  const portalColors = choosePortalColors(remote.colorCandidates || remote.colors, branding);
   const savedPortal = records.domains?.find((row) => row.domain_purpose === "portal");
   const proposed = {
     portal_domain: proposedPortalDomain(records),
@@ -422,6 +473,7 @@ module.exports = {
   FEATURE_DEFAULTS,
   analyzePortalSetup,
   choosePortalColors,
+  detectColorCandidates,
   detectColors,
   detectFonts,
   normalizeHostname,

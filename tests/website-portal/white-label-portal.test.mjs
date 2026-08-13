@@ -5,9 +5,10 @@ import test from "node:test";
 const projectFile = (path) => readFile(new URL(`../../${path}`, import.meta.url), "utf8");
 
 test("the tenant login is client-branded and authenticates without the N3XRA account screen", async () => {
-  const [html, script] = await Promise.all([
+  const [html, script, styles] = await Promise.all([
     projectFile("client-portal/login/index.html"),
     projectFile("client-portal/login.js"),
+    projectFile("client-portal/login/login.css"),
   ]);
 
   assert.match(html, /data-portal-business-logo/);
@@ -19,6 +20,9 @@ test("the tenant login is client-branded and authenticates without the N3XRA acc
   assert.match(script, /signInWithPassword/);
   assert.match(script, /\.from\("client_websites"\)/);
   assert.match(script, /Return to \$\{identity\.websiteName\} website/);
+  assert.match(script, /size: "flexible"/);
+  assert.match(styles, /\.portal-login-captcha\s*\{[\s\S]*justify-items: center/);
+  assert.match(styles, /#portal-login-turnstile\s*\{[\s\S]*text-align: center/);
   assert.doesNotMatch(script, /window\.location\.replace\("\/account/);
 });
 

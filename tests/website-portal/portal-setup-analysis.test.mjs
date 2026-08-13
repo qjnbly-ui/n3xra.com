@@ -5,7 +5,7 @@ import test from "node:test";
 
 const require = createRequire(import.meta.url);
 const {
-  analyzePortalSetup, choosePortalColors, detectColors, detectFonts, proposedPortalDomain, verifyVercel,
+  analyzePortalSetup, choosePortalColors, detectColorCandidates, detectColors, detectFonts, proposedPortalDomain, verifyVercel,
 } = require("../../api/_website-portal-setup.js");
 
 function records(overrides = {}) {
@@ -53,7 +53,7 @@ test("a saved custom domain remains an optional alias instead of replacing the s
 
 test("branding detection ignores near-white colors and finds named font families", () => {
   const source = `body{color:#ffffff;background:#17231b;font-family:'Manrope',sans-serif}.hero{color:#b77946;font-family:"Fraunces",serif}.more{border-color:#b77946}`;
-  assert.deepEqual(detectColors(source).slice(0, 2), ["#b77946", "#17231b"]);
+  assert.deepEqual(new Set(detectColors(source).slice(0, 2)), new Set(["#17231b", "#b77946"]));
   assert.deepEqual(detectFonts(source), ["Manrope", "Fraunces"]);
 });
 
@@ -84,6 +84,46 @@ test("saved custom portal colors stay authoritative over later scans", () => {
   }), {
     primary_color: "#123456",
     accent_color: "#abcdef",
+  });
+});
+
+test("a partially customized saved palette is protected as one intentional pair", () => {
+  assert.deepEqual(choosePortalColors(["#ef7b2d", "#102a43"], {
+    primary_color: "#17231b",
+    accent_color: "#d8b95f",
+  }), {
+    primary_color: "#17231b",
+    accent_color: "#d8b95f",
+  });
+});
+
+test("semantic CSS variables outrank repeated utility colors", () => {
+  const source = `
+    <meta name="theme-color" content="#123f5a">
+    :root { --brand-primary: #123f5a; --brand-accent: #f2a23a; --surface: #f4f4f4; --line: #888888; }
+    .cards { color:#888888; border-color:#888888; box-shadow:0 1px 2px #888888; }
+    .hero { background-color:var(--brand-primary); color:var(--brand-accent); }
+  `;
+  const detected = detectColorCandidates(source);
+  assert.equal(detected[0].value, "#123f5a");
+  assert.equal(detected[1].value, "#f2a23a");
+  assert.deepEqual(choosePortalColors(detected, {
+    primary_color: "#17231b",
+    accent_color: "#b77946",
+  }), {
+    primary_color: "#123f5a",
+    accent_color: "#f2a23a",
+  });
+});
+
+test("descriptive green and lime variables produce an outdoor brand palette", () => {
+  const detected = detectColorCandidates(`:root { --green: #536a2c; --green-dark: #293719; --lime: #c6da63; --cream: #f4f0e7; }`);
+  assert.deepEqual(choosePortalColors(detected, {
+    primary_color: "#17231b",
+    accent_color: "#b77946",
+  }), {
+    primary_color: "#293719",
+    accent_color: "#c6da63",
   });
 });
 
@@ -175,4 +215,6 @@ test("portal interface keeps setup, overrides, feature permissions, and activati
   assert.match(script, /https:\/\/\$\{hostname\}\//);
   assert.match(script, /status: sameDomain \? oldDomain\.status : "pending"/);
   assert.match(script, /Authorization: `Bearer \$\{currentSession\.access_token\}`/);
+  assert.doesNotMatch(script, /void analyze\(\{ includeRemote: true/);
+  assert.match(script, /portal-refresh-analysis[\s\S]*analyze\(\{ includeRemote: true \}\)/);
 });
