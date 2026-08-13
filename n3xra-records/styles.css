@@ -5556,6 +5556,16 @@ body:has(.confirm-modal.is-open) {
   }
 }
 
+/* iOS zooms the viewport when a focused form control renders below 16px. */
+@media (max-width: 980px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+  textarea,
+  select,
+  [contenteditable="true"] {
+    font-size: 16px !important;
+  }
+}
+
 .voice-profile-overview {
   display: grid;
   grid-template-columns: minmax(150px, 0.45fr) minmax(0, 1.55fr);
