@@ -13,7 +13,7 @@ test("the branded portal root is the business dashboard instead of the project w
 
   assert.match(html, /id="portal-view-dashboard"/);
   assert.match(html, /id="portal-app-grid"/);
-  assert.match(html, /portal-apps\.js\?v=2/);
+  assert.match(html, /portal-apps\.js\?v=3/);
   assert.match(shell, /key: "dashboard"[\s\S]*href: "\/client-portal\/"/);
   assert.doesNotMatch(shell, /window\.location\.replace\(`\/project-workspace/);
   assert.match(portal, /activePortalView = "dashboard"/);
@@ -41,6 +41,13 @@ test("website-only portals skip the app dashboard after subscriptions load", asy
   assert.match(apps, /window\.location\.replace\(app\.href\)/);
   assert.match(apps, /routeOrRenderApps\(apps\)/);
   assert.match(apps, /catch\(\(error\) => \{[\s\S]*renderApps\(\[websiteApp\(\)\]\)/);
+});
+
+test("website workspace hash routes are never replaced by the app dashboard redirect", async () => {
+  const apps = await projectFile("client-portal/portal-apps.js");
+
+  assert.match(apps, /if \(window\.location\.hash\)[\s\S]*return/);
+  assert.match(apps, /window\.location\.hash[\s\S]*createBrowserSupabase\(\)/);
 });
 
 test("the N3XRA website portal opens Website Management without the branded app chooser", async () => {

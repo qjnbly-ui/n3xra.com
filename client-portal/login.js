@@ -106,7 +106,7 @@ async function openPortalForSession(session) {
     const userId = String(session?.user?.id || "");
     if (!userId || !await hasTenantAccess(userId))
         return false;
-    window.location.replace("/client-portal/#files-assets");
+    window.location.replace("/client-portal/");
     return true;
 }
 async function handleLogin(event) {

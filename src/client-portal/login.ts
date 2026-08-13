@@ -129,7 +129,7 @@ async function hasTenantAccess(userId: string): Promise<boolean> {
 async function openPortalForSession(session: { user?: { id?: string } } | null): Promise<boolean> {
   const userId = String(session?.user?.id || "");
   if (!userId || !await hasTenantAccess(userId)) return false;
-  window.location.replace("/client-portal/#files-assets");
+  window.location.replace("/client-portal/");
   return true;
 }
 

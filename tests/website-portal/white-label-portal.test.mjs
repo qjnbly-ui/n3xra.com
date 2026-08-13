@@ -64,7 +64,7 @@ test("client portal sign-out clears only the current session and always returns 
   ]);
 
   assert.match(html, /portal-shell\.js\?v=4/);
-  assert.match(loginHtml, /login\.js\?v=4/);
+  assert.match(loginHtml, /login\.js\?v=5/);
   assert.match(shell, /signOut\(\{ scope: "local" \}\)/);
   assert.match(shell, /finally/);
   assert.match(shell, /window\.location\.replace\(portalSignedOutUrl\(\)\)/);
@@ -73,6 +73,13 @@ test("client portal sign-out clears only the current session and always returns 
   assert.match(login, /You have been signed out\./);
   assert.match(login, /replaceState\(\{\}, document\.title, "\/client-portal\/login"\)/);
   assert.doesNotMatch(portal, /logoutButton/);
+});
+
+test("tenant login enters the portal root so subscription routing can choose the correct destination", async () => {
+  const login = await projectFile("client-portal/login.js");
+
+  assert.match(login, /window\.location\.replace\("\/client-portal\/"\)/);
+  assert.doesNotMatch(login, /window\.location\.replace\("\/client-portal\/#files-assets"\)/);
 });
 
 test("every tenant workspace disables the N3XRA site assistant", async () => {

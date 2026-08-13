@@ -81,6 +81,11 @@ function websiteApp() {
 async function loadPortalApps() {
     if (!appGrid || !hasConfig())
         return;
+    // Hash routes are website-workspace sections, not the application chooser.
+    // Leaving early prevents the single-app dashboard redirect from replacing
+    // Files & Assets, Support, or New Project with Project Workspace.
+    if (window.location.hash)
+        return;
     const supabase = createBrowserSupabase();
     const session = await getSessionOrNull(supabase);
     if (!session?.user)
