@@ -15,7 +15,6 @@ const PAGES = [
   { route: "/virals/todays-top-creators", file: "virals/todays-top-creators/index.html", visibility: "public", tags: ["virals", "creators"] },
   { route: "/virals/todays-viral-videos", file: "virals/todays-viral-videos/index.html", visibility: "public", tags: ["virals", "viral videos"] },
   { route: "/virals/top-shop-products", file: "virals/top-shop-products/index.html", visibility: "public", tags: ["virals", "shop products"] },
-  { route: "/utilities", file: "utilities/index.html", visibility: "public", tags: ["utilities", "operations", "customer portal"] },
   { route: "/partners", file: "partners/index.html", visibility: "public", tags: ["partners", "referrals", "commissions", "application"] },
   { route: "/partners/terms", file: "partners/terms/index.html", visibility: "public", tags: ["partners", "terms", "commissionable net revenue", "referral eligibility"] },
   { route: "/partners/change-of-control", file: "partners/change-of-control/index.html", visibility: "public", tags: ["partners", "change of control", "commissions"] },

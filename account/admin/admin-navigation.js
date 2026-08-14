@@ -64,14 +64,6 @@ const productApps = [
     ],
   },
   {
-    key: "utilities",
-    label: "Utilities Admin",
-    sections: [
-      ["organizations", "Organizations", "/n3xra-admin/utilities/"],
-      ["onboarding", "Onboarding", "/utilities/onboarding/"],
-    ],
-  },
-  {
     key: "partners",
     label: "Partner Admin",
     sections: [["applications", "Review applications", "/n3xra-admin/partners/"]],
@@ -145,6 +137,7 @@ export async function refreshAdminInboxBadge() {
     const supabase = createBrowserSupabase();
     const { count, error } = await supabase.from("admin_notifications")
       .select("id", { count: "exact", head: true })
+      .neq("product", "utilities")
       .is("read_at", null)
       .is("archived_at", null)
       .is("deleted_at", null);

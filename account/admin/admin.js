@@ -101,13 +101,6 @@ const productAdminApps = {
       usage: ["Records Usage", "Review Records usage and limits.", "/n3xra-admin/records/usage/"],
     },
   },
-  utilities: {
-    label: "Utilities Admin",
-    sections: {
-      organizations: ["Utility Organizations", "Review utility organizations, portals, and launch readiness.", "/n3xra-admin/utilities/"],
-      onboarding: ["Utility Onboarding", "Manage utility onboarding workflows.", "/utilities/onboarding/"],
-    },
-  },
   partners: {
     label: "Partner Admin",
     sections: {

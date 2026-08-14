@@ -38,18 +38,17 @@ test("the verified 144-file base and provisioning migration remain ordered befor
   assert.match(provisioningReport, /has not been applied to production/);
 });
 
-test("Communications Admin is registered as the fifth Product Admin App", async () => {
+test("Communications Admin is registered after the other visible Product Admin Apps", async () => {
   const navigation = await projectFile("account/admin/admin-navigation.js");
   const websitePosition = navigation.indexOf('key: "websites"');
   const recordsPosition = navigation.indexOf('key: "records"');
-  const utilitiesPosition = navigation.indexOf('key: "utilities"');
   const partnersPosition = navigation.indexOf('key: "partners"');
   const communicationsPosition = navigation.indexOf('key: "communications"');
 
   assert.ok(websitePosition < recordsPosition);
-  assert.ok(recordsPosition < utilitiesPosition);
-  assert.ok(utilitiesPosition < partnersPosition);
+  assert.ok(recordsPosition < partnersPosition);
   assert.ok(partnersPosition < communicationsPosition);
+  assert.doesNotMatch(navigation, /key: "utilities"/);
   assert.match(navigation, /label: "Communications Admin"/);
   assert.match(navigation, /"Organization Workspace", "\/n3xra-admin\/communications\/"/);
   assert.match(navigation, /"Requests", "\/n3xra-admin\/communications\/requests\/"/);

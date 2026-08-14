@@ -2,39 +2,39 @@
   "schemaVersion": 1,
   "name": "N3XRA Project Pulse",
   "visibility": "public-safe",
-  "generatedAt": "2026-08-13T14:41:12.860Z",
-  "updatedAt": "2026-08-13T07:12:45-07:00",
-  "commit": "71491ae",
+  "generatedAt": "2026-08-14T23:30:58.939Z",
+  "updatedAt": "2026-08-14T12:43:45-07:00",
+  "commit": "0c6f95e",
   "summary": {
-    "statement": "N3XRA is a connected technology platform comprising approximately 170,000 lines of source code across customer experiences, software products, APIs, database systems, administrative tools, and operational infrastructure.",
-    "sourceFiles": 549,
-    "sourceLines": 169763,
+    "statement": "N3XRA is a connected technology platform comprising approximately 193,000 lines of source code across customer experiences, software products, APIs, database systems, administrative tools, and operational infrastructure.",
+    "sourceFiles": 725,
+    "sourceLines": 192664,
     "products": 7,
-    "pages": 103,
-    "apiFunctions": 66,
+    "pages": 117,
+    "apiFunctions": 72,
     "edgeFunctions": 22,
-    "databaseMigrations": 134
+    "databaseMigrations": 146
   },
   "sourceBreakdown": {
     "css": {
-      "files": 39,
-      "lines": 36368
+      "files": 43,
+      "lines": 36989
     },
     "html": {
-      "files": 103,
-      "lines": 29965
+      "files": 117,
+      "lines": 30089
     },
     "js": {
-      "files": 220,
-      "lines": 72719
+      "files": 236,
+      "lines": 75713
     },
     "sql": {
-      "files": 142,
-      "lines": 18725
+      "files": 272,
+      "lines": 35873
     },
     "ts": {
-      "files": 44,
-      "lines": 11488
+      "files": 56,
+      "lines": 13502
     },
     "tsx": {
       "files": 1,
@@ -55,10 +55,10 @@
       "summary": "Searchable records, documents, communication, meeting notes, speaker-aware transcripts, phone-connected meeting capture, organization workspaces, and access controls."
     },
     {
-      "id": "utilities",
-      "name": "N3XRA Utilities",
-      "route": "/utilities/",
-      "summary": "Operational portals, customer access, onboarding, workspaces, and administration for utility organizations."
+      "id": "communications",
+      "name": "Nexra Communications",
+      "route": "/nexra-communications/",
+      "summary": "Dedicated business numbers, permission-based text and email signups, QR and keyword enrollment, subscriber preferences, consent history, usage reporting, and client workspaces."
     },
     {
       "id": "virals",
@@ -94,6 +94,7 @@
     "Records and document systems",
     "Phone-connected meeting workflows",
     "Speaker-aware meeting transcription",
+    "Permission-based subscriber communications",
     "Financial operations and reporting",
     "Subscriptions and billing",
     "Partner and referral programs",
@@ -103,6 +104,81 @@
     "Company governance planning"
   ],
   "recentCapabilities": [
+    {
+      "date": "2026-08-14",
+      "title": "Utilities consolidated into the N3XRA platform",
+      "summary": "As N3XRA's direction became clearer, the separate Utilities product was retired. Its core ideas—well-presented websites, organization dashboards, client login, and purpose-built software—now belong to the broader N3XRA platform, where they can support businesses and organizations in any category. Utility-related tools can still be built and offered through that shared system."
+    },
+    {
+      "date": "2026-08-14",
+      "title": "Trusted Communications delivery foundation",
+      "summary": "Nexra Communications gained a protected email-delivery foundation with reliable preparation, delivery tracking, retry handling, suppression awareness, and verified provider events."
+    },
+    {
+      "date": "2026-08-14",
+      "title": "Secure Communications administration",
+      "summary": "N3XRA administrators can review Communications workspaces, readiness, subscriber activity, pricing, usage, and service requests, then use controlled, audited provisioning actions as customers move toward activation."
+    },
+    {
+      "date": "2026-08-14",
+      "title": "Nexra Communications founding pilot",
+      "summary": "Organizations can request a dedicated number, collect permission-based text and email subscribers through website forms, QR codes, and keywords, and review preferences, consent history, topics, and usage from their branded client portal."
+    },
+    {
+      "date": "2026-08-14",
+      "title": "Verified database release foundation",
+      "summary": "N3XRA reconciled and replay-verified its database migration history, creating one dependable foundation for future platform, portal, Records, website, and Communications releases."
+    },
+    {
+      "date": "2026-08-13",
+      "title": "Structured customer messages",
+      "summary": "Customer updates can now use readable headings, lists, emphasis, and links while preserving clean email, text-message, and in-account versions across delivery channels."
+    },
+    {
+      "date": "2026-08-13",
+      "title": "Subscription-aware client app dashboards",
+      "summary": "Branded client portals now show only the apps enabled for each organization, send single-app customers directly to their workspace, and give multi-app customers one clear place to choose what they need."
+    },
+    {
+      "date": "2026-08-13",
+      "title": "Smarter client portal branding",
+      "summary": "Portal setup can make stronger logo, color, and theme recommendations from approved website assets while preserving intentional brand choices and keeping navigation between a client's website and portal natural."
+    },
+    {
+      "date": "2026-08-13",
+      "title": "White-label client login and workspaces",
+      "summary": "Website clients can sign in through a portal carrying their organization's name, logo, colors, and website connection, then use project, proposal, onboarding, service, billing, and asset workspaces in that branded experience."
+    },
+    {
+      "date": "2026-08-12",
+      "title": "Shared multi-tenant client portal foundation",
+      "summary": "N3XRA established one reusable portal system that resolves each organization securely, connects its website and project context, and supports branded customer experiences without duplicating client applications."
+    },
+    {
+      "date": "2026-08-12",
+      "title": "Cleaner account, admin, and mobile experiences",
+      "summary": "Account administration was reorganized into more compact product and operations cards, while sign-in, account, notification, and Records interfaces received mobile form improvements for easier use on iPhone-sized screens."
+    },
+    {
+      "date": "2026-08-12",
+      "title": "Expanded website previews and project showcase",
+      "summary": "N3XRA added a more reusable website-preview approach, clearer client progress introductions, and new public project work so prospective customers can better understand how a finished experience can look and feel."
+    },
+    {
+      "date": "2026-08-11",
+      "title": "Contextual AI follow-up suggestions",
+      "summary": "Ask N3XRA, Records AI, and Codebase AI now replace generic starter prompts with concise follow-up choices based on the answer and the user's current workspace."
+    },
+    {
+      "date": "2026-08-11",
+      "title": "Private meeting controls and voice-enabled assistance",
+      "summary": "Records teams can keep selected meetings and their related content limited to administrators, while the shared N3XRA assistant gained voice input, spoken answers, and clearer formatted responses."
+    },
+    {
+      "date": "2026-08-11",
+      "title": "Rebuilt shared N3XRA AI foundation",
+      "summary": "N3XRA rebuilt its shared assistant around context-aware public, customer, and administrator experiences, more dependable current information, safer boundaries, provider fallback, and consistent conversation state across the platform."
+    },
     {
       "date": "2026-08-10",
       "title": "Clearer meeting upload and processing",
@@ -384,7 +460,7 @@
       {
         "id": "products",
         "name": "Products & workflows",
-        "description": "Records, utilities, websites, branded client portals, Virals, music, partners, and company operations."
+        "description": "Records, Communications, websites, branded client portals, Virals, music, partners, and company operations."
       },
       {
         "id": "operations",
