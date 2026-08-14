@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Choose your updates</title><meta name="description" content="Choose the text and email updates you want to receive."><meta name="robots" content="noindex, follow">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/nexra-communications/communications.css?v=1">
+</head>
+<body>
+  <header class="comms-header"><div class="comms-shell comms-header-inner"><a class="comms-brand" id="program-home" href="#"><img src="/assets/n3xra_logo_transparent_small.png" alt=""><span id="program-brand">NEXRA COMMUNICATIONS</span></a><nav><a id="program-terms-link" href="#">Messaging terms</a></nav></div></header>
+  <main class="comms-form-section"><form class="comms-form-card" id="subscription-form" hidden><div class="comms-program-head"><div><p class="comms-eyebrow">Stay connected</p><h1 id="program-name">Choose your updates.</h1><p class="comms-form-intro" id="program-intro"></p></div><p class="comms-program-meta" id="program-contact"></p></div><div class="comms-form-grid">
+    <label class="comms-field">Name <span>(optional)</span><input name="fullName" autocomplete="name" maxlength="160"></label><label class="comms-field">Mobile phone<input name="phone" type="tel" autocomplete="tel" placeholder="(541) 555-0138"></label>
+    <label class="comms-field is-wide">Email address<input name="email" type="email" autocomplete="email"></label>
+    <fieldset class="comms-field is-wide"><legend>How would you like to hear from us?</legend><div class="comms-checks"><label class="comms-check" id="sms-choice"><input name="smsConsent" type="checkbox"><span>Text messages</span></label><label class="comms-check" id="email-choice"><input name="emailConsent" type="checkbox"><span>Email updates</span></label></div></fieldset>
+    <fieldset class="comms-field is-wide" id="topic-field"><legend>What are you interested in?</legend><div class="comms-topic-options" id="topic-options"></div></fieldset>
+    <div class="comms-field is-wide"><div class="comms-disclosure" id="consent-disclosures"></div><label class="comms-check"><input name="acknowledgment" type="checkbox" required><span>I have reviewed the selected channel disclosures and want to subscribe.</span></label></div>
+    <label class="comms-field comms-honeypot" aria-hidden="true">Company<input name="company" tabindex="-1" autocomplete="off"></label>
+    <div class="comms-field is-wide"><button class="comms-button" type="submit">Save my preferences</button><p class="comms-status" id="subscription-status" role="status"></p></div>
+  </div></form><div class="comms-form-card" id="subscription-loading"><p class="comms-eyebrow">Nexra Communications</p><h1>Opening signup…</h1><p class="comms-status" id="loading-status">Loading this organization’s subscription options.</p></div></main>
+  <footer class="comms-footer"><div class="comms-shell"><span id="program-provider">Messaging technology by Nexra Communications.</span></div></footer>
+  <script type="module" src="/nexra-communications/subscribe.js?v=1"></script>
+</body></html>

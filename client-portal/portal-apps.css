@@ -85,6 +85,24 @@
   border-bottom: 2px solid var(--portal-deep);
 }
 
+.portal-app-icon.is-communications::before {
+  left: 11px;
+  right: 11px;
+  top: 13px;
+  height: 20px;
+  border: 2px solid var(--portal-deep);
+  border-radius: 10px;
+}
+
+.portal-app-icon.is-communications::after {
+  left: 17px;
+  bottom: 10px;
+  width: 10px;
+  height: 10px;
+  border-left: 2px solid var(--portal-deep);
+  transform: skew(-28deg);
+}
+
 .portal-app-copy {
   display: flex;
   min-width: 0;
