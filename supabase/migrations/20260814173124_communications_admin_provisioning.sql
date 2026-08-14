@@ -44,6 +44,7 @@ create index communications_admin_audit_actor_created_idx
 
 alter table public.communications_admin_audit_log enable row level security;
 revoke all on public.communications_admin_audit_log from public, anon, authenticated;
+revoke all on public.communications_admin_audit_log from service_role;
 grant select, insert on public.communications_admin_audit_log to service_role;
 
 create or replace function public.communications_admin_audit_immutable()

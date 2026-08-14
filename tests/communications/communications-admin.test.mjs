@@ -127,6 +127,7 @@ test("the provisioning migration exposes only audited service-role operations", 
   assert.equal((migration.match(/Active platform administrator access is required\./g) || []).length, 4);
   assert.equal((migration.match(/grant execute on function public\.communications_admin_/g) || []).length, 4);
   assert.match(migration, /revoke all on public\.communications_admin_audit_log from public, anon, authenticated/);
+  assert.match(migration, /revoke all on public\.communications_admin_audit_log from service_role/);
   assert.match(migration, /grant select, insert on public\.communications_admin_audit_log to service_role/);
   assert.doesNotMatch(migration, /grant all on public\.communications_admin_audit_log/);
   assert.match(migration, /Provider-backed activation is not available in this release/);
