@@ -3,15 +3,15 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const careersMigrationPath = new URL(
-  "../../supabase/migrations/20260809213627_careers_applications_and_notes.sql",
+  "../../supabase/migrations/20260809222828_careers_applications_and_notes.sql",
   import.meta.url,
 );
 const recordsPolicyMigrationPath = new URL(
-  "../../supabase/migrations/20260812220516_scope_records_storage_policies.sql",
+  "../../supabase/migrations/20260812220716_scope_records_storage_policies.sql",
   import.meta.url,
 );
 const legacyRecordsPolicyMigrationPath = new URL(
-  "../../supabase/migrations/20260812221124_scope_legacy_records_storage_policies.sql",
+  "../../supabase/migrations/20260812221159_scope_legacy_records_storage_policies.sql",
   import.meta.url,
 );
 

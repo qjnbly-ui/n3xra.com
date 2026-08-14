@@ -2,11 +2,11 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
 
-const migration = fs.readFileSync(new URL("../../supabase/migrations/20260808213831_website_proposal_copilot.sql", import.meta.url), "utf8");
-const deletionRepair = fs.readFileSync(new URL("../../supabase/migrations/20260809053401_preserve_proposal_ai_history_on_draft_delete.sql", import.meta.url), "utf8");
-const retention = fs.readFileSync(new URL("../../supabase/migrations/20260809060052_proposal_ai_run_retention.sql", import.meta.url), "utf8");
-const adminReview = fs.readFileSync(new URL("../../supabase/migrations/20260809062321_allow_admin_reviewed_proposal_ai_changes.sql", import.meta.url), "utf8");
-const onboardingFirst = fs.readFileSync(new URL("../../supabase/migrations/20260809070000_onboarding_before_proposal_agreement_flow.sql", import.meta.url), "utf8");
+const migration = fs.readFileSync(new URL("../../supabase/migrations/20260809040346_website_proposal_copilot.sql", import.meta.url), "utf8");
+const deletionRepair = fs.readFileSync(new URL("../../supabase/migrations/20260809054427_preserve_proposal_ai_history_on_draft_delete.sql", import.meta.url), "utf8");
+const retention = fs.readFileSync(new URL("../../supabase/migrations/20260809060322_proposal_ai_run_retention.sql", import.meta.url), "utf8");
+const adminReview = fs.readFileSync(new URL("../../supabase/migrations/20260809062733_allow_admin_reviewed_proposal_ai_changes.sql", import.meta.url), "utf8");
+const onboardingFirst = fs.readFileSync(new URL("../../supabase/migrations/20260809065404_onboarding_before_proposal_agreement_flow.sql", import.meta.url), "utf8");
 
 test("migration keeps AI runs server-managed and RPCs guarded", () => {
   assert.match(migration, /alter table public\.website_proposal_ai_runs enable row level security/i);

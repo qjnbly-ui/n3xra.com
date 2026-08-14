@@ -20,7 +20,7 @@ const migrationPath = new URL(
   import.meta.url,
 );
 const settingMigrationPath = new URL(
-  "../../supabase/migrations/20260805154152_records_speaker_detection_setting.sql",
+  "../../supabase/migrations/20260805154400_records_speaker_detection_setting.sql",
   import.meta.url,
 );
 

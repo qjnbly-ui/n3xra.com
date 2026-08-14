@@ -115,7 +115,7 @@ test("Apps Dashboard navigation appears only when the tenant has another subscri
 });
 
 test("organization app entitlements are RLS protected and synchronized from subscriptions", async () => {
-  const migration = await projectFile("supabase/migrations/20260813164832_branded_portal_app_entitlements.sql");
+  const migration = await projectFile("supabase/migrations/20260813165301_branded_portal_app_entitlements.sql");
 
   assert.match(migration, /create table public\.organization_product_entitlements/);
   assert.match(migration, /alter table public\.organization_product_entitlements enable row level security/);

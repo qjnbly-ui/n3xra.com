@@ -5,8 +5,8 @@ import test from "node:test";
 
 const require = createRequire(import.meta.url);
 const { contextCanAccessAdminOnly } = require("../../api/_records-support-access.js");
-const migrationPath = new URL("../../supabase/migrations/20260812042150_admin_only_meeting_records.sql", import.meta.url);
-const scopeMigrationPath = new URL("../../supabase/migrations/20260812045915_scope_admin_only_meeting_content.sql", import.meta.url);
+const migrationPath = new URL("../../supabase/migrations/20260812043254_admin_only_meeting_records_restrictive.sql", import.meta.url);
+const scopeMigrationPath = new URL("../../supabase/migrations/20260812053322_scope_admin_only_meeting_content_after_document_enforced.sql", import.meta.url);
 const accountPath = new URL("../../n3xra-records/account/index.html", import.meta.url);
 const dashboardPath = new URL("../../n3xra-records/dashboard.js", import.meta.url);
 const recordingsPath = new URL("../../n3xra-records/recordings.js", import.meta.url);

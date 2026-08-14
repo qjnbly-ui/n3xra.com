@@ -8,7 +8,7 @@ const meetingNotesRoutePath = new URL("../../n3xra-records/meeting-notes/index.h
 const allRecordingsHtmlPath = new URL("../../n3xra-records/all-recordings.html", import.meta.url);
 const allMeetingNotesRoutePath = new URL("../../n3xra-records/all-meeting-notes/index.html", import.meta.url);
 const migrationPath = new URL("../../supabase/migrations/20260805043224_transfer_record_packets.sql", import.meta.url);
-const externalMigrationPath = new URL("../../supabase/migrations/20260805055916_external_record_packet_transfers.sql", import.meta.url);
+const externalMigrationPath = new URL("../../supabase/migrations/20260805060448_external_record_packet_transfers.sql", import.meta.url);
 const transferFunctionPath = new URL("../../supabase/functions/transfer-record-packet/index.ts", import.meta.url);
 const transferPagePath = new URL("../../n3xra-records/record-transfer.html", import.meta.url);
 
