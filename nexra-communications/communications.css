@@ -84,6 +84,7 @@ a { color: inherit; }
 .comms-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; margin-top: 2rem; }
 .comms-field { display: grid; gap: .42rem; color: var(--comms-ink); font-size: .82rem; font-weight: 800; }
 .comms-field.is-wide { grid-column: 1 / -1; }
+[hidden] { display: none !important; }
 .comms-field input, .comms-field select, .comms-field textarea {
   width: 100%;
   padding: .85rem .9rem;
