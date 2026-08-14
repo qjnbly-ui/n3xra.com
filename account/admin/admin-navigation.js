@@ -12,7 +12,7 @@ const accountLinks = [
   ["/account/admin/analytics/", "Analytics"],
 ];
 
-const websiteWorkspacePaths = new Set([
+const productWorkspacePaths = new Set([
   "/n3xra-admin/websites/",
   "/n3xra-admin/website-portal/",
   "/n3xra-admin/services/",
@@ -22,6 +22,15 @@ const websiteWorkspacePaths = new Set([
   "/n3xra-admin/onboarding/",
   "/n3xra-admin/assets/",
   "/n3xra-admin/billing/",
+  "/n3xra-admin/communications/",
+  "/n3xra-admin/communications/websites-forms/",
+  "/n3xra-admin/communications/subscribers/",
+  "/n3xra-admin/communications/topics-signup/",
+  "/n3xra-admin/communications/activity-usage/",
+  "/n3xra-admin/communications/email-readiness/",
+  "/n3xra-admin/communications/texting-readiness/",
+  "/n3xra-admin/communications/pricing-activation/",
+  "/n3xra-admin/communications/requests/",
 ]);
 
 let softNavigationSequence = 0;
@@ -66,6 +75,25 @@ const productApps = [
     key: "partners",
     label: "Partner Admin",
     sections: [["applications", "Review applications", "/n3xra-admin/partners/"]],
+  },
+  {
+    key: "communications",
+    label: "Communications Admin",
+    sections: [
+      ["workspace", "Organization Workspace", "/n3xra-admin/communications/"],
+      ["requests", "Requests", "/n3xra-admin/communications/requests/"],
+    ],
+    paths: [
+      "/n3xra-admin/communications/",
+      "/n3xra-admin/communications/websites-forms/",
+      "/n3xra-admin/communications/subscribers/",
+      "/n3xra-admin/communications/topics-signup/",
+      "/n3xra-admin/communications/activity-usage/",
+      "/n3xra-admin/communications/email-readiness/",
+      "/n3xra-admin/communications/texting-readiness/",
+      "/n3xra-admin/communications/pricing-activation/",
+      "/n3xra-admin/communications/requests/",
+    ],
   },
 ];
 
@@ -308,7 +336,7 @@ function isWorkspaceUrl(url) {
   return url.origin === window.location.origin
     && (url.pathname.startsWith("/account/admin/")
       || url.pathname === "/account/notifications/"
-      || websiteWorkspacePaths.has(normalizePath(url.pathname)));
+      || productWorkspacePaths.has(normalizePath(url.pathname)));
 }
 
 function installWorkspaceStyles(page) {

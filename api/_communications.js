@@ -84,6 +84,24 @@ async function authenticatedUser(req) {
   return response.json();
 }
 
+async function requirePlatformAdmin(req) {
+  const user = await authenticatedUser(req);
+  if (!user?.id) {
+    const error = new Error("Authentication required.");
+    error.status = 401;
+    throw error;
+  }
+  const rows = await supabaseJson(
+    `platform_admins?select=user_id,role,status&user_id=eq.${encodeURIComponent(user.id)}&status=eq.active&role=in.(owner,admin)&limit=1`,
+  );
+  if (!Array.isArray(rows) || !rows.length) {
+    const error = new Error("Active platform administrator access is required.");
+    error.status = 403;
+    throw error;
+  }
+  return { user, admin: rows[0] };
+}
+
 function normalizedUrl(value) {
   try {
     const url = new URL(clean(value, 500));
@@ -181,6 +199,7 @@ module.exports = {
   normalizeEmail,
   normalizeKeyword,
   normalizePhone,
+  requirePlatformAdmin,
   resolveRequesterOwnership,
   sendJson,
   supabaseJson,

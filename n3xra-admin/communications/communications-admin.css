@@ -1,0 +1,141 @@
+:root {
+  --communications-admin-surface: #edf3f5;
+  --communications-admin-panel: #fff;
+  --communications-admin-border: #d9e1e5;
+  --communications-admin-accent: #14877f;
+}
+
+html.communications-admin-root { background: var(--communications-admin-surface); }
+.communications-admin-page { width: 100% !important; max-width: none !important; margin: 0 !important; padding: 0 !important; }
+.communications-admin-page > .portal-layout { min-height: 0; }
+.communications-admin-page .portal-layout > .portal-workspace { min-width: 0; min-height: 0; padding: 0 !important; overflow: hidden; }
+.communications-admin-frame { width: 100%; height: 100%; min-width: 0; min-height: 0; background: var(--communications-admin-surface); }
+.communications-admin-context-layout { display: grid; grid-template-columns: 300px minmax(0, 1fr); width: 100%; height: 100%; min-width: 0; min-height: 0; overflow: hidden; }
+.communications-admin-context { min-width: 0; height: 100%; overflow-y: auto; background: #fff; border-right: 1px solid var(--communications-admin-border); }
+.communications-admin-context-head { padding: 1.3rem 1.25rem 1.1rem; border-bottom: 1px solid var(--communications-admin-border); }
+.communications-admin-context-head .portal-kicker { margin: 0 0 .75rem; }
+.communications-admin-context-head label { display: grid; gap: .45rem; color: #287a72; font-size: .66rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.communications-admin-context-head select { width: 100%; min-height: 45px; padding: .65rem .75rem; color: var(--portal-ink); background: #fff; border: 1px solid var(--communications-admin-border); border-radius: 7px; font: 700 .73rem Manrope, Arial, sans-serif; letter-spacing: normal; text-transform: none; }
+.communications-admin-context-card { display: grid; gap: .25rem; padding: 1rem 1.25rem; border-bottom: 1px solid var(--communications-admin-border); }
+.communications-admin-context-card > span { color: #287a72; font-size: .62rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.communications-admin-context-card > strong { font-size: .86rem; line-height: 1.3; }
+.communications-admin-context-card > small { color: var(--portal-muted); font-size: .68rem; line-height: 1.4; }
+.communications-admin-context-card > div { margin-top: .55rem; }
+.communications-admin-context-nav { display: grid; padding: .2rem .7rem 1rem; }
+.communications-admin-context-nav p { margin: .6rem .55rem; color: #287a72; font-size: .62rem; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; }
+.communications-admin-context-nav a { padding: .67rem .75rem; color: var(--portal-muted); border-radius: 7px; font-size: .74rem; font-weight: 700; text-decoration: none; }
+.communications-admin-context-nav a:hover { color: var(--portal-ink); background: #f2f6f7; }
+.communications-admin-context-nav a.is-current { color: var(--portal-ink); background: #deefec; }
+.communications-admin-context-footer { display: grid; gap: .35rem; margin: 0 1rem 1.5rem; padding: 1rem .25rem 0; border-top: 1px solid var(--communications-admin-border); }
+.communications-admin-context-footer span { color: var(--portal-muted); font-size: .65rem; }
+.communications-admin-context-footer a { color: #14776f; font-size: .72rem; font-weight: 800; }
+.communications-admin-context-footer a.is-current { color: var(--portal-ink); }
+
+.communications-admin-content-column { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; }
+.communications-admin-pagebar { flex: 0 0 auto; min-height: 116px; box-sizing: border-box; display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; padding: 1.35rem 2rem; background: #fff; border-bottom: 1px solid var(--portal-line); }
+.communications-admin-pagebar .portal-kicker { margin: 0 0 .42rem; }
+.communications-admin-pagebar h1 { margin: 0; font: 700 clamp(1.55rem, 2.4vw, 2.05rem)/1.08 Fraunces, Georgia, serif; }
+.communications-admin-pagebar p:not(.portal-kicker) { max-width: 680px; margin: .38rem 0 0; color: var(--portal-muted); font-size: .74rem; line-height: 1.45; }
+.communications-admin-page-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: .65rem; }
+.communications-admin-scroll-region { flex: 1 1 auto; min-width: 0; min-height: 0; overflow-y: auto; padding: 1.5rem 2rem 4rem; box-sizing: border-box; }
+
+.communications-admin-summary,
+.communications-admin-readiness-hero { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1.35rem 1.5rem; background: #fff; border: 1px solid var(--communications-admin-border); }
+.communications-admin-summary h2,
+.communications-admin-readiness-hero h2 { margin: .2rem 0; font: 700 1.65rem Fraunces, Georgia, serif; }
+.communications-admin-summary p:not(.portal-kicker),
+.communications-admin-readiness-hero p:not(.portal-kicker) { margin: 0; color: var(--portal-muted); font-size: .77rem; }
+.communications-admin-summary-badges { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .5rem; }
+.communications-admin-badge { display: inline-flex; align-items: center; width: max-content; min-height: 25px; padding: .2rem .55rem; color: #536071; background: #edf0f3; border-radius: 999px; font-size: .61rem; font-weight: 800; white-space: nowrap; }
+.communications-admin-badge.is-ready { color: #176a56; background: #dff2eb; }
+.communications-admin-badge.is-pending { color: #875713; background: #fff0ce; }
+.communications-admin-badge.is-error { color: #8b2f36; background: #fee9eb; }
+
+.communications-admin-metrics { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); margin-top: 1rem; background: var(--communications-admin-border); border: 1px solid var(--communications-admin-border); gap: 1px; }
+.communications-admin-fact { display: grid; align-content: center; gap: .3rem; min-width: 0; padding: .9rem 1rem; background: #fff; }
+.communications-admin-fact span { color: var(--portal-muted); font-size: .61rem; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; }
+.communications-admin-fact strong { overflow-wrap: anywhere; font-size: .76rem; line-height: 1.35; }
+.communications-admin-grid { display: grid; gap: 1rem; margin-top: 1rem; }
+.communications-admin-grid.two-column { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.communications-admin-grid .full-width { grid-column: 1 / -1; }
+.communications-admin-card { min-width: 0; padding: 1.25rem 1.35rem; background: #fff; border: 1px solid var(--communications-admin-border); }
+.communications-admin-card > header { margin-bottom: 1rem; }
+.communications-admin-card > header h2 { margin: .18rem 0; font: 700 1.15rem Fraunces, Georgia, serif; }
+.communications-admin-card > header p:not(.portal-kicker) { margin: .3rem 0 0; color: var(--portal-muted); font-size: .72rem; line-height: 1.5; }
+.communications-admin-readiness { display: grid; gap: .7rem; }
+.communications-admin-facts-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); background: var(--communications-admin-border); border: 1px solid var(--communications-admin-border); gap: 1px; }
+.communications-admin-list-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .9rem 0; border-top: 1px solid var(--communications-admin-border); }
+.communications-admin-list-row:first-child { border-top: 0; }
+.communications-admin-list-row > div { display: grid; gap: .2rem; min-width: 0; }
+.communications-admin-list-row > div:last-child { justify-items: end; }
+.communications-admin-list-row strong { font-size: .78rem; }
+.communications-admin-list-row small { color: var(--portal-muted); font-size: .66rem; line-height: 1.4; }
+.communications-admin-detail-row { margin-top: .75rem; padding: 1rem; background: #f8fafb; border: 1px solid var(--communications-admin-border); }
+.communications-admin-detail-row:first-child { margin-top: 0; }
+.communications-admin-detail-row > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: .8rem; }
+.communications-admin-detail-row > header > div { display: grid; gap: .2rem; }
+.communications-admin-detail-row small { color: var(--portal-muted); font-size: .66rem; }
+.communications-admin-chip-list { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .8rem; }
+.communications-admin-chip-list span { padding: .3rem .5rem; color: #35635f; background: #eaf4f2; border-radius: 999px; font-size: .62rem; font-weight: 700; }
+
+.communications-admin-table-wrap { width: 100%; overflow-x: auto; }
+.communications-admin-table-wrap table { width: 100%; border-collapse: collapse; font-size: .7rem; }
+.communications-admin-table-wrap th { padding: .65rem .7rem; color: var(--portal-muted); background: #f3f6f7; font-size: .59rem; letter-spacing: .07em; text-align: left; text-transform: uppercase; }
+.communications-admin-table-wrap td { min-width: 105px; padding: .75rem .7rem; border-bottom: 1px solid var(--communications-admin-border); vertical-align: top; }
+.communications-admin-table-wrap td:first-child { min-width: 175px; }
+.communications-admin-table-wrap td strong,
+.communications-admin-table-wrap td small { display: block; }
+.communications-admin-table-wrap td small { margin-top: .25rem; color: var(--portal-muted); }
+.communications-admin-empty { display: grid; place-content: center; min-height: 140px; padding: 1rem; text-align: center; }
+.communications-admin-empty p { max-width: 420px; margin: .3rem 0 0; color: var(--portal-muted); font-size: .72rem; }
+.communications-admin-loading { display: grid; place-content: center; justify-items: center; min-height: 360px; color: var(--portal-muted); font-size: .75rem; }
+.communications-admin-loading span { width: 28px; height: 28px; border: 3px solid #d7e2e4; border-top-color: var(--communications-admin-accent); border-radius: 50%; animation: communications-admin-spin .8s linear infinite; }
+@keyframes communications-admin-spin { to { transform: rotate(360deg); } }
+
+.communications-admin-request-list { display: grid; gap: 1rem; }
+.communications-admin-request { padding: 1.35rem 1.5rem; background: #fff; border: 1px solid var(--communications-admin-border); }
+.communications-admin-request > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
+.communications-admin-request h2 { margin: .18rem 0; font: 700 1.35rem Fraunces, Georgia, serif; }
+.communications-admin-request header p:not(.portal-kicker),
+.communications-admin-request section p { margin: .25rem 0 0; color: var(--portal-muted); font-size: .73rem; line-height: 1.5; }
+.communications-admin-request section { margin-top: 1rem; }
+.communications-admin-request section strong { font-size: .68rem; text-transform: uppercase; letter-spacing: .06em; }
+.communications-admin-request footer { display: flex; justify-content: space-between; gap: 1rem; margin-top: 1.2rem; padding-top: .8rem; color: var(--portal-muted); border-top: 1px solid var(--communications-admin-border); font-size: .64rem; }
+
+@media (min-width: 801px) {
+  html.communications-admin-root { height: 100%; overflow: hidden; overscroll-behavior: none; }
+  body.communications-admin-product { height: 100svh; overflow: hidden; }
+  .communications-admin-page { height: calc(100svh - 76px); min-height: 0 !important; overflow: hidden; }
+  .communications-admin-page > .portal-layout { height: 100%; min-height: 0 !important; overflow: hidden; }
+  .communications-admin-page .portal-nav { position: relative; top: auto; height: 100%; }
+  .communications-admin-page .portal-layout > .portal-workspace { height: 100%; }
+}
+
+@media (max-width: 1000px) {
+  .communications-admin-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 800px) {
+  .communications-admin-page > .portal-layout { display: block; }
+  .communications-admin-context-layout { display: block; height: auto; overflow: visible; }
+  .communications-admin-context { height: auto; overflow: visible; border-right: 0; border-bottom: 1px solid var(--communications-admin-border); }
+  .communications-admin-context-card,
+  .communications-admin-context-nav,
+  .communications-admin-context-footer { display: none; }
+  .communications-admin-content-column { overflow: visible; }
+  .communications-admin-pagebar { min-height: 0; display: grid; align-items: start; padding: 1.2rem; }
+  .communications-admin-page-actions { justify-content: flex-start; }
+  .communications-admin-scroll-region { overflow: visible; padding: 1rem 1rem 3rem; }
+  .communications-admin-grid.two-column { grid-template-columns: 1fr; }
+  .communications-admin-grid .full-width { grid-column: auto; }
+}
+
+@media (max-width: 620px) {
+  .communications-admin-metrics,
+  .communications-admin-facts-grid { grid-template-columns: 1fr; }
+  .communications-admin-summary,
+  .communications-admin-readiness-hero,
+  .communications-admin-request > header,
+  .communications-admin-request footer { align-items: flex-start; flex-direction: column; }
+  .communications-admin-summary-badges { justify-content: flex-start; }
+}
