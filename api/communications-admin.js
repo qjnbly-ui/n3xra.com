@@ -17,9 +17,10 @@ function safeStatus(error) {
 }
 
 async function listIndex() {
-  const [workspaces, organizations, requests] = await Promise.all([
+  const [workspaces, organizations, websites, requests] = await Promise.all([
     supabaseJson("communications_workspaces?select=id,organization_id,slug,program_name,sender_name,status,created_at,updated_at&order=program_name.asc&limit=500"),
     supabaseJson("organizations?select=id,name,account_status&order=name.asc&limit=500"),
+    supabaseJson("client_websites?select=id,organization_id,name,slug,status,live_url&order=name.asc&limit=1000"),
     supabaseJson("communications_number_requests?select=id,status,created_at&order=created_at.desc&limit=500"),
   ]);
   const organizationsById = new Map((organizations || []).map((organization) => [organization.id, organization]));
@@ -28,6 +29,8 @@ async function listIndex() {
       ...workspace,
       organization: organizationsById.get(workspace.organization_id) || null,
     })),
+    organizations: organizations || [],
+    websites: websites || [],
     request_summary: {
       total: (requests || []).length,
       submitted: (requests || []).filter((request) => request.status === "submitted").length,
@@ -68,6 +71,7 @@ async function loadWorkspace(workspaceId) {
     signupSources,
     consentEvents,
     messageEvents,
+    adminAudit,
   ] = await Promise.all([
     supabaseJson(`organizations?select=id,name,account_status,subscription_tier&id=eq.${encodeURIComponent(workspace.organization_id)}&limit=1`),
     supabaseJson(`organization_product_entitlements?select=organization_id,product_key,status,portal_enabled,source,starts_at,ends_at,updated_at&organization_id=eq.${encodeURIComponent(workspace.organization_id)}&product_key=eq.communications&limit=1`),
@@ -80,10 +84,11 @@ async function loadWorkspace(workspaceId) {
     supabaseJson(`communications_subscribers?select=id,workspace_id,full_name,phone_e164,email,sms_status,email_status,joined_at,last_interaction_at,created_at,updated_at&workspace_id=eq.${encodeURIComponent(workspace.id)}&order=joined_at.desc&limit=500`),
     supabaseJson(`communications_topic_metrics?select=workspace_id,topic_id,subscriber_count&workspace_id=eq.${encodeURIComponent(workspace.id)}`),
     supabaseJson(`communications_workspace_metrics?select=workspace_id,total_subscribers,sms_subscribers,email_subscribers,active_topics,consent_events,message_events,sms_segments_current_month&workspace_id=eq.${encodeURIComponent(workspace.id)}&limit=1`),
-    supabaseJson(`website_forms?select=id,public_id,organization_id,website_id,communications_workspace_id,name,form_type,status,success_message,allowed_origins,created_at,updated_at&communications_workspace_id=eq.${encodeURIComponent(workspace.id)}&order=created_at.asc`),
+    supabaseJson(`website_forms?select=id,public_id,organization_id,website_id,communications_workspace_id,name,form_type,status,success_message,allowed_origins,active_consent_configuration,created_at,updated_at&communications_workspace_id=eq.${encodeURIComponent(workspace.id)}&order=created_at.asc`),
     supabaseJson(`communications_signup_sources?select=id,organization_id,website_id,workspace_id,form_id,source_type,name,slug,status,created_at,updated_at&workspace_id=eq.${encodeURIComponent(workspace.id)}&order=created_at.asc`),
     supabaseJson(`communications_consent_events?select=id,workspace_id,subscriber_id,channel,event_type,consent_method,disclosure_version,topic_ids,source_page,created_at&workspace_id=eq.${encodeURIComponent(workspace.id)}&order=created_at.desc&limit=200`),
     supabaseJson(`communications_message_events?select=id,workspace_id,subscriber_id,channel,direction,status,from_address,to_address,body_preview,sms_segment_count,billable_units,estimated_cost_cents,occurred_at,created_at&workspace_id=eq.${encodeURIComponent(workspace.id)}&order=occurred_at.desc&limit=200`),
+    supabaseJson(`communications_admin_audit_log?select=id,actor_user_id,workspace_id,action,entity_type,entity_id,created_at&workspace_id=eq.${encodeURIComponent(workspace.id)}&order=created_at.desc&limit=100`),
   ]);
 
   const websiteIds = (websiteLinks || []).map((row) => row.website_id).filter(Boolean);
@@ -134,6 +139,7 @@ async function loadWorkspace(workspaceId) {
     queue: queue || [],
     consent_events: consentEvents || [],
     message_events: messageEvents || [],
+    admin_audit: adminAudit || [],
   };
 }
 

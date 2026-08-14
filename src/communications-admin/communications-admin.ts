@@ -24,6 +24,8 @@ interface WorkspaceChoice extends Row {
 
 interface IndexPayload {
   workspaces: WorkspaceChoice[];
+  organizations: Row[];
+  websites: Row[];
   request_summary: { total: number; submitted: number; reviewing: number };
 }
 
@@ -50,6 +52,7 @@ interface WorkspacePayload {
   queue: Row[];
   consent_events: Row[];
   message_events: Row[];
+  admin_audit: Row[];
 }
 
 interface RequestsPayload { requests: Row[]; }
@@ -103,6 +106,15 @@ const displayLabels: Record<string, string> = {
 let adminContext: AdminSessionContext;
 let indexPayload: IndexPayload;
 let selectedWorkspaceId = "";
+
+interface MutationResult {
+  ok: boolean;
+  operation: string;
+  workspace_id?: string;
+  form_id?: string;
+  topic_id?: string;
+  created?: boolean;
+}
 
 function escapeHtml(value: unknown): string {
   return String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
@@ -166,6 +178,43 @@ async function api<T>(scope: string, workspaceId = ""): Promise<T> {
   return payload;
 }
 
+async function mutate(operation: string, values: Record<string, unknown>): Promise<MutationResult> {
+  const token = adminContext.session?.access_token;
+  if (!token) throw new Error("Your administrator session is unavailable.");
+  const response = await fetch("/api/communications-admin-mutations", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ operation, idempotencyKey: crypto.randomUUID(), ...values }),
+  });
+  const payload = await response.json() as MutationResult & { error?: string };
+  if (!response.ok) throw new Error(payload.error || "Communications Admin could not save those changes.");
+  return payload;
+}
+
+function option(value: unknown, text: unknown, selected = false): string {
+  return `<option value="${escapeHtml(value)}"${selected ? " selected" : ""}>${escapeHtml(text)}</option>`;
+}
+
+function field(name: string, title: string, value: unknown, type = "text", attributes = ""): string {
+  return `<label><span>${escapeHtml(title)}</span><input name="${escapeHtml(name)}" type="${escapeHtml(type)}" value="${escapeHtml(value)}" ${attributes}></label>`;
+}
+
+function selectField(name: string, title: string, options: string): string {
+  return `<label><span>${escapeHtml(title)}</span><select name="${escapeHtml(name)}">${options}</select></label>`;
+}
+
+function textareaField(name: string, title: string, value: unknown, attributes = ""): string {
+  return `<label class="communications-admin-field-wide"><span>${escapeHtml(title)}</span><textarea name="${escapeHtml(name)}" ${attributes}>${escapeHtml(value)}</textarea></label>`;
+}
+
+function checkField(name: string, title: string, checked: boolean): string {
+  return `<label class="communications-admin-check"><input name="${escapeHtml(name)}" type="checkbox"${checked ? " checked" : ""}><span>${escapeHtml(title)}</span></label>`;
+}
+
+function formShell(id: string, body: string, buttonText: string): string {
+  return `<form class="communications-admin-form" id="${escapeHtml(id)}">${body}<div class="communications-admin-form-footer"><p class="communications-admin-form-status" role="status" aria-live="polite"></p><button class="portal-button" type="submit">${escapeHtml(buttonText)}</button></div></form>`;
+}
+
 function workspaceStorageKey(): string {
   return `n3xra-communications-admin-workspace:${adminContext.user?.id || "admin"}`;
 }
@@ -226,8 +275,49 @@ function renderPagebar(): void {
   const details = pageDetails[section];
   const pagebar = root?.querySelector<HTMLElement>("#communications-admin-pagebar");
   if (!pagebar) return;
-  pagebar.innerHTML = `<div><p class="portal-kicker">Communications Admin</p><h1>${escapeHtml(details.title)}</h1><p>${escapeHtml(details.description)}</p></div><div class="communications-admin-page-actions">${badge("Read-only release", "pending")}<button class="portal-button portal-button-secondary" id="communications-admin-refresh" type="button">Refresh</button></div>`;
+  pagebar.innerHTML = `<div><p class="portal-kicker">Communications Admin</p><h1>${escapeHtml(details.title)}</h1><p>${escapeHtml(details.description)}</p></div><div class="communications-admin-page-actions">${badge("Secure admin controls", "ready")}<button class="portal-button portal-button-secondary" id="communications-admin-refresh" type="button">Refresh</button></div>`;
   pagebar.querySelector<HTMLButtonElement>("#communications-admin-refresh")?.addEventListener("click", () => void loadCurrentSection());
+}
+
+function renderWorkspaceForm(data?: WorkspacePayload): string {
+  const workspace = data?.workspace || {};
+  const organizationId = workspace.organization_id || indexPayload.organizations[0]?.id || "";
+  const entitlement = data?.entitlement || {};
+  const organizationOptions = indexPayload.organizations.map((organization) => option(
+    organization.id,
+    `${organization.name} — ${label(organization.account_status)}`,
+    organization.id === organizationId,
+  )).join("");
+  const websiteOptions = [option("", "No website link")].concat(indexPayload.websites
+    .filter((website) => website.organization_id === organizationId)
+    .map((website) => option(website.id, website.name, data?.website_links.some((link) => link.website_id === website.id))))
+    .join("");
+  const body = `
+    <input name="workspaceId" type="hidden" value="${escapeHtml(workspace.id || "")}">
+    ${selectField("organizationId", "Organization", organizationOptions)}
+    ${selectField("websiteId", "Connected website", websiteOptions)}
+    ${field("slug", "Workspace slug", workspace.slug || "", "text", "required pattern=\"[a-z0-9]+(?:-[a-z0-9]+)*\" maxlength=\"80\"")}
+    ${field("programName", "Program name", workspace.program_name || "", "text", "required maxlength=\"120\"")}
+    ${field("senderName", "Sender name", workspace.sender_name || "", "text", "required maxlength=\"120\"")}
+    ${field("supportEmail", "Support email", workspace.support_email || "", "email", "required maxlength=\"320\"")}
+    ${field("supportPhone", "Support phone (E.164)", workspace.support_phone || "", "tel", "placeholder=\"+15415550138\"")}
+    ${field("websiteUrl", "Website URL", workspace.website_url || "", "url", "required")}
+    ${field("privacyPolicyUrl", "Privacy policy URL", workspace.privacy_policy_url || "", "url", "required")}
+    ${field("programTermsUrl", "Program terms URL", workspace.program_terms_url || "", "url", "required")}
+    ${textareaField("expectedMessageFrequency", "Expected message frequency", workspace.expected_message_frequency || "Message frequency varies.", "required maxlength=\"240\"")}
+    ${selectField("workspaceStatus", "Workspace status", ["setup", "carrier_pending", "paused", "canceled"].map((value) => option(value, label(value), value === (workspace.status || "setup"))).join(""))}
+    ${selectField("entitlementStatus", "Entitlement status", ["trialing", "active", "paused", "canceled"].map((value) => option(value, label(value), value === (entitlement.status || "trialing"))).join(""))}
+    ${field("includedSmsSegments", "Included SMS segments", workspace.included_sms_segments ?? 500, "number", "required min=\"0\" step=\"1\"")}
+    ${field("smsOverageCents", "SMS overage (cents)", workspace.sms_overage_cents ?? 3, "number", "required min=\"0\" step=\"1\"")}
+    ${field("mmsUnitCents", "MMS unit price (cents)", workspace.mms_unit_cents ?? 8, "number", "required min=\"0\" step=\"1\"")}
+    ${checkField("portalEnabled", "Enable the customer portal entitlement", Boolean(entitlement.portal_enabled))}
+  `;
+  return card(
+    data ? "Workspace configuration" : "Create Communications workspace",
+    "This operation saves N3XRA configuration and pending channel records. It does not contact Resend or Twilio or activate sending.",
+    formShell("communications-workspace-form", body, data ? "Save workspace" : "Create workspace"),
+    "full-width",
+  );
 }
 
 function renderOverview(data: WorkspacePayload): string {
@@ -252,6 +342,7 @@ function renderOverview(data: WorkspacePayload): string {
       ${card("Texting readiness", sms.detail, `<div class="communications-admin-readiness">${badge(sms.label, sms.tone)}${fact("Assigned numbers", data.numbers.length)}${fact("Text channel", label(data.channels.find((row) => row.channel === "sms")?.status))}</div>`)}
     </div>
     ${card("Workspace identity", "The public program identity and support details currently stored for this workspace.", `<div class="communications-admin-facts-grid">${fact("Sender", data.workspace.sender_name)}${fact("Program", data.workspace.program_name)}${fact("Website", data.workspace.website_url)}${fact("Support email", data.workspace.support_email)}${fact("Message frequency", data.workspace.expected_message_frequency)}${fact("Updated", formatDate(data.workspace.updated_at))}</div>`)}
+    <div class="communications-admin-grid">${renderWorkspaceForm(data)}</div>
   `;
 }
 
@@ -268,7 +359,28 @@ function renderWebsitesForms(data: WorkspacePayload): string {
     const sources = data.signup_sources.filter((source) => source.form_id === form.id);
     return `<article class="communications-admin-detail-row"><header><div><strong>${escapeHtml(form.name)}</strong><small>${escapeHtml(label(form.form_type))} · ${escapeHtml(form.public_id)}</small></div>${badge(form.status, form.status === "active" ? "ready" : "neutral")}</header><div class="communications-admin-facts-grid">${fact("Website", data.websites.find((website) => website.id === form.website_id)?.name)}${fact("Allowed origins", (form.allowed_origins || []).join(", ") || "None")}${fact("Fields", fields.length)}${fact("Actions", actions.map((action) => label(action.action_type)).join(", ") || "None")}${fact("Verified sources", sources.filter((source) => source.status === "active").length)}${fact("Success message", form.success_message)}</div><div class="communications-admin-chip-list">${fields.map((field) => `<span>${escapeHtml(field.label)}${field.required ? " *" : ""}</span>`).join("")}</div></article>`;
   }).join("") : empty("No website forms are connected to this workspace.");
-  return `<div class="communications-admin-grid two-column">${card("Connected websites", "Website links established for this organization-owned workspace.", websites)}${card("Subscription forms", "Definitions and processing actions are displayed without editable controls.", forms)}</div>`;
+  const form = data.forms[0] || {};
+  const consent = form.active_consent_configuration || {};
+  const websiteOptions = data.websites.map((website) => option(website.id, website.name, website.id === form.website_id)).join("");
+  const formOptions = option("", "Create a new subscription form", !form.id)
+    + data.forms.map((candidate) => option(candidate.id, candidate.name, candidate.id === form.id)).join("");
+  const control = data.websites.length ? formShell("communications-subscription-form", `
+    ${selectField("formId", "Form to configure", formOptions)}
+    ${selectField("websiteId", "Connected website", websiteOptions)}
+    ${field("name", "Form name", form.name || "Website signup", "text", "required maxlength=\"120\"")}
+    ${selectField("status", "Form status", ["draft", "active", "paused", "archived"].map((value) => option(value, label(value), value === (form.status || "draft"))).join(""))}
+    ${textareaField("successMessage", "Success message", form.success_message || "Thank you. Please check your inbox to confirm your subscription.", "required maxlength=\"500\"")}
+    ${textareaField("allowedOrigins", "Allowed website origins (one per line)", (form.allowed_origins || []).join("\n") || data.websites.map((website) => safeUrl(website.live_url)).filter(Boolean).map((value) => new URL(value).origin).join("\n"), "required")}
+    ${checkField("emailEnabled", "Collect email subscriptions", Boolean(consent.email) || !form.id)}
+    ${checkField("smsEnabled", "Collect text-message subscriptions", Boolean(consent.sms))}
+    ${field("emailVersion", "Email consent version", consent.email?.version || "email-v1", "text", "required")}
+    ${field("emailCheckboxLabel", "Email checkbox label", consent.email?.checkbox_label || "Send me email updates", "text", "required")}
+    ${textareaField("emailDisclosure", "Email consent disclosure", consent.email?.disclosure || "I agree to receive email updates and understand that I can unsubscribe at any time.", "required")}
+    ${field("smsVersion", "Text consent version", consent.sms?.version || "sms-v1")}
+    ${field("smsCheckboxLabel", "Text checkbox label", consent.sms?.checkbox_label || "Send me text updates")}
+    ${textareaField("smsDisclosure", "Text consent disclosure", consent.sms?.disclosure || "I agree to receive recurring automated text messages. Message and data rates may apply. Reply STOP to opt out.")}
+  `, form.id ? "Save form" : "Create form") : empty("Connect a website from Overview before creating a subscription form.");
+  return `<div class="communications-admin-grid two-column">${card("Connected websites", "Website links established for this organization-owned workspace.", websites)}${card("Subscription forms", "Form definitions, standard subscriber actions, and signup sources.", forms)}${card("Form configuration", "Creates or updates a universal subscription form without changing the website's design.", control, "full-width")}</div>`;
 }
 
 function renderSubscribers(data: WorkspacePayload): string {
@@ -288,14 +400,26 @@ function renderTopicsSignup(data: WorkspacePayload): string {
   const topics = data.topics.length ? data.topics.map((topic) => `<article class="communications-admin-list-row"><div><strong>${escapeHtml(topic.name)}</strong><small>${escapeHtml(topic.description || topic.slug)}</small></div><div>${badge(topic.active ? "Active" : "Inactive", topic.active ? "ready" : "neutral")}<small>${escapeHtml(counts.get(topic.id) || 0)} subscribers</small></div></article>`).join("") : empty("No topics are configured.");
   const sources = data.signup_sources.length ? data.signup_sources.map((source) => `<article class="communications-admin-list-row"><div><strong>${escapeHtml(source.name)}</strong><small>${escapeHtml(label(source.source_type))} · ${escapeHtml(source.slug)}</small></div>${badge(source.status, source.status === "active" ? "ready" : "neutral")}</article>`).join("") : empty("No verified signup sources are configured.");
   const keywords = data.keywords.length ? data.keywords.map((keyword) => `<article class="communications-admin-list-row"><div><strong>${escapeHtml(keyword.keyword)}</strong><small>${escapeHtml(keyword.welcome_message || "No welcome message")}</small></div>${badge(keyword.active ? "Active" : "Inactive", keyword.active ? "ready" : "neutral")}</article>`).join("") : empty("No text-to-join keywords are configured.");
-  return `<div class="communications-admin-grid two-column">${card("Topics", "Subscriber preference categories and current counts.", topics)}${card("Signup sources", "Hosted, embedded, and QR attribution sources.", sources)}${card("Keywords", "Text-to-join keywords remain read-only until Twilio operations exist.", keywords, "full-width")}</div>`;
+  const topic = data.topics[0] || {};
+  const topicOptions = option("", "Create a new topic", !topic.id)
+    + data.topics.map((candidate) => option(candidate.id, candidate.name, candidate.id === topic.id)).join("");
+  const control = formShell("communications-topic-form", `
+    ${selectField("topicId", "Topic to configure", topicOptions)}
+    ${field("name", "Topic name", topic.name || "", "text", "required maxlength=\"120\"")}
+    ${field("slug", "Topic slug", topic.slug || "", "text", "required pattern=\"[a-z0-9]+(?:-[a-z0-9]+)*\" maxlength=\"80\"")}
+    ${field("sortOrder", "Display order", topic.sort_order ?? 100, "number", "required min=\"0\" max=\"10000\" step=\"1\"")}
+    ${textareaField("description", "Description", topic.description || "", "maxlength=\"500\"")}
+    ${checkField("active", "Topic is available to subscribers", topic.id ? Boolean(topic.active) : true)}
+  `, topic.id ? "Save topic" : "Create topic");
+  return `<div class="communications-admin-grid two-column">${card("Topics", "Subscriber preference categories and current counts.", topics)}${card("Signup sources", "Hosted, embedded, and QR attribution sources.", sources)}${card("Topic configuration", "Create or revise subscriber-facing preference categories.", control, "full-width")}${card("Keywords", "Text-to-join keywords remain read-only until Twilio operations exist.", keywords, "full-width")}</div>`;
 }
 
 function renderActivityUsage(data: WorkspacePayload): string {
   const metrics = data.metrics || {};
   const messages = data.message_events.length ? data.message_events.map((event) => `<tr><td>${escapeHtml(formatDate(event.occurred_at))}</td><td>${escapeHtml(label(event.channel))}</td><td>${escapeHtml(label(event.direction))}</td><td>${badge(event.status, event.status === "delivered" ? "ready" : "neutral")}</td><td>${escapeHtml(event.body_preview || "No preview")}</td><td>${escapeHtml(event.billable_units || 0)}</td></tr>`).join("") : `<tr><td colspan="6">No message events have been recorded.</td></tr>`;
   const queue = data.queue.length ? data.queue.map((item) => `<tr><td>${escapeHtml(formatDate(item.created_at))}</td><td>${badge(item.status, item.status === "completed" ? "ready" : item.status === "failed" ? "error" : "pending")}</td><td>${escapeHtml(item.attempts || 0)}</td><td>${escapeHtml(item.last_error || "None")}</td></tr>`).join("") : `<tr><td colspan="4">No form actions are queued.</td></tr>`;
-  return `<section class="communications-admin-metrics">${fact("Consent events", Number(metrics.consent_events || data.consent_events.length))}${fact("Message events", Number(metrics.message_events || data.message_events.length))}${fact("Form submissions", data.submissions.length)}${fact("Queued actions", data.queue.length)}${fact("SMS segments", Number(metrics.sms_segments_current_month || 0))}${fact("Included segments", Number(data.workspace.included_sms_segments || 0))}</section><div class="communications-admin-grid">${card("Message activity", "Delivery and inbound/outbound event records. No composer or send controls are present.", `<div class="communications-admin-table-wrap"><table><thead><tr><th>Time</th><th>Channel</th><th>Direction</th><th>Status</th><th>Preview</th><th>Units</th></tr></thead><tbody>${messages}</tbody></table></div>`)}${card("Form action queue", "Read-only processing state for universal form actions.", `<div class="communications-admin-table-wrap"><table><thead><tr><th>Created</th><th>Status</th><th>Attempts</th><th>Last error</th></tr></thead><tbody>${queue}</tbody></table></div>`)}</div>`;
+  const audit = data.admin_audit.length ? data.admin_audit.map((event) => `<tr><td>${escapeHtml(formatDate(event.created_at))}</td><td>${escapeHtml(label(event.action))}</td><td>${escapeHtml(label(event.entity_type))}</td><td>${escapeHtml(event.actor_user_id || "System")}</td></tr>`).join("") : `<tr><td colspan="4">No administrative changes have been recorded.</td></tr>`;
+  return `<section class="communications-admin-metrics">${fact("Consent events", Number(metrics.consent_events || data.consent_events.length))}${fact("Message events", Number(metrics.message_events || data.message_events.length))}${fact("Form submissions", data.submissions.length)}${fact("Queued actions", data.queue.length)}${fact("SMS segments", Number(metrics.sms_segments_current_month || 0))}${fact("Included segments", Number(data.workspace.included_sms_segments || 0))}</section><div class="communications-admin-grid">${card("Administrative audit", "Immutable records created by trusted Communications Admin operations.", `<div class="communications-admin-table-wrap"><table><thead><tr><th>Time</th><th>Action</th><th>Record</th><th>Administrator</th></tr></thead><tbody>${audit}</tbody></table></div>`)}${card("Message activity", "Delivery and inbound/outbound event records. No composer or send controls are present.", `<div class="communications-admin-table-wrap"><table><thead><tr><th>Time</th><th>Channel</th><th>Direction</th><th>Status</th><th>Preview</th><th>Units</th></tr></thead><tbody>${messages}</tbody></table></div>`)}${card("Form action queue", "Read-only processing state for universal form actions.", `<div class="communications-admin-table-wrap"><table><thead><tr><th>Created</th><th>Status</th><th>Attempts</th><th>Last error</th></tr></thead><tbody>${queue}</tbody></table></div>`)}</div>`;
 }
 
 function renderEmailReadiness(data: WorkspacePayload): string {
@@ -312,7 +436,14 @@ function renderTextingReadiness(data: WorkspacePayload): string {
 
 function renderPricingActivation(data: WorkspacePayload): string {
   const entitlement = data.entitlement;
-  return `<div class="communications-admin-grid two-column">${card("Product entitlement", "Organization access to the customer-facing Communications application.", `<div class="communications-admin-facts-grid">${fact("Status", label(entitlement?.status, "Not entitled"))}${fact("Portal enabled", entitlement ? (entitlement.portal_enabled ? "Yes" : "No") : "No")}${fact("Source", label(entitlement?.source))}${fact("Starts", formatDate(entitlement?.starts_at))}${fact("Ends", formatDate(entitlement?.ends_at))}${fact("Updated", formatDate(entitlement?.updated_at))}</div>`)}${card("Workspace activation", "Workspace and channel state are reported independently so unfinished provider setup is not mistaken for readiness.", `<div class="communications-admin-facts-grid">${fact("Workspace", label(data.workspace.status))}${fact("Email", readiness(data, "email").label)}${fact("Texting", readiness(data, "sms").label)}${fact("Organization account", label(data.organization?.account_status))}</div>`)}${card("Usage pricing", "Stored plan limits and unit prices. This release does not change billing or activate providers.", `<div class="communications-admin-facts-grid">${fact("Included SMS segments", Number(data.workspace.included_sms_segments || 0).toLocaleString())}${fact("SMS overage", `${formatMoney(data.workspace.sms_overage_cents)} per segment`)}${fact("MMS unit", `${formatMoney(data.workspace.mms_unit_cents)} per message`)}${fact("Current SMS segments", Number(data.metrics?.sms_segments_current_month || 0).toLocaleString())}</div>`, "full-width")}</div>`;
+  const control = formShell("communications-pricing-form", `
+    ${field("includedSmsSegments", "Included SMS segments", data.workspace.included_sms_segments || 0, "number", "required min=\"0\" step=\"1\"")}
+    ${field("smsOverageCents", "SMS overage (cents)", data.workspace.sms_overage_cents || 0, "number", "required min=\"0\" step=\"1\"")}
+    ${field("mmsUnitCents", "MMS unit price (cents)", data.workspace.mms_unit_cents || 0, "number", "required min=\"0\" step=\"1\"")}
+    ${selectField("entitlementStatus", "Entitlement status", ["trialing", "active", "paused", "canceled"].map((value) => option(value, label(value), value === (entitlement?.status || "trialing"))).join(""))}
+    ${checkField("portalEnabled", "Enable the customer portal entitlement", Boolean(entitlement?.portal_enabled))}
+  `, "Save pricing & access");
+  return `<div class="communications-admin-grid two-column">${card("Product entitlement", "Organization access to the customer-facing Communications application.", `<div class="communications-admin-facts-grid">${fact("Status", label(entitlement?.status, "Not entitled"))}${fact("Portal enabled", entitlement ? (entitlement.portal_enabled ? "Yes" : "No") : "No")}${fact("Source", label(entitlement?.source))}${fact("Starts", formatDate(entitlement?.starts_at))}${fact("Ends", formatDate(entitlement?.ends_at))}${fact("Updated", formatDate(entitlement?.updated_at))}</div>`)}${card("Workspace activation", "Workspace and channel state are reported independently so unfinished provider setup is not mistaken for readiness.", `<div class="communications-admin-facts-grid">${fact("Workspace", label(data.workspace.status))}${fact("Email", readiness(data, "email").label)}${fact("Texting", readiness(data, "sms").label)}${fact("Organization account", label(data.organization?.account_status))}</div>`)}${card("Usage pricing", "Stored plan limits and unit prices. This does not bill customers or activate providers.", `<div class="communications-admin-facts-grid">${fact("Included SMS segments", Number(data.workspace.included_sms_segments || 0).toLocaleString())}${fact("SMS overage", `${formatMoney(data.workspace.sms_overage_cents)} per segment`)}${fact("MMS unit", `${formatMoney(data.workspace.mms_unit_cents)} per message`)}${fact("Current SMS segments", Number(data.metrics?.sms_segments_current_month || 0).toLocaleString())}</div>`, "full-width")}${card("Pricing & portal access", "Updates stored usage pricing and the Communications product entitlement only.", control, "full-width")}</div>`;
 }
 
 function renderRequests(payload: RequestsPayload): string {
@@ -348,6 +479,187 @@ function showFatal(message: string): void {
   document.body.classList.remove("portal-loading");
 }
 
+function control(form: HTMLFormElement, name: string): HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement {
+  const element = form.elements.namedItem(name);
+  if (!(element instanceof HTMLInputElement || element instanceof HTMLSelectElement || element instanceof HTMLTextAreaElement)) {
+    throw new Error(`Missing ${name} control.`);
+  }
+  return element;
+}
+
+function value(form: HTMLFormElement, name: string): string {
+  return control(form, name).value.trim();
+}
+
+function checked(form: HTMLFormElement, name: string): boolean {
+  const element = control(form, name);
+  return element instanceof HTMLInputElement && element.checked;
+}
+
+function setValue(form: HTMLFormElement, name: string, nextValue: unknown): void {
+  control(form, name).value = String(nextValue ?? "");
+}
+
+function setChecked(form: HTMLFormElement, name: string, nextValue: unknown): void {
+  const element = control(form, name);
+  if (element instanceof HTMLInputElement) element.checked = Boolean(nextValue);
+}
+
+function bindMutationForm(
+  form: HTMLFormElement,
+  operation: string,
+  serialize: () => Record<string, unknown>,
+): void {
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (!form.reportValidity()) return;
+    const status = form.querySelector<HTMLElement>(".communications-admin-form-status");
+    const button = form.querySelector<HTMLButtonElement>('button[type="submit"]');
+    if (button) button.disabled = true;
+    if (status) {
+      status.className = "communications-admin-form-status";
+      status.textContent = "Saving…";
+    }
+    try {
+      const result = await mutate(operation, serialize());
+      if (status) {
+        status.classList.add("is-success");
+        status.textContent = "Saved securely. Refreshing…";
+      }
+      indexPayload = await api<IndexPayload>("index");
+      if (result.workspace_id) selectedWorkspaceId = result.workspace_id;
+      if (selectedWorkspaceId) sessionStorage.setItem(workspaceStorageKey(), selectedWorkspaceId);
+      renderContext(indexPayload.workspaces);
+      await loadCurrentSection();
+    } catch (error) {
+      if (status) {
+        status.classList.add("is-error");
+        status.textContent = error instanceof Error ? error.message : "That change could not be saved.";
+      }
+    } finally {
+      if (button) button.disabled = false;
+    }
+  });
+}
+
+function bindWorkspaceForm(): void {
+  const form = root?.querySelector<HTMLFormElement>("#communications-workspace-form");
+  if (!form) return;
+  const organizationSelect = control(form, "organizationId") as HTMLSelectElement;
+  const websiteSelect = control(form, "websiteId") as HTMLSelectElement;
+  organizationSelect.addEventListener("change", () => {
+    const choices = [option("", "No website link")].concat(indexPayload.websites
+      .filter((website) => website.organization_id === organizationSelect.value)
+      .map((website) => option(website.id, website.name)))
+      .join("");
+    websiteSelect.innerHTML = choices;
+  });
+  bindMutationForm(form, "provision_workspace", () => ({
+    workspaceId: value(form, "workspaceId") || null,
+    organizationId: value(form, "organizationId"),
+    websiteId: value(form, "websiteId") || null,
+    slug: value(form, "slug"),
+    programName: value(form, "programName"),
+    senderName: value(form, "senderName"),
+    supportEmail: value(form, "supportEmail"),
+    supportPhone: value(form, "supportPhone") || null,
+    websiteUrl: value(form, "websiteUrl"),
+    privacyPolicyUrl: value(form, "privacyPolicyUrl"),
+    programTermsUrl: value(form, "programTermsUrl"),
+    expectedMessageFrequency: value(form, "expectedMessageFrequency"),
+    workspaceStatus: value(form, "workspaceStatus"),
+    entitlementStatus: value(form, "entitlementStatus"),
+    portalEnabled: checked(form, "portalEnabled"),
+    includedSmsSegments: Number(value(form, "includedSmsSegments")),
+    smsOverageCents: Number(value(form, "smsOverageCents")),
+    mmsUnitCents: Number(value(form, "mmsUnitCents")),
+  }));
+}
+
+function bindSubscriptionForm(data: WorkspacePayload): void {
+  const form = root?.querySelector<HTMLFormElement>("#communications-subscription-form");
+  if (!form) return;
+  const selector = control(form, "formId") as HTMLSelectElement;
+  selector.addEventListener("change", () => {
+    const selected = data.forms.find((candidate) => candidate.id === selector.value);
+    const consent = selected?.active_consent_configuration || {};
+    setValue(form, "websiteId", selected?.website_id || data.websites[0]?.id || "");
+    setValue(form, "name", selected?.name || "Website signup");
+    setValue(form, "status", selected?.status || "draft");
+    setValue(form, "successMessage", selected?.success_message || "Thank you. Please check your inbox to confirm your subscription.");
+    setValue(form, "allowedOrigins", (selected?.allowed_origins || []).join("\n"));
+    setChecked(form, "emailEnabled", Boolean(consent.email) || !selected);
+    setChecked(form, "smsEnabled", Boolean(consent.sms));
+    setValue(form, "emailVersion", consent.email?.version || "email-v1");
+    setValue(form, "emailCheckboxLabel", consent.email?.checkbox_label || "Send me email updates");
+    setValue(form, "emailDisclosure", consent.email?.disclosure || "I agree to receive email updates and understand that I can unsubscribe at any time.");
+    setValue(form, "smsVersion", consent.sms?.version || "sms-v1");
+    setValue(form, "smsCheckboxLabel", consent.sms?.checkbox_label || "Send me text updates");
+    setValue(form, "smsDisclosure", consent.sms?.disclosure || "I agree to receive recurring automated text messages. Message and data rates may apply. Reply STOP to opt out.");
+  });
+  bindMutationForm(form, "save_form", () => ({
+    workspaceId: selectedWorkspaceId,
+    formId: value(form, "formId") || null,
+    websiteId: value(form, "websiteId"),
+    name: value(form, "name"),
+    status: value(form, "status"),
+    successMessage: value(form, "successMessage"),
+    allowedOrigins: value(form, "allowedOrigins").split(/\r?\n/).map((origin) => origin.trim()).filter(Boolean),
+    emailEnabled: checked(form, "emailEnabled"),
+    smsEnabled: checked(form, "smsEnabled"),
+    emailVersion: value(form, "emailVersion"),
+    emailDisclosure: value(form, "emailDisclosure"),
+    emailCheckboxLabel: value(form, "emailCheckboxLabel"),
+    smsVersion: value(form, "smsVersion"),
+    smsDisclosure: value(form, "smsDisclosure"),
+    smsCheckboxLabel: value(form, "smsCheckboxLabel"),
+  }));
+}
+
+function bindTopicForm(data: WorkspacePayload): void {
+  const form = root?.querySelector<HTMLFormElement>("#communications-topic-form");
+  if (!form) return;
+  const selector = control(form, "topicId") as HTMLSelectElement;
+  selector.addEventListener("change", () => {
+    const selected = data.topics.find((candidate) => candidate.id === selector.value);
+    setValue(form, "name", selected?.name || "");
+    setValue(form, "slug", selected?.slug || "");
+    setValue(form, "sortOrder", selected?.sort_order ?? 100);
+    setValue(form, "description", selected?.description || "");
+    setChecked(form, "active", selected ? selected.active : true);
+  });
+  bindMutationForm(form, "save_topic", () => ({
+    workspaceId: selectedWorkspaceId,
+    topicId: value(form, "topicId") || null,
+    name: value(form, "name"),
+    slug: value(form, "slug"),
+    sortOrder: Number(value(form, "sortOrder")),
+    description: value(form, "description") || null,
+    active: checked(form, "active"),
+  }));
+}
+
+function bindPricingForm(): void {
+  const form = root?.querySelector<HTMLFormElement>("#communications-pricing-form");
+  if (!form) return;
+  bindMutationForm(form, "update_pricing", () => ({
+    workspaceId: selectedWorkspaceId,
+    includedSmsSegments: Number(value(form, "includedSmsSegments")),
+    smsOverageCents: Number(value(form, "smsOverageCents")),
+    mmsUnitCents: Number(value(form, "mmsUnitCents")),
+    entitlementStatus: value(form, "entitlementStatus"),
+    portalEnabled: checked(form, "portalEnabled"),
+  }));
+}
+
+function bindSectionControls(data?: WorkspacePayload): void {
+  bindWorkspaceForm();
+  if (!data) return;
+  bindSubscriptionForm(data);
+  bindTopicForm(data);
+  bindPricingForm();
+}
+
 async function loadCurrentSection(): Promise<void> {
   setLoading(section === "requests" ? "Loading Communications requests…" : "Loading Communications workspace…");
   renderContext(indexPayload.workspaces);
@@ -356,9 +668,14 @@ async function loadCurrentSection(): Promise<void> {
   if (section === "requests") {
     content.innerHTML = renderRequests(await api<RequestsPayload>("requests"));
   } else if (!selectedWorkspaceId) {
-    content.innerHTML = empty("No Communications workspaces exist yet.");
+    content.innerHTML = section === "overview"
+      ? `<div class="communications-admin-grid">${renderWorkspaceForm()}</div>`
+      : empty("Create a Communications workspace from Overview before using this section.");
+    bindSectionControls();
   } else {
-    content.innerHTML = renderWorkspaceSection(await api<WorkspacePayload>("workspace", selectedWorkspaceId));
+    const data = await api<WorkspacePayload>("workspace", selectedWorkspaceId);
+    content.innerHTML = renderWorkspaceSection(data);
+    bindSectionControls(data);
   }
   if (statusLayer) statusLayer.hidden = true;
   document.body.classList.remove("portal-loading");
