@@ -1,0 +1,51 @@
+:root { --communications-line: rgba(14,35,31,.13); --communications-muted: #687671; --communications-green: #1c755e; }
+body { background: #f3f6f4; }
+body.communications-loading main { visibility: hidden; }
+.communications-dashboard-link { padding: .68rem .9rem; color: var(--portal-ink); background: #fff; border: 1px solid var(--portal-line); border-radius: 999px; font-size: .82rem; font-weight: 800; text-decoration: none; }
+.communications-shell { width: min(1180px, calc(100% - 2rem)); margin: 0 auto; padding: 2.5rem 0 5rem; }
+.communications-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 2rem; margin-bottom: 1.25rem; }
+.communications-head h1 { margin: 0; font-family: var(--portal-heading-font), Georgia, serif; font-size: clamp(2.6rem, 6vw, 5rem); line-height: .95; }
+.communications-head > div > p:last-child { max-width: 650px; color: var(--communications-muted); line-height: 1.6; }
+.communications-number { min-width: 270px; padding: 1.25rem 1.4rem; color: #fff; background: var(--portal-deep); border-radius: 15px; }
+.communications-number span, .communications-number small { display: block; color: rgba(255,255,255,.64); font-size: .72rem; font-weight: 700; }
+.communications-number strong { display: block; margin: .35rem 0; font-size: 1.55rem; }
+.communications-alert { margin-bottom: 1rem; padding: 1rem 1.2rem; color: #624331; background: #fff0e8; border-left: 4px solid #ed805e; border-radius: 8px; font-size: .9rem; font-weight: 700; }
+.communications-metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: .8rem; margin-bottom: 1rem; }
+.communications-metrics article, .communications-panel { background: #fff; border: 1px solid var(--communications-line); border-radius: 14px; box-shadow: 0 16px 40px rgba(10,28,24,.05); }
+.communications-metrics article { display: grid; gap: .35rem; padding: 1.15rem; }
+.communications-metrics span { color: var(--communications-muted); font-size: .72rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+.communications-metrics strong { font-size: 2rem; }
+.communications-metrics small { color: var(--communications-muted); }
+.communications-grid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(280px, .6fr); gap: 1rem; margin-bottom: 1rem; }
+.communications-panel { margin-bottom: 1rem; padding: clamp(1rem, 3vw, 1.6rem); }
+.communications-panel-head { display: flex; align-items: end; justify-content: space-between; gap: 1rem; margin-bottom: 1.2rem; }
+.communications-panel h2 { margin: 0; font-family: var(--portal-heading-font), Georgia, serif; font-size: 1.75rem; }
+.communications-panel-head > span { color: var(--communications-muted); font-size: .82rem; }
+.communications-join-tools { display: grid; grid-template-columns: 1.3fr .7fr 1fr; gap: .8rem; }
+.communications-join-tools > div { min-width: 0; padding: 1rem; background: #f6f8f7; border-radius: 10px; }
+.communications-join-tools span, .communications-join-tools small { display: block; color: var(--communications-muted); font-size: .72rem; }
+.communications-join-tools strong { display: block; overflow: hidden; margin: .55rem 0; font-size: .9rem; text-overflow: ellipsis; }
+.communications-join-tools button, .communications-join-tools a { padding: 0; color: var(--communications-green); background: none; border: 0; font-size: .75rem; font-weight: 800; cursor: pointer; }
+.communications-join-tools img { display: block; width: 92px; height: 92px; margin: .5rem 0; background: #fff; }
+.communications-topic-list { display: grid; gap: .6rem; }
+.communications-topic { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .7rem; padding: .8rem; background: #f6f8f7; border-radius: 8px; }
+.communications-topic strong, .communications-topic small { display: block; }
+.communications-topic small { margin-top: .25rem; color: var(--communications-muted); line-height: 1.4; }
+.communications-topic span { color: var(--communications-green); font-weight: 800; }
+.communications-table-wrap { overflow-x: auto; }
+.communications-panel table { width: 100%; border-collapse: collapse; }
+.communications-panel th, .communications-panel td { padding: .85rem; border-bottom: 1px solid var(--communications-line); text-align: left; font-size: .84rem; }
+.communications-panel th { color: var(--communications-muted); font-size: .68rem; letter-spacing: .07em; text-transform: uppercase; }
+.communications-subscriber-name strong, .communications-subscriber-name small { display: block; }
+.communications-subscriber-name small { margin-top: .2rem; color: var(--communications-muted); }
+.communications-channel { display: inline-block; margin: .12rem; padding: .25rem .45rem; color: var(--communications-green); background: #e8f5f0; border-radius: 999px; font-size: .68rem; font-weight: 800; }
+.communications-channel.is-off { color: #7c6760; background: #f3ece9; }
+.communications-empty { padding: 1.25rem; color: var(--communications-muted); background: #f6f8f7; border-radius: 9px; }
+.communications-activity { display: grid; gap: .6rem; }
+.communications-activity-row { display: grid; grid-template-columns: 100px minmax(0, 1fr) auto; align-items: center; gap: 1rem; padding: .8rem; border-bottom: 1px solid var(--communications-line); font-size: .82rem; }
+.communications-activity-row span { color: var(--communications-muted); }
+.communications-status { position: fixed; inset: 0; display: grid; place-items: center; color: var(--portal-ink); background: #f3f6f4; font-weight: 800; }
+body:not(.communications-loading) .communications-status { display: none; }
+
+@media (max-width: 850px) { .communications-metrics { grid-template-columns: repeat(2, 1fr); } .communications-grid, .communications-head { grid-template-columns: 1fr; } .communications-number { min-width: 0; } .communications-join-tools { grid-template-columns: 1fr; } }
+@media (max-width: 540px) { .communications-dashboard-link { display: none; } .communications-metrics { grid-template-columns: 1fr; } .communications-activity-row { grid-template-columns: 80px minmax(0, 1fr); } .communications-activity-row > :last-child { grid-column: 2; } }

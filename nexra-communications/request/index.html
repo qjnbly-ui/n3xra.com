@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Request a Nexra Number</title><meta name="description" content="Request founding access to Nexra Communications.">
+  <meta name="robots" content="index, follow"><link rel="canonical" href="https://n3xra.com/nexra-communications/request/">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/nexra-communications/communications.css?v=1">
+</head>
+<body>
+  <header class="comms-header"><div class="comms-shell comms-header-inner"><a class="comms-brand" href="/nexra-communications/"><img src="/assets/n3xra_logo_transparent_small.png" alt=""><span>NEXRA COMMUNICATIONS</span></a><nav><a href="/nexra-communications/">Overview</a></nav></div></header>
+  <main class="comms-form-section"><form class="comms-form-card" id="number-request-form"><p class="comms-eyebrow">Founding-customer request</p><h1>Request a Nexra Number.</h1><p class="comms-form-intro">Tell us how your organization plans to communicate. We’ll review the request within one business day, confirm the setup, and guide carrier registration.</p><div class="comms-form-grid">
+    <label class="comms-field">Organization name<input name="organizationName" maxlength="180" required></label><label class="comms-field">Website URL<input name="websiteUrl" type="url" placeholder="https://example.org" required></label>
+    <label class="comms-field">Primary contact name<input name="contactName" autocomplete="name" maxlength="160" required></label><label class="comms-field">Primary contact email<input name="contactEmail" type="email" autocomplete="email" required></label>
+    <label class="comms-field">Contact phone<input name="contactPhone" type="tel" autocomplete="tel"></label><label class="comms-field">Preferred area code<input name="areaCode" inputmode="numeric" pattern="[0-9]{3}" maxlength="3" placeholder="541"></label>
+    <label class="comms-field is-wide">How will you use messaging?<textarea name="intendedUse" rows="4" maxlength="2000" required placeholder="Meeting notices, schedule changes, program updates…"></textarea></label>
+    <label class="comms-field">Estimated subscribers<input name="estimatedSubscribers" type="number" min="0" step="1"></label><label class="comms-field">Estimated messages per month<input name="estimatedMessages" type="number" min="0" step="1"></label>
+    <label class="comms-field">Topics subscribers can choose<input name="topics" maxlength="500" placeholder="News, events, closures"></label><label class="comms-field">Preferred text-to-join keyword<input name="keyword" pattern="[A-Za-z0-9]{2,20}" maxlength="20" placeholder="UPDATES"></label>
+    <fieldset class="comms-field is-wide"><legend>Channels needed</legend><div class="comms-checks"><label class="comms-check"><input name="channels" type="checkbox" value="sms"><span>Text messages</span></label><label class="comms-check"><input name="channels" type="checkbox" value="email"><span>Email</span></label></div></fieldset>
+    <label class="comms-field is-wide">Example messages<textarea name="exampleMessages" rows="4" maxlength="3000" required placeholder="Share 2–3 representative messages."></textarea></label>
+    <label class="comms-field">Privacy Policy URL<input name="privacyPolicyUrl" type="url" required></label><label class="comms-field">Terms URL<input name="termsUrl" type="url" required></label>
+    <label class="comms-field comms-honeypot" aria-hidden="true">Company<input name="company" tabindex="-1" autocomplete="off"></label>
+    <div class="comms-field is-wide"><p class="comms-disclosure">Submitting this request does not guarantee number availability or carrier approval. Founding access is $19/month plus a $49 setup fee, applicable message charges, and carrier registration fees at cost.</p><button class="comms-button" type="submit">Submit number request</button><p class="comms-status" id="request-status" role="status"></p></div>
+  </div></form></main>
+  <footer class="comms-footer"><div class="comms-shell"><a href="/privacy/">Privacy</a> · <a href="/terms/">Platform terms</a></div></footer>
+  <script type="module" src="/nexra-communications/request.js?v=1"></script>
+</body></html>
