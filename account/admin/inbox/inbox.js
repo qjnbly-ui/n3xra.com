@@ -74,7 +74,7 @@ async function load() {
   status.textContent = "Loading notifications…";
   const { data, error } = await supabase.from("admin_notifications").select("*").order("created_at", { ascending: false }).limit(1000);
   if (error) throw error;
-  notifications = data || [];
+  notifications = (data || []).filter((item) => item.product !== "utilities");
   render();
   await refreshAdminInboxBadge();
 }

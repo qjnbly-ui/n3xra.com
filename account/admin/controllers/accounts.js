@@ -22,7 +22,6 @@ function productAdminLink(item, account) {
   const params = new URLSearchParams({ user: account.id, email: account.email });
   if (item.organizationId) params.set("organization", item.organizationId);
   if (item.product === "records") return { href: `/n3xra-admin/records/organizations/?${params}`, label: "Open Records admin" };
-  if (item.product === "utilities") return { href: `/n3xra-admin/utilities/?${params}`, label: "Open Utilities admin" };
   if (item.product === "websites") {
     params.delete("organization");
     if (item.organizationId) params.set("website", item.organizationId);
@@ -58,7 +57,7 @@ async function renderSelectedAccount() {
     detail.innerHTML = '<div class="account-admin-section">No account selected.</div>';
     return;
   }
-  const access = Array.isArray(account.access) ? account.access : [];
+  const access = Array.isArray(account.access) ? account.access.filter((item) => item.product !== "utilities") : [];
   const initials = String(account.name || account.email || "?").trim().split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
   const suspended = isAccountSuspended(account);
   const phoneLocked = account.phoneLockedUntil && new Date(account.phoneLockedUntil).getTime() > Date.now();

@@ -98,11 +98,6 @@ This is the authoritative, public-safe knowledge for Ask N3XRA. It describes cur
 - The separate Virals creator program offers approved standard creators a 20% recurring commission and approved Founding Creators a 30% recurring commission. Creator customer codes provide 10% off the first three months.
 - Virals includes its own workspace and saved material. Its plans, billing, and creator referral system are separate from the main N3XRA website and software partner programs.
 
-## N3XRA Utilities
-
-- N3XRA Utilities at /utilities is the utility-focused area for customer portals, onboarding, account configuration, and connected operational modules.
-- Utilities capabilities are configured for the participating organization. Do not promise that every displayed or planned module is active for every customer.
-
 ## Partner programs
 
 - The public partner page is /partners. Applications are reviewed; applying does not guarantee approval.

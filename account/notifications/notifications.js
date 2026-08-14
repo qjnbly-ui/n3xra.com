@@ -35,7 +35,6 @@ const PRODUCT_LABELS = {
   records: "N3XRA Records",
   ai_music: "AI Music Generator",
   virals: "N3XRA Virals",
-  utilities: "N3XRA Utilities",
   all: "All N3XRA accounts",
 };
 
