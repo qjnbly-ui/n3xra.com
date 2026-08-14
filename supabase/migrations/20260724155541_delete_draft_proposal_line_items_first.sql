@@ -36,8 +36,6 @@ begin
     raise exception 'The active client proposal version cannot be deleted.';
   end if;
 
-  -- Remove draft line items while their parent still exists. The line-item
-  -- immutability trigger intentionally verifies the parent is still a draft.
   delete from public.website_proposal_line_items
   where version_id = target_version.id;
 
@@ -54,4 +52,4 @@ end;
 $$;
 
 revoke all on function public.delete_website_proposal_draft_version(uuid) from public;
-grant execute on function public.delete_website_proposal_draft_version(uuid) to authenticated;
+grant execute on function public.delete_website_proposal_draft_version(uuid) to authenticated;;

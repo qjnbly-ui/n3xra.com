@@ -61,4 +61,4 @@ drop policy if exists "founding_partner_applications_delete_policy" on public.fo
 create policy "founding_partner_applications_delete_policy"
 on public.founding_partner_applications
 for delete
-using (public.is_platform_admin());
+using (public.is_platform_admin());;

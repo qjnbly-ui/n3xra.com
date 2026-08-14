@@ -1,4 +1,3 @@
--- Production migration version: 20260813063024.
 -- Draft websites can be explicitly activated for pre-launch portal testing.
 -- Paused and archived websites remain unavailable even if portal_enabled was
 -- previously set, so portal_enabled is not the only access-state safeguard.
@@ -59,3 +58,4 @@ $$;
 
 revoke all on function public.resolve_website_portal(text) from public;
 grant execute on function public.resolve_website_portal(text) to anon, authenticated;
+;

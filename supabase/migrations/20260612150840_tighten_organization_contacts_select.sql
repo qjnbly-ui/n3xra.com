@@ -5,4 +5,4 @@ for select
 using (
   public.can_manage_members(organization_id)
   or public.can_manage_documents(organization_id)
-);
+);;

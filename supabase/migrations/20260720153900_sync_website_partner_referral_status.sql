@@ -34,4 +34,4 @@ revoke all on function private.sync_website_partner_referral_status() from publi
 drop trigger if exists sync_website_partner_referral_status on public.website_service_requests;
 create trigger sync_website_partner_referral_status
 after update of status on public.website_service_requests
-for each row execute function private.sync_website_partner_referral_status();
+for each row execute function private.sync_website_partner_referral_status();;

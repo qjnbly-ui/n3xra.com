@@ -169,4 +169,4 @@ as $$
 $$;
 
 revoke all on function public.claim_records_demo_workspace(text, uuid, text) from public, anon, authenticated;
-grant execute on function public.claim_records_demo_workspace(text, uuid, text) to service_role;
+grant execute on function public.claim_records_demo_workspace(text, uuid, text) to service_role;;

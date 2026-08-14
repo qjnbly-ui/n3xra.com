@@ -80,4 +80,4 @@ with check (
       and proposal.client_user_id = client_user_id
       and proposal.status = 'approved'
   )
-);
+);;

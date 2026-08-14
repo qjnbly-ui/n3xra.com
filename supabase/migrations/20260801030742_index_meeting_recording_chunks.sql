@@ -1,10 +1,5 @@
-create index if not exists meeting_recording_chunks_organization_id_idx
-  on public.meeting_recording_chunks (organization_id);
-create index if not exists meeting_recording_chunks_created_by_user_id_idx
-  on public.meeting_recording_chunks (created_by_user_id);
-create index if not exists meeting_recording_chunks_capture_session_id_idx
-  on public.meeting_recording_chunks (capture_session_id);
-create index if not exists meeting_recording_interruptions_organization_id_idx
-  on public.meeting_recording_interruptions (organization_id);
-create index if not exists meeting_recording_interruptions_created_by_user_id_idx
-  on public.meeting_recording_interruptions (created_by_user_id);
+create index if not exists meeting_recording_chunks_organization_id_idx on public.meeting_recording_chunks (organization_id);
+create index if not exists meeting_recording_chunks_created_by_user_id_idx on public.meeting_recording_chunks (created_by_user_id);
+create index if not exists meeting_recording_chunks_capture_session_id_idx on public.meeting_recording_chunks (capture_session_id);
+create index if not exists meeting_recording_interruptions_organization_id_idx on public.meeting_recording_interruptions (organization_id);
+create index if not exists meeting_recording_interruptions_created_by_user_id_idx on public.meeting_recording_interruptions (created_by_user_id);;

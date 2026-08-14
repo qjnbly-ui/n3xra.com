@@ -1,0 +1,36 @@
+revoke execute on function public.website_member_role(uuid) from anon;
+revoke execute on function public.can_view_client_website(uuid) from anon;
+revoke execute on function public.can_edit_client_website(uuid) from anon;
+revoke execute on function public.can_manage_client_website(uuid) from anon;
+revoke execute on function public.website_storage_path_id(text) from anon;
+revoke execute on function public.next_website_asset_version_number(uuid) from anon;
+
+create index if not exists client_websites_created_by_idx
+on public.client_websites (created_by_user_id);
+
+create index if not exists website_members_invited_by_idx
+on public.website_members (invited_by_user_id);
+
+create index if not exists website_assets_current_version_idx
+on public.website_assets (current_version_id);
+
+create index if not exists website_assets_created_by_idx
+on public.website_assets (created_by_user_id);
+
+create index if not exists website_asset_versions_uploaded_by_idx
+on public.website_asset_versions (uploaded_by_user_id);
+
+create index if not exists website_asset_versions_approved_by_idx
+on public.website_asset_versions (approved_by_user_id);
+
+create index if not exists website_asset_versions_published_by_idx
+on public.website_asset_versions (published_by_user_id);
+
+create index if not exists website_asset_activity_asset_idx
+on public.website_asset_activity (asset_id);
+
+create index if not exists website_asset_activity_version_idx
+on public.website_asset_activity (version_id);
+
+create index if not exists website_asset_activity_actor_idx
+on public.website_asset_activity (actor_user_id);

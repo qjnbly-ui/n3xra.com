@@ -328,4 +328,4 @@ with check (
       and version.status = 'sent'
       and (version.valid_until is null or version.valid_until >= current_date)
   )
-);
+);;

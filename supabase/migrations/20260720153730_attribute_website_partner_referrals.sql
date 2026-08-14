@@ -100,4 +100,4 @@ revoke all on function private.create_website_partner_referral() from public, an
 drop trigger if exists create_website_partner_referral on public.website_service_requests;
 create trigger create_website_partner_referral
 after insert on public.website_service_requests
-for each row execute function private.create_website_partner_referral();
+for each row execute function private.create_website_partner_referral();;

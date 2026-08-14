@@ -7,4 +7,4 @@ add column if not exists rejected_at timestamptz,
 add column if not exists rejection_reason text;
 
 create index if not exists website_asset_versions_rejected_by_user_id_idx
-on public.website_asset_versions (rejected_by_user_id);
+on public.website_asset_versions (rejected_by_user_id);;

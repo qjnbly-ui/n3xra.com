@@ -1,0 +1,7 @@
+create index website_services_created_by_idx on public.website_services (created_by_user_id);
+create index website_domains_created_by_idx on public.website_domains (created_by_user_id);
+create index website_repositories_created_by_idx on public.website_repositories (created_by_user_id);
+create index website_service_requests_service_idx on public.website_service_access_requests (service_id);
+create index website_service_requests_domain_idx on public.website_service_access_requests (domain_id);
+create index website_service_requests_repository_idx on public.website_service_access_requests (repository_id);
+create index website_service_requests_handled_by_idx on public.website_service_access_requests (handled_by_user_id);;

@@ -16,4 +16,4 @@ alter table public.meeting_recordings
 
 alter table public.meeting_recordings
   add constraint meeting_recordings_minutes_style_check
-  check (minutes_style is null or minutes_style in ('brief', 'standard', 'detailed'));
+  check (minutes_style is null or minutes_style in ('brief', 'standard', 'detailed'));;

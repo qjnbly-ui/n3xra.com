@@ -49,4 +49,4 @@ end;
 $$;
 
 revoke all on function public.delete_website_proposal_draft_version(uuid) from public;
-grant execute on function public.delete_website_proposal_draft_version(uuid) to authenticated;
+grant execute on function public.delete_website_proposal_draft_version(uuid) to authenticated;;

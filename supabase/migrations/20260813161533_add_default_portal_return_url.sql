@@ -96,3 +96,4 @@ $$;
 
 revoke all on function public.resolve_website_portal(text) from public;
 grant execute on function public.resolve_website_portal(text) to anon, authenticated;
+;

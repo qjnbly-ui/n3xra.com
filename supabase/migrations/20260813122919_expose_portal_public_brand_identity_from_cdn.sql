@@ -1,4 +1,3 @@
--- Production migration version: 20260813122919.
 -- Published asset versions retain their private source-object metadata after the
 -- publishing workflow creates a separate public CDN copy. Expose only that copy.
 create or replace function public.resolve_website_portal(portal_hostname text)
@@ -84,4 +83,4 @@ as $$
 $$;
 
 revoke all on function public.resolve_website_portal(text) from public;
-grant execute on function public.resolve_website_portal(text) to anon, authenticated;
+grant execute on function public.resolve_website_portal(text) to anon, authenticated;;

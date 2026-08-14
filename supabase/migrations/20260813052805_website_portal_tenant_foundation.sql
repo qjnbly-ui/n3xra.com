@@ -1,4 +1,3 @@
--- Production migration version: 20260813052805.
 -- Bridge the existing website workspace to the broader N3XRA organization model
 -- without changing any existing website_members permissions. Organization linkage
 -- is intentionally nullable until an administrator confirms the correct account.
@@ -33,9 +32,6 @@ comment on column public.client_websites.organization_id is
 comment on column public.client_websites.portal_slug is
 'Stable tenant slug used for {portal_slug}.portal.n3xra.com.';
 
--- Extend the existing public portal discovery function so a portal can resolve
--- from the shared wildcard domain without creating one website_domains row per
--- customer. Custom domains remain supported as optional aliases.
 create or replace function public.resolve_website_portal(portal_hostname text)
 returns table (
   website_id uuid,
@@ -92,4 +88,4 @@ as $$
 $$;
 
 revoke all on function public.resolve_website_portal(text) from public;
-grant execute on function public.resolve_website_portal(text) to anon, authenticated;
+grant execute on function public.resolve_website_portal(text) to anon, authenticated;;

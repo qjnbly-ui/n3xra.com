@@ -195,3 +195,4 @@ cross join (values
   ('overview'), ('progress'), ('files_assets'), ('services'), ('billing'), ('support')
 ) as feature(feature_key)
 on conflict (website_id, feature_key) do nothing;
+;

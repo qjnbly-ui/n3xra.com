@@ -17,4 +17,4 @@ comment on column public.website_service_requests.service_plan_auto_applied is
   'Whether Advanced was applied by the request form because the selected scope exceeded Starter or Starter+ fit.';
 
 comment on column public.website_service_requests.service_plan_reason is
-  'Short client-facing explanation for an automatic Advanced plan recommendation.';
+  'Short client-facing explanation for an automatic Advanced plan recommendation.';;

@@ -370,3 +370,4 @@ $$;
 
 revoke all on function public.transfer_record_packet(uuid, uuid, text, text) from public, anon;
 grant execute on function public.transfer_record_packet(uuid, uuid, text, text) to authenticated;
+;

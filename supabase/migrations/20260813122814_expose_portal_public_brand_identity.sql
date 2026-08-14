@@ -1,4 +1,3 @@
--- Production migration version: 20260813122814.
 -- Expose only the public identity needed to render a white-label portal shell.
 -- Private storage paths and unpublished asset versions remain undiscoverable.
 create or replace function public.resolve_website_portal(portal_hostname text)
@@ -86,4 +85,4 @@ as $$
 $$;
 
 revoke all on function public.resolve_website_portal(text) from public;
-grant execute on function public.resolve_website_portal(text) to anon, authenticated;
+grant execute on function public.resolve_website_portal(text) to anon, authenticated;;

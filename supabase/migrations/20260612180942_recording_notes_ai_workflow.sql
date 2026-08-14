@@ -53,4 +53,4 @@ alter table public.records_ai_usage_events
 
 alter table public.records_ai_usage_events
   add constraint records_ai_usage_events_feature_check
-  check (feature in ('help', 'search', 'recording_notes'));
+  check (feature in ('help', 'search', 'recording_notes'));;
