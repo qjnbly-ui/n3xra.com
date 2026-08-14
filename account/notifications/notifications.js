@@ -5,11 +5,14 @@ import {
 } from "/shared/lib/supabase-client.js";
 import { isPlatformAdminEmail } from "/shared/lib/orgs.js";
 import { arrangeAdminWorkspace } from "/account/admin/admin-navigation.js?v=14";
+import {
+  renderNotificationMessageHtml,
+} from "/account/notifications/notification-message-format.js?v=1";
 
-let setupPanel, notificationPanel, accountNavLink, notificationProductInput, notificationChannelInput, notificationSubjectInput, notificationCtaUrlInput, notificationPreheaderInput, notificationMessageInput, notificationMessageCount, notificationCtaLabelInput, notificationFilterInput, notificationLoadRecipientsButton, notificationSelectVisibleButton, notificationClearSelectedButton, notificationClearDraftButton, notificationSelectedCount, notificationLoadedCount, notificationRecipientList, notificationReviewButton, notificationStatus, notificationReviewModal, notificationReviewClose, notificationReviewCancel, notificationReviewProduct, notificationReviewCount, notificationReviewChannel, notificationReviewSubject, notificationEmailPreview, notificationSendButton, notificationReviewStatus;
+let setupPanel, notificationPanel, accountNavLink, notificationProductInput, notificationChannelInput, notificationSubjectInput, notificationCtaUrlInput, notificationPreheaderInput, notificationMessageInput, notificationMessageCount, notificationFormatToolbar, notificationCtaLabelInput, notificationFilterInput, notificationLoadRecipientsButton, notificationSelectVisibleButton, notificationClearSelectedButton, notificationClearDraftButton, notificationSelectedCount, notificationLoadedCount, notificationRecipientList, notificationReviewButton, notificationStatus, notificationReviewModal, notificationReviewClose, notificationReviewCancel, notificationReviewProduct, notificationReviewCount, notificationReviewChannel, notificationReviewSubject, notificationEmailPreview, notificationSendButton, notificationReviewStatus;
 
 function bindNotificationDom() {
-  setupPanel = document.getElementById("setup-panel"); notificationPanel = document.getElementById("notification-panel"); accountNavLink = document.getElementById("account-nav-link"); notificationProductInput = document.getElementById("notification-product"); notificationChannelInput = document.getElementById("notification-channel"); notificationSubjectInput = document.getElementById("notification-subject"); notificationCtaUrlInput = document.getElementById("notification-cta-url"); notificationPreheaderInput = document.getElementById("notification-preheader"); notificationMessageInput = document.getElementById("notification-message"); notificationMessageCount = document.getElementById("notification-message-count"); notificationCtaLabelInput = document.getElementById("notification-cta-label"); notificationFilterInput = document.getElementById("notification-filter"); notificationLoadRecipientsButton = document.getElementById("notification-load-recipients"); notificationSelectVisibleButton = document.getElementById("notification-select-visible"); notificationClearSelectedButton = document.getElementById("notification-clear-selected"); notificationClearDraftButton = document.getElementById("notification-clear-draft"); notificationSelectedCount = document.getElementById("notification-selected-count"); notificationLoadedCount = document.getElementById("notification-loaded-count"); notificationRecipientList = document.getElementById("notification-recipient-list"); notificationReviewButton = document.getElementById("notification-review"); notificationStatus = document.getElementById("notification-status"); notificationReviewModal = document.getElementById("notification-review-modal"); notificationReviewClose = document.getElementById("notification-review-close"); notificationReviewCancel = document.getElementById("notification-review-cancel"); notificationReviewProduct = document.getElementById("notification-review-product"); notificationReviewCount = document.getElementById("notification-review-count"); notificationReviewChannel = document.getElementById("notification-review-channel"); notificationReviewSubject = document.getElementById("notification-review-subject"); notificationEmailPreview = document.getElementById("notification-email-preview"); notificationSendButton = document.getElementById("notification-send"); notificationReviewStatus = document.getElementById("notification-review-status");
+  setupPanel = document.getElementById("setup-panel"); notificationPanel = document.getElementById("notification-panel"); accountNavLink = document.getElementById("account-nav-link"); notificationProductInput = document.getElementById("notification-product"); notificationChannelInput = document.getElementById("notification-channel"); notificationSubjectInput = document.getElementById("notification-subject"); notificationCtaUrlInput = document.getElementById("notification-cta-url"); notificationPreheaderInput = document.getElementById("notification-preheader"); notificationMessageInput = document.getElementById("notification-message"); notificationMessageCount = document.getElementById("notification-message-count"); notificationFormatToolbar = document.getElementById("notification-format-toolbar"); notificationCtaLabelInput = document.getElementById("notification-cta-label"); notificationFilterInput = document.getElementById("notification-filter"); notificationLoadRecipientsButton = document.getElementById("notification-load-recipients"); notificationSelectVisibleButton = document.getElementById("notification-select-visible"); notificationClearSelectedButton = document.getElementById("notification-clear-selected"); notificationClearDraftButton = document.getElementById("notification-clear-draft"); notificationSelectedCount = document.getElementById("notification-selected-count"); notificationLoadedCount = document.getElementById("notification-loaded-count"); notificationRecipientList = document.getElementById("notification-recipient-list"); notificationReviewButton = document.getElementById("notification-review"); notificationStatus = document.getElementById("notification-status"); notificationReviewModal = document.getElementById("notification-review-modal"); notificationReviewClose = document.getElementById("notification-review-close"); notificationReviewCancel = document.getElementById("notification-review-cancel"); notificationReviewProduct = document.getElementById("notification-review-product"); notificationReviewCount = document.getElementById("notification-review-count"); notificationReviewChannel = document.getElementById("notification-review-channel"); notificationReviewSubject = document.getElementById("notification-review-subject"); notificationEmailPreview = document.getElementById("notification-email-preview"); notificationSendButton = document.getElementById("notification-send"); notificationReviewStatus = document.getElementById("notification-review-status");
 }
 
 let supabase = null;
@@ -57,10 +60,6 @@ function escapeHtml(value) {
     .replaceAll("'", "&#39;");
 }
 
-function nl2br(value) {
-  return escapeHtml(value).replace(/\n/g, "<br>");
-}
-
 function normalizeEmail(value) {
   return String(value || "").trim().toLowerCase();
 }
@@ -76,6 +75,67 @@ function syncNotificationComposer() {
   });
   if (notificationMessageCount) {
     notificationMessageCount.textContent = `${notificationMessageInput?.value.length || 0} / 8,000`;
+  }
+}
+
+function replaceNotificationSelection(replacement, selectionStart, selectionEnd) {
+  if (!notificationMessageInput) return;
+  notificationMessageInput.setRangeText(replacement, selectionStart, selectionEnd, "end");
+  notificationMessageInput.focus();
+  notificationMessageInput.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+function wrapNotificationSelection(prefix, suffix, placeholder) {
+  const start = notificationMessageInput.selectionStart;
+  const end = notificationMessageInput.selectionEnd;
+  const selected = notificationMessageInput.value.slice(start, end) || placeholder;
+  replaceNotificationSelection(`${prefix}${selected}${suffix}`, start, end);
+  notificationMessageInput.setSelectionRange(start + prefix.length, start + prefix.length + selected.length);
+}
+
+function prefixNotificationLines(format) {
+  const value = notificationMessageInput.value;
+  const selectionStart = notificationMessageInput.selectionStart;
+  const selectionEnd = notificationMessageInput.selectionEnd;
+  const lineStart = value.lastIndexOf("\n", Math.max(0, selectionStart - 1)) + 1;
+  const nextLineBreak = value.indexOf("\n", selectionEnd);
+  const lineEnd = nextLineBreak === -1 ? value.length : nextLineBreak;
+  const selectedLines = value.slice(lineStart, lineEnd).split("\n");
+  const replacement = selectedLines.map((line, index) => {
+    if (format === "heading") return `## ${line || "Heading"}`;
+    if (format === "bulleted-list") return `- ${line || "List item"}`;
+    if (format === "numbered-list") return `${index + 1}. ${line || "List item"}`;
+    return `> ${line || "Quote"}`;
+  }).join("\n");
+  replaceNotificationSelection(replacement, lineStart, lineEnd);
+  notificationMessageInput.setSelectionRange(lineStart, lineStart + replacement.length);
+}
+
+function applyNotificationFormat(event) {
+  const button = event.target.closest("button[data-notification-format]");
+  if (!button || !notificationMessageInput) return;
+  const format = button.dataset.notificationFormat;
+
+  if (["heading", "bulleted-list", "numbered-list", "quote"].includes(format)) {
+    prefixNotificationLines(format);
+    return;
+  }
+  if (format === "bold") {
+    wrapNotificationSelection("**", "**", "bold text");
+    return;
+  }
+  if (format === "italic") {
+    wrapNotificationSelection("_", "_", "italic text");
+    return;
+  }
+  if (format === "link") {
+    const start = notificationMessageInput.selectionStart;
+    const end = notificationMessageInput.selectionEnd;
+    const label = notificationMessageInput.value.slice(start, end) || "link text";
+    const replacement = `[${label}](https://)`;
+    replaceNotificationSelection(replacement, start, end);
+    const urlStart = start + label.length + 3;
+    notificationMessageInput.setSelectionRange(urlStart, urlStart + "https://".length);
   }
 }
 
@@ -265,7 +325,7 @@ function renderNotificationReview(payload) {
         <h2>${escapeHtml(payload.subject)}</h2>
         ${payload.preheader ? `<p class="field-note">${escapeHtml(payload.preheader)}</p>` : ""}
       </div>
-      <div class="notification-preview-message">${nl2br(payload.message)}</div>
+      <div class="notification-preview-message">${renderNotificationMessageHtml(payload.message)}</div>
       ${payload.ctaUrl ? `<p><a class="btn button-link" href="${escapeHtml(payload.ctaUrl)}" target="_blank" rel="noopener">${escapeHtml(payload.ctaLabel)}</a></p>` : ""}
       <hr>
       <p class="field-note">First recipients: ${escapeHtml(payload.recipients.slice(0, 8).map((recipient) => recipient.email).join(", "))}${payload.recipients.length > 8 ? "..." : ""}</p>
@@ -331,6 +391,10 @@ function bindEvents() {
   notificationProductInput?.addEventListener("change", resetNotificationRecipients);
   notificationChannelInput?.addEventListener("change", syncNotificationComposer);
   notificationMessageInput?.addEventListener("input", syncNotificationComposer);
+  notificationFormatToolbar?.addEventListener("mousedown", (event) => {
+    if (event.target.closest("button[data-notification-format]")) event.preventDefault();
+  });
+  notificationFormatToolbar?.addEventListener("click", applyNotificationFormat);
   notificationLoadRecipientsButton?.addEventListener("click", loadNotificationRecipients);
   notificationFilterInput?.addEventListener("input", renderNotificationRecipients);
   notificationRecipientList?.addEventListener("change", handleNotificationRecipientToggle);

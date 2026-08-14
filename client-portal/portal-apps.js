@@ -1,4 +1,5 @@
 import { createBrowserSupabase, getSessionOrNull, hasConfig } from "/shared/lib/supabase-client.js";
+import { setStoredActiveOrganizationId } from "/shared/lib/orgs.js";
 import { resolvePortalTenant } from "./tenant-context.js";
 const appGrid = document.querySelector("#portal-app-grid");
 const appStatus = document.querySelector("#portal-app-status");
@@ -27,7 +28,10 @@ function statusBadge(value) {
     return "Available";
 }
 function appMarkup(app) {
-    return `<a class="portal-app-card" href="${escapeHtml(app.href)}" data-portal-app="${escapeHtml(app.key)}">
+    const organizationAttribute = app.organizationId
+        ? ` data-portal-app-organization="${escapeHtml(app.organizationId)}"`
+        : "";
+    return `<a class="portal-app-card" href="${escapeHtml(app.href)}" data-portal-app="${escapeHtml(app.key)}"${organizationAttribute}>
     <span class="portal-app-icon is-${escapeHtml(app.iconKey)}" aria-hidden="true"></span>
     <span class="portal-app-copy">
       <span class="portal-app-badge">${escapeHtml(app.badge)}</span>
@@ -45,6 +49,8 @@ function renderApps(apps) {
         appStatus.hidden = true;
 }
 function openOnlyAvailableApp(app) {
+    if (app.organizationId)
+        setStoredActiveOrganizationId(app.organizationId);
     window.location.replace(app.href);
 }
 function routeOrRenderApps(apps) {
@@ -86,49 +92,54 @@ async function loadPortalApps() {
     if (tenant.mode !== "tenant") {
         return;
     }
+    const { data: website, error: websiteError } = await supabase
+        .from("client_websites")
+        .select("id,organization_id")
+        .eq("id", tenant.website_id)
+        .maybeSingle();
+    if (websiteError)
+        throw websiteError;
     const apps = [websiteApp()];
-    const { data: membershipRows, error: membershipError } = await supabase
-        .from("organization_memberships")
-        .select("organization_id")
-        .eq("user_id", session.user.id);
-    if (membershipError)
-        throw membershipError;
-    const organizationIds = [
-        ...new Set((membershipRows || [])
-            .map((row) => String(row.organization_id || ""))
-            .filter(Boolean)),
-    ];
-    if (!organizationIds.length) {
+    const organizationId = String(website?.organization_id || "");
+    if (!organizationId) {
         routeOrRenderApps(apps);
         return;
     }
     const { data, error } = await supabase
         .from("organization_product_entitlements")
-        .select("product_key,status,portal_enabled,product:n3xra_product_catalog(product_key,name,description,portal_path,icon_key,sort_order,status,client_portal_available)")
-        .in("organization_id", organizationIds)
+        .select("organization_id,product_key,status,portal_enabled,product:n3xra_product_catalog(product_key,name,description,portal_path,icon_key,sort_order,status,client_portal_available)")
+        .eq("organization_id", organizationId)
         .eq("portal_enabled", true)
         .in("status", ["trialing", "active", "past_due"]);
     if (error)
         throw error;
-    const renderedProducts = new Set();
     for (const entitlement of (data || [])) {
         const product = productFrom(entitlement);
         const path = safePortalPath(product?.portal_path || "");
-        if (!product || !path || product.status !== "active" || !product.client_portal_available || renderedProducts.has(product.product_key))
+        if (!product || !path || product.status !== "active" || !product.client_portal_available)
             continue;
-        renderedProducts.add(product.product_key);
+        const href = product.product_key === "records"
+            ? `${path}?support_org=${encodeURIComponent(organizationId)}`
+            : path;
         apps.push({
             key: product.product_key,
             name: product.name,
             description: product.description,
-            href: path,
+            href,
             iconKey: product.icon_key,
             badge: statusBadge(entitlement.status),
             sortOrder: Number(product.sort_order || 100),
+            organizationId,
         });
     }
     routeOrRenderApps(apps);
 }
+appGrid?.addEventListener("click", (event) => {
+    const link = event.target.closest("[data-portal-app-organization]");
+    if (!link)
+        return;
+    setStoredActiveOrganizationId(link.dataset.portalAppOrganization || "");
+});
 void loadPortalApps().catch((error) => {
     console.warn("Portal applications could not be loaded.", error);
     openOnlyAvailableApp(websiteApp());

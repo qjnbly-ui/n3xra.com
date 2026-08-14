@@ -1,4 +1,8 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.8";
+import {
+  notificationMessageToPlainText,
+  renderNotificationMessageHtml,
+} from "../_shared/platform-notifications/notification-message-format.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -771,10 +775,11 @@ function buildNotificationText(options: {
   ctaUrl: string;
   ctaLabel: string;
 }) {
+  const plainMessage = notificationMessageToPlainText(options.message);
   return [
     `${options.productLabel} update`,
     "",
-    options.message,
+    plainMessage,
     "",
     options.ctaUrl ? `${options.ctaLabel}: ${options.ctaUrl}` : "",
     "",
@@ -788,9 +793,10 @@ function buildNotificationSms(options: {
   ctaUrl: string;
   ctaLabel: string;
 }) {
+  const plainMessage = notificationMessageToPlainText(options.message);
   return [
     `${options.productLabel}:`,
-    options.message,
+    plainMessage,
     options.ctaUrl ? `${options.ctaLabel}: ${options.ctaUrl}` : "",
     "Reply STOP to opt out or HELP for help.",
   ].filter(Boolean).join("\n\n").slice(0, 1200);
@@ -807,7 +813,7 @@ function buildNotificationHtml(options: {
   const safeProduct = escapeHtml(options.productLabel);
   const safeSubject = escapeHtml(options.subject);
   const safePreheader = escapeHtml(options.preheader);
-  const safeMessage = escapeHtml(options.message).replace(/\n/g, "<br>");
+  const safeMessage = renderNotificationMessageHtml(options.message);
   const safeCtaUrl = escapeHtml(options.ctaUrl);
   const safeCtaLabel = escapeHtml(options.ctaLabel || "Open N3XRA");
 

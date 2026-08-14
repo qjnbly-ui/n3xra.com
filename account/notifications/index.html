@@ -18,7 +18,7 @@
   <link rel="stylesheet" href="/client-portal/portal.css?v=16">
   <link rel="stylesheet" href="/account/admin/admin.css?v=24">
   <link rel="stylesheet" href="/assets/home-shell.css?v=1">
-  <link rel="stylesheet" href="/account/notifications/notifications.css?v=8">
+  <link rel="stylesheet" href="/account/notifications/notifications.css?v=9">
   <script src="/shared/config.js"></script>
   <script src="/assets/site-nav.js" defer></script>
   <script>
@@ -122,8 +122,21 @@
               </div>
               <div class="field notification-message-field">
                 <label class="notification-message-label" for="notification-message">Message <span id="notification-message-count">0 / 8,000</span></label>
-                <textarea id="notification-message" rows="12" maxlength="8000" placeholder="Write your message…"></textarea>
-                <small class="field-note">Text delivery is limited to accounts with active SMS consent.</small>
+                <div class="notification-message-editor">
+                  <div class="notification-format-toolbar" id="notification-format-toolbar" role="toolbar" aria-label="Message formatting">
+                    <button type="button" data-notification-format="heading" aria-label="Heading" title="Heading">H2</button>
+                    <span class="notification-format-divider" aria-hidden="true"></span>
+                    <button type="button" data-notification-format="bold" aria-label="Bold" title="Bold"><strong>B</strong></button>
+                    <button type="button" data-notification-format="italic" aria-label="Italic" title="Italic"><em>I</em></button>
+                    <span class="notification-format-divider" aria-hidden="true"></span>
+                    <button type="button" data-notification-format="bulleted-list" aria-label="Bulleted list" title="Bulleted list">• List</button>
+                    <button type="button" data-notification-format="numbered-list" aria-label="Numbered list" title="Numbered list">1. List</button>
+                    <button type="button" data-notification-format="quote" aria-label="Quote" title="Quote">“ ”</button>
+                    <button type="button" data-notification-format="link" aria-label="Link" title="Link">Link</button>
+                  </div>
+                  <textarea id="notification-message" rows="12" maxlength="8000" placeholder="Write your message…"></textarea>
+                </div>
+                <small class="field-note">Formatting is rendered in email and converted to clean plain text for SMS. Text delivery is limited to accounts with active SMS consent.</small>
               </div>
               <div class="notification-link-fields">
                 <div class="field">
@@ -187,6 +200,6 @@
     </div>
   </footer>
 
-  <script type="module" src="/account/notifications/notifications.js?v=9"></script>
+  <script type="module" src="/account/notifications/notifications.js?v=10"></script>
 </body>
 </html>
