@@ -76,7 +76,21 @@ test("the browser uses admin-session only as a gate and reads through the protec
   assert.match(source, /Not configured/);
   assert.match(source, /Pending verification/);
   assert.match(source, /Pending carrier registration/);
+  assert.match(source, /Email: \$\{email\.label\}/);
+  assert.match(source, /Texting: \$\{sms\.label\}/);
+  assert.match(source, /upsert_communications_subscriber: "Add or update subscriber"/);
+  assert.match(source, /qr_campaign: "QR campaign"/);
   assert.match(source, /No approval or provisioning controls are available/);
+  assert.equal((compiled.match(/Read-only release/g) || []).length, 1);
+});
+
+test("the desktop navigation and empty states stay compact", async () => {
+  const styles = await projectFile("n3xra-admin/communications/communications-admin.css");
+
+  assert.match(styles, /communications-admin-context-layout[^}]*grid-template-columns: 220px minmax\(0, 1fr\)/);
+  assert.match(styles, /communications-admin-page > \.portal-layout \{ grid-template-columns: 210px minmax\(0, 1fr\)/);
+  assert.match(styles, /communications-admin-empty[^}]*min-height: 72px/);
+  assert.match(styles, /communications-admin-card\.is-empty > header/);
 });
 
 test("the Communications Admin endpoint independently requires an active platform admin", async () => {

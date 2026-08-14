@@ -10,7 +10,7 @@ html.communications-admin-root { background: var(--communications-admin-surface)
 .communications-admin-page > .portal-layout { min-height: 0; }
 .communications-admin-page .portal-layout > .portal-workspace { min-width: 0; min-height: 0; padding: 0 !important; overflow: hidden; }
 .communications-admin-frame { width: 100%; height: 100%; min-width: 0; min-height: 0; background: var(--communications-admin-surface); }
-.communications-admin-context-layout { display: grid; grid-template-columns: 300px minmax(0, 1fr); width: 100%; height: 100%; min-width: 0; min-height: 0; overflow: hidden; }
+.communications-admin-context-layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); width: 100%; height: 100%; min-width: 0; min-height: 0; overflow: hidden; }
 .communications-admin-context { min-width: 0; height: 100%; overflow-y: auto; background: #fff; border-right: 1px solid var(--communications-admin-border); }
 .communications-admin-context-head { padding: 1.3rem 1.25rem 1.1rem; border-bottom: 1px solid var(--communications-admin-border); }
 .communications-admin-context-head .portal-kicker { margin: 0 0 .75rem; }
@@ -20,7 +20,6 @@ html.communications-admin-root { background: var(--communications-admin-surface)
 .communications-admin-context-card > span { color: #287a72; font-size: .62rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
 .communications-admin-context-card > strong { font-size: .86rem; line-height: 1.3; }
 .communications-admin-context-card > small { color: var(--portal-muted); font-size: .68rem; line-height: 1.4; }
-.communications-admin-context-card > div { margin-top: .55rem; }
 .communications-admin-context-nav { display: grid; padding: .2rem .7rem 1rem; }
 .communications-admin-context-nav p { margin: .6rem .55rem; color: #287a72; font-size: .62rem; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; }
 .communications-admin-context-nav a { padding: .67rem .75rem; color: var(--portal-muted); border-radius: 7px; font-size: .74rem; font-weight: 700; text-decoration: none; }
@@ -60,6 +59,7 @@ html.communications-admin-root { background: var(--communications-admin-surface)
 .communications-admin-grid .full-width { grid-column: 1 / -1; }
 .communications-admin-card { min-width: 0; padding: 1.25rem 1.35rem; background: #fff; border: 1px solid var(--communications-admin-border); }
 .communications-admin-card > header { margin-bottom: 1rem; }
+.communications-admin-card.is-empty > header { margin-bottom: .35rem; }
 .communications-admin-card > header h2 { margin: .18rem 0; font: 700 1.15rem Fraunces, Georgia, serif; }
 .communications-admin-card > header p:not(.portal-kicker) { margin: .3rem 0 0; color: var(--portal-muted); font-size: .72rem; line-height: 1.5; }
 .communications-admin-readiness { display: grid; gap: .7rem; }
@@ -86,7 +86,7 @@ html.communications-admin-root { background: var(--communications-admin-surface)
 .communications-admin-table-wrap td strong,
 .communications-admin-table-wrap td small { display: block; }
 .communications-admin-table-wrap td small { margin-top: .25rem; color: var(--portal-muted); }
-.communications-admin-empty { display: grid; place-content: center; min-height: 140px; padding: 1rem; text-align: center; }
+.communications-admin-empty { display: grid; place-content: center; min-height: 72px; padding: .5rem; text-align: center; }
 .communications-admin-empty p { max-width: 420px; margin: .3rem 0 0; color: var(--portal-muted); font-size: .72rem; }
 .communications-admin-loading { display: grid; place-content: center; justify-items: center; min-height: 360px; color: var(--portal-muted); font-size: .75rem; }
 .communications-admin-loading span { width: 28px; height: 28px; border: 3px solid #d7e2e4; border-top-color: var(--communications-admin-accent); border-radius: 50%; animation: communications-admin-spin .8s linear infinite; }
@@ -106,7 +106,7 @@ html.communications-admin-root { background: var(--communications-admin-surface)
   html.communications-admin-root { height: 100%; overflow: hidden; overscroll-behavior: none; }
   body.communications-admin-product { height: 100svh; overflow: hidden; }
   .communications-admin-page { height: calc(100svh - 76px); min-height: 0 !important; overflow: hidden; }
-  .communications-admin-page > .portal-layout { height: 100%; min-height: 0 !important; overflow: hidden; }
+  .communications-admin-page > .portal-layout { grid-template-columns: 210px minmax(0, 1fr); height: 100%; min-height: 0 !important; overflow: hidden; }
   .communications-admin-page .portal-nav { position: relative; top: auto; height: 100%; }
   .communications-admin-page .portal-layout > .portal-workspace { height: 100%; }
 }

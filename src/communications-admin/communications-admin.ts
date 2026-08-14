@@ -81,6 +81,25 @@ const pageDetails: Record<SectionKey, { title: string; description: string }> = 
   requests: { title: "Requests", description: "Read-only review queue for Communications and number requests." },
 };
 
+const displayLabels: Record<string, string> = {
+  call_external_webhook: "Call external webhook",
+  mms: "MMS",
+  notify_organization: "Notify organization",
+  qr_campaign: "QR campaign",
+  queue_autoresponder: "Queue automatic reply",
+  record_consent: "Record consent",
+  resend: "Resend",
+  save_submission: "Save submission",
+  save_topics: "Save topic preferences",
+  sms: "SMS",
+  sms_keyword: "SMS keyword",
+  subscribe_email: "Subscribe to email",
+  subscribe_sms: "Subscribe to text messages",
+  twilio: "Twilio",
+  upsert_communications_subscriber: "Add or update subscriber",
+  website_embed: "Website embed",
+};
+
 let adminContext: AdminSessionContext;
 let indexPayload: IndexPayload;
 let selectedWorkspaceId = "";
@@ -91,7 +110,9 @@ function escapeHtml(value: unknown): string {
 
 function label(value: unknown, fallback = "Not configured"): string {
   const text = String(value || "").trim();
-  return text ? text.replaceAll("_", " ").replace(/\b\w/g, (character) => character.toUpperCase()) : fallback;
+  if (!text) return fallback;
+  const normalized = text.toLowerCase();
+  return displayLabels[normalized] || normalized.replaceAll("_", " ").replace(/\b\w/g, (character) => character.toUpperCase());
 }
 
 function formatDate(value: unknown): string {
@@ -127,7 +148,8 @@ function fact(labelText: string, value: unknown): string {
 }
 
 function card(title: string, copy: string, body: string, extraClass = ""): string {
-  return `<section class="communications-admin-card${extraClass ? ` ${extraClass}` : ""}"><header><div><p class="portal-kicker">Read-only</p><h2>${escapeHtml(title)}</h2><p>${escapeHtml(copy)}</p></div></header>${body}</section>`;
+  const emptyClass = body.includes("communications-admin-empty") ? " is-empty" : "";
+  return `<section class="communications-admin-card${emptyClass}${extraClass ? ` ${extraClass}` : ""}"><header><div><h2>${escapeHtml(title)}</h2><p>${escapeHtml(copy)}</p></div></header>${body}</section>`;
 }
 
 async function api<T>(scope: string, workspaceId = ""): Promise<T> {
@@ -184,7 +206,7 @@ function renderContext(workspaces: WorkspaceChoice[]): void {
       <p class="portal-kicker">Organization workspace</p>
       <label>Working with<select id="communications-workspace-select"${workspaces.length ? "" : " disabled"}>${workspaceOptions}</select></label>
     </div>
-    ${current ? `<section class="communications-admin-context-card"><span>${escapeHtml(label(current.status))}</span><strong>${escapeHtml(current.organization?.name || current.sender_name)}</strong><small>${escapeHtml(current.program_name)}</small><div>${badge("Read-only release", "pending")}</div></section>` : ""}
+    ${current ? `<section class="communications-admin-context-card"><span>${escapeHtml(label(current.status))}</span><strong>${escapeHtml(current.organization?.name || current.sender_name)}</strong><small>${escapeHtml(current.program_name)}</small></section>` : ""}
     <nav class="communications-admin-context-nav" aria-label="Selected Communications workspace sections">
       <p>Workspace</p>${navigation("workspace")}
       <p>Readiness & activation</p>${navigation("readiness")}
@@ -215,7 +237,7 @@ function renderOverview(data: WorkspacePayload): string {
   return `
     <section class="communications-admin-summary">
       <div><p class="portal-kicker">${escapeHtml(label(data.workspace.status))} workspace</p><h2>${escapeHtml(data.organization?.name || data.workspace.sender_name)}</h2><p>${escapeHtml(data.workspace.program_name)} · ${escapeHtml(data.workspace.slug)}</p></div>
-      <div class="communications-admin-summary-badges">${badge(email.label, email.tone)}${badge(sms.label, sms.tone)}</div>
+      <div class="communications-admin-summary-badges">${badge(`Email: ${email.label}`, email.tone)}${badge(`Texting: ${sms.label}`, sms.tone)}</div>
     </section>
     <section class="communications-admin-metrics">
       ${fact("Subscribers", Number(metrics.total_subscribers || 0).toLocaleString())}
