@@ -4,12 +4,13 @@
 create table public.communications_admin_audit_log (
   id uuid primary key default gen_random_uuid(),
   idempotency_key uuid not null unique,
-  actor_user_id uuid references auth.users (id) on delete set null,
-  organization_id uuid references public.organizations (id) on delete set null,
-  workspace_id uuid references public.communications_workspaces (id) on delete set null,
+  actor_user_id uuid not null,
+  organization_id uuid not null,
+  workspace_id uuid not null,
   action text not null,
   entity_type text not null,
   entity_id uuid,
+  identity_snapshot jsonb not null,
   before_state jsonb,
   after_state jsonb,
   result jsonb not null,
@@ -19,6 +20,13 @@ create table public.communications_admin_audit_log (
     check (action in ('provision_workspace', 'save_form', 'save_topic', 'update_pricing')),
   constraint communications_admin_audit_entity_type_check
     check (entity_type in ('communications_workspace', 'website_form', 'communications_topic', 'communications_pricing')),
+  constraint communications_admin_audit_identity_snapshot_check
+    check (
+      jsonb_typeof(identity_snapshot) = 'object'
+      and jsonb_typeof(identity_snapshot -> 'actor') = 'object'
+      and jsonb_typeof(identity_snapshot -> 'organization') = 'object'
+      and jsonb_typeof(identity_snapshot -> 'workspace') = 'object'
+    ),
   constraint communications_admin_audit_before_state_check
     check (before_state is null or jsonb_typeof(before_state) = 'object'),
   constraint communications_admin_audit_after_state_check
@@ -36,7 +44,7 @@ create index communications_admin_audit_actor_created_idx
 
 alter table public.communications_admin_audit_log enable row level security;
 revoke all on public.communications_admin_audit_log from public, anon, authenticated;
-grant all on public.communications_admin_audit_log to service_role;
+grant select, insert on public.communications_admin_audit_log to service_role;
 
 create or replace function public.communications_admin_audit_immutable()
 returns trigger
@@ -54,6 +62,10 @@ drop trigger if exists communications_admin_audit_immutable on public.communicat
 create trigger communications_admin_audit_immutable
 before update or delete on public.communications_admin_audit_log
 for each row execute function public.communications_admin_audit_immutable();
+drop trigger if exists communications_admin_audit_immutable_truncate on public.communications_admin_audit_log;
+create trigger communications_admin_audit_immutable_truncate
+before truncate on public.communications_admin_audit_log
+for each statement execute function public.communications_admin_audit_immutable();
 
 create or replace function public.communications_admin_provision_workspace(
   input_actor_user_id uuid,
@@ -84,6 +96,8 @@ set search_path = ''
 as $$
 declare
   prior_audit public.communications_admin_audit_log%rowtype;
+  actor_admin public.platform_admins%rowtype;
+  target_organization public.organizations%rowtype;
   prior_workspace public.communications_workspaces%rowtype;
   target_workspace public.communications_workspaces%rowtype;
   operation_result jsonb;
@@ -93,10 +107,11 @@ begin
   end if;
   perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(input_idempotency_key::text, 0));
 
-  if not exists (
-    select 1 from public.platform_admins
-    where user_id = input_actor_user_id and status = 'active' and role in ('owner', 'admin')
-  ) then
+  select * into actor_admin
+  from public.platform_admins
+  where user_id = input_actor_user_id and status = 'active' and role in ('owner', 'admin')
+  for share;
+  if not found then
     raise exception 'Active platform administrator access is required.';
   end if;
 
@@ -110,9 +125,11 @@ begin
     return prior_audit.result;
   end if;
 
-  if input_organization_id is null or not exists (
-    select 1 from public.organizations where id = input_organization_id
-  ) then
+  select * into target_organization
+  from public.organizations
+  where id = input_organization_id
+  for share;
+  if input_organization_id is null or not found then
     raise exception 'Choose a valid organization.';
   end if;
   if input_website_id is not null and not exists (
@@ -238,11 +255,16 @@ begin
 
   insert into public.communications_admin_audit_log (
     idempotency_key, actor_user_id, organization_id, workspace_id, action,
-    entity_type, entity_id, before_state, after_state, result, metadata
+    entity_type, entity_id, identity_snapshot, before_state, after_state, result, metadata
   ) values (
     input_idempotency_key, input_actor_user_id, input_organization_id,
     target_workspace.id, 'provision_workspace', 'communications_workspace',
     target_workspace.id,
+    jsonb_build_object(
+      'actor', jsonb_build_object('user_id', actor_admin.user_id, 'email', actor_admin.email, 'role', actor_admin.role),
+      'organization', jsonb_build_object('id', target_organization.id, 'name', target_organization.name, 'slug', target_organization.slug),
+      'workspace', jsonb_build_object('id', target_workspace.id, 'slug', target_workspace.slug, 'program_name', target_workspace.program_name, 'sender_name', target_workspace.sender_name)
+    ),
     case when input_workspace_id is null then null else to_jsonb(prior_workspace) end,
     to_jsonb(target_workspace), operation_result,
     jsonb_build_object('website_id', input_website_id, 'entitlement_status', input_entitlement_status)
@@ -278,6 +300,8 @@ set search_path = ''
 as $$
 declare
   prior_audit public.communications_admin_audit_log%rowtype;
+  actor_admin public.platform_admins%rowtype;
+  target_organization public.organizations%rowtype;
   target_workspace public.communications_workspaces%rowtype;
   prior_form public.website_forms%rowtype;
   target_form public.website_forms%rowtype;
@@ -288,10 +312,11 @@ begin
     raise exception 'Idempotency key is required.';
   end if;
   perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(input_idempotency_key::text, 0));
-  if not exists (
-    select 1 from public.platform_admins
-    where user_id = input_actor_user_id and status = 'active' and role in ('owner', 'admin')
-  ) then raise exception 'Active platform administrator access is required.'; end if;
+  select * into actor_admin
+  from public.platform_admins
+  where user_id = input_actor_user_id and status = 'active' and role in ('owner', 'admin')
+  for share;
+  if not found then raise exception 'Active platform administrator access is required.'; end if;
 
   select * into prior_audit from public.communications_admin_audit_log
   where idempotency_key = input_idempotency_key;
@@ -303,6 +328,9 @@ begin
   select * into target_workspace from public.communications_workspaces
   where id = input_workspace_id for update;
   if not found then raise exception 'Communications workspace not found.'; end if;
+  select * into target_organization from public.organizations
+  where id = target_workspace.organization_id for share;
+  if not found then raise exception 'Workspace organization not found.'; end if;
   if not exists (
     select 1 from public.communications_workspace_websites
     where workspace_id = input_workspace_id and website_id = input_website_id
@@ -433,10 +461,15 @@ begin
   );
   insert into public.communications_admin_audit_log (
     idempotency_key, actor_user_id, organization_id, workspace_id, action,
-    entity_type, entity_id, before_state, after_state, result, metadata
+    entity_type, entity_id, identity_snapshot, before_state, after_state, result, metadata
   ) values (
     input_idempotency_key, input_actor_user_id, target_workspace.organization_id,
     input_workspace_id, 'save_form', 'website_form', target_form.id,
+    jsonb_build_object(
+      'actor', jsonb_build_object('user_id', actor_admin.user_id, 'email', actor_admin.email, 'role', actor_admin.role),
+      'organization', jsonb_build_object('id', target_organization.id, 'name', target_organization.name, 'slug', target_organization.slug),
+      'workspace', jsonb_build_object('id', target_workspace.id, 'slug', target_workspace.slug, 'program_name', target_workspace.program_name, 'sender_name', target_workspace.sender_name)
+    ),
     case when input_form_id is null then null else to_jsonb(prior_form) end,
     to_jsonb(target_form), operation_result,
     jsonb_build_object('website_id', input_website_id, 'email_enabled', input_email_enabled, 'sms_enabled', input_sms_enabled)
@@ -463,6 +496,8 @@ set search_path = ''
 as $$
 declare
   prior_audit public.communications_admin_audit_log%rowtype;
+  actor_admin public.platform_admins%rowtype;
+  target_organization public.organizations%rowtype;
   target_workspace public.communications_workspaces%rowtype;
   prior_topic public.communications_topics%rowtype;
   target_topic public.communications_topics%rowtype;
@@ -472,17 +507,22 @@ begin
     raise exception 'Idempotency key is required.';
   end if;
   perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(input_idempotency_key::text, 0));
-  if not exists (
-    select 1 from public.platform_admins
-    where user_id = input_actor_user_id and status = 'active' and role in ('owner', 'admin')
-  ) then raise exception 'Active platform administrator access is required.'; end if;
+  select * into actor_admin
+  from public.platform_admins
+  where user_id = input_actor_user_id and status = 'active' and role in ('owner', 'admin')
+  for share;
+  if not found then raise exception 'Active platform administrator access is required.'; end if;
   select * into prior_audit from public.communications_admin_audit_log where idempotency_key = input_idempotency_key;
   if found then
     if prior_audit.action <> 'save_topic' then raise exception 'Idempotency key was already used for another operation.'; end if;
     return prior_audit.result;
   end if;
-  select * into target_workspace from public.communications_workspaces where id = input_workspace_id;
+  select * into target_workspace from public.communications_workspaces
+  where id = input_workspace_id for share;
   if not found then raise exception 'Communications workspace not found.'; end if;
+  select * into target_organization from public.organizations
+  where id = target_workspace.organization_id for share;
+  if not found then raise exception 'Workspace organization not found.'; end if;
   if btrim(coalesce(input_slug, '')) !~ '^[a-z0-9]+(?:-[a-z0-9]+)*$' then raise exception 'Topic slug is invalid.'; end if;
   if length(btrim(coalesce(input_name, ''))) not between 2 and 120 then raise exception 'Topic name is required.'; end if;
   if input_sort_order not between 0 and 10000 then raise exception 'Topic order is invalid.'; end if;
@@ -509,10 +549,15 @@ begin
   );
   insert into public.communications_admin_audit_log (
     idempotency_key, actor_user_id, organization_id, workspace_id, action,
-    entity_type, entity_id, before_state, after_state, result
+    entity_type, entity_id, identity_snapshot, before_state, after_state, result
   ) values (
     input_idempotency_key, input_actor_user_id, target_workspace.organization_id,
     input_workspace_id, 'save_topic', 'communications_topic', target_topic.id,
+    jsonb_build_object(
+      'actor', jsonb_build_object('user_id', actor_admin.user_id, 'email', actor_admin.email, 'role', actor_admin.role),
+      'organization', jsonb_build_object('id', target_organization.id, 'name', target_organization.name, 'slug', target_organization.slug),
+      'workspace', jsonb_build_object('id', target_workspace.id, 'slug', target_workspace.slug, 'program_name', target_workspace.program_name, 'sender_name', target_workspace.sender_name)
+    ),
     case when input_topic_id is null then null else to_jsonb(prior_topic) end,
     to_jsonb(target_topic), operation_result
   );
@@ -537,6 +582,8 @@ set search_path = ''
 as $$
 declare
   prior_audit public.communications_admin_audit_log%rowtype;
+  actor_admin public.platform_admins%rowtype;
+  target_organization public.organizations%rowtype;
   prior_workspace public.communications_workspaces%rowtype;
   target_workspace public.communications_workspaces%rowtype;
   prior_entitlement public.organization_product_entitlements%rowtype;
@@ -547,10 +594,11 @@ begin
     raise exception 'Idempotency key is required.';
   end if;
   perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(input_idempotency_key::text, 0));
-  if not exists (
-    select 1 from public.platform_admins
-    where user_id = input_actor_user_id and status = 'active' and role in ('owner', 'admin')
-  ) then raise exception 'Active platform administrator access is required.'; end if;
+  select * into actor_admin
+  from public.platform_admins
+  where user_id = input_actor_user_id and status = 'active' and role in ('owner', 'admin')
+  for share;
+  if not found then raise exception 'Active platform administrator access is required.'; end if;
   select * into prior_audit from public.communications_admin_audit_log where idempotency_key = input_idempotency_key;
   if found then
     if prior_audit.action <> 'update_pricing' then raise exception 'Idempotency key was already used for another operation.'; end if;
@@ -568,6 +616,9 @@ begin
   select * into prior_workspace from public.communications_workspaces
   where id = input_workspace_id for update;
   if not found then raise exception 'Communications workspace not found.'; end if;
+  select * into target_organization from public.organizations
+  where id = prior_workspace.organization_id for share;
+  if not found then raise exception 'Workspace organization not found.'; end if;
   select * into prior_entitlement from public.organization_product_entitlements
   where organization_id = prior_workspace.organization_id and product_key = 'communications'
   for update;
@@ -607,10 +658,15 @@ begin
   );
   insert into public.communications_admin_audit_log (
     idempotency_key, actor_user_id, organization_id, workspace_id, action,
-    entity_type, entity_id, before_state, after_state, result, metadata
+    entity_type, entity_id, identity_snapshot, before_state, after_state, result, metadata
   ) values (
     input_idempotency_key, input_actor_user_id, target_workspace.organization_id,
     input_workspace_id, 'update_pricing', 'communications_pricing', input_workspace_id,
+    jsonb_build_object(
+      'actor', jsonb_build_object('user_id', actor_admin.user_id, 'email', actor_admin.email, 'role', actor_admin.role),
+      'organization', jsonb_build_object('id', target_organization.id, 'name', target_organization.name, 'slug', target_organization.slug),
+      'workspace', jsonb_build_object('id', target_workspace.id, 'slug', target_workspace.slug, 'program_name', target_workspace.program_name, 'sender_name', target_workspace.sender_name)
+    ),
     jsonb_build_object('workspace', to_jsonb(prior_workspace), 'entitlement', to_jsonb(prior_entitlement)),
     jsonb_build_object('workspace', to_jsonb(target_workspace), 'entitlement', to_jsonb(target_entitlement)),
     operation_result, jsonb_build_object('portal_enabled', input_portal_enabled)
@@ -650,7 +706,7 @@ grant execute on function public.communications_admin_update_pricing(
 ) to service_role;
 
 comment on table public.communications_admin_audit_log is
-  'Immutable audit records for trusted Communications Admin provisioning operations.';
+  'Permanently append-only audit records with historical identity snapshots for trusted Communications Admin provisioning operations.';
 comment on function public.communications_admin_provision_workspace(
   uuid, uuid, uuid, uuid, uuid, text, text, text, text, text, text, text,
   text, text, text, text, boolean, integer, integer, integer
