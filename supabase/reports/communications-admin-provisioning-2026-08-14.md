@@ -9,7 +9,10 @@ This repository-only release adds the first trusted Communications Admin mutatio
 - The reconciled production-aligned base remains the verified 144-migration sequence ending in `20260814033028_roots_relics_communications_seed_forward.sql`.
 - The repository now contains 145 migrations because `20260814173124_communications_admin_provisioning.sql` is the first new migration after that verified base.
 - The new migration has not been applied to production.
-- A local database replay was not run because the local Docker daemon was unavailable. The migration received static contract and security verification only and must be replayed in an isolated Supabase environment before production application.
+- Supabase preview branch `communications-admin-replay-2026-08-14` (`yviyrwbywzkrkxfvbffz`) was created without production data from the N3XRA project.
+- The branch replayed the 144-migration production-aligned base and then applied the new provisioning migration, producing 145 applied migration records.
+- The applied migration SQL SHA-256 was `451c6ddcc9fe0144e24f6939f280cef931f31f5d3235baab5bd422603592696a`, exactly matching the repository file.
+- The preview branch was deleted immediately after verification. A final branch listing confirmed that only the production `main` branch remained.
 
 ## Security boundaries
 
@@ -34,7 +37,27 @@ This repository-only release adds the first trusted Communications Admin mutatio
 - Full repository tests passed: 335 of 335.
 - Desktop and 390-pixel responsive visual smoke checks passed with no horizontal overflow.
 - `git diff --check` passed.
+- All four trusted operations completed against disposable organizations and websites: workspace provisioning, subscription-form configuration, topic configuration, and pricing/entitlement updates.
+- Reusing each operation's idempotency key returned the original result and did not duplicate the workspace, form, topic, dependencies, or audit row.
+- Reusing an idempotency key for a different operation was rejected.
+- A non-platform-admin actor was rejected without a topic or audit artifact.
+- `anon` and `authenticated` could not execute the provisioning RPC; `service_role` could.
+- A website belonging to another organization was rejected for both workspace and form provisioning without partial data.
+- The saved form, website, workspace, and organization graph retained one tenant identity; no cross-tenant forms existed.
+- The four primary operations each wrote one immutable audit record. Audit update and delete attempts were rejected.
+- A forced subtransaction rollback removed both the test topic and its audit row.
+- A temporary late-failure trigger forced workspace provisioning to fail during entitlement creation after earlier inserts. PostgreSQL rolled back the workspace, link, channel, entitlement, and audit changes. The temporary trigger and function were removed.
+- Post-test integrity reported 145 migrations, RLS enabled on the audit table, zero failed-operation audit artifacts, zero cross-tenant forms, and the expected RPC grants.
+- Supabase security and performance advisors reported no errors attributable to the provisioning migration. The audit table produced one intentional informational notice for RLS with no policies because all browser roles are denied and access is service-role-only. A fresh-branch unused-index notice was also informational.
 
-## Required next gate
+## Production sequence after approval
 
-Before any production database change or deployment, replay all 145 migrations in an isolated Supabase environment, exercise each RPC against disposable records, verify rollback/failure behavior and audit immutability, then obtain separate production authorization.
+The clean replay gate passed. Production remains unchanged. The separately authorized release sequence is:
+
+1. Push the feature branch.
+2. Merge it into `main`.
+3. Apply only `20260814173124_communications_admin_provisioning.sql` to production.
+4. Deploy the Communications Admin interface and mutation endpoint.
+5. Smoke-test with a controlled N3XRA organization.
+
+Twilio and Resend activation must remain disabled until their separate trusted provider adapters are ready.
