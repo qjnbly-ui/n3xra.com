@@ -18,7 +18,7 @@ const routes = new Map([
   ["n3xra-admin/communications/requests/index.html", "requests"],
 ]);
 
-test("the verified 144-file base is preserved before the new provisioning migration", async () => {
+test("the verified 144-file base and provisioning migration remain ordered before provider work", async () => {
   const directory = new URL("../../supabase/migrations/", import.meta.url);
   const migrationFiles = (await readdir(directory)).filter((name) => name.endsWith(".sql")).sort();
   const [productionReport, replayReport, provisioningReport] = await Promise.all([
@@ -27,10 +27,11 @@ test("the verified 144-file base is preserved before the new provisioning migrat
     projectFile("supabase/reports/communications-admin-provisioning-2026-08-14.md"),
   ]);
 
-  assert.equal(migrationFiles.length, 145);
+  assert.equal(migrationFiles.length, 146);
   assert.equal(migrationFiles[0], "20260515052659_foundational_schema_baseline.sql");
-  assert.equal(migrationFiles.at(-2), "20260814033028_roots_relics_communications_seed_forward.sql");
-  assert.equal(migrationFiles.at(-1), "20260814173124_communications_admin_provisioning.sql");
+  assert.equal(migrationFiles.at(-3), "20260814033028_roots_relics_communications_seed_forward.sql");
+  assert.equal(migrationFiles.at(-2), "20260814173124_communications_admin_provisioning.sql");
+  assert.equal(migrationFiles.at(-1), "20260814184353_communications_resend_provider_foundation.sql");
   assert.match(productionReport, /Migration count: 144/);
   assert.match(replayReport, /executed all 144 active migrations in order/);
   assert.match(provisioningReport, /repository now contains 145 migrations/);
