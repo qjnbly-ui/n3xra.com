@@ -78,6 +78,27 @@ html.communications-admin-root { background: var(--communications-admin-surface)
 .communications-admin-chip-list { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .8rem; }
 .communications-admin-chip-list span { padding: .3rem .5rem; color: #35635f; background: #eaf4f2; border-radius: 999px; font-size: .62rem; font-weight: 700; }
 
+.communications-admin-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .9rem 1rem; }
+.communications-admin-form > label { display: grid; align-content: start; gap: .4rem; min-width: 0; }
+.communications-admin-form > label > span { color: #287a72; font-size: .62rem; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; }
+.communications-admin-form input:not([type="checkbox"]),
+.communications-admin-form select,
+.communications-admin-form textarea { width: 100%; min-width: 0; min-height: 42px; box-sizing: border-box; padding: .68rem .72rem; color: var(--portal-ink); background: #fff; border: 1px solid var(--communications-admin-border); border-radius: 6px; font: 600 .72rem/1.4 Manrope, Arial, sans-serif; }
+.communications-admin-form textarea { min-height: 88px; resize: vertical; }
+.communications-admin-form input:focus,
+.communications-admin-form select:focus,
+.communications-admin-form textarea:focus { outline: 2px solid rgba(20, 135, 127, .18); border-color: var(--communications-admin-accent); }
+.communications-admin-form .communications-admin-field-wide,
+.communications-admin-form .communications-admin-form-footer { grid-column: 1 / -1; }
+.communications-admin-form .communications-admin-check { display: flex; align-items: center; align-self: end; min-height: 42px; grid-template-columns: none; gap: .55rem; padding: .6rem .7rem; background: #f5f8f8; border: 1px solid var(--communications-admin-border); border-radius: 6px; }
+.communications-admin-form .communications-admin-check input { width: 16px; height: 16px; accent-color: var(--communications-admin-accent); }
+.communications-admin-form .communications-admin-check span { letter-spacing: 0; line-height: 1.35; text-transform: none; }
+.communications-admin-form-footer { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding-top: .25rem; }
+.communications-admin-form-footer button:disabled { cursor: wait; opacity: .6; }
+.communications-admin-form-status { min-height: 1.2em; margin: 0; color: var(--portal-muted); font-size: .68rem; line-height: 1.4; }
+.communications-admin-form-status.is-success { color: #176a56; }
+.communications-admin-form-status.is-error { color: #8b2f36; }
+
 .communications-admin-table-wrap { width: 100%; overflow-x: auto; }
 .communications-admin-table-wrap table { width: 100%; border-collapse: collapse; font-size: .7rem; }
 .communications-admin-table-wrap th { padding: .65rem .7rem; color: var(--portal-muted); background: #f3f6f7; font-size: .59rem; letter-spacing: .07em; text-align: left; text-transform: uppercase; }
@@ -138,4 +159,8 @@ html.communications-admin-root { background: var(--communications-admin-surface)
   .communications-admin-request > header,
   .communications-admin-request footer { align-items: flex-start; flex-direction: column; }
   .communications-admin-summary-badges { justify-content: flex-start; }
+  .communications-admin-form { grid-template-columns: 1fr; }
+  .communications-admin-form .communications-admin-field-wide,
+  .communications-admin-form .communications-admin-form-footer { grid-column: auto; }
+  .communications-admin-form-footer { align-items: stretch; flex-direction: column; }
 }
