@@ -3,27 +3,28 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const adminNavigationPath = new URL("../../account/admin/admin-navigation.js", import.meta.url);
+const accountHtmlPath = new URL("../../account/index.html", import.meta.url);
+const accountScriptPath = new URL("../../account/account.js", import.meta.url);
 const platformAdminPath = new URL("../../supabase/functions/platform-admin/index.ts", import.meta.url);
 
-test("the admin menu exposes Internal Records separately from Records oversight", async () => {
-  const navigation = await readFile(adminNavigationPath, "utf8");
+test("Records remains the only Records entry and no duplicate Internal Records app is exposed", async () => {
+  const [navigation, html, script] = await Promise.all([
+    readFile(adminNavigationPath, "utf8"),
+    readFile(accountHtmlPath, "utf8"),
+    readFile(accountScriptPath, "utf8"),
+  ]);
 
-  assert.match(navigation, /data-open-internal-records/);
-  assert.match(navigation, /open-admin-records-workspace/);
-  assert.match(navigation, /setStoredActiveOrganizationId\(organizationId\)/);
-  assert.match(navigation, /window\.location\.assign\("\/n3xra-records\/library"\)/);
+  assert.doesNotMatch(navigation, /data-open-internal-records|Internal Records/);
+  assert.doesNotMatch(html, /Internal Records|open-admin-records-button/);
+  assert.doesNotMatch(script, /get-admin-records-workspace|enroll-admin-records-workspace|openAdminRecords/);
+  assert.match(html, /<h3>Records<\/h3>[\s\S]*href="\/n3xra-admin\/records\/organizations\/"/);
   assert.match(navigation, /key: "records"[\s\S]*label: "Records"/);
 });
 
-test("the platform-admin service provisions one shared workspace for every active admin", async () => {
+test("the platform-admin service contains no duplicate Internal Records workspace actions", async () => {
   const source = await readFile(platformAdminPath, "utf8");
 
-  assert.match(source, /ADMIN_RECORDS_WORKSPACE_SLUG = "n3xra-administration"/);
-  assert.match(source, /async function ensureAdminRecordsWorkspace/);
-  assert.match(source, /\.eq\("status", "active"\)/);
-  assert.match(source, /\.upsert\(memberships, \{ onConflict: "organization_id,user_id" \}\)/);
-  assert.match(source, /action === "open-admin-records-workspace"/);
-  assert.match(source, /\.delete\(\)[\s\S]+ADMIN_RECORDS_WORKSPACE_SLUG/);
+  assert.doesNotMatch(source, /ADMIN_RECORDS_WORKSPACE|AdminRecordsWorkspace|admin-records-workspace|n3xra-administration/);
 });
 
 test("platform owners can enter Records without being forced back to the oversight dashboard", async () => {

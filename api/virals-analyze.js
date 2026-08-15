@@ -27,7 +27,6 @@ const { resolveProductIntelligence } = require("./_virals-product-resolver");
 const {
   assertViralsCreditsAvailable,
   consumeViralsCredits,
-  getAnonymousViralsUser,
   getBearerToken,
   hasViralsSupabaseConfig,
   saveViralsAnalysis,
@@ -247,11 +246,9 @@ module.exports = async function handler(req, res) {
 
     if (!input.url) return sendJson(res, 400, { error: "Paste a TikTok or Daily Virals reference URL." });
     const token = getBearerToken(req);
-    let requestUser = getAnonymousViralsUser();
-    if (token) {
-      requestUser = await verifySupabaseUser(token);
-      await assertViralsCreditsAvailable(requestUser, 1);
-    }
+    if (!token) return sendJson(res, 401, { error: "Administrator sign-in is required." });
+    const requestUser = await verifySupabaseUser(token);
+    await assertViralsCreditsAvailable(requestUser, 1);
 
     let extractedVideo = null;
     let resolvedProduct = null;
@@ -305,7 +302,7 @@ module.exports = async function handler(req, res) {
 
     const content = String(data?.choices?.[0]?.message?.content || "").trim();
     const analysis = normalizeAnalysis(extractJson(content), input);
-    if (token) await consumeViralsCredits(requestUser, 1);
+    await consumeViralsCredits(requestUser, 1);
     let saved = null;
     if (!hasViralsSupabaseConfig()) {
       saved = { status: "not_configured" };

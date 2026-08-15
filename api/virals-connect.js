@@ -1,6 +1,6 @@
 const {
   getBearerToken,
-  getViralsAccount,
+  getExistingViralsAccount,
   hasViralsBusinessConfig,
   updateCreatorConnectAccount,
   verifySupabaseUser,
@@ -30,7 +30,8 @@ module.exports = async function handler(req, res) {
     const token = getBearerToken(req);
     if (!token) return sendJson(res, 401, { error: "Authentication required." });
     const user = await verifySupabaseUser(token);
-    const account = await getViralsAccount(user);
+    const account = await getExistingViralsAccount(user);
+    if (!account) return sendJson(res, 409, { error: "Virals enrollment is required.", code: "not_enrolled" });
     const creator = account.creator;
     if (!creator || creator.status !== "approved") return sendJson(res, 403, { error: "Creator approval is required before payout onboarding." });
     const connectAccountId = await ensureConnectAccount(user, creator);

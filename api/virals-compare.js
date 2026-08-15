@@ -2,7 +2,6 @@ const { fetchTikTokTranscript } = require("./_virals-tiktok");
 const {
   assertViralsCreditsAvailable,
   consumeViralsCredits,
-  getAnonymousViralsUser,
   getBearerToken,
   hasViralsSupabaseConfig,
   saveUsageEvent,
@@ -199,11 +198,9 @@ module.exports = async function handler(req, res) {
 
     if (videos.length < 2) return sendJson(res, 502, { error: "Could not extract enough TikTok videos to compare.", failed });
     const token = getBearerToken(req);
-    let requestUser = getAnonymousViralsUser();
-    if (token) {
-      requestUser = await verifySupabaseUser(token);
-      await assertViralsCreditsAvailable(requestUser, videos.length);
-    }
+    if (!token) return sendJson(res, 401, { error: "Administrator sign-in is required." });
+    const requestUser = await verifySupabaseUser(token);
+    await assertViralsCreditsAvailable(requestUser, videos.length);
 
     const model = String(process.env.GROQ_VIRALS_MODEL || process.env.GROQ_RECORDS_MODEL || "openai/gpt-oss-120b").trim();
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -233,7 +230,7 @@ module.exports = async function handler(req, res) {
 
     const content = String(data?.choices?.[0]?.message?.content || "").trim();
     const comparison = normalizeCompare(extractJson(content), input);
-    if (token) await consumeViralsCredits(requestUser, videos.length);
+    await consumeViralsCredits(requestUser, videos.length);
     let saved = null;
     if (hasViralsSupabaseConfig()) {
       try {
@@ -263,7 +260,7 @@ module.exports = async function handler(req, res) {
         });
         saved = {
           status: "saved",
-          owner: requestUser.isAnonymousViralsUser ? "anonymous" : "account",
+          owner: "administrator",
           savedVideos: savedVideos.filter(Boolean).length,
           usageId: usage?.id || null,
         };

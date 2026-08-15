@@ -15,7 +15,6 @@ const VIRALS_SUPABASE_URL = String(process.env.VIRALS_SUPABASE_URL || "").replac
 const VIRALS_SUPABASE_SERVICE_ROLE_KEY = String(process.env.VIRALS_SUPABASE_SERVICE_ROLE_KEY || "").trim();
 const MAIN_SUPABASE_URL = String(process.env.SUPABASE_URL || "https://vdbjlgmbpykjblprqnak.supabase.co").replace(/\/+$/, "");
 const MAIN_SUPABASE_SERVICE_ROLE_KEY = String(process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY || "").trim();
-const VIRALS_SYSTEM_USER_ID = String(process.env.VIRALS_SYSTEM_USER_ID || "00000000-0000-4000-8000-000000000001").trim();
 const MAIN_SUPABASE_TABLES = new Set([
   "virals_profiles",
   "virals_admins",
@@ -150,17 +149,6 @@ function tableUrl(table, query = "") {
   return `${config.url}/rest/v1/${table}${query}`;
 }
 
-function getAnonymousViralsUser() {
-  return {
-    id: VIRALS_SYSTEM_USER_ID,
-    email: "anonymous@n3xra-virals.local",
-    user_metadata: {
-      name: "N3XRA Virals Anonymous",
-    },
-    isAnonymousViralsUser: true,
-  };
-}
-
 async function insertRow(table, payload) {
   const rows = await fetchJson(tableUrl(table), {
     method: "POST",
@@ -177,19 +165,6 @@ async function patchRows(table, query, payload) {
     body: JSON.stringify(payload),
   });
   return rows;
-}
-
-async function ensureViralsProfile(user) {
-  if (!user?.id) return null;
-  const rows = await fetchJson(tableUrl("virals_profiles", "?on_conflict=user_id"), {
-    method: "POST",
-    headers: serviceHeaders({ Prefer: "resolution=merge-duplicates,return=representation" }),
-    body: JSON.stringify({
-      user_id: user.id,
-      display_name: cleanString(user.user_metadata?.full_name || user.user_metadata?.name || user.email || "", 160) || null,
-    }),
-  });
-  return firstRow(rows);
 }
 
 function normalizeViralsProfile(profile) {
@@ -239,27 +214,19 @@ async function loadViralsProfile(userId) {
   return firstRow(rows);
 }
 
-async function ensureViralsProfileAndPeriod(user) {
-  await ensureViralsProfile(user);
-  let profile = await loadViralsProfile(user.id);
-  if (profile && isPeriodExpired(profile)) profile = await resetViralsPeriod(user.id);
-  return profile;
+async function loadViralsAccessProfile(user) {
+  const existing = user?.id ? await loadViralsProfile(user.id) : null;
+  if (!existing && await isViralsAdmin(user)) return null;
+  if (!existing) throw new ViralsSupabaseError("Virals administrator access is required.", 403);
+  return isPeriodExpired(existing) ? resetViralsPeriod(user.id) : existing;
 }
 
 async function isViralsAdmin(user) {
   if (!user?.id) return false;
-  const email = cleanString(user.email, 240).toLowerCase();
-  if (email === "quentin@n3xra.com") {
-    await fetchJson(tableUrl("virals_admins", "?on_conflict=user_id"), {
-      method: "POST",
-      headers: serviceHeaders({ Prefer: "resolution=merge-duplicates" }),
-      body: JSON.stringify({ user_id: user.id, email, role: "owner" }),
-    }).catch(() => null);
-    return true;
-  }
-  const rows = await fetchJson(tableUrl("virals_admins", `?select=user_id&user_id=eq.${encodeFilter(user.id)}&limit=1`), {
-    headers: serviceHeaders(),
-  }).catch(() => []);
+  const rows = await fetchJson(
+    `${MAIN_SUPABASE_URL}/rest/v1/platform_admins?select=user_id,role,status&user_id=eq.${encodeFilter(user.id)}&status=eq.active&role=in.(owner,admin)&limit=1`,
+    { headers: serviceHeadersForUrl(MAIN_SUPABASE_URL) },
+  ).catch(() => []);
   return Boolean(firstRow(rows));
 }
 
@@ -270,8 +237,9 @@ async function requireViralsAdmin(user) {
 }
 
 async function assertViralsCreditsAvailable(user, inputCount = 1) {
-  if (!hasViralsBusinessConfig() || !user?.id || user.isAnonymousViralsUser) return null;
-  const profile = await ensureViralsProfileAndPeriod(user);
+  if (!hasViralsBusinessConfig() || !user?.id) return null;
+  if (await isViralsAdmin(user)) return null;
+  const profile = await loadViralsAccessProfile(user);
   const normalized = normalizeViralsProfile(profile);
   if (!["active", "trialing"].includes(normalized.account_status)) {
     throw new ViralsSupabaseError("Your Virals subscription is not active.", 402, normalized);
@@ -284,8 +252,9 @@ async function assertViralsCreditsAvailable(user, inputCount = 1) {
 }
 
 async function consumeViralsCredits(user, inputCount = 1) {
-  if (!hasViralsBusinessConfig() || !user?.id || user.isAnonymousViralsUser) return null;
-  const profile = await ensureViralsProfileAndPeriod(user);
+  if (!hasViralsBusinessConfig() || !user?.id) return null;
+  if (await isViralsAdmin(user)) return null;
+  const profile = await loadViralsAccessProfile(user);
   const normalized = normalizeViralsProfile(profile);
   const needed = Math.max(1, Number(inputCount || 1) || 1);
   const rows = await patchRows("virals_profiles", `?user_id=eq.${encodeFilter(user.id)}`, {
@@ -363,6 +332,7 @@ async function getCreatorStats(applicationId) {
 }
 
 async function submitCreatorApplication(user, payload = {}, aiEvaluation = {}) {
+  await loadViralsAccessProfile(user);
   const normalizedCode = normalizePromoCode(payload.requestedCode);
   if (!normalizedCode) throw new ViralsSupabaseError("Choose a promo code using letters, numbers, dashes, or underscores.", 400);
   const availability = await getPromoCodeStatus(normalizedCode);
@@ -551,13 +521,29 @@ async function markCommissionsPaid(ids = [], transferId = "") {
   });
 }
 
-async function getViralsAccount(user) {
-  const profile = normalizeViralsProfile(await ensureViralsProfileAndPeriod(user));
+async function getExistingViralsAccount(user) {
+  const existingProfile = await loadViralsProfile(user.id);
+  const isAdmin = await isViralsAdmin(user);
+  if (!existingProfile && !isAdmin) return null;
   const creator = await getLatestCreatorApplication(user.id);
   const foundingLimit = CREATOR_PROGRAMS.founding.maxApproved;
   const foundingApproved = await countApprovedFoundingCreators();
   return {
-    profile,
+    profile: existingProfile ? normalizeViralsProfile(existingProfile) : {
+      user_id: user.id,
+      display_name: cleanString(user.user_metadata?.full_name || user.user_metadata?.name || user.email || "", 160),
+      plan: "retired_admin",
+      plan_name: "Retired admin access",
+      account_status: "active",
+      monthly_analysis_limit: 0,
+      analyses_used: 0,
+      current_period_start: null,
+      current_period_end: null,
+      cancel_at_period_end: false,
+      subscription_current_period_end: null,
+      billing_portal_available: false,
+      retired_admin_access: true,
+    },
     creator,
     creatorProgram: {
       founding: {
@@ -566,7 +552,8 @@ async function getViralsAccount(user) {
         remaining: Math.max(0, foundingLimit - foundingApproved),
       },
     },
-    isAdmin: await isViralsAdmin(user),
+    isAdmin,
+    retired: true,
   };
 }
 
@@ -885,6 +872,7 @@ async function listSavedScripts(user, limit = 80) {
 
 async function saveScriptToLibrary(user, payload = {}) {
   if (!hasViralsSupabaseConfig() || !user?.id) return null;
+  await loadViralsAccessProfile(user);
   const row = await insertRow("virals_saved_scripts", {
     master_user_id: user.id,
     source_analysis_id: cleanUuid(payload.sourceAnalysisId),
@@ -986,26 +974,24 @@ async function saveVideoSearchStats(videoRow, video, analysisRow, analysis = {},
 }
 
 async function saveViralsVideoReference({ user, input, video, analysis }) {
-  const owner = user?.id ? user : getAnonymousViralsUser();
+  const owner = user?.id ? user : null;
   if (!hasViralsSupabaseConfig() || !owner?.id || !video) return null;
-
-  await ensureViralsProfile(owner);
+  await loadViralsAccessProfile(owner);
   await saveCreator(video).catch(() => null);
   const videoRow = await saveVideo(owner, video, input);
   await saveTranscript(videoRow, video).catch(() => null);
   await saveVideoSearchStats(videoRow, video, null, analysis, input).catch(() => null);
   return {
     status: "saved",
-    owner: owner.isAnonymousViralsUser ? "anonymous" : "account",
+    owner: "administrator",
     video_id: videoRow?.id || null,
   };
 }
 
 async function saveViralsAnalysis({ user, input, video, analysis, model, usage }) {
-  const owner = user?.id ? user : getAnonymousViralsUser();
+  const owner = user?.id ? user : null;
   if (!hasViralsSupabaseConfig() || !owner?.id || !analysis) return null;
-
-  await ensureViralsProfile(owner);
+  await loadViralsAccessProfile(owner);
   const sourceVideo = video || {
     url: input?.url || analysis.url || "",
     caption: input?.notes || "",
@@ -1034,7 +1020,7 @@ async function saveViralsAnalysis({ user, input, video, analysis, model, usage }
 
   return {
     status: "saved",
-    owner: owner.isAnonymousViralsUser ? "anonymous" : "account",
+    owner: "administrator",
     video_id: videoRow?.id || null,
     analysis_id: analysisRow?.id || null,
     product_id: productRow?.id || null,
@@ -1055,12 +1041,10 @@ module.exports = {
   findApplicationByPromotionCode,
   findReferralBySubscription,
   getBearerToken,
-  getAnonymousViralsUser,
   getPromoCodeStatus,
-  getViralsAccount,
+  getExistingViralsAccount,
   hasViralsBusinessConfig,
   hasViralsSupabaseConfig,
-  ensureViralsProfileAndPeriod,
   isViralsAdmin,
   listSavedFrameworks,
   listSavedScripts,

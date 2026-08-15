@@ -1,4 +1,4 @@
-const { getBearerToken, getViralsAccount, hasViralsBusinessConfig, verifySupabaseUser } = require("./_virals-supabase");
+const { getBearerToken, getExistingViralsAccount, hasViralsBusinessConfig, verifySupabaseUser } = require("./_virals-supabase");
 const { VIRALS_PLANS } = require("./_virals-billing");
 const { sendJson } = require("./_virals-http");
 
@@ -16,7 +16,7 @@ module.exports = async function handler(req, res) {
     const token = getBearerToken(req);
     if (!token) return sendJson(res, 401, { error: "Authentication required." });
     const user = await verifySupabaseUser(token);
-    const account = await getViralsAccount(user);
+    const account = await getExistingViralsAccount(user);
     return sendJson(res, 200, { configured: true, plans: VIRALS_PLANS, ...account });
   } catch (error) {
     return sendJson(res, error.status || 500, { error: error instanceof Error ? error.message : "Unable to load Virals account." });

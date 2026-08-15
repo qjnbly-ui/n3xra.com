@@ -11,8 +11,6 @@ const corsHeaders = {
 
 const PLATFORM_ADMIN_EMAILS = ["quentin@n3xra.com", "quentin@quentinnichols.com"];
 const PLATFORM_OWNER_EMAIL = "quentin@n3xra.com";
-const ADMIN_RECORDS_WORKSPACE_NAME = "N3XRA Administration";
-const ADMIN_RECORDS_WORKSPACE_SLUG = "n3xra-administration";
 
 const PRODUCT_LABELS: Record<string, string> = {
   records: "N3XRA Records",
@@ -101,81 +99,6 @@ async function findAuthUserByEmail(adminClient: ReturnType<typeof createClient>,
     if ((data.users || []).length < 1000) break;
   }
   return null;
-}
-
-async function ensureAdminRecordsWorkspace(
-  adminClient: ReturnType<typeof createClient>,
-  currentAdminUserId: string,
-) {
-  const ownerUser = await findAuthUserByEmail(adminClient, PLATFORM_OWNER_EMAIL);
-  if (!ownerUser?.id) throw new Error("The N3XRA owner account is unavailable.");
-
-  let { data: organization, error: organizationError } = await adminClient
-    .from("organizations")
-    .select("id,name,slug")
-    .eq("slug", ADMIN_RECORDS_WORKSPACE_SLUG)
-    .maybeSingle();
-  if (organizationError) throw new Error(organizationError.message);
-
-  if (!organization) {
-    const createResult = await adminClient
-      .from("organizations")
-      .insert({
-        name: ADMIN_RECORDS_WORKSPACE_NAME,
-        slug: ADMIN_RECORDS_WORKSPACE_SLUG,
-        owner_user_id: ownerUser.id,
-        subscription_tier: "organization",
-        account_status: "active",
-        document_limit: 10000,
-        storage_limit_mb: 51200,
-        user_limit: 100,
-        public_embed_enabled: false,
-      })
-      .select("id,name,slug")
-      .single();
-
-    if (createResult.error?.code === "23505") {
-      const existingResult = await adminClient
-        .from("organizations")
-        .select("id,name,slug")
-        .eq("slug", ADMIN_RECORDS_WORKSPACE_SLUG)
-        .single();
-      if (existingResult.error) throw new Error(existingResult.error.message);
-      organization = existingResult.data;
-    } else if (createResult.error) {
-      throw new Error(createResult.error.message);
-    } else {
-      organization = createResult.data;
-    }
-  }
-
-  if (!organization?.id) throw new Error("The N3XRA Admin Records workspace could not be resolved.");
-
-  const { data: activeAdmins, error: activeAdminsError } = await adminClient
-    .from("platform_admins")
-    .select("user_id")
-    .eq("status", "active")
-    .in("role", ["owner", "admin"]);
-  if (activeAdminsError) throw new Error(activeAdminsError.message);
-
-  const adminUserIds = Array.from(new Set([
-    ownerUser.id,
-    currentAdminUserId,
-    ...(activeAdmins || []).map((admin) => String(admin.user_id || "")).filter(Boolean),
-  ]));
-  const memberships = adminUserIds.map((userId) => ({
-    organization_id: organization.id,
-    user_id: userId,
-    role: "account_admin",
-    created_by: ownerUser.id,
-    updated_at: new Date().toISOString(),
-  }));
-  const { error: membershipError } = await adminClient
-    .from("organization_memberships")
-    .upsert(memberships, { onConflict: "organization_id,user_id" });
-  if (membershipError) throw new Error(membershipError.message);
-
-  return organization;
 }
 
 async function listAllAuthUsers(adminClient: ReturnType<typeof createClient>) {
@@ -519,20 +442,6 @@ async function prepareReviewerAccount(
     .eq("user_id", userId);
   if (liveDeviceError) throw new Error(liveDeviceError.message);
 
-  const { data: adminWorkspace, error: workspaceError } = await adminClient
-    .from("organizations")
-    .select("id")
-    .eq("slug", ADMIN_RECORDS_WORKSPACE_SLUG)
-    .maybeSingle();
-  if (workspaceError) throw new Error(workspaceError.message);
-  if (adminWorkspace?.id) {
-    const { error: membershipError } = await adminClient
-      .from("organization_memberships")
-      .delete()
-      .eq("organization_id", adminWorkspace.id)
-      .eq("user_id", userId);
-    if (membershipError) throw new Error(membershipError.message);
-  }
 }
 
 function addRecipient(
@@ -1137,6 +1046,41 @@ Deno.serve(async (request) => {
       return jsonResponse({ ok: true, deletedId: deletedReview.id });
     }
 
+    if (action === "delete-career-application") {
+      const applicationId = String(payload.applicationId || "").trim();
+      if (!isValidUuid(applicationId)) return jsonResponse({ error: "A valid career application is required." }, 400);
+
+      const { data: application, error: applicationError } = await adminClient
+        .from("careers_applications")
+        .select("id,cv_storage_path")
+        .eq("id", applicationId)
+        .maybeSingle();
+      if (applicationError) return jsonResponse({ error: applicationError.message }, 400);
+      if (!application) return jsonResponse({ error: "The career application was not found." }, 404);
+
+      const resumePath = String(application.cv_storage_path || "").trim();
+      const isApplicationUpload = resumePath.startsWith("applications/") && !resumePath.split("/").includes("..");
+      if (isApplicationUpload) {
+        const { error: storageError } = await adminClient.storage.from("careers-files").remove([resumePath]);
+        if (storageError) return jsonResponse({ error: storageError.message }, 400);
+      }
+
+      const { data: deletedApplication, error: deleteError } = await adminClient
+        .from("careers_applications")
+        .delete()
+        .eq("id", applicationId)
+        .select("id")
+        .maybeSingle();
+      if (deleteError) return jsonResponse({ error: deleteError.message }, 400);
+      if (!deletedApplication) return jsonResponse({ error: "The career application was not found." }, 404);
+
+      return jsonResponse({
+        ok: true,
+        deletedId: deletedApplication.id,
+        resumeDeleted: Boolean(isApplicationUpload),
+      });
+    }
+
     if (action === "get-business-information") {
       const [{ data: profile, error: profileError }, { data: links, error: linksError }] = await Promise.all([
         adminClient.from("n3xra_business_information").select("*").eq("id", 1).maybeSingle(),
@@ -1423,15 +1367,6 @@ Deno.serve(async (request) => {
         if (deleteError) return jsonResponse({ error: deleteError.message }, 400);
       }
       return jsonResponse({ ok: true, deletedCount: files?.length || 0 });
-    }
-
-    if (action === "open-admin-records-workspace") {
-      const organization = await ensureAdminRecordsWorkspace(adminClient, user.id);
-      return jsonResponse({
-        ok: true,
-        organizationId: organization.id,
-        organizationName: organization.name,
-      });
     }
 
     if (action === "list-platform-accounts") {
@@ -2156,21 +2091,6 @@ Deno.serve(async (request) => {
       const userId = String(payload.userId || "").trim();
       if (!userId) return jsonResponse({ error: "userId is required." }, 400);
       if (userId === user.id) return jsonResponse({ error: "The owner cannot revoke themselves here." }, 400);
-
-      const { data: adminWorkspace, error: workspaceError } = await adminClient
-        .from("organizations")
-        .select("id")
-        .eq("slug", ADMIN_RECORDS_WORKSPACE_SLUG)
-        .maybeSingle();
-      if (workspaceError) return jsonResponse({ error: workspaceError.message }, 400);
-      if (adminWorkspace?.id) {
-        const { error: membershipError } = await adminClient
-          .from("organization_memberships")
-          .delete()
-          .eq("organization_id", adminWorkspace.id)
-          .eq("user_id", userId);
-        if (membershipError) return jsonResponse({ error: membershipError.message }, 400);
-      }
 
       const { error } = await adminClient
         .from("platform_admins")

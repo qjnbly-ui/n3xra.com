@@ -92,10 +92,6 @@
   visibility: hidden;
 }
 
-[data-site-assistant-open][data-assistant-state="pending"] {
-  visibility: hidden;
-}
-
 .site-auth-link-disabled {
   opacity: 0.5;
   cursor: not-allowed;

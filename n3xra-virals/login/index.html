@@ -11,10 +11,9 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,650;9..144,750&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/assets/site-nav.css?v=3">
+    <link rel="stylesheet" href="/assets/site-nav.css?v=4">
     <script src="/shared/config.js"></script>
-    <script src="/assets/site-nav.js?v=3" defer></script>
-    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+    <script src="/assets/site-nav.js?v=4" defer></script>
     <style>
       :root {
         color-scheme: dark;
@@ -150,7 +149,7 @@
 
       .auth-toggle {
         display: grid;
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: 1fr;
         gap: 8px;
       }
 
@@ -420,13 +419,12 @@
       <section class="login-shell" aria-label="N3XRA Virals account login">
         <div class="login-intro">
           <img class="login-logo" src="/assets/N3XRAVirals.png" alt="N3XRA Virals">
-          <p>Sign in once, keep analyzing TikTok winners, compare viral patterns, and build reusable content systems inside N3XRA.</p>
+          <p>N3XRA Virals is a retired application preserved for authorized N3XRA administrators.</p>
         </div>
 
         <div class="login-card">
-          <div class="auth-toggle" role="tablist" aria-label="Virals account options">
+          <div class="auth-toggle" aria-label="Virals administrator access">
             <button class="is-active" type="button" id="virals-signin-toggle" aria-pressed="true">Sign in</button>
-            <button type="button" id="virals-signup-toggle" aria-pressed="false">Create account</button>
           </div>
 
           <form class="auth-form" id="virals-signin-form">
@@ -444,44 +442,8 @@
             <button class="primary-btn" type="submit">Sign in</button>
           </form>
 
-          <form class="auth-form hidden" id="virals-signup-form">
-            <div class="field">
-              <label for="virals-signup-name">Display name</label>
-              <input id="virals-signup-name" type="text" autocomplete="name" placeholder="Your name" required>
-            </div>
-            <div class="field">
-              <label for="virals-signup-email">Email</label>
-              <input id="virals-signup-email" type="email" autocomplete="email" required>
-            </div>
-            <div class="field">
-              <label for="virals-signup-promo-code">Promo code</label>
-              <input id="virals-signup-promo-code" type="text" autocomplete="off" inputmode="text" placeholder="Optional creator code">
-              <p class="field-hint">Creator codes are applied automatically when you choose a paid plan.</p>
-            </div>
-            <div class="field">
-              <label for="virals-signup-password">Password</label>
-              <div class="password-field">
-                <input id="virals-signup-password" type="password" autocomplete="new-password" required minlength="6">
-                <button class="password-toggle" type="button" data-password-toggle="virals-signup-password" aria-label="Show password">Show</button>
-              </div>
-            </div>
-            <div class="field">
-              <label for="virals-signup-password-confirm">Confirm password</label>
-              <div class="password-field">
-                <input id="virals-signup-password-confirm" type="password" autocomplete="new-password" required minlength="6">
-                <button class="password-toggle" type="button" data-password-toggle="virals-signup-password-confirm" aria-label="Show password">Show</button>
-              </div>
-            </div>
-            <button class="primary-btn" type="submit">Create Virals account</button>
-          </form>
-
-          <div class="field hidden" id="virals-auth-captcha-field">
-            <label for="virals-auth-turnstile">Security check</label>
-            <div id="virals-auth-turnstile"></div>
-          </div>
-
           <p class="legal-disclosure" id="virals-auth-legal">By signing in, you agree to the <a href="/terms/">N3XRA Terms</a> and <a href="/privacy/">Privacy Policy</a>.</p>
-          <p class="status" id="virals-auth-status">Sign in to continue to N3XRA Virals.</p>
+          <p class="status" id="virals-auth-status">Sign in with an active N3XRA administrator account.</p>
         </div>
       </section>
     </main>
@@ -497,181 +459,28 @@
       import {
         consumeAuthCallbackSessionIfPresent,
         createBrowserSupabase,
-        getConfig,
         getSessionOrNull,
         hasConfig,
       } from "/shared/lib/supabase-client.js";
 
       const DEFAULT_NEXT_PATH = "/virals/";
-      const VIRALS_PROMO_STORAGE_KEY = "n3xra_virals_promo_code";
       const signinToggle = document.getElementById("virals-signin-toggle");
-      const signupToggle = document.getElementById("virals-signup-toggle");
       const signinForm = document.getElementById("virals-signin-form");
-      const signupForm = document.getElementById("virals-signup-form");
-      const signupPromoInput = document.getElementById("virals-signup-promo-code");
       const authStatus = document.getElementById("virals-auth-status");
-      const authLegal = document.getElementById("virals-auth-legal");
-      const captchaField = document.getElementById("virals-auth-captcha-field");
-      const turnstileEl = document.getElementById("virals-auth-turnstile");
 
       let supabase = null;
-      let captchaToken = "";
-      let captchaWidgetId = null;
-      let captchaEnabled = false;
-
-      function normalizePromoCode(value) {
-        return String(value || "")
-          .trim()
-          .replace(/[^a-z0-9_-]+/gi, "")
-          .slice(0, 32)
-          .toUpperCase();
-      }
-
-      function getPromoCodeFromUrl() {
-        const params = new URLSearchParams(window.location.search);
-        return normalizePromoCode(params.get("promo") || params.get("ref") || params.get("code"));
-      }
-
-      function rememberPromoCodeFromUrl() {
-        const code = getPromoCodeFromUrl();
-        if (!code) return "";
-        rememberPromoCode(code);
-        return code;
-      }
-
-      function rememberPromoCode(value) {
-        const code = normalizePromoCode(value);
-        if (!code) return "";
-        try {
-          window.localStorage.setItem(VIRALS_PROMO_STORAGE_KEY, code);
-        } catch (_error) {
-          return code;
-        }
-        return code;
-      }
-
-      function clearStoredPromoCode() {
-        try {
-          window.localStorage.removeItem(VIRALS_PROMO_STORAGE_KEY);
-        } catch (_error) {
-          // Local storage can be disabled; an empty promo field still means no code for this signup.
-        }
-      }
-
-      function getStoredPromoCode() {
-        let stored = "";
-        try {
-          stored = window.localStorage.getItem(VIRALS_PROMO_STORAGE_KEY);
-        } catch (_error) {
-          stored = "";
-        }
-        return rememberPromoCodeFromUrl() || normalizePromoCode(stored);
-      }
-
-      function syncPromoInputFromStorage() {
-        if (!signupPromoInput) return;
-        const code = getStoredPromoCode();
-        if (code && !signupPromoInput.value.trim()) signupPromoInput.value = code;
-      }
-
-      function appendPromoToPath(path) {
-        const promoCode = getStoredPromoCode();
-        if (!promoCode) return path;
-        const url = new URL(path, window.location.origin);
-        url.searchParams.set("promo", promoCode);
-        return `${url.pathname}${url.search}${url.hash}`;
-      }
 
       function getNextPath() {
         const params = new URLSearchParams(window.location.search);
         const next = String(params.get("next") || DEFAULT_NEXT_PATH).trim();
-        if (!next.startsWith("/virals/") || next.startsWith("//")) return appendPromoToPath(DEFAULT_NEXT_PATH);
-        return appendPromoToPath(next);
+        if (!next.startsWith("/virals/") || next.startsWith("//")) return DEFAULT_NEXT_PATH;
+        return next;
       }
 
       function setAuthStatus(message, tone = "") {
         authStatus.textContent = message || "";
         authStatus.className = "status";
         if (tone) authStatus.classList.add(tone);
-      }
-
-      function getTurnstileSiteKey() {
-        return String(getConfig().turnstileSiteKey || "").trim();
-      }
-
-      function resetCaptcha() {
-        captchaToken = "";
-        if (!window.turnstile || captchaWidgetId === null) return;
-        window.turnstile.reset(captchaWidgetId);
-      }
-
-      async function waitForTurnstile(maxWaitMs = 5000) {
-        const startedAt = Date.now();
-        while (!window.turnstile) {
-          if (Date.now() - startedAt > maxWaitMs) return false;
-          await new Promise((resolve) => window.setTimeout(resolve, 100));
-        }
-        return true;
-      }
-
-      async function initCaptcha() {
-        const siteKey = getTurnstileSiteKey();
-        captchaEnabled = Boolean(siteKey);
-        captchaField.classList.toggle("hidden", !captchaEnabled);
-        if (!captchaEnabled) return;
-
-        const ready = await waitForTurnstile();
-        if (!ready || !turnstileEl) {
-          setAuthStatus("Security check failed to load. Refresh and try again.", "error");
-          return;
-        }
-
-        captchaWidgetId = window.turnstile.render(turnstileEl, {
-          sitekey: siteKey,
-          callback: (token) => { captchaToken = token; },
-          "expired-callback": () => { captchaToken = ""; },
-          "error-callback": () => { captchaToken = ""; },
-        });
-      }
-
-      async function verifyCaptchaServerSide() {
-        if (!captchaEnabled) return;
-        if (!captchaToken) throw new Error("Complete the security check first.");
-        const response = await fetch("/api/verify-captcha", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Accept: "application/json" },
-          body: JSON.stringify({ captchaToken }),
-        });
-        const payload = await response.json().catch(() => ({}));
-        if (!response.ok || !payload?.ok) {
-          throw new Error(payload?.error || "Captcha verification failed.");
-        }
-      }
-
-      async function notifyNewAccount(payload) {
-        try {
-          await fetch("/api/new-account", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-          });
-        } catch (_error) {
-          // Account notifications should not block signup.
-        }
-      }
-
-      function setAuthMode(mode) {
-        const signup = mode === "signup";
-        signinToggle.classList.toggle("is-active", !signup);
-        signupToggle.classList.toggle("is-active", signup);
-        signinToggle.setAttribute("aria-pressed", String(!signup));
-        signupToggle.setAttribute("aria-pressed", String(signup));
-        signinForm.classList.toggle("hidden", signup);
-        signupForm.classList.toggle("hidden", !signup);
-        authLegal.innerHTML = signup
-          ? 'By creating an account, you agree to the <a href="/terms/">N3XRA Terms</a> and <a href="/privacy/">Privacy Policy</a>.'
-          : 'By signing in, you agree to the <a href="/terms/">N3XRA Terms</a> and <a href="/privacy/">Privacy Policy</a>.';
-        setAuthStatus(signup ? "Create an N3XRA login for Virals." : "Sign in to continue to N3XRA Virals.");
       }
 
       function openVirals(replace = false) {
@@ -688,6 +497,16 @@
         return fallback;
       }
 
+      async function verifyAdministratorAccess(session) {
+        if (!session?.access_token) throw new Error("No active session was returned.");
+        const response = await fetch("/api/virals-account", {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload?.error || "Administrator access is required.");
+        return payload;
+      }
+
       async function handleSignin(event) {
         event.preventDefault();
         if (!supabase) return setAuthStatus("Login is not configured.", "error");
@@ -702,6 +521,8 @@
           });
           if (error) throw error;
           if (!data?.session) throw new Error("No active session was returned.");
+          setAuthStatus("Verifying administrator access...");
+          await verifyAdministratorAccess(data.session);
           openVirals();
         } catch (error) {
           setAuthStatus(getErrorMessage(error, "Unable to sign in."), "error");
@@ -710,92 +531,44 @@
         }
       }
 
-      async function handleSignup(event) {
-        event.preventDefault();
-        if (!supabase) return setAuthStatus("Login is not configured.", "error");
-
-        const password = document.getElementById("virals-signup-password").value;
-        const confirm = document.getElementById("virals-signup-password-confirm").value;
-        if (password !== confirm) return setAuthStatus("Passwords do not match.", "error");
-
-        const submit = signupForm.querySelector("button[type='submit']");
-        submit.disabled = true;
-        setAuthStatus("Creating account...");
-        try {
-          await verifyCaptchaServerSide();
-          const email = document.getElementById("virals-signup-email").value.trim();
-          const fullName = document.getElementById("virals-signup-name").value.trim();
-          const typedPromoCode = normalizePromoCode(signupPromoInput?.value);
-          const promoCode = typedPromoCode ? rememberPromoCode(typedPromoCode) : "";
-          if (!promoCode) clearStoredPromoCode();
-          const { data, error } = await supabase.auth.signUp({
-            email,
-            password,
-            options: {
-              data: { full_name: fullName, app: "n3xra-virals", virals_promo_code: promoCode || undefined },
-              emailRedirectTo: `${window.location.origin}/account/?confirmed=1${promoCode ? `&promo=${encodeURIComponent(promoCode)}` : ""}`,
-            },
-          });
-          if (error) throw error;
-          await notifyNewAccount({ email, fullName, app: "n3xra-virals", promoCode: promoCode || undefined });
-          if (data?.session) {
-            openVirals();
-            return;
-          }
-          setAuthStatus("Check your email to confirm your account, then sign in.", "success");
-          signupForm.reset();
-        } catch (error) {
-          setAuthStatus(getErrorMessage(error, "Unable to create account."), "error");
-        } finally {
-          submit.disabled = false;
-          resetCaptcha();
-        }
-      }
-
       async function init() {
-        const params = new URLSearchParams(window.location.search);
-        rememberPromoCodeFromUrl();
-        syncPromoInputFromStorage();
-        setAuthMode(params.get("mode") === "signup" ? "signup" : "signin");
         if (!hasConfig()) {
           setAuthStatus("Login configuration is missing.", "error");
           return;
         }
 
         supabase = createBrowserSupabase();
-        await initCaptcha();
         const callbackSession = await consumeAuthCallbackSessionIfPresent(supabase).catch(() => null);
         if (callbackSession?.user) {
-          openVirals(true);
+          try {
+            await verifyAdministratorAccess(callbackSession);
+            openVirals(true);
+          } catch (error) {
+            setAuthStatus(getErrorMessage(error, "Administrator access is required."), "error");
+          }
           return;
         }
         const session = await getSessionOrNull(supabase).catch(() => null);
-        if (session?.user) openVirals(true);
+        if (session?.user) {
+          try {
+            await verifyAdministratorAccess(session);
+            openVirals(true);
+          } catch (error) {
+            setAuthStatus(getErrorMessage(error, "Administrator access is required."), "error");
+          }
+        }
       }
 
-      signinToggle.addEventListener("click", () => setAuthMode("signin"));
-      signupToggle.addEventListener("click", () => setAuthMode("signup"));
-      signupPromoInput?.addEventListener("input", () => {
-        const code = normalizePromoCode(signupPromoInput.value);
-        if (signupPromoInput.value !== code) signupPromoInput.value = code;
-        if (code) {
-          rememberPromoCode(code);
-        } else {
-          clearStoredPromoCode();
-        }
-      });
       signinForm.addEventListener("submit", handleSignin);
-      signupForm.addEventListener("submit", handleSignup);
       document.querySelectorAll("[data-password-toggle]").forEach((button) => {
         button.addEventListener("click", () => {
           const input = document.getElementById(button.dataset.passwordToggle);
           if (!input) return;
           const nextType = input.type === "password" ? "text" : "password";
-          const activeForm = signupForm.classList.contains("hidden") ? signinForm : signupForm;
-          activeForm.querySelectorAll("input[type='password'], input[type='text']").forEach((candidate) => {
+          signinForm.querySelectorAll("input[type='password'], input[type='text']").forEach((candidate) => {
             if (candidate.id.includes("password")) candidate.type = nextType;
           });
-          activeForm.querySelectorAll("[data-password-toggle]").forEach((toggle) => {
+          signinForm.querySelectorAll("[data-password-toggle]").forEach((toggle) => {
             toggle.textContent = nextType === "text" ? "Hide" : "Show";
             toggle.setAttribute("aria-label", nextType === "text" ? "Hide password" : "Show password");
           });

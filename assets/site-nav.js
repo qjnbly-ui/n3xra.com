@@ -37,8 +37,7 @@ function ensureAssistantTrigger(container, mobile = false) {
   const admin = isAdminRoute();
   trigger.textContent = admin ? "Ask Admin AI" : "Ask N3XRA";
   trigger.classList.toggle("is-admin", admin);
-  if (admin) trigger.removeAttribute("data-assistant-state");
-  else trigger.dataset.assistantState = "pending";
+  trigger.removeAttribute("data-assistant-state");
   return trigger;
 }
 

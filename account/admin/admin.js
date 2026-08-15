@@ -1,6 +1,6 @@
 import { hasConfig } from "/shared/lib/supabase-client.js";
 import { getAdminSession } from "/account/admin/admin-session.js";
-import { arrangeAdminWorkspace } from "/account/admin/admin-navigation.js?v=17";
+import { arrangeAdminWorkspace } from "/account/admin/admin-navigation.js?v=18";
 import { confirmAdminAction } from "/account/admin/admin-dialogs.js";
 import { initializeAdminSelects } from "/account/admin/admin-select.js?v=1";
 
@@ -208,7 +208,7 @@ async function loadAdminView() {
     const analytics = await import("/account/admin/controllers/analytics.js?v=1");
     await analytics.startAnalytics({ session, escapeHtml, formatDate, setStatus });
   } else if (view === "applications") {
-    const applications = await import("/account/admin/applications/applications.js?v=4");
+    const applications = await import("/account/admin/applications/applications.js?v=7");
     await applications.startApplications({ supabase, session });
   } else if (view === "investment") {
     selectInvestmentSection();

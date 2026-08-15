@@ -1,6 +1,6 @@
 const {
   getBearerToken,
-  getMusicAccount,
+  getExistingMusicAccount,
   updateMusicProfile,
   hasSupabaseAdminConfig,
   verifySupabaseUser,
@@ -81,7 +81,7 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    const account = await getMusicAccount(user);
+    const account = await getExistingMusicAccount(user);
     return sendJson(res, 200, { ok: true, ...account });
   } catch (error) {
     return sendJson(res, getErrorStatus(error), {

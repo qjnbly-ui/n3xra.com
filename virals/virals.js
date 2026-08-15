@@ -923,6 +923,13 @@ function authHeaders() {
   return { Authorization: `Bearer ${currentSession.access_token}` };
 }
 
+function requireViralsAdminAccess(setter = setStatus) {
+  if (!currentSession?.user || document.body.dataset.viralsEnrolled === "true") return true;
+  setter("An active N3XRA administrator account is required to use this retired app.");
+  headerAuthLink?.click();
+  return false;
+}
+
 async function requestAiAnalysis(data) {
   const response = await fetch("/api/virals-analyze", {
     method: "POST",
@@ -940,6 +947,7 @@ async function requestAiAnalysis(data) {
 
 async function handleSubmit(event) {
   event.preventDefault();
+  if (!requireViralsAdminAccess()) return;
   const data = Object.fromEntries(new FormData(form).entries());
   data.url = String(data.url || "").trim();
   if (!data.url) {
@@ -1021,6 +1029,7 @@ function renderCompare(payload) {
 
 async function handleCompareSubmit(event) {
   event.preventDefault();
+  if (!requireViralsAdminAccess(setCompareStatus)) return;
   const data = Object.fromEntries(new FormData(compareForm).entries());
   const urls = String(data.urls || "").split(/\s+/).map((url) => url.trim()).filter(Boolean);
   if (urls.length < 2) {
@@ -1090,6 +1099,7 @@ scriptsOutput?.addEventListener("click", (event) => {
 
 scriptSaveForm?.addEventListener("submit", (event) => {
   event.preventDefault();
+  if (!requireViralsAdminAccess()) return;
   const script = currentAnalysis?.scripts?.[pendingScriptIndex];
   if (!script) return;
   const payload = buildScriptSavePayload(script, scriptSaveNotes?.value || "");
@@ -1205,21 +1215,10 @@ sourceOutput?.addEventListener("focusin", (event) => {
   if (media) playSourcePreview(media);
 });
 
-headerAuthLink?.addEventListener("click", (event) => {
-  if (!currentSession?.user) return;
-  event.preventDefault();
-  showAccountModal();
-});
-
 modeButtons.forEach((button) => {
   button.addEventListener("click", () => setMode(button.dataset.modeTarget));
 });
 
-accountCloseButton?.addEventListener("click", hideAccountModal);
-accountModal?.addEventListener("click", (event) => {
-  if (event.target === accountModal) hideAccountModal();
-});
-accountSignoutButton?.addEventListener("click", handleAccountSignout);
 transcriptCloseButton?.addEventListener("click", hideTranscriptModal);
 transcriptModal?.addEventListener("click", (event) => {
   if (event.target === transcriptModal) hideTranscriptModal();

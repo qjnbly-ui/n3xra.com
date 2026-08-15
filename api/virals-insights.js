@@ -1,5 +1,6 @@
 const VIRALS_SUPABASE_URL = String(process.env.VIRALS_SUPABASE_URL || "").replace(/\/+$/, "");
 const VIRALS_SUPABASE_SERVICE_ROLE_KEY = String(process.env.VIRALS_SUPABASE_SERVICE_ROLE_KEY || "").trim();
+const { getBearerToken, verifySupabaseUser } = require("./_virals-supabase");
 
 function sendJson(res, statusCode, payload) {
   res.statusCode = statusCode;
@@ -122,6 +123,14 @@ module.exports = async function handler(req, res) {
   if (req.method !== "GET") {
     res.setHeader("Allow", "GET");
     return sendJson(res, 405, { error: "Method not allowed." });
+  }
+
+  try {
+    const token = getBearerToken(req);
+    if (!token) return sendJson(res, 401, { error: "Administrator sign-in is required." });
+    await verifySupabaseUser(token);
+  } catch (error) {
+    return sendJson(res, error.status || 403, { error: error instanceof Error ? error.message : "Administrator access is required." });
   }
 
   const requestUrl = new URL(req.url || "/api/virals-insights", "http://n3xra.local");

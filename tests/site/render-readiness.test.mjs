@@ -28,16 +28,20 @@ test("public account links render one stable label without an authentication rep
   });
 });
 
-test("the shared assistant trigger is present before its asynchronous controller loads", async () => {
-  const [navigation, assistant, adminShell] = await Promise.all([
+test("the shared assistant trigger is visible with its route label before its asynchronous controller loads", async () => {
+  const [navigation, styles, assistant, adminShell] = await Promise.all([
     projectFile("assets/site-nav.js"),
+    projectFile("assets/site-nav.css"),
     projectFile("src/site-assistant/main.mts"),
     projectFile("account/admin/admin-shell.js"),
   ]);
 
   assert.match(navigation, /ensureAssistantTrigger\(document\.querySelector\("\.site-nav-actions"\)\)/);
   assert.ok(navigation.indexOf("ensureAssistantTrigger(document.querySelector(\".site-nav-actions\"))") < navigation.indexOf("site-assistant/main.mjs"));
-  assert.match(navigation, /trigger\.dataset\.assistantState = "pending"/);
+  assert.match(navigation, /trigger\.textContent = admin \? "Ask Admin AI" : "Ask N3XRA"/);
+  assert.match(navigation, /trigger\.removeAttribute\("data-assistant-state"\)/);
+  assert.doesNotMatch(navigation, /trigger\.dataset\.assistantState = "pending"/);
+  assert.doesNotMatch(styles, /\[data-site-assistant-open\][\s\S]*?visibility:\s*hidden/);
   assert.match(assistant, /trigger\.removeAttribute\("data-assistant-state"\)/);
   assert.match(assistant, /desktopTrigger\?\.classList\.contains\("is-admin"\) \? "admin" : audience/);
   assert.match(adminShell, />Ask Admin AI<\/button>/);

@@ -20,6 +20,8 @@
 .applications-admin-page .application-card.selected { background:#edf6f4; border-left-color:#0a7b83; }
 .applications-admin-page .application-detail { min-width:0; min-height:0; padding:0; overflow-y:auto; overscroll-behavior:contain; scrollbar-gutter:stable; background:#fff; }
 .applications-admin-page .detail-head { padding:1.5rem clamp(1.25rem,3vw,2.5rem); }
+.application-detail-actions { display:flex; align-items:flex-end; gap:.7rem; flex:none; }
+.application-detail-actions .portal-button { min-height:39px; white-space:nowrap; }
 .applications-admin-page .profile-grid { gap:0; padding:0 clamp(1.25rem,3vw,2.5rem); border-bottom:1px solid var(--portal-line); }
 .applications-admin-page .profile-grid > div { min-width:0; padding:1rem; border-right:1px solid var(--portal-line); border-bottom:1px solid var(--portal-line); }
 .applications-admin-page .profile-grid > div:nth-child(odd) { padding-left:0; }
@@ -28,4 +30,4 @@
 .application-empty-detail { display:grid; min-height:100%; place-content:center; padding:2rem; text-align:center; }
 .application-empty-detail h2 { margin:.2rem 0; font:700 1.6rem Fraunces,Georgia,serif; }
 .application-empty-detail p:not(.portal-kicker) { max-width:500px; margin:0; color:var(--portal-muted); }
-@media(max-width:760px){.applications-admin-page{height:auto;overflow:auto}.applications-admin-page .applications-shell,.applications-admin-page .applications-shell>.portal-layout{height:auto;overflow:visible}.applications-admin-page .applications-directory-app{overflow:visible}.applications-pagebar{align-items:flex-start;flex-direction:column}.applications-admin-page .application-workspace{grid-template-columns:1fr}.applications-admin-page .application-queue-pane{max-height:42svh;border-right:0;border-bottom:1px solid var(--portal-line)}.applications-admin-page .application-detail{min-height:520px;overflow:visible}}
+@media(max-width:760px){.applications-admin-page{height:auto;overflow:auto}.applications-admin-page .applications-shell,.applications-admin-page .applications-shell>.portal-layout{height:auto;overflow:visible}.applications-admin-page .applications-directory-app{overflow:visible}.applications-pagebar{align-items:flex-start;flex-direction:column}.applications-admin-page .application-workspace{grid-template-columns:1fr}.applications-admin-page .application-queue-pane{max-height:42svh;border-right:0;border-bottom:1px solid var(--portal-line)}.applications-admin-page .application-detail{min-height:520px;overflow:visible}.application-detail-actions{align-items:stretch;flex-direction:column}.application-detail-actions .portal-button{width:100%}}

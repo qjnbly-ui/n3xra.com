@@ -1,5 +1,7 @@
 import { createBrowserSupabase, getSessionOrNull, hasConfig } from "/shared/lib/supabase-client.js";
 
+document.documentElement.dataset.viralsAuth = "checking";
+
 const header = document.querySelector(".virals-topbar");
 const toggle = document.getElementById("virals-nav-toggle");
 const menu = document.getElementById("virals-menu");
@@ -109,7 +111,7 @@ function renderFoundingCountdown(state = accountState) {
 }
 
 async function loadCreatorProgramState() {
-  const response = await fetch("/api/virals-creator-program");
+  const response = await fetch("/api/virals-creator-program", { headers: authHeaders() });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload.error || "Unable to load creator program.");
   return {
@@ -246,6 +248,7 @@ async function loadAccountState() {
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload.error || "Unable to load Virals account.");
   accountState = payload;
+  document.body.dataset.viralsEnrolled = "true";
   return payload;
 }
 
@@ -362,12 +365,30 @@ function renderAdminPanel(state) {
 function renderAccountModal(state = accountState) {
   if (accountEmail) accountEmail.textContent = currentSession?.user?.email || "Signed in";
   const profile = state?.profile;
+  if (state?.retired || profile?.retired_admin_access) {
+    if (accountPlan) accountPlan.textContent = "Retired admin access";
+    if (accountUsage) accountUsage.textContent = "Administrator";
+    if (accountSaved) accountSaved.textContent = "Private admin library";
+    if (accountBillingPanel) accountBillingPanel.innerHTML = "";
+    if (creatorPanel) creatorPanel.innerHTML = "";
+    if (adminPanel && state) renderAdminPanel(state);
+    const billingPortal = document.getElementById("virals-billing-portal");
+    if (billingPortal) billingPortal.hidden = true;
+    if (accountStatus) {
+      accountStatus.textContent = "Retired app access is limited to verified N3XRA administrators. No product enrollment was created.";
+      accountStatus.className = "status";
+    }
+    return;
+  }
+
   if (accountPlan) accountPlan.textContent = profile?.plan_name || "Free";
   if (accountUsage) accountUsage.textContent = profile ? `${profile.analyses_used} / ${profile.monthly_analysis_limit}` : "Loading";
   if (accountSaved) accountSaved.textContent = "Connected";
   if (accountBillingPanel && state) renderBillingPlans(state);
   if (creatorPanel && state) renderCreatorPanel(state);
   if (adminPanel && state) renderAdminPanel(state);
+  const billingPortal = document.getElementById("virals-billing-portal");
+  if (billingPortal) billingPortal.hidden = !profile?.billing_portal_available;
   if (accountStatus) {
     accountStatus.textContent = currentSession?.user
       ? "Virals account loaded."
@@ -413,6 +434,8 @@ async function handleAccountSignout() {
   try {
     await supabase.auth.signOut();
     currentSession = null;
+    accountState = null;
+    delete document.body.dataset.viralsEnrolled;
     hideAccountModal();
     renderAuth();
   } catch (error) {
@@ -753,14 +776,43 @@ function renderAuth() {
 
 async function initAuth() {
   if (!hasConfig()) {
+    document.documentElement.dataset.viralsAuth = "ready";
     renderAuth();
     return;
   }
   supabase = createBrowserSupabase();
   currentSession = await getSessionOrNull(supabase).catch(() => null);
+  if (currentSession?.user) {
+    document.body.dataset.viralsEnrolled = "checking";
+    try {
+      await loadAccountState();
+      document.documentElement.dataset.viralsAuth = "ready";
+      await renderAboutFoundingCountdown();
+    } catch {
+      window.location.replace(getLoginUrl());
+      return;
+    }
+  } else {
+    window.location.replace(getLoginUrl());
+    return;
+  }
   renderAuth();
-  supabase?.auth?.onAuthStateChange((_event, session) => {
+  supabase?.auth?.onAuthStateChange(async (_event, session) => {
     currentSession = session || null;
+    accountState = null;
+    if (currentSession?.user) {
+      document.body.dataset.viralsEnrolled = "checking";
+      try {
+        await loadAccountState();
+        document.documentElement.dataset.viralsAuth = "ready";
+      } catch {
+        window.location.replace(getLoginUrl());
+        return;
+      }
+    } else {
+      window.location.replace(getLoginUrl());
+      return;
+    }
     renderAuth();
   });
 }
@@ -791,6 +843,5 @@ document.addEventListener("keydown", (event) => {
 prepareMobileMenu();
 rememberPromoCodeFromUrl();
 renderMobileDock();
-renderAboutFoundingCountdown();
 bindAccountModal();
 initAuth();

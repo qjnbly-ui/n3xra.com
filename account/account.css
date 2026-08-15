@@ -283,6 +283,10 @@ body {
   gap: 0.7rem;
 }
 
+.retired-app-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .admin-quick-access-head {
   align-items: end;
   margin-bottom: 0.15rem;

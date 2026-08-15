@@ -69,3 +69,21 @@ test("career administration displays applicant direction and vision", async () =
   assert.match(javascript, /What stands out about N3XRA/);
   assert.match(javascript, /Where they could create the clearest value/);
 });
+
+test("career administration permanently deletes an application through the protected admin service", async () => {
+  const [html, javascript, platformAdmin, migration] = await Promise.all([
+    source("account/admin/applications/index.html"),
+    source("account/admin/applications/applications.js"),
+    source("supabase/functions/platform-admin/index.ts"),
+    source("supabase/migrations/20260809222828_careers_applications_and_notes.sql"),
+  ]);
+
+  assert.match(html, /id="application-summary" role="status" aria-live="polite"/);
+  assert.match(javascript, /id="delete-application"/);
+  assert.match(javascript, /confirmAdminAction\([\s\S]*This cannot be undone/);
+  assert.match(javascript, /invokePlatformAdmin\("delete-career-application", \{ applicationId: application\.id \}\)/);
+  assert.match(platformAdmin, /if \(action === "delete-career-application"\)/);
+  assert.match(platformAdmin, /from\("careers-files"\)\.remove\(\[resumePath\]\)/);
+  assert.match(platformAdmin, /from\("careers_applications"\)[\s\S]*?\.delete\(\)[\s\S]*?\.eq\("id", applicationId\)/);
+  assert.doesNotMatch(migration, /grant [^;]*delete[^;]* on public\.careers_applications to authenticated/i);
+});

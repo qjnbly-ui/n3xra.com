@@ -158,7 +158,7 @@ async function handleAuthenticatedGeneration(req, res, apiKey, body, token) {
 
   try {
     user = await verifySupabaseUser(token);
-    reservation = await reserveMusicGeneration(token, body);
+    reservation = await reserveMusicGeneration(token, body, user);
   } catch (error) {
     return sendJson(res, getErrorStatus(error), {
       error: error instanceof Error ? error.message : "Unable to reserve AI Music usage.",
@@ -256,7 +256,6 @@ module.exports = async function handler(req, res) {
   }
 
   const token = getBearerToken(req);
-  if (token) return handleAuthenticatedGeneration(req, res, apiKey, body, token);
-
-  return handleAnonymousGeneration(req, res, apiKey, body);
+  if (!token) return sendJson(res, 401, { error: "Administrator sign-in is required." });
+  return handleAuthenticatedGeneration(req, res, apiKey, body, token);
 };

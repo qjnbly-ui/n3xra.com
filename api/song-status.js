@@ -86,15 +86,6 @@ module.exports = async function handler(req, res) {
   }
 
   const token = getBearerToken(req);
-  if (token) return handleAuthenticatedStatus(req, res, apiKey, taskId, token);
-
-  try {
-    const { response, data } = await fetchSonautoStatus(apiKey, taskId);
-    return sendJson(res, response.status, data);
-  } catch (error) {
-    return sendJson(res, 502, {
-      error: "Could not reach Sonauto.",
-      message: error instanceof Error ? error.message : "Unknown upstream error.",
-    });
-  }
+  if (!token) return sendJson(res, 401, { error: "Administrator sign-in is required." });
+  return handleAuthenticatedStatus(req, res, apiKey, taskId, token);
 };

@@ -1,6 +1,6 @@
 const {
   getBearerToken,
-  getMusicAccount,
+  getExistingMusicAccount,
   hasSupabaseAdminConfig,
   importMusicGenerations,
   verifySupabaseUser,
@@ -39,11 +39,9 @@ module.exports = async function handler(req, res) {
   try {
     const token = getBearerToken(req);
     const user = await verifySupabaseUser(token);
-    await getMusicAccount(user);
-
     const body = readBody(req);
     const imported = await importMusicGenerations(user.id, body.songs || []);
-    const account = await getMusicAccount(user);
+    const account = await getExistingMusicAccount(user);
 
     return sendJson(res, 200, {
       ok: true,

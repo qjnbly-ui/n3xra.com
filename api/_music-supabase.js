@@ -68,17 +68,6 @@ function getUserDisplayName(user) {
   return String(user?.user_metadata?.full_name || user?.user_metadata?.name || "").trim();
 }
 
-function addOneMonth(date) {
-  const next = new Date(date);
-  next.setUTCMonth(next.getUTCMonth() + 1);
-  return next;
-}
-
-function isPeriodExpired(profile) {
-  const end = profile?.current_period_end ? new Date(profile.current_period_end) : null;
-  return !end || Number.isNaN(end.getTime()) || end <= new Date();
-}
-
 function normalizeProfile(profile) {
   if (!profile) return null;
   return {
@@ -122,6 +111,15 @@ async function verifySupabaseUser(token) {
   });
 
   if (!data?.id) throw new SupabaseApiError("Invalid Supabase session.", 401, data);
+
+  const administrators = await fetchJson(
+    `${SUPABASE_URL}/rest/v1/platform_admins?select=user_id,role,status&user_id=eq.${encodeFilter(data.id)}&status=eq.active&role=in.(owner,admin)&limit=1`,
+    { headers: serviceHeaders() },
+  );
+  if (!Array.isArray(administrators) || !administrators.length) {
+    throw new SupabaseApiError("Active N3XRA administrator access is required.", 403);
+  }
+  data.platform_admin = administrators[0];
   return data;
 }
 
@@ -140,76 +138,11 @@ async function ensureProfileRow(user) {
   });
 }
 
-async function loadProfileRow(userId) {
-  const rows = await fetchJson(`${SUPABASE_URL}/rest/v1/profiles?select=id,email,full_name,stripe_customer_id&id=eq.${encodeFilter(userId)}&limit=1`, {
-    headers: serviceHeaders(),
-  });
-  return Array.isArray(rows) ? rows[0] || null : null;
-}
-
 async function loadMusicProfile(userId) {
   const rows = await fetchJson(`${SUPABASE_URL}/rest/v1/music_profiles?select=*&user_id=eq.${encodeFilter(userId)}&limit=1`, {
     headers: serviceHeaders(),
   });
   return Array.isArray(rows) ? rows[0] || null : null;
-}
-
-async function patchMusicProfileDisplayName(userId, displayName) {
-  const rows = await fetchJson(`${SUPABASE_URL}/rest/v1/music_profiles?user_id=eq.${encodeFilter(userId)}`, {
-    method: "PATCH",
-    headers: serviceHeaders({ Prefer: "return=representation" }),
-    body: JSON.stringify({
-      display_name: displayName,
-      updated_at: new Date().toISOString(),
-    }),
-  });
-  return Array.isArray(rows) ? rows[0] || null : null;
-}
-
-async function createMusicProfile(user) {
-  const displayName = getUserDisplayName(user);
-  const rows = await fetchJson(`${SUPABASE_URL}/rest/v1/music_profiles`, {
-    method: "POST",
-    headers: serviceHeaders({ Prefer: "return=representation" }),
-    body: JSON.stringify({
-      user_id: user.id,
-      display_name: displayName || null,
-    }),
-  });
-  return Array.isArray(rows) ? rows[0] || null : null;
-}
-
-async function resetMusicPeriod(userId) {
-  const now = new Date();
-  const next = addOneMonth(now);
-  const rows = await fetchJson(`${SUPABASE_URL}/rest/v1/music_profiles?user_id=eq.${encodeFilter(userId)}`, {
-    method: "PATCH",
-    headers: serviceHeaders({ Prefer: "return=representation" }),
-    body: JSON.stringify({
-      songs_used: 0,
-      current_period_start: now.toISOString(),
-      current_period_end: next.toISOString(),
-      updated_at: now.toISOString(),
-    }),
-  });
-  return Array.isArray(rows) ? rows[0] || null : null;
-}
-
-async function ensureMusicProfile(user) {
-  await ensureProfileRow(user);
-  let profile = await loadMusicProfile(user.id);
-  if (!profile) profile = await createMusicProfile(user);
-  if (isPeriodExpired(profile)) profile = await resetMusicPeriod(user.id);
-
-  if (profile && !String(profile.display_name || "").trim()) {
-    const sharedProfile = await loadProfileRow(user.id).catch(() => null);
-    const displayName = getUserDisplayName(user) || String(sharedProfile?.full_name || "").trim();
-    if (displayName) {
-      profile = await patchMusicProfileDisplayName(user.id, displayName);
-    }
-  }
-
-  return normalizeProfile(profile);
 }
 
 async function listMusicGenerations(userId, limit = MUSIC_HISTORY_LIMIT) {
@@ -220,15 +153,36 @@ async function listMusicGenerations(userId, limit = MUSIC_HISTORY_LIMIT) {
   return Array.isArray(rows) ? rows.map(normalizeGeneration) : [];
 }
 
-async function getMusicAccount(user) {
-  const profile = await ensureMusicProfile(user);
+async function getExistingMusicAccount(user) {
+  const profile = await loadMusicProfile(user.id);
   const generations = await listMusicGenerations(user.id);
-  return { profile, generations };
+  if (profile) return { profile: normalizeProfile(profile), generations, retired: true };
+  return {
+    profile: {
+      user_id: user.id,
+      display_name: getUserDisplayName(user) || String(user.email || "").trim(),
+      plan: "retired_admin",
+      account_status: "active",
+      monthly_song_limit: 0,
+      songs_used: generations.length,
+      current_period_start: null,
+      current_period_end: null,
+      cancel_at_period_end: false,
+      subscription_current_period_end: null,
+      billing_portal_available: false,
+      retired_admin_access: true,
+    },
+    generations,
+    retired: true,
+  };
 }
 
 async function updateMusicProfile(user, updates = {}) {
+  const existingProfile = await loadMusicProfile(user.id);
+  if (!existingProfile) {
+    throw new SupabaseApiError("Profile settings are unavailable for retired administrator access.", 409);
+  }
   await ensureProfileRow(user);
-  await ensureMusicProfile(user);
 
   const displayName = String(updates.display_name || "").trim().slice(0, 120);
   const fullName = displayName || null;
@@ -257,18 +211,31 @@ async function updateMusicProfile(user, updates = {}) {
   return normalizeProfile(profile || (await loadMusicProfile(user.id)));
 }
 
-async function reserveMusicGeneration(token, payload) {
-  const data = await fetchJson(`${SUPABASE_URL}/rest/v1/rpc/reserve_music_generation`, {
+async function reserveMusicGeneration(_token, payload, user) {
+  if (!user?.id) throw new SupabaseApiError("Authentication required.", 401);
+  const rows = await fetchJson(`${SUPABASE_URL}/rest/v1/music_generations`, {
     method: "POST",
-    headers: userHeaders(token),
+    headers: serviceHeaders({ Prefer: "return=representation" }),
     body: JSON.stringify({
-      input_title: payload.title || null,
-      input_prompt: payload.prompt || null,
-      input_lyrics: payload.lyrics || null,
-      input_instrumental: Boolean(payload.instrumental),
+      user_id: user.id,
+      title: payload.title || null,
+      prompt: payload.prompt || null,
+      lyrics: payload.lyrics || null,
+      instrumental: Boolean(payload.instrumental),
+      status: "reserved",
     }),
   });
-  return data || null;
+  const generation = Array.isArray(rows) ? rows[0] || null : null;
+  if (!generation?.id) throw new SupabaseApiError("Unable to reserve AI Music generation.", 500);
+  return {
+    generation_id: generation.id,
+    songs_used: null,
+    monthly_song_limit: null,
+    current_period_end: null,
+    plan: "retired_admin",
+    account_status: "active",
+    retired_admin_access: true,
+  };
 }
 
 async function updateMusicGeneration(generationId, updates) {
@@ -340,13 +307,12 @@ module.exports = {
   encodeFilter,
   fetchJson,
   getBearerToken,
-  getMusicAccount,
+  getExistingMusicAccount,
   updateMusicProfile,
   getMusicGenerationByTask,
   hasSupabaseAdminConfig,
   importMusicGenerations,
   loadMusicProfile,
-  loadProfileRow,
   reserveMusicGeneration,
   serviceHeaders,
   updateMusicGeneration,

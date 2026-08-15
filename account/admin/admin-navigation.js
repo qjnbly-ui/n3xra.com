@@ -1,5 +1,4 @@
 import { createBrowserSupabase, hasConfig } from "/shared/lib/supabase-client.js";
-import { setStoredActiveOrganizationId } from "/shared/lib/orgs.js";
 
 const overviewLinks = [
   ["/account/", "Dashboard"],
@@ -121,11 +120,6 @@ const toolLinks = [
 
 const ownershipLinks = [
   ["/account/admin/investment/", "Ownership & Governance"],
-];
-
-const archivedLinks = [
-  ["/virals/", "Virals"],
-  ["/ai-music-generator/app/", "AI Music"],
 ];
 
 function normalizePath(pathname) {
@@ -365,9 +359,8 @@ function mobileNavigationMarkup() {
     ${mobileSection({ title: "Customer Operations", content: links(customerOperationsLinks) })}
     ${mobileSection({ title: "Products", meta: `${productApps.length} workspaces`, className: "admin-mobile-products", content: productContent })}
     ${mobileSection({ title: "Company", content: links(companyLinks) })}
-    ${mobileSection({ title: "Tools", content: `${links(toolLinks)}<button class="site-menu-link admin-nav-action" type="button" data-open-internal-records>Internal Records</button>` })}
+    ${mobileSection({ title: "Tools", content: links(toolLinks) })}
     ${mobileSection({ title: "Ownership", content: links(ownershipLinks) })}
-    ${mobileSection({ title: "Archived Apps", content: links(archivedLinks) })}
   `;
 }
 
@@ -398,13 +391,9 @@ function navigationMarkup(mobile = false) {
     divider,
     label("Tools"),
     toolLinks.map((item) => linkMarkup(item, mobile)).join(""),
-    '<button class="admin-nav-action" type="button" data-open-internal-records>Internal Records</button>',
     divider,
     label("Ownership"),
     ownershipLinks.map((item) => linkMarkup(item, mobile)).join(""),
-    divider,
-    label("Archived Apps"),
-    archivedLinks.map((item) => linkMarkup(item, mobile)).join(""),
   ].join("");
 }
 
@@ -451,28 +440,6 @@ export function renderAdminNavigation({ desktopScrollTop, mobileScrollTop, scrol
     window.dispatchEvent(new Event("hashchange"));
   }
   refreshAdminInboxBadge();
-}
-
-async function openInternalRecords(button) {
-  if (!hasConfig() || !button) return;
-  const originalLabel = button.textContent;
-  button.disabled = true;
-  button.textContent = "Opening Internal Records…";
-  try {
-    const supabase = createBrowserSupabase();
-    const { data, error } = await supabase.functions.invoke("platform-admin", {
-      body: { action: "open-admin-records-workspace" },
-    });
-    if (error || data?.error) throw new Error(error?.message || data?.error || "Internal Records is unavailable.");
-    const organizationId = String(data?.organizationId || "").trim();
-    if (!organizationId) throw new Error("Internal Records is unavailable.");
-    setStoredActiveOrganizationId(organizationId);
-    window.location.assign("/n3xra-records/library");
-  } catch (error) {
-    button.disabled = false;
-    button.textContent = originalLabel;
-    window.alert(error instanceof Error ? error.message : "Internal Records could not be opened.");
-  }
 }
 
 export function arrangeAdminWorkspace() {
@@ -574,7 +541,7 @@ function websitePageController(page) {
 }
 
 async function startWebsiteWorkspace(page) {
-  const productShell = await import("/account/admin/product-shell.js?v=12");
+  const productShell = await import("/account/admin/product-shell.js?v=13");
   await productShell.startProductShell();
   const websiteWorkspace = await import("/n3xra-admin/website-admin-workspace.js?v=12");
   websiteWorkspace.startWebsiteAdminWorkspace();
@@ -587,7 +554,7 @@ async function startWebsiteWorkspace(page) {
 }
 
 async function startNativeProductWorkspace(page) {
-  const productShell = await import("/account/admin/product-shell.js?v=12");
+  const productShell = await import("/account/admin/product-shell.js?v=13");
   await productShell.startProductShell();
   const controllerUrl = websitePageController(page);
   if (!controllerUrl) throw new Error("This product workspace has no controller.");
@@ -655,13 +622,13 @@ export async function navigateAdminWorkspace(destination, {
       await startNativeProductWorkspace(page);
     } else if (url.pathname === "/account/admin/inbox/") {
       softNavigationSequence += 1;
-      const inbox = await import(`/account/admin/inbox/inbox.js?v=6&admin_view=${softNavigationSequence}`);
+      const inbox = await import(`/account/admin/inbox/inbox.js?v=7&admin_view=${softNavigationSequence}`);
       await inbox.startInbox();
     } else if (url.pathname === "/account/notifications/") {
-      const notifications = await import("/account/notifications/notifications.js");
+      const notifications = await import("/account/notifications/notifications.js?v=13");
       await notifications.startNotifications();
     } else {
-      const admin = await import("/account/admin/admin.js?v=30");
+      const admin = await import("/account/admin/admin.js?v=31");
       await admin.startAdmin();
     }
   } finally {
@@ -680,12 +647,6 @@ document.addEventListener("click", (event) => {
     Promise.resolve(supabase?.auth.signOut({ scope: "local" }))
       .catch(() => null)
       .finally(() => window.location.replace("/account/"));
-    return;
-  }
-
-  const internalRecordsButton = event.target.closest("[data-open-internal-records]");
-  if (internalRecordsButton) {
-    openInternalRecords(internalRecordsButton);
     return;
   }
 

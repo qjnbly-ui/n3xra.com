@@ -1,4 +1,5 @@
 const { fetchTikTokTranscript } = require("./_virals-tiktok");
+const { getBearerToken, verifySupabaseUser } = require("./_virals-supabase");
 
 function parseJson(req) {
   if (req.body && typeof req.body === "object") return Promise.resolve(req.body);
@@ -37,6 +38,9 @@ module.exports = async function handler(req, res) {
   }
 
   try {
+    const token = getBearerToken(req);
+    if (!token) return sendJson(res, 401, { error: "Administrator sign-in is required." });
+    await verifySupabaseUser(token);
     const body = await parseJson(req);
     const url = String(body.url || "").trim();
     if (!url) return sendJson(res, 400, { error: "Paste a TikTok URL." });
@@ -44,6 +48,6 @@ module.exports = async function handler(req, res) {
     const video = await fetchTikTokTranscript(url);
     return sendJson(res, 200, { video });
   } catch (error) {
-    return sendJson(res, 502, { error: error instanceof Error ? error.message : "Unable to fetch TikTok transcript." });
+    return sendJson(res, error.status || 502, { error: error instanceof Error ? error.message : "Unable to fetch TikTok transcript." });
   }
 };

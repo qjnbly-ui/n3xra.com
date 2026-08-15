@@ -1,6 +1,5 @@
 const {
   attachViralsStripeCustomer,
-  ensureViralsProfileAndPeriod,
   findApplicationByPromoCode,
   getBearerToken,
   hasViralsBusinessConfig,
@@ -61,8 +60,8 @@ module.exports = async function handler(req, res) {
     const payload = await parseJson(req);
     const action = String(payload.action || "").trim();
     const origin = getOrigin(req);
-    await ensureViralsProfileAndPeriod(user);
     const profile = await loadViralsProfile(user.id);
+    if (!profile) return sendJson(res, 409, { error: "Virals enrollment is required.", code: "not_enrolled" });
     const customerId = await getOrCreateCustomer(user, profile);
 
     if (action === "create-checkout-session") {

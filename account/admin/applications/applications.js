@@ -1,6 +1,7 @@
 import { createBrowserSupabase, getSessionOrNull, hasConfig } from "/shared/lib/supabase-client.js";
 import { verifyPlatformAdmin } from "/client-portal/admin-access.js";
-import { renderAdminNavigation } from "/account/admin/admin-navigation.js?v=17";
+import { renderAdminNavigation } from "/account/admin/admin-navigation.js?v=18";
+import { confirmAdminAction } from "/account/admin/admin-dialogs.js";
 
 let supabase;
 let applications = [];
@@ -134,12 +135,13 @@ function renderDetail() {
   ].filter(Boolean).join("") || '<section class="message"><p>Applicant perspective</p><div>Not provided</div></section>';
 
   detail.innerHTML = `
-    <header class="detail-head"><div><span class="status ${escapeHtml(application.status)}">${escapeHtml(statusLabel(application.status))}</span><h2>${escapeHtml(application.full_name)}</h2><p>${escapeHtml(roleLabel(application.role_interest))} · Submitted ${formatDate(application.created_at)}</p></div><label>Status<select id="application-status">${["new", "reviewing", "contacted", "interviewing", "talent_pool", "declined", "hired"].map((status) => `<option value="${status}"${application.status === status ? " selected" : ""}>${statusLabel(status)}</option>`).join("")}</select></label></header>
+    <header class="detail-head"><div><span class="status ${escapeHtml(application.status)}">${escapeHtml(statusLabel(application.status))}</span><h2>${escapeHtml(application.full_name)}</h2><p>${escapeHtml(roleLabel(application.role_interest))} · Submitted ${formatDate(application.created_at)}</p></div><div class="application-detail-actions"><label>Status<select id="application-status">${["new", "reviewing", "contacted", "interviewing", "talent_pool", "declined", "hired"].map((status) => `<option value="${status}"${application.status === status ? " selected" : ""}>${statusLabel(status)}</option>`).join("")}</select></label><button class="portal-button portal-button-secondary account-danger-button" id="delete-application" type="button">Delete application</button></div></header>
     <section class="profile-grid"><div><span>Email</span><a href="mailto:${escapeHtml(application.email)}">${escapeHtml(application.email)}</a></div><div><span>Account</span><strong>${application.account_user_id ? "Connected" : "No account connected"}</strong></div><div><span>Proposed title</span><strong>${escapeHtml(application.proposed_title || "Not provided")}</strong></div><div><span>Primary direction</span><strong>${escapeHtml(roleLabel(application.role_interest))}</strong></div><div><span>Contribution areas</span><strong>${escapeHtml(choiceLabels(application.contribution_areas))}</strong></div><div><span>Relationship interests</span><strong>${escapeHtml(choiceLabels(application.participation_preferences, participationLabels))}</strong></div><div><span>Location / timezone</span><strong>${escapeHtml(application.location_timezone || "Not provided")}</strong></div><div><span>Current school / company</span><strong>${escapeHtml(application.current_school_company || "Not provided")}</strong></div><div><span>Experience level</span><strong>${escapeHtml(application.experience_level === "not_specified" ? "Not provided" : statusLabel(application.experience_level || "Not provided"))}</strong></div><div><span>Primary skills</span><strong>${escapeHtml(application.primary_skills || "Not provided")}</strong></div><div><span>How they heard about N3XRA</span><strong>${escapeHtml(application.referral_source || "Not provided")}</strong></div><div><span>Availability</span><strong>${escapeHtml(application.availability || "Not provided")}</strong></div><div><span>Work arrangement</span><strong>${escapeHtml(statusLabel(application.work_arrangement))}</strong></div><div><span>Information retention</span><strong>${application.information_retention_consent ? "Agreed" : "Not provided"}</strong></div><div><span>Links</span>${links}</div></section>
     ${applicantResponses}
     <section class="notes"><header><div><p>Private notes</p><h3>Conversation &amp; review history</h3></div></header><form id="note-form"><textarea name="body" rows="4" required placeholder="Add an internal note, paste a message, or record the next step."></textarea><input name="source_url" type="url" placeholder="Optional source link, e.g. Facebook conversation"><button>Add note</button></form><div class="note-timeline">${applicationNotes.length ? applicationNotes.map((note) => `<article><time>${formatDate(note.created_at)}</time><p>${escapeHtml(note.body).replaceAll("\n", "<br>")}</p>${safeLink(note.source_url, "Open source")}</article>`).join("") : '<p class="empty">No private notes yet.</p>'}</div></section>
   `;
   document.getElementById("application-status")?.addEventListener("change", async (event) => updateApplication(application.id, { status: event.target.value }));
+  document.getElementById("delete-application")?.addEventListener("click", () => deleteApplication(application));
   document.getElementById("note-form")?.addEventListener("submit", addNote);
   if (application.cv_storage_path) loadUploadedCv(application);
 }
@@ -162,6 +164,41 @@ async function updateApplication(id, payload) {
   const { error } = await supabase.from("careers_applications").update(payload).eq("id", id);
   if (error) throw error;
   await load();
+}
+
+async function invokePlatformAdmin(action, payload = {}) {
+  const { data, error } = await supabase.functions.invoke("platform-admin", { body: { action, ...payload } });
+  if (error || data?.error) throw new Error(error?.message || data?.error || "Admin request failed.");
+  return data;
+}
+
+async function deleteApplication(application) {
+  const confirmed = await confirmAdminAction(
+    `Permanently delete ${application.full_name}'s application? Their private notes and any uploaded résumé will also be removed. This cannot be undone.`,
+    { title: "Delete career application?", confirmLabel: "Delete application" },
+  );
+  if (!confirmed) return;
+
+  const button = document.getElementById("delete-application");
+  if (button) {
+    button.disabled = true;
+    button.textContent = "Deleting…";
+  }
+
+  try {
+    await invokePlatformAdmin("delete-career-application", { applicationId: application.id });
+    selectedId = "";
+    await load();
+    const { summary } = elements();
+    if (summary) summary.textContent = `${application.full_name}'s application was deleted.`;
+  } catch (error) {
+    if (button) {
+      button.disabled = false;
+      button.textContent = "Delete application";
+    }
+    const { summary } = elements();
+    if (summary) summary.textContent = error.message || "Unable to delete this application.";
+  }
 }
 
 async function addNote(event) {

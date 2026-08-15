@@ -11,10 +11,11 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="../../assets/site-nav.css?v=3">
+  <link rel="stylesheet" href="../../assets/site-nav.css?v=4">
   <script src="/shared/config.js"></script>
-  <script src="../../assets/site-nav.js?v=3" defer></script>
+  <script src="../../assets/site-nav.js?v=4" defer></script>
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+  <style>html { visibility: hidden; }</style>
   <style>
     :root {
       --ink: #0b1016;
@@ -1544,7 +1545,7 @@
           <div class="music-auth-card">
             <div class="auth-toggle" role="tablist" aria-label="AI Music account options">
               <button class="is-active" type="button" id="musicSigninToggle" aria-pressed="true">Sign in</button>
-              <button type="button" id="musicSignupToggle" aria-pressed="false">Create account</button>
+              <button type="button" id="musicSignupToggle" aria-pressed="false" hidden>Create account</button>
             </div>
 
             <form class="music-auth-form" id="musicSigninForm">
@@ -2040,7 +2041,7 @@
     }
 
     function setAuthMode(mode) {
-      const signup = mode === "signup";
+      const signup = false;
       musicSigninToggle.classList.toggle("is-active", !signup);
       musicSignupToggle.classList.toggle("is-active", signup);
       musicSigninToggle.setAttribute("aria-pressed", String(!signup));
@@ -2050,7 +2051,7 @@
       musicAuthLegal.innerHTML = signup
         ? 'By creating an account, you agree to the <a href="/terms/">N3XRA Terms</a> and <a href="/privacy/">Privacy Policy</a>.'
         : 'By signing in, you agree to the <a href="/terms/">N3XRA Terms</a> and <a href="/privacy/">Privacy Policy</a>.';
-      setAuthStatus(signup ? "Create an N3XRA login and activate AI Music." : "Use your existing N3XRA login.");
+      setAuthStatus("Sign in with an active N3XRA administrator account.");
     }
 
     function setGenerationRequestInFlight(isActive) {
@@ -2087,6 +2088,7 @@
     function hasReachedAccountLimit() {
       const profile = musicAccount?.profile;
       if (!currentSession?.user || !profile) return false;
+      if (musicAccount?.retired || profile.retired_admin_access) return false;
       return Number(profile.songs_used || 0) >= Number(profile.monthly_song_limit || 0);
     }
 
@@ -2096,6 +2098,14 @@
     }
 
     function refreshGenerateAvailability() {
+      if (currentSession?.user && !musicAccount?.profile) {
+        generateBtn.disabled = true;
+        generateBtn.removeAttribute("aria-busy");
+        generateBtn.textContent = "Administrator Access Required";
+        statusEl.textContent = "An active N3XRA administrator account is required.";
+        return;
+      }
+
       if (currentSession?.user && !isAccountUsable()) {
         generateBtn.disabled = true;
         generateBtn.removeAttribute("aria-busy");
@@ -2394,6 +2404,7 @@
 
     function renderAccountModal() {
       const profile = musicAccount?.profile || {};
+      const retiredAdminAccess = Boolean(musicAccount?.retired || profile.retired_admin_access);
       const email = currentSession?.user?.email || "this account";
       const displayName = getMusicDisplayName() || "Not set";
       const used = Number(profile.songs_used ?? 0);
@@ -2402,12 +2413,18 @@
       musicAccountModalEmail.textContent = email;
       musicAccountDisplayNameText.textContent = displayName;
       musicAccountDisplayName.value = displayName === "Not set" ? "" : displayName;
-      musicAccountModalPlan.textContent = formatPlan(profile.plan);
-      musicAccountModalUsage.textContent = `${used} of ${limit} songs used`;
-      musicAccountModalPeriod.textContent = profile.current_period_end
+      musicAccountModalKicker.textContent = retiredAdminAccess ? "Retired App" : "Account";
+      musicAccountModalTitle.textContent = retiredAdminAccess ? "Administrator access" : "Profile settings";
+      musicAccountModalPlan.textContent = retiredAdminAccess ? "Retired admin access" : formatPlan(profile.plan);
+      musicAccountModalUsage.textContent = retiredAdminAccess ? `${used} saved songs` : `${used} of ${limit} songs used`;
+      musicAccountModalPeriod.textContent = retiredAdminAccess
+        ? "No subscription or product enrollment"
+        : profile.current_period_end
         ? `Renews ${formatDate(profile.current_period_end)}`
         : "Current monthly period";
-      renderBillingControls(profile);
+      musicAccountPlanButton.classList.toggle("hidden", retiredAdminAccess);
+      musicAccountDelete.classList.toggle("hidden", retiredAdminAccess);
+      if (!retiredAdminAccess) renderBillingControls(profile);
       renderMusicReview();
     }
 
@@ -2564,10 +2581,11 @@
     }
 
     function setAccountEditMode(isEditing) {
-      isAccountEditing = Boolean(isEditing);
+      const retiredAdminAccess = Boolean(musicAccount?.retired || musicAccount?.profile?.retired_admin_access);
+      isAccountEditing = !retiredAdminAccess && Boolean(isEditing);
       musicAccountDisplayNameText.classList.toggle("hidden", isAccountEditing);
       musicAccountDisplayName.classList.toggle("hidden", !isAccountEditing);
-      musicAccountEditProfile.classList.toggle("hidden", isAccountEditing);
+      musicAccountEditProfile.classList.toggle("hidden", retiredAdminAccess || isAccountEditing);
       musicAccountCancelProfile.classList.toggle("hidden", !isAccountEditing);
       musicAccountSaveProfile.classList.toggle("hidden", !isAccountEditing);
       if (isAccountEditing) musicAccountDisplayName.focus();
@@ -2579,6 +2597,7 @@
 
     function openAccountModal() {
       if (!currentSession?.user) return;
+      if (!musicAccount?.profile) return;
       renderAccountModal();
       setAccountProfileStatus("");
       setAccountEditMode(false);
@@ -2666,9 +2685,12 @@
         musicAuthPanel.classList.add("hidden");
         musicAuthJump.classList.add("hidden");
         importLocalSongsBtn.classList.toggle("hidden", getImportableLocalSongs().length === 0);
-        musicAccountKicker.textContent = formatMusicAccountKicker(displayName);
+        const hasRetiredAdminAccess = Boolean(musicAccount?.retired || profile?.retired_admin_access);
+        musicAccountKicker.textContent = hasRetiredAdminAccess ? "Retired App · Administrator Access" : formatMusicAccountKicker(displayName);
         musicAccountTitle.textContent = "AI Music workspace.";
-        musicAccountCopy.textContent = `${formatPlan(profile?.plan)} plan: ${used} of ${limit} songs used this period. Completed songs save to your account.`;
+        musicAccountCopy.textContent = hasRetiredAdminAccess
+          ? "This retired app is available to verified N3XRA administrators without creating a product enrollment."
+          : `${formatPlan(profile?.plan)} plan: ${used} of ${limit} songs used this period. Completed songs save to your account.`;
         renderAccountModal();
         return;
       }
@@ -2680,6 +2702,7 @@
       musicAccountStrip.classList.remove("is-signed-in");
       musicWorkspace.classList.add("hidden");
       musicAuthJump.classList.remove("hidden");
+      musicAuthJump.textContent = "Sign in";
       importLocalSongsBtn.classList.add("hidden");
       musicAccountTitle.textContent = "Sign in to AI Music.";
       musicAccountCopy.textContent = "Use your N3XRA login to open the generator workspace.";
@@ -2722,6 +2745,7 @@
       renderAccountState();
       renderHistory();
       refreshGenerateAvailability();
+      return data;
     }
 
     async function pollStatus(taskId, prompt, title, accountTask, controlsPlayer = true) {
@@ -3041,9 +3065,8 @@
         });
 
         currentSession = nextSession;
-        await loadMusicAccount();
         showAuthPanel(false);
-        setAuthStatus("AI Music account created.", "success");
+        setAuthStatus("This retired app requires an existing administrator account.", "error");
       } catch (error) {
         setAuthStatus(error instanceof Error ? error.message : "Unable to create account.", "error");
       } finally {
@@ -3254,6 +3277,7 @@
 
     async function initAuth() {
       if (!hasConfig()) {
+        document.documentElement.style.visibility = "visible";
         setAuthStatus("Supabase config is missing.", "error");
         renderAccountState();
         return false;
@@ -3267,12 +3291,13 @@
         return true;
       }
 
-      await loadMusicAccount().catch((error) => {
-        setAuthStatus(error instanceof Error ? error.message : "Unable to load AI Music account.", "error");
-        renderAccountState();
-        renderHistory();
-        refreshGenerateAvailability();
-      });
+      try {
+        await loadMusicAccount();
+        document.documentElement.style.visibility = "visible";
+      } catch {
+        openMusicLogin(true);
+        return true;
+      }
 
       supabase.auth.onAuthStateChange(async (_event, session) => {
         currentSession = session;
@@ -3440,7 +3465,9 @@
       if (event.target === historyDeleteConfirm) closeDeleteConfirm();
     });
 
-    musicAuthJump.addEventListener("click", () => openMusicLogin());
+    musicAuthJump.addEventListener("click", () => {
+      openMusicLogin();
+    });
     musicHeaderAuthLink.addEventListener("click", (event) => {
       event.preventDefault();
       if (currentSession?.user) {
@@ -3497,7 +3524,6 @@
       }
     });
     musicSigninToggle.addEventListener("click", () => setAuthMode("signin"));
-    musicSignupToggle.addEventListener("click", () => setAuthMode("signup"));
     document.querySelectorAll("[data-password-toggle]").forEach((toggleButton) => {
       toggleButton.addEventListener("click", () => {
         const targetId = toggleButton.getAttribute("data-password-toggle");
@@ -3528,7 +3554,6 @@
       });
     });
     musicSigninForm.addEventListener("submit", handleSignin);
-    musicSignupForm.addEventListener("submit", handleSignup);
     importLocalSongsBtn.addEventListener("click", importLocalSongs);
 
     window.addEventListener("load", async () => {

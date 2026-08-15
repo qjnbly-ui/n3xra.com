@@ -12,12 +12,12 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/site-nav.css?v=3">
+  <link rel="stylesheet" href="/assets/site-nav.css?v=4">
   <link rel="stylesheet" href="/n3xra-records/styles.css?v=20260812-mobile-input-zoom">
   <link rel="stylesheet" href="/account/account.css?v=10">
   <link rel="stylesheet" href="/assets/home-shell.css?v=1">
   <script src="/shared/config.js"></script>
-  <script src="/assets/site-nav.js?v=3" defer></script>
+  <script src="/assets/site-nav.js?v=4" defer></script>
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
   <script>
     window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
@@ -303,6 +303,31 @@
                 <a class="btn secondary block button-link" href="/account/admin/billing/">Open Billing &amp; Plans</a>
               </article>
             </div>
+            <div class="dashboard-section-head admin-product-section-head">
+              <div>
+                <p class="auth-kicker">Retired apps</p>
+                <h3>Open retired N3XRA apps</h3>
+                <p>These preserved apps are available only to verified N3XRA administrators and open without creating a product enrollment.</p>
+              </div>
+            </div>
+            <div class="app-grid admin-app-grid retired-app-grid">
+              <article class="app-card admin-app-card">
+                <div>
+                  <p class="auth-kicker">Content tools</p>
+                  <h3>N3XRA Virals</h3>
+                  <p>Retired administrator-only content analysis workspace. Opening it does not enroll this account.</p>
+                </div>
+                <button class="btn secondary block" id="open-admin-virals-button" type="button">Open Virals</button>
+              </article>
+              <article class="app-card admin-app-card">
+                <div>
+                  <p class="auth-kicker">Creative tools</p>
+                  <h3>N3XRA AI Music Generator</h3>
+                  <p>Retired administrator-only music workspace. Opening it does not enroll this account.</p>
+                </div>
+                <button class="btn secondary block" id="open-admin-music-button" type="button">Open AI Music</button>
+              </article>
+            </div>
           </section>
         </div>
 
@@ -440,6 +465,6 @@
       window.addEventListener("scroll", updateHeader, { passive: true });
     })();
   </script>
-  <script type="module" src="/account/account.js?v=20260815-account-scope"></script>
+  <script type="module" src="/account/account.js?v=20260815-retired-admin-apps"></script>
 </body>
 </html>

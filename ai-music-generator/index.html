@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="noindex, nofollow, noarchive, nosnippet" />
+  <meta http-equiv="refresh" content="0;url=/ai-music-generator/app/" />
   <title>AI Music Generator | N3XRA</title>
   <meta name="description" content="Generate custom songs with prompts and optional user-written lyrics." />
   <link rel="canonical" href="https://n3xra.com/ai-music-generator/" />
@@ -11,10 +12,12 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="../assets/site-nav.css?v=3">
+  <link rel="stylesheet" href="../assets/site-nav.css?v=4">
   <script src="/shared/config.js"></script>
-  <script src="../assets/site-nav.js?v=3" defer></script>
+  <script src="../assets/site-nav.js?v=4" defer></script>
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+  <style>html { visibility: hidden; }</style>
+  <script>window.location.replace("/ai-music-generator/app/");</script>
   <style>
     :root {
       --ink: #0b1016;
@@ -1329,6 +1332,14 @@
     function refreshGenerateAvailability() {
       if (isGenerating) return;
 
+      if (currentSession?.user && !musicAccount?.profile) {
+        generateBtn.disabled = true;
+        generateBtn.removeAttribute("aria-busy");
+        generateBtn.textContent = "Enrollment Required";
+        statusEl.textContent = "Open the AI Music app to enroll before generating account songs.";
+        return;
+      }
+
       if (hasReachedAccountLimit()) {
         generateBtn.disabled = true;
         generateBtn.removeAttribute("aria-busy");
@@ -1508,6 +1519,19 @@
     }
 
     function renderAccountState() {
+      if (currentSession?.user && !musicAccount?.profile) {
+        musicHeaderAuthLink.textContent = "Open App";
+        musicHeaderAuthLink.href = "/ai-music-generator/app/";
+        musicHeaderAuthLink.dataset.authState = "signed-in";
+        musicAuthJump.textContent = "Review enrollment";
+        musicAuthJump.classList.remove("hidden");
+        musicSignoutBtn.classList.remove("hidden");
+        importLocalSongsBtn.classList.add("hidden");
+        musicAccountTitle.textContent = "AI Music is not enrolled.";
+        musicAccountCopy.textContent = "Opening AI Music does not create an account. Use the app to review and confirm enrollment.";
+        return;
+      }
+
       if (currentSession?.user) {
         const profile = musicAccount?.profile;
         const used = Number(profile?.songs_used || 0);
@@ -1561,6 +1585,13 @@
         headers: authHeaders(),
       });
       const data = await response.json().catch(() => ({}));
+      if (response.status === 404 && data?.code === "not_enrolled") {
+        musicAccount = null;
+        renderAccountState();
+        renderHistory();
+        refreshGenerateAvailability();
+        return null;
+      }
       if (!response.ok) {
         throw new Error(getErrorMessage(data, "Unable to load AI Music account."));
       }
@@ -1569,6 +1600,18 @@
       renderAccountState();
       renderHistory();
       refreshGenerateAvailability();
+      return data;
+    }
+
+    async function enrollMusicAccount(session) {
+      if (!session?.access_token) throw new Error("No active session was returned.");
+      const response = await fetch("/api/music-account", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(getErrorMessage(data, "Unable to enroll in AI Music."));
+      return data;
     }
 
     async function pollStatus(taskId, prompt, title, accountTask) {
@@ -1833,6 +1876,8 @@
         });
 
         currentSession = nextSession;
+        setAuthStatus("Enrolling in AI Music...", "success");
+        await enrollMusicAccount(nextSession);
         setAuthStatus("Opening AI Music app...", "success");
         openMusicApp();
       } catch (error) {

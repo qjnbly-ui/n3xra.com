@@ -11,9 +11,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="../../assets/site-nav.css?v=3">
+  <link rel="stylesheet" href="../../assets/site-nav.css?v=4">
   <script src="/shared/config.js"></script>
-  <script src="../../assets/site-nav.js?v=3" defer></script>
+  <script src="../../assets/site-nav.js?v=4" defer></script>
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
   <style>
     :root {
@@ -197,7 +197,7 @@
 
     .auth-toggle {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: 1fr;
       gap: 0.45rem;
       padding: 0.35rem;
       border: 1px solid var(--line);
@@ -411,7 +411,7 @@
       }
       .login-logo { width: min(220px, 58vw); }
       .auth-toggle {
-        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        grid-template-columns: minmax(0, 1fr);
         overflow: hidden;
       }
       .auth-toggle button {
@@ -472,7 +472,7 @@
       <div class="login-card">
         <div class="auth-toggle" role="tablist" aria-label="AI Music account options">
           <button class="is-active" type="button" id="musicSigninToggle" aria-pressed="true">Sign in</button>
-          <button type="button" id="musicSignupToggle" aria-pressed="false">Create account</button>
+          <button type="button" id="musicSignupToggle" aria-pressed="false" hidden>Create account</button>
         </div>
 
         <form class="music-auth-form" id="musicSigninForm">
@@ -646,7 +646,7 @@
     }
 
     function setAuthMode(mode) {
-      const signup = mode === "signup";
+      const signup = false;
       musicSigninToggle.classList.toggle("is-active", !signup);
       musicSignupToggle.classList.toggle("is-active", signup);
       musicSigninToggle.setAttribute("aria-pressed", String(!signup));
@@ -656,31 +656,20 @@
       musicAuthLegal.innerHTML = signup
         ? 'By creating an account, you agree to the <a href="/terms/">N3XRA Terms</a> and <a href="/privacy/">Privacy Policy</a>.'
         : 'By signing in, you agree to the <a href="/terms/">N3XRA Terms</a> and <a href="/privacy/">Privacy Policy</a>.';
-      setAuthStatus(signup ? "Create an N3XRA login and activate AI Music." : "Sign in to continue to the AI Music app.");
+      setAuthStatus("Sign in with an active N3XRA administrator account.");
     }
 
     function getErrorMessage(data, fallback) {
       return data?.error || data?.message || fallback;
     }
 
-    async function ensureMusicAccount(session) {
-      if (!session?.access_token) return;
-      try {
-        const response = await fetch("/api/music-account", {
-          headers: { Authorization: `Bearer ${session.access_token}` },
-        });
-        const data = await response.json().catch(() => ({}));
-        if (!response.ok) {
-          console.warn(getErrorMessage(data, "AI Music account activation was skipped."));
-        }
-      } catch (error) {
-        console.warn("AI Music account activation was skipped.", error);
-      }
-    }
-
     async function openApp(session, replace = false) {
       if (!session?.access_token) throw new Error("No active session was returned.");
-      await ensureMusicAccount(session);
+      const response = await fetch("/api/music-account", {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(getErrorMessage(payload, "Administrator access is required."));
       const next = getNextPath();
       if (replace) {
         window.location.replace(next);
@@ -811,10 +800,7 @@
           createdAt: new Date().toISOString(),
         });
 
-        setAuthStatus("Opening AI Music app...", "success");
-        await openApp(nextSession).catch((error) => {
-          setAuthStatus(error instanceof Error ? error.message : "Unable to open AI Music.", "error");
-        });
+        setAuthStatus("This retired app requires an existing administrator account.", "error");
       } catch (error) {
         setAuthStatus(error instanceof Error ? error.message : "Unable to create account.", "error");
       } finally {
@@ -823,9 +809,7 @@
     }
 
     musicSigninToggle.addEventListener("click", () => setAuthMode("signin"));
-    musicSignupToggle.addEventListener("click", () => setAuthMode("signup"));
     musicSigninForm.addEventListener("submit", handleSignin);
-    musicSignupForm.addEventListener("submit", handleSignup);
     document.querySelectorAll("[data-password-toggle]").forEach((toggleButton) => {
       toggleButton.addEventListener("click", () => {
         const targetId = toggleButton.getAttribute("data-password-toggle");

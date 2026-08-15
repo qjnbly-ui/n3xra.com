@@ -55,6 +55,8 @@ const viralsSummary = document.getElementById("virals-summary");
 const websitePortalSummary = document.getElementById("website-portal-summary");
 const websitePortalLink = document.getElementById("website-portal-link");
 const openRecordsButton = document.getElementById("open-records-button");
+const openAdminViralsButton = document.getElementById("open-admin-virals-button");
+const openAdminMusicButton = document.getElementById("open-admin-music-button");
 const openMusicButton = document.getElementById("open-music-button");
 const openViralsButton = document.getElementById("open-virals-button");
 const recordsAppCard = document.getElementById("records-app-card");
@@ -1016,16 +1018,36 @@ async function openRecords() {
   window.location.assign("/n3xra-records/library");
 }
 
+function openAdminVirals() {
+  if (!currentSession?.access_token || !canViewAdminApps) return;
+  window.location.assign("/virals/");
+}
+
+function openAdminMusic() {
+  if (!currentSession?.access_token || !canViewAdminApps) return;
+  window.location.assign("/ai-music-generator/app/");
+}
+
 async function openMusic() {
   if (!currentSession?.access_token) return;
 
-  setStatus(musicProfile ? "Opening AI Music..." : "Activating AI Music...");
+  if (musicProfile) {
+    window.location.assign("/ai-music-generator/app/");
+    return;
+  }
+
+  const confirmed = window.confirm("Enroll this account in N3XRA AI Music? This will create an AI Music profile for this account.");
+  if (!confirmed) return;
+
+  setStatus("Enrolling in AI Music...");
   try {
     const response = await fetch("/api/music-account", {
+      method: "POST",
       headers: { Authorization: `Bearer ${currentSession.access_token}` },
     });
     const payload = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(payload?.error || "Unable to activate AI Music.");
+    if (!response.ok) throw new Error(payload?.error || "Unable to enroll in AI Music.");
+    musicProfile = payload?.profile || {};
     window.location.assign("/ai-music-generator/app/");
   } catch (error) {
     setStatus(getErrorMessage(error, "Unable to open AI Music."), "error");
@@ -1249,6 +1271,8 @@ function bindEvents() {
     });
   });
   openRecordsButton.addEventListener("click", openRecords);
+  openAdminViralsButton?.addEventListener("click", openAdminVirals);
+  openAdminMusicButton?.addEventListener("click", openAdminMusic);
   openMusicButton?.addEventListener("click", openMusic);
   openViralsButton?.addEventListener("click", openVirals);
   showAppsViewButton?.addEventListener("click", () => setDashboardView("apps"));
