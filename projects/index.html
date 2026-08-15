@@ -6,7 +6,7 @@
   <title>N3XRA Projects</title>
   <meta name="description" content="Project systems and websites built under N3XRA, including public platforms and implementation work." />
   <link rel="canonical" href="https://n3xra.com/projects/" />
-  <link rel="icon" type="image/png" sizes="284x284" href="https://vdbjlgmbpykjblprqnak.supabase.co/storage/v1/object/public/n3xra-files-public/72371afd-a169-440f-bab1-1c135864e061/n3xra_logo_transparent.png">
+  <link rel="icon" type="image/png" sizes="284x284" href="../assets/n3xra_logo_transparent_small.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&amp;family=Manrope:wght@400;600;700;800&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap" rel="stylesheet">
@@ -64,9 +64,9 @@
       overflow: hidden;
       color: #ffffff;
       background:
-        radial-gradient(600px 360px at 15% 20%, rgba(22, 185, 237, 0.34), transparent 60%),
-        radial-gradient(520px 300px at 84% 10%, rgba(74, 112, 255, 0.28), transparent 55%),
-        linear-gradient(135deg, #07111d 0%, #0c1524 50%, #070c12 100%);
+        radial-gradient(600px 360px at 16% 25%, rgba(35, 199, 244, 0.24), transparent 62%),
+        radial-gradient(560px 340px at 84% 16%, rgba(47, 108, 255, 0.24), transparent 60%),
+        linear-gradient(145deg, #0a3657 0%, #0b223b 55%, #07111d 100%);
       border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     }
 
@@ -74,47 +74,53 @@
       content: "";
       position: absolute;
       inset: 0;
-      background: radial-gradient(500px 280px at 70% 70%, rgba(255, 255, 255, 0.08), transparent 65%);
-      opacity: 0.8;
+      opacity: 0.14;
       pointer-events: none;
+      background-image:
+        linear-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+      background-size: 76px 76px;
+      mask-image: radial-gradient(circle at center, #000, transparent 75%);
+      -webkit-mask-image: radial-gradient(circle at center, #000, transparent 75%);
     }
 
     .projects-hero-inner {
-      width: min(1100px, calc(100vw - 2rem));
-      margin: 0 auto;
-      padding: 6rem 0 2.2rem;
       position: relative;
       z-index: 1;
-    }
-
-    .projects-hero-grid {
+      width: min(1180px, calc(100vw - 3rem));
+      min-height: 390px;
+      margin: 0 auto;
       display: grid;
-      grid-template-columns: 1fr;
-      gap: 0.5rem;
+      place-content: center;
       justify-items: center;
+      gap: 0.75rem;
+      padding: 6.25rem 0 2.75rem;
       text-align: center;
     }
 
-    .projects-hero-logo {
-      width: min(560px, 86vw);
-      height: auto;
-      object-fit: contain;
-      filter: drop-shadow(0 30px 54px rgba(4, 10, 16, 0.28));
-      view-transition-name: offer-brand-logo;
+    .projects-hero-eyebrow {
+      margin: 0;
+      color: #a8efff;
+      font-size: 0.7rem;
+      font-weight: 800;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
     }
 
-    .projects-hero-copy {
-      display: grid;
-      gap: 1.2rem;
-      justify-items: center;
-      max-width: 720px;
-      margin: 0 auto;
+    .projects-hero-inner h1 {
+      max-width: 900px;
+      font-family: "Space Grotesk", "Manrope", Arial, sans-serif;
+      font-size: clamp(2.6rem, 4.2vw, 3.9rem);
+      font-weight: 600;
+      line-height: 0.98;
+      letter-spacing: -0.045em;
     }
 
     .projects-hero-lede {
       margin: 0;
-      color: rgba(255, 255, 255, 0.78);
-      max-width: 620px;
+      color: rgba(232, 242, 250, 0.66);
+      max-width: 720px;
+      font-size: clamp(0.92rem, 1.3vw, 1.05rem);
     }
 
     .projects-hero-actions {
@@ -122,6 +128,7 @@
       flex-wrap: wrap;
       justify-content: center;
       gap: 0.7rem;
+      margin-top: 0.45rem;
     }
 
     .projects-client-entry {
@@ -171,12 +178,6 @@
 
     ::view-transition-group(start-project-cta) {
       z-index: 20;
-      animation-duration: 950ms;
-      animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
-    }
-
-    ::view-transition-group(offer-brand-logo) {
-      z-index: 19;
       animation-duration: 950ms;
       animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
     }
@@ -479,8 +480,14 @@
         font-size: 0.82rem;
       }
 
-      .projects-hero-logo {
-        width: min(520px, 92vw);
+      .projects-hero-inner {
+        width: min(100% - 1.35rem, 1180px);
+        min-height: 380px;
+        padding: 5.75rem 0 2.5rem;
+      }
+
+      .projects-hero-inner h1 {
+        font-size: clamp(2.4rem, 12vw, 3.4rem);
       }
 
       .projects-growth-inner {
@@ -517,7 +524,7 @@
     <div class="site-topbar-inner">
       <div class="site-topbar-row">
         <a class="site-brand home-brand" href="/" aria-label="N3XRA home">
-          <img src="https://vdbjlgmbpykjblprqnak.supabase.co/storage/v1/object/public/n3xra-files-public/72371afd-a169-440f-bab1-1c135864e061/n3xra_logo_transparent.png" alt="">
+          <img src="../assets/n3xra_logo_transparent_small.png" alt="">
           <span>N3XRA</span>
         </a>
 
@@ -550,17 +557,13 @@
   </header>
 
   <section class="projects-hero-shell" aria-labelledby="projects-title">
-    <div class="projects-hero-inner">
-      <div class="projects-hero-grid">
-        <img class="projects-hero-logo" src="../assets/projectlogo.png" alt="N3XRA Projects logo" />
-        <div class="projects-hero-copy">
-          <h1 class="sr-only" id="projects-title">Project Portfolio</h1>
-          <p class="projects-hero-lede">Selected websites, systems, and implementation work built under N3XRA.</p>
-          <div class="projects-hero-actions">
-            <a class="projects-client-entry is-primary" href="/website-request/">Start a project</a>
-            <a class="projects-client-entry" href="/client-portal/login/">Manage your website</a>
-          </div>
-        </div>
+    <div class="projects-hero-inner header-shell">
+      <p class="projects-hero-eyebrow">Projects</p>
+      <h1 id="projects-title">Selected Work</h1>
+      <p class="projects-hero-lede">Websites, systems, and implementation work built for businesses, organizations, and communities.</p>
+      <div class="projects-hero-actions">
+        <a class="projects-client-entry is-primary" href="/website-request/">Start a project</a>
+        <a class="projects-client-entry" href="/client-portal/login/">Manage your website</a>
       </div>
     </div>
   </section>
@@ -692,7 +695,7 @@
     <div class="page-shell footer-grid">
       <div class="footer-brand">
         <a class="home-brand" href="/" aria-label="N3XRA home">
-          <img src="https://vdbjlgmbpykjblprqnak.supabase.co/storage/v1/object/public/n3xra-files-public/72371afd-a169-440f-bab1-1c135864e061/n3xra_logo_transparent.png" alt="">
+          <img src="../assets/n3xra_logo_transparent_small.png" alt="">
           <span>N3XRA</span>
         </a>
         <p>N3XRA builds custom websites, software, automation, and AI solutions that help organizations work smarter and operate more efficiently.</p>
