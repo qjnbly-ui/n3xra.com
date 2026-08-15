@@ -1617,19 +1617,6 @@ body.site-menu-is-open .home-topbar {
     linear-gradient(130deg, #07101b, #050a12 70%);
 }
 
-.closing-section::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  opacity: 0.12;
-  background-image:
-    linear-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.08) 1px, transparent 1px);
-  background-size: 80px 80px;
-  mask-image: radial-gradient(circle at 70% 50%, #000, transparent 55%);
-  -webkit-mask-image: radial-gradient(circle at 70% 50%, #000, transparent 55%);
-}
-
 .closing-mark {
   position: absolute;
   width: min(640px, 58vw);

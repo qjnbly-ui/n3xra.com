@@ -23,3 +23,17 @@ test("Projects shares the Services hero system and keeps the local navigation lo
   assert.match(navBrand, /n3xra_logo_transparent_small\.png/);
   assert.doesNotMatch(navBrand, /supabase\.co/);
 });
+
+test("public marketing pages do not use the retired square-grid texture", async () => {
+  const pages = await Promise.all([
+    projectFile("projects/index.html"),
+    projectFile("services/index.html"),
+    projectFile("support/index.html"),
+    projectFile("assets/home.css"),
+  ]);
+  const squareGridLine = /linear-gradient\(rgba\(255,\s*255,\s*255,\s*0\.08\)\s*1px,\s*transparent\s*1px\)/;
+
+  for (const page of pages) {
+    assert.doesNotMatch(page, squareGridLine);
+  }
+});
