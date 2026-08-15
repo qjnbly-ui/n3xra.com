@@ -682,7 +682,7 @@ async function renderDashboard(message = "") {
 
   if (isApprovedPartner) {
     partnerPortalKicker.textContent = "Approved partner";
-    partnerPortalTitle.textContent = "Partner Portal";
+    partnerPortalTitle.textContent = "N3XRA Partners";
     partnerPortalSummary.textContent = "Manage your referral code, balances, referrals, and commission history.";
     partnerPortalLink.href = "/client-portal/partners/";
     partnerPortalLink.textContent = "Open Partner Portal";
