@@ -13,6 +13,8 @@ test("Projects shares the Services hero system and keeps the local navigation lo
   const sharedHeroGradient = /linear-gradient\(145deg, #0a3657 0%, #0b223b 55%, #07111d 100%\)/;
   assert.match(projects, sharedHeroGradient);
   assert.match(services, sharedHeroGradient);
+  assert.doesNotMatch(projects, /background-size:\s*76px 76px/);
+  assert.doesNotMatch(services, /background-size:\s*76px 76px/);
   assert.match(projects, /<p class="projects-hero-eyebrow">Projects<\/p>/);
   assert.match(projects, /<h1 id="projects-title">Selected Work<\/h1>/);
   assert.doesNotMatch(projects, /projects-hero-logo|projectlogo\.png/);
