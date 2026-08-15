@@ -4258,9 +4258,16 @@ body.site-menu-is-open .home-topbar {
 
 .technology-marquee {
   position: relative;
+  width: min(1120px, calc(100vw - 3rem));
+  margin: 0 auto;
   overflow: hidden;
-  -webkit-mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent);
-  mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent);
+  border-block: 1px solid rgba(168, 239, 255, 0.08);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 28px, #000 calc(100% - 28px), transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 28px, #000 calc(100% - 28px), transparent);
+}
+
+.technology-stream:last-child .technology-marquee {
+  width: min(600px, calc(100vw - 3rem));
 }
 
 .technology-track {
@@ -4280,33 +4287,28 @@ body.site-menu-is-open .home-topbar {
 .technology-group {
   display: flex;
   align-items: center;
-  gap: clamp(0.75rem, 1.25vw, 1.1rem);
-  padding-right: clamp(0.75rem, 1.25vw, 1.1rem);
+  gap: clamp(2.25rem, 3vw, 3.25rem);
+  padding: 1rem clamp(2.25rem, 3vw, 3.25rem) 1rem 0;
 }
 
 .technology-item {
-  min-height: 58px;
   display: inline-flex;
   align-items: center;
-  gap: 0.7rem;
-  padding: 0.75rem 1.05rem;
-  border: 1px solid rgba(168, 239, 255, 0.12);
-  border-radius: 999px;
-  color: rgba(255, 255, 255, 0.86);
-  background: rgba(255, 255, 255, 0.045);
+  gap: 0.65rem;
+  color: rgba(255, 255, 255, 0.7);
   font-family: var(--home-display);
-  font-size: 0.88rem;
+  font-size: 0.84rem;
   font-weight: 600;
-  letter-spacing: -0.015em;
+  letter-spacing: -0.01em;
   white-space: nowrap;
 }
 
 .technology-item img {
-  width: 26px;
-  height: 26px;
-  flex: 0 0 26px;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
   object-fit: contain;
-  border-radius: 6px;
+  border-radius: 5px;
 }
 
 .technology-item img[src$="/github.ico"],
@@ -4363,13 +4365,16 @@ body.site-menu-is-open .home-topbar {
   }
 
   .technology-marquee {
-    -webkit-mask-image: linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent);
-    mask-image: linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent);
+    width: calc(100vw - 2rem);
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 18px, #000 calc(100% - 18px), transparent);
+    mask-image: linear-gradient(90deg, transparent, #000 18px, #000 calc(100% - 18px), transparent);
+  }
+
+  .technology-stream:last-child .technology-marquee {
+    width: calc(100vw - 2rem);
   }
 
   .technology-item {
-    min-height: 52px;
-    padding: 0.65rem 0.9rem;
     font-size: 0.8rem;
   }
 
