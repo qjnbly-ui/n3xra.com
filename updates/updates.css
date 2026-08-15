@@ -28,6 +28,8 @@ body.site-menu-is-open { overflow: hidden; }
 a { color: inherit; }
 img { display: block; max-width: 100%; }
 
+.updates-empty-main { min-height: 58vh; }
+
 .skip-link {
   position: fixed;
   top: .75rem;
