@@ -13,6 +13,54 @@ const escapeHtml = (value = "") => String(value).replaceAll("&", "&amp;").replac
 const formatDate = (value) => value ? new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(value)) : "—";
 const statusLabel = (value) => String(value || "").replaceAll("_", " ").replace(/\b\w/g, (character) => character.toUpperCase());
 
+const roleLabels = {
+  open_to_best_fit: "Open to the best fit",
+  software_product: "Software and product development",
+  websites_portals: "Website development and portals",
+  design_brand: "Product design and brand",
+  ai_automation: "AI and automation",
+  business_development: "Business development",
+  sales: "Sales",
+  marketing_communications: "Marketing and communications",
+  content_social: "Content and social media",
+  partnerships: "Partnerships and referrals",
+  client_success: "Client success",
+  operations: "Operations and administration",
+  project_delivery: "Project and delivery management",
+  support: "Customer and technical support",
+  finance: "Finance and bookkeeping",
+  leadership_strategy: "Leadership and strategy",
+  research: "Research and analysis",
+  internship_learning: "Internship or apprenticeship",
+  advisor: "External advisor",
+  investor: "Investor",
+  frontend_developer: "Frontend developer",
+  software_developer: "Software developer",
+  design: "Design",
+  internship: "Internship",
+  other: "A role not listed",
+};
+const participationLabels = {
+  employment: "Hourly or salaried employment",
+  contract_project: "Contract or project work",
+  commission: "Commission or performance-based work",
+  equity_ownership: "Ownership or equity conversation",
+  investor: "Investment opportunity",
+  advisor: "Advisory relationship",
+  internship: "Internship or apprenticeship",
+  open_to_discussion: "Open to discussing the right structure",
+};
+const roleLabel = (value) => roleLabels[value] || statusLabel(value) || "Open to the best fit";
+const choiceLabels = (values, labels = roleLabels) => Array.isArray(values) && values.length
+  ? values.map((value) => labels[value] || statusLabel(value)).join(", ")
+  : "Not provided";
+
+function responseSection(label, value) {
+  const response = String(value || "").trim();
+  if (!response) return "";
+  return '<section class="message"><p>' + escapeHtml(label) + '</p><div>' + escapeHtml(response).replaceAll("\\n", "<br>") + "</div></section>";
+}
+
 function elements() {
   return {
     list: document.getElementById("application-list"),
@@ -46,7 +94,7 @@ function renderList() {
     <button class="application-card${application.id === selectedId ? " selected" : ""}" data-id="${application.id}" type="button">
       <span class="status ${escapeHtml(application.status)}">${escapeHtml(statusLabel(application.status))}</span>
       <strong>${escapeHtml(application.full_name)}</strong>
-      <small>${escapeHtml(application.role_interest.replaceAll("_", " "))}</small>
+      <small>${escapeHtml(roleLabel(application.role_interest))}</small>
       <time>${formatDate(application.created_at)}</time>
     </button>
   `).join("") : '<p class="empty">No applications here.</p>';
@@ -78,11 +126,17 @@ function renderDetail() {
     application.cv_storage_path ? '<span id="uploaded-cv">Loading uploaded CV…</span>' : "",
     safeLink(application.source_url, "Original conversation"),
   ].filter(Boolean).join(" · ") || "Not provided";
+  const applicantResponses = [
+    responseSection("What their proposed role would own", application.role_vision),
+    responseSection("What stands out about N3XRA", application.n3xra_interest),
+    responseSection("Where they could create the clearest value", application.contribution_vision),
+    responseSection("Additional context", application.message),
+  ].filter(Boolean).join("") || '<section class="message"><p>Applicant perspective</p><div>Not provided</div></section>';
 
   detail.innerHTML = `
-    <header class="detail-head"><div><span class="status ${escapeHtml(application.status)}">${escapeHtml(statusLabel(application.status))}</span><h2>${escapeHtml(application.full_name)}</h2><p>${escapeHtml(application.role_interest.replaceAll("_", " "))} · Submitted ${formatDate(application.created_at)}</p></div><label>Status<select id="application-status">${["new", "reviewing", "contacted", "interviewing", "talent_pool", "declined", "hired"].map((status) => `<option value="${status}"${application.status === status ? " selected" : ""}>${statusLabel(status)}</option>`).join("")}</select></label></header>
-    <section class="profile-grid"><div><span>Email</span><a href="mailto:${escapeHtml(application.email)}">${escapeHtml(application.email)}</a></div><div><span>Account</span><strong>${application.account_user_id ? "Connected" : "No account connected"}</strong></div><div><span>Location / timezone</span><strong>${escapeHtml(application.location_timezone || "Not provided")}</strong></div><div><span>Current school / company</span><strong>${escapeHtml(application.current_school_company || "Not provided")}</strong></div><div><span>Experience level</span><strong>${escapeHtml(statusLabel(application.experience_level || "Not provided"))}</strong></div><div><span>Primary skills</span><strong>${escapeHtml(application.primary_skills || "Not provided")}</strong></div><div><span>How they heard about N3XRA</span><strong>${escapeHtml(application.referral_source || "Not provided")}</strong></div><div><span>Availability</span><strong>${escapeHtml(application.availability || "Not provided")}</strong></div><div><span>Work arrangement</span><strong>${escapeHtml(statusLabel(application.work_arrangement))}</strong></div><div><span>Information retention</span><strong>${application.information_retention_consent ? "Agreed" : "Not provided"}</strong></div><div><span>Links</span>${links}</div></section>
-    <section class="message"><p>Application message</p><div>${escapeHtml(application.message).replaceAll("\n", "<br>")}</div></section>
+    <header class="detail-head"><div><span class="status ${escapeHtml(application.status)}">${escapeHtml(statusLabel(application.status))}</span><h2>${escapeHtml(application.full_name)}</h2><p>${escapeHtml(roleLabel(application.role_interest))} · Submitted ${formatDate(application.created_at)}</p></div><label>Status<select id="application-status">${["new", "reviewing", "contacted", "interviewing", "talent_pool", "declined", "hired"].map((status) => `<option value="${status}"${application.status === status ? " selected" : ""}>${statusLabel(status)}</option>`).join("")}</select></label></header>
+    <section class="profile-grid"><div><span>Email</span><a href="mailto:${escapeHtml(application.email)}">${escapeHtml(application.email)}</a></div><div><span>Account</span><strong>${application.account_user_id ? "Connected" : "No account connected"}</strong></div><div><span>Proposed title</span><strong>${escapeHtml(application.proposed_title || "Not provided")}</strong></div><div><span>Primary direction</span><strong>${escapeHtml(roleLabel(application.role_interest))}</strong></div><div><span>Contribution areas</span><strong>${escapeHtml(choiceLabels(application.contribution_areas))}</strong></div><div><span>Relationship interests</span><strong>${escapeHtml(choiceLabels(application.participation_preferences, participationLabels))}</strong></div><div><span>Location / timezone</span><strong>${escapeHtml(application.location_timezone || "Not provided")}</strong></div><div><span>Current school / company</span><strong>${escapeHtml(application.current_school_company || "Not provided")}</strong></div><div><span>Experience level</span><strong>${escapeHtml(application.experience_level === "not_specified" ? "Not provided" : statusLabel(application.experience_level || "Not provided"))}</strong></div><div><span>Primary skills</span><strong>${escapeHtml(application.primary_skills || "Not provided")}</strong></div><div><span>How they heard about N3XRA</span><strong>${escapeHtml(application.referral_source || "Not provided")}</strong></div><div><span>Availability</span><strong>${escapeHtml(application.availability || "Not provided")}</strong></div><div><span>Work arrangement</span><strong>${escapeHtml(statusLabel(application.work_arrangement))}</strong></div><div><span>Information retention</span><strong>${application.information_retention_consent ? "Agreed" : "Not provided"}</strong></div><div><span>Links</span>${links}</div></section>
+    ${applicantResponses}
     <section class="notes"><header><div><p>Private notes</p><h3>Conversation &amp; review history</h3></div></header><form id="note-form"><textarea name="body" rows="4" required placeholder="Add an internal note, paste a message, or record the next step."></textarea><input name="source_url" type="url" placeholder="Optional source link, e.g. Facebook conversation"><button>Add note</button></form><div class="note-timeline">${applicationNotes.length ? applicationNotes.map((note) => `<article><time>${formatDate(note.created_at)}</time><p>${escapeHtml(note.body).replaceAll("\n", "<br>")}</p>${safeLink(note.source_url, "Open source")}</article>`).join("") : '<p class="empty">No private notes yet.</p>'}</div></section>
   `;
   document.getElementById("application-status")?.addEventListener("change", async (event) => updateApplication(application.id, { status: event.target.value }));

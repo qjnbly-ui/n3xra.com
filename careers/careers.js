@@ -55,8 +55,16 @@ form?.addEventListener("submit", async (event) => {
   const button = form.querySelector("button[type=submit]"); button.disabled = true; status.textContent = "Sending…";
   try {
     const supabase = createBrowserSupabase(); const session = await getSessionOrNull(supabase); const input = new FormData(form);
+    const contributionAreas = input.getAll("contribution_areas").map(clean).filter(Boolean);
+    const participationPreferences = input.getAll("participation_preferences").map(clean).filter(Boolean);
     const file = input.get("cv_file"); input.delete("cv_file");
     const values = Object.fromEntries([...input.entries()].map(([key, value]) => [key, clean(value)]));
+    values.role_interest = values.role_interest || "open_to_best_fit";
+    values.experience_level = values.experience_level || "not_specified";
+    values.work_arrangement = values.work_arrangement || "flexible";
+    values.message = values.message || "";
+    values.contribution_areas = contributionAreas;
+    values.participation_preferences = participationPreferences;
     values.information_retention_consent = form.elements.information_retention_consent.checked;
     if (file?.size) {
       if (file.size > 10 * 1024 * 1024 || !allowedFileTypes.has(file.type)) throw new Error("Upload a PDF, DOC, or DOCX file up to 10 MB.");

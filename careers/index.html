@@ -1,36 +1,223 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Careers at N3XRA</title><meta name="description" content="Apply to work with N3XRA.">
-  <link rel="icon" href="/assets/n3xra_logo_transparent_small.png"><link rel="stylesheet" href="/assets/site-nav.css">
-  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&amp;family=Manrope:wght@400;600;700;800&amp;display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/home.css?v=43"><link rel="stylesheet" href="/careers/careers.css"><style>.careers-confirmation{width:min(540px,calc(100% - 2rem));padding:0;border:0;border-radius:16px;box-shadow:0 24px 80px rgba(6,27,31,.35)}.careers-confirmation::backdrop{background:rgba(6,23,28,.6)}.careers-confirmation-inner{padding:clamp(1.5rem,4vw,2.4rem)}.careers-confirmation p{color:#60717a}.careers-confirmation h2{margin:.25rem 0 1rem;font:700 clamp(1.7rem,5vw,2.3rem)/1.1 Fraunces,Georgia,serif}.careers-confirmation footer{display:flex;justify-content:flex-end;margin-top:1.5rem}.careers-confirmation button{padding:.8rem 1.15rem;color:#fff;border:0;border-radius:8px;background:#087d73;font:800 .85rem Manrope,Arial,sans-serif;cursor:pointer}</style><script src="/shared/config.js"></script><script src="/assets/site-nav.js" defer></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>N3XRA | Careers and Collaboration</title>
+  <meta name="description" content="Tell N3XRA where you see yourself contributing, what kind of role you would build, and how you would like to grow with the company.">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://n3xra.com/careers/">
+  <link rel="icon" type="image/png" href="/assets/n3xra_logo_transparent_small.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/site-nav.css">
+  <link rel="stylesheet" href="/assets/home-shell.css?v=1">
+  <link rel="stylesheet" href="/careers/careers.css?v=2">
+  <script src="/shared/config.js"></script>
+  <script src="/assets/site-nav.js" defer></script>
+  <script type="module" src="/assets/master-auth-link.js"></script>
+  <script>
+    window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+  </script>
+  <script defer src="/_vercel/insights/script.js"></script>
 </head>
 <body>
-  <header class="site-topbar home-topbar"><div class="site-topbar-inner"><div class="site-topbar-row"><a class="site-brand home-brand" href="/" aria-label="N3XRA home"><img src="/assets/n3xra_logo_transparent_small.png" alt=""><span>N3XRA</span></a><nav class="desktop-nav" aria-label="Primary"><a href="/projects/">Projects</a><a href="/services/">Services</a><a href="/support/">Support</a><a href="/#software">Software</a></nav><div class="site-nav-actions"><a class="site-menu-link" href="/account/">Login</a><button class="site-menu-toggle" type="button" aria-expanded="false" aria-controls="careers-menu" aria-label="Open menu" data-site-menu-toggle><span></span><span></span><span></span></button></div></div><nav class="site-mobile-menu" id="careers-menu" aria-label="Primary" hidden><div class="site-mobile-menu-head"><p class="site-mobile-menu-title">Explore N3XRA</p></div><a class="site-menu-link" href="/projects/">Projects</a><a class="site-menu-link" href="/services/">Services</a><a class="site-menu-link" href="/support/">Support</a><a class="site-menu-link" href="/#software">Software</a></nav></div></header>
-  <main><section class="careers-hero"><div><p>Work with N3XRA</p><h1>Build useful things with us.</h1><p class="lede">We welcome thoughtful developers, designers, and students who want to grow through real work.</p></div></section>
-  <section class="careers-content"><div class="careers-intro"><h2>Tell us about yourself.</h2><p>We keep promising applications on file for current and upcoming opportunities. Creating an N3XRA account is optional; it simply connects your application to your account.</p></div>
-  <form id="careers-form" class="careers-form"><div class="form-grid">
-    <label>Full name<input name="full_name" autocomplete="name" required maxlength="160"></label>
-    <label>Email<input name="email" type="email" autocomplete="email" required maxlength="320"></label>
-    <label>Location / timezone<input name="location_timezone" placeholder="Lagos, WAT" maxlength="160"></label>
-    <label>Role of interest<select name="role_interest" required><option value="frontend_developer">Frontend developer</option><option value="software_developer">Software developer</option><option value="design">Design</option><option value="internship">Internship</option><option value="other">Other</option></select></label>
-    <label>Work arrangement<select name="work_arrangement"><option value="flexible">Flexible</option><option value="remote">Remote</option><option value="onsite">On-site</option></select></label>
-    <label>Availability<input name="availability" placeholder="e.g. 15–20 hrs/week" maxlength="300"></label>
-    <label>Portfolio URL<input name="portfolio_url" type="url" placeholder="https://" maxlength="1000"></label>
-    <label>GitHub URL<input name="github_url" type="url" placeholder="https://github.com/" maxlength="1000"></label>
-    <label>LinkedIn URL <span>(optional)</span><input name="linkedin_url" type="url" placeholder="https://linkedin.com/in/" maxlength="1000"></label>
-    <label>Current school or company <span>(optional)</span><input name="current_school_company" placeholder="e.g. Portland State University" maxlength="300"></label>
-    <label>Experience level<select name="experience_level" required><option value="student">Student</option><option value="entry_level">Entry level</option><option value="junior">Junior</option><option value="mid_level">Mid-level</option><option value="senior">Senior</option></select></label>
-    <label>Primary technologies / skills <span>(optional · separate with commas)</span><input name="primary_skills" placeholder="React, TypeScript, Python" maxlength="1000"></label>
-    <label>How did you hear about N3XRA? <span>(optional)</span><input name="referral_source" placeholder="e.g. Search, friend, social media" maxlength="300"></label>
-    <label>CV / résumé link <span>(optional)</span><input name="cv_url" type="url" placeholder="A shareable Drive, Dropbox, or portfolio link" maxlength="1000"></label>
-    <label>Upload CV / résumé <span>(PDF, DOC, or DOCX · 10 MB max)</span><input name="cv_file" type="file" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"></label>
-    <label class="form-full">What would you like to contribute?<textarea name="message" required rows="7" maxlength="10000" placeholder="Share your experience, interests, and why you’d like to work with N3XRA."></textarea></label>
-    <label class="form-full consent-field"><input name="information_retention_consent" type="checkbox" required> <span>I agree that N3XRA may retain my application information for consideration for current and future opportunities.</span></label>
-  </div><div class="form-actions"><button type="submit">Send application</button><p id="careers-status" role="status"></p></div></form></section></main>
-  <dialog class="careers-confirmation" id="careers-confirmation" aria-labelledby="careers-confirmation-heading"><div class="careers-confirmation-inner"><p>Application received</p><h2 id="careers-confirmation-heading">Thank you.</h2><p id="careers-confirmation-message"></p><p id="careers-confirmation-next-step"></p><footer><button type="button" id="careers-confirmation-close">Done</button></footer></div></dialog>
-  <script type="module" src="/careers/careers.js"></script>
-</body></html>
+  <header class="site-topbar home-topbar" data-home-header>
+    <div class="site-topbar-inner">
+      <div class="site-topbar-row">
+        <a class="site-brand home-brand" href="/" aria-label="N3XRA home">
+          <img src="/assets/n3xra_logo_transparent_small.png" alt="">
+          <span>N3XRA</span>
+        </a>
+        <nav class="desktop-nav" aria-label="Primary">
+          <a href="/projects/">Projects</a>
+          <a href="/services/">Services</a>
+          <a href="/support/">Support</a>
+          <a href="/#software">Software</a>
+        </nav>
+        <div class="site-nav-actions">
+          <a class="site-menu-link site-auth-link" href="/account" data-master-auth-link>Login</a>
+          <button class="site-menu-toggle" type="button" aria-expanded="false" aria-controls="careers-mobile-menu" aria-label="Open menu" data-site-menu-toggle><span></span><span></span><span></span></button>
+        </div>
+      </div>
+      <nav class="site-mobile-menu" id="careers-mobile-menu" aria-label="Mobile primary" hidden>
+        <div class="site-mobile-menu-head"><p class="site-mobile-menu-title">Explore N3XRA</p></div>
+        <a class="site-menu-link" href="/projects/">Projects</a>
+        <a class="site-menu-link" href="/services/">Services</a>
+        <a class="site-menu-link" href="/support/">Support</a>
+        <a class="site-menu-link" href="/#software">Software</a>
+      </nav>
+    </div>
+  </header>
+
+  <section class="careers-hero" aria-labelledby="careers-title">
+    <div class="careers-hero-inner header-shell">
+      <p class="careers-eyebrow">Careers and collaboration</p>
+      <h1 id="careers-title">Build the role you see.</h1>
+      <p>N3XRA is growing across technology, client work, operations, and business development. Tell us where you believe you could make a meaningful contribution—even if the right title does not exist yet.</p>
+      <a class="careers-hero-action" href="#application">Share your vision</a>
+    </div>
+  </section>
+
+  <main class="careers-main">
+    <section class="careers-introduction" aria-labelledby="careers-introduction-title">
+      <div class="careers-introduction-copy">
+        <p class="careers-eyebrow">An open application</p>
+        <h2 id="careers-introduction-title">We are not asking you to fit into one narrow box.</h2>
+        <p>N3XRA builds websites, software, automation, AI systems, and the business infrastructure around them. That means valuable contributors may come from technical, creative, operational, financial, or relationship-focused backgrounds.</p>
+        <p>You do not need to answer every optional question. The more perspective you share, the easier it is to understand the role you envision and whether there may be a fit now or later.</p>
+      </div>
+      <aside class="careers-process" aria-label="How the open application works">
+        <p class="careers-eyebrow">How it works</p>
+        <ol>
+          <li><span>01</span><div><strong>Choose a direction</strong><p>Select one area or several places where your experience could help.</p></div></li>
+          <li><span>02</span><div><strong>Define your role</strong><p>Tell us the title, responsibilities, and contribution you would propose.</p></div></li>
+          <li><span>03</span><div><strong>Describe the relationship</strong><p>Share whether you are considering wages, commission, project work, investment, advising, or another arrangement.</p></div></li>
+        </ol>
+      </aside>
+    </section>
+
+    <section class="career-paths" aria-labelledby="career-paths-title">
+      <header class="career-section-heading">
+        <div>
+          <p class="careers-eyebrow">Possible paths</p>
+          <h2 id="career-paths-title">A company needs more than one kind of builder.</h2>
+        </div>
+        <p>These are directions, not a list of guaranteed openings. If your strongest contribution falls between them, tell us what we missed.</p>
+      </header>
+      <div class="career-path-list">
+        <article><span>Build</span><h3>Technology and product</h3><p>Software development, website development, product design, AI and automation, technical leadership, research, and implementation.</p></article>
+        <article><span>Grow</span><h3>Business and market</h3><p>Business development, sales, partnerships, marketing, communications, content, social media, and community relationships.</p></article>
+        <article><span>Operate</span><h3>Clients and company</h3><p>Operations, project delivery, client success, support, finance, administration, documentation, and process improvement.</p></article>
+        <article><span>Shape</span><h3>Leadership and ownership</h3><p>Company leadership, strategic advising, investment, internships, apprenticeships, and roles that have not been defined yet.</p></article>
+      </div>
+    </section>
+
+    <section class="career-application" id="application" aria-labelledby="application-title">
+      <header class="career-section-heading application-heading">
+        <div>
+          <p class="careers-eyebrow">Universal application</p>
+          <h2 id="application-title">Show us how you see the opportunity.</h2>
+        </div>
+        <p>Only your name, email, and information-retention consent are required. Everything else is an invitation to give us a clearer picture of you.</p>
+      </header>
+
+      <form id="careers-form" class="careers-form">
+        <section class="form-section" aria-labelledby="applicant-basics-title">
+          <div class="form-section-heading"><span>01</span><div><h3 id="applicant-basics-title">Start with you</h3><p>The practical details we need to identify and contact you.</p></div></div>
+          <div class="form-grid">
+            <label class="field"><span>Full name <strong>Required</strong></span><input name="full_name" autocomplete="name" required maxlength="160"></label>
+            <label class="field"><span>Email <strong>Required</strong></span><input name="email" type="email" autocomplete="email" required maxlength="320"></label>
+            <label class="field"><span>Location and timezone <small>Optional</small></span><input name="location_timezone" placeholder="Klamath Falls, Pacific Time" maxlength="160"></label>
+            <label class="field"><span>Current school, company, or focus <small>Optional</small></span><input name="current_school_company" placeholder="What are you doing now?" maxlength="300"></label>
+            <label class="field"><span>Experience level <small>Optional</small></span><select name="experience_level"><option value="">Prefer not to label it</option><option value="student">Student</option><option value="entry_level">Entry level</option><option value="junior">Early career</option><option value="mid_level">Experienced</option><option value="senior">Senior</option></select></label>
+            <label class="field"><span>Primary skills <small>Optional</small></span><input name="primary_skills" placeholder="Relationships, React, operations, finance…" maxlength="1000"></label>
+          </div>
+        </section>
+
+        <section class="form-section" aria-labelledby="applicant-direction-title">
+          <div class="form-section-heading"><span>02</span><div><h3 id="applicant-direction-title">Choose your direction</h3><p>Select a starting point, then include every area where you would like to be considered.</p></div></div>
+          <div class="form-grid">
+            <label class="field form-full"><span>Primary direction <small>Optional</small></span><select name="role_interest"><option value="">Open to the best fit</option><option value="software_product">Software and product development</option><option value="websites_portals">Website development and portals</option><option value="design_brand">Product design and brand</option><option value="ai_automation">AI and automation</option><option value="business_development">Business development</option><option value="sales">Sales</option><option value="marketing_communications">Marketing and communications</option><option value="content_social">Content and social media</option><option value="partnerships">Partnerships and referrals</option><option value="client_success">Client success</option><option value="operations">Operations and administration</option><option value="project_delivery">Project and delivery management</option><option value="support">Customer and technical support</option><option value="finance">Finance and bookkeeping</option><option value="leadership_strategy">Leadership and strategy</option><option value="research">Research and analysis</option><option value="internship_learning">Internship or apprenticeship</option><option value="advisor">External advisor</option><option value="investor">Investor</option><option value="other">A role not listed</option></select></label>
+            <fieldset class="choice-fieldset form-full">
+              <legend>Areas where you could contribute <small>Optional · choose any that fit</small></legend>
+              <div class="choice-list">
+                <label><input type="checkbox" name="contribution_areas" value="software_product"><span>Software and product</span></label>
+                <label><input type="checkbox" name="contribution_areas" value="websites_portals"><span>Websites and portals</span></label>
+                <label><input type="checkbox" name="contribution_areas" value="design_brand"><span>Design and brand</span></label>
+                <label><input type="checkbox" name="contribution_areas" value="ai_automation"><span>AI and automation</span></label>
+                <label><input type="checkbox" name="contribution_areas" value="business_development"><span>Business development</span></label>
+                <label><input type="checkbox" name="contribution_areas" value="sales"><span>Sales</span></label>
+                <label><input type="checkbox" name="contribution_areas" value="marketing_communications"><span>Marketing and communications</span></label>
+                <label><input type="checkbox" name="contribution_areas" value="content_social"><span>Content and social</span></label>
+                <label><input type="checkbox" name="contribution_areas" value="partnerships"><span>Partnerships</span></label>
+                <label><input type="checkbox" name="contribution_areas" value="client_success"><span>Client success</span></label>
+                <label><input type="checkbox" name="contribution_areas" value="operations"><span>Operations</span></label>
+                <label><input type="checkbox" name="contribution_areas" value="project_delivery"><span>Project delivery</span></label>
+                <label><input type="checkbox" name="contribution_areas" value="support"><span>Support</span></label>
+                <label><input type="checkbox" name="contribution_areas" value="finance"><span>Finance</span></label>
+                <label><input type="checkbox" name="contribution_areas" value="leadership_strategy"><span>Leadership and strategy</span></label>
+                <label><input type="checkbox" name="contribution_areas" value="research"><span>Research</span></label>
+                <label><input type="checkbox" name="contribution_areas" value="internship_learning"><span>Learning opportunity</span></label>
+                <label><input type="checkbox" name="contribution_areas" value="other"><span>Something else</span></label>
+              </div>
+            </fieldset>
+          </div>
+        </section>
+
+        <section class="form-section" aria-labelledby="applicant-vision-title">
+          <div class="form-section-heading"><span>03</span><div><h3 id="applicant-vision-title">Describe the role you see</h3><p>There is no perfect answer. We want to understand how you think about your own value.</p></div></div>
+          <div class="form-grid">
+            <label class="field form-full"><span>If you could choose your title at N3XRA, what would it be? <small>Optional</small></span><input name="proposed_title" placeholder="Choose a title you believe you could earn and grow into" maxlength="160"></label>
+            <label class="field form-full"><span>What would that role be responsible for? <small>Optional</small></span><textarea name="role_vision" rows="4" maxlength="4000" placeholder="Describe what you would own, improve, or help move forward."></textarea></label>
+            <label class="field form-full"><span>What about N3XRA stands out to you most? <small>Optional</small></span><textarea name="n3xra_interest" rows="4" maxlength="4000" placeholder="A product, the company direction, a problem we are solving, or something else."></textarea></label>
+            <label class="field form-full"><span>Where do you think you could create the clearest value? <small>Optional</small></span><textarea name="contribution_vision" rows="5" maxlength="5000" placeholder="Tell us what you would bring, what you would want to learn, or what you see that N3XRA may need."></textarea></label>
+          </div>
+        </section>
+
+        <section class="form-section" aria-labelledby="applicant-relationship-title">
+          <div class="form-section-heading"><span>04</span><div><h3 id="applicant-relationship-title">What kind of relationship are you considering?</h3><p>You may choose more than one. This is a conversation starter, not a commitment.</p></div></div>
+          <div class="form-grid">
+            <fieldset class="choice-fieldset form-full">
+              <legend>Ways you may want to participate <small>Optional</small></legend>
+              <div class="choice-list relationship-choices">
+                <label><input type="checkbox" name="participation_preferences" value="employment"><span>Hourly or salaried employment</span></label>
+                <label><input type="checkbox" name="participation_preferences" value="contract_project"><span>Contract or project work</span></label>
+                <label><input type="checkbox" name="participation_preferences" value="commission"><span>Commission or performance-based work</span></label>
+                <label><input type="checkbox" name="participation_preferences" value="equity_ownership"><span>Ownership or equity conversation</span></label>
+                <label><input type="checkbox" name="participation_preferences" value="investor"><span>Investment opportunity</span></label>
+                <label><input type="checkbox" name="participation_preferences" value="advisor"><span>Advisory relationship</span></label>
+                <label><input type="checkbox" name="participation_preferences" value="internship"><span>Internship or apprenticeship</span></label>
+                <label><input type="checkbox" name="participation_preferences" value="open_to_discussion"><span>Open to discussing the right structure</span></label>
+              </div>
+            </fieldset>
+            <label class="field"><span>Work arrangement <small>Optional</small></span><select name="work_arrangement"><option value="flexible">Flexible</option><option value="remote">Remote</option><option value="onsite">On-site</option></select></label>
+            <label class="field"><span>Availability <small>Optional</small></span><input name="availability" placeholder="Hours, timing, or a possible start date" maxlength="300"></label>
+          </div>
+        </section>
+
+        <section class="form-section" aria-labelledby="applicant-work-title">
+          <div class="form-section-heading"><span>05</span><div><h3 id="applicant-work-title">Share your work and context</h3><p>Links and a résumé are helpful when relevant, but none are required.</p></div></div>
+          <div class="form-grid">
+            <label class="field"><span>Portfolio or website <small>Optional</small></span><input name="portfolio_url" type="url" placeholder="https://" maxlength="1000"></label>
+            <label class="field"><span>LinkedIn <small>Optional</small></span><input name="linkedin_url" type="url" placeholder="https://linkedin.com/in/" maxlength="1000"></label>
+            <label class="field"><span>GitHub <small>Optional</small></span><input name="github_url" type="url" placeholder="https://github.com/" maxlength="1000"></label>
+            <label class="field"><span>Résumé link <small>Optional</small></span><input name="cv_url" type="url" placeholder="Shareable Drive, Dropbox, or portfolio link" maxlength="1000"></label>
+            <label class="field"><span>Upload résumé <small>Optional · PDF, DOC, or DOCX · 10 MB</small></span><input name="cv_file" type="file" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"></label>
+            <label class="field"><span>How did you hear about N3XRA? <small>Optional</small></span><input name="referral_source" placeholder="A person, project, search, or social media" maxlength="300"></label>
+            <label class="field form-full"><span>Anything else you would like us to understand? <small>Optional</small></span><textarea name="message" rows="4" maxlength="10000" placeholder="Add context, ask a question, or leave this blank."></textarea></label>
+          </div>
+        </section>
+
+        <label class="consent-field"><input name="information_retention_consent" type="checkbox" required><span>I agree that N3XRA may retain my application information for consideration for current and future opportunities. <strong>Required</strong></span></label>
+        <div class="form-actions"><button type="submit">Send application</button><p id="careers-status" role="status" aria-live="polite"></p></div>
+      </form>
+    </section>
+  </main>
+
+  <dialog class="careers-confirmation" id="careers-confirmation" aria-labelledby="careers-confirmation-heading">
+    <div class="careers-confirmation-inner"><p class="careers-eyebrow">Application received</p><h2 id="careers-confirmation-heading">Thank you.</h2><p id="careers-confirmation-message"></p><p id="careers-confirmation-next-step"></p><footer><button type="button" id="careers-confirmation-close">Done</button></footer></div>
+  </dialog>
+
+  <footer class="site-footer home-footer">
+    <div class="page-shell footer-grid">
+      <div class="footer-brand"><a class="home-brand" href="/" aria-label="N3XRA home"><img src="/assets/n3xra_logo_transparent_small.png" alt=""><span>N3XRA</span></a><p>N3XRA builds custom websites, software, automation, and AI solutions that help organizations work smarter and operate more efficiently.</p></div>
+      <nav class="footer-nav" aria-label="Company"><p>Explore</p><a href="/projects/">Projects</a><a href="/services/">Services</a><a href="/support/">Support</a><a href="/careers/">Careers</a></nav>
+      <nav class="footer-nav" aria-label="Software"><p>Software</p><a href="/records/">Records</a></nav>
+      <nav class="footer-nav" aria-label="Account and legal"><p>N3XRA</p><a href="/account" data-master-auth-link>Login</a><a href="/project-pulse/">Project Pulse</a><a href="/privacy/">Privacy</a><a href="/terms/">Terms</a><a href="/invest/">Invest</a></nav>
+    </div>
+    <div class="page-shell footer-bottom"><p>&copy; 2026 N3XRA LLC. All rights reserved.</p><p>Built by <a href="https://quentinnichols.com/">Quentin Nichols</a>.</p></div>
+  </footer>
+
+  <script type="module" src="/careers/careers.js?v=2"></script>
+  <script>
+    (() => {
+      const header = document.querySelector("[data-home-header]");
+      const updateHeader = () => header?.classList.toggle("is-scrolled", window.scrollY > 20);
+      updateHeader();
+      window.addEventListener("scroll", updateHeader, { passive: true });
+    })();
+  </script>
+</body>
+</html>
