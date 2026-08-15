@@ -31,6 +31,17 @@ function productAdminLink(item, account) {
   return { href: `/account/admin/billing/?${params}`, label: `Open ${item.productLabel || "product"} billing` };
 }
 
+function productClientPreviewLink(item) {
+  if (!item.organizationId) return null;
+  if (item.product === "records") {
+    return `/n3xra-records/library/?support_org=${encodeURIComponent(item.organizationId)}`;
+  }
+  if (item.product === "websites") {
+    return `/project-workspace/?website=${encodeURIComponent(item.organizationId)}`;
+  }
+  return null;
+}
+
 function renderAccountOptions(filter = "") {
   const select = document.getElementById("account-select");
   if (!select) return;
@@ -100,9 +111,9 @@ async function renderSelectedAccount() {
       </form>
     </section>
     <section class="account-oversight-section">
-      <div class="account-oversight-heading"><div><p class="portal-kicker">Product enrollment</p><h4>Apps and workspaces</h4><p>Open the correct admin workspace with this customer’s organization or site already selected.</p></div><span class="account-admin-count">${access.length} enrollment${access.length === 1 ? "" : "s"}</span></div>
+      <div class="account-oversight-heading"><div><p class="portal-kicker">Product enrollment</p><h4>Apps and workspaces</h4><p>Preview the customer experience or open the matching admin workspace with this account already selected.</p></div><span class="account-admin-count">${access.length} enrollment${access.length === 1 ? "" : "s"}</span></div>
       <div class="account-admin-card-grid">
-        ${access.length ? access.map((item) => { const link = productAdminLink(item, account); return `<article class="account-access-card"><div><span>${escapeHtml(item.productLabel)}</span><h4>${escapeHtml(item.organization || item.plan || "Product account")}</h4><p>${escapeHtml(item.role || "account")} · ${escapeHtml(item.status || "active")}</p></div><a class="portal-button portal-button-secondary" href="${escapeHtml(link.href)}">${escapeHtml(link.label)}</a></article>`; }).join("") : '<article class="account-access-card"><div><h4>No product access found</h4><p>This identity has no mapped product memberships.</p></div><a class="portal-button portal-button-secondary" href="/account/admin/product-apps/">Review product apps</a></article>'}
+        ${access.length ? access.map((item) => { const link = productAdminLink(item, account); const previewHref = productClientPreviewLink(item); return `<article class="account-access-card"><div><span>${escapeHtml(item.productLabel)}</span><h4>${escapeHtml(item.organization || item.plan || "Product account")}</h4><p>${escapeHtml(item.role || "account")} · ${escapeHtml(item.status || "active")}</p></div><div class="account-admin-head-actions">${previewHref ? `<a class="portal-button portal-button-secondary" href="${escapeHtml(previewHref)}">Preview client view</a>` : ""}<a class="portal-button portal-button-secondary" href="${escapeHtml(link.href)}">${escapeHtml(link.label)}</a></div></article>`; }).join("") : '<article class="account-access-card"><div><h4>No product access found</h4><p>This identity has no mapped product memberships.</p></div><a class="portal-button portal-button-secondary" href="/account/admin/product-apps/">Review product apps</a></article>'}
       </div>
     </section>
   `;
@@ -166,7 +177,7 @@ async function renderSelectedAccount() {
         <div><span>Loan Tracker</span>
         <h4>${escapeHtml(loan.lender_name || "Loan account")}</h4>
         <p>${Number(loan.original_balance).toLocaleString("en-US", { style: "currency", currency: "USD" })} original · ${Number(loan.planned_monthly_payment).toLocaleString("en-US", { style: "currency", currency: "USD" })}/month</p></div>
-        <a class="portal-button portal-button-secondary" href="/account/loan-tracker/?user=${encodeURIComponent(account.id)}">Open Loan Tracker</a>
+        <a class="portal-button portal-button-secondary" href="/account/loan-tracker/?user=${encodeURIComponent(account.id)}">Preview client view</a>
       </article>
     `);
   } catch (error) {

@@ -6,6 +6,8 @@ const accountHtmlPath = new URL("../../account/index.html", import.meta.url);
 const accountCssPath = new URL("../../account/account.css", import.meta.url);
 const accountJsPath = new URL("../../account/account.js", import.meta.url);
 const adminNavigationPath = new URL("../../account/admin/admin-navigation.js", import.meta.url);
+const adminInboxCssPath = new URL("../../account/admin/inbox/inbox.css", import.meta.url);
+const adminInboxHtmlPath = new URL("../../account/admin/inbox/index.html", import.meta.url);
 
 test("the account Admin tab is a focused six-action launcher", async () => {
   const [html, css, navigation] = await Promise.all([
@@ -57,4 +59,16 @@ test("customer app cards use consistent N3XRA product names and clear access sta
   assert.match(script, /function websiteAppState\(status\)/);
   assert.match(script, /interest && interest\.status !== "withdrawn"/);
   assert.match(script, /accountOverviewActions\?\.classList\.toggle\("has-admin-tools", canViewAdminApps\)/);
+});
+
+test("mobile inbox summaries remain compact while full notifications open separately", async () => {
+  const [css, html] = await Promise.all([
+    readFile(adminInboxCssPath, "utf8"),
+    readFile(adminInboxHtmlPath, "utf8"),
+  ]);
+
+  assert.match(css, /@media \(max-width: 680px\)[\s\S]*\.notification-item-main p\s*{[\s\S]*display:\s*-webkit-box;[\s\S]*-webkit-line-clamp:\s*2;/);
+  assert.match(css, /\.notification-item-main:focus-visible\s*{/);
+  assert.match(html, /<dialog class="notification-dialog"/);
+  assert.match(html, /inbox\.css\?v=3/);
 });

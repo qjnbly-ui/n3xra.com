@@ -477,6 +477,7 @@ async function loadMemberships() {
   const { data, error } = await supabase
     .from("organization_memberships")
     .select("role, organization:organizations(id,name,subscription_tier,account_status,owner_user_id)")
+    .eq("user_id", currentSession.user.id)
     .order("created_at", { ascending: true });
   if (error) throw error;
 
@@ -490,6 +491,7 @@ async function loadMusicProfile() {
   const { data, error } = await supabase
     .from("music_profiles")
     .select("plan, account_status, songs_used, monthly_song_limit")
+    .eq("user_id", currentSession.user.id)
     .maybeSingle();
   if (error && error.code !== "PGRST116") throw error;
   musicProfile = data || null;
@@ -499,6 +501,7 @@ async function loadViralsProfile() {
   const { data, error } = await supabase
     .from("virals_profiles")
     .select("plan, account_status, analyses_used, monthly_analysis_limit")
+    .eq("user_id", currentSession.user.id)
     .maybeSingle();
   if (error && error.code !== "PGRST116") throw error;
   viralsProfile = data || null;
@@ -508,6 +511,7 @@ async function loadWebsiteServiceRequest() {
   const { data, error } = await supabase
     .from("website_service_requests")
     .select("id,business_name,status,created_at")
+    .eq("user_id", currentSession.user.id)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -519,6 +523,7 @@ async function loadLoanAccount() {
   const { data, error } = await supabase
     .from("loan_accounts")
     .select("id,name,lender_name,planned_monthly_payment,status")
+    .eq("user_id", currentSession.user.id)
     .eq("status", "active")
     .order("created_at")
     .limit(2);

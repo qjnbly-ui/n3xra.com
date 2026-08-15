@@ -180,6 +180,12 @@
 .notification-item-main {
   min-width: 0;
   cursor: pointer;
+  outline: none;
+}
+
+.notification-item-main:focus-visible {
+  border-radius: 4px;
+  box-shadow: 0 0 0 2px rgba(22, 137, 182, 0.45);
 }
 
 .notification-item-main h2 {
@@ -438,6 +444,9 @@
   }
 
   .notification-item-main p {
+    display: -webkit-box;
     white-space: normal;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
   }
 }
