@@ -3,7 +3,7 @@ import { requestAiFollowUps } from "/shared/lib/ai-follow-ups.js?v=20260812";
 const CODEBASE_STARTER_PROMPTS = [
   "Where is platform administrator access controlled?",
   "How does subscription billing sync across N3XRA products?",
-  "Trace the N3XRA Files folder upload flow from the page to storage.",
+  "Trace the Internal Files folder upload flow from the page to storage.",
 ];
 
 let session;

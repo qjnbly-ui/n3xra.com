@@ -282,6 +282,18 @@ body {
   gap: 0.7rem;
 }
 
+.admin-quick-access-head {
+  align-items: end;
+  margin-bottom: 0.15rem;
+}
+
+.admin-all-tools-link {
+  flex: 0 0 auto;
+  min-height: 38px;
+  padding: 0.55rem 0.85rem;
+  font-size: 0.76rem;
+}
+
 .admin-app-card {
   min-height: 168px;
   gap: 0.72rem;
@@ -812,6 +824,11 @@ body {
 
   .admin-app-grid {
     grid-template-columns: 1fr;
+  }
+
+  .admin-quick-access-head {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .notification-layout,

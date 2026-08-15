@@ -945,7 +945,7 @@ function confirmAction({ title, copy: message, confirmLabel, danger = false }) {
 }
 
 function confirmDelete(fileName) {
-  return confirmAction({ title: "Delete file?", copy: `“${fileName}” will be permanently removed from N3XRA Files.`, confirmLabel: "Delete file", danger: true });
+  return confirmAction({ title: "Delete file?", copy: `“${fileName}” will be permanently removed from Internal Files.`, confirmLabel: "Delete file", danger: true });
 }
 
 async function unpublishFile(id) {
@@ -953,7 +953,7 @@ async function unpublishFile(id) {
   if (!file?.cdn_url) return;
   const confirmed = await confirmAction({
     title: "Remove from CDN?",
-    copy: `“${file.name}” will no longer be publicly available at its CDN link. The private file will remain in N3XRA Files.`,
+    copy: `“${file.name}” will no longer be publicly available at its CDN link. The private file will remain in Internal Files.`,
     confirmLabel: "Unpublish file",
     danger: true,
   });

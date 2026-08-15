@@ -198,7 +198,7 @@ function renderPagebar() {
     const pagebar = root?.querySelector("#communications-admin-pagebar");
     if (!pagebar)
         return;
-    pagebar.innerHTML = `<div><p class="portal-kicker">Communications Admin</p><h1>${escapeHtml(details.title)}</h1><p>${escapeHtml(details.description)}</p></div><div class="communications-admin-page-actions">${badge("Secure admin controls", "ready")}<button class="portal-button portal-button-secondary" id="communications-admin-refresh" type="button">Refresh</button></div>`;
+    pagebar.innerHTML = `<div><p class="portal-kicker">Communications</p><h1>${escapeHtml(details.title)}</h1><p>${escapeHtml(details.description)}</p></div><div class="communications-admin-page-actions">${badge("Secure admin controls", "ready")}<button class="portal-button portal-button-secondary" id="communications-admin-refresh" type="button">Refresh</button></div>`;
     pagebar.querySelector("#communications-admin-refresh")?.addEventListener("click", () => void loadCurrentSection());
 }
 function renderWorkspaceForm(data) {

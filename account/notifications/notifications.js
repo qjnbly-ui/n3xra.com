@@ -4,7 +4,7 @@ import {
   hasConfig,
 } from "/shared/lib/supabase-client.js";
 import { isPlatformAdminEmail } from "/shared/lib/orgs.js";
-import { arrangeAdminWorkspace } from "/account/admin/admin-navigation.js?v=14";
+import { arrangeAdminWorkspace } from "/account/admin/admin-navigation.js?v=15";
 import {
   renderNotificationMessageHtml,
 } from "/account/notifications/notification-message-format.js?v=1";

@@ -199,7 +199,7 @@ function renderDetail() {
       </div>
     </section>
     ${!isRecoverable ? `<section class="website-request-section website-request-organization">
-      <div class="website-request-section-head"><div><p class="portal-kicker">Organization workspace</p><h3>${organization ? escapeHtml(organization.name) : "Not connected"}</h3><p>${organization ? "This request will remain scoped to this organization across Website Admin." : "Connect this client before moving the request into proposals, projects, files, or billing."}</p></div>${organization ? '<span class="website-request-status status-qualified">Connected</span>' : '<span class="website-request-status status-needs_info">Required</span>'}</div>
+      <div class="website-request-section-head"><div><p class="portal-kicker">Organization workspace</p><h3>${organization ? escapeHtml(organization.name) : "Not connected"}</h3><p>${organization ? "This request will remain scoped to this organization across Websites." : "Connect this client before moving the request into proposals, projects, files, or billing."}</p></div>${organization ? '<span class="website-request-status status-qualified">Connected</span>' : '<span class="website-request-status status-needs_info">Required</span>'}</div>
       <div class="website-request-organization-controls">
         <label>Organization<select data-request-organization="${request.id}">${websites.map((website) => `<option value="${website.id}"${website.id === organization?.id ? " selected" : ""}>${escapeHtml(website.name)}</option>`).join("")}</select></label>
         <button class="portal-button portal-button-secondary" type="button" data-request-action="attach">${organization ? "Use selected organization" : "Attach to selected"}</button>

@@ -2,13 +2,13 @@
   "schemaVersion": 1,
   "name": "N3XRA Project Pulse",
   "visibility": "public-safe",
-  "generatedAt": "2026-08-15T05:23:32.750Z",
-  "updatedAt": "2026-08-14T22:02:05-07:00",
-  "commit": "f816f28",
+  "generatedAt": "2026-08-15T06:00:28.659Z",
+  "updatedAt": "2026-08-14T22:36:51-07:00",
+  "commit": "a096ada",
   "summary": {
     "statement": "N3XRA is a connected technology platform comprising approximately 193,000 lines of source code across customer experiences, software products, APIs, database systems, administrative tools, and operational infrastructure.",
     "sourceFiles": 725,
-    "sourceLines": 192823,
+    "sourceLines": 192701,
     "products": 5,
     "pages": 117,
     "apiFunctions": 72,
@@ -18,15 +18,15 @@
   "sourceBreakdown": {
     "css": {
       "files": 43,
-      "lines": 37209
+      "lines": 37231
     },
     "html": {
       "files": 117,
-      "lines": 30061
+      "lines": 29916
     },
     "js": {
       "files": 236,
-      "lines": 75680
+      "lines": 75681
     },
     "sql": {
       "files": 272,
@@ -92,6 +92,11 @@
     "Company governance planning"
   ],
   "recentCapabilities": [
+    {
+      "date": "2026-08-14",
+      "title": "Clearer N3XRA administration",
+      "summary": "The administrator dashboard now focuses on six frequent actions, while the full workspace menu groups every remaining destination by purpose: overview, people and access, customer operations, products, company, tools, ownership, and archived apps. Labels now stay consistent from the dashboard through each destination."
+    },
     {
       "date": "2026-08-14",
       "title": "Virals and AI Music retired from public view",

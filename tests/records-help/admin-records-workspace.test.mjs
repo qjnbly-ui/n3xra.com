@@ -2,22 +2,17 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-const accountHtmlPath = new URL("../../account/index.html", import.meta.url);
-const accountJsPath = new URL("../../account/account.js", import.meta.url);
+const adminNavigationPath = new URL("../../account/admin/admin-navigation.js", import.meta.url);
 const platformAdminPath = new URL("../../supabase/functions/platform-admin/index.ts", import.meta.url);
 
-test("the account Admin tab exposes the shared N3XRA Records workspace separately from Records oversight", async () => {
-  const [html, accountJs] = await Promise.all([
-    readFile(accountHtmlPath, "utf8"),
-    readFile(accountJsPath, "utf8"),
-  ]);
+test("the admin menu exposes Internal Records separately from Records oversight", async () => {
+  const navigation = await readFile(adminNavigationPath, "utf8");
 
-  assert.match(html, /id="open-admin-records-button"/);
-  assert.match(html, /N3XRA Admin Records/);
-  assert.match(html, /Open Records Admin/);
-  assert.match(accountJs, /open-admin-records-workspace/);
-  assert.match(accountJs, /setStoredActiveOrganizationId\(organizationId\)/);
-  assert.match(accountJs, /window\.location\.assign\("\/n3xra-records\/library"\)/);
+  assert.match(navigation, /data-open-internal-records/);
+  assert.match(navigation, /open-admin-records-workspace/);
+  assert.match(navigation, /setStoredActiveOrganizationId\(organizationId\)/);
+  assert.match(navigation, /window\.location\.assign\("\/n3xra-records\/library"\)/);
+  assert.match(navigation, /key: "records"[\s\S]*label: "Records"/);
 });
 
 test("the platform-admin service provisions one shared workspace for every active admin", async () => {

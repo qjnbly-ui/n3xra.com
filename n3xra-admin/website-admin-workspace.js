@@ -7,15 +7,15 @@ const projectStageRoutes = [
 ];
 
 const routeDetails = {
-  "/n3xra-admin/websites/": { key: "overview", kicker: "Website Admin", title: "Overview", description: "Managed websites, client access, and connected project workspaces." },
-  "/n3xra-admin/website-portal/": { key: "portal", kicker: "Website Admin", title: "Website Portal", description: "Activate and configure the client-branded website management portal." },
-  "/n3xra-admin/services/": { key: "services", kicker: "Website Admin", title: "Services & Ownership", description: "Providers, domains, repositories, renewals, and ownership records." },
-  "/n3xra-admin/requests/": { key: "requests", kicker: "Website Admin", title: "Requests", description: "Qualify incoming work before it becomes a proposal or project." },
-  "/n3xra-admin/proposals/": { key: "proposals", kicker: "Website Admin", title: "Proposals", description: "Build, review, send, and track client proposals." },
-  "/n3xra-admin/projects/": { key: "progress", kicker: "Website Admin", title: "Progress", description: "Control project status, milestones, dates, and client-facing next steps." },
-  "/n3xra-admin/onboarding/": { key: "onboarding", kicker: "Website Admin", title: "Onboarding", description: "Review intake responses and files after proposal approval." },
-  "/n3xra-admin/assets/": { key: "assets", kicker: "Website Admin", title: "Files & Assets", description: "Review, publish, and manage website files." },
-  "/n3xra-admin/billing/": { key: "billing", kicker: "Website Admin", title: "Billing", description: "Manage approved charges, invoices, subscriptions, and Stripe state." },
+  "/n3xra-admin/websites/": { key: "overview", kicker: "Websites", title: "Overview", description: "Managed websites, client access, and connected project workspaces." },
+  "/n3xra-admin/website-portal/": { key: "portal", kicker: "Websites", title: "Website Portal", description: "Activate and configure the client-branded website management portal." },
+  "/n3xra-admin/services/": { key: "services", kicker: "Websites", title: "Services & Ownership", description: "Providers, domains, repositories, renewals, and ownership records." },
+  "/n3xra-admin/requests/": { key: "requests", kicker: "Websites", title: "Requests", description: "Qualify incoming work before it becomes a proposal or project." },
+  "/n3xra-admin/proposals/": { key: "proposals", kicker: "Websites", title: "Proposals", description: "Build, review, send, and track client proposals." },
+  "/n3xra-admin/projects/": { key: "progress", kicker: "Websites", title: "Progress", description: "Control project status, milestones, dates, and client-facing next steps." },
+  "/n3xra-admin/onboarding/": { key: "onboarding", kicker: "Websites", title: "Onboarding", description: "Review intake responses and files after proposal approval." },
+  "/n3xra-admin/assets/": { key: "assets", kicker: "Websites", title: "Files & Assets", description: "Review, publish, and manage website files." },
+  "/n3xra-admin/billing/": { key: "billing", kicker: "Websites", title: "Billing", description: "Manage approved charges, invoices, subscriptions, and Stripe state." },
 };
 
 function normalizePath(pathname) {

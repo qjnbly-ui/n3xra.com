@@ -71,6 +71,11 @@ const MAJOR_MODULES = [
 const RECENT_CAPABILITIES = [
   {
     date: "2026-08-14",
+    title: "Clearer N3XRA administration",
+    summary: "The administrator dashboard now focuses on six frequent actions, while the full workspace menu groups every remaining destination by purpose: overview, people and access, customer operations, products, company, tools, ownership, and archived apps. Labels now stay consistent from the dashboard through each destination.",
+  },
+  {
+    date: "2026-08-14",
     title: "Virals and AI Music retired from public view",
     summary: "N3XRA removed Virals and AI Music from its public product lineup and customer portals as the company focuses its active platform around websites, branded client experiences, Records, Communications, and custom software. Both implementations remain preserved for internal access and possible future use.",
   },

@@ -1,15 +1,21 @@
 import { createBrowserSupabase, hasConfig } from "/shared/lib/supabase-client.js";
+import { setStoredActiveOrganizationId } from "/shared/lib/orgs.js";
 
-const accountLinks = [
-  ["/account/admin/accounts/", "Accounts & Access"],
-  ["/account/admin/platform-admins/", "Platform Admins"],
-  ["/account/admin/billing/", "Billing"],
-  ["/account/admin/operations/", "Operations"],
-  ["/account/admin/support/", "Support"],
-  ["/account/admin/applications/", "Applications"],
+const overviewLinks = [
+  ["/account/", "Dashboard"],
   ["/account/admin/inbox/", "Admin Inbox"],
-  ["/account/notifications/", "Platform Messages"],
-  ["/account/admin/analytics/", "Analytics"],
+];
+
+const peopleLinks = [
+  ["/account/admin/accounts/", "Accounts"],
+  ["/account/admin/platform-admins/", "Administrators"],
+];
+
+const customerOperationsLinks = [
+  ["/account/admin/support/", "Support Requests"],
+  ["/account/admin/billing/", "Billing & Plans"],
+  ["/account/admin/operations/", "Operations"],
+  ["/account/admin/analytics/", "Site Analytics"],
 ];
 
 const productWorkspacePaths = new Set([
@@ -38,7 +44,7 @@ let softNavigationSequence = 0;
 const productApps = [
   {
     key: "websites",
-    label: "Website Admin",
+    label: "Websites",
     sections: [
       ["workspace", "Organization Workspace", "/n3xra-admin/websites/"],
       ["requests", "Requests", "/n3xra-admin/requests/"],
@@ -57,7 +63,7 @@ const productApps = [
   },
   {
     key: "records",
-    label: "Records Admin",
+    label: "Records",
     sections: [
       ["organizations", "Organizations", "/n3xra-admin/records/organizations/"],
       ["usage", "Usage", "/n3xra-admin/records/usage/"],
@@ -65,12 +71,12 @@ const productApps = [
   },
   {
     key: "partners",
-    label: "Partner Admin",
+    label: "Partners",
     sections: [["applications", "Review applications", "/n3xra-admin/partners/"]],
   },
   {
     key: "communications",
-    label: "Communications Admin",
+    label: "Communications",
     sections: [
       ["workspace", "Organization Workspace", "/n3xra-admin/communications/"],
       ["requests", "Requests", "/n3xra-admin/communications/requests/"],
@@ -89,26 +95,25 @@ const productApps = [
   },
 ];
 
-const resourceLinks = [
-  ["/account/admin/business-info/", "Business Information"],
-  ["/account/admin/files/", "N3XRA Files"],
-  ["/account/admin/business-framework/", "Business Framework"],
-  ["/account/admin/codebase-ai/", "Codebase AI"],
+const companyLinks = [
+  ["/account/admin/applications/", "Career Applications"],
+  ["/account/admin/business-info/", "Company Information"],
+  ["/account/admin/files/", "Internal Files"],
+  ["/account/admin/business-framework/", "Strategy & Policies"],
 ];
 
-const investmentLinks = [
-  ["shareholders", "Shareholders"],
-  ["share-classes", "Share Classes"],
-  ["share-ledger", "Share Ledger"],
-  ["board-resolutions", "Board Resolutions"],
-  ["dividend-history", "Dividend History"],
-  ["cap-table", "Cap Table"],
-  ["valuation-history", "Company Valuation"],
-  ["vesting", "Vesting Schedules"],
-  ["voting", "Voting Rights"],
-  ["certificates", "Stock Certificates"],
-  ["transfers", "Share Transfer Requests"],
-  ["buybacks", "Company Buyback Requests"],
+const toolLinks = [
+  ["/account/admin/codebase-ai/", "Codebase AI"],
+  ["/account/notifications/", "Account Announcements"],
+];
+
+const ownershipLinks = [
+  ["/account/admin/investment/", "Ownership & Governance"],
+];
+
+const archivedLinks = [
+  ["/virals/", "Virals"],
+  ["/ai-music-generator/app/", "AI Music"],
 ];
 
 function normalizePath(pathname) {
@@ -185,15 +190,6 @@ function productMarkup(app, mobile = false) {
   return `<a class="${parentClass}${onApp ? " is-current" : ""}" href="${productHref(app)}" aria-expanded="${onApp}">${app.label}</a><div class="admin-nav-children" data-product-app-items="${app.key}"${onApp ? "" : " hidden"}>${children}</div>`;
 }
 
-function investmentMarkup(mobile = false) {
-  const onInvestmentPage = isCurrentPath("/account/admin/investment/");
-  const itemClass = mobile ? "site-menu-link admin-nav-child" : "admin-nav-child";
-  return investmentLinks.map(([section, label]) => {
-    const current = onInvestmentPage && window.location.hash === `#${section}` ? " is-current" : "";
-    return `<a class="${itemClass}${current}" data-investment-section="${section}" href="/account/admin/investment/#${section}">${label}</a>`;
-  }).join("");
-}
-
 function mobileSection({ title, meta = "", className = "", content }) {
   return `
     <section class="admin-mobile-nav-section${className ? ` ${className}` : ""}">
@@ -208,7 +204,7 @@ function mobileSection({ title, meta = "", className = "", content }) {
 
 function mobileNavigationMarkup() {
   const activeApp = productAppFromUrl();
-  const accountContent = `<div class="admin-mobile-link-grid">${accountLinks.map((item) => linkMarkup(item, true)).join("")}</div>`;
+  const links = (items) => `<div class="admin-mobile-link-grid">${items.map((item) => linkMarkup(item, true)).join("")}</div>`;
   const productContent = `<div class="admin-mobile-product-list">${productApps.map((app) => {
     const isActive = activeApp?.key === app.key;
     return `
@@ -217,8 +213,6 @@ function mobileNavigationMarkup() {
       </div>
     `;
   }).join("")}</div>`;
-  const resourceContent = `<div class="admin-mobile-link-grid">${resourceLinks.map((item) => linkMarkup(item, true)).join("")}</div>`;
-  const onInvestmentPage = isCurrentPath("/account/admin/investment/");
 
   return `
     <div class="admin-mobile-menu-intro">
@@ -232,16 +226,14 @@ function mobileNavigationMarkup() {
       <a class="site-menu-link" href="/account/">Dashboard</a>
       <button class="site-menu-link" type="button" data-admin-mobile-sign-out>Sign out</button>
     </div>
-    ${mobileSection({ title: "N3XRA Accounts", meta: `${accountLinks.length} areas`, content: accountContent })}
-    ${mobileSection({ title: "Product Admin Apps", meta: `${productApps.length} apps`, className: "admin-mobile-products", content: productContent })}
-    ${mobileSection({ title: "Internal Resources", content: resourceContent })}
-    ${mobileSection({
-      title: "Investment",
-      content: `
-        <button class="site-menu-link admin-nav-expander${onInvestmentPage ? " is-current" : ""}" type="button" data-investment-nav-toggle aria-expanded="${onInvestmentPage}">Investment workspace</button>
-        <div class="admin-nav-children" data-investment-nav-items${onInvestmentPage ? "" : " hidden"}>${investmentMarkup(true)}</div>
-      `,
-    })}
+    ${mobileSection({ title: "Overview", content: links(overviewLinks.slice(1)) })}
+    ${mobileSection({ title: "People & Access", content: links(peopleLinks) })}
+    ${mobileSection({ title: "Customer Operations", content: links(customerOperationsLinks) })}
+    ${mobileSection({ title: "Products", meta: `${productApps.length} workspaces`, className: "admin-mobile-products", content: productContent })}
+    ${mobileSection({ title: "Company", content: links(companyLinks) })}
+    ${mobileSection({ title: "Tools", content: `${links(toolLinks)}<button class="site-menu-link admin-nav-action" type="button" data-open-internal-records>Internal Records</button>` })}
+    ${mobileSection({ title: "Ownership", content: links(ownershipLinks) })}
+    ${mobileSection({ title: "Archived Apps", content: links(archivedLinks) })}
   `;
 }
 
@@ -253,36 +245,33 @@ function navigationMarkup(mobile = false) {
     ? `<div class="${labelClass}"><p class="site-mobile-menu-title">${text}</p></div>`
     : `<p class="portal-nav-label">${text}</p>`;
   const divider = mobile ? "" : '<div class="portal-nav-divider"></div>';
-  const onInvestmentPage = isCurrentPath("/account/admin/investment/");
-  const buttonClass = mobile ? "site-menu-link admin-nav-expander" : "admin-nav-expander";
 
   return [
-    label("N3XRA Accounts"),
-    accountLinks.map((item) => linkMarkup(item, mobile)).join(""),
+    label("Overview"),
+    overviewLinks.map((item) => linkMarkup(item, mobile)).join(""),
     divider,
-    label("Product Admin Apps"),
+    label("People & Access"),
+    peopleLinks.map((item) => linkMarkup(item, mobile)).join(""),
+    divider,
+    label("Customer Operations"),
+    customerOperationsLinks.map((item) => linkMarkup(item, mobile)).join(""),
+    divider,
+    label("Products"),
     productApps.map((app) => productMarkup(app, mobile)).join(""),
     divider,
-    label("Internal Resources"),
-    resourceLinks.map((item) => linkMarkup(item, mobile)).join(""),
+    label("Company"),
+    companyLinks.map((item) => linkMarkup(item, mobile)).join(""),
     divider,
-    label("Investment"),
-    `<button class="${buttonClass}${onInvestmentPage ? " is-current" : ""}" type="button" data-investment-nav-toggle aria-expanded="${onInvestmentPage}">Investment workspace</button>`,
-    `<div class="admin-nav-children" data-investment-nav-items${onInvestmentPage ? "" : " hidden"}>${investmentMarkup(mobile)}</div>`,
+    label("Tools"),
+    toolLinks.map((item) => linkMarkup(item, mobile)).join(""),
+    '<button class="admin-nav-action" type="button" data-open-internal-records>Internal Records</button>',
+    divider,
+    label("Ownership"),
+    ownershipLinks.map((item) => linkMarkup(item, mobile)).join(""),
+    divider,
+    label("Archived Apps"),
+    archivedLinks.map((item) => linkMarkup(item, mobile)).join(""),
   ].join("");
-}
-
-function bindInvestmentToggle(container) {
-  const button = container.querySelector("[data-investment-nav-toggle]");
-  const items = container.querySelector("[data-investment-nav-items]");
-  if (!button || !items) return;
-  button.addEventListener("click", () => {
-    const scrollTop = container.scrollTop;
-    const expanded = button.getAttribute("aria-expanded") === "true";
-    button.setAttribute("aria-expanded", String(!expanded));
-    items.hidden = expanded;
-    requestAnimationFrame(() => { container.scrollTop = scrollTop; });
-  });
 }
 
 function closeMobileMenu() {
@@ -300,7 +289,6 @@ export function renderAdminNavigation({ desktopScrollTop } = {}) {
     const scrollTop = Number.isFinite(desktopScrollTop) ? desktopScrollTop : nav.scrollTop;
     nav.innerHTML = navigationMarkup(false);
     nav.setAttribute("aria-label", "N3XRA administration");
-    bindInvestmentToggle(nav);
     requestAnimationFrame(() => { nav.scrollTop = scrollTop; });
   });
 
@@ -308,7 +296,6 @@ export function renderAdminNavigation({ desktopScrollTop } = {}) {
     const scrollTop = nav.scrollTop;
     nav.innerHTML = navigationMarkup(true);
     nav.setAttribute("aria-label", "N3XRA administration menu");
-    bindInvestmentToggle(nav);
     requestAnimationFrame(() => { nav.scrollTop = scrollTop; });
   });
 
@@ -316,6 +303,28 @@ export function renderAdminNavigation({ desktopScrollTop } = {}) {
     window.dispatchEvent(new Event("hashchange"));
   }
   refreshAdminInboxBadge();
+}
+
+async function openInternalRecords(button) {
+  if (!hasConfig() || !button) return;
+  const originalLabel = button.textContent;
+  button.disabled = true;
+  button.textContent = "Opening Internal Records…";
+  try {
+    const supabase = createBrowserSupabase();
+    const { data, error } = await supabase.functions.invoke("platform-admin", {
+      body: { action: "open-admin-records-workspace" },
+    });
+    if (error || data?.error) throw new Error(error?.message || data?.error || "Internal Records is unavailable.");
+    const organizationId = String(data?.organizationId || "").trim();
+    if (!organizationId) throw new Error("Internal Records is unavailable.");
+    setStoredActiveOrganizationId(organizationId);
+    window.location.assign("/n3xra-records/library");
+  } catch (error) {
+    button.disabled = false;
+    button.textContent = originalLabel;
+    window.alert(error instanceof Error ? error.message : "Internal Records could not be opened.");
+  }
 }
 
 export function arrangeAdminWorkspace() {
@@ -391,7 +400,7 @@ async function startWebsiteWorkspace(page) {
   websiteWorkspace.startWebsiteAdminWorkspace();
 
   const controllerUrl = websitePageController(page);
-  if (!controllerUrl) throw new Error("This Website Admin page has no controller.");
+  if (!controllerUrl) throw new Error("This Websites page has no controller.");
   softNavigationSequence += 1;
   controllerUrl.searchParams.set("admin_view", String(softNavigationSequence));
   await import(controllerUrl.href);
@@ -454,6 +463,12 @@ export async function navigateAdminWorkspace(destination, { history = "push", de
 }
 
 document.addEventListener("click", (event) => {
+  const internalRecordsButton = event.target.closest("[data-open-internal-records]");
+  if (internalRecordsButton) {
+    openInternalRecords(internalRecordsButton);
+    return;
+  }
+
   const mobileSignOut = event.target.closest("[data-admin-mobile-sign-out]");
   if (mobileSignOut) {
     closeMobileMenu();

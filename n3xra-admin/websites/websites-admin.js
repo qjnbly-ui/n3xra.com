@@ -1261,7 +1261,7 @@ async function openVersion(version) {
     : await supabase.storage.from(version.storage_bucket).createSignedUrl(version.storage_path, 600);
   if (previewResult.error || !previewResult.data?.signedUrl) throw previewResult.error || new Error("A preview link could not be created.");
   const downloadUrl = version.public_url || await downloadUrlForVersion(version);
-  await openAssetPreview({ name: version.original_filename, mimeType: version.mime_type, url: previewResult.data.signedUrl, downloadUrl, kicker: "Website Admin Files & Assets" });
+  await openAssetPreview({ name: version.original_filename, mimeType: version.mime_type, url: previewResult.data.signedUrl, downloadUrl, kicker: "Websites · Files & Assets" });
 }
 
 async function downloadUrlForVersion(version) {

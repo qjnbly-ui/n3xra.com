@@ -82,7 +82,6 @@ const showAppsViewButton = document.getElementById("show-apps-view");
 const showAdminViewButton = document.getElementById("show-admin-view");
 const adminNotificationButton = document.getElementById("admin-notification-button");
 const adminNotificationCount = document.getElementById("admin-notification-count");
-const openAdminRecordsButton = document.getElementById("open-admin-records-button");
 
 let supabase = null;
 let currentSession = null;
@@ -992,23 +991,6 @@ async function openRecords() {
   window.location.assign("/n3xra-records/library");
 }
 
-async function openAdminRecords() {
-  if (!currentSession?.user || !canViewAdminApps || !openAdminRecordsButton) return;
-
-  openAdminRecordsButton.disabled = true;
-  setStatus("Opening N3XRA Admin Records...");
-  try {
-    const data = await invokePlatformAdmin("open-admin-records-workspace");
-    const organizationId = String(data.organizationId || "").trim();
-    if (!organizationId) throw new Error("The N3XRA Admin Records workspace is unavailable.");
-    setStoredActiveOrganizationId(organizationId);
-    window.location.assign("/n3xra-records/library");
-  } catch (error) {
-    setStatus(getErrorMessage(error, "Unable to open N3XRA Admin Records."), "error");
-    openAdminRecordsButton.disabled = false;
-  }
-}
-
 async function openMusic() {
   if (!currentSession?.access_token) return;
 
@@ -1242,7 +1224,6 @@ function bindEvents() {
     });
   });
   openRecordsButton.addEventListener("click", openRecords);
-  openAdminRecordsButton?.addEventListener("click", openAdminRecords);
   openMusicButton?.addEventListener("click", openMusic);
   openViralsButton?.addEventListener("click", openVirals);
   showAppsViewButton?.addEventListener("click", () => setDashboardView("apps"));

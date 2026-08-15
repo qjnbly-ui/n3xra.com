@@ -5,8 +5,8 @@ import test from "node:test";
 const filesSource = await readFile(new URL("../../account/admin/files/files.js", import.meta.url), "utf8");
 const navigationSource = await readFile(new URL("../../account/admin/admin-navigation.js", import.meta.url), "utf8");
 
-test("N3XRA Files remains the central admin library", () => {
-  assert.match(navigationSource, /\["\/account\/admin\/files\/", "N3XRA Files"\]/);
+test("Internal Files remains the central admin library", () => {
+  assert.match(navigationSource, /\["\/account\/admin\/files\/", "Internal Files"\]/);
 });
 
 test("website libraries retain website and category folders", () => {

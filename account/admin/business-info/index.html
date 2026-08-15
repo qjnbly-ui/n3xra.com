@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>N3XRA | Business Information</title><meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
+  <title>N3XRA | Company Information</title><meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
   <link rel="icon" href="/assets/n3xra_logo_transparent_small.png">
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&amp;family=Manrope:wght@400;600;700;800&amp;display=swap" rel="stylesheet">
@@ -12,13 +12,13 @@
 <body data-admin-view="business-info" class="business-info-admin-page">
   <header class="site-topbar"><div class="site-topbar-inner"><div class="site-topbar-row"><a class="site-brand" href="/"><img src="/assets/n3xra_logo_transparent_small.png" alt=""><span>N3XRA</span></a><div class="site-nav-actions"><a class="site-menu-link" href="/account">Dashboard</a><button class="site-menu-link portal-logout" id="admin-sign-out" type="button">Sign out</button><button class="site-menu-toggle" data-site-menu-toggle type="button" aria-controls="admin-menu" aria-expanded="false"><span></span><span></span><span></span></button></div></div><nav class="site-mobile-menu" id="admin-menu" hidden></nav></div></header>
   <main class="portal-shell account-admin-page">
-    <section class="portal-heading"><div><p class="portal-kicker">N3XRA Administration</p><h1>Business Information</h1><p>Company identifiers, registration details, and supporting records in one private workspace.</p></div></section>
+    <section class="portal-heading"><div><p class="portal-kicker">Company</p><h1>Company Information</h1><p>Company identifiers, registration details, and supporting records in one private workspace.</p></div></section>
     <section class="portal-workspace hidden" id="setup-panel"><div class="portal-workspace-head"><div><h2>Connect Supabase</h2><p>Add the browser project configuration to continue.</p></div></div></section>
     <div class="portal-layout hidden" id="admin-panel">
       <nav class="portal-nav"></nav>
       <section class="portal-workspace business-info-workspace">
         <div class="business-info-intro">
-          <div><p class="portal-kicker">Company record</p><h2>Everything you reach for often</h2><p>Keep official identifiers here and connect each item to its source document in N3XRA Files.</p></div>
+          <div><p class="portal-kicker">Company record</p><h2>Everything you reach for often</h2><p>Keep official identifiers here and connect each item to its source document in Internal Files.</p></div>
           <a class="portal-button portal-button-secondary" href="/account/admin/files/?folder=Business%20Records">Open Business Records</a>
         </div>
 
@@ -70,7 +70,7 @@
         </form>
 
         <section class="business-documents-section" aria-labelledby="business-documents-heading">
-          <div class="business-section-heading"><div><p class="portal-kicker">Supporting records</p><h3 id="business-documents-heading">Linked N3XRA Files</h3><p>Attach formation papers, IRS letters, D-U-N-S confirmations, licenses, and related documents.</p></div><a href="/account/admin/files/?folder=Business%20Records">Manage all files</a></div>
+          <div class="business-section-heading"><div><p class="portal-kicker">Supporting records</p><h3 id="business-documents-heading">Linked Internal Files</h3><p>Attach formation papers, IRS letters, D-U-N-S confirmations, licenses, and related documents.</p></div><a href="/account/admin/files/?folder=Business%20Records">Manage all files</a></div>
           <form class="business-attach-form" id="business-attach-form">
             <label class="account-admin-field"><span>Document</span><select id="business-file-select" name="fileId" required><option value="">Choose a file</option></select></label>
             <label class="account-admin-field"><span>Record type</span><select name="documentType"><option>Formation document</option><option>IRS / EIN record</option><option>D-U-N-S record</option><option>State registration</option><option>License or permit</option><option>Banking record</option><option>Insurance record</option><option>Other</option></select></label>

@@ -1,6 +1,6 @@
 import { hasConfig } from "/shared/lib/supabase-client.js";
 import { getAdminSession } from "/account/admin/admin-session.js?v=2";
-import { arrangeAdminWorkspace } from "/account/admin/admin-navigation.js?v=14";
+import { arrangeAdminWorkspace } from "/account/admin/admin-navigation.js?v=15";
 import { confirmAdminAction } from "/account/admin/admin-dialogs.js";
 import { initializeAdminSelects } from "/account/admin/admin-select.js?v=1";
 
@@ -82,7 +82,7 @@ const investmentLabels = { shareholders: "Shareholders table", "share-classes": 
 
 const productAdminApps = {
   websites: {
-    label: "Website Admin",
+    label: "Websites",
     sections: {
       overview: ["Website Overview", "Manage client websites, access, files, and lifecycle records.", "/n3xra-admin/websites/"],
       services: ["Services & Ownership", "Manage services, ownership, and related website records.", "/n3xra-admin/services/"],
@@ -95,14 +95,14 @@ const productAdminApps = {
     },
   },
   records: {
-    label: "Records Admin",
+    label: "Records",
     sections: {
       organizations: ["Records Organizations", "Manage Records plans, limits, features, trials, and owner support.", "/n3xra-admin/records/organizations/"],
       usage: ["Records Usage", "Review Records usage and limits.", "/n3xra-admin/records/usage/"],
     },
   },
   partners: {
-    label: "Partner Admin",
+    label: "Partners",
     sections: {
       applications: ["Partner Applications", "Review partner program interest and application decisions.", "/n3xra-admin/partners/"],
     },

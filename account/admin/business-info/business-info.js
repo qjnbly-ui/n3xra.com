@@ -217,7 +217,7 @@ async function handleBusinessAction(event) {
   try {
     await businessInvoke("detach-business-file", { fileId: detach.dataset.businessFileDetach });
     await loadBusinessInformation();
-    setBusinessStatus("File link removed. The original file is still in N3XRA Files.", "success");
+    setBusinessStatus("File link removed. The original file is still in Internal Files.", "success");
   } catch (error) {
     detach.disabled = false;
     setBusinessStatus(error.message || "Unable to remove this file link.", "error");
