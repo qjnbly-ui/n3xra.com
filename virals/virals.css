@@ -46,6 +46,10 @@ a {
   color: inherit;
 }
 
+.auth-pill[data-auth-state="pending"] {
+  visibility: hidden;
+}
+
 button,
 input,
 select,

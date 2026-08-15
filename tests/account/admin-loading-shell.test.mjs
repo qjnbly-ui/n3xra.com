@@ -35,9 +35,9 @@ test("every admin document uses the single shared shell instead of copied header
   for (const file of candidates) {
     const html = await readFile(file, "utf8");
     if (!html.includes("/account/admin/admin.css")) continue;
-    if (!html.includes('/account/admin/admin-shell.js?v=1')) failures.push(path.relative(projectRoot, file));
+    if (!html.includes('/account/admin/admin-shell.js?v=2')) failures.push(path.relative(projectRoot, file));
     assert.doesNotMatch(html, /<header class="site-topbar admin-topbar"/);
-    assert.ok(html.indexOf("/account/admin/admin-shell.js?v=1") < html.indexOf("/assets/site-nav.js"));
+    assert.ok(html.indexOf("/account/admin/admin-shell.js?v=2") < html.indexOf("/assets/site-nav.js?v=3"));
     assert.match(html, /\/account\/admin\/admin\.css\?v=26/);
   }
 
@@ -65,6 +65,17 @@ test("the shared navigator covers every admin menu route without hiding the pers
   assert.match(navigation, /const nativeProductWorkspacePaths = new Set/);
   assert.doesNotMatch(navigation, /document\.body\.classList\.remove\("admin-ready"\)/);
   assert.match(navigation, /importedNavigation\.replaceWith\(currentNavigation\)/);
+});
+
+test("admin navigation preserves the clicked position across soft and fallback page loads", async () => {
+  const navigation = await readFile(path.join(projectRoot, "account/admin/admin-navigation.js"), "utf8");
+  assert.match(navigation, /function captureAdminScrollState\(link = null\)/);
+  assert.match(navigation, /pageScrollTop: window\.scrollY/);
+  assert.match(navigation, /desktopScrollTop: desktopNavigation\?\.scrollTop/);
+  assert.match(navigation, /anchorOffset: link\.getBoundingClientRect\(\)\.top - nav\.getBoundingClientRect\(\)\.top/);
+  assert.match(navigation, /window\.sessionStorage\.setItem\(ADMIN_NAVIGATION_SCROLL_KEY/);
+  assert.match(navigation, /restoreAdminScrollState\(preservedScroll\)/);
+  assert.match(navigation, /navigateAdminWorkspace\(window\.location\.href, \{ history: "none", scrollState, force: true \}\)/);
 });
 
 test("admin product entry points reuse the shared admin session gate", async () => {

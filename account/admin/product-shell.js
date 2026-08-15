@@ -1,4 +1,4 @@
-import { renderAdminNavigation } from "/account/admin/admin-navigation.js?v=16";
+import { renderAdminNavigation } from "/account/admin/admin-navigation.js?v=17";
 import { initializeAdminSelects } from "/account/admin/admin-select.js?v=1";
 import { getAdminSession } from "/account/admin/admin-session.js";
 

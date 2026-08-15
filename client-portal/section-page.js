@@ -13,6 +13,6 @@ if (view === "assets") {
   document.querySelectorAll("[data-portal-view]").forEach((item) => item.classList.toggle("is-current", item.dataset.portalView === "files"));
 }
 
-await import("/assets/site-nav.js");
+await import("/assets/site-nav.js?v=3");
 await import("/client-portal/client-shell.js?v=10");
 await import("/client-portal/portal.js?v=19");

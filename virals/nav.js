@@ -743,10 +743,12 @@ function renderAuth() {
   if (currentSession?.user) {
     authLink.textContent = "Account";
     authLink.href = "#virals-account";
+    authLink.dataset.authState = "signed-in";
     return;
   }
   authLink.textContent = "Login";
   authLink.href = getLoginUrl();
+  authLink.dataset.authState = "signed-out";
 }
 
 async function initAuth() {

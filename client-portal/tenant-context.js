@@ -137,6 +137,7 @@ export function applyPortalTenantBranding(resolution) {
         link.href = identity.websiteUrl || "#";
         link.textContent = `Back to ${identity.websiteName} Website`;
     });
+    root.classList.remove("portal-brand-pending");
     return identity;
 }
 function asTenantRow(value) {

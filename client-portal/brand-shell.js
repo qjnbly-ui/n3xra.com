@@ -17,6 +17,7 @@ function showGenericPortalIdentity() {
         }
     });
     document.querySelectorAll('.site-nav-actions a[href^="/account"], [data-site-assistant-open], [data-site-assistant-layer]').forEach((element) => element.remove());
+    document.documentElement.classList.remove("portal-brand-pending");
     return null;
 }
 function showN3xraPortalIdentity() {
@@ -34,6 +35,7 @@ function showN3xraPortalIdentity() {
             image.src = "/assets/n3xra_logo_transparent_small.png";
         }
     });
+    document.documentElement.classList.remove("portal-brand-pending");
     return null;
 }
 export async function initializePortalBrandShell() {
@@ -49,7 +51,9 @@ export async function initializePortalBrandShell() {
         if (!supabase)
             throw new Error("Portal configuration is unavailable.");
         const resolution = await resolvePortalTenant(supabase);
-        return applyPortalTenantBranding(resolution) || showGenericPortalIdentity();
+        const identity = applyPortalTenantBranding(resolution) || showGenericPortalIdentity();
+        document.documentElement.classList.remove("portal-brand-pending");
+        return identity;
     }
     catch {
         return showGenericPortalIdentity();

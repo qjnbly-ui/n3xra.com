@@ -185,6 +185,7 @@ export function applyPortalTenantBranding(resolution: PortalTenantResolution): P
     link.textContent = `Back to ${identity.websiteName} Website`;
   });
 
+  root.classList.remove("portal-brand-pending");
   return identity;
 }
 

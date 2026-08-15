@@ -311,10 +311,12 @@ function renderAuthState() {
   if (currentSession?.user) {
     headerAuthLink.textContent = "Account";
     headerAuthLink.href = "#virals-account";
+    headerAuthLink.dataset.authState = "signed-in";
     return;
   }
   headerAuthLink.textContent = "Login";
   headerAuthLink.href = "/n3xra-virals/login/?next=/virals/";
+  headerAuthLink.dataset.authState = "signed-out";
 }
 
 async function initAuthState() {

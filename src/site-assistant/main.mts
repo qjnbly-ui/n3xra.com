@@ -137,7 +137,9 @@ function appendMessage(container: HTMLElement, role: HistoryMessage["role"], val
 }
 
 function addNavTrigger(container: Element | null, mobile = false): HTMLButtonElement | null {
-  if (!container || container.querySelector("[data-site-assistant-open]")) return null;
+  if (!container) return null;
+  const existing = container.querySelector<HTMLButtonElement>("[data-site-assistant-open]");
+  if (existing) return existing;
   const trigger = document.createElement("button");
   trigger.className = mobile ? "site-menu-link site-assistant-mobile-trigger" : "site-menu-link site-assistant-nav-trigger";
   trigger.type = "button";
@@ -336,12 +338,15 @@ async function initializeSiteAssistant(): Promise<void> {
 
   if (audience === "admin") {
     modes.hidden = false;
-    if (desktopTrigger) { desktopTrigger.textContent = "Ask Admin AI"; desktopTrigger.classList.add("is-admin"); }
-    if (mobileTrigger) mobileTrigger.textContent = "Ask Admin AI";
-  } else if (audience === "account") {
-    if (desktopTrigger) desktopTrigger.textContent = "Ask Account AI";
-    if (mobileTrigger) mobileTrigger.textContent = "Ask Account AI";
   }
+  const triggerAudience: Audience = desktopTrigger?.classList.contains("is-admin") ? "admin" : audience;
+  const triggerLabel = triggerAudience === "admin" ? "Ask Admin AI" : triggerAudience === "account" ? "Ask Account AI" : "Ask N3XRA";
+  [desktopTrigger, mobileTrigger].forEach((trigger) => {
+    if (!trigger) return;
+    trigger.textContent = triggerLabel;
+    trigger.classList.toggle("is-admin", triggerAudience === "admin");
+    trigger.removeAttribute("data-assistant-state");
+  });
   renderMode();
 
   question.addEventListener("keydown", (event) => {

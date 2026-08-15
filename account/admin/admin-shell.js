@@ -12,7 +12,7 @@
           <span>N3XRA</span>
         </a>
         <div class="site-nav-actions">
-          <button class="site-menu-link site-assistant-nav-trigger" type="button" data-site-assistant-open aria-expanded="false" aria-controls="site-assistant-layer">Ask N3XRA</button>
+          <button class="site-menu-link site-assistant-nav-trigger is-admin" type="button" data-site-assistant-open aria-expanded="false" aria-controls="site-assistant-layer">Ask Admin AI</button>
           <a class="site-menu-link" href="/account/">Dashboard</a>
           <button class="site-menu-link portal-logout" id="admin-sign-out" type="button" data-admin-sign-out>Sign out</button>
           <button class="site-menu-toggle" data-site-menu-toggle type="button" aria-controls="admin-menu" aria-expanded="false" aria-label="Open admin navigation">

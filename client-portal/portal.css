@@ -122,6 +122,10 @@ html.portal-white-label-host:not(.portal-white-label-ready) .site-brand {
   visibility: hidden;
 }
 
+html.portal-brand-pending .site-topbar-row {
+  visibility: hidden;
+}
+
 html.portal-white-label-host .site-nav-actions > a[href^="/account"] {
   display: none !important;
 }

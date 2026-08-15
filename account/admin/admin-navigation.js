@@ -51,6 +51,7 @@ const productWorkspacePaths = new Set([
 ]);
 
 let softNavigationSequence = 0;
+const ADMIN_NAVIGATION_SCROLL_KEY = "n3xra_admin_navigation_scroll";
 
 const productApps = [
   {
@@ -130,6 +131,128 @@ const archivedLinks = [
 function normalizePath(pathname) {
   const path = String(pathname || "/").replace(/\/+$/, "");
   return path ? `${path}/` : "/";
+}
+
+function navigationDestinationKey(destination = window.location.href) {
+  const url = new URL(destination, window.location.origin);
+  return `${url.pathname}${url.search}`;
+}
+
+function linkDestinationKey(link) {
+  if (!link?.href) return "";
+  return navigationDestinationKey(link.href);
+}
+
+function navAnchorState(nav, link) {
+  if (!nav || !link || !nav.contains(link)) return {};
+  return {
+    anchorHref: linkDestinationKey(link),
+    anchorOffset: link.getBoundingClientRect().top - nav.getBoundingClientRect().top,
+  };
+}
+
+function captureAdminScrollState(link = null) {
+  const desktopNavigation = document.querySelector(".portal-nav");
+  const mobileNavigation = document.querySelector(".site-mobile-menu");
+  const desktopAnchor = navAnchorState(desktopNavigation, link);
+  const mobileAnchor = navAnchorState(mobileNavigation, link);
+  return {
+    pageScrollTop: window.scrollY,
+    desktopScrollTop: desktopNavigation?.scrollTop || 0,
+    mobileScrollTop: mobileNavigation?.scrollTop || 0,
+    desktopAnchorHref: desktopAnchor.anchorHref || "",
+    desktopAnchorOffset: desktopAnchor.anchorOffset,
+    mobileAnchorHref: mobileAnchor.anchorHref || "",
+    mobileAnchorOffset: mobileAnchor.anchorOffset,
+  };
+}
+
+function rememberAdminScrollState(destination, scrollState) {
+  try {
+    window.sessionStorage.setItem(ADMIN_NAVIGATION_SCROLL_KEY, JSON.stringify({
+      destination: navigationDestinationKey(destination),
+      ...scrollState,
+    }));
+  } catch {
+    // Soft navigation still receives the state directly when storage is unavailable.
+  }
+}
+
+function storedAdminScrollState(destination = window.location.href) {
+  try {
+    const stored = JSON.parse(window.sessionStorage.getItem(ADMIN_NAVIGATION_SCROLL_KEY) || "null");
+    return stored?.destination === navigationDestinationKey(destination) ? stored : null;
+  } catch {
+    return null;
+  }
+}
+
+function forgetAdminScrollState(destination = window.location.href) {
+  try {
+    const stored = storedAdminScrollState(destination);
+    if (stored) window.sessionStorage.removeItem(ADMIN_NAVIGATION_SCROLL_KEY);
+  } catch {
+    // A storage failure does not affect navigation.
+  }
+}
+
+function matchingNavigationLink(nav, href) {
+  if (!nav || !href) return null;
+  return [...nav.querySelectorAll("a[href]")].find((link) => linkDestinationKey(link) === href) || null;
+}
+
+function restoreNavigationPosition(nav, scrollTop, anchorHref, anchorOffset) {
+  if (!nav || !Number.isFinite(scrollTop)) return;
+  nav.scrollTop = scrollTop;
+  if (!anchorHref || !Number.isFinite(anchorOffset)) return;
+  const link = matchingNavigationLink(nav, anchorHref);
+  if (!link) return;
+  const currentOffset = link.getBoundingClientRect().top - nav.getBoundingClientRect().top;
+  nav.scrollTop += currentOffset - anchorOffset;
+}
+
+function restoreAdminScrollState(scrollState) {
+  if (!scrollState) return;
+  const apply = () => {
+    restoreNavigationPosition(
+      document.querySelector(".portal-nav"),
+      scrollState.desktopScrollTop,
+      scrollState.desktopAnchorHref,
+      scrollState.desktopAnchorOffset,
+    );
+    restoreNavigationPosition(
+      document.querySelector(".site-mobile-menu"),
+      scrollState.mobileScrollTop,
+      scrollState.mobileAnchorHref,
+      scrollState.mobileAnchorOffset,
+    );
+    if (Number.isFinite(scrollState.pageScrollTop)) {
+      window.scrollTo({ top: scrollState.pageScrollTop, left: 0, behavior: "instant" });
+    }
+  };
+  apply();
+  requestAnimationFrame(() => requestAnimationFrame(apply));
+}
+
+function restoreStoredScrollWhenReady() {
+  const scrollState = storedAdminScrollState();
+  if (!scrollState) return;
+  const ready = () => document.body.classList.contains("admin-ready")
+    || (document.body.classList.contains("product-native-admin") && !document.body.classList.contains("portal-loading"));
+  const finish = () => {
+    restoreAdminScrollState(scrollState);
+    forgetAdminScrollState();
+  };
+  if (ready()) {
+    finish();
+    return;
+  }
+  const observer = new MutationObserver(() => {
+    if (!ready()) return;
+    observer.disconnect();
+    finish();
+  });
+  observer.observe(document.body, { attributes: true, attributeFilter: ["class"] });
 }
 
 function isCurrentPath(href) {
@@ -294,20 +417,34 @@ function closeMobileMenu() {
   document.body.classList.remove("site-menu-is-open");
 }
 
-export function renderAdminNavigation({ desktopScrollTop } = {}) {
+export function renderAdminNavigation({ desktopScrollTop, mobileScrollTop, scrollState = storedAdminScrollState() } = {}) {
   document.querySelector(".site-topbar")?.classList.add("admin-topbar");
   document.querySelectorAll(".portal-nav").forEach((nav) => {
-    const scrollTop = Number.isFinite(desktopScrollTop) ? desktopScrollTop : nav.scrollTop;
+    const scrollTop = Number.isFinite(scrollState?.desktopScrollTop)
+      ? scrollState.desktopScrollTop
+      : Number.isFinite(desktopScrollTop) ? desktopScrollTop : nav.scrollTop;
     nav.innerHTML = navigationMarkup(false);
     nav.setAttribute("aria-label", "N3XRA administration");
-    requestAnimationFrame(() => { nav.scrollTop = scrollTop; });
+    requestAnimationFrame(() => restoreNavigationPosition(
+      nav,
+      scrollTop,
+      scrollState?.desktopAnchorHref,
+      scrollState?.desktopAnchorOffset,
+    ));
   });
 
   document.querySelectorAll(".site-mobile-menu").forEach((nav) => {
-    const scrollTop = nav.scrollTop;
+    const scrollTop = Number.isFinite(scrollState?.mobileScrollTop)
+      ? scrollState.mobileScrollTop
+      : Number.isFinite(mobileScrollTop) ? mobileScrollTop : nav.scrollTop;
     nav.innerHTML = navigationMarkup(true);
     nav.setAttribute("aria-label", "N3XRA administration menu");
-    requestAnimationFrame(() => { nav.scrollTop = scrollTop; });
+    requestAnimationFrame(() => restoreNavigationPosition(
+      nav,
+      scrollTop,
+      scrollState?.mobileAnchorHref,
+      scrollState?.mobileAnchorOffset,
+    ));
   });
 
   if (isCurrentPath("/account/admin/investment/")) {
@@ -437,7 +574,7 @@ function websitePageController(page) {
 }
 
 async function startWebsiteWorkspace(page) {
-  const productShell = await import("/account/admin/product-shell.js?v=11");
+  const productShell = await import("/account/admin/product-shell.js?v=12");
   await productShell.startProductShell();
   const websiteWorkspace = await import("/n3xra-admin/website-admin-workspace.js?v=12");
   websiteWorkspace.startWebsiteAdminWorkspace();
@@ -450,7 +587,7 @@ async function startWebsiteWorkspace(page) {
 }
 
 async function startNativeProductWorkspace(page) {
-  const productShell = await import("/account/admin/product-shell.js?v=11");
+  const productShell = await import("/account/admin/product-shell.js?v=12");
   await productShell.startProductShell();
   const controllerUrl = websitePageController(page);
   if (!controllerUrl) throw new Error("This product workspace has no controller.");
@@ -459,14 +596,23 @@ async function startNativeProductWorkspace(page) {
   await import(controllerUrl.href);
 }
 
-export async function navigateAdminWorkspace(destination, { history = "push", desktopScrollTop } = {}) {
+export async function navigateAdminWorkspace(destination, {
+  history = "push",
+  desktopScrollTop,
+  scrollState = null,
+  force = false,
+} = {}) {
   const url = new URL(destination, window.location.origin);
+  const preservedScroll = scrollState || {
+    ...captureAdminScrollState(),
+    desktopScrollTop: Number.isFinite(desktopScrollTop) ? desktopScrollTop : document.querySelector(".portal-nav")?.scrollTop || 0,
+  };
   if (!isWorkspaceUrl(url)) {
     window.location.assign(url.href);
     return;
   }
 
-  if (url.href === window.location.href) return;
+  if (!force && url.href === window.location.href) return;
 
   if (url.pathname === window.location.pathname && url.hash) {
     window.location.hash = url.hash;
@@ -495,8 +641,11 @@ export async function navigateAdminWorkspace(destination, { history = "push", de
   document.documentElement.classList.toggle("website-admin-root", websiteWorkspacePaths.has(normalizePath(url.pathname)));
   document.body.dataset.adminView = page.body.dataset.adminView || "";
   document.title = page.title || document.title;
-  if (history === "push") window.history.pushState({}, "", url.href);
-  renderAdminNavigation({ desktopScrollTop });
+  if (history === "push") {
+    window.history.replaceState({ ...window.history.state, n3xraAdminScroll: preservedScroll }, "", window.location.href);
+    window.history.pushState({ n3xraAdminScroll: preservedScroll }, "", url.href);
+  }
+  renderAdminNavigation({ desktopScrollTop, scrollState: preservedScroll });
 
   window.__n3xraAdminSoftNavigation = true;
   try {
@@ -518,6 +667,8 @@ export async function navigateAdminWorkspace(destination, { history = "push", de
   } finally {
     window.__n3xraAdminSoftNavigation = false;
   }
+  restoreAdminScrollState(preservedScroll);
+  forgetAdminScrollState(url.href);
 }
 
 document.addEventListener("click", (event) => {
@@ -548,15 +699,18 @@ document.addEventListener("click", (event) => {
   const link = event.target.closest(".portal-nav a, .site-mobile-menu a, .website-organization-navigation a, .website-project-stage-navigation a");
   if (!link || link.target || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
   const url = new URL(link.href, window.location.origin);
-  if (link.closest(".site-mobile-menu")) closeMobileMenu();
   if (!isWorkspaceUrl(url)) return;
   event.preventDefault();
-  const desktopScrollTop = document.querySelector(".portal-nav")?.scrollTop;
-  navigateAdminWorkspace(url.href, { desktopScrollTop }).catch(() => window.location.assign(url.href));
+  const scrollState = captureAdminScrollState(link);
+  rememberAdminScrollState(url.href, scrollState);
+  if (link.closest(".site-mobile-menu")) closeMobileMenu();
+  navigateAdminWorkspace(url.href, { scrollState }).catch(() => window.location.assign(url.href));
 });
 
-window.addEventListener("popstate", () => {
-  navigateAdminWorkspace(window.location.href, { history: "none" }).catch(() => window.location.reload());
+window.addEventListener("popstate", (event) => {
+  const scrollState = event.state?.n3xraAdminScroll || storedAdminScrollState() || captureAdminScrollState();
+  navigateAdminWorkspace(window.location.href, { history: "none", scrollState, force: true }).catch(() => window.location.reload());
 });
 
 renderAdminNavigation();
+restoreStoredScrollWhenReady();

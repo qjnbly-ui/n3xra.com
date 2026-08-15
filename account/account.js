@@ -1276,7 +1276,10 @@ function bindEvents() {
 async function init() {
   show(setupPanel, !hasConfig());
   show(accountPanel, hasConfig());
-  if (!hasConfig()) return;
+  if (!hasConfig()) {
+    updateAccountNav(false);
+    return;
+  }
 
   supabase = createBrowserSupabase();
   await initCaptcha();

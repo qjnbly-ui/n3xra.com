@@ -23,12 +23,12 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/site-nav.css">
+  <link rel="stylesheet" href="/assets/site-nav.css?v=3">
   <link rel="stylesheet" href="/partners/partners.css?v=5">
   <link rel="stylesheet" href="/assets/home-shell.css?v=1">
-  <script src="/assets/site-nav.js" defer></script>
+  <script src="/assets/site-nav.js?v=3" defer></script>
   <script src="/shared/config.js"></script>
-  <script type="module" src="/assets/master-auth-link.js"></script>
+
   <script type="module" src="/partners/partners.js?v=5"></script>
   <script>
     window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
@@ -52,7 +52,7 @@
         </nav>
 
         <div class="site-nav-actions">
-          <a class="site-menu-link site-auth-link" href="/account" data-master-auth-link>Login</a>
+          <a class="site-menu-link site-auth-link" href="/account">Dashboard</a>
           <button class="site-menu-toggle" type="button" aria-expanded="false" aria-controls="partners-mobile-menu" aria-label="Open menu" data-site-menu-toggle>
             <span></span>
             <span></span>
@@ -229,7 +229,7 @@
 
       <nav class="footer-nav" aria-label="Account and legal">
         <p>N3XRA</p>
-        <a href="/account" data-master-auth-link>Login</a>
+        <a href="/account">Dashboard</a>
         <a href="/project-pulse/">Project Pulse</a>
         <a href="/privacy/">Privacy</a>
         <a href="/terms/">Terms</a>

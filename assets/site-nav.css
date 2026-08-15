@@ -88,6 +88,14 @@
   background: rgba(152, 233, 255, 0.12);
 }
 
+.site-auth-link[data-auth-state="pending"] {
+  visibility: hidden;
+}
+
+[data-site-assistant-open][data-assistant-state="pending"] {
+  visibility: hidden;
+}
+
 .site-auth-link-disabled {
   opacity: 0.5;
   cursor: not-allowed;

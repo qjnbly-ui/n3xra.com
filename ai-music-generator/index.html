@@ -11,9 +11,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="../assets/site-nav.css">
+  <link rel="stylesheet" href="../assets/site-nav.css?v=3">
   <script src="/shared/config.js"></script>
-  <script src="../assets/site-nav.js" defer></script>
+  <script src="../assets/site-nav.js?v=3" defer></script>
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
   <style>
     :root {
@@ -871,7 +871,7 @@
           <img src="../assets/MAINLOGO.png" alt="N3XRA">
         </a>
         <div class="site-nav-actions">
-          <a class="site-menu-link site-auth-link" href="/ai-music-generator/login/?next=/ai-music-generator/app/" id="musicHeaderAuthLink">Login</a>
+          <a class="site-menu-link site-auth-link" href="/ai-music-generator/login/?next=/ai-music-generator/app/" id="musicHeaderAuthLink" data-auth-state="pending">Login</a>
           <button class="site-menu-toggle" type="button" aria-expanded="false" aria-controls="ai-mobile-menu" aria-label="Open menu" data-site-menu-toggle>
             <span></span>
             <span></span>
@@ -1514,6 +1514,7 @@
         const limit = Number(profile?.monthly_song_limit || 0);
         musicHeaderAuthLink.textContent = "Open App";
         musicHeaderAuthLink.href = "/ai-music-generator/app/";
+        musicHeaderAuthLink.dataset.authState = "signed-in";
         musicAuthJump.textContent = "Open AI Music app";
         musicAuthJump.classList.remove("hidden");
         musicSignoutBtn.classList.remove("hidden");
@@ -1526,6 +1527,7 @@
       const count = getGenerationCount();
       musicHeaderAuthLink.textContent = "Login";
       musicHeaderAuthLink.href = MUSIC_LOGIN_PATH;
+      musicHeaderAuthLink.dataset.authState = "signed-out";
       musicAuthJump.classList.remove("hidden");
       musicSignoutBtn.classList.add("hidden");
       importLocalSongsBtn.classList.add("hidden");
