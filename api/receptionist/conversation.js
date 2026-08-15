@@ -21,8 +21,6 @@ const SMS_DESTINATIONS = Object.freeze({
   website_request: "https://www.n3xra.com/website-request/",
   projects: "https://www.n3xra.com/projects/",
   records: "https://www.n3xra.com/records/",
-  music: "https://www.n3xra.com/ai-music-generator/",
-  virals: "https://www.n3xra.com/virals/",
   partners: "https://www.n3xra.com/partners/",
   invest: "https://www.n3xra.com/invest/",
   support: "https://www.n3xra.com/support/",

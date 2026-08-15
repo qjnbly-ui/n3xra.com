@@ -7,14 +7,6 @@ const PAGES = [
   { route: "/projects", file: "projects/index.html", visibility: "public", tags: ["portfolio", "examples", "websites"] },
   { route: "/records", file: "records/index.html", visibility: "public", tags: ["records", "documents", "files", "meeting notes", "public records"] },
   { route: "/n3xra-records", file: "n3xra-records/index.html", visibility: "public", tags: ["records app", "records login"] },
-  { route: "/ai-music-generator", file: "ai-music-generator/index.html", visibility: "public", tags: ["music", "songs", "lyrics", "ai music"] },
-  { route: "/virals", file: "virals/index.html", visibility: "public", tags: ["virals", "tiktok", "video analysis", "scripts"] },
-  { route: "/virals/about", file: "virals/about/index.html", visibility: "public", tags: ["virals", "about", "video analysis"] },
-  { route: "/virals/most-searched-videos", file: "virals/most-searched-videos/index.html", visibility: "public", tags: ["virals", "search", "videos"] },
-  { route: "/virals/saved-scripts", file: "virals/saved-scripts/index.html", visibility: "public", tags: ["virals", "saved scripts"] },
-  { route: "/virals/todays-top-creators", file: "virals/todays-top-creators/index.html", visibility: "public", tags: ["virals", "creators"] },
-  { route: "/virals/todays-viral-videos", file: "virals/todays-viral-videos/index.html", visibility: "public", tags: ["virals", "viral videos"] },
-  { route: "/virals/top-shop-products", file: "virals/top-shop-products/index.html", visibility: "public", tags: ["virals", "shop products"] },
   { route: "/partners", file: "partners/index.html", visibility: "public", tags: ["partners", "referrals", "commissions", "application"] },
   { route: "/partners/terms", file: "partners/terms/index.html", visibility: "public", tags: ["partners", "terms", "commissionable net revenue", "referral eligibility"] },
   { route: "/partners/change-of-control", file: "partners/change-of-control/index.html", visibility: "public", tags: ["partners", "change of control", "commissions"] },
@@ -35,7 +27,6 @@ const PAGES = [
   { route: "/n3xra-records/library", file: "n3xra-records/library/index.html", visibility: "signed-in feature", tags: ["records library", "documents", "search", "files"] },
   { route: "/n3xra-records/meeting-notes", file: "n3xra-records/meeting-notes/index.html", visibility: "signed-in feature", tags: ["meeting notes", "recording", "transcript"] },
   { route: "/n3xra-records/all-meeting-notes", file: "n3xra-records/all-meeting-notes/index.html", visibility: "signed-in feature", tags: ["meeting notes", "recordings", "history"] },
-  { route: "/ai-music-generator/app", file: "ai-music-generator/app/index.html", visibility: "signed-in feature", tags: ["music app", "songs", "history", "usage"] },
 ];
 
 const IGNORED_BLOCK_PATTERNS = [

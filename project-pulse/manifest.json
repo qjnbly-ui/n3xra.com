@@ -2,14 +2,14 @@
   "schemaVersion": 1,
   "name": "N3XRA Project Pulse",
   "visibility": "public-safe",
-  "generatedAt": "2026-08-14T23:30:58.939Z",
-  "updatedAt": "2026-08-14T12:43:45-07:00",
-  "commit": "0c6f95e",
+  "generatedAt": "2026-08-15T04:14:39.588Z",
+  "updatedAt": "2026-08-14T21:01:49-07:00",
+  "commit": "2ca6c0e",
   "summary": {
     "statement": "N3XRA is a connected technology platform comprising approximately 193,000 lines of source code across customer experiences, software products, APIs, database systems, administrative tools, and operational infrastructure.",
     "sourceFiles": 725,
-    "sourceLines": 192664,
-    "products": 7,
+    "sourceLines": 192635,
+    "products": 5,
     "pages": 117,
     "apiFunctions": 72,
     "edgeFunctions": 22,
@@ -18,15 +18,15 @@
   "sourceBreakdown": {
     "css": {
       "files": 43,
-      "lines": 36989
+      "lines": 37017
     },
     "html": {
       "files": 117,
-      "lines": 30089
+      "lines": 30065
     },
     "js": {
       "files": 236,
-      "lines": 75713
+      "lines": 75680
     },
     "sql": {
       "files": 272,
@@ -61,18 +61,6 @@
       "summary": "Dedicated business numbers, permission-based text and email signups, QR and keyword enrollment, subscriber preferences, consent history, usage reporting, and client workspaces."
     },
     {
-      "id": "virals",
-      "name": "N3XRA Virals",
-      "route": "/virals/",
-      "summary": "Video analysis, comparisons, reusable frameworks, scripts, creator tools, and account workflows."
-    },
-    {
-      "id": "music",
-      "name": "AI Music Generator",
-      "route": "/ai-music-generator/",
-      "summary": "Prompt-based song generation, account access, song history, audio processing, and usage controls."
-    },
-    {
       "id": "partners",
       "name": "N3XRA Partners",
       "route": "/partners/",
@@ -104,6 +92,11 @@
     "Company governance planning"
   ],
   "recentCapabilities": [
+    {
+      "date": "2026-08-14",
+      "title": "Virals and AI Music retired from public view",
+      "summary": "N3XRA removed Virals and AI Music from its public product lineup and customer portals as the company focuses its active platform around websites, branded client experiences, Records, Communications, and custom software. Both implementations remain preserved for internal access and possible future use."
+    },
     {
       "date": "2026-08-14",
       "title": "Utilities consolidated into the N3XRA platform",
@@ -460,7 +453,7 @@
       {
         "id": "products",
         "name": "Products & workflows",
-        "description": "Records, Communications, websites, branded client portals, Virals, music, partners, and company operations."
+        "description": "Records, Communications, websites, branded client portals, partners, and company operations."
       },
       {
         "id": "operations",

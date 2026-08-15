@@ -3,6 +3,7 @@ import { setStoredActiveOrganizationId } from "/shared/lib/orgs.js";
 import { resolvePortalTenant } from "./tenant-context.js";
 const appGrid = document.querySelector("#portal-app-grid");
 const appStatus = document.querySelector("#portal-app-status");
+const HIDDEN_CUSTOMER_PRODUCT_KEYS = new Set(["ai_music", "music", "virals"]);
 function escapeHtml(value) {
     return value
         .replaceAll("&", "&amp;")
@@ -115,6 +116,8 @@ async function loadPortalApps() {
         throw error;
     for (const entitlement of (data || [])) {
         const product = productFrom(entitlement);
+        if (HIDDEN_CUSTOMER_PRODUCT_KEYS.has(String(product?.product_key || "").toLowerCase()))
+            continue;
         const path = safePortalPath(product?.portal_path || "");
         if (!product || !path || product.status !== "active" || !product.client_portal_available)
             continue;

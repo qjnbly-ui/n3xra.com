@@ -34,6 +34,7 @@ interface PortalApp {
 
 const appGrid = document.querySelector<HTMLElement>("#portal-app-grid");
 const appStatus = document.querySelector<HTMLElement>("#portal-app-status");
+const HIDDEN_CUSTOMER_PRODUCT_KEYS = new Set(["ai_music", "music", "virals"]);
 
 function escapeHtml(value: string): string {
   return value
@@ -150,6 +151,7 @@ async function loadPortalApps(): Promise<void> {
 
   for (const entitlement of (data || []) as EntitlementRow[]) {
     const product = productFrom(entitlement);
+    if (HIDDEN_CUSTOMER_PRODUCT_KEYS.has(String(product?.product_key || "").toLowerCase())) continue;
     const path = safePortalPath(product?.portal_path || "");
     if (!product || !path || product.status !== "active" || !product.client_portal_available) continue;
     const href = product.product_key === "records"

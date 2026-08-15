@@ -643,13 +643,11 @@ async function renderDashboard(message = "") {
   show(adminNotificationButton, canViewAdminApps);
   setDashboardView(getPreferredDashboardView());
 
-  const [, , partnerAccess, , investmentInterest] = await Promise.allSettled([
+  const [, partnerAccess, , investmentInterest] = await Promise.allSettled([
     loadMemberships(),
-    loadMusicProfile(),
     loadPartnerAccess(),
     loadPlatformAdminAccess(),
     loadInvestmentInterest(),
-    loadViralsProfile(),
     loadWebsiteServiceRequest(),
     loadLoanAccount(),
   ]);
@@ -682,18 +680,6 @@ async function renderDashboard(message = "") {
     show(loanTrackerAppCard, false);
   }
 
-  const hasMusicProfile = Boolean(musicProfile);
-  musicSummary.textContent = hasMusicProfile
-    ? `${formatAppStatus(musicProfile.plan || "free")} plan. ${Number(musicProfile.songs_used || 0)} of ${Number(musicProfile.monthly_song_limit || 0)} songs used.`
-    : "Not active yet. Activate it when you want to create and save songs.";
-  openMusicButton.textContent = hasMusicProfile ? "Open AI Music" : "Activate AI Music";
-
-  const hasViralsProfile = Boolean(viralsProfile);
-  viralsSummary.textContent = hasViralsProfile
-    ? `${formatAppStatus(viralsProfile.plan || "free")} plan. ${Number(viralsProfile.analyses_used || 0)} of ${Number(viralsProfile.monthly_analysis_limit || 0)} analyses used.`
-    : "Analyze TikTok URLs, compare winners, and save repeatable content frameworks.";
-  openViralsButton.textContent = hasViralsProfile ? "Open N3XRA Virals" : "Explore N3XRA Virals";
-
   if (isApprovedPartner) {
     partnerPortalKicker.textContent = "Approved partner";
     partnerPortalTitle.textContent = "Partner Portal";
@@ -723,8 +709,6 @@ async function renderDashboard(message = "") {
   [
     [recordsAppCard, hasRecordsAccess],
     [websitePortalCard, hasWebsiteService],
-    [musicAppCard, hasMusicProfile],
-    [viralsAppCard, hasViralsProfile],
     [partnerPortalCard, isApprovedPartner],
     [investmentInterestCard, Boolean(interest)],
   ].forEach(([card, connected]) => placeAppCard(card, connected));
@@ -1259,7 +1243,7 @@ function bindEvents() {
   });
   openRecordsButton.addEventListener("click", openRecords);
   openAdminRecordsButton?.addEventListener("click", openAdminRecords);
-  openMusicButton.addEventListener("click", openMusic);
+  openMusicButton?.addEventListener("click", openMusic);
   openViralsButton?.addEventListener("click", openVirals);
   showAppsViewButton?.addEventListener("click", () => setDashboardView("apps"));
   showAdminViewButton?.addEventListener("click", () => setDashboardView("admin"));

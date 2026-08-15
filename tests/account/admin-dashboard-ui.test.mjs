@@ -11,8 +11,11 @@ test("the account Admin tab uses compact cards without changing customer app car
   const adminSection = html.match(/<section class="dashboard-section admin-app-section[\s\S]+?<\/section>\s*<\/div>/)?.[0] || "";
 
   const adminCards = adminSection.match(/class="app-card admin-app-card"/g) || [];
-  assert.equal(adminCards.length, 16);
+  assert.equal(adminCards.length, 18);
+  assert.doesNotMatch(html, /id="(?:music|virals)-app-card"/);
   assert.doesNotMatch(adminSection, /Utilities Admin|\/n3xra-admin\/utilities/);
+  assert.match(adminSection, /Retained internal apps/);
+  assert.match(adminSection, /href="\/virals\/"[\s\S]*href="\/ai-music-generator\/app\/"/);
   assert.doesNotMatch(adminSection, /admin-app-icon|admin-icon-/);
 
   assert.match(css, /\.admin-app-grid\s*{[\s\S]*grid-template-columns:\s*repeat\(3,/);

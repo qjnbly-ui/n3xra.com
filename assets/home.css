@@ -4487,26 +4487,51 @@ body.site-menu-is-open .home-topbar {
 }
 
 .software-project-links {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.75rem;
+  width: min(100%, 860px);
+  margin: 0 auto;
 }
 
 .software-project-links a {
-  min-height: 62px;
+  min-height: 108px;
   display: flex;
   align-items: center;
-  justify-content: center;
-  padding: 0.8rem 1rem;
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding: 1.4rem 1.6rem;
   border: 1px solid rgba(168, 239, 255, 0.24);
   border-radius: 6px;
   color: rgba(255, 255, 255, 0.82);
   background: rgba(255, 255, 255, 0.025);
-  font-size: 0.8rem;
-  font-weight: 800;
-  text-align: center;
+  text-align: left;
   text-decoration: none;
   transition: color 160ms ease, background 160ms ease, border-color 160ms ease;
+}
+
+.software-project-links a > span {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.software-project-links strong {
+  color: #ffffff;
+  font-size: clamp(1.05rem, 1.6vw, 1.3rem);
+  font-weight: 800;
+}
+
+.software-project-links small {
+  max-width: 640px;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.86rem;
+  font-weight: 600;
+  line-height: 1.55;
+}
+
+.software-project-links i {
+  flex: 0 0 auto;
+  color: var(--home-pale-cyan);
+  font-size: 1.35rem;
+  font-style: normal;
+  transition: transform 160ms ease;
 }
 
 .software-project-links a:hover,
@@ -4516,9 +4541,15 @@ body.site-menu-is-open .home-topbar {
   border-color: var(--home-pale-cyan);
 }
 
+.software-project-links a:hover i,
+.software-project-links a:focus-visible i {
+  transform: translateX(4px);
+}
+
 @media (max-width: 700px) {
-  .software-project-links {
-    grid-template-columns: 1fr;
+  .software-project-links a {
+    min-height: 0;
+    padding: 1.2rem;
   }
 }
 

@@ -13,7 +13,7 @@ test("the branded portal root is the business dashboard instead of the project w
 
   assert.match(html, /id="portal-view-dashboard"/);
   assert.match(html, /id="portal-app-grid"/);
-  assert.match(html, /portal-apps\.js\?v=4/);
+  assert.match(html, /portal-apps\.js\?v=5/);
   assert.doesNotMatch(html, /portal-dashboard-hero|portal-apps-heading|portal-app-summary/);
   assert.match(shell, /key: "dashboard"[\s\S]*href: "\/client-portal\/"/);
   assert.doesNotMatch(shell, /window\.location\.replace\(`\/project-workspace/);
@@ -28,6 +28,8 @@ test("portal apps are loaded from the tenant website's linked organization", asy
   assert.match(apps, /\.from\("client_websites"\)/);
   assert.match(apps, /\.eq\("id", tenant\.website_id\)/);
   assert.match(apps, /\.from\("organization_product_entitlements"\)/);
+  assert.match(apps, /HIDDEN_CUSTOMER_PRODUCT_KEYS/);
+  assert.match(apps, /"ai_music", "music", "virals"/);
   assert.match(apps, /\.eq\("organization_id", organizationId\)/);
   assert.match(apps, /setStoredActiveOrganizationId/);
   assert.match(apps, /safePortalPath/);

@@ -82,22 +82,6 @@ This is the authoritative, public-safe knowledge for Ask N3XRA. It describes cur
 - Records Starter is $12 per month or $115 per year. It includes 1,000 private documents, one user, 10 GB of storage, and 300 Records AI requests each month.
 - Records Organization is $39 per month or $375 per year. It includes 10,000 private documents, up to 15 users, 50 GB of storage, 1,500 Records AI requests each month, shared libraries, invite codes, and public records publishing and embed tools.
 
-## AI Music Generator
-
-- The AI Music Generator at /ai-music-generator creates songs from a prompt and can use optional lyrics supplied by the user.
-- Signed-in users can activate the app, create songs within their plan, and see saved songs, usage, and history in the app workspace.
-- AI Music Free includes two songs per month. Creator is $4.99 per month for 25 songs. Studio is $12.99 per month for 100 songs.
-- Generated song links may be temporary, so users should download songs they want to keep.
-- It uses the shared N3XRA account. Its subscription and billing are separate from website service and other N3XRA products.
-
-## N3XRA Virals
-
-- N3XRA Virals at /virals analyzes TikTok URLs, compares videos, and turns patterns into reusable hooks, scripts, captions, calls to action, frameworks, and posting ideas.
-- Virals Free includes five analyses per month. Starter is $9 per month for 75 analyses, Creator is $19 for 250, Pro is $39 for 750, and Agency is $99 for 2,500.
-- Most Searched Videos is available. Today's Top Creators, Today's Viral Videos, and Top Shop Products are marked as coming soon and should not be described as active.
-- The separate Virals creator program offers approved standard creators a 20% recurring commission and approved Founding Creators a 30% recurring commission. Creator customer codes provide 10% off the first three months.
-- Virals includes its own workspace and saved material. Its plans, billing, and creator referral system are separate from the main N3XRA website and software partner programs.
-
 ## Partner programs
 
 - The public partner page is /partners. Applications are reviewed; applying does not guarantee approval.
@@ -107,10 +91,9 @@ This is the authoritative, public-safe knowledge for Ask N3XRA. It describes cur
 - Self-referrals, referrals between accounts controlled by the same person or business, and retroactive claims are not eligible unless N3XRA approves them in writing.
 - Approved partners may separately participate in software commission programs. Unless product-specific written terms say otherwise, the recurring rate is 20%, increases to 25% after 25 active qualifying referrals, and increases to 30% after 50.
 - Software commissions are calculated from Commissionable Net Revenue as defined in the Partner Program Terms. The flat $100 website referral is separate and is not calculated from Commissionable Net Revenue.
-- N3XRA Virals has a separate creator referral program and is not part of these terms.
 - Approved partner accounts receive a partner portal at /client-portal/partners. A partner can choose an available referral code once; after it is created, it cannot be edited. The portal shows balances and referral and commission history.
 - Partners cannot promise unauthorized pricing, discounts, results, approval, earnings, delivery dates, or features on N3XRA's behalf.
-- Full partner rules are at /partners/terms. The binding Change of Control document for applicable recurring software partner plans is at /partners/change-of-control. It does not apply to the flat $100 website referral or Virals unless separate written terms incorporate it.
+- Full partner rules are at /partners/terms. The binding Change of Control document for applicable recurring software partner plans is at /partners/change-of-control. It does not apply to the flat $100 website referral unless separate written terms incorporate it.
 
 ## Help, privacy, and legal routes
 

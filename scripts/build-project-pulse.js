@@ -36,18 +36,6 @@ const PRODUCTS = [
     summary: "Dedicated business numbers, permission-based text and email signups, QR and keyword enrollment, subscriber preferences, consent history, usage reporting, and client workspaces.",
   },
   {
-    id: "virals",
-    name: "N3XRA Virals",
-    route: "/virals/",
-    summary: "Video analysis, comparisons, reusable frameworks, scripts, creator tools, and account workflows.",
-  },
-  {
-    id: "music",
-    name: "AI Music Generator",
-    route: "/ai-music-generator/",
-    summary: "Prompt-based song generation, account access, song history, audio processing, and usage controls.",
-  },
-  {
     id: "partners",
     name: "N3XRA Partners",
     route: "/partners/",
@@ -81,6 +69,11 @@ const MAJOR_MODULES = [
 ];
 
 const RECENT_CAPABILITIES = [
+  {
+    date: "2026-08-14",
+    title: "Virals and AI Music retired from public view",
+    summary: "N3XRA removed Virals and AI Music from its public product lineup and customer portals as the company focuses its active platform around websites, branded client experiences, Records, Communications, and custom software. Both implementations remain preserved for internal access and possible future use.",
+  },
   {
     date: "2026-08-14",
     title: "Utilities consolidated into the N3XRA platform",
@@ -505,7 +498,7 @@ const SYSTEM_MAP = {
     {
       id: "products",
       name: "Products & workflows",
-      description: "Records, Communications, websites, branded client portals, Virals, music, partners, and company operations.",
+      description: "Records, Communications, websites, branded client portals, partners, and company operations.",
     },
     {
       id: "operations",

@@ -221,24 +221,6 @@
                   </div>
                   <a class="btn secondary block button-link" id="website-portal-link" href="/client-portal/">Start Website Request</a>
                 </article>
-                <article class="app-card hidden" id="music-app-card">
-                  <div>
-                    <span class="app-access-badge">Available</span>
-                    <p class="auth-kicker">Optional app</p>
-                    <h3>AI Music Generator</h3>
-                    <p id="music-summary">Not active yet. Activate it only if you want to create and save songs.</p>
-                  </div>
-                  <button class="btn secondary block" id="open-music-button" type="button">Activate AI Music</button>
-                </article>
-                <article class="app-card hidden" id="virals-app-card">
-                  <div>
-                    <span class="app-access-badge">Available</span>
-                    <p class="auth-kicker">AI tool</p>
-                    <h3>N3XRA Virals</h3>
-                    <p id="virals-summary">Analyze TikTok URLs, compare winners, and save repeatable content frameworks.</p>
-                  </div>
-                  <button class="btn secondary block" id="open-virals-button" type="button">Explore N3XRA Virals</button>
-                </article>
                 <article class="app-card hidden" id="partner-portal-card">
                   <div>
                     <span class="app-access-badge">Available</span>
@@ -334,6 +316,32 @@
                   <p>Review N3XRA visitors, page views, content, referrers, audience, devices, and tracked interactions.</p>
                 </div>
                 <a class="btn secondary block button-link" href="/account/admin/analytics/">Open Analytics</a>
+              </article>
+            </div>
+
+            <div class="dashboard-section-head admin-product-section-head">
+              <div>
+                <p class="auth-kicker">Retained internal apps</p>
+                <h3>Internal app access</h3>
+                <p>Open preserved app workspaces that are no longer listed publicly or offered through customer portals.</p>
+              </div>
+            </div>
+            <div class="app-grid admin-app-grid">
+              <article class="app-card admin-app-card">
+                <div>
+                  <p class="auth-kicker">Internal access</p>
+                  <h3>N3XRA Virals</h3>
+                  <p>Open the retained Virals analyzer and its existing workspace without restoring it to the public product lineup.</p>
+                </div>
+                <a class="btn secondary block button-link" href="/virals/">Open Virals</a>
+              </article>
+              <article class="app-card admin-app-card">
+                <div>
+                  <p class="auth-kicker">Internal access</p>
+                  <h3>AI Music Generator</h3>
+                  <p>Open the retained song-generation workspace without restoring it to the public product lineup.</p>
+                </div>
+                <a class="btn secondary block button-link" href="/ai-music-generator/app/">Open AI Music</a>
               </article>
             </div>
 
@@ -459,8 +467,6 @@
       <nav class="footer-nav" aria-label="Software">
         <p>Software</p>
         <a href="/records/">Records</a>
-        <a href="/virals/">Virals</a>
-        <a href="/ai-music-generator/">AI Music</a>
       </nav>
 
       <nav class="footer-nav" aria-label="Account and legal">
@@ -569,6 +575,6 @@
       window.addEventListener("scroll", updateHeader, { passive: true });
     })();
   </script>
-  <script type="module" src="/account/account.js?v=20260804-demo-claims"></script>
+  <script type="module" src="/account/account.js?v=20260814-retired-apps"></script>
 </body>
 </html>

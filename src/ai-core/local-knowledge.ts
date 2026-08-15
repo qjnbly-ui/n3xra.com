@@ -34,8 +34,6 @@ const TOPIC_ROUTES: Array<{ concepts: RegExp; routes: string[] }> = [
   { concepts: /\b(price|pricing|quote|proposal|contract)\b/i, routes: ["/services", "/website-request", "/proposals"] },
   { concepts: /\b(record|document|library|meeting|transcript)\b/i, routes: ["/records", "/n3xra-records/library"] },
   { concepts: /\b(partner|referral|commission)\b/i, routes: ["/partners", "/client-portal/partners"] },
-  { concepts: /\b(music|song|lyrics)\b/i, routes: ["/ai-music-generator"] },
-  { concepts: /\b(viral|tiktok|creator|hook)\b/i, routes: ["/virals"] },
   { concepts: /\b(account|login|dashboard|subscription)\b/i, routes: ["/account", "/support"] },
   { concepts: /\b(support|help|problem|issue|error)\b/i, routes: ["/support"] },
 ];
