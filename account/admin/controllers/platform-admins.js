@@ -6,6 +6,30 @@ let escapeHtml;
 let setStatus;
 let confirmAdminAction;
 
+function setPlatformAdminModalStatus(message = "", tone = "") {
+  const status = document.getElementById("platform-admin-modal-status");
+  if (!status) return;
+  status.textContent = message;
+  status.className = "platform-admin-modal-status";
+  if (tone) status.classList.add(`is-${tone}`);
+}
+
+function openPlatformAdminInviteDialog() {
+  const dialog = document.getElementById("platform-admin-invite-dialog");
+  if (!(dialog instanceof HTMLDialogElement)) return;
+  platformAdminInviteUrl = "";
+  document.getElementById("platform-admin-invite-form")?.reset();
+  document.getElementById("platform-admin-invite-link")?.classList.add("hidden");
+  setPlatformAdminModalStatus();
+  if (!dialog.open) dialog.showModal();
+  requestAnimationFrame(() => document.getElementById("platform-admin-invite-email")?.focus());
+}
+
+function closePlatformAdminInviteDialog() {
+  const dialog = document.getElementById("platform-admin-invite-dialog");
+  if (dialog instanceof HTMLDialogElement && dialog.open) dialog.close();
+}
+
 function formatAdminDate(value) {
   if (!value) return "Unknown";
   const date = new Date(value);
@@ -117,10 +141,17 @@ async function createPlatformAdminInvite(event) {
   const role = String(roleInput?.value || "admin").trim().toLowerCase();
   if (!email) {
     setStatus("Enter an email first.", "error");
+    setPlatformAdminModalStatus("Enter an email first.", "error");
     return;
   }
 
+  const submitButton = document.getElementById("platform-admin-invite-submit");
+  if (submitButton) {
+    submitButton.disabled = true;
+    submitButton.textContent = "Creating…";
+  }
   setStatus("Creating access invite…");
+  setPlatformAdminModalStatus("Creating secure invitation…");
   try {
     const data = await invoke("create-platform-admin-invite", { email, role });
     platformAdminInviteUrl = String(data.inviteUrl || "");
@@ -131,9 +162,18 @@ async function createPlatformAdminInvite(event) {
     inviteLink?.classList.toggle("hidden", !platformAdminInviteUrl);
     form.reset();
     await loadPlatformAdmins();
-    setStatus(`${role === "reviewer" ? "App reviewer" : "Administrator"} invite created. Send the secure link to that person.`, "success");
+    const successMessage = `${role === "reviewer" ? "App reviewer" : "Administrator"} invite created. Send the secure link to that person.`;
+    setStatus(successMessage, "success");
+    setPlatformAdminModalStatus(successMessage, "success");
   } catch (error) {
-    setStatus(error.message || "Unable to create the admin invite.", "error");
+    const message = error.message || "Unable to create the admin invite.";
+    setStatus(message, "error");
+    setPlatformAdminModalStatus(message, "error");
+  } finally {
+    if (submitButton) {
+      submitButton.disabled = false;
+      submitButton.textContent = "Create invite";
+    }
   }
 }
 
@@ -142,8 +182,10 @@ async function copyPlatformAdminInvite() {
   try {
     await navigator.clipboard.writeText(platformAdminInviteUrl);
     setStatus("Admin invite link copied.", "success");
+    setPlatformAdminModalStatus("Invite link copied.", "success");
   } catch {
     setStatus("Copy failed. Select and copy the displayed invite link.", "error");
+    setPlatformAdminModalStatus("Copy failed. Select and copy the displayed invite link.", "error");
   }
 }
 
@@ -187,6 +229,12 @@ async function handlePlatformAdminAction(event) {
 
 export async function startPlatformAdmins(context = {}) {
   ({ invoke, escapeHtml, setStatus, confirmAdminAction } = context);
+  document.getElementById("platform-admin-add")?.addEventListener("click", openPlatformAdminInviteDialog);
+  document.getElementById("platform-admin-invite-close")?.addEventListener("click", closePlatformAdminInviteDialog);
+  document.getElementById("platform-admin-invite-cancel")?.addEventListener("click", closePlatformAdminInviteDialog);
+  document.getElementById("platform-admin-invite-dialog")?.addEventListener("click", (event) => {
+    if (event.target === event.currentTarget) closePlatformAdminInviteDialog();
+  });
   document.getElementById("platform-admin-invite-form")?.addEventListener("submit", createPlatformAdminInvite);
   document.getElementById("platform-admin-refresh")?.addEventListener("click", loadPlatformAdmins);
   document.getElementById("platform-admin-copy-invite")?.addEventListener("click", copyPlatformAdminInvite);

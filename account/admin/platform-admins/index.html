@@ -11,7 +11,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/site-nav.css">
   <link rel="stylesheet" href="/client-portal/portal.css?v=16">
-  <link rel="stylesheet" href="/account/admin/admin.css?v=24">
+  <link rel="stylesheet" href="/account/admin/admin.css?v=25">
   <script src="/shared/config.js"></script>
   <script src="/assets/site-nav.js" defer></script>
   <script>
@@ -45,17 +45,12 @@
       <section class="portal-workspace platform-admin-directory-app">
         <div class="platform-admin-workbench">
           <aside class="platform-admin-roster-pane">
-            <div class="platform-admin-roster-head"><div><p class="portal-kicker">Access roster</p><strong>Administrators and reviewers</strong></div><button class="platform-admin-icon-button" id="platform-admin-refresh" type="button" aria-label="Refresh access roster">↻</button></div>
+            <div class="platform-admin-roster-head"><div><p class="portal-kicker">Access roster</p><strong>Administrators and reviewers</strong></div><div class="platform-admin-roster-actions"><button class="platform-admin-add-button" id="platform-admin-add" type="button"><span aria-hidden="true">+</span> Add new</button><button class="platform-admin-icon-button" id="platform-admin-refresh" type="button" aria-label="Refresh access roster">↻</button></div></div>
             <label class="account-admin-field"><span>Find an account</span><input id="platform-admin-search" type="search" placeholder="Name, email, or role" autocomplete="off"></label>
             <div class="platform-admin-roster-group"><div class="platform-admin-roster-label"><span>Current access</span><span id="platform-admin-count"></span></div><div class="platform-admin-list" id="platform-admin-list"></div></div>
             <div class="platform-admin-roster-group"><div class="platform-admin-roster-label"><span>Invitations</span><span id="platform-admin-invite-count"></span></div><div class="platform-admin-list" id="platform-admin-invite-list"></div></div>
           </aside>
           <section class="platform-admin-detail-pane">
-            <section class="platform-admin-invite-card">
-              <div class="platform-admin-command-head"><div><p class="portal-kicker">Master owner access</p><h2>Invite an account</h2><p>Administrators receive the web workspace. App reviewers receive only synthetic data in the mobile app.</p></div></div>
-              <form class="platform-admin-invite-form" id="platform-admin-invite-form"><label class="account-admin-field"><span>Email</span><input id="platform-admin-invite-email" type="email" autocomplete="email" placeholder="person@example.com" required></label><label class="account-admin-field"><span>Role</span><select id="platform-admin-invite-role"><option value="reviewer">App reviewer (review-only)</option><option value="admin">Platform administrator</option></select></label><button class="portal-button" type="submit">Create invite</button></form>
-              <div class="platform-admin-invite-link hidden" id="platform-admin-invite-link"><div><span>Admin invite link</span><p id="platform-admin-invite-url"></p></div><button class="portal-button portal-button-secondary" id="platform-admin-copy-invite" type="button">Copy link</button></div>
-            </section>
             <section id="platform-admin-detail"></section>
           </section>
         </div>
@@ -63,6 +58,17 @@
       </section>
     </div>
   </main>
-  <script type="module" src="/account/admin/admin.js?v=28"></script>
+  <dialog class="platform-admin-invite-dialog" id="platform-admin-invite-dialog" aria-labelledby="platform-admin-invite-title">
+    <div class="platform-admin-dialog-head"><div><p class="portal-kicker">Master owner access</p><h2 id="platform-admin-invite-title">Add administrator</h2></div><button class="platform-admin-dialog-close" id="platform-admin-invite-close" type="button" aria-label="Close add administrator dialog">×</button></div>
+    <p class="platform-admin-dialog-copy">Administrators receive the web workspace. App reviewers receive only synthetic data in the mobile app.</p>
+    <form class="platform-admin-invite-form" id="platform-admin-invite-form">
+      <label class="account-admin-field"><span>Email</span><input id="platform-admin-invite-email" type="email" autocomplete="email" placeholder="person@example.com" required></label>
+      <label class="account-admin-field"><span>Role</span><select id="platform-admin-invite-role"><option value="reviewer">App reviewer (review-only)</option><option value="admin">Platform administrator</option></select></label>
+      <div class="platform-admin-dialog-actions"><button class="portal-button portal-button-secondary" id="platform-admin-invite-cancel" type="button">Cancel</button><button class="portal-button" id="platform-admin-invite-submit" type="submit">Create invite</button></div>
+    </form>
+    <div class="platform-admin-invite-link hidden" id="platform-admin-invite-link"><div><span>Admin invite link</span><p id="platform-admin-invite-url"></p></div><button class="portal-button portal-button-secondary" id="platform-admin-copy-invite" type="button">Copy link</button></div>
+    <p class="platform-admin-modal-status" id="platform-admin-modal-status" role="status"></p>
+  </dialog>
+  <script type="module" src="/account/admin/admin.js?v=29"></script>
 </body>
 </html>

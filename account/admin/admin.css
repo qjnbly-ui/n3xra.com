@@ -524,6 +524,10 @@
 .platform-admin-roster-pane { min-height:0; padding:1.1rem; overflow-y:auto; overscroll-behavior:contain; scrollbar-gutter:stable; background:#fbfcfd; border-right:1px solid var(--portal-line); }
 .platform-admin-roster-head { display:flex; align-items:flex-start; justify-content:space-between; gap:.75rem; margin-bottom:1rem; }
 .platform-admin-roster-head strong { display:block; margin-top:.18rem; font-size:1rem; }
+.platform-admin-roster-actions { display:flex; align-items:center; gap:.25rem; flex:none; }
+.platform-admin-add-button { display:inline-flex; min-height:36px; align-items:center; gap:.35rem; padding:.45rem .7rem; color:#fff; background:#123a33; border:1px solid #123a33; border-radius:999px; font:800 .72rem/1 inherit; cursor:pointer; }
+.platform-admin-add-button:hover,.platform-admin-add-button:focus-visible { background:#0d2f29; border-color:#0d2f29; outline:none; }
+.platform-admin-add-button span { font-size:1rem; font-weight:600; line-height:0; }
 .platform-admin-icon-button { display:grid; width:36px; height:36px; place-items:center; flex:none; color:var(--portal-muted); background:transparent; border:0; border-radius:0; font:700 1.05rem/1 inherit; cursor:pointer; }
 .platform-admin-icon-button:hover { color:var(--portal-ink); background:#eef3f5; }
 .platform-admin-roster-group { margin-top:1.25rem; }
@@ -537,15 +541,23 @@
 .platform-admin-roster-avatar { display:grid; width:34px; height:34px; place-items:center; color:#fff; background:#0a7b83; border-radius:50%; font-size:.65rem; font-weight:800; }
 .platform-admin-roster-avatar.is-invite { color:#316675; background:#e1eef2; }
 .platform-admin-detail-pane { min-width:0; min-height:0; padding:0; overflow-y:auto; overscroll-behavior:contain; scrollbar-gutter:stable; background:#fff; }
-.platform-admin-invite-card,.platform-admin-detail-card,.platform-admin-empty-detail { max-width:none; margin:0; padding:1.5rem clamp(1.25rem,3vw,2.5rem); background:#fff; border:0; border-radius:0; }
-.platform-admin-invite-card { border-bottom:1px solid var(--portal-line); }
-.platform-admin-command-head h2 { margin:.2rem 0 .3rem; font-family:"Fraunces",Georgia,serif; font-size:1.5rem; }
-.platform-admin-command-head p:not(.portal-kicker) { margin:0; color:var(--portal-muted); }
-.platform-admin-invite-form { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:end; gap:.75rem; margin-top:1rem; }
-.platform-admin-invite-form .portal-button { min-height:46px; }
+.platform-admin-detail-card,.platform-admin-empty-detail { max-width:none; margin:0; padding:1.5rem clamp(1.25rem,3vw,2.5rem); background:#fff; border:0; border-radius:0; }
+.platform-admin-invite-dialog { width:min(520px,calc(100vw - 2rem)); max-height:min(720px,calc(100svh - 2rem)); box-sizing:border-box; padding:1.5rem; overflow-y:auto; color:var(--portal-ink); background:#fff; border:1px solid rgba(8,17,29,.1); border-radius:18px; box-shadow:0 24px 70px rgba(0,0,0,.3); }
+.platform-admin-invite-dialog::backdrop { background:rgba(4,10,18,.66); backdrop-filter:blur(5px); }
+.platform-admin-dialog-head { display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; }
+.platform-admin-dialog-head h2 { margin:.2rem 0 0; font-family:"Fraunces",Georgia,serif; font-size:1.65rem; }
+.platform-admin-dialog-close { display:grid; width:36px; height:36px; place-items:center; flex:none; color:var(--portal-muted); background:transparent; border:0; border-radius:50%; font:500 1.45rem/1 inherit; cursor:pointer; }
+.platform-admin-dialog-close:hover,.platform-admin-dialog-close:focus-visible { color:var(--portal-ink); background:#eef3f5; outline:none; }
+.platform-admin-dialog-copy { margin:.55rem 0 0; color:var(--portal-muted); line-height:1.55; }
+.platform-admin-invite-form { display:grid; grid-template-columns:1fr; gap:.85rem; margin-top:1.2rem; }
+.platform-admin-dialog-actions { display:flex; justify-content:flex-end; gap:.6rem; margin-top:.35rem; }
+.platform-admin-dialog-actions .portal-button { min-height:42px; }
 .platform-admin-invite-link { display:flex; align-items:center; justify-content:space-between; gap:1rem; margin-top:1rem; padding:.85rem 0; background:transparent; border:0; border-top:1px solid #c7e7f0; border-radius:0; }
 .platform-admin-invite-link span { color:var(--portal-muted); font-size:.68rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }
 .platform-admin-invite-link p { margin:.25rem 0 0; overflow-wrap:anywhere; color:var(--portal-ink); font-size:.8rem; }
+.platform-admin-modal-status { min-height:1.2em; margin:.8rem 0 0; color:var(--portal-muted); font-size:.78rem; }
+.platform-admin-modal-status.is-success { color:#0f766e; }
+.platform-admin-modal-status.is-error { color:#a92d37; }
 .platform-admin-detail-card { margin-top:0; }
 .platform-admin-detail-head { display:flex; align-items:center; justify-content:space-between; gap:1rem; }
 .platform-admin-detail-head h3 { margin:.15rem 0 0; overflow-wrap:anywhere; font-family:"Fraunces",Georgia,serif; font-size:1.45rem; }
@@ -1627,8 +1639,7 @@
   .account-admin-head-actions { flex-wrap:wrap; }
   .account-oversight-heading,
   .account-access-card { align-items:stretch; flex-direction:column; }
-  .platform-admin-invite-form { grid-template-columns: 1fr; }
-  .platform-admin-invite-form .portal-button { width: 100%; }
+  .platform-admin-dialog-actions .portal-button { flex:1; }
   .platform-admin-invite-link { align-items: stretch; flex-direction: column; }
   .codebase-ai-workspace .portal-workspace-head,
   .codebase-ai-actions { align-items: stretch; flex-direction: column; }
@@ -1659,7 +1670,6 @@
   .analytics-chart svg { height: 180px; }
   .analytics-panel-head { align-items: flex-start; flex-direction: column; }
   .analytics-panel-head small { text-align: left; }
-  .platform-admin-invite-form { grid-template-columns:1fr; }
   .platform-admin-invite-link,
   .platform-admin-detail-head { align-items:stretch; flex-direction:column; }
   .platform-admin-detail-facts { grid-template-columns:1fr; }

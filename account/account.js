@@ -80,6 +80,7 @@ const adminAppSection = document.getElementById("admin-app-section");
 const dashboardViewToggle = document.getElementById("dashboard-view-toggle");
 const showAppsViewButton = document.getElementById("show-apps-view");
 const showAdminViewButton = document.getElementById("show-admin-view");
+const accountOverviewActions = document.querySelector(".account-overview-actions");
 const adminNotificationButton = document.getElementById("admin-notification-button");
 const adminNotificationCount = document.getElementById("admin-notification-count");
 
@@ -196,15 +197,32 @@ function show(el, visible) {
   el.classList.toggle("hidden", !visible);
 }
 
-function placeAppCard(card, connected) {
+function placeAppCard(card, connected, state = connected ? "connected" : "available") {
   if (!card) return;
   const destination = connected ? connectedAppsGrid : availableAppsGrid;
   destination?.append(card);
   card.classList.toggle("is-connected", connected);
   card.classList.toggle("is-available", !connected);
+  card.classList.toggle("is-pending", state === "pending");
+  card.classList.toggle("is-action-required", state === "action-required");
   const badge = card.querySelector(".app-access-badge");
-  if (badge) badge.textContent = connected ? "Connected" : "Available";
+  if (badge) {
+    badge.textContent = state === "pending"
+      ? "Setup pending"
+      : state === "action-required"
+        ? "Action required"
+        : connected
+          ? "Connected"
+          : "Available";
+  }
   show(card, true);
+}
+
+function websiteAppState(status) {
+  const normalizedStatus = String(status || "").toLowerCase();
+  if (normalizedStatus === "needs_info" || normalizedStatus === "proposal_sent") return "action-required";
+  if (["draft", "submitted", "reviewing", "proposal_drafting"].includes(normalizedStatus)) return "pending";
+  return "connected";
 }
 
 function updateAppSectionEmptyStates() {
@@ -640,6 +658,7 @@ async function renderDashboard(message = "") {
   canViewAdminApps = isPlatformAdminEmail(currentSession.user.email) || hasCachedAdminAccess();
   show(dashboardViewToggle, canViewAdminApps);
   show(adminNotificationButton, canViewAdminApps);
+  accountOverviewActions?.classList.toggle("has-admin-tools", canViewAdminApps);
   setDashboardView(getPreferredDashboardView());
 
   const [, partnerAccess, , investmentInterest] = await Promise.allSettled([
@@ -707,10 +726,10 @@ async function renderDashboard(message = "") {
 
   [
     [recordsAppCard, hasRecordsAccess],
-    [websitePortalCard, hasWebsiteService],
+    [websitePortalCard, hasWebsiteService, hasWebsiteService ? websiteAppState(websiteServiceRequest.status) : "available"],
     [partnerPortalCard, isApprovedPartner],
-    [investmentInterestCard, Boolean(interest)],
-  ].forEach(([card, connected]) => placeAppCard(card, connected));
+    [investmentInterestCard, Boolean(interest && interest.status !== "withdrawn")],
+  ].forEach(([card, connected, state]) => placeAppCard(card, connected, state));
   updateAppSectionEmptyStates();
 
   const displayName = await loadProfileName().catch(() => currentSession.user.email || "N3XRA account");
@@ -736,6 +755,7 @@ async function renderDashboard(message = "") {
   canViewAdminApps = hasFullPlatformAdminAccess(platformAdminAccess) || isPlatformAdminEmail(currentSession.user.email);
   show(dashboardViewToggle, canViewAdminApps);
   show(adminNotificationButton, canViewAdminApps);
+  accountOverviewActions?.classList.toggle("has-admin-tools", canViewAdminApps);
   if (canViewAdminApps && adminNotificationCount) {
     const { count } = await supabase
       .from("admin_notifications")
