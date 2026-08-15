@@ -1,8 +1,8 @@
-import { createBrowserSupabase, hasConfig } from "/shared/lib/supabase-client.js";
-import { verifyPlatformAdmin } from "/client-portal/admin-access.js";
+import { hasConfig } from "/shared/lib/supabase-client.js";
+import { getAdminSession } from "/account/admin/admin-session.js";
 import { confirmAdminAction } from "/account/admin/admin-dialogs.js";
 import { initializeAdminSelects } from "/account/admin/admin-select.js?v=1";
-import { refreshAdminInboxBadge, renderAdminNavigation } from "/account/admin/admin-navigation.js?v=15";
+import { refreshAdminInboxBadge, renderAdminNavigation } from "/account/admin/admin-navigation.js?v=16";
 
 initializeAdminSelects();
 
@@ -135,15 +135,13 @@ async function openNotification(id) {
   dialog.showModal();
 }
 
-async function init() {
+export async function startInbox() {
   if (!hasConfig()) throw new Error("Portal configuration is missing.");
-  supabase = createBrowserSupabase();
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) return window.location.replace("/account/?next=%2Faccount%2Fadmin%2Finbox%2F");
-  if (!await verifyPlatformAdmin(supabase, session.user)) return window.location.replace("/account/");
+  const context = await getAdminSession();
+  if (!context.allowed) return;
+  supabase = context.supabase;
   renderAdminNavigation();
   document.body.classList.add("admin-ready");
-  document.getElementById("admin-sign-out").addEventListener("click", async () => { await supabase.auth.signOut(); window.location.replace("/account/"); });
   document.querySelectorAll("[data-folder]").forEach((button) => button.addEventListener("click", () => {
     folder = button.dataset.folder;
     document.querySelectorAll("[data-folder]").forEach((item) => item.classList.toggle("is-active", item === button));
@@ -170,4 +168,9 @@ async function init() {
   document.body.classList.remove("portal-loading");
 }
 
-init().catch((error) => { status.textContent = error.message || "Unable to open admin notifications."; });
+if (!window.__n3xraAdminSoftNavigation) {
+  startInbox().catch((error) => {
+    document.body.classList.add("admin-ready");
+    if (status) status.textContent = error.message || "Unable to open admin notifications.";
+  });
+}

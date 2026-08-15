@@ -1,6 +1,6 @@
 import { createBrowserSupabase, getSessionOrNull, hasConfig } from "/shared/lib/supabase-client.js";
 import { verifyPlatformAdmin } from "/client-portal/admin-access.js";
-import { renderAdminNavigation } from "/account/admin/admin-navigation.js?v=15";
+import { renderAdminNavigation } from "/account/admin/admin-navigation.js?v=16";
 
 let supabase;
 let applications = [];

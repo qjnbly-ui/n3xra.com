@@ -1,5 +1,5 @@
-import { createBrowserSupabase, hasConfig } from "/shared/lib/supabase-client.js";
-import { verifyPlatformAdmin } from "/client-portal/admin-access.js";
+import { hasConfig } from "/shared/lib/supabase-client.js";
+import { getAdminSession } from "/account/admin/admin-session.js";
 
 const statusScreen = document.getElementById("portal-status");
 const list = document.getElementById("partner-application-list");
@@ -199,15 +199,10 @@ async function deleteApplication(applicationId) {
 
 async function init() {
   if (!hasConfig()) throw new Error("Supabase configuration is missing.");
-  supabase = createBrowserSupabase();
-  const { data } = await supabase.auth.getSession();
-  const user = data?.session?.user;
-  accessToken = data?.session?.access_token || "";
-  if (!user) {
-    window.location.replace("/account/?next=%2Fn3xra-admin%2Fpartners%2F");
-    return;
-  }
-  if (!await verifyPlatformAdmin(supabase, user)) throw new Error("You do not have partner administration access.");
+  const context = await getAdminSession();
+  if (!context.allowed) return;
+  supabase = context.supabase;
+  accessToken = context.session?.access_token || "";
 
   await loadApplications();
   deleteCancel?.addEventListener("click", () => finishDeleteConfirmation(false));

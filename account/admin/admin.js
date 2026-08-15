@@ -1,6 +1,6 @@
 import { hasConfig } from "/shared/lib/supabase-client.js";
-import { getAdminSession } from "/account/admin/admin-session.js?v=2";
-import { arrangeAdminWorkspace } from "/account/admin/admin-navigation.js?v=15";
+import { getAdminSession } from "/account/admin/admin-session.js";
+import { arrangeAdminWorkspace } from "/account/admin/admin-navigation.js?v=16";
 import { confirmAdminAction } from "/account/admin/admin-dialogs.js";
 import { initializeAdminSelects } from "/account/admin/admin-select.js?v=1";
 
@@ -9,7 +9,6 @@ initializeAdminSelects();
 let view = "";
 let setupPanel = null;
 let adminPanel = null;
-let signOutButton = null;
 let statusEl = null;
 let supabase = null;
 let session = null;
@@ -18,7 +17,6 @@ function bindAdminDom() {
   view = document.body.dataset.adminView || "";
   setupPanel = document.getElementById("setup-panel");
   adminPanel = document.getElementById("admin-panel");
-  signOutButton = document.getElementById("admin-sign-out");
   statusEl = document.getElementById("admin-status");
 }
 
@@ -232,13 +230,6 @@ export async function startAdmin() {
   session = context.session;
   adminPanel?.classList.remove("hidden");
   arrangeAdminWorkspace();
-  if (signOutButton && !signOutButton.dataset.adminSignoutBound) {
-    signOutButton.dataset.adminSignoutBound = "true";
-    signOutButton.addEventListener("click", async () => {
-      await supabase.auth.signOut({ scope: "local" });
-      window.location.replace("/account");
-    });
-  }
   await loadAdminView();
   document.body.classList.add("admin-ready");
 }

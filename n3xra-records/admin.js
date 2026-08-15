@@ -1,6 +1,7 @@
-import { createBrowserSupabase, hasConfig, getSessionOrNull } from "/shared/lib/supabase-client.js";
+import { hasConfig } from "/shared/lib/supabase-client.js";
 import { getPlanConfig } from "./lib/plan-config.js";
-import { isPlatformAdminEmail, setStoredActiveOrganizationId } from "/shared/lib/orgs.js";
+import { setStoredActiveOrganizationId } from "/shared/lib/orgs.js";
+import { getAdminSession } from "/account/admin/admin-session.js";
 
 const setupPanel = document.getElementById("setup-panel");
 const adminPanel = document.getElementById("admin-panel");
@@ -68,16 +69,6 @@ let activeSupportGrant = null;
 let demoWorkspaces = [];
 let latestDemoClaimCode = "";
 let latestDemoClaimUrl = "";
-
-async function hasPlatformAdminAccess() {
-  if (isPlatformAdminEmail(currentSession?.user?.email)) return true;
-  const { data, error } = await supabase.functions.invoke("platform-admin", {
-    body: {
-      action: "get-platform-admin-access",
-    },
-  });
-  return Boolean(!error && data?.ok);
-}
 
 function setStatus(el, message, tone = "") {
   if (!el) return;
@@ -931,17 +922,13 @@ async function handlePasswordReset(event) {
 async function init() {
   if (!hasConfig()) return;
 
-  supabase = createBrowserSupabase();
-  currentSession = await getSessionOrNull(supabase);
-  if (!currentSession?.user) {
-    window.location.replace("/n3xra-records/login");
-    return;
-  }
-
-  if (!(await hasPlatformAdminAccess())) {
+  const context = await getAdminSession({ redirect: false });
+  if (!context.allowed) {
     window.location.replace("/n3xra-records/library");
     return;
   }
+  supabase = context.supabase;
+  currentSession = context.session;
 
   setupPanel.classList.add("hidden");
   adminPanel.classList.remove("hidden");
@@ -984,6 +971,7 @@ async function init() {
   demoWorkspaceCopyCode?.addEventListener("click", () => copyDemoText(latestDemoClaimCode, "Claim code copied."));
   demoWorkspaceCopyLink?.addEventListener("click", () => copyDemoText(latestDemoClaimUrl, "Claim link copied."));
   demoWorkspaceList?.addEventListener("click", handleDemoWorkspaceAction);
+  document.body.classList.remove("portal-loading");
 }
 
 init();

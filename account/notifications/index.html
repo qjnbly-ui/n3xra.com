@@ -16,36 +16,17 @@
   <link rel="stylesheet" href="/n3xra-records/styles.css?v=20260812-mobile-input-zoom">
   <link rel="stylesheet" href="/account/account.css">
   <link rel="stylesheet" href="/client-portal/portal.css?v=16">
-  <link rel="stylesheet" href="/account/admin/admin.css?v=24">
+  <link rel="stylesheet" href="/account/admin/admin.css?v=26">
   <link rel="stylesheet" href="/assets/home-shell.css?v=1">
   <link rel="stylesheet" href="/account/notifications/notifications.css?v=9">
   <script src="/shared/config.js"></script>
-  <script src="/assets/site-nav.js" defer></script>
+  <script src="/account/admin/admin-shell.js?v=1" defer></script><script src="/assets/site-nav.js" defer></script>
   <script>
     window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
   </script>
   <script defer src="/_vercel/insights/script.js"></script>
 </head>
 <body>
-  <header class="site-topbar">
-    <div class="site-topbar-inner">
-      <div class="site-topbar-row">
-        <a class="site-brand" href="/" aria-label="N3XRA home">
-          <img src="/assets/n3xra_logo_transparent_small.png" alt=""><span>N3XRA</span>
-        </a>
-        <div class="site-nav-actions">
-          <a class="site-menu-link" href="/account">Dashboard</a>
-          <button class="site-menu-link portal-logout" id="admin-sign-out" type="button">Sign out</button>
-          <button class="site-menu-toggle" type="button" aria-expanded="false" aria-controls="admin-menu" aria-label="Open menu" data-site-menu-toggle>
-            <span></span>
-            <span></span>
-            <span></span>
-          </button>
-        </div>
-      </div>
-      <nav class="site-mobile-menu" id="admin-menu" aria-label="N3XRA administration" hidden></nav>
-    </div>
-  </header>
 
   <main class="portal-shell account-admin-page notification-page">
     <section class="portal-workspace notification-setup hidden" id="setup-panel">
@@ -199,6 +180,6 @@
     </div>
   </footer>
 
-  <script type="module" src="/account/notifications/notifications.js?v=10"></script>
+  <script type="module" src="/account/notifications/notifications.js?v=12"></script>
 </body>
 </html>

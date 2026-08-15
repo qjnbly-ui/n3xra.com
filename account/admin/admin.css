@@ -1,6 +1,6 @@
 .hidden { display: none !important; }
 
-.account-admin-page:not(.admin-ready) main {
+body:not(.admin-ready):not(.portal-loading):not(.product-native-admin) main.account-admin-page {
   visibility: hidden;
 }
 

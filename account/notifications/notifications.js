@@ -1,35 +1,22 @@
 import {
-  createBrowserSupabase,
-  getSessionOrNull,
   hasConfig,
 } from "/shared/lib/supabase-client.js";
-import { isPlatformAdminEmail } from "/shared/lib/orgs.js";
-import { arrangeAdminWorkspace } from "/account/admin/admin-navigation.js?v=15";
+import { getAdminSession } from "/account/admin/admin-session.js";
+import { arrangeAdminWorkspace } from "/account/admin/admin-navigation.js?v=16";
 import {
   renderNotificationMessageHtml,
 } from "/account/notifications/notification-message-format.js?v=1";
 
-let setupPanel, notificationPanel, accountNavLink, notificationProductInput, notificationChannelInput, notificationSubjectInput, notificationCtaUrlInput, notificationPreheaderInput, notificationMessageInput, notificationMessageCount, notificationFormatToolbar, notificationCtaLabelInput, notificationFilterInput, notificationLoadRecipientsButton, notificationSelectVisibleButton, notificationClearSelectedButton, notificationClearDraftButton, notificationSelectedCount, notificationLoadedCount, notificationRecipientList, notificationReviewButton, notificationStatus, notificationReviewModal, notificationReviewClose, notificationReviewCancel, notificationReviewProduct, notificationReviewCount, notificationReviewChannel, notificationReviewSubject, notificationEmailPreview, notificationSendButton, notificationReviewStatus;
+let setupPanel, notificationPanel, notificationProductInput, notificationChannelInput, notificationSubjectInput, notificationCtaUrlInput, notificationPreheaderInput, notificationMessageInput, notificationMessageCount, notificationFormatToolbar, notificationCtaLabelInput, notificationFilterInput, notificationLoadRecipientsButton, notificationSelectVisibleButton, notificationClearSelectedButton, notificationClearDraftButton, notificationSelectedCount, notificationLoadedCount, notificationRecipientList, notificationReviewButton, notificationStatus, notificationReviewModal, notificationReviewClose, notificationReviewCancel, notificationReviewProduct, notificationReviewCount, notificationReviewChannel, notificationReviewSubject, notificationEmailPreview, notificationSendButton, notificationReviewStatus;
 
 function bindNotificationDom() {
-  setupPanel = document.getElementById("setup-panel"); notificationPanel = document.getElementById("notification-panel"); accountNavLink = document.getElementById("account-nav-link"); notificationProductInput = document.getElementById("notification-product"); notificationChannelInput = document.getElementById("notification-channel"); notificationSubjectInput = document.getElementById("notification-subject"); notificationCtaUrlInput = document.getElementById("notification-cta-url"); notificationPreheaderInput = document.getElementById("notification-preheader"); notificationMessageInput = document.getElementById("notification-message"); notificationMessageCount = document.getElementById("notification-message-count"); notificationFormatToolbar = document.getElementById("notification-format-toolbar"); notificationCtaLabelInput = document.getElementById("notification-cta-label"); notificationFilterInput = document.getElementById("notification-filter"); notificationLoadRecipientsButton = document.getElementById("notification-load-recipients"); notificationSelectVisibleButton = document.getElementById("notification-select-visible"); notificationClearSelectedButton = document.getElementById("notification-clear-selected"); notificationClearDraftButton = document.getElementById("notification-clear-draft"); notificationSelectedCount = document.getElementById("notification-selected-count"); notificationLoadedCount = document.getElementById("notification-loaded-count"); notificationRecipientList = document.getElementById("notification-recipient-list"); notificationReviewButton = document.getElementById("notification-review"); notificationStatus = document.getElementById("notification-status"); notificationReviewModal = document.getElementById("notification-review-modal"); notificationReviewClose = document.getElementById("notification-review-close"); notificationReviewCancel = document.getElementById("notification-review-cancel"); notificationReviewProduct = document.getElementById("notification-review-product"); notificationReviewCount = document.getElementById("notification-review-count"); notificationReviewChannel = document.getElementById("notification-review-channel"); notificationReviewSubject = document.getElementById("notification-review-subject"); notificationEmailPreview = document.getElementById("notification-email-preview"); notificationSendButton = document.getElementById("notification-send"); notificationReviewStatus = document.getElementById("notification-review-status");
+  setupPanel = document.getElementById("setup-panel"); notificationPanel = document.getElementById("notification-panel"); notificationProductInput = document.getElementById("notification-product"); notificationChannelInput = document.getElementById("notification-channel"); notificationSubjectInput = document.getElementById("notification-subject"); notificationCtaUrlInput = document.getElementById("notification-cta-url"); notificationPreheaderInput = document.getElementById("notification-preheader"); notificationMessageInput = document.getElementById("notification-message"); notificationMessageCount = document.getElementById("notification-message-count"); notificationFormatToolbar = document.getElementById("notification-format-toolbar"); notificationCtaLabelInput = document.getElementById("notification-cta-label"); notificationFilterInput = document.getElementById("notification-filter"); notificationLoadRecipientsButton = document.getElementById("notification-load-recipients"); notificationSelectVisibleButton = document.getElementById("notification-select-visible"); notificationClearSelectedButton = document.getElementById("notification-clear-selected"); notificationClearDraftButton = document.getElementById("notification-clear-draft"); notificationSelectedCount = document.getElementById("notification-selected-count"); notificationLoadedCount = document.getElementById("notification-loaded-count"); notificationRecipientList = document.getElementById("notification-recipient-list"); notificationReviewButton = document.getElementById("notification-review"); notificationStatus = document.getElementById("notification-status"); notificationReviewModal = document.getElementById("notification-review-modal"); notificationReviewClose = document.getElementById("notification-review-close"); notificationReviewCancel = document.getElementById("notification-review-cancel"); notificationReviewProduct = document.getElementById("notification-review-product"); notificationReviewCount = document.getElementById("notification-review-count"); notificationReviewChannel = document.getElementById("notification-review-channel"); notificationReviewSubject = document.getElementById("notification-review-subject"); notificationEmailPreview = document.getElementById("notification-email-preview"); notificationSendButton = document.getElementById("notification-send"); notificationReviewStatus = document.getElementById("notification-review-status");
 }
 
 let supabase = null;
-let currentSession = null;
 let notificationRecipients = [];
 let selectedNotificationEmails = new Set();
 let pendingNotificationPayload = null;
-
-async function hasPlatformAdminAccess() {
-  if (isPlatformAdminEmail(currentSession?.user?.email)) return true;
-  const { data, error } = await supabase.functions.invoke("platform-admin", {
-    body: {
-      action: "get-platform-admin-access",
-    },
-  });
-  return Boolean(!error && data?.ok && ["owner", "admin"].includes(String(data?.admin?.role || "")));
-}
 
 const PRODUCT_LABELS = {
   records: "N3XRA Records",
@@ -377,16 +364,6 @@ async function sendNotificationEmail() {
 }
 
 function bindEvents() {
-  document.getElementById("admin-sign-out")?.addEventListener("click", async () => {
-    await supabase.auth.signOut({ scope: "local" });
-    window.location.assign("/account");
-  }, { once: true });
-  accountNavLink?.addEventListener("click", async (event) => {
-    if (!currentSession?.user) return;
-    event.preventDefault();
-    await supabase.auth.signOut({ scope: "local" });
-    window.location.assign("/account");
-  });
   notificationProductInput?.addEventListener("change", resetNotificationRecipients);
   notificationChannelInput?.addEventListener("change", syncNotificationComposer);
   notificationMessageInput?.addEventListener("input", syncNotificationComposer);
@@ -418,23 +395,25 @@ export async function startNotifications() {
   bindNotificationDom();
   show(setupPanel, !hasConfig());
   show(notificationPanel, false);
-  if (!hasConfig()) return;
+  if (!hasConfig()) {
+    document.body.classList.add("admin-ready");
+    return;
+  }
 
-  if (!supabase) supabase = createBrowserSupabase();
-  if (!currentSession) currentSession = await getSessionOrNull(supabase);
-  if (!currentSession?.user) {
-    window.location.replace("/account?next=/account/notifications/");
-    return;
-  }
-  if (!(await hasPlatformAdminAccess())) {
-    window.location.replace("/account");
-    return;
-  }
+  const context = await getAdminSession();
+  if (!context.allowed) return;
+  supabase = context.supabase;
 
   show(notificationPanel, true);
   arrangeAdminWorkspace();
   bindEvents();
   syncNotificationComposer();
+  document.body.classList.add("admin-ready");
 }
 
-if (!window.__n3xraAdminSoftNavigation) startNotifications();
+if (!window.__n3xraAdminSoftNavigation) {
+  startNotifications().catch((error) => {
+    document.body.classList.add("admin-ready");
+    setStatus(notificationStatus, error.message || "Unable to open Account Announcements.", "error");
+  });
+}
