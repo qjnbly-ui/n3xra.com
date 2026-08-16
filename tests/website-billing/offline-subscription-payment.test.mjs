@@ -17,6 +17,8 @@ test("an offline annual payment creates a real Stripe invoice and subscription w
   assert.match(operations, /collection_method: "send_invoice"/);
   assert.match(operations, /paid_out_of_band: true/);
   assert.match(operations, /website-offline-subscription-/);
+  assert.match(operations, /stripe\.subscriptions\.list\(\{/);
+  assert.match(operations, /item\.metadata\.billing_snapshot_id/);
   assert.match(operations, /from\("website_subscriptions"\)[\s\S]*onConflict: "project_id"/);
   assert.match(operations, /from\("website_invoices"\)[\s\S]*onConflict: "stripe_invoice_id"/);
   assert.match(operations, /from\("website_billing_snapshots"\)\.update\(\{/);

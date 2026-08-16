@@ -203,15 +203,25 @@ Deno.serve(async (request) => {
           throw new Error("This website already has a different Stripe subscription. Open its existing billing record instead.");
         }
       } else {
-        subscription = await stripe.subscriptions.create({
+        const customerSubscriptions = await stripe.subscriptions.list({
           customer: customer.stripe_customer_id,
-          items: stripeItems,
-          collection_method: "send_invoice",
-          days_until_due: 7,
-          description: `${context.project.name} — recurring website service`,
-          metadata,
-          expand: ["latest_invoice"],
-        }, { idempotencyKey: key });
+          status: "all",
+          limit: 100,
+          expand: ["data.latest_invoice"],
+        });
+        const matchingSubscription = customerSubscriptions.data.find((item) =>
+          String(item.metadata.billing_snapshot_id || "") === context.snapshot.id
+          && Boolean(item.metadata.offline_payment_method)
+        );
+        subscription = matchingSubscription || await stripe.subscriptions.create({
+            customer: customer.stripe_customer_id,
+            items: stripeItems,
+            collection_method: "send_invoice",
+            days_until_due: 7,
+            description: `${context.project.name} — recurring website service`,
+            metadata,
+            expand: ["latest_invoice"],
+          }, { idempotencyKey: key });
       }
 
       if (!subscription.latest_invoice) throw new Error("Stripe did not create the recurring invoice.");
