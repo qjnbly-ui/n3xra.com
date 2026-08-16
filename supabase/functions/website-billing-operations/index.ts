@@ -3,6 +3,7 @@ import {
   originFor,
   requireAdmin,
   response,
+  snapshotItemPriceEnvironment,
   stripeClient,
   websiteMetadata,
 } from "../_shared/website-billing.ts";
@@ -50,7 +51,7 @@ async function getProjectContext(admin: any, projectId: string) {
     .single();
   if (error || !project) throw new Error("Website project not found.");
   const [{ data: snapshot }, { data: customer }, userResult] = await Promise.all([
-    admin.from("website_billing_snapshots").select("*").eq("project_id", project.id).order("created_at", { ascending: false }).limit(1).maybeSingle(),
+    admin.from("website_billing_snapshots").select("*,website_billing_snapshot_items(*)").eq("project_id", project.id).order("created_at", { ascending: false }).limit(1).maybeSingle(),
     admin.from("website_billing_customers").select("*").eq("user_id", project.client_user_id).maybeSingle(),
     admin.auth.admin.getUserById(project.client_user_id),
   ]);
@@ -146,6 +147,97 @@ Deno.serve(async (request) => {
     const projectId = clean(input.project_id, 80);
     const context = await getProjectContext(admin, projectId);
     if (!context.snapshot) throw new Error("Prepare the approved proposal for billing first.");
+
+    if (action === "record_offline_subscription_payment") {
+      const paymentMethod = clean(input.payment_method, 40);
+      const allowedMethods = new Set(["cash", "check", "bank_transfer", "other"]);
+      if (!allowedMethods.has(paymentMethod)) throw new Error("Choose how the recurring plan was paid.");
+      const receivedOn = clean(input.received_on, 10);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(receivedOn)) throw new Error("Enter the date the payment was received.");
+      const receivedDate = new Date(`${receivedOn}T12:00:00Z`);
+      if (Number.isNaN(receivedDate.getTime())) throw new Error("Enter a valid payment date.");
+      if (receivedDate.getTime() > Date.now() + 24 * 60 * 60 * 1000) throw new Error("The payment date cannot be in the future.");
+      const reference = clean(input.reference, 160) || null;
+
+      const { data: existingSubscription } = await admin
+        .from("website_subscriptions")
+        .select("id,stripe_subscription_id,status")
+        .eq("project_id", context.project.id)
+        .maybeSingle();
+      const recurringItems = (context.snapshot.website_billing_snapshot_items || [])
+        .filter((item: Record<string, unknown>) => item.billing_type === "recurring" && item.included_in_initial_checkout)
+        .sort((a: Record<string, unknown>, b: Record<string, unknown>) => Number(a.sort_order || 0) - Number(b.sort_order || 0));
+      if (!recurringItems.length || Number(context.snapshot.recurring_cents || 0) <= 0) {
+        throw new Error("This approved proposal does not contain a recurring service to activate.");
+      }
+      const intervals = new Set(recurringItems.map((item: Record<string, unknown>) => String(item.recurring_interval || "")));
+      if (intervals.size !== 1 || !intervals.has(String(context.snapshot.recurring_interval || ""))) {
+        throw new Error("The approved recurring items do not share one billing schedule.");
+      }
+      const stripeItems: Stripe.SubscriptionCreateParams.Item[] = recurringItems.map((item: Record<string, unknown>) => {
+        const price = snapshotItemPriceEnvironment(item, context.snapshot.service_plan);
+        if (!price) throw new Error(`Stripe pricing is not configured for ${String(item.name || "this recurring item")}.`);
+        return { price, quantity: Math.max(1, Number(item.quantity || 1)) };
+      });
+
+      const stripe = stripeClient();
+      const customer = await ensureCustomer(admin, stripe, context);
+      const metadata = websiteMetadata({
+        n3xra_user_id: context.project.client_user_id,
+        website_project_id: context.project.id,
+        proposal_version_id: context.snapshot.proposal_version_id,
+        billing_snapshot_id: context.snapshot.id,
+        referral_code: context.snapshot.referral_code,
+        offer_code: context.snapshot.offer_code,
+        offline_payment_method: paymentMethod,
+        offline_received_on: receivedOn,
+        offline_reference: reference,
+      });
+      const key = `website-offline-subscription-${context.snapshot.id}`;
+      let subscription: Stripe.Subscription;
+      if (existingSubscription?.stripe_subscription_id) {
+        subscription = await stripe.subscriptions.retrieve(existingSubscription.stripe_subscription_id, { expand: ["latest_invoice"] });
+        if (String(subscription.metadata.billing_snapshot_id || "") !== context.snapshot.id || !subscription.metadata.offline_payment_method) {
+          throw new Error("This website already has a different Stripe subscription. Open its existing billing record instead.");
+        }
+      } else {
+        subscription = await stripe.subscriptions.create({
+          customer: customer.stripe_customer_id,
+          items: stripeItems,
+          collection_method: "send_invoice",
+          days_until_due: 7,
+          description: `${context.project.name} — recurring website service`,
+          metadata,
+          expand: ["latest_invoice"],
+        }, { idempotencyKey: key });
+      }
+
+      if (!subscription.latest_invoice) throw new Error("Stripe did not create the recurring invoice.");
+      let invoice = typeof subscription.latest_invoice === "object" && subscription.latest_invoice
+        ? subscription.latest_invoice as Stripe.Invoice
+        : await stripe.invoices.retrieve(String(subscription.latest_invoice));
+      if (invoice.status === "draft") {
+        invoice = await stripe.invoices.finalizeInvoice(
+          invoice.id,
+          { auto_advance: false },
+          { idempotencyKey: `${key}-finalize` },
+        );
+      }
+      if (invoice.status === "open") {
+        invoice = await stripe.invoices.pay(
+          invoice.id,
+          { paid_out_of_band: true },
+          { idempotencyKey: `${key}-pay` },
+        );
+      }
+      if (invoice.status !== "paid") throw new Error("Stripe did not finish marking the recurring invoice paid.");
+      return response({
+        subscription_id: subscription.id,
+        invoice_id: invoice.id,
+        invoice_number: invoice.number,
+        status: invoice.status,
+      }, 200, origin);
+    }
 
     if (action === "save_schedule") {
       if (context.snapshot.status === "active") throw new Error("The active subscription schedule is controlled by Stripe.");

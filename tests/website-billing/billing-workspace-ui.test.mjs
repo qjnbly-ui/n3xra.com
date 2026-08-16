@@ -18,10 +18,12 @@ test("website billing shows accepted items separately and keeps controls seconda
   assert.doesNotMatch(billing, /<details open>/);
   assert.match(styles, /\.billing-plan-item-list/);
   assert.match(billing, /What do you want to do\?/);
-  assert.match(billing, /They already paid me/);
+  assert.match(billing, /They paid the \$\{renewalPeriod\} plan another way/);
+  assert.match(billing, /Create paid invoice & activate plan/);
+  assert.match(billing, /record_offline_subscription_payment/);
   assert.match(billing, /They need to pay online/);
-  assert.match(page, /billing\.css\?v=5/);
-  assert.match(page, /billing\.js\?v=6/);
+  assert.match(page, /billing\.css\?v=6/);
+  assert.match(page, /billing\.js\?v=7/);
 });
 
 test("website billing and the organization panel synchronize their selection", async () => {

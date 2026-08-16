@@ -258,6 +258,10 @@
 .billing-review-list > div { display: flex; justify-content: space-between; gap: 20px; padding: 11px 0; border-bottom: 1px solid #e5e7eb; }
 .billing-review-list dt { color: #68758a; }
 .billing-review-list dd { margin: 0; font-weight: 700; text-align: right; }
+.billing-review-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin: 20px 0; }
+.billing-review-fields label { display: grid; gap: 7px; color: #59677d; font-size: .82rem; font-weight: 700; }
+.billing-review-fields input,
+.billing-review-fields select { width: 100%; box-sizing: border-box; border: 1px solid #d5dbe3; border-radius: 10px; padding: 12px; color: #111827; background: #fff; font: inherit; }
 .billing-email-preview { width: 100%; min-height: 430px; border: 1px solid #dfe3e8; border-radius: 12px; background: #fff; }
 
 @media (max-width: 700px) {
@@ -266,6 +270,7 @@
   .billing-card-head { display: block; }
   .billing-card-head .portal-badge { display: inline-block; margin-top: 10px; }
   .billing-operation-form { grid-template-columns: 1fr; }
+  .billing-review-fields { grid-template-columns: 1fr; }
   .billing-form-wide { grid-column: auto; }
   .billing-charge { grid-template-columns: minmax(0, 1fr) auto; }
   .billing-charge .portal-button { grid-column: 1 / -1; }

@@ -666,17 +666,6 @@
   grid-column: 1 / -1;
 }
 
-.operations-payment-help {
-  padding: 14px 16px;
-  border-radius: 12px;
-  color: #143b36;
-  background: #eaf6f3;
-}
-
-.operations-payment-help strong,
-.operations-payment-help p { display: block; }
-.operations-payment-help p { margin: 5px 0 0; color: #516d68; font-size: .86rem; line-height: 1.45; }
-
 .operations-dialog footer {
   justify-content: flex-end;
   padding-top: 0.9rem;

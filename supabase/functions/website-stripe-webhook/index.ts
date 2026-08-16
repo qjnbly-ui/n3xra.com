@@ -85,7 +85,8 @@ async function syncSubscription(admin: ReturnType<typeof createClient>, subscrip
     referral_code: snapshot.referral_code,
     offer_code: snapshot.offer_code,
   }, { onConflict: "project_id" });
-  if (subscription.status === "active" || subscription.status === "trialing") {
+  const waitsForOfflineInvoice = Boolean(subscription.metadata.offline_payment_method);
+  if ((subscription.status === "active" || subscription.status === "trialing") && !waitsForOfflineInvoice) {
     await activateSnapshot(admin, snapshot.id, snapshot.project_id);
     await admin.from("website_billing_schedules").update({
       status: "active",
@@ -188,6 +189,7 @@ async function syncOperationsInvoice(
   invoice: Stripe.Invoice,
   snapshot: Record<string, unknown>,
   subscriptionId: string | null,
+  metadata?: Stripe.Metadata | null,
 ) {
   if ((invoice.currency || "usd").toLowerCase() !== "usd") {
     throw new Error("Operations currently supports USD Stripe invoices only.");
@@ -219,21 +221,33 @@ async function syncOperationsInvoice(
   if (invoiceError) throw new Error(invoiceError.message);
 
   if (invoice.status !== "paid" || (invoice.amount_paid || 0) <= 0) return;
+  const offlineMethod = String(metadata?.offline_payment_method || "").trim();
+  const paidOutsideStripe = Boolean(invoice.paid_out_of_band);
+  const paymentMethod = paidOutsideStripe && ["cash", "check", "bank_transfer", "other"].includes(offlineMethod)
+    ? offlineMethod
+    : "stripe";
+  const offlineReceivedOn = String(metadata?.offline_received_on || "").trim();
+  const transactionDate = paidOutsideStripe && /^\d{4}-\d{2}-\d{2}$/.test(offlineReceivedOn)
+    ? offlineReceivedOn
+    : stripePaidDate(invoice);
+  const offlineReference = String(metadata?.offline_reference || "").trim();
   const { error: transactionError } = await admin
     .from("operations_transactions")
     .upsert({
       transaction_type: "revenue",
-      transaction_date: stripePaidDate(invoice),
+      transaction_date: transactionDate,
       amount_cents: invoice.amount_paid,
       status: "completed",
       party_id: partyId,
       invoice_id: operationsInvoice.id,
       category: "website_revenue",
-      payment_method: "stripe",
+      payment_method: paymentMethod,
       recurring: Boolean(subscriptionId),
-      description: `Stripe payment for invoice ${invoiceNumber}`,
-      reference_number: invoice.id,
-      notes: "Synchronized automatically from a verified Stripe invoice.paid event.",
+      description: paidOutsideStripe ? `Payment received outside Stripe for invoice ${invoiceNumber}` : `Stripe payment for invoice ${invoiceNumber}`,
+      reference_number: offlineReference || invoice.id,
+      notes: paidOutsideStripe
+        ? "Invoice created in Stripe and marked paid outside Stripe from Website Billing. No card was charged."
+        : "Synchronized automatically from a verified Stripe invoice.paid event.",
       created_by_user_id: snapshot.prepared_by_user_id,
       source: "stripe",
       external_id: invoice.id,
@@ -250,6 +264,7 @@ async function syncInvoice(admin: ReturnType<typeof createClient>, stripe: Strip
   const snapshotId = String(metadata.billing_snapshot_id || "").trim();
   const { data: snapshot } = await admin.from("website_billing_snapshots").select("*").eq("id", snapshotId).maybeSingle();
   if (!snapshot) return false;
+  if (subscription) await syncSubscription(admin, subscription);
   const { data: localSubscription } = subscriptionId
     ? await admin.from("website_subscriptions").select("id").eq("stripe_subscription_id", subscriptionId).maybeSingle()
     : { data: null };
@@ -275,6 +290,13 @@ async function syncInvoice(admin: ReturnType<typeof createClient>, stripe: Strip
     paid_at: unixDate(invoice.status_transitions?.paid_at),
   }, { onConflict: "stripe_invoice_id" }).select("id").single();
   if (error) throw new Error(error.message);
+  if (subscription && invoice.status === "paid" && metadata?.offline_payment_method) {
+    await activateSnapshot(admin, snapshot.id, snapshot.project_id);
+    await admin.from("website_billing_schedules").update({
+      status: "active",
+      activated_at: new Date().toISOString(),
+    }).eq("snapshot_id", snapshot.id);
+  }
   await admin.from("website_invoice_items").delete().eq("invoice_id", localInvoice.id);
   const lines = (invoice.lines?.data || []).map((line) => ({
     invoice_id: localInvoice.id,
@@ -303,7 +325,7 @@ async function syncInvoice(admin: ReturnType<typeof createClient>, stripe: Strip
   } else if (eventType === "invoice.voided" && !subscriptionId) {
     await admin.from("website_billing_snapshots").update({ status: "canceled" }).eq("id", snapshot.id).neq("status", "active");
   }
-  await syncOperationsInvoice(admin, invoice, snapshot, subscriptionId);
+  await syncOperationsInvoice(admin, invoice, snapshot, subscriptionId, metadata);
   return true;
 }
 

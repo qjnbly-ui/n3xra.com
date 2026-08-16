@@ -68,18 +68,11 @@ function adminTools(project, snapshot, schedule, charges, subscription, communic
 
 function adminTaskActions(project, snapshot, cardInfo) {
   if (!adminMode || !snapshot) return "";
-  const paymentParams = new URLSearchParams({
-    view: "invoices",
-    create: "payment",
-    account_user_id: project.client_user_id || "",
-    website_project_id: project.id,
-    customer_name: project.name,
-    description: `Website payment — ${project.name}`,
-  });
+  const renewalPeriod = snapshot.recurring_interval === "yearly" ? "yearly" : "monthly";
   return `<section class="billing-task-actions">
     <div class="billing-section-heading"><div><p class="portal-kicker">Choose what happened</p><h4>What do you want to do?</h4><p>Pick one. Simply viewing this page does not bill the customer.</p></div></div>
     <div class="billing-task-action-list">
-      <a class="billing-task-action" href="/account/admin/operations/?${escape(paymentParams.toString())}"><strong>They already paid me</strong><small>Record cash, a check, or another payment you received.</small><span>Record payment →</span></a>
+      ${Number(snapshot.recurring_cents || 0) > 0 && !records.subscriptions.some((item) => item.project_id === project.id) ? `<button class="billing-task-action" type="button" data-record-offline-subscription="${project.id}"><strong>They paid the ${renewalPeriod} plan another way</strong><small>Create the ${money(snapshot.recurring_cents)} ${renewalPeriod} invoice, mark it paid, and activate the subscription. No card is charged.</small><span>Record paid plan →</span></button>` : ""}
       ${snapshot.status !== "active" ? `<button class="billing-task-action" type="button" data-admin-checkout="${snapshot.id}"><strong>They need to pay online</strong><small>Create a secure Stripe link and copy it so you can send it to them.</small><span>${snapshot.checkout_url ? "Refresh payment link" : "Create payment link"} →</span></button>` : ""}
       ${snapshot.checkout_url ? `<button class="billing-task-action" type="button" data-copy="${escape(snapshot.checkout_url)}"><strong>I already made a payment link</strong><small>Copy the existing secure link again.</small><span>Copy payment link →</span></button>` : ""}
       ${cardInfo?.stripe_customer_id ? `<a class="billing-task-action" href="https://dashboard.stripe.com/customers/${escape(cardInfo.stripe_customer_id)}" target="_blank" rel="noopener"><strong>I need the Stripe record</strong><small>Open this customer directly in Stripe.</small><span>Open Stripe →</span></a>` : ""}
@@ -291,6 +284,7 @@ content.addEventListener("submit", async (event) => {
 });
 
 content.addEventListener("click", async (event) => {
+  const offlineSubscription = event.target.closest("[data-record-offline-subscription]");
   const checkout = event.target.closest("[data-checkout]");
   const adminCheckout = event.target.closest("[data-admin-checkout]");
   const portal = event.target.closest("[data-portal]");
@@ -299,7 +293,22 @@ content.addEventListener("click", async (event) => {
   const voidCharge = event.target.closest("[data-void-charge]");
   const cancel = event.target.closest("[data-cancel-subscription]");
   try {
-    if (issue) {
+    if (offlineSubscription) {
+      const project = records.projects.find((item) => item.id === offlineSubscription.dataset.recordOfflineSubscription);
+      const snapshot = records.snapshots.find((item) => item.project_id === project?.id);
+      const now = new Date();
+      const receivedOn = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+      const renewalPeriod = snapshot?.recurring_interval === "yearly" ? "yearly" : "monthly";
+      openReview("Record paid recurring plan", `<p>This is for money you already received. It creates the ${money(snapshot?.recurring_cents)} ${renewalPeriod} Stripe invoice, marks it paid outside Stripe, and activates the ${escape(label(snapshot?.service_plan))} subscription.</p><div class="billing-review-fields"><label>How they paid<select name="offline_method"><option value="cash">Cash</option><option value="check">Check</option><option value="bank_transfer">Bank transfer</option><option value="other">Other</option></select></label><label>Date received<input name="received_on" type="date" value="${receivedOn}" required></label><label class="billing-form-wide">Reference or note<input name="reference" maxlength="160" placeholder="Optional receipt, check number, or note"></label></div><p><strong>No card will be charged and no payment request will be sent.</strong> Future ${renewalPeriod} renewals will be invoiced through Stripe.</p>`, "Create paid invoice & activate plan", async () => {
+        const method = dialogBody.querySelector('[name="offline_method"]').value;
+        const paymentDate = dialogBody.querySelector('[name="received_on"]').value;
+        const reference = dialogBody.querySelector('[name="reference"]').value;
+        await invoke("website-billing-operations", { action: "record_offline_subscription_payment", project_id: project.id, payment_method: method, received_on: paymentDate, reference });
+        status.textContent = "Paid recurring invoice created and subscription activated.";
+        await new Promise((resolve) => setTimeout(resolve, 1200));
+        await load();
+      });
+    } else if (issue) {
       const charge = records.charges.find((item) => item.id === issue.dataset.issueCharge);
       openReview("Issue Stripe invoice", `<dl class="billing-review-list"><div><dt>Charge</dt><dd>${escape(charge.name)}</dd></div><div><dt>Amount</dt><dd>${money(charge.amount_cents)}</dd></div><div><dt>Collection</dt><dd>${escape(label(charge.collection_method))}</dd></div><div><dt>Schedule</dt><dd>${charge.scheduled_for ? dateTime(charge.scheduled_for) : "Issue now"}</dd></div></dl><p>After this step, the approved financial terms cannot be edited.</p>`, "Issue invoice", async () => {
         await invoke("website-billing-operations", { action: "issue_charge", project_id: issue.dataset.project, charge_id: charge.id });
