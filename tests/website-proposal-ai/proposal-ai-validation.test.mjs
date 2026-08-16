@@ -89,6 +89,28 @@ test("inferred money and contractual rewrites are discarded", () => {
   assert.equal(terms.operations.length, 0);
 });
 
+test("explicit administrator contract direction may be polished without changing its protected values", () => {
+  const instruction = "If the client transfers the website, they must buy the code for $500 before transfer. N3XRA may reevaluate the plan after the first year.";
+  const evidence = new Map([["admin_instruction:run-terms", {
+    authority: "admin_instruction", text: instruction,
+  }]]);
+  const supported = validateChangeSet(change({
+    target: { kind: "version", id: "version-1" }, operation: "replace", field: "terms",
+    original: "Original terms",
+    proposed: "Before a website transfer, the client must purchase the code for $500. N3XRA may reevaluate the service plan after the first year.",
+    evidence: [{ source_type: "admin_instruction", source_id: "run-terms", field_path: "instruction", supporting_value: instruction }],
+  }), baseline, evidence);
+  assert.equal(supported.operations.length, 1);
+
+  const invented = validateChangeSet(change({
+    target: { kind: "version", id: "version-1" }, operation: "replace", field: "terms",
+    original: "Original terms",
+    proposed: "Before a website transfer, the client must purchase the code for $750.",
+    evidence: [{ source_type: "admin_instruction", source_id: "run-terms", field_path: "instruction", supporting_value: instruction }],
+  }), baseline, evidence);
+  assert.equal(invented.operations.length, 0);
+});
+
 test("all line-item mutations are protected", () => {
   assert.equal(protectedOperation({ target: { kind: "line_item" }, field: "description" }), true);
   assert.equal(protectedOperation({ target: { kind: "version" }, field: "scope_summary" }), false);

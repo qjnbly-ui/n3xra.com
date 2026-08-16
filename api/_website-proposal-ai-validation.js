@@ -18,6 +18,19 @@ const ARRAY_FIELDS = new Set(["deliverables", "exclusions"]);
 const DATE_FIELDS = new Set(["estimated_start_date", "estimated_completion_date", "valid_until"]);
 const MONEY_FIELDS = new Set(["discount_cents", "deposit_cents", "unit_amount_cents"]);
 const CONTRACT_FIELDS = new Set(["timeline", "payment_schedule", "revision_policy", "terms"]);
+const CONTRACT_CONCEPTS = [
+  ["transfer", "handoff", "migrate"],
+  ["ownership", "owns", "owned", "source code", "code"],
+  ["purchase", "buy"],
+  ["discount", "savings"],
+  ["waive", "waived", "waiver"],
+  ["reevaluate", "re-evaluate", "review the plan", "review which plan"],
+  ["cancel", "cancellation", "terminate", "termination"],
+  ["refund", "refundable"],
+  ["guarantee", "guaranteed", "promise"],
+  ["revision", "revisions"],
+  ["support", "edits", "edit allowance"],
+];
 const MONTHS = {
   january: 1, february: 2, march: 3, april: 4, may: 5, june: 6,
   july: 7, august: 8, september: 9, october: 10, november: 11, december: 12,
@@ -247,6 +260,37 @@ function sourceContainsValue(match, value) {
   return text.includes(wanted) || text.includes(wanted.replaceAll("_", " "));
 }
 
+function moneyValues(text) {
+  return [...String(text || "").matchAll(/(?:\$|usd\s*)\s*([0-9][0-9,]*(?:\.\d{1,2})?)/gi)]
+    .map((match) => Math.round(Number(match[1].replaceAll(",", "")) * 100));
+}
+
+function percentageValues(text) {
+  return [...String(text || "").matchAll(/\b([0-9]+(?:\.\d+)?)\s*(?:%|percent)\b/gi)]
+    .map((match) => Number(match[1]));
+}
+
+function containsConcept(text, words) {
+  const value = plain(text).toLowerCase();
+  return words.some((word) => value.includes(word));
+}
+
+function polishedAdminContractSupported(operation, authoritative) {
+  const adminMatches = authoritative.filter(({ source }) => source.authority === "admin_instruction");
+  if (!adminMatches.length) return false;
+  const proposed = plain(operation.proposed);
+  const allSourceText = authoritative.map(({ source }) => String(source.text || ""));
+  const adminSourceText = adminMatches.map(({ source }) => String(source.text || ""));
+  const supportedMoney = new Set(allSourceText.flatMap(moneyValues));
+  if (moneyValues(proposed).some((value) => !supportedMoney.has(value))) return false;
+  const supportedPercentages = new Set(adminSourceText.flatMap(percentageValues));
+  if (percentageValues(proposed).some((value) => !supportedPercentages.has(value))) return false;
+  for (const words of CONTRACT_CONCEPTS) {
+    if (containsConcept(proposed, words) && !allSourceText.some((text) => containsConcept(text, words))) return false;
+  }
+  return true;
+}
+
 function completeLineItemSupported(operation, authoritative) {
   const proposed = operation.proposed || {};
   const original = operation.operation === "add" ? {} : operation.original || {};
@@ -301,7 +345,9 @@ function supportedProtected(operation, evidenceMap, now) {
   if (CONTRACT_FIELDS.has(operation.field)) {
     const proposed = plain(operation.proposed).toLowerCase();
     const matched = proposed && authoritative.some(({ source }) => plain(source.text).toLowerCase().includes(proposed));
-    return matched ? { supported: true } : { supported: false, reason: "The substantive contractual replacement is not directly present in an authoritative source." };
+    return matched || polishedAdminContractSupported(operation, authoritative)
+      ? { supported: true }
+      : { supported: false, reason: "The contractual language is not directly supported by an administrator instruction or authoritative policy." };
   }
   if (operation.target.kind === "line_item") {
     if (operation.operation === "remove") {

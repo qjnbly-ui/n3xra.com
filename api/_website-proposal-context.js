@@ -1,5 +1,10 @@
 const { createHash } = require("node:crypto");
+const { readFileSync } = require("node:fs");
+const { join } = require("node:path");
 const { apiError, downloadStorageObject, serviceRequest } = require("./_website-proposal-ai-supabase");
+
+const N3XRA_PROPOSAL_KNOWLEDGE = readFileSync(join(__dirname, "ask-knowledge.md"), "utf8");
+const N3XRA_PROPOSAL_KNOWLEDGE_UPDATED_AT = "2026-08-05T00:00:00.000Z";
 
 const MAX_SELECTED_FILES = 10;
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
@@ -23,6 +28,19 @@ function source(sourceType, sourceId, label, authority, status, updatedAt, conte
     default_included: defaultIncluded,
     content,
   };
+}
+
+function currentN3xraProposalKnowledgeSource() {
+  return source(
+    "n3xra_knowledge",
+    "current-website-services",
+    "Current N3XRA website plans, pricing, and policies",
+    "implementation",
+    "published",
+    N3XRA_PROPOSAL_KNOWLEDGE_UPDATED_AT,
+    N3XRA_PROPOSAL_KNOWLEDGE,
+    true,
+  );
 }
 
 function safeRequest(request) {
@@ -213,6 +231,7 @@ async function loadProposalCopilotContext(proposalId, selections = {}) {
   };
   const sources = [
     source("proposal", proposal.id, `Proposal v${baseVersion.version_number}`, "contractual", baseVersion.status, baseVersion.updated_at, baseline, true),
+    currentN3xraProposalKnowledgeSource(),
   ];
   if (request) sources.push(source("website_request", request.id, "Website request", "intake", request.status, request.updated_at, safeRequest(request), true));
   if (currentDecision?.decision === "changes_requested" && currentDecision.client_message) sources.push(source(
@@ -314,6 +333,7 @@ function evidenceSources(context, instructionSource, instruction) {
 
 module.exports = {
   buildSourceManifest,
+  currentN3xraProposalKnowledgeSource,
   evidenceSources,
   loadProposalCopilotContext,
   materializeSelectedFiles,

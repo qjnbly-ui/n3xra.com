@@ -36,6 +36,9 @@ test("project context is automatic and the technical source picker is not shown"
 test("the model is explicitly instructed to fill incomplete targeted sections", () => {
   assert.match(api, /blank or incomplete standard fields/);
   assert.match(api, /draft client-ready values from the included authoritative sources/);
+  assert.match(api, /Do not bury commercial or contractual terms in overview or scope/);
+  assert.match(api, /Current N3XRA website plans, pricing, and policies/);
+  assert.match(api, /additional discount without an exact amount is not an exact discount/);
 });
 
 test("failed and unused history can be removed without exposing applied history removal", () => {

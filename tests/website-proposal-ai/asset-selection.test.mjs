@@ -3,7 +3,17 @@ import { createRequire } from "node:module";
 import test from "node:test";
 
 const require = createRequire(import.meta.url);
-const { selectAssetVersions } = require("../../api/_website-proposal-context.js");
+const { currentN3xraProposalKnowledgeSource, selectAssetVersions } = require("../../api/_website-proposal-context.js");
+
+test("proposal drafting includes current N3XRA website-plan knowledge", () => {
+  const source = currentN3xraProposalKnowledgeSource();
+  assert.equal(source.source_type, "n3xra_knowledge");
+  assert.equal(source.authority, "implementation");
+  assert.equal(source.default_included, true);
+  assert.match(source.content, /Founding Client Starter\+ website service is \$40 per month/);
+  assert.match(source.content, /additional eligible edits at \$52\.50 per hour/);
+  assert.match(source.content, /Advanced websites start at \$500 to build/);
+});
 
 test("asset defaults prefer a published current version, otherwise newest approved", () => {
   const assets = [

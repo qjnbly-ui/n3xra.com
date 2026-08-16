@@ -22,6 +22,10 @@ test("Projects shares the Services hero system and keeps the local navigation lo
   const navBrand = projects.match(/<a class="site-brand home-brand"[\s\S]*?<\/a>/)?.[0] || "";
   assert.match(navBrand, /n3xra_logo_transparent_small\.png/);
   assert.doesNotMatch(navBrand, /supabase\.co/);
+
+  const websiteEntry = projects.match(/<a class="projects-client-entry"[^>]*>Manage your website<\/a>/)?.[0] || "";
+  assert.match(websiteEntry, /href="\/account\/"/);
+  assert.doesNotMatch(websiteEntry, /client-portal\/login/);
 });
 
 test("public marketing pages do not use the retired square-grid texture", async () => {
