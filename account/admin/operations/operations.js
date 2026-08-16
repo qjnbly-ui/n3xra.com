@@ -664,6 +664,18 @@ function transactionFields(item = {}) {
   ].join("");
 }
 
+function websitePaymentFields(item = {}) {
+  return [
+    `<input type="hidden" name="transaction_type" value="revenue"><input type="hidden" name="status" value="completed"><input type="hidden" name="party_id" value=""><input type="hidden" name="product_id" value=""><input type="hidden" name="project_id" value=""><input type="hidden" name="invoice_id" value=""><input type="hidden" name="financial_account_id" value=""><input type="hidden" name="deposit_id" value=""><input type="hidden" name="category" value="customer_payment"><input type="hidden" name="description" value="${escapeHtml(item.description || "Website payment")}"><input type="hidden" name="website_account_user_id" value="${escapeHtml(item.website_account_user_id || "")}"><input type="hidden" name="website_customer_name" value="${escapeHtml(item.website_customer_name || "Website customer")}">`,
+    `<div class="operations-payment-help operations-field-wide"><strong>Recording payment for ${escapeHtml(item.website_customer_name || "this website")}</strong><p>This records money you already received. It will not charge the customer or contact them.</p></div>`,
+    field("Amount received", "amount", textInput("amount", "", 'inputmode="decimal" required placeholder="0.00"')),
+    field("How they paid", "payment_method", selectInput("payment_method", fixedOptions(["cash", "check", "ach", "paypal", "venmo", "square", "bank_transfer", "manual", "other"], item.payment_method || "cash"), "required")),
+    field("Date received", "transaction_date", textInput("transaction_date", item.transaction_date || todayValue(), 'type="date" required')),
+    field("Reference or receipt number", "reference_number", textInput("reference_number", "", 'maxlength="120" placeholder="Optional"')),
+    field("Note", "notes", textarea("notes", "", 'rows="3" maxlength="2000" placeholder="Optional"'), { wide: true }),
+  ].join("");
+}
+
 function invoiceFields(item = {}) {
   const customers = state.parties.filter((party) => party.status === "active" && ["customer", "both"].includes(party.party_type));
   return [
@@ -750,7 +762,7 @@ function openForm(type, id = "", defaults = {}) {
   const item = id ? recordFor(type, id) : null;
   const formItem = { ...defaults, ...(item || {}) };
   const builders = {
-    transaction: transactionFields,
+    transaction: defaults.website_payment ? websitePaymentFields : transactionFields,
     invoice: invoiceFields,
     party: partyFields,
     product: productFields,
@@ -768,8 +780,9 @@ function openForm(type, id = "", defaults = {}) {
     deposit: "deposit",
   };
   $("#operations-record-id").value = id;
-  $("#operations-dialog-title").textContent = `${item ? "Edit" : "Add"} ${labels[type]}`;
+  $("#operations-dialog-title").textContent = defaults.website_payment ? "Record a payment you received" : `${item ? "Edit" : "Add"} ${labels[type]}`;
   $("#operations-form-fields").innerHTML = builders[type](formItem);
+  $("#operations-form").dataset.websitePayment = defaults.website_payment ? "true" : "";
   $("#operations-form-error").textContent = "";
   $("#operations-save").textContent = item ? "Save changes" : "Save record";
   $("#operations-dialog").showModal();
@@ -904,6 +917,24 @@ async function saveForm(event) {
     const savedType = activeFormType;
     const id = $("#operations-record-id").value;
     const payload = formPayload(activeFormType, form);
+    if (activeFormType === "transaction" && form.dataset.websitePayment === "true" && !payload.party_id) {
+      const values = new FormData(form);
+      const accountUserId = nullable(values.get("website_account_user_id"));
+      const customerName = nullable(values.get("website_customer_name")) || "Website customer";
+      let party = state.parties.find((item) => accountUserId && item.account_user_id === accountUserId);
+      if (!party) {
+        const { data: createdParty, error: partyError } = await supabase.from("operations_parties").insert({
+          party_type: "customer",
+          name: customerName,
+          account_user_id: accountUserId,
+          status: "active",
+          created_by_user_id: session.user.id,
+        }).select("*").single();
+        if (partyError) throw partyError;
+        party = createdParty;
+      }
+      payload.party_id = party.id;
+    }
     if (!id) payload.created_by_user_id = session.user.id;
     const table = TABLES[activeFormType];
     const query = id
@@ -1456,6 +1487,9 @@ export async function startOperations(context) {
     const accountUserId = String(params.get("account_user_id") || "");
     const party = state.parties.find((item) => accountUserId && item.account_user_id === accountUserId);
     openForm("transaction", "", {
+      website_payment: true,
+      website_account_user_id: accountUserId,
+      website_customer_name: String(params.get("customer_name") || "Website customer"),
       transaction_type: "revenue",
       transaction_date: todayValue(),
       status: "completed",

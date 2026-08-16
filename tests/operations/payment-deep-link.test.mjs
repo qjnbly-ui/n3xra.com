@@ -14,7 +14,10 @@ test("website billing can open a plain-language cash payment form", async () => 
 
   assert.match(billing, /create: "payment"/);
   assert.match(operations, /params\.get\("create"\) === "payment"/);
+  assert.match(operations, /Record a payment you received/);
+  assert.match(operations, /form\.dataset\.websitePayment === "true"/);
+  assert.match(operations, /operations_parties/);
   assert.match(operations, /payment_method: "cash"/);
-  assert.match(admin, /operations\.js\?v=16/);
-  assert.match(page, /admin\.js\?v=44/);
+  assert.match(admin, /operations\.js\?v=17/);
+  assert.match(page, /admin\.js\?v=45/);
 });

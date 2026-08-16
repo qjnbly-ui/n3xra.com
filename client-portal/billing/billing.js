@@ -73,6 +73,7 @@ function adminTaskActions(project, snapshot, cardInfo) {
     create: "payment",
     account_user_id: project.client_user_id || "",
     website_project_id: project.id,
+    customer_name: project.name,
     description: `Website payment — ${project.name}`,
   });
   return `<section class="billing-task-actions">

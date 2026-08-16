@@ -21,7 +21,7 @@ test("website billing shows accepted items separately and keeps controls seconda
   assert.match(billing, /They already paid me/);
   assert.match(billing, /They need to pay online/);
   assert.match(page, /billing\.css\?v=5/);
-  assert.match(page, /billing\.js\?v=5/);
+  assert.match(page, /billing\.js\?v=6/);
 });
 
 test("website billing and the organization panel synchronize their selection", async () => {
