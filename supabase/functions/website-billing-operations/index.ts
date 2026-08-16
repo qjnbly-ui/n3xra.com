@@ -1,10 +1,12 @@
 import Stripe from "https://esm.sh/stripe@18.3.0?target=denonext";
 import {
+  mapSubscriptionStatus,
   originFor,
   requireAdmin,
   response,
   snapshotItemPriceEnvironment,
   stripeClient,
+  subscriptionPeriod,
   websiteMetadata,
 } from "../_shared/website-billing.ts";
 
@@ -231,6 +233,83 @@ Deno.serve(async (request) => {
         );
       }
       if (invoice.status !== "paid") throw new Error("Stripe did not finish marking the recurring invoice paid.");
+      subscription = await stripe.subscriptions.retrieve(subscription.id);
+      const period = subscriptionPeriod(subscription);
+      const periodStart = period.start ? new Date(period.start * 1000).toISOString() : null;
+      const periodEnd = period.end ? new Date(period.end * 1000).toISOString() : null;
+      const { data: localSubscription, error: subscriptionError } = await admin
+        .from("website_subscriptions")
+        .upsert({
+          project_id: context.project.id,
+          snapshot_id: context.snapshot.id,
+          client_user_id: context.project.client_user_id,
+          website_billing_customer_id: customer.id,
+          stripe_subscription_id: subscription.id,
+          stripe_price_id: subscription.items.data[0]?.price?.id || null,
+          service_plan: context.snapshot.service_plan,
+          billing_interval: context.snapshot.recurring_interval,
+          amount_cents: context.snapshot.recurring_cents,
+          status: mapSubscriptionStatus(subscription.status),
+          current_period_start: periodStart,
+          current_period_end: periodEnd,
+          commitment_ends_at: context.snapshot.recurring_interval === "yearly" ? periodEnd : null,
+          cancel_at_period_end: Boolean(subscription.cancel_at_period_end || subscription.cancel_at),
+          annual_partner_qualifying: context.snapshot.annual_partner_qualifying,
+          referral_code: context.snapshot.referral_code,
+          offer_code: context.snapshot.offer_code,
+        }, { onConflict: "project_id" })
+        .select("id")
+        .single();
+      if (subscriptionError) throw new Error(subscriptionError.message);
+
+      const discount = (invoice.total_discount_amounts || []).reduce((sum, item) => sum + Number(item.amount || 0), 0);
+      const { data: localInvoice, error: invoiceError } = await admin
+        .from("website_invoices")
+        .upsert({
+          project_id: context.project.id,
+          snapshot_id: context.snapshot.id,
+          subscription_id: localSubscription.id,
+          client_user_id: context.project.client_user_id,
+          stripe_invoice_id: invoice.id,
+          stripe_customer_id: customer.stripe_customer_id,
+          stripe_subscription_id: subscription.id,
+          status: invoice.status,
+          currency: invoice.currency || "usd",
+          subtotal_cents: invoice.subtotal || 0,
+          discount_cents: discount,
+          total_cents: invoice.total || 0,
+          amount_due_cents: invoice.amount_due || 0,
+          amount_paid_cents: invoice.amount_paid || 0,
+          hosted_invoice_url: invoice.hosted_invoice_url,
+          invoice_pdf_url: invoice.invoice_pdf,
+          due_at: invoice.due_date ? new Date(invoice.due_date * 1000).toISOString() : null,
+          paid_at: invoice.status_transitions?.paid_at ? new Date(invoice.status_transitions.paid_at * 1000).toISOString() : null,
+        }, { onConflict: "stripe_invoice_id" })
+        .select("id")
+        .single();
+      if (invoiceError) throw new Error(invoiceError.message);
+      await admin.from("website_invoice_items").delete().eq("invoice_id", localInvoice.id);
+      const invoiceItems = (invoice.lines?.data || []).map((line) => ({
+        invoice_id: localInvoice.id,
+        stripe_invoice_line_id: line.id,
+        description: line.description || "Website billing item",
+        quantity: line.quantity || 1,
+        unit_amount_cents: line.quantity ? Math.round((line.amount || 0) / line.quantity) : line.amount || 0,
+        total_amount_cents: Math.max(0, line.amount || 0),
+        currency: line.currency || invoice.currency || "usd",
+      }));
+      if (invoiceItems.length) {
+        const { error: itemError } = await admin.from("website_invoice_items").insert(invoiceItems);
+        if (itemError) throw new Error(itemError.message);
+      }
+      await admin.from("website_billing_snapshots").update({
+        status: "active",
+        activated_at: new Date().toISOString(),
+      }).eq("id", context.snapshot.id);
+      await admin.from("website_billing_schedules").update({
+        status: "active",
+        activated_at: new Date().toISOString(),
+      }).eq("snapshot_id", context.snapshot.id);
       return response({
         subscription_id: subscription.id,
         invoice_id: invoice.id,
