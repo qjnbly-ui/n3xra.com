@@ -12,7 +12,7 @@
   <link rel="stylesheet" href="/assets/site-nav.css?v=4">
   <link rel="stylesheet" href="/client-portal/portal.css?v=17">
   <link rel="stylesheet" href="/account/admin/admin.css?v=28">
-  <link rel="stylesheet" href="/account/admin/operations/operations.css?v=13">
+  <link rel="stylesheet" href="/account/admin/operations/operations.css?v=14">
   <script src="/shared/config.js"></script>
   <script src="/assets/vendor/xlsx.full.min.js" defer></script>
   <script src="/account/admin/admin-shell.js?v=2" defer></script><script src="/assets/site-nav.js?v=5"></script>
@@ -28,7 +28,7 @@
         <nav class="operations-tabs" aria-label="Financial operations sections">
           <button class="is-active" type="button" data-operations-view="overview" aria-current="page">Overview</button>
           <button type="button" data-operations-view="ledger">Transactions</button>
-          <button type="button" data-operations-view="invoices">Invoices</button>
+          <button type="button" data-operations-view="invoices">Payments</button>
           <button type="button" data-operations-view="expense-review">Expenses</button>
           <button type="button" data-operations-view="audit">Audit</button>
         </nav>
@@ -82,11 +82,33 @@
         </section>
 
         <section class="operations-view" data-operations-panel="invoices" hidden>
-          <div class="operations-section-head">
-            <div><p class="portal-kicker">Accounts receivable</p><h3>Invoices</h3><p>Track invoice totals and connect received payments from the ledger.</p></div>
-            <div class="operations-head-actions"><button class="portal-button portal-button-secondary" type="button" data-export="invoices">Export invoices</button><button class="portal-button portal-button-secondary" type="button" data-stripe-open>Import Stripe</button><button class="portal-button" type="button" data-create="invoice">Add invoice</button></div>
+          <div class="operations-section-head operations-payments-head">
+            <div><p class="portal-kicker">Money customers owe and pay</p><h3>Payments</h3><p>Create invoices, record cash or checks, and keep Stripe payments in the same financial record.</p></div>
+            <div class="operations-head-actions"><button class="portal-button portal-button-secondary" type="button" data-stripe-open>Sync Stripe</button><button class="portal-button portal-button-secondary" type="button" data-create-payment>Record a payment</button><button class="portal-button" type="button" data-create="invoice">New invoice</button></div>
           </div>
-          <div class="operations-table-wrap"><table><thead><tr><th>Invoice</th><th>Customer</th><th>Issued</th><th>Due</th><th>Status</th><th>Total</th><th>Paid</th><th>Outstanding</th><th></th></tr></thead><tbody id="ops-invoice-table"></tbody></table></div>
+
+          <div class="operations-payment-metrics" aria-label="Payment summary">
+            <article><span>Received this month</span><strong id="ops-payments-received-month">$0.00</strong><small>Completed customer payments</small></article>
+            <article><span>Still outstanding</span><strong id="ops-payments-outstanding">$0.00</strong><small>Across open invoices</small></article>
+            <article><span>Past due</span><strong id="ops-payments-overdue">$0.00</strong><small id="ops-payments-overdue-count">No overdue invoices</small></article>
+          </div>
+
+          <article class="operations-card operations-invoice-card">
+            <div class="operations-card-head operations-payments-card-head">
+              <div><p class="portal-kicker">Accounts receivable</p><h3>Invoices</h3><p>See what has been billed, paid, and still needs collection.</p></div>
+              <div class="operations-quiet-actions"><span id="ops-invoice-count">0 invoices</span><button class="operations-text-button" type="button" data-export="invoices">Export</button></div>
+            </div>
+            <div class="operations-payment-filters">
+              <label>Find invoice<input id="ops-invoice-search" type="search" placeholder="Invoice, customer, or project"></label>
+              <label>Status<select id="ops-invoice-status"><option value="open">Open</option><option value="all">All statuses</option><option value="draft">Draft</option><option value="sent">Sent</option><option value="partial">Partially paid</option><option value="overdue">Past due</option><option value="paid">Paid</option><option value="void">Void</option></select></label>
+            </div>
+            <div class="operations-table-wrap"><table class="operations-invoice-table"><thead><tr><th>Invoice</th><th>Customer</th><th>Due</th><th>Status</th><th>Total</th><th>Paid</th><th>Balance</th><th></th></tr></thead><tbody id="ops-invoice-table"></tbody></table></div>
+          </article>
+
+          <article class="operations-card operations-payment-activity-card">
+            <div class="operations-card-head"><div><p class="portal-kicker">Latest money in</p><h3>Recent payments</h3></div><button class="operations-text-button" type="button" data-open-panel="ledger">View all transactions</button></div>
+            <div id="ops-payment-activity" class="operations-payment-activity"></div>
+          </article>
         </section>
 
         <section class="operations-view" data-operations-panel="records" hidden>
@@ -214,6 +236,6 @@
     </section>
   </dialog>
 
-  <script type="module" src="/account/admin/admin.js?v=41"></script>
+  <script type="module" src="/account/admin/admin.js?v=42"></script>
 </body>
 </html>

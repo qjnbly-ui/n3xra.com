@@ -309,21 +309,78 @@ function invoicePaidCents(invoice) {
     .reduce((sum, item) => sum + Number(item.amount_cents || 0), 0);
 }
 
+function invoiceDisplayStatus(invoice, outstanding) {
+  if (outstanding > 0 && invoice.due_date && invoice.due_date < todayValue() && !["draft", "void", "uncollectible"].includes(invoice.status)) return "overdue";
+  return invoice.status;
+}
+
+function paymentTotals() {
+  const month = todayValue().slice(0, 7);
+  const receivedThisMonth = state.transactions
+    .filter((item) => item.transaction_type === "revenue" && item.status === "completed" && String(item.transaction_date).startsWith(month))
+    .reduce((sum, item) => sum + Number(item.amount_cents || 0), 0);
+  const outstanding = state.invoices.reduce((sum, invoice) => sum + outstandingInvoiceCents(invoice, state.transactions), 0);
+  const overdueInvoices = state.invoices.filter((invoice) => {
+    const balance = outstandingInvoiceCents(invoice, state.transactions);
+    return invoiceDisplayStatus(invoice, balance) === "overdue";
+  });
+  const overdue = overdueInvoices.reduce((sum, invoice) => sum + outstandingInvoiceCents(invoice, state.transactions), 0);
+  return { receivedThisMonth, outstanding, overdue, overdueCount: overdueInvoices.length };
+}
+
+function renderPaymentActivity() {
+  const payments = state.transactions
+    .filter((item) => item.transaction_type === "revenue" && item.status === "completed")
+    .slice(0, 8);
+  $("#ops-payment-activity").innerHTML = payments.length
+    ? payments.map((payment) => {
+      const invoice = invoiceById(payment.invoice_id);
+      const party = partyById(payment.party_id);
+      return `<div class="operations-payment-row"><span class="operations-payment-method" data-method="${escapeHtml(payment.payment_method || "manual")}">${escapeHtml(String(payment.payment_method || "manual").slice(0, 1).toUpperCase())}</span><div><strong>${escapeHtml(party?.name || payment.description || "Customer payment")}</strong><small>${dateLabel(payment.transaction_date)} · ${escapeHtml(titleCase(payment.payment_method))}${invoice ? ` · ${escapeHtml(invoice.invoice_number)}` : ""}</small></div><b>${moneyCents(payment.amount_cents)}</b></div>`;
+    }).join("")
+    : emptyState("No payments recorded", "Customer payments will appear here after they are entered or imported from Stripe.");
+}
+
+function renderPaymentSummary() {
+  const totals = paymentTotals();
+  $("#ops-payments-received-month").textContent = moneyCents(totals.receivedThisMonth);
+  $("#ops-payments-outstanding").textContent = moneyCents(totals.outstanding);
+  $("#ops-payments-overdue").textContent = moneyCents(totals.overdue);
+  $("#ops-payments-overdue-count").textContent = totals.overdueCount
+    ? `${totals.overdueCount} overdue invoice${totals.overdueCount === 1 ? "" : "s"}`
+    : "No overdue invoices";
+  renderPaymentActivity();
+}
+
 function renderInvoices() {
-  $("#ops-invoice-table").innerHTML = state.invoices.length
-    ? state.invoices.map((invoice) => {
+  const query = $("#ops-invoice-search")?.value.trim().toLowerCase() || "";
+  const statusFilter = $("#ops-invoice-status")?.value || "open";
+  const rows = state.invoices.filter((invoice) => {
+    const outstanding = outstandingInvoiceCents(invoice, state.transactions);
+    const displayStatus = invoiceDisplayStatus(invoice, outstanding);
+    const searchable = [invoice.invoice_number, partyById(invoice.customer_id)?.name, productById(invoice.product_id)?.name, projectById(invoice.project_id)?.name].join(" ").toLowerCase();
+    const matchesStatus = statusFilter === "all"
+      || (statusFilter === "open" ? outstanding > 0 && !["void", "uncollectible"].includes(displayStatus) : displayStatus === statusFilter);
+    return matchesStatus && (!query || searchable.includes(query));
+  });
+  $("#ops-invoice-count").textContent = `${rows.length} of ${state.invoices.length} invoice${state.invoices.length === 1 ? "" : "s"}`;
+  $("#ops-invoice-table").innerHTML = rows.length
+    ? rows.map((invoice) => {
       const paid = invoicePaidCents(invoice);
       const outstanding = outstandingInvoiceCents(invoice, state.transactions);
-      const source = invoice.source === "stripe" ? " · Stripe sync" : "";
-      const paymentAction = invoice.source !== "stripe" && outstanding > 0 && !["void", "uncollectible"].includes(invoice.status)
+      const displayStatus = invoiceDisplayStatus(invoice, outstanding);
+      const invoiceSource = invoice.source || "manual";
+      const source = invoiceSource === "stripe" ? "Stripe" : "Created here";
+      const paymentAction = invoiceSource !== "stripe" && outstanding > 0 && !["void", "uncollectible"].includes(invoice.status)
         ? `<button class="operations-row-action" type="button" data-record-payment="${invoice.id}">Record payment</button>`
         : "";
-      const sendAction = invoice.source === "manual" && invoice.status === "draft"
+      const sendAction = invoiceSource === "manual" && invoice.status === "draft"
         ? `<button class="operations-row-action" type="button" data-send-invoice="${invoice.id}">Send through Stripe</button>`
         : "";
-      return `<tr><td><strong>${escapeHtml(invoice.invoice_number)}</strong><small>${escapeHtml(productById(invoice.product_id)?.name || projectById(invoice.project_id)?.name || "")}${source}</small></td><td>${escapeHtml(partyById(invoice.customer_id)?.name || "—")}</td><td>${dateLabel(invoice.issue_date)}</td><td>${dateLabel(invoice.due_date)}</td><td>${statusBadge(invoice.status)}</td><td>${moneyCents(invoice.total_cents)}</td><td>${moneyCents(paid)}</td><td>${moneyCents(outstanding)}</td><td><div class="operations-row-actions">${paymentAction}${sendAction}<button class="operations-row-action" type="button" data-edit="invoice" data-id="${invoice.id}">Edit</button></div></td></tr>`;
+      return `<tr><td><strong>${escapeHtml(invoice.invoice_number)}</strong><small>${escapeHtml(source)}${productById(invoice.product_id)?.name || projectById(invoice.project_id)?.name ? ` · ${escapeHtml(productById(invoice.product_id)?.name || projectById(invoice.project_id)?.name)}` : ""}</small></td><td>${escapeHtml(partyById(invoice.customer_id)?.name || "—")}</td><td>${dateLabel(invoice.due_date)}</td><td>${statusBadge(displayStatus)}</td><td>${moneyCents(invoice.total_cents)}</td><td>${moneyCents(paid)}</td><td class="${outstanding ? "operations-invoice-balance" : ""}">${moneyCents(outstanding)}</td><td><div class="operations-row-actions">${paymentAction}${sendAction}<button class="operations-row-action" type="button" data-edit="invoice" data-id="${invoice.id}">Edit</button></div></td></tr>`;
     }).join("")
-    : '<tr><td colspan="9">No invoices have been created.</td></tr>';
+    : '<tr><td colspan="8">No invoices match this view.</td></tr>';
+  renderPaymentSummary();
 }
 
 function renderStripePreview() {
@@ -1310,6 +1367,7 @@ function handleWorkspaceClick(event) {
   const tab = event.target.closest("[data-operations-view]");
   const panelLink = event.target.closest("[data-open-panel]");
   const create = event.target.closest("[data-create]");
+  const createPayment = event.target.closest("[data-create-payment]");
   const edit = event.target.closest("[data-edit]");
   const voidButton = event.target.closest("[data-void]");
   const receipt = event.target.closest("[data-receipt]");
@@ -1329,6 +1387,13 @@ function handleWorkspaceClick(event) {
   if (tab) showPanel(tab.dataset.operationsView);
   if (panelLink) showPanel(panelLink.dataset.openPanel);
   if (create) openForm(create.dataset.create);
+  if (createPayment) openForm("transaction", "", {
+    transaction_type: "revenue",
+    transaction_date: todayValue(),
+    status: "completed",
+    category: "customer_payment",
+    payment_method: "manual",
+  });
   if (edit) openForm(edit.dataset.edit, edit.dataset.id);
   if (voidButton) openVoidDialog(voidButton.dataset.void);
   if (receipt) openReceipt(receipt.dataset.receipt);
@@ -1373,6 +1438,9 @@ function bindEvents() {
   $$("[data-close-void]").forEach((button) => button.addEventListener("click", () => $("#operations-void-dialog").close()));
   ["ops-ledger-search", "ops-ledger-type", "ops-ledger-status", "ops-ledger-year"].forEach((id) => {
     $(`#${id}`).addEventListener(id === "ops-ledger-search" ? "input" : "change", renderLedger);
+  });
+  ["ops-invoice-search", "ops-invoice-status"].forEach((id) => {
+    $(`#${id}`).addEventListener(id === "ops-invoice-search" ? "input" : "change", renderInvoices);
   });
 }
 

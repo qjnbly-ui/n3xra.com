@@ -122,5 +122,13 @@ test("the financial workspace is clearly labeled without changing its stable rou
   assert.match(script, /payment_method: "cash"/);
   assert.match(script, /data-send-invoice/);
   assert.match(script, /send-manual-invoice/);
+  assert.match(html, /data-operations-view="invoices">Payments</);
+  assert.match(html, /id="ops-payments-received-month"/);
+  assert.match(html, /id="ops-payments-outstanding"/);
+  assert.match(html, /id="ops-payments-overdue"/);
+  assert.match(html, /id="ops-payment-activity"/);
+  assert.match(html, /data-create-payment/);
+  assert.match(script, /function invoiceDisplayStatus/);
+  assert.match(script, /function renderPaymentActivity/);
   assert.doesNotMatch(html, /<title>N3XRA \| Operations<\/title>/);
 });

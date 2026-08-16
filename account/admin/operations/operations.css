@@ -168,6 +168,162 @@
   min-width: 8rem;
 }
 
+.operations-payment-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.operations-payment-metrics article {
+  display: grid;
+  gap: 0.25rem;
+  min-height: 104px;
+  padding: 1rem;
+  align-content: center;
+  background: #f7faf9;
+  border: 1px solid var(--portal-line);
+  border-radius: 11px;
+}
+
+.operations-payment-metrics span,
+.operations-payment-metrics small {
+  color: var(--portal-muted);
+  font-size: 0.7rem;
+}
+
+.operations-payment-metrics span {
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.operations-payment-metrics strong {
+  color: var(--ops-navy);
+  font-family: "Fraunces", Georgia, serif;
+  font-size: clamp(1.35rem, 2.2vw, 1.85rem);
+}
+
+.operations-payments-card-head p {
+  margin: 0.25rem 0 0;
+  color: var(--portal-muted);
+  font-size: 0.78rem;
+}
+
+.operations-quiet-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--portal-muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.operations-payment-filters {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) minmax(150px, 220px);
+  gap: 0.7rem;
+  margin: 1rem 0 0.8rem;
+}
+
+.operations-payment-filters label {
+  display: grid;
+  gap: 0.35rem;
+  color: var(--portal-muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.operations-payment-filters input,
+.operations-payment-filters select {
+  width: 100%;
+  min-height: 42px;
+  padding: 0.62rem 0.7rem;
+  color: var(--ops-navy);
+  background: #fff;
+  border: 1px solid var(--portal-line);
+  border-radius: 8px;
+  font: inherit;
+  font-weight: 500;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.operations-invoice-table {
+  min-width: 840px;
+}
+
+.operations-invoice-balance {
+  color: var(--ops-amber);
+  font-weight: 800;
+}
+
+.operations-payment-activity-card {
+  margin-bottom: 1rem;
+}
+
+.operations-payment-activity {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 1.25rem;
+  margin-top: 0.8rem;
+}
+
+.operations-payment-row {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  gap: 0.7rem;
+  align-items: center;
+  min-width: 0;
+  padding: 0.7rem 0;
+  border-top: 1px solid #e7edf1;
+}
+
+.operations-payment-row:nth-child(-n + 2) {
+  border-top: 0;
+}
+
+.operations-payment-row div {
+  min-width: 0;
+}
+
+.operations-payment-row strong,
+.operations-payment-row small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.operations-payment-row strong {
+  color: var(--ops-navy);
+  font-size: 0.8rem;
+}
+
+.operations-payment-row small {
+  margin-top: 0.15rem;
+  color: var(--portal-muted);
+  font-size: 0.68rem;
+}
+
+.operations-payment-row b {
+  color: var(--ops-green);
+  font-size: 0.82rem;
+}
+
+.operations-payment-method {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  color: #0b6670;
+  background: #e6f3f2;
+  border-radius: 50%;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
 .operations-list {
   display: grid;
   gap: 0.65rem;
@@ -991,6 +1147,14 @@
   .operations-review-steps {
     grid-template-columns: 1fr;
   }
+
+  .operations-payment-activity {
+    grid-template-columns: 1fr;
+  }
+
+  .operations-payment-row:nth-child(2) {
+    border-top: 1px solid #e7edf1;
+  }
 }
 
 @media (max-width: 800px) {
@@ -1070,6 +1234,11 @@
   .operations-form-grid,
   .operations-reconciliation,
   .operations-review-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .operations-payment-metrics,
+  .operations-payment-filters {
     grid-template-columns: 1fr;
   }
 
