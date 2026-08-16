@@ -53,9 +53,10 @@ test("retired Virals access is administrator-only and never creates an enrollmen
   assert.match(compare, /if \(!token\) return sendJson\(res, 401/);
 });
 
-test("opening Records never creates a workspace without explicit confirmation", async () => {
-  const [account, login, dashboard, files, recordings, allRecordings, storage] = await Promise.all([
+test("opening Records never creates a workspace without explicit setup submission", async () => {
+  const [account, loginHtml, login, dashboard, files, recordings, allRecordings, storage] = await Promise.all([
     read("account/account.js"),
+    read("n3xra-records/login.html"),
     read("n3xra-records/login.js"),
     read("n3xra-records/dashboard.js"),
     read("n3xra-records/files.js"),
@@ -66,8 +67,14 @@ test("opening Records never creates a workspace without explicit confirmation", 
 
   const openRecords = account.match(/async function openRecords\(\)[\s\S]+?\n}/)?.[0] || "";
   const recordsSignin = login.match(/async function handleSignin\(event\)[\s\S]+?\n}/)?.[0] || "";
-  assert.match(openRecords, /window\.confirm\([\s\S]*bootstrap_organization/);
+  const existingSetup = login.match(/async function handleExistingRecordsSetup\(\)[\s\S]+?\n}/)?.[0] || "";
+  assert.match(openRecords, /setupUrl\.searchParams\.set\("setup", "records"\)/);
+  assert.doesNotMatch(openRecords, /bootstrap_organization|bootstrapMemberships|window\.confirm/);
+  assert.match(loginHtml, /id="signup-submit-button"[^>]*>Create account<\/button>/);
+  assert.match(existingSetup, /signupMode[\s\S]*bootstrapMemberships[\s\S]*window\.location\.replace/);
   assert.doesNotMatch(recordsSignin, /bootstrapMemberships|bootstrap_organization/);
+  assert.match(recordsSignin, /setAuthedState\(data\.session\)/);
+  assert.match(login, /isExistingSetup = !membership\?\.organization_id/);
   for (const workspace of [dashboard, files, recordings, allRecordings, storage]) {
     const accessLoader = workspace.match(/async function bootstrapAccess\(\)[\s\S]+?\n}/)?.[0] || "";
     assert.doesNotMatch(accessLoader, /bootstrap_organization/);

@@ -14,6 +14,7 @@ const authPanel = document.getElementById("auth-panel");
 const authStatus = document.getElementById("auth-status");
 const authTitle = document.getElementById("auth-title");
 const authSubtitle = document.getElementById("auth-subtitle");
+const authModeToggle = document.getElementById("auth-mode-toggle");
 const signupForm = document.getElementById("signup-form");
 const signinForm = document.getElementById("signin-form");
 const showSigninButton = document.getElementById("show-signin-button");
@@ -34,6 +35,9 @@ const signupReferralStatus = document.getElementById("signup-referral-status");
 const signupModeCreateOrgButton = document.getElementById("signup-mode-create-org");
 const signupModePersonalButton = document.getElementById("signup-mode-personal");
 const signupModeInviteButton = document.getElementById("signup-mode-invite");
+const signupSubmitButton = document.getElementById("signup-submit-button");
+const existingAccountSetupNote = document.getElementById("existing-account-setup-note");
+const existingAccountCancelAction = document.getElementById("existing-account-cancel-action");
 const authCaptchaField = document.getElementById("auth-captcha-field");
 const authTurnstile = document.getElementById("auth-turnstile");
 const RECORDS_CONFIRM_REDIRECT_PATH = "/account/?confirmed=1";
@@ -149,6 +153,10 @@ function getPostAuthDestination(session) {
   return "/n3xra-records/library";
 }
 
+function isExistingAccountSetupRequested() {
+  return new URLSearchParams(window.location.search).get("setup") === "records";
+}
+
 function setStatus(message, tone = "") {
   authStatus.textContent = message || "";
   authStatus.className = "status";
@@ -243,9 +251,60 @@ function toggleSignup(visible) {
   setStatus("");
 }
 
-function setAuthedState(session) {
+function setNewAccountFieldsVisible(visible) {
+  document.querySelectorAll("[data-new-account-field]").forEach((field) => {
+    show(field, visible);
+    field.querySelectorAll("input, button").forEach((control) => {
+      control.disabled = !visible;
+    });
+  });
+}
+
+async function getExistingRecordsMembership(userId) {
+  const { data, error } = await supabase
+    .from("organization_memberships")
+    .select("organization_id")
+    .eq("user_id", userId)
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data || null;
+}
+
+async function setAuthedState(session) {
   currentAuthedSession = session || null;
   const isAuthed = Boolean(currentAuthedSession?.user);
+  let isExistingSetup = false;
+
+  if (isAuthed) {
+    try {
+      const membership = await getExistingRecordsMembership(currentAuthedSession.user.id);
+      if (membership?.organization_id && isExistingAccountSetupRequested()) {
+        setStoredActiveOrganizationId(String(membership.organization_id));
+        window.location.replace(getPostAuthDestination(currentAuthedSession));
+        return "redirecting";
+      }
+      isExistingSetup = !membership?.organization_id;
+    } catch (error) {
+      setStatus(getErrorMessage(error, "Unable to check Records access."), "error");
+    }
+  }
+
+  if (isExistingSetup) {
+    show(authedState, false);
+    show(signinForm, false);
+    show(signupForm, true);
+    show(authModeToggle, false);
+    show(existingAccountSetupNote, true);
+    show(existingAccountCancelAction, true);
+    show(authCaptchaField, false);
+    setNewAccountFieldsVisible(false);
+    authTitle.textContent = "Start N3XRA Records";
+    authSubtitle.textContent = `Signed in as ${currentAuthedSession.user.email || "this account"}. Choose how you want to start.`;
+    signupSubmitButton.textContent = "Start Records";
+    setSignupMode(signupMode);
+    return "setup";
+  }
 
   show(authedState, isAuthed);
   show(signinForm, !isAuthed && !showSignupButton.classList.contains("is-active"));
@@ -253,19 +312,25 @@ function setAuthedState(session) {
   show(authCaptchaField, !isAuthed && captchaEnabled);
   showSigninButton.disabled = isAuthed;
   showSignupButton.disabled = isAuthed;
+  show(authModeToggle, true);
+  show(existingAccountSetupNote, false);
+  show(existingAccountCancelAction, false);
+  setNewAccountFieldsVisible(true);
+  signupSubmitButton.textContent = "Create account";
 
   if (!isAuthed) {
     authTitle.textContent = showSignupButton.classList.contains("is-active") ? "Create account" : "Sign in";
     authSubtitle.textContent = showSignupButton.classList.contains("is-active")
       ? "Choose how to start: create an organization, use Personal, join a library, or claim a prepared demo."
       : "Use your email and password to sign in.";
-    return;
+    return "signed_out";
   }
 
   authTitle.textContent = "Already signed in";
   authSubtitle.textContent = "Continue to your dashboard or sign out to create another account.";
   authedCopy.textContent = `Signed in as ${currentAuthedSession.user.email || "this account"}.`;
   setStatus("");
+  return "authenticated";
 }
 
 function setSignupMode(mode) {
@@ -325,7 +390,7 @@ function applyInviteLinkPrefill() {
 
 async function loadSessionState() {
   const session = await exchangeAuthCodeForSessionIfPresent(supabase) || await getSessionOrNull(supabase);
-  setAuthedState(session);
+  await setAuthedState(session);
   return session;
 }
 
@@ -361,6 +426,10 @@ async function bootstrapMemberships(organizationName, inviteCode) {
 
 async function handleSignup(event) {
   event.preventDefault();
+  if (currentAuthedSession?.user && isExistingAccountSetupRequested()) {
+    await handleExistingRecordsSetup();
+    return;
+  }
   isSubmittingAuth = true;
   const fullName = document.getElementById("signup-full-name").value.trim();
   const organizationName = signupMode === "invite" ? "" : signupOrganizationInput.value.trim();
@@ -463,6 +532,36 @@ async function handleSignup(event) {
   );
 }
 
+async function handleExistingRecordsSetup() {
+  if (!currentAuthedSession?.user || isSubmittingAuth) return;
+
+  const inviteCode = signupMode === "invite" ? signupInviteCodeInput.value.trim() : "";
+  const organizationName = signupMode === "invite"
+    ? ""
+    : (signupMode === "personal" ? "Personal" : signupOrganizationInput.value.trim());
+
+  if (signupMode === "invite" && !inviteCode) {
+    setStatus("Enter an invite or demo claim code.", "error");
+    signupInviteCodeInput.focus();
+    return;
+  }
+
+  isSubmittingAuth = true;
+  signupSubmitButton.disabled = true;
+  setStatus(inviteCode ? "Joining Records..." : "Creating your Records workspace...");
+  try {
+    const bootstrapData = await bootstrapMemberships(organizationName, inviteCode);
+    if (bootstrapData?.active_organization_id) {
+      setStoredActiveOrganizationId(String(bootstrapData.active_organization_id));
+    }
+    window.location.replace(getPostAuthDestination(currentAuthedSession));
+  } catch (error) {
+    setStatus(getErrorMessage(error, "Unable to finish Records setup."), "error");
+    signupSubmitButton.disabled = false;
+    isSubmittingAuth = false;
+  }
+}
+
 async function handleSignin(event) {
   event.preventDefault();
   isSubmittingAuth = true;
@@ -491,7 +590,13 @@ async function handleSignin(event) {
     return;
   }
 
-  window.location.replace(getPostAuthDestination(data.session));
+  const nextState = await setAuthedState(data.session);
+  if (nextState === "authenticated") {
+    window.location.replace(getPostAuthDestination(data.session));
+    return;
+  }
+  isSubmittingAuth = false;
+  resetCaptcha();
 }
 
 async function handleForgotPassword() {
@@ -583,7 +688,7 @@ async function init() {
 
   supabase.auth.onAuthStateChange((_event, session) => {
     if (isSubmittingAuth) return;
-    setAuthedState(session);
+    void setAuthedState(session);
   });
 
   applyInviteLinkPrefill();

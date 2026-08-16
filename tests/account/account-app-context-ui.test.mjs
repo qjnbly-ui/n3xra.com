@@ -18,7 +18,7 @@ test("My apps queries stay scoped to the signed-in account even for platform adm
     const query = script.match(new RegExp(`\\.from\\("${table}"\\)[\\s\\S]*?(?=\\n}\\n|\\nasync function)`))?.[0] || "";
     assert.match(query, /\.eq\("user_id", currentSession\.user\.id\)/, `${table} must be scoped to the current user`);
   }
-  assert.match(html, /account\.js\?v=20260815-explicit-app-enrollment/);
+  assert.match(html, /account\.js\?v=20260815-records-setup/);
 });
 
 test("Accounts provides client-view previews without changing the signed-in identity", async () => {

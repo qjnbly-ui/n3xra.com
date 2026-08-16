@@ -87,7 +87,7 @@
               <p id="auth-subtitle">Use the account tied to your library.</p>
             </div>
 
-            <div class="auth-toggle" role="tablist" aria-label="Account options">
+            <div class="auth-toggle" id="auth-mode-toggle" role="tablist" aria-label="Account options">
               <button class="auth-toggle-btn is-active" id="show-signin-button" type="button" aria-pressed="true">Sign in</button>
               <button class="auth-toggle-btn" id="show-signup-button" type="button" aria-pressed="false">Create account</button>
             </div>
@@ -123,6 +123,9 @@
             </form>
 
             <form class="auth-form hidden" id="signup-form">
+              <div class="field hidden" id="existing-account-setup-note">
+                <p class="account-note">Your N3XRA login is ready. Choose the Records workspace you want connected to this account.</p>
+              </div>
               <div class="field">
                 <label>How do you want to start?</label>
                 <div class="signup-mode-toggle" role="tablist" aria-label="Signup mode">
@@ -131,7 +134,7 @@
                   <button class="auth-toggle-btn" id="signup-mode-invite" type="button" aria-pressed="false">Join or claim</button>
                 </div>
               </div>
-              <div class="field">
+              <div class="field" data-new-account-field>
                 <label for="signup-full-name">Full name</label>
                 <input id="signup-full-name" type="text" autocomplete="name" required>
               </div>
@@ -139,25 +142,25 @@
                 <label for="signup-organization">Organization name</label>
                 <input id="signup-organization" type="text" autocomplete="organization" placeholder="Optional (defaults to Personal)">
               </div>
-              <div class="field">
+              <div class="field" data-new-account-field>
                 <label for="signup-email">Email</label>
                 <input id="signup-email" type="email" autocomplete="email" required>
               </div>
-              <div class="field">
+              <div class="field" data-new-account-field>
                 <label for="signup-password">Password</label>
                 <div class="password-field">
                   <input id="signup-password" type="password" autocomplete="new-password" minlength="8" required>
                   <button class="password-toggle" type="button" data-password-toggle="signup-password" aria-label="Show password">Show</button>
                 </div>
               </div>
-              <div class="field">
+              <div class="field" data-new-account-field>
                 <label for="signup-password-confirm">Confirm password</label>
                 <div class="password-field">
                   <input id="signup-password-confirm" type="password" autocomplete="new-password" minlength="8" required>
                   <button class="password-toggle" type="button" data-password-toggle="signup-password-confirm" aria-label="Show password">Show</button>
                 </div>
               </div>
-              <div class="field">
+              <div class="field" data-new-account-field>
                 <label for="signup-referral-code">Partner referral code <span class="field-optional">(optional)</span></label>
                 <input id="signup-referral-code" type="text" maxlength="24" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Enter referral code">
                 <p class="field-note" id="signup-referral-status">If a N3XRA partner referred you, enter their code here. It will be permanently connected to your account.</p>
@@ -168,7 +171,10 @@
                 <p class="field-note">A demo claim code transfers the prepared workspace—including its completed meeting and files—to this account.</p>
               </div>
               <div class="actions">
-                <button class="btn block" type="submit">Create account</button>
+                <button class="btn block" id="signup-submit-button" type="submit">Create account</button>
+              </div>
+              <div class="actions hidden" id="existing-account-cancel-action">
+                <a class="btn secondary block" href="/account">Return to dashboard</a>
               </div>
             </form>
 
@@ -224,6 +230,6 @@
 
   <script src="/shared/config.js"></script>
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
-  <script type="module" src="/n3xra-records/login.js?v=20260815-explicit-enrollment"></script>
+  <script type="module" src="/n3xra-records/login.js?v=20260815-existing-account-setup"></script>
 </body>
 </html>

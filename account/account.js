@@ -992,41 +992,11 @@ async function openRecords() {
       || currentSession.user.user_metadata?.invite_code
       || ""
     ).trim();
-    const confirmed = window.confirm(inviteCode
-      ? "Join the invited N3XRA Records workspace with this account?"
-      : "Create a new N3XRA Records workspace for this account?");
-    if (!confirmed) return;
-
-    setStatus(inviteCode ? "Joining Records..." : "Creating your Records workspace...");
-    let data = null;
-    let error = null;
-
-    if (inviteCode.toUpperCase().startsWith("DEMO-")) {
-      const result = await supabase.functions.invoke("platform-admin", {
-        body: {
-          action: "claim-records-demo-workspace",
-          code: inviteCode,
-        },
-      });
-      data = result.data?.error ? null : {
-        active_organization_id: result.data?.organizationId || null,
-      };
-      error = result.error || (result.data?.error ? new Error(result.data.error) : null);
-    } else {
-      const result = await supabase.rpc("bootstrap_organization", {
-        input_organization_name: inviteCode ? null : "Personal",
-        input_invite_code: inviteCode || null,
-      });
-      data = result.data;
-      error = result.error;
-    }
-    if (error) {
-      setStatus(error.message || "Unable to open Records.", "error");
-      return;
-    }
-    if (data?.active_organization_id) {
-      setStoredActiveOrganizationId(String(data.active_organization_id));
-    }
+    const setupUrl = new URL("/n3xra-records/login/", window.location.origin);
+    setupUrl.searchParams.set("setup", "records");
+    if (inviteCode) setupUrl.searchParams.set("invite", inviteCode);
+    window.location.assign(setupUrl.toString());
+    return;
   } else if (memberships[0]?.organization?.id) {
     setStatus("Opening Records...");
     setStoredActiveOrganizationId(String(memberships[0].organization.id));
