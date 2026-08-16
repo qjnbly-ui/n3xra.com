@@ -354,7 +354,7 @@ function renderPaymentSummary() {
 
 function renderInvoices() {
   const query = $("#ops-invoice-search")?.value.trim().toLowerCase() || "";
-  const statusFilter = $("#ops-invoice-status")?.value || "open";
+  const statusFilter = $("#ops-invoice-status")?.value || "all";
   const rows = state.invoices.filter((invoice) => {
     const outstanding = outstandingInvoiceCents(invoice, state.transactions);
     const displayStatus = invoiceDisplayStatus(invoice, outstanding);
