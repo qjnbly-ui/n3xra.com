@@ -14,6 +14,7 @@ const emailUpdatesInput = document.getElementById("interest-email-updates");
 const acknowledgmentInput = document.getElementById("interest-acknowledgment");
 const accountState = document.getElementById("interest-account-state");
 const submitButton = document.getElementById("interest-submit");
+const withdrawButton = document.getElementById("interest-withdraw");
 const status = document.getElementById("interest-status");
 const verification = document.getElementById("interest-verification");
 const verificationEmail = document.getElementById("interest-verification-email");
@@ -93,9 +94,10 @@ async function loadExistingInterest() {
   emailUpdatesInput.checked = Boolean(data.email_updates);
   acknowledgmentInput.checked = true;
   submitButton.textContent = data.status === "withdrawn" ? "Rejoin ownership updates" : "Update my information";
-  accountState.innerHTML = data.status === "withdrawn"
-    ? `Your earlier request was withdrawn. You can rejoin here or review it in <a href="/account/investment/">My Apps</a>.`
-    : `Your request is connected to your N3XRA account. <a href="/account/investment/">Open Ownership Updates</a>.`;
+  withdrawButton.hidden = data.status === "withdrawn";
+  accountState.textContent = data.status === "withdrawn"
+    ? "Your earlier request was withdrawn. You can rejoin using this form."
+    : "Your request is recorded. You can update your information using this form.";
   return data;
 }
 
@@ -125,8 +127,42 @@ async function saveAuthenticatedInterest() {
   acknowledgmentInput.checked = true;
   verification.hidden = true;
   submitButton.textContent = "Update my information";
-  accountState.innerHTML = `Your request is connected to your N3XRA account. <a href="/account/investment/">Open Ownership Updates</a>.`;
+  withdrawButton.hidden = false;
+  accountState.textContent = "Your request is recorded. You can update your information using this form.";
   setStatus("Your interest is recorded. We’ll keep you posted as N3XRA’s plans develop.");
+}
+
+async function handleWithdrawal() {
+  if (!session?.user || submitting) return;
+  if (!window.confirm("Withdraw from N3XRA Ownership Updates? You can rejoin later.")) return;
+
+  submitting = true;
+  submitButton.disabled = true;
+  withdrawButton.disabled = true;
+  setStatus("Withdrawing your request…");
+  try {
+    const { error } = await supabase
+      .from("investment_interest_profiles")
+      .update({
+        status: "withdrawn",
+        withdrawn_at: new Date().toISOString(),
+        email_updates: false,
+      })
+      .eq("user_id", session.user.id);
+    if (error) throw error;
+
+    emailUpdatesInput.checked = false;
+    submitButton.textContent = "Rejoin ownership updates";
+    withdrawButton.hidden = true;
+    accountState.textContent = "Your request is withdrawn. You can rejoin using this form.";
+    setStatus("You have been withdrawn from Ownership Updates.");
+  } catch (error) {
+    setStatus(error?.message || "We could not withdraw your request right now.", true);
+  } finally {
+    submitting = false;
+    submitButton.disabled = false;
+    withdrawButton.disabled = false;
+  }
 }
 
 async function sendVerificationLink() {
@@ -176,6 +212,7 @@ async function init() {
   if (!form) return;
   restoreDraft();
   form.addEventListener("submit", handleSubmit);
+  withdrawButton.addEventListener("click", handleWithdrawal);
   form.querySelectorAll("input,select").forEach((field) => {
     field.addEventListener("change", saveDraft);
     field.addEventListener("input", saveDraft);
@@ -206,7 +243,7 @@ async function init() {
   if (!fullNameInput.value.trim()) {
     fullNameInput.value = String(session.user.user_metadata?.full_name || "").trim();
   }
-  accountState.textContent = `Signed in as ${email}. This request will be connected to your N3XRA account.`;
+  accountState.textContent = `Signed in as ${email}.`;
 
   const completing = new URLSearchParams(window.location.search).get("interest") === "complete";
   if (completing && readDraft()) {

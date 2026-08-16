@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>N3XRA | Account</title>
-  <meta name="description" content="Sign in once and open your N3XRA apps.">
+  <meta name="description" content="Sign in once and open your N3XRA products.">
   <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
   <link rel="canonical" href="https://n3xra.com/account">
   <meta name="theme-color" content="#070c12">
@@ -14,7 +14,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/site-nav.css?v=4">
   <link rel="stylesheet" href="/n3xra-records/styles.css?v=20260812-mobile-input-zoom">
-  <link rel="stylesheet" href="/account/account.css?v=10">
+  <link rel="stylesheet" href="/account/account.css?v=11">
   <link rel="stylesheet" href="/assets/home-shell.css?v=1">
   <script src="/shared/config.js"></script>
   <script src="/assets/site-nav.js?v=5"></script>
@@ -161,7 +161,7 @@
           </div>
           <div class="account-overview-actions">
             <div class="dashboard-view-toggle hidden" id="dashboard-view-toggle" role="tablist" aria-label="Account dashboard view">
-              <button class="is-active" id="show-apps-view" type="button" role="tab" aria-selected="true" aria-controls="apps-dashboard-view">My apps</button>
+              <button class="is-active" id="show-apps-view" type="button" role="tab" aria-selected="true" aria-controls="apps-dashboard-view">My products</button>
               <button id="show-admin-view" type="button" role="tab" aria-selected="false" aria-controls="admin-app-section" tabindex="-1">Admin</button>
             </div>
             <a class="account-notification-button hidden" id="admin-notification-button" href="/account/admin/inbox/">
@@ -177,20 +177,20 @@
               <div class="dashboard-section-head">
                 <div>
                   <p class="auth-kicker">Connected to your account</p>
-                  <h3>Your apps</h3>
-                  <p>Products, services, and programs you have already joined or activated.</p>
+                  <h3>Your products</h3>
+                  <p>N3XRA products already connected to your account.</p>
                 </div>
               </div>
               <div class="app-grid" id="connected-apps-grid"></div>
-              <p class="dashboard-empty-state hidden" id="connected-apps-empty">You do not have any connected apps yet. Choose one from the available options below.</p>
+              <p class="dashboard-empty-state hidden" id="connected-apps-empty">You do not have any connected products yet. Choose one from the available products below.</p>
             </section>
 
             <section class="dashboard-section" id="available-apps-section">
               <div class="dashboard-section-head">
                 <div>
                   <p class="auth-kicker">Available to you</p>
-                  <h3>Explore more apps</h3>
-                  <p>Apps and programs you can activate, join, or request when you are ready.</p>
+                  <h3>Explore N3XRA products</h3>
+                  <p>Products you can activate or request when you are ready.</p>
                 </div>
               </div>
               <div class="app-grid" id="available-apps-grid">
@@ -212,6 +212,15 @@
                   </div>
                   <button class="btn secondary block" id="open-records-button" type="button">Open Records</button>
                 </article>
+                <article class="app-card hidden" id="communications-product-card">
+                  <div>
+                    <span class="app-access-badge">Available</span>
+                    <p class="auth-kicker">Communications</p>
+                    <h3>N3XRA Communications</h3>
+                    <p id="communications-product-summary">Connect email and text communications to your organization.</p>
+                  </div>
+                  <a class="btn secondary block button-link" id="communications-product-link" href="/nexra-communications/request/">Request Communications</a>
+                </article>
                 <article class="app-card hidden" id="website-portal-card">
                   <div>
                     <span class="app-access-badge">Available</span>
@@ -219,8 +228,21 @@
                     <h3>N3XRA Website Portal</h3>
                     <p id="website-portal-summary">Request, review, build, launch, and manage your websites from one workspace.</p>
                   </div>
-                  <a class="btn secondary block button-link" id="website-portal-link" href="/client-portal/">Start Website Request</a>
+                  <a class="btn secondary block button-link" id="website-portal-link" href="/website-request/">Start Website Request</a>
                 </article>
+              </div>
+              <p class="dashboard-empty-state hidden" id="available-apps-empty">Every N3XRA product currently available to this account is connected.</p>
+            </section>
+
+            <section class="dashboard-section" id="more-from-n3xra-section">
+              <div class="dashboard-section-head">
+                <div>
+                  <p class="auth-kicker">Programs and updates</p>
+                  <h3>More from N3XRA</h3>
+                  <p>Other ways to participate in and stay connected with N3XRA.</p>
+                </div>
+              </div>
+              <div class="app-grid" id="more-from-n3xra-grid">
                 <article class="app-card hidden" id="partner-portal-card">
                   <div>
                     <span class="app-access-badge">Available</span>
@@ -240,7 +262,6 @@
                   <a class="btn secondary block button-link" id="investment-interest-link" href="/invest/#ownership-updates">Request Ownership Updates</a>
                 </article>
               </div>
-              <p class="dashboard-empty-state hidden" id="available-apps-empty">You are connected to every app and program currently available to this account.</p>
             </section>
           </div>
 
@@ -305,9 +326,9 @@
             </div>
             <div class="dashboard-section-head admin-product-section-head">
               <div>
-                <p class="auth-kicker">Retired apps</p>
-                <h3>Open retired N3XRA apps</h3>
-                <p>These preserved apps are available only to verified N3XRA administrators and open without creating a product enrollment.</p>
+                <p class="auth-kicker">Retired products</p>
+                <h3>Open retired N3XRA products</h3>
+                <p>These preserved products are available only to verified N3XRA administrators and open without creating a product enrollment.</p>
               </div>
             </div>
             <div class="app-grid admin-app-grid retired-app-grid">
@@ -466,6 +487,6 @@
       window.addEventListener("scroll", updateHeader, { passive: true });
     })();
   </script>
-  <script type="module" src="/account/account.js?v=20260815-records-setup"></script>
+  <script type="module" src="/account/account.js?v=20260815-product-sections"></script>
 </body>
 </html>

@@ -12,7 +12,7 @@ const adminBillingHtmlPath = new URL("../../account/admin/billing/index.html", i
 const financialOperationsHtmlPath = new URL("../../account/admin/operations/index.html", import.meta.url);
 const financialOperationsScriptPath = new URL("../../account/admin/operations/operations.js", import.meta.url);
 
-test("the account Admin tab keeps daily tools focused and isolates retired admin-only apps", async () => {
+test("the account Admin tab keeps daily tools focused and isolates retired admin-only products", async () => {
   const [html, css, navigation] = await Promise.all([
     readFile(accountHtmlPath, "utf8"),
     readFile(accountCssPath, "utf8"),
@@ -26,7 +26,7 @@ test("the account Admin tab keeps daily tools focused and isolates retired admin
   assert.doesNotMatch(adminSection, /Utilities Admin|\/n3xra-admin\/utilities/);
   assert.match(adminSection, /Admin Inbox[\s\S]*Accounts[\s\S]*Websites[\s\S]*Records[\s\S]*Support Requests[\s\S]*Billing &amp; Plans/);
   assert.match(adminSection, /Open all admin tools/);
-  assert.match(adminSection, /Retired apps[\s\S]*N3XRA Virals[\s\S]*N3XRA AI Music Generator/);
+  assert.match(adminSection, /Retired products[\s\S]*N3XRA Virals[\s\S]*N3XRA AI Music Generator/);
   assert.doesNotMatch(adminSection, /N3XRA Internal Records|open-admin-records-button/);
   assert.match(adminSection, /available only to verified N3XRA administrators and open without creating a product enrollment/);
   assert.doesNotMatch(adminSection, /Codebase AI|Career Applications|Ownership &amp; Governance/);
@@ -54,6 +54,7 @@ test("customer app cards use consistent N3XRA product names and clear access sta
 
   assert.match(html, /<h3>N3XRA Loan Tracker<\/h3>/);
   assert.match(html, /<h3>N3XRA Records<\/h3>/);
+  assert.match(html, /<h3>N3XRA Communications<\/h3>/);
   assert.match(html, /<h3>N3XRA Website Portal<\/h3>/);
   assert.match(html, /<h3 id="partner-portal-title">N3XRA Partners<\/h3>/);
   assert.match(html, /<h3>N3XRA Ownership Updates<\/h3>/);
@@ -64,7 +65,18 @@ test("customer app cards use consistent N3XRA product names and clear access sta
   assert.match(css, /\.app-card\.is-pending\s*{/);
   assert.match(css, /\.app-card\.is-action-required\s*{/);
   assert.match(script, /function websiteAppState\(status\)/);
-  assert.match(script, /interest && interest\.status !== "withdrawn"/);
+  assert.match(html, /My products[\s\S]*Your products[\s\S]*Explore N3XRA products[\s\S]*More from N3XRA/);
+  assert.match(html, /id="communications-product-link" href="\/nexra-communications\/request\/"/);
+  assert.match(html, /id="website-portal-link" href="\/website-request\/"/);
+  assert.match(html, /id="partner-portal-link" href="\/partners\/#apply"/);
+  assert.match(html, /id="investment-interest-link" href="\/invest\/#ownership-updates"/);
+  assert.match(script, /communicationsProductLink\.href = hasCommunicationsAccess[\s\S]*"\/client-portal\/communications\/"[\s\S]*"\/nexra-communications\/request\/"/);
+  assert.match(script, /websitePortalLink\.href = "\/client-portal\/"[\s\S]*websitePortalLink\.href = "\/website-request\/"/);
+  assert.match(script, /placeMoreFromN3xraCard\(partnerPortalCard, isApprovedPartner\)/);
+  assert.match(script, /ownershipUpdateStatus = !interest[\s\S]*"Withdrawn"[\s\S]*"Submitted"/);
+  assert.match(script, /placeMoreFromN3xraCard\(investmentInterestCard, ownershipUpdateStatus === "Submitted", ownershipUpdateStatus\)/);
+  assert.match(script, /investmentInterestLink\.href = "\/invest\/#ownership-updates"/);
+  assert.doesNotMatch(script, /investmentInterestLink\.href = "\/account\/investment\/"/);
   assert.match(script, /accountOverviewActions\?\.classList\.toggle\("has-admin-tools", canViewAdminApps\)/);
 });
 

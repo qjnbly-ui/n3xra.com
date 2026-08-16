@@ -249,6 +249,6 @@ export async function startAdmin() {
 if (!window.__n3xraAdminSoftNavigation) {
   startAdmin().catch((error) => {
     document.body.classList.add("admin-ready");
-    setStatus(error.message || "Unable to load admin app.", "error");
+    setStatus(error.message || "Unable to load the admin product.", "error");
   });
 }

@@ -8,7 +8,7 @@ const accountControllerPath = new URL("../../account/admin/controllers/accounts.
 const adminAccountsHtmlPath = new URL("../../account/admin/accounts/index.html", import.meta.url);
 const adminScriptPath = new URL("../../account/admin/admin.js", import.meta.url);
 
-test("My apps queries stay scoped to the signed-in account even for platform admins", async () => {
+test("My products queries stay scoped to the signed-in account even for platform admins", async () => {
   const [script, html] = await Promise.all([
     readFile(accountScriptPath, "utf8"),
     readFile(accountHtmlPath, "utf8"),
@@ -18,7 +18,7 @@ test("My apps queries stay scoped to the signed-in account even for platform adm
     const query = script.match(new RegExp(`\\.from\\("${table}"\\)[\\s\\S]*?(?=\\n}\\n|\\nasync function)`))?.[0] || "";
     assert.match(query, /\.eq\("user_id", currentSession\.user\.id\)/, `${table} must be scoped to the current user`);
   }
-  assert.match(html, /account\.js\?v=20260815-records-setup/);
+  assert.match(html, /account\.js\?v=20260815-product-sections/);
 });
 
 test("Accounts provides client-view previews without changing the signed-in identity", async () => {

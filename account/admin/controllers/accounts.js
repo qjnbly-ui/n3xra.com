@@ -54,11 +54,11 @@ function enrollmentRemovalCopy(item) {
   return {
     workspaceName,
     deletesWorkspace,
-    buttonLabel: deletesWorkspace ? "Delete app & data" : "Remove access",
+    buttonLabel: deletesWorkspace ? "Delete product & data" : "Remove access",
     message: removesRecordsProduct
       ? `This removes only N3XRA Records from “${workspaceName}” and permanently deletes its Records documents, drafts, recordings, and Records settings. The client website, website files, Communications data, shared contacts, and N3XRA login are preserved. Type DELETE ${workspaceName} to continue.`
       : deletesWorkspace
-      ? `This permanently deletes the ${item.productLabel} workspace “${workspaceName}”, its database records, uploaded files, and this person's access. Their N3XRA login and other apps are not affected. Type DELETE ${workspaceName} to continue.`
+      ? `This permanently deletes the ${item.productLabel} workspace “${workspaceName}”, its database records, uploaded files, and this person's access. Their N3XRA login and other products are not affected. Type DELETE ${workspaceName} to continue.`
       : `This removes this person's access to ${item.productLabel} “${workspaceName}”. Shared workspace data and other members are preserved. Type DELETE ${workspaceName} to continue.`,
   };
 }
@@ -66,7 +66,7 @@ function enrollmentRemovalCopy(item) {
 async function deleteAccount(account) {
   const expected = `DELETE ${account.email}`;
   const confirmation = await promptAdminText(
-    `This permanently deletes ${account.email}, removes the Auth identity, and deletes all account-linked app data from Supabase. This cannot be undone. Type ${expected} to continue.`,
+    `This permanently deletes ${account.email}, removes the Auth identity, and deletes all account-linked product data from Supabase. This cannot be undone. Type ${expected} to continue.`,
     {
       title: "Delete account and all data",
       inputLabel: `Type ${expected}`,
@@ -98,9 +98,9 @@ async function removeEnrollment(account, item) {
   const copy = enrollmentRemovalCopy(item);
   const expected = `DELETE ${copy.workspaceName}`;
   const confirmation = await promptAdminText(copy.message, {
-    title: copy.deletesWorkspace ? "Delete app and all data" : "Remove app access",
+    title: copy.deletesWorkspace ? "Delete product and all data" : "Remove product access",
     inputLabel: `Type ${expected}`,
-    confirmLabel: copy.deletesWorkspace ? "Delete app & data" : "Remove access",
+    confirmLabel: copy.deletesWorkspace ? "Delete product & data" : "Remove access",
   });
   if (confirmation === null) return;
   if (confirmation.trim() !== expected) {
@@ -118,7 +118,7 @@ async function removeEnrollment(account, item) {
     });
     await loadAccounts(account.id);
     const cleanupNote = result.storageCleanupPending ? " Database access is removed; storage cleanup needs administrator review." : "";
-    setStatus(result.mode === "access_only" ? `App access removed.${cleanupNote}` : result.mode === "product_data" ? `N3XRA Records and its data were removed. The website and Communications data were preserved.${cleanupNote}` : `${item.productLabel} and its data were deleted.${cleanupNote}`, result.storageCleanupPending ? "error" : "success");
+    setStatus(result.mode === "access_only" ? `Product access removed.${cleanupNote}` : result.mode === "product_data" ? `N3XRA Records and its data were removed. The website and Communications data were preserved.${cleanupNote}` : `${item.productLabel} and its data were deleted.${cleanupNote}`, result.storageCleanupPending ? "error" : "success");
   } catch (error) {
     setStatus(error.message, "error");
   }
@@ -193,9 +193,9 @@ async function renderSelectedAccount() {
       </form>
     </section>
     <section class="account-oversight-section">
-      <div class="account-oversight-heading"><div><p class="portal-kicker">Product enrollment</p><h4>Apps and workspaces</h4><p>Preview the customer experience or open the matching admin workspace with this account already selected.</p></div><span class="account-admin-count">${access.length} enrollment${access.length === 1 ? "" : "s"}</span></div>
+      <div class="account-oversight-heading"><div><p class="portal-kicker">Product enrollment</p><h4>Products and workspaces</h4><p>Preview the customer experience or open the matching admin workspace with this account already selected.</p></div><span class="account-admin-count">${access.length} enrollment${access.length === 1 ? "" : "s"}</span></div>
       <div class="account-admin-card-grid">
-        ${access.length ? access.map((item) => { const link = productAdminLink(item, account); const previewHref = productClientPreviewLink(item); const removable = canRemoveEnrollments && ["records", "websites", "ai_music", "virals"].includes(item.product) && item.organizationId; const removal = removable ? enrollmentRemovalCopy(item) : null; return `<article class="account-access-card"><div><span>${escapeHtml(item.productLabel)}</span><h4>${escapeHtml(item.organization || item.plan || "Product account")}</h4><p>${escapeHtml(item.role || "account")} · ${escapeHtml(item.status || "active")}</p></div><div class="account-admin-head-actions">${previewHref ? `<a class="portal-button portal-button-secondary" href="${escapeHtml(previewHref)}">Preview client view</a>` : ""}<a class="portal-button portal-button-secondary" href="${escapeHtml(link.href)}">${escapeHtml(link.label)}</a>${removal ? `<button class="portal-button portal-button-secondary account-danger-button" type="button" data-remove-enrollment data-product="${escapeHtml(item.product)}" data-workspace-id="${escapeHtml(item.organizationId)}">${escapeHtml(removal.buttonLabel)}</button>` : ""}</div></article>`; }).join("") : '<article class="account-access-card"><div><h4>No product access found</h4><p>This identity has no mapped product memberships.</p></div><a class="portal-button portal-button-secondary" href="/account/admin/product-apps/">Review product apps</a></article>'}
+        ${access.length ? access.map((item) => { const link = productAdminLink(item, account); const previewHref = productClientPreviewLink(item); const removable = canRemoveEnrollments && ["records", "websites", "ai_music", "virals"].includes(item.product) && item.organizationId; const removal = removable ? enrollmentRemovalCopy(item) : null; return `<article class="account-access-card"><div><span>${escapeHtml(item.productLabel)}</span><h4>${escapeHtml(item.organization || item.plan || "Product account")}</h4><p>${escapeHtml(item.role || "account")} · ${escapeHtml(item.status || "active")}</p></div><div class="account-admin-head-actions">${previewHref ? `<a class="portal-button portal-button-secondary" href="${escapeHtml(previewHref)}">Preview client view</a>` : ""}<a class="portal-button portal-button-secondary" href="${escapeHtml(link.href)}">${escapeHtml(link.label)}</a>${removal ? `<button class="portal-button portal-button-secondary account-danger-button" type="button" data-remove-enrollment data-product="${escapeHtml(item.product)}" data-workspace-id="${escapeHtml(item.organizationId)}">${escapeHtml(removal.buttonLabel)}</button>` : ""}</div></article>`; }).join("") : '<article class="account-access-card"><div><h4>No product access found</h4><p>This identity has no mapped product memberships.</p></div><a class="portal-button portal-button-secondary" href="/account/admin/product-apps/">Review products</a></article>'}
       </div>
     </section>
   `;
@@ -270,7 +270,7 @@ async function renderSelectedAccount() {
         <p>${Number(loan.original_balance).toLocaleString("en-US", { style: "currency", currency: "USD" })} original · ${Number(loan.planned_monthly_payment).toLocaleString("en-US", { style: "currency", currency: "USD" })}/month</p></div>
         <div class="account-admin-head-actions">
           <a class="portal-button portal-button-secondary" href="/account/loan-tracker/?user=${encodeURIComponent(account.id)}">Preview client view</a>
-          ${canRemoveEnrollments ? '<button class="portal-button portal-button-secondary account-danger-button" id="remove-loan-enrollment" type="button">Delete app & data</button>' : ""}
+          ${canRemoveEnrollments ? '<button class="portal-button portal-button-secondary account-danger-button" id="remove-loan-enrollment" type="button">Delete product & data</button>' : ""}
         </div>
       </article>
     `);

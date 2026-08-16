@@ -55,6 +55,9 @@ const viralsSummary = document.getElementById("virals-summary");
 const websitePortalSummary = document.getElementById("website-portal-summary");
 const websitePortalLink = document.getElementById("website-portal-link");
 const openRecordsButton = document.getElementById("open-records-button");
+const communicationsProductCard = document.getElementById("communications-product-card");
+const communicationsProductSummary = document.getElementById("communications-product-summary");
+const communicationsProductLink = document.getElementById("communications-product-link");
 const openAdminViralsButton = document.getElementById("open-admin-virals-button");
 const openAdminMusicButton = document.getElementById("open-admin-music-button");
 const openMusicButton = document.getElementById("open-music-button");
@@ -75,6 +78,7 @@ const loanTrackerAppCard = document.getElementById("loan-tracker-app-card");
 const loanTrackerSummary = document.getElementById("loan-tracker-summary");
 const connectedAppsGrid = document.getElementById("connected-apps-grid");
 const availableAppsGrid = document.getElementById("available-apps-grid");
+const moreFromN3xraGrid = document.getElementById("more-from-n3xra-grid");
 const connectedAppsEmpty = document.getElementById("connected-apps-empty");
 const availableAppsEmpty = document.getElementById("available-apps-empty");
 const appsDashboardView = document.getElementById("apps-dashboard-view");
@@ -93,6 +97,7 @@ let musicProfile = null;
 let viralsProfile = null;
 let websiteServiceRequest = null;
 let loanAccount = null;
+let communicationsEntitlement = null;
 let platformAdminAccess = null;
 let validatedSignupReferralCode = "";
 let signupReferralTimer = null;
@@ -217,6 +222,17 @@ function placeAppCard(card, connected, state = connected ? "connected" : "availa
           ? "Connected"
           : "Available";
   }
+  show(card, true);
+}
+
+function placeMoreFromN3xraCard(card, connected, badgeText = connected ? "Connected" : "Available") {
+  if (!card) return;
+  moreFromN3xraGrid?.append(card);
+  card.classList.toggle("is-connected", connected);
+  card.classList.toggle("is-available", !connected);
+  card.classList.remove("is-pending", "is-action-required");
+  const badge = card.querySelector(".app-access-badge");
+  if (badge) badge.textContent = badgeText;
   show(card, true);
 }
 
@@ -532,6 +548,19 @@ async function loadWebsiteServiceRequest() {
   websiteServiceRequest = data || null;
 }
 
+async function loadCommunicationsEntitlement() {
+  const { data, error } = await supabase
+    .from("organization_product_entitlements")
+    .select("organization_id,status,portal_enabled")
+    .eq("product_key", "communications")
+    .eq("portal_enabled", true)
+    .in("status", ["trialing", "active", "past_due"])
+    .limit(1)
+    .maybeSingle();
+  if (error && error.code !== "PGRST116") throw error;
+  communicationsEntitlement = data || null;
+}
+
 async function loadLoanAccount() {
   const { data, error } = await supabase
     .from("loan_accounts")
@@ -661,7 +690,7 @@ async function maybeRedeemPlatformAdminInvite() {
   url.searchParams.delete("admin_invite");
   url.searchParams.delete("mode");
   window.history.replaceState({}, "", url.toString());
-  return data?.ok ? (data.role === "reviewer" ? "App reviewer invite redeemed." : "Platform admin invite redeemed.") : "";
+  return data?.ok ? (data.role === "reviewer" ? "Product reviewer invite redeemed." : "Platform admin invite redeemed.") : "";
 }
 
 async function renderDashboard(message = "") {
@@ -686,6 +715,7 @@ async function renderDashboard(message = "") {
     loadInvestmentInterest(),
     loadWebsiteServiceRequest(),
     loadLoanAccount(),
+    loadCommunicationsEntitlement(),
   ]);
   const isApprovedPartner = partnerAccess.status === "fulfilled" && partnerAccess.value === true;
   const interest = investmentInterest.status === "fulfilled" ? investmentInterest.value : null;
@@ -703,10 +733,25 @@ async function renderDashboard(message = "") {
     const businessName = String(websiteServiceRequest.business_name || "your website workspace").trim();
     const requestStatus = formatAppStatus(websiteServiceRequest.status);
     websitePortalSummary.textContent = `${businessName} · ${requestStatus || "Active request"}.`;
+    websitePortalLink.href = "/client-portal/";
     websitePortalLink.textContent = "Open Website Portal";
   } else {
     websitePortalSummary.textContent = "No website workspace yet. Start a request when you are ready to build or manage a site.";
+    websitePortalLink.href = "/website-request/";
     websitePortalLink.textContent = "Start Website Request";
+  }
+
+  const hasCommunicationsAccess = Boolean(communicationsEntitlement?.organization_id);
+  if (communicationsProductSummary && communicationsProductLink) {
+    communicationsProductSummary.textContent = hasCommunicationsAccess
+      ? "Manage your email and text communications, audiences, consent, and activity."
+      : "Connect email and text communications to your organization.";
+    communicationsProductLink.href = hasCommunicationsAccess
+      ? "/client-portal/communications/"
+      : "/nexra-communications/request/";
+    communicationsProductLink.textContent = hasCommunicationsAccess
+      ? "Open Communications"
+      : "Request Communications";
   }
 
   if (loanAccount && loanTrackerSummary) {
@@ -732,10 +777,12 @@ async function renderDashboard(message = "") {
 
   if (interest && investmentInterestSummary) {
     investmentInterestSummary.textContent = interest.status === "withdrawn"
-      ? "Your ownership-update request is withdrawn. You can review or rejoin it."
-      : "Your request for future N3XRA ownership updates is connected to this account.";
-    investmentInterestLink.href = "/account/investment/";
-    investmentInterestLink.textContent = "Open Ownership Updates";
+      ? "Your ownership-update request is withdrawn. You can rejoin the information list at any time."
+      : "You’re on the information list for future N3XRA company and ownership updates.";
+    investmentInterestLink.href = "/invest/#ownership-updates";
+    investmentInterestLink.textContent = interest.status === "withdrawn"
+      ? "Rejoin Ownership Updates"
+      : "Update Ownership Information";
   } else if (investmentInterestSummary) {
     investmentInterestSummary.textContent = "Join the information list for future N3XRA company and ownership updates.";
     investmentInterestLink.href = "/invest/#ownership-updates";
@@ -744,10 +791,16 @@ async function renderDashboard(message = "") {
 
   [
     [recordsAppCard, hasRecordsAccess],
+    [communicationsProductCard, hasCommunicationsAccess],
     [websitePortalCard, hasWebsiteService, hasWebsiteService ? websiteAppState(websiteServiceRequest.status) : "available"],
-    [partnerPortalCard, isApprovedPartner],
-    [investmentInterestCard, Boolean(interest && interest.status !== "withdrawn")],
   ].forEach(([card, connected, state]) => placeAppCard(card, connected, state));
+  placeMoreFromN3xraCard(partnerPortalCard, isApprovedPartner);
+  const ownershipUpdateStatus = !interest
+    ? "Available"
+    : interest.status === "withdrawn"
+      ? "Withdrawn"
+      : "Submitted";
+  placeMoreFromN3xraCard(investmentInterestCard, ownershipUpdateStatus === "Submitted", ownershipUpdateStatus);
   updateAppSectionEmptyStates();
 
   const displayName = await loadProfileName().catch(() => currentSession.user.email || "N3XRA account");
@@ -980,7 +1033,7 @@ async function handleRecovery(event) {
   }
 
   recoveryForm.reset();
-  await renderDashboard("Password updated. Choose an app to continue.");
+  await renderDashboard("Password updated. Choose a product to continue.");
 }
 
 async function openRecords() {

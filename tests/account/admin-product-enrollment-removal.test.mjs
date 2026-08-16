@@ -16,13 +16,13 @@ test("account administration exposes a typed destructive enrollment action", asy
   assert.match(admin, /await loadAdminView\(context\)/);
   assert.doesNotMatch(admin, /platformAdminRole: context\.admin\?\.role/);
   assert.match(controller, /canRemoveEnrollments = String\(context\.platformAdminRole/);
-  assert.match(controller, /Delete app & data/);
+  assert.match(controller, /Delete product & data/);
   assert.match(controller, /Remove access/);
   assert.match(controller, /const expected = `DELETE \$\{copy\.workspaceName\}`/);
   assert.match(controller, /invoke\("remove-product-enrollment"/);
   assert.match(controller, /userId: account\.id/);
   assert.match(controller, /workspaceId: item\.organizationId/);
-  assert.match(controller, /Their N3XRA login and other apps are not affected/);
+  assert.match(controller, /Their N3XRA login and other products are not affected/);
 });
 
 test("product removal is owner-authorized, race-safe, and does not delete the identity", async () => {
