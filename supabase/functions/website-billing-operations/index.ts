@@ -569,6 +569,8 @@ Deno.serve(async (request) => {
 
     throw new Error("Unsupported website billing action.");
   } catch (error) {
-    return response({ error: error instanceof Error ? error.message : "Website billing operation failed." }, 400, origin);
+    const message = error instanceof Error ? error.message : "Website billing operation failed.";
+    console.error("website-billing-operations failed", message);
+    return response({ error: message }, 400, origin);
   }
 });
