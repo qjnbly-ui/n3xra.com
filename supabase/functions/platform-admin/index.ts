@@ -313,10 +313,12 @@ async function loadPlatformAccountData(adminClient: ReturnType<typeof createClie
     });
   });
   (musicProfilesResult.data || []).forEach((profile) => addAccess(profile.user_id, {
-    product: "ai_music", productLabel: PRODUCT_LABELS.ai_music, role: "account", status: profile.account_status, plan: profile.plan,
+    product: "ai_music", productLabel: PRODUCT_LABELS.ai_music, organizationId: profile.user_id,
+    organization: profile.display_name || PRODUCT_LABELS.ai_music, role: "account", status: profile.account_status, plan: profile.plan,
   }));
   (viralsProfilesResult.data || []).forEach((profile) => addAccess(profile.user_id, {
-    product: "virals", productLabel: PRODUCT_LABELS.virals, role: "account", status: profile.account_status, plan: profile.plan,
+    product: "virals", productLabel: PRODUCT_LABELS.virals, organizationId: profile.user_id,
+    organization: PRODUCT_LABELS.virals, role: "account", status: profile.account_status, plan: profile.plan,
   }));
 
   const knownUserIds = new Set([
@@ -1472,6 +1474,184 @@ Deno.serve(async (request) => {
       return jsonResponse({ ok: true, accounts, count: accounts.length });
     }
 
+    if (action === "delete-platform-account") {
+      if (String(platformAdmin.role || "").toLowerCase() !== "owner") {
+        return jsonResponse({ error: "Only the platform owner can delete an N3XRA account." }, 403);
+      }
+
+      const userId = String(payload.userId || "").trim();
+      const confirmation = String(payload.confirmation || "").trim();
+      if (!isValidUuid(userId)) return jsonResponse({ error: "A valid userId is required." }, 400);
+      if (userId === user.id) return jsonResponse({ error: "You cannot delete the administrator account you are currently using." }, 400);
+
+      const { data: targetResult, error: targetError } = await adminClient.auth.admin.getUserById(userId);
+      const targetUser = targetResult?.user;
+      if (targetError || !targetUser?.email) {
+        return jsonResponse({ error: targetError?.message || "Account not found." }, 404);
+      }
+      const targetEmail = normalizeEmail(targetUser.email);
+      if (targetEmail === PLATFORM_OWNER_EMAIL) {
+        return jsonResponse({ error: "The platform owner account cannot be deleted here." }, 400);
+      }
+      const expectedConfirmation = `DELETE ${targetEmail}`;
+      if (confirmation !== expectedConfirmation) {
+        return jsonResponse({ error: `Type ${expectedConfirmation} exactly to continue.` }, 400);
+      }
+
+      const [targetAdminResult, targetReviewerResult] = await Promise.all([
+        adminClient.from("platform_admins").select("user_id,status").eq("user_id", userId).maybeSingle(),
+        adminClient.from("platform_app_reviewers").select("user_id,status").eq("user_id", userId).maybeSingle(),
+      ]);
+      if (targetAdminResult.error || targetReviewerResult.error) {
+        return jsonResponse({ error: targetAdminResult.error?.message || targetReviewerResult.error?.message || "Unable to verify privileged access." }, 400);
+      }
+      if (targetAdminResult.data || targetReviewerResult.data) {
+        return jsonResponse({ error: "Remove this person's administrator or app-reviewer role before deleting the account." }, 400);
+      }
+
+      const [ownedOrganizationsResult, ownedWebsiteMembershipsResult, musicProfileResult, viralsProfileResult] = await Promise.all([
+        adminClient.from("organizations").select("id,name,subscription_tier,account_status,stripe_subscription_id,logo_storage_path").eq("owner_user_id", userId),
+        adminClient.from("website_members").select("website_id").eq("user_id", userId).eq("role", "owner"),
+        adminClient.from("music_profiles").select("plan,account_status,stripe_subscription_id").eq("user_id", userId).maybeSingle(),
+        adminClient.from("virals_profiles").select("plan,account_status,stripe_subscription_id").eq("user_id", userId).maybeSingle(),
+      ]);
+      const ownershipError = [ownedOrganizationsResult, ownedWebsiteMembershipsResult, musicProfileResult, viralsProfileResult].find((result) => result.error)?.error;
+      if (ownershipError) return jsonResponse({ error: ownershipError.message }, 400);
+
+      const ownedOrganizations = ownedOrganizationsResult.data || [];
+      const ownedOrganizationIds = ownedOrganizations.map((organization) => String(organization.id));
+      const ownedWebsiteIds = Array.from(new Set((ownedWebsiteMembershipsResult.data || []).map((membership) => String(membership.website_id))));
+      const paidRecords = ownedOrganizations.find((organization) =>
+        (organization.stripe_subscription_id || ["starter", "organization"].includes(String(organization.subscription_tier || "")))
+        && !["canceled", "suspended"].includes(String(organization.account_status || "active"))
+      );
+      const musicProfile = musicProfileResult.data;
+      const paidMusic = musicProfile
+        && (musicProfile.stripe_subscription_id || ["creator", "studio"].includes(String(musicProfile.plan || "")))
+        && !["canceled", "suspended"].includes(String(musicProfile.account_status || "active"));
+      const viralsProfile = viralsProfileResult.data;
+      const paidVirals = viralsProfile
+        && (viralsProfile.stripe_subscription_id || ["starter", "creator", "pro", "agency"].includes(String(viralsProfile.plan || "")))
+        && !["canceled", "suspended"].includes(String(viralsProfile.account_status || "active"));
+      if (paidRecords || paidMusic || paidVirals) {
+        return jsonResponse({ error: "Cancel every active paid product subscription before deleting this account." }, 400);
+      }
+
+      if (ownedOrganizationIds.length) {
+        const { count, error: sharedRecordsError } = await adminClient
+          .from("organization_memberships")
+          .select("id", { count: "exact", head: true })
+          .in("organization_id", ownedOrganizationIds)
+          .neq("user_id", userId);
+        if (sharedRecordsError) return jsonResponse({ error: sharedRecordsError.message }, 400);
+        if (Number(count || 0) > 0) {
+          return jsonResponse({ error: "Transfer or remove the other Records members before deleting this account." }, 400);
+        }
+      }
+
+      if (ownedWebsiteIds.length) {
+        const [{ count: otherWebsiteMembers, error: websiteMembersError }, { data: websiteProjects, error: websiteProjectsError }] = await Promise.all([
+          adminClient.from("website_members").select("id", { count: "exact", head: true }).in("website_id", ownedWebsiteIds).neq("user_id", userId).eq("status", "active"),
+          adminClient.from("website_projects").select("id,managed_website_id").in("managed_website_id", ownedWebsiteIds),
+        ]);
+        if (websiteMembersError || websiteProjectsError) {
+          return jsonResponse({ error: websiteMembersError?.message || websiteProjectsError?.message || "Unable to inspect website ownership." }, 400);
+        }
+        if (Number(otherWebsiteMembers || 0) > 0) {
+          return jsonResponse({ error: "Transfer or remove the other website members before deleting this account." }, 400);
+        }
+        const websiteProjectIds = (websiteProjects || []).map((project) => project.id);
+        if (websiteProjectIds.length) {
+          const { count: activeWebsiteSubscriptions, error: subscriptionError } = await adminClient
+            .from("website_subscriptions")
+            .select("id", { count: "exact", head: true })
+            .in("project_id", websiteProjectIds)
+            .not("status", "in", "(canceled,paused)");
+          if (subscriptionError) return jsonResponse({ error: subscriptionError.message }, 400);
+          if (Number(activeWebsiteSubscriptions || 0) > 0) {
+            return jsonResponse({ error: "Cancel every active website subscription before deleting this account." }, 400);
+          }
+        }
+      }
+
+      const storageObjects: StorageObject[] = [];
+      for (const organization of ownedOrganizations) {
+        storageObjects.push(...await recordsEnrollmentStorage(adminClient, String(organization.id)));
+        if (organization.logo_storage_path) storageObjects.push({ bucket: "organization-assets", path: String(organization.logo_storage_path) });
+      }
+      for (const websiteId of ownedWebsiteIds) {
+        storageObjects.push(...await websiteEnrollmentStorage(adminClient, websiteId));
+      }
+      const [careerFilesResult, internalFilesResult, onboardingFilesResult] = await Promise.all([
+        adminClient.from("careers_applications").select("cv_storage_path").eq("account_user_id", userId),
+        adminClient.from("n3xra_files").select("storage_path,cdn_storage_path").eq("created_by", userId),
+        adminClient.from("website_onboarding_files").select("storage_bucket,storage_path").eq("uploaded_by_user_id", userId),
+      ]);
+      const storageLookupError = [careerFilesResult, internalFilesResult, onboardingFilesResult].find((result) => result.error)?.error;
+      if (storageLookupError) return jsonResponse({ error: storageLookupError.message }, 400);
+      storageObjects.push(
+        ...(careerFilesResult.data || []).map((row) => ({ bucket: "careers-files", path: row.cv_storage_path })),
+        ...(internalFilesResult.data || []).flatMap((row) => [
+          { bucket: "n3xra-files", path: row.storage_path },
+          { bucket: "n3xra-files-public", path: row.cdn_storage_path },
+        ]),
+        ...(onboardingFilesResult.data || []).map((row) => ({ bucket: row.storage_bucket || "website-onboarding-private", path: row.storage_path })),
+      );
+
+      const { data: ownedStorageObjects, error: ownedStorageError } = await adminClient.rpc("admin_user_storage_objects", {
+        input_user_id: userId,
+      });
+      if (ownedStorageError) return jsonResponse({ error: ownedStorageError.message }, 400);
+      storageObjects.push(...(ownedStorageObjects || []).map((row) => ({ bucket: row.bucket, path: row.path })));
+
+      // Auth will refuse a hard delete while the target owns Storage objects.
+      // Remove every known and owner-attributed object before changing rows.
+      const storageFailures = await removeStorageObjects(adminClient, storageObjects);
+      if (storageFailures.length) {
+        console.error("Account storage cleanup failed before identity deletion:", storageFailures);
+        return jsonResponse({ error: "The account was not deleted because some owned files could not be removed. Review Storage and try again." }, 400);
+      }
+
+      // Remove customer-authored rows whose foreign keys intentionally retain
+      // history instead of cascading. Company financial/audit records retain
+      // their anonymous history through their existing ON DELETE SET NULL rules.
+      const personalDataDeletes = [
+        adminClient.from("reviews").delete().eq("user_id", userId),
+        adminClient.from("platform_support_requests").delete().eq("requester_user_id", userId),
+        adminClient.from("communications_number_requests").delete().eq("requester_user_id", userId),
+        adminClient.from("careers_applications").delete().eq("account_user_id", userId),
+        adminClient.from("website_request_ai_reviews").delete().eq("user_id", userId),
+        adminClient.from("website_proposal_decisions").delete().eq("user_id", userId),
+        adminClient.from("loan_account_changes").delete().eq("actor_user_id", userId),
+        adminClient.from("loan_invitations").delete().eq("invited_by", userId),
+        adminClient.from("loan_members").delete().eq("invited_by", userId),
+      ];
+      const personalDeleteResults = await Promise.all(personalDataDeletes);
+      const personalDeleteError = personalDeleteResults.find((result) => result.error)?.error;
+      if (personalDeleteError) return jsonResponse({ error: personalDeleteError.message }, 400);
+
+      // Website workspaces are owned through a membership row, so delete those
+      // explicitly before the Auth user removes that ownership proof.
+      for (const websiteId of ownedWebsiteIds) {
+        const { error: websiteDeleteError } = await adminClient.rpc("admin_remove_product_enrollment", {
+          input_product: "websites",
+          input_user_id: userId,
+          input_workspace_id: websiteId,
+          input_delete_workspace: true,
+        });
+        if (websiteDeleteError) return jsonResponse({ error: websiteDeleteError.message }, 400);
+      }
+
+      const { error: deleteUserError } = await adminClient.auth.admin.deleteUser(userId);
+      if (deleteUserError) return jsonResponse({ error: deleteUserError.message }, 400);
+      return jsonResponse({
+        ok: true,
+        userId,
+        email: targetEmail,
+        storageCleanupPending: false,
+      });
+    }
+
     if (action === "remove-product-enrollment") {
       if (String(platformAdmin.role || "").toLowerCase() !== "owner") {
         return jsonResponse({ error: "Only the platform owner can delete product enrollments and customer data." }, 403);
@@ -1483,7 +1663,7 @@ Deno.serve(async (request) => {
       const confirmation = String(payload.confirmation || "").trim();
       if (!isValidUuid(userId)) return jsonResponse({ error: "A valid userId is required." }, 400);
       if (!isValidUuid(workspaceId)) return jsonResponse({ error: "A valid workspaceId is required." }, 400);
-      if (!["records", "websites", "loan_tracker"].includes(product)) {
+      if (!["records", "websites", "loan_tracker", "ai_music", "virals"].includes(product)) {
         return jsonResponse({ error: "That product enrollment cannot be removed here." }, 400);
       }
 
@@ -1491,7 +1671,20 @@ Deno.serve(async (request) => {
       let deleteWorkspace = true;
       let storageObjects: StorageObject[] = [];
 
-      if (product === "records") {
+      if (["ai_music", "virals"].includes(product)) {
+        if (workspaceId !== userId) {
+          return jsonResponse({ error: "The retired-product enrollment does not match this account." }, 400);
+        }
+        const profileTable = product === "ai_music" ? "music_profiles" : "virals_profiles";
+        const { data: profile, error: profileError } = await adminClient
+          .from(profileTable)
+          .select("user_id")
+          .eq("user_id", userId)
+          .maybeSingle();
+        if (profileError) return jsonResponse({ error: profileError.message }, 400);
+        if (!profile) return jsonResponse({ error: `This ${PRODUCT_LABELS[product]} enrollment no longer exists.` }, 404);
+        workspaceName = PRODUCT_LABELS[product];
+      } else if (product === "records") {
         const [{ data: organization, error: organizationError }, { data: membership, error: membershipError }] = await Promise.all([
           adminClient.from("organizations").select("id,name,owner_user_id").eq("id", workspaceId).maybeSingle(),
           adminClient.from("organization_memberships").select("id").eq("organization_id", workspaceId).eq("user_id", userId).maybeSingle(),
@@ -1530,7 +1723,12 @@ Deno.serve(async (request) => {
         return jsonResponse({ error: `Type ${expectedConfirmation} exactly to continue.` }, 400);
       }
 
-      const removalRequest = product === "records"
+      const removalRequest = ["ai_music", "virals"].includes(product)
+        ? adminClient.rpc("admin_remove_retired_product_enrollment", {
+            input_product: product,
+            input_user_id: userId,
+          })
+        : product === "records"
         ? adminClient.rpc("admin_remove_records_enrollment", {
             input_user_id: userId,
             input_organization_id: workspaceId,

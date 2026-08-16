@@ -84,3 +84,44 @@ test("workspace deletion collects product-owned uploads without deleting shared 
   assert.match(edgeFunction, /publicStorageObjectPath\(row\.public_url, "website-assets-public"\)/);
   assert.match(edgeFunction, /storageCleanupPending: storageFailures\.length > 0/);
 });
+
+test("retired-product enrollments have isolated destructive controls", async () => {
+  const [controller, edgeFunction, migration] = await Promise.all([
+    read("account/admin/controllers/accounts.js"),
+    read("supabase/functions/platform-admin/index.ts"),
+    read("supabase/migrations/20260816014726_admin_remove_retired_products.sql"),
+  ]);
+
+  assert.match(controller, /\["records", "websites", "ai_music", "virals"\]\.includes\(item\.product\)/);
+  assert.match(controller, /retiredProduct \? item\.productLabel/);
+  assert.match(edgeFunction, /organizationId: profile\.user_id/);
+  assert.match(edgeFunction, /admin_remove_retired_product_enrollment/);
+  assert.match(edgeFunction, /workspaceId !== userId/);
+  assert.match(migration, /request_claims[\s\S]*service_role/);
+  assert.match(migration, /delete from public\.music_generations[\s\S]*delete from public\.music_profiles/);
+  assert.match(migration, /delete from public\.virals_commission_ledger[\s\S]*delete from public\.virals_profiles/);
+  assert.match(migration, /revoke all on function public\.admin_remove_retired_product_enrollment\(text, uuid\) from public, anon, authenticated/);
+  assert.match(migration, /grant execute on function public\.admin_remove_retired_product_enrollment\(text, uuid\) to service_role/);
+});
+
+test("platform owner can delete a non-admin account only after typed confirmation", async () => {
+  const [controller, admin, edgeFunction] = await Promise.all([
+    read("account/admin/controllers/accounts.js"),
+    read("account/admin/admin.js"),
+    read("supabase/functions/platform-admin/index.ts"),
+  ]);
+  const action = edgeFunction.match(/if \(action === "delete-platform-account"\)[\s\S]*?(?=\n    if \(action === "remove-product-enrollment"\))/)?.[0] || "";
+
+  assert.match(controller, /id="account-delete"[\s\S]*Delete account/);
+  assert.match(controller, /const expected = `DELETE \$\{account\.email\}`/);
+  assert.match(controller, /invoke\("delete-platform-account"/);
+  assert.match(admin, /currentUserId: adminContext\.user\?\.id/);
+  assert.match(action, /platformAdmin\.role[\s\S]*owner/);
+  assert.match(action, /userId === user\.id/);
+  assert.match(action, /expectedConfirmation = `DELETE \$\{targetEmail\}`/);
+  assert.match(action, /platform_admins/);
+  assert.match(action, /Cancel every active paid product subscription/);
+  assert.match(action, /Transfer or remove the other Records members/);
+  assert.match(action, /auth\.admin\.deleteUser\(userId\)/);
+  assert.match(action, /removeStorageObjects\(adminClient, storageObjects\)/);
+});

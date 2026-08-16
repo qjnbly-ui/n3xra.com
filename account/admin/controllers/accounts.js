@@ -9,6 +9,8 @@ let setStatus;
 let confirmAdminAction;
 let promptAdminText;
 let canRemoveEnrollments = false;
+let canDeleteAccounts = false;
+let currentUserId = "";
 
 function accountLabel(account) {
   return `${account.name || account.email} — ${account.email}`;
@@ -45,7 +47,8 @@ function productClientPreviewLink(item) {
 }
 
 function enrollmentRemovalCopy(item) {
-  const workspaceName = item.organization || item.plan || item.productLabel || "this workspace";
+  const retiredProduct = ["ai_music", "virals"].includes(item.product);
+  const workspaceName = retiredProduct ? item.productLabel : item.organization || item.plan || item.productLabel || "this workspace";
   const deletesWorkspace = item.product === "loan_tracker" || item.role === "owner" || item.role === "account";
   const removesRecordsProduct = item.product === "records" && item.role === "owner";
   return {
@@ -58,6 +61,37 @@ function enrollmentRemovalCopy(item) {
       ? `This permanently deletes the ${item.productLabel} workspace “${workspaceName}”, its database records, uploaded files, and this person's access. Their N3XRA login and other apps are not affected. Type DELETE ${workspaceName} to continue.`
       : `This removes this person's access to ${item.productLabel} “${workspaceName}”. Shared workspace data and other members are preserved. Type DELETE ${workspaceName} to continue.`,
   };
+}
+
+async function deleteAccount(account) {
+  const expected = `DELETE ${account.email}`;
+  const confirmation = await promptAdminText(
+    `This permanently deletes ${account.email}, removes the Auth identity, and deletes all account-linked app data from Supabase. This cannot be undone. Type ${expected} to continue.`,
+    {
+      title: "Delete account and all data",
+      inputLabel: `Type ${expected}`,
+      confirmLabel: "Delete account",
+    },
+  );
+  if (confirmation === null) return;
+  if (confirmation.trim() !== expected) {
+    setStatus(`Nothing was deleted. Type ${expected} exactly to confirm.`, "error");
+    return;
+  }
+
+  setStatus(`Deleting ${account.email} and all linked data…`);
+  try {
+    const result = await invoke("delete-platform-account", {
+      userId: account.id,
+      confirmation,
+    });
+    accounts = accounts.filter((item) => item.id !== account.id);
+    renderAccountOptions(document.getElementById("account-search")?.value || "");
+    const cleanupNote = result.storageCleanupPending ? " The account is deleted, but some storage files need administrator review." : "";
+    setStatus(`Account deleted from Supabase.${cleanupNote}`, result.storageCleanupPending ? "error" : "success");
+  } catch (error) {
+    setStatus(error.message, "error");
+  }
 }
 
 async function removeEnrollment(account, item) {
@@ -155,13 +189,13 @@ async function renderSelectedAccount() {
       <div class="account-oversight-heading"><div><p class="portal-kicker">Quick edits</p><h4>Identity and access</h4><p>Correct account details, help with sign-in, or temporarily stop platform access.</p></div><a class="portal-button portal-button-secondary" href="/account/admin/billing/?${escapeHtml(billingParams.toString())}">View billing</a></div>
       <form class="account-admin-form account-profile-form" id="account-profile-form">
         <div class="account-admin-form-row"><label class="account-admin-field"><span>Full name</span><input id="account-profile-name" type="text" value="${escapeHtml(account.name || "")}" maxlength="180" required></label><label class="account-admin-field"><span>Email address</span><input id="account-profile-email" type="email" value="${escapeHtml(account.email)}" required></label></div>
-        <div class="account-admin-actions"><button class="portal-button portal-button-secondary ${suspended ? "" : "account-danger-button"}" id="account-toggle-suspension" type="button">${suspended ? "Restore access" : "Suspend access"}</button><button class="portal-button" type="submit">Save account</button></div>
+        <div class="account-admin-actions">${canDeleteAccounts && account.id !== currentUserId ? '<button class="portal-button portal-button-secondary account-danger-button" id="account-delete" type="button">Delete account</button>' : ""}<button class="portal-button portal-button-secondary ${suspended ? "" : "account-danger-button"}" id="account-toggle-suspension" type="button">${suspended ? "Restore access" : "Suspend access"}</button><button class="portal-button" type="submit">Save account</button></div>
       </form>
     </section>
     <section class="account-oversight-section">
       <div class="account-oversight-heading"><div><p class="portal-kicker">Product enrollment</p><h4>Apps and workspaces</h4><p>Preview the customer experience or open the matching admin workspace with this account already selected.</p></div><span class="account-admin-count">${access.length} enrollment${access.length === 1 ? "" : "s"}</span></div>
       <div class="account-admin-card-grid">
-        ${access.length ? access.map((item) => { const link = productAdminLink(item, account); const previewHref = productClientPreviewLink(item); const removable = canRemoveEnrollments && ["records", "websites"].includes(item.product) && item.organizationId; const removal = removable ? enrollmentRemovalCopy(item) : null; return `<article class="account-access-card"><div><span>${escapeHtml(item.productLabel)}</span><h4>${escapeHtml(item.organization || item.plan || "Product account")}</h4><p>${escapeHtml(item.role || "account")} · ${escapeHtml(item.status || "active")}</p></div><div class="account-admin-head-actions">${previewHref ? `<a class="portal-button portal-button-secondary" href="${escapeHtml(previewHref)}">Preview client view</a>` : ""}<a class="portal-button portal-button-secondary" href="${escapeHtml(link.href)}">${escapeHtml(link.label)}</a>${removal ? `<button class="portal-button portal-button-secondary account-danger-button" type="button" data-remove-enrollment data-product="${escapeHtml(item.product)}" data-workspace-id="${escapeHtml(item.organizationId)}">${escapeHtml(removal.buttonLabel)}</button>` : ""}</div></article>`; }).join("") : '<article class="account-access-card"><div><h4>No product access found</h4><p>This identity has no mapped product memberships.</p></div><a class="portal-button portal-button-secondary" href="/account/admin/product-apps/">Review product apps</a></article>'}
+        ${access.length ? access.map((item) => { const link = productAdminLink(item, account); const previewHref = productClientPreviewLink(item); const removable = canRemoveEnrollments && ["records", "websites", "ai_music", "virals"].includes(item.product) && item.organizationId; const removal = removable ? enrollmentRemovalCopy(item) : null; return `<article class="account-access-card"><div><span>${escapeHtml(item.productLabel)}</span><h4>${escapeHtml(item.organization || item.plan || "Product account")}</h4><p>${escapeHtml(item.role || "account")} · ${escapeHtml(item.status || "active")}</p></div><div class="account-admin-head-actions">${previewHref ? `<a class="portal-button portal-button-secondary" href="${escapeHtml(previewHref)}">Preview client view</a>` : ""}<a class="portal-button portal-button-secondary" href="${escapeHtml(link.href)}">${escapeHtml(link.label)}</a>${removal ? `<button class="portal-button portal-button-secondary account-danger-button" type="button" data-remove-enrollment data-product="${escapeHtml(item.product)}" data-workspace-id="${escapeHtml(item.organizationId)}">${escapeHtml(removal.buttonLabel)}</button>` : ""}</div></article>`; }).join("") : '<article class="account-access-card"><div><h4>No product access found</h4><p>This identity has no mapped product memberships.</p></div><a class="portal-button portal-button-secondary" href="/account/admin/product-apps/">Review product apps</a></article>'}
       </div>
     </section>
   `;
@@ -209,6 +243,8 @@ async function renderSelectedAccount() {
       setStatus(error.message, "error");
     }
   });
+
+  document.getElementById("account-delete")?.addEventListener("click", () => deleteAccount(account));
 
   detail.querySelectorAll("[data-remove-enrollment]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -263,6 +299,8 @@ async function loadAccounts(preferredUserId = "") {
 export async function startAccounts(context = {}) {
   ({ supabase, invoke, escapeHtml, formatDate, formatPhone, providerLabel, setStatus, confirmAdminAction, promptAdminText } = context);
   canRemoveEnrollments = String(context.platformAdminRole || "").toLowerCase() === "owner";
+  canDeleteAccounts = canRemoveEnrollments;
+  currentUserId = String(context.currentUserId || "");
   document.getElementById("account-search")?.addEventListener("input", (event) => renderAccountOptions(event.target.value));
   document.getElementById("account-select")?.addEventListener("change", renderSelectedAccount);
   document.getElementById("account-list")?.addEventListener("click", (event) => {
