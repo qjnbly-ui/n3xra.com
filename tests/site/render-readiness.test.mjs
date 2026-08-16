@@ -17,6 +17,43 @@ async function htmlFiles(directory) {
   return files.flat();
 }
 
+async function allHtmlFiles(directory) {
+  const entries = await readdir(directory, { withFileTypes: true });
+  const files = await Promise.all(entries.map(async (entry) => {
+    const target = path.join(directory, entry.name);
+    if (entry.isDirectory() && entry.name !== ".git" && entry.name !== "node_modules") return allHtmlFiles(target);
+    return entry.isFile() && entry.name.endsWith(".html") ? [target] : [];
+  }));
+  return files.flat();
+}
+
+function extractHomeFooter(html) {
+  const start = html.indexOf('<footer class="site-footer home-footer">');
+  if (start < 0) return null;
+  const end = html.indexOf("</footer>", start);
+  return end < 0 ? null : html.slice(start, end + "</footer>".length);
+}
+
+test("pages opting into the homepage footer keep its exact shared content", async () => {
+  const [canonicalHtml, pages] = await Promise.all([
+    projectFile("index.html"),
+    allHtmlFiles(projectRoot),
+  ]);
+  const canonicalFooter = extractHomeFooter(canonicalHtml);
+  const matchingPages = [];
+
+  assert.ok(canonicalFooter, "the homepage must provide the canonical home footer");
+  for (const file of pages) {
+    const html = await readFile(file, "utf8");
+    if (!html.includes("site-footer home-footer")) continue;
+    const relativeFile = path.relative(projectRoot, file);
+    matchingPages.push(relativeFile);
+    assert.equal(extractHomeFooter(html), canonicalFooter, `${relativeFile} must match the homepage footer`);
+  }
+
+  assert.ok(matchingPages.length > 1, "the shared home footer must be used beyond the homepage");
+});
+
 test("public account links render one stable label without an authentication repaint", async () => {
   const pages = [
     "index.html",
