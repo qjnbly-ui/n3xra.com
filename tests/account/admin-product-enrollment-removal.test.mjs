@@ -11,7 +11,10 @@ test("account administration exposes a typed destructive enrollment action", asy
   ]);
 
   assert.match(admin, /promptAdminText/);
-  assert.match(admin, /platformAdminRole: context\.admin\?\.role/);
+  assert.match(admin, /async function loadAdminView\(adminContext\)/);
+  assert.match(admin, /platformAdminRole: adminContext\.admin\?\.role/);
+  assert.match(admin, /await loadAdminView\(context\)/);
+  assert.doesNotMatch(admin, /platformAdminRole: context\.admin\?\.role/);
   assert.match(controller, /canRemoveEnrollments = String\(context\.platformAdminRole/);
   assert.match(controller, /Delete app & data/);
   assert.match(controller, /Remove access/);

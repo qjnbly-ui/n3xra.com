@@ -629,7 +629,7 @@ export async function navigateAdminWorkspace(destination, {
       const notifications = await import("/account/notifications/notifications.js?v=13");
       await notifications.startNotifications();
     } else {
-      const admin = await import("/account/admin/admin.js?v=32");
+      const admin = await import("/account/admin/admin.js?v=33");
       await admin.startAdmin();
     }
   } finally {

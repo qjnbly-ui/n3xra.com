@@ -1,6 +1,6 @@
 import { hasConfig } from "/shared/lib/supabase-client.js";
 import { getAdminSession } from "/account/admin/admin-session.js";
-import { arrangeAdminWorkspace } from "/account/admin/admin-navigation.js?v=19";
+import { arrangeAdminWorkspace } from "/account/admin/admin-navigation.js?v=20";
 import { confirmAdminAction, promptAdminText } from "/account/admin/admin-dialogs.js";
 import { initializeAdminSelects } from "/account/admin/admin-select.js?v=1";
 
@@ -179,10 +179,10 @@ function selectInvestmentSection() {
 
 window.addEventListener("hashchange", selectInvestmentSection);
 
-async function loadAdminView() {
+async function loadAdminView(adminContext) {
   if (view === "accounts") {
     const accountsController = await import("/account/admin/controllers/accounts.js?v=3");
-    await accountsController.startAccounts({ supabase, invoke, escapeHtml, formatDate, formatPhone, providerLabel, setStatus, confirmAdminAction, promptAdminText, platformAdminRole: context.admin?.role });
+    await accountsController.startAccounts({ supabase, invoke, escapeHtml, formatDate, formatPhone, providerLabel, setStatus, confirmAdminAction, promptAdminText, platformAdminRole: adminContext.admin?.role });
   } else if (view === "files") {
     const files = await import("/account/admin/files/files.js?v=20");
     await files.startFiles({ supabase, session, invoke });
@@ -230,7 +230,7 @@ export async function startAdmin() {
   session = context.session;
   adminPanel?.classList.remove("hidden");
   arrangeAdminWorkspace();
-  await loadAdminView();
+  await loadAdminView(context);
   document.body.classList.add("admin-ready");
 }
 
