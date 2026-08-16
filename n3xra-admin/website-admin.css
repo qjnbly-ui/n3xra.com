@@ -74,6 +74,11 @@
 .website-admin-scroll-region .portal-access-panel:first-of-type { border-top:1px solid var(--website-admin-border); }
 .website-admin-scroll-region .portal-admin-record-section + .portal-admin-record-section,
 .website-admin-scroll-region .portal-access-panel + .portal-access-panel { margin-top:0; }
+.website-support-work-form { margin-top:1rem; padding-top:1rem; border-top:1px solid var(--website-admin-border); }
+.website-support-work-form .portal-form-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.website-support-work-form .website-support-work-wide { grid-column:1/-1; }
+.website-support-work-form .portal-form-actions { justify-content:flex-end; }
+.website-support-work-form .portal-inline-status { margin-right:auto; }
 .website-admin-scroll-region .portal-section-heading,
 .website-admin-scroll-region .portal-toolbar { align-items:flex-start; }
 .website-admin-scroll-region .portal-admin-editor { margin:.9rem 0 1rem; background:#f8fafb; border:1px solid var(--website-admin-border); border-radius:8px; }

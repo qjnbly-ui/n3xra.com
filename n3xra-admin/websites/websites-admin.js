@@ -80,6 +80,12 @@ const projectCreateProposal = document.getElementById("project-create-proposal")
 const projectProposalTitleWrap = document.getElementById("project-proposal-title-wrap");
 const projectProposalTitle = document.getElementById("project-proposal-title");
 const projectOpenOnboarding = document.getElementById("project-open-onboarding");
+const websiteSupportPanel = document.getElementById("website-support-work-panel");
+const websiteSupportCopy = document.getElementById("website-support-work-copy");
+const websiteSupportOpen = document.getElementById("website-support-work-open");
+const websiteSupportForm = document.getElementById("website-support-work-form");
+const websiteSupportCancel = document.getElementById("website-support-work-cancel");
+const websiteSupportStatus = document.getElementById("website-support-work-status");
 const adminUploadForm = document.getElementById("admin-asset-upload-form");
 const openAdminUploadButton = document.getElementById("open-admin-upload");
 const closeAdminUploadButton = document.getElementById("close-admin-upload");
@@ -324,6 +330,7 @@ function renderSelectedWebsite() {
     if (emptyState) emptyState.hidden = false;
     if (accessPanel) accessPanel.hidden = true;
     if (projectLinkPanel) projectLinkPanel.hidden = true;
+    if (websiteSupportPanel) websiteSupportPanel.hidden = true;
     if (openAdminUploadButton) openAdminUploadButton.hidden = true;
     return;
   }
@@ -340,6 +347,8 @@ function renderSelectedWebsite() {
   if (editSiteButton) editSiteButton.hidden = !selectedWebsite;
   if (accessPanel) accessPanel.hidden = false;
   if (projectLinkPanel) projectLinkPanel.hidden = false;
+  if (websiteSupportPanel) websiteSupportPanel.hidden = false;
+  if (websiteSupportCopy) websiteSupportCopy.textContent = `Create work that ${selectedWebsite.name} clients can follow in their portal.`;
   if (openAdminUploadButton) openAdminUploadButton.hidden = false;
 }
 
@@ -434,6 +443,39 @@ async function invokeProjectAdmin(body) {
   const { data, error } = await supabase.functions.invoke("website-project-admin", { body });
   if (error || data?.error) throw new Error(data?.error || error?.message || "Website project request failed.");
   return data;
+}
+
+function supportIsoValue(value) {
+  return value ? new Date(value).toISOString() : "";
+}
+
+async function createWebsiteSupportWork(event) {
+  event.preventDefault();
+  if (!selectedWebsite || !websiteSupportForm) return;
+  const submitButton = websiteSupportForm.querySelector('[type="submit"]');
+  submitButton.disabled = true;
+  websiteSupportStatus.textContent = "Creating client-visible work…";
+  try {
+    await invokeAdmin({
+      action: "create-support-work",
+      websiteId: selectedWebsite.id,
+      topic: document.getElementById("website-support-work-topic").value,
+      subject: document.getElementById("website-support-work-subject").value,
+      message: document.getElementById("website-support-work-message").value,
+      estimatedStartAt: supportIsoValue(document.getElementById("website-support-work-start").value),
+      estimatedCompletionAt: supportIsoValue(document.getElementById("website-support-work-completion").value),
+      clientNote: document.getElementById("website-support-work-note").value,
+    });
+    websiteSupportForm.reset();
+    websiteSupportForm.hidden = true;
+    websiteSupportStatus.textContent = "";
+    showToast(`Client-visible work created for ${selectedWebsite.name}.`);
+  } catch (error) {
+    websiteSupportStatus.textContent = error?.message || "Unable to create this work.";
+    websiteSupportStatus.classList.add("is-error");
+  } finally {
+    submitButton.disabled = false;
+  }
 }
 
 async function loadMembers() {
@@ -1596,6 +1638,18 @@ async function initWebsiteAdmin() {
       event.preventDefault();
       void createProjectProposal(proposalForm);
     });
+    websiteSupportOpen?.addEventListener("click", () => {
+      websiteSupportStatus.textContent = "";
+      websiteSupportStatus.classList.remove("is-error");
+      websiteSupportForm.hidden = false;
+      document.getElementById("website-support-work-subject")?.focus();
+    });
+    websiteSupportCancel?.addEventListener("click", () => {
+      websiteSupportForm.reset();
+      websiteSupportForm.hidden = true;
+      websiteSupportStatus.textContent = "";
+    });
+    websiteSupportForm?.addEventListener("submit", createWebsiteSupportWork);
     openSiteFormButton?.addEventListener("click", () => {
       editingWebsiteId = null;
       siteForm.reset();

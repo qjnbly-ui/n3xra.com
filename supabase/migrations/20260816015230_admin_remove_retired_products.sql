@@ -141,3 +141,4 @@ grant execute on function public.admin_user_storage_objects(uuid) to service_rol
 
 comment on function public.admin_user_storage_objects(uuid) is
 'Returns every Storage object owned by one Auth user for trusted account-deletion cleanup. Service-role only.';
+;

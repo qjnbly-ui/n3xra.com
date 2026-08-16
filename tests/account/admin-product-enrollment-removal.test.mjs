@@ -53,7 +53,7 @@ test("the removal transaction preserves shared data and protects paid workspaces
 
 test("Records removal is product-scoped and preserves website and Communications data", async () => {
   const [migration, edgeFunction, controller] = await Promise.all([
-    read("supabase/migrations/20260816014500_scope_records_enrollment_removal.sql"),
+    read("supabase/migrations/20260816014250_scope_records_enrollment_removal.sql"),
     read("supabase/functions/platform-admin/index.ts"),
     read("account/admin/controllers/accounts.js"),
   ]);
@@ -89,7 +89,7 @@ test("retired-product enrollments have isolated destructive controls", async () 
   const [controller, edgeFunction, migration] = await Promise.all([
     read("account/admin/controllers/accounts.js"),
     read("supabase/functions/platform-admin/index.ts"),
-    read("supabase/migrations/20260816014726_admin_remove_retired_products.sql"),
+    read("supabase/migrations/20260816015230_admin_remove_retired_products.sql"),
   ]);
 
   assert.match(controller, /\["records", "websites", "ai_music", "virals"\]\.includes\(item\.product\)/);

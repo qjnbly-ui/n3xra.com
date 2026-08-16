@@ -4,7 +4,8 @@ import { resolvePortalTenant, scopeWebsitesToPortalTenant } from "./tenant-conte
 interface WebsiteRow { id: string; name: string; organization_id: string | null }
 interface SupportRequest {
   id: string;
-  website_id: string;
+  website_id: string | null;
+  organization_id: string | null;
   topic: string;
   subject: string;
   message: string;
@@ -22,6 +23,8 @@ const openButton = document.querySelector<HTMLButtonElement>("#client-support-ne
 const closeButton = document.querySelector<HTMLButtonElement>("#client-support-close");
 const submitButton = document.querySelector<HTMLButtonElement>("#client-support-submit");
 const topicInput = document.querySelector<HTMLSelectElement>("#client-support-topic");
+const scopeInput = document.querySelector<HTMLSelectElement>("#client-support-scope");
+const websiteOption = document.querySelector<HTMLOptionElement>("#client-support-website-option");
 const subjectInput = document.querySelector<HTMLInputElement>("#client-support-subject");
 const messageInput = document.querySelector<HTMLTextAreaElement>("#client-support-message");
 const formStatus = document.querySelector<HTMLElement>("#client-support-form-status");
@@ -62,7 +65,9 @@ function timingLabel(request: SupportRequest): string {
 function render(): void {
   if (!list) return;
   const websiteId = currentWebsite()?.id;
-  const websiteRequests = requests.filter((request) => request.website_id === websiteId);
+  const organizationId = currentWebsite()?.organization_id || null;
+  if (websiteOption) websiteOption.textContent = currentWebsite() ? `${currentWebsite()?.name} website` : "Selected website";
+  const websiteRequests = requests.filter((request) => request.website_id === websiteId || (!request.website_id && (!request.organization_id || (organizationId && request.organization_id === organizationId))));
   const active = websiteRequests.filter((request) => !isPast(request));
   const past = websiteRequests.filter(isPast);
   if (activeCount) activeCount.textContent = String(active.length);
@@ -80,16 +85,14 @@ function render(): void {
 }
 
 async function loadRequests(): Promise<void> {
-  const websiteIds = websites.map((website) => website.id);
-  if (!websiteIds.length) {
+  if (!websites.length) {
     requests = [];
     updates = [];
     render();
     return;
   }
   const { data, error } = await supabase.from("platform_support_requests")
-    .select("id,website_id,topic,subject,message,status,origin,estimated_start_at,estimated_completion_at,created_at,updated_at")
-    .in("website_id", websiteIds)
+    .select("id,website_id,organization_id,topic,subject,message,status,origin,estimated_start_at,estimated_completion_at,created_at,updated_at")
     .eq("client_visible", true)
     .order("updated_at", { ascending: false });
   if (error) throw error;
@@ -123,7 +126,7 @@ async function submitRequest(event: SubmitEvent): Promise<void> {
     requester_email: email,
     organization_name: website.name,
     organization_id: website.organization_id,
-    website_id: website.id,
+    website_id: scopeInput?.value === "website" ? website.id : null,
     topic: topicInput.value,
     subject: subjectInput.value.trim(),
     message: messageInput.value.trim(),

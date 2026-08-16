@@ -1968,7 +1968,7 @@ Deno.serve(async (request) => {
     }
 
     if (action === "list-support-requests") {
-      const [requestResult, updateResult, websiteResult] = await Promise.all([
+      const [requestResult, updateResult, websiteResult, organizationResult, accountResult] = await Promise.all([
         adminClient
           .from("platform_support_requests")
           .select("id, requester_user_id, requester_name, requester_email, organization_name, topic, subject, message, status, priority, assigned_to_user_id, internal_notes, source, origin, website_id, organization_id, client_visible, estimated_start_at, estimated_completion_at, email_message_id, created_at, updated_at, resolved_at")
@@ -1984,44 +1984,86 @@ Deno.serve(async (request) => {
           .select("id, name, organization_id, status")
           .not("status", "eq", "archived")
           .order("name"),
+        adminClient
+          .from("organizations")
+          .select("id, name, owner_user_id, account_status")
+          .order("name"),
+        adminClient
+          .from("profiles")
+          .select("id, full_name, email")
+          .order("full_name")
+          .limit(2000),
       ]);
       if (requestResult.error) return jsonResponse({ error: requestResult.error.message }, 400);
       if (updateResult.error) return jsonResponse({ error: updateResult.error.message }, 400);
       if (websiteResult.error) return jsonResponse({ error: websiteResult.error.message }, 400);
+      if (organizationResult.error) return jsonResponse({ error: organizationResult.error.message }, 400);
+      if (accountResult.error) return jsonResponse({ error: accountResult.error.message }, 400);
       return jsonResponse({
         ok: true,
         requests: requestResult.data || [],
         updates: updateResult.data || [],
         websites: websiteResult.data || [],
+        organizations: organizationResult.data || [],
+        accounts: accountResult.data || [],
         count: requestResult.data?.length || 0,
       });
     }
 
     if (action === "create-support-work") {
       const websiteId = String(payload.websiteId || "").trim();
+      const organizationId = String(payload.organizationId || "").trim();
+      const requesterUserId = String(payload.requesterUserId || "").trim();
       const topic = String(payload.topic || "other").trim().toLowerCase().slice(0, 80);
       const subject = String(payload.subject || "").trim().slice(0, 140);
       const message = String(payload.message || "").trim().slice(0, 4000);
       const clientNote = String(payload.clientNote || "").trim().slice(0, 8000);
       const estimatedStartAt = String(payload.estimatedStartAt || "").trim();
       const estimatedCompletionAt = String(payload.estimatedCompletionAt || "").trim();
-      if (!isValidUuid(websiteId)) return jsonResponse({ error: "A valid website is required." }, 400);
+      if (websiteId && !isValidUuid(websiteId)) return jsonResponse({ error: "The related website is invalid." }, 400);
+      if (organizationId && !isValidUuid(organizationId)) return jsonResponse({ error: "The related organization is invalid." }, 400);
+      if (requesterUserId && !isValidUuid(requesterUserId)) return jsonResponse({ error: "The client account is invalid." }, 400);
+      if (!websiteId && !organizationId && !requesterUserId) return jsonResponse({ error: "Choose a client account, organization, or website." }, 400);
       if (!subject || !message) return jsonResponse({ error: "A title and work description are required." }, 400);
       if (estimatedStartAt && Number.isNaN(Date.parse(estimatedStartAt))) return jsonResponse({ error: "The estimated start is invalid." }, 400);
       if (estimatedCompletionAt && Number.isNaN(Date.parse(estimatedCompletionAt))) return jsonResponse({ error: "The estimated completion is invalid." }, 400);
-      const { data: website, error: websiteError } = await adminClient
-        .from("client_websites")
-        .select("id, name, organization_id")
-        .eq("id", websiteId)
-        .maybeSingle();
-      if (websiteError) return jsonResponse({ error: websiteError.message }, 400);
-      if (!website) return jsonResponse({ error: "Website not found." }, 404);
+      const [websiteResult, organizationResult, accountResult] = await Promise.all([
+        websiteId
+          ? adminClient.from("client_websites").select("id, name, organization_id").eq("id", websiteId).maybeSingle()
+          : Promise.resolve({ data: null, error: null }),
+        organizationId
+          ? adminClient.from("organizations").select("id, name").eq("id", organizationId).maybeSingle()
+          : Promise.resolve({ data: null, error: null }),
+        requesterUserId
+          ? adminClient.from("profiles").select("id, full_name, email").eq("id", requesterUserId).maybeSingle()
+          : Promise.resolve({ data: null, error: null }),
+      ]);
+      if (websiteResult.error) return jsonResponse({ error: websiteResult.error.message }, 400);
+      if (organizationResult.error) return jsonResponse({ error: organizationResult.error.message }, 400);
+      if (accountResult.error) return jsonResponse({ error: accountResult.error.message }, 400);
+      const website = websiteResult.data;
+      const account = accountResult.data;
+      let organization = organizationResult.data;
+      if (websiteId && !website) return jsonResponse({ error: "Website not found." }, 404);
+      if (organizationId && !organization) return jsonResponse({ error: "Organization not found." }, 404);
+      if (requesterUserId && !account) return jsonResponse({ error: "Client account not found." }, 404);
+      if (website?.organization_id) {
+        if (organization && organization.id !== website.organization_id) return jsonResponse({ error: "The website does not belong to the selected organization." }, 400);
+        if (!organization) {
+          const derivedOrganization = await adminClient.from("organizations").select("id, name").eq("id", website.organization_id).maybeSingle();
+          if (derivedOrganization.error) return jsonResponse({ error: derivedOrganization.error.message }, 400);
+          organization = derivedOrganization.data;
+        }
+      }
+      const requesterEmail = String(account?.email || "support@n3xra.com").trim().toLowerCase();
+      const requesterName = String(account?.full_name || account?.email || "N3XRA").trim();
       const { data: requestRow, error: requestError } = await adminClient
         .from("platform_support_requests")
         .insert({
-          requester_name: "N3XRA",
-          requester_email: "support@n3xra.com",
-          organization_name: website.name,
+          requester_user_id: account?.id || null,
+          requester_name: requesterName,
+          requester_email: requesterEmail,
+          organization_name: organization?.name || website?.name || "General N3XRA account",
           topic,
           subject,
           message,
@@ -2030,8 +2072,8 @@ Deno.serve(async (request) => {
           assigned_to_user_id: user.id,
           source: "platform_admin",
           origin: "n3xra",
-          website_id: website.id,
-          organization_id: website.organization_id,
+          website_id: website?.id || null,
+          organization_id: organization?.id || website?.organization_id || null,
           client_visible: true,
           estimated_start_at: estimatedStartAt || null,
           estimated_completion_at: estimatedCompletionAt || null,

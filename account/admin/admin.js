@@ -208,7 +208,7 @@ async function loadAdminView(adminContext) {
     const operations = await import("/account/admin/operations/operations.js?v=12");
     await operations.startOperations({ supabase, session, invoke });
   } else if (view === "support") {
-    const supportController = await import("/account/admin/controllers/support.js?v=2");
+    const supportController = await import("/account/admin/controllers/support.js?v=3");
     await supportController.startSupport({ invoke, escapeHtml, formatDate, setStatus });
   } else if (view === "platform-admins") {
     const platformAdmins = await import("/account/admin/controllers/platform-admins.js?v=2");

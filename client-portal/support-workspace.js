@@ -5,6 +5,8 @@ const openButton = document.querySelector("#client-support-new");
 const closeButton = document.querySelector("#client-support-close");
 const submitButton = document.querySelector("#client-support-submit");
 const topicInput = document.querySelector("#client-support-topic");
+const scopeInput = document.querySelector("#client-support-scope");
+const websiteOption = document.querySelector("#client-support-website-option");
 const subjectInput = document.querySelector("#client-support-subject");
 const messageInput = document.querySelector("#client-support-message");
 const formStatus = document.querySelector("#client-support-form-status");
@@ -45,7 +47,10 @@ function render() {
     if (!list)
         return;
     const websiteId = currentWebsite()?.id;
-    const websiteRequests = requests.filter((request) => request.website_id === websiteId);
+    const organizationId = currentWebsite()?.organization_id || null;
+    if (websiteOption)
+        websiteOption.textContent = currentWebsite() ? `${currentWebsite()?.name} website` : "Selected website";
+    const websiteRequests = requests.filter((request) => request.website_id === websiteId || (!request.website_id && (!request.organization_id || (organizationId && request.organization_id === organizationId))));
     const active = websiteRequests.filter((request) => !isPast(request));
     const past = websiteRequests.filter(isPast);
     if (activeCount)
@@ -64,16 +69,14 @@ function render() {
     }).join("") : `<div class="client-support-empty"><strong>${filter === "past" ? "No completed work yet" : "No active requests"}</strong><p>${filter === "past" ? "Completed and closed items will stay available here." : "Send a request whenever you would like N3XRA to work on something."}</p></div>`;
 }
 async function loadRequests() {
-    const websiteIds = websites.map((website) => website.id);
-    if (!websiteIds.length) {
+    if (!websites.length) {
         requests = [];
         updates = [];
         render();
         return;
     }
     const { data, error } = await supabase.from("platform_support_requests")
-        .select("id,website_id,topic,subject,message,status,origin,estimated_start_at,estimated_completion_at,created_at,updated_at")
-        .in("website_id", websiteIds)
+        .select("id,website_id,organization_id,topic,subject,message,status,origin,estimated_start_at,estimated_completion_at,created_at,updated_at")
         .eq("client_visible", true)
         .order("updated_at", { ascending: false });
     if (error)
@@ -111,7 +114,7 @@ async function submitRequest(event) {
         requester_email: email,
         organization_name: website.name,
         organization_id: website.organization_id,
-        website_id: website.id,
+        website_id: scopeInput?.value === "website" ? website.id : null,
         topic: topicInput.value,
         subject: subjectInput.value.trim(),
         message: messageInput.value.trim(),

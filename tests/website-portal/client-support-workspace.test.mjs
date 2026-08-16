@@ -16,11 +16,14 @@ test("the client Support view is a request and work tracker", async () => {
   assert.match(html, /id="client-support-form"/);
   assert.match(html, /Site analytics/);
   assert.match(html, /Communications/);
+  assert.match(html, /General account/);
+  assert.match(html, /Records/);
   assert.match(html, /data-client-support-filter="active"/);
   assert.match(html, /data-client-support-filter="past"/);
   assert.match(source, /platform_support_requests/);
   assert.match(source, /platform_support_request_updates/);
   assert.match(source, /Started by N3XRA/);
+  assert.match(source, /scopeInput\?\.value === "website"/);
   assert.match(source, /day\$\{days === 1 \? "" : "s"\} remaining/);
   assert.doesNotMatch(source, /internal_notes/);
   assert.match(styles, /client-support-update/);
@@ -41,6 +44,28 @@ test("client-visible support records are tenant-scoped and keep internal notes p
   assert.match(migration, /grant insert \([\s\S]*requester_user_id[\s\S]*origin[\s\S]*\) on public\.platform_support_requests to authenticated/);
   assert.doesNotMatch(migration.match(/grant insert \([\s\S]*?\) on public\.platform_support_requests to authenticated/)?.[0] || "", /internal_notes/);
   assert.match(migration, /visible_to_client = true/);
+});
+
+test("general support work can be scoped to an account, organization, or website", async () => {
+  const [migration, adminHtml, controller, edgeFunction, websiteHtml, websiteAdmin] = await Promise.all([
+    projectFile("supabase/migrations/20260816051240_general_support_work_targets.sql"),
+    projectFile("account/admin/support/index.html"),
+    projectFile("account/admin/controllers/support.js"),
+    projectFile("supabase/functions/platform-admin/index.ts"),
+    projectFile("n3xra-admin/websites/index.html"),
+    projectFile("n3xra-admin/websites/websites-admin.js"),
+  ]);
+
+  assert.match(migration, /public\.can_view_organization\(organization_id\)/);
+  assert.match(migration, /website_id is null/);
+  assert.match(adminHtml, /id="support-work-account"/);
+  assert.match(adminHtml, /id="support-work-context"/);
+  assert.match(controller, /General N3XRA account/);
+  assert.match(controller, /requesterUserId/);
+  assert.match(edgeFunction, /organizations: organizationResult\.data/);
+  assert.match(edgeFunction, /accounts: accountResult\.data/);
+  assert.match(websiteHtml, /id="website-support-work-form"/);
+  assert.match(websiteAdmin, /createWebsiteSupportWork/);
 });
 
 test("administrators can start work and publish estimates and timeline notes", async () => {

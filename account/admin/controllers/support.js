@@ -1,6 +1,8 @@
 let supportRequests = [];
 let supportUpdates = [];
 let supportWebsites = [];
+let supportOrganizations = [];
+let supportAccounts = [];
 let invoke;
 let escapeHtml;
 let formatDate;
@@ -152,8 +154,14 @@ async function loadSupport() {
   supportRequests = data.requests || [];
   supportUpdates = data.updates || [];
   supportWebsites = data.websites || [];
-  const workWebsiteSelect = document.getElementById("support-work-website");
-  if (workWebsiteSelect) workWebsiteSelect.innerHTML = supportWebsites.map((website) => `<option value="${escapeHtml(website.id)}">${escapeHtml(website.name)}</option>`).join("");
+  supportOrganizations = data.organizations || [];
+  supportAccounts = data.accounts || [];
+  const workAccountSelect = document.getElementById("support-work-account");
+  if (workAccountSelect) workAccountSelect.innerHTML = supportAccounts.length
+    ? `<option value="">Choose a client account</option>${supportAccounts.map((account) => `<option value="${escapeHtml(account.id)}">${escapeHtml(account.full_name || account.email || "Unnamed account")}${account.full_name && account.email ? ` — ${escapeHtml(account.email)}` : ""}</option>`).join("")}`
+    : '<option value="">No client accounts available</option>';
+  const workContextSelect = document.getElementById("support-work-context");
+  if (workContextSelect) workContextSelect.innerHTML = `<option value="">General N3XRA account</option><optgroup label="Organizations">${supportOrganizations.map((organization) => `<option value="organization:${escapeHtml(organization.id)}">${escapeHtml(organization.name)}</option>`).join("")}</optgroup><optgroup label="Websites">${supportWebsites.map((website) => `<option value="website:${escapeHtml(website.id)}">${escapeHtml(website.name)}</option>`).join("")}</optgroup>`;
   const params = new URLSearchParams(window.location.search);
   const requestedEmail = String(params.get("email") || "").trim().toLowerCase();
   const requestedUser = String(params.get("user") || "").trim();
@@ -197,8 +205,11 @@ export async function startSupport(context = {}) {
     const modalStatus = document.getElementById("support-work-status");
     if (modalStatus) modalStatus.textContent = "Creating client-visible work…";
     try {
+      const [contextType, contextId] = String(document.getElementById("support-work-context").value || "").split(":");
       await invoke("create-support-work", {
-        websiteId: document.getElementById("support-work-website").value,
+        requesterUserId: document.getElementById("support-work-account").value,
+        organizationId: contextType === "organization" ? contextId : "",
+        websiteId: contextType === "website" ? contextId : "",
         topic: document.getElementById("support-work-topic").value,
         subject: document.getElementById("support-work-subject").value,
         message: document.getElementById("support-work-message").value,

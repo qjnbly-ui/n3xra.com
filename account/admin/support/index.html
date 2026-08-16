@@ -52,8 +52,9 @@
     <div class="platform-admin-dialog-head"><div><p class="portal-kicker">N3XRA-initiated work</p><h2 id="support-work-title">Start work for a client</h2></div><button class="platform-admin-dialog-close" id="support-work-close" type="button" aria-label="Close">×</button></div>
     <p class="platform-admin-dialog-copy">Create work the client can follow even when they did not submit the original request.</p>
     <form class="platform-admin-invite-form" id="support-work-form">
-      <label class="account-admin-field"><span>Website</span><select id="support-work-website" required></select></label>
-      <label class="account-admin-field"><span>Type</span><select id="support-work-topic"><option value="website-change">Website change</option><option value="analytics">Site analytics</option><option value="communications">Communications</option><option value="new-feature">New feature or idea</option><option value="technical-support">Technical support</option><option value="other">Other</option></select></label>
+      <label class="account-admin-field"><span>Client account</span><select id="support-work-account" required></select></label>
+      <label class="account-admin-field"><span>Related area</span><select id="support-work-context"><option value="">General N3XRA account</option></select></label>
+      <label class="account-admin-field"><span>Type</span><select id="support-work-topic"><option value="general-support">General support</option><option value="account-access">Account or access</option><option value="billing">Billing</option><option value="communications">Communications</option><option value="records">Records</option><option value="website-change">Website</option><option value="analytics">Analytics</option><option value="new-feature">New feature or idea</option><option value="technical-support">Technical support</option><option value="other">Other</option></select></label>
       <label class="account-admin-field"><span>Title</span><input id="support-work-subject" maxlength="140" required placeholder="Configure site analytics"></label>
       <label class="account-admin-field"><span>Work description</span><textarea id="support-work-message" rows="4" maxlength="4000" required></textarea></label>
       <div class="support-control-grid"><label class="account-admin-field"><span>Estimated start</span><input id="support-work-start" type="datetime-local"></label><label class="account-admin-field"><span>Estimated completion</span><input id="support-work-completion" type="datetime-local"></label></div>
@@ -62,6 +63,6 @@
       <p class="platform-admin-modal-status" id="support-work-status" role="status"></p>
     </form>
   </dialog>
-  <script type="module" src="/account/admin/admin.js?v=35"></script>
+  <script type="module" src="/account/admin/admin.js?v=36"></script>
 </body>
 </html>

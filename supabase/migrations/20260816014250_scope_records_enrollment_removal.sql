@@ -230,3 +230,4 @@ grant execute on function public.admin_remove_records_enrollment(uuid, uuid, boo
 
 comment on function public.admin_remove_records_enrollment(uuid, uuid, boolean) is
 'Removes Records access or Records-owned data without deleting the shared organization, website, Communications data, contacts, memberships, or branding.';
+;

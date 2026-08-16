@@ -190,10 +190,11 @@
             </div>
             <form class="client-support-form" id="client-support-form" hidden>
               <div class="client-support-form-head"><div><p class="portal-kicker">New request</p><h3>Tell us what you need.</h3></div><button class="client-support-close" id="client-support-close" type="button" aria-label="Close request form">×</button></div>
-              <label><span>Request type</span><select id="client-support-topic" required><option value="">Choose one</option><option value="website-change">Website change</option><option value="analytics">Site analytics</option><option value="communications">Communications</option><option value="billing">Billing</option><option value="account-access">Account or access</option><option value="new-feature">New feature or idea</option><option value="technical-support">Technical support</option><option value="other">Other</option></select></label>
+              <label><span>Related area</span><select id="client-support-scope"><option value="organization">General account</option><option value="website" id="client-support-website-option">Selected website</option></select></label>
+              <label><span>Request type</span><select id="client-support-topic" required><option value="">Choose one</option><option value="general-support">General support</option><option value="account-access">Account or access</option><option value="billing">Billing</option><option value="communications">Communications</option><option value="records">Records</option><option value="website-change">Website change</option><option value="analytics">Site analytics</option><option value="new-feature">New feature or idea</option><option value="technical-support">Technical support</option><option value="other">Other</option></select></label>
               <label><span>What would you like done?</span><input id="client-support-subject" type="text" maxlength="140" placeholder="We would like site analytics" required></label>
               <label><span>Details</span><textarea id="client-support-message" maxlength="4000" rows="5" placeholder="Describe what you would like, what should happen, and anything else we should know." required></textarea></label>
-              <div class="client-support-form-actions"><p>Your request will be connected to the website currently selected.</p><button class="portal-button" id="client-support-submit" type="submit">Send request</button></div>
+              <div class="client-support-form-actions"><p>Choose whether this is general or connected to the selected website.</p><button class="portal-button" id="client-support-submit" type="submit">Send request</button></div>
               <p class="portal-inline-status" id="client-support-form-status" role="status"></p>
             </form>
             <div class="client-support-tabs" role="tablist" aria-label="Request status"><button class="is-current" type="button" data-client-support-filter="active" role="tab" aria-selected="true">Active <span id="client-support-active-count">0</span></button><button type="button" data-client-support-filter="past" role="tab" aria-selected="false">Past <span id="client-support-past-count">0</span></button></div>
@@ -307,7 +308,7 @@
   <script type="module" src="/client-portal/client-shell.js?v=11"></script>
   <script type="module" src="/client-portal/portal-shell.js?v=4"></script>
   <script type="module" src="/client-portal/portal-apps.js?v=5"></script>
-  <script type="module" src="/client-portal/support-workspace.js?v=1"></script>
+  <script type="module" src="/client-portal/support-workspace.js?v=2"></script>
   <script type="module" src="/client-portal/portal.js?v=21"></script>
   <script type="module" src="/website-request/request.js?v=14"></script>
 </body>
