@@ -12,8 +12,9 @@
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/site-nav.css?v=4">
   <link rel="stylesheet" href="/client-portal/portal.css?v=17">
-  <link rel="stylesheet" href="/client-portal/client-shell.css?v=7">
+  <link rel="stylesheet" href="/client-portal/client-shell.css?v=8">
   <link rel="stylesheet" href="/client-portal/portal-apps.css?v=1">
+  <link rel="stylesheet" href="/client-portal/support-workspace.css?v=2">
   <link rel="stylesheet" href="/client-portal/assets-manager.css?v=12">
   <link rel="stylesheet" href="/website-request/request.css?v=9">
   <script src="/shared/config.js"></script>
@@ -182,23 +183,22 @@
         </div>
 
         <div class="portal-view" id="portal-view-support" data-portal-panel="support" hidden>
-          <div class="portal-workspace-head">
-            <div>
-              <p class="portal-kicker">Client support</p>
-              <h2>Website Support</h2>
-              <p>Get help with the selected website, account access, billing, or an active project.</p>
+          <section class="client-support-workspace" aria-labelledby="client-support-heading">
+            <div class="client-support-intro">
+              <div><p class="portal-kicker">Requests &amp; work</p><h2 id="client-support-heading">What should we work on?</h2><p>Request a change, feature, or service and follow it here from submission through completion.</p></div>
+              <button class="portal-button" id="client-support-new" type="button">New request</button>
             </div>
-          </div>
-
-          <section class="portal-overview-summary">
-            <div class="portal-overview-summary-main">
-              <div>
-                <p class="portal-kicker">Support center</p>
-                <h3>How can we help?</h3>
-                <p>Send the details through the support center and we’ll connect the request to the right team.</p>
-              </div>
-              <a class="portal-button" href="/support/">Open support center</a>
-            </div>
+            <form class="client-support-form" id="client-support-form" hidden>
+              <div class="client-support-form-head"><div><p class="portal-kicker">New request</p><h3>Tell us what you need.</h3></div><button class="client-support-close" id="client-support-close" type="button" aria-label="Close request form">×</button></div>
+              <label><span>Request type</span><select id="client-support-topic" required><option value="">Choose one</option><option value="website-change">Website change</option><option value="analytics">Site analytics</option><option value="communications">Communications</option><option value="billing">Billing</option><option value="account-access">Account or access</option><option value="new-feature">New feature or idea</option><option value="technical-support">Technical support</option><option value="other">Other</option></select></label>
+              <label><span>What would you like done?</span><input id="client-support-subject" type="text" maxlength="140" placeholder="We would like site analytics" required></label>
+              <label><span>Details</span><textarea id="client-support-message" maxlength="4000" rows="5" placeholder="Describe what you would like, what should happen, and anything else we should know." required></textarea></label>
+              <div class="client-support-form-actions"><p>Your request will be connected to the website currently selected.</p><button class="portal-button" id="client-support-submit" type="submit">Send request</button></div>
+              <p class="portal-inline-status" id="client-support-form-status" role="status"></p>
+            </form>
+            <div class="client-support-tabs" role="tablist" aria-label="Request status"><button class="is-current" type="button" data-client-support-filter="active" role="tab" aria-selected="true">Active <span id="client-support-active-count">0</span></button><button type="button" data-client-support-filter="past" role="tab" aria-selected="false">Past <span id="client-support-past-count">0</span></button></div>
+            <div class="client-support-list" id="client-support-list"><div class="client-support-empty"><strong>Loading requests…</strong></div></div>
+            <p class="portal-inline-status" id="client-support-status" role="status"></p>
           </section>
         </div>
 
@@ -304,9 +304,10 @@
   </main>
 
   <div class="portal-status" id="portal-status" role="status">Opening your website portal…</div>
-  <script type="module" src="/client-portal/client-shell.js?v=10"></script>
+  <script type="module" src="/client-portal/client-shell.js?v=11"></script>
   <script type="module" src="/client-portal/portal-shell.js?v=4"></script>
   <script type="module" src="/client-portal/portal-apps.js?v=5"></script>
+  <script type="module" src="/client-portal/support-workspace.js?v=1"></script>
   <script type="module" src="/client-portal/portal.js?v=21"></script>
   <script type="module" src="/website-request/request.js?v=14"></script>
 </body>

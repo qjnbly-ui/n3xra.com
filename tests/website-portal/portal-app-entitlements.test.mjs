@@ -98,6 +98,8 @@ test("client navigation separates apps from the website workspace", async () => 
   assert.match(workspaceContext, /updateWebsiteReturnLink/);
   assert.match(workspaceContext, /actions\.prepend\(returnLink\)/);
   assert.match(workspaceContext, /Return to Website/);
+  assert.match(workspaceContext, /Return to Dashboard/);
+  assert.match(workspaceContext, /brandedPortal \? websiteUrl : "\/account\/"/);
   assert.doesNotMatch(workspaceContext, /client-organization-links/);
   assert.match(styles, /website-organization-navigation p\.is-separated/);
   assert.match(styles, /\.client-website-return-link/);

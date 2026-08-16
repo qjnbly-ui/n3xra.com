@@ -1,4 +1,6 @@
 let supportRequests = [];
+let supportUpdates = [];
+let supportWebsites = [];
 let invoke;
 let escapeHtml;
 let formatDate;
@@ -14,6 +16,17 @@ function supportInitials(request) {
 
 function supportStatusLabel(value) {
   return String(value || "unknown").replaceAll("_", " ");
+}
+
+function datetimeLocalValue(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Date(date.getTime() - (date.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
+}
+
+function isoValue(value) {
+  return value ? new Date(value).toISOString() : "";
 }
 
 function renderSupportOptions() {
@@ -63,16 +76,18 @@ function renderSelectedSupport() {
   const accountParams = new URLSearchParams({ email: request.requester_email || "" });
   if (request.requester_user_id) accountParams.set("user", request.requester_user_id);
   const mailSubject = encodeURIComponent(`Re: ${request.subject || "N3XRA support request"}`);
+  const clientUpdates = supportUpdates.filter((update) => update.request_id === request.id && update.visible_to_client);
   detail.innerHTML = `
     <header class="support-detail-head">
       <div class="support-request-identity"><span class="support-request-avatar is-large" aria-hidden="true">${escapeHtml(supportInitials(request))}</span><div><p class="portal-kicker">${escapeHtml(request.topic || "Support request")}</p><h2>${escapeHtml(request.subject || "Support request")}</h2><p>${escapeHtml(request.requester_name || "Unknown requester")} · ${escapeHtml(request.requester_email || "No email")}</p><span class="support-case-state is-${escapeHtml(request.status || "new")}">${escapeHtml(supportStatusLabel(request.status))}</span></div></div>
-      <div class="support-detail-actions"><a class="portal-button portal-button-secondary" href="/account/admin/accounts/?${escapeHtml(accountParams.toString())}">Account oversight</a><a class="portal-button" href="mailto:${escapeHtml(request.requester_email || "")}?subject=${mailSubject}">Reply by email</a></div>
+      <div class="support-detail-actions"><a class="portal-button portal-button-secondary" href="/account/admin/accounts/?${escapeHtml(accountParams.toString())}">Account oversight</a>${request.origin === "n3xra" ? "" : `<a class="portal-button" href="mailto:${escapeHtml(request.requester_email || "")}?subject=${mailSubject}">Reply by email</a>`}</div>
     </header>
     <div class="support-detail-facts">
       <div><span>Status</span><strong>${escapeHtml(supportStatusLabel(request.status))}</strong></div>
       <div><span>Priority</span><strong>${escapeHtml(request.priority || "normal")}</strong></div>
       <div><span>Received</span><strong>${escapeHtml(formatDate(request.created_at))}</strong></div>
       <div><span>Last updated</span><strong>${escapeHtml(formatDate(request.updated_at))}</strong></div>
+      <div><span>Estimated completion</span><strong>${escapeHtml(formatDate(request.estimated_completion_at))}</strong></div>
     </div>
     <section class="support-detail-section">
       <div class="support-section-heading"><div><p class="portal-kicker">Customer message</p><h3>Request details</h3></div></div>
@@ -83,10 +98,15 @@ function renderSelectedSupport() {
       <div class="support-context-rows">
         <div><span>Organization</span><strong>${escapeHtml(request.organization_name || "Not provided")}</strong></div>
         <div><span>Topic</span><strong>${escapeHtml(request.topic || "General support")}</strong></div>
-        <div><span>Source</span><strong>${escapeHtml(request.source || "Platform support")}</strong></div>
+        <div><span>Source</span><strong>${escapeHtml(request.origin === "n3xra" ? "Started by N3XRA" : request.source || "Platform support")}</strong></div>
+        <div><span>Client visibility</span><strong>${request.client_visible ? "Visible in client portal" : "Private support case"}</strong></div>
         <div><span>Case ID</span><strong class="support-identifier">${escapeHtml(request.id)}</strong></div>
         ${request.resolved_at ? `<div><span>Resolved</span><strong>${escapeHtml(formatDate(request.resolved_at))}</strong></div>` : ""}
       </div>
+    </section>
+    <section class="support-detail-section">
+      <div class="support-section-heading"><div><p class="portal-kicker">Client timeline</p><h3>Visible updates</h3><p>These notes appear with the request in the client portal. Internal notes remain private.</p></div></div>
+      <div class="support-client-update-list">${clientUpdates.length ? clientUpdates.map((update) => `<div class="support-client-update"><p>${escapeHtml(update.message)}</p><small>${escapeHtml(formatDate(update.created_at))}</small></div>`).join("") : "<p>No client-visible updates yet.</p>"}</div>
     </section>
     <section class="support-detail-section">
       <div class="support-section-heading"><div><p class="portal-kicker">Case management</p><h3>Status and internal notes</h3><p>These notes remain inside the admin workspace and are not included in the customer email.</p></div></div>
@@ -94,7 +114,10 @@ function renderSelectedSupport() {
         <div class="support-control-grid">
           <label class="account-admin-field"><span>Status</span><select id="support-status">${["new","in_progress","waiting","resolved","closed"].map((value) => `<option value="${value}"${(request.status || "new") === value ? " selected" : ""}>${supportStatusLabel(value)}</option>`).join("")}</select></label>
           <label class="account-admin-field"><span>Priority</span><select id="support-priority">${["low","normal","high","urgent"].map((value) => `<option value="${value}"${(request.priority || "normal") === value ? " selected" : ""}>${value}</option>`).join("")}</select></label>
+          <label class="account-admin-field"><span>Estimated start</span><input id="support-estimated-start" type="datetime-local" value="${escapeHtml(datetimeLocalValue(request.estimated_start_at))}"></label>
+          <label class="account-admin-field"><span>Estimated completion</span><input id="support-estimated-completion" type="datetime-local" value="${escapeHtml(datetimeLocalValue(request.estimated_completion_at))}"></label>
         </div>
+        <label class="account-admin-field"><span>New client-visible update</span><textarea id="support-client-note" rows="4" placeholder="Tell the client what changed, what you are doing, or what happens next"></textarea></label>
         <label class="account-admin-field"><span>Internal notes</span><textarea id="support-notes" rows="7" placeholder="Add investigation notes, decisions, or follow-up context">${escapeHtml(request.internal_notes || "")}</textarea></label>
         <div class="support-form-actions"><span>Saving updates this case immediately.</span><button class="portal-button" type="submit">Save case</button></div>
       </form>
@@ -108,9 +131,13 @@ function renderSelectedSupport() {
         requestId: request.id,
         status: document.getElementById("support-status").value,
         priority: document.getElementById("support-priority").value,
+        estimatedStartAt: isoValue(document.getElementById("support-estimated-start").value),
+        estimatedCompletionAt: isoValue(document.getElementById("support-estimated-completion").value),
+        clientNote: document.getElementById("support-client-note").value,
         internalNotes: document.getElementById("support-notes").value,
       });
       supportRequests = supportRequests.map((item) => item.id === request.id ? { ...item, ...data.request } : item);
+      if (data.clientUpdate) supportUpdates.push(data.clientUpdate);
       renderSupportOptions();
       setStatus("Support request updated.", "success");
     } catch (error) {
@@ -123,6 +150,10 @@ async function loadSupport() {
   setStatus("Loading support requests…");
   const data = await invoke("list-support-requests");
   supportRequests = data.requests || [];
+  supportUpdates = data.updates || [];
+  supportWebsites = data.websites || [];
+  const workWebsiteSelect = document.getElementById("support-work-website");
+  if (workWebsiteSelect) workWebsiteSelect.innerHTML = supportWebsites.map((website) => `<option value="${escapeHtml(website.id)}">${escapeHtml(website.name)}</option>`).join("");
   const params = new URLSearchParams(window.location.search);
   const requestedEmail = String(params.get("email") || "").trim().toLowerCase();
   const requestedUser = String(params.get("user") || "").trim();
@@ -154,6 +185,35 @@ export async function startSupport(context = {}) {
     const select = document.getElementById("support-select");
     if (select) select.value = button.dataset.supportRequestId || "";
     renderSupportOptions();
+  });
+  const workDialog = document.getElementById("support-work-dialog");
+  const workForm = document.getElementById("support-work-form");
+  const closeWorkDialog = () => workDialog?.close();
+  document.getElementById("support-new-work")?.addEventListener("click", () => workDialog?.showModal());
+  document.getElementById("support-work-close")?.addEventListener("click", closeWorkDialog);
+  document.getElementById("support-work-cancel")?.addEventListener("click", closeWorkDialog);
+  workForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const modalStatus = document.getElementById("support-work-status");
+    if (modalStatus) modalStatus.textContent = "Creating client-visible work…";
+    try {
+      await invoke("create-support-work", {
+        websiteId: document.getElementById("support-work-website").value,
+        topic: document.getElementById("support-work-topic").value,
+        subject: document.getElementById("support-work-subject").value,
+        message: document.getElementById("support-work-message").value,
+        estimatedStartAt: isoValue(document.getElementById("support-work-start").value),
+        estimatedCompletionAt: isoValue(document.getElementById("support-work-completion").value),
+        clientNote: document.getElementById("support-work-note").value,
+      });
+      workForm.reset();
+      if (modalStatus) modalStatus.textContent = "";
+      closeWorkDialog();
+      await loadSupport();
+      setStatus("Client-visible work created.", "success");
+    } catch (error) {
+      if (modalStatus) modalStatus.textContent = error.message;
+    }
   });
   await loadSupport();
 }

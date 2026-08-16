@@ -11,7 +11,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&amp;family=Manrope:wght@400;600;700;800&amp;display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/site-nav.css?v=4">
   <link rel="stylesheet" href="/client-portal/portal.css?v=17">
-  <link rel="stylesheet" href="/account/admin/admin.css?v=26">
+  <link rel="stylesheet" href="/account/admin/admin.css?v=27">
   <script src="/shared/config.js"></script>
   <script src="/account/admin/admin-shell.js?v=2" defer></script><script src="/assets/site-nav.js?v=5"></script>
   <script>
@@ -31,7 +31,8 @@
       <section class="portal-workspace support-directory-app">
         <div class="support-workbench">
           <aside class="support-queue-pane">
-            <div class="support-queue-head"><div><p class="portal-kicker">Request queue</p><strong>Support cases</strong></div><span id="support-count"></span></div>
+            <div class="support-queue-head"><div><p class="portal-kicker">Request queue</p><strong>Support &amp; client work</strong></div><span id="support-count"></span></div>
+            <button class="portal-button support-new-work-button" id="support-new-work" type="button">Start client work</button>
             <label class="account-admin-field"><span>Find a request</span><input id="support-search" type="search" placeholder="Subject, person, email" autocomplete="off"></label>
             <div class="support-filter-grid">
               <label class="account-admin-field"><span>Status</span><select id="support-filter"><option value="open">Open requests</option><option value="new">New</option><option value="in_progress">In progress</option><option value="waiting">Waiting</option><option value="resolved">Resolved</option><option value="closed">Closed</option><option value="all">All requests</option></select></label>
@@ -47,6 +48,20 @@
       </section>
     </div>
   </main>
-  <script type="module" src="/account/admin/admin.js?v=34"></script>
+  <dialog class="platform-admin-invite-dialog support-work-dialog" id="support-work-dialog" aria-labelledby="support-work-title">
+    <div class="platform-admin-dialog-head"><div><p class="portal-kicker">N3XRA-initiated work</p><h2 id="support-work-title">Start work for a client</h2></div><button class="platform-admin-dialog-close" id="support-work-close" type="button" aria-label="Close">×</button></div>
+    <p class="platform-admin-dialog-copy">Create work the client can follow even when they did not submit the original request.</p>
+    <form class="platform-admin-invite-form" id="support-work-form">
+      <label class="account-admin-field"><span>Website</span><select id="support-work-website" required></select></label>
+      <label class="account-admin-field"><span>Type</span><select id="support-work-topic"><option value="website-change">Website change</option><option value="analytics">Site analytics</option><option value="communications">Communications</option><option value="new-feature">New feature or idea</option><option value="technical-support">Technical support</option><option value="other">Other</option></select></label>
+      <label class="account-admin-field"><span>Title</span><input id="support-work-subject" maxlength="140" required placeholder="Configure site analytics"></label>
+      <label class="account-admin-field"><span>Work description</span><textarea id="support-work-message" rows="4" maxlength="4000" required></textarea></label>
+      <div class="support-control-grid"><label class="account-admin-field"><span>Estimated start</span><input id="support-work-start" type="datetime-local"></label><label class="account-admin-field"><span>Estimated completion</span><input id="support-work-completion" type="datetime-local"></label></div>
+      <label class="account-admin-field"><span>First client-visible update</span><textarea id="support-work-note" rows="3" maxlength="8000" placeholder="Optional note the client will see"></textarea></label>
+      <div class="platform-admin-dialog-actions"><button class="portal-button portal-button-secondary" id="support-work-cancel" type="button">Cancel</button><button class="portal-button" type="submit">Create visible work</button></div>
+      <p class="platform-admin-modal-status" id="support-work-status" role="status"></p>
+    </form>
+  </dialog>
+  <script type="module" src="/account/admin/admin.js?v=35"></script>
 </body>
 </html>

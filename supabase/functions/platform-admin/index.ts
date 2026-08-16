@@ -1968,13 +1968,88 @@ Deno.serve(async (request) => {
     }
 
     if (action === "list-support-requests") {
-      const { data, error } = await adminClient
+      const [requestResult, updateResult, websiteResult] = await Promise.all([
+        adminClient
+          .from("platform_support_requests")
+          .select("id, requester_user_id, requester_name, requester_email, organization_name, topic, subject, message, status, priority, assigned_to_user_id, internal_notes, source, origin, website_id, organization_id, client_visible, estimated_start_at, estimated_completion_at, email_message_id, created_at, updated_at, resolved_at")
+          .order("created_at", { ascending: false })
+          .limit(500),
+        adminClient
+          .from("platform_support_request_updates")
+          .select("id, request_id, author_user_id, author_type, message, visible_to_client, created_at")
+          .order("created_at", { ascending: true })
+          .limit(2000),
+        adminClient
+          .from("client_websites")
+          .select("id, name, organization_id, status")
+          .not("status", "eq", "archived")
+          .order("name"),
+      ]);
+      if (requestResult.error) return jsonResponse({ error: requestResult.error.message }, 400);
+      if (updateResult.error) return jsonResponse({ error: updateResult.error.message }, 400);
+      if (websiteResult.error) return jsonResponse({ error: websiteResult.error.message }, 400);
+      return jsonResponse({
+        ok: true,
+        requests: requestResult.data || [],
+        updates: updateResult.data || [],
+        websites: websiteResult.data || [],
+        count: requestResult.data?.length || 0,
+      });
+    }
+
+    if (action === "create-support-work") {
+      const websiteId = String(payload.websiteId || "").trim();
+      const topic = String(payload.topic || "other").trim().toLowerCase().slice(0, 80);
+      const subject = String(payload.subject || "").trim().slice(0, 140);
+      const message = String(payload.message || "").trim().slice(0, 4000);
+      const clientNote = String(payload.clientNote || "").trim().slice(0, 8000);
+      const estimatedStartAt = String(payload.estimatedStartAt || "").trim();
+      const estimatedCompletionAt = String(payload.estimatedCompletionAt || "").trim();
+      if (!isValidUuid(websiteId)) return jsonResponse({ error: "A valid website is required." }, 400);
+      if (!subject || !message) return jsonResponse({ error: "A title and work description are required." }, 400);
+      if (estimatedStartAt && Number.isNaN(Date.parse(estimatedStartAt))) return jsonResponse({ error: "The estimated start is invalid." }, 400);
+      if (estimatedCompletionAt && Number.isNaN(Date.parse(estimatedCompletionAt))) return jsonResponse({ error: "The estimated completion is invalid." }, 400);
+      const { data: website, error: websiteError } = await adminClient
+        .from("client_websites")
+        .select("id, name, organization_id")
+        .eq("id", websiteId)
+        .maybeSingle();
+      if (websiteError) return jsonResponse({ error: websiteError.message }, 400);
+      if (!website) return jsonResponse({ error: "Website not found." }, 404);
+      const { data: requestRow, error: requestError } = await adminClient
         .from("platform_support_requests")
-        .select("id, requester_user_id, requester_name, requester_email, organization_name, topic, subject, message, status, priority, assigned_to_user_id, internal_notes, source, email_message_id, created_at, updated_at, resolved_at")
-        .order("created_at", { ascending: false })
-        .limit(500);
-      if (error) return jsonResponse({ error: error.message }, 400);
-      return jsonResponse({ ok: true, requests: data || [], count: data?.length || 0 });
+        .insert({
+          requester_name: "N3XRA",
+          requester_email: "support@n3xra.com",
+          organization_name: website.name,
+          topic,
+          subject,
+          message,
+          status: "in_progress",
+          priority: "normal",
+          assigned_to_user_id: user.id,
+          source: "platform_admin",
+          origin: "n3xra",
+          website_id: website.id,
+          organization_id: website.organization_id,
+          client_visible: true,
+          estimated_start_at: estimatedStartAt || null,
+          estimated_completion_at: estimatedCompletionAt || null,
+        })
+        .select("*")
+        .single();
+      if (requestError) return jsonResponse({ error: requestError.message }, 400);
+      if (clientNote) {
+        const { error: noteError } = await adminClient.from("platform_support_request_updates").insert({
+          request_id: requestRow.id,
+          author_user_id: user.id,
+          author_type: "n3xra",
+          message: clientNote,
+          visible_to_client: true,
+        });
+        if (noteError) return jsonResponse({ error: noteError.message }, 400);
+      }
+      return jsonResponse({ ok: true, request: requestRow });
     }
 
     if (action === "update-support-request") {
@@ -1982,6 +2057,9 @@ Deno.serve(async (request) => {
       const status = String(payload.status || "").trim().toLowerCase();
       const priority = String(payload.priority || "").trim().toLowerCase();
       const internalNotes = String(payload.internalNotes || "").trim().slice(0, 8000);
+      const clientNote = String(payload.clientNote || "").trim().slice(0, 8000);
+      const estimatedStartAt = String(payload.estimatedStartAt || "").trim();
+      const estimatedCompletionAt = String(payload.estimatedCompletionAt || "").trim();
       if (!isValidUuid(requestId)) return jsonResponse({ error: "A valid requestId is required." }, 400);
       if (!["new", "in_progress", "waiting", "resolved", "closed"].includes(status)) {
         return jsonResponse({ error: "Invalid support status." }, 400);
@@ -1989,6 +2067,8 @@ Deno.serve(async (request) => {
       if (!["low", "normal", "high", "urgent"].includes(priority)) {
         return jsonResponse({ error: "Invalid support priority." }, 400);
       }
+      if (estimatedStartAt && Number.isNaN(Date.parse(estimatedStartAt))) return jsonResponse({ error: "The estimated start is invalid." }, 400);
+      if (estimatedCompletionAt && Number.isNaN(Date.parse(estimatedCompletionAt))) return jsonResponse({ error: "The estimated completion is invalid." }, 400);
       const now = new Date().toISOString();
       const { data, error } = await adminClient
         .from("platform_support_requests")
@@ -1997,15 +2077,27 @@ Deno.serve(async (request) => {
           priority,
           internal_notes: internalNotes || null,
           assigned_to_user_id: user.id,
+          estimated_start_at: estimatedStartAt || null,
+          estimated_completion_at: estimatedCompletionAt || null,
           resolved_at: ["resolved", "closed"].includes(status) ? now : null,
           updated_at: now,
         })
         .eq("id", requestId)
-        .select("id, requester_name, requester_email, organization_name, topic, subject, message, status, priority, internal_notes, created_at, updated_at, resolved_at")
+        .select("id, requester_name, requester_email, organization_name, topic, subject, message, status, priority, internal_notes, origin, website_id, organization_id, client_visible, estimated_start_at, estimated_completion_at, created_at, updated_at, resolved_at")
         .maybeSingle();
       if (error) return jsonResponse({ error: error.message }, 400);
       if (!data) return jsonResponse({ error: "Support request not found." }, 404);
-      return jsonResponse({ ok: true, request: data });
+      let clientUpdate = null;
+      if (clientNote) {
+        const { data: update, error: updateError } = await adminClient
+          .from("platform_support_request_updates")
+          .insert({ request_id: requestId, author_user_id: user.id, author_type: "n3xra", message: clientNote, visible_to_client: true })
+          .select("id, request_id, author_user_id, author_type, message, visible_to_client, created_at")
+          .single();
+        if (updateError) return jsonResponse({ error: updateError.message }, 400);
+        clientUpdate = update;
+      }
+      return jsonResponse({ ok: true, request: data, clientUpdate });
     }
 
     if (action === "list-website-members") {

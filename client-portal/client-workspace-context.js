@@ -27,7 +27,8 @@ const statusLabel = (value = "") => String(value || "active").replaceAll("_", " 
 function updateWebsiteReturnLink(websiteUrl, websiteName = "your website") {
   const actions = document.querySelector(".client-portal-topbar .site-nav-actions");
   let returnLink = actions?.querySelector("[data-client-website-return]");
-  if (!actions || !websiteUrl) {
+  const destination = brandedPortal ? websiteUrl : "/account/";
+  if (!actions || !destination) {
     returnLink?.remove();
     return;
   }
@@ -35,11 +36,11 @@ function updateWebsiteReturnLink(websiteUrl, websiteName = "your website") {
     returnLink = document.createElement("a");
     returnLink.className = "site-menu-link client-website-return-link";
     returnLink.dataset.clientWebsiteReturn = "";
-    returnLink.textContent = "Return to Website";
     actions.prepend(returnLink);
   }
-  returnLink.href = websiteUrl;
-  returnLink.setAttribute("aria-label", `Return to ${websiteName} website`);
+  returnLink.href = destination;
+  returnLink.textContent = brandedPortal ? "Return to Website" : "Return to Dashboard";
+  returnLink.setAttribute("aria-label", brandedPortal ? `Return to ${websiteName} website` : "Return to N3XRA dashboard");
 }
 
 function routeMarkup(route, pageKey) {

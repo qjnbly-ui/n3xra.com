@@ -657,6 +657,12 @@ body:not(.admin-ready):not(.portal-loading):not(.product-native-admin) main.acco
 .support-queue-head { display:flex; align-items:flex-start; justify-content:space-between; gap:.75rem; margin-bottom:1rem; }
 .support-queue-head strong { display:block; margin-top:.18rem; font-size:1rem; }
 .support-queue-head > span { color:var(--portal-muted); font-size:.72rem; font-weight:800; }
+.support-new-work-button { width:100%; margin-bottom:.85rem; }
+.support-client-update-list { display:grid; gap:.55rem; margin-top:1rem; }
+.support-client-update { padding:.8rem .9rem; background:#f3f7f7; border-left:3px solid #0a7b83; }
+.support-client-update p { margin:0; white-space:pre-wrap; line-height:1.55; }
+.support-client-update small { display:block; margin-top:.35rem; color:var(--portal-muted); font-size:.66rem; }
+.support-work-dialog textarea { width:100%; resize:vertical; }
 .support-queue-pane .account-admin-field input,
 .support-queue-pane .account-admin-field select { border-radius:4px; }
 .support-filter-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.65rem; margin-top:.75rem; }
@@ -695,7 +701,7 @@ body:not(.admin-ready):not(.portal-loading):not(.product-native-admin) main.acco
 .support-case-state::before { width:7px; height:7px; content:""; background:#16856d; border-radius:50%; }
 .support-case-state.is-waiting::before { background:#d27a2e; }
 .support-case-state.is-resolved::before,.support-case-state.is-closed::before { background:#87939f; }
-.support-detail-facts { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); padding:0 clamp(1.25rem,3vw,2.5rem); border-bottom:1px solid var(--portal-line); }
+.support-detail-facts { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); padding:0 clamp(1.25rem,3vw,2.5rem); border-bottom:1px solid var(--portal-line); }
 .support-detail-facts > div { min-width:0; padding:1rem; border-right:1px solid var(--portal-line); }
 .support-detail-facts > div:first-child { padding-left:0; }
 .support-detail-facts > div:last-child { padding-right:0; border-right:0; }
