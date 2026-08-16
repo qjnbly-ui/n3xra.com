@@ -37,7 +37,7 @@ test("every admin document uses the single shared shell instead of copied header
     if (!html.includes("/account/admin/admin.css")) continue;
     if (!html.includes('/account/admin/admin-shell.js?v=2')) failures.push(path.relative(projectRoot, file));
     assert.doesNotMatch(html, /<header class="site-topbar admin-topbar"/);
-    assert.ok(html.indexOf("/account/admin/admin-shell.js?v=2") < html.indexOf("/assets/site-nav.js?v=4"));
+    assert.ok(html.indexOf("/account/admin/admin-shell.js?v=2") < html.indexOf("/assets/site-nav.js?v=5"));
     assert.match(html, /\/account\/admin\/admin\.css\?v=26/);
   }
 

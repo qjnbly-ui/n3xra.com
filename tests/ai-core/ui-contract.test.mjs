@@ -6,7 +6,7 @@ test("site navigation loads the context-aware assistant outside Records", () => 
   const nav = fs.readFileSync(new URL("../../assets/site-nav.js", import.meta.url), "utf8");
   const assistant = fs.readFileSync(new URL("../../src/site-assistant/main.mts", import.meta.url), "utf8");
   const styles = fs.readFileSync(new URL("../../assets/site-assistant.css", import.meta.url), "utf8");
-  assert.match(nav, /!location\.pathname\.startsWith\("\/n3xra-records"\)/);
+  assert.match(nav, /location\.pathname\.startsWith\("\/n3xra-records"\)/);
   assert.match(nav, /site-assistant\/main\.mjs/);
   assert.match(assistant, /site-assistant-nav-trigger/);
   assert.match(assistant, /site-assistant-drawer/);

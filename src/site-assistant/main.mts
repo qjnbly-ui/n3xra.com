@@ -3,6 +3,7 @@ import { renderAssistantMarkdown } from "./markdown.mjs";
 
 type Audience = "public" | "account" | "admin";
 type AssistantMode = "shared" | "codebase";
+type AssistantWindow = Window & { __n3xraAssistantOpenRequested?: boolean };
 type HistoryMessage = { role: "user" | "assistant"; content: string };
 type SessionContext = { token: string; scope: string };
 type BrowserSupabaseModule = {
@@ -22,6 +23,7 @@ type FollowUpModule = {
 const RECORDS_APP_PREFIX = "/n3xra-records";
 const CONVERSATION_KEY = "n3xra:site-assistant:conversation:v2";
 const HISTORY_KEY = "n3xra:site-assistant:history:v2";
+const assistantWindow = window as AssistantWindow;
 
 function queryRequired<T extends Element>(root: ParentNode, selector: string): T {
   const element = root.querySelector<T>(selector);
@@ -206,7 +208,7 @@ async function initializeSiteAssistant(): Promise<void> {
   const codebaseHistoryKey = `${HISTORY_KEY}:${session.scope}:codebase`;
   let sharedHistory = readHistory(sharedHistoryKey, 10);
   let codebaseHistory = readHistory(codebaseHistoryKey, 8);
-  let audience: Audience = "public";
+  let audience: Audience = desktopTrigger?.classList.contains("is-admin") ? "admin" : "public";
   let activeMode: AssistantMode = "shared";
   let codebaseReady = false;
   let followUpRequestVersion = 0;
@@ -329,11 +331,14 @@ async function initializeSiteAssistant(): Promise<void> {
 
   try {
     const response = await fetch("/api/ask", { headers });
-    const mode = response.ok ? await response.json() as { audience?: unknown } : null;
-    const resolved = String(mode?.audience || "public");
-    audience = resolved === "admin" || resolved === "account" ? resolved : "public";
+    if (response.ok) {
+      const mode = await response.json() as { audience?: unknown };
+      const resolved = String(mode?.audience || "public");
+      audience = resolved === "admin" || resolved === "account" ? resolved : "public";
+    }
   } catch {
-    audience = "public";
+    // Retain the navigation's already-resolved display audience. The API still
+    // verifies authorization for every protected request.
   }
 
   if (audience === "admin") {
@@ -348,6 +353,11 @@ async function initializeSiteAssistant(): Promise<void> {
     trigger.removeAttribute("data-assistant-state");
   });
   renderMode();
+  document.documentElement.dataset.siteAssistantReady = "true";
+  if (assistantWindow.__n3xraAssistantOpenRequested) {
+    delete assistantWindow.__n3xraAssistantOpenRequested;
+    open();
+  }
 
   question.addEventListener("keydown", (event) => {
     if (event.key !== "Enter" || event.shiftKey || event.isComposing) return;

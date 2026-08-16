@@ -1,8 +1,21 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
+import path from "node:path";
 
 const projectFile = (path) => readFile(new URL(`../../${path}`, import.meta.url), "utf8");
+const projectRoot = fileURLToPath(new URL("../../", import.meta.url));
+
+async function htmlFiles(directory) {
+  const entries = await readdir(directory, { withFileTypes: true });
+  const files = await Promise.all(entries.map(async (entry) => {
+    const target = path.join(directory, entry.name);
+    if (entry.isDirectory() && entry.name !== ".git" && entry.name !== "node_modules") return htmlFiles(target);
+    return entry.isFile() && entry.name === "index.html" ? [target] : [];
+  }));
+  return files.flat();
+}
 
 test("public account links render one stable label without an authentication repaint", async () => {
   const pages = [
@@ -38,13 +51,46 @@ test("the shared assistant trigger is visible with its route label before its as
 
   assert.match(navigation, /ensureAssistantTrigger\(document\.querySelector\("\.site-nav-actions"\)\)/);
   assert.ok(navigation.indexOf("ensureAssistantTrigger(document.querySelector(\".site-nav-actions\"))") < navigation.indexOf("site-assistant/main.mjs"));
-  assert.match(navigation, /trigger\.textContent = admin \? "Ask Admin AI" : "Ask N3XRA"/);
+  assert.match(navigation, /new MutationObserver\(initializeVisibleNavigation\)/);
+  assert.match(navigation, /navigationObserver\.observe\(document\.documentElement, \{ childList: true, subtree: true \}\)/);
+  assert.match(navigation, /n3xra-platform-admin-access/);
+  assert.match(navigation, /const label = admin \? "Ask Admin AI" : "Ask N3XRA"/);
+  assert.match(navigation, /if \(trigger\.textContent !== label\) trigger\.textContent = label/);
+  assert.match(navigation, /__n3xraAssistantOpenRequested = true/);
+  assert.match(navigation, /siteAssistantReady === "true"/);
   assert.match(navigation, /trigger\.removeAttribute\("data-assistant-state"\)/);
   assert.doesNotMatch(navigation, /trigger\.dataset\.assistantState = "pending"/);
   assert.doesNotMatch(styles, /\[data-site-assistant-open\][\s\S]*?visibility:\s*hidden/);
   assert.match(assistant, /trigger\.removeAttribute\("data-assistant-state"\)/);
   assert.match(assistant, /desktopTrigger\?\.classList\.contains\("is-admin"\) \? "admin" : audience/);
   assert.match(adminShell, />Ask Admin AI<\/button>/);
+});
+
+test("an early assistant click is retained until the controller is ready", async () => {
+  const assistant = await projectFile("src/site-assistant/main.mts");
+
+  assert.match(assistant, /desktopTrigger\?\.classList\.contains\("is-admin"\) \? "admin" : "public"/);
+  assert.match(assistant, /dataset\.siteAssistantReady = "true"/);
+  assert.match(assistant, /if \(assistantWindow\.__n3xraAssistantOpenRequested\)/);
+  assert.match(assistant, /delete assistantWindow\.__n3xraAssistantOpenRequested/);
+  assert.match(assistant, /The API still[\s\S]*verifies authorization for every protected request/);
+});
+
+test("shared navigation runs during parsing so its controls exist before first paint", async () => {
+  const pages = await htmlFiles(projectRoot);
+  const failures = [];
+
+  for (const file of pages) {
+    const html = await readFile(file, "utf8");
+    const scripts = html.match(/<script[^>]*site-nav\.js[^>]*>/g) || [];
+    for (const script of scripts) {
+      if (!/site-nav\.js\?v=5/.test(script) || /\bdefer\b|\basync\b/.test(script)) {
+        failures.push(path.relative(projectRoot, file));
+      }
+    }
+  }
+
+  assert.deepEqual(failures, []);
 });
 
 test("tenant portal headers stay reserved but hidden until final branding is applied", async () => {

@@ -1,20 +1,26 @@
-document.querySelectorAll("[data-site-menu-toggle]").forEach((toggle) => {
-  const menuId = toggle.getAttribute("aria-controls");
-  const menu = menuId ? document.getElementById(menuId) : null;
-  if (!menu) return;
-
-  toggle.addEventListener("click", () => {
-    const isOpen = menu.classList.toggle("is-open");
-    menu.hidden = !isOpen;
-    toggle.setAttribute("aria-expanded", String(isOpen));
-    document.body.classList.toggle("site-menu-is-open", isOpen);
-  });
-});
-
 function isAdminRoute() {
   return Boolean(document.body?.dataset.adminView)
     || location.pathname.startsWith("/account/admin/")
     || location.pathname.startsWith("/n3xra-admin/");
+}
+
+function cachedAssistantAudience() {
+  try {
+    const cached = JSON.parse(sessionStorage.getItem("n3xra-platform-admin-access") || "null");
+    const role = String(cached?.admin?.role || "").toLowerCase();
+    const fresh = Number.isFinite(cached?.checkedAt)
+      && Date.now() - cached.checkedAt < 15 * 60 * 1000;
+    if (cached?.version === 2 && cached?.allowed && fresh && ["owner", "admin"].includes(role)) {
+      return "admin";
+    }
+  } catch {
+    // A stale display cache must never prevent the navigation from rendering.
+  }
+  return "public";
+}
+
+function assistantAudience() {
+  return isAdminRoute() || cachedAssistantAudience() === "admin" ? "admin" : "public";
 }
 
 function ensureAssistantTrigger(container, mobile = false) {
@@ -34,20 +40,55 @@ function ensureAssistantTrigger(container, mobile = false) {
     else container.prepend(trigger);
   }
 
-  const admin = isAdminRoute();
-  trigger.textContent = admin ? "Ask Admin AI" : "Ask N3XRA";
+  const admin = assistantAudience() === "admin";
+  const label = admin ? "Ask Admin AI" : "Ask N3XRA";
+  if (trigger.textContent !== label) trigger.textContent = label;
   trigger.classList.toggle("is-admin", admin);
   trigger.removeAttribute("data-assistant-state");
+
+  if (trigger.dataset.siteAssistantBootstrapBound !== "true") {
+    trigger.dataset.siteAssistantBootstrapBound = "true";
+    trigger.addEventListener("click", () => {
+      if (document.documentElement.dataset.siteAssistantReady === "true") return;
+      window.__n3xraAssistantOpenRequested = true;
+      loadAssistantController();
+    });
+  }
   return trigger;
 }
 
-if (String(window.location.hostname || "").toLowerCase().endsWith(".portal.n3xra.com")) {
-  document.documentElement.classList.add("portal-white-label-host");
+function bindMenuToggle(toggle) {
+  if (toggle.dataset.siteMenuBound === "true") return;
+  const menuId = toggle.getAttribute("aria-controls");
+  const menu = menuId ? document.getElementById(menuId) : null;
+  if (!menu) return;
+
+  toggle.dataset.siteMenuBound = "true";
+  toggle.addEventListener("click", () => {
+    const isOpen = menu.classList.toggle("is-open");
+    menu.hidden = !isOpen;
+    toggle.setAttribute("aria-expanded", String(isOpen));
+    document.body.classList.toggle("site-menu-is-open", isOpen);
+  });
 }
 
-if (!document.body?.hasAttribute("data-disable-site-assistant") && !location.pathname.startsWith("/n3xra-records")) {
+function initializeVisibleNavigation() {
+  document.querySelectorAll("[data-site-menu-toggle]").forEach(bindMenuToggle);
+
+  if (!document.body
+    || document.body.hasAttribute("data-disable-site-assistant")
+    || location.pathname.startsWith("/n3xra-records")) return;
+
   ensureAssistantTrigger(document.querySelector(".site-nav-actions"));
   ensureAssistantTrigger(document.querySelector(".site-mobile-menu"), true);
+}
+
+function loadAssistantController() {
+  if (!document.body
+    || document.body.hasAttribute("data-disable-site-assistant")
+    || location.pathname.startsWith("/n3xra-records")) return;
+
+  initializeVisibleNavigation();
 
   if (!document.querySelector('link[data-site-assistant-style]')) {
     const assistantStyle = document.createElement("link");
@@ -63,4 +104,24 @@ if (!document.body?.hasAttribute("data-disable-site-assistant") && !location.pat
     assistantScript.dataset.siteAssistantScript = "true";
     document.head.append(assistantScript);
   }
+}
+
+if (String(window.location.hostname || "").toLowerCase().endsWith(".portal.n3xra.com")) {
+  document.documentElement.classList.add("portal-white-label-host");
+}
+
+// This file intentionally loads during HTML parsing. Watching the parser lets the
+// shared navigation add its final controls before the browser's first paint.
+const navigationObserver = new MutationObserver(initializeVisibleNavigation);
+navigationObserver.observe(document.documentElement, { childList: true, subtree: true });
+initializeVisibleNavigation();
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", () => {
+    navigationObserver.disconnect();
+    loadAssistantController();
+  }, { once: true });
+} else {
+  navigationObserver.disconnect();
+  loadAssistantController();
 }
