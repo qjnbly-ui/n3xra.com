@@ -131,20 +131,18 @@ async function removeStorageObjects(adminClient: ReturnType<typeof createClient>
 }
 
 async function recordsEnrollmentStorage(adminClient: ReturnType<typeof createClient>, organizationId: string) {
-  const [organizationResult, documentsResult, recordingsResult, chunksResult] = await Promise.all([
-    adminClient.from("organizations").select("logo_storage_path").eq("id", organizationId).maybeSingle(),
+  const [documentsResult, recordingsResult, chunksResult] = await Promise.all([
     adminClient.from("documents").select("storage_path").eq("organization_id", organizationId).limit(10000),
     adminClient.from("meeting_recordings").select("storage_bucket,storage_path").eq("organization_id", organizationId).limit(10000),
     adminClient.from("meeting_recording_chunks").select("storage_path").eq("organization_id", organizationId).limit(10000),
   ]);
-  const firstError = [organizationResult, documentsResult, recordingsResult, chunksResult].find((result) => result.error)?.error;
+  const firstError = [documentsResult, recordingsResult, chunksResult].find((result) => result.error)?.error;
   if (firstError) throw new Error(firstError.message);
 
   return uniqueStorageObjects([
     ...(documentsResult.data || []).map((row) => ({ bucket: "documents", path: row.storage_path })),
     ...(recordingsResult.data || []).map((row) => ({ bucket: row.storage_bucket || "meeting-recordings", path: row.storage_path })),
     ...(chunksResult.data || []).map((row) => ({ bucket: "meeting-recordings", path: row.storage_path })),
-    ...(organizationResult.data?.logo_storage_path ? [{ bucket: "organization-assets", path: organizationResult.data.logo_storage_path }] : []),
   ]);
 }
 
@@ -218,6 +216,7 @@ async function loadPlatformAccountData(adminClient: ReturnType<typeof createClie
     musicProfilesResult,
     viralsProfilesResult,
     accountPhonesResult,
+    recordsEntitlementsResult,
     authUsers,
   ] = await Promise.all([
     adminClient.from("profiles").select("id, email, full_name, organization_name, role, subscription_tier, account_status, created_at, updated_at"),
@@ -231,6 +230,7 @@ async function loadPlatformAccountData(adminClient: ReturnType<typeof createClie
     adminClient.from("music_profiles").select("user_id, display_name, plan, account_status, monthly_song_limit, songs_used, stripe_customer_id, stripe_subscription_id, subscription_current_period_end"),
     adminClient.from("virals_profiles").select("user_id, plan, account_status, monthly_analysis_limit, analyses_used, stripe_customer_id, stripe_subscription_id, subscription_current_period_end"),
     adminClient.from("account_phone_credentials").select("user_id, phone_e164, failed_attempts, locked_until, last_authenticated_at, last_password_reset_sent_at, created_at, updated_at"),
+    adminClient.from("organization_product_entitlements").select("organization_id,status,portal_enabled").eq("product_key", "records"),
     listAllAuthUsers(adminClient),
   ]);
 
@@ -246,6 +246,7 @@ async function loadPlatformAccountData(adminClient: ReturnType<typeof createClie
     musicProfilesResult,
     viralsProfilesResult,
     accountPhonesResult,
+    recordsEntitlementsResult,
   ];
   const firstError = results.find((result) => result.error)?.error;
   if (firstError) throw new Error(firstError.message);
@@ -258,6 +259,9 @@ async function loadPlatformAccountData(adminClient: ReturnType<typeof createClie
   const utilityMap = new Map((utilityOrganizationsResult.data || []).map((organization) => [String(organization.id), organization]));
   const utilityRoleMap = new Map((utilityRolesResult.data || []).map((role) => [String(role.id), role]));
   const accountPhoneMap = new Map((accountPhonesResult.data || []).map((credential) => [String(credential.user_id), credential]));
+  const activeRecordsOrganizationIds = new Set((recordsEntitlementsResult.data || [])
+    .filter((entitlement) => entitlement.portal_enabled && ["active", "trialing", "past_due"].includes(String(entitlement.status || "")))
+    .map((entitlement) => String(entitlement.organization_id)));
   const accessMap = new Map<string, Array<Record<string, unknown>>>();
 
   const addAccess = (userId: unknown, access: Record<string, unknown>) => {
@@ -281,12 +285,13 @@ async function loadPlatformAccountData(adminClient: ReturnType<typeof createClie
     accessMap.set(key, items);
   };
 
-  (recordsOrganizationsResult.data || []).forEach((organization) => addAccess(organization.owner_user_id, {
+  (recordsOrganizationsResult.data || []).filter((organization) => activeRecordsOrganizationIds.has(String(organization.id))).forEach((organization) => addAccess(organization.owner_user_id, {
     product: "records", productLabel: PRODUCT_LABELS.records, organizationId: organization.id,
     organization: organization.name, role: "owner", status: organization.account_status,
   }));
   (recordsMembershipsResult.data || []).forEach((membership) => {
     const organization = recordsOrgMap.get(String(membership.organization_id));
+    if (!activeRecordsOrganizationIds.has(String(membership.organization_id))) return;
     addAccess(membership.user_id, {
       product: "records", productLabel: PRODUCT_LABELS.records, organizationId: membership.organization_id,
       organization: organization?.name || "Records organization", role: membership.role, status: organization?.account_status || "active",
@@ -1525,16 +1530,23 @@ Deno.serve(async (request) => {
         return jsonResponse({ error: `Type ${expectedConfirmation} exactly to continue.` }, 400);
       }
 
-      const { data: result, error: removalError } = await adminClient.rpc("admin_remove_product_enrollment", {
-        input_product: product,
-        input_user_id: userId,
-        input_workspace_id: workspaceId,
-        input_delete_workspace: deleteWorkspace,
-      });
+      const removalRequest = product === "records"
+        ? adminClient.rpc("admin_remove_records_enrollment", {
+            input_user_id: userId,
+            input_organization_id: workspaceId,
+            input_remove_product_data: deleteWorkspace,
+          })
+        : adminClient.rpc("admin_remove_product_enrollment", {
+            input_product: product,
+            input_user_id: userId,
+            input_workspace_id: workspaceId,
+            input_delete_workspace: deleteWorkspace,
+          });
+      const { data: result, error: removalError } = await removalRequest;
       if (removalError) return jsonResponse({ error: removalError.message }, 400);
 
       const resultMode = result?.mode || (deleteWorkspace ? "workspace" : "access_only");
-      const storageFailures = resultMode === "workspace"
+      const storageFailures = ["workspace", "product_data"].includes(resultMode)
         ? await removeStorageObjects(adminClient, storageObjects)
         : [];
       if (storageFailures.length) {

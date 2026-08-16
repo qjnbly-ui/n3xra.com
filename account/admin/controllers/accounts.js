@@ -47,11 +47,14 @@ function productClientPreviewLink(item) {
 function enrollmentRemovalCopy(item) {
   const workspaceName = item.organization || item.plan || item.productLabel || "this workspace";
   const deletesWorkspace = item.product === "loan_tracker" || item.role === "owner" || item.role === "account";
+  const removesRecordsProduct = item.product === "records" && item.role === "owner";
   return {
     workspaceName,
     deletesWorkspace,
     buttonLabel: deletesWorkspace ? "Delete app & data" : "Remove access",
-    message: deletesWorkspace
+    message: removesRecordsProduct
+      ? `This removes only N3XRA Records from “${workspaceName}” and permanently deletes its Records documents, drafts, recordings, and Records settings. The client website, website files, Communications data, shared contacts, and N3XRA login are preserved. Type DELETE ${workspaceName} to continue.`
+      : deletesWorkspace
       ? `This permanently deletes the ${item.productLabel} workspace “${workspaceName}”, its database records, uploaded files, and this person's access. Their N3XRA login and other apps are not affected. Type DELETE ${workspaceName} to continue.`
       : `This removes this person's access to ${item.productLabel} “${workspaceName}”. Shared workspace data and other members are preserved. Type DELETE ${workspaceName} to continue.`,
   };
@@ -81,7 +84,7 @@ async function removeEnrollment(account, item) {
     });
     await loadAccounts(account.id);
     const cleanupNote = result.storageCleanupPending ? " Database access is removed; storage cleanup needs administrator review." : "";
-    setStatus(result.mode === "access_only" ? `App access removed.${cleanupNote}` : `${item.productLabel} and its data were deleted.${cleanupNote}`, result.storageCleanupPending ? "error" : "success");
+    setStatus(result.mode === "access_only" ? `App access removed.${cleanupNote}` : result.mode === "product_data" ? `N3XRA Records and its data were removed. The website and Communications data were preserved.${cleanupNote}` : `${item.productLabel} and its data were deleted.${cleanupNote}`, result.storageCleanupPending ? "error" : "success");
   } catch (error) {
     setStatus(error.message, "error");
   }

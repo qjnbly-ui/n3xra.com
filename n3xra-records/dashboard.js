@@ -2808,7 +2808,7 @@ function sortMemberships(items) {
 
 async function bootstrapAccess() {
   const supportOrgId = getSupportOrganizationId();
-  const [{ data: profileData, error: profileError }, { data: membershipData, error: membershipError }] = await Promise.all([
+  const [{ data: profileData, error: profileError }, { data: membershipData, error: membershipError }, { data: entitlementData, error: entitlementError }] = await Promise.all([
     supabase.from("profiles").select("id, email, full_name").eq("id", currentSession.user.id).maybeSingle(),
     supabase
       .from("organization_memberships")
@@ -2850,10 +2850,15 @@ async function bootstrapAccess() {
       `)
       .eq("user_id", currentSession.user.id)
       .order("created_at", { ascending: true }),
+    supabase
+      .from("organization_product_entitlements")
+      .select("organization_id,status,portal_enabled")
+      .eq("product_key", "records"),
   ]);
 
   if (profileError) throw profileError;
   if (membershipError) throw membershipError;
+  if (entitlementError) throw entitlementError;
 
   if (!profileData) {
     currentProfile = {
@@ -2864,7 +2869,11 @@ async function bootstrapAccess() {
   } else {
     currentProfile = profileData;
   }
-  memberships = dedupeMembershipsByOrganization(buildMembershipMap(membershipData || []));
+  const activeRecordsOrganizationIds = new Set((entitlementData || [])
+    .filter((entitlement) => entitlement.portal_enabled && ["active", "trialing", "past_due"].includes(String(entitlement.status || "")))
+    .map((entitlement) => String(entitlement.organization_id)));
+  memberships = dedupeMembershipsByOrganization(buildMembershipMap(membershipData || []))
+    .filter((membership) => activeRecordsOrganizationIds.has(String(membership.organization_id || membership.organization?.id || "")));
 
   if (supportOrgId && isPlatformAdminEmail(currentSession.user.email)) {
     const { data: supportOrg, error: supportError } = await supabase

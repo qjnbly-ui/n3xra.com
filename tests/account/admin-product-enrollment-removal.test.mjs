@@ -32,7 +32,7 @@ test("product removal is owner-authorized, race-safe, and does not delete the id
   assert.match(action, /platformAdmin\.role[\s\S]*owner/);
   assert.match(action, /expectedConfirmation = `DELETE \$\{workspaceName\}`/);
   assert.match(action, /input_delete_workspace: deleteWorkspace/);
-  assert.match(action, /resultMode === "workspace"[\s\S]*removeStorageObjects/);
+  assert.match(action, /\["workspace", "product_data"\]\.includes\(resultMode\)[\s\S]*removeStorageObjects/);
   assert.doesNotMatch(action, /auth\.admin\.deleteUser|from\("profiles"\)\.delete/);
 });
 
@@ -51,12 +51,36 @@ test("the removal transaction preserves shared data and protects paid workspaces
   assert.match(migration, /grant execute on function public\.admin_remove_product_enrollment\(text, uuid, uuid, boolean\) to service_role/);
 });
 
-test("workspace deletion collects private uploads, recordings, and public website files", async () => {
+test("Records removal is product-scoped and preserves website and Communications data", async () => {
+  const [migration, edgeFunction, controller] = await Promise.all([
+    read("supabase/migrations/20260816014500_scope_records_enrollment_removal.sql"),
+    read("supabase/functions/platform-admin/index.ts"),
+    read("account/admin/controllers/accounts.js"),
+  ]);
+
+  assert.match(migration, /create or replace function public\.admin_remove_records_enrollment/);
+  assert.match(migration, /update public\.organization_product_entitlements[\s\S]*'records'/);
+  assert.doesNotMatch(migration, /delete from public\.organizations/);
+  assert.doesNotMatch(migration, /delete from public\.client_websites|delete from public\.communications_/);
+  assert.match(edgeFunction, /product === "records"[\s\S]*admin_remove_records_enrollment/);
+  assert.doesNotMatch(edgeFunction.match(/async function recordsEnrollmentStorage[\s\S]*?\n}/)?.[0] || "", /organization-assets|logo_storage_path/);
+  assert.match(controller, /The client website, website files, Communications data, shared contacts/);
+});
+
+test("admin function errors expose the protected server response", async () => {
+  const admin = await read("account/admin/admin.js");
+
+  assert.match(admin, /error\.context[\s\S]*error\.context\.json/);
+  assert.match(admin, /response\?\.error \|\| response\?\.message/);
+});
+
+test("workspace deletion collects product-owned uploads without deleting shared branding", async () => {
   const edgeFunction = await read("supabase/functions/platform-admin/index.ts");
 
-  for (const bucket of ["documents", "meeting-recordings", "organization-assets", "website-assets-private", "website-assets-public", "website-onboarding-private"]) {
+  for (const bucket of ["documents", "meeting-recordings", "website-assets-private", "website-assets-public", "website-onboarding-private"]) {
     assert.match(edgeFunction, new RegExp(bucket));
   }
+  assert.doesNotMatch(edgeFunction.match(/async function recordsEnrollmentStorage[\s\S]*?\n}/)?.[0] || "", /organization-assets|logo_storage_path/);
   assert.match(edgeFunction, /publicStorageObjectPath\(row\.public_url, "website-assets-public"\)/);
   assert.match(edgeFunction, /storageCleanupPending: storageFailures\.length > 0/);
 });

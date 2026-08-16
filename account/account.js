@@ -476,17 +476,28 @@ function renderShell(view) {
 }
 
 async function loadMemberships() {
-  const { data, error } = await supabase
-    .from("organization_memberships")
-    .select("role, organization:organizations(id,name,subscription_tier,account_status,owner_user_id)")
-    .eq("user_id", currentSession.user.id)
-    .order("created_at", { ascending: true });
-  if (error) throw error;
+  const [{ data, error }, { data: entitlementData, error: entitlementError }] = await Promise.all([
+    supabase
+      .from("organization_memberships")
+      .select("role, organization:organizations(id,name,subscription_tier,account_status,owner_user_id)")
+      .eq("user_id", currentSession.user.id)
+      .order("created_at", { ascending: true }),
+    supabase
+      .from("organization_product_entitlements")
+      .select("organization_id,status,portal_enabled")
+      .eq("product_key", "records"),
+  ]);
+  if (error || entitlementError) throw error || entitlementError;
+
+  const activeRecordsOrganizationIds = new Set((entitlementData || [])
+    .filter((entitlement) => entitlement.portal_enabled && ["active", "trialing", "past_due"].includes(String(entitlement.status || "")))
+    .map((entitlement) => String(entitlement.organization_id)));
 
   memberships = (data || []).map((membership) => ({
-    ...membership,
-    organization: Array.isArray(membership.organization) ? membership.organization[0] : membership.organization,
-  }));
+      ...membership,
+      organization: Array.isArray(membership.organization) ? membership.organization[0] : membership.organization,
+    }))
+    .filter((membership) => activeRecordsOrganizationIds.has(String(membership.organization?.id || "")));
 }
 
 async function loadMusicProfile() {
