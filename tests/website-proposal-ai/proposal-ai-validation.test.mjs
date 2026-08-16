@@ -70,7 +70,7 @@ test("protected money operation requires verbatim evidence with the normalized f
   assert.equal(result.operations[0].server_validation.supported, true);
 });
 
-test("inferred money and contractual rewrites stay available with review warnings", () => {
+test("inferred money and contractual rewrites are discarded", () => {
   const evidence = new Map([["admin_instruction:run-1", {
     authority: "admin_instruction", text: "Improve the terms and make the deposit lower.",
   }]]);
@@ -79,18 +79,14 @@ test("inferred money and contractual rewrites stay available with review warning
     original: 0, proposed: 50000,
     evidence: [{ source_type: "admin_instruction", source_id: "run-1", field_path: "instruction", supporting_value: "make the deposit lower" }],
   }), baseline, evidence);
-  assert.equal(money.operations[0].server_validation.supported, true);
-  assert.equal(money.operations[0].server_validation.evidence_supported, false);
-  assert.match(money.operations[0].server_validation.warning, /exact final monetary value/i);
+  assert.equal(money.operations.length, 0);
 
   const terms = validateChangeSet(change({
     target: { kind: "version", id: "version-1" }, operation: "replace", field: "terms",
     original: "Original terms", proposed: "The client owns all work after final payment.",
     evidence: [{ source_type: "admin_instruction", source_id: "run-1", field_path: "instruction", supporting_value: "Improve the terms" }],
   }), baseline, evidence);
-  assert.equal(terms.operations[0].server_validation.supported, true);
-  assert.equal(terms.operations[0].server_validation.evidence_supported, false);
-  assert.match(terms.operations[0].server_validation.warning, /contractual replacement/i);
+  assert.equal(terms.operations.length, 0);
 });
 
 test("all line-item mutations are protected", () => {
@@ -119,7 +115,7 @@ test("complete line-item replacements preserve a canonical original and validate
   assert.equal(result.operations[0].server_validation.supported, true);
 });
 
-test("common billing interval mismatches are normalized into a reviewable line item", () => {
+test("unsupported line-item suggestions are discarded after normalization", () => {
   const result = validateChangeSet(change({
     target: { kind: "line_item", id: null }, operation: "add", field: "item",
     original: null,
@@ -129,7 +125,5 @@ test("common billing interval mismatches are normalized into a reviewable line i
       recurring_interval: "yearly", sort_order: 1,
     },
   }), baseline, new Map());
-  assert.equal(result.operations[0].proposed.billing_type, "recurring");
-  assert.equal(result.operations[0].proposed.recurring_interval, "yearly");
-  assert.equal(result.operations[0].server_validation.supported, true);
+  assert.equal(result.operations.length, 0);
 });

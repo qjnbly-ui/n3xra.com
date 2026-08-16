@@ -18,7 +18,7 @@
   </script>
   <script defer src="/_vercel/insights/script.js"></script>
   <link rel="stylesheet" href="/account/admin/admin.css?v=28">
-  <link rel="stylesheet" href="/n3xra-admin/website-admin.css?v=15">
+  <link rel="stylesheet" href="/n3xra-admin/website-admin.css?v=16">
   <script type="module" src="/account/admin/product-shell.js?v=16"></script>
   <script type="module" src="/n3xra-admin/website-admin-workspace.js?v=12"></script>
 </head>
@@ -49,8 +49,6 @@
           <div class="portal-proposal-state" id="proposal-state"></div>
         </div>
 
-        <article class="portal-intake-summary" id="proposal-request-summary" hidden></article>
-
         <div class="portal-empty" id="proposal-empty">
           <p>Choose a website request to begin.</p>
         </div>
@@ -67,26 +65,34 @@
             </div>
           </div>
 
+          <details class="proposal-reference">
+            <summary>
+              <span><strong>Project reference</strong><small>Original request and intake details</small></span>
+              <span class="proposal-reference-action">View</span>
+            </summary>
+            <article class="portal-intake-summary" id="proposal-request-summary" hidden></article>
+          </details>
+
           <details class="portal-form-section proposal-copilot proposal-copilot-top" id="proposal-copilot" aria-labelledby="proposal-copilot-title">
             <summary class="proposal-copilot-summary">
               <span class="proposal-copilot-summary-copy">
-                <span class="portal-kicker">Proposal AI</span>
-                <strong id="proposal-copilot-title">Draft with onboarding and your ideas</strong>
-                <small>Open the assistant, describe what matters, then use AI from any proposal section.</small>
+                <span class="portal-kicker">Drafting assistant</span>
+                <strong id="proposal-copilot-title">Turn known project details into proposal language</strong>
+                <small>Give it direction in plain language. Unknown business terms stay blank for you to decide.</small>
               </span>
               <span class="proposal-copilot-summary-action">Open assistant</span>
             </summary>
             <div class="proposal-copilot-body">
-              <label class="portal-form-wide proposal-copilot-instruction">Your statement or updated ideas
-                <textarea id="proposal-ai-instruction" data-copilot-control rows="4" maxlength="6000" placeholder="For example: Keep this simple and welcoming. Emphasize the outdoor store, local service, and online product catalog. Use the approved onboarding information for the details."></textarea>
-                <small>AI combines this statement with the website request, approved onboarding, current project information, and approved assets.</small>
+              <label class="portal-form-wide proposal-copilot-instruction">What should this proposal communicate?
+                <textarea id="proposal-ai-instruction" data-copilot-control rows="4" maxlength="6000" placeholder="For example: Keep the language warm and concise. Emphasize the immersive greenhouse experience and the story behind the collection. Do not add services or promises that are not already documented."></textarea>
+                <small>The assistant uses this direction with the request, approved onboarding, current project information, and approved assets. It cannot invent commercial or contractual terms.</small>
               </label>
               <div class="portal-form-actions proposal-copilot-actions">
-                <button class="portal-button" id="generate-proposal-ai" data-copilot-control type="button">Draft all proposal sections</button>
+                <button class="portal-button" id="generate-proposal-ai" data-copilot-control type="button">Create a safe first draft</button>
                 <p class="portal-inline-status" id="proposal-ai-status" role="status"></p>
               </div>
               <p class="proposal-copilot-help proposal-copilot-section-help">While this assistant is open, every section below has a <strong>Fill with AI</strong> or <strong>Improve with AI</strong> button.</p>
-              <p class="proposal-copilot-context"><strong>Included automatically:</strong> your statement, saved proposal, website request, approved onboarding, current project details, and the approved asset list.</p>
+              <p class="proposal-copilot-context"><strong>Safety rule:</strong> pricing, dates, deposits, revision limits, support hours, and contract terms are suggested only when an authoritative source states them explicitly.</p>
               <details class="proposal-copilot-history-wrap">
                 <summary>Recent AI runs</summary>
                 <div class="proposal-copilot-history-head">

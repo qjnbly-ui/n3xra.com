@@ -29,7 +29,7 @@ test("section actions share the saved-baseline and targeted generation workflow"
 test("project context is automatic and the technical source picker is not shown", () => {
   assert.doesNotMatch(html, /Sources and files/);
   assert.doesNotMatch(html, /proposal-ai-source-list|proposal-ai-file-list/);
-  assert.match(html, /Included automatically:/);
+  assert.match(html, /Safety rule:/);
   assert.doesNotMatch(script, /source_keys:|file_keys:/);
 });
 
@@ -45,9 +45,9 @@ test("failed and unused history can be removed without exposing applied history 
   assert.match(api, /Applied Proposal AI history stays with the proposal and cannot be removed independently/);
 });
 
-test("every AI suggestion is reviewed beside its affected field", () => {
-  assert.match(script, /function operationAnchor\(operation\)/);
-  assert.match(script, /proposal-ai-inline-host/);
+test("AI suggestions are consolidated into one review instead of interrupting proposal fields", () => {
+  assert.match(script, /proposal-ai-review-list/);
+  assert.doesNotMatch(script, /operations\.forEach\(\(operation\) => mountOperationReview/);
   assert.match(script, /AI suggests/);
   assert.match(script, /> Approve</);
   assert.match(script, /> Deny</);
@@ -55,10 +55,16 @@ test("every AI suggestion is reviewed beside its affected field", () => {
   assert.doesNotMatch(script, /!readonly && !hasSavedReview/);
 });
 
-test("Proposal AI may suggest billing and contractual values for admin review", () => {
-  assert.match(api, /including pricing, discounts, deposits, recurring charges, dates, terms, and billing line items/);
-  assert.doesNotMatch(api, /Unsupported protected suggestion cannot be applied/);
-  assert.match(script, /You may propose pricing, billing items, dates, scope/);
+test("Proposal AI cannot invent billing or contractual values", () => {
+  assert.match(api, /Never infer or invent a price, discount, deposit/);
+  assert.match(api, /only when an authoritative included source states the exact final value/);
+  assert.match(script, /Never infer pricing, billing values, dates, deposits/);
+});
+
+test("the request is available only as an optional reference inside the proposal", () => {
+  assert.ok(html.indexOf('class="proposal-reference"') > html.indexOf('id="proposal-form"'));
+  assert.match(html, /Original request and intake details/);
+  assert.doesNotMatch(html.slice(0, html.indexOf('id="proposal-form"')), /id="proposal-request-summary"/);
 });
 
 test("the editor is a professional Proposal & Agreement workspace, not a step wizard", () => {

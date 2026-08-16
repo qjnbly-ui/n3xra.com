@@ -343,14 +343,15 @@ function validateChangeSet(raw, baseline, evidenceMap, now = new Date()) {
     const evidenceReview = operation.risk === "protected"
       ? supportedProtected(operation, evidenceMap, now)
       : { supported: true };
+    if (operation.risk === "protected" && !evidenceReview.supported) return null;
     operation.server_validation = {
       supported: true,
       review_required: true,
       evidence_supported: operation.risk === "protected" ? evidenceReview.supported : null,
-      warning: evidenceReview.supported ? null : evidenceReview.reason,
+      warning: null,
     };
     return operation;
-  });
+  }).filter(Boolean);
   return { summary: plain(raw.summary).slice(0, 2000), operations };
 }
 

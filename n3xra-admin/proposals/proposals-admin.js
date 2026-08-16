@@ -163,13 +163,13 @@ function setCopilotButtonBusy(section, busy) {
     ? document.querySelector(`[data-ai-section="${section}"]`)
     : copilotGenerateButton;
   if (activeButton === copilotGenerateButton) {
-    activeButton.textContent = busy ? "Drafting proposal…" : "Draft all proposal sections";
+    activeButton.textContent = busy ? "Drafting proposal…" : "Create a safe first draft";
   } else {
     const output = activeButton?.querySelector("[data-ai-action-label]");
     if (output && busy) output.textContent = "Drafting…";
   }
   if (!busy) {
-    copilotGenerateButton.textContent = "Draft all proposal sections";
+    copilotGenerateButton.textContent = "Create a safe first draft";
     updateCopilotSectionActions();
   }
 }
@@ -950,12 +950,13 @@ function renderCopilotRun(run, preferredSection = null) {
   placeCopilotReview(section);
   copilotReview.hidden = false;
   copilotReview.dataset.runId = run.id;
+  if (!operations.length) form.removeAttribute("data-ai-review-run");
   copilotReview.innerHTML = `
-    <p class="proposal-ai-summary"><strong>${operations.length} suggestion${operations.length === 1 ? "" : "s"} placed beside the affected fields.</strong> ${escapeHtml(run.change_set?.summary || "Approve or deny every change before applying it.")}</p>
+    <p class="proposal-ai-summary"><strong>${operations.length ? `${operations.length} proposal suggestion${operations.length === 1 ? "" : "s"} ready for review.` : "No safe changes were suggested."}</strong> ${escapeHtml(run.change_set?.summary || (operations.length ? "Approve or deny every change before applying it." : "Add more specific guidance or complete the missing business terms yourself."))}</p>
     ${run.error ? `<p class="proposal-ai-rejection">${escapeHtml(run.error)}</p>` : ""}
-    ${run.status === "ready" ? `<div class="portal-form-actions proposal-copilot-actions"><button class="portal-button" id="apply-proposal-ai" type="button" disabled>Apply reviewed changes</button><p class="portal-inline-status">Choose Approve or Deny beside every affected field.</p></div>` : ""}
+    ${operations.length ? `<div class="proposal-ai-review-list">${operations.map((operation) => operationReviewMarkup(operation, run, reviewed, readonly)).join("")}</div>` : ""}
+    ${run.status === "ready" && operations.length ? `<div class="portal-form-actions proposal-copilot-actions"><button class="portal-button" id="apply-proposal-ai" type="button" disabled>Apply reviewed changes</button><p class="portal-inline-status">Choose Approve or Deny for every suggestion.</p></div>` : ""}
   `;
-  operations.forEach((operation) => mountOperationReview(operation, run, reviewed, readonly));
   updateCopilotApplyState();
 }
 
@@ -1007,13 +1008,21 @@ async function ensureCopilotBaseline() {
 
 function generatedCopilotInstruction(targetSections) {
   const adminStatement = copilotInstruction.value.trim();
+  const fieldGuidance = {
+    overview: "Overview means the proposal title and project_objective (the client-facing Project Summary). Do not answer with scope_summary.",
+    scope: "Scope means scope_summary, deliverables, and exclusions.",
+    schedule: "Schedule means timeline and proposal dates, but leave them unchanged unless an authoritative source states the exact commitment.",
+    investment: "Investment means billing items, discounts, deposits, and payment schedule, but leave them unchanged unless an authoritative source states the exact value.",
+    terms: "Terms means revision_policy and terms, but leave them unchanged unless an authoritative source states the exact contractual language.",
+  };
   const sectionText = targetSections.length === 1
     ? `${sectionCompletion(targetSections[0])} the ${targetSections[0]} section`
     : "draft all proposal sections";
   return [
     adminStatement || "Use the included authoritative project information to prepare this proposal.",
     `Task: ${sectionText} using the saved proposal, website request, approved onboarding, current project information, and approved asset list.`,
-    "Write client-ready content and fill missing fields. Preserve accurate existing content. You may propose pricing, billing items, dates, scope, promises, revision limits, payment terms, and contractual language; clearly explain inferred values so I can approve or deny each one.",
+    ...targetSections.map((section) => fieldGuidance[section]),
+    "Write concise, client-ready language and preserve accurate existing content. Never infer pricing, billing values, dates, deposits, promises, revision limits, support hours, payment terms, or contractual language. Leave an unknown protected field unchanged.",
   ].join("\n\n");
 }
 
