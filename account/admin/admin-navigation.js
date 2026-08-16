@@ -459,6 +459,7 @@ const persistentStylesheets = new Set([
   "/assets/site-nav.css",
   "/client-portal/portal.css",
   "/account/admin/admin.css",
+  "/account/admin/admin-select.css",
 ]);
 
 function isPersistentStylesheet(url) {
@@ -628,7 +629,7 @@ export async function navigateAdminWorkspace(destination, {
       const notifications = await import("/account/notifications/notifications.js?v=13");
       await notifications.startNotifications();
     } else {
-      const admin = await import("/account/admin/admin.js?v=31");
+      const admin = await import("/account/admin/admin.js?v=32");
       await admin.startAdmin();
     }
   } finally {

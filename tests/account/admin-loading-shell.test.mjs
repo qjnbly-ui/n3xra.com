@@ -67,6 +67,14 @@ test("the shared navigator covers every admin menu route without hiding the pers
   assert.match(navigation, /importedNavigation\.replaceWith\(currentNavigation\)/);
 });
 
+test("soft admin navigation preserves the shared enhanced-select stylesheet", async () => {
+  const navigation = await readFile(path.join(projectRoot, "account/admin/admin-navigation.js"), "utf8");
+  assert.match(
+    navigation,
+    /const persistentStylesheets = new Set\(\[[\s\S]*"\/account\/admin\/admin-select\.css"/,
+  );
+});
+
 test("admin navigation preserves the clicked position across soft and fallback page loads", async () => {
   const navigation = await readFile(path.join(projectRoot, "account/admin/admin-navigation.js"), "utf8");
   assert.match(navigation, /function captureAdminScrollState\(link = null\)/);

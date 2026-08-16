@@ -143,12 +143,6 @@ function renderOrganizationSelector() {
 }
 
 async function bootstrapAccess() {
-  const { data: bootstrapData, error: bootstrapError } = await supabase.rpc("bootstrap_organization", {
-    input_organization_name: null,
-    input_invite_code: null,
-  });
-  if (bootstrapError) throw bootstrapError;
-
   const { data, error } = await supabase
     .from("organization_memberships")
     .select(`
@@ -173,7 +167,7 @@ async function bootstrapAccess() {
   if (error) throw error;
 
   memberships = dedupeMembershipsByOrganization(buildMembershipMap(data || []));
-  activeMembership = resolveActiveOrganization(memberships, String(bootstrapData?.active_organization_id || ""));
+  activeMembership = resolveActiveOrganization(memberships);
   setStoredActiveOrganizationId(activeMembership?.organization?.id || "");
 }
 

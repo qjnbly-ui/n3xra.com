@@ -52,3 +52,35 @@ test("retired Virals access is administrator-only and never creates an enrollmen
   assert.match(analyze, /if \(!token\) return sendJson\(res, 401/);
   assert.match(compare, /if \(!token\) return sendJson\(res, 401/);
 });
+
+test("opening Records never creates a workspace without explicit confirmation", async () => {
+  const [account, login, dashboard, files, recordings, allRecordings, storage] = await Promise.all([
+    read("account/account.js"),
+    read("n3xra-records/login.js"),
+    read("n3xra-records/dashboard.js"),
+    read("n3xra-records/files.js"),
+    read("n3xra-records/recordings.js"),
+    read("n3xra-records/all-recordings.js"),
+    read("n3xra-records/storage.js"),
+  ]);
+
+  const openRecords = account.match(/async function openRecords\(\)[\s\S]+?\n}/)?.[0] || "";
+  const recordsSignin = login.match(/async function handleSignin\(event\)[\s\S]+?\n}/)?.[0] || "";
+  assert.match(openRecords, /window\.confirm\([\s\S]*bootstrap_organization/);
+  assert.doesNotMatch(recordsSignin, /bootstrapMemberships|bootstrap_organization/);
+  for (const workspace of [dashboard, files, recordings, allRecordings, storage]) {
+    const accessLoader = workspace.match(/async function bootstrapAccess\(\)[\s\S]+?\n}/)?.[0] || "";
+    assert.doesNotMatch(accessLoader, /bootstrap_organization/);
+    assert.match(accessLoader, /organization_memberships/);
+  }
+});
+
+test("legacy app links cannot enroll a regular account in retired apps", async () => {
+  const account = await read("account/account.js");
+  const openMusic = account.match(/async function openMusic\(\)[\s\S]+?\n}/)?.[0] || "";
+  const openVirals = account.match(/async function openVirals\(\)[\s\S]+?\n}/)?.[0] || "";
+  assert.doesNotMatch(openMusic, /fetch\(|confirm\(|enroll|music-account/i);
+  assert.doesNotMatch(openVirals, /fetch\(|confirm\(|enroll|virals-account/i);
+  assert.match(openMusic, /openAdminMusic/);
+  assert.match(openVirals, /openAdminVirals/);
+});

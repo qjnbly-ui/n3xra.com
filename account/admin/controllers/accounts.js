@@ -7,6 +7,8 @@ let formatPhone;
 let providerLabel;
 let setStatus;
 let confirmAdminAction;
+let promptAdminText;
+let canRemoveEnrollments = false;
 
 function accountLabel(account) {
   return `${account.name || account.email} — ${account.email}`;
@@ -42,12 +44,55 @@ function productClientPreviewLink(item) {
   return null;
 }
 
-function renderAccountOptions(filter = "") {
+function enrollmentRemovalCopy(item) {
+  const workspaceName = item.organization || item.plan || item.productLabel || "this workspace";
+  const deletesWorkspace = item.product === "loan_tracker" || item.role === "owner" || item.role === "account";
+  return {
+    workspaceName,
+    deletesWorkspace,
+    buttonLabel: deletesWorkspace ? "Delete app & data" : "Remove access",
+    message: deletesWorkspace
+      ? `This permanently deletes the ${item.productLabel} workspace “${workspaceName}”, its database records, uploaded files, and this person's access. Their N3XRA login and other apps are not affected. Type DELETE ${workspaceName} to continue.`
+      : `This removes this person's access to ${item.productLabel} “${workspaceName}”. Shared workspace data and other members are preserved. Type DELETE ${workspaceName} to continue.`,
+  };
+}
+
+async function removeEnrollment(account, item) {
+  const copy = enrollmentRemovalCopy(item);
+  const expected = `DELETE ${copy.workspaceName}`;
+  const confirmation = await promptAdminText(copy.message, {
+    title: copy.deletesWorkspace ? "Delete app and all data" : "Remove app access",
+    inputLabel: `Type ${expected}`,
+    confirmLabel: copy.deletesWorkspace ? "Delete app & data" : "Remove access",
+  });
+  if (confirmation === null) return;
+  if (confirmation.trim() !== expected) {
+    setStatus(`Nothing was deleted. Type ${expected} exactly to confirm.`, "error");
+    return;
+  }
+
+  setStatus(copy.deletesWorkspace ? `Deleting ${item.productLabel} data…` : `Removing ${item.productLabel} access…`);
+  try {
+    const result = await invoke("remove-product-enrollment", {
+      userId: account.id,
+      product: item.product,
+      workspaceId: item.organizationId,
+      confirmation,
+    });
+    await loadAccounts(account.id);
+    const cleanupNote = result.storageCleanupPending ? " Database access is removed; storage cleanup needs administrator review." : "";
+    setStatus(result.mode === "access_only" ? `App access removed.${cleanupNote}` : `${item.productLabel} and its data were deleted.${cleanupNote}`, result.storageCleanupPending ? "error" : "success");
+  } catch (error) {
+    setStatus(error.message, "error");
+  }
+}
+
+function renderAccountOptions(filter = "", preferredAccountId = "") {
   const select = document.getElementById("account-select");
   if (!select) return;
   const query = filter.trim().toLowerCase();
   const filtered = accounts.filter((account) => !query || [accountLabel(account), account.phone, account.profileOrganization, ...(account.providers || [])].join(" ").toLowerCase().includes(query));
-  const current = select.value;
+  const current = preferredAccountId || select.value;
   select.innerHTML = filtered.map((account) => `<option value="${escapeHtml(account.id)}">${escapeHtml(accountLabel(account))}</option>`).join("");
   if (filtered.some((account) => account.id === current)) select.value = current;
   const count = document.getElementById("account-count");
@@ -113,7 +158,7 @@ async function renderSelectedAccount() {
     <section class="account-oversight-section">
       <div class="account-oversight-heading"><div><p class="portal-kicker">Product enrollment</p><h4>Apps and workspaces</h4><p>Preview the customer experience or open the matching admin workspace with this account already selected.</p></div><span class="account-admin-count">${access.length} enrollment${access.length === 1 ? "" : "s"}</span></div>
       <div class="account-admin-card-grid">
-        ${access.length ? access.map((item) => { const link = productAdminLink(item, account); const previewHref = productClientPreviewLink(item); return `<article class="account-access-card"><div><span>${escapeHtml(item.productLabel)}</span><h4>${escapeHtml(item.organization || item.plan || "Product account")}</h4><p>${escapeHtml(item.role || "account")} · ${escapeHtml(item.status || "active")}</p></div><div class="account-admin-head-actions">${previewHref ? `<a class="portal-button portal-button-secondary" href="${escapeHtml(previewHref)}">Preview client view</a>` : ""}<a class="portal-button portal-button-secondary" href="${escapeHtml(link.href)}">${escapeHtml(link.label)}</a></div></article>`; }).join("") : '<article class="account-access-card"><div><h4>No product access found</h4><p>This identity has no mapped product memberships.</p></div><a class="portal-button portal-button-secondary" href="/account/admin/product-apps/">Review product apps</a></article>'}
+        ${access.length ? access.map((item) => { const link = productAdminLink(item, account); const previewHref = productClientPreviewLink(item); const removable = canRemoveEnrollments && ["records", "websites"].includes(item.product) && item.organizationId; const removal = removable ? enrollmentRemovalCopy(item) : null; return `<article class="account-access-card"><div><span>${escapeHtml(item.productLabel)}</span><h4>${escapeHtml(item.organization || item.plan || "Product account")}</h4><p>${escapeHtml(item.role || "account")} · ${escapeHtml(item.status || "active")}</p></div><div class="account-admin-head-actions">${previewHref ? `<a class="portal-button portal-button-secondary" href="${escapeHtml(previewHref)}">Preview client view</a>` : ""}<a class="portal-button portal-button-secondary" href="${escapeHtml(link.href)}">${escapeHtml(link.label)}</a>${removal ? `<button class="portal-button portal-button-secondary account-danger-button" type="button" data-remove-enrollment data-product="${escapeHtml(item.product)}" data-workspace-id="${escapeHtml(item.organizationId)}">${escapeHtml(removal.buttonLabel)}</button>` : ""}</div></article>`; }).join("") : '<article class="account-access-card"><div><h4>No product access found</h4><p>This identity has no mapped product memberships.</p></div><a class="portal-button portal-button-secondary" href="/account/admin/product-apps/">Review product apps</a></article>'}
       </div>
     </section>
   `;
@@ -162,6 +207,13 @@ async function renderSelectedAccount() {
     }
   });
 
+  detail.querySelectorAll("[data-remove-enrollment]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const item = access.find((candidate) => candidate.product === button.dataset.product && String(candidate.organizationId || "") === String(button.dataset.workspaceId || ""));
+      if (item) removeEnrollment(account, item);
+    });
+  });
+
   try {
     const { data: loan, error } = await supabase
       .from("loan_accounts")
@@ -177,31 +229,37 @@ async function renderSelectedAccount() {
         <div><span>Loan Tracker</span>
         <h4>${escapeHtml(loan.lender_name || "Loan account")}</h4>
         <p>${Number(loan.original_balance).toLocaleString("en-US", { style: "currency", currency: "USD" })} original · ${Number(loan.planned_monthly_payment).toLocaleString("en-US", { style: "currency", currency: "USD" })}/month</p></div>
-        <a class="portal-button portal-button-secondary" href="/account/loan-tracker/?user=${encodeURIComponent(account.id)}">Preview client view</a>
+        <div class="account-admin-head-actions">
+          <a class="portal-button portal-button-secondary" href="/account/loan-tracker/?user=${encodeURIComponent(account.id)}">Preview client view</a>
+          ${canRemoveEnrollments ? '<button class="portal-button portal-button-secondary account-danger-button" id="remove-loan-enrollment" type="button">Delete app & data</button>' : ""}
+        </div>
       </article>
     `);
+    document.getElementById("remove-loan-enrollment")?.addEventListener("click", () => removeEnrollment(account, {
+      product: "loan_tracker",
+      productLabel: "Loan Tracker",
+      organizationId: loan.id,
+      organization: loan.lender_name || loan.borrower_name || "Loan Tracker",
+      role: "owner",
+    }));
   } catch (error) {
     setStatus(error.message || "Unable to load Loan Tracker access.", "error");
   }
 }
 
-async function loadAccounts() {
+async function loadAccounts(preferredUserId = "") {
   setStatus("Loading accounts…");
   const data = await invoke("list-platform-accounts");
   accounts = data.accounts || [];
-  renderAccountOptions();
   const params = new URLSearchParams(window.location.search);
-  const requested = accounts.find((account) => account.id === params.get("user") || account.email === String(params.get("email") || "").toLowerCase());
-  const select = document.getElementById("account-select");
-  if (requested && select) {
-    select.value = requested.id;
-    renderAccountOptions(document.getElementById("account-search")?.value || "");
-  }
+  const requested = accounts.find((account) => account.id === preferredUserId || account.id === params.get("user") || account.email === String(params.get("email") || "").toLowerCase());
+  renderAccountOptions(document.getElementById("account-search")?.value || "", requested?.id || preferredUserId);
   setStatus(`${accounts.length} account${accounts.length === 1 ? "" : "s"} loaded.`, "success");
 }
 
 export async function startAccounts(context = {}) {
-  ({ supabase, invoke, escapeHtml, formatDate, formatPhone, providerLabel, setStatus, confirmAdminAction } = context);
+  ({ supabase, invoke, escapeHtml, formatDate, formatPhone, providerLabel, setStatus, confirmAdminAction, promptAdminText } = context);
+  canRemoveEnrollments = String(context.platformAdminRole || "").toLowerCase() === "owner";
   document.getElementById("account-search")?.addEventListener("input", (event) => renderAccountOptions(event.target.value));
   document.getElementById("account-select")?.addEventListener("change", renderSelectedAccount);
   document.getElementById("account-list")?.addEventListener("click", (event) => {

@@ -814,7 +814,7 @@ async function maybeRouteAfterAuth(session) {
   }
 
   if (requestedApp === "virals") {
-    openVirals();
+    await openVirals();
     return;
   }
 
@@ -975,13 +975,18 @@ async function handleRecovery(event) {
 async function openRecords() {
   if (!currentSession?.user) return;
 
-  setStatus("Opening Records...");
   if (!memberships.length) {
     const inviteCode = String(
       getInviteCode()
       || currentSession.user.user_metadata?.invite_code
       || ""
     ).trim();
+    const confirmed = window.confirm(inviteCode
+      ? "Join the invited N3XRA Records workspace with this account?"
+      : "Create a new N3XRA Records workspace for this account?");
+    if (!confirmed) return;
+
+    setStatus(inviteCode ? "Joining Records..." : "Creating your Records workspace...");
     let data = null;
     let error = null;
 
@@ -1012,6 +1017,7 @@ async function openRecords() {
       setStoredActiveOrganizationId(String(data.active_organization_id));
     }
   } else if (memberships[0]?.organization?.id) {
+    setStatus("Opening Records...");
     setStoredActiveOrganizationId(String(memberships[0].organization.id));
   }
 
@@ -1029,33 +1035,23 @@ function openAdminMusic() {
 }
 
 async function openMusic() {
-  if (!currentSession?.access_token) return;
-
-  if (musicProfile) {
-    window.location.assign("/ai-music-generator/app/");
+  if (!currentSession?.user) return;
+  canViewAdminApps = isPlatformAdminEmail(currentSession.user.email) || hasCachedAdminAccess();
+  if (canViewAdminApps) {
+    openAdminMusic();
     return;
   }
-
-  const confirmed = window.confirm("Enroll this account in N3XRA AI Music? This will create an AI Music profile for this account.");
-  if (!confirmed) return;
-
-  setStatus("Enrolling in AI Music...");
-  try {
-    const response = await fetch("/api/music-account", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${currentSession.access_token}` },
-    });
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(payload?.error || "Unable to enroll in AI Music.");
-    musicProfile = payload?.profile || {};
-    window.location.assign("/ai-music-generator/app/");
-  } catch (error) {
-    setStatus(getErrorMessage(error, "Unable to open AI Music."), "error");
-  }
+  await renderDashboard("N3XRA AI Music is retired and available only to verified administrators.");
 }
 
-function openVirals() {
-  window.location.assign("/virals/");
+async function openVirals() {
+  if (!currentSession?.user) return;
+  canViewAdminApps = isPlatformAdminEmail(currentSession.user.email) || hasCachedAdminAccess();
+  if (canViewAdminApps) {
+    openAdminVirals();
+    return;
+  }
+  await renderDashboard("N3XRA Virals is retired and available only to verified administrators.");
 }
 
 async function handleProfileSave(event) {

@@ -6,7 +6,7 @@ import {
   hasConfig,
   getSessionOrNull,
 } from "/shared/lib/supabase-client.js";
-import { getStoredActiveOrganizationId, isPlatformAdminEmail, setStoredActiveOrganizationId } from "/shared/lib/orgs.js";
+import { isPlatformAdminEmail, setStoredActiveOrganizationId } from "/shared/lib/orgs.js";
 import { createReferralCodeController } from "/shared/lib/referral-code.js";
 
 const setupPanel = document.getElementById("setup-panel");
@@ -488,20 +488,6 @@ async function handleSignin(event) {
     resetCaptcha();
     isSubmittingAuth = false;
     setStatus(getAuthErrorMessage(error), "error");
-    return;
-  }
-
-  try {
-    const savedInviteCode = String(data?.user?.user_metadata?.invite_code || "").trim();
-    const bootstrapData = await bootstrapMemberships(null, savedInviteCode);
-    if (bootstrapData?.active_organization_id && (bootstrapData?.claimed_demo_workspace || !getStoredActiveOrganizationId())) {
-      setStoredActiveOrganizationId(String(bootstrapData.active_organization_id));
-    }
-  } catch (bootstrapError) {
-    isSubmittingAuth = false;
-    resetCaptcha();
-    const message = getErrorMessage(bootstrapError, "Unable to finish library setup.");
-    setStatus(message, "error");
     return;
   }
 

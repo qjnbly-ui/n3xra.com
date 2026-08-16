@@ -27,12 +27,12 @@ test("the verified 144-file base and provisioning migration remain ordered befor
     projectFile("supabase/reports/communications-admin-provisioning-2026-08-14.md"),
   ]);
 
-  assert.equal(migrationFiles.length, 147);
+  assert.equal(migrationFiles.length, 148);
   assert.equal(migrationFiles[0], "20260515052659_foundational_schema_baseline.sql");
   const communicationsSeedIndex = migrationFiles.indexOf("20260814033028_roots_relics_communications_seed_forward.sql");
   const communicationsProvisioningIndex = migrationFiles.indexOf("20260814173124_communications_admin_provisioning.sql");
   const communicationsProviderIndex = migrationFiles.indexOf("20260814184353_communications_resend_provider_foundation.sql");
-  const careersExpansionIndex = migrationFiles.indexOf("20260815211435_expand_universal_careers_application.sql");
+  const careersExpansionIndex = migrationFiles.indexOf("20260815212436_expand_universal_careers_application.sql");
   assert.ok(communicationsSeedIndex < communicationsProvisioningIndex);
   assert.ok(communicationsProvisioningIndex < communicationsProviderIndex);
   assert.ok(communicationsProviderIndex < careersExpansionIndex);

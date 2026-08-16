@@ -1,7 +1,7 @@
 import { hasConfig } from "/shared/lib/supabase-client.js";
 import { getAdminSession } from "/account/admin/admin-session.js";
-import { arrangeAdminWorkspace } from "/account/admin/admin-navigation.js?v=18";
-import { confirmAdminAction } from "/account/admin/admin-dialogs.js";
+import { arrangeAdminWorkspace } from "/account/admin/admin-navigation.js?v=19";
+import { confirmAdminAction, promptAdminText } from "/account/admin/admin-dialogs.js";
 import { initializeAdminSelects } from "/account/admin/admin-select.js?v=1";
 
 initializeAdminSelects();
@@ -181,8 +181,8 @@ window.addEventListener("hashchange", selectInvestmentSection);
 
 async function loadAdminView() {
   if (view === "accounts") {
-    const accountsController = await import("/account/admin/controllers/accounts.js?v=2");
-    await accountsController.startAccounts({ supabase, invoke, escapeHtml, formatDate, formatPhone, providerLabel, setStatus, confirmAdminAction });
+    const accountsController = await import("/account/admin/controllers/accounts.js?v=3");
+    await accountsController.startAccounts({ supabase, invoke, escapeHtml, formatDate, formatPhone, providerLabel, setStatus, confirmAdminAction, promptAdminText, platformAdminRole: context.admin?.role });
   } else if (view === "files") {
     const files = await import("/account/admin/files/files.js?v=20");
     await files.startFiles({ supabase, session, invoke });

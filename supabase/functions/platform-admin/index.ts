@@ -89,6 +89,99 @@ function safeStorageFilename(value: unknown) {
     .slice(0, 160) || "file";
 }
 
+type StorageObject = { bucket: string; path: string };
+
+function publicStorageObjectPath(value: unknown, bucket: string) {
+  try {
+    const marker = `/storage/v1/object/public/${bucket}/`;
+    const pathname = new URL(String(value || "")).pathname;
+    return pathname.includes(marker) ? decodeURIComponent(pathname.split(marker)[1] || "") : "";
+  } catch {
+    return "";
+  }
+}
+
+function uniqueStorageObjects(objects: StorageObject[]) {
+  const seen = new Set<string>();
+  return objects.filter((object) => {
+    const bucket = String(object.bucket || "").trim();
+    const path = String(object.path || "").trim();
+    const key = `${bucket}\n${path}`;
+    if (!bucket || !path || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+async function removeStorageObjects(adminClient: ReturnType<typeof createClient>, objects: StorageObject[]) {
+  const byBucket = new Map<string, string[]>();
+  uniqueStorageObjects(objects).forEach(({ bucket, path }) => {
+    byBucket.set(bucket, [...(byBucket.get(bucket) || []), path]);
+  });
+
+  const failures: string[] = [];
+  for (const [bucket, paths] of byBucket) {
+    for (let index = 0; index < paths.length; index += 100) {
+      const batch = paths.slice(index, index + 100);
+      const { error } = await adminClient.storage.from(bucket).remove(batch);
+      if (error) failures.push(`${bucket}: ${error.message}`);
+    }
+  }
+  return failures;
+}
+
+async function recordsEnrollmentStorage(adminClient: ReturnType<typeof createClient>, organizationId: string) {
+  const [organizationResult, documentsResult, recordingsResult, chunksResult] = await Promise.all([
+    adminClient.from("organizations").select("logo_storage_path").eq("id", organizationId).maybeSingle(),
+    adminClient.from("documents").select("storage_path").eq("organization_id", organizationId).limit(10000),
+    adminClient.from("meeting_recordings").select("storage_bucket,storage_path").eq("organization_id", organizationId).limit(10000),
+    adminClient.from("meeting_recording_chunks").select("storage_path").eq("organization_id", organizationId).limit(10000),
+  ]);
+  const firstError = [organizationResult, documentsResult, recordingsResult, chunksResult].find((result) => result.error)?.error;
+  if (firstError) throw new Error(firstError.message);
+
+  return uniqueStorageObjects([
+    ...(documentsResult.data || []).map((row) => ({ bucket: "documents", path: row.storage_path })),
+    ...(recordingsResult.data || []).map((row) => ({ bucket: row.storage_bucket || "meeting-recordings", path: row.storage_path })),
+    ...(chunksResult.data || []).map((row) => ({ bucket: "meeting-recordings", path: row.storage_path })),
+    ...(organizationResult.data?.logo_storage_path ? [{ bucket: "organization-assets", path: organizationResult.data.logo_storage_path }] : []),
+  ]);
+}
+
+async function websiteEnrollmentStorage(adminClient: ReturnType<typeof createClient>, websiteId: string) {
+  const [{ data: assets, error: assetsError }, { data: projects, error: projectsError }] = await Promise.all([
+    adminClient.from("website_assets").select("id").eq("website_id", websiteId).limit(10000),
+    adminClient.from("website_projects").select("id").eq("managed_website_id", websiteId).limit(10000),
+  ]);
+  if (assetsError || projectsError) throw new Error(assetsError?.message || projectsError?.message || "Unable to inspect website files.");
+
+  const assetIds = (assets || []).map((row) => row.id);
+  const projectIds = (projects || []).map((row) => row.id);
+  const versionsResult = assetIds.length
+    ? await adminClient.from("website_asset_versions").select("storage_bucket,storage_path,public_url").in("asset_id", assetIds).limit(10000)
+    : { data: [], error: null };
+  const onboardingsResult = projectIds.length
+    ? await adminClient.from("website_onboardings").select("id").in("project_id", projectIds).limit(10000)
+    : { data: [], error: null };
+  if (versionsResult.error || onboardingsResult.error) {
+    throw new Error(versionsResult.error?.message || onboardingsResult.error?.message || "Unable to inspect website files.");
+  }
+
+  const onboardingIds = (onboardingsResult.data || []).map((row) => row.id);
+  const onboardingFilesResult = onboardingIds.length
+    ? await adminClient.from("website_onboarding_files").select("storage_bucket,storage_path").in("onboarding_id", onboardingIds).limit(10000)
+    : { data: [], error: null };
+  if (onboardingFilesResult.error) throw new Error(onboardingFilesResult.error.message);
+
+  return uniqueStorageObjects([
+    ...(versionsResult.data || []).flatMap((row) => [
+      { bucket: row.storage_bucket || "website-assets-private", path: row.storage_path },
+      ...(row.public_url ? [{ bucket: "website-assets-public", path: publicStorageObjectPath(row.public_url, "website-assets-public") }] : []),
+    ]),
+    ...(onboardingFilesResult.data || []).map((row) => ({ bucket: row.storage_bucket || "website-onboarding-private", path: row.storage_path })),
+  ]);
+}
+
 async function findAuthUserByEmail(adminClient: ReturnType<typeof createClient>, inputEmail: string) {
   const email = normalizeEmail(inputEmail);
   for (let page = 1; page <= 20; page += 1) {
@@ -1372,6 +1465,90 @@ Deno.serve(async (request) => {
     if (action === "list-platform-accounts") {
       const { accounts } = await loadPlatformAccountData(adminClient);
       return jsonResponse({ ok: true, accounts, count: accounts.length });
+    }
+
+    if (action === "remove-product-enrollment") {
+      if (String(platformAdmin.role || "").toLowerCase() !== "owner") {
+        return jsonResponse({ error: "Only the platform owner can delete product enrollments and customer data." }, 403);
+      }
+
+      const userId = String(payload.userId || "").trim();
+      const product = String(payload.product || "").trim().toLowerCase();
+      const workspaceId = String(payload.workspaceId || "").trim();
+      const confirmation = String(payload.confirmation || "").trim();
+      if (!isValidUuid(userId)) return jsonResponse({ error: "A valid userId is required." }, 400);
+      if (!isValidUuid(workspaceId)) return jsonResponse({ error: "A valid workspaceId is required." }, 400);
+      if (!["records", "websites", "loan_tracker"].includes(product)) {
+        return jsonResponse({ error: "That product enrollment cannot be removed here." }, 400);
+      }
+
+      let workspaceName = "";
+      let deleteWorkspace = true;
+      let storageObjects: StorageObject[] = [];
+
+      if (product === "records") {
+        const [{ data: organization, error: organizationError }, { data: membership, error: membershipError }] = await Promise.all([
+          adminClient.from("organizations").select("id,name,owner_user_id").eq("id", workspaceId).maybeSingle(),
+          adminClient.from("organization_memberships").select("id").eq("organization_id", workspaceId).eq("user_id", userId).maybeSingle(),
+        ]);
+        if (organizationError || membershipError) return jsonResponse({ error: organizationError?.message || membershipError?.message || "Unable to inspect Records access." }, 400);
+        if (!organization || (organization.owner_user_id !== userId && !membership)) {
+          return jsonResponse({ error: "This Records enrollment no longer exists." }, 404);
+        }
+        workspaceName = textValue(organization.name, 180) || "Records workspace";
+        deleteWorkspace = organization.owner_user_id === userId;
+        if (deleteWorkspace) storageObjects = await recordsEnrollmentStorage(adminClient, workspaceId);
+      } else if (product === "websites") {
+        const [{ data: website, error: websiteError }, { data: membership, error: membershipError }] = await Promise.all([
+          adminClient.from("client_websites").select("id,name").eq("id", workspaceId).maybeSingle(),
+          adminClient.from("website_members").select("id,role,status").eq("website_id", workspaceId).eq("user_id", userId).maybeSingle(),
+        ]);
+        if (websiteError || membershipError) return jsonResponse({ error: websiteError?.message || membershipError?.message || "Unable to inspect website access." }, 400);
+        if (!website || !membership) return jsonResponse({ error: "This website enrollment no longer exists." }, 404);
+        workspaceName = textValue(website.name, 180) || "Website workspace";
+        deleteWorkspace = membership.role === "owner";
+        if (deleteWorkspace) storageObjects = await websiteEnrollmentStorage(adminClient, workspaceId);
+      } else {
+        const { data: loan, error: loanError } = await adminClient
+          .from("loan_accounts")
+          .select("id,name,lender_name")
+          .eq("id", workspaceId)
+          .eq("user_id", userId)
+          .maybeSingle();
+        if (loanError) return jsonResponse({ error: loanError.message }, 400);
+        if (!loan) return jsonResponse({ error: "This Loan Tracker enrollment no longer exists." }, 404);
+        workspaceName = textValue(loan.name || loan.lender_name, 180) || "Loan Tracker";
+      }
+
+      const expectedConfirmation = `DELETE ${workspaceName}`;
+      if (confirmation !== expectedConfirmation) {
+        return jsonResponse({ error: `Type ${expectedConfirmation} exactly to continue.` }, 400);
+      }
+
+      const { data: result, error: removalError } = await adminClient.rpc("admin_remove_product_enrollment", {
+        input_product: product,
+        input_user_id: userId,
+        input_workspace_id: workspaceId,
+        input_delete_workspace: deleteWorkspace,
+      });
+      if (removalError) return jsonResponse({ error: removalError.message }, 400);
+
+      const resultMode = result?.mode || (deleteWorkspace ? "workspace" : "access_only");
+      const storageFailures = resultMode === "workspace"
+        ? await removeStorageObjects(adminClient, storageObjects)
+        : [];
+      if (storageFailures.length) {
+        console.error("Product enrollment database removal completed with storage cleanup failures:", storageFailures);
+      }
+
+      return jsonResponse({
+        ok: true,
+        product,
+        workspaceId,
+        workspaceName,
+        mode: resultMode,
+        storageCleanupPending: storageFailures.length > 0,
+      });
     }
 
     if (action === "update-platform-account") {

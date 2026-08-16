@@ -1276,12 +1276,6 @@ function renderOrganizationSelector() {
 }
 
 async function bootstrapAccess() {
-  const { data: bootstrapData, error: bootstrapError } = await supabase.rpc("bootstrap_organization", {
-    input_organization_name: null,
-    input_invite_code: null,
-  });
-  if (bootstrapError) throw bootstrapError;
-
   const { data, error } = await supabase
     .from("organization_memberships")
     .select(`
@@ -1310,7 +1304,7 @@ async function bootstrapAccess() {
     const supportMembership = await loadSupportMembership(supabase, currentSession.user);
     if (supportMembership) memberships = [supportMembership, ...memberships.filter((item) => item.organization?.id !== supportMembership.organization.id)];
   }
-  activeMembership = resolveActiveOrganization(memberships, getSupportOrganizationId() || String(bootstrapData?.active_organization_id || ""));
+  activeMembership = resolveActiveOrganization(memberships, getSupportOrganizationId() || "");
   if (activeMembership?.organization?.id) {
     setStoredActiveOrganizationId(activeMembership.organization.id);
   } else {

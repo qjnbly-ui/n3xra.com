@@ -42,7 +42,7 @@ test("careers keeps mobile multi-select choices compact", async () => {
 });
 
 test("careers migration validates the expanded application fields", async () => {
-  const migration = await source("supabase/migrations/20260815211435_expand_universal_careers_application.sql");
+  const migration = await source("supabase/migrations/20260815212436_expand_universal_careers_application.sql");
 
   for (const column of [
     "proposed_title",

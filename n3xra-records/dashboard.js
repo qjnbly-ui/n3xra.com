@@ -2808,15 +2808,6 @@ function sortMemberships(items) {
 
 async function bootstrapAccess() {
   const supportOrgId = getSupportOrganizationId();
-  const { data: bootstrapData, error: bootstrapError } = await supabase.rpc("bootstrap_organization", {
-    input_organization_name: null,
-    input_invite_code: null,
-  });
-
-  if (bootstrapError) {
-    throw bootstrapError;
-  }
-
   const [{ data: profileData, error: profileError }, { data: membershipData, error: membershipError }] = await Promise.all([
     supabase.from("profiles").select("id, email, full_name").eq("id", currentSession.user.id).maybeSingle(),
     supabase
@@ -2899,8 +2890,7 @@ async function bootstrapAccess() {
     memberships = sortMemberships(memberships);
   }
 
-  const bootstrapOrgId = String(bootstrapData?.active_organization_id || "");
-  const preferredOrgId = supportOrgId || bootstrapOrgId;
+  const preferredOrgId = supportOrgId || "";
   activeMembership = resolveActiveOrganization(memberships, preferredOrgId, { preferStored: !supportOrgId });
   if (activeMembership?.organization?.id) {
     setStoredActiveOrganizationId(activeMembership.organization.id);
