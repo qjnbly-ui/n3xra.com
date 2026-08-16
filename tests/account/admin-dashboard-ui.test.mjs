@@ -8,6 +8,7 @@ const accountJsPath = new URL("../../account/account.js", import.meta.url);
 const adminNavigationPath = new URL("../../account/admin/admin-navigation.js", import.meta.url);
 const adminInboxCssPath = new URL("../../account/admin/inbox/inbox.css", import.meta.url);
 const adminInboxHtmlPath = new URL("../../account/admin/inbox/index.html", import.meta.url);
+const adminBillingHtmlPath = new URL("../../account/admin/billing/index.html", import.meta.url);
 const financialOperationsHtmlPath = new URL("../../account/admin/operations/index.html", import.meta.url);
 const financialOperationsScriptPath = new URL("../../account/admin/operations/operations.js", import.meta.url);
 
@@ -68,15 +69,18 @@ test("customer app cards use consistent N3XRA product names and clear access sta
 });
 
 test("mobile inbox summaries remain compact while full notifications open separately", async () => {
-  const [css, html] = await Promise.all([
+  const [css, html, billingHtml] = await Promise.all([
     readFile(adminInboxCssPath, "utf8"),
     readFile(adminInboxHtmlPath, "utf8"),
+    readFile(adminBillingHtmlPath, "utf8"),
   ]);
 
   assert.match(css, /@media \(max-width: 680px\)[\s\S]*\.notification-item-main p\s*{[\s\S]*display:\s*-webkit-box;[\s\S]*-webkit-line-clamp:\s*2;/);
   assert.match(css, /\.notification-item-main:focus-visible\s*{/);
   assert.match(html, /<dialog class="notification-dialog"/);
   assert.match(html, /inbox\.css\?v=3/);
+  assert.doesNotMatch(html, /<option value="(?:music|virals)">/);
+  assert.doesNotMatch(billingHtml, /<option value="(?:ai_music|virals)">/);
 });
 
 test("the financial workspace is clearly labeled without changing its stable route", async () => {
