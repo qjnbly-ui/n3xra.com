@@ -79,6 +79,8 @@ test("the editor is a professional Proposal & Agreement workspace, not a step wi
   assert.match(html, /id="proposal-introduction" type="hidden"/);
   assert.match(script, /introduction: null/);
   assert.match(script, /values\.introduction, values\.project_objective/);
+  assert.match(html, /Recurring service amount \(\$\)/);
+  assert.doesNotMatch(html, /Annual renewal total/);
 });
 
 test("the client accepts the same agreement version used for billing", () => {
