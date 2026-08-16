@@ -28,23 +28,19 @@ const localInput = (value) => value ? new Date(new Date(value).getTime() - new D
 
 function adminTools(project, snapshot, schedule, charges, subscription, communications) {
   if (!adminMode || !snapshot) return "";
-  const committed = charges
-    .filter((item) => ["proposal_balance", "milestone"].includes(item.source) && !["void", "canceled"].includes(item.status))
-    .reduce((sum, item) => sum + Number(item.amount_cents || 0), 0);
-  const available = Math.max(0, Number(snapshot.remaining_build_balance_cents || 0) - committed);
   return `<section class="billing-admin-tools">
     <div class="billing-section-heading"><div><p class="portal-kicker">Only when needed</p><h4>Billing controls</h4><p>Schedule service, issue an approved charge, or send a billing message.</p></div></div>
     <details>
-      <summary><span><strong>Service schedule</strong><small>Choose when recurring website service starts.</small></span></summary>
+      <summary><span><strong>Set when the yearly plan begins</strong><small>Choose the start date and how future renewals are collected.</small></span></summary>
       <form class="billing-operation-form" data-schedule-form="${project.id}">
         <label>Service starts<input type="datetime-local" name="service_start_at" value="${escape(localInput(schedule?.service_start_at))}"></label>
-        <label>Default collection<select name="collection_method"><option value="charge_automatically"${schedule?.collection_method !== "send_invoice" ? " selected" : ""}>Charge saved card</option><option value="send_invoice"${schedule?.collection_method === "send_invoice" ? " selected" : ""}>Email invoice</option></select></label>
-        <label>Invoice due in days<input type="number" name="days_until_due" min="1" max="60" value="${escape(schedule?.days_until_due || 7)}"></label>
-        <button class="portal-button" type="submit">Save schedule</button>
+        <label>How the customer pays<select name="collection_method"><option value="charge_automatically"${schedule?.collection_method !== "send_invoice" ? " selected" : ""}>Charge their saved card</option><option value="send_invoice"${schedule?.collection_method === "send_invoice" ? " selected" : ""}>Email them an invoice</option></select></label>
+        <label>Invoice is due after<input type="number" name="days_until_due" min="1" max="60" value="${escape(schedule?.days_until_due || 7)}"><small>Number of days; used only when emailing an invoice.</small></label>
+        <button class="portal-button" type="submit">Save renewal setup</button>
       </form>
     </details>
     <details>
-      <summary><span><strong>Create an approved charge</strong><small>${money(available)} of the accepted proposal balance is not yet allocated.</small></span></summary>
+      <summary><span><strong>Add a one-time extra charge</strong><small>Use only for work or costs the customer has already approved.</small></span></summary>
       <form class="billing-operation-form" data-charge-form="${project.id}">
         <label>Charge source<select name="source"><option value="proposal_balance">Proposal balance</option><option value="milestone">Project milestone</option><option value="domain">Domain</option><option value="third_party">Third-party cost</option><option value="extra_edits">Additional edits</option><option value="additional_service">Additional service</option></select></label>
         <label>Category<select name="category"><option value="website_build">Website build</option><option value="domain">Domain</option><option value="hosting">Hosting</option><option value="maintenance">Maintenance</option><option value="email">Email</option><option value="ssl_cdn">SSL / CDN</option><option value="content">Content</option><option value="ecommerce">Ecommerce</option><option value="integration">Integration</option><option value="other">Other</option></select></label>
@@ -59,7 +55,7 @@ function adminTools(project, snapshot, schedule, charges, subscription, communic
       </form>
     </details>
     <details>
-      <summary><span><strong>Client communication</strong><small>Preview every message before sending.</small></span></summary>
+      <summary><span><strong>Send a billing email</strong><small>Choose a message and preview it before anything is sent.</small></span></summary>
       <form class="billing-operation-form" data-message-form="${project.id}">
         <label>Message<select name="template"><option value="billing_setup_ready">Billing setup ready</option><option value="invoice_issued">Invoice issued</option><option value="payment_received">Payment received</option><option value="upcoming_renewal">Upcoming renewal</option><option value="payment_failed">Payment failed</option><option value="card_expiring">Card expiring</option><option value="cancellation_scheduled">Cancellation scheduled</option></select></label>
         <button class="portal-button portal-button-secondary" type="submit">Preview email</button>
@@ -67,6 +63,26 @@ function adminTools(project, snapshot, schedule, charges, subscription, communic
       ${communications.length ? `<p class="billing-last-message">Last sent: ${dateTime(communications[0].sent_at || communications[0].created_at)} · ${escape(communications[0].subject)}</p>` : ""}
     </details>
     ${subscription ? `<button class="portal-button portal-button-danger" data-cancel-subscription="${project.id}">Schedule cancellation at term end</button>` : ""}
+  </section>`;
+}
+
+function adminTaskActions(project, snapshot, cardInfo) {
+  if (!adminMode || !snapshot) return "";
+  const paymentParams = new URLSearchParams({
+    view: "invoices",
+    create: "payment",
+    account_user_id: project.client_user_id || "",
+    website_project_id: project.id,
+    description: `Website payment — ${project.name}`,
+  });
+  return `<section class="billing-task-actions">
+    <div class="billing-section-heading"><div><p class="portal-kicker">Choose what happened</p><h4>What do you want to do?</h4><p>Pick one. Simply viewing this page does not bill the customer.</p></div></div>
+    <div class="billing-task-action-list">
+      <a class="billing-task-action" href="/account/admin/operations/?${escape(paymentParams.toString())}"><strong>They already paid me</strong><small>Record cash, a check, or another payment you received.</small><span>Record payment →</span></a>
+      ${snapshot.status !== "active" ? `<button class="billing-task-action" type="button" data-admin-checkout="${snapshot.id}"><strong>They need to pay online</strong><small>Create a secure Stripe link and copy it so you can send it to them.</small><span>${snapshot.checkout_url ? "Refresh payment link" : "Create payment link"} →</span></button>` : ""}
+      ${snapshot.checkout_url ? `<button class="billing-task-action" type="button" data-copy="${escape(snapshot.checkout_url)}"><strong>I already made a payment link</strong><small>Copy the existing secure link again.</small><span>Copy payment link →</span></button>` : ""}
+      ${cardInfo?.stripe_customer_id ? `<a class="billing-task-action" href="https://dashboard.stripe.com/customers/${escape(cardInfo.stripe_customer_id)}" target="_blank" rel="noopener"><strong>I need the Stripe record</strong><small>Open this customer directly in Stripe.</small><span>Open Stripe →</span></a>` : ""}
+    </div>
   </section>`;
 }
 
@@ -114,12 +130,10 @@ function card(project) {
       <div><span>Service starts</span><strong>${dateTime(schedule?.service_start_at || snapshot.activated_at)}</strong><small>${subscription?.current_period_end ? `Next renewal ${date(subscription.current_period_end)}` : "Set when service should begin"}</small></div>
       <div><span>Payment method</span><strong>${cardInfo?.payment_method_last4 ? `${escape(cardInfo.payment_method_brand)} •••• ${escape(cardInfo.payment_method_last4)}` : "Not saved"}</strong><small>${cardInfo?.payment_method_last4 ? "Saved securely in Stripe" : "Added during secure checkout"}</small></div>
     </div>${billingItemList(snapshot)}` : `<div class="billing-empty-state"><div><span aria-hidden="true">$</span><h4>Billing is not prepared</h4><p>Open the approved proposal and prepare billing when this website is ready. Nothing will be charged from this page automatically.</p></div>${adminMode ? '<a class="portal-button" href="/n3xra-admin/proposals/">Open proposals</a>' : ""}</div>`}
+    ${adminTaskActions(project, snapshot, cardInfo)}
     <div class="portal-form-actions billing-primary-actions">
       ${!adminMode && snapshot && snapshot.status !== "active" ? `<button class="portal-button" data-checkout="${snapshot.id}">Complete secure billing setup</button>` : ""}
       ${!adminMode && subscription ? `<button class="portal-button" data-portal="${project.id}">Manage billing in Stripe</button>` : ""}
-      ${adminMode && snapshot && snapshot.status !== "active" ? `<button class="portal-button" data-admin-checkout="${snapshot.id}">${snapshot.checkout_url ? "Refresh payment link" : "Create payment link"}</button>` : ""}
-      ${adminMode && snapshot?.checkout_url ? `<button class="portal-button portal-button-secondary" data-copy="${escape(snapshot.checkout_url)}">Copy payment link</button>` : ""}
-      ${adminMode && cardInfo?.stripe_customer_id ? `<a class="portal-button portal-button-secondary" href="https://dashboard.stripe.com/customers/${escape(cardInfo.stripe_customer_id)}" target="_blank" rel="noopener">Open Stripe record</a>` : ""}
     </div>
     ${chargeList(charges)}
     ${invoices.length ? `<div class="billing-invoices"><h4>Recent invoices</h4>${invoices.map((invoice) => `<a class="billing-invoice" href="${escape(invoice.hosted_invoice_url || invoice.invoice_pdf_url || "#")}" target="_blank" rel="noopener"><span>${date(invoice.created_at)} · ${escape(label(invoice.status))}</span><strong>${money(invoice.total_cents)}</strong></a>`).join("")}</div>` : ""}

@@ -109,6 +109,41 @@
 .billing-primary-actions { gap: 10px; margin: 0; padding-top: 4px; }
 .billing-primary-actions:empty { display: none; }
 
+.billing-task-actions {
+  padding: 24px 0;
+  border-top: 1px solid #e5e7eb;
+}
+
+.billing-task-action-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.billing-task-action {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-height: 150px;
+  box-sizing: border-box;
+  border: 1px solid #d7dfe5;
+  border-radius: 14px;
+  padding: 18px;
+  color: #111827;
+  background: #fff;
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.billing-task-action:hover,
+.billing-task-action:focus-visible { border-color: #14796f; box-shadow: 0 0 0 3px rgba(20, 121, 111, .12); outline: 0; }
+.billing-task-action strong { font-size: 1rem; }
+.billing-task-action small { margin-top: 7px; color: #68758a; line-height: 1.45; }
+.billing-task-action span { margin-top: auto; padding-top: 18px; color: #14796f; font-size: .84rem; font-weight: 800; }
+
 .billing-invoices { margin-top: 22px; }
 .billing-invoices h4 { margin: 0 0 10px; }
 .billing-invoice {
@@ -237,6 +272,7 @@
   .billing-plan-item,
   .billing-empty-state { align-items: flex-start; flex-direction: column; }
   .billing-plan-item > b { text-align: left; }
+  .billing-task-action-list { grid-template-columns: 1fr; }
 }
 
 @media (min-width: 701px) and (max-width: 1180px) {

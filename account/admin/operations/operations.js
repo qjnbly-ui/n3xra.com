@@ -1452,6 +1452,19 @@ export async function startOperations(context) {
   await loadAll();
   const params = new URLSearchParams(window.location.search);
   if (params.get("view")) showPanel(params.get("view"));
+  if (params.get("create") === "payment") {
+    const accountUserId = String(params.get("account_user_id") || "");
+    const party = state.parties.find((item) => accountUserId && item.account_user_id === accountUserId);
+    openForm("transaction", "", {
+      transaction_type: "revenue",
+      transaction_date: todayValue(),
+      status: "completed",
+      party_id: party?.id || "",
+      category: "customer_payment",
+      payment_method: "cash",
+      description: String(params.get("description") || "Customer payment"),
+    });
+  }
   if (params.get("create") === "invoice") {
     const accountUserId = String(params.get("account_user_id") || "");
     const email = String(params.get("email") || "").trim().toLowerCase();
