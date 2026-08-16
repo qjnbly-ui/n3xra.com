@@ -103,7 +103,9 @@ test("mobile inbox summaries remain compact while full notifications open separa
   assert.match(html, /<dialog class="notification-dialog"/);
   assert.match(html, /inbox\.css\?v=3/);
   assert.doesNotMatch(html, /<option value="(?:music|virals)">/);
-  assert.doesNotMatch(billingHtml, /<option value="(?:ai_music|virals)">/);
+  for (const product of ["records", "websites", "ai_music", "virals"]) {
+    assert.match(billingHtml, new RegExp(`<option value="${product}">`));
+  }
 });
 
 test("the financial workspace is clearly labeled without changing its stable route", async () => {
@@ -116,5 +118,9 @@ test("the financial workspace is clearly labeled without changing its stable rou
   assert.match(html, /aria-label="Financial operations sections"/);
   assert.match(html, /N3XRA Financial Operations/);
   assert.match(script, /Financial Operations Report/);
+  assert.match(script, /data-record-payment/);
+  assert.match(script, /payment_method: "cash"/);
+  assert.match(script, /data-send-invoice/);
+  assert.match(script, /send-manual-invoice/);
   assert.doesNotMatch(html, /<title>N3XRA \| Operations<\/title>/);
 });

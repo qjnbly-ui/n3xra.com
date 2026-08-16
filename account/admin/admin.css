@@ -588,7 +588,9 @@ body:not(.admin-ready):not(.portal-loading):not(.product-native-admin) main.acco
 .billing-roster-pane { min-height:0; padding:1.1rem; overflow-y:auto; overscroll-behavior:contain; scrollbar-gutter:stable; background:#fbfcfd; border-right:1px solid var(--portal-line); }
 .billing-roster-head { display:flex; align-items:flex-start; justify-content:space-between; gap:.75rem; margin-bottom:1rem; }
 .billing-roster-head strong { display:block; margin-top:.18rem; font-size:1rem; }
-.billing-roster-head > span { color:var(--portal-muted); font-size:.72rem; font-weight:800; }
+.billing-roster-head > div:last-child { display:grid; justify-items:end; gap:.2rem; }
+.billing-roster-head #billing-count { color:var(--portal-muted); font-size:.72rem; font-weight:800; }
+.billing-roster-head .operations-text-button { color:#087b83; font-size:.7rem; font-weight:800; text-decoration:none; }
 .billing-roster-pane .account-admin-field input,
 .billing-roster-pane .account-admin-field select { border-radius:4px; }
 .billing-filter-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.65rem; margin-top:.75rem; }

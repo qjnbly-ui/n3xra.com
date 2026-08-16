@@ -1,5 +1,5 @@
 import Stripe from "https://esm.sh/stripe@18.3.0?target=denonext";
-import { originFor, priceEnvironment, requireUser, response, stripeClient, websiteMetadata } from "../_shared/website-billing.ts";
+import { originFor, requireUser, response, snapshotItemPriceEnvironment, stripeClient, websiteMetadata } from "../_shared/website-billing.ts";
 
 Deno.serve(async (request) => {
   const origin = originFor(request);
@@ -8,7 +8,11 @@ Deno.serve(async (request) => {
     const { admin, user, authUser } = await requireUser(request);
     const { snapshot_id } = await request.json();
     const { data: isAdmin } = await user.rpc("is_platform_admin");
-    const { data: snapshot, error } = await admin.from("website_billing_snapshots").select("*").eq("id", snapshot_id).single();
+    const { data: snapshot, error } = await admin
+      .from("website_billing_snapshots")
+      .select("*,website_billing_snapshot_items(*)")
+      .eq("id", snapshot_id)
+      .single();
     if (error || !snapshot) return response({ error: "Billing setup was not found." }, 404, origin);
     if (snapshot.client_user_id !== authUser.id && isAdmin !== true) return response({ error: "You cannot access this website billing setup." }, 403, origin);
     if (snapshot.status === "active") return response({ error: "Billing is already active." }, 409, origin);
@@ -56,21 +60,21 @@ Deno.serve(async (request) => {
     });
 
     let mode: Stripe.Checkout.SessionCreateParams.Mode = "payment";
-    let recurringPriceId = "";
     if (snapshot.recurring_cents > 0) {
       mode = "subscription";
-      recurringPriceId = priceEnvironment(snapshot.service_plan, snapshot.recurring_interval);
-      if (!recurringPriceId) {
-        const price = await stripe.prices.create({
-          currency: snapshot.currency,
-          unit_amount: snapshot.recurring_cents,
-          recurring: { interval: snapshot.recurring_interval === "yearly" ? "year" : "month" },
-          product_data: { name: `Managed website service — ${snapshot.service_plan.replace("_", " ")}`, metadata },
-          metadata,
-        }, { idempotencyKey: `website-price-${snapshot.id}` });
-        recurringPriceId = price.id;
+      const recurringItems = (snapshot.website_billing_snapshot_items || [])
+        .filter((item: Record<string, unknown>) => item.billing_type === "recurring" && item.included_in_initial_checkout)
+        .sort((a: Record<string, unknown>, b: Record<string, unknown>) => Number(a.sort_order || 0) - Number(b.sort_order || 0));
+      if (!recurringItems.length) throw new Error("No recurring billing lines were found for this proposal.");
+      const intervals = new Set(recurringItems.map((item: Record<string, unknown>) => String(item.recurring_interval || "")));
+      if (intervals.size > 1) {
+        throw new Error("Monthly and yearly recurring items must be checked out separately. Update the proposal billing schedule before continuing.");
       }
-      lineItems.push({ price: recurringPriceId, quantity: 1 });
+      for (const item of recurringItems) {
+        const priceId = snapshotItemPriceEnvironment(item, snapshot.service_plan);
+        if (!priceId) throw new Error(`Stripe pricing is not configured for ${String(item.name || "this recurring item")}.`);
+        lineItems.push({ price: priceId, quantity: Number(item.quantity || 1) });
+      }
     }
 
     const scheduledStart = schedule?.service_start_at ? new Date(schedule.service_start_at) : null;

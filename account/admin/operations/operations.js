@@ -28,6 +28,7 @@ let activeFormType = "";
 let activeImportBatchId = "";
 let activeExpenseFilter = "pending";
 let stripePreview = [];
+let pendingInvoiceAfterParty = false;
 
 const TABLES = {
   party: "operations_parties",
@@ -314,7 +315,13 @@ function renderInvoices() {
       const paid = invoicePaidCents(invoice);
       const outstanding = outstandingInvoiceCents(invoice, state.transactions);
       const source = invoice.source === "stripe" ? " · Stripe sync" : "";
-      return `<tr><td><strong>${escapeHtml(invoice.invoice_number)}</strong><small>${escapeHtml(productById(invoice.product_id)?.name || projectById(invoice.project_id)?.name || "")}${source}</small></td><td>${escapeHtml(partyById(invoice.customer_id)?.name || "—")}</td><td>${dateLabel(invoice.issue_date)}</td><td>${dateLabel(invoice.due_date)}</td><td>${statusBadge(invoice.status)}</td><td>${moneyCents(invoice.total_cents)}</td><td>${moneyCents(paid)}</td><td>${moneyCents(outstanding)}</td><td><button class="operations-row-action" type="button" data-edit="invoice" data-id="${invoice.id}">Edit</button></td></tr>`;
+      const paymentAction = invoice.source !== "stripe" && outstanding > 0 && !["void", "uncollectible"].includes(invoice.status)
+        ? `<button class="operations-row-action" type="button" data-record-payment="${invoice.id}">Record payment</button>`
+        : "";
+      const sendAction = invoice.source === "manual" && invoice.status === "draft"
+        ? `<button class="operations-row-action" type="button" data-send-invoice="${invoice.id}">Send through Stripe</button>`
+        : "";
+      return `<tr><td><strong>${escapeHtml(invoice.invoice_number)}</strong><small>${escapeHtml(productById(invoice.product_id)?.name || projectById(invoice.project_id)?.name || "")}${source}</small></td><td>${escapeHtml(partyById(invoice.customer_id)?.name || "—")}</td><td>${dateLabel(invoice.issue_date)}</td><td>${dateLabel(invoice.due_date)}</td><td>${statusBadge(invoice.status)}</td><td>${moneyCents(invoice.total_cents)}</td><td>${moneyCents(paid)}</td><td>${moneyCents(outstanding)}</td><td><div class="operations-row-actions">${paymentAction}${sendAction}<button class="operations-row-action" type="button" data-edit="invoice" data-id="${invoice.id}">Edit</button></div></td></tr>`;
     }).join("")
     : '<tr><td colspan="9">No invoices have been created.</td></tr>';
 }
@@ -681,9 +688,10 @@ function depositFields(item = {}) {
   ].join("");
 }
 
-function openForm(type, id = "") {
+function openForm(type, id = "", defaults = {}) {
   activeFormType = type;
   const item = id ? recordFor(type, id) : null;
+  const formItem = { ...defaults, ...(item || {}) };
   const builders = {
     transaction: transactionFields,
     invoice: invoiceFields,
@@ -704,10 +712,75 @@ function openForm(type, id = "") {
   };
   $("#operations-record-id").value = id;
   $("#operations-dialog-title").textContent = `${item ? "Edit" : "Add"} ${labels[type]}`;
-  $("#operations-form-fields").innerHTML = builders[type](item || {});
+  $("#operations-form-fields").innerHTML = builders[type](formItem);
   $("#operations-form-error").textContent = "";
   $("#operations-save").textContent = item ? "Save changes" : "Save record";
   $("#operations-dialog").showModal();
+}
+
+function manualInvoiceNumber() {
+  const now = new Date();
+  const date = now.toISOString().slice(0, 10).replaceAll("-", "");
+  const time = now.toTimeString().slice(0, 5).replace(":", "");
+  return `N3XRA-${date}-${time}`;
+}
+
+function openInvoicePayment(id) {
+  const invoice = invoiceById(id);
+  if (!invoice || invoice.source === "stripe") return;
+  const outstanding = outstandingInvoiceCents(invoice, state.transactions);
+  if (outstanding <= 0) return setStatus("This invoice has no remaining balance.", "error");
+  openForm("transaction", "", {
+    transaction_type: "revenue",
+    transaction_date: todayValue(),
+    amount_cents: outstanding,
+    status: "completed",
+    description: `Payment for invoice ${invoice.invoice_number}`,
+    party_id: invoice.customer_id,
+    product_id: invoice.product_id,
+    project_id: invoice.project_id,
+    invoice_id: invoice.id,
+    category: "invoice_payment",
+    payment_method: "cash",
+    recurring: invoice.recurring,
+  });
+}
+
+async function syncManualInvoiceStatus(invoiceId) {
+  const invoice = invoiceById(invoiceId);
+  if (!invoice || invoice.source === "stripe" || ["void", "uncollectible"].includes(invoice.status)) return;
+  const { data, error } = await supabase
+    .from("operations_transactions")
+    .select("amount_cents")
+    .eq("invoice_id", invoiceId)
+    .eq("transaction_type", "revenue")
+    .eq("status", "completed");
+  if (error) throw error;
+  const paid = (data || []).reduce((sum, item) => sum + Number(item.amount_cents || 0), 0);
+  const status = paid >= Number(invoice.total_cents) ? "paid" : paid > 0 ? "partial" : invoice.status;
+  if (status !== invoice.status) {
+    const { error: updateError } = await supabase.from("operations_invoices").update({ status }).eq("id", invoiceId);
+    if (updateError) throw updateError;
+  }
+}
+
+async function sendInvoiceThroughStripe(id) {
+  const invoice = invoiceById(id);
+  const customer = partyById(invoice?.customer_id);
+  if (!invoice || !customer) return;
+  if (!customer.email) return setStatus("Add an email address to this customer before sending the invoice.", "error");
+  if (!(await confirmAdminAction(
+    `Send invoice ${invoice.invoice_number} for ${moneyCents(invoice.total_cents)} to ${customer.email} through Stripe?`,
+    { title: "Send invoice", confirmLabel: "Send through Stripe" },
+  ))) return;
+  setStatus("Sending invoice through Stripe…");
+  const { data, error } = await supabase.functions.invoke("operations-stripe-sync", {
+    body: { action: "send-manual-invoice", invoice_id: invoice.id },
+  });
+  if (error || data?.error) return setStatus(data?.error || error?.message || "Unable to send the invoice.", "error");
+  await loadAll();
+  showPanel("invoices");
+  setStatus(`Invoice ${invoice.invoice_number} was sent through Stripe.`, "success");
 }
 
 function nullable(value) {
@@ -771,6 +844,7 @@ async function saveForm(event) {
   button.disabled = true;
   button.textContent = "Saving…";
   try {
+    const savedType = activeFormType;
     const id = $("#operations-record-id").value;
     const payload = formPayload(activeFormType, form);
     if (!id) payload.created_by_user_id = session.user.id;
@@ -788,11 +862,17 @@ async function saveForm(event) {
         const { error: receiptError } = await supabase.from(table).update({ receipt_path: receiptPath }).eq("id", data.id);
         if (receiptError) throw receiptError;
       }
+      if (data.invoice_id) await syncManualInvoiceStatus(data.invoice_id);
     }
 
     $("#operations-dialog").close();
     await loadAll();
-    setStatus(`${titleCase(activeFormType)} saved.`, "success");
+    if (savedType === "party" && pendingInvoiceAfterParty) {
+      pendingInvoiceAfterParty = false;
+      showPanel("invoices");
+      openForm("invoice", "", { customer_id: data.id, invoice_number: manualInvoiceNumber(), issue_date: todayValue(), status: "draft" });
+    }
+    setStatus(`${titleCase(savedType)} saved.`, "success");
   } catch (error) {
     errorBox.textContent = error.message || "Unable to save this record.";
   } finally {
@@ -1244,6 +1324,8 @@ function handleWorkspaceClick(event) {
   const stripeImportButton = event.target.closest("[data-stripe-import]");
   const stripeOpenButton = event.target.closest("[data-stripe-open]");
   const stripeCloseButton = event.target.closest("[data-close-stripe]");
+  const recordPayment = event.target.closest("[data-record-payment]");
+  const sendInvoice = event.target.closest("[data-send-invoice]");
   if (tab) showPanel(tab.dataset.operationsView);
   if (panelLink) showPanel(panelLink.dataset.openPanel);
   if (create) openForm(create.dataset.create);
@@ -1261,6 +1343,8 @@ function handleWorkspaceClick(event) {
   if (stripeImportButton) importStripeInvoices();
   if (stripeOpenButton) $("#operations-stripe-dialog").showModal();
   if (stripeCloseButton) $("#operations-stripe-dialog").close();
+  if (recordPayment) openInvoicePayment(recordPayment.dataset.recordPayment);
+  if (sendInvoice) sendInvoiceThroughStripe(sendInvoice.dataset.sendInvoice);
 }
 
 function bindEvents() {
@@ -1298,4 +1382,29 @@ export async function startOperations(context) {
   invokeAdmin = context.invoke;
   bindEvents();
   await loadAll();
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("view")) showPanel(params.get("view"));
+  if (params.get("create") === "invoice") {
+    const accountUserId = String(params.get("account_user_id") || "");
+    const email = String(params.get("email") || "").trim().toLowerCase();
+    const party = state.parties.find((item) =>
+      (accountUserId && item.account_user_id === accountUserId)
+      || (email && String(item.email || "").trim().toLowerCase() === email)
+    );
+    if (party) {
+      openForm("invoice", "", { customer_id: party.id, invoice_number: manualInvoiceNumber(), issue_date: todayValue(), status: "draft" });
+    } else if (accountUserId || email) {
+      const account = state.platformAccounts.find((item) => item.id === accountUserId || String(item.email || "").trim().toLowerCase() === email);
+      pendingInvoiceAfterParty = true;
+      openForm("party", "", {
+        party_type: "customer",
+        name: account?.name || email || "Customer",
+        email: account?.email || email,
+        account_user_id: account?.id || accountUserId,
+        status: "active",
+      });
+    } else {
+      openForm("invoice", "", { invoice_number: manualInvoiceNumber(), issue_date: todayValue(), status: "draft" });
+    }
+  }
 }

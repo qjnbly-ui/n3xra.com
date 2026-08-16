@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFile } from "node:fs/promises";
 
 import {
   operationsInvoiceStatus,
@@ -29,4 +30,13 @@ test("converts Stripe timestamps to ledger dates", () => {
   assert.equal(unixDateOnly(1785142800, fallback), "2026-07-27");
   assert.equal(stripePaidDate({ status_transitions: { paid_at: 1785142800 } }, fallback), "2026-07-27");
   assert.equal(stripePaidDate({ status_transitions: {} }, fallback), "2026-07-27");
+});
+
+test("manual invoices can be sent through Stripe without requiring a catalog product", async () => {
+  const source = await readFile(new URL("../../supabase/functions/operations-stripe-sync/index.ts", import.meta.url), "utf8");
+  assert.match(source, /body\.action === "send-manual-invoice"/);
+  assert.match(source, /stripe\.invoiceItems\.create/);
+  assert.match(source, /stripe\.invoices\.sendInvoice/);
+  assert.match(source, /localInvoice\.total_cents/);
+  assert.doesNotMatch(source, /product_id.*required/);
 });

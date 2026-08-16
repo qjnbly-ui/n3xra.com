@@ -33,11 +33,11 @@
           <aside class="billing-roster-pane">
             <div class="billing-roster-head">
               <div><p class="portal-kicker">Billing accounts</p><strong>Subscriptions</strong></div>
-              <span id="billing-count"></span>
+              <div><span id="billing-count"></span><a class="operations-text-button" href="/account/admin/operations/?view=invoices">Invoices &amp; payments</a></div>
             </div>
             <label class="account-admin-field"><span>Find billing</span><input id="billing-filter" type="search" placeholder="Account, email, plan" autocomplete="off"></label>
             <div class="billing-filter-grid">
-              <label class="account-admin-field"><span>Product</span><select id="billing-product"><option value="all">All products</option><option value="records">Records</option></select></label>
+              <label class="account-admin-field"><span>Product</span><select id="billing-product"><option value="all">All products</option><option value="records">Records</option><option value="websites">Websites</option><option value="ai_music">AI Music</option><option value="virals">Virals</option></select></label>
               <label class="account-admin-field"><span>Health</span><select id="billing-health"><option value="all">All states</option><option value="active">Active</option><option value="trialing">Trialing</option><option value="attention">Needs attention</option><option value="internal">Internal only</option><option value="disconnected">No Stripe record</option></select></label>
             </div>
             <div class="billing-roster-summary" id="billing-summary"></div>
@@ -49,6 +49,6 @@
       </section>
     </div>
   </main>
-  <script type="module" src="/account/admin/admin.js?v=40"></script>
+  <script type="module" src="/account/admin/admin.js?v=41"></script>
 </body>
 </html>

@@ -160,6 +160,14 @@
   cursor: pointer;
 }
 
+.operations-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.4rem 0.65rem;
+  min-width: 8rem;
+}
+
 .operations-list {
   display: grid;
   gap: 0.65rem;

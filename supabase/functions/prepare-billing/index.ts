@@ -36,14 +36,26 @@ Deno.serve(async (request) => {
     if (versionError || itemError || !version || !project) throw new Error(versionError?.message || itemError?.message || "Approved proposal data is incomplete.");
     if (version.recurring_interval === "quarterly") return response({ error: "Quarterly website service is not supported in Stage 1. Update the proposal to monthly or yearly." }, 409, origin);
 
-    const recurring = Number(version.recurring_cents || 0);
-    const interval = recurring ? String(version.recurring_interval || "") : null;
+    const recurringItems = (items || []).filter((item: Record<string, unknown>) => item.billing_type === "recurring");
+    const serviceItem = recurringItems.find((item: Record<string, unknown>) => ["maintenance", "hosting"].includes(String(item.category)));
+    const recurring = recurringItems.reduce(
+      (sum: number, item: Record<string, unknown>) => sum + Math.round(Number(item.quantity) * Number(item.unit_amount_cents)),
+      0,
+    );
+    const interval = serviceItem ? String(serviceItem.recurring_interval || "") : null;
     let plan = "none";
-    if (recurring) {
-      if ((interval === "monthly" && recurring === 2500) || (interval === "yearly" && recurring === 27000)) plan = "starter";
-      else if ((interval === "monthly" && recurring === 4000) || (interval === "yearly" && recurring === 43200)) plan = "starter_plus";
-      else if ((interval === "monthly" && recurring >= 5000) || interval === "yearly") plan = "advanced";
+    if (serviceItem) {
+      const serviceAmount = Math.round(Number(serviceItem.quantity) * Number(serviceItem.unit_amount_cents));
+      const serviceName = String(serviceItem.name || "").toLowerCase();
+      if (serviceName.includes("starter+") || serviceName.includes("starter plus")) plan = "starter_plus";
+      else if (serviceName.includes("starter")) plan = "starter";
+      else if (serviceName.includes("advanced")) plan = "advanced";
+      else if ((interval === "monthly" && serviceAmount === 2500) || (interval === "yearly" && serviceAmount === 27000)) plan = "starter";
+      else if ((interval === "monthly" && [3500, 4000].includes(serviceAmount)) || (interval === "yearly" && serviceAmount === 43200)) plan = "starter_plus";
+      else if ((interval === "monthly" && serviceAmount === 5000) || (interval === "yearly" && serviceAmount === 54000)) plan = "advanced";
       else return response({ error: "The recurring service amount does not match a supported website plan." }, 409, origin);
+    } else if (recurring) {
+      return response({ error: "A recurring website plan line is required before add-on billing can be prepared." }, 409, origin);
     }
     const total = Number(version.total_cents || 0);
     const initialOutsideCategories = new Set(["domain", "email", "ssl_cdn", "integration"]);

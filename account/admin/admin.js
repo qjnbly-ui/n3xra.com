@@ -202,10 +202,10 @@ async function loadAdminView(adminContext) {
     const businessInformation = await import("/account/admin/business-info/business-info.js?v=1");
     await businessInformation.startBusinessInformation({ invoke });
   } else if (view === "billing") {
-    const billingController = await import("/account/admin/controllers/billing.js?v=1");
+    const billingController = await import("/account/admin/controllers/billing.js?v=2");
     await billingController.startBilling({ invoke, escapeHtml, formatDate, deriveStripeState, setStatus });
   } else if (view === "operations") {
-    const operations = await import("/account/admin/operations/operations.js?v=12");
+    const operations = await import("/account/admin/operations/operations.js?v=13");
     await operations.startOperations({ supabase, session, invoke });
   } else if (view === "support") {
     const supportController = await import("/account/admin/controllers/support.js?v=4");

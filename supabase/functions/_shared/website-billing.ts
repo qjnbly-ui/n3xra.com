@@ -67,15 +67,36 @@ export function websiteMetadata(values: Record<string, string | null | undefined
   );
 }
 
-export function priceEnvironment(plan: string, interval: string) {
+export function priceEnvironment(plan: string, interval: string, amountCents?: number) {
   const names: Record<string, string> = {
     "starter:monthly": "STRIPE_PRICE_WEBSITE_STARTER_MONTHLY",
     "starter:yearly": "STRIPE_PRICE_WEBSITE_STARTER_YEARLY",
     "starter_plus:monthly": "STRIPE_PRICE_WEBSITE_STARTER_PLUS_MONTHLY",
     "starter_plus:yearly": "STRIPE_PRICE_WEBSITE_STARTER_PLUS_YEARLY",
+    "advanced:monthly": "STRIPE_PRICE_WEBSITE_ADVANCED_MONTHLY",
+    "advanced:yearly": "STRIPE_PRICE_WEBSITE_ADVANCED_YEARLY",
   };
+  if (plan === "starter_plus" && interval === "monthly" && amountCents === 3500) {
+    return Deno.env.get("STRIPE_PRICE_WEBSITE_STARTER_PLUS_ROOTS_MONTHLY") || "";
+  }
   const name = names[`${plan}:${interval}`];
   return name ? Deno.env.get(name) || "" : "";
+}
+
+export function snapshotItemPriceEnvironment(
+  item: { category?: string; recurring_interval?: string; total_amount_cents?: number },
+  servicePlan: string,
+) {
+  const category = String(item.category || "");
+  const interval = String(item.recurring_interval || "");
+  const amountCents = Number(item.total_amount_cents || 0);
+  if (category === "domain" && interval === "yearly" && amountCents === 3000) {
+    return Deno.env.get("STRIPE_PRICE_WEBSITE_DOMAIN_YEARLY") || "";
+  }
+  if (category === "maintenance" || category === "hosting") {
+    return priceEnvironment(servicePlan, interval, amountCents);
+  }
+  return "";
 }
 
 export function knownWebsitePriceIds() {
@@ -84,6 +105,10 @@ export function knownWebsitePriceIds() {
     "STRIPE_PRICE_WEBSITE_STARTER_YEARLY",
     "STRIPE_PRICE_WEBSITE_STARTER_PLUS_MONTHLY",
     "STRIPE_PRICE_WEBSITE_STARTER_PLUS_YEARLY",
+    "STRIPE_PRICE_WEBSITE_STARTER_PLUS_ROOTS_MONTHLY",
+    "STRIPE_PRICE_WEBSITE_ADVANCED_MONTHLY",
+    "STRIPE_PRICE_WEBSITE_ADVANCED_YEARLY",
+    "STRIPE_PRICE_WEBSITE_DOMAIN_YEARLY",
   ].map((name) => Deno.env.get(name)).filter(Boolean) as string[];
 }
 

@@ -51,6 +51,10 @@ function billingProductLink(item) {
     params.set("organization", item.id || "");
     return { href: `/n3xra-admin/records/organizations/?${params.toString()}`, label: "Open Records admin" };
   }
+  if (item.product === "websites") {
+    params.set("project", item.id || "");
+    return { href: `/n3xra-admin/billing/?${params.toString()}`, label: "Open website billing" };
+  }
   if (item.product === "ai_music") return { href: `/ai-music-generator/app/?${params.toString()}`, label: "Open AI Music" };
   if (item.product === "virals") return { href: `/virals/?${params.toString()}`, label: "Open Virals" };
   return null;
@@ -69,10 +73,13 @@ function renderBillingDetail(item) {
   const productLink = billingProductLink(item);
   const stripeCustomerUrl = item.customerId ? `https://dashboard.stripe.com/customers/${encodeURIComponent(item.customerId)}` : "";
   const stripeSubscriptionUrl = item.subscriptionId ? `https://dashboard.stripe.com/subscriptions/${encodeURIComponent(item.subscriptionId)}` : "";
+  const invoiceParams = new URLSearchParams({ view: "invoices", create: "invoice", email: item.email || "" });
+  if (item.accountUserId) invoiceParams.set("account_user_id", item.accountUserId);
+  if (item.product === "websites") invoiceParams.set("website_project_id", item.id || "");
   detail.innerHTML = `
     <header class="billing-detail-head">
       <div><p class="portal-kicker">${escapeHtml(item.productLabel || "Product billing")}</p><h2>${escapeHtml(item.account || item.email || "Billing account")}</h2><p>${escapeHtml(item.email || "No account email")}</p><span class="billing-state is-${escapeHtml(health.key)}">${escapeHtml(status)}</span></div>
-      <div class="billing-detail-actions"><a class="portal-button portal-button-secondary" href="/account/admin/accounts/?${escapeHtml(accountParams.toString())}">Account oversight</a>${productLink ? `<a class="portal-button" href="${escapeHtml(productLink.href)}">${escapeHtml(productLink.label)}</a>` : ""}</div>
+      <div class="billing-detail-actions"><a class="portal-button portal-button-secondary" href="/account/admin/accounts/?${escapeHtml(accountParams.toString())}">Account oversight</a><a class="portal-button portal-button-secondary" href="/account/admin/operations/?${escapeHtml(invoiceParams.toString())}">Create or record invoice</a>${productLink ? `<a class="portal-button" href="${escapeHtml(productLink.href)}">${escapeHtml(productLink.label)}</a>` : ""}</div>
     </header>
     <div class="billing-detail-facts">
       <div><span>Plan</span><strong>${escapeHtml(item.plan || "Not set")}</strong></div>

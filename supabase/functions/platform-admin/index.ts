@@ -14,6 +14,7 @@ const PLATFORM_OWNER_EMAIL = "quentin@n3xra.com";
 
 const PRODUCT_LABELS: Record<string, string> = {
   records: "N3XRA Records",
+  websites: "N3XRA Websites",
   ai_music: "AI Music Generator",
   virals: "N3XRA Virals",
   utilities: "N3XRA Utilities",
@@ -217,6 +218,10 @@ async function loadPlatformAccountData(adminClient: ReturnType<typeof createClie
     viralsProfilesResult,
     accountPhonesResult,
     recordsEntitlementsResult,
+    websiteProjectsResult,
+    websiteSubscriptionsResult,
+    websiteBillingCustomersResult,
+    websiteBillingSnapshotsResult,
     authUsers,
   ] = await Promise.all([
     adminClient.from("profiles").select("id, email, full_name, organization_name, role, subscription_tier, account_status, created_at, updated_at"),
@@ -231,6 +236,10 @@ async function loadPlatformAccountData(adminClient: ReturnType<typeof createClie
     adminClient.from("virals_profiles").select("user_id, plan, account_status, monthly_analysis_limit, analyses_used, stripe_customer_id, stripe_subscription_id, subscription_current_period_end"),
     adminClient.from("account_phone_credentials").select("user_id, phone_e164, failed_attempts, locked_until, last_authenticated_at, last_password_reset_sent_at, created_at, updated_at"),
     adminClient.from("organization_product_entitlements").select("organization_id,status,portal_enabled").eq("product_key", "records"),
+    adminClient.from("website_projects").select("id,name,client_user_id,status,current_stage,updated_at"),
+    adminClient.from("website_subscriptions").select("id,project_id,client_user_id,stripe_subscription_id,service_plan,billing_interval,amount_cents,status,current_period_end,updated_at"),
+    adminClient.from("website_billing_customers").select("id,user_id,stripe_customer_id,payment_method_status"),
+    adminClient.from("website_billing_snapshots").select("id,project_id,client_user_id,status,service_plan,recurring_interval,recurring_cents,prepared_at,updated_at").order("created_at", { ascending: false }),
     listAllAuthUsers(adminClient),
   ]);
 
@@ -247,6 +256,10 @@ async function loadPlatformAccountData(adminClient: ReturnType<typeof createClie
     viralsProfilesResult,
     accountPhonesResult,
     recordsEntitlementsResult,
+    websiteProjectsResult,
+    websiteSubscriptionsResult,
+    websiteBillingCustomersResult,
+    websiteBillingSnapshotsResult,
   ];
   const firstError = results.find((result) => result.error)?.error;
   if (firstError) throw new Error(firstError.message);
@@ -259,6 +272,13 @@ async function loadPlatformAccountData(adminClient: ReturnType<typeof createClie
   const utilityMap = new Map((utilityOrganizationsResult.data || []).map((organization) => [String(organization.id), organization]));
   const utilityRoleMap = new Map((utilityRolesResult.data || []).map((role) => [String(role.id), role]));
   const accountPhoneMap = new Map((accountPhonesResult.data || []).map((credential) => [String(credential.user_id), credential]));
+  const websiteSubscriptionMap = new Map((websiteSubscriptionsResult.data || []).map((subscription) => [String(subscription.project_id), subscription]));
+  const websiteBillingCustomerMap = new Map((websiteBillingCustomersResult.data || []).map((customer) => [String(customer.user_id), customer]));
+  const websiteSnapshotMap = new Map<string, any>();
+  (websiteBillingSnapshotsResult.data || []).forEach((snapshot) => {
+    const projectId = String(snapshot.project_id);
+    if (!websiteSnapshotMap.has(projectId)) websiteSnapshotMap.set(projectId, snapshot);
+  });
   const activeRecordsOrganizationIds = new Set((recordsEntitlementsResult.data || [])
     .filter((entitlement) => entitlement.portal_enabled && ["active", "trialing", "past_due"].includes(String(entitlement.status || "")))
     .map((entitlement) => String(entitlement.organization_id)));
@@ -395,6 +415,29 @@ async function loadPlatformAccountData(adminClient: ReturnType<typeof createClie
       plan: profile.plan, status: profile.account_status, customerId: profile.stripe_customer_id,
       subscriptionId: profile.stripe_subscription_id, periodEnd: profile.subscription_current_period_end,
       usage: `${profile.analyses_used || 0}/${profile.monthly_analysis_limit || 0} analyses`,
+    });
+  });
+  (websiteProjectsResult.data || []).forEach((project) => {
+    const userId = String(project.client_user_id || "");
+    const owner = profileMap.get(userId) || authMap.get(userId);
+    const subscription = websiteSubscriptionMap.get(String(project.id));
+    const snapshot = websiteSnapshotMap.get(String(project.id));
+    const customer = websiteBillingCustomerMap.get(userId);
+    billing.push({
+      id: project.id,
+      product: "websites",
+      productLabel: PRODUCT_LABELS.websites,
+      account: project.name || owner?.full_name || owner?.email || "Website project",
+      email: normalizeEmail(owner?.email),
+      plan: subscription?.service_plan || snapshot?.service_plan || "Not set",
+      status: subscription?.status || snapshot?.status || "not_billed",
+      cycle: subscription?.billing_interval || snapshot?.recurring_interval || "Not set",
+      customerId: customer?.stripe_customer_id || null,
+      subscriptionId: subscription?.stripe_subscription_id || null,
+      periodEnd: subscription?.current_period_end || null,
+      usage: `${textValue(project.current_stage || "project", 60).replace(/_/g, " ")} · ${textValue(project.status || "active", 60).replace(/_/g, " ")}`,
+      accountUserId: userId,
+      snapshotId: snapshot?.id || null,
     });
   });
 
