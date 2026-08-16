@@ -23,7 +23,7 @@ test("website billing shows accepted items separately and keeps controls seconda
   assert.match(billing, /record_offline_subscription_payment/);
   assert.match(billing, /They need to pay online/);
   assert.match(page, /billing\.css\?v=6/);
-  assert.match(page, /billing\.js\?v=7/);
+  assert.match(page, /billing\.js\?v=8/);
 });
 
 test("website billing and the organization panel synchronize their selection", async () => {
@@ -35,6 +35,9 @@ test("website billing and the organization panel synchronize their selection", a
   ]);
 
   assert.match(billing, /n3xra:workspace-context-change/);
+  assert.match(billing, /let pendingWorkspaceKey = ""/);
+  assert.match(billing, /const pendingKey = availableWorkspaceKey\(pendingWorkspaceKey\)/);
+  assert.doesNotMatch(billing, /!adminMode \|\| !records \|\| event\.detail/);
   assert.match(context, /n3xra:workspace-context-change/);
   assert.match(context, /const changed = website\.id !== selectedId/);
   assert.match(page, /website-admin-workspace\.js\?v=13/);

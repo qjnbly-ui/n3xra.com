@@ -18,6 +18,7 @@ let records;
 let currentUser;
 let websites = [];
 let selectedWorkspaceKey = "";
+let pendingWorkspaceKey = "";
 
 const money = (value) => new Intl.NumberFormat(undefined, { style: "currency", currency: "USD" }).format(Number(value || 0) / 100);
 const date = (value) => value ? new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(new Date(value)) : "Not scheduled";
@@ -25,6 +26,38 @@ const dateTime = (value) => value ? new Intl.DateTimeFormat(undefined, { dateSty
 const escape = (value = "") => String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
 const label = (value = "") => String(value).replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 const localInput = (value) => value ? new Date(new Date(value).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : "";
+
+function workspaceKey(context = {}) {
+  if (context.websiteId) return `website:${context.websiteId}`;
+  if (context.projectId) return `project:${context.projectId}`;
+  return "";
+}
+
+function availableWorkspaceKey(key) {
+  const [kind, selectedId] = String(key || "").split(":");
+  if (kind === "website" && websites.some((website) => website.id === selectedId)) return key;
+  if (kind === "project" && records?.projects?.some((project) => project.id === selectedId)) return key;
+  return "";
+}
+
+function receiveAdminWorkspaceContext(event) {
+  if (!adminMode || event.detail?.scope !== "admin") return;
+  const nextKey = workspaceKey(event.detail.context);
+  if (!nextKey) return;
+  pendingWorkspaceKey = nextKey;
+  const availableKey = availableWorkspaceKey(nextKey);
+  if (!availableKey) return;
+  if (availableKey === selectedWorkspaceKey) {
+    pendingWorkspaceKey = "";
+    return;
+  }
+  selectedWorkspaceKey = availableKey;
+  pendingWorkspaceKey = "";
+  renderWebsiteSelector();
+  renderSelectedBilling({ persist: false });
+}
+
+window.addEventListener("n3xra:workspace-context-change", receiveAdminWorkspaceContext);
 
 function adminTools(project, snapshot, schedule, charges, subscription, communications) {
   if (!adminMode || !snapshot) return "";
@@ -163,14 +196,25 @@ async function load() {
     websites = data || [];
     const linkedProject = records.projects.find((project) => project.id === projectId);
     const context = readWorkspaceContext("admin", currentUser.id);
+    const pendingKey = availableWorkspaceKey(pendingWorkspaceKey);
     selectedWorkspaceKey = linkedProject
       ? (linkedProject.managed_website_id ? `website:${linkedProject.managed_website_id}` : `project:${linkedProject.id}`)
-      : (websites.some((website) => website.id === context.websiteId) ? `website:${context.websiteId}` : "")
+      : pendingKey
+        || (websites.some((website) => website.id === context.websiteId) ? `website:${context.websiteId}` : "")
         || (records.projects.some((project) => project.id === context.projectId) ? `project:${context.projectId}` : "")
         || (websites[0]?.id ? `website:${websites[0].id}` : "")
         || (records.projects[0]?.id ? `project:${records.projects[0].id}` : "");
+    pendingWorkspaceKey = "";
     renderWebsiteSelector();
     renderSelectedBilling();
+    if (!linkedProject) {
+      const latestKey = availableWorkspaceKey(workspaceKey(readWorkspaceContext("admin", currentUser.id)));
+      if (latestKey && latestKey !== selectedWorkspaceKey) {
+        selectedWorkspaceKey = latestKey;
+        renderWebsiteSelector();
+        renderSelectedBilling({ persist: false });
+      }
+    }
     return;
   }
 
@@ -364,15 +408,6 @@ async function init() {
   currentUser = data?.session?.user;
   if (!currentUser) return location.replace(portalLoginUrl());
   if (adminMode && !await verifyPlatformAdmin(supabase, currentUser)) throw new Error("Website billing administration access is required.");
-  window.addEventListener("n3xra:workspace-context-change", (event) => {
-    if (!adminMode || !records || event.detail?.scope !== "admin") return;
-    const websiteId = event.detail?.context?.websiteId;
-    const nextKey = websites.some((website) => website.id === websiteId) ? `website:${websiteId}` : "";
-    if (!nextKey || nextKey === selectedWorkspaceKey) return;
-    selectedWorkspaceKey = nextKey;
-    renderWebsiteSelector();
-    renderSelectedBilling({ persist: false });
-  });
   websiteSelect?.addEventListener("change", () => {
     selectedWorkspaceKey = websiteSelect.value;
     renderSelectedBilling();
