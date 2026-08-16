@@ -32,6 +32,6 @@ test("Accounts provides client-view previews without changing the signed-in iden
   assert.match(controller, /\/n3xra-records\/library\/\?support_org=/);
   assert.match(controller, /\/project-workspace\/\?website=/);
   assert.match(controller, /Preview client view/);
-  assert.match(adminHtml, /admin\.js\?v=37/);
+  assert.match(adminHtml, /admin\.js\?v=40/);
   assert.match(adminScript, /controllers\/accounts\.js\?v=4/);
 });

@@ -2,7 +2,7 @@ import { hasConfig } from "/shared/lib/supabase-client.js";
 import { getAdminSession } from "/account/admin/admin-session.js";
 import { arrangeAdminWorkspace } from "/account/admin/admin-navigation.js?v=21";
 import { confirmAdminAction, promptAdminText } from "/account/admin/admin-dialogs.js";
-import { initializeAdminSelects } from "/account/admin/admin-select.js?v=2";
+import { initializeAdminSelects } from "/account/admin/admin-select.js?v=4";
 
 initializeAdminSelects();
 
@@ -208,7 +208,7 @@ async function loadAdminView(adminContext) {
     const operations = await import("/account/admin/operations/operations.js?v=12");
     await operations.startOperations({ supabase, session, invoke });
   } else if (view === "support") {
-    const supportController = await import("/account/admin/controllers/support.js?v=3");
+    const supportController = await import("/account/admin/controllers/support.js?v=4");
     await supportController.startSupport({ invoke, escapeHtml, formatDate, setStatus });
   } else if (view === "platform-admins") {
     const platformAdmins = await import("/account/admin/controllers/platform-admins.js?v=2");

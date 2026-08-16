@@ -1,5 +1,5 @@
 import { renderAdminNavigation } from "/account/admin/admin-navigation.js?v=21";
-import { initializeAdminSelects } from "/account/admin/admin-select.js?v=2";
+import { initializeAdminSelects } from "/account/admin/admin-select.js?v=4";
 import { getAdminSession } from "/account/admin/admin-session.js";
 
 function createNativeLayout(main) {

@@ -76,10 +76,18 @@ test("soft admin navigation preserves the shared enhanced-select stylesheet", as
 });
 
 test("enhanced admin select menus use the top layer so dialogs cannot cover them", async () => {
-  const source = await readFile(path.join(projectRoot, "account/admin/admin-select.js"), "utf8");
+  const [source, css] = await Promise.all([
+    readFile(path.join(projectRoot, "account/admin/admin-select.js"), "utf8"),
+    readFile(path.join(projectRoot, "account/admin/admin-select.css"), "utf8"),
+  ]);
   assert.match(source, /menu\.setAttribute\("popover", "manual"\)/);
+  assert.match(source, /select\.closest\("dialog"\)/);
+  assert.match(source, /\(owningDialog \|\| document\.body\)\.append\(menu\)/);
   assert.match(source, /menu\.showPopover\(\)/);
   assert.match(source, /menu\.hidePopover\(\)/);
+  assert.match(source, /const preferredHeight = 360/);
+  assert.match(source, /menu\.addEventListener\("wheel"/);
+  assert.match(css, /\.admin-select-menu\s*{[^}]*overscroll-behavior:contain/);
 });
 
 test("admin navigation preserves the clicked position across soft and fallback page loads", async () => {

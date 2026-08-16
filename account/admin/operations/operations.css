@@ -1,4 +1,5 @@
-.operations-workspace {
+.operations-workspace,
+.operations-dialog {
   --ops-navy: #071525;
   --ops-blue: #087ea4;
   --ops-green: #167b62;
@@ -523,7 +524,9 @@
 }
 
 .operations-danger {
-  background: var(--ops-red) !important;
+  color: #fff !important;
+  background: var(--ops-red, #a64040) !important;
+  border-color: var(--ops-red, #a64040) !important;
 }
 
 .operations-import-card form {

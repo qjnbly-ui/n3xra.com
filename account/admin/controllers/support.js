@@ -3,10 +3,90 @@ let supportUpdates = [];
 let supportWebsites = [];
 let supportOrganizations = [];
 let supportAccounts = [];
+let supportOrganizationMemberships = [];
+let supportWebsiteMemberships = [];
+let supportProductEntitlements = [];
 let invoke;
 let escapeHtml;
 let formatDate;
 let setStatus;
+
+const SUPPORT_TOPIC_OPTIONS = [
+  ["general-support", "General support"],
+  ["account-access", "Account or access"],
+  ["billing", "Billing"],
+  ["communications", "Communications", "communications"],
+  ["records", "Records", "records"],
+  ["website-change", "Website", "website"],
+  ["analytics", "Analytics", "website"],
+  ["new-feature", "New feature or idea"],
+  ["technical-support", "Technical support"],
+  ["other", "Other"],
+];
+
+function selectedClientTargets() {
+  const userId = document.getElementById("support-work-account")?.value || "";
+  const organizationIds = new Set([
+    ...supportOrganizations.filter((organization) => organization.owner_user_id === userId).map((organization) => organization.id),
+    ...supportOrganizationMemberships.filter((membership) => membership.user_id === userId).map((membership) => membership.organization_id),
+  ]);
+  const websiteIds = new Set(supportWebsiteMemberships
+    .filter((membership) => membership.user_id === userId && membership.status === "active")
+    .map((membership) => membership.website_id));
+  const organizations = supportOrganizations.filter((organization) => organizationIds.has(organization.id));
+  const websites = supportWebsites.filter((website) => websiteIds.has(website.id));
+  const entitlements = supportProductEntitlements.filter((entitlement) => organizationIds.has(entitlement.organization_id)
+    && entitlement.portal_enabled
+    && ["active", "trialing"].includes(entitlement.status));
+  return { userId, organizations, websites, entitlements };
+}
+
+function renderSupportWorkTargets() {
+  const topicSelect = document.getElementById("support-work-topic");
+  const contextSelect = document.getElementById("support-work-context");
+  if (!topicSelect || !contextSelect) return;
+  const { userId, organizations, websites, entitlements } = selectedClientTargets();
+  const entitledProducts = new Set(entitlements.map((entitlement) => entitlement.product_key));
+  const priorTopic = topicSelect.value || "general-support";
+  const topicOptions = SUPPORT_TOPIC_OPTIONS.filter(([, , requirement]) => !requirement
+    || (requirement === "website" ? websites.length > 0 : entitledProducts.has(requirement)));
+  topicSelect.innerHTML = topicOptions.map(([value, label]) => `<option value="${value}">${label}</option>`).join("");
+  topicSelect.value = topicOptions.some(([value]) => value === priorTopic) ? priorTopic : "general-support";
+
+  const topic = topicSelect.value;
+  const productKey = ["communications", "records"].includes(topic) ? topic : "";
+  const websiteRequired = ["website-change", "analytics"].includes(topic);
+  let eligibleOrganizations = organizations;
+  let eligibleWebsites = websites;
+  if (productKey) {
+    const entitledOrganizationIds = new Set(entitlements
+      .filter((entitlement) => entitlement.product_key === productKey)
+      .map((entitlement) => entitlement.organization_id));
+    eligibleOrganizations = organizations.filter((organization) => entitledOrganizationIds.has(organization.id));
+    eligibleWebsites = [];
+  } else if (websiteRequired) {
+    eligibleOrganizations = [];
+  }
+
+  const priorContext = contextSelect.value;
+  const placeholder = !userId
+    ? "Choose a client account first"
+    : websiteRequired
+      ? "Choose one of this client’s websites"
+      : productKey
+        ? `Choose an organization subscribed to ${productKey === "records" ? "Records" : "Communications"}`
+        : "General N3XRA account";
+  const organizationOptions = eligibleOrganizations.length
+    ? `<optgroup label="Organizations">${eligibleOrganizations.map((organization) => `<option value="organization:${escapeHtml(organization.id)}">${escapeHtml(organization.name)}</option>`).join("")}</optgroup>`
+    : "";
+  const websiteOptions = eligibleWebsites.length
+    ? `<optgroup label="Websites">${eligibleWebsites.map((website) => `<option value="website:${escapeHtml(website.id)}">${escapeHtml(website.name)}</option>`).join("")}</optgroup>`
+    : "";
+  contextSelect.innerHTML = `<option value="">${escapeHtml(placeholder)}</option>${organizationOptions}${websiteOptions}`;
+  contextSelect.disabled = !userId;
+  contextSelect.required = websiteRequired || Boolean(productKey);
+  if ([...contextSelect.options].some((option) => option.value === priorContext)) contextSelect.value = priorContext;
+}
 
 function supportLabel(request) {
   return `${request.subject} — ${request.requester_name} (${request.status})`;
@@ -156,12 +236,14 @@ async function loadSupport() {
   supportWebsites = data.websites || [];
   supportOrganizations = data.organizations || [];
   supportAccounts = data.accounts || [];
+  supportOrganizationMemberships = data.organizationMemberships || [];
+  supportWebsiteMemberships = data.websiteMemberships || [];
+  supportProductEntitlements = data.productEntitlements || [];
   const workAccountSelect = document.getElementById("support-work-account");
   if (workAccountSelect) workAccountSelect.innerHTML = supportAccounts.length
     ? `<option value="">Choose a client account</option>${supportAccounts.map((account) => `<option value="${escapeHtml(account.id)}">${escapeHtml(account.full_name || account.email || "Unnamed account")}${account.full_name && account.email ? ` — ${escapeHtml(account.email)}` : ""}</option>`).join("")}`
     : '<option value="">No client accounts available</option>';
-  const workContextSelect = document.getElementById("support-work-context");
-  if (workContextSelect) workContextSelect.innerHTML = `<option value="">General N3XRA account</option><optgroup label="Organizations">${supportOrganizations.map((organization) => `<option value="organization:${escapeHtml(organization.id)}">${escapeHtml(organization.name)}</option>`).join("")}</optgroup><optgroup label="Websites">${supportWebsites.map((website) => `<option value="website:${escapeHtml(website.id)}">${escapeHtml(website.name)}</option>`).join("")}</optgroup>`;
+  renderSupportWorkTargets();
   const params = new URLSearchParams(window.location.search);
   const requestedEmail = String(params.get("email") || "").trim().toLowerCase();
   const requestedUser = String(params.get("user") || "").trim();
@@ -200,6 +282,8 @@ export async function startSupport(context = {}) {
   document.getElementById("support-new-work")?.addEventListener("click", () => workDialog?.showModal());
   document.getElementById("support-work-close")?.addEventListener("click", closeWorkDialog);
   document.getElementById("support-work-cancel")?.addEventListener("click", closeWorkDialog);
+  document.getElementById("support-work-account")?.addEventListener("change", renderSupportWorkTargets);
+  document.getElementById("support-work-topic")?.addEventListener("change", renderSupportWorkTargets);
   workForm?.addEventListener("submit", async (event) => {
     event.preventDefault();
     const modalStatus = document.getElementById("support-work-status");

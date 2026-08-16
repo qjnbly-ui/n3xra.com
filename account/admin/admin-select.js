@@ -7,7 +7,7 @@ function ensureStyles() {
   if (document.querySelector('link[data-admin-select-styles]')) return;
   const link = document.createElement("link");
   link.rel = "stylesheet";
-  link.href = "/account/admin/admin-select.css?v=2";
+  link.href = "/account/admin/admin-select.css?v=4";
   link.dataset.adminSelectStyles = "";
   document.head.append(link);
 }
@@ -60,7 +60,8 @@ function enhance(select) {
   menu.setAttribute("aria-labelledby", trigger.id);
   menu.setAttribute("popover", "manual");
   menu.hidden = true;
-  document.body.append(menu);
+  const owningDialog = select.closest("dialog");
+  (owningDialog || document.body).append(menu);
   wrapper.append(trigger);
   select.insertAdjacentElement("afterend", wrapper);
   select.classList.add("admin-native-select");
@@ -94,12 +95,19 @@ function enhance(select) {
   function positionMenu() {
     const rect = trigger.getBoundingClientRect();
     const gutter = 10;
+    const menuGap = 6;
+    const preferredHeight = 360;
     const width = Math.min(Math.max(rect.width, 180), window.innerWidth - (gutter * 2));
     const left = Math.max(gutter, Math.min(rect.left, window.innerWidth - width - gutter));
+    const spaceBelow = window.innerHeight - rect.bottom - gutter - menuGap;
+    const spaceAbove = rect.top - gutter - menuGap;
+    const placeAbove = spaceBelow < 220 && spaceAbove > spaceBelow;
+    const availableHeight = Math.max(120, placeAbove ? spaceAbove : spaceBelow);
     menu.style.left = `${left}px`;
-    menu.style.top = `${rect.bottom + 6}px`;
     menu.style.width = `${width}px`;
-    menu.style.maxHeight = `${Math.max(48, window.innerHeight - rect.bottom - 18)}px`;
+    menu.style.maxHeight = `${Math.min(preferredHeight, availableHeight)}px`;
+    menu.style.top = placeAbove ? "auto" : `${rect.bottom + menuGap}px`;
+    menu.style.bottom = placeAbove ? `${window.innerHeight - rect.top + menuGap}px` : "auto";
   }
 
   function close({ focus = false } = {}) {
@@ -175,6 +183,13 @@ function enhance(select) {
     const index = event.key === "Home" ? 0 : event.key === "End" ? available.length - 1 : current + (event.key === "ArrowDown" ? 1 : -1);
     available[Math.max(0, Math.min(index, available.length - 1))]?.focus();
   });
+  menu.addEventListener("wheel", (event) => {
+    const atTop = menu.scrollTop <= 0 && event.deltaY < 0;
+    const atBottom = menu.scrollTop + menu.clientHeight >= menu.scrollHeight - 1 && event.deltaY > 0;
+    if (atTop || atBottom) event.preventDefault();
+    event.stopPropagation();
+  }, { passive: false });
+  owningDialog?.addEventListener("close", () => close());
   select.addEventListener("change", render);
   select.addEventListener("invalid", () => trigger.focus());
   const selectObserver = new MutationObserver(render);

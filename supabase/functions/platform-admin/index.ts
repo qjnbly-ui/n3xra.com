@@ -1968,7 +1968,7 @@ Deno.serve(async (request) => {
     }
 
     if (action === "list-support-requests") {
-      const [requestResult, updateResult, websiteResult, organizationResult, accountResult] = await Promise.all([
+      const [requestResult, updateResult, websiteResult, organizationResult, accountResult, organizationMembershipResult, websiteMembershipResult, entitlementResult] = await Promise.all([
         adminClient
           .from("platform_support_requests")
           .select("id, requester_user_id, requester_name, requester_email, organization_name, topic, subject, message, status, priority, assigned_to_user_id, internal_notes, source, origin, website_id, organization_id, client_visible, estimated_start_at, estimated_completion_at, email_message_id, created_at, updated_at, resolved_at")
@@ -1993,12 +1993,28 @@ Deno.serve(async (request) => {
           .select("id, full_name, email")
           .order("full_name")
           .limit(2000),
+        adminClient
+          .from("organization_memberships")
+          .select("organization_id, user_id"),
+        adminClient
+          .from("website_members")
+          .select("website_id, user_id, status")
+          .eq("status", "active"),
+        adminClient
+          .from("organization_product_entitlements")
+          .select("organization_id, product_key, status, portal_enabled")
+          .in("product_key", ["communications", "records"])
+          .in("status", ["active", "trialing"])
+          .eq("portal_enabled", true),
       ]);
       if (requestResult.error) return jsonResponse({ error: requestResult.error.message }, 400);
       if (updateResult.error) return jsonResponse({ error: updateResult.error.message }, 400);
       if (websiteResult.error) return jsonResponse({ error: websiteResult.error.message }, 400);
       if (organizationResult.error) return jsonResponse({ error: organizationResult.error.message }, 400);
       if (accountResult.error) return jsonResponse({ error: accountResult.error.message }, 400);
+      if (organizationMembershipResult.error) return jsonResponse({ error: organizationMembershipResult.error.message }, 400);
+      if (websiteMembershipResult.error) return jsonResponse({ error: websiteMembershipResult.error.message }, 400);
+      if (entitlementResult.error) return jsonResponse({ error: entitlementResult.error.message }, 400);
       return jsonResponse({
         ok: true,
         requests: requestResult.data || [],
@@ -2006,6 +2022,9 @@ Deno.serve(async (request) => {
         websites: websiteResult.data || [],
         organizations: organizationResult.data || [],
         accounts: accountResult.data || [],
+        organizationMemberships: organizationMembershipResult.data || [],
+        websiteMemberships: websiteMembershipResult.data || [],
+        productEntitlements: entitlementResult.data || [],
         count: requestResult.data?.length || 0,
       });
     }
@@ -2022,31 +2041,58 @@ Deno.serve(async (request) => {
       const estimatedCompletionAt = String(payload.estimatedCompletionAt || "").trim();
       if (websiteId && !isValidUuid(websiteId)) return jsonResponse({ error: "The related website is invalid." }, 400);
       if (organizationId && !isValidUuid(organizationId)) return jsonResponse({ error: "The related organization is invalid." }, 400);
-      if (requesterUserId && !isValidUuid(requesterUserId)) return jsonResponse({ error: "The client account is invalid." }, 400);
-      if (!websiteId && !organizationId && !requesterUserId) return jsonResponse({ error: "Choose a client account, organization, or website." }, 400);
+      if (!isValidUuid(requesterUserId)) return jsonResponse({ error: "Choose a valid client account." }, 400);
       if (!subject || !message) return jsonResponse({ error: "A title and work description are required." }, 400);
       if (estimatedStartAt && Number.isNaN(Date.parse(estimatedStartAt))) return jsonResponse({ error: "The estimated start is invalid." }, 400);
       if (estimatedCompletionAt && Number.isNaN(Date.parse(estimatedCompletionAt))) return jsonResponse({ error: "The estimated completion is invalid." }, 400);
-      const [websiteResult, organizationResult, accountResult] = await Promise.all([
+      const [websiteResult, organizationResult, accountResult, ownedOrganizationsResult, organizationMembershipResult, websiteMembershipResult] = await Promise.all([
         websiteId
-          ? adminClient.from("client_websites").select("id, name, organization_id").eq("id", websiteId).maybeSingle()
+          ? adminClient.from("client_websites").select("id, name, organization_id, status").eq("id", websiteId).maybeSingle()
           : Promise.resolve({ data: null, error: null }),
         organizationId
           ? adminClient.from("organizations").select("id, name").eq("id", organizationId).maybeSingle()
           : Promise.resolve({ data: null, error: null }),
-        requesterUserId
-          ? adminClient.from("profiles").select("id, full_name, email").eq("id", requesterUserId).maybeSingle()
-          : Promise.resolve({ data: null, error: null }),
+        adminClient.from("profiles").select("id, full_name, email").eq("id", requesterUserId).maybeSingle(),
+        adminClient.from("organizations").select("id").eq("owner_user_id", requesterUserId),
+        adminClient.from("organization_memberships").select("organization_id").eq("user_id", requesterUserId),
+        adminClient.from("website_members").select("website_id").eq("user_id", requesterUserId).eq("status", "active"),
       ]);
       if (websiteResult.error) return jsonResponse({ error: websiteResult.error.message }, 400);
       if (organizationResult.error) return jsonResponse({ error: organizationResult.error.message }, 400);
       if (accountResult.error) return jsonResponse({ error: accountResult.error.message }, 400);
+      if (ownedOrganizationsResult.error) return jsonResponse({ error: ownedOrganizationsResult.error.message }, 400);
+      if (organizationMembershipResult.error) return jsonResponse({ error: organizationMembershipResult.error.message }, 400);
+      if (websiteMembershipResult.error) return jsonResponse({ error: websiteMembershipResult.error.message }, 400);
       const website = websiteResult.data;
       const account = accountResult.data;
       let organization = organizationResult.data;
       if (websiteId && !website) return jsonResponse({ error: "Website not found." }, 404);
       if (organizationId && !organization) return jsonResponse({ error: "Organization not found." }, 404);
-      if (requesterUserId && !account) return jsonResponse({ error: "Client account not found." }, 404);
+      if (!account) return jsonResponse({ error: "Client account not found." }, 404);
+      const clientOrganizationIds = new Set([
+        ...(ownedOrganizationsResult.data || []).map((item) => item.id),
+        ...(organizationMembershipResult.data || []).map((item) => item.organization_id),
+      ]);
+      const clientWebsiteIds = new Set((websiteMembershipResult.data || []).map((item) => item.website_id));
+      if (organizationId && !clientOrganizationIds.has(organizationId)) return jsonResponse({ error: "The selected organization is not connected to this client account." }, 400);
+      if (websiteId && (!clientWebsiteIds.has(websiteId) || website?.status === "archived")) return jsonResponse({ error: "The selected website is not available to this client account." }, 400);
+      const websiteTopics = new Set(["website-change", "analytics"]);
+      const productTopics = new Set(["communications", "records"]);
+      if (websiteTopics.has(topic) && !websiteId) return jsonResponse({ error: "Choose one of this client’s websites for website or analytics work." }, 400);
+      if (websiteTopics.has(topic) && organizationId) return jsonResponse({ error: "Website and analytics work must be attached directly to a website." }, 400);
+      if (productTopics.has(topic) && (!organizationId || websiteId)) return jsonResponse({ error: `Choose an organization subscribed to ${topic === "records" ? "Records" : "Communications"}.` }, 400);
+      if (productTopics.has(topic)) {
+        const { data: entitlement, error: entitlementError } = await adminClient
+          .from("organization_product_entitlements")
+          .select("organization_id")
+          .eq("organization_id", organizationId)
+          .eq("product_key", topic)
+          .eq("portal_enabled", true)
+          .in("status", ["active", "trialing"])
+          .maybeSingle();
+        if (entitlementError) return jsonResponse({ error: entitlementError.message }, 400);
+        if (!entitlement) return jsonResponse({ error: `This client does not have an active ${topic === "records" ? "Records" : "Communications"} subscription for the selected organization.` }, 400);
+      }
       if (website?.organization_id) {
         if (organization && organization.id !== website.organization_id) return jsonResponse({ error: "The website does not belong to the selected organization." }, 400);
         if (!organization) {

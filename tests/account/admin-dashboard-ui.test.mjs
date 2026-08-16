@@ -11,6 +11,17 @@ const adminInboxHtmlPath = new URL("../../account/admin/inbox/index.html", impor
 const adminBillingHtmlPath = new URL("../../account/admin/billing/index.html", import.meta.url);
 const financialOperationsHtmlPath = new URL("../../account/admin/operations/index.html", import.meta.url);
 const financialOperationsScriptPath = new URL("../../account/admin/operations/operations.js", import.meta.url);
+const financialOperationsCssPath = new URL("../../account/admin/operations/operations.css", import.meta.url);
+
+test("financial corrections keep destructive confirmation text visible", async () => {
+  const [html, css] = await Promise.all([
+    readFile(financialOperationsHtmlPath, "utf8"),
+    readFile(financialOperationsCssPath, "utf8"),
+  ]);
+  assert.match(html, /class="portal-button operations-danger"[^>]*>Void transaction<\/button>/);
+  assert.match(css, /\.operations-workspace,\s*\.operations-dialog\s*{[\s\S]*--ops-red:\s*#a64040/);
+  assert.match(css, /\.operations-danger\s*{[\s\S]*color:\s*#fff !important;[\s\S]*background:\s*var\(--ops-red, #a64040\) !important;/);
+});
 
 test("the account Admin tab keeps daily tools focused and isolates retired admin-only products", async () => {
   const [html, css, navigation] = await Promise.all([

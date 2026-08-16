@@ -84,3 +84,31 @@ test("administrators can start work and publish estimates and timeline notes", a
   assert.match(edgeFunction, /origin: "n3xra"/);
   assert.match(edgeFunction, /platform_support_request_updates/);
 });
+
+test("admin-created support work is limited to the selected client's real access", async () => {
+  const [html, controller, edgeFunction] = await Promise.all([
+    projectFile("account/admin/support/index.html"),
+    projectFile("account/admin/controllers/support.js"),
+    projectFile("supabase/functions/platform-admin/index.ts"),
+  ]);
+
+  assert.match(html, /id="support-work-context" disabled/);
+  assert.match(controller, /supportOrganizationMemberships/);
+  assert.match(controller, /supportWebsiteMemberships/);
+  assert.match(controller, /supportProductEntitlements/);
+  assert.match(controller, /organization\.owner_user_id === userId/);
+  assert.match(controller, /membership\.user_id === userId && membership\.status === "active"/);
+  assert.match(controller, /\["active", "trialing"\]\.includes\(entitlement\.status\)/);
+  assert.match(controller, /contextSelect\.required = websiteRequired \|\| Boolean\(productKey\)/);
+  assert.match(controller, /support-work-account"\)\?\.addEventListener\("change", renderSupportWorkTargets\)/);
+  assert.match(controller, /support-work-topic"\)\?\.addEventListener\("change", renderSupportWorkTargets\)/);
+
+  assert.match(edgeFunction, /organizationMemberships: organizationMembershipResult\.data/);
+  assert.match(edgeFunction, /websiteMemberships: websiteMembershipResult\.data/);
+  assert.match(edgeFunction, /productEntitlements: entitlementResult\.data/);
+  assert.match(edgeFunction, /selected organization is not connected to this client account/);
+  assert.match(edgeFunction, /selected website is not available to this client account/);
+  assert.match(edgeFunction, /websiteTopics\.has\(topic\) && !websiteId/);
+  assert.match(edgeFunction, /productTopics\.has\(topic\)/);
+  assert.match(edgeFunction, /\.in\("status", \["active", "trialing"\]\)/);
+});
