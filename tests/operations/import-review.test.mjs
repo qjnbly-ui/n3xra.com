@@ -53,3 +53,14 @@ test("respects an imported review workbook classification", () => {
   assert.equal(result.records[0].businessUsePercent, 75);
   assert.equal(result.records[0].suggestionReason, "Documented allocation");
 });
+
+test("preserves a bank transaction id for reliable duplicate matching", () => {
+  const result = normalizeImportRecords([{
+    date: "7/2/2026",
+    description: "Same-day software charge",
+    amount: "20.00",
+    type: "Debit",
+    "transaction id": "txn-123",
+  }]);
+  assert.equal(result.records[0].sourceId, "txn-123");
+});

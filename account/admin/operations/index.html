@@ -11,8 +11,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&amp;family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/site-nav.css?v=4">
   <link rel="stylesheet" href="/client-portal/portal.css?v=17">
-  <link rel="stylesheet" href="/account/admin/admin.css?v=27">
-  <link rel="stylesheet" href="/account/admin/operations/operations.css?v=10">
+  <link rel="stylesheet" href="/account/admin/admin.css?v=28">
+  <link rel="stylesheet" href="/account/admin/operations/operations.css?v=11">
   <script src="/shared/config.js"></script>
   <script src="/assets/vendor/xlsx.full.min.js" defer></script>
   <script src="/account/admin/admin-shell.js?v=2" defer></script><script src="/assets/site-nav.js?v=5"></script>
@@ -27,12 +27,10 @@
       <section class="portal-workspace operations-workspace">
         <nav class="operations-tabs" aria-label="Financial operations sections">
           <button class="is-active" type="button" data-operations-view="overview" aria-current="page">Overview</button>
-          <button type="button" data-operations-view="ledger">Ledger</button>
+          <button type="button" data-operations-view="ledger">Transactions</button>
           <button type="button" data-operations-view="invoices">Invoices</button>
-          <button type="button" data-operations-view="directory">Customers &amp; projects</button>
-          <button type="button" data-operations-view="banking">Banking</button>
-          <button type="button" data-operations-view="expense-review">Expense review</button>
-          <button type="button" data-operations-view="audit">Audit history</button>
+          <button type="button" data-operations-view="expense-review">Expenses</button>
+          <button type="button" data-operations-view="audit">Audit</button>
         </nav>
 
         <section class="operations-view" data-operations-panel="overview">
@@ -41,12 +39,11 @@
             <button class="portal-button portal-button-secondary" type="button" data-print-report>Print report</button>
           </div>
           <div class="operations-metrics">
-            <article><span>Confirmed balances</span><strong id="ops-bank-balance">$0.00</strong><small id="ops-bank-balance-note">No financial accounts</small></article>
             <article><span>Outstanding invoices</span><strong id="ops-outstanding">$0.00</strong><small>Unpaid confirmed balance</small></article>
             <article><span>Monthly revenue</span><strong id="ops-month-revenue">$0.00</strong><small id="ops-summary-month">Current month</small></article>
             <article><span>Monthly expenses</span><strong id="ops-month-expenses">$0.00</strong><small>Completed expenses</small></article>
             <article class="operations-profit-card"><span>Net profit</span><strong id="ops-net-profit">$0.00</strong><small>Revenue minus expenses</small></article>
-            <article><span>Customers / projects</span><strong id="ops-activity-count">0 / 0</strong><small>Active records</small></article>
+            <article><span>Expenses to review</span><strong id="ops-review-needed-summary">0</strong><small>Need a decision before posting</small></article>
           </div>
 
           <div class="operations-overview-grid">
@@ -64,11 +61,12 @@
             <div class="operations-card-head"><div><p class="portal-kicker">Product performance</p><h3>Revenue and expenses by product</h3></div></div>
             <div class="operations-table-wrap"><table><thead><tr><th>Product</th><th>Revenue</th><th>Expenses</th><th>Net</th></tr></thead><tbody id="ops-product-summary"></tbody></table></div>
           </article>
+          <button class="operations-support-link" type="button" data-open-panel="records"><span><strong>Supporting records</strong><small>Customers, projects, accounts, and deposits used by transactions and invoices</small></span><span aria-hidden="true">Manage →</span></button>
         </section>
 
         <section class="operations-view" data-operations-panel="ledger" hidden>
           <div class="operations-section-head">
-            <div><p class="portal-kicker">Company ledger</p><h3>Revenue and expenses</h3><p>Transactions remain in the history. Incorrect entries are voided rather than deleted.</p></div>
+            <div><p class="portal-kicker">Money in and out</p><h3>Transactions</h3><p>A complete list of recorded revenue and expenses. Incorrect entries are voided so the history stays intact.</p></div>
             <div class="operations-head-actions">
               <button class="portal-button portal-button-secondary" type="button" data-export="ledger">Export ledger</button>
               <button class="portal-button" type="button" data-create="transaction">Record transaction</button>
@@ -91,43 +89,43 @@
           <div class="operations-table-wrap"><table><thead><tr><th>Invoice</th><th>Customer</th><th>Issued</th><th>Due</th><th>Status</th><th>Total</th><th>Paid</th><th>Outstanding</th><th></th></tr></thead><tbody id="ops-invoice-table"></tbody></table></div>
         </section>
 
-        <section class="operations-view" data-operations-panel="directory" hidden>
+        <section class="operations-view" data-operations-panel="records" hidden>
           <div class="operations-section-head">
-            <div><p class="portal-kicker">Business directory</p><h3>Customers, vendors, products, and projects</h3><p>Manage the records used to classify transactions, invoices, and delivery work.</p></div>
+            <div><p class="portal-kicker">Supporting setup</p><h3>Records used elsewhere</h3><p>These optional records support transactions and invoices. They are not a separate financial workflow.</p></div>
+            <button class="portal-button portal-button-secondary" type="button" data-open-panel="overview">Back to overview</button>
           </div>
           <div class="operations-directory-grid">
-            <article class="operations-card"><div class="operations-card-head"><div><p class="portal-kicker">Directory</p><h3>Customers &amp; vendors</h3></div><button class="portal-button portal-button-secondary" type="button" data-create="party">Add</button></div><div id="ops-party-list" class="operations-list"></div></article>
-            <article class="operations-card"><div class="operations-card-head"><div><p class="portal-kicker">Offerings</p><h3>Products &amp; services</h3></div><button class="portal-button portal-button-secondary" type="button" data-create="product">Add</button></div><div id="ops-product-list" class="operations-list"></div></article>
-            <article class="operations-card operations-directory-wide"><div class="operations-card-head"><div><p class="portal-kicker">Delivery</p><h3>Projects</h3></div><button class="portal-button portal-button-secondary" type="button" data-create="project">Add</button></div><div id="ops-project-list" class="operations-list"></div></article>
+            <article class="operations-card"><div class="operations-card-head"><div><p class="portal-kicker">People and companies</p><h3>Customers &amp; vendors</h3></div><button class="portal-button portal-button-secondary" type="button" data-create="party">Add</button></div><div id="ops-party-list" class="operations-list"></div></article>
+            <article class="operations-card"><div class="operations-card-head"><div><p class="portal-kicker">What N3XRA sells</p><h3>Products &amp; services</h3></div><button class="portal-button portal-button-secondary" type="button" data-create="product">Add</button></div><div id="ops-product-list" class="operations-list"></div></article>
+            <article class="operations-card"><div class="operations-card-head"><div><p class="portal-kicker">Client work</p><h3>Projects</h3></div><button class="portal-button portal-button-secondary" type="button" data-create="project">Add</button></div><div id="ops-project-list" class="operations-list"></div></article>
+            <article class="operations-card"><div class="operations-card-head"><div><p class="portal-kicker">Optional links</p><h3>Financial accounts</h3></div><button class="portal-button portal-button-secondary" type="button" data-create="account">Add</button></div><div id="ops-account-list" class="operations-list"></div></article>
+            <article class="operations-card operations-directory-wide"><div class="operations-card-head"><div><p class="portal-kicker">Cash and checks</p><h3>Deposits</h3></div><button class="portal-button portal-button-secondary" type="button" data-create="deposit">Add</button></div><div id="ops-deposit-list" class="operations-list"></div></article>
           </div>
-        </section>
-
-        <section class="operations-view" data-operations-panel="banking" hidden>
-          <div class="operations-section-head">
-            <div><p class="portal-kicker">Cash management</p><h3>Banking and deposits</h3><p>Track reconciled balances and match received cash to recorded deposits.</p></div>
-          </div>
-          <div class="operations-directory-grid">
-            <article class="operations-card"><div class="operations-card-head"><div><p class="portal-kicker">Reconciled balances</p><h3>Financial accounts</h3></div><button class="portal-button portal-button-secondary" type="button" data-create="account">Add</button></div><div id="ops-account-list" class="operations-list"></div></article>
-            <article class="operations-card"><div class="operations-card-head"><div><p class="portal-kicker">Cash controls</p><h3>Deposits</h3></div><button class="portal-button portal-button-secondary" type="button" data-create="deposit">Add</button></div><div id="ops-deposit-list" class="operations-list"></div></article>
-          </div>
-          <article class="operations-card operations-reconciliation-card"><p class="portal-kicker">Deposit reconciliation</p><h3>Cash received versus deposits</h3><div id="ops-deposit-reconciliation"></div></article>
+          <article class="operations-card operations-reconciliation-card"><p class="portal-kicker">Deposit check</p><h3>Cash received versus deposits</h3><div id="ops-deposit-reconciliation"></div></article>
         </section>
 
         <section class="operations-view" data-operations-panel="expense-review" hidden>
           <div class="operations-section-head">
-            <div><p class="portal-kicker">Monthly bookkeeping review</p><h3>Import and approve expenses</h3><p>Upload a bank CSV or Excel workbook. Suggestions are estimates; nothing enters the ledger until every row is reviewed and you post the approved expenses.</p></div>
+            <div><p class="portal-kicker">Monthly bookkeeping</p><h3>Expenses</h3><p>Upload a statement, decide what belongs to the business, and post only the approved expenses.</p></div>
           </div>
 
+          <ol class="operations-review-steps" aria-label="Expense review steps">
+            <li><span>1</span><div><strong>Upload</strong><small>Add a bank CSV or Excel file</small></div></li>
+            <li><span>2</span><div><strong>Review</strong><small>Approve business expenses and exclude the rest</small></div></li>
+            <li><span>3</span><div><strong>Post</strong><small>Add approved expenses to Transactions</small></div></li>
+          </ol>
+
           <article class="operations-card operations-import-card">
+            <div class="operations-card-head"><div><p class="portal-kicker">Step 1</p><h3>Upload a statement</h3></div></div>
             <form id="ops-import-form">
               <div class="operations-import-grid">
                 <label class="operations-field">Bank export
                   <input id="ops-import-file" type="file" accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" required>
-                  <small><strong>CSV</strong> is a simple data export; <strong>Excel</strong> keeps workbook tabs and formatting. Both are accepted and parsed in this browser; only normalized review rows are saved.</small>
+                  <small>CSV, XLSX, and XLS files are accepted. The importer finds the transaction sheet automatically.</small>
                 </label>
-                <label class="operations-field">Financial account
-                  <select id="ops-import-account"><option value="">Not linked yet</option></select>
-                  <small>Optional during review; linking it improves the posted ledger.</small>
+                <label class="operations-field">Account (optional)
+                  <select id="ops-import-account"><option value="">No account selected</option></select>
+                  <small>Use this only to link posted expenses to a specific account.</small>
                 </label>
                 <label class="operations-field">Statement month
                   <input id="ops-import-month" type="month">
@@ -137,24 +135,28 @@
                 </label>
               </div>
               <div class="operations-import-footer">
-                <p class="operations-form-error" id="ops-import-error" role="alert"></p>
-                <button class="portal-button" id="ops-import-submit" type="submit">Create review batch</button>
+                <div><p class="operations-form-error" id="ops-import-error" role="alert"></p><small id="ops-import-reader-status" role="status">CSV and Excel files are ready.</small></div>
+                <button class="portal-button" id="ops-import-submit" type="submit">Upload for review</button>
               </div>
             </form>
           </article>
 
           <article class="operations-card">
             <div class="operations-card-head operations-review-head">
-              <div><p class="portal-kicker">Review queue</p><h3>Transaction decisions</h3></div>
+              <div><p class="portal-kicker">Step 2</p><h3>Review the transactions</h3></div>
               <label class="operations-batch-picker">Batch<select id="ops-import-batch"><option value="">No batches</option></select></label>
             </div>
             <div class="operations-review-metrics">
-              <div><span>Transactions</span><strong id="ops-review-count">0</strong></div>
-              <div><span>Proposed deductible</span><strong id="ops-review-deductible">$0.00</strong></div>
+              <div><span>Total rows</span><strong id="ops-review-count">0</strong></div>
+              <div><span>Ready to post</span><strong id="ops-review-deductible">$0.00</strong></div>
               <div><span>Approved</span><strong id="ops-review-approved">0</strong></div>
-              <div><span>Needs review</span><strong id="ops-review-pending">0</strong></div>
+              <div><span>Needs a decision</span><strong id="ops-review-pending">0</strong></div>
+              <div><span>Excluded</span><strong id="ops-review-excluded">0</strong></div>
               <div><span>Possible duplicates</span><strong id="ops-review-duplicates">0</strong></div>
-              <div><span>Asset candidates</span><strong id="ops-review-assets">0</strong></div>
+            </div>
+            <div class="operations-review-toolbar">
+              <label>Show<select id="ops-review-filter"><option value="pending">Needs a decision</option><option value="approved">Approved</option><option value="excluded">Excluded</option><option value="all">All transactions</option></select></label>
+              <p id="ops-review-progress">Upload a statement to begin.</p>
             </div>
             <div class="operations-review-category-summary" id="ops-review-category-summary"></div>
             <div class="operations-review-actions">
@@ -162,7 +164,7 @@
               <button class="portal-button portal-button-secondary" type="button" data-import-bulk="exclude-clear">Exclude transfers, personal, and duplicates</button>
               <button class="portal-button" type="button" data-import-post>Post approved expenses</button>
             </div>
-            <p class="operations-review-help"><strong>How review works:</strong> Choose a classification, business-use percentage, and category, then use <strong>Approve</strong> or <strong>Exclude</strong> in the Decision column. The <strong>Asset?</strong> checkbox only flags a long-lived purchase for possible depreciation review; it does not approve the transaction.</p>
+            <p class="operations-review-help"><strong>Keep it simple:</strong> Approve only a legitimate business expense with a clear category and business-use percentage. Exclude personal purchases, transfers, duplicates, refunds, and anything unsupported. Nothing is posted while a decision is still pending.</p>
             <p class="operations-review-disclaimer">Bookkeeping estimate only—not tax advice. Keep receipts and supporting records. Personal, transfer, duplicate, and unresolved transactions should be excluded or left unposted.</p>
             <div class="operations-table-wrap">
               <table class="operations-review-table">
@@ -212,6 +214,6 @@
     </section>
   </dialog>
 
-  <script type="module" src="/account/admin/admin.js?v=36"></script>
+  <script type="module" src="/account/admin/admin.js?v=37"></script>
 </body>
 </html>

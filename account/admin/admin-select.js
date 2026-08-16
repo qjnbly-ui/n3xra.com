@@ -7,7 +7,7 @@ function ensureStyles() {
   if (document.querySelector('link[data-admin-select-styles]')) return;
   const link = document.createElement("link");
   link.rel = "stylesheet";
-  link.href = "/account/admin/admin-select.css?v=1";
+  link.href = "/account/admin/admin-select.css?v=2";
   link.dataset.adminSelectStyles = "";
   document.head.append(link);
 }
@@ -58,6 +58,7 @@ function enhance(select) {
   menu.id = `${id}-menu`;
   menu.setAttribute("role", "listbox");
   menu.setAttribute("aria-labelledby", trigger.id);
+  menu.setAttribute("popover", "manual");
   menu.hidden = true;
   document.body.append(menu);
   wrapper.append(trigger);
@@ -102,6 +103,7 @@ function enhance(select) {
   }
 
   function close({ focus = false } = {}) {
+    if (typeof menu.hidePopover === "function" && menu.matches(":popover-open")) menu.hidePopover();
     menu.hidden = true;
     wrapper.classList.remove("is-open");
     trigger.setAttribute("aria-expanded", "false");
@@ -114,6 +116,7 @@ function enhance(select) {
     render();
     positionMenu();
     menu.hidden = false;
+    if (typeof menu.showPopover === "function") menu.showPopover();
     wrapper.classList.add("is-open");
     trigger.setAttribute("aria-expanded", "true");
     if (Number.isInteger(focusIndex)) {

@@ -38,7 +38,7 @@ test("every admin document uses the single shared shell instead of copied header
     if (!html.includes('/account/admin/admin-shell.js?v=2')) failures.push(path.relative(projectRoot, file));
     assert.doesNotMatch(html, /<header class="site-topbar admin-topbar"/);
     assert.ok(html.indexOf("/account/admin/admin-shell.js?v=2") < html.indexOf("/assets/site-nav.js?v=5"));
-    assert.match(html, /\/account\/admin\/admin\.css\?v=27/);
+    assert.match(html, /\/account\/admin\/admin\.css\?v=28/);
   }
 
   assert.deepEqual(failures, []);
@@ -73,6 +73,13 @@ test("soft admin navigation preserves the shared enhanced-select stylesheet", as
     navigation,
     /const persistentStylesheets = new Set\(\[[\s\S]*"\/account\/admin\/admin-select\.css"/,
   );
+});
+
+test("enhanced admin select menus use the top layer so dialogs cannot cover them", async () => {
+  const source = await readFile(path.join(projectRoot, "account/admin/admin-select.js"), "utf8");
+  assert.match(source, /menu\.setAttribute\("popover", "manual"\)/);
+  assert.match(source, /menu\.showPopover\(\)/);
+  assert.match(source, /menu\.hidePopover\(\)/);
 });
 
 test("admin navigation preserves the clicked position across soft and fallback page loads", async () => {

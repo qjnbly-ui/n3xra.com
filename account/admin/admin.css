@@ -347,6 +347,7 @@ body:not(.admin-ready):not(.portal-loading):not(.product-native-admin) main.acco
 
 .account-admin-field input,
 .account-admin-field select,
+.account-admin-field textarea,
 .account-admin-form input,
 .account-admin-form select,
 .account-admin-form textarea {
@@ -662,7 +663,9 @@ body:not(.admin-ready):not(.portal-loading):not(.product-native-admin) main.acco
 .support-client-update { padding:.8rem .9rem; background:#f3f7f7; border-left:3px solid #0a7b83; }
 .support-client-update p { margin:0; white-space:pre-wrap; line-height:1.55; }
 .support-client-update small { display:block; margin-top:.35rem; color:var(--portal-muted); font-size:.66rem; }
-.support-work-dialog textarea { width:100%; resize:vertical; }
+.support-work-dialog textarea { width:100%; min-height:96px; resize:vertical; line-height:1.55; }
+.support-work-dialog .account-admin-field input:focus-visible,
+.support-work-dialog .account-admin-field textarea:focus-visible { border-color:#80aaa4; outline:none; box-shadow:0 0 0 3px rgba(20,135,127,.1); }
 .support-queue-pane .account-admin-field input,
 .support-queue-pane .account-admin-field select { border-radius:4px; }
 .support-filter-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.65rem; margin-top:.75rem; }

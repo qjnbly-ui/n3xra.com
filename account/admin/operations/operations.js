@@ -26,6 +26,7 @@ let state = {
 };
 let activeFormType = "";
 let activeImportBatchId = "";
+let activeExpenseFilter = "pending";
 let stripePreview = [];
 
 const TABLES = {
@@ -220,15 +221,12 @@ async function loadAll() {
 
 function renderSummary() {
   const summary = summarizeOperations(state);
-  $("#ops-bank-balance").textContent = moneyCents(summary.bankBalanceCents);
   $("#ops-outstanding").textContent = moneyCents(summary.outstandingCents);
   $("#ops-month-revenue").textContent = moneyCents(summary.revenueCents);
   $("#ops-month-expenses").textContent = moneyCents(summary.expenseCents);
   $("#ops-net-profit").textContent = moneyCents(summary.netProfitCents);
-  $("#ops-activity-count").textContent = `${summary.activeCustomers} / ${summary.activeProjects}`;
-  $("#ops-bank-balance-note").textContent = state.financialAccounts.some((item) => item.status === "active" && item.account_type !== "credit" && item.current_balance_cents !== null)
-    ? "Latest cash and bank balances"
-    : "No confirmed account balances";
+  const openBatchIds = new Set(state.importBatches.filter((batch) => !["posted", "void"].includes(batch.status)).map((batch) => batch.id));
+  $("#ops-review-needed-summary").textContent = String(state.importRows.filter((row) => openBatchIds.has(row.batch_id) && row.status === "pending").length);
   $("#ops-summary-month").textContent = new Date().toLocaleDateString(undefined, { month: "long", year: "numeric" });
 }
 
@@ -242,13 +240,12 @@ function renderRecentTransactions() {
 function renderAttention() {
   const outstanding = state.invoices.filter((invoice) => outstandingInvoiceCents(invoice, state.transactions) > 0);
   const pending = state.transactions.filter((item) => item.status === "pending");
-  const unmatchedCash = state.transactions.filter((item) => item.transaction_type === "revenue" && item.status === "completed" && ["cash", "check"].includes(item.payment_method) && !item.deposit_id);
-  const unreconciledAccounts = state.financialAccounts.filter((item) => item.status === "active" && item.current_balance_cents === null);
+  const openBatchIds = new Set(state.importBatches.filter((batch) => !["posted", "void"].includes(batch.status)).map((batch) => batch.id));
+  const expenseRows = state.importRows.filter((row) => openBatchIds.has(row.batch_id) && row.status === "pending");
   const checks = [
     [outstanding.length, "Outstanding invoices", `${outstanding.length} invoice${outstanding.length === 1 ? "" : "s"} still have a balance.`],
     [pending.length, "Pending transactions", `${pending.length} transaction${pending.length === 1 ? "" : "s"} need confirmation.`],
-    [unmatchedCash.length, "Unmatched cash or checks", `${unmatchedCash.length} receipt${unmatchedCash.length === 1 ? "" : "s"} are not linked to a deposit.`],
-    [unreconciledAccounts.length, "Balances not confirmed", `${unreconciledAccounts.length} financial account${unreconciledAccounts.length === 1 ? "" : "s"} need a balance.`],
+    [expenseRows.length, "Expenses need review", `${expenseRows.length} imported transaction${expenseRows.length === 1 ? "" : "s"} still need a decision.`],
   ].filter(([count]) => count);
   $("#ops-attention-list").innerHTML = checks.length
     ? checks.map(([, title, copy]) => `<div class="operations-list-item"><div><strong>${escapeHtml(title)}</strong><small>${escapeHtml(copy)}</small></div></div>`).join("")
@@ -447,7 +444,7 @@ function expenseCategoryOptions(selected) {
 function renderExpenseReview() {
   const accountSelect = $("#ops-import-account");
   const selectedAccount = accountSelect.value;
-  accountSelect.innerHTML = `<option value="">Not linked yet</option>${state.financialAccounts
+  accountSelect.innerHTML = `<option value="">No account selected</option>${state.financialAccounts
     .filter((account) => account.status === "active")
     .map((account) => `<option value="${escapeHtml(account.id)}">${escapeHtml(account.name)}${account.last_four ? ` ••••${escapeHtml(account.last_four)}` : ""}</option>`)
     .join("")}`;
@@ -460,22 +457,40 @@ function renderExpenseReview() {
 
   const batch = importBatch();
   const rows = batch ? state.importRows.filter((row) => row.batch_id === batch.id) : [];
-  const proposed = rows
-    .filter((row) => row.flow === "debit" && ["business", "mixed", "needs_review"].includes(row.classification))
-    .reduce((sum, row) => sum + Number(row.deductible_cents || 0), 0);
+  if (batch?.status === "posted" && activeExpenseFilter === "pending") activeExpenseFilter = "all";
   const approved = rows.filter((row) => ["approved", "posted"].includes(row.status));
   const pending = rows.filter((row) => row.status === "pending");
+  const excluded = rows.filter((row) => row.status === "excluded");
   const duplicates = rows.filter((row) => row.is_duplicate);
-  const assets = rows.filter((row) => row.asset_candidate);
+  const readyToPost = rows
+    .filter((row) => row.status === "approved")
+    .reduce((sum, row) => sum + Number(row.deductible_cents || 0), 0);
   $("#ops-review-count").textContent = String(rows.length);
-  $("#ops-review-deductible").textContent = moneyCents(proposed);
+  $("#ops-review-deductible").textContent = moneyCents(readyToPost);
   $("#ops-review-approved").textContent = String(approved.length);
   $("#ops-review-pending").textContent = String(pending.length);
+  $("#ops-review-excluded").textContent = String(excluded.length);
   $("#ops-review-duplicates").textContent = String(duplicates.length);
-  $("#ops-review-assets").textContent = String(assets.length);
+
+  const filter = $("#ops-review-filter");
+  filter.value = activeExpenseFilter;
+  const visibleRows = activeExpenseFilter === "all" ? rows : rows.filter((row) => {
+    if (activeExpenseFilter === "approved") return ["approved", "posted"].includes(row.status);
+    return row.status === activeExpenseFilter;
+  });
+  const resolvedCount = rows.length - pending.length;
+  $("#ops-review-progress").textContent = !batch
+    ? "Upload a statement to begin."
+    : batch.status === "posted"
+      ? `Posted · all ${rows.length} transactions are locked.`
+      : `${resolvedCount} of ${rows.length} decisions complete${pending.length
+        ? ` · ${pending.length} remaining`
+        : rows.some((row) => row.status === "approved")
+          ? " · ready to post"
+          : " · nothing approved"}.`;
 
   const categoryTotals = new Map();
-  rows.filter((row) => row.flow === "debit" && Number(row.deductible_cents) > 0).forEach((row) => {
+  rows.filter((row) => ["approved", "posted"].includes(row.status) && row.flow === "debit" && Number(row.deductible_cents) > 0).forEach((row) => {
     const category = row.category || "Uncategorized";
     categoryTotals.set(category, (categoryTotals.get(category) || 0) + Number(row.deductible_cents));
   });
@@ -484,12 +499,15 @@ function renderExpenseReview() {
       .sort((left, right) => right[1] - left[1])
       .map(([category, amount]) => `<span><strong>${escapeHtml(category)}</strong>${moneyCents(amount)}</span>`)
       .join("")
-    : "<small>Category totals will appear after transactions are classified.</small>";
+    : "<small>Approved category totals will appear here.</small>";
 
   const locked = batch?.status === "posted";
-  $$("[data-import-bulk], [data-import-post]").forEach((button) => { button.disabled = !batch || locked; });
-  $("#ops-import-rows").innerHTML = rows.length
-    ? rows.map((row) => {
+  $$("[data-import-bulk]").forEach((button) => { button.disabled = !batch || locked || !pending.length; });
+  const postButton = $("[data-import-post]");
+  postButton.disabled = !batch || locked || pending.length > 0 || !rows.some((row) => row.status === "approved");
+  postButton.title = pending.length ? `Resolve ${pending.length} remaining transaction${pending.length === 1 ? "" : "s"} before posting.` : "";
+  $("#ops-import-rows").innerHTML = visibleRows.length
+    ? visibleRows.map((row) => {
       const approvable = row.flow === "debit"
         && ["business", "mixed"].includes(row.classification)
         && !row.is_duplicate
@@ -518,7 +536,7 @@ function renderExpenseReview() {
         <td class="operations-review-decision">${decision}</td>
       </tr>`;
     }).join("")
-    : '<tr><td colspan="10">Upload a CSV or Excel workbook to create a review batch.</td></tr>';
+    : `<tr><td colspan="10">${rows.length ? "No transactions match this view." : "Upload a CSV or Excel workbook to begin."}</td></tr>`;
 }
 
 function renderAudit() {
@@ -945,6 +963,19 @@ function looksLikeTransactionSheet(rows) {
   return hasDate && hasDescription && hasAmount;
 }
 
+async function waitForExcelReader(timeoutMs = 8000) {
+  if (window.XLSX) return window.XLSX;
+  const status = $("#ops-import-reader-status");
+  if (status) status.textContent = "Preparing the Excel reader…";
+  const startedAt = Date.now();
+  while (!window.XLSX && Date.now() - startedAt < timeoutMs) {
+    await new Promise((resolve) => window.setTimeout(resolve, 100));
+  }
+  if (!window.XLSX) throw new Error("The Excel reader is unavailable. Try the file again or use CSV.");
+  if (status) status.textContent = "CSV and Excel files are ready.";
+  return window.XLSX;
+}
+
 async function readImportFile(file) {
   if (!file || file.size === 0) throw new Error("Choose a CSV or Excel file.");
   if (file.size > 10 * 1024 * 1024) throw new Error("Import files must be 10 MB or smaller.");
@@ -957,14 +988,14 @@ async function readImportFile(file) {
   if (extension === "csv") {
     records = rowsToObjects(parseCsv(new TextDecoder().decode(buffer)));
   } else {
-    if (!window.XLSX) throw new Error("The Excel reader did not load. Refresh the page or export the workbook as CSV.");
-    const workbook = window.XLSX.read(buffer, { type: "array", cellDates: true });
+    const XLSX = await waitForExcelReader();
+    const workbook = XLSX.read(buffer, { type: "array", cellDates: true });
     const sheetName = workbook.SheetNames.find((name) => {
-      const rows = window.XLSX.utils.sheet_to_json(workbook.Sheets[name], { header: 1, raw: false, defval: "" });
+      const rows = XLSX.utils.sheet_to_json(workbook.Sheets[name], { header: 1, raw: false, defval: "" });
       return looksLikeTransactionSheet(rows);
     });
     if (!sheetName) throw new Error("No transaction sheet with date, description, and amount columns was found.");
-    const rows = window.XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1, raw: false, defval: "" });
+    const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1, raw: false, defval: "" });
     records = rowsToObjects(rows);
   }
 
@@ -989,22 +1020,30 @@ async function createImportBatch(event) {
       ...state.importRows.map((row) => row.fingerprint),
       ...state.transactions.filter((row) => row.source === "bank_import").map((row) => row.external_id),
     ].filter(Boolean));
+    const accountByBatchId = new Map(state.importBatches.map((batch) => [batch.id, batch.financial_account_id || "unlinked"]));
+    const knownSourceIds = new Set(state.importRows.map((row) => {
+      const raw = row.raw_data || {};
+      const entry = Object.entries(raw).find(([key]) => ["transaction id", "transaction identifier", "source id", "reference id"].includes(normalizeHeader(key)));
+      const sourceId = String(entry?.[1] || "").trim();
+      return sourceId ? `${accountByBatchId.get(row.batch_id) || "unlinked"}|${sourceId}` : "";
+    }).filter(Boolean));
     const batchFingerprints = new Set();
+    const batchSourceIds = new Set();
     const normalizedRows = [];
     for (const record of parsed.records) {
-      const fingerprint = await sha256([
-        accountId || "unlinked",
-        record.transactionDate,
-        record.flow,
-        record.amountCents,
-        normalizeHeader(record.description),
-      ].join("|"));
-      const isDuplicate = knownFingerprints.has(fingerprint) || batchFingerprints.has(fingerprint);
+      const fingerprint = await sha256(record.sourceId
+        ? [accountId || "unlinked", "source", record.sourceId].join("|")
+        : [accountId || "unlinked", record.transactionDate, record.flow, record.amountCents, normalizeHeader(record.description)].join("|"));
+      const sourceKey = record.sourceId ? `${accountId || "unlinked"}|${record.sourceId}` : "";
+      const isDuplicate = record.sourceId
+        ? knownSourceIds.has(sourceKey) || batchSourceIds.has(sourceKey)
+        : knownFingerprints.has(fingerprint) || batchFingerprints.has(fingerprint);
       batchFingerprints.add(fingerprint);
+      if (sourceKey) batchSourceIds.add(sourceKey);
       normalizedRows.push({ ...record, fingerprint, isDuplicate });
     }
 
-    button.textContent = "Creating review…";
+    button.textContent = "Uploading…";
     const { data: batch, error: batchError } = await supabase.from("operations_import_batches").insert({
       file_name: file.name,
       file_type: parsed.extension,
@@ -1054,7 +1093,7 @@ async function createImportBatch(event) {
       : error.message || "Unable to create the review batch.";
   } finally {
     button.disabled = false;
-    button.textContent = "Create review batch";
+    button.textContent = "Upload for review";
   }
 }
 
@@ -1236,6 +1275,10 @@ function bindEvents() {
   $("#ops-stripe-start-date").value = `${new Date().getFullYear()}-01-01`;
   $("#ops-import-batch").addEventListener("change", (event) => {
     activeImportBatchId = event.currentTarget.value;
+    renderExpenseReview();
+  });
+  $("#ops-review-filter").addEventListener("change", (event) => {
+    activeExpenseFilter = event.currentTarget.value;
     renderExpenseReview();
   });
   $("#ops-import-rows").addEventListener("change", (event) => {
