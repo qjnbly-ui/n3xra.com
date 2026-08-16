@@ -31,6 +31,7 @@ const cases = [
   ["Show active subscriptions", "admin_billing"],
   ["What billing needs attention?", "admin_billing"],
   ["Summarize operations transactions", "admin_operations"],
+  ["Show the financial operations summary", "admin_operations"],
   ["What is in the operations ledger?", "admin_operations"],
   ["Show business projects and deposits", "admin_operations"],
   ["How much site traffic did we get?", "admin_analytics"],

@@ -1,6 +1,6 @@
 import { hasConfig } from "/shared/lib/supabase-client.js";
 import { getAdminSession } from "/account/admin/admin-session.js";
-import { arrangeAdminWorkspace } from "/account/admin/admin-navigation.js?v=20";
+import { arrangeAdminWorkspace } from "/account/admin/admin-navigation.js?v=21";
 import { confirmAdminAction, promptAdminText } from "/account/admin/admin-dialogs.js";
 import { initializeAdminSelects } from "/account/admin/admin-select.js?v=1";
 
@@ -205,7 +205,7 @@ async function loadAdminView(adminContext) {
     const billingController = await import("/account/admin/controllers/billing.js?v=1");
     await billingController.startBilling({ invoke, escapeHtml, formatDate, deriveStripeState, setStatus });
   } else if (view === "operations") {
-    const operations = await import("/account/admin/operations/operations.js?v=11");
+    const operations = await import("/account/admin/operations/operations.js?v=12");
     await operations.startOperations({ supabase, session, invoke });
   } else if (view === "support") {
     const supportController = await import("/account/admin/controllers/support.js?v=1");

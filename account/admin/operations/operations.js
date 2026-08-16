@@ -175,7 +175,7 @@ function recordFor(type, id) {
 }
 
 async function loadAll() {
-  setStatus("Loading N3XRA Operations…");
+  setStatus("Loading N3XRA Financial Operations…");
   const queries = await Promise.all([
     supabase.from("operations_parties").select("*").order("name"),
     supabase.from("operations_products").select("*").order("name"),
@@ -215,7 +215,7 @@ async function loadAll() {
   }
 
   renderAll();
-  setStatus("Operations records loaded.", "success");
+  setStatus("Financial operations records loaded.", "success");
 }
 
 function renderSummary() {
@@ -852,7 +852,7 @@ function printReport() {
   const rowHtml = rows.length
     ? rows.map((item) => `<tr><td>${escapeHtml(dateLabel(item.transaction_date))}</td><td>${escapeHtml(titleCase(item.transaction_type))}</td><td>${escapeHtml(item.description)}</td><td>${escapeHtml(item.category || "—")}</td><td class="amount ${item.transaction_type === "expense" ? "expense" : "revenue"}">${item.transaction_type === "expense" ? "−" : "+"}${escapeHtml(moneyCents(item.amount_cents))}</td><td>${escapeHtml(titleCase(item.status))}</td></tr>`).join("")
     : '<tr><td colspan="6" class="empty">No transactions recorded.</td></tr>';
-  reportWindow.document.write(`<!doctype html><html><head><title>N3XRA Operations Report</title><style>
+  reportWindow.document.write(`<!doctype html><html><head><title>N3XRA Financial Operations Report</title><style>
     @page { size: letter portrait; margin: 0.42in; }
     :root { color-scheme: light; font-family: Arial, Helvetica, sans-serif; }
     body { color: #142331; margin: 0; font-size: 8pt; }
@@ -880,9 +880,9 @@ function printReport() {
     .revenue { color: #16745b; }
     .empty { text-align: center; color: #607080; padding: 18px; }
     footer { margin-top: 13px; border-top: 1px solid #cbd5dc; padding-top: 7px; color: #607080; font-size: 7pt; }
-  </style></head><body><div class="header"><div><div class="brand"><img src="${window.location.origin}/assets/n3xra_logo_transparent_small.png" alt="">N3XRA</div><div class="title"><h1>Operations Report</h1><div class="muted">Internal financial report</div></div></div><div class="muted">Generated ${escapeHtml(dateTimeLabel(new Date().toISOString()))}</div></div>
+  </style></head><body><div class="header"><div><div class="brand"><img src="${window.location.origin}/assets/n3xra_logo_transparent_small.png" alt="">N3XRA</div><div class="title"><h1>Financial Operations Report</h1><div class="muted">Internal financial report</div></div></div><div class="muted">Generated ${escapeHtml(dateTimeLabel(new Date().toISOString()))}</div></div>
   <div class="summary"><div class="card"><span>Monthly revenue</span><strong>${escapeHtml(moneyCents(summary.revenueCents))}</strong></div><div class="card"><span>Monthly expenses</span><strong>${escapeHtml(moneyCents(summary.expenseCents))}</strong></div><div class="card"><span>Net profit</span><strong>${escapeHtml(moneyCents(summary.netProfitCents))}</strong></div><div class="card"><span>Outstanding invoices</span><strong>${escapeHtml(moneyCents(summary.outstandingCents))}</strong></div></div>
-  <h2>Transaction history</h2><table><colgroup><col class="date"><col class="type"><col class="description"><col class="category"><col class="amount"><col class="status"></colgroup><thead><tr><th>Date</th><th>Type</th><th>Description</th><th>Category</th><th>Amount</th><th>Status</th></tr></thead><tbody>${rowHtml}</tbody></table><footer>Bookkeeping report generated from N3XRA Operations. Keep receipts and supporting records.</footer></body></html>`);
+  <h2>Transaction history</h2><table><colgroup><col class="date"><col class="type"><col class="description"><col class="category"><col class="amount"><col class="status"></colgroup><thead><tr><th>Date</th><th>Type</th><th>Description</th><th>Category</th><th>Amount</th><th>Status</th></tr></thead><tbody>${rowHtml}</tbody></table><footer>Bookkeeping report generated from N3XRA Financial Operations. Keep receipts and supporting records.</footer></body></html>`);
   reportWindow.document.close();
   reportWindow.addEventListener("afterprint", () => reportFrame.remove(), { once: true });
   window.setTimeout(() => {

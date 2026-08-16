@@ -15,7 +15,7 @@ const DEFINITIONS: readonly CapabilityDefinition[] = [
   { capability: "admin_notifications", concepts: ["notification", "admin inbox", "alert", "unread", "platform message"], live: true, admin: true },
   { capability: "admin_websites", concepts: ["website request", "proposal", "onboarding", "website project", "client website", "launch", "domain"], live: true, admin: true },
   { capability: "admin_billing", concepts: ["billing", "invoice", "subscription", "payment", "amount due", "paid", "revenue"], live: true, admin: true },
-  { capability: "admin_operations", concepts: ["operation", "transaction", "financial account", "deposit", "business project", "party", "operations ledger"], live: true, admin: true },
+  { capability: "admin_operations", concepts: ["financial operations", "finance", "accounting", "transaction", "financial account", "deposit", "business project", "party", "financial ledger", "operations ledger"], live: true, admin: true },
   { capability: "admin_analytics", concepts: ["analytics", "pageview", "visitor", "traffic", "referrer", "site usage"], live: true, admin: true },
   { capability: "admin_overview", concepts: ["admin overview", "admin summary", "dashboard summary", "attention", "platform status", "everything pending", "pending across platform"], live: true, admin: true },
   { capability: "account", concepts: ["my account", "my plan", "my subscription", "my profile", "my access", "signed in"], live: true, admin: false },

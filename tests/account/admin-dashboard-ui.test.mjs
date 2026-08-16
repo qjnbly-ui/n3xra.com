@@ -8,6 +8,8 @@ const accountJsPath = new URL("../../account/account.js", import.meta.url);
 const adminNavigationPath = new URL("../../account/admin/admin-navigation.js", import.meta.url);
 const adminInboxCssPath = new URL("../../account/admin/inbox/inbox.css", import.meta.url);
 const adminInboxHtmlPath = new URL("../../account/admin/inbox/index.html", import.meta.url);
+const financialOperationsHtmlPath = new URL("../../account/admin/operations/index.html", import.meta.url);
+const financialOperationsScriptPath = new URL("../../account/admin/operations/operations.js", import.meta.url);
 
 test("the account Admin tab keeps daily tools focused and isolates retired admin-only apps", async () => {
   const [html, css, navigation] = await Promise.all([
@@ -33,6 +35,8 @@ test("the account Admin tab keeps daily tools focused and isolates retired admin
     assert.ok(navigation.includes(`label("${section}")`) || navigation.includes(`title: "${section}"`), `${section} category is missing`);
   }
   assert.doesNotMatch(navigation, /Virals|AI Music|Internal Records|Archived Apps|Retired Apps/);
+  assert.match(navigation, /\["\/account\/admin\/operations\/", "Financial Operations"\]/);
+  assert.doesNotMatch(navigation, /\["\/account\/admin\/operations\/", "Operations"\]/);
 
   assert.match(css, /\.admin-app-grid\s*{[\s\S]*grid-template-columns:\s*repeat\(3,/);
   assert.match(css, /\.retired-app-grid\s*{[\s\S]*grid-template-columns:\s*repeat\(2,/);
@@ -73,4 +77,17 @@ test("mobile inbox summaries remain compact while full notifications open separa
   assert.match(css, /\.notification-item-main:focus-visible\s*{/);
   assert.match(html, /<dialog class="notification-dialog"/);
   assert.match(html, /inbox\.css\?v=3/);
+});
+
+test("the financial workspace is clearly labeled without changing its stable route", async () => {
+  const [html, script] = await Promise.all([
+    readFile(financialOperationsHtmlPath, "utf8"),
+    readFile(financialOperationsScriptPath, "utf8"),
+  ]);
+
+  assert.match(html, /<title>N3XRA \| Financial Operations<\/title>/);
+  assert.match(html, /aria-label="Financial operations sections"/);
+  assert.match(html, /N3XRA Financial Operations/);
+  assert.match(script, /Financial Operations Report/);
+  assert.doesNotMatch(html, /<title>N3XRA \| Operations<\/title>/);
 });

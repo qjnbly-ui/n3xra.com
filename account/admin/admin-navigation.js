@@ -13,7 +13,7 @@ const peopleLinks = [
 const customerOperationsLinks = [
   ["/account/admin/support/", "Support Requests"],
   ["/account/admin/billing/", "Billing & Plans"],
-  ["/account/admin/operations/", "Operations"],
+  ["/account/admin/operations/", "Financial Operations"],
   ["/account/admin/analytics/", "Site Analytics"],
 ];
 
@@ -629,7 +629,7 @@ export async function navigateAdminWorkspace(destination, {
       const notifications = await import("/account/notifications/notifications.js?v=13");
       await notifications.startNotifications();
     } else {
-      const admin = await import("/account/admin/admin.js?v=33");
+      const admin = await import("/account/admin/admin.js?v=34");
       await admin.startAdmin();
     }
   } finally {

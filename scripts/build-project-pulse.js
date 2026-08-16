@@ -387,7 +387,7 @@ const RECENT_CAPABILITIES = [
   {
     introducedBy: "73a47a7",
     date: "2026-07-27",
-    title: "N3XRA Operations",
+    title: "N3XRA Financial Operations",
     summary: "N3XRA added an internal financial operations workspace for invoices, expenses, ledger activity, banking records, reporting, and audit review.",
   },
   {
