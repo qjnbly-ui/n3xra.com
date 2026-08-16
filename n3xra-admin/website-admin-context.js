@@ -66,7 +66,7 @@ export async function initializeWebsiteOrganizationContext(panel, { pageKey = "o
   const websites = websiteResult.data || [];
   const domains = domainResult.data || [];
   const context = readWorkspaceContext("admin", session.user.id);
-  const selectedId = websites.some((website) => website.id === context.websiteId) ? context.websiteId : websites[0]?.id || "";
+  let selectedId = websites.some((website) => website.id === context.websiteId) ? context.websiteId : websites[0]?.id || "";
   const picker = panel.querySelector("#website-admin-organization-picker");
   const trigger = panel.querySelector("#website-admin-organization-trigger");
   const selectedValue = panel.querySelector("#website-admin-organization-value");
@@ -108,6 +108,15 @@ export async function initializeWebsiteOrganizationContext(panel, { pageKey = "o
     return [...menu.querySelectorAll('[role="option"]')];
   }
 
+  function presentOrganization(websiteId) {
+    const website = websites.find((item) => item.id === websiteId);
+    if (!website) return;
+    selectedId = website.id;
+    selectedValue.textContent = website.name;
+    options().forEach((option) => option.setAttribute("aria-selected", String(option.dataset.organizationId === website.id)));
+    showOrganization(website.id, { persist: false });
+  }
+
   function closePicker({ restoreFocus = false } = {}) {
     menu.hidden = true;
     picker.classList.remove("is-open");
@@ -130,10 +139,10 @@ export async function initializeWebsiteOrganizationContext(panel, { pageKey = "o
   function chooseOrganization(websiteId) {
     const website = websites.find((item) => item.id === websiteId);
     if (!website) return;
-    selectedValue.textContent = website.name;
-    options().forEach((option) => option.setAttribute("aria-selected", String(option.dataset.organizationId === website.id)));
+    const changed = website.id !== selectedId;
+    presentOrganization(website.id);
     closePicker();
-    if (website.id === selectedId) return;
+    if (!changed) return;
     showOrganization(website.id);
     window.location.reload();
   }
@@ -172,5 +181,10 @@ export async function initializeWebsiteOrganizationContext(panel, { pageKey = "o
   });
   document.addEventListener("pointerdown", (event) => {
     if (!picker.contains(event.target)) closePicker();
+  });
+  window.addEventListener("n3xra:workspace-context-change", (event) => {
+    if (!panel.isConnected || event.detail?.scope !== "admin") return;
+    const websiteId = event.detail?.context?.websiteId;
+    if (websiteId && websiteId !== selectedId) presentOrganization(websiteId);
   });
 }

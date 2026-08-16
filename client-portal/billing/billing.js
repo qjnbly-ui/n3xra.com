@@ -33,7 +33,8 @@ function adminTools(project, snapshot, schedule, charges, subscription, communic
     .reduce((sum, item) => sum + Number(item.amount_cents || 0), 0);
   const available = Math.max(0, Number(snapshot.remaining_build_balance_cents || 0) - committed);
   return `<section class="billing-admin-tools">
-    <details open>
+    <div class="billing-section-heading"><div><p class="portal-kicker">Only when needed</p><h4>Billing controls</h4><p>Schedule service, issue an approved charge, or send a billing message.</p></div></div>
+    <details>
       <summary><span><strong>Service schedule</strong><small>Choose when recurring website service starts.</small></span></summary>
       <form class="billing-operation-form" data-schedule-form="${project.id}">
         <label>Service starts<input type="datetime-local" name="service_start_at" value="${escape(localInput(schedule?.service_start_at))}"></label>
@@ -69,6 +70,21 @@ function adminTools(project, snapshot, schedule, charges, subscription, communic
   </section>`;
 }
 
+function billingItemList(snapshot) {
+  const items = [...(snapshot?.website_billing_snapshot_items || [])]
+    .sort((left, right) => Number(left.sort_order || 0) - Number(right.sort_order || 0));
+  if (!items.length) return "";
+  return `<section class="billing-plan-items">
+    <div class="billing-section-heading"><div><p class="portal-kicker">Accepted billing</p><h4>Plan and recurring items</h4><p>Each charge stays separate so the service plan and outside costs are easy to understand.</p></div></div>
+    <div class="billing-plan-item-list">${items.map((item) => {
+      const frequency = item.billing_type === "recurring" && item.recurring_interval
+        ? ` / ${label(item.recurring_interval)}`
+        : " one time";
+      return `<div class="billing-plan-item"><div><span>${escape(label(item.category || item.billing_type))}</span><strong>${escape(item.name)}</strong>${item.description ? `<small>${escape(item.description)}</small>` : ""}</div><b>${money(item.total_amount_cents)}<small>${escape(frequency)}</small></b></div>`;
+    }).join("")}</div>
+  </section>`;
+}
+
 function chargeList(charges) {
   if (!charges.length) return "";
   return `<div class="billing-charges"><h4>Approved charges</h4>${charges.map((charge) => `<div class="billing-charge">
@@ -89,18 +105,16 @@ function card(project) {
   const cardInfo = subscription?.website_billing_customers || records.customers.find((item) => item.user_id === project.client_user_id);
   const committed = charges.filter((item) => ["proposal_balance", "milestone"].includes(item.source) && !["void", "canceled"].includes(item.status)).reduce((sum, item) => sum + Number(item.amount_cents || 0), 0);
   const remaining = Math.max(0, Number(snapshot?.remaining_build_balance_cents || 0) - committed);
+  const state = subscription?.status || snapshot?.status || "not_prepared";
   return `<article class="billing-card" data-project="${project.id}">
-    <div class="billing-card-head"><div><p class="portal-kicker">${escape(project.status)}</p><h3>${escape(project.name)}</h3></div><span class="portal-badge">${escape(label(subscription?.status || snapshot?.status || "Not prepared"))}</span></div>
+    <div class="billing-card-head"><div><p class="portal-kicker">${escape(label(project.status))}</p><h3>${escape(project.name)}</h3><p>${snapshot ? "Review the accepted plan, payment setup, and billing activity." : "No billing setup has been created for this website yet."}</p></div><span class="portal-badge" data-billing-state="${escape(state)}">${escape(label(state))}</span></div>
     ${snapshot ? `<div class="billing-detail-grid">
-      <div><span>Service plan</span><strong>${escape(label(snapshot.service_plan))} · ${escape(label(snapshot.recurring_interval || "one time"))}</strong></div>
-      <div><span>Service starts</span><strong>${dateTime(schedule?.service_start_at || snapshot.activated_at)}</strong></div>
-      <div><span>Initial amount</span><strong>${money(snapshot.amount_due_now_cents)}</strong></div>
-      <div><span>Unbilled proposal balance</span><strong>${money(remaining)}</strong></div>
-      <div><span>Recurring service</span><strong>${money(snapshot.recurring_cents)}${snapshot.recurring_interval ? ` / ${escape(snapshot.recurring_interval)}` : ""}</strong></div>
-      <div><span>Payment method</span><strong>${cardInfo?.payment_method_last4 ? `${escape(cardInfo.payment_method_brand)} •••• ${escape(cardInfo.payment_method_last4)}` : "Not saved"}</strong></div>
-      ${subscription ? `<div><span>Next renewal</span><strong>${date(subscription.current_period_end)}</strong></div><div><span>Annual commitment ends</span><strong>${date(subscription.commitment_ends_at)}</strong></div>` : ""}
-    </div>` : `<div class="portal-empty"><p>Billing has not been prepared for this approved proposal.</p></div>`}
-    <div class="portal-form-actions">
+      <div><span>Website plan</span><strong>${escape(label(snapshot.service_plan))}</strong><small>${escape(label(snapshot.recurring_interval || "one time"))} service</small></div>
+      <div><span>Initial payment</span><strong>${money(snapshot.amount_due_now_cents)}</strong><small>${remaining ? `${money(remaining)} accepted balance not yet billed` : "No remaining proposal balance"}</small></div>
+      <div><span>Service starts</span><strong>${dateTime(schedule?.service_start_at || snapshot.activated_at)}</strong><small>${subscription?.current_period_end ? `Next renewal ${date(subscription.current_period_end)}` : "Set when service should begin"}</small></div>
+      <div><span>Payment method</span><strong>${cardInfo?.payment_method_last4 ? `${escape(cardInfo.payment_method_brand)} •••• ${escape(cardInfo.payment_method_last4)}` : "Not saved"}</strong><small>${cardInfo?.payment_method_last4 ? "Saved securely in Stripe" : "Added during secure checkout"}</small></div>
+    </div>${billingItemList(snapshot)}` : `<div class="billing-empty-state"><div><span aria-hidden="true">$</span><h4>Billing is not prepared</h4><p>Open the approved proposal and prepare billing when this website is ready. Nothing will be charged from this page automatically.</p></div>${adminMode ? '<a class="portal-button" href="/n3xra-admin/proposals/">Open proposals</a>' : ""}</div>`}
+    <div class="portal-form-actions billing-primary-actions">
       ${!adminMode && snapshot && snapshot.status !== "active" ? `<button class="portal-button" data-checkout="${snapshot.id}">Complete secure billing setup</button>` : ""}
       ${!adminMode && subscription ? `<button class="portal-button" data-portal="${project.id}">Manage billing in Stripe</button>` : ""}
       ${adminMode && snapshot && snapshot.status !== "active" ? `<button class="portal-button" data-admin-checkout="${snapshot.id}">${snapshot.checkout_url ? "Refresh payment link" : "Create payment link"}</button>` : ""}
@@ -194,21 +208,27 @@ function renderWebsiteSelector() {
     : '<option value="">No managed websites</option>';
 }
 
-function renderSelectedBilling() {
+function persistSelectedContext(values) {
+  const current = readWorkspaceContext("admin", currentUser.id);
+  const unchanged = current.websiteId === values.websiteId && current.projectId === values.projectId && current.name === values.name;
+  if (!unchanged) writeWorkspaceContext("admin", currentUser.id, values);
+}
+
+function renderSelectedBilling({ persist = true } = {}) {
   const [kind, selectedId] = selectedWorkspaceKey.split(":");
   const website = kind === "website" ? websites.find((item) => item.id === selectedId) : null;
   const projects = kind === "website"
     ? records.projects.filter((project) => project.managed_website_id === selectedId)
     : records.projects.filter((project) => project.id === selectedId);
-  if (website) {
+  if (persist && website) {
     const project = projects[0];
-    writeWorkspaceContext("admin", currentUser.id, {
+    persistSelectedContext({
       websiteId: website.id,
       projectId: project?.id,
       name: website.name,
     });
-  } else if (projects[0]) {
-    writeWorkspaceContext("admin", currentUser.id, {
+  } else if (persist && projects[0]) {
+    persistSelectedContext({
       websiteId: null,
       projectId: projects[0].id,
       name: projects[0].name,
@@ -320,6 +340,15 @@ async function init() {
   currentUser = data?.session?.user;
   if (!currentUser) return location.replace(portalLoginUrl());
   if (adminMode && !await verifyPlatformAdmin(supabase, currentUser)) throw new Error("Website billing administration access is required.");
+  window.addEventListener("n3xra:workspace-context-change", (event) => {
+    if (!adminMode || !records || event.detail?.scope !== "admin") return;
+    const websiteId = event.detail?.context?.websiteId;
+    const nextKey = websites.some((website) => website.id === websiteId) ? `website:${websiteId}` : "";
+    if (!nextKey || nextKey === selectedWorkspaceKey) return;
+    selectedWorkspaceKey = nextKey;
+    renderWebsiteSelector();
+    renderSelectedBilling({ persist: false });
+  });
   websiteSelect?.addEventListener("change", () => {
     selectedWorkspaceKey = websiteSelect.value;
     renderSelectedBilling();
