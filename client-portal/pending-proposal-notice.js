@@ -1,6 +1,16 @@
 import { createBrowserSupabase, getSessionOrNull, hasConfig } from "/shared/lib/supabase-client.js";
 import { resolvePortalTenant } from "./tenant-context.js";
 const DISMISSAL_PREFIX = "n3xra:proposal-action-dismissed:";
+const WORKSPACE_CONTEXT_KEY = "n3xra-client-workspace-context";
+function currentWorkspaceContext(userId) {
+    try {
+        const context = JSON.parse(window.localStorage.getItem(WORKSPACE_CONTEXT_KEY) || "{}");
+        return !context.userId || context.userId === userId ? context : {};
+    }
+    catch {
+        return {};
+    }
+}
 function escapeHtml(value) {
     return String(value ?? "")
         .replaceAll("&", "&amp;")
@@ -24,7 +34,7 @@ function isProposalPage() {
 function reviewUrl(proposalId) {
     return `/proposals/?proposal=${encodeURIComponent(proposalId)}#proposal-decision-panel`;
 }
-async function pendingProposalsForCurrentPortal(supabase) {
+async function pendingProposalsForCurrentPortal(supabase, userId) {
     const tenant = await resolvePortalTenant(supabase);
     if (tenant.mode === "not_found")
         return [];
@@ -49,6 +59,22 @@ async function pendingProposalsForCurrentPortal(supabase) {
         const projectIds = new Set(tenantProjects.map((project) => project.id));
         const proposalIds = new Set(tenantProjects.map((project) => project.proposal_id).filter(Boolean));
         const requestIds = new Set(tenantProjects.map((project) => project.request_id).filter(Boolean));
+        proposals = proposals.filter((proposal) => projectIds.has(proposal.project_id || "")
+            || proposalIds.has(proposal.id)
+            || requestIds.has(proposal.request_id));
+    }
+    else {
+        const context = currentWorkspaceContext(userId);
+        const hasSelection = Boolean(context.websiteId || context.projectId || context.proposalId || context.requestId);
+        if (!hasSelection)
+            return [];
+        const selectedProjects = projects.filter((project) => project.id === context.projectId
+            || project.managed_website_id === context.websiteId
+            || project.proposal_id === context.proposalId
+            || project.request_id === context.requestId);
+        const projectIds = new Set(selectedProjects.map((project) => project.id));
+        const proposalIds = new Set(selectedProjects.map((project) => project.proposal_id).filter(Boolean));
+        const requestIds = new Set(selectedProjects.map((project) => project.request_id).filter(Boolean));
         proposals = proposals.filter((proposal) => projectIds.has(proposal.project_id || "")
             || proposalIds.has(proposal.id)
             || requestIds.has(proposal.request_id));
@@ -186,7 +212,7 @@ export async function initializePendingProposalNotice() {
     const session = await getSessionOrNull(supabase);
     if (!session?.user?.id)
         return;
-    const proposals = await pendingProposalsForCurrentPortal(supabase);
+    const proposals = await pendingProposalsForCurrentPortal(supabase, session.user.id);
     if (proposals.length)
         renderNotice(proposals, session.user.id);
 }

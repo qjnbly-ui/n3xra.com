@@ -1,6 +1,6 @@
 import { initializeClientWorkspaceContext } from "/client-portal/client-workspace-context.js?v=8";
 import { initializePortalBrandShell } from "/client-portal/brand-shell.js?v=1";
-import { initializePendingProposalNotice } from "/client-portal/pending-proposal-notice.js?v=1";
+import { initializePendingProposalNotice } from "/client-portal/pending-proposal-notice.js?v=2";
 import { isBrandedPortalHostname } from "/client-portal/tenant-context.js";
 
 void initializePortalBrandShell();
@@ -144,7 +144,7 @@ function buildClientWorkspace() {
   }
   heading?.remove();
   updatePageState(frame);
-  initializeClientWorkspaceContext(contextPanel, { pageKey: details.key }).catch((error) => {
+  initializeClientWorkspaceContext(contextPanel, { pageKey: details.key }).then(() => initializePendingProposalNotice()).catch((error) => {
     contextPanel.innerHTML = '<div class="website-organization-context-error"><strong>Organization workspace unavailable</strong><p></p></div>';
     contextPanel.querySelector("p").textContent = error?.message || "Unable to load your organizations.";
   });
@@ -156,6 +156,3 @@ function buildClientWorkspace() {
 }
 
 buildClientWorkspace();
-void initializePendingProposalNotice().catch((error) => {
-  console.warn("The pending proposal notice could not be loaded.", error);
-});
