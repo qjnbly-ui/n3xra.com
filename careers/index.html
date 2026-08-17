@@ -13,9 +13,10 @@
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/site-nav.css?v=4">
   <link rel="stylesheet" href="/assets/home-shell.css?v=1">
-  <link rel="stylesheet" href="/careers/careers.css?v=2">
+  <link rel="stylesheet" href="/careers/careers.css?v=3">
   <script src="/shared/config.js"></script>
   <script src="/assets/site-nav.js?v=5"></script>
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
 
   <script>
     window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
@@ -184,14 +185,16 @@
             <label class="field"><span>LinkedIn <small>Optional</small></span><input name="linkedin_url" type="url" placeholder="https://linkedin.com/in/" maxlength="1000"></label>
             <label class="field"><span>GitHub <small>Optional</small></span><input name="github_url" type="url" placeholder="https://github.com/" maxlength="1000"></label>
             <label class="field"><span>Résumé link <small>Optional</small></span><input name="cv_url" type="url" placeholder="Shareable Drive, Dropbox, or portfolio link" maxlength="1000"></label>
-            <label class="field"><span>Upload résumé <small>Optional · PDF, DOC, or DOCX · 10 MB</small></span><input name="cv_file" type="file" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"></label>
+            <label class="field"><span>Upload résumé <small>Optional · PDF, DOC, or DOCX · 3 MB</small></span><input name="cv_file" type="file" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"></label>
             <label class="field"><span>How did you hear about N3XRA? <small>Optional</small></span><input name="referral_source" placeholder="A person, project, search, or social media" maxlength="300"></label>
             <label class="field form-full"><span>Anything else you would like us to understand? <small>Optional</small></span><textarea name="message" rows="4" maxlength="10000" placeholder="Add context, ask a question, or leave this blank."></textarea></label>
           </div>
         </section>
 
         <label class="consent-field"><input name="information_retention_consent" type="checkbox" required><span>I agree that N3XRA may retain my application information for consideration for current and future opportunities. <strong>Required</strong></span></label>
-        <div class="form-actions"><button type="submit">Send application</button><p id="careers-status" role="status" aria-live="polite"></p></div>
+        <label class="careers-honeypot" aria-hidden="true">Leave this field empty<input name="website_confirm" tabindex="-1" autocomplete="off"></label>
+        <div class="careers-security"><div id="careers-turnstile"></div><p>Security check required before sending.</p></div>
+        <div class="form-actions"><button id="careers-submit" type="submit" disabled>Send application</button><p id="careers-status" role="status" aria-live="polite"></p></div>
       </form>
     </section>
   </main>
@@ -238,7 +241,7 @@
     </div>
   </footer>
 
-  <script type="module" src="/careers/careers.js?v=2"></script>
+  <script type="module" src="/careers/careers.js?v=3"></script>
   <script>
     (() => {
       const header = document.querySelector("[data-home-header]");

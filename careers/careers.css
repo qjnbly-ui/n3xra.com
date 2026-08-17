@@ -207,6 +207,9 @@ input[type="file"] { min-height: 48px; padding: 0.58rem; font-size: 0.78rem; }
 .careers-confirmation button:focus-visible { border-color: var(--careers-cyan); background: var(--careers-cyan); transform: translateY(-1px); }
 .form-actions button:disabled { opacity: 0.55; cursor: wait; transform: none; }
 #careers-status { margin: 0; color: var(--careers-muted); font-size: 0.8rem; }
+.careers-security { display:grid; gap:.4rem; justify-items:start; }
+.careers-security p { margin:0; color:var(--careers-muted); font-size:.78rem; }
+.careers-honeypot { position:absolute !important; left:-10000px !important; width:1px !important; height:1px !important; overflow:hidden !important; }
 
 .careers-confirmation { width: min(560px, calc(100% - 2rem)); padding: 0; border: 0; border-radius: 12px; box-shadow: 0 24px 80px rgba(6, 27, 31, 0.35); }
 .careers-confirmation::backdrop { background: rgba(6, 23, 28, 0.66); }
