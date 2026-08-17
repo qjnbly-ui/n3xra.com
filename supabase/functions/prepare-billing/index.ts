@@ -79,6 +79,9 @@ Deno.serve(async (request) => {
       amount_due_now_cents: due,
       remaining_build_balance_cents: total - due,
       recurring_cents: recurring,
+      recurring_start_policy: version.recurring_start_policy || "immediate",
+      complimentary_months: Number(version.complimentary_months || 0),
+      review_notice_days: Number(version.review_notice_days || 45),
       discount_cents: Number(version.discount_cents || 0),
       referral_code: normalizedCode,
       offer_code: offerCode,
@@ -99,7 +102,9 @@ Deno.serve(async (request) => {
       unit_amount_cents: item.unit_amount_cents,
       total_amount_cents: Math.round(Number(item.quantity) * Number(item.unit_amount_cents)),
       recurring_interval: item.recurring_interval,
-      included_in_initial_checkout: item.billing_type === "recurring" || due === total || initialOutsideCategories.has(String(item.category)),
+      included_in_initial_checkout: item.billing_type === "recurring"
+        ? version.recurring_start_policy !== "review_required"
+        : due === total || initialOutsideCategories.has(String(item.category)),
       sort_order: item.sort_order,
     }));
     if (snapshotItems.length) {

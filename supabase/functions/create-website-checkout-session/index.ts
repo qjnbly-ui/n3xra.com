@@ -16,6 +16,9 @@ Deno.serve(async (request) => {
     if (error || !snapshot) return response({ error: "Billing setup was not found." }, 404, origin);
     if (snapshot.client_user_id !== authUser.id && isAdmin !== true) return response({ error: "You cannot access this website billing setup." }, 403, origin);
     if (snapshot.status === "active") return response({ error: "Billing is already active." }, 409, origin);
+    if (snapshot.recurring_start_policy === "review_required") {
+      return response({ error: "This plan has a complimentary period and requires a review before paid billing. No checkout or subscription should be created yet." }, 409, origin);
+    }
     if (snapshot.checkout_url && snapshot.checkout_expires_at && new Date(snapshot.checkout_expires_at) > new Date()) {
       return response({ url: snapshot.checkout_url, reused: true }, 200, origin);
     }

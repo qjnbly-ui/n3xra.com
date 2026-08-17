@@ -82,6 +82,9 @@ const fieldIds = {
   deposit_cents: "proposal-deposit",
   recurring_cents: "proposal-recurring",
   recurring_interval: "proposal-recurring-interval",
+  recurring_start_policy: "proposal-recurring-start-policy",
+  complimentary_months: "proposal-complimentary-months",
+  review_notice_days: "proposal-review-notice-days",
   payment_schedule: "proposal-payment-schedule",
   terms: "proposal-terms",
 };
@@ -183,8 +186,27 @@ function syncCopilotOpenState() {
 function updateTotal() {
   const oneTimeTotal = Math.max(moneyToCents(document.getElementById(fieldIds.subtotal_cents).value) - moneyToCents(document.getElementById(fieldIds.discount_cents).value), 0);
   const recurringTotal = moneyToCents(document.getElementById(fieldIds.recurring_cents).value);
+  const reviewRequired = document.getElementById(fieldIds.recurring_start_policy).value === "review_required";
   document.getElementById(fieldIds.total_cents).value = centsToMoney(oneTimeTotal);
-  document.getElementById("proposal-checkout-total").value = centsToMoney(oneTimeTotal + recurringTotal);
+  document.getElementById("proposal-checkout-total").value = centsToMoney(oneTimeTotal + (reviewRequired ? 0 : recurringTotal));
+  renderBillingArrangement(recurringTotal);
+}
+
+function renderBillingArrangement(recurringTotal = moneyToCents(document.getElementById(fieldIds.recurring_cents).value)) {
+  const policy = document.getElementById(fieldIds.recurring_start_policy).value;
+  const monthsWrap = document.getElementById("proposal-complimentary-months-wrap");
+  const noticeWrap = document.getElementById("proposal-review-notice-days-wrap");
+  const summary = document.getElementById("proposal-billing-arrangement");
+  const hasRecurring = recurringTotal > 0;
+  const reviewRequired = hasRecurring && policy === "review_required";
+  monthsWrap.hidden = !reviewRequired;
+  noticeWrap.hidden = !reviewRequired;
+  summary.hidden = !reviewRequired;
+  if (!reviewRequired) return;
+  const months = Math.max(1, Number(document.getElementById(fieldIds.complimentary_months).value || 12));
+  const noticeDays = Math.max(1, Number(document.getElementById(fieldIds.review_notice_days).value || 45));
+  const interval = document.getElementById(fieldIds.recurring_interval).value || "billing period";
+  summary.innerHTML = `<strong>Free-period arrangement</strong><span>The approved service price is ${formatMoney(recurringTotal)} per ${escapeHtml(interval)}. The first ${months} months are provided at no charge, so recurring service due now is $0. N3XRA will review the plan with the client ${noticeDays} days before the free period ends. No paid subscription or invoice starts without written approval.</span>`;
 }
 
 function websiteBuildSubtotal(items = []) {
@@ -432,6 +454,9 @@ function defaultVersion() {
     deposit_cents: 0,
     recurring_cents: 0,
     recurring_interval: "",
+    recurring_start_policy: "immediate",
+    complimentary_months: 0,
+    review_notice_days: 45,
     payment_schedule: "",
     revision_policy: "Work includes the deliverables and revisions stated in this agreement. Material additions or work outside the approved scope require written approval and may be quoted separately.",
     terms: "Approval of this Proposal & Agreement authorizes N3XRA to perform the described work and prepare billing according to the accepted investment and payment schedule. Work begins after any required initial payment and client materials are received.\n\nAny Founding Client service rate shown remains available while the qualifying service stays continuously active. If service is canceled, future service may be offered under the pricing and terms available at that time.\n\nIncluded monthly edit time applies only to routine content, image, and minor layout changes, expires at the end of each month, and does not roll over. New pages, redesigns, custom features, integrations, and urgent after-hours work are quoted separately. Priority handling does not guarantee an immediate response at every hour. Domains and third-party services are billed separately when applicable.",
@@ -552,6 +577,11 @@ function collectVersion() {
     deposit_cents: depositCents,
     recurring_cents: recurringCents,
     recurring_interval: recurringCents ? recurringInterval : null,
+    recurring_start_policy: recurringCents ? document.getElementById(fieldIds.recurring_start_policy).value : "immediate",
+    complimentary_months: document.getElementById(fieldIds.recurring_start_policy).value === "review_required"
+      ? Math.max(1, Number(document.getElementById(fieldIds.complimentary_months).value || 12))
+      : 0,
+    review_notice_days: Math.max(1, Number(document.getElementById(fieldIds.review_notice_days).value || 45)),
     payment_schedule: document.getElementById(fieldIds.payment_schedule).value.trim() || null,
     terms: document.getElementById(fieldIds.terms).value.trim(),
     },
@@ -690,6 +720,7 @@ function emailPreviewMarkup() {
   const title = document.getElementById(fieldIds.title).value.trim();
   const oneTime = collected.lineItems.filter((item) => item.billing_type === "one_time");
   const recurring = collected.lineItems.filter((item) => item.billing_type === "recurring");
+  const reviewRequired = collected.version.recurring_start_policy === "review_required";
   const rows = (items) => items.map((item) => `
     <div class="proposal-email-item"><span>${escapeHtml(item.name)}${item.description ? `<small>${escapeHtml(item.description)}</small>` : ""}</span><strong>${formatMoney(Math.round(item.quantity * item.unit_amount_cents))}${item.billing_type === "recurring" ? ` / ${escapeHtml(item.recurring_interval)}` : ""}</strong></div>
   `).join("");
@@ -702,7 +733,7 @@ function emailPreviewMarkup() {
         <p>We’ve prepared the Proposal &amp; Agreement for <strong>${escapeHtml(title)}</strong>. It includes the project scope, schedule, investment, payment plan, and terms for you to review in your secure dashboard.</p>
         <div class="proposal-email-summary"><strong>Project at a glance</strong><p>${escapeHtml(collected.version.project_objective)}</p><p><strong>Timeline:</strong> ${escapeHtml(collected.version.timeline)}</p></div>
         ${oneTime.length ? `<h3>Project investment</h3>${rows(oneTime)}${collected.version.discount_cents ? `<div class="proposal-email-item"><span>Discount</span><strong>−${formatMoney(collected.version.discount_cents)}</strong></div>` : ""}<div class="proposal-email-item is-total"><span>Total</span><strong>${formatMoney(collected.version.total_cents)}</strong></div>` : ""}
-        ${recurring.length ? `<h3>Ongoing services</h3>${rows(recurring)}` : ""}
+        ${recurring.length ? `<h3>Ongoing services</h3>${rows(recurring)}${reviewRequired ? `<div class="proposal-email-notice"><strong>First ${collected.version.complimentary_months} months: $0.</strong><br>The approved prices are shown above for reference. N3XRA will review paid service ${collected.version.review_notice_days} days before the free period ends. No paid subscription or invoice begins without written approval.</div>` : ""}` : ""}
         <div class="proposal-email-notice"><strong>No payment is collected from this email.</strong><br>Approving the agreement records your acceptance of this version. N3XRA then prepares billing from the approved investment and payment schedule.</div>
         <p>When you’re ready, open your dashboard to read the complete agreement and respond.</p>
         <a class="proposal-email-cta" href="https://www.n3xra.com/account">Review agreement in your dashboard</a>
@@ -1245,6 +1276,9 @@ async function init() {
     if (event.target.closest("#apply-proposal-ai")) applyCopilotRun().catch((error) => setCopilotStatus(error.message, true));
   });
   document.getElementById(fieldIds.discount_cents).addEventListener("input", updateTotal);
+  document.getElementById(fieldIds.recurring_start_policy).addEventListener("change", updateTotal);
+  document.getElementById(fieldIds.complimentary_months).addEventListener("input", updateTotal);
+  document.getElementById(fieldIds.review_notice_days).addEventListener("input", updateTotal);
   referralDiscountToggle.addEventListener("change", () => {
     if (!referralDiscountToggle.checked) document.getElementById(fieldIds.discount_cents).value = "0.00";
     updateInvestmentTotals();

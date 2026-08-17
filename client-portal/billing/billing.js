@@ -101,6 +101,9 @@ function adminTools(project, snapshot, schedule, charges, subscription, communic
 
 function adminTaskActions(project, snapshot, cardInfo) {
   if (!adminMode || !snapshot) return "";
+  if (snapshot.recurring_start_policy === "review_required") {
+    return `<section class="billing-task-actions"><div class="billing-section-heading"><div><p class="portal-kicker">No payment due</p><h4>Complimentary service period</h4><p>Starter+ is provided at no charge for ${Number(snapshot.complimentary_months || 0)} months. Review the plan with the client ${Number(snapshot.review_notice_days || 45)} days before that period ends. Do not create a paid subscription or invoice until the client approves it in writing.</p></div></div></section>`;
+  }
   const renewalPeriod = snapshot.recurring_interval === "yearly" ? "yearly" : "monthly";
   return `<section class="billing-task-actions">
     <div class="billing-section-heading"><div><p class="portal-kicker">Choose what happened</p><h4>What do you want to do?</h4><p>Pick one. Simply viewing this page does not bill the customer.</p></div></div>
@@ -153,13 +156,13 @@ function card(project) {
     <div class="billing-card-head"><div><p class="portal-kicker">${escape(label(project.status))}</p><h3>${escape(project.name)}</h3><p>${snapshot ? "Review the accepted plan, payment setup, and billing activity." : "No billing setup has been created for this website yet."}</p></div><span class="portal-badge" data-billing-state="${escape(state)}">${escape(label(state))}</span></div>
     ${snapshot ? `<div class="billing-detail-grid">
       <div><span>Website plan</span><strong>${escape(label(snapshot.service_plan))}</strong><small>${escape(label(snapshot.recurring_interval || "one time"))} service</small></div>
-      <div><span>Initial payment</span><strong>${money(snapshot.amount_due_now_cents)}</strong><small>${remaining ? `${money(remaining)} accepted balance not yet billed` : "No remaining proposal balance"}</small></div>
+      <div><span>Initial payment</span><strong>${money(snapshot.amount_due_now_cents)}</strong><small>${snapshot.recurring_start_policy === "review_required" ? `First ${Number(snapshot.complimentary_months || 0)} months are complimentary` : remaining ? `${money(remaining)} accepted balance not yet billed` : "No remaining proposal balance"}</small></div>
       <div><span>Service starts</span><strong>${dateTime(schedule?.service_start_at || snapshot.activated_at)}</strong><small>${subscription?.current_period_end ? `Next renewal ${date(subscription.current_period_end)}` : "Set when service should begin"}</small></div>
       <div><span>Payment method</span><strong>${cardInfo?.payment_method_last4 ? `${escape(cardInfo.payment_method_brand)} •••• ${escape(cardInfo.payment_method_last4)}` : "Not saved"}</strong><small>${cardInfo?.payment_method_last4 ? "Saved securely in Stripe" : "Added during secure checkout"}</small></div>
     </div>${billingItemList(snapshot)}` : `<div class="billing-empty-state"><div><span aria-hidden="true">$</span><h4>Billing is not prepared</h4><p>Open the approved proposal and prepare billing when this website is ready. Nothing will be charged from this page automatically.</p></div>${adminMode ? '<a class="portal-button" href="/n3xra-admin/proposals/">Open proposals</a>' : ""}</div>`}
     ${adminTaskActions(project, snapshot, cardInfo)}
     <div class="portal-form-actions billing-primary-actions">
-      ${!adminMode && snapshot && snapshot.status !== "active" ? `<button class="portal-button" data-checkout="${snapshot.id}">Complete secure billing setup</button>` : ""}
+      ${!adminMode && snapshot && snapshot.status !== "active" && snapshot.recurring_start_policy !== "review_required" ? `<button class="portal-button" data-checkout="${snapshot.id}">Complete secure billing setup</button>` : ""}
       ${!adminMode && subscription ? `<button class="portal-button" data-portal="${project.id}">Manage billing in Stripe</button>` : ""}
     </div>
     ${chargeList(charges)}

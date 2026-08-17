@@ -125,6 +125,7 @@ function renderProposal() {
   const investmentItems = currentLineItems();
   const oneTimeItems = investmentItems.filter((item) => item.billing_type === "one_time");
   const recurringItems = investmentItems.filter((item) => item.billing_type === "recurring");
+  const reviewRequired = version?.recurring_start_policy === "review_required";
   emptyState.hidden = Boolean(selectedProposal && version);
   documentView.hidden = !selectedProposal || !version;
   decisionPanel.hidden = !selectedProposal || !version || selectedProposal.status !== "sent" || Boolean(decision);
@@ -190,6 +191,7 @@ function renderProposal() {
         ${recurringItems.map((item) => `<div><span>${escapeHtml(item.name)}${item.description ? `<small>${escapeHtml(item.description)}</small>` : ""}</span><strong>${formatMoney(Math.round(Number(item.quantity) * item.unit_amount_cents))} / ${escapeHtml(item.recurring_interval)}</strong></div>`).join("")}
         ${!recurringItems.length && version.recurring_cents ? `<div><span>Ongoing service</span><strong>${formatMoney(version.recurring_cents)} / ${escapeHtml(version.recurring_interval)}</strong></div>` : ""}
       </div>
+      ${reviewRequired ? `<div class="portal-proposal-note portal-proposal-note-important"><strong>First ${Number(version.complimentary_months || 0)} months: $0</strong><p>The recurring prices above show the approved service value after the complimentary period. N3XRA will review the plan with you ${Number(version.review_notice_days || 45)} days before the free period ends. No paid subscription or invoice will begin without your written approval.</p></div>` : ""}
       ${version.payment_schedule ? `<div class="portal-proposal-note"><strong>Payment schedule</strong><p>${paragraphs(version.payment_schedule)}</p></div>` : ""}
     </section>
     <section class="portal-proposal-section">

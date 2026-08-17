@@ -23,7 +23,7 @@ test("website billing shows accepted items separately and keeps controls seconda
   assert.match(billing, /record_offline_subscription_payment/);
   assert.match(billing, /They need to pay online/);
   assert.match(page, /billing\.css\?v=6/);
-  assert.match(page, /billing\.js\?v=9/);
+  assert.match(page, /billing\.js\?v=10/);
 });
 
 test("website Stripe portal uses the selected project's customer and permits administrator testing", async () => {
@@ -38,7 +38,7 @@ test("website Stripe portal uses the selected project's customer and permits adm
   assert.match(portal, /eq\("user_id", project\.client_user_id\)/);
   assert.match(portal, /console\.error\("create-website-portal-session failed:"/);
   assert.match(billing, /error\.context\?\.clone\?\.\(\)\.json\(\)/);
-  assert.match(clientPage, /billing\.js\?v=6/);
+  assert.match(clientPage, /billing\.js\?v=10/);
 });
 
 test("website billing and the organization panel synchronize their selection", async () => {

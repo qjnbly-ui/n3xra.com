@@ -1069,6 +1069,21 @@ html.portal-white-label-host .site-nav-actions > a[href^="/account"] {
   line-height: 1.45;
 }
 
+.proposal-billing-arrangement {
+  display: grid;
+  gap: 0.35rem;
+  padding: 1rem;
+  border: 1px solid rgba(19, 132, 112, 0.35);
+  border-radius: 10px;
+  background: #ecfdf8;
+}
+
+.proposal-billing-arrangement span {
+  color: var(--portal-muted);
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+
 .portal-form-grid .proposal-referral-discount {
   display: grid;
   gap: 0.3rem;
@@ -1340,6 +1355,11 @@ html.portal-white-label-host .site-nav-actions > a[href^="/account"] {
 
 .portal-proposal-note {
   margin-top: 1rem;
+}
+
+.portal-proposal-note-important {
+  border-color: rgba(19, 132, 112, 0.35);
+  background: #ecfdf8;
 }
 
 .portal-price-table {

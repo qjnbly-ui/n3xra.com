@@ -45,6 +45,7 @@ function buildHtml(payload) {
   const firstName = payload.request.contact_name.split(/\s+/)[0] || payload.request.contact_name;
   const oneTime = payload.items.filter((item) => item.billing_type === "one_time");
   const recurring = payload.items.filter((item) => item.billing_type === "recurring");
+  const reviewRequired = payload.version.recurring_start_policy === "review_required";
   return `<div style="margin:0;padding:32px 16px;background:#edf2f8;font-family:Arial,sans-serif;color:#0f1620;line-height:1.65;">
     <div style="max-width:640px;margin:auto;overflow:hidden;border-radius:22px;background:#fff;box-shadow:0 24px 60px rgba(12,18,28,.12);">
       <div style="padding:32px;background:linear-gradient(135deg,#07111d,#123047);color:#fff;">
@@ -56,7 +57,7 @@ function buildHtml(payload) {
         <p>We’ve prepared the Proposal &amp; Agreement for <strong>${escapeHtml(payload.proposal.title)}</strong>. It includes the project scope, schedule, investment, payment plan, and terms for you to review in your secure dashboard.</p>
         <div style="margin:24px 0;padding:18px;border:1px solid #dbe4ec;border-radius:12px;background:#f8fafc;"><strong>Project at a glance</strong><p style="margin:8px 0;">${escapeHtml(payload.version.project_objective)}</p><p style="margin:8px 0 0;"><strong>Timeline:</strong> ${escapeHtml(payload.version.timeline)}</p></div>
         ${oneTime.length ? `<h2 style="margin:28px 0 6px;font-size:19px;">Project investment</h2><table role="presentation" width="100%" cellpadding="0" cellspacing="0">${itemRows(oneTime)}${payload.version.discount_cents ? `<tr><td style="padding:12px 0;">Discount</td><td style="padding:12px 0;text-align:right;font-weight:700;">−${money(payload.version.discount_cents)}</td></tr>` : ""}<tr><td style="padding:14px 0;font-size:17px;font-weight:700;">Total</td><td style="padding:14px 0;text-align:right;font-size:17px;font-weight:700;">${money(payload.version.total_cents)}</td></tr></table>` : ""}
-        ${recurring.length ? `<h2 style="margin:28px 0 6px;font-size:19px;">Ongoing services</h2><table role="presentation" width="100%" cellpadding="0" cellspacing="0">${itemRows(recurring)}</table>` : ""}
+        ${recurring.length ? `<h2 style="margin:28px 0 6px;font-size:19px;">Ongoing services</h2><table role="presentation" width="100%" cellpadding="0" cellspacing="0">${itemRows(recurring)}</table>${reviewRequired ? `<div style="margin:18px 0;padding:16px;border:1px solid #99f6e4;border-radius:12px;background:#f0fdfa;color:#134e4a;"><strong>First ${Number(payload.version.complimentary_months || 0)} months: $0.</strong><br>The prices above show the approved service value after the free period. N3XRA will review paid service ${Number(payload.version.review_notice_days || 45)} days before the free period ends. No paid subscription or invoice begins without written approval.</div>` : ""}` : ""}
         <div style="margin:24px 0;padding:16px;border:1px solid #bae6fd;border-radius:12px;background:#f0f9ff;color:#0c4a6e;"><strong>No payment is collected from this email.</strong><br>Approving the agreement records acceptance of this exact version. N3XRA then prepares billing from the approved investment and payment schedule.</div>
         <p style="margin-top:28px;">When you’re ready, open your dashboard to read the complete agreement and respond.</p>
         <p style="margin:26px 0;"><a href="${DASHBOARD_URL}" style="display:inline-block;padding:14px 20px;border-radius:9px;background:#09111a;color:#fff;font-weight:700;text-decoration:none;">Review agreement in your dashboard</a></p>
@@ -68,7 +69,10 @@ function buildHtml(payload) {
 
 function buildText(payload) {
   const items = payload.items.map((item) => `- ${item.name}: ${money(Math.round(Number(item.quantity) * item.unit_amount_cents))}${item.billing_type === "recurring" ? ` / ${item.recurring_interval}` : ""}`);
-  return [`Hi ${payload.request.contact_name.split(/\s+/)[0]},`, "", `Your Proposal & Agreement for ${payload.proposal.title} is ready.`, "", ...items, "", "No payment is collected from this email. Acceptance records this exact version; N3XRA then prepares billing from the approved investment and payment schedule.", "", `Review the complete agreement: ${DASHBOARD_URL}`, "", "We’re excited to help bring this project to life.", "N3XRA"].join("\n");
+  const reviewNote = payload.version.recurring_start_policy === "review_required"
+    ? `First ${Number(payload.version.complimentary_months || 0)} months: $0. N3XRA will review paid service ${Number(payload.version.review_notice_days || 45)} days before the free period ends. No paid subscription or invoice begins without written approval.`
+    : null;
+  return [`Hi ${payload.request.contact_name.split(/\s+/)[0]},`, "", `Your Proposal & Agreement for ${payload.proposal.title} is ready.`, "", ...items, ...(reviewNote ? ["", reviewNote] : []), "", "No payment is collected from this email. Acceptance records this exact version; N3XRA then prepares billing from the approved investment and payment schedule.", "", `Review the complete agreement: ${DASHBOARD_URL}`, "", "We’re excited to help bring this project to life.", "N3XRA"].join("\n");
 }
 
 export default async function handler(req, res) {
