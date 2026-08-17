@@ -170,7 +170,11 @@ function card(project) {
 
 async function invoke(name, body) {
   const { data, error } = await supabase.functions.invoke(name, { body });
-  if (error) throw new Error(data?.error || error.message);
+  if (error) {
+    let details;
+    try { details = await error.context?.clone?.().json(); } catch { /* Use the SDK message below. */ }
+    throw new Error(details?.error || data?.error || error.message);
+  }
   if (data?.error) throw new Error(data.error);
   return data;
 }
