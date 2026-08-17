@@ -1,4 +1,5 @@
 const { IdentityResolver, getAuthorizationToken } = require("./_ai-core/auth");
+const { publicAiSecurity } = require("./_ai-core/public-ai-security");
 const { redactSensitiveText, safeErrorMessage } = require("./_ai-core/security");
 
 const SURFACES = new Set(["public", "account", "admin", "codebase", "records"]);
@@ -76,6 +77,7 @@ function createFollowUpHandler(options = {}) {
   const env = options.env || process.env;
   const fetcher = options.fetcher || fetch;
   const now = options.now || (() => Date.now());
+  const publicSecurity = options.publicSecurity || publicAiSecurity;
   const rateMap = new Map();
   const identityResolver = new IdentityResolver(env, { fetcher });
 
@@ -114,6 +116,7 @@ function createFollowUpHandler(options = {}) {
       if (ADMIN_SURFACES.has(surface) && identity.audience !== "admin") {
         return res.status(403).json({ error: "Platform administrator access is required." });
       }
+      if (surface === "public") await publicSecurity.requireAccess(req, "ask-follow-up");
       if (isRateLimited(requestKey(req, identity))) {
         return res.status(429).json({ error: "Too many follow-up requests. Try again in a minute." });
       }

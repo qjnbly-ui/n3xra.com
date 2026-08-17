@@ -49,6 +49,7 @@ test("public follow-ups use one strict structured model request", async () => {
   let payload;
   const handler = createFollowUpHandler({
     env: { GROQ_API_KEY: "test-key" },
+    publicSecurity: { requireAccess: async () => {} },
     fetcher: async (_url, options) => {
       payload = JSON.parse(options.body);
       return response({ choices: [{ finish_reason: "stop", message: { content: JSON.stringify({ followUps: [

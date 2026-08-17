@@ -90,7 +90,7 @@ test("local knowledge remains available to existing integrations", async () => {
 test("current-page questions always receive the exact current public page extract", async () => {
   const context = await getSiteContext("What am I looking at?", [], publicIdentity, { path: "/", title: "N3XRA home" }, "current_page");
   assert.match(context, /CURRENT PAGE EXTRACT[\s\S]*Route \/:/);
-  assert.match(context, /Ideas, already brought to life/);
+  assert.match(context, /Bring your ideas to life\. Build whatever comes next\./);
   assert.match(context, /mention only sections, labels, destinations, and actions explicitly present/i);
   assert.doesNotMatch(context, /PUBLIC PROJECT PULSE/);
   assert.match(context, /Answer from this extract only/);

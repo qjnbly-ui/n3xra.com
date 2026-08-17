@@ -52,14 +52,25 @@ test("the shared assistant submits with Enter and preserves Shift+Enter for a ne
   assert.match(assistant, /if \(!submit\.disabled\) form\.requestSubmit\(\)/);
 });
 
-test("every shared assistant mode replaces starter chips with contextual follow-ups", () => {
+test("private assistant modes replace starter chips with contextual follow-ups", () => {
   const assistant = fs.readFileSync(new URL("../../src/site-assistant/main.mts", import.meta.url), "utf8");
   assert.match(assistant, /requestAiFollowUps/);
   assert.match(assistant, /surface: Audience \| "codebase"/);
   assert.match(assistant, /void refreshFollowUps\(value, answer/);
+  assert.match(assistant, /isCodebase \|\| audience !== "public"/);
   assert.match(assistant, /renderStarterPrompts\(prompts\)/);
   assert.match(assistant, /followUpRequestVersion/);
   assert.match(assistant, /question\.value = button\.dataset\.assistantPrompt \|\| "";\s+form\.requestSubmit\(\)/);
+});
+
+test("public Ask uses a quiet one-session security check", () => {
+  const assistant = fs.readFileSync(new URL("../../src/site-assistant/main.mts", import.meta.url), "utf8");
+  const endpoint = fs.readFileSync(new URL("../../api/ask-security.js", import.meta.url), "utf8");
+  assert.match(assistant, /fetch\("\/api\/ask-security"/);
+  assert.match(assistant, /appearance: "interaction-only"/);
+  assert.match(assistant, /action: "ask-ai"/);
+  assert.match(assistant, /credentials: "same-origin"/);
+  assert.match(endpoint, /HttpOnly|publicAiSecurity\.cookie/);
 });
 
 test("the dedicated Codebase AI page updates its suggested questions per answer", () => {

@@ -132,7 +132,7 @@ export interface AssistantResponse {
   warnings: string[];
 }
 
-export type ErrorCode = "invalid_request" | "unauthorized" | "forbidden" | "rate_limited" | "live_data_unavailable" | "provider_unavailable" | "protocol_error" | "internal_error";
+export type ErrorCode = "invalid_request" | "unauthorized" | "forbidden" | "security_required" | "rate_limited" | "live_data_unavailable" | "provider_unavailable" | "protocol_error" | "internal_error";
 
 export class AssistantError extends Error {
   readonly code: ErrorCode;

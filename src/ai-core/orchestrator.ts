@@ -15,6 +15,7 @@ import { parseAssistantBody, readJsonBody } from "./protocol";
 import { classifyRequest } from "./router";
 import { ConversationStateStore } from "./state";
 import { redactSensitiveText, redactWarnings } from "./security";
+import { publicAiSecurity } from "./public-ai-security";
 
 type JsonRecord = Record<string, unknown>;
 type HeaderValue = string | string[] | undefined;
@@ -202,8 +203,12 @@ export async function handleAssistantRequest(request: HttpRequest, response: Htt
       sendJson(response, 200, await defaultOrchestrator.sessionMode(token));
       return;
     }
+    const body = await readJsonBody(request);
+    parseAssistantBody(body);
+    const mode = await defaultOrchestrator.sessionMode(token);
+    if (!mode.signedIn) await publicAiSecurity.requireAccess(request, "ask");
     if (isRateLimited(clientIp(request.headers))) throw new AssistantError("rate_limited", "Too many requests. Try again in a minute.", 429);
-    sendJson(response, 200, await defaultOrchestrator.answer(await readJsonBody(request), token));
+    sendJson(response, 200, await defaultOrchestrator.answer(body, token));
   } catch (error) {
     const known = error instanceof AssistantError ? error : new AssistantError("internal_error", "The assistant could not complete this request.", 500);
     sendJson(response, known.status, { error: redactSensitiveText(known.message, 500), code: known.code });

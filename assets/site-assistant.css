@@ -324,6 +324,22 @@
   animation: site-assistant-voice-pulse 1s ease-in-out infinite;
 }
 
+.site-assistant-security[hidden] { display: none; }
+
+.site-assistant-security {
+  display: flex;
+  min-height: 34px;
+  align-items: center;
+  gap: .55rem;
+  color: #526b78;
+}
+
+.site-assistant-security p {
+  margin: 0;
+  font-size: .66rem;
+  line-height: 1.35;
+}
+
 .site-assistant-input-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;

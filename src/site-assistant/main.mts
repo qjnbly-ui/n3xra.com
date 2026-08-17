@@ -3,7 +3,25 @@ import { renderAssistantMarkdown } from "./markdown.mjs";
 
 type Audience = "public" | "account" | "admin";
 type AssistantMode = "shared" | "codebase";
-type AssistantWindow = Window & { __n3xraAssistantOpenRequested?: boolean };
+type TurnstileOptions = {
+  sitekey: string;
+  action: string;
+  appearance: "interaction-only";
+  execution: "execute";
+  callback(token: string): void;
+  "error-callback"(): void;
+  "expired-callback"(): void;
+};
+type TurnstileApi = {
+  render(container: HTMLElement, options: TurnstileOptions): string;
+  execute(widgetId: string): void;
+  remove(widgetId: string): void;
+};
+type AssistantWindow = Window & {
+  __n3xraAssistantOpenRequested?: boolean;
+  RECORDS_APP_CONFIG?: { turnstileSiteKey?: string };
+  turnstile?: TurnstileApi;
+};
 type HistoryMessage = { role: "user" | "assistant"; content: string };
 type SessionContext = { token: string; scope: string };
 type BrowserSupabaseModule = {
@@ -23,7 +41,9 @@ type FollowUpModule = {
 const RECORDS_APP_PREFIX = "/n3xra-records";
 const CONVERSATION_KEY = "n3xra:site-assistant:conversation:v2";
 const HISTORY_KEY = "n3xra:site-assistant:history:v2";
+const TURNSTILE_SCRIPT_ID = "n3xra-ask-turnstile-script";
 const assistantWindow = window as AssistantWindow;
+let turnstileScriptPromise: Promise<TurnstileApi> | null = null;
 
 function queryRequired<T extends Element>(root: ParentNode, selector: string): T {
   const element = root.querySelector<T>(selector);
@@ -105,6 +125,10 @@ function assistantMarkup(): string {
           <button type="button" data-assistant-voice aria-pressed="false"><span aria-hidden="true">●</span> Talk to N3XRA</button>
           <button type="button" data-assistant-listen hidden>Listen</button>
           <button type="button" data-assistant-stop-audio hidden>Stop</button>
+        </div>
+        <div class="site-assistant-security" data-assistant-security hidden>
+          <div data-assistant-turnstile></div>
+          <p>Completing a quick security check…</p>
         </div>
         <p class="site-assistant-status" data-assistant-status role="status"></p>
       </form>
@@ -202,6 +226,8 @@ async function initializeSiteAssistant(): Promise<void> {
   const status = queryRequired<HTMLElement>(layer, "[data-assistant-status]");
   const submit = queryRequired<HTMLButtonElement>(layer, "[data-assistant-submit]");
   const modes = queryRequired<HTMLElement>(layer, "[data-assistant-modes]");
+  const security = queryRequired<HTMLElement>(layer, "[data-assistant-security]");
+  const turnstileMount = queryRequired<HTMLElement>(layer, "[data-assistant-turnstile]");
   const session = await sessionContext();
   const headers: Record<string, string> = session.token ? { Authorization: `Bearer ${session.token}` } : {};
   const sharedHistoryKey = `${HISTORY_KEY}:${session.scope}:shared`;
@@ -212,6 +238,101 @@ async function initializeSiteAssistant(): Promise<void> {
   let activeMode: AssistantMode = "shared";
   let codebaseReady = false;
   let followUpRequestVersion = 0;
+  let publicAiReady = false;
+  let publicAiAccessPromise: Promise<void> | null = null;
+  let turnstileWidgetId = "";
+
+  const loadTurnstile = async (): Promise<TurnstileApi> => {
+    if (assistantWindow.turnstile) return assistantWindow.turnstile;
+    if (turnstileScriptPromise) return turnstileScriptPromise;
+    turnstileScriptPromise = new Promise<TurnstileApi>((resolve, reject) => {
+      const finish = (): void => {
+        if (assistantWindow.turnstile) resolve(assistantWindow.turnstile);
+        else reject(new Error("The security check could not load. Please try again."));
+      };
+      const existing = document.getElementById(TURNSTILE_SCRIPT_ID) as HTMLScriptElement | null;
+      if (existing) {
+        existing.addEventListener("load", finish, { once: true });
+        existing.addEventListener("error", () => reject(new Error("The security check could not load. Please try again.")), { once: true });
+        return;
+      }
+      const script = document.createElement("script");
+      script.id = TURNSTILE_SCRIPT_ID;
+      script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+      script.async = true;
+      script.defer = true;
+      script.addEventListener("load", finish, { once: true });
+      script.addEventListener("error", () => reject(new Error("The security check could not load. Please try again.")), { once: true });
+      document.head.append(script);
+    }).catch((error: unknown) => {
+      turnstileScriptPromise = null;
+      throw error;
+    });
+    return turnstileScriptPromise;
+  };
+
+  const checkExistingPublicGrant = async (): Promise<boolean> => {
+    const response = await fetch("/api/ask-security", { credentials: "same-origin", cache: "no-store" });
+    return response.ok;
+  };
+
+  const runPublicSecurityCheck = async (): Promise<void> => {
+    const sitekey = String(assistantWindow.RECORDS_APP_CONFIG?.turnstileSiteKey || "").trim();
+    if (!sitekey) throw new Error("Ask N3XRA security is not configured.");
+    security.hidden = false;
+    status.textContent = "Completing a quick security check…";
+    const turnstile = await loadTurnstile();
+    if (turnstileWidgetId) turnstile.remove(turnstileWidgetId);
+    turnstileMount.replaceChildren();
+    await new Promise<void>((resolve, reject) => {
+      const fail = (): void => reject(new Error("The security check expired. Please try again."));
+      turnstileWidgetId = turnstile.render(turnstileMount, {
+        sitekey,
+        action: "ask-ai",
+        appearance: "interaction-only",
+        execution: "execute",
+        callback: (captchaToken) => {
+          void (async () => {
+            try {
+              const response = await fetch("/api/ask-security", {
+                method: "POST",
+                credentials: "same-origin",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ captchaToken }),
+              });
+              const result = await response.json().catch(() => ({})) as { error?: unknown };
+              if (!response.ok) throw new Error(String(result.error || "The security check could not be completed."));
+              resolve();
+            } catch (error) {
+              reject(error);
+            }
+          })();
+        },
+        "error-callback": fail,
+        "expired-callback": fail,
+      });
+      turnstile.execute(turnstileWidgetId);
+    });
+    publicAiReady = true;
+    security.hidden = true;
+    status.textContent = "";
+  };
+
+  const ensurePublicAiAccess = async (): Promise<void> => {
+    if (session.token || audience !== "public" || publicAiReady) return;
+    if (publicAiAccessPromise) return publicAiAccessPromise;
+    publicAiAccessPromise = (async () => {
+      if (await checkExistingPublicGrant().catch(() => false)) {
+        publicAiReady = true;
+        return;
+      }
+      await runPublicSecurityCheck();
+    })().finally(() => {
+      publicAiAccessPromise = null;
+      if (!publicAiReady) security.hidden = true;
+    });
+    return publicAiAccessPromise;
+  };
 
   const voice = new AssistantVoiceController({
     voiceButton: queryRequired(layer, "[data-assistant-voice]"),
@@ -369,21 +490,32 @@ async function initializeSiteAssistant(): Promise<void> {
     event.preventDefault();
     const value = question.value.trim();
     if (!value) return;
-    appendMessage(messages, "user", value);
-    question.value = "";
     submit.disabled = true;
     voice.prepareForRequest();
-    status.textContent = activeMode === "codebase" ? "Searching the private code index…" : "Checking current context…";
     try {
       const isCodebase = activeMode === "codebase";
-      const response = await fetch(isCodebase ? "/api/codebase-ai" : "/api/ask", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...headers },
-        body: JSON.stringify(isCodebase
-          ? { question: value, history: codebaseHistory }
-          : { question: value, conversationId: conversationId(session.scope), history: sharedHistory, page: pageContext() }),
-      });
-      const result = await response.json().catch(() => ({})) as { answer?: unknown; audience?: unknown; sources?: unknown; error?: unknown; dataStatus?: unknown };
+      if (!isCodebase) await ensurePublicAiAccess();
+      appendMessage(messages, "user", value);
+      question.value = "";
+      status.textContent = isCodebase ? "Searching the private code index…" : "Checking current context…";
+      const requestAnswer = async (): Promise<{ response: Response; result: { answer?: unknown; audience?: unknown; sources?: unknown; error?: unknown; code?: unknown; dataStatus?: unknown } }> => {
+        const response = await fetch(isCodebase ? "/api/codebase-ai" : "/api/ask", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json", ...headers },
+          body: JSON.stringify(isCodebase
+            ? { question: value, history: codebaseHistory }
+            : { question: value, conversationId: conversationId(session.scope), history: sharedHistory, page: pageContext() }),
+        });
+        const result = await response.json().catch(() => ({})) as { answer?: unknown; audience?: unknown; sources?: unknown; error?: unknown; code?: unknown; dataStatus?: unknown };
+        return { response, result };
+      };
+      let { response, result } = await requestAnswer();
+      if (!isCodebase && response.status === 403 && result.code === "security_required") {
+        publicAiReady = false;
+        await ensurePublicAiAccess();
+        ({ response, result } = await requestAnswer());
+      }
       if (!response.ok) throw new Error(String(result.error || "The assistant could not answer this request."));
       const answer = String(result.answer || "").trim();
       const sources = Array.isArray(result.sources) ? result.sources.map(String) : [];
@@ -400,7 +532,9 @@ async function initializeSiteAssistant(): Promise<void> {
         sessionStorage.setItem(sharedHistoryKey, JSON.stringify(sharedHistory));
         status.textContent = result.dataStatus === "cached" ? "Using the latest recorded data" : "";
       }
-      void refreshFollowUps(value, answer, isCodebase ? "codebase" : audience, activeMode);
+      if (isCodebase || audience !== "public") {
+        void refreshFollowUps(value, answer, isCodebase ? "codebase" : audience, activeMode);
+      }
     } catch (error) {
       appendMessage(messages, "assistant", error instanceof Error ? error.message : "The assistant could not answer this request.", activeMode === "codebase" ? "Codebase AI" : "N3XRA");
       status.textContent = "";
