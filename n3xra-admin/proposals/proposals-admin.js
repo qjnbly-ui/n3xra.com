@@ -44,6 +44,7 @@ let proposals = [];
 let versions = [];
 let lineItems = [];
 let billingSnapshots = [];
+let projects = [];
 let selectedRequest;
 let selectedProposal;
 let editingVersion;
@@ -615,10 +616,11 @@ async function loadData(preferredRequestId) {
   if (billingResult.error) throw billingResult.error;
   if (projectResult.error) throw projectResult.error;
   if (memberResult.error) throw memberResult.error;
+  projects = projectResult.data || [];
   const context = readWorkspaceContext("admin", currentUser.id);
   const organizationProjects = context.websiteId
-    ? (projectResult.data || []).filter((project) => project.managed_website_id === context.websiteId)
-    : (projectResult.data || []);
+    ? projects.filter((project) => project.managed_website_id === context.websiteId)
+    : projects;
   const organizationProjectIds = new Set(organizationProjects.map((project) => project.id));
   const organizationRequestIds = new Set(organizationProjects.map((project) => project.request_id).filter(Boolean));
   const organizationClientIds = new Set([
@@ -661,12 +663,31 @@ async function loadData(preferredRequestId) {
   renderEditor();
 }
 
+function resolveMatchingProjectId() {
+  if (!selectedRequest) return null;
+  const context = readWorkspaceContext("admin", currentUser.id);
+  const clientProjects = projects.filter((project) => project.client_user_id === selectedRequest.user_id);
+  const requestProjects = clientProjects.filter((project) => project.request_id === selectedRequest.id);
+  if (requestProjects.length === 1) return requestProjects[0].id;
+
+  const contextProject = clientProjects.find((project) => project.id === context.projectId);
+  if (contextProject) return contextProject.id;
+
+  if (context.websiteId) {
+    const websiteProjects = clientProjects.filter((project) => project.managed_website_id === context.websiteId);
+    if (websiteProjects.length === 1) return websiteProjects[0].id;
+  }
+
+  return clientProjects.length === 1 ? clientProjects[0].id : null;
+}
+
 async function ensureProposal() {
   if (selectedProposal) return selectedProposal;
   const title = document.getElementById(fieldIds.title).value.trim();
   const { data, error } = await supabase.from("website_proposals").insert({
     request_id: selectedRequest.id,
     client_user_id: selectedRequest.user_id,
+    project_id: resolveMatchingProjectId(),
     title,
     status: "draft",
     created_by_user_id: currentUser.id,
@@ -789,6 +810,15 @@ async function sendProposal() {
     const proposal = proposals.find((item) => item.request_id === selectedRequest.id);
     const draft = versions.find((version) => version.proposal_id === proposal?.id && version.status === "draft");
     if (!proposal || !draft) throw new Error("Save the agreement draft before sending it.");
+
+    if (!proposal.project_id) {
+      const projectId = resolveMatchingProjectId();
+      if (projectId) {
+        const linkResult = await supabase.from("website_proposals").update({ project_id: projectId }).eq("id", proposal.id);
+        if (linkResult.error) throw linkResult.error;
+        proposal.project_id = projectId;
+      }
+    }
 
     const priorSent = versions.filter((version) => version.proposal_id === proposal.id && version.status === "sent");
     for (const version of priorSent) {
