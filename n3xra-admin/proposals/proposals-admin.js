@@ -194,20 +194,18 @@ function updateTotal() {
 
 function renderBillingArrangement(recurringTotal = moneyToCents(document.getElementById(fieldIds.recurring_cents).value)) {
   const policy = document.getElementById(fieldIds.recurring_start_policy).value;
-  const monthsWrap = document.getElementById("proposal-complimentary-months-wrap");
-  const noticeWrap = document.getElementById("proposal-review-notice-days-wrap");
+  const timing = document.getElementById("proposal-review-timing");
   const summary = document.getElementById("proposal-billing-arrangement");
   const hasRecurring = recurringTotal > 0;
   const reviewRequired = hasRecurring && policy === "review_required";
-  monthsWrap.hidden = !reviewRequired;
-  noticeWrap.hidden = !reviewRequired;
+  timing.hidden = !reviewRequired;
   summary.hidden = !reviewRequired;
   if (!reviewRequired) return;
   const months = Math.max(1, Number(document.getElementById(fieldIds.complimentary_months).value || 12));
   const noticeDays = Math.max(1, Number(document.getElementById(fieldIds.review_notice_days).value || 45));
   const interval = document.getElementById(fieldIds.recurring_interval).value || "billing period";
   const intervalLabel = interval === "yearly" ? "year" : interval === "monthly" ? "month" : interval === "quarterly" ? "quarter" : interval;
-  summary.innerHTML = `<strong>Free-period arrangement</strong><span>The approved service price is ${formatMoney(recurringTotal)} per ${escapeHtml(intervalLabel)}. The first ${months} months are provided at no charge, so recurring service due now is $0. N3XRA will review the plan with the client ${noticeDays} days before the free period ends. No paid subscription or invoice starts without written approval.</span>`;
+  summary.innerHTML = `<strong>${formatMoney(recurringTotal)} per ${escapeHtml(intervalLabel)} — first year free</strong><span>$0 is due for service during the first ${months} months. Review the plan ${noticeDays} days before the free year ends. No paid billing starts without written approval.</span>`;
 }
 
 function websiteBuildSubtotal(items = []) {

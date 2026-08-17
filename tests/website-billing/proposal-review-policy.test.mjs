@@ -12,9 +12,9 @@ test("proposal editor keeps the recurring price visible while deferring paid bil
     read("proposals/proposals.js"),
   ]);
 
-  assert.match(page, /Only after a free period and review/);
+  assert.match(page, /First year free — review before paid billing/);
   assert.match(editor, /recurring_start_policy/);
-  assert.match(editor, /No paid subscription or invoice starts without written approval/);
+  assert.match(editor, /No paid billing starts without written approval/);
   assert.match(clientProposal, /No paid subscription or invoice will begin without your written approval/);
 });
 

@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/site-nav.css?v=4">
-  <link rel="stylesheet" href="/client-portal/portal.css?v=18">
+  <link rel="stylesheet" href="/client-portal/portal.css?v=19">
   <script src="/shared/config.js"></script><script src="/account/admin/admin-shell.js?v=2" defer></script><script src="/assets/site-nav.js?v=5"></script>
 
   <script>
@@ -164,12 +164,17 @@
               <label>One-time subtotal ($)<input id="proposal-subtotal" type="number" min="0" step="0.01" readonly required></label>
               <label>Discount ($)<input id="proposal-discount" type="number" min="0" step="0.01" value="0"></label>
               <label class="portal-form-wide proposal-referral-discount" id="proposal-referral-discount-wrap" hidden><span><input id="proposal-referral-discount" type="checkbox"> Apply the verified referral discount</span><small id="proposal-referral-discount-help"></small></label>
-              <label>Recurring service amount ($)<input id="proposal-recurring" type="text" readonly></label>
-              <label>Renewal interval<input id="proposal-recurring-interval" type="text" readonly></label>
-              <label>Paid service starts<select id="proposal-recurring-start-policy"><option value="immediate">When billing is activated</option><option value="review_required">Only after a free period and review</option></select></label>
-              <label class="proposal-review-field" id="proposal-complimentary-months-wrap" hidden>Free service period (months)<input id="proposal-complimentary-months" type="number" min="1" max="60" step="1" value="12"></label>
-              <label class="proposal-review-field" id="proposal-review-notice-days-wrap" hidden>Review before free period ends (days)<input id="proposal-review-notice-days" type="number" min="1" max="180" step="1" value="45"></label>
-              <label>Due at initial checkout ($)<input id="proposal-checkout-total" type="text" readonly></label>
+              <input id="proposal-recurring" type="hidden">
+              <input id="proposal-recurring-interval" type="hidden">
+              <label class="portal-form-wide">Billing arrangement<select id="proposal-recurring-start-policy"><option value="immediate">Standard plan billing</option><option value="review_required">First year free — review before paid billing</option></select></label>
+              <details class="proposal-review-timing portal-form-wide" id="proposal-review-timing" hidden>
+                <summary>Change free-year review timing</summary>
+                <div class="proposal-review-timing-fields">
+                  <label>Free period (months)<input id="proposal-complimentary-months" type="number" min="1" max="60" step="1" value="12"></label>
+                  <label>Review notice (days)<input id="proposal-review-notice-days" type="number" min="1" max="180" step="1" value="45"></label>
+                </div>
+              </details>
+              <label>Due now ($)<input id="proposal-checkout-total" type="text" readonly></label>
               <input id="proposal-total" type="hidden" value="0">
               <label>Deposit due ($)<input id="proposal-deposit" type="number" min="0" step="0.01" value="0"></label>
               <div class="proposal-billing-arrangement portal-form-wide" id="proposal-billing-arrangement" hidden></div>
@@ -230,6 +235,6 @@
 
   <div class="portal-status" id="portal-status" role="status">Verifying proposal access…</div>
   <script type="module" src="/client-portal/portal-shell.js"></script>
-  <script type="module" src="/n3xra-admin/proposals/proposals-admin.js?v=23"></script>
+  <script type="module" src="/n3xra-admin/proposals/proposals-admin.js?v=24"></script>
 </body>
 </html>
