@@ -106,8 +106,13 @@ async function loadRequests(): Promise<void> {
       .in("request_id", requestIds)
       .eq("visible_to_client", true)
       .order("created_at", { ascending: true });
-    if (updateResult.error) throw updateResult.error;
-    updates = (updateResult.data || []) as SupportUpdate[];
+    if (updateResult.error) {
+      console.error("Client-visible support updates could not be loaded.", updateResult.error);
+      updates = [];
+      if (status) status.textContent = "Requests loaded, but timeline updates are temporarily unavailable.";
+    } else {
+      updates = (updateResult.data || []) as SupportUpdate[];
+    }
   }
   render();
 }

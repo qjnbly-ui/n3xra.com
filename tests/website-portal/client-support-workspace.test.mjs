@@ -25,6 +25,8 @@ test("the client Support view is a request and work tracker", async () => {
   assert.match(source, /Started by N3XRA/);
   assert.match(source, /scopeInput\?\.value === "website"/);
   assert.match(source, /day\$\{days === 1 \? "" : "s"\} remaining/);
+  assert.match(source, /Requests loaded, but timeline updates are temporarily unavailable\./);
+  assert.doesNotMatch(source, /if \(updateResult\.error\) throw updateResult\.error/);
   assert.doesNotMatch(source, /internal_notes/);
   assert.match(styles, /client-support-update/);
   assert.match(styles, /\.client-support-form\{[^}]*background:#fff/);
@@ -66,6 +68,19 @@ test("general support work can be scoped to an account, organization, or website
   assert.match(edgeFunction, /accounts: accountResult\.data/);
   assert.match(websiteHtml, /id="website-support-work-form"/);
   assert.match(websiteAdmin, /createWebsiteSupportWork/);
+});
+
+test("client support updates authorize through a narrow request-access helper", async () => {
+  const migration = await projectFile("supabase/migrations/20260817200611_harden_client_support_update_policy.sql");
+
+  assert.match(migration, /function private\.can_view_client_support_request\(target_request_id uuid\)/);
+  assert.match(migration, /security definer/);
+  assert.match(migration, /request\.requester_user_id = \(select auth\.uid\(\)\)/);
+  assert.match(migration, /public\.can_view_client_website\(request\.website_id\)/);
+  assert.match(migration, /public\.can_view_organization\(request\.organization_id\)/);
+  assert.match(migration, /visible_to_client = true[\s\S]*private\.can_view_client_support_request\(request_id\)/);
+  assert.match(migration, /revoke all on function private\.can_view_client_support_request\(uuid\)[\s\S]*from public, anon, authenticated/);
+  assert.match(migration, /drop function if exists public\.can_view_client_support_request\(uuid\)/);
 });
 
 test("administrators can start work and publish estimates and timeline notes", async () => {
