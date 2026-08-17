@@ -87,3 +87,15 @@ test("career administration permanently deletes an application through the prote
   assert.match(platformAdmin, /from\("careers_applications"\)[\s\S]*?\.delete\(\)[\s\S]*?\.eq\("id", applicationId\)/);
   assert.doesNotMatch(migration, /grant [^;]*delete[^;]* on public\.careers_applications to authenticated/i);
 });
+
+test("new career applications create an important admin notification", async () => {
+  const migration = await source("supabase/migrations/20260817051510_notify_admin_on_career_application.sql");
+
+  assert.match(migration, /after insert on public\.careers_applications/);
+  assert.match(migration, /platform\.careers_applications\.submitted/);
+  assert.match(migration, /'New career application'/);
+  assert.match(migration, /'important'/);
+  assert.match(migration, /'\/account\/admin\/applications\/'/);
+  assert.match(migration, /where not exists[\s\S]*notification\.source_table = 'careers_applications'/);
+  assert.match(migration, /revoke all on function private\.capture_career_application_admin_notification\(\)/);
+});
