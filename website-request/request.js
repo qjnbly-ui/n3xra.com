@@ -1,6 +1,7 @@
 import {
   consumeAuthCallbackSessionIfPresent,
   createBrowserSupabase,
+  getConfig,
   getSessionOrNull,
   hasConfig,
 } from "/shared/lib/supabase-client.js";
@@ -124,6 +125,47 @@ let validatedReferralCode = "";
 let foundingOfferActive = false;
 let servicePlanAutoApplied = false;
 let servicePlanReason = "";
+let captchaToken = "";
+let captchaWidgetId = null;
+
+async function initializeCaptcha() {
+  const siteKey = String(getConfig().turnstileSiteKey || "").trim();
+  if (!siteKey || !form) throw new Error("The security check is not configured.");
+  let captchaElement = document.getElementById("request-auth-captcha");
+  if (!captchaElement) {
+    captchaElement = document.createElement("div");
+    captchaElement.id = "request-auth-captcha";
+    captchaElement.style.minHeight = "65px";
+    captchaElement.style.width = "100%";
+    captchaElement.setAttribute("aria-label", "Security check");
+    verificationCard?.insertAdjacentElement("afterend", captchaElement);
+  }
+  if (!document.querySelector('script[data-n3xra-turnstile="auth"]')) {
+    const script = document.createElement("script");
+    script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+    script.async = true;
+    script.defer = true;
+    script.dataset.n3xraTurnstile = "auth";
+    document.head.appendChild(script);
+  }
+  const startedAt = Date.now();
+  while (!window.turnstile) {
+    if (Date.now() - startedAt > 5000) throw new Error("The security check could not load. Refresh and try again.");
+    await new Promise((resolve) => window.setTimeout(resolve, 100));
+  }
+  captchaWidgetId = window.turnstile.render(captchaElement, {
+    sitekey: siteKey,
+    size: "flexible",
+    callback: (token) => { captchaToken = String(token || ""); },
+    "expired-callback": () => { captchaToken = ""; },
+    "error-callback": () => { captchaToken = ""; },
+  });
+}
+
+function resetCaptcha() {
+  captchaToken = "";
+  if (window.turnstile && captchaWidgetId !== null) window.turnstile.reset(captchaWidgetId);
+}
 
 function field(id) {
   return document.getElementById(id);
@@ -880,6 +922,7 @@ async function sendVerificationLink() {
   if (resendButton) resendButton.disabled = true;
   setStatus("Sending your secure verification link…");
   try {
+    if (!captchaToken) throw new Error("Complete the security check first.");
     const redirectParams = new URLSearchParams({ submit: "1" });
     if (foundingOfferActive) {
       redirectParams.set("offer", "freewebsite");
@@ -890,6 +933,7 @@ async function sendVerificationLink() {
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
+        captchaToken,
         shouldCreateUser: true,
         emailRedirectTo: redirectUrl,
         data: {
@@ -899,7 +943,6 @@ async function sendVerificationLink() {
       },
     });
     if (error) throw error;
-
     if (verificationEmail) verificationEmail.textContent = email;
     if (verificationCard) verificationCard.hidden = false;
     setStatus("Secure link sent. Your website details are saved on this device.");
@@ -907,6 +950,7 @@ async function sendVerificationLink() {
   } catch (error) {
     setStatus(error?.message || "Unable to send the verification link.", true);
   } finally {
+    resetCaptcha();
     isSubmitting = false;
     submitButton.disabled = false;
     if (resendButton) resendButton.disabled = false;
@@ -1033,6 +1077,7 @@ async function init() {
   finishLoading();
 
   if (!session?.user) {
+    await initializeCaptcha();
     if (hasSubmitIntent()) {
       cleanSubmitIntent();
       setStatus("This verification link is invalid or expired. Send a new link to continue.", true);

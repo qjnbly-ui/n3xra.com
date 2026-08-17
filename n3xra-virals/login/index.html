@@ -14,6 +14,7 @@
     <link rel="stylesheet" href="/assets/site-nav.css?v=4">
     <script src="/shared/config.js"></script>
     <script src="/assets/site-nav.js?v=5"></script>
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
     <style>
       :root {
         color-scheme: dark;
@@ -439,6 +440,7 @@
                 <button class="password-toggle" type="button" data-password-toggle="virals-signin-password" aria-label="Show password">Show</button>
               </div>
             </div>
+            <div id="virals-auth-turnstile" aria-label="Security check"></div>
             <button class="primary-btn" type="submit">Sign in</button>
           </form>
 
@@ -459,6 +461,7 @@
       import {
         consumeAuthCallbackSessionIfPresent,
         createBrowserSupabase,
+        getConfig,
         getSessionOrNull,
         hasConfig,
       } from "/shared/lib/supabase-client.js";
@@ -467,8 +470,33 @@
       const signinToggle = document.getElementById("virals-signin-toggle");
       const signinForm = document.getElementById("virals-signin-form");
       const authStatus = document.getElementById("virals-auth-status");
+      const captchaElement = document.getElementById("virals-auth-turnstile");
 
       let supabase = null;
+      let captchaToken = "";
+      let captchaWidgetId = null;
+
+      async function initializeCaptcha() {
+        const siteKey = String(getConfig().turnstileSiteKey || "").trim();
+        if (!siteKey || !captchaElement) throw new Error("The security check is not configured.");
+        const startedAt = Date.now();
+        while (!window.turnstile) {
+          if (Date.now() - startedAt > 5000) throw new Error("The security check could not load. Refresh and try again.");
+          await new Promise((resolve) => window.setTimeout(resolve, 100));
+        }
+        captchaWidgetId = window.turnstile.render(captchaElement, {
+          sitekey: siteKey,
+          size: "flexible",
+          callback: (token) => { captchaToken = String(token || ""); },
+          "expired-callback": () => { captchaToken = ""; },
+          "error-callback": () => { captchaToken = ""; },
+        });
+      }
+
+      function resetCaptcha() {
+        captchaToken = "";
+        if (window.turnstile && captchaWidgetId !== null) window.turnstile.reset(captchaWidgetId);
+      }
 
       function getNextPath() {
         const params = new URLSearchParams(window.location.search);
@@ -515,9 +543,11 @@
         submit.disabled = true;
         setAuthStatus("Signing in...");
         try {
+          if (!captchaToken) throw new Error("Complete the security check first.");
           const { data, error } = await supabase.auth.signInWithPassword({
             email: document.getElementById("virals-signin-email").value.trim(),
             password: document.getElementById("virals-signin-password").value,
+            options: { captchaToken },
           });
           if (error) throw error;
           if (!data?.session) throw new Error("No active session was returned.");
@@ -527,6 +557,7 @@
         } catch (error) {
           setAuthStatus(getErrorMessage(error, "Unable to sign in."), "error");
         } finally {
+          resetCaptcha();
           submit.disabled = false;
         }
       }
@@ -538,6 +569,7 @@
         }
 
         supabase = createBrowserSupabase();
+        await initializeCaptcha();
         const callbackSession = await consumeAuthCallbackSessionIfPresent(supabase).catch(() => null);
         if (callbackSession?.user) {
           try {

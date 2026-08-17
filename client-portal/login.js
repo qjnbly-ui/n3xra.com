@@ -42,10 +42,6 @@ function setBusy(form, busy) {
         control.disabled = busy;
     });
 }
-function isTestHostname() {
-    const hostname = String(window.location.hostname || "").toLowerCase();
-    return ["localhost", "127.0.0.1"].includes(hostname) || hostname.endsWith(".vercel.app");
-}
 async function waitForTurnstile(maxWaitMs = 5000) {
     const startedAt = Date.now();
     while (!window.turnstile) {
@@ -65,7 +61,7 @@ async function initializeCaptcha() {
         return;
     }
     captchaWidgetId = window.turnstile.render(captchaElement, {
-        sitekey: isTestHostname() ? "1x00000000000000000000AA" : siteKey,
+        sitekey: siteKey,
         size: "flexible",
         callback: (token) => { captchaToken = String(token || ""); },
         "expired-callback": () => { captchaToken = ""; },
@@ -77,20 +73,13 @@ function resetCaptcha() {
     if (window.turnstile && captchaWidgetId !== null)
         window.turnstile.reset(captchaWidgetId);
 }
-async function verifyCaptcha() {
+function getCaptchaTokenForAuth() {
     const siteKey = String(getConfig().turnstileSiteKey || "").trim();
-    if (!siteKey || isTestHostname())
-        return;
+    if (!siteKey)
+        throw new Error("The security check is not configured.");
     if (!captchaToken)
         throw new Error("Complete the security check first.");
-    const response = await fetch("/api/verify-captcha", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ captchaToken }),
-    });
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok || !payload.ok)
-        throw new Error(payload.error || "The security check could not be verified.");
+    return captchaToken;
 }
 async function hasTenantAccess(userId) {
     if (!supabase || tenant?.mode !== "tenant" || !userId)
@@ -116,10 +105,11 @@ async function handleLogin(event) {
     setBusy(loginForm, true);
     setStatus("Signing in…");
     try {
-        await verifyCaptcha();
+        const submitCaptchaToken = getCaptchaTokenForAuth();
         const { data, error } = await supabase.auth.signInWithPassword({
             email: loginEmail.value.trim(),
             password: loginPassword.value,
+            options: { captchaToken: submitCaptchaToken },
         });
         if (error)
             throw error;
@@ -131,9 +121,9 @@ async function handleLogin(event) {
     catch (error) {
         const message = error instanceof Error ? error.message : "Unable to sign in.";
         setStatus(message, true);
-        resetCaptcha();
     }
     finally {
+        resetCaptcha();
         setBusy(loginForm, false);
     }
 }
@@ -144,7 +134,9 @@ async function handleResetRequest(event) {
     setBusy(resetForm, true);
     setStatus("Sending your secure reset link…");
     try {
+        const submitCaptchaToken = getCaptchaTokenForAuth();
         const { error } = await supabase.auth.resetPasswordForEmail(resetEmail.value.trim(), {
+            captchaToken: submitCaptchaToken,
             redirectTo: `${window.location.origin}/client-portal/login?mode=recovery`,
         });
         if (error)
@@ -155,6 +147,7 @@ async function handleResetRequest(event) {
         setStatus(error instanceof Error ? error.message : "Unable to send the reset link.", true);
     }
     finally {
+        resetCaptcha();
         setBusy(resetForm, false);
     }
 }

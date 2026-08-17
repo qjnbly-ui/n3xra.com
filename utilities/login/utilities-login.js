@@ -1,4 +1,4 @@
-import { createBrowserSupabase, getSessionOrNull, hasConfig } from "/shared/lib/supabase-client.js";
+import { createBrowserSupabase, getConfig, getSessionOrNull, hasConfig } from "/shared/lib/supabase-client.js";
 import { isPlatformAdminEmail } from "/shared/lib/orgs.js";
 
 const loginForm = document.getElementById("utilities-login-form");
@@ -6,11 +6,41 @@ const signupForm = document.getElementById("utilities-signup-form");
 const loginStatus = document.getElementById("utilities-login-status");
 const invitePanel = document.getElementById("utilities-invite-panel");
 const inviteCopy = document.getElementById("utilities-invite-copy");
+const captchaElement = document.getElementById("utilities-auth-captcha");
 const ADMIN_DESTINATION = "/n3xra-admin/utilities";
 const PENDING_INVITE_KEY = "n3xra.utilities.pendingInvite";
 
 let supabase = null;
 let inviteCode = "";
+let captchaToken = "";
+let captchaWidgetId = null;
+
+async function initializeCaptcha() {
+  const siteKey = String(getConfig().turnstileSiteKey || "").trim();
+  if (!siteKey || !captchaElement) throw new Error("The security check is not configured.");
+  const startedAt = Date.now();
+  while (!window.turnstile) {
+    if (Date.now() - startedAt > 5000) throw new Error("The security check could not load. Refresh and try again.");
+    await new Promise((resolve) => window.setTimeout(resolve, 100));
+  }
+  captchaWidgetId = window.turnstile.render(captchaElement, {
+    sitekey: siteKey,
+    size: "flexible",
+    callback: (token) => { captchaToken = String(token || ""); },
+    "expired-callback": () => { captchaToken = ""; },
+    "error-callback": () => { captchaToken = ""; },
+  });
+}
+
+function getCaptchaTokenForAuth() {
+  if (!captchaToken) throw new Error("Complete the security check first.");
+  return captchaToken;
+}
+
+function resetCaptcha() {
+  captchaToken = "";
+  if (window.turnstile && captchaWidgetId !== null) window.turnstile.reset(captchaWidgetId);
+}
 
 function setStatus(message, tone = "") {
   if (!loginStatus) return;
@@ -122,8 +152,20 @@ async function handleLogin(event) {
     return;
   }
 
+  let submitCaptchaToken = "";
+  try {
+    submitCaptchaToken = getCaptchaTokenForAuth();
+  } catch (error) {
+    setStatus(getErrorMessage(error, "Complete the security check first."), "is-error");
+    return;
+  }
   setStatus("Signing in...");
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+    options: { captchaToken: submitCaptchaToken },
+  });
+  resetCaptcha();
   if (error) {
     setStatus(getAuthErrorMessage(error), "is-error");
     return;
@@ -158,11 +200,19 @@ async function handleSignup(event) {
   }
 
   window.localStorage?.setItem(PENDING_INVITE_KEY, code);
+  let submitCaptchaToken = "";
+  try {
+    submitCaptchaToken = getCaptchaTokenForAuth();
+  } catch (error) {
+    setStatus(getErrorMessage(error, "Complete the security check first."), "is-error");
+    return;
+  }
   setStatus("Creating account...");
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
+      captchaToken: submitCaptchaToken,
       emailRedirectTo: `${window.location.origin}/account/?confirmed=1&utility_invite=${encodeURIComponent(code)}`,
       data: {
         full_name: fullName,
@@ -170,6 +220,7 @@ async function handleSignup(event) {
       },
     },
   });
+  resetCaptcha();
 
   if (error) {
     setStatus(getAuthErrorMessage(error), "is-error");
@@ -207,6 +258,7 @@ async function init() {
   }
 
   supabase = createBrowserSupabase();
+  await initializeCaptcha();
   initInviteState();
   const session = await getSessionOrNull(supabase);
   if (session?.user && await routeSession(session)) return;

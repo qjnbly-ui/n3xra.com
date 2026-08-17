@@ -1,6 +1,7 @@
 import {
   consumeAuthCallbackSessionIfPresent,
   createBrowserSupabase,
+  getConfig,
   getSessionOrNull,
   hasConfig,
 } from "/shared/lib/supabase-client.js";
@@ -22,6 +23,47 @@ const verificationEmail = document.getElementById("interest-verification-email")
 let supabase = null;
 let session = null;
 let submitting = false;
+let captchaToken = "";
+let captchaWidgetId = null;
+
+async function initializeCaptcha() {
+  const siteKey = String(getConfig().turnstileSiteKey || "").trim();
+  if (!siteKey || !form || !submitButton) throw new Error("The security check is not configured.");
+  let captchaElement = document.getElementById("interest-auth-captcha");
+  if (!captchaElement) {
+    captchaElement = document.createElement("div");
+    captchaElement.id = "interest-auth-captcha";
+    captchaElement.className = "interest-wide";
+    captchaElement.style.minHeight = "65px";
+    captchaElement.setAttribute("aria-label", "Security check");
+    form.insertBefore(captchaElement, submitButton);
+  }
+  if (!document.querySelector('script[data-n3xra-turnstile="auth"]')) {
+    const script = document.createElement("script");
+    script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+    script.async = true;
+    script.defer = true;
+    script.dataset.n3xraTurnstile = "auth";
+    document.head.appendChild(script);
+  }
+  const startedAt = Date.now();
+  while (!window.turnstile) {
+    if (Date.now() - startedAt > 5000) throw new Error("The security check could not load. Refresh and try again.");
+    await new Promise((resolve) => window.setTimeout(resolve, 100));
+  }
+  captchaWidgetId = window.turnstile.render(captchaElement, {
+    sitekey: siteKey,
+    size: "flexible",
+    callback: (token) => { captchaToken = String(token || ""); },
+    "expired-callback": () => { captchaToken = ""; },
+    "error-callback": () => { captchaToken = ""; },
+  });
+}
+
+function resetCaptcha() {
+  captchaToken = "";
+  if (window.turnstile && captchaWidgetId !== null) window.turnstile.reset(captchaWidgetId);
+}
 
 function setStatus(message = "", isError = false) {
   status.textContent = message;
@@ -167,11 +209,13 @@ async function handleWithdrawal() {
 
 async function sendVerificationLink() {
   saveDraft();
+  if (!captchaToken) throw new Error("Complete the security check first.");
   const email = emailInput.value.trim().toLowerCase();
   const redirectUrl = `${window.location.origin}/invest/?interest=complete#ownership-updates`;
   const { error } = await supabase.auth.signInWithOtp({
     email,
     options: {
+      captchaToken,
       shouldCreateUser: true,
       emailRedirectTo: redirectUrl,
       data: {
@@ -181,7 +225,6 @@ async function sendVerificationLink() {
     },
   });
   if (error) throw error;
-
   verificationEmail.textContent = email;
   verification.hidden = false;
   setStatus("Secure verification link sent. Check your email to finish.");
@@ -203,6 +246,7 @@ async function handleSubmit(event) {
   } catch (error) {
     setStatus(error?.message || "We could not save your request right now.", true);
   } finally {
+    if (!session?.user) resetCaptcha();
     submitting = false;
     submitButton.disabled = false;
   }
@@ -234,6 +278,7 @@ async function init() {
 
   if (!session?.user) {
     accountState.textContent = "We’ll securely connect this request to your existing N3XRA account or create one after you verify your email.";
+    await initializeCaptcha();
     return;
   }
 

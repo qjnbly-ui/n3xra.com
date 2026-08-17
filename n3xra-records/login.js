@@ -54,12 +54,7 @@ const signupReferral = createReferralCodeController({
   status: signupReferralStatus,
 });
 
-function isLocalPreview() {
-  return ["127.0.0.1", "localhost", "[::1]"].includes(window.location.hostname);
-}
-
 function getTurnstileSiteKey() {
-  if (isLocalPreview()) return "";
   return String(getConfig().turnstileSiteKey || "").trim();
 }
 
@@ -75,24 +70,6 @@ function getCaptchaTokenForRequest() {
     throw new Error("Complete the security check first.");
   }
   return captchaToken;
-}
-
-async function verifyCaptchaServerSide(captchaToken) {
-  if (!getTurnstileSiteKey()) return;
-
-  const response = await fetch("/api/verify-captcha", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json",
-    },
-    body: JSON.stringify({ captchaToken }),
-  });
-
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok || !payload?.ok) {
-    throw new Error(payload?.error || "Captcha verification failed.");
-  }
 }
 
 async function waitForTurnstile(maxWaitMs = 5000) {
@@ -461,7 +438,6 @@ async function handleSignup(event) {
   let submitCaptchaToken = "";
   try {
     submitCaptchaToken = getCaptchaTokenForRequest();
-    await verifyCaptchaServerSide(submitCaptchaToken);
   } catch (captchaError) {
     isSubmittingAuth = false;
     setStatus(getErrorMessage(captchaError, "Complete the security check first."), "error");
@@ -474,6 +450,7 @@ async function handleSignup(event) {
     email,
     password,
     options: {
+      captchaToken: submitCaptchaToken,
       emailRedirectTo,
       data: {
         full_name: fullName,
@@ -571,7 +548,6 @@ async function handleSignin(event) {
   let submitCaptchaToken = "";
   try {
     submitCaptchaToken = getCaptchaTokenForRequest();
-    await verifyCaptchaServerSide(submitCaptchaToken);
   } catch (captchaError) {
     isSubmittingAuth = false;
     setStatus(getErrorMessage(captchaError, "Complete the security check first."), "error");
@@ -582,7 +558,8 @@ async function handleSignin(event) {
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password,
-      });
+    options: { captchaToken: submitCaptchaToken },
+  });
   if (error) {
     resetCaptcha();
     isSubmittingAuth = false;
@@ -613,7 +590,6 @@ async function handleForgotPassword() {
   let submitCaptchaToken = "";
   try {
     submitCaptchaToken = getCaptchaTokenForRequest();
-    await verifyCaptchaServerSide(submitCaptchaToken);
   } catch (captchaError) {
     isSubmittingAuth = false;
     setStatus(getErrorMessage(captchaError, "Complete the security check first."), "error");
@@ -624,6 +600,7 @@ async function handleForgotPassword() {
 
   const redirectTo = getAppUrl("/n3xra-records/reset-password.html");
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    captchaToken: submitCaptchaToken,
     redirectTo,
   });
 

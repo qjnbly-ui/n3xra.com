@@ -22,6 +22,12 @@ function isAccountSuspended(account) {
   return !Number.isNaN(date.getTime()) && date.getTime() > Date.now();
 }
 
+function accountState(account) {
+  if (isAccountSuspended(account)) return { label: "Access suspended", className: "is-suspended" };
+  if (!account?.emailConfirmedAt) return { label: "Pending verification", className: "is-pending" };
+  return { label: "Active account", className: "is-active" };
+}
+
 function productAdminLink(item, account) {
   const params = new URLSearchParams({ user: account.id, email: account.email });
   if (item.organizationId) params.set("organization", item.organizationId);
@@ -136,7 +142,10 @@ function renderAccountOptions(filter = "", preferredAccountId = "") {
   if (count) count.textContent = `${filtered.length} of ${accounts.length} account${accounts.length === 1 ? "" : "s"}`;
   const list = document.getElementById("account-list");
   if (list) {
-    list.innerHTML = filtered.length ? filtered.map((account) => `<button class="account-directory-list-item${account.id === select.value ? " is-selected" : ""}" type="button" data-account-id="${escapeHtml(account.id)}"><span class="account-directory-list-avatar">${escapeHtml(String(account.name || account.email || "?").trim().split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toUpperCase())}</span><span><strong>${escapeHtml(account.name || account.email)}</strong><small>${escapeHtml(account.email)}</small></span></button>`).join("") : '<p class="account-directory-empty">No accounts match this search.</p>';
+    const renderGroup = (label, group, pending = false) => group.length ? `<div class="account-directory-group"><p>${escapeHtml(label)} <span>${group.length}</span></p>${group.map((account) => `<button class="account-directory-list-item${pending ? " is-pending" : ""}${account.id === select.value ? " is-selected" : ""}" type="button" data-account-id="${escapeHtml(account.id)}"><span class="account-directory-list-avatar">${escapeHtml(String(account.name || account.email || "?").trim().split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toUpperCase())}</span><span><strong>${escapeHtml(account.name || account.email)}</strong><small>${escapeHtml(account.email)}</small>${pending ? "<em>Awaiting email verification</em>" : ""}</span></button>`).join("")}</div>` : "";
+    const verified = filtered.filter((account) => account.emailConfirmedAt);
+    const pending = filtered.filter((account) => !account.emailConfirmedAt);
+    list.innerHTML = filtered.length ? `${renderGroup("Verified accounts", verified)}${renderGroup("Pending verification", pending, true)}` : '<p class="account-directory-empty">No accounts match this search.</p>';
   }
   renderSelectedAccount();
 }
@@ -153,6 +162,7 @@ async function renderSelectedAccount() {
   const access = Array.isArray(account.access) ? account.access.filter((item) => item.product !== "utilities") : [];
   const initials = String(account.name || account.email || "?").trim().split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
   const suspended = isAccountSuspended(account);
+  const state = accountState(account);
   const phoneLocked = account.phoneLockedUntil && new Date(account.phoneLockedUntil).getTime() > Date.now();
   const providers = Array.isArray(account.providers) && account.providers.length ? account.providers.map(providerLabel).join(", ") : "No sign-in provider recorded";
   const phoneDetail = account.authPhone
@@ -165,7 +175,7 @@ async function renderSelectedAccount() {
   const billingParams = new URLSearchParams({ email: account.email, user: account.id });
   detail.innerHTML = `
     <div class="account-admin-detail-head">
-      <div class="account-admin-identity"><span class="account-admin-avatar" aria-hidden="true">${escapeHtml(initials)}</span><div><p class="portal-kicker">Selected account</p><h3>${escapeHtml(account.name || account.email)}</h3><p>${escapeHtml(account.email)}</p><span class="account-state-pill ${suspended ? "is-suspended" : "is-active"}">${suspended ? "Access suspended" : "Active account"}</span></div></div>
+      <div class="account-admin-identity"><span class="account-admin-avatar" aria-hidden="true">${escapeHtml(initials)}</span><div><p class="portal-kicker">Selected account</p><h3>${escapeHtml(account.name || account.email)}</h3><p>${escapeHtml(account.email)}</p><span class="account-state-pill ${state.className}">${state.label}</span></div></div>
       <div class="account-admin-head-actions"><a class="portal-button portal-button-secondary" href="/account/admin/support/?${escapeHtml(supportParams.toString())}">Support</a><button class="portal-button portal-button-secondary" id="account-reset-password" type="button">Send password reset</button></div>
     </div>
     <div class="account-admin-facts">

@@ -575,18 +575,11 @@
       window.turnstile.reset(captchaWidgetId);
     }
 
-    async function verifyCaptchaServerSide(token) {
-      if (!captchaEnabled) return;
+    function getCaptchaTokenForAuth() {
+      if (!captchaEnabled) throw new Error("The security check is not configured.");
+      const token = captchaToken;
       if (!token) throw new Error("Complete the security check first.");
-      const response = await fetch("/api/verify-captcha", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ captchaToken: token }),
-      });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok || !payload?.ok) {
-        throw new Error(payload?.error || "Captcha verification failed.");
-      }
+      return token;
     }
 
     async function waitForTurnstile(maxWaitMs = 5000) {
@@ -709,11 +702,15 @@
       if (!supabase) return setAuthStatus("Supabase is not configured.", "error");
 
       try {
-        await verifyCaptchaServerSide(captchaToken);
+        const submitCaptchaToken = getCaptchaTokenForAuth();
         setAuthStatus("Signing in...");
         const email = document.getElementById("musicSigninEmail").value.trim();
         const password = document.getElementById("musicSigninPassword").value;
-        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+          options: { captchaToken: submitCaptchaToken },
+        });
 
         if (error) {
           setAuthStatus(error.message, "error");
@@ -757,12 +754,13 @@
       }
 
       try {
-        await verifyCaptchaServerSide(captchaToken);
+        const submitCaptchaToken = getCaptchaTokenForAuth();
         setAuthStatus("Creating account...");
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
+            captchaToken: submitCaptchaToken,
             emailRedirectTo: `${window.location.origin}${MUSIC_CONFIRM_REDIRECT_PATH}`,
             data: {
               full_name: fullName,
@@ -777,18 +775,11 @@
           return;
         }
 
-        let nextSession = data?.session || null;
+        const nextSession = data?.session || null;
         if (!nextSession) {
-          const signInResult = await supabase.auth.signInWithPassword({ email, password });
-          if (signInResult.error || !signInResult.data?.session) {
-            setAuthStatus(
-              signInResult.error?.message || "Account created, but auto sign-in is unavailable. Sign in manually.",
-              "error",
-            );
-            setAuthMode("signin");
-            return;
-          }
-          nextSession = signInResult.data.session;
+          setAuthStatus("Account created. Confirm your email, then sign in.", "success");
+          setAuthMode("signin");
+          return;
         }
 
         await notifyNewAccount({

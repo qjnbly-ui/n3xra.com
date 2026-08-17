@@ -17,6 +17,7 @@ import Constants from "expo-constants";
 import * as Device from "expo-device";
 import * as Notifications from "expo-notifications";
 import type { User } from "@supabase/supabase-js";
+import { WebView } from "react-native-webview";
 
 import { startAuthAutoRefresh, supabase } from "./lib/supabase";
 
@@ -56,6 +57,11 @@ const colors = {
   danger: "#a43a1a",
   success: "#08745f",
 };
+const TURNSTILE_SITE_KEY = process.env.EXPO_PUBLIC_TURNSTILE_SITE_KEY || "0x4AAAAAADBU943ZPm7X4K8-";
+
+function turnstileDocument(siteKey: string) {
+  return `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body{margin:0;background:transparent}#captcha{min-height:65px}</style><script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"></script></head><body><div id="captcha"></div><script>window.onload=function(){turnstile.render('#captcha',{sitekey:${JSON.stringify(siteKey)},size:'flexible',callback:function(token){window.ReactNativeWebView.postMessage(token)},'expired-callback':function(){window.ReactNativeWebView.postMessage('')},'error-callback':function(){window.ReactNativeWebView.postMessage('')}})}</script></body></html>`;
+}
 
 export default function App() {
   const [sessionUser, setSessionUser] = useState<User | null>(null);
@@ -68,6 +74,8 @@ export default function App() {
   const [statusTone, setStatusTone] = useState<StatusTone>("neutral");
   const [notifications, setNotifications] = useState<NotificationRow[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState("");
+  const [captchaKey, setCaptchaKey] = useState(0);
   const notificationListener = useRef<Notifications.EventSubscription | null>(null);
 
   function showStatus(message: string, tone: StatusTone = "neutral") {
@@ -150,6 +158,10 @@ export default function App() {
       showStatus("Enter your email address and password.", "error");
       return;
     }
+    if (!captchaToken) {
+      showStatus("Complete the security check first.", "error");
+      return;
+    }
 
     setBusy(true);
     showStatus("");
@@ -158,6 +170,7 @@ export default function App() {
       const { data, error } = await supabase.auth.signInWithPassword({
         email: email.trim(),
         password,
+        options: { captchaToken },
       });
       if (error) throw error;
 
@@ -175,6 +188,8 @@ export default function App() {
         "error",
       );
     } finally {
+      setCaptchaToken("");
+      setCaptchaKey((value) => value + 1);
       setBusy(false);
     }
   }
@@ -185,12 +200,17 @@ export default function App() {
       showStatus("Enter your email address first.", "error");
       return;
     }
+    if (!captchaToken) {
+      showStatus("Complete the security check first.", "error");
+      return;
+    }
 
     setBusy(true);
     showStatus("Sending password reset…");
 
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        captchaToken,
         redirectTo: "https://n3xra.com/account/?mode=recovery",
       });
       if (error) throw error;
@@ -198,6 +218,8 @@ export default function App() {
     } catch (error) {
       showStatus(getMessage(error, "Unable to send the password reset email."), "error");
     } finally {
+      setCaptchaToken("");
+      setCaptchaKey((value) => value + 1);
       setBusy(false);
     }
   }
@@ -239,6 +261,8 @@ export default function App() {
         setPassword={setPassword}
         signIn={signIn}
         sendPasswordReset={sendPasswordReset}
+        captchaKey={captchaKey}
+        setCaptchaToken={setCaptchaToken}
         busy={busy}
         status={status}
         statusTone={statusTone}
@@ -293,6 +317,8 @@ function Login({
   setPassword,
   signIn,
   sendPasswordReset,
+  captchaKey,
+  setCaptchaToken,
   busy,
   status,
   statusTone,
@@ -303,6 +329,8 @@ function Login({
   setPassword: (value: string) => void;
   signIn: () => void;
   sendPasswordReset: () => void;
+  captchaKey: number;
+  setCaptchaToken: (value: string) => void;
   busy: boolean;
   status: string;
   statusTone: StatusTone;
@@ -348,6 +376,18 @@ function Login({
               value={password}
               onChangeText={setPassword}
               onSubmitEditing={() => void signIn()}
+            />
+          </View>
+
+          <View style={styles.captchaFrame}>
+            <WebView
+              key={captchaKey}
+              source={{ html: turnstileDocument(TURNSTILE_SITE_KEY), baseUrl: "https://n3xra.com" }}
+              javaScriptEnabled
+              domStorageEnabled
+              originWhitelist={["https://*", "about:blank", "about:srcdoc"]}
+              scrollEnabled={false}
+              onMessage={(event) => setCaptchaToken(String(event.nativeEvent.data || ""))}
             />
           </View>
 
@@ -467,6 +507,7 @@ const styles = StyleSheet.create({
   field: { gap: 8 },
   label: { color: colors.tealBright, fontSize: 11, fontWeight: "800", letterSpacing: 2 },
   input: { width: "100%", minHeight: 50, borderRadius: 10, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.fog, color: colors.ink, paddingHorizontal: 14, fontSize: 16 },
+  captchaFrame: { width: "100%", height: 70, overflow: "hidden", backgroundColor: colors.surface },
   primaryButton: { minHeight: 50, alignItems: "center", justifyContent: "center", borderRadius: 25, backgroundColor: colors.ink, elevation: 3 },
   primaryButtonText: { color: "#ffffff", fontWeight: "800", fontSize: 15 },
   secondaryButton: { minHeight: 50, alignItems: "center", justifyContent: "center", borderRadius: 25, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.surface },

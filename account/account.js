@@ -309,15 +309,7 @@ function getHashErrorMessage() {
   return error ? error.replaceAll("+", " ") : "";
 }
 
-const TURNSTILE_TEST_SITE_KEY = "1x00000000000000000000AA";
-
-function shouldUseTurnstileTestMode() {
-  const hostname = String(window.location.hostname || "").toLowerCase();
-  return hostname === "localhost" || hostname === "127.0.0.1" || hostname.endsWith(".vercel.app");
-}
-
 function getTurnstileSiteKey() {
-  if (shouldUseTurnstileTestMode()) return TURNSTILE_TEST_SITE_KEY;
   return String(getConfig().turnstileSiteKey || "").trim();
 }
 
@@ -362,24 +354,10 @@ async function initCaptcha() {
   });
 }
 
-async function verifyCaptchaServerSide() {
-  if (!captchaEnabled) return;
-  if (shouldUseTurnstileTestMode()) return;
+function getCaptchaTokenForAuth() {
+  if (!captchaEnabled) throw new Error("The security check is not configured.");
   if (!captchaToken) throw new Error("Complete the security check first.");
-
-  const response = await fetch("/api/verify-captcha", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json",
-    },
-    body: JSON.stringify({ captchaToken }),
-  });
-
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok || !payload?.ok) {
-    throw new Error(payload?.error || "Captcha verification failed.");
-  }
+  return captchaToken;
 }
 
 function getSafeNextPath() {
@@ -901,11 +879,15 @@ async function handleSignin(event) {
 
   isSubmitting = true;
   try {
-    await verifyCaptchaServerSide();
+    const submitCaptchaToken = getCaptchaTokenForAuth();
     setStatus("Signing in...");
     const email = document.getElementById("signin-email").value.trim();
     const password = document.getElementById("signin-password").value;
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+      options: { captchaToken: submitCaptchaToken },
+    });
     if (error) throw error;
 
     currentSession = data.session;
@@ -940,12 +922,13 @@ async function handleSignup(event) {
 
   isSubmitting = true;
   try {
-    await verifyCaptchaServerSide();
+    const submitCaptchaToken = getCaptchaTokenForAuth();
     setStatus("Creating account...");
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
+        captchaToken: submitCaptchaToken,
         emailRedirectTo: buildAccountRedirectUrl({
           invite: inviteCode,
           adminInvite: getPlatformAdminInviteToken(),
@@ -993,9 +976,10 @@ async function handleForgotPassword() {
 
   isSubmitting = true;
   try {
-    await verifyCaptchaServerSide();
+    const submitCaptchaToken = getCaptchaTokenForAuth();
     setStatus("Sending password reset...");
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      captchaToken: submitCaptchaToken,
       redirectTo: buildAccountRedirectUrl({ mode: "recovery", email }),
     });
     if (error) throw error;

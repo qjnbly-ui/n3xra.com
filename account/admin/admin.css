@@ -312,11 +312,16 @@ body:not(.admin-ready):not(.portal-loading):not(.product-native-admin) main.acco
 .account-directory-list-pane { min-height:0; overflow-y:auto; overscroll-behavior:contain; scrollbar-gutter:stable; padding:1.1rem; background:#fbfcfd; border-right:1px solid var(--portal-line); }
 .account-directory-pane-head { display:flex; align-items:flex-start; justify-content:space-between; gap:.5rem; margin-bottom:1rem; }
 .account-directory-list { display:grid; gap:.3rem; margin-top:1rem; }
+.account-directory-group { display:grid; gap:.3rem; }
+.account-directory-group + .account-directory-group { margin-top:.9rem; padding-top:.9rem; border-top:1px solid var(--portal-line); }
+.account-directory-group > p { display:flex; justify-content:space-between; margin:0 0 .25rem; color:var(--portal-muted); font-size:.68rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }
 .account-directory-list-item { display:grid; grid-template-columns:auto minmax(0,1fr); gap:.65rem; align-items:center; width:100%; padding:.7rem; color:var(--portal-ink); text-align:left; background:transparent; border:1px solid transparent; border-radius:9px; cursor:pointer; }
 .account-directory-list-item:hover { background:#f0f6f7; }
 .account-directory-list-item.is-selected { background:#e3f2ef; border-color:#c9e4df; }
 .account-directory-list-item strong, .account-directory-list-item small { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .account-directory-list-item small { margin-top:.2rem; color:var(--portal-muted); font-size:.72rem; }
+.account-directory-list-item em { display:block; margin-top:.18rem; color:#a43a1a; font-size:.64rem; font-style:normal; font-weight:800; }
+.account-directory-list-item.is-pending .account-directory-list-avatar { color:#8a5a00; background:#fff1c2; }
 .account-directory-list-avatar { display:grid; place-items:center; width:34px; height:34px; color:#fff; background:#0a7b83; border-radius:50%; font-size:.68rem; font-weight:800; }
 .account-directory-empty { color:var(--portal-muted); font-size:.85rem; }
 .account-directory-hidden-select { position:absolute; width:1px; height:1px; overflow:hidden; opacity:0; pointer-events:none; }
@@ -421,6 +426,7 @@ body:not(.admin-ready):not(.portal-loading):not(.product-native-admin) main.acco
 .account-admin-head-actions { display:flex; align-items:center; gap:.55rem; }
 .account-state-pill { display:inline-flex; margin-top:.45rem; padding:.25rem .5rem; border-radius:999px; font-size:.67rem; font-weight:800; }
 .account-state-pill.is-active { color:#156a58; background:#e4f4ee; }
+.account-state-pill.is-pending { color:#8a5a00; background:#fff1c2; }
 .account-state-pill.is-suspended { color:#9b2f35; background:#fbe9ea; }
 .account-admin-id { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:.78rem; }
 .account-oversight-section { margin-top:1rem; padding:1rem; background:#fff; border:1px solid var(--portal-line); border-radius:12px; }
@@ -441,6 +447,7 @@ body:not(.admin-ready):not(.portal-loading):not(.product-native-admin) main.acco
 .accounts-admin-page .account-state-pill { align-items:center; gap:.4rem; padding:0; color:var(--portal-muted); background:transparent; border-radius:0; }
 .accounts-admin-page .account-state-pill::before { width:7px; height:7px; content:""; background:#16856d; border-radius:50%; }
 .accounts-admin-page .account-state-pill.is-suspended::before { background:#b63b45; }
+.accounts-admin-page .account-state-pill.is-pending::before { background:#d79717; }
 .accounts-admin-page .account-admin-facts { grid-template-columns:repeat(4,minmax(0,1fr)); gap:0; margin:0; padding:0 clamp(1.25rem,3vw,2.5rem); border-bottom:1px solid var(--portal-line); }
 .accounts-admin-page .account-admin-fact { min-width:0; padding:1rem; background:transparent; border:0; border-right:1px solid var(--portal-line); border-radius:0; }
 .accounts-admin-page .account-admin-fact:first-child { padding-left:0; }
