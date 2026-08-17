@@ -1,5 +1,6 @@
 import { initializeClientWorkspaceContext } from "/client-portal/client-workspace-context.js?v=8";
 import { initializePortalBrandShell } from "/client-portal/brand-shell.js?v=1";
+import { initializePendingProposalNotice } from "/client-portal/pending-proposal-notice.js?v=1";
 import { isBrandedPortalHostname } from "/client-portal/tenant-context.js";
 
 void initializePortalBrandShell();
@@ -155,3 +156,6 @@ function buildClientWorkspace() {
 }
 
 buildClientWorkspace();
+void initializePendingProposalNotice().catch((error) => {
+  console.warn("The pending proposal notice could not be loaded.", error);
+});

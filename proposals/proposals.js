@@ -278,6 +278,7 @@ async function submitDecision(event) {
   event.preventDefault();
   const version = currentVersion();
   if (!selectedProposal || !version) return;
+  const resolvedProposalId = selectedProposal.id;
   if (selectedDecision === "changes_requested" && !decisionMessage.value.trim()) {
     decisionStatus.textContent = "Describe the changes you need.";
     decisionStatus.classList.add("is-error");
@@ -299,6 +300,7 @@ async function submitDecision(event) {
     if (error) throw error;
     decisionStatus.textContent = "Your response was recorded.";
     await loadProposals(selectedProposal.id);
+    window.dispatchEvent(new CustomEvent("n3xra:proposal-resolved", { detail: { proposalId: resolvedProposalId } }));
   } catch (error) {
     decisionStatus.textContent = error?.message || "Unable to record this response.";
     decisionStatus.classList.add("is-error");

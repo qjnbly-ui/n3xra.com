@@ -1,4 +1,5 @@
 import { createBrowserSupabase, hasConfig } from "/shared/lib/supabase-client.js";
+import { clearPendingProposalNoticeDismissals } from "./pending-proposal-notice.js";
 import { portalSignedOutUrl } from "./tenant-context.js";
 
 const logoutButton = document.querySelector<HTMLButtonElement>("#portal-logout");
@@ -18,6 +19,7 @@ logoutButton?.addEventListener("click", async () => {
   } catch (error) {
     console.warn("Portal sign-out did not complete cleanly.", error);
   } finally {
+    clearPendingProposalNoticeDismissals();
     window.location.replace(portalSignedOutUrl());
   }
 });

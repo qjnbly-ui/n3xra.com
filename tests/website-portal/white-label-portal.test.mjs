@@ -68,7 +68,7 @@ test("client portal sign-out clears only the current session and always returns 
     projectFile("client-portal/tenant-context.js"),
   ]);
 
-  assert.match(html, /portal-shell\.js\?v=4/);
+  assert.match(html, /portal-shell\.js\?v=5/);
   assert.match(loginHtml, /login\.js\?v=5/);
   assert.match(shell, /signOut\(\{ scope: "local" \}\)/);
   assert.match(shell, /finally/);
