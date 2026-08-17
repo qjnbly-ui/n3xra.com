@@ -206,7 +206,8 @@ function renderBillingArrangement(recurringTotal = moneyToCents(document.getElem
   const months = Math.max(1, Number(document.getElementById(fieldIds.complimentary_months).value || 12));
   const noticeDays = Math.max(1, Number(document.getElementById(fieldIds.review_notice_days).value || 45));
   const interval = document.getElementById(fieldIds.recurring_interval).value || "billing period";
-  summary.innerHTML = `<strong>Free-period arrangement</strong><span>The approved service price is ${formatMoney(recurringTotal)} per ${escapeHtml(interval)}. The first ${months} months are provided at no charge, so recurring service due now is $0. N3XRA will review the plan with the client ${noticeDays} days before the free period ends. No paid subscription or invoice starts without written approval.</span>`;
+  const intervalLabel = interval === "yearly" ? "year" : interval === "monthly" ? "month" : interval === "quarterly" ? "quarter" : interval;
+  summary.innerHTML = `<strong>Free-period arrangement</strong><span>The approved service price is ${formatMoney(recurringTotal)} per ${escapeHtml(intervalLabel)}. The first ${months} months are provided at no charge, so recurring service due now is $0. N3XRA will review the plan with the client ${noticeDays} days before the free period ends. No paid subscription or invoice starts without written approval.</span>`;
 }
 
 function websiteBuildSubtotal(items = []) {
@@ -477,6 +478,7 @@ function fillForm(version) {
   });
   configureReferralDiscount({ apply: Boolean(!version && selectedRequest?.referral_code) });
   renderLineItems(version);
+  document.getElementById(fieldIds.recurring_start_policy).dispatchEvent(new Event("change", { bubbles: true }));
 }
 
 function renderEditor() {
