@@ -6,6 +6,7 @@ const confirmationMessage = document.querySelector("#careers-confirmation-messag
 const confirmationNextStep = document.querySelector("#careers-confirmation-next-step");
 const submitButton = document.querySelector("#careers-submit");
 const turnstileElement = document.querySelector("#careers-turnstile");
+const securityStatus = document.querySelector("#careers-security-status");
 let turnstileWidgetId = null;
 let captchaToken = "";
 const clean = (value) => String(value || "").trim();
@@ -15,6 +16,7 @@ const safeFilename = (value) => clean(value).replace(/[^a-zA-Z0-9._-]+/g, "-").r
 function resetTurnstile() {
   captchaToken = "";
   if (window.turnstile && turnstileWidgetId !== null) window.turnstile.reset(turnstileWidgetId);
+  if (securityStatus) securityStatus.textContent = "Complete the security check to send your application.";
   if (submitButton) submitButton.disabled = true;
 }
 
@@ -30,16 +32,17 @@ function renderTurnstile() {
     callback(token) {
       captchaToken = token;
       status.textContent = "";
+      if (securityStatus) securityStatus.textContent = "Security check complete.";
       if (submitButton) submitButton.disabled = false;
     },
     "expired-callback"() {
       captchaToken = "";
-      status.textContent = "Security check expired. Please complete it again.";
+      if (securityStatus) securityStatus.textContent = "Security check expired. Please complete it again.";
       if (submitButton) submitButton.disabled = true;
     },
     "error-callback"() {
       captchaToken = "";
-      status.textContent = "Security check failed to load. Please refresh and try again.";
+      if (securityStatus) securityStatus.textContent = "Security check failed to load. Please refresh and try again.";
       if (submitButton) submitButton.disabled = true;
     },
   });

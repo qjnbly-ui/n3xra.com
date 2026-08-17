@@ -13,7 +13,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/site-nav.css?v=4">
   <link rel="stylesheet" href="/assets/home-shell.css?v=1">
-  <link rel="stylesheet" href="/careers/careers.css?v=3">
+  <link rel="stylesheet" href="/careers/careers.css?v=4">
   <script src="/shared/config.js"></script>
   <script src="/assets/site-nav.js?v=5"></script>
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
@@ -191,10 +191,14 @@
           </div>
         </section>
 
-        <label class="consent-field"><input name="information_retention_consent" type="checkbox" required><span>I agree that N3XRA may retain my application information for consideration for current and future opportunities. <strong>Required</strong></span></label>
-        <label class="careers-honeypot" aria-hidden="true">Leave this field empty<input name="website_confirm" tabindex="-1" autocomplete="off"></label>
-        <div class="careers-security"><div id="careers-turnstile"></div><p>Security check required before sending.</p></div>
-        <div class="form-actions"><button id="careers-submit" type="submit" disabled>Send application</button><p id="careers-status" role="status" aria-live="polite"></p></div>
+        <section class="form-submit-section" aria-label="Review and send application">
+          <label class="consent-field"><input name="information_retention_consent" type="checkbox" required><span>I agree that N3XRA may retain my application information for consideration for current and future opportunities. <strong>Required</strong></span></label>
+          <label class="careers-honeypot" aria-hidden="true">Leave this field empty<input name="website_confirm" tabindex="-1" autocomplete="off"></label>
+          <div class="form-submit-row">
+            <div class="careers-security"><div id="careers-turnstile"></div><p id="careers-security-status">Complete the security check to send your application.</p></div>
+            <div class="form-actions"><p id="careers-status" role="status" aria-live="polite"></p><button id="careers-submit" type="submit" disabled>Send application</button></div>
+          </div>
+        </section>
       </form>
     </section>
   </main>
@@ -241,7 +245,7 @@
     </div>
   </footer>
 
-  <script type="module" src="/careers/careers.js?v=3"></script>
+  <script type="module" src="/careers/careers.js?v=4"></script>
   <script>
     (() => {
       const header = document.querySelector("[data-home-header]");
