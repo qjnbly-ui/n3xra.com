@@ -99,10 +99,21 @@ function adminTools(project, snapshot, schedule, charges, subscription, communic
   </section>`;
 }
 
-function adminTaskActions(project, snapshot, cardInfo) {
+function domainBillingItem(snapshot) {
+  return (snapshot?.website_billing_snapshot_items || []).find((item) =>
+    item.category === "domain" && item.billing_type === "recurring" && item.included_in_initial_checkout
+  );
+}
+
+function adminTaskActions(project, snapshot, cardInfo, domainSubscription) {
   if (!adminMode || !snapshot) return "";
   if (snapshot.recurring_start_policy === "review_required") {
-    return `<section class="billing-task-actions"><div class="billing-section-heading"><div><p class="portal-kicker">No payment due</p><h4>Complimentary service period</h4><p>Starter+ is provided at no charge for ${Number(snapshot.complimentary_months || 0)} months. Review the plan with the client ${Number(snapshot.review_notice_days || 45)} days before that period ends. Do not create a paid subscription or invoice until the client approves it in writing.</p></div></div></section>`;
+    const domainItem = domainBillingItem(snapshot);
+    return `<section class="billing-task-actions"><div class="billing-section-heading"><div><p class="portal-kicker">Website service is free</p><h4>Complimentary Starter+ period</h4><p>Starter+ is provided at no charge for ${Number(snapshot.complimentary_months || 0)} months. Review the plan with the client ${Number(snapshot.review_notice_days || 45)} days before that period ends. Paid website service will not begin without written approval.</p></div></div>
+      ${domainItem ? `<div class="billing-task-action-list">${domainSubscription
+        ? `<div class="billing-task-action"><strong>Yearly domain billing is active</strong><small>${money(domainSubscription.amount_cents)} renews ${date(domainSubscription.current_period_end)} through Stripe.</small><span>Domain is connected ✓</span></div>`
+        : `<button class="billing-task-action" type="button" data-admin-checkout="${snapshot.id}"><strong>Set up the yearly domain renewal</strong><small>The client securely approves ${money(domainItem.total_amount_cents)} per year in Stripe. This does not activate paid Starter+ service.</small><span>Create domain payment link →</span></button>`}</div>` : ""}
+    </section>`;
   }
   const renewalPeriod = snapshot.recurring_interval === "yearly" ? "yearly" : "monthly";
   return `<section class="billing-task-actions">
@@ -116,7 +127,7 @@ function adminTaskActions(project, snapshot, cardInfo) {
   </section>`;
 }
 
-function billingItemList(snapshot) {
+function billingItemList(snapshot, subscriptions = []) {
   const items = [...(snapshot?.website_billing_snapshot_items || [])]
     .sort((left, right) => Number(left.sort_order || 0) - Number(right.sort_order || 0));
   if (!items.length) return "";
@@ -126,7 +137,13 @@ function billingItemList(snapshot) {
       const frequency = item.billing_type === "recurring" && item.recurring_interval
         ? ` / ${label(item.recurring_interval)}`
         : " one time";
-      return `<div class="billing-plan-item"><div><span>${escape(label(item.category || item.billing_type))}</span><strong>${escape(item.name)}</strong>${item.description ? `<small>${escape(item.description)}</small>` : ""}</div><b>${money(item.total_amount_cents)}<small>${escape(frequency)}</small></b></div>`;
+      const matchingSubscription = item.category === "domain"
+        ? subscriptions.find((subscription) => subscription.subscription_type === "domain")
+        : subscriptions.find((subscription) => subscription.subscription_type !== "domain");
+      const billingStatus = matchingSubscription && item.billing_type === "recurring"
+        ? `<small>${escape(label(matchingSubscription.status))} in Stripe${matchingSubscription.current_period_end ? ` · renews ${date(matchingSubscription.current_period_end)}` : ""}</small>`
+        : "";
+      return `<div class="billing-plan-item"><div><span>${escape(label(item.category || item.billing_type))}</span><strong>${escape(item.name)}</strong>${item.description ? `<small>${escape(item.description)}</small>` : ""}${billingStatus}</div><b>${money(item.total_amount_cents)}<small>${escape(frequency)}</small></b></div>`;
     }).join("")}</div>
   </section>`;
 }
@@ -143,12 +160,14 @@ function chargeList(charges) {
 
 function card(project) {
   const snapshot = records.snapshots.find((item) => item.project_id === project.id);
-  const subscription = records.subscriptions.find((item) => item.project_id === project.id);
+  const projectSubscriptions = records.subscriptions.filter((item) => item.project_id === project.id);
+  const subscription = projectSubscriptions.find((item) => item.subscription_type !== "domain");
+  const domainSubscription = projectSubscriptions.find((item) => item.subscription_type === "domain");
   const invoices = records.invoices.filter((item) => item.project_id === project.id);
   const schedule = records.schedules.find((item) => item.project_id === project.id);
   const charges = records.charges.filter((item) => item.project_id === project.id);
   const communications = records.communications.filter((item) => item.project_id === project.id);
-  const cardInfo = subscription?.website_billing_customers || records.customers.find((item) => item.user_id === project.client_user_id);
+  const cardInfo = subscription?.website_billing_customers || domainSubscription?.website_billing_customers || records.customers.find((item) => item.user_id === project.client_user_id);
   const committed = charges.filter((item) => ["proposal_balance", "milestone"].includes(item.source) && !["void", "canceled"].includes(item.status)).reduce((sum, item) => sum + Number(item.amount_cents || 0), 0);
   const remaining = Math.max(0, Number(snapshot?.remaining_build_balance_cents || 0) - committed);
   const state = subscription?.status || snapshot?.status || "not_prepared";
@@ -159,11 +178,11 @@ function card(project) {
       <div><span>Initial payment</span><strong>${money(snapshot.amount_due_now_cents)}</strong><small>${snapshot.recurring_start_policy === "review_required" ? `First ${Number(snapshot.complimentary_months || 0)} months are complimentary` : remaining ? `${money(remaining)} accepted balance not yet billed` : "No remaining proposal balance"}</small></div>
       <div><span>Service starts</span><strong>${dateTime(schedule?.service_start_at || snapshot.activated_at)}</strong><small>${subscription?.current_period_end ? `Next renewal ${date(subscription.current_period_end)}` : "Set when service should begin"}</small></div>
       <div><span>Payment method</span><strong>${cardInfo?.payment_method_last4 ? `${escape(cardInfo.payment_method_brand)} •••• ${escape(cardInfo.payment_method_last4)}` : "Not saved"}</strong><small>${cardInfo?.payment_method_last4 ? "Saved securely in Stripe" : "Added during secure checkout"}</small></div>
-    </div>${billingItemList(snapshot)}` : `<div class="billing-empty-state"><div><span aria-hidden="true">$</span><h4>Billing is not prepared</h4><p>Open the approved proposal and prepare billing when this website is ready. Nothing will be charged from this page automatically.</p></div>${adminMode ? '<a class="portal-button" href="/n3xra-admin/proposals/">Open proposals</a>' : ""}</div>`}
-    ${adminTaskActions(project, snapshot, cardInfo)}
+    </div>${billingItemList(snapshot, projectSubscriptions)}` : `<div class="billing-empty-state"><div><span aria-hidden="true">$</span><h4>Billing is not prepared</h4><p>Open the approved proposal and prepare billing when this website is ready. Nothing will be charged from this page automatically.</p></div>${adminMode ? '<a class="portal-button" href="/n3xra-admin/proposals/">Open proposals</a>' : ""}</div>`}
+    ${adminTaskActions(project, snapshot, cardInfo, domainSubscription)}
     <div class="portal-form-actions billing-primary-actions">
-      ${!adminMode && snapshot && snapshot.status !== "active" && snapshot.recurring_start_policy !== "review_required" ? `<button class="portal-button" data-checkout="${snapshot.id}">Complete secure billing setup</button>` : ""}
-      ${!adminMode && subscription ? `<button class="portal-button" data-portal="${project.id}">Manage billing in Stripe</button>` : ""}
+      ${!adminMode && snapshot && snapshot.status !== "active" && (snapshot.recurring_start_policy !== "review_required" || (domainBillingItem(snapshot) && !domainSubscription)) ? `<button class="portal-button" data-checkout="${snapshot.id}">${snapshot.recurring_start_policy === "review_required" ? "Set up yearly domain billing" : "Complete secure billing setup"}</button>` : ""}
+      ${!adminMode && projectSubscriptions.length ? `<button class="portal-button" data-portal="${project.id}">Manage billing in Stripe</button>` : ""}
     </div>
     ${chargeList(charges)}
     ${invoices.length ? `<div class="billing-invoices"><h4>Recent invoices</h4>${invoices.map((invoice) => `<a class="billing-invoice" href="${escape(invoice.hosted_invoice_url || invoice.invoice_pdf_url || "#")}" target="_blank" rel="noopener"><span>${date(invoice.created_at)} · ${escape(label(invoice.status))}</span><strong>${money(invoice.total_cents)}</strong></a>`).join("")}</div>` : ""}

@@ -187,8 +187,14 @@ function updateTotal() {
   const oneTimeTotal = Math.max(moneyToCents(document.getElementById(fieldIds.subtotal_cents).value) - moneyToCents(document.getElementById(fieldIds.discount_cents).value), 0);
   const recurringTotal = moneyToCents(document.getElementById(fieldIds.recurring_cents).value);
   const reviewRequired = document.getElementById(fieldIds.recurring_start_policy).value === "review_required";
+  let immediateAddOns = 0;
+  try {
+    immediateAddOns = collectLineItems()
+      .filter((item) => item.billing_type === "recurring" && !["maintenance", "hosting"].includes(item.category))
+      .reduce((sum, item) => sum + Math.round(item.quantity * item.unit_amount_cents), 0);
+  } catch { /* Keep totals stable while a line is being edited. */ }
   document.getElementById(fieldIds.total_cents).value = centsToMoney(oneTimeTotal);
-  document.getElementById("proposal-checkout-total").value = centsToMoney(oneTimeTotal + (reviewRequired ? 0 : recurringTotal));
+  document.getElementById("proposal-checkout-total").value = centsToMoney(oneTimeTotal + immediateAddOns + (reviewRequired ? 0 : recurringTotal));
   renderBillingArrangement(recurringTotal);
 }
 
@@ -205,7 +211,12 @@ function renderBillingArrangement(recurringTotal = moneyToCents(document.getElem
   const noticeDays = Math.max(1, Number(document.getElementById(fieldIds.review_notice_days).value || 45));
   const interval = document.getElementById(fieldIds.recurring_interval).value || "billing period";
   const intervalLabel = interval === "yearly" ? "year" : interval === "monthly" ? "month" : interval === "quarterly" ? "quarter" : interval;
-  summary.innerHTML = `<strong>${formatMoney(recurringTotal)} per ${escapeHtml(intervalLabel)} — first year free</strong><span>$0 is due for service during the first ${months} months. Review the plan ${noticeDays} days before the free year ends. No paid billing starts without written approval.</span>`;
+  let addOnNote = "";
+  try {
+    const domain = collectLineItems().find((item) => item.category === "domain" && item.billing_type === "recurring");
+    if (domain) addOnNote = ` The ${formatMoney(Math.round(domain.quantity * domain.unit_amount_cents))} yearly domain renewal is billed separately.`;
+  } catch { /* The main service terms can still render. */ }
+  summary.innerHTML = `<strong>${formatMoney(recurringTotal)} per ${escapeHtml(intervalLabel)} — first year free</strong><span>$0 is due for Starter+ during the first ${months} months.${addOnNote} Review the plan ${noticeDays} days before the free year ends. No paid website service starts without written approval.</span>`;
 }
 
 function websiteBuildSubtotal(items = []) {
@@ -389,14 +400,13 @@ function updateInvestmentTotals() {
     .reduce((sum, item) => sum + Math.round(item.quantity * item.unit_amount_cents), 0);
   document.getElementById(fieldIds.subtotal_cents).value = centsToMoney(subtotal);
   const recurring = items.filter((item) => item.billing_type === "recurring");
-  const intervals = [...new Set(recurring.map((item) => item.recurring_interval))];
-  document.getElementById(fieldIds.recurring_cents).value = intervals.length === 1
-    ? centsToMoney(recurring.reduce((sum, item) => sum + Math.round(item.quantity * item.unit_amount_cents), 0))
+  const service = recurring.find((item) => ["maintenance", "hosting"].includes(item.category));
+  document.getElementById(fieldIds.recurring_cents).value = service
+    ? centsToMoney(Math.round(service.quantity * service.unit_amount_cents))
     : "0";
-  document.getElementById(fieldIds.recurring_interval).value = intervals.length === 1 ? intervals[0] : "";
-  const service = recurring.find((item) => item.name === "Founding Client Starter website service");
+  document.getElementById(fieldIds.recurring_interval).value = service?.recurring_interval || "";
   const schedule = document.getElementById(fieldIds.payment_schedule);
-  if (service && editingVersion?.status === "draft" && /(Website Service:\s*)[^,\n]+(?=,)/i.test(schedule.value)) {
+  if (service?.name === "Founding Client Starter website service" && editingVersion?.status === "draft" && /(Website Service:\s*)[^,\n]+(?=,)/i.test(schedule.value)) {
     const frequency = service.recurring_interval === "yearly" ? "year" : service.recurring_interval;
     schedule.value = schedule.value.replace(/(Website Service:\s*)[^,\n]+(?=,)/i, (_match, prefix) => `${prefix}$${centsToMoney(service.unit_amount_cents)}/${frequency}`);
   }

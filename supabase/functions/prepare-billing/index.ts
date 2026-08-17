@@ -103,7 +103,7 @@ Deno.serve(async (request) => {
       total_amount_cents: Math.round(Number(item.quantity) * Number(item.unit_amount_cents)),
       recurring_interval: item.recurring_interval,
       included_in_initial_checkout: item.billing_type === "recurring"
-        ? version.recurring_start_policy !== "review_required"
+        ? String(item.category) === "domain" || version.recurring_start_policy !== "review_required"
         : due === total || initialOutsideCategories.has(String(item.category)),
       sort_order: item.sort_order,
     }));

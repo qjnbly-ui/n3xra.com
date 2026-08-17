@@ -165,6 +165,7 @@ Deno.serve(async (request) => {
         .from("website_subscriptions")
         .select("id,stripe_subscription_id,status")
         .eq("project_id", context.project.id)
+        .eq("subscription_type", "service")
         .maybeSingle();
       const recurringItems = (context.snapshot.website_billing_snapshot_items || [])
         .filter((item: Record<string, unknown>) => item.billing_type === "recurring" && item.included_in_initial_checkout)
@@ -252,6 +253,7 @@ Deno.serve(async (request) => {
         .upsert({
           project_id: context.project.id,
           snapshot_id: context.snapshot.id,
+          subscription_type: "service",
           client_user_id: context.project.client_user_id,
           website_billing_customer_id: customer.id,
           stripe_subscription_id: subscription.id,
@@ -267,7 +269,7 @@ Deno.serve(async (request) => {
           annual_partner_qualifying: context.snapshot.annual_partner_qualifying,
           referral_code: context.snapshot.referral_code,
           offer_code: context.snapshot.offer_code,
-        }, { onConflict: "project_id" })
+        }, { onConflict: "project_id,subscription_type" })
         .select("id")
         .single();
       if (subscriptionError) throw new Error(subscriptionError.message);
@@ -503,7 +505,7 @@ Deno.serve(async (request) => {
     }
 
     if (action === "schedule_cancellation") {
-      const { data: subscription } = await admin.from("website_subscriptions").select("*").eq("project_id", context.project.id).single();
+      const { data: subscription } = await admin.from("website_subscriptions").select("*").eq("project_id", context.project.id).eq("subscription_type", "service").single();
       if (!subscription?.stripe_subscription_id) throw new Error("Active Stripe subscription not found.");
       const result = await stripeClient().subscriptions.update(subscription.stripe_subscription_id, {
         cancel_at_period_end: true,

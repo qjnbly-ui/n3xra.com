@@ -29,6 +29,10 @@ function appFrom(metadata?: Stripe.Metadata | null) {
   return String(metadata?.app || "").trim().toLowerCase();
 }
 
+function subscriptionType(metadata?: Stripe.Metadata | null) {
+  return metadata?.subscription_type === "domain" ? "domain" : "service";
+}
+
 function customerId(value: string | Stripe.Customer | Stripe.DeletedCustomer | null) {
   return typeof value === "string" ? value : value?.id || null;
 }
@@ -66,27 +70,32 @@ async function syncSubscription(admin: ReturnType<typeof createClient>, subscrip
   const { data: billingCustomer } = await admin.from("website_billing_customers").select("id").eq("stripe_customer_id", stripeCustomerId).single();
   if (!billingCustomer) return false;
   const period = subscriptionPeriod(subscription);
+  const type = subscriptionType(subscription.metadata);
+  const firstItem = subscription.items.data[0];
+  const interval = firstItem?.price?.recurring?.interval === "year" ? "yearly" : "monthly";
+  const amountCents = subscription.items.data.reduce((sum, item) => sum + Number(item.price.unit_amount || 0) * Number(item.quantity || 1), 0);
   await admin.from("website_subscriptions").upsert({
     project_id: snapshot.project_id,
     snapshot_id: snapshot.id,
+    subscription_type: type,
     client_user_id: snapshot.client_user_id,
     website_billing_customer_id: billingCustomer.id,
     stripe_subscription_id: subscription.id,
-    stripe_price_id: subscription.items.data[0]?.price?.id || null,
+    stripe_price_id: firstItem?.price?.id || null,
     service_plan: snapshot.service_plan,
-    billing_interval: snapshot.recurring_interval,
-    amount_cents: snapshot.recurring_cents,
+    billing_interval: interval,
+    amount_cents: amountCents,
     status: mapSubscriptionStatus(subscription.status),
     current_period_start: unixDate(period.start),
     current_period_end: unixDate(period.end),
-    commitment_ends_at: snapshot.recurring_interval === "yearly" ? unixDate(period.end) : null,
+    commitment_ends_at: interval === "yearly" ? unixDate(period.end) : null,
     cancel_at_period_end: Boolean(subscription.cancel_at_period_end || subscription.cancel_at),
     annual_partner_qualifying: snapshot.annual_partner_qualifying,
     referral_code: snapshot.referral_code,
     offer_code: snapshot.offer_code,
-  }, { onConflict: "project_id" });
+  }, { onConflict: "project_id,subscription_type" });
   const waitsForOfflineInvoice = Boolean(subscription.metadata.offline_payment_method);
-  if ((subscription.status === "active" || subscription.status === "trialing") && !waitsForOfflineInvoice) {
+  if (type === "service" && (subscription.status === "active" || subscription.status === "trialing") && !waitsForOfflineInvoice) {
     await activateSnapshot(admin, snapshot.id, snapshot.project_id);
     await admin.from("website_billing_schedules").update({
       status: "active",
@@ -296,6 +305,13 @@ async function syncInvoice(admin: ReturnType<typeof createClient>, stripe: Strip
       status: "active",
       activated_at: new Date().toISOString(),
     }).eq("snapshot_id", snapshot.id);
+  }
+  if (subscription && subscriptionType(metadata) === "domain" && invoice.status === "paid") {
+    await admin.from("website_billing_snapshots").update({
+      status: "prepared",
+      checkout_url: null,
+      checkout_expires_at: null,
+    }).eq("id", snapshot.id).eq("status", "checkout_pending");
   }
   await admin.from("website_invoice_items").delete().eq("invoice_id", localInvoice.id);
   const lines = (invoice.lines?.data || []).map((line) => ({

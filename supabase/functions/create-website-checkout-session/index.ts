@@ -16,11 +16,18 @@ Deno.serve(async (request) => {
     if (error || !snapshot) return response({ error: "Billing setup was not found." }, 404, origin);
     if (snapshot.client_user_id !== authUser.id && isAdmin !== true) return response({ error: "You cannot access this website billing setup." }, 403, origin);
     if (snapshot.status === "active") return response({ error: "Billing is already active." }, 409, origin);
-    if (snapshot.recurring_start_policy === "review_required") {
-      return response({ error: "This plan has a complimentary period and requires a review before paid billing. No checkout or subscription should be created yet." }, 409, origin);
-    }
     if (snapshot.checkout_url && snapshot.checkout_expires_at && new Date(snapshot.checkout_expires_at) > new Date()) {
       return response({ url: snapshot.checkout_url, reused: true }, 200, origin);
+    }
+
+    const includedRecurringItems = (snapshot.website_billing_snapshot_items || [])
+      .filter((item: Record<string, unknown>) => item.billing_type === "recurring" && item.included_in_initial_checkout)
+      .sort((a: Record<string, unknown>, b: Record<string, unknown>) => Number(a.sort_order || 0) - Number(b.sort_order || 0));
+    const subscriptionType = includedRecurringItems.length && includedRecurringItems.every((item: Record<string, unknown>) => item.category === "domain")
+      ? "domain"
+      : "service";
+    if (snapshot.recurring_start_policy === "review_required" && subscriptionType !== "domain") {
+      return response({ error: "Starter+ is complimentary and requires a review before paid service billing. Only an approved domain renewal can be set up now." }, 409, origin);
     }
 
     const stripe = stripeClient();
@@ -46,6 +53,7 @@ Deno.serve(async (request) => {
       billing_snapshot_id: snapshot.id,
       referral_code: snapshot.referral_code,
       offer_code: snapshot.offer_code,
+      subscription_type: subscriptionType,
     });
     const { data: schedule } = await admin
       .from("website_billing_schedules")
@@ -63,11 +71,9 @@ Deno.serve(async (request) => {
     });
 
     let mode: Stripe.Checkout.SessionCreateParams.Mode = "payment";
-    if (snapshot.recurring_cents > 0) {
+    if (includedRecurringItems.length) {
       mode = "subscription";
-      const recurringItems = (snapshot.website_billing_snapshot_items || [])
-        .filter((item: Record<string, unknown>) => item.billing_type === "recurring" && item.included_in_initial_checkout)
-        .sort((a: Record<string, unknown>, b: Record<string, unknown>) => Number(a.sort_order || 0) - Number(b.sort_order || 0));
+      const recurringItems = includedRecurringItems;
       if (!recurringItems.length) throw new Error("No recurring billing lines were found for this proposal.");
       const intervals = new Set(recurringItems.map((item: Record<string, unknown>) => String(item.recurring_interval || "")));
       if (intervals.size > 1) {

@@ -237,7 +237,7 @@ async function loadPlatformAccountData(adminClient: ReturnType<typeof createClie
     adminClient.from("account_phone_credentials").select("user_id, phone_e164, failed_attempts, locked_until, last_authenticated_at, last_password_reset_sent_at, created_at, updated_at"),
     adminClient.from("organization_product_entitlements").select("organization_id,status,portal_enabled").eq("product_key", "records"),
     adminClient.from("website_projects").select("id,name,client_user_id,status,current_stage,updated_at"),
-    adminClient.from("website_subscriptions").select("id,project_id,client_user_id,stripe_subscription_id,service_plan,billing_interval,amount_cents,status,current_period_end,updated_at"),
+    adminClient.from("website_subscriptions").select("id,project_id,client_user_id,stripe_subscription_id,subscription_type,service_plan,billing_interval,amount_cents,status,current_period_end,updated_at"),
     adminClient.from("website_billing_customers").select("id,user_id,stripe_customer_id,payment_method_status"),
     adminClient.from("website_billing_snapshots").select("id,project_id,client_user_id,status,service_plan,recurring_interval,recurring_cents,prepared_at,updated_at").order("created_at", { ascending: false }),
     listAllAuthUsers(adminClient),
@@ -272,7 +272,7 @@ async function loadPlatformAccountData(adminClient: ReturnType<typeof createClie
   const utilityMap = new Map((utilityOrganizationsResult.data || []).map((organization) => [String(organization.id), organization]));
   const utilityRoleMap = new Map((utilityRolesResult.data || []).map((role) => [String(role.id), role]));
   const accountPhoneMap = new Map((accountPhonesResult.data || []).map((credential) => [String(credential.user_id), credential]));
-  const websiteSubscriptionMap = new Map((websiteSubscriptionsResult.data || []).map((subscription) => [String(subscription.project_id), subscription]));
+  const websiteSubscriptionMap = new Map((websiteSubscriptionsResult.data || []).filter((subscription) => subscription.subscription_type !== "domain").map((subscription) => [String(subscription.project_id), subscription]));
   const websiteBillingCustomerMap = new Map((websiteBillingCustomersResult.data || []).map((customer) => [String(customer.user_id), customer]));
   const websiteSnapshotMap = new Map<string, any>();
   (websiteBillingSnapshotsResult.data || []).forEach((snapshot) => {
