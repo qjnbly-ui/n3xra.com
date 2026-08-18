@@ -8,8 +8,14 @@ const adminPanel = document.getElementById("admin-panel");
 const logoutButton = document.getElementById("logout-button");
 const adminStatus = document.getElementById("admin-status");
 const organizationList = document.getElementById("organization-list");
+const organizationSearch = document.getElementById("organization-search");
+const organizationCount = document.getElementById("organization-count");
+const selectedOrganizationFacts = document.getElementById("selected-organization-facts");
 const adminUsageList = document.getElementById("admin-usage-list");
 const adminUsageStatus = document.getElementById("admin-usage-status");
+const adminUsageDetail = document.getElementById("admin-usage-detail");
+const usageSearch = document.getElementById("usage-search");
+const usageAccountCount = document.getElementById("usage-account-count");
 const usageRefreshButton = document.getElementById("usage-refresh-button");
 const organizationForm = document.getElementById("organization-form");
 const organizationNameInput = document.getElementById("organization-name");
@@ -57,6 +63,8 @@ let adminUsageAccounts = [];
 let selectedOrganizationId = "";
 let activeEmergencyAccessId = "";
 let activeSupportGrant = null;
+let organizationSearchTerm = "";
+let usageSearchTerm = "";
 
 function setStatus(el, message, tone = "") {
   if (!el) return;
@@ -95,6 +103,25 @@ async function invokePlatformAdmin(action, payload = {}) {
 
 function getSelectedOrganization() {
   return organizations.find((item) => item.id === selectedOrganizationId) || null;
+}
+
+function getSelectedUsageAccount() {
+  return adminUsageAccounts.find((item) => item.id === selectedOrganizationId) || null;
+}
+
+function getInitials(value) {
+  const words = String(value || "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  return (words.slice(0, 2).map((word) => word[0]).join("") || "R").toUpperCase();
+}
+
+function updateSelectedOrganizationUrl() {
+  if (!selectedOrganizationId) return;
+  const url = new URL(window.location.href);
+  url.searchParams.set("organization", selectedOrganizationId);
+  window.history.replaceState(null, "", `${url.pathname}?${url.searchParams.toString()}`);
 }
 
 function formatWholeNumber(value) {
@@ -219,6 +246,9 @@ function renderSelectedOrganization() {
     if (selectedOrganizationTitle) selectedOrganizationTitle.textContent = "Select an organization";
     if (selectedOrganizationSummary) selectedOrganizationSummary.textContent = "Choose an organization to continue.";
     selectedOrganizationSupportLink?.classList.add("hidden");
+    if (selectedOrganizationFacts) {
+      selectedOrganizationFacts.innerHTML = '<div class="records-directory-empty"><p class="portal-kicker">Account details</p><h3>No organization selected</h3><p>Select a client from the list to view its owner, plan, access status, members, and renewal date.</p></div>';
+    }
     if (passwordResetEmailInput) passwordResetEmailInput.value = "";
     return;
   }
@@ -235,6 +265,26 @@ function renderSelectedOrganization() {
   }
   if (selectedOrganizationSupportLink) {
     selectedOrganizationSupportLink.classList.remove("hidden");
+  }
+  if (selectedOrganizationFacts) {
+    const renewalDate = organization.subscription_current_period_end
+      ? formatDateTime(organization.subscription_current_period_end)
+      : "No date set";
+    const featureCount = [organization.public_embed_enabled, organization.keyword_search_enabled].filter(Boolean).length;
+    selectedOrganizationFacts.innerHTML = `
+      <section class="records-organization-fact-grid" aria-label="Organization account summary">
+        <article><span>Owner</span><strong>${escapeHtml(ownerEmail || "No owner assigned")}</strong><small>${escapeHtml(organization.owner_profile?.full_name || "Records account owner")}</small></article>
+        <article><span>Plan</span><strong>${escapeHtml(organization.subscription_tier || "free")}</strong><small>${formatWholeNumber(organization.document_limit)} document limit</small></article>
+        <article><span>Account status</span><strong class="records-state-value is-${escapeHtml(organization.account_status || "active")}">${escapeHtml(organization.account_status || "active")}</strong><small>${organization.cancel_at_period_end ? "Cancels at period end" : "Access remains enabled"}</small></article>
+        <article><span>Members</span><strong>${formatWholeNumber(organization.member_count)}</strong><small>${formatWholeNumber(organization.user_limit)} seat limit</small></article>
+        <article><span>Storage limit</span><strong>${formatStorageDecimal(Number(organization.storage_limit_mb || 0) / 1024, 1)} GB</strong><small>${formatWholeNumber(organization.storage_limit_mb)} MB configured</small></article>
+        <article><span>Renewal / trial end</span><strong>${escapeHtml(renewalDate)}</strong><small>${escapeHtml(organization.billing_cycle || "Billing cycle not set")}</small></article>
+        <article><span>Enabled features</span><strong>${featureCount} of 2</strong><small>${organization.public_embed_enabled ? "Public embed" : "Embed off"} · ${organization.keyword_search_enabled ? "Keyword search" : "Search off"}</small></article>
+        <article><span>Workspace slug</span><strong>${escapeHtml(organization.slug || "Not set")}</strong><small>Internal Records identifier</small></article>
+      </section>
+      <section class="records-directory-guidance"><div><p class="portal-kicker">Account workspace</p><h3>Settings, support access, and customer data</h3><p>Open the account workspace to update plan limits, send a password reset, or review customer-approved support access.</p></div><button class="portal-button portal-button-secondary" type="button" data-support-workspace-link>Open workspace</button></section>
+    `;
+    selectedOrganizationFacts.querySelector("[data-support-workspace-link]")?.addEventListener("click", openRecordsSupportView);
   }
   organizationNameInput.value = organization.name || "";
   organizationTierInput.value = organization.subscription_tier || "free";
@@ -279,6 +329,16 @@ function addMonths(date, count) {
 function renderOrganizations() {
   if (!organizationList) return;
   organizationList.innerHTML = "";
+  const filteredOrganizations = organizations.filter((organization) => {
+    if (!organizationSearchTerm) return true;
+    const haystack = `${organization.name || ""} ${organization.owner_profile?.email || ""} ${organization.owner_profile?.full_name || ""}`.toLowerCase();
+    return haystack.includes(organizationSearchTerm);
+  });
+  if (organizationCount) {
+    organizationCount.textContent = organizationSearchTerm
+      ? `${filteredOrganizations.length} of ${organizations.length}`
+      : String(organizations.length);
+  }
   if (!organizations.length) {
     if (organizationList instanceof HTMLSelectElement) {
       organizationList.innerHTML = '<option value="">No organizations found</option>';
@@ -289,9 +349,14 @@ function renderOrganizations() {
     return;
   }
 
+  if (!filteredOrganizations.length) {
+    organizationList.innerHTML = '<p class="records-directory-list-empty">No client accounts match this search.</p>';
+    return;
+  }
+
   if (organizationList instanceof HTMLSelectElement) {
     organizationList.disabled = false;
-    organizations.forEach((organization) => {
+    filteredOrganizations.forEach((organization) => {
       const option = document.createElement("option");
       option.value = organization.id;
       option.selected = organization.id === selectedOrganizationId;
@@ -301,7 +366,7 @@ function renderOrganizations() {
     return;
   }
 
-  organizations.forEach((organization) => {
+  filteredOrganizations.forEach((organization) => {
     const row = document.createElement("button");
     const isSelected = organization.id === selectedOrganizationId;
     row.className = `records-admin-org-item${isSelected ? " is-selected" : ""}`;
@@ -309,13 +374,13 @@ function renderOrganizations() {
     row.dataset.id = organization.id;
     const ownerEmail = organization.owner_profile?.email || "No owner email";
     row.innerHTML = `
+      <span class="records-directory-avatar" aria-hidden="true">${escapeHtml(getInitials(organization.name))}</span>
       <span class="records-admin-org-main">
         <strong>${escapeHtml(organization.name)}</strong>
         <span>${escapeHtml(ownerEmail)}</span>
       </span>
       <span class="records-admin-org-meta">
-        <span>${escapeHtml(organization.subscription_tier || "free")} / ${escapeHtml(organization.account_status || "active")}</span>
-        <span>${organization.member_count} member${Number(organization.member_count || 0) === 1 ? "" : "s"}${organization.subscription_current_period_end ? ` / ends ${escapeHtml(dateInputValue(organization.subscription_current_period_end))}` : ""}</span>
+        <span>${escapeHtml(organization.subscription_tier || "free")} · ${escapeHtml(organization.account_status || "active")} · ${organization.member_count} member${Number(organization.member_count || 0) === 1 ? "" : "s"}</span>
       </span>
     `;
     organizationList.append(row);
@@ -325,41 +390,71 @@ function renderOrganizations() {
 function renderAdminUsageOverview() {
   if (!adminUsageList) return;
   adminUsageList.innerHTML = "";
+  const filteredAccounts = adminUsageAccounts.filter((account) => {
+    if (!usageSearchTerm) return true;
+    return `${account.name || ""} ${account.ownerEmail || ""}`.toLowerCase().includes(usageSearchTerm);
+  });
+  if (usageAccountCount) {
+    usageAccountCount.textContent = usageSearchTerm
+      ? `${filteredAccounts.length} of ${adminUsageAccounts.length}`
+      : String(adminUsageAccounts.length);
+  }
   if (!adminUsageAccounts.length) {
-    adminUsageList.innerHTML = '<tr><td colspan="8">No usage data found.</td></tr>';
+    adminUsageList.innerHTML = '<p class="records-directory-list-empty">No usage data found.</p>';
+    renderAdminUsageDetail();
+    return;
+  }
+  if (!filteredAccounts.length) {
+    adminUsageList.innerHTML = '<p class="records-directory-list-empty">No client accounts match this search.</p>';
     return;
   }
 
-  adminUsageAccounts.forEach((account) => {
-    const row = document.createElement("tr");
-    row.className = account.id === selectedOrganizationId ? "is-selected-row" : "";
+  filteredAccounts.forEach((account) => {
+    const row = document.createElement("button");
+    row.type = "button";
+    row.className = `records-usage-account-item${account.id === selectedOrganizationId ? " is-selected" : ""}`;
     row.innerHTML = `
-      <td>
-        <strong>${escapeHtml(account.name)}</strong>
-        <br><small>${escapeHtml(account.ownerEmail || "No owner email")}</small>
-      </td>
-      <td>${escapeHtml(account.planName || account.planId || "Free")}<br><small>${escapeHtml(account.accountStatus || "active")}</small></td>
-      <td>${renderMetric(account.metrics?.storage, formatStorageBytes)}</td>
-      <td>
-        ${renderMetric(account.metrics?.documents)}
-        <small>${formatWholeNumber(account.usage?.appDocuments || 0)} app docs</small>
-      </td>
-      <td>
-        ${renderMetric(account.metrics?.aiRequests)}
-        <small>${formatWholeNumber(account.usage?.aiTokens || 0)} tokens this month</small>
-      </td>
-      <td>${renderMetric(account.metrics?.users)}</td>
-      <td>${escapeHtml(formatDateTime(account.usage?.lastActiveAt))}</td>
-      <td><div class="admin-usage-flags">${renderUsageFlags(account.flags)}</div></td>
+      <span class="records-directory-avatar" aria-hidden="true">${escapeHtml(getInitials(account.name))}</span>
+      <span class="records-usage-account-copy"><strong>${escapeHtml(account.name)}</strong><small>${escapeHtml(account.ownerEmail || "No owner email")}</small><em>${escapeHtml(account.planName || account.planId || "Free")} · ${escapeHtml(formatDateTime(account.usage?.lastActiveAt))}</em></span>
+      <span class="records-usage-list-state${account.flags?.length ? " has-warning" : ""}" aria-label="${account.flags?.length ? "Usage attention needed" : "Usage healthy"}"></span>
     `;
     row.addEventListener("click", () => {
       selectedOrganizationId = account.id;
-      renderOrganizations();
+      updateSelectedOrganizationUrl();
       renderAdminUsageOverview();
-      renderSelectedOrganization();
     });
     adminUsageList.append(row);
   });
+  renderAdminUsageDetail();
+}
+
+function renderAdminUsageDetail() {
+  if (!adminUsageDetail) return;
+  const account = getSelectedUsageAccount();
+  if (!account) {
+    adminUsageDetail.innerHTML = '<div class="records-directory-empty"><p class="portal-kicker">Usage details</p><h2>Select a client account</h2><p>Choose a client to review storage, documents, AI requests, seats, limits, and recent activity.</p></div>';
+    return;
+  }
+
+  const flags = Array.isArray(account.flags) ? account.flags : [];
+  adminUsageDetail.innerHTML = `
+    <header class="records-usage-detail-head"><div><p class="portal-kicker">Usage details</p><h2>${escapeHtml(account.name)}</h2><p>${escapeHtml(account.ownerEmail || "No owner email")} · Last active ${escapeHtml(formatDateTime(account.usage?.lastActiveAt))}</p></div><a class="portal-button portal-button-secondary" href="/n3xra-admin/records/organizations/?organization=${encodeURIComponent(account.id)}">Manage organization</a></header>
+    <section class="records-usage-facts"><article><span>Plan</span><strong>${escapeHtml(account.planName || account.planId || "Free")}</strong></article><article><span>Account status</span><strong>${escapeHtml(account.accountStatus || "active")}</strong></article><article><span>Usage health</span><div class="admin-usage-flags">${renderUsageFlags(flags)}</div></article><article><span>Last activity</span><strong>${escapeHtml(formatDateTime(account.usage?.lastActiveAt))}</strong></article></section>
+    <section class="records-usage-section"><header><div><p class="portal-kicker">Limits</p><h3>Current capacity</h3></div><p>Usage compared with the client’s configured plan limits.</p></header><div class="records-usage-metric-grid">
+      <article><span>Storage</span>${renderMetric(account.metrics?.storage, formatStorageBytes)}<small>${formatStorageBytes(account.metrics?.storage?.remaining || 0)} remaining</small></article>
+      <article><span>Source documents</span>${renderMetric(account.metrics?.documents)}<small>${formatWholeNumber(account.metrics?.documents?.remaining || 0)} remaining</small></article>
+      <article><span>AI requests this month</span>${renderMetric(account.metrics?.aiRequests)}<small>${formatWholeNumber(account.metrics?.aiRequests?.remaining || 0)} remaining</small></article>
+      <article><span>Member seats</span>${renderMetric(account.metrics?.users)}<small>${formatWholeNumber(account.metrics?.users?.remaining || 0)} remaining</small></article>
+    </div></section>
+    <section class="records-usage-section"><header><div><p class="portal-kicker">Activity</p><h3>Records content</h3></div><p>Current content and AI activity associated with this organization.</p></header><div class="records-usage-breakdown">
+      <article><span>Uploaded documents</span><strong>${formatWholeNumber(account.usage?.sourceDocuments || 0)}</strong></article>
+      <article><span>Editable documents</span><strong>${formatWholeNumber(account.usage?.appDocuments || 0)}</strong></article>
+      <article><span>Templates</span><strong>${formatWholeNumber(account.usage?.templates || 0)}</strong></article>
+      <article><span>Recordings</span><strong>${formatWholeNumber(account.usage?.recordings || 0)}</strong></article>
+      <article><span>AI requests</span><strong>${formatWholeNumber(account.usage?.aiRequests || 0)}</strong></article>
+      <article><span>AI tokens this month</span><strong>${formatWholeNumber(account.usage?.aiTokens || 0)}</strong></article>
+    </div></section>
+  `;
 }
 
 async function loadAdminUsageOverview() {
@@ -374,6 +469,12 @@ async function loadAdminUsageOverview() {
     if (!response.ok) throw new Error(data?.error || "Unable to load usage overview.");
 
     adminUsageAccounts = Array.isArray(data?.usage?.accounts) ? data.usage.accounts : [];
+    const requestedOrganizationId = new URLSearchParams(window.location.search).get("organization") || "";
+    if (requestedOrganizationId && adminUsageAccounts.some((account) => account.id === requestedOrganizationId)) {
+      selectedOrganizationId = requestedOrganizationId;
+    } else if (!adminUsageAccounts.some((account) => account.id === selectedOrganizationId)) {
+      selectedOrganizationId = adminUsageAccounts[0]?.id || "";
+    }
     renderAdminUsageOverview();
     setStatus(adminUsageStatus, `${adminUsageAccounts.length} account${adminUsageAccounts.length === 1 ? "" : "s"} in usage overview.`, "success");
   } catch (error) {
@@ -693,6 +794,7 @@ function handleOrganizationListClick(event) {
   const row = isSelect ? null : event.target.closest("[data-id]");
   if (!isSelect && !row) return;
   selectedOrganizationId = isSelect ? event.currentTarget.value : (row.getAttribute("data-id") || "");
+  updateSelectedOrganizationUrl();
   supportWorkspaceLinks.forEach((link) => link.classList.add("hidden"));
   renderOrganizations();
   renderAdminUsageOverview();
@@ -840,6 +942,14 @@ async function init() {
     organizationList instanceof HTMLSelectElement ? "change" : "click",
     handleOrganizationListClick
   );
+  organizationSearch?.addEventListener("input", () => {
+    organizationSearchTerm = organizationSearch.value.trim().toLowerCase();
+    renderOrganizations();
+  });
+  usageSearch?.addEventListener("input", () => {
+    usageSearchTerm = usageSearch.value.trim().toLowerCase();
+    renderAdminUsageOverview();
+  });
   usageRefreshButton?.addEventListener("click", loadAdminUsageOverview);
   organizationTierInput?.addEventListener("change", handleTierChange);
   organizationGrantSixMonthTrialButton?.addEventListener("click", handleGrantSixMonthTrial);

@@ -5,7 +5,7 @@
   <title>N3XRA | Records Usage</title><meta name="description" content="N3XRA Records account usage administration."><meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
   <link rel="canonical" href="https://n3xra.com/n3xra-admin/records/usage/"><link rel="icon" type="image/png" href="/assets/n3xra_logo_transparent_small.png">
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/site-nav.css?v=4"><link rel="stylesheet" href="/client-portal/portal.css?v=17"><link rel="stylesheet" href="/n3xra-admin/records/records-admin.css?v=2">
+  <link rel="stylesheet" href="/assets/site-nav.css?v=4"><link rel="stylesheet" href="/client-portal/portal.css?v=17"><link rel="stylesheet" href="/n3xra-admin/records/records-admin.css?v=7">
   <script src="/shared/config.js"></script><script src="/account/admin/admin-shell.js?v=2" defer></script><script src="/assets/site-nav.js?v=5"></script>
   <script>
     window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
@@ -14,16 +14,24 @@
   <link rel="stylesheet" href="/account/admin/admin.css?v=28">
   <script type="module" src="/account/admin/product-shell.js?v=16"></script>
 </head>
-<body class="portal-loading">
-  <main class="portal-shell">
+<body class="portal-loading records-admin-page records-usage-page">
+  <main class="portal-shell records-admin-shell">
     <section class="portal-workspace records-setup" id="setup-panel"><div class="portal-workspace-head"><div><h2>Connect Supabase</h2><p>Add your project configuration to continue.</p></div></div></section>
     <div class="portal-layout hidden" id="admin-panel">
       <nav class="portal-nav"></nav>
-      <section class="portal-workspace"><div class="portal-workspace-head"><div><p class="portal-kicker">Usage</p><h2>Account usage</h2><p>Storage, documents, AI requests, seats, and recent activity.</p></div><button class="portal-button portal-button-secondary" id="usage-refresh-button" type="button">Refresh</button></div>
-        <section class="records-admin-section"><div class="admin-usage-table-shell"><table class="admin-usage-table"><thead><tr><th>Account</th><th>Plan</th><th>Storage</th><th>Documents</th><th>AI</th><th>Seats</th><th>Last active</th><th>Flags</th></tr></thead><tbody id="admin-usage-list"></tbody></table></div><p class="status" id="admin-usage-status"></p></section>
+      <section class="portal-workspace records-directory-app"><div class="records-directory-workbench">
+        <aside class="records-directory-list-pane" aria-label="Records usage accounts">
+          <header class="records-directory-pane-head"><div><p class="portal-kicker">Records usage</p><strong>Client accounts</strong></div><span id="usage-account-count">0</span></header>
+          <label class="records-directory-search"><span>Find a client</span><input id="usage-search" type="search" placeholder="Organization or owner" autocomplete="off"></label>
+          <button class="records-directory-refresh" id="usage-refresh-button" type="button">Refresh usage</button>
+          <div class="records-usage-account-list" id="admin-usage-list"></div>
+          <p class="status" id="admin-usage-status" role="status" aria-live="polite"></p>
+        </aside>
+        <section class="records-directory-detail-pane" id="admin-usage-detail" aria-live="polite"><div class="records-directory-empty"><p class="portal-kicker">Usage details</p><h2>Select a client account</h2><p>Choose a client to review storage, documents, AI requests, seats, limits, and recent activity.</p></div></section>
+      </div>
       </section>
     </div>
   </main>
-  <script type="module" src="/n3xra-records/admin.js?v=20260805-function-errors"></script>
+  <script type="module" src="/n3xra-records/admin.js?v=20260818-records-directory"></script>
 </body>
 </html>

@@ -5,7 +5,7 @@
   <title>N3XRA | Records Organizations</title><meta name="description" content="N3XRA Records organization administration."><meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
   <link rel="canonical" href="https://n3xra.com/n3xra-admin/records/organizations/"><link rel="icon" type="image/png" href="/assets/n3xra_logo_transparent_small.png">
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/site-nav.css?v=4"><link rel="stylesheet" href="/client-portal/portal.css?v=17"><link rel="stylesheet" href="/n3xra-admin/records/records-admin.css?v=6">
+  <link rel="stylesheet" href="/assets/site-nav.css?v=4"><link rel="stylesheet" href="/client-portal/portal.css?v=17"><link rel="stylesheet" href="/n3xra-admin/records/records-admin.css?v=7">
   <script src="/shared/config.js"></script><script src="/account/admin/admin-shell.js?v=2" defer></script><script src="/assets/site-nav.js?v=5"></script>
   <script>
     window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
@@ -14,20 +14,23 @@
   <link rel="stylesheet" href="/account/admin/admin.css?v=28">
   <script type="module" src="/account/admin/product-shell.js?v=16"></script>
 </head>
-<body class="portal-loading">
-  <main class="portal-shell">
+<body class="portal-loading records-admin-page records-organizations-page">
+  <main class="portal-shell records-admin-shell">
     <section class="portal-workspace records-setup" id="setup-panel"><div class="portal-workspace-head"><div><h2>Connect Supabase</h2><p>Add your project configuration to continue.</p></div></div></section>
     <div class="portal-layout hidden" id="admin-panel">
       <nav class="portal-nav"></nav>
-      <section class="portal-workspace"><div id="organizations-workspace"><div class="portal-workspace-head"><div><p class="portal-kicker">Records administration</p><h2>Organizations</h2><p>Manage existing organization accounts.</p></div></div>
-        <section class="records-admin-section records-organization-accounts-section">
-          <div class="records-section-head"><div><p class="portal-kicker">Organizations</p><h3>Organization accounts</h3><p>Select an account, then open its support workspace.</p></div></div>
-          <div class="records-admin-selector records-admin-selector-top"><label class="records-admin-org-select"><span class="portal-kicker">Organizations</span><strong>Choose an account</strong><select id="organization-list" aria-label="Choose an organization account"></select></label><p class="status" id="admin-status"></p></div>
-          <div class="records-admin-layout records-admin-layout-single">
-          <div class="records-admin-selected">
-            <div class="selected-organization-head"><div><p class="portal-kicker">Selected organization</p><h3 id="selected-organization-title">Select an organization</h3><p id="selected-organization-summary">Choose an organization to continue.</p></div><button class="portal-button portal-button-secondary hidden" id="selected-organization-support-link" type="button">Open support workspace</button></div>
-          </div>
-        </div></section></div>
+      <section class="portal-workspace records-directory-app"><div class="records-directory-workbench" id="organizations-workspace">
+        <aside class="records-directory-list-pane" aria-label="Records client accounts">
+          <header class="records-directory-pane-head"><div><p class="portal-kicker">Records</p><strong>Client accounts</strong></div><span id="organization-count">0</span></header>
+          <label class="records-directory-search"><span>Find a client</span><input id="organization-search" type="search" placeholder="Organization or owner" autocomplete="off"></label>
+          <div class="records-admin-org-list" id="organization-list"></div>
+          <p class="status" id="admin-status" role="status" aria-live="polite"></p>
+        </aside>
+        <section class="records-directory-detail-pane" aria-labelledby="selected-organization-title">
+          <div class="selected-organization-head"><div><p class="portal-kicker">Selected organization</p><h2 id="selected-organization-title">Select an organization</h2><p id="selected-organization-summary">Choose a client account to review its Records setup.</p></div><button class="portal-button hidden" id="selected-organization-support-link" type="button">Open account workspace</button></div>
+          <div class="records-organization-facts" id="selected-organization-facts"><div class="records-directory-empty"><p class="portal-kicker">Account details</p><h3>No organization selected</h3><p>Select a client from the list to view its owner, plan, access status, members, and renewal date.</p></div></div>
+        </section>
+      </div>
         <section class="hidden records-support-workspace" id="support-workspace" aria-labelledby="support-workspace-title">
           <div class="portal-workspace-head records-support-workspace-head"><div><p class="portal-kicker">Selected organization</p><h2 id="support-workspace-title">Support workspace</h2><p id="support-workspace-summary">Select an organization to review its account and support access.</p></div><button class="portal-button portal-button-secondary" id="support-workspace-close" type="button">Back to organizations</button></div>
           <div class="records-support-state" id="support-access-state"><strong>Checking support access…</strong><span>The customer’s private content stays hidden unless an active grant permits it.</span></div>
@@ -54,6 +57,6 @@
       </section>
     </div>
   </main>
-  <script type="module" src="/n3xra-records/admin.js?v=20260817-records-admin-cleanup"></script>
+  <script type="module" src="/n3xra-records/admin.js?v=20260818-records-directory"></script>
 </body>
 </html>
