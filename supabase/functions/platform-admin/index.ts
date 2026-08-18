@@ -11,10 +11,12 @@ const corsHeaders = {
 
 const PLATFORM_ADMIN_EMAILS = ["quentin@n3xra.com", "quentin@quentinnichols.com"];
 const PLATFORM_OWNER_EMAIL = "quentin@n3xra.com";
+const APPLICANT_INSTANT_PRODUCT_KEYS = ["records"];
 
 const PRODUCT_LABELS: Record<string, string> = {
   records: "N3XRA Records",
   websites: "N3XRA Websites",
+  communications: "N3XRA Communications",
   ai_music: "AI Music Generator",
   virals: "N3XRA Virals",
   utilities: "N3XRA Utilities",
@@ -218,6 +220,8 @@ async function loadPlatformAccountData(adminClient: ReturnType<typeof createClie
     viralsProfilesResult,
     accountPhonesResult,
     recordsEntitlementsResult,
+    communicationsEntitlementsResult,
+    communicationsWorkspacesResult,
     websiteProjectsResult,
     websiteSubscriptionsResult,
     websiteBillingCustomersResult,
@@ -236,6 +240,8 @@ async function loadPlatformAccountData(adminClient: ReturnType<typeof createClie
     adminClient.from("virals_profiles").select("user_id, plan, account_status, monthly_analysis_limit, analyses_used, stripe_customer_id, stripe_subscription_id, subscription_current_period_end"),
     adminClient.from("account_phone_credentials").select("user_id, phone_e164, failed_attempts, locked_until, last_authenticated_at, last_password_reset_sent_at, created_at, updated_at"),
     adminClient.from("organization_product_entitlements").select("organization_id,status,portal_enabled").eq("product_key", "records"),
+    adminClient.from("organization_product_entitlements").select("organization_id,status,portal_enabled,source,starts_at,ends_at").eq("product_key", "communications"),
+    adminClient.from("communications_workspaces").select("id,organization_id,slug,program_name,sender_name,status,created_at,updated_at"),
     adminClient.from("website_projects").select("id,name,client_user_id,status,current_stage,updated_at"),
     adminClient.from("website_subscriptions").select("id,project_id,client_user_id,stripe_subscription_id,subscription_type,service_plan,billing_interval,amount_cents,status,current_period_end,updated_at"),
     adminClient.from("website_billing_customers").select("id,user_id,stripe_customer_id,payment_method_status"),
@@ -256,6 +262,8 @@ async function loadPlatformAccountData(adminClient: ReturnType<typeof createClie
     viralsProfilesResult,
     accountPhonesResult,
     recordsEntitlementsResult,
+    communicationsEntitlementsResult,
+    communicationsWorkspacesResult,
     websiteProjectsResult,
     websiteSubscriptionsResult,
     websiteBillingCustomersResult,
@@ -282,6 +290,9 @@ async function loadPlatformAccountData(adminClient: ReturnType<typeof createClie
   const activeRecordsOrganizationIds = new Set((recordsEntitlementsResult.data || [])
     .filter((entitlement) => entitlement.portal_enabled && ["active", "trialing", "past_due"].includes(String(entitlement.status || "")))
     .map((entitlement) => String(entitlement.organization_id)));
+  const activeCommunicationsEntitlements = new Map((communicationsEntitlementsResult.data || [])
+    .filter((entitlement) => entitlement.portal_enabled && ["active", "trialing", "past_due"].includes(String(entitlement.status || "")))
+    .map((entitlement) => [String(entitlement.organization_id), entitlement]));
   const accessMap = new Map<string, Array<Record<string, unknown>>>();
 
   const addAccess = (userId: unknown, access: Record<string, unknown>) => {
@@ -323,6 +334,30 @@ async function loadPlatformAccountData(adminClient: ReturnType<typeof createClie
       product: "websites", productLabel: "Client Websites", organizationId: membership.website_id,
       organization: website?.name || "Client website", role: membership.role, status: membership.status,
     });
+  });
+  (communicationsWorkspacesResult.data || []).forEach((workspace) => {
+    const organizationId = String(workspace.organization_id || "");
+    const organization = recordsOrgMap.get(organizationId);
+    const entitlement = activeCommunicationsEntitlements.get(organizationId);
+    if (!organization || !entitlement || workspace.status === "canceled") return;
+    const access = {
+      product: "communications",
+      productLabel: PRODUCT_LABELS.communications,
+      organizationId: workspace.id,
+      tenantOrganizationId: organizationId,
+      organization: workspace.program_name || workspace.sender_name || organization.name || "Communications workspace",
+      workspaceSlug: workspace.slug,
+      role: "owner",
+      status: workspace.status,
+      plan: entitlement.status,
+    };
+    addAccess(organization.owner_user_id, access);
+    (recordsMembershipsResult.data || [])
+      .filter((membership) => String(membership.organization_id) === organizationId && membership.user_id !== organization.owner_user_id)
+      .forEach((membership) => addAccess(membership.user_id, {
+        ...access,
+        role: membership.role,
+      }));
   });
   (utilityMembersResult.data || []).forEach((membership) => {
     const organization = utilityMap.get(String(membership.organization_id));
@@ -910,6 +945,65 @@ function getAppOrigin(request: Request) {
   return "https://n3xra.com";
 }
 
+async function sendApplicantActivationEmail(options: {
+  email: string;
+  fullName: string;
+  actionLink: string;
+  productLabels: string[];
+}) {
+  const resendApiKey = Deno.env.get("RESEND_API_KEY");
+  if (!resendApiKey) {
+    return { sent: false, error: "RESEND_API_KEY is missing." };
+  }
+
+  const fromEmail = Deno.env.get("N3XRA_ACCOUNT_FROM_EMAIL") || "N3XRA <noreply@n3xra.com>";
+  const safeName = escapeHtml(options.fullName || options.email);
+  const safeActionLink = escapeHtml(options.actionLink);
+  const safeProducts = options.productLabels.map((label) => escapeHtml(label));
+  const productList = safeProducts.length
+    ? `<p style="margin:18px 0 8px;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:#087d73;font-weight:700;">Products ready for you</p><ul style="margin:0 0 20px;padding-left:20px;color:#2f3d4d;">${safeProducts.map((label) => `<li style="margin:5px 0;">${label}</li>`).join("")}</ul>`
+    : "";
+
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${resendApiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: fromEmail,
+      to: [options.email],
+      subject: "Set up your N3XRA account",
+      html: `
+        <div style="margin:0;padding:28px;background:#f5f7fb;font-family:Manrope,Trebuchet MS,sans-serif;color:#121924;">
+          <div style="max-width:620px;margin:0 auto;background:#fff;border:1px solid rgba(15,22,32,.08);border-radius:18px;overflow:hidden;">
+            <div style="padding:26px 28px;background:#0f141b;color:#fff;">
+              <div style="font-size:12px;letter-spacing:.16em;text-transform:uppercase;font-weight:700;opacity:.82;">N3XRA account</div>
+              <h1 style="margin:10px 0 0;font-size:28px;line-height:1.15;">Your account is ready</h1>
+            </div>
+            <div style="padding:28px;">
+              <p style="margin:0 0 14px;font-size:16px;line-height:1.6;color:#2f3d4d;">Hi ${safeName},</p>
+              <p style="margin:0 0 14px;font-size:16px;line-height:1.6;color:#2f3d4d;">Your N3XRA account has been prepared. Your access is already connected, so you only need to choose a password.</p>
+              ${productList}
+              <a href="${safeActionLink}" style="display:inline-block;padding:13px 22px;border-radius:999px;background:#123a33;color:#fff;text-decoration:none;font-size:15px;font-weight:700;">Choose password</a>
+              <p style="margin:20px 0 0;font-size:12px;line-height:1.5;color:#6b7482;">If you were not expecting this invitation, you can ignore this email.</p>
+            </div>
+          </div>
+        </div>
+      `,
+    }),
+  });
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    return {
+      sent: false,
+      error: typeof payload?.message === "string" ? payload.message : "Activation email failed to send.",
+    };
+  }
+  return { sent: true, error: "" };
+}
+
 Deno.serve(async (request) => {
   if (request.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -1085,6 +1179,143 @@ Deno.serve(async (request) => {
 
     if (isReviewerAdmin(platformAdmin)) {
       return jsonResponse({ error: "Reviewer access is limited to the N3XRA Admin mobile app." }, 403);
+    }
+
+    if (action === "list-career-applicant-products") {
+      const { data: products, error } = await adminClient
+        .from("n3xra_product_catalog")
+        .select("product_key,name,description,portal_path,sort_order")
+        .in("product_key", APPLICANT_INSTANT_PRODUCT_KEYS)
+        .eq("status", "active")
+        .eq("client_portal_available", true)
+        .order("sort_order", { ascending: true })
+        .order("name", { ascending: true });
+      if (error) return jsonResponse({ error: error.message }, 400);
+      return jsonResponse({ ok: true, products: products || [] });
+    }
+
+    if (action === "provision-career-applicant") {
+      const applicationId = String(payload.applicationId || "").trim();
+      const requestedProducts = Array.isArray(payload.products)
+        ? Array.from(new Set(payload.products.map((product: unknown) => String(product || "").trim().toLowerCase()).filter(Boolean))).slice(0, 20)
+        : [];
+      if (!isValidUuid(applicationId)) {
+        return jsonResponse({ error: "A valid career application is required." }, 400);
+      }
+      if (!requestedProducts.length) {
+        return jsonResponse({ error: "Select at least one product to activate." }, 400);
+      }
+      if (requestedProducts.some((product) => !APPLICANT_INSTANT_PRODUCT_KEYS.includes(product))) {
+        return jsonResponse({ error: "One or more selected products require their own setup workflow." }, 400);
+      }
+
+      const { data: application, error: applicationError } = await adminClient
+        .from("careers_applications")
+        .select("id,account_user_id,full_name,email,status")
+        .eq("id", applicationId)
+        .maybeSingle();
+      if (applicationError) return jsonResponse({ error: applicationError.message }, 400);
+      if (!application) return jsonResponse({ error: "The career application was not found." }, 404);
+
+      const email = normalizeEmail(application.email);
+      const fullName = textValue(application.full_name || email, 180);
+      if (!isValidEmail(email)) return jsonResponse({ error: "The application does not contain a valid email." }, 400);
+
+      let targetUser: any = null;
+      if (application.account_user_id) {
+        const { data: linkedUser, error: linkedUserError } = await adminClient.auth.admin.getUserById(String(application.account_user_id));
+        if (linkedUserError || !linkedUser?.user) {
+          return jsonResponse({ error: linkedUserError?.message || "The connected account no longer exists." }, 404);
+        }
+        targetUser = linkedUser.user;
+      } else {
+        targetUser = await findAuthUserByEmail(adminClient, email);
+      }
+
+      if (targetUser && normalizeEmail(targetUser.email) !== email) {
+        return jsonResponse({ error: "The connected account email does not match this application." }, 409);
+      }
+
+      let createdUser = false;
+      let actionLink = "";
+      if (!targetUser) {
+        const redirectTo = `${getAppOrigin(request)}/account/?mode=invite`;
+        const { data: inviteLink, error: inviteLinkError } = await adminClient.auth.admin.generateLink({
+          type: "invite",
+          email,
+          options: {
+            redirectTo,
+            data: { full_name: fullName },
+          },
+        });
+        if (inviteLinkError || !inviteLink?.user) {
+          return jsonResponse({ error: inviteLinkError?.message || "Unable to create the pending account." }, 400);
+        }
+        targetUser = inviteLink.user;
+        actionLink = String(inviteLink.properties?.action_link || "");
+        createdUser = true;
+      } else if (!targetUser.email_confirmed_at) {
+        const redirectTo = `${getAppOrigin(request)}/account/?mode=invite`;
+        const { data: recoveryLink, error: recoveryLinkError } = await adminClient.auth.admin.generateLink({
+          type: "recovery",
+          email,
+          options: { redirectTo },
+        });
+        if (!recoveryLinkError) actionLink = String(recoveryLink?.properties?.action_link || "");
+      }
+
+      const { data: provisioned, error: provisionError } = await adminClient.rpc("admin_provision_career_applicant", {
+        input_application_id: applicationId,
+        input_user_id: targetUser.id,
+        input_actor_user_id: user.id,
+        input_product_keys: requestedProducts,
+      });
+      if (provisionError) {
+        if (createdUser) {
+          const { error: cleanupError } = await adminClient.auth.admin.deleteUser(targetUser.id);
+          if (cleanupError) console.error("Unable to remove the unprovisioned applicant identity:", cleanupError.message);
+        }
+        return jsonResponse({ error: provisionError.message }, 400);
+      }
+
+      const { data: catalogProducts, error: catalogError } = await adminClient
+        .from("n3xra_product_catalog")
+        .select("product_key,name")
+        .in("product_key", requestedProducts);
+      if (catalogError) return jsonResponse({ error: catalogError.message }, 400);
+      const productLabels = (catalogProducts || []).map((product) => String(product.name || product.product_key));
+
+      let activationEmailSent = false;
+      let activationEmailError = "";
+      if (actionLink) {
+        const delivery = await sendApplicantActivationEmail({
+          email,
+          fullName,
+          actionLink,
+          productLabels,
+        });
+        activationEmailSent = delivery.sent;
+        activationEmailError = delivery.error;
+      }
+
+      return jsonResponse({
+        ok: true,
+        account: {
+          id: targetUser.id,
+          email,
+          name: fullName,
+          pending: !targetUser.email_confirmed_at,
+          created: createdUser,
+        },
+        organization: {
+          id: provisioned?.organization_id || null,
+          name: provisioned?.organization_name || fullName,
+        },
+        products: catalogProducts || [],
+        activationEmailSent,
+        activationEmailRequired: !targetUser.email_confirmed_at,
+        activationEmailError,
+      });
     }
 
     if (action === "list-website-request-workspace") {
@@ -1706,7 +1937,7 @@ Deno.serve(async (request) => {
       const confirmation = String(payload.confirmation || "").trim();
       if (!isValidUuid(userId)) return jsonResponse({ error: "A valid userId is required." }, 400);
       if (!isValidUuid(workspaceId)) return jsonResponse({ error: "A valid workspaceId is required." }, 400);
-      if (!["records", "websites", "loan_tracker", "ai_music", "virals"].includes(product)) {
+      if (!["records", "websites", "communications", "loan_tracker", "ai_music", "virals"].includes(product)) {
         return jsonResponse({ error: "That product enrollment cannot be removed here." }, 400);
       }
 
@@ -1727,6 +1958,25 @@ Deno.serve(async (request) => {
         if (profileError) return jsonResponse({ error: profileError.message }, 400);
         if (!profile) return jsonResponse({ error: `This ${PRODUCT_LABELS[product]} enrollment no longer exists.` }, 404);
         workspaceName = PRODUCT_LABELS[product];
+      } else if (product === "communications") {
+        const { data: workspace, error: workspaceError } = await adminClient
+          .from("communications_workspaces")
+          .select("id,organization_id,program_name,sender_name,status")
+          .eq("id", workspaceId)
+          .maybeSingle();
+        if (workspaceError) return jsonResponse({ error: workspaceError.message }, 400);
+        if (!workspace) return jsonResponse({ error: "This Communications enrollment no longer exists." }, 404);
+        const { data: organization, error: organizationError } = await adminClient
+          .from("organizations")
+          .select("id,name,owner_user_id")
+          .eq("id", workspace.organization_id)
+          .maybeSingle();
+        if (organizationError) return jsonResponse({ error: organizationError.message }, 400);
+        if (!workspace || !organization || organization.owner_user_id !== userId) {
+          return jsonResponse({ error: "Only the organization owner can delete this Communications product and its shared workspace data." }, 403);
+        }
+        workspaceName = textValue(workspace.program_name || workspace.sender_name || organization.name, 180) || "Communications workspace";
+        deleteWorkspace = true;
       } else if (product === "records") {
         const [{ data: organization, error: organizationError }, { data: membership, error: membershipError }] = await Promise.all([
           adminClient.from("organizations").select("id,name,owner_user_id").eq("id", workspaceId).maybeSingle(),
@@ -1770,6 +2020,12 @@ Deno.serve(async (request) => {
         ? adminClient.rpc("admin_remove_retired_product_enrollment", {
             input_product: product,
             input_user_id: userId,
+          })
+        : product === "communications"
+        ? adminClient.rpc("admin_remove_communications_enrollment", {
+            input_user_id: userId,
+            input_workspace_id: workspaceId,
+            input_remove_product_data: true,
           })
         : product === "records"
         ? adminClient.rpc("admin_remove_records_enrollment", {
@@ -2723,7 +2979,7 @@ Deno.serve(async (request) => {
         return jsonResponse({ error: "email is required." }, 400);
       }
 
-      const redirectTo = `${getAppOrigin(request)}/app/reset-password`;
+      const redirectTo = `${getAppOrigin(request)}/account/?mode=recovery`;
       const { error } = await adminClient.auth.resetPasswordForEmail(email, {
         redirectTo,
       });

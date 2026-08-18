@@ -136,8 +136,8 @@
 
       <div class="account-card hidden" id="recovery-card">
         <div class="auth-card-head">
-          <h2>Reset password</h2>
-          <p>Choose a new password for your N3XRA account.</p>
+          <h2 id="recovery-title">Reset password</h2>
+          <p id="recovery-subtitle">Choose a new password for your N3XRA account.</p>
         </div>
         <form class="auth-form" id="recovery-form">
           <div class="field">
@@ -148,7 +148,7 @@
             <label for="recovery-password-confirm">Confirm new password</label>
             <input id="recovery-password-confirm" type="password" autocomplete="new-password" minlength="8" required>
           </div>
-          <button class="btn block" type="submit">Update password</button>
+          <button class="btn block" id="recovery-submit" type="submit">Update password</button>
         </form>
       </div>
 
@@ -487,6 +487,6 @@
       window.addEventListener("scroll", updateHeader, { passive: true });
     })();
   </script>
-  <script type="module" src="/account/account.js?v=20260815-product-sections"></script>
+  <script type="module" src="/account/account.js?v=20260817-applicant-activation"></script>
 </body>
 </html>

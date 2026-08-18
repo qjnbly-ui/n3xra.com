@@ -23,6 +23,9 @@ test("account administration exposes a typed destructive enrollment action", asy
   assert.match(controller, /userId: account\.id/);
   assert.match(controller, /workspaceId: item\.organizationId/);
   assert.match(controller, /Their N3XRA login and other products are not affected/);
+  assert.match(controller, /Open Communications admin/);
+  assert.match(controller, /client-portal\/communications/);
+  assert.match(controller, /N3XRA account, organization, client website, website files, shared contacts/);
 });
 
 test("product removal is owner-authorized, race-safe, and does not delete the identity", async () => {
@@ -32,8 +35,31 @@ test("product removal is owner-authorized, race-safe, and does not delete the id
   assert.match(action, /platformAdmin\.role[\s\S]*owner/);
   assert.match(action, /expectedConfirmation = `DELETE \$\{workspaceName\}`/);
   assert.match(action, /input_delete_workspace: deleteWorkspace/);
+  assert.match(action, /admin_remove_communications_enrollment/);
   assert.match(action, /\["workspace", "product_data"\]\.includes\(resultMode\)[\s\S]*removeStorageObjects/);
   assert.doesNotMatch(action, /auth\.admin\.deleteUser|from\("profiles"\)\.delete/);
+});
+
+test("Communications enrollment removal is product-scoped and preserves shared tenant data", async () => {
+  const [migration, edgeFunction, controller] = await Promise.all([
+    read("supabase/migrations/20260818002950_admin_remove_communications_enrollment.sql"),
+    read("supabase/functions/platform-admin/index.ts"),
+    read("account/admin/controllers/accounts.js"),
+  ]);
+
+  assert.match(edgeFunction, /communicationsEntitlementsResult/);
+  assert.match(edgeFunction, /communicationsWorkspacesResult/);
+  assert.match(edgeFunction, /product: "communications"/);
+  assert.match(edgeFunction, /Only the organization owner can delete this Communications product/);
+  assert.match(controller, /\["records", "websites", "communications", "ai_music", "virals"\]/);
+  assert.match(migration, /security invoker/);
+  assert.match(migration, /request_claims[\s\S]*service_role/);
+  assert.match(migration, /communications_consent_events[\s\S]*cannot be hard-deleted/);
+  assert.match(migration, /delete from public\.communications_workspaces/);
+  assert.match(migration, /update public\.organization_product_entitlements[\s\S]*'communications'/);
+  assert.doesNotMatch(migration, /delete from public\.organizations|delete from public\.client_websites|delete from auth\.users/);
+  assert.match(migration, /revoke all on function public\.admin_remove_communications_enrollment\(uuid, uuid, boolean\)[\s\S]*authenticated/);
+  assert.match(migration, /grant execute on function public\.admin_remove_communications_enrollment\(uuid, uuid, boolean\)[\s\S]*service_role/);
 });
 
 test("the removal transaction preserves shared data and protects paid workspaces", async () => {
@@ -92,7 +118,7 @@ test("retired-product enrollments have isolated destructive controls", async () 
     read("supabase/migrations/20260816015230_admin_remove_retired_products.sql"),
   ]);
 
-  assert.match(controller, /\["records", "websites", "ai_music", "virals"\]\.includes\(item\.product\)/);
+  assert.match(controller, /\["records", "websites", "communications", "ai_music", "virals"\]\.includes\(item\.product\)/);
   assert.match(controller, /retiredProduct \? item\.productLabel/);
   assert.match(edgeFunction, /organizationId: profile\.user_id/);
   assert.match(edgeFunction, /admin_remove_retired_product_enrollment/);

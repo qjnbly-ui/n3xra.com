@@ -32,6 +32,11 @@ function productAdminLink(item, account) {
   const params = new URLSearchParams({ user: account.id, email: account.email });
   if (item.organizationId) params.set("organization", item.organizationId);
   if (item.product === "records") return { href: `/n3xra-admin/records/organizations/?${params}`, label: "Open Records admin" };
+  if (item.product === "communications") {
+    params.delete("organization");
+    params.set("workspace", item.organizationId);
+    return { href: `/n3xra-admin/communications/?${params}`, label: "Open Communications admin" };
+  }
   if (item.product === "websites") {
     params.delete("organization");
     if (item.organizationId) params.set("website", item.organizationId);
@@ -49,6 +54,9 @@ function productClientPreviewLink(item) {
   if (item.product === "websites") {
     return `/project-workspace/?website=${encodeURIComponent(item.organizationId)}`;
   }
+  if (item.product === "communications" && item.workspaceSlug) {
+    return `/client-portal/communications/?workspace=${encodeURIComponent(item.workspaceSlug)}`;
+  }
   return null;
 }
 
@@ -57,12 +65,15 @@ function enrollmentRemovalCopy(item) {
   const workspaceName = retiredProduct ? item.productLabel : item.organization || item.plan || item.productLabel || "this workspace";
   const deletesWorkspace = item.product === "loan_tracker" || item.role === "owner" || item.role === "account";
   const removesRecordsProduct = item.product === "records" && item.role === "owner";
+  const removesCommunicationsProduct = item.product === "communications" && item.role === "owner";
   return {
     workspaceName,
     deletesWorkspace,
     buttonLabel: deletesWorkspace ? "Delete product & data" : "Remove access",
     message: removesRecordsProduct
       ? `This removes only N3XRA Records from “${workspaceName}” and permanently deletes its Records documents, drafts, recordings, and Records settings. The client website, website files, Communications data, shared contacts, and N3XRA login are preserved. Type DELETE ${workspaceName} to continue.`
+      : removesCommunicationsProduct
+      ? `This removes only N3XRA Communications from “${workspaceName}” and permanently deletes its workspace, forms, signup sources, subscribers, topics, and operational message data. The N3XRA account, organization, client website, website files, shared contacts, and immutable audit history are preserved. Type DELETE ${workspaceName} to continue.`
       : deletesWorkspace
       ? `This permanently deletes the ${item.productLabel} workspace “${workspaceName}”, its database records, uploaded files, and this person's access. Their N3XRA login and other products are not affected. Type DELETE ${workspaceName} to continue.`
       : `This removes this person's access to ${item.productLabel} “${workspaceName}”. Shared workspace data and other members are preserved. Type DELETE ${workspaceName} to continue.`,
@@ -124,7 +135,10 @@ async function removeEnrollment(account, item) {
     });
     await loadAccounts(account.id);
     const cleanupNote = result.storageCleanupPending ? " Database access is removed; storage cleanup needs administrator review." : "";
-    setStatus(result.mode === "access_only" ? `Product access removed.${cleanupNote}` : result.mode === "product_data" ? `N3XRA Records and its data were removed. The website and Communications data were preserved.${cleanupNote}` : `${item.productLabel} and its data were deleted.${cleanupNote}`, result.storageCleanupPending ? "error" : "success");
+    const productDataMessage = item.product === "communications"
+      ? "N3XRA Communications and its operational data were removed. The account, organization, website, and immutable audit history were preserved."
+      : "N3XRA Records and its data were removed. The website and Communications data were preserved.";
+    setStatus(result.mode === "access_only" ? `Product access removed.${cleanupNote}` : result.mode === "product_data" ? `${productDataMessage}${cleanupNote}` : `${item.productLabel} and its data were deleted.${cleanupNote}`, result.storageCleanupPending ? "error" : "success");
   } catch (error) {
     setStatus(error.message, "error");
   }
@@ -205,7 +219,7 @@ async function renderSelectedAccount() {
     <section class="account-oversight-section">
       <div class="account-oversight-heading"><div><p class="portal-kicker">Product enrollment</p><h4>Products and workspaces</h4><p>Preview the customer experience or open the matching admin workspace with this account already selected.</p></div><span class="account-admin-count">${access.length} enrollment${access.length === 1 ? "" : "s"}</span></div>
       <div class="account-admin-card-grid">
-        ${access.length ? access.map((item) => { const link = productAdminLink(item, account); const previewHref = productClientPreviewLink(item); const removable = canRemoveEnrollments && ["records", "websites", "ai_music", "virals"].includes(item.product) && item.organizationId; const removal = removable ? enrollmentRemovalCopy(item) : null; return `<article class="account-access-card"><div><span>${escapeHtml(item.productLabel)}</span><h4>${escapeHtml(item.organization || item.plan || "Product account")}</h4><p>${escapeHtml(item.role || "account")} · ${escapeHtml(item.status || "active")}</p></div><div class="account-admin-head-actions">${previewHref ? `<a class="portal-button portal-button-secondary" href="${escapeHtml(previewHref)}">Preview client view</a>` : ""}<a class="portal-button portal-button-secondary" href="${escapeHtml(link.href)}">${escapeHtml(link.label)}</a>${removal ? `<button class="portal-button portal-button-secondary account-danger-button" type="button" data-remove-enrollment data-product="${escapeHtml(item.product)}" data-workspace-id="${escapeHtml(item.organizationId)}">${escapeHtml(removal.buttonLabel)}</button>` : ""}</div></article>`; }).join("") : '<article class="account-access-card"><div><h4>No product access found</h4><p>This identity has no mapped product memberships.</p></div><a class="portal-button portal-button-secondary" href="/account/admin/product-apps/">Review products</a></article>'}
+        ${access.length ? access.map((item) => { const link = productAdminLink(item, account); const previewHref = productClientPreviewLink(item); const removable = canRemoveEnrollments && ["records", "websites", "communications", "ai_music", "virals"].includes(item.product) && item.organizationId && (item.product !== "communications" || item.role === "owner"); const removal = removable ? enrollmentRemovalCopy(item) : null; return `<article class="account-access-card"><div><span>${escapeHtml(item.productLabel)}</span><h4>${escapeHtml(item.organization || item.plan || "Product account")}</h4><p>${escapeHtml(item.role || "account")} · ${escapeHtml(item.status || "active")}</p></div><div class="account-admin-head-actions">${previewHref ? `<a class="portal-button portal-button-secondary" href="${escapeHtml(previewHref)}">Preview client view</a>` : ""}<a class="portal-button portal-button-secondary" href="${escapeHtml(link.href)}">${escapeHtml(link.label)}</a>${removal ? `<button class="portal-button portal-button-secondary account-danger-button" type="button" data-remove-enrollment data-product="${escapeHtml(item.product)}" data-workspace-id="${escapeHtml(item.organizationId)}">${escapeHtml(removal.buttonLabel)}</button>` : ""}</div></article>`; }).join("") : '<article class="account-access-card"><div><h4>No product access found</h4><p>This identity has no mapped product memberships.</p></div><a class="portal-button portal-button-secondary" href="/account/admin/product-apps/">Review products</a></article>'}
       </div>
     </section>
   `;

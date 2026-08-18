@@ -30,6 +30,9 @@ const signupReferralStatus = document.getElementById("signup-referral-status");
 const authCaptchaField = document.getElementById("auth-captcha-field");
 const authTurnstile = document.getElementById("auth-turnstile");
 const recoveryForm = document.getElementById("recovery-form");
+const recoveryTitle = document.getElementById("recovery-title");
+const recoverySubtitle = document.getElementById("recovery-subtitle");
+const recoverySubmit = document.getElementById("recovery-submit");
 const profileForm = document.getElementById("profile-form");
 const passwordForm = document.getElementById("password-form");
 const phoneAccessForm = document.getElementById("phone-access-form");
@@ -1340,14 +1343,23 @@ async function init() {
     return;
   }
 
-  if (callbackType === "recovery") {
+  const requestedAuthMode = String(new URLSearchParams(window.location.search).get("mode") || "").trim().toLowerCase();
+  const isAccountActivation = callbackType === "invite" || requestedAuthMode === "invite";
+  if (callbackType === "recovery" || isAccountActivation) {
     if (!currentSession?.user) {
       renderShell("auth");
-      setStatus("This password reset link is invalid or expired. Request a new reset email.", "error");
+      setStatus(isAccountActivation
+        ? "This account activation link is invalid or expired. Ask N3XRA to send a new link."
+        : "This password reset link is invalid or expired. Request a new reset email.", "error");
       return;
     }
+    if (recoveryTitle) recoveryTitle.textContent = isAccountActivation ? "Finish account setup" : "Reset password";
+    if (recoverySubtitle) recoverySubtitle.textContent = isAccountActivation
+      ? "Your information and product access are ready. Choose the password you will use to sign in."
+      : "Choose a new password for your N3XRA account.";
+    if (recoverySubmit) recoverySubmit.textContent = isAccountActivation ? "Set password and continue" : "Update password";
     renderShell("recovery");
-    setStatus("Choose a new password.");
+    setStatus(isAccountActivation ? "Choose your password to activate this account." : "Choose a new password.");
   } else if (currentSession?.user) {
     if (getPlatformAdminInviteToken()) {
       try {

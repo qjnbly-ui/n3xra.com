@@ -220,6 +220,8 @@ function workspaceStorageKey(): string {
 }
 
 function selectWorkspace(workspaces: WorkspaceChoice[]): string {
+  const requested = String(new URLSearchParams(window.location.search).get("workspace") || "").trim();
+  if (workspaces.some((workspace) => workspace.id === requested)) return requested;
   const stored = sessionStorage.getItem(workspaceStorageKey()) || "";
   return workspaces.some((workspace) => workspace.id === stored) ? stored : workspaces[0]?.id || "";
 }

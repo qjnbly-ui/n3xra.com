@@ -32,8 +32,10 @@ export function hasSupabaseAuthCallbackParams() {
   const code = String(params.get("code") || "").trim();
   if (code.length < 16) return false;
 
-  const requestedSignup = String(params.get("signup") || params.get("mode") || "").toLowerCase();
-  return requestedSignup !== "invite" && !params.has("invite") && !params.has("invite_code");
+  // Product invitation codes use explicit invite parameters. Supabase PKCE
+  // callbacks may legitimately return a long `code` beside `mode=invite`, so
+  // the display mode alone must not prevent the Auth code exchange.
+  return !params.has("invite") && !params.has("invite_code");
 }
 
 export function getSupabaseAuthCallbackType() {

@@ -18,7 +18,18 @@
     </section>
   </section></div>
   <dialog id="application-dialog"><form id="manual-application-form" method="dialog"><header><div><p>Manual intake</p><h2>Add an applicant</h2></div><button value="cancel" aria-label="Close">×</button></header><div class="dialog-grid"><label>Name<input name="full_name" required></label><label>Email<input name="email" type="email" required></label><label>Primary direction<select name="role_interest"><option value="open_to_best_fit">Open to the best fit</option><option value="software_product">Software and product development</option><option value="websites_portals">Website development and portals</option><option value="design_brand">Product design and brand</option><option value="ai_automation">AI and automation</option><option value="business_development">Business development</option><option value="sales">Sales</option><option value="marketing_communications">Marketing and communications</option><option value="content_social">Content and social media</option><option value="partnerships">Partnerships and referrals</option><option value="client_success">Client success</option><option value="operations">Operations and administration</option><option value="project_delivery">Project and delivery management</option><option value="support">Customer and technical support</option><option value="finance">Finance and bookkeeping</option><option value="leadership_strategy">Leadership and strategy</option><option value="research">Research and analysis</option><option value="internship_learning">Internship or apprenticeship</option><option value="advisor">External advisor</option><option value="investor">Investor</option><option value="other">A role not listed</option></select></label><label>Proposed title<input name="proposed_title" maxlength="160" placeholder="Optional"></label><label>Source link<input name="source_url" type="url" placeholder="Conversation or referral URL"></label><label class="wide">Initial message / context<textarea name="message" rows="7" required placeholder="Paste their message or your notes from the conversation."></textarea></label></div><footer><button value="cancel" type="button" id="cancel-dialog">Cancel</button><button value="default" type="submit">Save applicant</button></footer></form></dialog>
+  <dialog id="application-provision-dialog" aria-labelledby="application-provision-title">
+    <form id="application-provision-form">
+      <header><div><p>Account provisioning</p><h2 id="application-provision-title">Create account &amp; access</h2></div><button id="application-provision-close" type="button" aria-label="Close">×</button></header>
+      <p class="provision-explanation">The account and selected products will be available in Accounts immediately. The applicant will receive one secure link and only needs to choose a password.</p>
+      <div class="provision-applicant-summary"><span><strong id="provision-applicant-name"></strong><small id="provision-applicant-email"></small></span><em>Pending activation</em></div>
+      <fieldset class="provision-product-fieldset"><legend>Products available on first sign in</legend><div id="provision-product-list"></div></fieldset>
+      <p class="provision-note">A personal workspace will be created for this account. Platform administrator access is managed separately.</p>
+      <p class="provision-status" id="application-provision-status" role="status" aria-live="polite"></p>
+      <footer><button id="application-provision-cancel" type="button">Cancel</button><button id="application-provision-submit" type="submit">Create account &amp; send link</button></footer>
+    </form>
+  </dialog>
   </main>
-  <script type="module" src="/account/admin/applications/applications.js?v=7"></script>
+  <script type="module" src="/account/admin/applications/applications.js?v=8"></script>
 </body>
 </html>

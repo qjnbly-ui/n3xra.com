@@ -30,4 +30,19 @@
 .application-empty-detail { display:grid; min-height:100%; place-content:center; padding:2rem; text-align:center; }
 .application-empty-detail h2 { margin:.2rem 0; font:700 1.6rem Fraunces,Georgia,serif; }
 .application-empty-detail p:not(.portal-kicker) { max-width:500px; margin:0; color:var(--portal-muted); }
+.provision-explanation { margin:.9rem 0 0; color:var(--muted); }
+.provision-applicant-summary { display:flex; align-items:center; justify-content:space-between; gap:1rem; margin:1rem 0; padding:.9rem 1rem; background:#f3f8f7; border:1px solid var(--line); border-radius:9px; }
+.provision-applicant-summary span { display:grid; gap:.15rem; }
+.provision-applicant-summary small { color:var(--muted); }
+.provision-applicant-summary em { padding:.25rem .5rem; color:#8a5c08; background:#fff0ca; border-radius:999px; font-size:.67rem; font-style:normal; font-weight:800; white-space:nowrap; }
+.provision-product-fieldset { margin:1rem 0; padding:0; border:0; }
+.provision-product-fieldset legend { margin-bottom:.55rem; color:var(--muted); font-size:.7rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }
+#provision-product-list { display:grid; gap:.6rem; }
+.provision-product-option { display:flex; grid-template-columns:none; align-items:flex-start; gap:.75rem; padding:.85rem; border:1px solid var(--line); border-radius:9px; cursor:pointer; }
+.provision-product-option:has(input:checked) { background:#edf7f5; border-color:#8dc9c2; }
+.provision-product-option input { width:18px; height:18px; margin:.1rem 0 0; accent-color:var(--teal); }
+.provision-product-option span { display:grid; gap:.18rem; }
+.provision-product-option small,.provision-note,.provision-loading { color:var(--muted); font-weight:400; }
+.provision-note { margin:.8rem 0; font-size:.75rem; }
+.provision-status { min-height:1.4em; margin:.7rem 0; color:#8d3a3a; font-size:.76rem; }
 @media(max-width:760px){.applications-admin-page{height:auto;overflow:auto}.applications-admin-page .applications-shell,.applications-admin-page .applications-shell>.portal-layout{height:auto;overflow:visible}.applications-admin-page .applications-directory-app{overflow:visible}.applications-pagebar{align-items:flex-start;flex-direction:column}.applications-admin-page .application-workspace{grid-template-columns:1fr}.applications-admin-page .application-queue-pane{max-height:42svh;border-right:0;border-bottom:1px solid var(--portal-line)}.applications-admin-page .application-detail{min-height:520px;overflow:visible}.application-detail-actions{align-items:stretch;flex-direction:column}.application-detail-actions .portal-button{width:100%}}

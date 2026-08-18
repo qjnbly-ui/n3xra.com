@@ -8,6 +8,7 @@ let applications = [];
 let notes = [];
 let selectedId = "";
 let activeFilter = "active";
+let applicantProducts = [];
 
 const activeStatuses = new Set(["new", "reviewing", "contacted", "interviewing"]);
 const escapeHtml = (value = "") => String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
@@ -69,6 +70,8 @@ function elements() {
     summary: document.getElementById("application-summary"),
     dialog: document.getElementById("application-dialog"),
     manualForm: document.getElementById("manual-application-form"),
+    provisioningDialog: document.getElementById("application-provision-dialog"),
+    provisioningForm: document.getElementById("application-provision-form"),
   };
 }
 
@@ -133,14 +136,18 @@ function renderDetail() {
     responseSection("Where they could create the clearest value", application.contribution_vision),
     responseSection("Additional context", application.message),
   ].filter(Boolean).join("") || '<section class="message"><p>Applicant perspective</p><div>Not provided</div></section>';
+  const accountHref = application.account_user_id
+    ? `/account/admin/accounts/?user=${encodeURIComponent(application.account_user_id)}&email=${encodeURIComponent(application.email)}`
+    : "";
 
   detail.innerHTML = `
-    <header class="detail-head"><div><span class="status ${escapeHtml(application.status)}">${escapeHtml(statusLabel(application.status))}</span><h2>${escapeHtml(application.full_name)}</h2><p>${escapeHtml(roleLabel(application.role_interest))} · Submitted ${formatDate(application.created_at)}</p></div><div class="application-detail-actions"><label>Status<select id="application-status">${["new", "reviewing", "contacted", "interviewing", "talent_pool", "declined", "hired"].map((status) => `<option value="${status}"${application.status === status ? " selected" : ""}>${statusLabel(status)}</option>`).join("")}</select></label><button class="portal-button portal-button-secondary account-danger-button" id="delete-application" type="button">Delete application</button></div></header>
-    <section class="profile-grid"><div><span>Email</span><a href="mailto:${escapeHtml(application.email)}">${escapeHtml(application.email)}</a></div><div><span>Account</span><strong>${application.account_user_id ? "Connected" : "No account connected"}</strong></div><div><span>Proposed title</span><strong>${escapeHtml(application.proposed_title || "Not provided")}</strong></div><div><span>Primary direction</span><strong>${escapeHtml(roleLabel(application.role_interest))}</strong></div><div><span>Contribution areas</span><strong>${escapeHtml(choiceLabels(application.contribution_areas))}</strong></div><div><span>Relationship interests</span><strong>${escapeHtml(choiceLabels(application.participation_preferences, participationLabels))}</strong></div><div><span>Location / timezone</span><strong>${escapeHtml(application.location_timezone || "Not provided")}</strong></div><div><span>Current school / company</span><strong>${escapeHtml(application.current_school_company || "Not provided")}</strong></div><div><span>Experience level</span><strong>${escapeHtml(application.experience_level === "not_specified" ? "Not provided" : statusLabel(application.experience_level || "Not provided"))}</strong></div><div><span>Primary skills</span><strong>${escapeHtml(application.primary_skills || "Not provided")}</strong></div><div><span>How they heard about N3XRA</span><strong>${escapeHtml(application.referral_source || "Not provided")}</strong></div><div><span>Availability</span><strong>${escapeHtml(application.availability || "Not provided")}</strong></div><div><span>Work arrangement</span><strong>${escapeHtml(statusLabel(application.work_arrangement))}</strong></div><div><span>Information retention</span><strong>${application.information_retention_consent ? "Agreed" : "Not provided"}</strong></div><div><span>Links</span>${links}</div></section>
+    <header class="detail-head"><div><span class="status ${escapeHtml(application.status)}">${escapeHtml(statusLabel(application.status))}</span><h2>${escapeHtml(application.full_name)}</h2><p>${escapeHtml(roleLabel(application.role_interest))} · Submitted ${formatDate(application.created_at)}</p></div><div class="application-detail-actions"><label>Status<select id="application-status">${["new", "reviewing", "contacted", "interviewing", "talent_pool", "declined", "hired"].map((status) => `<option value="${status}"${application.status === status ? " selected" : ""}>${statusLabel(status)}</option>`).join("")}</select></label>${application.account_user_id ? `<a class="portal-button" href="${escapeHtml(accountHref)}">Open account</a>` : '<button class="portal-button" id="provision-applicant" type="button">Create account &amp; access</button>'}<button class="portal-button portal-button-secondary account-danger-button" id="delete-application" type="button">Delete application</button></div></header>
+    <section class="profile-grid"><div><span>Email</span><a href="mailto:${escapeHtml(application.email)}">${escapeHtml(application.email)}</a></div><div><span>Account</span>${application.account_user_id ? `<a href="${escapeHtml(accountHref)}">Connected · Review account</a>` : "<strong>No account connected</strong>"}</div><div><span>Proposed title</span><strong>${escapeHtml(application.proposed_title || "Not provided")}</strong></div><div><span>Primary direction</span><strong>${escapeHtml(roleLabel(application.role_interest))}</strong></div><div><span>Contribution areas</span><strong>${escapeHtml(choiceLabels(application.contribution_areas))}</strong></div><div><span>Relationship interests</span><strong>${escapeHtml(choiceLabels(application.participation_preferences, participationLabels))}</strong></div><div><span>Location / timezone</span><strong>${escapeHtml(application.location_timezone || "Not provided")}</strong></div><div><span>Current school / company</span><strong>${escapeHtml(application.current_school_company || "Not provided")}</strong></div><div><span>Experience level</span><strong>${escapeHtml(application.experience_level === "not_specified" ? "Not provided" : statusLabel(application.experience_level || "Not provided"))}</strong></div><div><span>Primary skills</span><strong>${escapeHtml(application.primary_skills || "Not provided")}</strong></div><div><span>How they heard about N3XRA</span><strong>${escapeHtml(application.referral_source || "Not provided")}</strong></div><div><span>Availability</span><strong>${escapeHtml(application.availability || "Not provided")}</strong></div><div><span>Work arrangement</span><strong>${escapeHtml(statusLabel(application.work_arrangement))}</strong></div><div><span>Information retention</span><strong>${application.information_retention_consent ? "Agreed" : "Not provided"}</strong></div><div><span>Links</span>${links}</div></section>
     ${applicantResponses}
     <section class="notes"><header><div><p>Private notes</p><h3>Conversation &amp; review history</h3></div></header><form id="note-form"><textarea name="body" rows="4" required placeholder="Add an internal note, paste a message, or record the next step."></textarea><input name="source_url" type="url" placeholder="Optional source link, e.g. Facebook conversation"><button>Add note</button></form><div class="note-timeline">${applicationNotes.length ? applicationNotes.map((note) => `<article><time>${formatDate(note.created_at)}</time><p>${escapeHtml(note.body).replaceAll("\n", "<br>")}</p>${safeLink(note.source_url, "Open source")}</article>`).join("") : '<p class="empty">No private notes yet.</p>'}</div></section>
   `;
   document.getElementById("application-status")?.addEventListener("change", async (event) => updateApplication(application.id, { status: event.target.value }));
+  document.getElementById("provision-applicant")?.addEventListener("click", () => openApplicantProvisioning(application));
   document.getElementById("delete-application")?.addEventListener("click", () => deleteApplication(application));
   document.getElementById("note-form")?.addEventListener("submit", addNote);
   if (application.cv_storage_path) loadUploadedCv(application);
@@ -170,6 +177,75 @@ async function invokePlatformAdmin(action, payload = {}) {
   const { data, error } = await supabase.functions.invoke("platform-admin", { body: { action, ...payload } });
   if (error || data?.error) throw new Error(error?.message || data?.error || "Admin request failed.");
   return data;
+}
+
+async function loadApplicantProducts() {
+  if (applicantProducts.length) return applicantProducts;
+  const data = await invokePlatformAdmin("list-career-applicant-products");
+  applicantProducts = Array.isArray(data.products) ? data.products : [];
+  return applicantProducts;
+}
+
+async function openApplicantProvisioning(application) {
+  const { provisioningDialog } = elements();
+  if (!provisioningDialog || application.account_user_id) return;
+  document.getElementById("provision-applicant-name").textContent = application.full_name;
+  document.getElementById("provision-applicant-email").textContent = application.email;
+  const productList = document.getElementById("provision-product-list");
+  const status = document.getElementById("application-provision-status");
+  productList.innerHTML = '<p class="provision-loading">Loading available products…</p>';
+  status.textContent = "";
+  provisioningDialog.showModal();
+  try {
+    const products = await loadApplicantProducts();
+    productList.innerHTML = products.length ? products.map((product) => `
+      <label class="provision-product-option">
+        <input type="checkbox" name="products" value="${escapeHtml(product.product_key)}">
+        <span><strong>${escapeHtml(product.name)}</strong><small>${escapeHtml(product.description || "Activate this product when the account is created.")}</small></span>
+      </label>
+    `).join("") : '<p class="provision-loading">No client products are currently available.</p>';
+  } catch (error) {
+    productList.innerHTML = '<p class="provision-loading">Products could not be loaded.</p>';
+    status.textContent = error.message || "Unable to load products.";
+  }
+}
+
+async function provisionApplicant(event) {
+  event.preventDefault();
+  const application = applications.find((row) => row.id === selectedId);
+  if (!application || application.account_user_id) return;
+  const form = event.currentTarget;
+  const products = Array.from(new FormData(form).getAll("products"), String);
+  const status = document.getElementById("application-provision-status");
+  const submit = document.getElementById("application-provision-submit");
+  if (!products.length) {
+    status.textContent = "Select at least one product to activate.";
+    return;
+  }
+  submit.disabled = true;
+  submit.textContent = "Creating account…";
+  status.textContent = "Preparing the account and product access before sending the activation email…";
+  try {
+    const data = await invokePlatformAdmin("provision-career-applicant", {
+      applicationId: application.id,
+      products,
+    });
+    elements().provisioningDialog?.close();
+    await load();
+    const productNames = (data.products || []).map((product) => product.name).join(", ");
+    const delivery = data.activationEmailSent
+      ? " The password-setup email was sent."
+      : data.activationEmailRequired
+        ? ` The account and access are ready, but the email was not sent${data.activationEmailError ? `: ${data.activationEmailError}` : "."}`
+        : " The existing account was connected without sending another activation email.";
+    const summary = elements().summary;
+    if (summary) summary.textContent = `${application.full_name}'s account is ready${productNames ? ` with ${productNames}` : ""}.${delivery}`;
+  } catch (error) {
+    status.textContent = error.message || "Unable to create this account.";
+  } finally {
+    submit.disabled = false;
+    submit.textContent = "Create account & send link";
+  }
 }
 
 async function deleteApplication(application) {
@@ -211,7 +287,7 @@ async function addNote(event) {
 }
 
 function bindInteractions() {
-  const { list, dialog, manualForm } = elements();
+  const { list, dialog, manualForm, provisioningDialog, provisioningForm } = elements();
   list?.addEventListener("click", (event) => {
     const card = event.target.closest("[data-id]");
     if (!card) return;
@@ -228,6 +304,9 @@ function bindInteractions() {
   });
   document.getElementById("add-application")?.addEventListener("click", () => dialog?.showModal());
   document.getElementById("cancel-dialog")?.addEventListener("click", () => dialog?.close());
+  document.getElementById("application-provision-close")?.addEventListener("click", () => provisioningDialog?.close());
+  document.getElementById("application-provision-cancel")?.addEventListener("click", () => provisioningDialog?.close());
+  provisioningForm?.addEventListener("submit", provisionApplicant);
   manualForm?.addEventListener("submit", async (event) => {
     event.preventDefault();
     const payload = Object.fromEntries(new FormData(manualForm).entries());

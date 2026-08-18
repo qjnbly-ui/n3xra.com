@@ -193,7 +193,7 @@ window.addEventListener("hashchange", selectInvestmentSection);
 
 async function loadAdminView(adminContext) {
   if (view === "accounts") {
-    const accountsController = await import("/account/admin/controllers/accounts.js?v=4");
+    const accountsController = await import("/account/admin/controllers/accounts.js?v=5");
     await accountsController.startAccounts({ supabase, invoke, escapeHtml, formatDate, formatPhone, providerLabel, setStatus, confirmAdminAction, promptAdminText, platformAdminRole: adminContext.admin?.role, currentUserId: adminContext.user?.id });
   } else if (view === "files") {
     const files = await import("/account/admin/files/files.js?v=20");
