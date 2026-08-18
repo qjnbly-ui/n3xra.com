@@ -945,6 +945,45 @@ function getAppOrigin(request: Request) {
   return "https://n3xra.com";
 }
 
+function renderApplicantActivationEmail(options: {
+  email: string;
+  fullName: string;
+  actionLink: string;
+  productLabels: string[];
+}) {
+  const safeName = escapeHtml(options.fullName || options.email);
+  const safeActionLink = escapeHtml(options.actionLink);
+  const safeProducts = options.productLabels.map((label) => escapeHtml(label));
+  const productList = safeProducts.length
+    ? `<p style="margin:18px 0 8px;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:#087d73;font-weight:700;">Products ready for you</p><ul style="margin:0 0 20px;padding-left:20px;color:#2f3d4d;">${safeProducts.map((label) => `<li style="margin:5px 0;">${label}</li>`).join("")}</ul>`
+    : "";
+
+  return {
+    subject: "Set up your N3XRA account",
+    html: `<!doctype html>
+      <html lang="en">
+        <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+        <body style="margin:0;background:#f5f7fb;">
+          <div style="margin:0;padding:28px;background:#f5f7fb;font-family:Manrope,Trebuchet MS,sans-serif;color:#121924;">
+            <div style="max-width:620px;margin:0 auto;background:#fff;border:1px solid rgba(15,22,32,.08);border-radius:18px;overflow:hidden;">
+              <div style="padding:26px 28px;background:#0f141b;color:#fff;">
+                <div style="font-size:12px;letter-spacing:.16em;text-transform:uppercase;font-weight:700;opacity:.82;">N3XRA account</div>
+                <h1 style="margin:10px 0 0;font-size:28px;line-height:1.15;">Your account is ready</h1>
+              </div>
+              <div style="padding:28px;">
+                <p style="margin:0 0 14px;font-size:16px;line-height:1.6;color:#2f3d4d;">Hi ${safeName},</p>
+                <p style="margin:0 0 14px;font-size:16px;line-height:1.6;color:#2f3d4d;">Your N3XRA account has been prepared. Your access is already connected, so you only need to choose a password.</p>
+                ${productList}
+                <a href="${safeActionLink}" style="display:inline-block;padding:13px 22px;border-radius:999px;background:#123a33;color:#fff;text-decoration:none;font-size:15px;font-weight:700;">Choose password</a>
+                <p style="margin:20px 0 0;font-size:12px;line-height:1.5;color:#6b7482;">If you were not expecting this invitation, you can ignore this email.</p>
+              </div>
+            </div>
+          </div>
+        </body>
+      </html>`,
+  };
+}
+
 async function sendApplicantActivationEmail(options: {
   email: string;
   fullName: string;
@@ -957,12 +996,7 @@ async function sendApplicantActivationEmail(options: {
   }
 
   const fromEmail = Deno.env.get("N3XRA_ACCOUNT_FROM_EMAIL") || "N3XRA <noreply@n3xra.com>";
-  const safeName = escapeHtml(options.fullName || options.email);
-  const safeActionLink = escapeHtml(options.actionLink);
-  const safeProducts = options.productLabels.map((label) => escapeHtml(label));
-  const productList = safeProducts.length
-    ? `<p style="margin:18px 0 8px;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:#087d73;font-weight:700;">Products ready for you</p><ul style="margin:0 0 20px;padding-left:20px;color:#2f3d4d;">${safeProducts.map((label) => `<li style="margin:5px 0;">${label}</li>`).join("")}</ul>`
-    : "";
+  const email = renderApplicantActivationEmail(options);
 
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -973,24 +1007,8 @@ async function sendApplicantActivationEmail(options: {
     body: JSON.stringify({
       from: fromEmail,
       to: [options.email],
-      subject: "Set up your N3XRA account",
-      html: `
-        <div style="margin:0;padding:28px;background:#f5f7fb;font-family:Manrope,Trebuchet MS,sans-serif;color:#121924;">
-          <div style="max-width:620px;margin:0 auto;background:#fff;border:1px solid rgba(15,22,32,.08);border-radius:18px;overflow:hidden;">
-            <div style="padding:26px 28px;background:#0f141b;color:#fff;">
-              <div style="font-size:12px;letter-spacing:.16em;text-transform:uppercase;font-weight:700;opacity:.82;">N3XRA account</div>
-              <h1 style="margin:10px 0 0;font-size:28px;line-height:1.15;">Your account is ready</h1>
-            </div>
-            <div style="padding:28px;">
-              <p style="margin:0 0 14px;font-size:16px;line-height:1.6;color:#2f3d4d;">Hi ${safeName},</p>
-              <p style="margin:0 0 14px;font-size:16px;line-height:1.6;color:#2f3d4d;">Your N3XRA account has been prepared. Your access is already connected, so you only need to choose a password.</p>
-              ${productList}
-              <a href="${safeActionLink}" style="display:inline-block;padding:13px 22px;border-radius:999px;background:#123a33;color:#fff;text-decoration:none;font-size:15px;font-weight:700;">Choose password</a>
-              <p style="margin:20px 0 0;font-size:12px;line-height:1.5;color:#6b7482;">If you were not expecting this invitation, you can ignore this email.</p>
-            </div>
-          </div>
-        </div>
-      `,
+      subject: email.subject,
+      html: email.html,
     }),
   });
 
@@ -1192,6 +1210,42 @@ Deno.serve(async (request) => {
         .order("name", { ascending: true });
       if (error) return jsonResponse({ error: error.message }, 400);
       return jsonResponse({ ok: true, products: products || [] });
+    }
+
+    if (action === "preview-career-applicant-email") {
+      const applicationId = String(payload.applicationId || "").trim();
+      const requestedProducts = Array.isArray(payload.products)
+        ? Array.from(new Set(payload.products.map((product: unknown) => String(product || "").trim().toLowerCase()).filter(Boolean))).slice(0, 20)
+        : [];
+      if (!isValidUuid(applicationId)) return jsonResponse({ error: "A valid career application is required." }, 400);
+      if (!requestedProducts.length) return jsonResponse({ error: "Select at least one product to preview." }, 400);
+      if (requestedProducts.some((product) => !APPLICANT_INSTANT_PRODUCT_KEYS.includes(product))) {
+        return jsonResponse({ error: "One or more selected products require their own setup workflow." }, 400);
+      }
+
+      const [applicationResult, productsResult] = await Promise.all([
+        adminClient.from("careers_applications").select("id,full_name,email").eq("id", applicationId).maybeSingle(),
+        adminClient.from("n3xra_product_catalog").select("product_key,name").in("product_key", requestedProducts),
+      ]);
+      if (applicationResult.error) return jsonResponse({ error: applicationResult.error.message }, 400);
+      if (productsResult.error) return jsonResponse({ error: productsResult.error.message }, 400);
+      if (!applicationResult.data) return jsonResponse({ error: "The career application was not found." }, 404);
+      if ((productsResult.data || []).length !== requestedProducts.length) {
+        return jsonResponse({ error: "One or more selected products are unavailable." }, 400);
+      }
+
+      const recipient = normalizeEmail(applicationResult.data.email);
+      const fullName = textValue(applicationResult.data.full_name || recipient, 180);
+      if (!isValidEmail(recipient)) return jsonResponse({ error: "The application does not contain a valid email." }, 400);
+      const productLabels = (productsResult.data || []).map((product) => String(product.name || product.product_key));
+      const email = renderApplicantActivationEmail({
+        email: recipient,
+        fullName,
+        actionLink: `${getAppOrigin(request)}/account/?mode=invite`,
+        productLabels,
+      });
+
+      return jsonResponse({ ok: true, recipient, productLabels, ...email });
     }
 
     if (action === "provision-career-applicant") {

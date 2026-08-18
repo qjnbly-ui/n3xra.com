@@ -72,6 +72,7 @@ function elements() {
     manualForm: document.getElementById("manual-application-form"),
     provisioningDialog: document.getElementById("application-provision-dialog"),
     provisioningForm: document.getElementById("application-provision-form"),
+    emailPreviewDialog: document.getElementById("application-email-preview-dialog"),
   };
 }
 
@@ -210,16 +211,50 @@ async function openApplicantProvisioning(application) {
   }
 }
 
-async function provisionApplicant(event) {
-  event.preventDefault();
+function selectedProvisioningProducts() {
+  const { provisioningForm } = elements();
+  return provisioningForm ? Array.from(new FormData(provisioningForm).getAll("products"), String) : [];
+}
+
+async function previewApplicantEmail() {
   const application = applications.find((row) => row.id === selectedId);
   if (!application || application.account_user_id) return;
-  const form = event.currentTarget;
-  const products = Array.from(new FormData(form).getAll("products"), String);
+  const products = selectedProvisioningProducts();
   const status = document.getElementById("application-provision-status");
+  if (!products.length) {
+    status.textContent = "Select at least one product to preview.";
+    return;
+  }
+  const previewButton = document.getElementById("application-email-preview-open");
+  previewButton.disabled = true;
+  previewButton.textContent = "Preparing preview…";
+  status.textContent = "";
+  try {
+    const data = await invokePlatformAdmin("preview-career-applicant-email", {
+      applicationId: application.id,
+      products,
+    });
+    document.getElementById("application-email-preview-recipient").textContent = data.recipient;
+    document.getElementById("application-email-preview-subject").textContent = data.subject;
+    document.getElementById("application-email-preview-frame").srcdoc = data.html;
+    document.getElementById("application-email-preview-status").textContent = "No account has been created and no email has been sent.";
+    elements().emailPreviewDialog?.showModal();
+  } catch (error) {
+    status.textContent = error.message || "Unable to prepare the email preview.";
+  } finally {
+    previewButton.disabled = false;
+    previewButton.textContent = "Preview email";
+  }
+}
+
+async function provisionApplicant() {
+  const application = applications.find((row) => row.id === selectedId);
+  if (!application || application.account_user_id) return;
+  const products = selectedProvisioningProducts();
+  const status = document.getElementById("application-email-preview-status");
   const submit = document.getElementById("application-provision-submit");
   if (!products.length) {
-    status.textContent = "Select at least one product to activate.";
+    status.textContent = "Return to product selection and choose at least one product.";
     return;
   }
   submit.disabled = true;
@@ -230,6 +265,7 @@ async function provisionApplicant(event) {
       applicationId: application.id,
       products,
     });
+    elements().emailPreviewDialog?.close();
     elements().provisioningDialog?.close();
     await load();
     const productNames = (data.products || []).map((product) => product.name).join(", ");
@@ -287,7 +323,7 @@ async function addNote(event) {
 }
 
 function bindInteractions() {
-  const { list, dialog, manualForm, provisioningDialog, provisioningForm } = elements();
+  const { list, dialog, manualForm, provisioningDialog, emailPreviewDialog } = elements();
   list?.addEventListener("click", (event) => {
     const card = event.target.closest("[data-id]");
     if (!card) return;
@@ -306,7 +342,10 @@ function bindInteractions() {
   document.getElementById("cancel-dialog")?.addEventListener("click", () => dialog?.close());
   document.getElementById("application-provision-close")?.addEventListener("click", () => provisioningDialog?.close());
   document.getElementById("application-provision-cancel")?.addEventListener("click", () => provisioningDialog?.close());
-  provisioningForm?.addEventListener("submit", provisionApplicant);
+  document.getElementById("application-email-preview-open")?.addEventListener("click", previewApplicantEmail);
+  document.getElementById("application-email-preview-close")?.addEventListener("click", () => emailPreviewDialog?.close());
+  document.getElementById("application-email-preview-back")?.addEventListener("click", () => emailPreviewDialog?.close());
+  document.getElementById("application-provision-submit")?.addEventListener("click", provisionApplicant);
   manualForm?.addEventListener("submit", async (event) => {
     event.preventDefault();
     const payload = Object.fromEntries(new FormData(manualForm).entries());

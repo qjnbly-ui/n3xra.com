@@ -45,4 +45,11 @@
 .provision-product-option small,.provision-note,.provision-loading { color:var(--muted); font-weight:400; }
 .provision-note { margin:.8rem 0; font-size:.75rem; }
 .provision-status { min-height:1.4em; margin:.7rem 0; color:#8d3a3a; font-size:.76rem; }
+.application-email-preview-dialog { width:min(780px,calc(100% - 2rem)); padding:0; }
+.application-email-preview-shell { padding:1.2rem; }
+.application-email-preview-meta { display:grid; grid-template-columns:minmax(0,.7fr) minmax(0,1.3fr); gap:1rem; margin:1rem 0; }
+.application-email-preview-meta p { min-width:0; display:grid; gap:.18rem; margin:0; padding:.7rem .8rem; background:#f3f8f7; border:1px solid var(--line); border-radius:8px; }
+.application-email-preview-meta span { color:var(--muted); font-size:.66rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }
+.application-email-preview-meta strong { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+#application-email-preview-frame { width:100%; height:min(570px,60vh); display:block; background:#f5f7fb; border:1px solid var(--line); border-radius:10px; }
 @media(max-width:760px){.applications-admin-page{height:auto;overflow:auto}.applications-admin-page .applications-shell,.applications-admin-page .applications-shell>.portal-layout{height:auto;overflow:visible}.applications-admin-page .applications-directory-app{overflow:visible}.applications-pagebar{align-items:flex-start;flex-direction:column}.applications-admin-page .application-workspace{grid-template-columns:1fr}.applications-admin-page .application-queue-pane{max-height:42svh;border-right:0;border-bottom:1px solid var(--portal-line)}.applications-admin-page .application-detail{min-height:520px;overflow:visible}.application-detail-actions{align-items:stretch;flex-direction:column}.application-detail-actions .portal-button{width:100%}}

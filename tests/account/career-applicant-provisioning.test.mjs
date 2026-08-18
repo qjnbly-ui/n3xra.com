@@ -14,11 +14,27 @@ test("career applications expose account and product provisioning", async () => 
   assert.match(html, /Create account &amp; access/);
   assert.match(html, /Products available on first sign in/);
   assert.match(html, /Platform administrator access is managed separately/);
+  assert.match(html, /Activation email preview/);
+  assert.match(html, /id="application-email-preview-frame"[\s\S]*sandbox=""/);
+  assert.match(html, /Preview email/);
   assert.match(controller, /list-career-applicant-products/);
+  assert.match(controller, /preview-career-applicant-email/);
   assert.match(controller, /provision-career-applicant/);
   assert.match(controller, /applicationId: application\.id/);
   assert.match(controller, /Open account/);
   assert.match(css, /\.provision-product-option:has\(input:checked\)/);
+  assert.match(css, /#application-email-preview-frame/);
+});
+
+test("email preview uses the delivery template without creating an account or sending", async () => {
+  const edgeFunction = await read("supabase/functions/platform-admin/index.ts");
+  const previewAction = edgeFunction.match(/if \(action === "preview-career-applicant-email"\)[\s\S]*?(?=\n    if \(action === "provision-career-applicant"\))/)?.[0] || "";
+
+  assert.match(previewAction, /renderApplicantActivationEmail/);
+  assert.doesNotMatch(previewAction, /auth\.admin\.generateLink/);
+  assert.doesNotMatch(previewAction, /admin_provision_career_applicant/);
+  assert.doesNotMatch(previewAction, /sendApplicantActivationEmail/);
+  assert.match(edgeFunction, /const email = renderApplicantActivationEmail\(options\)/);
 });
 
 test("trusted provisioning creates access before sending a password setup link", async () => {

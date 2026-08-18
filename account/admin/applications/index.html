@@ -26,10 +26,19 @@
       <fieldset class="provision-product-fieldset"><legend>Products available on first sign in</legend><div id="provision-product-list"></div></fieldset>
       <p class="provision-note">A personal workspace will be created for this account. Platform administrator access is managed separately.</p>
       <p class="provision-status" id="application-provision-status" role="status" aria-live="polite"></p>
-      <footer><button id="application-provision-cancel" type="button">Cancel</button><button id="application-provision-submit" type="submit">Create account &amp; send link</button></footer>
+      <footer><button id="application-provision-cancel" type="button">Cancel</button><button id="application-email-preview-open" type="button">Preview email</button></footer>
     </form>
   </dialog>
+  <dialog class="application-email-preview-dialog" id="application-email-preview-dialog" aria-labelledby="application-email-preview-title">
+    <div class="application-email-preview-shell">
+      <header><div><p>Final review</p><h2 id="application-email-preview-title">Activation email preview</h2></div><button id="application-email-preview-close" type="button" aria-label="Close">×</button></header>
+      <div class="application-email-preview-meta"><p><span>To</span><strong id="application-email-preview-recipient"></strong></p><p><span>Subject</span><strong id="application-email-preview-subject"></strong></p></div>
+      <iframe id="application-email-preview-frame" title="Activation email preview" sandbox="" referrerpolicy="no-referrer"></iframe>
+      <p class="provision-status" id="application-email-preview-status" role="status" aria-live="polite"></p>
+      <footer><button id="application-email-preview-back" type="button">Back</button><button id="application-provision-submit" type="button">Create account &amp; send link</button></footer>
+    </div>
+  </dialog>
   </main>
-  <script type="module" src="/account/admin/applications/applications.js?v=8"></script>
+  <script type="module" src="/account/admin/applications/applications.js?v=9"></script>
 </body>
 </html>
