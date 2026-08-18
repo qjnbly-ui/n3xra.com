@@ -39,139 +39,8 @@
   color: var(--portal-muted);
 }
 
-.records-demo-workspace-section {
-  display: grid;
-  gap: 1rem;
-}
-
-.records-demo-workspace-form {
-  margin: 0;
-}
-
-.records-demo-claim-result {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 1rem;
-  background: rgba(22, 185, 237, .08);
-  border: 1px solid rgba(22, 185, 237, .22);
-  border-radius: 10px;
-}
-
-.records-demo-claim-result > div:first-child {
-  min-width: 0;
-}
-
-.records-demo-claim-result span {
-  display: block;
-  color: var(--portal-muted);
-  font-size: .68rem;
-  font-weight: 800;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-}
-
-.records-demo-claim-result strong {
-  display: block;
-  margin-top: .2rem;
-  color: var(--portal-ink);
-  font-size: 1.05rem;
-}
-
-.records-demo-claim-result p {
-  margin: .25rem 0 0;
-  overflow-wrap: anywhere;
-  color: var(--portal-muted);
-  font-size: .8rem;
-}
-
-.records-demo-workspace-list {
-  display: grid;
-  gap: .7rem;
-}
-
-.records-demo-workspace-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 1rem;
-  padding: .9rem 1rem;
-  background: #fff;
-  border: 1px solid var(--portal-line);
-  border-radius: 9px;
-}
-
-.records-demo-workspace-row p {
-  margin: .2rem 0 0;
-  color: var(--portal-muted);
-}
-
-.records-admin-disclosure {
-  margin-top: 1rem;
-  border: 1px solid var(--portal-line);
-  border-radius: 10px;
-  background: #fff;
-}
-
-.records-admin-disclosure > summary {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 1rem 1.1rem;
-  cursor: pointer;
-  list-style: none;
-}
-
-.records-admin-disclosure > summary::-webkit-details-marker {
-  display: none;
-}
-
-.records-admin-disclosure > summary > span:first-child {
-  display: grid;
-  gap: .18rem;
-}
-
-.records-admin-disclosure > summary .portal-kicker {
-  margin: 0;
-}
-
-.records-admin-disclosure > summary strong {
-  font-family: "Fraunces", Georgia, serif;
-  font-size: 1.35rem;
-}
-
-.records-admin-disclosure > summary small {
-  color: var(--portal-muted);
-  font-size: .8rem;
-}
-
-.records-disclosure-action {
-  flex: 0 0 auto;
-  color: var(--portal-muted);
-  font-size: .72rem;
-  font-weight: 800;
-  letter-spacing: .06em;
-  text-transform: uppercase;
-}
-
-.records-admin-disclosure[open] .records-disclosure-action {
-  font-size: 0;
-}
-
-.records-admin-disclosure[open] .records-disclosure-action::after {
-  content: attr(data-open-label);
-  font-size: .72rem;
-}
-
 .records-organization-accounts-section {
   margin: 0;
-}
-
-.records-demo-disclosure .records-demo-workspace-section {
-  margin: 0 1.1rem;
-  padding-top: 0;
 }
 
 .admin-usage-table-shell {
@@ -483,18 +352,9 @@
   .selected-organization-head,
   .portal-form-actions { align-items: flex-start; flex-direction: column; }
   .records-support-workspace-head { align-items: flex-start; flex-direction: column; }
-  .records-section-head,
-  .records-demo-claim-result,
-  .records-demo-workspace-row {
+  .records-section-head {
     align-items: flex-start;
     grid-template-columns: 1fr;
     flex-direction: column;
-  }
-  .records-demo-workspace-row .records-button-group,
-  .records-demo-claim-result .records-button-group {
-    width: 100%;
-  }
-  .records-admin-disclosure > summary {
-    align-items: flex-start;
   }
 }

@@ -222,7 +222,7 @@ function toggleSignup(visible) {
   showSigninButton.setAttribute("aria-pressed", String(!visible));
   authTitle.textContent = visible ? "Create account" : "Sign in";
   authSubtitle.textContent = visible
-    ? "Choose how to start: create an organization, use Personal, join a library, or claim a prepared demo."
+    ? "Choose how to start: create an organization, use Personal, or join a library."
     : "Use your email and password to sign in.";
   if (visible) setSignupMode(signupMode);
   setStatus("");
@@ -298,7 +298,7 @@ async function setAuthedState(session) {
   if (!isAuthed) {
     authTitle.textContent = showSignupButton.classList.contains("is-active") ? "Create account" : "Sign in";
     authSubtitle.textContent = showSignupButton.classList.contains("is-active")
-      ? "Choose how to start: create an organization, use Personal, join a library, or claim a prepared demo."
+      ? "Choose how to start: create an organization, use Personal, or join a library."
       : "Use your email and password to sign in.";
     return "signed_out";
   }
@@ -372,24 +372,6 @@ async function loadSessionState() {
 }
 
 async function bootstrapMemberships(organizationName, inviteCode) {
-  const normalizedCode = String(inviteCode || "").trim().toUpperCase();
-  if (normalizedCode.startsWith("DEMO-")) {
-    const { data, error } = await supabase.functions.invoke("platform-admin", {
-      body: {
-        action: "claim-records-demo-workspace",
-        code: normalizedCode,
-      },
-    });
-    if (error || data?.error) {
-      throw new Error(data?.error || error?.message || "Unable to claim the demo workspace.");
-    }
-    return {
-      ok: true,
-      active_organization_id: data?.organizationId || null,
-      claimed_demo_workspace: true,
-    };
-  }
-
   const payload = {
     input_organization_name: organizationName || null,
     input_invite_code: inviteCode || null,
@@ -424,7 +406,7 @@ async function handleSignup(event) {
 
   if (signupMode === "invite" && !inviteCode) {
     isSubmittingAuth = false;
-    setStatus("Enter an invite or demo claim code.", "error");
+    setStatus("Enter an invite code.", "error");
     return;
   }
 
@@ -518,7 +500,7 @@ async function handleExistingRecordsSetup() {
     : (signupMode === "personal" ? "Personal" : signupOrganizationInput.value.trim());
 
   if (signupMode === "invite" && !inviteCode) {
-    setStatus("Enter an invite or demo claim code.", "error");
+    setStatus("Enter an invite code.", "error");
     signupInviteCodeInput.focus();
     return;
   }

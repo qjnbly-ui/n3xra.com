@@ -5,7 +5,7 @@
   <title>N3XRA | Records Organizations</title><meta name="description" content="N3XRA Records organization administration."><meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
   <link rel="canonical" href="https://n3xra.com/n3xra-admin/records/organizations/"><link rel="icon" type="image/png" href="/assets/n3xra_logo_transparent_small.png">
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/site-nav.css?v=4"><link rel="stylesheet" href="/client-portal/portal.css?v=17"><link rel="stylesheet" href="/n3xra-admin/records/records-admin.css?v=5">
+  <link rel="stylesheet" href="/assets/site-nav.css?v=4"><link rel="stylesheet" href="/client-portal/portal.css?v=17"><link rel="stylesheet" href="/n3xra-admin/records/records-admin.css?v=6">
   <script src="/shared/config.js"></script><script src="/account/admin/admin-shell.js?v=2" defer></script><script src="/assets/site-nav.js?v=5"></script>
   <script>
     window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
@@ -19,19 +19,7 @@
     <section class="portal-workspace records-setup" id="setup-panel"><div class="portal-workspace-head"><div><h2>Connect Supabase</h2><p>Add your project configuration to continue.</p></div></div></section>
     <div class="portal-layout hidden" id="admin-panel">
       <nav class="portal-nav"></nav>
-      <section class="portal-workspace"><div id="organizations-workspace"><div class="portal-workspace-head"><div><p class="portal-kicker">Records administration</p><h2>Organizations</h2><p>Prepare guided demos and manage existing organization accounts.</p></div></div>
-        <details class="records-admin-disclosure records-demo-disclosure">
-          <summary><span><span class="portal-kicker">Guided sales demo</span><strong>Claimable Records workspace</strong><small>Create and prepare a workspace the customer can claim after the demo.</small></span><span class="records-disclosure-action" data-open-label="Hide demo">Show demo</span></summary>
-        <section class="records-admin-section records-demo-workspace-section">
-          <div class="records-section-head"><p>Create the organization before the meeting, use its real Records workspace, and hand the completed workspace to the customer with a one-time code.</p><button class="portal-button portal-button-secondary" id="demo-workspace-refresh" type="button">Refresh</button></div>
-          <form class="portal-form records-demo-workspace-form" id="demo-workspace-form">
-            <div class="portal-form-grid"><label>Organization name<input id="demo-workspace-name" type="text" maxlength="160" required placeholder="Navarre County"></label><label>Customer email (optional)<input id="demo-workspace-email" type="email" placeholder="owner@example.org"></label></div>
-            <div class="portal-form-actions"><button class="portal-button" type="submit">Create demo workspace</button></div>
-          </form>
-          <div class="records-demo-claim-result hidden" id="demo-workspace-claim-result"><div><span>One-time claim code</span><strong id="demo-workspace-claim-code"></strong><p id="demo-workspace-claim-url"></p></div><div class="records-button-group"><button class="portal-button portal-button-secondary" id="demo-workspace-copy-code" type="button">Copy code</button><button class="portal-button portal-button-secondary" id="demo-workspace-copy-link" type="button">Copy link</button></div></div>
-          <div class="records-demo-workspace-list" id="demo-workspace-list"></div>
-          <p class="status" id="demo-workspace-status"></p>
-        </section></details>
+      <section class="portal-workspace"><div id="organizations-workspace"><div class="portal-workspace-head"><div><p class="portal-kicker">Records administration</p><h2>Organizations</h2><p>Manage existing organization accounts.</p></div></div>
         <section class="records-admin-section records-organization-accounts-section">
           <div class="records-section-head"><div><p class="portal-kicker">Organizations</p><h3>Organization accounts</h3><p>Select an account, then open its support workspace.</p></div></div>
           <div class="records-admin-selector records-admin-selector-top"><label class="records-admin-org-select"><span class="portal-kicker">Organizations</span><strong>Choose an account</strong><select id="organization-list" aria-label="Choose an organization account"></select></label><p class="status" id="admin-status"></p></div>
@@ -66,6 +54,6 @@
       </section>
     </div>
   </main>
-  <script type="module" src="/n3xra-records/admin.js?v=20260805-function-errors"></script>
+  <script type="module" src="/n3xra-records/admin.js?v=20260817-records-admin-cleanup"></script>
 </body>
 </html>
