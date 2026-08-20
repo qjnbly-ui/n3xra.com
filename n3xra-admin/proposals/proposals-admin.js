@@ -230,6 +230,23 @@ function isFounderOffer(request = selectedRequest) {
   return String(request?.offer_code || "").toUpperCase() === "FREEBUILD";
 }
 
+function isBoulderCreekRequest(request = selectedRequest) {
+  const name = String(request?.business_name || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  return name === "boulder creek plumbing" || name === "boulder creek plumbing llc";
+}
+
+function configureBillingPolicy({ preserveExisting = false } = {}) {
+  const policy = document.getElementById(fieldIds.recurring_start_policy);
+  const complimentaryOption = policy.querySelector('option[value="review_required"]');
+  const boulderCreekException = isBoulderCreekRequest();
+  complimentaryOption.disabled = !boulderCreekException;
+  complimentaryOption.textContent = boulderCreekException
+    ? "Boulder Creek Plumbing exception — first year free"
+    : "First year free — Boulder Creek Plumbing only";
+  if (!preserveExisting && !boulderCreekException && policy.value === "review_required") policy.value = "immediate";
+  if (!preserveExisting && isFounderOffer()) policy.value = "immediate";
+}
+
 function configureReferralDiscount({ apply = false } = {}) {
   const code = String(selectedRequest?.referral_code || "").trim();
   referralDiscountWrap.hidden = !code;
@@ -238,7 +255,7 @@ function configureReferralDiscount({ apply = false } = {}) {
   referralDiscountToggle.disabled = founderOffer;
   referralDiscountHelp.textContent = code
     ? founderOffer
-      ? "Founding offer verified: the one-time website build fee is waived. Service plans, domains, and third-party services remain billable."
+      ? "FREEBUILD verified: the website build fee is waived and one full year of service is paid upfront. Domains and third-party services remain billable."
       : `Verified code ${code}: applies 10% off one-time website-build line items. The partner earns $100 only if the client purchases one year of service.`
     : "";
   document.getElementById(fieldIds.discount_cents).readOnly = Boolean(founderOffer || (code && apply));
@@ -335,7 +352,12 @@ function editingLineItems(version = editingVersion) {
   if (!version) {
     const items = [newLineItem()];
     if (["starter", "starter_plus", "advanced"].includes(selectedRequest?.service_plan)) {
-      items.push(servicePlanItem(selectedRequest.service_plan));
+      const service = servicePlanItem(selectedRequest.service_plan);
+      if (isFounderOffer()) {
+        service.recurring_interval = "yearly";
+        service.unit_amount_cents = { starter: 27000, starter_plus: 43200, advanced: 54000 }[selectedRequest.service_plan];
+      }
+      items.push(service);
     }
     return items;
   }
@@ -441,7 +463,7 @@ function renderRequestSummary() {
       ${selectedRequest.service_plan_reason ? `<div><dt>Plan fit</dt><dd>${escapeHtml(selectedRequest.service_plan_reason)}</dd></div>` : ""}
       <div><dt>Budget</dt><dd>${escapeHtml(formatLabel(selectedRequest.budget_range || "Not specified"))}</dd></div>
       <div><dt>Referral code</dt><dd>${escapeHtml(selectedRequest.referral_code || "None")}</dd></div>
-      ${isFounderOffer(selectedRequest) ? '<div><dt>Offer</dt><dd>Founding offer — $250 build fee waived</dd></div>' : ""}
+      ${isFounderOffer(selectedRequest) ? '<div><dt>Offer</dt><dd>FREEBUILD — website build fee waived; one year of service paid upfront</dd></div>' : ""}
     </dl>
   `;
 }
@@ -487,6 +509,7 @@ function fillForm(version) {
   });
   configureReferralDiscount({ apply: Boolean(!version && selectedRequest?.referral_code) });
   renderLineItems(version);
+  configureBillingPolicy({ preserveExisting: Boolean(version && version.status !== "draft") });
   document.getElementById(fieldIds.recurring_start_policy).dispatchEvent(new Event("change", { bubbles: true }));
 }
 
@@ -562,6 +585,14 @@ function collectVersion() {
   updateInvestmentTotals();
   const recurringCents = moneyToCents(document.getElementById(fieldIds.recurring_cents).value);
   const recurringInterval = document.getElementById(fieldIds.recurring_interval).value || null;
+  const recurringPolicy = document.getElementById(fieldIds.recurring_start_policy).value;
+  const serviceItem = items.find((item) => item.billing_type === "recurring" && ["maintenance", "hosting"].includes(item.category));
+  if (isFounderOffer() && (!serviceItem || serviceItem.recurring_interval !== "yearly" || recurringPolicy !== "immediate")) {
+    throw new Error("FREEBUILD requires one full year of website service paid upfront. Use yearly service with standard plan billing.");
+  }
+  if (recurringPolicy === "review_required" && !isBoulderCreekRequest()) {
+    throw new Error("The complimentary first-year exception is reserved for Boulder Creek Plumbing.");
+  }
 
   const subtotalCents = moneyToCents(document.getElementById(fieldIds.subtotal_cents).value);
   const discountCents = moneyToCents(document.getElementById(fieldIds.discount_cents).value);
@@ -588,8 +619,8 @@ function collectVersion() {
     deposit_cents: depositCents,
     recurring_cents: recurringCents,
     recurring_interval: recurringCents ? recurringInterval : null,
-    recurring_start_policy: recurringCents ? document.getElementById(fieldIds.recurring_start_policy).value : "immediate",
-    complimentary_months: document.getElementById(fieldIds.recurring_start_policy).value === "review_required"
+    recurring_start_policy: recurringCents ? recurringPolicy : "immediate",
+    complimentary_months: recurringPolicy === "review_required"
       ? Math.max(1, Number(document.getElementById(fieldIds.complimentary_months).value || 12))
       : 0,
     review_notice_days: Math.max(1, Number(document.getElementById(fieldIds.review_notice_days).value || 45)),

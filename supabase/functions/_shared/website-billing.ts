@@ -76,11 +76,29 @@ export function priceEnvironment(plan: string, interval: string, amountCents?: n
     "advanced:monthly": "STRIPE_PRICE_WEBSITE_ADVANCED_MONTHLY",
     "advanced:yearly": "STRIPE_PRICE_WEBSITE_ADVANCED_YEARLY",
   };
-  if (plan === "starter_plus" && interval === "monthly" && amountCents === 3500) {
+  if (plan === "starter_plus" && amountCents === 3500 && interval === "monthly") {
     return Deno.env.get("STRIPE_PRICE_WEBSITE_STARTER_PLUS_ROOTS_MONTHLY") || "";
+  }
+  if (plan === "starter_plus" && amountCents === 37800 && interval === "yearly") {
+    return Deno.env.get("STRIPE_PRICE_WEBSITE_STARTER_PLUS_ROOTS_YEARLY") || "";
   }
   const name = names[`${plan}:${interval}`];
   return name ? Deno.env.get(name) || "" : "";
+}
+
+export function websiteServiceAmount(plan: string, interval: string, acceptedAmountCents: number) {
+  if (!["monthly", "yearly"].includes(interval)) return 0;
+  if (plan === "starter_plus" && [3500, 37800].includes(acceptedAmountCents)) {
+    return interval === "yearly" ? 37800 : 3500;
+  }
+  const catalog: Record<string, Record<string, number>> = {
+    starter: { monthly: 2500, yearly: 27000 },
+    starter_plus: { monthly: 4000, yearly: 43200 },
+    advanced: { monthly: 5000, yearly: 54000 },
+  };
+  const acceptedCatalogAmounts = Object.values(catalog[plan] || {});
+  if (!acceptedCatalogAmounts.includes(acceptedAmountCents)) return 0;
+  return catalog[plan]?.[interval] || 0;
 }
 
 export function snapshotItemPriceEnvironment(
@@ -106,6 +124,7 @@ export function knownWebsitePriceIds() {
     "STRIPE_PRICE_WEBSITE_STARTER_PLUS_MONTHLY",
     "STRIPE_PRICE_WEBSITE_STARTER_PLUS_YEARLY",
     "STRIPE_PRICE_WEBSITE_STARTER_PLUS_ROOTS_MONTHLY",
+    "STRIPE_PRICE_WEBSITE_STARTER_PLUS_ROOTS_YEARLY",
     "STRIPE_PRICE_WEBSITE_ADVANCED_MONTHLY",
     "STRIPE_PRICE_WEBSITE_ADVANCED_YEARLY",
     "STRIPE_PRICE_WEBSITE_DOMAIN_YEARLY",

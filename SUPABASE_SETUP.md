@@ -331,6 +331,8 @@ Add these Supabase function secrets:
 - `STRIPE_PRICE_WEBSITE_STARTER_YEARLY`
 - `STRIPE_PRICE_WEBSITE_STARTER_PLUS_MONTHLY`
 - `STRIPE_PRICE_WEBSITE_STARTER_PLUS_YEARLY`
+- `STRIPE_PRICE_WEBSITE_STARTER_PLUS_ROOTS_MONTHLY`
+- `STRIPE_PRICE_WEBSITE_STARTER_PLUS_ROOTS_YEARLY`
 - `APP_ORIGIN` set to `https://www.n3xra.com`
 
 Create a dedicated Website Customer Portal configuration that permits payment-method

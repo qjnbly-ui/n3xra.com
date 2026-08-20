@@ -105,6 +105,53 @@ function domainBillingItem(snapshot) {
   );
 }
 
+function serviceBillingOffers(snapshot) {
+  const recurringItems = (snapshot?.website_billing_snapshot_items || []).filter((item) =>
+    item.billing_type === "recurring" && item.included_in_initial_checkout
+  );
+  const serviceItems = recurringItems.filter((item) => ["maintenance", "hosting"].includes(item.category));
+  if (!serviceItems.length) return [];
+  const acceptedInterval = snapshot?.recurring_interval === "yearly" ? "yearly" : "monthly";
+  const acceptedAmount = Number(serviceItems[0]?.total_amount_cents || snapshot?.recurring_cents || 0);
+  const acceptedOnly = [{ interval: acceptedInterval, amount: acceptedAmount }];
+  if (snapshot?.recurring_start_policy === "review_required" || serviceItems.length !== 1 || recurringItems.length !== 1) return acceptedOnly;
+
+  let monthly;
+  let yearly;
+  if (snapshot.service_plan === "starter_plus" && [3500, 37800].includes(acceptedAmount)) {
+    monthly = 3500;
+    yearly = 37800;
+  } else {
+    const catalog = {
+      starter: { monthly: 2500, yearly: 27000 },
+      starter_plus: { monthly: 4000, yearly: 43200 },
+      advanced: { monthly: 5000, yearly: 54000 },
+    }[snapshot.service_plan];
+    if (!catalog || !Object.values(catalog).includes(acceptedAmount)) return acceptedOnly;
+    ({ monthly, yearly } = catalog);
+  }
+  if (String(snapshot.offer_code || "").toUpperCase() === "FREEBUILD") return [{ interval: "yearly", amount: yearly }];
+  return [{ interval: "monthly", amount: monthly }, { interval: "yearly", amount: yearly }];
+}
+
+function checkoutChoiceButtons(snapshot, { admin = false } = {}) {
+  if (snapshot.recurring_start_policy === "review_required") {
+    const attribute = admin ? "data-admin-checkout" : "data-checkout";
+    return `<button class="${admin ? "billing-task-action" : "portal-button"}" type="button" ${attribute}="${snapshot.id}">${admin ? "<strong>Set up yearly domain billing</strong><small>Create the secure Stripe link for the approved yearly domain renewal.</small><span>Create payment link →</span>" : "Set up yearly domain billing"}</button>`;
+  }
+  const offers = serviceBillingOffers(snapshot);
+  if (!offers.length) {
+    const attribute = admin ? "data-admin-checkout" : "data-checkout";
+    return `<button class="${admin ? "billing-task-action" : "portal-button"}" type="button" ${attribute}="${snapshot.id}">${admin ? "<strong>They need to pay online</strong><small>Create a secure Stripe link and copy it so you can send it to them.</small><span>Create payment link →</span>" : "Complete secure billing setup"}</button>`;
+  }
+  return offers.map((offer) => {
+    const yearly = offer.interval === "yearly";
+    const attribute = admin ? "data-admin-checkout" : "data-checkout";
+    if (admin) return `<button class="billing-task-action" type="button" ${attribute}="${snapshot.id}" data-billing-interval="${offer.interval}"><strong>They want to pay ${offer.interval}</strong><small>${money(offer.amount)} ${yearly ? "per year" : "per month"}${yearly ? " · annual savings included" : ""}.</small><span>Create ${offer.interval} payment link →</span></button>`;
+    return `<button class="portal-button" type="button" ${attribute}="${snapshot.id}" data-billing-interval="${offer.interval}">${yearly ? `Pay ${money(offer.amount)} yearly · save 10%` : `Pay ${money(offer.amount)} monthly`}</button>`;
+  }).join("");
+}
+
 function adminTaskActions(project, snapshot, cardInfo, domainSubscription) {
   if (!adminMode || !snapshot) return "";
   if (snapshot.recurring_start_policy === "review_required") {
@@ -120,7 +167,7 @@ function adminTaskActions(project, snapshot, cardInfo, domainSubscription) {
     <div class="billing-section-heading"><div><p class="portal-kicker">Choose what happened</p><h4>What do you want to do?</h4><p>Pick one. Simply viewing this page does not bill the customer.</p></div></div>
     <div class="billing-task-action-list">
       ${Number(snapshot.recurring_cents || 0) > 0 && !records.subscriptions.some((item) => item.project_id === project.id) ? `<button class="billing-task-action" type="button" data-record-offline-subscription="${project.id}"><strong>They paid the ${renewalPeriod} plan another way</strong><small>Create the ${money(snapshot.recurring_cents)} ${renewalPeriod} invoice, mark it paid, and activate the subscription. No card is charged.</small><span>Record paid plan →</span></button>` : ""}
-      ${snapshot.status !== "active" ? `<button class="billing-task-action" type="button" data-admin-checkout="${snapshot.id}"><strong>They need to pay online</strong><small>Create a secure Stripe link and copy it so you can send it to them.</small><span>${snapshot.checkout_url ? "Refresh payment link" : "Create payment link"} →</span></button>` : ""}
+      ${snapshot.status !== "active" ? checkoutChoiceButtons(snapshot, { admin: true }) : ""}
       ${snapshot.checkout_url ? `<button class="billing-task-action" type="button" data-copy="${escape(snapshot.checkout_url)}"><strong>I already made a payment link</strong><small>Copy the existing secure link again.</small><span>Copy payment link →</span></button>` : ""}
       ${cardInfo?.stripe_customer_id ? `<a class="billing-task-action" href="https://dashboard.stripe.com/customers/${escape(cardInfo.stripe_customer_id)}" target="_blank" rel="noopener"><strong>I need the Stripe record</strong><small>Open this customer directly in Stripe.</small><span>Open Stripe →</span></a>` : ""}
     </div>
@@ -181,7 +228,7 @@ function card(project) {
     </div>${billingItemList(snapshot, projectSubscriptions)}` : `<div class="billing-empty-state"><div><span aria-hidden="true">$</span><h4>Billing is not prepared</h4><p>Open the approved proposal and prepare billing when this website is ready. Nothing will be charged from this page automatically.</p></div>${adminMode ? '<a class="portal-button" href="/n3xra-admin/proposals/">Open proposals</a>' : ""}</div>`}
     ${adminTaskActions(project, snapshot, cardInfo, domainSubscription)}
     <div class="portal-form-actions billing-primary-actions">
-      ${!adminMode && snapshot && snapshot.status !== "active" && (snapshot.recurring_start_policy !== "review_required" || (domainBillingItem(snapshot) && !domainSubscription)) ? `<button class="portal-button" data-checkout="${snapshot.id}">${snapshot.recurring_start_policy === "review_required" ? "Set up yearly domain billing" : "Complete secure billing setup"}</button>` : ""}
+      ${!adminMode && snapshot && snapshot.status !== "active" && (snapshot.recurring_start_policy !== "review_required" || (domainBillingItem(snapshot) && !domainSubscription)) ? checkoutChoiceButtons(snapshot) : ""}
       ${!adminMode && projectSubscriptions.length ? `<button class="portal-button" data-portal="${project.id}">Manage billing in Stripe</button>` : ""}
     </div>
     ${chargeList(charges)}
@@ -401,7 +448,10 @@ content.addEventListener("click", async (event) => {
       const target = checkout || adminCheckout;
       target.disabled = true;
       status.textContent = adminCheckout ? "Creating the secure client payment link…" : "Opening secure Stripe Checkout…";
-      const result = await invoke("create-website-checkout-session", { snapshot_id: checkout?.dataset.checkout || adminCheckout.dataset.adminCheckout });
+      const result = await invoke("create-website-checkout-session", {
+        snapshot_id: checkout?.dataset.checkout || adminCheckout.dataset.adminCheckout,
+        billing_interval: target.dataset.billingInterval || undefined,
+      });
       if (adminCheckout) { await navigator.clipboard.writeText(result.url); status.textContent = "Secure client payment link copied."; await load(); }
       else location.href = result.url;
     } else if (portal) {

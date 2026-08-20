@@ -14,6 +14,9 @@ test("proposal editor keeps the recurring price visible while deferring paid bil
 
   assert.match(page, /First year free — review before paid billing/);
   assert.match(editor, /recurring_start_policy/);
+  assert.match(editor, /isBoulderCreekRequest/);
+  assert.match(editor, /complimentary first-year exception is reserved for Boulder Creek Plumbing/);
+  assert.match(editor, /FREEBUILD requires one full year of website service paid upfront/);
   assert.match(editor, /No paid website service starts without written approval/);
   assert.match(editor, /!\["maintenance", "hosting"\]\.includes\(item\.category\)/);
   assert.match(editor, /The \$\{formatMoney[\s\S]*yearly domain renewal is billed separately/);
