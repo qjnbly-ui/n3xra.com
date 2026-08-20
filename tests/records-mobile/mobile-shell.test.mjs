@@ -54,6 +54,18 @@ test("the shared mobile shell stays reachable and clears fixed action docks", as
   assert.match(styles, /\.records-mobile-shell-ready \.topbar \{[\s\S]*position: sticky;/);
   assert.match(styles, /\.records-mobile-shell-ready \.topbar-logout,[\s\S]*\.records-mobile-shell-ready \.menu-toggle,[\s\S]*display: none !important;/);
   assert.match(styles, /\.meeting-workspace-actions\.is-revealed:not\(\.is-docked\),[\s\S]*\.document-editor-actions\.is-revealed:not\(\.is-docked\)[\s\S]*bottom: calc\(var\(--records-mobile-tabbar-height\)/);
+  assert.match(styles, /\.records-meeting-notes-page \.meeting-notes-workspace \{\s*grid-template-columns: minmax\(0, 1fr\);/);
+  assert.match(styles, /\.records-meeting-notes-page #record-panel\.meeting-note-editor-panel \{[\s\S]*?width: 100%;[\s\S]*?min-width: 0;/);
+  assert.match(styles, /\.records-document-builder-page \.document-creation-row \.document-template-create \{[\s\S]*?grid-template-columns: minmax\(0, 1fr\);/);
+});
+
+test("mobile More reveals only authorized views and keeps profile content isolated", async () => {
+  const dashboard = await read("n3xra-records/dashboard.js");
+
+  assert.match(dashboard, /link\.hidden = !visible;/);
+  assert.match(dashboard, /link\.classList\.toggle\("hidden", !visible\);/);
+  assert.match(dashboard, /show\(accountNoLibraryNotice, isProfile && !hasActiveLibraryAccess\(\)\);/);
+  assert.match(dashboard, /updateAdminTabs\(\{[\s\S]*?\}\);\s*setDesktopAccountView\(getRequestedDesktopAccountView\(\)\);/);
 });
 
 test("every signed-in Records workspace loads the current shared shell and mobile styles", async () => {
@@ -73,7 +85,7 @@ test("every signed-in Records workspace loads the current shared shell and mobil
   const pages = await Promise.all(routes.map((route) => read(`n3xra-records/${route}`)));
 
   pages.forEach((page, index) => {
-    assert.match(page, /styles\.css\?v=20260820-mobile-shell/, `${routes[index]} must load current mobile styles`);
+    assert.match(page, /styles\.css\?v=20260820-mobile-interactions/, `${routes[index]} must load current mobile styles`);
     assert.match(page, /desktop-shell\.js\?v=20260820-mobile-shell/, `${routes[index]} must load current mobile shell`);
   });
 });

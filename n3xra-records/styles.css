@@ -9934,6 +9934,60 @@ body:has(.confirm-modal.is-open) {
     max-width: 100%;
   }
 
+  /* Keep the meeting library and editor usable as one real mobile column. */
+  .records-meeting-notes-page .meeting-notes-page,
+  .records-meeting-notes-page .meeting-notes-workspace,
+  .records-meeting-notes-page .meeting-library-sidebar,
+  .records-meeting-notes-page #record-panel.meeting-note-editor-panel {
+    width: 100%;
+    min-width: 0;
+    height: auto;
+    overflow: visible;
+  }
+
+  .records-meeting-notes-page .meeting-notes-workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .records-meeting-notes-page .meeting-library-sidebar {
+    border-right: 0;
+    border-bottom: 1px solid rgba(15, 22, 32, 0.1);
+  }
+
+  .records-meeting-notes-page .meeting-creation-row,
+  .records-meeting-notes-page .meeting-notes-library-context {
+    width: 100%;
+    min-width: 0;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .records-meeting-notes-page .meeting-library-new-button {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .records-meeting-notes-page #record-panel-body {
+    width: 100%;
+    min-width: 0;
+    overflow: visible;
+  }
+
+  .records-meeting-notes-page :is(
+    .meeting-setup-grid,
+    .meeting-source-options,
+    .meeting-preparation-grid,
+    .recording-reference-picker,
+    .recording-reference-preview-head,
+    .recording-reference-row
+  ) {
+    min-width: 0;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .records-meeting-notes-page :is(input, select, textarea, button, .btn) {
+    max-width: 100%;
+  }
+
   .records-mobile-shell-ready :is(button,a,input,select,textarea) {
     scroll-margin-bottom: calc(var(--records-mobile-tabbar-height) + 1.25rem);
   }
@@ -10120,6 +10174,48 @@ body:has(.confirm-modal.is-open) {
     width: 100%;
   }
 
+  /* Account detail pages contain wide desktop directories and settings cards.
+     Keep those widths inside the page and let data tables scroll locally. */
+  .records-account-page.desktop-account-admin-view :is(
+    #library-access-card,
+    .admin-panels,
+    .admin-panel,
+    .admin-panel > *,
+    .settings-subsection,
+    .settings-group,
+    .stack,
+    .user-directory,
+    .contact-directory,
+    #member-management-body,
+    #member-management-section
+  ) {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .records-account-page.desktop-account-admin-view :is(
+    .admin-panel-head-row,
+    .user-directory-head,
+    .contact-directory-head
+  ) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+    gap: .8rem;
+  }
+
+  .records-account-page.desktop-account-admin-view .table-shell {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  .records-account-page.desktop-account-admin-view .data-table {
+    min-width: 520px;
+  }
+
   .records-mobile-shell-ready .files-filter-bar {
     flex-wrap: nowrap;
     overflow-x: auto;
@@ -10167,6 +10263,18 @@ body:has(.confirm-modal.is-open) {
 
   .records-document-builder-page .document-page .tiptap {
     min-height: 480px;
+  }
+
+  .records-document-builder-page .document-creation-row .document-template-create {
+    width: 100%;
+    min-width: 0;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .records-document-builder-page .document-creation-row .document-template-create :is(select, .btn) {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
   }
 
   .records-document-builder-page .document-toolbar {
@@ -10225,5 +10333,18 @@ body:has(.confirm-modal.is-open) {
   .records-meeting-notes-page .meeting-workspace-actions {
     max-height: calc(100dvh - var(--records-mobile-tabbar-height) - 1rem);
     overflow-y: auto;
+  }
+
+  .records-meeting-notes-page .meeting-library-sidebar-head,
+  .records-meeting-notes-page .meeting-creation-row {
+    padding-inline: .85rem;
+  }
+
+  .records-meeting-notes-page #recordings-library-panel {
+    padding-inline: .85rem;
+  }
+
+  .records-meeting-notes-page #record-panel-body {
+    padding: 1rem .85rem calc(var(--records-mobile-tabbar-height) + 2rem);
   }
 }

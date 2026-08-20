@@ -962,6 +962,7 @@ function updateAdminTabs(availability = {}) {
     if (desktopViewButton) desktopViewButton.hidden = !visible;
     document.querySelectorAll(`[data-records-mobile-view="${name}"]`).forEach((link) => {
       link.hidden = !visible;
+      link.classList.toggle("hidden", !visible);
     });
   });
 
@@ -1058,7 +1059,7 @@ function setDesktopAccountView(view = "profile") {
   show(librarySettingsCard, isProfile);
   show(accountLibraryCard, isAdminView);
   show(recordsHelpCard, isProfile && !isDesktop);
-  show(accountNoLibraryNotice, isProfile);
+  show(accountNoLibraryNotice, isProfile && !hasActiveLibraryAccess());
   show(libraryAccessCard, isAdminView);
   if (isAdminView) setAdminTab(view);
 
@@ -3763,6 +3764,7 @@ function renderProfile() {
     storage: capabilities.canManageLibrarySettings || supportMode,
     activity: capabilities.canManageLibrarySettings,
   });
+  setDesktopAccountView(getRequestedDesktopAccountView());
   renderAdminTemplates();
   renderPhoneMeetingSettings();
   if (!capabilities.canManageBilling) {
