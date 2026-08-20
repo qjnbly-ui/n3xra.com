@@ -68,7 +68,7 @@ test("admin workspaces collapse consistently and keep every essential action in 
   assert.match(styles, /\.account-admin-page \.portal-layout > \.portal-nav \{ display:none/);
   assert.match(styles, /\.site-topbar\.admin-topbar \.site-nav-actions > :not\(\.site-menu-toggle\) \{ display:none/);
   assert.match(styles, /\.admin-mobile-menu-utilities \{[\s\S]*grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
-  assert.match(styles, /\.admin-mobile-menu-utilities \.site-menu-link \{ min-height:44px; \}/);
+  assert.match(styles, /\.site-topbar\.admin-topbar \.admin-mobile-menu-utilities \.site-menu-link \{[\s\S]*min-height: 44px;/);
 });
 
 test("customer app cards use consistent N3XRA product names and clear access states", async () => {
