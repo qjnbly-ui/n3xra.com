@@ -71,6 +71,7 @@ test("admin workspaces collapse consistently and keep every essential action in 
   assert.match(styles, /\.site-topbar\.admin-topbar \.site-nav-actions > :not\(\.site-menu-toggle\) \{ display:none/);
   assert.match(styles, /\.admin-mobile-menu-utilities \{[\s\S]*grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
   assert.match(styles, /\.site-topbar\.admin-topbar \.admin-mobile-menu-utilities \.site-menu-link \{[\s\S]*min-height: 44px;/);
+  assert.match(styles, /\.site-topbar\.admin-topbar \.site-menu-toggle \{[\s\S]*width:44px;[\s\S]*height:44px;/);
   assert.match(styles, /\.account-directory-app,[\s\S]*\.analytics-operations-app \{[\s\S]*height:auto;[\s\S]*overflow:visible;/);
   assert.match(styles, /\.account-directory-app > #admin-status,[\s\S]*\.analytics-operations-app > #admin-status \{[\s\S]*position:static;/);
   assert.match(styles, /main \.portal-button \{ min-height:44px; \}/);
@@ -144,9 +145,10 @@ test("mobile inbox summaries remain compact while full notifications open separa
 });
 
 test("the financial workspace is clearly labeled without changing its stable route", async () => {
-  const [html, script] = await Promise.all([
+  const [html, script, css] = await Promise.all([
     readFile(financialOperationsHtmlPath, "utf8"),
     readFile(financialOperationsScriptPath, "utf8"),
+    readFile(financialOperationsCssPath, "utf8"),
   ]);
 
   assert.match(html, /<title>N3XRA \| Financial Operations<\/title>/);
@@ -165,5 +167,7 @@ test("the financial workspace is clearly labeled without changing its stable rou
   assert.match(html, /data-create-payment/);
   assert.match(script, /function invoiceDisplayStatus/);
   assert.match(script, /function renderPaymentActivity/);
+  assert.match(html, /operations\.css\?v=17/);
+  assert.match(css, /@media \(max-width: 800px\)[\s\S]*\.operations-workspace > \.admin-status \{[\s\S]*position: static;/);
   assert.doesNotMatch(html, /<title>N3XRA \| Operations<\/title>/);
 });

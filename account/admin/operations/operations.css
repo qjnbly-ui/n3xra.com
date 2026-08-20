@@ -1209,6 +1209,16 @@
     padding: 1rem;
     backdrop-filter: none;
   }
+
+  .operations-workspace > .admin-status {
+    position: static;
+    width: 100%;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0.7rem 1rem;
+    background: #f8fafb;
+    border-top: 1px solid var(--portal-line);
+  }
 }
 
 @media (max-width: 680px) {
