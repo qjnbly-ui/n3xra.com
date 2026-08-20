@@ -107,6 +107,53 @@ const RECORDS_WORKSPACE_LINKS = [
   { key: "messages", label: "Communication", href: "/n3xra-records/messages.html" },
 ];
 
+const RECORDS_MOBILE_LINKS = [
+  { key: "library", label: "Library", href: "/n3xra-records/library", icon: "library" },
+  { key: "meeting-notes", label: "Meetings", href: "/n3xra-records/meeting-notes", icon: "meeting" },
+  { key: "document-builder", label: "Documents", href: "/n3xra-records/documents.html", icon: "document" },
+  { key: "messages", label: "Messages", href: "/n3xra-records/messages.html", icon: "message" },
+  { key: "account", label: "More", href: "/n3xra-records/account/?view=profile", icon: "more" },
+];
+
+const RECORDS_MOBILE_MORE_GROUPS = [
+  {
+    label: "People & access",
+    links: [
+      { label: "Users", view: "users" },
+      { label: "Invites & access", view: "access" },
+      { label: "Contacts", view: "contacts" },
+      { label: "Voice profiles", view: "voice" },
+    ],
+  },
+  {
+    label: "Library setup",
+    links: [
+      { label: "Library settings", view: "library" },
+      { label: "Templates", view: "templates" },
+      { label: "Phone Meetings", view: "phone" },
+      { label: "AI settings", view: "ai" },
+    ],
+  },
+  {
+    label: "Plan & usage",
+    links: [
+      { label: "Billing", view: "billing" },
+      { label: "Storage", view: "storage" },
+    ],
+  },
+  {
+    label: "Security & support",
+    links: [
+      { label: "Audit activity", view: "activity" },
+      { label: "N3XRA support access", view: "support" },
+    ],
+  },
+];
+
+const RECORDS_MOBILE_MORE_LABELS = Object.fromEntries(
+  RECORDS_MOBILE_MORE_GROUPS.flatMap((group) => group.links.map((item) => [item.view, item.label]))
+);
+
 const RECORDS_MANAGE_GROUPS = [
   {
     label: "Configuration",
@@ -260,28 +307,88 @@ function installDesktopHeader() {
   topbarInner.prepend(appbar);
 }
 
-function installMobileDocumentBuilderLink(activePage) {
-  const mobileMenu = document.getElementById("mobile-menu");
-  const libraryLink = document.getElementById("mobile-menu-library");
-  const messagesLink = document.getElementById("mobile-menu-messages-link");
-  const meetingNotesLink = document.getElementById("mobile-menu-recordings-link");
-  document.getElementById("mobile-menu-files-link")?.remove();
-  if (!mobileMenu || !libraryLink || mobileMenu.querySelector("[data-mobile-document-builder]")) return;
+function renderMobileNavigationIcon(icon) {
+  const icons = {
+    library: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v16H6.5A2.5 2.5 0 0 0 4 21.5z"/><path d="M4 5.5v16M8 7h8M8 11h7"/></svg>',
+    meeting: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="3" width="8" height="12" rx="4"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6"/></svg>',
+    document: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v5h5M9 12h6M9 16h6"/></svg>',
+    message: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v12H8l-4 4z"/><path d="M8 9h8M8 13h5"/></svg>',
+    more: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg>',
+  };
+  return icons[icon] || icons.more;
+}
 
-  const link = document.createElement("a");
-  link.className = "mobile-menu-link button-link";
-  link.href = "/n3xra-records/documents.html";
-  link.textContent = "Document Builder";
-  link.setAttribute("data-mobile-document-builder", "");
-  if (activePage === "document-builder") {
-    link.classList.add("is-active");
-    link.setAttribute("aria-current", "page");
+function installMobileMoreDirectory(activePage) {
+  if (activePage !== "account") return;
+  const accountSection = document.getElementById("account-section");
+  if (!accountSection || accountSection.querySelector(".records-mobile-more-directory")) return;
+
+  const requestedView = new URLSearchParams(window.location.search).get("view") || "profile";
+  const isLanding = requestedView === "profile" || !RECORDS_MOBILE_MORE_LABELS[requestedView];
+  const directory = document.createElement("section");
+  directory.className = `records-mobile-more-directory ${isLanding ? "is-landing" : "is-detail"}`;
+
+  if (isLanding) {
+    directory.innerHTML = `
+      <header class="records-mobile-more-head">
+        <p>N3XRA Records</p>
+        <h1>More</h1>
+        <span>Account and library management.</span>
+      </header>
+      <div class="records-mobile-more-groups">
+        ${RECORDS_MOBILE_MORE_GROUPS.map((group) => `
+          <section class="records-mobile-more-group">
+            <h2>${group.label}</h2>
+            <div>
+              ${group.links.map((item) => `<a class="hidden" href="/n3xra-records/account/?view=${item.view}" data-records-mobile-view="${item.view}"><span>${item.label}</span><i aria-hidden="true">›</i></a>`).join("")}
+            </div>
+          </section>
+        `).join("")}
+      </div>
+      <div class="records-mobile-more-utilities">
+        <a href="/account/">N3XRA dashboard</a>
+        <button type="button" data-records-mobile-signout>Sign out</button>
+      </div>
+    `;
+  } else {
+    directory.innerHTML = `
+      <header class="records-mobile-more-detail-head">
+        <a href="/n3xra-records/account/?view=profile"><span aria-hidden="true">←</span> More</a>
+        <div><p>Manage library</p><h1>${RECORDS_MOBILE_MORE_LABELS[requestedView]}</h1></div>
+      </header>
+    `;
   }
-  // Keep the workspace destinations in the same order on mobile and desktop.
-  // Moving existing nodes preserves their listeners and active-state behavior.
-  libraryLink.insertAdjacentElement("afterend", link);
-  if (meetingNotesLink) mobileMenu.insertBefore(meetingNotesLink, link);
-  if (messagesLink) mobileMenu.insertBefore(messagesLink, link.nextSibling);
+
+  directory.querySelector("[data-records-mobile-signout]")?.addEventListener("click", () => {
+    document.getElementById("mobile-logout-button")?.click();
+  });
+  accountSection.prepend(directory);
+}
+
+function installMobileNavigation(activePage) {
+  if (document.querySelector(".records-mobile-tabbar")) return;
+  document.body.classList.add("records-mobile-shell-ready");
+
+  const navigation = document.createElement("nav");
+  navigation.className = "records-mobile-tabbar";
+  navigation.setAttribute("aria-label", "Records mobile navigation");
+  navigation.innerHTML = RECORDS_MOBILE_LINKS.map((item) => {
+    const isActive = item.key === activePage;
+    return `<a href="${item.href}"${isActive ? ' class="is-active" aria-current="page"' : ""}>${renderMobileNavigationIcon(item.icon)}<span>${item.label}</span></a>`;
+  }).join("");
+  document.body.append(navigation);
+
+  const mobileHeader = document.querySelector(".dashboard-topbar-row");
+  if (mobileHeader && !mobileHeader.querySelector(".records-mobile-ai-button")) {
+    const aiButton = document.createElement("button");
+    aiButton.className = "records-mobile-ai-button";
+    aiButton.type = "button";
+    aiButton.dataset.recordsAiOpen = "";
+    aiButton.innerHTML = '<span aria-hidden="true">✦</span> Ask AI';
+    mobileHeader.append(aiButton);
+  }
+
+  installMobileMoreDirectory(activePage);
 }
 
 function getRecordsAiLibraryName() {
@@ -1628,7 +1735,7 @@ function installDesktopShell() {
 
   const activePage = getActiveRecordsPage();
   installDesktopHeader();
-  installMobileDocumentBuilderLink(activePage);
+  installMobileNavigation(activePage);
   installRecordsAiAssistant();
   applyPendingRecordsAiSpotlight();
   applyPendingRecordsAiGuide();

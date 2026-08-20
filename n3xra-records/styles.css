@@ -9792,3 +9792,438 @@ body:has(.confirm-modal.is-open) {
     overflow: visible;
   }
 }
+
+/* Shared mobile Records application shell. */
+@media (max-width: 980px) {
+  body.records-mobile-shell-ready {
+    --records-mobile-tabbar-height: 68px;
+    overflow-x: hidden;
+    background: #f5f7f9;
+  }
+
+  .records-mobile-shell-ready .shell {
+    min-height: 100dvh;
+  }
+
+  .records-mobile-shell-ready .topbar {
+    position: sticky;
+    z-index: 45;
+    top: 0;
+    background: #070d14;
+    border-bottom-color: rgba(255,255,255,.1);
+  }
+
+  .records-mobile-shell-ready .topbar-inner {
+    width: 100%;
+    min-height: 64px;
+    display: block;
+    padding: 0 .85rem;
+  }
+
+  .records-mobile-shell-ready .dashboard-topbar-row {
+    min-height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .8rem;
+  }
+
+  .records-mobile-shell-ready .dashboard-topbar-row .brand {
+    min-width: 0;
+  }
+
+  .records-mobile-shell-ready .dashboard-topbar-row .brand-badge-image {
+    width: auto;
+    height: 28px;
+    max-width: min(55vw, 220px);
+  }
+
+  .records-mobile-shell-ready .topbar-logout,
+  .records-mobile-shell-ready .menu-toggle,
+  .records-mobile-shell-ready .topbar-inner > .mobile-menu {
+    display: none !important;
+  }
+
+  .records-mobile-ai-button {
+    min-height: 42px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: .38rem;
+    padding: .55rem .8rem;
+    border: 1px solid rgba(105,210,196,.4);
+    border-radius: 999px;
+    background: rgba(29,121,110,.22);
+    color: #fff;
+    cursor: pointer;
+    font: 800 .72rem/1 "Manrope", "Trebuchet MS", sans-serif;
+  }
+
+  .records-mobile-ai-button > span {
+    color: #8fd8ce;
+    font-size: 1rem;
+  }
+
+  .records-mobile-tabbar {
+    position: fixed;
+    z-index: 70;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    min-height: calc(var(--records-mobile-tabbar-height) + env(safe-area-inset-bottom));
+    display: grid;
+    grid-template-columns: repeat(5,minmax(0,1fr));
+    align-items: start;
+    padding: .42rem .28rem max(.42rem,env(safe-area-inset-bottom));
+    background: rgba(255,255,255,.97);
+    border-top: 1px solid rgba(15,22,32,.12);
+    box-shadow: 0 -12px 30px rgba(15,22,32,.1);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+  }
+
+  .records-mobile-tabbar a {
+    min-width: 0;
+    min-height: 52px;
+    display: grid;
+    place-items: center;
+    align-content: center;
+    gap: .16rem;
+    padding: .24rem .1rem;
+    border-radius: 10px;
+    color: #6a7582;
+    text-decoration: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .records-mobile-tabbar a svg {
+    width: 22px;
+    height: 22px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .records-mobile-tabbar a span {
+    max-width: 100%;
+    overflow: hidden;
+    font-size: clamp(.58rem,2.7vw,.68rem);
+    font-weight: 800;
+    line-height: 1.1;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .records-mobile-tabbar a.is-active {
+    color: #176f66;
+    background: #e6f2f0;
+  }
+
+  .records-mobile-shell-ready .main {
+    width: min(100% - 1rem, 760px);
+    padding-bottom: calc(var(--records-mobile-tabbar-height) + env(safe-area-inset-bottom) + 1.5rem);
+  }
+
+  .records-mobile-shell-ready .panel,
+  .records-mobile-shell-ready .account-card,
+  .records-mobile-shell-ready .messages-workspace,
+  .records-mobile-shell-ready .documents-workspace,
+  .records-mobile-shell-ready .meeting-notes-workspace {
+    max-width: 100%;
+  }
+
+  .records-mobile-shell-ready :is(button,a,input,select,textarea) {
+    scroll-margin-bottom: calc(var(--records-mobile-tabbar-height) + 1.25rem);
+  }
+
+  .records-mobile-shell-ready .table-shell,
+  .records-mobile-shell-ready .document-toolbar,
+  .records-mobile-shell-ready .files-filter-bar,
+  .records-mobile-shell-ready .recording-detail-tabs {
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .records-mobile-shell-ready :is(.table-shell,.document-toolbar,.files-filter-bar,.recording-detail-tabs)::-webkit-scrollbar {
+    display: none;
+  }
+
+  .records-mobile-more-directory {
+    display: grid;
+    gap: 1rem;
+    margin: 0 0 1rem;
+  }
+
+  .records-mobile-more-head {
+    padding: .55rem .15rem .25rem;
+  }
+
+  .records-mobile-more-head p,
+  .records-mobile-more-detail-head p {
+    margin: 0 0 .35rem;
+    color: var(--teal);
+    font-size: .68rem;
+    font-weight: 800;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+  }
+
+  .records-mobile-more-head h1,
+  .records-mobile-more-detail-head h1 {
+    margin: 0;
+    font: 700 clamp(2rem,10vw,2.8rem)/1.05 "Fraunces", "Times New Roman", serif;
+  }
+
+  .records-mobile-more-head span {
+    display: block;
+    margin-top: .5rem;
+    color: var(--slate);
+    font-size: .88rem;
+  }
+
+  .records-mobile-more-groups {
+    display: grid;
+    gap: .8rem;
+  }
+
+  .records-mobile-more-group {
+    overflow: hidden;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 15px;
+  }
+
+  .records-mobile-more-group:not(:has(a:not(.hidden))) {
+    display: none;
+  }
+
+  .records-mobile-more-group h2 {
+    margin: 0;
+    padding: .85rem 1rem .55rem;
+    color: #7a8692;
+    font-size: .64rem;
+    font-weight: 800;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+  }
+
+  .records-mobile-more-group > div {
+    display: grid;
+  }
+
+  .records-mobile-more-group a {
+    min-height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: .78rem 1rem;
+    border-top: 1px solid var(--line);
+    color: var(--ink);
+    font-size: .84rem;
+    font-weight: 750;
+    text-decoration: none;
+  }
+
+  .records-mobile-more-group a i {
+    color: #7b8793;
+    font-size: 1.35rem;
+    font-style: normal;
+    font-weight: 400;
+  }
+
+  .records-mobile-more-utilities {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: .65rem;
+  }
+
+  .records-mobile-more-utilities a,
+  .records-mobile-more-utilities button {
+    min-height: 48px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: .7rem;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: #fff;
+    color: var(--ink);
+    cursor: pointer;
+    font: 800 .72rem/1.2 "Manrope", "Trebuchet MS", sans-serif;
+    text-align: center;
+    text-decoration: none;
+  }
+
+  .records-mobile-more-detail-head {
+    display: grid;
+    gap: .9rem;
+    padding: .2rem 0 .9rem;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .records-mobile-more-detail-head > a {
+    width: fit-content;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    gap: .45rem;
+    color: var(--teal);
+    font-size: .78rem;
+    font-weight: 800;
+    text-decoration: none;
+  }
+
+  .records-account-page .records-profile-header,
+  .records-account-page .admin-tabs {
+    display: none !important;
+  }
+
+  .records-account-page #account-section {
+    gap: 1rem;
+  }
+
+  .records-account-page.desktop-account-admin-view #library-settings-card,
+  .records-account-page.desktop-account-admin-view #records-help-card {
+    display: none !important;
+  }
+
+  .records-account-page.desktop-account-admin-view #account-library-card {
+    display: block;
+    padding: 1rem;
+  }
+
+  .records-account-page.desktop-account-admin-view #account-library-card .selected-library-head,
+  .records-account-page.desktop-account-admin-view #account-library-card .account-list {
+    display: none;
+  }
+
+  .records-account-page #library-access-card {
+    padding: 1rem;
+  }
+
+  .records-account-page #library-access-card > .panel-head {
+    display: none;
+  }
+
+  .records-account-page .admin-panel-head h4 {
+    font-size: clamp(1.35rem,7vw,1.8rem);
+  }
+
+  .records-account-page .admin-panel-head-row {
+    grid-template-columns: 1fr;
+  }
+
+  .records-account-page .admin-panel-head-row .btn {
+    width: 100%;
+  }
+
+  .records-mobile-shell-ready .files-filter-bar {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding: .38rem;
+  }
+
+  .records-mobile-shell-ready .files-filter-btn,
+  .records-mobile-shell-ready .files-filter-upload-btn {
+    min-height: 42px;
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  .records-mobile-shell-ready .files-filter-upload-btn {
+    position: sticky;
+    right: 0;
+    margin-left: .25rem;
+    box-shadow: -12px 0 18px #fff;
+  }
+
+  .records-meeting-notes-page #recordings-library-panel,
+  .records-document-builder-page .document-sidebar,
+  .records-messages-page .messages-recipient-sidebar-body {
+    max-height: min(330px,42dvh);
+    overflow-y: auto;
+  }
+
+  .records-meeting-notes-page .meeting-library-sidebar,
+  .records-document-builder-page .document-sidebar,
+  .records-messages-page .messages-recipient-sidebar {
+    background: #fff;
+  }
+
+  .records-meeting-notes-page .meeting-editor-empty,
+  .records-document-builder-page .document-editor-empty {
+    min-height: 280px;
+    padding: 2rem 1rem;
+  }
+
+  .records-document-builder-page .document-page {
+    width: 100%;
+    min-height: 520px;
+    padding: 1rem;
+  }
+
+  .records-document-builder-page .document-page .tiptap {
+    min-height: 480px;
+  }
+
+  .records-document-builder-page .document-toolbar {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+  }
+
+  .records-messages-page .messages-content-card textarea {
+    min-height: 220px;
+  }
+
+  .records-messages-page .document-send-actions {
+    display: grid;
+    grid-template-columns: minmax(0,.7fr) minmax(0,1.3fr);
+    gap: .6rem;
+  }
+
+  .records-messages-page .document-send-actions .btn {
+    width: 100%;
+    min-height: 46px;
+  }
+
+  .records-meeting-notes-page .meeting-workspace-actions.is-revealed:not(.is-docked),
+  .records-document-builder-page .document-editor-actions.is-revealed:not(.is-docked) {
+    bottom: calc(var(--records-mobile-tabbar-height) + env(safe-area-inset-bottom));
+  }
+
+  .records-ai-drawer {
+    padding-bottom: calc(var(--records-mobile-tabbar-height) + env(safe-area-inset-bottom));
+  }
+}
+
+@media (max-width: 620px) {
+  .records-mobile-shell-ready .main {
+    width: min(100% - .75rem, 560px);
+    padding-top: .7rem;
+  }
+
+  .records-mobile-shell-ready .panel,
+  .records-mobile-shell-ready .account-card {
+    padding: .85rem;
+    border-radius: 14px;
+  }
+
+  .records-mobile-more-utilities {
+    grid-template-columns: 1fr;
+  }
+
+  .records-account-page #account-library-context,
+  .records-meeting-notes-page .meeting-notes-library-context,
+  .records-messages-page .messages-library-context {
+    grid-template-columns: 1fr;
+  }
+
+  .records-document-builder-page .document-editor-actions,
+  .records-meeting-notes-page .meeting-workspace-actions {
+    max-height: calc(100dvh - var(--records-mobile-tabbar-height) - 1rem);
+    overflow-y: auto;
+  }
+}

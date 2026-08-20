@@ -960,6 +960,9 @@ function updateAdminTabs(availability = {}) {
     tab.disabled = !visible;
     const desktopViewButton = desktopAccountViewButtons.find((button) => button.getAttribute("data-records-account-view") === name);
     if (desktopViewButton) desktopViewButton.hidden = !visible;
+    document.querySelectorAll(`[data-records-mobile-view="${name}"]`).forEach((link) => {
+      link.hidden = !visible;
+    });
   });
 
   const hasVisibleTab = adminTabs.some((tab) => !tab.classList.contains("hidden"));
@@ -1033,8 +1036,8 @@ function setManageLibraryOpen(isOpen) {
 }
 
 function setDesktopAccountView(view = "profile") {
-  if (!window.matchMedia("(min-width: 981px)").matches) return;
   if (!Object.hasOwn(desktopAccountViewLabels, view)) view = "profile";
+  const isDesktop = window.matchMedia("(min-width: 981px)").matches;
   const isProfile = view === "profile";
   const isAdminView = Boolean(view && !isProfile);
   const isManageView = desktopManageLibraryViews.has(view);
@@ -1054,7 +1057,7 @@ function setDesktopAccountView(view = "profile") {
 
   show(librarySettingsCard, isProfile);
   show(accountLibraryCard, isAdminView);
-  show(recordsHelpCard, false);
+  show(recordsHelpCard, isProfile && !isDesktop);
   show(accountNoLibraryNotice, isProfile);
   show(libraryAccessCard, isAdminView);
   if (isAdminView) setAdminTab(view);
