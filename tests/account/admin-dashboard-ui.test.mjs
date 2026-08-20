@@ -15,6 +15,8 @@ const financialOperationsScriptPath = new URL("../../account/admin/operations/op
 const financialOperationsCssPath = new URL("../../account/admin/operations/operations.css", import.meta.url);
 const utilitiesAdminScriptPath = new URL("../../utilities/admin/utilities-admin.js", import.meta.url);
 const utilitiesAdminHtmlPath = new URL("../../n3xra-admin/utilities/index.html", import.meta.url);
+const businessInfoCssPath = new URL("../../account/admin/business-info/business-info.css", import.meta.url);
+const businessInfoHtmlPath = new URL("../../account/admin/business-info/index.html", import.meta.url);
 
 test("financial corrections keep destructive confirmation text visible", async () => {
   const [html, css] = await Promise.all([
@@ -90,6 +92,15 @@ test("Utilities admin works with the shared shell sign-out control", async () =>
   assert.match(script, /if \(logoutButton\) logoutButton\.hidden = false;/);
   assert.match(script, /logoutButton\?\.addEventListener\("click", handleLogout\)/);
   assert.match(script, /adminPanel\.hidden = false;/);
+});
+
+test("Business Information keeps its save status out of the mobile form", async () => {
+  const [css, html] = await Promise.all([
+    readFile(businessInfoCssPath, "utf8"),
+    readFile(businessInfoHtmlPath, "utf8"),
+  ]);
+  assert.match(html, /business-info\.css\?v=2/);
+  assert.match(css, /@media \(max-width:700px\)[\s\S]*\.business-info-workspace > #admin-status \{ position:static; text-align:left; \}/);
 });
 
 test("customer app cards use consistent N3XRA product names and clear access states", async () => {
