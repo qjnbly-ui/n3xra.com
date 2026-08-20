@@ -103,6 +103,24 @@ test("the shared assistant trigger is visible with its route label before its as
   assert.match(adminShell, />Ask Admin AI<\/button>/);
 });
 
+test("the homepage mobile menu keeps four equal navigation tabs without a duplicate assistant action", async () => {
+  const [html, styles] = await Promise.all([
+    projectFile("index.html"),
+    projectFile("assets/home.css"),
+  ]);
+  const mobileMenu = html.match(/<nav class="site-mobile-menu" id="home-mobile-menu"[\s\S]*?<\/nav>/)?.[0] || "";
+
+  assert.match(html, /home\.css\?v=49/);
+  assert.deepEqual(
+    [...mobileMenu.matchAll(/class="site-menu-link"[^>]*>([^<]+)<\/a>/g)].map((match) => match[1]),
+    ["Projects", "Services", "Support", "Software"],
+  );
+  assert.doesNotMatch(mobileMenu, /Ask (?:Admin )?AI|Ask N3XRA/);
+  assert.match(styles, /\.home-topbar \.site-mobile-menu \.site-assistant-mobile-trigger \{\s*display: none !important;/);
+  assert.match(styles, /@media \(max-width: 900px\)[\s\S]*\.home-topbar \.site-mobile-menu\.is-open \{[\s\S]*grid-template-columns: repeat\(4, minmax\(0, 1fr\)\);/);
+  assert.match(styles, /@media \(max-width: 700px\)[\s\S]*\.home-topbar \.site-mobile-menu\.is-open \{[\s\S]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);/);
+});
+
 test("an early assistant click is retained until the controller is ready", async () => {
   const assistant = await projectFile("src/site-assistant/main.mts");
 

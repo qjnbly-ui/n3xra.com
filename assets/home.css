@@ -355,9 +355,14 @@ body.site-menu-is-open .home-topbar {
 }
 
 .home-topbar .site-mobile-menu .site-menu-link {
+  width: 100%;
   min-height: 46px;
   padding: 0.72rem 0.9rem;
   font-size: 0.7rem;
+}
+
+.home-topbar .site-mobile-menu .site-assistant-mobile-trigger {
+  display: none !important;
 }
 
 /* Hero */
@@ -1875,15 +1880,11 @@ body.site-menu-is-open .home-topbar {
 
   .home-topbar .site-mobile-menu.is-open {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
   .home-topbar .site-mobile-menu-head {
     grid-column: 1 / -1;
-  }
-
-  .home-topbar .site-mobile-menu .site-menu-link:last-child {
-    grid-column: 2;
   }
 
   .hero-shell {
@@ -2053,7 +2054,7 @@ body.site-menu-is-open .home-topbar {
   }
 
   .home-topbar .site-mobile-menu.is-open {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     max-height: calc(100svh - 70px);
     overflow-y: auto;
     padding-bottom: 0.5rem;
