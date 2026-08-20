@@ -1418,10 +1418,53 @@ body:not(.admin-ready):not(.portal-loading):not(.product-native-admin) main.acco
   .site-topbar.admin-topbar .site-brand span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .account-admin-section-head { align-items:stretch; flex-direction:column; }
   .account-admin-count { align-self:flex-start; }
+  .account-directory-app,
+  .platform-admin-directory-app,
+  .billing-directory-app,
+  .support-directory-app,
+  .codebase-ai-app,
+  .analytics-operations-app {
+    height:auto;
+    min-height:calc(100svh - 68px);
+    overflow:visible;
+  }
+  .account-directory-workbench,
+  .platform-admin-workbench,
+  .billing-workbench,
+  .support-workbench,
+  .codebase-ai-workbench,
+  .analytics-workbench { height:auto; min-height:0; }
+  .account-directory-detail-pane,
+  .platform-admin-detail-pane,
+  .billing-detail-pane,
+  .support-detail-pane,
+  .codebase-ai-response-pane,
+  .analytics-report-pane { overflow:visible; scrollbar-gutter:auto; }
+  .account-directory-app > #admin-status,
+  .platform-admin-directory-app > #admin-status,
+  .billing-directory-app > #admin-status,
+  .support-directory-app > #admin-status,
+  .codebase-ai-app > #admin-status,
+  .analytics-operations-app > #admin-status {
+    position:static;
+    width:100%;
+    box-sizing:border-box;
+    margin:0;
+    padding:.7rem 1rem;
+    background:#f8fafb;
+    border-top:1px solid var(--portal-line);
+    border-radius:0;
+    text-align:left;
+  }
+  main .portal-button { min-height:44px; }
+  main input:not([type="checkbox"]):not([type="radio"]),
+  main select { max-width:100%; min-height:44px; }
+  main textarea { max-width:100%; }
+  main dialog { max-width:calc(100vw - 1rem); max-height:calc(100svh - 1rem); }
   .account-directory-workbench { grid-template-columns:1fr; }
-  .account-directory-workbench { grid-template-rows:minmax(220px, 38svh) minmax(0,1fr); }
+  .account-directory-workbench { grid-template-rows:auto auto; }
   .account-directory-list-pane { border-right:0; border-bottom:1px solid var(--portal-line); }
-  .account-directory-list { max-height:260px; overflow:auto; }
+  .account-directory-list { max-height:38svh; overflow:auto; }
   .account-admin-facts { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .account-admin-card-grid { grid-template-columns:1fr; }
   .accounts-admin-page .account-admin-facts { grid-template-columns:repeat(2,minmax(0,1fr)); }
@@ -1431,17 +1474,17 @@ body:not(.admin-ready):not(.portal-loading):not(.product-native-admin) main.acco
   .accounts-admin-page .account-detail-list { grid-template-columns:1fr; }
   .accounts-admin-page .account-detail-row:nth-child(odd),
   .accounts-admin-page .account-detail-row:nth-child(even) { padding-inline:0; border-right:0; }
-  .platform-admin-workbench { grid-template-columns:1fr; grid-template-rows:minmax(250px,40svh) minmax(0,1fr); }
-  .platform-admin-roster-pane { border-right:0; border-bottom:1px solid var(--portal-line); }
+  .platform-admin-workbench { grid-template-columns:1fr; grid-template-rows:auto auto; }
+  .platform-admin-roster-pane { max-height:40svh; border-right:0; border-bottom:1px solid var(--portal-line); }
   .platform-admin-detail-facts { grid-template-columns:repeat(2,minmax(0,1fr)); }
-  .billing-workbench { grid-template-columns:1fr; grid-template-rows:minmax(280px,42svh) minmax(0,1fr); }
-  .billing-roster-pane { border-right:0; border-bottom:1px solid var(--portal-line); }
+  .billing-workbench { grid-template-columns:1fr; grid-template-rows:auto auto; }
+  .billing-roster-pane { max-height:42svh; border-right:0; border-bottom:1px solid var(--portal-line); }
   .billing-detail-facts { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .billing-detail-facts > div:nth-child(2) { padding-right:0; border-right:0; }
   .billing-detail-facts > div:nth-child(3) { padding-left:0; }
   .billing-detail-facts > div:nth-child(-n + 2) { border-bottom:1px solid var(--portal-line); }
-  .support-workbench { grid-template-columns:1fr; grid-template-rows:minmax(280px,42svh) minmax(0,1fr); }
-  .support-queue-pane { border-right:0; border-bottom:1px solid var(--portal-line); }
+  .support-workbench { grid-template-columns:1fr; grid-template-rows:auto auto; }
+  .support-queue-pane { max-height:42svh; border-right:0; border-bottom:1px solid var(--portal-line); }
   .support-detail-facts { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .support-detail-facts > div:nth-child(2) { padding-right:0; border-right:0; }
   .support-detail-facts > div:nth-child(3) { padding-left:0; }
@@ -1454,8 +1497,9 @@ body:not(.admin-ready):not(.portal-loading):not(.product-native-admin) main.acco
   .analytics-admin-page .analytics-breakdowns { grid-template-columns:1fr; }
   .analytics-admin-page .analytics-breakdowns .analytics-panel:nth-child(odd):not(.analytics-events-panel) { border-right:0; }
   .analytics-admin-page .analytics-events-panel { grid-column:auto; }
-  .codebase-ai-workbench { grid-template-columns:1fr; grid-template-rows:minmax(260px,38svh) minmax(0,1fr); }
-  .codebase-ai-context-pane { border-right:0; border-bottom:1px solid var(--portal-line); }
+  .codebase-ai-workbench { grid-template-columns:1fr; grid-template-rows:auto auto; }
+  .codebase-ai-context-pane { max-height:38svh; border-right:0; border-bottom:1px solid var(--portal-line); }
+  .codebase-ai-conversation-pane { grid-template-rows:auto auto auto; }
   body.site-menu-is-open {
     overflow: hidden;
   }
@@ -1639,7 +1683,7 @@ body:not(.admin-ready):not(.portal-loading):not(.product-native-admin) main.acco
 
   .site-topbar.admin-topbar .admin-mobile-product .admin-nav-child,
   .site-topbar.admin-topbar .admin-mobile-nav-section > .admin-nav-children .admin-nav-child {
-    min-height: 40px;
+    min-height: 44px;
     padding: 0.55rem 0.62rem;
     color: rgba(255, 255, 255, 0.62);
     background: transparent;

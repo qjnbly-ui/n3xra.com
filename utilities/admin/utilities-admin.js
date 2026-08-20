@@ -34,14 +34,14 @@ function lockAdminShell() {
   emptyState.hidden = true;
   detailContent.hidden = true;
   refreshButton.hidden = true;
-  logoutButton.hidden = true;
+  if (logoutButton) logoutButton.hidden = true;
   orgList.innerHTML = "";
   orgCount.textContent = "0";
 }
 
 function unlockAdminShell() {
   refreshButton.hidden = false;
-  logoutButton.hidden = false;
+  if (logoutButton) logoutButton.hidden = false;
 }
 
 function setStatus(message, tone = "") {
@@ -280,7 +280,7 @@ async function init() {
   }
 
   if (!isPlatformAdminEmail(session.user.email)) {
-    logoutButton.hidden = false;
+    if (logoutButton) logoutButton.hidden = false;
     setStatus("N3XRA platform admin access required.", "is-error");
     return;
   }
@@ -295,7 +295,7 @@ async function init() {
   statusForm.addEventListener("submit", handleStatusSave);
   launchStepList.addEventListener("change", handleStepChange);
   refreshButton.addEventListener("click", () => loadOrganizations().catch((error) => setStatus(error.message, "is-error")));
-  logoutButton.addEventListener("click", handleLogout);
+  logoutButton?.addEventListener("click", handleLogout);
 
   await loadOrganizations();
 }

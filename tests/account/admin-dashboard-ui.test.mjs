@@ -13,6 +13,8 @@ const adminBillingHtmlPath = new URL("../../account/admin/billing/index.html", i
 const financialOperationsHtmlPath = new URL("../../account/admin/operations/index.html", import.meta.url);
 const financialOperationsScriptPath = new URL("../../account/admin/operations/operations.js", import.meta.url);
 const financialOperationsCssPath = new URL("../../account/admin/operations/operations.css", import.meta.url);
+const utilitiesAdminScriptPath = new URL("../../utilities/admin/utilities-admin.js", import.meta.url);
+const utilitiesAdminHtmlPath = new URL("../../n3xra-admin/utilities/index.html", import.meta.url);
 
 test("financial corrections keep destructive confirmation text visible", async () => {
   const [html, css] = await Promise.all([
@@ -69,6 +71,24 @@ test("admin workspaces collapse consistently and keep every essential action in 
   assert.match(styles, /\.site-topbar\.admin-topbar \.site-nav-actions > :not\(\.site-menu-toggle\) \{ display:none/);
   assert.match(styles, /\.admin-mobile-menu-utilities \{[\s\S]*grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
   assert.match(styles, /\.site-topbar\.admin-topbar \.admin-mobile-menu-utilities \.site-menu-link \{[\s\S]*min-height: 44px;/);
+  assert.match(styles, /\.account-directory-app,[\s\S]*\.analytics-operations-app \{[\s\S]*height:auto;[\s\S]*overflow:visible;/);
+  assert.match(styles, /\.account-directory-app > #admin-status,[\s\S]*\.analytics-operations-app > #admin-status \{[\s\S]*position:static;/);
+  assert.match(styles, /main \.portal-button \{ min-height:44px; \}/);
+  assert.match(styles, /\.admin-mobile-product \.admin-nav-child,[\s\S]*min-height: 44px;/);
+});
+
+test("Utilities admin works with the shared shell sign-out control", async () => {
+  const [script, html] = await Promise.all([
+    readFile(utilitiesAdminScriptPath, "utf8"),
+    readFile(utilitiesAdminHtmlPath, "utf8"),
+  ]);
+
+  assert.doesNotMatch(html, /id="utilities-admin-logout"/);
+  assert.match(html, /utilities-admin\.js\?v=2/);
+  assert.match(script, /if \(logoutButton\) logoutButton\.hidden = true;/);
+  assert.match(script, /if \(logoutButton\) logoutButton\.hidden = false;/);
+  assert.match(script, /logoutButton\?\.addEventListener\("click", handleLogout\)/);
+  assert.match(script, /adminPanel\.hidden = false;/);
 });
 
 test("customer app cards use consistent N3XRA product names and clear access states", async () => {
