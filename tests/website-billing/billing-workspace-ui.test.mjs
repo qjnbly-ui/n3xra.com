@@ -57,6 +57,34 @@ test("website billing and the organization panel synchronize their selection", a
   assert.doesNotMatch(billing, /!adminMode \|\| !records \|\| event\.detail/);
   assert.match(context, /n3xra:workspace-context-change/);
   assert.match(context, /const changed = website\.id !== selectedId/);
-  assert.match(page, /website-admin-workspace\.js\?v=13/);
+  assert.match(page, /website-admin-workspace\.js\?v=14/);
   assert.match(workspace, /website-admin-context\.js\?v=5/);
+});
+
+test("website admin exposes every workspace section from the mobile submenu", async () => {
+  const [workspace, styles, navigation] = await Promise.all([
+    read("n3xra-admin/website-admin-workspace.js"),
+    read("n3xra-admin/website-admin.css"),
+    read("account/admin/admin-navigation.js"),
+  ]);
+
+  for (const label of ["Overview", "Requests", "Project", "Files", "Services", "Billing", "Portal"]) {
+    assert.match(workspace, new RegExp(`label: "${label}"`));
+  }
+  assert.match(workspace, /keys: \["progress", "onboarding", "proposals"\]/);
+  assert.match(workspace, /website-admin-mobile-navigation/);
+  assert.match(workspace, /aria-label", "Website workspace sections"/);
+  assert.match(styles, /@media \(max-width:800px\)[\s\S]*\.website-admin-mobile-navigation \{[\s\S]*position:sticky;[\s\S]*display:flex;[\s\S]*overflow-x:auto;/);
+  assert.match(styles, /\.website-admin-mobile-navigation a \{[\s\S]*min-height:44px;/);
+  assert.match(navigation, /\.website-admin-mobile-navigation a/);
+});
+
+test("every website admin page loads the current mobile workspace navigation", async () => {
+  const routes = ["websites", "requests", "projects", "onboarding", "proposals", "assets", "services", "billing", "website-portal"];
+  const pages = await Promise.all(routes.map((route) => read(`n3xra-admin/${route}/index.html`)));
+
+  pages.forEach((page, index) => {
+    assert.match(page, /website-admin\.css\?v=17/, `${routes[index]} must load the mobile navigation styles`);
+    assert.match(page, /website-admin-workspace\.js\?v=14/, `${routes[index]} must load the mobile navigation controller`);
+  });
 });

@@ -4,6 +4,7 @@
 .website-admin-frame { display:flex; flex-direction:column; width:100%; height:100%; min-width:0; min-height:0; overflow:hidden; background:var(--website-admin-surface); }
 .website-admin-context-layout { display:grid; grid-template-columns:300px minmax(0,1fr); width:100%; height:100%; min-width:0; min-height:0; overflow:hidden; }
 .website-admin-content-column { display:flex; flex-direction:column; min-width:0; min-height:0; overflow:hidden; }
+.website-admin-mobile-navigation { display:none; }
 .website-admin-native-context { display:none !important; }
 .website-admin-organization-panel { min-width:0; height:100%; overflow-y:auto; background:#fff; border-right:1px solid var(--website-admin-border); }
 .website-organization-panel-head { padding:1.3rem 1.25rem 1.1rem; border-bottom:1px solid var(--website-admin-border); }
@@ -352,6 +353,41 @@
   .website-organization-card,
   .website-organization-navigation,
   .website-organization-intake-link { display:none; }
+  .website-admin-mobile-navigation {
+    position:sticky;
+    top:76px;
+    z-index:24;
+    width:100%;
+    box-sizing:border-box;
+    display:flex;
+    align-items:center;
+    gap:.35rem;
+    padding:.55rem 1rem;
+    overflow-x:auto;
+    overflow-y:hidden;
+    background:rgba(251,252,253,.97);
+    border-bottom:1px solid var(--website-admin-border);
+    backdrop-filter:blur(10px);
+    scrollbar-width:none;
+  }
+  .website-admin-mobile-navigation::-webkit-scrollbar { display:none; }
+  .website-admin-mobile-navigation a {
+    min-height:44px;
+    box-sizing:border-box;
+    flex:0 0 auto;
+    display:inline-flex;
+    align-items:center;
+    padding:.55rem .7rem;
+    color:var(--portal-muted);
+    border-bottom:3px solid transparent;
+    font-size:.72rem;
+    font-weight:800;
+    text-decoration:none;
+    white-space:nowrap;
+  }
+  .website-admin-mobile-navigation a:hover,
+  .website-admin-mobile-navigation a:focus-visible { color:var(--portal-ink); }
+  .website-admin-mobile-navigation a.is-current { color:#126f67; border-bottom-color:#14877f; }
   .website-admin-pagebar { min-height:0; display:grid; align-items:start; padding:1.2rem; }
   .website-admin-page-actions { justify-content:flex-start; }
   .website-admin-context-select { width:100%; min-width:0; }

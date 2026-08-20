@@ -2,7 +2,7 @@ import { hasConfig } from "/shared/lib/supabase-client.js";
 import { getAdminSession } from "/account/admin/admin-session.js";
 import { confirmAdminAction } from "/account/admin/admin-dialogs.js";
 import { initializeAdminSelects } from "/account/admin/admin-select.js?v=1";
-import { refreshAdminInboxBadge, renderAdminNavigation } from "/account/admin/admin-navigation.js?v=22";
+import { refreshAdminInboxBadge, renderAdminNavigation } from "/account/admin/admin-navigation.js?v=23";
 
 initializeAdminSelects();
 

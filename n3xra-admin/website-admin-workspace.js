@@ -6,6 +6,16 @@ const projectStageRoutes = [
   ["proposals", "Proposal", "/n3xra-admin/proposals/"],
 ];
 
+const mobileWorkspaceRoutes = [
+  { keys: ["overview"], label: "Overview", href: "/n3xra-admin/websites/" },
+  { keys: ["requests"], label: "Requests", href: "/n3xra-admin/requests/" },
+  { keys: ["progress", "onboarding", "proposals"], label: "Project", href: "/n3xra-admin/projects/" },
+  { keys: ["assets"], label: "Files", href: "/n3xra-admin/assets/" },
+  { keys: ["services"], label: "Services", href: "/n3xra-admin/services/" },
+  { keys: ["billing"], label: "Billing", href: "/n3xra-admin/billing/" },
+  { keys: ["portal"], label: "Portal", href: "/n3xra-admin/website-portal/" },
+];
+
 const routeDetails = {
   "/n3xra-admin/websites/": { key: "overview", kicker: "Websites", title: "Overview", description: "Managed websites, client access, and connected project workspaces." },
   "/n3xra-admin/website-portal/": { key: "portal", kicker: "Websites", title: "Website Portal", description: "Activate and configure the client-branded website management portal." },
@@ -35,6 +45,22 @@ function prepareWebsiteAdminViewport() {
 
 function directChildren(parent, selector) {
   return [...parent.children].filter((child) => child.matches(selector));
+}
+
+function createMobileWorkspaceNavigation(pageKey) {
+  const navigation = document.createElement("nav");
+  navigation.className = "website-admin-mobile-navigation";
+  navigation.setAttribute("aria-label", "Website workspace sections");
+  navigation.innerHTML = mobileWorkspaceRoutes.map(({ keys, label, href }) => {
+    const current = keys.includes(pageKey);
+    return `<a class="${current ? "is-current" : ""}" href="${href}"${current ? ' aria-current="page"' : ""}>${label}</a>`;
+  }).join("");
+  const current = navigation.querySelector(".is-current");
+  requestAnimationFrame(() => {
+    if (!current || navigation.scrollWidth <= navigation.clientWidth) return;
+    navigation.scrollLeft = Math.max(0, current.offsetLeft - ((navigation.clientWidth - current.offsetWidth) / 2));
+  });
+  return navigation;
 }
 
 export function startWebsiteAdminWorkspace() {
@@ -68,7 +94,7 @@ export function startWebsiteAdminWorkspace() {
     content.className = "website-admin-content-column";
     content.append(manager);
     if (uploadDrawer) content.append(uploadDrawer);
-    contextLayout.append(contextPanel, content);
+    contextLayout.append(contextPanel, createMobileWorkspaceNavigation(details.key), content);
     frame.append(contextLayout);
     initializeWebsiteOrganizationContext(contextPanel, { pageKey: details.key }).catch((error) => {
       contextPanel.innerHTML = '<div class="website-organization-context-error"><strong>Organization workspace unavailable</strong><p></p></div>';
@@ -133,14 +159,14 @@ export function startWebsiteAdminWorkspace() {
   content.append(bar, scroll);
   if (pickerLabel?.classList.contains("website-admin-native-context")) content.append(pickerLabel);
   if (details.key === "requests") {
-    frame.append(content);
+    frame.append(createMobileWorkspaceNavigation(details.key), content);
   } else {
     const contextLayout = document.createElement("div");
     contextLayout.className = "website-admin-context-layout";
     const contextPanel = document.createElement("aside");
     contextPanel.className = "website-admin-organization-panel";
     contextPanel.setAttribute("aria-label", "Current organization");
-    contextLayout.append(contextPanel, content);
+    contextLayout.append(contextPanel, createMobileWorkspaceNavigation(details.key), content);
     frame.append(contextLayout);
     initializeWebsiteOrganizationContext(contextPanel, { pageKey: details.key }).catch((error) => {
       contextPanel.innerHTML = '<div class="website-organization-context-error"><strong>Organization workspace unavailable</strong><p></p></div>';

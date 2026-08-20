@@ -545,7 +545,7 @@ function websitePageController(page) {
 async function startWebsiteWorkspace(page) {
   const productShell = await import("/account/admin/product-shell.js?v=13");
   await productShell.startProductShell();
-  const websiteWorkspace = await import("/n3xra-admin/website-admin-workspace.js?v=12");
+  const websiteWorkspace = await import("/n3xra-admin/website-admin-workspace.js?v=14");
   websiteWorkspace.startWebsiteAdminWorkspace();
 
   const controllerUrl = websitePageController(page);
@@ -659,7 +659,7 @@ document.addEventListener("click", (event) => {
     return;
   }
 
-  const link = event.target.closest(".portal-nav a, .site-mobile-menu a, .website-organization-navigation a, .website-project-stage-navigation a");
+  const link = event.target.closest(".portal-nav a, .site-mobile-menu a, .website-organization-navigation a, .website-admin-mobile-navigation a, .website-project-stage-navigation a");
   if (!link || link.target || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
   const url = new URL(link.href, window.location.origin);
   if (!isWorkspaceUrl(url)) return;
