@@ -99,8 +99,8 @@ test("Business Information keeps its save status out of the mobile form", async 
     readFile(businessInfoCssPath, "utf8"),
     readFile(businessInfoHtmlPath, "utf8"),
   ]);
-  assert.match(html, /business-info\.css\?v=2/);
-  assert.match(css, /@media \(max-width:700px\)[\s\S]*\.business-info-workspace > #admin-status \{ position:static; text-align:left; \}/);
+  assert.match(html, /business-info\.css\?v=3/);
+  assert.match(css, /@media \(max-width:800px\) \{ \.business-info-workspace > #admin-status \{ position:static; text-align:left; \} \}/);
 });
 
 test("customer app cards use consistent N3XRA product names and clear access states", async () => {
