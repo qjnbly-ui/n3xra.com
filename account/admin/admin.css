@@ -1526,6 +1526,8 @@ body:not(.admin-ready):not(.portal-loading):not(.product-native-admin) main.acco
     margin-bottom: 0.65rem;
   }
 
+  .admin-mobile-menu-utilities .site-menu-link { min-height:44px; }
+
   .site-topbar.admin-topbar .admin-mobile-menu-utilities .site-menu-link {
     flex: 1 1 0;
     min-height: 40px;
