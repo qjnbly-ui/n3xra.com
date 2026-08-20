@@ -24,7 +24,7 @@ test("website billing shows accepted items separately and keeps controls seconda
   assert.match(billing, /They want to pay \$\{offer\.interval\}/);
   assert.match(billing, /Pay \$\{money\(offer\.amount\)\} yearly · save 10%/);
   assert.match(billing, /FREEBUILD/);
-  assert.match(page, /billing\.css\?v=6/);
+  assert.match(page, /billing\.css\?v=7/);
   assert.match(page, /billing\.js\?v=12/);
 });
 

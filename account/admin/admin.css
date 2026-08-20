@@ -1410,6 +1410,12 @@ body:not(.admin-ready):not(.portal-loading):not(.product-native-admin) main.acco
 .analytics-operations-app > #admin-status { position:absolute; right:1rem; bottom:.65rem; z-index:2; margin:0; padding:.35rem 0; background:transparent; border-radius:0; }
 
 @media (max-width: 800px) {
+  .account-admin-page > .portal-layout { display:block; grid-template-columns:1fr; min-height:calc(100svh - 68px); }
+  .account-admin-page .portal-layout > .portal-nav { display:none; }
+  .account-admin-page .portal-layout > .portal-workspace { min-width:0; min-height:calc(100svh - 68px); padding:1rem; border:0; border-radius:0; box-shadow:none; }
+  .site-topbar.admin-topbar .site-nav-actions > :not(.site-menu-toggle) { display:none; }
+  .site-topbar.admin-topbar .site-brand { min-width:0; max-width:calc(100% - 3.25rem); }
+  .site-topbar.admin-topbar .site-brand span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .account-admin-section-head { align-items:stretch; flex-direction:column; }
   .account-admin-count { align-self:flex-start; }
   .account-directory-workbench { grid-template-columns:1fr; }
@@ -1515,6 +1521,8 @@ body:not(.admin-ready):not(.portal-loading):not(.product-native-admin) main.acco
   }
 
   .admin-mobile-menu-utilities {
+    display:grid;
+    grid-template-columns:repeat(3,minmax(0,1fr));
     margin-bottom: 0.65rem;
   }
 
@@ -1726,6 +1734,7 @@ body:not(.admin-ready):not(.portal-loading):not(.product-native-admin) main.acco
 }
 
 @media (max-width: 390px) {
+  .admin-mobile-menu-utilities,
   .admin-mobile-link-grid,
   .admin-mobile-product .admin-nav-children,
   .admin-mobile-nav-section > .admin-nav-children {

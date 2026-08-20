@@ -105,6 +105,27 @@ test("client navigation separates apps from the website workspace", async () => 
   assert.match(styles, /\.client-website-return-link/);
 });
 
+test("client workspaces always provide a compact mobile menu with safe sign-out controls", async () => {
+  const [shell, portalShell, workspaceContext, styles, billingStyles] = await Promise.all([
+    projectFile("client-portal/client-shell.js"),
+    projectFile("client-portal/portal-shell.js"),
+    projectFile("client-portal/client-workspace-context.js"),
+    projectFile("client-portal/client-shell.css"),
+    projectFile("client-portal/billing/billing.css"),
+  ]);
+
+  assert.match(shell, /function ensureClientMobileNavigation\(topbar\)/);
+  assert.match(shell, /className = "site-menu-toggle"/);
+  assert.match(shell, /className = "site-mobile-menu client-mobile-menu"/);
+  assert.match(shell, /data-portal-logout/);
+  assert.match(portalShell, /querySelectorAll\("#portal-logout, \[data-portal-logout\]"\)/);
+  assert.match(workspaceContext, /\.site-mobile-menu \[data-client-website-return\]/);
+  assert.match(styles, /@media \(max-width:800px\)[\s\S]*\.site-menu-toggle[\s\S]*display:inline-flex/);
+  assert.match(styles, /\.site-mobile-menu\.is-open[\s\S]*grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
+  assert.match(styles, /@media \(max-width:480px\)[\s\S]*grid-template-columns:1fr/);
+  assert.match(billingStyles, /@media \(max-width: 700px\)[\s\S]*\.billing-card \{ padding: 16px/);
+});
+
 test("Apps Dashboard navigation appears only when the tenant has another subscribed app", async () => {
   const [shell, workspaceContext] = await Promise.all([
     projectFile("client-portal/client-shell.js"),

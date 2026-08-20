@@ -1,4 +1,4 @@
-import { initializeClientWorkspaceContext } from "/client-portal/client-workspace-context.js?v=8";
+import { initializeClientWorkspaceContext } from "/client-portal/client-workspace-context.js?v=9";
 import { initializePortalBrandShell } from "/client-portal/brand-shell.js?v=1";
 import { initializePendingProposalNotice } from "/client-portal/pending-proposal-notice.js?v=2";
 import { isBrandedPortalHostname } from "/client-portal/tenant-context.js";
@@ -73,6 +73,60 @@ function mobileSectionMarkup(section) {
   return `<a class="site-menu-link${isCurrentSection(section) ? " is-current" : ""}" href="${section.href}"${availability}>${section.label}</a>`;
 }
 
+function closeClientMobileMenu(menu, toggle) {
+  menu.classList.remove("is-open");
+  menu.hidden = true;
+  toggle.setAttribute("aria-expanded", "false");
+  document.body.classList.remove("site-menu-is-open");
+}
+
+function ensureClientMobileNavigation(topbar) {
+  const inner = topbar?.querySelector(".site-topbar-inner");
+  const row = inner?.querySelector(".site-topbar-row");
+  const actions = row?.querySelector(".site-nav-actions");
+  if (!inner || !row || !actions) return null;
+
+  let menu = inner.querySelector(":scope > .site-mobile-menu");
+  if (!menu) {
+    menu = document.createElement("nav");
+    menu.className = "site-mobile-menu client-mobile-menu";
+    menu.id = "client-workspace-menu";
+    menu.hidden = true;
+    menu.setAttribute("aria-label", "Client portal navigation");
+    inner.append(menu);
+  }
+
+  let toggle = actions.querySelector("[data-site-menu-toggle]");
+  if (!toggle) {
+    toggle = document.createElement("button");
+    toggle.className = "site-menu-toggle";
+    toggle.type = "button";
+    toggle.dataset.siteMenuToggle = "";
+    toggle.setAttribute("aria-expanded", "false");
+    toggle.setAttribute("aria-label", "Open portal navigation");
+    toggle.innerHTML = "<span></span><span></span><span></span>";
+    actions.append(toggle);
+  }
+  toggle.setAttribute("aria-controls", menu.id);
+
+  if (toggle.dataset.siteMenuBound !== "true") {
+    toggle.dataset.siteMenuBound = "true";
+    toggle.addEventListener("click", () => {
+      const open = menu.classList.toggle("is-open");
+      menu.hidden = !open;
+      toggle.setAttribute("aria-expanded", String(open));
+      document.body.classList.toggle("site-menu-is-open", open);
+    });
+  }
+  if (menu.dataset.clientMenuBound !== "true") {
+    menu.dataset.clientMenuBound = "true";
+    menu.addEventListener("click", (event) => {
+      if (event.target.closest("a")) closeClientMobileMenu(menu, toggle);
+    });
+  }
+  return menu;
+}
+
 function renderClientNavigation(layout) {
   const nav = layout.querySelector(":scope > .portal-nav");
   if (!nav) return;
@@ -86,7 +140,7 @@ function renderClientNavigation(layout) {
   `;
   const mobileNav = document.querySelector(".site-mobile-menu");
   if (mobileNav) {
-    mobileNav.innerHTML = `<div class="site-mobile-menu-head"><p class="site-mobile-menu-title">${brandedPortal ? "Apps" : "N3XRA"}</p></div>${appSections.map(mobileSectionMarkup).join("")}<div class="site-mobile-menu-head"><p class="site-mobile-menu-title">Website Workspace</p></div>${websiteSections.map(mobileSectionMarkup).join("")}`;
+    mobileNav.innerHTML = `<div class="site-mobile-menu-head"><p class="site-mobile-menu-title">${brandedPortal ? "Apps" : "N3XRA"}</p></div>${appSections.map(mobileSectionMarkup).join("")}<div class="site-mobile-menu-head"><p class="site-mobile-menu-title">Website Workspace</p></div>${websiteSections.map(mobileSectionMarkup).join("")}<div class="client-mobile-menu-utilities"><a class="site-menu-link client-mobile-return" href="${brandedPortal ? "/client-portal/" : "/account/"}" data-client-website-return>${brandedPortal ? "Return to Website" : "Return to Dashboard"}</a><button class="site-menu-link" type="button" data-portal-logout>Sign out</button></div>`;
   }
 }
 
@@ -113,6 +167,7 @@ function buildClientWorkspace() {
   document.body.classList.add("client-portal-shell");
   topbar?.classList.add("client-portal-topbar");
   shell.classList.add("client-portal-page");
+  ensureClientMobileNavigation(topbar);
   renderClientNavigation(layout);
 
   const frame = document.createElement("div");

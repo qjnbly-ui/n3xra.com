@@ -266,9 +266,18 @@
 
 @media (max-width: 700px) {
   .billing-detail-grid { grid-template-columns: 1fr; }
-  .billing-card { padding: 18px; }
+  .billing-card { padding: 16px; border-radius:14px; }
+  .billing-card + .billing-card { margin-top:12px; }
   .billing-card-head { display: block; }
+  .billing-card-head { padding-bottom:14px; }
+  .billing-card-head h3 { font-size:clamp(1.45rem,8vw,1.85rem); line-height:1.08; }
+  .billing-card-head p:last-child { margin-top:6px; font-size:.9rem; }
   .billing-card-head .portal-badge { display: inline-block; margin-top: 10px; }
+  .billing-detail-grid { gap:8px; padding:16px 0; }
+  .billing-detail-grid > div { padding:12px; }
+  .billing-plan-items,
+  .billing-task-actions { padding:18px 0; }
+  .billing-plan-item { gap:12px; padding:14px; }
   .billing-operation-form { grid-template-columns: 1fr; }
   .billing-review-fields { grid-template-columns: 1fr; }
   .billing-form-wide { grid-column: auto; }
@@ -278,6 +287,10 @@
   .billing-empty-state { align-items: flex-start; flex-direction: column; }
   .billing-plan-item > b { text-align: left; }
   .billing-task-action-list { grid-template-columns: 1fr; }
+}
+
+@media (min-width: 560px) and (max-width: 700px) {
+  .billing-detail-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
 }
 
 @media (min-width: 701px) and (max-width: 1180px) {

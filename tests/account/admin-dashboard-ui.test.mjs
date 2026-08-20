@@ -6,6 +6,7 @@ const accountHtmlPath = new URL("../../account/index.html", import.meta.url);
 const accountCssPath = new URL("../../account/account.css", import.meta.url);
 const accountJsPath = new URL("../../account/account.js", import.meta.url);
 const adminNavigationPath = new URL("../../account/admin/admin-navigation.js", import.meta.url);
+const adminCssPath = new URL("../../account/admin/admin.css", import.meta.url);
 const adminInboxCssPath = new URL("../../account/admin/inbox/inbox.css", import.meta.url);
 const adminInboxHtmlPath = new URL("../../account/admin/inbox/index.html", import.meta.url);
 const adminBillingHtmlPath = new URL("../../account/admin/billing/index.html", import.meta.url);
@@ -54,6 +55,19 @@ test("the account Admin tab keeps daily tools focused and isolates retired admin
   assert.match(css, /\.retired-app-grid\s*{[\s\S]*grid-template-columns:\s*repeat\(2,/);
   assert.match(css, /\.admin-app-card\s*{[\s\S]*min-height:\s*168px/);
   assert.match(css, /\.admin-app-card > \.btn\.block\s*{\s*width:\s*max-content/);
+});
+
+test("admin workspaces collapse consistently and keep every essential action in the mobile menu", async () => {
+  const [navigation, styles] = await Promise.all([
+    readFile(adminNavigationPath, "utf8"),
+    readFile(adminCssPath, "utf8"),
+  ]);
+
+  assert.match(navigation, /admin-mobile-menu-utilities[\s\S]*Ask Admin AI[\s\S]*Dashboard[\s\S]*Sign out/);
+  assert.match(styles, /@media \(max-width: 800px\)[\s\S]*\.account-admin-page > \.portal-layout \{ display:block/);
+  assert.match(styles, /\.account-admin-page \.portal-layout > \.portal-nav \{ display:none/);
+  assert.match(styles, /\.site-topbar\.admin-topbar \.site-nav-actions > :not\(\.site-menu-toggle\) \{ display:none/);
+  assert.match(styles, /\.admin-mobile-menu-utilities \{[\s\S]*grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
 });
 
 test("customer app cards use consistent N3XRA product names and clear access states", async () => {

@@ -26,12 +26,12 @@ const statusLabel = (value = "") => String(value || "active").replaceAll("_", " 
 
 function updateWebsiteReturnLink(websiteUrl, websiteName = "your website") {
   const actions = document.querySelector(".client-portal-topbar .site-nav-actions");
-  let returnLink = actions?.querySelector("[data-client-website-return]");
   const destination = brandedPortal ? websiteUrl : "/account/";
   if (!actions || !destination) {
-    returnLink?.remove();
+    document.querySelectorAll("[data-client-website-return]").forEach((link) => link.remove());
     return;
   }
+  let returnLink = actions.querySelector("[data-client-website-return]");
   if (!returnLink) {
     returnLink = document.createElement("a");
     returnLink.className = "site-menu-link client-website-return-link";
@@ -41,6 +41,11 @@ function updateWebsiteReturnLink(websiteUrl, websiteName = "your website") {
   returnLink.href = destination;
   returnLink.textContent = brandedPortal ? "Return to Website" : "Return to Dashboard";
   returnLink.setAttribute("aria-label", brandedPortal ? `Return to ${websiteName} website` : "Return to N3XRA dashboard");
+  document.querySelectorAll(".site-mobile-menu [data-client-website-return]").forEach((mobileLink) => {
+    mobileLink.href = destination;
+    mobileLink.textContent = brandedPortal ? "Return to Website" : "Return to Dashboard";
+    mobileLink.setAttribute("aria-label", brandedPortal ? `Return to ${websiteName} website` : "Return to N3XRA dashboard");
+  });
 }
 
 function routeMarkup(route, pageKey) {

@@ -351,6 +351,7 @@ function mobileNavigationMarkup() {
       <span class="admin-mobile-menu-hint">Choose an area</span>
     </div>
     <div class="admin-mobile-menu-utilities">
+      <button class="site-menu-link site-assistant-mobile-trigger is-admin" type="button" data-site-assistant-open aria-expanded="false" aria-controls="site-assistant-layer">Ask Admin AI</button>
       <a class="site-menu-link" href="/account/">Dashboard</a>
       <button class="site-menu-link" type="button" data-admin-mobile-sign-out>Sign out</button>
     </div>
