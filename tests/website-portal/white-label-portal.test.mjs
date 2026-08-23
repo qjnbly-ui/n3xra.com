@@ -45,6 +45,7 @@ test("the branded dashboard removes master-platform navigation and the admin ass
   assert.match(context, /identity\.websiteName/);
   assert.match(context, /identity\.logoUrl/);
   assert.match(context, /portal-provider-label/);
+  assert.match(context, /site-nav-actions[\s\S]{0,260}provider\.remove\(\)/);
   assert.match(navigation, /\.portal\.n3xra\.com/);
   assert.match(navigation, /portal-white-label-host/);
   assert.match(workspaceContext, /Return to Website/);

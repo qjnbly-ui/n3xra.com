@@ -155,15 +155,7 @@ export function applyPortalTenantBranding(resolution: PortalTenantResolution): P
 
   document.querySelectorAll<HTMLElement>('.site-nav-actions a[href^="/account"], [data-site-assistant-open], [data-site-assistant-layer]').forEach((element) => element.remove());
   document.querySelectorAll<HTMLElement>(".site-nav-actions").forEach((actions) => {
-    let provider = actions.querySelector<HTMLElement>("[data-portal-provider-label]");
-    if (!provider) {
-      provider = document.createElement("span");
-      provider.className = "portal-provider-label";
-      provider.dataset.portalProviderLabel = "";
-      actions.prepend(provider);
-    }
-    provider.hidden = !identity.poweredByLabel;
-    provider.textContent = identity.poweredByLabel;
+    actions.querySelectorAll<HTMLElement>("[data-portal-provider-label]").forEach((provider) => provider.remove());
   });
 
   document.querySelectorAll<HTMLElement>('[data-portal-business-name]').forEach((element) => {
@@ -176,6 +168,10 @@ export function applyPortalTenantBranding(resolution: PortalTenantResolution): P
     else image.removeAttribute("src");
   });
   document.querySelectorAll<HTMLElement>('[data-portal-provider-label]').forEach((element) => {
+    if (element.closest(".site-nav-actions")) {
+      element.remove();
+      return;
+    }
     element.hidden = !identity.poweredByLabel;
     element.textContent = identity.poweredByLabel;
   });
