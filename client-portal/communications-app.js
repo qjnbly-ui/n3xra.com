@@ -1,7 +1,7 @@
 import { createBrowserSupabase, getSessionOrNull, hasConfig } from "/shared/lib/supabase-client.js";
 import { getStoredActiveOrganizationId, setStoredActiveOrganizationId } from "/shared/lib/orgs.js";
 import { initializePortalBrandShell } from "./brand-shell.js";
-import { isBrandedPortalHostname, portalLoginUrl, portalSignedOutUrl } from "./tenant-context.js";
+import { isBrandedPortalHostname, portalLoginUrl } from "./tenant-context.js";
 const statusLayer = document.querySelector("#communications-status");
 function escapeHtml(value) {
     return String(value || "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
@@ -213,10 +213,6 @@ async function initialize() {
     renderSubscribers(subscribers, topics, choices, Number(metrics.total_subscribers || 0));
     renderActivity(messages);
     document.body.classList.remove("communications-loading");
-    document.querySelector("#communications-logout")?.addEventListener("click", async () => {
-        await supabase.auth.signOut();
-        window.location.replace(portalSignedOutUrl());
-    });
 }
 void initialize().catch((error) => {
     console.error("Communications workspace failed to load.", error);

@@ -1,7 +1,7 @@
 import { createBrowserSupabase, getSessionOrNull, hasConfig } from "/shared/lib/supabase-client.js";
 import { getStoredActiveOrganizationId, setStoredActiveOrganizationId } from "/shared/lib/orgs.js";
 import { initializePortalBrandShell } from "./brand-shell.js";
-import { isBrandedPortalHostname, portalLoginUrl, portalSignedOutUrl } from "./tenant-context.js";
+import { isBrandedPortalHostname, portalLoginUrl } from "./tenant-context.js";
 
 interface Workspace {
   id: string; organization_id: string; slug: string; program_name: string; sender_name: string;
@@ -219,10 +219,6 @@ async function initialize(): Promise<void> {
   renderActivity(messages);
   document.body.classList.remove("communications-loading");
 
-  document.querySelector<HTMLButtonElement>("#communications-logout")?.addEventListener("click", async () => {
-    await supabase.auth.signOut();
-    window.location.replace(portalSignedOutUrl());
-  });
 }
 
 void initialize().catch((error: unknown) => {

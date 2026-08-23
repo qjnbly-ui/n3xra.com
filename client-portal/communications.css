@@ -86,15 +86,7 @@ body.communications-tenant-surface {
   overflow: hidden;
 }
 .communications-tenant-surface .communications-head::after {
-  content: "";
-  position: absolute;
-  right: -10vw;
-  bottom: -55%;
-  width: min(52vw, 720px);
-  aspect-ratio: 1;
-  border: 1px solid color-mix(in srgb, var(--portal-accent) 45%, transparent);
-  border-radius: 50%;
-  pointer-events: none;
+  content: none;
 }
 .communications-tenant-surface .communications-head > div { position: relative; z-index: 1; }
 .communications-tenant-surface .communications-head h1 {
@@ -134,6 +126,22 @@ body.communications-tenant-surface {
   background: color-mix(in srgb, var(--portal-accent) 28%, #fff);
 }
 .communications-tenant-surface .communications-status { color: #fff; background: var(--portal-deep); }
+
+/* Communications participates in the same shared client workspace as the
+   Apps Dashboard and other portal sections. The workspace pagebar owns the
+   page title; the product content starts with the actionable number status. */
+.client-portal-shell .communications-head {
+  display: flex;
+  justify-content: flex-end;
+  margin: 0 0 1rem;
+  padding: 0;
+  color: var(--portal-ink);
+  background: transparent;
+  overflow: visible;
+}
+.client-portal-shell .communications-head > div:first-child { display: none; }
+.client-portal-shell .communications-number { width: min(100%, 320px); }
+.client-portal-shell .communications-status { z-index: 100; }
 
 @media (max-width: 850px) { .communications-metrics { grid-template-columns: repeat(2, 1fr); } .communications-grid, .communications-head { grid-template-columns: 1fr; } .communications-number { min-width: 0; } .communications-join-tools { grid-template-columns: 1fr; } }
 @media (max-width: 540px) { .communications-dashboard-link { display: none; } .communications-metrics { grid-template-columns: 1fr; } .communications-activity-row { grid-template-columns: 80px minmax(0, 1fr); } .communications-activity-row > :last-child { grid-column: 2; } }

@@ -11,6 +11,9 @@ import {
 const brandedPortal = isBrandedPortalHostname();
 const APP_ROUTES = [
   ...(brandedPortal ? [{ keys: ["dashboard"], label: "Apps Dashboard", href: "/client-portal/", requiresAdditionalApps: true }] : []),
+  ...(String(window.location.pathname).replace(/\/+$/, "") === "/client-portal/communications"
+    ? [{ keys: ["communications"], label: "Communications", href: "/client-portal/communications/" }]
+    : []),
   { keys: ["support"], label: "Support", href: "/client-portal/#support", feature: "support" },
 ];
 const WEBSITE_ROUTES = [

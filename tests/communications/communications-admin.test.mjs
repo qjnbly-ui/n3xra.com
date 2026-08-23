@@ -281,10 +281,12 @@ test("pre-delivery consent keeps source, origin, channel, and delivery boundarie
 });
 
 test("Communications selects N3XRA or tenant presentation without duplicating the application", async () => {
-  const [source, styles, html] = await Promise.all([
+  const [source, styles, html, shell, workspaceContext] = await Promise.all([
     projectFile("src/client-portal/communications-app.ts"),
     projectFile("client-portal/communications.css"),
     projectFile("client-portal/communications/index.html"),
+    projectFile("client-portal/client-shell.js"),
+    projectFile("client-portal/client-workspace-context.js"),
   ]);
 
   assert.match(source, /isBrandedPortalHostname/);
@@ -295,7 +297,16 @@ test("Communications selects N3XRA or tenant presentation without duplicating th
   assert.match(styles, /body\.communications-tenant-surface/);
   assert.match(styles, /var\(--portal-deep\)/);
   assert.match(styles, /var\(--portal-accent\)/);
+  assert.match(styles, /\.communications-tenant-surface \.communications-head::after[^}]*content: none/s);
+  assert.match(styles, /\.client-portal-shell \.communications-head/);
   assert.match(html, /data-portal-business-logo/);
+  assert.match(html, /\/client-portal\/client-shell\.css/);
+  assert.match(html, /\/client-portal\/client-shell\.js/);
+  assert.match(html, /class="portal-layout"/);
+  assert.match(html, /N3XRA Communications/);
+  assert.doesNotMatch(html, /Nexra Communications/);
+  assert.match(shell, /\/client-portal\/communications\//);
+  assert.match(workspaceContext, /label: "Communications"/);
 });
 
 test("QR codes prefer a trusted client-native landing page and retain their source token", () => {

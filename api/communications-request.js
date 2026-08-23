@@ -105,10 +105,10 @@ module.exports = async function handler(req, res) {
     return sendJson(res, 201, {
       ok: true,
       requestId: Array.isArray(rows) ? rows[0]?.id || "" : "",
-      message: "Your Nexra Number request is in review. We’ll follow up within one business day.",
+      message: "Your N3XRA Communications number request is in review. We’ll follow up within one business day.",
     });
   } catch (error) {
-    console.error("Nexra Number request failed:", error);
+    console.error("N3XRA Communications number request failed:", error);
     return sendJson(res, 500, { error: "We could not submit your request right now." });
   }
 };

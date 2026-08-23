@@ -315,7 +315,7 @@ async function sendTestEmail(body: JsonObject): Promise<JsonObject> {
     to: String(subscriber.email),
     subject,
     text: message,
-    html: `<div style="font-family:Arial,sans-serif;line-height:1.6;white-space:pre-wrap">${escapeHtml(message)}</div><hr><p style="color:#667085;font:12px Arial,sans-serif">Test email from ${escapeHtml(String(workspace.sender_name ?? workspace.program_name ?? "Nexra Communications"))}.</p>`,
+    html: `<div style="font-family:Arial,sans-serif;line-height:1.6;white-space:pre-wrap">${escapeHtml(message)}</div><hr><p style="color:#667085;font:12px Arial,sans-serif">Test email from ${escapeHtml(String(workspace.sender_name ?? workspace.program_name ?? "N3XRA Communications"))}.</p>`,
     replyTo: String(workspace.support_email ?? ""),
   });
   return { ...result, operation: "send_test_email" };
