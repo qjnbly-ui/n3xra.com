@@ -84,7 +84,7 @@ test("every website admin page loads the current mobile workspace navigation", a
   const pages = await Promise.all(routes.map((route) => read(`n3xra-admin/${route}/index.html`)));
 
   pages.forEach((page, index) => {
-    assert.match(page, /website-admin\.css\?v=17/, `${routes[index]} must load the mobile navigation styles`);
+    assert.match(page, /website-admin\.css\?v=18/, `${routes[index]} must load the mobile navigation styles`);
     assert.match(page, /website-admin-workspace\.js\?v=14/, `${routes[index]} must load the mobile navigation controller`);
   });
 });

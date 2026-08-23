@@ -59,10 +59,12 @@ const siteLiveUrlInput = document.getElementById("site-live-url");
 const siteRepositoryInput = document.getElementById("site-repository");
 const accessPanel = document.getElementById("access-panel");
 const memberForm = document.getElementById("member-form");
+const memberName = document.getElementById("member-name");
 const memberEmail = document.getElementById("member-email");
 const memberRole = document.getElementById("member-role");
 const memberFormStatus = document.getElementById("member-form-status");
 const memberList = document.getElementById("member-list");
+const memberInviteList = document.getElementById("member-invite-list");
 const adminRequestList = document.getElementById("admin-request-list");
 const projectLinkPanel = document.getElementById("project-link-panel");
 const projectLinkCopy = document.getElementById("project-link-copy");
@@ -107,6 +109,7 @@ let versions = [];
 let selectedAssetCategory = "";
 const selectedVersionIds = new Set();
 let members = [];
+let memberInvites = [];
 let serviceRequests = [];
 let selectedProject;
 let projectProposals = [];
@@ -357,29 +360,45 @@ function renderMembers() {
     <div class="portal-member-row">
       <div>
         <strong>${escapeHtml(member.name || member.email || "N3XRA client")}</strong>
-        <p>${escapeHtml(member.email || member.user_id)} · ${escapeHtml(member.status)}</p>
+        <p>${escapeHtml(member.email || member.user_id)} · ${member.is_owner ? "account owner" : escapeHtml(roleLabel(member.role))}</p>
       </div>
       <div class="portal-member-controls">
-        <select class="portal-member-role" data-member-role="${member.id}" aria-label="Role for ${escapeHtml(member.email || "client")}">
-          ${["owner", "editor", "viewer"].map((role) => `<option value="${role}"${member.role === role ? " selected" : ""}>${role[0].toUpperCase() + role.slice(1)}</option>`).join("")}
+        <select class="portal-member-role" data-member-role="${member.id}" aria-label="Role for ${escapeHtml(member.email || "client")}"${member.is_owner || member.is_current ? " disabled" : ""}>
+          ${["account_admin", "editor", "viewer"].map((role) => `<option value="${role}"${member.role === role ? " selected" : ""}>${roleLabel(role)}</option>`).join("")}
         </select>
-        ${member.status === "active"
-          ? `<button class="portal-button portal-button-secondary" type="button" data-member-status="revoked" data-member-id="${member.id}">Revoke</button>`
-          : `<button class="portal-button portal-button-secondary" type="button" data-member-status="active" data-member-id="${member.id}">Restore</button>`}
+        ${member.is_owner
+          ? '<span class="portal-member-protected">Protected owner</span>'
+          : member.is_current
+            ? '<span class="portal-member-protected">Your access</span>'
+            : `<button class="portal-button portal-button-secondary" type="button" data-member-status="removed" data-member-id="${member.id}">Remove</button>`}
       </div>
     </div>
   `).join("");
+  renderMemberInvites();
   renderProjectClientOptions();
+}
+
+function roleLabel(role) {
+  return role === "account_admin" ? "Administrator" : role === "editor" ? "Editor" : "View only";
+}
+
+function renderMemberInvites() {
+  if (!memberInviteList) return;
+  const pending = memberInvites.filter((invite) => !invite.is_disabled && !invite.revoked_at && Number(invite.redeemed_uses) < Number(invite.max_uses) && (!invite.expires_at || new Date(invite.expires_at).getTime() > Date.now()));
+  memberInviteList.innerHTML = pending.length ? `
+    <div class="portal-member-list-heading"><strong>Pending invitations</strong><span>${pending.length}</span></div>
+    ${pending.map((invite) => `<div class="portal-member-row"><div><strong>${escapeHtml(invite.recipient_name || invite.recipient_email)}</strong><p>${escapeHtml(invite.recipient_email)} · ${escapeHtml(roleLabel(invite.role))} · expires ${escapeHtml(formatDate(invite.expires_at))}</p></div><div class="portal-member-controls"><button class="portal-button portal-button-secondary" type="button" data-resend-invite="${invite.id}">Resend</button><button class="portal-button portal-button-secondary" type="button" data-revoke-invite="${invite.id}">Cancel</button></div></div>`).join("")}
+  ` : "";
 }
 
 function renderProjectClientOptions() {
   if (!projectClientAccount) return;
   const activeMembers = members.filter((member) => member.status === "active");
   projectClientAccount.innerHTML = activeMembers.length
-    ? activeMembers.map((member) => `<option value="${member.user_id}">${escapeHtml(member.name || member.email || "N3XRA client")} · ${escapeHtml(member.role)}</option>`).join("")
+    ? activeMembers.map((member) => `<option value="${member.user_id}">${escapeHtml(member.name || member.email || "N3XRA client")} · ${escapeHtml(member.is_owner ? "Account owner" : roleLabel(member.role))}</option>`).join("")
     : '<option value="">Assign a client account first</option>';
   projectClientAccount.disabled = !activeMembers.length;
-  const owner = activeMembers.find((member) => member.role === "owner");
+  const owner = activeMembers.find((member) => member.is_owner || member.role === "account_admin");
   if (owner) projectClientAccount.value = owner.user_id;
 }
 
@@ -481,11 +500,26 @@ async function createWebsiteSupportWork(event) {
 async function loadMembers() {
   if (!selectedWebsite) {
     members = [];
+    memberInvites = [];
     renderMembers();
     return;
   }
+  if (selectedWebsite.organization_id) {
+    const { data, error } = await supabase.rpc("client_portal_team_snapshot", { input_organization_id: selectedWebsite.organization_id });
+    if (error) throw error;
+    members = (data?.members || []).map((member) => ({ ...member, name: member.full_name, status: "active", is_current: member.user_id === data.current_user_id }));
+    memberInvites = data?.invites || [];
+    memberForm.querySelectorAll("input,select,button").forEach((control) => { control.disabled = !data?.can_manage; });
+    setMemberStatus(data?.can_manage ? "" : "Only an account administrator can change team access.");
+    renderMembers();
+    await loadProjectLifecycle();
+    return;
+  }
   const data = await invokeAdmin({ action: "list-website-members", websiteId: selectedWebsite.id });
-  members = data.members || [];
+  members = (data.members || []).map((member) => ({ ...member, role: member.role === "owner" ? "account_admin" : member.role }));
+  memberInvites = [];
+  memberForm.querySelectorAll("input,select,button").forEach((control) => { control.disabled = true; });
+  setMemberStatus("Connect this website to its organization before inviting team members.", true);
   renderMembers();
   await loadProjectLifecycle();
 }
@@ -683,6 +717,8 @@ async function loadAssets() {
   assets = assetResult.data || [];
   versions = versionResult.data || [];
   renderSelectedWebsite();
+  if (memberForm) memberForm.reset();
+  setMemberStatus("");
   renderAssets();
 }
 
@@ -818,22 +854,35 @@ async function assignMember(event) {
   if (!selectedWebsite) return;
   const submitButton = memberForm.querySelector('[type="submit"]');
   submitButton.disabled = true;
-  setMemberStatus("Assigning account…");
+  if (!selectedWebsite.organization_id) {
+    setMemberStatus("Connect this website to its organization before inviting team members.", true);
+    submitButton.disabled = false;
+    return;
+  }
+  setMemberStatus("Sending invitation…");
   try {
-    await invokeAdmin({
-      action: "assign-website-member",
-      websiteId: selectedWebsite.id,
-      email: memberEmail.value.trim(),
-      role: memberRole.value,
+    const { data: invite, error: inviteError } = await supabase.rpc("client_portal_create_team_invite", {
+      input_organization_id: selectedWebsite.organization_id,
+      input_recipient_email: memberEmail.value.trim(),
+      input_recipient_name: memberName.value.trim(),
+      input_role: memberRole.value,
     });
+    if (inviteError) throw inviteError;
+    const { data: emailResult, error: emailError } = await supabase.functions.invoke("send-client-team-invite", { body: { inviteId: invite.id, portalOrigin: portalOriginForWebsite(selectedWebsite) } });
+    if (emailError || emailResult?.error) throw new Error(emailResult?.error || emailError?.message || "Unable to send this invitation.");
     memberForm.reset();
-    setMemberStatus("Account assigned.");
+    setMemberStatus("Invitation sent.");
     await loadMembers();
   } catch (error) {
-    setMemberStatus(error?.message || "Unable to assign this account.", true);
+    setMemberStatus(error?.message || "Unable to send this invitation.", true);
   } finally {
     submitButton.disabled = false;
   }
+}
+
+function portalOriginForWebsite(website) {
+  const slug = String(website?.portal_slug || website?.slug || "").trim();
+  return slug ? `https://${slug}.portal.n3xra.com` : window.location.origin;
 }
 
 async function handleMemberAction(event) {
@@ -845,13 +894,12 @@ async function handleMemberAction(event) {
   button.disabled = true;
   setMemberStatus("Updating access…");
   try {
-    await invokeAdmin({
-      action: "update-website-member",
-      membershipId: membership.id,
-      role: roleSelect.value,
-      status: button.dataset.memberStatus,
-    });
-    setMemberStatus(button.dataset.memberStatus === "active" ? "Access restored." : "Access revoked.");
+    if (selectedWebsite.organization_id) {
+      await supabase.rpc("client_portal_remove_team_member", { input_membership_id: membership.id }).then(({ error }) => { if (error) throw error; });
+    } else {
+      await invokeAdmin({ action: "update-website-member", membershipId: membership.id, role: membership.role === "account_admin" ? "owner" : membership.role, status: "revoked" });
+    }
+    setMemberStatus("Access removed.");
     await loadMembers();
   } catch (error) {
     setMemberStatus(error?.message || "Unable to update access.", true);
@@ -868,12 +916,12 @@ async function handleMemberRoleChange(event) {
   select.disabled = true;
   setMemberStatus("Updating role…");
   try {
-    await invokeAdmin({
-      action: "update-website-member",
-      membershipId: membership.id,
-      role: select.value,
-      status: membership.status,
-    });
+    if (selectedWebsite.organization_id) {
+      const { error } = await supabase.rpc("client_portal_update_team_member", { input_membership_id: membership.id, input_role: select.value });
+      if (error) throw error;
+    } else {
+      await invokeAdmin({ action: "update-website-member", membershipId: membership.id, role: select.value === "account_admin" ? "owner" : select.value, status: membership.status });
+    }
     setMemberStatus("Role updated.");
     await loadMembers();
   } catch (error) {
@@ -881,6 +929,31 @@ async function handleMemberRoleChange(event) {
     setMemberStatus(error?.message || "Unable to update the role.", true);
   } finally {
     select.disabled = false;
+  }
+}
+
+async function handleInviteAction(event) {
+  const resend = event.target.closest("[data-resend-invite]");
+  const revoke = event.target.closest("[data-revoke-invite]");
+  if (!resend && !revoke) return;
+  const button = resend || revoke;
+  button.disabled = true;
+  setMemberStatus(resend ? "Resending invitation…" : "Canceling invitation…");
+  try {
+    if (resend) {
+      const { data: invite, error } = await supabase.rpc("client_portal_resend_team_invite", { input_invite_id: resend.dataset.resendInvite });
+      if (error) throw error;
+      const { data, error: sendError } = await supabase.functions.invoke("send-client-team-invite", { body: { inviteId: invite.id, portalOrigin: portalOriginForWebsite(selectedWebsite) } });
+      if (sendError || data?.error) throw new Error(data?.error || sendError?.message || "Unable to resend this invitation.");
+    } else {
+      const { error } = await supabase.rpc("client_portal_revoke_team_invite", { input_invite_id: revoke.dataset.revokeInvite });
+      if (error) throw error;
+    }
+    await loadMembers();
+    setMemberStatus(resend ? "Invitation resent." : "Invitation canceled.");
+  } catch (error) {
+    setMemberStatus(error?.message || "Unable to update this invitation.", true);
+    button.disabled = false;
   }
 }
 
@@ -1619,6 +1692,7 @@ async function initWebsiteAdmin() {
     memberForm?.addEventListener("submit", assignMember);
     memberList?.addEventListener("click", handleMemberAction);
     memberList?.addEventListener("change", handleMemberRoleChange);
+    memberInviteList?.addEventListener("click", handleInviteAction);
     openProjectFormButton?.addEventListener("click", openProjectForm);
     closeProjectFormButton?.addEventListener("click", () => {
       projectLinkForm.hidden = true;

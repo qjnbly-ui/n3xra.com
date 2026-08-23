@@ -1539,6 +1539,10 @@ html.portal-white-label-host .site-nav-actions > a[href^="/account"] {
   gap: 0.55rem;
 }
 
+.portal-member-list-heading { display:flex; align-items:center; justify-content:space-between; gap:1rem; margin-top:1rem; padding:.8rem 1rem; color:var(--portal-muted); background:var(--portal-surface); border:1px solid var(--portal-line); font-size:.72rem; text-transform:uppercase; letter-spacing:.08em; }
+.portal-member-protected { color:var(--portal-muted); font-size:.7rem; font-weight:800; text-transform:uppercase; letter-spacing:.05em; }
+.portal-optional-label { color:var(--portal-muted); font-size:.62rem; font-weight:600; text-transform:none; letter-spacing:0; }
+
 .portal-inline-status {
   margin: 0;
   font-size: 0.84rem;

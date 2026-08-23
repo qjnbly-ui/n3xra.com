@@ -26,6 +26,28 @@ test("the client portal provides one shared Team & Permissions workspace", async
   assert.match(context, /label: "Team & Permissions"/);
 });
 
+test("N3XRA website administration uses the same client invitation workflow", async () => {
+  const [html, admin, edge] = await Promise.all([
+    projectFile("n3xra-admin/websites/index.html"),
+    projectFile("n3xra-admin/websites/websites-admin.js"),
+    projectFile("supabase/functions/send-client-team-invite/index.ts"),
+  ]);
+
+  assert.match(html, /Existing users sign in; new users create their account/);
+  assert.match(html, /Send invitation/);
+  assert.match(html, /value="account_admin">Administrator/);
+  assert.doesNotMatch(html, /Assign an existing N3XRA account/);
+  assert.match(admin, /client_portal_team_snapshot/);
+  assert.match(admin, /client_portal_create_team_invite/);
+  assert.match(admin, /send-client-team-invite/);
+  assert.match(admin, /client_portal_update_team_member/);
+  assert.match(admin, /client_portal_remove_team_member/);
+  assert.match(admin, /client_portal_resend_team_invite/);
+  assert.match(admin, /client_portal_revoke_team_invite/);
+  assert.match(edge, /platform_admins/);
+  assert.match(edge, /\["owner", "admin"\]/);
+});
+
 test("team mutations protect owners, bind invites to email, and preserve tenant isolation", async () => {
   const migration = await projectFile("supabase/migrations/20260823230958_client_portal_team_management.sql");
 

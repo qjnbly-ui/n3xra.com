@@ -75,6 +75,9 @@
 .website-admin-scroll-region .portal-access-panel:first-of-type { border-top:1px solid var(--website-admin-border); }
 .website-admin-scroll-region .portal-admin-record-section + .portal-admin-record-section,
 .website-admin-scroll-region .portal-access-panel + .portal-access-panel { margin-top:0; }
+
+#member-form { grid-template-columns:minmax(10rem,.75fr) minmax(14rem,1.2fr) minmax(10rem,.55fr) auto; }
+.portal-pending-invites .portal-member-list-heading { border-color:var(--website-admin-border); border-radius:0; }
 .website-support-work-form { margin-top:1rem; padding-top:1rem; border-top:1px solid var(--website-admin-border); }
 .website-support-work-form .portal-form-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
 .website-support-work-form .website-support-work-wide { grid-column:1/-1; }
@@ -392,6 +395,7 @@
   .website-admin-page-actions { justify-content:flex-start; }
   .website-admin-context-select { width:100%; min-width:0; }
   .website-admin-scroll-region { overflow:visible; padding:1rem 1rem 3rem; }
+  #member-form { grid-template-columns:1fr; }
   .website-admin-view-requests .website-admin-scroll-region { padding:0; }
   .website-admin-view-progress .website-admin-scroll-region,
   .website-admin-view-onboarding .website-admin-scroll-region,

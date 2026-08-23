@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/site-nav.css?v=4">
-  <link rel="stylesheet" href="/client-portal/portal.css?v=17">
+  <link rel="stylesheet" href="/client-portal/portal.css?v=18">
   <script src="/shared/config.js"></script><script src="/account/admin/admin-shell.js?v=2" defer></script><script src="/assets/site-nav.js?v=5"></script>
 
   <script>
@@ -20,7 +20,7 @@
   </script>
   <script defer src="/_vercel/insights/script.js"></script>
   <link rel="stylesheet" href="/account/admin/admin.css?v=33">
-  <link rel="stylesheet" href="/n3xra-admin/website-admin.css?v=17">
+  <link rel="stylesheet" href="/n3xra-admin/website-admin.css?v=18">
   <script type="module" src="/account/admin/product-shell.js?v=16"></script>
   <script type="module" src="/n3xra-admin/website-admin-workspace.js?v=14"></script>
 </head>
@@ -122,26 +122,31 @@
           <div class="portal-toolbar">
             <div>
               <h3 id="access-title">Client access</h3>
-              <p>Assign an existing N3XRA account to this website by email.</p>
+              <p>Invite someone to this client account. Existing users sign in; new users create their account from the same secure invitation.</p>
             </div>
           </div>
           <form class="portal-access-form" id="member-form">
             <label>
+              Name <span class="portal-optional-label">optional</span>
+              <input id="member-name" autocomplete="name" placeholder="Full name">
+            </label>
+            <label>
               Client email
-              <input id="member-email" type="email" required placeholder="client@example.com">
+              <input id="member-email" type="email" autocomplete="email" required placeholder="client@example.com">
             </label>
             <label>
               Role
               <select id="member-role">
-                <option value="owner">Owner</option>
+                <option value="account_admin">Administrator</option>
                 <option value="editor">Editor</option>
-                <option value="viewer">Viewer</option>
+                <option value="viewer">View only</option>
               </select>
             </label>
-            <button class="portal-button" type="submit">Assign account</button>
+            <button class="portal-button" type="submit">Send invitation</button>
           </form>
           <p class="portal-inline-status" id="member-form-status" role="status"></p>
           <div class="portal-member-list" id="member-list"></div>
+          <div class="portal-member-list portal-pending-invites" id="member-invite-list"></div>
         </section>
 
         <section class="portal-access-panel portal-project-link-panel" id="project-link-panel" hidden aria-labelledby="project-link-title">
@@ -217,6 +222,6 @@
 
   <div class="portal-status" id="portal-status" role="status">Verifying master admin access…</div>
   <script type="module" src="/client-portal/portal-shell.js"></script>
-  <script type="module" src="/n3xra-admin/websites/websites-admin.js?v=1"></script>
+  <script type="module" src="/n3xra-admin/websites/websites-admin.js?v=2"></script>
 </body>
 </html>

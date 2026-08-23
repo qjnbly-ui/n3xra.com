@@ -48,8 +48,11 @@ Deno.serve(async (request) => {
     if (inviteError || !invite) return response({ error: "Invitation not found." }, 404);
 
     const organization = Array.isArray(invite.organization) ? invite.organization[0] : invite.organization;
-    const { data: membership } = await adminClient.from("organization_memberships").select("role").eq("organization_id", invite.organization_id).eq("user_id", user.id).maybeSingle();
-    const canManage = organization?.owner_user_id === user.id || membership?.role === "account_admin";
+    const [{ data: membership }, { data: platformAdmin }] = await Promise.all([
+      adminClient.from("organization_memberships").select("role").eq("organization_id", invite.organization_id).eq("user_id", user.id).maybeSingle(),
+      adminClient.from("platform_admins").select("role,status").eq("user_id", user.id).eq("status", "active").maybeSingle(),
+    ]);
+    const canManage = organization?.owner_user_id === user.id || membership?.role === "account_admin" || ["owner", "admin"].includes(String(platformAdmin?.role || ""));
     if (!canManage) return response({ error: "Only an account administrator can send invitations." }, 403);
 
     const hostname = origin.hostname.toLowerCase();
