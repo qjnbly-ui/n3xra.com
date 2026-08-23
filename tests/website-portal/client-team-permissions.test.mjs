@@ -48,6 +48,28 @@ test("N3XRA website administration uses the same client invitation workflow", as
   assert.match(edge, /\["owner", "admin"\]/);
 });
 
+test("legacy websites expose a platform-admin-only organization connection without activating other products", async () => {
+  const [html, admin, migration] = await Promise.all([
+    projectFile("n3xra-admin/websites/index.html"),
+    projectFile("n3xra-admin/websites/websites-admin.js"),
+    projectFile("supabase/migrations/20260823234716_connect_website_client_organization.sql"),
+  ]);
+
+  assert.match(html, /id="website-organization-setup" hidden/);
+  assert.match(html, /Create and connect organization/);
+  assert.match(admin, /Boolean\(selectedWebsite && !selectedWebsite\.organization_id\)/);
+  assert.match(admin, /platform_connect_website_client_organization/);
+  assert.match(admin, /selectedWebsite\.organization_id = data\.organization_id/);
+  assert.match(migration, /not public\.is_platform_admin\(\)/);
+  assert.match(migration, /for update/);
+  assert.match(migration, /member\.role = 'owner'/);
+  assert.match(migration, /owner_organization_count > 0/);
+  assert.match(migration, /instead of creating a duplicate/);
+  assert.match(migration, /product_key = 'records'/);
+  assert.match(migration, /portal_enabled = false/);
+  assert.match(migration, /grant execute on function public\.platform_connect_website_client_organization\(uuid\)[\s\S]*to authenticated/);
+});
+
 test("team mutations protect owners, bind invites to email, and preserve tenant isolation", async () => {
   const migration = await projectFile("supabase/migrations/20260823230958_client_portal_team_management.sql");
 

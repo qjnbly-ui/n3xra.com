@@ -78,6 +78,12 @@
 
 #member-form { grid-template-columns:minmax(10rem,.75fr) minmax(14rem,1.2fr) minmax(10rem,.55fr) auto; }
 .portal-pending-invites .portal-member-list-heading { border-color:var(--website-admin-border); border-radius:0; }
+.website-organization-setup { display:flex; align-items:center; justify-content:space-between; gap:1.5rem; margin:0 0 1rem; padding:1.1rem 1.2rem; border:1px solid var(--website-admin-border); background:var(--website-admin-tint); }
+.website-organization-setup[hidden] { display:none; }
+.website-organization-setup strong { display:block; margin:.1rem 0 .25rem; font-size:1rem; }
+.website-organization-setup p { margin:0; }
+.website-organization-setup-actions { display:flex; align-items:center; gap:1rem; flex:0 0 auto; }
+.website-organization-setup-actions .portal-inline-status { max-width:22rem; }
 .website-support-work-form { margin-top:1rem; padding-top:1rem; border-top:1px solid var(--website-admin-border); }
 .website-support-work-form .portal-form-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
 .website-support-work-form .website-support-work-wide { grid-column:1/-1; }
@@ -396,6 +402,8 @@
   .website-admin-context-select { width:100%; min-width:0; }
   .website-admin-scroll-region { overflow:visible; padding:1rem 1rem 3rem; }
   #member-form { grid-template-columns:1fr; }
+  .website-organization-setup,
+  .website-organization-setup-actions { align-items:stretch; flex-direction:column; }
   .website-admin-view-requests .website-admin-scroll-region { padding:0; }
   .website-admin-view-progress .website-admin-scroll-region,
   .website-admin-view-onboarding .website-admin-scroll-region,

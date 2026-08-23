@@ -20,7 +20,7 @@
   </script>
   <script defer src="/_vercel/insights/script.js"></script>
   <link rel="stylesheet" href="/account/admin/admin.css?v=33">
-  <link rel="stylesheet" href="/n3xra-admin/website-admin.css?v=18">
+  <link rel="stylesheet" href="/n3xra-admin/website-admin.css?v=19">
   <script type="module" src="/account/admin/product-shell.js?v=16"></script>
   <script type="module" src="/n3xra-admin/website-admin-workspace.js?v=14"></script>
 </head>
@@ -125,6 +125,17 @@
               <p>Invite someone to this client account. Existing users sign in; new users create their account from the same secure invitation.</p>
             </div>
           </div>
+          <div class="website-organization-setup" id="website-organization-setup" hidden>
+            <div>
+              <p class="portal-kicker">Client organization required</p>
+              <strong id="website-organization-setup-title">Connect this website</strong>
+              <p id="website-organization-setup-copy">Create the client organization from the website's verified owner before inviting team members.</p>
+            </div>
+            <div class="website-organization-setup-actions">
+              <button class="portal-button" id="website-organization-setup-button" type="button">Create and connect organization</button>
+              <p class="portal-inline-status" id="website-organization-setup-status" role="status"></p>
+            </div>
+          </div>
           <form class="portal-access-form" id="member-form">
             <label>
               Name <span class="portal-optional-label">optional</span>
@@ -222,6 +233,6 @@
 
   <div class="portal-status" id="portal-status" role="status">Verifying master admin access…</div>
   <script type="module" src="/client-portal/portal-shell.js"></script>
-  <script type="module" src="/n3xra-admin/websites/websites-admin.js?v=2"></script>
+  <script type="module" src="/n3xra-admin/websites/websites-admin.js?v=3"></script>
 </body>
 </html>

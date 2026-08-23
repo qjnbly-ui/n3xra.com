@@ -65,6 +65,11 @@ const memberRole = document.getElementById("member-role");
 const memberFormStatus = document.getElementById("member-form-status");
 const memberList = document.getElementById("member-list");
 const memberInviteList = document.getElementById("member-invite-list");
+const websiteOrganizationSetup = document.getElementById("website-organization-setup");
+const websiteOrganizationSetupTitle = document.getElementById("website-organization-setup-title");
+const websiteOrganizationSetupCopy = document.getElementById("website-organization-setup-copy");
+const websiteOrganizationSetupButton = document.getElementById("website-organization-setup-button");
+const websiteOrganizationSetupStatus = document.getElementById("website-organization-setup-status");
 const adminRequestList = document.getElementById("admin-request-list");
 const projectLinkPanel = document.getElementById("project-link-panel");
 const projectLinkCopy = document.getElementById("project-link-copy");
@@ -332,6 +337,7 @@ function renderSelectedWebsite() {
     if (assetFolderList) assetFolderList.innerHTML = "";
     if (emptyState) emptyState.hidden = false;
     if (accessPanel) accessPanel.hidden = true;
+    if (websiteOrganizationSetup) websiteOrganizationSetup.hidden = true;
     if (projectLinkPanel) projectLinkPanel.hidden = true;
     if (websiteSupportPanel) websiteSupportPanel.hidden = true;
     if (openAdminUploadButton) openAdminUploadButton.hidden = true;
@@ -349,10 +355,24 @@ function renderSelectedWebsite() {
   if (websiteUrl) liveLink.href = websiteUrl;
   if (editSiteButton) editSiteButton.hidden = !selectedWebsite;
   if (accessPanel) accessPanel.hidden = false;
+  renderWebsiteOrganizationSetup();
   if (projectLinkPanel) projectLinkPanel.hidden = false;
   if (websiteSupportPanel) websiteSupportPanel.hidden = false;
   if (websiteSupportCopy) websiteSupportCopy.textContent = `Create work that ${selectedWebsite.name} clients can follow in their portal.`;
   if (openAdminUploadButton) openAdminUploadButton.hidden = false;
+}
+
+function renderWebsiteOrganizationSetup() {
+  if (!websiteOrganizationSetup || !memberForm) return;
+  const needsOrganization = Boolean(selectedWebsite && !selectedWebsite.organization_id);
+  websiteOrganizationSetup.hidden = !needsOrganization;
+  memberForm.hidden = needsOrganization;
+  if (!needsOrganization) {
+    if (websiteOrganizationSetupStatus) websiteOrganizationSetupStatus.textContent = "";
+    return;
+  }
+  if (websiteOrganizationSetupTitle) websiteOrganizationSetupTitle.textContent = `Connect ${selectedWebsite.name}`;
+  if (websiteOrganizationSetupCopy) websiteOrganizationSetupCopy.textContent = `Create a protected client organization from ${selectedWebsite.name}'s verified website owner. Existing project, billing, domain, and service records will stay unchanged.`;
 }
 
 function renderMembers() {
@@ -519,9 +539,37 @@ async function loadMembers() {
   members = (data.members || []).map((member) => ({ ...member, role: member.role === "owner" ? "account_admin" : member.role }));
   memberInvites = [];
   memberForm.querySelectorAll("input,select,button").forEach((control) => { control.disabled = true; });
-  setMemberStatus("Connect this website to its organization before inviting team members.", true);
+  setMemberStatus("");
   renderMembers();
   await loadProjectLifecycle();
+}
+
+async function connectWebsiteOrganization() {
+  if (!selectedWebsite || selectedWebsite.organization_id || !websiteOrganizationSetupButton) return;
+  websiteOrganizationSetupButton.disabled = true;
+  if (websiteOrganizationSetupStatus) {
+    websiteOrganizationSetupStatus.textContent = "Creating the client organization…";
+    websiteOrganizationSetupStatus.classList.remove("is-error");
+  }
+  try {
+    const { data, error } = await supabase.rpc("platform_connect_website_client_organization", {
+      input_website_id: selectedWebsite.id,
+    });
+    if (error) throw error;
+    selectedWebsite.organization_id = data.organization_id;
+    const websiteIndex = websites.findIndex((website) => website.id === selectedWebsite.id);
+    if (websiteIndex >= 0) websites[websiteIndex] = { ...websites[websiteIndex], organization_id: data.organization_id };
+    renderSelectedWebsite();
+    await loadMembers();
+    showToast(`${data.organization_name || selectedWebsite.name} is connected and ready for team invitations.`);
+  } catch (error) {
+    if (websiteOrganizationSetupStatus) {
+      websiteOrganizationSetupStatus.textContent = error?.message || "Unable to connect this client organization.";
+      websiteOrganizationSetupStatus.classList.add("is-error");
+    }
+  } finally {
+    websiteOrganizationSetupButton.disabled = false;
+  }
 }
 
 async function loadProjectLifecycle() {
@@ -1693,6 +1741,7 @@ async function initWebsiteAdmin() {
     memberList?.addEventListener("click", handleMemberAction);
     memberList?.addEventListener("change", handleMemberRoleChange);
     memberInviteList?.addEventListener("click", handleInviteAction);
+    websiteOrganizationSetupButton?.addEventListener("click", connectWebsiteOrganization);
     openProjectFormButton?.addEventListener("click", openProjectForm);
     closeProjectFormButton?.addEventListener("click", () => {
       projectLinkForm.hidden = true;
