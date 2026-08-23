@@ -299,6 +299,9 @@ test("Communications selects N3XRA or tenant presentation without duplicating th
   assert.match(styles, /var\(--portal-accent\)/);
   assert.match(styles, /\.communications-tenant-surface \.communications-head::after[^}]*content: none/s);
   assert.match(styles, /\.client-portal-shell \.communications-head/);
+  assert.match(styles, /\.client-portal-shell\.communications-tenant-surface[\s\S]*--communications-line: var\(--client-workspace-border\)/);
+  assert.match(styles, /\.client-portal-shell \.communications-metrics article,[\s\S]*background: var\(--client-workspace-panel\)/);
+  assert.match(styles, /\.client-portal-shell \.communications-metrics article \{ border-top: 1px solid var\(--client-workspace-border\)/);
   assert.match(html, /data-portal-business-logo/);
   assert.match(html, /\/client-portal\/client-shell\.css/);
   assert.match(html, /\/client-portal\/client-shell\.js/);

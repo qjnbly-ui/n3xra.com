@@ -142,6 +142,25 @@ body.communications-tenant-surface {
 .client-portal-shell .communications-head > div:first-child { display: none; }
 .client-portal-shell .communications-number { width: min(100%, 320px); }
 .client-portal-shell .communications-status { z-index: 100; }
+.client-portal-shell.communications-tenant-surface {
+  --communications-line: var(--client-workspace-border);
+  --communications-muted: var(--portal-muted);
+  --communications-green: var(--portal-accent);
+  background: var(--client-workspace-surface);
+}
+.client-portal-shell .communications-metrics article,
+.client-portal-shell .communications-panel {
+  background: var(--client-workspace-panel);
+  border-color: var(--client-workspace-border);
+  box-shadow: none;
+}
+.client-portal-shell .communications-metrics article { border-top: 1px solid var(--client-workspace-border); }
+.client-portal-shell .communications-join-tools > div,
+.client-portal-shell .communications-topic,
+.client-portal-shell .communications-empty { background: #f5fafb; }
+.client-portal-shell .communications-panel th,
+.client-portal-shell .communications-panel td,
+.client-portal-shell .communications-activity-row { border-bottom-color: var(--client-workspace-border); }
 
 @media (max-width: 850px) { .communications-metrics { grid-template-columns: repeat(2, 1fr); } .communications-grid, .communications-head { grid-template-columns: 1fr; } .communications-number { min-width: 0; } .communications-join-tools { grid-template-columns: 1fr; } }
 @media (max-width: 540px) { .communications-dashboard-link { display: none; } .communications-metrics { grid-template-columns: 1fr; } .communications-activity-row { grid-template-columns: 80px minmax(0, 1fr); } .communications-activity-row > :last-child { grid-column: 2; } }
