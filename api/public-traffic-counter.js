@@ -28,9 +28,10 @@ async function publicValue(settings, connection) {
     return rows.reduce((sum, row) => sum + number(row?.visitors), 0);
   }
 
+  const valueField = settings.metric === "all_time_visitors" ? "visitors" : "pageviews";
   const archived = await loadArchivedRows(settings.website_id);
   const latestArchivedDate = String(archived.at(-1)?.metric_date || "");
-  const archivedTotal = archived.reduce((sum, row) => sum + number(row?.pageviews), 0);
+  const archivedTotal = archived.reduce((sum, row) => sum + number(row?.[valueField]), 0);
   const date = today();
   const recentSince = latestArchivedDate && latestArchivedDate < date ? latestArchivedDate : date;
   let recent = [];
@@ -41,7 +42,7 @@ async function publicValue(settings, connection) {
   }
   const liveTotal = recent
     .filter((row) => String(row?.timestamp || row?.date || "").slice(0, 10) > latestArchivedDate)
-    .reduce((sum, row) => sum + number(row?.pageviews), 0);
+    .reduce((sum, row) => sum + number(row?.[valueField]), 0);
   return archivedTotal + liveTotal;
 }
 

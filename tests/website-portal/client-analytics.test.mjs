@@ -102,8 +102,9 @@ test("all-time analytics uses archived totals and labels summed visitors honestl
 });
 
 test("public traffic counters are isolated per website and store only safe public settings", async () => {
-  const [migration, endpoint, syncEndpoint] = await Promise.all([
+  const [migration, metricMigration, endpoint, syncEndpoint] = await Promise.all([
     projectFile("supabase/migrations/20260823001005_client_website_analytics.sql"),
+    projectFile("supabase/migrations/20260823044533_public_counter_all_time_visitors.sql"),
     projectFile("api/public-traffic-counter.js"),
     projectFile("api/sync-client-analytics.js"),
   ]);
@@ -111,6 +112,7 @@ test("public traffic counters are isolated per website and store only safe publi
   assert.match(migration, /create table public\.website_public_traffic_counters/);
   assert.match(migration, /public_key uuid not null default gen_random_uuid\(\) unique/);
   assert.match(migration, /metric in \('all_time_pageviews', 'daily_visitors'\)/);
+  assert.match(metricMigration, /metric in \('all_time_pageviews', 'all_time_visitors', 'daily_visitors'\)/);
   assert.match(migration, /enable row level security/);
   assert.match(migration, /Platform admins can read public traffic counter settings/);
   assert.match(migration, /revoke all on public\.website_public_traffic_counters from public, anon, authenticated/);
@@ -118,6 +120,8 @@ test("public traffic counters are isolated per website and store only safe publi
   assert.doesNotMatch(endpoint, /req\.query\?\.website_id/);
   assert.match(endpoint, /Access-Control-Allow-Origin/);
   assert.match(endpoint, /enabled: false/);
+  assert.match(endpoint, /settings\.metric === "all_time_visitors" \? "visitors" : "pageviews"/);
+  assert.match(endpoint, /row\?\.\[valueField\]/);
   assert.match(syncEndpoint, /website_public_traffic_counters\?select=website_id&enabled=eq\.true/);
 });
 
@@ -151,7 +155,10 @@ test("public counter loader uses website-owned markup and removes all space when
   assert.doesNotMatch(source, /iframe/i);
   assert.match(adminPage, /id="portal-public-counter-enabled"/);
   assert.match(adminPage, /value="all_time_pageviews"/);
+  assert.match(adminPage, /value="all_time_visitors"/);
   assert.match(adminPage, /value="daily_visitors"/);
+  assert.match(source, /all_time_pageviews" \| "all_time_visitors" \| "daily_visitors/);
+  assert.match(source, /public-traffic-counter\?key=\$\{encodeURIComponent\(key\)\}&v=3/);
   assert.match(adminScript, /data-n3xra-traffic-counter=.*hidden/);
   assert.match(adminScript, /https:\/\/www\.n3xra\.com\/client-portal\/public-traffic-counter\.js\?v=2/);
   assert.match(adminScript, /website_public_traffic_counters/);

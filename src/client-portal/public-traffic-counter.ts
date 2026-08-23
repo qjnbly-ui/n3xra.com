@@ -1,7 +1,7 @@
 type CounterPayload = {
   enabled?: boolean;
   label?: string;
-  metric?: "all_time_pageviews" | "daily_visitors";
+  metric?: "all_time_pageviews" | "all_time_visitors" | "daily_visitors";
   value?: number;
   updatedAt?: string;
 };
@@ -39,7 +39,7 @@ async function load(root: HTMLElement): Promise<void> {
   const key = String(root.dataset.n3xraTrafficCounter || "").trim();
   if (!key) return;
   try {
-    const response = await fetch(`${apiOrigin}/api/public-traffic-counter?key=${encodeURIComponent(key)}`, { headers: { Accept: "application/json" } });
+    const response = await fetch(`${apiOrigin}/api/public-traffic-counter?key=${encodeURIComponent(key)}&v=3`, { headers: { Accept: "application/json" } });
     const payload = await response.json() as CounterPayload;
     if (!response.ok || payload.enabled !== true || !Number.isFinite(Number(payload.value))) return;
     target(root, "value").textContent = Math.max(0, Math.round(Number(payload.value))).toLocaleString();

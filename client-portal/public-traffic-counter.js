@@ -33,7 +33,7 @@ async function load(root) {
     if (!key)
         return;
     try {
-        const response = await fetch(`${apiOrigin}/api/public-traffic-counter?key=${encodeURIComponent(key)}`, { headers: { Accept: "application/json" } });
+        const response = await fetch(`${apiOrigin}/api/public-traffic-counter?key=${encodeURIComponent(key)}&v=3`, { headers: { Accept: "application/json" } });
         const payload = await response.json();
         if (!response.ok || payload.enabled !== true || !Number.isFinite(Number(payload.value)))
             return;

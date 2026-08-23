@@ -421,7 +421,7 @@ function renderCounterPreview() {
   } else if (!enabled) {
     details.hidden = true;
   }
-  byId("portal-public-counter-preview-value").textContent = metric === "daily_visitors" ? "184" : "12,480";
+  byId("portal-public-counter-preview-value").textContent = metric === "daily_visitors" ? "184" : metric === "all_time_visitors" ? "3,240" : "12,480";
   byId("portal-public-counter-preview-label").textContent = label;
   const publicKey = analysis?.proposed?.public_counter?.public_key || "";
   byId("portal-public-counter-code").value = counterSnippet(publicKey);
