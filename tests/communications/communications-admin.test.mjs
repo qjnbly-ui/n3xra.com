@@ -109,6 +109,95 @@ test("the desktop navigation and empty states stay compact", async () => {
   assert.match(styles, /communications-admin-form-status\.is-error/);
 });
 
+test("workspace creation is an explicit blank mode and never reuses the selected workspace id", async () => {
+  const source = await projectFile("src/communications-admin/communications-admin.ts");
+
+  assert.match(source, /get\("new"\) === "1"\) return ""/);
+  assert.match(source, /option\("__new__", "Create new workspace…", !selectedWorkspaceId\)/);
+  assert.match(source, /window\.location\.href = "\/n3xra-admin\/communications\/\?new=1"/);
+  assert.match(source, /workspaceId" type="hidden" value="\$\{escapeHtml\(workspace\.id \|\| ""\)\}"/);
+  assert.match(source, /Choose an organization/);
+  assert.match(source, /organizationSelect\.required = true/);
+});
+
+test("the guided email UI keeps provider secrets server-side and requires explicit confirmations", async () => {
+  const [browserSource, endpointSource] = await Promise.all([
+    projectFile("src/communications-admin/communications-admin.ts"),
+    projectFile("src/communications-provider/communications-admin-email.ts"),
+  ]);
+
+  assert.match(browserSource, /Add sending domain/);
+  assert.match(browserSource, /Restart verification/);
+  assert.match(browserSource, /Activate email/);
+  assert.match(browserSource, /I understand this creates the domain in Resend/);
+  assert.match(browserSource, /I understand this sends one real email/);
+  assert.match(browserSource, /signed Resend webhook must be configured/);
+  assert.match(browserSource, /Choose a subscriber with recorded email consent|consenting subscriber/);
+  assert.doesNotMatch(browserSource, /COMMUNICATIONS_RESEND_API_KEY|provider_domain_id/);
+
+  assert.match(endpointSource, /await requirePlatformAdmin\(req\)/);
+  assert.match(endpointSource, /process\.env\.COMMUNICATIONS_RESEND_API_KEY/);
+  assert.match(endpointSource, /process\.env\.COMMUNICATIONS_RESEND_WEBHOOK_SECRET/);
+  assert.match(endpointSource, /communications_admin_record_resend_domain/);
+  assert.match(endpointSource, /communications_admin_activate_resend_email/);
+  assert.match(endpointSource, /sendResendEmail/);
+  assert.match(endpointSource, /subscriber\.email_status !== "subscribed"/);
+});
+
+test("the email administration endpoint authenticates before any provider operation", async () => {
+  const handler = require("../../api/communications-admin-email.js");
+  let statusCode = 0;
+  let payload = null;
+  const response = {
+    setHeader() {},
+    status(code) {
+      statusCode = code;
+      return this;
+    },
+    json(body) {
+      payload = body;
+      return body;
+    },
+  };
+  await handler({ method: "POST", headers: {}, body: { operation: "create_domain" } }, response);
+  assert.equal(statusCode, 401);
+  assert.deepEqual(payload, { error: "Authentication required." });
+});
+
+test("Resend domain responses are normalized and expose DNS instructions without provider identifiers", () => {
+  const emailAdmin = require("../../api/communications-admin-email.js");
+  assert.equal(emailAdmin.requiredDomain("HTTPS://Updates.Example.com/"), "updates.example.com");
+  assert.equal(emailAdmin.providerStatus("partially_verified"), "partially_verified");
+  assert.throws(() => emailAdmin.providerStatus("invented"), /unsupported domain status/);
+
+  const safe = emailAdmin.publicDomain({
+    id: "provider-secret-reference",
+    name: "updates.example.com",
+    status: "pending",
+    region: "us-east-1",
+    records: [{ record: "DKIM", type: "TXT", name: "resend._domainkey", value: "p=public-key", status: "pending" }],
+  }, { status: "pending_verification", provider_domain_id: "provider-secret-reference" });
+  assert.equal(safe.domain, "updates.example.com");
+  assert.equal(safe.records[0].value, "p=public-key");
+  assert.equal("id" in safe, false);
+  assert.equal("provider_domain_id" in safe, false);
+});
+
+test("Resend onboarding database operations are tenant-scoped, verified, audited, and service-only", async () => {
+  const migration = await projectFile("supabase/migrations/20260823180021_communications_resend_self_service_onboarding.sql");
+
+  assert.equal((migration.match(/security invoker/g) || []).length, 2);
+  assert.match(migration, /where id = input_workspace_id/);
+  assert.match(migration, /status = 'active' and role in \('owner', 'admin'\)/);
+  assert.match(migration, /target_domain\.status <> 'verified'/);
+  assert.match(migration, /communications_sending_domains_provider_id_uidx/);
+  assert.match(migration, /communications_provider_audit_log/);
+  assert.match(migration, /revoke all on function public\.communications_admin_record_resend_domain[\s\S]*from public, anon, authenticated/);
+  assert.match(migration, /revoke all on function public\.communications_admin_activate_resend_email[\s\S]*from public, anon, authenticated/);
+  assert.equal((migration.match(/grant execute on function public\.communications_admin_/g) || []).length, 2);
+  assert.doesNotMatch(migration, /RESEND_API_KEY|WEBHOOK_SECRET|service_role_key/i);
+});
+
 test("the customer portal ignores a stored organization without Communications access", async () => {
   const source = await projectFile("src/client-portal/communications-app.ts");
   const storedBlock = source.slice(

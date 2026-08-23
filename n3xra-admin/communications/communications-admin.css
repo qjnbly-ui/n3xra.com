@@ -69,6 +69,8 @@ html.communications-admin-root { background: var(--communications-admin-surface)
 .communications-admin-list-row > div { display: grid; gap: .2rem; min-width: 0; }
 .communications-admin-list-row > div:last-child { justify-items: end; }
 .communications-admin-list-row strong { font-size: .78rem; }
+.communications-admin-list-row a { color: var(--portal-ink); text-decoration-color: #9bc9c4; text-underline-offset: .18em; }
+.communications-admin-list-row a:hover { color: #14776f; }
 .communications-admin-list-row small { color: var(--portal-muted); font-size: .66rem; line-height: 1.4; }
 .communications-admin-detail-row { margin-top: .75rem; padding: 1rem; background: #f8fafb; border: 1px solid var(--communications-admin-border); }
 .communications-admin-detail-row:first-child { margin-top: 0; }
@@ -98,6 +100,10 @@ html.communications-admin-root { background: var(--communications-admin-surface)
 .communications-admin-form-status { min-height: 1.2em; margin: 0; color: var(--portal-muted); font-size: .68rem; line-height: 1.4; }
 .communications-admin-form-status.is-success { color: #176a56; }
 .communications-admin-form-status.is-error { color: #8b2f36; }
+.communications-admin-action-form { margin-top: 1rem; }
+.communications-admin-button-row { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .55rem; }
+.communications-admin-field-note { grid-column: 1 / -1; margin: -.45rem 0 0; color: var(--portal-muted); font-size: .66rem; line-height: 1.45; }
+.communications-admin-dns-table code { display: block; max-width: 520px; overflow-wrap: anywhere; white-space: normal; color: var(--portal-ink); font: 600 .66rem/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; }
 
 .communications-admin-table-wrap { width: 100%; overflow-x: auto; }
 .communications-admin-table-wrap table { width: 100%; border-collapse: collapse; font-size: .7rem; }
@@ -163,4 +169,6 @@ html.communications-admin-root { background: var(--communications-admin-surface)
   .communications-admin-form .communications-admin-field-wide,
   .communications-admin-form .communications-admin-form-footer { grid-column: auto; }
   .communications-admin-form-footer { align-items: stretch; flex-direction: column; }
+  .communications-admin-button-row { justify-content: stretch; }
+  .communications-admin-button-row .portal-button { flex: 1 1 auto; }
 }

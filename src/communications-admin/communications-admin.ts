@@ -57,6 +57,17 @@ interface WorkspacePayload {
 
 interface RequestsPayload { requests: Row[]; }
 
+interface EmailProviderPayload {
+  configured: boolean;
+  providerAvailable: boolean;
+  webhookAvailable: boolean;
+  domain?: string;
+  providerStatus?: string | null;
+  localStatus?: string | null;
+  region?: string | null;
+  records?: Row[];
+}
+
 const root = document.querySelector<HTMLElement>("#communications-admin-root");
 const statusLayer = document.querySelector<HTMLElement>("#communications-admin-status");
 const section = (root?.dataset.section || "overview") as SectionKey;
@@ -106,6 +117,7 @@ const displayLabels: Record<string, string> = {
 let adminContext: AdminSessionContext;
 let indexPayload: IndexPayload;
 let selectedWorkspaceId = "";
+let emailProviderPayload: EmailProviderPayload | null = null;
 
 interface MutationResult {
   ok: boolean;
@@ -191,6 +203,26 @@ async function mutate(operation: string, values: Record<string, unknown>): Promi
   return payload;
 }
 
+async function emailApi<T>(operation = "", values: Record<string, unknown> = {}): Promise<T> {
+  const token = adminContext.session?.access_token;
+  if (!token) throw new Error("Your administrator session is unavailable.");
+  const isMutation = Boolean(operation);
+  const response = await fetch(isMutation
+    ? "/api/communications-admin-email"
+    : `/api/communications-admin-email?workspaceId=${encodeURIComponent(selectedWorkspaceId)}`, {
+    method: isMutation ? "POST" : "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      ...(isMutation ? { "Content-Type": "application/json" } : {}),
+    },
+    ...(isMutation ? { body: JSON.stringify({ operation, idempotencyKey: crypto.randomUUID(), workspaceId: selectedWorkspaceId, ...values }) } : {}),
+    cache: "no-store",
+  });
+  const payload = await response.json() as T & { error?: string };
+  if (!response.ok) throw new Error(payload.error || "Communications email setup could not complete that action.");
+  return payload;
+}
+
 function option(value: unknown, text: unknown, selected = false): string {
   return `<option value="${escapeHtml(value)}"${selected ? " selected" : ""}>${escapeHtml(text)}</option>`;
 }
@@ -220,6 +252,7 @@ function workspaceStorageKey(): string {
 }
 
 function selectWorkspace(workspaces: WorkspaceChoice[]): string {
+  if (section === "overview" && new URLSearchParams(window.location.search).get("new") === "1") return "";
   const requested = String(new URLSearchParams(window.location.search).get("workspace") || "").trim();
   if (workspaces.some((workspace) => workspace.id === requested)) return requested;
   const stored = sessionStorage.getItem(workspaceStorageKey()) || "";
@@ -248,24 +281,29 @@ function renderContext(workspaces: WorkspaceChoice[]): void {
   const panel = root?.querySelector<HTMLElement>("#communications-admin-context");
   if (!panel) return;
   const current = workspaces.find((workspace) => workspace.id === selectedWorkspaceId) || null;
-  const workspaceOptions = workspaces.length
-    ? workspaces.map((workspace) => `<option value="${escapeHtml(workspace.id)}"${workspace.id === selectedWorkspaceId ? " selected" : ""}>${escapeHtml(workspace.organization?.name || workspace.sender_name)} — ${escapeHtml(workspace.program_name)}</option>`).join("")
-    : '<option value="">No Communications workspaces</option>';
+  const workspaceOptions = `${option("__new__", "Create new workspace…", !selectedWorkspaceId)}`
+    + (workspaces.length
+      ? workspaces.map((workspace) => `<option value="${escapeHtml(workspace.id)}"${workspace.id === selectedWorkspaceId ? " selected" : ""}>${escapeHtml(workspace.organization?.name || workspace.sender_name)} — ${escapeHtml(workspace.program_name)}</option>`).join("")
+      : '<option value="" disabled>No Communications workspaces yet</option>');
   const navigation = (group: "workspace" | "readiness") => sections.filter((item) => item.group === group).map((item) => `<a class="${item.key === section ? "is-current" : ""}" href="${item.href}">${escapeHtml(item.label)}</a>`).join("");
   panel.innerHTML = `
     <div class="communications-admin-context-head">
       <p class="portal-kicker">Organization workspace</p>
-      <label>Working with<select id="communications-workspace-select"${workspaces.length ? "" : " disabled"}>${workspaceOptions}</select></label>
+      <label>Working with<select id="communications-workspace-select">${workspaceOptions}</select></label>
     </div>
     ${current ? `<section class="communications-admin-context-card"><span>${escapeHtml(label(current.status))}</span><strong>${escapeHtml(current.organization?.name || current.sender_name)}</strong><small>${escapeHtml(current.program_name)}</small></section>` : ""}
     <nav class="communications-admin-context-nav" aria-label="Selected Communications workspace sections">
       <p>Workspace</p>${navigation("workspace")}
       <p>Readiness & activation</p>${navigation("readiness")}
     </nav>
-    <div class="communications-admin-context-footer"><span>${indexPayload.request_summary.submitted} submitted request${indexPayload.request_summary.submitted === 1 ? "" : "s"}</span><a class="${section === "requests" ? "is-current" : ""}" href="/n3xra-admin/communications/requests/">Open requests</a></div>
+    <div class="communications-admin-context-footer"><a href="/n3xra-admin/communications/?new=1">Create new workspace</a><span>${indexPayload.request_summary.submitted} submitted request${indexPayload.request_summary.submitted === 1 ? "" : "s"}</span><a class="${section === "requests" ? "is-current" : ""}" href="/n3xra-admin/communications/requests/">Open requests</a></div>
   `;
   panel.querySelector<HTMLSelectElement>("#communications-workspace-select")?.addEventListener("change", (event) => {
     const value = (event.currentTarget as HTMLSelectElement).value;
+    if (value === "__new__") {
+      window.location.href = "/n3xra-admin/communications/?new=1";
+      return;
+    }
     if (!value) return;
     sessionStorage.setItem(workspaceStorageKey(), value);
     selectedWorkspaceId = value;
@@ -283,9 +321,9 @@ function renderPagebar(): void {
 
 function renderWorkspaceForm(data?: WorkspacePayload): string {
   const workspace = data?.workspace || {};
-  const organizationId = workspace.organization_id || indexPayload.organizations[0]?.id || "";
+  const organizationId = workspace.organization_id || "";
   const entitlement = data?.entitlement || {};
-  const organizationOptions = indexPayload.organizations.map((organization) => option(
+  const organizationOptions = option("", "Choose an organization", !organizationId) + indexPayload.organizations.map((organization) => option(
     organization.id,
     `${organization.name} — ${label(organization.account_status)}`,
     organization.id === organizationId,
@@ -316,7 +354,9 @@ function renderWorkspaceForm(data?: WorkspacePayload): string {
   `;
   return card(
     data ? "Workspace configuration" : "Create Communications workspace",
-    "This operation saves N3XRA configuration and pending channel records. It does not contact Resend or Twilio or activate sending.",
+    data
+      ? "Update this workspace's identity, website link, entitlement, and stored pricing. Provider activation is handled separately."
+      : "Choose the customer organization and enter its program details. This creates only N3XRA records; it does not contact Resend or Twilio.",
     formShell("communications-workspace-form", body, data ? "Save workspace" : "Create workspace"),
     "full-width",
   );
@@ -326,6 +366,14 @@ function renderOverview(data: WorkspacePayload): string {
   const metrics = data.metrics || {};
   const email = readiness(data, "email");
   const sms = readiness(data, "sms");
+  const activeForm = data.forms.some((form) => form.status === "active");
+  const activeTopics = data.topics.filter((topic) => topic.active).length;
+  const setupGuide = `
+    <article class="communications-admin-list-row"><div><strong>1. Workspace identity</strong><small>Organization, public sender details, website, privacy policy, and terms.</small></div>${badge("Saved", "ready")}</article>
+    <article class="communications-admin-list-row"><div><a href="/n3xra-admin/communications/websites-forms/"><strong>2. Website signup form</strong></a><small>Choose the website, write the exact email consent language, and publish the form.</small></div>${badge(activeForm ? "Ready" : "Needs setup", activeForm ? "ready" : "pending")}</article>
+    <article class="communications-admin-list-row"><div><a href="/n3xra-admin/communications/topics-signup/"><strong>3. Topics and signup link</strong></a><small>Create the choices subscribers see, then open the hosted signup page yourself.</small></div>${badge(activeTopics ? `${activeTopics} active` : "Needs setup", activeTopics ? "ready" : "pending")}</article>
+    <article class="communications-admin-list-row"><div><a href="/n3xra-admin/communications/email-readiness/"><strong>4. Email domain and activation</strong></a><small>Add the domain, install its DNS records, activate email, and send one controlled test.</small></div>${badge(email.label, email.tone)}</article>
+    <article class="communications-admin-list-row"><div><strong>5. Twilio onboarding</strong><small>Number selection and carrier registration come later and remain separate from email.</small></div>${badge("Later", "neutral")}</article>`;
   return `
     <section class="communications-admin-summary">
       <div><p class="portal-kicker">${escapeHtml(label(data.workspace.status))} workspace</p><h2>${escapeHtml(data.organization?.name || data.workspace.sender_name)}</h2><p>${escapeHtml(data.workspace.program_name)} · ${escapeHtml(data.workspace.slug)}</p></div>
@@ -343,6 +391,7 @@ function renderOverview(data: WorkspacePayload): string {
       ${card("Email readiness", email.detail, `<div class="communications-admin-readiness">${badge(email.label, email.tone)}${fact("Sending domains", data.sending_domains.length)}${fact("Email channel", label(data.channels.find((row) => row.channel === "email")?.status))}</div>`)}
       ${card("Texting readiness", sms.detail, `<div class="communications-admin-readiness">${badge(sms.label, sms.tone)}${fact("Assigned numbers", data.numbers.length)}${fact("Text channel", label(data.channels.find((row) => row.channel === "sms")?.status))}</div>`)}
     </div>
+    ${card("Guided setup", "Work from top to bottom. You enter and approve every customer-facing detail; Nexra reports what is ready.", setupGuide)}
     ${card("Workspace identity", "The public program identity and support details currently stored for this workspace.", `<div class="communications-admin-facts-grid">${fact("Sender", data.workspace.sender_name)}${fact("Program", data.workspace.program_name)}${fact("Website", data.workspace.website_url)}${fact("Support email", data.workspace.support_email)}${fact("Message frequency", data.workspace.expected_message_frequency)}${fact("Updated", formatDate(data.workspace.updated_at))}</div>`)}
     <div class="communications-admin-grid">${renderWorkspaceForm(data)}</div>
   `;
@@ -426,8 +475,43 @@ function renderActivityUsage(data: WorkspacePayload): string {
 
 function renderEmailReadiness(data: WorkspacePayload): string {
   const state = readiness(data, "email");
-  const domains = data.sending_domains.length ? data.sending_domains.map((domain) => `<article class="communications-admin-list-row"><div><strong>${escapeHtml(domain.domain)}</strong><small>${escapeHtml(label(domain.provider))} · Updated ${escapeHtml(formatDate(domain.updated_at))}</small></div>${badge(domain.status, domain.status === "verified" ? "ready" : "pending")}</article>`).join("") : empty("No Resend sending domain has been configured.");
-  return `<section class="communications-admin-readiness-hero"><div><p class="portal-kicker">Email channel</p><h2>${escapeHtml(state.label)}</h2><p>${escapeHtml(state.detail)}</p></div>${badge(state.label, state.tone)}</section>${card("Sending domains", "Provider identifiers and credentials are intentionally excluded. Verification and activation controls will arrive with trusted server-side adapters.", domains)}${card("Email channel state", "The channel can be inspected but cannot be activated from this release.", `<div class="communications-admin-facts-grid">${fact("Channel status", label(data.channels.find((row) => row.channel === "email")?.status))}${fact("Domains", data.sending_domains.length)}${fact("Sender name", data.workspace.sender_name)}${fact("Support email", data.workspace.support_email)}</div>`)}`;
+  const provider = emailProviderPayload;
+  const channelStatus = data.channels.find((row) => row.channel === "email")?.status;
+  const configured = Boolean(provider?.configured);
+  const verified = provider?.providerStatus === "verified";
+  const active = verified && channelStatus === "active" && data.workspace.status === "active";
+  const records = provider?.records || [];
+  const dnsRows = records.length ? records.map((record) => `<tr><td><strong>${escapeHtml(record.record || "DNS")}</strong><small>${escapeHtml(record.type || "")}</small></td><td><code>${escapeHtml(record.name || "")}</code></td><td><code>${escapeHtml(record.value || "")}</code>${record.priority === null || record.priority === undefined ? "" : `<small>Priority ${escapeHtml(record.priority)}</small>`}</td><td>${badge(record.status || "Not started", record.status === "verified" ? "ready" : "pending")}</td></tr>`).join("") : `<tr><td colspan="4">DNS records will appear after the domain is added to Resend.</td></tr>`;
+  const domainSetup = !provider?.providerAvailable
+    ? empty("The server-side Resend connection must be configured before a domain can be added. No credential is entered in this browser.")
+    : !configured
+      ? formShell("communications-email-domain-form", `
+        ${field("domain", "Sending domain", "", "text", "required maxlength=\"253\" placeholder=\"updates.example.com\"")}
+        ${selectField("region", "Sending region", [
+          option("us-east-1", "United States — East", true),
+          option("eu-west-1", "Europe — Ireland"),
+          option("sa-east-1", "South America — São Paulo"),
+          option("ap-northeast-1", "Asia Pacific — Tokyo"),
+        ].join(""))}
+        ${checkField("confirmDomain", "I understand this creates the domain in Resend and returns DNS records for me to install.", false)}
+      `, "Add sending domain")
+      : `<div class="communications-admin-facts-grid">${fact("Domain", provider?.domain)}${fact("Provider status", label(provider?.providerStatus))}${fact("Signed webhook", provider?.webhookAvailable ? "Ready" : "Needs server setup")}${fact("Region", provider?.region || "Provider default")}</div>
+        <form class="communications-admin-form communications-admin-action-form" id="communications-email-domain-actions">
+          <div class="communications-admin-form-footer"><p class="communications-admin-form-status" role="status" aria-live="polite">${verified && !provider?.webhookAvailable ? "The signed Resend webhook must be configured on the server before activation." : ""}</p><div class="communications-admin-button-row"><button class="portal-button portal-button-secondary" name="emailAction" value="refresh_domain" type="submit">Refresh status</button><button class="portal-button portal-button-secondary" name="emailAction" value="verify_domain" type="submit">Restart verification</button>${verified && provider?.webhookAvailable && !active ? '<button class="portal-button" name="emailAction" value="activate_email" type="submit">Activate email</button>' : ""}</div></div>
+        </form>`;
+  const subscribed = data.subscribers.filter((subscriber) => subscriber.email && subscriber.email_status === "subscribed");
+  const subscriberOptions = option("", "Choose a consenting subscriber") + subscribed.map((subscriber) => option(subscriber.id, `${subscriber.full_name || "Subscriber"} — ${subscriber.email}`)).join("");
+  const testControl = active
+    ? (subscribed.length ? formShell("communications-email-test-form", `
+      ${selectField("subscriberId", "Recipient", subscriberOptions)}
+      ${field("fromLocalPart", "From address name", "updates", "text", "required maxlength=\"64\" aria-describedby=\"communications-from-domain\"")}
+      <p class="communications-admin-field-note" id="communications-from-domain">Email will come from the name above at ${escapeHtml(provider?.domain)}.</p>
+      ${field("subject", "Subject", "Nexra Communications email test", "text", "required maxlength=\"300\"")}
+      ${textareaField("message", "Message", "This is a test email sent through Nexra Communications.", "required maxlength=\"10000\"")}
+      ${checkField("confirmSend", "I understand this sends one real email to the selected subscriber.", false)}
+    `, "Send test email") : empty("Complete the public signup form with an email address first. The test can only go to a subscriber with recorded email consent."))
+    : empty("Verify the domain and activate the email channel before sending a test.");
+  return `<section class="communications-admin-readiness-hero"><div><p class="portal-kicker">Email channel</p><h2>${escapeHtml(active ? "Ready" : state.label)}</h2><p>${escapeHtml(active ? `${provider?.domain} is verified and email sending is active.` : state.detail)}</p></div>${badge(active ? "Ready" : state.label, active ? "ready" : state.tone)}</section><div class="communications-admin-grid">${card("1. Connect a sending domain", "You provide the domain. Nexra creates it in Resend and shows the exact DNS records; the API key always stays on the server.", domainSetup)}${configured ? card("2. Install and verify DNS records", "Copy each record into the domain's DNS provider, then restart verification and refresh until every required record is verified.", `<div class="communications-admin-table-wrap"><table class="communications-admin-dns-table"><thead><tr><th>Record</th><th>Name</th><th>Value</th><th>Status</th></tr></thead><tbody>${dnsRows}</tbody></table></div>`) : ""}${card(configured ? "3. Send a controlled test" : "2. Send a controlled test", "Only subscribers with recorded email consent can receive a test. Nothing sends until you choose a recipient and press the button.", testControl)}</div>`;
 }
 
 function renderTextingReadiness(data: WorkspacePayload): string {
@@ -529,7 +613,12 @@ function bindMutationForm(
         status.textContent = "Saved securely. Refreshing…";
       }
       indexPayload = await api<IndexPayload>("index");
-      if (result.workspace_id) selectedWorkspaceId = result.workspace_id;
+      if (result.workspace_id) {
+        selectedWorkspaceId = result.workspace_id;
+        if (operation === "provision_workspace" && new URLSearchParams(window.location.search).get("new") === "1") {
+          window.history.replaceState({}, document.title, "/n3xra-admin/communications/");
+        }
+      }
       if (selectedWorkspaceId) sessionStorage.setItem(workspaceStorageKey(), selectedWorkspaceId);
       renderContext(indexPayload.workspaces);
       await loadCurrentSection();
@@ -549,6 +638,7 @@ function bindWorkspaceForm(): void {
   if (!form) return;
   const organizationSelect = control(form, "organizationId") as HTMLSelectElement;
   const websiteSelect = control(form, "websiteId") as HTMLSelectElement;
+  organizationSelect.required = true;
   organizationSelect.addEventListener("change", () => {
     const choices = [option("", "No website link")].concat(indexPayload.websites
       .filter((website) => website.organization_id === organizationSelect.value)
@@ -654,12 +744,90 @@ function bindPricingForm(): void {
   }));
 }
 
+function setEmailFormStatus(form: HTMLFormElement, message: string, tone = ""): void {
+  const status = form.querySelector<HTMLElement>(".communications-admin-form-status");
+  if (!status) return;
+  status.className = `communications-admin-form-status${tone ? ` is-${tone}` : ""}`;
+  status.textContent = message;
+}
+
+function setEmailFormDisabled(form: HTMLFormElement, disabled: boolean): void {
+  form.querySelectorAll<HTMLButtonElement>("button").forEach((button) => { button.disabled = disabled; });
+}
+
+function bindEmailControls(): void {
+  const domainForm = root?.querySelector<HTMLFormElement>("#communications-email-domain-form");
+  domainForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (!domainForm.reportValidity()) return;
+    if (!checked(domainForm, "confirmDomain")) {
+      setEmailFormStatus(domainForm, "Confirm that you are ready to create this domain in Resend.", "error");
+      return;
+    }
+    setEmailFormDisabled(domainForm, true);
+    setEmailFormStatus(domainForm, "Creating the domain securely…");
+    try {
+      emailProviderPayload = await emailApi<EmailProviderPayload>("create_domain", {
+        domain: value(domainForm, "domain"),
+        region: value(domainForm, "region"),
+      });
+      await loadCurrentSection();
+    } catch (error) {
+      setEmailFormStatus(domainForm, error instanceof Error ? error.message : "The domain could not be created.", "error");
+      setEmailFormDisabled(domainForm, false);
+    }
+  });
+
+  const actionForm = root?.querySelector<HTMLFormElement>("#communications-email-domain-actions");
+  actionForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const operation = (event as SubmitEvent).submitter instanceof HTMLButtonElement
+      ? ((event as SubmitEvent).submitter as HTMLButtonElement).value
+      : "refresh_domain";
+    setEmailFormDisabled(actionForm, true);
+    setEmailFormStatus(actionForm, operation === "activate_email" ? "Activating email…" : "Checking Resend…");
+    try {
+      emailProviderPayload = await emailApi<EmailProviderPayload>(operation);
+      await loadCurrentSection();
+    } catch (error) {
+      setEmailFormStatus(actionForm, error instanceof Error ? error.message : "The email status could not be updated.", "error");
+      setEmailFormDisabled(actionForm, false);
+    }
+  });
+
+  const testForm = root?.querySelector<HTMLFormElement>("#communications-email-test-form");
+  testForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (!testForm.reportValidity()) return;
+    if (!checked(testForm, "confirmSend")) {
+      setEmailFormStatus(testForm, "Confirm that you are ready to send one real test email.", "error");
+      return;
+    }
+    setEmailFormDisabled(testForm, true);
+    setEmailFormStatus(testForm, "Sending one test email…");
+    try {
+      const result = await emailApi<MutationResult & { sent?: boolean; existing?: boolean }>("send_test_email", {
+        subscriberId: value(testForm, "subscriberId"),
+        fromLocalPart: value(testForm, "fromLocalPart"),
+        subject: value(testForm, "subject"),
+        message: value(testForm, "message"),
+      });
+      setEmailFormStatus(testForm, result.sent ? "Test email accepted by Resend." : "This test was already processed; no duplicate was sent.", "success");
+    } catch (error) {
+      setEmailFormStatus(testForm, error instanceof Error ? error.message : "The test email could not be sent.", "error");
+    } finally {
+      setEmailFormDisabled(testForm, false);
+    }
+  });
+}
+
 function bindSectionControls(data?: WorkspacePayload): void {
   bindWorkspaceForm();
   if (!data) return;
   bindSubscriptionForm(data);
   bindTopicForm(data);
   bindPricingForm();
+  bindEmailControls();
 }
 
 async function loadCurrentSection(): Promise<void> {
@@ -675,7 +843,11 @@ async function loadCurrentSection(): Promise<void> {
       : empty("Create a Communications workspace from Overview before using this section.");
     bindSectionControls();
   } else {
-    const data = await api<WorkspacePayload>("workspace", selectedWorkspaceId);
+    const [data, provider] = await Promise.all([
+      api<WorkspacePayload>("workspace", selectedWorkspaceId),
+      section === "email-readiness" ? emailApi<EmailProviderPayload>() : Promise.resolve(null),
+    ]);
+    emailProviderPayload = provider;
     content.innerHTML = renderWorkspaceSection(data);
     bindSectionControls(data);
   }
