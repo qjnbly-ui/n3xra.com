@@ -101,6 +101,20 @@ async function verifyAdminRequest(req) {
   return { token, user, admin: admins[0] };
 }
 
+async function verifyAuthenticatedRequest(req) {
+  if (!SUPABASE_ANON_KEY || !SUPABASE_SERVICE_ROLE_KEY) {
+    throw apiError("Private website access is not configured for this deployment.", 503);
+  }
+  const token = getBearerToken(req);
+  if (!token) throw apiError("Authentication required.", 401);
+  const userResponse = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+    headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}` },
+  });
+  const user = await userResponse.json().catch(() => null);
+  if (!userResponse.ok || !user?.id) throw apiError("Your session is no longer valid.", 401);
+  return { token, user };
+}
+
 function encodeStoragePath(bucket, path) {
   return `${encodeURIComponent(bucket)}/${String(path || "").split("/").map(encodeURIComponent).join("/")}`;
 }
@@ -127,4 +141,5 @@ module.exports = {
   parseJson,
   serviceRequest,
   verifyAdminRequest,
+  verifyAuthenticatedRequest,
 };

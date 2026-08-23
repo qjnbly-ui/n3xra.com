@@ -8,7 +8,8 @@ const DEFAULT_BRAND = {
   body_font: "Manrope",
   powered_by_label: "Powered by N3XRA",
 };
-const FEATURE_DEFAULTS = { overview: true, progress: true, files_assets: true, services: true, billing: true, support: true };
+const FEATURE_DEFAULTS = { overview: true, progress: true, files_assets: true, services: true, billing: true, support: true, analytics: false };
+const COUNTER_DEFAULTS = { enabled: false, metric: "all_time_pageviews", label: "Website visits", public_key: null };
 const byId = (id) => document.getElementById(id);
 const websiteSelect = byId("portal-website-select");
 const form = byId("portal-settings-form");
@@ -107,9 +108,10 @@ async function directAnalysis(website) {
     supabase.from("website_repositories").select("provider,full_name,default_branch,access_status").eq("website_id", websiteId).order("created_at"),
     supabase.from("website_services").select("service_type,name,provider,status,public_url").eq("website_id", websiteId).order("sort_order"),
     supabase.from("website_members").select("user_id,role,status").eq("website_id", websiteId),
+    supabase.from("website_public_traffic_counters").select("website_id,enabled,metric,label,public_key,updated_at").eq("website_id", websiteId).maybeSingle(),
   ]);
   for (const result of results) if (result.error) throw result.error;
-  const [brandingResult, featureResult, assetResult, repositoryResult, serviceResult, memberResult] = results;
+  const [brandingResult, featureResult, assetResult, repositoryResult, serviceResult, memberResult, counterResult] = results;
   const rawAssets = assetResult.data || [];
   const assetIds = rawAssets.map((asset) => asset.current_version_id).filter(Boolean);
   const versionResult = assetIds.length
@@ -148,6 +150,7 @@ async function directAnalysis(website) {
     body_font: branding.body_font || DEFAULT_BRAND.body_font,
     powered_by_label: branding.powered_by_label ?? DEFAULT_BRAND.powered_by_label,
     features,
+    public_counter: { ...COUNTER_DEFAULTS, ...(counterResult.data || {}) },
   };
   const connections = [
     connection("website", "Website record", websiteState, websiteDetail, true, "/n3xra-admin/websites/"),
@@ -157,6 +160,7 @@ async function directAnalysis(website) {
     connection("branding", "Branding", proposed.logo_asset_id ? "connected" : "default", proposed.logo_asset_id ? `${assets.find((item) => item.id === proposed.logo_asset_id)?.label || "Logo"} and saved brand settings` : "Safe N3XRA defaults will be used", true, "/n3xra-admin/assets/"),
     connection("github", "GitHub", repository ? "recorded" : "missing", repository ? `${repository.full_name} · ${repository.default_branch || "main"}` : "No repository is connected", false, "/n3xra-admin/services/"),
     connection("vercel", "Vercel", vercel?.status === "active" ? "connected" : (vercel ? "attention" : "missing"), vercel ? `${vercel.name}${vercel.public_url ? ` · ${vercel.public_url}` : ""}` : "No Vercel hosting record is connected", false, "/n3xra-admin/services/"),
+    connection("client_analytics", "Client analytics", features.analytics ? "attention" : "default", features.analytics ? "Run the deployed setup check to verify the saved Vercel connection" : "Optional · enable when this client should see traffic reports", false, "/n3xra-admin/website-portal/"),
     connection("supabase", "Supabase", "connected", `N3XRA shared project · ${assets.length} website asset${assets.length === 1 ? "" : "s"} isolated by website`, true, "/n3xra-admin/assets/"),
     connection("live_site", "Live website", website.live_url ? "recorded" : "missing", website.live_url || "No live URL is recorded", false, "/n3xra-admin/websites/"),
   ];
@@ -168,6 +172,7 @@ async function directAnalysis(website) {
     assets,
     connections,
     readiness: { activation_ready: requiredReady, completed, total: connections.length, percent: Math.round((completed / connections.length) * 100) },
+    analytics_connection: null,
     discovery: { remote_scanned: false, live_site: { connected: null, sourceUrl: website.live_url || "", error: "" }, detected_colors: [], detected_fonts: [] },
   };
 }
@@ -199,6 +204,10 @@ function applyValues(values, { force = false } = {}) {
   byId("portal-body-font").value = values.body_font || DEFAULT_BRAND.body_font;
   byId("portal-powered-by").value = values.powered_by_label ?? DEFAULT_BRAND.powered_by_label;
   featureGrid.querySelectorAll("input").forEach((input) => { input.checked = values.features?.[input.value] ?? true; });
+  const counter = { ...COUNTER_DEFAULTS, ...(values.public_counter || {}) };
+  byId("portal-public-counter-enabled").checked = Boolean(counter.enabled);
+  byId("portal-public-counter-metric").value = counter.metric;
+  byId("portal-public-counter-label").value = counter.label;
   formDirty = false;
 }
 
@@ -391,6 +400,27 @@ function renderPreviewFromForm() {
   if (logo?.public_url) image.src = logo.public_url;
   else image.removeAttribute("src");
   byId("portal-logo-label").textContent = logo?.label || "Website name fallback";
+  renderCounterPreview();
+}
+
+function counterSnippet(publicKey) {
+  if (!publicKey) return "Save the counter settings once to create this website’s private integration key.";
+  return `<div data-n3xra-traffic-counter="${publicKey}" hidden>\n  <span data-n3xra-counter-value></span>\n  <span data-n3xra-counter-label></span>\n</div>\n<script src="https://n3xra.com/client-portal/public-traffic-counter.js" defer></script>`;
+}
+
+function renderCounterPreview() {
+  const enabled = byId("portal-public-counter-enabled").checked;
+  const label = byId("portal-public-counter-label").value.trim() || COUNTER_DEFAULTS.label;
+  const metric = byId("portal-public-counter-metric").value;
+  const preview = byId("portal-public-counter-preview");
+  preview.classList.toggle("is-disabled", !enabled);
+  byId("portal-public-counter-preview-value").textContent = metric === "daily_visitors" ? "184" : "12,480";
+  byId("portal-public-counter-preview-label").textContent = label;
+  const publicKey = analysis?.proposed?.public_counter?.public_key || "";
+  byId("portal-public-counter-code").value = counterSnippet(publicKey);
+  byId("portal-copy-counter-code").disabled = !publicKey;
+  byId("portal-public-counter-metric").disabled = !enabled;
+  byId("portal-public-counter-label").disabled = !enabled;
 }
 
 async function analyze({ includeRemote = false, announce = true } = {}) {
@@ -443,11 +473,28 @@ function settingsPayload() {
       powered_by_label: byId("portal-powered-by").value.trim(),
     },
     features: [...featureGrid.querySelectorAll("input")].map((input) => ({ website_id: selectedWebsite.id, feature_key: input.value, enabled: input.checked })),
+    publicCounter: {
+      website_id: selectedWebsite.id,
+      enabled: byId("portal-public-counter-enabled").checked,
+      metric: byId("portal-public-counter-metric").value,
+      label: byId("portal-public-counter-label").value.trim() || COUNTER_DEFAULTS.label,
+    },
   };
 }
 
 async function saveSettings({ enabled = selectedWebsite?.portal_enabled, success = "Website Portal settings saved." } = {}) {
   const payload = settingsPayload();
+  const analyticsEnabled = payload.features.some((feature) => feature.feature_key === "analytics" && feature.enabled);
+  if (analyticsEnabled || payload.publicCounter.enabled) {
+    message("Securely matching this website to its Vercel Analytics project…");
+    const response = await fetch("/api/client-analytics-connection", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${currentSession.access_token}` },
+      body: JSON.stringify({ website_id: selectedWebsite.id }),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result?.error || "Vercel Analytics could not be connected.");
+  }
   const websiteResult = await supabase.from("client_websites").update({ ...payload.website, portal_enabled: Boolean(enabled) }).eq("id", selectedWebsite.id);
   if (websiteResult.error) throw websiteResult.error;
   const brandingResult = await supabase.from("website_portal_branding").upsert(payload.branding, { onConflict: "website_id" });
@@ -472,6 +519,8 @@ async function saveSettings({ enabled = selectedWebsite?.portal_enabled, success
   }
   const featureResult = await supabase.from("website_portal_features").upsert(payload.features, { onConflict: "website_id,feature_key" });
   if (featureResult.error) throw featureResult.error;
+  const counterResult = await supabase.from("website_public_traffic_counters").upsert(payload.publicCounter, { onConflict: "website_id" });
+  if (counterResult.error) throw counterResult.error;
   selectedWebsite.portal_enabled = Boolean(enabled);
   selectedWebsite.portal_theme_id = payload.website.portal_theme_id;
   formDirty = false;
@@ -540,6 +589,28 @@ function bindEvents() {
   form.addEventListener("input", () => { formDirty = true; renderPreviewFromForm(); });
   form.addEventListener("change", () => { formDirty = true; renderPreviewFromForm(); });
   featureGrid.addEventListener("change", () => { formDirty = true; });
+  byId("portal-public-counter").addEventListener("input", () => { formDirty = true; renderCounterPreview(); });
+  byId("portal-public-counter").addEventListener("change", () => { formDirty = true; renderCounterPreview(); });
+  byId("portal-save-public-counter").addEventListener("click", async () => {
+    const button = byId("portal-save-public-counter");
+    setBusy(button, true, "Saving…");
+    message("Saving public traffic counter settings…");
+    try { await saveSettings({ success: "Public traffic counter settings saved." }); } catch (error) { message(error?.message || "Public traffic counter settings could not be saved.", true); } finally { setBusy(button, false); }
+  });
+  byId("portal-copy-counter-code").addEventListener("click", async () => {
+    const code = byId("portal-public-counter-code").value;
+    if (!analysis?.proposed?.public_counter?.public_key) return;
+    try {
+      await navigator.clipboard.writeText(code);
+      byId("portal-copy-counter-code").textContent = "Copied";
+      message("Website counter code copied. Paste it wherever the counter should appear, then style those two spans in the website’s own CSS.");
+      window.setTimeout(() => { byId("portal-copy-counter-code").textContent = "Copy website code"; }, 1800);
+    } catch {
+      byId("portal-public-counter-code").focus();
+      byId("portal-public-counter-code").select();
+      message("The code is selected. Copy it manually from the box.", true);
+    }
+  });
   byId("portal-refresh-analysis").addEventListener("click", () => analyze({ includeRemote: true }).catch((error) => message(error.message, true)));
   byId("portal-auto-configure").addEventListener("click", applyRecommended);
   document.querySelectorAll("[data-portal-asset-picker]").forEach((button) => button.addEventListener("click", () => openPortalAssetDialog(button.dataset.portalAssetPicker)));

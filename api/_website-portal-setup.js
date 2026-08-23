@@ -17,6 +17,7 @@ const FEATURE_DEFAULTS = Object.freeze({
   services: true,
   billing: true,
   support: true,
+  analytics: false,
 });
 
 function clean(value, limit = 500) {
@@ -403,6 +404,23 @@ function projectMatchesRepository(project, repository) {
   return linkedName === name && (!linkedOwner || linkedOwner === owner);
 }
 
+function projectAliases(project) {
+  const values = [
+    ...(Array.isArray(project?.alias) ? project.alias : []),
+    ...(Array.isArray(project?.targets?.production?.alias) ? project.targets.production.alias : []),
+  ];
+  return values.map((value) => clean(typeof value === "string" ? value : value?.value || value?.domain).toLowerCase()).filter(Boolean);
+}
+
+function projectMatchesWebsite(project, website) {
+  const liveHostname = normalizeHostname(website?.live_url).replace(/^www\./, "");
+  if (!liveHostname) return false;
+  if (projectAliases(project).some((alias) => normalizeHostname(alias).replace(/^www\./, "") === liveHostname)) return true;
+  const normalizedProject = clean(project?.name).toLowerCase().replace(/[^a-z0-9]/g, "");
+  const normalizedHostname = liveHostname.replace(/[^a-z0-9]/g, "");
+  return Boolean(normalizedProject && normalizedProject === normalizedHostname);
+}
+
 async function verifyVercel(records, repository, { fetchImpl = fetch, vercelToken = "", teamId = "", teamSlug = "" } = {}) {
   if (!vercelToken) return null;
   const service = chooseVercelService(records);
@@ -418,7 +436,7 @@ async function verifyVercel(records, repository, { fetchImpl = fetch, vercelToke
         signal: AbortSignal.timeout(6_000),
       });
       if (response.ok) project = await response.json();
-    } else if (repository?.full_name) {
+    } else if (repository?.full_name || records.website?.live_url) {
       params.set("limit", "100");
       const response = await fetchImpl(`https://api.vercel.com/v9/projects?${params.toString()}`, {
         headers: { Authorization: `Bearer ${vercelToken}`, Accept: "application/json" },
@@ -426,7 +444,9 @@ async function verifyVercel(records, repository, { fetchImpl = fetch, vercelToke
       });
       if (response.ok) {
         const data = await response.json();
-        project = (data.projects || []).find((item) => projectMatchesRepository(item, repository)) || null;
+        project = (data.projects || []).find((item) => projectMatchesRepository(item, repository))
+          || (data.projects || []).find((item) => projectMatchesWebsite(item, records.website))
+          || null;
       }
     }
     if (!project) return { verified: false };
@@ -476,6 +496,8 @@ async function analyzePortalSetup(records, options = {}) {
   const favicon = bestAsset(assets, "favicon");
   const repository = chooseRepository(records);
   const vercel = chooseVercelService(records);
+  const analyticsConnection = records.analyticsConnection || null;
+  const publicCounter = records.publicCounter || null;
   const [remote, github, vercelApi] = options.includeRemote
     ? await Promise.all([
       inspectLiveBranding(records.website?.live_url, options),
@@ -500,6 +522,12 @@ async function analyzePortalSetup(records, options = {}) {
     body_font: remote.fonts.find((font) => font !== remote.fonts[0]) || branding.body_font || DEFAULT_BRAND.body_font,
     powered_by_label: branding.powered_by_label ?? DEFAULT_BRAND.powered_by_label,
     features: { ...FEATURE_DEFAULTS, ...Object.fromEntries((records.features || []).map((row) => [row.feature_key, row.enabled])) },
+    public_counter: {
+      enabled: Boolean(publicCounter?.enabled),
+      metric: publicCounter?.metric || "all_time_pageviews",
+      label: publicCounter?.label || "Website visits",
+      public_key: publicCounter?.public_key || null,
+    },
   };
   const activeMembers = (records.members || []).filter((member) => member.status === "active");
   const websiteStatus = records.website?.status || "missing";
@@ -516,6 +544,15 @@ async function analyzePortalSetup(records, options = {}) {
     connection("branding", "Branding", proposed.logo_asset_id ? "connected" : "default", proposed.logo_asset_id ? `${assets.find((asset) => asset.id === proposed.logo_asset_id)?.label || "Logo"} and brand settings detected` : "Safe N3XRA defaults will be used", { required: true, action: "/n3xra-admin/assets/" }),
     connection("github", "GitHub", repository ? (github?.verified ? "connected" : (github ? "attention" : "recorded")) : "missing", repository ? `${repository.full_name}${github?.verified ? ` · ${github.default_branch || repository.default_branch || "main"}` : ""}` : "No repository is connected", { action: "/n3xra-admin/services/" }),
     connection("vercel", "Vercel", vercelApi?.verified ? (vercelApi.live ? "connected" : "attention") : (vercel?.status === "active" ? "recorded" : (vercel ? "attention" : "missing")), vercelApi?.verified ? `${vercelApi.name} · API verified${vercelApi.framework ? ` · ${vercelApi.framework}` : ""}` : (vercel ? `${vercel.name}${vercel.public_url ? ` · ${vercel.public_url}` : ""}` : (vercelApi ? "No Vercel project matched the connected repository" : "No Vercel hosting record is connected")), { action: "/n3xra-admin/services/" }),
+    connection(
+      "client_analytics",
+      "Client analytics",
+      analyticsConnection?.status === "active" ? "connected" : (vercelApi?.verified ? "suggested" : (proposed.features.analytics ? "attention" : "default")),
+      analyticsConnection?.status === "active"
+        ? `${analyticsConnection.project_name || analyticsConnection.project_id} · client reporting connected`
+        : (vercelApi?.verified ? `${vercelApi.name} is ready for one-click client analytics` : (proposed.features.analytics ? "Analytics is enabled but its Vercel project is not connected" : "Optional · enable when this client should see traffic reports")),
+      { action: "/n3xra-admin/website-portal/" },
+    ),
     connection("supabase", "Supabase", "connected", `N3XRA shared project · ${assets.length} website asset${assets.length === 1 ? "" : "s"} isolated by website`, { required: true, action: "/n3xra-admin/assets/" }),
     connection("live_site", "Live website", remote.connected === true ? "connected" : (remote.connected === false ? "attention" : (records.website?.live_url ? "recorded" : "missing")), remote.connected === true ? remote.sourceUrl : (remote.error || records.website?.live_url || "No live URL is recorded"), { action: "/n3xra-admin/websites/" }),
   ];
@@ -534,6 +571,13 @@ async function analyzePortalSetup(records, options = {}) {
     proposed,
     assets,
     connections,
+    analytics_connection: analyticsConnection ? {
+      provider: analyticsConnection.provider,
+      project_id: analyticsConnection.project_id,
+      project_name: analyticsConnection.project_name,
+      status: analyticsConnection.status,
+      last_verified_at: analyticsConnection.last_verified_at,
+    } : null,
     readiness: { activation_ready: requiredReady, completed, total: connections.length, percent: Math.round((completed / connections.length) * 100) },
     discovery: {
       remote_scanned: Boolean(options.includeRemote),
@@ -564,6 +608,7 @@ module.exports = {
   detectFonts,
   normalizeHostname,
   proposedPortalDomain,
+  projectMatchesWebsite,
   rankLogoAssets,
   verifyVercel,
 };

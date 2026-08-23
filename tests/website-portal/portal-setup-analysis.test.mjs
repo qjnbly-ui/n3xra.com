@@ -5,7 +5,7 @@ import test from "node:test";
 
 const require = createRequire(import.meta.url);
 const {
-  analyzePortalSetup, choosePortalColors, detectColorCandidates, detectColors, detectFonts, proposedPortalDomain, verifyVercel,
+  analyzePortalSetup, choosePortalColors, detectColorCandidates, detectColors, detectFonts, projectMatchesWebsite, proposedPortalDomain, verifyVercel,
 } = require("../../api/_website-portal-setup.js");
 
 function records(overrides = {}) {
@@ -36,6 +36,21 @@ function records(overrides = {}) {
 
 test("portal setup proposes the standard tenant address from the stable portal slug", () => {
   assert.equal(proposedPortalDomain(records()), "roots-and-relics.portal.n3xra.com");
+});
+
+test("portal setup keeps the public counter separate and defaults it off", async () => {
+  const defaultResult = await analyzePortalSetup(records(), { includeRemote: false });
+  assert.deepEqual(defaultResult.proposed.public_counter, {
+    enabled: false,
+    metric: "all_time_pageviews",
+    label: "Website visits",
+    public_key: null,
+  });
+  const savedResult = await analyzePortalSetup(records({
+    publicCounter: { enabled: true, metric: "daily_visitors", label: "Visitors today", public_key: "a2f7a988-fc9f-4e54-ad60-889beeb79cd8" },
+  }), { includeRemote: false });
+  assert.equal(savedResult.proposed.public_counter.enabled, true);
+  assert.equal(savedResult.proposed.public_counter.metric, "daily_visitors");
 });
 
 test("a saved custom domain remains an optional alias instead of replacing the standard address", async () => {
@@ -243,6 +258,14 @@ test("Vercel verification matches the connected GitHub repository to a deployed 
   assert.equal(result.framework, "other");
   assert.match(requestedUrl, /\/v9\/projects\?teamId=team_123&limit=100$/);
   assert.equal(authorization, "Bearer test-token");
+});
+
+test("Vercel discovery can match a managed website by its production hostname", () => {
+  assert.equal(projectMatchesWebsite({
+    name: "rootsandrelicsgreenhouse-com",
+    targets: { production: { alias: ["www.rootsandrelicsgreenhouse.com", "rootsandrelicsgreenhouse.com"] } },
+  }, { live_url: "https://www.rootsandrelicsgreenhouse.com/" }), true);
+  assert.equal(projectMatchesWebsite({ name: "another-project" }, { live_url: "https://www.rootsandrelicsgreenhouse.com/" }), false);
 });
 
 test("portal interface keeps setup, overrides, feature permissions, and activation separate", async () => {

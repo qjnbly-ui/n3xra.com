@@ -1,4 +1,4 @@
-import { initializeClientWorkspaceContext } from "/client-portal/client-workspace-context.js?v=9";
+import { initializeClientWorkspaceContext } from "/client-portal/client-workspace-context.js?v=10";
 import { initializePortalBrandShell } from "/client-portal/brand-shell.js?v=1";
 import { initializePendingProposalNotice } from "/client-portal/pending-proposal-notice.js?v=2";
 import { isBrandedPortalHostname } from "/client-portal/tenant-context.js";
@@ -16,6 +16,7 @@ const websiteSections = [
   { key: "project", label: "Progress", href: "/project-workspace/", path: "/project-workspace/" },
   { key: "assets", label: "Files & Assets", href: "/client-portal/#files-assets", path: "/client-portal/", hash: "#files-assets", view: "files" },
   { key: "services", label: "Services & Ownership", href: "/client-portal/services/", path: "/client-portal/services/" },
+  { key: "analytics", label: "Analytics", href: "/client-portal/analytics/", path: "/client-portal/analytics/", feature: "analytics" },
   { key: "billing", label: "Billing", href: "/client-portal/billing/", path: "/client-portal/billing/" },
   { key: "new-request", label: "Start a New Project", href: "/client-portal/#new-project", path: "/client-portal/", hash: "#new-project", view: "new-request" },
 ];
@@ -29,6 +30,7 @@ const projectStageRoutes = [
 const routeDetails = {
   "/client-portal/": { key: "dashboard", kicker: "Business portal", title: "Apps Dashboard", description: "Open the business tools and subscriptions available to this organization." },
   "/client-portal/services/": { key: "services", kicker: "Website workspace", title: "Services & Ownership", description: "Services, domains, source code, and ownership records for this organization." },
+  "/client-portal/analytics/": { key: "analytics", kicker: "Website performance", title: "Analytics", description: "A clear view of traffic, popular content, referrals, audience, and devices." },
   "/project-workspace/": { key: "progress", kicker: "Website workspace", title: "Progress", description: "Current stage, milestones, timing, and the next step for this website." },
   "/proposals/": { key: "proposals", kicker: "Website workspace", title: "Proposals", description: "Review proposal details, versions, pricing, and decisions." },
   "/website-onboarding/": { key: "onboarding", kicker: "Website workspace", title: "Onboarding", description: "Provide the information and files needed to move this website forward." },
@@ -63,13 +65,13 @@ function isCurrentSection(section) {
 
 function sectionMarkup(section, onPortalHome) {
   const current = isCurrentSection(section) ? " is-current" : "";
-  const availability = section.requiresAdditionalApps ? " data-client-app-dashboard hidden" : "";
+  const availability = `${section.requiresAdditionalApps ? " data-client-app-dashboard hidden" : ""}${section.feature ? ` data-client-feature="${section.feature}" hidden` : ""}`;
   if (onPortalHome && section.view) return `<button class="${current.trim()}" type="button" data-portal-view="${section.view}"${availability}>${section.label}</button>`;
   return `<a class="${current.trim()}" href="${section.href}"${availability}>${section.label}</a>`;
 }
 
 function mobileSectionMarkup(section) {
-  const availability = section.requiresAdditionalApps ? " data-client-app-dashboard hidden" : "";
+  const availability = `${section.requiresAdditionalApps ? " data-client-app-dashboard hidden" : ""}${section.feature ? ` data-client-feature="${section.feature}" hidden` : ""}`;
   return `<a class="site-menu-link${isCurrentSection(section) ? " is-current" : ""}" href="${section.href}"${availability}>${section.label}</a>`;
 }
 

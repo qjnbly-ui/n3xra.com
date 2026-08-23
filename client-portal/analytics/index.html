@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en" class="portal-brand-pending">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Website Analytics | Management Portal</title>
+  <meta name="robots" content="noindex,nofollow">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&amp;family=Manrope:wght@400;600;700;800&amp;display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/site-nav.css?v=4">
+  <link rel="stylesheet" href="/client-portal/portal.css?v=17">
+  <link rel="stylesheet" href="/client-portal/client-shell.css?v=10">
+  <link rel="stylesheet" href="/client-portal/analytics/analytics.css?v=2">
+  <script src="/shared/config.js"></script>
+  <script src="/assets/site-nav.js?v=5"></script>
+  <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
+  <script defer src="/_vercel/insights/script.js"></script>
+</head>
+<body class="portal-loading" data-disable-site-assistant>
+  <header class="site-topbar"><div class="site-topbar-inner"><div class="site-topbar-row"><a class="site-brand" href="/client-portal/" aria-label="Client management portal"><img data-portal-business-logo hidden alt=""><span data-portal-business-name>Client Portal</span></a><div class="site-nav-actions"><button class="site-menu-link portal-logout" id="portal-logout" type="button">Sign out</button></div></div></div></header>
+  <main class="portal-shell">
+    <section class="portal-heading"><div><p class="portal-kicker">Website performance</p><h1>Analytics</h1><p>Traffic and audience insights for your website.</p></div></section>
+    <section class="portal-project-picker"><div><p class="portal-kicker">Current workspace</p><h2>Selected website</h2><p>Choose which website report to view.</p></div><label class="portal-project-select"><span>Website</span><select class="portal-select" id="analytics-website-select" aria-label="Choose a website"></select></label></section>
+    <div class="portal-layout">
+      <nav class="portal-nav" aria-label="Website client portal"></nav>
+      <section class="portal-workspace">
+        <div class="portal-workspace-head"><div><p class="portal-kicker">Website performance</p><h2>Analytics</h2><p>A simple view of how people find and use this website.</p></div></div>
+        <section class="client-analytics" id="analytics-dashboard" aria-busy="true">
+          <header class="client-analytics-hero">
+            <div><p class="portal-kicker">Traffic overview</p><h2 id="analytics-site-name">Website analytics</h2><p id="analytics-period-copy">Loading the latest report…</p></div>
+            <div class="client-analytics-controls"><label><span>Timeframe</span><select id="analytics-range"><option value="7">Last 7 days</option><option value="30" selected>Last 30 days</option><option value="all">All recorded history</option></select></label><button type="button" id="analytics-refresh">Refresh</button></div>
+          </header>
+
+          <div class="client-analytics-status" id="analytics-status" role="status" aria-live="polite">Loading website analytics…</div>
+
+          <div class="client-analytics-report" id="analytics-report" hidden>
+            <section class="client-analytics-metrics" aria-label="Traffic summary">
+              <article><span class="client-analytics-metric-icon is-visitors" aria-hidden="true"></span><div><small id="analytics-visitors-label">Visitors</small><strong id="analytics-visitors">—</strong><p id="analytics-visitors-copy">Unique daily visitors</p></div></article>
+              <article><span class="client-analytics-metric-icon is-views" aria-hidden="true"></span><div><small>Page views</small><strong id="analytics-pageviews">—</strong><p>Total pages loaded</p></div></article>
+              <article><span class="client-analytics-metric-icon is-depth" aria-hidden="true"></span><div><small>Pages per visitor</small><strong id="analytics-depth">—</strong><p>Average browsing depth</p></div></article>
+              <article><span class="client-analytics-metric-icon is-events" aria-hidden="true"></span><div><small>Tracked actions</small><strong id="analytics-events">—</strong><p>Custom website events</p></div></article>
+            </section>
+
+            <section class="client-analytics-panel client-analytics-trend">
+              <div class="client-analytics-panel-head"><div><p>Traffic over time</p><h3 id="analytics-trend-title">Daily page views</h3></div><span id="analytics-peak">Peak —</span></div>
+              <div class="client-analytics-chart" id="analytics-chart" role="img" aria-label="Daily page views chart"></div>
+            </section>
+
+            <p class="client-analytics-breakdown-period" id="analytics-breakdown-period">Breakdowns match the selected timeframe.</p>
+            <section class="client-analytics-grid">
+              <article class="client-analytics-panel"><div class="client-analytics-panel-head"><div><p>Most visited</p><h3>Top pages</h3></div></div><div class="client-analytics-list" id="analytics-pages"></div></article>
+              <article class="client-analytics-panel"><div class="client-analytics-panel-head"><div><p>Discovery</p><h3>Top referrers</h3></div></div><div class="client-analytics-list" id="analytics-referrers"></div></article>
+              <article class="client-analytics-panel"><div class="client-analytics-panel-head"><div><p>Audience</p><h3>Countries</h3></div></div><div class="client-analytics-list" id="analytics-countries"></div></article>
+              <article class="client-analytics-panel"><div class="client-analytics-panel-head"><div><p>Technology</p><h3>Devices</h3></div></div><div class="client-analytics-list" id="analytics-devices"></div></article>
+              <article class="client-analytics-panel client-analytics-wide"><div class="client-analytics-panel-head"><div><p>Interactions</p><h3>Tracked actions</h3></div></div><div class="client-analytics-list is-events" id="analytics-event-list"></div></article>
+            </section>
+
+            <footer class="client-analytics-foot"><span id="analytics-source">Vercel Web Analytics</span><span id="analytics-updated"></span></footer>
+          </div>
+        </section>
+      </section>
+    </div>
+  </main>
+  <div class="portal-status" id="portal-status" role="status">Opening website analytics…</div>
+  <script type="module" src="/client-portal/client-shell.js?v=15"></script>
+  <script type="module" src="/client-portal/portal-shell.js?v=6"></script>
+  <script type="module" src="/client-portal/analytics.js?v=2"></script>
+</body>
+</html>

@@ -17,6 +17,7 @@ const WEBSITE_ROUTES = [
   { keys: ["proposals", "progress", "onboarding"], label: "Progress", href: "/project-workspace/" },
   { keys: ["assets"], label: "Files & Assets", href: "/client-portal/#files-assets" },
   { keys: ["services"], label: "Services & Ownership", href: "/client-portal/services/" },
+  { keys: ["analytics"], label: "Analytics", href: "/client-portal/analytics/", feature: "analytics" },
   { keys: ["billing"], label: "Billing", href: "/client-portal/billing/" },
   { keys: ["new-request"], label: "Start a New Project", href: "/client-portal/#new-project" },
 ];
@@ -49,7 +50,7 @@ function updateWebsiteReturnLink(websiteUrl, websiteName = "your website") {
 }
 
 function routeMarkup(route, pageKey) {
-  const availability = route.requiresAdditionalApps ? " data-client-app-dashboard hidden" : "";
+  const availability = `${route.requiresAdditionalApps ? " data-client-app-dashboard hidden" : ""}${route.feature ? ` data-client-feature="${route.feature}" hidden` : ""}`;
   return `<a class="${route.keys.includes(pageKey) ? "is-current" : ""}" href="${route.href}"${availability}>${route.label}</a>`;
 }
 
@@ -108,12 +109,14 @@ export async function initializeClientWorkspaceContext(panel, { pageKey = "overv
   if (!session?.user) return;
   const tenantResolution = await resolvePortalTenant(supabase);
 
-  const [websiteResult, domainResult] = await Promise.all([
+  const [websiteResult, domainResult, featureResult] = await Promise.all([
     supabase.from("client_websites").select("id,name,status,live_url,organization_id,website_members(role,status,user_id)").order("name"),
     supabase.from("website_domains").select("website_id,domain_name,is_primary").order("is_primary", { ascending: false }),
+    supabase.from("website_portal_features").select("website_id,feature_key,enabled"),
   ]);
   if (websiteResult.error) throw websiteResult.error;
   if (domainResult.error) throw domainResult.error;
+  if (featureResult.error) throw featureResult.error;
   const websites = scopeWebsitesToPortalTenant(websiteResult.data || [], tenantResolution);
   const domains = domainResult.data || [];
   const context = readWorkspaceContext("client", session.user.id);
@@ -122,6 +125,13 @@ export async function initializeClientWorkspaceContext(panel, { pageKey = "overv
     ? explicitWebsiteId
     : websites.some((website) => website.id === context.websiteId) ? context.websiteId : websites[0]?.id || "";
   const selectedWebsite = websites.find((website) => website.id === selectedId);
+  const selectedFeatures = Object.fromEntries((featureResult.data || [])
+    .filter((feature) => feature.website_id === selectedWebsite?.id)
+    .map((feature) => [feature.feature_key, feature.enabled]));
+  document.querySelectorAll("[data-client-feature]").forEach((item) => {
+    const featureKey = item.dataset.clientFeature;
+    item.hidden = featureKey === "analytics" ? selectedFeatures.analytics !== true : selectedFeatures[featureKey] === false;
+  });
   const additionalAppsAvailable = tenantResolution.mode === "tenant"
     ? await hasAdditionalPortalApps(supabase, selectedWebsite?.organization_id)
     : false;

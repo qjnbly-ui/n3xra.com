@@ -286,6 +286,10 @@
     {
       "path": "/api/cleanup-recording-chunks",
       "schedule": "17 4 * * *"
+    },
+    {
+      "path": "/api/sync-client-analytics",
+      "schedule": "37 4 * * *"
     }
   ]
 }
