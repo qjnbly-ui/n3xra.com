@@ -32,6 +32,11 @@ interface PortalApp {
   organizationId?: string;
 }
 
+interface PortalFeatureRow {
+  feature_key: string;
+  enabled: boolean;
+}
+
 const appGrid = document.querySelector<HTMLElement>("#portal-app-grid");
 const appStatus = document.querySelector<HTMLElement>("#portal-app-status");
 const HIDDEN_CUSTOMER_PRODUCT_KEYS = new Set(["ai_music", "music", "virals"]);
@@ -96,12 +101,23 @@ function routeOrRenderApps(apps: PortalApp[]): void {
   renderApps(apps.filter((app) => app.key !== "website"));
 }
 
-function websiteApp(): PortalApp {
+function defaultWebsiteHref(features: Record<string, boolean> = {}): string {
+  if (features.progress !== false) return "/project-workspace/";
+  if (features.overview !== false) return "/client-portal/#overview";
+  if (features.files_assets !== false) return "/client-portal/#files-assets";
+  if (features.services !== false) return "/client-portal/services/";
+  if (features.analytics === true) return "/client-portal/analytics/";
+  if (features.billing !== false) return "/client-portal/billing/";
+  if (features.support !== false) return "/client-portal/#support";
+  return "/client-portal/#new-project";
+}
+
+function websiteApp(features: Record<string, boolean> = {}): PortalApp {
   return {
     key: "website",
     name: "Website Management",
     description: "Website progress, files, services, billing, and support.",
-    href: "/project-workspace/",
+    href: defaultWebsiteHref(features),
     iconKey: "website",
     badge: "",
     sortOrder: 10,
@@ -134,7 +150,13 @@ async function loadPortalApps(): Promise<void> {
     .maybeSingle();
   if (websiteError) throw websiteError;
 
-  const apps = [websiteApp()];
+  const { data: featureRows, error: featureError } = await supabase
+    .from("website_portal_features")
+    .select("feature_key,enabled")
+    .eq("website_id", tenant.website_id);
+  if (featureError) throw featureError;
+  const features = Object.fromEntries(((featureRows || []) as PortalFeatureRow[]).map((feature) => [feature.feature_key, feature.enabled]));
+  const apps = [websiteApp(features)];
   const organizationId = String(website?.organization_id || "");
   if (!organizationId) {
     routeOrRenderApps(apps);

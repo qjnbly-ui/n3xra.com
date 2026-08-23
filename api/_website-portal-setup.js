@@ -571,6 +571,11 @@ async function analyzePortalSetup(records, options = {}) {
       portal_slug: records.website.portal_slug || records.website.slug,
       organization_id: records.website.organization_id || null,
     },
+    project: records.project ? {
+      id: records.project.id,
+      status: records.project.status,
+      completed_at: records.project.completed_at || null,
+    } : null,
     proposed,
     assets,
     connections,

@@ -110,9 +110,10 @@ async function directAnalysis(website) {
     supabase.from("website_services").select("service_type,name,provider,status,public_url").eq("website_id", websiteId).order("sort_order"),
     supabase.from("website_members").select("user_id,role,status").eq("website_id", websiteId),
     supabase.from("website_public_traffic_counters").select("website_id,enabled,metric,label,public_key,updated_at").eq("website_id", websiteId).maybeSingle(),
+    supabase.from("website_projects").select("id,status,completed_at,updated_at").eq("managed_website_id", websiteId).order("updated_at", { ascending: false }).limit(1).maybeSingle(),
   ]);
   for (const result of results) if (result.error) throw result.error;
-  const [brandingResult, featureResult, assetResult, repositoryResult, serviceResult, memberResult, counterResult] = results;
+  const [brandingResult, featureResult, assetResult, repositoryResult, serviceResult, memberResult, counterResult, projectResult] = results;
   const rawAssets = assetResult.data || [];
   const assetIds = rawAssets.map((asset) => asset.current_version_id).filter(Boolean);
   const versionResult = assetIds.length
@@ -169,6 +170,7 @@ async function directAnalysis(website) {
   const completed = connections.filter((item) => ["connected", "recorded", "default"].includes(item.state)).length;
   return {
     website: { id: website.id, name: website.name, status: website.status, live_url: website.live_url, portal_enabled: Boolean(website.portal_enabled), portal_slug: portalSlug, organization_id: website.organization_id || null },
+    project: projectResult.data || null,
     proposed,
     assets,
     connections,
@@ -401,7 +403,21 @@ function renderPreviewFromForm() {
   if (logo?.public_url) image.src = logo.public_url;
   else image.removeAttribute("src");
   byId("portal-logo-label").textContent = logo?.label || "Website name fallback";
+  renderProgressFeatureState();
   renderCounterPreview();
+}
+
+function renderProgressFeatureState() {
+  const input = featureGrid.querySelector('input[data-portal-feature][value="progress"]');
+  const note = byId("portal-progress-feature-note");
+  if (!input || !note) return;
+  const completed = ["completed", "archived"].includes(analysis?.project?.status);
+  note.classList.toggle("is-completion-note", completed);
+  note.textContent = completed
+    ? (input.checked
+      ? "Shown manually even though this project is completed"
+      : "Not shown because this project has been completed · turn it on to restore it")
+    : "Project milestones and updates";
 }
 
 function counterSnippet(publicKey) {
@@ -649,6 +665,7 @@ function bindEvents() {
   featureGrid.addEventListener("change", (event) => {
     const input = event.target.closest('input[type="checkbox"]');
     if (!input) return;
+    renderProgressFeatureState();
     renderCounterPreview();
     void queueAccessSave({ connect: input.checked && (input.value === "analytics" || input.id === "portal-public-counter-enabled") });
   });

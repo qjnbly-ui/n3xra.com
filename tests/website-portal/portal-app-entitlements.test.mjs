@@ -13,7 +13,7 @@ test("the branded portal root is the business dashboard instead of the project w
 
   assert.match(html, /id="portal-view-dashboard"/);
   assert.match(html, /id="portal-app-grid"/);
-  assert.match(html, /portal-apps\.js\?v=5/);
+  assert.match(html, /portal-apps\.js\?v=6/);
   assert.doesNotMatch(html, /portal-dashboard-hero|portal-apps-heading|portal-app-summary/);
   assert.match(shell, /key: "dashboard"[\s\S]*href: "\/client-portal\/"/);
   assert.doesNotMatch(shell, /window\.location\.replace\(`\/project-workspace/);
@@ -44,6 +44,20 @@ test("website-only portals skip the app dashboard after subscriptions load", asy
   assert.match(apps, /window\.location\.replace\(app\.href\)/);
   assert.match(apps, /routeOrRenderApps\(apps\)/);
   assert.match(apps, /catch\(\(error\) => \{[\s\S]*openOnlyAvailableApp\(websiteApp\(\)\)/);
+});
+
+test("the website app lands on the first enabled section when Progress is off", async () => {
+  const [apps, workspaceContext] = await Promise.all([
+    projectFile("client-portal/portal-apps.js"),
+    projectFile("client-portal/client-workspace-context.js"),
+  ]);
+
+  assert.match(apps, /function defaultWebsiteHref\(features = \{\}\)/);
+  assert.match(apps, /features\.progress !== false[\s\S]*return "\/project-workspace\/"/);
+  assert.match(apps, /features\.overview !== false[\s\S]*return "\/client-portal\/#overview"/);
+  assert.match(apps, /\.from\("website_portal_features"\)[\s\S]*\.eq\("website_id", tenant\.website_id\)/);
+  assert.match(workspaceContext, /PROJECT_PAGE_KEYS\.has\(pageKey\) && selectedFeatures\.progress === false/);
+  assert.match(workspaceContext, /window\.location\.replace\(defaultWebsiteRoute\(selectedFeatures\)\)/);
 });
 
 test("the app dashboard shows only additional subscriptions, not Website Management", async () => {
@@ -96,8 +110,8 @@ test("client navigation separates apps from the website workspace", async () => 
   assert.doesNotMatch(shell, /portal-nav-label">New work/);
   assert.match(workspaceContext, /const APP_ROUTES = \[[\s\S]*Apps Dashboard[\s\S]*Support/);
   assert.match(workspaceContext, /const WEBSITE_ROUTES = \[[\s\S]*Progress[\s\S]*Files & Assets[\s\S]*Start a New Project/);
-  assert.match(workspaceContext, /\.from\("website_projects"\)[\s\S]*managed_website_id,status,completed_at,updated_at/);
-  assert.match(workspaceContext, /\["completed", "archived"\]\.includes\(project\?\.status\)/);
+  assert.match(workspaceContext, /featureMap\(featureResult\.data \|\| \[\], website\.id\)/);
+  assert.doesNotMatch(workspaceContext, /projectComplete/);
   assert.doesNotMatch(workspaceContext, /website-organization-intake-link/);
   assert.match(workspaceContext, /updateWebsiteReturnLink/);
   assert.match(workspaceContext, /actions\.prepend\(returnLink\)/);

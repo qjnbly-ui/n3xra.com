@@ -21,9 +21,28 @@ const WEBSITE_ROUTES = [
   { keys: ["billing"], label: "Billing", href: "/client-portal/billing/" },
   { keys: ["new-request"], label: "Start a New Project", href: "/client-portal/#new-project" },
 ];
+const PROJECT_PAGE_KEYS = new Set(["progress", "proposals", "onboarding"]);
 
 const escapeHtml = (value = "") => String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
 const statusLabel = (value = "") => String(value || "active").replaceAll("_", " ").replace(/\b\w/g, (character) => character.toUpperCase());
+
+function featureMap(rows, websiteId) {
+  return Object.fromEntries(rows
+    .filter((feature) => feature.website_id === websiteId)
+    .map((feature) => [feature.feature_key, feature.enabled]));
+}
+
+function defaultWebsiteRoute(features = {}) {
+  const routes = [
+    ["overview", "/client-portal/#overview", features.overview !== false],
+    ["files_assets", "/client-portal/#files-assets", features.files_assets !== false],
+    ["services", "/client-portal/services/", features.services !== false],
+    ["analytics", "/client-portal/analytics/", features.analytics === true],
+    ["billing", "/client-portal/billing/", features.billing !== false],
+    ["support", "/client-portal/#support", features.support !== false],
+  ];
+  return routes.find(([, , enabled]) => enabled)?.[1] || "/client-portal/#new-project";
+}
 
 function updateWebsiteReturnLink(websiteUrl, websiteName = "your website") {
   const actions = document.querySelector(".client-portal-topbar .site-nav-actions");
@@ -109,32 +128,22 @@ export async function initializeClientWorkspaceContext(panel, { pageKey = "overv
   if (!session?.user) return;
   const tenantResolution = await resolvePortalTenant(supabase);
 
-  const [websiteResult, domainResult, featureResult, projectResult] = await Promise.all([
+  const [websiteResult, domainResult, featureResult] = await Promise.all([
     supabase.from("client_websites").select("id,name,status,live_url,organization_id,website_members(role,status,user_id)").order("name"),
     supabase.from("website_domains").select("website_id,domain_name,is_primary").order("is_primary", { ascending: false }),
     supabase.from("website_portal_features").select("website_id,feature_key,enabled"),
-    supabase.from("website_projects").select("managed_website_id,status,completed_at,updated_at").order("updated_at", { ascending: false }),
   ]);
   if (websiteResult.error) throw websiteResult.error;
   if (domainResult.error) throw domainResult.error;
   if (featureResult.error) throw featureResult.error;
-  if (projectResult.error) throw projectResult.error;
   const websites = scopeWebsitesToPortalTenant(websiteResult.data || [], tenantResolution);
   const domains = domainResult.data || [];
-  const projects = projectResult.data || [];
   const context = readWorkspaceContext("client", session.user.id);
   const explicitWebsiteId = new URLSearchParams(window.location.search).get("website");
   let selectedId = websites.some((website) => website.id === explicitWebsiteId)
     ? explicitWebsiteId
     : websites.some((website) => website.id === context.websiteId) ? context.websiteId : websites[0]?.id || "";
   const selectedWebsite = websites.find((website) => website.id === selectedId);
-  const selectedFeatures = Object.fromEntries((featureResult.data || [])
-    .filter((feature) => feature.website_id === selectedWebsite?.id)
-    .map((feature) => [feature.feature_key, feature.enabled]));
-  document.querySelectorAll("[data-client-feature]").forEach((item) => {
-    const featureKey = item.dataset.clientFeature;
-    item.hidden = featureKey === "analytics" ? selectedFeatures.analytics !== true : selectedFeatures[featureKey] === false;
-  });
   const additionalAppsAvailable = tenantResolution.mode === "tenant"
     ? await hasAdditionalPortalApps(supabase, selectedWebsite?.organization_id)
     : false;
@@ -167,6 +176,15 @@ export async function initializeClientWorkspaceContext(panel, { pageKey = "overv
       return;
     }
     selectedId = website.id;
+    const selectedFeatures = featureMap(featureResult.data || [], website.id);
+    document.querySelectorAll("[data-client-feature]").forEach((item) => {
+      const featureKey = item.dataset.clientFeature;
+      item.hidden = featureKey === "analytics" ? selectedFeatures.analytics !== true : selectedFeatures[featureKey] === false;
+    });
+    if (PROJECT_PAGE_KEYS.has(pageKey) && selectedFeatures.progress === false) {
+      window.location.replace(defaultWebsiteRoute(selectedFeatures));
+      return;
+    }
     selectedValue.textContent = website.name;
     const websiteUrl = resolveWebsiteUrl(website, domains);
     options().forEach((option) => option.setAttribute("aria-selected", String(option.dataset.organizationId === website.id)));
@@ -176,11 +194,6 @@ export async function initializeClientWorkspaceContext(panel, { pageKey = "overv
     panel.querySelector("#client-organization-name").textContent = website.name;
     panel.querySelector("#client-organization-url").textContent = websiteUrl || "Website is not live yet";
     updateWebsiteReturnLink(websiteUrl, website.name);
-    const project = projects.find((item) => item.managed_website_id === website.id);
-    const projectComplete = ["completed", "archived"].includes(project?.status);
-    document.querySelectorAll("[data-client-project-progress]").forEach((item) => {
-      item.hidden = projectComplete || selectedFeatures.progress === false;
-    });
     if (persist) {
       const previous = readWorkspaceContext("client", session.user.id);
       writeWorkspaceContext("client", session.user.id, {

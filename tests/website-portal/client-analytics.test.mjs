@@ -137,6 +137,24 @@ test("portal analytics and public counter controls save automatically from one c
   assert.match(adminScript, /website_public_traffic_counters"\)[\s\S]*\.select\("public_key,enabled,metric,label"\)/);
 });
 
+test("completed projects automatically hide Progress but allow a manual portal override", async () => {
+  const [migration, setupEndpoint, adminPage, adminScript] = await Promise.all([
+    projectFile("supabase/migrations/20260823045909_hide_progress_when_project_completed.sql"),
+    projectFile("api/website-portal-setup.js"),
+    projectFile("n3xra-admin/website-portal/index.html"),
+    projectFile("n3xra-admin/website-portal/website-portal-admin.js"),
+  ]);
+
+  assert.match(migration, /after update of status on public\.website_projects/);
+  assert.match(migration, /new\.status = 'completed' and old\.status is distinct from 'completed'/);
+  assert.match(migration, /insert into public\.website_portal_features[\s\S]*'progress', false/);
+  assert.match(migration, /on conflict \(website_id, feature_key\)[\s\S]*do update set enabled = false/);
+  assert.match(setupEndpoint, /website_projects\?select=id,status,completed_at,updated_at&managed_website_id/);
+  assert.match(adminPage, /id="portal-progress-feature-note"/);
+  assert.match(adminScript, /Not shown because this project has been completed/);
+  assert.match(adminScript, /Shown manually even though this project is completed/);
+});
+
 test("public counter loader uses website-owned markup and removes all space when disabled", async () => {
   const [source, built, adminPage, adminScript, styles] = await Promise.all([
     projectFile("src/client-portal/public-traffic-counter.ts"),

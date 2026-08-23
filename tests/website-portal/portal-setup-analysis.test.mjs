@@ -53,6 +53,18 @@ test("portal setup keeps the public counter separate and defaults it off", async
   assert.equal(savedResult.proposed.public_counter.metric, "daily_visitors");
 });
 
+test("portal setup reports completed project state for the Progress control", async () => {
+  const result = await analyzePortalSetup(records({
+    project: { id: "project-id", status: "completed", completed_at: "2026-08-23T03:52:43.084Z" },
+  }), { includeRemote: false });
+
+  assert.deepEqual(result.project, {
+    id: "project-id",
+    status: "completed",
+    completed_at: "2026-08-23T03:52:43.084Z",
+  });
+});
+
 test("a saved custom domain remains an optional alias instead of replacing the standard address", async () => {
   const input = records({
     domains: [

@@ -164,7 +164,7 @@ async function addAiBrandAdvice(records, result) {
 
 async function loadRecords(websiteId) {
   const encoded = encodeURIComponent(websiteId);
-  const [websites, domains, repositories, services, assets, branding, features, members, analyticsConnections, publicCounters] = await Promise.all([
+  const [websites, domains, repositories, services, assets, branding, features, members, projects, analyticsConnections, publicCounters] = await Promise.all([
     serviceRequest(`client_websites?select=id,name,slug,portal_slug,organization_id,status,live_url,repository_full_name,portal_enabled,portal_theme_id,updated_at&id=eq.${encoded}&limit=1`),
     serviceRequest(`website_domains?select=id,website_id,domain_name,status,is_primary,domain_purpose,metadata&website_id=eq.${encoded}`),
     serviceRequest(`website_repositories?select=id,website_id,provider,full_name,html_url,default_branch,visibility,access_status,last_synced_at,metadata&website_id=eq.${encoded}`),
@@ -173,6 +173,7 @@ async function loadRecords(websiteId) {
     serviceRequest(`website_portal_branding?select=*&website_id=eq.${encoded}&limit=1`),
     serviceRequest(`website_portal_features?select=feature_key,enabled&website_id=eq.${encoded}`),
     serviceRequest(`website_members?select=user_id,role,status&website_id=eq.${encoded}`),
+    serviceRequest(`website_projects?select=id,status,completed_at,updated_at&managed_website_id=eq.${encoded}&order=updated_at.desc&limit=1`),
     serviceRequest(`website_analytics_connections?select=website_id,provider,project_id,project_name,team_id,status,last_verified_at&website_id=eq.${encoded}&limit=1`),
     serviceRequest(`website_public_traffic_counters?select=website_id,enabled,metric,label,public_key,updated_at&website_id=eq.${encoded}&limit=1`),
   ]);
@@ -182,7 +183,7 @@ async function loadRecords(websiteId) {
   const versions = assetIds.length ? await serviceRequest(
     `website_asset_versions?select=id,asset_id,public_url,mime_type,status&asset_id=in.(${assetIds.join(",")})`,
   ) : [];
-  return { website, domains, repositories, services, assets, versions, branding: one(branding), features, members, analyticsConnection: one(analyticsConnections), publicCounter: one(publicCounters) };
+  return { website, domains, repositories, services, assets, versions, branding: one(branding), features, members, project: one(projects), analyticsConnection: one(analyticsConnections), publicCounter: one(publicCounters) };
 }
 
 module.exports = async function handler(req, res) {
