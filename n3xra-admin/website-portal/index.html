@@ -110,42 +110,42 @@
             <div class="website-portal-panel-head">
               <div><p class="portal-kicker">Client experience</p><h3 id="portal-features-title">Portal sections</h3><p>Choose what clients can see after they sign in. These controls do not grant access to other organizations.</p></div>
             </div>
-            <div class="website-portal-feature-grid" id="portal-feature-grid">
-              <label><span><strong>Overview</strong><small>Website summary and current status</small></span><input type="checkbox" value="overview" checked><i></i></label>
-              <label><span><strong>Progress</strong><small>Project milestones and updates</small></span><input type="checkbox" value="progress" checked><i></i></label>
-              <label><span><strong>Files &amp; Assets</strong><small>Approved uploads and website media</small></span><input type="checkbox" value="files_assets" checked><i></i></label>
-              <label><span><strong>Services</strong><small>Domains, hosting, and ownership</small></span><input type="checkbox" value="services" checked><i></i></label>
-              <label><span><strong>Billing</strong><small>Charges, invoices, and subscriptions</small></span><input type="checkbox" value="billing" checked><i></i></label>
-              <label><span><strong>Support</strong><small>Requests and N3XRA assistance</small></span><input type="checkbox" value="support" checked><i></i></label>
-              <label class="website-portal-feature-analytics"><span><strong>Analytics</strong><small>Readable traffic reports powered by the website’s Vercel project</small></span><input type="checkbox" value="analytics"><i></i></label>
+            <div class="website-portal-feature-controls" id="portal-feature-grid">
+              <div class="website-portal-feature-grid">
+                <label><span><strong>Overview</strong><small>Website summary and current status</small></span><input data-portal-feature type="checkbox" value="overview" checked><i></i></label>
+                <label><span><strong>Progress</strong><small>Project milestones and updates</small></span><input data-portal-feature type="checkbox" value="progress" checked><i></i></label>
+                <label><span><strong>Files &amp; Assets</strong><small>Approved uploads and website media</small></span><input data-portal-feature type="checkbox" value="files_assets" checked><i></i></label>
+                <label><span><strong>Services</strong><small>Domains, hosting, and ownership</small></span><input data-portal-feature type="checkbox" value="services" checked><i></i></label>
+                <label><span><strong>Billing</strong><small>Charges, invoices, and subscriptions</small></span><input data-portal-feature type="checkbox" value="billing" checked><i></i></label>
+                <label><span><strong>Support</strong><small>Requests and N3XRA assistance</small></span><input data-portal-feature type="checkbox" value="support" checked><i></i></label>
+              </div>
+              <div class="website-portal-feature-tools">
+                <label><span><strong>Analytics</strong><small>Private traffic reports in the client portal</small></span><input data-portal-feature type="checkbox" value="analytics"><i></i></label>
+                <label><span><strong>Public counter</strong><small>Optional traffic total placed on the public website</small></span><input id="portal-public-counter-enabled" type="checkbox"><i></i></label>
+              </div>
             </div>
+            <details class="website-portal-counter-details" id="portal-public-counter-details" open hidden>
+              <summary><span><strong>Public counter setup</strong><small>Choose the total, wording, and copy the website code</small></span><i aria-hidden="true"></i></summary>
+              <div class="website-portal-counter-layout">
+                <div class="website-portal-counter-settings">
+                  <label>Number to show<select id="portal-public-counter-metric"><option value="all_time_pageviews">All-time page views</option><option value="daily_visitors">Today’s visitors</option></select></label>
+                  <label>Public label<input id="portal-public-counter-label" maxlength="80" value="Website visits"><small>You can style the wording and number to match each website.</small></label>
+                </div>
+                <div class="website-portal-counter-preview-wrap">
+                  <span class="portal-kicker">Live-style preview</span>
+                  <div class="website-portal-counter-preview" id="portal-public-counter-preview"><strong id="portal-public-counter-preview-value">12,480</strong><span id="portal-public-counter-preview-label">Website visits</span></div>
+                  <small>The final website controls the colors, font, spacing, and layout.</small>
+                </div>
+              </div>
+              <div class="website-portal-counter-code">
+                <div><strong>Website code</strong><span>Paste this where the number should appear. Turning the counter off hides the entire element and leaves no blank space.</span></div>
+                <textarea id="portal-public-counter-code" rows="5" readonly aria-label="Public traffic counter website code"></textarea>
+                <button class="website-portal-address-button" id="portal-copy-counter-code" type="button" disabled>Copy website code</button>
+              </div>
+            </details>
             <div class="website-portal-feature-footer">
-              <p class="website-portal-feature-note"><strong>Automatic connection and history:</strong> When Analytics is enabled and saved, N3XRA securely matches this website to Vercel, imports the available history, and preserves completed daily totals in Supabase. Clients never receive the Vercel token or another website’s project ID.</p>
-              <button class="portal-button portal-button-secondary" id="portal-save-features" type="button">Save portal sections</button>
-            </div>
-          </section>
-
-          <section class="website-portal-panel website-portal-public-counter" id="portal-public-counter" aria-labelledby="portal-public-counter-title">
-            <div class="website-portal-panel-head">
-              <div><p class="portal-kicker">Public website feature</p><h3 id="portal-public-counter-title">Traffic counter</h3><p>Show one simple traffic total on the public website. This is independent from the private Analytics page above.</p></div>
-              <label class="website-portal-counter-switch"><span>Public counter</span><input id="portal-public-counter-enabled" type="checkbox"><i aria-hidden="true"></i></label>
-            </div>
-            <div class="website-portal-counter-layout">
-              <div class="website-portal-counter-settings">
-                <label>Number to show<select id="portal-public-counter-metric"><option value="all_time_pageviews">All-time page views</option><option value="daily_visitors">Today’s visitors</option></select></label>
-                <label>Public label<input id="portal-public-counter-label" maxlength="80" value="Website visits"><small>You can style the wording and number to match each website.</small></label>
-                <button class="portal-button portal-button-secondary" id="portal-save-public-counter" type="button">Save counter settings</button>
-              </div>
-              <div class="website-portal-counter-preview-wrap">
-                <span class="portal-kicker">Live-style preview</span>
-                <div class="website-portal-counter-preview" id="portal-public-counter-preview"><strong id="portal-public-counter-preview-value">12,480</strong><span id="portal-public-counter-preview-label">Website visits</span></div>
-                <small>The final website controls the colors, font, spacing, and layout.</small>
-              </div>
-            </div>
-            <div class="website-portal-counter-code">
-              <div><strong>Website code</strong><span>Paste this where the number should appear. If disabled here, the whole element stays hidden and leaves no blank space.</span></div>
-              <textarea id="portal-public-counter-code" rows="5" readonly aria-label="Public traffic counter website code"></textarea>
-              <button class="website-portal-address-button" id="portal-copy-counter-code" type="button" disabled>Copy website code</button>
+              <p class="website-portal-feature-note"><strong>Saved automatically:</strong> Switches and public-counter details are saved as you change them. Analytics securely connects to Vercel and preserves completed daily totals in Supabase.</p>
+              <span class="website-portal-autosave-state" id="portal-feature-save-state" role="status" aria-live="polite">Up to date</span>
             </div>
           </section>
 
@@ -189,6 +189,6 @@
   </dialog>
   <div class="portal-status" id="portal-status" role="status">Opening Website Portal setup…</div>
   <script type="module" src="/client-portal/portal-shell.js?v=6"></script>
-  <script type="module" src="/n3xra-admin/website-portal/website-portal-admin.js?v=9"></script>
+  <script type="module" src="/n3xra-admin/website-portal/website-portal-admin.js?v=10"></script>
 </body>
 </html>

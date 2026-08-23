@@ -121,6 +121,18 @@ test("public traffic counters are isolated per website and store only safe publi
   assert.match(syncEndpoint, /website_public_traffic_counters\?select=website_id&enabled=eq\.true/);
 });
 
+test("portal analytics and public counter controls save automatically from one compact panel", async () => {
+  const [adminPage, adminScript] = await Promise.all([
+    projectFile("n3xra-admin/website-portal/index.html"),
+    projectFile("n3xra-admin/website-portal/website-portal-admin.js"),
+  ]);
+  assert.match(adminPage, /Analytics[\s\S]*id="portal-public-counter-enabled"/);
+  assert.match(adminPage, /id="portal-public-counter-details"[^>]*hidden/);
+  assert.doesNotMatch(adminPage, /Save counter settings|Save portal sections/);
+  assert.match(adminScript, /featureGrid\.addEventListener\("change"[\s\S]*queueAccessSave/);
+  assert.match(adminScript, /website_public_traffic_counters"\)[\s\S]*\.select\("public_key,enabled,metric,label"\)/);
+});
+
 test("public counter loader uses website-owned markup and removes all space when disabled", async () => {
   const [source, built, adminPage, adminScript, styles] = await Promise.all([
     projectFile("src/client-portal/public-traffic-counter.ts"),

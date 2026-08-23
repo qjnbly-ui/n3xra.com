@@ -307,7 +307,9 @@ test("portal interface keeps setup, overrides, feature permissions, and activati
   assert.match(html, /id="portal-copy-url"/);
   assert.match(html, /id="portal-open-url"/);
   assert.match(html, /id="portal-feature-grid"/);
-  assert.match(html, /id="portal-save-features"/);
+  assert.match(html, /id="portal-feature-save-state"/);
+  assert.match(html, /id="portal-public-counter-details"[^>]*hidden/);
+  assert.doesNotMatch(html, /id="portal-save-features"|id="portal-save-public-counter"/);
   assert.match(html, /id="portal-activate"[^>]*disabled/);
   assert.match(script, /activation_ready/);
   assert.match(script, /portal_enabled/);
@@ -325,6 +327,8 @@ test("portal interface keeps setup, overrides, feature permissions, and activati
   assert.doesNotMatch(script, /void analyze\(\{ includeRemote: true/);
   assert.match(script, /portal-refresh-analysis[\s\S]*analyze\(\{ includeRemote: true \}\)/);
   assert.match(script, /restoreAdminScrollPosition/);
+  assert.match(script, /queueAccessSave/);
+  assert.match(script, /Portal visibility settings saved automatically/);
   assert.match(script, /scrollRegion\.scrollTo\(\{ top: Math\.max\(0, targetTop\), behavior: "smooth" \}\)/);
   assert.doesNotMatch(script, /portal-customize"\)\.scrollIntoView/);
   assert.match(workspace, /document\.documentElement\.classList\.add\("website-admin-root"\)/);

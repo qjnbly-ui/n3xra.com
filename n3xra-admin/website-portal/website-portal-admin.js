@@ -28,6 +28,7 @@ let selectedWebsite = null;
 let formDirty = false;
 let analysisSequence = 0;
 let portalAssetChoices = [];
+let accessSaveQueue = Promise.resolve();
 
 function escapeHtml(value = "") {
   return String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
@@ -203,7 +204,7 @@ function applyValues(values, { force = false } = {}) {
   byId("portal-heading-font").value = values.heading_font || DEFAULT_BRAND.heading_font;
   byId("portal-body-font").value = values.body_font || DEFAULT_BRAND.body_font;
   byId("portal-powered-by").value = values.powered_by_label ?? DEFAULT_BRAND.powered_by_label;
-  featureGrid.querySelectorAll("input").forEach((input) => { input.checked = values.features?.[input.value] ?? true; });
+  featureGrid.querySelectorAll("input[data-portal-feature]").forEach((input) => { input.checked = values.features?.[input.value] ?? true; });
   const counter = { ...COUNTER_DEFAULTS, ...(values.public_counter || {}) };
   byId("portal-public-counter-enabled").checked = Boolean(counter.enabled);
   byId("portal-public-counter-metric").value = counter.metric;
@@ -404,7 +405,7 @@ function renderPreviewFromForm() {
 }
 
 function counterSnippet(publicKey) {
-  if (!publicKey) return "Save the counter settings once to create this website’s private integration key.";
+  if (!publicKey) return "Turn on the public counter to create this website’s private integration key.";
   return `<div data-n3xra-traffic-counter="${publicKey}" hidden>\n  <span data-n3xra-counter-value></span>\n  <span data-n3xra-counter-label></span>\n</div>\n<script src="https://n3xra.com/client-portal/public-traffic-counter.js" defer></script>`;
 }
 
@@ -413,7 +414,13 @@ function renderCounterPreview() {
   const label = byId("portal-public-counter-label").value.trim() || COUNTER_DEFAULTS.label;
   const metric = byId("portal-public-counter-metric").value;
   const preview = byId("portal-public-counter-preview");
-  preview.classList.toggle("is-disabled", !enabled);
+  const details = byId("portal-public-counter-details");
+  if (enabled && details.hidden) {
+    details.hidden = false;
+    details.open = true;
+  } else if (!enabled) {
+    details.hidden = true;
+  }
   byId("portal-public-counter-preview-value").textContent = metric === "daily_visitors" ? "184" : "12,480";
   byId("portal-public-counter-preview-label").textContent = label;
   const publicKey = analysis?.proposed?.public_counter?.public_key || "";
@@ -478,7 +485,7 @@ function settingsPayload() {
       body_font: byId("portal-body-font").value.trim() || DEFAULT_BRAND.body_font,
       powered_by_label: byId("portal-powered-by").value.trim(),
     },
-    features: [...featureGrid.querySelectorAll("input")].map((input) => ({ website_id: selectedWebsite.id, feature_key: input.value, enabled: input.checked })),
+    features: [...featureGrid.querySelectorAll("input[data-portal-feature]")].map((input) => ({ website_id: selectedWebsite.id, feature_key: input.value, enabled: input.checked })),
     publicCounter: {
       website_id: selectedWebsite.id,
       enabled: byId("portal-public-counter-enabled").checked,
@@ -486,6 +493,49 @@ function settingsPayload() {
       label: byId("portal-public-counter-label").value.trim() || COUNTER_DEFAULTS.label,
     },
   };
+}
+
+function setAccessSaveState(text, state = "") {
+  const element = byId("portal-feature-save-state");
+  element.textContent = text;
+  element.classList.toggle("is-saving", state === "saving");
+  element.classList.toggle("is-error", state === "error");
+}
+
+async function persistAccessSettings(payload, { connect = false } = {}) {
+  setAccessSaveState("Saving…", "saving");
+  if (connect) {
+    const response = await fetch("/api/client-analytics-connection", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${currentSession.access_token}` },
+      body: JSON.stringify({ website_id: selectedWebsite.id }),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result?.error || "Vercel Analytics could not be connected.");
+  }
+  const featureResult = await supabase.from("website_portal_features").upsert(payload.features, { onConflict: "website_id,feature_key" });
+  if (featureResult.error) throw featureResult.error;
+  const counterResult = await supabase.from("website_public_traffic_counters")
+    .upsert(payload.publicCounter, { onConflict: "website_id" })
+    .select("public_key,enabled,metric,label")
+    .single();
+  if (counterResult.error) throw counterResult.error;
+  if (analysis?.proposed?.public_counter) {
+    analysis.proposed.public_counter = { ...analysis.proposed.public_counter, ...counterResult.data };
+    renderCounterPreview();
+  }
+  setAccessSaveState("Saved");
+  message("Portal visibility settings saved automatically.");
+}
+
+function queueAccessSave({ connect = false } = {}) {
+  const payload = settingsPayload();
+  accessSaveQueue = accessSaveQueue.catch(() => {}).then(() => persistAccessSettings(payload, { connect }));
+  accessSaveQueue.catch((error) => {
+    setAccessSaveState("Not saved", "error");
+    message(error?.message || "Portal visibility settings could not be saved.", true);
+  });
+  return accessSaveQueue;
 }
 
 async function saveSettings({ enabled = selectedWebsite?.portal_enabled, success = "Website Portal settings saved." } = {}) {
@@ -596,21 +646,15 @@ function bindEvents() {
   form.addEventListener("submit", handleSave);
   form.addEventListener("input", () => { formDirty = true; renderPreviewFromForm(); });
   form.addEventListener("change", () => { formDirty = true; renderPreviewFromForm(); });
-  featureGrid.addEventListener("change", () => { formDirty = true; });
-  byId("portal-save-features").addEventListener("click", async () => {
-    const button = byId("portal-save-features");
-    setBusy(button, true, "Saving…");
-    message("Saving client portal sections…");
-    try { await saveSettings({ success: "Portal sections saved. Client navigation is updated." }); } catch (error) { message(error?.message || "Portal sections could not be saved.", true); } finally { setBusy(button, false); }
+  featureGrid.addEventListener("change", (event) => {
+    const input = event.target.closest('input[type="checkbox"]');
+    if (!input) return;
+    renderCounterPreview();
+    void queueAccessSave({ connect: input.checked && (input.value === "analytics" || input.id === "portal-public-counter-enabled") });
   });
-  byId("portal-public-counter").addEventListener("input", () => { formDirty = true; renderCounterPreview(); });
-  byId("portal-public-counter").addEventListener("change", () => { formDirty = true; renderCounterPreview(); });
-  byId("portal-save-public-counter").addEventListener("click", async () => {
-    const button = byId("portal-save-public-counter");
-    setBusy(button, true, "Saving…");
-    message("Saving public traffic counter settings…");
-    try { await saveSettings({ success: "Public traffic counter settings saved." }); } catch (error) { message(error?.message || "Public traffic counter settings could not be saved.", true); } finally { setBusy(button, false); }
-  });
+  byId("portal-public-counter-label").addEventListener("input", renderCounterPreview);
+  byId("portal-public-counter-label").addEventListener("change", () => { void queueAccessSave(); });
+  byId("portal-public-counter-metric").addEventListener("change", () => { renderCounterPreview(); void queueAccessSave(); });
   byId("portal-copy-counter-code").addEventListener("click", async () => {
     const code = byId("portal-public-counter-code").value;
     if (!analysis?.proposed?.public_counter?.public_key) return;
