@@ -163,6 +163,9 @@ test("Apps Dashboard navigation appears only when the tenant has multiple subscr
   assert.match(shell, /data-client-app-dashboard hidden/);
   assert.match(workspaceContext, /hasMultiplePortalApps/);
   assert.match(workspaceContext, /\.from\("organization_product_entitlements"\)/);
+  assert.match(workspaceContext, /HIDDEN_CUSTOMER_PRODUCT_KEYS/);
+  assert.match(workspaceContext, /!HIDDEN_CUSTOMER_PRODUCT_KEYS\.has\(productKey\)/);
+  assert.match(workspaceContext, /portal_path/);
   assert.match(workspaceContext, /\.filter\(\(row\) => \{[\s\S]*\}\)\.length > 1/);
   assert.match(workspaceContext, /setAppsDashboardAvailability\(multipleAppsAvailable\)/);
   assert.match(workspaceContext, /data-client-app-dashboard hidden/);

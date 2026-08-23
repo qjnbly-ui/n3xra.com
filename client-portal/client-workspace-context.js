@@ -9,6 +9,7 @@ import {
 } from "/client-portal/tenant-context.js";
 
 const brandedPortal = isBrandedPortalHostname();
+const HIDDEN_CUSTOMER_PRODUCT_KEYS = new Set(["ai_music", "music", "virals"]);
 const APP_ROUTES = [
   ...(brandedPortal ? [{ keys: ["dashboard"], label: "Apps Dashboard", href: "/client-portal/", requiresAdditionalApps: true }] : []),
   ...(String(window.location.pathname).replace(/\/+$/, "") === "/client-portal/communications"
@@ -119,14 +120,21 @@ async function hasMultiplePortalApps(supabase, organizationId) {
   if (!organizationId) return false;
   const { data, error } = await supabase
     .from("organization_product_entitlements")
-    .select("product:n3xra_product_catalog(status,client_portal_available)")
+    .select("product:n3xra_product_catalog(product_key,status,client_portal_available,portal_path)")
     .eq("organization_id", organizationId)
     .eq("portal_enabled", true)
     .in("status", ["trialing", "active", "past_due"]);
   if (error) return false;
   return (data || []).filter((row) => {
     const products = Array.isArray(row.product) ? row.product : [row.product];
-    return products.some((product) => product?.status === "active" && product?.client_portal_available);
+    return products.some((product) => {
+      const productKey = String(product?.product_key || "").toLowerCase();
+      const portalPath = String(product?.portal_path || "").trim();
+      return product?.status === "active"
+        && product?.client_portal_available
+        && !HIDDEN_CUSTOMER_PRODUCT_KEYS.has(productKey)
+        && /^\/(?!\/)[^\s]*$/.test(portalPath);
+    });
   }).length > 1;
 }
 
