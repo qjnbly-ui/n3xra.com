@@ -1,4 +1,4 @@
-import { initializeClientWorkspaceContext } from "/client-portal/client-workspace-context.js?v=12";
+import { initializeClientWorkspaceContext } from "/client-portal/client-workspace-context.js?v=13";
 import { initializePortalBrandShell } from "/client-portal/brand-shell.js?v=1";
 import { initializePendingProposalNotice } from "/client-portal/pending-proposal-notice.js?v=2";
 import { isBrandedPortalHostname } from "/client-portal/tenant-context.js";
@@ -10,14 +10,14 @@ const appSections = [
   ...(brandedPortal
     ? [{ key: "dashboard", label: "Apps Dashboard", href: "/client-portal/", path: "/client-portal/", view: "dashboard", requiresAdditionalApps: true }]
     : []),
-  { key: "support", label: "Support", href: "/client-portal/#support", path: "/client-portal/", hash: "#support", view: "support" },
+  { key: "support", label: "Support", href: "/client-portal/#support", path: "/client-portal/", hash: "#support", view: "support", feature: "support" },
 ];
 const websiteSections = [
   { key: "project", label: "Progress", href: "/project-workspace/", path: "/project-workspace/", feature: "progress" },
-  { key: "assets", label: "Files & Assets", href: "/client-portal/#files-assets", path: "/client-portal/", hash: "#files-assets", view: "files" },
-  { key: "services", label: "Services & Ownership", href: "/client-portal/services/", path: "/client-portal/services/" },
+  { key: "assets", label: "Files & Assets", href: "/client-portal/#files-assets", path: "/client-portal/", hash: "#files-assets", view: "files", feature: "files_assets" },
+  { key: "services", label: "Services & Ownership", href: "/client-portal/services/", path: "/client-portal/services/", feature: "services" },
   { key: "analytics", label: "Analytics", href: "/client-portal/analytics/", path: "/client-portal/analytics/", feature: "analytics" },
-  { key: "billing", label: "Billing", href: "/client-portal/billing/", path: "/client-portal/billing/" },
+  { key: "billing", label: "Billing", href: "/client-portal/billing/", path: "/client-portal/billing/", feature: "billing" },
   { key: "new-request", label: "Start a New Project", href: "/client-portal/#new-project", path: "/client-portal/", hash: "#new-project", view: "new-request" },
 ];
 

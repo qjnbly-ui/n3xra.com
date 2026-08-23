@@ -13,7 +13,7 @@ test("the branded portal root is the business dashboard instead of the project w
 
   assert.match(html, /id="portal-view-dashboard"/);
   assert.match(html, /id="portal-app-grid"/);
-  assert.match(html, /portal-apps\.js\?v=6/);
+  assert.match(html, /portal-apps\.js\?v=7/);
   assert.doesNotMatch(html, /portal-dashboard-hero|portal-apps-heading|portal-app-summary/);
   assert.match(shell, /key: "dashboard"[\s\S]*href: "\/client-portal\/"/);
   assert.doesNotMatch(shell, /window\.location\.replace\(`\/project-workspace/);
@@ -54,9 +54,11 @@ test("the website app lands on the first enabled section when Progress is off", 
 
   assert.match(apps, /function defaultWebsiteHref\(features = \{\}\)/);
   assert.match(apps, /features\.progress !== false[\s\S]*return "\/project-workspace\/"/);
-  assert.match(apps, /features\.overview !== false[\s\S]*return "\/client-portal\/#overview"/);
+  assert.match(apps, /features\.files_assets !== false[\s\S]*return "\/client-portal\/#files-assets"/);
+  assert.doesNotMatch(apps, /features\.overview/);
   assert.match(apps, /\.from\("website_portal_features"\)[\s\S]*\.eq\("website_id", tenant\.website_id\)/);
-  assert.match(workspaceContext, /PROJECT_PAGE_KEYS\.has\(pageKey\) && selectedFeatures\.progress === false/);
+  assert.match(workspaceContext, /const currentFeature = PAGE_FEATURES\[pageKey\]/);
+  assert.match(workspaceContext, /currentFeature && !featureEnabled\(currentFeature, selectedFeatures\)/);
   assert.match(workspaceContext, /window\.location\.replace\(defaultWebsiteRoute\(selectedFeatures\)\)/);
 });
 
@@ -75,7 +77,7 @@ test("the app dashboard shows only additional subscriptions, not Website Managem
 test("website workspace hash routes are never replaced by the app dashboard redirect", async () => {
   const apps = await projectFile("client-portal/portal-apps.js");
 
-  assert.match(apps, /if \(window\.location\.hash\)[\s\S]*return/);
+  assert.match(apps, /window\.location\.hash && window\.location\.hash !== "#overview"/);
   assert.match(apps, /window\.location\.hash[\s\S]*createBrowserSupabase\(\)/);
 });
 
@@ -104,12 +106,17 @@ test("client navigation separates apps from the website workspace", async () => 
   assert.match(shell, /const appSections = \[[\s\S]*Apps Dashboard[\s\S]*Support/);
   assert.match(shell, /const websiteSections = \[[\s\S]*label: "Progress"/);
   assert.match(shell, /label: "Progress"[\s\S]*feature: "progress"/);
+  assert.match(shell, /label: "Support"[\s\S]*feature: "support"/);
+  assert.match(shell, /label: "Files & Assets"[\s\S]*feature: "files_assets"/);
+  assert.match(shell, /label: "Services & Ownership"[\s\S]*feature: "services"/);
+  assert.match(shell, /label: "Billing"[\s\S]*feature: "billing"/);
   assert.match(shell, /data-client-project-progress/);
   assert.match(shell, /Website Workspace/);
   assert.match(shell, /Start a New Project/);
   assert.doesNotMatch(shell, /portal-nav-label">New work/);
   assert.match(workspaceContext, /const APP_ROUTES = \[[\s\S]*Apps Dashboard[\s\S]*Support/);
   assert.match(workspaceContext, /const WEBSITE_ROUTES = \[[\s\S]*Progress[\s\S]*Files & Assets[\s\S]*Start a New Project/);
+  assert.match(workspaceContext, /const PAGE_FEATURES = \{[\s\S]*assets: "files_assets"[\s\S]*support: "support"/);
   assert.match(workspaceContext, /featureMap\(featureResult\.data \|\| \[\], website\.id\)/);
   assert.doesNotMatch(workspaceContext, /projectComplete/);
   assert.doesNotMatch(workspaceContext, /website-organization-intake-link/);
@@ -136,6 +143,7 @@ test("client workspaces always provide a compact mobile menu with safe sign-out 
   assert.match(shell, /className = "site-menu-toggle"/);
   assert.match(shell, /className = "site-mobile-menu client-mobile-menu"/);
   assert.match(shell, /data-portal-logout/);
+  assert.match(shell, /function mobileSectionMarkup\(section\)[\s\S]*data-client-feature/);
   assert.match(portalShell, /querySelectorAll\("#portal-logout, \[data-portal-logout\]"\)/);
   assert.match(workspaceContext, /\.site-mobile-menu \[data-client-website-return\]/);
   assert.match(styles, /@media \(max-width:800px\)[\s\S]*\.site-menu-toggle[\s\S]*display:inline-flex/);

@@ -11,17 +11,26 @@ import {
 const brandedPortal = isBrandedPortalHostname();
 const APP_ROUTES = [
   ...(brandedPortal ? [{ keys: ["dashboard"], label: "Apps Dashboard", href: "/client-portal/", requiresAdditionalApps: true }] : []),
-  { keys: ["support"], label: "Support", href: "/client-portal/#support" },
+  { keys: ["support"], label: "Support", href: "/client-portal/#support", feature: "support" },
 ];
 const WEBSITE_ROUTES = [
   { keys: ["proposals", "progress", "onboarding"], label: "Progress", href: "/project-workspace/", feature: "progress", projectProgress: true },
-  { keys: ["assets"], label: "Files & Assets", href: "/client-portal/#files-assets" },
-  { keys: ["services"], label: "Services & Ownership", href: "/client-portal/services/" },
+  { keys: ["assets"], label: "Files & Assets", href: "/client-portal/#files-assets", feature: "files_assets" },
+  { keys: ["services"], label: "Services & Ownership", href: "/client-portal/services/", feature: "services" },
   { keys: ["analytics"], label: "Analytics", href: "/client-portal/analytics/", feature: "analytics" },
-  { keys: ["billing"], label: "Billing", href: "/client-portal/billing/" },
+  { keys: ["billing"], label: "Billing", href: "/client-portal/billing/", feature: "billing" },
   { keys: ["new-request"], label: "Start a New Project", href: "/client-portal/#new-project" },
 ];
-const PROJECT_PAGE_KEYS = new Set(["progress", "proposals", "onboarding"]);
+const PAGE_FEATURES = {
+  progress: "progress",
+  proposals: "progress",
+  onboarding: "progress",
+  assets: "files_assets",
+  services: "services",
+  analytics: "analytics",
+  billing: "billing",
+  support: "support",
+};
 
 const escapeHtml = (value = "") => String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
 const statusLabel = (value = "") => String(value || "active").replaceAll("_", " ").replace(/\b\w/g, (character) => character.toUpperCase());
@@ -34,7 +43,7 @@ function featureMap(rows, websiteId) {
 
 function defaultWebsiteRoute(features = {}) {
   const routes = [
-    ["overview", "/client-portal/#overview", features.overview !== false],
+    ["progress", "/project-workspace/", features.progress !== false],
     ["files_assets", "/client-portal/#files-assets", features.files_assets !== false],
     ["services", "/client-portal/services/", features.services !== false],
     ["analytics", "/client-portal/analytics/", features.analytics === true],
@@ -42,6 +51,10 @@ function defaultWebsiteRoute(features = {}) {
     ["support", "/client-portal/#support", features.support !== false],
   ];
   return routes.find(([, , enabled]) => enabled)?.[1] || "/client-portal/#new-project";
+}
+
+function featureEnabled(featureKey, features = {}) {
+  return featureKey === "analytics" ? features.analytics === true : features[featureKey] !== false;
 }
 
 function updateWebsiteReturnLink(websiteUrl, websiteName = "your website") {
@@ -181,7 +194,8 @@ export async function initializeClientWorkspaceContext(panel, { pageKey = "overv
       const featureKey = item.dataset.clientFeature;
       item.hidden = featureKey === "analytics" ? selectedFeatures.analytics !== true : selectedFeatures[featureKey] === false;
     });
-    if (PROJECT_PAGE_KEYS.has(pageKey) && selectedFeatures.progress === false) {
+    const currentFeature = PAGE_FEATURES[pageKey];
+    if (currentFeature && !featureEnabled(currentFeature, selectedFeatures)) {
       window.location.replace(defaultWebsiteRoute(selectedFeatures));
       return;
     }

@@ -65,8 +65,6 @@ function routeOrRenderApps(apps) {
 function defaultWebsiteHref(features = {}) {
     if (features.progress !== false)
         return "/project-workspace/";
-    if (features.overview !== false)
-        return "/client-portal/#overview";
     if (features.files_assets !== false)
         return "/client-portal/#files-assets";
     if (features.services !== false)
@@ -96,7 +94,7 @@ async function loadPortalApps() {
     // Hash routes are website-workspace sections, not the application chooser.
     // Leaving early prevents the single-app dashboard redirect from replacing
     // Files & Assets, Support, or New Project with Project Workspace.
-    if (window.location.hash)
+    if (window.location.hash && window.location.hash !== "#overview")
         return;
     const supabase = createBrowserSupabase();
     const session = await getSessionOrNull(supabase);
