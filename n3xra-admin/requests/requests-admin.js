@@ -114,7 +114,13 @@ function membershipsForRequest(request) {
 }
 
 function projectForRequest(request) {
-  return projects.find((project) => project.request_id === request?.id);
+  const directlyLinkedProject = projects.find((project) => project.request_id === request?.id);
+  if (directlyLinkedProject) return directlyLinkedProject;
+  const membershipWebsiteIds = new Set(membershipsForRequest(request).map((member) => member.website_id));
+  const membershipProjects = projects.filter((project) => project.managed_website_id && membershipWebsiteIds.has(project.managed_website_id));
+  if (membershipProjects.length === 1) return membershipProjects[0];
+  const context = currentUser ? readWorkspaceContext("admin", currentUser.id) : {};
+  return membershipProjects.find((project) => project.managed_website_id === context.websiteId);
 }
 
 function organizationForRequest(request) {
