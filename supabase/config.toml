@@ -39,3 +39,6 @@ verify_jwt = false
 
 [functions.phone-meeting-maintenance]
 verify_jwt = false
+
+[functions.send-client-team-invite]
+verify_jwt = false

@@ -1,4 +1,4 @@
-import { initializeClientWorkspaceContext } from "/client-portal/client-workspace-context.js?v=16";
+import { initializeClientWorkspaceContext } from "/client-portal/client-workspace-context.js?v=17";
 import { initializePortalBrandShell } from "/client-portal/brand-shell.js?v=2";
 import { initializePendingProposalNotice } from "/client-portal/pending-proposal-notice.js?v=2";
 import { isBrandedPortalHostname } from "/client-portal/tenant-context.js";
@@ -10,6 +10,7 @@ const appSections = [
   ...(brandedPortal
     ? [{ key: "dashboard", label: "Apps Dashboard", href: "/client-portal/", path: "/client-portal/", view: "dashboard", requiresAdditionalApps: true }]
     : []),
+  { key: "team", label: "Team & Permissions", href: "/client-portal/team/", path: "/client-portal/team/" },
   ...(brandedPortal || normalizePath(window.location.pathname) === "/client-portal/communications/"
     ? [{ key: "communications", label: "Communications", href: "/client-portal/communications/", path: "/client-portal/communications/", requiresCommunicationsApp: brandedPortal }]
     : []),
@@ -34,6 +35,7 @@ const routeDetails = {
   "/client-portal/": { key: "dashboard", kicker: "Business portal", title: "Apps Dashboard", description: "Open the business tools and subscriptions available to this organization." },
   "/client-portal/services/": { key: "services", kicker: "Website workspace", title: "Services & Ownership", description: "Services, domains, source code, and ownership records for this organization." },
   "/client-portal/analytics/": { key: "analytics", kicker: "Website performance", title: "Analytics", description: "A clear view of traffic, popular content, referrals, audience, and devices." },
+  "/client-portal/team/": { key: "team", kicker: "Organization workspace", title: "Team & Permissions", description: "Invite people, assign account access, and manage who can use this organization’s portal." },
   "/client-portal/communications/": { key: "communications", kicker: "Business portal", title: "Communications", description: "Manage subscriber preferences, consent history, signup tools, and messaging readiness." },
   "/project-workspace/": { key: "progress", kicker: "Website workspace", title: "Progress", description: "Current stage, milestones, timing, and the next step for this website." },
   "/proposals/": { key: "proposals", kicker: "Website workspace", title: "Proposals", description: "Review proposal details, versions, pricing, and decisions." },

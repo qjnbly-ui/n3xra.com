@@ -94,6 +94,7 @@ test("every tenant workspace disables the N3XRA site assistant", async () => {
     "client-portal/services/index.html",
     "client-portal/billing/index.html",
     "client-portal/analytics/index.html",
+    "client-portal/team/index.html",
     "client-portal/assets/index.html",
     "project-workspace/index.html",
     "proposals/index.html",

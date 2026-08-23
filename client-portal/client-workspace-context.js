@@ -12,6 +12,7 @@ const brandedPortal = isBrandedPortalHostname();
 const HIDDEN_CUSTOMER_PRODUCT_KEYS = new Set(["ai_music", "music", "virals"]);
 const APP_ROUTES = [
   ...(brandedPortal ? [{ keys: ["dashboard"], label: "Apps Dashboard", href: "/client-portal/", requiresAdditionalApps: true }] : []),
+  { keys: ["team"], label: "Team & Permissions", href: "/client-portal/team/" },
   ...(brandedPortal || String(window.location.pathname).replace(/\/+$/, "") === "/client-portal/communications"
     ? [{ keys: ["communications"], label: "Communications", href: "/client-portal/communications/", requiresCommunicationsApp: brandedPortal }]
     : []),

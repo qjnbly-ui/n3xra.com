@@ -392,6 +392,10 @@ function getPlatformAdminInviteToken() {
   return String(params.get("admin_invite") || "").trim();
 }
 
+function isClientPortalInvite() {
+  return new URLSearchParams(window.location.search).get("client_portal") === "1";
+}
+
 function buildAccountRedirectUrl({
   mode = "",
   app = "",
@@ -399,6 +403,7 @@ function buildAccountRedirectUrl({
   invite = "",
   adminInvite = "",
   email = "",
+  clientPortal = false,
   includeDestination = true,
   confirmed = false,
 } = {}) {
@@ -415,6 +420,7 @@ function buildAccountRedirectUrl({
   }
   if (adminInvite) url.searchParams.set("admin_invite", adminInvite);
   if (email) url.searchParams.set("email", email);
+  if (clientPortal) url.searchParams.set("client_portal", "1");
   return url.toString();
 }
 
@@ -846,6 +852,17 @@ async function maybeRouteAfterAuth(session) {
     return;
   }
 
+  if (isClientPortalInvite() && getInviteCode()) {
+    try {
+      const { error } = await supabase.rpc("redeem_invite_code", { input_code: getInviteCode() });
+      if (error) throw error;
+      window.location.assign("/client-portal/");
+    } catch (error) {
+      await renderDashboard(getErrorMessage(error, "Unable to accept the client portal invitation."));
+    }
+    return;
+  }
+
   const next = getSafeNextPath();
   const requestedApp = getRequestedApp();
   if (!next && !requestedApp) {
@@ -936,6 +953,7 @@ async function handleSignup(event) {
           invite: inviteCode,
           adminInvite: getPlatformAdminInviteToken(),
           email,
+          clientPortal: isClientPortalInvite(),
           includeDestination: false,
           confirmed: true,
         }),
