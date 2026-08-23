@@ -12,8 +12,8 @@ const brandedPortal = isBrandedPortalHostname();
 const HIDDEN_CUSTOMER_PRODUCT_KEYS = new Set(["ai_music", "music", "virals"]);
 const APP_ROUTES = [
   ...(brandedPortal ? [{ keys: ["dashboard"], label: "Apps Dashboard", href: "/client-portal/", requiresAdditionalApps: true }] : []),
-  ...(String(window.location.pathname).replace(/\/+$/, "") === "/client-portal/communications"
-    ? [{ keys: ["communications"], label: "Communications", href: "/client-portal/communications/" }]
+  ...(brandedPortal || String(window.location.pathname).replace(/\/+$/, "") === "/client-portal/communications"
+    ? [{ keys: ["communications"], label: "Communications", href: "/client-portal/communications/", requiresCommunicationsApp: brandedPortal }]
     : []),
   { keys: ["support"], label: "Support", href: "/client-portal/#support", feature: "support" },
 ];
@@ -86,7 +86,7 @@ function updateWebsiteReturnLink(websiteUrl, websiteName = "your website") {
 }
 
 function routeMarkup(route, pageKey) {
-  const availability = `${route.requiresAdditionalApps ? " data-client-app-dashboard hidden" : ""}${route.feature ? ` data-client-feature="${route.feature}" hidden` : ""}${route.projectProgress ? " data-client-project-progress" : ""}`;
+  const availability = `${route.requiresAdditionalApps ? " data-client-app-dashboard hidden" : ""}${route.requiresCommunicationsApp ? " data-client-communications-app hidden" : ""}${route.feature ? ` data-client-feature="${route.feature}" hidden` : ""}${route.projectProgress ? " data-client-project-progress" : ""}`;
   return `<a class="${route.keys.includes(pageKey) ? "is-current" : ""}" href="${route.href}"${availability}>${route.label}</a>`;
 }
 
@@ -116,30 +116,36 @@ function renderShell(panel, pageKey) {
   `;
 }
 
-async function hasMultiplePortalApps(supabase, organizationId) {
-  if (!organizationId) return false;
+async function visiblePortalAppKeys(supabase, organizationId) {
+  if (!organizationId) return [];
   const { data, error } = await supabase
     .from("organization_product_entitlements")
     .select("product:n3xra_product_catalog(product_key,status,client_portal_available,portal_path)")
     .eq("organization_id", organizationId)
     .eq("portal_enabled", true)
     .in("status", ["trialing", "active", "past_due"]);
-  if (error) return false;
-  return (data || []).filter((row) => {
+  if (error) return [];
+  return (data || []).flatMap((row) => {
     const products = Array.isArray(row.product) ? row.product : [row.product];
-    return products.some((product) => {
+    return products.filter((product) => {
       const productKey = String(product?.product_key || "").toLowerCase();
       const portalPath = String(product?.portal_path || "").trim();
       return product?.status === "active"
         && product?.client_portal_available
         && !HIDDEN_CUSTOMER_PRODUCT_KEYS.has(productKey)
         && /^\/(?!\/)[^\s]*$/.test(portalPath);
-    });
-  }).length > 1;
+    }).map((product) => String(product.product_key || "").toLowerCase());
+  });
 }
 
 function setAppsDashboardAvailability(available) {
   document.querySelectorAll("[data-client-app-dashboard]").forEach((item) => {
+    item.hidden = !available;
+  });
+}
+
+function setCommunicationsAvailability(available) {
+  document.querySelectorAll("[data-client-communications-app]").forEach((item) => {
     item.hidden = !available;
   });
 }
@@ -168,10 +174,11 @@ export async function initializeClientWorkspaceContext(panel, { pageKey = "overv
     ? explicitWebsiteId
     : websites.some((website) => website.id === context.websiteId) ? context.websiteId : websites[0]?.id || "";
   const selectedWebsite = websites.find((website) => website.id === selectedId);
-  const multipleAppsAvailable = tenantResolution.mode === "tenant"
-    ? await hasMultiplePortalApps(supabase, selectedWebsite?.organization_id)
-    : false;
-  setAppsDashboardAvailability(multipleAppsAvailable);
+  const portalAppKeys = tenantResolution.mode === "tenant"
+    ? await visiblePortalAppKeys(supabase, selectedWebsite?.organization_id)
+    : [];
+  setAppsDashboardAvailability(portalAppKeys.length > 1);
+  setCommunicationsAvailability(portalAppKeys.includes("communications"));
 
   const picker = panel.querySelector("#client-organization-picker");
   const trigger = panel.querySelector("#client-organization-trigger");

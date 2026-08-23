@@ -161,14 +161,25 @@ test("Apps Dashboard navigation appears only when the tenant has multiple subscr
   ]);
 
   assert.match(shell, /data-client-app-dashboard hidden/);
-  assert.match(workspaceContext, /hasMultiplePortalApps/);
+  assert.match(workspaceContext, /visiblePortalAppKeys/);
   assert.match(workspaceContext, /\.from\("organization_product_entitlements"\)/);
   assert.match(workspaceContext, /HIDDEN_CUSTOMER_PRODUCT_KEYS/);
   assert.match(workspaceContext, /!HIDDEN_CUSTOMER_PRODUCT_KEYS\.has\(productKey\)/);
   assert.match(workspaceContext, /portal_path/);
-  assert.match(workspaceContext, /\.filter\(\(row\) => \{[\s\S]*\}\)\.length > 1/);
-  assert.match(workspaceContext, /setAppsDashboardAvailability\(multipleAppsAvailable\)/);
+  assert.match(workspaceContext, /setAppsDashboardAvailability\(portalAppKeys\.length > 1\)/);
   assert.match(workspaceContext, /data-client-app-dashboard hidden/);
+});
+
+test("Communications stays in every portal navigation when the organization is subscribed", async () => {
+  const [shell, workspaceContext] = await Promise.all([
+    projectFile("client-portal/client-shell.js"),
+    projectFile("client-portal/client-workspace-context.js"),
+  ]);
+
+  assert.match(shell, /brandedPortal \|\| normalizePath\(window\.location\.pathname\) === "\/client-portal\/communications\/"/);
+  assert.match(shell, /data-client-communications-app hidden/);
+  assert.match(workspaceContext, /requiresCommunicationsApp: brandedPortal/);
+  assert.match(workspaceContext, /setCommunicationsAvailability\(portalAppKeys\.includes\("communications"\)\)/);
 });
 
 test("organization app entitlements are RLS protected and synchronized from subscriptions", async () => {

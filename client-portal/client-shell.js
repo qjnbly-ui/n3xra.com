@@ -1,4 +1,4 @@
-import { initializeClientWorkspaceContext } from "/client-portal/client-workspace-context.js?v=15";
+import { initializeClientWorkspaceContext } from "/client-portal/client-workspace-context.js?v=16";
 import { initializePortalBrandShell } from "/client-portal/brand-shell.js?v=1";
 import { initializePendingProposalNotice } from "/client-portal/pending-proposal-notice.js?v=2";
 import { isBrandedPortalHostname } from "/client-portal/tenant-context.js";
@@ -10,8 +10,8 @@ const appSections = [
   ...(brandedPortal
     ? [{ key: "dashboard", label: "Apps Dashboard", href: "/client-portal/", path: "/client-portal/", view: "dashboard", requiresAdditionalApps: true }]
     : []),
-  ...(normalizePath(window.location.pathname) === "/client-portal/communications/"
-    ? [{ key: "communications", label: "Communications", href: "/client-portal/communications/", path: "/client-portal/communications/" }]
+  ...(brandedPortal || normalizePath(window.location.pathname) === "/client-portal/communications/"
+    ? [{ key: "communications", label: "Communications", href: "/client-portal/communications/", path: "/client-portal/communications/", requiresCommunicationsApp: brandedPortal }]
     : []),
   { key: "support", label: "Support", href: "/client-portal/#support", path: "/client-portal/", hash: "#support", view: "support", feature: "support" },
 ];
@@ -69,13 +69,13 @@ function isCurrentSection(section) {
 
 function sectionMarkup(section, onPortalHome) {
   const current = isCurrentSection(section) ? " is-current" : "";
-  const availability = `${section.requiresAdditionalApps ? " data-client-app-dashboard hidden" : ""}${section.feature ? ` data-client-feature="${section.feature}" hidden` : ""}${section.key === "project" ? " data-client-project-progress" : ""}`;
+  const availability = `${section.requiresAdditionalApps ? " data-client-app-dashboard hidden" : ""}${section.requiresCommunicationsApp ? " data-client-communications-app hidden" : ""}${section.feature ? ` data-client-feature="${section.feature}" hidden` : ""}${section.key === "project" ? " data-client-project-progress" : ""}`;
   if (onPortalHome && section.view) return `<button class="${current.trim()}" type="button" data-portal-view="${section.view}"${availability}>${section.label}</button>`;
   return `<a class="${current.trim()}" href="${section.href}"${availability}>${section.label}</a>`;
 }
 
 function mobileSectionMarkup(section) {
-  const availability = `${section.requiresAdditionalApps ? " data-client-app-dashboard hidden" : ""}${section.feature ? ` data-client-feature="${section.feature}" hidden` : ""}${section.key === "project" ? " data-client-project-progress" : ""}`;
+  const availability = `${section.requiresAdditionalApps ? " data-client-app-dashboard hidden" : ""}${section.requiresCommunicationsApp ? " data-client-communications-app hidden" : ""}${section.feature ? ` data-client-feature="${section.feature}" hidden` : ""}${section.key === "project" ? " data-client-project-progress" : ""}`;
   return `<a class="site-menu-link${isCurrentSection(section) ? " is-current" : ""}" href="${section.href}"${availability}>${section.label}</a>`;
 }
 
