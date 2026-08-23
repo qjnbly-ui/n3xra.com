@@ -145,7 +145,7 @@ async function loadPublicWorkspace(slug) {
   const normalizedSlug = clean(slug, 80).toLowerCase();
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(normalizedSlug)) return null;
   const workspace = firstRow(await supabaseJson(
-    `communications_workspaces?select=id,slug,program_name,sender_name,website_url,privacy_policy_url,program_terms_url,support_email,support_phone,expected_message_frequency,status&slug=eq.${encodeURIComponent(normalizedSlug)}&status=eq.active&limit=1`,
+    `communications_workspaces?select=id,slug,program_name,sender_name,website_url,privacy_policy_url,program_terms_url,support_email,support_phone,expected_message_frequency,status&slug=eq.${encodeURIComponent(normalizedSlug)}&status=in.(setup,active)&limit=1`,
   ));
   if (!workspace) return null;
   const form = firstRow(await supabaseJson(

@@ -3,6 +3,7 @@ const {
   hashRequestIp,
   loadPublicWorkspace,
   loadSignupSource,
+  loadSourceByType,
   sendJson,
   supabaseJson,
 } = require("./_communications");
@@ -26,7 +27,22 @@ async function hasPersistentRateLimit(ipHash) {
   return Array.isArray(rows) && rows.length >= 12;
 }
 
-function publicWorkspacePayload(data) {
+function normalizedRequestOrigin(req) {
+  return clean(req?.headers?.origin, 500).replace(/\/+$/, "").toLowerCase();
+}
+
+function originIsAllowed(data, origin) {
+  return Boolean(origin) && (data.form.allowed_origins || []).map((value) => String(value).toLowerCase()).includes(origin);
+}
+
+function applyCors(res, origin) {
+  res.setHeader("Access-Control-Allow-Origin", origin);
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Vary", "Origin");
+}
+
+function publicWorkspacePayload(data, sourceToken = "") {
   const channelStatuses = new Map(data.channels.map((item) => [item.channel, item.status]));
   const consent = data.form.active_consent_configuration || {};
   return {
@@ -47,9 +63,14 @@ function publicWorkspacePayload(data) {
     },
     channels: {
       sms: { available: channelStatuses.get("sms") === "active", disclosure: consent.sms || null },
-      email: { available: channelStatuses.get("email") === "active", disclosure: consent.email || null },
+      email: {
+        available: ["pending_setup", "pending_verification", "active"].includes(channelStatuses.get("email")) && Boolean(consent.email),
+        deliveryReady: channelStatuses.get("email") === "active",
+        disclosure: consent.email || null,
+      },
     },
     topics: data.topics,
+    ...(sourceToken ? { sourceToken } : {}),
   };
 }
 
@@ -59,6 +80,8 @@ async function handleSubscribe(req, res) {
 
   const data = await loadPublicWorkspace(body.workspace);
   if (!data) return sendJson(res, 404, { error: "This subscription page is not active." });
+  const origin = normalizedRequestOrigin(req);
+  if (originIsAllowed(data, origin)) applyCors(res, origin);
   const source = await loadSignupSource(data.form.id, body.sourceToken);
   if (!source) return sendJson(res, 400, { error: "This signup link is invalid or expired." });
 
@@ -76,7 +99,6 @@ async function handleSubscribe(req, res) {
     return sendJson(res, 429, { error: "Too many requests. Please try again later." });
   }
 
-  const origin = clean(req.headers.origin, 500).replace(/\/+$/, "").toLowerCase();
   const sourcePage = clean(body.sourcePage, 1000);
   const consentVersions = body.consentVersions && typeof body.consentVersions === "object"
     ? body.consentVersions
@@ -109,9 +131,26 @@ async function handleSubscribe(req, res) {
 
 module.exports = async function handler(req, res) {
   try {
+    if (req.method === "OPTIONS") {
+      const data = await loadPublicWorkspace(req.query?.workspace);
+      const origin = normalizedRequestOrigin(req);
+      if (!data || !originIsAllowed(data, origin)) return res.status(403).send("Origin is not allowed.");
+      applyCors(res, origin);
+      return res.status(204).send("");
+    }
     if (req.method === "GET") {
       const data = await loadPublicWorkspace(req.query?.workspace);
       if (!data) return sendJson(res, 404, { error: "This subscription page is not active." });
+      const sourceType = clean(req.query?.sourceType, 50).toLowerCase();
+      if (sourceType) {
+        if (sourceType !== "website_embed") return sendJson(res, 400, { error: "This signup source is unavailable." });
+        const origin = normalizedRequestOrigin(req);
+        if (!originIsAllowed(data, origin)) return sendJson(res, 403, { error: "This website is not allowed to use the signup form." });
+        const source = await loadSourceByType(data.form.id, sourceType);
+        if (!source) return sendJson(res, 404, { error: "This signup source is unavailable." });
+        applyCors(res, origin);
+        return sendJson(res, 200, publicWorkspacePayload(data, source.public_token));
+      }
       const requestedSource = clean(req.query?.source, 200);
       if (requestedSource && !await loadSignupSource(data.form.id, requestedSource)) {
         return sendJson(res, 404, { error: "This signup link is invalid or expired." });
@@ -119,7 +158,7 @@ module.exports = async function handler(req, res) {
       return sendJson(res, 200, publicWorkspacePayload(data));
     }
     if (req.method === "POST") return handleSubscribe(req, res);
-    res.setHeader("Allow", "GET, POST");
+    res.setHeader("Allow", "GET, POST, OPTIONS");
     return sendJson(res, 405, { error: "Method not allowed." });
   } catch (error) {
     console.error("Communications public request failed:", error);
@@ -132,3 +171,4 @@ module.exports = async function handler(req, res) {
 };
 
 module.exports.publicWorkspacePayload = publicWorkspacePayload;
+module.exports.originIsAllowed = originIsAllowed;

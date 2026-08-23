@@ -20,7 +20,7 @@ interface WorkspacePayload {
   };
   channels: {
     sms: { available: boolean; disclosure: { version: string; disclosure: string; checkbox_label: string } | null };
-    email: { available: boolean; disclosure: { version: string; disclosure: string; checkbox_label: string } | null };
+    email: { available: boolean; deliveryReady?: boolean; disclosure: { version: string; disclosure: string; checkbox_label: string } | null };
   };
 }
 

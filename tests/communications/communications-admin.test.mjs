@@ -213,6 +213,66 @@ test("the customer portal ignores a stored organization without Communications a
   assert.ok(storedBlock.indexOf("entitlementResult.data") < storedBlock.indexOf("return stored"));
 });
 
+test("public email signup can collect consent before outbound delivery is active", async () => {
+  const publicEndpoint = require("../../api/communications-public.js");
+  const payload = publicEndpoint.publicWorkspacePayload({
+    workspace: {
+      slug: "roots-and-relics",
+      program_name: "Roots & Relics Updates",
+      sender_name: "Roots & Relics",
+      website_url: "https://www.rootsandrelicsgreenhouse.com/",
+      privacy_policy_url: "https://www.rootsandrelicsgreenhouse.com/privacy/",
+      program_terms_url: "https://www.n3xra.com/nexra-communications/terms/?workspace=roots-and-relics",
+      support_email: "rootsandrelics.greenhouse@gmail.com",
+      expected_message_frequency: "General updates only.",
+    },
+    form: {
+      name: "Roots & Relics email signup",
+      fields: [],
+      success_message: "Your preferences are saved.",
+      allowed_origins: ["https://www.rootsandrelicsgreenhouse.com"],
+      active_consent_configuration: {
+        email: { version: "email-v1", disclosure: "Email disclosure", checkbox_label: "Email me updates" },
+      },
+    },
+    fields: [],
+    topics: [],
+    channels: [
+      { channel: "email", status: "pending_verification" },
+      { channel: "sms", status: "pending_setup" },
+    ],
+  }, "public-website-source-token");
+
+  assert.equal(payload.channels.email.available, true);
+  assert.equal(payload.channels.email.deliveryReady, false);
+  assert.equal(payload.channels.sms.available, false);
+  assert.equal(payload.sourceToken, "public-website-source-token");
+  assert.equal(publicEndpoint.originIsAllowed({ form: { allowed_origins: ["https://www.rootsandrelicsgreenhouse.com"] } }, "https://www.rootsandrelicsgreenhouse.com"), true);
+});
+
+test("pre-delivery consent keeps source, origin, channel, and delivery boundaries explicit", async () => {
+  const [publicEndpoint, helper, migration, emailEndpoint] = await Promise.all([
+    projectFile("api/communications-public.js"),
+    projectFile("api/_communications.js"),
+    projectFile("supabase/migrations/20260823200142_allow_pre_delivery_email_consent.sql"),
+    projectFile("src/communications-provider/communications-admin-email.ts"),
+  ]);
+
+  assert.match(helper, /status=in\.\(setup,active\)/);
+  assert.match(publicEndpoint, /sourceType !== "website_embed"/);
+  assert.match(publicEndpoint, /originIsAllowed/);
+  assert.match(publicEndpoint, /Access-Control-Allow-Origin/);
+  assert.match(migration, /target_source\.source_type = 'hosted_signup'/);
+  assert.match(migration, /normalized_origin not in \('https:\/\/n3xra\.com', 'https:\/\/www\.n3xra\.com'\)/);
+  assert.match(migration, /status in \('setup', 'active'\)/);
+  assert.match(migration, /selected_channel = 'email'.*pending_setup.*pending_verification.*active/s);
+  assert.match(migration, /selected_channel = 'sms' and channel_setting\.status = 'active'/);
+  assert.match(migration, /security invoker/);
+  assert.match(migration, /revoke all on function public\.ingest_website_form_submission[\s\S]*from public, anon, authenticated/);
+  assert.match(migration, /grant execute on function public\.ingest_website_form_submission[\s\S]*to service_role/);
+  assert.match(emailEndpoint, /stored\.status !== "verified"/);
+});
+
 test("the provisioning migration exposes only audited service-role operations", async () => {
   const migration = await projectFile("supabase/migrations/20260814173124_communications_admin_provisioning.sql");
 
