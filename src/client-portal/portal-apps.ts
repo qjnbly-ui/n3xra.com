@@ -93,12 +93,18 @@ function openOnlyAvailableApp(app: PortalApp): void {
 }
 
 function routeOrRenderApps(apps: PortalApp[]): void {
-  const [onlyApp] = apps;
-  if (apps.length === 1 && onlyApp) {
-    openOnlyAvailableApp(onlyApp);
+  const subscribedApps = apps.filter((app) => app.key !== "website");
+  const [onlySubscribedApp] = subscribedApps;
+  if (subscribedApps.length === 1 && onlySubscribedApp) {
+    openOnlyAvailableApp(onlySubscribedApp);
     return;
   }
-  renderApps(apps.filter((app) => app.key !== "website"));
+  if (subscribedApps.length > 1) {
+    renderApps(subscribedApps);
+    return;
+  }
+  const website = apps.find((app) => app.key === "website");
+  if (website) openOnlyAvailableApp(website);
 }
 
 function defaultWebsiteHref(features: Record<string, boolean> = {}): string {

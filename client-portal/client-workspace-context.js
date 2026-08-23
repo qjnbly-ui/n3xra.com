@@ -115,7 +115,7 @@ function renderShell(panel, pageKey) {
   `;
 }
 
-async function hasAdditionalPortalApps(supabase, organizationId) {
+async function hasMultiplePortalApps(supabase, organizationId) {
   if (!organizationId) return false;
   const { data, error } = await supabase
     .from("organization_product_entitlements")
@@ -124,10 +124,10 @@ async function hasAdditionalPortalApps(supabase, organizationId) {
     .eq("portal_enabled", true)
     .in("status", ["trialing", "active", "past_due"]);
   if (error) return false;
-  return (data || []).some((row) => {
+  return (data || []).filter((row) => {
     const products = Array.isArray(row.product) ? row.product : [row.product];
     return products.some((product) => product?.status === "active" && product?.client_portal_available);
-  });
+  }).length > 1;
 }
 
 function setAppsDashboardAvailability(available) {
@@ -160,10 +160,10 @@ export async function initializeClientWorkspaceContext(panel, { pageKey = "overv
     ? explicitWebsiteId
     : websites.some((website) => website.id === context.websiteId) ? context.websiteId : websites[0]?.id || "";
   const selectedWebsite = websites.find((website) => website.id === selectedId);
-  const additionalAppsAvailable = tenantResolution.mode === "tenant"
-    ? await hasAdditionalPortalApps(supabase, selectedWebsite?.organization_id)
+  const multipleAppsAvailable = tenantResolution.mode === "tenant"
+    ? await hasMultiplePortalApps(supabase, selectedWebsite?.organization_id)
     : false;
-  setAppsDashboardAvailability(additionalAppsAvailable);
+  setAppsDashboardAvailability(multipleAppsAvailable);
 
   const picker = panel.querySelector("#client-organization-picker");
   const trigger = panel.querySelector("#client-organization-trigger");

@@ -13,7 +13,7 @@ test("the branded portal root is the business dashboard instead of the project w
 
   assert.match(html, /id="portal-view-dashboard"/);
   assert.match(html, /id="portal-app-grid"/);
-  assert.match(html, /portal-apps\.js\?v=7/);
+  assert.match(html, /portal-apps\.js\?v=8/);
   assert.doesNotMatch(html, /portal-dashboard-hero|portal-apps-heading|portal-app-summary/);
   assert.match(shell, /key: "dashboard"[\s\S]*href: "\/client-portal\/"/);
   assert.doesNotMatch(shell, /window\.location\.replace\(`\/project-workspace/);
@@ -36,11 +36,13 @@ test("portal apps are loaded from the tenant website's linked organization", asy
   assert.doesNotMatch(apps, /target\s*=|window\.open\s*\(/);
 });
 
-test("website-only portals skip the app dashboard after subscriptions load", async () => {
+test("portals skip the app dashboard unless multiple N3XRA apps are subscribed", async () => {
   const apps = await projectFile("client-portal/portal-apps.js");
 
   assert.match(apps, /function routeOrRenderApps\(apps\)/);
-  assert.match(apps, /if \(apps\.length === 1 && onlyApp\)/);
+  assert.match(apps, /subscribedApps = apps\.filter\(\(app\) => app\.key !== "website"\)/);
+  assert.match(apps, /if \(subscribedApps\.length === 1 && onlySubscribedApp\)/);
+  assert.match(apps, /if \(subscribedApps\.length > 1\)/);
   assert.match(apps, /window\.location\.replace\(app\.href\)/);
   assert.match(apps, /routeOrRenderApps\(apps\)/);
   assert.match(apps, /catch\(\(error\) => \{[\s\S]*openOnlyAvailableApp\(websiteApp\(\)\)/);
@@ -68,7 +70,7 @@ test("the app dashboard shows only additional subscriptions, not Website Managem
     projectFile("client-portal/portal-apps.css"),
   ]);
 
-  assert.match(apps, /renderApps\(apps\.filter\(\(app\) => app\.key !== "website"\)\)/);
+  assert.match(apps, /renderApps\(subscribedApps\)/);
   assert.doesNotMatch(apps, /badge: "Included"/);
   assert.doesNotMatch(styles, /\.portal-dashboard-hero|\.portal-apps-heading/);
   assert.match(styles, /\.portal-apps-section\s*\{[\s\S]*width: 100%[\s\S]*min-height: 100%/);
@@ -152,16 +154,17 @@ test("client workspaces always provide a compact mobile menu with safe sign-out 
   assert.match(billingStyles, /@media \(max-width: 700px\)[\s\S]*\.billing-card \{ padding: 16px/);
 });
 
-test("Apps Dashboard navigation appears only when the tenant has another subscribed app", async () => {
+test("Apps Dashboard navigation appears only when the tenant has multiple subscribed N3XRA apps", async () => {
   const [shell, workspaceContext] = await Promise.all([
     projectFile("client-portal/client-shell.js"),
     projectFile("client-portal/client-workspace-context.js"),
   ]);
 
   assert.match(shell, /data-client-app-dashboard hidden/);
-  assert.match(workspaceContext, /hasAdditionalPortalApps/);
+  assert.match(workspaceContext, /hasMultiplePortalApps/);
   assert.match(workspaceContext, /\.from\("organization_product_entitlements"\)/);
-  assert.match(workspaceContext, /setAppsDashboardAvailability\(additionalAppsAvailable\)/);
+  assert.match(workspaceContext, /\.filter\(\(row\) => \{[\s\S]*\}\)\.length > 1/);
+  assert.match(workspaceContext, /setAppsDashboardAvailability\(multipleAppsAvailable\)/);
   assert.match(workspaceContext, /data-client-app-dashboard hidden/);
 });
 
