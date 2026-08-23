@@ -47,5 +47,93 @@ body.communications-loading main { visibility: hidden; }
 .communications-status { position: fixed; inset: 0; display: grid; place-items: center; color: var(--portal-ink); background: #f3f6f4; font-weight: 800; }
 body:not(.communications-loading) .communications-status { display: none; }
 
+/* Tenant portal hosts inherit the client's saved design system. The unbound
+   N3XRA route intentionally keeps the standard N3XRA portal treatment above. */
+body.communications-tenant-surface {
+  --communications-line: color-mix(in srgb, var(--portal-deep) 18%, transparent);
+  --communications-muted: color-mix(in srgb, var(--portal-deep) 62%, white);
+  --communications-green: var(--portal-accent);
+  color: var(--portal-deep);
+  background: color-mix(in srgb, var(--portal-accent) 10%, #f7f2e4);
+}
+.communications-tenant-surface .site-topbar {
+  color: #fff;
+  background: var(--portal-deep);
+  border-bottom-color: color-mix(in srgb, var(--portal-accent) 32%, transparent);
+}
+.communications-tenant-surface .site-brand {
+  color: #fff;
+  font-family: var(--portal-body-font), Arial, sans-serif;
+  letter-spacing: .2em;
+}
+.communications-tenant-surface .site-brand img { width: 54px; height: 42px; }
+.communications-tenant-surface .communications-dashboard-link,
+.communications-tenant-surface .portal-logout {
+  color: #fff;
+  background: transparent;
+  border-color: rgba(255,255,255,.42);
+  border-radius: 0;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.communications-tenant-surface .communications-shell { padding-top: 0; }
+.communications-tenant-surface .communications-head {
+  position: relative;
+  margin: 0 calc(50% - 50vw) 1.4rem;
+  padding: clamp(3.5rem, 8vw, 7.5rem) max(1rem, calc((100vw - 1180px) / 2));
+  color: #fff;
+  background: var(--portal-deep);
+  overflow: hidden;
+}
+.communications-tenant-surface .communications-head::after {
+  content: "";
+  position: absolute;
+  right: -10vw;
+  bottom: -55%;
+  width: min(52vw, 720px);
+  aspect-ratio: 1;
+  border: 1px solid color-mix(in srgb, var(--portal-accent) 45%, transparent);
+  border-radius: 50%;
+  pointer-events: none;
+}
+.communications-tenant-surface .communications-head > div { position: relative; z-index: 1; }
+.communications-tenant-surface .communications-head h1 {
+  max-width: 850px;
+  color: #fff;
+  font-weight: 400;
+  letter-spacing: -.045em;
+}
+.communications-tenant-surface .communications-head > div > p:last-child { color: rgba(255,255,255,.68); }
+.communications-tenant-surface .portal-kicker { color: var(--portal-accent); letter-spacing: .18em; }
+.communications-tenant-surface .communications-number {
+  background: color-mix(in srgb, var(--portal-deep) 86%, var(--portal-accent));
+  border: 1px solid color-mix(in srgb, var(--portal-accent) 38%, transparent);
+  border-radius: 0;
+  box-shadow: none;
+}
+.communications-tenant-surface .communications-metrics article,
+.communications-tenant-surface .communications-panel {
+  background: color-mix(in srgb, #fff 91%, var(--portal-accent));
+  border-color: var(--communications-line);
+  border-radius: 0;
+  box-shadow: 0 18px 45px color-mix(in srgb, var(--portal-deep) 8%, transparent);
+}
+.communications-tenant-surface .communications-metrics article { border-top: 3px solid var(--portal-accent); }
+.communications-tenant-surface .communications-panel h2 { font-weight: 400; letter-spacing: -.02em; }
+.communications-tenant-surface .communications-join-tools > div,
+.communications-tenant-surface .communications-topic,
+.communications-tenant-surface .communications-empty {
+  background: color-mix(in srgb, var(--portal-accent) 8%, #fff);
+  border-radius: 0;
+}
+.communications-tenant-surface .communications-join-tools button,
+.communications-tenant-surface .communications-join-tools a,
+.communications-tenant-surface .communications-topic span { color: color-mix(in srgb, var(--portal-accent) 70%, var(--portal-deep)); }
+.communications-tenant-surface .communications-channel {
+  color: var(--portal-deep);
+  background: color-mix(in srgb, var(--portal-accent) 28%, #fff);
+}
+.communications-tenant-surface .communications-status { color: #fff; background: var(--portal-deep); }
+
 @media (max-width: 850px) { .communications-metrics { grid-template-columns: repeat(2, 1fr); } .communications-grid, .communications-head { grid-template-columns: 1fr; } .communications-number { min-width: 0; } .communications-join-tools { grid-template-columns: 1fr; } }
 @media (max-width: 540px) { .communications-dashboard-link { display: none; } .communications-metrics { grid-template-columns: 1fr; } .communications-activity-row { grid-template-columns: 80px minmax(0, 1fr); } .communications-activity-row > :last-child { grid-column: 2; } }

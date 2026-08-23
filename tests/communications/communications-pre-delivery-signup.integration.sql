@@ -98,9 +98,16 @@ select public.ingest_website_form_submission(
 
 select public.ingest_website_form_submission(
   '71000000-0000-4000-8000-000000000001', 'alpha-qr-test-token-000004',
-  'qr-email-submission-000001', 'https://www.n3xra.com', 'https://www.n3xra.com/nexra-communications/subscribe/',
+  'qr-email-submission-000001', 'https://alpha.example.test', 'https://alpha.example.test/join/',
   '{"email":"qr@example.test"}', array['51000000-0000-4000-8000-000000000001']::uuid[], array['email'],
   '{"email":"alpha-email-v1"}', repeat('1', 64), 'Communications QR integration test', false
+);
+
+select public.ingest_website_form_submission(
+  '71000000-0000-4000-8000-000000000001', 'alpha-qr-test-token-000004',
+  'legacy-qr-email-000001', 'https://www.n3xra.com', 'https://www.n3xra.com/nexra-communications/subscribe/',
+  '{"email":"legacy-qr@example.test"}', array['51000000-0000-4000-8000-000000000001']::uuid[], array['email'],
+  '{"email":"alpha-email-v1"}', repeat('2', 64), 'Legacy Communications QR integration test', false
 );
 
 do $$

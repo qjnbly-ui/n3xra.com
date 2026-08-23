@@ -251,11 +251,12 @@ test("public email signup can collect consent before outbound delivery is active
 });
 
 test("pre-delivery consent keeps source, origin, channel, and delivery boundaries explicit", async () => {
-  const [publicEndpoint, helper, migration, qrOriginMigration, emailEndpoint] = await Promise.all([
+  const [publicEndpoint, helper, migration, qrOriginMigration, nativeQrMigration, emailEndpoint] = await Promise.all([
     projectFile("api/communications-public.js"),
     projectFile("api/_communications.js"),
     projectFile("supabase/migrations/20260823200142_allow_pre_delivery_email_consent.sql"),
     projectFile("supabase/migrations/20260823202726_allow_n3xra_qr_signup_origin.sql"),
+    projectFile("supabase/migrations/20260823203918_route_qr_to_client_native_signup.sql"),
     projectFile("src/communications-provider/communications-admin-email.ts"),
   ]);
 
@@ -273,7 +274,40 @@ test("pre-delivery consent keeps source, origin, channel, and delivery boundarie
   assert.match(migration, /grant execute on function public\.ingest_website_form_submission[\s\S]*to service_role/);
   assert.match(qrOriginMigration, /target_source\.source_type in \(''hosted_signup'', ''qr_campaign''\)/);
   assert.match(qrOriginMigration, /pg_get_functiondef/);
+  assert.match(nativeQrMigration, /target_source\.source_type = 'qr_campaign'/);
+  assert.match(nativeQrMigration, /target_form\.allowed_origins/);
+  assert.match(nativeQrMigration, /https:\/\/www\.rootsandrelicsgreenhouse\.com\/join\//);
   assert.match(emailEndpoint, /stored\.status !== "verified"/);
+});
+
+test("Communications selects N3XRA or tenant presentation without duplicating the application", async () => {
+  const [source, styles, html] = await Promise.all([
+    projectFile("src/client-portal/communications-app.ts"),
+    projectFile("client-portal/communications.css"),
+    projectFile("client-portal/communications/index.html"),
+  ]);
+
+  assert.match(source, /isBrandedPortalHostname/);
+  assert.match(source, /communications-tenant-surface/);
+  assert.match(source, /communications-n3xra-surface/);
+  assert.match(source, /await initializePortalBrandShell\(\)/);
+  assert.match(source, /metadata\?\.landing_url/);
+  assert.match(styles, /body\.communications-tenant-surface/);
+  assert.match(styles, /var\(--portal-deep\)/);
+  assert.match(styles, /var\(--portal-accent\)/);
+  assert.match(html, /data-portal-business-logo/);
+});
+
+test("QR codes prefer a trusted client-native landing page and retain their source token", () => {
+  const qr = require("../../api/communications-qr.js");
+  const data = {
+    workspace: { slug: "alpha", website_url: "https://alpha.example.test" },
+    form: { allowed_origins: ["https://www.alpha.example.test"] },
+  };
+  const source = { public_token: "abc123", metadata: { landing_url: "https://www.alpha.example.test/join/" } };
+  assert.equal(qr._test.signupUrlForSource(data, source), "https://www.alpha.example.test/join/?workspace=alpha&source=abc123");
+  assert.equal(qr._test.nativeLandingUrl(data, { ...source, metadata: { landing_url: "https://attacker.example.test/join/" } }), "");
+  assert.equal(qr._test.nativeLandingUrl(data, { ...source, metadata: { landing_url: "http://alpha.example.test/join/" } }), "");
 });
 
 test("the provisioning migration exposes only audited service-role operations", async () => {

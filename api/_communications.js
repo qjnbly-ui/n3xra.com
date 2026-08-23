@@ -178,7 +178,7 @@ async function loadSignupSource(formId, token) {
 
 async function loadSourceByType(formId, sourceType) {
   return firstRow(await supabaseJson(
-    `communications_signup_sources?select=id,public_token,source_type&form_id=eq.${encodeURIComponent(formId)}&source_type=eq.${encodeURIComponent(sourceType)}&status=eq.active&order=created_at.asc&limit=1`,
+    `communications_signup_sources?select=id,public_token,source_type,metadata&form_id=eq.${encodeURIComponent(formId)}&source_type=eq.${encodeURIComponent(sourceType)}&status=eq.active&order=created_at.asc&limit=1`,
   ));
 }
 

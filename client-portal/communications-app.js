@@ -1,7 +1,7 @@
 import { createBrowserSupabase, getSessionOrNull, hasConfig } from "/shared/lib/supabase-client.js";
 import { getStoredActiveOrganizationId, setStoredActiveOrganizationId } from "/shared/lib/orgs.js";
 import { initializePortalBrandShell } from "./brand-shell.js";
-import { portalLoginUrl, portalSignedOutUrl } from "./tenant-context.js";
+import { isBrandedPortalHostname, portalLoginUrl, portalSignedOutUrl } from "./tenant-context.js";
 const statusLayer = document.querySelector("#communications-status");
 function escapeHtml(value) {
     return String(value || "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
@@ -17,6 +17,17 @@ function setText(selector, value) {
     const element = document.querySelector(selector);
     if (element)
         element.textContent = value;
+}
+function safeHttpsUrl(value) {
+    if (typeof value !== "string" || !value.trim())
+        return "";
+    try {
+        const url = new URL(value);
+        return url.protocol === "https:" ? url.toString() : "";
+    }
+    catch {
+        return "";
+    }
 }
 function showFatal(message) {
     if (statusLayer)
@@ -102,9 +113,16 @@ function renderActivity(events) {
 }
 function renderJoinTools(workspace, number, keywords, sources) {
     const hostedSource = sources.find((source) => source.source_type === "hosted_signup");
-    const signupUrl = hostedSource
+    const nativeSource = sources.find((source) => source.source_type === "website_embed")
+        || sources.find((source) => source.source_type === "qr_campaign");
+    const nativeLandingUrl = safeHttpsUrl(nativeSource?.metadata?.landing_url);
+    const fallbackWebsiteUrl = safeHttpsUrl(workspace.website_url);
+    const hostedSignupUrl = hostedSource
         ? `${window.location.origin}/nexra-communications/subscribe/?workspace=${encodeURIComponent(workspace.slug)}&source=${encodeURIComponent(hostedSource.public_token)}`
-        : "Signup source not configured";
+        : "";
+    const signupUrl = isBrandedPortalHostname()
+        ? nativeLandingUrl || fallbackWebsiteUrl || hostedSignupUrl || "Signup source not configured"
+        : hostedSignupUrl || nativeLandingUrl || fallbackWebsiteUrl || "Signup source not configured";
     const qrUrl = `/api/communications-qr?workspace=${encodeURIComponent(workspace.slug)}`;
     setText("#signup-url", signupUrl);
     const qr = document.querySelector("#signup-qr");
@@ -116,14 +134,15 @@ function renderJoinTools(workspace, number, keywords, sources) {
     setText("#keyword-list", keywords.length ? keywords.map((item) => item.keyword).join(", ") : "Not configured");
     setText("#keyword-instruction", keywords.length && number?.phone_e164 ? `Text to ${formatPhone(number.phone_e164)}` : "Available after texting activation");
     document.querySelector("#copy-signup-url")?.addEventListener("click", async (event) => {
-        if (!hostedSource)
+        if (!signupUrl.startsWith("https://"))
             return;
         await navigator.clipboard.writeText(signupUrl);
         event.currentTarget.textContent = "Copied";
     });
 }
 async function initialize() {
-    void initializePortalBrandShell();
+    document.body.classList.add(isBrandedPortalHostname() ? "communications-tenant-surface" : "communications-n3xra-surface");
+    await initializePortalBrandShell();
     if (!hasConfig())
         throw new Error("Communications is temporarily unavailable.");
     const supabase = createBrowserSupabase();
@@ -136,7 +155,7 @@ async function initialize() {
     if (!organizationId)
         throw new Error("Your account does not have a Communications workspace.");
     const requestedWorkspace = String(new URLSearchParams(window.location.search).get("workspace") || "").trim().toLowerCase();
-    let workspaceQuery = supabase.from("communications_workspaces").select("id,organization_id,slug,program_name,sender_name,status,included_sms_segments,sms_overage_cents,mms_unit_cents").eq("organization_id", organizationId).order("created_at", { ascending: true }).limit(1);
+    let workspaceQuery = supabase.from("communications_workspaces").select("id,organization_id,slug,program_name,sender_name,website_url,status,included_sms_segments,sms_overage_cents,mms_unit_cents").eq("organization_id", organizationId).order("created_at", { ascending: true }).limit(1);
     if (requestedWorkspace)
         workspaceQuery = workspaceQuery.eq("slug", requestedWorkspace);
     const { data: workspaceRows, error: workspaceError } = await workspaceQuery;
@@ -155,7 +174,7 @@ async function initialize() {
         supabase.from("communications_subscribers").select("id,full_name,phone_e164,email,sms_status,email_status,joined_at").eq("workspace_id", workspace.id).order("joined_at", { ascending: false }).range(subscriberPage * pageSize, subscriberPage * pageSize + pageSize - 1),
         supabase.from("communications_workspace_metrics").select("total_subscribers,sms_subscribers,email_subscribers,active_topics,consent_events,message_events,sms_segments_current_month").eq("workspace_id", workspace.id).maybeSingle(),
         supabase.from("communications_message_events").select("channel,direction,status,sms_segment_count,billable_units,body_preview,occurred_at").eq("workspace_id", workspace.id).order("occurred_at", { ascending: false }).limit(20),
-        supabase.from("communications_signup_sources").select("source_type,public_token").eq("workspace_id", workspace.id).eq("status", "active").in("source_type", ["hosted_signup", "qr_campaign"]),
+        supabase.from("communications_signup_sources").select("source_type,public_token,metadata").eq("workspace_id", workspace.id).eq("status", "active").in("source_type", ["website_embed", "hosted_signup", "qr_campaign"]),
     ]);
     for (const result of [numberResult, topicsResult, topicMetricsResult, keywordsResult, subscribersResult, metricsResult, messagesResult, sourcesResult])
         if (result.error)
