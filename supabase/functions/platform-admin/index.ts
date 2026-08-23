@@ -1317,14 +1317,15 @@ Deno.serve(async (request) => {
     }
 
     if (action === "list-website-request-workspace") {
-      const [requestsResult, proposalsResult, reviewsResult, websitesResult, membersResult] = await Promise.all([
+      const [requestsResult, proposalsResult, reviewsResult, websitesResult, membersResult, projectsResult] = await Promise.all([
         adminClient.from("website_service_requests").select("*").order("created_at", { ascending: false }),
         adminClient.from("website_proposals").select("id,request_id"),
         adminClient.from("website_request_ai_reviews").select("*").order("created_at", { ascending: false }).limit(250),
         adminClient.from("client_websites").select("id,name,status,live_url").neq("status", "archived").order("name"),
         adminClient.from("website_members").select("website_id,user_id,status,role"),
+        adminClient.from("website_projects").select("id,request_id,managed_website_id,status,completed_at"),
       ]);
-      const firstError = [requestsResult, proposalsResult, reviewsResult, websitesResult, membersResult]
+      const firstError = [requestsResult, proposalsResult, reviewsResult, websitesResult, membersResult, projectsResult]
         .find((result) => result.error)?.error;
       if (firstError) return jsonResponse({ error: firstError.message }, 400);
       return jsonResponse({
@@ -1334,6 +1335,7 @@ Deno.serve(async (request) => {
         aiReviews: reviewsResult.data || [],
         websites: websitesResult.data || [],
         websiteMembers: membersResult.data || [],
+        projects: projectsResult.data || [],
       });
     }
 

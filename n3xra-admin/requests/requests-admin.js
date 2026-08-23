@@ -34,6 +34,7 @@ let allRequests = [];
 let aiReviews = [];
 let websites = [];
 let websiteMembers = [];
+let projects = [];
 let selectedRequestId = "";
 let currentFilter = "open";
 const LOAD_TIMEOUT_MS = 12000;
@@ -112,7 +113,14 @@ function membershipsForRequest(request) {
   return websiteMembers.filter((member) => member.user_id === request?.user_id && member.status === "active");
 }
 
+function projectForRequest(request) {
+  return projects.find((project) => project.request_id === request?.id);
+}
+
 function organizationForRequest(request) {
+  const project = projectForRequest(request);
+  const projectWebsite = websites.find((website) => website.id === project?.managed_website_id);
+  if (projectWebsite) return projectWebsite;
   const memberships = membershipsForRequest(request);
   const context = currentUser ? readWorkspaceContext("admin", currentUser.id) : {};
   const membership = memberships.find((item) => item.website_id === context.websiteId) || memberships[0];
@@ -120,8 +128,11 @@ function organizationForRequest(request) {
 }
 
 function nextStep(request) {
+  const project = projectForRequest(request);
   if (request.recoverable_review) return { title: "Recover this completed intake", copy: "The client finished the intake and verified their email, but the final submission handoff did not create a request. Recover it to continue normally.", action: "recover" };
   if (!organizationForRequest(request) && ["qualified", "converted"].includes(request.status)) return { title: "Attach an organization", copy: "Choose or create the organization workspace before opening client onboarding.", action: "organization" };
+  if (request.status === "converted" && project?.status === "completed") return { title: "Website completed", copy: "This request became a website project and the project is complete.", action: "completed" };
+  if (request.status === "converted") return { title: "Website project created", copy: "This request has been converted into an active website project.", action: "project" };
   if (request.proposal_id) return { title: "Continue the proposal", copy: "A proposal already exists for this request.", action: "proposal" };
   if (request.status === "submitted") return { title: "Start the review", copy: "Read the scope, contact the client if needed, and record your decision.", action: "review" };
   if (request.status === "reviewing") return { title: "Make a qualification decision", copy: "Request missing information or qualify the request for a proposal.", action: "decision" };
@@ -178,6 +189,7 @@ function renderDetail() {
   const step = nextStep(request);
   const linkedReview = aiReviews.find((review) => review.id === request.ai_review_id);
   const organization = organizationForRequest(request);
+  const project = projectForRequest(request);
   const reviewResult = linkedReview?.review_snapshot || {};
   const isRecoverable = Boolean(request.recoverable_review);
   const proposalHref = `/n3xra-admin/proposals/?request=${encodeURIComponent(request.id)}`;
@@ -209,7 +221,7 @@ function renderDetail() {
     <div class="website-request-detail-grid">
       <section class="website-request-section">
         <div class="website-request-section-head"><div><p class="portal-kicker">Contact</p><h3>${escapeHtml(request.contact_name)}</h3></div><div><a class="portal-button portal-button-secondary" href="${contactMailto(request)}">Email</a>${request.contact_phone ? `<a class="portal-button portal-button-secondary" href="tel:${escapeHtml(request.contact_phone)}">Call</a>` : ""}</div></div>
-        <div class="website-request-fields">${detailField("Email", request.contact_email, { link: `mailto:${request.contact_email}` })}${detailField("Phone", request.contact_phone, { link: request.contact_phone ? `tel:${request.contact_phone}` : "" })}${detailField("Existing website", request.existing_website_url, { link: request.existing_website_url || "" })}</div>
+        <div class="website-request-fields">${detailField("Email", request.contact_email, { link: `mailto:${request.contact_email}` })}${detailField("Phone", request.contact_phone, { link: request.contact_phone ? `tel:${request.contact_phone}` : "" })}${detailField("Existing website at intake", request.existing_website_url, { link: request.existing_website_url || "" })}${organization ? detailField(project?.status === "completed" ? "Completed website" : "Current website", organization.live_url, { link: organization.live_url || "" }) : ""}${project ? detailField("Website project", project.status === "completed" ? `Completed ${formatDate(project.completed_at)}` : formatLabel(project.status)) : ""}</div>
       </section>
       <section class="website-request-section">
         <div class="website-request-section-head"><div><p class="portal-kicker">Commercial fit</p><h3>Plan and timing</h3></div></div>
@@ -224,7 +236,7 @@ function renderDetail() {
     ${linkedReview ? `<details class="website-request-ai-summary"><summary>View pre-submission AI review</summary><div><p>${escapeHtml(reviewResult.message || "No AI confirmation saved.")}</p></div></details>` : ""}
     ${isRecoverable ? `<section class="website-request-decision"><div><p class="portal-kicker">Completed intake</p><h3>Ready to recover</h3><p>Recovering creates the missing submitted request and preserves this intake’s original date and AI review.</p></div><div class="website-request-decision-actions"><button class="portal-button" type="button" data-request-action="recover">Recover into request queue</button><a class="portal-button portal-button-secondary" href="${contactMailto(request)}">Email ${escapeHtml(request.contact_name.split(/\s+/)[0] || "client")}</a><button class="portal-link-button is-danger" type="button" data-request-action="delete-review">Delete permanently</button></div></section>` : `<section class="website-request-decision">
       <div><p class="portal-kicker">Admin record</p><h3>Decision and private notes</h3><p>Save context here so another administrator can understand what happened.</p></div>
-      <label>Status<select data-request-status="${request.id}">${["submitted", "reviewing", "needs_info", "qualified", "declined", "converted"].map((status) => `<option value="${status}"${request.status === status ? " selected" : ""}>${escapeHtml(STATUS_LABELS[status] || formatLabel(status))}</option>`).join("")}</select></label>
+      <label>Status<select data-request-status="${request.id}">${["submitted", "reviewing", "needs_info", "qualified", "proposal_drafting", "proposal_sent", "proposal_changes_requested", "proposal_approved", "proposal_declined", "declined", "converted"].map((status) => `<option value="${status}"${request.status === status ? " selected" : ""}>${escapeHtml(STATUS_LABELS[status] || formatLabel(status))}</option>`).join("")}</select></label>
       <label>Private notes<textarea rows="5" data-request-notes="${request.id}" placeholder="Call notes, missing details, fit assessment, or follow-up…">${escapeHtml(request.admin_notes || "")}</textarea></label>
       <div class="website-request-decision-actions">
         <button class="portal-button" type="button" data-request-action="save">Save review</button>
@@ -282,6 +294,7 @@ async function loadRequests() {
   allRequests = [...submittedRequests, ...recoverableRequests].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   websites = workspace.websites || [];
   websiteMembers = workspace.websiteMembers || [];
+  projects = workspace.projects || [];
   requests = allRequests.filter((request) => request.status !== "archived");
   if (currentFilter === "open" && requests.length && !requests.some((request) => ACTIONABLE_STATUSES.has(request.status))) currentFilter = "all";
   const requestedId = new URLSearchParams(window.location.search).get("request");
