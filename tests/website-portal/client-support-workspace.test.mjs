@@ -71,7 +71,7 @@ test("general support work can be scoped to an account, organization, or website
 });
 
 test("client support updates authorize through a narrow request-access helper", async () => {
-  const migration = await projectFile("supabase/migrations/20260817200611_harden_client_support_update_policy.sql");
+  const migration = await projectFile("supabase/migrations/20260817200734_harden_client_support_update_policy.sql");
 
   assert.match(migration, /function private\.can_view_client_support_request\(target_request_id uuid\)/);
   assert.match(migration, /security definer/);

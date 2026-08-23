@@ -104,7 +104,7 @@ test("all-time analytics uses archived totals and labels summed visitors honestl
 test("public traffic counters are isolated per website and store only safe public settings", async () => {
   const [migration, metricMigration, endpoint, syncEndpoint] = await Promise.all([
     projectFile("supabase/migrations/20260823001005_client_website_analytics.sql"),
-    projectFile("supabase/migrations/20260823044533_public_counter_all_time_visitors.sql"),
+    projectFile("supabase/migrations/20260823044649_public_counter_all_time_visitors.sql"),
     projectFile("api/public-traffic-counter.js"),
     projectFile("api/sync-client-analytics.js"),
   ]);
@@ -139,7 +139,7 @@ test("portal analytics and public counter controls save automatically from one c
 
 test("completed projects automatically hide Progress but allow a manual portal override", async () => {
   const [migration, setupEndpoint, adminPage, adminScript] = await Promise.all([
-    projectFile("supabase/migrations/20260823045909_hide_progress_when_project_completed.sql"),
+    projectFile("supabase/migrations/20260823050418_hide_progress_when_project_completed.sql"),
     projectFile("api/website-portal-setup.js"),
     projectFile("n3xra-admin/website-portal/index.html"),
     projectFile("n3xra-admin/website-portal/website-portal-admin.js"),

@@ -40,7 +40,7 @@ test("email preview uses the delivery template without creating an account or se
 test("trusted provisioning creates access before sending a password setup link", async () => {
   const [edgeFunction, migration, accountController, accountHtml] = await Promise.all([
     read("supabase/functions/platform-admin/index.ts"),
-    read("supabase/migrations/20260818004009_admin_provision_career_applicant.sql"),
+    read("supabase/migrations/20260818011356_admin_provision_career_applicant.sql"),
     read("account/account.js"),
     read("account/index.html"),
   ]);

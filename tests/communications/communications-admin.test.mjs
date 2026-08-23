@@ -109,6 +109,21 @@ test("the desktop navigation and empty states stay compact", async () => {
   assert.match(styles, /communications-admin-form-status\.is-error/);
 });
 
+test("the customer portal ignores a stored organization without Communications access", async () => {
+  const source = await projectFile("src/client-portal/communications-app.ts");
+  const storedBlock = source.slice(
+    source.indexOf("if (stored)"),
+    source.indexOf("const { data, error }", source.indexOf("if (stored)")),
+  );
+
+  assert.match(storedBlock, /organization_memberships/);
+  assert.match(storedBlock, /organization_product_entitlements/);
+  assert.match(storedBlock, /\.eq\("product_key", "communications"\)/);
+  assert.match(storedBlock, /\.eq\("portal_enabled", true\)/);
+  assert.match(storedBlock, /entitlementResult\.data\?\.organization_id/);
+  assert.ok(storedBlock.indexOf("entitlementResult.data") < storedBlock.indexOf("return stored"));
+});
+
 test("the provisioning migration exposes only audited service-role operations", async () => {
   const migration = await projectFile("supabase/migrations/20260814173124_communications_admin_provisioning.sql");
 

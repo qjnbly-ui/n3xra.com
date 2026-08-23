@@ -42,8 +42,23 @@ function showFatal(message: string): void {
 async function resolveOrganizationId(supabase: any, userId: string): Promise<string> {
   const stored = getStoredActiveOrganizationId();
   if (stored) {
-    const { data } = await supabase.from("organization_memberships").select("organization_id").eq("organization_id", stored).eq("user_id", userId).maybeSingle();
-    if (data?.organization_id) return stored;
+    const [membershipResult, entitlementResult] = await Promise.all([
+      supabase.from("organization_memberships")
+        .select("organization_id")
+        .eq("organization_id", stored)
+        .eq("user_id", userId)
+        .maybeSingle(),
+      supabase.from("organization_product_entitlements")
+        .select("organization_id")
+        .eq("organization_id", stored)
+        .eq("product_key", "communications")
+        .eq("portal_enabled", true)
+        .in("status", ["trialing", "active", "past_due"])
+        .maybeSingle(),
+    ]);
+    if (membershipResult.error) throw membershipResult.error;
+    if (entitlementResult.error) throw entitlementResult.error;
+    if (membershipResult.data?.organization_id && entitlementResult.data?.organization_id) return stored;
   }
   const { data, error } = await supabase
     .from("organization_product_entitlements")

@@ -42,7 +42,7 @@ test("product removal is owner-authorized, race-safe, and does not delete the id
 
 test("Communications enrollment removal is product-scoped and preserves shared tenant data", async () => {
   const [migration, edgeFunction, controller] = await Promise.all([
-    read("supabase/migrations/20260818002950_admin_remove_communications_enrollment.sql"),
+    read("supabase/migrations/20260818011348_admin_remove_communications_enrollment.sql"),
     read("supabase/functions/platform-admin/index.ts"),
     read("account/admin/controllers/accounts.js"),
   ]);
