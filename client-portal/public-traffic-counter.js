@@ -2,7 +2,12 @@
 const script = document.currentScript;
 const apiOrigin = (() => {
     try {
-        return new URL(script?.src || window.location.href).origin;
+        const url = new URL(script?.src || window.location.href);
+        // n3xra.com redirects before the API handler can attach CORS headers.
+        // Calling the canonical host directly keeps client website embeds working.
+        if (url.hostname === "n3xra.com")
+            url.hostname = "www.n3xra.com";
+        return url.origin;
     }
     catch {
         return window.location.origin;

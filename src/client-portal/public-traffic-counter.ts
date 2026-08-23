@@ -8,7 +8,15 @@ type CounterPayload = {
 
 const script = document.currentScript as HTMLScriptElement | null;
 const apiOrigin = (() => {
-  try { return new URL(script?.src || window.location.href).origin; } catch { return window.location.origin; }
+  try {
+    const url = new URL(script?.src || window.location.href);
+    // n3xra.com redirects before the API handler can attach CORS headers.
+    // Calling the canonical host directly keeps client website embeds working.
+    if (url.hostname === "n3xra.com") url.hostname = "www.n3xra.com";
+    return url.origin;
+  } catch {
+    return window.location.origin;
+  }
 })();
 
 function hide(root: HTMLElement): void {

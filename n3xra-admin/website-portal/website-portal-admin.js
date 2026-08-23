@@ -406,7 +406,7 @@ function renderPreviewFromForm() {
 
 function counterSnippet(publicKey) {
   if (!publicKey) return "Turn on the public counter to create this website’s private integration key.";
-  return `<div data-n3xra-traffic-counter="${publicKey}" hidden>\n  <span data-n3xra-counter-value></span>\n  <span data-n3xra-counter-label></span>\n</div>\n<script src="https://n3xra.com/client-portal/public-traffic-counter.js" defer></script>`;
+  return `<div data-n3xra-traffic-counter="${publicKey}" hidden>\n  <span data-n3xra-counter-value></span>\n  <span data-n3xra-counter-label></span>\n</div>\n<script src="https://www.n3xra.com/client-portal/public-traffic-counter.js?v=2" defer></script>`;
 }
 
 function renderCounterPreview() {

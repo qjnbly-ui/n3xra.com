@@ -145,12 +145,15 @@ test("public counter loader uses website-owned markup and removes all space when
   assert.match(source, /root\.hidden = true/);
   assert.match(source, /root\.hidden = false/);
   assert.match(source, /data-n3xra-traffic-counter/);
+  assert.match(source, /url\.hostname === "n3xra\.com"/);
+  assert.match(source, /url\.hostname = "www\.n3xra\.com"/);
   assert.match(built, /public-traffic-counter\?key=/);
   assert.doesNotMatch(source, /iframe/i);
   assert.match(adminPage, /id="portal-public-counter-enabled"/);
   assert.match(adminPage, /value="all_time_pageviews"/);
   assert.match(adminPage, /value="daily_visitors"/);
   assert.match(adminScript, /data-n3xra-traffic-counter=.*hidden/);
+  assert.match(adminScript, /https:\/\/www\.n3xra\.com\/client-portal\/public-traffic-counter\.js\?v=2/);
   assert.match(adminScript, /website_public_traffic_counters/);
   assert.match(styles, /@media \(max-width:700px\)/);
   assert.match(styles, /website-portal-counter-layout/);
