@@ -216,6 +216,7 @@ test("analytics report is readable and responsive on desktop and mobile", async 
   assert.match(styles, /grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/);
   assert.match(styles, /@media \(max-width:700px\)/);
   assert.match(styles, /\.client-analytics-grid \{ grid-template-columns:1fr/);
+  assert.doesNotMatch(styles, /\.client-analytics-hero::after/);
   assert.match(script, /scopeWebsitesToPortalTenant/);
   assert.match(script, /Authorization: `Bearer \$\{session\.access_token\}`/);
 });

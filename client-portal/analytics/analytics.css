@@ -1,6 +1,5 @@
 .client-analytics { --analytics-line:#dce5e7; --analytics-soft:#f4f8f8; --analytics-accent:var(--portal-accent); display:grid; gap:1rem; }
 .client-analytics-hero { display:flex; align-items:flex-end; justify-content:space-between; gap:1.25rem; padding:1.35rem 1.45rem; color:#fff; background:linear-gradient(125deg,var(--portal-deep),color-mix(in srgb,var(--portal-deep) 82%,var(--portal-accent))); border-radius:18px; overflow:hidden; position:relative; }
-.client-analytics-hero::after { content:""; position:absolute; width:220px; height:220px; right:-90px; top:-120px; border:1px solid rgba(255,255,255,.18); border-radius:50%; box-shadow:0 0 0 34px rgba(255,255,255,.035),0 0 0 70px rgba(255,255,255,.025); }
 .client-analytics-hero > * { position:relative; z-index:1; }
 .client-analytics-hero .portal-kicker { color:color-mix(in srgb,var(--portal-accent) 62%,white); }
 .client-analytics-hero h2 { margin:0; font:700 clamp(1.7rem,3vw,2.45rem)/1.05 var(--portal-heading-font),Georgia,serif; }
