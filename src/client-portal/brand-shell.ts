@@ -3,7 +3,28 @@ import {
   applyPortalTenantBranding,
   isBrandedPortalHostname,
   resolvePortalTenant,
+  type PortalTenantResolution,
 } from "./tenant-context.js";
+
+const BRAND_CACHE_KEY = "n3xra.portal.brand.v1";
+
+function readCachedPortalBrand(): PortalTenantResolution | null {
+  try {
+    const stored = JSON.parse(window.sessionStorage.getItem(BRAND_CACHE_KEY) || "null") as { hostname?: string; resolution?: PortalTenantResolution } | null;
+    return stored?.hostname === window.location.hostname && stored.resolution?.mode === "tenant" ? stored.resolution : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeCachedPortalBrand(resolution: PortalTenantResolution): void {
+  try {
+    if (resolution.mode === "tenant") window.sessionStorage.setItem(BRAND_CACHE_KEY, JSON.stringify({ hostname: window.location.hostname, resolution }));
+    else window.sessionStorage.removeItem(BRAND_CACHE_KEY);
+  } catch {
+    // Branding cache is an optional visual optimization.
+  }
+}
 
 function showGenericPortalIdentity(): null {
   document.documentElement.classList.add("portal-white-label-host", "portal-white-label-ready");
@@ -52,9 +73,12 @@ export async function initializePortalBrandShell(): Promise<ReturnType<typeof ap
   }
 
   try {
+    const cachedBrand = readCachedPortalBrand();
+    if (cachedBrand) applyPortalTenantBranding(cachedBrand);
     const supabase = createBrowserSupabase();
     if (!supabase) throw new Error("Portal configuration is unavailable.");
     const resolution = await resolvePortalTenant(supabase);
+    writeCachedPortalBrand(resolution);
     const identity = applyPortalTenantBranding(resolution) || showGenericPortalIdentity();
     document.documentElement.classList.remove("portal-brand-pending");
     return identity;

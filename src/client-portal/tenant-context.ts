@@ -45,6 +45,7 @@ const BASE_HOSTNAMES = new Set(["", "localhost", "127.0.0.1", "::1", "n3xra.com"
 const STANDARD_PORTAL_SUFFIX = ".portal.n3xra.com";
 const DEFAULT_PRIMARY_COLOR = "#17231b";
 const DEFAULT_ACCENT_COLOR = "#b77946";
+const portalTenantPromises = new WeakMap<object, Map<string, Promise<PortalTenantResolution>>>();
 
 function currentHostname(): string {
   return typeof window === "undefined" ? "" : window.location.hostname;
@@ -206,20 +207,36 @@ export async function resolvePortalTenant(
 ): Promise<PortalTenantResolution> {
   const hostname = normalizePortalHostname(hostnameValue);
   if (isUnboundPortalHostname(hostname)) return { mode: "unbound", hostname };
+  let clientPromises = portalTenantPromises.get(supabase as object);
+  if (!clientPromises) {
+    clientPromises = new Map();
+    portalTenantPromises.set(supabase as object, clientPromises);
+  }
+  const existing = clientPromises.get(hostname);
+  if (existing) return existing;
 
-  const { data, error } = await supabase.rpc("resolve_website_portal", {
-    portal_hostname: hostname,
-  });
-  if (error) throw new Error(error.message || "The website portal hostname could not be verified.");
+  const resolution = (async (): Promise<PortalTenantResolution> => {
+    const { data, error } = await supabase.rpc("resolve_website_portal", {
+      portal_hostname: hostname,
+    });
+    if (error) throw new Error(error.message || "The website portal hostname could not be verified.");
 
-  const tenant = asTenantRow(data);
-  if (!tenant) return { mode: "not_found", hostname };
-  return {
-    mode: "tenant",
-    hostname,
-    hostType: hostname.endsWith(STANDARD_PORTAL_SUFFIX) ? "standard" : "custom",
-    ...tenant,
-  };
+    const tenant = asTenantRow(data);
+    if (!tenant) return { mode: "not_found", hostname };
+    return {
+      mode: "tenant",
+      hostname,
+      hostType: hostname.endsWith(STANDARD_PORTAL_SUFFIX) ? "standard" : "custom",
+      ...tenant,
+    };
+  })();
+  clientPromises.set(hostname, resolution);
+  try {
+    return await resolution;
+  } catch (error) {
+    clientPromises.delete(hostname);
+    throw error;
+  }
 }
 
 export function scopeWebsitesToPortalTenant<T extends WebsiteIdentity>(

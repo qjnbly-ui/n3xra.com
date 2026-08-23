@@ -56,6 +56,24 @@ test("a branded hostname resolves and locks website rows to its tenant", async (
   );
 });
 
+test("concurrent portal modules share one hostname verification", async () => {
+  let calls = 0;
+  const supabase = {
+    rpc: async () => {
+      calls += 1;
+      await new Promise((resolve) => setTimeout(resolve, 1));
+      return { data: [tenantRow], error: null };
+    },
+  };
+  const results = await Promise.all([
+    tenantContext.resolvePortalTenant(supabase, "shared.portal.n3xra.com"),
+    tenantContext.resolvePortalTenant(supabase, "shared.portal.n3xra.com"),
+    tenantContext.resolvePortalTenant(supabase, "shared.portal.n3xra.com"),
+  ]);
+  assert.equal(calls, 1);
+  assert.ok(results.every((resolution) => resolution.mode === "tenant"));
+});
+
 test("a resolved tenant exposes only its client-facing brand identity", () => {
   const identity = tenantContext.portalBrandIdentity({
     mode: "tenant",

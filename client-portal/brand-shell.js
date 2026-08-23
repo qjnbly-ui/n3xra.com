@@ -1,5 +1,26 @@
 import { createBrowserSupabase, hasConfig } from "/shared/lib/supabase-client.js";
 import { applyPortalTenantBranding, isBrandedPortalHostname, resolvePortalTenant, } from "./tenant-context.js";
+const BRAND_CACHE_KEY = "n3xra.portal.brand.v1";
+function readCachedPortalBrand() {
+    try {
+        const stored = JSON.parse(window.sessionStorage.getItem(BRAND_CACHE_KEY) || "null");
+        return stored?.hostname === window.location.hostname && stored.resolution?.mode === "tenant" ? stored.resolution : null;
+    }
+    catch {
+        return null;
+    }
+}
+function writeCachedPortalBrand(resolution) {
+    try {
+        if (resolution.mode === "tenant")
+            window.sessionStorage.setItem(BRAND_CACHE_KEY, JSON.stringify({ hostname: window.location.hostname, resolution }));
+        else
+            window.sessionStorage.removeItem(BRAND_CACHE_KEY);
+    }
+    catch {
+        // Branding cache is an optional visual optimization.
+    }
+}
 function showGenericPortalIdentity() {
     document.documentElement.classList.add("portal-white-label-host", "portal-white-label-ready");
     document.title = "Client Management Portal";
@@ -47,10 +68,14 @@ export async function initializePortalBrandShell() {
         return null;
     }
     try {
+        const cachedBrand = readCachedPortalBrand();
+        if (cachedBrand)
+            applyPortalTenantBranding(cachedBrand);
         const supabase = createBrowserSupabase();
         if (!supabase)
             throw new Error("Portal configuration is unavailable.");
         const resolution = await resolvePortalTenant(supabase);
+        writeCachedPortalBrand(resolution);
         const identity = applyPortalTenantBranding(resolution) || showGenericPortalIdentity();
         document.documentElement.classList.remove("portal-brand-pending");
         return identity;

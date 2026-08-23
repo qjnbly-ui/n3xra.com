@@ -302,6 +302,7 @@ test("Communications selects N3XRA or tenant presentation without duplicating th
   assert.match(styles, /\.client-portal-shell\.communications-tenant-surface[\s\S]*--communications-line: var\(--client-workspace-border\)/);
   assert.match(styles, /\.client-portal-shell \.communications-metrics article,[\s\S]*background: var\(--client-workspace-panel\)/);
   assert.match(styles, /\.client-portal-shell \.communications-metrics article \{ border-top: 1px solid var\(--client-workspace-border\)/);
+  assert.match(styles, /\.client-portal-shell\.communications-tenant-surface \.portal-kicker \{ color: var\(--portal-muted\); \}/);
   assert.match(html, /data-portal-business-logo/);
   assert.match(html, /\/client-portal\/client-shell\.css/);
   assert.match(html, /\/client-portal\/client-shell\.js/);

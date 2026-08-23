@@ -26,6 +26,10 @@ body.portal-loading main {
   visibility: hidden;
 }
 
+body.portal-loading.client-portal-shell main {
+  visibility: visible;
+}
+
 body.portal-denied main {
   visibility: hidden;
 }

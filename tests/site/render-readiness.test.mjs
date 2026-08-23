@@ -174,6 +174,19 @@ test("tenant portal headers stay reserved but hidden until final branding is app
   });
 });
 
+test("the shared client shell appears before page-specific data finishes loading", async () => {
+  const [portalStyles, communicationsStyles, brandShell] = await Promise.all([
+    projectFile("client-portal/portal.css"),
+    projectFile("client-portal/communications.css"),
+    projectFile("src/client-portal/brand-shell.ts"),
+  ]);
+
+  assert.match(portalStyles, /body\.portal-loading\.client-portal-shell main\s*\{\s*visibility:\s*visible;/);
+  assert.match(communicationsStyles, /body\.communications-loading\.client-portal-shell main\s*\{\s*visibility:\s*visible;/);
+  assert.match(brandShell, /sessionStorage\.getItem\(BRAND_CACHE_KEY\)/);
+  assert.match(brandShell, /await resolvePortalTenant\(supabase\)/);
+});
+
 test("the account header reserves its auth action until the session-facing label is final", async () => {
   const [html, styles, controller] = await Promise.all([
     projectFile("account/index.html"),
