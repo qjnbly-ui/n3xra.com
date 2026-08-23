@@ -89,11 +89,15 @@ test("client navigation separates apps from the website workspace", async () => 
 
   assert.match(shell, /const appSections = \[[\s\S]*Apps Dashboard[\s\S]*Support/);
   assert.match(shell, /const websiteSections = \[[\s\S]*label: "Progress"/);
+  assert.match(shell, /label: "Progress"[\s\S]*feature: "progress"/);
+  assert.match(shell, /data-client-project-progress/);
   assert.match(shell, /Website Workspace/);
   assert.match(shell, /Start a New Project/);
   assert.doesNotMatch(shell, /portal-nav-label">New work/);
   assert.match(workspaceContext, /const APP_ROUTES = \[[\s\S]*Apps Dashboard[\s\S]*Support/);
   assert.match(workspaceContext, /const WEBSITE_ROUTES = \[[\s\S]*Progress[\s\S]*Files & Assets[\s\S]*Start a New Project/);
+  assert.match(workspaceContext, /\.from\("website_projects"\)[\s\S]*managed_website_id,status,completed_at,updated_at/);
+  assert.match(workspaceContext, /\["completed", "archived"\]\.includes\(project\?\.status\)/);
   assert.doesNotMatch(workspaceContext, /website-organization-intake-link/);
   assert.match(workspaceContext, /updateWebsiteReturnLink/);
   assert.match(workspaceContext, /actions\.prepend\(returnLink\)/);

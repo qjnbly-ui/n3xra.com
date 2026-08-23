@@ -14,7 +14,7 @@ const APP_ROUTES = [
   { keys: ["support"], label: "Support", href: "/client-portal/#support" },
 ];
 const WEBSITE_ROUTES = [
-  { keys: ["proposals", "progress", "onboarding"], label: "Progress", href: "/project-workspace/" },
+  { keys: ["proposals", "progress", "onboarding"], label: "Progress", href: "/project-workspace/", feature: "progress", projectProgress: true },
   { keys: ["assets"], label: "Files & Assets", href: "/client-portal/#files-assets" },
   { keys: ["services"], label: "Services & Ownership", href: "/client-portal/services/" },
   { keys: ["analytics"], label: "Analytics", href: "/client-portal/analytics/", feature: "analytics" },
@@ -50,7 +50,7 @@ function updateWebsiteReturnLink(websiteUrl, websiteName = "your website") {
 }
 
 function routeMarkup(route, pageKey) {
-  const availability = `${route.requiresAdditionalApps ? " data-client-app-dashboard hidden" : ""}${route.feature ? ` data-client-feature="${route.feature}" hidden` : ""}`;
+  const availability = `${route.requiresAdditionalApps ? " data-client-app-dashboard hidden" : ""}${route.feature ? ` data-client-feature="${route.feature}" hidden` : ""}${route.projectProgress ? " data-client-project-progress" : ""}`;
   return `<a class="${route.keys.includes(pageKey) ? "is-current" : ""}" href="${route.href}"${availability}>${route.label}</a>`;
 }
 
@@ -109,16 +109,19 @@ export async function initializeClientWorkspaceContext(panel, { pageKey = "overv
   if (!session?.user) return;
   const tenantResolution = await resolvePortalTenant(supabase);
 
-  const [websiteResult, domainResult, featureResult] = await Promise.all([
+  const [websiteResult, domainResult, featureResult, projectResult] = await Promise.all([
     supabase.from("client_websites").select("id,name,status,live_url,organization_id,website_members(role,status,user_id)").order("name"),
     supabase.from("website_domains").select("website_id,domain_name,is_primary").order("is_primary", { ascending: false }),
     supabase.from("website_portal_features").select("website_id,feature_key,enabled"),
+    supabase.from("website_projects").select("managed_website_id,status,completed_at,updated_at").order("updated_at", { ascending: false }),
   ]);
   if (websiteResult.error) throw websiteResult.error;
   if (domainResult.error) throw domainResult.error;
   if (featureResult.error) throw featureResult.error;
+  if (projectResult.error) throw projectResult.error;
   const websites = scopeWebsitesToPortalTenant(websiteResult.data || [], tenantResolution);
   const domains = domainResult.data || [];
+  const projects = projectResult.data || [];
   const context = readWorkspaceContext("client", session.user.id);
   const explicitWebsiteId = new URLSearchParams(window.location.search).get("website");
   let selectedId = websites.some((website) => website.id === explicitWebsiteId)
@@ -173,6 +176,11 @@ export async function initializeClientWorkspaceContext(panel, { pageKey = "overv
     panel.querySelector("#client-organization-name").textContent = website.name;
     panel.querySelector("#client-organization-url").textContent = websiteUrl || "Website is not live yet";
     updateWebsiteReturnLink(websiteUrl, website.name);
+    const project = projects.find((item) => item.managed_website_id === website.id);
+    const projectComplete = ["completed", "archived"].includes(project?.status);
+    document.querySelectorAll("[data-client-project-progress]").forEach((item) => {
+      item.hidden = projectComplete || selectedFeatures.progress === false;
+    });
     if (persist) {
       const previous = readWorkspaceContext("client", session.user.id);
       writeWorkspaceContext("client", session.user.id, {

@@ -90,9 +90,10 @@
 .website-portal-feature-grid input:checked + i::after { transform:translateX(13px); }
 .website-portal-feature-grid input:focus-visible + i { outline:3px solid rgba(20,135,127,.2); outline-offset:2px; }
 .website-portal-feature-analytics { grid-column:1/-1; background:linear-gradient(135deg,rgba(20,135,127,.06),rgba(22,185,237,.05)); border-right:0 !important; }
-.website-portal-feature-note { margin:0; padding:.8rem 1rem; color:var(--portal-muted,#64748b); background:#f7fafb; border-top:1px solid #e7ecee; font-size:.64rem; line-height:1.55; }
+.website-portal-feature-footer { display:flex; align-items:center; justify-content:space-between; gap:1rem; padding:.8rem 1rem; background:#f7fafb; border-top:1px solid #e7ecee; }
+.website-portal-feature-note { flex:1 1 auto; margin:0; color:var(--portal-muted,#64748b); font-size:.64rem; line-height:1.55; }
 .website-portal-feature-note strong { color:var(--portal-ink,#0f172a); }
-.website-portal-public-counter { margin:0 1.25rem 1.25rem; overflow:hidden; border:1px solid var(--website-admin-border,#d9e2e4); }
+.website-portal-public-counter { margin:0 1.25rem 1.25rem; overflow:hidden; overflow-anchor:none; border:1px solid var(--website-admin-border,#d9e2e4); }
 .website-portal-counter-switch { display:flex; align-items:center; gap:.6rem; color:#526072; font-size:.64rem; font-weight:800; cursor:pointer; white-space:nowrap; }
 .website-portal-counter-switch input { position:absolute; opacity:0; pointer-events:none; }
 .website-portal-counter-switch i { position:relative; width:38px; height:22px; background:#cbd3d8; border-radius:999px; transition:background .15s ease; }
@@ -191,6 +192,8 @@
   .website-portal-grid, .website-portal-features, .website-portal-customize, .website-portal-activation { margin-right:.75rem; margin-left:.75rem; }
   .website-portal-public-counter { margin-right:.75rem; margin-left:.75rem; }
   .website-portal-feature-grid, .website-portal-form-grid { grid-template-columns:1fr; }
+  .website-portal-feature-footer { align-items:stretch; flex-direction:column; }
+  .website-portal-feature-footer .portal-button { width:100%; }
   .website-portal-counter-layout, .website-portal-counter-code { grid-template-columns:1fr; }
   .website-portal-counter-settings { grid-template-columns:1fr; border-right:0; border-bottom:1px solid #e1e8ea; }
   .website-portal-counter-settings .portal-button { grid-column:auto; width:100%; }

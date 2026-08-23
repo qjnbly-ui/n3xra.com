@@ -455,7 +455,10 @@ async function verifyVercel(records, repository, { fetchImpl = fetch, vercelToke
       id: project.id || null,
       name: project.name || recordedProject || null,
       framework: project.framework || null,
-      live: project.live !== false && project.paused !== true,
+      // Vercel's project-level `live` field can be false even while the current
+      // production deployment is serving traffic. A paused project is the
+      // documented project-level condition that makes the site unavailable.
+      live: project.paused !== true,
     };
   } catch {
     return { verified: false };

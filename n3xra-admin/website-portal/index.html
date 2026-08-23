@@ -119,7 +119,10 @@
               <label><span><strong>Support</strong><small>Requests and N3XRA assistance</small></span><input type="checkbox" value="support" checked><i></i></label>
               <label class="website-portal-feature-analytics"><span><strong>Analytics</strong><small>Readable traffic reports powered by the website’s Vercel project</small></span><input type="checkbox" value="analytics"><i></i></label>
             </div>
-            <p class="website-portal-feature-note"><strong>Automatic connection and history:</strong> When Analytics is enabled and saved, N3XRA securely matches this website to Vercel, imports the available history, and preserves completed daily totals in Supabase. Clients never receive the Vercel token or another website’s project ID.</p>
+            <div class="website-portal-feature-footer">
+              <p class="website-portal-feature-note"><strong>Automatic connection and history:</strong> When Analytics is enabled and saved, N3XRA securely matches this website to Vercel, imports the available history, and preserves completed daily totals in Supabase. Clients never receive the Vercel token or another website’s project ID.</p>
+              <button class="portal-button portal-button-secondary" id="portal-save-features" type="button">Save portal sections</button>
+            </div>
           </section>
 
           <section class="website-portal-panel website-portal-public-counter" id="portal-public-counter" aria-labelledby="portal-public-counter-title">
@@ -186,6 +189,6 @@
   </dialog>
   <div class="portal-status" id="portal-status" role="status">Opening Website Portal setup…</div>
   <script type="module" src="/client-portal/portal-shell.js?v=6"></script>
-  <script type="module" src="/n3xra-admin/website-portal/website-portal-admin.js?v=8"></script>
+  <script type="module" src="/n3xra-admin/website-portal/website-portal-admin.js?v=9"></script>
 </body>
 </html>

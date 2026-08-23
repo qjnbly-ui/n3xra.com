@@ -419,8 +419,14 @@ function renderCounterPreview() {
   const publicKey = analysis?.proposed?.public_counter?.public_key || "";
   byId("portal-public-counter-code").value = counterSnippet(publicKey);
   byId("portal-copy-counter-code").disabled = !publicKey;
-  byId("portal-public-counter-metric").disabled = !enabled;
-  byId("portal-public-counter-label").disabled = !enabled;
+}
+
+function restoreAdminScrollPosition(scrollTop) {
+  const scrollRegion = document.querySelector(".website-admin-scroll-region");
+  if (!scrollRegion || !Number.isFinite(scrollTop)) return;
+  window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
+    scrollRegion.scrollTop = Math.min(scrollTop, Math.max(0, scrollRegion.scrollHeight - scrollRegion.clientHeight));
+  }));
 }
 
 async function analyze({ includeRemote = false, announce = true } = {}) {
@@ -483,6 +489,7 @@ function settingsPayload() {
 }
 
 async function saveSettings({ enabled = selectedWebsite?.portal_enabled, success = "Website Portal settings saved." } = {}) {
+  const scrollTop = document.querySelector(".website-admin-scroll-region")?.scrollTop;
   const payload = settingsPayload();
   const analyticsEnabled = payload.features.some((feature) => feature.feature_key === "analytics" && feature.enabled);
   if (analyticsEnabled || payload.publicCounter.enabled) {
@@ -526,6 +533,7 @@ async function saveSettings({ enabled = selectedWebsite?.portal_enabled, success
   formDirty = false;
   message(success);
   await loadBaseData(selectedWebsite.id, { keepVisible: true });
+  restoreAdminScrollPosition(scrollTop);
 }
 
 async function handleSave(event) {
@@ -589,6 +597,12 @@ function bindEvents() {
   form.addEventListener("input", () => { formDirty = true; renderPreviewFromForm(); });
   form.addEventListener("change", () => { formDirty = true; renderPreviewFromForm(); });
   featureGrid.addEventListener("change", () => { formDirty = true; });
+  byId("portal-save-features").addEventListener("click", async () => {
+    const button = byId("portal-save-features");
+    setBusy(button, true, "Saving…");
+    message("Saving client portal sections…");
+    try { await saveSettings({ success: "Portal sections saved. Client navigation is updated." }); } catch (error) { message(error?.message || "Portal sections could not be saved.", true); } finally { setBusy(button, false); }
+  });
   byId("portal-public-counter").addEventListener("input", () => { formDirty = true; renderCounterPreview(); });
   byId("portal-public-counter").addEventListener("change", () => { formDirty = true; renderCounterPreview(); });
   byId("portal-save-public-counter").addEventListener("click", async () => {

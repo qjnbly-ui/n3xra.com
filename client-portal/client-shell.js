@@ -1,4 +1,4 @@
-import { initializeClientWorkspaceContext } from "/client-portal/client-workspace-context.js?v=10";
+import { initializeClientWorkspaceContext } from "/client-portal/client-workspace-context.js?v=11";
 import { initializePortalBrandShell } from "/client-portal/brand-shell.js?v=1";
 import { initializePendingProposalNotice } from "/client-portal/pending-proposal-notice.js?v=2";
 import { isBrandedPortalHostname } from "/client-portal/tenant-context.js";
@@ -13,7 +13,7 @@ const appSections = [
   { key: "support", label: "Support", href: "/client-portal/#support", path: "/client-portal/", hash: "#support", view: "support" },
 ];
 const websiteSections = [
-  { key: "project", label: "Progress", href: "/project-workspace/", path: "/project-workspace/" },
+  { key: "project", label: "Progress", href: "/project-workspace/", path: "/project-workspace/", feature: "progress" },
   { key: "assets", label: "Files & Assets", href: "/client-portal/#files-assets", path: "/client-portal/", hash: "#files-assets", view: "files" },
   { key: "services", label: "Services & Ownership", href: "/client-portal/services/", path: "/client-portal/services/" },
   { key: "analytics", label: "Analytics", href: "/client-portal/analytics/", path: "/client-portal/analytics/", feature: "analytics" },
@@ -65,13 +65,13 @@ function isCurrentSection(section) {
 
 function sectionMarkup(section, onPortalHome) {
   const current = isCurrentSection(section) ? " is-current" : "";
-  const availability = `${section.requiresAdditionalApps ? " data-client-app-dashboard hidden" : ""}${section.feature ? ` data-client-feature="${section.feature}" hidden` : ""}`;
+  const availability = `${section.requiresAdditionalApps ? " data-client-app-dashboard hidden" : ""}${section.feature ? ` data-client-feature="${section.feature}" hidden` : ""}${section.key === "project" ? " data-client-project-progress" : ""}`;
   if (onPortalHome && section.view) return `<button class="${current.trim()}" type="button" data-portal-view="${section.view}"${availability}>${section.label}</button>`;
   return `<a class="${current.trim()}" href="${section.href}"${availability}>${section.label}</a>`;
 }
 
 function mobileSectionMarkup(section) {
-  const availability = `${section.requiresAdditionalApps ? " data-client-app-dashboard hidden" : ""}${section.feature ? ` data-client-feature="${section.feature}" hidden` : ""}`;
+  const availability = `${section.requiresAdditionalApps ? " data-client-app-dashboard hidden" : ""}${section.feature ? ` data-client-feature="${section.feature}" hidden` : ""}${section.key === "project" ? " data-client-project-progress" : ""}`;
   return `<a class="site-menu-link${isCurrentSection(section) ? " is-current" : ""}" href="${section.href}"${availability}>${section.label}</a>`;
 }
 

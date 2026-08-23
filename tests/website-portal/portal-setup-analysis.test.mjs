@@ -260,6 +260,29 @@ test("Vercel verification matches the connected GitHub repository to a deployed 
   assert.equal(authorization, "Bearer test-token");
 });
 
+test("Vercel verification treats an unpaused project as available even when the project live flag is false", async () => {
+  const result = await verifyVercel(records(), { provider: "github", full_name: "qjnbly-ui/rootsandrelicsgreenhouse.com" }, {
+    vercelToken: "test-token",
+    fetchImpl: async () => ({
+      ok: true,
+      json: async () => ({ projects: [{ id: "prj_123", name: "roots-and-relics", live: false, paused: false, link: { org: "qjnbly-ui", repo: "rootsandrelicsgreenhouse.com" } }] }),
+    }),
+  });
+  assert.equal(result.verified, true);
+  assert.equal(result.live, true);
+});
+
+test("Vercel verification reports a paused project as unavailable", async () => {
+  const result = await verifyVercel(records(), { provider: "github", full_name: "qjnbly-ui/rootsandrelicsgreenhouse.com" }, {
+    vercelToken: "test-token",
+    fetchImpl: async () => ({
+      ok: true,
+      json: async () => ({ projects: [{ id: "prj_123", name: "roots-and-relics", live: true, paused: true, link: { org: "qjnbly-ui", repo: "rootsandrelicsgreenhouse.com" } }] }),
+    }),
+  });
+  assert.equal(result.live, false);
+});
+
 test("Vercel discovery can match a managed website by its production hostname", () => {
   assert.equal(projectMatchesWebsite({
     name: "rootsandrelicsgreenhouse-com",
@@ -284,6 +307,7 @@ test("portal interface keeps setup, overrides, feature permissions, and activati
   assert.match(html, /id="portal-copy-url"/);
   assert.match(html, /id="portal-open-url"/);
   assert.match(html, /id="portal-feature-grid"/);
+  assert.match(html, /id="portal-save-features"/);
   assert.match(html, /id="portal-activate"[^>]*disabled/);
   assert.match(script, /activation_ready/);
   assert.match(script, /portal_enabled/);
@@ -300,6 +324,7 @@ test("portal interface keeps setup, overrides, feature permissions, and activati
   assert.match(script, /Authorization: `Bearer \$\{currentSession\.access_token\}`/);
   assert.doesNotMatch(script, /void analyze\(\{ includeRemote: true/);
   assert.match(script, /portal-refresh-analysis[\s\S]*analyze\(\{ includeRemote: true \}\)/);
+  assert.match(script, /restoreAdminScrollPosition/);
   assert.match(script, /scrollRegion\.scrollTo\(\{ top: Math\.max\(0, targetTop\), behavior: "smooth" \}\)/);
   assert.doesNotMatch(script, /portal-customize"\)\.scrollIntoView/);
   assert.match(workspace, /document\.documentElement\.classList\.add\("website-admin-root"\)/);
