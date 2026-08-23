@@ -251,10 +251,11 @@ test("public email signup can collect consent before outbound delivery is active
 });
 
 test("pre-delivery consent keeps source, origin, channel, and delivery boundaries explicit", async () => {
-  const [publicEndpoint, helper, migration, emailEndpoint] = await Promise.all([
+  const [publicEndpoint, helper, migration, qrOriginMigration, emailEndpoint] = await Promise.all([
     projectFile("api/communications-public.js"),
     projectFile("api/_communications.js"),
     projectFile("supabase/migrations/20260823200142_allow_pre_delivery_email_consent.sql"),
+    projectFile("supabase/migrations/20260823202726_allow_n3xra_qr_signup_origin.sql"),
     projectFile("src/communications-provider/communications-admin-email.ts"),
   ]);
 
@@ -270,6 +271,8 @@ test("pre-delivery consent keeps source, origin, channel, and delivery boundarie
   assert.match(migration, /security invoker/);
   assert.match(migration, /revoke all on function public\.ingest_website_form_submission[\s\S]*from public, anon, authenticated/);
   assert.match(migration, /grant execute on function public\.ingest_website_form_submission[\s\S]*to service_role/);
+  assert.match(qrOriginMigration, /target_source\.source_type in \(''hosted_signup'', ''qr_campaign''\)/);
+  assert.match(qrOriginMigration, /pg_get_functiondef/);
   assert.match(emailEndpoint, /stored\.status !== "verified"/);
 });
 

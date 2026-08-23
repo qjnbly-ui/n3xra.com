@@ -69,7 +69,8 @@ insert into public.communications_signup_sources (
 ) values
   ('81000000-0000-4000-8000-000000000001', '21000000-0000-4000-8000-000000000001', '31000000-0000-4000-8000-000000000001', '41000000-0000-4000-8000-000000000001', '61000000-0000-4000-8000-000000000001', 'website_embed', 'Alpha website', 'website', 'alpha-website-test-token-000001', 'active'),
   ('81000000-0000-4000-8000-000000000002', '21000000-0000-4000-8000-000000000001', '31000000-0000-4000-8000-000000000001', '41000000-0000-4000-8000-000000000001', '61000000-0000-4000-8000-000000000001', 'hosted_signup', 'Alpha hosted', 'hosted', 'alpha-hosted-test-token-000002', 'active'),
-  ('81000000-0000-4000-8000-000000000003', '21000000-0000-4000-8000-000000000002', '31000000-0000-4000-8000-000000000002', '41000000-0000-4000-8000-000000000002', '61000000-0000-4000-8000-000000000002', 'website_embed', 'Beta website', 'website', 'beta-website-test-token-000003', 'active');
+  ('81000000-0000-4000-8000-000000000003', '21000000-0000-4000-8000-000000000002', '31000000-0000-4000-8000-000000000002', '41000000-0000-4000-8000-000000000002', '61000000-0000-4000-8000-000000000002', 'website_embed', 'Beta website', 'website', 'beta-website-test-token-000003', 'active'),
+  ('81000000-0000-4000-8000-000000000004', '21000000-0000-4000-8000-000000000001', '31000000-0000-4000-8000-000000000001', '41000000-0000-4000-8000-000000000001', '61000000-0000-4000-8000-000000000001', 'qr_campaign', 'Alpha QR', 'qr', 'alpha-qr-test-token-000004', 'active');
 
 do $$
 begin
@@ -93,6 +94,13 @@ select public.ingest_website_form_submission(
   '{"full_name":"Test Subscriber","email":"subscriber@example.test"}',
   array['51000000-0000-4000-8000-000000000001']::uuid[], array['email'],
   '{"email":"alpha-email-v1"}', repeat('a', 64), 'Communications integration test', false
+);
+
+select public.ingest_website_form_submission(
+  '71000000-0000-4000-8000-000000000001', 'alpha-qr-test-token-000004',
+  'qr-email-submission-000001', 'https://www.n3xra.com', 'https://www.n3xra.com/nexra-communications/subscribe/',
+  '{"email":"qr@example.test"}', array['51000000-0000-4000-8000-000000000001']::uuid[], array['email'],
+  '{"email":"alpha-email-v1"}', repeat('1', 64), 'Communications QR integration test', false
 );
 
 do $$
@@ -195,6 +203,14 @@ begin
       and disclosure_text = 'Exact Alpha email consent.'
   ) then
     raise exception 'hosted signup source did not preserve attribution and consent';
+  end if;
+  if not exists (
+    select 1 from public.communications_consent_events
+    where consent_method = 'qr_campaign'
+      and verified_signup_source_id = '81000000-0000-4000-8000-000000000004'
+      and disclosure_text = 'Exact Alpha email consent.'
+  ) then
+    raise exception 'QR signup source did not preserve attribution and consent';
   end if;
   if exists (
     select 1 from public.communications_email_delivery_requests
