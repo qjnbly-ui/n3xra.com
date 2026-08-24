@@ -120,7 +120,7 @@ function renderSupportOptions() {
   const filtered = supportRequests.filter((item) => {
     const statusMatch = status === "all" || (status === "open" ? !["resolved", "closed"].includes(item.status) : item.status === status);
     const priorityMatch = priority === "all" || item.priority === priority;
-    const searchable = [item.subject, item.requester_name, item.requester_email, item.organization_name, item.topic, item.message, item.status, item.priority].join(" ").toLowerCase();
+    const searchable = [item.subject, item.requester_name, item.requester_email, item.organization_name, item.topic, item.message, item.status, item.priority, item.change_kind, item.automation_status, item.assistant_summary].join(" ").toLowerCase();
     return statusMatch && priorityMatch && (!query || searchable.includes(query));
   });
   const current = select.value;
@@ -175,6 +175,15 @@ function renderSelectedSupport() {
       <div class="support-section-heading"><div><p class="portal-kicker">Customer message</p><h3>Request details</h3></div></div>
       <div class="support-message">${escapeHtml(request.message || "No message was provided.")}</div>
     </section>
+    ${request.intake_mode === "ai_assisted" ? `<section class="support-detail-section">
+      <div class="support-section-heading"><div><p class="portal-kicker">Website Change Assistant</p><h3>Organized for review</h3><p>The assistant did not edit code or publish anything. This request requires N3XRA approval.</p></div></div>
+      <div class="support-context-rows">
+        <div><span>Change type</span><strong>${escapeHtml(supportStatusLabel(request.change_kind || "other"))}</strong></div>
+        <div><span>Likely area</span><strong>${escapeHtml(supportStatusLabel(request.change_scope || "unknown"))}</strong></div>
+        <div><span>Automation</span><strong>${escapeHtml(supportStatusLabel(request.automation_status || "awaiting_review"))}</strong></div>
+      </div>
+      <div class="support-message">${escapeHtml(request.assistant_summary || "No assistant summary was saved.")}</div>
+    </section>` : ""}
     <section class="support-detail-section">
       <div class="support-section-heading"><div><p class="portal-kicker">Case context</p><h3>Requester and source</h3></div></div>
       <div class="support-context-rows">

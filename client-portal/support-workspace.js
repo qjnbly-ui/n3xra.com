@@ -16,12 +16,26 @@ const activeCount = document.querySelector("#client-support-active-count");
 const pastCount = document.querySelector("#client-support-past-count");
 const websiteSelect = document.querySelector("#website-select");
 const filterButtons = [...document.querySelectorAll("[data-client-support-filter]")];
+const changeForm = document.querySelector("#client-change-assistant");
+const changeRequest = document.querySelector("#client-change-request");
+const changeReview = document.querySelector("#client-change-review");
+const changeTitle = document.querySelector("#client-change-title");
+const changeKind = document.querySelector("#client-change-kind");
+const changeScope = document.querySelector("#client-change-scope");
+const changeSummary = document.querySelector("#client-change-summary");
+const changeQuestion = document.querySelector("#client-change-question");
+const changeStatus = document.querySelector("#client-change-status");
+const changeAnalyze = document.querySelector("#client-change-analyze");
+const changeSubmit = document.querySelector("#client-change-submit");
+const changeEdit = document.querySelector("#client-change-edit");
+const exampleButtons = [...document.querySelectorAll("[data-change-example]")];
 let supabase;
 let session;
 let websites = [];
 let requests = [];
 let updates = [];
 let filter = "active";
+let pendingAnalysis = null;
 const escapeHtml = (value) => String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
 const label = (value) => value.replaceAll("_", " ").replaceAll("-", " ").replace(/\b\w/g, (character) => character.toUpperCase());
 const isPast = (request) => ["resolved", "closed"].includes(request.status);
@@ -61,8 +75,9 @@ function render() {
     list.innerHTML = visible.length ? visible.map((request) => {
         const requestUpdates = updates.filter((update) => update.request_id === request.id);
         return `<article class="client-support-card is-${escapeHtml(request.status)}">
-      <header class="client-support-card-head"><div><p class="portal-kicker">${escapeHtml(label(request.topic))}</p><h3>${escapeHtml(request.subject)}</h3><p class="client-support-card-origin">${request.origin === "n3xra" ? "Started by N3XRA" : `Sent ${escapeHtml(formatDate(request.created_at))}`}</p></div><span class="client-support-state is-${escapeHtml(request.status)}">${escapeHtml(label(request.status))}</span></header>
+      <header class="client-support-card-head"><div><p class="portal-kicker">${escapeHtml(request.intake_mode === "ai_assisted" ? "AI-assisted website request" : label(request.topic))}</p><h3>${escapeHtml(request.subject)}</h3><p class="client-support-card-origin">${request.origin === "n3xra" ? "Started by N3XRA" : `Sent ${escapeHtml(formatDate(request.created_at))}`}</p></div><span class="client-support-state is-${escapeHtml(request.status)}">${escapeHtml(request.automation_status === "awaiting_review" ? "Awaiting review" : label(request.status))}</span></header>
       <p class="client-support-message">${escapeHtml(request.message)}</p>
+      ${request.assistant_summary ? `<div class="client-support-assistant-summary"><strong>Organized summary</strong><p>${escapeHtml(request.assistant_summary)}</p></div>` : ""}
       <div class="client-support-meta"><span><strong>Timing:</strong> ${escapeHtml(timingLabel(request))}</span>${request.estimated_start_at ? `<span><strong>Estimated start:</strong> ${escapeHtml(formatDate(request.estimated_start_at))}</span>` : ""}</div>
       ${requestUpdates.length ? `<div class="client-support-updates">${requestUpdates.map((update) => `<div class="client-support-update"><p>${escapeHtml(update.message)}</p><small>${update.author_type === "n3xra" ? "N3XRA update" : "Client update"} · ${escapeHtml(formatDate(update.created_at))}</small></div>`).join("")}</div>` : ""}
     </article>`;
@@ -76,7 +91,7 @@ async function loadRequests() {
         return;
     }
     const { data, error } = await supabase.from("platform_support_requests")
-        .select("id,website_id,organization_id,topic,subject,message,status,origin,estimated_start_at,estimated_completion_at,created_at,updated_at")
+        .select("id,website_id,organization_id,topic,subject,message,status,origin,estimated_start_at,estimated_completion_at,created_at,updated_at,intake_mode,change_kind,change_scope,automation_status,assistant_summary")
         .eq("client_visible", true)
         .order("updated_at", { ascending: false });
     if (error)
@@ -103,6 +118,91 @@ async function loadRequests() {
         }
     }
     render();
+}
+async function changeApi(action) {
+    const website = currentWebsite();
+    if (!website || !changeRequest)
+        throw new Error("Choose a website before sending a change request.");
+    const response = await fetch("/api/website-change-intake", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ action, websiteId: website.id, request: changeRequest.value.trim(), analysis: pendingAnalysis }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok)
+        throw new Error(payload.error || "The website request could not be prepared.");
+    return payload;
+}
+function renderAnalysis(analysis) {
+    pendingAnalysis = analysis;
+    if (changeTitle)
+        changeTitle.textContent = analysis.title;
+    if (changeKind)
+        changeKind.textContent = label(analysis.changeKind);
+    if (changeScope)
+        changeScope.textContent = analysis.changeScope === "code" ? "Code review" : analysis.changeScope === "content" ? "Content review" : "N3XRA review";
+    if (changeSummary)
+        changeSummary.textContent = analysis.summary;
+    if (changeQuestion) {
+        changeQuestion.hidden = !analysis.needsClarification;
+        changeQuestion.textContent = analysis.clarificationQuestion ? `Before sending, consider adding: ${analysis.clarificationQuestion}` : "";
+    }
+    if (changeReview)
+        changeReview.hidden = false;
+    if (changeAnalyze)
+        changeAnalyze.hidden = true;
+    if (changeRequest)
+        changeRequest.disabled = true;
+}
+async function analyzeChange(event) {
+    event.preventDefault();
+    if (!changeForm?.reportValidity() || !changeAnalyze)
+        return;
+    changeAnalyze.disabled = true;
+    if (changeStatus)
+        changeStatus.textContent = "Organizing your request…";
+    try {
+        const payload = await changeApi("analyze");
+        renderAnalysis(payload.analysis);
+        if (changeStatus)
+            changeStatus.textContent = "Review the summary below before sending it.";
+    }
+    catch (error) {
+        if (changeStatus)
+            changeStatus.textContent = error instanceof Error ? error.message : "The request could not be prepared.";
+    }
+    finally {
+        changeAnalyze.disabled = false;
+    }
+}
+async function submitChange() {
+    if (!pendingAnalysis || !changeSubmit)
+        return;
+    changeSubmit.disabled = true;
+    if (changeStatus)
+        changeStatus.textContent = "Sending your request for review…";
+    try {
+        await changeApi("submit");
+        pendingAnalysis = null;
+        if (changeForm)
+            changeForm.reset();
+        if (changeReview)
+            changeReview.hidden = true;
+        if (changeAnalyze)
+            changeAnalyze.hidden = false;
+        if (changeRequest)
+            changeRequest.disabled = false;
+        if (changeStatus)
+            changeStatus.textContent = "Your website change request was sent to N3XRA for review.";
+        await loadRequests();
+    }
+    catch (error) {
+        if (changeStatus)
+            changeStatus.textContent = error instanceof Error ? error.message : "The request could not be sent.";
+    }
+    finally {
+        changeSubmit.disabled = false;
+    }
 }
 async function submitRequest(event) {
     event.preventDefault();
@@ -157,6 +257,23 @@ async function init() {
     openButton?.addEventListener("click", () => { form.hidden = false; topicInput?.focus(); });
     closeButton?.addEventListener("click", () => { form.hidden = true; });
     form.addEventListener("submit", (event) => { void submitRequest(event); });
+    changeForm?.addEventListener("submit", (event) => { void analyzeChange(event); });
+    changeSubmit?.addEventListener("click", () => { void submitChange(); });
+    changeEdit?.addEventListener("click", () => {
+        pendingAnalysis = null;
+        if (changeReview)
+            changeReview.hidden = true;
+        if (changeAnalyze)
+            changeAnalyze.hidden = false;
+        if (changeRequest)
+            changeRequest.disabled = false;
+        changeRequest?.focus();
+    });
+    exampleButtons.forEach((button) => button.addEventListener("click", () => {
+        if (changeRequest)
+            changeRequest.value = button.dataset.changeExample || "";
+        changeRequest?.focus();
+    }));
     websiteSelect?.addEventListener("change", render);
     filterButtons.forEach((button) => button.addEventListener("click", () => {
         filter = button.dataset.clientSupportFilter || "active";

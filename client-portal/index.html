@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="/client-portal/portal.css?v=18">
   <link rel="stylesheet" href="/client-portal/client-shell.css?v=10">
   <link rel="stylesheet" href="/client-portal/portal-apps.css?v=1">
-  <link rel="stylesheet" href="/client-portal/support-workspace.css?v=2">
+  <link rel="stylesheet" href="/client-portal/support-workspace.css?v=3">
   <link rel="stylesheet" href="/client-portal/assets-manager.css?v=12">
   <link rel="stylesheet" href="/website-request/request.css?v=9">
   <script src="/shared/config.js"></script>
@@ -185,9 +185,23 @@
         <div class="portal-view" id="portal-view-support" data-portal-panel="support" hidden>
           <section class="client-support-workspace" aria-labelledby="client-support-heading">
             <div class="client-support-intro">
-              <div><p class="portal-kicker">Requests &amp; work</p><h2 id="client-support-heading">What should we work on?</h2><p>Request a change, feature, or service and follow it here from submission through completion.</p></div>
-              <button class="portal-button" id="client-support-new" type="button">New request</button>
+              <div><p class="portal-kicker">Requests &amp; work</p><h2 id="client-support-heading">What should we work on?</h2><p>Describe a website change in your own words. The assistant will organize it for your review before anything is sent to the website team.</p></div>
+              <button class="portal-button portal-button-secondary" id="client-support-new" type="button">Other request</button>
             </div>
+            <form class="client-change-assistant" id="client-change-assistant">
+              <div class="client-change-assistant-head"><div><p class="portal-kicker">Website Change Assistant</p><h3>What would you like changed?</h3><p>Try “Update our Friday hours to 9 AM–3 PM” or describe a larger website update.</p></div><span class="client-change-safety">Review required</span></div>
+              <label class="client-change-prompt"><span>Your request</span><textarea id="client-change-request" maxlength="4000" rows="4" placeholder="Tell us what should change and what the new result should be." required></textarea></label>
+              <div class="client-change-examples" aria-label="Example requests"><button type="button" data-change-example="Update our business hours">Business hours</button><button type="button" data-change-example="Update our contact information">Contact information</button><button type="button" data-change-example="Change text or images on a page">Page content</button></div>
+              <div class="client-change-review" id="client-change-review" hidden>
+                <div><p class="portal-kicker">Review before sending</p><h4 id="client-change-title">Website change request</h4></div>
+                <dl><div><dt>Type</dt><dd id="client-change-kind">Website change</dd></div><div><dt>Likely area</dt><dd id="client-change-scope">Review needed</dd></div></dl>
+                <p id="client-change-summary"></p>
+                <p class="client-change-question" id="client-change-question" hidden></p>
+                <div class="client-change-notice"><strong>Nothing changes yet.</strong> Sending this creates a request for the website team to review. It does not edit code or publish your website.</div>
+                <div class="client-change-review-actions"><button class="portal-button portal-button-secondary" id="client-change-edit" type="button">Edit request</button><button class="portal-button" id="client-change-submit" type="button">Send for review</button></div>
+              </div>
+              <div class="client-change-actions"><p class="portal-inline-status" id="client-change-status" role="status"></p><button class="portal-button" id="client-change-analyze" type="submit">Review my request</button></div>
+            </form>
             <form class="client-support-form" id="client-support-form" hidden>
               <div class="client-support-form-head"><div><p class="portal-kicker">New request</p><h3>Tell us what you need.</h3></div><button class="client-support-close" id="client-support-close" type="button" aria-label="Close request form">×</button></div>
               <label><span>Related area</span><select id="client-support-scope"><option value="organization">General account</option><option value="website" id="client-support-website-option">Selected website</option></select></label>
@@ -308,7 +322,7 @@
   <script type="module" src="/client-portal/client-shell.js?v=22"></script>
   <script type="module" src="/client-portal/portal-shell.js?v=6"></script>
   <script type="module" src="/client-portal/portal-apps.js?v=8"></script>
-  <script type="module" src="/client-portal/support-workspace.js?v=2"></script>
+  <script type="module" src="/client-portal/support-workspace.js?v=3"></script>
   <script type="module" src="/client-portal/portal.js?v=21"></script>
   <script type="module" src="/website-request/request.js?v=14"></script>
 </body>

@@ -2125,7 +2125,7 @@ Deno.serve(async (request) => {
       const [requestResult, updateResult, websiteResult, organizationResult, accountResult, organizationMembershipResult, websiteMembershipResult, entitlementResult] = await Promise.all([
         adminClient
           .from("platform_support_requests")
-          .select("id, requester_user_id, requester_name, requester_email, organization_name, topic, subject, message, status, priority, assigned_to_user_id, internal_notes, source, origin, website_id, organization_id, client_visible, estimated_start_at, estimated_completion_at, email_message_id, created_at, updated_at, resolved_at")
+          .select("id, requester_user_id, requester_name, requester_email, organization_name, topic, subject, message, status, priority, assigned_to_user_id, internal_notes, source, origin, website_id, organization_id, client_visible, estimated_start_at, estimated_completion_at, email_message_id, intake_mode, change_kind, change_scope, automation_status, assistant_summary, created_at, updated_at, resolved_at")
           .order("created_at", { ascending: false })
           .limit(500),
         adminClient
