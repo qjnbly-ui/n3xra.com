@@ -1,6 +1,6 @@
 import { createBrowserSupabase, getSessionOrNull, hasConfig } from "/shared/lib/supabase-client.js";
 import { setStoredActiveOrganizationId } from "/shared/lib/orgs.js";
-import { resolvePortalTenant } from "./tenant-context.js";
+import { isBrandedPortalHostname, resolvePortalTenant } from "./tenant-context.js";
 const appGrid = document.querySelector("#portal-app-grid");
 const appStatus = document.querySelector("#portal-app-status");
 const HIDDEN_CUSTOMER_PRODUCT_KEYS = new Set(["ai_music", "music", "virals"]);
@@ -54,7 +54,12 @@ function openOnlyAvailableApp(app) {
         setStoredActiveOrganizationId(app.organizationId);
     window.location.replace(app.href);
 }
-function routeOrRenderApps(apps) {
+function routeOrRenderApps(apps, { preferWebsite = false } = {}) {
+    const website = apps.find((app) => app.key === "website");
+    if (preferWebsite && website) {
+        openOnlyAvailableApp(website);
+        return;
+    }
     const subscribedApps = apps.filter((app) => app.key !== "website");
     const [onlySubscribedApp] = subscribedApps;
     if (subscribedApps.length === 1 && onlySubscribedApp) {
@@ -65,7 +70,6 @@ function routeOrRenderApps(apps) {
         renderApps(subscribedApps);
         return;
     }
-    const website = apps.find((app) => app.key === "website");
     if (website)
         openOnlyAvailableApp(website);
 }
@@ -132,7 +136,7 @@ async function loadPortalApps() {
     const apps = [websiteApp(features)];
     const organizationId = String(website?.organization_id || "");
     if (!organizationId) {
-        routeOrRenderApps(apps);
+        routeOrRenderApps(apps, { preferWebsite: isBrandedPortalHostname() });
         return;
     }
     const { data, error } = await supabase
@@ -164,7 +168,7 @@ async function loadPortalApps() {
             organizationId,
         });
     }
-    routeOrRenderApps(apps);
+    routeOrRenderApps(apps, { preferWebsite: isBrandedPortalHostname() });
 }
 appGrid?.addEventListener("click", (event) => {
     const link = event.target.closest("[data-portal-app-organization]");

@@ -1,6 +1,6 @@
 import { createBrowserSupabase, getSessionOrNull, hasConfig } from "/shared/lib/supabase-client.js";
 import { setStoredActiveOrganizationId } from "/shared/lib/orgs.js";
-import { resolvePortalTenant } from "./tenant-context.js";
+import { isBrandedPortalHostname, resolvePortalTenant } from "./tenant-context.js";
 
 interface ProductRow {
   product_key: string;
@@ -92,7 +92,12 @@ function openOnlyAvailableApp(app: PortalApp): void {
   window.location.replace(app.href);
 }
 
-function routeOrRenderApps(apps: PortalApp[]): void {
+function routeOrRenderApps(apps: PortalApp[], { preferWebsite = false } = {}): void {
+  const website = apps.find((app) => app.key === "website");
+  if (preferWebsite && website) {
+    openOnlyAvailableApp(website);
+    return;
+  }
   const subscribedApps = apps.filter((app) => app.key !== "website");
   const [onlySubscribedApp] = subscribedApps;
   if (subscribedApps.length === 1 && onlySubscribedApp) {
@@ -103,7 +108,6 @@ function routeOrRenderApps(apps: PortalApp[]): void {
     renderApps(subscribedApps);
     return;
   }
-  const website = apps.find((app) => app.key === "website");
   if (website) openOnlyAvailableApp(website);
 }
 
@@ -164,7 +168,7 @@ async function loadPortalApps(): Promise<void> {
   const apps = [websiteApp(features)];
   const organizationId = String(website?.organization_id || "");
   if (!organizationId) {
-    routeOrRenderApps(apps);
+    routeOrRenderApps(apps, { preferWebsite: isBrandedPortalHostname() });
     return;
   }
 
@@ -196,7 +200,7 @@ async function loadPortalApps(): Promise<void> {
     });
   }
 
-  routeOrRenderApps(apps);
+  routeOrRenderApps(apps, { preferWebsite: isBrandedPortalHostname() });
 }
 
 appGrid?.addEventListener("click", (event) => {

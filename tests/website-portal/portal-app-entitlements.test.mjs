@@ -36,16 +36,28 @@ test("portal apps are loaded from the tenant website's linked organization", asy
   assert.doesNotMatch(apps, /target\s*=|window\.open\s*\(/);
 });
 
-test("portals skip the app dashboard unless multiple N3XRA apps are subscribed", async () => {
+test("unbranded portals skip the app dashboard unless multiple N3XRA apps are subscribed", async () => {
   const apps = await projectFile("client-portal/portal-apps.js");
 
-  assert.match(apps, /function routeOrRenderApps\(apps\)/);
+  assert.match(apps, /function routeOrRenderApps\(apps, \{ preferWebsite = false \} = \{\}\)/);
   assert.match(apps, /subscribedApps = apps\.filter\(\(app\) => app\.key !== "website"\)/);
   assert.match(apps, /if \(subscribedApps\.length === 1 && onlySubscribedApp\)/);
   assert.match(apps, /if \(subscribedApps\.length > 1\)/);
   assert.match(apps, /window\.location\.replace\(app\.href\)/);
-  assert.match(apps, /routeOrRenderApps\(apps\)/);
+  assert.match(apps, /routeOrRenderApps\(apps, \{ preferWebsite: isBrandedPortalHostname\(\) \}\)/);
   assert.match(apps, /catch\(\(error\) => \{[\s\S]*openOnlyAvailableApp\(websiteApp\(\)\)/);
+});
+
+test("branded website portals prefer Website Management over a single Records subscription", async () => {
+  const apps = await projectFile("client-portal/portal-apps.js");
+
+  assert.match(apps, /import \{ isBrandedPortalHostname, resolvePortalTenant \}/);
+  assert.match(apps, /if \(preferWebsite && website\) \{[\s\S]*openOnlyAvailableApp\(website\);[\s\S]*return;/);
+  assert.match(apps, /routeOrRenderApps\(apps, \{ preferWebsite: isBrandedPortalHostname\(\) \}\)/);
+  assert.ok(
+    apps.indexOf("if (preferWebsite && website)") < apps.indexOf("if (subscribedApps.length === 1 && onlySubscribedApp)"),
+    "the branded website preference must run before the single-subscription redirect",
+  );
 });
 
 test("the website app lands on the first enabled section when Progress is off", async () => {
