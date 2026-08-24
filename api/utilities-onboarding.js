@@ -739,20 +739,13 @@ export default async function handler(req, res) {
 
   try {
     const created = await createUtilityOrganization(payload);
-    let notificationId = null;
-    try {
-      notificationId = await sendNotification(payload, created);
-    } catch (notificationError) {
-      console.error("Utilities onboarding notification failed:", notificationError);
-    }
-
     return res.status(200).json({
       ok: true,
       organization_id: created.organization.id,
       onboarding_session_id: created.onboardingSession.id,
       slug: created.slug,
       domain: created.domain,
-      notification_id: notificationId,
+      notification_delivery: "queued",
     });
   } catch (error) {
     return res.status(error?.status || 500).json({

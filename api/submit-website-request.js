@@ -171,25 +171,5 @@ module.exports = async function handler(req, res) {
   }
   const request = Array.isArray(rows) ? rows[0] : rows;
 
-  let emailWarning = "";
-  try {
-    await sendAdminEmail(request);
-  } catch (error) {
-    emailWarning = error instanceof Error ? error.message : "Request email delivery failed.";
-    await createAdminNotification({
-      eventType: "websites.request_email.failed",
-      product: "websites",
-      priority: "system",
-      title: "Website request email failed",
-      summary: `${request.business_name} was saved, but the admin email was not delivered.`,
-      actorName: request.contact_name,
-      actorEmail: request.contact_email,
-      sourceTable: "website_service_requests",
-      sourceId: request.id,
-      actionUrl: `/n3xra-admin/requests/?request=${encodeURIComponent(request.id)}`,
-      metadata: { delivery_error: emailWarning },
-    }).catch(() => null);
-  }
-
-  return res.status(201).json({ request, notification: { adminInbox: true, email: !emailWarning }, emailWarning: emailWarning || null });
+  return res.status(201).json({ request, notification: { adminInbox: true, email: "queued" } });
 };

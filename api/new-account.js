@@ -1,4 +1,3 @@
-const NEW_ACCOUNT_NOTIFY_TO = "quentin@n3xra.com";
 const { createAdminNotification } = require("./_admin-notifications");
 
 function getSignupSummary(signupMode) {
@@ -108,11 +107,6 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed." });
   }
 
-  const resendApiKey = process.env.RESEND_API_KEY;
-  if (!resendApiKey) {
-    return res.status(500).json({ error: "Missing RESEND_API_KEY." });
-  }
-
   const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : (req.body || {});
   const payload = {
     fullName: String(body.fullName || "").trim(),
@@ -128,49 +122,14 @@ export default async function handler(req, res) {
   }
 
   const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailPattern.test(payload.email) || !emailPattern.test(NEW_ACCOUNT_NOTIFY_TO)) {
+  if (!emailPattern.test(payload.email)) {
     return res.status(400).json({ error: "Invalid email configuration." });
   }
 
   const summary = getSignupSummary(payload.signupMode);
 
   try {
-    const response = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${resendApiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        from: "n3xra.com <noreply@n3xra.com>",
-        to: [NEW_ACCOUNT_NOTIFY_TO],
-        subject: `[New Signup • ${summary.product}] ${payload.email}`,
-        html: buildHtmlEmail(payload),
-        text: buildTextEmail(payload),
-        reply_to: payload.email,
-      }),
-    });
-
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      await createAdminNotification({
-        eventType: "system.email_delivery_failed",
-        product: "accounts",
-        priority: "important",
-        title: "New-account notification email failed",
-        summary: `${payload.email} · ${String(data?.message || data?.error || "Unknown delivery error")}`,
-        messageText: buildTextEmail(payload),
-        actorName: payload.fullName,
-        actorEmail: payload.email,
-        actionUrl: "/account/admin/accounts/",
-        metadata: { provider: "resend", error: data },
-      }).catch(() => null);
-      return res.status(response.status).json({
-        error: String(data?.message || data?.error || "Unable to send account notification."),
-      });
-    }
-
-    await createAdminNotification({
+    const notification = await createAdminNotification({
       eventType: "account.created",
       product: "accounts",
       priority: "important",
@@ -181,24 +140,13 @@ export default async function handler(req, res) {
       actorName: payload.fullName,
       actorEmail: payload.email,
       actionUrl: "/account/admin/accounts/",
-      metadata: { signup_mode: payload.signupMode, email_message_id: data?.id || null },
-    }).catch((error) => console.error("Account notification persistence failed:", error));
+      metadata: { signup_mode: payload.signupMode },
+    });
 
-    return res.status(200).json({ ok: true, id: data?.id || null });
+    return res.status(200).json({ ok: true, notification_id: notification?.id || null, notification_delivery: "queued" });
   } catch (error) {
-    await createAdminNotification({
-      eventType: "system.email_delivery_failed",
-      product: "accounts",
-      priority: "important",
-      title: "New-account notification failed",
-      summary: error instanceof Error ? error.message : "Unable to send account notification.",
-      messageText: buildTextEmail(payload),
-      actorName: payload.fullName,
-      actorEmail: payload.email,
-      actionUrl: "/account/admin/accounts/",
-    }).catch(() => null);
     return res.status(500).json({
-      error: error instanceof Error ? error.message : "Unable to send account notification.",
+      error: error instanceof Error ? error.message : "Unable to save account notification.",
     });
   }
 }

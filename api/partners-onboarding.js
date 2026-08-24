@@ -310,31 +310,12 @@ export default async function handler(req, res) {
     const inserted = await insertPartnerApplication(payload);
     const savedPayload = { ...payload, id: inserted?.id || null };
     const confirmationPromise = generateAiConfirmation(savedPayload);
-    let notificationId = null;
-    try {
-      notificationId = await sendNotification(savedPayload);
-    } catch (notificationError) {
-      console.error("Partner notification failed:", notificationError);
-      await createAdminNotification({
-        eventType: "system.email_delivery_failed",
-        product: "partners",
-        priority: "important",
-        title: "Partner application email failed",
-        summary: notificationError instanceof Error ? notificationError.message : "Partner notification delivery failed.",
-        messageText: buildTextEmail(savedPayload),
-        actorName: savedPayload.full_name,
-        actorEmail: savedPayload.email,
-        sourceTable: "founding_partner_applications",
-        sourceId: savedPayload.id,
-        actionUrl: "/n3xra-admin/partners/",
-      }).catch(() => null);
-    }
     const confirmation = await confirmationPromise;
 
     return res.status(200).json({
       ok: true,
       id: inserted?.id || null,
-      notification_id: notificationId,
+      notification_delivery: "queued",
       confirmation,
     });
   } catch (error) {
