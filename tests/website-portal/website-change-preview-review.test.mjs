@@ -133,11 +133,10 @@ test("production email waits for Vercel readiness after merge", async () => {
   assert.match(productionMigration, /production_deployment_url/);
   assert.match(productionMigration, /production_ready_at/);
   assert.match(productionMigration, /production_deploying/);
-  assert.match(edge, /sendProductionBuildingEmail/);
-  assert.match(edge, /production_building/);
+  assert.doesNotMatch(edge, /sendProductionBuildingEmail/);
+  assert.doesNotMatch(edge, /production_building/);
   assert.match(edge, /n3xra-website-publish/);
   assert.match(edge, /progress_stage: "production_deploying"/);
-  assert.ok(edge.indexOf("sendProductionBuildingEmail(admin, run)") < edge.indexOf('event_type: "n3xra-website-publish"'));
   assert.doesNotMatch(edge, /website-change\/\$\{run\.id\}\/published/);
   assert.match(workflow, /verify-production/);
   assert.match(workflow, /listDeployments\(\{ owner, repo, sha/);

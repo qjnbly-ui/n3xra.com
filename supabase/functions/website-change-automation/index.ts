@@ -34,37 +34,6 @@ async function githubToken() {
 async function githubRequest(path: string, token: string, init: RequestInit = {}) {
   return fetch(`https://api.github.com${path}`, { ...init, headers: { Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json", "Content-Type": "application/json", "X-GitHub-Api-Version": "2022-11-28", ...(init.headers || {}) } });
 }
-const emailEscape = (value: unknown) => String(value || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\"/g, "&quot;").replace(/'/g, "&#39;");
-async function sendProductionBuildingEmail(admin: any, run: Record<string, any>) {
-  const resendKey = String(Deno.env.get("RESEND_API_KEY") || "").trim();
-  if (!resendKey) throw new Error("RESEND_API_KEY is missing.");
-  const [supportResult, websiteResult] = await Promise.all([
-    admin.from("platform_support_requests").select("requester_name,requester_email,subject").eq("id", run.request_id).single(),
-    admin.from("client_websites").select("name,portal_slug,live_url").eq("id", run.website_id).single(),
-  ]);
-  if (supportResult.error || websiteResult.error) throw new Error("The client email details could not be loaded.");
-  const support = supportResult.data, website = websiteResult.data;
-  const recipient = clean(support?.requester_email, 320).toLowerCase();
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient)) throw new Error("The support request does not have a valid client email address.");
-  const firstName = clean(support?.requester_name, 120).split(/\s+/)[0], site = clean(website?.name || "your website", 160), change = clean(support?.subject || "Website update", 160);
-  const actionUrl = `https://${website.portal_slug}.portal.n3xra.com/`;
-  const greeting = firstName ? `Hi ${firstName},` : "Hello,";
-  const message = "N3XRA approved the requested change and merged it into the website's main branch. Vercel is building the production website now. You will receive another message when the update is live.";
-  const emailResponse = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json", "Idempotency-Key": `website-change/${run.id}/production_building` },
-    body: JSON.stringify({
-      from: Deno.env.get("WEBSITE_CHANGE_EMAIL_FROM") || "N3XRA Website Updates <noreply@n3xra.com>",
-      to: [recipient],
-      subject: `Your ${site} update is building`,
-      text: `${greeting}\n\n${message}\n\nRequest: ${change}\nOpen client portal: ${actionUrl}`,
-      html: `<div style="margin:0;padding:32px 16px;background:#edf3f5;font-family:Arial,sans-serif;color:#101820;line-height:1.6"><div style="max-width:640px;margin:0 auto"><div style="padding:28px 32px;background:#07111b;color:#fff;border-radius:22px 22px 0 0"><p style="margin:0 0 9px;color:#69c7bd;font-size:12px;font-weight:800;letter-spacing:.18em;text-transform:uppercase">N3XRA Website Management</p><h1 style="margin:0;font-family:Georgia,serif;font-size:30px;line-height:1.2">Your approved update is building</h1></div><div style="padding:30px 32px;background:#fff;border:1px solid #dce4e8;border-top:0;border-radius:0 0 22px 22px"><p style="margin:0 0 16px;font-size:16px">${emailEscape(greeting)}</p><p style="margin:0 0 20px;font-size:16px">${emailEscape(message)}</p><div style="margin:0 0 22px;padding:16px 18px;background:#f4f8f8;border-left:4px solid #278b80"><p style="margin:0;color:#66727c;font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase">Requested change</p><p style="margin:5px 0 0;font-weight:700">${emailEscape(change)}</p></div><a href="${emailEscape(actionUrl)}" style="display:inline-block;padding:13px 21px;background:#07111b;color:#fff;text-decoration:none;font-weight:800;border-radius:8px">Open client portal</a></div></div></div>`,
-    }),
-  });
-  const emailPayload = await emailResponse.json().catch(() => ({}));
-  if (!emailResponse.ok) throw new Error(clean(emailPayload?.message || emailPayload?.error || `Resend returned ${emailResponse.status}.`, 2000));
-  return emailPayload?.id || null;
-}
 Deno.serve(async (request) => {
   if (request.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (request.method !== "POST") return reply({ error: "Method not allowed." }, 405);
@@ -111,15 +80,6 @@ Deno.serve(async (request) => {
       const productionCallbackToken = base64Url(crypto.getRandomValues(new Uint8Array(32)));
       await admin.from("website_change_runs").update({ state: "merged", merge_sha: mergeData.sha, progress_stage: "production_deploying", progress_message: "The approved change is on the main branch. Vercel is building the production website now.", progress_updated_at: now, error_message: null, approved_by_user_id: user.id, approved_at: now, merged_at: now, callback_token_hash: await sha256(productionCallbackToken), callback_expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString(), updated_at: now }).eq("id", run.id);
       await admin.from("platform_support_requests").update({ status: "in_progress", automation_status: "running", resolved_at: null, updated_at: now }).eq("id", run.request_id);
-
-      try {
-        await sendProductionBuildingEmail(admin, run);
-        await admin.from("website_change_runs").update({ building_email_sent_at: now, client_email_delivery_error: null, updated_at: now }).eq("id", run.id);
-      } catch (emailError) {
-        const deliveryError = clean(emailError instanceof Error ? emailError.message : "The production-building email could not be sent.", 2000);
-        await admin.from("website_change_runs").update({ client_email_delivery_error: deliveryError, updated_at: now }).eq("id", run.id);
-        console.error("Production-building website email failed:", deliveryError);
-      }
 
       const automationRepository = clean(Deno.env.get("GITHUB_AUTOMATION_REPOSITORY") || "qjnbly-ui/n3xra.com", 200);
       const [automationOwner, automationName] = automationRepository.split("/");
