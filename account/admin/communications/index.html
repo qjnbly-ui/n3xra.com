@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>N3XRA | Calls &amp; Messages</title>
+  <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
+  <link rel="icon" href="/assets/n3xra_logo_transparent_small.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/site-nav.css?v=4">
+  <link rel="stylesheet" href="/n3xra-records/styles.css?v=20260820-mobile-interactions">
+  <link rel="stylesheet" href="/account/account.css">
+  <link rel="stylesheet" href="/client-portal/portal.css?v=17">
+  <link rel="stylesheet" href="/account/admin/admin.css?v=33">
+  <link rel="stylesheet" href="/assets/home-shell.css?v=1">
+  <link rel="stylesheet" href="/account/admin/communications/communications.css?v=1">
+  <script src="/shared/config.js"></script>
+  <script src="/account/admin/admin-shell.js?v=2" defer></script>
+  <script src="/assets/site-nav.js?v=5"></script>
+  <script src="https://sdk.twilio.com/js/voice/releases/2.18.3/twilio.min.js" defer></script>
+</head>
+<body>
+  <main class="portal-shell account-admin-page communications-page">
+    <section class="portal-layout hidden" id="communications-panel">
+      <nav class="portal-nav" aria-label="N3XRA administration"></nav>
+      <section class="portal-workspace communications-workspace">
+        <header class="communications-header">
+          <div>
+            <p class="communications-kicker">Receptionist business line</p>
+            <h1>Calls &amp; Messages</h1>
+            <p>One-to-one texts and outgoing calls from <strong>(541) 652-6840</strong>. Mass updates remain in Account Announcements.</p>
+          </div>
+          <button class="portal-button portal-button-secondary" id="communications-refresh" type="button">Refresh</button>
+        </header>
+
+        <div class="communications-tabs" role="tablist" aria-label="Communication tools">
+          <button class="is-active" data-tab="messages" type="button">Messages <span id="unread-count"></span></button>
+          <button data-tab="call" type="button">Call</button>
+          <button data-tab="preferences" type="button">Text Preferences</button>
+        </div>
+
+        <p class="communications-status" id="communications-status" aria-live="polite"></p>
+
+        <section class="communications-tab is-active" data-panel="messages">
+          <div class="communications-start">
+            <label for="contact-picker">Start or open a conversation</label>
+            <div>
+              <select id="contact-picker"><option value="">Select an opted-in account…</option></select>
+              <button class="portal-button" id="open-contact" type="button">Open</button>
+            </div>
+          </div>
+          <div class="communications-inbox">
+            <aside class="thread-list" id="thread-list"><p class="communications-empty">No conversations yet.</p></aside>
+            <section class="message-pane">
+              <header id="message-header"><div><strong>Select a conversation</strong><span>Messages will appear here.</span></div></header>
+              <div class="message-list" id="message-list"><p class="communications-empty">Choose an account above or select a conversation.</p></div>
+              <form class="message-compose" id="message-form">
+                <textarea id="message-body" maxlength="1600" rows="3" placeholder="Write a text message…" disabled></textarea>
+                <div><span id="message-count">0 / 1,600</span><button class="portal-button" id="send-message" type="submit" disabled>Send text</button></div>
+              </form>
+            </section>
+          </div>
+        </section>
+
+        <section class="communications-tab" data-panel="call" hidden>
+          <div class="call-card">
+            <p class="communications-kicker">Outgoing call</p>
+            <h2>Call from the N3XRA business line</h2>
+            <p>The person you call will see <strong>(541) 652-6840</strong> as the caller ID.</p>
+            <label for="call-contact">Account or phone number</label>
+            <select id="call-contact"><option value="">Select an account…</option></select>
+            <input id="call-phone" type="tel" autocomplete="tel" placeholder="Or enter a phone number">
+            <div class="call-actions">
+              <button class="portal-button" id="start-call" type="button">Start call</button>
+              <button class="portal-button danger hidden" id="end-call" type="button">End call</button>
+            </div>
+            <p class="call-state" id="call-state">Ready to call.</p>
+          </div>
+        </section>
+
+        <section class="communications-tab" data-panel="preferences" hidden>
+          <div class="preferences-card">
+            <div><p class="communications-kicker">Permission safeguards</p><h2>Text Preferences</h2><p>One-to-one messages and announcements both honor each person’s latest opt-in or opt-out.</p></div>
+            <div class="preference-summary"><strong id="opted-in-count">0</strong><span>opted in</span></div>
+          </div>
+          <div class="preferences-list" id="preferences-list"></div>
+        </section>
+      </section>
+    </section>
+  </main>
+  <script type="module" src="/account/admin/communications/communications.js?v=1"></script>
+</body>
+</html>

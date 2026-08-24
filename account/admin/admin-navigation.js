@@ -115,6 +115,7 @@ const companyLinks = [
 
 const toolLinks = [
   ["/account/admin/codebase-ai/", "Codebase AI"],
+  ["/account/admin/communications/", "Calls & Messages"],
   ["/account/notifications/", "Account Announcements"],
 ];
 
@@ -629,6 +630,9 @@ export async function navigateAdminWorkspace(destination, {
     } else if (url.pathname === "/account/notifications/") {
       const notifications = await import("/account/notifications/notifications.js?v=13");
       await notifications.startNotifications();
+    } else if (url.pathname === "/account/admin/communications/") {
+      const communications = await import("/account/admin/communications/communications.js?v=1");
+      await communications.startCommunications();
     } else {
       const admin = await import("/account/admin/admin.js?v=36");
       await admin.startAdmin();
