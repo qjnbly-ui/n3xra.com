@@ -126,9 +126,15 @@ async function startCall() {
   $("call-state").textContent = "Preparing secure call…";
   try {
     await ensureTwilioVoice();
-    const tokenResponse = await fetch("/api/admin-communications-voice-token", { headers:{ Authorization:`Bearer ${context.session.access_token}` } });
-    const data = await tokenResponse.json().catch(() => ({}));
-    if (!tokenResponse.ok) throw new Error(data.error || "Calling is unavailable.");
+    const { data, error } = await context.supabase.functions.invoke("admin-voice-token", { body:{} });
+    if (error || !data?.token) {
+      let message = data?.error || error?.message || "Calling is unavailable.";
+      if (error?.context?.json) {
+        const detail = await error.context.json().catch(() => null);
+        message = detail?.error || message;
+      }
+      throw new Error(message);
+    }
     const device = new window.Twilio.Device(data.token, { logLevel:1, closeProtection:true });
     activeCall = await device.connect({ params:{ To:phone } });
     $("start-call").disabled = true;

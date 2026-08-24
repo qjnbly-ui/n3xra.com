@@ -54,3 +54,21 @@ test("the admin communications feature keeps credentials server-side and consent
   assert.match(navigation, /communications\.startCommunications\(\)/);
   assert.match(page, /Mass updates remain in Account Announcements/);
 });
+
+test("browser calling obtains a short-lived token from an admin-only Supabase function", async () => {
+  const [browser, voiceFunction, migration, config] = await Promise.all([
+    readFile(new URL("../../account/admin/communications/communications.js", import.meta.url), "utf8"),
+    readFile(new URL("../../supabase/functions/admin-voice-token/index.ts", import.meta.url), "utf8"),
+    readFile(new URL("../../supabase/migrations/20260824195612_add_admin_voice_configuration.sql", import.meta.url), "utf8"),
+    readFile(new URL("../../supabase/config.toml", import.meta.url), "utf8"),
+  ]);
+  assert.match(browser, /functions\.invoke\("admin-voice-token"/);
+  assert.match(voiceFunction, /\.from\("platform_admins"\)/);
+  assert.match(voiceFunction, /\.eq\("status", "active"\)/);
+  assert.match(voiceFunction, /exp: now \+ 900/);
+  assert.match(voiceFunction, /N3XRA Admin Browser Calling/);
+  assert.match(voiceFunction, /admin-communications-voice-outbound/);
+  assert.doesNotMatch(browser, /TWILIO_API_KEY_SECRET|twilio_api_key_secret/);
+  assert.match(migration, /revoke all on table public\.admin_voice_configuration from public, anon, authenticated/);
+  assert.match(config, /\[functions\.admin-voice-token\]\s*verify_jwt = true/);
+});
