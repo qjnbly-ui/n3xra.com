@@ -4,6 +4,10 @@ body:not(.admin-ready):not(.portal-loading):not(.product-native-admin) main.acco
   visibility: hidden;
 }
 
+body[data-admin-role="operations_admin"] [data-site-assistant-open] {
+  display: none !important;
+}
+
 .portal-nav .site-menu-link {
   min-height: 0;
   letter-spacing: normal;

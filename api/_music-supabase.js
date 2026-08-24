@@ -113,7 +113,7 @@ async function verifySupabaseUser(token) {
   if (!data?.id) throw new SupabaseApiError("Invalid Supabase session.", 401, data);
 
   const administrators = await fetchJson(
-    `${SUPABASE_URL}/rest/v1/platform_admins?select=user_id,role,status&user_id=eq.${encodeFilter(data.id)}&status=eq.active&role=in.(owner,admin)&limit=1`,
+    `${SUPABASE_URL}/rest/v1/platform_admins?select=user_id,role,status&user_id=eq.${encodeFilter(data.id)}&status=eq.active&role=in.(owner,admin)&access_scope=eq.full&limit=1`,
     { headers: serviceHeaders() },
   );
   if (!Array.isArray(administrators) || !administrators.length) {

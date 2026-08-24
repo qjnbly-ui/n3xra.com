@@ -123,6 +123,35 @@ const ownershipLinks = [
   ["/account/admin/investment/", "Ownership & Governance"],
 ];
 
+const operationsAdminAllowedLinks = new Set([
+  "/account/",
+  "/account/admin/inbox/",
+  "/account/admin/accounts/",
+  "/account/admin/support/",
+  "/account/admin/billing/",
+  "/account/admin/operations/",
+  "/account/admin/analytics/",
+  "/account/admin/applications/",
+  "/account/admin/business-info/",
+  "/account/admin/files/",
+  "/account/admin/communications/",
+  "/account/notifications/",
+]);
+
+const operationsAdminProductKeys = new Set(["websites", "records", "communications"]);
+
+function isOperationsAdministrator() {
+  return String(window.__n3xraAdminRole || "").toLowerCase() === "operations_admin";
+}
+
+function visibleLinks(items) {
+  return isOperationsAdministrator() ? items.filter(([href]) => operationsAdminAllowedLinks.has(href)) : items;
+}
+
+function visibleProductApps() {
+  return isOperationsAdministrator() ? productApps.filter((app) => operationsAdminProductKeys.has(app.key)) : productApps;
+}
+
 function normalizePath(pathname) {
   const path = String(pathname || "/").replace(/\/+$/, "");
   return path ? `${path}/` : "/";
@@ -375,7 +404,8 @@ function mobileSection({ title, meta = "", className = "", content }) {
 function mobileNavigationMarkup() {
   const activeApp = productAppFromUrl();
   const links = (items) => `<div class="admin-mobile-link-grid">${items.map((item) => linkMarkup(item, true)).join("")}</div>`;
-  const productContent = `<div class="admin-mobile-product-list">${productApps.map((app) => {
+  const availableProductApps = visibleProductApps();
+  const productContent = `<div class="admin-mobile-product-list">${availableProductApps.map((app) => {
     const isActive = activeApp?.key === app.key;
     return `
       <div class="admin-mobile-product${isActive ? " is-active" : ""}">
@@ -397,13 +427,13 @@ function mobileNavigationMarkup() {
       <a class="site-menu-link" href="/account/">Dashboard</a>
       <button class="site-menu-link" type="button" data-admin-mobile-sign-out>Sign out</button>
     </div>
-    ${mobileSection({ title: "Overview", content: links(overviewLinks.slice(1)) })}
-    ${mobileSection({ title: "People & Access", content: links(peopleLinks) })}
-    ${mobileSection({ title: "Customer Operations", content: links(customerOperationsLinks) })}
-    ${mobileSection({ title: "Products", meta: `${productApps.length} workspaces`, className: "admin-mobile-products", content: productContent })}
-    ${mobileSection({ title: "Company", content: links(companyLinks) })}
-    ${mobileSection({ title: "Tools", content: links(toolLinks) })}
-    ${mobileSection({ title: "Ownership", content: links(ownershipLinks) })}
+    ${mobileSection({ title: "Overview", content: links(visibleLinks(overviewLinks.slice(1))) })}
+    ${mobileSection({ title: "People & Access", content: links(visibleLinks(peopleLinks)) })}
+    ${mobileSection({ title: "Customer Operations", content: links(visibleLinks(customerOperationsLinks)) })}
+    ${mobileSection({ title: "Products", meta: `${availableProductApps.length} workspaces`, className: "admin-mobile-products", content: productContent })}
+    ${mobileSection({ title: "Company", content: links(visibleLinks(companyLinks)) })}
+    ${mobileSection({ title: "Tools", content: links(visibleLinks(toolLinks)) })}
+    ${isOperationsAdministrator() ? "" : mobileSection({ title: "Ownership", content: links(ownershipLinks) })}
   `;
 }
 
@@ -418,25 +448,25 @@ function navigationMarkup(mobile = false) {
 
   return [
     label("Overview"),
-    overviewLinks.map((item) => linkMarkup(item, mobile)).join(""),
+    visibleLinks(overviewLinks).map((item) => linkMarkup(item, mobile)).join(""),
     divider,
     label("People & Access"),
-    peopleLinks.map((item) => linkMarkup(item, mobile)).join(""),
+    visibleLinks(peopleLinks).map((item) => linkMarkup(item, mobile)).join(""),
     divider,
     label("Customer Operations"),
-    customerOperationsLinks.map((item) => linkMarkup(item, mobile)).join(""),
+    visibleLinks(customerOperationsLinks).map((item) => linkMarkup(item, mobile)).join(""),
     divider,
     label("Products"),
-    productApps.map((app) => productMarkup(app, mobile)).join(""),
+    visibleProductApps().map((app) => productMarkup(app, mobile)).join(""),
     divider,
     label("Company"),
-    companyLinks.map((item) => linkMarkup(item, mobile)).join(""),
+    visibleLinks(companyLinks).map((item) => linkMarkup(item, mobile)).join(""),
     divider,
     label("Tools"),
-    toolLinks.map((item) => linkMarkup(item, mobile)).join(""),
-    divider,
-    label("Ownership"),
-    ownershipLinks.map((item) => linkMarkup(item, mobile)).join(""),
+    visibleLinks(toolLinks).map((item) => linkMarkup(item, mobile)).join(""),
+    isOperationsAdministrator() ? "" : divider,
+    isOperationsAdministrator() ? "" : label("Ownership"),
+    isOperationsAdministrator() ? "" : ownershipLinks.map((item) => linkMarkup(item, mobile)).join(""),
   ].join("");
 }
 
@@ -586,7 +616,7 @@ function websitePageController(page) {
 }
 
 async function startWebsiteWorkspace(page) {
-  const productShell = await import("/account/admin/product-shell.js?v=13");
+  const productShell = await import("/account/admin/product-shell.js?v=17");
   await productShell.startProductShell();
   const websiteWorkspace = await import("/n3xra-admin/website-admin-workspace.js?v=14");
   websiteWorkspace.startWebsiteAdminWorkspace();
@@ -599,7 +629,7 @@ async function startWebsiteWorkspace(page) {
 }
 
 async function startNativeProductWorkspace(page) {
-  const productShell = await import("/account/admin/product-shell.js?v=13");
+  const productShell = await import("/account/admin/product-shell.js?v=17");
   await productShell.startProductShell();
   const controllerUrl = websitePageController(page);
   if (!controllerUrl) throw new Error("This product workspace has no controller.");
@@ -667,13 +697,13 @@ export async function navigateAdminWorkspace(destination, {
       await startNativeProductWorkspace(page);
     } else if (url.pathname === "/account/admin/inbox/") {
       softNavigationSequence += 1;
-      const inbox = await import(`/account/admin/inbox/inbox.js?v=7&admin_view=${softNavigationSequence}`);
+      const inbox = await import(`/account/admin/inbox/inbox.js?v=9&admin_view=${softNavigationSequence}`);
       await inbox.startInbox();
     } else if (url.pathname === "/account/notifications/") {
-      const notifications = await import("/account/notifications/notifications.js?v=13");
+      const notifications = await import("/account/notifications/notifications.js?v=14");
       await notifications.startNotifications();
     } else if (url.pathname === "/account/admin/communications/") {
-      const communications = await import("/account/admin/communications/communications.js?v=4");
+      const communications = await import("/account/admin/communications/communications.js?v=5");
       await communications.startCommunications();
     } else {
       const admin = await import("/account/admin/admin.js?v=36");

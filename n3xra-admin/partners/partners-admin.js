@@ -1,5 +1,5 @@
 import { hasConfig } from "/shared/lib/supabase-client.js";
-import { getAdminSession } from "/account/admin/admin-session.js";
+import { getAdminSession } from "/account/admin/admin-session.js?v=2";
 
 const statusScreen = document.getElementById("portal-status");
 const list = document.getElementById("partner-application-list");

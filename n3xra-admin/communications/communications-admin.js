@@ -1,4 +1,4 @@
-import { getAdminSession } from "/account/admin/admin-session.js";
+import { getAdminSession } from "/account/admin/admin-session.js?v=2";
 const root = document.querySelector("#communications-admin-root");
 const statusLayer = document.querySelector("#communications-admin-status");
 const section = (root?.dataset.section || "overview");

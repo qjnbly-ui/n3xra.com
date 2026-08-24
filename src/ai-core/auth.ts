@@ -73,7 +73,7 @@ export class IdentityResolver {
     const serviceKey = String(this.env.SUPABASE_SECRET_KEY || this.env.SUPABASE_SERVICE_ROLE_KEY || this.env.SERVICE_ROLE_KEY || "").trim();
     if (!serviceKey) return { audience: "account", user, adminRole: null };
     const adminResponse = await this.fetcher(
-      `${supabaseUrl}/rest/v1/platform_admins?select=role,status&user_id=eq.${encodeURIComponent(user.id)}&status=eq.active&limit=1`,
+      `${supabaseUrl}/rest/v1/platform_admins?select=role,status,access_scope&user_id=eq.${encodeURIComponent(user.id)}&status=eq.active&limit=1`,
       {
         headers: elevatedHeaders(serviceKey),
         signal: withTimeout(this.timeoutMs),
@@ -81,7 +81,8 @@ export class IdentityResolver {
     );
     const admins = await adminResponse.json().catch(() => []) as Array<Record<string, unknown>>;
     const role = adminResponse.ok ? String(admins[0]?.role || "").toLowerCase() : "";
-    const isAdmin = ["owner", "admin"].includes(role);
+    const accessScope = adminResponse.ok ? String(admins[0]?.access_scope || "full").toLowerCase() : "";
+    const isAdmin = ["owner", "admin"].includes(role) && accessScope === "full";
     return { audience: isAdmin ? "admin" : "account", user, adminRole: isAdmin ? role : null };
   }
 }

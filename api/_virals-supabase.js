@@ -224,7 +224,7 @@ async function loadViralsAccessProfile(user) {
 async function isViralsAdmin(user) {
   if (!user?.id) return false;
   const rows = await fetchJson(
-    `${MAIN_SUPABASE_URL}/rest/v1/platform_admins?select=user_id,role,status&user_id=eq.${encodeFilter(user.id)}&status=eq.active&role=in.(owner,admin)&limit=1`,
+    `${MAIN_SUPABASE_URL}/rest/v1/platform_admins?select=user_id,role,status&user_id=eq.${encodeFilter(user.id)}&status=eq.active&role=in.(owner,admin)&access_scope=eq.full&limit=1`,
     { headers: serviceHeadersForUrl(MAIN_SUPABASE_URL) },
   ).catch(() => []);
   return Boolean(firstRow(rows));

@@ -1,4 +1,4 @@
-import { getAdminSession } from "/account/admin/admin-session.js";
+import { getAdminSession } from "/account/admin/admin-session.js?v=2";
 import { readWorkspaceContext, writeWorkspaceContext } from "/client-portal/workspace-context.js";
 import { extractLogoPortalColors } from "/shared/lib/logo-color-extractor.js?v=1";
 

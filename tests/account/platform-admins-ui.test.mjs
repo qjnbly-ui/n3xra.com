@@ -33,7 +33,7 @@ test("administrator invitations open from the roster instead of occupying the de
   assert.match(controller, /create-platform-admin-invite", \{ accountUserId, role \}/);
   assert.match(controller, /platform-admin-add["']\)\?\.addEventListener\("click", openPlatformAdminInviteDialog\)/);
   assert.match(controller, /event\.target === event\.currentTarget/);
-  assert.match(adminScript, /controllers\/platform-admins\.js\?v=3/);
+  assert.match(adminScript, /controllers\/platform-admins\.js\?v=4/);
   assert.match(platformAdminFunction, /action === "list-platform-admin-candidates"/);
   assert.match(platformAdminFunction, /auth\.admin\.getUserById\(accountUserId\)/);
   assert.match(platformAdminFunction, /Owner admin access required/);

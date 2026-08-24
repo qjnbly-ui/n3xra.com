@@ -56,9 +56,16 @@ function platformAdminEntry(key) {
   return { type: "", item: null };
 }
 
+function effectivePlatformAdminRole(item) {
+  return String(item?.role || "admin") === "admin" && String(item?.access_scope || "full") === "operations"
+    ? "operations_admin"
+    : String(item?.role || "admin");
+}
+
 function candidateAccessLabel(candidate) {
   if (candidate.access === "owner") return "Master owner";
   if (candidate.access === "admin") return "Platform administrator";
+  if (candidate.access === "operations_admin") return "Operations administrator";
   if (candidate.access === "reviewer") return "App reviewer";
   if (candidate.access === "pending") return "Invitation pending";
   return "Available";
@@ -114,9 +121,10 @@ function renderPlatformAdminDetail() {
   const email = String(item.email || "Unknown account");
   const status = String(item.status || "active");
   const isAdmin = type === "admin";
-  const role = String(item.role || "admin");
+  const role = effectivePlatformAdminRole(item);
   const isOwner = role === "owner";
   const isReviewer = role === "reviewer";
+  const isOperationsAdmin = role === "operations_admin";
   const pending = !isAdmin && status === "pending";
   const accountParams = new URLSearchParams({ email });
   if (item.user_id) accountParams.set("user", item.user_id);
@@ -124,12 +132,12 @@ function renderPlatformAdminDetail() {
     <article class="platform-admin-detail-card">
       <div class="platform-admin-detail-head"><div class="account-admin-identity"><span class="account-admin-avatar" aria-hidden="true">${escapeHtml(platformAdminInitials(email))}</span><div><p class="portal-kicker">${isAdmin ? "Administrator account" : "Administrator invitation"}</p><h3>${escapeHtml(email)}</h3><span class="account-state-pill ${status === "active" || pending ? "is-active" : "is-suspended"}">${escapeHtml(status)}</span></div></div>${isAdmin ? `<a class="portal-button portal-button-secondary" href="/account/admin/accounts/?${escapeHtml(accountParams.toString())}">Open account</a>` : ""}</div>
       <div class="platform-admin-detail-facts">
-        <div><span>Access level</span><strong>${isOwner ? "Master owner" : isReviewer ? "App reviewer" : isAdmin ? "Platform administrator" : "Access invitation"}</strong></div>
+        <div><span>Access level</span><strong>${isOwner ? "Master owner" : isReviewer ? "App reviewer" : isOperationsAdmin ? "Operations administrator" : isAdmin ? "Platform administrator" : "Access invitation"}</strong></div>
         <div><span>Status</span><strong>${escapeHtml(status)}</strong></div>
         <div><span>${isAdmin ? "Access granted" : "Created"}</span><strong>${escapeHtml(formatAdminDate(item.created_at))}</strong></div>
         <div><span>${isAdmin ? "Last updated" : "Expires"}</span><strong>${escapeHtml(formatAdminDate(isAdmin ? item.updated_at : item.expires_at))}</strong></div>
       </div>
-      <div class="platform-admin-permission-note"><div><p class="portal-kicker">Permission scope</p><h4>${isOwner ? "Full owner control" : isReviewer ? "Review-only mobile access" : "N3XRA administration access"}</h4><p>${isOwner ? "The master owner controls administrator invitations and cannot be revoked from this page." : isReviewer ? "This account can sign in to the N3XRA Admin mobile app and see synthetic review data only. It cannot open web administration or live customer data." : isAdmin ? "This account can open N3XRA administration tools and internal admin workspaces." : role === "reviewer" ? "This person receives review-only mobile access after accepting the secure invitation." : "This person receives platform administration access after accepting the secure invitation."}</p></div></div>
+      <div class="platform-admin-permission-note"><div><p class="portal-kicker">Permission scope</p><h4>${isOwner ? "Full owner control" : isReviewer ? "Review-only mobile access" : isOperationsAdmin ? "Selected operations workspaces" : "N3XRA administration access"}</h4><p>${isOwner ? "The master owner controls administrator invitations and cannot be revoked from this page." : isReviewer ? "This account can sign in to the N3XRA Admin mobile app and see synthetic review data only. It cannot open web administration or live customer data." : isOperationsAdmin ? "This account can use the approved customer, product, company, communications, and financial workspaces without owner, partner, strategy, governance, or codebase administration." : isAdmin ? "This account can open N3XRA administration tools and internal admin workspaces." : role === "reviewer" ? "This person receives review-only mobile access after accepting the secure invitation." : role === "operations_admin" ? "This person receives the selected Operations Administrator workspaces after accepting the secure invitation." : "This person receives platform administration access after accepting the secure invitation."}</p></div></div>
       ${(isAdmin && !isOwner && status === "active") || pending ? `<div class="platform-admin-detail-actions"><button class="portal-button portal-button-secondary account-danger-button" type="button" data-platform-admin-action="${isAdmin ? "revoke-admin" : "revoke-invite"}" data-platform-admin-id="${escapeHtml(String(isAdmin ? item.user_id : item.id))}">${isAdmin ? "Revoke administrator access" : "Revoke invitation"}</button></div>` : ""}
     </article>
   `;
@@ -152,8 +160,8 @@ function renderPlatformAdmins(data = {}) {
   adminList.innerHTML = admins.length
     ? admins.map((admin) => {
       const key = `admin:${admin.user_id}`;
-      const role = String(admin.role || "admin");
-      const roleLabel = role === "owner" ? "Master owner" : role === "reviewer" ? "App reviewer" : "Platform administrator";
+      const role = effectivePlatformAdminRole(admin);
+      const roleLabel = role === "owner" ? "Master owner" : role === "reviewer" ? "App reviewer" : role === "operations_admin" ? "Operations administrator" : "Platform administrator";
       return `<button class="platform-admin-roster-item${key === selectedPlatformAdminKey ? " is-selected" : ""}" type="button" data-platform-entry-key="${escapeHtml(key)}"><span class="platform-admin-roster-avatar">${escapeHtml(platformAdminInitials(admin.email))}</span><span><strong>${escapeHtml(admin.email || "Unknown admin")}</strong><small>${roleLabel} · ${escapeHtml(admin.status || "active")}</small></span></button>`;
     }).join("")
     : '<p class="platform-admin-empty">No platform admins found.</p>';
@@ -162,7 +170,8 @@ function renderPlatformAdmins(data = {}) {
     ? invites.map((invite) => {
       const key = `invite:${invite.id}`;
       const status = String(invite.status || "pending");
-      const roleLabel = String(invite.role || "admin") === "reviewer" ? "App reviewer" : "Platform administrator";
+      const inviteRole = effectivePlatformAdminRole(invite);
+      const roleLabel = inviteRole === "reviewer" ? "App reviewer" : inviteRole === "operations_admin" ? "Operations administrator" : "Platform administrator";
       return `<button class="platform-admin-roster-item${key === selectedPlatformAdminKey ? " is-selected" : ""}" type="button" data-platform-entry-key="${escapeHtml(key)}"><span class="platform-admin-roster-avatar is-invite">${escapeHtml(platformAdminInitials(invite.email))}</span><span><strong>${escapeHtml(invite.email || "Unknown invite")}</strong><small>${roleLabel} · ${escapeHtml(status)} · expires ${escapeHtml(formatAdminDate(invite.expires_at))}</small></span></button>`;
     }).join("")
     : '<p class="platform-admin-empty">No admin invites yet.</p>';
@@ -192,7 +201,7 @@ async function createPlatformAdminInvite(event) {
   const roleInput = document.getElementById("platform-admin-invite-role");
   const accountUserId = String(accountInput?.value || "").trim();
   const account = platformAdminCandidates.find((candidate) => String(candidate.id) === accountUserId);
-  const role = String(roleInput?.value || "admin").trim().toLowerCase();
+  const role = String(roleInput?.value || "operations_admin").trim().toLowerCase();
   if (!accountUserId || !account) {
     setStatus("Choose an existing N3XRA account first.", "error");
     setPlatformAdminModalStatus("Choose an existing N3XRA account first.", "error");
@@ -216,7 +225,7 @@ async function createPlatformAdminInvite(event) {
     inviteLink?.classList.toggle("hidden", !platformAdminInviteUrl);
     form.reset();
     await Promise.all([loadPlatformAdmins(), loadPlatformAdminCandidates()]);
-    const successMessage = `${role === "reviewer" ? "App reviewer" : "Administrator"} invite created for ${account.email}. Send the secure sign-in link to that person.`;
+    const successMessage = `${role === "reviewer" ? "App reviewer" : role === "operations_admin" ? "Operations administrator" : "Administrator"} invite created for ${account.email}. Send the secure sign-in link to that person.`;
     setStatus(successMessage, "success");
     setPlatformAdminModalStatus(successMessage, "success");
   } catch (error) {

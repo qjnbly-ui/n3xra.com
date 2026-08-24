@@ -1,6 +1,6 @@
 import { hasConfig } from "/shared/lib/supabase-client.js";
-import { getAdminSession } from "/account/admin/admin-session.js";
-import { arrangeAdminWorkspace } from "/account/admin/admin-navigation.js?v=24";
+import { getAdminSession } from "/account/admin/admin-session.js?v=2";
+import { arrangeAdminWorkspace, renderAdminNavigation } from "/account/admin/admin-navigation.js?v=25";
 import { confirmAdminAction, promptAdminText } from "/account/admin/admin-dialogs.js";
 import { initializeAdminSelects } from "/account/admin/admin-select.js?v=4";
 
@@ -229,7 +229,7 @@ async function loadAdminView(adminContext) {
     const supportController = await import("/account/admin/controllers/support.js?v=6");
     await supportController.startSupport({ invoke, invokeWebsiteAutomation, escapeHtml, formatDate, setStatus, confirmAdminAction });
   } else if (view === "platform-admins") {
-    const platformAdmins = await import("/account/admin/controllers/platform-admins.js?v=3");
+    const platformAdmins = await import("/account/admin/controllers/platform-admins.js?v=4");
     await platformAdmins.startPlatformAdmins({ invoke, escapeHtml, setStatus, confirmAdminAction });
   } else if (view === "codebase-ai") {
     const codebaseAi = await import("/account/admin/controllers/codebase-ai.js?v=2");
@@ -238,7 +238,7 @@ async function loadAdminView(adminContext) {
     const analytics = await import("/account/admin/controllers/analytics.js?v=1");
     await analytics.startAnalytics({ session, escapeHtml, formatDate, setStatus });
   } else if (view === "applications") {
-    const applications = await import("/account/admin/applications/applications.js?v=7");
+    const applications = await import("/account/admin/applications/applications.js?v=8");
     await applications.startApplications({ supabase, session });
   } else if (view === "investment") {
     selectInvestmentSection();
@@ -256,6 +256,7 @@ export async function startAdmin() {
   }
   const context = await getAdminSession();
   if (!context.allowed) return;
+  renderAdminNavigation();
   supabase = context.supabase;
   session = context.session;
   adminPanel?.classList.remove("hidden");

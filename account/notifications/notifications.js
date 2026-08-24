@@ -1,8 +1,8 @@
 import {
   hasConfig,
 } from "/shared/lib/supabase-client.js";
-import { getAdminSession } from "/account/admin/admin-session.js";
-import { arrangeAdminWorkspace } from "/account/admin/admin-navigation.js?v=24";
+import { getAdminSession } from "/account/admin/admin-session.js?v=2";
+import { arrangeAdminWorkspace, renderAdminNavigation } from "/account/admin/admin-navigation.js?v=25";
 import {
   renderNotificationMessageHtml,
 } from "/account/notifications/notification-message-format.js?v=1";
@@ -403,6 +403,7 @@ export async function startNotifications() {
   const context = await getAdminSession();
   if (!context.allowed) return;
   supabase = context.supabase;
+  renderAdminNavigation();
 
   show(notificationPanel, true);
   arrangeAdminWorkspace();

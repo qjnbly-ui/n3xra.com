@@ -324,14 +324,14 @@
                 <a class="btn secondary block button-link" href="/account/admin/billing/">Open Billing &amp; Plans</a>
               </article>
             </div>
-            <div class="dashboard-section-head admin-product-section-head">
+            <div class="dashboard-section-head admin-product-section-head" data-full-admin-only>
               <div>
                 <p class="auth-kicker">Retired products</p>
                 <h3>Open retired N3XRA products</h3>
                 <p>These preserved products are available only to verified N3XRA administrators and open without creating a product enrollment.</p>
               </div>
             </div>
-            <div class="app-grid admin-app-grid retired-app-grid">
+            <div class="app-grid admin-app-grid retired-app-grid" data-full-admin-only>
               <article class="app-card admin-app-card">
                 <div>
                   <p class="auth-kicker">Content tools</p>
@@ -487,6 +487,6 @@
       window.addEventListener("scroll", updateHeader, { passive: true });
     })();
   </script>
-  <script type="module" src="/account/account.js?v=20260817-applicant-activation"></script>
+  <script type="module" src="/account/account.js?v=20260824-operations-admin"></script>
 </body>
 </html>

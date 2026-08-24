@@ -191,11 +191,11 @@ function writeStoredValue(prefix, value) {
 }
 
 function hasCachedAdminAccess() {
-  return ["owner", "admin"].includes(readStoredValue(ADMIN_ACCESS_CACHE_PREFIX));
+  return ["owner", "admin", "operations_admin"].includes(readStoredValue(ADMIN_ACCESS_CACHE_PREFIX));
 }
 
-function hasFullPlatformAdminAccess(access) {
-  return ["owner", "admin"].includes(String(access?.role || ""));
+function hasAdminWorkspaceAccess(access) {
+  return ["owner", "admin", "operations_admin"].includes(String(access?.role || ""));
 }
 
 function getPreferredDashboardView() {
@@ -603,6 +603,8 @@ async function loadPlatformAdminAccess() {
       status: "active",
     };
     writeStoredValue(ADMIN_ACCESS_CACHE_PREFIX, platformAdminAccess.role);
+    document.body.dataset.adminRole = platformAdminAccess.role;
+    document.querySelectorAll("[data-full-admin-only]").forEach((element) => element.classList.toggle("hidden", platformAdminAccess.role === "operations_admin"));
     return platformAdminAccess;
   }
 
@@ -613,7 +615,9 @@ async function loadPlatformAdminAccess() {
     const cachedRole = readStoredValue(ADMIN_ACCESS_CACHE_PREFIX);
     platformAdminAccess = hasCachedAdminAccess() ? { role: cachedRole, status: "cached" } : null;
   }
-  writeStoredValue(ADMIN_ACCESS_CACHE_PREFIX, hasFullPlatformAdminAccess(platformAdminAccess) ? platformAdminAccess.role : "");
+  writeStoredValue(ADMIN_ACCESS_CACHE_PREFIX, hasAdminWorkspaceAccess(platformAdminAccess) ? platformAdminAccess.role : "");
+  document.body.dataset.adminRole = String(platformAdminAccess?.role || "");
+  document.querySelectorAll("[data-full-admin-only]").forEach((element) => element.classList.toggle("hidden", platformAdminAccess?.role === "operations_admin"));
   return platformAdminAccess;
 }
 
@@ -677,7 +681,7 @@ async function maybeRedeemPlatformAdminInvite() {
   url.searchParams.delete("admin_invite");
   url.searchParams.delete("mode");
   window.history.replaceState({}, "", url.toString());
-  return data?.ok ? (data.role === "reviewer" ? "Product reviewer invite redeemed." : "Platform admin invite redeemed.") : "";
+  return data?.ok ? (data.role === "reviewer" ? "Product reviewer invite redeemed." : data.role === "operations_admin" ? "Operations administrator invite redeemed." : "Platform admin invite redeemed.") : "";
 }
 
 async function renderDashboard(message = "") {
@@ -810,7 +814,7 @@ async function renderDashboard(message = "") {
     console.warn("Phone access could not be loaded", error);
   }
 
-  canViewAdminApps = hasFullPlatformAdminAccess(platformAdminAccess) || isPlatformAdminEmail(currentSession.user.email);
+  canViewAdminApps = hasAdminWorkspaceAccess(platformAdminAccess) || isPlatformAdminEmail(currentSession.user.email);
   show(dashboardViewToggle, canViewAdminApps);
   show(adminNotificationButton, canViewAdminApps);
   accountOverviewActions?.classList.toggle("has-admin-tools", canViewAdminApps);

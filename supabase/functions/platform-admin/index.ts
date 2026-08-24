@@ -506,18 +506,19 @@ async function getPlatformAdmin(adminClient: ReturnType<typeof createClient>, us
       email,
       role: "owner",
       status: "active",
+      access_scope: "full",
     };
   }
 
   const { data, error } = await adminClient
     .from("platform_admins")
-    .select("user_id, email, role, status")
+    .select("user_id, email, role, status, access_scope")
     .eq("user_id", user.id)
     .eq("status", "active")
     .maybeSingle();
 
   if (error) throw new Error(error.message);
-  if (data) return data;
+  if (data) return data.access_scope === "operations" ? { ...data, role: "operations_admin" } : data;
 
   const { data: reviewer, error: reviewerError } = await adminClient
     .from("platform_app_reviewers")
@@ -1038,7 +1039,7 @@ Deno.serve(async (request) => {
       const tokenHash = await sha256(token);
       const { data: invite, error: inviteError } = await adminClient
         .from("platform_admin_invites")
-        .select("id, email, role, status, expires_at, created_by_user_id")
+        .select("id, email, role, status, access_scope, expires_at, created_by_user_id")
         .eq("token_hash", tokenHash)
         .maybeSingle();
 
@@ -1063,6 +1064,7 @@ Deno.serve(async (request) => {
       if (!["admin", "reviewer"].includes(inviteRole)) {
         return jsonResponse({ error: "This invite has an unsupported access role." }, 400);
       }
+      const inviteAccessScope = inviteRole === "admin" && String(invite.access_scope || "full") === "operations" ? "operations" : "full";
 
       const now = new Date().toISOString();
       if (inviteRole === "reviewer") {
@@ -1096,6 +1098,7 @@ Deno.serve(async (request) => {
             user_id: user.id,
             email: userEmail,
             role: "admin",
+            access_scope: inviteAccessScope,
             status: "active",
             invited_by_user_id: invite.created_by_user_id || null,
             updated_at: now,
@@ -1120,7 +1123,7 @@ Deno.serve(async (request) => {
         .eq("id", invite.id);
 
       if (redeemError) return jsonResponse({ error: redeemError.message }, 400);
-      return jsonResponse({ ok: true, role: inviteRole });
+      return jsonResponse({ ok: true, role: inviteRole === "admin" && inviteAccessScope === "operations" ? "operations_admin" : inviteRole });
     }
 
     const platformAdmin = await getPlatformAdmin(adminClient, { id: user.id, email: user.email });
@@ -2724,7 +2727,7 @@ Deno.serve(async (request) => {
       const [adminsResult, reviewersResult, invitesResult] = await Promise.all([
         adminClient
           .from("platform_admins")
-          .select("user_id, email, role, status, invited_by_user_id, created_at, updated_at")
+          .select("user_id, email, role, status, access_scope, invited_by_user_id, created_at, updated_at")
           .order("role", { ascending: false })
           .order("email", { ascending: true }),
         adminClient
@@ -2733,7 +2736,7 @@ Deno.serve(async (request) => {
           .order("email", { ascending: true }),
         adminClient
           .from("platform_admin_invites")
-          .select("id, email, role, status, expires_at, created_at, redeemed_at, revoked_at")
+          .select("id, email, role, status, access_scope, expires_at, created_at, redeemed_at, revoked_at")
           .order("created_at", { ascending: false })
           .limit(100),
       ]);
@@ -2754,16 +2757,16 @@ Deno.serve(async (request) => {
       const [authUsers, profilesResult, adminsResult, reviewersResult, invitesResult] = await Promise.all([
         listAllAuthUsers(adminClient),
         adminClient.from("profiles").select("id,email,full_name"),
-        adminClient.from("platform_admins").select("user_id,role,status").eq("status", "active"),
+        adminClient.from("platform_admins").select("user_id,role,status,access_scope").eq("status", "active"),
         adminClient.from("platform_app_reviewers").select("user_id,status").eq("status", "active"),
-        adminClient.from("platform_admin_invites").select("email,status").eq("status", "pending"),
+        adminClient.from("platform_admin_invites").select("email,status,access_scope").eq("status", "pending"),
       ]);
       if (profilesResult.error || adminsResult.error || reviewersResult.error || invitesResult.error) {
         return jsonResponse({ error: profilesResult.error?.message || adminsResult.error?.message || reviewersResult.error?.message || invitesResult.error?.message || "Unable to load account choices." }, 400);
       }
 
       const profiles = new Map((profilesResult.data || []).map((profile) => [String(profile.id), profile]));
-      const adminAccess = new Map((adminsResult.data || []).map((admin) => [String(admin.user_id), String(admin.role || "admin")]));
+      const adminAccess = new Map((adminsResult.data || []).map((admin) => [String(admin.user_id), admin.access_scope === "operations" ? "operations_admin" : String(admin.role || "admin")]));
       const reviewerIds = new Set((reviewersResult.data || []).map((reviewer) => String(reviewer.user_id)));
       const pendingEmails = new Set((invitesResult.data || []).map((invite) => normalizeEmail(invite.email)));
       const accounts = authUsers
@@ -2796,10 +2799,12 @@ Deno.serve(async (request) => {
       if (accountError || !email || !isValidEmail(email)) {
         return jsonResponse({ error: accountError?.message || "The selected account does not have a valid email address." }, 400);
       }
-      const role = String(payload.role || "admin").trim().toLowerCase();
-      if (!["admin", "reviewer"].includes(role)) {
-        return jsonResponse({ error: "Role must be admin or reviewer." }, 400);
+      const requestedRole = String(payload.role || "operations_admin").trim().toLowerCase();
+      if (!["admin", "operations_admin", "reviewer"].includes(requestedRole)) {
+        return jsonResponse({ error: "Role must be admin, operations_admin, or reviewer." }, 400);
       }
+      const role = requestedRole === "operations_admin" ? "admin" : requestedRole;
+      const accessScope = requestedRole === "operations_admin" ? "operations" : "full";
       if (email === PLATFORM_OWNER_EMAIL) {
         return jsonResponse({ error: "The owner account is already the master admin." }, 400);
       }
@@ -2825,11 +2830,12 @@ Deno.serve(async (request) => {
         .insert({
           email,
           role,
+          access_scope: accessScope,
           token_hash: tokenHash,
           expires_at: expiresAt,
           created_by_user_id: user.id,
         })
-        .select("id, email, role, status, expires_at, created_at")
+        .select("id, email, role, status, access_scope, expires_at, created_at")
         .single();
 
       if (error) return jsonResponse({ error: error.message }, 400);

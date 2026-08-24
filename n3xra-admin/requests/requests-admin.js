@@ -1,5 +1,5 @@
 import { getConfig, hasConfig } from "/shared/lib/supabase-client.js";
-import { getAdminSession } from "/account/admin/admin-session.js";
+import { getAdminSession } from "/account/admin/admin-session.js?v=2";
 import { adminDialog, confirmAdminAction } from "/account/admin/admin-dialogs.js?v=2";
 import { readWorkspaceContext, writeWorkspaceContext } from "/client-portal/workspace-context.js";
 

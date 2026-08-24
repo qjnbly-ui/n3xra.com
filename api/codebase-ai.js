@@ -99,7 +99,7 @@ async function requireActivePlatformAdmin(user) {
     ? { apikey: SUPABASE_SERVICE_ROLE_KEY }
     : { apikey: SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` };
   const response = await fetch(
-    `${SUPABASE_URL}/rest/v1/platform_admins?select=user_id,role,status&user_id=eq.${encodeURIComponent(user.id)}&status=eq.active&limit=1`,
+    `${SUPABASE_URL}/rest/v1/platform_admins?select=user_id,role,status,access_scope&user_id=eq.${encodeURIComponent(user.id)}&status=eq.active&limit=1`,
     {
       headers: elevatedHeaders,
       signal: AbortSignal.timeout(5_000),
@@ -107,7 +107,8 @@ async function requireActivePlatformAdmin(user) {
   );
   const rows = await response.json().catch(() => []);
   const role = String(rows?.[0]?.role || "").toLowerCase();
-  if (!response.ok || !Array.isArray(rows) || !rows.length || !["owner", "admin"].includes(role)) {
+  const accessScope = String(rows?.[0]?.access_scope || "full").toLowerCase();
+  if (!response.ok || !Array.isArray(rows) || !rows.length || !["owner", "admin"].includes(role) || accessScope !== "full") {
     const error = new Error("Active platform administrator access is required.");
     error.status = 403;
     throw error;

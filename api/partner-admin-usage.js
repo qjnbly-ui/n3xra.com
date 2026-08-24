@@ -43,7 +43,7 @@ async function requireAdmin(req) {
   const user = await userResponse.json().catch(() => null);
   if (!userResponse.ok || !user?.id) return null;
   const rows = await json(
-    `platform_admins?select=user_id&user_id=eq.${encodeURIComponent(user.id)}&limit=1`,
+    `platform_admins?select=user_id&user_id=eq.${encodeURIComponent(user.id)}&status=eq.active&role=in.(owner,admin)&access_scope=eq.full&limit=1`,
     { headers: serviceHeaders() }
   );
   return rows?.length ? user : null;

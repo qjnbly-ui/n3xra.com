@@ -1,6 +1,6 @@
 import { hasConfig } from "/shared/lib/supabase-client.js";
-import { getAdminSession } from "/account/admin/admin-session.js";
-import { arrangeAdminWorkspace, refreshAdminNavigationBadges } from "/account/admin/admin-navigation.js?v=24";
+import { getAdminSession } from "/account/admin/admin-session.js?v=2";
+import { arrangeAdminWorkspace, refreshAdminNavigationBadges, renderAdminNavigation } from "/account/admin/admin-navigation.js?v=25";
 
 let context;
 let contacts = [];
@@ -194,6 +194,7 @@ export async function startCommunications() {
   if (!hasConfig()) throw new Error("N3XRA is not connected to Supabase.");
   context = await getAdminSession();
   if (!context.allowed) return;
+  renderAdminNavigation();
   $("communications-panel").classList.remove("hidden");
   arrangeAdminWorkspace();
   bindEvents();
