@@ -68,6 +68,7 @@ const memberInviteList = document.getElementById("member-invite-list");
 const websiteOrganizationSetup = document.getElementById("website-organization-setup");
 const websiteOrganizationSetupTitle = document.getElementById("website-organization-setup-title");
 const websiteOrganizationSetupCopy = document.getElementById("website-organization-setup-copy");
+const websiteOrganizationSelect = document.getElementById("website-organization-select");
 const websiteOrganizationSetupButton = document.getElementById("website-organization-setup-button");
 const websiteOrganizationSetupStatus = document.getElementById("website-organization-setup-status");
 const adminRequestList = document.getElementById("admin-request-list");
@@ -108,6 +109,7 @@ let currentUser;
 let websites = [];
 let domains = [];
 let repositories = [];
+let organizations = [];
 let selectedWebsite;
 let assets = [];
 let versions = [];
@@ -371,8 +373,30 @@ function renderWebsiteOrganizationSetup() {
     if (websiteOrganizationSetupStatus) websiteOrganizationSetupStatus.textContent = "";
     return;
   }
+  if (websiteOrganizationSelect) {
+    const selectedOrganizationId = websiteOrganizationSelect.value;
+    websiteOrganizationSelect.innerHTML = [
+      '<option value="">Create from the assigned website owner</option>',
+      ...organizations
+        .filter((organization) => organization.account_status !== "suspended")
+        .map((organization) => `<option value="${escapeHtml(organization.id)}">${escapeHtml(organization.name)}</option>`),
+    ].join("");
+    if (organizations.some((organization) => organization.id === selectedOrganizationId)) {
+      websiteOrganizationSelect.value = selectedOrganizationId;
+    }
+  }
   if (websiteOrganizationSetupTitle) websiteOrganizationSetupTitle.textContent = `Connect ${selectedWebsite.name}`;
   if (websiteOrganizationSetupCopy) websiteOrganizationSetupCopy.textContent = `Create a protected client organization from ${selectedWebsite.name}'s verified website owner. Existing project, billing, domain, and service records will stay unchanged.`;
+  updateWebsiteOrganizationSetupMode();
+}
+
+function updateWebsiteOrganizationSetupMode() {
+  if (!websiteOrganizationSetupButton || !websiteOrganizationSetupCopy || !selectedWebsite) return;
+  const organization = organizations.find((item) => item.id === websiteOrganizationSelect?.value);
+  websiteOrganizationSetupButton.textContent = organization ? "Connect existing organization" : "Create and connect organization";
+  websiteOrganizationSetupCopy.textContent = organization
+    ? `Attach ${selectedWebsite.name} to ${organization.name}. Its existing project, billing, domain, and service records will stay unchanged.`
+    : `Create a protected client organization from ${selectedWebsite.name}'s verified website owner. Existing project, billing, domain, and service records will stay unchanged.`;
 }
 
 function renderMembers() {
@@ -548,12 +572,15 @@ async function connectWebsiteOrganization() {
   if (!selectedWebsite || selectedWebsite.organization_id || !websiteOrganizationSetupButton) return;
   websiteOrganizationSetupButton.disabled = true;
   if (websiteOrganizationSetupStatus) {
-    websiteOrganizationSetupStatus.textContent = "Creating the client organization…";
+    websiteOrganizationSetupStatus.textContent = websiteOrganizationSelect?.value
+      ? "Connecting the existing organization…"
+      : "Creating the client organization…";
     websiteOrganizationSetupStatus.classList.remove("is-error");
   }
   try {
     const { data, error } = await supabase.rpc("platform_connect_website_client_organization", {
       input_website_id: selectedWebsite.id,
+      input_organization_id: websiteOrganizationSelect?.value || null,
     });
     if (error) throw error;
     selectedWebsite.organization_id = data.organization_id;
@@ -1115,17 +1142,20 @@ function handleProjectLinkClick(event) {
 }
 
 async function loadWebsites(preferredId) {
-  const [websiteResult, domainResult, repositoryResult] = await Promise.all([
+  const [websiteResult, domainResult, repositoryResult, organizationResult] = await Promise.all([
     supabase.from("client_websites").select("*").order("name"),
     supabase.from("website_domains").select("website_id,domain_name,is_primary").order("is_primary", { ascending: false }),
     supabase.from("website_repositories").select("website_id,full_name,created_at").order("created_at"),
+    supabase.from("organizations").select("id,name,owner_user_id,account_status").order("name"),
   ]);
   if (websiteResult.error) throw websiteResult.error;
   if (domainResult.error) throw domainResult.error;
   if (repositoryResult.error) throw repositoryResult.error;
+  if (organizationResult.error) throw organizationResult.error;
   websites = websiteResult.data || [];
   domains = domainResult.data || [];
   repositories = repositoryResult.data || [];
+  organizations = organizationResult.data || [];
   renderWebsiteOptions();
   const requested = preferredId || new URLSearchParams(window.location.search).get("website")
     || readWorkspaceContext("admin", currentUser?.id).websiteId;
@@ -1742,6 +1772,7 @@ async function initWebsiteAdmin() {
     memberList?.addEventListener("change", handleMemberRoleChange);
     memberInviteList?.addEventListener("click", handleInviteAction);
     websiteOrganizationSetupButton?.addEventListener("click", connectWebsiteOrganization);
+    websiteOrganizationSelect?.addEventListener("change", updateWebsiteOrganizationSetupMode);
     openProjectFormButton?.addEventListener("click", openProjectForm);
     closeProjectFormButton?.addEventListener("click", () => {
       projectLinkForm.hidden = true;

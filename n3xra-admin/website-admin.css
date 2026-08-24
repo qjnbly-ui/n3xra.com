@@ -83,6 +83,8 @@
 .website-organization-setup strong { display:block; margin:.1rem 0 .25rem; font-size:1rem; }
 .website-organization-setup p { margin:0; }
 .website-organization-setup-actions { display:flex; align-items:center; gap:1rem; flex:0 0 auto; }
+.website-organization-setup-actions label { display:grid; gap:.35rem; min-width:15rem; font-size:.78rem; font-weight:700; }
+.website-organization-setup-actions select { min-height:2.75rem; }
 .website-organization-setup-actions .portal-inline-status { max-width:22rem; }
 .website-support-work-form { margin-top:1rem; padding-top:1rem; border-top:1px solid var(--website-admin-border); }
 .website-support-work-form .portal-form-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }

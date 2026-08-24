@@ -49,16 +49,21 @@ test("N3XRA website administration uses the same client invitation workflow", as
 });
 
 test("legacy websites expose a platform-admin-only organization connection without activating other products", async () => {
-  const [html, admin, migration] = await Promise.all([
+  const [html, admin, migration, existingOrganizationMigration] = await Promise.all([
     projectFile("n3xra-admin/websites/index.html"),
     projectFile("n3xra-admin/websites/websites-admin.js"),
     projectFile("supabase/migrations/20260823234716_connect_website_client_organization.sql"),
+    projectFile("supabase/migrations/20260824131458_connect_website_to_existing_organization.sql"),
   ]);
 
   assert.match(html, /id="website-organization-setup" hidden/);
   assert.match(html, /Create and connect organization/);
+  assert.match(html, /id="website-organization-select"/);
+  assert.match(html, /Existing organization/);
   assert.match(admin, /Boolean\(selectedWebsite && !selectedWebsite\.organization_id\)/);
   assert.match(admin, /platform_connect_website_client_organization/);
+  assert.match(admin, /input_organization_id: websiteOrganizationSelect\?\.value \|\| null/);
+  assert.match(admin, /Connect existing organization/);
   assert.match(admin, /selectedWebsite\.organization_id = data\.organization_id/);
   assert.match(migration, /not public\.is_platform_admin\(\)/);
   assert.match(migration, /for update/);
@@ -68,6 +73,10 @@ test("legacy websites expose a platform-admin-only organization connection witho
   assert.match(migration, /product_key = 'records'/);
   assert.match(migration, /portal_enabled = false/);
   assert.match(migration, /grant execute on function public\.platform_connect_website_client_organization\(uuid\)[\s\S]*to authenticated/);
+  assert.match(existingOrganizationMigration, /input_organization_id uuid default null/);
+  assert.match(existingOrganizationMigration, /organization\.owner_user_id = target_owner_user_id/);
+  assert.match(existingOrganizationMigration, /insert into public\.website_members/);
+  assert.match(existingOrganizationMigration, /grant execute on function public\.platform_connect_website_client_organization\(uuid, uuid\)[\s\S]*to authenticated/);
 });
 
 test("team mutations protect owners, bind invites to email, and preserve tenant isolation", async () => {
