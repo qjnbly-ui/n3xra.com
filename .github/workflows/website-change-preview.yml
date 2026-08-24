@@ -135,19 +135,30 @@ jobs:
           github-token: ${{ steps.app-token.outputs.token }}
           script: |
             const [owner, repo] = process.env.TARGET_REPOSITORY.split('/');
-            const branch = await github.rest.repos.getBranch({ owner, repo, branch: process.env.TARGET_BRANCH });
+            const requestOptions = { request: { timeout: 15000 } };
+            const branch = await github.rest.repos.getBranch({ owner, repo, branch: process.env.TARGET_BRANCH, ...requestOptions });
             const sha = branch.data.commit.sha;
             let previewUrl = '';
-            for (let attempt = 0; attempt < 30 && !previewUrl; attempt += 1) {
-              const deployments = await github.rest.repos.listDeployments({ owner, repo, sha, per_page: 20 });
-              for (const deployment of deployments.data) {
-                const statuses = await github.rest.repos.listDeploymentStatuses({ owner, repo, deployment_id: deployment.id, per_page: 10 });
-                const ready = statuses.data.find((status) => status.state === 'success' && /[.]vercel[.]app\/?$/.test(status.environment_url || ''));
-                if (ready) { previewUrl = ready.environment_url; break; }
+            let lastLookupError = '';
+            for (let attempt = 0; attempt < 60 && !previewUrl; attempt += 1) {
+              try {
+                const deployments = await github.rest.repos.listDeployments({ owner, repo, sha, per_page: 20, ...requestOptions });
+                for (const deployment of deployments.data) {
+                  const statuses = await github.rest.repos.listDeploymentStatuses({ owner, repo, deployment_id: deployment.id, per_page: 10, ...requestOptions });
+                  const ready = statuses.data.find((status) => status.state === 'success' && /[.]vercel[.]app\/?$/.test(status.environment_url || ''));
+                  if (ready) { previewUrl = ready.environment_url; break; }
+                }
+                lastLookupError = '';
+              } catch (error) {
+                lastLookupError = error instanceof Error ? error.message : String(error);
+                core.warning(`Preview status lookup ${attempt + 1} failed temporarily: ${lastLookupError}`);
               }
               if (!previewUrl) await new Promise((resolve) => setTimeout(resolve, 10000));
             }
-            const response = await fetch(process.env.CALLBACK_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ runId: process.env.RUN_ID, token: process.env.CALLBACK_TOKEN, headSha: sha, previewUrl, error: previewUrl ? '' : 'Vercel preview was not ready before the workflow timeout.' }) });
+            const timeoutMessage = lastLookupError
+              ? `Vercel finished responding, but GitHub could not confirm the preview after repeated temporary lookup errors: ${lastLookupError}`
+              : 'Vercel preview was not ready before the workflow timeout.';
+            const response = await fetch(process.env.CALLBACK_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ runId: process.env.RUN_ID, token: process.env.CALLBACK_TOKEN, headSha: sha, previewUrl, error: previewUrl ? '' : timeoutMessage }) });
             if (!response.ok) core.setFailed(`Preview callback returned ${response.status}.`);
       - name: Report an unsuccessful preview workflow
         if: ${{ failure() }}
