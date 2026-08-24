@@ -245,6 +245,100 @@ async function waitForVercelDeployment(
   throw new Error("Vercel preview deployment did not become ready before the setup timeout.");
 }
 
+function brandColor(value: unknown, fallback: string) {
+  const candidate = text(value, 7);
+  return /^#[0-9a-f]{6}$/i.test(candidate) ? candidate : fallback;
+}
+
+function brandFont(value: unknown, fallback: string) {
+  const candidate = text(value, 80);
+  return /^[A-Za-z0-9][A-Za-z0-9 ._-]{0,79}$/.test(candidate) ? candidate : fallback;
+}
+
+function publicHttpsUrl(value: unknown) {
+  const candidate = text(value, 1000);
+  try {
+    const url = new URL(candidate);
+    return url.protocol === "https:" ? url.toString() : "";
+  } catch {
+    return "";
+  }
+}
+
+async function websitePreviewEnvironment(
+  adminClient: ReturnType<typeof createClient>,
+  website: Record<string, any>,
+) {
+  const { data: branding, error: brandingError } = await adminClient
+    .from("website_portal_branding")
+    .select("logo_asset_id,primary_color,accent_color,heading_font,body_font")
+    .eq("website_id", website.id)
+    .maybeSingle();
+  if (brandingError) throw new Error(`Unable to read approved website branding: ${brandingError.message}`);
+
+  let logoUrl = "";
+  if (branding?.logo_asset_id) {
+    const { data: logoAsset, error: assetError } = await adminClient
+      .from("website_assets")
+      .select("id,current_version_id,status")
+      .eq("id", branding.logo_asset_id)
+      .eq("website_id", website.id)
+      .maybeSingle();
+    if (assetError) throw new Error(`Unable to read the approved website logo: ${assetError.message}`);
+
+    if (logoAsset?.status === "active" && logoAsset.current_version_id) {
+      const { data: logoVersion, error: versionError } = await adminClient
+        .from("website_asset_versions")
+        .select("public_url,storage_bucket,status")
+        .eq("id", logoAsset.current_version_id)
+        .eq("asset_id", logoAsset.id)
+        .maybeSingle();
+      if (versionError) throw new Error(`Unable to read the approved website logo version: ${versionError.message}`);
+      if (logoVersion?.status === "published" && logoVersion.storage_bucket === "website-assets-public") {
+        logoUrl = publicHttpsUrl(logoVersion.public_url);
+      }
+    }
+  }
+
+  const portalSlug = text(website.portal_slug, 100).toLowerCase();
+  const portalUrl = website.portal_enabled && /^[a-z0-9](?:[a-z0-9-]{0,98}[a-z0-9])?$/.test(portalSlug)
+    ? `https://${portalSlug}.portal.n3xra.com/`
+    : "";
+
+  return {
+    PUBLIC_N3XRA_SITE_NAME: text(website.name, 180) || "Your new website",
+    PUBLIC_N3XRA_LOGO_URL: logoUrl,
+    PUBLIC_N3XRA_PRIMARY_COLOR: brandColor(branding?.primary_color, "#17231b"),
+    PUBLIC_N3XRA_ACCENT_COLOR: brandColor(branding?.accent_color, "#b77946"),
+    PUBLIC_N3XRA_HEADING_FONT: brandFont(branding?.heading_font, "Fraunces"),
+    PUBLIC_N3XRA_BODY_FONT: brandFont(branding?.body_font, "Manrope"),
+    PUBLIC_N3XRA_PORTAL_URL: portalUrl,
+  };
+}
+
+async function configureVercelPreviewEnvironment(
+  configuration: VercelConfiguration,
+  projectId: string,
+  environment: Record<string, string>,
+) {
+  const result = await vercelRequest(
+    configuration,
+    `/v10/projects/${encodeURIComponent(projectId)}/env?upsert=true`,
+    {
+      method: "POST",
+      body: JSON.stringify(Object.entries(environment).map(([key, value]) => ({
+        key,
+        value,
+        type: "encrypted",
+        target: ["preview"],
+      }))),
+    },
+  );
+  if (!result.response.ok) {
+    throw new Error(`Vercel could not configure the personalized preview${result.data?.error?.message ? `: ${text(result.data.error.message, 300)}` : "."}`);
+  }
+}
+
 async function createProposal(
   adminClient: ReturnType<typeof createClient>,
   project: Record<string, any>,
@@ -517,7 +611,7 @@ Deno.serve(async (request) => {
 
       const { data: project, error: projectError } = await adminClient
         .from("website_projects")
-        .select("id,name,managed_website_id,client_websites(id,name,slug,organization_id,repository_full_name)")
+        .select("id,name,managed_website_id,client_websites(id,name,slug,organization_id,repository_full_name,portal_enabled,portal_slug)")
         .eq("id", projectId)
         .maybeSingle();
       if (projectError) return respond({ error: projectError.message }, 400);
@@ -696,6 +790,9 @@ Deno.serve(async (request) => {
         if (!vercelProject?.id || vercelProject?.name !== targetProjectName) {
           throw new Error("Vercel returned project details that did not match the requested website workspace.");
         }
+
+        const previewEnvironment = await websitePreviewEnvironment(adminClient, website);
+        await configureVercelPreviewEnvironment(configuration, String(vercelProject.id), previewEnvironment);
 
         const deploymentResult = await vercelRequest(configuration, "/v13/deployments", {
           method: "POST",
