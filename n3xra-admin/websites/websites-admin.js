@@ -16,7 +16,7 @@ import {
   CDN_BROWSER_CACHE_SECONDS,
   canOptimizeCdnImage,
   prepareCdnImage,
-} from "/shared/lib/cdn-image-optimizer.js";
+} from "/shared/lib/cdn-image-optimizer.js?v=2";
 
 const PRIVATE_BUCKET = "website-assets-private";
 const PUBLIC_BUCKET = "website-assets-public";
@@ -1390,20 +1390,27 @@ async function publishApprovedBatch() {
   approvePendingBatchButton.disabled = true;
   publishApprovedBatchButton.disabled = true;
   let publishedCount = 0;
+  const failures = [];
   try {
     for (const version of approvedVersions) {
-      batchStatus.textContent = `Publishing ${publishedCount + 1} of ${approvedVersions.length}: ${version.original_filename}`;
-      await publishVersion(version.id, { reload: false, copyUrl: false });
-      publishedCount += 1;
+      batchStatus.textContent = `Publishing ${publishedCount + failures.length + 1} of ${approvedVersions.length}: ${version.original_filename}`;
+      try {
+        await publishVersion(version.id, { reload: false, copyUrl: false });
+        publishedCount += 1;
+      } catch (error) {
+        failures.push({ filename: version.original_filename, message: error?.message || "Could not publish this file." });
+      }
     }
-    batchStatus.textContent = `${publishedCount} images published to the CDN.`;
-    showToast(`${publishedCount} approved image${publishedCount === 1 ? "" : "s"} published to the CDN.`);
-    selectedVersionIds.clear();
     await loadAssets();
-  } catch (error) {
-    batchStatus.textContent = `${publishedCount ? `${publishedCount} published. ` : ""}${error?.message || "The remaining images could not be published."}`;
-    showToast(batchStatus.textContent, "error");
-    await loadAssets();
+    if (failures.length) {
+      const failureDetails = failures.map(({ filename, message }) => `${filename}: ${message}`).join("; ");
+      batchStatus.textContent = `${publishedCount} published. ${failures.length} failed — ${failureDetails}`;
+      showToast(`${publishedCount} published. Could not publish: ${failures.map(({ filename }) => filename).join(", ")}.`, "error");
+    } else {
+      batchStatus.textContent = `${publishedCount} images published to the CDN.`;
+      showToast(`${publishedCount} approved image${publishedCount === 1 ? "" : "s"} published to the CDN.`);
+      selectedVersionIds.clear();
+    }
   } finally {
     approvePendingBatchButton.disabled = false;
     publishApprovedBatchButton.disabled = false;

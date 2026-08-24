@@ -4,12 +4,19 @@ const PRESERVED_NAME_PATTERN = /(^|[\s._-])(favicon|icon|logo|logomark|wordmark)
 
 export const CDN_BROWSER_CACHE_SECONDS = "31536000";
 export const CDN_MAX_IMAGE_EDGE = 2400;
+export const CDN_MAX_OBJECT_BYTES = 10 * 1024 * 1024;
 
 export function canOptimizeCdnImage(asset, version) {
   const mimeType = String(version?.mime_type || "").toLowerCase();
   if (!OPTIMIZABLE_TYPES.has(mimeType)) return false;
   if (PRESERVED_FOLDERS.has(String(asset?.category || "").toLowerCase())) return false;
   return !PRESERVED_NAME_PATTERN.test(String(version?.original_filename || ""));
+}
+
+export function shouldOptimizeCdnImage(asset, version, sourceSizeBytes = 0) {
+  const mimeType = String(version?.mime_type || "").toLowerCase();
+  if (!OPTIMIZABLE_TYPES.has(mimeType)) return false;
+  return sourceSizeBytes > CDN_MAX_OBJECT_BYTES || canOptimizeCdnImage(asset, version);
 }
 
 function preferredOutputType(asset, sourceType) {
@@ -59,35 +66,48 @@ async function decodeImage(blob) {
 
 export async function prepareCdnImage(blob, asset, version) {
   const sourceType = String(version?.mime_type || blob.type || "application/octet-stream").toLowerCase();
-  if (!canOptimizeCdnImage(asset, { ...version, mime_type: sourceType })) {
+  const forceWithinCdnLimit = blob.size > CDN_MAX_OBJECT_BYTES;
+  if (!shouldOptimizeCdnImage(asset, { ...version, mime_type: sourceType }, blob.size)) {
     return { blob, contentType: sourceType, width: null, height: null, optimized: false };
   }
 
   const decoded = await decodeImage(blob);
   try {
-    const longestEdge = Math.max(decoded.width, decoded.height);
-    const scale = Math.min(1, CDN_MAX_IMAGE_EDGE / longestEdge);
-    const width = Math.max(1, Math.round(decoded.width * scale));
-    const height = Math.max(1, Math.round(decoded.height * scale));
-    const canvas = document.createElement("canvas");
-    canvas.width = width;
-    canvas.height = height;
-    const context = canvas.getContext("2d", { alpha: true });
-    if (!context) throw new Error("This browser could not prepare the optimized image.");
-    context.imageSmoothingEnabled = true;
-    context.imageSmoothingQuality = "high";
-    context.drawImage(decoded.source, 0, 0, width, height);
-
     const outputType = preferredOutputType(asset, sourceType);
-    const encoded = await canvasBlob(canvas, outputType, outputType === "image/jpeg" ? 0.86 : 0.84);
+    const longestEdge = Math.max(decoded.width, decoded.height);
+    const targetEdges = forceWithinCdnLimit ? [CDN_MAX_IMAGE_EDGE, 1920, 1600, 1200] : [CDN_MAX_IMAGE_EDGE];
+    let bestCandidate = null;
+
+    for (const [index, targetEdge] of targetEdges.entries()) {
+      const scale = Math.min(1, targetEdge / longestEdge);
+      const width = Math.max(1, Math.round(decoded.width * scale));
+      const height = Math.max(1, Math.round(decoded.height * scale));
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const context = canvas.getContext("2d", { alpha: true });
+      if (!context) throw new Error("This browser could not prepare the optimized image.");
+      context.imageSmoothingEnabled = true;
+      context.imageSmoothingQuality = "high";
+      context.drawImage(decoded.source, 0, 0, width, height);
+
+      const baseQuality = outputType === "image/jpeg" ? 0.86 : 0.84;
+      const encoded = await canvasBlob(canvas, outputType, Math.max(0.68, baseQuality - index * 0.04));
+      const candidate = { blob: encoded, width, height };
+      if (!bestCandidate || encoded.size < bestCandidate.blob.size) bestCandidate = candidate;
+      if (!forceWithinCdnLimit || encoded.size <= CDN_MAX_OBJECT_BYTES) break;
+    }
+
+    const encoded = bestCandidate.blob;
     const encodedType = encoded.type || outputType;
-    const resized = width !== decoded.width || height !== decoded.height;
-    const useEncoded = encoded.size < blob.size && (resized || encoded.size <= blob.size * 0.94);
+    const resized = bestCandidate.width !== decoded.width || bestCandidate.height !== decoded.height;
+    const fitsCdn = !forceWithinCdnLimit || encoded.size <= CDN_MAX_OBJECT_BYTES;
+    const useEncoded = fitsCdn && encoded.size < blob.size && (forceWithinCdnLimit || resized || encoded.size <= blob.size * 0.94);
     return {
       blob: useEncoded ? encoded : blob,
       contentType: useEncoded ? encodedType : sourceType,
-      width: useEncoded ? width : decoded.width,
-      height: useEncoded ? height : decoded.height,
+      width: useEncoded ? bestCandidate.width : decoded.width,
+      height: useEncoded ? bestCandidate.height : decoded.height,
       optimized: useEncoded,
     };
   } finally {
