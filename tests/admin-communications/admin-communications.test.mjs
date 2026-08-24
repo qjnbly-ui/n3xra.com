@@ -13,10 +13,18 @@ const communications = require("../../api/_admin-communications");
 test("incoming receptionist texts are normalized and recorded in the private admin inbox", async () => {
   const previousFetch = global.fetch;
   let payload;
+  let notificationPayload;
   global.fetch = async (url, options) => {
-    assert.match(url, /\/rest\/v1\/rpc\/record_admin_communication_message$/);
-    payload = JSON.parse(options.body);
-    return { ok: true, status: 200, async text() { return JSON.stringify([{ message_id: "message-1", thread_id: "thread-1" }]); } };
+    if (/\/rest\/v1\/rpc\/record_admin_communication_message$/.test(url)) {
+      payload = JSON.parse(options.body);
+      return { ok: true, status: 200, async text() { return JSON.stringify([{ message_id: "message-1", thread_id: "thread-1" }]); } };
+    }
+    if (url.includes("admin_notifications?") && options?.method !== "POST") {
+      return { ok: true, status: 200, async text() { return "[]"; } };
+    }
+    assert.match(url, /\/rest\/v1\/admin_notifications$/);
+    notificationPayload = JSON.parse(options.body);
+    return { ok: true, status: 201, async json() { return [notificationPayload]; } };
   };
   try {
     const result = await communications.recordIncomingMessage({
@@ -30,6 +38,9 @@ test("incoming receptionist texts are normalized and recorded in the private adm
     assert.equal(payload.p_phone_e164, "+15415550100");
     assert.equal(payload.p_direction, "inbound");
     assert.equal(payload.p_to_e164, "+15416526840");
+    assert.equal(notificationPayload.event_type, "communications.inbound_message");
+    assert.equal(notificationPayload.source_id, "thread-1");
+    assert.match(notificationPayload.action_url, /\/account\/admin\/communications\/\?thread=thread-1/);
   } finally {
     global.fetch = previousFetch;
   }
@@ -51,6 +62,10 @@ test("the admin communications feature keeps credentials server-side and consent
   assert.match(migration, /revoke all on table public\.admin_communication_threads from public, anon, authenticated/);
   assert.match(migration, /set search_path = ''/);
   assert.match(navigation, /Calls & Messages/);
+  assert.match(navigation, /data-admin-communications-count/);
+  assert.match(navigation, /postgres_changes/);
+  assert.match(helper, /communications\.inbound_message/);
+  assert.match(helper, /admin_notifications\?event_type=eq\.communications\.inbound_message/);
   assert.match(navigation, /communications\.startCommunications\(\)/);
   assert.match(page, /Mass updates remain in Account Announcements/);
 });
@@ -65,6 +80,8 @@ test("browser calling obtains a short-lived token from an admin-only Supabase fu
     readFile(new URL("../../supabase/config.toml", import.meta.url), "utf8"),
   ]);
   assert.match(browser, /functions\.invoke\("admin-voice-token"/);
+  assert.match(browser, /n3xra:admin-notification-change/);
+  assert.doesNotMatch(browser, /setInterval/);
   assert.match(browser, /\/assets\/vendor\/twilio-voice\.min\.js\?v=1/);
   assert.doesNotMatch(browser, /sdk\.twilio\.com/);
   assert.doesNotMatch(page, /sdk\.twilio\.com/);

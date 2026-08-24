@@ -257,11 +257,23 @@ function isCurrentPath(href) {
 function linkMarkup([href, label], mobile = false) {
   const current = isCurrentPath(href) ? " is-current" : "";
   const hasInboxBadge = normalizePath(href) === "/account/admin/inbox/";
-  const classes = [mobile ? "site-menu-link" : "", current.trim(), hasInboxBadge ? "has-admin-inbox-badge" : ""].filter(Boolean).join(" ");
+  const hasCommunicationsBadge = normalizePath(href) === "/account/admin/communications/";
+  const hasBadge = hasInboxBadge || hasCommunicationsBadge;
+  const classes = [mobile ? "site-menu-link" : "", current.trim(), hasBadge ? "has-admin-inbox-badge" : ""].filter(Boolean).join(" ");
   const className = classes ? ` class="${classes}"` : "";
-  const badge = hasInboxBadge ? '<span class="admin-inbox-nav-badge" data-admin-inbox-count hidden></span>' : "";
-  const content = hasInboxBadge ? `<span class="admin-inbox-nav-label">${label}</span>${badge}` : label;
+  const badge = hasInboxBadge
+    ? '<span class="admin-inbox-nav-badge" data-admin-inbox-count hidden></span>'
+    : hasCommunicationsBadge ? '<span class="admin-inbox-nav-badge" data-admin-communications-count hidden></span>' : "";
+  const content = hasBadge ? `<span class="admin-inbox-nav-label">${label}</span>${badge}` : label;
   return `<a${className} href="${href}">${content}</a>`;
+}
+
+function renderBadgeCount(selector, unreadCount, noun) {
+  document.querySelectorAll(selector).forEach((badge) => {
+    badge.textContent = unreadCount > 99 ? "99+" : String(unreadCount);
+    badge.hidden = unreadCount < 1;
+    badge.setAttribute("aria-label", `${unreadCount} unread ${noun}${unreadCount === 1 ? "" : "s"}`);
+  });
 }
 
 export async function refreshAdminInboxBadge() {
@@ -277,14 +289,43 @@ export async function refreshAdminInboxBadge() {
       .is("deleted_at", null);
     if (error) throw error;
     const unreadCount = Number(count || 0);
-    badges.forEach((badge) => {
-      badge.textContent = unreadCount > 99 ? "99+" : String(unreadCount);
-      badge.hidden = unreadCount < 1;
-      badge.setAttribute("aria-label", `${unreadCount} unread notification${unreadCount === 1 ? "" : "s"}`);
-    });
+    renderBadgeCount("[data-admin-inbox-count]", unreadCount, "notification");
   } catch {
     badges.forEach((badge) => { badge.hidden = true; });
   }
+}
+
+export async function refreshAdminCommunicationsBadge() {
+  const badges = [...document.querySelectorAll("[data-admin-communications-count]")];
+  if (!badges.length || !hasConfig()) return;
+  try {
+    const supabase = createBrowserSupabase();
+    const { count, error } = await supabase.from("admin_notifications")
+      .select("id", { count: "exact", head: true })
+      .eq("event_type", "communications.inbound_message")
+      .is("read_at", null)
+      .is("archived_at", null)
+      .is("deleted_at", null);
+    if (error) throw error;
+    renderBadgeCount("[data-admin-communications-count]", Number(count || 0), "message");
+  } catch {
+    badges.forEach((badge) => { badge.hidden = true; });
+  }
+}
+
+export async function refreshAdminNavigationBadges() {
+  await Promise.all([refreshAdminInboxBadge(), refreshAdminCommunicationsBadge()]);
+}
+
+function ensureAdminNotificationSubscription() {
+  if (!hasConfig() || window.__n3xraAdminNotificationChannel) return;
+  const supabase = createBrowserSupabase();
+  window.__n3xraAdminNotificationChannel = supabase.channel("admin-navigation-notifications")
+    .on("postgres_changes", { event: "*", schema: "public", table: "admin_notifications" }, (payload) => {
+      refreshAdminNavigationBadges();
+      window.dispatchEvent(new CustomEvent("n3xra:admin-notification-change", { detail: payload }));
+    })
+    .subscribe();
 }
 
 function productAppFromUrl() {
@@ -441,7 +482,8 @@ export function renderAdminNavigation({ desktopScrollTop, mobileScrollTop, scrol
   if (isCurrentPath("/account/admin/investment/")) {
     window.dispatchEvent(new Event("hashchange"));
   }
-  refreshAdminInboxBadge();
+  refreshAdminNavigationBadges();
+  ensureAdminNotificationSubscription();
 }
 
 export function arrangeAdminWorkspace() {
@@ -631,7 +673,7 @@ export async function navigateAdminWorkspace(destination, {
       const notifications = await import("/account/notifications/notifications.js?v=13");
       await notifications.startNotifications();
     } else if (url.pathname === "/account/admin/communications/") {
-      const communications = await import("/account/admin/communications/communications.js?v=3");
+      const communications = await import("/account/admin/communications/communications.js?v=4");
       await communications.startCommunications();
     } else {
       const admin = await import("/account/admin/admin.js?v=36");

@@ -1,4 +1,5 @@
 const twilio = require("twilio");
+const { createAdminNotification } = require("./_admin-notifications");
 const { publicHttpUrl } = require("./_receptionist");
 const { normalizePhone } = require("./_account-phone");
 const { requirePlatformAdmin, supabaseJson } = require("./_communications");
@@ -46,7 +47,36 @@ async function recordIncomingMessage(payload) {
   const to = normalizePhone(payload?.To || N3XRA_PHONE);
   const sid = String(payload?.MessageSid || payload?.SmsMessageSid || "").trim();
   if (!from || !to || !sid) throw httpError(400, "The incoming message payload is incomplete.");
-  return recordMessage({ phone: from, sid, direction: "inbound", body: payload?.Body, status: "received", from, to, media: parseInboundMedia(payload) });
+  const media = parseInboundMedia(payload);
+  const message = await recordMessage({ phone: from, sid, direction: "inbound", body: payload?.Body, status: "received", from, to, media });
+  const existing = await supabaseJson(
+    `admin_notifications?select=id&event_type=eq.communications.inbound_message&source_table=eq.admin_communication_threads&source_id=eq.${encodeURIComponent(message.thread_id)}&limit=1`,
+  ).catch(() => []);
+  const body = String(payload?.Body || "").trim();
+  const summary = body || (media.length ? "Picture message" : "New text message");
+  const notification = {
+    event_type: "communications.inbound_message",
+    product: "platform",
+    priority: "important",
+    title: `New text from ${from}`,
+    summary: summary.slice(0, 2000),
+    message_text: body || summary,
+    actor_name: from,
+    source_table: "admin_communication_threads",
+    source_id: message.thread_id,
+    action_url: `/account/admin/communications/?thread=${encodeURIComponent(message.thread_id)}`,
+    metadata: { thread_id: message.thread_id, message_id: message.message_id, phone: from, media_count: media.length },
+  };
+  if (existing?.[0]?.id) {
+    await supabaseJson(`admin_notifications?id=eq.${encodeURIComponent(existing[0].id)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Prefer: "return=minimal" },
+      body: JSON.stringify({ ...notification, read_at: null, archived_at: null, deleted_at: null, created_at: new Date().toISOString() }),
+    });
+  } else {
+    await createAdminNotification(notification);
+  }
+  return message;
 }
 
 async function latestConsentByPhone() {
@@ -116,11 +146,19 @@ async function listMessages(threadId) {
 
 async function markRead(threadId) {
   if (!/^[0-9a-f-]{36}$/i.test(String(threadId || ""))) throw httpError(400, "A valid conversation is required.");
-  await supabaseJson(`admin_communication_threads?id=eq.${encodeURIComponent(threadId)}`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json", Prefer: "return=minimal" },
-    body: JSON.stringify({ unread_count: 0, updated_at: new Date().toISOString() }),
-  });
+  const now = new Date().toISOString();
+  await Promise.all([
+    supabaseJson(`admin_communication_threads?id=eq.${encodeURIComponent(threadId)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Prefer: "return=minimal" },
+      body: JSON.stringify({ unread_count: 0, updated_at: now }),
+    }),
+    supabaseJson(`admin_notifications?event_type=eq.communications.inbound_message&source_table=eq.admin_communication_threads&source_id=eq.${encodeURIComponent(threadId)}&read_at=is.null`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Prefer: "return=minimal" },
+      body: JSON.stringify({ read_at: now }),
+    }),
+  ]);
 }
 
 async function phoneIsOptedIn(phone) {

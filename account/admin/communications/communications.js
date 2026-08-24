@@ -1,6 +1,6 @@
 import { hasConfig } from "/shared/lib/supabase-client.js";
 import { getAdminSession } from "/account/admin/admin-session.js";
-import { arrangeAdminWorkspace } from "/account/admin/admin-navigation.js?v=23";
+import { arrangeAdminWorkspace, refreshAdminNavigationBadges } from "/account/admin/admin-navigation.js?v=24";
 
 let context;
 let contacts = [];
@@ -97,6 +97,13 @@ async function refresh({ quiet = false } = {}) {
   if (!quiet) status("Calls and messages are up to date.", "success");
 }
 
+function handleAdminNotificationChange(event) {
+  const changed = event.detail?.new || event.detail?.old || {};
+  if (changed.event_type !== "communications.inbound_message") return;
+  if (window.location.pathname !== "/account/admin/communications/") return;
+  refresh({ quiet:true }).catch(() => null);
+}
+
 async function sendText(event) {
   event.preventDefault();
   const body = $("message-body").value.trim();
@@ -179,6 +186,8 @@ function bindEvents() {
   $("call-contact").addEventListener("change", () => { if ($("call-contact").value) $("call-phone").value = $("call-contact").value; });
   $("start-call").addEventListener("click", startCall);
   $("end-call").addEventListener("click", () => activeCall?.disconnect());
+  window.removeEventListener("n3xra:admin-notification-change", handleAdminNotificationChange);
+  window.addEventListener("n3xra:admin-notification-change", handleAdminNotificationChange);
 }
 
 export async function startCommunications() {
@@ -189,6 +198,10 @@ export async function startCommunications() {
   arrangeAdminWorkspace();
   bindEvents();
   await refresh();
+  const requestedThreadId = new URLSearchParams(window.location.search).get("thread");
+  const requestedThread = threads.find((thread) => thread.id === requestedThreadId);
+  if (requestedThread) await openThread(requestedThread);
+  await refreshAdminNavigationBadges();
   document.body.classList.add("admin-ready");
 }
 
