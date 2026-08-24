@@ -119,16 +119,32 @@ test("progress tracking is tenant-readable without querying protected support ro
   assert.doesNotMatch(migration, /exists \(select 1 from public\.platform_support_requests/);
 });
 
-test("client emails are tracked for preview-ready and published milestones", async () => {
-  const [migration, edge] = await Promise.all([
+test("production email waits for Vercel readiness after merge", async () => {
+  const [emailMigration, productionMigration, edge, callback, workflow] = await Promise.all([
     projectFile("supabase/migrations/20260824172433_track_website_change_client_emails.sql"),
+    projectFile("supabase/migrations/20260824213509_track_website_change_production_deployment.sql"),
     projectFile("supabase/functions/website-change-automation/index.ts"),
+    projectFile("api/website-change-run-callback.js"),
+    projectFile(".github/workflows/website-change-preview.yml"),
   ]);
-  assert.match(migration, /preview_email_sent_at/);
-  assert.match(migration, /published_email_sent_at/);
-  assert.match(migration, /client_email_delivery_error/);
-  assert.match(edge, /Idempotency-Key.*website-change\/\$\{run\.id\}\/published/s);
-  assert.match(edge, /sendPublishedEmail/);
-  assert.match(edge, /published_email_sent_at/);
-  assert.match(edge, /Published website email failed/);
+  assert.match(emailMigration, /preview_email_sent_at/);
+  assert.match(emailMigration, /published_email_sent_at/);
+  assert.match(productionMigration, /merge_sha/);
+  assert.match(productionMigration, /production_deployment_url/);
+  assert.match(productionMigration, /production_ready_at/);
+  assert.match(productionMigration, /production_deploying/);
+  assert.match(edge, /sendProductionBuildingEmail/);
+  assert.match(edge, /production_building/);
+  assert.match(edge, /n3xra-website-publish/);
+  assert.match(edge, /progress_stage: "production_deploying"/);
+  assert.ok(edge.indexOf("sendProductionBuildingEmail(admin, run)") < edge.indexOf('event_type: "n3xra-website-publish"'));
+  assert.doesNotMatch(edge, /website-change\/\$\{run\.id\}\/published/);
+  assert.match(workflow, /verify-production/);
+  assert.match(workflow, /listDeployments\(\{ owner, repo, sha/);
+  assert.match(workflow, /productionStatus: productionUrl \? 'ready' : 'failed'/);
+  assert.match(callback, /productionStatus/);
+  assert.match(callback, /headSha === run\.merge_sha/);
+  assert.match(callback, /stage: "published"/);
+  assert.match(callback, /production_ready_at: now/);
+  assert.match(callback, /published_email_sent_at: publishedEmailSentAt/);
 });

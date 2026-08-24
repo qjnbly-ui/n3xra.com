@@ -28,8 +28,22 @@ test("published email confirms the approved change is live", () => {
     actionUrl: "https://ruthobenchainrc.com/",
   });
   assert.equal(email.subject, "Your RORC update is live");
-  assert.match(email.text, /published to the website's main branch/);
+  assert.match(email.text, /Vercel finished the production deployment successfully/);
   assert.match(email.html, /Open live website/);
+});
+
+test("building email does not claim the approved change is live", () => {
+  const email = buildWebsiteChangeEmail({
+    stage: "production_building",
+    requesterName: "Quentin Nichols",
+    websiteName: "RORC",
+    requestSubject: "Business hours update",
+    actionUrl: "https://ruth-obenchain-recreation-center.portal.n3xra.com/",
+  });
+  assert.equal(email.subject, "Your RORC update is building");
+  assert.match(email.text, /Vercel is building the production website now/);
+  assert.match(email.text, /another message when the update is live/);
+  assert.doesNotMatch(email.text, /now live/);
 });
 
 test("email delivery uses a stable per-run idempotency key", async () => {

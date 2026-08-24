@@ -25,16 +25,27 @@ function validHttpsUrl(value) {
 
 function buildWebsiteChangeEmail({ stage, requesterName, websiteName, requestSubject, actionUrl }) {
   const previewReady = stage === "preview_ready";
+  const productionBuilding = stage === "production_building";
   const firstName = String(requesterName || "").trim().split(/\s+/)[0];
   const greeting = firstName ? `Hi ${firstName},` : "Hello,";
   const site = String(websiteName || "your website").trim();
   const change = String(requestSubject || "Website update").trim();
-  const subject = previewReady ? `Your ${site} preview is ready` : `Your ${site} update is live`;
-  const heading = previewReady ? "Your private preview is ready" : "Your website update is live";
+  const subject = previewReady
+    ? `Your ${site} preview is ready`
+    : productionBuilding
+      ? `Your ${site} update is building`
+      : `Your ${site} update is live`;
+  const heading = previewReady
+    ? "Your private preview is ready"
+    : productionBuilding
+      ? "Your approved update is building"
+      : "Your website update is live";
   const message = previewReady
     ? "N3XRA finished preparing the requested website change. You can review the private preview now. Nothing has been published to the live website yet."
-    : "N3XRA reviewed and approved the requested change. It has now been published to the website's main branch.";
-  const button = previewReady ? "Review private preview" : "Open live website";
+    : productionBuilding
+      ? "N3XRA approved the requested change and merged it into the website's main branch. Vercel is building the production website now. You will receive another message when the update is live."
+      : "Vercel finished the production deployment successfully. The approved change is now live on the website.";
+  const button = previewReady ? "Review private preview" : productionBuilding ? "Open client portal" : "Open live website";
   const safeUrl = validHttpsUrl(actionUrl);
   const text = [
     greeting,
@@ -55,7 +66,7 @@ async function sendWebsiteChangeClientEmail(input, dependencies = {}) {
   const recipient = validEmail(input.requesterEmail);
   if (!apiKey) throw new Error("RESEND_API_KEY is missing.");
   if (!recipient) throw new Error("The support request does not have a valid client email address.");
-  if (!["preview_ready", "published"].includes(input.stage)) throw new Error("Choose a valid website email stage.");
+  if (!["preview_ready", "production_building", "published"].includes(input.stage)) throw new Error("Choose a valid website email stage.");
   const content = buildWebsiteChangeEmail(input);
   const response = await (dependencies.fetch || fetch)("https://api.resend.com/emails", {
     method: "POST",

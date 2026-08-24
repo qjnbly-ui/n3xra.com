@@ -113,7 +113,10 @@ function changeRunPresentation(run) {
     deploying: ["Vercel is building the preview", "The isolated GitHub branch is ready and Vercel is preparing its private preview."],
     preview_ready: ["Private preview ready", "The preview is ready for review. Nothing reaches the main branch until an N3XRA administrator approves it."],
     failed: ["Preview workflow paused", "The automated workflow stopped before a review link was ready. The live website was not changed."],
-    merged: ["Approved and published", "The reviewed branch was merged into main and the normal production deployment can proceed."],
+    merged: ["Approved and merged", "The reviewed branch was merged into main. Production deployment has not been confirmed yet."],
+    production_deploying: ["Vercel is building production", "The approved change is on the main branch and Vercel is building the live website now."],
+    published: ["Update is live", "Vercel finished the production deployment successfully. The approved change is now live."],
+    production_failed: ["Production needs attention", "The approved change reached main, but Vercel did not confirm a successful production deployment."],
   };
   const [title, fallback] = presentations[stage] || ["Preview status", "The isolated preview workflow is being tracked."];
   return { stage, title, message: run?.progress_message || fallback };
@@ -283,7 +286,7 @@ function renderSelectedSupport() {
     try {
       await invokeWebsiteAutomation("approve-merge", { runId: changeRun.id });
       await loadSupport();
-      setStatus("The reviewed website change was merged into main.", "success");
+      setStatus("The reviewed website change was merged into main. Vercel is building production now.", "success");
     } catch (error) {
       button.disabled = false;
       setStatus(error.message, "error");
