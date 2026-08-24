@@ -62,6 +62,23 @@
   gap: 0.5rem;
 }
 
+.notification-settings-button {
+  align-self: center;
+  padding: 0.45rem 0.25rem;
+  color: var(--portal-muted);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  font: 700 0.7rem/1.2 "Manrope", Arial, sans-serif;
+  text-decoration: underline;
+  text-decoration-color: #bcc8cd;
+  text-underline-offset: 3px;
+}
+
+.notification-settings-button:hover {
+  color: var(--portal-ink);
+}
+
 .notification-inbox-scroll {
   flex: 1 1 auto;
   min-width: 0;
@@ -357,6 +374,63 @@
   margin-top: 1.2rem;
 }
 
+.notification-settings-dialog {
+  width: min(560px, calc(100% - 2rem));
+}
+
+.notification-settings-copy {
+  margin: 0 0 1.25rem;
+  color: var(--portal-muted);
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+
+.notification-setting-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 0;
+  border-top: 1px solid var(--portal-line);
+  cursor: pointer;
+}
+
+.notification-setting-option span {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.notification-setting-option strong {
+  font-size: 0.86rem;
+}
+
+.notification-setting-option small {
+  color: var(--portal-muted);
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+.notification-setting-option input {
+  width: 42px;
+  height: 22px;
+  accent-color: #0b796d;
+  cursor: pointer;
+}
+
+.notification-settings-status {
+  min-height: 1.2rem;
+  margin: 0.65rem 0 0;
+  color: var(--portal-muted);
+  font-size: 0.72rem;
+}
+
+.notification-settings-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
 @media (max-width: 1180px) {
   .notification-pagebar {
     padding-inline: 1.35rem;
@@ -413,10 +487,16 @@
 
   .notification-heading-actions {
     width: 100%;
+    flex-wrap: wrap;
   }
 
   .notification-heading-actions .portal-button {
     flex: 1;
+  }
+
+  .notification-settings-button {
+    flex-basis: 100%;
+    text-align: left;
   }
 
   .notification-toolbar {

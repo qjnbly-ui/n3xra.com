@@ -54,13 +54,26 @@ Deno.serve(async (request) => {
   const notification = (Array.isArray(claim.data) ? claim.data[0] : claim.data) as AdminNotification | null;
   if (!notification) return json({ ok: true, duplicate: true });
 
+  const preferencesResult = await admin.from("admin_notification_delivery_settings")
+    .select("email_enabled,sms_enabled")
+    .eq("id", "primary")
+    .maybeSingle();
+  const preferences = preferencesResult.error || !preferencesResult.data
+    ? { email_enabled: true, sms_enabled: true }
+    : preferencesResult.data;
+
   const appOrigin = Deno.env.get("APP_ORIGIN") || "https://www.n3xra.com";
   const content = buildAdminNotificationEmail(notification, appOrigin);
   const from = Deno.env.get("ADMIN_NOTIFICATION_EMAIL_FROM") || "N3XRA Notifications <noreply@n3xra.com>";
   let providerId = "";
   let deliveryError = "Email delivery failed.";
 
-  if (notification.email_delivery_status === "sending" && supabaseUrl && serviceKey && resendApiKey && recipients.length) {
+  if (notification.email_delivery_status === "sending" && !preferences.email_enabled) {
+    await admin.from("admin_notifications").update({
+      email_delivery_status: "disabled",
+      email_delivery_error: null,
+    }).eq("id", notification.id).eq("email_delivery_status", "sending");
+  } else if (notification.email_delivery_status === "sending" && supabaseUrl && serviceKey && resendApiKey && recipients.length) {
     for (let attempt = 0; attempt < 3; attempt += 1) {
       const response = await fetch("https://api.resend.com/emails", {
         method: "POST",
@@ -104,7 +117,12 @@ Deno.serve(async (request) => {
   let smsProviderId = "";
   let smsError = "Text notification delivery failed.";
 
-  if (notification.sms_delivery_status === "sending" && accountSid && authToken && fromPhone && toPhone) {
+  if (notification.sms_delivery_status === "sending" && !preferences.sms_enabled) {
+    await admin.from("admin_notifications").update({
+      sms_delivery_status: "disabled",
+      sms_delivery_error: null,
+    }).eq("id", notification.id).eq("sms_delivery_status", "sending");
+  } else if (notification.sms_delivery_status === "sending" && accountSid && authToken && fromPhone && toPhone) {
     const sms = buildAdminNotificationSms(notification, appOrigin);
     const form = new URLSearchParams({ From: fromPhone, To: toPhone, Body: sms });
     const response = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(accountSid)}/Messages.json`, {
@@ -137,5 +155,9 @@ Deno.serve(async (request) => {
     }).eq("id", notification.id).eq("sms_delivery_status", "sending");
   }
 
-  return json({ ok: Boolean(providerId || smsProviderId), email: providerId ? "sent" : "not_sent", sms: smsProviderId ? "sent" : "not_sent" });
+  return json({
+    ok: Boolean(providerId || smsProviderId || !preferences.email_enabled || !preferences.sms_enabled),
+    email: preferences.email_enabled ? (providerId ? "sent" : "not_sent") : "disabled",
+    sms: preferences.sms_enabled ? (smsProviderId ? "sent" : "not_sent") : "disabled",
+  });
 });

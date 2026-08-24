@@ -9,6 +9,10 @@ initializeAdminSelects();
 const list = document.getElementById("notification-list");
 const status = document.getElementById("admin-inbox-status");
 const dialog = document.getElementById("notification-dialog");
+const settingsDialog = document.getElementById("notification-settings-dialog");
+const settingsStatus = document.getElementById("notification-settings-status");
+const emailEnabled = document.getElementById("notification-email-enabled");
+const smsEnabled = document.getElementById("notification-sms-enabled");
 const filters = {
   search: document.getElementById("notification-search"),
   product: document.getElementById("notification-product"),
@@ -18,6 +22,7 @@ const filters = {
 let supabase;
 let notifications = [];
 let folder = "inbox";
+let currentUserId = "";
 
 function escapeHtml(value = "") {
   return String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
@@ -77,6 +82,47 @@ async function load() {
   notifications = (data || []).filter((item) => item.product !== "utilities");
   render();
   await refreshAdminInboxBadge();
+}
+
+async function loadNotificationSettings() {
+  settingsStatus.textContent = "Loading settings…";
+  const { data, error } = await supabase.from("admin_notification_delivery_settings")
+    .select("email_enabled,sms_enabled")
+    .eq("id", "primary")
+    .single();
+  if (error) throw error;
+  emailEnabled.checked = data.email_enabled !== false;
+  smsEnabled.checked = data.sms_enabled !== false;
+  settingsStatus.textContent = "";
+}
+
+async function openNotificationSettings() {
+  settingsDialog.showModal();
+  try {
+    await loadNotificationSettings();
+  } catch (error) {
+    settingsStatus.textContent = error.message || "Unable to load notification settings.";
+  }
+}
+
+async function saveNotificationSettings(event) {
+  event.preventDefault();
+  const saveButton = document.getElementById("save-notification-settings");
+  saveButton.disabled = true;
+  settingsStatus.textContent = "Saving…";
+  const { error } = await supabase.from("admin_notification_delivery_settings").update({
+    email_enabled: emailEnabled.checked,
+    sms_enabled: smsEnabled.checked,
+    updated_at: new Date().toISOString(),
+    updated_by_user_id: currentUserId,
+  }).eq("id", "primary");
+  saveButton.disabled = false;
+  if (error) {
+    settingsStatus.textContent = error.message || "Unable to save notification settings.";
+    return;
+  }
+  settingsStatus.textContent = "Settings saved.";
+  window.setTimeout(() => settingsDialog.close(), 450);
 }
 
 async function update(id, values) {
@@ -140,6 +186,7 @@ export async function startInbox() {
   const context = await getAdminSession();
   if (!context.allowed) return;
   supabase = context.supabase;
+  currentUserId = context.user.id;
   renderAdminNavigation();
   document.body.classList.add("admin-ready");
   document.querySelectorAll("[data-folder]").forEach((button) => button.addEventListener("click", () => {
@@ -149,6 +196,11 @@ export async function startInbox() {
   }));
   Object.values(filters).forEach((control) => control.addEventListener(control === filters.search ? "input" : "change", render));
   document.getElementById("refresh-inbox").addEventListener("click", load);
+  document.getElementById("open-notification-settings").addEventListener("click", openNotificationSettings);
+  document.getElementById("notification-settings-form").addEventListener("submit", saveNotificationSettings);
+  document.getElementById("close-notification-settings").addEventListener("click", () => settingsDialog.close());
+  document.getElementById("cancel-notification-settings").addEventListener("click", () => settingsDialog.close());
+  settingsDialog.addEventListener("click", (event) => { if (event.target === settingsDialog) settingsDialog.close(); });
   document.getElementById("mark-all-read").addEventListener("click", async () => {
     const now = new Date().toISOString();
     const { error } = await supabase.from("admin_notifications").update({ read_at: now }).is("read_at", null).is("archived_at", null).is("deleted_at", null);

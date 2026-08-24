@@ -24,6 +24,29 @@ test("every new admin notification is queued for asynchronous email and text del
   assert.match(smsMigration, /grant execute on function public\.claim_admin_notification_delivery\(uuid\) to service_role/);
 });
 
+test("platform admins can independently control email and text copies from the Admin Inbox", async () => {
+  const [migration, endpoint, html, script] = await Promise.all([
+    projectFile("supabase/migrations/20260824211851_admin_notification_delivery_preferences.sql"),
+    projectFile("supabase/functions/admin-notification-email/index.ts"),
+    projectFile("account/admin/inbox/index.html"),
+    projectFile("account/admin/inbox/inbox.js"),
+  ]);
+  assert.match(migration, /create table if not exists public\.admin_notification_delivery_settings/);
+  assert.match(migration, /email_enabled boolean not null default true/);
+  assert.match(migration, /sms_enabled boolean not null default true/);
+  assert.match(migration, /enable row level security/);
+  assert.match(migration, /public\.is_platform_admin/);
+  assert.match(migration, /updated_by_user_id = \(select auth\.uid\(\)\)/);
+  assert.match(endpoint, /admin_notification_delivery_settings/);
+  assert.match(endpoint, /email_delivery_status: "disabled"/);
+  assert.match(endpoint, /sms_delivery_status: "disabled"/);
+  assert.match(html, /id="open-notification-settings"/);
+  assert.match(html, /id="notification-email-enabled"/);
+  assert.match(html, /id="notification-sms-enabled"/);
+  assert.match(script, /saveNotificationSettings/);
+  assert.match(script, /updated_by_user_id: currentUserId/);
+});
+
 test("notification text is concise and keeps the secure Admin Inbox link", () => {
   const sms = buildAdminNotificationSms({
     id: "11111111-1111-4111-8111-111111111111",
