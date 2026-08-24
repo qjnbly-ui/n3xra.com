@@ -66,12 +66,22 @@ jobs:
         env:
           TARGET_BRANCH: ${{ github.event.client_payload.branch }}
         run: git switch -c "$TARGET_BRANCH"
+      - name: Report Codex work started
+        env:
+          CALLBACK_URL: ${{ github.event.client_payload.callback_url }}
+          CALLBACK_TOKEN: ${{ github.event.client_payload.callback_token }}
+          RUN_ID: ${{ github.event.client_payload.run_id }}
+        run: |
+          curl --fail-with-body --retry 2 --request POST "$CALLBACK_URL" \
+            --header 'Content-Type: application/json' \
+            --data "{\"runId\":\"$RUN_ID\",\"token\":\"$CALLBACK_TOKEN\",\"progressStage\":\"codex_running\",\"progressMessage\":\"Codex is reviewing the website and making the requested change on the isolated branch.\",\"workflowUrl\":\"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}"
       - name: Run Codex for the requested website change
         uses: openai/codex-action@v1
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
           sandbox: workspace-write
           safety-strategy: drop-sudo
+          allow-bot-users: n3xra-website-provisioner
           codex-args: '["--ephemeral"]'
           prompt: |
             Implement one client-requested change in this website repository.
@@ -84,6 +94,15 @@ jobs:
             Summary: ${{ github.event.client_payload.summary }}
             Original request: ${{ github.event.client_payload.request }}
             END CLIENT REQUEST DATA
+      - name: Report validation started
+        env:
+          CALLBACK_URL: ${{ github.event.client_payload.callback_url }}
+          CALLBACK_TOKEN: ${{ github.event.client_payload.callback_token }}
+          RUN_ID: ${{ github.event.client_payload.run_id }}
+        run: |
+          curl --fail-with-body --retry 2 --request POST "$CALLBACK_URL" \
+            --header 'Content-Type: application/json' \
+            --data "{\"runId\":\"$RUN_ID\",\"token\":\"$CALLBACK_TOKEN\",\"progressStage\":\"validating\",\"progressMessage\":\"Codex finished editing. N3XRA is checking the changed files before pushing the preview branch.\"}"
       - name: Validate and push private branch
         env:
           TARGET_BRANCH: ${{ github.event.client_payload.branch }}
@@ -95,6 +114,15 @@ jobs:
           git add -A
           git commit -m "Prepare website change preview"
           git push origin "$TARGET_BRANCH"
+      - name: Report preview deployment started
+        env:
+          CALLBACK_URL: ${{ github.event.client_payload.callback_url }}
+          CALLBACK_TOKEN: ${{ github.event.client_payload.callback_token }}
+          RUN_ID: ${{ github.event.client_payload.run_id }}
+        run: |
+          curl --fail-with-body --retry 2 --request POST "$CALLBACK_URL" \
+            --header 'Content-Type: application/json' \
+            --data "{\"runId\":\"$RUN_ID\",\"token\":\"$CALLBACK_TOKEN\",\"progressStage\":\"deploying\",\"progressMessage\":\"The isolated GitHub branch is ready. Vercel is building the private preview now.\"}"
       - name: Wait for Vercel preview and report result
         uses: actions/github-script@v7
         env:
@@ -130,4 +158,4 @@ jobs:
         run: |
           curl --fail-with-body --retry 2 --request POST "$CALLBACK_URL" \
             --header 'Content-Type: application/json' \
-            --data "{\"runId\":\"$RUN_ID\",\"token\":\"$CALLBACK_TOKEN\",\"error\":\"The automated preview workflow did not complete. N3XRA can safely review and retry it.\"}" || true
+            --data "{\"runId\":\"$RUN_ID\",\"token\":\"$CALLBACK_TOKEN\",\"error\":\"The preview workflow stopped before a review link was ready. N3XRA can inspect the recorded stage and retry safely. Your live website was not changed.\"}" || true

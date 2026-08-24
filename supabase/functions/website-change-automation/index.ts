@@ -108,7 +108,7 @@ Deno.serve(async (request) => {
         return reply({ error: clean(mergeData?.message || "GitHub could not merge the reviewed preview.", 500) }, mergeResponse.status === 409 ? 409 : 502);
       }
       const now = new Date().toISOString();
-      await admin.from("website_change_runs").update({ state: "merged", error_message: null, approved_by_user_id: user.id, approved_at: now, merged_at: now, updated_at: now }).eq("id", run.id);
+      await admin.from("website_change_runs").update({ state: "merged", progress_stage: "merged", progress_message: "The reviewed change was merged into the website main branch.", progress_updated_at: now, error_message: null, approved_by_user_id: user.id, approved_at: now, merged_at: now, updated_at: now }).eq("id", run.id);
       await admin.from("platform_support_requests").update({ status: "resolved", automation_status: "completed", resolved_at: now, updated_at: now }).eq("id", run.request_id);
       try {
         await sendPublishedEmail(admin, run);
@@ -139,10 +139,10 @@ Deno.serve(async (request) => {
     const [owner, repository] = automationRepo.split("/"), targetRepository = String(claimed.repository_full_name), targetName = targetRepository.split("/")[1];
     const dispatch = await githubRequest(`/repos/${owner}/${repository}/dispatches`, token, { method: "POST", body: JSON.stringify({ event_type: "n3xra-website-change", client_payload: { run_id: claimed.id, target_repository: targetRepository, target_repository_name: targetName, branch: claimed.branch_name, title: clean(support.data?.subject, 100), request: clean(support.data?.message, 4000), summary: clean(support.data?.assistant_summary, 500), callback_url: "https://www.n3xra.com/api/website-change-run-callback", callback_token: callbackToken } }) });
     if (!dispatch.ok) throw new Error(`GitHub could not queue Codex (${dispatch.status}).`);
-    const now = new Date().toISOString(); await admin.from("website_change_runs").update({ state: "coding", updated_at: now }).eq("id", claimed.id); await admin.from("platform_support_requests").update({ automation_status: "running", updated_at: now }).eq("id", requestId);
-    return reply({ ok: true, run: { id: claimed.id, request_id: requestId, state: "coding", branch_name: claimed.branch_name }, message: "Codex is preparing a private preview branch." }, 202);
+    const now = new Date().toISOString(); await admin.from("website_change_runs").update({ state: "queued", progress_stage: "queued", progress_message: "The request was accepted and queued in the isolated GitHub workflow.", progress_updated_at: now, updated_at: now }).eq("id", claimed.id); await admin.from("platform_support_requests").update({ automation_status: "queued", updated_at: now }).eq("id", requestId);
+    return reply({ ok: true, run: { id: claimed.id, request_id: requestId, state: "queued", branch_name: claimed.branch_name, target_repository: claimed.repository_full_name }, message: "The private preview request is queued in GitHub. Status will update automatically." }, 202);
   } catch (error) {
-    if (claimed?.id && admin) { const message = error instanceof Error ? error.message : "Unable to start the preview."; await admin.from("website_change_runs").update({ state: "failed", error_message: message, callback_token_hash: "0".repeat(64), updated_at: new Date().toISOString() }).eq("id", claimed.id); }
+    if (claimed?.id && admin) { const message = error instanceof Error ? error.message : "Unable to start the preview."; const now = new Date().toISOString(); await admin.from("website_change_runs").update({ state: "failed", progress_stage: "failed", progress_message: message, failure_stage: "queued", progress_updated_at: now, error_message: message, callback_token_hash: "0".repeat(64), updated_at: now }).eq("id", claimed.id); }
     if (mergeRunId && admin) { const message = error instanceof Error ? error.message : "Unable to merge the preview."; await admin.from("website_change_runs").update({ state: "preview_ready", error_message: clean(message, 2000), updated_at: new Date().toISOString() }).eq("id", mergeRunId).eq("state", "merge_queued"); }
     return reply({ error: error instanceof Error ? error.message : "Unable to start the preview." }, 500);
   }

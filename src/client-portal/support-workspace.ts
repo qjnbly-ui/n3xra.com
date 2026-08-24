@@ -23,7 +23,7 @@ interface SupportRequest {
 }
 interface ChangeAnalysis { title: string; summary: string; changeKind: string; changeScope: string; needsClarification: boolean; clarificationQuestion: string | null; requiresN3xraReview: true; canAutoApply: false }
 interface SupportUpdate { id: string; request_id: string; message: string; author_type: string; created_at: string }
-interface ChangeRun { id: string; request_id: string; attempt_number: number; state: string; branch_name: string; preview_url: string | null; error_message: string | null; created_at: string; preview_ready_at: string | null; merged_at: string | null }
+interface ChangeRun { id: string; request_id: string; attempt_number: number; state: string; branch_name: string; target_repository: string | null; progress_stage: string; progress_message: string | null; progress_updated_at: string | null; preview_url: string | null; error_message: string | null; created_at: string; updated_at: string; preview_ready_at: string | null; merged_at: string | null }
 
 const form = document.querySelector<HTMLFormElement>("#client-support-form");
 const openButton = document.querySelector<HTMLButtonElement>("#client-support-new");
@@ -63,11 +63,33 @@ let updates: SupportUpdate[] = [];
 let changeRuns: ChangeRun[] = [];
 let filter = "active";
 let pendingAnalysis: ChangeAnalysis | null = null;
+let progressPollTimer: number | undefined;
 
 const escapeHtml = (value: unknown): string => String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
 const label = (value: string): string => value.replaceAll("_", " ").replaceAll("-", " ").replace(/\b\w/g, (character) => character.toUpperCase());
 const isPast = (request: SupportRequest): boolean => ["resolved", "closed"].includes(request.status);
 const formatDate = (value: string): string => new Date(value).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+const formatDateTime = (value: string): string => new Date(value).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+
+function clientRunPresentation(run: ChangeRun): { title: string; message: string; stage: string; activeStep: number } {
+  const stage = run.progress_stage || run.state || "queued";
+  const presentations: Record<string, [string, string, number]> = {
+    queued: ["Queued securely", "N3XRA accepted the request and queued the isolated GitHub workflow.", 0],
+    codex_running: ["Codex is working", "Codex is reviewing the website and making the requested change on a separate branch.", 1],
+    validating: ["Checking the changes", "Codex finished editing. N3XRA is validating the changed files before creating the preview.", 2],
+    deploying: ["Building your preview", "The separate GitHub branch is ready and Vercel is building the private preview.", 3],
+    preview_ready: ["Your preview is ready", "Review the proposed change below. Nothing is live until N3XRA approves it.", 4],
+    failed: ["Preview temporarily paused", "N3XRA has been notified and can safely retry it. Your live website was not changed, and you do not need to resubmit the request.", -1],
+    merged: ["Approved and published", "N3XRA approved the change and merged it into the website's main branch.", 4],
+  };
+  const [title, fallback, activeStep] = presentations[stage] || ["Preparing your preview", "The isolated preview workflow is in progress.", 0];
+  return { title, message: run.progress_message && stage !== "failed" ? run.progress_message : fallback, stage, activeStep };
+}
+
+function renderProgressSteps(activeStep: number, failed: boolean): string {
+  const steps = ["Queued", "Codex editing", "Checking", "Vercel preview", "Ready"];
+  return `<ol class="client-change-progress" aria-label="Preview progress">${steps.map((step, index) => `<li class="${failed && index === Math.max(0, activeStep) ? "is-failed" : index < activeStep ? "is-complete" : index === activeStep ? "is-current" : ""}"><span>${index + 1}</span><small>${escapeHtml(step)}</small></li>`).join("")}</ol>`;
+}
 
 function currentWebsite(): WebsiteRow | undefined {
   const selectedId = websiteSelect?.value || "";
@@ -99,11 +121,13 @@ function render(): void {
     const requestUpdates = updates.filter((update) => update.request_id === request.id);
     const changeRun = changeRuns.find((run) => run.request_id === request.id);
     const previewStalled = Boolean(changeRun && ["queued", "coding"].includes(changeRun.state) && Date.now() - new Date(changeRun.created_at).getTime() > 35 * 60 * 1000);
+    const runPresentation = changeRun ? clientRunPresentation(changeRun) : null;
+    const requestStateLabel = request.automation_status === "awaiting_review" ? "Awaiting review" : changeRun?.state === "failed" ? "N3XRA attention" : changeRun && ["queued", "coding"].includes(changeRun.state) ? label(runPresentation?.stage || "in progress") : label(request.status);
     return `<article class="client-support-card is-${escapeHtml(request.status)}">
-      <header class="client-support-card-head"><div><p class="portal-kicker">${escapeHtml(request.intake_mode === "ai_assisted" ? "AI-assisted website request" : label(request.topic))}</p><h3>${escapeHtml(request.subject)}</h3><p class="client-support-card-origin">${request.origin === "n3xra" ? "Started by N3XRA" : `Sent ${escapeHtml(formatDate(request.created_at))}`}</p></div><span class="client-support-state is-${escapeHtml(request.status)}">${escapeHtml(request.automation_status === "awaiting_review" ? "Awaiting review" : label(request.status))}</span></header>
+      <header class="client-support-card-head"><div><p class="portal-kicker">${escapeHtml(request.intake_mode === "ai_assisted" ? "AI-assisted website request" : label(request.topic))}</p><h3>${escapeHtml(request.subject)}</h3><p class="client-support-card-origin">${request.origin === "n3xra" ? "Started by N3XRA" : `Sent ${escapeHtml(formatDate(request.created_at))}`}</p></div><span class="client-support-state is-${escapeHtml(request.status)}">${escapeHtml(requestStateLabel)}</span></header>
       <p class="client-support-message">${escapeHtml(request.message)}</p>
       ${request.assistant_summary ? `<div class="client-support-assistant-summary"><strong>Organized summary</strong><p>${escapeHtml(request.assistant_summary)}</p></div>` : ""}
-      ${changeRun ? `<div class="client-change-run"><strong>${escapeHtml(changeRun.state === "merged" ? "Approved and published" : changeRun.state === "preview_ready" || changeRun.state === "client_ready" ? "Your preview is ready" : changeRun.state === "failed" || previewStalled ? "Preview needs attention" : "Creating your private preview")}</strong><p>${escapeHtml(changeRun.state === "merged" ? "N3XRA approved this change and merged it into the website's main branch." : changeRun.state === "preview_ready" || changeRun.state === "client_ready" ? "Review the proposed change below. Nothing is live until N3XRA approves it." : changeRun.state === "failed" || previewStalled ? (changeRun.error_message || "The preview did not finish. N3XRA can safely retry it after review.") : "Codex is preparing an isolated branch. This may take a few minutes.")}</p>${changeRun.preview_url ? `<a class="portal-button portal-button-secondary" href="${escapeHtml(changeRun.preview_url)}" target="_blank" rel="noopener noreferrer">Open private preview</a>` : ""}<small>Attempt ${escapeHtml(changeRun.attempt_number)} · ${escapeHtml(label(changeRun.state))}</small></div>` : ""}
+      ${changeRun ? `<div class="client-change-run"><strong>${escapeHtml(previewStalled ? "Preview is taking longer than expected" : runPresentation?.title)}</strong><p>${escapeHtml(previewStalled ? "N3XRA can see the recorded workflow stage and will review it. Your live website has not changed." : runPresentation?.message)}</p>${renderProgressSteps(runPresentation?.activeStep ?? 0, changeRun.state === "failed")}<div class="client-change-run-meta"><span><strong>Separate branch:</strong> ${escapeHtml(changeRun.branch_name)}</span><span><strong>Last update:</strong> ${escapeHtml(formatDateTime(changeRun.progress_updated_at || changeRun.updated_at || changeRun.created_at))}</span></div>${changeRun.preview_url ? `<a class="portal-button portal-button-secondary" href="${escapeHtml(changeRun.preview_url)}" target="_blank" rel="noopener noreferrer">Open private preview</a>` : ""}${["queued", "coding"].includes(changeRun.state) ? "<small>You can refresh, close, or leave this page. The work continues securely in GitHub and this status updates automatically.</small>" : ""}</div>` : ""}
       <div class="client-support-meta"><span><strong>Timing:</strong> ${escapeHtml(timingLabel(request))}</span>${request.estimated_start_at ? `<span><strong>Estimated start:</strong> ${escapeHtml(formatDate(request.estimated_start_at))}</span>` : ""}</div>
       ${requestUpdates.length ? `<div class="client-support-updates">${requestUpdates.map((update) => `<div class="client-support-update"><p>${escapeHtml(update.message)}</p><small>${update.author_type === "n3xra" ? "N3XRA update" : "Client update"} · ${escapeHtml(formatDate(update.created_at))}</small></div>`).join("")}</div>` : ""}
     </article>`;
@@ -131,7 +155,7 @@ async function loadRequests(): Promise<void> {
   } else {
     const [updateResult, runResult] = await Promise.all([
       supabase.from("platform_support_request_updates").select("id,request_id,message,author_type,created_at").in("request_id", requestIds).eq("visible_to_client", true).order("created_at", { ascending: true }),
-      supabase.from("website_change_runs").select("id,request_id,attempt_number,state,branch_name,preview_url,error_message,created_at,preview_ready_at,merged_at").in("request_id", requestIds).order("created_at", { ascending: false }),
+      supabase.from("website_change_runs").select("id,request_id,attempt_number,state,branch_name,target_repository,progress_stage,progress_message,progress_updated_at,preview_url,error_message,created_at,updated_at,preview_ready_at,merged_at").in("request_id", requestIds).order("created_at", { ascending: false }),
     ]);
     if (updateResult.error) {
       console.error("Client-visible support updates could not be loaded.", updateResult.error);
@@ -246,6 +270,11 @@ async function submitRequest(event: SubmitEvent): Promise<void> {
   if (formStatus) formStatus.textContent = "";
   if (status) status.textContent = "Your request was sent to N3XRA.";
   await loadRequests();
+  window.clearInterval(progressPollTimer);
+  progressPollTimer = window.setInterval(() => {
+    const hasActiveRun = changeRuns.some((run) => ["queued", "coding", "merge_queued"].includes(run.state));
+    if (hasActiveRun && document.visibilityState === "visible") void loadRequests();
+  }, 8000);
 }
 
 async function init(): Promise<void> {

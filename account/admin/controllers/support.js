@@ -13,6 +13,7 @@ let escapeHtml;
 let formatDate;
 let setStatus;
 let confirmAdminAction;
+let supportPollTimer;
 
 const SUPPORT_TOPIC_OPTIONS = [
   ["general-support", "General support"],
@@ -103,6 +104,28 @@ function supportStatusLabel(value) {
   return String(value || "unknown").replaceAll("_", " ");
 }
 
+function changeRunPresentation(run) {
+  const stage = run?.progress_stage || run?.state || "queued";
+  const presentations = {
+    queued: ["Queued in GitHub", "The request was accepted and is waiting for the isolated GitHub workflow to begin."],
+    codex_running: ["Codex is working", "Codex is reviewing the connected website and editing only the isolated request branch."],
+    validating: ["Checking Codex’s changes", "Codex finished editing. N3XRA is validating the changed files before the branch is pushed."],
+    deploying: ["Vercel is building the preview", "The isolated GitHub branch is ready and Vercel is preparing its private preview."],
+    preview_ready: ["Private preview ready", "The preview is ready for review. Nothing reaches the main branch until an N3XRA administrator approves it."],
+    failed: ["Preview workflow paused", "The automated workflow stopped before a review link was ready. The live website was not changed."],
+    merged: ["Approved and published", "The reviewed branch was merged into main and the normal production deployment can proceed."],
+  };
+  const [title, fallback] = presentations[stage] || ["Preview status", "The isolated preview workflow is being tracked."];
+  return { stage, title, message: run?.progress_message || fallback };
+}
+
+function githubRunLinks(run) {
+  const repository = /^[^/\s]+\/[^/\s]+$/.test(String(run?.target_repository || "")) ? run.target_repository : "";
+  const branchUrl = repository && run?.branch_name ? `https://github.com/${repository}/tree/${encodeURIComponent(run.branch_name)}` : "";
+  const workflowUrl = /^https:\/\/github[.]com\/[^/]+\/[^/]+\/actions\/runs\/\d+$/.test(String(run?.workflow_url || "")) ? run.workflow_url : "";
+  return { repository, branchUrl, workflowUrl };
+}
+
 function datetimeLocalValue(value) {
   if (!value) return "";
   const date = new Date(value);
@@ -163,6 +186,8 @@ function renderSelectedSupport() {
   const mailSubject = encodeURIComponent(`Re: ${request.subject || "N3XRA support request"}`);
   const clientUpdates = supportUpdates.filter((update) => update.request_id === request.id && update.visible_to_client);
   const changeRun = supportChangeRuns.find((run) => run.request_id === request.id);
+  const runPresentation = changeRun ? changeRunPresentation(changeRun) : null;
+  const runLinks = changeRun ? githubRunLinks(changeRun) : { repository: "", branchUrl: "", workflowUrl: "" };
   detail.innerHTML = `
     <header class="support-detail-head">
       <div class="support-request-identity"><span class="support-request-avatar is-large" aria-hidden="true">${escapeHtml(supportInitials(request))}</span><div><p class="portal-kicker">${escapeHtml(request.topic || "Support request")}</p><h2>${escapeHtml(request.subject || "Support request")}</h2><p>${escapeHtml(request.requester_name || "Unknown requester")} · ${escapeHtml(request.requester_email || "No email")}</p><span class="support-case-state is-${escapeHtml(request.status || "new")}">${escapeHtml(supportStatusLabel(request.status))}</span></div></div>
@@ -180,7 +205,7 @@ function renderSelectedSupport() {
       <div class="support-message">${escapeHtml(request.message || "No message was provided.")}</div>
     </section>
     ${request.intake_mode === "ai_assisted" ? `<section class="support-detail-section">
-      <div class="support-section-heading"><div><p class="portal-kicker">Website Change Assistant</p><h3>Organized for review</h3><p>${changeRun ? "Codex worked only on the isolated branch. Nothing reaches the main branch until an N3XRA administrator approves it." : "No code has been changed yet. This request is waiting for its isolated preview run."}</p></div></div>
+      <div class="support-section-heading"><div><p class="portal-kicker">Website Change Assistant</p><h3>${escapeHtml(runPresentation?.title || "Organized for review")}</h3><p>${escapeHtml(runPresentation?.message || "No code has been changed yet. This request is waiting for its isolated preview run.")}${changeRun && ["queued", "coding"].includes(changeRun.state) ? " You can refresh or leave this page; the workflow continues in GitHub." : ""}</p></div>${runLinks.workflowUrl ? `<a class="portal-button portal-button-secondary" href="${escapeHtml(runLinks.workflowUrl)}" target="_blank" rel="noopener noreferrer">View GitHub workflow</a>` : ""}</div>
       <div class="support-context-rows">
         <div><span>Change type</span><strong>${escapeHtml(supportStatusLabel(request.change_kind || "other"))}</strong></div>
         <div><span>Likely area</span><strong>${escapeHtml(supportStatusLabel(request.change_scope || "unknown"))}</strong></div>
@@ -188,10 +213,12 @@ function renderSelectedSupport() {
       </div>
       <div class="support-message">${escapeHtml(request.assistant_summary || "No assistant summary was saved.")}</div>
       ${changeRun ? `<div class="support-context-rows">
-        <div><span>Preview state</span><strong>${escapeHtml(supportStatusLabel(changeRun.state))}</strong></div>
+        <div><span>Current stage</span><strong>${escapeHtml(supportStatusLabel(runPresentation.stage))}</strong></div>
+        <div><span>Last progress update</span><strong>${escapeHtml(formatDate(changeRun.progress_updated_at || changeRun.updated_at || changeRun.created_at))}</strong></div>
         <div><span>Attempt</span><strong>${escapeHtml(changeRun.attempt_number)} of 3</strong></div>
-        <div><span>Private branch</span><strong class="support-identifier">${escapeHtml(changeRun.branch_name)}</strong></div>
-        <div><span>Preview created</span><strong>${escapeHtml(formatDate(changeRun.preview_ready_at || changeRun.created_at))}</strong></div>
+        <div><span>Repository</span><strong class="support-identifier">${escapeHtml(runLinks.repository || "Resolving connected repository")}</strong></div>
+        <div><span>Private branch</span><strong class="support-identifier">${runLinks.branchUrl ? `<a href="${escapeHtml(runLinks.branchUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(changeRun.branch_name)}</a>` : escapeHtml(changeRun.branch_name)}</strong></div>
+        <div><span>Started</span><strong>${escapeHtml(formatDate(changeRun.created_at))}</strong></div>
       </div>${changeRun.preview_url ? `<div class="support-form-actions"><span>Review the exact proposed website before approving it.</span><a class="portal-button portal-button-secondary" href="${escapeHtml(changeRun.preview_url)}" target="_blank" rel="noopener noreferrer">Open Vercel preview</a>${["preview_ready", "client_ready"].includes(changeRun.state) ? `<button class="portal-button" id="support-approve-merge" type="button">Approve and merge to main</button>` : ""}</div>` : ""}${changeRun.error_message ? `<div class="support-message">${escapeHtml(changeRun.error_message)}</div>` : ""}${["failed", "changes_requested"].includes(changeRun.state) && Number(changeRun.attempt_number || 0) < 3 ? `<div class="support-form-actions"><span>Review the request, then authorize another isolated AI preview.</span><button class="portal-button" id="support-start-preview" type="button">Retry AI Preview</button></div>` : ""}` : `<p>No automated preview has started for this request.</p><div class="support-form-actions"><span>Review the request before allowing Codex to work on an isolated branch.</span><button class="portal-button" id="support-start-preview" type="button">Approve &amp; Start AI Preview</button></div>`}
     </section>` : ""}
     <section class="support-detail-section">
@@ -269,7 +296,7 @@ function renderSelectedSupport() {
     try {
       await invokeWebsiteAutomation("start-preview", { requestId: request.id });
       await loadSupport();
-      setStatus("Codex is preparing the private preview.", "success");
+      setStatus("The private preview request is queued in GitHub. Progress will update automatically.", "success");
     } catch (error) {
       button.disabled = false;
       setStatus(error.message, "error");
@@ -277,8 +304,8 @@ function renderSelectedSupport() {
   });
 }
 
-async function loadSupport() {
-  setStatus("Loading support requests…");
+async function loadSupport({ silent = false } = {}) {
+  if (!silent) setStatus("Loading support requests…");
   const data = await invoke("list-support-requests");
   supportRequests = data.requests || [];
   supportUpdates = data.updates || [];
@@ -310,7 +337,7 @@ async function loadSupport() {
       renderSupportOptions();
     }
   }
-  setStatus(`${supportRequests.length} support request${supportRequests.length === 1 ? "" : "s"} loaded.`, "success");
+  if (!silent) setStatus(`${supportRequests.length} support request${supportRequests.length === 1 ? "" : "s"} loaded.`, "success");
 }
 
 export async function startSupport(context = {}) {
@@ -361,4 +388,9 @@ export async function startSupport(context = {}) {
     }
   });
   await loadSupport();
+  clearInterval(supportPollTimer);
+  supportPollTimer = window.setInterval(() => {
+    const activeRun = supportChangeRuns.some((run) => ["queued", "coding", "merge_queued"].includes(run.state));
+    if (activeRun && document.visibilityState === "visible") void loadSupport({ silent: true });
+  }, 8000);
 }

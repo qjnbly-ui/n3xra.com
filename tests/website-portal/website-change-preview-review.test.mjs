@@ -29,11 +29,16 @@ test("Codex works only on a request branch and reports the Vercel preview", asyn
   assert.match(workflow, /Verify GitHub App repository access/);
   assert.match(workflow, /Verify restricted OpenAI key/);
   assert.match(workflow, /openai\/codex-action@v1/);
+  assert.match(workflow, /allow-bot-users: n3xra-website-provisioner/);
   assert.match(workflow, /git switch -c "\$TARGET_BRANCH"/);
   assert.match(workflow, /git push origin "\$TARGET_BRANCH"/);
   assert.doesNotMatch(workflow, /git push origin main/);
   assert.match(workflow, /Do not modify \.github, vercel\.json/);
   assert.match(workflow, /environment_url/);
+  assert.match(workflow, /progressStage/);
+  assert.match(workflow, /codex_running/);
+  assert.match(workflow, /validating/);
+  assert.match(workflow, /deploying/);
   assert.match(workflow, /Report an unsuccessful preview workflow/);
 });
 
@@ -60,10 +65,15 @@ test("clients submit for review while admins control preview creation and merge 
   assert.doesNotMatch(client, /action: "start-preview"/);
   assert.doesNotMatch(client, /data-retry-preview/);
   assert.doesNotMatch(client, /approve-merge/);
+  assert.match(client, /The work continues securely in GitHub/);
+  assert.match(client, /client-change-progress/);
+  assert.doesNotMatch(client, /Attempt \$\{escapeHtml\(changeRun\.attempt_number\)\}/);
   assert.match(admin, /Approve &amp; Start AI Preview/);
   assert.match(admin, /invokeWebsiteAutomation\("start-preview"/);
   assert.match(admin, /Approve and merge to main/);
   assert.match(admin, /confirmAdminAction/);
+  assert.match(admin, /View GitHub workflow/);
+  assert.match(admin, /Progress will update automatically/);
   assert.match(adminLoader, /changeRuns:/);
 });
 
@@ -89,6 +99,20 @@ test("the preview callback is one-time and accepts only Vercel preview URLs", as
   assert.match(callback, /sendWebsiteChangeClientEmail/);
   assert.match(callback, /preview_email_sent_at/);
   assert.match(callback, /Preview-ready email failed/);
+  assert.match(callback, /progressStage/);
+  assert.match(callback, /progress_updated_at/);
+  assert.match(callback, /failure_stage/);
+});
+
+test("progress tracking is tenant-readable without querying protected support rows", async () => {
+  const migration = await projectFile("supabase/migrations/20260824173413_add_website_change_progress_tracking.sql");
+  assert.match(migration, /target_repository/);
+  assert.match(migration, /workflow_url/);
+  assert.match(migration, /progress_stage/);
+  assert.match(migration, /progress_message/);
+  assert.match(migration, /callback_expires_at[\s\S]*interval '60 minutes'/);
+  assert.match(migration, /using \(public\.can_view_client_website\(website_id\)\)/);
+  assert.doesNotMatch(migration, /exists \(select 1 from public\.platform_support_requests/);
 });
 
 test("client emails are tracked for preview-ready and published milestones", async () => {
