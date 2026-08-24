@@ -151,15 +151,19 @@ function ensureTwilioVoice() {
   return new Promise((resolve, reject) => {
     const existing = document.querySelector('script[data-twilio-voice-sdk]');
     if (existing) {
-      existing.addEventListener("load", resolve, { once:true });
+      existing.addEventListener("load", () => window.Twilio?.Device
+        ? resolve()
+        : reject(new Error("The calling service did not initialize.")), { once:true });
       existing.addEventListener("error", () => reject(new Error("The calling service did not load.")), { once:true });
       return;
     }
     const script = document.createElement("script");
-    script.src = "https://sdk.twilio.com/js/voice/releases/2.18.3/twilio.min.js";
+    script.src = "/assets/vendor/twilio-voice.min.js?v=1";
     script.defer = true;
     script.dataset.twilioVoiceSdk = "true";
-    script.addEventListener("load", resolve, { once:true });
+    script.addEventListener("load", () => window.Twilio?.Device
+      ? resolve()
+      : reject(new Error("The calling service did not initialize.")), { once:true });
     script.addEventListener("error", () => reject(new Error("The calling service did not load.")), { once:true });
     document.head.append(script);
   });

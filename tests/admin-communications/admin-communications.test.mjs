@@ -56,13 +56,19 @@ test("the admin communications feature keeps credentials server-side and consent
 });
 
 test("browser calling obtains a short-lived token from an admin-only Supabase function", async () => {
-  const [browser, voiceFunction, migration, config] = await Promise.all([
+  const [browser, page, voiceSdk, voiceFunction, migration, config] = await Promise.all([
     readFile(new URL("../../account/admin/communications/communications.js", import.meta.url), "utf8"),
+    readFile(new URL("../../account/admin/communications/index.html", import.meta.url), "utf8"),
+    readFile(new URL("../../assets/vendor/twilio-voice.min.js", import.meta.url), "utf8"),
     readFile(new URL("../../supabase/functions/admin-voice-token/index.ts", import.meta.url), "utf8"),
     readFile(new URL("../../supabase/migrations/20260824195612_add_admin_voice_configuration.sql", import.meta.url), "utf8"),
     readFile(new URL("../../supabase/config.toml", import.meta.url), "utf8"),
   ]);
   assert.match(browser, /functions\.invoke\("admin-voice-token"/);
+  assert.match(browser, /\/assets\/vendor\/twilio-voice\.min\.js\?v=1/);
+  assert.doesNotMatch(browser, /sdk\.twilio\.com/);
+  assert.doesNotMatch(page, /sdk\.twilio\.com/);
+  assert.ok(voiceSdk.length > 100_000, "the locally hosted Twilio Voice SDK is present");
   assert.match(voiceFunction, /\.from\("platform_admins"\)/);
   assert.match(voiceFunction, /\.eq\("status", "active"\)/);
   assert.match(voiceFunction, /exp: now \+ 900/);

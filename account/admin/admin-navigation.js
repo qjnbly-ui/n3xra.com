@@ -631,7 +631,7 @@ export async function navigateAdminWorkspace(destination, {
       const notifications = await import("/account/notifications/notifications.js?v=13");
       await notifications.startNotifications();
     } else if (url.pathname === "/account/admin/communications/") {
-      const communications = await import("/account/admin/communications/communications.js?v=2");
+      const communications = await import("/account/admin/communications/communications.js?v=3");
       await communications.startCommunications();
     } else {
       const admin = await import("/account/admin/admin.js?v=36");
