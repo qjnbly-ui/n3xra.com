@@ -2746,14 +2746,55 @@ Deno.serve(async (request) => {
       return jsonResponse({ ok: true, admins: [...(adminsResult.data || []), ...reviewers], invites: invitesResult.data || [] });
     }
 
+    if (action === "list-platform-admin-candidates") {
+      if (!isOwnerAdmin(platformAdmin)) {
+        return jsonResponse({ error: "Owner admin access required." }, 403);
+      }
+
+      const [authUsers, profilesResult, adminsResult, reviewersResult, invitesResult] = await Promise.all([
+        listAllAuthUsers(adminClient),
+        adminClient.from("profiles").select("id,email,full_name"),
+        adminClient.from("platform_admins").select("user_id,role,status").eq("status", "active"),
+        adminClient.from("platform_app_reviewers").select("user_id,status").eq("status", "active"),
+        adminClient.from("platform_admin_invites").select("email,status").eq("status", "pending"),
+      ]);
+      if (profilesResult.error || adminsResult.error || reviewersResult.error || invitesResult.error) {
+        return jsonResponse({ error: profilesResult.error?.message || adminsResult.error?.message || reviewersResult.error?.message || invitesResult.error?.message || "Unable to load account choices." }, 400);
+      }
+
+      const profiles = new Map((profilesResult.data || []).map((profile) => [String(profile.id), profile]));
+      const adminAccess = new Map((adminsResult.data || []).map((admin) => [String(admin.user_id), String(admin.role || "admin")]));
+      const reviewerIds = new Set((reviewersResult.data || []).map((reviewer) => String(reviewer.user_id)));
+      const pendingEmails = new Set((invitesResult.data || []).map((invite) => normalizeEmail(invite.email)));
+      const accounts = authUsers
+        .filter((account) => normalizeEmail(account.email))
+        .map((account) => {
+          const profile = profiles.get(String(account.id));
+          const email = normalizeEmail(account.email || profile?.email);
+          const access = adminAccess.get(String(account.id)) || (reviewerIds.has(String(account.id)) ? "reviewer" : pendingEmails.has(email) ? "pending" : "available");
+          return {
+            id: account.id,
+            email,
+            name: textValue(profile?.full_name || account.user_metadata?.full_name || account.user_metadata?.name || email, 180),
+            emailConfirmedAt: account.email_confirmed_at || null,
+            access,
+          };
+        })
+        .sort((first, second) => String(first.name || first.email).localeCompare(String(second.name || second.email)));
+      return jsonResponse({ ok: true, accounts });
+    }
+
     if (action === "create-platform-admin-invite") {
       if (!isOwnerAdmin(platformAdmin)) {
         return jsonResponse({ error: "Owner admin access required." }, 403);
       }
 
-      const email = normalizeEmail(payload.email);
-      if (!email || !isValidEmail(email)) {
-        return jsonResponse({ error: "Enter a valid admin email." }, 400);
+      const accountUserId = String(payload.accountUserId || "").trim();
+      if (!isValidUuid(accountUserId)) return jsonResponse({ error: "Choose a valid N3XRA account." }, 400);
+      const { data: accountResult, error: accountError } = await adminClient.auth.admin.getUserById(accountUserId);
+      const email = normalizeEmail(accountResult?.user?.email);
+      if (accountError || !email || !isValidEmail(email)) {
+        return jsonResponse({ error: accountError?.message || "The selected account does not have a valid email address." }, 400);
       }
       const role = String(payload.role || "admin").trim().toLowerCase();
       if (!["admin", "reviewer"].includes(role)) {
@@ -2762,6 +2803,19 @@ Deno.serve(async (request) => {
       if (email === PLATFORM_OWNER_EMAIL) {
         return jsonResponse({ error: "The owner account is already the master admin." }, 400);
       }
+
+      const [existingAdminResult, existingReviewerResult, existingInviteResult] = await Promise.all([
+        adminClient.from("platform_admins").select("user_id").eq("user_id", accountUserId).eq("status", "active").maybeSingle(),
+        adminClient.from("platform_app_reviewers").select("user_id").eq("user_id", accountUserId).eq("status", "active").maybeSingle(),
+        adminClient.from("platform_admin_invites").select("id").eq("email", email).eq("status", "pending").limit(1).maybeSingle(),
+      ]);
+      const existingAccessError = existingAdminResult.error || existingReviewerResult.error || existingInviteResult.error;
+      if (existingAccessError) return jsonResponse({ error: existingAccessError.message }, 400);
+      const existingAdmin = existingAdminResult.data;
+      const existingReviewer = existingReviewerResult.data;
+      const existingInvite = existingInviteResult.data;
+      if (existingAdmin || existingReviewer) return jsonResponse({ error: "This account already has administrator or reviewer access." }, 409);
+      if (existingInvite) return jsonResponse({ error: "This account already has a pending access invitation." }, 409);
 
       const token = createInviteToken();
       const tokenHash = await sha256(token);

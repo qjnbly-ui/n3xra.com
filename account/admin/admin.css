@@ -558,6 +558,10 @@ body:not(.admin-ready):not(.portal-loading):not(.product-native-admin) main.acco
 .platform-admin-dialog-close:hover,.platform-admin-dialog-close:focus-visible { color:var(--portal-ink); background:#eef3f5; outline:none; }
 .platform-admin-dialog-copy { margin:.55rem 0 0; color:var(--portal-muted); line-height:1.55; }
 .platform-admin-invite-form { display:grid; grid-template-columns:1fr; gap:.85rem; margin-top:1.2rem; }
+.platform-admin-selected-account { display:grid; grid-template-columns:auto minmax(0,1fr); align-items:center; gap:.75rem; padding:.8rem; background:#f2f8f7; border:1px solid #c7e7e1; border-radius:10px; }
+.platform-admin-selected-account strong,.platform-admin-selected-account p,.platform-admin-selected-account small { display:block; margin:0; overflow-wrap:anywhere; }
+.platform-admin-selected-account p { margin-top:.12rem; color:var(--portal-muted); font-size:.78rem; }
+.platform-admin-selected-account small { margin-top:.3rem; color:#4c685f; font-size:.66rem; }
 .platform-admin-dialog-actions { display:flex; justify-content:flex-end; gap:.6rem; margin-top:.35rem; }
 .platform-admin-dialog-actions .portal-button { min-height:42px; }
 .platform-admin-invite-link { display:flex; align-items:center; justify-content:space-between; gap:1rem; margin-top:1rem; padding:.85rem 0; background:transparent; border:0; border-top:1px solid #c7e7f0; border-radius:0; }

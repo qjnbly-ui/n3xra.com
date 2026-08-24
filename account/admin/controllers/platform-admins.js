@@ -1,5 +1,6 @@
 let platformAdminInviteUrl = "";
 let platformAdminDirectory = { admins: [], invites: [] };
+let platformAdminCandidates = [];
 let selectedPlatformAdminKey = "";
 let invoke;
 let escapeHtml;
@@ -14,15 +15,21 @@ function setPlatformAdminModalStatus(message = "", tone = "") {
   if (tone) status.classList.add(`is-${tone}`);
 }
 
-function openPlatformAdminInviteDialog() {
+async function openPlatformAdminInviteDialog() {
   const dialog = document.getElementById("platform-admin-invite-dialog");
   if (!(dialog instanceof HTMLDialogElement)) return;
   platformAdminInviteUrl = "";
   document.getElementById("platform-admin-invite-form")?.reset();
   document.getElementById("platform-admin-invite-link")?.classList.add("hidden");
+  renderPlatformAdminCandidateOptions();
   setPlatformAdminModalStatus();
   if (!dialog.open) dialog.showModal();
-  requestAnimationFrame(() => document.getElementById("platform-admin-invite-email")?.focus());
+  try {
+    await loadPlatformAdminCandidates();
+    requestAnimationFrame(() => document.querySelector("#platform-admin-invite-account + .admin-select .admin-select-trigger")?.focus());
+  } catch (error) {
+    setPlatformAdminModalStatus(error.message || "Unable to load N3XRA accounts.", "error");
+  }
 }
 
 function closePlatformAdminInviteDialog() {
@@ -47,6 +54,52 @@ function platformAdminEntry(key) {
   if (type === "admin") return { type, item: platformAdminDirectory.admins.find((admin) => String(admin.user_id) === id) };
   if (type === "invite") return { type, item: platformAdminDirectory.invites.find((invite) => String(invite.id) === id) };
   return { type: "", item: null };
+}
+
+function candidateAccessLabel(candidate) {
+  if (candidate.access === "owner") return "Master owner";
+  if (candidate.access === "admin") return "Platform administrator";
+  if (candidate.access === "reviewer") return "App reviewer";
+  if (candidate.access === "pending") return "Invitation pending";
+  return "Available";
+}
+
+function renderSelectedPlatformAdminCandidate() {
+  const select = document.getElementById("platform-admin-invite-account");
+  const detail = document.getElementById("platform-admin-selected-account");
+  if (!select || !detail) return;
+  const candidate = platformAdminCandidates.find((account) => String(account.id) === String(select.value));
+  detail.classList.toggle("hidden", !candidate);
+  detail.innerHTML = candidate ? `<span class="platform-admin-roster-avatar" aria-hidden="true">${escapeHtml(platformAdminInitials(candidate.name || candidate.email))}</span><div><strong>${escapeHtml(candidate.name || candidate.email)}</strong><p>${escapeHtml(candidate.email)}</p><small>This invitation will connect to account ${escapeHtml(candidate.id)}.</small></div>` : "";
+}
+
+function renderPlatformAdminCandidateOptions() {
+  const select = document.getElementById("platform-admin-invite-account");
+  if (!select) return;
+  const current = select.value;
+  const availableCount = platformAdminCandidates.filter((candidate) => candidate.access === "available").length;
+  const placeholder = platformAdminCandidates.length
+    ? `Choose from ${availableCount} available account${availableCount === 1 ? "" : "s"}`
+    : "Loading accounts…";
+  select.innerHTML = `<option value="">${escapeHtml(placeholder)}</option>${platformAdminCandidates.map((candidate) => {
+    const disabled = candidate.access !== "available";
+    const label = `${candidate.name || candidate.email} — ${candidate.email}${disabled ? ` (${candidateAccessLabel(candidate)})` : ""}`;
+    return `<option value="${escapeHtml(candidate.id)}"${disabled ? " disabled" : ""}>${escapeHtml(label)}</option>`;
+  }).join("")}`;
+  if (platformAdminCandidates.some((candidate) => candidate.id === current && candidate.access === "available")) select.value = current;
+  renderSelectedPlatformAdminCandidate();
+}
+
+async function loadPlatformAdminCandidates() {
+  const select = document.getElementById("platform-admin-invite-account");
+  if (select) select.disabled = true;
+  try {
+    const data = await invoke("list-platform-admin-candidates");
+    platformAdminCandidates = Array.isArray(data.accounts) ? data.accounts : [];
+    renderPlatformAdminCandidateOptions();
+  } finally {
+    if (select) select.disabled = false;
+  }
 }
 
 function renderPlatformAdminDetail() {
@@ -135,13 +188,14 @@ async function loadPlatformAdmins() {
 async function createPlatformAdminInvite(event) {
   event.preventDefault();
   const form = event.currentTarget;
-  const emailInput = document.getElementById("platform-admin-invite-email");
+  const accountInput = document.getElementById("platform-admin-invite-account");
   const roleInput = document.getElementById("platform-admin-invite-role");
-  const email = String(emailInput?.value || "").trim().toLowerCase();
+  const accountUserId = String(accountInput?.value || "").trim();
+  const account = platformAdminCandidates.find((candidate) => String(candidate.id) === accountUserId);
   const role = String(roleInput?.value || "admin").trim().toLowerCase();
-  if (!email) {
-    setStatus("Enter an email first.", "error");
-    setPlatformAdminModalStatus("Enter an email first.", "error");
+  if (!accountUserId || !account) {
+    setStatus("Choose an existing N3XRA account first.", "error");
+    setPlatformAdminModalStatus("Choose an existing N3XRA account first.", "error");
     return;
   }
 
@@ -153,7 +207,7 @@ async function createPlatformAdminInvite(event) {
   setStatus("Creating access invite…");
   setPlatformAdminModalStatus("Creating secure invitation…");
   try {
-    const data = await invoke("create-platform-admin-invite", { email, role });
+    const data = await invoke("create-platform-admin-invite", { accountUserId, role });
     platformAdminInviteUrl = String(data.inviteUrl || "");
     if (data.invite?.id) selectedPlatformAdminKey = `invite:${data.invite.id}`;
     const inviteLink = document.getElementById("platform-admin-invite-link");
@@ -161,8 +215,8 @@ async function createPlatformAdminInvite(event) {
     if (inviteUrl) inviteUrl.textContent = platformAdminInviteUrl;
     inviteLink?.classList.toggle("hidden", !platformAdminInviteUrl);
     form.reset();
-    await loadPlatformAdmins();
-    const successMessage = `${role === "reviewer" ? "App reviewer" : "Administrator"} invite created. Send the secure link to that person.`;
+    await Promise.all([loadPlatformAdmins(), loadPlatformAdminCandidates()]);
+    const successMessage = `${role === "reviewer" ? "App reviewer" : "Administrator"} invite created for ${account.email}. Send the secure sign-in link to that person.`;
     setStatus(successMessage, "success");
     setPlatformAdminModalStatus(successMessage, "success");
   } catch (error) {
@@ -236,6 +290,7 @@ export async function startPlatformAdmins(context = {}) {
     if (event.target === event.currentTarget) closePlatformAdminInviteDialog();
   });
   document.getElementById("platform-admin-invite-form")?.addEventListener("submit", createPlatformAdminInvite);
+  document.getElementById("platform-admin-invite-account")?.addEventListener("change", renderSelectedPlatformAdminCandidate);
   document.getElementById("platform-admin-refresh")?.addEventListener("click", loadPlatformAdmins);
   document.getElementById("platform-admin-copy-invite")?.addEventListener("click", copyPlatformAdminInvite);
   document.getElementById("platform-admin-search")?.addEventListener("input", () => renderPlatformAdmins());

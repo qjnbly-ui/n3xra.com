@@ -46,15 +46,16 @@
   </main>
   <dialog class="platform-admin-invite-dialog" id="platform-admin-invite-dialog" aria-labelledby="platform-admin-invite-title">
     <div class="platform-admin-dialog-head"><div><p class="portal-kicker">Master owner access</p><h2 id="platform-admin-invite-title">Add administrator</h2></div><button class="platform-admin-dialog-close" id="platform-admin-invite-close" type="button" aria-label="Close add administrator dialog">×</button></div>
-    <p class="platform-admin-dialog-copy">Administrators receive the web workspace. App reviewers receive only synthetic data in the mobile app.</p>
+    <p class="platform-admin-dialog-copy">Choose an existing N3XRA account. The access invitation will be tied to that exact account and its current email address.</p>
     <form class="platform-admin-invite-form" id="platform-admin-invite-form">
-      <label class="account-admin-field"><span>Email</span><input id="platform-admin-invite-email" type="email" autocomplete="email" placeholder="person@example.com" required></label>
-      <label class="account-admin-field"><span>Role</span><select id="platform-admin-invite-role"><option value="reviewer">App reviewer (review-only)</option><option value="admin">Platform administrator</option></select></label>
+      <label class="account-admin-field"><span>Existing account</span><select id="platform-admin-invite-account" required><option value="">Loading accounts…</option></select></label>
+      <div class="platform-admin-selected-account hidden" id="platform-admin-selected-account"></div>
+      <label class="account-admin-field"><span>Role</span><select id="platform-admin-invite-role"><option value="admin">Platform administrator</option><option value="reviewer">App reviewer (review-only)</option></select></label>
       <div class="platform-admin-dialog-actions"><button class="portal-button portal-button-secondary" id="platform-admin-invite-cancel" type="button">Cancel</button><button class="portal-button" id="platform-admin-invite-submit" type="submit">Create invite</button></div>
     </form>
     <div class="platform-admin-invite-link hidden" id="platform-admin-invite-link"><div><span>Admin invite link</span><p id="platform-admin-invite-url"></p></div><button class="portal-button portal-button-secondary" id="platform-admin-copy-invite" type="button">Copy link</button></div>
     <p class="platform-admin-modal-status" id="platform-admin-modal-status" role="status"></p>
   </dialog>
-  <script type="module" src="/account/admin/admin.js?v=40"></script>
+  <script type="module" src="/account/admin/admin.js?v=41"></script>
 </body>
 </html>
