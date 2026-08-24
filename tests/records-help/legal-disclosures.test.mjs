@@ -25,6 +25,9 @@ test("terms cover speaker review, meeting consent, transfers, and processing lim
   const terms = await readFile(termsPath, "utf8");
 
   assert.match(terms, /Effective date:<\/strong> August 5, 2026/);
+  assert.match(terms, /<h2>9\. Partner Programs<\/h2>/);
+  assert.match(terms, /href="\/partners\/terms\/">Partner Program Terms<\/a>/);
+  assert.match(terms, /supplement these Terms of Service and control for partner-program matters/);
   assert.match(terms, /AI drafts are not an official or verified record/);
   assert.match(terms, /Voice-profile enrollment is optional/);
   assert.match(terms, /biometric voice signature/);
