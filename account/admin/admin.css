@@ -723,6 +723,37 @@ body:not(.admin-ready):not(.portal-loading):not(.product-native-admin) main.acco
 .support-section-heading h3 { margin:.2rem 0; font-family:"Fraunces",Georgia,serif; font-size:1.3rem; }
 .support-section-heading p:not(.portal-kicker) { max-width:720px; margin:0; color:var(--portal-muted); line-height:1.5; }
 .support-admin-page .support-message { margin-top:1rem; padding:1rem 0 1rem 1.15rem; color:var(--portal-ink); background:transparent; border:0; border-left:3px solid #cfe1e5; border-radius:0; white-space:pre-wrap; line-height:1.7; }
+.support-change-section { background:#fbfcfd; }
+.support-run-head { display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; }
+.support-run-head h3 { margin:.18rem 0; font-family:"Fraunces",Georgia,serif; font-size:1.35rem; }
+.support-run-head p:not(.portal-kicker) { max-width:720px; margin:0; color:var(--portal-muted); line-height:1.55; }
+.support-run-status { display:inline-flex; align-items:center; gap:.4rem; flex:none; padding:.38rem .62rem; color:#25675f; background:#e8f5f1; border:1px solid #c7e2da; border-radius:999px; font-size:.65rem; font-weight:800; text-transform:capitalize; }
+.support-run-status::before { width:7px; height:7px; content:""; background:#16856d; border-radius:50%; }
+.support-run-status.is-failed { color:#96313d; background:#fff1f2; border-color:#edc9ce; }
+.support-run-status.is-failed::before { background:#c63b47; }
+.support-run-status.is-queued,.support-run-status.is-codex_running,.support-run-status.is-validating,.support-run-status.is-deploying { color:#306a79; background:#edf6f8; border-color:#cbe0e5; }
+.support-run-status.is-queued::before,.support-run-status.is-codex_running::before,.support-run-status.is-validating::before,.support-run-status.is-deploying::before { background:#16839a; }
+.support-review-panel { display:flex; align-items:center; justify-content:space-between; gap:1.25rem; margin-top:1.1rem; padding:1rem; background:#fff; border:1px solid #cfe1dc; border-radius:10px; box-shadow:0 8px 24px rgba(22,55,63,.05); }
+.support-review-panel > div:first-child { min-width:0; }
+.support-review-panel strong,.support-review-panel span { display:block; }
+.support-review-panel strong { font-size:.88rem; }
+.support-review-panel span { max-width:640px; margin-top:.25rem; color:var(--portal-muted); font-size:.74rem; line-height:1.5; }
+.support-review-panel.is-retry { border-color:#ecd0d4; }
+.support-review-actions { display:flex; align-items:center; justify-content:flex-end; gap:.55rem; flex:none; }
+.support-run-meta { display:flex; flex-wrap:wrap; gap:.55rem 1.5rem; margin-top:1rem; padding-top:.9rem; border-top:1px solid var(--portal-line); }
+.support-run-meta span { display:grid; gap:.12rem; }
+.support-run-meta small { color:var(--portal-muted); font-size:.61rem; font-weight:800; letter-spacing:.07em; text-transform:uppercase; }
+.support-run-meta strong { font-size:.76rem; text-transform:capitalize; }
+.support-run-summary { margin-top:1rem; padding:.85rem 1rem; background:#fff; border-left:3px solid #9fc9c3; }
+.support-run-summary span { color:var(--portal-muted); font-size:.62rem; font-weight:800; letter-spacing:.07em; text-transform:uppercase; }
+.support-run-summary p { margin:.3rem 0 0; line-height:1.55; }
+.support-run-note { margin:.8rem 0 0; color:var(--portal-muted); font-size:.72rem; line-height:1.5; }
+.support-run-error { margin-top:.9rem; padding:.8rem 1rem; color:#8c2e39; background:#fff5f5; border:1px solid #efd3d7; border-radius:8px; font-size:.76rem; line-height:1.55; }
+.support-technical-details { margin-top:1rem; padding-top:.85rem; border-top:1px solid var(--portal-line); }
+.support-technical-details summary { width:max-content; color:#176f73; font-size:.72rem; font-weight:800; cursor:pointer; }
+.support-technical-details .support-context-rows { margin-top:.75rem; }
+.support-workflow-link { display:inline-flex; margin-top:.8rem; color:#176f73; font-size:.72rem; font-weight:800; text-decoration:none; }
+.support-workflow-link:hover { text-decoration:underline; }
 .support-context-rows { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); margin-top:1rem; border-top:1px solid var(--portal-line); }
 .support-context-rows > div { min-width:0; padding:.9rem 0; border-bottom:1px solid var(--portal-line); }
 .support-context-rows > div:nth-child(odd) { padding-right:1.25rem; border-right:1px solid var(--portal-line); }
@@ -1765,6 +1796,10 @@ body:not(.admin-ready):not(.portal-loading):not(.product-native-admin) main.acco
   .support-detail-facts > div:last-child { border-bottom:0; }
   .support-context-rows,.support-control-grid { grid-template-columns:1fr; }
   .support-context-rows > div:nth-child(odd),.support-context-rows > div:nth-child(even) { padding-inline:0; border-right:0; }
+  .support-run-head,.support-review-panel { align-items:stretch; flex-direction:column; }
+  .support-run-status { align-self:flex-start; }
+  .support-review-actions { align-items:stretch; flex-direction:column; }
+  .support-review-actions .portal-button,.support-review-panel > .portal-button { width:100%; }
   .support-form-actions { align-items:stretch; flex-direction:column; }
   .support-form-actions .portal-button { width:100%; }
   .analytics-report-head { align-items:flex-start; flex-direction:column; }

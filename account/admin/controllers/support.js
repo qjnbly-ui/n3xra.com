@@ -188,6 +188,11 @@ function renderSelectedSupport() {
   const changeRun = supportChangeRuns.find((run) => run.request_id === request.id);
   const runPresentation = changeRun ? changeRunPresentation(changeRun) : null;
   const runLinks = changeRun ? githubRunLinks(changeRun) : { repository: "", branchUrl: "", workflowUrl: "" };
+  const assistantSummary = String(request.assistant_summary || "").trim();
+  const requestMessage = String(request.message || "").trim();
+  const showAssistantSummary = assistantSummary && assistantSummary.toLocaleLowerCase() !== requestMessage.toLocaleLowerCase();
+  const runIsActive = Boolean(changeRun && ["queued", "coding"].includes(changeRun.state));
+  const runIsReviewable = Boolean(changeRun && ["preview_ready", "client_ready"].includes(changeRun.state));
   detail.innerHTML = `
     <header class="support-detail-head">
       <div class="support-request-identity"><span class="support-request-avatar is-large" aria-hidden="true">${escapeHtml(supportInitials(request))}</span><div><p class="portal-kicker">${escapeHtml(request.topic || "Support request")}</p><h2>${escapeHtml(request.subject || "Support request")}</h2><p>${escapeHtml(request.requester_name || "Unknown requester")} · ${escapeHtml(request.requester_email || "No email")}</p><span class="support-case-state is-${escapeHtml(request.status || "new")}">${escapeHtml(supportStatusLabel(request.status))}</span></div></div>
@@ -204,22 +209,19 @@ function renderSelectedSupport() {
       <div class="support-section-heading"><div><p class="portal-kicker">Customer message</p><h3>Request details</h3></div></div>
       <div class="support-message">${escapeHtml(request.message || "No message was provided.")}</div>
     </section>
-    ${request.intake_mode === "ai_assisted" ? `<section class="support-detail-section">
-      <div class="support-section-heading"><div><p class="portal-kicker">Website Change Assistant</p><h3>${escapeHtml(runPresentation?.title || "Organized for review")}</h3><p>${escapeHtml(runPresentation?.message || "No code has been changed yet. This request is waiting for its isolated preview run.")}${changeRun && ["queued", "coding"].includes(changeRun.state) ? " You can refresh or leave this page; the workflow continues in GitHub." : ""}</p></div>${runLinks.workflowUrl ? `<a class="portal-button portal-button-secondary" href="${escapeHtml(runLinks.workflowUrl)}" target="_blank" rel="noopener noreferrer">View GitHub workflow</a>` : ""}</div>
-      <div class="support-context-rows">
-        <div><span>Change type</span><strong>${escapeHtml(supportStatusLabel(request.change_kind || "other"))}</strong></div>
-        <div><span>Likely area</span><strong>${escapeHtml(supportStatusLabel(request.change_scope || "unknown"))}</strong></div>
-        <div><span>Automation</span><strong>${escapeHtml(supportStatusLabel(request.automation_status || "awaiting_review"))}</strong></div>
+    ${request.intake_mode === "ai_assisted" ? `<section class="support-detail-section support-change-section">
+      <div class="support-run-head">
+        <div><p class="portal-kicker">Website Change Assistant</p><h3>${escapeHtml(runPresentation?.title || "Organized for review")}</h3><p>${escapeHtml(runPresentation?.message || "No code has been changed yet. Review the request before starting a private preview.")}</p></div>
+        <span class="support-run-status is-${escapeHtml(runPresentation?.stage || "awaiting_review")}">${escapeHtml(supportStatusLabel(runPresentation?.stage || "awaiting review"))}</span>
       </div>
-      <div class="support-message">${escapeHtml(request.assistant_summary || "No assistant summary was saved.")}</div>
-      ${changeRun ? `<div class="support-context-rows">
-        <div><span>Current stage</span><strong>${escapeHtml(supportStatusLabel(runPresentation.stage))}</strong></div>
-        <div><span>Last progress update</span><strong>${escapeHtml(formatDate(changeRun.progress_updated_at || changeRun.updated_at || changeRun.created_at))}</strong></div>
-        <div><span>Attempt</span><strong>${escapeHtml(changeRun.attempt_number)} of 3</strong></div>
-        <div><span>Repository</span><strong class="support-identifier">${escapeHtml(runLinks.repository || "Resolving connected repository")}</strong></div>
-        <div><span>Private branch</span><strong class="support-identifier">${runLinks.branchUrl ? `<a href="${escapeHtml(runLinks.branchUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(changeRun.branch_name)}</a>` : escapeHtml(changeRun.branch_name)}</strong></div>
-        <div><span>Started</span><strong>${escapeHtml(formatDate(changeRun.created_at))}</strong></div>
-      </div>${changeRun.preview_url ? `<div class="support-form-actions"><span>Review the exact proposed website before approving it.</span><a class="portal-button portal-button-secondary" href="${escapeHtml(changeRun.preview_url)}" target="_blank" rel="noopener noreferrer">Open Vercel preview</a>${["preview_ready", "client_ready"].includes(changeRun.state) ? `<button class="portal-button" id="support-approve-merge" type="button">Approve and merge to main</button>` : ""}</div>` : ""}${changeRun.error_message ? `<div class="support-message">${escapeHtml(changeRun.error_message)}</div>` : ""}${["failed", "changes_requested"].includes(changeRun.state) && Number(changeRun.attempt_number || 0) < 3 ? `<div class="support-form-actions"><span>Review the request, then authorize another isolated AI preview.</span><button class="portal-button" id="support-start-preview" type="button">Retry AI Preview</button></div>` : ""}` : `<p>No automated preview has started for this request.</p><div class="support-form-actions"><span>Review the request before allowing Codex to work on an isolated branch.</span><button class="portal-button" id="support-start-preview" type="button">Approve &amp; Start AI Preview</button></div>`}
+      ${changeRun?.preview_url ? `<div class="support-review-panel"><div><strong>Review the proposed change</strong><span>Open the private preview first. The live website will not change until you approve it.</span></div><div class="support-review-actions"><a class="portal-button portal-button-secondary" href="${escapeHtml(changeRun.preview_url)}" target="_blank" rel="noopener noreferrer">Open private preview</a>${runIsReviewable ? `<button class="portal-button" id="support-approve-merge" type="button">Approve and merge to main</button>` : ""}</div></div>` : ""}
+      ${!changeRun ? `<div class="support-review-panel"><div><strong>Start a private preview</strong><span>Codex will work only on a separate branch. Nothing will be published.</span></div><button class="portal-button" id="support-start-preview" type="button">Approve &amp; Start AI Preview</button></div>` : ""}
+      ${showAssistantSummary ? `<div class="support-run-summary"><span>Organized summary</span><p>${escapeHtml(assistantSummary)}</p></div>` : ""}
+      <div class="support-run-meta"><span><small>Change</small><strong>${escapeHtml(supportStatusLabel(request.change_kind || "other"))}</strong></span><span><small>Area</small><strong>${escapeHtml(supportStatusLabel(request.change_scope || "unknown"))}</strong></span>${changeRun ? `<span><small>Updated</small><strong>${escapeHtml(formatDate(changeRun.progress_updated_at || changeRun.updated_at || changeRun.created_at))}</strong></span>` : ""}</div>
+      ${runIsActive ? `<p class="support-run-note">Progress will update automatically. You can refresh, close, or leave this page without interrupting the work.</p>` : ""}
+      ${changeRun?.error_message ? `<div class="support-run-error">${escapeHtml(changeRun.error_message)}</div>` : ""}
+      ${changeRun && ["failed", "changes_requested"].includes(changeRun.state) && Number(changeRun.attempt_number || 0) < 3 ? `<div class="support-review-panel is-retry"><div><strong>The preview needs another run</strong><span>The live website was not changed. Review the recorded error before retrying.</span></div><button class="portal-button" id="support-start-preview" type="button">Retry AI Preview</button></div>` : ""}
+      ${changeRun ? `<details class="support-technical-details"><summary>Technical details</summary><div class="support-context-rows"><div><span>Repository</span><strong class="support-identifier">${escapeHtml(runLinks.repository || "Resolving connected repository")}</strong></div><div><span>Private branch</span><strong class="support-identifier">${runLinks.branchUrl ? `<a href="${escapeHtml(runLinks.branchUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(changeRun.branch_name)}</a>` : escapeHtml(changeRun.branch_name)}</strong></div><div><span>Automation state</span><strong>${escapeHtml(supportStatusLabel(request.automation_status || "awaiting_review"))}</strong></div><div><span>Automation run</span><strong>${escapeHtml(changeRun.attempt_number)} of 3</strong></div><div><span>Started</span><strong>${escapeHtml(formatDate(changeRun.created_at))}</strong></div></div>${runLinks.workflowUrl ? `<a class="support-workflow-link" href="${escapeHtml(runLinks.workflowUrl)}" target="_blank" rel="noopener noreferrer">View GitHub workflow</a>` : ""}</details>` : ""}
     </section>` : ""}
     <section class="support-detail-section">
       <div class="support-section-heading"><div><p class="portal-kicker">Case context</p><h3>Requester and source</h3></div></div>
