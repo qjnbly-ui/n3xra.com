@@ -28,6 +28,17 @@ test("protocol validates and normalizes inbound requests", () => {
   assert.equal(parsed.history.length, 1);
   assert.throws(() => parseAssistantBody({ question: "" }), /enter a question/i);
   assert.throws(() => parseAssistantBody({ question: "x".repeat(1_201) }), /under 1,200/i);
+  assert.equal(parseAssistantBody({ question: "x".repeat(40_000) }, "admin").question.length, 40_000);
+  assert.throws(() => parseAssistantBody({ question: "x".repeat(50_001) }, "admin"), /under 50,000/i);
+});
+
+test("verified admin history keeps substantial drafting context", () => {
+  const parsed = parseAssistantBody({
+    question: "Rewrite the next template",
+    history: Array.from({ length: 18 }, (_, index) => ({ role: "user", content: `${index}:`.padEnd(15_000, "x") })),
+  }, "admin");
+  assert.equal(parsed.history.length, 16);
+  assert.equal(parsed.history[0].content.length, 12_000);
 });
 
 test("protocol reads streamed JSON and rejects malformed bodies", async () => {
@@ -42,6 +53,10 @@ test("protocol reads streamed JSON and rejects malformed bodies", async () => {
   invalid.emit("data", Buffer.from("{"));
   invalid.emit("end");
   await assert.rejects(invalidPromise, /valid JSON/i);
+
+  const largeBody = { body: { question: "x".repeat(100_000) } };
+  await assert.rejects(readJsonBody(largeBody), /too large/i);
+  assert.equal((await readJsonBody(largeBody, "admin")).question.length, 100_000);
 });
 
 test("protocol validates chat-completion and Responses API payloads", () => {
@@ -72,6 +87,14 @@ test("conversation state is isolated by user and conversation", () => {
   assert.equal(store.size(), 2);
   now = new Date("2026-08-11T12:00:02Z");
   assert.equal(store.size(), 0);
+});
+
+test("admin conversation state retains long working context", () => {
+  const store = new ConversationStateStore();
+  const request = { question: "rewrite", conversationId: "conversation-admin", history: [], page: { path: "/", title: "Home" } };
+  const session = store.getOrCreate(request, { audience: "admin", user: { id: "admin", email: "admin@example.com", displayName: "Admin" }, adminRole: "owner" });
+  store.append(session, [{ role: "user", content: "x".repeat(10_000) }]);
+  assert.equal(session.history[0].content.length, 10_000);
 });
 
 test("consequential action transitions require confirmation", () => {

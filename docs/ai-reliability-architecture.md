@@ -8,6 +8,8 @@ The shared core now powers the existing `/api/ask` endpoint and the context-awar
 - Account: public knowledge plus the signed-in user's own normalized account data.
 - Platform admin: account context plus whitelisted, read-only admin data for accounts, applications, support, notifications, websites, billing, and operations.
 
+Admin mode also supports read-only working tasks such as drafting, rewriting, review, analysis, and strategy. These tasks use `admin_advisory` and do not load unrelated live data. Only explicit current-data questions enter an allowlisted live-data capability, while actual external actions remain confirmation-gated.
+
 The N3XRA Records assistant endpoints and interfaces are intentionally unchanged. Pages under `/n3xra-records` do not load the shared widget. Proposal Copilot and the other specialized AI endpoints also remain independent in this release.
 
 Every conversational AI interface that presents suggested-question chips uses the shared `/api/ai-follow-ups` service after an answer. This covers the public, account, and admin shared assistant; both Codebase AI interfaces; and Records AI. The service generates three concise likely next questions from only the latest question and answer. It is optional: if generation fails or is unavailable, the interface keeps its safe mode-specific starter prompts and the completed answer remains unaffected.
@@ -59,6 +61,8 @@ The latest-known-good cache survives warm serverless invocations. It is intentio
 - Records AI: `/n3xra-records` keeps its existing UI and `/api/records-help`. The shared widget is not loaded there, and shared requests on a Records path return `records_handoff` without calling shared providers or data loaders.
 
 Conversation state is keyed by both the server-verified identity and conversation ID. No model receives a generic database, filesystem, or cross-assistant tool. Shared AI sees only the normalized output of its capability loader; Codebase AI sees only selected redacted source excerpts; Records AI separately verifies organization access before building its Records-specific context.
+
+The public and account server limit remains 1,200 characters. A server-verified administrator may submit up to 50,000 characters and retain a larger bounded history for substantial working material. The browser does not silently truncate any audience's input; the server applies the appropriate boundary only after resolving the session and returns an explicit error when a boundary is exceeded.
 
 The follow-up service performs no database read or write beyond session and administrator verification. Account and Records suggestions require a valid Supabase user session, while Admin and Codebase suggestions additionally require a current active platform-admin role. The browser never sends a service key. Inputs are bounded and redacted, the model receives only the latest visible exchange, and its strict structured output is normalized before becoming clickable text.
 

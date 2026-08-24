@@ -44,7 +44,7 @@ export class ConversationStateStore {
     if (existing) {
       existing.identity = identity;
       existing.page = request.page;
-      existing.history = this.normalizeHistory(request.history.length ? request.history : existing.history);
+      existing.history = this.normalizeHistory(request.history.length ? request.history : existing.history, identity);
       existing.updatedAt = now;
       return existing;
     }
@@ -53,7 +53,7 @@ export class ConversationStateStore {
       ownerKey,
       identity,
       page: request.page,
-      history: this.normalizeHistory(request.history),
+      history: this.normalizeHistory(request.history, identity),
       createdAt: now,
       updatedAt: now,
     };
@@ -62,7 +62,7 @@ export class ConversationStateStore {
   }
 
   append(session: ConversationSession, messages: ConversationMessage[]): void {
-    session.history = this.normalizeHistory([...session.history, ...messages]);
+    session.history = this.normalizeHistory([...session.history, ...messages], session.identity);
     session.updatedAt = this.now().toISOString();
   }
 
@@ -71,8 +71,10 @@ export class ConversationStateStore {
     return this.sessions.size;
   }
 
-  private normalizeHistory(messages: ConversationMessage[]): ConversationMessage[] {
-    return messages.slice(-12).map((message) => ({ role: message.role, content: message.content.slice(0, 1_600) }));
+  private normalizeHistory(messages: ConversationMessage[], identity: SessionIdentity): ConversationMessage[] {
+    const messageLimit = identity.audience === "admin" ? 16 : 12;
+    const characterLimit = identity.audience === "admin" ? 12_000 : 1_600;
+    return messages.slice(-messageLimit).map((message) => ({ role: message.role, content: message.content.slice(0, characterLimit) }));
   }
 
   private prune(): void {

@@ -60,6 +60,34 @@ test("action requests route to a confirmation-gated capability", () => {
   assert.equal(intent.requiresConfirmation, true);
 });
 
+test("admin drafting and pasted outreach do not route to data or external actions", () => {
+  const cases = [
+    "Please rewrite this email template so it accurately reflects N3XRA. Online Utility Billing & Citizen Portals. Records storage and public access.",
+    "Please edit this draft and send it back to me for review.",
+    "Template 1 Subject: Making day-to-day tasks easier for {{City Name}} City Hall. Simple City Websites. Online Utility Billing. Records and public access.",
+    "Lindsey is taking initiative, but anything she does needs to come through this AI. What is wrong with these templates she built?",
+    "What is wrong with this template? It promises online billing, account access, and public records access.",
+  ];
+  for (const question of cases) {
+    const intent = classifyDeterministically(request(question, "/"), admin);
+    assert.equal(intent.capability, "admin_advisory", question);
+    assert.equal(intent.requiresLiveData, false, question);
+    assert.equal(intent.requiresConfirmation, false, question);
+  }
+});
+
+test("explicit external sends remain confirmation-gated", () => {
+  for (const question of [
+    "Please send this email to Lindsey.",
+    "Please rewrite this email and send it to Lindsey.",
+    "Could you polish this post and publish it on LinkedIn?",
+  ]) {
+    const intent = classifyDeterministically(request(question), admin);
+    assert.equal(intent.capability, "admin_action", question);
+    assert.equal(intent.requiresConfirmation, true, question);
+  }
+});
+
 test("signed-in account and public requests remain scoped", () => {
   assert.equal(classifyDeterministically(request("What is my plan?"), account).capability, "account");
   assert.equal(classifyDeterministically(request("What does N3XRA build?", "/services"), publicIdentity).capability, "public_site");

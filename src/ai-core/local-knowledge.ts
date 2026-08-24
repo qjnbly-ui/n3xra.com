@@ -42,6 +42,7 @@ const ADMIN_ROUTES: Record<Capability, string> = {
   public_site: "/",
   current_page: "/",
   account: "/account",
+  admin_advisory: "/account",
   admin_overview: "/account",
   admin_accounts: "/account/admin/accounts",
   admin_applications: "/account/admin/applications",
@@ -155,6 +156,7 @@ export async function getSiteContext(
 export function localGroundedAnswer(question: string, capability: Capability, page: PageContext): string {
   if (capability === "records_handoff") return "Records AI remains the dedicated assistant for this workspace. Use Ask Records AI for product help or AI Search for questions about library files.";
   if (capability === "admin_action") return "I can inspect the relevant admin information, but write actions are not enabled in this first release. Open the matching admin workspace to complete the change with its existing confirmation controls.";
+  if (capability === "admin_advisory") return "I can help review, draft, and analyze this as the N3XRA administration assistant, but the AI provider is temporarily unavailable. No external action was taken.";
   const adminRoute = ADMIN_ROUTES[capability];
   if (capability.startsWith("admin_")) return `Live admin data is unavailable right now. The verified admin workspace for this area is ${adminRoute}.`;
   const matchingRoutes = TOPIC_ROUTES.find((topic) => topic.concepts.test(question))?.routes || [];

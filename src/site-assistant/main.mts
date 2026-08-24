@@ -118,7 +118,7 @@ function assistantMarkup(): string {
       <form class="site-assistant-composer" data-assistant-form>
         <label for="site-assistant-question" data-assistant-label>Ask a N3XRA question</label>
         <div class="site-assistant-input-row">
-          <textarea id="site-assistant-question" maxlength="1200" rows="2" placeholder="How can N3XRA help?" required></textarea>
+          <textarea id="site-assistant-question" rows="2" placeholder="How can N3XRA help?" required></textarea>
           <button type="submit" data-assistant-submit>Ask</button>
         </div>
         <div class="site-assistant-voice-controls" aria-label="Voice controls">
@@ -187,9 +187,9 @@ function modeContent(mode: AssistantMode, audience: Audience) {
   };
   if (audience === "admin") return {
     kicker: "Verified platform administrator", title: "Ask Admin AI", assistantName: "Admin AI",
-    description: "Current admin data, page guidance, and trusted N3XRA context.", label: "Ask an admin question",
-    placeholder: "What needs my attention?", welcome: "Ask about current applications, accounts, support, websites, billing, operations, or this page.",
-    prompts: ["What needs my attention?", "Show recent applications", "Summarize open support"],
+    description: "Current admin data, drafting, review, and trusted N3XRA guidance.", label: "Ask an admin question",
+    placeholder: "What should we work on?", welcome: "Ask about current operations, or paste outreach and other work for review against what N3XRA actually offers.",
+    prompts: ["What needs my attention?", "Review outreach against N3XRA", "Summarize open support"],
   };
   if (audience === "account") return {
     kicker: "Signed-in account assistant", title: "Ask Account AI", assistantName: "Account AI",
@@ -528,7 +528,7 @@ async function initializeSiteAssistant(): Promise<void> {
         status.textContent = "Answer grounded in the current private code index.";
       } else {
         const additions: HistoryMessage[] = [{ role: "user", content: value }, { role: "assistant", content: answer }];
-        sharedHistory = [...sharedHistory, ...additions].slice(-10);
+        sharedHistory = [...sharedHistory, ...additions].slice(audience === "admin" ? -16 : -10);
         sessionStorage.setItem(sharedHistoryKey, JSON.stringify(sharedHistory));
         status.textContent = result.dataStatus === "cached" ? "Using the latest recorded data" : "";
       }

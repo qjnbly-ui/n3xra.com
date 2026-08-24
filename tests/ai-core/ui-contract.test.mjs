@@ -52,6 +52,12 @@ test("the shared assistant submits with Enter and preserves Shift+Enter for a ne
   assert.match(assistant, /if \(!submit\.disabled\) form\.requestSubmit\(\)/);
 });
 
+test("verified admins are not silently truncated by the public composer limit", () => {
+  const assistant = fs.readFileSync(new URL("../../src/site-assistant/main.mts", import.meta.url), "utf8");
+  assert.doesNotMatch(assistant, /id="site-assistant-question"[^>]*maxlength/);
+  assert.match(assistant, /audience === "admin" \? -16 : -10/);
+});
+
 test("private assistant modes replace starter chips with contextual follow-ups", () => {
   const assistant = fs.readFileSync(new URL("../../src/site-assistant/main.mts", import.meta.url), "utf8");
   assert.match(assistant, /requestAiFollowUps/);

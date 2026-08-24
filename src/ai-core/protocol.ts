@@ -1,6 +1,7 @@
 import {
   AssistantError,
   CAPABILITIES,
+  type Audience,
   type AssistantRequest,
   type Capability,
   type ConversationMessage,
@@ -9,9 +10,13 @@ import {
 } from "./contracts";
 
 const MAX_BODY_BYTES = 96_000;
+const MAX_ADMIN_BODY_BYTES = 768_000;
 const MAX_QUESTION_CHARS = 1_200;
+const MAX_ADMIN_QUESTION_CHARS = 50_000;
 const MAX_HISTORY_MESSAGES = 12;
 const MAX_HISTORY_CHARS = 1_600;
+const MAX_ADMIN_HISTORY_MESSAGES = 16;
+const MAX_ADMIN_HISTORY_CHARS = 12_000;
 
 type IncomingRequest = {
   body?: unknown;
@@ -22,13 +27,15 @@ function cleanText(value: unknown, limit: number): string {
   return String(value ?? "").trim().slice(0, limit);
 }
 
-function parseHistory(value: unknown): ConversationMessage[] {
+function parseHistory(value: unknown, audience: Audience): ConversationMessage[] {
   if (!Array.isArray(value)) return [];
-  return value.slice(-MAX_HISTORY_MESSAGES).flatMap((item): ConversationMessage[] => {
+  const messageLimit = audience === "admin" ? MAX_ADMIN_HISTORY_MESSAGES : MAX_HISTORY_MESSAGES;
+  const characterLimit = audience === "admin" ? MAX_ADMIN_HISTORY_CHARS : MAX_HISTORY_CHARS;
+  return value.slice(-messageLimit).flatMap((item): ConversationMessage[] => {
     if (!item || typeof item !== "object") return [];
     const candidate = item as Record<string, unknown>;
     const role = candidate.role === "user" || candidate.role === "assistant" ? candidate.role : null;
-    const content = cleanText(candidate.content, MAX_HISTORY_CHARS);
+    const content = cleanText(candidate.content, characterLimit);
     return role && content ? [{ role, content }] : [];
   });
 }
@@ -48,15 +55,16 @@ function parsePage(value: unknown): PageContext {
   return context;
 }
 
-export function parseAssistantBody(value: unknown): AssistantRequest {
+export function parseAssistantBody(value: unknown, audience: Audience = "public"): AssistantRequest {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new AssistantError("invalid_request", "Send a JSON request object.", 400);
   }
   const body = value as Record<string, unknown>;
-  const question = cleanText(body.question, MAX_QUESTION_CHARS + 1);
+  const questionLimit = audience === "admin" ? MAX_ADMIN_QUESTION_CHARS : MAX_QUESTION_CHARS;
+  const question = cleanText(body.question, questionLimit + 1);
   if (!question) throw new AssistantError("invalid_request", "Please enter a question.", 400);
-  if (question.length > MAX_QUESTION_CHARS) {
-    throw new AssistantError("invalid_request", `Keep the question under ${MAX_QUESTION_CHARS.toLocaleString()} characters.`, 400);
+  if (question.length > questionLimit) {
+    throw new AssistantError("invalid_request", `Keep the question under ${questionLimit.toLocaleString()} characters.`, 400);
   }
   const suppliedConversationId = cleanText(body.conversationId, 120);
   const conversationId = /^[a-zA-Z0-9:_-]{8,120}$/.test(suppliedConversationId)
@@ -65,14 +73,15 @@ export function parseAssistantBody(value: unknown): AssistantRequest {
   return {
     question,
     conversationId,
-    history: parseHistory(body.history),
+    history: parseHistory(body.history, audience),
     page: parsePage(body.page),
   };
 }
 
-export async function readJsonBody(request: IncomingRequest): Promise<unknown> {
+export async function readJsonBody(request: IncomingRequest, audience: Audience = "public"): Promise<unknown> {
+  const bodyLimit = audience === "admin" ? MAX_ADMIN_BODY_BYTES : MAX_BODY_BYTES;
   if (request.body && typeof request.body === "object") {
-    if (Buffer.byteLength(JSON.stringify(request.body), "utf8") > MAX_BODY_BYTES) {
+    if (Buffer.byteLength(JSON.stringify(request.body), "utf8") > bodyLimit) {
       throw new AssistantError("invalid_request", "Request body is too large.", 413);
     }
     return request.body;
@@ -86,7 +95,7 @@ export async function readJsonBody(request: IncomingRequest): Promise<unknown> {
       if (failed) return;
       const chunk = Buffer.isBuffer(value) ? value : Buffer.from(String(value ?? ""));
       size += chunk.length;
-      if (size > MAX_BODY_BYTES) {
+      if (size > bodyLimit) {
         failed = true;
         reject(new AssistantError("invalid_request", "Request body is too large.", 413));
         return;

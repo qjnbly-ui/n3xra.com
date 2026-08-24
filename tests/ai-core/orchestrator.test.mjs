@@ -76,6 +76,31 @@ test("Records keeps its dedicated AI and admin actions remain confirmation-gated
   assert.match(action.answer, /write actions are not enabled/i);
 });
 
+test("admin outreach rewriting reaches the model without loading unrelated account data", async () => {
+  let liveCalls = 0;
+  let providerRequest;
+  const orchestrator = new AssistantOrchestrator({
+    identity: identity(adminIdentity),
+    providers: [{
+      name: "drafting",
+      async complete(request) { providerRequest = request; return { text: "Rewritten N3XRA outreach", provider: "drafting", model: "test" }; },
+      async completeStructured() { throw new Error("drafting must not need intent fallback"); },
+    }],
+    liveData: { async load() { liveCalls += 1; throw new Error("must not load account data"); } },
+  });
+  const result = await orchestrator.answer({
+    ...body("Template 1: Online Utility Billing, records, and public access."),
+    history: [
+      { role: "user", content: "Rewrite each template using what N3XRA actually stands for and avoid promises we cannot make." },
+      { role: "assistant", content: "Send the first template." },
+    ],
+  }, "token");
+  assert.equal(result.capability, "admin_advisory");
+  assert.equal(result.answer, "Rewritten N3XRA outreach");
+  assert.equal(liveCalls, 0);
+  assert.match(providerRequest.messages.map((message) => message.content).join("\n"), /avoid promises we cannot make/i);
+});
+
 test("session probe recognizes assistant mode", async () => {
   const orchestrator = new AssistantOrchestrator({ identity: identity(adminIdentity), providers: [], liveData: null });
   assert.deepEqual(await orchestrator.sessionMode("token"), { audience: "admin", label: "Admin AI", signedIn: true });

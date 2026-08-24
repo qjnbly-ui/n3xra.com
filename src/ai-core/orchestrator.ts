@@ -104,8 +104,8 @@ export class AssistantOrchestrator {
   }
 
   async answer(body: unknown, token = ""): Promise<AssistantResponse> {
-    const request = parseAssistantBody(body);
     const identity = await this.identity.resolve(token);
+    const request = parseAssistantBody(body, identity.audience);
     const session = this.state.getOrCreate(request, identity);
     const intent = await classifyRequest(request, identity, this.providers[0]);
     if (intent.requiresAdmin && identity.audience !== "admin") return noAdminAccess(request, identity);
@@ -140,7 +140,7 @@ export class AssistantOrchestrator {
     const siteContext = await getSiteContext(request.question, session.history, identity, request.page, intent.capability);
     const trustedDataSummary = liveResult?.data ? structuredSummary(intent.capability, liveResult) : "No verified live data is available for this request.";
     const completion = await completeWithFallback(this.providers, {
-      maxTokens: identity.audience === "admin" ? 1_000 : 700,
+      maxTokens: identity.audience === "admin" ? 1_800 : 700,
       temperature: 0.15,
       messages: [
         { role: "system", content: `${siteContext}\n\nSERVER-VERIFIED CONTEXT:\nAudience: ${identity.audience}.\nCapability: ${intent.capability}.\n${trustedDataSummary}\nDo not reinterpret raw JSON; use only this normalized summary for current facts.` },
@@ -166,7 +166,7 @@ export class AssistantOrchestrator {
 const defaultOrchestrator = new AssistantOrchestrator();
 const rateMap = new Map<string, { startedAt: number; count: number }>();
 
-function isRateLimited(ip: string): boolean {
+function isRateLimited(ip: string, limit: number): boolean {
   if (!ip) return false;
   const now = Date.now();
   const current = rateMap.get(ip);
@@ -175,7 +175,7 @@ function isRateLimited(ip: string): boolean {
     return false;
   }
   current.count += 1;
-  return current.count > 12;
+  return current.count > limit;
 }
 
 function clientIp(headers: Record<string, HeaderValue>): string {
@@ -203,11 +203,12 @@ export async function handleAssistantRequest(request: HttpRequest, response: Htt
       sendJson(response, 200, await defaultOrchestrator.sessionMode(token));
       return;
     }
-    const body = await readJsonBody(request);
-    parseAssistantBody(body);
     const mode = await defaultOrchestrator.sessionMode(token);
+    const body = await readJsonBody(request, mode.audience);
+    parseAssistantBody(body, mode.audience);
     if (!mode.signedIn) await publicAiSecurity.requireAccess(request, "ask");
-    if (isRateLimited(clientIp(request.headers))) throw new AssistantError("rate_limited", "Too many requests. Try again in a minute.", 429);
+    const requestLimit = mode.audience === "admin" ? 120 : 12;
+    if (isRateLimited(`${mode.audience}:${clientIp(request.headers)}`, requestLimit)) throw new AssistantError("rate_limited", "Too many requests. Try again in a minute.", 429);
     sendJson(response, 200, await defaultOrchestrator.answer(body, token));
   } catch (error) {
     const known = error instanceof AssistantError ? error : new AssistantError("internal_error", "The assistant could not complete this request.", 500);

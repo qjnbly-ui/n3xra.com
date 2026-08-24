@@ -2,6 +2,7 @@ export const CAPABILITIES = [
   "public_site",
   "current_page",
   "account",
+  "admin_advisory",
   "admin_overview",
   "admin_accounts",
   "admin_applications",
