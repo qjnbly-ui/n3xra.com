@@ -49,15 +49,18 @@ test("the automation edge separates client preview creation from admin merge app
   assert.match(edge, /eq\("status", "active"\)/);
   assert.match(edge, /branches\/\$\{encodeURIComponent\(run\.branch_name\)\}/);
   assert.match(edge, /branchData\?\.commit\?\.sha !== run\.head_sha/);
+  assert.match(edge, /run\.target_repository/);
+  assert.match(edge, /connectedRepositoryResult\.data\?\.full_name/);
   assert.match(edge, /repos\/\$\{encodeURIComponent\(owner\)\}\/\$\{encodeURIComponent\(repo\)\}\/merges/);
   assert.match(edge, /action !== "start-preview"/);
 });
 
 test("clients submit for review while admins control preview creation and merge approval", async () => {
-  const [client, admin, adminLoader] = await Promise.all([
+  const [client, admin, adminLoader, adminShell] = await Promise.all([
     projectFile("src/client-portal/support-workspace.ts"),
     projectFile("account/admin/controllers/support.js"),
     projectFile("supabase/functions/platform-admin/index.ts"),
+    projectFile("account/admin/admin.js"),
   ]);
   assert.match(client, /Open private preview/);
   assert.match(client, /Nothing is live until N3XRA approves it/);
@@ -71,6 +74,7 @@ test("clients submit for review while admins control preview creation and merge 
   assert.match(admin, /Approve &amp; Start AI Preview/);
   assert.match(admin, /invokeWebsiteAutomation\("start-preview"/);
   assert.match(admin, /Approve and merge to main/);
+  assert.match(adminShell, /error\.context[\s\S]*response\?\.error/);
   assert.match(admin, /confirmAdminAction/);
   assert.match(admin, /View GitHub workflow/);
   assert.match(admin, /Progress will update automatically/);

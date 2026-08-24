@@ -86,7 +86,19 @@ async function invoke(action, payload = {}) {
 
 async function invokeWebsiteAutomation(action, payload = {}) {
   const { data, error } = await supabase.functions.invoke("website-change-automation", { body: { action, ...payload } });
-  if (error || data?.error) throw new Error(data?.error || error?.message || "Website automation request failed.");
+  if (error) {
+    let message = data?.error || error.message || "Website automation request failed.";
+    if (error.context && typeof error.context.json === "function") {
+      try {
+        const response = await error.context.json();
+        message = response?.error || response?.message || message;
+      } catch {
+        // Preserve the SDK message when the response does not contain JSON.
+      }
+    }
+    throw new Error(message);
+  }
+  if (data?.error) throw new Error(data.error);
   return data;
 }
 

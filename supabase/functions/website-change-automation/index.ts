@@ -82,15 +82,15 @@ Deno.serve(async (request) => {
       const platformAdmin = await admin.from("platform_admins").select("user_id,status").eq("user_id", user.id).eq("status", "active").maybeSingle();
       if (platformAdmin.error) return reply({ error: platformAdmin.error.message }, 400);
       if (!platformAdmin.data) return reply({ error: "Only an active N3XRA platform administrator can approve a merge." }, 403);
-      const runResult = await admin.from("website_change_runs").select("id,request_id,website_id,state,branch_name,head_sha").eq("id", runId).single();
+      const runResult = await admin.from("website_change_runs").select("id,request_id,website_id,state,branch_name,head_sha,target_repository").eq("id", runId).single();
       if (runResult.error || !runResult.data) return reply({ error: "Preview run not found." }, 404);
       const run = runResult.data;
       if (run.state === "merged") return reply({ ok: true, run: { id: run.id, state: "merged" }, message: "This preview is already on the live branch." });
       if (!['preview_ready','client_ready'].includes(run.state) || !run.head_sha) return reply({ error: "This preview is not ready to merge." }, 409);
       const websiteResult = await admin.from("client_websites").select("repository_full_name").eq("id", run.website_id).single();
-      const connectedRepositoryResult = await admin.from("website_repositories").select("repository_full_name").eq("website_id", run.website_id).eq("provider", "github").order("created_at", { ascending: false }).limit(1).maybeSingle();
+      const connectedRepositoryResult = await admin.from("website_repositories").select("full_name").eq("website_id", run.website_id).eq("provider", "github").neq("access_status", "transferred").order("updated_at", { ascending: false }).order("created_at", { ascending: false }).limit(1).maybeSingle();
       const provisionResult = await admin.from("website_provisioning_runs").select("repository_default_branch").eq("website_id", run.website_id).not("repository_default_branch", "is", null).order("created_at", { ascending: false }).limit(1).maybeSingle();
-      const repository = clean(websiteResult.data?.repository_full_name || connectedRepositoryResult.data?.repository_full_name, 200), base = clean(provisionResult.data?.repository_default_branch || "main", 255);
+      const repository = clean(run.target_repository || websiteResult.data?.repository_full_name || connectedRepositoryResult.data?.full_name, 200), base = clean(provisionResult.data?.repository_default_branch || "main", 255);
       if (!/^[^/\s]+\/[^/\s]+$/.test(repository) || !base) return reply({ error: "The website repository is not ready for approval." }, 409);
       const token = await githubToken();
       const [owner, repo] = repository.split("/");
