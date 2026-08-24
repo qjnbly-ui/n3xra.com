@@ -86,4 +86,21 @@ test("the preview callback is one-time and accepts only Vercel preview URLs", as
   assert.match(callback, /callback_expires_at/);
   assert.match(callback, /vercel\[\.\]app/);
   assert.match(callback, /callback_token_hash: "0"\.repeat\(64\)/);
+  assert.match(callback, /sendWebsiteChangeClientEmail/);
+  assert.match(callback, /preview_email_sent_at/);
+  assert.match(callback, /Preview-ready email failed/);
+});
+
+test("client emails are tracked for preview-ready and published milestones", async () => {
+  const [migration, edge] = await Promise.all([
+    projectFile("supabase/migrations/20260824172433_track_website_change_client_emails.sql"),
+    projectFile("supabase/functions/website-change-automation/index.ts"),
+  ]);
+  assert.match(migration, /preview_email_sent_at/);
+  assert.match(migration, /published_email_sent_at/);
+  assert.match(migration, /client_email_delivery_error/);
+  assert.match(edge, /Idempotency-Key.*website-change\/\$\{run\.id\}\/published/s);
+  assert.match(edge, /sendPublishedEmail/);
+  assert.match(edge, /published_email_sent_at/);
+  assert.match(edge, /Published website email failed/);
 });
