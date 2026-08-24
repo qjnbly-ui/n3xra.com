@@ -37,6 +37,7 @@
 .website-portal-panel-head h3 { margin:.18rem 0 0; font-size:.96rem; }
 .website-portal-panel-head p:not(.portal-kicker) { max-width:720px; margin:.4rem 0 0; color:var(--portal-muted,#64748b); font-size:.7rem; line-height:1.5; }
 .website-portal-panel-head > span { color:var(--portal-muted,#64748b); font-size:.65rem; font-weight:800; white-space:nowrap; }
+.website-portal-panel-actions { display:flex; align-items:center; justify-content:flex-end; flex-wrap:wrap; gap:.75rem; }
 .website-portal-connection-list { display:grid; }
 .website-portal-connection { min-width:0; display:grid; grid-template-columns:34px minmax(0,1fr) auto; align-items:center; gap:.8rem; min-height:58px; padding:.65rem 1.3rem; border-bottom:1px solid #e7ecee; text-decoration:none; }
 .website-portal-connection:last-child { border-bottom:0; }
@@ -57,6 +58,7 @@
 .website-portal-arrow { color:#748091; font-weight:800; }
 .website-portal-text-button { padding:0; color:#127168; background:transparent; border:0; font:800 .7rem Manrope,Arial,sans-serif; cursor:pointer; }
 .website-portal-text-button:hover { text-decoration:underline; }
+.website-portal-text-button:disabled { color:#8a949f; cursor:not-allowed; text-decoration:none; }
 .website-portal-brand-preview { margin:1.25rem; overflow:hidden; color:#fff; background:var(--brand-primary,#17231b); border:1px solid rgba(0,0,0,.14); border-radius:10px; box-shadow:0 16px 34px rgba(18,31,38,.12); }
 .website-portal-brand-topbar { min-height:48px; display:flex; align-items:center; justify-content:space-between; gap:1rem; padding:.65rem .8rem; border-bottom:1px solid rgba(255,255,255,.15); }
 .website-portal-brand-topbar > span { color:rgba(255,255,255,.66); font-size:.52rem; font-weight:800; text-transform:uppercase; letter-spacing:.08em; }

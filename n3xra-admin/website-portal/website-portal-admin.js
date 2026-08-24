@@ -1,5 +1,6 @@
 import { getAdminSession } from "/account/admin/admin-session.js";
 import { readWorkspaceContext, writeWorkspaceContext } from "/client-portal/workspace-context.js";
+import { extractLogoPortalColors } from "/shared/lib/logo-color-extractor.js?v=1";
 
 const DEFAULT_BRAND = {
   primary_color: "#17231b",
@@ -403,8 +404,34 @@ function renderPreviewFromForm() {
   if (logo?.public_url) image.src = logo.public_url;
   else image.removeAttribute("src");
   byId("portal-logo-label").textContent = logo?.label || "Website name fallback";
+  byId("portal-match-logo-colors").disabled = !logo?.public_url;
   renderProgressFeatureState();
   renderCounterPreview();
+}
+
+async function matchColorsToLogo() {
+  const button = byId("portal-match-logo-colors");
+  const logo = analysis?.assets?.find((asset) => asset.id === byId("portal-logo-asset").value);
+  const logoUrl = safeAssetUrl(logo?.public_url);
+  if (!logoUrl) {
+    message("Choose and publish a logo before matching the portal colors.", true);
+    return;
+  }
+
+  setBusy(button, true, "Finding colors…");
+  message(`Reading the colors from ${logo.label || "the selected logo"}…`);
+  try {
+    const colors = await extractLogoPortalColors(logoUrl);
+    setColor("primary", colors.primaryColor);
+    setColor("accent", colors.accentColor);
+    formDirty = true;
+    renderPreviewFromForm();
+    await saveSettings({ success: `Portal colors matched to ${logo.label || "the selected logo"}.` });
+  } catch (error) {
+    message(error?.message || "The selected logo colors could not be detected.", true);
+  } finally {
+    setBusy(button, false);
+  }
 }
 
 function renderProgressFeatureState() {
@@ -688,6 +715,7 @@ function bindEvents() {
   });
   byId("portal-refresh-analysis").addEventListener("click", () => analyze({ includeRemote: true }).catch((error) => message(error.message, true)));
   byId("portal-auto-configure").addEventListener("click", applyRecommended);
+  byId("portal-match-logo-colors").addEventListener("click", matchColorsToLogo);
   document.querySelectorAll("[data-portal-asset-picker]").forEach((button) => button.addEventListener("click", () => openPortalAssetDialog(button.dataset.portalAssetPicker)));
   byId("portal-asset-dialog-options").addEventListener("click", (event) => {
     const option = event.target.closest("[data-portal-asset-choice]");
