@@ -182,6 +182,19 @@ test("Apps Dashboard navigation appears only when the tenant has multiple subscr
   assert.match(workspaceContext, /data-client-app-dashboard hidden/);
 });
 
+test("a Records subscription appears directly in the branded website workspace app navigation", async () => {
+  const [shell, workspaceContext] = await Promise.all([
+    projectFile("client-portal/client-shell.js"),
+    projectFile("client-portal/client-workspace-context.js"),
+  ]);
+
+  assert.match(shell, /label: "Records"[\s\S]*requiresRecordsApp: true/);
+  assert.match(shell, /data-client-records-app hidden/);
+  assert.match(workspaceContext, /label: "Records"[\s\S]*requiresRecordsApp: true/);
+  assert.match(workspaceContext, /setRecordsAvailability\(portalAppKeys\.includes\("records"\), selectedWebsite\?\.organization_id\)/);
+  assert.match(workspaceContext, /\/n3xra-records\/library\?support_org=\$\{encodeURIComponent\(organizationId\)\}/);
+});
+
 test("Communications stays in every portal navigation when the organization is subscribed", async () => {
   const [shell, workspaceContext] = await Promise.all([
     projectFile("client-portal/client-shell.js"),

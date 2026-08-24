@@ -12,6 +12,7 @@ const brandedPortal = isBrandedPortalHostname();
 const HIDDEN_CUSTOMER_PRODUCT_KEYS = new Set(["ai_music", "music", "virals"]);
 const APP_ROUTES = [
   ...(brandedPortal ? [{ keys: ["dashboard"], label: "Apps Dashboard", href: "/client-portal/", requiresAdditionalApps: true }] : []),
+  ...(brandedPortal ? [{ keys: ["records"], label: "Records", href: "/n3xra-records/library", requiresRecordsApp: true }] : []),
   { keys: ["team"], label: "Team & Permissions", href: "/client-portal/team/" },
   ...(brandedPortal || String(window.location.pathname).replace(/\/+$/, "") === "/client-portal/communications"
     ? [{ keys: ["communications"], label: "Communications", href: "/client-portal/communications/", requiresCommunicationsApp: brandedPortal }]
@@ -87,7 +88,7 @@ function updateWebsiteReturnLink(websiteUrl, websiteName = "your website") {
 }
 
 function routeMarkup(route, pageKey) {
-  const availability = `${route.requiresAdditionalApps ? " data-client-app-dashboard hidden" : ""}${route.requiresCommunicationsApp ? " data-client-communications-app hidden" : ""}${route.feature ? ` data-client-feature="${route.feature}" hidden` : ""}${route.projectProgress ? " data-client-project-progress" : ""}`;
+  const availability = `${route.requiresAdditionalApps ? " data-client-app-dashboard hidden" : ""}${route.requiresRecordsApp ? " data-client-records-app hidden" : ""}${route.requiresCommunicationsApp ? " data-client-communications-app hidden" : ""}${route.feature ? ` data-client-feature="${route.feature}" hidden` : ""}${route.projectProgress ? " data-client-project-progress" : ""}`;
   return `<a class="${route.keys.includes(pageKey) ? "is-current" : ""}" href="${route.href}"${availability}>${route.label}</a>`;
 }
 
@@ -145,6 +146,13 @@ function setAppsDashboardAvailability(available) {
   });
 }
 
+function setRecordsAvailability(available, organizationId = "") {
+  document.querySelectorAll("[data-client-records-app]").forEach((item) => {
+    item.hidden = !available;
+    if (available && organizationId) item.href = `/n3xra-records/library?support_org=${encodeURIComponent(organizationId)}`;
+  });
+}
+
 function setCommunicationsAvailability(available) {
   document.querySelectorAll("[data-client-communications-app]").forEach((item) => {
     item.hidden = !available;
@@ -179,6 +187,7 @@ export async function initializeClientWorkspaceContext(panel, { pageKey = "overv
     ? await visiblePortalAppKeys(supabase, selectedWebsite?.organization_id)
     : [];
   setAppsDashboardAvailability(portalAppKeys.length > 1);
+  setRecordsAvailability(portalAppKeys.includes("records"), selectedWebsite?.organization_id);
   setCommunicationsAvailability(portalAppKeys.includes("communications"));
 
   const picker = panel.querySelector("#client-organization-picker");
