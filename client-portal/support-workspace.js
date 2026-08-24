@@ -81,7 +81,7 @@ function render() {
       <header class="client-support-card-head"><div><p class="portal-kicker">${escapeHtml(request.intake_mode === "ai_assisted" ? "AI-assisted website request" : label(request.topic))}</p><h3>${escapeHtml(request.subject)}</h3><p class="client-support-card-origin">${request.origin === "n3xra" ? "Started by N3XRA" : `Sent ${escapeHtml(formatDate(request.created_at))}`}</p></div><span class="client-support-state is-${escapeHtml(request.status)}">${escapeHtml(request.automation_status === "awaiting_review" ? "Awaiting review" : label(request.status))}</span></header>
       <p class="client-support-message">${escapeHtml(request.message)}</p>
       ${request.assistant_summary ? `<div class="client-support-assistant-summary"><strong>Organized summary</strong><p>${escapeHtml(request.assistant_summary)}</p></div>` : ""}
-      ${changeRun ? `<div class="client-change-run"><strong>${escapeHtml(changeRun.state === "merged" ? "Approved and published" : changeRun.state === "preview_ready" || changeRun.state === "client_ready" ? "Your preview is ready" : changeRun.state === "failed" || previewStalled ? "Preview needs attention" : "Creating your private preview")}</strong><p>${escapeHtml(changeRun.state === "merged" ? "N3XRA approved this change and merged it into the website's main branch." : changeRun.state === "preview_ready" || changeRun.state === "client_ready" ? "Review the proposed change below. Nothing is live until N3XRA approves it." : changeRun.state === "failed" || previewStalled ? (changeRun.error_message || "The preview did not finish. You can safely try it again.") : "Codex is preparing an isolated branch. This may take a few minutes.")}</p>${changeRun.preview_url ? `<a class="portal-button portal-button-secondary" href="${escapeHtml(changeRun.preview_url)}" target="_blank" rel="noopener noreferrer">Open private preview</a>` : ""}${(changeRun.state === "failed" || previewStalled) && changeRun.attempt_number < 3 ? `<button class="portal-button portal-button-secondary" type="button" data-retry-preview="${escapeHtml(request.id)}">Try preview again</button>` : ""}<small>Attempt ${escapeHtml(changeRun.attempt_number)} · ${escapeHtml(label(changeRun.state))}</small></div>` : ""}
+      ${changeRun ? `<div class="client-change-run"><strong>${escapeHtml(changeRun.state === "merged" ? "Approved and published" : changeRun.state === "preview_ready" || changeRun.state === "client_ready" ? "Your preview is ready" : changeRun.state === "failed" || previewStalled ? "Preview needs attention" : "Creating your private preview")}</strong><p>${escapeHtml(changeRun.state === "merged" ? "N3XRA approved this change and merged it into the website's main branch." : changeRun.state === "preview_ready" || changeRun.state === "client_ready" ? "Review the proposed change below. Nothing is live until N3XRA approves it." : changeRun.state === "failed" || previewStalled ? (changeRun.error_message || "The preview did not finish. N3XRA can safely retry it after review.") : "Codex is preparing an isolated branch. This may take a few minutes.")}</p>${changeRun.preview_url ? `<a class="portal-button portal-button-secondary" href="${escapeHtml(changeRun.preview_url)}" target="_blank" rel="noopener noreferrer">Open private preview</a>` : ""}<small>Attempt ${escapeHtml(changeRun.attempt_number)} · ${escapeHtml(label(changeRun.state))}</small></div>` : ""}
       <div class="client-support-meta"><span><strong>Timing:</strong> ${escapeHtml(timingLabel(request))}</span>${request.estimated_start_at ? `<span><strong>Estimated start:</strong> ${escapeHtml(formatDate(request.estimated_start_at))}</span>` : ""}</div>
       ${requestUpdates.length ? `<div class="client-support-updates">${requestUpdates.map((update) => `<div class="client-support-update"><p>${escapeHtml(update.message)}</p><small>${update.author_type === "n3xra" ? "N3XRA update" : "Client update"} · ${escapeHtml(formatDate(update.created_at))}</small></div>`).join("")}</div>` : ""}
     </article>`;
@@ -194,14 +194,7 @@ async function submitChange() {
     if (changeStatus)
         changeStatus.textContent = "Sending your request for review…";
     try {
-        const submitted = await changeApi("submit");
-        const requestId = String(submitted?.request?.id || "");
-        let previewMessage = "Your request was submitted. Codex is now preparing a private preview for review.";
-        if (requestId) {
-            const automation = await supabase.functions.invoke("website-change-automation", { body: { action: "start-preview", requestId } });
-            if (automation.error || automation.data?.error)
-                previewMessage = automation.data?.error || automation.error.message || "Your request was saved, but its preview could not be started. N3XRA can retry it safely.";
-        }
+        await changeApi("submit");
         pendingAnalysis = null;
         if (changeForm)
             changeForm.reset();
@@ -212,7 +205,7 @@ async function submitChange() {
         if (changeRequest)
             changeRequest.disabled = false;
         if (changeStatus)
-            changeStatus.textContent = previewMessage;
+            changeStatus.textContent = "Your request was submitted. N3XRA will review it before starting a private AI preview.";
         await loadRequests();
     }
     catch (error) {
@@ -222,21 +215,6 @@ async function submitChange() {
     finally {
         changeSubmit.disabled = false;
     }
-}
-async function retryPreview(requestId, button) {
-    button.disabled = true;
-    if (status)
-        status.textContent = "Starting another private preview…";
-    const result = await supabase.functions.invoke("website-change-automation", { body: { action: "start-preview", requestId } });
-    if (result.error || result.data?.error) {
-        button.disabled = false;
-        if (status)
-            status.textContent = result.data?.error || result.error.message || "The preview could not be restarted.";
-        return;
-    }
-    if (status)
-        status.textContent = "Codex is preparing another isolated preview.";
-    await loadRequests();
 }
 async function submitRequest(event) {
     event.preventDefault();
@@ -302,11 +280,6 @@ async function init() {
         if (changeRequest)
             changeRequest.disabled = false;
         changeRequest?.focus();
-    });
-    list.addEventListener("click", (event) => {
-        const button = event.target.closest("[data-retry-preview]");
-        if (button?.dataset.retryPreview)
-            void retryPreview(button.dataset.retryPreview, button);
     });
     exampleButtons.forEach((button) => button.addEventListener("click", () => {
         if (changeRequest)

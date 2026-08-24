@@ -82,6 +82,9 @@ Deno.serve(async (request) => {
       return reply({ ok: true, run: { id: run.id, state: "merged", merge_sha: mergeData.sha }, message: `The reviewed change was merged into ${base}.` });
     }
     if (action !== "start-preview") return reply({ error: "Choose a valid website automation action." }, 400);
+    const previewAdmin = await admin.from("platform_admins").select("user_id,status").eq("user_id", user.id).eq("status", "active").maybeSingle();
+    if (previewAdmin.error) return reply({ error: previewAdmin.error.message }, 400);
+    if (!previewAdmin.data) return reply({ error: "Only an active N3XRA platform administrator can start an AI preview." }, 403);
     const requestId = clean(body.requestId, 80); if (!uuid(requestId)) return reply({ error: "A valid request is required." }, 400);
     const staleBefore = new Date().toISOString();
     await admin.from("website_change_runs").update({ state: "failed", error_message: "The previous preview run timed out and can be retried safely.", callback_token_hash: "0".repeat(64), updated_at: new Date().toISOString() }).eq("request_id", requestId).in("state", ["queued", "coding"]).lt("callback_expires_at", staleBefore);

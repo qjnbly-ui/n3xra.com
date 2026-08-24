@@ -48,7 +48,7 @@ test("the automation edge separates client preview creation from admin merge app
   assert.match(edge, /action !== "start-preview"/);
 });
 
-test("client preview links and the admin-only approval are present in their respective portals", async () => {
+test("clients submit for review while admins control preview creation and merge approval", async () => {
   const [client, admin, adminLoader] = await Promise.all([
     projectFile("src/client-portal/support-workspace.ts"),
     projectFile("account/admin/controllers/support.js"),
@@ -56,12 +56,28 @@ test("client preview links and the admin-only approval are present in their resp
   ]);
   assert.match(client, /Open private preview/);
   assert.match(client, /Nothing is live until N3XRA approves it/);
-  assert.match(client, /action: "start-preview"/);
-  assert.match(client, /Try preview again/);
+  assert.match(client, /N3XRA will review it before starting a private AI preview/);
+  assert.doesNotMatch(client, /action: "start-preview"/);
+  assert.doesNotMatch(client, /data-retry-preview/);
   assert.doesNotMatch(client, /approve-merge/);
+  assert.match(admin, /Approve &amp; Start AI Preview/);
+  assert.match(admin, /invokeWebsiteAutomation\("start-preview"/);
   assert.match(admin, /Approve and merge to main/);
   assert.match(admin, /confirmAdminAction/);
   assert.match(adminLoader, /changeRuns:/);
+});
+
+test("only an active platform administrator can start an AI preview", async () => {
+  const [edge, migration] = await Promise.all([
+    projectFile("supabase/functions/website-change-automation/index.ts"),
+    projectFile("supabase/migrations/20260824171623_gate_website_ai_preview_and_use_connected_repository.sql"),
+  ]);
+  assert.match(edge, /action !== "start-preview"/);
+  assert.match(edge, /previewAdmin[\s\S]*platform_admins[\s\S]*eq\("status", "active"\)/);
+  assert.match(edge, /Only an active N3XRA platform administrator can start an AI preview/);
+  assert.match(migration, /platform_admins administrator[\s\S]*administrator\.status = 'active'/);
+  assert.match(migration, /website_repositories repository[\s\S]*repository\.provider = 'github'/);
+  assert.match(migration, /coalesce\([\s\S]*website_record\.repository_full_name/);
 });
 
 test("the preview callback is one-time and accepts only Vercel preview URLs", async () => {

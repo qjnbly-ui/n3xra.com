@@ -45,6 +45,7 @@ test("the admin queue displays assistant classification and preserves the main-b
     projectFile("supabase/functions/platform-admin/index.ts"),
   ]);
   assert.match(controller, /Organized for review/);
+  assert.match(controller, /Approve &amp; Start AI Preview/);
   assert.match(controller, /Nothing reaches the main branch until an N3XRA administrator approves it/);
   assert.match(controller, /request\.automation_status/);
   assert.match(edgeFunction, /assistant_summary/);

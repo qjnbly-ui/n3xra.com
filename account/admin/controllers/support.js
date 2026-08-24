@@ -192,7 +192,7 @@ function renderSelectedSupport() {
         <div><span>Attempt</span><strong>${escapeHtml(changeRun.attempt_number)} of 3</strong></div>
         <div><span>Private branch</span><strong class="support-identifier">${escapeHtml(changeRun.branch_name)}</strong></div>
         <div><span>Preview created</span><strong>${escapeHtml(formatDate(changeRun.preview_ready_at || changeRun.created_at))}</strong></div>
-      </div>${changeRun.preview_url ? `<div class="support-form-actions"><span>Review the exact proposed website before approving it.</span><a class="portal-button portal-button-secondary" href="${escapeHtml(changeRun.preview_url)}" target="_blank" rel="noopener noreferrer">Open Vercel preview</a>${["preview_ready", "client_ready"].includes(changeRun.state) ? `<button class="portal-button" id="support-approve-merge" type="button">Approve and merge to main</button>` : ""}</div>` : ""}${changeRun.error_message ? `<div class="support-message">${escapeHtml(changeRun.error_message)}</div>` : ""}` : `<p>No automated preview has started for this request.</p>`}
+      </div>${changeRun.preview_url ? `<div class="support-form-actions"><span>Review the exact proposed website before approving it.</span><a class="portal-button portal-button-secondary" href="${escapeHtml(changeRun.preview_url)}" target="_blank" rel="noopener noreferrer">Open Vercel preview</a>${["preview_ready", "client_ready"].includes(changeRun.state) ? `<button class="portal-button" id="support-approve-merge" type="button">Approve and merge to main</button>` : ""}</div>` : ""}${changeRun.error_message ? `<div class="support-message">${escapeHtml(changeRun.error_message)}</div>` : ""}${["failed", "changes_requested"].includes(changeRun.state) && Number(changeRun.attempt_number || 0) < 3 ? `<div class="support-form-actions"><span>Review the request, then authorize another isolated AI preview.</span><button class="portal-button" id="support-start-preview" type="button">Retry AI Preview</button></div>` : ""}` : `<p>No automated preview has started for this request.</p><div class="support-form-actions"><span>Review the request before allowing Codex to work on an isolated branch.</span><button class="portal-button" id="support-start-preview" type="button">Approve &amp; Start AI Preview</button></div>`}
     </section>` : ""}
     <section class="support-detail-section">
       <div class="support-section-heading"><div><p class="portal-kicker">Case context</p><h3>Requester and source</h3></div></div>
@@ -255,6 +255,21 @@ function renderSelectedSupport() {
       await invokeWebsiteAutomation("approve-merge", { runId: changeRun.id });
       await loadSupport();
       setStatus("The reviewed website change was merged into main.", "success");
+    } catch (error) {
+      button.disabled = false;
+      setStatus(error.message, "error");
+    }
+  });
+  document.getElementById("support-start-preview")?.addEventListener("click", async (event) => {
+    const button = event.currentTarget;
+    const confirmed = await confirmAdminAction("This authorizes Codex to work on an isolated branch and create a private Vercel preview. Nothing will be merged into main or published without a later approval.", { title: "Start AI website preview", confirmLabel: "Approve and start" });
+    if (!confirmed) return;
+    button.disabled = true;
+    setStatus("Starting the isolated AI preview…");
+    try {
+      await invokeWebsiteAutomation("start-preview", { requestId: request.id });
+      await loadSupport();
+      setStatus("Codex is preparing the private preview.", "success");
     } catch (error) {
       button.disabled = false;
       setStatus(error.message, "error");
