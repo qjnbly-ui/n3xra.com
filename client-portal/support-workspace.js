@@ -34,6 +34,7 @@ let session;
 let websites = [];
 let requests = [];
 let updates = [];
+let changeRuns = [];
 let filter = "active";
 let pendingAnalysis = null;
 const escapeHtml = (value) => String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
@@ -74,10 +75,13 @@ function render() {
     const visible = filter === "past" ? past : active;
     list.innerHTML = visible.length ? visible.map((request) => {
         const requestUpdates = updates.filter((update) => update.request_id === request.id);
+        const changeRun = changeRuns.find((run) => run.request_id === request.id);
+        const previewStalled = Boolean(changeRun && ["queued", "coding"].includes(changeRun.state) && Date.now() - new Date(changeRun.created_at).getTime() > 35 * 60 * 1000);
         return `<article class="client-support-card is-${escapeHtml(request.status)}">
       <header class="client-support-card-head"><div><p class="portal-kicker">${escapeHtml(request.intake_mode === "ai_assisted" ? "AI-assisted website request" : label(request.topic))}</p><h3>${escapeHtml(request.subject)}</h3><p class="client-support-card-origin">${request.origin === "n3xra" ? "Started by N3XRA" : `Sent ${escapeHtml(formatDate(request.created_at))}`}</p></div><span class="client-support-state is-${escapeHtml(request.status)}">${escapeHtml(request.automation_status === "awaiting_review" ? "Awaiting review" : label(request.status))}</span></header>
       <p class="client-support-message">${escapeHtml(request.message)}</p>
       ${request.assistant_summary ? `<div class="client-support-assistant-summary"><strong>Organized summary</strong><p>${escapeHtml(request.assistant_summary)}</p></div>` : ""}
+      ${changeRun ? `<div class="client-change-run"><strong>${escapeHtml(changeRun.state === "merged" ? "Approved and published" : changeRun.state === "preview_ready" || changeRun.state === "client_ready" ? "Your preview is ready" : changeRun.state === "failed" || previewStalled ? "Preview needs attention" : "Creating your private preview")}</strong><p>${escapeHtml(changeRun.state === "merged" ? "N3XRA approved this change and merged it into the website's main branch." : changeRun.state === "preview_ready" || changeRun.state === "client_ready" ? "Review the proposed change below. Nothing is live until N3XRA approves it." : changeRun.state === "failed" || previewStalled ? (changeRun.error_message || "The preview did not finish. You can safely try it again.") : "Codex is preparing an isolated branch. This may take a few minutes.")}</p>${changeRun.preview_url ? `<a class="portal-button portal-button-secondary" href="${escapeHtml(changeRun.preview_url)}" target="_blank" rel="noopener noreferrer">Open private preview</a>` : ""}${(changeRun.state === "failed" || previewStalled) && changeRun.attempt_number < 3 ? `<button class="portal-button portal-button-secondary" type="button" data-retry-preview="${escapeHtml(request.id)}">Try preview again</button>` : ""}<small>Attempt ${escapeHtml(changeRun.attempt_number)} · ${escapeHtml(label(changeRun.state))}</small></div>` : ""}
       <div class="client-support-meta"><span><strong>Timing:</strong> ${escapeHtml(timingLabel(request))}</span>${request.estimated_start_at ? `<span><strong>Estimated start:</strong> ${escapeHtml(formatDate(request.estimated_start_at))}</span>` : ""}</div>
       ${requestUpdates.length ? `<div class="client-support-updates">${requestUpdates.map((update) => `<div class="client-support-update"><p>${escapeHtml(update.message)}</p><small>${update.author_type === "n3xra" ? "N3XRA update" : "Client update"} · ${escapeHtml(formatDate(update.created_at))}</small></div>`).join("")}</div>` : ""}
     </article>`;
@@ -87,6 +91,7 @@ async function loadRequests() {
     if (!websites.length) {
         requests = [];
         updates = [];
+        changeRuns = [];
         render();
         return;
     }
@@ -100,13 +105,13 @@ async function loadRequests() {
     const requestIds = requests.map((request) => request.id);
     if (!requestIds.length) {
         updates = [];
+        changeRuns = [];
     }
     else {
-        const updateResult = await supabase.from("platform_support_request_updates")
-            .select("id,request_id,message,author_type,created_at")
-            .in("request_id", requestIds)
-            .eq("visible_to_client", true)
-            .order("created_at", { ascending: true });
+        const [updateResult, runResult] = await Promise.all([
+            supabase.from("platform_support_request_updates").select("id,request_id,message,author_type,created_at").in("request_id", requestIds).eq("visible_to_client", true).order("created_at", { ascending: true }),
+            supabase.from("website_change_runs").select("id,request_id,attempt_number,state,branch_name,preview_url,error_message,created_at,preview_ready_at,merged_at").in("request_id", requestIds).order("created_at", { ascending: false }),
+        ]);
         if (updateResult.error) {
             console.error("Client-visible support updates could not be loaded.", updateResult.error);
             updates = [];
@@ -115,6 +120,13 @@ async function loadRequests() {
         }
         else {
             updates = (updateResult.data || []);
+        }
+        if (runResult.error) {
+            console.error("Website preview status could not be loaded.", runResult.error);
+            changeRuns = [];
+        }
+        else {
+            changeRuns = (runResult.data || []);
         }
     }
     render();
@@ -182,7 +194,14 @@ async function submitChange() {
     if (changeStatus)
         changeStatus.textContent = "Sending your request for review…";
     try {
-        await changeApi("submit");
+        const submitted = await changeApi("submit");
+        const requestId = String(submitted?.request?.id || "");
+        let previewMessage = "Your request was submitted. Codex is now preparing a private preview for review.";
+        if (requestId) {
+            const automation = await supabase.functions.invoke("website-change-automation", { body: { action: "start-preview", requestId } });
+            if (automation.error || automation.data?.error)
+                previewMessage = automation.data?.error || automation.error.message || "Your request was saved, but its preview could not be started. N3XRA can retry it safely.";
+        }
         pendingAnalysis = null;
         if (changeForm)
             changeForm.reset();
@@ -193,7 +212,7 @@ async function submitChange() {
         if (changeRequest)
             changeRequest.disabled = false;
         if (changeStatus)
-            changeStatus.textContent = "Your website change request was sent to N3XRA for review.";
+            changeStatus.textContent = previewMessage;
         await loadRequests();
     }
     catch (error) {
@@ -203,6 +222,21 @@ async function submitChange() {
     finally {
         changeSubmit.disabled = false;
     }
+}
+async function retryPreview(requestId, button) {
+    button.disabled = true;
+    if (status)
+        status.textContent = "Starting another private preview…";
+    const result = await supabase.functions.invoke("website-change-automation", { body: { action: "start-preview", requestId } });
+    if (result.error || result.data?.error) {
+        button.disabled = false;
+        if (status)
+            status.textContent = result.data?.error || result.error.message || "The preview could not be restarted.";
+        return;
+    }
+    if (status)
+        status.textContent = "Codex is preparing another isolated preview.";
+    await loadRequests();
 }
 async function submitRequest(event) {
     event.preventDefault();
@@ -268,6 +302,11 @@ async function init() {
         if (changeRequest)
             changeRequest.disabled = false;
         changeRequest?.focus();
+    });
+    list.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-retry-preview]");
+        if (button?.dataset.retryPreview)
+            void retryPreview(button.dataset.retryPreview, button);
     });
     exampleButtons.forEach((button) => button.addEventListener("click", () => {
         if (changeRequest)

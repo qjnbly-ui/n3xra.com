@@ -39,13 +39,13 @@ test("AI request metadata is tenant-scoped by existing RLS and not client-writab
   assert.match(migration, /where intake_mode = 'ai_assisted'/);
 });
 
-test("the admin queue displays assistant classification without offering execution", async () => {
+test("the admin queue displays assistant classification and preserves the main-branch approval boundary", async () => {
   const [controller, edgeFunction] = await Promise.all([
     projectFile("account/admin/controllers/support.js"),
     projectFile("supabase/functions/platform-admin/index.ts"),
   ]);
   assert.match(controller, /Organized for review/);
-  assert.match(controller, /did not edit code or publish anything/);
+  assert.match(controller, /Nothing reaches the main branch until an N3XRA administrator approves it/);
   assert.match(controller, /request\.automation_status/);
   assert.match(edgeFunction, /assistant_summary/);
 });

@@ -84,6 +84,12 @@ async function invoke(action, payload = {}) {
   return data;
 }
 
+async function invokeWebsiteAutomation(action, payload = {}) {
+  const { data, error } = await supabase.functions.invoke("website-change-automation", { body: { action, ...payload } });
+  if (error || data?.error) throw new Error(data?.error || error?.message || "Website automation request failed.");
+  return data;
+}
+
 
 
 
@@ -209,7 +215,7 @@ async function loadAdminView(adminContext) {
     await operations.startOperations({ supabase, session, invoke });
   } else if (view === "support") {
     const supportController = await import("/account/admin/controllers/support.js?v=4");
-    await supportController.startSupport({ invoke, escapeHtml, formatDate, setStatus });
+    await supportController.startSupport({ invoke, invokeWebsiteAutomation, escapeHtml, formatDate, setStatus, confirmAdminAction });
   } else if (view === "platform-admins") {
     const platformAdmins = await import("/account/admin/controllers/platform-admins.js?v=2");
     await platformAdmins.startPlatformAdmins({ invoke, escapeHtml, setStatus, confirmAdminAction });

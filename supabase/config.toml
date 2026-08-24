@@ -45,3 +45,6 @@ verify_jwt = false
 
 [functions.website-project-admin]
 verify_jwt = true
+
+[functions.website-change-automation]
+verify_jwt = true

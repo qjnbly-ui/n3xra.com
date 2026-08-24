@@ -2122,7 +2122,7 @@ Deno.serve(async (request) => {
     }
 
     if (action === "list-support-requests") {
-      const [requestResult, updateResult, websiteResult, organizationResult, accountResult, organizationMembershipResult, websiteMembershipResult, entitlementResult] = await Promise.all([
+      const [requestResult, updateResult, websiteResult, organizationResult, accountResult, organizationMembershipResult, websiteMembershipResult, entitlementResult, changeRunResult] = await Promise.all([
         adminClient
           .from("platform_support_requests")
           .select("id, requester_user_id, requester_name, requester_email, organization_name, topic, subject, message, status, priority, assigned_to_user_id, internal_notes, source, origin, website_id, organization_id, client_visible, estimated_start_at, estimated_completion_at, email_message_id, intake_mode, change_kind, change_scope, automation_status, assistant_summary, created_at, updated_at, resolved_at")
@@ -2160,6 +2160,11 @@ Deno.serve(async (request) => {
           .in("product_key", ["communications", "records"])
           .in("status", ["active", "trialing"])
           .eq("portal_enabled", true),
+        adminClient
+          .from("website_change_runs")
+          .select("id,request_id,website_id,attempt_number,state,branch_name,head_sha,preview_url,error_message,created_at,updated_at,preview_ready_at,approved_at,merged_at")
+          .order("created_at", { ascending: false })
+          .limit(1000),
       ]);
       if (requestResult.error) return jsonResponse({ error: requestResult.error.message }, 400);
       if (updateResult.error) return jsonResponse({ error: updateResult.error.message }, 400);
@@ -2169,6 +2174,7 @@ Deno.serve(async (request) => {
       if (organizationMembershipResult.error) return jsonResponse({ error: organizationMembershipResult.error.message }, 400);
       if (websiteMembershipResult.error) return jsonResponse({ error: websiteMembershipResult.error.message }, 400);
       if (entitlementResult.error) return jsonResponse({ error: entitlementResult.error.message }, 400);
+      if (changeRunResult.error) return jsonResponse({ error: changeRunResult.error.message }, 400);
       return jsonResponse({
         ok: true,
         requests: requestResult.data || [],
@@ -2179,6 +2185,7 @@ Deno.serve(async (request) => {
         organizationMemberships: organizationMembershipResult.data || [],
         websiteMemberships: websiteMembershipResult.data || [],
         productEntitlements: entitlementResult.data || [],
+        changeRuns: changeRunResult.data || [],
         count: requestResult.data?.length || 0,
       });
     }

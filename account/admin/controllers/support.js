@@ -6,10 +6,13 @@ let supportAccounts = [];
 let supportOrganizationMemberships = [];
 let supportWebsiteMemberships = [];
 let supportProductEntitlements = [];
+let supportChangeRuns = [];
 let invoke;
+let invokeWebsiteAutomation;
 let escapeHtml;
 let formatDate;
 let setStatus;
+let confirmAdminAction;
 
 const SUPPORT_TOPIC_OPTIONS = [
   ["general-support", "General support"],
@@ -159,6 +162,7 @@ function renderSelectedSupport() {
   if (request.requester_user_id) accountParams.set("user", request.requester_user_id);
   const mailSubject = encodeURIComponent(`Re: ${request.subject || "N3XRA support request"}`);
   const clientUpdates = supportUpdates.filter((update) => update.request_id === request.id && update.visible_to_client);
+  const changeRun = supportChangeRuns.find((run) => run.request_id === request.id);
   detail.innerHTML = `
     <header class="support-detail-head">
       <div class="support-request-identity"><span class="support-request-avatar is-large" aria-hidden="true">${escapeHtml(supportInitials(request))}</span><div><p class="portal-kicker">${escapeHtml(request.topic || "Support request")}</p><h2>${escapeHtml(request.subject || "Support request")}</h2><p>${escapeHtml(request.requester_name || "Unknown requester")} · ${escapeHtml(request.requester_email || "No email")}</p><span class="support-case-state is-${escapeHtml(request.status || "new")}">${escapeHtml(supportStatusLabel(request.status))}</span></div></div>
@@ -176,13 +180,19 @@ function renderSelectedSupport() {
       <div class="support-message">${escapeHtml(request.message || "No message was provided.")}</div>
     </section>
     ${request.intake_mode === "ai_assisted" ? `<section class="support-detail-section">
-      <div class="support-section-heading"><div><p class="portal-kicker">Website Change Assistant</p><h3>Organized for review</h3><p>The assistant did not edit code or publish anything. This request requires N3XRA approval.</p></div></div>
+      <div class="support-section-heading"><div><p class="portal-kicker">Website Change Assistant</p><h3>Organized for review</h3><p>${changeRun ? "Codex worked only on the isolated branch. Nothing reaches the main branch until an N3XRA administrator approves it." : "No code has been changed yet. This request is waiting for its isolated preview run."}</p></div></div>
       <div class="support-context-rows">
         <div><span>Change type</span><strong>${escapeHtml(supportStatusLabel(request.change_kind || "other"))}</strong></div>
         <div><span>Likely area</span><strong>${escapeHtml(supportStatusLabel(request.change_scope || "unknown"))}</strong></div>
         <div><span>Automation</span><strong>${escapeHtml(supportStatusLabel(request.automation_status || "awaiting_review"))}</strong></div>
       </div>
       <div class="support-message">${escapeHtml(request.assistant_summary || "No assistant summary was saved.")}</div>
+      ${changeRun ? `<div class="support-context-rows">
+        <div><span>Preview state</span><strong>${escapeHtml(supportStatusLabel(changeRun.state))}</strong></div>
+        <div><span>Attempt</span><strong>${escapeHtml(changeRun.attempt_number)} of 3</strong></div>
+        <div><span>Private branch</span><strong class="support-identifier">${escapeHtml(changeRun.branch_name)}</strong></div>
+        <div><span>Preview created</span><strong>${escapeHtml(formatDate(changeRun.preview_ready_at || changeRun.created_at))}</strong></div>
+      </div>${changeRun.preview_url ? `<div class="support-form-actions"><span>Review the exact proposed website before approving it.</span><a class="portal-button portal-button-secondary" href="${escapeHtml(changeRun.preview_url)}" target="_blank" rel="noopener noreferrer">Open Vercel preview</a>${["preview_ready", "client_ready"].includes(changeRun.state) ? `<button class="portal-button" id="support-approve-merge" type="button">Approve and merge to main</button>` : ""}</div>` : ""}${changeRun.error_message ? `<div class="support-message">${escapeHtml(changeRun.error_message)}</div>` : ""}` : `<p>No automated preview has started for this request.</p>`}
     </section>` : ""}
     <section class="support-detail-section">
       <div class="support-section-heading"><div><p class="portal-kicker">Case context</p><h3>Requester and source</h3></div></div>
@@ -235,6 +245,21 @@ function renderSelectedSupport() {
       setStatus(error.message, "error");
     }
   });
+  document.getElementById("support-approve-merge")?.addEventListener("click", async (event) => {
+    const button = event.currentTarget;
+    const confirmed = await confirmAdminAction("This will merge the exact reviewed preview branch into the website's main branch. Vercel may then publish it through the website's normal production settings.", { title: "Approve website change", confirmLabel: "Approve and merge" });
+    if (!confirmed) return;
+    button.disabled = true;
+    setStatus("Merging the reviewed website change…");
+    try {
+      await invokeWebsiteAutomation("approve-merge", { runId: changeRun.id });
+      await loadSupport();
+      setStatus("The reviewed website change was merged into main.", "success");
+    } catch (error) {
+      button.disabled = false;
+      setStatus(error.message, "error");
+    }
+  });
 }
 
 async function loadSupport() {
@@ -248,6 +273,7 @@ async function loadSupport() {
   supportOrganizationMemberships = data.organizationMemberships || [];
   supportWebsiteMemberships = data.websiteMemberships || [];
   supportProductEntitlements = data.productEntitlements || [];
+  supportChangeRuns = data.changeRuns || [];
   const workAccountSelect = document.getElementById("support-work-account");
   if (workAccountSelect) workAccountSelect.innerHTML = supportAccounts.length
     ? `<option value="">Choose a client account</option>${supportAccounts.map((account) => `<option value="${escapeHtml(account.id)}">${escapeHtml(account.full_name || account.email || "Unnamed account")}${account.full_name && account.email ? ` — ${escapeHtml(account.email)}` : ""}</option>`).join("")}`
@@ -273,7 +299,7 @@ async function loadSupport() {
 }
 
 export async function startSupport(context = {}) {
-  ({ invoke, escapeHtml, formatDate, setStatus } = context);
+  ({ invoke, invokeWebsiteAutomation, escapeHtml, formatDate, setStatus, confirmAdminAction } = context);
   document.getElementById("support-search")?.addEventListener("input", renderSupportOptions);
   document.getElementById("support-filter")?.addEventListener("change", renderSupportOptions);
   document.getElementById("support-priority-filter")?.addEventListener("change", renderSupportOptions);

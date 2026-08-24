@@ -49,3 +49,4 @@
 .client-support-form-head,.client-support-form>label:last-of-type,.client-support-form-actions,.client-support-form>.portal-inline-status{grid-column:1}
 .client-support-intro .portal-button,.client-support-form-actions .portal-button{width:100%}
 }
+.client-change-run{display:grid;gap:.65rem;margin-top:1rem;padding:1rem;border:1px solid rgba(27,89,77,.18);border-radius:14px;background:rgba(234,247,242,.7)}.client-change-run p,.client-change-run small{margin:0}.client-change-run .portal-button{justify-self:start}
