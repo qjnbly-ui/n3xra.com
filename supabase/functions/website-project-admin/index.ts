@@ -176,6 +176,75 @@ async function githubInstallationToken(configuration: GitHubConfiguration) {
   return String(data.token);
 }
 
+interface VercelConfiguration {
+  accessToken: string;
+  teamId: string;
+  teamSlug: string;
+}
+
+function vercelConfiguration(): VercelConfiguration {
+  const configuration = {
+    accessToken: String(Deno.env.get("VERCEL_ACCESS_TOKEN") || "").trim(),
+    teamId: text(Deno.env.get("VERCEL_TEAM_ID"), 200),
+    teamSlug: text(Deno.env.get("VERCEL_TEAM_SLUG"), 100),
+  };
+  if (!configuration.accessToken || !configuration.teamId || !configuration.teamSlug) {
+    throw new Error("Vercel provisioning is not configured.");
+  }
+  if (!/^team_[A-Za-z0-9]+$/.test(configuration.teamId)
+    || !/^[a-z0-9][a-z0-9-]{0,99}$/.test(configuration.teamSlug)) {
+    throw new Error("Vercel provisioning configuration is invalid.");
+  }
+  return configuration;
+}
+
+async function vercelRequest(
+  configuration: VercelConfiguration,
+  path: string,
+  options: RequestInit = {},
+) {
+  const separator = path.includes("?") ? "&" : "?";
+  const response = await fetch(`https://api.vercel.com${path}${separator}teamId=${encodeURIComponent(configuration.teamId)}`, {
+    ...options,
+    headers: {
+      Authorization: `Bearer ${configuration.accessToken}`,
+      "Content-Type": "application/json",
+      "User-Agent": "N3XRA-Website-Provisioning/1.0",
+      ...(options.headers || {}),
+    },
+  });
+  const data = await response.json().catch(() => ({}));
+  return { response, data };
+}
+
+function wait(milliseconds: number) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+async function waitForVercelDeployment(
+  configuration: VercelConfiguration,
+  deploymentId: string,
+) {
+  let deployment: Record<string, any> = {};
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const result = await vercelRequest(
+      configuration,
+      `/v13/deployments/${encodeURIComponent(deploymentId)}`,
+    );
+    if (!result.response.ok) {
+      throw new Error(`Vercel could not read the preview deployment${result.data?.error?.message ? `: ${text(result.data.error.message, 300)}` : "."}`);
+    }
+    deployment = result.data;
+    const state = text(deployment.readyState || deployment.status, 40).toUpperCase();
+    if (state === "READY") return deployment;
+    if (["ERROR", "CANCELED"].includes(state)) {
+      throw new Error(`Vercel preview deployment ${state.toLowerCase()}.`);
+    }
+    await wait(2500);
+  }
+  throw new Error("Vercel preview deployment did not become ready before the setup timeout.");
+}
+
 async function createProposal(
   adminClient: ReturnType<typeof createClient>,
   project: Record<string, any>,
@@ -550,6 +619,139 @@ Deno.serve(async (request) => {
         });
         if (failureError) console.error("Unable to record GitHub provisioning failure:", failureError.message);
         console.error("Website GitHub provisioning failed:", message);
+        return respond({ error: message }, 502);
+      }
+    }
+
+    if (action === "provision-website-vercel") {
+      const projectId = String(payload.projectId || "").trim();
+      if (!isUuid(projectId)) return respond({ error: "A valid projectId is required." }, 400);
+
+      const { data: project, error: projectError } = await adminClient
+        .from("website_projects")
+        .select("id,name,managed_website_id,client_websites(id,name,slug,organization_id,repository_full_name)")
+        .eq("id", projectId)
+        .maybeSingle();
+      if (projectError) return respond({ error: projectError.message }, 400);
+      if (!project) return respond({ error: "Website project not found." }, 404);
+      const website = Array.isArray(project.client_websites) ? project.client_websites[0] : project.client_websites;
+      if (!website?.repository_full_name) {
+        return respond({ error: "Create the private GitHub repository before provisioning Vercel." }, 400);
+      }
+      const targetProjectName = githubRepositoryName(
+        website.repository_full_name.split("/").pop() || website.slug || website.name || project.name,
+      );
+      if (!targetProjectName) return respond({ error: "The website needs a valid Vercel project name." }, 400);
+
+      const { data: claimed, error: claimError } = await adminClient.rpc("claim_website_vercel_provisioning", {
+        input_project_id: project.id,
+        input_actor_user_id: user.id,
+        input_target_project_name: targetProjectName,
+      });
+      if (claimError) return respond({ error: claimError.message }, 400);
+      if (!claimed?.acquired) {
+        return respond({
+          ok: true,
+          provisioning: claimed,
+          message: claimed?.status === "vercel_ready"
+            ? "The Vercel preview is already ready."
+            : "Vercel preview setup is already in progress.",
+        }, claimed?.status === "vercel_ready" ? 200 : 202);
+      }
+
+      const runId = String(claimed.id || "");
+      const leaseToken = String(claimed.vercel_lease_token || "");
+      try {
+        const configuration = vercelConfiguration();
+        const projectPath = `/v9/projects/${encodeURIComponent(targetProjectName)}`;
+        const existingResult = await vercelRequest(configuration, projectPath);
+        let vercelProject: Record<string, any> | null = null;
+
+        if (existingResult.response.ok) {
+          const isRetryRecovery = Number(claimed.vercel_attempt_count || 0) > 1
+            || claimed.vercel_project_id === existingResult.data?.id;
+          if (!isRetryRecovery) {
+            throw new Error(`The Vercel project ${targetProjectName} already exists and is not recorded for this website.`);
+          }
+          vercelProject = existingResult.data;
+        } else if (existingResult.response.status === 404) {
+          const createdResult = await vercelRequest(configuration, "/v11/projects", {
+            method: "POST",
+            body: JSON.stringify({
+              name: targetProjectName,
+              gitRepository: {
+                type: "github",
+                repo: website.repository_full_name,
+              },
+            }),
+          });
+          if (!createdResult.response.ok) {
+            throw new Error(`Vercel could not create the project${createdResult.data?.error?.message ? `: ${text(createdResult.data.error.message, 300)}` : "."}`);
+          }
+          vercelProject = createdResult.data;
+        } else {
+          throw new Error(`Vercel could not check the project name${existingResult.data?.error?.message ? `: ${text(existingResult.data.error.message, 300)}` : "."}`);
+        }
+
+        if (!vercelProject?.id || vercelProject?.name !== targetProjectName) {
+          throw new Error("Vercel returned project details that did not match the requested website workspace.");
+        }
+
+        const deploymentResult = await vercelRequest(configuration, "/v13/deployments", {
+          method: "POST",
+          body: JSON.stringify({
+            name: targetProjectName,
+            project: vercelProject.id,
+            target: "preview",
+            gitSource: {
+              type: "github",
+              repoId: claimed.repository_provider_id,
+              ref: claimed.repository_default_branch || "main",
+            },
+          }),
+        });
+        if (!deploymentResult.response.ok || !deploymentResult.data?.id) {
+          throw new Error(`Vercel could not start the preview deployment${deploymentResult.data?.error?.message ? `: ${text(deploymentResult.data.error.message, 300)}` : "."}`);
+        }
+
+        const deployment = await waitForVercelDeployment(configuration, String(deploymentResult.data.id));
+        const previewHost = text(deployment.url, 300).replace(/^https?:\/\//, "").replace(/\/$/, "");
+        const previewUrl = previewHost ? `https://${previewHost}` : "";
+        const projectUrl = `https://vercel.com/${configuration.teamSlug}/${encodeURIComponent(targetProjectName)}`;
+        if (!/^https:\/\/[^/\s]+[.]vercel[.]app\/?$/.test(previewUrl)) {
+          throw new Error("Vercel returned an invalid preview URL.");
+        }
+
+        const { data: completed, error: finishError } = await adminClient.rpc("finish_website_vercel_provisioning", {
+          input_run_id: runId,
+          input_lease_token: leaseToken,
+          input_succeeded: true,
+          input_vercel_project_id: vercelProject.id,
+          input_vercel_project_name: vercelProject.name,
+          input_vercel_project_url: projectUrl,
+          input_preview_deployment_id: deployment.id,
+          input_preview_url: previewUrl,
+          input_preview_state: text(deployment.readyState || deployment.status || "READY", 40).toUpperCase(),
+          input_error: null,
+        });
+        if (finishError) throw new Error(finishError.message);
+        return respond({ ok: true, provisioning: completed, message: "Vercel preview ready." });
+      } catch (provisioningError) {
+        const message = provisioningError instanceof Error ? provisioningError.message : "Vercel preview setup failed.";
+        const { error: failureError } = await adminClient.rpc("finish_website_vercel_provisioning", {
+          input_run_id: runId,
+          input_lease_token: leaseToken,
+          input_succeeded: false,
+          input_vercel_project_id: null,
+          input_vercel_project_name: null,
+          input_vercel_project_url: null,
+          input_preview_deployment_id: null,
+          input_preview_url: null,
+          input_preview_state: null,
+          input_error: message,
+        });
+        if (failureError) console.error("Unable to record Vercel provisioning failure:", failureError.message);
+        console.error("Website Vercel provisioning failed:", message);
         return respond({ error: message }, 502);
       }
     }

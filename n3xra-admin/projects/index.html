@@ -103,16 +103,20 @@
           <section class="portal-project-admin-controls" aria-labelledby="project-provisioning-title">
             <div class="portal-section-heading">
               <p class="portal-kicker">Website workspace</p>
-              <h3 id="project-provisioning-title">GitHub provisioning</h3>
-              <p>Create the website’s private source repository only after the agreement, onboarding, managed website, and client organization are connected.</p>
+              <h3 id="project-provisioning-title">Repository and preview provisioning</h3>
+              <p>Create the private source repository first, then connect it to a Vercel preview. Production publishing and domains remain separate approvals.</p>
             </div>
             <div class="portal-project-provisioning-card">
               <div>
                 <div id="admin-project-provisioning-state"></div>
                 <p id="admin-project-provisioning-copy"></p>
                 <strong id="admin-project-provisioning-repository" hidden></strong>
+                <a id="admin-project-provisioning-preview" href="#" target="_blank" rel="noopener" hidden>Open preview</a>
               </div>
-              <button class="portal-button" id="provision-project-github" type="button">Provision private GitHub repository</button>
+              <div class="portal-project-provisioning-actions">
+                <button class="portal-button" id="provision-project-github" type="button">Provision private GitHub repository</button>
+                <button class="portal-button portal-button-secondary" id="provision-project-vercel" type="button">Create Vercel preview</button>
+              </div>
             </div>
             <p class="portal-inline-status" id="admin-project-provisioning-status" role="status"></p>
           </section>

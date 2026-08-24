@@ -5,7 +5,7 @@ import test from "node:test";
 const read = (path) => readFile(new URL(`../../${path}`, import.meta.url), "utf8");
 
 test("provisioning state is client-readable but service-role mutable", async () => {
-  const migration = await read("supabase/migrations/20260824005512_website_github_provisioning_foundation.sql");
+  const migration = await read("supabase/migrations/20260824014454_website_github_provisioning_foundation.sql");
 
   assert.match(migration, /create table public\.website_provisioning_runs/);
   assert.match(migration, /unique \(project_id\)/);
@@ -18,7 +18,7 @@ test("provisioning state is client-readable but service-role mutable", async () 
 });
 
 test("database claim enforces every lifecycle prerequisite and a retry lease", async () => {
-  const migration = await read("supabase/migrations/20260824005512_website_github_provisioning_foundation.sql");
+  const migration = await read("supabase/migrations/20260824014454_website_github_provisioning_foundation.sql");
   const claim = migration.match(/create or replace function public\.claim_website_github_provisioning[\s\S]*?(?=create or replace function public\.finish_website_github_provisioning)/)?.[0] || "";
 
   assert.match(claim, /request_claims[\s\S]*service_role/);
@@ -34,7 +34,7 @@ test("database claim enforces every lifecycle prerequisite and a retry lease", a
 });
 
 test("successful completion records repository ownership atomically", async () => {
-  const migration = await read("supabase/migrations/20260824005512_website_github_provisioning_foundation.sql");
+  const migration = await read("supabase/migrations/20260824014454_website_github_provisioning_foundation.sql");
   const finish = migration.match(/create or replace function public\.finish_website_github_provisioning[\s\S]*/)?.[0] || "";
 
   assert.match(finish, /run\.lease_token = input_lease_token/);
@@ -50,7 +50,7 @@ test("successful completion records repository ownership atomically", async () =
 
 test("trusted project action creates one private repository from the configured template", async () => {
   const edgeFunction = await read("supabase/functions/website-project-admin/index.ts");
-  const action = edgeFunction.match(/if \(action === "provision-website-github"\)[\s\S]*?(?=\n    if \(\["complete-website-project")/)?.[0] || "";
+  const action = edgeFunction.match(/if \(action === "provision-website-github"\)[\s\S]*?(?=\n    if \(action === "provision-website-vercel"\))/)?.[0] || "";
 
   assert.match(edgeFunction, /GITHUB_APP_PRIVATE_KEY/);
   assert.match(edgeFunction, /RSASSA-PKCS1-v1_5/);

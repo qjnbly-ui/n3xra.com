@@ -158,6 +158,9 @@ function provisioningLabel(status) {
     github_creating: "Creating repository",
     github_ready: "Repository ready",
     failed: "Needs attention",
+    vercel_creating: "Creating preview",
+    vercel_ready: "Preview ready",
+    vercel_failed: "Preview needs attention",
   })[status] || formatLabel(status);
 }
 
@@ -167,9 +170,14 @@ function renderProvisioning() {
   if (!run) return;
   provisioningState.innerHTML = `<span class="portal-badge portal-provisioning-${escapeHtml(run.status)}">${escapeHtml(provisioningLabel(run.status))}</span>`;
   provisioningMessage.textContent = run.client_message || "N3XRA will update this workspace as setup progresses.";
-  provisioningReference.innerHTML = run.repository_full_name
-    ? `<div><dt>Private repository</dt><dd>${escapeHtml(run.repository_full_name)}</dd></div>`
-    : `<div><dt>Current stage</dt><dd>${escapeHtml(formatLabel(run.stage || "github_repository"))}</dd></div>`;
+  provisioningReference.innerHTML = [
+    run.repository_full_name
+      ? `<div><dt>Private repository</dt><dd>${escapeHtml(run.repository_full_name)}</dd></div>`
+      : `<div><dt>Current stage</dt><dd>${escapeHtml(formatLabel(run.stage || "github_repository"))}</dd></div>`,
+    run.preview_url
+      ? `<div><dt>Website preview</dt><dd><a href="${escapeHtml(run.preview_url)}" target="_blank" rel="noopener">Open preview</a></dd></div>`
+      : "",
+  ].join("");
 }
 
 function renderWorkspace() {
@@ -218,7 +226,7 @@ async function loadData(preferredId) {
     supabase.from("website_project_milestones").select("*").order("sequence_number"),
     supabase.from("website_onboardings").select("id,project_id,proposal_id,status").order("created_at", { ascending: false }),
     supabase.from("website_proposals").select("id,project_id,request_id,title,status,created_at").order("created_at", { ascending: false }),
-    supabase.from("website_provisioning_runs").select("id,project_id,website_id,stage,status,repository_full_name,client_message,updated_at"),
+    supabase.from("website_provisioning_runs").select("id,project_id,website_id,stage,status,repository_full_name,preview_url,preview_state,client_message,updated_at"),
   ]);
   if (projectResult.error) throw projectResult.error;
   if (websiteResult.error) throw websiteResult.error;

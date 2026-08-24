@@ -2353,6 +2353,13 @@ html.portal-white-label-host .site-nav-actions > a[href^="/account"] {
   gap: 0.55rem;
 }
 
+.portal-project-provisioning-card > .portal-project-provisioning-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  min-width: min(100%, 20rem);
+}
+
 .portal-project-provisioning-card p {
   max-width: 62rem;
   font-size: 0.82rem;
@@ -2374,7 +2381,18 @@ html.portal-white-label-host .site-nav-actions > a[href^="/account"] {
   background: #cffafe;
 }
 
-.portal-provisioning-failed {
+.portal-provisioning-vercel_ready {
+  color: #075f37;
+  background: #dcfce7;
+}
+
+.portal-provisioning-vercel_creating {
+  color: #164e63;
+  background: #cffafe;
+}
+
+.portal-provisioning-failed,
+.portal-provisioning-vercel_failed {
   color: #991b1b;
   background: #fee2e2;
 }

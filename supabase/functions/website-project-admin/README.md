@@ -16,4 +16,14 @@ Configure these Supabase Edge Function secrets before enabling the action in pro
 
 The GitHub App installation needs repository **Administration: write** and **Contents: read** permissions. The source repository must be marked as a template. Install the App so it can access the template and repositories it creates; organization-wide repository access is the simplest reliable configuration.
 
-Provisioning deliberately does not create a Vercel project, deploy production, connect a domain, or modify DNS. Those are separate future approval stages.
+## Vercel preview provisioning
+
+The `provision-website-vercel` action becomes available only after the GitHub repository is ready. It creates or safely recovers one Vercel project, connects the private GitHub repository, starts an explicit Preview deployment, and stores the generated `vercel.app` URL. It never assigns a production domain.
+
+Required production secrets:
+
+- `VERCEL_ACCESS_TOKEN`: Vercel access token scoped to the N3XRA team.
+- `VERCEL_TEAM_ID`: Vercel team ID receiving managed website projects.
+- `VERCEL_TEAM_SLUG`: Team slug used for the administrator project link.
+
+Provisioning deliberately does not promote a deployment to production, connect a domain, or modify DNS. Those remain separate future approval stages.

@@ -30,7 +30,9 @@ const confirmDeleteButton = document.getElementById("confirm-delete-project");
 const provisioningState = document.getElementById("admin-project-provisioning-state");
 const provisioningCopy = document.getElementById("admin-project-provisioning-copy");
 const provisioningRepository = document.getElementById("admin-project-provisioning-repository");
+const provisioningPreview = document.getElementById("admin-project-provisioning-preview");
 const provisionButton = document.getElementById("provision-project-github");
+const provisionVercelButton = document.getElementById("provision-project-vercel");
 const provisioningStatus = document.getElementById("admin-project-provisioning-status");
 
 let supabase;
@@ -130,6 +132,9 @@ function provisioningLabel(status) {
     github_creating: "Creating repository",
     github_ready: "Repository ready",
     failed: "Needs attention",
+    vercel_creating: "Creating preview",
+    vercel_ready: "Preview ready",
+    vercel_failed: "Preview needs attention",
   })[status] || formatLabel(status);
 }
 
@@ -153,6 +158,10 @@ function renderProvisioning() {
   const creating = status === "github_creating";
   const activeLease = creating && run?.lease_expires_at && new Date(run.lease_expires_at).getTime() > Date.now();
   const retryable = status === "failed" || (creating && !activeLease);
+  const vercelCreating = status === "vercel_creating";
+  const activeVercelLease = vercelCreating && run?.vercel_lease_expires_at
+    && new Date(run.vercel_lease_expires_at).getTime() > Date.now();
+  const vercelRetryable = status === "vercel_failed" || (vercelCreating && !activeVercelLease);
   provisioningState.innerHTML = `<span class="portal-badge portal-provisioning-${escapeHtml(status)}">${escapeHtml(provisioningLabel(status))}</span>`;
   provisioningCopy.textContent = creating && !activeLease
     ? "The prior attempt did not finish. It is safe to retry the same repository setup."
@@ -161,7 +170,11 @@ function renderProvisioning() {
       : "All safeguards are satisfied. The private GitHub repository is ready to be created manually.");
   provisioningRepository.hidden = !run?.repository_full_name;
   provisioningRepository.textContent = run?.repository_full_name ? `Repository: ${run.repository_full_name}` : "";
-  provisionButton.disabled = missing.length > 0 || status === "github_ready" || Boolean(activeLease);
+  provisioningPreview.hidden = !run?.preview_url;
+  provisioningPreview.href = run?.preview_url || "#";
+  provisionButton.disabled = missing.length > 0
+    || ["github_ready", "vercel_creating", "vercel_ready", "vercel_failed"].includes(status)
+    || Boolean(activeLease);
   provisionButton.textContent = retryable
     ? "Retry GitHub provisioning"
     : status === "github_ready"
@@ -169,6 +182,17 @@ function renderProvisioning() {
       : status === "github_creating"
         ? "Creating repository…"
         : "Provision private GitHub repository";
+  provisionVercelButton.disabled = !run?.repository_full_name
+    || !["github_ready", "vercel_creating", "vercel_ready", "vercel_failed"].includes(status)
+    || Boolean(activeVercelLease)
+    || status === "vercel_ready";
+  provisionVercelButton.textContent = vercelRetryable
+    ? "Retry Vercel preview"
+    : status === "vercel_ready"
+      ? "Preview ready"
+      : vercelCreating
+        ? "Creating preview…"
+        : "Create Vercel preview";
 }
 
 function renderWorkspace() {
@@ -287,7 +311,7 @@ async function loadData(preferredId) {
     supabase.from("website_onboardings").select("id,project_id,proposal_id,status").order("created_at", { ascending: false }),
     supabase.from("client_websites").select("id,name,live_url,status").order("name"),
     supabase.from("website_proposals").select("id,project_id,request_id,title,status,created_at").order("created_at", { ascending: false }),
-    supabase.from("website_provisioning_runs").select("id,project_id,website_id,status,target_repository_name,repository_full_name,repository_url,attempt_count,lease_expires_at,client_message,updated_at"),
+    supabase.from("website_provisioning_runs").select("id,project_id,website_id,stage,status,target_repository_name,repository_full_name,repository_url,attempt_count,lease_expires_at,vercel_project_name,vercel_project_url,preview_url,preview_state,vercel_attempt_count,vercel_lease_expires_at,client_message,updated_at"),
   ]);
   if (projectResult.error) throw projectResult.error;
   if (milestoneResult.error) throw milestoneResult.error;
@@ -329,6 +353,26 @@ async function provisionGitHubRepository() {
   } catch (error) {
     await loadData(selectedProject.id).catch(() => {});
     provisioningStatus.textContent = error?.message || "GitHub provisioning could not be completed.";
+    provisioningStatus.classList.add("is-error");
+  }
+}
+
+async function provisionVercelPreview() {
+  if (!selectedProject || provisionVercelButton.disabled) return;
+  if (!await confirmAdminAction(
+    `Connect ${selectedProject.name} to Vercel and create a review-only preview deployment? No production domain will be attached.`,
+    { title: "Create website preview", confirmLabel: "Create Vercel preview" },
+  )) return;
+  provisionVercelButton.disabled = true;
+  provisioningStatus.classList.remove("is-error");
+  provisioningStatus.textContent = "Creating the Vercel preview…";
+  try {
+    const result = await invokeProjectAdmin({ action: "provision-website-vercel", projectId: selectedProject.id });
+    await loadData(selectedProject.id);
+    provisioningStatus.textContent = result?.message || "Vercel preview ready.";
+  } catch (error) {
+    await loadData(selectedProject.id).catch(() => {});
+    provisioningStatus.textContent = error?.message || "Vercel preview setup could not be completed.";
     provisioningStatus.classList.add("is-error");
   }
 }
@@ -393,6 +437,7 @@ async function init() {
   completeButton.addEventListener("click", () => { void completeProject(); });
   closeButton.addEventListener("click", () => { void closeProject(); });
   provisionButton.addEventListener("click", () => { void provisionGitHubRepository(); });
+  provisionVercelButton.addEventListener("click", () => { void provisionVercelPreview(); });
   deleteButton.addEventListener("click", openDeleteDialog);
   deleteForm.addEventListener("submit", deleteProject);
   cancelDeleteButton.addEventListener("click", () => deleteDialog.close());
