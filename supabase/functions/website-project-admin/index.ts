@@ -28,6 +28,154 @@ function isUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
+function githubRepositoryName(value: unknown) {
+  return text(value, 100)
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, "-")
+    .replace(/^[._-]+|[._-]+$/g, "")
+    .slice(0, 100);
+}
+
+function bytes(...parts: Uint8Array[]) {
+  const result = new Uint8Array(parts.reduce((total, part) => total + part.length, 0));
+  let offset = 0;
+  parts.forEach((part) => {
+    result.set(part, offset);
+    offset += part.length;
+  });
+  return result;
+}
+
+function derLength(length: number) {
+  if (length < 128) return new Uint8Array([length]);
+  const encoded: number[] = [];
+  let remaining = length;
+  while (remaining > 0) {
+    encoded.unshift(remaining & 0xff);
+    remaining >>>= 8;
+  }
+  return new Uint8Array([0x80 | encoded.length, ...encoded]);
+}
+
+function der(tag: number, value: Uint8Array) {
+  return bytes(new Uint8Array([tag]), derLength(value.length), value);
+}
+
+function pemBytes(pem: string) {
+  const encoded = pem.replace(/-----BEGIN [^-]+-----|-----END [^-]+-----|\s/g, "");
+  const binary = atob(encoded);
+  return Uint8Array.from(binary, (character) => character.charCodeAt(0));
+}
+
+function githubPrivateKey(pem: string) {
+  const keyBytes = pemBytes(pem);
+  if (!pem.includes("BEGIN RSA PRIVATE KEY")) return keyBytes;
+  const version = new Uint8Array([0x02, 0x01, 0x00]);
+  const rsaEncryptionAlgorithm = new Uint8Array([
+    0x30, 0x0d, 0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x01, 0x05, 0x00,
+  ]);
+  return der(0x30, bytes(version, rsaEncryptionAlgorithm, der(0x04, keyBytes)));
+}
+
+function base64Url(value: string | Uint8Array) {
+  const input = typeof value === "string" ? new TextEncoder().encode(value) : value;
+  let binary = "";
+  input.forEach((byte) => { binary += String.fromCharCode(byte); });
+  return btoa(binary).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+}
+
+async function githubAppJwt(clientId: string, privateKey: string) {
+  const now = Math.floor(Date.now() / 1000);
+  const header = base64Url(JSON.stringify({ alg: "RS256", typ: "JWT" }));
+  const payload = base64Url(JSON.stringify({ iat: now - 60, exp: now + 540, iss: clientId }));
+  const signingInput = `${header}.${payload}`;
+  const key = await crypto.subtle.importKey(
+    "pkcs8",
+    githubPrivateKey(privateKey),
+    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const signature = await crypto.subtle.sign(
+    "RSASSA-PKCS1-v1_5",
+    key,
+    new TextEncoder().encode(signingInput),
+  );
+  return `${signingInput}.${base64Url(new Uint8Array(signature))}`;
+}
+
+interface GitHubConfiguration {
+  clientId: string;
+  privateKey: string;
+  installationId: string;
+  organization: string;
+  templateOwner: string;
+  templateRepository: string;
+  apiVersion: string;
+}
+
+function githubConfiguration(): GitHubConfiguration {
+  const configuration = {
+    clientId: text(Deno.env.get("GITHUB_APP_CLIENT_ID") || Deno.env.get("GITHUB_APP_ID"), 200),
+    privateKey: String(Deno.env.get("GITHUB_APP_PRIVATE_KEY") || "").replace(/\\n/g, "\n").trim(),
+    installationId: text(Deno.env.get("GITHUB_APP_INSTALLATION_ID"), 100),
+    organization: text(Deno.env.get("GITHUB_ORGANIZATION"), 100),
+    templateOwner: text(Deno.env.get("GITHUB_TEMPLATE_OWNER"), 100),
+    templateRepository: text(Deno.env.get("GITHUB_TEMPLATE_REPOSITORY"), 100),
+    apiVersion: text(Deno.env.get("GITHUB_API_VERSION") || "2026-03-10", 20),
+  };
+  if (!configuration.clientId || !configuration.privateKey || !configuration.installationId
+    || !configuration.organization || !configuration.templateOwner || !configuration.templateRepository) {
+    throw new Error("GitHub App provisioning is not configured.");
+  }
+  const githubName = /^[A-Za-z0-9](?:[A-Za-z0-9_.-]{0,99})$/;
+  if (!/^\d+$/.test(configuration.installationId)
+    || !githubName.test(configuration.organization)
+    || !githubName.test(configuration.templateOwner)
+    || !githubName.test(configuration.templateRepository)) {
+    throw new Error("GitHub App provisioning configuration is invalid.");
+  }
+  return configuration;
+}
+
+async function githubRequest(
+  configuration: GitHubConfiguration,
+  path: string,
+  token: string,
+  options: RequestInit = {},
+) {
+  const response = await fetch(`https://api.github.com${path}`, {
+    ...options,
+    headers: {
+      Accept: "application/vnd.github+json",
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+      "User-Agent": "N3XRA-Website-Provisioning/1.0",
+      "X-GitHub-Api-Version": configuration.apiVersion,
+      ...(options.headers || {}),
+    },
+  });
+  const data = await response.json().catch(() => ({}));
+  return { response, data };
+}
+
+async function githubInstallationToken(configuration: GitHubConfiguration) {
+  const jwt = await githubAppJwt(configuration.clientId, configuration.privateKey);
+  const { response, data } = await githubRequest(
+    configuration,
+    `/app/installations/${encodeURIComponent(configuration.installationId)}/access_tokens`,
+    jwt,
+    {
+      method: "POST",
+      body: JSON.stringify({ permissions: { administration: "write", contents: "read" } }),
+    },
+  );
+  if (!response.ok || !data?.token) {
+    throw new Error(`GitHub App authentication failed${data?.message ? `: ${text(data.message, 300)}` : "."}`);
+  }
+  return String(data.token);
+}
+
 async function createProposal(
   adminClient: ReturnType<typeof createClient>,
   project: Record<string, any>,
@@ -291,6 +439,118 @@ Deno.serve(async (request) => {
         return respond({ ok: true, onboarding });
       } catch (onboardingError) {
         return respond({ error: onboardingError instanceof Error ? onboardingError.message : "Unable to open onboarding." }, 400);
+      }
+    }
+
+    if (action === "provision-website-github") {
+      const projectId = String(payload.projectId || "").trim();
+      if (!isUuid(projectId)) return respond({ error: "A valid projectId is required." }, 400);
+
+      const { data: project, error: projectError } = await adminClient
+        .from("website_projects")
+        .select("id,name,managed_website_id,client_websites(id,name,slug,organization_id,repository_full_name)")
+        .eq("id", projectId)
+        .maybeSingle();
+      if (projectError) return respond({ error: projectError.message }, 400);
+      if (!project) return respond({ error: "Website project not found." }, 404);
+      const website = Array.isArray(project.client_websites) ? project.client_websites[0] : project.client_websites;
+      const targetRepositoryName = githubRepositoryName(
+        website?.repository_full_name?.split("/").pop() || website?.slug || website?.name || project.name,
+      );
+      if (!targetRepositoryName) return respond({ error: "The website needs a valid repository name before provisioning." }, 400);
+
+      const { data: claimed, error: claimError } = await adminClient.rpc("claim_website_github_provisioning", {
+        input_project_id: project.id,
+        input_actor_user_id: user.id,
+        input_target_repository_name: targetRepositoryName,
+      });
+      if (claimError) return respond({ error: claimError.message }, 400);
+      if (!claimed?.acquired) {
+        return respond({
+          ok: true,
+          provisioning: claimed,
+          message: claimed?.status === "github_ready"
+            ? "The private GitHub repository is already ready."
+            : "Repository provisioning is already in progress.",
+        }, claimed?.status === "github_ready" ? 200 : 202);
+      }
+
+      const runId = String(claimed.id || "");
+      const leaseToken = String(claimed.lease_token || "");
+      try {
+        const configuration = githubConfiguration();
+        const expectedFullName = `${configuration.organization}/${targetRepositoryName}`;
+        if (website?.repository_full_name && website.repository_full_name !== expectedFullName) {
+          throw new Error(`This website already records a different repository: ${website.repository_full_name}.`);
+        }
+
+        const installationToken = await githubInstallationToken(configuration);
+        const repositoryPath = `/repos/${encodeURIComponent(configuration.organization)}/${encodeURIComponent(targetRepositoryName)}`;
+        const existingResult = await githubRequest(configuration, repositoryPath, installationToken);
+        let repository = null;
+
+        if (existingResult.response.ok) {
+          const isRetryRecovery = Number(claimed.attempt_count || 0) > 1
+            || website?.repository_full_name === expectedFullName;
+          if (!isRetryRecovery) {
+            throw new Error(`The GitHub repository ${expectedFullName} already exists and was not created by this provisioning run.`);
+          }
+          repository = existingResult.data;
+        } else if (existingResult.response.status === 404) {
+          const generatedResult = await githubRequest(
+            configuration,
+            `/repos/${encodeURIComponent(configuration.templateOwner)}/${encodeURIComponent(configuration.templateRepository)}/generate`,
+            installationToken,
+            {
+              method: "POST",
+              body: JSON.stringify({
+                owner: configuration.organization,
+                name: targetRepositoryName,
+                description: `Private website source for ${text(website?.name || project.name, 180)}`,
+                include_all_branches: false,
+                private: true,
+              }),
+            },
+          );
+          if (!generatedResult.response.ok) {
+            throw new Error(`GitHub could not create the repository${generatedResult.data?.message ? `: ${text(generatedResult.data.message, 300)}` : "."}`);
+          }
+          repository = generatedResult.data;
+        } else {
+          throw new Error(`GitHub could not check the repository name${existingResult.data?.message ? `: ${text(existingResult.data.message, 300)}` : "."}`);
+        }
+
+        if (!repository?.id || repository?.full_name !== expectedFullName || repository?.private !== true
+          || !text(repository?.default_branch, 255)
+          || !String(repository?.html_url || "").startsWith("https://github.com/")) {
+          throw new Error("GitHub returned repository details that did not match the requested private workspace.");
+        }
+
+        const { data: completed, error: finishError } = await adminClient.rpc("finish_website_github_provisioning", {
+          input_run_id: runId,
+          input_lease_token: leaseToken,
+          input_succeeded: true,
+          input_repository_provider_id: repository.id,
+          input_repository_full_name: repository.full_name,
+          input_repository_url: repository.html_url,
+          input_repository_default_branch: repository.default_branch,
+        });
+        if (finishError) throw new Error(finishError.message);
+        return respond({ ok: true, provisioning: completed, message: "Private GitHub repository ready." });
+      } catch (provisioningError) {
+        const message = provisioningError instanceof Error ? provisioningError.message : "GitHub repository provisioning failed.";
+        const { error: failureError } = await adminClient.rpc("finish_website_github_provisioning", {
+          input_run_id: runId,
+          input_lease_token: leaseToken,
+          input_succeeded: false,
+          input_repository_provider_id: null,
+          input_repository_full_name: null,
+          input_repository_url: null,
+          input_repository_default_branch: null,
+        });
+        if (failureError) console.error("Unable to record GitHub provisioning failure:", failureError.message);
+        console.error("Website GitHub provisioning failed:", message);
+        return respond({ error: message }, 502);
       }
     }
 

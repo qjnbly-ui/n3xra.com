@@ -2336,6 +2336,55 @@ html.portal-white-label-host .site-nav-actions > a[href^="/account"] {
   margin-top: 1rem;
 }
 
+.portal-project-provisioning-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 1rem;
+  padding: 1rem;
+  background: #f8fafc;
+  border: 1px solid var(--portal-line);
+  border-radius: 10px;
+}
+
+.portal-project-provisioning-card > div {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.portal-project-provisioning-card p {
+  max-width: 62rem;
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.portal-project-provisioning-card strong {
+  overflow-wrap: anywhere;
+  font-size: 0.82rem;
+}
+
+.portal-provisioning-github_ready {
+  color: #075f37;
+  background: #dcfce7;
+}
+
+.portal-provisioning-github_creating {
+  color: #164e63;
+  background: #cffafe;
+}
+
+.portal-provisioning-failed {
+  color: #991b1b;
+  background: #fee2e2;
+}
+
+.portal-provisioning-not_started,
+.portal-provisioning-pending {
+  color: #475569;
+  background: #e2e8f0;
+}
+
 .portal-project-control-grid article {
   display: flex;
   align-items: center;
@@ -2677,6 +2726,7 @@ html.portal-white-label-host .site-nav-actions > a[href^="/account"] {
 
   .portal-project-stage-head,
   .portal-project-control-grid article,
+  .portal-project-provisioning-card,
   .portal-project-savebar {
     align-items: stretch;
     flex-direction: column;

@@ -28,6 +28,10 @@ const reference = document.getElementById("project-reference");
 const emptyTitle = document.getElementById("project-workspace-empty-title");
 const emptyCopy = document.getElementById("project-workspace-empty-copy");
 const websiteLink = document.getElementById("project-workspace-website-link");
+const provisioningSection = document.getElementById("project-provisioning");
+const provisioningState = document.getElementById("project-provisioning-state");
+const provisioningMessage = document.getElementById("project-provisioning-message");
+const provisioningReference = document.getElementById("project-provisioning-reference");
 
 let supabase;
 let projects = [];
@@ -35,6 +39,7 @@ let websites = [];
 let milestones = [];
 let onboardings = [];
 let proposals = [];
+let provisioningRuns = [];
 let selectedProject;
 let selectedWebsite;
 let userId;
@@ -147,6 +152,26 @@ function renderReference() {
   `;
 }
 
+function provisioningLabel(status) {
+  return ({
+    pending: "Waiting",
+    github_creating: "Creating repository",
+    github_ready: "Repository ready",
+    failed: "Needs attention",
+  })[status] || formatLabel(status);
+}
+
+function renderProvisioning() {
+  const run = provisioningRuns.find((item) => item.project_id === selectedProject?.id);
+  provisioningSection.hidden = !run;
+  if (!run) return;
+  provisioningState.innerHTML = `<span class="portal-badge portal-provisioning-${escapeHtml(run.status)}">${escapeHtml(provisioningLabel(run.status))}</span>`;
+  provisioningMessage.textContent = run.client_message || "N3XRA will update this workspace as setup progresses.";
+  provisioningReference.innerHTML = run.repository_full_name
+    ? `<div><dt>Private repository</dt><dd>${escapeHtml(run.repository_full_name)}</dd></div>`
+    : `<div><dt>Current stage</dt><dd>${escapeHtml(formatLabel(run.stage || "github_repository"))}</dd></div>`;
+}
+
 function renderWorkspace() {
   const hasProject = Boolean(selectedProject);
   emptyState.hidden = hasProject;
@@ -180,11 +205,12 @@ function renderWorkspace() {
     || "Your website team will update this workspace as your project moves forward.";
   renderRoadmap();
   renderReference();
+  renderProvisioning();
 }
 
 async function loadData(preferredId) {
   const tenantResolution = await resolvePortalTenant(supabase);
-  const [projectResult, websiteResult, milestoneResult, onboardingResult, proposalResult] = await Promise.all([
+  const [projectResult, websiteResult, milestoneResult, onboardingResult, proposalResult, provisioningResult] = await Promise.all([
     supabase.from("website_projects")
       .select("*,website_service_requests(business_name,project_type,primary_goal),client_websites(id,name,live_url,status)")
       .order("created_at", { ascending: false }),
@@ -192,12 +218,14 @@ async function loadData(preferredId) {
     supabase.from("website_project_milestones").select("*").order("sequence_number"),
     supabase.from("website_onboardings").select("id,project_id,proposal_id,status").order("created_at", { ascending: false }),
     supabase.from("website_proposals").select("id,project_id,request_id,title,status,created_at").order("created_at", { ascending: false }),
+    supabase.from("website_provisioning_runs").select("id,project_id,website_id,stage,status,repository_full_name,client_message,updated_at"),
   ]);
   if (projectResult.error) throw projectResult.error;
   if (websiteResult.error) throw websiteResult.error;
   if (milestoneResult.error) throw milestoneResult.error;
   if (onboardingResult.error) throw onboardingResult.error;
   if (proposalResult.error) throw proposalResult.error;
+  if (provisioningResult.error) throw provisioningResult.error;
   projects = scopeRowsToPortalTenant(
     (projectResult.data || []).filter((project) => !["archived", "cancelled"].includes(project.status)),
     tenantResolution,
@@ -208,6 +236,7 @@ async function loadData(preferredId) {
   milestones = (milestoneResult.data || []).filter((milestone) => tenantResolution.mode === "unbound" || projectIds.has(milestone.project_id));
   onboardings = (onboardingResult.data || []).filter((onboarding) => tenantResolution.mode === "unbound" || projectIds.has(onboarding.project_id));
   proposals = (proposalResult.data || []).filter((proposal) => tenantResolution.mode === "unbound" || projectIds.has(proposal.project_id));
+  provisioningRuns = (provisioningResult.data || []).filter((run) => tenantResolution.mode === "unbound" || projectIds.has(run.project_id));
   projectSelect.disabled = tenantResolution.mode !== "unbound" || !websites.length;
   renderOptions();
   const context = readWorkspaceContext("client", userId);

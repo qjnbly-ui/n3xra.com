@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&amp;family=Manrope:wght@400;600;700;800&amp;display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/site-nav.css?v=4">
-  <link rel="stylesheet" href="/client-portal/portal.css?v=17">
+  <link rel="stylesheet" href="/client-portal/portal.css?v=19">
   <script src="/shared/config.js"></script><script src="/account/admin/admin-shell.js?v=2" defer></script><script src="/assets/site-nav.js?v=5"></script>
 
   <script>
@@ -100,6 +100,23 @@
             <div class="portal-admin-milestone-list" id="admin-project-milestones"></div>
           </section>
 
+          <section class="portal-project-admin-controls" aria-labelledby="project-provisioning-title">
+            <div class="portal-section-heading">
+              <p class="portal-kicker">Website workspace</p>
+              <h3 id="project-provisioning-title">GitHub provisioning</h3>
+              <p>Create the website’s private source repository only after the agreement, onboarding, managed website, and client organization are connected.</p>
+            </div>
+            <div class="portal-project-provisioning-card">
+              <div>
+                <div id="admin-project-provisioning-state"></div>
+                <p id="admin-project-provisioning-copy"></p>
+                <strong id="admin-project-provisioning-repository" hidden></strong>
+              </div>
+              <button class="portal-button" id="provision-project-github" type="button">Provision private GitHub repository</button>
+            </div>
+            <p class="portal-inline-status" id="admin-project-provisioning-status" role="status"></p>
+          </section>
+
           <section class="portal-project-admin-controls" aria-labelledby="project-controls-title">
             <div class="portal-section-heading">
               <p class="portal-kicker">Project controls</p>
@@ -151,6 +168,6 @@
 
   <div class="portal-status" id="portal-status" role="status">Verifying project administration…</div>
   <script type="module" src="/client-portal/portal-shell.js"></script>
-  <script type="module" src="/n3xra-admin/projects/projects-admin.js?v=3"></script>
+  <script type="module" src="/n3xra-admin/projects/projects-admin.js?v=4"></script>
 </body>
 </html>

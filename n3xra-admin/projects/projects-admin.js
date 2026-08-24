@@ -27,6 +27,11 @@ const deleteConfirmation = document.getElementById("delete-project-confirmation"
 const deleteStatus = document.getElementById("delete-project-status");
 const cancelDeleteButton = document.getElementById("cancel-delete-project");
 const confirmDeleteButton = document.getElementById("confirm-delete-project");
+const provisioningState = document.getElementById("admin-project-provisioning-state");
+const provisioningCopy = document.getElementById("admin-project-provisioning-copy");
+const provisioningRepository = document.getElementById("admin-project-provisioning-repository");
+const provisionButton = document.getElementById("provision-project-github");
+const provisioningStatus = document.getElementById("admin-project-provisioning-status");
 
 let supabase;
 let projects = [];
@@ -34,6 +39,7 @@ let milestones = [];
 let onboardings = [];
 let proposals = [];
 let websites = [];
+let provisioningRuns = [];
 let selectedProject;
 let currentUser;
 
@@ -113,6 +119,58 @@ function renderProjectControls() {
   closeButton.textContent = closed ? "Project closed" : "Close project";
 }
 
+function selectedProvisioning() {
+  return provisioningRuns.find((run) => run.project_id === selectedProject?.id);
+}
+
+function provisioningLabel(status) {
+  return ({
+    not_started: "Not started",
+    pending: "Waiting",
+    github_creating: "Creating repository",
+    github_ready: "Repository ready",
+    failed: "Needs attention",
+  })[status] || formatLabel(status);
+}
+
+function renderProvisioning() {
+  const run = selectedProvisioning();
+  const proposal = proposals.find((item) => item.id === selectedProject?.proposal_id);
+  const onboarding = onboardings.find((item) => item.project_id === selectedProject?.id)
+    || onboardings.find((item) => item.proposal_id === selectedProject?.proposal_id);
+  const website = relation(selectedProject?.client_websites);
+  const activeProject = selectedProject?.source === "proposal"
+    && !["cancelled", "archived", "completed"].includes(selectedProject?.status);
+  const prerequisites = [
+    [Boolean(selectedProject?.managed_website_id), "connect a managed website"],
+    [Boolean(website?.organization_id), "connect the client organization"],
+    [proposal?.status === "approved", "approve the Proposal & Agreement"],
+    [onboarding?.status === "approved", "approve onboarding"],
+    [activeProject, "use an active new-website project"],
+  ];
+  const missing = prerequisites.filter(([ready]) => !ready).map(([, label]) => label);
+  const status = run?.status || "not_started";
+  const creating = status === "github_creating";
+  const activeLease = creating && run?.lease_expires_at && new Date(run.lease_expires_at).getTime() > Date.now();
+  const retryable = status === "failed" || (creating && !activeLease);
+  provisioningState.innerHTML = `<span class="portal-badge portal-provisioning-${escapeHtml(status)}">${escapeHtml(provisioningLabel(status))}</span>`;
+  provisioningCopy.textContent = creating && !activeLease
+    ? "The prior attempt did not finish. It is safe to retry the same repository setup."
+    : run?.client_message || (missing.length
+      ? `Before provisioning: ${missing.join(", ")}.`
+      : "All safeguards are satisfied. The private GitHub repository is ready to be created manually.");
+  provisioningRepository.hidden = !run?.repository_full_name;
+  provisioningRepository.textContent = run?.repository_full_name ? `Repository: ${run.repository_full_name}` : "";
+  provisionButton.disabled = missing.length > 0 || status === "github_ready" || Boolean(activeLease);
+  provisionButton.textContent = retryable
+    ? "Retry GitHub provisioning"
+    : status === "github_ready"
+      ? "Repository ready"
+      : status === "github_creating"
+        ? "Creating repository…"
+        : "Provision private GitHub repository";
+}
+
 function renderWorkspace() {
   const hasProject = Boolean(selectedProject);
   emptyState.hidden = hasProject;
@@ -133,6 +191,7 @@ function renderWorkspace() {
   renderWebsiteOptions();
   renderMilestones();
   renderProjectControls();
+  renderProvisioning();
 }
 
 async function invokeProjectAdmin(body) {
@@ -220,26 +279,29 @@ async function deleteProject(event) {
 }
 
 async function loadData(preferredId) {
-  const [projectResult, milestoneResult, onboardingResult, websiteResult, proposalResult] = await Promise.all([
+  const [projectResult, milestoneResult, onboardingResult, websiteResult, proposalResult, provisioningResult] = await Promise.all([
     supabase.from("website_projects")
-      .select("*,website_service_requests(business_name,project_type),client_websites(id,name,live_url,status)")
+      .select("*,website_service_requests(business_name,project_type),client_websites(id,name,live_url,status,organization_id,repository_full_name)")
       .order("created_at", { ascending: false }),
     supabase.from("website_project_milestones").select("*").order("sequence_number"),
     supabase.from("website_onboardings").select("id,project_id,proposal_id,status").order("created_at", { ascending: false }),
     supabase.from("client_websites").select("id,name,live_url,status").order("name"),
     supabase.from("website_proposals").select("id,project_id,request_id,title,status,created_at").order("created_at", { ascending: false }),
+    supabase.from("website_provisioning_runs").select("id,project_id,website_id,status,target_repository_name,repository_full_name,repository_url,attempt_count,lease_expires_at,client_message,updated_at"),
   ]);
   if (projectResult.error) throw projectResult.error;
   if (milestoneResult.error) throw milestoneResult.error;
   if (onboardingResult.error) throw onboardingResult.error;
   if (websiteResult.error) throw websiteResult.error;
   if (proposalResult.error) throw proposalResult.error;
+  if (provisioningResult.error) throw provisioningResult.error;
   const context = readWorkspaceContext("admin", currentUser.id);
   projects = (projectResult.data || []).filter((project) => !context.websiteId || project.managed_website_id === context.websiteId);
   milestones = milestoneResult.data || [];
   onboardings = onboardingResult.data || [];
   websites = websiteResult.data || [];
   proposals = proposalResult.data || [];
+  provisioningRuns = provisioningResult.data || [];
   renderOptions();
   const requested = preferredId || new URLSearchParams(window.location.search).get("project") || context.projectId;
   selectedProject = projects.find((project) => project.id === requested)
@@ -249,6 +311,26 @@ async function loadData(preferredId) {
   else projectSelect.selectedIndex = -1;
   rememberProject();
   renderWorkspace();
+}
+
+async function provisionGitHubRepository() {
+  if (!selectedProject || provisionButton.disabled) return;
+  if (!await confirmAdminAction(
+    `Create a private GitHub repository for ${selectedProject.name} from the standard N3XRA website template?`,
+    { title: "Provision website workspace", confirmLabel: "Create private repository" },
+  )) return;
+  provisionButton.disabled = true;
+  provisioningStatus.classList.remove("is-error");
+  provisioningStatus.textContent = "Creating the private GitHub repository…";
+  try {
+    const result = await invokeProjectAdmin({ action: "provision-website-github", projectId: selectedProject.id });
+    await loadData(selectedProject.id);
+    provisioningStatus.textContent = result?.message || "Private GitHub repository ready.";
+  } catch (error) {
+    await loadData(selectedProject.id).catch(() => {});
+    provisioningStatus.textContent = error?.message || "GitHub provisioning could not be completed.";
+    provisioningStatus.classList.add("is-error");
+  }
 }
 
 function milestoneUpdates() {
@@ -310,6 +392,7 @@ async function init() {
   form.addEventListener("submit", saveProject);
   completeButton.addEventListener("click", () => { void completeProject(); });
   closeButton.addEventListener("click", () => { void closeProject(); });
+  provisionButton.addEventListener("click", () => { void provisionGitHubRepository(); });
   deleteButton.addEventListener("click", openDeleteDialog);
   deleteForm.addEventListener("submit", deleteProject);
   cancelDeleteButton.addEventListener("click", () => deleteDialog.close());
