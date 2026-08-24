@@ -25,6 +25,9 @@ test("preview runs are tenant-visible, service-controlled, and quota limited", a
 test("Codex works only on a request branch and reports the Vercel preview", async () => {
   const workflow = await projectFile(".github/workflows/website-change-preview.yml");
   assert.match(workflow, /repository_dispatch:/);
+  assert.match(workflow, /workflow_dispatch:/);
+  assert.match(workflow, /Verify GitHub App repository access/);
+  assert.match(workflow, /Verify restricted OpenAI key/);
   assert.match(workflow, /openai\/codex-action@v1/);
   assert.match(workflow, /git switch -c "\$TARGET_BRANCH"/);
   assert.match(workflow, /git push origin "\$TARGET_BRANCH"/);

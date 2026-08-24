@@ -1,12 +1,41 @@
 name: Website change preview
 on:
+  workflow_dispatch:
   repository_dispatch:
     types: [n3xra-website-change]
 concurrency:
   group: website-change-${{ github.event.client_payload.run_id }}
   cancel-in-progress: false
 jobs:
+  diagnostics:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Create scoped GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.N3XRA_GITHUB_APP_ID }}
+          private-key: ${{ secrets.N3XRA_GITHUB_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: n3xra.com
+          permission-contents: write
+          permission-deployments: read
+      - name: Verify GitHub App repository access
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: gh api "repos/${{ github.repository }}" --jq '.full_name' >/dev/null
+      - name: Verify restricted OpenAI key
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          curl --silent --show-error --fail --output /dev/null \
+            https://api.openai.com/v1/models \
+            --header "Authorization: Bearer $OPENAI_API_KEY"
   build-preview:
+    if: github.event_name == 'repository_dispatch'
     runs-on: ubuntu-latest
     permissions:
       contents: read
