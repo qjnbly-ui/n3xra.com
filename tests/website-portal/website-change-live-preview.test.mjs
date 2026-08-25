@@ -69,3 +69,31 @@ test("Fast Live Preview auto-starts per website and preserves the Vercel fallbac
   assert.match(admin, /value="vercel"/);
   assert.match(settings, /portal-live-preview-enabled/);
 });
+
+test("Fast Preview refinements reuse one protected session and keep final approval separate", async () => {
+  const [migration, edge, workflow, client, admin, upload, callback] = await Promise.all([
+    projectFile("supabase/migrations/20260825041731_reusable_fast_preview_sessions.sql"),
+    projectFile("supabase/functions/website-change-automation/index.ts"),
+    projectFile(".github/workflows/website-change-preview.yml"),
+    projectFile("src/client-portal/support-workspace.ts"),
+    projectFile("account/admin/controllers/support.js"),
+    projectFile("api/website-change-preview-upload.js"),
+    projectFile("api/website-change-run-callback.js"),
+  ]);
+  assert.match(migration, /create table if not exists public[.]website_change_revisions/);
+  assert.match(migration, /enable row level security/);
+  assert.doesNotMatch(migration, /grant (insert|update|delete).*authenticated/i);
+  assert.match(edge, /"revise-preview", "undo-revision", "submit-approval", "request-vercel-fallback"/);
+  assert.match(edge, /state: "client_ready"/);
+  assert.match(edge, /run[.]preview_mode === "n3xra_live" && run[.]state !== "client_ready"/);
+  assert.match(edge, /request_data: \{ title:[\s\S]*revisions: revisionHistory/);
+  assert.match(workflow, /Later adjustments in this same Fast Preview session/);
+  assert.match(client, /Request another change/);
+  assert.match(client, /Undo last change/);
+  assert.match(client, /Share preview/);
+  assert.match(client, /Submit for approval/);
+  assert.match(client, /Request Vercel Preview/);
+  assert.match(admin, /Client editing session is open/);
+  assert.match(upload, /pending_storage_prefix \|\| run[.]storage_prefix/);
+  assert.match(callback, /The previous working Fast Preview is still available/);
+});

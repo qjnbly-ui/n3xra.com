@@ -54,7 +54,8 @@ async function createLivePreviewCommit(admin: any, run: Record<string, any>, tok
     if (!filePath || filePath.startsWith("/") || filePath.split("/").some((part) => !part || part === "." || part === "..")) throw new Error("The live preview contains an invalid file path.");
     if (change.status === "D") { tree.push({ path: filePath, mode: "100644", type: "blob", sha: null }); continue; }
     if (!['A','M'].includes(change.status) || !['100644','100755','120000'].includes(change.mode)) throw new Error("The live preview contains an unsupported source change.");
-    const source = await admin.storage.from("website-change-previews").download(`runs/${run.id}/source/${filePath}`);
+    const sourcePrefix = String(run.source_manifest_path).replace(/\/manifest[.]json$/, "");
+    const source = await admin.storage.from("website-change-previews").download(`${sourcePrefix}/${filePath}`);
     if (source.error || !source.data) throw new Error(`The reviewed source file ${filePath} is unavailable.`);
     const blobResponse = await githubRequest(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/blobs`, token, { method: "POST", body: JSON.stringify({ content: base64(new Uint8Array(await source.data.arrayBuffer())), encoding: "base64" }) });
     const blobData = await blobResponse.json();
@@ -83,6 +84,77 @@ Deno.serve(async (request) => {
     const userClient = createClient(url, anon, { global: { headers: { Authorization: authorization } } }); admin = createClient(url, service);
     const { data: userData } = await userClient.auth.getUser(); const user = userData?.user; if (!user) return reply({ error: "Your session is no longer valid." }, 401);
     const body = await request.json().catch(() => ({})), action = clean(body.action, 40);
+    if (["revise-preview", "undo-revision", "submit-approval", "request-vercel-fallback"].includes(action)) {
+      const runId = clean(body.runId, 80); if (!uuid(runId)) return reply({ error: "A valid Fast Preview session is required." }, 400);
+      const runResult = await admin.from("website_change_runs").select("id,request_id,website_id,state,branch_name,target_repository,preview_mode,preview_url,preview_expires_at,revision_count").eq("id", runId).single();
+      if (runResult.error || !runResult.data) return reply({ error: "Fast Preview session not found." }, 404);
+      const run = runResult.data;
+      if (run.preview_mode !== "n3xra_live") return reply({ error: "These editing controls are only available for Fast Preview sessions." }, 409);
+      const requestResult = await admin.from("platform_support_requests").select("website_id,requester_user_id,origin,subject,message,assistant_summary").eq("id", run.request_id).single();
+      if (requestResult.error || !requestResult.data) return reply({ error: "The website request is no longer available." }, 404);
+      const platformAdmin = await admin.from("platform_admins").select("user_id").eq("user_id", user.id).eq("status", "active").maybeSingle();
+      const membership = platformAdmin.data || requestResult.data.requester_user_id !== user.id || requestResult.data.origin !== "client"
+        ? null
+        : await admin.from("website_members").select("user_id").eq("website_id", run.website_id).eq("user_id", user.id).eq("status", "active").maybeSingle();
+      if (!platformAdmin.data && !membership?.data) return reply({ error: "Only this website's client or an active N3XRA administrator can update the Fast Preview." }, 403);
+      if (!["preview_ready", "client_ready"].includes(run.state)) return reply({ error: "Wait for the current Fast Preview update to finish before making another change." }, 409);
+      const now = new Date().toISOString();
+      if (action === "submit-approval") {
+        const submitted = await admin.from("website_change_runs").update({ state: "client_ready", approval_submitted_at: now, progress_stage: "preview_ready", progress_message: "The client finished refining this Fast Preview and submitted it to N3XRA for final approval.", progress_updated_at: now, updated_at: now }).eq("id", run.id).in("state", ["preview_ready", "client_ready"]).select("id,state").maybeSingle();
+        if (submitted.error || !submitted.data) return reply({ error: "This preview could not be submitted because its status changed." }, 409);
+        await admin.from("platform_support_requests").update({ automation_status: "preview_ready", updated_at: now }).eq("id", run.request_id);
+        return reply({ ok: true, run: submitted.data, message: "This version was submitted to N3XRA for final approval. The live website has not changed." });
+      }
+      if (action === "request-vercel-fallback") {
+        const fallback = await admin.from("website_change_runs").update({ vercel_fallback_requested_at: now, updated_at: now }).eq("id", run.id).select("id").single();
+        if (fallback.error) return reply({ error: fallback.error.message }, 400);
+        await admin.from("platform_support_requests").update({ automation_status: "awaiting_review", updated_at: now }).eq("id", run.request_id);
+        return reply({ ok: true, message: "N3XRA was asked to switch this session to a Vercel Preview. No deployment has been started yet." });
+      }
+
+      const nextSequence = Number(run.revision_count || 0) + 1;
+      let insertedRevisionId = "";
+      if (action === "revise-preview") {
+        const instruction = clean(body.instruction, 4000);
+        if (instruction.length < 3) return reply({ error: "Describe the next change you want Codex to make." }, 400);
+        if (nextSequence > 50) return reply({ error: "This editing session has reached its revision limit. Submit it or start a new request." }, 409);
+        const inserted = await admin.from("website_change_revisions").insert({ run_id: run.id, request_id: run.request_id, website_id: run.website_id, sequence_number: nextSequence, instruction, created_by_user_id: user.id }).select("id").single();
+        if (inserted.error) return reply({ error: inserted.error.message }, 400);
+        insertedRevisionId = inserted.data.id;
+      } else {
+        const latest = await admin.from("website_change_revisions").select("id").eq("run_id", run.id).eq("status", "active").order("sequence_number", { ascending: false }).limit(1).maybeSingle();
+        if (latest.error) return reply({ error: latest.error.message }, 400);
+        if (!latest.data) return reply({ error: "There is no additional change to undo yet." }, 409);
+        const undone = await admin.from("website_change_revisions").update({ status: "undone", undone_at: now }).eq("id", latest.data.id).eq("status", "active").select("id").maybeSingle();
+        if (undone.error || !undone.data) return reply({ error: "That change was already undone." }, 409);
+      }
+      const revisionsResult = await admin.from("website_change_revisions").select("sequence_number,instruction").eq("run_id", run.id).eq("status", "active").order("sequence_number", { ascending: true });
+      if (revisionsResult.error) return reply({ error: revisionsResult.error.message }, 400);
+      const revisionHistory = (revisionsResult.data || []).map((item: Record<string, unknown>) => `${item.sequence_number}. ${clean(item.instruction, 4000)}`).join("\n");
+      const callbackToken = base64Url(crypto.getRandomValues(new Uint8Array(32)));
+      const pendingPrefix = `runs/${run.id}/revisions/${nextSequence}`;
+      const queued = await admin.from("website_change_runs").update({ state: "queued", revision_count: nextSequence, approval_submitted_at: null, pending_storage_prefix: pendingPrefix, pending_source_manifest_path: `${pendingPrefix}/source/manifest.json`, callback_token_hash: await sha256(callbackToken), callback_expires_at: new Date(Date.now() + 60 * 60 * 1000).toISOString(), progress_stage: "queued", progress_message: action === "undo-revision" ? "Codex is rebuilding the same Fast Preview without the last requested adjustment." : "Codex is applying another change to the same Fast Preview session.", progress_updated_at: now, error_message: null, updated_at: now }).eq("id", run.id).in("state", ["preview_ready", "client_ready"]).select("id").maybeSingle();
+      if (queued.error || !queued.data) {
+        if (insertedRevisionId) await admin.from("website_change_revisions").update({ status: "failed" }).eq("id", insertedRevisionId);
+        return reply({ error: "Another update started first. Wait for it to finish and try again." }, 409);
+      }
+      const websiteResult = await admin.from("client_websites").select("repository_full_name").eq("id", run.website_id).single();
+      const repositoryName = clean(run.target_repository || websiteResult.data?.repository_full_name, 200);
+      if (!/^[^/\s]+\/[^/\s]+$/.test(repositoryName)) throw new Error("The website repository is not connected.");
+      const automationRepo = clean(Deno.env.get("GITHUB_AUTOMATION_REPOSITORY") || "qjnbly-ui/n3xra.com", 200);
+      const token = await githubToken();
+      const [owner, repository] = automationRepo.split("/"), targetName = repositoryName.split("/")[1];
+      const dispatch = await githubRequest(`/repos/${owner}/${repository}/dispatches`, token, { method: "POST", body: JSON.stringify({ event_type: "n3xra-website-change", client_payload: { run_id: run.id, target_repository: repositoryName, target_repository_name: targetName, branch: run.branch_name, preview: { mode: "n3xra_live", url: run.preview_url, upload_url: "https://www.n3xra.com/api/website-change-preview-upload" }, request_data: { title: clean(requestResult.data.subject, 100), request: clean(requestResult.data.message, 4000), summary: clean(requestResult.data.assistant_summary, 500), revisions: revisionHistory }, callback_url: "https://www.n3xra.com/api/website-change-run-callback", callback_token: callbackToken } }) });
+      if (!dispatch.ok) {
+        const dispatchError = await dispatch.json().catch(() => ({}));
+        const message = clean(dispatchError?.message || `GitHub could not queue Codex (${dispatch.status}).`, 500);
+        await admin.from("website_change_runs").update({ state: "preview_ready", pending_storage_prefix: null, pending_source_manifest_path: null, progress_stage: "preview_ready", progress_message: "The existing Fast Preview is still available. The latest adjustment could not be queued.", error_message: message, callback_token_hash: "0".repeat(64), updated_at: new Date().toISOString() }).eq("id", run.id);
+        if (insertedRevisionId) await admin.from("website_change_revisions").update({ status: "failed" }).eq("id", insertedRevisionId);
+        return reply({ error: message }, 502);
+      }
+      await admin.from("platform_support_requests").update({ automation_status: "queued", updated_at: now }).eq("id", run.request_id);
+      return reply({ ok: true, run: { id: run.id, state: "queued", preview_url: run.preview_url }, message: "Codex is updating the same Fast Preview. The link will stay the same." }, 202);
+    }
     if (action === "approve-merge") {
       const runId = clean(body.runId, 80); if (!uuid(runId)) return reply({ error: "A valid preview run is required." }, 400);
       const platformAdmin = await admin.from("platform_admins").select("user_id,status").eq("user_id", user.id).eq("status", "active").maybeSingle();
@@ -93,6 +165,7 @@ Deno.serve(async (request) => {
       const run = runResult.data;
       if (run.state === "merged") return reply({ ok: true, run: { id: run.id, state: "merged" }, message: "This preview is already on the live branch." });
       if (!['preview_ready','client_ready'].includes(run.state) || !run.head_sha) return reply({ error: "This preview is not ready to merge." }, 409);
+      if (run.preview_mode === "n3xra_live" && run.state !== "client_ready") return reply({ error: "The client is still refining this Fast Preview. Wait until they submit the finished version for approval." }, 409);
       const previewExpiresAt = Date.parse(run.preview_expires_at || "");
       if (run.preview_mode === "n3xra_live" && (!Number.isFinite(previewExpiresAt) || previewExpiresAt <= Date.now())) return reply({ error: "This live preview expired. Start and review a new preview before publishing." }, 409);
       const websiteResult = await admin.from("client_websites").select("repository_full_name").eq("id", run.website_id).single();
@@ -171,13 +244,13 @@ Deno.serve(async (request) => {
     const previewToken = previewMode === "n3xra_live" ? base64Url(crypto.getRandomValues(new Uint8Array(36))) : "";
     const previewUrl = previewMode === "n3xra_live" ? `https://www.n3xra.com/website-preview/${claimed.id}/${previewToken}/` : null;
     const previewExpiry = previewMode === "n3xra_live" ? new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString() : null;
-    const modeUpdate = await admin.from("website_change_runs").update({ preview_mode: previewMode, preview_token_hash: previewToken ? await sha256(previewToken) : null, preview_expires_at: previewExpiry, preview_url: null, source_manifest_path: previewMode === "n3xra_live" ? `runs/${claimed.id}/source/manifest.json` : null, updated_at: new Date().toISOString() }).eq("id", claimed.id).select("id").single();
+    const modeUpdate = await admin.from("website_change_runs").update({ preview_mode: previewMode, preview_token_hash: previewToken ? await sha256(previewToken) : null, preview_expires_at: previewExpiry, preview_url: null, storage_prefix: previewMode === "n3xra_live" ? `runs/${claimed.id}` : null, source_manifest_path: previewMode === "n3xra_live" ? `runs/${claimed.id}/source/manifest.json` : null, updated_at: new Date().toISOString() }).eq("id", claimed.id).select("id").single();
     if (modeUpdate.error) throw new Error(modeUpdate.error.message);
     const automationRepo = clean(Deno.env.get("GITHUB_AUTOMATION_REPOSITORY") || "qjnbly-ui/n3xra.com", 200);
     if (!/^[^/\s]+\/[^/\s]+$/.test(automationRepo)) throw new Error("GitHub automation is not configured.");
     const token = await githubToken();
     const [owner, repository] = automationRepo.split("/"), targetRepository = String(claimed.repository_full_name), targetName = targetRepository.split("/")[1];
-    const dispatch = await githubRequest(`/repos/${owner}/${repository}/dispatches`, token, { method: "POST", body: JSON.stringify({ event_type: "n3xra-website-change", client_payload: { run_id: claimed.id, target_repository: targetRepository, target_repository_name: targetName, branch: claimed.branch_name, preview: { mode: previewMode, url: previewUrl, upload_url: "https://www.n3xra.com/api/website-change-preview-upload" }, title: clean(requestWebsite.data?.subject, 100), request: clean(requestWebsite.data?.message, 4000), summary: clean(requestWebsite.data?.assistant_summary, 500), callback_url: "https://www.n3xra.com/api/website-change-run-callback", callback_token: callbackToken } }) });
+    const dispatch = await githubRequest(`/repos/${owner}/${repository}/dispatches`, token, { method: "POST", body: JSON.stringify({ event_type: "n3xra-website-change", client_payload: { run_id: claimed.id, target_repository: targetRepository, target_repository_name: targetName, branch: claimed.branch_name, preview: { mode: previewMode, url: previewUrl, upload_url: "https://www.n3xra.com/api/website-change-preview-upload" }, request_data: { title: clean(requestWebsite.data?.subject, 100), request: clean(requestWebsite.data?.message, 4000), summary: clean(requestWebsite.data?.assistant_summary, 500), revisions: "" }, callback_url: "https://www.n3xra.com/api/website-change-run-callback", callback_token: callbackToken } }) });
     if (!dispatch.ok) {
       const dispatchError = await dispatch.json().catch(() => ({}));
       throw new Error(clean(dispatchError?.message || `GitHub could not queue Codex (${dispatch.status}).`, 500));

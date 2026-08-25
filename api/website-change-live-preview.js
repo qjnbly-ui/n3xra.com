@@ -45,15 +45,16 @@ module.exports = async function handler(req, res) {
     if (!/^[0-9a-f-]{36}$/i.test(runId)) return res.status(404).end();
     const run = await getRun(runId);
     if (!validRunToken(run, token, "view")) return res.status(404).end();
-    let object = await downloadObject(`runs/${runId}/site/${requestedPath}`);
+    const prefix = run.storage_prefix || `runs/${runId}`;
+    let object = await downloadObject(`${prefix}/site/${requestedPath}`);
     if (!object && !path.extname(requestedPath)) {
       requestedPath = `${requestedPath.replace(/\/$/, "")}/index.html`;
       object = await downloadObject(`runs/${runId}/site/${requestedPath}`);
     }
     if (!object) {
       const [previewConfig, sourceManifest] = await Promise.all([
-        downloadObject(`runs/${runId}/site/.n3xra-preview.json`),
-        downloadObject(`runs/${runId}/source/manifest.json`),
+        downloadObject(`${prefix}/site/.n3xra-preview.json`),
+        downloadObject(`${prefix}/source/manifest.json`),
       ]);
       let useLiveAssets = false;
       try { useLiveAssets = Boolean(JSON.parse(previewConfig?.bytes?.toString("utf8") || "null")?.liveAssetFallback); } catch { useLiveAssets = false; }
@@ -65,7 +66,7 @@ module.exports = async function handler(req, res) {
     }
     if (!object && req.headers.accept?.includes("text/html")) {
       requestedPath = "index.html";
-      object = await downloadObject(`runs/${runId}/site/index.html`);
+      object = await downloadObject(`${prefix}/site/index.html`);
     }
     if (!object) return res.status(404).send("This preview page was not found.");
     const contentType = TYPES[path.extname(requestedPath).toLowerCase()] || object.contentType;

@@ -2210,7 +2210,7 @@ Deno.serve(async (request) => {
           .eq("portal_enabled", true),
         adminClient
           .from("website_change_runs")
-          .select("id,request_id,website_id,attempt_number,state,branch_name,target_repository,workflow_url,progress_stage,progress_message,progress_updated_at,failure_stage,head_sha,merge_sha,preview_url,preview_mode,preview_expires_at,production_deployment_url,production_ready_at,error_message,created_at,updated_at,preview_ready_at,approved_at,merged_at")
+          .select("id,request_id,website_id,attempt_number,state,branch_name,target_repository,workflow_url,progress_stage,progress_message,progress_updated_at,failure_stage,head_sha,merge_sha,preview_url,preview_mode,preview_expires_at,production_deployment_url,production_ready_at,error_message,created_at,updated_at,preview_ready_at,approved_at,merged_at,revision_count,approval_submitted_at,vercel_fallback_requested_at")
           .order("created_at", { ascending: false })
           .limit(1000),
       ]);

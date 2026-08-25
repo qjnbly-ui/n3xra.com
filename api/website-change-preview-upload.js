@@ -25,7 +25,8 @@ module.exports = async function handler(req, res) {
     const run = await getRun(runId);
     if (!validRunToken(run, token, "upload") || !["queued", "coding"].includes(run.state)) return res.status(403).json({ error: "This preview upload is not authorized." });
     const bytes = await readBody(req);
-    const objectPath = `runs/${runId}/${kind}/${relativePath}`;
+    const prefix = run.pending_storage_prefix || run.storage_prefix || `runs/${runId}`;
+    const objectPath = `${prefix}/${kind}/${relativePath}`;
     await uploadObject(objectPath, bytes, String(req.headers["content-type"] || "application/octet-stream"));
     return res.status(201).json({ ok: true, path: objectPath, bytes: bytes.length });
   } catch (error) {

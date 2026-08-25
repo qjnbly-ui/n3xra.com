@@ -35,6 +35,7 @@ let websites = [];
 let requests = [];
 let updates = [];
 let changeRuns = [];
+let changeRevisions = [];
 let filter = "active";
 let pendingAnalysis = null;
 let progressPollTimer;
@@ -63,6 +64,26 @@ function clientRunPresentation(run) {
 function renderProgressSteps(activeStep, failed, previewMode = "vercel") {
     const steps = ["Queued", "Codex editing", "Checking", previewMode === "n3xra_live" ? "Live preview" : "Vercel preview", "Review ready", "Production"];
     return `<ol class="client-change-progress" aria-label="Preview progress">${steps.map((step, index) => `<li class="${failed && index === Math.max(0, activeStep) ? "is-failed" : index < activeStep ? "is-complete" : index === activeStep ? "is-current" : ""}"><span>${index + 1}</span><small>${escapeHtml(step)}</small></li>`).join("")}</ol>`;
+}
+function renderEditingControls(run) {
+    if (run.preview_mode !== "n3xra_live" || !run.preview_url || !["preview_ready", "client_ready"].includes(run.state))
+        return "";
+    const revisions = changeRevisions.filter((revision) => revision.run_id === run.id && revision.status === "active");
+    const submitted = run.state === "client_ready" || Boolean(run.approval_submitted_at);
+    return `<section class="client-preview-session" aria-label="Fast Preview editing session">
+    <div class="client-preview-session-head"><div><strong>Continue this editing session</strong><p>Open the preview in a separate tab, then return here for another adjustment. The private link stays the same.</p></div><span>${revisions.length} adjustment${revisions.length === 1 ? "" : "s"}</span></div>
+    ${revisions.length ? `<ol class="client-preview-revisions">${revisions.map((revision) => `<li><span>${revision.sequence_number}</span><p>${escapeHtml(revision.instruction)}</p></li>`).join("")}</ol>` : ""}
+    <form class="client-preview-revise" data-preview-revise="${escapeHtml(run.id)}" hidden><label>What should Codex change next?<textarea rows="3" maxlength="4000" required placeholder="Describe one more adjustment to this preview."></textarea></label><div><button class="portal-button" type="submit">Update this preview</button><button class="portal-button portal-button-secondary" type="button" data-preview-cancel="${escapeHtml(run.id)}">Cancel</button></div></form>
+    <p class="portal-inline-status" data-preview-status="${escapeHtml(run.id)}" aria-live="polite">${submitted ? "Submitted to N3XRA for final approval. You can still request another adjustment before it is published." : ""}</p>
+    <div class="client-preview-actions">
+      <a class="portal-button" href="${escapeHtml(run.preview_url)}" target="_blank" rel="noopener noreferrer">Open private preview</a>
+      <button class="portal-button portal-button-secondary" type="button" data-preview-revise-open="${escapeHtml(run.id)}">Request another change</button>
+      <button class="portal-button portal-button-secondary" type="button" data-preview-undo="${escapeHtml(run.id)}" ${revisions.length ? "" : "disabled"}>Undo last change</button>
+      <button class="portal-button portal-button-secondary" type="button" data-preview-share="${escapeHtml(run.id)}">Share preview</button>
+      <button class="portal-button" type="button" data-preview-submit="${escapeHtml(run.id)}" ${submitted ? "disabled" : ""}>${submitted ? "Submitted for approval" : "Submit for approval"}</button>
+    </div>
+    <details class="client-preview-fallback"><summary>Preview not working correctly?</summary><p>Ask N3XRA to create a production-style Vercel Preview. This can create a separate branch and deployment, so it will not start automatically.</p><button class="portal-link-button" type="button" data-preview-vercel="${escapeHtml(run.id)}" ${run.vercel_fallback_requested_at ? "disabled" : ""}>${run.vercel_fallback_requested_at ? "Vercel fallback requested" : "Request Vercel Preview"}</button></details>
+  </section>`;
 }
 function currentWebsite() {
     const selectedId = websiteSelect?.value || "";
@@ -106,7 +127,7 @@ function render() {
       <header class="client-support-card-head"><div><p class="portal-kicker">${escapeHtml(request.intake_mode === "ai_assisted" ? "AI-assisted website request" : label(request.topic))}</p><h3>${escapeHtml(request.subject)}</h3><p class="client-support-card-origin">${request.origin === "n3xra" ? "Started by N3XRA" : `Sent ${escapeHtml(formatDate(request.created_at))}`}</p></div><span class="client-support-state is-${escapeHtml(request.status)}">${escapeHtml(requestStateLabel)}</span></header>
       <p class="client-support-message">${escapeHtml(request.message)}</p>
       ${request.assistant_summary ? `<div class="client-support-assistant-summary"><strong>Organized summary</strong><p>${escapeHtml(request.assistant_summary)}</p></div>` : ""}
-      ${changeRun ? `<div class="client-change-run"><strong>${escapeHtml(previewStalled ? "Preview is taking longer than expected" : runPresentation?.title)}</strong><p>${escapeHtml(previewStalled ? "N3XRA can see the recorded workflow stage and will review it. Your live website has not changed." : runPresentation?.message)}</p>${renderProgressSteps(runPresentation?.activeStep ?? 0, ["failed", "production_failed"].includes(changeRun.progress_stage || changeRun.state), changeRun.preview_mode)}<div class="client-change-run-meta"><span><strong>Preview method:</strong> ${escapeHtml(changeRun.preview_mode === "n3xra_live" ? "N3XRA Live Preview" : "Vercel Preview")}</span>${changeRun.preview_mode === "vercel" ? `<span><strong>Separate branch:</strong> ${escapeHtml(changeRun.branch_name)}</span>` : ""}<span><strong>Last update:</strong> ${escapeHtml(formatDateTime(changeRun.progress_updated_at || changeRun.updated_at || changeRun.created_at))}</span></div>${changeRun.preview_url && ["preview_ready", "client_ready"].includes(changeRun.state) ? `<a class="portal-button portal-button-secondary" href="${escapeHtml(changeRun.preview_url)}" target="_blank" rel="noopener noreferrer">Open private preview</a>` : ""}${changeRun.production_deployment_url ? `<a class="portal-button" href="${escapeHtml(changeRun.production_deployment_url)}" target="_blank" rel="noopener noreferrer">Open production deployment</a>` : ""}${["queued", "coding"].includes(changeRun.state) || changeRun.progress_stage === "production_deploying" ? "<small>You can refresh, close, or leave this page without interrupting the work.</small>" : ""}</div>` : ""}
+      ${changeRun ? `<div class="client-change-run"><strong>${escapeHtml(previewStalled ? "Preview is taking longer than expected" : runPresentation?.title)}</strong><p>${escapeHtml(previewStalled ? "N3XRA can see the recorded workflow stage and will review it. Your live website has not changed." : runPresentation?.message)}</p>${renderProgressSteps(runPresentation?.activeStep ?? 0, ["failed", "production_failed"].includes(changeRun.progress_stage || changeRun.state), changeRun.preview_mode)}<div class="client-change-run-meta"><span><strong>Preview method:</strong> ${escapeHtml(changeRun.preview_mode === "n3xra_live" ? "N3XRA Live Preview" : "Vercel Preview")}</span>${changeRun.preview_mode === "vercel" ? `<span><strong>Separate branch:</strong> ${escapeHtml(changeRun.branch_name)}</span>` : ""}<span><strong>Last update:</strong> ${escapeHtml(formatDateTime(changeRun.progress_updated_at || changeRun.updated_at || changeRun.created_at))}</span></div>${changeRun.production_deployment_url ? `<a class="portal-button" href="${escapeHtml(changeRun.production_deployment_url)}" target="_blank" rel="noopener noreferrer">Open production deployment</a>` : ""}${["queued", "coding"].includes(changeRun.state) || changeRun.progress_stage === "production_deploying" ? "<small>You can refresh, close, or leave this page without interrupting the work.</small>" : ""}${renderEditingControls(changeRun)}</div>` : ""}
       <div class="client-support-meta"><span><strong>Timing:</strong> ${escapeHtml(timingLabel(request))}</span>${request.estimated_start_at ? `<span><strong>Estimated start:</strong> ${escapeHtml(formatDate(request.estimated_start_at))}</span>` : ""}</div>
       ${requestUpdates.length ? `<div class="client-support-updates">${requestUpdates.map((update) => `<div class="client-support-update"><p>${escapeHtml(update.message)}</p><small>${update.author_type === "n3xra" ? "N3XRA update" : "Client update"} · ${escapeHtml(formatDate(update.created_at))}</small></div>`).join("")}</div>` : ""}
     </article>`;
@@ -117,6 +138,7 @@ async function loadRequests() {
         requests = [];
         updates = [];
         changeRuns = [];
+        changeRevisions = [];
         render();
         return;
     }
@@ -135,7 +157,7 @@ async function loadRequests() {
     else {
         const [updateResult, runResult] = await Promise.all([
             supabase.from("platform_support_request_updates").select("id,request_id,message,author_type,created_at").in("request_id", requestIds).eq("visible_to_client", true).order("created_at", { ascending: true }),
-            supabase.from("website_change_runs").select("id,request_id,attempt_number,state,branch_name,target_repository,progress_stage,progress_message,progress_updated_at,preview_url,preview_mode,preview_expires_at,production_deployment_url,production_ready_at,error_message,created_at,updated_at,preview_ready_at,merged_at").in("request_id", requestIds).order("created_at", { ascending: false }),
+            supabase.from("website_change_runs").select("id,request_id,attempt_number,state,branch_name,target_repository,progress_stage,progress_message,progress_updated_at,preview_url,preview_mode,preview_expires_at,production_deployment_url,production_ready_at,error_message,created_at,updated_at,preview_ready_at,merged_at,revision_count,approval_submitted_at,vercel_fallback_requested_at").in("request_id", requestIds).order("created_at", { ascending: false }),
         ]);
         if (updateResult.error) {
             console.error("Client-visible support updates could not be loaded.", updateResult.error);
@@ -152,6 +174,15 @@ async function loadRequests() {
         }
         else {
             changeRuns = (runResult.data || []);
+            const runIds = changeRuns.map((run) => run.id);
+            if (runIds.length) {
+                const revisionResult = await supabase.from("website_change_revisions").select("id,run_id,sequence_number,instruction,status,created_at,undone_at").in("run_id", runIds).order("sequence_number", { ascending: true });
+                if (revisionResult.error)
+                    console.error("Fast Preview revision history could not be loaded.", revisionResult.error);
+                changeRevisions = (revisionResult.data || []);
+            }
+            else
+                changeRevisions = [];
         }
     }
     render();
@@ -163,6 +194,85 @@ function startProgressPolling() {
         if (hasActiveRun && document.visibilityState === "visible")
             void loadRequests();
     }, 8000);
+}
+function previewStatus(runId) {
+    return list?.querySelector(`[data-preview-status="${runId}"]`) || null;
+}
+async function previewAction(runId, action, instruction = "") {
+    const output = previewStatus(runId);
+    if (output)
+        output.textContent = action === "submit-approval" ? "Submitting this version for approval…" : action === "request-vercel-fallback" ? "Sending the fallback request to N3XRA…" : "Updating the same Fast Preview…";
+    const { data, error } = await supabase.functions.invoke("website-change-automation", { body: { action, runId, instruction } });
+    if (error) {
+        let message = error.message || "This Fast Preview action could not be completed.";
+        try {
+            const context = await error.context?.json();
+            if (context?.error)
+                message = context.error;
+        }
+        catch { /* use the safe fallback */ }
+        if (output)
+            output.textContent = message;
+        return;
+    }
+    if (output)
+        output.textContent = data?.message || "The Fast Preview was updated.";
+    await loadRequests();
+    startProgressPolling();
+}
+function bindPreviewControls() {
+    list?.addEventListener("click", (event) => {
+        const target = event.target instanceof Element ? event.target.closest("button[data-preview-revise-open],button[data-preview-cancel],button[data-preview-undo],button[data-preview-share],button[data-preview-submit],button[data-preview-vercel]") : null;
+        if (!target)
+            return;
+        const runId = target.dataset.previewReviseOpen || target.dataset.previewCancel || target.dataset.previewUndo || target.dataset.previewShare || target.dataset.previewSubmit || target.dataset.previewVercel || "";
+        const run = changeRuns.find((item) => item.id === runId);
+        if (!run)
+            return;
+        if (target.dataset.previewReviseOpen) {
+            const reviseForm = list.querySelector(`[data-preview-revise="${runId}"]`);
+            if (reviseForm) {
+                reviseForm.hidden = false;
+                reviseForm.querySelector("textarea")?.focus();
+            }
+            return;
+        }
+        if (target.dataset.previewCancel) {
+            const reviseForm = list.querySelector(`[data-preview-revise="${runId}"]`);
+            if (reviseForm) {
+                reviseForm.reset();
+                reviseForm.hidden = true;
+            }
+            return;
+        }
+        if (target.dataset.previewShare && run.preview_url) {
+            const shareData = { title: "Website Fast Preview", text: "Review this private website preview:", url: run.preview_url };
+            if (navigator.share)
+                void navigator.share(shareData).catch(() => undefined);
+            else
+                void navigator.clipboard.writeText(run.preview_url).then(() => { const output = previewStatus(runId); if (output)
+                    output.textContent = "The private preview link was copied."; });
+            return;
+        }
+        if (target.dataset.previewUndo)
+            void previewAction(runId, "undo-revision");
+        if (target.dataset.previewSubmit)
+            void previewAction(runId, "submit-approval");
+        if (target.dataset.previewVercel)
+            void previewAction(runId, "request-vercel-fallback");
+    });
+    list?.addEventListener("submit", (event) => {
+        const formElement = event.target instanceof HTMLFormElement ? event.target : null;
+        const runId = formElement?.dataset.previewRevise || "";
+        if (!formElement || !runId)
+            return;
+        event.preventDefault();
+        const textarea = formElement.querySelector("textarea");
+        const instruction = textarea?.value.trim() || "";
+        if (instruction.length < 3)
+            return;
+        void previewAction(runId, "revise-preview", instruction);
+    });
 }
 async function changeApi(action) {
     const website = currentWebsite();
@@ -336,6 +446,7 @@ async function init() {
         });
         render();
     }));
+    bindPreviewControls();
     await loadRequests();
     startProgressPolling();
 }

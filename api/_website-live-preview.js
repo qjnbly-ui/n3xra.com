@@ -32,7 +32,7 @@ async function readJson(response) {
 
 async function getRun(runId) {
   if (!SERVICE_KEY) throw new Error("Live preview storage is not configured.");
-  const fields = "id,request_id,website_id,state,preview_mode,preview_token_hash,preview_expires_at,callback_token_hash,callback_expires_at,base_sha,source_manifest_path";
+  const fields = "id,request_id,website_id,state,preview_mode,preview_token_hash,preview_expires_at,callback_token_hash,callback_expires_at,base_sha,source_manifest_path,storage_prefix,pending_storage_prefix,pending_source_manifest_path";
   const response = await fetch(`${SUPABASE_URL}/rest/v1/website_change_runs?select=${fields}&id=eq.${encodeURIComponent(runId)}&limit=1`, { headers: serviceHeaders() });
   const rows = await readJson(response);
   return Array.isArray(rows) ? rows[0] || null : null;
@@ -60,7 +60,7 @@ async function getLiveOrigin(websiteId) {
 function validRunToken(run, token, purpose) {
   if (!run || run.preview_mode !== "n3xra_live") return false;
   if (purpose === "upload") return Date.parse(run.callback_expires_at || "") > Date.now() && sameHash(digest(token), run.callback_token_hash);
-  return ["preview_ready", "client_ready"].includes(run.state)
+  return (["preview_ready", "client_ready"].includes(run.state) || Boolean(["queued", "coding"].includes(run.state) && run.storage_prefix))
     && Date.parse(run.preview_expires_at || "") > Date.now()
     && sameHash(digest(token), run.preview_token_hash);
 }

@@ -95,9 +95,11 @@ jobs:
             Do not modify .github, vercel.json, deployment settings, dependency manifests, lockfiles, authentication, secrets, or analytics.
             Do not commit, push, merge, deploy, or publish. Run the repository's existing relevant checks when possible.
             CLIENT REQUEST DATA
-            Title: ${{ github.event.client_payload.title }}
-            Summary: ${{ github.event.client_payload.summary }}
-            Original request: ${{ github.event.client_payload.request }}
+            Title: ${{ github.event.client_payload.request_data.title }}
+            Summary: ${{ github.event.client_payload.request_data.summary }}
+            Original request: ${{ github.event.client_payload.request_data.request }}
+            Later adjustments in this same Fast Preview session, in order:
+            ${{ github.event.client_payload.request_data.revisions }}
             END CLIENT REQUEST DATA
       - name: Report validation started
         env:

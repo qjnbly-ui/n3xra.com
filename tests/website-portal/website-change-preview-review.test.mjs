@@ -79,7 +79,7 @@ test("Fast Preview starts on client submission while admins retain Vercel-start 
   assert.match(clientStyles, /grid-template-columns:repeat\(6,minmax\(0,1fr\)\)/);
   assert.match(clientStyles, /@media\(max-width:900px\)[\s\S]*grid-template-columns:1fr/);
   assert.match(clientStyles, /\.client-change-run \.portal-button\{width:100%/);
-  assert.match(clientPage, /support-workspace\.css\?v=5/);
+  assert.match(clientPage, /support-workspace\.css\?v=6/);
   assert.doesNotMatch(client, /Attempt \$\{escapeHtml\(changeRun\.attempt_number\)\}/);
   assert.match(admin, /Approve &amp; Start AI Preview/);
   assert.match(admin, /Normally starts automatically when the client submits/);
