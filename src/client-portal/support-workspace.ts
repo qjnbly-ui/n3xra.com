@@ -179,7 +179,7 @@ async function loadRequests(): Promise<void> {
     updates = [];
     changeRuns = [];
   } else {
-    const [updateResult, runResult] = await Promise.all([
+    const [updateResult, initialRunResult] = await Promise.all([
       supabase.from("platform_support_request_updates").select("id,request_id,message,author_type,created_at").in("request_id", requestIds).eq("visible_to_client", true).order("created_at", { ascending: true }),
       supabase.from("website_change_runs").select("id,request_id,attempt_number,state,branch_name,target_repository,progress_stage,progress_message,progress_updated_at,preview_url,preview_mode,preview_expires_at,production_deployment_url,production_ready_at,error_message,created_at,updated_at,preview_ready_at,merged_at,revision_count,approval_submitted_at,vercel_fallback_requested_at").in("request_id", requestIds).order("created_at", { ascending: false }),
     ]);
@@ -190,11 +190,15 @@ async function loadRequests(): Promise<void> {
     } else {
       updates = (updateResult.data || []) as SupportUpdate[];
     }
+    let runResult = initialRunResult;
+    if (runResult.error && /revision_count|approval_submitted_at|vercel_fallback_requested_at|schema cache/i.test(String(runResult.error.message || ""))) {
+      runResult = await supabase.from("website_change_runs").select("id,request_id,attempt_number,state,branch_name,target_repository,progress_stage,progress_message,progress_updated_at,preview_url,preview_mode,preview_expires_at,production_deployment_url,production_ready_at,error_message,created_at,updated_at,preview_ready_at,merged_at").in("request_id", requestIds).order("created_at", { ascending: false });
+    }
     if (runResult.error) {
       console.error("Website preview status could not be loaded.", runResult.error);
       changeRuns = [];
     } else {
-      changeRuns = (runResult.data || []) as ChangeRun[];
+      changeRuns = (runResult.data || []).map((run: Partial<ChangeRun>) => ({ ...run, revision_count: Number(run.revision_count || 0), approval_submitted_at: run.approval_submitted_at || null, vercel_fallback_requested_at: run.vercel_fallback_requested_at || null })) as ChangeRun[];
       const runIds = changeRuns.map((run) => run.id);
       if (runIds.length) {
         const revisionResult = await supabase.from("website_change_revisions").select("id,run_id,sequence_number,instruction,status,created_at,undone_at").in("run_id", runIds).order("sequence_number", { ascending: true });
