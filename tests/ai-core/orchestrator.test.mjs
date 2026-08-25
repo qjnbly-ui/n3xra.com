@@ -129,6 +129,8 @@ test("public and admin contexts use separate mode profiles", async () => {
   assert.match(adminContext, /direct, operational, and concise/i);
   assert.match(publicContext, /pronounced Nexra/i);
   assert.match(adminContext, /pronounced Nexra/i);
+  assert.match(publicContext, /name is Nex/i);
+  assert.match(adminContext, /name is Nex/i);
 });
 
 test("historically unreliable questions resolve through capabilities", async () => {

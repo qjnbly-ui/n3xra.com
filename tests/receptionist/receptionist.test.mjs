@@ -34,7 +34,7 @@ test("receptionist TwiML uses ConversationRelay and the ElevenLabs provider", ()
   assert.match(xml, /transcriptionProvider="Deepgram"/);
   assert.match(xml, /dtmfDetection="true"/);
   assert.match(xml, /wss:\/\/www\.n3xra\.com\/api\/receptionist\/conversation/);
-  assert.match(xml, /Thanks for calling NEXRA\. You&apos;re speaking with our AI receptionist/);
+  assert.match(xml, /Thanks for calling NEXRA\. You&apos;re speaking with Nex, our AI receptionist/);
   assert.match(xml, /What brings you to NEXRA today\?/);
   assert.match(xml, /welcomeGreetingInterruptible="none"/);
   assert.match(xml, /reportInputDuringAgentSpeech="speech"/);

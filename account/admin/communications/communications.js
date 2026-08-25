@@ -37,6 +37,31 @@ async function api(path = "", options = {}) {
 function contactFor(phone) { return contacts.find((contact) => contact.phone === phone) || null; }
 function labelFor(phone) { const contact = contactFor(phone); return contact?.name || formatPhone(phone); }
 
+function nexStatus(thread) {
+  if (!thread || thread.nexMode === "never") return { label: "Nex excluded", tone: "never", paused: false };
+  const pausedUntil = thread.nexPausedUntil ? new Date(thread.nexPausedUntil) : null;
+  if (pausedUntil && pausedUntil.getTime() > Date.now()) {
+    return { label: `You are replying · Nex resumes ${formatDate(thread.nexPausedUntil)}`, tone: "paused", paused: true };
+  }
+  return { label: "Nex active", tone: "active", paused: false };
+}
+
+function renderNexControls(thread) {
+  if (!thread) return "";
+  const state = nexStatus(thread);
+  const durations = [15, 30, 60, 120, 240, 480, 1440, 10080];
+  const durationOptions = durations.map((minutes) => {
+    const copy = minutes < 60 ? `${minutes} min` : minutes === 60 ? "1 hour" : minutes < 1440 ? `${minutes / 60} hours` : minutes === 1440 ? "24 hours" : "7 days";
+    return `<option value="${minutes}"${minutes === thread.nexResumeAfterMinutes ? " selected" : ""}>${copy}</option>`;
+  }).join("");
+  return `<div class="nex-conversation-controls">
+    <span class="nex-state is-${state.tone}">${escapeHtml(state.label)}</span>
+    <label>Participation<select id="nex-mode"><option value="automatic"${thread.nexMode === "automatic" ? " selected" : ""}>Nex may reply</option><option value="never"${thread.nexMode === "never" ? " selected" : ""}>Never use Nex</option></select></label>
+    <label>Resume after<select id="nex-resume-after"${thread.nexMode === "never" ? " disabled" : ""}>${durationOptions}</select></label>
+    <button class="nex-resume-button${state.paused ? "" : " hidden"}" id="resume-nex" type="button">Resume now</button>
+  </div>`;
+}
+
 function renderContactOptions() {
   const optedIn = contacts.filter((contact) => contact.smsOptedIn);
   const options = optedIn.map((contact) => `<option value="${escapeHtml(contact.phone)}">${escapeHtml(contact.name)} · ${escapeHtml(formatPhone(contact.phone))}</option>`).join("");
@@ -53,7 +78,7 @@ function renderThreads() {
   $("unread-count").textContent = unread ? `(${unread})` : "";
   $("thread-list").innerHTML = threads.length ? threads.map((thread) => {
     const name = thread.contact?.name || labelFor(thread.phone);
-    return `<button class="thread-button${thread.id === activeThread?.id ? " is-active" : ""}" type="button" data-thread="${thread.id}"><span class="thread-avatar">${escapeHtml(name.charAt(0).toUpperCase() || "N")}</span><span class="thread-copy"><strong>${escapeHtml(name)}</strong><span>${thread.direction === "outbound" ? "You: " : ""}${escapeHtml(thread.preview)}</span></span><span class="thread-time">${escapeHtml(formatDate(thread.lastMessageAt))}${thread.unreadCount ? '<i class="unread-dot"></i>' : ""}</span></button>`;
+    return `<button class="thread-button${thread.id === activeThread?.id ? " is-active" : ""}" type="button" data-thread="${thread.id}"><span class="thread-avatar">${escapeHtml(name.charAt(0).toUpperCase() || "N")}</span><span class="thread-copy"><strong>${escapeHtml(name)}</strong><span>${thread.direction === "outbound" ? "N3XRA: " : ""}${escapeHtml(thread.preview)}</span></span><span class="thread-time">${escapeHtml(formatDate(thread.lastMessageAt))}${thread.unreadCount ? '<i class="unread-dot"></i>' : ""}</span></button>`;
   }).join("") : '<p class="communications-empty">No conversations yet.</p>';
 }
 
@@ -61,7 +86,7 @@ function setActiveRecipient(phone, thread = null) {
   activePhone = phone;
   activeThread = thread;
   const contact = contactFor(phone);
-  $("message-header").innerHTML = `<div><strong>${escapeHtml(contact?.name || formatPhone(phone))}</strong><span>${escapeHtml(formatPhone(phone))}${contact?.smsOptedIn ? " · Texting allowed" : " · Not opted in"}</span></div>`;
+  $("message-header").innerHTML = `<div class="message-recipient"><strong>${escapeHtml(contact?.name || formatPhone(phone))}</strong><span>${escapeHtml(formatPhone(phone))}${contact?.smsOptedIn ? " · Texting allowed" : " · Not opted in"}</span></div>${renderNexControls(thread)}`;
   $("message-body").disabled = !contact?.smsOptedIn;
   $("send-message").disabled = !contact?.smsOptedIn;
   if (!thread) $("message-list").innerHTML = '<p class="communications-empty">No messages yet. Write the first message below.</p>';
@@ -74,13 +99,23 @@ async function openThread(thread) {
   const data = await api(`?threadId=${encodeURIComponent(thread.id)}`);
   const messages = data.messages || [];
   $("message-list").innerHTML = messages.length ? messages.map((message) => `
-    <div class="message-bubble ${message.direction === "outbound" ? "outbound" : "inbound"}">${escapeHtml(message.body || (message.media_count ? "Attachment" : ""))}<small>${escapeHtml(formatDate(message.message_at))} · ${escapeHtml(message.message_status || "")}</small></div>
+    <div class="message-bubble ${message.direction === "outbound" ? "outbound" : "inbound"}">${escapeHtml(message.body || (message.media_count ? "Attachment" : ""))}<small>${escapeHtml(message.direction === "inbound" ? "Received" : message.created_by_user_id ? "You" : "Nex")} · ${escapeHtml(formatDate(message.message_at))} · ${escapeHtml(message.message_status || "")}</small></div>
   `).join("") : '<p class="communications-empty">No messages in this conversation.</p>';
   $("message-list").scrollTop = $("message-list").scrollHeight;
   await api("", { method:"PATCH", body:JSON.stringify({ action:"mark_read", threadId:thread.id }) });
   thread.unreadCount = 0;
   renderThreads();
   status("");
+}
+
+async function saveNexSettings({ resumeNow = false } = {}) {
+  if (!activeThread?.id) return;
+  const mode = $("nex-mode")?.value || activeThread.nexMode || "automatic";
+  const resumeAfterMinutes = Number($("nex-resume-after")?.value || activeThread.nexResumeAfterMinutes || 120);
+  status(resumeNow ? "Returning this conversation to Nex…" : "Saving Nex settings…");
+  await api("", { method:"PATCH", body:JSON.stringify({ action:"update_nex_settings", threadId:activeThread.id, mode, resumeAfterMinutes, resumeNow }) });
+  await refresh({ quiet:true });
+  status(mode === "never" ? "Nex will never enter this conversation." : resumeNow ? "Nex can respond to the next incoming message." : "Nex settings saved.", "success");
 }
 
 async function refresh({ quiet = false } = {}) {
@@ -183,6 +218,14 @@ function bindEvents() {
   $("thread-list").addEventListener("click", (event) => { const button = event.target.closest("[data-thread]"); const thread = threads.find((item) => item.id === button?.dataset.thread); if (thread) openThread(thread).catch((error) => status(error.message,"error")); });
   $("message-body").addEventListener("input", () => { $("message-count").textContent = `${$("message-body").value.length} / 1,600`; });
   $("message-form").addEventListener("submit", sendText);
+  $("message-header").addEventListener("change", (event) => {
+    if (!["nex-mode", "nex-resume-after"].includes(event.target?.id)) return;
+    saveNexSettings().catch((error) => status(error.message, "error"));
+  });
+  $("message-header").addEventListener("click", (event) => {
+    if (event.target?.id !== "resume-nex") return;
+    saveNexSettings({ resumeNow:true }).catch((error) => status(error.message, "error"));
+  });
   $("call-contact").addEventListener("change", () => { if ($("call-contact").value) $("call-phone").value = $("call-contact").value; });
   $("start-call").addEventListener("click", startCall);
   $("end-call").addEventListener("click", () => activeCall?.disconnect());

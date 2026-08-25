@@ -3,10 +3,13 @@ const { createAdminNotification } = require("./_admin-notifications");
 const { publicHttpUrl } = require("./_receptionist");
 const { normalizePhone } = require("./_account-phone");
 const { requirePlatformAdmin, supabaseJson } = require("./_communications");
+const { generateNexConversationReply } = require("./_nex-conversation");
 
 const N3XRA_PHONE = normalizePhone(
   process.env.TWILIO_RECEPTIONIST_NUMBER || process.env.TWILIO_FROM_NUMBER || "+15416526840",
 );
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const COMPLIANCE_KEYWORD = /^(STOP|STOPALL|UNSUBSCRIBE|CANCEL|END|QUIT|START|UNSTOP|SUBSCRIBE|YES|HELP|INFO)$/i;
 
 function httpError(status, message) {
   const error = new Error(message);
@@ -124,7 +127,7 @@ async function listContacts() {
 
 async function listThreads() {
   const [threads, contacts] = await Promise.all([
-    supabaseJson("admin_communication_threads?select=id,phone_e164,unread_count,last_message_preview,last_message_direction,last_message_at&order=last_message_at.desc&limit=500"),
+    supabaseJson("admin_communication_threads?select=id,phone_e164,unread_count,last_message_preview,last_message_direction,last_message_at,nex_mode,nex_resume_after_minutes,nex_paused_until,last_manual_reply_at,nex_last_reply_at&order=last_message_at.desc&limit=500"),
     listContacts(),
   ]);
   const byPhone = new Map(contacts.map((contact) => [contact.phone, contact]));
@@ -135,13 +138,18 @@ async function listThreads() {
     preview: thread.last_message_preview || "",
     direction: thread.last_message_direction || "",
     lastMessageAt: thread.last_message_at,
+    nexMode: thread.nex_mode || "automatic",
+    nexResumeAfterMinutes: Number(thread.nex_resume_after_minutes || 120),
+    nexPausedUntil: thread.nex_paused_until || null,
+    lastManualReplyAt: thread.last_manual_reply_at || null,
+    nexLastReplyAt: thread.nex_last_reply_at || null,
     contact: byPhone.get(thread.phone_e164) || null,
   }));
 }
 
 async function listMessages(threadId) {
   if (!/^[0-9a-f-]{36}$/i.test(String(threadId || ""))) throw httpError(400, "A valid conversation is required.");
-  return supabaseJson(`admin_communication_messages?select=id,thread_id,twilio_message_sid,direction,body,message_status,from_e164,to_e164,media_count,media,error_code,message_at,status_updated_at&thread_id=eq.${encodeURIComponent(threadId)}&order=message_at.asc&limit=1000`);
+  return supabaseJson(`admin_communication_messages?select=id,thread_id,twilio_message_sid,direction,body,message_status,from_e164,to_e164,media_count,media,error_code,created_by_user_id,message_at,status_updated_at&thread_id=eq.${encodeURIComponent(threadId)}&order=message_at.asc&limit=1000`);
 }
 
 async function markRead(threadId) {
@@ -167,13 +175,129 @@ async function phoneIsOptedIn(phone) {
   return rows?.[0]?.event_type === "opt_in";
 }
 
-async function sendMessage({ to, body, userId, req }) {
+async function pauseNexForManualReply(phone, threadId = "") {
+  const normalized = normalizePhone(phone);
+  const rows = threadId
+    ? await supabaseJson(`admin_communication_threads?select=id,nex_resume_after_minutes&id=eq.${encodeURIComponent(threadId)}&limit=1`)
+    : await supabaseJson(`admin_communication_threads?select=id,nex_resume_after_minutes&phone_e164=eq.${encodeURIComponent(normalized)}&limit=1`);
+  const thread = rows?.[0];
+  if (!thread?.id) return null;
+  const minutes = Math.max(5, Math.min(10080, Number(thread.nex_resume_after_minutes || 120)));
+  const now = new Date();
+  const pausedUntil = new Date(now.getTime() + minutes * 60_000).toISOString();
+  await supabaseJson(`admin_communication_threads?id=eq.${encodeURIComponent(thread.id)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Prefer: "return=minimal" },
+    body: JSON.stringify({
+      last_manual_reply_at: now.toISOString(),
+      nex_paused_until: pausedUntil,
+      nex_pending_inbound_message_id: null,
+      nex_pending_claimed_at: null,
+      updated_at: now.toISOString(),
+    }),
+  });
+  return { threadId: thread.id, pausedUntil };
+}
+
+async function updateNexSettings({ threadId, mode, resumeAfterMinutes, resumeNow = false }) {
+  if (!UUID_PATTERN.test(String(threadId || ""))) throw httpError(400, "A valid conversation is required.");
+  const nexMode = String(mode || "").toLowerCase();
+  const minutes = Number(resumeAfterMinutes);
+  if (!["automatic", "never"].includes(nexMode)) throw httpError(400, "Choose when Nex may enter this conversation.");
+  if (!Number.isInteger(minutes) || minutes < 5 || minutes > 10080) throw httpError(400, "Choose a valid Nex inactivity period.");
+  const values = {
+    nex_mode: nexMode,
+    nex_resume_after_minutes: minutes,
+    ...(nexMode === "never" || resumeNow ? { nex_paused_until: null } : {}),
+    ...(nexMode === "never" ? { nex_pending_inbound_message_id: null, nex_pending_claimed_at: null } : {}),
+    updated_at: new Date().toISOString(),
+  };
+  const rows = await supabaseJson(`admin_communication_threads?id=eq.${encodeURIComponent(threadId)}&select=id,nex_mode,nex_resume_after_minutes,nex_paused_until`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Prefer: "return=representation" },
+    body: JSON.stringify(values),
+  });
+  if (!rows?.[0]?.id) throw httpError(404, "Conversation not found.");
+  return rows[0];
+}
+
+async function claimNexReply(threadId, messageId) {
+  const result = await supabaseJson("rpc/claim_admin_communication_nex_reply", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ p_thread_id: threadId, p_message_id: messageId, p_claimed_at: new Date().toISOString() }),
+  });
+  return Array.isArray(result) ? result[0] || { should_reply: false } : result || { should_reply: false };
+}
+
+async function releaseNexClaim(threadId, messageId, completed = false) {
+  const values = {
+    nex_pending_inbound_message_id: null,
+    nex_pending_claimed_at: null,
+    ...(completed ? { nex_last_replied_to_message_id: messageId, nex_last_reply_at: new Date().toISOString() } : {}),
+    updated_at: new Date().toISOString(),
+  };
+  await supabaseJson(`admin_communication_threads?id=eq.${encodeURIComponent(threadId)}&nex_pending_inbound_message_id=eq.${encodeURIComponent(messageId)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Prefer: "return=minimal" },
+    body: JSON.stringify(values),
+  });
+}
+
+async function nexReplyStillAllowed(threadId, messageId) {
+  const rows = await supabaseJson(`admin_communication_threads?select=id,nex_mode,nex_paused_until,nex_pending_inbound_message_id&id=eq.${encodeURIComponent(threadId)}&limit=1`);
+  const thread = rows?.[0];
+  return Boolean(
+    thread?.id
+    && thread.nex_mode === "automatic"
+    && thread.nex_pending_inbound_message_id === messageId
+    && (!thread.nex_paused_until || new Date(thread.nex_paused_until).getTime() <= Date.now())
+  );
+}
+
+function isComplianceKeyword(body) {
+  return COMPLIANCE_KEYWORD.test(String(body || "").trim());
+}
+
+async function maybeReplyWithNex({ message, payload, req }) {
+  const body = String(payload?.Body || "").trim();
+  if (!message?.thread_id || !message?.message_id || !body || isComplianceKeyword(body)) return { sent: false, reason: "not_eligible" };
+  const claim = await claimNexReply(message.thread_id, message.message_id);
+  if (!claim?.should_reply) return { sent: false, reason: "not_claimed" };
+  try {
+    const [messages, contacts] = await Promise.all([listMessages(message.thread_id), listContacts()]);
+    const history = (messages || []).filter((item) => item.id !== message.message_id && item.body).slice(-10).map((item) => ({
+      role: item.direction === "inbound" ? "user" : "assistant",
+      content: String(item.body),
+    }));
+    const contact = contacts.find((item) => item.phone === claim.phone_e164);
+    if (!contact?.smsOptedIn) {
+      await releaseNexClaim(message.thread_id, message.message_id);
+      return { sent: false, reason: "not_opted_in" };
+    }
+    const accountKnown = Boolean(contact.userId);
+    const reply = await generateNexConversationReply({ body, history, accountKnown });
+    if (!reply || !(await nexReplyStillAllowed(message.thread_id, message.message_id))) {
+      await releaseNexClaim(message.thread_id, message.message_id);
+      return { sent: false, reason: reply ? "human_handoff" : "provider_unavailable" };
+    }
+    const sent = await sendMessage({ to: claim.phone_e164, body: reply, userId: null, req, senderType: "nex" });
+    await releaseNexClaim(message.thread_id, message.message_id, true);
+    return { sent: true, message: sent };
+  } catch (error) {
+    await releaseNexClaim(message.thread_id, message.message_id).catch(() => null);
+    throw error;
+  }
+}
+
+async function sendMessage({ to, body, userId, req, senderType = "human" }) {
   const recipient = normalizePhone(to);
   const text = String(body || "").trim();
   if (!recipient) throw httpError(400, "Enter a valid phone number.");
   if (!text) throw httpError(400, "Enter a message.");
   if (text.length > 1600) throw httpError(400, "Messages can be up to 1,600 characters.");
   if (!(await phoneIsOptedIn(recipient))) throw httpError(409, "This number has not opted in to N3XRA texts. They can text START to (541) 652-6840.");
+  const existingPause = senderType === "human" ? await pauseNexForManualReply(recipient) : null;
   const accountSid = String(process.env.TWILIO_ACCOUNT_SID || "").trim();
   const authToken = String(process.env.TWILIO_AUTH_TOKEN || "").trim();
   if (!accountSid || !authToken || !N3XRA_PHONE) throw httpError(503, "Twilio messaging is not configured.");
@@ -189,7 +313,9 @@ async function sendMessage({ to, body, userId, req }) {
   } catch (error) {
     throw httpError(Number(error?.status) || 502, `Twilio could not send this message.${error?.code ? ` Twilio ${error.code}.` : ""}`);
   }
-  return recordMessage({ phone: recipient, sid: sent.sid, direction: "outbound", body: text, status: sent.status || "queued", from: N3XRA_PHONE, to: recipient, userId });
+  const recorded = await recordMessage({ phone: recipient, sid: sent.sid, direction: "outbound", body: text, status: sent.status || "queued", from: N3XRA_PHONE, to: recipient, userId });
+  if (senderType === "human" && !existingPause) await pauseNexForManualReply(recipient, recorded?.thread_id);
+  return recorded;
 }
 
 async function updateMessageStatus(sid, status, errorCode = "") {
@@ -203,4 +329,4 @@ async function updateMessageStatus(sid, status, errorCode = "") {
   });
 }
 
-module.exports = { N3XRA_PHONE, httpError, listContacts, listMessages, listThreads, markRead, parseInboundMedia, recordIncomingMessage, requirePlatformAdmin, sendMessage, updateMessageStatus };
+module.exports = { N3XRA_PHONE, httpError, isComplianceKeyword, listContacts, listMessages, listThreads, markRead, maybeReplyWithNex, parseInboundMedia, recordIncomingMessage, requirePlatformAdmin, sendMessage, updateMessageStatus, updateNexSettings };

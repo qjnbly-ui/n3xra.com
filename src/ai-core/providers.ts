@@ -16,11 +16,13 @@ export class GroqProvider implements ModelProvider {
   private readonly apiKey: string;
   private readonly model: string;
   private readonly fetcher: Fetcher;
+  private readonly timeoutMs: number;
 
-  constructor(apiKey: string, model: string, fetcher: Fetcher = fetch) {
+  constructor(apiKey: string, model: string, fetcher: Fetcher = fetch, timeoutMs = 18_000) {
     this.apiKey = apiKey;
     this.model = model;
     this.fetcher = fetcher;
+    this.timeoutMs = timeoutMs;
   }
 
   complete(request: ProviderRequest): Promise<ProviderResult> {
@@ -36,7 +38,7 @@ export class GroqProvider implements ModelProvider {
     const response = await this.fetcher("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: { Authorization: `Bearer ${this.apiKey}`, "Content-Type": "application/json" },
-      signal: AbortSignal.timeout(18_000),
+      signal: AbortSignal.timeout(this.timeoutMs),
       body: JSON.stringify({
         model: this.model,
         messages: request.messages,
@@ -55,11 +57,13 @@ export class OpenAiResponsesProvider implements ModelProvider {
   private readonly apiKey: string;
   private readonly model: string;
   private readonly fetcher: Fetcher;
+  private readonly timeoutMs: number;
 
-  constructor(apiKey: string, model: string, fetcher: Fetcher = fetch) {
+  constructor(apiKey: string, model: string, fetcher: Fetcher = fetch, timeoutMs = 20_000) {
     this.apiKey = apiKey;
     this.model = model;
     this.fetcher = fetcher;
+    this.timeoutMs = timeoutMs;
   }
 
   complete(request: ProviderRequest): Promise<ProviderResult> {
@@ -82,7 +86,7 @@ export class OpenAiResponsesProvider implements ModelProvider {
     const response = await this.fetcher("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: { Authorization: `Bearer ${this.apiKey}`, "Content-Type": "application/json" },
-      signal: AbortSignal.timeout(20_000),
+      signal: AbortSignal.timeout(this.timeoutMs),
       body: JSON.stringify({
         model: this.model,
         input: request.messages,
@@ -95,16 +99,16 @@ export class OpenAiResponsesProvider implements ModelProvider {
   }
 }
 
-export function createProviderChain(env: AssistantEnvironment, fetcher: Fetcher = fetch): ModelProvider[] {
+export function createProviderChain(env: AssistantEnvironment, fetcher: Fetcher = fetch, timeoutMs?: number): ModelProvider[] {
   const providers: ModelProvider[] = [];
   const groqKey = String(env.GROQ_API_KEY || "").trim();
   const primaryModel = String(env.GROQ_ASSISTANT_MODEL || env.GROQ_ASK_MODEL || "openai/gpt-oss-120b").trim();
-  if (groqKey && primaryModel) providers.push(new GroqProvider(groqKey, primaryModel, fetcher));
+  if (groqKey && primaryModel) providers.push(new GroqProvider(groqKey, primaryModel, fetcher, timeoutMs));
   const openAiKey = String(env.OPENAI_API_KEY || "").trim();
   const openAiModel = String(env.OPENAI_ASSISTANT_MODEL || "").trim();
-  if (openAiKey && openAiModel) providers.push(new OpenAiResponsesProvider(openAiKey, openAiModel, fetcher));
+  if (openAiKey && openAiModel) providers.push(new OpenAiResponsesProvider(openAiKey, openAiModel, fetcher, timeoutMs));
   const fallbackGroqModel = String(env.GROQ_FALLBACK_MODEL || "").trim();
-  if (groqKey && fallbackGroqModel && fallbackGroqModel !== primaryModel) providers.push(new GroqProvider(groqKey, fallbackGroqModel, fetcher));
+  if (groqKey && fallbackGroqModel && fallbackGroqModel !== primaryModel) providers.push(new GroqProvider(groqKey, fallbackGroqModel, fetcher, timeoutMs));
   return providers;
 }
 

@@ -4,9 +4,11 @@ import test from "node:test";
 import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
-const { BRAND_POLICY_TEXT, profileInstructionsForAudience } = require("../../api/_ai-core/profiles.js");
+const { ASSISTANT_IDENTITY_TEXT, BRAND_POLICY_TEXT, profileInstructionsForAudience } = require("../../api/_ai-core/profiles.js");
 
 test("every shared assistant profile inherits one written and spoken brand policy", () => {
+  assert.match(ASSISTANT_IDENTITY_TEXT, /name is Nex/i);
+  assert.match(BRAND_POLICY_TEXT, /name is Nex/i);
   assert.match(BRAND_POLICY_TEXT, /written brand is N3XRA/i);
   assert.match(BRAND_POLICY_TEXT, /pronounced Nexra/i);
   for (const audience of ["public", "account", "admin"]) {

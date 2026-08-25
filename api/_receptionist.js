@@ -1,4 +1,4 @@
-const DEFAULT_GREETING = "Thanks for calling NEXRA. You're speaking with our AI receptionist, a live demonstration of the intelligent systems we build. What brings you to NEXRA today?";
+const DEFAULT_GREETING = "Thanks for calling NEXRA. You're speaking with Nex, our AI receptionist and a live demonstration of the intelligent systems we build. What brings you to NEXRA today?";
 
 function escapeXml(value) {
   return String(value || "")

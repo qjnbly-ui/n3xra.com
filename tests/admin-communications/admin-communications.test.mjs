@@ -9,6 +9,35 @@ process.env.TWILIO_RECEPTIONIST_NUMBER = "+15416526840";
 
 const require = createRequire(import.meta.url);
 const communications = require("../../api/_admin-communications");
+const { generateNexConversationReply } = require("../../api/_nex-conversation");
+
+test("Nex conversation replies inherit shared context and add text-specific safeguards", async () => {
+  let request;
+  const reply = await generateNexConversationReply({
+    body: "Can you help with my website?",
+    history: [{ role: "assistant", content: "What would you like to change?" }],
+    accountKnown: true,
+  }, {
+    getContext: async () => "Your name is Nex. Use verified N3XRA knowledge.",
+    providers: [{ name: "test", async complete() { throw new Error("unused"); } }],
+    complete: async (_providers, value) => {
+      request = value;
+      return { result: { text: "Yes—I can help organize that request." } };
+    },
+  });
+  assert.equal(reply, "Yes—I can help organize that request.");
+  const prompt = request.messages.map((message) => message.content).join("\n");
+  assert.match(prompt, /name is Nex/i);
+  assert.match(prompt, /Never imply that you are Quentin or another human/i);
+  assert.match(prompt, /under 600 characters/i);
+});
+
+test("compliance keywords stay in deterministic SMS handling instead of entering Nex", () => {
+  for (const keyword of ["STOP", "start", "Help", "unsubscribe"]) {
+    assert.equal(communications.isComplianceKeyword(keyword), true);
+  }
+  assert.equal(communications.isComplianceKeyword("Can Nex help me?"), false);
+});
 
 test("incoming receptionist texts are normalized and recorded in the private admin inbox", async () => {
   const previousFetch = global.fetch;
@@ -47,10 +76,11 @@ test("incoming receptionist texts are normalized and recorded in the private adm
 });
 
 test("the admin communications feature keeps credentials server-side and consent gated", async () => {
-  const [helper, endpoint, migration, page, navigation] = await Promise.all([
+  const [helper, endpoint, migration, nexMigration, page, navigation] = await Promise.all([
     readFile(new URL("../../api/_admin-communications.js", import.meta.url), "utf8"),
     readFile(new URL("../../api/admin-communications.js", import.meta.url), "utf8"),
     readFile(new URL("../../supabase/migrations/20260824193252_add_admin_calls_and_messages.sql", import.meta.url), "utf8"),
+    readFile(new URL("../../supabase/migrations/20260825132519_add_nex_conversation_handoff.sql", import.meta.url), "utf8"),
     readFile(new URL("../../account/admin/communications/index.html", import.meta.url), "utf8"),
     readFile(new URL("../../account/admin/admin-navigation.js", import.meta.url), "utf8"),
   ]);
@@ -61,6 +91,9 @@ test("the admin communications feature keeps credentials server-side and consent
   assert.match(migration, /enable row level security/g);
   assert.match(migration, /revoke all on table public\.admin_communication_threads from public, anon, authenticated/);
   assert.match(migration, /set search_path = ''/);
+  assert.match(nexMigration, /nex_mode in \('automatic', 'never'\)/);
+  assert.match(nexMigration, /claim_admin_communication_nex_reply/);
+  assert.match(nexMigration, /revoke execute on function public\.claim_admin_communication_nex_reply/);
   assert.match(navigation, /Calls & Messages/);
   assert.match(navigation, /data-admin-communications-count/);
   assert.match(navigation, /postgres_changes/);
@@ -68,6 +101,21 @@ test("the admin communications feature keeps credentials server-side and consent
   assert.match(helper, /admin_notifications\?event_type=eq\.communications\.inbound_message/);
   assert.match(navigation, /communications\.startCommunications\(\)/);
   assert.match(page, /Mass updates remain in Account Announcements/);
+});
+
+test("manual replies pause Nex and the conversation UI exposes automatic and never modes", async () => {
+  const [helper, endpoint, browser] = await Promise.all([
+    readFile(new URL("../../api/_admin-communications.js", import.meta.url), "utf8"),
+    readFile(new URL("../../api/admin-communications.js", import.meta.url), "utf8"),
+    readFile(new URL("../../account/admin/communications/communications.js", import.meta.url), "utf8"),
+  ]);
+  assert.match(helper, /pauseNexForManualReply\(recipient\)/);
+  assert.match(helper, /nex_pending_inbound_message_id: null/);
+  assert.match(helper, /nexReplyStillAllowed/);
+  assert.match(endpoint, /update_nex_settings/);
+  assert.match(browser, /Never use Nex/);
+  assert.match(browser, /Resume now/);
+  assert.match(browser, /resumeAfterMinutes/);
 });
 
 test("browser calling obtains a short-lived token from an admin-only Supabase function", async () => {
