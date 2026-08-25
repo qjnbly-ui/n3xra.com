@@ -1,4 +1,3 @@
-let platformAdminInviteUrl = "";
 let platformAdminDirectory = { admins: [], invites: [] };
 let platformAdminCandidates = [];
 let selectedPlatformAdminKey = "";
@@ -18,9 +17,7 @@ function setPlatformAdminModalStatus(message = "", tone = "") {
 async function openPlatformAdminInviteDialog() {
   const dialog = document.getElementById("platform-admin-invite-dialog");
   if (!(dialog instanceof HTMLDialogElement)) return;
-  platformAdminInviteUrl = "";
   document.getElementById("platform-admin-invite-form")?.reset();
-  document.getElementById("platform-admin-invite-link")?.classList.add("hidden");
   renderPlatformAdminCandidateOptions();
   setPlatformAdminModalStatus();
   if (!dialog.open) dialog.showModal();
@@ -77,7 +74,7 @@ function renderSelectedPlatformAdminCandidate() {
   if (!select || !detail) return;
   const candidate = platformAdminCandidates.find((account) => String(account.id) === String(select.value));
   detail.classList.toggle("hidden", !candidate);
-  detail.innerHTML = candidate ? `<span class="platform-admin-roster-avatar" aria-hidden="true">${escapeHtml(platformAdminInitials(candidate.name || candidate.email))}</span><div><strong>${escapeHtml(candidate.name || candidate.email)}</strong><p>${escapeHtml(candidate.email)}</p><small>This invitation will connect to account ${escapeHtml(candidate.id)}.</small></div>` : "";
+  detail.innerHTML = candidate ? `<span class="platform-admin-roster-avatar" aria-hidden="true">${escapeHtml(platformAdminInitials(candidate.name || candidate.email))}</span><div><strong>${escapeHtml(candidate.name || candidate.email)}</strong><p>${escapeHtml(candidate.email)}</p><small>Access will be granted directly to account ${escapeHtml(candidate.id)}.</small></div>` : "";
 }
 
 function renderPlatformAdminCandidateOptions() {
@@ -194,7 +191,7 @@ async function loadPlatformAdmins() {
   }
 }
 
-async function createPlatformAdminInvite(event) {
+async function grantPlatformAdminAccess(event) {
   event.preventDefault();
   const form = event.currentTarget;
   const accountInput = document.getElementById("platform-admin-invite-account");
@@ -211,44 +208,27 @@ async function createPlatformAdminInvite(event) {
   const submitButton = document.getElementById("platform-admin-invite-submit");
   if (submitButton) {
     submitButton.disabled = true;
-    submitButton.textContent = "Creating…";
+    submitButton.textContent = "Granting…";
   }
-  setStatus("Creating access invite…");
-  setPlatformAdminModalStatus("Creating secure invitation…");
+  setStatus("Granting administrator access…");
+  setPlatformAdminModalStatus("Granting access to the selected account…");
   try {
-    const data = await invoke("create-platform-admin-invite", { accountUserId, role });
-    platformAdminInviteUrl = String(data.inviteUrl || "");
-    if (data.invite?.id) selectedPlatformAdminKey = `invite:${data.invite.id}`;
-    const inviteLink = document.getElementById("platform-admin-invite-link");
-    const inviteUrl = document.getElementById("platform-admin-invite-url");
-    if (inviteUrl) inviteUrl.textContent = platformAdminInviteUrl;
-    inviteLink?.classList.toggle("hidden", !platformAdminInviteUrl);
+    const data = await invoke("grant-platform-admin-access", { accountUserId, role });
+    if (data.access?.user_id) selectedPlatformAdminKey = `admin:${data.access.user_id}`;
     form.reset();
     await Promise.all([loadPlatformAdmins(), loadPlatformAdminCandidates()]);
-    const successMessage = `${role === "reviewer" ? "App reviewer" : role === "operations_admin" ? "Operations administrator" : "Administrator"} invite created for ${account.email}. Send the secure sign-in link to that person.`;
+    const successMessage = `${role === "reviewer" ? "App reviewer" : role === "operations_admin" ? "Operations administrator" : "Administrator"} access granted to ${account.email}. It is available immediately.`;
     setStatus(successMessage, "success");
-    setPlatformAdminModalStatus(successMessage, "success");
+    closePlatformAdminInviteDialog();
   } catch (error) {
-    const message = error.message || "Unable to create the admin invite.";
+    const message = error.message || "Unable to grant administrator access.";
     setStatus(message, "error");
     setPlatformAdminModalStatus(message, "error");
   } finally {
     if (submitButton) {
       submitButton.disabled = false;
-      submitButton.textContent = "Create invite";
+      submitButton.textContent = "Grant access now";
     }
-  }
-}
-
-async function copyPlatformAdminInvite() {
-  if (!platformAdminInviteUrl) return;
-  try {
-    await navigator.clipboard.writeText(platformAdminInviteUrl);
-    setStatus("Admin invite link copied.", "success");
-    setPlatformAdminModalStatus("Invite link copied.", "success");
-  } catch {
-    setStatus("Copy failed. Select and copy the displayed invite link.", "error");
-    setPlatformAdminModalStatus("Copy failed. Select and copy the displayed invite link.", "error");
   }
 }
 
@@ -298,10 +278,9 @@ export async function startPlatformAdmins(context = {}) {
   document.getElementById("platform-admin-invite-dialog")?.addEventListener("click", (event) => {
     if (event.target === event.currentTarget) closePlatformAdminInviteDialog();
   });
-  document.getElementById("platform-admin-invite-form")?.addEventListener("submit", createPlatformAdminInvite);
+  document.getElementById("platform-admin-invite-form")?.addEventListener("submit", grantPlatformAdminAccess);
   document.getElementById("platform-admin-invite-account")?.addEventListener("change", renderSelectedPlatformAdminCandidate);
   document.getElementById("platform-admin-refresh")?.addEventListener("click", loadPlatformAdmins);
-  document.getElementById("platform-admin-copy-invite")?.addEventListener("click", copyPlatformAdminInvite);
   document.getElementById("platform-admin-search")?.addEventListener("input", () => renderPlatformAdmins());
   document.getElementById("platform-admin-list")?.addEventListener("click", handlePlatformAdminAction);
   document.getElementById("platform-admin-invite-list")?.addEventListener("click", handlePlatformAdminAction);

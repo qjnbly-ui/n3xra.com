@@ -708,7 +708,7 @@ export async function navigateAdminWorkspace(destination, {
       const communications = await import("/account/admin/communications/communications.js?v=5");
       await communications.startCommunications();
     } else {
-      const admin = await import("/account/admin/admin.js?v=48");
+      const admin = await import("/account/admin/admin.js?v=49");
       await admin.startAdmin();
     }
   } finally {

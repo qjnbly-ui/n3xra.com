@@ -493,12 +493,6 @@ async function sha256(value: string) {
   return base64Url(new Uint8Array(digest));
 }
 
-function createInviteToken() {
-  const bytes = new Uint8Array(32);
-  crypto.getRandomValues(bytes);
-  return base64Url(bytes);
-}
-
 async function getPlatformAdmin(adminClient: ReturnType<typeof createClient>, user: { id: string; email?: string | null }) {
   const email = normalizeEmail(user.email);
   if (email === PLATFORM_OWNER_EMAIL) {
@@ -2838,7 +2832,7 @@ Deno.serve(async (request) => {
       return jsonResponse({ ok: true, accounts });
     }
 
-    if (action === "create-platform-admin-invite") {
+    if (action === "grant-platform-admin-access") {
       if (!isOwnerAdmin(platformAdmin)) {
         return jsonResponse({ error: "Owner admin access required." }, 403);
       }
@@ -2860,43 +2854,76 @@ Deno.serve(async (request) => {
         return jsonResponse({ error: "The owner account is already the master admin." }, 400);
       }
 
-      const [existingAdminResult, existingReviewerResult, existingInviteResult] = await Promise.all([
+      const [existingAdminResult, existingReviewerResult] = await Promise.all([
         adminClient.from("platform_admins").select("user_id").eq("user_id", accountUserId).eq("status", "active").maybeSingle(),
         adminClient.from("platform_app_reviewers").select("user_id").eq("user_id", accountUserId).eq("status", "active").maybeSingle(),
-        adminClient.from("platform_admin_invites").select("id").eq("email", email).eq("status", "pending").limit(1).maybeSingle(),
       ]);
-      const existingAccessError = existingAdminResult.error || existingReviewerResult.error || existingInviteResult.error;
+      const existingAccessError = existingAdminResult.error || existingReviewerResult.error;
       if (existingAccessError) return jsonResponse({ error: existingAccessError.message }, 400);
-      const existingAdmin = existingAdminResult.data;
-      const existingReviewer = existingReviewerResult.data;
-      const existingInvite = existingInviteResult.data;
-      if (existingAdmin || existingReviewer) return jsonResponse({ error: "This account already has administrator or reviewer access." }, 409);
-      if (existingInvite) return jsonResponse({ error: "This account already has a pending access invitation." }, 409);
+      if (existingAdminResult.data || existingReviewerResult.data) {
+        return jsonResponse({ error: "This account already has administrator or reviewer access." }, 409);
+      }
 
-      const token = createInviteToken();
-      const tokenHash = await sha256(token);
-      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
-      const { data: invite, error } = await adminClient
+      const now = new Date().toISOString();
+      let access: Record<string, unknown>;
+      if (role === "reviewer") {
+        const { data: reviewer, error: reviewerError } = await adminClient
+          .from("platform_app_reviewers")
+          .upsert({
+            user_id: accountUserId,
+            email,
+            status: "active",
+            invited_by_user_id: user.id,
+            updated_at: now,
+          }, { onConflict: "user_id" })
+          .select("user_id,email,status,invited_by_user_id,created_at,updated_at")
+          .single();
+        if (reviewerError) return jsonResponse({ error: reviewerError.message }, 400);
+
+        const { error: removeAdminError } = await adminClient
+          .from("platform_admins")
+          .delete()
+          .eq("user_id", accountUserId)
+          .neq("role", "owner");
+        if (removeAdminError) return jsonResponse({ error: removeAdminError.message }, 400);
+
+        try {
+          await prepareReviewerAccount(adminClient, accountUserId);
+        } catch (error) {
+          return jsonResponse({ error: error instanceof Error ? error.message : "Unable to prepare the review account." }, 400);
+        }
+        access = { ...reviewer, role: "reviewer", access_scope: "full" };
+      } else {
+        const { data: administrator, error: adminError } = await adminClient
+          .from("platform_admins")
+          .upsert({
+            user_id: accountUserId,
+            email,
+            role: "admin",
+            access_scope: accessScope,
+            status: "active",
+            invited_by_user_id: user.id,
+            updated_at: now,
+          }, { onConflict: "user_id" })
+          .select("user_id,email,role,status,access_scope,invited_by_user_id,created_at,updated_at")
+          .single();
+        if (adminError) return jsonResponse({ error: adminError.message }, 400);
+
+        const { error: removeReviewerError } = await adminClient
+          .from("platform_app_reviewers")
+          .update({ status: "revoked", updated_at: now })
+          .eq("user_id", accountUserId);
+        if (removeReviewerError) return jsonResponse({ error: removeReviewerError.message }, 400);
+        access = { ...administrator, role: requestedRole };
+      }
+
+      await adminClient
         .from("platform_admin_invites")
-        .insert({
-          email,
-          role,
-          access_scope: accessScope,
-          token_hash: tokenHash,
-          expires_at: expiresAt,
-          created_by_user_id: user.id,
-        })
-        .select("id, email, role, status, access_scope, expires_at, created_at")
-        .single();
+        .update({ status: "revoked", revoked_by_user_id: user.id, revoked_at: now, updated_at: now })
+        .eq("email", email)
+        .eq("status", "pending");
 
-      if (error) return jsonResponse({ error: error.message }, 400);
-
-      const inviteUrl = new URL(getAppOrigin(request) + "/account");
-      inviteUrl.searchParams.set("admin_invite", token);
-      inviteUrl.searchParams.set("email", email);
-      inviteUrl.searchParams.set("mode", "signup");
-
-      return jsonResponse({ ok: true, invite, inviteUrl: inviteUrl.toString() });
+      return jsonResponse({ ok: true, access });
     }
 
     if (action === "revoke-platform-admin-invite") {
