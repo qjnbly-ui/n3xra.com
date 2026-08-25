@@ -84,6 +84,9 @@ test("Fast Preview refinements reuse one protected session and keep final approv
   assert.match(migration, /enable row level security/);
   assert.doesNotMatch(migration, /grant (insert|update|delete).*authenticated/i);
   assert.match(edge, /"revise-preview", "undo-revision", "submit-approval", "request-vercel-fallback", "abandon-preview"/);
+  assert.match(edge, /connectedRepositoryResult[.]data[?][.]full_name/);
+  assert.match(edge, /The existing Fast Preview is still available[.] The latest adjustment could not be queued, so you can try again[.]/);
+  assert.match(edge, /undoneRevisionId/);
   assert.match(edge, /state: "client_ready"/);
   assert.match(edge, /run[.]preview_mode === "n3xra_live" && run[.]state !== "client_ready"/);
   assert.match(edge, /request_data: \{ title:[\s\S]*revisions: revisionHistory/);

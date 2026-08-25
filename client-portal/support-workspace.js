@@ -123,7 +123,7 @@ function render() {
     list.innerHTML = visible.length ? visible.map((request) => {
         const requestUpdates = updates.filter((update) => update.request_id === request.id);
         const changeRun = changeRuns.find((run) => run.request_id === request.id);
-        const previewStalled = Boolean(changeRun && ["queued", "coding"].includes(changeRun.state) && Date.now() - new Date(changeRun.created_at).getTime() > 35 * 60 * 1000);
+        const previewStalled = Boolean(changeRun && ["queued", "coding"].includes(changeRun.state) && Date.now() - new Date(changeRun.progress_updated_at || changeRun.updated_at || changeRun.created_at).getTime() > 35 * 60 * 1000);
         const runPresentation = changeRun ? clientRunPresentation(changeRun) : null;
         const requestStateLabel = request.automation_status === "awaiting_review" ? "Awaiting review" : ["failed", "production_failed"].includes(changeRun?.progress_stage || changeRun?.state || "") ? "N3XRA attention" : changeRun && (["queued", "coding"].includes(changeRun.state) || changeRun.progress_stage === "production_deploying") ? label(runPresentation?.stage || "in progress") : label(request.status);
         return `<article class="client-support-card is-${escapeHtml(request.status)}">
@@ -223,6 +223,8 @@ async function previewAction(runId, action, instruction = "") {
         catch { /* use the safe fallback */ }
         if (output)
             output.textContent = message;
+        await loadRequests().catch(() => undefined);
+        startProgressPolling();
         return;
     }
     if (output)

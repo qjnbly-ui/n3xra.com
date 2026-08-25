@@ -147,6 +147,12 @@ Deno.serve(async (request) => {
 
       const nextSequence = Number(run.revision_count || 0) + 1;
       let insertedRevisionId = "";
+      let undoneRevisionId = "";
+      const websiteResult = await admin.from("client_websites").select("repository_full_name").eq("id", run.website_id).single();
+      const connectedRepositoryResult = await admin.from("website_repositories").select("full_name").eq("website_id", run.website_id).eq("provider", "github").neq("access_status", "transferred").order("updated_at", { ascending: false }).order("created_at", { ascending: false }).limit(1).maybeSingle();
+      if (websiteResult.error || connectedRepositoryResult.error) return reply({ error: "The connected website repository could not be checked." }, 500);
+      const repositoryName = clean(run.target_repository || websiteResult.data?.repository_full_name || connectedRepositoryResult.data?.full_name, 200);
+      if (!/^[^/\s]+\/[^/\s]+$/.test(repositoryName)) return reply({ error: "The website repository is not connected." }, 409);
       if (action === "revise-preview") {
         const instruction = clean(body.instruction, 4000);
         if (instruction.length < 3) return reply({ error: "Describe the next change you want Codex to make." }, 400);
@@ -160,6 +166,7 @@ Deno.serve(async (request) => {
         if (!latest.data) return reply({ error: "There is no additional change to undo yet." }, 409);
         const undone = await admin.from("website_change_revisions").update({ status: "undone", undone_at: now }).eq("id", latest.data.id).eq("status", "active").select("id").maybeSingle();
         if (undone.error || !undone.data) return reply({ error: "That change was already undone." }, 409);
+        undoneRevisionId = undone.data.id;
       }
       const revisionsResult = await admin.from("website_change_revisions").select("sequence_number,instruction").eq("run_id", run.id).eq("status", "active").order("sequence_number", { ascending: true });
       if (revisionsResult.error) return reply({ error: revisionsResult.error.message }, 400);
@@ -169,20 +176,24 @@ Deno.serve(async (request) => {
       const queued = await admin.from("website_change_runs").update({ state: "queued", revision_count: nextSequence, approval_submitted_at: null, pending_storage_prefix: pendingPrefix, pending_source_manifest_path: `${pendingPrefix}/source/manifest.json`, callback_token_hash: await sha256(callbackToken), callback_expires_at: new Date(Date.now() + 60 * 60 * 1000).toISOString(), progress_stage: "queued", progress_message: action === "undo-revision" ? "Codex is rebuilding the same Fast Preview without the last requested adjustment." : "Codex is applying another change to the same Fast Preview session.", progress_updated_at: now, error_message: null, updated_at: now }).eq("id", run.id).in("state", ["preview_ready", "client_ready"]).select("id").maybeSingle();
       if (queued.error || !queued.data) {
         if (insertedRevisionId) await admin.from("website_change_revisions").update({ status: "failed" }).eq("id", insertedRevisionId);
+        if (undoneRevisionId) await admin.from("website_change_revisions").update({ status: "active", undone_at: null }).eq("id", undoneRevisionId);
         return reply({ error: "Another update started first. Wait for it to finish and try again." }, 409);
       }
-      const websiteResult = await admin.from("client_websites").select("repository_full_name").eq("id", run.website_id).single();
-      const repositoryName = clean(run.target_repository || websiteResult.data?.repository_full_name, 200);
-      if (!/^[^/\s]+\/[^/\s]+$/.test(repositoryName)) throw new Error("The website repository is not connected.");
-      const automationRepo = clean(Deno.env.get("GITHUB_AUTOMATION_REPOSITORY") || "qjnbly-ui/n3xra.com", 200);
-      const token = await githubToken();
-      const [owner, repository] = automationRepo.split("/"), targetName = repositoryName.split("/")[1];
-      const dispatch = await githubRequest(`/repos/${owner}/${repository}/dispatches`, token, { method: "POST", body: JSON.stringify({ event_type: "n3xra-website-change", client_payload: { run_id: run.id, target_repository: repositoryName, target_repository_name: targetName, branch: run.branch_name, preview: { mode: "n3xra_live", url: run.preview_url, upload_url: "https://www.n3xra.com/api/website-change-preview-upload" }, request_data: { title: clean(requestResult.data.subject, 100), request: clean(requestResult.data.message, 4000), summary: clean(requestResult.data.assistant_summary, 500), revisions: revisionHistory }, callback_url: "https://www.n3xra.com/api/website-change-run-callback", callback_token: callbackToken } }) });
-      if (!dispatch.ok) {
-        const dispatchError = await dispatch.json().catch(() => ({}));
-        const message = clean(dispatchError?.message || `GitHub could not queue Codex (${dispatch.status}).`, 500);
-        await admin.from("website_change_runs").update({ state: "preview_ready", pending_storage_prefix: null, pending_source_manifest_path: null, progress_stage: "preview_ready", progress_message: "The existing Fast Preview is still available. The latest adjustment could not be queued.", error_message: message, callback_token_hash: "0".repeat(64), updated_at: new Date().toISOString() }).eq("id", run.id);
+      try {
+        const automationRepo = clean(Deno.env.get("GITHUB_AUTOMATION_REPOSITORY") || "qjnbly-ui/n3xra.com", 200);
+        const token = await githubToken();
+        const [owner, repository] = automationRepo.split("/"), targetName = repositoryName.split("/")[1];
+        const dispatch = await githubRequest(`/repos/${owner}/${repository}/dispatches`, token, { method: "POST", body: JSON.stringify({ event_type: "n3xra-website-change", client_payload: { run_id: run.id, target_repository: repositoryName, target_repository_name: targetName, branch: run.branch_name, preview: { mode: "n3xra_live", url: run.preview_url, upload_url: "https://www.n3xra.com/api/website-change-preview-upload" }, request_data: { title: clean(requestResult.data.subject, 100), request: clean(requestResult.data.message, 4000), summary: clean(requestResult.data.assistant_summary, 500), revisions: revisionHistory }, callback_url: "https://www.n3xra.com/api/website-change-run-callback", callback_token: callbackToken } }) });
+        if (!dispatch.ok) {
+          const dispatchError = await dispatch.json().catch(() => ({}));
+          throw new Error(clean(dispatchError?.message || `GitHub could not queue Codex (${dispatch.status}).`, 500));
+        }
+      } catch (dispatchFailure) {
+        const message = clean(dispatchFailure instanceof Error ? dispatchFailure.message : "GitHub could not queue Codex.", 500);
+        const failedAt = new Date().toISOString();
+        await admin.from("website_change_runs").update({ state: "preview_ready", pending_storage_prefix: null, pending_source_manifest_path: null, progress_stage: "preview_ready", progress_message: "The existing Fast Preview is still available. The latest adjustment could not be queued, so you can try again.", progress_updated_at: failedAt, error_message: message, callback_token_hash: "0".repeat(64), callback_expires_at: failedAt, updated_at: failedAt }).eq("id", run.id);
         if (insertedRevisionId) await admin.from("website_change_revisions").update({ status: "failed" }).eq("id", insertedRevisionId);
+        if (undoneRevisionId) await admin.from("website_change_revisions").update({ status: "active", undone_at: null }).eq("id", undoneRevisionId);
         return reply({ error: message }, 502);
       }
       await admin.from("platform_support_requests").update({ automation_status: "queued", updated_at: now }).eq("id", run.request_id);

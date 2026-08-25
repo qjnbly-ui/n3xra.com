@@ -26,6 +26,8 @@ test("the client Support view is a request and work tracker", async () => {
   assert.match(source, /scopeInput\?\.value === "website"/);
   assert.match(source, /day\$\{days === 1 \? "" : "s"\} remaining/);
   assert.match(source, /Requests loaded, but timeline updates are temporarily unavailable\./);
+  assert.match(source, /changeRun[.]progress_updated_at \|\| changeRun[.]updated_at \|\| changeRun[.]created_at/);
+  assert.match(source, /await loadRequests[(][)][.]catch/);
   assert.doesNotMatch(source, /if \(updateResult\.error\) throw updateResult\.error/);
   assert.doesNotMatch(source, /internal_notes/);
   assert.match(styles, /client-support-update/);
