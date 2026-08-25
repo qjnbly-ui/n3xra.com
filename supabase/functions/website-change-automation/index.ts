@@ -146,21 +146,26 @@ Deno.serve(async (request) => {
       return reply({ ok: true, run: { id: run.id, state: "merged", merge_sha: mergeSha, progress_stage: "production_deploying" }, message: `The reviewed change was published to ${base}. Vercel is building production now.` });
     }
     if (action !== "start-preview") return reply({ error: "Choose a valid website automation action." }, 400);
-    const previewAdmin = await admin.from("platform_admins").select("user_id,status").eq("user_id", user.id).eq("status", "active").maybeSingle();
-    if (previewAdmin.error) return reply({ error: previewAdmin.error.message }, 400);
-    if (!previewAdmin.data) return reply({ error: "Only an active N3XRA platform administrator can start an AI preview." }, 403);
     const requestId = clean(body.requestId, 80); if (!uuid(requestId)) return reply({ error: "A valid request is required." }, 400);
     const previewMode = clean(body.previewMode || "vercel", 40);
     if (!['vercel','n3xra_live'].includes(previewMode)) return reply({ error: "Choose a valid preview method." }, 400);
-    const requestWebsite = await admin.from("platform_support_requests").select("website_id").eq("id", requestId).single();
+    const requestWebsite = await admin.from("platform_support_requests").select("website_id,requester_user_id,origin,subject,message,assistant_summary").eq("id", requestId).single();
     if (requestWebsite.error || !requestWebsite.data?.website_id) return reply({ error: "This website request is not available." }, 404);
+    const previewAdmin = await admin.from("platform_admins").select("user_id,status").eq("user_id", user.id).eq("status", "active").maybeSingle();
+    if (previewAdmin.error) return reply({ error: previewAdmin.error.message }, 400);
     const previewWebsite = await admin.from("client_websites").select("live_preview_enabled").eq("id", requestWebsite.data.website_id).single();
     if (previewWebsite.error) return reply({ error: previewWebsite.error.message }, 400);
     if (previewMode === "n3xra_live" && !previewWebsite.data?.live_preview_enabled) return reply({ error: "Fast Live Preview is not enabled for this website yet. Use the Vercel preview or enable the website beta setting first." }, 409);
+    const clientMembership = previewAdmin.data || previewMode !== "n3xra_live" || requestWebsite.data.requester_user_id !== user.id || requestWebsite.data.origin !== "client"
+      ? null
+      : await admin.from("website_members").select("user_id").eq("website_id", requestWebsite.data.website_id).eq("user_id", user.id).eq("status", "active").maybeSingle();
+    if (clientMembership?.error) return reply({ error: clientMembership.error.message }, 400);
+    const canStartFastPreview = previewMode === "n3xra_live" && Boolean(clientMembership?.data);
+    if (!previewAdmin.data && !canStartFastPreview) return reply({ error: previewMode === "n3xra_live" ? "Only the client who submitted this request or an active N3XRA administrator can start its Fast Preview." : "Only an active N3XRA platform administrator can start a Vercel preview." }, 403);
     const staleBefore = new Date().toISOString();
     await admin.from("website_change_runs").update({ state: "failed", error_message: "The previous preview run timed out and can be retried safely.", callback_token_hash: "0".repeat(64), updated_at: new Date().toISOString() }).eq("request_id", requestId).in("state", ["queued", "coding"]).lt("callback_expires_at", staleBefore);
     const callbackToken = base64Url(crypto.getRandomValues(new Uint8Array(32)));
-    const result = await admin.rpc("claim_website_change_run", { input_request_id: requestId, input_actor_user_id: user.id, input_callback_token_hash: await sha256(callbackToken) });
+    const result = await admin.rpc("claim_website_change_run", { input_request_id: requestId, input_actor_user_id: user.id, input_callback_token_hash: await sha256(callbackToken), input_preview_mode: previewMode });
     if (result.error) return reply({ error: result.error.message }, 400); claimed = result.data;
     if (!claimed?.acquired) return reply({ ok: true, run: { id: claimed.id, request_id: claimed.request_id, state: claimed.state, branch_name: claimed.branch_name, preview_mode: claimed.preview_mode }, message: "This request already has an active preview." });
     const previewToken = previewMode === "n3xra_live" ? base64Url(crypto.getRandomValues(new Uint8Array(36))) : "";
@@ -171,10 +176,12 @@ Deno.serve(async (request) => {
     const automationRepo = clean(Deno.env.get("GITHUB_AUTOMATION_REPOSITORY") || "qjnbly-ui/n3xra.com", 200);
     if (!/^[^/\s]+\/[^/\s]+$/.test(automationRepo)) throw new Error("GitHub automation is not configured.");
     const token = await githubToken();
-    const support = await admin.from("platform_support_requests").select("subject,message,assistant_summary").eq("id", requestId).single();
     const [owner, repository] = automationRepo.split("/"), targetRepository = String(claimed.repository_full_name), targetName = targetRepository.split("/")[1];
-    const dispatch = await githubRequest(`/repos/${owner}/${repository}/dispatches`, token, { method: "POST", body: JSON.stringify({ event_type: "n3xra-website-change", client_payload: { run_id: claimed.id, target_repository: targetRepository, target_repository_name: targetName, branch: claimed.branch_name, preview_mode: previewMode, preview_url: previewUrl, upload_url: "https://www.n3xra.com/api/website-change-preview-upload", title: clean(support.data?.subject, 100), request: clean(support.data?.message, 4000), summary: clean(support.data?.assistant_summary, 500), callback_url: "https://www.n3xra.com/api/website-change-run-callback", callback_token: callbackToken } }) });
-    if (!dispatch.ok) throw new Error(`GitHub could not queue Codex (${dispatch.status}).`);
+    const dispatch = await githubRequest(`/repos/${owner}/${repository}/dispatches`, token, { method: "POST", body: JSON.stringify({ event_type: "n3xra-website-change", client_payload: { run_id: claimed.id, target_repository: targetRepository, target_repository_name: targetName, branch: claimed.branch_name, preview: { mode: previewMode, url: previewUrl, upload_url: "https://www.n3xra.com/api/website-change-preview-upload" }, title: clean(requestWebsite.data?.subject, 100), request: clean(requestWebsite.data?.message, 4000), summary: clean(requestWebsite.data?.assistant_summary, 500), callback_url: "https://www.n3xra.com/api/website-change-run-callback", callback_token: callbackToken } }) });
+    if (!dispatch.ok) {
+      const dispatchError = await dispatch.json().catch(() => ({}));
+      throw new Error(clean(dispatchError?.message || `GitHub could not queue Codex (${dispatch.status}).`, 500));
+    }
     const now = new Date().toISOString(); await admin.from("website_change_runs").update({ state: "queued", progress_stage: "queued", progress_message: previewMode === "n3xra_live" ? "The request was accepted. Codex will prepare an N3XRA-hosted live preview without starting a Vercel preview deployment." : "The request was accepted and queued in the isolated GitHub workflow.", progress_updated_at: now, updated_at: now }).eq("id", claimed.id); await admin.from("platform_support_requests").update({ automation_status: "queued", updated_at: now }).eq("id", requestId);
     return reply({ ok: true, run: { id: claimed.id, request_id: requestId, state: "queued", branch_name: claimed.branch_name, target_repository: claimed.repository_full_name, preview_mode: previewMode }, message: previewMode === "n3xra_live" ? "The N3XRA live preview is queued. No Vercel preview deployment will be created." : "The private Vercel preview is queued in GitHub. Status will update automatically." }, 202);
   } catch (error) {

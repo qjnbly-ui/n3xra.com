@@ -55,4 +55,29 @@ test("submitting creates only an awaiting-review record even when client analysi
   assert.equal(inserted.intake_mode, "ai_assisted");
   assert.equal(inserted.message, "Update our Friday hours to 9 AM–3 PM.");
   assert.equal("canAutoApply" in inserted, false);
+  assert.deepEqual(res.payload.preview, { eligible: false, started: false });
+});
+
+test("submitting to a Fast Preview website starts the isolated preview with the client's session", async () => {
+  let started;
+  const handler = createWebsiteChangeIntakeHandler({
+    identityResolver: { resolve: async () => ({ audience: "account", user: { id: "user-3", email: "client@example.com", displayName: "Client Name" }, adminRole: null }) },
+    accessibleWebsite: async () => ({ id: "22222222-2222-4222-8222-222222222222", name: "Example", organization_id: "33333333-3333-4333-8333-333333333333", live_preview_enabled: true }),
+    insertRequest: async (record) => [{ id: "44444444-4444-4444-8444-444444444444", ...record }],
+    startFastPreview: async (requestId, token) => {
+      started = { requestId, token };
+      return { run: { id: "55555555-5555-4555-8555-555555555555", state: "queued" } };
+    },
+  });
+  const res = responseRecorder();
+  await handler({ method: "POST", headers: { authorization: "Bearer client-token" }, body: {
+    action: "submit",
+    websiteId: "22222222-2222-4222-8222-222222222222",
+    request: "Make the page backgrounds consistent.",
+    analysis: { title: "Background update", summary: "Use one background treatment across every page.", changeKind: "design", changeScope: "code" },
+  } }, res);
+  assert.equal(res.statusCode, 201);
+  assert.deepEqual(started, { requestId: "44444444-4444-4444-8444-444444444444", token: "client-token" });
+  assert.equal(res.payload.preview.started, true);
+  assert.equal(res.payload.preview.run.state, "queued");
 });

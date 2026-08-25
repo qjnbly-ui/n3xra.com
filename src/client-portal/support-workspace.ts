@@ -1,7 +1,7 @@
 import { createBrowserSupabase, getSessionOrNull, hasConfig } from "/shared/lib/supabase-client.js";
 import { resolvePortalTenant, scopeWebsitesToPortalTenant } from "./tenant-context.js";
 
-interface WebsiteRow { id: string; name: string; organization_id: string | null }
+interface WebsiteRow { id: string; name: string; organization_id: string | null; live_preview_enabled?: boolean }
 interface SupportRequest {
   id: string;
   website_id: string | null;
@@ -177,6 +177,14 @@ async function loadRequests(): Promise<void> {
   render();
 }
 
+function startProgressPolling(): void {
+  window.clearInterval(progressPollTimer);
+  progressPollTimer = window.setInterval(() => {
+    const hasActiveRun = changeRuns.some((run) => ["queued", "coding", "merge_queued"].includes(run.state));
+    if (hasActiveRun && document.visibilityState === "visible") void loadRequests();
+  }, 8000);
+}
+
 async function changeApi(action: "analyze" | "submit"): Promise<any> {
   const website = currentWebsite();
   if (!website || !changeRequest) throw new Error("Choose a website before sending a change request.");
@@ -226,14 +234,21 @@ async function submitChange(): Promise<void> {
   changeSubmit.disabled = true;
   if (changeStatus) changeStatus.textContent = "Sending your request for review…";
   try {
-    await changeApi("submit");
+    const payload = await changeApi("submit");
     pendingAnalysis = null;
     if (changeForm) changeForm.reset();
     if (changeReview) changeReview.hidden = true;
     if (changeAnalyze) changeAnalyze.hidden = false;
     if (changeRequest) changeRequest.disabled = false;
-    if (changeStatus) changeStatus.textContent = "Your request was submitted. N3XRA will review it before starting a private AI preview.";
+    if (changeStatus) {
+      changeStatus.textContent = payload.preview?.started
+        ? "Your request was submitted and Codex is starting the Fast Preview now. Nothing can go live until N3XRA approves it."
+        : payload.preview?.eligible
+          ? "Your request was saved, but Fast Preview could not start automatically. N3XRA can safely retry it; your live website has not changed."
+          : "Your request was submitted. N3XRA will review it before starting a Vercel preview.";
+    }
     await loadRequests();
+    startProgressPolling();
   } catch (error) {
     if (changeStatus) changeStatus.textContent = error instanceof Error ? error.message : "The request could not be sent.";
   } finally {
@@ -273,11 +288,7 @@ async function submitRequest(event: SubmitEvent): Promise<void> {
   if (formStatus) formStatus.textContent = "";
   if (status) status.textContent = "Your request was sent to N3XRA.";
   await loadRequests();
-  window.clearInterval(progressPollTimer);
-  progressPollTimer = window.setInterval(() => {
-    const hasActiveRun = changeRuns.some((run) => ["queued", "coding", "merge_queued"].includes(run.state));
-    if (hasActiveRun && document.visibilityState === "visible") void loadRequests();
-  }, 8000);
+  startProgressPolling();
 }
 
 async function init(): Promise<void> {
@@ -286,7 +297,7 @@ async function init(): Promise<void> {
   session = await getSessionOrNull(supabase);
   if (!session?.user) return;
   const tenant = await resolvePortalTenant(supabase);
-  const { data, error } = await supabase.from("client_websites").select("id,name,organization_id").order("name");
+  const { data, error } = await supabase.from("client_websites").select("id,name,organization_id,live_preview_enabled").order("name");
   if (error) throw error;
   websites = scopeWebsitesToPortalTenant(data || [], tenant) as WebsiteRow[];
   openButton?.addEventListener("click", () => { form.hidden = false; topicInput?.focus(); });
@@ -316,6 +327,7 @@ async function init(): Promise<void> {
     render();
   }));
   await loadRequests();
+  startProgressPolling();
 }
 
 void init().catch((error: unknown) => {

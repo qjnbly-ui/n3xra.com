@@ -25,6 +25,6 @@
       const select = () => { const key = window.location.hash.slice(1); const label = labels[key]; document.querySelectorAll("[data-investment-section]").forEach((link) => link.classList.toggle("is-current", link.dataset.investmentSection === key)); if (!label) return; document.getElementById("investment-workspace-title").textContent = label; document.getElementById("investment-workspace-copy").textContent = "This workspace is reserved for the future controlled record and workflow."; document.getElementById("investment-empty-title").textContent = `${label} is not active`; document.getElementById("investment-empty-copy").textContent = "No records, controls, or workflows have been activated. This area will remain blank until the appropriate legal, accounting, and governance foundation is in place."; };
       window.addEventListener("hashchange", select); select();
     })();
-  </script><script type="module" src="/account/admin/admin.js?v=50"></script>
+  </script><script type="module" src="/account/admin/admin.js?v=51"></script>
 </body>
 </html>

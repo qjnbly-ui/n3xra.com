@@ -156,6 +156,14 @@ async function loadRequests() {
     }
     render();
 }
+function startProgressPolling() {
+    window.clearInterval(progressPollTimer);
+    progressPollTimer = window.setInterval(() => {
+        const hasActiveRun = changeRuns.some((run) => ["queued", "coding", "merge_queued"].includes(run.state));
+        if (hasActiveRun && document.visibilityState === "visible")
+            void loadRequests();
+    }, 8000);
+}
 async function changeApi(action) {
     const website = currentWebsite();
     if (!website || !changeRequest)
@@ -219,7 +227,7 @@ async function submitChange() {
     if (changeStatus)
         changeStatus.textContent = "Sending your request for review…";
     try {
-        await changeApi("submit");
+        const payload = await changeApi("submit");
         pendingAnalysis = null;
         if (changeForm)
             changeForm.reset();
@@ -229,9 +237,15 @@ async function submitChange() {
             changeAnalyze.hidden = false;
         if (changeRequest)
             changeRequest.disabled = false;
-        if (changeStatus)
-            changeStatus.textContent = "Your request was submitted. N3XRA will review it before starting a private AI preview.";
+        if (changeStatus) {
+            changeStatus.textContent = payload.preview?.started
+                ? "Your request was submitted and Codex is starting the Fast Preview now. Nothing can go live until N3XRA approves it."
+                : payload.preview?.eligible
+                    ? "Your request was saved, but Fast Preview could not start automatically. N3XRA can safely retry it; your live website has not changed."
+                    : "Your request was submitted. N3XRA will review it before starting a Vercel preview.";
+        }
         await loadRequests();
+        startProgressPolling();
     }
     catch (error) {
         if (changeStatus)
@@ -278,12 +292,7 @@ async function submitRequest(event) {
     if (status)
         status.textContent = "Your request was sent to N3XRA.";
     await loadRequests();
-    window.clearInterval(progressPollTimer);
-    progressPollTimer = window.setInterval(() => {
-        const hasActiveRun = changeRuns.some((run) => ["queued", "coding", "merge_queued"].includes(run.state));
-        if (hasActiveRun && document.visibilityState === "visible")
-            void loadRequests();
-    }, 8000);
+    startProgressPolling();
 }
 async function init() {
     if (!form || !list || !hasConfig())
@@ -293,7 +302,7 @@ async function init() {
     if (!session?.user)
         return;
     const tenant = await resolvePortalTenant(supabase);
-    const { data, error } = await supabase.from("client_websites").select("id,name,organization_id").order("name");
+    const { data, error } = await supabase.from("client_websites").select("id,name,organization_id,live_preview_enabled").order("name");
     if (error)
         throw error;
     websites = scopeWebsitesToPortalTenant(data || [], tenant);
@@ -328,6 +337,7 @@ async function init() {
         render();
     }));
     await loadRequests();
+    startProgressPolling();
 }
 void init().catch((error) => {
     if (status)

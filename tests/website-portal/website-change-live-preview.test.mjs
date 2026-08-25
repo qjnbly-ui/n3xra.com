@@ -32,22 +32,30 @@ test("live preview storage rejects traversal and rewrites root assets into the i
   assert.match(html, /src="\/website-preview\/run\/token\/logo[.]png"/);
 });
 
-test("Fast Live Preview is optional per website and preserves the Vercel fallback", async () => {
-  const [migration, workflow, edge, callback, admin, settings] = await Promise.all([
+test("Fast Live Preview auto-starts per website and preserves the Vercel fallback", async () => {
+  const [migration, autoStartMigration, workflow, edge, intake, callback, admin, settings] = await Promise.all([
     projectFile("supabase/migrations/20260825025020_add_n3xra_live_website_previews.sql"),
+    projectFile("supabase/migrations/20260825040000_auto_start_client_fast_previews.sql"),
     projectFile(".github/workflows/website-change-preview.yml"),
     projectFile("supabase/functions/website-change-automation/index.ts"),
+    projectFile("api/website-change-intake.js"),
     projectFile("api/website-change-run-callback.js"),
     projectFile("account/admin/controllers/support.js"),
     projectFile("n3xra-admin/website-portal/website-portal-admin.js"),
   ]);
   assert.match(migration, /live_preview_enabled boolean not null default false/);
   assert.match(migration, /website-change-previews[\s\S]*false/);
-  assert.match(workflow, /preview_mode == 'vercel'[\s\S]*git push origin/);
+  assert.match(workflow, /preview\.mode == 'vercel'[\s\S]*git push origin/);
   assert.match(workflow, /Build N3XRA Live Preview/);
+  assert.match(workflow, /client_payload\.preview\.mode/);
   assert.match(edge, /createLivePreviewCommit/);
   assert.match(edge, /baseCommitData[.]tree[.]sha/);
   assert.match(edge, /previewMode === "n3xra_live"/);
+  assert.match(edge, /clientMembership/);
+  assert.match(edge, /client_payload: \{ run_id:[\s\S]*preview: \{ mode:/);
+  assert.match(intake, /startFastPreview/);
+  assert.match(intake, /website\.live_preview_enabled/);
+  assert.match(autoStartMigration, /input_preview_mode text/);
   assert.match(callback, /validLivePreviewUrl/);
   assert.match(callback, /preview_token_hash/);
   assert.match(admin, /Fast Live Preview/);

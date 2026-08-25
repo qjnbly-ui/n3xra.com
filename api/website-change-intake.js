@@ -43,8 +43,22 @@ function safeAnalysis(value) {
 async function accessibleWebsite(userId, websiteId) {
   const memberships = await serviceRequest(`website_members?select=website_id&website_id=eq.${encodeURIComponent(websiteId)}&user_id=eq.${encodeURIComponent(userId)}&status=eq.active&limit=1`);
   if (!Array.isArray(memberships) || !memberships.length) return null;
-  const websites = await serviceRequest(`client_websites?select=id,name,organization_id,status&id=eq.${encodeURIComponent(websiteId)}&limit=1`);
+  const websites = await serviceRequest(`client_websites?select=id,name,organization_id,status,live_preview_enabled&id=eq.${encodeURIComponent(websiteId)}&limit=1`);
   return Array.isArray(websites) && websites[0] && websites[0].status !== "archived" ? websites[0] : null;
+}
+
+async function startFastPreview(requestId, authorizationToken, env, fetcher) {
+  const supabaseUrl = String(env.SUPABASE_URL || "https://vdbjlgmbpykjblprqnak.supabase.co").replace(/\/+$/, "");
+  const anonKey = String(env.SUPABASE_ANON_KEY || env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "").trim();
+  if (!authorizationToken || !anonKey) throw new Error("Fast Preview is not configured for this deployment.");
+  const response = await fetcher(`${supabaseUrl}/functions/v1/website-change-automation`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${authorizationToken}`, apikey: anonKey, "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "start-preview", requestId, previewMode: "n3xra_live" }),
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(clean(payload?.error || `Fast Preview could not start (${response.status}).`, 500));
+  return payload;
 }
 
 function createWebsiteChangeIntakeHandler(options = {}) {
@@ -53,6 +67,7 @@ function createWebsiteChangeIntakeHandler(options = {}) {
   const analyze = options.analyze || ((request) => analyzeWebsiteChange(request, { env, fetcher }));
   const identityResolver = options.identityResolver || new IdentityResolver(env, { fetcher });
   const findWebsite = options.accessibleWebsite || accessibleWebsite;
+  const beginFastPreview = options.startFastPreview || ((requestId, token) => startFastPreview(requestId, token, env, fetcher));
   const insertRequest = options.insertRequest || ((record) => serviceRequest("platform_support_requests", {
     method: "POST",
     headers: { Prefer: "return=representation" },
@@ -68,7 +83,8 @@ function createWebsiteChangeIntakeHandler(options = {}) {
     try {
       const rawBody = typeof req.body === "string" ? req.body : JSON.stringify(req.body || {});
       if (Buffer.byteLength(rawBody, "utf8") > MAX_BODY_BYTES) return res.status(413).json({ error: "Request body is too large." });
-      const identity = await identityResolver.resolve(getAuthorizationToken(req.headers || {}));
+      const authorizationToken = getAuthorizationToken(req.headers || {});
+      const identity = await identityResolver.resolve(authorizationToken);
       if (!identity.user) return res.status(401).json({ error: "Authentication required." });
       if (limited(identity.user.id)) return res.status(429).json({ error: "Too many requests. Please wait a minute and try again." });
       const body = parseBody(req);
@@ -104,7 +120,18 @@ function createWebsiteChangeIntakeHandler(options = {}) {
         automation_status: "awaiting_review",
         assistant_summary: analysis.summary,
       });
-      return res.status(201).json({ ok: true, request: Array.isArray(inserted) ? inserted[0] : inserted });
+      const createdRequest = Array.isArray(inserted) ? inserted[0] : inserted;
+      let preview = { eligible: Boolean(website.live_preview_enabled), started: false };
+      if (website.live_preview_enabled && createdRequest?.id) {
+        try {
+          const result = await beginFastPreview(createdRequest.id, authorizationToken);
+          preview = { eligible: true, started: true, run: result?.run || null };
+        } catch (error) {
+          console.error("Fast Preview could not start after website request intake.", error);
+          preview = { eligible: true, started: false, error: safeErrorMessage(error, "Fast Preview could not start automatically.") };
+        }
+      }
+      return res.status(201).json({ ok: true, request: createdRequest, preview });
     } catch (error) {
       return res.status(Number(error?.status || 500)).json({ error: safeErrorMessage(error, "The website request could not be prepared.") });
     }

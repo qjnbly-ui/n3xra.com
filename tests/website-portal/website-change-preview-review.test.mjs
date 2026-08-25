@@ -59,7 +59,7 @@ test("the automation edge separates client preview creation from admin merge app
   assert.match(edge, /action !== "start-preview"/);
 });
 
-test("clients submit for review while admins control preview creation and merge approval", async () => {
+test("Fast Preview starts on client submission while admins retain Vercel-start and merge approval", async () => {
   const [client, clientStyles, clientPage, admin, adminLoader, adminShell] = await Promise.all([
     projectFile("src/client-portal/support-workspace.ts"),
     projectFile("client-portal/support-workspace.css"),
@@ -70,7 +70,7 @@ test("clients submit for review while admins control preview creation and merge 
   ]);
   assert.match(client, /Open private preview/);
   assert.match(client, /Nothing is live until N3XRA approves it/);
-  assert.match(client, /N3XRA will review it before starting a private AI preview/);
+  assert.match(client, /Codex is starting the Fast Preview now/);
   assert.doesNotMatch(client, /action: "start-preview"/);
   assert.doesNotMatch(client, /data-retry-preview/);
   assert.doesNotMatch(client, /approve-merge/);
@@ -82,6 +82,7 @@ test("clients submit for review while admins control preview creation and merge 
   assert.match(clientPage, /support-workspace\.css\?v=5/);
   assert.doesNotMatch(client, /Attempt \$\{escapeHtml\(changeRun\.attempt_number\)\}/);
   assert.match(admin, /Approve &amp; Start AI Preview/);
+  assert.match(admin, /Normally starts automatically when the client submits/);
   assert.match(admin, /invokeWebsiteAutomation\("start-preview"/);
   assert.match(admin, /Approve and merge to main/);
   assert.match(adminShell, /error\.context[\s\S]*response\?\.error/);
@@ -91,15 +92,17 @@ test("clients submit for review while admins control preview creation and merge 
   assert.match(adminLoader, /changeRuns:/);
 });
 
-test("only an active platform administrator can start an AI preview", async () => {
+test("Vercel preview start remains admin-only while request owners may start enabled Fast Preview", async () => {
   const [edge, migration] = await Promise.all([
     projectFile("supabase/functions/website-change-automation/index.ts"),
-    projectFile("supabase/migrations/20260824171623_gate_website_ai_preview_and_use_connected_repository.sql"),
+    projectFile("supabase/migrations/20260825040000_auto_start_client_fast_previews.sql"),
   ]);
   assert.match(edge, /action !== "start-preview"/);
   assert.match(edge, /previewAdmin[\s\S]*platform_admins[\s\S]*eq\("status", "active"\)/);
-  assert.match(edge, /Only an active N3XRA platform administrator can start an AI preview/);
-  assert.match(migration, /platform_admins administrator[\s\S]*administrator\.status = 'active'/);
+  assert.match(edge, /Only an active N3XRA platform administrator can start a Vercel preview/);
+  assert.match(edge, /clientMembership[\s\S]*website_members/);
+  assert.match(migration, /input_preview_mode = 'vercel'[\s\S]*not actor_is_admin/);
+  assert.match(migration, /input_preview_mode = 'n3xra_live'[\s\S]*request_record\.requester_user_id = input_actor_user_id[\s\S]*website_members/);
   assert.match(migration, /website_repositories repository[\s\S]*repository\.provider = 'github'/);
   assert.match(migration, /coalesce\([\s\S]*website_record\.repository_full_name/);
 });
