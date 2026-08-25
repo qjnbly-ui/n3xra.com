@@ -60,8 +60,10 @@ test("the automation edge separates client preview creation from admin merge app
 });
 
 test("clients submit for review while admins control preview creation and merge approval", async () => {
-  const [client, admin, adminLoader, adminShell] = await Promise.all([
+  const [client, clientStyles, clientPage, admin, adminLoader, adminShell] = await Promise.all([
     projectFile("src/client-portal/support-workspace.ts"),
+    projectFile("client-portal/support-workspace.css"),
+    projectFile("client-portal/index.html"),
     projectFile("account/admin/controllers/support.js"),
     projectFile("supabase/functions/platform-admin/index.ts"),
     projectFile("account/admin/admin.js"),
@@ -74,6 +76,10 @@ test("clients submit for review while admins control preview creation and merge 
   assert.doesNotMatch(client, /approve-merge/);
   assert.match(client, /The work continues securely in GitHub/);
   assert.match(client, /client-change-progress/);
+  assert.match(clientStyles, /grid-template-columns:repeat\(6,minmax\(0,1fr\)\)/);
+  assert.match(clientStyles, /@media\(max-width:900px\)[\s\S]*grid-template-columns:1fr/);
+  assert.match(clientStyles, /\.client-change-run \.portal-button\{width:100%/);
+  assert.match(clientPage, /support-workspace\.css\?v=5/);
   assert.doesNotMatch(client, /Attempt \$\{escapeHtml\(changeRun\.attempt_number\)\}/);
   assert.match(admin, /Approve &amp; Start AI Preview/);
   assert.match(admin, /invokeWebsiteAutomation\("start-preview"/);
