@@ -11,9 +11,9 @@
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&amp;family=Manrope:wght@400;600;700;800&amp;display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/site-nav.css?v=4">
   <link rel="stylesheet" href="/client-portal/portal.css?v=17">
-  <link rel="stylesheet" href="/account/admin/admin.css?v=33">
+  <link rel="stylesheet" href="/account/admin/admin.css?v=34">
   <link rel="stylesheet" href="/n3xra-admin/website-admin.css?v=20">
-  <link rel="stylesheet" href="/n3xra-admin/website-portal/website-portal-admin.css?v=6">
+  <link rel="stylesheet" href="/n3xra-admin/website-portal/website-portal-admin.css?v=7">
   <script src="/shared/config.js"></script><script src="/account/admin/admin-shell.js?v=2" defer></script><script src="/assets/site-nav.js?v=5"></script>
   <script type="module" src="/account/admin/product-shell.js?v=17"></script>
   <script type="module" src="/n3xra-admin/website-admin-workspace.js?v=15"></script>
@@ -122,6 +122,7 @@
               <div class="website-portal-feature-tools">
                 <label><span><strong>Analytics</strong><small>Private traffic reports in the client portal</small></span><input data-portal-feature type="checkbox" value="analytics"><i></i></label>
                 <label><span><strong>Public counter</strong><small>Optional traffic total placed on the public website</small></span><input id="portal-public-counter-enabled" type="checkbox"><i></i></label>
+                <label><span><strong>Fast Live Preview <small class="portal-beta-label">Beta</small></strong><small>Review AI website edits without a Vercel preview deployment</small></span><input id="portal-live-preview-enabled" type="checkbox"><i></i></label>
               </div>
             </div>
             <details class="website-portal-counter-details" id="portal-public-counter-details" open hidden>
@@ -144,7 +145,7 @@
               </div>
             </details>
             <div class="website-portal-feature-footer">
-              <p class="website-portal-feature-note"><strong>Saved automatically:</strong> Switches and public-counter details are saved as you change them. Analytics securely connects to Vercel and preserves completed daily totals in Supabase.</p>
+              <p class="website-portal-feature-note"><strong>Saved automatically:</strong> Switches and public-counter details are saved as you change them. Fast Live Preview remains optional, and the existing Vercel preview stays available as a fallback.</p>
               <span class="website-portal-autosave-state" id="portal-feature-save-state" role="status" aria-live="polite">Up to date</span>
             </div>
           </section>
@@ -189,6 +190,6 @@
   </dialog>
   <div class="portal-status" id="portal-status" role="status">Opening Website Portal setup…</div>
   <script type="module" src="/client-portal/portal-shell.js?v=6"></script>
-  <script type="module" src="/n3xra-admin/website-portal/website-portal-admin.js?v=13"></script>
+  <script type="module" src="/n3xra-admin/website-portal/website-portal-admin.js?v=14"></script>
 </body>
 </html>

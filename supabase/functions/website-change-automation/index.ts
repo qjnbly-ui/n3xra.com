@@ -9,6 +9,7 @@ const der = (tag: number, value: Uint8Array) => join(new Uint8Array([tag]), derL
 const pem = (value: string) => Uint8Array.from(atob(value.replace(/-----BEGIN [^-]+-----|-----END [^-]+-----|\s/g, "")), (character) => character.charCodeAt(0));
 const privateKey = (value: string) => value.includes("BEGIN RSA PRIVATE KEY") ? der(0x30, join(new Uint8Array([2,1,0]), new Uint8Array([0x30,0x0d,0x06,0x09,0x2a,0x86,0x48,0x86,0xf7,0x0d,0x01,0x01,0x01,0x05,0]), der(0x04, pem(value)))) : pem(value);
 const base64Url = (value: string | Uint8Array) => { const input = typeof value === "string" ? new TextEncoder().encode(value) : value; let binary = ""; input.forEach((byte) => binary += String.fromCharCode(byte)); return btoa(binary).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_"); };
+const base64 = (value: Uint8Array) => { let output = ""; for (let offset = 0; offset < value.length; offset += 32768) output += String.fromCharCode(...value.subarray(offset, offset + 32768)); return btoa(output); };
 const hex = (value: Uint8Array) => [...value].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 async function sha256(value: string) { return hex(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value)))); }
 async function appJwt(id: string, keyText: string) {
@@ -34,6 +35,42 @@ async function githubToken() {
 async function githubRequest(path: string, token: string, init: RequestInit = {}) {
   return fetch(`https://api.github.com${path}`, { ...init, headers: { Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json", "Content-Type": "application/json", "X-GitHub-Api-Version": "2022-11-28", ...(init.headers || {}) } });
 }
+async function createLivePreviewCommit(admin: any, run: Record<string, any>, token: string, owner: string, repo: string, base: string) {
+  if (!/^[0-9a-f]{40}$/.test(String(run.base_sha || "")) || !run.source_manifest_path) throw new Error("The reviewed live preview is missing its source snapshot.");
+  const refResponse = await githubRequest(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/ref/heads/${encodeURIComponent(base)}`, token);
+  const refData = await refResponse.json();
+  if (!refResponse.ok || refData?.object?.sha !== run.base_sha) throw new Error("The website changed after this live preview was created. Start a new preview before publishing.");
+  const baseCommitResponse = await githubRequest(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/commits/${run.base_sha}`, token);
+  const baseCommitData = await baseCommitResponse.json();
+  if (!baseCommitResponse.ok || !baseCommitData?.tree?.sha) throw new Error("GitHub could not verify the reviewed website snapshot.");
+  const manifestDownload = await admin.storage.from("website-change-previews").download(run.source_manifest_path);
+  if (manifestDownload.error || !manifestDownload.data) throw new Error("The reviewed live preview snapshot could not be loaded.");
+  const manifest = JSON.parse(await manifestDownload.data.text());
+  const changes = Array.isArray(manifest?.changes) ? manifest.changes : [];
+  if (!changes.length || changes.length > 100 || manifest.baseSha !== run.base_sha) throw new Error("The reviewed live preview snapshot is invalid.");
+  const tree: Record<string, unknown>[] = [];
+  for (const change of changes) {
+    const filePath = String(change?.path || "");
+    if (!filePath || filePath.startsWith("/") || filePath.split("/").some((part) => !part || part === "." || part === "..")) throw new Error("The live preview contains an invalid file path.");
+    if (change.status === "D") { tree.push({ path: filePath, mode: "100644", type: "blob", sha: null }); continue; }
+    if (!['A','M'].includes(change.status) || !['100644','100755','120000'].includes(change.mode)) throw new Error("The live preview contains an unsupported source change.");
+    const source = await admin.storage.from("website-change-previews").download(`runs/${run.id}/source/${filePath}`);
+    if (source.error || !source.data) throw new Error(`The reviewed source file ${filePath} is unavailable.`);
+    const blobResponse = await githubRequest(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/blobs`, token, { method: "POST", body: JSON.stringify({ content: base64(new Uint8Array(await source.data.arrayBuffer())), encoding: "base64" }) });
+    const blobData = await blobResponse.json();
+    if (!blobResponse.ok || !blobData?.sha) throw new Error(`GitHub could not store ${filePath}.`);
+    tree.push({ path: filePath, mode: change.mode, type: "blob", sha: blobData.sha });
+  }
+  const treeResponse = await githubRequest(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/trees`, token, { method: "POST", body: JSON.stringify({ base_tree: baseCommitData.tree.sha, tree }) });
+  const treeData = await treeResponse.json();
+  if (!treeResponse.ok || !treeData?.sha) throw new Error("GitHub could not assemble the reviewed live preview.");
+  const commitResponse = await githubRequest(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/commits`, token, { method: "POST", body: JSON.stringify({ message: `Approve website change: ${run.request_id}`, tree: treeData.sha, parents: [run.base_sha] }) });
+  const commitData = await commitResponse.json();
+  if (!commitResponse.ok || !commitData?.sha) throw new Error("GitHub could not create the approved website commit.");
+  const updateResponse = await githubRequest(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/refs/heads/${encodeURIComponent(base)}`, token, { method: "PATCH", body: JSON.stringify({ sha: commitData.sha, force: false }) });
+  if (!updateResponse.ok) throw new Error("GitHub could not publish the approved commit to the main branch.");
+  return commitData.sha;
+}
 Deno.serve(async (request) => {
   if (request.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (request.method !== "POST") return reply({ error: "Method not allowed." }, 405);
@@ -51,11 +88,13 @@ Deno.serve(async (request) => {
       const platformAdmin = await admin.from("platform_admins").select("user_id,status").eq("user_id", user.id).eq("status", "active").maybeSingle();
       if (platformAdmin.error) return reply({ error: platformAdmin.error.message }, 400);
       if (!platformAdmin.data) return reply({ error: "Only an active N3XRA platform administrator can approve a merge." }, 403);
-      const runResult = await admin.from("website_change_runs").select("id,request_id,website_id,state,branch_name,head_sha,target_repository").eq("id", runId).single();
+      const runResult = await admin.from("website_change_runs").select("id,request_id,website_id,state,branch_name,head_sha,target_repository,preview_mode,preview_expires_at,base_sha,source_manifest_path").eq("id", runId).single();
       if (runResult.error || !runResult.data) return reply({ error: "Preview run not found." }, 404);
       const run = runResult.data;
       if (run.state === "merged") return reply({ ok: true, run: { id: run.id, state: "merged" }, message: "This preview is already on the live branch." });
       if (!['preview_ready','client_ready'].includes(run.state) || !run.head_sha) return reply({ error: "This preview is not ready to merge." }, 409);
+      const previewExpiresAt = Date.parse(run.preview_expires_at || "");
+      if (run.preview_mode === "n3xra_live" && (!Number.isFinite(previewExpiresAt) || previewExpiresAt <= Date.now())) return reply({ error: "This live preview expired. Start and review a new preview before publishing." }, 409);
       const websiteResult = await admin.from("client_websites").select("repository_full_name").eq("id", run.website_id).single();
       const connectedRepositoryResult = await admin.from("website_repositories").select("full_name").eq("website_id", run.website_id).eq("provider", "github").neq("access_status", "transferred").order("updated_at", { ascending: false }).order("created_at", { ascending: false }).limit(1).maybeSingle();
       const provisionResult = await admin.from("website_provisioning_runs").select("repository_default_branch").eq("website_id", run.website_id).not("repository_default_branch", "is", null).order("created_at", { ascending: false }).limit(1).maybeSingle();
@@ -63,60 +102,81 @@ Deno.serve(async (request) => {
       if (!/^[^/\s]+\/[^/\s]+$/.test(repository) || !base) return reply({ error: "The website repository is not ready for approval." }, 409);
       const token = await githubToken();
       const [owner, repo] = repository.split("/");
-      const branchResponse = await githubRequest(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/branches/${encodeURIComponent(run.branch_name)}`, token);
-      const branchData = await branchResponse.json();
-      if (!branchResponse.ok || branchData?.commit?.sha !== run.head_sha) return reply({ error: "The preview branch changed after review. Generate and review a new preview before merging." }, 409);
+      if (run.preview_mode === "vercel") {
+        const branchResponse = await githubRequest(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/branches/${encodeURIComponent(run.branch_name)}`, token);
+        const branchData = await branchResponse.json();
+        if (!branchResponse.ok || branchData?.commit?.sha !== run.head_sha) return reply({ error: "The preview branch changed after review. Generate and review a new preview before merging." }, 409);
+      }
       const mergeClaim = await admin.from("website_change_runs").update({ state: "merge_queued", approved_by_user_id: user.id, approved_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", run.id).in("state", ["preview_ready", "client_ready"]).select("id").maybeSingle();
       if (mergeClaim.error || !mergeClaim.data) return reply({ error: "This preview is already being approved." }, 409);
       mergeRunId = run.id;
-      const mergeResponse = await githubRequest(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/merges`, token, { method: "POST", body: JSON.stringify({ base, head: run.branch_name, commit_message: `Approve website change: ${run.request_id}` }) });
-      const mergeData = await mergeResponse.json();
-      if (!mergeResponse.ok || !mergeData?.sha) {
-        await admin.from("website_change_runs").update({ state: "preview_ready", error_message: clean(mergeData?.message || "GitHub could not merge the reviewed preview.", 2000), updated_at: new Date().toISOString() }).eq("id", run.id).eq("state", "merge_queued");
-        mergeRunId = "";
-        return reply({ error: clean(mergeData?.message || "GitHub could not merge the reviewed preview.", 500) }, mergeResponse.status === 409 ? 409 : 502);
+      let mergeSha = "";
+      if (run.preview_mode === "n3xra_live") mergeSha = await createLivePreviewCommit(admin, run, token, owner, repo, base);
+      else {
+        const mergeResponse = await githubRequest(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/merges`, token, { method: "POST", body: JSON.stringify({ base, head: run.branch_name, commit_message: `Approve website change: ${run.request_id}` }) });
+        const mergeData = await mergeResponse.json();
+        if (!mergeResponse.ok || !mergeData?.sha) {
+          await admin.from("website_change_runs").update({ state: "preview_ready", error_message: clean(mergeData?.message || "GitHub could not merge the reviewed preview.", 2000), updated_at: new Date().toISOString() }).eq("id", run.id).eq("state", "merge_queued");
+          mergeRunId = "";
+          return reply({ error: clean(mergeData?.message || "GitHub could not merge the reviewed preview.", 500) }, mergeResponse.status === 409 ? 409 : 502);
+        }
+        mergeSha = mergeData.sha;
       }
       const now = new Date().toISOString();
       const productionCallbackToken = base64Url(crypto.getRandomValues(new Uint8Array(32)));
-      await admin.from("website_change_runs").update({ state: "merged", merge_sha: mergeData.sha, progress_stage: "production_deploying", progress_message: "The approved change is on the main branch. Vercel is building the production website now.", progress_updated_at: now, error_message: null, approved_by_user_id: user.id, approved_at: now, merged_at: now, callback_token_hash: await sha256(productionCallbackToken), callback_expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString(), updated_at: now }).eq("id", run.id);
+      const mergedUpdate: Record<string, unknown> = { state: "merged", merge_sha: mergeSha, progress_stage: "production_deploying", progress_message: "The approved change is on the main branch. Vercel is building the production website now.", progress_updated_at: now, error_message: null, approved_by_user_id: user.id, approved_at: now, merged_at: now, callback_token_hash: await sha256(productionCallbackToken), callback_expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString(), updated_at: now };
+      if (run.preview_mode === "n3xra_live") mergedUpdate.preview_token_hash = null;
+      await admin.from("website_change_runs").update(mergedUpdate).eq("id", run.id);
       await admin.from("platform_support_requests").update({ status: "in_progress", automation_status: "running", resolved_at: null, updated_at: now }).eq("id", run.request_id);
 
       const automationRepository = clean(Deno.env.get("GITHUB_AUTOMATION_REPOSITORY") || "qjnbly-ui/n3xra.com", 200);
       const [automationOwner, automationName] = automationRepository.split("/");
       const productionDispatch = await githubRequest(`/repos/${encodeURIComponent(automationOwner)}/${encodeURIComponent(automationName)}/dispatches`, token, {
         method: "POST",
-        body: JSON.stringify({ event_type: "n3xra-website-publish", client_payload: { run_id: run.id, target_repository: repository, target_repository_name: repo, target_branch: base, merge_sha: mergeData.sha, callback_url: "https://www.n3xra.com/api/website-change-run-callback", callback_token: productionCallbackToken } }),
+        body: JSON.stringify({ event_type: "n3xra-website-publish", client_payload: { run_id: run.id, target_repository: repository, target_repository_name: repo, target_branch: base, merge_sha: mergeSha, callback_url: "https://www.n3xra.com/api/website-change-run-callback", callback_token: productionCallbackToken } }),
       });
       if (!productionDispatch.ok) {
         const dispatchError = `GitHub could not start production verification (${productionDispatch.status}).`;
         await admin.from("website_change_runs").update({ progress_stage: "production_failed", progress_message: dispatchError, error_message: dispatchError, callback_token_hash: "0".repeat(64), updated_at: now }).eq("id", run.id);
         await admin.from("platform_support_requests").update({ automation_status: "failed", updated_at: now }).eq("id", run.request_id);
         mergeRunId = "";
-        return reply({ ok: true, warning: dispatchError, run: { id: run.id, state: "merged", merge_sha: mergeData.sha }, message: "The change was merged, but production verification needs attention." });
+        return reply({ ok: true, warning: dispatchError, run: { id: run.id, state: "merged", merge_sha: mergeSha }, message: "The change was merged, but production verification needs attention." });
       }
       mergeRunId = "";
-      return reply({ ok: true, run: { id: run.id, state: "merged", merge_sha: mergeData.sha, progress_stage: "production_deploying" }, message: `The reviewed change was merged into ${base}. Vercel is building production now.` });
+      return reply({ ok: true, run: { id: run.id, state: "merged", merge_sha: mergeSha, progress_stage: "production_deploying" }, message: `The reviewed change was published to ${base}. Vercel is building production now.` });
     }
     if (action !== "start-preview") return reply({ error: "Choose a valid website automation action." }, 400);
     const previewAdmin = await admin.from("platform_admins").select("user_id,status").eq("user_id", user.id).eq("status", "active").maybeSingle();
     if (previewAdmin.error) return reply({ error: previewAdmin.error.message }, 400);
     if (!previewAdmin.data) return reply({ error: "Only an active N3XRA platform administrator can start an AI preview." }, 403);
     const requestId = clean(body.requestId, 80); if (!uuid(requestId)) return reply({ error: "A valid request is required." }, 400);
+    const previewMode = clean(body.previewMode || "vercel", 40);
+    if (!['vercel','n3xra_live'].includes(previewMode)) return reply({ error: "Choose a valid preview method." }, 400);
+    const requestWebsite = await admin.from("platform_support_requests").select("website_id").eq("id", requestId).single();
+    if (requestWebsite.error || !requestWebsite.data?.website_id) return reply({ error: "This website request is not available." }, 404);
+    const previewWebsite = await admin.from("client_websites").select("live_preview_enabled").eq("id", requestWebsite.data.website_id).single();
+    if (previewWebsite.error) return reply({ error: previewWebsite.error.message }, 400);
+    if (previewMode === "n3xra_live" && !previewWebsite.data?.live_preview_enabled) return reply({ error: "Fast Live Preview is not enabled for this website yet. Use the Vercel preview or enable the website beta setting first." }, 409);
     const staleBefore = new Date().toISOString();
     await admin.from("website_change_runs").update({ state: "failed", error_message: "The previous preview run timed out and can be retried safely.", callback_token_hash: "0".repeat(64), updated_at: new Date().toISOString() }).eq("request_id", requestId).in("state", ["queued", "coding"]).lt("callback_expires_at", staleBefore);
     const callbackToken = base64Url(crypto.getRandomValues(new Uint8Array(32)));
     const result = await admin.rpc("claim_website_change_run", { input_request_id: requestId, input_actor_user_id: user.id, input_callback_token_hash: await sha256(callbackToken) });
     if (result.error) return reply({ error: result.error.message }, 400); claimed = result.data;
-    if (!claimed?.acquired) return reply({ ok: true, run: { id: claimed.id, request_id: claimed.request_id, state: claimed.state, branch_name: claimed.branch_name }, message: "This request already has an active preview." });
+    if (!claimed?.acquired) return reply({ ok: true, run: { id: claimed.id, request_id: claimed.request_id, state: claimed.state, branch_name: claimed.branch_name, preview_mode: claimed.preview_mode }, message: "This request already has an active preview." });
+    const previewToken = previewMode === "n3xra_live" ? base64Url(crypto.getRandomValues(new Uint8Array(36))) : "";
+    const previewUrl = previewMode === "n3xra_live" ? `https://www.n3xra.com/website-preview/${claimed.id}/${previewToken}/` : null;
+    const previewExpiry = previewMode === "n3xra_live" ? new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString() : null;
+    const modeUpdate = await admin.from("website_change_runs").update({ preview_mode: previewMode, preview_token_hash: previewToken ? await sha256(previewToken) : null, preview_expires_at: previewExpiry, preview_url: null, source_manifest_path: previewMode === "n3xra_live" ? `runs/${claimed.id}/source/manifest.json` : null, updated_at: new Date().toISOString() }).eq("id", claimed.id).select("id").single();
+    if (modeUpdate.error) throw new Error(modeUpdate.error.message);
     const automationRepo = clean(Deno.env.get("GITHUB_AUTOMATION_REPOSITORY") || "qjnbly-ui/n3xra.com", 200);
     if (!/^[^/\s]+\/[^/\s]+$/.test(automationRepo)) throw new Error("GitHub automation is not configured.");
     const token = await githubToken();
     const support = await admin.from("platform_support_requests").select("subject,message,assistant_summary").eq("id", requestId).single();
     const [owner, repository] = automationRepo.split("/"), targetRepository = String(claimed.repository_full_name), targetName = targetRepository.split("/")[1];
-    const dispatch = await githubRequest(`/repos/${owner}/${repository}/dispatches`, token, { method: "POST", body: JSON.stringify({ event_type: "n3xra-website-change", client_payload: { run_id: claimed.id, target_repository: targetRepository, target_repository_name: targetName, branch: claimed.branch_name, title: clean(support.data?.subject, 100), request: clean(support.data?.message, 4000), summary: clean(support.data?.assistant_summary, 500), callback_url: "https://www.n3xra.com/api/website-change-run-callback", callback_token: callbackToken } }) });
+    const dispatch = await githubRequest(`/repos/${owner}/${repository}/dispatches`, token, { method: "POST", body: JSON.stringify({ event_type: "n3xra-website-change", client_payload: { run_id: claimed.id, target_repository: targetRepository, target_repository_name: targetName, branch: claimed.branch_name, preview_mode: previewMode, preview_url: previewUrl, upload_url: "https://www.n3xra.com/api/website-change-preview-upload", title: clean(support.data?.subject, 100), request: clean(support.data?.message, 4000), summary: clean(support.data?.assistant_summary, 500), callback_url: "https://www.n3xra.com/api/website-change-run-callback", callback_token: callbackToken } }) });
     if (!dispatch.ok) throw new Error(`GitHub could not queue Codex (${dispatch.status}).`);
-    const now = new Date().toISOString(); await admin.from("website_change_runs").update({ state: "queued", progress_stage: "queued", progress_message: "The request was accepted and queued in the isolated GitHub workflow.", progress_updated_at: now, updated_at: now }).eq("id", claimed.id); await admin.from("platform_support_requests").update({ automation_status: "queued", updated_at: now }).eq("id", requestId);
-    return reply({ ok: true, run: { id: claimed.id, request_id: requestId, state: "queued", branch_name: claimed.branch_name, target_repository: claimed.repository_full_name }, message: "The private preview request is queued in GitHub. Status will update automatically." }, 202);
+    const now = new Date().toISOString(); await admin.from("website_change_runs").update({ state: "queued", progress_stage: "queued", progress_message: previewMode === "n3xra_live" ? "The request was accepted. Codex will prepare an N3XRA-hosted live preview without starting a Vercel preview deployment." : "The request was accepted and queued in the isolated GitHub workflow.", progress_updated_at: now, updated_at: now }).eq("id", claimed.id); await admin.from("platform_support_requests").update({ automation_status: "queued", updated_at: now }).eq("id", requestId);
+    return reply({ ok: true, run: { id: claimed.id, request_id: requestId, state: "queued", branch_name: claimed.branch_name, target_repository: claimed.repository_full_name, preview_mode: previewMode }, message: previewMode === "n3xra_live" ? "The N3XRA live preview is queued. No Vercel preview deployment will be created." : "The private Vercel preview is queued in GitHub. Status will update automatically." }, 202);
   } catch (error) {
     if (claimed?.id && admin) { const message = error instanceof Error ? error.message : "Unable to start the preview."; const now = new Date().toISOString(); await admin.from("website_change_runs").update({ state: "failed", progress_stage: "failed", progress_message: message, failure_stage: "queued", progress_updated_at: now, error_message: message, callback_token_hash: "0".repeat(64), updated_at: now }).eq("id", claimed.id); }
     if (mergeRunId && admin) { const message = error instanceof Error ? error.message : "Unable to merge the preview."; await admin.from("website_change_runs").update({ state: "preview_ready", error_message: clean(message, 2000), updated_at: new Date().toISOString() }).eq("id", mergeRunId).eq("state", "merge_queued"); }

@@ -218,6 +218,14 @@
   ],
   "rewrites": [
     {
+      "source": "/website-preview/:run/:token",
+      "destination": "/api/website-change-live-preview?run=:run&token=:token&path=index.html"
+    },
+    {
+      "source": "/website-preview/:run/:token/:path*",
+      "destination": "/api/website-change-live-preview?run=:run&token=:token&path=:path*"
+    },
+    {
       "source": "/n3xra-records",
       "destination": "/n3xra-records/index.html"
     },

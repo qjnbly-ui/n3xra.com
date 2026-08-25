@@ -152,6 +152,7 @@ async function directAnalysis(website) {
     heading_font: branding.heading_font || DEFAULT_BRAND.heading_font,
     body_font: branding.body_font || DEFAULT_BRAND.body_font,
     powered_by_label: branding.powered_by_label ?? DEFAULT_BRAND.powered_by_label,
+    live_preview_enabled: Boolean(website.live_preview_enabled),
     features,
     public_counter: { ...COUNTER_DEFAULTS, ...(counterResult.data || {}) },
   };
@@ -170,7 +171,7 @@ async function directAnalysis(website) {
   const requiredReady = connections.filter((item) => item.required).every((item) => ["connected", "default"].includes(item.state));
   const completed = connections.filter((item) => ["connected", "recorded", "default"].includes(item.state)).length;
   return {
-    website: { id: website.id, name: website.name, status: website.status, live_url: website.live_url, portal_enabled: Boolean(website.portal_enabled), portal_slug: portalSlug, organization_id: website.organization_id || null },
+    website: { id: website.id, name: website.name, status: website.status, live_url: website.live_url, portal_enabled: Boolean(website.portal_enabled), live_preview_enabled: Boolean(website.live_preview_enabled), portal_slug: portalSlug, organization_id: website.organization_id || null },
     project: projectResult.data || null,
     proposed,
     assets,
@@ -208,6 +209,7 @@ function applyValues(values, { force = false } = {}) {
   byId("portal-body-font").value = values.body_font || DEFAULT_BRAND.body_font;
   byId("portal-powered-by").value = values.powered_by_label ?? DEFAULT_BRAND.powered_by_label;
   featureGrid.querySelectorAll("input[data-portal-feature]").forEach((input) => { input.checked = values.features?.[input.value] ?? true; });
+  byId("portal-live-preview-enabled").checked = Boolean(values.live_preview_enabled ?? selectedWebsite?.live_preview_enabled);
   const counter = { ...COUNTER_DEFAULTS, ...(values.public_counter || {}) };
   byId("portal-public-counter-enabled").checked = Boolean(counter.enabled);
   byId("portal-public-counter-metric").value = counter.metric;
@@ -517,7 +519,10 @@ function settingsPayload() {
   const domainName = normalizeHostname(byId("portal-domain").value);
   return {
     domainName,
-    website: { portal_theme_id: byId("portal-theme").value },
+    website: {
+      portal_theme_id: byId("portal-theme").value,
+      live_preview_enabled: byId("portal-live-preview-enabled").checked,
+    },
     branding: {
       website_id: selectedWebsite.id,
       logo_asset_id: byId("portal-logo-asset").value || null,
@@ -558,6 +563,11 @@ async function persistAccessSettings(payload, { connect = false } = {}) {
   }
   const featureResult = await supabase.from("website_portal_features").upsert(payload.features, { onConflict: "website_id,feature_key" });
   if (featureResult.error) throw featureResult.error;
+  const websiteResult = await supabase.from("client_websites")
+    .update({ live_preview_enabled: Boolean(payload.website.live_preview_enabled) })
+    .eq("id", selectedWebsite.id);
+  if (websiteResult.error) throw websiteResult.error;
+  selectedWebsite.live_preview_enabled = Boolean(payload.website.live_preview_enabled);
   const counterResult = await supabase.from("website_public_traffic_counters")
     .upsert(payload.publicCounter, { onConflict: "website_id" })
     .select("public_key,enabled,metric,label")
@@ -623,6 +633,7 @@ async function saveSettings({ enabled = selectedWebsite?.portal_enabled, success
   if (counterResult.error) throw counterResult.error;
   selectedWebsite.portal_enabled = Boolean(enabled);
   selectedWebsite.portal_theme_id = payload.website.portal_theme_id;
+  selectedWebsite.live_preview_enabled = Boolean(payload.website.live_preview_enabled);
   formDirty = false;
   message(success);
   await loadBaseData(selectedWebsite.id, { keepVisible: true });
@@ -658,7 +669,7 @@ async function activate(enabled) {
 
 async function loadBaseData(preferredId, { keepVisible = false } = {}) {
   const [websiteResult, domainResult] = await Promise.all([
-    supabase.from("client_websites").select("id,name,slug,portal_slug,organization_id,status,live_url,repository_full_name,portal_enabled,portal_theme_id").order("name"),
+    supabase.from("client_websites").select("id,name,slug,portal_slug,organization_id,status,live_url,repository_full_name,portal_enabled,portal_theme_id,live_preview_enabled").order("name"),
     supabase.from("website_domains").select("id,website_id,domain_name,domain_purpose,status,is_primary").order("is_primary", { ascending: false }),
   ]);
   if (websiteResult.error) throw websiteResult.error;

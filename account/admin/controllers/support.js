@@ -110,7 +110,9 @@ function changeRunPresentation(run) {
     queued: ["Queued in GitHub", "The request was accepted and is waiting for the isolated GitHub workflow to begin."],
     codex_running: ["Codex is working", "Codex is reviewing the connected website and editing only the isolated request branch."],
     validating: ["Checking Codex’s changes", "Codex finished editing. N3XRA is validating the changed files before the branch is pushed."],
-    deploying: ["Vercel is building the preview", "The isolated GitHub branch is ready and Vercel is preparing its private preview."],
+    deploying: run?.preview_mode === "n3xra_live"
+      ? ["N3XRA is building the live preview", "The isolated workspace is ready and N3XRA is preparing the reusable preview link without a Vercel preview deployment."]
+      : ["Vercel is building the preview", "The isolated GitHub branch is ready and Vercel is preparing its private preview."],
     preview_ready: ["Private preview ready", "The preview is ready for review. Nothing reaches the main branch until an N3XRA administrator approves it."],
     failed: ["Preview workflow paused", "The automated workflow stopped before a review link was ready. The live website was not changed."],
     merged: ["Approved and merged", "The reviewed branch was merged into main. Production deployment has not been confirmed yet."],
@@ -189,6 +191,7 @@ function renderSelectedSupport() {
   const mailSubject = encodeURIComponent(`Re: ${request.subject || "N3XRA support request"}`);
   const clientUpdates = supportUpdates.filter((update) => update.request_id === request.id && update.visible_to_client);
   const changeRun = supportChangeRuns.find((run) => run.request_id === request.id);
+  const requestWebsite = supportWebsites.find((website) => website.id === request.website_id);
   const runPresentation = changeRun ? changeRunPresentation(changeRun) : null;
   const runLinks = changeRun ? githubRunLinks(changeRun) : { repository: "", branchUrl: "", workflowUrl: "" };
   const assistantSummary = String(request.assistant_summary || "").trim();
@@ -217,14 +220,14 @@ function renderSelectedSupport() {
         <div><p class="portal-kicker">Website Change Assistant</p><h3>${escapeHtml(runPresentation?.title || "Organized for review")}</h3><p>${escapeHtml(runPresentation?.message || "No code has been changed yet. Review the request before starting a private preview.")}</p></div>
         <span class="support-run-status is-${escapeHtml(runPresentation?.stage || "awaiting_review")}">${escapeHtml(supportStatusLabel(runPresentation?.stage || "awaiting review"))}</span>
       </div>
-      ${changeRun?.preview_url ? `<div class="support-review-panel"><div><strong>Review the proposed change</strong><span>Open the private preview first. The live website will not change until you approve it.</span></div><div class="support-review-actions"><a class="portal-button portal-button-secondary" href="${escapeHtml(changeRun.preview_url)}" target="_blank" rel="noopener noreferrer">Open private preview</a>${runIsReviewable ? `<button class="portal-button" id="support-approve-merge" type="button">Approve and merge to main</button>` : ""}</div></div>` : ""}
-      ${!changeRun ? `<div class="support-review-panel"><div><strong>Start a private preview</strong><span>Codex will work only on a separate branch. Nothing will be published.</span></div><button class="portal-button" id="support-start-preview" type="button">Approve &amp; Start AI Preview</button></div>` : ""}
+      ${changeRun?.preview_url && runIsReviewable ? `<div class="support-review-panel"><div><strong>Review the proposed change</strong><span>Open the private preview first. The live website will not change until you approve it.</span></div><div class="support-review-actions"><a class="portal-button portal-button-secondary" href="${escapeHtml(changeRun.preview_url)}" target="_blank" rel="noopener noreferrer">Open private preview</a><button class="portal-button" id="support-approve-merge" type="button">Approve and merge to main</button></div></div>` : ""}
+      ${!changeRun ? `<div class="support-preview-method"><div class="support-preview-method-head"><div><strong>Choose the preview method</strong><span>Both options use this website's existing repository and require approval before production.</span></div></div><div class="support-preview-method-options" role="radiogroup" aria-label="Preview method"><label class="support-preview-option${requestWebsite?.live_preview_enabled ? "" : " is-disabled"}"><input type="radio" name="support-preview-mode" value="n3xra_live"${requestWebsite?.live_preview_enabled ? " checked" : " disabled"}><span><strong>Fast Live Preview <small>Beta</small></strong><em>Creates an expiring, shareable N3XRA link without a Vercel preview deployment. The GitHub commit waits until approval.</em>${requestWebsite?.live_preview_enabled ? "" : "<b>Not enabled for this website</b>"}</span></label><label class="support-preview-option"><input type="radio" name="support-preview-mode" value="vercel"${requestWebsite?.live_preview_enabled ? "" : " checked"}><span><strong>Vercel Preview</strong><em>Uses the existing private branch and production-style Vercel preview workflow.</em></span></label></div><div class="support-review-panel"><div><strong>Start the selected preview</strong><span>Nothing will be merged into main or published without a later approval.</span></div><button class="portal-button" id="support-start-preview" type="button">Approve &amp; Start AI Preview</button></div></div>` : ""}
       ${showAssistantSummary ? `<div class="support-run-summary"><span>Organized summary</span><p>${escapeHtml(assistantSummary)}</p></div>` : ""}
       <div class="support-run-meta"><span><small>Change</small><strong>${escapeHtml(supportStatusLabel(request.change_kind || "other"))}</strong></span><span><small>Area</small><strong>${escapeHtml(supportStatusLabel(request.change_scope || "unknown"))}</strong></span>${changeRun ? `<span><small>Updated</small><strong>${escapeHtml(formatDate(changeRun.progress_updated_at || changeRun.updated_at || changeRun.created_at))}</strong></span>` : ""}</div>
       ${runIsActive ? `<p class="support-run-note">Progress will update automatically. You can refresh, close, or leave this page without interrupting the work.</p>` : ""}
       ${changeRun?.error_message ? `<div class="support-run-error">${escapeHtml(changeRun.error_message)}</div>` : ""}
       ${changeRun && ["failed", "changes_requested"].includes(changeRun.state) && Number(changeRun.attempt_number || 0) < 3 ? `<div class="support-review-panel is-retry"><div><strong>The preview needs another run</strong><span>The live website was not changed. Review the recorded error before retrying.</span></div><button class="portal-button" id="support-start-preview" type="button">Retry AI Preview</button></div>` : ""}
-      ${changeRun ? `<details class="support-technical-details"><summary>Technical details</summary><div class="support-context-rows"><div><span>Repository</span><strong class="support-identifier">${escapeHtml(runLinks.repository || "Resolving connected repository")}</strong></div><div><span>Private branch</span><strong class="support-identifier">${runLinks.branchUrl ? `<a href="${escapeHtml(runLinks.branchUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(changeRun.branch_name)}</a>` : escapeHtml(changeRun.branch_name)}</strong></div><div><span>Automation state</span><strong>${escapeHtml(supportStatusLabel(request.automation_status || "awaiting_review"))}</strong></div><div><span>Automation run</span><strong>${escapeHtml(changeRun.attempt_number)} of 3</strong></div><div><span>Started</span><strong>${escapeHtml(formatDate(changeRun.created_at))}</strong></div></div>${runLinks.workflowUrl ? `<a class="support-workflow-link" href="${escapeHtml(runLinks.workflowUrl)}" target="_blank" rel="noopener noreferrer">View GitHub workflow</a>` : ""}</details>` : ""}
+      ${changeRun ? `<details class="support-technical-details"><summary>Technical details</summary><div class="support-context-rows"><div><span>Preview method</span><strong>${escapeHtml(changeRun.preview_mode === "n3xra_live" ? "N3XRA Live Preview" : "Vercel Preview")}</strong></div><div><span>Repository</span><strong class="support-identifier">${escapeHtml(runLinks.repository || "Resolving connected repository")}</strong></div>${changeRun.preview_mode === "vercel" ? `<div><span>Private branch</span><strong class="support-identifier">${runLinks.branchUrl ? `<a href="${escapeHtml(runLinks.branchUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(changeRun.branch_name)}</a>` : escapeHtml(changeRun.branch_name)}</strong></div>` : `<div><span>GitHub commit</span><strong>Created only after approval</strong></div>`}<div><span>Automation state</span><strong>${escapeHtml(supportStatusLabel(request.automation_status || "awaiting_review"))}</strong></div><div><span>Automation run</span><strong>${escapeHtml(changeRun.attempt_number)} of 3</strong></div><div><span>Started</span><strong>${escapeHtml(formatDate(changeRun.created_at))}</strong></div></div>${runLinks.workflowUrl ? `<a class="support-workflow-link" href="${escapeHtml(runLinks.workflowUrl)}" target="_blank" rel="noopener noreferrer">View GitHub workflow</a>` : ""}</details>` : ""}
     </section>` : ""}
     <section class="support-detail-section">
       <div class="support-section-heading"><div><p class="portal-kicker">Case context</p><h3>Requester and source</h3></div></div>
@@ -279,7 +282,7 @@ function renderSelectedSupport() {
   });
   document.getElementById("support-approve-merge")?.addEventListener("click", async (event) => {
     const button = event.currentTarget;
-    const confirmed = await confirmAdminAction("This will merge the exact reviewed preview branch into the website's main branch. Vercel may then publish it through the website's normal production settings.", { title: "Approve website change", confirmLabel: "Approve and merge" });
+    const confirmed = await confirmAdminAction(changeRun.preview_mode === "n3xra_live" ? "This will create one GitHub commit from the exact reviewed N3XRA preview and add it to the website's main branch. Vercel may then publish it through the website's normal production settings." : "This will merge the exact reviewed preview branch into the website's main branch. Vercel may then publish it through the website's normal production settings.", { title: "Approve website change", confirmLabel: "Approve and merge" });
     if (!confirmed) return;
     button.disabled = true;
     setStatus("Merging the reviewed website change…");
@@ -294,14 +297,15 @@ function renderSelectedSupport() {
   });
   document.getElementById("support-start-preview")?.addEventListener("click", async (event) => {
     const button = event.currentTarget;
-    const confirmed = await confirmAdminAction("This authorizes Codex to work on an isolated branch and create a private Vercel preview. Nothing will be merged into main or published without a later approval.", { title: "Start AI website preview", confirmLabel: "Approve and start" });
+    const previewMode = document.querySelector('input[name="support-preview-mode"]:checked')?.value || changeRun?.preview_mode || "vercel";
+    const confirmed = await confirmAdminAction(previewMode === "n3xra_live" ? "This authorizes Codex to prepare an expiring N3XRA-hosted live preview from the existing website. It will not create a Vercel preview deployment or write to the website repository until a later approval." : "This authorizes Codex to work on an isolated branch and create a private Vercel preview. Nothing will be merged into main or published without a later approval.", { title: "Start AI website preview", confirmLabel: "Approve and start" });
     if (!confirmed) return;
     button.disabled = true;
     setStatus("Starting the isolated AI preview…");
     try {
-      await invokeWebsiteAutomation("start-preview", { requestId: request.id });
+      await invokeWebsiteAutomation("start-preview", { requestId: request.id, previewMode });
       await loadSupport();
-      setStatus("The private preview request is queued in GitHub. Progress will update automatically.", "success");
+      setStatus(previewMode === "n3xra_live" ? "The N3XRA live preview is queued. No Vercel preview deployment will be created." : "The private Vercel preview request is queued in GitHub. Progress will update automatically.", "success");
     } catch (error) {
       button.disabled = false;
       setStatus(error.message, "error");

@@ -55,9 +55,11 @@ jobs:
         env:
           TARGET_REPOSITORY: ${{ github.event.client_payload.target_repository }}
           TARGET_BRANCH: ${{ github.event.client_payload.branch }}
+          PREVIEW_MODE: ${{ github.event.client_payload.preview_mode }}
         run: |
           [[ "$TARGET_REPOSITORY" =~ ^[^/[:space:]]+/[^/[:space:]]+$ ]]
           [[ "$TARGET_BRANCH" =~ ^n3xra/change-[a-z0-9-]{8,80}$ ]]
+          [[ "$PREVIEW_MODE" == "vercel" || "$PREVIEW_MODE" == "n3xra_live" ]]
       - uses: actions/checkout@v5
         with:
           repository: ${{ github.event.client_payload.target_repository }}
@@ -66,7 +68,9 @@ jobs:
       - name: Create isolated request branch
         env:
           TARGET_BRANCH: ${{ github.event.client_payload.branch }}
-        run: git switch -c "$TARGET_BRANCH"
+        run: |
+          git rev-parse HEAD > "$RUNNER_TEMP/n3xra-base-sha"
+          git switch -c "$TARGET_BRANCH"
       - name: Report Codex work started
         env:
           CALLBACK_URL: ${{ github.event.client_payload.callback_url }}
@@ -75,7 +79,7 @@ jobs:
         run: |
           curl --fail-with-body --retry 2 --request POST "$CALLBACK_URL" \
             --header 'Content-Type: application/json' \
-            --data "{\"runId\":\"$RUN_ID\",\"token\":\"$CALLBACK_TOKEN\",\"progressStage\":\"codex_running\",\"progressMessage\":\"Codex is reviewing the website and making the requested change on the isolated branch.\",\"workflowUrl\":\"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}"
+            --data "{\"runId\":\"$RUN_ID\",\"token\":\"$CALLBACK_TOKEN\",\"progressStage\":\"codex_running\",\"progressMessage\":\"Codex is reviewing the existing website and preparing the requested change in an isolated workspace.\",\"workflowUrl\":\"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}"
       - name: Run Codex for the requested website change
         uses: openai/codex-action@v1
         with:
@@ -100,11 +104,17 @@ jobs:
           CALLBACK_URL: ${{ github.event.client_payload.callback_url }}
           CALLBACK_TOKEN: ${{ github.event.client_payload.callback_token }}
           RUN_ID: ${{ github.event.client_payload.run_id }}
+          PREVIEW_MODE: ${{ github.event.client_payload.preview_mode }}
         run: |
+          if [[ "$PREVIEW_MODE" == "n3xra_live" ]]; then
+            PROGRESS_MESSAGE="Codex finished editing. N3XRA is checking the changed files before building the live preview."
+          else
+            PROGRESS_MESSAGE="Codex finished editing. N3XRA is checking the changed files before pushing the preview branch."
+          fi
           curl --fail-with-body --retry 2 --request POST "$CALLBACK_URL" \
             --header 'Content-Type: application/json' \
-            --data "{\"runId\":\"$RUN_ID\",\"token\":\"$CALLBACK_TOKEN\",\"progressStage\":\"validating\",\"progressMessage\":\"Codex finished editing. N3XRA is checking the changed files before pushing the preview branch.\"}"
-      - name: Validate and push private branch
+            --data "{\"runId\":\"$RUN_ID\",\"token\":\"$CALLBACK_TOKEN\",\"progressStage\":\"validating\",\"progressMessage\":\"$PROGRESS_MESSAGE\"}"
+      - name: Validate and record the proposed change
         env:
           TARGET_BRANCH: ${{ github.event.client_payload.branch }}
         run: |
@@ -114,8 +124,14 @@ jobs:
           git config user.email "support@n3xra.com"
           git add -A
           git commit -m "Prepare website change preview"
+      - name: Push the Vercel preview branch
+        if: github.event.client_payload.preview_mode == 'vercel'
+        env:
+          TARGET_BRANCH: ${{ github.event.client_payload.branch }}
+        run: |
           git push origin "$TARGET_BRANCH"
       - name: Report preview deployment started
+        if: github.event.client_payload.preview_mode == 'vercel'
         env:
           CALLBACK_URL: ${{ github.event.client_payload.callback_url }}
           CALLBACK_TOKEN: ${{ github.event.client_payload.callback_token }}
@@ -125,6 +141,7 @@ jobs:
             --header 'Content-Type: application/json' \
             --data "{\"runId\":\"$RUN_ID\",\"token\":\"$CALLBACK_TOKEN\",\"progressStage\":\"deploying\",\"progressMessage\":\"The isolated GitHub branch is ready. Vercel is building the private preview now.\"}"
       - name: Wait for Vercel preview and report result
+        if: github.event.client_payload.preview_mode == 'vercel'
         timeout-minutes: 12
         uses: actions/github-script@v7
         env:
@@ -162,6 +179,91 @@ jobs:
               : 'Vercel preview was not ready before the workflow timeout.';
             const response = await fetch(process.env.CALLBACK_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ runId: process.env.RUN_ID, token: process.env.CALLBACK_TOKEN, headSha: sha, previewUrl, error: previewUrl ? '' : timeoutMessage }), signal: AbortSignal.timeout(15000) });
             if (!response.ok) core.setFailed(`Preview callback returned ${response.status}.`);
+      - name: Build N3XRA Live Preview
+        if: github.event.client_payload.preview_mode == 'n3xra_live'
+        env:
+          CALLBACK_URL: ${{ github.event.client_payload.callback_url }}
+          CALLBACK_TOKEN: ${{ github.event.client_payload.callback_token }}
+          RUN_ID: ${{ github.event.client_payload.run_id }}
+        run: |
+          curl --fail-with-body --retry 2 --request POST "$CALLBACK_URL" \
+            --header 'Content-Type: application/json' \
+            --data "{\"runId\":\"$RUN_ID\",\"token\":\"$CALLBACK_TOKEN\",\"progressStage\":\"deploying\",\"progressMessage\":\"The change is ready. N3XRA is building the reusable live preview without creating a Vercel deployment.\"}"
+          if [[ -f package.json ]]; then
+            if [[ -f package-lock.json ]]; then npm ci; elif [[ -f pnpm-lock.yaml ]]; then corepack enable && pnpm install --frozen-lockfile; elif [[ -f yarn.lock ]]; then corepack enable && yarn install --frozen-lockfile; else npm install; fi
+            npm run build --if-present
+          fi
+          PREVIEW_ROOT=""
+          for candidate in dist build out; do
+            if [[ -f "$candidate/index.html" ]]; then PREVIEW_ROOT="$candidate"; break; fi
+          done
+          if [[ -z "$PREVIEW_ROOT" && -f index.html ]]; then
+            PREVIEW_ROOT="$RUNNER_TEMP/n3xra-static-site"
+            mkdir -p "$PREVIEW_ROOT"
+            rsync -a ./ "$PREVIEW_ROOT/" --exclude '.git' --exclude '.github' --exclude 'node_modules' --exclude 'api' --exclude 'auth' --exclude 'supabase' --exclude '.env*'
+          fi
+          test -n "$PREVIEW_ROOT"
+          test -f "$PREVIEW_ROOT/index.html"
+          PREVIEW_BYTES=$(find "$PREVIEW_ROOT" -type f -printf '%s\n' | awk '{ total += $1 } END { print total + 0 }')
+          PREVIEW_FILES=$(find "$PREVIEW_ROOT" -type f | wc -l | tr -d ' ')
+          test "$PREVIEW_BYTES" -le 26214400
+          test "$PREVIEW_FILES" -le 600
+          ! find "$PREVIEW_ROOT" -type f -size +4194303c | grep -q .
+          while IFS= read -r -d '' file_path; do
+            relative_path="${file_path#"$PREVIEW_ROOT"/}"
+            mime_type=$(file --brief --mime-type "$file_path")
+            curl --silent --show-error --fail-with-body --retry 2 --request POST \
+              "${{ github.event.client_payload.upload_url }}?run=$RUN_ID&kind=site&path=$(python3 -c 'import sys,urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "$relative_path")" \
+              --header "X-N3XRA-Preview-Token: $CALLBACK_TOKEN" \
+              --header "Content-Type: $mime_type" \
+              --data-binary "@$file_path" >/dev/null
+          done < <(find "$PREVIEW_ROOT" -type f -print0)
+          BASE_SHA=$(cat "$RUNNER_TEMP/n3xra-base-sha")
+          node - "$BASE_SHA" > "$RUNNER_TEMP/n3xra-source-manifest.json" <<'NODE'
+          const { execFileSync } = require('node:child_process');
+          const baseSha = process.argv[2];
+          const output = execFileSync('git', ['diff', '--name-status', '-z', `${baseSha}..HEAD`]);
+          const parts = output.toString('utf8').split('\0').filter(Boolean);
+          const changes = [];
+          for (let index = 0; index < parts.length;) {
+            const status = parts[index++];
+            if (status.startsWith('R')) {
+              const previousPath = parts[index++];
+              const nextPath = parts[index++];
+              const mode = execFileSync('git', ['ls-files', '-s', '--', nextPath]).toString('utf8').trim().split(/\s+/)[0] || '100644';
+              changes.push({ status: 'D', path: previousPath }, { status: 'A', path: nextPath, mode });
+            } else {
+              const filePath = parts[index++];
+              const mode = status[0] === 'D' ? '100644' : (execFileSync('git', ['ls-files', '-s', '--', filePath]).toString('utf8').trim().split(/\s+/)[0] || '100644');
+              changes.push({ status: status[0], path: filePath, mode });
+            }
+          }
+          if (!changes.length || changes.length > 100) throw new Error('Fast Live Preview supports between 1 and 100 changed source files.');
+          for (const change of changes) {
+            if (!['A', 'M', 'D'].includes(change.status)) throw new Error(`Unsupported source change status: ${change.status}`);
+            if (change.status !== 'D' && !['100644', '100755', '120000'].includes(change.mode)) throw new Error(`Unsupported file mode for ${change.path}: ${change.mode}`);
+          }
+          process.stdout.write(JSON.stringify({ version: 1, baseSha, changes }));
+          NODE
+          while IFS= read -r -d '' file_path; do
+            source_snapshot="$RUNNER_TEMP/n3xra-source-file"
+            git show "HEAD:$file_path" > "$source_snapshot"
+            mime_type=$(file --brief --mime-type "$source_snapshot")
+            curl --silent --show-error --fail-with-body --retry 2 --request POST \
+              "${{ github.event.client_payload.upload_url }}?run=$RUN_ID&kind=source&path=$(python3 -c 'import sys,urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "$file_path")" \
+              --header "X-N3XRA-Preview-Token: $CALLBACK_TOKEN" \
+              --header "Content-Type: $mime_type" \
+              --data-binary "@$source_snapshot" >/dev/null
+          done < <(git diff --name-only -z --diff-filter=ACMR "$BASE_SHA..HEAD")
+          curl --silent --show-error --fail-with-body --retry 2 --request POST \
+            "${{ github.event.client_payload.upload_url }}?run=$RUN_ID&kind=source&path=manifest.json" \
+            --header "X-N3XRA-Preview-Token: $CALLBACK_TOKEN" \
+            --header 'Content-Type: application/json' \
+            --data-binary "@$RUNNER_TEMP/n3xra-source-manifest.json" >/dev/null
+          HEAD_SHA=$(git rev-parse HEAD)
+          curl --fail-with-body --retry 2 --request POST "$CALLBACK_URL" \
+            --header 'Content-Type: application/json' \
+            --data "{\"runId\":\"$RUN_ID\",\"token\":\"$CALLBACK_TOKEN\",\"headSha\":\"$HEAD_SHA\",\"baseSha\":\"$BASE_SHA\",\"previewUrl\":\"${{ github.event.client_payload.preview_url }}\"}"
       - name: Report an unsuccessful preview workflow
         if: ${{ failure() }}
         env:

@@ -9,9 +9,9 @@ module.exports = async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed." });
   try {
     const body = req.body && typeof req.body === "object" ? req.body : JSON.parse(req.body || "{}");
-    const runId = clean(body.runId, 80), token = clean(body.token, 200), headSha = clean(body.headSha, 40).toLowerCase(), previewUrl = clean(body.previewUrl, 500), errorMessage = clean(body.error, 2000);
+    const runId = clean(body.runId, 80), token = clean(body.token, 200), headSha = clean(body.headSha, 40).toLowerCase(), baseSha = clean(body.baseSha, 40).toLowerCase(), previewUrl = clean(body.previewUrl, 500), errorMessage = clean(body.error, 2000);
     if (!/^[0-9a-f-]{36}$/i.test(runId) || !token) return res.status(400).json({ error: "Invalid callback." });
-    const rows = await serviceRequest(`website_change_runs?select=id,request_id,website_id,state,progress_stage,workflow_url,merge_sha,callback_token_hash,callback_expires_at&id=eq.${encodeURIComponent(runId)}&limit=1`);
+    const rows = await serviceRequest(`website_change_runs?select=id,request_id,website_id,state,preview_mode,preview_token_hash,progress_stage,workflow_url,merge_sha,callback_token_hash,callback_expires_at&id=eq.${encodeURIComponent(runId)}&limit=1`);
     const run = Array.isArray(rows) ? rows[0] : null;
     if (!run || !sameHash(digest(token), run.callback_token_hash) || Date.parse(run.callback_expires_at) < Date.now()) return res.status(403).json({ error: "This callback is not valid." });
     const productionStatus = clean(body.productionStatus, 40);
@@ -64,9 +64,24 @@ module.exports = async function handler(req, res) {
       await serviceRequest(`platform_support_requests?id=eq.${encodeURIComponent(run.request_id)}`, { method: "PATCH", body: JSON.stringify({ automation_status: "running", updated_at: now }) });
       return res.status(200).json({ ok: true, state: "coding", progressStage });
     }
-    const succeeded = /^[0-9a-f]{40}$/.test(headSha) && /^https:\/\/[^/\s]+[.]vercel[.]app\/?$/.test(previewUrl) && !errorMessage;
+    const vercelSucceeded = run.preview_mode === "vercel" && /^[0-9a-f]{40}$/.test(headSha) && /^https:\/\/[^/\s]+[.]vercel[.]app\/?$/.test(previewUrl);
+    let validLivePreviewUrl = false;
+    if (run.preview_mode === "n3xra_live" && run.preview_token_hash) {
+      try {
+        const parsed = new URL(previewUrl);
+        const match = parsed.pathname.match(/^\/website-preview\/([0-9a-f-]{36})\/([A-Za-z0-9_-]{20,})\/$/i);
+        validLivePreviewUrl = parsed.protocol === "https:"
+          && ["n3xra.com", "www.n3xra.com"].includes(parsed.hostname)
+          && !parsed.search
+          && !parsed.hash
+          && match?.[1]?.toLowerCase() === runId.toLowerCase()
+          && sameHash(digest(match?.[2]), run.preview_token_hash);
+      } catch { validLivePreviewUrl = false; }
+    }
+    const liveSucceeded = run.preview_mode === "n3xra_live" && /^[0-9a-f]{40}$/.test(headSha) && /^[0-9a-f]{40}$/.test(baseSha) && validLivePreviewUrl;
+    const succeeded = (vercelSucceeded || liveSucceeded) && !errorMessage;
     const now = new Date().toISOString(), state = succeeded ? "preview_ready" : "failed";
-    await serviceRequest(`website_change_runs?id=eq.${encodeURIComponent(runId)}`, { method: "PATCH", body: JSON.stringify({ state, head_sha: succeeded ? headSha : null, preview_url: succeeded ? previewUrl : null, error_message: succeeded ? null : (errorMessage || "The preview workflow did not complete."), progress_stage: succeeded ? "preview_ready" : "failed", progress_message: succeeded ? "The private Vercel preview is ready for review." : (errorMessage || "The preview workflow stopped before a review link was ready."), failure_stage: succeeded ? null : (run.progress_stage || "queued"), progress_updated_at: now, preview_ready_at: succeeded ? now : null, callback_token_hash: "0".repeat(64), updated_at: now }) });
+    await serviceRequest(`website_change_runs?id=eq.${encodeURIComponent(runId)}`, { method: "PATCH", body: JSON.stringify({ state, head_sha: succeeded ? headSha : null, base_sha: liveSucceeded ? baseSha : null, preview_url: succeeded ? previewUrl : null, error_message: succeeded ? null : (errorMessage || "The preview workflow did not complete."), progress_stage: succeeded ? "preview_ready" : "failed", progress_message: succeeded ? (liveSucceeded ? "The N3XRA live preview is ready. No Vercel preview deployment was created." : "The private Vercel preview is ready for review.") : (errorMessage || "The preview workflow stopped before a review link was ready."), failure_stage: succeeded ? null : (run.progress_stage || "queued"), progress_updated_at: now, preview_ready_at: succeeded ? now : null, callback_token_hash: "0".repeat(64), updated_at: now }) });
     await serviceRequest(`platform_support_requests?id=eq.${encodeURIComponent(run.request_id)}`, { method: "PATCH", body: JSON.stringify({ automation_status: succeeded ? "preview_ready" : "failed", updated_at: now }) });
     if (succeeded) {
       try {
