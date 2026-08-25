@@ -35,6 +35,23 @@ async function githubToken() {
 async function githubRequest(path: string, token: string, init: RequestInit = {}) {
   return fetch(`https://api.github.com${path}`, { ...init, headers: { Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json", "Content-Type": "application/json", "X-GitHub-Api-Version": "2022-11-28", ...(init.headers || {}) } });
 }
+async function removePreviewPrefix(admin: any, prefix: string) {
+  if (!/^runs\/[0-9a-f-]{36}(?:\/revisions\/\d+)?$/i.test(prefix)) return;
+  const paths: string[] = [];
+  const visit = async (folder: string) => {
+    const result = await admin.storage.from("website-change-previews").list(folder, { limit: 1000, sortBy: { column: "name", order: "asc" } });
+    if (result.error) throw result.error;
+    for (const entry of result.data || []) {
+      const child = `${folder}/${entry.name}`;
+      if (entry.id) paths.push(child); else await visit(child);
+    }
+  };
+  await visit(prefix);
+  for (let offset = 0; offset < paths.length; offset += 100) {
+    const removed = await admin.storage.from("website-change-previews").remove(paths.slice(offset, offset + 100));
+    if (removed.error) throw removed.error;
+  }
+}
 async function createLivePreviewCommit(admin: any, run: Record<string, any>, token: string, owner: string, repo: string, base: string) {
   if (!/^[0-9a-f]{40}$/.test(String(run.base_sha || "")) || !run.source_manifest_path) throw new Error("The reviewed live preview is missing its source snapshot.");
   const refResponse = await githubRequest(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/ref/heads/${encodeURIComponent(base)}`, token);
@@ -84,9 +101,9 @@ Deno.serve(async (request) => {
     const userClient = createClient(url, anon, { global: { headers: { Authorization: authorization } } }); admin = createClient(url, service);
     const { data: userData } = await userClient.auth.getUser(); const user = userData?.user; if (!user) return reply({ error: "Your session is no longer valid." }, 401);
     const body = await request.json().catch(() => ({})), action = clean(body.action, 40);
-    if (["revise-preview", "undo-revision", "submit-approval", "request-vercel-fallback"].includes(action)) {
+    if (["revise-preview", "undo-revision", "submit-approval", "request-vercel-fallback", "abandon-preview"].includes(action)) {
       const runId = clean(body.runId, 80); if (!uuid(runId)) return reply({ error: "A valid Fast Preview session is required." }, 400);
-      const runResult = await admin.from("website_change_runs").select("id,request_id,website_id,state,branch_name,target_repository,preview_mode,preview_url,preview_expires_at,revision_count").eq("id", runId).single();
+      const runResult = await admin.from("website_change_runs").select("id,request_id,website_id,state,branch_name,target_repository,preview_mode,preview_url,preview_expires_at,revision_count,storage_prefix,pending_storage_prefix").eq("id", runId).single();
       if (runResult.error || !runResult.data) return reply({ error: "Fast Preview session not found." }, 404);
       const run = runResult.data;
       if (run.preview_mode !== "n3xra_live") return reply({ error: "These editing controls are only available for Fast Preview sessions." }, 409);
@@ -97,6 +114,22 @@ Deno.serve(async (request) => {
         ? null
         : await admin.from("website_members").select("user_id").eq("website_id", run.website_id).eq("user_id", user.id).eq("status", "active").maybeSingle();
       if (!platformAdmin.data && !membership?.data) return reply({ error: "Only this website's client or an active N3XRA administrator can update the Fast Preview." }, 403);
+      if (action === "abandon-preview") {
+        if (["merge_queued", "merged"].includes(run.state)) return reply({ error: "This preview can no longer be abandoned because final publishing has already started." }, 409);
+        if (run.state === "abandoned") return reply({ ok: true, message: "This Fast Preview was already abandoned and its private link was revoked." });
+        const now = new Date().toISOString();
+        const abandoned = await admin.from("website_change_runs").update({ state: "abandoned", progress_stage: "abandoned", progress_message: "The client abandoned this Fast Preview session. Its private link and temporary files were deleted.", progress_updated_at: now, preview_url: null, preview_token_hash: null, preview_expires_at: null, callback_token_hash: "0".repeat(64), callback_expires_at: now, head_sha: null, base_sha: null, source_manifest_path: null, storage_prefix: null, pending_storage_prefix: null, pending_source_manifest_path: null, approval_submitted_at: null, abandoned_at: now, abandoned_by_user_id: user.id, updated_at: now }).eq("id", run.id).not("state", "in", "(merge_queued,merged,abandoned)").select("id").maybeSingle();
+        if (abandoned.error || !abandoned.data) return reply({ error: "This session changed before it could be abandoned. Refresh and try again." }, 409);
+        let storageWarning = "";
+        try {
+          const prefixes = [...new Set([run.storage_prefix, run.pending_storage_prefix].filter(Boolean))];
+          for (const prefix of prefixes) await removePreviewPrefix(admin, String(prefix));
+        } catch (storageError) {
+          storageWarning = clean(storageError instanceof Error ? storageError.message : "Temporary preview cleanup needs attention.", 500);
+        }
+        await admin.from("platform_support_requests").update({ status: "closed", automation_status: "completed", resolved_at: now, updated_at: now }).eq("id", run.request_id);
+        return reply({ ok: true, warning: storageWarning || null, message: storageWarning ? "The Fast Preview was abandoned and its link was revoked. N3XRA will finish cleaning up its temporary files." : "The Fast Preview was abandoned. Its private link and temporary files were deleted; the live website was not changed." });
+      }
       if (!["preview_ready", "client_ready"].includes(run.state)) return reply({ error: "Wait for the current Fast Preview update to finish before making another change." }, 409);
       const now = new Date().toISOString();
       if (action === "submit-approval") {

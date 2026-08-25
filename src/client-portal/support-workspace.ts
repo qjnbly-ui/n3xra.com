@@ -112,7 +112,7 @@ function renderEditingControls(run: ChangeRun): string {
       <button class="portal-button portal-button-secondary" type="button" data-preview-share="${escapeHtml(run.id)}">Share preview</button>
       <button class="portal-button" type="button" data-preview-submit="${escapeHtml(run.id)}" ${submitted ? "disabled" : ""}>${submitted ? "Submitted for approval" : "Submit for approval"}</button>
     </div>
-    <details class="client-preview-fallback"><summary>Preview not working correctly?</summary><p>Ask N3XRA to create a production-style Vercel Preview. This can create a separate branch and deployment, so it will not start automatically.</p><button class="portal-link-button" type="button" data-preview-vercel="${escapeHtml(run.id)}" ${run.vercel_fallback_requested_at ? "disabled" : ""}>${run.vercel_fallback_requested_at ? "Vercel fallback requested" : "Request Vercel Preview"}</button></details>
+    <details class="client-preview-fallback"><summary>Preview options</summary><p>Ask N3XRA for a production-style Vercel Preview if this preview does not work correctly. Or abandon the entire request and delete its temporary preview.</p><div><button class="portal-link-button" type="button" data-preview-vercel="${escapeHtml(run.id)}" ${run.vercel_fallback_requested_at ? "disabled" : ""}>${run.vercel_fallback_requested_at ? "Vercel fallback requested" : "Request Vercel Preview"}</button><button class="portal-link-button is-danger" type="button" data-preview-abandon="${escapeHtml(run.id)}">Abandon &amp; delete preview</button></div></details>
   </section>`;
 }
 
@@ -222,9 +222,9 @@ function previewStatus(runId: string): HTMLElement | null {
   return list?.querySelector<HTMLElement>(`[data-preview-status="${runId}"]`) || null;
 }
 
-async function previewAction(runId: string, action: "revise-preview" | "undo-revision" | "submit-approval" | "request-vercel-fallback", instruction = ""): Promise<void> {
+async function previewAction(runId: string, action: "revise-preview" | "undo-revision" | "submit-approval" | "request-vercel-fallback" | "abandon-preview", instruction = ""): Promise<void> {
   const output = previewStatus(runId);
-  if (output) output.textContent = action === "submit-approval" ? "Submitting this version for approval…" : action === "request-vercel-fallback" ? "Sending the fallback request to N3XRA…" : "Updating the same Fast Preview…";
+  if (output) output.textContent = action === "submit-approval" ? "Submitting this version for approval…" : action === "request-vercel-fallback" ? "Sending the fallback request to N3XRA…" : action === "abandon-preview" ? "Abandoning the request and deleting its temporary preview…" : "Updating the same Fast Preview…";
   const { data, error } = await supabase.functions.invoke("website-change-automation", { body: { action, runId, instruction } });
   if (error) {
     let message = error.message || "This Fast Preview action could not be completed.";
@@ -239,9 +239,9 @@ async function previewAction(runId: string, action: "revise-preview" | "undo-rev
 
 function bindPreviewControls(): void {
   list?.addEventListener("click", (event) => {
-    const target = event.target instanceof Element ? event.target.closest<HTMLElement>("button[data-preview-revise-open],button[data-preview-cancel],button[data-preview-undo],button[data-preview-share],button[data-preview-submit],button[data-preview-vercel]") : null;
+    const target = event.target instanceof Element ? event.target.closest<HTMLElement>("button[data-preview-revise-open],button[data-preview-cancel],button[data-preview-undo],button[data-preview-share],button[data-preview-submit],button[data-preview-vercel],button[data-preview-abandon]") : null;
     if (!target) return;
-    const runId = target.dataset.previewReviseOpen || target.dataset.previewCancel || target.dataset.previewUndo || target.dataset.previewShare || target.dataset.previewSubmit || target.dataset.previewVercel || "";
+    const runId = target.dataset.previewReviseOpen || target.dataset.previewCancel || target.dataset.previewUndo || target.dataset.previewShare || target.dataset.previewSubmit || target.dataset.previewVercel || target.dataset.previewAbandon || "";
     const run = changeRuns.find((item) => item.id === runId);
     if (!run) return;
     if (target.dataset.previewReviseOpen) {
@@ -263,6 +263,7 @@ function bindPreviewControls(): void {
     if (target.dataset.previewUndo) void previewAction(runId, "undo-revision");
     if (target.dataset.previewSubmit) void previewAction(runId, "submit-approval");
     if (target.dataset.previewVercel) void previewAction(runId, "request-vercel-fallback");
+    if (target.dataset.previewAbandon && window.confirm("Abandon this website-change request and permanently delete its temporary preview? The live website will not be changed.")) void previewAction(runId, "abandon-preview");
   });
   list?.addEventListener("submit", (event) => {
     const formElement = event.target instanceof HTMLFormElement ? event.target : null;

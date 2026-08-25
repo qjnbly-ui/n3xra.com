@@ -119,6 +119,7 @@ function changeRunPresentation(run) {
     production_deploying: ["Vercel is building production", "The approved change is on the main branch and Vercel is building the live website now."],
     published: ["Update is live", "Vercel finished the production deployment successfully. The approved change is now live."],
     production_failed: ["Production needs attention", "The approved change reached main, but Vercel did not confirm a successful production deployment."],
+    abandoned: ["Preview abandoned", "The client closed this request. The private preview link was revoked and the live website was not changed."],
   };
   const [title, fallback] = presentations[stage] || ["Preview status", "The isolated preview workflow is being tracked."];
   return { stage, title, message: run?.progress_message || fallback };

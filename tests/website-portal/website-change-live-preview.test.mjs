@@ -83,7 +83,7 @@ test("Fast Preview refinements reuse one protected session and keep final approv
   assert.match(migration, /create table if not exists public[.]website_change_revisions/);
   assert.match(migration, /enable row level security/);
   assert.doesNotMatch(migration, /grant (insert|update|delete).*authenticated/i);
-  assert.match(edge, /"revise-preview", "undo-revision", "submit-approval", "request-vercel-fallback"/);
+  assert.match(edge, /"revise-preview", "undo-revision", "submit-approval", "request-vercel-fallback", "abandon-preview"/);
   assert.match(edge, /state: "client_ready"/);
   assert.match(edge, /run[.]preview_mode === "n3xra_live" && run[.]state !== "client_ready"/);
   assert.match(edge, /request_data: \{ title:[\s\S]*revisions: revisionHistory/);
@@ -93,6 +93,9 @@ test("Fast Preview refinements reuse one protected session and keep final approv
   assert.match(client, /Share preview/);
   assert.match(client, /Submit for approval/);
   assert.match(client, /Request Vercel Preview/);
+  assert.match(client, /Abandon &amp; delete preview/);
+  assert.match(edge, /removePreviewPrefix/);
+  assert.match(edge, /state: "abandoned"/);
   assert.match(admin, /Client editing session is open/);
   assert.match(upload, /pending_storage_prefix \|\| run[.]storage_prefix/);
   assert.match(callback, /The previous working Fast Preview is still available/);

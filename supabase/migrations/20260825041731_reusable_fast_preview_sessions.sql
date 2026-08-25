@@ -2,6 +2,8 @@ alter table public.website_change_runs
   add column if not exists revision_count integer not null default 0,
   add column if not exists approval_submitted_at timestamptz,
   add column if not exists vercel_fallback_requested_at timestamptz,
+  add column if not exists abandoned_at timestamptz,
+  add column if not exists abandoned_by_user_id uuid references auth.users(id) on delete set null,
   add column if not exists storage_prefix text,
   add column if not exists pending_storage_prefix text,
   add column if not exists pending_source_manifest_path text;
@@ -11,6 +13,9 @@ set storage_prefix = 'runs/' || id::text
 where preview_mode = 'n3xra_live' and storage_prefix is null;
 
 alter table public.website_change_runs
+  drop constraint if exists website_change_runs_state_check,
+  add constraint website_change_runs_state_check
+    check (state in ('queued','coding','preview_ready','client_ready','changes_requested','merge_queued','merged','failed','abandoned')),
   drop constraint if exists website_change_runs_revision_count_check,
   add constraint website_change_runs_revision_count_check
     check (revision_count >= 0 and revision_count <= 50),
@@ -28,6 +33,14 @@ alter table public.website_change_runs
   drop constraint if exists website_change_runs_source_manifest_path_check,
   add constraint website_change_runs_source_manifest_path_check
     check (source_manifest_path is null or source_manifest_path ~ '^runs/[0-9a-f-]{36}(/revisions/[0-9]+)?/source/manifest[.]json$');
+
+alter table public.website_change_runs
+  drop constraint if exists website_change_runs_progress_stage_check,
+  add constraint website_change_runs_progress_stage_check
+    check (progress_stage in (
+      'queued','codex_running','validating','deploying','preview_ready','failed',
+      'merged','production_deploying','published','production_failed','abandoned'
+    ));
 
 create table if not exists public.website_change_revisions (
   id uuid primary key default gen_random_uuid(),
