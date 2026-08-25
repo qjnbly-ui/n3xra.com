@@ -37,6 +37,7 @@ jobs:
   build-preview:
     if: github.event_name == 'repository_dispatch' && github.event.action == 'n3xra-website-change'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: read
     steps:
@@ -124,6 +125,7 @@ jobs:
             --header 'Content-Type: application/json' \
             --data "{\"runId\":\"$RUN_ID\",\"token\":\"$CALLBACK_TOKEN\",\"progressStage\":\"deploying\",\"progressMessage\":\"The isolated GitHub branch is ready. Vercel is building the private preview now.\"}"
       - name: Wait for Vercel preview and report result
+        timeout-minutes: 12
         uses: actions/github-script@v7
         env:
           CALLBACK_URL: ${{ github.event.client_payload.callback_url }}
@@ -135,12 +137,12 @@ jobs:
           github-token: ${{ steps.app-token.outputs.token }}
           script: |
             const [owner, repo] = process.env.TARGET_REPOSITORY.split('/');
-            const requestOptions = { request: { timeout: 15000 } };
+            const requestOptions = { request: { timeout: 8000 } };
             const branch = await github.rest.repos.getBranch({ owner, repo, branch: process.env.TARGET_BRANCH, ...requestOptions });
             const sha = branch.data.commit.sha;
             let previewUrl = '';
             let lastLookupError = '';
-            for (let attempt = 0; attempt < 60 && !previewUrl; attempt += 1) {
+            for (let attempt = 0; attempt < 30 && !previewUrl; attempt += 1) {
               try {
                 const deployments = await github.rest.repos.listDeployments({ owner, repo, sha, per_page: 20, ...requestOptions });
                 for (const deployment of deployments.data) {
@@ -153,12 +155,12 @@ jobs:
                 lastLookupError = error instanceof Error ? error.message : String(error);
                 core.warning(`Preview status lookup ${attempt + 1} failed temporarily: ${lastLookupError}`);
               }
-              if (!previewUrl) await new Promise((resolve) => setTimeout(resolve, 10000));
+              if (!previewUrl) await new Promise((resolve) => setTimeout(resolve, 8000));
             }
             const timeoutMessage = lastLookupError
               ? `Vercel finished responding, but GitHub could not confirm the preview after repeated temporary lookup errors: ${lastLookupError}`
               : 'Vercel preview was not ready before the workflow timeout.';
-            const response = await fetch(process.env.CALLBACK_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ runId: process.env.RUN_ID, token: process.env.CALLBACK_TOKEN, headSha: sha, previewUrl, error: previewUrl ? '' : timeoutMessage }) });
+            const response = await fetch(process.env.CALLBACK_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ runId: process.env.RUN_ID, token: process.env.CALLBACK_TOKEN, headSha: sha, previewUrl, error: previewUrl ? '' : timeoutMessage }), signal: AbortSignal.timeout(15000) });
             if (!response.ok) core.setFailed(`Preview callback returned ${response.status}.`);
       - name: Report an unsuccessful preview workflow
         if: ${{ failure() }}

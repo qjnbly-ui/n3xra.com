@@ -40,6 +40,10 @@ test("Codex works only on a request branch and reports the Vercel preview", asyn
   assert.match(workflow, /validating/);
   assert.match(workflow, /deploying/);
   assert.match(workflow, /Report an unsuccessful preview workflow/);
+  assert.match(workflow, /build-preview:[\s\S]*timeout-minutes: 20/);
+  assert.match(workflow, /Wait for Vercel preview and report result[\s\S]*timeout-minutes: 12/);
+  assert.match(workflow, /attempt < 30/);
+  assert.match(workflow, /AbortSignal\.timeout\(15000\)/);
 });
 
 test("the automation edge separates client preview creation from admin merge approval", async () => {
