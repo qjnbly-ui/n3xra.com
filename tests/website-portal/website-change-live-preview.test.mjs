@@ -30,6 +30,9 @@ test("live preview storage rejects traversal and rewrites root assets into the i
   const html = previewHandler._internal.rewriteText(Buffer.from('<html><head></head><body><img src="/logo.png"></body></html>'), "text/html; charset=utf-8", "/website-preview/run/token/").toString();
   assert.match(html, /<base href="\/website-preview\/run\/token\/">/);
   assert.match(html, /src="\/website-preview\/run\/token\/logo[.]png"/);
+  assert.equal(livePreview.safeLiveOrigin("https://www.ruthobenchainrc.com/path"), "https://www.ruthobenchainrc.com");
+  assert.equal(livePreview.safeLiveOrigin("http://127.0.0.1/private"), "");
+  assert.equal(previewHandler._internal.deletedByManifest(Buffer.from('{"changes":[{"status":"D","path":"old.html"}]}'), "old.html"), true);
 });
 
 test("Fast Live Preview auto-starts per website and preserves the Vercel fallback", async () => {
@@ -47,6 +50,8 @@ test("Fast Live Preview auto-starts per website and preserves the Vercel fallbac
   assert.match(migration, /website-change-previews[\s\S]*false/);
   assert.match(workflow, /preview\.mode == 'vercel'[\s\S]*git push origin/);
   assert.match(workflow, /Build N3XRA Live Preview/);
+  assert.match(workflow, /liveAssetFallback/);
+  assert.doesNotMatch(workflow, /rsync -a [.][/] [^\n]*n3xra-static-site/);
   assert.match(workflow, /client_payload\.preview\.mode/);
   assert.match(edge, /createLivePreviewCommit/);
   assert.match(edge, /baseCommitData[.]tree[.]sha/);

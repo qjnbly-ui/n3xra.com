@@ -1,5 +1,5 @@
 const path = require("node:path");
-const { downloadObject, getRun, safeRelativePath, validRunToken } = require("./_website-live-preview");
+const { downloadObject, getLiveOrigin, getRun, safeRelativePath, validRunToken } = require("./_website-live-preview");
 
 const TYPES = {
   ".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".mjs": "text/javascript; charset=utf-8",
@@ -22,6 +22,15 @@ function rewriteText(bytes, contentType, prefix) {
   return Buffer.from(text);
 }
 
+function deletedByManifest(bytes, requestedPath) {
+  try {
+    const manifest = JSON.parse(bytes.toString("utf8"));
+    return Array.isArray(manifest?.changes) && manifest.changes.some((change) => change?.status === "D" && change?.path === requestedPath);
+  } catch {
+    return false;
+  }
+}
+
 module.exports = async function handler(req, res) {
   res.setHeader("Cache-Control", "private, max-age=60");
   res.setHeader("Referrer-Policy", "no-referrer");
@@ -41,6 +50,19 @@ module.exports = async function handler(req, res) {
       requestedPath = `${requestedPath.replace(/\/$/, "")}/index.html`;
       object = await downloadObject(`runs/${runId}/site/${requestedPath}`);
     }
+    if (!object) {
+      const [previewConfig, sourceManifest] = await Promise.all([
+        downloadObject(`runs/${runId}/site/.n3xra-preview.json`),
+        downloadObject(`runs/${runId}/source/manifest.json`),
+      ]);
+      let useLiveAssets = false;
+      try { useLiveAssets = Boolean(JSON.parse(previewConfig?.bytes?.toString("utf8") || "null")?.liveAssetFallback); } catch { useLiveAssets = false; }
+      if (deletedByManifest(sourceManifest?.bytes || Buffer.alloc(0), requestedPath)) return res.status(404).send("This file was removed in the proposed change.");
+      if (useLiveAssets) {
+        const liveOrigin = await getLiveOrigin(run.website_id);
+        if (liveOrigin) return res.redirect(307, new URL(`/${requestedPath}`, `${liveOrigin}/`).toString());
+      }
+    }
     if (!object && req.headers.accept?.includes("text/html")) {
       requestedPath = "index.html";
       object = await downloadObject(`runs/${runId}/site/index.html`);
@@ -56,4 +78,4 @@ module.exports = async function handler(req, res) {
   }
 };
 
-module.exports._internal = { previewPrefix, rewriteText };
+module.exports._internal = { deletedByManifest, previewPrefix, rewriteText };

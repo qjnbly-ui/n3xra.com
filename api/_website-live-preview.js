@@ -38,6 +38,25 @@ async function getRun(runId) {
   return Array.isArray(rows) ? rows[0] || null : null;
 }
 
+function safeLiveOrigin(value) {
+  try {
+    const parsed = new URL(String(value || ""));
+    if (parsed.protocol !== "https:" || parsed.username || parsed.password || parsed.port) return "";
+    const hostname = parsed.hostname.toLowerCase();
+    if (!hostname || hostname === "localhost" || hostname.endsWith(".localhost") || hostname === "0.0.0.0" || hostname === "::1" || /^127[.]/.test(hostname) || /^10[.]/.test(hostname) || /^192[.]168[.]/.test(hostname) || /^169[.]254[.]/.test(hostname) || /^172[.](1[6-9]|2\d|3[01])[.]/.test(hostname)) return "";
+    return parsed.origin;
+  } catch {
+    return "";
+  }
+}
+
+async function getLiveOrigin(websiteId) {
+  if (!SERVICE_KEY || !websiteId) return "";
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/client_websites?select=live_url&id=eq.${encodeURIComponent(websiteId)}&limit=1`, { headers: serviceHeaders() });
+  const rows = await readJson(response);
+  return safeLiveOrigin(Array.isArray(rows) ? rows[0]?.live_url : "");
+}
+
 function validRunToken(run, token, purpose) {
   if (!run || run.preview_mode !== "n3xra_live") return false;
   if (purpose === "upload") return Date.parse(run.callback_expires_at || "") > Date.now() && sameHash(digest(token), run.callback_token_hash);
@@ -61,4 +80,4 @@ async function downloadObject(path) {
   return { bytes: Buffer.from(await response.arrayBuffer()), contentType: response.headers.get("content-type") || "application/octet-stream" };
 }
 
-module.exports = { BUCKET, digest, downloadObject, getRun, safeRelativePath, uploadObject, validRunToken };
+module.exports = { BUCKET, digest, downloadObject, getLiveOrigin, getRun, safeLiveOrigin, safeRelativePath, uploadObject, validRunToken };

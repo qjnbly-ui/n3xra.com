@@ -193,6 +193,7 @@ jobs:
             if [[ -f package-lock.json ]]; then npm ci; elif [[ -f pnpm-lock.yaml ]]; then corepack enable && pnpm install --frozen-lockfile; elif [[ -f yarn.lock ]]; then corepack enable && yarn install --frozen-lockfile; else npm install; fi
             npm run build --if-present
           fi
+          BASE_SHA=$(cat "$RUNNER_TEMP/n3xra-base-sha")
           PREVIEW_ROOT=""
           for candidate in dist build out; do
             if [[ -f "$candidate/index.html" ]]; then PREVIEW_ROOT="$candidate"; break; fi
@@ -200,7 +201,18 @@ jobs:
           if [[ -z "$PREVIEW_ROOT" && -f index.html ]]; then
             PREVIEW_ROOT="$RUNNER_TEMP/n3xra-static-site"
             mkdir -p "$PREVIEW_ROOT"
-            rsync -a ./ "$PREVIEW_ROOT/" --exclude '.git' --exclude '.github' --exclude 'node_modules' --exclude 'api' --exclude 'auth' --exclude 'supabase' --exclude '.env*'
+            while IFS= read -r -d '' web_file; do
+              mkdir -p "$PREVIEW_ROOT/$(dirname "$web_file")"
+              cp "$web_file" "$PREVIEW_ROOT/$web_file"
+            done < <(find . -type f \( -iname '*.html' -o -iname '*.htm' -o -iname '*.css' -o -iname '*.js' -o -iname '*.mjs' -o -iname '*.json' -o -iname '*.svg' -o -iname '*.woff' -o -iname '*.woff2' -o -iname '*.txt' -o -iname '*.xml' -o -iname '*.webmanifest' \) \
+              -not -path './.git/*' -not -path './.github/*' -not -path './node_modules/*' -not -path './api/*' -not -path './auth/*' -not -path './supabase/*' -print0 | while IFS= read -r -d '' path; do printf '%s\0' "${path#./}"; done)
+            while IFS= read -r -d '' changed_file; do
+              [[ -f "$changed_file" ]] || continue
+              case "$changed_file" in .git/*|.github/*|node_modules/*|api/*|auth/*|supabase/*|.env*) continue ;; esac
+              mkdir -p "$PREVIEW_ROOT/$(dirname "$changed_file")"
+              cp "$changed_file" "$PREVIEW_ROOT/$changed_file"
+            done < <(git diff --name-only -z --diff-filter=ACMR "$BASE_SHA..HEAD")
+            printf '{"version":1,"liveAssetFallback":true}\n' > "$PREVIEW_ROOT/.n3xra-preview.json"
           fi
           test -n "$PREVIEW_ROOT"
           test -f "$PREVIEW_ROOT/index.html"
@@ -218,7 +230,6 @@ jobs:
               --header "Content-Type: $mime_type" \
               --data-binary "@$file_path" >/dev/null
           done < <(find "$PREVIEW_ROOT" -type f -print0)
-          BASE_SHA=$(cat "$RUNNER_TEMP/n3xra-base-sha")
           node - "$BASE_SHA" > "$RUNNER_TEMP/n3xra-source-manifest.json" <<'NODE'
           const { execFileSync } = require('node:child_process');
           const baseSha = process.argv[2];
