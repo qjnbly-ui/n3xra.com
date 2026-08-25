@@ -33,7 +33,11 @@ async function readJson(response) {
 async function getRun(runId) {
   if (!SERVICE_KEY) throw new Error("Live preview storage is not configured.");
   const fields = "id,request_id,website_id,state,preview_mode,preview_token_hash,preview_expires_at,callback_token_hash,callback_expires_at,base_sha,source_manifest_path,storage_prefix,pending_storage_prefix,pending_source_manifest_path";
-  const response = await fetch(`${SUPABASE_URL}/rest/v1/website_change_runs?select=${fields}&id=eq.${encodeURIComponent(runId)}&limit=1`, { headers: serviceHeaders() });
+  let response = await fetch(`${SUPABASE_URL}/rest/v1/website_change_runs?select=${fields}&id=eq.${encodeURIComponent(runId)}&limit=1`, { headers: serviceHeaders() });
+  if (!response.ok) {
+    const legacyFields = "id,request_id,website_id,state,preview_mode,preview_token_hash,preview_expires_at,callback_token_hash,callback_expires_at,base_sha,source_manifest_path";
+    response = await fetch(`${SUPABASE_URL}/rest/v1/website_change_runs?select=${legacyFields}&id=eq.${encodeURIComponent(runId)}&limit=1`, { headers: serviceHeaders() });
+  }
   const rows = await readJson(response);
   return Array.isArray(rows) ? rows[0] || null : null;
 }

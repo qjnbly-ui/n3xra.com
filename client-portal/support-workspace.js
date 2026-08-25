@@ -36,6 +36,7 @@ let requests = [];
 let updates = [];
 let changeRuns = [];
 let changeRevisions = [];
+let reusablePreviewBackendReady = true;
 let filter = "active";
 let pendingAnalysis = null;
 let progressPollTimer;
@@ -68,6 +69,8 @@ function renderProgressSteps(activeStep, failed, previewMode = "vercel") {
 function renderEditingControls(run) {
     if (run.preview_mode !== "n3xra_live" || !run.preview_url || !["preview_ready", "client_ready"].includes(run.state))
         return "";
+    if (!reusablePreviewBackendReady)
+        return `<div class="client-preview-actions"><a class="portal-button" href="${escapeHtml(run.preview_url)}" target="_blank" rel="noopener noreferrer">Open private preview</a></div>`;
     const revisions = changeRevisions.filter((revision) => revision.run_id === run.id && revision.status === "active");
     const submitted = run.state === "client_ready" || Boolean(run.approval_submitted_at);
     return `<section class="client-preview-session" aria-label="Fast Preview editing session">
@@ -170,8 +173,11 @@ async function loadRequests() {
         }
         let runResult = initialRunResult;
         if (runResult.error && /revision_count|approval_submitted_at|vercel_fallback_requested_at|schema cache/i.test(String(runResult.error.message || ""))) {
+            reusablePreviewBackendReady = false;
             runResult = await supabase.from("website_change_runs").select("id,request_id,attempt_number,state,branch_name,target_repository,progress_stage,progress_message,progress_updated_at,preview_url,preview_mode,preview_expires_at,production_deployment_url,production_ready_at,error_message,created_at,updated_at,preview_ready_at,merged_at").in("request_id", requestIds).order("created_at", { ascending: false });
         }
+        else
+            reusablePreviewBackendReady = true;
         if (runResult.error) {
             console.error("Website preview status could not be loaded.", runResult.error);
             changeRuns = [];
