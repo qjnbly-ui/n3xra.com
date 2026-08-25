@@ -36,9 +36,10 @@ test("live preview storage rejects traversal and rewrites root assets into the i
 });
 
 test("Fast Live Preview auto-starts per website and preserves the Vercel fallback", async () => {
-  const [migration, autoStartMigration, workflow, edge, intake, callback, admin, settings] = await Promise.all([
+  const [migration, autoStartMigration, adminRetryMigration, workflow, edge, intake, callback, admin, settings] = await Promise.all([
     projectFile("supabase/migrations/20260825025020_add_n3xra_live_website_previews.sql"),
     projectFile("supabase/migrations/20260825040000_auto_start_client_fast_previews.sql"),
+    projectFile("supabase/migrations/20260825041500_allow_admin_immediate_failed_preview_retry.sql"),
     projectFile(".github/workflows/website-change-preview.yml"),
     projectFile("supabase/functions/website-change-automation/index.ts"),
     projectFile("api/website-change-intake.js"),
@@ -61,6 +62,7 @@ test("Fast Live Preview auto-starts per website and preserves the Vercel fallbac
   assert.match(intake, /startFastPreview/);
   assert.match(intake, /website\.live_preview_enabled/);
   assert.match(autoStartMigration, /input_preview_mode text/);
+  assert.match(adminRetryMigration, /failure_stage = ''queued'' or actor_is_admin/);
   assert.match(callback, /validLivePreviewUrl/);
   assert.match(callback, /preview_token_hash/);
   assert.match(admin, /Fast Live Preview/);
