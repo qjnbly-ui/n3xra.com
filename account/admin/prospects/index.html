@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>N3XRA | Prospects</title>
+  <meta name="description" content="Private N3XRA prospect contacts and business-card scanning.">
+  <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
+  <link rel="icon" href="/assets/n3xra_logo_transparent_small.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&amp;family=Manrope:wght@400;600;700;800&amp;display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/site-nav.css?v=4">
+  <link rel="stylesheet" href="/client-portal/portal.css?v=17">
+  <link rel="stylesheet" href="/account/admin/admin.css?v=34">
+  <link rel="stylesheet" href="/account/admin/prospects/prospects.css?v=1">
+  <script src="/shared/config.js"></script>
+  <script src="/account/admin/admin-shell.js?v=2" defer></script>
+  <script src="/assets/site-nav.js?v=5"></script>
+</head>
+<body class="prospects-admin-page" data-admin-view="prospects">
+  <main class="portal-shell account-admin-page">
+    <section class="portal-workspace hidden" id="setup-panel">
+      <div class="portal-workspace-head"><div><h2>Connect Supabase</h2><p>Add the browser project configuration to continue.</p></div></div>
+    </section>
+
+    <div class="portal-layout hidden" id="admin-panel">
+      <nav class="portal-nav"></nav>
+      <section class="portal-workspace prospects-workspace">
+        <header class="prospects-header">
+          <div><p class="portal-kicker">Potential clients</p><h1>Prospects</h1><p>Save contacts without creating accounts, then include only consented contacts in announcements.</p></div>
+          <div class="prospects-header-actions">
+            <button class="portal-button portal-button-secondary" id="prospect-add" type="button">Add manually</button>
+            <button class="portal-button" id="prospect-scan" type="button">Scan business card</button>
+          </div>
+        </header>
+
+        <div class="prospects-metrics" aria-label="Prospect summary">
+          <article><span>Total prospects</span><strong id="prospect-total">0</strong></article>
+          <article><span>Email audience</span><strong id="prospect-email-audience">0</strong></article>
+          <article><span>Text audience</span><strong id="prospect-sms-audience">0</strong></article>
+          <article><span>New</span><strong id="prospect-new-count">0</strong></article>
+        </div>
+
+        <div class="prospects-toolbar">
+          <label><span>Find a prospect</span><input id="prospect-search" type="search" placeholder="Name, company, email, interest…"></label>
+          <label><span>Status</span><select id="prospect-status-filter"><option value="all">All statuses</option><option value="new">New</option><option value="contacted">Contacted</option><option value="qualified">Qualified</option><option value="nurturing">Nurturing</option><option value="not_interested">Not interested</option><option value="converted">Converted</option></select></label>
+          <label><span>Interest</span><select id="prospect-interest-filter"><option value="all">All interests</option></select></label>
+        </div>
+
+        <div class="prospects-list" id="prospect-list"><div class="prospects-empty">Loading prospects…</div></div>
+        <p class="admin-status" id="admin-status" role="status"></p>
+      </section>
+    </div>
+  </main>
+
+  <dialog class="prospect-dialog" id="prospect-dialog" aria-labelledby="prospect-dialog-title">
+    <form id="prospect-form">
+      <header class="prospect-dialog-head">
+        <div><p class="portal-kicker">Potential client</p><h2 id="prospect-dialog-title">Scan a business card</h2></div>
+        <button class="prospect-dialog-close" id="prospect-close" type="button" aria-label="Close">×</button>
+      </header>
+
+      <section class="prospect-card-capture" id="prospect-card-capture">
+        <div class="prospect-card-preview" id="prospect-card-preview"><span>Business card photo</span></div>
+        <div>
+          <h3>Photograph or upload the card</h3>
+          <p>The photo is compressed before scanning. AI suggestions must be reviewed before the contact is saved.</p>
+          <div class="prospect-card-actions">
+            <label class="portal-button portal-button-secondary" for="prospect-card-input">Choose photo</label>
+            <input id="prospect-card-input" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" hidden>
+            <button class="portal-button" id="prospect-card-analyze" type="button" disabled>Analyze card</button>
+          </div>
+          <p class="prospect-scan-status" id="prospect-scan-status" role="status"></p>
+        </div>
+      </section>
+
+      <input id="prospect-id" type="hidden">
+      <div class="prospect-form-grid">
+        <label><span>Full name</span><input id="prospect-full-name" maxlength="180" autocomplete="name"></label>
+        <label><span>Company</span><input id="prospect-company" maxlength="220" autocomplete="organization"></label>
+        <label><span>First name</span><input id="prospect-first-name" maxlength="100" autocomplete="given-name"></label>
+        <label><span>Last name</span><input id="prospect-last-name" maxlength="100" autocomplete="family-name"></label>
+        <label><span>Job title</span><input id="prospect-job-title" maxlength="180" autocomplete="organization-title"></label>
+        <label><span>Relationship</span><select id="prospect-relationship"><option value="new">New</option><option value="contacted">Contacted</option><option value="qualified">Qualified</option><option value="nurturing">Nurturing</option><option value="not_interested">Not interested</option><option value="converted">Converted</option></select></label>
+        <label><span>Email</span><input id="prospect-email" type="email" maxlength="320" autocomplete="email"></label>
+        <label><span>Phone</span><input id="prospect-phone" type="tel" maxlength="40" autocomplete="tel" placeholder="(541) 555-0123"></label>
+        <label><span>Website</span><input id="prospect-website" type="url" maxlength="500" autocomplete="url" placeholder="https://"></label>
+        <label><span>How we met</span><input id="prospect-source" maxlength="180" value="Business card" placeholder="Business card, event, referral…"></label>
+        <label class="prospect-span-two"><span>Address</span><input id="prospect-address" maxlength="500" autocomplete="street-address"></label>
+        <label class="prospect-span-two"><span>Interests</span><input id="prospect-interests" maxlength="600" placeholder="Website, Records, Communications"></label>
+        <label class="prospect-span-two"><span>Notes</span><textarea id="prospect-notes" rows="3" maxlength="4000" placeholder="What they were interested in or what to follow up about"></textarea></label>
+      </div>
+
+      <section class="prospect-consent-panel">
+        <div><h3>Campaign permissions</h3><p>Scanning a card does not provide marketing consent. Change these only when permission has actually been recorded.</p></div>
+        <div class="prospect-consent-grid">
+          <label><span>Email messages</span><select id="prospect-email-status"><option value="not_requested">Not requested</option><option value="subscribed">Subscribed</option><option value="unsubscribed">Unsubscribed</option><option value="bounced">Bounced</option></select></label>
+          <label><span>Text messages</span><select id="prospect-sms-status"><option value="not_requested">Not requested</option><option value="subscribed">Subscribed</option><option value="unsubscribed">Unsubscribed</option></select></label>
+          <label class="prospect-span-two"><span>Consent notes</span><input id="prospect-consent-notes" maxlength="1000" placeholder="When and how they agreed"></label>
+        </div>
+      </section>
+
+      <footer class="prospect-dialog-actions">
+        <button class="prospect-delete" id="prospect-delete" type="button" hidden>Delete contact</button>
+        <span></span>
+        <button class="portal-button portal-button-secondary" id="prospect-cancel" type="button">Cancel</button>
+        <button class="portal-button" id="prospect-save" type="submit">Save prospect</button>
+      </footer>
+      <p class="prospect-form-status" id="prospect-form-status" role="status"></p>
+    </form>
+  </dialog>
+
+  <script type="module" src="/account/admin/admin.js?v=48"></script>
+</body>
+</html>

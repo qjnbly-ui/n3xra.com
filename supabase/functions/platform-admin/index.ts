@@ -17,6 +17,7 @@ const PRODUCT_LABELS: Record<string, string> = {
   records: "N3XRA Records",
   websites: "N3XRA Websites",
   communications: "N3XRA Communications",
+  prospects: "Potential Clients",
   ai_music: "AI Music Generator",
   virals: "N3XRA Virals",
   utilities: "N3XRA Utilities",
@@ -624,6 +625,7 @@ function addRecipient(
   }
 
   map.set(email, {
+    key: `email:${email}`,
     user_id: input.user_id || null,
     email,
     name: textValue(input.name, 180) || email,
@@ -632,6 +634,7 @@ function addRecipient(
     plan: textValue(input.plan, 80),
     status: textValue(input.status, 80),
     context,
+    emailOptedIn: true,
   });
 }
 
@@ -649,6 +652,48 @@ async function loadProfiles(adminClient: ReturnType<typeof createClient>) {
 }
 
 async function listNotificationRecipients(adminClient: ReturnType<typeof createClient>, product: string) {
+  if (product === "prospects") {
+    const [{ data, error }, { data: consentEvents, error: consentError }] = await Promise.all([
+      adminClient
+        .from("prospect_contacts")
+        .select("id,full_name,first_name,last_name,job_title,company_name,email,phone_e164,relationship_status,email_marketing_status,sms_marketing_status,interest_tags,source_label")
+        .order("created_at", { ascending: false })
+        .limit(5000),
+      adminClient.from("sms_consent_events").select("phone_e164,event_type,created_at").order("created_at", { ascending: false }).limit(10000),
+    ]);
+    if (error || consentError) throw new Error(error?.message || consentError?.message || "Unable to load prospect consent.");
+    const latestConsentByPhone = new Map<string, Record<string, unknown>>();
+    (consentEvents || []).forEach((event) => {
+      const phone = normalizePhone(event.phone_e164);
+      if (phone && !latestConsentByPhone.has(phone)) latestConsentByPhone.set(phone, event);
+    });
+    return (data || []).map((contact) => {
+      const email = normalizeEmail(contact.email);
+      const phone = normalizePhone(contact.phone_e164);
+      const name = textValue(contact.full_name, 180)
+        || [textValue(contact.first_name, 100), textValue(contact.last_name, 100)].filter(Boolean).join(" ")
+        || textValue(contact.company_name, 220)
+        || email
+        || phone;
+      const interests = Array.isArray(contact.interest_tags) ? contact.interest_tags.map((tag) => textValue(tag, 80)).filter(Boolean) : [];
+      return {
+        key: `prospect:${contact.id}`,
+        prospectId: contact.id,
+        user_id: null,
+        email,
+        phone,
+        name,
+        product,
+        productLabel: PRODUCT_LABELS.prospects,
+        plan: interests.join(", "),
+        status: textValue(contact.relationship_status, 80),
+        context: [textValue(contact.job_title, 180), textValue(contact.company_name, 220), textValue(contact.source_label, 180)].filter(Boolean).join(" · "),
+        emailOptedIn: Boolean(email && contact.email_marketing_status === "subscribed"),
+        smsOptedIn: Boolean(phone && contact.sms_marketing_status === "subscribed" && latestConsentByPhone.get(phone)?.event_type !== "opt_out"),
+      };
+    }).sort(sortRecipients);
+  }
+
   const profiles = await loadProfiles(adminClient);
   const profileMap = getProfileMap(profiles);
   const recipients = new Map<string, Record<string, unknown>>();
@@ -830,6 +875,9 @@ function buildNotificationText(options: {
   ctaLabel: string;
 }) {
   const plainMessage = notificationMessageToPlainText(options.message);
+  const footer = options.productLabel === PRODUCT_LABELS.prospects
+    ? "You are receiving this because you gave N3XRA permission to send updates. Reply to this email to unsubscribe."
+    : "You are receiving this because your account is connected to N3XRA.";
   return [
     `${options.productLabel} update`,
     "",
@@ -837,7 +885,7 @@ function buildNotificationText(options: {
     "",
     options.ctaUrl ? `${options.ctaLabel}: ${options.ctaUrl}` : "",
     "",
-    "You are receiving this because your account is connected to N3XRA.",
+    footer,
   ].filter((line, index, lines) => line || lines[index - 1]).join("\n");
 }
 
@@ -870,6 +918,9 @@ function buildNotificationHtml(options: {
   const safeMessage = renderNotificationMessageHtml(options.message);
   const safeCtaUrl = escapeHtml(options.ctaUrl);
   const safeCtaLabel = escapeHtml(options.ctaLabel || "Open N3XRA");
+  const footer = options.productLabel === PRODUCT_LABELS.prospects
+    ? "You are receiving this because you gave N3XRA permission to send updates. Reply to this email to unsubscribe."
+    : "You are receiving this because your account is connected to N3XRA.";
 
   const preheader = safePreheader
     ? `<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">${safePreheader}</div>`
@@ -889,7 +940,7 @@ function buildNotificationHtml(options: {
         <div style="padding:28px;">
           <div style="margin:0;font-size:16px;line-height:1.65;color:#2f3d4d;">${safeMessage}</div>
           ${cta}
-          <p style="margin:24px 0 0;padding-top:18px;border-top:1px solid rgba(15,22,32,0.08);font-size:12px;line-height:1.5;color:#6b7482;">You are receiving this because your account is connected to N3XRA.</p>
+          <p style="margin:24px 0 0;padding-top:18px;border-top:1px solid rgba(15,22,32,0.08);font-size:12px;line-height:1.5;color:#6b7482;">${escapeHtml(footer)}</p>
         </div>
       </div>
     </div>
@@ -2934,8 +2985,12 @@ Deno.serve(async (request) => {
       const message = String(payload.message || "").trim().slice(0, 8000);
       const ctaUrl = String(payload.ctaUrl || "").trim().slice(0, 900);
       const ctaLabel = textValue(payload.ctaLabel || "Open N3XRA", 80);
+      const rawRecipientKeys = Array.isArray(payload.recipientKeys) ? payload.recipientKeys : [];
       const rawEmails = Array.isArray(payload.recipientEmails) ? payload.recipientEmails : [];
-      const recipientEmails = Array.from(new Set(rawEmails.map(normalizeEmail).filter(Boolean))).slice(0, 500);
+      const recipientKeys = Array.from(new Set([
+        ...rawRecipientKeys.map((value) => textValue(value, 400)).filter(Boolean),
+        ...rawEmails.map(normalizeEmail).filter(Boolean).map((email) => `email:${email}`),
+      ])).slice(0, 500);
 
       if (!["email", "sms", "both"].includes(channel)) {
         return jsonResponse({ error: "channel must be email, sms, or both." }, 400);
@@ -2943,26 +2998,26 @@ Deno.serve(async (request) => {
       if (["email", "both"].includes(channel) && !subject) {
         return jsonResponse({ error: "subject is required for email delivery." }, 400);
       }
-      if (!message || !recipientEmails.length) {
-        return jsonResponse({ error: "message and recipientEmails are required." }, 400);
-      }
-      const invalidEmail = recipientEmails.find((email) => !isValidEmail(email));
-      if (invalidEmail) {
-        return jsonResponse({ error: `Recipient email is invalid: ${invalidEmail}` }, 400);
+      if (!message || !recipientKeys.length) {
+        return jsonResponse({ error: "message and recipients are required." }, 400);
       }
       if (ctaUrl && !/^https?:\/\//i.test(ctaUrl)) {
         return jsonResponse({ error: "ctaUrl must start with http:// or https://." }, 400);
       }
 
       const allowedRecipients = await listNotificationRecipients(adminClient, product);
-      const allowedEmails = new Set(allowedRecipients.map((recipient) => normalizeEmail(recipient.email)).filter(Boolean));
-      const unauthorizedEmail = recipientEmails.find((email) => !allowedEmails.has(email));
-      if (unauthorizedEmail) {
-        return jsonResponse({ error: `Recipient is not in the selected product audience: ${unauthorizedEmail}` }, 400);
+      const allowedByKey = new Map(allowedRecipients.map((recipient) => [
+        textValue(recipient.key || `email:${normalizeEmail(recipient.email)}`, 400),
+        recipient,
+      ]));
+      const unauthorizedKey = recipientKeys.find((key) => !allowedByKey.has(key));
+      if (unauthorizedKey) {
+        return jsonResponse({ error: `Recipient is not in the selected product audience: ${unauthorizedKey}` }, 400);
       }
+      const selectedRecipients = recipientKeys.map((key) => allowedByKey.get(key)).filter(Boolean);
 
-      const sent: Array<{ email: string; id: string | null; channel: string }> = [];
-      const failed: Array<{ email: string; error: string }> = [];
+      const sent: Array<{ recipient: string; id: string | null; channel: string }> = [];
+      const failed: Array<{ recipient: string; error: string }> = [];
 
       if (["email", "both"].includes(channel)) {
         const resendApiKey = Deno.env.get("RESEND_API_KEY");
@@ -2970,15 +3025,21 @@ Deno.serve(async (request) => {
         const html = buildNotificationHtml({ productLabel, subject, preheader, message, ctaUrl, ctaLabel });
         const text = buildNotificationText({ productLabel, message, ctaUrl, ctaLabel });
         const fromEmail = Deno.env.get("PLATFORM_UPDATE_FROM_EMAIL") || "N3XRA <updates@n3xra.com>";
-        for (const email of recipientEmails) {
+        for (const recipient of selectedRecipients) {
+          const email = normalizeEmail(recipient?.email);
+          const recipientLabel = email || textValue(recipient?.phone || recipient?.name, 320);
+          if (!email || recipient?.emailOptedIn !== true) {
+            failed.push({ recipient: recipientLabel, error: "Email skipped because this prospect has no active email consent." });
+            continue;
+          }
           const emailResponse = await fetch("https://api.resend.com/emails", {
             method: "POST",
             headers: { Authorization: `Bearer ${resendApiKey}`, "Content-Type": "application/json" },
             body: JSON.stringify({ from: fromEmail, to: [email], subject, html, text, reply_to: user.email }),
           });
           const emailPayload = await emailResponse.json().catch(() => ({}));
-          if (emailResponse.ok) sent.push({ email, id: typeof emailPayload?.id === "string" ? emailPayload.id : null, channel: "email" });
-          else failed.push({ email, error: String(emailPayload?.message || emailPayload?.error || "Update email failed to send.") });
+          if (emailResponse.ok) sent.push({ recipient: recipientLabel, id: typeof emailPayload?.id === "string" ? emailPayload.id : null, channel: "email" });
+          else failed.push({ recipient: recipientLabel, error: String(emailPayload?.message || emailPayload?.error || "Update email failed to send.") });
         }
       }
 
@@ -2987,13 +3048,12 @@ Deno.serve(async (request) => {
         const authToken = String(Deno.env.get("TWILIO_AUTH_TOKEN") || "").trim();
         const fromPhone = normalizePhone(Deno.env.get("TWILIO_RECEPTIONIST_NUMBER") || "+15416526840");
         if (!accountSid || !authToken || !fromPhone) return jsonResponse({ error: "Twilio messaging is not configured." }, 500);
-        const recipientByEmail = new Map(allowedRecipients.map((recipient) => [normalizeEmail(recipient.email), recipient]));
         const smsBody = buildNotificationSms({ productLabel, message, ctaUrl, ctaLabel });
-        for (const email of recipientEmails) {
-          const recipient = recipientByEmail.get(email);
+        for (const recipient of selectedRecipients) {
           const phone = normalizePhone(recipient?.phone);
+          const recipientLabel = normalizeEmail(recipient?.email) || phone || textValue(recipient?.name, 320);
           if (!phone || recipient?.smsOptedIn !== true) {
-            failed.push({ email, error: "Text skipped because this account has no active SMS consent." });
+            failed.push({ recipient: recipientLabel, error: "Text skipped because this recipient has no active SMS consent." });
             continue;
           }
           const form = new URLSearchParams({ From: fromPhone, To: phone, Body: smsBody });
@@ -3006,8 +3066,8 @@ Deno.serve(async (request) => {
             body: form.toString(),
           });
           const smsPayload = await smsResponse.json().catch(() => ({}));
-          if (smsResponse.ok) sent.push({ email, id: typeof smsPayload?.sid === "string" ? smsPayload.sid : null, channel: "sms" });
-          else failed.push({ email, error: String(smsPayload?.message || "Text message failed to send.") });
+          if (smsResponse.ok) sent.push({ recipient: recipientLabel, id: typeof smsPayload?.sid === "string" ? smsPayload.sid : null, channel: "sms" });
+          else failed.push({ recipient: recipientLabel, error: String(smsPayload?.message || "Text message failed to send.") });
         }
       }
 

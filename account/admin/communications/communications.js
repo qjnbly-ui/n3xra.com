@@ -1,6 +1,6 @@
 import { hasConfig } from "/shared/lib/supabase-client.js";
-import { getAdminSession } from "/account/admin/admin-session.js?v=2";
-import { arrangeAdminWorkspace, refreshAdminNavigationBadges, renderAdminNavigation } from "/account/admin/admin-navigation.js?v=25";
+import { getAdminSession } from "/account/admin/admin-session.js?v=3";
+import { arrangeAdminWorkspace, refreshAdminNavigationBadges, renderAdminNavigation } from "/account/admin/admin-navigation.js?v=26";
 
 let context;
 let contacts = [];

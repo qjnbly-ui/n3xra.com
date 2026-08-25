@@ -1,6 +1,6 @@
 import { hasConfig } from "/shared/lib/supabase-client.js";
-import { getAdminSession } from "/account/admin/admin-session.js?v=2";
-import { arrangeAdminWorkspace, renderAdminNavigation } from "/account/admin/admin-navigation.js?v=25";
+import { getAdminSession } from "/account/admin/admin-session.js?v=3";
+import { arrangeAdminWorkspace, renderAdminNavigation } from "/account/admin/admin-navigation.js?v=26";
 import { confirmAdminAction, promptAdminText } from "/account/admin/admin-dialogs.js";
 import { initializeAdminSelects } from "/account/admin/admin-select.js?v=4";
 
@@ -216,6 +216,9 @@ async function loadAdminView(adminContext) {
   } else if (view === "files") {
     const files = await import("/account/admin/files/files.js?v=20");
     await files.startFiles({ supabase, session, invoke });
+  } else if (view === "prospects") {
+    const prospects = await import("/account/admin/prospects/prospects.js?v=1");
+    await prospects.startProspects({ supabase, session, confirmAdminAction });
   } else if (view === "business-info") {
     const businessInformation = await import("/account/admin/business-info/business-info.js?v=1");
     await businessInformation.startBusinessInformation({ invoke });

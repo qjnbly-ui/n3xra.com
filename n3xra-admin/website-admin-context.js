@@ -1,5 +1,5 @@
 import { hasConfig } from "/shared/lib/supabase-client.js";
-import { getAdminSession } from "/account/admin/admin-session.js?v=2";
+import { getAdminSession } from "/account/admin/admin-session.js?v=3";
 import { readWorkspaceContext, writeWorkspaceContext } from "/client-portal/workspace-context.js";
 import { resolveWebsiteUrl } from "/client-portal/website-url.js";
 

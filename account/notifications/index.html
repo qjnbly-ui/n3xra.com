@@ -45,7 +45,7 @@
         <div class="notification-layout">
           <aside class="notification-recipients" aria-label="Broadcast audience">
             <div class="notification-pane-head">
-              <div><h3>Audience</h3><p>Select the accounts that should receive this message.</p></div>
+              <div><h3>Audience</h3><p>Select the accounts or consented prospects that should receive this message.</p></div>
               <strong id="notification-selected-count">0 selected</strong>
             </div>
 
@@ -57,11 +57,12 @@
                     <option value="records">N3XRA Records</option>
                     <option value="ai_music">AI Music Generator</option>
                     <option value="virals">N3XRA Virals</option>
+                    <option value="prospects">Potential Clients</option>
                     <option value="all">All N3XRA accounts</option>
                   </select>
                 </div>
                 <div class="field notification-search-field">
-                  <label for="notification-filter">Search accounts</label>
+                  <label for="notification-filter">Search recipients</label>
                   <input id="notification-filter" type="search" placeholder="Name, email, plan…">
                 </div>
               </div>
@@ -71,9 +72,9 @@
                 <button class="portal-button portal-button-secondary" id="notification-select-visible" type="button">Select all</button>
                 <button class="notification-clear-button" id="notification-clear-selected" type="button">Clear</button>
               </div>
-              <p class="notification-loaded-count" id="notification-loaded-count">No accounts loaded.</p>
+              <p class="notification-loaded-count" id="notification-loaded-count">No recipients loaded.</p>
               <div class="notification-recipient-list" id="notification-recipient-list">
-                <div class="notification-empty-state">Load an audience to view accounts.</div>
+                <div class="notification-empty-state">Load an audience to view recipients.</div>
               </div>
             </div>
           </aside>
@@ -206,6 +207,6 @@
     </div>
   </footer>
 
-  <script type="module" src="/account/notifications/notifications.js?v=14"></script>
+  <script type="module" src="/account/notifications/notifications.js?v=15"></script>
 </body>
 </html>

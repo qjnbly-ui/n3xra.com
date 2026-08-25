@@ -32,7 +32,7 @@ test("Operations Administrator navigation contains only the approved workspaces"
   ]);
 
   for (const allowed of [
-    "/account/admin/inbox/", "/account/admin/accounts/", "/account/admin/support/",
+    "/account/admin/inbox/", "/account/admin/accounts/", "/account/admin/prospects/", "/account/admin/support/",
     "/account/admin/billing/", "/account/admin/operations/", "/account/admin/analytics/",
     "/account/admin/applications/", "/account/admin/business-info/", "/account/admin/files/",
     "/account/admin/communications/", "/account/notifications/",

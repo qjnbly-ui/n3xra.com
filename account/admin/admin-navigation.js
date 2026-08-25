@@ -11,6 +11,7 @@ const peopleLinks = [
 ];
 
 const customerOperationsLinks = [
+  ["/account/admin/prospects/", "Prospects"],
   ["/account/admin/support/", "Support Requests"],
   ["/account/admin/billing/", "Billing & Plans"],
   ["/account/admin/operations/", "Financial Operations"],
@@ -127,6 +128,7 @@ const operationsAdminAllowedLinks = new Set([
   "/account/",
   "/account/admin/inbox/",
   "/account/admin/accounts/",
+  "/account/admin/prospects/",
   "/account/admin/support/",
   "/account/admin/billing/",
   "/account/admin/operations/",
@@ -700,13 +702,13 @@ export async function navigateAdminWorkspace(destination, {
       const inbox = await import(`/account/admin/inbox/inbox.js?v=9&admin_view=${softNavigationSequence}`);
       await inbox.startInbox();
     } else if (url.pathname === "/account/notifications/") {
-      const notifications = await import("/account/notifications/notifications.js?v=14");
+      const notifications = await import("/account/notifications/notifications.js?v=15");
       await notifications.startNotifications();
     } else if (url.pathname === "/account/admin/communications/") {
       const communications = await import("/account/admin/communications/communications.js?v=5");
       await communications.startCommunications();
     } else {
-      const admin = await import("/account/admin/admin.js?v=36");
+      const admin = await import("/account/admin/admin.js?v=48");
       await admin.startAdmin();
     }
   } finally {

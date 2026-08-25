@@ -148,7 +148,7 @@ test("mobile inbox summaries remain compact while full notifications open separa
   assert.match(css, /@media \(max-width: 680px\)[\s\S]*\.notification-item-main p\s*{[\s\S]*display:\s*-webkit-box;[\s\S]*-webkit-line-clamp:\s*2;/);
   assert.match(css, /\.notification-item-main:focus-visible\s*{/);
   assert.match(html, /<dialog class="notification-dialog"/);
-  assert.match(html, /inbox\.css\?v=3/);
+  assert.match(html, /inbox\.css\?v=4/);
   assert.doesNotMatch(html, /<option value="(?:music|virals)">/);
   for (const product of ["records", "websites", "ai_music", "virals"]) {
     assert.match(billingHtml, new RegExp(`<option value="${product}">`));

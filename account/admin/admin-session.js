@@ -8,6 +8,7 @@ let authListenerInitialized = false;
 const OPERATIONS_ADMIN_PATHS = new Set([
   "/account/admin/inbox/",
   "/account/admin/accounts/",
+  "/account/admin/prospects/",
   "/account/admin/support/",
   "/account/admin/billing/",
   "/account/admin/operations/",

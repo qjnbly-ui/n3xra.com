@@ -79,6 +79,15 @@ async function recordSmsConsent({
       user_agent: userAgent ? String(userAgent).slice(0, 500) : null,
     }),
   });
+  if (eventType === "opt_out") {
+    await supabaseJson(`prospect_contacts?phone_e164=eq.${encodeURIComponent(phoneE164)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Prefer: "return=minimal" },
+      body: JSON.stringify({ sms_marketing_status: "unsubscribed" }),
+    }).catch((error) => {
+      console.error("Prospect SMS opt-out could not be synchronized", { phone: phoneE164, error: error?.message });
+    });
+  }
   return Array.isArray(rows) ? rows[0] || null : rows;
 }
 

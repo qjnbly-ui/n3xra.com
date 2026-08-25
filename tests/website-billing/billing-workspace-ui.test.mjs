@@ -57,7 +57,7 @@ test("website billing and the organization panel synchronize their selection", a
   assert.doesNotMatch(billing, /!adminMode \|\| !records \|\| event\.detail/);
   assert.match(context, /n3xra:workspace-context-change/);
   assert.match(context, /const changed = website\.id !== selectedId/);
-  assert.match(page, /website-admin-workspace\.js\?v=14/);
+  assert.match(page, /website-admin-workspace\.js\?v=15/);
   assert.match(workspace, /website-admin-context\.js\?v=5/);
 });
 
@@ -84,7 +84,7 @@ test("every website admin page loads the current mobile workspace navigation", a
   const pages = await Promise.all(routes.map((route) => read(`n3xra-admin/${route}/index.html`)));
 
   pages.forEach((page, index) => {
-    assert.match(page, /website-admin\.css\?v=19/, `${routes[index]} must load the mobile navigation styles`);
-    assert.match(page, /website-admin-workspace\.js\?v=14/, `${routes[index]} must load the mobile navigation controller`);
+    assert.match(page, /website-admin\.css\?v=20/, `${routes[index]} must load the mobile navigation styles`);
+    assert.match(page, /website-admin-workspace\.js\?v=15/, `${routes[index]} must load the mobile navigation controller`);
   });
 });

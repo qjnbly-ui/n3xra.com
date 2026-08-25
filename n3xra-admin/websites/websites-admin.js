@@ -1,5 +1,5 @@
 import { hasConfig } from "/shared/lib/supabase-client.js";
-import { getAdminSession } from "/account/admin/admin-session.js?v=2";
+import { getAdminSession } from "/account/admin/admin-session.js?v=3";
 import { readWorkspaceContext, writeWorkspaceContext } from "/client-portal/workspace-context.js";
 import { renderPdfFirstPage } from "/shared/lib/file-preview.js";
 import { confirmAdminAction, promptAdminText } from "/account/admin/admin-dialogs.js";

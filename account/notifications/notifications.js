@@ -1,8 +1,8 @@
 import {
   hasConfig,
 } from "/shared/lib/supabase-client.js";
-import { getAdminSession } from "/account/admin/admin-session.js?v=2";
-import { arrangeAdminWorkspace, renderAdminNavigation } from "/account/admin/admin-navigation.js?v=25";
+import { getAdminSession } from "/account/admin/admin-session.js?v=3";
+import { arrangeAdminWorkspace, renderAdminNavigation } from "/account/admin/admin-navigation.js?v=26";
 import {
   renderNotificationMessageHtml,
 } from "/account/notifications/notification-message-format.js?v=1";
@@ -15,13 +15,14 @@ function bindNotificationDom() {
 
 let supabase = null;
 let notificationRecipients = [];
-let selectedNotificationEmails = new Set();
+let selectedNotificationKeys = new Set();
 let pendingNotificationPayload = null;
 
 const PRODUCT_LABELS = {
   records: "N3XRA Records",
   ai_music: "AI Music Generator",
   virals: "N3XRA Virals",
+  prospects: "Potential Clients",
   all: "All N3XRA accounts",
 };
 
@@ -54,6 +55,13 @@ function getNotificationProductLabel(productId = notificationProductInput?.value
   return PRODUCT_LABELS[productId] || PRODUCT_LABELS.records;
 }
 
+function notificationRecipientIsEligible(recipient) {
+  const channel = notificationChannelInput?.value || "email";
+  if (channel === "sms") return recipient.smsOptedIn === true;
+  if (channel === "both") return recipient.emailOptedIn === true && recipient.smsOptedIn === true;
+  return recipient.emailOptedIn === true;
+}
+
 function syncNotificationComposer() {
   const isTextOnly = notificationChannelInput?.value === "sms";
   document.querySelectorAll("[data-notification-email-only]").forEach((field) => {
@@ -62,6 +70,11 @@ function syncNotificationComposer() {
   if (notificationMessageCount) {
     notificationMessageCount.textContent = `${notificationMessageInput?.value.length || 0} / 8,000`;
   }
+  selectedNotificationKeys = new Set(notificationRecipients
+    .filter((recipient) => notificationRecipientIsEligible(recipient))
+    .map((recipient) => String(recipient.key || `email:${normalizeEmail(recipient.email)}`))
+    .filter((key) => selectedNotificationKeys.has(key)));
+  if (notificationRecipientList) renderNotificationRecipients();
 }
 
 function replaceNotificationSelection(replacement, selectionStart, selectionEnd) {
@@ -131,6 +144,7 @@ function getFilteredNotificationRecipients() {
   return notificationRecipients.filter((recipient) => {
     const haystack = [
       recipient.email,
+      recipient.phone,
       recipient.name,
       recipient.productLabel,
       recipient.plan,
@@ -143,12 +157,12 @@ function getFilteredNotificationRecipients() {
 
 function updateNotificationCounts() {
   const total = notificationRecipients.length;
-  const selected = selectedNotificationEmails.size;
+  const selected = selectedNotificationKeys.size;
   if (notificationSelectedCount) notificationSelectedCount.textContent = `${selected} selected`;
   if (notificationLoadedCount) {
     notificationLoadedCount.textContent = total
-      ? `${total} account${total === 1 ? "" : "s"} loaded for ${getNotificationProductLabel()}.`
-      : "No accounts loaded.";
+      ? `${total} recipient${total === 1 ? "" : "s"} loaded for ${getNotificationProductLabel()}.`
+      : "No recipients loaded.";
   }
 }
 
@@ -158,31 +172,35 @@ function renderNotificationRecipients() {
   notificationRecipientList.innerHTML = "";
 
   if (!notificationRecipients.length) {
-    notificationRecipientList.innerHTML = '<div class="notification-empty-state">Load an audience to view accounts.</div>';
+    notificationRecipientList.innerHTML = '<div class="notification-empty-state">Load an audience to view recipients.</div>';
     updateNotificationCounts();
     return;
   }
 
   if (!recipients.length) {
-    notificationRecipientList.innerHTML = '<div class="notification-empty-state">No accounts match this search.</div>';
+    notificationRecipientList.innerHTML = '<div class="notification-empty-state">No recipients match this search.</div>';
     updateNotificationCounts();
     return;
   }
 
   recipients.forEach((recipient) => {
     const email = normalizeEmail(recipient.email);
-    const checked = selectedNotificationEmails.has(email) ? " checked" : "";
+    const key = String(recipient.key || `email:${email}`);
+    const eligible = notificationRecipientIsEligible(recipient);
+    const checked = selectedNotificationKeys.has(key) && eligible ? " checked" : "";
+    const disabled = eligible ? "" : " disabled";
+    const channels = [recipient.emailOptedIn ? "Email" : "", recipient.smsOptedIn ? "Text" : ""].filter(Boolean).join(" + ") || "No campaign consent";
     const row = document.createElement("label");
     row.className = "notification-recipient-row";
     row.innerHTML = `
-      <input type="checkbox" data-notification-email="${escapeHtml(email)}"${checked}>
+      <input type="checkbox" data-notification-key="${escapeHtml(key)}"${checked}${disabled}>
       <span class="notification-recipient-avatar">${escapeHtml(String(recipient.name || recipient.email).trim().charAt(0).toUpperCase() || "N")}</span>
       <span class="notification-recipient-copy">
         <strong>${escapeHtml(recipient.name || recipient.email)}</strong>
-        <small>${escapeHtml(recipient.email)}</small>
+        <small>${escapeHtml(recipient.email || recipient.phone || "No delivery address")}</small>
         <span>${escapeHtml([recipient.plan, recipient.status].filter(Boolean).join(" · ") || recipient.context || recipient.productLabel || "N3XRA account")}</span>
       </span>
-      <span class="notification-sms-badge${recipient.smsOptedIn ? " is-active" : ""}">${recipient.smsOptedIn ? "SMS" : "Email"}</span>
+      <span class="notification-sms-badge${recipient.emailOptedIn || recipient.smsOptedIn ? " is-active" : ""}">${escapeHtml(channels)}</span>
     `;
     notificationRecipientList.append(row);
   });
@@ -191,7 +209,7 @@ function renderNotificationRecipients() {
 
 function resetNotificationRecipients() {
   notificationRecipients = [];
-  selectedNotificationEmails = new Set();
+  selectedNotificationKeys = new Set();
   renderNotificationRecipients();
   setStatus(notificationStatus, "");
 }
@@ -215,31 +233,32 @@ async function loadNotificationRecipients() {
   }
 
   notificationRecipients = Array.isArray(data?.recipients) ? data.recipients : [];
-  selectedNotificationEmails = new Set();
+  selectedNotificationKeys = new Set();
   renderNotificationRecipients();
-  setStatus(notificationStatus, `${notificationRecipients.length} account${notificationRecipients.length === 1 ? "" : "s"} loaded. Select recipients before reviewing.`, "success");
+  setStatus(notificationStatus, `${notificationRecipients.length} recipient${notificationRecipients.length === 1 ? "" : "s"} loaded. Select recipients before reviewing.`, "success");
 }
 
 function handleNotificationRecipientToggle(event) {
-  const input = event.target.closest("input[type='checkbox'][data-notification-email]");
+  const input = event.target.closest("input[type='checkbox'][data-notification-key]");
   if (!input) return;
-  const email = normalizeEmail(input.getAttribute("data-notification-email"));
-  if (!email) return;
-  if (input.checked) selectedNotificationEmails.add(email);
-  else selectedNotificationEmails.delete(email);
+  const key = String(input.getAttribute("data-notification-key") || "");
+  if (!key) return;
+  if (input.checked) selectedNotificationKeys.add(key);
+  else selectedNotificationKeys.delete(key);
   updateNotificationCounts();
 }
 
 function selectVisibleNotificationRecipients() {
   getFilteredNotificationRecipients().forEach((recipient) => {
-    const email = normalizeEmail(recipient.email);
-    if (email) selectedNotificationEmails.add(email);
+    if (!notificationRecipientIsEligible(recipient)) return;
+    const key = String(recipient.key || `email:${normalizeEmail(recipient.email)}`);
+    if (key) selectedNotificationKeys.add(key);
   });
   renderNotificationRecipients();
 }
 
 function clearNotificationRecipients() {
-  selectedNotificationEmails = new Set();
+  selectedNotificationKeys = new Set();
   renderNotificationRecipients();
 }
 
@@ -256,7 +275,7 @@ function clearNotificationDraft() {
 }
 
 function getSelectedNotificationRecipients() {
-  return notificationRecipients.filter((recipient) => selectedNotificationEmails.has(normalizeEmail(recipient.email)));
+  return notificationRecipients.filter((recipient) => selectedNotificationKeys.has(String(recipient.key || `email:${normalizeEmail(recipient.email)}`)));
 }
 
 function getNotificationPayload() {
@@ -269,7 +288,7 @@ function getNotificationPayload() {
   const preheader = notificationPreheaderInput.value.trim();
   const product = notificationProductInput.value;
 
-  if (!recipients.length) throw new Error("Select at least one account.");
+  if (!recipients.length) throw new Error("Select at least one recipient.");
   if (["email", "both"].includes(channel) && !subject) throw new Error("Enter an email subject for email delivery.");
   if (!message) throw new Error("Write the email message.");
   if (ctaUrl && !/^https?:\/\//i.test(ctaUrl)) throw new Error("Button link must start with http:// or https://.");
@@ -314,7 +333,7 @@ function renderNotificationReview(payload) {
       <div class="notification-preview-message">${renderNotificationMessageHtml(payload.message)}</div>
       ${payload.ctaUrl ? `<p><a class="btn button-link" href="${escapeHtml(payload.ctaUrl)}" target="_blank" rel="noopener">${escapeHtml(payload.ctaLabel)}</a></p>` : ""}
       <hr>
-      <p class="field-note">First recipients: ${escapeHtml(payload.recipients.slice(0, 8).map((recipient) => recipient.email).join(", "))}${payload.recipients.length > 8 ? "..." : ""}</p>
+      <p class="field-note">First recipients: ${escapeHtml(payload.recipients.slice(0, 8).map((recipient) => recipient.email || recipient.phone || recipient.name).join(", "))}${payload.recipients.length > 8 ? "..." : ""}</p>
     </div>
   `;
 }
@@ -345,7 +364,7 @@ async function sendNotificationEmail() {
       message: pendingNotificationPayload.message,
       ctaUrl: pendingNotificationPayload.ctaUrl,
       ctaLabel: pendingNotificationPayload.ctaLabel,
-      recipientEmails: pendingNotificationPayload.recipients.map((recipient) => recipient.email),
+      recipientKeys: pendingNotificationPayload.recipients.map((recipient) => recipient.key || `email:${normalizeEmail(recipient.email)}`),
     },
   });
 

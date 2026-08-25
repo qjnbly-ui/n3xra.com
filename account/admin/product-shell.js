@@ -1,6 +1,6 @@
-import { renderAdminNavigation } from "/account/admin/admin-navigation.js?v=25";
+import { renderAdminNavigation } from "/account/admin/admin-navigation.js?v=26";
 import { initializeAdminSelects } from "/account/admin/admin-select.js?v=4";
-import { getAdminSession } from "/account/admin/admin-session.js?v=2";
+import { getAdminSession } from "/account/admin/admin-session.js?v=3";
 
 function createNativeLayout(main) {
   const layout = document.createElement("div");
