@@ -10,7 +10,7 @@ services:
       - key: N3XRA_BUILD_HOST
         value: 0.0.0.0
       - key: N3XRA_BUILD_ALLOWED_ORIGIN
-        value: https://n3xra.com
+        value: https://n3xra.com,https://www.n3xra.com
       - key: N3XRA_BUILD_WORKSPACE_ROOT
         value: /var/data/n3xra-build
       - key: CODEX_HOME

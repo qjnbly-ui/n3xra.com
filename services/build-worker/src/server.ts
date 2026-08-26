@@ -20,7 +20,12 @@ for (const name of required) if (!process.env[name]) throw new Error(`${name} is
 const env = process.env as NodeJS.ProcessEnv & Record<typeof required[number], string>;
 const port = Number(process.env.PORT || 4317);
 const host = String(process.env.N3XRA_BUILD_HOST || "127.0.0.1");
-const allowedOrigin = String(process.env.N3XRA_BUILD_ALLOWED_ORIGIN || "https://n3xra.com").replace(/\/$/, "");
+const allowedOrigins = new Set(
+  String(process.env.N3XRA_BUILD_ALLOWED_ORIGIN || "https://n3xra.com,https://www.n3xra.com")
+    .split(",")
+    .map((origin) => origin.trim().replace(/\/$/, ""))
+    .filter(Boolean),
+);
 const workspaceRoot = resolve(env.N3XRA_BUILD_WORKSPACE_ROOT);
 const codex = new CodexAppServer();
 const sessions = new Map<string, Session>();
@@ -29,7 +34,9 @@ const turnSessions = new Map<string, string>();
 const partialMessages = new Map<string, string>();
 
 function headers(res: ServerResponse, status = 200, contentType = "application/json") {
-  res.writeHead(status, { "Content-Type": contentType, "Cache-Control": "no-store", "Access-Control-Allow-Origin": allowedOrigin, "Access-Control-Allow-Headers": "Authorization, Content-Type", "Access-Control-Allow-Methods": "GET, POST, OPTIONS", Vary: "Origin" });
+  const requestOrigin = String((res as ServerResponse & { req?: IncomingMessage }).req?.headers.origin || "").replace(/\/$/, "");
+  const allowOrigin = allowedOrigins.has(requestOrigin) ? requestOrigin : [...allowedOrigins][0];
+  res.writeHead(status, { "Content-Type": contentType, "Cache-Control": "no-store", "Access-Control-Allow-Origin": allowOrigin, "Access-Control-Allow-Headers": "Authorization, Content-Type", "Access-Control-Allow-Methods": "GET, POST, OPTIONS", Vary: "Origin" });
 }
 function json(res: ServerResponse, status: number, value: unknown) { headers(res, status); res.end(JSON.stringify(value)); }
 async function body(req: IncomingMessage) { const chunks: Buffer[] = []; for await (const chunk of req) chunks.push(Buffer.from(chunk)); return chunks.length ? JSON.parse(Buffer.concat(chunks).toString("utf8")) as Json : {}; }
@@ -173,7 +180,7 @@ const server = createServer(async (req, res) => {
   try {
     const url = new URL(req.url || "/", "http://worker.local");
     if (req.method === "OPTIONS") { headers(res, 204); return res.end(); }
-    if (req.headers.origin && req.headers.origin.replace(/\/$/, "") !== allowedOrigin) return json(res, 403, { error: "Origin not allowed." });
+    if (req.headers.origin && !allowedOrigins.has(req.headers.origin.replace(/\/$/, ""))) return json(res, 403, { error: "Origin not allowed." });
     if (url.pathname === "/healthz") return json(res, 200, { ok: true });
     if (url.pathname.startsWith("/preview/")) { const [, , sessionId, ...parts] = url.pathname.split("/"); const session = sessions.get(sessionId || ""); if (!session || url.searchParams.get("token") !== session.previewToken) return json(res, 404, { error: "Preview not found." }); return proxyPreview(req, res, session, `/${parts.join("/")}`); }
     const user = await authenticate(req);
