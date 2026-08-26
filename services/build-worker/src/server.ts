@@ -152,7 +152,7 @@ async function startPreview(session: Session) {
         await command("npm", installArgs, session.cwd);
       } catch (error) {
         if (installArgs[0] !== "ci") throw error;
-        await command("npm", ["install", "--no-audit", "--no-fund"], session.cwd);
+        await command("npm", ["install", "--package-lock=false", "--no-audit", "--no-fund"], session.cwd);
       }
     } else {
       await command(packageManager, ["install", "--frozen-lockfile"], session.cwd);
