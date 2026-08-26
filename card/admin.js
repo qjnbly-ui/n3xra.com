@@ -52,6 +52,7 @@ function showCard(card) {
     if (!form || !empty)
         return;
     empty.hidden = true;
+    form.classList.remove("hidden");
     form.hidden = false;
     selectedId = String(card?.id || "");
     form.reset();

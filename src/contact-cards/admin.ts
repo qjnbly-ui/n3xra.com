@@ -38,7 +38,7 @@ function renderOwnerOptions(selected = "", locked = false): void {
 }
 
 function showCard(card: Row | null): void {
-  if (!form || !empty) return; empty.hidden = true; form.hidden = false; selectedId = String(card?.id || ""); form.reset(); field("id").value = selectedId; renderOwnerOptions(String(card?.owner_user_id || ""), Boolean(card));
+  if (!form || !empty) return; empty.hidden = true; form.classList.remove("hidden"); form.hidden = false; selectedId = String(card?.id || ""); form.reset(); field("id").value = selectedId; renderOwnerOptions(String(card?.owner_user_id || ""), Boolean(card));
   for (const name of ["slug", "status", "physical_card_status", "display_name", "headline", "company_name", "email", "phone_e164", "website_url", "shipping_name", "shipping_address_line_1", "shipping_address_line_2", "shipping_city", "shipping_region", "shipping_postal_code", "shipping_country"]) field(name).value = String(card?.[name] ?? (name === "shipping_country" ? "United States" : name === "status" ? "draft" : name === "physical_card_status" ? "not_requested" : ""));
   const title = document.querySelector<HTMLElement>("#contact-card-form-title"); const kicker = document.querySelector<HTMLElement>("#contact-card-form-kicker"); const summary = document.querySelector<HTMLElement>("#contact-card-form-summary");
   if (title) title.textContent = card?.display_name || "Add Contact Card"; if (kicker) kicker.textContent = card ? "Existing card" : "Manual setup"; if (summary) summary.textContent = card ? `${owner(card)?.email || "N3XRA account"} · n3xra.com/card/${card.slug}` : "Choose an existing account and reserve an available public address.";

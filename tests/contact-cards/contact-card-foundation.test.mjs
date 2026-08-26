@@ -53,6 +53,8 @@ test("friendly card URLs and separate customer and admin entry points are connec
   assert.match(activation, /card-activation-slug/);
   assert.match(activation, /card-scan-input/);
   assert.match(admin, /Add Contact Card/);
+  assert.match(admin, /class="contact-card-admin-form" id="contact-card-admin-form" hidden/);
+  assert.doesNotMatch(admin, /class="contact-card-admin-form hidden"/);
   assert.doesNotMatch(prospects, /prospect-card-owner/);
 });
 
