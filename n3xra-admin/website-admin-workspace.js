@@ -1,4 +1,4 @@
-import { initializeWebsiteOrganizationContext } from "/n3xra-admin/website-admin-context.js?v=6";
+import { initializeWebsiteOrganizationContext } from "/n3xra-admin/website-admin-context.js?v=7";
 
 const projectStageRoutes = [
   ["progress", "Progress", "/n3xra-admin/projects/"],
@@ -11,6 +11,7 @@ const mobileWorkspaceRoutes = [
   { keys: ["requests"], label: "Requests", href: "/n3xra-admin/requests/" },
   { keys: ["progress", "onboarding", "proposals"], label: "Project", href: "/n3xra-admin/projects/" },
   { keys: ["assets"], label: "Files", href: "/n3xra-admin/assets/" },
+  { keys: ["build"], label: "Build", href: "/n3xra-admin/build-studio/" },
   { keys: ["services"], label: "Services", href: "/n3xra-admin/services/" },
   { keys: ["billing"], label: "Billing", href: "/n3xra-admin/billing/" },
   { keys: ["portal"], label: "Portal", href: "/n3xra-admin/website-portal/" },
@@ -26,6 +27,7 @@ const routeDetails = {
   "/n3xra-admin/projects/": { key: "progress", kicker: "Websites", title: "Progress", description: "Control project status, milestones, dates, and client-facing next steps." },
   "/n3xra-admin/onboarding/": { key: "onboarding", kicker: "Websites", title: "Onboarding", description: "Review intake responses and files after proposal approval." },
   "/n3xra-admin/assets/": { key: "assets", kicker: "Websites", title: "Files & Assets", description: "Review, publish, and manage website files." },
+  "/n3xra-admin/build-studio/": { key: "build", kicker: "Websites", title: "Build Studio", description: "Build against the selected website repository with Codex and a live preview." },
   "/n3xra-admin/billing/": { key: "billing", kicker: "Websites", title: "Billing", description: "Manage approved charges, invoices, subscriptions, and Stripe state." },
 };
 

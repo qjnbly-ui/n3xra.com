@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ES2022",
+    "moduleResolution": "Bundler",
+    "baseUrl": ".",
+    "paths": {
+      "/account/admin/admin-session.js": ["src/build-studio/admin-session.d.ts"],
+      "/client-portal/workspace-context.js": ["src/build-studio/workspace-context.d.ts"]
+    },
+    "rootDir": "src/build-studio",
+    "outDir": "n3xra-admin/build-studio",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "declaration": false,
+    "sourceMap": false,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"]
+  },
+  "include": ["src/build-studio/**/*.ts"]
+}

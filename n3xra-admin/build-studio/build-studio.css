@@ -1,0 +1,43 @@
+.website-admin-view-build .website-admin-scroll-region { padding: 0; overflow: hidden; }
+.build-studio { min-height: 720px; background: #eaf2f3; color: #111820; }
+.build-toolbar { min-height: 68px; padding: 12px 18px; display: flex; align-items: center; justify-content: space-between; gap: 16px; background: #fff; border-bottom: 1px solid #d9e2e4; }
+.build-project, .build-toolbar-actions, .build-preview-head > div, .build-composer > div { display: flex; align-items: center; gap: 10px; }
+.build-project > div { display: grid; gap: 2px; }
+.build-project span, .build-chat-head span, .build-composer span { color: #68777d; font-size: .75rem; }
+.build-status-dot { width: 9px; height: 9px; flex: 0 0 auto; border-radius: 50%; background: #abb8bc; box-shadow: 0 0 0 4px #edf1f2; }
+.build-status-dot.is-ready { background: #13a18f; box-shadow: 0 0 0 4px #d9f5ef; }
+.build-status-dot.is-error { background: #ca554c; box-shadow: 0 0 0 4px #fae4e1; }
+.build-branch { max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 7px 10px; border: 1px solid #dce3e5; border-radius: 999px; background: #f7f9f9; color: #536269; font-size: .72rem; }
+.build-button { display: inline-flex; justify-content: center; align-items: center; min-height: 38px; padding: 0 16px; border: 1px solid #0c4b42; border-radius: 11px; background: #0c4b42; color: #fff; font: 800 .76rem Manrope, sans-serif; text-decoration: none; cursor: pointer; }
+.build-button-secondary { border-color: #d5dee0; background: #fff; color: #172027; }
+.build-button:disabled { opacity: .45; cursor: not-allowed; }
+.build-setup { min-height: 650px; padding: 48px 24px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+.build-setup-mark { width: 54px; height: 54px; margin-bottom: 18px; display: grid; place-items: center; border-radius: 16px; background: #081019; color: #3fd2ef; font: 800 1.3rem Manrope, sans-serif; transform: rotate(-3deg); }
+.build-setup h2 { margin: 3px 0 8px; font: 700 clamp(1.75rem, 4vw, 2.65rem) Fraunces, serif; }
+.build-setup > p:not(.portal-kicker):not(.build-device-code) { max-width: 520px; margin: 0; color: #617178; }
+.build-setup-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 22px; }
+.build-device-code { margin-top: 18px; padding: 14px 18px; border-radius: 12px; background: #fff; color: #162025; font-weight: 700; white-space: pre-line; }
+.build-workspace { height: min(760px, calc(100vh - 240px)); min-height: 590px; display: grid; grid-template-columns: minmax(320px, .72fr) minmax(480px, 1.28fr); }
+.build-chat, .build-preview { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+.build-chat { border-right: 1px solid #d6e0e2; background: #f8fbfb; }
+.build-chat-head, .build-preview-head { min-height: 64px; padding: 11px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid #dce4e6; background: #fff; }
+.build-chat-head h3 { margin: 1px 0 0; font: 700 1.18rem Fraunces, serif; }
+.build-messages { flex: 1; overflow: auto; padding: 18px; display: flex; flex-direction: column; gap: 14px; }
+.build-message { max-width: 90%; padding: 12px 14px; border-radius: 14px 14px 14px 4px; background: #fff; border: 1px solid #dfe7e8; box-shadow: 0 5px 16px rgba(13, 42, 48, .04); font-size: .85rem; line-height: 1.55; white-space: pre-wrap; }
+.build-message.is-user { align-self: flex-end; border: 0; border-radius: 14px 14px 4px 14px; background: #0d5047; color: #fff; }
+.build-message small { display: block; margin-bottom: 5px; color: #2b887b; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; }
+.build-message.is-user small { color: #bfe9e1; }
+.build-composer { padding: 12px; border-top: 1px solid #dce4e6; background: #fff; }
+.build-composer textarea { width: 100%; resize: none; padding: 12px; border: 1px solid #d6dfe1; border-radius: 12px; background: #fbfcfc; font: 500 .85rem Manrope, sans-serif; }
+.build-composer > div { margin-top: 8px; justify-content: space-between; }
+.build-preview { background: #dfe8ea; }
+.build-devices { padding: 3px; border-radius: 9px; background: #eff3f4; }
+.build-devices button, .build-icon-button { border: 0; background: transparent; color: #66747a; font: 700 .68rem Manrope, sans-serif; cursor: pointer; }
+.build-devices button { padding: 7px 9px; border-radius: 7px; }
+.build-devices button.is-current { background: #fff; color: #111820; box-shadow: 0 1px 4px rgba(20, 42, 48, .12); }
+.build-icon-button { width: 34px; height: 34px; border: 1px solid #d7e0e2; border-radius: 9px; background: #fff; font-size: 1rem; }
+.build-preview-stage { flex: 1; min-height: 0; padding: 14px; display: flex; justify-content: center; overflow: hidden; }
+.build-preview iframe { width: 100%; height: 100%; border: 0; border-radius: 6px; background: #fff; box-shadow: 0 14px 34px rgba(16, 43, 49, .13); transition: width .2s ease; }
+.build-notice { min-height: 22px; margin: 0; padding: 0 18px; color: #9f453e; background: #fff; font-size: .75rem; }
+@media (max-width: 1100px) { .build-workspace { grid-template-columns: minmax(290px, .9fr) 1.1fr; } .build-toolbar-actions .build-branch { display: none; } }
+@media (max-width: 760px) { .build-toolbar { align-items: flex-start; } .build-toolbar-actions { flex-wrap: wrap; justify-content: flex-end; } .build-workspace { height: auto; display: block; } .build-chat { height: 600px; border-right: 0; border-bottom: 1px solid #d6e0e2; } .build-preview { height: 620px; } .build-devices button { font-size: 0; } .build-devices button::first-letter { font-size: .7rem; } }

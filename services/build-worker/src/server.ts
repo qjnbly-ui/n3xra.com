@@ -1,0 +1,173 @@
+import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { spawn, type ChildProcess } from "node:child_process";
+import { createHash, randomUUID } from "node:crypto";
+import { existsSync } from "node:fs";
+import { mkdir, readFile, writeFile, chmod } from "node:fs/promises";
+import { dirname, join, resolve, sep } from "node:path";
+import { pipeline } from "node:stream/promises";
+import { CodexAppServer } from "./codex-app-server.js";
+
+type Json = Record<string, any>;
+type Identity = { id: string; email?: string };
+type Session = {
+  id: string; websiteId: string; userId: string; cwd: string; repositoryFullName: string;
+  baseBranch: string; workingBranch: string; codexThreadId: string; previewPort: number;
+  previewState: "offline" | "starting" | "ready" | "failed"; changedFileCount: number; previewToken: string; previewProcess?: ChildProcess;
+};
+
+const required = ["SUPABASE_URL", "SUPABASE_ANON_KEY", "SUPABASE_SERVICE_ROLE_KEY", "N3XRA_BUILD_WORKSPACE_ROOT"] as const;
+for (const name of required) if (!process.env[name]) throw new Error(`${name} is required.`);
+const env = process.env as NodeJS.ProcessEnv & Record<typeof required[number], string>;
+const port = Number(process.env.PORT || 4317);
+const host = String(process.env.N3XRA_BUILD_HOST || "127.0.0.1");
+const allowedOrigin = String(process.env.N3XRA_BUILD_ALLOWED_ORIGIN || "https://n3xra.com").replace(/\/$/, "");
+const workspaceRoot = resolve(env.N3XRA_BUILD_WORKSPACE_ROOT);
+const codex = new CodexAppServer();
+const sessions = new Map<string, Session>();
+const listeners = new Map<string, Set<ServerResponse>>();
+const turnSessions = new Map<string, string>();
+const partialMessages = new Map<string, string>();
+
+function headers(res: ServerResponse, status = 200, contentType = "application/json") {
+  res.writeHead(status, { "Content-Type": contentType, "Cache-Control": "no-store", "Access-Control-Allow-Origin": allowedOrigin, "Access-Control-Allow-Headers": "Authorization, Content-Type", "Access-Control-Allow-Methods": "GET, POST, OPTIONS", Vary: "Origin" });
+}
+function json(res: ServerResponse, status: number, value: unknown) { headers(res, status); res.end(JSON.stringify(value)); }
+async function body(req: IncomingMessage) { const chunks: Buffer[] = []; for await (const chunk of req) chunks.push(Buffer.from(chunk)); return chunks.length ? JSON.parse(Buffer.concat(chunks).toString("utf8")) as Json : {}; }
+function safePath(path: string) { const output = resolve(path); if (output !== workspaceRoot && !output.startsWith(`${workspaceRoot}${sep}`)) throw new Error("Unsafe workspace path."); return output; }
+function bearer(req: IncomingMessage) { return String(req.headers.authorization || "").replace(/^Bearer\s+/i, ""); }
+
+async function supabase(path: string, options: RequestInit = {}) {
+  const response = await fetch(`${env.SUPABASE_URL.replace(/\/$/, "")}${path}`, { ...options, headers: { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`, "Content-Type": "application/json", Prefer: "return=representation", ...(options.headers || {}) } });
+  const data = await response.json().catch(() => null);
+  if (!response.ok) throw new Error(data?.message || data?.error_description || `Supabase returned ${response.status}.`);
+  return data;
+}
+
+async function authenticate(req: IncomingMessage): Promise<Identity> {
+  const token = bearer(req);
+  if (!token) throw new Error("Authentication required.");
+  const userResponse = await fetch(`${env.SUPABASE_URL.replace(/\/$/, "")}/auth/v1/user`, { headers: { apikey: env.SUPABASE_ANON_KEY, Authorization: `Bearer ${token}` } });
+  if (!userResponse.ok) throw new Error("Your N3XRA session has expired.");
+  const user = await userResponse.json() as Identity;
+  const rows = await supabase(`/rest/v1/platform_admins?user_id=eq.${encodeURIComponent(user.id)}&status=eq.active&select=user_id,role,access_scope`);
+  const admin = Array.isArray(rows) ? rows[0] : null;
+  if (!admin || !["owner", "admin", "operations_admin"].includes(String(admin.role))) throw new Error("Build Studio requires administrator access.");
+  return user;
+}
+
+async function command(commandName: string, args: string[], cwd: string, extraEnv: NodeJS.ProcessEnv = {}) {
+  return new Promise<string>((resolveCommand, reject) => {
+    const child = spawn(commandName, args, { cwd: safePath(cwd), env: { ...process.env, ...extraEnv }, stdio: ["ignore", "pipe", "pipe"] });
+    let stdout = "", stderr = "";
+    child.stdout.on("data", (chunk) => { stdout += chunk; }); child.stderr.on("data", (chunk) => { stderr += chunk; });
+    child.once("error", reject); child.once("close", (code) => code === 0 ? resolveCommand(stdout.trim()) : reject(new Error((stderr || stdout || `${commandName} failed`).trim().slice(-2000))));
+  });
+}
+
+async function gitEnvironment(sessionId: string) {
+  const token = process.env.GITHUB_TOKEN;
+  if (!token) return {};
+  const script = safePath(join(workspaceRoot, ".credentials", `${sessionId}-askpass.sh`));
+  await mkdir(dirname(script), { recursive: true });
+  await writeFile(script, "#!/bin/sh\ncase \"$1\" in *Username*) printf '%s' 'x-access-token' ;; *) printf '%s' \"$N3XRA_GITHUB_TOKEN\" ;; esac\n", { mode: 0o700 });
+  await chmod(script, 0o700);
+  return { GIT_ASKPASS: script, GIT_TERMINAL_PROMPT: "0", N3XRA_GITHUB_TOKEN: token };
+}
+
+async function emit(session: Session, eventType: string, message = "", metadata: Json = {}) {
+  const rows = await supabase("/rest/v1/website_build_events", { method: "POST", body: JSON.stringify({ session_id: session.id, website_id: session.websiteId, actor_user_id: session.userId, event_type: eventType, message: message || null, metadata }) });
+  const event = Array.isArray(rows) ? rows[0] : { event_type: eventType, message, metadata };
+  listeners.get(session.id)?.forEach((res) => res.write(`data: ${JSON.stringify({ id: event.id, eventType, message, metadata })}\n\n`));
+}
+
+function publicSession(session: Session) {
+  const publicUrl = process.env.N3XRA_BUILD_PUBLIC_URL || process.env.RENDER_EXTERNAL_URL || `http://localhost:${port}`;
+  return { id: session.id, workingBranch: session.workingBranch, previewUrl: `${String(publicUrl).replace(/\/$/, "")}/preview/${session.id}/?token=${session.previewToken}`, previewState: session.previewState, changedFileCount: session.changedFileCount };
+}
+
+async function updateStatus(session: Session) {
+  const value = await command("git", ["status", "--short"], session.cwd);
+  session.changedFileCount = value ? value.split("\n").length : 0;
+  await supabase(`/rest/v1/website_build_sessions?id=eq.${session.id}`, { method: "PATCH", body: JSON.stringify({ changed_file_count: session.changedFileCount, preview_state: session.previewState, last_activity_at: new Date().toISOString() }) });
+  return publicSession(session);
+}
+
+async function prepareRepository(session: Session) {
+  await mkdir(workspaceRoot, { recursive: true });
+  const gitEnv = await gitEnvironment(session.id);
+  if (!existsSync(join(session.cwd, ".git"))) {
+    await mkdir(dirname(session.cwd), { recursive: true });
+    await command("git", ["clone", `https://github.com/${session.repositoryFullName}.git`, session.cwd], workspaceRoot, gitEnv);
+  }
+  await command("git", ["fetch", "origin", session.baseBranch], session.cwd, gitEnv);
+  const branches = await command("git", ["branch", "--list", session.workingBranch], session.cwd);
+  if (branches) await command("git", ["checkout", session.workingBranch], session.cwd);
+  else await command("git", ["checkout", "-b", session.workingBranch, `origin/${session.baseBranch}`], session.cwd);
+}
+
+async function startPreview(session: Session) {
+  session.previewProcess?.kill("SIGTERM"); session.previewState = "starting";
+  const packageJson = JSON.parse(await readFile(join(session.cwd, "package.json"), "utf8")) as Json;
+  const packageManager = existsSync(join(session.cwd, "pnpm-lock.yaml")) ? "pnpm" : existsSync(join(session.cwd, "yarn.lock")) ? "yarn" : "npm";
+  if (!existsSync(join(session.cwd, "node_modules"))) await command(packageManager, packageManager === "npm" ? ["ci"] : ["install", "--frozen-lockfile"], session.cwd);
+  const script = packageJson.scripts?.dev ? "dev" : packageJson.scripts?.start ? "start" : "preview";
+  const args = packageManager === "npm" ? ["run", script, "--", "--host", "127.0.0.1", "--port", String(session.previewPort)] : [script, "--host", "127.0.0.1", "--port", String(session.previewPort)];
+  session.previewProcess = spawn(packageManager, args, { cwd: session.cwd, env: { ...process.env, BROWSER: "none" }, stdio: ["ignore", "pipe", "pipe"] });
+  const ready = (chunk: Buffer) => { if (/localhost|127\.0\.0\.1|ready|started/i.test(chunk.toString())) { session.previewState = "ready"; void emit(session, "preview", "Live preview is ready.", { session: publicSession(session) }); } };
+  session.previewProcess.stdout?.on("data", ready); session.previewProcess.stderr?.on("data", ready);
+  session.previewProcess.once("exit", () => { session.previewState = "failed"; void emit(session, "error", "The preview process stopped.", { session: publicSession(session) }); });
+}
+
+async function openProject(user: Identity, websiteId: string) {
+  const websites = await supabase(`/rest/v1/client_websites?id=eq.${encodeURIComponent(websiteId)}&select=id,name,organization_id`);
+  const repositories = await supabase(`/rest/v1/website_repositories?website_id=eq.${encodeURIComponent(websiteId)}&provider=eq.github&select=full_name,default_branch&order=created_at.desc&limit=1`);
+  const website = websites?.[0], repository = repositories?.[0];
+  if (!website) throw new Error("Website not found."); if (!repository) throw new Error("Connect a GitHub repository before starting Build Studio.");
+  await supabase(`/rest/v1/website_build_sessions?website_id=eq.${websiteId}&created_by_user_id=eq.${user.id}&archived_at=is.null`, { method: "PATCH", body: JSON.stringify({ state: "archived", archived_at: new Date().toISOString() }) });
+  const id = randomUUID(); const slug = String(website.name).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 45) || "website";
+  const session: Session = { id, websiteId, userId: user.id, cwd: safePath(join(workspaceRoot, websiteId, id, "repository")), repositoryFullName: repository.full_name, baseBranch: repository.default_branch || "main", workingBranch: `n3xra/build-${slug}-${id.slice(0, 8)}`, codexThreadId: "", previewPort: 5000 + (Number.parseInt(createHash("sha1").update(id).digest("hex").slice(0, 4), 16) % 1000), previewState: "offline", changedFileCount: 0, previewToken: createHash("sha256").update(randomUUID()).digest("hex") };
+  await prepareRepository(session); session.codexThreadId = await codex.startThread(session.cwd); sessions.set(id, session);
+  await supabase("/rest/v1/website_build_sessions", { method: "POST", body: JSON.stringify({ id, website_id: websiteId, organization_id: website.organization_id, created_by_user_id: user.id, worker_session_id: id, codex_thread_id: session.codexThreadId, repository_full_name: session.repositoryFullName, base_branch: session.baseBranch, working_branch: session.workingBranch, state: "ready", preview_state: "starting" }) });
+  await emit(session, "session", `Build workspace opened on ${session.workingBranch}.`); await startPreview(session); await updateStatus(session);
+  return session;
+}
+
+codex.onEvent((method, params) => {
+  const turn = params.turn as Json | undefined; const turnId = String(params.turnId || turn?.id || ""); const sessionId = turnSessions.get(turnId); const session = sessionId ? sessions.get(sessionId) : null; if (!session) return;
+  if (method === "item/agentMessage/delta") partialMessages.set(turnId, `${partialMessages.get(turnId) || ""}${String(params.delta || "")}`);
+  if (method === "turn/completed") { const message = partialMessages.get(turnId) || "The requested work is complete."; partialMessages.delete(turnId); void updateStatus(session).then((state) => emit(session, "agent_message", message, { session: state })); }
+});
+
+async function proxyPreview(req: IncomingMessage, res: ServerResponse, session: Session, pathname: string) {
+  const upstream = await fetch(`http://127.0.0.1:${session.previewPort}${pathname}${new URL(req.url || "/", "http://local").search}`, { method: req.method || "GET", headers: { accept: String(req.headers.accept || "*/*") } });
+  res.writeHead(upstream.status, Object.fromEntries([...upstream.headers].filter(([key]) => !["content-encoding", "content-length"].includes(key.toLowerCase()))));
+  if (upstream.body) await pipeline(upstream.body as any, res); else res.end();
+}
+
+const server = createServer(async (req, res) => {
+  try {
+    const url = new URL(req.url || "/", "http://worker.local");
+    if (req.method === "OPTIONS") { headers(res, 204); return res.end(); }
+    if (req.headers.origin && req.headers.origin.replace(/\/$/, "") !== allowedOrigin) return json(res, 403, { error: "Origin not allowed." });
+    if (url.pathname === "/healthz") return json(res, 200, { ok: true });
+    if (url.pathname.startsWith("/preview/")) { const [, , sessionId, ...parts] = url.pathname.split("/"); const session = sessions.get(sessionId || ""); if (!session || url.searchParams.get("token") !== session.previewToken) return json(res, 404, { error: "Preview not found." }); return proxyPreview(req, res, session, `/${parts.join("/")}`); }
+    const user = await authenticate(req);
+    if (url.pathname === "/v1/account" && req.method === "GET") { const account = await codex.account(); return json(res, 200, { ready: true, codexAuthenticated: Boolean(account.account), account: account.account ? { type: (account.account as Json).type } : null }); }
+    if (url.pathname === "/v1/account/connect" && req.method === "POST") { const result = await codex.connectChatGpt(); return json(res, 200, { verificationUrl: result.verificationUrl || result.authUrl, userCode: result.userCode || result.code }); }
+    if (url.pathname === "/v1/projects/open" && req.method === "POST") { const input = await body(req); const session = await openProject(user, String(input.websiteId || "")); return json(res, 201, { session: publicSession(session) }); }
+    const match = url.pathname.match(/^\/v1\/sessions\/([0-9a-f-]+)(?:\/(messages|checkpoint|push|events|preview\/restart))?$/);
+    if (!match) return json(res, 404, { error: "Not found." });
+    const session = sessions.get(match[1] || ""); if (!session || session.userId !== user.id) return json(res, 404, { error: "Build session not found." });
+    const action = match[2] || "";
+    if (action === "events" && req.method === "GET") { headers(res, 200, "text/event-stream"); res.write(": connected\n\n"); const set = listeners.get(session.id) || new Set(); set.add(res); listeners.set(session.id, set); req.once("close", () => set.delete(res)); return; }
+    if (action === "messages" && req.method === "POST") { const input = await body(req); const text = String(input.text || "").trim(); if (!text) return json(res, 400, { error: "A build instruction is required." }); await emit(session, "user_message", text); const guardrail = "Work only inside this repository. Do not commit, push, deploy, access secrets, or change files outside the current workspace. Make and verify the requested website changes.\n\n"; const turn = await codex.startTurn(session.codexThreadId, session.cwd, `${guardrail}${text}`); turnSessions.set(turn.turn.id, session.id); return json(res, 202, { accepted: true }); }
+    if (action === "checkpoint" && req.method === "POST") { const input = await body(req); await command("git", ["add", "--all"], session.cwd); await command("git", ["commit", "-m", String(input.message || "Build Studio checkpoint").slice(0, 120)], session.cwd); const state = await updateStatus(session); await emit(session, "checkpoint", "Checkpoint saved to the branch.", { session: state }); return json(res, 200, { session: state }); }
+    if (action === "push" && req.method === "POST") { await command("git", ["push", "-u", "origin", session.workingBranch], session.cwd, await gitEnvironment(session.id)); const state = await updateStatus(session); await emit(session, "push", "Branch pushed to GitHub.", { session: state }); return json(res, 200, { session: state }); }
+    if (action === "preview/restart" && req.method === "POST") { await startPreview(session); return json(res, 202, { session: publicSession(session) }); }
+    return json(res, 405, { error: "Method not allowed." });
+  } catch (error) { json(res, /Authentication|required|expired|access/.test(String((error as Error).message)) ? 401 : 500, { error: error instanceof Error ? error.message : "Build worker error." }); }
+});
+
+void mkdir(workspaceRoot, { recursive: true }).then(() => {
+  server.listen(port, host, () => process.stdout.write(`N3XRA Build Worker listening on ${host}:${port}\n`));
+});

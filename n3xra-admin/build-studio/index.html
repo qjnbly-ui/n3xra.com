@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>N3XRA | Build Studio</title>
+  <meta name="robots" content="noindex,nofollow,noarchive">
+  <link rel="icon" href="/assets/n3xra_logo_transparent_small.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&amp;family=Manrope:wght@400;600;700;800&amp;display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/site-nav.css?v=4">
+  <link rel="stylesheet" href="/client-portal/portal.css?v=19">
+  <link rel="stylesheet" href="/account/admin/admin.css?v=34">
+  <link rel="stylesheet" href="/n3xra-admin/website-admin.css?v=20">
+  <link rel="stylesheet" href="/n3xra-admin/build-studio/build-studio.css?v=1">
+  <script src="/shared/config.js"></script>
+  <script src="/account/admin/admin-shell.js?v=2" defer></script>
+  <script src="/assets/site-nav.js?v=5"></script>
+  <script type="module" src="/account/admin/product-shell.js?v=19"></script>
+  <script type="module" src="/n3xra-admin/website-admin-workspace.js?v=16"></script>
+</head>
+<body class="portal-loading">
+  <main class="portal-shell">
+    <section class="portal-heading"><div><p class="portal-kicker">Website administration</p><h1>Build Studio</h1></div></section>
+    <section class="portal-project-picker"><div><p class="portal-kicker">Current workspace</p><h2>Selected website</h2></div><label class="portal-project-select">Website<select class="portal-select" id="build-website-select" aria-label="Website"></select></label></section>
+    <div class="portal-layout">
+      <nav class="portal-nav" aria-label="Website administration"></nav>
+      <section class="portal-workspace">
+        <div class="portal-workspace-head"><div><p class="portal-kicker">Repository workspace</p><h2>Build Studio</h2></div></div>
+        <section class="build-studio" id="build-studio" aria-busy="true">
+          <header class="build-toolbar">
+            <div class="build-project">
+              <span class="build-status-dot" id="build-worker-dot" aria-hidden="true"></span>
+              <div><strong id="build-project-name">Loading website…</strong><span id="build-repository-name">Finding repository</span></div>
+            </div>
+            <div class="build-toolbar-actions">
+              <span class="build-branch" id="build-branch">No session</span>
+              <button class="build-button build-button-secondary" id="build-checkpoint" type="button" disabled>Checkpoint</button>
+              <button class="build-button" id="build-push" type="button" disabled>Push branch</button>
+            </div>
+          </header>
+
+          <div class="build-setup" id="build-setup">
+            <div class="build-setup-mark" aria-hidden="true">N</div>
+            <p class="portal-kicker">N3XRA Build Studio</p>
+            <h2 id="build-setup-title">Preparing your workspace</h2>
+            <p id="build-setup-copy">Checking the selected website, repository, and secure Codex worker.</p>
+            <div class="build-setup-actions">
+              <button class="build-button" id="build-start" type="button" hidden>Start building</button>
+              <button class="build-button build-button-secondary" id="build-connect" type="button" hidden>Connect Codex</button>
+              <a class="build-button build-button-secondary" id="build-open-services" href="/n3xra-admin/services/" hidden>Connect repository</a>
+            </div>
+            <p class="build-device-code" id="build-device-code" hidden></p>
+          </div>
+
+          <div class="build-workspace" id="build-workspace" hidden>
+            <section class="build-chat" aria-label="Build conversation">
+              <div class="build-chat-head"><div><p class="portal-kicker">Codex</p><h3>Build conversation</h3></div><span id="build-change-count">No changes</span></div>
+              <div class="build-messages" id="build-messages" aria-live="polite"></div>
+              <form class="build-composer" id="build-composer">
+                <textarea id="build-prompt" rows="3" placeholder="What should we build or change next?" required></textarea>
+                <div><span>Changes stay on this branch until you push.</span><button class="build-button" type="submit">Send</button></div>
+              </form>
+            </section>
+
+            <section class="build-preview" aria-label="Live website preview">
+              <div class="build-preview-head">
+                <div><span class="build-status-dot" id="build-preview-dot" aria-hidden="true"></span><strong id="build-preview-status">Preview starting</strong></div>
+                <div class="build-devices" role="group" aria-label="Preview width">
+                  <button class="is-current" type="button" data-preview-width="100%" aria-label="Desktop preview">Desktop</button>
+                  <button type="button" data-preview-width="768px" aria-label="Tablet preview">Tablet</button>
+                  <button type="button" data-preview-width="390px" aria-label="Mobile preview">Mobile</button>
+                </div>
+                <button class="build-icon-button" id="build-refresh-preview" type="button" aria-label="Restart preview">↻</button>
+              </div>
+              <div class="build-preview-stage"><iframe id="build-preview-frame" title="Live website preview"></iframe></div>
+            </section>
+          </div>
+          <p class="build-notice" id="build-notice" role="status"></p>
+        </section>
+      </section>
+    </div>
+  </main>
+  <div class="portal-status" id="portal-status" role="status">Opening Build Studio…</div>
+  <script type="module" src="/client-portal/portal-shell.js"></script>
+  <script type="module" src="/n3xra-admin/build-studio/build-studio.js?v=1"></script>
+</body>
+</html>

@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: n3xra-build-worker
+    runtime: docker
+    plan: starter
+    dockerfilePath: ./services/build-worker/Dockerfile
+    healthCheckPath: /healthz
+    autoDeploy: false
+    envVars:
+      - key: N3XRA_BUILD_HOST
+        value: 0.0.0.0
+      - key: N3XRA_BUILD_ALLOWED_ORIGIN
+        value: https://n3xra.com
+      - key: N3XRA_BUILD_WORKSPACE_ROOT
+        value: /var/data/n3xra-build
+      - key: CODEX_HOME
+        value: /var/data/codex
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: GITHUB_TOKEN
+        sync: false
+    disk:
+      name: n3xra-build-data
+      mountPath: /var/data
+      sizeGB: 5

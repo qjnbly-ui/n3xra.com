@@ -27,6 +27,7 @@ const websiteWorkspacePaths = new Set([
   "/n3xra-admin/projects/",
   "/n3xra-admin/onboarding/",
   "/n3xra-admin/assets/",
+  "/n3xra-admin/build-studio/",
   "/n3xra-admin/billing/",
 ]);
 
@@ -71,6 +72,7 @@ const productApps = [
       "/n3xra-admin/projects/",
       "/n3xra-admin/onboarding/",
       "/n3xra-admin/assets/",
+      "/n3xra-admin/build-studio/",
       "/n3xra-admin/billing/",
     ],
   },
@@ -634,7 +636,7 @@ function websitePageController(page) {
 async function startWebsiteWorkspace(page) {
   const productShell = await import("/account/admin/product-shell.js?v=18");
   await productShell.startProductShell();
-  const websiteWorkspace = await import("/n3xra-admin/website-admin-workspace.js?v=15");
+  const websiteWorkspace = await import("/n3xra-admin/website-admin-workspace.js?v=16");
   websiteWorkspace.startWebsiteAdminWorkspace();
 
   const controllerUrl = websitePageController(page);

@@ -58,8 +58,8 @@ test("website billing and the organization panel synchronize their selection", a
   assert.doesNotMatch(billing, /!adminMode \|\| !records \|\| event\.detail/);
   assert.match(context, /n3xra:workspace-context-change/);
   assert.match(context, /const changed = website\.id !== selectedId/);
-  assert.match(page, /website-admin-workspace\.js\?v=15/);
-  assert.match(workspace, /website-admin-context\.js\?v=6/);
+  assert.match(page, /website-admin-workspace\.js\?v=16/);
+  assert.match(workspace, /website-admin-context\.js\?v=7/);
 });
 
 test("website admin exposes every workspace section from the mobile submenu", async () => {
@@ -69,7 +69,7 @@ test("website admin exposes every workspace section from the mobile submenu", as
     read("account/admin/admin-navigation.js"),
   ]);
 
-  for (const label of ["Overview", "Requests", "Project", "Files", "Services", "Billing", "Portal"]) {
+  for (const label of ["Overview", "Requests", "Project", "Files", "Build", "Services", "Billing", "Portal"]) {
     assert.match(workspace, new RegExp(`label: "${label}"`));
   }
   assert.match(workspace, /keys: \["progress", "onboarding", "proposals"\]/);
@@ -86,6 +86,6 @@ test("every website admin page loads the current mobile workspace navigation", a
 
   pages.forEach((page, index) => {
     assert.match(page, /website-admin\.css\?v=20/, `${routes[index]} must load the mobile navigation styles`);
-    assert.match(page, /website-admin-workspace\.js\?v=15/, `${routes[index]} must load the mobile navigation controller`);
+    assert.match(page, /website-admin-workspace\.js\?v=16/, `${routes[index]} must load the mobile navigation controller`);
   });
 });

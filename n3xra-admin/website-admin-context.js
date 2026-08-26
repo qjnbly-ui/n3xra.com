@@ -1,5 +1,5 @@
 import { hasConfig } from "/shared/lib/supabase-client.js";
-import { getAdminSession } from "/account/admin/admin-session.js?v=4";
+import { getAdminSession } from "/account/admin/admin-session.js?v=5";
 import { readWorkspaceContext, writeWorkspaceContext } from "/client-portal/workspace-context.js";
 import { resolveWebsiteUrl } from "/client-portal/website-url.js";
 
@@ -7,6 +7,7 @@ const ORGANIZATION_ROUTES = [
   [["overview", "new"], "Overview", "/n3xra-admin/websites/"],
   [["proposals", "progress", "onboarding"], "Project", "/n3xra-admin/projects/"],
   [["assets"], "Files & assets", "/n3xra-admin/assets/"],
+  [["build"], "Build Studio", "/n3xra-admin/build-studio/"],
   [["services"], "Services & ownership", "/n3xra-admin/services/"],
   [["billing"], "Billing", "/n3xra-admin/billing/"],
 ];
