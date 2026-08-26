@@ -288,13 +288,23 @@ function openReview(title, body, confirmLabel, action) {
 async function load() {
   const projectId = new URLSearchParams(location.search).get("project");
   const tenantResolution = adminMode ? null : await resolvePortalTenant(supabase);
-  if (!adminMode) {
-    productRecords = (await invoke("communications-billing", { action: "status" })).products || [];
-    renderProductBilling();
-  }
   records = await invoke("get-website-billing-status", adminMode || tenantResolution?.mode !== "unbound"
     ? {}
     : (projectId ? { project_id: projectId } : {}));
+
+  if (!adminMode) {
+    let organizationId = "";
+    const managedWebsiteId = tenantResolution?.mode === "tenant"
+      ? tenantResolution.website_id
+      : records.projects.find((project) => project.id === projectId)?.managed_website_id || records.projects[0]?.managed_website_id;
+    if (managedWebsiteId) {
+      const { data: website, error } = await supabase.from("client_websites").select("organization_id").eq("id", managedWebsiteId).maybeSingle();
+      if (error) throw error;
+      organizationId = String(website?.organization_id || "");
+    }
+    productRecords = (await invoke("communications-billing", { action: "status", organization_id: organizationId || undefined })).products || [];
+    renderProductBilling();
+  }
 
   if (adminMode) {
     const { data, error } = await supabase.from("client_websites").select("id,name,status").order("name");

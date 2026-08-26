@@ -42,5 +42,7 @@ test("the client sees Communications and website plans in one billing workspace"
   assert.match(app, /Activate Communications/);
   assert.match(app, /Manage all payments in Stripe/);
   assert.match(app, /action: "status"/);
+  assert.match(app, /client_websites/);
+  assert.match(app, /organization_id: organizationId \|\| undefined/);
   assert.match(app, /action: checkout \? "checkout" : "portal"/);
 });
