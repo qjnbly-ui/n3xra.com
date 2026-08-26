@@ -15,7 +15,7 @@ type Session = {
   previewState: "offline" | "starting" | "ready" | "failed"; changedFileCount: number; previewToken: string; previewProcess?: ChildProcess;
 };
 
-const required = ["SUPABASE_URL", "SUPABASE_ANON_KEY", "SUPABASE_SERVICE_ROLE_KEY", "N3XRA_BUILD_WORKSPACE_ROOT", "GITHUB_APP_CLIENT_ID", "GITHUB_APP_PRIVATE_KEY", "GITHUB_APP_INSTALLATION_ID"] as const;
+const required = ["SUPABASE_URL", "SUPABASE_ANON_KEY", "SUPABASE_SERVICE_ROLE_KEY", "N3XRA_BUILD_WORKSPACE_ROOT", "CODEX_HOME", "GITHUB_APP_CLIENT_ID", "GITHUB_APP_PRIVATE_KEY", "GITHUB_APP_INSTALLATION_ID"] as const;
 for (const name of required) if (!process.env[name]) throw new Error(`${name} is required.`);
 const env = process.env as NodeJS.ProcessEnv & Record<typeof required[number], string>;
 const port = Number(process.env.PORT || 4317);
@@ -200,6 +200,9 @@ const server = createServer(async (req, res) => {
   } catch (error) { json(res, /Authentication|required|expired|access/.test(String((error as Error).message)) ? 401 : 500, { error: error instanceof Error ? error.message : "Build worker error." }); }
 });
 
-void mkdir(workspaceRoot, { recursive: true }).then(() => {
+void Promise.all([
+  mkdir(workspaceRoot, { recursive: true }),
+  mkdir(resolve(env.CODEX_HOME), { recursive: true }),
+]).then(() => {
   server.listen(port, host, () => process.stdout.write(`N3XRA Build Worker listening on ${host}:${port}\n`));
 });
