@@ -184,7 +184,8 @@ codex.onEvent((method, params) => {
 
 async function proxyPreview(req: IncomingMessage, res: ServerResponse, session: Session, pathname: string) {
   const upstream = await fetch(`http://127.0.0.1:${session.previewPort}${pathname}${new URL(req.url || "/", "http://local").search}`, { method: req.method || "GET", headers: { accept: String(req.headers.accept || "*/*") } });
-  res.writeHead(upstream.status, Object.fromEntries([...upstream.headers].filter(([key]) => !["content-encoding", "content-length"].includes(key.toLowerCase()))));
+  const excludedHeaders = new Set(["content-encoding", "content-length", "content-security-policy", "content-security-policy-report-only", "x-frame-options"]);
+  res.writeHead(upstream.status, Object.fromEntries([...upstream.headers].filter(([key]) => !excludedHeaders.has(key.toLowerCase()))));
   if (upstream.body) await pipeline(upstream.body as any, res); else res.end();
 }
 
