@@ -18,7 +18,7 @@ test("My products queries stay scoped to the signed-in account even for platform
     const query = script.match(new RegExp(`\\.from\\("${table}"\\)[\\s\\S]*?(?=\\n}\\n|\\nasync function)`))?.[0] || "";
     assert.match(query, /\.eq\("user_id", currentSession\.user\.id\)/, `${table} must be scoped to the current user`);
   }
-  assert.match(html, /account\.js\?v=20260824-operations-admin/);
+  assert.match(html, /account\.js\?v=20260826-contact-cards/);
 });
 
 test("Accounts provides client-view previews without changing the signed-in identity", async () => {

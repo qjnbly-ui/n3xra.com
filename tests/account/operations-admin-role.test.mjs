@@ -35,13 +35,13 @@ test("Operations Administrator navigation contains only the approved workspaces"
     "/account/admin/inbox/", "/account/admin/accounts/", "/account/admin/prospects/", "/account/admin/support/",
     "/account/admin/billing/", "/account/admin/operations/", "/account/admin/analytics/",
     "/account/admin/applications/", "/account/admin/business-info/", "/account/admin/files/",
-    "/account/admin/communications/", "/account/notifications/",
+    "/account/admin/communications/", "/account/notifications/", "/n3xra-admin/contact-cards/",
   ]) {
     assert.match(navigation, new RegExp(allowed.replaceAll("/", "\\/")));
     assert.match(session, new RegExp(allowed.replaceAll("/", "\\/")));
   }
 
-  assert.match(navigation, /operationsAdminProductKeys = new Set\(\["websites", "records", "communications"\]\)/);
+  assert.match(navigation, /operationsAdminProductKeys = new Set\(\["websites", "records", "communications", "contact-cards"\]\)/);
   assert.match(navigation, /isOperationsAdministrator\(\) \? "" : mobileSection/);
   assert.match(session, /return normalizedRole === "operations_admin" && OPERATIONS_ADMIN_PATHS\.has/);
   assert.match(adminCss, /body\[data-admin-role="operations_admin"\] \[data-site-assistant-open\]/);

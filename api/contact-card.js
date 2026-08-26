@@ -1,0 +1,68 @@
+const SUPABASE_URL = String(process.env.SUPABASE_URL || "").trim().replace(/\/$/, "");
+const SERVICE_KEY = String(process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY || "").trim();
+
+const PUBLIC_COLUMNS = [
+  "slug",
+  "display_name",
+  "headline",
+  "company_name",
+  "bio",
+  "email",
+  "phone_e164",
+  "website_url",
+  "location_text",
+  "links",
+  "profile_image_path",
+  "company_logo_path",
+  "background_image_path",
+  "section_order",
+  "accent_color",
+  "show_n3xra_branding",
+].join(",");
+
+function send(res, status, body) {
+  res.setHeader("Cache-Control", status === 200 ? "public, max-age=60, s-maxage=300, stale-while-revalidate=600" : "no-store");
+  res.setHeader("Content-Type", "application/json; charset=utf-8");
+  return res.status(status).json(body);
+}
+
+function serviceHeaders(extra = {}) {
+  const credentials = SERVICE_KEY.startsWith("sb_secret_")
+    ? { apikey: SERVICE_KEY }
+    : { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` };
+  return { ...credentials, ...extra };
+}
+
+export default async function handler(req, res) {
+  if (req.method !== "GET") {
+    res.setHeader("Allow", "GET");
+    return send(res, 405, { error: "Method not allowed." });
+  }
+  const slug = String(req.query?.slug || "").trim().toLowerCase();
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) return send(res, 400, { error: "This card address is not valid." });
+  if (!SUPABASE_URL || !SERVICE_KEY) return send(res, 503, { error: "Digital cards are temporarily unavailable." });
+
+  try {
+    const params = new URLSearchParams({ select: PUBLIC_COLUMNS, slug: `eq.${slug}`, status: "eq.published", limit: "1" });
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/contact_card_profiles?${params}`, {
+      headers: serviceHeaders({ Accept: "application/json" }),
+    });
+    if (!response.ok) return send(res, 503, { error: "Digital cards are temporarily unavailable." });
+    const rows = await response.json();
+    const card = Array.isArray(rows) ? rows[0] : null;
+    if (!card) return send(res, 404, { error: "This digital card is not published right now." });
+    const { profile_image_path, company_logo_path, background_image_path, ...publicCard } = card;
+    return send(res, 200, {
+      card: {
+        ...publicCard,
+        media: {
+          profile: Boolean(profile_image_path),
+          logo: Boolean(company_logo_path),
+          background: Boolean(background_image_path),
+        },
+      },
+    });
+  } catch {
+    return send(res, 503, { error: "Digital cards are temporarily unavailable." });
+  }
+}

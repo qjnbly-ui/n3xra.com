@@ -43,6 +43,7 @@ const nativeProductWorkspacePaths = new Set([
   "/n3xra-admin/communications/texting-readiness/",
   "/n3xra-admin/communications/pricing-activation/",
   "/n3xra-admin/communications/requests/",
+  "/n3xra-admin/contact-cards/",
 ]);
 
 const productWorkspacePaths = new Set([
@@ -105,6 +106,11 @@ const productApps = [
       "/n3xra-admin/communications/requests/",
     ],
   },
+  {
+    key: "contact-cards",
+    label: "Contact Cards",
+    sections: [["workspace", "Cards & Requests", "/n3xra-admin/contact-cards/"]],
+  },
 ];
 
 const companyLinks = [
@@ -140,7 +146,7 @@ const operationsAdminAllowedLinks = new Set([
   "/account/notifications/",
 ]);
 
-const operationsAdminProductKeys = new Set(["websites", "records", "communications"]);
+const operationsAdminProductKeys = new Set(["websites", "records", "communications", "contact-cards"]);
 
 function isOperationsAdministrator() {
   return String(window.__n3xraAdminRole || "").toLowerCase() === "operations_admin";

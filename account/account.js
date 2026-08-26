@@ -79,6 +79,9 @@ const investmentInterestSummary = document.getElementById("investment-interest-s
 const investmentInterestLink = document.getElementById("investment-interest-link");
 const loanTrackerAppCard = document.getElementById("loan-tracker-app-card");
 const loanTrackerSummary = document.getElementById("loan-tracker-summary");
+const contactCardAppCard = document.getElementById("contact-card-app-card");
+const contactCardAppSummary = document.getElementById("contact-card-app-summary");
+const contactCardAppLink = document.getElementById("contact-card-app-link");
 const connectedAppsGrid = document.getElementById("connected-apps-grid");
 const availableAppsGrid = document.getElementById("available-apps-grid");
 const moreFromN3xraGrid = document.getElementById("more-from-n3xra-grid");
@@ -101,6 +104,7 @@ let viralsProfile = null;
 let websiteServiceRequest = null;
 let loanAccount = null;
 let communicationsEntitlement = null;
+let contactCardProfile = null;
 let platformAdminAccess = null;
 let validatedSignupReferralCode = "";
 let signupReferralTimer = null;
@@ -632,6 +636,18 @@ async function loadInvestmentInterest() {
   return data || null;
 }
 
+async function loadContactCardProfile() {
+  if (!currentSession?.user) return null;
+  const { data, error } = await supabase
+    .from("contact_card_profiles")
+    .select("slug,status")
+    .eq("owner_user_id", currentSession.user.id)
+    .maybeSingle();
+  if (error) throw error;
+  contactCardProfile = data || null;
+  return contactCardProfile;
+}
+
 async function loadPhoneAccess() {
   if (!currentSession?.access_token || !phoneAccessForm) return null;
   const response = await fetch("/api/account-phone", {
@@ -707,6 +723,7 @@ async function renderDashboard(message = "") {
     loadWebsiteServiceRequest(),
     loadLoanAccount(),
     loadCommunicationsEntitlement(),
+    loadContactCardProfile(),
   ]);
   const isApprovedPartner = partnerAccess.status === "fulfilled" && partnerAccess.value === true;
   const interest = investmentInterest.status === "fulfilled" ? investmentInterest.value : null;
@@ -752,6 +769,15 @@ async function renderDashboard(message = "") {
     show(loanTrackerAppCard, false);
   }
 
+  if (contactCardProfile && contactCardAppSummary && contactCardAppLink) {
+    const cardState = contactCardProfile.status === "published" ? "Published" : formatAppStatus(contactCardProfile.status);
+    contactCardAppSummary.textContent = `${cardState} at n3xra.com/card/${contactCardProfile.slug}.`;
+    contactCardAppLink.textContent = "Manage Contact Card";
+  } else if (contactCardAppSummary && contactCardAppLink) {
+    contactCardAppSummary.textContent = "Create a customizable contact page, choose your permanent address, and request a tap card.";
+    contactCardAppLink.textContent = "Activate Contact Card";
+  }
+
   if (isApprovedPartner) {
     partnerPortalKicker.textContent = "Approved partner";
     partnerPortalTitle.textContent = "N3XRA Partners";
@@ -784,6 +810,7 @@ async function renderDashboard(message = "") {
     [recordsAppCard, hasRecordsAccess],
     [communicationsProductCard, hasCommunicationsAccess],
     [websitePortalCard, hasWebsiteService, hasWebsiteService ? websiteAppState(websiteServiceRequest.status) : "available"],
+    [contactCardAppCard, Boolean(contactCardProfile)],
   ].forEach(([card, connected, state]) => placeAppCard(card, connected, state));
   placeMoreFromN3xraCard(partnerPortalCard, isApprovedPartner);
   const ownershipUpdateStatus = !interest

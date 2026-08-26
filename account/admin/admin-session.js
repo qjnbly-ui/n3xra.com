@@ -39,6 +39,7 @@ const OPERATIONS_ADMIN_PATHS = new Set([
   "/n3xra-admin/communications/texting-readiness/",
   "/n3xra-admin/communications/pricing-activation/",
   "/n3xra-admin/communications/requests/",
+  "/n3xra-admin/contact-cards/",
 ]);
 
 function normalizeAdminPath(pathname = window.location.pathname) {

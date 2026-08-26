@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Digital contact card | N3XRA</title>
+  <meta name="description" content="A digital contact card hosted by N3XRA.">
+  <meta name="robots" content="index, follow">
+  <link rel="icon" href="/assets/n3xra_logo_transparent_small.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&amp;family=Manrope:wght@600;700;800&amp;display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/card/card.css?v=1">
+</head>
+<body class="contact-card-page">
+  <main class="contact-card-shell" id="card-shell" aria-live="polite">
+    <section class="contact-card-loading" id="card-loading">
+      <span class="contact-card-mark" aria-hidden="true">N3</span>
+      <p>Opening contact card…</p>
+    </section>
+
+    <article class="contact-card" id="contact-card" hidden>
+      <header class="contact-card-hero">
+        <img class="contact-card-background" id="card-background" alt="" hidden>
+        <div class="contact-card-hero-shade" aria-hidden="true"></div>
+        <img class="contact-card-company-logo" id="card-logo" alt="" hidden>
+        <div class="contact-card-avatar" id="card-avatar" aria-hidden="true"><img id="card-profile-image" alt="" hidden><span id="card-initials"></span></div>
+        <p class="contact-card-eyebrow" id="card-company"></p>
+        <h1 id="card-name"></h1>
+        <p class="contact-card-headline" id="card-headline"></p>
+        <p class="contact-card-location" id="card-location"></p>
+        <div class="contact-card-primary-actions" id="card-primary-actions"></div>
+      </header>
+
+      <div class="contact-card-body" id="card-sections">
+        <section class="contact-card-about" id="card-about-section" data-card-section="about" hidden>
+          <p class="contact-card-section-label">About</p>
+          <p id="card-bio"></p>
+        </section>
+
+        <section class="contact-card-links" id="card-contact-section" data-card-section="contact" aria-labelledby="card-contact-title" hidden>
+          <div class="contact-card-section-head">
+            <p class="contact-card-section-label" id="card-contact-title">Contact</p>
+            <span>Tap to open</span>
+          </div>
+          <div class="contact-card-link-list" id="card-contact-links"></div>
+        </section>
+
+        <section class="contact-card-links" id="card-custom-links-section" data-card-section="links" aria-labelledby="card-links-title" hidden>
+          <div class="contact-card-section-head">
+            <p class="contact-card-section-label" id="card-links-title">Links</p>
+            <span>Explore</span>
+          </div>
+          <div class="contact-card-link-list" id="card-links"></div>
+        </section>
+      </div>
+
+      <footer class="contact-card-footer" id="card-branding-footer">
+        <a href="https://www.n3xra.com" aria-label="Powered by N3XRA"><span>Powered by</span><strong>N3XRA</strong></a>
+      </footer>
+    </article>
+
+    <section class="contact-card-error" id="card-error" hidden>
+      <span class="contact-card-mark" aria-hidden="true">N3</span>
+      <h1>Card unavailable</h1>
+      <p id="card-error-message">This digital card is not published right now.</p>
+      <a href="https://www.n3xra.com">Visit N3XRA</a>
+    </section>
+  </main>
+  <script type="module" src="/card/public-card.js?v=1"></script>
+</body>
+</html>

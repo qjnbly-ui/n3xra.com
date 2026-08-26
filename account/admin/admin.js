@@ -135,6 +135,12 @@ const productAdminApps = {
       applications: ["Partner Applications", "Review partner program interest and application decisions.", "/n3xra-admin/partners/"],
     },
   },
+  "contact-cards": {
+    label: "Contact Cards",
+    sections: {
+      workspace: ["Contact Cards", "Manage customer cards, public addresses, publishing, and physical-card requests.", "/n3xra-admin/contact-cards/"],
+    },
+  },
 };
 
 const embeddedProductStyles = `

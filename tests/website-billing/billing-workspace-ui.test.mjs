@@ -58,7 +58,7 @@ test("website billing and the organization panel synchronize their selection", a
   assert.match(context, /n3xra:workspace-context-change/);
   assert.match(context, /const changed = website\.id !== selectedId/);
   assert.match(page, /website-admin-workspace\.js\?v=15/);
-  assert.match(workspace, /website-admin-context\.js\?v=5/);
+  assert.match(workspace, /website-admin-context\.js\?v=6/);
 });
 
 test("website admin exposes every workspace section from the mobile submenu", async () => {

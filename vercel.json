@@ -218,6 +218,10 @@
   ],
   "rewrites": [
     {
+      "source": "/card/:slug",
+      "destination": "/card/index.html?slug=:slug"
+    },
+    {
       "source": "/website-preview/:run/:token",
       "destination": "/api/website-change-live-preview?run=:run&token=:token&path=index.html"
     },
