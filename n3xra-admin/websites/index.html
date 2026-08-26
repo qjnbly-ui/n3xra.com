@@ -48,40 +48,8 @@
             <p class="portal-kicker">Workspace</p>
             <h2 id="admin-websites-title">Client websites</h2>
           </div>
-          <button class="portal-button" id="open-site-form" type="button">Add website</button>
+          <a class="portal-button" id="open-site-form" href="/n3xra-admin/websites/new/">Add website</a>
         </div>
-
-        <form class="portal-form" id="site-form" hidden>
-          <div class="portal-form-head">
-            <div>
-              <p class="portal-kicker" id="site-form-kicker">New managed site</p>
-              <h3 id="site-form-title">Create website record</h3>
-            </div>
-            <button class="portal-close" id="close-site-form" type="button">Close</button>
-          </div>
-          <div class="portal-form-grid">
-            <label>
-              Website name
-              <input id="site-name" type="text" required placeholder="Client website">
-            </label>
-            <label>
-              Slug
-              <input id="site-slug" type="text" required placeholder="client-website">
-            </label>
-            <label>
-              Live URL
-              <input id="site-live-url" type="url" placeholder="https://example.com">
-            </label>
-            <label>
-              Repository
-              <input id="site-repository" type="text" placeholder="owner/repository">
-            </label>
-          </div>
-          <div class="portal-form-actions">
-            <button class="portal-button" id="site-form-submit" type="submit">Create website</button>
-            <p class="portal-inline-status" id="site-form-status" role="status"></p>
-          </div>
-        </form>
 
         <div class="portal-workspace-head portal-admin-picker">
           <p class="portal-kicker">Selected website details</p>
@@ -96,7 +64,7 @@
           </div>
           <div class="portal-card-actions">
             <a class="portal-button portal-button-secondary" id="admin-live-link" href="#" target="_blank" rel="noopener">Visit live site</a>
-            <button class="portal-button portal-button-secondary" id="edit-site" type="button">Edit website</button>
+            <a class="portal-button portal-button-secondary" id="edit-site" href="/n3xra-admin/websites/new/">Edit website</a>
           </div>
         </div>
 
@@ -239,6 +207,6 @@
 
   <div class="portal-status" id="portal-status" role="status">Verifying master admin access…</div>
   <script type="module" src="/client-portal/portal-shell.js"></script>
-  <script type="module" src="/n3xra-admin/websites/websites-admin.js?v=5"></script>
+  <script type="module" src="/n3xra-admin/websites/websites-admin.js?v=6"></script>
 </body>
 </html>

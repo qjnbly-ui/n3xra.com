@@ -144,14 +144,18 @@ function renderProvisioning() {
   const onboarding = onboardings.find((item) => item.project_id === selectedProject?.id)
     || onboardings.find((item) => item.proposal_id === selectedProject?.proposal_id);
   const website = relation(selectedProject?.client_websites);
-  const activeProject = selectedProject?.source === "proposal"
+  const approvalProject = selectedProject?.source === "proposal";
+  const directBuild = selectedProject?.source === "existing_website";
+  const activeProject = (approvalProject || directBuild)
     && !["cancelled", "archived", "completed"].includes(selectedProject?.status);
   const prerequisites = [
     [Boolean(selectedProject?.managed_website_id), "connect a managed website"],
     [Boolean(website?.organization_id), "connect the client organization"],
-    [proposal?.status === "approved", "approve the Proposal & Agreement"],
-    [onboarding?.status === "approved", "approve onboarding"],
-    [activeProject, "use an active new-website project"],
+    ...(approvalProject ? [
+      [proposal?.status === "approved", "approve the Proposal & Agreement"],
+      [onboarding?.status === "approved", "approve onboarding"],
+    ] : []),
+    [activeProject, "use an active website build"],
   ];
   const missing = prerequisites.filter(([ready]) => !ready).map(([, label]) => label);
   const status = run?.status || "not_started";

@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>N3XRA | Add Website</title>
+  <meta name="description" content="Create or edit a managed N3XRA website record.">
+  <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
+  <link rel="canonical" href="https://n3xra.com/n3xra-admin/websites/new/">
+  <link rel="icon" type="image/png" sizes="284x284" href="/assets/n3xra_logo_transparent_small.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/site-nav.css?v=4">
+  <link rel="stylesheet" href="/client-portal/portal.css?v=18">
+  <link rel="stylesheet" href="/account/admin/admin.css?v=34">
+  <link rel="stylesheet" href="/n3xra-admin/website-admin.css?v=20">
+  <link rel="stylesheet" href="/n3xra-admin/websites/new/new-website.css?v=2">
+  <script src="/shared/config.js"></script>
+  <script src="/account/admin/admin-shell.js?v=2" defer></script>
+  <script src="/assets/site-nav.js?v=5"></script>
+  <script type="module" src="/account/admin/product-shell.js?v=17"></script>
+  <script type="module" src="/n3xra-admin/website-admin-workspace.js?v=16"></script>
+</head>
+<body class="portal-loading admin-websites-view">
+  <main class="portal-shell">
+    <section class="portal-heading">
+      <div>
+        <p class="portal-kicker">Websites</p>
+        <h1 id="page-title">Add website</h1>
+      </div>
+    </section>
+
+    <div class="portal-layout">
+      <nav class="portal-nav" aria-label="Website administration"></nav>
+
+      <section class="portal-workspace" aria-labelledby="page-title">
+        <div class="portal-workspace-head">
+          <div>
+            <p class="portal-kicker">Manual setup</p>
+            <h2 id="workspace-title">Create a managed website</h2>
+          </div>
+          <a class="portal-button portal-button-secondary" href="/n3xra-admin/websites/">Back to websites</a>
+        </div>
+
+        <form class="new-website-form" id="new-website-form">
+          <section class="new-website-step" aria-labelledby="website-details-title">
+            <div class="new-website-step-number" aria-hidden="true">1</div>
+            <div class="new-website-step-content">
+              <div class="new-website-step-heading">
+                <div><p class="portal-kicker">Website</p><h3 id="website-details-title">Name and public identity</h3></div>
+                <p>This creates the N3XRA record. It does not publish a website.</p>
+              </div>
+              <div class="new-website-fields">
+                <label class="new-website-field new-website-field-wide">
+                  Website name
+                  <input id="website-name" type="text" maxlength="180" required autocomplete="organization" placeholder="Bly Water &amp; Sanitary District">
+                </label>
+                <label class="new-website-field">
+                  Website slug
+                  <input id="website-slug" type="text" maxlength="100" required pattern="[a-z0-9]+(?:-[a-z0-9]+)*" placeholder="bly-water-sanitary-district">
+                  <small>Used inside N3XRA and as the default repository name.</small>
+                </label>
+                <label class="new-website-field">
+                  Website state
+                  <select id="website-status">
+                    <option value="draft" selected>Draft — recommended</option>
+                    <option value="active">Active</option>
+                    <option value="paused">Paused</option>
+                    <option value="archived">Archived</option>
+                  </select>
+                  <small>Draft is appropriate until the website is ready to launch.</small>
+                </label>
+              </div>
+            </div>
+          </section>
+
+          <section class="new-website-step" aria-labelledby="portal-client-title">
+            <div class="new-website-step-number" aria-hidden="true">2</div>
+            <div class="new-website-step-content">
+              <div class="new-website-step-heading">
+                <div><p class="portal-kicker">Customer workspace</p><h3 id="portal-client-title">Portal and client organization</h3></div>
+                <p>The portal address is required even when client access will be enabled later.</p>
+              </div>
+              <div class="new-website-fields">
+                <label class="new-website-field">
+                  Portal slug
+                  <input id="portal-slug" type="text" maxlength="100" required pattern="[a-z0-9]+(?:-[a-z0-9]+)*" placeholder="bly-water">
+                  <small id="portal-preview">Portal: —.portal.n3xra.com</small>
+                </label>
+                <label class="new-website-field">
+                  Client organization
+                  <select id="organization-id">
+                    <option value="">Connect later</option>
+                  </select>
+                  <small>Choose an existing N3XRA organization or connect one later.</small>
+                </label>
+              </div>
+            </div>
+          </section>
+
+          <section class="new-website-step" aria-labelledby="connections-title">
+            <div class="new-website-step-number" aria-hidden="true">3</div>
+            <div class="new-website-step-content">
+              <div class="new-website-step-heading">
+                <div><p class="portal-kicker">Existing connections</p><h3 id="connections-title">Website and repository</h3></div>
+                <p>Leave these blank for a new build. N3XRA’s Project workspace can create them later.</p>
+              </div>
+              <div class="new-website-fields">
+                <label class="new-website-field">
+                  Live website URL <span>optional</span>
+                  <input id="live-url" type="url" inputmode="url" placeholder="https://www.example.com">
+                  <small>Use only for an existing or already launched website.</small>
+                </label>
+                <label class="new-website-field">
+                  GitHub repository <span>optional</span>
+                  <input id="repository" type="text" maxlength="200" placeholder="owner/repository">
+                  <small>Leave blank if N3XRA should create the private repository.</small>
+                </label>
+              </div>
+            </div>
+          </section>
+
+          <section class="new-website-provisioning" id="build-workflow" aria-labelledby="provisioning-title">
+            <div>
+              <p class="portal-kicker">Build workflow</p>
+              <h3 id="provisioning-title">Start now and add business steps later</h3>
+              <p>Create the N3XRA workspace first, then provision the private repository and Vercel preview here. A proposal, onboarding, client access, billing, and other features can be attached whenever they become useful.</p>
+            </div>
+            <div class="new-website-build-controls">
+              <ol>
+                <li data-build-stage="website"><span>1</span><strong>Website</strong><small>Create the managed record</small></li>
+                <li data-build-stage="project"><span>2</span><strong>Build workspace</strong><small>Created automatically</small></li>
+                <li data-build-stage="github"><span>3</span><strong>Private GitHub</strong><small>Provision from template</small></li>
+                <li data-build-stage="vercel"><span>4</span><strong>Vercel preview</strong><small>Ready for development</small></li>
+              </ol>
+              <div class="new-website-build-actions">
+                <button class="portal-button" id="provision-github" type="button" disabled>Create private GitHub repository</button>
+                <button class="portal-button portal-button-secondary" id="provision-vercel" type="button" disabled>Create Vercel preview</button>
+                <a class="portal-button portal-button-secondary" id="open-project" href="/n3xra-admin/projects/" hidden>Open project</a>
+                <a id="optional-client-work" href="/n3xra-admin/websites/" hidden>Add proposal, onboarding, or client access later</a>
+              </div>
+              <p class="portal-inline-status" id="build-status" role="status" aria-live="polite">Create the website to begin.</p>
+            </div>
+          </section>
+
+          <div class="new-website-actions">
+            <a class="portal-button portal-button-secondary" href="/n3xra-admin/websites/">Cancel</a>
+            <button class="portal-button" id="save-website" type="submit">Create website &amp; start build</button>
+            <p class="portal-inline-status" id="form-status" role="status" aria-live="polite"></p>
+          </div>
+        </form>
+      </section>
+    </div>
+  </main>
+
+  <div class="portal-status" id="portal-status" role="status">Verifying master admin access…</div>
+  <script type="module" src="/client-portal/portal-shell.js"></script>
+  <script type="module" src="/n3xra-admin/websites/new/new-website.js?v=2"></script>
+</body>
+</html>

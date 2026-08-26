@@ -19,6 +19,7 @@ const OPERATIONS_ADMIN_PATHS = new Set([
   "/account/admin/communications/",
   "/account/notifications/",
   "/n3xra-admin/websites/",
+  "/n3xra-admin/websites/new/",
   "/n3xra-admin/website-portal/",
   "/n3xra-admin/services/",
   "/n3xra-admin/requests/",

@@ -455,6 +455,73 @@ Deno.serve(async (request) => {
     const payload = await request.json().catch(() => ({}));
     const action = String(payload.action || "");
 
+    if (action === "create-direct-website-project") {
+      const websiteId = String(payload.websiteId || "").trim();
+      const name = text(payload.name, 180);
+      if (!isUuid(websiteId)) return respond({ error: "A valid websiteId is required." }, 400);
+      if (!name) return respond({ error: "Enter a project name." }, 400);
+
+      const [websiteResult, projectResult] = await Promise.all([
+        adminClient
+          .from("client_websites")
+          .select("id,name,organization_id,organizations(owner_user_id)")
+          .eq("id", websiteId)
+          .maybeSingle(),
+        adminClient
+          .from("website_projects")
+          .select("*")
+          .eq("managed_website_id", websiteId)
+          .maybeSingle(),
+      ]);
+      const lookupError = websiteResult.error || projectResult.error;
+      if (lookupError) return respond({ error: lookupError.message }, 400);
+      if (!websiteResult.data) return respond({ error: "Website not found." }, 404);
+      if (projectResult.data) {
+        return respond({ ok: true, project: projectResult.data, message: "The website build workspace is already ready." });
+      }
+
+      const organization = Array.isArray(websiteResult.data.organizations)
+        ? websiteResult.data.organizations[0]
+        : websiteResult.data.organizations;
+      const { data: project, error: insertError } = await adminClient
+        .from("website_projects")
+        .insert({
+          request_id: null,
+          proposal_id: null,
+          client_user_id: organization?.owner_user_id || null,
+          managed_website_id: websiteId,
+          name,
+          source: "existing_website",
+          status: "active",
+          current_stage: "production",
+          progress_percent: 0,
+          client_summary: "This website build started directly in N3XRA. Client access, proposals, onboarding, and billing can be added later.",
+          admin_next_step: "Create the private GitHub repository and Vercel preview, then begin the website build.",
+          owner_admin_user_id: user.id,
+          created_by_user_id: user.id,
+        })
+        .select("*")
+        .single();
+      if (insertError) return respond({ error: insertError.message }, 400);
+
+      const { error: skippedError } = await adminClient
+        .from("website_project_milestones")
+        .update({ status: "not_applicable" })
+        .eq("project_id", project.id)
+        .in("stage", ["agreement", "billing", "onboarding"]);
+      const { error: buildError } = skippedError ? { error: null } : await adminClient
+        .from("website_project_milestones")
+        .update({ status: "available", client_note: "The build workspace is ready for repository and preview setup." })
+        .eq("project_id", project.id)
+        .eq("stage", "production");
+      if (skippedError || buildError) {
+        await adminClient.from("website_projects").delete().eq("id", project.id);
+        return respond({ error: skippedError?.message || buildError?.message || "Unable to initialize the build workspace." }, 400);
+      }
+
+      return respond({ ok: true, project, message: "Website build workspace ready." });
+    }
+
     if (action === "create-existing-website-project") {
       const websiteId = String(payload.websiteId || "").trim();
       const clientUserId = String(payload.clientUserId || "").trim();
@@ -575,6 +642,7 @@ Deno.serve(async (request) => {
         .maybeSingle();
       if (error) return respond({ error: error.message }, 400);
       if (!project || project.source !== "existing_website") return respond({ error: "Existing website project not found." }, 404);
+      if (!project.client_user_id) return respond({ error: "Connect a client account before creating a proposal." }, 400);
       const website = Array.isArray(project.client_websites) ? project.client_websites[0] : project.client_websites;
       if (!website) return respond({ error: "This project is not linked to a managed website." }, 400);
 
@@ -596,6 +664,7 @@ Deno.serve(async (request) => {
         .maybeSingle();
       if (error) return respond({ error: error.message }, 400);
       if (!project || project.source !== "existing_website") return respond({ error: "Existing website project not found." }, 404);
+      if (!project.client_user_id) return respond({ error: "Connect a client account before opening onboarding." }, 400);
 
       try {
         const onboarding = await openOnboarding(adminClient, project, user.id);

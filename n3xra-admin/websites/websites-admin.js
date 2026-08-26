@@ -45,18 +45,7 @@ const clearAssetSelectionButton = document.getElementById("clear-asset-selection
 const downloadSelectedFilesButton = document.getElementById("download-selected-files");
 const deleteSelectedFilesButton = document.getElementById("delete-selected-files");
 const batchStatus = document.getElementById("admin-batch-status");
-const siteForm = document.getElementById("site-form");
-const siteFormStatus = document.getElementById("site-form-status");
-const openSiteFormButton = document.getElementById("open-site-form");
-const closeSiteFormButton = document.getElementById("close-site-form");
 const editSiteButton = document.getElementById("edit-site");
-const siteFormKicker = document.getElementById("site-form-kicker");
-const siteFormTitle = document.getElementById("site-form-title");
-const siteFormSubmit = document.getElementById("site-form-submit");
-const siteNameInput = document.getElementById("site-name");
-const siteSlugInput = document.getElementById("site-slug");
-const siteLiveUrlInput = document.getElementById("site-live-url");
-const siteRepositoryInput = document.getElementById("site-repository");
 const accessPanel = document.getElementById("access-panel");
 const memberForm = document.getElementById("member-form");
 const memberName = document.getElementById("member-name");
@@ -122,7 +111,6 @@ let selectedProject;
 let projectProposals = [];
 let projectOnboarding;
 let toastTimer;
-let editingWebsiteId = null;
 
 function showStatus(message) {
   statusScreen.textContent = message;
@@ -161,10 +149,6 @@ function escapeHtml(value = "") {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
-}
-
-function slugify(value = "") {
-  return String(value).toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
 
 function formatDate(value) {
@@ -246,12 +230,6 @@ function folderLabel(value) {
   const normalized = String(value || "Uncategorized").trim().toLowerCase().replaceAll("_", " ");
   const labels = { image: "Images", images: "Images", brand: "Brand assets", document: "Documents", documents: "Documents", video: "Videos", font: "Fonts", other: "Other files", uncategorized: "Uncategorized" };
   return labels[normalized] || normalized.replace(/\b\w/g, (letter) => letter.toUpperCase());
-}
-
-function setSiteFormStatus(message = "", isError = false) {
-  if (!siteFormStatus) return;
-  siteFormStatus.textContent = message;
-  siteFormStatus.classList.toggle("is-error", isError);
 }
 
 function setMemberStatus(message = "", isError = false) {
@@ -355,7 +333,10 @@ function renderSelectedWebsite() {
   siteMeta.textContent = [websiteUrl, websiteRepository].filter(Boolean).join(" · ") || "No live URL, domain, or repository recorded.";
   liveLink.hidden = !websiteUrl;
   if (websiteUrl) liveLink.href = websiteUrl;
-  if (editSiteButton) editSiteButton.hidden = !selectedWebsite;
+  if (editSiteButton) {
+    editSiteButton.hidden = !selectedWebsite;
+    editSiteButton.href = `/n3xra-admin/websites/new/?website=${encodeURIComponent(selectedWebsite.id)}`;
+  }
   if (accessPanel) accessPanel.hidden = false;
   renderWebsiteOrganizationSetup();
   if (projectLinkPanel) projectLinkPanel.hidden = false;
@@ -1684,39 +1665,6 @@ async function handleAssetAction(event) {
   }
 }
 
-async function createWebsite(event) {
-  event.preventDefault();
-  const submitButton = siteForm.querySelector('[type="submit"]');
-  submitButton.disabled = true;
-  setSiteFormStatus(editingWebsiteId ? "Saving website…" : "Creating website…");
-  const slug = slugify(siteSlugInput.value);
-  try {
-    if (!slug) throw new Error("Enter a valid website slug.");
-    const websiteValues = {
-      name: siteNameInput.value.trim(),
-      slug,
-      live_url: siteLiveUrlInput.value.trim() || null,
-      repository_full_name: siteRepositoryInput.value.trim() || null,
-    };
-    const query = editingWebsiteId
-      ? supabase.from("client_websites").update(websiteValues).eq("id", editingWebsiteId).select().single()
-      : supabase.from("client_websites").insert({ ...websiteValues, status: "active" }).select().single();
-    const { data, error } = await query;
-    if (error) throw error;
-    siteForm.reset();
-    editingWebsiteId = null;
-    if (siteFormKicker) siteFormKicker.textContent = "New managed site";
-    if (siteFormTitle) siteFormTitle.textContent = "Create website record";
-    if (siteFormSubmit) siteFormSubmit.textContent = "Create website";
-    setSiteFormStatus(data ? "Website saved." : "Website created.");
-    await loadWebsites(data.id);
-  } catch (error) {
-    setSiteFormStatus(error?.message || "Unable to create this website.", true);
-  } finally {
-    submitButton.disabled = false;
-  }
-}
-
 async function initWebsiteAdmin() {
   if (!hasConfig()) {
     document.body.classList.add("portal-denied");
@@ -1811,43 +1759,6 @@ async function initWebsiteAdmin() {
       websiteSupportStatus.textContent = "";
     });
     websiteSupportForm?.addEventListener("submit", createWebsiteSupportWork);
-    openSiteFormButton?.addEventListener("click", () => {
-      editingWebsiteId = null;
-      siteForm.reset();
-      siteSlugInput.dataset.edited = "";
-      if (siteFormKicker) siteFormKicker.textContent = "New managed site";
-      if (siteFormTitle) siteFormTitle.textContent = "Create website record";
-      if (siteFormSubmit) siteFormSubmit.textContent = "Create website";
-      siteForm.hidden = false;
-      siteNameInput.focus();
-    });
-    editSiteButton?.addEventListener("click", () => {
-      if (!selectedWebsite) return;
-      editingWebsiteId = selectedWebsite.id;
-      siteNameInput.value = selectedWebsite.name || "";
-      siteSlugInput.value = selectedWebsite.slug || "";
-      siteSlugInput.dataset.edited = "true";
-      siteLiveUrlInput.value = resolveWebsiteUrl(selectedWebsite, domains);
-      siteRepositoryInput.value = resolveWebsiteRepository(selectedWebsite, repositories);
-      if (siteFormKicker) siteFormKicker.textContent = "Existing managed site";
-      if (siteFormTitle) siteFormTitle.textContent = "Edit website record";
-      if (siteFormSubmit) siteFormSubmit.textContent = "Save website";
-      siteForm.hidden = false;
-      siteNameInput.focus();
-    });
-    closeSiteFormButton?.addEventListener("click", () => {
-      editingWebsiteId = null;
-      siteForm.hidden = true;
-      setSiteFormStatus("");
-    });
-    siteNameInput?.addEventListener("input", () => {
-      if (!siteSlugInput.dataset.edited) siteSlugInput.value = slugify(siteNameInput.value);
-    });
-    siteSlugInput?.addEventListener("input", () => {
-      siteSlugInput.dataset.edited = siteSlugInput.value ? "true" : "";
-    });
-    siteForm?.addEventListener("submit", createWebsite);
-
     supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_OUT" || !session?.user) openLogin();
     });

@@ -1,0 +1,54 @@
+.new-website-form { display:grid; gap:1rem; padding:1.25rem; }
+.new-website-step { display:grid; grid-template-columns:42px minmax(0,1fr); gap:1rem; padding:1.25rem; background:#fff; border:1px solid var(--website-admin-border,#dbe3e8); border-radius:10px; }
+.new-website-step-number { width:34px; height:34px; display:grid; place-items:center; color:#fff; background:#0b827d; border-radius:50%; font:800 .76rem Manrope,Arial,sans-serif; }
+.new-website-step-content { min-width:0; }
+.new-website-step-heading { display:flex; align-items:start; justify-content:space-between; gap:1.5rem; padding-bottom:1rem; border-bottom:1px solid #e7ecef; }
+.new-website-step-heading h3,
+.new-website-provisioning h3 { margin:.15rem 0 0; font:700 1.22rem Fraunces,Georgia,serif; }
+.new-website-step-heading > p { max-width:440px; margin:0; color:var(--portal-muted,#687487); font-size:.78rem; line-height:1.55; }
+.new-website-fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:1rem; padding-top:1rem; }
+.new-website-field { display:grid; align-content:start; gap:.45rem; color:#536174; font-size:.66rem; font-weight:800; letter-spacing:.07em; text-transform:uppercase; }
+.new-website-field-wide { grid-column:1/-1; }
+.new-website-field > span { color:#8a94a3; font-size:.6rem; }
+.new-website-field input,
+.new-website-field select { width:100%; min-height:46px; box-sizing:border-box; padding:.7rem .8rem; color:var(--portal-ink,#182433); background:#fff; border:1px solid #cfd9df; border-radius:7px; font:600 .82rem Manrope,Arial,sans-serif; letter-spacing:normal; text-transform:none; }
+.new-website-field input:focus,
+.new-website-field select:focus { outline:3px solid rgba(11,130,125,.14); border-color:#0b827d; }
+.new-website-field small { color:#758195; font-size:.68rem; font-weight:600; line-height:1.45; letter-spacing:normal; text-transform:none; }
+.new-website-provisioning { display:grid; grid-template-columns:minmax(220px,.7fr) minmax(420px,1.3fr); gap:1.5rem; padding:1.25rem; background:#eef8f7; border:1px solid #cfe6e3; border-radius:10px; }
+.new-website-provisioning p { margin:.45rem 0 0; color:#607181; font-size:.76rem; line-height:1.55; }
+.new-website-build-controls { min-width:0; display:grid; gap:.8rem; }
+.new-website-provisioning ol { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.5rem; margin:0; padding:0; list-style:none; }
+.new-website-provisioning li { min-width:0; display:grid; align-content:start; gap:.25rem; padding:.8rem; background:rgba(255,255,255,.72); border:1px solid #d9e9e7; border-radius:8px; }
+.new-website-provisioning li > span { width:23px; height:23px; display:grid; place-items:center; color:#63747f; background:#e5eeed; border-radius:50%; font-size:.64rem; font-weight:800; }
+.new-website-provisioning li.is-current,
+.new-website-provisioning li.is-complete { background:#fff; border-color:#78bdb7; box-shadow:0 4px 14px rgba(27,77,72,.08); }
+.new-website-provisioning li.is-current > span,
+.new-website-provisioning li.is-complete > span { color:#fff; background:#0b827d; }
+.new-website-provisioning li.is-complete > span::before { content:"✓"; }
+.new-website-provisioning li.is-complete > span { font-size:0; }
+.new-website-provisioning li.is-complete > span::before { font-size:.7rem; }
+.new-website-provisioning strong { overflow-wrap:anywhere; font-size:.7rem; }
+.new-website-provisioning small { color:#72808d; font-size:.62rem; line-height:1.35; }
+.new-website-build-actions { display:flex; align-items:center; flex-wrap:wrap; gap:.55rem; }
+.new-website-build-actions > a:not(.portal-button) { color:#176f69; font-size:.7rem; font-weight:800; }
+.new-website-build-controls > .portal-inline-status { margin:0; }
+.new-website-build-controls > .portal-inline-status.is-error { color:#b42318; }
+.new-website-actions { display:flex; align-items:center; justify-content:flex-end; gap:.75rem; padding:.25rem 0 1rem; }
+.new-website-actions .portal-inline-status { margin-right:auto; }
+.new-website-actions .portal-inline-status.is-error { color:#b42318; }
+
+@media (max-width:1000px) {
+  .new-website-provisioning { grid-template-columns:1fr; }
+}
+
+@media (max-width:720px) {
+  .new-website-form { padding:.75rem; }
+  .new-website-step { grid-template-columns:1fr; padding:1rem; }
+  .new-website-step-heading { display:grid; gap:.5rem; }
+  .new-website-fields,
+  .new-website-provisioning ol { grid-template-columns:1fr; }
+  .new-website-field-wide { grid-column:auto; }
+  .new-website-actions { flex-wrap:wrap; }
+  .new-website-actions .portal-inline-status { width:100%; order:-1; }
+}

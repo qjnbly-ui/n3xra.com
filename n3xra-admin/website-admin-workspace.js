@@ -1,4 +1,4 @@
-import { initializeWebsiteOrganizationContext } from "/n3xra-admin/website-admin-context.js?v=5";
+import { initializeWebsiteOrganizationContext } from "/n3xra-admin/website-admin-context.js?v=6";
 
 const projectStageRoutes = [
   ["progress", "Progress", "/n3xra-admin/projects/"],
@@ -7,7 +7,7 @@ const projectStageRoutes = [
 ];
 
 const mobileWorkspaceRoutes = [
-  { keys: ["overview"], label: "Overview", href: "/n3xra-admin/websites/" },
+  { keys: ["overview", "new"], label: "Overview", href: "/n3xra-admin/websites/" },
   { keys: ["requests"], label: "Requests", href: "/n3xra-admin/requests/" },
   { keys: ["progress", "onboarding", "proposals"], label: "Project", href: "/n3xra-admin/projects/" },
   { keys: ["assets"], label: "Files", href: "/n3xra-admin/assets/" },
@@ -18,6 +18,7 @@ const mobileWorkspaceRoutes = [
 
 const routeDetails = {
   "/n3xra-admin/websites/": { key: "overview", kicker: "Websites", title: "Overview", description: "Managed websites, client access, and connected project workspaces." },
+  "/n3xra-admin/websites/new/": { key: "new", kicker: "Websites", title: "Add website", description: "Create a managed website record and prepare its client workspace." },
   "/n3xra-admin/website-portal/": { key: "portal", kicker: "Websites", title: "Website Portal", description: "Activate and configure the client-branded website management portal." },
   "/n3xra-admin/services/": { key: "services", kicker: "Websites", title: "Services & Ownership", description: "Providers, domains, repositories, renewals, and ownership records." },
   "/n3xra-admin/requests/": { key: "requests", kicker: "Websites", title: "Requests", description: "Qualify incoming work before it becomes a proposal or project." },
