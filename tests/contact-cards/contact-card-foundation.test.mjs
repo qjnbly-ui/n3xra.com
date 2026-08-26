@@ -49,7 +49,7 @@ test("friendly card URLs and separate customer and admin entry points are connec
     read("n3xra-admin/contact-cards/contact-cards-admin.css"),
     read("account/admin/prospects/index.html"),
   ]);
-  assert.match(vercel, /"source": "\/card\/:slug"/);
+  assert.match(vercel, /"source": "\/card\/:slug"[\s\S]*"destination": "\/card\?slug=:slug"/);
   assert.match(account, /\/client-portal\/contact-card\//);
   assert.match(account, /Activate Contact Card/);
   assert.match(activation, /card-activation-slug/);
@@ -60,16 +60,29 @@ test("friendly card URLs and separate customer and admin entry points are connec
   assert.match(admin, /id="contact-card-modal" role="dialog" aria-modal="true"/);
   assert.match(admin, /id="contact-card-modal-close"/);
   assert.match(admin, /id="contact-card-modal-backdrop"/);
-  assert.match(admin, /\/card\/admin\.js\?v=4/);
-  assert.match(admin, /contact-cards-admin\.css\?v=2/);
+  assert.match(admin, /\/card\/admin\.js\?v=5/);
+  assert.match(admin, /contact-cards-admin\.css\?v=3/);
+  assert.match(admin, /id="admin-card-links"/);
+  assert.match(admin, /data-admin-media-input="profile"/);
   assert.match(adminLogic, /function openModal/);
   assert.match(adminLogic, /function saveErrorMessage/);
   assert.match(adminLogic, /details\.code === "23505"/);
   assert.match(adminLogic, /modalClose\?\.addEventListener\("click", closeModal\)/);
   assert.match(adminLogic, /event\.key === "Escape"/);
+  assert.match(adminLogic, /closeModal\(\);/);
+  assert.match(adminLogic, /new URLSearchParams\(window\.location\.search\)\.get\("card"\)/);
   assert.match(adminStyles, /\.contact-card-modal \{ position:fixed/);
   assert.match(adminStyles, /@media\(max-width:800px\).*\.contact-card-modal\{align-items:end/s);
   assert.doesNotMatch(prospects, /prospect-card-owner/);
+});
+
+test("physical card requests create an important Admin Inbox notification", async () => {
+  const migration = await read("supabase/migrations/20260826130412_notify_admin_on_contact_card_request.sql");
+  assert.match(migration, /new\.physical_card_status = 'requested'/);
+  assert.match(migration, /old\.physical_card_status is distinct from 'requested'/);
+  assert.match(migration, /insert into public\.admin_notifications/);
+  assert.match(migration, /'contact_cards\.physical_card\.requested'/);
+  assert.match(migration, /'\/n3xra-admin\/contact-cards\/\?card=' \|\| new\.id::text/);
 });
 
 test("customers can activate their own card and physical requests are protected", async () => {

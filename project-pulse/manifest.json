@@ -2,39 +2,39 @@
   "schemaVersion": 1,
   "name": "N3XRA Project Pulse",
   "visibility": "public-safe",
-  "generatedAt": "2026-08-26T12:22:41.633Z",
-  "updatedAt": "2026-08-26T05:08:37-07:00",
-  "commit": "f7f4f52",
+  "generatedAt": "2026-08-26T13:11:19.082Z",
+  "updatedAt": "2026-08-26T05:49:07-07:00",
+  "commit": "acf8c34",
   "summary": {
     "statement": "N3XRA is a connected technology platform comprising approximately 218,000 lines of source code across customer experiences, software products, APIs, database systems, administrative tools, and operational infrastructure.",
-    "sourceFiles": 861,
-    "sourceLines": 217578,
+    "sourceFiles": 863,
+    "sourceLines": 218035,
     "products": 6,
     "pages": 125,
     "apiFunctions": 92,
     "edgeFunctions": 26,
-    "databaseMigrations": 202
+    "databaseMigrations": 204
   },
   "sourceBreakdown": {
     "css": {
       "files": 52,
-      "lines": 39711
+      "lines": 39728
     },
     "html": {
       "files": 125,
-      "lines": 30800
+      "lines": 30810
     },
     "js": {
       "files": 276,
-      "lines": 84761
+      "lines": 84967
     },
     "sql": {
-      "files": 331,
-      "lines": 42336
+      "files": 333,
+      "lines": 42460
     },
     "ts": {
       "files": 76,
-      "lines": 19431
+      "lines": 19531
     },
     "tsx": {
       "files": 1,
@@ -102,7 +102,7 @@
     {
       "date": "2026-08-26",
       "title": "N3XRA Contact Cards",
-      "summary": "Customers can activate and edit a digital business card from their N3XRA account, choose an available public link, scan an existing business card to begin setup, add profile and company imagery, reorder contact sections, control N3XRA branding, and request a physical tap card. Administrators can create, assign, review, and manage cards from its dedicated product workspace."
+      "summary": "Customers can activate and immediately publish a digital business card from their N3XRA account, choose a friendly public link, scan an existing card to begin setup, add profile and company imagery, reorder sections, control N3XRA branding, and request a physical tap card. Physical-card requests now create a direct Admin Inbox alert, and administrators have the full customer editing controls for every assigned card."
     },
     {
       "date": "2026-08-25",

@@ -13,3 +13,18 @@
 .contact-card-admin-grid label > small { color:var(--portal-muted); font-size:.65rem; font-weight:600; letter-spacing:0; line-height:1.45; text-transform:none; }.contact-card-admin-grid input[aria-invalid="true"],.contact-card-admin-grid select[aria-invalid="true"] { border-color:#b4233d; box-shadow:0 0 0 3px rgba(180,35,61,.1); }
 .contact-card-admin-form > footer { display:grid; grid-template-columns:auto 1fr auto auto; gap:1rem; align-items:center; padding:1.5rem clamp(1.25rem,3vw,2.5rem); }.contact-card-admin-form footer p { margin:0; color:var(--portal-muted); font-size:.75rem; }.contact-card-delete { border:0; color:#a33041; background:transparent; cursor:pointer; font-weight:800; }
 @media(max-width:800px){.contact-cards-workbench{grid-template-columns:1fr}.contact-cards-list-pane{max-height:42dvh;border-right:0;border-bottom:1px solid var(--portal-line)}.contact-card-modal{align-items:end;padding:0}.contact-card-modal-panel{width:100%;max-height:94dvh;border-width:1px 0 0;border-radius:20px 20px 0 0}.contact-card-admin-grid{grid-template-columns:1fr}.contact-card-admin-form>header{position:sticky;z-index:2;top:0;align-items:flex-start;min-height:0;padding-right:1rem;background:#fff}.contact-card-form-actions{position:absolute;top:1rem;right:1rem}.contact-card-form-actions .portal-button{display:none}.contact-card-admin-form>header>div{padding-right:3.25rem}.contact-card-admin-form>footer{position:sticky;z-index:2;bottom:0;grid-template-columns:1fr;padding-bottom:max(1.25rem,env(safe-area-inset-bottom));background:#fff;box-shadow:0 -12px 30px rgba(3,10,20,.08)}.contact-card-admin-form>footer span{display:none}.contact-card-admin-form>footer .portal-button{width:100%}}
+
+.contact-card-modal-panel { width:min(1120px,100%); max-height:min(92dvh,980px); }
+.contact-card-admin-form > section > h3 { margin:0 0 1rem; font:700 1.2rem Fraunces,Georgia,serif; }
+.contact-card-admin-form > section .card-editor-media-control h3 { margin:0; font:700 .9rem Manrope,Arial,sans-serif; }
+.contact-card-admin-form > section .card-editor-media-control p { margin:.25rem 0 0; }
+.contact-card-admin-grid textarea { width:100%; min-height:92px; padding:.65rem .75rem; resize:vertical; border:1px solid var(--portal-line); border-radius:6px; color:var(--portal-ink); background:#fff; font:600 .8rem Manrope,Arial,sans-serif; }
+.contact-card-admin-wide { grid-column:1/-1; }
+.contact-card-admin-form .card-editor-link-row input { font:600 .8rem Manrope,Arial,sans-serif; }
+.contact-card-admin-branding { display:flex!important; align-items:flex-start; gap:.65rem!important; align-self:end; min-height:43px; padding:.65rem .75rem; border:1px solid var(--portal-line); border-radius:6px; background:#f7f9f7; cursor:pointer; text-transform:none!important; letter-spacing:0!important; }
+.contact-card-admin-branding input { width:18px!important; min-height:18px!important; margin:.1rem 0 0; }
+.contact-card-admin-branding > span { display:grid; gap:.15rem; }
+.contact-card-admin-branding strong { color:var(--portal-ink); font-size:.75rem; }
+.contact-card-admin-branding small { font-weight:600; line-height:1.4; }
+
+@media(max-width:800px){.contact-card-admin-wide{grid-column:auto}}

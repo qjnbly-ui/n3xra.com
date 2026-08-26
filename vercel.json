@@ -219,7 +219,7 @@
   "rewrites": [
     {
       "source": "/card/:slug",
-      "destination": "/card/index.html?slug=:slug"
+      "destination": "/card?slug=:slug"
     },
     {
       "source": "/website-preview/:run/:token",
