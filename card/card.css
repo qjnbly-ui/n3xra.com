@@ -63,11 +63,8 @@ a { color: inherit; }
 .card-editor-brand strong { font-family: Manrope, sans-serif; letter-spacing: -.04em; }
 .card-editor-back { color: #5c6863; text-decoration: none; font-size: .82rem; font-weight: 700; }
 .card-editor-shell { width: min(1180px, calc(100% - 34px)); margin: 0 auto; padding: 54px 0 80px; }
-.card-editor-intro { display: flex; align-items: flex-end; justify-content: space-between; gap: 30px; padding-bottom: 34px; border-bottom: 1px solid var(--card-line); }
 .card-editor-kicker { margin: 0 0 10px; color: #397363; font-size: .7rem; font-weight: 800; letter-spacing: .15em; text-transform: uppercase; }
-.card-editor-intro h1 { max-width: 730px; margin: 0; font-family: Fraunces, Georgia, serif; font-size: clamp(2.3rem, 6vw, 4.5rem); line-height: .98; letter-spacing: -.045em; }
-.card-editor-intro p:last-child { max-width: 650px; margin: 18px 0 0; color: var(--card-muted); line-height: 1.65; }
-.card-editor-view { flex: none; padding: 12px 16px; border: 1px solid var(--card-line); border-radius: 999px; background: #fff; text-decoration: none; font-size: .78rem; font-weight: 700; }
+.card-editor-view { display:table; margin:0 0 24px auto; padding:12px 16px; border:1px solid var(--card-line); border-radius:999px; background:#fff; text-decoration:none; font-size:.78rem; font-weight:700; }
 .card-editor-status { padding: 26px 0; color: var(--card-muted); }
 .card-editor-status:empty { display: none; }
 .card-activation { margin-top: 24px; overflow: hidden; border: 1px solid rgba(15,118,110,.22); border-radius: 14px; background: #fff; box-shadow: 0 20px 55px rgba(7,16,26,.07); }
@@ -159,8 +156,7 @@ a { color: inherit; }
   .contact-card-shell { width: 100%; box-shadow: none; }
   .contact-card-hero { min-height: 420px; padding-inline: 24px; }
   .card-editor-shell { width: min(100% - 26px, 620px); padding-top: 34px; }
-  .card-editor-intro { display: grid; }
-  .card-editor-view { justify-self: start; }
+  .card-editor-view { margin-left:0; }
   .card-editor-grid { grid-template-columns: 1fr; }
   .card-editor-wide-panel, .card-editor-publish-panel, .card-editor-actions { grid-column: auto; }
   .card-editor-fields, .card-editor-publish-controls { grid-template-columns: 1fr; }
