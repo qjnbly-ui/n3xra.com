@@ -18,7 +18,21 @@ test("My products queries stay scoped to the signed-in account even for platform
     const query = script.match(new RegExp(`\\.from\\("${table}"\\)[\\s\\S]*?(?=\\n}\\n|\\nasync function)`))?.[0] || "";
     assert.match(query, /\.eq\("user_id", currentSession\.user\.id\)/, `${table} must be scoped to the current user`);
   }
-  assert.match(html, /account\.js\?v=20260826-communications-activation/);
+  assert.match(html, /account\.js\?v=20260826-communications-subscription-scope/);
+});
+
+test("platform administrator visibility does not count as a personal Communications subscription", async () => {
+  const script = await readFile(accountScriptPath, "utf8");
+  const block = script.slice(
+    script.indexOf("async function loadCommunicationsEntitlement()"),
+    script.indexOf("async function loadLoanAccount()"),
+  );
+
+  assert.match(block, /organization_memberships[\s\S]*\.eq\("user_id", currentSession\.user\.id\)/);
+  assert.match(block, /organizations[\s\S]*\.eq\("owner_user_id", currentSession\.user\.id\)/);
+  assert.match(block, /\.in\("organization_id", organizationIds\)/);
+  assert.match(block, /\.eq\("product_key", "communications"\)/);
+  assert.doesNotMatch(block, /is_platform_admin|platformAdmin/);
 });
 
 test("Accounts provides client-view previews without changing the signed-in identity", async () => {

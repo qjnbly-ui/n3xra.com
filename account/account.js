@@ -540,9 +540,30 @@ async function loadWebsiteServiceRequest() {
 }
 
 async function loadCommunicationsEntitlement() {
+  const [membershipResult, ownedResult] = await Promise.all([
+    supabase
+      .from("organization_memberships")
+      .select("organization_id")
+      .eq("user_id", currentSession.user.id),
+    supabase
+      .from("organizations")
+      .select("id")
+      .eq("owner_user_id", currentSession.user.id),
+  ]);
+  if (membershipResult.error) throw membershipResult.error;
+  if (ownedResult.error) throw ownedResult.error;
+  const organizationIds = [...new Set([
+    ...(membershipResult.data || []).map((row) => row.organization_id),
+    ...(ownedResult.data || []).map((row) => row.id),
+  ].filter(Boolean))];
+  if (!organizationIds.length) {
+    communicationsEntitlement = null;
+    return;
+  }
   const { data, error } = await supabase
     .from("organization_product_entitlements")
     .select("organization_id,status,portal_enabled")
+    .in("organization_id", organizationIds)
     .eq("product_key", "communications")
     .eq("portal_enabled", true)
     .in("status", ["trialing", "active", "past_due"])
