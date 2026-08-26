@@ -46,6 +46,8 @@ test("Build worker ships as a persistent Render service", async () => {
   assert.doesNotMatch(blueprint, /GITHUB_TOKEN/);
   assert.match(worker, /repositories: \[repository\]/);
   assert.match(worker, /permissions: \{ contents: "write" \}/);
+  assert.match(worker, /return await proxyPreview/);
+  assert.match(worker, /\["install", "--no-audit", "--no-fund"\]/);
   assert.match(dockerfile, /@openai\/codex@0\.143\.0/);
   assert.match(dockerfile, /N3XRA_BUILD_HOST=0\.0\.0\.0/);
 });

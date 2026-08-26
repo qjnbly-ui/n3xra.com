@@ -194,7 +194,7 @@ const server = createServer(async (req, res) => {
     if (req.method === "OPTIONS") { headers(res, 204); return res.end(); }
     if (req.headers.origin && !allowedOrigins.has(req.headers.origin.replace(/\/$/, ""))) return json(res, 403, { error: "Origin not allowed." });
     if (url.pathname === "/healthz") return json(res, 200, { ok: true });
-    if (url.pathname.startsWith("/preview/")) { const [, , sessionId, ...parts] = url.pathname.split("/"); const session = sessions.get(sessionId || ""); if (!session || url.searchParams.get("token") !== session.previewToken) return json(res, 404, { error: "Preview not found." }); return proxyPreview(req, res, session, `/${parts.join("/")}`); }
+    if (url.pathname.startsWith("/preview/")) { const [, , sessionId, ...parts] = url.pathname.split("/"); const session = sessions.get(sessionId || ""); if (!session || url.searchParams.get("token") !== session.previewToken) return json(res, 404, { error: "Preview not found." }); return await proxyPreview(req, res, session, `/${parts.join("/")}`); }
     const user = await authenticate(req);
     if (url.pathname === "/v1/account" && req.method === "GET") { const account = await codex.account(); return json(res, 200, { ready: true, codexAuthenticated: Boolean(account.account), account: account.account ? { type: (account.account as Json).type } : null }); }
     if (url.pathname === "/v1/account/connect" && req.method === "POST") { const result = await codex.connectChatGpt(); return json(res, 200, { verificationUrl: result.verificationUrl || result.authUrl, userCode: result.userCode || result.code }); }
