@@ -36,6 +36,12 @@ const PRODUCTS = [
     summary: "Dedicated business numbers, permission-based text and email signups, QR and keyword enrollment, subscriber preferences, consent history, usage reporting, and client workspaces.",
   },
   {
+    id: "contact-cards",
+    name: "N3XRA Contact Cards",
+    route: "/client-portal/contact-card/",
+    summary: "Customizable digital business cards with personal links, profile and company imagery, business-card scanning, friendly public URLs, account-connected editing, and physical tap-card requests.",
+  },
+  {
     id: "partners",
     name: "N3XRA Partners",
     route: "/partners/",
@@ -59,6 +65,7 @@ const MAJOR_MODULES = [
   "Phone-connected meeting workflows",
   "Speaker-aware meeting transcription",
   "Permission-based subscriber communications",
+  "Digital contact cards and profile publishing",
   "Financial operations and reporting",
   "Subscriptions and billing",
   "Partner and referral programs",
@@ -69,6 +76,102 @@ const MAJOR_MODULES = [
 ];
 
 const RECENT_CAPABILITIES = [
+  {
+    introducedBy: "fc4bd61",
+    date: "2026-08-26",
+    title: "N3XRA Contact Cards",
+    summary: "Customers can activate and edit a digital business card from their N3XRA account, choose an available public link, scan an existing business card to begin setup, add profile and company imagery, reorder contact sections, control N3XRA branding, and request a physical tap card. Administrators can create, assign, review, and manage cards independently from Prospects.",
+  },
+  {
+    introducedBy: "d95f6f4",
+    date: "2026-08-25",
+    title: "Direct website build workflow",
+    summary: "Approved website work can now move through a more direct build path with protected project context, repository provisioning, preview delivery, and controlled production publishing while preserving administrator approval at the live-release boundary.",
+  },
+  {
+    introducedBy: "bf72ab1",
+    date: "2026-08-25",
+    title: "Nex conversation handoff",
+    summary: "N3XRA's administrative assistant can preserve useful conversation context and hand work into the appropriate protected workflow, reducing repeated explanation while keeping access and action boundaries intact.",
+  },
+  {
+    introducedBy: "9429db2",
+    date: "2026-08-24",
+    title: "Fast, reusable website change previews",
+    summary: "Website clients can submit an approved change request, follow its progress, review a protected live preview, request refinements in the same preview session, and leave final production publishing to an administrator. Failed or abandoned sessions can be retried or cleaned up safely.",
+  },
+  {
+    introducedBy: "a5a0e81",
+    date: "2026-08-24",
+    title: "Connected administrator calls, messages, and alerts",
+    summary: "N3XRA administration now brings calls and messages into the shared workspace and can deliver important administrator notifications through the account, email, and text according to saved delivery preferences.",
+  },
+  {
+    introducedBy: "b4e7a6d",
+    date: "2026-08-24",
+    title: "Scoped operations administrator access",
+    summary: "N3XRA can grant an operations-focused administrator role access to approved customer and product workspaces without exposing ownership, financial, codebase, or other full-administrator controls.",
+  },
+  {
+    introducedBy: "22cc91d",
+    date: "2026-08-24",
+    title: "Business-card scanning for Prospects",
+    summary: "Administrators can scan a business card to prepare structured prospect contact details for review, making in-person lead capture faster while keeping the saved record subject to human confirmation.",
+  },
+  {
+    introducedBy: "3f9ac7b",
+    date: "2026-08-23",
+    title: "Client teams and unified account invitations",
+    summary: "Website clients can manage team access through one organization-connected permissions workspace, while administrators can connect existing accounts and older website projects to the correct client organization without creating duplicate identities.",
+  },
+  {
+    introducedBy: "99f7733",
+    date: "2026-08-23",
+    title: "Guided Communications activation",
+    summary: "Communications customers now enter through the shared client portal, receive a guided email-readiness setup, and can collect permission-based signups before delivery is activated. Verified QR origins and context-aware portal routing keep enrollment clear and controlled.",
+  },
+  {
+    introducedBy: "6d44b1e",
+    date: "2026-08-22",
+    title: "Client website analytics and public traffic counters",
+    summary: "Website clients can review project analytics from their portal, including a privacy-conscious all-time visitor measure, while completed projects receive a cleaner portal experience without obsolete progress indicators.",
+  },
+  {
+    introducedBy: "879c64b",
+    date: "2026-08-20",
+    title: "Mobile-ready product and administration workspaces",
+    summary: "Website management, Records, customer portals, and N3XRA administration gained clearer mobile navigation, touch-friendly controls, and layouts designed to remain usable across phone and tablet screen sizes.",
+  },
+  {
+    introducedBy: "a296ec7",
+    date: "2026-08-19",
+    title: "Flexible annual website billing",
+    summary: "Website services can offer clear annual billing choices alongside existing payment arrangements, with synchronized project selection, payment history, subscription recovery, and administrator-visible operation records.",
+  },
+  {
+    introducedBy: "1bd0f1e",
+    date: "2026-08-17",
+    title: "Stronger public forms and AI protections",
+    summary: "Account creation, career applications, and public AI entry points gained stronger automated-abuse protection, durable usage limits, and safer submission behavior while preserving accessible customer flows and administrator follow-up.",
+  },
+  {
+    introducedBy: "8ce16e8",
+    date: "2026-08-16",
+    title: "Safer proposals and clearer website billing",
+    summary: "Proposal AI now keeps protected prices, terms, and evidence under human control, while website billing presents payment history, recurring services, complimentary reviews, domains, and subscription actions in a clearer unified workflow.",
+  },
+  {
+    introducedBy: "b6955c9",
+    date: "2026-08-15",
+    title: "Connected client requests and support work",
+    summary: "Customers can submit and follow service requests from their account while administrators organize the related work, targets, statuses, and follow-up in a shared support workflow.",
+  },
+  {
+    introducedBy: "66ce686",
+    date: "2026-08-15",
+    title: "Safer account and product lifecycle controls",
+    summary: "Administrators gained clearer account access tools and protected removal workflows for active and retired product enrollments, with product-specific cleanup and confirmation boundaries.",
+  },
   {
     date: "2026-08-14",
     title: "Clearer N3XRA administration",
@@ -503,7 +606,7 @@ const SYSTEM_MAP = {
     {
       id: "products",
       name: "Products & workflows",
-      description: "Records, Communications, websites, branded client portals, partners, and company operations.",
+      description: "Records, Communications, Contact Cards, websites, branded client portals, partners, and company operations.",
     },
     {
       id: "operations",
