@@ -75,12 +75,17 @@ async function syncCommunicationsSubscription(admin: ReturnType<typeof createCli
   const status = mapSubscriptionStatus(subscription.status);
   const entitlementStatus = status === "unpaid" ? "past_due" : status === "incomplete" ? "paused" : status;
   const activePortal = ["active", "trialing", "past_due"].includes(entitlementStatus);
-  const { data: catalog, error: catalogError } = await admin
-    .from("n3xra_product_catalog")
-    .select("setup_fee_cents,monthly_price_cents")
-    .eq("product_key", productKey)
-    .single();
-  if (catalogError) throw new Error(catalogError.message);
+  const [catalogResult, overrideResult, existingResult] = await Promise.all([
+    admin.from("n3xra_product_catalog").select("setup_fee_cents,monthly_price_cents").eq("product_key", productKey).single(),
+    admin.from("organization_product_price_overrides").select("setup_fee_cents,monthly_price_cents").eq("organization_id", organizationId).eq("product_key", productKey).maybeSingle(),
+    admin.from("organization_product_subscriptions").select("setup_fee_cents,monthly_price_cents").eq("organization_id", organizationId).eq("product_key", productKey).maybeSingle(),
+  ]);
+  if (catalogResult.error) throw new Error(catalogResult.error.message);
+  if (overrideResult.error) throw new Error(overrideResult.error.message);
+  if (existingResult.error) throw new Error(existingResult.error.message);
+  const catalog = catalogResult.data;
+  const setupFeeCents = Number(existingResult.data?.setup_fee_cents ?? overrideResult.data?.setup_fee_cents ?? catalog.setup_fee_cents ?? 0);
+  const monthlyPriceCents = Number(existingResult.data?.monthly_price_cents ?? overrideResult.data?.monthly_price_cents ?? firstItem?.price?.unit_amount ?? catalog.monthly_price_cents ?? 0);
   const stored = await admin.from("organization_product_subscriptions").upsert({
     organization_id: organizationId,
     product_key: productKey,
@@ -89,8 +94,8 @@ async function syncCommunicationsSubscription(admin: ReturnType<typeof createCli
     stripe_price_id: firstItem?.price?.id || null,
     status,
     currency: firstItem?.price?.currency || "usd",
-    setup_fee_cents: Number(catalog.setup_fee_cents || 0),
-    monthly_price_cents: Number(firstItem?.price?.unit_amount || catalog.monthly_price_cents || 0),
+    setup_fee_cents: setupFeeCents,
+    monthly_price_cents: monthlyPriceCents,
     current_period_start: unixDate(period.start),
     current_period_end: unixDate(period.end),
     cancel_at_period_end: Boolean(subscription.cancel_at_period_end || subscription.cancel_at),

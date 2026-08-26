@@ -5,10 +5,11 @@ import test from "node:test";
 const root = new URL("../../", import.meta.url);
 const read = (path) => readFile(new URL(path, root), "utf8");
 
-test("Communications checkout uses the cataloged setup and monthly Stripe prices", async () => {
-  const [billing, migration] = await Promise.all([
+test("Communications checkout uses standard pricing with a Roots-specific setup override", async () => {
+  const [billing, migration, onboardingMigration] = await Promise.all([
     read("supabase/functions/communications-billing/index.ts"),
     read("supabase/migrations/20260826151257_communications_product_billing.sql"),
+    read("supabase/migrations/20260826153548_communications_twilio_onboarding.sql"),
   ]);
 
   assert.match(billing, /mode: "subscription"/);
@@ -20,6 +21,12 @@ test("Communications checkout uses the cataloged setup and monthly Stripe prices
   assert.match(migration, /monthly_price_cents = 1900/);
   assert.match(migration, /price_1U8iNG4fYoWkBJCDueCP9iAe/);
   assert.match(migration, /price_1U8iTw4fYoWkBJCDBMrndlhW/);
+  assert.match(onboardingMigration, /setup_fee_cents = 4900/);
+  assert.match(onboardingMigration, /74b2226c-6d7d-4267-9f70-5fbe106a6816/);
+  assert.match(onboardingMigration, /Roots & Relics founding-customer setup price/);
+  assert.match(billing, /organization_product_price_overrides/);
+  assert.match(billing, /effectiveProduct/);
+  assert.match(billing, /communications\/onboarding/);
 });
 
 test("the verified Stripe webhook activates the Communications entitlement", async () => {
@@ -41,6 +48,7 @@ test("the client sees Communications and website plans in one billing workspace"
   assert.match(page, /product-billing-content/);
   assert.match(app, /Activate Communications/);
   assert.match(app, /Manage all payments in Stripe/);
+  assert.match(app, /Finish texting onboarding/);
   assert.match(app, /action: "status"/);
   assert.match(app, /client_websites/);
   assert.match(app, /organization_id: organizationId \|\| undefined/);

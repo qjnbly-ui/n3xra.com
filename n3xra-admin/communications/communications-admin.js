@@ -272,12 +272,13 @@ function renderOverview(data) {
     const sms = readiness(data, "sms");
     const activeForm = data.forms.some((form) => form.status === "active");
     const activeTopics = data.topics.filter((topic) => topic.active).length;
+    const carrierOnboardingStatus = data.carrier_onboarding?.status || "not_started";
     const setupGuide = `
     <article class="communications-admin-list-row"><div><strong>1. Workspace identity</strong><small>Organization, public sender details, website, privacy policy, and terms.</small></div>${badge("Saved", "ready")}</article>
     <article class="communications-admin-list-row"><div><a href="/n3xra-admin/communications/websites-forms/"><strong>2. Website signup form</strong></a><small>Choose the website, write the exact email consent language, and publish the form.</small></div>${badge(activeForm ? "Ready" : "Needs setup", activeForm ? "ready" : "pending")}</article>
     <article class="communications-admin-list-row"><div><a href="/n3xra-admin/communications/topics-signup/"><strong>3. Topics and signup link</strong></a><small>Create the choices subscribers see, then open the hosted signup page yourself.</small></div>${badge(activeTopics ? `${activeTopics} active` : "Needs setup", activeTopics ? "ready" : "pending")}</article>
     <article class="communications-admin-list-row"><div><a href="/n3xra-admin/communications/email-readiness/"><strong>4. Email domain and activation</strong></a><small>Add the domain, install its DNS records, activate email, and send one controlled test.</small></div>${badge(email.label, email.tone)}</article>
-    <article class="communications-admin-list-row"><div><strong>5. Twilio onboarding</strong><small>Number selection and carrier registration come later and remain separate from email.</small></div>${badge("Later", "neutral")}</article>`;
+    <article class="communications-admin-list-row"><div><a href="/n3xra-admin/communications/texting-readiness/"><strong>5. Twilio onboarding</strong></a><small>Review the client's private business, consent, and campaign details before provider submission.</small></div>${badge(carrierOnboardingStatus, carrierOnboardingStatus === "submitted" ? "pending" : ["approved", "active"].includes(carrierOnboardingStatus) ? "ready" : "neutral")}</article>`;
     return `
     <section class="communications-admin-summary">
       <div><p class="portal-kicker">${escapeHtml(label(data.workspace.status))} workspace</p><h2>${escapeHtml(data.organization?.name || data.workspace.sender_name)}</h2><p>${escapeHtml(data.workspace.program_name)} · ${escapeHtml(data.workspace.slug)}</p></div>
@@ -415,8 +416,31 @@ function renderEmailReadiness(data) {
 }
 function renderTextingReadiness(data) {
     const state = readiness(data, "sms");
+    const onboarding = data.carrier_onboarding;
+    const application = onboarding?.application || {};
     const numbers = data.numbers.length ? data.numbers.map((number) => `<article class="communications-admin-detail-row"><header><div><strong>${escapeHtml(number.phone_e164)}</strong><small>${escapeHtml(label(number.provider))}</small></div>${badge(number.status, number.status === "active" ? "ready" : "pending")}</header><div class="communications-admin-facts-grid">${fact("Carrier registration", label(number.carrier_registration_status))}${fact("Texting activated", formatDate(number.texting_activated_at))}${fact("Updated", formatDate(number.updated_at))}</div></article>`).join("") : empty("No Twilio Communications number is assigned.");
-    return `<section class="communications-admin-readiness-hero"><div><p class="portal-kicker">Text channel</p><h2>${escapeHtml(state.label)}</h2><p>${escapeHtml(state.detail)}</p></div>${badge(state.label, state.tone)}</section>${card("Assigned numbers", "Provider credentials and activation actions are intentionally excluded.", numbers)}${card("Texting channel state", "Carrier registration and channel state are visible without operational controls.", `<div class="communications-admin-facts-grid">${fact("Channel status", label(data.channels.find((row) => row.channel === "sms")?.status))}${fact("Assigned numbers", data.numbers.length)}${fact("Keywords", data.keywords.length)}${fact("Support phone", data.workspace.support_phone)}</div>`)}`;
+    const onboardingBody = onboarding ? `
+    <div class="communications-admin-facts-grid">
+      ${fact("Status", label(onboarding.status))}
+      ${fact("Submitted", formatDate(onboarding.submitted_at))}
+      ${fact("Legal business", application.legal_business_name)}
+      ${fact("Registration type", label(application.brand_type))}
+      ${fact("EIN / registration", application.business_registration_number)}
+      ${fact("Authorized representative", `${application.authorized_first_name || ""} ${application.authorized_last_name || ""}`.trim())}
+      ${fact("Representative email", application.authorized_email)}
+      ${fact("Use case", label(application.campaign_use_case))}
+      ${fact("Estimated monthly messages", application.estimated_monthly_messages)}
+      ${fact("Preferred area code", application.preferred_area_code)}
+      ${fact("Privacy policy", application.privacy_policy_url)}
+      ${fact("Terms", application.terms_url)}
+    </div>
+    <section><strong>Campaign description</strong><p>${escapeHtml(application.campaign_description || "Not provided")}</p></section>
+    <section><strong>Opt-in workflow</strong><p>${escapeHtml(application.message_flow || "Not provided")}</p></section>
+    <section><strong>Sample messages</strong><div class="communications-admin-list">${Array.isArray(application.message_samples) ? application.message_samples.map((message, index) => `<article class="communications-admin-list-row"><div><strong>Sample ${index + 1}</strong><small>${escapeHtml(message)}</small></div></article>`).join("") : empty("No sample messages were provided.")}</div></section>
+    ${onboarding.review_notes ? `<section><strong>Review note</strong><p>${escapeHtml(onboarding.review_notes)}</p></section>` : ""}
+  ` : empty("The client has not started the secure carrier onboarding form.");
+    const onboardingTone = onboarding?.status === "submitted" ? "pending" : ["approved", "active"].includes(onboarding?.status) ? "ready" : "neutral";
+    return `<section class="communications-admin-readiness-hero"><div><p class="portal-kicker">Text channel</p><h2>${escapeHtml(state.label)}</h2><p>${escapeHtml(state.detail)}</p></div>${badge(state.label, state.tone)}</section>${card("Carrier onboarding", "Private business identity, consent, and campaign details submitted by an authorized client administrator.", `<div class="communications-admin-readiness">${badge(onboarding?.status || "Not started", onboardingTone)}</div>${onboardingBody}`)}${card("Assigned numbers", "Provider credentials and activation actions are intentionally excluded.", numbers)}${card("Texting channel state", "Carrier registration and channel state are visible without operational controls.", `<div class="communications-admin-facts-grid">${fact("Channel status", label(data.channels.find((row) => row.channel === "sms")?.status))}${fact("Assigned numbers", data.numbers.length)}${fact("Keywords", data.keywords.length)}${fact("Support phone", data.workspace.support_phone)}</div>`)}`;
 }
 function renderPricingActivation(data) {
     const entitlement = data.entitlement;

@@ -11,6 +11,11 @@ body.communications-loading.client-portal-shell main { visibility: visible; }
 .communications-number span, .communications-number small { display: block; color: rgba(255,255,255,.64); font-size: .72rem; font-weight: 700; }
 .communications-number strong { display: block; margin: .35rem 0; font-size: 1.55rem; }
 .communications-alert { margin-bottom: 1rem; padding: 1rem 1.2rem; color: #624331; background: #fff0e8; border-left: 4px solid #ed805e; border-radius: 8px; font-size: .9rem; font-weight: 700; }
+.communications-onboarding-card { display: flex; align-items: center; justify-content: space-between; gap: 1.25rem; margin-bottom: 1rem; padding: 1.25rem 1.4rem; color: #fff; background: linear-gradient(120deg,var(--portal-deep),color-mix(in srgb,var(--portal-deep) 78%,var(--portal-accent))); border: 1px solid color-mix(in srgb,var(--portal-accent) 38%,transparent); }
+.communications-onboarding-card[hidden] { display: none; }
+.communications-onboarding-card h2 { margin: .15rem 0 .35rem; color: #fff; font: 600 1.7rem/1.1 var(--portal-heading-font),Georgia,serif; }
+.communications-onboarding-card p:last-child { max-width: 720px; margin: 0; color: rgba(255,255,255,.7); line-height: 1.5; }
+.communications-onboarding-card .portal-button { flex: 0 0 auto; color: var(--portal-deep); background: #fff; }
 .communications-metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: .8rem; margin-bottom: 1rem; }
 .communications-metrics article, .communications-panel { background: #fff; border: 1px solid var(--communications-line); border-radius: 14px; box-shadow: 0 16px 40px rgba(10,28,24,.05); }
 .communications-metrics article { display: grid; gap: .35rem; padding: 1.15rem; }
@@ -179,4 +184,4 @@ body.communications-tenant-surface {
 .client-portal-shell .communications-activity-row { border-bottom-color: var(--client-workspace-border); }
 
 @media (max-width: 850px) { .communications-metrics { grid-template-columns: repeat(2, 1fr); } .communications-grid, .communications-head { grid-template-columns: 1fr; } .communications-number { min-width: 0; } .communications-join-tools { grid-template-columns: 1fr; } }
-@media (max-width: 540px) { .communications-dashboard-link { display: none; } .communications-metrics { grid-template-columns: 1fr; } .communications-activity-row { grid-template-columns: 80px minmax(0, 1fr); } .communications-activity-row > :last-child { grid-column: 2; } }
+@media (max-width: 540px) { .communications-dashboard-link { display: none; } .communications-metrics { grid-template-columns: 1fr; } .communications-onboarding-card { align-items: stretch; flex-direction: column; } .communications-activity-row { grid-template-columns: 80px minmax(0, 1fr); } .communications-activity-row > :last-child { grid-column: 2; } }

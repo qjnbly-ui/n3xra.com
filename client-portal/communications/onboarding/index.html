@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en" class="portal-brand-pending">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Texting Onboarding | Client Portal</title><meta name="robots" content="noindex, nofollow, noarchive">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/site-nav.css?v=4"><link rel="stylesheet" href="/client-portal/portal.css?v=18"><link rel="stylesheet" href="/client-portal/client-shell.css?v=10"><link rel="stylesheet" href="/client-portal/communications/onboarding.css?v=1">
+  <script src="/shared/config.js"></script><script src="/assets/site-nav.js?v=5"></script>
+</head>
+<body class="carrier-onboarding-loading" data-disable-site-assistant>
+  <header class="site-topbar"><div class="site-topbar-inner"><div class="site-topbar-row"><a class="site-brand" href="/client-portal/" aria-label="Client management portal"><img data-portal-business-logo hidden alt=""><span data-portal-business-name>Client Portal</span></a><div class="site-nav-actions"><button class="site-menu-link portal-logout" id="portal-logout" type="button">Sign out</button></div></div></div></header>
+  <main class="portal-shell carrier-onboarding-shell">
+    <section class="portal-heading"><div><p class="portal-kicker">N3XRA Communications</p><h1>Texting onboarding</h1><p>Provide the verified business and messaging details needed for carrier registration.</p></div><a class="portal-button portal-button-secondary" href="/client-portal/communications/">Back to Communications</a></section>
+    <div class="portal-layout">
+      <nav class="portal-nav" aria-label="Client portal navigation"></nav>
+      <section class="portal-workspace">
+        <section class="carrier-intro">
+          <div><p class="portal-kicker">A2P 10DLC registration</p><h2 id="onboarding-program-name">Business texting setup</h2><p>Your progress is private and can be saved before submission. N3XRA reviews the completed application before sending anything to Twilio or purchasing a number.</p></div>
+          <div class="carrier-status-card"><span>Application status</span><strong id="onboarding-status-label">Draft</strong><small id="onboarding-updated">Not saved yet</small></div>
+        </section>
+        <div class="carrier-notice" id="onboarding-review-note" hidden></div>
+        <form id="carrier-onboarding-form" class="carrier-form" novalidate>
+          <section class="carrier-section">
+            <header><span>01</span><div><h2>Business identity</h2><p>Enter the legal information exactly as it appears on IRS or registration records.</p></div></header>
+            <div class="carrier-grid">
+              <label class="carrier-field carrier-wide"><span>Registration type</span><select name="brand_type" required><option value="standard">Registered business with EIN</option><option value="sole_proprietor">Sole proprietor without EIN</option></select><small>A sole proprietor with an EIN should use Registered business.</small></label>
+              <label class="carrier-field carrier-wide"><span>Legal business name</span><input name="legal_business_name" autocomplete="organization" maxlength="240" required></label>
+              <label class="carrier-field"><span>Doing business as</span><input name="doing_business_as" maxlength="240"></label>
+              <label class="carrier-field" data-standard-field><span>Legal structure</span><select name="business_type"><option value="">Choose one</option><option>Co-operative</option><option>Corporation</option><option>Limited Liability Corporation</option><option>Non-profit Corporation</option><option>Partnership</option></select></label>
+              <label class="carrier-field"><span>Company type</span><select name="company_type" required><option value="private">Private</option><option value="non-profit">Non-profit</option><option value="government">Government</option><option value="public">Public</option></select></label>
+              <label class="carrier-field"><span>Industry</span><select name="business_industry" required><option value="">Choose the closest match</option><option value="AGRICULTURE">Agriculture</option><option value="RETAIL">Retail</option><option value="HOSPITALITY">Hospitality</option><option value="PROFESSIONAL">Professional services</option><option value="NOT_FOR_PROFIT">Not for profit</option><option value="HEALTHCARE">Healthcare</option><option value="REAL_ESTATE">Real estate</option><option value="TECHNOLOGY">Technology</option><option value="OTHER">Other</option></select></label>
+              <label class="carrier-field" data-standard-field><span>Registration identifier</span><select name="business_registration_identifier"><option value="EIN">EIN</option><option value="OTHER">Other tax identifier</option></select></label>
+              <label class="carrier-field" data-standard-field><span>EIN or registration number</span><input name="business_registration_number" inputmode="numeric" maxlength="40" placeholder="12-3456789" autocomplete="off"><small>This private value is limited to account administrators and N3XRA platform administrators.</small></label>
+              <label class="carrier-field carrier-wide"><span>Business website</span><input name="website_url" type="url" inputmode="url" maxlength="500" placeholder="https://example.com" required></label>
+              <label class="carrier-field carrier-wide"><span>Social media profile URLs</span><textarea name="social_media_profile_urls" rows="2" maxlength="1500" placeholder="One public business profile URL per line"></textarea></label>
+            </div>
+          </section>
+
+          <section class="carrier-section">
+            <header><span>02</span><div><h2>Registered address</h2><p>Use the physical business address associated with the legal registration.</p></div></header>
+            <div class="carrier-grid">
+              <label class="carrier-field carrier-wide"><span>Street address</span><input name="address_street" autocomplete="address-line1" maxlength="240" required></label>
+              <label class="carrier-field carrier-wide"><span>Suite or unit</span><input name="address_street_secondary" autocomplete="address-line2" maxlength="240"></label>
+              <label class="carrier-field"><span>City</span><input name="address_city" autocomplete="address-level2" maxlength="120" required></label>
+              <label class="carrier-field"><span>State</span><input name="address_region" autocomplete="address-level1" maxlength="2" pattern="[A-Za-z]{2}" placeholder="OR" required></label>
+              <label class="carrier-field"><span>ZIP code</span><input name="address_postal_code" autocomplete="postal-code" maxlength="12" required></label>
+              <label class="carrier-field"><span>Country</span><select name="address_country" required><option value="US">United States</option><option value="CA">Canada</option></select></label>
+            </div>
+          </section>
+
+          <section class="carrier-section">
+            <header><span>03</span><div><h2>Authorized representative</h2><p>This person must be authorized to submit the business for messaging registration.</p></div></header>
+            <div class="carrier-grid">
+              <label class="carrier-field"><span>First name</span><input name="authorized_first_name" autocomplete="given-name" maxlength="120" required></label>
+              <label class="carrier-field"><span>Last name</span><input name="authorized_last_name" autocomplete="family-name" maxlength="120" required></label>
+              <label class="carrier-field"><span>Exact job title</span><input name="authorized_title" autocomplete="organization-title" maxlength="160" required></label>
+              <label class="carrier-field"><span>Position</span><select name="authorized_position" required><option value="">Choose one</option><option>Director</option><option>GM</option><option>VP</option><option>CEO</option><option>CFO</option><option>General Counsel</option><option>Other</option></select></label>
+              <label class="carrier-field"><span>Phone number</span><input name="authorized_phone" type="tel" autocomplete="tel" maxlength="50" required></label>
+              <label class="carrier-field"><span>Business email</span><input name="authorized_email" type="email" autocomplete="email" maxlength="320" required></label>
+              <label class="carrier-field carrier-wide"><span>Brand verification email</span><input name="brand_contact_email" type="email" maxlength="320" required><small>Use a business-domain inbox that can receive Twilio’s verification request.</small></label>
+            </div>
+          </section>
+
+          <section class="carrier-section">
+            <header><span>04</span><div><h2>Messaging campaign</h2><p>Describe who receives texts, why they receive them, and what the messages contain.</p></div></header>
+            <div class="carrier-grid">
+              <label class="carrier-field"><span>Primary use case</span><select name="campaign_use_case" required><option value="">Choose one</option><option value="MARKETING">Marketing and promotions</option><option value="CUSTOMER_CARE">Customer care</option><option value="ACCOUNT_NOTIFICATION">Account notifications</option><option value="DELIVERY_NOTIFICATION">Delivery notifications</option><option value="PUBLIC_SERVICE_ANNOUNCEMENT">Public service announcements</option><option value="LOW_VOLUME">Low-volume mixed use</option><option value="MIXED">Mixed use</option></select></label>
+              <label class="carrier-field"><span>Expected message frequency</span><input name="message_frequency" maxlength="240" placeholder="Up to 4 messages per month" required></label>
+              <label class="carrier-field"><span>Estimated subscribers</span><input name="estimated_subscribers" type="number" min="0" step="1" required></label>
+              <label class="carrier-field"><span>Estimated messages per month</span><input name="estimated_monthly_messages" type="number" min="0" step="1" required></label>
+              <label class="carrier-field carrier-wide"><span>Campaign description</span><textarea name="campaign_description" rows="4" minlength="40" maxlength="4096" required placeholder="Explain who sends the messages, who receives them, and why they are sent."></textarea><small>40–4,096 characters.</small></label>
+              <label class="carrier-field carrier-wide"><span>Do messages contain links?</span><select name="has_embedded_links" required><option value="false">No</option><option value="true">Yes</option></select></label>
+              <label class="carrier-field carrier-wide"><span>Do messages contain phone numbers?</span><select name="has_embedded_phone" required><option value="false">No</option><option value="true">Yes</option></select></label>
+              <fieldset class="carrier-field carrier-wide carrier-samples"><legend>Representative sample messages</legend><p>Provide at least two. Each sample must identify the business and be 20–1,024 characters.</p><textarea name="message_sample_1" rows="3" minlength="20" maxlength="1024" required placeholder="Sample message 1"></textarea><textarea name="message_sample_2" rows="3" minlength="20" maxlength="1024" required placeholder="Sample message 2"></textarea><textarea name="message_sample_3" rows="3" minlength="20" maxlength="1024" placeholder="Optional sample message 3"></textarea></fieldset>
+            </div>
+          </section>
+
+          <section class="carrier-section">
+            <header><span>05</span><div><h2>Consent and public policies</h2><p>Carrier reviewers must be able to verify that text consent is explicit, optional, and clearly disclosed.</p></div></header>
+            <div class="carrier-grid">
+              <label class="carrier-field carrier-wide"><span>How customers opt in</span><textarea name="message_flow" rows="5" minlength="40" maxlength="2049" required placeholder="Describe every opt-in method, including the exact website page and checkbox flow."></textarea><small>40–2,049 characters. Include all signup methods.</small></label>
+              <label class="carrier-field carrier-wide"><span>Public opt-in page or evidence URL</span><input name="opt_in_evidence_url" type="url" maxlength="1000" placeholder="https://example.com/signup" required><small>If the live form is not public, provide a public screenshot or video URL.</small></label>
+              <label class="carrier-field"><span>Privacy policy URL</span><input name="privacy_policy_url" type="url" maxlength="500" required></label>
+              <label class="carrier-field"><span>Terms and conditions URL</span><input name="terms_url" type="url" maxlength="500" required></label>
+              <label class="carrier-check carrier-wide"><input name="consent_optional_confirmed" type="checkbox" required><span>The SMS checkbox is separate, optional, unchecked by default, and is not required to make a purchase or submit another request.</span></label>
+              <label class="carrier-check carrier-wide"><input name="mobile_nonsharing_confirmed" type="checkbox" required><span>The public privacy policy states that mobile numbers and SMS consent are not shared with third parties or affiliates for marketing.</span></label>
+              <label class="carrier-check carrier-wide"><input name="disclosure_confirmed" type="checkbox" required><span>The signup disclosure names the business, states message frequency, says message and data rates may apply, and explains STOP and HELP.</span></label>
+            </div>
+          </section>
+
+          <section class="carrier-section">
+            <header><span>06</span><div><h2>Number and keyword preferences</h2><p>These are preferences only. N3XRA does not purchase a number until the application is reviewed.</p></div></header>
+            <div class="carrier-grid">
+              <label class="carrier-field"><span>Preferred area code</span><input name="preferred_area_code" inputmode="numeric" pattern="[0-9]{3}" maxlength="3" placeholder="541"></label>
+              <label class="carrier-field"><span>Sender type</span><select name="sender_type" required><option value="local_10dlc">Local 10-digit number (A2P 10DLC)</option></select></label>
+              <label class="carrier-check carrier-wide"><input name="sms_keyword_enabled" type="checkbox" id="sms-keyword-enabled"><span>Customers will also be able to opt in by texting a keyword.</span></label>
+              <div class="carrier-grid carrier-wide" id="keyword-fields" hidden>
+                <label class="carrier-field"><span>Opt-in keywords</span><input name="opt_in_keywords" maxlength="255" placeholder="JOIN, UPDATES"></label>
+                <label class="carrier-field carrier-wide"><span>Opt-in confirmation message</span><textarea name="opt_in_message" rows="3" minlength="20" maxlength="320" placeholder="Roots & Relics: You’re subscribed to recurring updates. Msg frequency varies. Msg & data rates may apply. Reply HELP for help or STOP to opt out."></textarea></label>
+              </div>
+              <label class="carrier-check carrier-wide"><input name="twilio_opt_out" type="checkbox" checked><span>Use Twilio’s standard STOP and HELP handling.</span></label>
+            </div>
+          </section>
+
+          <section class="carrier-section carrier-attestation">
+            <header><span>07</span><div><h2>Authorization and signature</h2><p>N3XRA will review this submission and show any carrier fees before registration.</p></div></header>
+            <div class="carrier-grid">
+              <label class="carrier-check carrier-wide"><input name="authority_attested" type="checkbox" required><span>I am authorized to provide this business information and request messaging registration.</span></label>
+              <label class="carrier-check carrier-wide"><input name="accuracy_attested" type="checkbox" required><span>I confirm the information is accurate and matches official business records.</span></label>
+              <label class="carrier-check carrier-wide"><input name="carrier_fees_authorized" type="checkbox" required><span>I authorize N3XRA to prepare carrier registration and understand that Twilio/carrier fees are separate and will be disclosed before submission.</span></label>
+              <label class="carrier-field"><span>Electronic signature</span><input name="signature_name" autocomplete="name" maxlength="240" required placeholder="Full legal name"></label>
+              <label class="carrier-field"><span>Signer title</span><input name="signature_title" autocomplete="organization-title" maxlength="160" required></label>
+            </div>
+          </section>
+
+          <div class="carrier-actions"><p id="onboarding-form-status" role="status" aria-live="polite">Your information has not been submitted to Twilio.</p><div><button class="portal-button portal-button-secondary" id="save-onboarding" type="button">Save progress</button><button class="portal-button" id="submit-onboarding" type="submit">Submit for N3XRA review</button></div></div>
+        </form>
+      </section>
+    </div>
+  </main>
+  <div class="carrier-loading-status" id="carrier-loading-status" role="status">Opening secure onboarding…</div>
+  <script type="module" src="/client-portal/client-shell.js?v=24"></script><script type="module" src="/client-portal/portal-shell.js?v=6"></script><script type="module" src="/client-portal/communications-onboarding.js?v=1"></script>
+</body>
+</html>

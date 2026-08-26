@@ -6,6 +6,18 @@ const APP_KEY = "n3xra_communications";
 
 type BillingAction = "status" | "checkout" | "portal";
 
+function effectiveProduct(product: Record<string, any>, override?: Record<string, any> | null): Record<string, any> {
+  if (!override) return product;
+  return {
+    ...product,
+    setup_fee_cents: override.setup_fee_cents ?? product.setup_fee_cents,
+    monthly_price_cents: override.monthly_price_cents ?? product.monthly_price_cents,
+    stripe_monthly_price_id: override.stripe_monthly_price_id || product.stripe_monthly_price_id,
+    stripe_setup_price_id: override.stripe_setup_price_id || product.stripe_setup_price_id,
+    organization_price_override: true,
+  };
+}
+
 function metadata(values: Record<string, string | null | undefined>) {
   return Object.fromEntries(
     Object.entries({ app: APP_KEY, product_key: PRODUCT_KEY, ...values })
@@ -90,30 +102,33 @@ Deno.serve(async (request) => {
 
     const access = await accessibleOrganizations(admin, user, authUser.id, organizationId);
     if (!access.ids.length) return response({ products: [] }, 200, origin);
-    const { data: product, error: productError } = await admin
+    const { data: catalogProduct, error: productError } = await admin
       .from("n3xra_product_catalog")
       .select("product_key,name,description,status,setup_fee_cents,monthly_price_cents,stripe_product_id,stripe_monthly_price_id,stripe_setup_price_id")
       .eq("product_key", PRODUCT_KEY)
       .eq("status", "active")
       .single();
-    if (productError || !product) throw new Error("Communications billing is not configured.");
+    if (productError || !catalogProduct) throw new Error("Communications billing is not configured.");
 
     if (action === "status") {
-      const [organizationsResult, subscriptionsResult, entitlementsResult, workspacesResult] = await Promise.all([
+      const [organizationsResult, subscriptionsResult, entitlementsResult, workspacesResult, overridesResult, onboardingResult] = await Promise.all([
         admin.from("organizations").select("id,name,owner_user_id,stripe_customer_id").in("id", access.ids).order("name"),
         admin.from("organization_product_subscriptions").select("*").in("organization_id", access.ids).eq("product_key", PRODUCT_KEY),
         admin.from("organization_product_entitlements").select("organization_id,status,source,portal_enabled").in("organization_id", access.ids).eq("product_key", PRODUCT_KEY),
         admin.from("communications_workspaces").select("organization_id,id,status,program_name").in("organization_id", access.ids),
+        admin.from("organization_product_price_overrides").select("organization_id,setup_fee_cents,monthly_price_cents,stripe_monthly_price_id,stripe_setup_price_id").in("organization_id", access.ids).eq("product_key", PRODUCT_KEY),
+        admin.from("communications_carrier_onboarding").select("organization_id,workspace_id,status,submitted_at,updated_at").in("organization_id", access.ids),
       ]);
-      const queryError = organizationsResult.error || subscriptionsResult.error || entitlementsResult.error || workspacesResult.error;
+      const queryError = organizationsResult.error || subscriptionsResult.error || entitlementsResult.error || workspacesResult.error || overridesResult.error || onboardingResult.error;
       if (queryError) throw new Error(queryError.message);
       return response({
         products: (organizationsResult.data || []).map((organization) => ({
           organization,
-          product,
+          product: effectiveProduct(catalogProduct, (overridesResult.data || []).find((row) => row.organization_id === organization.id)),
           subscription: (subscriptionsResult.data || []).find((row) => row.organization_id === organization.id) || null,
           entitlement: (entitlementsResult.data || []).find((row) => row.organization_id === organization.id) || null,
           workspace: (workspacesResult.data || []).find((row) => row.organization_id === organization.id) || null,
+          onboarding: (onboardingResult.data || []).find((row) => row.organization_id === organization.id) || null,
           can_manage: access.isAdmin || organization.owner_user_id === authUser.id || access.roles.get(organization.id) === "account_admin",
           customer_ready: Boolean(organization.stripe_customer_id),
         })),
@@ -128,6 +143,15 @@ Deno.serve(async (request) => {
     if (organizationError || !organization) return response({ error: "Organization billing was not found." }, 404, origin);
     const canManage = access.isAdmin || organization.owner_user_id === authUser.id || access.roles.get(organization.id) === "account_admin";
     if (!canManage) return response({ error: "Account administrator access is required to change billing." }, 403, origin);
+
+    const { data: override, error: overrideError } = await admin
+      .from("organization_product_price_overrides")
+      .select("setup_fee_cents,monthly_price_cents,stripe_monthly_price_id,stripe_setup_price_id")
+      .eq("organization_id", organization.id)
+      .eq("product_key", PRODUCT_KEY)
+      .maybeSingle();
+    if (overrideError) throw new Error(overrideError.message);
+    const product = effectiveProduct(catalogProduct, override);
 
     const stripe = stripeClient();
     const customerId = await customerForOrganization(admin, stripe, organization);
@@ -169,7 +193,7 @@ Deno.serve(async (request) => {
       allow_promotion_codes: false,
       billing_address_collection: "auto",
       payment_method_collection: "always",
-      success_url: `${origin}/client-portal/billing/?billing=success&product=${PRODUCT_KEY}`,
+      success_url: `${origin}/client-portal/communications/onboarding/?billing=success`,
       cancel_url: `${origin}/client-portal/billing/?billing=canceled&product=${PRODUCT_KEY}`,
       metadata: checkoutMetadata,
       subscription_data: { metadata: checkoutMetadata },

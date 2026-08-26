@@ -30,15 +30,19 @@ const label = (value = "") => String(value).replaceAll("_", " ").replace(/\b\w/g
 const localInput = (value) => value ? new Date(new Date(value).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : "";
 
 function productBillingCard(record) {
-  const { organization, product, subscription, entitlement, workspace, can_manage: canManage } = record;
+  const { organization, product, subscription, entitlement, workspace, onboarding, can_manage: canManage } = record;
   const subscriptionStatus = subscription?.status || "not_started";
   const activeBilling = ["active", "trialing", "past_due", "unpaid", "paused"].includes(subscriptionStatus);
   const checkoutPending = subscriptionStatus === "checkout_pending";
   const serviceReady = ["active", "trialing", "past_due"].includes(entitlement?.status);
   const state = activeBilling ? subscriptionStatus : checkoutPending ? "checkout_pending" : serviceReady ? "ready_to_activate" : "available";
   const stateLabel = activeBilling ? label(subscriptionStatus) : checkoutPending ? "Checkout ready" : serviceReady ? "Billing setup needed" : "Available";
+  const onboardingStatus = onboarding?.status || "not_started";
+  const onboardingAction = activeBilling && !["active"].includes(onboardingStatus)
+    ? `<a class="portal-button portal-button-secondary" href="/client-portal/communications/onboarding/">${onboardingStatus === "submitted" ? "Review texting submission" : onboardingStatus === "needs_changes" ? "Update texting onboarding" : ["approved", "provisioning", "carrier_pending"].includes(onboardingStatus) ? "View texting status" : "Finish texting onboarding"}</a>`
+    : "";
   const action = activeBilling
-    ? `<button class="portal-button" type="button" data-product-portal="${organization.id}">Manage all payments in Stripe</button>`
+    ? `<button class="portal-button" type="button" data-product-portal="${organization.id}">Manage all payments in Stripe</button>${onboardingAction}`
     : canManage
       ? `<button class="portal-button" type="button" data-product-checkout="${organization.id}">${checkoutPending ? "Continue secure checkout" : "Activate Communications"}</button>`
       : `<p class="billing-product-note">An account administrator can activate this service.</p>`;

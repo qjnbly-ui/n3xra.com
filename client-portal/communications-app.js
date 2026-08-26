@@ -166,7 +166,7 @@ async function initialize() {
         throw new Error("Your Communications setup has not been created yet.");
     const subscriberPage = Math.max(0, Number.parseInt(new URLSearchParams(window.location.search).get("subscriber_page") || "0", 10) || 0);
     const pageSize = 50;
-    const [numberResult, topicsResult, topicMetricsResult, keywordsResult, subscribersResult, metricsResult, messagesResult, sourcesResult] = await Promise.all([
+    const [numberResult, topicsResult, topicMetricsResult, keywordsResult, subscribersResult, metricsResult, messagesResult, sourcesResult, onboardingResult] = await Promise.all([
         supabase.from("communications_numbers").select("id,phone_e164,status,carrier_registration_status,texting_activated_at").eq("workspace_id", workspace.id).order("created_at", { ascending: true }).limit(1).maybeSingle(),
         supabase.from("communications_topics").select("id,name,description,active").eq("workspace_id", workspace.id).eq("active", true).order("sort_order"),
         supabase.from("communications_topic_metrics").select("topic_id,subscriber_count").eq("workspace_id", workspace.id),
@@ -175,8 +175,9 @@ async function initialize() {
         supabase.from("communications_workspace_metrics").select("total_subscribers,sms_subscribers,email_subscribers,active_topics,consent_events,message_events,sms_segments_current_month").eq("workspace_id", workspace.id).maybeSingle(),
         supabase.from("communications_message_events").select("channel,direction,status,sms_segment_count,billable_units,body_preview,occurred_at").eq("workspace_id", workspace.id).order("occurred_at", { ascending: false }).limit(20),
         supabase.from("communications_signup_sources").select("source_type,public_token,metadata").eq("workspace_id", workspace.id).eq("status", "active").in("source_type", ["website_embed", "hosted_signup", "qr_campaign"]),
+        supabase.from("communications_carrier_onboarding").select("status,review_notes,updated_at").eq("workspace_id", workspace.id).maybeSingle(),
     ]);
-    for (const result of [numberResult, topicsResult, topicMetricsResult, keywordsResult, subscribersResult, metricsResult, messagesResult, sourcesResult])
+    for (const result of [numberResult, topicsResult, topicMetricsResult, keywordsResult, subscribersResult, metricsResult, messagesResult, sourcesResult, onboardingResult])
         if (result.error)
             throw result.error;
     const number = numberResult.data;
@@ -194,6 +195,7 @@ async function initialize() {
     const metrics = (metricsResult.data || { total_subscribers: 0, sms_subscribers: 0, email_subscribers: 0, active_topics: 0, consent_events: 0, message_events: 0, sms_segments_current_month: 0 });
     const smsSegments = Number(metrics.sms_segments_current_month || 0);
     const usagePercent = workspace.included_sms_segments > 0 ? Math.round((smsSegments / workspace.included_sms_segments) * 100) : 0;
+    const onboarding = onboardingResult.data;
     setText("#communications-title", workspace.program_name);
     setText("#communications-number", number?.phone_e164 ? formatPhone(number.phone_e164) : "Provisioning");
     setText("#communications-number-status", number ? `${number.carrier_registration_status.replaceAll("_", " ")} · ${number.status}` : workspace.status.replaceAll("_", " "));
@@ -203,6 +205,26 @@ async function initialize() {
     setText("#metric-sms-detail", `${Math.max(0, workspace.included_sms_segments - smsSegments)} included segments remaining`);
     setText("#metric-topics", String(metrics.active_topics));
     setText("#metric-consent", String(metrics.consent_events));
+    const onboardingCard = document.querySelector("#communications-onboarding-card");
+    const textingReady = Boolean(number?.texting_activated_at && number?.status === "active" && ["approved", "registered"].includes(number?.carrier_registration_status));
+    if (onboardingCard && !textingReady) {
+        onboardingCard.hidden = false;
+        if (onboarding?.status === "submitted") {
+            setText("#communications-onboarding-title", "Carrier application under review");
+            setText("#communications-onboarding-copy", "N3XRA has your business and campaign details. Nothing will be submitted to Twilio until the application is reviewed.");
+            setText("#communications-onboarding-link", "Review submission");
+        }
+        else if (["approved", "provisioning", "carrier_pending"].includes(onboarding?.status)) {
+            setText("#communications-onboarding-title", onboarding.status === "carrier_pending" ? "Carrier registration pending" : "Texting setup in progress");
+            setText("#communications-onboarding-copy", "Your onboarding details are locked while N3XRA completes number and carrier setup.");
+            setText("#communications-onboarding-link", "View status");
+        }
+        else if (onboarding?.status === "needs_changes") {
+            setText("#communications-onboarding-title", "Texting onboarding needs changes");
+            setText("#communications-onboarding-copy", onboarding.review_notes || "Review N3XRA’s note, update the requested details, and submit again.");
+            setText("#communications-onboarding-link", "Update onboarding");
+        }
+    }
     const alert = document.querySelector("#communications-usage-alert");
     if (alert && usagePercent >= 75) {
         alert.hidden = false;
